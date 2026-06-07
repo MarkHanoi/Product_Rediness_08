@@ -223,6 +223,68 @@ function doorObstacles(input: FurnishRoomInput): Quad[] {
     });
 }
 
+// §KITCHEN-ISLAND (2026-06-07) — central island placement.
+//
+// A free-standing island is only worthwhile when the kitchen has a roomy,
+// open centre: the founder's wishlist asks for one "where space allows".
+// THRESHOLD: the room's shorter span (min bounding dimension) must be
+// ≥ ISLAND_MIN_ROOM_DIM so the island + its kitchen-side circulation
+// (0.9 m each side) leaves a usable gangway to the perimeter runs. Small
+// galley / L kitchens fall below the gate and ship island-free.
+const ISLAND_MIN_ROOM_DIM = 3.5;   // m — shorter room span gate (founder's ~3.5 m)
+const ISLAND_MIN_AREA = 12;        // m² — below this the runs already fill the floor
+
+/** Axis-aligned bounding box of the room polygon (metres, world XZ). */
+function bbox(poly: readonly Pt[]): { minX: number; minZ: number; maxX: number; maxZ: number } {
+    let minX = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity;
+    for (const p of poly) {
+        if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
+        if (p.z < minZ) minZ = p.z; if (p.z > maxZ) maxZ = p.z;
+    }
+    return { minX, minZ, maxX, maxZ };
+}
+
+/**
+ * Try to drop a central kitchen island. Returns the island placement, or null
+ * when the kitchen is too small OR the centre can't host the island + its
+ * circulation clear of the runs / doors. The island is axis-aligned with the
+ * room's longer span (its 2.0 m worktop runs along the long axis) and centred on
+ * the room centroid. Its footprint is tested EXPANDED by the circulation
+ * clearance so a placed island always keeps a walkable gangway around it.
+ *
+ * Pure + deterministic — geometry only.
+ */
+function tryIsland(input: FurnishRoomInput, obstacles: readonly Quad[]): PlacedFurniture | null {
+    const bb = bbox(input.polygon);
+    const spanX = bb.maxX - bb.minX, spanZ = bb.maxZ - bb.minZ;
+    const minDim = Math.min(spanX, spanZ);
+    if (minDim < ISLAND_MIN_ROOM_DIM || input.areaM2 < ISLAND_MIN_AREA) return null;
+
+    const fp = footprintOf('kitchen_island');
+    // Orient the island so its WIDTH (the 2.0 m worktop) runs along the room's
+    // LONGER axis; yaw 0 → width along x, yaw 90° → width along z.
+    const yaw = spanX >= spanZ ? 0 : Math.PI / 2;
+    const c = input.centroid;
+    // The plain footprint (the island block itself) must lie inside the room and
+    // not overlap any run / door obstacle.
+    const body = footprintCorners(c.x, c.z, fp.w, fp.l, yaw);
+    if (!quadInPolygon(body, input.polygon) || quadOverlapsAny(body, obstacles)) return null;
+    // The circulation envelope (body grown by clearFront on the depth ends and
+    // clearSides on the width ends) must ALSO stay inside the room AND clear of the
+    // runs — guaranteeing a gangway all the way round. (Overlap with the runs is
+    // expected to be the binding constraint on tight kitchens → island dropped.)
+    const envW = fp.w + 2 * fp.clearSides;
+    const envL = fp.l + 2 * fp.clearFront;
+    const env = footprintCorners(c.x, c.z, envW, envL, yaw);
+    if (!quadInPolygon(env, input.polygon) || quadOverlapsAny(env, obstacles)) return null;
+
+    return {
+        kind: 'kitchen_island',
+        position: { x: c.x, y: input.levelElevation + fp.baseOffset, z: c.z },
+        rotationY: yaw, footprint: fp, hostedSpaceId: input.roomId,
+    };
+}
+
 /**
  * Plan a kitchen's I / L / U run with appliances laid IN the run, honouring the
  * work-triangle. Returns PlacedFurniture[] (base units + sink + hob + oven +
@@ -287,6 +349,12 @@ export function planKitchen(
             rotationY: hob.rotationY, footprint: fp, hostedSpaceId: input.roomId,
         });
     }
+
+    // §KITCHEN-ISLAND — drop a central island on roomy kitchens (skipped when the
+    // centre can't host it + a walkable gangway clear of the runs). The runs + the
+    // door obstacles are the obstacle set, so the island never crowds the worktops.
+    const island = tryIsland(input, obstacles);
+    if (island) out.push(island);
 
     return out;
 }

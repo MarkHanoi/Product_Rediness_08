@@ -130,12 +130,85 @@ describe('A.21.D20 — kitchen I/L/U + appliances', () => {
         expect(a).toEqual(b);
     });
 
+    it('every kitchen gets exactly one fridge against a wall', () => {
+        const placed = planKitchen(rectRoom('kitchen', 5, 4), 'auto');
+        const fridges = placed.filter(p => p.kind === 'fridge');
+        expect(fridges.length).toBe(1);
+        // The fridge is a perimeter run module → it sits a footprint-depth off a
+        // wall, i.e. near (not at) the room interior, never floating mid-floor.
+        const f = fridges[0]!;
+        const poly = rectRoom('kitchen', 5, 4).polygon as Pt[];
+        expect(pointInPolygon({ x: f.position.x, z: f.position.z }, poly)).toBe(true);
+    });
+
     it('no kitchen module sits on the door wall', () => {
         const placed = planKitchen(rectRoom('kitchen', 3.6, 3), 'auto').filter(p => p.kind !== 'extractor');
         for (const p of placed) {
             const facesUp = Math.abs(Math.sin(p.rotationY)) < 0.1 && Math.cos(p.rotationY) > 0.9;
             expect(facesUp && p.position.z < 0.5).toBe(false);
         }
+    });
+});
+
+describe('§KITCHEN-ISLAND — central island on roomy kitchens', () => {
+    const islandsIn = (p: readonly PlacedFurniture[]) => p.filter(x => x.kind === 'kitchen_island');
+
+    it('adds a central island on a large open kitchen (min-dim ≥ 3.5 m)', () => {
+        const placed = planKitchen(rectRoom('kitchen', 6, 5), 'auto');
+        const islands = islandsIn(placed);
+        expect(islands.length).toBe(1);
+        // Centred on the room.
+        const room = rectRoom('kitchen', 6, 5);
+        expect(islands[0]!.position.x).toBeCloseTo(room.centroid.x, 5);
+        expect(islands[0]!.position.z).toBeCloseTo(room.centroid.z, 5);
+    });
+
+    it('skips the island on a small galley kitchen (min-dim < 3.5 m)', () => {
+        const placed = planKitchen(rectRoom('kitchen', 4.5, 2.6), 'auto');
+        expect(islandsIn(placed).length).toBe(0);
+    });
+
+    it('skips the island on a compact U kitchen (runs fill the floor)', () => {
+        // 3.2 × 3.0 is the U-shape fixture — too tight for an island + gangway.
+        const placed = planKitchen(rectRoom('kitchen', 3.2, 3.0), 'U');
+        expect(islandsIn(placed).length).toBe(0);
+    });
+
+    it('the island + circulation envelope stays inside the room and clear of the runs', () => {
+        const room = rectRoom('kitchen', 6, 5);
+        const placed = planKitchen(room, 'auto');
+        const island = islandsIn(placed)[0]!;
+        const poly = room.polygon as Pt[];
+        // Body inside the room.
+        expect(pointInPolygon({ x: island.position.x, z: island.position.z }, poly)).toBe(true);
+        // The island body does not overlap any other floor module.
+        const others = placed.filter(p => p !== island && p.kind !== 'extractor');
+        for (const o of others) expect(rectsOverlap(rectOf(island), rectOf(o))).toBe(false);
+        // Circulation gangway: the island grown by its clearance is still inside.
+        const fp = island.footprint;
+        const env = footprintRect(
+            island.position.x, island.position.z,
+            fp.w + 2 * fp.clearSides, fp.l + 2 * fp.clearFront, island.rotationY,
+        );
+        for (const c of [
+            { x: env.x0, z: env.z0 }, { x: env.x1, z: env.z0 },
+            { x: env.x1, z: env.z1 }, { x: env.x0, z: env.z1 },
+        ]) expect(pointInPolygon(c, poly)).toBe(true);
+    });
+
+    it('the island worktop runs along the room\'s long axis', () => {
+        // Wide room (x longer) → island width along x → yaw 0.
+        const wide = planKitchen(rectRoom('kitchen', 6, 5), 'auto');
+        expect(islandsIn(wide)[0]!.rotationY).toBeCloseTo(0, 5);
+        // Deep room (z longer) → island width along z → yaw 90°.
+        const deep = planKitchen(rectRoom('kitchen', 5, 6), 'auto');
+        expect(islandsIn(deep)[0]!.rotationY).toBeCloseTo(Math.PI / 2, 5);
+    });
+
+    it('island placement is deterministic', () => {
+        const a = JSON.stringify(planKitchen(rectRoom('kitchen', 6, 5), 'auto'));
+        const b = JSON.stringify(planKitchen(rectRoom('kitchen', 6, 5), 'auto'));
+        expect(a).toEqual(b);
     });
 });
 
@@ -156,6 +229,30 @@ describe('A.21.D20 — wardrobe I/L/U', () => {
 
     it('forces an L wardrobe (2 arms) when asked', () => {
         const run = planWardrobe(bedroom(5, 5), [], 'L');
+        const yaws = new Set(run.map(w => Math.round(w.rotationY * 1e4)));
+        expect(yaws.size).toBeGreaterThanOrEqual(2);
+    });
+
+    it('auto picks a single (I) run in a narrow bedroom — only one free wall run fits', () => {
+        // A room with windows + a door on three of four walls leaves a single
+        // clear wall → the auto planner can only build an I.
+        const room = bedroom(3.2, 4.0);
+        // Put a window on each long wall + keep the door on the bottom → only the
+        // top wall is free.
+        const win = (cx: number, cz: number, nx: number, nz: number) =>
+            ({ type: 'window' as const, center: { x: cx, z: cz }, normal: { x: nx, z: nz }, width: 1.2 });
+        const constrained: FurnishRoomInput = {
+            ...room,
+            windows: [win(0, 2, 1, 0), win(3.2, 2, -1, 0)],   // both side walls have a window
+        };
+        const run = planWardrobe(constrained, [], 'auto');
+        const yaws = new Set(run.map(w => Math.round(w.rotationY * 1e4)));
+        expect(yaws.size).toBe(1);
+    });
+
+    it('auto upgrades to an L/U run when more free wall length is available', () => {
+        // Big square bedroom, no windows → ≥3 free walls → U (3 distinct yaws).
+        const run = planWardrobe(bedroom(5.5, 5.5), [], 'auto');
         const yaws = new Set(run.map(w => Math.round(w.rotationY * 1e4)));
         expect(yaws.size).toBeGreaterThanOrEqual(2);
     });
