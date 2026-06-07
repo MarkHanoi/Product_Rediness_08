@@ -101,3 +101,4 @@ jobs:
 # deploy-marker: v45 — quality: env-drivers E.3 acoustic-zoning + E.4 ventilation objectives (+ vertical-stack acoustic pref) + kitchen island (fridge/wardrobe-variants already shipped)
 # deploy-marker: v45-trigger — explicit deploy (env E.3/E.4 + kitchen island)
 # deploy-marker: v46 — A.21.D34: skewed-plate geometry (stair+window in-shell, room self-intersect, degenerate wall) · Forma extras (windows/doors/stairs/furniture) · per-floor datum planes hidden in 3D · living-graph spacing
+# deploy-marker: v46-trigger — explicit deploy (D34 wave: skewed-geometry · Forma extras · datum-planes · living-graph)
