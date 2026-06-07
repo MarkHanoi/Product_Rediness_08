@@ -95,3 +95,4 @@ jobs:
 # deploy-marker: v40 — A.21.D29 (floor/ceiling void · railing render-fix · entrance door · env-drivers E.1/E.2) + A.21.D28 #7/#9 (furnish-all modal · bottom level selector). HELD for founder go.
 # deploy-marker: v40-retry — re-trigger after transient Fly 504 (build was fine; registry/API timeout)
 # deploy-marker: v41 — A.21.D30 (Forma single-prism shell) + stair space-efficiency objective + A.21.D33 (railing-align · level-interrogate crash · compliance-overlay-off · interior-wall-vs-window · forma roof+furniture · living-graph bottom-right grip)
+# deploy-marker: v42 — A.21.D27 climate dataset ingest (heat+wind overlays, offline lat-driven fallback + site auto-key) + A.21.D31 3D-Tiles Google-Maps-key fallback path
