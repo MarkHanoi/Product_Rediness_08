@@ -77,7 +77,21 @@ export class RoomBoundaryBuilder {
         .join(',');
       if (sig === _lastComplianceHash) return;
       _lastComplianceHash = sig;
+      // A.21.D33(c) — the compliance room-tint overlay is OPT-IN. The validation
+      // pass still runs (results are kept for CompliancePanel / IntentPrompt), but
+      // we don't auto-paint red/orange/yellow tints onto rooms after generation.
+      // Tinting is gated on the existing 'showRoomComplianceMessages' toggle.
       this._applyComplianceColors(results as Array<{ elementId: string; severity: string }>);
+    });
+
+    // A.21.D33(c) — the canonical UiPreferences dispatches a DOM CustomEvent;
+    // re-evaluate the overlay when the compliance toggle flips so the tint
+    // appears/clears immediately without waiting for the next constraint broadcast.
+    window.addEventListener('pryzm-ui-pref-changed', (e: Event) => {
+      const { key } = (e as CustomEvent).detail ?? {};
+      if (key === 'showRoomComplianceMessages') {
+        this._refreshComplianceTint();
+      }
     });
 
     // F.events.6 — pryzm-workspace-mode migrated to runtime.events typed bus.
@@ -92,6 +106,11 @@ export class RoomBoundaryBuilder {
         this._applyVolumeVisibility(value as boolean);
       } else if (key === 'roomVolumeOpacity') {
         this._applyVolumeOpacity(value as number);
+      } else if (key === 'showRoomComplianceMessages') {
+        // A.21.D33(c) — also handle the runtime.events dispatch path (apps/editor
+        // UiPreferences) so the compliance tint toggles regardless of which
+        // UiPreferences instance fired the change.
+        this._refreshComplianceTint();
       }
     });
   }
@@ -212,8 +231,11 @@ export class RoomBoundaryBuilder {
     this.scene.add(mesh);
     this.meshes.set(room.id, mesh);
 
+    // A.21.D33(c) — only re-apply the compliance tint to a freshly built room
+    // mesh when the overlay is explicitly enabled. Otherwise the room keeps its
+    // normal/neutral fill.
     const cs = this._complianceStatus.get(room.id);
-    if (cs) {
+    if (cs && this._complianceTintEnabled()) {
       (mesh.material as THREE.MeshBasicMaterial).color.setStyle(
         cs === 'error' ? '#ef4444' : '#f59e0b'
       );
@@ -312,6 +334,45 @@ export class RoomBoundaryBuilder {
     return this.meshes.has(roomId);
   }
 
+  /**
+   * A.21.D33(c) — is the room-compliance tint overlay opted-in?
+   * Reuses the existing 'showRoomComplianceMessages' preference (default OFF) so
+   * generated plans render with clean neutral room fills instead of red/orange/
+   * yellow compliance shades. The validation pass still runs and the status is
+   * still tracked in _complianceStatus — we just don't paint it unless asked.
+   */
+  private _complianceTintEnabled(): boolean {
+    try {
+      return UiPreferences.get('showRoomComplianceMessages') === true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Repaint every room according to the current compliance status (when the
+   * overlay is ON) or restore neutral fills (when it is OFF). Invoked when the
+   * user flips the 'showRoomComplianceMessages' toggle.
+   */
+  private _refreshComplianceTint(): void {
+    const on = this._complianceTintEnabled();
+    for (const [roomId, mesh] of this.meshes) {
+      const mat = mesh.material as THREE.MeshBasicMaterial;
+      const status = on ? this._complianceStatus.get(roomId) : undefined;
+      if (status === 'error') {
+        mat.color.setStyle('#ef4444');
+      } else if (status === 'warning') {
+        mat.color.setStyle('#f59e0b');
+      } else {
+        const roomStore = this._resolveRoomStore();
+        const room: RoomData | undefined = roomStore?.getById?.(roomId);
+        if (room) {
+          mat.color.setStyle(RoomColourSystem.resolve(room));
+        }
+      }
+    }
+  }
+
   private _applyComplianceColors(
     results: Array<{ elementId: string; severity: string }>
   ): void {
@@ -331,11 +392,16 @@ export class RoomBoundaryBuilder {
       this._complianceStatus.set(id, sev);
     }
 
+    // A.21.D33(c) — keep the validation status (above) but only PAINT the tint
+    // when the overlay is explicitly enabled. When OFF, restore neutral fills so
+    // any previously-tinted rooms revert and freshly generated rooms stay clean.
+    const tintOn = this._complianceTintEnabled();
+
     for (const roomId of toUpdate) {
       const mesh = this.meshes.get(roomId);
       if (!mesh) continue;
       const mat = mesh.material as THREE.MeshBasicMaterial;
-      const status = this._complianceStatus.get(roomId);
+      const status = tintOn ? this._complianceStatus.get(roomId) : undefined;
       if (status === 'error') {
         mat.color.setStyle('#ef4444');
       } else if (status === 'warning') {
@@ -352,7 +418,10 @@ export class RoomBoundaryBuilder {
     const errorCount   = [...this._complianceStatus.values()].filter(s => s === 'error').length;
     const warningCount = [...this._complianceStatus.values()].filter(s => s === 'warning').length;
     if (errorCount + warningCount > 0) {
-      console.log(`[RoomBoundaryBuilder] Compliance overlay: ${errorCount} error, ${warningCount} warning room(s) tinted`);
+      console.log(
+        `[RoomBoundaryBuilder] Compliance overlay: ${errorCount} error, ${warningCount} warning room(s) ` +
+        (tintOn ? 'tinted' : 'tracked (overlay OFF — enable Room Compliance Messages to tint)')
+      );
     }
   }
 

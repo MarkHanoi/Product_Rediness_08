@@ -308,7 +308,7 @@ export class ProjectBrowserPanel {
             description: string;
         }> = [
             { key: 'showRoomDataHints',           label: 'Room Design Insights',    description: 'Ask "Why did you make this choice?" when room decisions deviate from templates' },
-            { key: 'showRoomComplianceMessages',  label: 'Room Compliance Messages', description: 'Show notifications when rooms have compliance violations' },
+            { key: 'showRoomComplianceMessages',  label: 'Room Compliance Overlay',  description: 'Tint rooms red/orange by compliance status and show violation notifications (off by default)' },
             { key: 'showSaveWarningBanner',       label: 'Server Save Warning',      description: 'Show red warning banner when server sync is unavailable' },
             { key: 'showRoomVolumeColour',        label: 'Room Volume Colour',       description: 'Fill the full 3D height of each room with its colour' },
         ];
