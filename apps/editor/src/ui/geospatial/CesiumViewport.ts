@@ -99,6 +99,15 @@ const FORMA_PALETTE = {
   /** Parcel-boundary dashed line + fill (§2 Special elements / §3). */
   boundaryLine: '#2D6A4F',
   boundaryFill: 'rgba(45,106,79,0.08)',
+  /** §A.21.D34(d) — coarse GLAZING tint for window insets (cool blue-grey, reads
+   *  as glass against the white shell without competing with the massing). */
+  glazing: '#6E86A6',
+  /** §A.21.D34(d) — coarse DOOR-leaf tint (warm graphite, darker than glazing so
+   *  the front door reads distinctly from windows). */
+  doorLeaf: '#4A4540',
+  /** §A.21.D34(d) — coarse STAIR volume tint (light graphite, sits between the
+   *  white shell and the dark door so the stairwell mass reads). */
+  stair: '#B9B3A8',
 } as const;
 
 /**
@@ -1488,6 +1497,39 @@ export class CesiumViewport {
       height: number;
       rotation: number;
     }>;
+    /**
+     * §A.21.D34(d) — WINDOW + DOOR openings rendered as coarse façade insets so
+     * the building reads as having windows + a front door, not blank white. Each
+     * is a thin recessed/darker panel on the wall plane spanning [a→b] along the
+     * baseline, from (baseElevation + sill) up by `height`, recessed inward by a
+     * fraction of `normal`·`thickness`. Optional (older callers omit → no insets).
+     */
+    openings?: ReadonlyArray<{
+      kind: 'window' | 'door';
+      a: { x: number; z: number };
+      b: { x: number; z: number };
+      /** Unit wall normal (scene-XZ). */
+      normal: { x: number; z: number };
+      thickness: number;
+      /** Wall base (storey floor) elevation in metres. */
+      baseElevation: number;
+      sill: number;
+      height: number;
+    }>;
+    /**
+     * §A.21.D34(d) — STAIRS rendered as a coarse extruded volume (run × width
+     * footprint, base elevation → base + rise) so the stairwell reads in the
+     * massing. Optional.
+     */
+    stairs?: ReadonlyArray<{
+      origin: { x: number; z: number };
+      /** Run direction unit vector (scene-XZ). */
+      dir: { x: number; z: number };
+      run: number;
+      width: number;
+      baseElevation: number;
+      rise: number;
+    }>;
     /** When true, fly the camera to the framing preset after placing (§4.5). */
     frameCentroid?: boolean;
     /**
@@ -1848,6 +1890,118 @@ export class CesiumViewport {
       console.log(
         `[CesiumViewport][forma] extras placed: ${slabsPlaced}/${slabs.length} slab(s), ` +
           `${roofsPlaced}/${roofs.length} roof(s), ${furniturePlaced}/${furniture.length} furniture box(es).`
+      );
+    }
+
+    // ── §A.21.D34(d) — WINDOW + DOOR façade insets ────────────────────────────
+    // Each opening is a thin recessed darker panel on the wall plane, so the
+    // façades read as having windows + a front door instead of blank white. A
+    // window uses the cool glazing tint; a door uses the darker door-leaf tint
+    // and is seated at the floor (sill 0). The panel is a 4-vertex polygon
+    // spanning [a→b] along the baseline × the vertical band, pushed slightly INTO
+    // the wall along the normal (a small reveal) so it sits flush-recessed on the
+    // shell rather than z-fighting the white face. Visibility-filtered by the
+    // storey band the opening's elevation belongs to. Each guarded.
+    const openings = input.openings ?? [];
+    const glazingFill = Cesium.Color.fromCssColorString(FORMA_PALETTE.glazing).withAlpha(0.85);
+    const doorFill = Cesium.Color.fromCssColorString(FORMA_PALETTE.doorLeaf).withAlpha(0.95);
+    let openingsPlaced = 0;
+    // Recess depth: nudge the panel just inside the façade so it reads as inset,
+    // clamped to a sane fraction of the wall thickness.
+    for (const o of openings) {
+      if (!isBandVisible(bandIndexForElevation(o.baseElevation))) continue;
+      const recess = Math.min(0.06, Math.max(0.01, o.thickness * 0.35));
+      // Push the panel midline inward along the wall normal by `recess`.
+      const ox = o.normal.x * recess;
+      const oz = o.normal.z * recess;
+      const aIn = { x: o.a.x + ox, z: o.a.z + oz };
+      const bIn = { x: o.b.x + ox, z: o.b.z + oz };
+      const bottom = baseHeight + o.baseElevation + Math.max(0, o.sill);
+      const top = bottom + Math.max(0.2, o.height);
+      try {
+        // Vertical quad (perPositionHeight): the two baseline points at bottom +
+        // the same two at top → a flat panel standing in the wall plane.
+        const positions = [
+          toCartesian(aIn.x, aIn.z, bottom),
+          toCartesian(bIn.x, bIn.z, bottom),
+          toCartesian(bIn.x, bIn.z, top),
+          toCartesian(aIn.x, aIn.z, top),
+        ];
+        const ent = viewer.entities.add({
+          name: o.kind === 'door' ? 'pryzm-forma-door' : 'pryzm-forma-window',
+          polygon: {
+            hierarchy: new Cesium.PolygonHierarchy(positions),
+            perPositionHeight: true,
+            material: o.kind === 'door' ? doorFill : glazingFill,
+            outline: true,
+            outlineColor: massOutline,
+            outlineWidth: 1.0,
+            // The shell already casts the shadow; the inset just colours the reveal.
+            shadows: Cesium.ShadowMode.DISABLED,
+          },
+        });
+        this.formaMassingEntities.push(ent);
+        openingsPlaced++;
+      } catch (e) {
+        console.warn('[CesiumViewport][forma] opening inset failed — skipped:', e);
+      }
+    }
+
+    // ── §A.21.D34(d) — STAIRS as coarse extruded volumes ──────────────────────
+    // A simple block over the stair footprint (run × width), extruded from the
+    // base elevation up by the total rise, so the stairwell reads in the massing.
+    // (The true stepped form lives in the BIM view; the globe is a massing read.)
+    // Footprint corners: from `origin` along `dir` for `run`, widened by `width`
+    // along the perpendicular. Visibility-filtered by storey band; guarded.
+    const stairs = input.stairs ?? [];
+    const stairFill = Cesium.Color.fromCssColorString(FORMA_PALETTE.stair).withAlpha(0.95);
+    let stairsPlaced = 0;
+    for (const s of stairs) {
+      if (!isBandVisible(bandIndexForElevation(s.baseElevation))) continue;
+      // Perpendicular (in XZ) to the run direction → half-width offsets.
+      const px = -s.dir.z, pz = s.dir.x;
+      const hw = Math.max(0.25, s.width) / 2;
+      const run = Math.max(0.5, s.run);
+      const ex = s.origin.x + s.dir.x * run;
+      const ez = s.origin.z + s.dir.z * run;
+      // Footprint rectangle (CCW): origin±half-width → end±half-width.
+      const corners: Array<{ x: number; z: number }> = [
+        { x: s.origin.x + px * hw, z: s.origin.z + pz * hw },
+        { x: s.origin.x - px * hw, z: s.origin.z - pz * hw },
+        { x: ex - px * hw, z: ez - pz * hw },
+        { x: ex + px * hw, z: ez + pz * hw },
+      ];
+      const bottom = baseHeight + s.baseElevation - 0.02; // tiny sink: no floor z-fight.
+      const top = bottom + Math.max(0.3, s.rise);
+      try {
+        const positions = corners.map((p) => toCartesian(p.x, p.z, bottom));
+        const ent = viewer.entities.add({
+          name: 'pryzm-forma-stair',
+          polygon: {
+            hierarchy: new Cesium.PolygonHierarchy(positions),
+            height: bottom,
+            extrudedHeight: top,
+            material: stairFill,
+            outline: true,
+            outlineColor: massOutline,
+            outlineWidth: 1.0,
+            shadows: Cesium.ShadowMode.ENABLED,
+            perPositionHeight: false,
+            closeTop: true,
+            closeBottom: true,
+          },
+        });
+        this.formaMassingEntities.push(ent);
+        silhouetteTargets.push(ent);
+        stairsPlaced++;
+      } catch (e) {
+        console.warn('[CesiumViewport][forma] stair volume failed — skipped:', e);
+      }
+    }
+    if (openings.length || stairs.length) {
+      console.log(
+        `[CesiumViewport][forma] detail placed: ${openingsPlaced}/${openings.length} opening inset(s) ` +
+          `(windows + doors), ${stairsPlaced}/${stairs.length} stair volume(s).`
       );
     }
 

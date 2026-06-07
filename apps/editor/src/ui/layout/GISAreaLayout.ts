@@ -986,6 +986,197 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     };
 
     /**
+     * §A.21.D34(d) — read WINDOW + DOOR openings as coarse massing insets.
+     *
+     * SOURCE: the openings are carried DIRECTLY on each wall record
+     * (`Wall.openings[]` per packages/schemas/src/elements/Wall.ts +
+     * geometry-wall WallTypes.Opening) — the SAME opening data the BIM uses to
+     * cut the wall + host the door/window element. Reading them off the walls (not
+     * the separate window/door stores) means the offset/width/height/sill are
+     * already resolved against the wall they pierce, so we can place each inset on
+     * the shell at its true world position with no store-join.
+     *
+     * Each opening is projected to a world-XZ inset RECTANGLE on the wall plane:
+     *   • along the wall baseline:  start = offset, end = offset + width
+     *   • the inset's centreline runs along the baseline at those two points
+     *   • `sill` + `height` give the vertical band (baseElevation + sill →
+     *     baseElevation + sill + height)
+     *   • `normal` is the wall's unit normal (so the Cesium side can recess the
+     *     panel slightly into the façade for a darker reveal).
+     * Walls with no openings contribute nothing. Fully guarded — a bad opening or
+     * degenerate wall is skipped, never thrown.
+     */
+    const getFormaOpenings = (): Array<{
+        kind: 'window' | 'door';
+        /** Opening start point on the wall baseline (scene-XZ). */
+        a: XZ;
+        /** Opening end point on the wall baseline (scene-XZ). */
+        b: XZ;
+        /** Unit wall normal (scene-XZ) — the recess direction. */
+        normal: XZ;
+        thickness: number;
+        /** World base elevation of the wall (storey floor). */
+        baseElevation: number;
+        sill: number;
+        height: number;
+    }> => {
+        type OpeningRecord = {
+            type?: 'window' | 'door';
+            offset?: number;
+            width?: number;
+            height?: number;
+            sillHeight?: number;
+        };
+        type WallRecord = {
+            baseLine?: ReadonlyArray<{ x: number; y?: number; z: number }>;
+            thickness?: number;
+            baseOffset?: number;
+            openings?: ReadonlyArray<OpeningRecord>;
+        };
+        const wallStore = storeRegistry.getStoreForType('wall') as unknown as
+            | { getAll?: () => WallRecord[] }
+            | undefined;
+        const all = wallStore?.getAll?.() ?? [];
+        const out: Array<{
+            kind: 'window' | 'door';
+            a: XZ;
+            b: XZ;
+            normal: XZ;
+            thickness: number;
+            baseElevation: number;
+            sill: number;
+            height: number;
+        }> = [];
+        for (const w of all) {
+            try {
+                const ops = w.openings;
+                if (!ops || ops.length === 0) continue;
+                const bl = w.baseLine;
+                if (!bl || bl.length < 2 || !bl[0] || !bl[1]) continue;
+                const ax = bl[0].x, az = bl[0].z;
+                const bx = bl[1].x, bz = bl[1].z;
+                const dx = bx - ax, dz = bz - az;
+                const len = Math.hypot(dx, dz);
+                if (len < 1e-3) continue;
+                const ux = dx / len, uz = dz / len; // unit along the baseline
+                // Wall normal (perpendicular in XZ).
+                const nx = -uz, nz = ux;
+                const yElev = typeof bl[0].y === 'number' && Number.isFinite(bl[0].y) ? bl[0].y : 0;
+                const baseOffset =
+                    typeof w.baseOffset === 'number' && Number.isFinite(w.baseOffset) ? w.baseOffset : 0;
+                const thickness =
+                    typeof w.thickness === 'number' && w.thickness > 0 ? w.thickness : 0.1;
+                for (const o of ops) {
+                    const kind = o.type === 'door' ? 'door' : 'window';
+                    const offset = typeof o.offset === 'number' && o.offset >= 0 ? o.offset : 0;
+                    const width = typeof o.width === 'number' && o.width > 0 ? o.width : 0.9;
+                    // Clamp the opening span to the wall so we never read past the end.
+                    const start = Math.min(offset, len);
+                    const end = Math.min(offset + width, len);
+                    if (end - start < 1e-3) continue;
+                    const height = typeof o.height === 'number' && o.height > 0 ? o.height : 1.2;
+                    const sill =
+                        kind === 'door'
+                            ? 0
+                            : typeof o.sillHeight === 'number' && o.sillHeight >= 0
+                                ? o.sillHeight
+                                : 0.9;
+                    out.push({
+                        kind,
+                        a: { x: ax + ux * start, z: az + uz * start },
+                        b: { x: ax + ux * end, z: az + uz * end },
+                        normal: { x: nx, z: nz },
+                        thickness,
+                        baseElevation: yElev + baseOffset,
+                        sill,
+                        height,
+                    });
+                }
+            } catch (e) {
+                console.warn('[gis][forma] opening read failed for a wall — skipped:', e);
+            }
+        }
+        return out;
+    };
+
+    /**
+     * §A.21.D34(d) — read STAIRS as a coarse extruded volume so the stairwell
+     * reads in the massing. SOURCE: the stair store (geometry-stair StairData):
+     *   • startPosition : Vec3 (scene-XZ origin of the first flight)
+     *   • flights[0].direction : Vec3 (run direction; XZ)
+     *   • riserCount · treadDepth : total run length along the direction
+     *   • riserCount · riserHeight : total rise (the storey band height)
+     *   • width : flight width
+     *   • baseOffset : world base elevation
+     * We emit a rotated footprint rectangle (run × width) + a base elevation +
+     * a total rise — the Cesium side extrudes it as a simple block. Coarse by
+     * design (the true treads live in the BIM view). Guarded — a degenerate
+     * stair is skipped.
+     */
+    const getFormaStairs = (): Array<{
+        origin: XZ;
+        /** Run direction unit vector (scene-XZ). */
+        dir: XZ;
+        run: number;
+        width: number;
+        baseElevation: number;
+        rise: number;
+    }> => {
+        type Vec3Rec = { x?: number; y?: number; z?: number };
+        type StairRecord = {
+            startPosition?: Vec3Rec;
+            flights?: ReadonlyArray<{ direction?: Vec3Rec; riserCount?: number; treadDepth?: number }>;
+            width?: number;
+            riserHeight?: number;
+            treadDepth?: number;
+            riserCount?: number;
+            baseOffset?: number;
+        };
+        const stairStore = storeRegistry.getStoreForType('stair') as unknown as
+            | { getAll?: () => StairRecord[] }
+            | undefined;
+        const all = stairStore?.getAll?.() ?? [];
+        const out: Array<{ origin: XZ; dir: XZ; run: number; width: number; baseElevation: number; rise: number }> = [];
+        for (const s of all) {
+            try {
+                const sp = s.startPosition;
+                if (!sp || typeof sp.x !== 'number' || typeof sp.z !== 'number') continue;
+                const f0 = s.flights && s.flights.length ? s.flights[0] : undefined;
+                const d = f0?.direction;
+                let dx = typeof d?.x === 'number' ? d.x : 1;
+                let dz = typeof d?.z === 'number' ? d.z : 0;
+                const dlen = Math.hypot(dx, dz);
+                if (dlen < 1e-6) { dx = 1; dz = 0; }
+                else { dx /= dlen; dz /= dlen; }
+                const tread = typeof s.treadDepth === 'number' && s.treadDepth > 0 ? s.treadDepth : 0.27;
+                const risers =
+                    typeof s.riserCount === 'number' && s.riserCount > 0
+                        ? s.riserCount
+                        : typeof f0?.riserCount === 'number' && f0.riserCount > 0
+                            ? f0.riserCount
+                            : 16;
+                const riserH = typeof s.riserHeight === 'number' && s.riserHeight > 0 ? s.riserHeight : 0.18;
+                const width = typeof s.width === 'number' && s.width > 0 ? s.width : 1.0;
+                const run = Math.max(0.5, risers * tread);
+                const rise = Math.max(0.3, risers * riserH);
+                const baseOffset =
+                    typeof s.baseOffset === 'number' && Number.isFinite(s.baseOffset) ? s.baseOffset : 0;
+                out.push({
+                    origin: { x: sp.x, z: sp.z },
+                    dir: { x: dx, z: dz },
+                    run,
+                    width,
+                    baseElevation: baseOffset,
+                    rise,
+                });
+            } catch (e) {
+                console.warn('[gis][forma] stair read failed — skipped:', e);
+            }
+        }
+        return out;
+    };
+
+    /**
      * FORMA.3 — read PRYZM's authored geometry + boundary and render the white
      * massing into Cesium at the real-world site. `frame` flies the camera; the
      * optional `preset` chooses the NW '3D' oblique (default) or the near-top-
@@ -1013,6 +1204,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         const slabs = getFormaSlabs();
         const roofs = getFormaRoofs();
         const furniture = getFormaFurniture();
+        // §A.21.D34(d) — windows + doors (façade insets) + stairs (coarse
+        // stairwell volume) so the building reads COMPLETE, not blank-white.
+        const openings = getFormaOpenings();
+        const stairs = getFormaStairs();
         if (walls.length === 0 && !boundary) {
             // Nothing authored yet — still render the (empty) Forma scene so the
             // flat warm-grey ground + Forma look is visibly engaged, and the user
@@ -1024,7 +1219,8 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         } else {
             console.log(
                 `[gis][forma] rendering massing: ${walls.length} wall(s), ${slabs.length} slab(s), ` +
-                    `${roofs.length} roof(s), ${furniture.length} furniture, boundary=${boundary ? 'yes' : 'no'}, ` +
+                    `${roofs.length} roof(s), ${furniture.length} furniture, ${openings.length} opening(s), ` +
+                    `${stairs.length} stair(s), boundary=${boundary ? 'yes' : 'no'}, ` +
                     `origin LAT ${origin.lat} LON ${origin.lon}.`
             );
         }
@@ -1038,6 +1234,9 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             slabs,
             roofs,
             furniture,
+            // §A.21.D34(d) — façade window/door insets + coarse stair volumes.
+            openings,
+            stairs,
             frameCentroid: frame,
             framePreset: preset,
         });
@@ -1368,7 +1567,23 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     const subscribeFormaLiveUpdate = (): void => {
         const events = runtime?.events;
         if (!events || formaLiveUpdateDisposers.length > 0) return;
-        for (const evt of ['site.parcel-boundary-set', 'apartment.layout-executed'] as const) {
+        // §A.21.D34(d) — FURNITURE-0 TIMING FIX. The generation chain is
+        // apartment → CEIL → furnish → light (see runtime types.ts +
+        // MEMORY d-ce-deterministic-ceiling-engine). The Forma massing previously
+        // only re-rendered on `apartment.layout-executed`, which fires BEFORE the
+        // furnish/ceiling/lighting passes — so when the Forma reader pulled the
+        // furniture store at that moment it was STILL EMPTY → "0 furniture again".
+        // Subscribe to the DOWNSTREAM completion events too so the massing
+        // re-renders (reading the stores FRESH each time — getFormaFurniture pulls
+        // live) once furniture/ceilings/lights actually exist. renderFormaMassing
+        // is idempotent (clearFormaMassing first), so the extra re-renders are safe.
+        for (const evt of [
+            'site.parcel-boundary-set',
+            'apartment.layout-executed',
+            'ceiling.layout-executed',
+            'furnish.layout-executed',
+            'lighting.layout-executed',
+        ] as const) {
             try {
                 const sub = events.on(evt, () => liveUpdateFormaMassing(evt));
                 // EventSubscription is callable-as-disposer.
@@ -1377,7 +1592,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 console.warn(`[gis][forma] live-update subscribe to ${evt} failed:`, e);
             }
         }
-        console.log('[gis][forma] live-update subscribed: site.parcel-boundary-set + apartment.layout-executed.');
+        console.log('[gis][forma] live-update subscribed: site.parcel-boundary-set + apartment/ceiling/furnish/lighting.layout-executed (furniture-timing fix).');
     };
     // Subscribe eagerly so an edit made before the user ever opens 3D is still
     // reflected the next time 3D is shown (the guard short-circuits when not 3D).
