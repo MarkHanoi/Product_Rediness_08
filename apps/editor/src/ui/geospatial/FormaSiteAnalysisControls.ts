@@ -252,8 +252,25 @@ export class FormaSiteAnalysisControls {
             .then(({ ensureSiteClimate }) => ensureSiteClimate(rt))
             .then((ok) => {
                 console.log(`[forma-analysis] proactive ensureSiteClimate → ${ok ? 'dataset present' : 'no location/site'}.`);
+                // §A.21.D39(#7) — explicitly repaint after the async ingest settles.
+                // On the generate-house → Forma flow the Site/location were set long
+                // before this view opened, so NO further site/location event fires to
+                // re-trigger the climateStore.subscribe() repaint. ensureSiteClimate
+                // here AUTO-CREATES the Site (when only an LTP origin existed) and
+                // ingests the bundled dataset; resolveDataset() is null until that
+                // Site exists, so paint NOW that it does — otherwise the rose stays on
+                // "No wind data" even though the dataset landed. Also re-feeds the 3D
+                // wind/heat overlays via renderWindRose → syncOverlayDataset.
+                if (ok) { this.renderWindRose(); this.renderWeatherCard(); }
+                // If ensureSiteClimate could not key a Site yet (e.g. projectId not
+                // resolvable at this instant), allow ONE more attempt the next time a
+                // site/location signal arrives rather than latching the guard forever.
+                else { this.climateEnsureRequested = false; }
             })
-            .catch((e) => console.warn('[forma-analysis] ensureSiteClimate failed:', e));
+            .catch((e) => {
+                console.warn('[forma-analysis] ensureSiteClimate failed:', e);
+                this.climateEnsureRequested = false;
+            });
     }
 
     // ── Sun / shadow scrubber ────────────────────────────────────────────────

@@ -5,7 +5,7 @@
 // real network I/O (the fetch is a fixture stub injected via `opts.fetchImpl`).
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import { ClimateStore } from '@pryzm/stores';
+import { ClimateStore, SiteModelStore } from '@pryzm/stores';
 import { ensureSiteClimate } from '../src/ui/climate/ensureSiteClimate';
 import {
     makeLiveClimateFetch,
@@ -121,6 +121,75 @@ describe('ensureSiteClimate — live wiring', () => {
     it('exposes the two CSP origins that connect-src must allow', () => {
         expect(LIVE_CLIMATE_ORIGINS).toContain(OPEN_METEO_ORIGIN);
         expect(LIVE_CLIMATE_ORIGINS).toContain(PVGIS_ORIGIN);
+    });
+
+    // §A.21.D39(#7) — the generate-house → Forma flow: a location is resolvable
+    // (sun-path renders) but NO Site aggregate exists yet, so the climate dataset
+    // had nothing to key to and the wind rose sat on "No wind data". ensureSiteClimate
+    // must AUTO-CREATE the deterministic Site and ingest the bundled dataset under
+    // the SAME id the wind-rose/overlay reads (resolveSite(getSite().id)).
+    it('auto-creates the Site + ingests bundled climate when only a location exists (house→Forma)', async () => {
+        const climate = new ClimateStore();
+        // A real SiteModelStore that starts with NO Site (mirrors the house flow:
+        // walls generated, origin known, but no Site aggregate authored).
+        const siteStore = new SiteModelStore();
+        // The runtime exposes the real store for getSite()/set() (so the auto-create
+        // round-trips), but a location resolvable from the start (the LTP origin /
+        // geocoded plot the house was generated at).
+        const runtime = {
+            audit: { projectId: 'proj-house-001', actorId: 'u', clientId: 'c' },
+            siteModelStore: {
+                getSite: () => siteStore.getSite(),
+                getLocation: () => ({ latitude: 41.3874, longitude: 2.1686, elevationAsl: 12 }),
+                set: (s: unknown) => siteStore.set(s as never),
+            },
+            climateStore: climate,
+            events: { emit: () => {}, on: () => () => {} },
+        } as unknown as Parameters<typeof ensureSiteClimate>[0];
+
+        expect(siteStore.getSite()).toBeNull();
+        const ok = await ensureSiteClimate(runtime, { fetchImpl: null }); // bundled only
+        expect(ok).toBe(true);
+
+        // The Site was created with the deterministic id…
+        const created = siteStore.getSite();
+        expect(created).not.toBeNull();
+        expect(created!.id).toBe('site_proj-house-001');
+
+        // …and the wind-rose/overlay read (resolveSite(getSite().id)) returns the
+        // dataset with a NON-EMPTY wind rose (the thing that was failing).
+        const ds = climate.resolveSite(created!.id as never);
+        expect(ds).not.toBeNull();
+        expect(ds!.source).toBe('fallback-defaults');
+        const totalWindHours = ds!.windRose.sectors.reduce(
+            (a, s) => a + s.speedBinHours.reduce((b, h) => b + h, 0),
+            0,
+        );
+        expect(totalWindHours).toBeGreaterThan(0);
+        expect(ds!.windRose.meanSpeedMps).toBeGreaterThan(0);
+    });
+
+    it('falls back to projectContext.projectId when audit.projectId is empty (house demo path)', async () => {
+        const climate = new ClimateStore();
+        const siteStore = new SiteModelStore();
+        // audit.projectId EMPTY (the house demo gap) but projectContext carries it —
+        // resolveActiveProjectId must use it so the Site is still keyed correctly.
+        const runtime = {
+            audit: { projectId: '', actorId: 'u', clientId: 'c' },
+            projectContext: { projectId: 'proj-ctx-002', projectName: 'Casa', levelId: null },
+            siteModelStore: {
+                getSite: () => siteStore.getSite(),
+                getLocation: () => ({ latitude: 48.8566, longitude: 2.3522, elevationAsl: 35 }),
+                set: (s: unknown) => siteStore.set(s as never),
+            },
+            climateStore: climate,
+            events: { emit: () => {}, on: () => () => {} },
+        } as unknown as Parameters<typeof ensureSiteClimate>[0];
+        const ok = await ensureSiteClimate(runtime, { fetchImpl: null });
+        expect(ok).toBe(true);
+        const created = siteStore.getSite();
+        expect(created!.id).toBe('site_proj-ctx-002');
+        expect(climate.resolveSite(created!.id as never)).not.toBeNull();
     });
 
     it('makeLiveClimateFetch returns undefined when no fetch is available', () => {

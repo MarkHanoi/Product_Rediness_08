@@ -149,13 +149,41 @@ export function resolveSiteContext(
         toast('Site store unavailable — restart the dev server (npm run dev).', 'error');
         return null;
     }
-    const projectId = rt.audit?.projectId;
+    // §A.21.D39(#7) — resolve the active project id from MULTIPLE sources, not just
+    // `runtime.audit.projectId`. The Site aggregate's deterministic id is
+    // `site_<projectId>`, so an empty projectId here means the climate-keying
+    // auto-create in `ensureSiteClimate` silently bails → the wind rose + 3D
+    // wind/heat overlays sit on "No wind data" forever on the generate-house →
+    // Forma flow (the house demo path doesn't always populate `audit.projectId`,
+    // but `runtime.projectContext` / `window.projectContext` always carry it).
+    const projectId = resolveActiveProjectId(rt);
     if (!projectId) {
-        console.warn('[gis] no active project (runtime.audit.projectId empty) — open/create a project first.');
+        console.warn('[gis] no active project (no projectId on audit / projectContext) — open/create a project first.');
         toast('No active project — open or create a project first.', 'error');
         return null;
     }
     return { rt, store, projectId, toast };
+}
+
+/**
+ * Resolve the active project id from the most-reliable source available.
+ * Order: `runtime.audit.projectId` → `runtime.projectContext.projectId` →
+ * `window.projectContext.projectId`. The Site id is deterministic
+ * (`site_<projectId>`), so this MUST be consistent everywhere a Site is created
+ * or read — using a different source per call site produces two Sites and the
+ * climate dataset keys to the wrong one (§A.21.D39(#7)).
+ */
+function resolveActiveProjectId(rt: PryzmRuntime): string | null {
+    const auditPid = rt.audit?.projectId;
+    if (typeof auditPid === 'string' && auditPid.length > 0) return auditPid;
+    const ctxPid = rt.projectContext?.projectId;
+    if (typeof ctxPid === 'string' && ctxPid.length > 0) return ctxPid;
+    try {
+        const winPid = (window as unknown as { projectContext?: { projectId?: string | null } })
+            .projectContext?.projectId;
+        if (typeof winPid === 'string' && winPid.length > 0) return winPid;
+    } catch { /* no window / no projectContext */ }
+    return null;
 }
 
 /**
