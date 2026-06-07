@@ -139,7 +139,7 @@ export class TransformGizmo {
       // LEFT_DOWN over the massing, aborting the handler. Guard on the type.
       const pickedId: unknown = Cesium.defined(picked) ? (picked as { id?: unknown }).id : undefined;
       if (typeof pickedId === "string" && pickedId.startsWith("gizmo-")) {
-        this.activeAxis = pickedId.split("-").pop();
+        this.activeAxis = pickedId.split("-").pop() ?? null;
         this.isDragging = true;
         this.lastMousePosition = Cesium.Cartesian2.clone(movement.position);
         this.viewer.scene.screenSpaceCameraController.enableInputs = false;
