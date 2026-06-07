@@ -40,6 +40,13 @@ const APPROX_BEDROOM_BLOCK_M2 = 18;
  *  `scaleProgramToShell` cap philosophy. */
 const MAX_ENRICHED_BEDROOMS = 5;
 
+/** §HOUSE-GROUND-FILL (A.21.D28 #4) — the most bedrooms a MULTI-storey GROUND
+ *  floor may be filled with. The private level is upstairs, so the ground keeps at
+ *  most a guest/accessible bedroom + (on a big plate) one more — never the full
+ *  bedroom count, which belongs on the upper storeys. Low by design so the
+ *  well-behaved 3-bed/2-storey case (1 ground guest bedroom) is unchanged. */
+const MAX_GROUND_FILL_BEDROOMS = 2;
+
 /** Stop adding rooms once the programme's comfortable area reaches this fraction of
  *  the plate. Below 1.0 because walls + circulation gross-up (the HOUSE_CIRCULATION
  *  _FACTOR) consume the remainder; aiming at ~85 % of net keeps rooms in their
@@ -49,6 +56,74 @@ const TARGET_FILL_FRACTION = 0.85;
 /** Bedrooms-to-bathrooms ratio when enriching: 1 bath per 2 bedrooms, ≥1. */
 function bathroomsForBedrooms(bedrooms: number): number {
     return Math.max(1, Math.floor(bedrooms / 2));
+}
+
+/**
+ * §HOUSE-GROUND-FILL (A.21.D28 #4) — fill a MULTI-storey GROUND plate with
+ * GROUND-appropriate rooms until its comfortable target reaches
+ * {@link TARGET_FILL_FRACTION} of the plate, WITHOUT moving the house's bedroom
+ * count down off the upper storeys.
+ *
+ * The frozen single-plate bubble graph (`tgl/bubbleGraph.buildBubbleGraph`) only
+ * emits rooms it can derive from the program counts + flags — there is no `study`
+ * room flag on `ApartmentProgram`, so the only fill levers available WITHOUT
+ * forking the engine are: a guest bedroom (capped at {@link MAX_GROUND_FILL_BEDROOMS}
+ * so the private level upstairs keeps the rest) and a proportional bathroom/WC.
+ * Both add a DISTINCT enclosed room (walls + a door) — exactly the partitions room
+ * detection needs to break the one-giant-room defect — so the ground floor reads as
+ * a real home (living + kitchen + dining + hall + guest bed(s) + bath) instead of a
+ * stretched 4-room blob. It NEVER lowers a user-stated count (a floor, not a cap),
+ * is bounded (≤ MAX_GROUND_FILL_BEDROOMS steps), and deterministic (no RNG). The
+ * §HOUSE-MAX-CAP in the orchestrator still bounds the subdivision budget so the
+ * added rooms stay sensibly sized.
+ *
+ * Pure; returns a NEW program.
+ */
+function fillGroundPlate(program: ApartmentProgram, plateAreaM2: number): ApartmentProgram {
+    // The number of bedrooms the captured brief ALREADY placed on the ground (via
+    // `allocateProgramToStoreys`, which keeps ≤1 guest bedroom downstairs for a
+    // normal multi-bedroom house). We only ADD ground bedrooms beyond this when the
+    // ground would otherwise be SPARSE — i.e. the brief gave it none (a 0/1-bedroom
+    // whole-house brief, or the founder's empty brief). A normal multi-bedroom house
+    // keeps its single ground guest bedroom (bedrooms live upstairs); the cap below
+    // collapses to that one so the well-behaved 3-bed/2-storey case is unchanged and
+    // the "bedrooms stay upstairs" invariant holds.
+    const allocatedGroundBeds = Math.max(0, Math.floor(program.bedrooms));
+    // Sparse ground (no allocated bedroom) → may fill up to MAX_GROUND_FILL_BEDROOMS
+    // so a big empty-brief plate gets real partitions; otherwise keep the allocated
+    // count (never invent a second ground bedroom for a house whose bedrooms belong
+    // upstairs).
+    const bedCap = allocatedGroundBeds === 0
+        ? MAX_GROUND_FILL_BEDROOMS
+        : Math.max(1, allocatedGroundBeds);
+
+    let enriched: ApartmentProgram = { ...program };
+    // A multi-storey ground always reads as a home with at least a guest bedroom +
+    // a bath — even from an empty brief — so the public set isn't stretched across
+    // the whole plate. Raise (never lower) to that floor first.
+    enriched = {
+        ...enriched,
+        bedrooms: Math.max(1, Math.floor(enriched.bedrooms)),
+        bathrooms: Math.max(1, Math.floor(enriched.bathrooms)),
+    };
+
+    const targetArea = plateAreaM2 * TARGET_FILL_FRACTION;
+    for (let guard = 0; guard < MAX_GROUND_FILL_BEDROOMS; guard++) {
+        const band = houseStoreyBand({ program: enriched, grossAreaM2: plateAreaM2 });
+        if (band.grossTargetM2 >= targetArea) break;
+        if (enriched.bedrooms >= bedCap) break;
+        const nextBedrooms = enriched.bedrooms + 1;
+        enriched = {
+            ...enriched,
+            bedrooms: nextBedrooms,
+            // 1 bath per 2 bedrooms, ≥ the existing count (a WC + a guest bath).
+            bathrooms: Math.max(enriched.bathrooms, bathroomsForBedrooms(nextBedrooms)),
+            // The master/en-suite stays UPSTAIRS — the ground never gets one here
+            // (mirrors `allocateProgramToStoreys`, which keeps masterEnSuite false on
+            // the ground role).
+        };
+    }
+    return enriched;
 }
 
 /** Options for {@link enrichStoreyProgramToPlate}. */
@@ -64,6 +139,28 @@ export interface EnrichStoreyOptions {
      * room-SET floor is guaranteed).
      */
     readonly growBedrooms?: boolean;
+    /**
+     * §HOUSE-GROUND-FILL (A.21.D28 #4) — whether a MULTI-storey GROUND floor may be
+     * FILLED with ground-appropriate rooms until its programme approaches the plate.
+     *
+     * The defect: a multi-storey ground floor relied on the (sparse) captured brief
+     * — living + kitchen + dining + hall + maybe one guest bedroom — and on a large
+     * (~165 m²) plate the frozen engine STRETCHED those few rooms to fill it, so room
+     * detection read ONE giant space. A SINGLE-storey ground (via `growBedrooms`)
+     * already fills its plate; a multi-storey ground did NOT, because its bedrooms
+     * live upstairs.
+     *
+     * This pass fills the ground plate WITHOUT moving the upstairs bedroom count
+     * down: it adds a guest bedroom (capped at {@link MAX_GROUND_FILL_BEDROOMS}) and
+     * a proportional bath/WC as the plate allows, until the comfortable-target gross
+     * area reaches {@link TARGET_FILL_FRACTION} of the plate. It NEVER lowers a
+     * user-stated count and is bounded/deterministic. The orchestrator sets this true
+     * for the GROUND storey of a multi-storey house ONLY — `growBedrooms` stays false
+     * there (so the heavy bedroom-stuffing reserved for the private level never runs
+     * on the ground). Mutually-distinct from `growBedrooms`; if both were set,
+     * `growBedrooms` (the stronger fill) wins.
+     */
+    readonly growGroundRooms?: boolean;
 }
 
 /**
@@ -118,6 +215,18 @@ export function enrichStoreyProgramToPlate(
             openPlanKitchenDining: false,
             livingRoom: false,
         };
+    }
+
+    // 2b. §HOUSE-GROUND-FILL (A.21.D28 #4) — fill a MULTI-storey GROUND plate with
+    //     GROUND-appropriate rooms (a guest bedroom + a proportional bath/WC) until
+    //     its comfortable target approaches the plate, WITHOUT pulling the house's
+    //     bedroom count down off the upper storeys. Runs only when the orchestrator
+    //     set `growGroundRooms` AND the heavy `growBedrooms` fill is NOT in play
+    //     (single-storey ground / upper storeys use that path instead). Bounded +
+    //     deterministic — see fillGroundPlate (the frozen bubble graph has no study
+    //     flag, so a guest bedroom + bath are the only fill levers without forking it).
+    if (role === 'ground' && opts.growGroundRooms && !opts.growBedrooms) {
+        return fillGroundPlate(enriched, plateAreaM2);
     }
 
     // 2. Grow bedrooms (+ proportional bathrooms) until the programme's comfortable
