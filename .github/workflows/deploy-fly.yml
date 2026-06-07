@@ -17,10 +17,12 @@
 name: Deploy to Fly.io
 
 on:
-  # §A.10.i — MANUAL-ONLY deploy to conserve GitHub Actions minutes when private.
-  # To deploy free: make the repo PUBLIC, then re-add a `push:` trigger; revert to
-  # this before going private. (v37 A.21.D24 batch shipped 2026-06-06 in the §A.10.o
-  # window — roof · stair · furnish · 3D-globe · 3D Forma climate · richer graph.)
+  # §A.10.p — PUSH-DEPLOY re-enabled for the v38 public window (repo PUBLIC now).
+  # Every push to main builds on the 16GB runner WITH the VITE_CESIUM_TOKEN secret
+  # (photoreal globe). Revert to manual-only (§A.10.i) before going private again.
+  # (v38 A.21.D25 house deep-defect batch + A.21.D26 stairwell-void railing.)
+  push:
+    branches: [main]
   workflow_dispatch:
 
 # Latest-wins: a newer push to main cancels an older in-flight deploy so prod
