@@ -220,6 +220,13 @@ export {
   polygonAreaM2,
 } from './workflows/apartmentLayout/shellAnalysis.js';
 export { createStoreShellReader } from './workflows/apartmentLayout/shellReader.js';
+// A.21.D29 #3 — main-entrance door resolver for the generated house (pure).
+export {
+  resolveEntranceDoor,
+  ENTRANCE_DOOR_WIDTH_M,
+  ENTRANCE_DOOR_HEIGHT_M,
+} from './workflows/apartmentLayout/entranceDoor/entranceDoor.js';
+export type { EntranceDoorDispatch } from './workflows/apartmentLayout/entranceDoor/entranceDoor.js';
 export type {
   ShellReaderDeps,
   ShellWallRecord,
