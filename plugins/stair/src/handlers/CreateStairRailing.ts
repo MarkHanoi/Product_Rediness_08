@@ -39,18 +39,11 @@ export const CreateStairRailingHandler: CommandHandler<CreateStairRailingPayload
     if (!cmd.stairId || typeof cmd.stairId !== 'string' || cmd.stairId.trim() === '') {
       return { valid: false, reason: 'stairId is required and must be a non-empty string' };
     }
-    // §RAILING-CREATE-BROKEN (DAILY-USE 2026-05-21) — Best-effort store
-    // presence check, NOW shape-tolerant.  ctx.stores.stairStore can arrive
-    // as either:
-    //   (a) the legacy class instance with `getById(id)` / `get(id)` methods, OR
-    //   (b) the PRYZM-3 Immer plain-object store keyed by id (no methods).
-    // Previously this check only honoured shape (a) — when the bridge ran
-    // with the Immer store both `getById?.` and `get?.` returned undefined,
-    // the `if (!stair)` rejected every valid railing create, the bus call
-    // failed, and NO railing was ever built (silent — the user-reported
-    // "railing element doesn't get created" symptom).  Shape (b) lookup
-    // added.  Either shape now resolves the stair correctly; absence of
-    // BOTH the methods AND the keyed entry triggers the rejection.
+    // Best-effort, shape-tolerant store presence check. ctx.stores.stairStore
+    // can arrive as either (a) the legacy class instance with `getById(id)` /
+    // `get(id)` methods, or (b) the PRYZM-3 Immer plain-object store keyed by
+    // id (no methods). Resolve via all three so a valid stair is never rejected;
+    // absence of BOTH the methods AND the keyed entry triggers the rejection.
     type LegacyStairStore = { getById?(id: string): unknown; get?(id: string): unknown };
     type ImmerStairStore  = Record<string, unknown>;
     const stairStore = (ctx.stores as Record<string, unknown>)['stairStore'] as
@@ -60,7 +53,7 @@ export const CreateStairRailingHandler: CommandHandler<CreateStairRailingPayload
       const stair =
         stairStore.getById?.(cmd.stairId)
         ?? stairStore.get?.(cmd.stairId)
-        ?? stairStore[cmd.stairId];                 // §RAILING-CREATE-BROKEN — Immer plain-object lookup
+        ?? stairStore[cmd.stairId];
       if (!stair) {
         return {
           valid: false,
@@ -77,10 +70,9 @@ export const CreateStairRailingHandler: CommandHandler<CreateStairRailingPayload
   ): HandlerResult {
     return withHandlerSpan('stair.createRailing.handler', { 'pryzm.command.type': 'stair.createRailing' }, () => {
       const cm = window.commandManager as { execute(cmd: unknown, options?: unknown): void } | undefined;
-      // §RAILING-CREATE-BROKEN — probe so the live log shows whether the
-      // bridge reached commandManager.execute() at all. Previously, a
-      // commandManager-missing situation silently no-op'd; runtime had no
-      // signal that the bridge was bypassing every railing creation.
+      // A missing commandManager means the bridge fired before initTools
+      // assigned window.commandManager (race condition). Surface it loudly —
+      // without it no railing is built.
       if (!cm) {
         console.error(
           '[stair.createRailing.handler] window.commandManager is undefined — ',
@@ -91,10 +83,6 @@ export const CreateStairRailingHandler: CommandHandler<CreateStairRailingPayload
         return { forward: [], inverse: [] };
       }
       try {
-        console.log(
-          '[stair.createRailing.handler] dispatching CreateStairRailingCommand ',
-          'stairId=' + cmd.stairId + ' side=' + (cmd.side ?? '?'),
-        );
         cm.execute(new CreateStairRailingCommand(cmd as any));
       } catch (e) {
         console.error('[stair.createRailing.handler] bridge failed:', e);

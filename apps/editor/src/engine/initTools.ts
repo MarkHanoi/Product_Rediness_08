@@ -1836,33 +1836,24 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
     }
 
     // ── Stair railing proposal handler ────────────────────────────────────────
-    // §RAILING-CREATE-BROKEN (DAILY-USE 2026-05-21) — diagnostic probes added
-    // through the proposal → bus.executeCommand → handler chain so the live
-    // log shows the full path when a user creates a stair: which railings
-    // were proposed, whether the bus dispatch fired, and any rejection
-    // reason. Mirrors the §STAIR-PREVIEW-REGRESSION probe pattern.
+    // CreateStairCommand emits `bim-stair-railing-proposal` (one left + one right
+    // railing) after a stair commits. Each proposal is forwarded through the bus
+    // command `stair.createRailing` (CreateStairRailingHandler, plugins/stair),
+    // which bridges to the canonical CreateStairRailingCommand that builds the
+    // railing, registers undo, and emits `bim-stair-railing-added` for the
+    // StairRailingBuilder. [F-1.3] Bus-primary migration bridge.
     window.addEventListener('bim-stair-railing-proposal', (e: Event) => {
         const payload = (e as CustomEvent).detail;
         const proposed = (payload.proposedRailings as any[]) ?? [];
-        console.log(
-            '[initTools] §RAILING-CREATE-BROKEN bim-stair-railing-proposal received: ' +
-            'stairId=' + payload.stairId + ' proposedCount=' + proposed.length,
-        );
         proposed.forEach((r: any) => {
-            // [F-1.3] Bus-primary: commandManager exfiltrated to CreateStairRailingHandler (plugins/stair).
             window.runtime?.bus?.executeCommand('stair.createRailing', {
                 stairId: payload.stairId,
                 side: r.side, topRailHeight: r.topRailHeight,
                 balusterSpacing: r.balusterSpacing, balusterShape: r.balusterShape,
                 balusterWidth: r.balusterWidth, postAtStart: r.postAtStart,
                 postAtEnd: r.postAtEnd, material: r.material,
-            })?.then((res: unknown) => {
-                console.log(
-                    '[initTools] §RAILING-CREATE-BROKEN stair.createRailing ' +
-                    'side=' + r.side + ' result=' + JSON.stringify(res),
-                );
-            }).catch((err: Error) => console.error(
-                '[initTools] §RAILING-CREATE-BROKEN stair.createRailing side=' + r.side + ' failed:',
+            })?.catch((err: Error) => console.error(
+                '[initTools] stair.createRailing side=' + r.side + ' failed:',
                 err,
             ));
         });
