@@ -105,8 +105,11 @@ const FORMA_PALETTE = {
   boundaryLine: '#2D6A4F',
   boundaryFill: 'rgba(45,106,79,0.08)',
   /** §A.21.D34(d) — coarse GLAZING tint for window insets (cool blue-grey, reads
-   *  as glass against the white shell without competing with the massing). */
-  glazing: '#6E86A6',
+   *  as glass against the white shell without competing with the massing).
+   *  §A.21.D39#6 — this is now the BASE colour for a TRANSLUCENT glass material
+   *  (alpha applied at fill time = FORMA_GLAZING_ALPHA); a slightly cooler/bluer
+   *  hue reads as real tinted glazing rather than an opaque blue-grey panel. */
+  glazing: '#7FA8D8',
   /** §A.21.D34(d) — coarse DOOR-leaf tint (warm graphite, darker than glazing so
    *  the front door reads distinctly from windows). */
   doorLeaf: '#4A4540',
@@ -174,6 +177,17 @@ const FORMA_LIGHT_INTENSITY = 2.3;
  * too weak).
  */
 const FORMA_SHADOW_DARKNESS = 0.30;
+
+/**
+ * §A.21.D39#6 — GLASS translucency for window panels. The glazing inset is now a
+ * see-through blue-tinted material (alpha in the 0.25–0.40 band the founder asked
+ * for) so you can read INTO the building through the windows instead of meeting an
+ * opaque panel. The panel is also flagged `ShadowMode.DISABLED` so the sun-path
+ * shadow pass casts THROUGH the glazing (glass does not block light); the white
+ * shell + the opaque door leaf still cast solid shadows. 0.30 = clearly glass,
+ * still enough tint to read as a window against the white shell.
+ */
+const FORMA_GLAZING_ALPHA = 0.30;
 
 export class CesiumViewport {
   private container: HTMLDivElement;
@@ -1555,14 +1569,44 @@ export class CesiumViewport {
      * infinite re-sample loop). External callers leave this unset.
      */
     _skipTerrainClamp?: boolean;
+    /**
+     * §A.21.D39#5 — PLACE-ON-PHOTOREAL-GLOBE. When true, the SAME authored massing
+     * (shell prism, slabs, roof, openings, stairs, furniture, boundary) is placed
+     * at the site ENU origin WITHOUT switching the scene into the Forma flat-ground
+     * look — the photoreal imagery + Google 3D tiles + sky stay shown, so the
+     * user's house sits inside the real-world city on the "3D globe" view. We only
+     * turn shadows ON (so the building grounds itself on the tiles) and skip the
+     * Forma-mode force. Default (unset/false) = the existing Forma massing study.
+     */
+    keepPhotoreal?: boolean;
   }): void {
     const viewer = this.viewer;
     if (!viewer) {
       console.warn('[CesiumViewport][forma] renderFormaMassing before mount — ignored.');
       return;
     }
-    // Forma look is the canvas for the massing — make sure it's on.
-    if (!this.formaMode) this.setFormaMode(true);
+    // §A.21.D39#5 — TWO canvases for the SAME massing:
+    //   • default → the Forma flat-ground massing study (force Forma mode on).
+    //   • keepPhotoreal → the PHOTOREAL "3D globe": keep the real imagery/tiles/sky
+    //     so the house sits inside the real-world city; do NOT force Forma. We still
+    //     need shadows ON (the photoreal path turns them off) so the building reads
+    //     as a grounded 3D volume on the tiles.
+    if (input.keepPhotoreal) {
+      try {
+        // Enable shadows so the placed building grounds itself on the tiles. We
+        // KEEP Cesium's native SunLight (restored by restorePhotorealMode) so the
+        // globe lighting + shadow direction stay authentic to the real sun — no
+        // DirectionalLight override here (that's the Forma-study path).
+        viewer.shadows = true;
+        const sm = viewer.scene.shadowMap;
+        if (sm) { sm.enabled = true; sm.softShadows = true; }
+      } catch (e) {
+        console.warn('[CesiumViewport][globe] shadow setup failed (non-fatal):', e);
+      }
+    } else if (!this.formaMode) {
+      // Forma look is the canvas for the massing — make sure it's on.
+      this.setFormaMode(true);
+    }
 
     this.clearFormaMassing();
 
@@ -1910,7 +1954,9 @@ export class CesiumViewport {
     // reader's `normal` is an arbitrary perpendicular (could point either way), so
     // we orient it OUTWARD = away from the building centroid before pushing.
     const openings = input.openings ?? [];
-    const glazingFill = Cesium.Color.fromCssColorString(FORMA_PALETTE.glazing).withAlpha(0.95);
+    // §A.21.D39#6 — TRANSLUCENT blue-tinted GLASS (alpha FORMA_GLAZING_ALPHA) so
+    // windows read as see-through glazing, not opaque insets. Doors stay opaque.
+    const glazingFill = Cesium.Color.fromCssColorString(FORMA_PALETTE.glazing).withAlpha(FORMA_GLAZING_ALPHA);
     const doorFill = Cesium.Color.fromCssColorString(FORMA_PALETTE.doorLeaf).withAlpha(1.0);
     let openingsPlaced = 0;
     // Building centroid in scene-XZ — used to flip each opening's normal so it
@@ -1969,8 +2015,11 @@ export class CesiumViewport {
             outline: true,
             outlineColor: massOutline,
             outlineWidth: 1.0,
-            // The shell already casts the shadow; the inset just colours the reveal.
-            shadows: Cesium.ShadowMode.DISABLED,
+            // §A.21.D39#6 — SHADOW-THROUGH-GLASS. The window glazing is translucent,
+            // so it must NOT cast a solid shadow — the sun-path pass casts THROUGH it
+            // (ShadowMode.DISABLED). The opaque door leaf CASTS (the frame can), and
+            // the white shell already casts the building's own shadow either way.
+            shadows: o.kind === 'door' ? Cesium.ShadowMode.CAST_ONLY : Cesium.ShadowMode.DISABLED,
           },
         });
         this.formaMassingEntities.push(ent);
@@ -2884,6 +2933,22 @@ export class CesiumViewport {
    */
   public rerenderFormaMassing(input: Parameters<CesiumViewport['renderFormaMassing']>[0]): void {
     this.renderFormaMassing({ ...input, frameCentroid: false });
+  }
+
+  /**
+   * §A.21.D39#5 — place the SAME authored building massing at the site ENU origin
+   * on top of the PHOTOREAL globe (real imagery + Google 3D tiles + sky), instead
+   * of the Forma flat-ground study. Reuses `renderFormaMassing`'s entire massing
+   * placement (shell prism, slabs, roof, openings, stairs, furniture, boundary,
+   * terrain clamp, sun-driven shadows) via the `keepPhotoreal` flag — so the
+   * user's house sits inside the real-world city on the "3D globe" view. The
+   * caller (GISAreaLayout's "3D globe" toggle) must have already exited Forma mode
+   * (setFormaMode(false)); this method does NOT re-enter it.
+   */
+  public renderBuildingOnGlobe(
+    input: Omit<Parameters<CesiumViewport['renderFormaMassing']>[0], 'keepPhotoreal'>,
+  ): void {
+    this.renderFormaMassing({ ...input, keepPhotoreal: true });
   }
 
   /**
