@@ -102,6 +102,12 @@ function stairCoreAreaM2(rectMm: { w: number; h: number }): number {
     return (rectMm.w / 1000) * (rectMm.h / 1000);
 }
 
+/** Default whole-house variant count for the modal. The single-best path enumerates
+ *  with the SAME count so its option[0] matches `generateHouseLayoutOptions(...)[0]`
+ *  (the A.21.D18 equality invariant — the apartment engine's option[0] is
+ *  count-dependent, so both paths MUST request the same N). */
+const DEFAULT_VARIANT_COUNT = 3;
+
 /**
  * Generate a complete multi-storey house layout (§6).
  *
@@ -153,10 +159,21 @@ export function generateHouseLayout(
     weights: ScoringWeights,
     opts: HouseLayoutOptions,
 ): HouseLayoutResult {
-    // The single-result entry: enumerate ONE option per storey and assemble. This
-    // is byte-identical to the pre-A.21.k path (the engine is called with count=1
-    // and the assembler selects index 0 on every storey).
-    const enumerated = enumeratePerStorey(shell, program, constraints, weights, opts, 1);
+    // The single-result entry: enumerate up to DEFAULT_VARIANT_COUNT options per
+    // storey and assemble variant 0 (index 0 on every storey).
+    //
+    // §A.21.D18 EQUALITY INVARIANT — this MUST be byte-identical to
+    // `generateHouseLayoutOptions(...)[0].result` (the modal's first/default card).
+    // The apartment engine's `generateDeterministicLayouts` surfaces a DIFFERENT
+    // option[0] when asked for 1 vs N options (it Pareto-ranks the larger candidate
+    // set, so option[0]'s score/room-order can shift) — so the single-best path MUST
+    // enumerate with the SAME count as the options path or the two diverge. We
+    // therefore enumerate with the shared DEFAULT_VARIANT_COUNT here (NOT count=1),
+    // then select index 0 on every storey — exactly what variant 0 of the options
+    // path does. The stair core is reserved identically on both paths (it depends
+    // only on the footprint, not the option count), so this change only aligns the
+    // per-storey option[0] selection. Apartment + single-storey paths are unaffected.
+    const enumerated = enumeratePerStorey(shell, program, constraints, weights, opts, DEFAULT_VARIANT_COUNT);
     return assembleHouse(enumerated, (_storeyIdx, options) => options[0] ?? null);
 }
 
@@ -168,13 +185,17 @@ export function generateHouseLayout(
  * up to `count` Pareto-ranked options. We then assemble N whole-house variants by
  * varying which per-storey option index each variant selects:
  *
- *   variant v, storey s → option index `(v + s) % availableOptions(s)`
+ *   variant 0     , storey s → option index 0       (the single best on EVERY storey)
+ *   variant v ≥ 1 , storey s → option index `(v + s) % availableOptions(s)`
  *
- * The `+ s` rotation means variant 0 isn't simply "best on every storey then
- * second-best on every storey" — it staggers the selection so the variants are
- * visibly distinct (variant 1's ground floor differs from variant 0's, AND its
- * upper floor differs too). Selection is fully DETERMINISTIC (no `Math.random`):
- * re-running with the same inputs yields the same N variants in the same order.
+ * Variant 0 is the all-best-index selection so it is byte-identical to
+ * `generateHouseLayout(...)` (the A.21.D18 equality invariant — see below). The
+ * `+ s` rotation on variants v ≥ 1 staggers the selection so the alternative cards
+ * are visibly distinct (variant 1's ground floor differs from variant 0's, AND its
+ * upper floor differs too) WITHOUT ever colliding with variant 0's all-zero tuple
+ * (their storey-0 index is `v % n ≠ 0` for v in 1..n-1). Selection is fully
+ * DETERMINISTIC (no `Math.random`): re-running with the same inputs yields the same
+ * N variants in the same order.
  *
  * Variant 0 always selects index 0 on every storey, so it is IDENTICAL to
  * `generateHouseLayout(...)` — the modal's first/default card is the engine's
@@ -191,7 +212,7 @@ export function generateHouseLayoutOptions(
     constraints: ApartmentConstraints,
     weights: ScoringWeights,
     opts: HouseLayoutOptions,
-    count = 3,
+    count = DEFAULT_VARIANT_COUNT,
 ): ScoredHouseLayoutOption[] {
     const wanted = Math.max(1, Math.floor(Number.isFinite(count) ? count : 3));
     // Enumerate up to `wanted` options PER STOREY (the apartment engine already
@@ -202,10 +223,14 @@ export function generateHouseLayoutOptions(
     const seenSelections = new Set<string>();
     for (let v = 0; v < wanted; v++) {
         // Resolve the per-storey selection tuple for this variant.
+        //   v === 0 → index 0 on EVERY storey (the single best — A.21.D18 equality
+        //             invariant: this variant MUST equal generateHouseLayout()).
+        //   v ≥ 1   → staggered `(v + s) % n` so the alternatives are visibly
+        //             distinct yet never collide with variant 0's all-zero tuple.
         const selection: number[] = enumerated.perStorey.map((storey, s) => {
             const n = storey.options.length;
             if (n === 0) return -1;                       // empty plate — assembler records a blank storey
-            return (v + s) % n;                           // staggered, deterministic
+            return v === 0 ? 0 : (v + s) % n;             // staggered for v≥1, deterministic
         });
         const key = selection.join(',');
         if (seenSelections.has(key)) continue;            // collapsed to an already-emitted variant — skip
