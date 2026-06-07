@@ -20,7 +20,9 @@ import {
     sunArcEnuPoints,
     sunArcHourMarkers,
     windStreakSegments,
+    windStreamlinePaths,
     heatTintColorHex,
+    heatFieldCells,
 } from "../climate/climateOverlayGeometry";
 import { windRoseBars } from "../climate/climateChartData";
 
@@ -2569,6 +2571,35 @@ export class CesiumViewport {
     return Math.max(40, Math.min(400, fromArea || 80));
   }
 
+  /** A circular proxy of the building MASS the wind streamlines bend around and
+   *  the heat field shades behind: centre = the massing centroid (in the overlay
+   *  ENU frame, which is anchored at `overlayOrigin()`), radius derived from the
+   *  footprint area. Returns null when there's no massing to read (→ a clean,
+   *  obstacle-free field). A.21.D35. */
+  private overlayObstacle(): { center: { east: number; north: number }; radius: number } | null {
+    const o = this.formaMassingOrigin;
+    if (!o || !(o.areaM2 > 0)) return null;
+    // Equivalent-circle radius of the footprint, gently inflated so streamlines
+    // read as flowing AROUND the visible mass rather than clipping its edge.
+    const radius = Math.max(6, 1.15 * Math.sqrt(o.areaM2 / Math.PI));
+    return { center: { east: o.centroidEast, north: o.centroidNorth }, radius };
+  }
+
+  /** The compass bearing (deg, 0 = N) the sun is in — the "hot side" of the
+   *  comfort field. Uses the tested NOAA `solarSample` at the current Forma sun
+   *  date/time; falls back to South (180°) when the sun is below the horizon (so
+   *  the field still reads sensibly in the N-hemisphere convention). A.21.D35. */
+  private heatSunBearingDeg(lat: number, lon: number): number {
+    try {
+      const s = solarSample(lat, lon, this.formaSunDate.toISOString());
+      if (s.isAboveHorizon) {
+        const deg = (s.azimuthRad * 180) / Math.PI;
+        return ((deg % 360) + 360) % 360;
+      }
+    } catch { /* fall through to the default */ }
+    return 180;
+  }
+
   /** ENU(east,north,up) metres → ECEF Cartesian via the site-origin anchor. */
   private enuToCartesian(
     enuMatrix: Cesium.Matrix4,
@@ -2678,34 +2709,71 @@ export class CesiumViewport {
       const enu = Cesium.Transforms.eastNorthUpToFixedFrame(
         Cesium.Cartesian3.fromDegrees(origin.lon, origin.lat, 0),
       );
-      // 6 speed-band shades (calm→gust), light→dark on the #6600FF accent —
-      // matches the 2D wind-rose palette in FormaSiteAnalysisControls.
-      const bandColors = ['#d9cffb', '#b79bf6', '#9569f0', '#7a3eea', '#6600FF', '#4b00bf'];
-      const streaks = windStreakSegments(rose, radius, 2.0);
+      // 6 speed-band shades (calm→gust), light→dark blue → matches the 2D
+      // wind-rose speed palette. A.21.D35: blue ramp (not the purple accent) so
+      // the flow field reads as Forma-style wind, with deep blue = strongest.
+      const bandColors = ['#cfe3ff', '#9fc4f5', '#6fa6ec', '#3f7fe0', '#2057c8', '#123c9c'];
+
+      // ── A.21.D35 — flowing wind STREAMLINES (the Forma differentiator) ──────
+      // Many smooth curved flow-lines seeded across the upwind edge and bent
+      // around the building mass. STYLISED (a deflection field), not CFD.
+      const obstacle = this.overlayObstacle();
+      const streamlines = windStreamlinePaths(rose, radius, {
+        maxLines: 30,
+        sectorCount: 4,
+        obstacleRadius: obstacle?.radius ?? radius * 0.16,
+        obstacleCenter: obstacle?.center,
+        heightAboveGround: 2.0,
+      });
+      streamlines.forEach((line, li) => {
+        if (line.points.length < 2) return;
+        const positions = line.points.map((p) =>
+          this.enuToCartesian(enu, p.east, p.north, base + p.up),
+        );
+        const color = Cesium.Color.fromCssColorString(bandColors[line.band] ?? '#3f7fe0');
+        const alpha = 0.45 + line.strength * 0.45; // prevailing lines more opaque
+        const ent = viewer.entities.add({
+          name: `pryzm-climate-windflow-${li}`,
+          polyline: {
+            positions,
+            width: 1.5 + line.strength * 3,
+            clampToGround: false,
+            // FIX A.21.D28#4 — flow sits ~2 m above ground; with the Forma terrain
+            // depth test on, straight segments + a depth-fail material keep the
+            // lines visible over the site/massing.
+            arcType: Cesium.ArcType.NONE,
+            material: new Cesium.PolylineGlowMaterialProperty({
+              color: color.withAlpha(alpha),
+              glowPower: 0.18,
+            }),
+            depthFailMaterial: color.withAlpha(alpha * 0.7),
+          },
+        });
+        this.climateOverlayEntities.wind.push(ent);
+      });
+
+      // Keep the radial wind-rose ticks as faint directional reference at the
+      // rim (the 3D analogue of the wind rose), under the flowing streamlines.
+      const streaks = windStreakSegments(rose, radius, 1.0);
       for (const s of streaks) {
         const from = this.enuToCartesian(enu, s.from.east, s.from.north, base + s.from.up);
         const to = this.enuToCartesian(enu, s.to.east, s.to.north, base + s.to.up);
-        const color = Cesium.Color.fromCssColorString(bandColors[s.dominantBand] ?? '#6600FF');
-        // A tapered arrow-ish streak: wider at the rim (where wind comes FROM),
-        // converging toward the centre. Width scales with the sector frequency.
+        const color = Cesium.Color.fromCssColorString(bandColors[s.dominantBand] ?? '#3f7fe0');
         const ent = viewer.entities.add({
           name: `pryzm-climate-wind-${s.label}`,
           polyline: {
             positions: [from, to],
-            width: 3 + s.frac * 9,
+            width: 2 + s.frac * 4,
             clampToGround: false,
-            // FIX A.21.D28#4 — wind streaks sit ~1-2 m above ground; with the
-            // Forma terrain depth test on they were hidden by the globe. Straight
-            // segments + a depth-fail material keep them visible over the site.
             arcType: Cesium.ArcType.NONE,
-            material: new Cesium.PolylineArrowMaterialProperty(color.withAlpha(0.9)),
-            depthFailMaterial: new Cesium.PolylineArrowMaterialProperty(color.withAlpha(0.9)),
+            material: new Cesium.PolylineArrowMaterialProperty(color.withAlpha(0.45)),
+            depthFailMaterial: new Cesium.PolylineArrowMaterialProperty(color.withAlpha(0.35)),
           },
         });
         this.climateOverlayEntities.wind.push(ent);
       }
       viewer.scene.requestRender();
-      console.log(`[CesiumViewport][climate] wind overlay: ${streaks.length} streak(s) (mean ${rose.meanSpeedMps.toFixed(1)} m/s), radius ${radius.toFixed(0)} m.`);
+      console.log(`[CesiumViewport][climate] wind overlay: ${streamlines.length} streamline(s) + ${streaks.length} rose tick(s) (mean ${rose.meanSpeedMps.toFixed(1)} m/s), radius ${radius.toFixed(0)} m${obstacle ? `, obstacle r=${obstacle.radius.toFixed(0)} m` : ''}.`);
     } catch (e) {
       console.warn('[CesiumViewport][climate] wind overlay failed:', e);
     }
@@ -2721,23 +2789,60 @@ export class CesiumViewport {
       const tint = heatTintColorHex(ds);
       const radius = this.overlayRadiusM();
       const base = this.formaTerrainBaseHeight;
-      // A translucent ground disc tinted by the annual mean temperature, sitting
-      // just above the ground plane so it reads as a heat/comfort wash.
-      const ent = viewer.entities.add({
-        name: 'pryzm-climate-heat-tint',
-        position: Cesium.Cartesian3.fromDegrees(origin.lon, origin.lat, base + 0.1),
+      const enu = Cesium.Transforms.eastNorthUpToFixedFrame(
+        Cesium.Cartesian3.fromDegrees(origin.lon, origin.lat, 0),
+      );
+      // A faint base disc tinted by the annual mean temperature, UNDER the
+      // comfort grid, so the field always reads as a wash even at the edges.
+      const baseDisc = viewer.entities.add({
+        name: 'pryzm-climate-heat-base',
+        position: Cesium.Cartesian3.fromDegrees(origin.lon, origin.lat, base + 0.05),
         ellipse: {
           semiMajorAxis: radius,
           semiMinorAxis: radius,
-          height: base + 0.1,
-          material: Cesium.Color.fromCssColorString(tint).withAlpha(0.28),
-          outline: true,
-          outlineColor: Cesium.Color.fromCssColorString(tint).withAlpha(0.7),
+          height: base + 0.05,
+          material: Cesium.Color.fromCssColorString(tint).withAlpha(0.12),
         },
       });
-      this.climateOverlayEntities.heat.push(ent);
+      this.climateOverlayEntities.heat.push(baseDisc);
+
+      // ── A.21.D35 — gradient comfort GROUND MAP (the Forma heat field) ───────
+      // A coarse grid of green→red cells: warm-season mean sets the base, the
+      // building's sun-facing/sheltered sides modulate per-cell. STYLISED, not a
+      // microclimate sim. The sun "hot side" tracks the solar azimuth at the
+      // current Forma sun date/time so the warm side faces the real sun.
+      const obstacle = this.overlayObstacle();
+      const sunBearingDeg = this.heatSunBearingDeg(origin.lat, origin.lon);
+      const cells = heatFieldCells(ds, radius, {
+        gridCount: 14,
+        obstacleRadius: obstacle?.radius ?? radius * 0.16,
+        obstacleCenter: obstacle?.center,
+        sunBearingDeg,
+        heightAboveGround: 0.15,
+      });
+      cells.forEach((c, ci) => {
+        const cz = base + c.center.up;
+        // Square cell as a 4-corner polygon in ENU, anchored with the shared frame.
+        const h = c.halfSize * 0.96; // tiny gap so cells read as a grid
+        const corners = [
+          this.enuToCartesian(enu, c.center.east - h, c.center.north - h, cz),
+          this.enuToCartesian(enu, c.center.east + h, c.center.north - h, cz),
+          this.enuToCartesian(enu, c.center.east + h, c.center.north + h, cz),
+          this.enuToCartesian(enu, c.center.east - h, c.center.north + h, cz),
+        ];
+        const color = Cesium.Color.fromCssColorString(c.colorHex).withAlpha(0.42);
+        const ent = viewer.entities.add({
+          name: `pryzm-climate-heatcell-${ci}`,
+          polygon: {
+            hierarchy: new Cesium.PolygonHierarchy(corners),
+            perPositionHeight: true,
+            material: color,
+          },
+        });
+        this.climateOverlayEntities.heat.push(ent);
+      });
       viewer.scene.requestRender();
-      console.log(`[CesiumViewport][climate] heat overlay: ground tint ${tint}, radius ${radius.toFixed(0)} m.`);
+      console.log(`[CesiumViewport][climate] heat overlay: ${cells.length} comfort cell(s) (base tint ${tint}, sun bearing ${sunBearingDeg.toFixed(0)}°), radius ${radius.toFixed(0)} m.`);
     } catch (e) {
       console.warn('[CesiumViewport][climate] heat overlay failed:', e);
     }
