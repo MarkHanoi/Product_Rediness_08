@@ -14,6 +14,7 @@ import { createId } from '@pryzm/schemas';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import type { CeilingRoomInput, PlacedCeiling } from '@pryzm/ai-host';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
+import { getStairVoidsForLevel } from '../house-layout/houseStairVoids.js';
 
 interface Pt { x: number; z: number }
 
@@ -62,11 +63,34 @@ export class CeilingLayoutExecutor {
 
             const { ceilingForRoom, buildCeilingCommands } = await import('@pryzm/ai-host');
 
+            // §A.21.D29 #1 — stairwell voids on THIS level. The ceiling producer
+            // (produceCeiling) fans a SOLID polygon from its centroid and cannot carry
+            // a hole, so a ceiling tile over the stair room would re-cover the open
+            // stairwell. Pragmatic correct fix: SKIP the ceiling for the room that hosts
+            // a void (its centroid falls inside the room boundary). Empty for the
+            // apartment + single-storey paths (no stairs) → every room is ceiled as
+            // before. (Floors DO cut a true hole — produceFloor extrudes a Shape with
+            // holes; ceilings don't have that path, hence skip-not-cut here.)
+            const voids = getStairVoidsForLevel(level.id);
+            const roomHostsVoid = (poly: readonly Pt[]): boolean => {
+                if (voids.length === 0 || poly.length < 3) return false;
+                return voids.some(v => {
+                    if (v.polygon.length < 3) return false;
+                    const c = this._polyCentroid(v.polygon);
+                    return this._pointInPoly(c, poly);
+                });
+            };
+
             const allPlaced: PlacedCeiling[] = [];
-            let ceiled = 0, skipped = 0;
+            let ceiled = 0, skipped = 0, voidSkipped = 0;
             for (const r of allRooms) {
                 const poly = (r.boundary?.polygon ?? []) as readonly Pt[];
                 if (poly.length < 3) { skipped++; continue; }
+                if (roomHostsVoid(poly)) {
+                    voidSkipped++; skipped++;
+                    console.log('[ceiling-layout] §VOID-FINISH skipping ceiling for stairwell-void room', r.id);
+                    continue;
+                }
                 const input: CeilingRoomInput = {
                     roomId: r.id,
                     levelId: level.id,
@@ -83,7 +107,7 @@ export class CeilingLayoutExecutor {
             console.log(
                 '[ceiling-layout] §CEILING-SUMMARY ' +
                 `rooms_total=${allRooms.length} rooms_ceiled=${ceiled} ` +
-                `rooms_skipped=${skipped} ceilings_placed=${allPlaced.length}`,
+                `rooms_skipped=${skipped} (void_skipped=${voidSkipped}) ceilings_placed=${allPlaced.length}`,
             );
 
             if (allPlaced.length === 0) {
@@ -128,5 +152,25 @@ export class CeilingLayoutExecutor {
             console.warn('[CeilingLayoutExecutor] execute failed (non-fatal):', err);
             runtime.events?.emit('pryzm:toast', { message: 'Ceiling auto-place failed.', severity: 'error' });
         }
+    }
+
+    /** Vertex-average centroid of a polygon (world X-Z). */
+    private _polyCentroid(poly: ReadonlyArray<{ x: number; z: number }>): { x: number; z: number } {
+        let sx = 0, sz = 0;
+        for (const p of poly) { sx += p.x; sz += p.z; }
+        const n = poly.length || 1;
+        return { x: sx / n, z: sz / n };
+    }
+
+    /** Ray-cast point-in-polygon test in world X-Z. */
+    private _pointInPoly(pt: { x: number; z: number }, poly: ReadonlyArray<{ x: number; z: number }>): boolean {
+        let inside = false;
+        for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+            const a = poly[i]!, b = poly[j]!;
+            const intersects = (a.z > pt.z) !== (b.z > pt.z)
+                && pt.x < ((b.x - a.x) * (pt.z - a.z)) / (b.z - a.z) + a.x;
+            if (intersects) inside = !inside;
+        }
+        return inside;
     }
 }

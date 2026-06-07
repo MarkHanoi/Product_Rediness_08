@@ -26,7 +26,7 @@ import {
     CommandContext,
 } from '../types';
 import { CreateFloorCommand } from './CreateFloorCommand';
-import { batchCoordinator } from '@pryzm/core-app-model';
+import { batchCoordinator, type FloorServiceHole } from '@pryzm/core-app-model';
 import { buildPerRoomBoundaryElements, roomsOnLevel, roomsWithBoundary, type PerRoomCtx } from '../rooms/perRoomBoundary';
 import { floorFinishFor } from './floorFinish';
 
@@ -38,6 +38,13 @@ const TILE_TYPES = new Set([
     'kitchen', 'kitchen-shared', 'bathroom', 'wc', 'accessible-wc', 'shower-room', 'utility-room',
 ]);
 
+/** §A.21.D29 #1 — a stairwell void to cut from the floor finish of the room that
+ *  hosts it (world-XZ polygon, same frame as the room/floor boundary). */
+export interface FloorVoid {
+    /** Footprint polygon in world X-Z (matches the slab opening / stair footprint). */
+    readonly polygon: ReadonlyArray<{ x: number; z: number }>;
+}
+
 export class CreateFloorsByRoomTypeCommand implements Command {
     readonly affectedStores = ['floor'] as const;
     readonly id: string;
@@ -48,8 +55,13 @@ export class CreateFloorsByRoomTypeCommand implements Command {
 
     /** @param style — brief style chip (modern/classic/minimal/warm) so each floor
      *  gets a realistic, style-appropriate finish (§A.21.D-FLOOR). Optional; absent
-     *  → 'modern'. */
-    constructor(private levelId: string, private style?: string) {
+     *  → 'modern'.
+     *  @param voids — §A.21.D29 #1 stairwell voids on THIS level (world-XZ polygons).
+     *  A floor whose room boundary contains a void's centroid gets that void cut as a
+     *  `polygon` service-hole, so the upper-storey finish stays open over the stair —
+     *  matching the slab void the stair already punched. Empty / omitted on the
+     *  apartment + single-storey paths (no stairs), so behaviour is unchanged. */
+    constructor(private levelId: string, private style?: string, private voids?: ReadonlyArray<FloorVoid>) {
         this.id = `cmd-floors-by-room-${Date.now()}`;
         this.timestamp = Date.now();
     }
@@ -84,14 +96,21 @@ export class CreateFloorsByRoomTypeCommand implements Command {
             // this is what the user sees. CreateFloorCommand spreads finishSpec over
             // its default, so a believable finish always lands.
             const finish = floorFinishFor(room.occupancyType, this.style);
+            const roomPoly = room.boundary!.polygon!.map(p => ({ x: p.x, z: p.z }));
+            // §A.21.D29 #1 — cut any stairwell void hosted in THIS room as a `polygon`
+            // service-hole (FloorPanelBuilder extrudes the boundary Shape with these as
+            // `shape.holes`, so the finish is genuinely open over the stair). The void
+            // polygon is in the SAME world-XZ frame as the floor boundary (no remap).
+            const serviceHoles = this._serviceHolesForRoom(roomPoly);
             return new CreateFloorCommand({
                 floorId: crypto.randomUUID(),
                 ifcGuid: crypto.randomUUID(),
-                polygon: room.boundary!.polygon!.map(p => ({ x: p.x, z: p.z })),
+                polygon: roomPoly,
                 levelId: this.levelId,
                 systemTypeId: this._resolveFinishTypeId(finishStore, category),
                 hostRoomId: room.id,
                 label: `${room.name ?? 'Room'} Floor`,
+                ...(serviceHoles.length > 0 ? { serviceHoles } : {}),
                 ...(finish ? { finishSpec: {
                     finishColor: finish.finishColor,
                     finishPattern: finish.finishPattern,
@@ -146,6 +165,69 @@ export class CreateFloorsByRoomTypeCommand implements Command {
     }
 
     // ── Internal ────────────────────────────────────────────────────────────────
+
+    /**
+     * §A.21.D29 #1 — build the `polygon` service-holes for the floor of a room: one
+     * per recorded stairwell void whose CENTROID lies inside the room boundary. The
+     * void polygon is already in world X-Z (the SAME frame as the floor boundary the
+     * FloorPanelBuilder reads), so it is copied through unchanged. Empty when no
+     * voids are registered (apartment / single-storey) — zero behaviour change.
+     */
+    private _serviceHolesForRoom(roomPoly: ReadonlyArray<{ x: number; z: number }>): FloorServiceHole[] {
+        const voids = this.voids;
+        if (!voids || voids.length === 0) return [];
+        const holes: FloorServiceHole[] = [];
+        for (const v of voids) {
+            if (v.polygon.length < 3) continue;
+            const c = this._polyCentroid(v.polygon);
+            if (!this._pointInPoly(c, roomPoly)) continue;
+            // Emit the void wound OPPOSITE to the room boundary (which CreateFloorCommand
+            // stores CCW). THREE's triangulateShape pairs a hole contour to its outer by
+            // containment, but opposite winding is the canonical, robust form (it's what
+            // the slab builder normalises holes to). We force the void CW in world X-Z.
+            const cw = this._signedArea(v.polygon) > 0 ? [...v.polygon].reverse() : [...v.polygon];
+            holes.push({
+                id: crypto.randomUUID(),
+                elementId: crypto.randomUUID(),
+                subType: 'floor-hatch',
+                shape: 'polygon',
+                polygon: cw.map(p => ({ x: p.x, z: p.z })),
+                label: 'Stairwell void',
+            });
+        }
+        return holes;
+    }
+
+    /** Signed area of a polygon in world X-Z (>0 → CCW, <0 → CW). */
+    private _signedArea(poly: ReadonlyArray<{ x: number; z: number }>): number {
+        let s = 0;
+        for (let i = 0; i < poly.length; i++) {
+            const a = poly[i]!, b = poly[(i + 1) % poly.length]!;
+            s += a.x * b.z - b.x * a.z;
+        }
+        return s * 0.5;
+    }
+
+    /** Vertex-average centroid of a polygon (world X-Z). Adequate for the convex
+     *  oriented-rect void footprint we test for containment. */
+    private _polyCentroid(poly: ReadonlyArray<{ x: number; z: number }>): { x: number; z: number } {
+        let sx = 0, sz = 0;
+        for (const p of poly) { sx += p.x; sz += p.z; }
+        const n = poly.length || 1;
+        return { x: sx / n, z: sz / n };
+    }
+
+    /** Ray-cast point-in-polygon test in world X-Z. */
+    private _pointInPoly(pt: { x: number; z: number }, poly: ReadonlyArray<{ x: number; z: number }>): boolean {
+        let inside = false;
+        for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+            const a = poly[i]!, b = poly[j]!;
+            const intersects = (a.z > pt.z) !== (b.z > pt.z)
+                && pt.x < ((b.x - a.x) * (pt.z - a.z)) / (b.z - a.z) + a.x;
+            if (intersects) inside = !inside;
+        }
+        return inside;
+    }
 
     private _finishCategory(occ: string | undefined): 'timber' | 'tile-stone' | null {
         if (!occ) return null;
