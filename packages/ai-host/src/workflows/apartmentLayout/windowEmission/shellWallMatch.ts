@@ -255,6 +255,32 @@ export function resolveShellWindow(
     // projects the centre well inside [0, len] (no regression).
     if (centreParam < -OVERLAP_TOL_M || centreParam > shellDir.len + OVERLAP_TOL_M) return null;
 
+    // §WINDOW-CORNER-FIT (A.21.D39, 2026-06-07) — a SKEWED corner recurrence: even with
+    // the centre-band guard above, a window whose projected centre is inside [0, len]
+    // but TOO CLOSE to an end requires the offset clamp below to DRAG the whole opening
+    // toward that corner — landing its edge flush against (or, after the perpendicular
+    // neighbour's own thickness, past) the corner where two shell walls join, so the
+    // frame reads as poking OUT of the shell at the corner. ROOT FIX: a window must fit
+    // on its host segment with the END_CLEAR margin from BOTH corners WITHOUT being
+    // dragged — i.e. its projected centre must already be ≥ widthM/2 + END_CLEAR_M from
+    // each end. If the room only fronts the host near a corner (the centre is closer
+    // than that), the window CANNOT sit fully inside its façade between the two corners
+    // → DROP it rather than render it overrunning the corner.
+    //
+    // SCOPE: this corner guard applies ONLY to windows that were NOT width-clamped —
+    // i.e. the engine's requested width already fits the host shell wall. An OVER-WIDE
+    // window (whose width was clamped to fit the wall, §WINDOW-SHELL-CLAMP) is a
+    // different intent: it is centred mid-wall and intentionally drag-fitted — the
+    // pre-existing behaviour the A.21.D28 test pins. Only an un-clamped window crowding
+    // a corner is the off-shell escape this guard closes. An exact-match orthogonal
+    // window (centre well inside the span, width unchanged) passes untouched — so no
+    // regression on the dominant case.
+    const wasWidthClamped = widthM < (win.width / 1000) - EPS_M;
+    if (!wasWidthClamped) {
+        const minCentre = widthM / 2 + END_CLEAR_M;
+        if (centreParam < minCentre - EPS_M || centreParam > shellDir.len - minCentre + EPS_M) return null;
+    }
+
     // Centre the (possibly width-clamped) opening on the projected centre, then clamp
     // the offset so the WHOLE opening sits strictly inside both wall ends. Because the
     // centre is inside [0, len] and the width fits (maxWidthM check above), a feasible

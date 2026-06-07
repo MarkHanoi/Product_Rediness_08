@@ -254,6 +254,48 @@ describe('resolveShellWindow — §WINDOW-IN-SHELL-FINAL: opening never floats o
     });
 });
 
+describe('resolveShellWindow — §WINDOW-CORNER-FIT (A.21.D39): drop a window that can not fully fit at a corner', () => {
+    const win = (over: Partial<LayoutWindow> = {}): LayoutWindow => ({
+        wallRef: 0, offset: 0, width: 1500, height: 1300, sillHeight: 900, ...over,
+    });
+    const shellLen = 5;
+    const END_CLEAR = 0.1;
+
+    it('drops a window whose projected centre is closer to a corner than half-width + end clearance', () => {
+        // 1.5 m window on a 5 m shell wall, centred at 0.5 m from the start corner.
+        // It cannot sit fully inside with the 0.1 m end-clearance from BOTH corners
+        // (needs centre ≥ 0.75 + 0.1 = 0.85 m) → the old offset-clamp would have
+        // dragged it flush against the corner; now it is DROPPED.
+        const r = resolveShellWindow(
+            win({ offset: -250, width: 1500 }),   // centre at offset+width/2 = 0.5 m
+            [optWall(0, 0, shellLen * 1000, 0)],
+            [shell('shell-1', 0, 0, shellLen, 0)],
+        );
+        expect(r).toBeNull();
+    });
+
+    it('keeps a window comfortably away from both corners', () => {
+        const r = resolveShellWindow(
+            win({ offset: 1750, width: 1500 }),   // centre at 2.5 m (mid-wall)
+            [optWall(0, 0, shellLen * 1000, 0)],
+            [shell('shell-1', 0, 0, shellLen, 0)],
+        );
+        expect(r).not.toBeNull();
+        // The kept window sits with the end clearance from both corners.
+        expect(r!.offsetM).toBeGreaterThanOrEqual(END_CLEAR - 1e-6);
+        expect(r!.offsetM + r!.widthM).toBeLessThanOrEqual(shellLen - END_CLEAR + 1e-6);
+    });
+
+    it('drops a window crowding the FAR corner too', () => {
+        const r = resolveShellWindow(
+            win({ offset: 4250, width: 1500 }),   // centre at 5.0 m == far corner
+            [optWall(0, 0, shellLen * 1000, 0)],
+            [shell('shell-1', 0, 0, shellLen, 0)],
+        );
+        expect(r).toBeNull();
+    });
+});
+
 describe('resolveAllShellWindows (T1.W-C)', () => {
     it('flattens resolutions across multiple windows', () => {
         const windows: LayoutWindow[] = [
