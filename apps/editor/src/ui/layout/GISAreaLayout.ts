@@ -832,8 +832,15 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         levelId?: string;
     }> => {
         type RoofRecord = {
-            // legacy RoofData: plan footprint ring as [x, z] pairs.
-            footprint?: { polygon?: ReadonlyArray<readonly [number, number]> };
+            // legacy RoofData: plan footprint ring as [x, z] pairs. CRITICAL — per
+            // RoofTool._normalisePolygon + HouseLayoutExecutor._createRoof, `polygon`
+            // is CENTROID-LOCAL (each vertex relative to `centroid`) and `centroid`
+            // carries the WORLD anchor. The RoofFragmentBuilder reconstructs the
+            // world ring as centroid + local.
+            footprint?: {
+                polygon?: ReadonlyArray<readonly [number, number]>;
+                centroid?: readonly [number, number];
+            };
             // C11 RoofData (Zod Roof): plan ring as Vec3 {x,y,z}; plan coords are x,z.
             boundary?: ReadonlyArray<{ x: number; y?: number; z: number }>;
             thickness?: number;
@@ -849,9 +856,21 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         const levelElev = levelElevationFromWalls();
         const out: Array<{ ring: XZ[]; baseElevation: number; thickness: number; pitch: number; levelId?: string }> = [];
         for (const r of all) {
-            // Prefer the legacy footprint ring; fall back to the C11 boundary Vec3 ring.
-            const ring: XZ[] | null = r.footprint?.polygon && r.footprint.polygon.length >= 3
-                ? r.footprint.polygon.map((p) => ({ x: p[0], z: p[1] }))
+            // §A.21.D33(e) — ROOF FOOTPRINT ROOT CAUSE + FIX. The earlier reader read
+            // the legacy `footprint.polygon` directly as if it were WORLD-XZ. It is
+            // not: it is CENTROID-LOCAL (vertices relative to `footprint.centroid`,
+            // the world anchor). Dropping the centroid rendered the roof centred on
+            // the scene origin (0,0) — offset from the building by (cx, cz) and
+            // reading as a small floating shape next to the house. We now ADD the
+            // world centroid back, so world vertex = centroid + local (exactly what
+            // the BIM RoofFragmentBuilder does). The C11 `boundary` Vec3 ring is
+            // already world-XZ → no centroid offset for that branch.
+            const fp = r.footprint;
+            const centroid = fp?.centroid;
+            const cx = Array.isArray(centroid) && typeof centroid[0] === 'number' ? centroid[0] : 0;
+            const cz = Array.isArray(centroid) && typeof centroid[1] === 'number' ? centroid[1] : 0;
+            const ring: XZ[] | null = fp?.polygon && fp.polygon.length >= 3
+                ? fp.polygon.map((p) => ({ x: p[0] + cx, z: p[1] + cz }))
                 : r.boundary && r.boundary.length >= 3
                     ? r.boundary.map((p) => ({ x: p.x, z: p.z }))
                     : null;
@@ -911,10 +930,19 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             levelElevation?: number;
             baseOffset?: number;
         };
-        const furnitureStore = storeRegistry.getStoreForType('furniture') as unknown as
+        // §A.21.D33(e) — read the legacy FurnitureStore (the canonical read the
+        // ProjectSerializer / schedules / every plan-symbol builder use). It is the
+        // store the §FT-FURNITURE bus→legacy bridge mirrors generated furniture into.
+        // Resolve via the registry, then DEFENSIVELY fall back to window.furnitureStore
+        // (same instance in normal boot, but this guards a registry-vs-window divergence
+        // and an early call before registration). Whichever yields the most records wins.
+        const regStore = storeRegistry.getStoreForType('furniture') as unknown as
             | { getAll?: () => FurnitureRecord[] }
             | undefined;
-        const all = furnitureStore?.getAll?.() ?? [];
+        const winStore = (window as unknown as { furnitureStore?: { getAll?: () => FurnitureRecord[] } }).furnitureStore;
+        const regAll = regStore?.getAll?.() ?? [];
+        const winAll = winStore?.getAll?.() ?? [];
+        const all = winAll.length > regAll.length ? winAll : regAll;
         const out: Array<{ origin: XZ; baseElevation: number; width: number; depth: number; height: number; rotation: number }> = [];
         for (const f of all) {
             if (out.length >= FORMA_FURNITURE_CAP) break;
@@ -923,18 +951,24 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             const width = typeof f.width === 'number' && f.width > 0 ? f.width : 0.6;
             const depth = typeof f.length === 'number' && f.length > 0 ? f.length : 0.6;
             const height = typeof f.height === 'number' && f.height > 0 ? f.height : 0.7;
-            // World base elevation: prefer the explicit level fields; fall back to
-            // position.y (some pipelines bake world Y there), else ground.
+            // §A.21.D33(e) — MULTI-STOREY ELEVATION FIX. `position.y` is the
+            // authoritative WORLD Y (the furnish pipeline + the §FT-FURNITURE bridge
+            // both bake the storey elevation into it). The bridge ZEROES
+            // `levelElevation` when mirroring, so the prior "levelElevation+baseOffset
+            // first" path collapsed every upper-storey item onto the ground floor.
+            // Prefer a finite, non-ground `position.y`; only fall back to the
+            // level fields (then ground) when world Y is absent/zero.
+            const worldY = typeof p.y === 'number' && Number.isFinite(p.y) ? p.y : undefined;
             const levelElev =
                 typeof f.levelElevation === 'number' && Number.isFinite(f.levelElevation) ? f.levelElevation : undefined;
             const baseOffset =
                 typeof f.baseOffset === 'number' && Number.isFinite(f.baseOffset) ? f.baseOffset : 0;
             const baseElevation =
-                levelElev !== undefined
-                    ? levelElev + baseOffset
-                    : typeof p.y === 'number' && Number.isFinite(p.y)
-                        ? p.y
-                        : 0;
+                worldY !== undefined && Math.abs(worldY) > 1e-6
+                    ? worldY
+                    : levelElev !== undefined
+                        ? levelElev + baseOffset
+                        : worldY ?? 0;
             out.push({
                 origin: { x: p.x, z: p.z },
                 baseElevation,
