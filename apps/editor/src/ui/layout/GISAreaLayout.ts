@@ -737,12 +737,38 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // ════════════════════════════════════════════════════════════════════════
 
     /**
-     * §A.21.D25 — read authored floor SLABS from the slab store. A slab's
-     * `boundary` is a closed loop of world-coordinate Vec3 (y carries the level
-     * elevation), with `thickness` + a `baseOffset` from the level base. We carry
-     * the outer ring (scene-XZ), the top elevation (boundary.y + baseOffset) and
-     * the thickness so the Cesium side can extrude a THIN solid floor plate at the
-     * storey elevation — giving the building its floor plates + solidity.
+     * §A.21.D25 — build a `levelId → baseElevation` map from the (working) wall
+     * reader. The runtime slab/roof records do NOT carry their world elevation
+     * (slab `position.y` is always 0 — world Y is resolved at projection time
+     * from the level; roof elevation lives on the level too), so we borrow the
+     * per-storey elevation the walls already resolve correctly. This is exactly
+     * the elevation the wall massing stacks each storey at, so slabs/roofs line
+     * up with their storey. Levels with no wall fall back to ground (0).
+     */
+    const levelElevationFromWalls = (): Map<string, number> => {
+        const map = new Map<string, number>();
+        for (const w of getFormaWalls()) {
+            if (w.levelId && !map.has(w.levelId)) map.set(w.levelId, w.baseElevation);
+        }
+        return map;
+    };
+
+    /**
+     * §A.21.D25 (FIX A.21.D28#1) — read authored floor SLABS from the slab store.
+     *
+     * ROOT CAUSE of "0 slab(s)": the earlier reader looked for `s.boundary` as a
+     * Vec3[] of {x, y, z} with y carrying the elevation — a shape NO slab store
+     * actually uses → every slab was skipped. There are two slab record shapes in
+     * play and this reader handles BOTH (whichever store is registered as 'slab'):
+     *   • legacy `SlabData` (packages/geometry-slab/src/SlabTypes.ts): outer ring
+     *     in `polygon: {x, y}[]` (2D, y === world Z); world elevation NOT on the
+     *     record (`position.y` is always 0, resolved from the level at projection).
+     *   • C11 plugin `SlabData` (= Zod Slab schema): outer ring in
+     *     `boundary: {x, y, z}[]` where (per CreateSlab) x === worldX, y === worldZ,
+     *     z === 0 — so the plan mapping is identical (second coord → scene Z).
+     * In both cases the plan ring's two coords map to scene-XZ as {x, z: secondCoord}
+     * and the storey elevation is resolved from the level (via the working walls)
+     * plus the slab's `baseOffset` + `thickness`.
      */
     const getFormaSlabs = (): Array<{
         ring: XZ[];
@@ -751,7 +777,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         levelId?: string;
     }> => {
         type SlabRecord = {
-            boundary?: ReadonlyArray<{ x: number; y?: number; z: number }>;
+            // legacy SlabData: outer ring is `polygon` of 2D {x,y} where y === world Z.
+            polygon?: ReadonlyArray<{ x: number; y: number }>;
+            // C11 SlabData (Zod Slab): outer ring is `boundary` of {x,y,z} where y === world Z.
+            boundary?: ReadonlyArray<{ x: number; y: number; z?: number }>;
             thickness?: number;
             baseOffset?: number;
             levelId?: string;
@@ -760,16 +789,21 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             | { getAll?: () => SlabRecord[] }
             | undefined;
         const all = slabStore?.getAll?.() ?? [];
+        const levelElev = levelElevationFromWalls();
         const out: Array<{ ring: XZ[]; topElevation: number; thickness: number; levelId?: string }> = [];
         for (const s of all) {
-            const b = s.boundary;
-            if (!b || b.length < 3) continue;
-            const yElev = typeof b[0]?.y === 'number' && Number.isFinite(b[0].y) ? (b[0].y as number) : 0;
+            // Accept legacy `polygon` or C11 `boundary`; both carry the plan ring
+            // as {x, y} pairs where the SECOND coordinate is world Z.
+            const poly = s.polygon ?? s.boundary;
+            if (!poly || poly.length < 3) continue;
+            const baseElev =
+                typeof s.levelId === 'string' && levelElev.has(s.levelId) ? levelElev.get(s.levelId)! : 0;
             const baseOffset =
                 typeof s.baseOffset === 'number' && Number.isFinite(s.baseOffset) ? s.baseOffset : 0;
             out.push({
-                ring: b.map((p) => ({ x: p.x, z: p.z })),
-                topElevation: yElev + baseOffset,
+                // Plan ring {x, y} → scene-XZ is {x, z: y}.
+                ring: poly.map((p) => ({ x: p.x, z: p.y })),
+                topElevation: baseElev + baseOffset,
                 thickness: typeof s.thickness === 'number' && s.thickness > 0 ? s.thickness : 0.2,
                 levelId: typeof s.levelId === 'string' && s.levelId ? s.levelId : undefined,
             });
@@ -778,13 +812,17 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     };
 
     /**
-     * §A.21.D25 — read authored ROOFS from the roof store. A roof's `boundary`
-     * is a closed world-coordinate loop (y carries the top elevation); `pitch`
-     * (radians) + `shape` describe its form. For the coarse Forma massing we
-     * render it as a CAPPING SOLID at the top elevation (footprint extruded a
-     * little so the building closes on top) and carry the pitch so the Cesium
-     * side can raise a simple ridge for pitched roofs. This closes the building
-     * on top in the site view (it was open-topped walls before).
+     * §A.21.D25 (FIX A.21.D28#1) — read authored ROOFS from the roof store.
+     *
+     * ROOT CAUSE of "0 roof(s)": the earlier reader looked for `r.boundary` (Vec3[]
+     * with y = elevation) + `r.pitch` (radians). The registered runtime store holds
+     * the legacy `RoofData` (packages/geometry-roof/src/RoofTypes.ts), which has
+     * NEITHER — it carries the plan footprint in `footprint.polygon` as
+     * `[number, number][]` (each `[x, z]`), the eave elevation in `baseOffset`, and
+     * the slope as `slope` = rise/run (NOT radians) → every roof was skipped.
+     * This reader handles BOTH shapes (whichever store is registered as 'roof'):
+     *   • legacy RoofData: `footprint.polygon` ([x,z] pairs) + `slope` + `baseOffset`.
+     *   • C11 plugin / Zod Roof schema: `boundary` (Vec3 {x,y,z}; plan = x,z) + `pitch`.
      */
     const getFormaRoofs = (): Array<{
         ring: XZ[];
@@ -794,25 +832,44 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         levelId?: string;
     }> => {
         type RoofRecord = {
+            // legacy RoofData: plan footprint ring as [x, z] pairs.
+            footprint?: { polygon?: ReadonlyArray<readonly [number, number]> };
+            // C11 RoofData (Zod Roof): plan ring as Vec3 {x,y,z}; plan coords are x,z.
             boundary?: ReadonlyArray<{ x: number; y?: number; z: number }>;
             thickness?: number;
-            pitch?: number;
+            slope?: number;      // legacy: rise/run ratio (NOT radians)
+            pitch?: number;      // C11: radians
+            baseOffset?: number; // legacy: eave elevation relative to the level
             levelId?: string;
         };
         const roofStore = storeRegistry.getStoreForType('roof') as unknown as
             | { getAll?: () => RoofRecord[] }
             | undefined;
         const all = roofStore?.getAll?.() ?? [];
+        const levelElev = levelElevationFromWalls();
         const out: Array<{ ring: XZ[]; baseElevation: number; thickness: number; pitch: number; levelId?: string }> = [];
         for (const r of all) {
-            const b = r.boundary;
-            if (!b || b.length < 3) continue;
-            const yElev = typeof b[0]?.y === 'number' && Number.isFinite(b[0].y) ? (b[0].y as number) : 0;
+            // Prefer the legacy footprint ring; fall back to the C11 boundary Vec3 ring.
+            const ring: XZ[] | null = r.footprint?.polygon && r.footprint.polygon.length >= 3
+                ? r.footprint.polygon.map((p) => ({ x: p[0], z: p[1] }))
+                : r.boundary && r.boundary.length >= 3
+                    ? r.boundary.map((p) => ({ x: p.x, z: p.z }))
+                    : null;
+            if (!ring) continue;
+            const baseElev =
+                typeof r.levelId === 'string' && levelElev.has(r.levelId) ? levelElev.get(r.levelId)! : 0;
+            const baseOffset =
+                typeof r.baseOffset === 'number' && Number.isFinite(r.baseOffset) ? r.baseOffset : 0;
+            // pitch radians: prefer the C11 `pitch`; else convert legacy `slope` (rise/run).
+            const slope = typeof r.slope === 'number' && Number.isFinite(r.slope) && r.slope > 0 ? r.slope : 0;
+            const pitch = typeof r.pitch === 'number' && Number.isFinite(r.pitch) && r.pitch > 0
+                ? r.pitch
+                : slope > 0 ? Math.atan(slope) : 0;
             out.push({
-                ring: b.map((p) => ({ x: p.x, z: p.z })),
-                baseElevation: yElev,
+                ring,
+                baseElevation: baseElev + baseOffset,
                 thickness: typeof r.thickness === 'number' && r.thickness > 0 ? r.thickness : 0.2,
-                pitch: typeof r.pitch === 'number' && Number.isFinite(r.pitch) && r.pitch > 0 ? r.pitch : 0,
+                pitch,
                 levelId: typeof r.levelId === 'string' && r.levelId ? r.levelId : undefined,
             });
         }
@@ -820,13 +877,13 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     };
 
     /**
-     * §A.21.D25 — read authored FURNITURE as a COARSE representation (small
-     * boxes at each item's origin). OPTIONAL + HARD-CAPPED (FORMA_FURNITURE_CAP)
-     * so a heavily-furnished model never floods the globe with thousands of
-     * Cesium entities (perf). Each item carries its origin (scene-XZ), a level
-     * elevation (origin.y), a coarse footprint size (from the `size` bbox
-     * override when present, else a default), height, and rotation. At the
-     * massing scale furniture is a minor read; the cap keeps it safe.
+     * §A.21.D25 (FIX A.21.D28#1) — read authored FURNITURE as a COARSE
+     * representation (small boxes at each item's origin). OPTIONAL + HARD-CAPPED
+     * (FORMA_FURNITURE_CAP) so a heavily-furnished model never floods the globe
+     * with thousands of Cesium entities (perf). Each item carries its origin
+     * (scene-XZ from `position`), a base elevation (levelElevation + baseOffset,
+     * falling back to position.y), a coarse footprint (width × length), height,
+     * and heading (rotation.y). At the massing scale furniture is a minor read.
      */
     const FORMA_FURNITURE_CAP = 400;
     const getFormaFurniture = (): Array<{
@@ -837,11 +894,22 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         height: number;
         rotation: number;
     }> => {
+        // Runtime FurnitureData (packages/geometry-furniture/src/FurnitureTypes.ts):
+        //   • position : Point3D  {x,y,z}  (scene-XZ origin; y = world Y when set)
+        //   • rotation : EulerDTO {x,y,z}  (y = heading about the up axis)
+        //   • width / length / height (metres) — NOT a `size` bbox
+        //   • levelElevation + baseOffset — the world base elevation
+        // ROOT CAUSE of "0 furniture": the earlier reader looked for `f.origin`,
+        // `f.size`, `f.scale` and a numeric `f.rotation` — none of which exist on
+        // FurnitureData → every item was skipped.
         type FurnitureRecord = {
-            origin?: { x: number; y?: number; z: number };
-            rotation?: number;
-            scale?: number;
-            size?: { x: number; y: number; z: number };
+            position?: { x: number; y?: number; z: number };
+            rotation?: { x?: number; y?: number; z?: number };
+            width?: number;
+            length?: number;
+            height?: number;
+            levelElevation?: number;
+            baseOffset?: number;
         };
         const furnitureStore = storeRegistry.getStoreForType('furniture') as unknown as
             | { getAll?: () => FurnitureRecord[] }
@@ -850,20 +918,31 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         const out: Array<{ origin: XZ; baseElevation: number; width: number; depth: number; height: number; rotation: number }> = [];
         for (const f of all) {
             if (out.length >= FORMA_FURNITURE_CAP) break;
-            const o = f.origin;
-            if (!o || typeof o.x !== 'number' || typeof o.z !== 'number') continue;
-            const scale = typeof f.scale === 'number' && f.scale > 0 ? f.scale : 1;
-            const sz = f.size;
-            const width = (typeof sz?.x === 'number' && sz.x > 0 ? sz.x : 0.6) * scale;
-            const height = (typeof sz?.y === 'number' && sz.y > 0 ? sz.y : 0.7) * scale;
-            const depth = (typeof sz?.z === 'number' && sz.z > 0 ? sz.z : 0.6) * scale;
+            const p = f.position;
+            if (!p || typeof p.x !== 'number' || typeof p.z !== 'number') continue;
+            const width = typeof f.width === 'number' && f.width > 0 ? f.width : 0.6;
+            const depth = typeof f.length === 'number' && f.length > 0 ? f.length : 0.6;
+            const height = typeof f.height === 'number' && f.height > 0 ? f.height : 0.7;
+            // World base elevation: prefer the explicit level fields; fall back to
+            // position.y (some pipelines bake world Y there), else ground.
+            const levelElev =
+                typeof f.levelElevation === 'number' && Number.isFinite(f.levelElevation) ? f.levelElevation : undefined;
+            const baseOffset =
+                typeof f.baseOffset === 'number' && Number.isFinite(f.baseOffset) ? f.baseOffset : 0;
+            const baseElevation =
+                levelElev !== undefined
+                    ? levelElev + baseOffset
+                    : typeof p.y === 'number' && Number.isFinite(p.y)
+                        ? p.y
+                        : 0;
             out.push({
-                origin: { x: o.x, z: o.z },
-                baseElevation: typeof o.y === 'number' && Number.isFinite(o.y) ? o.y : 0,
+                origin: { x: p.x, z: p.z },
+                baseElevation,
                 width,
                 depth,
                 height,
-                rotation: typeof f.rotation === 'number' && Number.isFinite(f.rotation) ? f.rotation : 0,
+                // EulerDTO.y is the heading (rotation about the up axis).
+                rotation: typeof f.rotation?.y === 'number' && Number.isFinite(f.rotation.y) ? f.rotation.y : 0,
             });
         }
         if (all.length > FORMA_FURNITURE_CAP) {
