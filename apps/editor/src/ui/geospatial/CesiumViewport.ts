@@ -1827,6 +1827,22 @@ export class CesiumViewport {
       }
     }
 
+    // FIX A.21.D28#2 — `area ≈ 0 m²`. The footprint area + centroid were computed
+    // ONLY from the parcel boundary; a house generated from scratch (no drawn
+    // parcel) left `areaM2 = 0` and `centroidEast/North = 0`, which (a) logged the
+    // wrong footprint and (b) framed the camera + scaled the overlay radius off the
+    // site origin instead of the building. When there is no usable boundary area,
+    // derive the footprint from the authored geometry's XZ bounding box (walls,
+    // else slab rings) — the SAME scene-XZ data the massing already renders.
+    if (areaM2 <= 0) {
+      const bbox = this.footprintBBoxXZ(walls, slabs);
+      if (bbox) {
+        centroidEast = bbox.east;
+        centroidNorth = bbox.north;
+        areaM2 = bbox.area;
+      }
+    }
+
     // Feed the proposed-building entities into the FORMA.2 silhouette stage (§3).
     this.setFormaSilhouetteTargets(silhouetteTargets);
 
@@ -2332,13 +2348,26 @@ export class CesiumViewport {
       arcs.forEach((arc, i) => {
         if (arc.points.length < 2) return;
         const positions = arc.points.map((p) => this.enuToCartesian(enu, p.east, p.north, base + p.up));
+        const arcColor = Cesium.Color.fromCssColorString(arcColors[i] ?? '#F4B23E').withAlpha(0.95);
         const ent = viewer.entities.add({
           name: `pryzm-climate-sunpath-${arc.label}`,
           polyline: {
             positions,
             width: 3,
             clampToGround: false,
-            material: Cesium.Color.fromCssColorString(arcColors[i] ?? '#F4B23E').withAlpha(0.95),
+            // FIX A.21.D28#4 — in Forma mode `globe.depthTestAgainstTerrain = true`,
+            // so unclamped polylines whose points sit near the ground (the arc
+            // ends at the horizon) were occluded/clipped by the globe → the
+            // overlay was created (logged) but invisible. ARC_TYPE.NONE connects
+            // the explicit Cartesians with straight segments (not geodesics), and
+            // a `depthFailMaterial` draws the parts that fail the depth test so the
+            // whole arc is always visible over the massing + ground.
+            arcType: Cesium.ArcType.NONE,
+            material: arcColor,
+            depthFailMaterial: new Cesium.PolylineOutlineMaterialProperty({
+              color: arcColor,
+              outlineWidth: 0,
+            }),
           },
         });
         this.climateOverlayEntities.sunPath.push(ent);
@@ -2355,6 +2384,10 @@ export class CesiumViewport {
             color: Cesium.Color.fromCssColorString('#F4B23E'),
             outlineColor: Cesium.Color.fromCssColorString('#6600FF'),
             outlineWidth: 1,
+            // FIX A.21.D28#4 — never depth-test the hour dots against the globe
+            // (Forma mode enables terrain depth test); otherwise low-altitude
+            // markers vanish behind the ground.
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
           },
           label: {
             text: `${m.hourUtc}h`,
@@ -2366,6 +2399,8 @@ export class CesiumViewport {
             verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
             pixelOffset: new Cesium.Cartesian2(0, -8),
             scaleByDistance: new Cesium.NearFarScalar(100, 1.0, 2000, 0.4),
+            // FIX A.21.D28#4 — keep the labels visible over the globe too.
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
           },
         });
         this.climateOverlayEntities.sunPath.push(ent);
@@ -2406,7 +2441,12 @@ export class CesiumViewport {
             positions: [from, to],
             width: 3 + s.frac * 9,
             clampToGround: false,
+            // FIX A.21.D28#4 — wind streaks sit ~1-2 m above ground; with the
+            // Forma terrain depth test on they were hidden by the globe. Straight
+            // segments + a depth-fail material keep them visible over the site.
+            arcType: Cesium.ArcType.NONE,
             material: new Cesium.PolylineArrowMaterialProperty(color.withAlpha(0.9)),
+            depthFailMaterial: new Cesium.PolylineArrowMaterialProperty(color.withAlpha(0.9)),
           },
         });
         this.climateOverlayEntities.wind.push(ent);
@@ -2641,6 +2681,40 @@ export class CesiumViewport {
     cx /= 6 * signedArea;
     cz /= 6 * signedArea;
     return { east: cx, north: -cz, area: Math.abs(signedArea) };
+  }
+
+  /**
+   * FIX A.21.D28#2 — footprint centroid + area from the building's authored
+   * geometry when no parcel boundary is drawn. Computes the XZ bounding box of
+   * all wall endpoints (else all slab ring vertices), returning its centre +
+   * area in ENU metres (`east = x`, `north = −z`, matching the placement frame).
+   * Returns null when there is no usable geometry. The bounding box is a coarse
+   * but ALWAYS-non-zero footprint — enough to frame the camera + scale the
+   * climate-overlay radius onto the building instead of collapsing to the origin.
+   */
+  private footprintBBoxXZ(
+    walls: ReadonlyArray<{ a: { x: number; z: number }; b: { x: number; z: number } }>,
+    slabs: ReadonlyArray<{ ring: ReadonlyArray<{ x: number; z: number }> }>,
+  ): { east: number; north: number; area: number } | null {
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    let seen = 0;
+    const acc = (x: number, z: number): void => {
+      if (!Number.isFinite(x) || !Number.isFinite(z)) return;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (z < minZ) minZ = z;
+      if (z > maxZ) maxZ = z;
+      seen++;
+    };
+    for (const w of walls) { acc(w.a.x, w.a.z); acc(w.b.x, w.b.z); }
+    if (seen === 0) for (const s of slabs) for (const p of s.ring) acc(p.x, p.z);
+    if (seen === 0) return null;
+    const w = maxX - minX;
+    const d = maxZ - minZ;
+    if (w <= 0 || d <= 0) return null;
+    const cx = (minX + maxX) / 2;
+    const cz = (minZ + maxZ) / 2;
+    return { east: cx, north: -cz, area: w * d };
   }
 
   /**

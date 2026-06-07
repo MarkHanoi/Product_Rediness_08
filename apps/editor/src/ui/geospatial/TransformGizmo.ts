@@ -131,8 +131,15 @@ export class TransformGizmo {
     
     handler.setInputAction((movement: any) => {
       const picked = this.viewer.scene.pick(movement.position);
-      if (Cesium.defined(picked) && picked.id && picked.id.startsWith("gizmo-")) {
-        this.activeAxis = picked.id.split("-").pop();
+      // FIX A.21.D28#3 — `s.id.startsWith is not a function`. `picked.id` is only
+      // a string for the gizmo PRIMITIVES (which set `id: "gizmo-…"`); for a
+      // Cesium Entity (e.g. a Forma massing/slab/furniture polygon or the parcel
+      // boundary) `picked.id` is the Entity OBJECT, and for some primitives it is
+      // a number/undefined. Calling `.startsWith` on a non-string threw on every
+      // LEFT_DOWN over the massing, aborting the handler. Guard on the type.
+      const pickedId: unknown = Cesium.defined(picked) ? (picked as { id?: unknown }).id : undefined;
+      if (typeof pickedId === "string" && pickedId.startsWith("gizmo-")) {
+        this.activeAxis = pickedId.split("-").pop();
         this.isDragging = true;
         this.lastMousePosition = Cesium.Cartesian2.clone(movement.position);
         this.viewer.scene.screenSpaceCameraController.enableInputs = false;
