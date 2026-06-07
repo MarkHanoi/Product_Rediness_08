@@ -29,6 +29,10 @@ import { DocumentsBrowserPanel }         from './panels/DocumentsBrowserPanel';
 import { ViewTemplateManagerPanel }      from '../views/ViewTemplateManagerPanel';
 import { PhysicsRailPanel }              from './panels/PhysicsRailPanel';
 import { RenderRailPanel }               from '../tools-panel/panels/RenderRailPanel';
+// A.24 / A.31.e — first-class Inspect panel (Model Tree + Provenance), promoted
+// out of the dev-only modelTreeTestModal. Reuses the canonical ModelTreeComponent
+// + ProvenanceTab + isolation pipeline.
+import { buildInspectPanel, type InspectPanelHandle } from '../inspect/InspectPanel';
 
 // ── Section icon map ───────────────────────────────────────────────────────
 
@@ -69,6 +73,16 @@ const SECTION_ICONS: Record<string, string> = {
     RENDER: `<img src="/icons/right/RENDER.svg" style="width:22px;height:22px;object-fit:contain;" />`,
 
     GIS: `<img src="/icons/right/gis.svg" style="width:22px;height:22px;object-fit:contain;" />`,
+
+    // A.24 / A.31.e — Inspect (Model Tree + Provenance). Magnifier-over-tree
+    // glyph; inline SVG so it inherits the rail's currentColor + needs no asset.
+    INSPECT: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="4" y1="5" x2="9" y2="5"/>
+        <line x1="4" y1="10" x2="9" y2="10"/>
+        <line x1="4" y1="15" x2="8" y2="15"/>
+        <circle cx="16" cy="14" r="4"/>
+        <line x1="19" y1="17" x2="22" y2="20"/>
+    </svg>`,
 };
 
 // ── ProjectBrowserPanel ────────────────────────────────────────────────────
@@ -85,6 +99,11 @@ export class ProjectBrowserPanel {
     private readonly _viewTemplatesPanel:     ViewTemplateManagerPanel;
     private readonly _physicsPanel:           PhysicsRailPanel;
     private readonly _renderPanel:            RenderRailPanel;
+
+    /** A.24 — live Inspect-panel handle (tree + isolation + provenance subs).
+     *  Disposed + recreated each time the INSPECT section is rebuilt so the
+     *  isolation animator + store subscriptions don't leak across re-opens. */
+    private _inspectHandle: InspectPanelHandle | null = null;
 
     /** Phase B (S73-WIRE) — runtime threaded by parent. */
     public readonly runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null;
@@ -134,7 +153,16 @@ export class ProjectBrowserPanel {
         this._renderPanel        = new RenderRailPanel(renderProps, null as any);
 
         this._buildAll();
-        window.runtime?.events?.on('pryzm-rail-panel-state-changed', () => this._refreshButtonStates()); // F.events.12
+        window.runtime?.events?.on('pryzm-rail-panel-state-changed', () => { // F.events.12
+            this._refreshButtonStates();
+            // A.24 — when the Inspect rail panel is no longer the active section,
+            // dispose its handle so the isolation animator + provenance store
+            // subscription stop (they restart on the next open via _buildInspectPanel).
+            if (this._rail.activeId !== 'INSPECT' && this._inspectHandle !== null) {
+                try { this._inspectHandle.dispose(); } catch { /* defensive */ }
+                this._inspectHandle = null;
+            }
+        });
     }
 
     getElement(): HTMLElement {
@@ -157,6 +185,7 @@ export class ProjectBrowserPanel {
             { id: 'DOCUMENTS',      label: 'Views & Sheets',    buildFn: () => this._documentsPanel.build()        },
             { id: 'VIEW_TEMPLATES', label: 'View Templates',    buildFn: () => this._viewTemplatesPanel.build()    },
             { id: 'CAMERA',         label: 'Camera & Render',   buildFn: () => this._buildCameraRenderPanel()      },
+            { id: 'INSPECT',        label: 'Inspect',           buildFn: () => this._buildInspectPanel()           },
             { id: 'GIS',            label: 'GIS',               buildFn: () => this._buildGISPanel()               },
             { id: 'AI',             label: 'AI & Tools',        buildFn: () => this._aiPanel.build()               },
             { id: 'PHYSICS',        label: 'Physics',           buildFn: () => this._physicsPanel.build()          },
@@ -669,6 +698,19 @@ export class ProjectBrowserPanel {
         root.appendChild(resetBtn);
 
         return root;
+    }
+
+    // ── Inspect panel (Model Tree + Provenance) ─────────────────────────────────
+    //
+    // A.24 / A.31.e — promotes the dev-only modelTreeTestModal wiring into a
+    // first-class rail panel. Builds via `buildInspectPanel(runtime)` which
+    // mounts the canonical ModelTreeComponent + an embedded ProvenanceTab and
+    // wires the isolation pipeline. The previous handle is disposed first so
+    // each re-open starts a fresh tree/animator/subscription set.
+    private _buildInspectPanel(): HTMLElement {
+        try { this._inspectHandle?.dispose(); } catch { /* defensive */ }
+        this._inspectHandle = buildInspectPanel(this.runtime);
+        return this._inspectHandle.element;
     }
 
     private _buildSection(

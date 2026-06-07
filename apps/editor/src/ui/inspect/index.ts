@@ -30,3 +30,11 @@ export {
     ProvenanceMenuOrchestrator,
     type ProvenanceMenuOrchestratorOptions,
 } from './ProvenanceMenuOrchestrator';
+// A.24 / A.31.e — first-class Inspect panel (Model Tree + Provenance) promoted
+// out of the dev-only modelTreeTestModal. NOTE: imported lazily by consumers
+// (ProjectBrowserPanel) to avoid pulling the isolation pipeline into the
+// barrel's eager-load path, but re-exported here for discoverability + tests.
+export {
+    buildInspectPanel,
+    type InspectPanelHandle,
+} from './InspectPanel';
