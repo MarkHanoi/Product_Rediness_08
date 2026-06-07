@@ -41,6 +41,7 @@ import {
     windBarEndpoint,
     monthlyTempSeries,
 } from '../climate/climateChartData';
+import { getCurrentSiteOrigin } from '../site/siteDispatch';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const ACCENT = '#6600FF';
@@ -228,10 +229,24 @@ export class FormaSiteAnalysisControls {
         if (!rt) return;
         // Already have data → nothing to do.
         if (this.resolveDataset()) return;
-        // Only attempt when a site actually exists (else the empty state is correct).
-        let hasSite = false;
-        try { hasSite = !!rt.siteModelStore.getSite(); } catch { hasSite = false; }
-        if (!hasSite) return;
+        // Attempt when a site OR a resolvable location exists. §A.21.D33(f):
+        // the house/onboarding handoff can set the LTP-ENU origin (map shows
+        // lat/lon) BEFORE a Site aggregate is created — `ensureSiteClimate` now
+        // creates the Site from that origin so the dataset can key to it. Only
+        // skip when there is genuinely no location anywhere (empty state correct).
+        let hasLocation = false;
+        try {
+            const loc = rt.siteModelStore.getLocation?.();
+            hasLocation = !!(loc && (loc.latitude !== 0 || loc.longitude !== 0));
+        } catch { hasLocation = false; }
+        if (!hasLocation) {
+            const ltp = getCurrentSiteOrigin();
+            hasLocation = !!(ltp && (ltp.lat !== 0 || ltp.lon !== 0));
+        }
+        if (!hasLocation) {
+            try { hasLocation = !!rt.siteModelStore.getSite(); } catch { /* ignore */ }
+        }
+        if (!hasLocation) return;
         this.climateEnsureRequested = true;
         import('../climate/ensureSiteClimate')
             .then(({ ensureSiteClimate }) => ensureSiteClimate(rt))

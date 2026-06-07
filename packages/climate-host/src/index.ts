@@ -42,6 +42,19 @@ export {
     type BundledNormalsResult,
 } from './bundledNormals.js';
 
+// ── Offline ClimateDataset fallback (A.21.D33(f) / A.21.D27) ────────────
+// `buildFallbackClimateDataset({id, siteRef, lat, lon, …})` → a complete,
+// schema-valid `ClimateDataset` tagged `fallback-defaults`, built from the
+// bundled lat-driven normals + a synthesised 16-sector wind rose. Pure +
+// deterministic + NEVER networks — the production "NO DATASET" fallback so the
+// wind rose, heat tint, and 3D wind/heat overlays always have data. An imported
+// EPW / live NOAA refresh still wins at the store's resolve priority.
+export {
+    buildFallbackClimateDataset,
+    synthWindRoseFromNormals,
+    type FallbackClimateParams,
+} from './fallbackDataset.js';
+
 // ── NOAA normals reader + cache (A.10.c / A.10.d) ───────────────────────
 // `resolveNormals(lat, lon, {fetchImpl?})` — prefers a wired live fetch,
 // falls back to bundled, caches by quantised lat/lon. Headless-safe: no

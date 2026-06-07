@@ -29,6 +29,7 @@
 
 import {
     resolveNormals,
+    buildFallbackClimateDataset,
     type NoaaFetchImpl,
     type ResolvedNormals,
 } from '@pryzm/climate-host';
@@ -152,57 +153,66 @@ export async function climateEnsureForLocation(
         { fetchImpl: deps.fetchImpl, bypassCache: deps.bypassCache },
     );
 
-    // ── Stage 2 — derive design temps + degree-days from the monthlies ──
-    let coldest = Number.POSITIVE_INFINITY;
-    let hottest = Number.NEGATIVE_INFINITY;
-    let hdd18Total = 0;
-    let cdd18Total = 0;
-    for (const m of normals.monthlyNormals) {
-        if (m.avgMinDryBulbC < coldest) coldest = m.avgMinDryBulbC;
-        if (m.avgMaxDryBulbC > hottest) hottest = m.avgMaxDryBulbC;
-        hdd18Total += m.heatingDegreeDaysBase18;
-        cdd18Total += m.coolingDegreeDaysBase18;
+    // ── Stage 2–3 — synthesise + validate the ClimateDataset ────────────
+    // OFFLINE (bundled tier): delegate to the SINGLE tested offline builder in
+    // @pryzm/climate-host so the wind rose + heat + degree-days are guaranteed
+    // present (A.21.D33(f) — the "NO DATASET" fix). This is the production
+    // fallback whenever the live fetch is unavailable (prod has no NOAA access).
+    let dataset: ClimateDataset;
+    if (normals.tier !== 'noaa-normals') {
+        dataset = buildFallbackClimateDataset({
+            id: mintId(),
+            siteRef: payload.siteId,
+            lat: payload.lat,
+            lon: payload.lon,
+            elevationM: payload.elevationM,
+            timezone: payload.timezone,
+        });
+    } else {
+        // LIVE measured normals: derive design temps + degree-days from the
+        // monthlies + synth the rose from the prevailing directions.
+        let coldest = Number.POSITIVE_INFINITY;
+        let hottest = Number.NEGATIVE_INFINITY;
+        let hdd18Total = 0;
+        let cdd18Total = 0;
+        for (const m of normals.monthlyNormals) {
+            if (m.avgMinDryBulbC < coldest) coldest = m.avgMinDryBulbC;
+            if (m.avgMaxDryBulbC > hottest) hottest = m.avgMaxDryBulbC;
+            hdd18Total += m.heatingDegreeDaysBase18;
+            cdd18Total += m.coolingDegreeDaysBase18;
+        }
+        dataset = ClimateDatasetSchema.parse({
+            id: mintId(),
+            siteRef: payload.siteId,
+            lat: payload.lat,
+            lon: payload.lon,
+            elevationM: payload.elevationM,
+            timezone: payload.timezone,
+            source: 'noaa-normals',
+            monthlyNormals: normals.monthlyNormals,
+            windRose: synthWindRose([...normals.monthlyNormals]),
+            designTemps: {
+                heating99_6C: coldest,
+                cooling0_4C: hottest,
+                cooling0_4MwbC: hottest * 0.75,
+            },
+            degreeDays: {
+                hddBase18: hdd18Total,
+                cddBase18: cdd18Total,
+                hddBase65F: hdd18Total * 1.05,
+                cddBase65F: cdd18Total * 0.95,
+            },
+            provenance: {
+                source: 'noaa-normals',
+                vendor: normals.vendor,
+                datasetVersion: normals.datasetVersion,
+                fetchedAtUtcIso: new Date().toISOString(),
+                license: normals.license,
+            },
+            ingestedAtUtcIso: new Date().toISOString(),
+        });
     }
-
-    const source: ClimateDataset['source'] =
-        normals.tier === 'noaa-normals' ? 'noaa-normals' : 'fallback-defaults';
-
-    // ── Stage 3 — synthesise + validate the ClimateDataset ──────────────
-    const dataset: ClimateDataset = ClimateDatasetSchema.parse({
-        id: mintId(),
-        siteRef: payload.siteId,
-        lat: payload.lat,
-        lon: payload.lon,
-        elevationM: payload.elevationM,
-        timezone: payload.timezone,
-        source,
-        monthlyNormals: normals.monthlyNormals,
-        windRose: synthWindRose([...normals.monthlyNormals]),
-        designTemps: {
-            heating99_6C: coldest,
-            cooling0_4C: hottest,
-            cooling0_4MwbC: hottest * 0.75,
-        },
-        degreeDays: {
-            hddBase18: hdd18Total,
-            cddBase18: cdd18Total,
-            hddBase65F: hdd18Total * 1.05,
-            cddBase65F: cdd18Total * 0.95,
-        },
-        provenance: {
-            source,
-            vendor: normals.vendor,
-            datasetVersion: normals.datasetVersion,
-            fetchedAtUtcIso: new Date().toISOString(),
-            license: normals.license,
-            notes:
-                normals.tier === 'bundled'
-                    ? 'Bundled offline climate-zone template (PRYZM-builtin). ' +
-                      'Replace with EPW or a live NOAA refresh for measured climate.'
-                    : undefined,
-        },
-        ingestedAtUtcIso: new Date().toISOString(),
-    });
+    const source = dataset.source;
 
     // ── Stage 4 — commit + emit ─────────────────────────────────────────
     const cacheKey = store.ingest(dataset);
