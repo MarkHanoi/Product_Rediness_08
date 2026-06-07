@@ -19,7 +19,7 @@ import type { SyntaxMetrics } from './spaceSyntax.js';
 import type { Pt } from './rectDecomposition.js';
 import { preferenceBetween } from '../rules/programRules.js';
 import { countVisibleSpacesByRaycast, scoreVisibleSpaceCount } from './entrySightlineRaycast.js';
-import { solarOrientationScore } from './envDrivers.js';
+import { solarOrientationScore, acousticZoningScore, naturalVentilationScore } from './envDrivers.js';
 
 export interface ObjectiveVector {
     readonly efficiency: number;
@@ -249,10 +249,43 @@ export interface ObjectiveVector {
      * leaves existing layout behaviour byte-identical (no test regression).
      */
     readonly solarOrientation: number;
+    /**
+     * §ENV-E3-ACOUSTIC (E.3, 2026-06-07) — acoustic-zoning axis
+     * (Environmental-Design-Drivers spec §4, driver 5; Env-performance band).
+     * SOFT-scores whether QUIET rooms (bedroom / master / study) are BUFFERED from
+     * NOISY rooms (kitchen / utility / laundry / wc / bathroom). A bedroom directly
+     * adjacent to a kitchen/wc is penalised; a hall/corridor/wc/storage BETWEEN
+     * them is rewarded. Computed in `envDrivers.ts` (`acousticZoningScore`) from the
+     * `ADJACENT_TO` shared-wall edges the engine already builds.
+     *
+     * GRACEFUL DEGRADATION: 1.0 (neutral) when the layout has NO quiet↔noisy
+     * relation at all (nothing to zone, or no adjacency data). A constant 1.0
+     * across all candidates is rank-invisible, so layouts with no acoustic tension
+     * are byte-identical (no test regression). The multi-storey vertical-stack
+     * preference (bedroom-over-kitchen penalty) lives as a SOFT preference in
+     * `houseLayout/storeyAllocation.ts` (`verticalStackAcousticScore`), not here.
+     */
+    readonly acousticZoning: number;
+    /**
+     * §ENV-E4-VENT (E.4, 2026-06-07) — natural-ventilation axis
+     * (Environmental-Design-Drivers spec §5, driver 6; Env-performance band).
+     * SOFT-scores cross-ventilation potential: habitable rooms with window openings
+     * on ≥2 DIFFERENTLY-ORIENTED external façades score high; single-sided rooms
+     * score mid; rooms deeper than the cross-vent reach (~12.5 m, ≈5× floor-to-
+     * ceiling) are penalised. A stair/stairwell stack path nudges the axis up.
+     * Computed in `envDrivers.ts` (`naturalVentilationScore`) from the existing
+     * Window/Opening + external-Wall graph data.
+     *
+     * GRACEFUL DEGRADATION: 1.0 (neutral) when there are NO external walls (no
+     * opening/façade data) or no scorable habitable room. A constant 1.0 across all
+     * candidates is rank-invisible, so layouts without window/wall data are byte-
+     * identical (no test regression).
+     */
+    readonly naturalVentilation: number;
 }
 
 export const OBJECTIVE_AXES: readonly (keyof ObjectiveVector)[] =
-    ['efficiency', 'adjacency', 'daylight', 'circulation', 'regularity', 'hierarchy', 'shapeQuality', 'topologyQuality', 'edgeRealisation', 'openingCadence', 'proportionalElegance', 'spatialClimax', 'entrySightline', 'arrivalSequence', 'wetStackAlignment', 'alignmentField', 'facadeAlignment', 'solarOrientation'] as const;
+    ['efficiency', 'adjacency', 'daylight', 'circulation', 'regularity', 'hierarchy', 'shapeQuality', 'topologyQuality', 'edgeRealisation', 'openingCadence', 'proportionalElegance', 'spatialClimax', 'entrySightline', 'arrivalSequence', 'wetStackAlignment', 'alignmentField', 'facadeAlignment', 'solarOrientation', 'acousticZoning', 'naturalVentilation'] as const;
 
 const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n);
 const num = (v: unknown, d = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -294,7 +327,7 @@ export function computeObjectives(
     const spaces = graph.nodes.filter(n => n.kind === 'Space');
     const totalArea = spaces.reduce((s, n) => s + num(n.attrs.netAreaM2), 0);
     if (spaces.length === 0 || totalArea <= 0) {
-        return { efficiency: 0, adjacency: 0, daylight: 0, circulation: 0, regularity: 0, hierarchy: 0, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation: 1, openingCadence: 1, proportionalElegance: 1, spatialClimax: 1, entrySightline: 1, arrivalSequence: 1, wetStackAlignment: 1, alignmentField: 1, facadeAlignment: 0, solarOrientation: 1 };
+        return { efficiency: 0, adjacency: 0, daylight: 0, circulation: 0, regularity: 0, hierarchy: 0, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation: 1, openingCadence: 1, proportionalElegance: 1, spatialClimax: 1, entrySightline: 1, arrivalSequence: 1, wetStackAlignment: 1, alignmentField: 1, facadeAlignment: 0, solarOrientation: 1, acousticZoning: 1, naturalVentilation: 1 };
     }
 
     // ── efficiency: how little of the floor is circulation. ──────────────────────
@@ -669,7 +702,18 @@ export function computeObjectives(
     //    degenerate, so layouts without site data are byte-identical.
     const solarOrientation = solarOrientationScore(graph, latDeg);
 
-    return { efficiency, adjacency, daylight, circulation, regularity, hierarchy, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation, openingCadence, proportionalElegance, spatialClimax, entrySightline, arrivalSequence, wetStackAlignment, alignmentField, facadeAlignment, solarOrientation };
+    // ── §ENV-E3-ACOUSTIC (E.3): quiet rooms buffered from noisy rooms (spec §4).
+    //    Reads the ADJACENT_TO shared-wall edges. Neutral 1.0 when no quiet↔noisy
+    //    relation exists, so layouts with no acoustic tension are byte-identical.
+    const acousticZoning = acousticZoningScore(graph);
+
+    // ── §ENV-E4-VENT (E.4): cross-ventilation potential + plan-depth cap (spec §5).
+    //    Reads Window/Opening + external-Wall data. Neutral 1.0 when no external
+    //    walls / no scorable habitable room, so layouts without window/wall data
+    //    are byte-identical.
+    const naturalVentilation = naturalVentilationScore(graph);
+
+    return { efficiency, adjacency, daylight, circulation, regularity, hierarchy, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation, openingCadence, proportionalElegance, spatialClimax, entrySightline, arrivalSequence, wetStackAlignment, alignmentField, facadeAlignment, solarOrientation, acousticZoning, naturalVentilation };
 }
 
 /**

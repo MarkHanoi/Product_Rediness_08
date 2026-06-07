@@ -8,7 +8,7 @@
 
 export { generateHouseLayout, generateHouseLayoutOptions } from './houseOrchestrator.js';
 export type { HouseLayoutOptions } from './houseOrchestrator.js';
-export { allocateProgramToStoreys } from './storeyAllocation.js';
+export { allocateProgramToStoreys, storeyAcousticProfiles, storeyAcousticPreference } from './storeyAllocation.js';
 export { enrichStoreyProgramToPlate } from './houseProgramFloor.js';
 export type { EnrichStoreyOptions } from './houseProgramFloor.js';
 export { reserveStairCore, reserveStairCoreShaped, splitRisersForShape } from './stairCore.js';
