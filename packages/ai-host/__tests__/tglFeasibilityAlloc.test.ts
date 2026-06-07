@@ -113,6 +113,63 @@ describe('§FEASIBILITY-ALLOC (Fix A) — no silent room drops', () => {
         expect(droppedBedrooms).toEqual([]);
     });
 
+    // §FEASIBILITY-FIRST (A.21.D36) — a TIGHT but feasible plate keeps its FULL
+    // programme: the re-allocation shrinks over-min rooms toward their minima and
+    // redistributes the freed area so every requested room fits at ≥ its floor.
+    // No bathroom / bedroom is dropped on a plate that can hold them.
+    it('keeps the full programme on a tight-but-feasible 3-bed plate (no dropped bathroom/bedroom)', () => {
+        // 12 m × 11 m = 132 m² apartment shell with corridor + ensuite + bathroom.
+        // The private zone is shallow once the corridor strip is carved; the naive
+        // proportional split starved a bedroom (the founder's "missing room"). The
+        // feasibility-first re-allocation must keep all rooms.
+        const SHELL: Pt[] = [{ x: 0, z: 0 }, { x: 12, z: 0 }, { x: 12, z: 11 }, { x: 0, z: 11 }];
+        const program: ApartmentProgram = {
+            bedrooms: 3, bathrooms: 1, masterEnSuite: true,
+            openPlanKitchenDining: true, livingRoom: true, entranceHall: true,
+        };
+        const g = buildBubbleGraph(program, 132);
+        const rects = decomposeToRects(SHELL);
+        const { placements, droppedRooms } = subdivideWithReport(rects, g);
+        // The WHOLE requested programme is placed — nothing dropped.
+        expect(droppedRooms).toEqual([]);
+        const placedIds = new Set(placements.map(p => p.roomId));
+        for (const r of g.rooms) expect(placedIds.has(r.id), `${r.id} (${r.type}) placed`).toBe(true);
+        // Every placed room clears its per-type short-side floor.
+        const typeById = new Map(g.rooms.map(r => [r.id, r.type]));
+        for (const p of placements) {
+            const t = typeById.get(p.roomId)!;
+            expect(shortSide(p.rect), `${p.roomId} (${t})`).toBeGreaterThanOrEqual(floorFor(t) - 1e-6);
+        }
+    });
+
+    // §FEASIBILITY-FIRST — genuine over-program fallback: when Σ minimum areas
+    // really exceeds the rect, the LOWEST-PRIORITY room is dropped — never a
+    // bathroom before a wc/utility/ensuite.
+    it('drops the lowest-priority room (not a bathroom) on a genuine over-program rect', () => {
+        // A small 3 m × 3 m = 9 m² rect asked to hold a bathroom (min 5 m²) +
+        // a wc (min 1.2 m²) + a utility (min 3.5 m²) + an ensuite (min 3.5 m²) —
+        // Σ minimum areas = 13.2 m² > 9 m², a GENUINE over-program. The engine
+        // must drop the lowest-priority service room (wc / utility / ensuite),
+        // NEVER the bathroom (rank 85 > ensuite 30 / wc 25 / utility 20).
+        const rect: Rect = { x0: 0, z0: 0, x1: 3, z1: 3 };
+        const rooms: ProgramRoom[] = [
+            rm('ba', 'bathroom', 5), rm('en', 'ensuite', 3.5),
+            rm('wc', 'wc', 1.2), rm('ut', 'utility', 3.5),
+        ];
+        const g: BubbleGraph = { rooms, edges: [], corridorId: null, entryId: null };
+        const { placements, droppedRooms } = subdivideWithReport([rect], g);
+        // At least one room dropped (genuine over-program), reported not silent.
+        expect(droppedRooms.length).toBeGreaterThan(0);
+        // The bathroom is NEVER among the dropped rooms — it outranks the service rooms.
+        expect(droppedRooms.some(d => d.type === 'bathroom')).toBe(false);
+        // The bathroom IS placed.
+        expect(placements.some(p => p.roomId === 'ba')).toBe(true);
+        // Every dropped room is a lower-priority service/secondary room.
+        for (const d of droppedRooms) {
+            expect(['ensuite', 'wc', 'utility', 'study', 'dining']).toContain(d.type);
+        }
+    });
+
     // The back-compat array-returning `subdivide` still works and equals the
     // placements of the reported variant (no behaviour change for existing callers).
     it('back-compat subdivide() === subdivideWithReport().placements', () => {
@@ -227,6 +284,45 @@ describe('§CIRCULATION-REROUTE-TWOHOP (Fix B) — try harder before warning', (
         // The bedroom is now LEGALLY connected via the living room (two-hop) —
         // the living room itself has a direct corridor door.
         expect(doorBetween(openings, 'bd', 'lv')).toBe(true);
+        expect(doorBetween(openings, 'lv', 'cor')).toBe(true);
+    });
+
+    // §CIRCULATION-REROUTE-MULTIHOP (A.21.D36) — a bedroom buried TWO rooms deep
+    // behind the spine, reachable only by a 3-link PERMITTED door-chain
+    // (bedroom→dining→living→corridor), is routed onto circulation. The original
+    // two-hop pass only handled ONE intermediate; the multi-hop BFS realises the
+    // whole permitted chain (every link is a legal pair) so the bedroom is no
+    // longer stranded.
+    it('routes a bedroom three links deep onto circulation via a permitted door-chain (multi-hop)', async () => {
+        const { doorAllowedBetween } = await import('../src/workflows/apartmentLayout/rules/programRules.js');
+        // Stacked bands: corridor | living | dining | bedroom. The bedroom shares a
+        // wall only with dining (bedroom↔dining is permitted: bedroom.accessFrom
+        // includes 'dining'); dining↔living + living↔corridor are permitted too.
+        const corridor: RoomPlacement = { roomId: 'cor', rect: { x0: 0, z0: 0,   x1: 10, z1: 1.2 } };
+        const living:   RoomPlacement = { roomId: 'lv',  rect: { x0: 0, z0: 1.2, x1: 10, z1: 4.5 } };
+        const dining:   RoomPlacement = { roomId: 'dn',  rect: { x0: 0, z0: 4.5, x1: 10, z1: 7.5 } };
+        const bed:      RoomPlacement = { roomId: 'bd',  rect: { x0: 0, z0: 7.5, x1: 10, z1: 11  } };
+        const rooms: ProgramRoom[] = [
+            rmf('cor', 'corridor', 12), rmf('lv', 'living', 33),
+            rmf('dn', 'dining', 30), rmf('bd', 'bedroom', 35),
+        ];
+        // Only the corridor↔living door is pre-placed; the rest must be routed.
+        const g: BubbleGraph = {
+            rooms,
+            edges: [{ a: 'cor', b: 'lv', via: 'door' }],
+            corridorId: 'cor', entryId: 'cor',
+        };
+        const { openings } = buildWallsAndDoors([corridor, living, dining, bed], g);
+        const typeOf = new Map(rooms.map(r => [r.id, r.type]));
+        // No forbidden door anywhere.
+        for (const o of openings) {
+            const [a, b] = o.betweenRoomIds;
+            if (!b) continue;
+            expect(doorAllowedBetween(typeOf.get(a)!, typeOf.get(b)!)).toBe(true);
+        }
+        // The bedroom is now LEGALLY connected to the spine through dining→living→corridor.
+        expect(doorBetween(openings, 'bd', 'dn')).toBe(true);
+        expect(doorBetween(openings, 'dn', 'lv')).toBe(true);
         expect(doorBetween(openings, 'lv', 'cor')).toBe(true);
     });
 

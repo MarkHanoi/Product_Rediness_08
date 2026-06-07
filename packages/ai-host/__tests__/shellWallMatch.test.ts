@@ -201,6 +201,59 @@ describe('resolveShellWindow (T1.W-C)', () => {
     });
 });
 
+// ── §WINDOW-IN-SHELL-FINAL (A.21.D36, 2026-06-07) — D34b recurrence ──────────
+//
+// The founder's re-test: window frames still floated OUTSIDE the shell on some
+// plots. Every emitted opening MUST lie strictly within its host shell wall span
+// — or the window is dropped. These tests pin the invariant for the cases that
+// previously let a frame poke off the wall: an option wall that extends past the
+// shell wall, and a window whose centre projects beyond the shell segment.
+describe('resolveShellWindow — §WINDOW-IN-SHELL-FINAL: opening never floats off the wall', () => {
+    const win = (over: Partial<LayoutWindow> = {}): LayoutWindow => ({
+        wallRef: 0, offset: 1000, width: 1500, height: 1300, sillHeight: 900, ...over,
+    });
+
+    // Sweep: for any matched window, the emitted opening must be fully on the
+    // host shell wall span [0, shellLen]. The matcher returns null OR an
+    // in-shell opening — never an opening that overruns.
+    it('every resolved opening lies fully within the host shell span (or is dropped)', () => {
+        const shellLen = 5;
+        const cases: Array<{ offset: number; width: number; ext: number }> = [
+            { offset: 0,    width: 1500, ext: 5000 },   // normal
+            { offset: 4000, width: 1500, ext: 5000 },   // near the far end
+            { offset: 0,    width: 6000, ext: 5000 },   // over-wide
+            { offset: 4500, width: 1500, ext: 7000 },   // option wall longer than shell; window near its far end
+            { offset: 6000, width: 1500, ext: 7000 },   // window centre PAST the shell end → must drop
+        ];
+        for (const c of cases) {
+            const r = resolveShellWindow(
+                win({ offset: c.offset, width: c.width }),
+                [optWall(0, 0, c.ext, 0)],
+                [shell('shell-1', 0, 0, shellLen, 0)],
+            );
+            if (r === null) continue;                     // dropped — acceptable
+            // The WHOLE opening is strictly inside the shell wall span.
+            expect(r.offsetM, JSON.stringify(c)).toBeGreaterThanOrEqual(-1e-6);
+            expect(r.offsetM + r.widthM, JSON.stringify(c)).toBeLessThanOrEqual(shellLen + 1e-6);
+        }
+    });
+
+    // A window whose host option wall, in the world frame, extends WELL past the
+    // matched shell wall — its centre projects beyond the shell segment — must be
+    // DROPPED, not clamped onto a wall it doesn't front (a floating frame).
+    it('drops a window whose centre projects outside the matched shell segment', () => {
+        // Option wall 0..10 m; window centred at ~8.75 m (offset 8000, width 1500).
+        // Shell wall only spans 0..5 m → the window centre at 8.75 m is off the
+        // shell. It must be dropped, never rendered off the wall plane.
+        const r = resolveShellWindow(
+            win({ offset: 8000, width: 1500 }),
+            [optWall(0, 0, 10000, 0)],
+            [shell('shell-1', 0, 0, 5, 0)],
+        );
+        expect(r).toBeNull();
+    });
+});
+
 describe('resolveAllShellWindows (T1.W-C)', () => {
     it('flattens resolutions across multiple windows', () => {
         const windows: LayoutWindow[] = [
