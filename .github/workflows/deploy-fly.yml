@@ -17,12 +17,10 @@
 name: Deploy to Fly.io
 
 on:
-  # §A.10.p — PUSH-DEPLOY re-enabled for the v38 public window (repo PUBLIC now).
-  # Every push to main builds on the 16GB runner WITH the VITE_CESIUM_TOKEN secret
-  # (photoreal globe). Revert to manual-only (§A.10.i) before going private again.
-  # (v38 A.21.D25 house deep-defect batch + A.21.D26 stairwell-void railing.)
-  push:
-    branches: [main]
+  # §A.10.i — MANUAL-ONLY (deploy HELD for founder go; D29 wave staged on main).
+  # To ship v40: re-add `push: branches:[main]` (§A.10.p) and push, OR run this
+  # workflow manually from the Actions tab. Builds on the 16GB runner WITH the
+  # VITE_CESIUM_TOKEN secret (real 3D-Tiles globe) when that secret is set.
   workflow_dispatch:
 
 # Latest-wins: a newer push to main cancels an older in-flight deploy so prod
@@ -87,3 +85,4 @@ jobs:
 # deploy-marker: v36 public window 2026-06-06b — all seven fixes (D21x5 + D15 + D22 + D23)
 # deploy-marker: v38 — A.21.D25 (4 deep house defects: re-projection loop · furnish-all-storeys · plate subdivision + wall joins · Forma floors/roof/furniture) + A.21.D26 (stairwell-void guardrail)
 # deploy-marker: v39 — A.21.D28 (Forma elements+crash+overlays · window-openings · ground-subdivision · resizable graph)
+# deploy-marker: v40 — A.21.D29 (floor/ceiling void · railing render-fix · entrance door · env-drivers E.1/E.2) + A.21.D28 #7/#9 (furnish-all modal · bottom level selector). HELD for founder go.
