@@ -22,6 +22,7 @@ import { validateHouseStorey, houseStoreyBand } from './houseEnvelope.js';
 import { reserveStairCoreShaped, splitRisersForShape, type StairCoreShaped } from './stairCore.js';
 import { allocateProgramToStoreys } from './storeyAllocation.js';
 import { enrichStoreyProgramToPlate } from './houseProgramFloor.js';
+import { roofBaseElevationM, roofBaseOffsetM } from './houseVertical.js';
 import type {
     HouseLayoutResult, Pt, RoofDescriptor, RoofKind, ScoredHouseLayoutOption, SlabVoid, StairCore, StairFlightPlan, StoreyPlate,
 } from './types.js';
@@ -505,12 +506,20 @@ function assembleHouse(
     }
 
     // (f) roof over the topmost storey. Flat roof has no meaningful pitch.
+    // §ROOF-CAP-ELEVATION (founder v45) — the roof base world-Y caps the topmost
+    // storey's wall head: top-storey floor elevation + wall head. Computed PURELY
+    // from (storeyCount × floorToFloor) + base elevation so an N-storey house caps
+    // at the right height every time (the executor places the roof here, not via a
+    // racy wall-store lookup). The house executor's wall height === floorToFloor, so
+    // the wall head above the top floor is floorToFloorM.
     const topStorey = storeys[storeys.length - 1]!;
     const roof: RoofDescriptor = {
         levelId: topStorey.levelId,
         footprint: footprint.map(p => ({ x: p.x, z: p.z })),
         kind: roofKind,
         ...(roofKind === 'flat' ? {} : { pitchDeg: DEFAULT_ROOF_PITCH_DEG }),
+        baseElevationM: roofBaseElevationM(storeys.length, floorToFloorM, baseElevationM, floorToFloorM),
+        baseOffsetM: roofBaseOffsetM(floorToFloorM, floorToFloorM),
     };
 
     return { storeys, perStoreyLayout, stairs, voids, roof };

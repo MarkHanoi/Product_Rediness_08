@@ -269,6 +269,13 @@ export {
   reserveStairCore,
   reserveStairCoreShaped,
   splitRisersForShape,
+  // §ROOF-CAP-ELEVATION / §DOOR-IN-WALL-SPAN / §WALL-SLAB-CONTINUITY (founder v45/v46 + D38)
+  roofBaseElevationM,
+  roofBaseOffsetM,
+  isDoorWithinWallSpan,
+  clampDoorToWallSpan,
+  wallVerticalExtents,
+  wallExtentForLevel,
 } from './workflows/houseLayout/index.js';
 export type {
   HouseLayoutOptions,
@@ -284,6 +291,8 @@ export type {
   SlabVoid,
   RoofDescriptor,
   RoofKind,
+  ClampedDoorSpan,
+  WallVerticalExtent,
   Pt as HousePt,
 } from './workflows/houseLayout/index.js';
 

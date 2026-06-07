@@ -125,6 +125,18 @@ export interface RoofDescriptor {
     readonly footprint: Pt[];
     readonly kind: RoofKind;
     readonly pitchDeg?: number;
+    /**
+     * §ROOF-CAP-ELEVATION (founder v45) — the roof base world-Y (metres) that caps
+     * the TOPMOST storey's walls = top-storey floor elevation + wall head. Computed
+     * once (purely) from (storeyCount × floorToFloor) + base elevation so an
+     * N-storey house caps at the right height every time. The editor executor places
+     * the roof at this elevation (via the top level + this offset above its floor),
+     * never one storey too low and never floating.
+     */
+    readonly baseElevationM?: number;
+    /** §ROOF-CAP-ELEVATION — the `baseOffset` (metres above the TOP storey's own
+     *  floor) the roof command should use so the builder resolves `baseElevationM`. */
+    readonly baseOffsetM?: number;
 }
 
 /**
