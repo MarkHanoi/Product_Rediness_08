@@ -600,6 +600,9 @@ export function buildLayoutCommands(
         const openingId = mintId('opening');
         const windowId = mintId('window');
         windowIds.push(windowId);
+        const perRoomWindowSysType: { systemTypeId: string } | Record<string, never> = w.roomType
+            ? { systemTypeId: defaultWindowSystemTypeId(w.roomType) }
+            : {};
         windowOpeningCommands.push({
             command: 'wall.createOpening',
             payload: {
@@ -607,17 +610,25 @@ export function buildLayoutCommands(
                 opening: {
                     id: openingId,
                     type: 'window',
+                    // §A.21.D12 — the OPENING is what CreateWallOpeningCommand reads to
+                    // write windowStore (→ WindowBuilder frame + glazing). Carry the SAME
+                    // rich fields the manual WindowTool puts on its opening (windowType +
+                    // systemTypeId) so the generated window resolves its glazing finish /
+                    // glassOpacity / frame material from the catalogue and renders as a
+                    // real see-through window — not the schema-default panel that read as
+                    // a "blind recess". `systemTypeId` on the opening is the load-bearing
+                    // bit; the unused window.batch.create payload had it but is never
+                    // dispatched by the executors (they punch openings only).
+                    windowType: 'single',
                     offset: w.offset,
                     width: w.width,
                     height: w.height,
                     sillHeight: w.sillHeight,
                     elementId: windowId,         // === window id (C15 cascade)
+                    ...perRoomWindowSysType,
                 },
             },
         });
-        const perRoomWindowSysType: { systemTypeId: string } | Record<string, never> = w.roomType
-            ? { systemTypeId: defaultWindowSystemTypeId(w.roomType) }
-            : {};
         windowPayloads.push({
             id:         windowId,
             wallId,
@@ -656,6 +667,9 @@ export function buildLayoutCommands(
             const openingId = mintId('opening');
             const windowId = mintId('window');
             shellWindowIds.push(windowId);
+            const perRoomWindowSysType: { systemTypeId: string } | Record<string, never> = r.roomType
+                ? { systemTypeId: defaultWindowSystemTypeId(r.roomType) }
+                : {};
             shellWindowOpeningCommands.push({
                 command: 'wall.createOpening',
                 payload: {
@@ -663,17 +677,23 @@ export function buildLayoutCommands(
                     opening: {
                         id:         openingId,
                         type:       'window',
+                        // §A.21.D12 — carry the rich window fields on the OPENING (the
+                        // input CreateWallOpeningCommand uses to populate windowStore →
+                        // WindowBuilder glazing). This is the DOMINANT case: apartment +
+                        // house windows host on the existing shell perimeter. Matching the
+                        // manual WindowTool's opening (windowType + systemTypeId) makes the
+                        // generated window resolve a real glazing finish instead of the
+                        // untyped schema default that read as a blind recessed panel.
+                        windowType: 'single',
                         offset:     r.offsetM,
                         width:      r.widthM,
                         height:     r.heightM,
                         sillHeight: r.sillM,
                         elementId:  windowId,
+                        ...perRoomWindowSysType,
                     },
                 },
             });
-            const perRoomWindowSysType: { systemTypeId: string } | Record<string, never> = r.roomType
-                ? { systemTypeId: defaultWindowSystemTypeId(r.roomType) }
-                : {};
             shellWindowPayloads.push({
                 id:         windowId,
                 wallId:     r.shellWallId,
