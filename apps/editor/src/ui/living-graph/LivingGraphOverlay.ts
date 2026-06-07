@@ -172,6 +172,7 @@ export class LivingGraphOverlay {
     root.appendChild(this.buildInspector());
     root.appendChild(this.buildChips());
     root.appendChild(this.buildControls());
+    root.appendChild(this.buildResizeGrip(canvas));
 
     target.appendChild(root);
     this.root = root;
@@ -180,6 +181,56 @@ export class LivingGraphOverlay {
 
     this.wireCanvasEvents();
     this.wireRebuilt();
+  }
+
+  /** §A.21.D28 #11 — a top-left drag grip that resizes the panel. The panel is
+   *  anchored bottom-right, so growing width + the canvas height expands it
+   *  up-and-left into the viewport. Drag left = wider; drag up = taller graph. */
+  private buildResizeGrip(canvas: HTMLCanvasElement): HTMLElement {
+    const grip = document.createElement('div');
+    grip.setAttribute('data-testid', 'living-graph-resize-grip');
+    grip.title = 'Drag to resize';
+    Object.assign(grip.style, {
+      position: 'absolute',
+      top: '0',
+      left: '0',
+      width: '16px',
+      height: '16px',
+      cursor: 'nwse-resize',
+      // two faint diagonal ticks so the grip reads as a handle
+      background:
+        'linear-gradient(135deg, transparent 0 5px, rgba(102,0,255,0.55) 5px 6px, transparent 6px 9px, rgba(102,0,255,0.55) 9px 10px, transparent 10px)',
+      borderTopLeftRadius: '16px',
+      zIndex: '2',
+    } satisfies Partial<CSSStyleDeclaration>);
+
+    grip.addEventListener('pointerdown', (e: PointerEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const startW = this.root?.offsetWidth ?? 380;
+      const startH = parseInt(canvas.style.height, 10) || 300;
+      try { grip.setPointerCapture(e.pointerId); } catch { /* non-fatal */ }
+
+      const onMove = (ev: PointerEvent): void => {
+        const w = Math.max(320, Math.min(900, startW + (startX - ev.clientX)));
+        const h = Math.max(200, Math.min(720, startH + (startY - ev.clientY)));
+        if (this.root) this.root.style.width = `${w}px`;
+        canvas.style.height = `${h}px`;
+        this.renderer?.resize();
+        this.paintOnce();
+      };
+      const onUp = (ev: PointerEvent): void => {
+        try { grip.releasePointerCapture(ev.pointerId); } catch { /* non-fatal */ }
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+      };
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+    });
+
+    return grip;
   }
 
   private buildHeader(): HTMLElement {
