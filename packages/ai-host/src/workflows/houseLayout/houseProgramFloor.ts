@@ -151,9 +151,9 @@ export interface EnrichStoreyOptions {
      * live upstairs.
      *
      * This pass fills the ground plate WITHOUT moving the upstairs bedroom count
-     * down: it adds a guest bedroom (capped at {@link MAX_GROUND_FILL_BEDROOMS}), a
-     * study, and a second bath/WC as the plate allows, until the comfortable-target
-     * gross area reaches {@link TARGET_FILL_FRACTION} of the plate. It NEVER lowers a
+     * down: it adds a guest bedroom (capped at {@link MAX_GROUND_FILL_BEDROOMS}) and
+     * a proportional bath/WC as the plate allows, until the comfortable-target gross
+     * area reaches {@link TARGET_FILL_FRACTION} of the plate. It NEVER lowers a
      * user-stated count and is bounded/deterministic. The orchestrator sets this true
      * for the GROUND storey of a multi-storey house ONLY — `growBedrooms` stays false
      * there (so the heavy bedroom-stuffing reserved for the private level never runs
@@ -218,13 +218,13 @@ export function enrichStoreyProgramToPlate(
     }
 
     // 2b. §HOUSE-GROUND-FILL (A.21.D28 #4) — fill a MULTI-storey GROUND plate with
-    //     GROUND-appropriate rooms (a guest bedroom + a study + a second bath/WC)
-    //     until its comfortable target approaches the plate, WITHOUT pulling the
-    //     house's bedroom count down off the upper storeys. Runs only when the
-    //     orchestrator set `growGroundRooms` AND the heavy `growBedrooms` fill is
-    //     NOT in play (single-storey ground / upper storeys use that path instead).
-    //     Bounded + deterministic — adds at most a study, one guest bedroom step,
-    //     and one extra bathroom.
+    //     GROUND-appropriate rooms (a guest bedroom + a proportional bath/WC) until
+    //     its comfortable target approaches the plate, WITHOUT pulling the house's
+    //     bedroom count down off the upper storeys. Runs only when the orchestrator
+    //     set `growGroundRooms` AND the heavy `growBedrooms` fill is NOT in play
+    //     (single-storey ground / upper storeys use that path instead). Bounded +
+    //     deterministic — see fillGroundPlate (the frozen bubble graph has no study
+    //     flag, so a guest bedroom + bath are the only fill levers without forking it).
     if (role === 'ground' && opts.growGroundRooms && !opts.growBedrooms) {
         return fillGroundPlate(enriched, plateAreaM2);
     }
