@@ -1326,8 +1326,22 @@ export class HouseLayoutExecutor {
                         // builds run synchronously rather than being re-queued by isBatching.
                         setTimeout(() => {
                             try {
-                                window.__wallRebuildControl?.rebuildWalls?.(openingWallIds);
-                            } catch (e) { console.warn('[house-layout] §A.21.D28 rebuildWalls failed (non-fatal):', e); }
+                                // §A.21.D40 #3 — rebuild ONLY the host-wall BODIES (the new
+                                // opening holes), reusing each wall's already-resolved miter
+                                // cache, WITHOUT the whole-level resolveLevel re-trim. The
+                                // old `rebuildWalls` (no prevState → whole-level) re-resolved
+                                // the GROUND level after the partitions were welded ONTO the
+                                // pre-drawn shell, and that zoom-dependent re-resolve treated
+                                // partition↔shell contacts as fresh corner joins → it RE-TRIMMED
+                                // (moved) the shell baselines: the "ground walls go off at the
+                                // end" the founder hit. Opening creation never moves a baseline,
+                                // so a body-only rebuild shows the holes while leaving the welded
+                                // ground shell EXACTLY put. Falls back to whole-level when the
+                                // helper isn't present (older runtime).
+                                const ctl = window.__wallRebuildControl;
+                                if (ctl?.rebuildWallBodies) ctl.rebuildWallBodies(openingWallIds);
+                                else ctl?.rebuildWalls?.(openingWallIds);
+                            } catch (e) { console.warn('[house-layout] §A.21.D40 rebuildWallBodies failed (non-fatal):', e); }
                         }, 250);
                     }
                 } finally {
