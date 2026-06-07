@@ -340,12 +340,19 @@ export class WorkspaceController {
           if (!this._soloLevelId && levels.length > 0) {
             this._soloLevelId = levels[0].id;
             sel.value = levels[0].id;
+            this._setActiveLevel(levels[0].id);
             this._dispatchExplode();
           }
         }
 
         sel.addEventListener('change', () => {
           this._soloLevelId = sel.value;
+          // A.21.D28 #9 — the bottom-bar level selector previously only soloed
+          // visibility; the ACTIVE creation level was left untouched, so picking
+          // a floor here appeared to "do nothing" (new elements still landed on
+          // the old level). Set the active level the way the top-bar HUD does so
+          // selecting a floor here changes the creation context too.
+          this._setActiveLevel(sel.value);
           this._dispatchExplode();
           console.log(`[WorkspaceController] Solo level: ${sel.value}`);
         });
@@ -374,6 +381,26 @@ export class WorkspaceController {
       mode:        this._levelExplodeMode,
       soloLevelId: this._soloLevelId,
     });
+  }
+
+  /**
+   * A.21.D28 #9 — set the ACTIVE creation level the way the top-bar level HUD,
+   * LevelManagerPanel, and LeftNavRail do: `projectContext.activeLevelId` is the
+   * single source of truth every creation tool reads. Its setter fires
+   * 'activeLevelChanged', which drives the canonical visual update chain (and
+   * BottomActionMenu's level filters). Falls back to bimManager when the project
+   * context isn't on window yet. §02 §1.6 — active level is session state, no
+   * command needed (P6 is unaffected: this is not a model mutation).
+   */
+  private _setActiveLevel(levelId: string): void {
+    if (!levelId) return;
+    const pc = window.projectContext; // TODO(C.3.x): replace with runtime.persistence.projectContext
+    if (pc) {
+      pc.activeLevelId = levelId;
+    } else {
+      (window.bimManager as { setActiveLevel?: (id: string) => void } | undefined)?.setActiveLevel?.(levelId); // TODO(D.4): legacy bimManager
+    }
+    window.runtime?.events?.emit('pryzm-active-level-changed', { levelId }); // mirrors LeftNavRail
   }
 
   // ── Space key lens picker ─────────────────────────────────────────────────
