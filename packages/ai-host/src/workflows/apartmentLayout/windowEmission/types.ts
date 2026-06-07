@@ -105,6 +105,28 @@ export interface OccupiedSpan {
 }
 
 /**
+ * A.21.D33(d) — an INTERIOR-PARTITION junction on a shell (external) host wall:
+ * the point (mm ALONG the wall from its `start` endpoint) where a non-external
+ * partition wall terminates AT this shell wall. A window must stay clear of these
+ * points so an exterior façade window never sits on an interior-wall/shell junction
+ * (architecturally wrong — the partition should meet solid wall, and the window
+ * should sit within ONE room's façade, not straddle the partition line).
+ *
+ * Each junction carries the meeting partition's `thicknessMm` so the engine can
+ * keep clear of HALF that thickness (the wall actually occupies that band) plus a
+ * small clearance. Coordinates match `ExternalWallSegment` / WindowPlacement.
+ */
+export interface PartitionJunction {
+    readonly wallIndex: number;
+    /** Junction position, mm from the shell wall's start endpoint. */
+    readonly atMm: number;
+    /** Thickness of the meeting interior partition (mm). The engine keeps the
+     *  window clear of `atMm ± (thicknessMm/2 + clearance)`. Defaults handled by
+     *  the engine when omitted / non-positive. */
+    readonly thicknessMm?: number;
+}
+
+/**
  * A placed window emitted by the engine. Mirrors the LayoutDoor shape so
  * the wiring layer can re-use the same wall.createOpening / batch-create
  * cascade (LayoutWindow → window.createOpening hosted on wallId).
