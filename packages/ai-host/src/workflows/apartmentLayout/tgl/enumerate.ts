@@ -19,6 +19,7 @@ import { snapRectsAwayFromWindows, type WindowSpan } from './windowAvoidance.js'
 import { buildSemanticGraph, type LayoutGraph } from './semanticGraph.js';
 import { computeSpaceSyntax } from './spaceSyntax.js';
 import { computeObjectives, OBJECTIVE_AXES, type ObjectiveVector } from './objectives.js';
+import { priorityMultiplier } from './envDrivers.js';
 import { validateAllRoomShapes, type RoomShape } from '../dimensions/validateRoomShape.js';
 import { validateRoomFit } from '../dimensions/validateRoomFit.js';
 import { validateFrontage } from '../dimensions/validateFrontage.js';
@@ -66,6 +67,12 @@ export interface EnumerateInput {
      *  room/partition ever tiles across the stair (SPEC-CASA §7). Apartment path
      *  never passes any ⇒ decomposition is bit-identical. */
     readonly keepOutRects?: readonly Rect[];
+    /** §ENV-E2-SOLAR (E.2, 2026-06-07) — OPTIONAL site latitude (decimal degrees)
+     *  for the solar room-placement bias axis (`objectives.solarOrientation`).
+     *  Threaded straight into `computeObjectives`. Absent / non-finite / near-
+     *  equatorial ⇒ the axis is the neutral 1.0 for every candidate (rank-
+     *  invisible), so the apartment/house path with no site data is byte-identical. */
+    readonly solarLatDeg?: number;
 }
 
 export interface TglCandidate {
@@ -336,7 +343,9 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
 
     const entryGuid = graph.nodes.find(n => n.kind === 'Space' && n.sourceId === bubble.entryId)?.guid ?? null;
     const metrics = computeSpaceSyntax(graph, entryGuid);
-    const objectives = computeObjectives(graph, metrics, bubble, shapeQuality, topologyQuality);
+    // §ENV-E2-SOLAR (E.2) — thread the site latitude so the solarOrientation axis
+    // biases daytime rooms toward the sun face. Undefined ⇒ neutral axis.
+    const objectives = computeObjectives(graph, metrics, bubble, shapeQuality, topologyQuality, input.solarLatDeg);
     // §CIRCULATION-REROUTE — a candidate is "circulation-routed" when every
     // private/service room opens onto the spine (the wallsAndDoors re-route pass
     // could place a circulation door for every such room). A non-empty
@@ -412,9 +421,25 @@ function weightedSum(o: ObjectiveVector, w: ScoringWeights): number {
         // intent (good rooms front the best façades); together with
         // `daylight` they form a 2-pass façade scorer.
         facadeAlignment: Math.max(0, w.naturalLight) * 0.5,
+        // §ENV-E2-SOLAR (E.2) — solar room-placement bias. Coupled to the user's
+        // `naturalLight` weight (scaled by 0.5) like facadeAlignment: both express
+        // the orientation/solar driver (spec §1 driver 1). Neutral (1.0) for every
+        // candidate when no site latitude is supplied → contributes a constant that
+        // cancels in ranking, so absent site data leaves the order unchanged.
+        solarOrientation: Math.max(0, w.naturalLight) * 0.5,
     };
-    const total = OBJECTIVE_AXES.reduce((s, a) => s + raw[a], 0) || 1;
-    return OBJECTIVE_AXES.reduce((s, a) => s + (raw[a] / total) * o[a], 0);
+    // §ENV-E1-PRIORITY (E.1) — apply the priority-hierarchy band (spec §1) ON TOP
+    // of the per-axis weights above. Axes that serve a higher-priority driver
+    // (Site-fixed > Env-performance > Technical-systems > Form/regulation) are
+    // amplified so conflicts resolve in the higher driver's favour. Axes with no
+    // §1 driver get a 1.0 multiplier (no change). Regulation (10) + structure (7)
+    // remain HARD gates in the pool selection below — never relaxed here. The
+    // multiplier is purely a re-weighting of the EXISTING axes; it adds no axis and
+    // changes no raw objective value, so it only TUNES the secondary weighted-sum
+    // tie-break (Pareto rank is computed from raw `o`, untouched by this).
+    const eff = (a: keyof ObjectiveVector): number => raw[a] * priorityMultiplier(a);
+    const total = OBJECTIVE_AXES.reduce((s, a) => s + eff(a), 0) || 1;
+    return OBJECTIVE_AXES.reduce((s, a) => s + (eff(a) / total) * o[a], 0);
 }
 
 const round6 = (n: number): number => Math.round(n * 1e6) / 1e6;

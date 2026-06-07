@@ -19,6 +19,7 @@ import type { SyntaxMetrics } from './spaceSyntax.js';
 import type { Pt } from './rectDecomposition.js';
 import { preferenceBetween } from '../rules/programRules.js';
 import { countVisibleSpacesByRaycast, scoreVisibleSpaceCount } from './entrySightlineRaycast.js';
+import { solarOrientationScore } from './envDrivers.js';
 
 export interface ObjectiveVector {
     readonly efficiency: number;
@@ -230,10 +231,28 @@ export interface ObjectiveVector {
      * Returns 1.0 when no entry or no dominant space (degenerate input).
      */
     readonly spatialClimax: number;
+    /**
+     * §ENV-E2-SOLAR (E.2, 2026-06-07) — solar room-placement bias axis
+     * (Environmental-Design-Drivers spec §2; Cognition Layer 1, extends A.21.D6).
+     * SOFT-scores whether DAYTIME rooms (living / dining / kitchen) sit toward the
+     * equator-facing (sun) side of the plan and BUFFER rooms (garage / utility /
+     * bathroom / ensuite / wc / storage) sit toward the cold (anti-equator) side.
+     *
+     * Reuses the A.21.D6 sun source (`equatorFacingDir`) so the orientation
+     * convention matches the window-emission pass exactly. Computed in
+     * `envDrivers.ts` (`solarOrientationScore`); area-weighted compliance over the
+     * scored room set, normalised across the plan's equator-axis span.
+     *
+     * GRACEFUL DEGRADATION: 1.0 (neutral) when no site latitude is supplied, near
+     * the equator (no equator-facing preference), or the plan is degenerate. A
+     * constant 1.0 across all candidates is rank-invisible, so absent site data
+     * leaves existing layout behaviour byte-identical (no test regression).
+     */
+    readonly solarOrientation: number;
 }
 
 export const OBJECTIVE_AXES: readonly (keyof ObjectiveVector)[] =
-    ['efficiency', 'adjacency', 'daylight', 'circulation', 'regularity', 'hierarchy', 'shapeQuality', 'topologyQuality', 'edgeRealisation', 'openingCadence', 'proportionalElegance', 'spatialClimax', 'entrySightline', 'arrivalSequence', 'wetStackAlignment', 'alignmentField', 'facadeAlignment'] as const;
+    ['efficiency', 'adjacency', 'daylight', 'circulation', 'regularity', 'hierarchy', 'shapeQuality', 'topologyQuality', 'edgeRealisation', 'openingCadence', 'proportionalElegance', 'spatialClimax', 'entrySightline', 'arrivalSequence', 'wetStackAlignment', 'alignmentField', 'facadeAlignment', 'solarOrientation'] as const;
 
 const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n);
 const num = (v: unknown, d = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -266,11 +285,16 @@ export function computeObjectives(
     graph: LayoutGraph, metrics: SyntaxMetrics, bubble: BubbleGraph,
     shapeQuality: number = 1,
     topologyQuality: number = 1,
+    // §ENV-E2-SOLAR (E.2) — OPTIONAL site latitude (decimal degrees) for the solar
+    // room-placement bias axis. Absent / non-finite / near-equatorial ⇒ the
+    // `solarOrientation` axis returns the NEUTRAL 1.0 (rank-invisible), so every
+    // existing caller (none pass this) is byte-identical.
+    latDeg: number | undefined = undefined,
 ): ObjectiveVector {
     const spaces = graph.nodes.filter(n => n.kind === 'Space');
     const totalArea = spaces.reduce((s, n) => s + num(n.attrs.netAreaM2), 0);
     if (spaces.length === 0 || totalArea <= 0) {
-        return { efficiency: 0, adjacency: 0, daylight: 0, circulation: 0, regularity: 0, hierarchy: 0, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation: 1, openingCadence: 1, proportionalElegance: 1, spatialClimax: 1, entrySightline: 1, arrivalSequence: 1, wetStackAlignment: 1, alignmentField: 1, facadeAlignment: 0 };
+        return { efficiency: 0, adjacency: 0, daylight: 0, circulation: 0, regularity: 0, hierarchy: 0, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation: 1, openingCadence: 1, proportionalElegance: 1, spatialClimax: 1, entrySightline: 1, arrivalSequence: 1, wetStackAlignment: 1, alignmentField: 1, facadeAlignment: 0, solarOrientation: 1 };
     }
 
     // ── efficiency: how little of the floor is circulation. ──────────────────────
@@ -639,7 +663,13 @@ export function computeObjectives(
     //    shell polygon). Higher = better.
     const facadeAlignment = scoreFacadeAlignment(graph, bubble);
 
-    return { efficiency, adjacency, daylight, circulation, regularity, hierarchy, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation, openingCadence, proportionalElegance, spatialClimax, entrySightline, arrivalSequence, wetStackAlignment, alignmentField, facadeAlignment };
+    // ── §ENV-E2-SOLAR (E.2): daytime rooms toward the equator face, buffer rooms
+    //    toward the cold face. Reuses the A.21.D6 sun source via envDrivers.
+    //    Returns the neutral 1.0 when `latDeg` is absent / near-equatorial /
+    //    degenerate, so layouts without site data are byte-identical.
+    const solarOrientation = solarOrientationScore(graph, latDeg);
+
+    return { efficiency, adjacency, daylight, circulation, regularity, hierarchy, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation, openingCadence, proportionalElegance, spatialClimax, entrySightline, arrivalSequence, wetStackAlignment, alignmentField, facadeAlignment, solarOrientation };
 }
 
 /**
