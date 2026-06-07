@@ -163,7 +163,12 @@ export function resolveEntranceDoor(
 
     cands.sort((a, b) => a.perp - b.perp);
     const best = cands[0]!;
-    const TIE_M = 0.5;
+    // Tie tolerance: only walls GENUINELY equidistant from the target (e.g. a
+    // corner room fronting two walls) tie — then we pick the longer façade. A
+    // wide window (0.5 m) wrongly pulled in long side walls a fronted-but-short
+    // wall beats, letting an 8 m side wall steal the entrance from the 1.2 m wall
+    // the hall actually touches. Keep it tight so the genuinely-fronted wall wins.
+    const TIE_M = 0.1;
     const tied = cands.filter(c => c.perp <= best.perp + TIE_M);
     // Tie-break: longest façade first, then ascending id (stable + deterministic).
     tied.sort((a, b) => b.len - a.len || (a.wall.id < b.wall.id ? -1 : a.wall.id > b.wall.id ? 1 : 0));
