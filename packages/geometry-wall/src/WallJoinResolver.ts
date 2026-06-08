@@ -1159,10 +1159,42 @@ export class WallJoinResolver {
             const signFree      = domOutward.dot(vecFreeToJoin) >= 0 ? 1 : -1;
             const subNewPt      = sharedPt.clone().addScaledVector(domOutward, signFree * (dominantT / 2 - 0.001));
 
-            // Commit dominant wall — endpoint stays at sharedPt, perpendicular cap.
+            // ── §PERIMETER-CORNER-FILL (Jun 2026 — A.21.D53) ─────────────────────
+            // RESIDUAL perimeter-corner defect: at an L-CORNER (endpoint↔endpoint,
+            // which is the ONLY topology _applyCorner ever handles) the dominant
+            // wall used to stop its square cap exactly at sharedPt (the centreline
+            // crossing). But the subordinate butts against the dominant's NEAR
+            // lateral face, so the subordinate's body extends OUTWARD past the
+            // dominant's end by up to subordinateT/2. With the dominant capped at
+            // sharedPt, the convex OUTER quadrant of the corner — the rectangle
+            // bounded by the dominant's end plane and the subordinate's far lateral
+            // face — is filled by NEITHER wall: an open notch at the building's
+            // outer corner (the "perimeter corners not always well done" report).
+            //
+            // A bisector miter (the same-thickness path) closes this by construction
+            // but is geometrically wrong across a thickness step (misaligned finish
+            // faces — the very reason option-B butt exists). The watertight fix that
+            // does NOT re-introduce the pre-Apr-2026 wrap-around (which pushed the
+            // SUBORDINATE through to the dominant's FAR face) is to EXTEND only the
+            // DOMINANT wall along its OWN axis, past sharedPt, by subordinateT/2, so
+            // its square end cap reaches the subordinate's far lateral face and backs
+            // the overhang. The subordinate still butts the NEAR face exactly as
+            // before — no wrap-around, no change to the thinner wall.
+            //
+            // This is a corner-only extension: _applyCorner is never reached for a
+            // T-join (those go through _applyT, where the host is unchanged), so
+            // extending the dominant here can never overrun a wall's mid-body.
+            // Square cap (null MN) → stable + cacheable → §rebuildWallBodies
+            // (D40 ground-walls-stay-put) is unaffected.
+            const domExtend = dominantDir.clone()
+                .multiplyScalar((dominantEp.side === 'end' ? 1 : -1) * (subordinateT / 2));
+            const domEndPt  = sharedPt.clone().add(domExtend);
+
+            // Commit dominant wall — endpoint EXTENDED to the subordinate far face,
+            // perpendicular (square) cap.
             const newDomBL: [THREE.Vector3, THREE.Vector3] = dominantEp.side === 'end'
-                ? [domWS.clone(), sharedPt.clone()]
-                : [sharedPt.clone(), domWE.clone()];
+                ? [domWS.clone(), domEndPt.clone()]
+                : [domEndPt.clone(), domWE.clone()];
 
             // Commit subordinate wall — endpoint at near face, perpendicular cap.
             const newSubBL: [THREE.Vector3, THREE.Vector3] = subordinateEp.side === 'start'

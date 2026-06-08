@@ -175,8 +175,13 @@ describe('WallJoinResolver — diff-thickness butt L-corner', () => {
         expect(ja.invalid).toBeFalsy();
         expect(jb.invalid).toBeFalsy();
 
-        // Thick wall is NOT extended past the join — its end stays at x=4 (sharedPt).
-        expect(ja.baseLine[1].x).toBeCloseTo(4, 3);
+        // §PERIMETER-CORNER-FILL (A.21.D53): at an L-corner the thick (dominant)
+        // wall is EXTENDED along its own axis past the centreline crossing by
+        // subordinateT/2 (= 0.1/2 = 0.05 → x = 4.05) so its square end cap reaches
+        // the thin wall's far lateral face and backs the overhang — closing the
+        // open outer-corner notch. (Pre-D53 it stopped square at x=4, leaving the
+        // notch.) It is NOT pushed further: this is corner-fill, not wrap-around.
+        expect(ja.baseLine[1].x).toBeCloseTo(4.05, 3);
         // Thin wall's joining (start) endpoint is laterally offset so its cap sits
         // just INSIDE the thick wall's +z face (z = 0.15): butt with ~1 mm overlap.
         const subStartZ = jb.baseLine[0].z;
@@ -191,6 +196,15 @@ describe('WallJoinResolver — diff-thickness butt L-corner', () => {
             expect(c.x).toBeGreaterThanOrEqual(4 - 0.05 - EPS);
             expect(c.x).toBeLessThanOrEqual(4 + 0.05 + EPS);
         }
+
+        // §PERIMETER-CORNER-FILL: the convex OUTER corner must be CLOSED — the
+        // thick wall's extended end cap (its outer corner) must coincide with the
+        // thin wall's far outer cap corner. Thin t=0.1 → extension 0.05 → x=4.05;
+        // thick t=0.3 → outer face z=0.15 → building outer corner (4.05, +0.15).
+        const aEnd = capCorners(ja, 'end', a.thickness);   // thick wall end cap
+        const buildingOuter = new THREE.Vector3(4.05, 0, 0.15);
+        expect([aEnd.outer, aEnd.inner].some(c => near(c, buildingOuter))).toBe(true);
+        expect([bCap.outer, bCap.inner].some(c => near(c, buildingOuter))).toBe(true);
     });
 
     it('reversed (thin horizontal + thick vertical): thin wall ends just inside the thick face', () => {
@@ -202,13 +216,123 @@ describe('WallJoinResolver — diff-thickness butt L-corner', () => {
         expect(ja.invalid).toBeFalsy();
         expect(jb.invalid).toBeFalsy();
 
-        // Thick wall keeps its endpoint at the corner (x=4, z=0), square cap.
+        // §PERIMETER-CORNER-FILL (A.21.D53): the thick (dominant) wall extends its
+        // joining endpoint past the corner along its own axis by subordinateT/2
+        // (= 0.1/2 = 0.05 → z = -0.05) so its square cap backs the thin wall's
+        // overhang and the south outer face is flush. (Pre-D53 it stayed at z=0.)
         expect(jb.baseLine[0].x).toBeCloseTo(4, 3);
-        expect(jb.baseLine[0].z).toBeCloseTo(0, 3);
+        expect(jb.baseLine[0].z).toBeCloseTo(-0.05, 3);
         // Thin wall's end is pulled back to just inside the thick wall's near (-x) face
         // at x = 4 - 0.15 = 3.85 (with 1 mm overlap → ~3.851).
         expect(ja.baseLine[1].x).toBeGreaterThan(3.84);
         expect(ja.baseLine[1].x).toBeLessThan(3.86);
         expect(ja.baseLine[0].distanceTo(ja.baseLine[1])).toBeGreaterThan(3.5);
+    });
+});
+
+/**
+ * §PERIMETER-CORNER-FILL (A.21.D53 — residual perimeter-corner defect)
+ *
+ * The shell/perimeter corner where a thicker shell wall meets a thinner welded
+ * partition (or a thinner shell segment) is a DIFF-THICKNESS L-CORNER. Before
+ * D53 the dominant (thicker) wall stopped its square cap at the centreline
+ * crossing (sharedPt), but the subordinate butts the dominant's NEAR lateral
+ * face and so its body overhangs the dominant's end by subordinateT/2. That left
+ * the convex OUTER quadrant of the corner filled by NEITHER wall — an open notch
+ * (the "perimeter corners not always well done" field report).
+ *
+ * Fix: extend ONLY the dominant wall along its own axis past sharedPt by
+ * subordinateT/2 so its square end cap reaches the subordinate's far lateral
+ * face. The subordinate is unchanged (still butts the near face — no wrap-around).
+ *
+ * These tests assert the building OUTER corner is closed: the dominant's extended
+ * outer cap corner coincides with the subordinate's far outer cap corner, for
+ * BOTH thickness orderings and BOTH lateral approach sides of the partition.
+ */
+describe('WallJoinResolver — §PERIMETER-CORNER-FILL (diff-thickness L-corner)', () => {
+    // Find the dominant cap corner nearest `pt`; assert it is within EPS — i.e.
+    // the outer notch is closed (the dominant body reaches the building corner).
+    function expectCornerClosed(
+        domCap: { outer: THREE.Vector3; inner: THREE.Vector3 },
+        subCap: { outer: THREE.Vector3; inner: THREE.Vector3 },
+    ) {
+        // Every sub cap corner that lies OUTSIDE the dominant's pre-extension end
+        // plane must be matched by a dominant cap corner → no open notch.
+        for (const sc of [subCap.outer, subCap.inner]) {
+            const matched =
+                near(sc, domCap.outer) || near(sc, domCap.inner);
+            // At least the building-outer corner (the overhang tip) must match.
+            if (matched) return;
+        }
+        // If neither sub corner matched a dominant corner, the notch is open.
+        throw new Error(
+            `outer-corner notch OPEN: dom=[${domCap.outer.x.toFixed(3)},${domCap.outer.z.toFixed(3)} | ` +
+            `${domCap.inner.x.toFixed(3)},${domCap.inner.z.toFixed(3)}] ` +
+            `sub=[${subCap.outer.x.toFixed(3)},${subCap.outer.z.toFixed(3)} | ` +
+            `${subCap.inner.x.toFixed(3)},${subCap.inner.z.toFixed(3)}]`,
+        );
+    }
+
+    it('thick shell (end) + thin partition (start, +z side): outer corner closed', () => {
+        const shell = mk([0, 0], [4, 0], 0.3, 1);     // thick, joins at end (4,0)
+        const part  = mk([4, 0], [4, 3], 0.2, 2);     // thin, goes +z, joins at start (4,0)
+        const res = WallJoinResolver.resolveLevel([shell, part]);
+        const js = res.get(shell.id)!, jp = res.get(part.id)!;
+        expect(js.invalid).toBeFalsy();
+        expect(jp.invalid).toBeFalsy();
+        // Dominant extended to x = 4 + 0.2/2 = 4.1.
+        expect(js.baseLine[1].x).toBeCloseTo(4.1, 3);
+        const domCap = capCorners(js, 'end',   shell.thickness);
+        const subCap = capCorners(jp, 'start', part.thickness);
+        expectCornerClosed(domCap, subCap);
+        // Concretely: the building outer corner is (4.1, +0.15) — both walls reach it.
+        const outer = new THREE.Vector3(4.1, 0, 0.15);
+        expect([domCap.outer, domCap.inner].some(c => near(c, outer))).toBe(true);
+        expect([subCap.outer, subCap.inner].some(c => near(c, outer))).toBe(true);
+    });
+
+    it('thick shell (end) + thin partition (start, -z side): outer corner closed', () => {
+        // Same shell, but the partition descends (-z) — exercises the OTHER lateral
+        // approach side so the signFree + extension signs are independently covered.
+        const shell = mk([0, 0], [4, 0], 0.3, 1);     // thick, joins at end (4,0)
+        const part  = mk([4, 0], [4, -3], 0.2, 2);    // thin, goes -z, joins at start (4,0)
+        const res = WallJoinResolver.resolveLevel([shell, part]);
+        const js = res.get(shell.id)!, jp = res.get(part.id)!;
+        expect(js.invalid).toBeFalsy();
+        expect(jp.invalid).toBeFalsy();
+        expect(js.baseLine[1].x).toBeCloseTo(4.1, 3);
+        const domCap = capCorners(js, 'end',   shell.thickness);
+        const subCap = capCorners(jp, 'start', part.thickness);
+        expectCornerClosed(domCap, subCap);
+        const outer = new THREE.Vector3(4.1, 0, -0.15);
+        expect([domCap.outer, domCap.inner].some(c => near(c, outer))).toBe(true);
+        expect([subCap.outer, subCap.inner].some(c => near(c, outer))).toBe(true);
+    });
+
+    it('same-thickness perimeter corner is UNAFFECTED (still bisector miter)', () => {
+        // Regression guard: the fill path is diff-thickness-only. A same-thickness
+        // shell corner must still produce the shared bisector miter (non-null MN),
+        // NOT an extended square cap.
+        const a = mk([0, 0], [4, 0], 0.2, 1);
+        const b = mk([4, 0], [4, 3], 0.2, 2);
+        const res = WallJoinResolver.resolveLevel([a, b]);
+        const ja = res.get(a.id)!, jb = res.get(b.id)!;
+        expect(ja.endMN).toBeTruthy();
+        expect(jb.startMN).toBeTruthy();
+        // Bisector path does NOT extend the wall — its end stays at the corner x=4.
+        expect(ja.baseLine[1].x).toBeCloseTo(4, 3);
+    });
+
+    it('extending the dominant never collapses or NaNs a wall', () => {
+        const shell = mk([0, 0], [4, 0], 0.3, 1);
+        const part  = mk([4, 0], [4, 3], 0.2, 2);
+        const res = WallJoinResolver.resolveLevel([shell, part]);
+        for (const [, jd] of res) {
+            expect(jd.invalid).toBeFalsy();
+            const [s, e] = jd.baseLine;
+            expect(Number.isFinite(s.x) && Number.isFinite(s.z)).toBe(true);
+            expect(Number.isFinite(e.x) && Number.isFinite(e.z)).toBe(true);
+            expect(s.distanceTo(e)).toBeGreaterThan(0.5);
+        }
     });
 });
