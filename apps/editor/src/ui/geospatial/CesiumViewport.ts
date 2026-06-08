@@ -1681,6 +1681,15 @@ export class CesiumViewport {
       // visible seam), top = bottom + storey height.
       const bandBottom = baseHeight + band.baseElevation - (bi === 0 ? FORMA_BASE_SINK_M : 0.02);
       const bandTop = baseHeight + band.baseElevation + Math.max(0.1, band.heightM);
+      // §A.21.D40#1 (mirror-shadow) — the ground-floor band is sunk
+      // FORMA_BASE_SINK_M BELOW the grey globe ground so its base never z-fights
+      // the ground. With `viewer.shadows = true`, a CLOSED buried bottom face also
+      // casts a downward shadow that the ground (the shadow receiver) shows as a
+      // large flat grey quad mirrored beneath the house — the "mirror shadow".
+      // The buried base is never visible (it's underground), so we simply DROP its
+      // bottom face on the sunk ground floor: no buried caster → no mirror shadow,
+      // while the visible sides + top still cast the building's real ground shadow.
+      const closeBandBottom = bi !== 0;
 
       if (footprint) {
         // All storeys of a house/apartment share the drawn outline footprint.
@@ -1699,7 +1708,7 @@ export class CesiumViewport {
               shadows: Cesium.ShadowMode.ENABLED,
               perPositionHeight: false,
               closeTop: true,
-              closeBottom: true,
+              closeBottom: closeBandBottom, // §A.21.D40#1 — no buried bottom on the sunk ground floor (kills the mirror shadow).
             },
           });
           this.formaMassingEntities.push(ent);
@@ -1735,7 +1744,7 @@ export class CesiumViewport {
                 shadows: Cesium.ShadowMode.ENABLED,
                 perPositionHeight: false,
                 closeTop: true,
-                closeBottom: true,
+                closeBottom: closeBandBottom, // §A.21.D40#1 — no buried bottom on the sunk ground floor (kills the mirror shadow).
               },
             });
             this.formaMassingEntities.push(ent);
@@ -1743,12 +1752,12 @@ export class CesiumViewport {
             console.log(`[CesiumViewport][forma] storey ${bi}: shell extruded as a single ${ring.length}-vertex perimeter prism (no corner gaps).`);
           } catch (e) {
             console.warn(`[CesiumViewport][forma] storey ${bi} perimeter prism failed — per-wall fallback:`, e);
-            this.extrudeWallsAsBoxes(band.walls, bandBottom, baseHeight + band.baseElevation, bi, viewer, toCartesian, massFill, massOutline, silhouetteTargets);
+            this.extrudeWallsAsBoxes(band.walls, bandBottom, baseHeight + band.baseElevation, bi, viewer, toCartesian, massFill, massOutline, silhouetteTargets, closeBandBottom);
           }
         } else {
           // Ring not reconstructable (open / degenerate shell) → per-wall boxes.
           console.log(`[CesiumViewport][forma] storey ${bi}: perimeter ring unavailable — falling back to per-wall boxes.`);
-          this.extrudeWallsAsBoxes(band.walls, bandBottom, baseHeight + band.baseElevation, bi, viewer, toCartesian, massFill, massOutline, silhouetteTargets);
+          this.extrudeWallsAsBoxes(band.walls, bandBottom, baseHeight + band.baseElevation, bi, viewer, toCartesian, massFill, massOutline, silhouetteTargets, closeBandBottom);
         }
       }
     }
@@ -1784,7 +1793,8 @@ export class CesiumViewport {
     let slabsPlaced = 0;
     for (const s of slabs) {
       if (!s.ring || s.ring.length < 3) continue;
-      const top = baseHeight + s.topElevation - (Math.abs(s.topElevation) < 0.5 ? FORMA_BASE_SINK_M : 0);
+      const isSunkGroundSlab = Math.abs(s.topElevation) < 0.5;
+      const top = baseHeight + s.topElevation - (isSunkGroundSlab ? FORMA_BASE_SINK_M : 0);
       const bottom = top - Math.max(0.05, s.thickness);
       // Hide with the storey it sits on (the slab tops the storey BELOW it; use
       // its own elevation for the band lookup — good enough for the selector).
@@ -1804,7 +1814,10 @@ export class CesiumViewport {
             shadows: Cesium.ShadowMode.ENABLED,
             perPositionHeight: false,
             closeTop: true,
-            closeBottom: true,
+            // §A.21.D40#1 — a sunk ground-floor slab buried below the grey ground
+            // would cast a downward shadow the ground shows as a mirrored grey
+            // quad; drop its (invisible, buried) bottom face. Upper slabs keep it.
+            closeBottom: !isSunkGroundSlab,
           },
         });
         this.formaMassingEntities.push(ent);
@@ -2178,7 +2191,17 @@ export class CesiumViewport {
     // re-samples + re-places ONLY if the centroid has moved since the last clamp
     // (task #2). Never blocks the placement above (the toggle stays responsive).
     if (!input._skipTerrainClamp) {
-      void this.clampTerrainThenReplace(input);
+      if (input.keepPhotoreal) {
+        // §A.21.D40#3 — on the PHOTOREAL "3D globe" the visible ground is the
+        // Google 3D-Tiles MESH, not the terrain provider (which is the keyless
+        // ellipsoid → height 0). Placing the building at the terrain height left it
+        // sitting at/below the ellipsoid → buried under (and occluded by) the
+        // opaque tile mesh, so the house "didn't appear". Sample the height of the
+        // loaded TILESET surface at the site and re-seat the building on top of it.
+        void this.clampToPhotorealTilesThenReplace(input);
+      } else {
+        void this.clampTerrainThenReplace(input);
+      }
       // MAP-DATA-OVERTURE — surround the proposed massing with real context
       // buildings (keyless OSM). Best-effort + non-blocking; guarded internally.
       // Skipped on the terrain re-place pass (_skipTerrainClamp) so we don't
@@ -2186,6 +2209,92 @@ export class CesiumViewport {
       // the unchanged-centre skip.
       void this.loadContextBuildings(originLat, originLon);
     }
+  }
+
+  /**
+   * §A.21.D40#3 — PHOTOREAL "3D globe" height clamp. Unlike the terrain clamp
+   * (which samples the terrain PROVIDER — the keyless ellipsoid = height 0), this
+   * samples the height of the loaded Google Photorealistic 3D-Tiles MESH at the
+   * site via `scene.sampleHeightMostDetailed`, which raycasts against tilesets.
+   * The building is then re-seated on TOP of the visible tile ground so it reads
+   * as a grounded volume in the real city instead of being buried beneath the
+   * tiles. Fully guarded + best-effort:
+   *   • API/feature unavailable, sample null/NaN, or no tileset loaded → keep the
+   *     current base (no re-place), log once. Never throws, never blanks the view.
+   *   • a newer placement supersedes this one (token) → bail.
+   */
+  private async clampToPhotorealTilesThenReplace(
+    input: Parameters<CesiumViewport['renderFormaMassing']>[0],
+    retriesLeft = 3,
+  ): Promise<void> {
+    const viewer = this.viewer;
+    if (!viewer) return;
+    const scene = viewer.scene;
+
+    // Sample point = boundary centroid (lat/lon) when drawn, else the origin —
+    // the SAME anchor logic as the terrain clamp so both paths agree.
+    let sampleLat = input.originLat;
+    let sampleLon = input.originLon;
+    if (input.boundary && input.boundary.length >= 3) {
+      const c = this.polygonCentroidAndAreaXZ(input.boundary);
+      const originCartesian = Cesium.Cartesian3.fromDegrees(input.originLon, input.originLat, 0);
+      const enu = Cesium.Transforms.eastNorthUpToFixedFrame(originCartesian);
+      const centroidCartesian = Cesium.Matrix4.multiplyByPoint(
+        enu, new Cesium.Cartesian3(c.east, c.north, 0), new Cesium.Cartesian3(),
+      );
+      const carto = Cesium.Cartographic.fromCartesian(centroidCartesian);
+      sampleLat = Cesium.Math.toDegrees(carto.latitude);
+      sampleLon = Cesium.Math.toDegrees(carto.longitude);
+    }
+
+    // sampleHeightMostDetailed raycasts the loaded tilesets (and terrain). It is
+    // a newer Cesium API; feature-detect so older builds degrade silently.
+    const sampleFn = (scene as unknown as {
+      sampleHeightMostDetailed?: (positions: Cesium.Cartographic[]) => Promise<Cesium.Cartographic[]>;
+    }).sampleHeightMostDetailed;
+    if (typeof sampleFn !== 'function') {
+      this.warnTerrainOnce('scene.sampleHeightMostDetailed unavailable — building stays at base 0 on the globe.');
+      return;
+    }
+
+    const myToken = ++this.formaTerrainToken;
+    let sampledHeight: number | null = null;
+    try {
+      const carto = Cesium.Cartographic.fromDegrees(sampleLon, sampleLat);
+      const [result] = await sampleFn.call(scene, [carto]);
+      const h = result?.height;
+      if (typeof h === 'number' && Number.isFinite(h)) sampledHeight = h;
+    } catch (e) {
+      this.warnTerrainOnce('scene.sampleHeightMostDetailed rejected — building stays at base 0 on the globe: ' + String(e));
+      return;
+    }
+
+    // A newer placement started after us — let it own the clamp; bail.
+    if (myToken !== this.formaTerrainToken || !this.viewer) return;
+
+    if (sampledHeight === null) {
+      // Tiles not yet loaded at this LOD (common right after the toggle). Retry a
+      // few times (capped) after a short delay so the building lands on the tiles
+      // once streamed, then give up gracefully (keyless / ellipsoid → base 0 is
+      // already a correct flat-ground seat).
+      if (retriesLeft > 0) {
+        this.warnTerrainOnce('photoreal tile height was null (tiles still streaming) — retrying.');
+        setTimeout(() => { void this.clampToPhotorealTilesThenReplace(input, retriesLeft - 1); }, 1200);
+      }
+      return;
+    }
+
+    this.formaTerrainSampledAt = { lat: sampleLat, lon: sampleLon };
+    if (Math.abs(sampledHeight - this.formaTerrainBaseHeight) < 1e-3) return; // already seated
+
+    this.formaTerrainBaseHeight = sampledHeight;
+    console.log(
+      `[CesiumViewport][globe] photoreal-tile clamp: base height ${sampledHeight.toFixed(2)} m ` +
+        `at LAT ${sampleLat.toFixed(6)} LON ${sampleLon.toFixed(6)} — re-placing on the tiles.`,
+    );
+    // Re-place at the tile-surface base. `_skipTerrainClamp` prevents re-entry;
+    // `frameCentroid:false` so the re-place never re-flies the camera.
+    this.renderFormaMassing({ ...input, frameCentroid: false, _skipTerrainClamp: true });
   }
 
   /**
@@ -3085,6 +3194,9 @@ export class CesiumViewport {
     massFill: Cesium.Color,
     massOutline: Cesium.Color,
     silhouetteTargets: Cesium.Entity[],
+    /** §A.21.D40#1 — false on the sunk ground floor: drop the buried bottom face
+     *  so it does not cast the mirror shadow (see the footprint-mass path). */
+    closeBottom = true,
   ): void {
     try {
       for (const w of walls) {
@@ -3106,7 +3218,7 @@ export class CesiumViewport {
             // §A.21.D-FORMA2 — cap top + bottom so each wall reads as a SOLID
             // opaque volume rather than an open box you can see into/through.
             closeTop: true,
-            closeBottom: true,
+            closeBottom,
           },
         });
         this.formaMassingEntities.push(ent);
