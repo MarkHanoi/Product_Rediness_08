@@ -53,11 +53,32 @@ describe('buildWallsAndDoors (TGL P4)', () => {
         expect([...o.betweenRoomIds].sort()).toEqual(['A', 'B']);
     });
 
-    it('omits the shared wall for a via:open (open-plan) edge — no wall, no door', () => {
-        const g = graphOf([room('A'), room('B')], [{ a: 'A', b: 'B', via: 'open' }]);
-        const { segments, openings } = buildWallsAndDoors([A, B], g);
+    it('omits the shared wall for a via:open edge between OPEN-PLAN-ELIGIBLE rooms (living↔dining) — no wall, no door', () => {
+        const g = graphOf([room('A', 'living'), room('B', 'dining')], [{ a: 'A', b: 'B', via: 'open' }]);
+        const { segments, openings, boundaries } = buildWallsAndDoors([A, B], g);
         expect(segments.some(s => s.boundsRoomIds.length === 2)).toBe(false);
         expect(openings).toHaveLength(0);
+        // …but a virtual room-bounding line still separates the two open-plan spaces.
+        expect(boundaries.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('§OPEN-PLAN-ELIGIBLE: KEEPS a real wall for a via:open edge touching a PRIVATE room (never merge a bedroom into an open zone)', () => {
+        // A bedroom must ALWAYS be walled — an `open` edge from the graph (AI-path /
+        // malformed bubble) is DOWNGRADED to a real partition; the rooms connect via
+        // a doorway instead, never a shared open space. This is the central-blob fix.
+        const g = graphOf([room('A', 'living'), room('B', 'bedroom')], [{ a: 'A', b: 'B', via: 'open' }]);
+        const { segments, boundaries } = buildWallsAndDoors([A, B], g);
+        const shared = segments.filter(s => s.boundsRoomIds.length === 2);
+        expect(shared).toHaveLength(1);
+        expect([...shared[0]!.boundsRoomIds].sort()).toEqual(['A', 'B']);
+        // NOT an open-plan boundary line (it's a solid wall, not a virtual splitter).
+        expect(boundaries.some(b => [...b.betweenRoomIds].sort().join() === 'A,B')).toBe(false);
+    });
+
+    it('§OPEN-PLAN-ELIGIBLE: KEEPS a real wall for a via:open edge between two PRIVATE rooms (bedroom↔bedroom never open-plan)', () => {
+        const g = graphOf([room('A', 'bedroom'), room('B', 'bedroom')], [{ a: 'A', b: 'B', via: 'open' }]);
+        const { segments } = buildWallsAndDoors([A, B], g);
+        expect(segments.some(s => s.boundsRoomIds.length === 2)).toBe(true);
     });
 
     it('skips a door edge whose rooms are not actually adjacent (best-effort)', () => {

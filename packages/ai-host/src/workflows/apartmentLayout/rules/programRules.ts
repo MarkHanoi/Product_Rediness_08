@@ -564,6 +564,27 @@ export function isPrivate(type: RoomType | string): boolean {
 }
 
 /**
+ * §OPEN-PLAN-ELIGIBLE (A.21.D40 #5, 2026-06-08) — may this room type EVER share a
+ * wall-less open-plan threshold with a neighbour?
+ *
+ * Open-plan is an architectural property of SOCIAL rooms only: the living /
+ * kitchen / dining cluster (the "lounge-diner" / "open-plan living" pattern). A
+ * SLEEPING room (bedroom / master / study), a WET room (bathroom / ensuite / wc),
+ * and CIRCULATION (hall / corridor) must ALWAYS be enclosed by real partitions —
+ * they may never be merged into a shared open zone. This is the hard guarantee
+ * that stops the "one 100 m² space labelled Living / Bedroom / Corridor /
+ * Bathroom" central-blob defect: a wall between an open-plan-eligible room and a
+ * NON-eligible room (or between two non-eligible rooms) is NEVER suppressed,
+ * whatever adjacency the bubble/AI graph requests.
+ *
+ * Pure data lookup; deterministic.
+ */
+export function isOpenPlanEligible(type: RoomType | string): boolean {
+    const t = roomRule(type).type;
+    return t === 'living' || t === 'kitchen' || t === 'dining';
+}
+
+/**
  * May a doorway connect two room types? Symmetric: permitted when EITHER type lists
  * the other in its `accessFrom`. This is THE rule that forbids illogical doors —
  * bedroom↔bedroom, bathroom↔kitchen, an en-suite off a corridor, etc.
