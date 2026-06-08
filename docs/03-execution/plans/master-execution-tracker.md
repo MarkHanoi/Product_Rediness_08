@@ -2369,3 +2369,21 @@ BUG-ANNO-DRAG, FORMA-CTX, HSE-AUDIT-2..5, A.27 P5-7.
 ---
 
 *Addendum continues 2026-06-08 — §22.11 WJ-SKEW CONFIRMED (38.5° plate, zero self-clusters, 9 rooms) + v64 (WJ-SKEW-2 · DEMO-1 · SITE-PANEL-UI); CORRIDOR-NO-TRIM diagnosed + deferred.*
+
+### §22.12 — v65 demo polish (2026-06-08)
+
+- **DEMO-3** ✅ v65 — "Regenerating layout…" brand-#6600FF spinner toast on Living-Graph area/type
+  edits (covers the 450 ms debounce); dismissed on `apartment.layout-executed` + 8 s safety fallback.
+- **BUG-ANNO-DRAG** ✅ v65 — room-tag drag in plan view no longer throws `UPDATE_ANNOTATION
+  CommandBusError`; registered the missing bridge in `initBusHandlers.ts` forwarding the legacy
+  `UpdateAnnotationCommand` to `commandManager` (owns the store mutation + undo). Root cause: a
+  migration gap (annotation.create bridge retired without an update bridge; PlanViewInteraction
+  dispatches the legacy command on the new bus).
+
+**Remaining backlog (post-v65):** CORRIDOR-NO-TRIM (diagnosed, needs door-aware trim + tests) ·
+FORMA-CTX (terrain contours/roads/pedestrian) · HSE-AUDIT-2..5 (goodViewKinds/vertical-acoustic
+unconsumed, riser divergence, blank-storey) · A.27 P5-7 (corridor-face hint, stair-head, double-loaded).
+
+---
+
+*Addendum continues 2026-06-08 — §22.12 v65 polish (DEMO-3 toast · BUG-ANNO-DRAG handler).*
