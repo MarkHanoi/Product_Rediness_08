@@ -189,6 +189,20 @@ const FORMA_SHADOW_DARKNESS = 0.30;
  */
 const FORMA_GLAZING_ALPHA = 0.30;
 
+/**
+ * §A.21.D-GLOBE3 (2026-06-08) — REAL app-scene fallback colours, mirrored from the
+ * three.js BIM fragment builders so the building on the photoreal "3D globe" reads
+ * in the SAME colours the editor 3D view shows for an un-finished element:
+ *   • wall  → WallFragmentBuilder  `wall.materialColor ?? '#d4c5b0'` (warm plaster)
+ *   • slab  → SlabFragmentBuilder  `data.materialColor || '#808080'` (grey)
+ *   • roof  → RoofFragmentBuilder  `data.materialColor || '#c8a46e'` (tan)
+ * These are used ONLY on the keepPhotoreal globe path; the Forma flat-ground study
+ * keeps its abstract white massing palette (FORMA_PALETTE.proposedFill) unchanged.
+ */
+const BIM_DEFAULT_WALL_COLOUR = '#d4c5b0';
+const BIM_DEFAULT_SLAB_COLOUR = '#808080';
+const BIM_DEFAULT_ROOF_COLOUR = '#c8a46e';
+
 export class CesiumViewport {
   private container: HTMLDivElement;
   private viewer: Cesium.Viewer | null = null;
@@ -320,6 +334,14 @@ export class CesiumViewport {
   /** §A.21.D-GLOBE (2026-06-05) — debounce handle for the pan-driven context-building
    *  refresh so a flurry of camera moves coalesces into one Overpass fetch. */
   private contextPanRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+  /** §A.21.D-GLOBE3 (2026-06-08) — TRUE once a Google Photorealistic 3D-Tiles
+   *  primitive actually loaded at mount (ion-token OR google-key path). When the
+   *  photoreal tiles ARE present they already supply real photoreal buildings for
+   *  the area, so PRYZM's OWN extruded OSM/Overpass context boxes would DUPLICATE +
+   *  overlap them. We therefore SUPPRESS (and tear down) our context extrusions on
+   *  the photoreal "3D globe" path and only render them in the KEYLESS fallback
+   *  (ESRI satellite / no 3D buildings) where they are the only surrounding context. */
+  private photorealTilesActive = false;
 
   /** Phase B (S73-WIRE) — runtime threaded by parent. */
   public readonly runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null;
@@ -554,6 +576,9 @@ export class CesiumViewport {
         // Add tileset without auto-zoom
         this.viewer.scene.primitives.add(tileset);
         photogrammetryLoaded = true;
+        // §A.21.D-GLOBE3 — photoreal tiles ARE the surrounding context now → suppress
+        // PRYZM's own OSM/Overpass context extrusions (they'd duplicate the tiles).
+        this.photorealTilesActive = true;
         console.log("✅ Google Photorealistic 3D Tiles loaded — ion-token path (no auto zoom)");
       } catch (err) {
         console.error("❌ Failed to load photogrammetry (ion-token path):", err);
@@ -589,6 +614,9 @@ export class CesiumViewport {
           // Add tileset without auto-zoom
           this.viewer.scene.primitives.add(tileset);
           photogrammetryLoaded = true;
+          // §A.21.D-GLOBE3 — photoreal tiles ARE the surrounding context now → suppress
+          // PRYZM's own OSM/Overpass context extrusions (they'd duplicate the tiles).
+          this.photorealTilesActive = true;
           console.log("✅ Google Photorealistic 3D Tiles loaded — google-key path (no auto zoom)");
         }
       } catch (err) {
@@ -1270,14 +1298,17 @@ export class CesiumViewport {
     if (this.formaSilhouetteComposite) this.formaSilhouetteComposite.enabled = false;
 
     // MAP-DATA-OVERTURE / §GLOBE-CONTEXT-BUILDINGS (2026-06-05) — the extruded
-    // OSM context-building overlay. WITH a real-tiles credential (Cesium token OR
-    // Google Maps key, A.21.D31) the Google Photorealistic 3D Tiles already show
-    // real 3D buildings, so the overlay is redundant → clear it. On the KEYLESS
-    // path the ESRI satellite is FLAT (no 3D buildings), so the "3D globe" would
-    // show "only a 2D map" — KEEP + (re)load the extruded overlay so the globe
-    // still has 3D context buildings (founder-reported).
+    // OSM context-building overlay. WHEN the Google Photorealistic 3D Tiles
+    // actually LOADED (§A.21.D-GLOBE3 `photorealTilesActive` — ion-token OR
+    // google-key path) they already show real 3D buildings, so the overlay is
+    // redundant + DUPLICATES the tiles → clear it. On the KEYLESS path (or when a
+    // credential was set but the tiles never streamed) the ESRI satellite is FLAT
+    // (no 3D buildings), so the "3D globe" would show "only a 2D map" — KEEP +
+    // (re)load the extruded overlay so the globe still has 3D context buildings.
+    // (Gating on the REAL tiles-active flag, not merely a credential being present,
+    // means a failed/blocked tile stream still gets the keyless OSM context.)
     try {
-      if (_cesiumToken || _googleMapsKey) {
+      if (this.photorealTilesActive) {
         this.contextBuildingsAbort?.abort();
         this.clearContextBuildings();
         this.contextBuildingsAt = null;
@@ -1420,6 +1451,39 @@ export class CesiumViewport {
   }
 
   /**
+   * §A.21.D-GLOBE3 — resolve the fill `Cesium.Color` for a massing element.
+   *
+   * On the photoreal "3D globe" (`useReal` = the keepPhotoreal path) the building
+   * should read in its REAL editor material colours: prefer the element's own
+   * `materialColor` hex, else the BIM builder's default for that element type
+   * (`fallbackReal`). On the Forma flat-ground STUDY path (`useReal` false) we keep
+   * the abstract massing palette (`formaColor`) exactly as before. Never throws —
+   * a malformed hex degrades to the supplied Forma colour. `alpha`, when given,
+   * is applied to the resolved colour (e.g. furniture / glazing translucency).
+   */
+  private resolveMassFill(
+    useReal: boolean,
+    materialColor: string | undefined,
+    fallbackReal: string,
+    formaColor: Cesium.Color,
+    alpha?: number,
+  ): Cesium.Color {
+    if (!useReal) return alpha !== undefined ? formaColor.withAlpha(alpha) : formaColor;
+    const hex = materialColor && materialColor.trim() ? materialColor : fallbackReal;
+    try {
+      const c = Cesium.Color.fromCssColorString(hex);
+      // fromCssColorString returns a transparent/black colour for an unparseable
+      // string; guard against an all-zero result by falling back to the Forma fill.
+      if (c.red === 0 && c.green === 0 && c.blue === 0 && c.alpha === 0) {
+        return alpha !== undefined ? formaColor.withAlpha(alpha) : formaColor;
+      }
+      return alpha !== undefined ? c.withAlpha(alpha) : c;
+    } catch {
+      return alpha !== undefined ? formaColor.withAlpha(alpha) : formaColor;
+    }
+  }
+
+  /**
    * FORMA.3 — render PRYZM's authored building massing + the drawn parcel
    * boundary into the Cesium scene at the real-world site, in the Forma
    * "white-volume + black-outline" look (SPEC §3 / §4).
@@ -1475,6 +1539,11 @@ export class CesiumViewport {
       baseElevation?: number;
       /** Owning level id (for the floor selector readout). */
       levelId?: string;
+      /** §A.21.D-GLOBE3 — the wall's REAL BIM finish hex (the same colour the
+       *  three.js editor scene paints for this wall). Used to colour the shell on
+       *  the photoreal "3D globe" so the house reads in its real app-scene colours
+       *  instead of the abstract Forma white. Ignored on the Forma study path. */
+      materialColor?: string;
     }>;
     /**
      * §A.21.D25 — authored floor SLABS (scene-XZ outer ring + top elevation +
@@ -1488,6 +1557,8 @@ export class CesiumViewport {
       topElevation: number;
       thickness: number;
       levelId?: string;
+      /** §A.21.D-GLOBE3 — REAL BIM slab finish hex (globe path only). */
+      materialColor?: string;
     }>;
     /**
      * §A.21.D25 — authored ROOFS (scene-XZ outer ring + base elevation +
@@ -1502,6 +1573,8 @@ export class CesiumViewport {
       /** Pitch in radians (0 = flat); used to raise a simple coarse ridge. */
       pitch: number;
       levelId?: string;
+      /** §A.21.D-GLOBE3 — REAL BIM roof finish hex (globe path only). */
+      materialColor?: string;
     }>;
     /**
      * §A.21.D25 — coarse FURNITURE boxes (scene-XZ origin + level elevation +
@@ -1655,6 +1728,34 @@ export class CesiumViewport {
     const massOutline = Cesium.Color.fromCssColorString(FORMA_PALETTE.silhouette);
     const footprint = boundary && boundary.length >= 3 ? boundary : null;
 
+    // §A.21.D-GLOBE3 — REAL app-scene colours on the photoreal "3D globe". When the
+    // building is placed ON the photoreal tiles (keepPhotoreal), colour every
+    // element from its REAL BIM material/finish (the same colour the three.js editor
+    // scene shows) instead of the abstract Forma white massing. On the Forma
+    // flat-ground STUDY path this stays false → the white massing palette is
+    // unchanged. (Glazing keeps its translucent tint either way — see below.)
+    const useRealColours = input.keepPhotoreal === true;
+
+    // Dominant wall finish hex per storey band (the shell shares one footprint, so
+    // it needs ONE colour per band). We pick the most-common non-empty
+    // `materialColor` among the band's walls; empty → the BIM wall default. Built by
+    // re-grouping the input walls with the SAME elevation tolerance the band grouper
+    // uses, so band index i lines up with bands[i].
+    const STOREY_BAND_TOL_M = 0.5;
+    const bandWallColour = (bandBaseElev: number): string | undefined => {
+      const counts = new Map<string, number>();
+      for (const w of walls) {
+        const elev = typeof w.baseElevation === 'number' && Number.isFinite(w.baseElevation) ? w.baseElevation : 0;
+        if (Math.abs(elev - bandBaseElev) > STOREY_BAND_TOL_M) continue;
+        const c = w.materialColor && w.materialColor.trim() ? w.materialColor : '';
+        if (c) counts.set(c, (counts.get(c) ?? 0) + 1);
+      }
+      let best: string | undefined;
+      let bestN = 0;
+      for (const [c, n] of counts) if (n > bestN) { bestN = n; best = c; }
+      return best;
+    };
+
     // Group walls into storey bands keyed by their (rounded) base elevation. Each
     // band's height = the tallest wall on that storey. Bands are sorted from the
     // ground up so the band index doubles as the floor number for the selector.
@@ -1691,6 +1792,12 @@ export class CesiumViewport {
       // while the visible sides + top still cast the building's real ground shadow.
       const closeBandBottom = bi !== 0;
 
+      // §A.21.D-GLOBE3 — the shell fill for THIS storey: the real wall finish on the
+      // photoreal globe, else the white Forma massing fill.
+      const bandFill = this.resolveMassFill(
+        useRealColours, bandWallColour(band.baseElevation), BIM_DEFAULT_WALL_COLOUR, massFill,
+      );
+
       if (footprint) {
         // All storeys of a house/apartment share the drawn outline footprint.
         try {
@@ -1701,7 +1808,7 @@ export class CesiumViewport {
               hierarchy: new Cesium.PolygonHierarchy(positions),
               height: bandBottom,
               extrudedHeight: bandTop,
-              material: massFill,
+              material: bandFill,
               outline: true,
               outlineColor: massOutline,
               outlineWidth: 1.5,
@@ -1737,7 +1844,7 @@ export class CesiumViewport {
                 hierarchy: new Cesium.PolygonHierarchy(positions),
                 height: bandBottom,
                 extrudedHeight: bandTop,
-                material: massFill,
+                material: bandFill,
                 outline: true,
                 outlineColor: massOutline,
                 outlineWidth: 1.5,
@@ -1752,12 +1859,12 @@ export class CesiumViewport {
             console.log(`[CesiumViewport][forma] storey ${bi}: shell extruded as a single ${ring.length}-vertex perimeter prism (no corner gaps).`);
           } catch (e) {
             console.warn(`[CesiumViewport][forma] storey ${bi} perimeter prism failed — per-wall fallback:`, e);
-            this.extrudeWallsAsBoxes(band.walls, bandBottom, baseHeight + band.baseElevation, bi, viewer, toCartesian, massFill, massOutline, silhouetteTargets, closeBandBottom);
+            this.extrudeWallsAsBoxes(band.walls, bandBottom, baseHeight + band.baseElevation, bi, viewer, toCartesian, bandFill, massOutline, silhouetteTargets, closeBandBottom);
           }
         } else {
           // Ring not reconstructable (open / degenerate shell) → per-wall boxes.
           console.log(`[CesiumViewport][forma] storey ${bi}: perimeter ring unavailable — falling back to per-wall boxes.`);
-          this.extrudeWallsAsBoxes(band.walls, bandBottom, baseHeight + band.baseElevation, bi, viewer, toCartesian, massFill, massOutline, silhouetteTargets, closeBandBottom);
+          this.extrudeWallsAsBoxes(band.walls, bandBottom, baseHeight + band.baseElevation, bi, viewer, toCartesian, bandFill, massOutline, silhouetteTargets, closeBandBottom);
         }
       }
     }
@@ -1801,13 +1908,15 @@ export class CesiumViewport {
       if (!isBandVisible(bandIndexForElevation(s.topElevation))) continue;
       try {
         const positions = s.ring.map((p) => toCartesian(p.x, p.z, bottom));
+        // §A.21.D-GLOBE3 — real slab finish on the globe; white massing in the study.
+        const slabFill = this.resolveMassFill(useRealColours, s.materialColor, BIM_DEFAULT_SLAB_COLOUR, massFill);
         const ent = viewer.entities.add({
           name: 'pryzm-forma-slab',
           polygon: {
             hierarchy: new Cesium.PolygonHierarchy(positions),
             height: bottom,
             extrudedHeight: top,
-            material: massFill,
+            material: slabFill,
             outline: true,
             outlineColor: massOutline,
             outlineWidth: 1.0,
@@ -1837,6 +1946,8 @@ export class CesiumViewport {
       if (!r.ring || r.ring.length < 3) continue;
       if (!isBandVisible(bandIndexForElevation(r.baseElevation))) continue;
       const eave = baseHeight + r.baseElevation;
+      // §A.21.D-GLOBE3 — real roof finish on the globe; white massing in the study.
+      const roofFill = this.resolveMassFill(useRealColours, r.materialColor, BIM_DEFAULT_ROOF_COLOUR, massFill);
       try {
         if (r.pitch > 0.01) {
           // Coarse pitched cap: raise a centre "ridge fan" — triangles from each
@@ -1866,7 +1977,7 @@ export class CesiumViewport {
               polygon: {
                 hierarchy: new Cesium.PolygonHierarchy(tri),
                 perPositionHeight: true,
-                material: massFill,
+                material: roofFill,
                 outline: true,
                 outlineColor: massOutline,
                 outlineWidth: 1.0,
@@ -1886,7 +1997,7 @@ export class CesiumViewport {
               hierarchy: new Cesium.PolygonHierarchy(positions),
               height: eave,
               extrudedHeight: eave + Math.max(0.1, r.thickness),
-              material: massFill,
+              material: roofFill,
               outline: true,
               outlineColor: massOutline,
               outlineWidth: 1.0,
@@ -2207,7 +2318,29 @@ export class CesiumViewport {
       // Skipped on the terrain re-place pass (_skipTerrainClamp) so we don't
       // refetch — the terrain clamp re-seats existing context entities cheaply via
       // the unchanged-centre skip.
-      void this.loadContextBuildings(originLat, originLon);
+      //
+      // §A.21.D-GLOBE3 (2026-06-08) — DUPLICATION FIX: on the photoreal "3D globe"
+      // (keepPhotoreal) WITH the Google 3D-Tiles loaded, the TILES already provide
+      // real photoreal buildings for the area, so our own extruded OSM/Overpass
+      // boxes would DUPLICATE + overlap them (founder: flat white blocks over the
+      // photoreal roofs). SUPPRESS our context extrusions in that case — and tear
+      // down any that a prior keyless render left behind so they don't leak onto the
+      // tiles. We still render context on the Forma flat-ground STUDY path and on
+      // the KEYLESS globe fallback (no tiles), where they are the only context.
+      if (input.keepPhotoreal && this.photorealTilesActive) {
+        if (this.contextBuildingEntities.length > 0) {
+          console.log(
+            '[CesiumViewport][globe] §A.21.D-GLOBE3 — photoreal 3D-Tiles active → ' +
+              'clearing PRYZM context extrusions (the tiles ARE the context).',
+          );
+        }
+        this.contextBuildingsAbort?.abort();
+        this.contextBuildingsAbort = null;
+        this.clearContextBuildings();
+        this.contextBuildingsAt = null;
+      } else {
+        void this.loadContextBuildings(originLat, originLon);
+      }
     }
   }
 
@@ -2384,7 +2517,11 @@ export class CesiumViewport {
     this.renderFormaMassing({ ...input, frameCentroid: false, _skipTerrainClamp: true });
     // MAP-DATA-OVERTURE — the base height changed, so re-seat the context
     // buildings on the new ground too (force, since the centre is unchanged).
-    void this.loadContextBuildings(input.originLat, input.originLon, true);
+    // §A.21.D-GLOBE3 — but NOT on the photoreal "3D globe" where the loaded tiles
+    // already supply the context (our extrusions would duplicate them).
+    if (!(input.keepPhotoreal && this.photorealTilesActive)) {
+      void this.loadContextBuildings(input.originLat, input.originLon, true);
+    }
   }
 
   /** Log the "terrain clamp degraded → base 0" message at most once. */
@@ -3565,6 +3702,9 @@ export class CesiumViewport {
       if (this.contextPanRefreshTimer !== null) { clearTimeout(this.contextPanRefreshTimer); this.contextPanRefreshTimer = null; }
       this.clearContextBuildings();
       this.contextBuildingsAt = null;
+      // §A.21.D-GLOBE3 — re-detect photoreal tiles on the next mount (a re-mounted
+      // viewport re-loads its tileset), so the context-suppression decision is fresh.
+      this.photorealTilesActive = false;
     } catch (e) {
       console.warn('[CesiumViewport] context-building dispose failed:', e);
     }
