@@ -22,7 +22,7 @@ const room = (
     return {
         id: id ?? `r_${type}_${areaM2}`,
         type,
-        name,
+        ...(name !== undefined ? { name } : {}),
         rect: { x0: 0, z0: 0, x1: side, z1: side },
     };
 };

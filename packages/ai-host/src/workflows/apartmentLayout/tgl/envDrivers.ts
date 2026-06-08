@@ -347,7 +347,6 @@ export function acousticZoningScore(graph: LayoutGraph): number {
     }
 
     const isNoisy = (g: string): boolean => NOISY_TYPES.has(spaceType.get(g) ?? '');
-    const isQuiet = (g: string): boolean => QUIET_TYPES.has(spaceType.get(g) ?? '');
     const isBuffer = (g: string): boolean => BUFFER_ROOM_TYPES.has(spaceType.get(g) ?? '');
 
     let violations = 0;   // quiet directly touching noisy

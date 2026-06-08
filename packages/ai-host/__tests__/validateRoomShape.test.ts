@@ -9,7 +9,8 @@ import { validateRoomShape, validateAllRoomShapes, type RoomShape } from
 import type { RoomType } from '../src/workflows/apartmentLayout/types.js';
 
 const room = (type: RoomType, w: number, h: number, id = 't', name?: string): RoomShape => ({
-    id, type, name,
+    id, type,
+    ...(name !== undefined ? { name } : {}),
     rect: { x0: 0, z0: 0, x1: w, z1: h },
 });
 

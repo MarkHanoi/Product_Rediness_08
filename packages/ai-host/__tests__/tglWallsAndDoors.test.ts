@@ -755,7 +755,7 @@ describe('§EXTEND-TO-PERIMETER — exterior walls reach the slanted shell', () 
         const getDoorWidth = (kind: BubbleGraph['edges'][number]['kind']): number => {
             const g = graphOf(
                 [room('A', 'living'), room('B', 'kitchen')],
-                [{ a: 'A', b: 'B', via: 'door', kind }],
+                [{ a: 'A', b: 'B', via: 'door', ...(kind !== undefined ? { kind } : {}) }],
             );
             const { openings } = buildWallsAndDoors([A2, B2], g);
             const door = openings.find(o => o.type === 'door')!;

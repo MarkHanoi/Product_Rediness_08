@@ -30,7 +30,7 @@ describe('modelClassOf', () => {
 
 describe('createCfWorkerRelay', () => {
     it('POSTs the RelayRequest as an Anthropic /v1/messages body', async () => {
-        const fetchImpl = vi.fn(async () => jsonResponse(ANTHROPIC_OK));
+        const fetchImpl = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) => jsonResponse(ANTHROPIC_OK));
         const relay = createCfWorkerRelay('/api/anthropic/v1/messages', fetchImpl as unknown as typeof fetch);
         await relay.complete({ model: 'claude-haiku-4-5-20251014', system: 'SYS', user: 'USER', maxTokens: 3000 });
 

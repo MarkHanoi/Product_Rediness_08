@@ -255,7 +255,7 @@ describe('§ENV-E4-VENT (E.4) — natural ventilation', () => {
         const base = crossVent();
         const withStack = graphOf(
             [...base.nodes, roomAt('ST', 'stairwell', 4, 0, 6, 4)],
-            base.edges,
+            [...base.edges],
         );
         // crossVent already scores high; the stair can only raise (or hold) it.
         expect(naturalVentilationScore(withStack)).toBeGreaterThanOrEqual(naturalVentilationScore(base));
