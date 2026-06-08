@@ -300,6 +300,40 @@ export class HouseLayoutExecutor {
             }
             console.log('[house-layout] generated — storeys', result.storeys.length, 'stairs', result.stairs.length, 'voids', result.voids.length, 'roof', result.roof.kind);
 
+            // §DIAG-STAIR (2026-06-08) — the founder's recurring "stair conflicts the layout /
+            // stair not well located / walls not stretched around it". Log, per stair, its core
+            // rect rotated to WORLD vs the SHELL perimeter, so the next prod test shows exactly
+            // whether the stair sits INSIDE the footprint (and where) — the precondition for the
+            // partitions to bound it. `rectMm` is authored in the rotated LAYOUT frame, so we
+            // rotate its centre + corners by principalAxisRad about pivot to world (same transform
+            // _createStair uses) before testing containment in the shell polygon. Read-only.
+            try {
+                const sp = shell.perimeter;
+                const sxs = sp.map(p => p.x), szs = sp.map(p => p.z);
+                const shellBox = `x[${Math.min(...sxs).toFixed(1)},${Math.max(...sxs).toFixed(1)}] z[${Math.min(...szs).toFixed(1)},${Math.max(...szs).toFixed(1)}]`;
+                const inPoly = (pt: { x: number; z: number }, poly: ReadonlyArray<{ x: number; z: number }>): boolean => {
+                    let c = false;
+                    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+                        const a = poly[i]!, b = poly[j]!;
+                        if (((a.z > pt.z) !== (b.z > pt.z)) && (pt.x < (b.x - a.x) * (pt.z - a.z) / (b.z - a.z) + a.x)) c = !c;
+                    }
+                    return c;
+                };
+                console.log(`[house-layout] §DIAG-STAIR shell perimeter ${shellBox} (${shell.netAreaM2.toFixed(1)}m²); ${result.stairs.length} stair(s)`);
+                for (let si = 0; si < result.stairs.length; si++) {
+                    const st = result.stairs[si]!;
+                    const ax = (st.principalAxisRad ?? 0), piv = st.pivot ?? { x: 0, z: 0 };
+                    const x0 = st.rectMm.x / MM_PER_M, z0 = st.rectMm.y / MM_PER_M, w = st.rectMm.w / MM_PER_M, h = st.rectMm.h / MM_PER_M;
+                    const cornersLayout = [{ x: x0, z: z0 }, { x: x0 + w, z: z0 }, { x: x0 + w, z: z0 + h }, { x: x0, z: z0 + h }];
+                    const cornersWorld = cornersLayout.map(c => this._rotateXZ({ x: c.x, y: 0, z: c.z }, ax, piv));
+                    const centreWorld = this._rotateXZ({ x: x0 + w / 2, y: 0, z: z0 + h / 2 }, ax, piv);
+                    const cornersIn = cornersWorld.filter(c => inPoly(c, sp)).length;
+                    const centreIn = inPoly(centreWorld, sp);
+                    console.log(`[house-layout] §DIAG-STAIR #${si} ${st.fromLevelId}→${st.toLevelId} shape=${st.shape ?? 'I'} rect=${w.toFixed(1)}×${h.toFixed(1)}m rot=${(ax * 180 / Math.PI).toFixed(1)}° centreWorld=(${centreWorld.x.toFixed(1)},${centreWorld.z.toFixed(1)}) centreInShell=${centreIn} cornersInShell=${cornersIn}/4`);
+                    if (!centreIn || cornersIn < 4) console.warn(`[house-layout] §DIAG-STAIR ⚠ stair #${si} is NOT fully inside the shell (${cornersIn}/4 corners in) — it will conflict the perimeter/partitions.`);
+                }
+            } catch (e) { console.warn('[house-layout] §DIAG-STAIR failed (non-fatal):', e); }
+
             // §A.21.D29 #1 — clear any stairwell voids recorded by a PREVIOUS build
             // before this one records its own (so a re-generate never carries a stale
             // void into the floor/ceiling finish passes). Each `_createStair` records
@@ -494,15 +528,25 @@ export class HouseLayoutExecutor {
                     try {
                         const groundShell = gatherShellWalls(ground.id);
                         if (groundShell.length > 0) {
-                            const raisedHeight = wallHeightM + DEFAULT_SLAB_THICKNESS_M / 2;
+                            // §WALL-TOP-AT-SLAB-BOTTOM (2026-06-08, founder directive) — the
+                            // ground shell walls' TOP must equal the BOTTOM of the level-above
+                            // slab (= the upper floor elevation = wallHeightM), NOT wallHeightM +
+                            // slab/2. The previous +slab/2 raise topped the ground walls at 3.1 m
+                            // — 0.1 m ABOVE the L1 floor — so they protruded into the storey above
+                            // and rendered in the first-floor plan ("ground walls showing on the
+                            // first-floor plan"). Setting the head exactly to wallHeightM abuts the
+                            // L1 slab bottom; the junction band stays hidden by the UPPER wall's
+                            // base, which still drops slab/2 into the slab below (_buildPerimeterShell
+                            // / wallExtentForLevel) — so the overlap is preserved from the upper side
+                            // WITHOUT the ground wall poking up.
                             cm.execute(new UpdateWallHeightCommand({
                                 wallIds: groundShell.map(w => w.id),
-                                newHeight: raisedHeight,
+                                newHeight: wallHeightM,
                             }), { source: 'HOUSE_PIPELINE_SLAB_CONTINUITY' });
-                            console.log('[house-layout] §WALL-SLAB-CONTINUITY raised', groundShell.length,
-                                `ground shell wall(s) to ${raisedHeight.toFixed(3)}m (+slab/2) to close the floor-junction band`);
+                            console.log('[house-layout] §WALL-TOP-AT-SLAB-BOTTOM set', groundShell.length,
+                                `ground shell wall(s) to ${wallHeightM.toFixed(3)}m (= L1 floor = slab bottom; no protrusion into the floor-above plan)`);
                         }
-                    } catch (e) { console.warn('[house-layout] §WALL-SLAB-CONTINUITY ground bump failed (skipped):', e); }
+                    } catch (e) { console.warn('[house-layout] §WALL-TOP-AT-SLAB-BOTTOM ground set failed (skipped):', e); }
                 }
 
                 // 1. Interior partition walls per storey (async bus commands; we don't
