@@ -22,7 +22,7 @@
 import type { BubbleGraph } from './bubbleGraph.js';
 import type { Pt, Rect } from './rectDecomposition.js';
 import type { RoomPlacement } from './subdivide.js';
-import { doorAllowedBetween, isCirculation, isOpenPlanEligible, maxDoorsFor, roomRule } from '../rules/programRules.js';
+import { doorAllowedBetween, isCirculation, isOpenPlanEligible, maxDoorsFor, minDoorWidthBetween, roomRule } from '../rules/programRules.js';
 
 export interface WallSeg {
     readonly id: string;
@@ -725,8 +725,24 @@ export function buildWallsAndDoors(
         // default when the edge has no `kind` OR the caller explicitly
         // overrode via opts.doorWidthM.
         const preferredW = doorWForPair(a, b);
-        const width = Math.min(preferredW, len - 2 * clear);
-        if (width < 0.6 - EPS) return false;                    // wall too short for a usable door
+        // §DOOR-MINIMUMS (A.21.D47, 2026-06-08) — the architectural CLEAR-WIDTH
+        // floor for a door serving BOTH rooms (Part M, the more-demanding room
+        // wins). The emitted door is the PREFERRED width but NEVER below this
+        // floor — so a BUFFER door onto a bathroom is still ≥ 0.80 m (corridor
+        // side), a hall door ≥ 0.90 m, a wet-room-only door ≥ 0.70 m. An
+        // explicit caller override (opts.doorWidthM, test back-compat) bypasses
+        // the floor so the existing fixed-width tests still pin their value.
+        const minW = userOverroad
+            ? 0                                                 // explicit override: no floor
+            : minDoorWidthBetween(typeOf.get(a) ?? '', typeOf.get(b) ?? '');
+        // Target width = preferred, clamped UP to the floor. The wall must be
+        // able to host at least the floor (with clearance each side); if it
+        // can't, this wall is NOT a valid host — return false so reconciliation
+        // picks a longer wall rather than emitting a sub-minimum door.
+        const usableW = len - 2 * clear;
+        if (usableW < minW - EPS) return false;                 // too short for the room-type floor
+        const width = Math.max(Math.min(preferredW, usableW), minW);
+        if (width < 0.6 - EPS) return false;                    // belt-and-braces hard floor
         const offset = findClearOffset(wall, width);
         openings.push({
             id: `o${oid++}`, wallId: wall.id, type: 'door',
