@@ -820,7 +820,35 @@ export class WallJoinResolver {
                     continue;
                 }
 
+                // §CONSENSUS-ON-CENTRELINE (2026-06-08, THE keystone room-merge fix) —
+                // trim to the point on THIS wall's OWN centreline nearest the averaged
+                // consensus, NOT the raw consensus. For 3+ non-collinear partition walls
+                // whose endpoints are 0.05–0.45 m apart (the §MULTI-CLUSTER primary=0
+                // trimmed=3 case), the averaged pairwise-intersection consensus is the
+                // centroid of a triangle of DISTINCT crossings, so it sits 25–40 mm OFF
+                // every wall's centreline. Trimming the joining endpoint to that off-axis
+                // point ROTATES the wall about its fixed free end, so the baseLine chord
+                // RoomDetectionEngine traces no longer lies on the room's true perimeter →
+                // the social rooms leak together (the founder's 259.8 m² Living/Kitchen/
+                // Dining/Hall blob). Projecting onto the wall's own centreline keeps every
+                // wall EXACTLY on its axis (zero rotation); the projected joining ends land
+                // ≤ ~60 mm apart, which RoomDetectionEngine._snapNearbyCorners(0.30) fuses
+                // into one node — so the junction still seals. Regression-safe: for a TRUE
+                // star junction (all centrelines crossing at one point) the projection of
+                // consensus onto each centreline EQUALS the consensus → byte-identical; for
+                // axis-aligned walls the fixed coordinate is preserved → they stay aligned.
+                const _free = ep.side === 'start' ? we : ws;        // fixed (free) end
+                const _axisX = (ep.side === 'start' ? ws.x : we.x) - _free.x;
+                const _axisZ = (ep.side === 'start' ? ws.z : we.z) - _free.z;
+                const _axLen2 = _axisX * _axisX + _axisZ * _axisZ;
                 const trimPt = consensusPoint.clone();
+                if (_axLen2 > 1e-12) {
+                    // Perpendicular foot of consensusPoint on the line (free → joinEnd).
+                    const _t =
+                        ((consensusPoint.x - _free.x) * _axisX +
+                         (consensusPoint.z - _free.z) * _axisZ) / _axLen2;
+                    trimPt.set(_free.x + _t * _axisX, consensusPoint.y, _free.z + _t * _axisZ);
+                }
                 trimPt.y = ep.side === 'start' ? ws.y : we.y;   // preserve floor Y
 
                 const newBL: [THREE.Vector3, THREE.Vector3] =
