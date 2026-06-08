@@ -997,6 +997,22 @@ export class CesiumViewport {
       console.warn('[CesiumViewport][forma] ground/imagery config failed:', e);
     }
 
+    // §A.21.D43(a) — RESET the base height to the FLAT Forma ground (0).
+    // `formaTerrainBaseHeight` is a persistent instance field that the PHOTOREAL
+    // "3D globe" path writes a non-zero value into (the sampled Google-3D-Tiles
+    // MESH height — see clampToPhotorealTilesThenReplace). When the user then
+    // switches BACK to the Forma flat-ground study (whose ground is the ellipsoid
+    // surface at height 0, NOT sampled terrain), that leftover photoreal height
+    // leaked in as the seat for BOTH the proposed massing and the context boxes —
+    // so they floated ABOVE the grey ground with a shadow gap underneath (founder
+    // regression). The keyless Forma terrain clamp resolves to 0 anyway (ellipsoid
+    // provider), so 0 is the correct flat-ground base. We also clear the sampled-at
+    // memo so the next Forma terrain clamp doesn't early-out thinking it's already
+    // seated. The globe/photoreal path is unaffected: it re-samples + re-seats on
+    // entry (restorePhotorealMode → renderBuildingOnGlobe → clampToPhotorealTiles).
+    this.formaTerrainBaseHeight = 0;
+    this.formaTerrainSampledAt = null;
+
     // --- Hide the photogrammetry / 3D tilesets while in Forma mode (§2). ---
     try {
       const prims = scene.primitives;
@@ -2136,7 +2152,16 @@ export class CesiumViewport {
             hierarchy: new Cesium.PolygonHierarchy(positions),
             perPositionHeight: true,
             material: o.kind === 'door' ? doorFill : glazingFill,
-            outline: true,
+            // §A.21.D43(c) — TRANSLUCENT GLAZING FIX. The window glazing material
+            // already carries FORMA_GLAZING_ALPHA (0.30), but a Cesium polygon with
+            // `outline: true` is drawn through the outlined-geometry pipeline, which
+            // renders the FILL OPAQUE regardless of the material's alpha — so the
+            // FORMA-mode window insets still read as solid blue panels (founder
+            // defect). Dropping the outline on the GLAZING ONLY lets the translucent
+            // material path honour the alpha so windows read as real see-through
+            // glass. Doors are opaque, so their outline is kept (it reads as the door
+            // frame and the alpha-1 fill is unaffected by the outlined pipeline).
+            outline: o.kind === 'door',
             outlineColor: massOutline,
             outlineWidth: 1.0,
             // §A.21.D39#6 — SHADOW-THROUGH-GLASS. The window glazing is translucent,
@@ -2756,8 +2781,8 @@ export class CesiumViewport {
    *   • only when context buildings are already an active layer for this view;
    *   • only below ~6 km camera height (above that the fixed bbox is meaningless
    *     and the user is looking at the whole city, not the massing);
-   *   • only once the camera ground point has moved >~450 m from the last load
-   *     centre (roughly a third of the fetch bbox);
+   *   • only once the camera ground point has moved >~1100 m from the last load
+   *     centre (roughly a third of the widened §A.21.D43(b) fetch bbox);
    *   • debounced 600 ms so a flurry of moves coalesces into ONE fetch.
    * loadContextBuildings() itself aborts any in-flight fetch and clears the old
    * entities, so repeated pans never leak or stack footprints.
@@ -2774,7 +2799,11 @@ export class CesiumViewport {
       const dLatM = (camLat - at.lat) * 111_320;
       const dLonM = (camLon - at.lon) * 111_320 * Math.cos((camLat * Math.PI) / 180);
       const movedM = Math.hypot(dLatM, dLonM);
-      if (movedM < 450) return; // still inside the loaded footprint — keep it.
+      // §A.21.D43(b) — scaled 450 → 1100 m to track the widened context bbox
+      // (CONTEXT_BBOX_HALF_DEG 0.005 → 0.0125, ~±1.4 km). Refetch only once the
+      // camera leaves the now-larger loaded footprint (still ≈⅓ of the fetch bbox)
+      // so the bigger neighbourhood isn't re-pulled on every small pan.
+      if (movedM < 1100) return; // still inside the loaded footprint — keep it.
     }
 
     if (this.contextPanRefreshTimer !== null) clearTimeout(this.contextPanRefreshTimer);

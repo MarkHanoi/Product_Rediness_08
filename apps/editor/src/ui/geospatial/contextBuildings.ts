@@ -94,8 +94,20 @@ const DEFAULT_BUILDING_HEIGHT_M = 9;
 const MIN_HEIGHT_M = 2.5;
 const MAX_HEIGHT_M = 400;
 
-/** Half-extent (degrees) of the bbox we fetch around the site centre (~±550 m). */
-export const CONTEXT_BBOX_HALF_DEG = 0.005;
+/**
+ * Half-extent (degrees) of the bbox we fetch around the site centre.
+ *
+ * §A.21.D43(b) — widened 0.005 → 0.0125 (~±550 m → ~±1.4 km, a ~2.8 km square,
+ * i.e. ≈2.5× the old extent / ≈6× the area) so the Forma context reads as a real
+ * surrounding NEIGHBOURHOOD instead of a small square of immediate neighbours
+ * (founder: "context dataset too small"). 2.5× keeps the Overpass `way["building"]`
+ * fetch well-sized — a ~2.8 km urban tile is a few thousand footprints, comfortably
+ * inside the public-endpoint timeout — without becoming a city-scale pathological
+ * query. The bbox values feed `bboxKey` (toFixed(4)) so a larger extent is simply a
+ * NEW cache key; the 7-day localStorage TTL + 4-mirror fallback are unchanged (old
+ * smaller-bbox entries just age out, they are never read for the new key).
+ */
+export const CONTEXT_BBOX_HALF_DEG = 0.0125;
 
 /** Overpass request timeout (ms) — keep short so the UI never hangs on it. */
 const OVERPASS_TIMEOUT_MS = 9000;
