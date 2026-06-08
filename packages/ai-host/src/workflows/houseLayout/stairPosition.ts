@@ -142,12 +142,34 @@ export interface PlatePolyPt { readonly x: number; readonly y: number }
 
 const EPS_MM = 1e-6;
 
-/** Point-in-polygon (ray cast), inclusive of the boundary within `EPS_MM`.
- *  `poly` is plate-local mm; (px, py) with py === plan-Z. */
-function pointInPoly(px: number, py: number, poly: readonly PlatePolyPt[]): boolean {
+// ── A.21.D52 — shell-jitter tolerance for perimeter-candidate containment ─────
+//
+// A REAL drawn boundary is never a mathematically perfect rectangle: the user
+// draws edge-by-edge and the WallJoinResolver mitres the corners, so the shell
+// polygon the orchestrator hands us wobbles by a few cm around its ideal line. The
+// A.21.D34(a) containment cull (kept for SKEWED/CONCAVE shells) tested with a
+// 0.001 mm boundary tolerance — so a candidate flushed to the bbox edge (x=0) was
+// culled whenever the shell's matching edge dipped even 1 mm inward of x=0. On a
+// jittery real plate that culled EVERY perimeter candidate, collapsing the choice
+// to `central` (the founder's centred stair in real houses, even though every unit
+// test on a perfect rectangle placed it at a wall). We therefore treat a sampled
+// point as contained when it is inside the polygon OR within this realistic
+// draw/miter jitter band of its boundary. The band (150 mm) is far smaller than a
+// genuine skew/notch (the L-shape's `right` candidate is metres outside → still
+// culled), so D34(a)'s real purpose — keeping candidates inside a genuinely
+// rotated/concave shell — is preserved, while ordinary wall wobble no longer
+// marooned the stair in the centre.
+const SHELL_JITTER_MM = 150;
+
+/** Point-in-polygon (ray cast), inclusive of the boundary within `tolMm` (mm).
+ *  `poly` is plate-local mm; (px, py) with py === plan-Z. A point within `tolMm` of
+ *  any edge counts as inside — this absorbs real shell draw/miter jitter so a core
+ *  flushed to a slightly-wobbly wall is not spuriously culled (A.21.D52). */
+function pointInPoly(px: number, py: number, poly: readonly PlatePolyPt[], tolMm = 1e-3): boolean {
     const n = poly.length;
     if (n < 3) return false;
-    // On-boundary points count as inside (a flush core edge ON the shell wall is fine).
+    // On-boundary points (within `tolMm`) count as inside (a flush core edge ON — or a
+    // jitter-width proud of — the shell wall is fine).
     for (let i = 0; i < n; i++) {
         const a = poly[i]!, b = poly[(i + 1) % n]!;
         const ex = b.x - a.x, ey = b.y - a.y;
@@ -156,7 +178,7 @@ function pointInPoly(px: number, py: number, poly: readonly PlatePolyPt[]): bool
         const t = ((px - a.x) * ex + (py - a.y) * ey) / L2;
         if (t < -1e-9 || t > 1 + 1e-9) continue;
         const qx = a.x + t * ex, qy = a.y + t * ey;
-        if (Math.hypot(px - qx, py - qy) <= 1e-3) return true;     // within 0.001 mm of an edge
+        if (Math.hypot(px - qx, py - qy) <= tolMm) return true;
     }
     let inside = false;
     for (let i = 0, j = n - 1; i < n; j = i++) {
@@ -171,15 +193,19 @@ function pointInPoly(px: number, py: number, poly: readonly PlatePolyPt[]): bool
 /** True when the whole core rect (min corner x,y; extent coreW×coreH) lies inside
  *  `poly`. Tests the four corners + the four edge midpoints + the centre — enough to
  *  reject any rect that pokes a corner or an edge bulge out of a (near-)convex shell.
- *  Conservative: a rect that is fully inside always passes. */
+ *  Conservative: a rect that is fully inside always passes. Boundary samples within
+ *  `tolMm` (default {@link SHELL_JITTER_MM} — real shell draw/miter jitter) of an
+ *  edge count as contained so a flush perimeter candidate survives ordinary wall
+ *  wobble (A.21.D52); genuine skew/notch overruns (metres) are still culled. */
 function rectInsidePoly(
     x: number, y: number, coreW: number, coreH: number, poly: readonly PlatePolyPt[],
+    tolMm = SHELL_JITTER_MM,
 ): boolean {
     if (poly.length < 3) return true;     // no polygon to test against → treat as contained
     const xs = [x, x + coreW / 2, x + coreW];
     const ys = [y, y + coreH / 2, y + coreH];
     for (const sx of xs) for (const sy of ys) {
-        if (!pointInPoly(sx, sy, poly)) return false;
+        if (!pointInPoly(sx, sy, poly, tolMm)) return false;
     }
     return true;
 }
@@ -313,17 +339,42 @@ export function stairCorePositionCandidates(
     const contained = (x: number, y: number): boolean =>
         !shellPoly || shellPoly.length < 3 || rectInsidePoly(x, y, coreW, coreH, shellPoly);
 
+    // A.21.D52 — when the ideal flush position is culled by the shell cull (a jittery
+    // real shell whose corner is pulled inward by more than the SHELL_JITTER_MM band,
+    // or a mildly concave edge), DON'T immediately fall through to central. Retry a
+    // SMALL deterministic ladder of inward nudges (toward the plate interior) and
+    // accept the first contained one — the core still hugs the wall (the nudge is at
+    // most a wall-landing's depth), which is the founder's "adjacent to a wall" rule.
+    // Only if NO near-wall position is contained does the candidate drop (genuine
+    // skew/notch). `dirX`/`dirY` point inward from the abutted wall. Pure/deterministic.
+    const PERIM_NUDGE_MM = WALL_LANDING_MM;   // cap the inward retreat at one landing depth
+    const containedNudged = (
+        flushX: number, flushY: number, dirX: number, dirY: number,
+    ): { x: number; y: number } | null => {
+        if (contained(flushX, flushY)) return { x: flushX, y: flushY };
+        if (!shellPoly || shellPoly.length < 3) return { x: flushX, y: flushY };
+        for (const off of [50, 100, 150, 250, 400, 600, PERIM_NUDGE_MM]) {
+            const nx = clamp(flushX + dirX * off, 0, Math.max(0, plateW - coreW));
+            const ny = clamp(flushY + dirY * off, 0, Math.max(0, plateH - coreH));
+            if (contained(nx, ny)) return { x: nx, y: ny };
+        }
+        return null;
+    };
+
     if (fitsX) {
-        // Flush LEFT wall (x = 0), back corner.
-        if (contained(0, cornerY)) out.push({ x: 0, y: r3(cornerY), kind: 'left' });
-        // Flush RIGHT wall (x = plateW − coreW), back corner.
-        if (contained(plateW - coreW, cornerY)) out.push({ x: r3(plateW - coreW), y: r3(cornerY), kind: 'right' });
+        // Flush LEFT wall (x = 0), back corner — nudge inward (+x / −y) on a jittery shell.
+        const l = containedNudged(0, cornerY, +1, -1);
+        if (l) out.push({ x: r3(l.x), y: r3(l.y), kind: 'left' });
+        // Flush RIGHT wall (x = plateW − coreW), back corner — nudge inward (−x / −y).
+        const r = containedNudged(plateW - coreW, cornerY, -1, -1);
+        if (r) out.push({ x: r3(r.x), y: r3(r.y), kind: 'right' });
     }
     if (fitsY) {
         // Flush BACK wall (y = plateH − coreH), X-centred — the full-edge band
         // variant (still a clean single-dominant carve: one big front band).
         const by = Math.max(WALL_LANDING_MM, plateH - coreH);
-        if (contained(cx, by)) out.push({ x: r3(cx), y: r3(by), kind: 'back' });
+        const b = containedNudged(cx, by, 0, -1);
+        if (b) out.push({ x: r3(b.x), y: r3(b.y), kind: 'back' });
     }
 
     return out;

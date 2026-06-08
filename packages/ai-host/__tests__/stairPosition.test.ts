@@ -320,3 +320,107 @@ describe('generateHouseLayout — stair hugs a perimeter wall on the poor-aspect
         for (const v of a.voids) expect(v.rectMm).toEqual(expected);
     });
 });
+
+// ───────────────── A.21.D52 — REAL-shell (jittery boundary) regression ─────────
+//
+// The founder kept seeing the stair in the CENTRE of REAL generated houses even on a
+// build that has the D42/D45 perimeter-worst-aspect fix (windows correctly off-corner
+// → fix is live). The unit tests above pass because they use a MATHEMATICALLY PERFECT
+// rectangle (4 exact corners). A REAL drawn boundary is NOT perfect: the user draws
+// edge-by-edge and WallJoinResolver mitres the corners, so the shell polygon wobbles
+// by a few cm. The A.21.D34(a) shell-containment cull tested with a 0.001 mm boundary
+// tolerance, so on a jittery shell a flush perimeter candidate (x=0) was culled the
+// moment the matching wall dipped even 1 mm inward — collapsing the candidate set to
+// `central` ONLY. That is the EXACT fallback that centred the stair in real houses.
+//
+// These tests reproduce it by feeding `generateHouseLayout` a realistic shell whose
+// perimeter has 8 vertices with ±30 mm wobble (a hand-drawn rectangle). They assert
+// the stair STILL hugs a perimeter wall — i.e. the central fallback no longer fires.
+
+/** A "hand-drawn" near-rectangle: 8 vertices (mid-edge points + corners) with a
+ *  deterministic ±jMM mm wobble — the shape a real drawn+mitred boundary takes. */
+function jitteryRect(wM: number, dM: number, jMM: number, seed: number): { x: number; z: number }[] {
+    const pts = [
+        { x: 0, z: 0 }, { x: wM / 2, z: 0 }, { x: wM, z: 0 },
+        { x: wM, z: dM / 2 }, { x: wM, z: dM },
+        { x: wM / 2, z: dM }, { x: 0, z: dM }, { x: 0, z: dM / 2 },
+    ];
+    let s = seed;
+    const rnd = (): number => { s = (s * 1103515245 + 12345) & 0x7fffffff; return (s / 0x7fffffff) * 2 - 1; };
+    return pts.map(p => ({ x: p.x + rnd() * jMM / 1000, z: p.z + rnd() * jMM / 1000 }));
+}
+
+function bboxOfPerim(p: { x: number; z: number }[]): { minX: number; minZ: number; maxX: number; maxZ: number } {
+    let minX = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity;
+    for (const q of p) { minX = Math.min(minX, q.x); maxX = Math.max(maxX, q.x); minZ = Math.min(minZ, q.z); maxZ = Math.max(maxZ, q.z); }
+    return { minX, minZ, maxX, maxZ };
+}
+
+/** Smallest distance (m) from the core rect's nearest edge to the shell bbox — 0 ⇒
+ *  flush against a perimeter wall, large ⇒ marooned in the centre (the bug). */
+function coreMinEdgeDistM(core: { x: number; y: number; w: number; h: number }, bb: ReturnType<typeof bboxOfPerim>): number {
+    const cx = core.x / 1000, cz = core.y / 1000, cw = core.w / 1000, ch = core.h / 1000;
+    return Math.min(
+        Math.abs(cx - bb.minX), Math.abs(cx + cw - bb.maxX),
+        Math.abs(cz - bb.minZ), Math.abs(cz + ch - bb.maxZ),
+    );
+}
+
+describe('A.21.D52 — stair hugs a perimeter wall on a REAL (jittery) drawn boundary', () => {
+    const P2BED: ApartmentProgram = {
+        bedrooms: 2, bathrooms: 1, masterEnSuite: false,
+        openPlanKitchenDining: true, livingRoom: true, entranceHall: true,
+    };
+
+    it('the modal default (2 floors / ~200 m² jittery plate) places the stair AT a wall, NOT centre', () => {
+        // ~200 m² (16×12.5 m) hand-drawn rectangle with ±30 mm wall wobble.
+        const perim = jitteryRect(16, 12.5, 30, 4242);
+        const bb = bboxOfPerim(perim);
+        const shell: ShellAnalysis = {
+            netAreaM2: 200, widthM: bb.maxX - bb.minX, depthM: bb.maxZ - bb.minZ, perimeter: perim, faces: [],
+        };
+        const res = generateHouseLayout(shell, P2BED, CONSTRAINTS, WEIGHTS, { storeyCount: 2, solar: { latDeg: 51.5 } });
+        const core = res.stairs[0]!.rectMm;
+        // The stair must hug a perimeter wall: its nearest edge sits within a wall
+        // landing of the shell (≤ 0.95 m), NOT marooned metres into the centre.
+        // BEFORE the D52 fix this was ~4.2 m (dead centre) — the founder's bug.
+        expect(coreMinEdgeDistM(core, bb)).toBeLessThanOrEqual(0.95);
+    });
+
+    it('holds across a sweep of jittery plate sizes (central fallback is RARE/absent)', () => {
+        let centred = 0, total = 0;
+        for (let wM = 8; wM <= 18; wM += 2) {
+            for (let dM = 8; dM <= 16; dM += 2) {
+                const perim = jitteryRect(wM, dM, 30, wM * 131 + dM * 7);
+                const bb = bboxOfPerim(perim);
+                const shell: ShellAnalysis = {
+                    netAreaM2: wM * dM, widthM: bb.maxX - bb.minX, depthM: bb.maxZ - bb.minZ, perimeter: perim, faces: [],
+                };
+                const res = generateHouseLayout(shell, P2BED, CONSTRAINTS, WEIGHTS, { storeyCount: 2, solar: { latDeg: 51.5 } });
+                const core = res.stairs[0]?.rectMm;
+                total++;
+                if (core && coreMinEdgeDistM(core, bb) > 0.95) centred++;
+            }
+        }
+        expect(total).toBeGreaterThan(0);
+        expect(centred).toBe(0);   // no plate marooned the stair centrally
+    });
+
+    it('a genuinely CONCAVE shell still culls the notch-side candidate (D34(a) preserved)', () => {
+        // L-shaped plate: the RIGHT-back candidate sits in the notch (metres outside the
+        // real polygon) and MUST stay culled — the jitter tolerance only absorbs cm-scale
+        // wobble, never a real notch. `left`/`back` remain (the stair still hugs a wall).
+        const wM = 16, dM = 13;
+        const Lpoly = [
+            { x: 0, y: 0 }, { x: wM * 1000, y: 0 }, { x: wM * 1000, y: 8000 },
+            { x: 9000, y: 8000 }, { x: 9000, y: dM * 1000 }, { x: 0, y: dM * 1000 },
+        ];
+        const core = reserveStairCoreShaped(
+            [{ x: 0, z: 0 }, { x: wM, z: 0 }, { x: wM, z: dM }, { x: 0, z: dM }], 2, 17,
+        );
+        const cs = candidates(wM * 1000, dM * 1000, core.rectMm.w, core.rectMm.h, Lpoly);
+        const kinds = cs.map(c => c.kind);
+        expect(kinds).not.toContain('right');     // notch candidate culled
+        expect(kinds).toContain('left');           // real wall candidate retained
+    });
+});
