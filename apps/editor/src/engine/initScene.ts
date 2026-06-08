@@ -1499,6 +1499,30 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         // Expose for UI and VPT interop
         window.renderingPipelineCoordinator = renderingCoordinator;
 
+        // §A.21.D40 PBR-SCOPE — meshes already handed to the PBR upgrader.
+        // The upgrader itself is idempotent at the MATERIAL level (it skips any
+        // material already snapshotted), but the post-batch callback used to
+        // `scene.traverse` ALL ~520 meshes and chunk them through the upgrader on
+        // EVERY batch — re-walking the entire scene N times during a multi-batch
+        // house generate (the `totalPbrMs=1328.6ms` / `943ms` lines). Tracking the
+        // meshes we've already processed lets each batch upgrade ONLY its NEW
+        // meshes, so a later batch never re-iterates earlier storeys' geometry.
+        // Correctness is unchanged — every mesh is still upgraded exactly once.
+        const pbrSeenMeshes = new WeakSet<THREE.Object3D>();
+        /** Collect scene meshes not yet handed to the PBR upgrader, marking them
+         *  seen. Returns only the genuinely-new meshes for this pass. */
+        const collectNewPbrMeshes = (scene: THREE.Scene): THREE.Mesh[] => {
+            const fresh: THREE.Mesh[] = [];
+            scene.traverse(obj => {
+                if (obj instanceof THREE.Mesh || obj instanceof THREE.InstancedMesh) {
+                    if (pbrSeenMeshes.has(obj)) return;
+                    pbrSeenMeshes.add(obj);
+                    fresh.push(obj as THREE.Mesh);
+                }
+            });
+            return fresh;
+        };
+
         // Notify coordinator when new BIM geometry is added so incremental
         // PBR upgrade can run on newly created meshes.
         // Includes both '-added' events (project loading via CreateWallCommand etc.)
@@ -1525,11 +1549,10 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                 // Defer one tick so fragment builders can add meshes before we scan
                 setTimeout(() => {
                     const scene = world.scene.three as THREE.Scene;
-                    const newMeshes: THREE.Mesh[] = [];
-                    scene.traverse(obj => {
-                        if (obj instanceof THREE.Mesh) newMeshes.push(obj);
-                    });
-                    renderingCoordinator.onSceneGeometryAdded(newMeshes);
+                    // §A.21.D40 PBR-SCOPE — only the meshes we haven't already
+                    // upgraded (was: a full scene.traverse on every geometry event).
+                    const newMeshes = collectNewPbrMeshes(scene);
+                    if (newMeshes.length > 0) renderingCoordinator.onSceneGeometryAdded(newMeshes);
                     // NOTE: scheduleShadowRebuild() is intentionally NOT called here.
                     // Setting castShadow/receiveShadow on individual meshes does NOT
                     // destroy or recreate ShadowDepthTexture — the texture lives on
@@ -1616,19 +1639,28 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                     const __t_pbr_traverse = performance.now();
                     const scene = world.scene.three as THREE.Scene;
                     const PBR_CHUNK = 120;
-                    const allMeshes: THREE.Mesh[] = [];
-                    scene.traverse(obj => {
-                        if (obj instanceof THREE.Mesh || obj instanceof THREE.InstancedMesh) {
-                            allMeshes.push(obj as THREE.Mesh);
-                        }
-                    });
+                    // §A.21.D40 PBR-SCOPE — only this batch's NEW meshes, not a full
+                    // re-walk of the whole scene every batch. During a multi-batch
+                    // house generate the old full traverse re-iterated ALL ~520
+                    // meshes on each batch (the repeated `totalPbrMs≈1300ms`/`943ms`
+                    // post-batch lines); scoping to fresh meshes makes every later
+                    // batch's pass O(its own additions). Materials are still upgraded
+                    // exactly once (the upgrader is material-idempotent regardless).
+                    const allMeshes = collectNewPbrMeshes(scene);
                     const total = allMeshes.length;
                     console.log(
                         `[BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-TRAVERSE-DONE ` +
-                        `totalMeshes=${total} chunks=${Math.ceil(total / PBR_CHUNK)} ` +
-                        `traverseMs=${(performance.now() - __t_pbr_traverse).toFixed(1)}ms`
+                        `newMeshes=${total} chunks=${Math.ceil(total / PBR_CHUNK)} ` +
+                        `traverseMs=${(performance.now() - __t_pbr_traverse).toFixed(1)}ms ` +
+                        `(§A.21.D40 PBR-SCOPE — new meshes only)`
                     );
-                    if (total === 0) return;
+                    if (total === 0) {
+                        console.log(
+                            '[BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-COMPLETE ' +
+                            '0 new mesh(es) — nothing to upgrade this batch (§A.21.D40 PBR-SCOPE)'
+                        );
+                        return;
+                    }
                     let offset = 0;
                     let chunkIndex = 0;
                     const __t_pbr_chunk_start = performance.now();
