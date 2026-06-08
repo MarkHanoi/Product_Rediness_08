@@ -2472,3 +2472,32 @@ severity taxonomy (§14), acceptance criteria (§15). This is the normative targ
 to G8 stair placement/origin). The v69 nudges + diag logs will reveal from the next console paste
 whether fragmentation still drops rooms. Then: G8 stair-corner placement, G14 upper-floor
 landing-not-hall, G1 upper-floor walls, then the v2.0 window-mandate + proximity + solar layers.
+
+### §22.15 — Generative-layout WORLD-MODEL strategy + SPEC v3.0 governance (2026-06-08)
+
+Founder reframed the work: stop fighting fires, architect the **world model** first. Two deliverables
+documented BEFORE implementing (founder instruction):
+
+- **[GENERATIVE-LAYOUT-WORLD-MODEL-STRATEGY.md](../../01-strategy/GENERATIVE-LAYOUT-WORLD-MODEL-STRATEGY.md)**
+  — the strategy doc: the "world-model living graph" thesis (the graph is the product; geometry is a
+  projection; quality is graph-measurable; context is graph context), a competitive benchmark of how
+  Forma/Spacemaker · Hypar · Finch · TestFit · Delve · the academic floorplan lines (House-GAN/
+  Graph2Plan/rectangular-dual) architect generative logic, the synthesis ("deterministic semantic-graph
+  solver, multi-objective/Pareto, environment-aware via lookups+surrogates, composable, ML-as-prior,
+  graph kept live+editable" — which PRYZM's D-TGL+UBG+C52 already IS in shape), a full audit of SPEC
+  v3.0's 20 sections vs PRYZM today (HAVE/PARTIAL/GAP), and a 7-phase roadmap (P0 structural → P1
+  windows → P2 graph-metric scoring → P3 SiteContext/climate → P4 validation taxonomy → P5
+  furniture-fit gate → P6 world-model/learning). **Web research was unavailable this session** — the
+  competitor specifics are knowledge-based, flagged to-verify.
+- **SPEC v3.0** (founder's "Room Layout Engine — Algorithm Architecture & Complete Element
+  Specification v3.0", GIS/climate · acoustic · multi-storey · climate-windows · solar/wind ·
+  furniture-fit · validation taxonomy) is the NORMATIVE TARGET (supersedes v2.0/v1.0). New gaps
+  G15-G20 (acoustic matrix, climate WWR, vertical wet-stack, cross-vent, outdoor-area nodes,
+  cold-wind shielding). KEY DECISION recorded: keep PRYZM's DETERMINISTIC enumeration (ADR-0061) —
+  adopt v3.0's "24 variants" as deterministic DOF strategy-dimensions, REJECT the "sampling" framing.
+
+**Deploy status:** v70 (keystone §CONSENSUS-ON-CENTRELINE room-merge fix) run #151 FAILED on INFRA
+(Docker OOM/flyctl flake — all local gates green: isolation✓ tsc✓0-errors commandmanager✓
+geometry-wall 45/45, ai-host 2043). Re-triggered as v71 (run #152, fresh push — GH "Re-run" replays
+the old commit so a fresh push is required). NOTE: background agents are sandboxed WITHOUT network/
+node, so deploy-monitoring + test-running must be done by the main loop.
