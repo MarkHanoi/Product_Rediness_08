@@ -108,8 +108,11 @@ const FORMA_PALETTE = {
    *  as glass against the white shell without competing with the massing).
    *  §A.21.D39#6 — this is now the BASE colour for a TRANSLUCENT glass material
    *  (alpha applied at fill time = FORMA_GLAZING_ALPHA); a slightly cooler/bluer
-   *  hue reads as real tinted glazing rather than an opaque blue-grey panel. */
-  glazing: '#7FA8D8',
+   *  hue reads as real tinted glazing rather than an opaque blue-grey panel.
+   *  §A.21.D50 — cooler/deeper glass blue (#4F86C6) so the translucent panel reads
+   *  as see-through tinted glazing against the white shell instead of compositing
+   *  to a near-white opaque-looking pane (the founder's "still opaque" defect). */
+  glazing: '#4F86C6',
   /** §A.21.D34(d) — coarse DOOR-leaf tint (warm graphite, darker than glazing so
    *  the front door reads distinctly from windows). */
   doorLeaf: '#4A4540',
@@ -179,15 +182,28 @@ const FORMA_LIGHT_INTENSITY = 2.3;
 const FORMA_SHADOW_DARKNESS = 0.30;
 
 /**
- * §A.21.D39#6 — GLASS translucency for window panels. The glazing inset is now a
- * see-through blue-tinted material (alpha in the 0.25–0.40 band the founder asked
- * for) so you can read INTO the building through the windows instead of meeting an
- * opaque panel. The panel is also flagged `ShadowMode.DISABLED` so the sun-path
- * shadow pass casts THROUGH the glazing (glass does not block light); the white
- * shell + the opaque door leaf still cast solid shadows. 0.30 = clearly glass,
- * still enough tint to read as a window against the white shell.
+ * §A.21.D39#6 — GLASS translucency for window panels. The glazing inset is a
+ * see-through blue-tinted material so you can read INTO the building through the
+ * windows instead of meeting an opaque panel. The panel is also flagged
+ * `ShadowMode.DISABLED` so the sun-path shadow pass casts THROUGH the glazing
+ * (glass does not block light); the white shell + the opaque door leaf still cast
+ * solid shadows.
+ *
+ * §A.21.D50 — WHY THE FOUNDER STILL SAW OPAQUE WINDOWS. Two compounding causes:
+ *   1. The D43(c) `outline:false` translucency path was correct, BUT the glazing
+ *      panel floats PROUD of the OPAQUE white shell (the shell sits ~5 cm behind
+ *      it). A pale tint (#7FA8D8) at α=0.30 composited over solid white reads as a
+ *      near-white, near-opaque panel — exactly the "not transparent" the founder
+ *      reported. Lowering α makes it MORE white (wrong direction); a COOLER, more
+ *      saturated glass tint at a slightly lower α reads as real tinted glazing that
+ *      is visibly distinct from both the white shell and the opaque graphite doors.
+ *   2. Cesium renders a translucent surface ONLY when both faces are not culled in
+ *      a way that drops it; a single-sided flat panel viewed from behind vanishes.
+ *      We keep the panel double-sided-safe by leaving `outline:false` (outlined
+ *      geometry forces the OPAQUE pipeline) and using a dedicated glass tint here.
+ * 0.26 + the cooler tint = clearly glass, clearly see-through-looking, never opaque.
  */
-const FORMA_GLAZING_ALPHA = 0.30;
+const FORMA_GLAZING_ALPHA = 0.26;
 
 /**
  * §A.21.D-GLOBE3 (2026-06-08) — REAL app-scene fallback colours, mirrored from the
@@ -3669,18 +3685,18 @@ export class CesiumViewport {
     }
     if (!startKey || !startCoord) return null;
 
-    // Boundary trace. The generator's shell is a clean closed loop where every
-    // PERIMETER node has degree exactly 2 (D25 §PERIMETER-CLOSE chains the shell
-    // corner-to-corner). Interior partitions are separate walls whose endpoints
-    // land mid-span on a perimeter wall (NOT at a shared corner), so they create
-    // no perimeter graph node — the simple chain below walks the unambiguous
-    // degree-2 loop. At a node we always take the non-backtracking neighbour;
-    // when a node is a genuine junction (degree > 2, a rare exact-corner tee) we
-    // pick the smallest clockwise turn from the reversed-incoming heading, which
-    // keeps the trace on a single coherent face. The result is then VALIDATED
-    // (closed, ≥3 verts, encloses positive area, covers a strong majority of the
-    // graph's nodes); anything that fails → null → per-wall-box fallback. This
-    // makes a wrong interior-face trace self-reject rather than render garbage.
+    // Boundary trace (standard CLOCKWISE wall-follower). We start at the
+    // hull-extreme node (guaranteed on the outer ring) and, at every node, take
+    // the smallest clockwise turn from the reversed-incoming heading. This walks
+    // the OUTER face of the planar graph and is robust to interior partitions:
+    // an interior wall that tees INTO a perimeter node raises that node's degree,
+    // but the clockwise rule keeps the trace hugging the outer boundary rather
+    // than diving down the interior spur. §A.21.D50 — earlier code assumed
+    // interior endpoints always land mid-span (creating no perimeter node); real
+    // apartments routinely tee interior partitions AT perimeter corners, so we no
+    // longer rely on that. The trace is then VALIDATED by CONTAINMENT (every graph
+    // node lies inside/on the ring) — see below — so a wrong interior-face trace
+    // self-rejects rather than render garbage.
     const angleOf = (dx: number, dz: number): number => Math.atan2(dz, dx); // (-π, π]
     const cwSweep = (from: number, to: number): number => {
       // Clockwise sweep magnitude from heading `from` to heading `to`, (0, 2π].
@@ -3749,10 +3765,48 @@ export class CesiumViewport {
       area2 += p.x * q.z - q.x * p.z;
     }
     if (Math.abs(area2) < 1e-3) return null;
-    // Must have closed back to the start (the loop broke on bestKey===startKey)
-    // and cover a strong majority of the graph's nodes — a trace that skipped
-    // most of the shell is the wrong face → fall back to per-wall boxes.
-    if (visited.size < Math.ceil(adj.size * 0.6)) return null;
+    // §A.21.D50 — VALIDATE the trace is a genuine OUTER boundary, but DON'T assume
+    // it covers most of the graph's nodes.
+    //
+    // ROOT CAUSE the old gate failed on: `getFormaWalls()` returns the ENTIRE wall
+    // set — exterior shell AND every interior partition — so `adj.size` counts all
+    // interior nodes too. A correct outer-boundary trace visits ONLY the perimeter
+    // nodes, which in a real apartment is a minority of all nodes, so the old
+    // `visited.size ≥ 60% of adj.size` gate rejected the (correct) ring and fell
+    // back to per-wall boxes — the source of the "perimeter ring unavailable" log
+    // and the mitre-less corner gaps.
+    //
+    // The TRUE invariant of an outer boundary is that it ENCLOSES every other graph
+    // node (interior partition endpoints all lie inside the shell). So we validate
+    // by containment, not by coverage: every snapped node must lie inside (or on)
+    // the candidate ring. A wrong interior-face trace (which would leave some nodes
+    // outside it) self-rejects → per-wall-box fallback. This is robust to any number
+    // of interior partitions, L/U shells, and skewed plots.
+    const RING_EPS_M = SNAP_M * 2; // on-edge tolerance (~10 cm) so perimeter nodes count as inside.
+    const insideOrOn = (px: number, pz: number): boolean => {
+      // Even-odd ray cast + an on-edge test (perimeter nodes sit exactly on the ring).
+      let inside = false;
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const xi = ring[i]!.x, zi = ring[i]!.z;
+        const xj = ring[j]!.x, zj = ring[j]!.z;
+        // On-segment? (distance from point to segment ≤ tolerance) → treat as inside.
+        const ex = xj - xi, ez = zj - zi;
+        const len2 = ex * ex + ez * ez;
+        if (len2 > 1e-12) {
+          let t = ((px - xi) * ex + (pz - zi) * ez) / len2;
+          t = t < 0 ? 0 : t > 1 ? 1 : t;
+          const cx = xi + t * ex, cz = zi + t * ez;
+          if ((px - cx) * (px - cx) + (pz - cz) * (pz - cz) <= RING_EPS_M * RING_EPS_M) return true;
+        }
+        const intersects = (zi > pz) !== (zj > pz)
+          && px < ((xj - xi) * (pz - zi)) / (zj - zi) + xi;
+        if (intersects) inside = !inside;
+      }
+      return inside;
+    };
+    for (const c of coord.values()) {
+      if (!insideOrOn(c.x, c.z)) return null; // a node outside the ring → not the outer boundary.
+    }
     return ring;
   }
 
