@@ -312,4 +312,115 @@ describe('buildLayoutCommands (A6-wire)', () => {
             expect(getDoorSysType(set)).toBe('solid-timber');
         });
     });
+
+    // T1.D wiring (2026-06-08) — the resolved per-room door finish MUST ride the
+    // DOOR OPENING, because the LIVE build path (ApartmentLayoutExecutor /
+    // HouseLayoutExecutor → CreateWallOpeningsBatchCommand →
+    // CreateWallOpeningCommand) reads the finish from `opening.systemTypeId`
+    // (resolved against doorSystemTypeStore) — it never dispatches the
+    // door.batch.create payload. These tests pin the opening, the field the
+    // renderer actually consumes, to a REAL `dt-*` catalogue id.
+    describe('T1.D per-room door finish lands on the OPENING (live build path)', () => {
+        const getOpeningSysType = (set: ReturnType<typeof buildLayoutCommands>) =>
+            (set.openingCommands[0]!.payload as { opening: { systemTypeId?: string } }).opening.systemTypeId;
+
+        it('bathroom door opening → dt-white-primed (privacy) on the OPENING', () => {
+            const set = buildLayoutCommands(option({
+                doors: [{ wallRef: 0, offset: 2000, width: 900, roomTypeA: 'corridor', roomTypeB: 'bathroom' }],
+            }), OPTS, counterMinter());
+            expect(getOpeningSysType(set)).toBe('dt-white-primed');
+        });
+
+        it('living↔kitchen door opening → dt-glazed-timber (half-light) on the OPENING', () => {
+            const set = buildLayoutCommands(option({
+                doors: [{ wallRef: 0, offset: 2000, width: 900, roomTypeA: 'living', roomTypeB: 'kitchen' }],
+            }), OPTS, counterMinter());
+            expect(getOpeningSysType(set)).toBe('dt-glazed-timber');
+        });
+
+        it('bedroom↔corridor door opening → dt-solid-timber default on the OPENING', () => {
+            const set = buildLayoutCommands(option({
+                doors: [{ wallRef: 0, offset: 2000, width: 900, roomTypeA: 'corridor', roomTypeB: 'bedroom' }],
+            }), OPTS, counterMinter());
+            expect(getOpeningSysType(set)).toBe('dt-solid-timber');
+        });
+
+        it('door WITHOUT room types stamps the canonical real dt-solid-timber on the OPENING', () => {
+            // The global fallback string 'solid-timber' is NOT a real
+            // doorSystemTypeStore id; the opening must carry the REAL
+            // 'dt-solid-timber' so CreateWallOpeningCommand resolves a finish
+            // (never an unknown id that would be silently dropped).
+            const set = buildLayoutCommands(option({
+                doors: [{ wallRef: 0, offset: 2000, width: 900 }],   // no room types
+            }), OPTS, counterMinter());
+            expect(getOpeningSysType(set)).toBe('dt-solid-timber');
+        });
+
+        it('explicit doorSystemTypeId="" → OPENING omits systemTypeId (handler default)', () => {
+            const set = buildLayoutCommands(option({
+                doors: [{ wallRef: 0, offset: 2000, width: 900 }],
+            }), { ...OPTS, doorSystemTypeId: '' }, counterMinter());
+            expect(getOpeningSysType(set)).toBeUndefined();
+        });
+
+        it('every door-opening + door-batch systemTypeId is a REAL dt-* catalogue id', () => {
+            // Guards the "wall.createOpening / door.batch.create reject unknown
+            // systemTypeId" failure: any id emitted by the wiring across the full
+            // room-pair space must be one of the DoorSystemTypeStore built-ins.
+            const KNOWN_DOOR_IDS = new Set([
+                'dt-solid-timber', 'dt-white-primed', 'dt-glazed-timber',
+                'dt-glazed-aluminium', 'dt-fire-rated-60', 'dt-fire-rated-30',
+                'dt-steel-industrial', 'dt-aluminium-commercial',
+            ]);
+            const types = ['master', 'bedroom', 'living', 'kitchen', 'dining', 'bathroom',
+                           'ensuite', 'wc', 'hall', 'corridor', 'study', 'utility'] as const;
+            for (const a of types) for (const b of types) {
+                const set = buildLayoutCommands(option({
+                    doors: [{ wallRef: 0, offset: 2000, width: 900, roomTypeA: a, roomTypeB: b }],
+                }), OPTS, counterMinter());
+                const openId = getOpeningSysType(set);
+                expect(openId && KNOWN_DOOR_IDS.has(openId), `opening id ${openId} for ${a}↔${b}`).toBe(true);
+                const batchId = (set.doorBatch!.payload as { doors: Array<{ systemTypeId?: string }> }).doors[0]!.systemTypeId;
+                expect(batchId && KNOWN_DOOR_IDS.has(batchId), `batch id ${batchId} for ${a}↔${b}`).toBe(true);
+            }
+        });
+    });
+
+    // T1.D/T1.W END-TO-END (2026-06-08) — a single realistic layout assigns the
+    // architecturally-correct REAL catalogue ids per room WITHOUT user input:
+    // bathroom window obscure/privacy, kitchen window vent, living glazed door.
+    describe('end-to-end per-room scheme (single layout, no user input)', () => {
+        const houseOption = (): LayoutOption => ({
+            summary: 'e2e', corridorWidthMin: 1000, rooms: [],
+            walls: [
+                { start: { x: 0, y: 0 }, end: { x: 6000, y: 0 }, isExternal: true },  // south facade
+                { start: { x: 0, y: 0 }, end: { x: 0, y: 4000 } },                    // partition 1
+                { start: { x: 3000, y: 0 }, end: { x: 3000, y: 4000 } },              // partition 2
+            ],
+            doors: [
+                { wallRef: 1, offset: 1500, width: 900, roomTypeA: 'living', roomTypeB: 'kitchen' },  // glazed
+                { wallRef: 2, offset: 1500, width: 800, roomTypeA: 'corridor', roomTypeB: 'bathroom' }, // privacy
+            ],
+            windows: [
+                { wallRef: 1, offset: 500, width: 600, height: 600, sillHeight: 1700, roomType: 'bathroom' }, // privacy uPVC
+                { wallRef: 2, offset: 500, width: 1200, height: 1200, sillHeight: 1000, roomType: 'kitchen' }, // tilt-turn
+            ],
+        });
+
+        it('living↔kitchen door is glazed; bathroom door is privacy; bathroom window privacy uPVC; kitchen window tilt-turn', () => {
+            const set = buildLayoutCommands(houseOption(), OPTS, counterMinter());
+            // Doors (opening = live field):
+            const doorOpenings = set.openingCommands.map(
+                op => (op.payload as { opening: { systemTypeId?: string } }).opening.systemTypeId,
+            );
+            expect(doorOpenings).toContain('dt-glazed-timber');   // living↔kitchen (glazed door)
+            expect(doorOpenings).toContain('dt-white-primed');    // corridor↔bathroom (privacy)
+            // Windows (opening = live field):
+            const winOpenings = set.windowOpeningCommands.map(
+                op => (op.payload as { opening: { systemTypeId?: string } }).opening.systemTypeId,
+            );
+            expect(winOpenings).toContain('wt-upvc-casement');    // bathroom (privacy / obscure-class)
+            expect(winOpenings).toContain('wt-upvc-tilt-turn');   // kitchen (ventilation)
+        });
+    });
 });

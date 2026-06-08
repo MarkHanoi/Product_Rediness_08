@@ -20,7 +20,7 @@
 
 import type { CommandPayloadRef } from '../../types.js';
 import type { LayoutOption, Vec2mm } from './types.js';
-import { defaultDoorSystemTypeId, defaultWindowSystemTypeId } from './resolvers/defaultElementTypes.js';
+import { defaultDoorSystemTypeId, defaultWindowSystemTypeId, DEFAULT_DOOR_TYPE_ID } from './resolvers/defaultElementTypes.js';
 import { resolveAllShellWindows } from './windowEmission/shellWallMatch.js';
 
 const MM_PER_M = 1000;
@@ -545,6 +545,33 @@ export function buildLayoutCommands(
         const openingId = mintId('opening');
         const doorId = mintId('door');
         doorIds.push(doorId);
+        // T1.D (2026-05-30) — per-pair finish resolver. When the door knows
+        // both room types (D-TGL path populates them via emitGeometry), pick
+        // the privacy / glazed / solid finish from the resolver (a real
+        // DoorSystemTypeStore `dt-*` id). Otherwise fall through to the legacy
+        // global `stampDoorSysType` so AI and procedural-fallback paths still
+        // ship a working door.
+        const perPairSysType = (d.roomTypeA && d.roomTypeB)
+            ? { systemTypeId: defaultDoorSystemTypeId(d.roomTypeA, d.roomTypeB) }
+            : stampDoorSysType;
+        // T1.D wiring (2026-06-08) — the LIVE build path
+        // (ApartmentLayoutExecutor → CreateWallOpeningsBatchCommand →
+        // CreateWallOpeningCommand) reads the per-room finish from the OPENING's
+        // `systemTypeId` (resolved against doorSystemTypeStore), NOT from the
+        // door.batch.create payload (which that executor never dispatches —
+        // openings carry both door + window creation). So the resolved finish
+        // MUST ride the opening to actually reach the rendered door. The id must
+        // be a real `dt-*` catalogue id: use the resolver's per-pair pick when
+        // room types are known, else the canonical `dt-solid-timber` default
+        // (the global `solid-timber` fallback is NOT a real store id, so we omit
+        // an unknown id from the opening and let the command apply its own
+        // schema default — matching pre-T1.D behaviour for the unknown case).
+        const openingSysType: { systemTypeId: string } | Record<string, never> =
+            (d.roomTypeA && d.roomTypeB)
+                ? { systemTypeId: defaultDoorSystemTypeId(d.roomTypeA, d.roomTypeB) }
+                : (resolvedDoorSysType === DEFAULT_DOOR_SYSTEM_TYPE_ID
+                    ? { systemTypeId: DEFAULT_DOOR_TYPE_ID }   // 'solid-timber' → real 'dt-solid-timber'
+                    : stampDoorSysType);                        // explicit caller id (assumed real) or {}
         openingCommands.push({
             command: 'wall.createOpening',
             payload: {
@@ -558,17 +585,10 @@ export function buildLayoutCommands(
                     sillHeight: d.sillHeight,
                     elementId: doorId,        // === door id (C15 cascade)
                     doorType: d.doorType,
+                    ...openingSysType,
                 },
             },
         });
-        // T1.D (2026-05-30) — per-pair finish resolver. When the door knows
-        // both room types (D-TGL path populates them via emitGeometry), pick
-        // the privacy / glazed / solid finish from the resolver. Otherwise
-        // fall through to the legacy global `stampDoorSysType` so AI and
-        // procedural-fallback paths still ship a working door.
-        const perPairSysType = (d.roomTypeA && d.roomTypeB)
-            ? { systemTypeId: defaultDoorSystemTypeId(d.roomTypeA, d.roomTypeB) }
-            : stampDoorSysType;
         doors.push({
             id: doorId,
             wallId,
