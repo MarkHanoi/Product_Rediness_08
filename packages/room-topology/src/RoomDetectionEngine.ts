@@ -100,6 +100,8 @@ import {
   computeRoomMetrics,
   ensureCCW,
   sanitisePolygon,
+  isSimple,
+  repairToSimplePolygon,
   MIN_ROOM_AREA_M2,
 } from './RoomPolygonUtils';
 import { UiPreferences } from '@pryzm/core-app-model';
@@ -338,10 +340,34 @@ export class RoomDetectionEngine {
         continue;
       }
 
-      ensureCCW(sanitised);
+      // §A.21.D58 — the face-tracer can emit a SELF-INTERSECTING ring on the
+      // upper (central-stair) storey: a pinch/figure-8 where a partition bridges
+      // the outer shell to the stairwell-void loop, or a collinear spur left by a
+      // dangling / §WJR-INVALID edge. Such a polygon fails RoomStore's isSimple()
+      // Zod gate and the room is silently dropped (missing floor/furniture).
+      // Detect-and-repair into the largest simple ring so the room registers.
+      // Ground-floor rooms (already simple) pass through untouched.
+      let finalPolygon = sanitised;
+      if (!isSimple(sanitised)) {
+        const repaired = repairToSimplePolygon(sanitised);
+        if (!repaired) {
+          console.warn(
+            `[RoomDetectionEngine] Self-intersecting room boundary could not be ` +
+            `repaired to a simple polygon (${sanitised.length} verts) — skipping`,
+          );
+          continue;
+        }
+        console.debug(
+          `[RoomDetectionEngine] §A.21.D58 repaired self-intersecting boundary: ` +
+          `${sanitised.length} → ${repaired.length} verts (largest simple ring)`,
+        );
+        finalPolygon = repaired;
+      }
+
+      ensureCCW(finalPolygon);
 
       const boundary: RoomBoundary = {
-        polygon: sanitised,
+        polygon: finalPolygon,
         height: levelHeight,
         baseOffset: 0,
         detectionMethod: 'auto-topology',

@@ -249,3 +249,174 @@ export function sanitisePolygon(vertices: unknown[]): RoomVertex[] | null {
 
   return valid;
 }
+
+/**
+ * Proper-intersection point of two segments, or null. Mirrors the (exclusive)
+ * crossing test in `segmentsIntersect`/`isSimple` but RETURNS the crossing point
+ * so the repair can split the ring there.
+ */
+function segmentCrossPoint(
+  p1: RoomVertex, p2: RoomVertex,
+  p3: RoomVertex, p4: RoomVertex,
+): RoomVertex | null {
+  const d1x = p2.x - p1.x, d1z = p2.z - p1.z;
+  const d2x = p4.x - p3.x, d2z = p4.z - p3.z;
+  const cross = d1x * d2z - d1z * d2x;
+  if (Math.abs(cross) < 1e-10) return null; // parallel / collinear
+  const dx = p3.x - p1.x, dz = p3.z - p1.z;
+  const t = (dx * d2z - dz * d2x) / cross;
+  const u = (dx * d1z - dz * d1x) / cross;
+  if (t > 1e-10 && t < 1 - 1e-10 && u > 1e-10 && u < 1 - 1e-10) {
+    return { x: p1.x + t * d1x, z: p1.z + t * d1z };
+  }
+  return null;
+}
+
+/**
+ * §A.21.D58 — Repair a self-intersecting room boundary into a SIMPLE polygon.
+ *
+ * The planar face-tracer (PlanarTopologyEngine) walks half-edges around a face.
+ * On the upper floor of a generated house — the central-stair storey with many
+ * partitions plus the stairwell void — a single traced face can come back
+ * NON-SIMPLE in three ways, all of which fail RoomStore's `isSimple()` Zod gate
+ * ("Room boundary polygon must not self-intersect") so the room is silently
+ * dropped (missing floor / furniture):
+ *
+ *   (a) PROPER CROSSING (the live root) — two NON-ADJACENT boundary edges of the
+ *       SAME face geometrically cross. This happens when a wall crossing on the
+ *       dense upper floor was not split into a shared graph node (the partition /
+ *       stair-void layout produces a crossing that escapes the T/X-junction
+ *       margins), so the minimal-face walk threads an edge across another edge of
+ *       its own boundary — a bow-tie / loop.
+ *
+ *   (b) PINCH / figure-8 — the boundary visits the same graph node twice (a
+ *       partition that bridges the outer shell to the stair-void ring). The ring
+ *       contains a repeated vertex and decomposes into two loops joined there.
+ *
+ *   (c) SPUR — the walk goes OUT along a dangling / §WJR-INVALID edge and back
+ *       (the n===1 half-edge rule returns straight back), leaving a collinear
+ *       back-and-forth dead-end A→B→A.
+ *
+ * Repair is DETERMINISTIC and conservative — it does NOT change which rooms
+ * exist, only makes one room's boundary valid:
+ *   1. Snap-quantise (1 mm), drop consecutive duplicates, strip collinear spurs.
+ *   2. Split at any repeated vertex (pinch) → keep the largest simple sub-ring.
+ *   3. Excise proper-crossing loops: at the first self-crossing, split the ring
+ *      into the two loops that meet at the crossing point and keep the larger one;
+ *      repeat to a fixpoint.
+ *   4. Validate with `isSimple`; return null if still irreparable.
+ *
+ * Returns a simple polygon (≥3 verts, area ≥ 0.01 m²) or null.
+ */
+export function repairToSimplePolygon(polygon: RoomVertex[]): RoomVertex[] | null {
+  if (!Array.isArray(polygon) || polygon.length < 3) return null;
+
+  // 1mm grid key so float jitter from the trace collapses coincident vertices.
+  const SNAP = 1e-3;
+  const key = (v: RoomVertex) => `${Math.round(v.x / SNAP)},${Math.round(v.z / SNAP)}`;
+
+  // Drop consecutive (and cyclically-closing) duplicate vertices.
+  const dedup = (verts: RoomVertex[]): RoomVertex[] => {
+    const out: RoomVertex[] = [];
+    for (const v of verts) {
+      const prev = out[out.length - 1];
+      if (prev && key(prev) === key(v)) continue;
+      out.push(v);
+    }
+    while (out.length > 1 && key(out[0]) === key(out[out.length - 1])) out.pop();
+    return out;
+  };
+
+  // Strip collinear spurs (A B A → A) to a fixpoint.
+  const stripSpurs = (verts: RoomVertex[]): RoomVertex[] => {
+    let ring = verts;
+    let changed = true;
+    while (changed && ring.length >= 3) {
+      changed = false;
+      const n = ring.length;
+      for (let i = 0; i < n; i++) {
+        const prev = ring[(i - 1 + n) % n];
+        const next = ring[(i + 1) % n];
+        if (key(prev) === key(next)) {
+          ring = dedup(ring.filter((_, idx) => idx !== i && idx !== (i + 1) % n));
+          changed = true;
+          break;
+        }
+      }
+    }
+    return ring;
+  };
+
+  // Split at the first repeated vertex (pinch) → keep largest simple sub-ring.
+  const extractAtRepeatedVertex = (verts: RoomVertex[]): RoomVertex[] | null => {
+    const seen = new Map<string, number>();
+    for (let i = 0; i < verts.length; i++) {
+      const k = key(verts[i]);
+      if (seen.has(k)) {
+        const j = seen.get(k)!;
+        const loopA = verts.slice(j, i);
+        const loopB = [...verts.slice(0, j), ...verts.slice(i)];
+        const candidates = [loopA, loopB]
+          .map(l => dedup(l))
+          .filter(l => l.length >= 3)
+          .map(l => extractAtRepeatedVertex(l))
+          .filter((l): l is RoomVertex[] => l !== null);
+        if (candidates.length === 0) return null;
+        candidates.sort((a, b) => polygonAreaM2(b) - polygonAreaM2(a));
+        return candidates[0];
+      }
+      seen.set(k, i);
+    }
+    return verts.length >= 3 ? verts : null;
+  };
+
+  // Excise the first proper self-crossing loop; keep the larger component.
+  // Returns the same ring if no proper crossing is found.
+  const exciseFirstCrossing = (verts: RoomVertex[]): RoomVertex[] => {
+    const n = verts.length;
+    for (let i = 0; i < n; i++) {
+      const a1 = verts[i], a2 = verts[(i + 1) % n];
+      for (let j = i + 2; j < n; j++) {
+        if (i === 0 && j === n - 1) continue; // adjacent (closing) edge
+        const b1 = verts[j], b2 = verts[(j + 1) % n];
+        const x = segmentCrossPoint(a1, a2, b1, b2);
+        if (!x) continue;
+        // Edges i and j cross at x. Two loops meet there:
+        //   inner: x, verts[i+1..j], x   (the portion between the crossing edges)
+        //   outer: verts[0..i], x, verts[j+1..n-1]
+        const inner = dedup([x, ...verts.slice(i + 1, j + 1)]);
+        const outer = dedup([...verts.slice(0, i + 1), x, ...verts.slice(j + 1)]);
+        const innerOk = inner.length >= 3 ? inner : null;
+        const outerOk = outer.length >= 3 ? outer : null;
+        if (innerOk && outerOk) {
+          return polygonAreaM2(innerOk) >= polygonAreaM2(outerOk) ? innerOk : outerOk;
+        }
+        return innerOk ?? outerOk ?? verts;
+      }
+    }
+    return verts; // no proper crossing
+  };
+
+  let ring = stripSpurs(dedup(polygon));
+  if (ring.length < 3) return null;
+
+  // Pinch decomposition first (cheap, removes repeated-vertex degeneracies).
+  ring = extractAtRepeatedVertex(ring) ?? ring;
+  if (ring.length < 3) return null;
+
+  // Proper-crossing excision to a fixpoint (bounded by vertex count).
+  let guard = 0;
+  while (!isSimple(ring) && guard < ring.length + 4) {
+    const next = exciseFirstCrossing(ring);
+    if (next === ring || next.length < 3) break; // no progress
+    ring = stripSpurs(dedup(next));
+    ring = extractAtRepeatedVertex(ring) ?? ring;
+    if (ring.length < 3) return null;
+    guard++;
+  }
+
+  if (ring.length < 3) return null;
+  if (!isSimple(ring)) return null;
+  if (polygonAreaM2(ring) < 0.01) return null;
+  return ring;
+}

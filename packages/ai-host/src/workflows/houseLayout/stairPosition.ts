@@ -380,42 +380,69 @@ export function stairCorePositionCandidates(
     //      D34(a) preserved). `dirX`/`dirY` point inward from the abutted wall.
     // The ladder STARTS at 0 (the flush position itself) so an already-tight flush anchor
     // is returned unchanged (axis-aligned plate → bit-identical to pre-D59). Pure/det.
+    // The nudge retreats INWARD off the abutted wall. `(normX, normY)` is that wall's
+    // INWARD normal (the perpendicular that reduces the outward overrun): left → +x,
+    // right → −x, back → −y. We retreat along THAT axis FIRST (it is the axis on which a
+    // skewed wall makes the core proud), then — only if a pure-perpendicular retreat
+    // can't seat the core (e.g. the proud corner is on an adjacent slanted edge) — also
+    // back off the secondary corner axis. Retreating along the WRONG axis is what left
+    // the D59 sweep proud: the old `(−1,−1)` retreat for `right` moved the core DOWN a
+    // slanted wall into its NARROWER part, INCREASING the overrun. `secX/secY` is the
+    // optional corner-anchor axis (toward the entrance, −y) tried only as a 2nd pass.
     const PERIM_NUDGE_MM = WALL_LANDING_MM;   // cap the inward retreat at one landing depth
-    const NUDGE_LADDER = [0, 50, 100, 150, 250, 400, 600, PERIM_NUDGE_MM];
+    const NUDGE_LADDER = [0, 25, 50, 100, 150, 250, 400, 600, PERIM_NUDGE_MM];
     const containedNudged = (
-        flushX: number, flushY: number, dirX: number, dirY: number,
+        flushX: number, flushY: number,
+        normX: number, normY: number, secX: number, secY: number,
     ): { x: number; y: number } | null => {
         if (!shellPoly || shellPoly.length < 3) return { x: flushX, y: flushY };
-        const at = (off: number): { x: number; y: number } => ({
-            x: clamp(flushX + dirX * off, 0, Math.max(0, plateW - coreW)),
-            y: clamp(flushY + dirY * off, 0, Math.max(0, plateH - coreH)),
+        const at = (dx: number, dy: number): { x: number; y: number } => ({
+            x: clamp(flushX + dx, 0, Math.max(0, plateW - coreW)),
+            y: clamp(flushY + dy, 0, Math.max(0, plateH - coreH)),
         });
-        // Pass 1: first inward position GENUINELY inside (tight band → no outward overrun).
-        for (const off of NUDGE_LADDER) {
-            const p = at(off);
+        // Search order: along the wall's inward normal first (primary), then a small grid
+        // that ALSO backs off the secondary corner axis — so a proud corner on an adjacent
+        // slanted edge is still resolved. Each (tight-then-loose) at the smallest retreat.
+        const candidatesInward: Array<{ x: number; y: number }> = [];
+        for (const a of NUDGE_LADDER) {
+            // primary axis only (the common, single-wall-proud case)
+            candidatesInward.push(at(normX * a, normY * a));
+        }
+        for (const a of NUDGE_LADDER) {
+            for (const b of NUDGE_LADDER) {
+                if (a === 0 && b === 0) continue;            // (already covered above)
+                candidatesInward.push(at(normX * a + secX * b, normY * a + secY * b));
+            }
+        }
+        // Pass 1: first position GENUINELY inside (tight band → no outward overrun).
+        for (const p of candidatesInward) {
             if (containedAt(p.x, p.y, SHELL_TIGHT_JITTER_MM)) return p;
         }
         // Pass 2: fall back to the first loosely-contained position (cm-wobble shell).
-        for (const off of NUDGE_LADDER) {
-            const p = at(off);
+        for (const p of candidatesInward) {
             if (containedAt(p.x, p.y, SHELL_JITTER_MM)) return p;
         }
         return null;
     };
 
     if (fitsX) {
-        // Flush LEFT wall (x = 0), back corner — nudge inward (+x / −y) on a jittery shell.
-        const l = containedNudged(0, cornerY, +1, -1);
+        // Flush LEFT wall (x = 0), back corner. Inward normal = +x (off the left wall);
+        // secondary corner axis = −y (off the back wall). Primary retreat is +x so a
+        // slanted left wall pulls the core RIGHT (off the wall), not down it.
+        const l = containedNudged(0, cornerY, +1, 0, 0, -1);
         if (l) out.push({ x: r3(l.x), y: r3(l.y), kind: 'left' });
-        // Flush RIGHT wall (x = plateW − coreW), back corner — nudge inward (−x / −y).
-        const r = containedNudged(plateW - coreW, cornerY, -1, -1);
+        // Flush RIGHT wall (x = plateW − coreW), back corner. Inward normal = −x;
+        // secondary = −y. Primary retreat is −x so a slanted right wall pulls the core
+        // LEFT (off the wall) — fixing the D59 "retreat down a slanted wall" overrun.
+        const r = containedNudged(plateW - coreW, cornerY, -1, 0, 0, -1);
         if (r) out.push({ x: r3(r.x), y: r3(r.y), kind: 'right' });
     }
     if (fitsY) {
-        // Flush BACK wall (y = plateH − coreH), X-centred — the full-edge band
-        // variant (still a clean single-dominant carve: one big front band).
+        // Flush BACK wall (y = plateH − coreH), X-centred — the full-edge band variant
+        // (still a clean single-dominant carve: one big front band). Inward normal = −y
+        // (off the back wall); secondary = −x (off whichever side it drifts toward).
         const by = Math.max(WALL_LANDING_MM, plateH - coreH);
-        const b = containedNudged(cx, by, 0, -1);
+        const b = containedNudged(cx, by, 0, -1, -1, 0);
         if (b) out.push({ x: r3(b.x), y: r3(b.y), kind: 'back' });
     }
 
