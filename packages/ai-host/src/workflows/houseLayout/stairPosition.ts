@@ -377,7 +377,7 @@ export function stairCorePositionCandidates(
     //      position contained at the LOOSE band (≤150 mm — genuine cm-scale wobble only),
     //      so a truly jittery-but-fine wall still yields its perimeter candidate.
     //   3. If neither band is ever satisfied the candidate drops (genuine skew/notch —
-    //      D34(a) preserved). `dirX`/`dirY` point inward from the abutted wall.
+    //      D34(a) preserved).
     // The ladder STARTS at 0 (the flush position itself) so an already-tight flush anchor
     // is returned unchanged (axis-aligned plate → bit-identical to pre-D59). Pure/det.
     // The nudge retreats INWARD off the abutted wall. `(normX, normY)` is that wall's
