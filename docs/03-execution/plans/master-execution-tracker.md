@@ -2239,3 +2239,54 @@ truthful. **Headline: 3 of 5 beats are solid; 2 are blocked (graph-before-geomet
 ---
 
 *Demo-queue addendum 2026-06-08 — 7 founder items (DEMO-1/2/3 · BND-90 · FORMA-CTX · FLR-VIEWS · LAYOUT-Q) + §22.4 bugs + §22.5 GIS-LOC + §22.6 per-beat code audit + A.27 P2–P7 status.*
+
+### §22.7 — PROD-TEST DEFECTS on a ROTATED plate + the WALL-JOIN→OPENING→ROOM-MERGE cascade (2026-06-08)
+
+Founder tested a 3-storey house on a **globally-rotated (non-orthogonal) boundary** (~15°; the
+plan screenshot is visibly skewed). The console log is the smoking gun. The defects are NOT
+independent — they are ONE cascade the founder named precisely: *"when something is going on in
+some walls, the joins go off and the window openings too."*
+
+#### The cascade — root cause (HIGH, the dominant LAYOUT-Q driver on skewed plates)
+1. **Degenerate multi-clusters.** On the rotated plate the interior-partition endpoints + their
+   perimeter intersections collapse into shared cluster points. Log:
+   `§MULTI-CLUSTER cluster: 6 endpoints @ (-1.000, 13.299) [trimmed=4 selfCluster=2]` — a 6-endpoint
+   cluster containing BOTH ends of one wall.
+2. **Walls flagged INVALID + skipped.** The WallJoinResolver correctly detects the degenerate wall
+   (both ends in one cluster) and drops it to avoid a phantom spike:
+   `§SELF-CLUSTER-GUARD: skipped 2 endpoint(s) … wall_…ERT3SQ…` → `§WJR-INVALID skipped wall_…ERT3SQ…: self-cluster`
+   (≥2 such walls per upper level: `…ERT3SQ…`, `…ES178W…`).
+3. **Consequence A — rooms MERGE.** A skipped partition leaves a GAP, so RoomDetection can't seal the
+   space → three rooms collapse into one. Screenshot: a single **"Corridor / Entrance Hall / Bathroom
+   8.1 m²"** polygon (the merged-name convention = one detected room spanning all three). ⇒ founder's
+   *"Corridor / Entrance Hall / Bathroom are not defined as independent rooms."*
+4. **Consequence B — openings LOST.** Windows/doors the layout assigned to an invalidated/trimmed wall
+   have no host wall to land on, so they silently drop. ⇒ founder's *"Bedroom 1 has no windows"* (its
+   top-left perimeter frontage is exactly in the bad-cluster corner the arrows point at).
+- **ROOT CAUSE:** the §SELF-CLUSTER-GUARD / §WJR-INVALID skip (the right *defensive* call — see
+  `walljoinresolver-multi-cluster-bug` memo) is a SYMPTOM handler. The real defect is UPSTREAM: on a
+  rotated plate the D-TGL subdivision + `weldPartitionsToShell` produce **near-coincident partition
+  endpoints** that the join resolver can only reconcile by deleting a wall. FIX DIRECTION (multi-day,
+  LAYOUT-Q): (a) snap/merge partition endpoints to clean perimeter intersection points BEFORE the join
+  resolver (in `weldPartitionsToShell` / the alignment snap, in the rotated frame), so no self-clusters
+  form; (b) when a wall MUST be dropped, RE-HOST its assigned openings on the surviving co-linear wall
+  and RE-SEAL the room gap (don't silently lose them). **BND-90 (orthogonal boundary) sidesteps most of
+  this for the demo** — rectilinear plates don't generate the rotated multi-cluster degeneracy.
+
+#### Discrete defects from this test
+| ID | Defect | Evidence | Status |
+|---|---|---|---|
+| **WJ-SKEW** | Perimeter corner joins fail, "mainly in bottom floors", on the rotated plate (degenerate multi-clusters → dropped walls). The CASCADE root above. | `§MULTI-CLUSTER`/`§SELF-CLUSTER-GUARD`/`§WJR-INVALID` log | ☐ HIGH |
+| **ROOM-MERGE** | Corridor + Entrance Hall + Bathroom detected as ONE 8.1 m² room (unsealed by the dropped partitions). | screenshot merged name | ☐ HIGH (cascade) |
+| **WIN-DROP** | Bedroom 1 has no windows (its frontage wall was invalidated/trimmed → window lost). | screenshot + log | ☐ HIGH (cascade) |
+| **STAIR-OFF-SHELL** | Stair core pokes OUTSIDE the perimeter shell even though that corner is locally 90° (rotated-frame core reserve/clamp overruns the skewed shell). Sibling of A.21.D59 "stair proud of wall". | screenshot (stair bottom-right past wall) | ☐ HIGH |
+| **HALL-NO-ENTRANCE** | §A.21.D29 creates exactly ONE main entrance door and it landed on the KITCHEN's shell wall; the HALL (the proper arrival room) got none. Founder: a kitchen external door is fine, but the hall must have its own entrance. | `§A.21.D29 main entrance door created on shell wall …` (one only) | ☐ MED |
+
+> NOTE: these are predominantly **skewed-plate** failures. Shipping **BND-90** (orthogonal boundaries)
+> is the fastest demo unblock; the WJ-SKEW upstream endpoint-snap + opening re-host is the durable fix
+> and the core of **LAYOUT-Q**. The §SELF-CLUSTER skip is working as designed (no phantom spike) — the
+> bug is that we lose the room seal + the openings when it fires.
+
+---
+
+*Addendum continues 2026-06-08 — §22.7 rotated-plate wall-join→opening→room-merge cascade (WJ-SKEW · ROOM-MERGE · WIN-DROP · STAIR-OFF-SHELL · HALL-NO-ENTRANCE). GIS-LOC + VIEW-ZOOM fixes shipped v60.*
