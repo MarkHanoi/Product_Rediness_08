@@ -701,19 +701,39 @@ export function buildWallsAndDoors(
         if (!blocked(centred)) return centred;
 
         // Candidate offsets: just outside each blocked zone, plus the two wall
-        // ends. Pick the one closest to the centred default that is feasible.
+        // ends. The centred default is blocked, so the door must slide off-centre.
         const candidates: number[] = [minOff, maxOff];
         for (const t of crossings) {
             candidates.push(t + EPS);            // door starts just after the endpoint
             candidates.push(t - width - EPS);    // door ends just before the endpoint
         }
-        let best = centred, bestD = Infinity, found = false;
+        // §DOOR-APPROACH-QUALITY (2026-06-08, F3 P2-3) — among the CLEAR slid
+        // candidates, prefer the one that sits on the LONGEST unobstructed run of wall
+        // (maximises the SHORTER of its two clear approaches), so the door reads
+        // centred on its wall segment rather than shoved against a junction. The
+        // obstacle set is the perpendicular crossings plus the two wall ends; for a
+        // door at [off, off+width] each side's clear approach is the gap to the nearest
+        // obstacle beyond the leaf. Tie-break: closest to the centred default (the prior
+        // behaviour), so equal-approach candidates are byte-identical to before.
+        const obstacles = [0, len, ...crossings];
+        const approachScore = (off: number): number => {
+            let left = 0, right = len;
+            for (const o of obstacles) {
+                if (o <= off + EPS && o > left) left = o;
+                if (o >= off + width - EPS && o < right) right = o;
+            }
+            return Math.min(off - left, right - (off + width));
+        };
+        let best = centred, bestScore = -Infinity, bestD = Infinity, found = false;
         for (const c of candidates) {
             if (c < minOff - EPS || c > maxOff + EPS) continue;
             const off = Math.min(Math.max(c, minOff), maxOff);
             if (blocked(off)) continue;
+            const score = approachScore(off);
             const d = Math.abs(off - centred);
-            if (d < bestD) { best = off; bestD = d; found = true; }
+            if (score > bestScore + EPS || (Math.abs(score - bestScore) <= EPS && d < bestD)) {
+                best = off; bestScore = score; bestD = d; found = true;
+            }
         }
         return found ? best : centred;
     };
