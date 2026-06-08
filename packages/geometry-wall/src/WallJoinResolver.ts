@@ -488,6 +488,54 @@ export class WallJoinResolver {
                 ? new Set([primaryPair.idA, primaryPair.idB])
                 : new Set();
 
+            // ── §PASS-THROUGH-FLUSH (Jun 2026 — A.21.D40) ────────────────────────
+            // The reported field defect ("corners not cleanly joined — gaps/overlaps
+            // — `3 endpoints @ (x,y) [primary=2 t-into=1]`") is a 3-way junction that
+            // is really a T-JUNCTION: two of the cluster walls are (near-)collinear
+            // and pass STRAIGHT THROUGH the junction, while the third is the stem.
+            //
+            // The §T-INTO-CORNER + primary-corner path treats the most-perpendicular
+            // pinned pair as an L corner and writes a 45° bisector miter on BOTH —
+            // but for a straight pass-through that bisector PULLS the through-wall's
+            // outer cap back off the junction line, opening a triangular gap on the
+            // outside of the T (and an overlap on the inside). A bisector miter is
+            // only valid when exactly two walls bound the corner sector; with a
+            // collinear pass-through present it is geometrically wrong.
+            //
+            // Fix: if ANY two cluster walls are near-collinear at the junction
+            // (|tangent·tangent| ≥ COLLINEAR_DOT, i.e. ~≤10° from a straight line),
+            // resolve the WHOLE cluster with square (perpendicular) end caps trimmed
+            // to the consensus point — the file's stated watertight doctrine for 3+
+            // junctions (see method header). The pass-through walls then meet flush
+            // along one plane and the stem butts cleanly against their bodies: no
+            // gap, no overrun, in both plan and 3D. Square caps (null MN) are stable
+            // and cacheable, so the §rebuildWallBodies cached-miter path is unaffected.
+            //
+            // Pure Y/star junctions (no collinear pair) keep the existing behaviour.
+            const COLLINEAR_DOT = 0.985; // cos(~10°)
+            let clusterHasPassThrough = false;
+            for (let i = 0; i < endpoints.length && !clusterHasPassThrough; i++) {
+                const epI = endpoints[i];
+                if (_selfClusterWallIds.has(epI.wallId)) continue;
+                const wI = _byId.get(epI.wallId);
+                if (!wI) continue;
+                const [iS, iE] = bl.get(epI.wallId)!;
+                const dirI = this._wallDirAtJoin(wI, epI.side, iS, iE, consensusPoint);
+                for (let j = i + 1; j < endpoints.length; j++) {
+                    const epJ = endpoints[j];
+                    if (epJ.wallId === epI.wallId) continue;
+                    if (_selfClusterWallIds.has(epJ.wallId)) continue;
+                    const wJ = _byId.get(epJ.wallId);
+                    if (!wJ) continue;
+                    const [jS, jE] = bl.get(epJ.wallId)!;
+                    const dirJ = this._wallDirAtJoin(wJ, epJ.side, jS, jE, consensusPoint);
+                    if (Math.abs(dirI.dot(dirJ)) >= COLLINEAR_DOT) {
+                        clusterHasPassThrough = true;
+                        break;
+                    }
+                }
+            }
+
             // §SECONDARY-PINNED-FIX: per-cluster counter for secondary pinned
             // pairs handled inline (separate from singleton-pinned deferrals).
             let _cntSecPinned = 0;
@@ -517,6 +565,52 @@ export class WallJoinResolver {
                 if (handledKeys.has(epKey)) continue;
 
                 const [ws, we] = bl.get(ep.wallId)!;
+
+                // ── §PASS-THROUGH-FLUSH: square cap to consensus for the whole cluster ──
+                // When this cluster contains a near-collinear pass-through pair the
+                // bisector-miter L path is invalid (it gaps). Trim EVERY endpoint to
+                // the consensus point with a square (perpendicular) cap and mark it
+                // handled so the pair-wise loop never re-mitres it. This is the same
+                // watertight write as the non-pinned default branch below, but it
+                // applies UNCONDITIONALLY (incl. pinned + would-be-primary walls) so
+                // the through-walls stay straight and the stem butts flush.
+                if (clusterHasPassThrough) {
+                    const trimPtPT = consensusPoint.clone();
+                    trimPtPT.y = ep.side === 'start' ? ws.y : we.y;   // preserve floor Y
+                    const newBLPT: [THREE.Vector3, THREE.Vector3] =
+                        ep.side === 'start'
+                            ? [trimPtPT, we.clone()]
+                            : [ws.clone(), trimPtPT];
+                    // §DEGENERATE-WALL-GUARD: never collapse a wall below the minimum
+                    // length (a self-cluster wall is already excluded above, but a
+                    // very short stem could still round to zero against consensus).
+                    if (newBLPT[0].distanceTo(newBLPT[1]) < thresholds.minWallLength) {
+                        this._flagInvalidIfDegenerate(
+                            ep.wallId, bl, result, thresholds.minWallLength, 'pass-through-collapse',
+                        );
+                        handledKeys.add(epKey);
+                        continue;
+                    }
+                    bl.set(ep.wallId, newBLPT);
+                    const adjPT: JoinData = result.get(ep.wallId) ?? {
+                        baseLine: newBLPT, startMN: null, endMN: null,
+                    };
+                    adjPT.baseLine = newBLPT;
+                    if (ep.side === 'start') adjPT.startMN = null;
+                    else                     adjPT.endMN   = null;
+                    result.set(ep.wallId, adjPT);
+                    handledKeys.add(epKey);
+                    _cntTrimmed++;
+                    if (_verboseClusterLogs) {
+                        console.log(
+                            `[WallJoinResolver] §MULTI-CLUSTER  wall=${ep.wallId}(${ep.side}) ` +
+                            `PASS-THROUGH-FLUSH (square cap) → ` +
+                            `(${trimPtPT.x.toFixed(3)}, ${trimPtPT.z.toFixed(3)})`
+                        );
+                    }
+                    continue;
+                }
+
                 const isPinned        = pinnedKeys.has(epKey);
                 const isInPrimaryPair = primaryWallIds.has(ep.wallId);
 
