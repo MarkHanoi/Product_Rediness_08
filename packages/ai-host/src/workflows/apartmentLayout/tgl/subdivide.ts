@@ -851,6 +851,179 @@ export function reshapeCorridorStrip(
     return tryNarrow('low') ?? tryNarrow('high') ?? placements.slice();
 }
 
+// ── §CORRIDOR-END-TRIM (A.21.D57, 2026-06-08) ────────────────────────────────
+
+/**
+ * §CORRIDOR-END-TRIM (A.21.D57) — a corridor only needs to SPAN from the entrance
+ * to the LAST room-door it serves. The §SINGLE-RECT carve builds the corridor strip
+ * running the FULL length of the shell's long axis (perimeter to perimeter), so when
+ * the served rooms do not reach the far end the corridor OVERSHOOTS into a dead stub
+ * against the perimeter wall — wasting the best wall (the exterior frontage) on
+ * circulation instead of a habitable room. This pass TRIMS the corridor's LONG axis
+ * back to the served-room extent (+ a small end clearance) and DONATES the freed
+ * perimeter end-band to the adjacent habitable room that fully tiles it — extending
+ * that room TO the perimeter so it gains exterior frontage (→ windows → daylight,
+ * the founder's stated goal).
+ *
+ * CRITICAL (the sealing-safety doctrine, distinguishing this from the reverted
+ * 5b472cfb): the required extent is the union of the shared-wall spans of the rooms
+ * that DEPEND on the corridor for access — every private / service room (bedroom,
+ * bathroom, ensuite, wc, study, master), PLUS the entrance/hall connection so the
+ * spine still reaches the front door. A public room (living / kitchen / dining) that
+ * abuts the corridor only PAST that extent has its own façade frontage and other
+ * access, so its corridor stub may be reclaimed: the freed band is donated to it,
+ * extending it to the corridor's far short-face (the EXTERIOR perimeter → windows).
+ * The caller ADDITIONALLY runs the result through the `roomsWithAnySharedWall`
+ * sealing-safety gate and DISCARDS the trim if it would strand ANY room (leave it
+ * with no shared wall at all) — so §EVERY-ROOM-ACCESS is a HARD guarantee and a
+ * corridor that genuinely must span the full shell is left UNCHANGED.
+ *
+ * `dependsOnCorridor` maps a room id → true when that room NEEDS the corridor (the
+ * caller passes the private/service + entry set from the program rules). Absent ⇒
+ * every neighbour is treated as corridor-dependent (the conservative identity-leaning
+ * default — the union then equals the full abutter span and nothing is freed).
+ *
+ * Pure + deterministic. `corridorId` null ⇒ identity.
+ */
+
+export function trimCorridorToLastDoor(
+    placements: readonly RoomPlacement[],
+    corridorId: string | null,
+    dependsOnCorridor?: ReadonlySet<string>,
+): RoomPlacement[] {
+    if (!corridorId) return placements.slice();
+    const idx = placements.findIndex(p => p.roomId === corridorId);
+    if (idx < 0) return placements.slice();
+    const cor = placements[idx]!.rect;
+    const w = cor.x1 - cor.x0;
+    const h = cor.z1 - cor.z0;
+    const along: 'x' | 'z' = w >= h ? 'x' : 'z';     // the corridor's LONG (spine) axis
+    const corLo = along === 'x' ? cor.x0 : cor.z0;
+    const corHi = along === 'x' ? cor.x1 : cor.z1;
+    const corShort0 = along === 'x' ? cor.z0 : cor.x0;
+    const corShort1 = along === 'x' ? cor.z1 : cor.x1;
+
+    // Required span = the union of the shared-wall extents (on the corridor's long
+    // axis) of the rooms that DEPEND on the corridor for access. A neighbour shares a
+    // wall on one of the corridor's two LONG faces (a short-face abutment): it abuts
+    // at corShort0 or corShort1 and overlaps the corridor on the long axis; its
+    // overlap interval is exactly that shared wall. A corridor-dependent room must
+    // stay inside the trimmed corridor; a non-dependent (public, own-façade) room may
+    // be trimmed past + donated to.
+    const dependent = (id: string): boolean => dependsOnCorridor ? dependsOnCorridor.has(id) : true;
+    let needLo = Number.POSITIVE_INFINITY;
+    let needHi = Number.NEGATIVE_INFINITY;
+    for (let i = 0; i < placements.length; i++) {
+        if (i === idx) continue;
+        if (!dependent(placements[i]!.roomId)) continue;
+        const n = placements[i]!.rect;
+        const nShort0 = along === 'x' ? n.z0 : n.x0;
+        const nShort1 = along === 'x' ? n.z1 : n.x1;
+        const abutsLongFace =
+            Math.abs(nShort1 - corShort0) < ALIGNMENT_SNAP_EPS_M ||
+            Math.abs(nShort0 - corShort1) < ALIGNMENT_SNAP_EPS_M;
+        if (!abutsLongFace) continue;
+        const nLong0 = along === 'x' ? n.x0 : n.z0;
+        const nLong1 = along === 'x' ? n.x1 : n.z1;
+        const oLo = Math.max(nLong0, corLo);
+        const oHi = Math.min(nLong1, corHi);
+        if (oHi - oLo <= ALIGNMENT_SNAP_EPS_M) continue;   // touches the end only — not a shared wall
+        if (oLo < needLo) needLo = oLo;
+        if (oHi > needHi) needHi = oHi;
+    }
+    if (!Number.isFinite(needLo) || !Number.isFinite(needHi)) return placements.slice();
+
+    // Trim to EXACTLY the served extent at each end (the far edge of the first/last
+    // dependent room), clamped to the original corridor span (never extend outward).
+    // The trim point coincides with a real subdivision boundary so the freed band
+    // aligns with the donee room's edge and the donation stays RECTANGULAR (no
+    // L-shaped room). Any door reveal-clearance is a downstream door-placement
+    // concern, not a room-rect concern. The trimmed corridor must still clear the
+    // corridor's own minLongSideM floor (the spine must read as a real corridor).
+    const trimmedLo = Math.max(corLo, needLo);
+    const trimmedHi = Math.min(corHi, needHi);
+    if (trimmedHi - trimmedLo <= EPS) return placements.slice();
+    const minLong = roomRule('corridor').minLongSideM;
+    if (minLong !== undefined && trimmedHi - trimmedLo < minLong - EPS) return placements.slice();
+
+    // Nothing to free? (the dependent rooms already reach both ends) → identity.
+    const freesLow = trimmedLo > corLo + ALIGNMENT_SNAP_EPS_M;
+    const freesHigh = trimmedHi < corHi - ALIGNMENT_SNAP_EPS_M;
+    if (!freesLow && !freesHigh) return placements.slice();
+
+    const makeRect = (lo: number, hi: number): Rect =>
+        along === 'x'
+            ? { x0: lo, z0: corShort0, x1: hi, z1: corShort1 }
+            : { x0: corShort0, z0: lo, x1: corShort1, z1: hi };
+
+    // Donate ONE freed end-band to a single neighbour that abuts it (on either long
+    // face) AND exactly matches its long extent — extending that neighbour across the
+    // corridor's short width to swallow the band, so the room reaches the corridor's
+    // far short-face (and, since the corridor strip runs perimeter-to-perimeter, the
+    // EXTERIOR wall → frontage → windows). When BOTH a low-face and a high-face room
+    // tile the band, the band has two abutters across the corridor width; we pick the
+    // stable-LOWEST room id (deterministic). Returns the donee index + grown rect, or
+    // null when no neighbour tiles the band cleanly (then we DON'T trim that end —
+    // never leave a gap).
+    const donateBand = (bandLo: number, bandHi: number): { donee: number; grown: Rect } | null => {
+        type Cand = { i: number; grown: Rect; id: string };
+        const cands: Cand[] = [];
+        for (let i = 0; i < placements.length; i++) {
+            if (i === idx) continue;
+            const n = placements[i]!.rect;
+            const nShort0 = along === 'x' ? n.z0 : n.x0;
+            const nShort1 = along === 'x' ? n.z1 : n.x1;
+            const nLong0 = along === 'x' ? n.x0 : n.z0;
+            const nLong1 = along === 'x' ? n.x1 : n.z1;
+            // Must EXACTLY match the band's long extent so the donation stays a clean
+            // RECTANGLE — a wider room would become L-shaped if it absorbed only a
+            // sub-range of the band.
+            if (Math.abs(nLong0 - bandLo) > ALIGNMENT_SNAP_EPS_M ||
+                Math.abs(nLong1 - bandHi) > ALIGNMENT_SNAP_EPS_M) continue;
+            let grown: Rect | null = null;
+            if (Math.abs(nShort1 - corShort0) < ALIGNMENT_SNAP_EPS_M) {
+                // Neighbour sits on the LOW short-face → grow its high short-edge across the band.
+                grown = along === 'x'
+                    ? { x0: bandLo, z0: n.z0, x1: bandHi, z1: corShort1 }
+                    : { x0: n.x0, z0: bandLo, x1: corShort1, z1: bandHi };
+            } else if (Math.abs(nShort0 - corShort1) < ALIGNMENT_SNAP_EPS_M) {
+                // Neighbour sits on the HIGH short-face → grow its low short-edge across the band.
+                grown = along === 'x'
+                    ? { x0: bandLo, z0: corShort0, x1: bandHi, z1: n.z1 }
+                    : { x0: corShort0, z0: bandLo, x1: n.x1, z1: bandHi };
+            }
+            if (!grown) continue;
+            cands.push({ i, grown, id: placements[i]!.roomId });
+        }
+        if (cands.length === 0) return null;
+        cands.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));   // deterministic
+        const c = cands[0]!;
+        return { donee: c.i, grown: c.grown };
+    };
+
+    // Try trimming each freed end; only ACCEPT an end when its band is fully donated
+    // (no gap). We mutate a working copy of the corridor span + a donations map.
+    let lo = corLo, hi = corHi;
+    const grownById = new Map<number, Rect>();
+    if (freesLow) {
+        const d = donateBand(corLo, trimmedLo);
+        if (d) { grownById.set(d.donee, d.grown); lo = trimmedLo; }
+    }
+    if (freesHigh) {
+        const d = donateBand(trimmedHi, corHi);
+        // Don't let a second donation overwrite the same donee's first grown rect
+        // (a single room tiling BOTH ends is degenerate — keep the low-end trim only).
+        if (d && !grownById.has(d.donee)) { grownById.set(d.donee, d.grown); hi = trimmedHi; }
+    }
+    if (lo === corLo && hi === corHi) return placements.slice();   // nothing donated → no trim
+
+    return placements.map((p, i) =>
+        i === idx ? { roomId: p.roomId, rect: roundRect(makeRect(lo, hi)) }
+        : grownById.has(i) ? { roomId: p.roomId, rect: roundRect(grownById.get(i)!) }
+        : p,
+    );
+}
+
 /**
  * §FEASIBILITY-ALLOC (A.21.D5, 2026-06-06) — subdivide the shell `rects` among
  * the program rooms AND report any room that could not be placed at its per-type
@@ -897,7 +1070,32 @@ export function subdivideWithReport(
         const before = roomsWithAnySharedWall(res.placements);
         const after = roomsWithAnySharedWall(reshaped);
         const sealsARoom = [...before].some(id => !after.has(id));
-        const chosen = sealsARoom ? res.placements : reshaped;
+        const physiognomised = sealsARoom ? res.placements : reshaped;
+
+        // §CORRIDOR-END-TRIM (A.21.D57, 2026-06-08) — trim the corridor's LONG axis
+        // back to the LAST served (corridor-dependent) room and donate the freed
+        // perimeter end-band to the adjacent habitable room (→ exterior frontage →
+        // daylight). Runs AFTER the physiognomy reshape so it operates on the final
+        // strip. The dependent set = every private/service/circulation room (those
+        // that NEED the corridor for access); public rooms (living/kitchen/dining,
+        // which have their own façade frontage) are reclaimable past the last
+        // dependent room. Gated by the SAME `roomsWithAnySharedWall` sealing-safety
+        // check (the D46-redo doctrine): a trim that would strand any previously-
+        // connected room is DISCARDED, so a corridor that must span the full shell is
+        // left unchanged and §EVERY-ROOM-ACCESS stays a HARD guarantee.
+        const dependsOnCorridor = new Set(
+            graph.rooms
+                .filter(r => {
+                    const p = roomRule(r.type).privacy;
+                    return p === 'private' || p === 'service' || p === 'circulation';
+                })
+                .map(r => r.id),
+        );
+        const trimmed = trimCorridorToLastDoor(physiognomised, graph.corridorId, dependsOnCorridor);
+        const afterTrim = roomsWithAnySharedWall(trimmed);
+        const trimSealsARoom = [...roomsWithAnySharedWall(physiognomised)].some(id => !afterTrim.has(id));
+        const chosen = trimSealsARoom ? physiognomised : trimmed;
+
         return {
             placements: alignmentSnap ? snapAxisLines(chosen) : chosen.slice(),
             droppedRooms: res.droppedRooms,
