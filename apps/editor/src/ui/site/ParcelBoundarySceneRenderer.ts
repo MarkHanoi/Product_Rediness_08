@@ -219,6 +219,16 @@ export class ParcelBoundarySceneRenderer {
             });
             const mesh = new THREE.Mesh(geo, mat);
             mesh.name = 'pryzm-parcel-boundary-fill';
+            // A.21.D44: tag the flat parcel FILL so the 3-D model-view gate in
+            // initScene (`_applyParcelFillVisibilityForView`) can hide it. The fill
+            // is a large flat XZ plane spanning the whole drawn lot — in the pure 3-D
+            // BIM model view it floats beside/below the generated house (the parcel
+            // extends past the footprint and is usually offset/angled vs the building)
+            // and reads as a light-grey slab over the white viewport. It is SITE
+            // context, valid in the site / GIS / plan views, so we gate (not delete)
+            // it: hidden in '3D', shown everywhere else. The violet boundary LINE is
+            // NOT tagged — a thin outline is harmless and keeps the lot legible in 3-D.
+            mesh.userData.isParcelBoundaryFill = true;
             return mesh;
         } catch (e) {
             console.warn('[ParcelBoundarySceneRenderer] fill triangulation failed:', e);
