@@ -569,3 +569,37 @@ describe('A.21.D59 — flush perimeter stair core never extends OUTWARD past the
         expect(withPoly.x === 0 || Math.abs(withPoly.x + coreW - plateW) < 1e-6).toBe(true);
     });
 });
+
+describe('§STAIR-ANTI-FRAGMENT — aspect path prefers a CORNER carve over a MID-EDGE one', () => {
+    // A rectangular plate big enough to offer left/right (corner) AND back (mid-edge)
+    // perimeter candidates. With an aspect bias on, the chooser must pick a CORNER
+    // (flush to a side wall AND the rear wall — one dominant rect) over the X-centred
+    // `back` candidate (flush to one wall — fractures the plate), which is what stops
+    // the §FEASIBILITY-ALLOC room drops the founder hit.
+    const plateW = 12000, plateH = 10000, coreW = 2000, coreH = 2800;
+
+    it('picks a side-wall corner (left/right), not the mid-edge back candidate', () => {
+        const pos = chooseStairCorePosition(plateW, plateH, coreW, coreH, undefined, { sunDir: null });
+        expect(pos.kind === 'left' || pos.kind === 'right').toBe(true);
+        // Genuine corner: flush to a side wall AND flush to the rear wall.
+        const flushSide = pos.x <= 1 || Math.abs(pos.x + coreW - plateW) <= 1;
+        const flushBack = Math.abs(pos.y + coreH - plateH) <= 1;
+        expect(flushSide && flushBack).toBe(true);
+    });
+
+    it('is deterministic with the anti-fragment penalty active', () => {
+        const a = chooseStairCorePosition(plateW, plateH, coreW, coreH, undefined, { sunDir: null });
+        const b = chooseStairCorePosition(plateW, plateH, coreW, coreH, undefined, { sunDir: null });
+        expect(a.kind).toBe(b.kind);
+        expect(a.x).toBe(b.x);
+        expect(a.y).toBe(b.y);
+    });
+
+    it('legacy no-aspect path is unaffected (byte-identical)', () => {
+        const legacy = chooseStairCorePosition(plateW, plateH, coreW, coreH);
+        const again = chooseStairCorePosition(plateW, plateH, coreW, coreH);
+        expect(legacy.x).toBe(again.x);
+        expect(legacy.y).toBe(again.y);
+        expect(legacy.kind).toBe(again.kind);
+    });
+});

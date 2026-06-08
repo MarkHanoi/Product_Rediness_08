@@ -552,11 +552,31 @@ export function chooseStairCorePosition(
     // we fall back to the pure waste tie-break (byte-identical legacy path).
     const PERIMETER_PREFERENCE = 1.0;   // central pays this; perimeter pays 0
     const ASPECT_WEIGHT = 0.25;         // tunes perimeter ordering; < PERIMETER_PREFERENCE
+    // §STAIR-ANTI-FRAGMENT (2026-06-08, founder "stair location critical") — a CORNER
+    // carve (core flush to a side wall AND the rear wall) leaves ONE dominant rectangle
+    // the subdivider can spine + fill; a MID-EDGE carve (flush to one wall only — e.g. a
+    // back-corner candidate the shell-containment nudge pulled OFF the corner on a
+    // skewed plate) fractures the plate into bands → §FEASIBILITY-ALLOC drops rooms (the
+    // founder's "stair conflicts the layout / rooms merge"). The waste term alone can let
+    // a flush-on-one-wall MID-EDGE beat a true CORNER (its single flush bonus). Add an
+    // explicit fragmentation penalty so a genuine CORNER always wins when one exists.
+    // Sits ABOVE the aspect ordering (< PERIMETER_PREFERENCE so central is still last) so
+    // among perimeter candidates a clean corner beats a fragmenting mid-edge. Applied
+    // ONLY on the aspect path (house) → the legacy waste-only path is byte-identical.
+    const FRAGMENT_PENALTY = 0.5;       // MID-EDGE perimeter pays this; a CORNER pays 0
+    const flushS = (g: number): number => (g <= 1 ? 1 : 0);
+    const isCornerCarve = (c: { kind: StairCorePositionKind; x: number; y: number }): boolean => {
+        if (c.kind === 'central') return false;
+        const flushSide = flushS(c.x) + flushS(plateW - (c.x + coreW));   // a left/right wall
+        const flushBack = flushS(plateH - (c.y + coreH));                  // the rear wall
+        return flushSide >= 1 && flushBack >= 1;                           // abuts TWO walls = clean L-carve
+    };
     const cost = (c: { kind: StairCorePositionKind; x: number; y: number }): number => {
         const waste = stairCoreWaste(plateW, plateH, coreW, coreH, c.x, c.y);
         if (!aspect) return waste;
         const centralPenalty = c.kind === 'central' ? PERIMETER_PREFERENCE : 0;
-        return waste + centralPenalty - ASPECT_WEIGHT * aspectScore(c.kind, aspect);
+        const fragPenalty = (c.kind !== 'central' && !isCornerCarve(c)) ? FRAGMENT_PENALTY : 0;
+        return waste + centralPenalty + fragPenalty - ASPECT_WEIGHT * aspectScore(c.kind, aspect);
     };
 
     let best = candidates[0]!;
