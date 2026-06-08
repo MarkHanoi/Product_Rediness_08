@@ -2656,3 +2656,44 @@ challenges, visual + console post-mortems). This is the running status as items 
 > plates, (b) `topoOK=true` winners (no more `topologyQuality=0.00`), (c) every habitable room windowed.
 > The §DIAG-ENRICH / §DIAG-ENUM / §DIAG-WIN lines will confirm. Then M2 (slider-as-intent), then Phase-1
 > aspect-filter + frontage-swap, then the Phase-4 rectangular-dual solver (the structural cure).
+
+## §23.8 — v74 prod test POST-MORTEM (the engine is right; the EDITOR geometry is the wall, 2026-06-08)
+
+v74 (F1+F2+F3+PM-5) prod test. The §DIAG trace proves the **engine improvements worked** but exposes
+that the dominant remaining failures are **editor-side geometry**, not the engine:
+
+- **Engine is now correct.** `§DIAG-ROOMS L0: rooms=8` — Living 72.5 · Bedroom 1 42.7 · Corridor 25.9 ·
+  Hall 18.4 · Bedroom 2 42.7 · Dining 33.1 · Bathroom 16.6 · Kitchen 40.5 — **8 distinct, sized,
+  windowed rooms** (F1 capped the count; ground got 9 windows; no cavern). The plan is good *as data*.
+- **But the EDITOR merges them.** The ground-floor plan shows "Living / Bedroom 1 / Corridor / Entrance
+  Hall = 194.5 m²" — `RoomDetectionEngine` flooded 4 of the 8 rooms together. `§MULTI-CLUSTER ...
+  trimmed=3` still fires ×12 → interior partitions are still trimmed INWARD so they don't reach the
+  perimeter (the founder's "some walls don't extend until where they should"). **The
+  §CONSENSUS-ON-CENTRELINE fix kept walls on-axis but does NOT extend a partition to the perimeter it
+  should meet** → the gap remains → detection floods. **The real cure is EXTEND-TO-SHELL (G1, deferred)
+  + the rectangular-dual solver (exact tiling, no trim needed).**
+
+**New, §DIAG-evidenced findings → tracked items:**
+
+| ID | Evidence | Root | Owner | Priority |
+|---|---|---|---|---|
+| **PM-6** | Ground + upper STILL merge (194.5 / 204.4 m² blobs) despite §CONSENSUS-ON-CENTRELINE | partitions TRIMMED inward, not EXTENDED to the perimeter → detection floods | `WallJoinResolver` extend-to-shell (G1) + Phase-4 dual solver | **P0** |
+| **PM-7** | `§DIAG-WIN-DIST` upper: `resolved=3 kept=2 unmatchedToShell=9`; ground `unmatchedToShell=5` | room window walls don't ALIGN to the (separately-built) perimeter shell, esp. upper floor (`_buildPerimeterShell`) → windows can't host → "almost no windows upstairs" | `windowEmission` / `shellWallMatch` + upper-floor perimeter alignment | **P0 (upstairs)** |
+| **PM-8** | Internal walls too tall → protrude into floor above → ground walls visible in the FIRST-floor plan view | internal-wall height vs floor-to-floor + the per-level plan-view clip range includes lower-level walls (G10) | wall-height + `§FLR-VIEWS` plan clip / `NativeElementMeshExporter` level filter | **P1** |
+| **PM-1** | Stair still mislocated (U, rot −21.7°) | stair not an anchor; placement (G8) | `stairPosition` + D5 | P1 |
+
+**The verdict (honest):** F1/F2/F3/PM-5 fixed the *engine*. The remaining founder-visible defects — the
+merge (PM-6), the missing upstairs windows (PM-7), the tall walls (PM-8) — are **editor-side geometry
+that incremental gate/score tweaks will NOT fix**. Two structural cures, both already specced:
+1. **Phase-4 rectangular-dual solver** (SPEC-RECTANGULAR-DUAL): exact tiling means partitions meet the
+   perimeter BY CONSTRUCTION → no inward-trim, no flood-merge (PM-6), walls land where windows expect
+   them (PM-7). This is the dominant cure and the centrepiece of the whole strategy.
+2. **Upper-floor perimeter alignment + extend-to-shell** (G1 extend, PM-0): make `_buildPerimeterShell`
+   share exact endpoints with the partitions AND extend partitions to the shell, so the upper floor
+   closes + windows match.
+3. PM-8 (wall height / plan bleed) is a contained editor fix, parallelisable.
+
+> **RECOMMENDATION:** greenlight **Phase-4 (the rectangular-dual solver)** — it is the structural cure
+> for PM-6 + PM-7 + the tunnels (PM-3) + the generic regions (G9), all at once, by construction. The
+> engine is ready (8 clean rooms); the solver is what makes the editor render them as separate, windowed
+> rooms. Everything else is a band-aid on the slicing solver this replaces.

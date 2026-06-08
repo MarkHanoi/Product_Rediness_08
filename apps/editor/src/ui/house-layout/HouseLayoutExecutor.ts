@@ -539,6 +539,39 @@ export class HouseLayoutExecutor {
             // so execute() still returns promptly (the toast/result aren't blocked).
             // ──────────────────────────────────────────────────────────────────────
             void this._finishOpenings(perStorey, entranceDoor).then(async () => {
+                // §DIAG-LEVELS (2026-06-08) — the founder reported "elements that should
+                // belong to level 1 are on the ground floor" + "no rooms on the upper
+                // floor". Three candidate roots are indistinguishable without a runtime
+                // count: (A) upper walls actually stamped to ground; (B) the L1 plan view
+                // shows ground walls (filter); (C) upper walls FAILED to mirror into the
+                // legacy WallStore (the §P2.1 bridge throws LevelResolveError when the
+                // minted level isn't in the legacy bimKernel → wall dropped → upper floor
+                // empty). This logs, from the AUTHORITATIVE legacy store the inspector +
+                // room detection + renderer read, the wall count PER level id vs the
+                // INTENDED per-storey count — so the next prod test paste says exactly
+                // which. Best-effort; never blocks the finish chain.
+                try {
+                    const ws = storeRegistry.getStoreForType('wall') as unknown as { getAll?(): WallRecord[] } | undefined;
+                    const live = ws?.getAll?.() ?? [];
+                    const liveByLevel = new Map<string, number>();
+                    for (const w of live) liveByLevel.set(w.levelId, (liveByLevel.get(w.levelId) ?? 0) + 1);
+                    const intendedByLevel = new Map<string, number>();
+                    for (const s of perStorey) intendedByLevel.set(s.levelId, (intendedByLevel.get(s.levelId) ?? 0) + s.set.wallIds.length);
+                    for (const [lvl, p] of perimeterByLevel) intendedByLevel.set(lvl, (intendedByLevel.get(lvl) ?? 0) + p.payload.walls.length);
+                    const lines = levelIds.map((lvl, i) => {
+                        const label = i === 0 ? 'Ground(L0)' : `Level ${i.toString().padStart(2, '0')}`;
+                        const got = liveByLevel.get(lvl) ?? 0;
+                        const want = intendedByLevel.get(lvl) ?? 0;
+                        const flag = got < want ? ` ⚠ MISSING ${want - got} (mirror failed? → empty floor)` : (got > want ? ` ⚠ EXTRA ${got - want}` : '');
+                        return `  ${label} [${lvl}]: live=${got} intended≈${want}${flag}`;
+                    });
+                    // Orphan walls whose levelId is NONE of the house's levels (mis-stamp candidate A).
+                    const known = new Set(levelIds);
+                    const orphan = [...liveByLevel.entries()].filter(([lvl]) => !known.has(lvl));
+                    console.log('[house-layout] §DIAG-LEVELS wall distribution (authoritative legacy store) vs intended:\n' + lines.join('\n'));
+                    if (orphan.length > 0) console.warn('[house-layout] §DIAG-LEVELS ⚠ walls on UNKNOWN levels (not this house):', orphan.map(([l, n]) => `${l}=${n}`).join(', '));
+                } catch (e) { console.warn('[house-layout] §DIAG-LEVELS failed (non-fatal):', e); }
+
                 // §FLR-VIEWS (2026-06-08) — auto-create one "Floor Plans" ViewDefinition
                 // per GENERATED upper storey. DefaultViewsManager already seeds the ground
                 // plan view (id `vd-sys-plan-l0`, spatial.levelId 'L0'), so upper storeys
