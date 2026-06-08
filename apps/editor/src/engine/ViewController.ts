@@ -682,6 +682,45 @@ export class ViewController implements IViewController {
     }
 
     /**
+     * §VIEW-ZOOM (2026-06-08) — guarantee the geometry is framed on 3D entry.
+     *
+     * `_activate3DView` only auto-frames on a full camera-state MISS. But a restored
+     * perspective slot / saved camera state can be STALE — saved before the building was
+     * generated, or framing a previous/empty scene — leaving the house off-screen so the
+     * founder has to click "Home" every time the 3D view opens. This validates that the
+     * restored camera actually LOOKS AT the scene; when the geometry is off-frame (target
+     * far from the scene centre, or the camera absurdly far/near) it recomputes the default
+     * framing so the building is always in view. A camera that already frames the geometry
+     * is left untouched, so ordinary navigation is preserved. No-op when there's nothing to
+     * frame (empty scene). Pure read of scene bounds + one setLookAt.
+     */
+    private async _ensureGeometryFramed(controls: any): Promise<void> {
+        const bounds = this._getSceneBoundsForCamera();
+        if (bounds.isEmpty()) return;                       // nothing to frame yet
+        const center = bounds.getCenter(new THREE.Vector3());
+        const distance = this._computeCameraDistance();
+        const tgt = new THREE.Vector3();
+        if (controls?.getTarget) controls.getTarget(tgt);
+        else tgt.copy(this._camera.three.position);
+        const camDist = this._camera.three.position.distanceTo(tgt);
+        // "Stale" = the camera is aimed away from the geometry, or sits absurdly far/near
+        // relative to the scene size. Either way the house is not usefully in frame.
+        const offFrame = tgt.distanceTo(center) > distance
+            || camDist > distance * 4
+            || camDist < distance * 0.1;
+        if (!offFrame) return;                              // already framed — keep the user's camera
+        const offset = new THREE.Vector3(distance * 0.6, distance * 0.4, distance * 0.6);
+        const position = center.clone().add(offset);
+        await controls.setLookAt(
+            position.x, position.y, position.z,
+            center.x, center.y, center.z,
+            false,                                          // snap immediately — no tween
+        );
+        this._multiViewCameraManager.seedPerspectiveSlot(position, center);
+        this._vst('_activate3DView — §VIEW-ZOOM auto-framed (restored camera was stale / geometry off-screen)');
+    }
+
+    /**
      * EVENT LISTENER HYGIENE
      * Register a listener that will be cleaned up on deactivate()
      */
@@ -1139,6 +1178,11 @@ export class ViewController implements IViewController {
                 this._vst(`_activate3DView — perspective slot seeded for fast re-entry`);
             }
         }
+
+        // §VIEW-ZOOM (2026-06-08) — if the restored camera is stale (house off-screen),
+        // auto-frame the geometry so the founder never has to click "Home" on 3D entry.
+        // No-op when the geometry is already in view (preserves manual navigation).
+        await this._ensureGeometryFramed(controls);
 
         // Sync camera-controls' internal state with the camera we just placed.
         controls.update(0);
