@@ -617,6 +617,12 @@ export class PlatformRouter {
             registry,
             ...(seededTypologyId ? { seedTypologyId: seededTypologyId } : {}),
             ...(Object.keys(seedMetadata).length ? { seedMetadata } : {}),
+            // DEMO-1 — skip the persona/profile (role) step for guided onboarding
+            // seeded from the New-Project modal. The role is immaterial to house/
+            // apartment generation, so default to 'architect' (the value the brief
+            // already defaulted to) and jump straight to the site/brief step. Gated on
+            // seededTypologyId so the standalone "Build something" RAC entry still asks.
+            ...(seededTypologyId ? { seedRole: 'architect' as const } : {}),
             onBriefReady: (brief) => {
                 // A.5.f — the conversation captured role · team size · typology ·
                 // brief. Stash for the post-auth project pre-load (A.5.g) and

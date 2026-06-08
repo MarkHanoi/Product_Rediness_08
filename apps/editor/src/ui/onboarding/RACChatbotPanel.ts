@@ -101,6 +101,14 @@ export interface RACChatbotPanelOptions {
      * named what the user typed, not a default.
      */
     readonly seedMetadata?: Record<string, unknown>;
+    /**
+     * DEMO-1 — pre-capture the user role so the conversation SKIPS the "what is
+     * your role?" persona step (the founder deemed it irrelevant for single-family
+     * houses). When set, the panel eagerly dispatches `capture-role` on build,
+     * advancing past `awaiting-role`. Must be a valid `UserRole` so the downstream
+     * brief's `role` is non-null and generation proceeds.
+     */
+    readonly seedRole?: UserRole;
 }
 
 /**
@@ -119,6 +127,8 @@ export class RACChatbotPanel {
     private readonly seedTypologyId?: string;
     /** O.5 — metadata merged into every emitted brief (modal name, etc.). */
     private readonly seedMetadata?: Record<string, unknown>;
+    /** DEMO-1 — role to pre-capture on build (skips the persona step), or undefined. */
+    private readonly seedRole?: UserRole;
     /** O.5 — guards the one-shot auto-capture of the seeded typology. */
     private _seedTypologyApplied = false;
 
@@ -157,6 +167,7 @@ export class RACChatbotPanel {
         this.clock = opts.now ?? isoNow;
         this.seedTypologyId = opts.seedTypologyId;
         this.seedMetadata = opts.seedMetadata;
+        this.seedRole = opts.seedRole;
         this.state = createInitialState(this.registry);
     }
 
@@ -357,6 +368,16 @@ export class RACChatbotPanel {
         );
 
         this.render();
+
+        // DEMO-1 — when the New-Project modal seeded a role, capture it NOW so the
+        // conversation skips the persona/profile step entirely (advancing intro →
+        // awaiting-typology). The existing seedTypologyId auto-capture (in dispatch())
+        // then chains off this, jumping straight to the brief/site step. Guarded so it
+        // fires once, before the user has acted.
+        if (this.seedRole && this.state.phase === 'intro') {
+            this.dispatch({ type: 'capture-role', role: this.seedRole });
+        }
+
         return root;
     }
 

@@ -90,6 +90,10 @@ export class FormaSiteAnalysisControls {
     private studyBtn: HTMLButtonElement | null = null;
     /** Guards a single proactive `ensureSiteClimate` per mount (avoid loops). */
     private climateEnsureRequested = false;
+    /** SITE-PANEL-UI — user dismissed the panel (✕). STATIC so the choice persists
+     *  across the dispose→new→mount cycle the Forma view does on every Plan/3D
+     *  activation (a per-instance field would reset to "shown" on each switch). */
+    private static _userHidden = false;
 
     private sunUnsub: (() => void) | null = null;
     private climateUnsub: (() => void) | null = null;
@@ -123,6 +127,7 @@ export class FormaSiteAnalysisControls {
             font: '500 12px/1.35 system-ui, sans-serif', color: '#2a2240',
         } satisfies Partial<CSSStyleDeclaration>);
 
+        root.appendChild(this.buildHeader());
         root.appendChild(this.buildSunBlock());
         root.appendChild(this.buildClimateBlock());
         root.appendChild(this.buildWindBlock());
@@ -130,6 +135,8 @@ export class FormaSiteAnalysisControls {
 
         this.mountTarget.appendChild(root);
         this.root = root;
+        // SITE-PANEL-UI — honour a prior ✕ dismissal when the view re-mounts.
+        if (FormaSiteAnalysisControls._userHidden) root.style.display = 'none';
 
         // Live readout + slider follow the viewport's solved sun.
         try {
@@ -277,6 +284,66 @@ export class FormaSiteAnalysisControls {
                 console.warn('[forma-analysis] ensureSiteClimate failed:', e);
                 this.climateEnsureRequested = false;
             });
+    }
+
+    // ── Header (title + close ✕) ─────────────────────────────────────────────
+
+    /** SITE-PANEL-UI — a compact header bar with the panel title and a close ✕.
+     *  ✕ hides the panel (display:none) and remembers the choice so re-entering
+     *  the Forma view keeps it hidden until the toolbar toggle re-opens it. */
+    private buildHeader(): HTMLElement {
+        const header = document.createElement('div');
+        Object.assign(header.style, {
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            gap: '8px', marginBottom: '2px',
+        } satisfies Partial<CSSStyleDeclaration>);
+        const title = document.createElement('div');
+        title.textContent = 'Site analysis';
+        Object.assign(title.style, {
+            font: '700 12px/1 system-ui', color: '#2a2240', letterSpacing: '0.01em',
+        } satisfies Partial<CSSStyleDeclaration>);
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.className = 'pryzm-forma-analysis-close';
+        close.setAttribute('data-testid', 'forma-analysis-close');
+        close.title = 'Hide site analysis';
+        close.setAttribute('aria-label', 'Hide site analysis');
+        close.textContent = '✕';
+        Object.assign(close.style, {
+            appearance: 'none', cursor: 'pointer', border: 'none', borderRadius: '6px',
+            background: 'transparent', color: '#8a83a6', font: '700 14px/1 system-ui',
+            padding: '2px 6px', lineHeight: '1',
+        } satisfies Partial<CSSStyleDeclaration>);
+        close.addEventListener('mouseenter', () => { close.style.background = '#f1ebff'; close.style.color = ACCENT; });
+        close.addEventListener('mouseleave', () => { close.style.background = 'transparent'; close.style.color = '#8a83a6'; });
+        close.addEventListener('click', () => this.hide());
+        header.appendChild(title);
+        header.appendChild(close);
+        return header;
+    }
+
+    /** SITE-PANEL-UI — show the panel (clears the user-hidden flag). */
+    show(): void {
+        FormaSiteAnalysisControls._userHidden = false;
+        if (this.root) this.root.style.display = 'flex';
+    }
+
+    /** SITE-PANEL-UI — hide the panel via ✕ or the toolbar toggle. */
+    hide(): void {
+        FormaSiteAnalysisControls._userHidden = true;
+        if (this.root) this.root.style.display = 'none';
+    }
+
+    /** SITE-PANEL-UI — toggle visibility; returns the new visible state. */
+    toggle(): boolean {
+        if (this.isVisible()) { this.hide(); return false; }
+        this.show();
+        return true;
+    }
+
+    /** SITE-PANEL-UI — true when the panel exists and is not display:none. */
+    isVisible(): boolean {
+        return !!this.root && this.root.style.display !== 'none';
     }
 
     // ── Sun / shadow scrubber ────────────────────────────────────────────────

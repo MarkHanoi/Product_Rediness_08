@@ -1626,6 +1626,38 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         });
         bar.appendChild(zoomBtn);
 
+        // SITE-PANEL-UI — toggle the FORMA.5 site-analysis panel (sun/shadow ·
+        // weather · wind rose · 3D overlays) open/closed. The panel is mounted by
+        // mountFormaAnalysis() on Forma Plan/3D entry; this button + the panel's own
+        // ✕ are the user show/hide controls. State persists across view re-mounts via
+        // FormaSiteAnalysisControls._userHidden.
+        const analysisBtn = document.createElement('button');
+        analysisBtn.type = 'button';
+        analysisBtn.className = 'pryzm-forma-analysis-toggle';
+        analysisBtn.setAttribute('data-testid', 'forma-analysis-toggle');
+        analysisBtn.title = 'Show / hide the site-analysis panel (sun · weather · wind)';
+        analysisBtn.textContent = '☀ Analysis';
+        Object.assign(analysisBtn.style, {
+            appearance: 'none', border: 'none', cursor: 'pointer',
+            padding: '7px 12px', borderRadius: '7px', color: '#6600FF',
+            background: 'transparent', font: 'inherit', borderLeft: '1px solid #ece7fb',
+        } satisfies Partial<CSSStyleDeclaration>);
+        const paintAnalysisBtn = (): void => {
+            const on = !!formaAnalysis?.isVisible();
+            analysisBtn.style.background = on ? '#6600FF' : 'transparent';
+            analysisBtn.style.color = on ? '#ffffff' : '#6600FF';
+        };
+        analysisBtn.addEventListener('mouseenter', () => { if (!formaAnalysis?.isVisible()) analysisBtn.style.background = '#f4f0ff'; });
+        analysisBtn.addEventListener('mouseleave', () => { paintAnalysisBtn(); });
+        analysisBtn.addEventListener('click', () => {
+            // The panel only exists in Forma Plan/3D. If it isn't mounted (e.g. on
+            // 2D Map), bring up the Forma view first, which mounts it.
+            if (!formaAnalysis) { applyFormaView('plan'); }
+            else { formaAnalysis.toggle(); }
+            paintAnalysisBtn();
+        });
+        bar.appendChild(analysisBtn);
+
         // §A.21.D24 — Floors selector. A compact <select> populated from the REAL
         // storeys of the placed massing (CesiumViewport.getFormaStoreyBands()).
         // "All floors" (default) shows every storey stacked at its true elevation;
