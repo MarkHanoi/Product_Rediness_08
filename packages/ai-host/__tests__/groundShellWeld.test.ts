@@ -174,3 +174,46 @@ describe('§GROUND-WELD — GROUND floor detects its full room set', () => {
         expect(weldedDetected.length).toBeGreaterThanOrEqual(cleanDetected.length);
     });
 });
+
+describe('§T-JUNCTION-WELD — endpoint-on-midspan junctions seal (PM-6, 2026-06-08)', () => {
+    const noShell: WeldWall[] = [];
+
+    it('snaps a partition ENDING near another partition\'s MID-SPAN exactly onto it', () => {
+        // Spine A runs along z=5 (x:0→10). Stub B rises from the floor and ENDS just
+        // short of / beside A's mid-span (gap 0.12 m, well inside the 0.30 m tol). The
+        // T must close on A's centreline (z=5) so room detection can\'t flood across it.
+        const A: WeldWall = { id: 'A', start: { x: 0, z: 5 }, end: { x: 10, z: 5 } };
+        const B: WeldWall = { id: 'B', start: { x: 4, z: 0 }, end: { x: 4, z: 4.88 } }; // ends 0.12 m below A
+        const welded = weldPartitionsToShell([A, B], noShell);
+        const b = welded.find(w => w.id === 'B')!;
+        // The endpoint nearest A (the high-z end) now sits ON A's span (z ≈ 5, ≤ 1 mm grid).
+        const tEnd = b.start.z > b.end.z ? b.start : b.end;
+        expect(Math.abs(tEnd.z - 5)).toBeLessThanOrEqual(0.0011);
+        expect(tEnd.x).toBeCloseTo(4, 2);           // x unchanged (perpendicular snap)
+        // A itself is untouched (it owns the span; only B's endpoint moved).
+        const a = welded.find(w => w.id === 'A')!;
+        expect(a.start.z).toBeCloseTo(5, 5);
+        expect(a.end.z).toBeCloseTo(5, 5);
+    });
+
+    it('does NOT snap an endpoint that is only near another partition\'s ENDPOINT (Pass 2 owns that) nor across a wide gap', () => {
+        // B ends 0.5 m from A's span — beyond the 0.30 m tol → must NOT move (no false weld).
+        const A: WeldWall = { id: 'A', start: { x: 0, z: 5 }, end: { x: 10, z: 5 } };
+        const B: WeldWall = { id: 'B', start: { x: 4, z: 0 }, end: { x: 4, z: 4.5 } };
+        const welded = weldPartitionsToShell([A, B], noShell);
+        const b = welded.find(w => w.id === 'B')!;
+        const tEnd = b.start.z > b.end.z ? b.start : b.end;
+        expect(tEnd.z).toBeCloseTo(4.5, 5);          // unchanged — too far to snap
+    });
+
+    it('two clean axis-aligned partitions meeting at a shared CORNER are byte-identical (no regression)', () => {
+        // A and B already share the exact corner (10,5) as ENDPOINTS — a near-end hit is
+        // excluded by the TJUNC_MARGIN interior guard, so Pass 1.5 leaves them for Pass 2.
+        const A: WeldWall = { id: 'A', start: { x: 0, z: 5 }, end: { x: 10, z: 5 } };
+        const B: WeldWall = { id: 'B', start: { x: 10, z: 5 }, end: { x: 10, z: 12 } };
+        const welded = weldPartitionsToShell([A, B], noShell);
+        const a = welded.find(w => w.id === 'A')!, b = welded.find(w => w.id === 'B')!;
+        expect(a.end.x).toBeCloseTo(10, 5); expect(a.end.z).toBeCloseTo(5, 5);
+        expect(b.start.x).toBeCloseTo(10, 5); expect(b.start.z).toBeCloseTo(5, 5);
+    });
+});

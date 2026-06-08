@@ -144,6 +144,38 @@ export function weldPartitionsToShell(
         if (best) { ep.x = best.x; ep.z = best.z; }
     }
 
+    // ── Pass 1.5: PARTITION-SPAN SNAP (§T-JUNCTION-WELD, 2026-06-08) ───────────────
+    // Pass 1 snaps endpoints onto a SHELL wall's span; Pass 2 welds endpoint↔ENDPOINT.
+    // NEITHER handles an interior T-junction — one partition ENDING on ANOTHER
+    // partition's MID-SPAN (endpoint-to-midspan, not endpoint-to-endpoint). The editor's
+    // WallJoinResolver then clusters that lone endpoint with nearby ones, finds no pinned
+    // pair (`§MULTI-CLUSTER pinned=0 trimmed=N`), trims it back, and the resulting gap lets
+    // RoomDetectionEngine FLOOD across the partition → the recurring "Living/Kitchen/Dining
+    // merged into one 600 m² blob" defect (PM-6). FIX: before the endpoint weld, snap any
+    // partition endpoint that lands within `shellSnapTolM` of ANOTHER partition's SPAN
+    // INTERIOR exactly onto that span, so the T closes on the host centreline and the
+    // resolver sees a real (pinnable) junction. Segments are snapshotted from the
+    // shell-snapped endpoints so the pass is order-independent. Byte-identical on a clean
+    // axis-aligned plate (its endpoints are already coincident at corners, not mid-span).
+    const spanSegs = partitions.map((_, i) => unitSeg(eps[i * 2]!, eps[i * 2 + 1]!));
+    const TJUNC_MARGIN_M = 0.10;   // only the span INTERIOR — near-end cases belong to Pass 2
+    for (let i = 0; i < eps.length; i++) {
+        const ownPart = i >> 1;
+        let bestPerp = shellSnapTolM;
+        let best: { x: number; z: number } | null = null;
+        for (let q = 0; q < spanSegs.length; q++) {
+            if (q === ownPart) continue;                 // never snap onto its own span
+            const s = spanSegs[q]!;
+            if (s.len < EPS) continue;
+            const c = closestOnSeg(eps[i]!, s);
+            // Genuine T-junction: perpendicular hit strictly INSIDE the host span.
+            if (c.perp < bestPerp && c.along > TJUNC_MARGIN_M && c.along < s.len - TJUNC_MARGIN_M) {
+                bestPerp = c.perp; best = { x: c.x, z: c.z };
+            }
+        }
+        if (best) { eps[i]!.x = best.x; eps[i]!.z = best.z; }
+    }
+
     // ── Pass 2: PARTITION WELD (union-find on the shell-snapped endpoints) ─────────
     const n = eps.length;
     const parent = Array.from({ length: n }, (_, i) => i);
