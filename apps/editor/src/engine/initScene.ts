@@ -607,6 +607,60 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
     // Boot view is 3-D — hide the hatch immediately so it never flashes.
     _applyFloorHatchVisibilityForView('3D');
 
+    // ── A.21.D34(c) RECURRENCE 2: Hide the flat ROOM-FILL overlay in the 3D view ──
+    // SEPARATE artifact from the datum lines + floor hatch above. RoomBoundaryBuilder
+    // (@pryzm/room-topology) lays one flat, translucent ShapeGeometry fill plane per
+    // DETECTED room (`room-overlay-<id>`, userData.isRoomOverlay), on the ground at the
+    // level elevation, built straight from `room.boundary.polygon`. For a freshly
+    // detected room that has not been occupancy-tagged yet, RoomColourSystem.resolve()
+    // returns the `unclassified` grey `#E0E0E0` at the default 0.35 opacity — so over
+    // the white viewport it reads as a flat GREY plane lying on the ground. This is
+    // EXACTLY the founder's live-test screenshot: a large grey rectangular plane on the
+    // ground extending out from a façade (it overshoots a wall whenever the detected
+    // room polygon bulges past the perimeter), and in plan it reads as a grey "shadow"
+    // band on the boundary wall ("linked with room?"). It is a SCENE mesh — not a real
+    // cast shadow and not a shadow-catcher — so the v50 Forma/Cesium ground fix and the
+    // PascalSceneLighting sun/AO shadows are untouched.
+    //
+    // The room FILL is a 2-D documentation overlay (Revit shows room/area colour fills
+    // in plan, never as a slab in the 3-D model), so — exactly like the datum-line and
+    // floor-hatch fixes — we gate it to plan / section / elevation views and hide it in
+    // the pure 3-D model view. The 2-D plan view paints its OWN room fills on the plan
+    // CANVAS (PlanViewFillRenderer.renderRoomFills), so hiding this 3-D scene overlay
+    // does NOT remove room colour from the plan. The room VOLUME mesh (isRoomVolume) is
+    // already opt-in via the `showRoomVolumeColour` preference (default OFF) and is left
+    // alone. Real geometry (walls, floor finish meshes, slabs) is untouched.
+    const _applyRoomOverlayVisibilityForView = (mode?: string): void => {
+        try {
+            const is3DModelView = mode === '3D';
+            const scene = world.scene.three as THREE.Scene;
+            scene.traverse((obj: THREE.Object3D) => {
+                if (obj.userData?.isRoomOverlay === true) {
+                    obj.visible = !is3DModelView;
+                }
+            });
+        } catch { /* non-fatal: overlay keeps its last visibility */ }
+    };
+    let _lastRoomOverlayViewMode: string | undefined = '3D';
+    window.runtime?.events?.on('view-activated', (payload: unknown) => { // F.events.8
+        _lastRoomOverlayViewMode = (payload as { mode?: string })?.mode;
+        _applyRoomOverlayVisibilityForView(_lastRoomOverlayViewMode);
+    });
+    // Re-apply when rooms are (re)built — RoomBoundaryBuilder always creates the fill
+    // overlay visible, so without this a room detected/updated while in the 3-D view
+    // would show its grey plane until the next view switch. Deferred to a microtask for
+    // the same reason as the floor hatch: initScene registers this BEFORE initBuilders
+    // registers the room-mesh builder for the same event, so the microtask guarantees
+    // the (synchronous) updateRoom() has already created `room-overlay-<id>` before we
+    // toggle its visibility.
+    const _reapplyRoomOverlay = (): void => {
+        queueMicrotask(() => _applyRoomOverlayVisibilityForView(_lastRoomOverlayViewMode));
+    };
+    window.addEventListener('bim-room-added',   _reapplyRoomOverlay);
+    window.addEventListener('bim-room-updated', _reapplyRoomOverlay);
+    // Boot view is 3-D — hide the overlay immediately so it never flashes.
+    _applyRoomOverlayVisibilityForView('3D');
+
     viewDependencyTracker.setLevelResolver((elementId) => bimManager.getLevelForElement(elementId)?.id);
     viewDependencyTracker.init();
     nativeElementMeshExporter.setBimManager(bimManager);
