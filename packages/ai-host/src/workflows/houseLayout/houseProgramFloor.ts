@@ -40,6 +40,17 @@ const APPROX_BEDROOM_BLOCK_M2 = 18;
  *  `scaleProgramToShell` cap philosophy. */
 const MAX_ENRICHED_BEDROOMS = 5;
 
+/** §ENRICH-DENSITY-CAP (ADR-0062 D8 / F1, 2026-06-08) — the comfortable area a bedroom
+ *  consumes INCLUDING its share of bath + corridor/landing circulation. The bedroom
+ *  enrichment is capped by `floor(plateArea / this)` so a large plate is NOT packed with
+ *  more bedrooms than it can CIRCULATE — the §DIAG-ENRICH runaway (a 1-bed brief grown to
+ *  5 bedrooms on a 176 m² plate, making every candidate topoOK=false / all rooms sealed).
+ *  Area-with-circulation is the proxy for window-facade capacity (the true D8 limit), which
+ *  is not available at this pure stage; ~45 m² keeps a 176 m² floor at ≤ 3 bedrooms (vs 5),
+ *  leaving real room for a corridor that can reach every room. Never reduces below the
+ *  user's stated bedroom count (this is a CAP on enrichment, never on the brief). */
+const AREA_PER_BEDROOM_WITH_CIRCULATION_M2 = 45;
+
 /** §HOUSE-GROUND-FILL (A.21.D28 #4) — the most bedrooms a MULTI-storey GROUND
  *  floor may be filled with. The private level is upstairs, so the ground keeps at
  *  most a guest/accessible bedroom + (on a big plate) one more — never the full
@@ -259,17 +270,26 @@ export function enrichStoreyProgramToPlate(
     if (!opts.growBedrooms) return logEnrichAfter(enriched, 'room-set-floor');
 
     const targetArea = plateAreaM2 * TARGET_FILL_FRACTION;
+    // §ENRICH-DENSITY-CAP (ADR-0062 D8 / F1, 2026-06-08) — cap the enriched bedroom count
+    // by what the plate can CIRCULATE (area-with-circulation proxy for facade capacity),
+    // NEVER below the brief's count. Stops the §DIAG-ENRICH runaway where a 1-bed brief on
+    // a 176 m² plate grew to 5 bedrooms (→ every candidate topoOK=false, rooms sealed). At
+    // ~45 m²/bedroom a 176 m² floor caps at 3, leaving real room for a reaching corridor.
+    const bedroomCap = Math.min(
+        MAX_ENRICHED_BEDROOMS,
+        Math.max(Math.floor(enriched.bedrooms), Math.floor(plateAreaM2 / AREA_PER_BEDROOM_WITH_CIRCULATION_M2)),
+    );
     for (let guard = 0; guard < MAX_ENRICHED_BEDROOMS; guard++) {
         const band = houseStoreyBand({ program: enriched, grossAreaM2: plateAreaM2 });
         // programAreaM2 is NET room area; grossTarget folds in circulation. Compare
         // the gross target to the plate so we don't over-pack (walls eat the rest).
         if (band.grossTargetM2 >= targetArea) break;
-        if (enriched.bedrooms >= MAX_ENRICHED_BEDROOMS) break;
+        if (enriched.bedrooms >= bedroomCap) break;
         // Roughly how many bedroom blocks the remaining area can still absorb; add
         // at least one per iteration so the loop always progresses.
         const remaining = targetArea - band.grossTargetM2;
         const add = Math.max(1, Math.floor(remaining / APPROX_BEDROOM_BLOCK_M2));
-        const nextBedrooms = Math.min(MAX_ENRICHED_BEDROOMS, enriched.bedrooms + add);
+        const nextBedrooms = Math.min(bedroomCap, enriched.bedrooms + add);
         if (nextBedrooms === enriched.bedrooms) break;   // no progress → stop
         enriched = {
             ...enriched,
