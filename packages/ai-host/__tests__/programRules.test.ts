@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     ROOM_RULES, ALL_ROOM_RULES, roomRule, occupancyOf, isCirculation, isPrivate,
+    isOpenPlanEligible,
     doorAllowedBetween, maxDoorsFor, programForOccupancy, preferenceBetween,
 } from '../src/workflows/apartmentLayout/rules/programRules.js';
 import { scaleProgramToShell } from '../src/workflows/apartmentLayout/tgl/bubbleGraph.js';
@@ -156,6 +157,17 @@ describe('programRules — privacy door caps', () => {
         expect(isPrivate('bedroom')).toBe(true);
         expect(isPrivate('master')).toBe(true);
         expect(isPrivate('living')).toBe(false);
+    });
+
+    it('§OPEN-PLAN-ELIGIBLE: only the social cluster (living/kitchen/dining) may be open-plan', () => {
+        // Eligible — these MAY merge into a shared wall-less open zone.
+        expect(isOpenPlanEligible('living')).toBe(true);
+        expect(isOpenPlanEligible('kitchen')).toBe(true);
+        expect(isOpenPlanEligible('dining')).toBe(true);
+        // NOT eligible — sleeping / wet / circulation rooms are ALWAYS walled.
+        for (const t of ['bedroom', 'master', 'study', 'bathroom', 'ensuite', 'wc', 'corridor', 'hall', 'utility'] as RoomType[]) {
+            expect(isOpenPlanEligible(t)).toBe(false);
+        }
     });
 });
 

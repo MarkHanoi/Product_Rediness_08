@@ -22,7 +22,7 @@
 import type { BubbleGraph } from './bubbleGraph.js';
 import type { Pt, Rect } from './rectDecomposition.js';
 import type { RoomPlacement } from './subdivide.js';
-import { doorAllowedBetween, isCirculation, maxDoorsFor, roomRule } from '../rules/programRules.js';
+import { doorAllowedBetween, isCirculation, isOpenPlanEligible, maxDoorsFor, roomRule } from '../rules/programRules.js';
 
 export interface WallSeg {
     readonly id: string;
@@ -601,7 +601,19 @@ export function buildWallsAndDoors(
     };
     const union = (a: string, b: string): void => { zoneRoot.set(find(a), find(b)); };
     for (const r of graph.rooms) zoneRoot.set(r.id, r.id);
-    for (const e of graph.edges) if (e.via === 'open') union(e.a, e.b);
+    // §OPEN-PLAN-ELIGIBLE (A.21.D40 #5, 2026-06-08) — HARD guarantee that only the
+    // social cluster (living / kitchen / dining) ever forms a wall-less open zone.
+    // An `open` edge is honoured ONLY when BOTH endpoints are open-plan-eligible;
+    // any `open` edge touching a sleeping / wet / circulation room is DOWNGRADED to
+    // a real wall (it is simply not unioned, so `emit` keeps the partition + the
+    // door pipeline still connects the pair via a doorway). This is what stops the
+    // central blob: a bedroom / bathroom / corridor can never be merged into a
+    // shared open space, whatever adjacency the bubble/AI graph requests.
+    const eligibleById = new Map<string, boolean>(graph.rooms.map(r => [r.id, isOpenPlanEligible(r.type)]));
+    for (const e of graph.edges) {
+        if (e.via !== 'open') continue;
+        if (eligibleById.get(e.a) === true && eligibleById.get(e.b) === true) union(e.a, e.b);
+    }
     const sameZone = (a: string, b: string): boolean => find(a) === find(b);
 
     const segments: WallSeg[] = [];
