@@ -261,3 +261,37 @@ architecture + contracts".)
 
 > M0–M1 are shipped. M2 (slider-intent) is the next highest-leverage step — it closes the
 > reactivity-bug class the founder flagged AND unlocks the smooth-refine UX (§6 / the user journey).
+
+---
+
+## §12 — Ratified refinements (binding; per [ADR-0062](../adrs/0062-layout-engine-deterministic-graph-solver.md))
+
+Two independent expert architecture audits (2026-06-08) ratified §§1–11 and sharpened seven points.
+These are now **binding amendments** to this contract (full rationale in ADR-0062):
+
+- **D1 — Deterministic Combinatorial Variant Expansion.** Variants come from a finite **strategy
+  matrix** `A_ZoneCut × B_CirculationAxis × C_KitchenTypology × D_MasterSuitePosition` — run all,
+  keep top-3 by Pareto. Sampling/Monte-Carlo is FORBIDDEN (breaks byte-identity, undo/redo,
+  multi-user sync). A slider = a *continuous map across known matrix states*, never a re-roll.
+- **D2 — Rectangular Dual-Graph solver (Schnyder/REL) is the core T4 geometric solver.** Pure
+  slicing/squarify cannot guarantee graph-edge→shared-wall (the root of the adjacency failures + the
+  "broken sliders"). The dual guarantees it *by construction*; squarify is retained only as in-cell
+  area-sizing + the no-valid-dual fallback. (The deepest TO-BE upgrade; gets its own SPEC.)
+- **D3 — Signed weights resolved at the ZONAL-CUT phase, not the geometric phase.** Negative weights
+  (bedroom↔kitchen −2) assign rooms to *different zones* (an Adjacency Energy Matrix) so they can
+  never share a dual edge — they NEVER reach a physical spring-embedder (which diverges on negatives).
+  `preferenceBetween` → signed `[-5,+5]`.
+- **D4 — Dynamic Boundary Softening.** Hard gates never return zero options: on failure, auto-downgrade
+  the offending rule Fatal→Violation, tag + warn, ship the best plan. Never an empty result.
+- **D5 — Vertical structural stacking is a HARD constraint.** Stair core + structural boundary LOCKED
+  on ground, projected straight up through every level *before* room packaging (unbuildable otherwise).
+  Wet-room plumbing-stack alignment stays soft-scored.
+- **D6 — Three-tier `RuleSeverity` (FATAL / VIOLATION / WARNING)** + acceptance suite with §DIAG provenance.
+- **D7 — SiteContext resolved ONCE at parcel definition, cached as a normalised vector field** over the
+  polygon; the layout loop reads the cache instantly — NO web call inside generation.
+
+**Competitive positioning (target):** PRYZM = **Unified Living Graph (UBG)** substrate · **Deterministic
+Parameter Matrix** optimisation · **Exceptional edge-condition resilience via rule softening (D4)** —
+combining Forma's environment-awareness, Finch's graph-is-engine, and TestFit's deterministic geometry,
+without TestFit's brittleness on irregular parcels or ML's structural unreliability. See the strategy
+doc's Competitive Vector Matrix.

@@ -2515,3 +2515,125 @@ node, so deploy-monitoring + test-running must be done by the main loop.
   (the reactivity-bug cure — UI controls modify graph weights NEVER dimensions), 3 deterministic
   variants, Pareto scoring, 5 CI gates, and the M0–M9 migration steps. M0 (no-merge) + M1
   (program↔plate) shipped; **M2 (slider-intent wiring, G13) is the next highest-leverage step**.
+
+---
+
+# §23 — GENERATIVE LAYOUT TO-BE: Documentation-Complete Implementation Plan (the world-model living graph)
+
+**Status (2026-06-08): DOCUMENTATION COMPLETE — STOP before implementation.** This section reconciles
+the now-sound architecture docs against the live code + the existing Phase-A pipeline, and defines the
+phased plan to follow. Implementation begins only on founder go, subphase-by-subphase, each shipping
+byte-identical-safe with the ai-host suite green.
+
+## §23.1 — The sound documentation set (read in this order)
+1. **Vision/strategy** — [GENERATIVE-LAYOUT-WORLD-MODEL-STRATEGY](../../01-strategy/GENERATIVE-LAYOUT-WORLD-MODEL-STRATEGY.md)
+   (world-model living-graph thesis, competitive vector matrix, v3.0 audit, roadmap).
+2. **Architecture contract** — [C53 — Generative Layout Engine Architecture](../../02-decisions/contracts/C53-GENERATIVE-LAYOUT-ENGINE-ARCHITECTURE.md)
+   (L-PRINCIPLE topology/geometry separation, 6-tier pipeline, data contract, slider-as-intent,
+   variants, Pareto, CI gates, M0–M9, §12 ratified refinements D1–D7).
+3. **Decisions** — [ADR-0062](../../02-decisions/adrs/0062-layout-engine-deterministic-graph-solver.md)
+   (D1 deterministic combinatorial expansion, D2 rectangular-dual solver, D3 signed-weights-at-zonal-cut,
+   D4 dynamic boundary softening, D5 hard vertical stacking, D6 3-tier severity, D7 SiteContext cache).
+4. **Rules (normative target)** — founder **SPEC v3.0** (GIS/climate, acoustic, multi-storey, windows,
+   solar/wind, furniture-fit, validation taxonomy, acceptance) — §22.14.
+5. **Engine specs** — [SPEC-TGL](../specs/SPEC-TGL-DETERMINISTIC-LAYOUT-ENGINE.md) (current engine) +
+   [SPEC-RECTANGULAR-DUAL-LAYOUT-SOLVER](../specs/SPEC-RECTANGULAR-DUAL-LAYOUT-SOLVER.md) (the D2 upgrade) +
+   [SPEC-LAYOUT-ALGORITHM-MASTER](../specs/SPEC-LAYOUT-ALGORITHM-MASTER.md) (orchestration + §DIAG surface)
+   + [SPEC-ROOM-PLACEMENT-RULES](../specs/SPEC-ROOM-PLACEMENT-RULES.md) (G1–G20 gap tracker).
+
+## §23.2 — Doc-vs-code reconciliation (verified 2026-06-08)
+| TO-BE element | Doc | Code today | Verdict |
+|---|---|---|---|
+| Topology/geometry separation (L-PRINCIPLE) | C53 §1 | D-TGL already topology→geometry; editor seam leaked (G1) | HAVE + fixed v70 (ground) |
+| Rectangular-dual solver (graph-edge ⇒ shared-wall) | SPEC-DUAL / ADR-0062 D2 | NONE — slicing/squarify only (grep-confirmed) | BUILD (deepest) |
+| Signed adjacency weights at zonal cut | ADR-0062 D3 | preferenceBetween returns [0,1] unsigned | EXTEND to signed [-5,+5] |
+| 3-tier severity | ADR-0062 D6 | RuleSeverity ALREADY in ai-host/AITypes.ts + RuleEngine.ts | REUSE/ALIGN — do NOT duplicate |
+| Dynamic boundary softening | ADR-0062 D4 | hard gates can return 0 options | BUILD softening pass |
+| Hard vertical structural stacking | ADR-0062 D5 | stair core reserved; plumbing/structural soft | PROMOTE to hard |
+| Deterministic combinatorial matrix (4-axis) | ADR-0062 D1 | 8 fixed strategies (no DOF matrix) | EXTEND DOF dims |
+| SiteContext cached vector field | ADR-0062 D7 | C19 site + NOAA/Overpass; not a cached field feeding layout | EXTEND C19 + wire |
+| Slider-as-intent | C53 §6 | design-param sliders to EngineTuning (partial); target-area/style/master-floor NOT wired (G13) | WIRE all (M2) |
+
+## §23.3 — The phased plan (maps M0–M9 + D1–D7 onto the A.21 house engine)
+- **Phase 0 — Structural correctness (PARTIAL).** M0 no-merge GROUND (§CONSENSUS-ON-CENTRELINE v70 +
+  regression test 48/48) + M1 program-vs-plate (§AREA-AGREEMENT + §STAIR-FRAGMENT v69). **CARRYOVER P0:
+  upper-floor still merges (§23.5 evidence) — extend the weld/self-cluster/centreline treatment to
+  `_buildPerimeterShell` (G1-upper).**
+- **Phase 1 — Perimeter typing + frontage/windows + aspect (P1).** L/T/U/courtyard classifier (v3.0 §2);
+  constructive frontage swap so every habitable room reaches the shell + is windowed (M3, G11);
+  **aspect-ratio reject during enumeration (§15) — kills the tunnel rooms.** Owning: SPEC-ROOM-PLACEMENT-RULES
+  W4 + v3.0 §§12,15.
+- **Phase 2 — Signed graph + slider-intent + severity + softening + zoning gate (P2–P4).** Signed weights
+  at zonal cut (D3); slider-as-intent G13 (M2 — reactivity cure); ALIGN to existing RuleEngine RuleSeverity
+  (D6); dynamic boundary softening (D4); **privacy-gradient ZONE_VIOLATION gate (§4/§6)**; 4-axis
+  deterministic matrix labelling variants A/B/C (D1).
+- **Phase 3 — Context + scoring + furniture-fit gate (P5).** SiteContext cached field extending C19/C21
+  (D7) feeding window WWR + solar/acoustic Pareto; D-PROX walking-distance (M4, G6); bedroom solar;
+  **furniture-fit promoted to a PRE-RANK validity gate (§16, M8) — rejects the un-furnishable tunnel.**
+- **Phase 4 — Rectangular-dual solver (the deep upgrade).** SPEC-RECTANGULAR-DUAL D2 — staged behind a
+  flag, squarify fallback, byte-identity golden + adjacency-fidelity tests. The constructive cure.
+- **Phase 5 — World-model + ML priors + hard vertical core (P6).** UBG unification (C52); **stair as an
+  absolute anchor node + hard vertical stacking (D5, §9) — fixes the floating stair**; ML as suggester.
+- **Cross-cutting — CI gates (C53 §9), merge-blocking:** determinism golden, topology-purity, no-merge
+  generation test (extend to upper floors), slider-intent audit, acceptance suite (v3.0 §19).
+
+## §23.4 — Current challenges to carry into implementation (do not regress)
+- **Determinism is sacred (ADR-0061):** gated-when-absent, byte-identical; ai-host 2043 + geometry-wall 48 are the floor.
+- **Editor seam is the failure-prone boundary:** engine is good (§DIAG-proven); most defects are editor
+  geometric stages; the Phase-4 dual solver + the no-merge gate harden this.
+- **Localhost dev unusable / browser-only stages:** verify on prod (pryzm.fly.dev) + §DIAG console paste.
+- **Reuse, don't duplicate:** RuleSeverity, EngineTuning, C19, C52 — extend existing seams (P6/C52 §3).
+- **Don't over-gate small plots:** D4 dynamic softening before any FATAL acoustic/zone gate ships.
+
+## §23.5 — Layout failure POST-MORTEM (evidence → acceptance criteria, 2026-06-08)
+A founder-supplied audit of two screenshots (first-floor `image_a53029.png`) is the concrete
+justification for the whole world-model strategy. Each observed failure becomes a binding acceptance
+criterion for its phase. **Crucially the upper floor STILL shows a merged blob** ("Bedroom 1 / Bedroom 2 /
+Bedroom 3 / En-suite / Bathroom 2 / Bathroom 1 = 101.7 m²") — the keystone fix covered the ground floor
+(§GROUND-WELD) but NOT the upper floor (`_buildPerimeterShell`).
+
+| # | Observed artifact (evidence) | Root gap | Spec/ADR | Phase | Acceptance criterion |
+|---|---|---|---|---|---|
+| PM-0 | First floor = ONE 101.7 m² blob (6 rooms merged) + generic "Room 00-002/004" | **G1-upper** + G9 | §CONSENSUS-ON-CENTRELINE (extend) | **P0 carryover** | Upper floors produce distinct rooms (no merged label), every region named |
+| PM-1 | Stair floats loose in a room corner, not on a spine/core | §9 / D5 | ADR-0062 D5 | P5 | Stair is an anchor node; circulation spine routes from it; hard vertical stack |
+| PM-2 | Bedroom opens directly into a massive public zone, no buffer | §4/§6 / D3 | ADR-0062 D3/D4 | P2 | Privacy-gradient ZONE_VIOLATION gate; signed bedroom↔public penalty at zonal cut |
+| PM-3 | Bedroom 1 = 23.2 m² narrow TUNNEL (bad aspect) | §15 | ADR-0062 / v3.0 §15 | P1 | Aspect-ratio filter (≤ ~1:2) rejects the candidate during enumeration |
+| PM-4 | 23.2 m² bedroom too narrow to fit a bed + clearances | §16 | v3.0 §16 / M8 | P3 | Furniture-fit pre-rank gate: a room that can't fit mandatory furniture FAILS |
+| PM-5 | Room 00-004 = 83.9 m² deep-plan cavern, dark interior | §7/§12 | SPEC-ROOM-PLACEMENT W4 / D2 | P1/P4 | Daylight-depth constraint: every habitable point within max distance of a window; constructive frontage swap |
+
+> The post-mortem confirms the priority: **PM-0 (upper-floor merge) is the immediate P0 carryover**, then
+> PM-3/PM-5 (aspect + daylight, Phase 1), then PM-2/PM-4 (zoning + furniture-fit, Phase 2/3), then PM-1
+> (core anchor, Phase 5). The rectangular-dual solver (Phase 4) structurally prevents PM-0/PM-3/PM-5 by
+> construction.
+
+## §23.6 — Console-log POST-MORTEM (§DIAG trace → three deep mechanisms, 2026-06-08)
+The §DIAG instrumentation (v69/v70) paid off: a founder audit of the live console trace pinpoints the
+THREE mechanisms behind §23.5's artifacts. Each becomes a binding fix.
+
+- **F1 — Program over-enrichment runaway.** `§DIAG-ENRICH after: path=grow-bedrooms bedrooms=1->5 (+4)
+  baths=0->2 (+2)` on a 176 m² plate (brief = 1 bed). `enrichStoreyProgramToPlate` packs +4 bedrooms /
+  +2 baths to fill AREA → 10 rooms crammed → elongated tunnels. **FIX (ADR-0062 D8): cap enrichment by
+  EXTERNAL WINDOW-FACADE CAPACITY, not just area** — stop growing habitable rooms once their mandatory
+  windows can no longer fit the available shell frontage. Owning: `houseProgramFloor.enrichStoreyProgramToPlate`.
+  Phase 1. → drives PM-3/PM-4 (tunnels / unfurnishable).
+- **F2 — Topology ships broken via the reroute escape-hatch (HIGHEST LEVERAGE).** EVERY candidate logs
+  `connected=false topoOK=false circRouted=false`; doors `sealed=[r3,r4,r6,r9]`; the winner ships at
+  `topologyQuality=0.00` via `§CIRCULATION-REROUTE` ("ships connected but compromised"). The reroute is
+  **too permissive** — it lets unbuildable topologies through. **FIX (sharpens ADR-0062 D4/D6): make
+  `topoOK` + `circRouted` a HARD gate — reject `topologyQuality=0.00` when ANY better candidate exists;
+  fall back to softening (D4) ONLY when NO option is valid, and tag it. A sealed room is FATAL, not a
+  warning.** Phase 2. → drives PM-0/PM-2 (merge / sealed / no buffer).
+- **F3 — Window facade hogged by wet rooms.** `§DIAG-WIN En-suite: 3 windows`, `Bathroom 1: 3 windows`,
+  while `Bedroom 1: wall#9 placed=0 (all removed by door/partition/de-overlap)` — a habitable room's only
+  window deleted while wet rooms get 3 each. **FIX: habitable rooms get facade PRIORITY before wet rooms;
+  never delete a habitable room's last window; cap windows-per-wet-room.** Owning: `windowEmission` /
+  `shellWallMatch` de-overlap + emit order. Phase 1/3 (M3/G11). → drives PM-5 (dark cavern + windowless).
+
+> **F2 (topological hard gate) is the single highest-leverage fix** — it stops the engine shipping
+> `topologyQuality=0.00` garbage and is what makes the world-model "discard-if-invalid" promise real.
+
+> **NEXT (on founder go), in leverage order:** **(1) F2** topological hard gate (reject invalid topo
+> instead of rerouting) · **(2) PM-0** extend the no-merge fix to upper floors (`_buildPerimeterShell`) ·
+> **(3) F1** enrichment facade-cap · **(4) F3** habitable window priority · **(5) M2** slider-as-intent.
+> Everything above is documentation-complete; **implementation is intentionally NOT started** pending
+> founder confirmation.

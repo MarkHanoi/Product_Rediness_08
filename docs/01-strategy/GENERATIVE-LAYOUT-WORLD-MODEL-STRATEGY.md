@@ -269,3 +269,21 @@ deterministic — §4); (b) penalty-capable adjacency weights (extend `preferenc
 3. Open the `SiteContext` contract draft (extend C19) — the entry point for the whole world model.
 4. Promote the existing soft solar/acoustic axes + add D-PROX (P2) — these are near-free given the
    engine already has the hooks.
+
+---
+
+## 8. Competitive vector matrix (audit ratification, 2026-06-08)
+
+Two independent expert audits ratified this strategy and summarised the spatial-data continuum:
+
+| Engine | Core substrate | Optimisation loop | Edge-condition resilience |
+|---|---|---|---|
+| **Autodesk Forma** | parametric polygons + ML surrogates | microclimate search (Pareto front) | strong (adapts to irregular bounds) |
+| **Hypar** | composable imperative .NET functions | user-in-the-loop options | high (manual programmatic overrides) |
+| **Finch** | constraint-propagation vector graph (Cassowary-style LP) | real-time local solvers | medium (local-minima traps on complex shells) |
+| **TestFit** | hardcoded procedural typology packs | financial + geometric yield | low (rejects irregular/non-standard parcels) |
+| **PRYZM (target)** | **Unified Living Graph (UBG)** | **Deterministic Parameter Matrix** | **exceptional (graceful degradation via rule softening, ADR-0062 D4)** |
+
+The ratified architecture decisions are binding in [C53 §12](../02-decisions/contracts/C53-GENERATIVE-LAYOUT-ENGINE-ARCHITECTURE.md)
+and recorded in [ADR-0062](../02-decisions/adrs/0062-layout-engine-deterministic-graph-solver.md). *(Competitor
+specifics knowledge-based; web verification was unavailable — to-verify before external use.)*
