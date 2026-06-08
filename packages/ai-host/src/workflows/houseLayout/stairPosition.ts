@@ -161,6 +161,24 @@ const EPS_MM = 1e-6;
 // marooned the stair in the centre.
 const SHELL_JITTER_MM = 150;
 
+// ── A.21.D59 — TIGHT containment band (genuine draw jitter, not a wall overrun) ──
+//
+// `SHELL_JITTER_MM` (150) is the band within which a candidate is still OFFERED on a
+// wobbly shell (so D52's perimeter candidates survive). But "offered" is not the same
+// as "well-placed": a flush candidate anchored to the bbox edge on a SKEWED / rotated /
+// sheared plate can sit up to a full 150 mm PROUD of the real wall — the core then pokes
+// visibly OUTWARD past the perimeter (the founder's A.21.D59 screenshot: U-stair flush to
+// a wall but extending OUTside the footprint). 150 mm conflated two things: cm-scale
+// draw/miter wobble (legitimately absorbed) and a real geometric overrun (must NOT be).
+//
+// This TIGHT band is the genuine hand-draw/miter wobble (≈3 cm). The inward-nudge ladder
+// (`containedNudged`) prefers the first position contained at THIS tight tolerance — i.e.
+// genuinely INSIDE the shell — and only falls back to a loosely-contained (≤150 mm proud)
+// flush position when no inward nudge can reach tight containment. So a flush perimeter
+// anchor is pulled INWARD until the core is fully inside (all corners within ~30 mm of, or
+// inside, the wall), never left poking metres — or even decimetres — past the wall.
+const SHELL_TIGHT_JITTER_MM = 30;
+
 /** Point-in-polygon (ray cast), inclusive of the boundary within `tolMm` (mm).
  *  `poly` is plate-local mm; (px, py) with py === plan-Z. A point within `tolMm` of
  *  any edge counts as inside — this absorbs real shell draw/miter jitter so a core
@@ -336,27 +354,51 @@ export function stairCorePositionCandidates(
 
     // A.21.D34(a) — only offer a perimeter candidate whose full core rect lies inside
     // the shell polygon (when one is supplied). Absent polygon ⇒ accept all (identical).
-    const contained = (x: number, y: number): boolean =>
-        !shellPoly || shellPoly.length < 3 || rectInsidePoly(x, y, coreW, coreH, shellPoly);
+    // `tolMm` lets the caller test TIGHT containment (genuinely inside, A.21.D59) or the
+    // loose D52 offer band (≤150 mm proud); default = the loose band (legacy behaviour).
+    const containedAt = (x: number, y: number, tolMm: number): boolean =>
+        !shellPoly || shellPoly.length < 3 || rectInsidePoly(x, y, coreW, coreH, shellPoly, tolMm);
 
-    // A.21.D52 — when the ideal flush position is culled by the shell cull (a jittery
-    // real shell whose corner is pulled inward by more than the SHELL_JITTER_MM band,
-    // or a mildly concave edge), DON'T immediately fall through to central. Retry a
-    // SMALL deterministic ladder of inward nudges (toward the plate interior) and
-    // accept the first contained one — the core still hugs the wall (the nudge is at
-    // most a wall-landing's depth), which is the founder's "adjacent to a wall" rule.
-    // Only if NO near-wall position is contained does the candidate drop (genuine
-    // skew/notch). `dirX`/`dirY` point inward from the abutted wall. Pure/deterministic.
+    // A.21.D52 + A.21.D59 — place a flush perimeter candidate that is GENUINELY INSIDE
+    // the (possibly jittery / skewed / rotated) shell, hugging the wall but never poking
+    // OUTWARD past it.
+    //
+    // D52 fixed the over-cull (a jittery flush candidate culled by the 0.001 mm test →
+    // every perimeter candidate dropped → central). But its 150 mm offer band ALSO let a
+    // flush candidate that sits up to 150 mm PROUD of the real wall (a skewed/rotated
+    // plate's bbox-anchored flush position) be accepted verbatim — the core then extends
+    // OUTSIDE the footprint (A.21.D59 founder screenshot). So we now NUDGE INWARD:
+    //   1. Walk a deterministic ladder of inward offsets (toward the plate interior) and
+    //      take the FIRST position contained at the TIGHT jitter band (≈30 mm — i.e. the
+    //      whole core inside the shell, no real overrun). This pulls a proud flush anchor
+    //      in until the core's outer edge sits AT/INSIDE the wall, still hugging it (the
+    //      retreat is at most one wall-landing — the founder's "adjacent to a wall" rule).
+    //   2. Only if NO inward nudge reaches tight containment do we fall back to the first
+    //      position contained at the LOOSE band (≤150 mm — genuine cm-scale wobble only),
+    //      so a truly jittery-but-fine wall still yields its perimeter candidate.
+    //   3. If neither band is ever satisfied the candidate drops (genuine skew/notch —
+    //      D34(a) preserved). `dirX`/`dirY` point inward from the abutted wall.
+    // The ladder STARTS at 0 (the flush position itself) so an already-tight flush anchor
+    // is returned unchanged (axis-aligned plate → bit-identical to pre-D59). Pure/det.
     const PERIM_NUDGE_MM = WALL_LANDING_MM;   // cap the inward retreat at one landing depth
+    const NUDGE_LADDER = [0, 50, 100, 150, 250, 400, 600, PERIM_NUDGE_MM];
     const containedNudged = (
         flushX: number, flushY: number, dirX: number, dirY: number,
     ): { x: number; y: number } | null => {
-        if (contained(flushX, flushY)) return { x: flushX, y: flushY };
         if (!shellPoly || shellPoly.length < 3) return { x: flushX, y: flushY };
-        for (const off of [50, 100, 150, 250, 400, 600, PERIM_NUDGE_MM]) {
-            const nx = clamp(flushX + dirX * off, 0, Math.max(0, plateW - coreW));
-            const ny = clamp(flushY + dirY * off, 0, Math.max(0, plateH - coreH));
-            if (contained(nx, ny)) return { x: nx, y: ny };
+        const at = (off: number): { x: number; y: number } => ({
+            x: clamp(flushX + dirX * off, 0, Math.max(0, plateW - coreW)),
+            y: clamp(flushY + dirY * off, 0, Math.max(0, plateH - coreH)),
+        });
+        // Pass 1: first inward position GENUINELY inside (tight band → no outward overrun).
+        for (const off of NUDGE_LADDER) {
+            const p = at(off);
+            if (containedAt(p.x, p.y, SHELL_TIGHT_JITTER_MM)) return p;
+        }
+        // Pass 2: fall back to the first loosely-contained position (cm-wobble shell).
+        for (const off of NUDGE_LADDER) {
+            const p = at(off);
+            if (containedAt(p.x, p.y, SHELL_JITTER_MM)) return p;
         }
         return null;
     };

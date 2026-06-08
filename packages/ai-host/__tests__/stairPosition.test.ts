@@ -424,3 +424,141 @@ describe('A.21.D52 — stair hugs a perimeter wall on a REAL (jittery) drawn bou
         expect(kinds).toContain('left');           // real wall candidate retained
     });
 });
+
+// ───────────────── A.21.D59 — flush perimeter core is FULLY INSIDE the shell ─────
+//
+// D52 stopped over-culling perimeter candidates on a jittery shell — but its 150 mm
+// offer band ALSO accepted a flush candidate sitting up to 150 mm PROUD of the real
+// wall on a SKEWED / rotated / sheared plate (the bbox over-covers the polygon, so the
+// bbox-anchored flush position pokes OUTSIDE). The founder's screenshot: a U-stair
+// flush to a perimeter wall but extending OUTWARD past it — the core OUTSIDE the
+// footprint. D59 nudges the flush anchor INWARD until the whole core is genuinely
+// inside (≤ tight jitter), keeping it hugging the wall but never proud.
+
+/** Strict (zero-tolerance) point-in-polygon — used by the test to measure how far a
+ *  core corner pokes OUTSIDE the real shell polygon (independent of the engine code). */
+function strictInsidePoly(px: number, py: number, poly: { x: number; y: number }[]): boolean {
+    let inside = false;
+    const n = poly.length;
+    for (let i = 0, j = n - 1; i < n; j = i++) {
+        const yi = poly[i]!.y, yj = poly[j]!.y, xi = poly[i]!.x, xj = poly[j]!.x;
+        const hit = ((yi > py) !== (yj > py)) && (px < (xj - xi) * (py - yi) / ((yj - yi) || 1e-30) + xi);
+        if (hit) inside = !inside;
+    }
+    return inside;
+}
+
+/** Smallest distance (mm) from (px,py) to any polygon edge — how far a point that is
+ *  OUTSIDE the polygon pokes past the nearest wall. */
+function distToPolyMm(px: number, py: number, poly: { x: number; y: number }[]): number {
+    let best = Infinity;
+    const n = poly.length;
+    for (let i = 0; i < n; i++) {
+        const a = poly[i]!, b = poly[(i + 1) % n]!;
+        const ex = b.x - a.x, ey = b.y - a.y;
+        const L2 = ex * ex + ey * ey || 1e-30;
+        const t = Math.max(0, Math.min(1, ((px - a.x) * ex + (py - a.y) * ey) / L2));
+        const qx = a.x + t * ex, qy = a.y + t * ey;
+        best = Math.min(best, Math.hypot(px - qx, py - qy));
+    }
+    return best;
+}
+
+/** Max outward overrun (mm) of a core rect's four corners past the shell polygon. */
+function coreMaxOverrunMm(
+    pos: { x: number; y: number }, coreW: number, coreH: number, poly: { x: number; y: number }[],
+): number {
+    const corners = [
+        { x: pos.x, y: pos.y }, { x: pos.x + coreW, y: pos.y },
+        { x: pos.x, y: pos.y + coreH }, { x: pos.x + coreW, y: pos.y + coreH },
+    ];
+    let maxOut = 0;
+    for (const c of corners) {
+        if (!strictInsidePoly(c.x, c.y, poly)) maxOut = Math.max(maxOut, distToPolyMm(c.x, c.y, poly));
+    }
+    return maxOut;
+}
+
+/** A sheared parallelogram plate in plate-local mm (bbox-min origin). The top edge is
+ *  shifted right by `shearM` — the shape a rotated/skewed plate takes in the rotated
+ *  layout frame, where the bbox over-covers the polygon and a bbox-flush candidate
+ *  would poke outward past the slanted side wall. */
+function shearedPlate(wM: number, dM: number, shearM: number): {
+    poly: { x: number; y: number }[]; plateW: number; plateH: number;
+} {
+    const world = [
+        { x: 0, z: 0 }, { x: wM, z: 0 },
+        { x: wM + shearM, z: dM }, { x: shearM, z: dM },
+    ];
+    let minX = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity;
+    for (const p of world) { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z); }
+    return {
+        poly: world.map(p => ({ x: (p.x - minX) * 1000, y: (p.z - minZ) * 1000 })),
+        plateW: (maxX - minX) * 1000,
+        plateH: (maxZ - minZ) * 1000,
+    };
+}
+
+describe('A.21.D59 — flush perimeter stair core never extends OUTWARD past the shell', () => {
+    const coreW = 2000, coreH = 2800;
+
+    it('a moderately sheared plate: the chosen core is FULLY inside (no metres/decimetres proud)', () => {
+        // BEFORE D59: the `right` flush candidate (bbox-anchored x = plateW − coreW) sat
+        // ~120 mm PROUD of the slanted right wall and was accepted under the 150 mm band
+        // — the core poked outside the footprint. AFTER D59 it is nudged inward.
+        const { poly, plateW, plateH } = shearedPlate(14, 11, 1.0);
+        const pos = chooseStairCorePosition(plateW, plateH, coreW, coreH, poly, { sunDir: { x: 0, y: 1 } });
+        const overrun = coreMaxOverrunMm(pos, coreW, coreH, poly);
+        // All four corners within the genuine draw-jitter band of the polygon — i.e. the
+        // core is fully inside, NOT poking out by decimetres.
+        expect(overrun).toBeLessThanOrEqual(30 + 1e-6);
+        // Still a wall-hugging perimeter candidate (the D52 win — never central).
+        expect(pos.kind).not.toBe('central');
+    });
+
+    it('holds across a sweep of shear angles (no chosen core ever pokes > tight jitter)', () => {
+        let worstOverrun = 0; let worstDesc = '';
+        for (const shearM of [0.25, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]) {
+            for (const [wM, dM] of [[14, 11], [12, 10], [16, 9], [10, 13]] as [number, number][]) {
+                const { poly, plateW, plateH } = shearedPlate(wM, dM, shearM);
+                const pos = chooseStairCorePosition(plateW, plateH, coreW, coreH, poly, { sunDir: { x: 0, y: 1 } });
+                const o = coreMaxOverrunMm(pos, coreW, coreH, poly);
+                if (o > worstOverrun) { worstOverrun = o; worstDesc = `shear=${shearM} ${wM}x${dM} kind=${pos.kind} x=${pos.x.toFixed(0)} y=${pos.y.toFixed(0)}`; }
+            }
+        }
+        // eslint-disable-next-line no-console
+        if (worstOverrun > 30) console.log('WORST', worstDesc, worstOverrun.toFixed(0));
+        // No skewed plate leaves the core poking past a wall by more than tight jitter.
+        expect(worstOverrun).toBeLessThanOrEqual(30 + 1e-6);
+    });
+
+    it('all four core corners are strictly inside (or within tight jitter of) the shell', () => {
+        const { poly, plateW, plateH } = shearedPlate(14, 11, 1.0);
+        const pos = chooseStairCorePosition(plateW, plateH, coreW, coreH, poly, { sunDir: { x: 0, y: 1 } });
+        const corners = [
+            { x: pos.x, y: pos.y }, { x: pos.x + coreW, y: pos.y },
+            { x: pos.x, y: pos.y + coreH }, { x: pos.x + coreW, y: pos.y + coreH },
+        ];
+        for (const c of corners) {
+            const inside = strictInsidePoly(c.x, c.y, poly);
+            const slack = inside ? 0 : distToPolyMm(c.x, c.y, poly);
+            expect(slack).toBeLessThanOrEqual(30 + 1e-6);
+        }
+    });
+
+    it('an axis-aligned plate is UNCHANGED — flush core still anchors AT the wall (no regression)', () => {
+        // Perfect rectangle as a plate-local polygon: the flush left candidate stays at
+        // x = 0 (already tight-contained → ladder offset 0 → bit-identical to pre-D59).
+        const plateW = 12000, plateH = 10000;
+        const rectPoly = [
+            { x: 0, y: 0 }, { x: plateW, y: 0 }, { x: plateW, y: plateH }, { x: 0, y: plateH },
+        ];
+        const withPoly = chooseStairCorePosition(plateW, plateH, coreW, coreH, rectPoly, { sunDir: { x: 0, y: 1 } });
+        const noPoly = chooseStairCorePosition(plateW, plateH, coreW, coreH, undefined, { sunDir: { x: 0, y: 1 } });
+        expect(withPoly.x).toBe(noPoly.x);
+        expect(withPoly.y).toBe(noPoly.y);
+        expect(withPoly.kind).toBe(noPoly.kind);
+        // And it genuinely hugs a side wall (x = 0 or x = plateW − coreW).
+        expect(withPoly.x === 0 || Math.abs(withPoly.x + coreW - plateW) < 1e-6).toBe(true);
+    });
+});

@@ -62,6 +62,8 @@ import {
 } from './siteMap2DStyle.js';
 // MAP-DATA-OVERTURE — keyless OSM/Overture context-building loader.
 import { fetchContextBuildings } from './contextBuildings.js';
+// A.21.D60 — pure relative-right-angle (orthogonal-to-previous-edge) draw aid.
+import { resolveOrthoSnap, ORTHO_SNAP_TOLERANCE_DEG } from './orthoSnap.js';
 
 // FORMA.1 — the in-progress + drawn site boundary renders in dashed Forma green
 // (SPEC-FORMA-SITE-VIEW §3), replacing the old PRYZM violet so it reads against
@@ -142,7 +144,9 @@ function makeDimChip(): HTMLDivElement {
 interface SnapTarget {
     readonly lon: number;
     readonly lat: number;
-    readonly kind: 'corner' | 'edge' | 'loop';
+    // A.21.D60 — `'ortho'` = the relative right-angle lock (orthogonal to the
+    // previous edge), distinct from the building corner/edge/loop snaps.
+    readonly kind: 'corner' | 'edge' | 'loop' | 'ortho';
 }
 
 export interface SiteBoundaryMap2DOptions {
@@ -309,6 +313,49 @@ export function mountSiteBoundaryMap2D(
     toggle.appendChild(satBtn);
     overlay.appendChild(toggle);
 
+    // ── A.21.D60 — "⟂ Orthogonal to previous edge" toggle (bottom-centre HUD) ────
+    // Compact brand white + #6600FF checkbox shown ONLY while drawing (removed on
+    // commit/cancel via freezeDraw/dispose). Default ON. Toggling flips `orthoEnabled`
+    // and recomputes the live snap so the rubber-band preview updates immediately.
+    const orthoHud = document.createElement('label');
+    orthoHud.className = 'pryzm-gis-ortho-toggle';
+    Object.assign(orthoHud.style, {
+        position: 'absolute',
+        bottom: '16px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: '21',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '8px',
+        background: 'rgba(255,255,255,0.94)',
+        border: `1px solid ${VIOLET}`,
+        borderRadius: '20px',
+        padding: '7px 14px',
+        font: '600 12px/1 system-ui, sans-serif',
+        color: '#2a2438',
+        cursor: 'pointer',
+        boxShadow: '0 2px 10px rgba(60,52,40,0.18)',
+        userSelect: 'none',
+    } satisfies Partial<CSSStyleDeclaration>);
+    const orthoBox = document.createElement('input');
+    orthoBox.type = 'checkbox';
+    orthoBox.checked = orthoEnabled;
+    orthoBox.setAttribute('aria-label', 'Lock new edges orthogonal to the previous edge');
+    Object.assign(orthoBox.style, {
+        width: '15px',
+        height: '15px',
+        accentColor: VIOLET,
+        cursor: 'pointer',
+        margin: '0',
+    } satisfies Partial<CSSStyleDeclaration>);
+    const orthoText = document.createElement('span');
+    // U+27C2 PERPENDICULAR — the right-angle affordance the founder asked for.
+    orthoText.textContent = '⟂ Orthogonal to previous edge';
+    orthoHud.appendChild(orthoBox);
+    orthoHud.appendChild(orthoText);
+    overlay.appendChild(orthoHud);
+
     // A.8.c.f.4 — active basemap. Default = the Hektar cream vector look; the corner
     // toggle swaps to keyless ESRI satellite raster to fill OSM coverage gaps.
     // §TDZ-FIX (2026-06-03): MUST be declared BEFORE paintToggle() is called below —
@@ -343,6 +390,11 @@ export function mountSiteBoundaryMap2D(
     // A.8.c.g — the live snap target under the cursor (null = no snap; click uses
     // the raw lngLat). Updated on every mousemove while drawing.
     let snapTarget: SnapTarget | null = null;
+    // A.21.D60 — relative right-angle lock: when ON (default), the SECOND+ edges
+    // snap to the nearest 90 degrees off the PREVIOUS edge's direction (any base
+    // rotation), so the user draws a clean rectilinear plot. The corner snap (above)
+    // always takes priority; this engages only when no corner snap is in range.
+    let orthoEnabled = true;
 
     // A.21.D9 — pooled HTML markers for the edge-dimension labels. Index 0..n-1
     // are the PLACED edges (vertex i → i+1, wrapping); the last marker (when a
@@ -680,6 +732,39 @@ export function mountSiteBoundaryMap2D(
         return null;
     }
 
+    /**
+     * A.21.D60 — resolve the relative right-angle snap for the cursor at screen
+     * point `pt`, using the previous committed edge (vertex n-2 → n-1) as the
+     * reference axis. Projects those vertices to screen, runs the PURE
+     * `resolveOrthoSnap`, then unprojects the snapped screen point back to lng/lat.
+     * Returns null when ortho is OFF, fewer than 2 vertices are placed (no previous
+     * edge), the cursor is outside the angular tolerance, or the input is
+     * degenerate. NEVER throws — defensive against project/unproject during a style
+     * swap. The building corner/edge/loop snap (resolveSnap) takes priority; this is
+     * only consulted when that returns null.
+     */
+    function resolveOrthoSnapTarget(pt: { x: number; y: number }): SnapTarget | null {
+        if (!orthoEnabled || vertices.length < 2) return null;
+        try {
+            const prevStart = vertices[vertices.length - 2]!;
+            const prevEnd = vertices[vertices.length - 1]!;
+            const ps = map.project([prevStart.lon, prevStart.lat]);
+            const pe = map.project([prevEnd.lon, prevEnd.lat]);
+            const snapped = resolveOrthoSnap(
+                { x: ps.x, y: ps.y },
+                { x: pe.x, y: pe.y },
+                { x: pt.x, y: pt.y },
+                ORTHO_SNAP_TOLERANCE_DEG,
+            );
+            if (!snapped) return null;
+            const ll = map.unproject([snapped.x, snapped.y]);
+            if (!Number.isFinite(ll.lng) || !Number.isFinite(ll.lat)) return null;
+            return { lon: ll.lng, lat: ll.lat, kind: 'ortho' };
+        } catch {
+            return null; // never let the draw break.
+        }
+    }
+
     // ── Draw interactions ─────────────────────────────────────────────────────
     function onClick(e: MapMouseEvent): void {
         if (disposed || committed) return;
@@ -730,7 +815,10 @@ export function mountSiteBoundaryMap2D(
         }
         // A.8.c.g — not dragging: resolve a snap target under the cursor and show
         // (or hide) the violet snap indicator. Lightweight — one small box query.
-        const next = resolveSnap(e.point);
+        // A.21.D60 — the building corner/edge/loop snap takes PRIORITY; only when it
+        // finds nothing do we fall back to the relative right-angle (ortho) lock, so
+        // the user can still land exactly on a real corner when one is in range.
+        const next = resolveSnap(e.point) ?? resolveOrthoSnapTarget(e.point);
         // A.21.D9 — track the cursor (snapped position when a snap is active, else
         // the raw lngLat) so the live in-progress edge label follows the pointer.
         cursorLL = next
@@ -810,6 +898,26 @@ export function mountSiteBoundaryMap2D(
     mapBtn.addEventListener('click', () => swapBasemap('map'));
     satBtn.addEventListener('click', () => swapBasemap('satellite'));
 
+    // A.21.D60 — toggle the relative right-angle lock. Recompute the live snap from
+    // the LAST cursor position so the rubber-band preview + indicator update at once
+    // (without waiting for the next pointermove). Guarded — never throws.
+    orthoBox.addEventListener('change', () => {
+        if (disposed || committed) return;
+        orthoEnabled = orthoBox.checked;
+        console.log(`[gis] map2d: orthogonal-to-previous-edge lock ${orthoEnabled ? 'ON' : 'OFF'}`);
+        // Re-resolve at the current cursor (if known) so turning it off frees the
+        // preview immediately and turning it on snaps it immediately.
+        if (!cursorLL) return;
+        try {
+            const pt = map.project([cursorLL.lon, cursorLL.lat]);
+            const next = resolveSnap(pt) ?? resolveOrthoSnapTarget(pt);
+            snapTarget = next;
+            cursorLL = next ? { lat: next.lat, lon: next.lon } : cursorLL;
+            refreshSnapIndicator();
+            refreshDimLabels();
+        } catch { /* style may be swapping — ignore */ }
+    });
+
     // ── Commit / cancel ───────────────────────────────────────────────────────
 
     /**
@@ -847,6 +955,8 @@ export function mountSiteBoundaryMap2D(
         // user isn't tempted to keep drawing/cancelling.
         chip.style.display = 'none';
         closeBtn.style.display = 'none';
+        // A.21.D60 — the ortho toggle is a draw-only affordance; remove it on commit.
+        orthoHud.style.display = 'none';
         console.log('[gis] map2d: boundary committed — draw frozen, cream map + boundary kept alive (dispose deferred to generate-time).');
     }
 
