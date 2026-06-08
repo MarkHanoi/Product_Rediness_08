@@ -448,6 +448,12 @@ declare global {
          *  pipelines after their openings batch settles so window/door openings render
          *  immediately (no manual nudge). See WallRebuildCoordinator._rebuildWalls. */
         rebuildWalls?(wallIds: readonly string[]): void;
+        /** §A.21.D40 #3 — rebuild ONLY the named walls' BODIES (opening holes) reusing
+         *  their cached miters, WITHOUT re-running the whole-level resolveLevel re-trim.
+         *  Used by the house pipeline's post-openings repair so the welded GROUND shell
+         *  baselines stay put ("ground walls go off at the end" fix). See
+         *  WallRebuildCoordinator._rebuildWallBodies. */
+        rebuildWallBodies?(wallIds: readonly string[]): void;
     };
     /**
      * C13 §4 (Wave 35 I-2) — Project isolation teardown surface.

@@ -177,6 +177,19 @@ export class WallRebuildCoordinator {
             // openings batch settles, reproducing exactly the rebuild the manual
             // WindowTool gets for free (no discard window in the manual path).
             rebuildWalls:       (wallIds: readonly string[]) => this._rebuildWalls(wallIds),
+            // §A.21.D40 #3 — rebuild ONLY the named walls' BODIES (their opening holes)
+            // from current store data, WITHOUT re-running the whole-level
+            // `WallJoinResolver.resolveLevel` / V2-cache / junction-infill pass. Used by
+            // the generated-layout post-openings repair: `rebuildWalls` above takes the
+            // whole-level path (no prevState), which RE-TRIMS every wall on the level —
+            // and on the GROUND floor (where interior partitions were welded ONTO the
+            // user's pre-drawn shell) that zoom-dependent re-resolve perturbs the shell
+            // baselines ("ground walls go off at the end"). This body-only path reuses
+            // each wall's already-resolved miter cache (`_prevJoinMap`) so the welded
+            // ground shell geometry stays EXACTLY put while the new opening holes still
+            // appear. Falls back to `rebuildWalls` (whole-level) when a wall has no
+            // cached join (never resolved) so a free wall still renders correctly.
+            rebuildWallBodies:  (wallIds: readonly string[]) => this._rebuildWallBodies(wallIds),
         };
 
         window.__engineTeardown = {
@@ -291,6 +304,60 @@ export class WallRebuildCoordinator {
         }
         if (this._wallRafHandle !== null) return;
         this._wallRafHandle = getFrameScheduler().scheduleOnce('engine-bootstrap-wall-flush', () => this._flush());
+    }
+
+    /**
+     * §A.21.D40 #3 — rebuild ONLY the named walls' bodies (their opening holes) from
+     * current store data, REUSING each wall's last-resolved miter/trim cache and
+     * SKIPPING the whole-level `resolveLevel` / V2-cache / junction-infill pass.
+     *
+     * WHY (the "ground walls go off at the end" defect): the generated-house pipeline
+     * welds the ground interior partitions ONTO the user's PRE-DRAWN shell, then —
+     * after the openings batch settles — repairs the host-wall meshes so the new holes
+     * show. The repair previously went through `_rebuildWalls`, which queues an `update`
+     * with NO prevState → `classifyWallDelta` returns `whole-level` →
+     * `WallJoinResolver.resolveLevel` re-runs over the WHOLE ground level with a
+     * zoom-dependent snap radius. Because the welded partition endpoints now sit ON the
+     * shell, that re-resolve can treat partition↔shell contacts as fresh corner joins
+     * and RE-TRIM (move) the shell baselines — the perimeter that rendered correctly
+     * shifts/breaks. Opening creation does NOT move any baseline, so the shell trim is
+     * pure collateral damage.
+     *
+     * This path rebuilds each wall body via `builder.updateWall(fresh, cachedJoin, …)`
+     * exactly like the ADR-057 openings-only fast path, but is driven DIRECTLY (not via
+     * the classifier, which forces whole-level on an opening-SET change). It never calls
+     * `resolveLevel`, so no baseline is touched — the welded ground shell stays put.
+     *
+     * Walls grouped per level (the helper emits the commit barrier per level). Honours
+     * `_joinsResolving` by deferring to a frame slot, like `_rebuildWalls`.
+     */
+    private _rebuildWallBodies(wallIds: readonly string[]): void {
+        const store = this._wallTool?.getWallStore?.();
+        if (!store) return;
+        // Resolve each id to its current level; skip ids not in the store.
+        const byLevel = new Map<string, string[]>();
+        for (const id of wallIds) {
+            const wall = store.getById(id);
+            if (!wall) continue;
+            (byLevel.get(wall.levelId) ?? byLevel.set(wall.levelId, []).get(wall.levelId)!).push(id);
+        }
+        if (byLevel.size === 0) return;
+        const run = (): void => {
+            const builder = this._wallTool.getFragmentBuilder();
+            const liveStore = this._wallTool.getWallStore();
+            let total = 0;
+            for (const [levelId, ids] of byLevel) {
+                this._flushOpeningsOnly(ids, levelId, builder, liveStore);
+                total += ids.length;
+            }
+            console.log(`[WallRebuildCoordinator] §A.21.D40 rebuildWallBodies — rebuilt ${total} wall body/bodies (no resolveLevel re-trim) across ${byLevel.size} level(s)`);
+        };
+        // If a resolve is mid-flight, defer to a frame slot so we never re-enter it.
+        if (this._joinsResolving) {
+            getFrameScheduler().scheduleOnce('engine-bootstrap-wall-bodies', run);
+            return;
+        }
+        run();
     }
 
     private _scheduleFlush(event: 'add' | 'update' | 'remove', wall: WallData, prevState?: WallData): void {

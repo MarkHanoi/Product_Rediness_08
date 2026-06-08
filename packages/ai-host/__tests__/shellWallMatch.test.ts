@@ -324,3 +324,140 @@ describe('resolveAllShellWindows (T1.W-C)', () => {
         expect(out).toHaveLength(0);
     });
 });
+
+// ── §WINDOW-CORNER-SPAN (A.21.D40 #1, 2026-06-07) — founder v49 re-test ───────
+//
+// The founder still saw a window poke past a CORNER on some plots. The old final
+// invariant only required the opening inside [0, shellLen]; an over-wide
+// (width-clamped) window was drag-fitted by the offset clamp and could land flush
+// against a corner (offset < END_CLEAR, or end > shellLen − END_CLEAR), which —
+// after the perpendicular neighbour's thickness — reads as overrunning the corner.
+// Now the FULL span must sit inside [END_CLEAR, shellLen − END_CLEAR] for EVERY
+// window, clamped or not; if it can't, the window is DROPPED.
+describe('resolveShellWindow — §WINDOW-CORNER-SPAN: full span respects end clearance', () => {
+    const win = (over: Partial<LayoutWindow> = {}): LayoutWindow => ({
+        wallRef: 0, offset: 0, width: 1500, height: 1300, sillHeight: 900, ...over,
+    });
+    const END_CLEAR = 0.1;
+
+    // Sweep a range of offsets/widths/option-extents on a 5 m shell wall: EVERY
+    // resolved opening must sit inside [END_CLEAR, shellLen − END_CLEAR] — never just
+    // flush against a corner. The matcher returns null OR an in-clearance opening.
+    it('every resolved opening sits inside [END_CLEAR, shellLen − END_CLEAR] (or is dropped)', () => {
+        const shellLen = 5;
+        const cases: Array<{ offset: number; width: number; ext: number }> = [
+            { offset: 1000, width: 1500, ext: 5000 },   // normal, mid-wall
+            { offset: 0,    width: 6000, ext: 5000 },   // over-wide → width-clamped, drag-fitted
+            { offset: -250, width: 1500, ext: 5000 },   // centre near start corner
+            { offset: 4250, width: 1500, ext: 5000 },   // far corner
+            { offset: 3500, width: 1500, ext: 5000 },   // near the far end but inside
+            { offset: 4500, width: 1500, ext: 7000 },   // option wall longer than shell
+        ];
+        for (const c of cases) {
+            const r = resolveShellWindow(
+                win({ offset: c.offset, width: c.width }),
+                [optWall(0, 0, c.ext, 0)],
+                [shell('shell-1', 0, 0, shellLen, 0)],
+            );
+            if (r === null) continue;                  // dropped — acceptable
+            expect(r.offsetM, JSON.stringify(c)).toBeGreaterThanOrEqual(END_CLEAR - 1e-6);
+            expect(r.offsetM + r.widthM, JSON.stringify(c)).toBeLessThanOrEqual(shellLen - END_CLEAR + 1e-6);
+        }
+    });
+
+    it('an over-wide window is width-clamped AND kept inside both corner clearances', () => {
+        const r = resolveShellWindow(
+            win({ offset: 0, width: 6000 }),           // 6 m window on a 5 m wall
+            [optWall(0, 0, 5000, 0)],
+            [shell('shell-1', 0, 0, 5, 0)],
+        );
+        expect(r).not.toBeNull();
+        expect(r!.offsetM).toBeGreaterThanOrEqual(END_CLEAR - 1e-9);
+        expect(r!.offsetM + r!.widthM).toBeLessThanOrEqual(5 - END_CLEAR + 1e-9);
+    });
+
+    it('width-clamps a window so it fits WITH corner clearance on a short wall', () => {
+        // 1.5 m window on a 1.6 m shell wall: §WINDOW-SHELL-CLAMP shrinks the width to
+        // 1.6 − 2×0.1 = 1.4 m so it sits inside [0.1, 1.5] — fully clear of both corners
+        // (rather than overrunning a corner). It is hosted, not dropped.
+        const r = resolveShellWindow(
+            win({ offset: 0, width: 1500 }),
+            [optWall(0, 0, 1600, 0)],
+            [shell('short', 0, 0, 1.6, 0)],
+        );
+        expect(r).not.toBeNull();
+        expect(r!.widthM).toBeCloseTo(1.4, 6);
+        expect(r!.offsetM).toBeGreaterThanOrEqual(END_CLEAR - 1e-6);
+        expect(r!.offsetM + r!.widthM).toBeLessThanOrEqual(1.6 - END_CLEAR + 1e-6);
+    });
+
+    it('drops a window when the wall is too short to host even a minimal opening', () => {
+        // A 0.5 m shell wall: maxWidth = 0.5 − 0.2 = 0.3 m < the 0.4 m minimum → dropped.
+        const r = resolveShellWindow(
+            win({ offset: 0, width: 1500 }),
+            [optWall(0, 0, 500, 0)],
+            [shell('tiny', 0, 0, 0.5, 0)],
+        );
+        expect(r).toBeNull();
+    });
+});
+
+// ── §WINDOW-DEOVERLAP (A.21.D40 #2, 2026-06-07) — founder v49 re-test ─────────
+//
+// The founder's log showed `CONFLICT new=[…] vs existing […] → opening skipped`:
+// two windows resolved to OVERLAPPING spans on the SAME shell wall, and the second
+// wall.createOpening was silently rejected by the occupancy check → a dropped
+// window. resolveAllShellWindows now de-conflicts up front: overlapping windows on
+// one wall are dropped DELIBERATELY so the dispatched set is conflict-free.
+describe('resolveAllShellWindows — §WINDOW-DEOVERLAP: no overlapping spans on one wall', () => {
+    it('drops the second of two overlapping windows on the SAME shell wall', () => {
+        // Two windows from two rooms both front the south shell wall and overlap:
+        //   A: offset 1.0 m, width 1.5 m → span [1.0, 2.5]
+        //   B: offset 2.0 m, width 1.5 m → span [2.0, 3.5]  (overlaps A)
+        const windows: LayoutWindow[] = [
+            { wallRef: 0, offset: 1000, width: 1500, height: 1300, sillHeight: 900 },
+            { wallRef: 0, offset: 2000, width: 1500, height: 1300, sillHeight: 900 },
+        ];
+        const out = resolveAllShellWindows(
+            windows,
+            [optWall(0, 0, 8000, 0)],
+            [shell('south', 0, 0, 8, 0)],
+        );
+        expect(out).toHaveLength(1);
+        // The kept window is the first (lower offset) one.
+        expect(out[0]!.offsetM).toBeCloseTo(1.0, 6);
+    });
+
+    it('keeps both windows when their spans are clear of each other on one wall', () => {
+        const windows: LayoutWindow[] = [
+            { wallRef: 0, offset: 500,  width: 1500, height: 1300, sillHeight: 900 },  // [0.5, 2.0]
+            { wallRef: 0, offset: 4000, width: 1500, height: 1300, sillHeight: 900 },  // [4.0, 5.5]
+        ];
+        const out = resolveAllShellWindows(
+            windows,
+            [optWall(0, 0, 8000, 0)],
+            [shell('south', 0, 0, 8, 0)],
+        );
+        expect(out).toHaveLength(2);
+        // No two emitted spans overlap.
+        const spans = out.map(r => [r.offsetM, r.offsetM + r.widthM] as const)
+            .sort((a, b) => a[0] - b[0]);
+        for (let i = 1; i < spans.length; i++) {
+            expect(spans[i]![0]).toBeGreaterThanOrEqual(spans[i - 1]![1] - 1e-9);
+        }
+    });
+
+    it('does not de-conflict windows on DIFFERENT shell walls', () => {
+        // Same numeric offset/width but on two different walls → both kept.
+        const windows: LayoutWindow[] = [
+            { wallRef: 0, offset: 1000, width: 1500, height: 1300, sillHeight: 900 },
+            { wallRef: 1, offset: 1000, width: 1500, height: 1300, sillHeight: 900 },
+        ];
+        const out = resolveAllShellWindows(
+            windows,
+            [optWall(0, 0, 5000, 0), optWall(5000, 0, 5000, 4000)],
+            [shell('south', 0, 0, 5, 0), shell('east', 5, 0, 5, 4)],
+        );
+        expect(out).toHaveLength(2);
+    });
+});

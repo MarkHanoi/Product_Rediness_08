@@ -230,9 +230,6 @@ export function resolveShellWindow(
     };
     const centreParam = projParam(centreW, match.shell.start, shellDir);
     const offsetM = centreParam - widthM / 2;
-    // §WINDOW-SHELL-CLAMP — the offset must keep the WHOLE opening on the wall,
-    // strictly inside both ends: offset ∈ [END_CLEAR, shellLen − width − END_CLEAR].
-    const maxOffsetM = Math.max(END_CLEAR_M, shellDir.len - widthM - END_CLEAR_M);
 
     // §WINDOW-IN-SHELL-SPAN (A.21.D34(b) + A.21.D36 hardening, 2026-06-07) — on a
     // SKEWED plot the tolerant matcher can host a window on a near-parallel shell wall
@@ -281,19 +278,36 @@ export function resolveShellWindow(
         if (centreParam < minCentre - EPS_M || centreParam > shellDir.len - minCentre + EPS_M) return null;
     }
 
-    // Centre the (possibly width-clamped) opening on the projected centre, then clamp
-    // the offset so the WHOLE opening sits strictly inside both wall ends. Because the
-    // centre is inside [0, len] and the width fits (maxWidthM check above), a feasible
-    // in-shell offset always exists.
-    const finalOffsetM = Math.min(Math.max(END_CLEAR_M, offsetM), maxOffsetM);
+    // §WINDOW-CORNER-SPAN (A.21.D40 #1, 2026-06-07) — the founder's recurring "window
+    // STILL overruns the corner". The §WINDOW-CORNER-FIT guard above only fires for
+    // UN-clamped windows; an over-wide (width-clamped) window was still drag-fitted by
+    // the offset clamp, which — with the old [0, shellLen] final invariant — could land
+    // the opening flush against a corner (offset < END_CLEAR_M, or offset+width >
+    // shellLen − END_CLEAR_M). After the perpendicular neighbour wall's own thickness
+    // that frame reads as poking OUT of the shell at the corner. ROOT FIX (founder's
+    // spec): the FULL span [offset, offset+width] must sit inside
+    // [END_CLEAR_M, shellLen − END_CLEAR_M] for EVERY window (clamped or not). If no
+    // clearance-respecting position exists (the wall is too short to host the opening
+    // WITH the end clearance), DROP it. No window may extend past a wall end / corner.
+    const minOffsetM = END_CLEAR_M;
+    const maxOffsetClearedM = shellDir.len - widthM - END_CLEAR_M;
+    if (maxOffsetClearedM < minOffsetM - EPS_M) return null;   // can't fit with corner clearance
 
-    // §WINDOW-IN-SHELL-FINAL (A.21.D36) — last-line invariant: after every clamp,
-    // the ACTUAL emitted opening [finalOffsetM, finalOffsetM + widthM] MUST lie
-    // strictly within the host shell span [0, shellLen]. If a degenerate clamp (e.g.
-    // a shell wall barely longer than the minimal window) still left the opening
-    // poking past either end, DROP the window — a frame off the wall plane must
-    // never render. Belt-and-braces over the centre-band guard above.
-    if (finalOffsetM < -EPS_M || finalOffsetM + widthM > shellDir.len + EPS_M) return null;
+    // Centre the (possibly width-clamped) opening on the projected centre, then clamp
+    // the offset so the WHOLE opening sits strictly inside both wall ends WITH the
+    // corner clearance. Because the centre is inside [0, len], the width fits
+    // (maxWidthM check above), and the clearance band is non-empty (check just above),
+    // a feasible in-shell offset always exists.
+    const finalOffsetM = Math.min(Math.max(minOffsetM, offsetM), maxOffsetClearedM);
+
+    // §WINDOW-IN-SHELL-FINAL (A.21.D36 → A.21.D40 #1 hardened) — last-line invariant:
+    // after every clamp the ACTUAL emitted opening [finalOffsetM, finalOffsetM + widthM]
+    // MUST lie within the host shell span WITH the END_CLEAR_M corner margin at BOTH
+    // ends — i.e. inside [END_CLEAR_M, shellLen − END_CLEAR_M], not merely [0, shellLen].
+    // If a degenerate clamp still left the opening crowding (or past) either corner,
+    // DROP the window — a frame at / past the corner must never render. Belt-and-braces
+    // over the centre-band + corner-fit guards above.
+    if (finalOffsetM < END_CLEAR_M - EPS_M || finalOffsetM + widthM > shellDir.len - END_CLEAR_M + EPS_M) return null;
 
     return {
         shellWallId: match.shell.id,
@@ -306,12 +320,64 @@ export function resolveShellWindow(
     };
 }
 
+/** §WINDOW-DEOVERLAP (A.21.D40 #2) — minimum gap (m) kept BETWEEN two windows on the
+ *  SAME shell wall. Matches WINDOW_CLEARANCE_MM (0.1 m) in emitWindows.ts so the
+ *  de-conflict band reads as the same deliberate façade rhythm. Two windows whose
+ *  spans (padded by this gap) overlap can't both be hosted — the later one is dropped
+ *  here rather than being SILENTLY rejected by the wall.createOpening occupancy check
+ *  (the founder's `CONFLICT … opening skipped` log). */
+const WINDOW_GAP_M = 0.1;
+
+/**
+ * De-conflict a set of resolved shell-window dispatches so that NO two windows on the
+ * SAME shell wall have overlapping spans. Windows on DIFFERENT walls never interact.
+ *
+ * On a multi-room façade the engine emits windows PER ROOM (`emitWindowsForRoom` only
+ * de-overlaps within one room's own walls), so two rooms fronting the SAME shell wall
+ * can resolve to overlapping spans on it. Hosting both would make the second
+ * wall.createOpening fail its occupancy check and silently vanish — the founder's
+ * "windows dropped" symptom. Here we instead drop the conflicting window DELIBERATELY,
+ * up front, so the dispatched set is conflict-free by construction.
+ *
+ * Deterministic greedy keep: per shell wall, sort by offset (ties by width desc, then
+ * a stable original-index tiebreak); walk in order, keep a window iff its span starts
+ * at least `WINDOW_GAP_M` after the previous KEPT window's end; otherwise drop it.
+ */
+function deOverlapShellWindows(
+    resolved: readonly ShellWindowDispatch[],
+): ShellWindowDispatch[] {
+    // Preserve original order via an index so the result is stable + the kept set is
+    // re-assembled in emission order (not grouped) — callers iterate it positionally.
+    const indexed = resolved.map((r, i) => ({ r, i }));
+    const byWall = new Map<string, { r: ShellWindowDispatch; i: number }[]>();
+    for (const e of indexed) {
+        (byWall.get(e.r.shellWallId) ?? byWall.set(e.r.shellWallId, []).get(e.r.shellWallId)!).push(e);
+    }
+    const keptIdx = new Set<number>();
+    for (const group of byWall.values()) {
+        group.sort((a, b) =>
+            (a.r.offsetM - b.r.offsetM) ||
+            (b.r.widthM - a.r.widthM) ||
+            (a.i - b.i));
+        let lastEnd = -Infinity;
+        for (const { r, i } of group) {
+            if (r.offsetM >= lastEnd + WINDOW_GAP_M - 1e-9) {
+                keptIdx.add(i);
+                lastEnd = r.offsetM + r.widthM;
+            }
+            // else: overlaps the previously-kept window on this wall → drop it.
+        }
+    }
+    return indexed.filter(e => keptIdx.has(e.i)).map(e => e.r);
+}
+
 /**
  * Resolve all shell-hosted windows in an option. Convenience wrapper —
- * iterates `option.windows`, calls `resolveShellWindow` per item, and
- * flattens. Windows that don't match (interior-side or unmatchable
- * externals) are dropped silently here; the wiring layer surfaces them as
- * warnings against the original list.
+ * iterates `option.windows`, calls `resolveShellWindow` per item, flattens,
+ * and DE-CONFLICTS overlapping spans on a shared shell wall (§WINDOW-DEOVERLAP).
+ * Windows that don't match (interior-side or unmatchable externals) are dropped
+ * silently here; the wiring layer surfaces them as warnings against the original
+ * list.
  */
 export function resolveAllShellWindows(
     windows: readonly LayoutWindow[],
@@ -324,5 +390,8 @@ export function resolveAllShellWindows(
         const r = resolveShellWindow(w, optionWalls, shellWalls, planToWorld);
         if (r) out.push(r);
     }
-    return out;
+    // §WINDOW-DEOVERLAP — ensure no two windows on the SAME shell wall overlap, so the
+    // wall.createOpening occupancy check never silently rejects a window (the founder's
+    // "CONFLICT … opening skipped" log → dropped window).
+    return deOverlapShellWindows(out);
 }
