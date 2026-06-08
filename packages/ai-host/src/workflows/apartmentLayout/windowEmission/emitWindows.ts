@@ -64,6 +64,40 @@ const segLenMm = (s: ExternalWallSegment): number => {
  *  deliberate, spaced façade rhythm rather than touching. */
 const WINDOW_CLEARANCE_MM = 100;
 
+// ── §WINDOW-CORNER-SETBACK (A.21.D45, 2026-06-08) — real corner pier ──────────
+//
+// The corner clearance kept clear of each WALL END is DISTINCT from (and much
+// larger than) WINDOW_CLEARANCE_MM (the bare no-touch gap used between a window
+// and a door or another window). WINDOW_CLEARANCE_MM (0.1 m) was ALSO doing
+// double duty as the wall-end margin — so the first evenly-distributed window
+// started at 0.1 m from the corner (the founder's "window on the EDGE"). A real
+// masonry pier/return must remain at each corner. This setback is wall-length-
+// scaled with a hard floor + cap (mirrors `cornerSetbackForWall` in
+// shellWallMatch.ts, the final shell-frame authority), so NO window — first,
+// last, or middle — lands within the setback of a corner. The de-overlap /
+// distribution all key off `endSetbackMm`, never the bare clearance.
+const MIN_CORNER_SETBACK_MM = 500;
+const MAX_CORNER_SETBACK_MM = 1200;
+const CORNER_SETBACK_WALL_FRACTION = 0.10;
+/** Below this an opening isn't a usable window (mirrors shellWallMatch MIN_WINDOW_M). */
+const MIN_WINDOW_MM = 400;
+
+/**
+ * The corner setback (mm) for a wall of `wallLenMm`: a real masonry pier at EACH
+ * end that no window may encroach. Wall-length-scaled between the floor + cap,
+ * then reduced on a short wall (never below 0) so the wall can still host a
+ * minimal opening. Pure + deterministic; mirrors `cornerSetbackForWall`.
+ */
+function endSetbackMm(wallLenMm: number): number {
+    if (!Number.isFinite(wallLenMm) || wallLenMm <= 0) return MIN_CORNER_SETBACK_MM;
+    const scaled = Math.min(
+        MAX_CORNER_SETBACK_MM,
+        Math.max(MIN_CORNER_SETBACK_MM, CORNER_SETBACK_WALL_FRACTION * wallLenMm),
+    );
+    const maxAffordable = Math.max(0, (wallLenMm - MIN_WINDOW_MM) / 2);
+    return Math.min(scaled, maxAffordable);
+}
+
 /** A.21.D33(d) — fallback half-band (mm) kept clear EITHER SIDE of an interior-
  *  partition junction when the junction carries no (or a non-positive) thickness.
  *  Half of a 100 mm partition (50) + the WINDOW_CLEARANCE_MM (100) = 150 mm, so a
@@ -141,11 +175,16 @@ function clearOffsetMm(
     widthMm: number,
     blocked: readonly BlockedSpan[],
 ): number | null {
-    const minOff = WINDOW_CLEARANCE_MM;
-    const maxOff = wallLenMm - widthMm - WINDOW_CLEARANCE_MM;
+    // §WINDOW-CORNER-SETBACK (A.21.D45) — the wall-END margin is the REAL corner
+    // pier, not the bare WINDOW_CLEARANCE_MM (which only governs window↔door /
+    // window↔window gaps). So the first/last/only window can never start within the
+    // setback of a corner.
+    const setback = endSetbackMm(wallLenMm);
+    const minOff = setback;
+    const maxOff = wallLenMm - widthMm - setback;
     if (maxOff < minOff) {
-        // Wall too short to keep both end-clearances — fall back to a simple
-        // centred offset (no door overlap possible if there are no doors).
+        // Wall too short to keep both end-setbacks — fall back to a simple centred
+        // offset (no door overlap possible if there are no doors).
         const centred = Math.max(0, (wallLenMm - widthMm) / 2);
         return blocked.length > 0 && overlapsAny(centred, widthMm, blocked) ? null : centred;
     }
@@ -193,6 +232,10 @@ const WINDOW_STRIDE_GAP_MM = 1400;
  */
 function windowCountForWall(wallLenMm: number, widthMm: number): number {
     // N·width + (N+1)·gap ≤ wallLen  ⇒  N ≤ (wallLen − gap) / (width + gap)
+    // §WINDOW-CORNER-SETBACK (A.21.D45) — the COUNT budget is unchanged (so a 5 m wall
+    // still keeps ONE centred window for every room type, per D5.c); the corner pier
+    // only governs WHERE the windows sit (the end margins in `evenOffsetsMm`), not how
+    // many a wall earns.
     const n = Math.floor((wallLenMm - WINDOW_STRIDE_GAP_MM) / (widthMm + WINDOW_STRIDE_GAP_MM));
     return Math.max(1, Math.min(MAX_WINDOWS_PER_WALL, n));
 }
@@ -216,10 +259,11 @@ function evenOffsetsMm(
         const off = clearOffsetMm(wallLenMm, widthMm, blocked);
         return off === null ? [] : [off];
     }
-    // Usable span keeps a clearance at each end. Window i centre sits at evenly
-    // spaced positions across the run so the façade reads as a balanced rhythm.
-    const minOff = WINDOW_CLEARANCE_MM;
-    const maxOff = wallLenMm - widthMm - WINDOW_CLEARANCE_MM;
+    // §WINDOW-CORNER-SETBACK (A.21.D45) — the usable span keeps a real corner pier
+    // (not the bare clearance) at each end, so the first/last evenly-spaced window
+    // can't hug a corner. Window i sits at evenly spaced positions across that run.
+    const minOff = endSetbackMm(wallLenMm);
+    const maxOff = wallLenMm - widthMm - endSetbackMm(wallLenMm);
     if (maxOff < minOff) {
         const off = clearOffsetMm(wallLenMm, widthMm, blocked);
         return off === null ? [] : [off];
@@ -253,8 +297,9 @@ function nearestClearOffsetMm(
     idealMm: number,
     blocked: readonly BlockedSpan[],
 ): number | null {
-    const minOff = WINDOW_CLEARANCE_MM;
-    const maxOff = wallLenMm - widthMm - WINDOW_CLEARANCE_MM;
+    // §WINDOW-CORNER-SETBACK (A.21.D45) — end margin is the real corner pier.
+    const minOff = endSetbackMm(wallLenMm);
+    const maxOff = wallLenMm - widthMm - endSetbackMm(wallLenMm);
     if (maxOff < minOff) return null;
     const clamp = (o: number): number => Math.min(Math.max(o, minOff), maxOff);
     const target = clamp(idealMm);
