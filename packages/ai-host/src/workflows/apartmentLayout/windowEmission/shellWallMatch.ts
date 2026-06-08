@@ -241,13 +241,18 @@ export function resolveShellWindow(
     optionWalls: readonly LayoutWall[],
     shellWalls: readonly ShellWall[],
     planToWorld: PlanToWorldXZ = defaultPlanToWorld,
+    // §DIAG-WIN-UNMATCHED (2026-06-08) — optional reason tally so the wiring layer can
+    // report WHY each window failed to host (notExternal vs noShellMatch vs a corner/span
+    // guard drop). Pure: incrementing a caller-owned counter, no behaviour change.
+    reasonTally?: Record<string, number>,
 ): ShellWindowDispatch | null {
-    if (win.wallRef < 0 || win.wallRef >= optionWalls.length) return null;
+    const fail = (reason: string): null => { if (reasonTally) reasonTally[reason] = (reasonTally[reason] ?? 0) + 1; return null; };
+    if (win.wallRef < 0 || win.wallRef >= optionWalls.length) return fail('wallRefOutOfRange');
     const host = optionWalls[win.wallRef]!;
-    if (host.isExternal !== true) return null;
+    if (host.isExternal !== true) return fail('hostNotExternal');
 
     const match = matchShellHost(host, shellWalls, planToWorld);
-    if (!match) return null;
+    if (!match) return fail('noShellMatch');
 
     const hostStartW = planToWorld(host.start);
     const hostEndW   = planToWorld(host.end);
@@ -271,7 +276,7 @@ export function resolveShellWindow(
     // last, or middle — lands within the setback of a corner.
     const END_CLEAR_M = cornerSetbackForWall(shellDir.len);
     const maxWidthM = shellDir.len - 2 * END_CLEAR_M;
-    if (maxWidthM < MIN_WINDOW_M) return null;   // shell wall can't host any window
+    if (maxWidthM < MIN_WINDOW_M) return fail('shellWallTooShort');   // shell wall can't host any window
     const widthM = Math.min(win.width / 1000, maxWidthM);
 
     // §SHELL-MATCH-TOLERANT — project the window's CENTRE onto the matched shell
@@ -308,7 +313,7 @@ export function resolveShellWindow(
     // whole opening back onto the wall, and the §WINDOW-IN-SHELL-FINAL invariant
     // proves the emitted opening sits on the wall. An EXACT endpoint match always
     // projects the centre well inside [0, len] (no regression).
-    if (centreParam < -OVERLAP_TOL_M || centreParam > shellDir.len + OVERLAP_TOL_M) return null;
+    if (centreParam < -OVERLAP_TOL_M || centreParam > shellDir.len + OVERLAP_TOL_M) return fail('centreOutOfShellSpan');
 
     // §WINDOW-CORNER-FIT (A.21.D39, 2026-06-07) — a SKEWED corner recurrence: even with
     // the centre-band guard above, a window whose projected centre is inside [0, len]
@@ -340,7 +345,7 @@ export function resolveShellWindow(
     const wasWidthClamped = widthM < (win.width / 1000) - EPS_M;
     if (!wasWidthClamped && !match.exact) {
         const minCentre = widthM / 2 + END_CLEAR_M;
-        if (centreParam < minCentre - EPS_M || centreParam > shellDir.len - minCentre + EPS_M) return null;
+        if (centreParam < minCentre - EPS_M || centreParam > shellDir.len - minCentre + EPS_M) return fail('cornerFitDrop');
     }
 
     // §WINDOW-CORNER-SPAN (A.21.D40 #1, 2026-06-07) — the founder's recurring "window
@@ -356,7 +361,7 @@ export function resolveShellWindow(
     // WITH the end clearance), DROP it. No window may extend past a wall end / corner.
     const minOffsetM = END_CLEAR_M;
     const maxOffsetClearedM = shellDir.len - widthM - END_CLEAR_M;
-    if (maxOffsetClearedM < minOffsetM - EPS_M) return null;   // can't fit with corner clearance
+    if (maxOffsetClearedM < minOffsetM - EPS_M) return fail('cornerClearanceUnfittable');   // can't fit with corner clearance
 
     // Centre the (possibly width-clamped) opening on the projected centre, then clamp
     // the offset so the WHOLE opening sits strictly inside both wall ends WITH the
@@ -372,7 +377,7 @@ export function resolveShellWindow(
     // If a degenerate clamp still left the opening crowding (or past) either corner,
     // DROP the window — a frame at / past the corner must never render. Belt-and-braces
     // over the centre-band + corner-fit guards above.
-    if (finalOffsetM < END_CLEAR_M - EPS_M || finalOffsetM + widthM > shellDir.len - END_CLEAR_M + EPS_M) return null;
+    if (finalOffsetM < END_CLEAR_M - EPS_M || finalOffsetM + widthM > shellDir.len - END_CLEAR_M + EPS_M) return fail('finalInvariantDrop');
 
     return {
         shellWallId: match.shell.id,
@@ -465,8 +470,10 @@ export function resolveAllShellWindows(
 ): readonly ShellWindowDispatch[] {
     const out: ShellWindowDispatch[] = [];
     let unmatched = 0;
+    // §DIAG-WIN-UNMATCHED — tally WHY each window failed to host (see resolveShellWindow).
+    const reasonTally: Record<string, number> = {};
     for (const w of windows) {
-        const r = resolveShellWindow(w, optionWalls, shellWalls, planToWorld);
+        const r = resolveShellWindow(w, optionWalls, shellWalls, planToWorld, reasonTally);
         if (r) out.push(r);
         else unmatched++;
     }
@@ -496,6 +503,14 @@ export function resolveAllShellWindows(
         `droppedByDeOverlap=${out.length - kept.length} unmatchedToShell=${unmatched} ` +
         `façadeAxisDist={${dist}}`,
     );
+    // §DIAG-WIN-UNMATCHED — the unmatched count, broken down by CAUSE, so the next prod
+    // test says exactly which gate eats the windows (hostNotExternal = engine emitted on
+    // an interior wall → a LAYOUT issue; noShellMatch = matcher tolerance; *Drop = a
+    // corner/span guard too aggressive). Only logs when something failed.
+    if (unmatched > 0) {
+        const breakdown = Object.entries(reasonTally).map(([r, n]) => `${r}:${n}`).join(' ') || 'none';
+        console.log(`[D-TGL] §DIAG-WIN-UNMATCHED total=${unmatched} → ${breakdown}`);
+    }
 
     return kept;
 }
