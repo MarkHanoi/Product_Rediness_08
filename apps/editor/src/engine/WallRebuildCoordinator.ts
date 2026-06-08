@@ -342,15 +342,65 @@ export class WallRebuildCoordinator {
             (byLevel.get(wall.levelId) ?? byLevel.set(wall.levelId, []).get(wall.levelId)!).push(id);
         }
         if (byLevel.size === 0) return;
+
+        // ── §A.21.D61 — PERIMETER-CORNER CAP CONSISTENCY (the no-window-side gap) ──
+        // The body-only path reuses each wall's CACHED `_prevJoinMap` JoinData so the
+        // welded ground shell stays put (D40). That is correct ONLY when the wall was
+        // previously whole-level resolved: the cache then holds the EXACT miter the
+        // resolver gave it, which is the SAME plane it shares with its corner
+        // neighbour (a CORNER join writes BOTH walls' miters in one `_applyCorner`, so
+        // the cached pair is mutually consistent). Rebuilding the windowed wall from
+        // that cache reproduces the identical end cap, and the un-rebuilt no-window
+        // neighbour already carries the matching cached miter → the corner stays flush.
+        //
+        // BUT a windowed wall with NO cache entry (never whole-level resolved — e.g.
+        // the generated-layout pipeline added its opening before any resolve touched
+        // it) would here build with `cachedJoinData = null` → a SQUARE end cap. Its
+        // corner NEIGHBOUR, if it WAS resolved, still renders its cached MITER. The two
+        // caps no longer share a plane → a gap/overlap opens — and it shows on the
+        // section that has NO window (the un-rebuilt mitered neighbour), exactly the
+        // founder's report. The D40 header documents a "falls back to rebuildWalls when
+        // a wall has no cached join" escape — it was never actually implemented here.
+        //
+        // Fix (minimal, deterministic, NO extra `resolveLevel` for the cached case):
+        // split each level's ids by whether `_prevJoinMap` has them. CACHED ids keep
+        // the body-only fast path (D40 perf + ground-walls-stay-put intact). UNCACHED
+        // ids are routed to the whole-level `_rebuildWalls` path, which runs ONE
+        // `resolveLevel` that mitres the windowed wall AND its corner neighbour
+        // together → both caps come from the same `_applyCorner` and are flush by
+        // construction. This only ever fires for a wall the resolver had not yet seen,
+        // so it cannot perturb the already-correct welded shell (those are cached).
+        const cachedByLevel = new Map<string, string[]>();
+        const uncachedIds: string[] = [];
+        for (const [levelId, ids] of byLevel) {
+            const cached: string[] = [];
+            for (const id of ids) {
+                if (this._prevJoinMap.has(id)) cached.push(id);
+                else                           uncachedIds.push(id);
+            }
+            if (cached.length > 0) cachedByLevel.set(levelId, cached);
+        }
+
         const run = (): void => {
             const builder = this._wallTool.getFragmentBuilder();
             const liveStore = this._wallTool.getWallStore();
             let total = 0;
-            for (const [levelId, ids] of byLevel) {
+            for (const [levelId, ids] of cachedByLevel) {
                 this._flushOpeningsOnly(ids, levelId, builder, liveStore);
                 total += ids.length;
             }
-            console.log(`[WallRebuildCoordinator] §A.21.D40 rebuildWallBodies — rebuilt ${total} wall body/bodies (no resolveLevel re-trim) across ${byLevel.size} level(s)`);
+            console.log(
+                `[WallRebuildCoordinator] §A.21.D40 rebuildWallBodies — rebuilt ${total} wall body/bodies ` +
+                `(no resolveLevel re-trim) across ${cachedByLevel.size} level(s)` +
+                (uncachedIds.length
+                    ? `; §A.21.D61 routed ${uncachedIds.length} uncached wall(s) to whole-level for corner-cap consistency`
+                    : ''),
+            );
+            // §A.21.D61 — uncached walls (never resolved) need a whole-level pass so the
+            // windowed wall AND its corner neighbour are mitred together → flush corner.
+            if (uncachedIds.length > 0) {
+                this._rebuildWalls(uncachedIds);
+            }
         };
         // If a resolve is mid-flight, defer to a frame slot so we never re-enter it.
         if (this._joinsResolving) {

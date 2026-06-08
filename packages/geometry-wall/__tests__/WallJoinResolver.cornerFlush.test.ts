@@ -115,6 +115,84 @@ describe('WallJoinResolver — flush L-corner (2-wall, same thickness)', () => {
     });
 });
 
+describe('WallJoinResolver — §A.21.D61 perimeter corner stays flush when one wall has an opening', () => {
+    // The no-window-side perimeter gap (A.21.D61): after window/door EXECUTION the
+    // editor rebuilds ONLY the windowed wall's BODY from its cached JoinData
+    // (WallRebuildCoordinator §rebuildWallBodies, D40), leaving its corner neighbour
+    // untouched. That is correct ONLY if the resolver's miter for the windowed wall
+    // is INVARIANT under adding an opening AND is the SAME plane its neighbour
+    // already caches. This test pins both invariants at the resolver level — the
+    // contract the editor's cached-miter body rebuild relies on. (The editor wiring
+    // itself, _rebuildWallBodies, is verified in-browser per the A.21.D61 checklist.)
+    function mkWithOpening(
+        start: [number, number], end: [number, number], thickness: number, createdAt: number,
+    ): WallData {
+        const w = mk(start, end, thickness, createdAt);
+        // A centred 0.9 m window — opening VALUES never feed the resolver, so the
+        // resolved JoinData (trimmed baseline + miter normals) must be identical to
+        // the no-opening wall's. resolveLevel does not read wall.openings at all.
+        (w as any).openings = [{ id: 'op_d61', elementId: 'win_d61', type: 'window', offset: 2, width: 0.9, height: 1.2, sillHeight: 0.9 }];
+        return w;
+    }
+
+    it('windowed wall + no-window neighbour resolve to the SAME shared miter plane (caps coincide)', () => {
+        // Same-thickness L corner: horizontal wall carries a window, vertical does not.
+        const windowed = mkWithOpening([0, 0], [4, 0], 0.2, 1);  // has a window, joins at end (4,0)
+        const neighbour = mk([4, 0], [4, 3], 0.2, 2);            // NO opening, joins at start (4,0)
+        const res = WallJoinResolver.resolveLevel([windowed, neighbour]);
+
+        const jw = res.get(windowed.id)!;
+        const jn = res.get(neighbour.id)!;
+        expect(jw.invalid).toBeFalsy();
+        expect(jn.invalid).toBeFalsy();
+        // Both ends mitred (non-square) — the windowed wall is NOT left with a square cap.
+        expect(jw.endMN).toBeTruthy();
+        expect(jn.startMN).toBeTruthy();
+
+        // The two cap planes are the SAME plane → cap corners coincide pairwise.
+        // This is precisely what keeps the corner flush when the editor rebuilds only
+        // the windowed wall's body (from jw) and leaves the neighbour rendered from jn.
+        const wEnd = capCorners(jw, 'end', windowed.thickness);
+        const nStart = capCorners(jn, 'start', neighbour.thickness);
+        for (const wc of [wEnd.outer, wEnd.inner]) {
+            expect([nStart.outer, nStart.inner].some(nc => near(wc, nc))).toBe(true);
+        }
+    });
+
+    it('adding the opening does NOT change the resolved JoinData vs the plain wall', () => {
+        // Resolve the SAME geometry twice — once with an opening on the horizontal
+        // wall, once without — and assert the resolver output is identical for BOTH
+        // walls. Proves the cached miter the editor reuses for the body-only rebuild
+        // is the exact one a full rebuild would produce (no drift, no gap).
+        const plainH = mk([0, 0], [4, 0], 0.2, 1);
+        const plainV = mk([4, 0], [4, 3], 0.2, 2);
+        const resPlain = WallJoinResolver.resolveLevel([plainH, plainV]);
+
+        const openH = mkWithOpening([0, 0], [4, 0], 0.2, 1);
+        const openV = mk([4, 0], [4, 3], 0.2, 2);
+        const resOpen = WallJoinResolver.resolveLevel([openH, openV]);
+
+        for (const [plain, open] of [[plainH, openH], [plainV, openV]] as const) {
+            const jp = resPlain.get(plain.id)!;
+            const jo = resOpen.get(open.id)!;
+            // Trimmed baseline identical.
+            expect(near(jp.baseLine[0] as any, jo.baseLine[0] as any)).toBe(true);
+            expect(near(jp.baseLine[1] as any, jo.baseLine[1] as any)).toBe(true);
+            // Miter normals identical (or both null).
+            expect(!!jp.startMN).toBe(!!jo.startMN);
+            expect(!!jp.endMN).toBe(!!jo.endMN);
+            if (jp.endMN && jo.endMN) {
+                expect(jp.endMN.nx).toBeCloseTo(jo.endMN.nx, 6);
+                expect(jp.endMN.nz).toBeCloseTo(jo.endMN.nz, 6);
+            }
+            if (jp.startMN && jo.startMN) {
+                expect(jp.startMN.nx).toBeCloseTo(jo.startMN.nx, 6);
+                expect(jp.startMN.nz).toBeCloseTo(jo.startMN.nz, 6);
+            }
+        }
+    });
+});
+
 describe('WallJoinResolver — flush T-junction (§PASS-THROUGH-FLUSH)', () => {
     it('collinear pass-through + perpendicular stem → flush square caps, no gap/overrun', () => {
         const a = mk([0, 0], [4, 0], 0.2, 1);   // through-wall left half, end (4,0)
