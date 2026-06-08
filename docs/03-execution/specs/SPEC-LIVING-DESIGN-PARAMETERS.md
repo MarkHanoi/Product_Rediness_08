@@ -1,6 +1,8 @@
 # SPEC-LIVING-DESIGN-PARAMETERS — slider-driven, live-regenerating design parameters
 
-**Status:** DRAFT (2026-06-06) — v1 (4 sliders) SHIPPED; A.25.3/.4 PLANNED.
+**Status:** DRAFT (2026-06-06; A.25.3 SHIPPED 2026-06-08) — v1 (4 scorer
+sliders) + the 4 engine-tuning sliders (adjacency / accessibility / climate /
+space) SHIPPED; A.25.4 PLANNED.
 **Owner:** Computational design / generative stack.
 **Governs:** the **Living Design Parameters** panel + its binding into the deterministic
 layout engine — the "user drags a slider → the generated layout re-ranks/regenerates
@@ -69,11 +71,11 @@ is the canonical "what binds to what"; the AS-BUILT column states what is wired 
 
 | Parameter (founder) | Substrate it binds to | Where | AS-BUILT |
 |---|---|---|---|
-| **climate** | D6 sun/glazing weight (`SolarBias.weight`) + `climateGlazingFactor` | `windowEmission/solarOrientation.ts` | substrate LIVE (D6.1–D6.3); slider PLANNED (A.25.3) |
-| **space** | room area fractions / target m² (brief `targetAreaM2`, `roomAreas`) | `ApartmentProgram.roomAreas*`, SPEC-TYPOLOGY-BRIEF-SCHEMA | substrate LIVE; slider PLANNED (A.25.3) |
-| **accessibility** | corridor width / step-free / door clear-width | program-rules + dimensional validators | PLANNED (A.25.3) |
-| **sun** | orientation priority — the D6 `SolarBias.weight` | `solarOrientation.ts` `solarLengthMultiplier` | substrate LIVE; slider PLANNED (A.25.3) |
-| **adjacency** | program-rules strictness (preferred-vs-forbidden) | `rules/programRules.ts` permission matrix | substrate LIVE; slider PLANNED (A.25.3) |
+| **climate** | D6 sun/glazing weight (`SolarBias.weight`) + `climateGlazingFactor` | `windowEmission/solarOrientation.ts` | **SHIPPED A.25.3** — `tuning.solarWeight` → `runDeterministicLayout` `solar.weight` |
+| **space** | room area fractions / target m² (brief `targetAreaM2`, `roomAreas`) | `ApartmentProgram.roomAreas*`, SPEC-TYPOLOGY-BRIEF-SCHEMA | **SHIPPED A.25.3** — `tuning.spaceGenerosity` → `buildBubbleGraph` habitable area-weight |
+| **accessibility** | corridor width / step-free / door clear-width | program-rules + dimensional validators | **SHIPPED A.25.3** — `tuning.corridorWidthM` → `subdivide` corridor strip |
+| **sun** | orientation priority — the D6 `SolarBias.weight` | `solarOrientation.ts` `solarLengthMultiplier` | folded into the **climate** slider (same `SolarBias.weight`) |
+| **adjacency** | program-rules strictness (preferred-vs-forbidden) | `rules/programRules.ts` permission matrix | **SHIPPED A.25.3** — `tuning.adjacencyStrictness` → `computeObjectives` `adjacency` axis |
 | **location** | site lat/lon already drives D6 (`siteLatitudeDeg`) | `gatherLayoutPayload` → `getCurrentSiteOrigin().lat` | LIVE (D6.2 thread) — not yet a slider |
 | **room-connection** | corridor-first vs open-plan permeability | `BubbleGraph` `via:'open'\|'door'` + scorer | substrate LIVE; slider PLANNED (A.25.3) |
 | **daylight** (ranking) | `ScoringWeights.naturalLight` | `tgl/objectives.ts` `daylight` axis | **SHIPPED v1 (A.25.1)** |
@@ -162,25 +164,63 @@ the lifecycle (the last for test/HMR hygiene).
 
 ---
 
+## §3A — AS-BUILT A.25.3 — the four engine-tuning sliders — SHIPPED 2026-06-08
+
+The second vertical slice binds the four founder parameters that DON'T map to a
+scorer axis to the **deterministic engine's inputs**, re-running
+`generateDeterministicLayouts` with each modulation. They CHANGE the generated
+geometry/ranking — not just re-rank existing options (closing §7's "ranking-only"
+limitation for these axes). No parallel scorer; every binding re-weights existing
+substrate (ADR-0060).
+
+### §3A.1 — The pure mapping
+
+`designParamsToScoringWeights.ts` adds four `0..1` axes to `DesignParams`
+(`adjacency`, `accessibility`, `climate`, `space`; all default `0.5`) and a pure
+`designParamsToEngineTuning(params): EngineTuning | null`:
+
+- Returns **`null` when all four axes sit at the neutral midpoint** — the IDENTITY
+  case the engine treats as "no tuning", so the output is byte-identical to the
+  pre-A.25.3 baseline (the A.21.D18 Pareto-equality invariant).
+- Otherwise returns `EngineTuning` (`types.ts`), every field holding its neutral
+  constant for axes the user left centred:
+  | slider | → `EngineTuning` field | neutral 0.5 → | extreme | engine input it drives |
+  |---|---|---|---|---|
+  | `adjacency`     | `adjacencyStrictness` | 1.0 | [0.5, 2.0] | `computeObjectives` — `pref^strictness` sharpens the `adjacency` axis |
+  | `accessibility` | `corridorWidthM`      | 1.2 m | [1.0, 1.8] m | `subdivide` corridor strip (`tryCarveCorridor`) |
+  | `climate`       | `solarWeight`         | 0.6 | [0.0, 1.0] | D6 `SolarBias.weight` in `runDeterministicLayout` |
+  | `space`         | `spaceGenerosity`     | 1.0 | [0.6, 1.6] | `buildBubbleGraph` habitable-room area-weight |
+
+  Each neutral value is the engine's pre-existing default constant, so a centred
+  slider is a strict no-op.
+
+### §3A.2 — The end-to-end thread
+
+`gatherLayoutPayload` reads `getActiveEngineTuning()` → `payload.tuning` →
+`workflow.ts` → `generateLayoutOptions` (`GenerateLayoutInput.tuning`) →
+`generateDeterministicLayouts(..., tuning)` → `enumerateLayouts`
+(`adjacencyStrictness` / `corridorWidthM` / `spaceGenerosity`) + the climate
+`solarWeight` folded into `solar.weight`. The AI path ignores `tuning` (D-TGL-only).
+Same §11 trigger, same debounced live re-generate as A.25.1.
+
+### §3A.3 — The panel
+
+`DesignParamsPanel` renders four MORE sliders (Adjacency / Accessibility /
+Climate-sun / Space) below the original four. All eight share the one `_params`
+stash + the one debounced `triggerApartmentLayout` re-generate — no new panel,
+no new generate path.
+
+---
+
 ## §4 — PLANNED slices
 
-### §4.1 — A.25.3 — adjacency / accessibility / climate / space sliders → substrate
+### §4.1 — A.25.3 — adjacency / accessibility / climate / space sliders → substrate — SHIPPED
 
-Bind the remaining founder parameters (§2 rows that are "substrate LIVE; slider PLANNED")
-to additional sliders, each re-using its existing substrate — **no new scoring path**:
+Done (see §3A). Each founder parameter binds to its existing substrate — no new
+scoring path. The remaining founder axis is:
 
-- **sun / climate** → expose the D6 `SolarBias.weight` (already `0..1`, default `0.6`) as a
-  slider; thread it through the same `siteLatitudeDeg`/`solar` payload thread D6.2 built
-  (no new wiring). Optionally surface `climateGlazingFactor` strength.
-- **adjacency** → a "program-rules strictness" slider steering the
-  preferred-vs-forbidden weighting in `rules/programRules.ts` (the permission matrix stays
-  the hard gate; the slider tunes the soft preference weight only).
-- **accessibility** → corridor width / step-free / door clear-width, bound to the
-  dimensional-constraints validators (D.DC.* framework) once those scoring gates land.
-- **space** → expose `targetAreaM2` / room area fractions as live sliders (the brief
-  fields already exist).
 - **room-connection** → a corridor-first ↔ open-plan permeability slider biasing the
-  `BubbleGraph` `via:'open'|'door'` decision.
+  `BubbleGraph` `via:'open'|'door'` decision (not yet a slider — backlogged).
 
 ### §4.2 — A.25.4 — graph-linked "what changed + why"
 
@@ -225,9 +265,11 @@ events; it does not change the result, only when it is computed.
 
 ## §7 — Known limitations (tracked)
 
-1. **v1 is ranking-only.** The four shipped sliders re-RANK existing generated options; they
-   do not yet change room geometry, adjacency, or window placement directly — that is A.25.3
-   (space/adjacency/accessibility) + the D6 climate slider.
+1. ~~**v1 is ranking-only.**~~ CLOSED by A.25.3: the first four sliders re-RANK
+   existing options (via `ScoringWeights`); the four A.25.3 sliders RE-RUN the
+   engine with tuned inputs (corridor width, habitable area, solar weight, and
+   the adjacency-strictness re-weighting) so they change the generated
+   geometry/ranking directly.
 2. **No graph-linked explanation yet.** A.25.4 (the "why did this change?" overlay) is
    PLANNED; today the user sees the re-ranked layouts but not the per-element rationale.
 3. **Apartment-flavoured labels.** The mapping is typology-agnostic but the v1 slider LABELS
@@ -242,7 +284,7 @@ events; it does not change the result, only when it is computed.
 |---|---|---|
 | **A.25.1** | parameter → `ScoringWeights` binding + live re-generate seam (`designParamsToScoringWeights` + `activeDesignParams` stash + `gatherLayoutPayload` read) | ✅ SHIPPED 2026-06-05 |
 | **A.25.2** | the slider panel UI (`DesignParamsPanel`, brand white+#6600FF, draggable) + `pryzmToggleDesignParams()` + discoverable button | ✅ SHIPPED 2026-06-05 |
-| **A.25.3** | adjacency / accessibility / climate / space / sun / room-connection sliders → program-rules + `SolarBias` + area fractions | 🔵 PLANNED |
+| **A.25.3** | adjacency / accessibility / climate / space sliders → program-rules + `SolarBias` + corridor width + area weights (`EngineTuning` threaded through `generateDeterministicLayouts`) | ✅ SHIPPED 2026-06-08 |
 | **A.25.4** | graph-linked "what changed + why" (GRAPH.4 / A.21.D16 pairing) | 🔵 PLANNED |
 
 ---

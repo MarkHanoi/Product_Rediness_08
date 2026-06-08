@@ -14,7 +14,13 @@
 // Reader: gatherLayoutPayload. Null ⇒ no override ⇒ the payload uses
 // DEFAULT_WEIGHTS (legacy all-equal). Typology-agnostic: pure numbers.
 
-import { designParamsToScoringWeights, type DesignParams, type ScoringWeights } from '@pryzm/ai-host';
+import {
+    designParamsToScoringWeights,
+    designParamsToEngineTuning,
+    type DesignParams,
+    type ScoringWeights,
+    type EngineTuning,
+} from '@pryzm/ai-host';
 
 let _params: DesignParams | null = null;
 
@@ -35,6 +41,14 @@ export function getActiveDesignParams(): DesignParams | null {
  *  `gatherLayoutPayload` uses this to override the payload's scoringWeights. */
 export function getActiveScoringWeights(): ScoringWeights | null {
     return _params ? designParamsToScoringWeights(_params) : null;
+}
+
+/** A.25.3 — the non-scoring engine tuning (adjacency / accessibility / climate /
+ *  space) derived from the active sliders, or null when unset OR when all four
+ *  of those axes sit at their neutral midpoint (identity — the engine then uses
+ *  its built-in defaults). `gatherLayoutPayload` sets it onto `payload.tuning`. */
+export function getActiveEngineTuning(): EngineTuning | null {
+    return _params ? designParamsToEngineTuning(_params) : null;
 }
 
 /** Clear the stash (e.g. project close / re-onboard). */

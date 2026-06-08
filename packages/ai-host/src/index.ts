@@ -188,8 +188,11 @@ export type {
 export { validateLayout } from './workflows/apartmentLayout/validate.js';
 export { scoreLayout } from './workflows/apartmentLayout/score.js';
 // A.25.1 — Living Design Parameters: pure design-sliders → ScoringWeights mapping.
+// A.25.3 — + the non-scoring engine-tuning mapping (adjacency / accessibility /
+// climate / space).
 export {
   designParamsToScoringWeights,
+  designParamsToEngineTuning,
   DEFAULT_DESIGN_PARAMS,
 } from './workflows/apartmentLayout/designParamsToScoringWeights.js';
 export type { DesignParams } from './workflows/apartmentLayout/designParamsToScoringWeights.js';
@@ -244,6 +247,7 @@ export type {
   ApartmentProgram,
   ApartmentConstraints,
   ScoringWeights,
+  EngineTuning,
   LayoutOption,
   LayoutRoom,
   LayoutWall,

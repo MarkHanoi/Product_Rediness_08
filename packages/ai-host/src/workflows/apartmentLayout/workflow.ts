@@ -94,6 +94,11 @@ export function createApartmentLayoutImpl(deps: ApartmentLayoutDeps): WorkflowIm
                 ...(typeof payload.siteLatitudeDeg === 'number'
                     ? { siteLatitudeDeg: payload.siteLatitudeDeg }
                     : {}),
+                // A.25.3 — forward the Living-Design-Parameter engine tuning
+                // (adjacency / accessibility / climate / space). Omitted ⇒ engine
+                // defaults (identity). The D-TGL path consumes it; the AI path
+                // ignores it.
+                ...(payload.tuning ? { tuning: payload.tuning } : {}),
             },
             deps.relay,
             // Build opts conditionally — passing `model: undefined` violates

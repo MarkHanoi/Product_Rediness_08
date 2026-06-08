@@ -323,6 +323,15 @@ export function computeObjectives(
     // `solarOrientation` axis returns the NEUTRAL 1.0 (rank-invisible), so every
     // existing caller (none pass this) is byte-identical.
     latDeg: number | undefined = undefined,
+    // A.25.3 — OPTIONAL program-rules adjacency strictness (Living Design Parameter
+    // `adjacency` slider). Neutral 1.0 (or absent) is IDENTITY. > 1 sharpens the
+    // `adjacency` axis: each edge's preference weight is raised to this power, so
+    // strongly-preferred adjacencies (≈1.0) dominate the satisfied/required ratio
+    // while weakly-preferred ones (e.g. kitchen↔corridor 0.3) shrink toward 0 —
+    // realising the strong adjacencies matters more, weak ones less. < 1 flattens
+    // toward equal weighting (relaxed). Pure re-weighting of the EXISTING substrate
+    // (`preferenceBetween`); no new rule set.
+    adjacencyStrictness: number | undefined = undefined,
 ): ObjectiveVector {
     const spaces = graph.nodes.filter(n => n.kind === 'Space');
     const totalArea = spaces.reduce((s, n) => s + num(n.attrs.netAreaM2), 0);
@@ -344,12 +353,21 @@ export function computeObjectives(
     const typeBySource = new Map(bubble.rooms.map(r => [r.id, r.type]));
     const connectsThrough = new Set(graph.edges.filter(e => e.kind === 'CONNECTS_THROUGH').map(e => pairKey(e.from, e.to)));
     const permeableOpen = new Set(graph.edges.filter(e => e.kind === 'ADJACENT_TO' && e.props?.permeable === true).map(e => pairKey(e.from, e.to)));
+    // A.25.3 — adjacency strictness exponent. 1.0 (or absent / non-finite) is
+    // identity (the legacy linear preference weighting). Clamped to a sane band.
+    const strictness = typeof adjacencyStrictness === 'number' && Number.isFinite(adjacencyStrictness)
+        ? Math.max(0.25, Math.min(4, adjacencyStrictness))
+        : 1;
     let requiredW = 0, satisfiedW = 0;
     for (const e of bubble.edges) {
         const ga = guidOf.get(e.a), gb = guidOf.get(e.b);
         if (!ga || !gb) continue;
         const tA = typeBySource.get(e.a), tB = typeBySource.get(e.b);
-        const w = (tA && tB) ? preferenceBetween(tA, tB) : 1.0;
+        const pref = (tA && tB) ? preferenceBetween(tA, tB) : 1.0;
+        // Raise the preference to the strictness power: at strictness 1 this is the
+        // linear weight (identity); > 1 sharpens (weak adjacencies shrink toward 0
+        // so realising the strong ones dominates the score), < 1 flattens.
+        const w = strictness === 1 ? pref : Math.pow(pref, strictness);
         requiredW += w;
         const key = pairKey(ga, gb);
         if (e.via === 'door' ? connectsThrough.has(key) : permeableOpen.has(key)) satisfiedW += w;

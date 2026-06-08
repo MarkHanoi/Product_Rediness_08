@@ -1,6 +1,6 @@
 # ADR-0060 — Living Design Parameters bind to existing substrate, not a parallel scorer
 
-**Status:** Accepted (2026-06-06)
+**Status:** Accepted (2026-06-06); A.25.3 engine-tuning sliders shipped 2026-06-08
 **Tracker:** A.25 (typology block — "Living Design Parameters", master-execution-tracker)
 **Spec source:** [SPEC-LIVING-DESIGN-PARAMETERS.md](../../03-execution/specs/SPEC-LIVING-DESIGN-PARAMETERS.md)
 **Contract:** [C50-TYPOLOGY-PIPELINE.md](../contracts/C50-TYPOLOGY-PIPELINE.md) §2.6.5
@@ -97,6 +97,28 @@ Concretely:
 - [C50-TYPOLOGY-PIPELINE.md](../contracts/C50-TYPOLOGY-PIPELINE.md) §2.6.5 — the
   parameter-input principle (normative).
 
-A.25.3 (adjacency/accessibility/climate/space sliders → substrate) and A.25.4 (graph-linked
-"what changed + why") are tracked separately; this ADR governs the binding principle + the
-v1 substrate.
+## Implementation (A.25.3 — engine-tuning sliders, shipped 2026-06-08)
+
+The four remaining founder axes bind to NON-scoring engine inputs (still no parallel
+scorer; each re-runs the EXISTING deterministic engine with a tuned input):
+
+- `designParamsToScoringWeights.ts` — extends `DesignParams` with `adjacency`,
+  `accessibility`, `climate`, `space` (all default `0.5`) and adds the pure
+  `designParamsToEngineTuning(params): EngineTuning | null`. **Returns `null` when all
+  four are neutral** (identity — the engine then uses its built-in defaults, so the
+  output is byte-identical to the pre-A.25.3 baseline: the A.21.D18 Pareto-equality
+  invariant).
+- `types.ts` — new `EngineTuning` (`adjacencyStrictness` / `corridorWidthM` /
+  `solarWeight` / `spaceGenerosity`), each neutral value = the engine's existing
+  default constant. Threaded on `ApartmentGenerateLayoutPayload.tuning`.
+- Bindings (each re-uses existing substrate): **climate** → `runDeterministicLayout`
+  `solar.weight` (the D6 `SolarBias.weight`); **accessibility** → `subdivide`
+  `tryCarveCorridor` corridor strip width; **space** → `buildBubbleGraph`
+  habitable-room area-weight; **adjacency** → `computeObjectives` `adjacency` axis
+  (the `preferenceBetween` weight raised to the strictness power — sharpens
+  preferred/forbidden, no new rule set).
+- Editor: `activeDesignParams.getActiveEngineTuning()` + `gatherLayoutPayload` set
+  `payload.tuning`; `DesignParamsPanel` adds the four sliders. Same §11 trigger.
+
+A.25.4 (graph-linked "what changed + why") is tracked separately; this ADR governs
+the binding principle + the v1 + A.25.3 substrate.

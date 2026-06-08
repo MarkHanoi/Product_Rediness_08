@@ -79,6 +79,11 @@ export interface SubdivideOptions {
     /** Default true. Set false to preserve raw squarified output (scoring-form
      *  alignmentField will then evaluate the un-snapped layout, as before). */
     readonly alignmentSnap?: boolean;
+    /** A.25.3 — corridor strip clear-width (metres) for the §SINGLE-RECT-CARVE
+     *  flow. Absent ⇒ the built-in `CORRIDOR_STRIP_WIDTH_M` (1.2 m). The
+     *  accessibility slider raises it (wider, step-free corridors). Clamped to a
+     *  sane band. Neutral 1.2 m is byte-identical to the legacy carve. */
+    readonly corridorWidthM?: number;
 }
 
 /** Axis-line snap tolerance (m). Matches the EPS_M used by the SCORING
@@ -396,15 +401,18 @@ function tryCarveCorridor(
     shell: Rect,
     publicAreaTarget: number,
     privateAreaTarget: number,
+    // A.25.3 — corridor strip width (m). Defaults to the architect-mandated 1.2 m
+    // so an absent/neutral accessibility slider is byte-identical to the legacy carve.
+    corridorWidthM: number = CORRIDOR_STRIP_WIDTH_M,
 ): CorridorCarve | null {
     const W = shell.x1 - shell.x0;
     const H = shell.z1 - shell.z0;
     const orientation: 'horizontal' | 'vertical' = W >= H ? 'horizontal' : 'vertical';
     const shortDim = orientation === 'horizontal' ? H : W;
     const MIN_ZONE_DEPTH = 2.0;
-    if (shortDim < CORRIDOR_STRIP_WIDTH_M + 2 * MIN_ZONE_DEPTH - EPS) return null;
+    if (shortDim < corridorWidthM + 2 * MIN_ZONE_DEPTH - EPS) return null;
 
-    const usable = shortDim - CORRIDOR_STRIP_WIDTH_M;
+    const usable = shortDim - corridorWidthM;
     const denom = Math.max(EPS, publicAreaTarget + privateAreaTarget);
     let publicDepth = usable * (publicAreaTarget / denom);
     // Clamp so both zones keep a usable depth.
@@ -412,7 +420,7 @@ function tryCarveCorridor(
 
     if (orientation === 'horizontal') {
         const zPubBottom = shell.z0 + publicDepth;
-        const zCorBottom = zPubBottom + CORRIDOR_STRIP_WIDTH_M;
+        const zCorBottom = zPubBottom + corridorWidthM;
         return {
             publicRect:   { x0: shell.x0, z0: shell.z0,    x1: shell.x1, z1: zPubBottom },
             corridorRect: { x0: shell.x0, z0: zPubBottom,  x1: shell.x1, z1: zCorBottom },
@@ -420,7 +428,7 @@ function tryCarveCorridor(
         };
     } else {
         const xPubRight = shell.x0 + publicDepth;
-        const xCorRight = xPubRight + CORRIDOR_STRIP_WIDTH_M;
+        const xCorRight = xPubRight + corridorWidthM;
         return {
             publicRect:   { x0: shell.x0,   z0: shell.z0, x1: xPubRight, z1: shell.z1 },
             corridorRect: { x0: xPubRight,  z0: shell.z0, x1: xCorRight, z1: shell.z1 },
@@ -499,7 +507,7 @@ function tryCarveEnsuiteFromMaster(
 /** Single-rect carve flow: returns the placements (corridor + public + private,
  *  with ensuite carved from master) + the structured drop report. Returns null
  *  when the carve can't fit (caller falls back to the whole-shell squarify). */
-function trySingleRectCarve(shell: Rect, graph: BubbleGraph): SubdivideResult | null {
+function trySingleRectCarve(shell: Rect, graph: BubbleGraph, corridorWidthM?: number): SubdivideResult | null {
     const corridor = graph.rooms.find(r => r.type === 'corridor');
     const master   = graph.rooms.find(r => r.type === 'master');
     const ensuite  = graph.rooms.find(r => r.type === 'ensuite');
@@ -532,7 +540,7 @@ function trySingleRectCarve(shell: Rect, graph: BubbleGraph): SubdivideResult | 
 
     const publicAreaTarget  = publicRooms.reduce((s, r) => s + r.targetAreaM2, 0);
     const privateAreaTarget = privateRooms.reduce((s, r) => s + r.targetAreaM2, 0);
-    const carve = tryCarveCorridor(shell, publicAreaTarget, privateAreaTarget);
+    const carve = tryCarveCorridor(shell, publicAreaTarget, privateAreaTarget, corridorWidthM);
     if (!carve) return null;
 
     const out: RoomPlacement[] = [];
@@ -689,6 +697,12 @@ export function subdivideWithReport(
     options: SubdivideOptions = {},
 ): SubdivideResult {
     const alignmentSnap = options.alignmentSnap ?? true;
+    // A.25.3 — corridor strip width override (accessibility slider). Clamp to a
+    // sane band; absent ⇒ undefined ⇒ the carve uses its built-in 1.2 m default
+    // (byte-identical to the legacy behaviour).
+    const corridorWidthM = typeof options.corridorWidthM === 'number' && Number.isFinite(options.corridorWidthM)
+        ? Math.max(1.0, Math.min(2.0, options.corridorWidthM))
+        : undefined;
     const valid = rects.filter(r => rectArea(r) > EPS).sort(byAreaDesc);
     if (valid.length === 0 || graph.rooms.length === 0) return { placements: [], droppedRooms: [] };
 
@@ -699,7 +713,7 @@ export function subdivideWithReport(
 
     // §SINGLE-RECT-CARVE — single-rect shell with corridor + private rooms.
     if (valid.length === 1) {
-        const carved = trySingleRectCarve(valid[0]!, graph);
+        const carved = trySingleRectCarve(valid[0]!, graph, corridorWidthM);
         if (carved !== null) return finalise(carved);
     }
 

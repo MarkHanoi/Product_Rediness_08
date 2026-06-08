@@ -17,6 +17,7 @@ import type {
     ApartmentProgram,
     ScoringWeights,
     ScoredLayoutOption,
+    EngineTuning,
 } from './types.js';
 import type { ShellAnalysis } from './shellAnalysis.js';
 import { validateLayout } from './validate.js';
@@ -60,6 +61,11 @@ export interface GenerateLayoutInput {
      *  pure-length placement (no behaviour change). The editor reads it from
      *  `siteModelStore.getLocation().latitude`. */
     siteLatitudeDeg?: number;
+    /** A.25.3 — non-scoring engine-input tuning from the Living Design Parameter
+     *  sliders (adjacency / accessibility / climate / space). Forwarded to the
+     *  D-TGL offline engine; the AI path ignores it. Absent ⇒ engine defaults
+     *  (identity — byte-identical to pre-A.25.3 behaviour). */
+    tuning?: EngineTuning;
 }
 
 export interface GenerateLayoutResult {
@@ -219,6 +225,8 @@ export async function generateLayoutOptions(
             input.shell, input.program, input.constraints, input.weights, input.count,
             input.windowSpansWorld, input.doorSpansWorld,
             input.siteLatitudeDeg !== undefined ? { latDeg: input.siteLatitudeDeg } : undefined,
+            undefined, undefined,
+            input.tuning,
         );
         if (deterministic.length > 0) {
             return { options: deterministic, status: 'ok', attempts: attempt, reason: 'AI unavailable — deterministic D-TGL offline layout' };
@@ -303,6 +311,8 @@ export async function generateLayoutOptions(
                 input.shell, adjustedProgram, input.constraints, input.weights, input.count,
                 input.windowSpansWorld, input.doorSpansWorld,
                 input.siteLatitudeDeg !== undefined ? { latDeg: input.siteLatitudeDeg } : undefined,
+                undefined, undefined,
+                input.tuning,
             );
             if (dtgl2.length > 0) {
                 return {

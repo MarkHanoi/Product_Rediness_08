@@ -17,7 +17,7 @@ import {
 } from './layoutRequestPayload.js';
 import { resolveApartmentBrief } from './briefToProgram.js';
 import { getActiveBriefMetadata } from './activeBrief.js';
-import { getActiveScoringWeights } from './activeDesignParams.js';
+import { getActiveScoringWeights, getActiveEngineTuning } from './activeDesignParams.js';
 import { getCurrentSiteOrigin } from '../site/siteDispatch.js';
 
 interface WallRecord {
@@ -133,6 +133,13 @@ export function gatherLayoutPayload(
     if (origin && Number.isFinite(origin.lat) && (origin.lat !== 0 || origin.lon !== 0)) {
         payload.siteLatitudeDeg = origin.lat;
     }
+
+    // A.25.3 — stamp the non-scoring engine tuning (adjacency / accessibility /
+    // climate / space sliders) so the D-TGL engine RE-RUNS with the user's
+    // priorities. Null ⇒ those four sliders are at the neutral midpoint (identity)
+    // ⇒ omitted ⇒ the engine uses its defaults (byte-identical baseline).
+    const tuning = getActiveEngineTuning();
+    if (tuning) payload.tuning = tuning;
 
     return payload;
 }

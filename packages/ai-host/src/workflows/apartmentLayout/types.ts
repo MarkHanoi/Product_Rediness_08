@@ -150,6 +150,33 @@ export interface ScoringWeights {
     corridorEfficiency: number;
 }
 
+/**
+ * A.25.3 — non-scoring engine-input tuning derived from the Living Design
+ * Parameter sliders that DON'T map to a `ScoringWeights` axis. Each field binds
+ * to an existing engine substrate (ADR-0060: bind, don't fork) and re-runs the
+ * deterministic engine differently. Every field's NEUTRAL value reproduces the
+ * legacy engine constant exactly, so a centred slider is identity.
+ *
+ * Threaded (when present) from the payload → `generateLayoutOptions` →
+ * `generateDeterministicLayouts` → `enumerateLayouts`. ABSENT (undefined) ⇒ the
+ * engine uses its built-in defaults — byte-identical to the pre-A.25.3 baseline.
+ */
+export interface EngineTuning {
+    /** Program-rules adjacency strictness multiplier (neutral 1.0). > 1 rewards
+     *  preferred adjacencies harder + penalises low-preference / forbidden ones
+     *  more; < 1 relaxes. Feeds `computeObjectives` (the `adjacency` axis). */
+    adjacencyStrictness?: number;
+    /** Corridor clear-width (metres, neutral 1.2 = engine default). Feeds the
+     *  subdivider's corridor strip — wider when accessibility is high. */
+    corridorWidthM?: number;
+    /** D6 `SolarBias.weight` ∈ [0,1] (neutral 0.6 = D6 default). Feeds the
+     *  climate-driven window-orientation pass. */
+    solarWeight?: number;
+    /** Habitable-room area-weight multiplier (neutral 1.0). > 1 grows
+     *  living/bedroom areas; feeds the bubble-graph allocator. */
+    spaceGenerosity?: number;
+}
+
 export interface ValidationResult {
     valid: boolean;
     /** Human-readable reasons; fed back into the retry prompt (§10). */
@@ -279,5 +306,9 @@ export interface ApartmentGenerateLayoutPayload {
     program: ApartmentProgram;
     constraints: ApartmentConstraints;
     options: { count: number; scoringWeights: ScoringWeights };
+    /** A.25.3 — non-scoring engine-input tuning from the Living Design Parameter
+     *  sliders (adjacency / accessibility / climate / space). Omitted ⇒ engine
+     *  defaults (identity). Set by `gatherLayoutPayload` from the active sliders. */
+    tuning?: EngineTuning;
 }
 
