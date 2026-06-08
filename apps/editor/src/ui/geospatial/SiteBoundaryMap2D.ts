@@ -340,7 +340,7 @@ export function mountSiteBoundaryMap2D(
     } satisfies Partial<CSSStyleDeclaration>);
     const orthoBox = document.createElement('input');
     orthoBox.type = 'checkbox';
-    orthoBox.checked = orthoEnabled;
+    orthoBox.checked = true;   // default ON (matches `orthoEnabled` initial value, declared below)
     orthoBox.setAttribute('aria-label', 'Lock new edges orthogonal to the previous edge');
     Object.assign(orthoBox.style, {
         width: '15px',
