@@ -2435,20 +2435,44 @@ export class CesiumViewport {
     if (!viewer) return;
     const scene = viewer.scene;
 
-    // Sample point = boundary centroid (lat/lon) when drawn, else the origin —
-    // the SAME anchor logic as the terrain clamp so both paths agree.
+    // §GIS-LOC (2026-06-08) — GROUND-height sampling that rejects tile-building roofs.
+    //
+    // THE BUG: `sampleHeightMostDetailed` raycasts the LOADED photoreal tilesets, which
+    // include the surrounding REAL buildings. Sampling a SINGLE point (the boundary
+    // centroid) in a dense city very often lands on an existing building's ROOF, so the
+    // "ground" height came back as a ROOFTOP (~15–20 m) and the house floated up there
+    // (founder screenshots: house at neighbour-rooftop height, while Forma — which uses
+    // a FLAT base 0 — was correctly seated).
+    //
+    // THE FIX: sample height at MANY points across the plot — the centroid PLUS every
+    // boundary vertex — and take the MINIMUM finite height. A building roof is always
+    // ABOVE the ground it stands on, so the minimum over a plot's footprint reliably
+    // recovers the real ground/street height even when the centroid itself is occluded
+    // by a tile building. On a clear, flat plot every sample agrees → identical to the
+    // old single-point clamp. The representative `sampleLat/Lon` (centroid) is kept for
+    // the log + `formaTerrainSampledAt` change-detection.
     let sampleLat = input.originLat;
     let sampleLon = input.originLon;
+    const samplePts: { lat: number; lon: number }[] = [];
     if (input.boundary && input.boundary.length >= 3) {
-      const c = this.polygonCentroidAndAreaXZ(input.boundary);
       const originCartesian = Cesium.Cartesian3.fromDegrees(input.originLon, input.originLat, 0);
       const enu = Cesium.Transforms.eastNorthUpToFixedFrame(originCartesian);
-      const centroidCartesian = Cesium.Matrix4.multiplyByPoint(
-        enu, new Cesium.Cartesian3(c.east, c.north, 0), new Cesium.Cartesian3(),
-      );
-      const carto = Cesium.Cartographic.fromCartesian(centroidCartesian);
-      sampleLat = Cesium.Math.toDegrees(carto.latitude);
-      sampleLon = Cesium.Math.toDegrees(carto.longitude);
+      // scene-XZ → ENU(east = x, north = −z) → lat/lon, matching the massing placement.
+      const enuToLatLon = (east: number, north: number): { lat: number; lon: number } => {
+        const cart = Cesium.Matrix4.multiplyByPoint(
+          enu, new Cesium.Cartesian3(east, north, 0), new Cesium.Cartesian3(),
+        );
+        const cg = Cesium.Cartographic.fromCartesian(cart);
+        return { lat: Cesium.Math.toDegrees(cg.latitude), lon: Cesium.Math.toDegrees(cg.longitude) };
+      };
+      const c = this.polygonCentroidAndAreaXZ(input.boundary);
+      const centroidLL = enuToLatLon(c.east, c.north);
+      sampleLat = centroidLL.lat;
+      sampleLon = centroidLL.lon;
+      samplePts.push(centroidLL);
+      for (const p of input.boundary) samplePts.push(enuToLatLon(p.x, -p.z));
+    } else {
+      samplePts.push({ lat: sampleLat, lon: sampleLon });
     }
 
     // sampleHeightMostDetailed raycasts the loaded tilesets (and terrain). It is
@@ -2464,10 +2488,16 @@ export class CesiumViewport {
     const myToken = ++this.formaTerrainToken;
     let sampledHeight: number | null = null;
     try {
-      const carto = Cesium.Cartographic.fromDegrees(sampleLon, sampleLat);
-      const [result] = await sampleFn.call(scene, [carto]);
-      const h = result?.height;
-      if (typeof h === 'number' && Number.isFinite(h)) sampledHeight = h;
+      const cartos = samplePts.map((s) => Cesium.Cartographic.fromDegrees(s.lon, s.lat));
+      const results = await sampleFn.call(scene, cartos);
+      // §GIS-LOC — MIN over all plot samples = the ground (roofs are higher). Ignore
+      // non-finite samples (points where no tile/terrain was hit).
+      for (const r of results) {
+        const h = r?.height;
+        if (typeof h === 'number' && Number.isFinite(h)) {
+          sampledHeight = sampledHeight === null ? h : Math.min(sampledHeight, h);
+        }
+      }
     } catch (e) {
       this.warnTerrainOnce('scene.sampleHeightMostDetailed rejected — building stays at base 0 on the globe: ' + String(e));
       return;
