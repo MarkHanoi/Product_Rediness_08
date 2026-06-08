@@ -125,6 +125,11 @@ export const PRIORITY_BAND: Readonly<Record<PriorityCategory, number>> = {
  */
 export const AXIS_PRIORITY: Readonly<Partial<Record<keyof ObjectiveVector, PriorityCategory>>> = {
     daylight: 'site-fixed',
+    // §A.21.D55 — daylightReach rides the same site-fixed (orientation/daylight)
+    // priority band as `daylight` / `facadeAlignment` / `solarOrientation`: all
+    // express the maximise-daylight intent (driver 1). Same constant multiplier
+    // for every candidate ⇒ rank-invisible when the axis is neutral (baseline-safe).
+    daylightReach: 'site-fixed',
     facadeAlignment: 'site-fixed',
     solarOrientation: 'site-fixed',
     circulation: 'site-fixed',

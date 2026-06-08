@@ -16,6 +16,7 @@ import type { LayoutOption, LayoutRoom, RoomType } from '../types.js';
 import type { GraphNode, LayoutGraph } from './semanticGraph.js';
 import { occupancyOf } from '../rules/programRules.js';
 import { emitWindowsForRoom } from '../windowEmission/emitWindows.js';
+import { isWindowable } from '../windowEmission/types.js';
 import type { ExternalWallSegment, OccupiedSpan, PartitionJunction } from '../windowEmission/types.js';
 
 export interface EmittedLayout {
@@ -101,9 +102,13 @@ export function emitGeometry(graph: LayoutGraph, opts?: EmitGeometryOpts): Emitt
     const spaceGuids: string[] = [];
     for (const n of spaceNodes) {
         spaceGuids.push(n.guid);
-        const needsWindow = n.attrs.needsWindow === true;
         const { cx, cz } = polyCentroid(n);
         const spaceType = str(n.attrs.spaceType, 'utility');
+        // A.21.D55 — the modal `windowCount` flag tracks whether a room WILL receive a
+        // window. A room gets one when it is windowable (habitable OR wet) AND fronts a
+        // façade — matching the emission gate below. (Was `needsWindow && frontsFacade`,
+        // which under-reported the wet rooms that now get daylight.)
+        const willGetWindow = isWindowable(spaceType as RoomType) && frontsFacade.has(n.guid);
         const polyM = n.geometry?.polygon ?? [];
         // mm-projected polygon (plan-y = world-z). Empty when the space has no
         // geometry (shouldn't happen in production but keeps the type honest).
@@ -112,7 +117,7 @@ export function emitGeometry(graph: LayoutGraph, opts?: EmitGeometryOpts): Emitt
             name: str(n.attrs.name, n.sourceId),
             type: (spaceType as RoomType),
             area: num(n.attrs.netAreaM2),
-            windowCount: needsWindow && frontsFacade.has(n.guid) ? 1 : 0,
+            windowCount: willGetWindow ? 1 : 0,
             hasDirectAccess: (permeable.get(n.guid)?.size ?? 0) > 0,
             adjacentTo: [...(neighbours.get(n.guid) ?? [])].map(g => nameByGuid.get(g) ?? g).sort(),
             centroid: { x: mm(cx), y: mm(cz) },
@@ -239,10 +244,21 @@ export function emitGeometry(graph: LayoutGraph, opts?: EmitGeometryOpts): Emitt
 
     const windows: LayoutOption['windows'] = [];
     for (const n of spaceNodes) {
-        if (n.attrs.needsWindow !== true) continue;
+        const rt = (str(n.attrs.spaceType, 'utility') as RoomType);
+        // A.21.D55 — DAYLIGHT IN EVERY ROOM. Emit a window for EVERY windowable
+        // room that has external frontage — not just the `needsWindow` habitable
+        // set. Previously this gated on `needsWindow === true`, which is FALSE for
+        // the wet rooms (bathroom / ensuite / wc), so a bathroom/ensuite/wc with
+        // external frontage emitted ZERO windows even though the founder rule wants
+        // daylight in ALL rooms when possible. `isWindowable` adds exactly those wet
+        // rooms; the emission engine already gives them privacy specs (1700 mm sill)
+        // and the per-room type resolver gives them obscure/uPVC glazing. Non-
+        // windowable rooms (hall / corridor / utility) still emit nothing (the
+        // engine returns [] for them), so the only behaviour change is wet-room
+        // windows — every previously-emitting room is byte-identical.
+        if (!isWindowable(rt)) continue;
         const externals = externalWallsBySpace.get(n.guid) ?? [];
         if (externals.length === 0) continue;
-        const rt = (str(n.attrs.spaceType, 'utility') as RoomType);
         const roomName = str(n.attrs.name, n.sourceId);
         // A.21.D6 — per-room climate bias: the room centroid (emit-frame mm) orients
         // each wall's outward normal; the caller-supplied sunDir tilts the choice

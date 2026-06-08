@@ -85,18 +85,40 @@ describe('T2.5 — validateFrontage', () => {
         expect(result.softFindings[0]!.metric).toBe('frontagePreferred');
     });
 
-    it("rooms with frontage 'none' (corridor / bathroom / wc) are skipped entirely", () => {
+    it("rooms with frontage 'none' (corridor / hall / utility) are skipped entirely", () => {
         const result = validateFrontage({
             shellPolygon: SHELL,
             rooms: [
-                r('cor', 'corridor', 4, 4, 8, 6),    // interior — not flagged
-                r('bat', 'bathroom', 4, 6, 6, 8),    // interior — not flagged
-                r('wc',  'wc',       6, 6, 7, 8),    // interior — not flagged
+                r('cor', 'corridor', 4, 4, 8, 6),    // interior — frontage 'none', not flagged
+                r('hal', 'hall',     4, 6, 6, 8),    // interior — frontage 'none', not flagged
+                r('uti', 'utility',  6, 6, 7, 8),    // interior — frontage 'none', not flagged
             ],
         });
         expect(result.admissible).toBe(true);
         expect(result.hardFindings).toEqual([]);
         expect(result.softFindings).toEqual([]);
+    });
+
+    // §A.21.D55 — DAYLIGHT IN EVERY ROOM. The wet rooms (bathroom / ensuite / wc)
+    // were promoted from frontage 'none' → 'preferred': a window in a wet room is
+    // desirable (obscure-glazed) where the plate allows, so a fully-interior wet
+    // room is now a SOFT penalty (the ranker nudges toward fronting it), but it is
+    // NEVER a hard reject — a small internal bath/wc is still a legal last resort.
+    it("interior wet rooms (bathroom / ensuite / wc) → SOFT penalty, still admissible", () => {
+        const result = validateFrontage({
+            shellPolygon: SHELL,
+            rooms: [
+                r('liv', 'living',  0, 0, 6, 4),     // on façade — OK
+                r('bat', 'bathroom', 4, 5, 6, 7),    // FULLY INTERIOR; now 'preferred'
+                r('ens', 'ensuite',  6, 5, 8, 7),    // FULLY INTERIOR; now 'preferred'
+                r('wc',  'wc',       8, 5, 9, 7),    // FULLY INTERIOR; now 'preferred'
+            ],
+        });
+        expect(result.admissible).toBe(true);              // soft-only, never hard
+        expect(result.hardFindings).toEqual([]);
+        expect(result.softFindings).toHaveLength(3);
+        expect(result.softFindings.every(f => f.metric === 'frontagePreferred')).toBe(true);
+        expect(result.softFindings.map(f => f.roomId).sort()).toEqual(['bat', 'ens', 'wc']);
     });
 
     it('empty room list / degenerate shell → admissible no-op', () => {
