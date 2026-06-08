@@ -80,6 +80,9 @@ Other options + why we rejected each.
 | 0008 | [Wall handler triage](./0008-wall-handler-triage.md) | Accepted | — | — |
 | 0009 | [Producer pure function signature](./0009-producer-pure-function-signature.md) | Accepted | — | — |
 | 0010 + | (full list — see `ls 00*.md`) | | | |
+| 0058 | [Unified Building Graph](./0058-unified-building-graph.md) | Accepted | — | 2026-06-03 |
+| 0060 | [Living Design Parameters bind to substrate](./0060-living-design-parameters.md) | Accepted | — | 2026-06-06 |
+| 0061 | [Building graph is a bidirectional edit substrate](./0061-building-graph-bidirectional-edit-substrate.md) | PROPOSED | — | 2026-06-08 |
 
 ### Strategic ADRs (3-digit `ADR-NNN-*.md`)
 
