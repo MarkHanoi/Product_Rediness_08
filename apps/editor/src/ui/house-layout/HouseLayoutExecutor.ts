@@ -26,7 +26,7 @@
 // tgl convention — spans live at the AiPlane boundary, not in this offline
 // deterministic path; the apartment executor likewise adds none).
 
-import { batchCoordinator, storeRegistry } from '@pryzm/core-app-model';
+import { batchCoordinator, storeRegistry, viewDefinitionStore } from '@pryzm/core-app-model';
 import { createId } from '@pryzm/schemas';
 import {
     AddLevelCommand,
@@ -509,6 +509,36 @@ export class HouseLayoutExecutor {
             // so execute() still returns promptly (the toast/result aren't blocked).
             // ──────────────────────────────────────────────────────────────────────
             void this._finishOpenings(perStorey, entranceDoor).then(async () => {
+                // §FLR-VIEWS (2026-06-08) — auto-create one "Floor Plans" ViewDefinition
+                // per GENERATED upper storey. DefaultViewsManager already seeds the ground
+                // plan view (id `vd-sys-plan-l0`, spatial.levelId 'L0'), so upper storeys
+                // built here got NO plan view → the panel listed only "Ground Floor". We
+                // dispatch the SAME P6 bus command the Views rail uses (view.createDefinition
+                // → CreateViewDefinitionCommand), one per storey, skipping (a) the ground
+                // storey (storeyIndex 0) and (b) any level that ALREADY has a plan view
+                // (re-generate dedupe). Runs after the levels exist + the openings batch
+                // drained, so the views reference real levels. Single-storey/apartment →
+                // only storeyIndex 0 → zero views created → byte-identical.
+                for (const storey of result.storeys) {
+                    if (storey.storeyIndex === 0) continue; // ground = vd-sys-plan-l0
+                    const hasPlan = viewDefinitionStore
+                        .getByLevel(storey.levelId)
+                        .some(v => v.viewType === 'plan');
+                    if (hasPlan) continue;                  // already has a plan view (re-generate)
+                    const name = `Level ${storey.storeyIndex.toString().padStart(2, '0')}`;
+                    try {
+                        runtime.bus.executeCommand('view.createDefinition', {
+                            id:       `vd-plan-${storey.levelId}`,
+                            name,
+                            viewType: 'plan',
+                            spatial:  { levelId: storey.levelId },
+                        });
+                        console.log('[house-layout] §FLR-VIEWS created plan view', name, 'for', storey.levelId);
+                    } catch (e) {
+                        console.warn('[house-layout] §FLR-VIEWS plan view create failed for', storey.levelId, e);
+                    }
+                }
+
                 // §A.21.D25 — NAME + occupancy-tag the rooms PER STOREY, sequenced
                 // INSIDE the finish chain (right before each storey is furnished),
                 // not all up-front with one flat wait. Floor/ceiling/furnish/light

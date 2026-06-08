@@ -274,8 +274,12 @@ export function generateHouseLayoutOptions(
         });
 
         // Aggregate score = mean of the chosen per-storey option scores (0-100).
-        // A storey with no option contributes nothing (skipped in the mean).
-        const scored = result.perStoreyLayout;
+        // perStoreyLayout is now strictly index-aligned with storeys (HSE-AUDIT-1), so
+        // blank storeys appear as null placeholders — filter them so a blank plate
+        // contributes nothing AND the divisor stays the count of real options.
+        const scored = result.perStoreyLayout.filter(
+            (o): o is ScoredLayoutOption => o != null,
+        );
         const overallScore = scored.length > 0
             ? Math.round(scored.reduce((s, o) => s + (o.score?.overall ?? 0), 0) / scored.length)
             : 0;
@@ -508,7 +512,7 @@ function assembleHouse(
     const { footprint, core, coreRect, totalRisers, floorToFloorM, baseElevationM, levelIdForStorey, roofKind, principalAxisRad, pivot } = h;
 
     const storeys: StoreyPlate[] = [];
-    const perStoreyLayout: ScoredLayoutOption[] = [];
+    const perStoreyLayout: (ScoredLayoutOption | null)[] = [];
 
     for (const sp of h.perStorey) {
         const i = sp.storeyIndex;
@@ -516,10 +520,14 @@ function assembleHouse(
         const elevationM = r3(baseElevationM + i * floorToFloorM);
 
         // option[selected] (best-first by default). If the plate can't be
-        // decomposed the engine returned [] → null → we still record a storey so
-        // the stack + the per-storey arrays stay index-aligned.
+        // decomposed the engine returned [] → null. We push the option (or a null
+        // placeholder) for EVERY storey so perStoreyLayout[i] is always the option
+        // for storeys[i] — STRICT index alignment (HSE-AUDIT-1: a blank middle storey
+        // used to compact the array and mis-pair every later storey the executor reads
+        // positionally). Consumers that read positionally null-guard each slot; the
+        // aggregate-score mean filters the nulls.
         const chosen = select(i, sp.options);
-        if (chosen) perStoreyLayout.push(chosen);
+        perStoreyLayout.push(chosen);
 
         storeys.push({
             levelId,

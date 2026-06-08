@@ -89,29 +89,22 @@ function buildStoreySummary(option: ScoredLayoutOption, storeyIndex: number): St
 
 /**
  * Build the card view-model for one whole-house variant at `index` (0-based).
- * Pure. Aligns each chosen `perStoreyLayout[i]` option to its storey via the
- * matching `storeys[i].storeyIndex` (the result keeps both arrays index-aligned
- * for storeys that produced an option; storeys whose plate was empty are dropped
- * from `perStoreyLayout` — we render only the storeys that have a real layout).
+ * Pure. `perStoreyLayout` is STRICTLY index-aligned with `storeys` (HSE-AUDIT-1):
+ * `perStoreyLayout[i]` is the option for `storeys[i]`, or `null` for a blank plate.
+ * We zip the two positionally and render only the storeys that have a real layout.
  */
 export function buildHouseCardModel(houseOption: ScoredHouseLayoutOption, index: number): HouseCardModel {
     const result = houseOption.result;
     const storeys: StoreyCardSummary[] = [];
-    // Map each storey-plate (in stack order) to its chosen option. The engine
-    // pushes one entry to perStoreyLayout per storey that produced a layout, in
-    // storey order — so a positional zip across the NON-empty storeys is correct.
-    // We re-derive the storeyIndex from the plate stack to keep labels accurate
-    // even if a lower storey produced no option.
+    // Positional zip: perStoreyLayout[i] is the option for storeys[i] (or null for a
+    // blank plate). Skip the null slots; keep storeyIndex from the plate so the labels
+    // stay accurate even when a lower storey produced no option.
     const chosen = result.perStoreyLayout ?? [];
-    let optionCursor = 0;
-    for (const plate of result.storeys ?? []) {
-        // Each plate in stack order consumes the next chosen option IF its plate
-        // produced one. The engine only pushes options for non-empty plates, in
-        // the same stack order, so the cursor stays aligned.
-        const opt = chosen[optionCursor];
+    const plates = result.storeys ?? [];
+    for (let i = 0; i < plates.length; i++) {
+        const opt = chosen[i];
         if (opt) {
-            storeys.push(buildStoreySummary(opt, plate.storeyIndex));
-            optionCursor++;
+            storeys.push(buildStoreySummary(opt, plates[i]!.storeyIndex));
         }
     }
 

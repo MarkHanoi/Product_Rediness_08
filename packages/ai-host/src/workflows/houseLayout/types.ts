@@ -140,14 +140,17 @@ export interface RoofDescriptor {
 }
 
 /**
- * The full output of the storey orchestrator (§6). `perStoreyLayout[i]` is the
- * chosen `ScoredLayoutOption` for `storeys[i]` (option[0] per storey). For a
- * 1-storey house `stairs` and `voids` are empty (strict superset of today's
- * single-storey single-plate bridge).
+ * The full output of the storey orchestrator (§6). `perStoreyLayout` is STRICTLY
+ * index-aligned with `storeys`: `perStoreyLayout[i]` is the chosen
+ * `ScoredLayoutOption` for `storeys[i]`, or `null` if that storey's plate produced
+ * no layout (a blank/rejected plate). Always the same length as `storeys`, so a
+ * blank middle storey never desyncs the two arrays (HSE-AUDIT-1). Consumers that
+ * read positionally must null-guard each slot. For a 1-storey house `stairs` and
+ * `voids` are empty (strict superset of today's single-storey single-plate bridge).
  */
 export interface HouseLayoutResult {
     readonly storeys: StoreyPlate[];
-    readonly perStoreyLayout: ScoredLayoutOption[];
+    readonly perStoreyLayout: (ScoredLayoutOption | null)[];
     readonly stairs: StairCore[];
     readonly voids: SlabVoid[];
     readonly roof: RoofDescriptor;
