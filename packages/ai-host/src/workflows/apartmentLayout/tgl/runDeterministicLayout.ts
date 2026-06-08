@@ -7,7 +7,7 @@
 // This REPLACES the strip-slicer `generateProceduralLayout` behind generate.ts's
 // opt-in fallback seam — same shape out, real architecture in. Pure + deterministic.
 
-import type { ApartmentConstraints, ApartmentProgram, ScoringWeights, ScoredLayoutOption, LayoutOption } from '../types.js';
+import type { ApartmentConstraints, ApartmentProgram, ScoringWeights, ScoredLayoutOption, LayoutOption, EngineTuning } from '../types.js';
 import type { ShellAnalysis } from '../shellAnalysis.js';
 import { scoreLayout } from '../score.js';
 import { enumerateLayouts } from './enumerate.js';
@@ -105,6 +105,10 @@ export function generateDeterministicLayouts(
     // room/partition crosses the stair (SPEC-CASA §7). Absent ⇒ apartment path is
     // bit-identical.
     keepOutRectsWorld?: ReadonlyArray<{ x0: number; z0: number; x1: number; z1: number }>,
+    // A.25.3 — OPTIONAL Living-Design-Parameter engine tuning (adjacency strictness /
+    // corridor width / solar weight / habitable-area generosity). Absent ⇒ engine
+    // defaults — byte-identical to the pre-A.25.3 baseline (Pareto-equality invariant).
+    tuning?: EngineTuning,
 ): ScoredLayoutOption[] {
     const perimeter = shell.perimeter as Pt[];
     if (!perimeter || perimeter.length < 3) return [];
@@ -128,8 +132,13 @@ export function generateDeterministicLayouts(
     const emitSun = worldSun
         ? (() => { const r = rotatePt({ x: worldSun.x, z: worldSun.y }, -angle, { x: 0, z: 0 }); return { x: r.x, y: r.z }; })()
         : null;
+    // A.25.3 — the climate slider drives the D6 SolarBias.weight. When the tuning
+    // supplies one it OVERRIDES the caller's solar.weight; otherwise the existing
+    // value (or the D6 default 0.6 inside the emitter) stands — identity when
+    // climate is centred (tuning is null).
+    const effectiveSolarWeight = tuning?.solarWeight ?? solar?.weight;
     const emitOpts = emitSun
-        ? { solar: { sunDir: emitSun, ...(solar?.weight !== undefined ? { weight: solar.weight } : {}), ...(solar?.latDeg !== undefined ? { latDeg: solar.latDeg } : {}) } }
+        ? { solar: { sunDir: emitSun, ...(effectiveSolarWeight !== undefined ? { weight: effectiveSolarWeight } : {}), ...(solar?.latDeg !== undefined ? { latDeg: solar.latDeg } : {}) } }
         : undefined;
 
     // Forward map (world → axis-aligned frame): rotate by −angle about the centroid.
@@ -178,6 +187,13 @@ export function generateDeterministicLayouts(
         // daytime rooms toward the sun face. Reuses the SAME `solar.latDeg` the
         // window-orientation pass (A.21.D6) already consumes. Absent ⇒ neutral axis.
         ...(solar && Number.isFinite(solar.latDeg) ? { solarLatDeg: solar.latDeg } : {}),
+        // A.25.3 — Living-Design-Parameter engine tuning (adjacency strictness /
+        // corridor width / habitable-area generosity). Each is absent unless the
+        // user moved its slider off the neutral midpoint (the tuning is null), so
+        // the default path is byte-identical (Pareto-equality invariant).
+        ...(tuning?.adjacencyStrictness !== undefined ? { adjacencyStrictness: tuning.adjacencyStrictness } : {}),
+        ...(tuning?.corridorWidthM !== undefined ? { corridorWidthM: tuning.corridorWidthM } : {}),
+        ...(tuning?.spaceGenerosity !== undefined ? { spaceGenerosity: tuning.spaceGenerosity } : {}),
     });
 
     return candidates.map(c => {

@@ -35,12 +35,21 @@ type Runtime = import('@pryzm/runtime-composer/types').PryzmRuntime | null;
  *  the generate pipeline — only the settled value re-runs generation. */
 const REGEN_DEBOUNCE_MS = 450;
 
-/** The four sliders, in render order. `key` indexes DesignParams. */
+/** The sliders, in render order. `key` indexes DesignParams. The first four
+ *  (A.25.1) re-rank the generated options via `ScoringWeights`; the last four
+ *  (A.25.3) RE-RUN the engine with tuned inputs (program-rules adjacency, corridor
+ *  width, the D6 solar weight, habitable-room area). Every neutral (50 %) slider
+ *  is identity. */
 const SLIDERS: ReadonlyArray<{ key: keyof DesignParams; label: string; hint: string }> = [
-    { key: 'daylight',    label: 'Daylight',        hint: 'favour windowed / sun-facing rooms' },
-    { key: 'privacy',     label: 'Privacy',         hint: 'bedrooms deep from the entrance' },
-    { key: 'kitchen',     label: 'Kitchen workflow', hint: 'kitchen next to dining + a window' },
-    { key: 'compactness', label: 'Compactness',     hint: 'minimise corridor / circulation' },
+    { key: 'daylight',      label: 'Daylight',         hint: 'favour windowed / sun-facing rooms' },
+    { key: 'privacy',       label: 'Privacy',          hint: 'bedrooms deep from the entrance' },
+    { key: 'kitchen',       label: 'Kitchen workflow', hint: 'kitchen next to dining + a window' },
+    { key: 'compactness',   label: 'Compactness',      hint: 'minimise corridor / circulation' },
+    // A.25.3 — these RE-RUN the deterministic engine with tuned inputs.
+    { key: 'adjacency',     label: 'Adjacency',        hint: 'how strictly preferred rooms cluster (and forbidden ones separate)' },
+    { key: 'accessibility', label: 'Accessibility',    hint: 'wider, step-free corridors' },
+    { key: 'climate',       label: 'Climate / sun',    hint: 'bias glazing toward the sun-facing façade' },
+    { key: 'space',         label: 'Space',            hint: 'larger living rooms & bedrooms' },
 ];
 
 // ── Module-load singleton state ───────────────────────────────────────────────

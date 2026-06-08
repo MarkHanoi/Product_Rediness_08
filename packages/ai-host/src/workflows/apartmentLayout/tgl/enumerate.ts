@@ -73,6 +73,19 @@ export interface EnumerateInput {
      *  equatorial ⇒ the axis is the neutral 1.0 for every candidate (rank-
      *  invisible), so the apartment/house path with no site data is byte-identical. */
     readonly solarLatDeg?: number;
+    /** A.25.3 — Living Design Parameter: program-rules adjacency strictness
+     *  multiplier (neutral 1.0). > 1 sharpens the preferred/forbidden adjacency
+     *  scoring (preferred rewarded harder, low-preference penalised more); < 1
+     *  relaxes. Threaded into `computeObjectives`. Absent ⇒ neutral 1.0. */
+    readonly adjacencyStrictness?: number;
+    /** A.25.3 — Living Design Parameter: corridor clear-width (metres, neutral
+     *  1.2 = engine default). Threaded into the subdivider's corridor strip so a
+     *  high accessibility slider widens the corridor. Absent ⇒ engine default. */
+    readonly corridorWidthM?: number;
+    /** A.25.3 — Living Design Parameter: habitable-room area-weight multiplier
+     *  (neutral 1.0). > 1 grows living/bedroom areas. Threaded into
+     *  `buildBubbleGraph`. Absent ⇒ neutral 1.0. */
+    readonly spaceGenerosity?: number;
 }
 
 export interface TglCandidate {
@@ -185,10 +198,20 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     // §L1-α-3 — pass shell polygon so the bubble graph carries a per-edge
     // FacadeValueField (env / facadeValueField.ts). No downstream consumer
     // today; ready for the next commit's façade-priority allocator.
-    const base = buildBubbleGraph(input.program, shellArea, input.shellPolygon);
+    // A.25.3 — the `space` slider modulates habitable-room area weights. Absent /
+    // neutral (1.0) ⇒ byte-identical bubble graph (Pareto-equality invariant).
+    const base = buildBubbleGraph(
+        input.program, shellArea, input.shellPolygon,
+        input.spaceGenerosity !== undefined ? { spaceGenerosity: input.spaceGenerosity } : undefined,
+    );
     const bubble: BubbleGraph = s.order === 'rev' ? { ...base, rooms: [...base.rooms].reverse() } : base;
 
-    const subRes = subdivideWithReport(rectsT, bubble);
+    // A.25.3 — the `accessibility` slider widens the corridor strip. Absent ⇒ the
+    // subdivider uses its built-in CORRIDOR_STRIP_WIDTH_M (1.2 m).
+    const subRes = subdivideWithReport(
+        rectsT, bubble,
+        input.corridorWidthM !== undefined ? { corridorWidthM: input.corridorWidthM } : {},
+    );
     const placementsT = subRes.placements;
     if (placementsT.length === 0) return null;
     // §FEASIBILITY-ALLOC (A.21.D5) — rooms the subdivider could not place at
@@ -345,7 +368,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     const metrics = computeSpaceSyntax(graph, entryGuid);
     // §ENV-E2-SOLAR (E.2) — thread the site latitude so the solarOrientation axis
     // biases daytime rooms toward the sun face. Undefined ⇒ neutral axis.
-    const objectives = computeObjectives(graph, metrics, bubble, shapeQuality, topologyQuality, input.solarLatDeg);
+    const objectives = computeObjectives(graph, metrics, bubble, shapeQuality, topologyQuality, input.solarLatDeg, input.adjacencyStrictness);
     // §CIRCULATION-REROUTE — a candidate is "circulation-routed" when every
     // private/service room opens onto the spine (the wallsAndDoors re-route pass
     // could place a circulation door for every such room). A non-empty

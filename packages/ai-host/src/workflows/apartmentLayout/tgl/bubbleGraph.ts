@@ -112,12 +112,28 @@ export function scaleProgramToShell(program: ApartmentProgram, shellAreaM2: numb
  * public-first (hall, living, kitchen, dining) → corridor → private (bedrooms,
  * ensuite, baths), which P3 uses to keep public space near the entrance.
  */
+/** A.25.3 — optional bubble-graph tuning from the Living Design Parameters. */
+export interface BubbleGraphOpts {
+    /** Habitable-room area-weight multiplier (neutral 1.0). > 1 grows
+     *  windowMandatory rooms (living / kitchen / master / bedroom / dining /
+     *  study) at the expense of the rest via the existing weighted share. The
+     *  `space` slider drives this. Absent / 1.0 ⇒ byte-identical allocation. */
+    readonly spaceGenerosity?: number;
+}
+
 export function buildBubbleGraph(
     rawProgram: ApartmentProgram,
     availableAreaM2: number,
     shellPolygon?: readonly Pt[],
+    opts?: BubbleGraphOpts,
 ): BubbleGraph {
     const program = scaleProgramToShell(rawProgram, availableAreaM2);
+    // A.25.3 — `space` slider: a >1 multiplier grows habitable rooms. Clamped to a
+    // sane band so the area arithmetic stays stable. Neutral (1.0) is identity.
+    const rawGen = opts?.spaceGenerosity;
+    const spaceGenerosity = typeof rawGen === 'number' && Number.isFinite(rawGen)
+        ? Math.max(0.5, Math.min(2.0, rawGen))
+        : 1.0;
     // §L1-α-3 — when the shell polygon is supplied, compute the per-edge
     // value field and attach to the returned BubbleGraph. Has NO downstream
     // consumer today (the next commit's allocator picks it up); the only
@@ -197,13 +213,20 @@ export function buildBubbleGraph(
         // Up to +20 % at peakFacadeValue = 1.
         return 1 + 0.2 * peakFacadeValue;
     };
+    // A.25.3 — `space` slider: scale the area weight of windowMandatory (habitable)
+    // rooms by `spaceGenerosity`. The weighted-share allocator then re-normalises,
+    // so a >1 multiplier grows the living/bedrooms and shrinks circulation/service
+    // (which stay at 1.0) — the visible "bigger living room" the slider promises.
+    // Neutral (1.0) leaves every weight unchanged ⇒ byte-identical.
+    const spaceWeightFactor = (type: RoomType): number =>
+        spaceGenerosity !== 1.0 && roomRule(type).windowMandatory ? spaceGenerosity : 1;
     const totalWeight = rooms.reduce(
-        (s, r) => s + roomRule(r.type).areaWeight * facadeWeightBonus(r.type), 0,
+        (s, r) => s + roomRule(r.type).areaWeight * facadeWeightBonus(r.type) * spaceWeightFactor(r.type), 0,
     ) || 1;
     const withAreas: ProgramRoom[] = rooms.map(r => {
         const rule = roomRule(r.type);
         const override = overrideForName(r.name) ?? overrideForType(r.type);
-        const effectiveWeight = rule.areaWeight * facadeWeightBonus(r.type);
+        const effectiveWeight = rule.areaWeight * facadeWeightBonus(r.type) * spaceWeightFactor(r.type);
         const raw = override ?? availableAreaM2 * (effectiveWeight / totalWeight);
         // §AREA-FRACTIONS (2026-05-29) — size-scaled clamps on top of the
         // proportional split + absolute minAreaM2:
