@@ -142,6 +142,31 @@ export interface RoomRule {
     readonly minShortSideM: number;
 
     /**
+     * §CORRIDOR-PHYSIOGNOMY (A.21.D46, 2026-06-08, re-done with the sealing fix) —
+     * MAX shortest plan dimension (m). A corridor is a RECTANGLE whose SHORT side
+     * is normally 0.9–1.2 m and whose LONG side is much larger. Without this cap a
+     * multi-rect / squarify path can hand the corridor a NEAR-SQUARE cell (e.g.
+     * 3 m × 3.5 m ≈ 10 m²) — a fat blob the founder reads as "a fat square
+     * corridor", not a circulation spine. Read by `subdivide.ts`'s
+     * `reshapeCorridorStrip` post-pass to narrow such a cell to a strip along its
+     * SHORT axis. Only the corridor declares it; `undefined` ⇒ no cap (every
+     * habitable room is uncapped — they WANT to be square-ish). */
+    readonly maxShortSideM?: number;
+
+    /**
+     * §CORRIDOR-PHYSIOGNOMY (A.21.D46) — the corridor's ADVISORY long-side band
+     * (m). minLongSideM is the §CIRCULATION floor (a real spine, not a stub);
+     * maxLongSideM is the founder's "≈2–6 m" target. CRITICAL (the 2026-06-08
+     * sealing-fix): maxLongSideM is BEST-EFFORT, NEVER enforced by shortening the
+     * spine — a corridor serving N rooms across the shell MUST stay long enough to
+     * share a wall with EVERY room it serves (the §EVERY-ROOM-ACCESS invariant).
+     * The reshape only narrows the SHORT axis (always safe); it never trims the
+     * long axis below the served-room span. `undefined` ⇒ no band (every other
+     * room type). Read by `subdivide.ts`. */
+    readonly minLongSideM?: number;
+    readonly maxLongSideM?: number;
+
+    /**
      * §AREA-FRACTIONS (2026-05-29, single-apartment-fix-pass-spec #3 +
      * program-rules-improvements-queue #3) — soft floor/ceiling on a room's
      * SHARE OF THE NET APARTMENT AREA. Both are clamps in the bubble graph
@@ -337,6 +362,22 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         // "corridor/hall combined ≤ 12 %"; hall is small so 10 + 2 % gives slack).
         areaWeight: 0.85, minAreaM2: 0, minShortSideM: 1.0, needsWindow: false, windowMandatory: false,
         maxAreaFrac: 0.10,
+        // §CORRIDOR-PHYSIOGNOMY (A.21.D46, 2026-06-08, re-done with the sealing fix;
+        // founder rule "a corridor is a RECTANGLE — one dimension 0.9–1.2 m, the
+        // OTHER ≈2–6 m"). The corridor must read as a NARROW STRIP, never a fat
+        // SQUARIFIED cell:
+        //   • maxShortSideM 1.2 — the strip's clear width is capped at the HQI
+        //     recommended 1.2 m (minShortSideM 1.0 m is the Part-M floor). The
+        //     §SINGLE-RECT carve already builds the corridor at this width; this cap
+        //     lets the reshape post-pass narrow a NEAR-SQUARE corridor (handed out by
+        //     the multi-rect / squarify path) back to a strip along its SHORT axis.
+        //   • minLongSideM 2.0 / maxLongSideM 6.0 — the ADVISORY long band. minLong is
+        //     the §CIRCULATION floor. maxLong is BEST-EFFORT only: the reshape NEVER
+        //     trims the long axis (that is what sealed the dining room in the reverted
+        //     5b472cfb attempt — a shortened spine lost a served room's shared wall).
+        //     The corridor stays as long as the rooms it serves require; the §EVERY-
+        //     ROOM-ACCESS invariant always wins over the cosmetic length cap.
+        maxShortSideM: 1.2, minLongSideM: 2.0, maxLongSideM: 6.0,
         accessFrom: ['hall', 'living', 'kitchen', 'dining', 'bedroom', 'master', 'bathroom', 'study', 'utility'], maxDoors: INF,
         // Corridor IS the private-zone spine — bedroom/master/bath off the corridor are
         // strongly preferred (1.0/0.9). Hall→corridor is the architectural entry point.

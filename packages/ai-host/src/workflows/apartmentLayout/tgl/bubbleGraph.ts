@@ -278,6 +278,15 @@ export function buildBubbleGraph(
         return { ...r, targetAreaM2 };
     });
 
+    // §CORRIDOR-PHYSIOGNOMY (A.21.D46, 2026-06-08) — the corridor's STRIP geometry is
+    // enforced DOWNSTREAM in the subdivider (the §SINGLE-RECT carve builds a 1.2 m
+    // strip; the `reshapeCorridorStrip` post-pass narrows a squarified corridor cell
+    // along its SHORT axis — never its length, so a room the spine serves keeps its
+    // shared wall). The area target here is intentionally LEFT as the weighted share:
+    // squarify rescales every target to fill the shell, so the corridor's final
+    // FOOTPRINT is the clamped strip regardless of this target, and leaving the
+    // target untouched preserves the well-tested §AREA-FRACTIONS allocation.
+
     // ── Edges (the bubble diagram).
     const edges: AdjacencyEdge[] = [];
     // Room-id → RoomType lookup so the §L3-γ-2 classifier can attach a

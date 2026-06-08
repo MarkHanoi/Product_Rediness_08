@@ -693,6 +693,164 @@ export function snapAxisLines(placements: readonly RoomPlacement[]): RoomPlaceme
     return out;
 }
 
+// ── §CORRIDOR-PHYSIOGNOMY (A.21.D46, 2026-06-08, re-done with the sealing fix) ──
+
+/** Two rects SHARE A WALL (a common axis-aligned edge of non-zero extent) when
+ *  they abut on one axis and OVERLAP on the other. This is the geometric
+ *  precondition for `wallsAndDoors` to host a door between two rooms — so it is
+ *  exactly the relation the sealing-safety check below must preserve. Pure. */
+function rectsShareWall(a: Rect, b: Rect): boolean {
+    // Vertical shared face: a.x1 ≈ b.x0 (or vice-versa) with z-overlap.
+    const vAbut =
+        (Math.abs(a.x1 - b.x0) < ALIGNMENT_SNAP_EPS_M || Math.abs(b.x1 - a.x0) < ALIGNMENT_SNAP_EPS_M);
+    const zOverlap = Math.min(a.z1, b.z1) - Math.max(a.z0, b.z0);
+    if (vAbut && zOverlap > ALIGNMENT_SNAP_EPS_M) return true;
+    // Horizontal shared face: a.z1 ≈ b.z0 (or vice-versa) with x-overlap.
+    const hAbut =
+        (Math.abs(a.z1 - b.z0) < ALIGNMENT_SNAP_EPS_M || Math.abs(b.z1 - a.z0) < ALIGNMENT_SNAP_EPS_M);
+    const xOverlap = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0);
+    if (hAbut && xOverlap > ALIGNMENT_SNAP_EPS_M) return true;
+    return false;
+}
+
+/** The set of room ids that share at least one wall with some OTHER placed room.
+ *  A room NOT in this set is an island — `wallsAndDoors` can hand it no door, so
+ *  it would be reported §SEALED. Used to validate that a corridor reshape never
+ *  turns a previously-connected room into an island. Pure + deterministic. */
+function roomsWithAnySharedWall(placements: readonly RoomPlacement[]): Set<string> {
+    const connected = new Set<string>();
+    for (let i = 0; i < placements.length; i++) {
+        for (let j = i + 1; j < placements.length; j++) {
+            if (rectsShareWall(placements[i]!.rect, placements[j]!.rect)) {
+                connected.add(placements[i]!.roomId);
+                connected.add(placements[j]!.roomId);
+            }
+        }
+    }
+    return connected;
+}
+
+/**
+ * §CORRIDOR-PHYSIOGNOMY (A.21.D46, 2026-06-08) — reshape the corridor placement
+ * into a NARROW STRIP whenever it came out wider than its rule's `maxShortSideM`.
+ * The multi-rect / squarify paths can hand the corridor a NEAR-SQUARE cell (a fat
+ * blob, e.g. 3 m × 3.5 m); the §SINGLE-RECT carve already builds a 1.2 m strip, so
+ * this is a NO-OP there. The corridor's cell is narrowed along its SHORT axis to
+ * `maxShortSideM`; the freed band is DONATED to the neighbour placement(s) that
+ * fully TILE the freed region's long edge (so no gap appears and the slack goes to
+ * a habitable room). When no neighbour set tiles it cleanly, the corridor keeps its
+ * original cell (defensive — never a gap / overlap). Deterministic + pure.
+ *
+ * CRITICAL (the sealing fix that distinguishes this from the reverted 5b472cfb):
+ * this ONLY ever narrows the SHORT axis and ONLY donates to neighbours that ALREADY
+ * abut the freed band — it never SHORTENS the corridor's long axis (the reverted
+ * attempt's `leftoverRect` length-trim stranded a served room). The caller
+ * additionally VALIDATES the result against `roomsWithAnySharedWall` and discards
+ * the reshape if it would seal any room, so §EVERY-ROOM-ACCESS is a HARD guarantee.
+ *
+ * `corridorId` is the corridor room's id (null ⇒ no corridor ⇒ identity).
+ */
+export function reshapeCorridorStrip(
+    placements: readonly RoomPlacement[],
+    corridorId: string | null,
+): RoomPlacement[] {
+    if (!corridorId) return placements.slice();
+    const idx = placements.findIndex(p => p.roomId === corridorId);
+    if (idx < 0) return placements.slice();
+    const cor = placements[idx]!;
+    const r = cor.rect;
+    const w = r.x1 - r.x0;
+    const h = r.z1 - r.z0;
+    const maxShort = roomRule('corridor').maxShortSideM;
+    if (maxShort === undefined) return placements.slice();
+    const short = Math.min(w, h);
+    if (short <= maxShort + EPS) return placements.slice();   // already a strip — no-op
+
+    // Narrow the corridor along its SHORT axis to `maxShort`, freeing a band of
+    // the rest of the cell. We try freeing toward EITHER side (strip flush to the
+    // low edge → free the high band; OR flush to the high edge → free the low band)
+    // and take the side whose neighbours can FULLY absorb the freed band with no
+    // gap. The freed band is donated by extending each abutting neighbour's edge to
+    // swallow its overlap span; the donation is accepted only when the union of
+    // those overlaps covers the freed band's full long extent (no hole left).
+    const along: 'x' | 'z' = w >= h ? 'x' : 'z';   // long axis of the corridor cell
+
+    const tryNarrow = (flush: 'low' | 'high'): RoomPlacement[] | null => {
+        let strip: Rect, freed: Rect;
+        if (along === 'x') {
+            // short axis is z.
+            if (flush === 'low') {
+                strip = { x0: r.x0, z0: r.z0, x1: r.x1, z1: r.z0 + maxShort };
+                freed = { x0: r.x0, z0: r.z0 + maxShort, x1: r.x1, z1: r.z1 };
+            } else {
+                strip = { x0: r.x0, z0: r.z1 - maxShort, x1: r.x1, z1: r.z1 };
+                freed = { x0: r.x0, z0: r.z0, x1: r.x1, z1: r.z1 - maxShort };
+            }
+        } else {
+            // short axis is x.
+            if (flush === 'low') {
+                strip = { x0: r.x0, z0: r.z0, x1: r.x0 + maxShort, z1: r.z1 };
+                freed = { x0: r.x0 + maxShort, z0: r.z0, x1: r.x1, z1: r.z1 };
+            } else {
+                strip = { x0: r.x1 - maxShort, z0: r.z0, x1: r.x1, z1: r.z1 };
+                freed = { x0: r.x0, z0: r.z0, x1: r.x1 - maxShort, z1: r.z1 };
+            }
+        }
+        if (rectArea(freed) <= EPS) return null;
+
+        // Each abutting neighbour extends its edge back across its overlap span.
+        // We require the overlaps to TILE the freed band's long extent exactly
+        // (sorted, contiguous, covering end-to-end).
+        const overlaps: { i: number; lo: number; hi: number; grown: Rect }[] = [];
+        const longLo = along === 'x' ? freed.x0 : freed.z0;
+        const longHi = along === 'x' ? freed.x1 : freed.z1;
+        for (let i = 0; i < placements.length; i++) {
+            if (i === idx) continue;
+            const n = placements[i]!.rect;
+            let abuts = false;
+            let grown: Rect = n;
+            if (along === 'x') {
+                const oLo = Math.max(n.x0, freed.x0), oHi = Math.min(n.x1, freed.x1);
+                if (oHi - oLo <= EPS) continue;          // no long-extent overlap
+                if (flush === 'low' && Math.abs(n.z0 - freed.z1) < ALIGNMENT_SNAP_EPS_M) {
+                    abuts = true; grown = { ...n, z0: freed.z0 };
+                } else if (flush === 'high' && Math.abs(n.z1 - freed.z0) < ALIGNMENT_SNAP_EPS_M) {
+                    abuts = true; grown = { ...n, z1: freed.z1 };
+                }
+                if (abuts) overlaps.push({ i, lo: oLo, hi: oHi, grown });
+            } else {
+                const oLo = Math.max(n.z0, freed.z0), oHi = Math.min(n.z1, freed.z1);
+                if (oHi - oLo <= EPS) continue;
+                if (flush === 'low' && Math.abs(n.x0 - freed.x1) < ALIGNMENT_SNAP_EPS_M) {
+                    abuts = true; grown = { ...n, x0: freed.x0 };
+                } else if (flush === 'high' && Math.abs(n.x1 - freed.x0) < ALIGNMENT_SNAP_EPS_M) {
+                    abuts = true; grown = { ...n, x1: freed.x1 };
+                }
+                if (abuts) overlaps.push({ i, lo: oLo, hi: oHi, grown });
+            }
+        }
+        if (overlaps.length === 0) return null;
+        overlaps.sort((a, b) => a.lo - b.lo);
+        let cursor = longLo;
+        for (const o of overlaps) {
+            if (o.lo > cursor + ALIGNMENT_SNAP_EPS_M) return null;   // gap before this span
+            cursor = Math.max(cursor, o.hi);
+        }
+        if (cursor < longHi - ALIGNMENT_SNAP_EPS_M) return null;     // uncovered tail
+
+        const grownById = new Map(overlaps.map(o => [o.i, o.grown]));
+        return placements.map((p, i) =>
+            i === idx ? { roomId: cor.roomId, rect: roundRect(strip) }
+            : grownById.has(i) ? { roomId: p.roomId, rect: roundRect(grownById.get(i)!) }
+            : p,
+        );
+    };
+
+    // Prefer freeing the band whose neighbours fully absorb it; try low then high
+    // (deterministic). If NEITHER side tiles cleanly, keep the original cell.
+    return tryNarrow('low') ?? tryNarrow('high') ?? placements.slice();
+}
+
 /**
  * §FEASIBILITY-ALLOC (A.21.D5, 2026-06-06) — subdivide the shell `rects` among
  * the program rooms AND report any room that could not be placed at its per-type
@@ -720,10 +878,31 @@ export function subdivideWithReport(
     const valid = rects.filter(r => rectArea(r) > EPS).sort(byAreaDesc);
     if (valid.length === 0 || graph.rooms.length === 0) return { placements: [], droppedRooms: [] };
 
-    const finalise = (res: SubdivideResult): SubdivideResult => ({
-        placements: alignmentSnap ? snapAxisLines(res.placements) : res.placements.slice(),
-        droppedRooms: res.droppedRooms,
-    });
+    const finalise = (res: SubdivideResult): SubdivideResult => {
+        // §CORRIDOR-PHYSIOGNOMY (A.21.D46, 2026-06-08, re-done with the sealing fix)
+        // — narrow a fat (near-square, squarified) corridor cell into a strip BEFORE
+        // the alignment snap. No-op when the carve already produced a strip (short
+        // side ≤ maxShortSideM) — idempotent. The §SINGLE-RECT carve corridor is
+        // already a 1.2 m strip, so this only ever fires on the multi-rect / squarify
+        // paths.
+        //
+        // SEALING-SAFETY GATE (the fix that distinguishes this re-do from the
+        // reverted 5b472cfb): the reverted attempt narrowed/shortened the corridor
+        // and donated a freed band, which could strip a room of its only shared wall
+        // with circulation → §EVERY-ROOM-ACCESS flagged it SEALED (the dining room in
+        // doorMinimums.test.ts). Here we ACCEPT the reshape ONLY when it does not turn
+        // any previously-wall-connected room into an island; otherwise we keep the
+        // unreshaped placements. Physiognomy is best-effort; never seals a room.
+        const reshaped = reshapeCorridorStrip(res.placements, graph.corridorId);
+        const before = roomsWithAnySharedWall(res.placements);
+        const after = roomsWithAnySharedWall(reshaped);
+        const sealsARoom = [...before].some(id => !after.has(id));
+        const chosen = sealsARoom ? res.placements : reshaped;
+        return {
+            placements: alignmentSnap ? snapAxisLines(chosen) : chosen.slice(),
+            droppedRooms: res.droppedRooms,
+        };
+    };
 
     // §SINGLE-RECT-CARVE — single-rect shell with corridor + private rooms.
     if (valid.length === 1) {
