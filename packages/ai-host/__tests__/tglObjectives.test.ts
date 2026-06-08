@@ -184,6 +184,42 @@ describe('computeObjectives (TGL P7)', () => {
         expect(computeObjectives(lit, m, emptyBubble).daylight).toBeGreaterThan(computeObjectives(dark, m, emptyBubble).daylight);
     });
 
+    // §A.21.D55 — DAYLIGHT IN EVERY ROOM. The `daylightReach` axis rewards a layout
+    // that gives MORE windowable rooms (habitable AND wet) exterior frontage so each
+    // CAN host a window — the founder's "maximise daylight, a window in every room".
+    describe('§A.21.D55 daylightReach', () => {
+        it('appears in OBJECTIVE_AXES so Pareto + weighted sums see it', () => {
+            expect(OBJECTIVE_AXES).toContain('daylightReach');
+        });
+
+        it('a layout fronting MORE rooms on the façade outscores one that buries them', () => {
+            const extWall: GraphNode = { guid: 'W', kind: 'Wall', sourceId: 'w', attrs: { isExternal: true }, psets: {} };
+            const bed = (): GraphNode => space('Bed', { spaceType: 'bedroom', netAreaM2: 14, isPrivate: true, needsWindow: true });
+            const bath = (): GraphNode => space('Bath', { spaceType: 'bathroom', netAreaM2: 5, isPrivate: true, needsWindow: false });
+            // GOOD: both the bedroom AND the (wet) bathroom front the façade.
+            const good = graphOf([extWall, bed(), bath()],
+                [{ kind: 'BOUNDS', from: 'W', to: 'Bed' }, { kind: 'BOUNDS', from: 'W', to: 'Bath' }]);
+            // BAD: only the bedroom fronts the façade; the bathroom is buried interior.
+            const bad = graphOf([extWall, bed(), bath()],
+                [{ kind: 'BOUNDS', from: 'W', to: 'Bed' }]);
+            const m = metricsOf({ Bed: 2, Bath: 2 });
+            const gv = computeObjectives(good, m, emptyBubble);
+            const bv = computeObjectives(bad, m, emptyBubble);
+            expect(gv.daylightReach).toBeGreaterThan(bv.daylightReach);
+            // The wet room is OUTSIDE the area-weighted `daylight` set (needsWindow=false),
+            // so daylightReach is exactly the axis that distinguishes these two layouts.
+            expect(gv.daylightReach).toBe(1);
+            expect(bv.daylightReach).toBeCloseTo(0.5, 6);
+        });
+
+        it('neutral 1.0 (rank-invisible) when there are no external walls — baseline safe', () => {
+            const bed = space('Bed', { spaceType: 'bedroom', netAreaM2: 14, isPrivate: true, needsWindow: true });
+            const g = graphOf([bed], []);   // no Wall nodes at all
+            const v = computeObjectives(g, metricsOf({ Bed: 1 }), emptyBubble);
+            expect(v.daylightReach).toBe(1);
+        });
+    });
+
     // §L1-α-2 ENHANCEMENT (2026-05-29) — when bubble.daylightField is present,
     // the `daylight` axis weights each fronting room's contribution by the
     // depth-field score, so a shallow lit room out-scores a deep-but-lit room.

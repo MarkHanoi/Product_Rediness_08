@@ -65,17 +65,24 @@ describe('T1.6 — frontage field on RoomRule', () => {
         expect(required.size).toBe(expected.length);
     });
 
-    it('frontage PREFERRED: dining / study', () => {
+    // §A.21.D55 (DAYLIGHT IN EVERY ROOM) — the wet rooms (bathroom / ensuite / wc)
+    // were promoted 'none' → 'preferred' so a window in them is desirable (SOFT)
+    // where the plate allows, never forbidden.
+    it('frontage PREFERRED: dining / study + wet rooms (bathroom / ensuite / wc)', () => {
         const preferred = new Set(FRONTAGE_PREFERRED_TYPES);
-        const expected: RoomType[] = ['dining', 'study'];
+        const expected: RoomType[] = ['dining', 'study', 'bathroom', 'ensuite', 'wc'];
         for (const t of expected) expect(preferred.has(t), `${t} should prefer frontage`).toBe(true);
         expect(preferred.size).toBe(expected.length);
     });
 
-    it('frontage NONE: hall / corridor / bathroom / ensuite / wc / utility', () => {
-        const none: RoomType[] = ['hall', 'corridor', 'bathroom', 'ensuite', 'wc', 'utility'];
+    it('frontage NONE: hall / corridor / utility only (wet rooms promoted by A.21.D55)', () => {
+        const none: RoomType[] = ['hall', 'corridor', 'utility'];
         for (const t of none) {
             expect(ROOM_RULES[t].frontage).toBe('none');
+        }
+        // The wet rooms must NO LONGER be 'none'.
+        for (const t of ['bathroom', 'ensuite', 'wc'] as RoomType[]) {
+            expect(ROOM_RULES[t].frontage).not.toBe('none');
         }
     });
 

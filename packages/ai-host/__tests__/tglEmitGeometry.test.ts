@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { emitGeometry } from '../src/workflows/apartmentLayout/tgl/emitGeometry.js';
 import { enumerateLayouts } from '../src/workflows/apartmentLayout/tgl/enumerate.js';
-import { buildSemanticGraph } from '../src/workflows/apartmentLayout/tgl/semanticGraph.js';
+import { buildSemanticGraph, type GraphNode, type LayoutGraph } from '../src/workflows/apartmentLayout/tgl/semanticGraph.js';
 import { buildWallsAndDoors } from '../src/workflows/apartmentLayout/tgl/wallsAndDoors.js';
 import { subdivide } from '../src/workflows/apartmentLayout/tgl/subdivide.js';
 import { buildBubbleGraph } from '../src/workflows/apartmentLayout/tgl/bubbleGraph.js';
@@ -204,6 +204,61 @@ describe('emitGeometry (TGL P9)', () => {
                 const p = op.payload as { opening: { type: string } };
                 expect(p.opening.type).toBe('window');
             }
+        });
+
+        // §A.21.D55 — DAYLIGHT IN EVERY ROOM. A WET room (bathroom / ensuite / wc)
+        // that fronts an external wall must ALSO get a window — previously the
+        // emission gated on `needsWindow === true`, which is FALSE for wet rooms, so
+        // a bathroom with external frontage emitted ZERO windows. The wet-room window
+        // uses the privacy spec (raised 1700 mm sill) from WINDOW_SPECS.
+        it('a WET room (bathroom) with an exterior wall gets a window (raised sill)', () => {
+            // Minimal graph: one external wall (long enough for the 600 mm wet window)
+            // BOUNDS a bathroom space. spaceType=bathroom, needsWindow=false (the gate
+            // that previously suppressed it).
+            const wall: GraphNode = {
+                guid: 'EW', kind: 'Wall', sourceId: 'ew',
+                attrs: { isExternal: true, thickness: 0.1 },
+                geometry: { baseLine: [{ x: 0, z: 0 }, { x: 4, z: 0 }] },
+                psets: {},
+            };
+            const bath: GraphNode = {
+                guid: 'BATH', kind: 'Space', sourceId: 'bath',
+                attrs: { name: 'Bathroom', spaceType: 'bathroom', netAreaM2: 6, isPrivate: true, needsWindow: false },
+                geometry: { polygon: [{ x: 0, z: 0 }, { x: 4, z: 0 }, { x: 4, z: 2 }, { x: 0, z: 2 }] },
+                psets: {},
+            };
+            const g: LayoutGraph = {
+                nodes: [wall, bath],
+                edges: [{ kind: 'BOUNDS', from: 'EW', to: 'BATH' }],
+                meta: { shellAreaM2: 8, levelId: 'L1', seed: 'seed' },
+            };
+            const { option } = emitGeometry(g);
+            const bathWindows = (option.windows ?? []).filter(w => w.roomType === 'bathroom');
+            expect(bathWindows.length).toBeGreaterThan(0);
+            // Wet-room privacy: raised sill (1700 mm per WINDOW_SPECS.bathroom).
+            expect(bathWindows[0]!.sillHeight).toBe(1700);
+        });
+
+        it('an INTERIOR-only room type (corridor) never gets a window even with frontage', () => {
+            const wall: GraphNode = {
+                guid: 'EW', kind: 'Wall', sourceId: 'ew',
+                attrs: { isExternal: true, thickness: 0.1 },
+                geometry: { baseLine: [{ x: 0, z: 0 }, { x: 6, z: 0 }] },
+                psets: {},
+            };
+            const cor: GraphNode = {
+                guid: 'COR', kind: 'Space', sourceId: 'cor',
+                attrs: { name: 'Corridor', spaceType: 'corridor', netAreaM2: 6, isPrivate: false, needsWindow: false },
+                geometry: { polygon: [{ x: 0, z: 0 }, { x: 6, z: 0 }, { x: 6, z: 1.2 }, { x: 0, z: 1.2 }] },
+                psets: {},
+            };
+            const g: LayoutGraph = {
+                nodes: [wall, cor],
+                edges: [{ kind: 'BOUNDS', from: 'EW', to: 'COR' }],
+                meta: { shellAreaM2: 8, levelId: 'L1', seed: 'seed' },
+            };
+            const { option } = emitGeometry(g);
+            expect((option.windows ?? []).length).toBe(0);
         });
     });
 

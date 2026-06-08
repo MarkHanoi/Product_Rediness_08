@@ -487,7 +487,13 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
     // ── Wet rooms ────────────────────────────────────────────────────────────────
     bathroom: {
         type: 'bathroom', occupancy: 'bathroom', privacy: 'private',
-        acousticRole: 'neutral', frontage: 'none',
+        // A.21.D55 — DAYLIGHT IN EVERY ROOM. Promoted 'none' → 'preferred': a wet
+        // room with a window (obscure-glazed, raised sill) is architecturally
+        // desirable wherever the plate allows it, NOT forbidden. 'preferred' adds
+        // only a SOFT validateFrontage penalty when a bathroom is buried fully
+        // interior — never a HARD reject (an internal bath is still legal, it's the
+        // LAST-resort interior room), so the Pareto-equality baseline is preserved.
+        acousticRole: 'neutral', frontage: 'preferred',
         // DB-035 full bathroom minAreaM2 5.0 (BS 8300 mandatory); DB-037 min clear
         // width 1.8 m. DB-039 shower-room only is 3.5 m² — we default to full.
         // §AREA-FRACTIONS — bathroom ≥ 5 % of the apartment (spec floor) so it
@@ -523,7 +529,9 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
     },
     ensuite: {
         type: 'ensuite', occupancy: 'bathroom', privacy: 'private',
-        acousticRole: 'neutral', frontage: 'none',
+        // A.21.D55 — promoted 'none' → 'preferred' (see bathroom). A window in the
+        // ensuite is desirable where the plate allows; SOFT-only, never a hard reject.
+        acousticRole: 'neutral', frontage: 'preferred',
         // DB-039 shower-room minAreaM2 3.5 (BS 8300 mandatory); DB-040 min width 1.5 m.
         areaWeight: 0.4, minAreaM2: 3.5, minShortSideM: 1.5, needsWindow: false, windowMandatory: false,
         // An en-suite is reached ONLY through its master bedroom.
@@ -548,7 +556,10 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
     // dining (a WC off a social room is the architectural anti-pattern).
     wc: {
         type: 'wc', occupancy: 'wc', privacy: 'private',
-        acousticRole: 'neutral', frontage: 'none',
+        // A.21.D55 — promoted 'none' → 'preferred' (see bathroom). A small WC is the
+        // most common genuinely-interior room, so this stays SOFT (never hard) — the
+        // ranker nudges toward a fronted WC but a windowless internal WC is still legal.
+        acousticRole: 'neutral', frontage: 'preferred',
         // UK Building Regs typical: 1.2 m² + 0.9 m short side for a "cloakroom WC"
         // (DB-039-related, smaller envelope than a full bathroom).
         areaWeight: 0.25, minAreaM2: 1.2, minShortSideM: 0.9, needsWindow: false, windowMandatory: false,

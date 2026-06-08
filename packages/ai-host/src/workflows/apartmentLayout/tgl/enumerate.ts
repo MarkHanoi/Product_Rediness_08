@@ -475,6 +475,16 @@ function weightedSum(o: ObjectiveVector, w: ScoringWeights): number {
         // Neutral (1.0) for every candidate when there is no external-wall/opening
         // data, so absent ventilation data cancels in ranking.
         naturalVentilation: Math.max(0, w.naturalLight) * 0.5,
+        // §A.21.D55 daylightReach — fraction of WINDOWABLE rooms (habitable + wet)
+        // that reach the façade. Coupled to the user's `naturalLight` weight (scaled
+        // 0.5), like `daylight` / `facadeAlignment`: all three express the
+        // maximise-daylight intent. This is the term that makes the ranker PREFER a
+        // tiling that fronts MORE rooms (incl. the wet rooms) so each can host a
+        // window — the founder's "daylight in every room". Neutral (1.0) for every
+        // candidate when there are no windowable rooms / no external walls → a
+        // constant that cancels in ranking, so absent data leaves the order
+        // byte-identical (Pareto-equality baseline preserved).
+        daylightReach: Math.max(0, w.naturalLight) * 0.5,
     };
     // §ENV-E1-PRIORITY (E.1) — apply the priority-hierarchy band (spec §1) ON TOP
     // of the per-axis weights above. Axes that serve a higher-priority driver

@@ -282,12 +282,37 @@ export interface ObjectiveVector {
      * identical (no test regression).
      */
     readonly naturalVentilation: number;
+    /**
+     * §A.21.D55 — DAYLIGHT IN EVERY ROOM. SOFT-scores the fraction of WINDOWABLE
+     * rooms (habitable AND wet: living / dining / kitchen / master / bedroom /
+     * study / bathroom / ensuite / wc) that touch an external wall and so CAN host
+     * a window. This is a SUPERSET of the `daylight` axis (which counts only the
+     * `needsWindow` habitable set and is AREA-weighted): `daylightReach` is a
+     * per-ROOM count over the WIDER windowable set, so it specifically rewards
+     * tilings where MORE rooms — including the wet rooms — reach the façade. The
+     * founder rule is "a window in every room when possible, maximise daylight";
+     * this axis is what makes the ranker PREFER a layout that fronts the bathroom
+     * over an otherwise-equal one that buries it.
+     *
+     * Score = (windowable rooms touching the façade) / (windowable rooms). An
+     * interior room that genuinely cannot reach a façade simply lowers the score —
+     * it is NEVER rejected (no hard gate), so this stays a pure soft preference.
+     *
+     * GRACEFUL DEGRADATION: returns the NEUTRAL 1.0 when there are no windowable
+     * rooms OR no external walls in the graph — a constant across candidates is
+     * rank-invisible, so layouts without window/wall data are byte-identical (no
+     * baseline regression, Pareto-equality invariant preserved).
+     */
+    readonly daylightReach: number;
 }
 
 export const OBJECTIVE_AXES: readonly (keyof ObjectiveVector)[] =
-    ['efficiency', 'adjacency', 'daylight', 'circulation', 'regularity', 'hierarchy', 'shapeQuality', 'topologyQuality', 'edgeRealisation', 'openingCadence', 'proportionalElegance', 'spatialClimax', 'entrySightline', 'arrivalSequence', 'wetStackAlignment', 'alignmentField', 'facadeAlignment', 'solarOrientation', 'acousticZoning', 'naturalVentilation'] as const;
+    ['efficiency', 'adjacency', 'daylight', 'circulation', 'regularity', 'hierarchy', 'shapeQuality', 'topologyQuality', 'edgeRealisation', 'openingCadence', 'proportionalElegance', 'spatialClimax', 'entrySightline', 'arrivalSequence', 'wetStackAlignment', 'alignmentField', 'facadeAlignment', 'solarOrientation', 'acousticZoning', 'naturalVentilation', 'daylightReach'] as const;
 
 const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n);
+/** §A.21.D55 — rooms that CAN take a window (mirrors windowEmission's `isWindowable`
+ *  set): the habitable rooms PLUS the wet rooms. Used by the `daylightReach` axis. */
+const WINDOWABLE_TYPES = new Set<string>(['living', 'kitchen', 'dining', 'master', 'bedroom', 'study', 'bathroom', 'ensuite', 'wc']);
 const num = (v: unknown, d = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 const polyWH = (n: GraphNode): { w: number; h: number } => {
     const p = n.geometry?.polygon ?? [];
@@ -336,7 +361,7 @@ export function computeObjectives(
     const spaces = graph.nodes.filter(n => n.kind === 'Space');
     const totalArea = spaces.reduce((s, n) => s + num(n.attrs.netAreaM2), 0);
     if (spaces.length === 0 || totalArea <= 0) {
-        return { efficiency: 0, adjacency: 0, daylight: 0, circulation: 0, regularity: 0, hierarchy: 0, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation: 1, openingCadence: 1, proportionalElegance: 1, spatialClimax: 1, entrySightline: 1, arrivalSequence: 1, wetStackAlignment: 1, alignmentField: 1, facadeAlignment: 0, solarOrientation: 1, acousticZoning: 1, naturalVentilation: 1 };
+        return { efficiency: 0, adjacency: 0, daylight: 0, circulation: 0, regularity: 0, hierarchy: 0, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation: 1, openingCadence: 1, proportionalElegance: 1, spatialClimax: 1, entrySightline: 1, arrivalSequence: 1, wetStackAlignment: 1, alignmentField: 1, facadeAlignment: 0, solarOrientation: 1, acousticZoning: 1, naturalVentilation: 1, daylightReach: 1 };
     }
 
     // ── efficiency: how little of the floor is circulation. ──────────────────────
@@ -397,6 +422,23 @@ export function computeObjectives(
         }
     }
     const daylight = habArea > 0 ? clamp01(litArea / habArea) : 1;
+
+    // ── §A.21.D55 daylightReach: fraction of WINDOWABLE rooms (habitable AND wet)
+    //    that reach the façade and so CAN host a window. Wider set + per-room count
+    //    (vs `daylight`'s area-weighted habitable-only ratio), so it specifically
+    //    rewards tilings where MORE rooms — including the wet rooms — front the
+    //    façade. Neutral 1.0 when there are no windowable rooms or no external walls
+    //    (rank-invisible → baseline byte-identical).
+    let reachTotal = 0, reachFront = 0;
+    for (const n of spaces) {
+        const t = typeof n.attrs.spaceType === 'string' ? n.attrs.spaceType : '';
+        if (!WINDOWABLE_TYPES.has(t)) continue;
+        reachTotal += 1;
+        if (frontsFacade.has(n.guid)) reachFront += 1;
+    }
+    const daylightReach = (reachTotal > 0 && externalWalls.size > 0)
+        ? clamp01(reachFront / reachTotal)
+        : 1;
 
     // ── circulation: Space-Syntax gradient (public shallow, private deep). ────────
     let maxDepth = 0;
@@ -731,7 +773,7 @@ export function computeObjectives(
     //    are byte-identical.
     const naturalVentilation = naturalVentilationScore(graph);
 
-    return { efficiency, adjacency, daylight, circulation, regularity, hierarchy, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation, openingCadence, proportionalElegance, spatialClimax, entrySightline, arrivalSequence, wetStackAlignment, alignmentField, facadeAlignment, solarOrientation, acousticZoning, naturalVentilation };
+    return { efficiency, adjacency, daylight, circulation, regularity, hierarchy, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation, openingCadence, proportionalElegance, spatialClimax, entrySightline, arrivalSequence, wetStackAlignment, alignmentField, facadeAlignment, solarOrientation, acousticZoning, naturalVentilation, daylightReach };
 }
 
 /**
