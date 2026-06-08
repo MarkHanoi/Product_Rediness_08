@@ -63,7 +63,11 @@ import {
 // MAP-DATA-OVERTURE — keyless OSM/Overture context-building loader.
 import { fetchContextBuildings } from './contextBuildings.js';
 // A.21.D60 — pure relative-right-angle (orthogonal-to-previous-edge) draw aid.
-import { resolveOrthoSnap, ORTHO_SNAP_TOLERANCE_DEG } from './orthoSnap.js';
+import { resolveOrthoSnap } from './orthoSnap.js';
+
+/** §BND-90-DEFAULT-ON — forgiving lock band (deg) for freehand map drawing (was the
+ *  8° ORTHO_SNAP_TOLERANCE_DEG, too tight to hit by hand now the lock is default-on). */
+const ORTHO_SNAP_WIDE_DEG = 22;
 
 // FORMA.1 — the in-progress + drawn site boundary renders in dashed Forma green
 // (SPEC-FORMA-SITE-VIEW §3), replacing the old PRYZM violet so it reads against
@@ -340,7 +344,7 @@ export function mountSiteBoundaryMap2D(
     } satisfies Partial<CSSStyleDeclaration>);
     const orthoBox = document.createElement('input');
     orthoBox.type = 'checkbox';
-    orthoBox.checked = false;  // §BND-90 default OFF (opt-in lock; first edge is always free)
+    orthoBox.checked = true;   // §BND-90-DEFAULT-ON (founder 2026-06-08): orthogonal-to-previous is the DEFAULT — non-rectangular plots are the root of stair fragmentation + room drops. First edge is still free; uncheck to draw a non-rectilinear plot.
     orthoBox.setAttribute('aria-label', 'Lock new edges orthogonal to the previous edge');
     Object.assign(orthoBox.style, {
         width: '15px',
@@ -394,10 +398,14 @@ export function mountSiteBoundaryMap2D(
     // SECOND+ edges snap to the nearest 90 degrees off the PREVIOUS edge's direction
     // (any base rotation), so the user draws a clean rectilinear plot. The corner snap
     // (above) always takes priority; this engages only when no corner snap is in range.
-    // §BND-90 (founder): the FIRST edge is ALWAYS free (the snap guard requires
-    // ≥2 vertices — see resolveOrthoSnapTarget); the lock is OPT-IN (default OFF) so the
-    // user draws the first line freely, then toggles on 90° for the rest.
-    let orthoEnabled = false;
+    // §BND-90-DEFAULT-ON (founder 2026-06-08): the FIRST edge is ALWAYS free (the snap
+    // guard requires ≥2 vertices — see resolveOrthoSnapTarget); the 90° lock is now ON by
+    // DEFAULT so the user draws the first line at any site rotation, then every subsequent
+    // edge auto-snaps orthogonal → a clean rectilinear plot. This is the critical upstream
+    // fix: a non-rectangular plot (drawn freehand) classifies as T-U-SHAPE (§DIAG-SHAPE),
+    // which fragments the stair carve and forces room drops (§FEASIBILITY-ALLOC). The user
+    // can uncheck the toggle for a genuinely non-rectilinear site.
+    let orthoEnabled = true;
 
     // A.21.D9 — pooled HTML markers for the edge-dimension labels. Index 0..n-1
     // are the PLACED edges (vertex i → i+1, wrapping); the last marker (when a
@@ -757,7 +765,11 @@ export function mountSiteBoundaryMap2D(
                 { x: ps.x, y: ps.y },
                 { x: pe.x, y: pe.y },
                 { x: pt.x, y: pt.y },
-                ORTHO_SNAP_TOLERANCE_DEG,
+                // §BND-90-DEFAULT-ON — widen the lock band from 8° to 22° so freehand
+                // mouse-drawing on the map reliably snaps each edge orthogonal (8° is too
+                // tight to hit by hand). A deliberate non-rectilinear edge (>22° off square)
+                // still draws free; the user can also uncheck the ⟂ toggle entirely.
+                ORTHO_SNAP_WIDE_DEG,
             );
             if (!snapped) return null;
             const ll = map.unproject([snapped.x, snapped.y]);
