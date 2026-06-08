@@ -243,6 +243,127 @@ describe('WallJoinResolver — flush T-junction (§PASS-THROUGH-FLUSH)', () => {
     });
 });
 
+/**
+ * §CONSENSUS-ON-CENTRELINE (2026-06-08 — THE keystone room-merge fix)
+ *
+ * At a 3+ wall interior junction where NO endpoint is pinned, the non-pinned
+ * consensus-trim branch (WallJoinResolver.ts ~line 823) used to trim each joining
+ * endpoint to the RAW averaged consensus — the centroid of the triangle of distinct
+ * pairwise crossings. For walls whose endpoints are 0.05–0.45 m apart and not
+ * mutually collinear, that consensus sits 25–40 mm OFF each wall's centreline, so
+ * trimming to it ROTATES every wall about its fixed free end. The rotated baseLine
+ * chord no longer lies on the room's true perimeter and RoomDetectionEngine leaks the
+ * separate rooms together (the founder's merged Living/Kitchen/Dining/Hall blob).
+ *
+ * The fix trims to the perpendicular FOOT of the consensus on THAT wall's own
+ * centreline instead — zero rotation, every wall stays exactly on-axis. The projected
+ * joining ends still land close enough that _snapNearbyCorners(0.30) fuses them, so the
+ * junction still seals. For a TRUE star (all centrelines crossing at one point) the
+ * projection of consensus onto each centreline equals consensus → byte-identical to the
+ * old behaviour, so genuine crossings are not regressed.
+ *
+ * These tests pin: (1) every trimmed joining end lies on its wall's ORIGINAL centreline
+ * (the on-axis invariant — FAILS on the old raw-consensus code, 26–38 mm off); (2) the
+ * trimmed ends stay within the _snapNearbyCorners fuse radius (the junction still seals);
+ * (3) a genuine star is byte-identical to the true crossing (no regression).
+ */
+describe('WallJoinResolver — §CONSENSUS-ON-CENTRELINE', () => {
+    // Perpendicular distance from `pt` to the infinite line through p0→p1, in XZ.
+    // dist = |(pt - p0) × axisHat| (2D cross magnitude), axisHat = (p1-p0) normalized.
+    function distToAxis(
+        pt: THREE.Vector3, p0: [number, number], p1: [number, number],
+    ): number {
+        let ax = p1[0] - p0[0], az = p1[1] - p0[1];
+        const len = Math.hypot(ax, az);
+        ax /= len; az /= len;
+        const dx = pt.x - p0[0], dz = pt.z - p0[1];
+        return Math.abs(dx * az - dz * ax);   // |cross| with unit axis
+    }
+
+    it('on-axis: every trimmed joining end stays on its own wall centreline (no rotation)', () => {
+        // Three same-thickness interior partition walls whose joining endpoints are
+        // ~0.10 m apart, mutually NON-collinear and NOT pinned. Free ends are far from
+        // the junction; join ends cluster near (-5.34, 14.0). This is the §MULTI-CLUSTER
+        // primary=0 trimmed=3 case the keystone fix targets.
+        // A: horizontal, join end at (-5.38, 14.05)   free end (-8, 14.05)
+        // B: vertical,   join end at (-5.30, 14.12)   free end (-5.30, 11)
+        // D: diagonal,   join end at (-5.34, 13.98)   free end (-4.0, 12.5)
+        const A_FREE: [number, number] = [-8, 14.05],   A_JOIN: [number, number] = [-5.38, 14.05];
+        const B_FREE: [number, number] = [-5.30, 11],   B_JOIN: [number, number] = [-5.30, 14.12];
+        const D_FREE: [number, number] = [-4.0, 12.5],  D_JOIN: [number, number] = [-5.34, 13.98];
+
+        const a = mk(A_FREE, A_JOIN, 0.2, 1);   // joins at END
+        const b = mk(B_FREE, B_JOIN, 0.2, 2);   // joins at END
+        const d = mk(D_FREE, D_JOIN, 0.2, 3);   // joins at END
+        const res = WallJoinResolver.resolveLevel([a, b, d]);
+
+        const ja = res.get(a.id)!, jb = res.get(b.id)!, jd = res.get(d.id)!;
+        // (a) None invalid.
+        for (const j of [ja, jb, jd]) expect(j.invalid).toBeFalsy();
+
+        // (b) Each wall joins at its END (baseLine[1]); assert that resolved joining
+        // endpoint lies on the wall's ORIGINAL (free→join) centreline.
+        const aJoin = ja.baseLine[1] as THREE.Vector3;
+        const bJoin = jb.baseLine[1] as THREE.Vector3;
+        const dJoin = jd.baseLine[1] as THREE.Vector3;
+        expect(distToAxis(aJoin, A_FREE, A_JOIN)).toBeLessThanOrEqual(1e-3);
+        expect(distToAxis(bJoin, B_FREE, B_JOIN)).toBeLessThanOrEqual(1e-3);
+        expect(distToAxis(dJoin, D_FREE, D_JOIN)).toBeLessThanOrEqual(1e-3);
+    });
+
+    it('seal: the three trimmed joining ends stay within _snapNearbyCorners(0.30) fuse radius', () => {
+        const A_FREE: [number, number] = [-8, 14.05],   A_JOIN: [number, number] = [-5.38, 14.05];
+        const B_FREE: [number, number] = [-5.30, 11],   B_JOIN: [number, number] = [-5.30, 14.12];
+        const D_FREE: [number, number] = [-4.0, 12.5],  D_JOIN: [number, number] = [-5.34, 13.98];
+
+        const a = mk(A_FREE, A_JOIN, 0.2, 1);
+        const b = mk(B_FREE, B_JOIN, 0.2, 2);
+        const d = mk(D_FREE, D_JOIN, 0.2, 3);
+        const res = WallJoinResolver.resolveLevel([a, b, d]);
+
+        const aJoin = res.get(a.id)!.baseLine[1] as THREE.Vector3;
+        const bJoin = res.get(b.id)!.baseLine[1] as THREE.Vector3;
+        const dJoin = res.get(d.id)!.baseLine[1] as THREE.Vector3;
+
+        // All three mutually within 0.30 m → RoomDetectionEngine fuses them to one node.
+        for (const [p, q] of [[aJoin, bJoin], [aJoin, dJoin], [bJoin, dJoin]] as const) {
+            expect(Math.hypot(p.x - q.x, p.z - q.z)).toBeLessThanOrEqual(0.30);
+        }
+    });
+
+    it('no-regression: a star whose centrelines all cross one point is byte-identical (consensus-trim path)', () => {
+        // Three walls whose centrelines ALL pass through the crossing X=(0,10), with
+        // join ends pulled a little (~0.10 m) back ALONG each centreline so they are
+        // distinct, non-collinear and not pinned → they take the same §MULTI-CLUSTER
+        // primary=0 trimmed=3 consensus-trim path as the on-axis test. Because every
+        // centreline already passes through the crossing, the averaged consensus lies on
+        // all three centrelines, so the on-centreline projection is the IDENTITY of the
+        // raw consensus — the resolved joining ends equal the true crossing within 1e-3 m,
+        // byte-identical to the old raw-consensus behaviour. (No primary/T-into pair is
+        // chosen here, unlike the perfectly-coincident Y, so the trim branch is exercised.)
+        const X: [number, number] = [0, 10];
+        // Unit directions from X out to each free end; join end = X + 0.10*dir.
+        const dirs: [number, number][] = [
+            [-1, 0],                                   // due -x
+            [Math.cos(Math.PI / 3), Math.sin(Math.PI / 3)],   // +60°
+            [Math.cos(-Math.PI / 3), Math.sin(-Math.PI / 3)], // -60°
+        ];
+        const walls = dirs.map((d, i) => {
+            const free: [number, number] = [X[0] + 3 * d[0], X[1] + 3 * d[1]];
+            const join: [number, number] = [X[0] + 0.10 * d[0], X[1] + 0.10 * d[1]];
+            return mk(free, join, 0.2, i + 1);   // joins at END
+        });
+        const res = WallJoinResolver.resolveLevel(walls);
+
+        const cross = new THREE.Vector3(X[0], 0, X[1]);
+        for (const w of walls) {
+            const j = res.get(w.id)!;
+            expect(j.invalid).toBeFalsy();
+            expect(near(j.baseLine[1] as THREE.Vector3, cross, 1e-3)).toBe(true);
+        }
+    });
+});
+
 describe('WallJoinResolver — diff-thickness butt L-corner', () => {
     it('thick horizontal + thin vertical: thin wall butts just inside the thick face', () => {
         const a = mk([0, 0], [4, 0], 0.3, 1);   // thick (0.3), end (4,0)
