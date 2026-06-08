@@ -328,6 +328,27 @@ export function buildBubbleGraph(
     link(bedIds[0] ?? null, ensuiteId, 'door');     // master ↔ ensuite
     for (const r of withAreas) if (r.type === 'bathroom') link(spine, r.id, 'door');
 
+    // §DIAG-BUBBLE — per-room sizing + total target vs available area (logging only;
+    // no behaviour change). One line per room, then a totals line. minShortSideM is
+    // sqrt-derived from the room rule's aspect floor where present, else minAreaM2.
+    let totalTargetM2 = 0;
+    for (const r of withAreas) {
+        const rule = roomRule(r.type);
+        totalTargetM2 += r.targetAreaM2;
+        console.log(
+            `[D-TGL] §DIAG-BUBBLE room ${r.id} type=${r.type} ` +
+            `targetAreaM2=${r.targetAreaM2.toFixed(1)} minAreaM2=${rule.minAreaM2 ?? 0} ` +
+            `minShortSideM=${(rule.minShortSideM ?? 0)} privacy=${rule.privacy} ` +
+            `needsWindow=${r.needsWindow} isPrivate=${r.isPrivate}`,
+        );
+    }
+    console.log(
+        `[D-TGL] §DIAG-BUBBLE totals: rooms=${withAreas.length} ` +
+        `totalTargetM2=${totalTargetM2.toFixed(1)} availableAreaM2=${availableAreaM2.toFixed(1)} ` +
+        `fillRatio=${availableAreaM2 > 0 ? (totalTargetM2 / availableAreaM2).toFixed(2) : 'n/a'} ` +
+        `corridorId=${corridorId ?? 'none'} entryId=${entryId ?? 'none'}`,
+    );
+
     return {
         rooms: withAreas, edges, corridorId, entryId,
         ...(facadeField ? { facadeField } : {}),

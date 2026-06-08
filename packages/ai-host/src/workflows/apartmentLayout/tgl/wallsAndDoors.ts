@@ -814,6 +814,19 @@ export function buildWallsAndDoors(
         const wall = sharedWallByPair.get(pairKey(e.a, e.b));
         if (wall && addDoor(wall, e.a, e.b)) cUnion(e.a, e.b);
     }
+    // §DIAG-DOORS — per-pass door tally (logging only; no behaviour change). Each
+    // pass logs the cumulative door count so a single paste shows which PASS placed
+    // how many doors (bubble vs primary/permitted reconcile vs over-cap vs reroute).
+    let diagDoorsPrev = 0;
+    const diagPass = (label: string): void => {
+        const placed = openings.length - diagDoorsPrev;
+        console.log(
+            `[D-TGL] §DIAG-DOORS pass=${label} placed=${placed} ` +
+            `cumulativeDoors=${openings.length} compromises=${compromises}`,
+        );
+        diagDoorsPrev = openings.length;
+    };
+    diagPass('bubble');
 
     // Shared-wall candidates, ranked: circulation-touching first, then longer walls,
     // then stable id (deterministic).
@@ -863,6 +876,7 @@ export function buildWallsAndDoors(
         if (!underCap(c.a) || !underCap(c.b)) continue;
         if (addDoor(c.seg, c.a, c.b)) cUnion(c.a, c.b);     // pass-ii: any remaining permitted
     }
+    diagPass('permitted-reconcile');
 
     // (2b) last resort — over-cap fallback. We RELAX the per-room maxDoors cap to
     // reconnect a still-sealed room, but we NEVER cross a forbidden pair (the user's
@@ -874,6 +888,7 @@ export function buildWallsAndDoors(
         if (!permitted(c.a, c.b)) continue;                   // HARD reject forbidden pairs
         if (addDoor(c.seg, c.a, c.b)) { cUnion(c.a, c.b); compromises++; }
     }
+    diagPass('over-cap');
 
     // (2c) §CIRCULATION-REROUTE (2026-06-03, A.APT.SA.2 — corridor connectivity).
     //
@@ -961,6 +976,7 @@ export function buildWallsAndDoors(
             if (addDoor(c.seg, c.a, c.b)) { cUnion(c.a, c.b); compromises++; placed = true; break; }
         }
     }
+    diagPass('circulation-reroute');
 
     // (2c-ii) §CIRCULATION-REROUTE-MULTIHOP (A.21.D14 → A.21.D36, 2026-06-07) —
     // "try harder", generalised from the original single two-hop pass.
@@ -1041,6 +1057,7 @@ export function buildWallsAndDoors(
             if (addDoor(step.seg, step.a, step.b)) { cUnion(step.a, step.b); compromises++; }
         }
     }
+    diagPass('multihop-reroute');
 
     // §CIRCULATION-REROUTE diagnostic — private/service rooms STILL without a
     // DIRECT circulation door after the re-route passes: genuinely land-locked
@@ -1078,6 +1095,20 @@ export function buildWallsAndDoors(
         .filter(r => (doorCount.get(r.id) ?? 0) === 0)
         .map(r => r.id)
         .sort();
+
+    // §DIAG-DOORS — final summary (logging only; no behaviour change). Names the
+    // total doors, any SEALED (door-less) rooms, and any room left land-locked /
+    // routed only via a compromise (unrouted-to-circulation).
+    const sealedNamed = sealedRoomIds
+        .map(id => `${id}(${typeOf.get(id) ?? '?'})`)
+        .join(',') || 'none';
+    const reroutedNamed = unroutedToCirculationRoomIds
+        .map(id => `${id}(${typeOf.get(id) ?? '?'})`)
+        .join(',') || 'none';
+    console.log(
+        `[D-TGL] §DIAG-DOORS summary: doors=${openings.length} compromises=${compromises} ` +
+        `walls=${segmentsOut.length} sealed=[${sealedNamed}] unroutedToCirculation=[${reroutedNamed}]`,
+    );
 
     return { segments: segmentsOut, openings, boundaries, compromises, sealedRoomIds, unroutedToCirculationRoomIds };
 }

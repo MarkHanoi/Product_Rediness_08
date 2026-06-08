@@ -187,7 +187,30 @@ export function enrichStoreyProgramToPlate(
     role: StoreyRole,
     opts: EnrichStoreyOptions = {},
 ): ApartmentProgram {
-    if (!(plateAreaM2 > 0)) return { ...program };
+    // §DIAG-ENRICH — capture the BEFORE programme + the target fill (logging only).
+    // The AFTER line is emitted at every return so the delta is visible per storey.
+    const beforeBeds = Math.max(0, Math.floor(program.bedrooms));
+    const beforeBaths = Math.max(0, Math.floor(program.bathrooms));
+    const targetAreaM2 = plateAreaM2 > 0 ? plateAreaM2 * TARGET_FILL_FRACTION : 0;
+    console.log(
+        `[D-TGL] §DIAG-ENRICH before: role=${role} plateAreaM2=${Math.round(plateAreaM2)} ` +
+        `targetFillM2=${Math.round(targetAreaM2)} (frac=${TARGET_FILL_FRACTION}) ` +
+        `bedrooms=${beforeBeds} baths=${beforeBaths} living=${program.livingRoom === true} ` +
+        `kitchen=${program.includeKitchen !== false} hall=${program.entranceHall === true} ` +
+        `growBedrooms=${opts.growBedrooms === true} growGroundRooms=${opts.growGroundRooms === true}`,
+    );
+    const logEnrichAfter = (r: ApartmentProgram, why: string): ApartmentProgram => {
+        const ab = Math.max(0, Math.floor(r.bedrooms));
+        const abt = Math.max(0, Math.floor(r.bathrooms));
+        console.log(
+            `[D-TGL] §DIAG-ENRICH after: role=${role} path=${why} ` +
+            `bedrooms=${beforeBeds}->${ab} (+${ab - beforeBeds}) baths=${beforeBaths}->${abt} (+${abt - beforeBaths}) ` +
+            `living=${r.livingRoom === true} kitchen=${r.includeKitchen !== false} ` +
+            `dining=${r.openPlanKitchenDining === true} ensuite=${r.masterEnSuite === true}`,
+        );
+        return r;
+    };
+    if (!(plateAreaM2 > 0)) return logEnrichAfter({ ...program }, 'no-plate');
 
     // 1. Guarantee the role's minimum room SET (only ever turning flags ON / raising
     //    counts — never removing a user-stated room).
@@ -226,14 +249,14 @@ export function enrichStoreyProgramToPlate(
     //     deterministic — see fillGroundPlate (the frozen bubble graph has no study
     //     flag, so a guest bedroom + bath are the only fill levers without forking it).
     if (role === 'ground' && opts.growGroundRooms && !opts.growBedrooms) {
-        return fillGroundPlate(enriched, plateAreaM2);
+        return logEnrichAfter(fillGroundPlate(enriched, plateAreaM2), 'fillGroundPlate');
     }
 
     // 2. Grow bedrooms (+ proportional bathrooms) until the programme's comfortable
     //    area reaches TARGET_FILL_FRACTION of the plate, capped at
     //    MAX_ENRICHED_BEDROOMS. Bounded, deterministic — at most a handful of steps.
     //    Gated: only when this storey is meant to hold the house's bedrooms.
-    if (!opts.growBedrooms) return enriched;
+    if (!opts.growBedrooms) return logEnrichAfter(enriched, 'room-set-floor');
 
     const targetArea = plateAreaM2 * TARGET_FILL_FRACTION;
     for (let guard = 0; guard < MAX_ENRICHED_BEDROOMS; guard++) {
@@ -258,7 +281,7 @@ export function enrichStoreyProgramToPlate(
         };
     }
 
-    return enriched;
+    return logEnrichAfter(enriched, 'grow-bedrooms');
 }
 
 export {

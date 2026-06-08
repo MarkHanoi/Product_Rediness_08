@@ -45,9 +45,29 @@ export function allocateProgramToStoreys(
 ): StoreyProgram[] {
     const storeys = clampStoreyCount(storeyCount);
 
+    // §DIAG-ALLOC — log the BRIEF → per-storey program split (logging only; no
+    // behaviour change). One line for the whole-house brief, one per emitted storey.
+    console.log(
+        `[D-TGL] §DIAG-ALLOC brief: storeys=${storeys} bedrooms=${program.bedrooms} ` +
+        `baths=${program.bathrooms} masterEnSuite=${program.masterEnSuite === true} ` +
+        `kitchen=${program.includeKitchen !== false} living=${program.livingRoom === true} ` +
+        `hall=${program.entranceHall === true} openPlanKD=${program.openPlanKitchenDining === true}`,
+    );
+    const logAllocStorey = (s: StoreyProgram): void => {
+        const p = s.program;
+        console.log(
+            `[D-TGL] §DIAG-ALLOC storey[${s.storeyIndex}] role=${s.role} ` +
+            `bedrooms=${Math.max(0, Math.floor(p.bedrooms))} baths=${Math.max(0, Math.floor(p.bathrooms))} ` +
+            `kitchen=${p.includeKitchen !== false} living=${p.livingRoom === true} ` +
+            `hall=${p.entranceHall === true} ensuite=${p.masterEnSuite === true}`,
+        );
+    };
+
     // Single-storey: pass-through. The whole program lives on the ground plate.
     if (storeys === 1) {
-        return [{ storeyIndex: 0, role: 'ground', program: { ...program } }];
+        const out: StoreyProgram[] = [{ storeyIndex: 0, role: 'ground', program: { ...program } }];
+        out.forEach(logAllocStorey);
+        return out;
     }
 
     const totalBedrooms = Math.max(0, Math.floor(program.bedrooms));
@@ -118,6 +138,7 @@ export function allocateProgramToStoreys(
         });
     }
 
+    out.forEach(logAllocStorey);
     return out;
 }
 

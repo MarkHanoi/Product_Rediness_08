@@ -363,11 +363,23 @@ export function emitWindowsForRoom(
     // Omit / pass [] to disable (legacy + unit-test callers — no behaviour change).
     partitionJunctions: readonly PartitionJunction[] = [],
 ): readonly WindowPlacement[] {
-    if (!isWindowable(roomType)) return [];
-    if (externalWalls.length === 0) return [];
+    // §DIAG-WIN — per-room window-emission decision (logging only; no behaviour
+    // change). The `why` cases below pinpoint WHY a room gets ZERO windows.
+    const winTag = roomName ? `${roomName} (${roomType})` : roomType;
+    if (!isWindowable(roomType)) {
+        console.log(`[D-TGL] §DIAG-WIN ${winTag}: 0 windows — room type not windowable`);
+        return [];
+    }
+    if (externalWalls.length === 0) {
+        console.log(`[D-TGL] §DIAG-WIN ${winTag}: 0 windows — NO external wall (fully interior room)`);
+        return [];
+    }
 
     const spec = WINDOW_SPECS[roomType as WindowableRoomType];
-    if (!spec) return [];
+    if (!spec) {
+        console.log(`[D-TGL] §DIAG-WIN ${winTag}: 0 windows — no WINDOW_SPEC for type`);
+        return [];
+    }
 
     // Score = physical length × solar-orientation multiplier. The minimum-length
     // FILTER still uses raw length (a window needs the wall to physically host it),
@@ -391,7 +403,15 @@ export function emitWindowsForRoom(
             .map(w => ({ w, lenMm: segLenMm(w) }))
             .filter(x => x.lenMm >= minHostMm)
             .sort((a, b) => score(b.w) - score(a.w) || a.w.wallIndex - b.w.wallIndex);
-        if (candidates.length === 0) return [];
+        if (candidates.length === 0) {
+            const lens = externalWalls.map(w => Math.round(segLenMm(w))).join(',');
+            console.log(
+                `[D-TGL] §DIAG-WIN ${winTag}: 0 windows — all ${externalWalls.length} external ` +
+                `wall(s) shorter than minWallLength=${spec.minWallLengthMm}mm AND fallback ` +
+                `minHost=${minHostMm}mm (wall lengths mm=[${lens}])`,
+            );
+            return [];
+        }
         chosenWidthMm = spec.minWidthMm;
     }
 
@@ -432,6 +452,15 @@ export function emitWindowsForRoom(
         const remaining = MAX_WINDOWS_PER_ROOM - out.length;
         const wantOnWall = Math.min(remaining, windowCountForWall(wallLenMm, widthMm));
         const offsets = evenOffsetsMm(wallLenMm, widthMm, wantOnWall, blocked);
+        // §DIAG-WIN — per-wall placement outcome. When a qualifying wall yields ZERO
+        // offsets the window was de-overlapped away by doors/partitions/other windows.
+        const wantOnWall0 = Math.min(remaining, windowCountForWall(wallLenMm, widthMm));
+        console.log(
+            `[D-TGL] §DIAG-WIN ${winTag}: wall#${cand.w.wallIndex} len=${Math.round(wallLenMm)}mm ` +
+            `wanted=${wantOnWall0} placed=${offsets.length}${offsets.length === 0
+                ? ' (all removed by door/partition/de-overlap)'
+                : ` offsetsMm=[${offsets.map(o => Math.round(o)).join(',')}]`}`,
+        );
         for (const offsetMm of offsets) {
             if (out.length >= MAX_WINDOWS_PER_ROOM) break;
             out.push({
@@ -445,6 +474,12 @@ export function emitWindowsForRoom(
             });
         }
     }
+    // §DIAG-WIN — room summary: total windows emitted + the wall indices they landed on.
+    console.log(
+        `[D-TGL] §DIAG-WIN ${winTag}: emitted ${out.length} window(s) ` +
+        `on wall(s)=[${[...new Set(out.map(w => w.wallIndex))].join(',') || 'none'}]` +
+        `${out.length === 0 ? ' — every qualifying wall was crowded out by openings' : ''}`,
+    );
     return out;
 }
 

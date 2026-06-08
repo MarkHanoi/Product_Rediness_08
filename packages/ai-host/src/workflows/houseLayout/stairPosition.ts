@@ -572,6 +572,38 @@ export function chooseStairCorePosition(
     }
     // Report the pure circulation waste for diagnostics/tests (unchanged metric).
     const bestWaste = stairCoreWaste(plateW, plateH, coreW, coreH, best.x, best.y);
+
+    // §DIAG-STAIR — log every candidate considered + why the winner was chosen
+    // (logging only; no behaviour change). The CORNER vs MID-EDGE vs CENTRAL
+    // classification predicts plate fragmentation: a CORNER carve keeps one
+    // dominant rectangle (good); a CENTRAL/MID-EDGE carve fractures the plate
+    // (the founder's merged-room blob). flushSides counts walls the core abuts.
+    const flushOf = (g: number): number => (g <= 1 ? 1 : 0);
+    const classify = (c: { kind: StairCorePositionKind; x: number; y: number }): string => {
+        if (c.kind === 'central') return 'CENTRAL';
+        const flushX = flushOf(c.x) + flushOf(plateW - (c.x + coreW));
+        const flushBack = flushOf(plateH - (c.y + coreH));
+        // Abuts a side wall AND the rear wall ⇒ a clean corner carve.
+        return flushX >= 1 && flushBack >= 1 ? 'CORNER' : 'MID-EDGE';
+    };
+    for (const c of candidates) {
+        console.log(
+            `[D-TGL] §DIAG-STAIR cand kind=${c.kind} pos=${classify(c)} ` +
+            `x=${Math.round(c.x)} y=${Math.round(c.y)} ` +
+            `waste=${stairCoreWaste(plateW, plateH, coreW, coreH, c.x, c.y).toFixed(4)} ` +
+            `aspect=${aspect ? aspectScore(c.kind, aspect).toFixed(2) : 'n/a'}` +
+            `${c === best ? ' <-- WINNER' : ''}`,
+        );
+    }
+    console.log(
+        `[D-TGL] §DIAG-STAIR winner kind=${best.kind} pos=${classify(best)} ` +
+        `waste=${r3(bestWaste)} plate=${Math.round(plateW)}x${Math.round(plateH)} ` +
+        `core=${Math.round(coreW)}x${Math.round(coreH)} aspectBias=${aspect ? 'on' : 'off'} ` +
+        `${classify(best) === 'CENTRAL' || classify(best) === 'MID-EDGE'
+            ? '(predicts plate fragmentation — rooms may merge)'
+            : '(clean corner carve — one dominant rect)'}`,
+    );
+
     return { x: best.x, y: best.y, waste: r3(bestWaste), kind: best.kind };
 }
 

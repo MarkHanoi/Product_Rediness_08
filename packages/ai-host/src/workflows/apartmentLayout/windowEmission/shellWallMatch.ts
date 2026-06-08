@@ -451,12 +451,38 @@ export function resolveAllShellWindows(
     planToWorld: PlanToWorldXZ = defaultPlanToWorld,
 ): readonly ShellWindowDispatch[] {
     const out: ShellWindowDispatch[] = [];
+    let unmatched = 0;
     for (const w of windows) {
         const r = resolveShellWindow(w, optionWalls, shellWalls, planToWorld);
         if (r) out.push(r);
+        else unmatched++;
     }
     // §WINDOW-DEOVERLAP — ensure no two windows on the SAME shell wall overlap, so the
     // wall.createOpening occupancy check never silently rejects a window (the founder's
     // "CONFLICT … opening skipped" log → dropped window).
-    return deOverlapShellWindows(out);
+    const kept = deOverlapShellWindows(out);
+
+    // §DIAG-WIN-DIST — façade window distribution (logging only; no behaviour change).
+    // Bucket the FINAL kept windows by the compass orientation of their host shell
+    // wall's OUTWARD normal so a single line shows how many windows landed on each
+    // façade — the founder's "no windows / all on one side" symptom is visible here.
+    const shellById = new Map(shellWalls.map(s => [s.id, s]));
+    const compassOf = (id: string): string => {
+        const s = shellById.get(id);
+        if (!s) return '?';
+        // Wall direction → outward normal (perpendicular). Either normal labels the
+        // SAME axis (N/S vs E/W), which is all this distribution summary needs.
+        const dx = s.end.x - s.start.x, dz = s.end.z - s.start.z;
+        return Math.abs(dx) >= Math.abs(dz) ? 'N/S' : 'E/W';
+    };
+    const buckets: Record<string, number> = {};
+    for (const k of kept) buckets[compassOf(k.shellWallId)] = (buckets[compassOf(k.shellWallId)] ?? 0) + 1;
+    const dist = Object.entries(buckets).map(([f, n]) => `${f}:${n}`).join(' ') || 'none';
+    console.log(
+        `[D-TGL] §DIAG-WIN-DIST resolved=${out.length} kept=${kept.length} ` +
+        `droppedByDeOverlap=${out.length - kept.length} unmatchedToShell=${unmatched} ` +
+        `façadeAxisDist={${dist}}`,
+    );
+
+    return kept;
 }

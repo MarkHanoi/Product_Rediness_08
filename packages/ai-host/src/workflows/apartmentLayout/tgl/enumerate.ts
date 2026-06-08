@@ -386,9 +386,28 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     // could place a circulation door for every such room). A non-empty
     // `unroutedToCirculationRoomIds` means at least one room is land-locked.
     const circulationRouted = unroutedToCirculationRoomIds.length === 0;
+
+    // §DIAG-ENUM — terse per-candidate decision line (logging only; no behaviour
+    // change). Surfaces the strategy, the rooms it DROPPED, the frontage-required
+    // rooms that failed to touch the shell (the missing-window root), and the key
+    // objective scores. `frontage.hardFindings` are the `frontage:'required'` rooms
+    // that did not reach the perimeter.
+    const droppedTypes = droppedRooms.map(d => d.type).join(',') || 'none';
+    const frontageFailIds = frontage.hardFindings.map(f => f.roomId).join(',') || 'none';
+    const weighted = weightedSum(objectives, input.weights);
+    console.log(
+        `[D-TGL] §DIAG-ENUM cand ${strategyKey(s)} weighted=${weighted.toFixed(3)} ` +
+        `connected=${metrics.connected} shapeOK=${shapeAdmissible} topoOK=${topologyAdmissible} ` +
+        `circRouted=${circulationRouted} compromises=${compromises} ` +
+        `dropped=[${droppedTypes}] frontageFail=[${frontageFailIds}] ` +
+        `eff=${objectives.efficiency.toFixed(2)} adj=${objectives.adjacency.toFixed(2)} ` +
+        `daylight=${objectives.daylight.toFixed(2)} circ=${objectives.circulation.toFixed(2)} ` +
+        `daylightReach=${objectives.daylightReach.toFixed(2)}`,
+    );
+
     return {
         strategy: strategyKey(s), graph, objectives,
-        weighted: weightedSum(objectives, input.weights), rank: 0,
+        weighted, rank: 0,
         compromises, connected: metrics.connected, shapeAdmissible, topologyAdmissible,
         circulationRouted, droppedRooms, boundaries,
     };
@@ -635,6 +654,32 @@ export function enumerateLayouts(input: EnumerateInput): TglCandidate[] {
     // surface a structured warning the trigger can relay so the user knows the
     // shell + program forced a less-than-ideal circulation graph.
     const best = ranked[0];
+
+    // §DIAG-WINNER — detailed breakdown of the chosen layout (logging only; no
+    // behaviour change). Names the winning strategy, the per-axis objective vector,
+    // and the final dropped rooms — so a single paste shows EXACTLY which strategy
+    // shipped and where it compromised.
+    if (best) {
+        const pool_ =
+            cleanLegalRouted.length > 0 ? 'clean+legal+routed' :
+            cleanAndLegal.length > 0 ? 'clean+legal' :
+            cleanAndConn.length > 0 ? 'clean+connected' :
+            legal.length > 0 ? 'legal' :
+            connected.length > 0 ? 'connected' : 'any';
+        const axes = OBJECTIVE_AXES
+            .map(a => `${a}=${best.objectives[a].toFixed(2)}`)
+            .join(' ');
+        const winDropped = best.droppedRooms.map(d => d.type).join(',') || 'none';
+        console.log(
+            `[D-TGL] §DIAG-WINNER strategy=${best.strategy} tier=${pool_} ` +
+            `rank=${best.rank} weighted=${best.weighted.toFixed(3)} ` +
+            `connected=${best.connected} shapeOK=${best.shapeAdmissible} ` +
+            `topoOK=${best.topologyAdmissible} circRouted=${best.circulationRouted} ` +
+            `compromises=${best.compromises} droppedRooms=[${winDropped}]`,
+        );
+        console.log(`[D-TGL] §DIAG-WINNER objectives: ${axes}`);
+    }
+
     if (best && !best.circulationRouted) {
         console.warn(
             '[apartment-layout] §CIRCULATION-REROUTE: a habitable room is reachable ' +
