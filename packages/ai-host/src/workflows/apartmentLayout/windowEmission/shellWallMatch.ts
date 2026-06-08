@@ -418,19 +418,32 @@ function deOverlapShellWindows(
     for (const e of indexed) {
         (byWall.get(e.r.shellWallId) ?? byWall.set(e.r.shellWallId, []).get(e.r.shellWallId)!).push(e);
     }
+    // §WINDOW-HABITABLE-PRIORITY (F3 / ADR-0062, 2026-06-08) — when two rooms front the
+    // SAME shell wall with overlapping window spans, the HABITABLE room (living/kitchen/
+    // dining/master/bedroom/study) keeps its window; the wet/service room (bathroom/
+    // ensuite/wc/utility) yields. The §DIAG-WIN trace showed the opposite: an En-suite
+    // and a Bathroom kept 3 windows each while a Bedroom's ONLY window was deleted by the
+    // de-overlap. We sort habitable-first, then walk a priority-aware greedy that checks
+    // each candidate against ALL already-kept spans (not just the last) so a later
+    // habitable window can't be pre-empted by an earlier wet-room one. Byte-identical when
+    // no cross-priority conflict exists on a wall (same-priority groups still resolve by
+    // offset, exactly as before). Deterministic (stable index tiebreak).
+    const HABITABLE_WIN = new Set(['living', 'kitchen', 'dining', 'master', 'bedroom', 'study']);
+    const winPriority = (r: ShellWindowDispatch): number => (HABITABLE_WIN.has(r.roomType ?? '') ? 0 : 1);
     const keptIdx = new Set<number>();
     for (const group of byWall.values()) {
         group.sort((a, b) =>
+            (winPriority(a.r) - winPriority(b.r)) ||   // habitable rooms claim the wall first
             (a.r.offsetM - b.r.offsetM) ||
             (b.r.widthM - a.r.widthM) ||
             (a.i - b.i));
-        let lastEnd = -Infinity;
+        const keptSpans: Array<readonly [number, number]> = [];
         for (const { r, i } of group) {
-            if (r.offsetM >= lastEnd + WINDOW_GAP_M - 1e-9) {
-                keptIdx.add(i);
-                lastEnd = r.offsetM + r.widthM;
-            }
-            // else: overlaps the previously-kept window on this wall → drop it.
+            const s = r.offsetM, e = r.offsetM + r.widthM;
+            // Conflicts with a kept span when neither sits clear of the other by WINDOW_GAP_M.
+            const overlaps = keptSpans.some(([ks, ke]) => s < ke + WINDOW_GAP_M - 1e-9 && ks < e + WINDOW_GAP_M - 1e-9);
+            if (!overlaps) { keptIdx.add(i); keptSpans.push([s, e]); }
+            // else: overlaps an already-kept (higher-priority / earlier) window → drop it.
         }
     }
     return indexed.filter(e => keptIdx.has(e.i)).map(e => e.r);

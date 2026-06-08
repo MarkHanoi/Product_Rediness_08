@@ -2637,3 +2637,22 @@ THREE mechanisms behind §23.5's artifacts. Each becomes a binding fix.
 > **(3) F1** enrichment facade-cap · **(4) F3** habitable window priority · **(5) M2** slider-as-intent.
 > Everything above is documentation-complete; **implementation is intentionally NOT started** pending
 > founder confirmation.
+
+## §23.7 — Implementation status (LIVE log, updated 2026-06-08)
+The full plan is §23.1–§23.6 above (doc set, doc-vs-code reconciliation, 5-phase plan, current
+challenges, visual + console post-mortems). This is the running status as items ship.
+
+| Item | Decision | Status | Deploy | Evidence |
+|---|---|---|---|---|
+| **F1 — enrichment density-cap** | ADR-0062 D8 / §ENRICH-DENSITY-CAP | ✅ **DONE** | v72 (1eb23641) | Caps bedrooms by plate circulation capacity (~45 m²/bed); test logs show upper floor 5→2-3 beds, candidates flip from all-`topoOK=false` to `topoOK=true circRouted=true connected=true` (x-rev-id 0.700) → ranking now picks a VALID topology |
+| **F3 — habitable window priority** | ADR-0062 / §23.6 F3 / §WINDOW-HABITABLE-PRIORITY | ✅ **DONE** | v73 | `deOverlapShellWindows` keeps habitable-room windows over wet-room windows (was deleting a bedroom's only window while a bathroom kept 3). Byte-identical when no cross-priority wall conflict |
+| **F2 — topology hard gate** | ADR-0062 D4-sharpened | 🟡 **LARGELY SATISFIED by F1** | — | F1 makes valid topologies achievable; the existing 5-tier ranking already prefers `connected/clean/legal`, so it now picks `topoOK=true` instead of shipping 0.00. Explicit hard-reject of `topologyQuality=0.00` DEFERRED (risk of zero-result on hard plots; D4 softening must guard) — re-evaluate after prod test |
+| **PM-0 — upper-floor no-merge** | §CONSENSUS-ON-CENTRELINE (extend) | 🟡 **likely reduced by F1** | — | The 101.7 m² upper blob was driven by the 5-bedroom cram; F1 cuts the room count. RE-TEST on prod to confirm the upper floor no longer merges post-F1 before adding `_buildPerimeterShell` work |
+| F1+F3 suite | ADR-0061 determinism | ✅ ai-host **2043/2043** green | — | byte-identical where the caps/priority don't bind |
+| **M2 — slider-as-intent (G13)** | C53 §6 | ⚪ queued | — | wire all UI controls → `EngineTuning` weights, never absolute dimensions |
+| **Phase 1+** (perimeter typing, aspect filter, frontage swap, severity-align, dynamic softening, SiteContext, dual-graph solver) | C53 / ADR-0062 / SPEC-DUAL | ⚪ planned (§23.3) | — | per the phased plan; each ships byte-identical-safe behind the CI gates |
+
+> **NEXT:** re-test on prod with a §DIAG console paste — F1+F3 should show (a) fewer bedrooms on big
+> plates, (b) `topoOK=true` winners (no more `topologyQuality=0.00`), (c) every habitable room windowed.
+> The §DIAG-ENRICH / §DIAG-ENUM / §DIAG-WIN lines will confirm. Then M2 (slider-as-intent), then Phase-1
+> aspect-filter + frontage-swap, then the Phase-4 rectangular-dual solver (the structural cure).
