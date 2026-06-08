@@ -18,6 +18,7 @@ import {
 import { resolveApartmentBrief } from './briefToProgram.js';
 import { getActiveBriefMetadata } from './activeBrief.js';
 import { getActiveScoringWeights, getActiveEngineTuning } from './activeDesignParams.js';
+import { getRoomAreaOverrides } from './activeRoomAreaOverrides.js';
 import { getCurrentSiteOrigin } from '../site/siteDispatch.js';
 
 interface WallRecord {
@@ -112,6 +113,19 @@ export function gatherLayoutPayload(
     const override = programOverride
         ?? resolveApartmentBrief(getActiveBriefMetadata('apartment')).programOverride;
     const program: ApartmentProgram = { ...DEFAULT_PROGRAM, ...override };
+
+    // A.26.3 — Editable Living Graph: merge the per-room AREA overrides the
+    // inspect card stashed into the program's existing `roomAreasByName`
+    // per-instance area targets (the D-TGL bubble graph already honours these,
+    // clamped to the room's architectural minimum — ADR-0061). The stash wins
+    // over any brief-supplied name-keyed area for the same room. NULL ⇒ no
+    // overrides ⇒ the program is unchanged ⇒ generation reproduces the baseline
+    // byte-for-byte (ADR-0061 invariant I2). Per-room overrides are the per-node
+    // analogue of the A.25 global design sliders — same seam, no parallel mutator.
+    const roomAreaOverrides = getRoomAreaOverrides();
+    if (roomAreaOverrides) {
+        program.roomAreasByName = { ...(program.roomAreasByName ?? {}), ...roomAreaOverrides };
+    }
 
     // A.25.1 — Living Design Parameters: apply the user's design sliders (if any)
     // as the scorer weights so the next generate ranks options by the user's

@@ -30,6 +30,14 @@ import {
 import { buildLiveGraph } from './livingGraphData';
 import { LivingGraphCanvas, type DrawState } from './LivingGraphCanvas';
 import { RoomFocusController, type RoomFocusMode } from './livingGraphSelection';
+// A.26.3 — Editable Living Graph: the inspect card's AREA edit writes a per-room
+// override to this session stash, then fires the EXISTING debounced apartment
+// re-generate (ADR-0061: no parallel mutator — same seam as the A.25 sliders).
+import {
+  setRoomAreaOverride,
+  getRoomAreaOverride,
+} from '../apartment-layout/activeRoomAreaOverrides';
+import { triggerApartmentLayout } from '../apartment-layout/apartmentLayoutTrigger';
 import {
   createSimState,
   fitToCanvas,
@@ -55,6 +63,10 @@ import {
 
 const ACCENT = '#6600ff';
 const REBUILT_EVENT = 'pryzm:building-graph-rebuilt';
+// A.26.3 — fired by ApartmentLayoutExecutor after a (re-)generate commits a new
+// layout; the overlay rebuilds the UBG so an area edit's re-generate re-lays-out
+// the graph automatically.
+const LAYOUT_EXECUTED_EVENT = 'apartment.layout-executed';
 // Soft secondary re-sync triggers (room rename / occupancy change) IF the editor
 // emits them; harmless if it never does.
 const RESYNC_EVENTS = ['pryzm:room-renamed', 'pryzm:room-occupancy-changed'];
@@ -141,6 +153,10 @@ export class LivingGraphOverlay {
   // §RE-ENTRY guard — never re-pull while already pulling (the rebuilt event can
   // fire synchronously during our own read on some buses).
   private resyncing = false;
+
+  // A.26.3 — debounce for the live re-generate fired by an AREA edit, so typing
+  // doesn't spam the generate pipeline (mirrors DesignParamsPanel's debounce).
+  private areaRegenTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Chrome refs we update live.
   private settledBadge: HTMLElement | null = null;
@@ -506,6 +522,8 @@ export class LivingGraphOverlay {
 
   dispose(): void {
     this.stopTicker();
+    // A.26.3 — cancel any pending area-edit re-generate.
+    if (this.areaRegenTimer !== null) { clearTimeout(this.areaRegenTimer); this.areaRegenTimer = null; }
     // §A.21.D37 — drop any 3D highlight/isolation + tear down the pipeline.
     try { this.focusCtl.dispose(); } catch { /* ignore */ }
     for (const u of this.unsubs) {
@@ -639,10 +657,22 @@ export class LivingGraphOverlay {
         this.ensureTicking();
       }
     };
+    // A.26.3 — after an apartment RE-GENERATE commits a new layout
+    // (`apartment.layout-executed`, fired by the executor the area-edit trigger
+    // drives), the cached UBG is STALE (old room set). Rebuild it from the live
+    // model so the graph re-lays-out around the new room sizes. The rebuild
+    // emits `pryzm:building-graph-rebuilt` → `onRebuilt` re-binds the overlay.
+    // Guarded + re-entry-safe (raises `resyncing` so the rebuild's own emitted
+    // event isn't double-handled). Only when visible — a closed panel skips it.
+    const onLayoutExecuted = () => {
+      if (!this.visible || this.resyncing) return;
+      this.rebuildGraphFromModel();
+    };
     if (events?.on) {
       try {
         this.unsubs.push(events.on(REBUILT_EVENT, onRebuilt));
         for (const ev of RESYNC_EVENTS) this.unsubs.push(events.on(ev, onRebuilt));
+        this.unsubs.push(events.on(LAYOUT_EXECUTED_EVENT, onLayoutExecuted));
         return;
       } catch {
         /* fall through to DOM */
@@ -651,6 +681,28 @@ export class LivingGraphOverlay {
     const handler: DomHandler = () => onRebuilt();
     this.on(window, REBUILT_EVENT, handler);
     for (const ev of RESYNC_EVENTS) this.on(window, ev, handler);
+    this.on(window, LAYOUT_EXECUTED_EVENT, () => onLayoutExecuted());
+  }
+
+  /**
+   * §A.26.3 — rebuild the UBG from the live model via the existing
+   * `window.pryzmBuildBuildingGraph()` hook, then resync the overlay. Used after
+   * an apartment re-generate so the graph re-lays-out around the new layout. We
+   * raise `resyncing` across the rebuild so the hook's emitted
+   * `building-graph-rebuilt` event doesn't recurse; we resync explicitly after.
+   * Defensive — a rebuild failure never breaks the overlay.
+   */
+  private rebuildGraphFromModel(): void {
+    const w = window as unknown as { pryzmBuildBuildingGraph?: () => unknown };
+    if (typeof w.pryzmBuildBuildingGraph !== 'function') return;
+    try {
+      this.resyncing = true;
+      try { w.pryzmBuildBuildingGraph(); } finally { this.resyncing = false; }
+      this.resync(false);
+      this.ensureTicking();
+    } catch {
+      /* defensive — a graph-rebuild failure must never break the overlay */
+    }
   }
 
   // ── Spacing + auto-fit (A.21.D34(e)) ─────────────────────────────────────────
@@ -1037,11 +1089,13 @@ export class LivingGraphOverlay {
     const activeConns = this.graph.edges.filter(
       (e) => (e.a === id || e.b === id) && e.layers.some((l) => this.layers[l]),
     ).length;
-    const areaTxt = node.areaSqm > 0 ? `${node.areaSqm.toFixed(1)} m²` : '— m²';
     const metrics = document.createElement('div');
-    Object.assign(metrics.style, { display: 'flex', flexWrap: 'wrap', gap: '4px 10px', color: '#4b4163', font: '500 11px/1.4 system-ui' });
+    Object.assign(metrics.style, { display: 'flex', flexWrap: 'wrap', gap: '4px 10px', alignItems: 'center', color: '#4b4163', font: '500 11px/1.4 system-ui' });
     metrics.append(
-      this.metricSpan('📐', areaTxt),
+      // A.26.3 — the AREA is now EDITABLE. Committing it stashes a per-room
+      // override + fires the existing debounced apartment re-generate so the
+      // layout updates this room's size (and the graph re-lays-out).
+      this.areaField(node),
       this.metricSpan('☀', `${(node.sunExposure * 100) | 0}%`),
       this.metricSpan('♪', `${(node.noiseLevel * 100) | 0}%`),
       this.metricSpan('●', node.type, ROOM_TYPE_COLOUR[node.type]),
@@ -1148,6 +1202,100 @@ export class LivingGraphOverlay {
       font: '600 10px/1.4 system-ui, sans-serif', whiteSpace: 'nowrap',
     } satisfies Partial<CSSStyleDeclaration>);
     return c;
+  }
+
+  /**
+   * §A.26.3 — the EDITABLE area field for the inspect card. A compact numeric
+   * input (brand white + #6600FF) seeded with the room's current area (or any
+   * pending per-room override the user already set). On commit (Enter / blur) it
+   * writes the override keyed by the room's DISPLAY NAME — the deterministic name
+   * the bubble graph mints + honours via `roomAreasByName` — into the session
+   * stash, then fires the EXISTING debounced apartment re-generate. A blank /
+   * non-positive value CLEARS the override (reverts that room to the engine
+   * default). Mutation stays on the existing trigger → command-bus path (P6).
+   */
+  private areaField(node: GraphNode): HTMLElement {
+    const wrap = document.createElement('span');
+    Object.assign(wrap.style, { display: 'inline-flex', alignItems: 'center', gap: '3px', whiteSpace: 'nowrap' });
+
+    const icon = document.createElement('span');
+    icon.textContent = '📐';
+
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.min = '0';
+    input.step = '0.5';
+    input.setAttribute('aria-label', `Area of ${node.label} in square metres`);
+    input.title = 'Edit this room’s target area (m²) — the layout re-generates to match';
+    // Seed with the pending override if any, else the room's real area.
+    const pending = getRoomAreaOverride(node.label);
+    const seed = pending ?? (node.areaSqm > 0 ? node.areaSqm : undefined);
+    input.value = seed !== undefined ? String(Math.round(seed * 10) / 10) : '';
+    input.placeholder = '—';
+    Object.assign(input.style, {
+      width: '52px',
+      border: `1px solid ${ACCENT}`,
+      borderRadius: '6px',
+      padding: '1px 5px',
+      font: '600 11px/1.4 system-ui, sans-serif',
+      color: '#241a3a',
+      background: '#ffffff',
+      outline: 'none',
+    } satisfies Partial<CSSStyleDeclaration>);
+
+    const unit = document.createElement('span');
+    unit.textContent = 'm²';
+    Object.assign(unit.style, { color: '#241a3a' });
+
+    const commit = (): void => {
+      const raw = input.value.trim();
+      const val = raw === '' ? null : Number(raw);
+      const next = typeof val === 'number' && Number.isFinite(val) && val > 0 ? val : null;
+      const prev = getRoomAreaOverride(node.label) ?? null;
+      // Only re-generate when the committed value actually changes the override
+      // (avoids a spurious re-run on a no-op blur — keeps the baseline-identity
+      // behaviour: an un-touched field never triggers generation).
+      if (next === prev) return;
+      setRoomAreaOverride(node.label, next);
+      this.scheduleAreaRegen();
+    };
+
+    // Commit on Enter (also blur the field) and on blur.
+    this.on(input, 'keydown', (ev) => {
+      if ((ev as KeyboardEvent).key === 'Enter') {
+        ev.preventDefault();
+        input.blur();
+      }
+    });
+    this.on(input, 'change', () => commit());
+    // Don't let canvas/panel drag handlers swallow clicks into the input.
+    this.on(input, 'mousedown', (ev) => ev.stopPropagation());
+    this.on(input, 'pointerdown', (ev) => ev.stopPropagation());
+
+    wrap.append(icon, input, unit);
+    return wrap;
+  }
+
+  /**
+   * §A.26.3 — debounced live re-generate via the EXISTING apartment trigger.
+   * `gatherLayoutPayload` reads the per-room override stash we just set →
+   * merges it into `program.roomAreasByName` → the deterministic engine sizes
+   * that room to the target. The resulting layout rebuilds the UBG + emits
+   * `pryzm:building-graph-rebuilt`, which this overlay already re-binds on — so
+   * the graph re-lays-out automatically. No new generate path (ADR-0061).
+   */
+  private scheduleAreaRegen(): void {
+    if (this.areaRegenTimer !== null) clearTimeout(this.areaRegenTimer);
+    this.areaRegenTimer = setTimeout(() => {
+      this.areaRegenTimer = null;
+      try {
+        // triggerApartmentLayout resolves `window.runtime` itself when passed
+        // null — so we can safely defer the runtime lookup to it.
+        triggerApartmentLayout(null);
+      } catch (e) {
+        console.warn('[living-graph] area-edit re-generate failed (non-fatal):', e);
+      }
+    }, 450);
   }
 
   /** One "icon value" metric span. */
