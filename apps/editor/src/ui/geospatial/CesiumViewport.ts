@@ -208,6 +208,18 @@ export class CesiumViewport {
   private viewer: Cesium.Viewer | null = null;
   private handler: Cesium.ScreenSpaceEventHandler | null = null;
   private currentModel: Cesium.Model | null = null;
+  /** §A.21.D49 — the REAL detailed PRYZM model (the BIM scene serialised to glTF)
+   *  placed on the PHOTOREAL globe, kept separate from `currentModel` (which the
+   *  transform gizmo / legacy place-on-Earth path own) so the two never clobber
+   *  each other. Replaced on each `renderRealModelOnGlobe`; dropped on dispose. */
+  private realModelOnGlobe: Cesium.Model | null = null;
+  /** §A.21.D49 — the object URL backing `realModelOnGlobe`, revoked when the model
+   *  is replaced/dropped so per-toggle GLB blobs don't leak. */
+  private realModelOnGlobeUrl: string | null = null;
+  /** §A.21.D49 — the site origin of the placed real model, so the async photoreal
+   *  tile clamp can RE-SEAT it (cheap modelMatrix update, no GLB reload) once
+   *  `formaTerrainBaseHeight` settles. */
+  private realModelOnGlobeOrigin: { lat: number; lon: number } | null = null;
   private gizmo: TransformGizmo | null = null;
   /** Disposer for the `site.location-changed` runtime subscription (cleaned up
    *  in dispose() so it does not leak across project switches). */
@@ -1699,6 +1711,14 @@ export class CesiumViewport {
 
     this.clearFormaMassing();
 
+    // §A.21.D49 — on the Forma flat-ground STUDY path (keepPhotoreal falsy) the
+    // detailed real model is NOT wanted (study mode is massing-by-design). Drop any
+    // lingering real-model primitive so switching from the photoreal globe back to
+    // the study view never leaves the detailed house floating over the study blocks.
+    if (!input.keepPhotoreal) {
+      this.clearRealModelOnGlobe();
+    }
+
     // §A.21.D24 — remember the input so the floor selector can re-render the same
     // massing with a new visibility filter (setVisibleFormaLevels).
     this.formaLastMassingInput = input;
@@ -2367,6 +2387,16 @@ export class CesiumViewport {
         void this.loadContextBuildings(originLat, originLon);
       }
     }
+
+    // §A.21.D49 — if the REAL detailed model is on the tiles, this massing render is
+    // either (a) the initial pass (real model placed right after) or (b) a clamp
+    // re-place that just settled `formaTerrainBaseHeight`. In case (b) re-seat the
+    // real model to the new base and re-hide the freshly re-created massing blocks so
+    // the abstract pastel mass never resurfaces on top of the detailed model.
+    if (input.keepPhotoreal && this.realModelOnGlobe && !this.realModelOnGlobe.isDestroyed()) {
+      this.reseatRealModelOnGlobe();
+      this.clearFormaMassingEntitiesOnly();
+    }
   }
 
   /**
@@ -2639,6 +2669,24 @@ export class CesiumViewport {
         } catch {
           /* already gone */
         }
+      }
+    }
+    this.formaMassingEntities = [];
+    this.setFormaSilhouetteTargets([]);
+  }
+
+  /**
+   * §A.21.D49 — remove ONLY the Forma massing polygon entities (the pastel/white
+   * blocks), leaving the real-model-on-globe primitive and the stored storey-band
+   * metadata intact. Used when the detailed `renderRealModelOnGlobe` succeeds: the
+   * massing pass already ran (to establish the tile clamp + floor selector), and we
+   * now hide its abstract blocks so only the real model shows on the tiles.
+   */
+  public clearFormaMassingEntitiesOnly(): void {
+    const viewer = this.viewer;
+    if (viewer) {
+      for (const ent of this.formaMassingEntities) {
+        try { viewer.entities.remove(ent); } catch { /* already gone */ }
       }
     }
     this.formaMassingEntities = [];
@@ -3227,6 +3275,150 @@ export class CesiumViewport {
   }
 
   /**
+   * §A.21.D49 — place the REAL, FULL-FIDELITY PRYZM model (the actual BIM scene —
+   * walls with their CSG openings, windows, doors, roof, slabs, in the app's real
+   * materials) on the PHOTOREAL globe, INSTEAD of the simplified Forma massing
+   * (pastel/white extruded blocks).
+   *
+   * WHY a glTF model primitive and not the `CesiumThreeBridge` overlay:
+   * The editor renders the BIM scene with the **WebGPU** renderer; Cesium renders
+   * **WebGL** on its own canvas which `setVisible(true)` raises ABOVE and HIDES the
+   * BIM canvases. The `CesiumThreeBridge` only re-parents + camera-syncs the main
+   * THREE scene — it owns no canvas/renderer of its own, so its overlay is never
+   * actually drawn on the (raised) Cesium surface, and it assumes WebGL not WebGPU.
+   * Rebuilding the elements as Cesium polygons is exactly the Forma massing we are
+   * replacing. The renderer-agnostic bridge is **glTF**: we serialise the live BIM
+   * THREE scene to GLB (`exportFragmentsToGLB`, real meshes + materials) and load it
+   * as a native `Cesium.Model` scene primitive. Cesium depth-tests it against the
+   * Google 3D-Tiles natively, so it occludes/seats correctly on the tiles, and the
+   * WebGPU↔WebGL split is sidestepped entirely.
+   *
+   * Placement reuses the EXACT photoreal anchoring the massing uses: one
+   * `eastNorthUpToFixedFrame` at the site origin, seated at `formaTerrainBaseHeight`
+   * (the v50 `sampleHeightMostDetailed` tile clamp — already resolved by the massing
+   * pass that runs alongside this). Orientation matches the established
+   * `loadBimGltf` convention (bare ENU frame; Cesium handles the glTF Y-up→Z-up).
+   *
+   * Fully guarded + best-effort: any failure leaves the (already-rendered) massing
+   * in place as the fallback and returns false. Never throws.
+   *
+   * @returns true if the real model primitive was added; false on any failure (the
+   *   caller then keeps the Forma massing as the fallback).
+   */
+  public async renderRealModelOnGlobe(input: {
+    glbUrl: string;
+    originLat: number;
+    originLon: number;
+    /** Override base height; defaults to the tile-clamped `formaTerrainBaseHeight`. */
+    baseHeight?: number;
+  }): Promise<boolean> {
+    const viewer = this.viewer;
+    if (!viewer) {
+      console.warn('[CesiumViewport][globe] renderRealModelOnGlobe before mount — ignored.');
+      return false;
+    }
+    if (!input.glbUrl) {
+      console.warn('[CesiumViewport][globe] renderRealModelOnGlobe: no GLB url — ignored.');
+      return false;
+    }
+    try {
+      // Keep the photoreal sun-driven shadows on (same as the keepPhotoreal massing
+      // path) so the real model grounds itself on the tiles.
+      try {
+        viewer.shadows = true;
+        const sm = viewer.scene.shadowMap;
+        if (sm) { sm.enabled = true; sm.softShadows = true; }
+      } catch (e) {
+        console.warn('[CesiumViewport][globe] shadow setup failed (non-fatal):', e);
+      }
+
+      const baseHeight =
+        typeof input.baseHeight === 'number' && Number.isFinite(input.baseHeight)
+          ? input.baseHeight
+          : this.formaTerrainBaseHeight;
+
+      // ONE ENU frame at the site origin, seated at the tile-clamped base height —
+      // the SAME anchor the massing uses, so the real model lands exactly where the
+      // pastel blocks did (and ON the tiles via the v50 clamp).
+      const position = Cesium.Cartesian3.fromDegrees(input.originLon, input.originLat, baseHeight);
+      const modelMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(position);
+
+      // Same option shape as the established `loadBimGltf` path (Cesium depth-tests
+      // scene primitives against the loaded 3D-Tiles natively → correct occlusion).
+      const newModel = await Cesium.Model.fromGltfAsync({
+        url: input.glbUrl,
+        modelMatrix,
+        scale: 1.0,
+        allowPicking: true,
+      });
+
+      // A re-toggle may have torn the viewer down while the GLB parsed — bail.
+      if (!this.viewer) {
+        if (!newModel.isDestroyed()) newModel.destroy();
+        return false;
+      }
+
+      // Replace any prior real-model primitive (dedup) + revoke its blob URL.
+      this.clearRealModelOnGlobe();
+
+      this.realModelOnGlobe = newModel;
+      this.realModelOnGlobeUrl = input.glbUrl;
+      this.realModelOnGlobeOrigin = { lat: input.originLat, lon: input.originLon };
+      this.viewer.scene.primitives.add(newModel);
+      this.viewer.scene.requestRender();
+
+      console.log(
+        `[CesiumViewport][globe] §A.21.D49 REAL model placed on photoreal tiles ` +
+          `at LAT ${input.originLat.toFixed(6)} LON ${input.originLon.toFixed(6)} base ${baseHeight.toFixed(2)} m.`,
+      );
+      return true;
+    } catch (err) {
+      console.warn('[CesiumViewport][globe] §A.21.D49 renderRealModelOnGlobe failed (keeping massing fallback):', err);
+      return false;
+    }
+  }
+
+  /**
+   * §A.21.D49 — drop the real-model-on-globe primitive (if any) and revoke its
+   * backing object URL. Safe to call when nothing is placed.
+   */
+  public clearRealModelOnGlobe(): void {
+    try {
+      if (this.realModelOnGlobe && this.viewer) {
+        this.viewer.scene.primitives.remove(this.realModelOnGlobe);
+        if (!this.realModelOnGlobe.isDestroyed()) this.realModelOnGlobe.destroy();
+      }
+    } catch {
+      /* already gone */
+    }
+    this.realModelOnGlobe = null;
+    this.realModelOnGlobeOrigin = null;
+    if (this.realModelOnGlobeUrl) {
+      try { URL.revokeObjectURL(this.realModelOnGlobeUrl); } catch { /* not a blob url */ }
+      this.realModelOnGlobeUrl = null;
+    }
+  }
+
+  /**
+   * §A.21.D49 — re-seat the already-placed real model at the CURRENT
+   * `formaTerrainBaseHeight` (cheap modelMatrix update, no GLB reload). Called when
+   * the async photoreal tile clamp settles after the model was first placed at a
+   * stale base. No-op when no real model is placed.
+   */
+  private reseatRealModelOnGlobe(): void {
+    const model = this.realModelOnGlobe;
+    const origin = this.realModelOnGlobeOrigin;
+    if (!model || !origin || model.isDestroyed()) return;
+    try {
+      const position = Cesium.Cartesian3.fromDegrees(origin.lon, origin.lat, this.formaTerrainBaseHeight);
+      model.modelMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(position);
+      this.viewer?.scene.requestRender();
+    } catch (e) {
+      console.warn('[CesiumViewport][globe] §A.21.D49 reseatRealModelOnGlobe failed (non-fatal):', e);
+    }
+  }
+
+  /**
    * §A.21.D24 — group walls into STOREY BANDS by their base elevation so the
    * massing can be extruded per floor (stacked at true elevations) instead of
    * flattened onto a single ground block.
@@ -3712,6 +3904,13 @@ export class CesiumViewport {
       this.clearFormaMassing();
     } catch (e) {
       console.warn('[CesiumViewport] forma massing dispose failed:', e);
+    }
+    // §A.21.D49 — drop the real-model-on-globe primitive + revoke its blob URL so a
+    // re-mounted viewport (project switch) starts clean.
+    try {
+      this.clearRealModelOnGlobe();
+    } catch (e) {
+      console.warn('[CesiumViewport] real-model-on-globe dispose failed:', e);
     }
     this.formaMassingOrigin = null;
     // A.21.D24 — drop all 3D climate overlays (sun-path/wind/heat) so they don't

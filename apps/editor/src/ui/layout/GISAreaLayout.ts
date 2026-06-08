@@ -1302,6 +1302,11 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 `${stairs.length} stair(s) at LAT ${origin.lat} LON ${origin.lon}.`
         );
         try {
+            // STEP 1 — render the Forma massing on the photoreal globe. This is the
+            // SAFE FALLBACK and ALSO does the real work the real-model path depends
+            // on: it establishes the v50 tile clamp (`formaTerrainBaseHeight`) and
+            // populates the storey-band floor selector. If the real-model overlay
+            // (step 2) fails for any reason, this massing stays as the result.
             cesiumViewport.renderBuildingOnGlobe({
                 originLat: origin.lat,
                 originLon: origin.lon,
@@ -1316,8 +1321,56 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 frameCentroid: false,
             });
             refreshFormaFloorSelector();
+
+            // STEP 2 — §A.21.D49: overlay the REAL, FULL-FIDELITY PRYZM model (the
+            // live BIM THREE scene serialised to glTF — real walls with their CSG
+            // openings, windows, doors, roof, slabs, in the app's real materials) on
+            // the tiles, replacing the pastel massing blocks. The detailed model is
+            // the renderer-agnostic glTF bridge across the WebGPU(BIM)↔WebGL(Cesium)
+            // split. Best-effort + deferred slightly so the async tile clamp has a
+            // chance to seat `formaTerrainBaseHeight` before we read it for the model.
+            void placeRealModelOnGlobe(origin);
         } catch (err) {
             console.warn('[gis][globe] renderBuildingOnGlobe failed (non-fatal):', err);
+        }
+    };
+
+    // §A.21.D49 — export the live BIM scene to GLB and place it as the REAL detailed
+    // model on the photoreal tiles. On success, hide the abstract Forma massing
+    // blocks so only the real model shows. Any failure leaves the massing in place
+    // (the fallback) — this never throws.
+    const placeRealModelOnGlobe = async (origin: { lat: number; lon: number }): Promise<void> => {
+        try {
+            if (!cesiumViewport?.renderRealModelOnGlobe) {
+                console.warn('[gis][globe] renderRealModelOnGlobe unavailable (old build) — keeping massing.');
+                return;
+            }
+            const scene = props.world?.scene?.three;
+            if (!scene) {
+                console.warn('[gis][globe] no BIM scene to serialise — keeping massing.');
+                return;
+            }
+            const { exportFragmentsToGLB } = await import('@pryzm/file-format');
+            const glbUrl = await exportFragmentsToGLB(scene as any);
+            if (!glbUrl) {
+                console.warn('[gis][globe] GLB export returned no url — keeping massing.');
+                return;
+            }
+            const placed = await cesiumViewport.renderRealModelOnGlobe({
+                glbUrl,
+                originLat: origin.lat,
+                originLon: origin.lon,
+            });
+            if (placed) {
+                // Real model is on the tiles — hide the abstract massing blocks so the
+                // two don't double-render (keep storey-band metadata + selector).
+                cesiumViewport.clearFormaMassingEntitiesOnly?.();
+                console.log('[gis][globe] §A.21.D49 REAL detailed model placed on tiles — massing blocks hidden.');
+            } else {
+                console.log('[gis][globe] §A.21.D49 real-model placement declined — massing fallback kept.');
+            }
+        } catch (err) {
+            console.warn('[gis][globe] §A.21.D49 real-model overlay failed (keeping massing fallback):', err);
         }
     };
 
