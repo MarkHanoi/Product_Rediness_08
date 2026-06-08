@@ -183,6 +183,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     // Reserving a 0.05 m clearance ring guarantees that even a worst-case snap leaves
     // every room strictly clear of the actual stair footprint — a genuine keep-out,
     // and an architecturally-correct clearance gap around the stair.
+    let stairCarved = false;                      // §STAIR-OBSTACLE-CARVE signal
     if (input.keepOutRects && input.keepOutRects.length > 0) {
         const holesT = input.keepOutRects.map(r => {
             const h = xfRect(r, t.fwd);
@@ -191,8 +192,13 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
                 x1: h.x1 + KEEPOUT_MARGIN_M, z1: h.z1 + KEEPOUT_MARGIN_M,
             };
         });
+        const before = rectsT.length;
         rectsT = subtractRectsFromRects(rectsT, holesT);
         if (rectsT.length === 0) return null;     // core consumed the whole plate
+        // The carve actually fractured the plate (added sub-rects) → flag the
+        // subdivider so it keeps a corridor spine across the hole rather than
+        // packing each fragment independently (the central-stair merged-blob fix).
+        stairCarved = rectsT.length > before;
     }
 
     // §L1-α-3 — pass shell polygon so the bubble graph carries a per-edge
@@ -208,9 +214,15 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
 
     // A.25.3 — the `accessibility` slider widens the corridor strip. Absent ⇒ the
     // subdivider uses its built-in CORRIDOR_STRIP_WIDTH_M (1.2 m).
+    // §STAIR-OBSTACLE-CARVE — `stairCarved` tells the subdivider a stair keep-out
+    // fractured the plate so it keeps a corridor spine across the hole. Both
+    // options reach subdivideWithReport.
     const subRes = subdivideWithReport(
         rectsT, bubble,
-        input.corridorWidthM !== undefined ? { corridorWidthM: input.corridorWidthM } : {},
+        {
+            stairCarved,
+            ...(input.corridorWidthM !== undefined ? { corridorWidthM: input.corridorWidthM } : {}),
+        },
     );
     const placementsT = subRes.placements;
     if (placementsT.length === 0) return null;

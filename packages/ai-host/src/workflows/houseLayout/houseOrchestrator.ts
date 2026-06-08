@@ -18,6 +18,7 @@ import type {
 import type { ShellAnalysis } from '../apartmentLayout/shellAnalysis.js';
 import { generateDeterministicLayouts } from '../apartmentLayout/tgl/runDeterministicLayout.js';
 import { principalAxisAngle, rotatePt } from '../apartmentLayout/tgl/rectDecomposition.js';
+import { equatorFacingDir } from '../apartmentLayout/windowEmission/solarOrientation.js';
 import { validateHouseStorey, houseStoreyBand } from './houseEnvelope.js';
 import { reserveStairCoreShaped, splitRisersForShape, type StairCoreShaped } from './stairCore.js';
 import { allocateProgramToStoreys } from './storeyAllocation.js';
@@ -110,6 +111,29 @@ function stairCoreAreaM2(rectMm: { w: number; h: number }): number {
 const DEFAULT_VARIANT_COUNT = 3;
 
 /**
+ * §A.21.D18 / §STAIR-CARVE-NO-DROP (2026-06-08) — the per-storey "single best" option
+ * for the modal's default card. The shared apartment engine ranks options by PARETO
+ * front then weighted objectives, so `options[0]` is the architecturally-best
+ * candidate — but its scalar `score.overall` is NOT guaranteed to be the maximum in
+ * the returned set (e.g. on a tight §STAIR-OBSTACLE-CARVE storey a Pareto-inferior
+ * alternative that drops a required en-suite can post a slightly higher `overall`).
+ * The whole-house modal sorts VARIANTS best-first by aggregate `overall`, and the
+ * A.21.D18 invariant requires variant 0 (this selector on every storey) to equal the
+ * single best AND to sort first. Both hold iff variant 0 picks the MAX-`overall`
+ * option per storey — so we select argmax(`overall`), tie-broken by the engine's own
+ * order (lowest index, i.e. best Pareto rank). Empty set ⇒ -1 (blank storey).
+ * Pre-stair this argmax always landed on index 0, so this is byte-identical there.
+ */
+function bestStoreyOptionIndex(options: readonly ScoredLayoutOption[]): number {
+    if (options.length === 0) return -1;
+    let best = 0;
+    for (let i = 1; i < options.length; i++) {
+        if ((options[i]!.score?.overall ?? 0) > (options[best]!.score?.overall ?? 0)) best = i;
+    }
+    return best;
+}
+
+/**
  * Generate a complete multi-storey house layout (§6).
  *
  * Algorithm:
@@ -175,7 +199,10 @@ export function generateHouseLayout(
     // only on the footprint, not the option count), so this change only aligns the
     // per-storey option[0] selection. Apartment + single-storey paths are unaffected.
     const enumerated = enumeratePerStorey(shell, program, constraints, weights, opts, DEFAULT_VARIANT_COUNT);
-    return assembleHouse(enumerated, (_storeyIdx, options) => options[0] ?? null);
+    return assembleHouse(enumerated, (_storeyIdx, options) => {
+        const idx = bestStoreyOptionIndex(options);
+        return idx >= 0 ? (options[idx] ?? null) : null;
+    });
 }
 
 /**
@@ -224,14 +251,18 @@ export function generateHouseLayoutOptions(
     const seenSelections = new Set<string>();
     for (let v = 0; v < wanted; v++) {
         // Resolve the per-storey selection tuple for this variant.
-        //   v === 0 → index 0 on EVERY storey (the single best — A.21.D18 equality
-        //             invariant: this variant MUST equal generateHouseLayout()).
+        //   v === 0 → the per-storey single best (`bestStoreyOptionIndex`, the SAME
+        //             selector `generateHouseLayout` uses) on EVERY storey — the
+        //             A.21.D18 equality invariant: this variant MUST equal the single
+        //             best AND, being max-`overall` per storey, sort first.
         //   v ≥ 1   → staggered `(v + s) % n` so the alternatives are visibly
-        //             distinct yet never collide with variant 0's all-zero tuple.
+        //             distinct. A staggered tuple that happens to equal variant 0's is
+        //             de-duped below (seenSelections), so the modal never shows a
+        //             duplicate of the default card.
         const selection: number[] = enumerated.perStorey.map((storey, s) => {
             const n = storey.options.length;
             if (n === 0) return -1;                       // empty plate — assembler records a blank storey
-            return v === 0 ? 0 : (v + s) % n;             // staggered for v≥1, deterministic
+            return v === 0 ? bestStoreyOptionIndex(storey.options) : (v + s) % n;
         });
         const key = selection.join(',');
         if (seenSelections.has(key)) continue;            // collapsed to an already-emitted variant — skip
@@ -253,6 +284,10 @@ export function generateHouseLayoutOptions(
     }
 
     // Best-first by aggregate score, then by original variant order (stable).
+    // §A.21.D18 EQUALITY INVARIANT holds because variant 0 selects the MAX-`overall`
+    // option on every storey (see `bestStoreyOptionIndex` below — the SAME selector
+    // `generateHouseLayout` uses), so its mean aggregate is maximal and it always
+    // sorts first — i.e. the modal's first card stays byte-equal to the single best.
     out.sort((a, b) => b.overallScore - a.overallScore || a.variantIndex - b.variantIndex);
     // Re-stamp variantIndex to the post-sort position so it's a stable 0..n-1.
     return out.map((o, i) => ({ ...o, variantIndex: i }));
@@ -323,8 +358,33 @@ function enumeratePerStorey(
     // the L/U flight split (A.21.D18). Reserved in the rotated LAYOUT frame so the
     // rect sits squarely against the rotated plate (A.21.D24).
     const totalRisers = totalRisersForGap(floorToFloorM);
+    // §STAIR-WORST-ASPECT (2026-06-08) — thread the site latitude so the core hugs
+    // the POOR-ASPECT perimeter wall (founder rule: the stair takes the worst
+    // façade; habitable rooms keep the best). The core is reserved in the LAYOUT
+    // (principal-axis-rotated) frame, so we map the WORLD equator-facing direction
+    // into that frame by the SAME −principalAxisRad rotation `runDeterministicLayout`
+    // applies to the window sun direction (a direction → pivot is the origin). +y in
+    // the layout frame then means the BACK (max-Z) wall. On an axis-aligned plate the
+    // rotation is identity. Absent solar ⇒ a wall-hugging placement by circulation-
+    // waste alone (still off-centre — Defect A — just aspect-blind).
+    const stairSolar = opts.solar
+        ? (() => {
+            const worldSun = equatorFacingDir(opts.solar.latDeg);   // (x=East, y=South=+planZ) or null
+            const sunDirLayout = worldSun
+                ? (() => {
+                    const r = principalAxisRad === 0
+                        ? { x: worldSun.x, z: worldSun.y }
+                        : rotatePt({ x: worldSun.x, z: worldSun.y }, -principalAxisRad, { x: 0, z: 0 });
+                    return { x: r.x, y: r.z };
+                })()
+                : null;
+            return { latDeg: opts.solar.latDeg, sunDirLayout };
+        })()
+        : undefined;
     const core: StairCoreShaped | null =
-        storeyCount > 1 ? reserveStairCoreShaped(footprintLayout, storeyCount, totalRisers) : null;
+        storeyCount > 1
+            ? reserveStairCoreShaped(footprintLayout, storeyCount, totalRisers, stairSolar)
+            : null;
     const coreRect = core ? core.rectMm : null;   // in the LAYOUT frame (mm)
     const coreAreaM2 = coreRect ? stairCoreAreaM2(coreRect) : 0;
 

@@ -34,6 +34,67 @@ export interface StairCorePosition {
 
 export type StairCorePositionKind = 'central' | 'left' | 'right' | 'back';
 
+// ── §STAIR-WORST-ASPECT (Casa, founder explicit ask 2026-06-08) ──────────────
+//
+// The founder's rule: "in each house the stair should occupy the LEAST space
+// possible and always tend to be ADJACENT TO A WALL — ideally the wall where the
+// view / sunlight is WORST (normally NORTH unless the view is good)." The stair is
+// pure circulation; spending the BEST (sun-facing / good-view) façade on it wastes
+// the plot's most valuable frontage. So we bias the perimeter candidate choice
+// toward the POOR-ASPECT wall and AWAY from the good (sun) façade.
+//
+// Frame: the plate-local frame here has y=0 on the ENTRANCE (front, min-Z) façade
+// and y=plateH on the BACK (max-Z) façade; `left`=x0 / `right`=x1 are the two side
+// walls. The sun/equator-facing direction (from latitude, via
+// `aspectFromSunDir`) is expressed in the SAME frame (y === plan-Z): Northern
+// hemisphere → sun toward +y (the BACK wall is the good one), Southern → −y (the
+// FRONT/entrance wall is the good one). The stair therefore avoids the wall whose
+// outward normal points at the sun, and prefers the opposite (worst-aspect) wall.
+// A façade explicitly flagged GOOD-VIEW is avoided the same way.
+
+/** Per-candidate-kind aspect preference: which perimeter wall a candidate abuts,
+ *  scored by how POOR its aspect is (higher = poorer = better for a stair). */
+export interface AspectBias {
+    /** Sun/equator-facing unit direction in the plate-local frame (x=East, y=plan-Z
+     *  where +y is the BACK/max-Z wall). Null ⇒ no solar preference (equatorial /
+     *  no latitude) → every wall is aspect-neutral. */
+    readonly sunDir: { readonly x: number; readonly y: number } | null;
+    /** OPTIONAL set of candidate kinds whose façade is flagged GOOD-VIEW — the stair
+     *  avoids these the same way it avoids the sun wall. */
+    readonly goodViewKinds?: readonly StairCorePositionKind[];
+}
+
+/** The outward normal of the wall a perimeter candidate abuts, in the plate-local
+ *  frame (x=East, y=plan-Z). `left` faces −x, `right` faces +x, `back` faces +y
+ *  (away from the entrance). `central` has no wall → {0,0}. */
+function wallOutwardNormal(kind: StairCorePositionKind): { x: number; y: number } {
+    switch (kind) {
+        case 'left':  return { x: -1, y: 0 };
+        case 'right': return { x: 1, y: 0 };
+        case 'back':  return { x: 0, y: 1 };
+        default:      return { x: 0, y: 0 };       // central — no façade
+    }
+}
+
+/**
+ * Aspect SCORE for a perimeter candidate: 0 (best aspect — the stair should avoid
+ * this wall) … 1 (worst aspect — ideal for a stair). Derived from how much the
+ * wall faces AWAY from the sun: a wall whose outward normal points at the sun is
+ * the GOOD façade (score → 0); a wall facing away is the POOR façade (score → 1);
+ * a side wall is neutral (~0.5). A wall flagged good-view is forced to 0. With no
+ * sun direction every wall is neutral 0.5 (aspect-blind → no behaviour change).
+ */
+export function aspectScore(kind: StairCorePositionKind, bias: AspectBias | undefined): number {
+    if (kind === 'central') return 0;              // central is not a perimeter wall
+    if (bias?.goodViewKinds?.includes(kind)) return 0;   // explicit good-view → avoid
+    const sun = bias?.sunDir;
+    if (!sun) return 0.5;                          // aspect-blind → neutral
+    const n = wallOutwardNormal(kind);
+    const dot = n.x * sun.x + n.y * sun.y;         // +1 faces sun, −1 faces away
+    // Map dot ∈ [−1,1] → poorness ∈ [1,0]: facing-away (−1) is the WORST aspect → 1.
+    return (1 - dot) / 2;
+}
+
 /** Minimum landing/clearance the core must leave to a perimeter wall it abuts (mm).
  *  A core flush against a wall still needs a usable approach on its open sides; we
  *  also keep the core off the y=0 entrance edge by at least this margin. */
@@ -230,8 +291,22 @@ export function stairCorePositionCandidates(
     // central placement instead of marooning the core against a wall with no approach).
     const fitsX = plateW - coreW >= PERIMETER_MIN_OPEN_MM;
     const fitsY = plateH - coreH >= PERIMETER_MIN_OPEN_MM;
-    // Keep the perimeter cores off the entrance edge: same back-third Z as central.
-    const perimY = backThirdY;
+
+    // §STAIR-CORNER-ANCHOR (2026-06-08, Defect A) — the side-wall (left/right)
+    // candidates are anchored to the BACK CORNER (flush to a side wall AND flush to
+    // the rear max-Z wall), NOT the mid-height back-third. WHY: a stair carved out
+    // of the MIDDLE of an edge fractures the plate into THREE comparable bands
+    // (full-width top + full-width bottom + a side band), none dominant — so the
+    // subdivider can't keep a corridor spine and the rooms merge (the founder's
+    // central-stair blob, which a mid-edge perimeter stair reproduces). A CORNER
+    // stair instead carves a clean L = ONE dominant rectangle + one small corner
+    // sliver, so §STAIR-OBSTACLE-CARVE can run the corridor carve on the dominant
+    // rect and every room encloses + links. The back corner is the only clean-carve
+    // corner available (the front corners sit on the entrance edge, which must stay
+    // clear), and it keeps the stair OFF the prime front façade — consistent with
+    // the worst-aspect rule (habitable rooms keep the best frontage). The core stays
+    // off the entrance edge because it abuts the REAR wall (y = plateH − coreH > 0).
+    const cornerY = Math.max(WALL_LANDING_MM, plateH - coreH);
 
     // A.21.D34(a) — only offer a perimeter candidate whose full core rect lies inside
     // the shell polygon (when one is supplied). Absent polygon ⇒ accept all (identical).
@@ -239,13 +314,14 @@ export function stairCorePositionCandidates(
         !shellPoly || shellPoly.length < 3 || rectInsidePoly(x, y, coreW, coreH, shellPoly);
 
     if (fitsX) {
-        // Flush LEFT wall (x = 0).
-        if (contained(0, perimY)) out.push({ x: 0, y: r3(perimY), kind: 'left' });
-        // Flush RIGHT wall (x = plateW − coreW).
-        if (contained(plateW - coreW, perimY)) out.push({ x: r3(plateW - coreW), y: r3(perimY), kind: 'right' });
+        // Flush LEFT wall (x = 0), back corner.
+        if (contained(0, cornerY)) out.push({ x: 0, y: r3(cornerY), kind: 'left' });
+        // Flush RIGHT wall (x = plateW − coreW), back corner.
+        if (contained(plateW - coreW, cornerY)) out.push({ x: r3(plateW - coreW), y: r3(cornerY), kind: 'right' });
     }
     if (fitsY) {
-        // Flush BACK wall (y = plateH − coreH), X-centred.
+        // Flush BACK wall (y = plateH − coreH), X-centred — the full-edge band
+        // variant (still a clean single-dominant carve: one big front band).
         const by = Math.max(WALL_LANDING_MM, plateH - coreH);
         if (contained(cx, by)) out.push({ x: r3(cx), y: r3(by), kind: 'back' });
     }
@@ -292,23 +368,68 @@ export function chooseStairCorePosition(
     // A.21.D34(a) — OPTIONAL shell polygon (plate-local mm) to keep every candidate
     // INSIDE a skewed/rotated shell. Absent ⇒ byte-identical to the pre-D34 choice.
     shellPoly?: readonly PlatePolyPt[],
+    // §STAIR-WORST-ASPECT (2026-06-08) — OPTIONAL aspect bias (sun direction +
+    // good-view flags, plate-local frame). When supplied, the chooser STRONGLY
+    // prefers a PERIMETER candidate over central (Defect A — a central stair holes
+    // the subdivision so rooms can't enclose) and, among perimeter candidates,
+    // prefers the POOR-ASPECT wall (Defect B — keep the best façade for habitable
+    // rooms). Absent ⇒ byte-identical to the pre-aspect waste-only choice.
+    aspect?: AspectBias,
 ): StairCorePosition {
     const candidates = stairCorePositionCandidates(plateW, plateH, coreW, coreH, shellPoly);
+
+    // §STAIR-WORST-ASPECT — combined cost when an aspect bias is supplied:
+    //   cost = waste + PERIMETER_PREFERENCE·(central?1:0) − ASPECT_WEIGHT·aspectScore
+    // The perimeter-preference term makes any feasible PERIMETER candidate beat the
+    // central default whenever one exists (so the stair hugs a wall — fixing both
+    // the central-hole subdivision break AND the founder's "adjacent to a wall"
+    // rule). The aspect term then orders the perimeter candidates so the POOREST-
+    // aspect (e.g. North) wall wins. Both terms are bounded below the waste scale's
+    // own range, so on a plate where central is genuinely the only sane option
+    // (no perimeter candidate offered) central still wins. Without an aspect bias
+    // we fall back to the pure waste tie-break (byte-identical legacy path).
+    const PERIMETER_PREFERENCE = 1.0;   // central pays this; perimeter pays 0
+    const ASPECT_WEIGHT = 0.25;         // tunes perimeter ordering; < PERIMETER_PREFERENCE
+    const cost = (c: { kind: StairCorePositionKind; x: number; y: number }): number => {
+        const waste = stairCoreWaste(plateW, plateH, coreW, coreH, c.x, c.y);
+        if (!aspect) return waste;
+        const centralPenalty = c.kind === 'central' ? PERIMETER_PREFERENCE : 0;
+        return waste + centralPenalty - ASPECT_WEIGHT * aspectScore(c.kind, aspect);
+    };
+
     let best = candidates[0]!;
-    let bestWaste = stairCoreWaste(plateW, plateH, coreW, coreH, best.x, best.y);
+    let bestCost = cost(best);
     for (let i = 1; i < candidates.length; i++) {
         const c = candidates[i]!;
-        const w = stairCoreWaste(plateW, plateH, coreW, coreH, c.x, c.y);
+        const w = cost(c);
         // Strictly-less by more than EPS to beat the central default (stable tie-break).
-        if (w < bestWaste - TIE_EPS) {
+        if (w < bestCost - TIE_EPS) {
             best = c;
-            bestWaste = w;
+            bestCost = w;
         }
     }
+    // Report the pure circulation waste for diagnostics/tests (unchanged metric).
+    const bestWaste = stairCoreWaste(plateW, plateH, coreW, coreH, best.x, best.y);
     return { x: best.x, y: best.y, waste: r3(bestWaste), kind: best.kind };
+}
+
+/**
+ * §STAIR-WORST-ASPECT — derive the plate-local sun direction from a site latitude.
+ * Reuses the SAME convention as the window-orientation engine: the equator-facing
+ * direction in the emit frame is (x=East, y=South where +y is increasing plan-Z =
+ * the BACK/max-Z wall). Northern hemisphere → sun toward +y; Southern → −y. Near
+ * the equator (|lat| < 10°) there is no clear preference → null (aspect-neutral).
+ *
+ * Kept here (not imported from windowEmission) so stairPosition stays a leaf with
+ * zero cross-module coupling; the threshold + sign match `equatorFacingDir`.
+ */
+export function aspectFromSunDir(latDeg: number | undefined): { x: number; y: number } | null {
+    if (latDeg === undefined || !Number.isFinite(latDeg) || Math.abs(latDeg) < 10) return null;
+    return latDeg >= 0 ? { x: 0, y: 1 } : { x: 0, y: -1 };
 }
 
 export {
     stairCorePositionCandidates as __candidatesForTest,
     stairCoreWaste as __wasteForTest,
+    aspectScore as __aspectScoreForTest,
 };

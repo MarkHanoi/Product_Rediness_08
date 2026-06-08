@@ -395,3 +395,54 @@ describe('A.21.x — edge cases degrade gracefully (no throw)', () => {
             .not.toThrow();
     });
 });
+
+// ─────────── 8 — §STAIR-OBSTACLE-CARVE end-to-end (Defect A + B) ──────────────
+//
+// The founder's central-stair defect: on a multi-storey house the ground floor
+// detected ONE giant merged room ("Living/Corridor/Bedroom 2/Kitchen/Bathroom
+// 68.1 m²") because a central stair holed the subdivision so partitions couldn't
+// enclose the rooms. After the fix the stair hugs a perimeter wall AND the
+// subdivision keeps a corridor spine, so the ground floor reads as a real, multi-
+// room house floor with a corridor linking the rooms.
+
+describe('A.21 — multi-storey GROUND floor encloses many rooms + a corridor (no merged blob)', () => {
+    const res = generateHouseLayout(
+        SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2, solar: { latDeg: 51.5 } },
+    );
+    const ground = res.perStoreyLayout[0]!;
+
+    it('the ground floor has MULTIPLE distinct rooms (never a single merged blob)', () => {
+        // The merged-blob defect collapsed the ground to ~1 room; a real house floor
+        // has the social core + a corridor + service/guest rooms.
+        expect(ground.rooms.length).toBeGreaterThanOrEqual(4);
+    });
+
+    it('the ground floor carries a real CORRIDOR linking the rooms (a spine, not a blob)', () => {
+        const corridor = ground.rooms.find(r => r.type === 'corridor');
+        expect(corridor).toBeDefined();
+        // The corridor is the spine → adjacent to other rooms (not an isolated cell).
+        expect(corridor!.adjacentTo.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('no single ground room dominates the whole plate (the 68 m² blob symptom)', () => {
+        const largest = Math.max(...ground.rooms.map(r => r.area));
+        const totalRoomArea = ground.rooms.reduce((s, r) => s + r.area, 0);
+        // The largest room is a fraction of the floor, not (nearly) all of it.
+        expect(largest).toBeLessThan(totalRoomArea * 0.8);
+    });
+
+    it('the stair hugs a perimeter wall (shares ≥1 edge with the shell bbox)', () => {
+        const core = res.stairs[0]!.rectMm;
+        const touchesLeft  = Math.abs(core.x) < 1e-6;
+        const touchesRight = Math.abs(core.x + core.w - 13_000) < 1e-6;
+        const touchesBack  = Math.abs(core.y + core.h - 10_000) < 1e-6;
+        expect(touchesLeft || touchesRight || touchesBack).toBe(true);
+        expect(core.y).toBeGreaterThan(0);   // never on the entrance edge
+    });
+
+    it('the whole result stays deterministic with the obstacle carve active', () => {
+        const a = generateHouseLayout(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2, solar: { latDeg: 51.5 } });
+        const b = generateHouseLayout(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2, solar: { latDeg: 51.5 } });
+        expect(projectStable(a)).toEqual(projectStable(b));
+    });
+});
