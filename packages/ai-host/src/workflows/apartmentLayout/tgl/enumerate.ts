@@ -622,11 +622,25 @@ export function enumerateLayouts(input: EnumerateInput): TglCandidate[] {
     const cleanAndLegal = clean.filter(c => c.connected && c.compromises === 0);
     const cleanLegalRouted = cleanAndLegal.filter(c => c.circulationRouted);
     const cleanAndConn = clean.filter(c => c.connected);
+    // §TOPO-ROUTED-PREFERENCE (F2 / ADR-0062 D4-sharpened, 2026-06-08) — when EVERY
+    // candidate fails the shape gate (universal on elongated/rotated plates, so the
+    // three `clean*` tiers are empty), the old fallback dropped straight to `legal`/
+    // `connected`, which do NOT prefer a circulation-routed plan — so the engine could
+    // ship a `circRouted=false` / `topologyQuality=0.00` layout (the founder's console
+    // audit, F2). Insert two routed-preferring tiers BELOW the clean tiers: among
+    // connected+legal (and then connected) candidates, prefer the circulation-routed
+    // ones. SAFE: each tier is only chosen if non-empty and otherwise falls straight
+    // through, so the pool is NEVER emptied (D4 — never a zero result); byte-identical
+    // when a clean tier is populated OR when no routed candidate exists at that tier.
+    const legalRouted = legal.filter(c => c.circulationRouted);
+    const connectedRouted = connected.filter(c => c.circulationRouted);
     let pool =
         cleanLegalRouted.length > 0 ? cleanLegalRouted :
         cleanAndLegal.length > 0 ? cleanAndLegal :
         cleanAndConn.length > 0 ? cleanAndConn :
+        legalRouted.length > 0 ? legalRouted :
         legal.length > 0 ? legal :
+        connectedRouted.length > 0 ? connectedRouted :
         connected.length > 0 ? connected :
         candidates;
 
@@ -664,7 +678,9 @@ export function enumerateLayouts(input: EnumerateInput): TglCandidate[] {
             cleanLegalRouted.length > 0 ? 'clean+legal+routed' :
             cleanAndLegal.length > 0 ? 'clean+legal' :
             cleanAndConn.length > 0 ? 'clean+connected' :
+            legalRouted.length > 0 ? 'legal+routed' :
             legal.length > 0 ? 'legal' :
+            connectedRouted.length > 0 ? 'connected+routed' :
             connected.length > 0 ? 'connected' : 'any';
         const axes = OBJECTIVE_AXES
             .map(a => `${a}=${best.objectives[a].toFixed(2)}`)

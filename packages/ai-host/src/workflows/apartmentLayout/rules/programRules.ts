@@ -248,8 +248,12 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         acousticRole: 'source', frontage: 'required',
         // DB-047 minAreaM2 14 (HQI mandatory); DB-049 minShortSide 3.2 m.
         // §AREA-FRACTIONS — living must be ≥ 15 % of the apartment (spec floor).
+        // §SOCIAL-CAVERN-CAP (PM-5, 2026-06-08) — and ≤ 32 % (ceiling): on a large/elongated
+        // plate an uncapped living stretches into a deep-plan cavern with a dark interior
+        // (the founder's 83.9 m² Room). The cap keeps the social space generous but bounded
+        // so the surplus area distributes to other rooms instead of one daylight-starved hall.
         areaWeight: 1.7, minAreaM2: 14, minShortSideM: 3.2, needsWindow: true, windowMandatory: true,
-        minAreaFrac: 0.15,
+        minAreaFrac: 0.15, maxAreaFrac: 0.32,
         accessFrom: ['hall', 'corridor', 'kitchen', 'dining'], maxDoors: INF,
         adjacencyPreference: { kitchen: 1.0, dining: 1.0, hall: 0.8, corridor: 0.5 },
         requiredFurniture: ['sofa'], optionalFurniture: ['coffee_table', 'tv_unit', 'tv', 'bookshelf_glass', 'wall_art', 'curtain_rod', 'curtain_panel', 'lamp'], requiredFixtures: [],
@@ -277,8 +281,9 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         // DB-052 minAreaM2 6.0 (galley HQI mandatory); DB-054 min galley aisle 1.0 m,
         // counter depth 600 mm ⇒ min short side ≈ 1.8 m for a working galley.
         // §AREA-FRACTIONS — kitchen ≥ 7 % of the apartment (spec floor).
+        // §SOCIAL-CAVERN-CAP (PM-5) — ≤ 16 %: a kitchen never needs to be a deep cavern.
         areaWeight: 0.95, minAreaM2: 6, minShortSideM: 1.8, needsWindow: true, windowMandatory: true,
-        minAreaFrac: 0.07,
+        minAreaFrac: 0.07, maxAreaFrac: 0.16,
         // No direct hall→kitchen: kitchen is reached via the living/dining zone.
         accessFrom: ['corridor', 'living', 'dining', 'utility'], maxDoors: INF,
         // §ADJACENCY-PREFERENCE — kitchen↔dining is the classic open-plan pair (1.0),
@@ -308,7 +313,9 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         type: 'dining', occupancy: 'dining-room', privacy: 'public',
         acousticRole: 'source', frontage: 'preferred',
         // DB-060 minAreaM2 9.0 (HQI separate dining mandatory).
+        // §SOCIAL-CAVERN-CAP (PM-5) — ≤ 16 %: dining stays bounded, not a deep cavern.
         areaWeight: 0.9, minAreaM2: 9, minShortSideM: 2.4, needsWindow: true, windowMandatory: false,
+        maxAreaFrac: 0.16,
         // No direct hall→dining: same reason as kitchen.
         accessFrom: ['corridor', 'living', 'kitchen'], maxDoors: INF,
         adjacencyPreference: { kitchen: 1.0, living: 0.9, corridor: 0.4 },
