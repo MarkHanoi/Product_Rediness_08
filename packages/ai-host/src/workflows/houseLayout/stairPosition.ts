@@ -229,6 +229,48 @@ function rectInsidePoly(
 }
 
 /**
+ * §STAIR-OFF-SHELL (2026-06-08, tracker §22.7) — FINAL containment guard for a
+ * plate-local core rect. Given a rect (min corner x,y; coreW×coreH) and the shell
+ * polygon (plate-local mm), return a position whose WHOLE rect is TIGHTLY inside the
+ * polygon. If the input is already tightly contained it is returned VERBATIM — on an
+ * axis-aligned plate the bbox === the shell, so the core is already contained and this
+ * is a no-op (A.21.D18 byte-identical). Otherwise it walks a deterministic inward grid
+ * (toward the plate centre, the same fraction ladder as `containedCentral`) and returns
+ * the first tightly-contained cell; failing that, the first loosely-contained; failing
+ * both, the input unchanged (degenerate shell — no worse than today).
+ *
+ * WHY: `reserveStairCore`/`reserveStairCoreShaped` clamp the chosen position to the
+ * plate BOUNDING BOX, not the shell POLYGON. On a ROTATED plate bbox ⊋ polygon, so a
+ * wall-flush (or ≤150 mm-proud, loosely-contained) core sits inside the bbox yet OUTSIDE
+ * the rotated shell — the founder's "stair pokes outside the perimeter" defect. This
+ * re-validates the post-clamp rect against the real polygon and nudges it back in.
+ * Pure + deterministic.
+ */
+export function snapRectInsidePoly(
+    x: number, y: number, coreW: number, coreH: number,
+    plateW: number, plateH: number, poly: readonly PlatePolyPt[],
+): { x: number; y: number } {
+    if (poly.length < 3) return { x, y };
+    if (rectInsidePoly(x, y, coreW, coreH, poly, SHELL_TIGHT_JITTER_MM)) return { x, y };
+    const cx = plateW / 2 - coreW / 2;
+    const cy = plateH / 2 - coreH / 2;
+    const ladder = [0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1];
+    // Pass 1: first cell genuinely inside (tight band).
+    for (const f of ladder) {
+        const nx = clamp(x + (cx - x) * f, 0, Math.max(0, plateW - coreW));
+        const ny = clamp(y + (cy - y) * f, 0, Math.max(0, plateH - coreH));
+        if (rectInsidePoly(nx, ny, coreW, coreH, poly, SHELL_TIGHT_JITTER_MM)) return { x: nx, y: ny };
+    }
+    // Pass 2: fall back to the first loosely-contained cell (cm-wobble shell).
+    for (const f of ladder) {
+        const nx = clamp(x + (cx - x) * f, 0, Math.max(0, plateW - coreW));
+        const ny = clamp(y + (cy - y) * f, 0, Math.max(0, plateH - coreH));
+        if (rectInsidePoly(nx, ny, coreW, coreH, poly, SHELL_JITTER_MM)) return { x: nx, y: ny };
+    }
+    return { x, y };
+}
+
+/**
  * Circulation-waste score for placing a `coreW × coreH` core at plate-local min
  * corner (x, y) on a `plateW × plateH` plate. Lower is better. Dimensionless,
  * normalised by the plate area so it's comparable across plot sizes.

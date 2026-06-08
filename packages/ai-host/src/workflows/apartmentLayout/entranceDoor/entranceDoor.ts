@@ -89,6 +89,34 @@ function roomCentreWorld(room: LayoutRoom, planToWorld: PlanToWorldXZ): XZ | nul
 }
 
 /**
+ * §HALL-NO-ENTRANCE (2026-06-08) — does this shell wall actually BOUND the room?
+ *
+ * A shell (perimeter) wall typically spans SEVERAL rooms, so "nearest wall to the
+ * hall centroid" can pick a neighbour's façade (the founder's defect: the entrance
+ * door landed on the KITCHEN's shell wall, leaving the hall with no way in). The wall
+ * genuinely bounds the room iff a VERTEX of the room's footprint lies ON that wall's
+ * segment (within `tolM`) — that holds even when the shell wall is much longer than
+ * the room's frontage. Polygon is plan-mm → world via `planToWorld`; wall is world-m.
+ * Reuses the existing world-XZ `segDir`/`projParam`/`perpDist`. Pure + deterministic.
+ */
+function wallBoundsRoom(
+    wall: ShellWall,
+    polygon: readonly Vec2mm[],
+    planToWorld: PlanToWorldXZ,
+    tolM = 0.2,
+): boolean {
+    const d = segDir(wall.start, wall.end);
+    if (d.len < 1e-6) return false;
+    for (const pm of polygon) {
+        const p = planToWorld(pm);
+        const t = projParam(p, wall.start, d);
+        if (t < -tolM || t > d.len + tolM) continue;          // projects beyond the wall span
+        if (perpDist(p, wall.start, d) <= tolM) return true;  // a room vertex sits on this wall
+    }
+    return false;
+}
+
+/**
  * Resolve the single main-entrance door for a ground-floor layout.
  *
  * Algorithm (deterministic — no RNG):
@@ -138,13 +166,25 @@ export function resolveEntranceDoor(
         return makeDoorOnWall(longest, hall?.type);
     }
 
+    // §HALL-NO-ENTRANCE — restrict the candidate shell walls to those the HALL
+    // actually fronts (a hall-polygon vertex sits on the wall). This guarantees the
+    // entrance door lands on a wall that bounds the hall, not the nearest wall to its
+    // centroid (which can be a neighbour room's — e.g. the kitchen's — façade). Falls
+    // back to ALL shell walls when no hall exists, the hall has no polygon, or no wall
+    // bounds it (robustness), so the no-hall / studio path is byte-identical.
+    let candidateWalls = shellWalls;
+    if (hall && hall.polygon && hall.polygon.length >= 3) {
+        const bounded = shellWalls.filter(w => wallBoundsRoom(w, hall.polygon!, planToWorld));
+        if (bounded.length > 0) candidateWalls = bounded;
+    }
+
     // 2-3. Rank shell walls: perpendicular distance to the target, tie-break by
     //      longest then id. We only consider the perpendicular distance to the
     //      wall's infinite line where the target projects WITHIN (or near) the
     //      wall span — otherwise a far-off collinear wall could win spuriously.
     interface Cand { wall: ShellWall; perp: number; len: number }
     const cands: Cand[] = [];
-    for (const w of shellWalls) {
+    for (const w of candidateWalls) {
         const d = segDir(w.start, w.end);
         if (d.len < MIN_DOOR_M) continue;             // too short to ever host a door
         const t = projParam(target, w.start, d);

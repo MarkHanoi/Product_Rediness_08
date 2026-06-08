@@ -15,7 +15,7 @@
 // Single-storey houses don't call this (no stair), but it is still well-defined.
 
 import type { Pt, StairShape } from './types.js';
-import { chooseStairCorePosition, aspectFromSunDir, type AspectBias } from './stairPosition.js';
+import { chooseStairCorePosition, aspectFromSunDir, snapRectInsidePoly, type AspectBias } from './stairPosition.js';
 
 /** §STAIR-WORST-ASPECT (2026-06-08) — optional site solar data the stair reservation
  *  uses to bias the core toward the POOR-ASPECT perimeter wall (founder rule: the
@@ -127,17 +127,20 @@ export function reserveStairCore(
     // perimeter "flush" candidate never pokes outside a skewed plate.
     // §STAIR-WORST-ASPECT — bias toward the poor-aspect perimeter wall when site
     // solar is supplied (else legacy waste-only).
+    const poly = plateLocalPolyMm(footprint, bb);
     const pos = chooseStairCorePosition(
-        plateWmm, plateHmm, w, h, plateLocalPolyMm(footprint, bb), aspectBiasFor(solar),
+        plateWmm, plateHmm, w, h, poly, aspectBiasFor(solar),
     );
-    let x = minXmm + pos.x;
-    let y = minZmm + pos.y;
+    // Keep the core inside the plate's bounding box (plate-local frame).
+    let lx = clamp(pos.x, 0, Math.max(0, plateWmm - w));
+    let ly = clamp(pos.y, 0, Math.max(0, plateHmm - h));
+    // §STAIR-OFF-SHELL (§22.7) — the bbox clamp above can leave the rect proud of a
+    // ROTATED shell (bbox ⊋ polygon) or re-escape a contained position. Re-validate
+    // against the real shell polygon and nudge inward to a tightly-contained spot if it
+    // escaped. Axis-aligned plate: bbox === shell ⇒ already contained ⇒ verbatim (D18).
+    ({ x: lx, y: ly } = snapRectInsidePoly(lx, ly, w, h, plateWmm, plateHmm, poly));
 
-    // Keep the core fully inside the plate's bounding box.
-    x = clamp(x, minXmm, minXmm + plateWmm - w);
-    y = clamp(y, minZmm, minZmm + plateHmm - h);
-
-    return { x: r3(x), y: r3(y), w: r3(w), h: r3(h) };
+    return { x: r3(minXmm + lx), y: r3(minZmm + ly), w: r3(w), h: r3(h) };
 }
 
 function clamp(v: number, lo: number, hi: number): number {
@@ -274,13 +277,18 @@ export function reserveStairCoreShaped(
     // one (central tie-break → no shift where central is best). See stairPosition.ts.
     // A.21.D34(a) — cull to the rotated shell polygon (see reserveStairCore).
     // §STAIR-WORST-ASPECT — bias toward the poor-aspect wall when solar is supplied.
+    const poly = plateLocalPolyMm(footprint, bb);
     const pos = chooseStairCorePosition(
-        plateWmm, plateHmm, w, h, plateLocalPolyMm(footprint, bb), aspectBiasFor(solar),
+        plateWmm, plateHmm, w, h, poly, aspectBiasFor(solar),
     );
-    let x = minXmm + pos.x;
-    let y = minZmm + pos.y;
-    x = clamp(x, minXmm, minXmm + plateWmm - w);
-    y = clamp(y, minZmm, minZmm + plateHmm - h);
+    let lx = clamp(pos.x, 0, Math.max(0, plateWmm - w));
+    let ly = clamp(pos.y, 0, Math.max(0, plateHmm - h));
+    // §STAIR-OFF-SHELL (§22.7) — re-validate the post-bbox-clamp rect against the
+    // rotated shell polygon and nudge inward; axis-aligned ⇒ already contained ⇒
+    // verbatim (A.21.D18 byte-identity).
+    ({ x: lx, y: ly } = snapRectInsidePoly(lx, ly, w, h, plateWmm, plateHmm, poly));
+    const x = minXmm + lx;
+    const y = minZmm + ly;
 
     const { before } = splitRisersForShape(shape, Math.max(2, Math.round(totalRisers)));
     // Landing depth: L = one stair width (~1.0 m); U = two widths (~2.0 m) so the

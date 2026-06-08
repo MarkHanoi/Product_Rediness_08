@@ -48,7 +48,18 @@ export interface WeldOptions {
 }
 
 const DEFAULT_SHELL_SNAP_M = 0.30;
-const DEFAULT_PARTITION_WELD_M = 0.05;
+// §WJ-SKEW (2026-06-08, tracker §22.7) — raised 0.05 → 0.20 m. ROOT CAUSE of the
+// rotated-plate wall-join cascade: the upstream weld fused endpoints only within 0.05 m,
+// but the downstream WallJoinResolver CLUSTERS endpoints within 0.5–1.0 m. On a rotated
+// plate the principal-axis snap leaves perimeter-intersection residuals of ~0.1–0.4 m,
+// so two ends of ONE partition land un-fused by the weld yet inside ONE resolver cluster
+// → a degenerate "self-cluster" → the wall is dropped (§WJR-INVALID) → the room gap
+// merges adjacent rooms AND its window/door openings are orphaned (§22.7 ROOM-MERGE +
+// WIN-DROP). Welding at 0.20 m fuses those cross-wall endpoints into a clean SHARED
+// corner BEFORE the resolver sees them, so no self-cluster forms. 0.20 m is still far
+// below any real room-wall offset; the self-endpoint guard (a wall's own two ends never
+// fuse) + the min-length drop both remain, so a partition can never self-collapse.
+const DEFAULT_PARTITION_WELD_M = 0.20;
 const DEFAULT_GRID_M = 0.001;
 const EPS = 1e-9;
 
