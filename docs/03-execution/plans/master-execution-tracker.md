@@ -2501,3 +2501,17 @@ documented BEFORE implementing (founder instruction):
 geometry-wall 45/45, ai-host 2043). Re-triggered as v71 (run #152, fresh push — GH "Re-run" replays
 the old commit so a fresh push is required). NOTE: background agents are sandboxed WITHOUT network/
 node, so deploy-monitoring + test-running must be done by the main loop.
+
+### §22.16 — C53 contract + v71 keystone LIVE (2026-06-08)
+
+- **v71 (run #152) DEPLOYED ✓** — the §CONSENSUS-ON-CENTRELINE keystone room-merge fix is LIVE (v70's
+  run #151 had failed on infra; all local gates were green; fresh re-push succeeded). Rooms should now
+  read as DISTINCT (no Living/Kitchen/Dining/Hall blob). + cornerFlush regression test (geometry-wall
+  48/48) locks it.
+- **[C53 — Generative Layout Engine Architecture](../../02-decisions/contracts/C53-GENERATIVE-LAYOUT-ENGINE-ARCHITECTURE.md)**
+  authored (founder ask: "document the architecture in the contracts"). Binds **L-PRINCIPLE** (separate
+  Topological Graph Logic from Geometric Solvers; topology=truth, geometry=projection; L1–L4), the
+  6-tier pipeline, the typed topology-vs-geometry data contract, determinism + **slider-as-intent**
+  (the reactivity-bug cure — UI controls modify graph weights NEVER dimensions), 3 deterministic
+  variants, Pareto scoring, 5 CI gates, and the M0–M9 migration steps. M0 (no-merge) + M1
+  (program↔plate) shipped; **M2 (slider-intent wiring, G13) is the next highest-leverage step**.
