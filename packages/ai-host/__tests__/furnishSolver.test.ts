@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { furnishRoom } from '../src/workflows/furnishLayout/furnishRoom.js';
-import { footprintRect, rectsOverlap, pointInPolygon } from '../src/workflows/furnishLayout/collision.js';
+import { footprintRect, rectsOverlap, pointInPolygon, rectCorners } from '../src/workflows/furnishLayout/collision.js';
 import type { FurnishRoomInput, Pt, Rect } from '../src/workflows/furnishLayout/types.js';
 
 /** Rectangular room [0,0]→[w,d] with 4 walls + one door on the bottom wall. */
@@ -28,12 +28,25 @@ function rectRoom(occupancy: string, w: number, d: number): FurnishRoomInput {
 const rectOf = (p: { position: { x: number; z: number }; footprint: { w: number; l: number }; rotationY: number }): Rect =>
     footprintRect(p.position.x, p.position.z, p.footprint.w, p.footprint.l, p.rotationY);
 
+// A surface-mounted accessory (a bedside lamp on a nightstand, an extractor over
+// a hob) legitimately shares its host's PLAN footprint — it is height-stacked, not
+// a floor collision. The furnish engine appends such items after solving and never
+// runs them through its collision set; the floor-plan sanity check mirrors that by
+// exempting any pair where one item RESTS ON the other (higher Y + its centre lies
+// within the other's rect).
+const restsOn = (a: ReturnType<typeof furnishRoom>[number], b: ReturnType<typeof furnishRoom>[number]): boolean => {
+    if (a.position.y <= b.position.y + 1e-6) return false;        // a must be above b
+    const rb = rectOf(b);
+    return pointInPolygon({ x: a.position.x, z: a.position.z }, rectCorners(rb));
+};
 const assertSane = (items: ReturnType<typeof furnishRoom>, poly: Pt[]): void => {
     for (const it of items) expect(pointInPolygon({ x: it.position.x, z: it.position.z }, poly)).toBe(true);
     const rects = items.map(rectOf);
     for (let i = 0; i < rects.length; i++)
-        for (let j = i + 1; j < rects.length; j++)
+        for (let j = i + 1; j < rects.length; j++) {
+            if (restsOn(items[i]!, items[j]!) || restsOn(items[j]!, items[i]!)) continue;
             expect(rectsOverlap(rects[i]!, rects[j]!)).toBe(false);
+        }
 };
 
 describe('furnishRoom (D-FLE F5/F7)', () => {
