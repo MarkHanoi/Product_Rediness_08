@@ -2315,3 +2315,25 @@ some walls, the joins go off and the window openings too."*
 ---
 
 *Addendum continues 2026-06-08 — §22.8 fix wave 2 (WJ-SKEW/STAIR-OFF-SHELL/HALL-NO-ENTRANCE/BND-90 shipped v61) + house-generator deep reference + 5 audit findings (HSE-AUDIT-1..5).*
+
+### §22.9 — Site/climate analysis panel: UI trigger + close (2026-06-08)
+
+| ID | Request | Notes | Status |
+|---|---|---|---|
+| **SITE-PANEL-UI** | The **Sun & shadow / Weather & comfort / Wind rose / 3D site analysis** panel (the climate/site-analysis controls — `FormaSiteAnalysisControls.ts` / `ClimatePanel.ts`) must be **openable via a UI button** (not only auto-shown/console) AND the user must be able to **CLOSE it** (add a close ✕). Today it appears in a fixed spot with no toggle/dismiss. | Founder screenshot: the panel (Sun&shadow date+season slider+Study, Open full climate card, Wind rose, 3D site analysis Sun path/Wind/Heat). Add a rail/toolbar toggle + a close affordance; remember open/closed state. | ☐ |
+
+---
+
+*Addendum continues 2026-06-08 — §22.9 SITE-PANEL-UI (climate/site-analysis panel needs a UI open trigger + a close button).*
+
+### §22.10 — Deploy-confirmation + fix-efficacy contingency + corridor-no-trim (2026-06-08)
+
+- **DEPLOY CONFIRMED:** GitHub Actions API shows v58–v61 deploys all `conclusion: success` (v61 `11435b76` finished 12:27Z, spaced enough that `cancel-in-progress` did NOT cancel them). So the rotated-plate fixes ARE on prod. A founder re-test still showing the IDENTICAL pre-v61 defects (merged 118 m² Bedroom/Corridor/Bathroom, stairs-out, no-windows) ⇒ **stale SW-cached bundle** — needs a HARD reload. Tell-tale: BND-90 relabels the boundary toggle "⟂ Lock 90° to previous edge" (default OFF). If after a confirmed hard reload the defects persist, the fixes are INSUFFICIENT (next row).
+- **WJ-SKEW-2 (contingency, if v61 hard-reloaded still merges):** weld tol 0.20 m may be below the rotated-plate residuals (resolver clusters at 0.5–1.0 m). Escalation: (1) raise `DEFAULT_PARTITION_WELD_M` toward 0.45–0.5 m to fully close the resolver gap; (2) add the upstream partition-endpoint SNAP (cluster endpoints to clean perimeter intersections in the rotated frame, in `weldPartitionsToShell` / `snapAxisLines`) so no self-cluster forms; (3) opening RE-HOST on a dropped wall. ☐
+- **WALLS-DONT-REACH-PERIMETER:** founder: "some walls start but don't go until the perimeter wall." Partition stubs trimmed short of the shell on the rotated plate (§EXTEND-TO-PERIMETER not extending, or the weld snapped the endpoint inward). Part of the WJ-SKEW family. ☐
+- **CORRIDOR-NO-TRIM:** founder: "the corridor defaults going all the way until the perimeter wall even if no extra door is present at the end." §CORRIDOR-END-TRIM (A.21.D57) should trim the corridor back to the last served door, but on this rotated plate it does NOT — the spine runs perimeter-to-perimeter wasting the end wall (no window there). Likely the trim's sealing-safety gate or the dependent-set spans fail on the skewed geometry. ☐ MED
+- Reconfirms (same defects, deploy-gated until hard reload): STAIR-OFF-SHELL, HALL-NO-ENTRANCE (door on corridor not hall), WIN-DROP, ROOM-MERGE.
+
+---
+
+*Addendum continues 2026-06-08 — §22.10 deploy CONFIRMED (v61 live; stale-cache on founder re-test) + WJ-SKEW-2/WALLS-DONT-REACH/CORRIDOR-NO-TRIM contingencies if hard-reload still fails.*
