@@ -691,6 +691,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         thickness: number;
         baseElevation: number;
         levelId?: string;
+        materialColor?: string;
     }> => {
         type WallRecord = {
             baseLine?: ReadonlyArray<{ x: number; y?: number; z: number }>;
@@ -698,6 +699,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             thickness?: number;
             baseOffset?: number;
             levelId?: string;
+            // §A.21.D-GLOBE3 — the SAME per-wall finish hex the three.js BIM scene
+            // renders (WallFragmentBuilder: `wall.materialColor ?? '#d4c5b0'`), so the
+            // house on the photoreal globe reads in its real app-scene colours.
+            materialColor?: string;
         };
         const wallStore = storeRegistry.getStoreForType('wall') as unknown as
             | { getAll?: () => WallRecord[] }
@@ -710,6 +715,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             thickness: number;
             baseElevation: number;
             levelId?: string;
+            materialColor?: string;
         }> = [];
         for (const w of all) {
             const bl = w.baseLine;
@@ -724,6 +730,8 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 thickness: typeof w.thickness === 'number' && w.thickness > 0 ? w.thickness : 0.1,
                 baseElevation: yElev + baseOffset,
                 levelId: typeof w.levelId === 'string' && w.levelId ? w.levelId : undefined,
+                materialColor:
+                    typeof w.materialColor === 'string' && w.materialColor ? w.materialColor : undefined,
             });
         }
         return out;
@@ -780,6 +788,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         topElevation: number;
         thickness: number;
         levelId?: string;
+        materialColor?: string;
     }> => {
         type SlabRecord = {
             // legacy SlabData: outer ring is `polygon` of 2D {x,y} where y === world Z.
@@ -789,13 +798,16 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             thickness?: number;
             baseOffset?: number;
             levelId?: string;
+            // §A.21.D-GLOBE3 — the SAME slab finish the three.js BIM scene renders
+            // (SlabFragmentBuilder: `data.materialColor || '#808080'`).
+            materialColor?: string;
         };
         const slabStore = storeRegistry.getStoreForType('slab') as unknown as
             | { getAll?: () => SlabRecord[] }
             | undefined;
         const all = slabStore?.getAll?.() ?? [];
         const levelElev = levelElevationFromWalls();
-        const out: Array<{ ring: XZ[]; topElevation: number; thickness: number; levelId?: string }> = [];
+        const out: Array<{ ring: XZ[]; topElevation: number; thickness: number; levelId?: string; materialColor?: string }> = [];
         for (const s of all) {
             // Accept legacy `polygon` or C11 `boundary`; both carry the plan ring
             // as {x, y} pairs where the SECOND coordinate is world Z.
@@ -811,6 +823,8 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 topElevation: baseElev + baseOffset,
                 thickness: typeof s.thickness === 'number' && s.thickness > 0 ? s.thickness : 0.2,
                 levelId: typeof s.levelId === 'string' && s.levelId ? s.levelId : undefined,
+                materialColor:
+                    typeof s.materialColor === 'string' && s.materialColor ? s.materialColor : undefined,
             });
         }
         return out;
@@ -835,6 +849,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         thickness: number;
         pitch: number;
         levelId?: string;
+        materialColor?: string;
     }> => {
         type RoofRecord = {
             // legacy RoofData: plan footprint ring as [x, z] pairs. CRITICAL — per
@@ -853,13 +868,16 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             pitch?: number;      // C11: radians
             baseOffset?: number; // legacy: eave elevation relative to the level
             levelId?: string;
+            // §A.21.D-GLOBE3 — the SAME roof finish the three.js BIM scene renders
+            // (RoofFragmentBuilder: `data.materialColor || '#c8a46e'`).
+            materialColor?: string;
         };
         const roofStore = storeRegistry.getStoreForType('roof') as unknown as
             | { getAll?: () => RoofRecord[] }
             | undefined;
         const all = roofStore?.getAll?.() ?? [];
         const levelElev = levelElevationFromWalls();
-        const out: Array<{ ring: XZ[]; baseElevation: number; thickness: number; pitch: number; levelId?: string }> = [];
+        const out: Array<{ ring: XZ[]; baseElevation: number; thickness: number; pitch: number; levelId?: string; materialColor?: string }> = [];
         for (const r of all) {
             // §A.21.D33(e) — ROOF FOOTPRINT ROOT CAUSE + FIX. The earlier reader read
             // the legacy `footprint.polygon` directly as if it were WORLD-XZ. It is
@@ -895,6 +913,8 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 thickness: typeof r.thickness === 'number' && r.thickness > 0 ? r.thickness : 0.2,
                 pitch,
                 levelId: typeof r.levelId === 'string' && r.levelId ? r.levelId : undefined,
+                materialColor:
+                    typeof r.materialColor === 'string' && r.materialColor ? r.materialColor : undefined,
             });
         }
         return out;
