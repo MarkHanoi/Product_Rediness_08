@@ -340,7 +340,7 @@ export function mountSiteBoundaryMap2D(
     } satisfies Partial<CSSStyleDeclaration>);
     const orthoBox = document.createElement('input');
     orthoBox.type = 'checkbox';
-    orthoBox.checked = true;   // default ON (matches `orthoEnabled` initial value, declared below)
+    orthoBox.checked = false;  // §BND-90 default OFF (opt-in lock; first edge is always free)
     orthoBox.setAttribute('aria-label', 'Lock new edges orthogonal to the previous edge');
     Object.assign(orthoBox.style, {
         width: '15px',
@@ -351,7 +351,7 @@ export function mountSiteBoundaryMap2D(
     } satisfies Partial<CSSStyleDeclaration>);
     const orthoText = document.createElement('span');
     // U+27C2 PERPENDICULAR — the right-angle affordance the founder asked for.
-    orthoText.textContent = '⟂ Orthogonal to previous edge';
+    orthoText.textContent = '⟂ Lock 90° to previous edge';
     orthoHud.appendChild(orthoBox);
     orthoHud.appendChild(orthoText);
     overlay.appendChild(orthoHud);
@@ -390,11 +390,14 @@ export function mountSiteBoundaryMap2D(
     // A.8.c.g — the live snap target under the cursor (null = no snap; click uses
     // the raw lngLat). Updated on every mousemove while drawing.
     let snapTarget: SnapTarget | null = null;
-    // A.21.D60 — relative right-angle lock: when ON (default), the SECOND+ edges
-    // snap to the nearest 90 degrees off the PREVIOUS edge's direction (any base
-    // rotation), so the user draws a clean rectilinear plot. The corner snap (above)
-    // always takes priority; this engages only when no corner snap is in range.
-    let orthoEnabled = true;
+    // A.21.D60 / §BND-90 — relative right-angle lock: when ON (user OPT-IN), the
+    // SECOND+ edges snap to the nearest 90 degrees off the PREVIOUS edge's direction
+    // (any base rotation), so the user draws a clean rectilinear plot. The corner snap
+    // (above) always takes priority; this engages only when no corner snap is in range.
+    // §BND-90 (founder): the FIRST edge is ALWAYS free (the snap guard requires
+    // ≥2 vertices — see resolveOrthoSnapTarget); the lock is OPT-IN (default OFF) so the
+    // user draws the first line freely, then toggles on 90° for the rest.
+    let orthoEnabled = false;
 
     // A.21.D9 — pooled HTML markers for the edge-dimension labels. Index 0..n-1
     // are the PLACED edges (vertex i → i+1, wrapping); the last marker (when a
