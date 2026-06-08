@@ -12,6 +12,7 @@ import { archetypeFor } from './archetypes.js';
 import { placeRoom, placeRoomMulti } from './placeSolver.js';
 import { planKitchen, normaliseKitchenLayout, type KitchenLayout } from './kitchenLayout.js';
 import { planWardrobe, normaliseWardrobeLayout, type WardrobeLayout } from './wardrobeLayout.js';
+import { placeBedsideLamps } from './bedsideLamps.js';
 import type { FurnishRoomInput, PlacedFurniture } from './types.js';
 
 /** A.21.D20 — per-run furnishing options (sourced from the typology brief).
@@ -37,7 +38,11 @@ export function furnishRoom(input: FurnishRoomInput, options: FurnishOptions = {
     if (!archetype || archetype.items.length === 0) return [];
     const placed = placeRoom(input, archetype);
     if (input.occupancy === 'bedroom') {
-        return withWardrobePlan(input, placed, normaliseWardrobeLayout(options.wardrobeLayout));
+        const withWardrobe = withWardrobePlan(input, placed, normaliseWardrobeLayout(options.wardrobeLayout));
+        // Bedside lamps sit ON the bedside tables (realism: a ceiling fixture
+        // alone reads cold). Placed last so they ride the final bedside-table
+        // positions; never on the floor → no circulation/collision impact.
+        return [...withWardrobe, ...placeBedsideLamps(input, withWardrobe)];
     }
     return placed;
 }
