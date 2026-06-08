@@ -319,6 +319,73 @@ export interface FloorData extends CoreElement {
   metadata: FloorMetadata;
 }
 
+// ── Finish seating (§A.21.D48) ──────────────────────────────────────────────
+//
+// THE PROBLEM (founder, 2026-06-08): a floor finish used to be created with
+// `thickness = 0.075` (75 mm) + `baseOffset = 0`. The builder rule is "top at
+// FFL = level.elevation + baseOffset; body DOWNWARD by thickness", so the finish
+// occupied [level.elevation − 0.075, level.elevation]. The structural SLAB is
+// anchored with its TOP face at the level datum, so the finish occupied EXACTLY
+// the slab's top 75 mm → coincident geometry → Z-fighting + meaningless clash
+// detection (finish & slab share a volume).
+//
+// THE MODEL (this fix): a finish is a THIN layer resting ON the slab top —
+//   finish bottom Y = slab top Y          (= level.elevation + slabTopOffsetM)
+//   finish top    Y = slab top Y + finishThicknessM
+// With the builder's "top at FFL, body downward" rule that means
+//   baseOffset = slabTopOffsetM + finishThicknessM   and   thickness = finishThicknessM
+// so the body extends from finishTop back down to exactly the slab top — finish &
+// slab volumes DISJOINT (no Z-fighting, clash-detectable).
+
+/** Default applied floor-finish thickness (m). 15 mm — tile / engineered timber. */
+export const DEFAULT_FINISH_THICKNESS_M = 0.015;
+
+export interface FinishSeatingInput {
+  /** Caller-supplied finish thickness (m). Absent → DEFAULT_FINISH_THICKNESS_M. */
+  readonly finishThicknessM?: number;
+  /** Caller-supplied assembly thickness (m). Present → explicit (structural / layered)
+   *  floor; its bottom is seated on the slab top but the thickness is kept. */
+  readonly thickness?: number;
+  /** Caller-supplied baseOffset (m). Present → respected verbatim (no seating). */
+  readonly baseOffset?: number;
+  /** True when the caller supplies an explicit multi-layer build-up. */
+  readonly hasLayers?: boolean;
+  /** Slab TOP face offset relative to the level datum (m). Default 0 (slab top = datum). */
+  readonly slabTopOffsetM?: number;
+}
+
+export interface FinishSeating {
+  /** Final assembly thickness to store on boundary.thickness (m). */
+  readonly thickness: number;
+  /** Final baseOffset to store on boundary.baseOffset (m). */
+  readonly baseOffset: number;
+}
+
+/**
+ * §A.21.D48 — resolve finish thickness + baseOffset so the finish sits ON the slab
+ * top (no shared volume). Honours explicit `baseOffset`/`thickness`/`layers`
+ * verbatim — only the bare "create a finish floor" path is seated thin-on-slab.
+ */
+export function resolveFinishSeating(input: FinishSeatingInput): FinishSeating {
+  const slabTopOffset = input.slabTopOffsetM ?? 0;
+
+  // Explicit baseOffset → respect exactly (manual / IFC-pinned placement).
+  if (input.baseOffset !== undefined) {
+    return {
+      thickness: input.thickness ?? DEFAULT_FINISH_THICKNESS_M,
+      baseOffset: input.baseOffset,
+    };
+  }
+  // Explicit thickness or layered build-up → keep thickness, seat bottom on slab top.
+  if (input.hasLayers || input.thickness !== undefined) {
+    const thickness = input.thickness ?? DEFAULT_FINISH_THICKNESS_M;
+    return { thickness, baseOffset: slabTopOffset + thickness };
+  }
+  // Bare finish floor → thin layer seated on the slab top.
+  const thickness = Math.max(0.001, input.finishThicknessM ?? DEFAULT_FINISH_THICKNESS_M);
+  return { thickness, baseOffset: slabTopOffset + thickness };
+}
+
 // ── Callbacks interface (for FloorTool) ────────────────────────────────────
 
 export interface FloorToolCallbacks {

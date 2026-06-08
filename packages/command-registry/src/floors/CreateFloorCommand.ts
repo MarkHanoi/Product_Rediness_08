@@ -33,6 +33,7 @@ import {
 } from '@pryzm/core-app-model';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { ensureFloorCCW as ensureCCW, validateFloorPolygon as validatePolygon } from '@pryzm/core-app-model';
+import { resolveFinishSeating, DEFAULT_FINISH_THICKNESS_M } from '@pryzm/core-app-model';
 
 export interface CreateFloorPayload {
   /** Pre-generated UUID — MUST come from the calling tool. Never generate here. */
@@ -40,10 +41,21 @@ export interface CreateFloorPayload {
   /** Pre-generated IFC GUID — stable across undo/redo cycles. */
   ifcGuid: string;
   polygon: FloorVertex[];
-  /** Y offset above level datum (m). FFL = level.elevation + baseOffset. Default: 0 */
+  /** Y offset above level datum (m). FFL = level.elevation + baseOffset.
+   *  §A.21.D48: when OMITTED, the finish is auto-seated on the slab top so its
+   *  bottom rests at the slab top and it stacks UP by `finishThicknessM` (no
+   *  overlap with the slab). Pass an explicit value to pin the finish manually. */
   baseOffset?: number;
-  /** Assembly thickness (m). Default: 0.075 (75 mm) */
+  /** Assembly thickness (m). §A.21.D48: when OMITTED the floor is treated as a
+   *  thin applied FINISH (see `finishThicknessM`), NOT a 75 mm structural floor.
+   *  Pass an explicit value for a structural / authored-thickness floor. */
   thickness?: number;
+  /** §A.21.D48 — applied finish thickness (m) for the bare finish path. Default
+   *  0.015 (15 mm). Ignored when an explicit `thickness` or `layers` is supplied. */
+  finishThicknessM?: number;
+  /** §A.21.D48 — slab TOP face offset relative to the level datum (m). The finish
+   *  is seated on top of this. Default 0 (default slab top = level datum). */
+  slabTopOffsetM?: number;
   levelId: string;
   label?: string;
   systemTypeId?: string;
@@ -85,7 +97,9 @@ export class CreateFloorCommand implements Command {
       return { ok: false, reason: `Invalid polygon: ${polyValidation.reasons.join('; ')}` };
     }
 
-    const thickness = this._payload.thickness ?? 0.075;
+    // §A.21.D48 — bare finish floors default to a thin applied finish thickness,
+    // not the legacy 75 mm structural default; explicit thickness still validated.
+    const thickness = this._payload.thickness ?? this._payload.finishThicknessM ?? DEFAULT_FINISH_THICKNESS_M;
     if (thickness <= 0) {
       return { ok: false, reason: 'Floor thickness must be > 0.' };
     }
@@ -107,8 +121,16 @@ export class CreateFloorCommand implements Command {
     const now = Date.now();
 
     const polygon = ensureCCW(this._payload.polygon);
-    const thickness = this._payload.thickness ?? 0.075;
-    const baseOffset = this._payload.baseOffset ?? 0;
+    // §A.21.D48 — seat the finish ON the slab top: a thin finish whose BOTTOM rests
+    // at the slab top (no shared volume → no Z-fighting, clash-detectable). Explicit
+    // thickness / baseOffset / layers are honoured verbatim (structural / IFC paths).
+    const { thickness, baseOffset } = resolveFinishSeating({
+      finishThicknessM: this._payload.finishThicknessM,
+      thickness: this._payload.thickness,
+      baseOffset: this._payload.baseOffset,
+      hasLayers: !!(this._payload.layers && this._payload.layers.length > 0),
+      slabTopOffsetM: this._payload.slabTopOffsetM,
+    });
 
     const layers = this._payload.layers
       ? structuredClone(this._payload.layers)

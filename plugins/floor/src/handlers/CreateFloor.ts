@@ -27,6 +27,8 @@ import type {
   FloorFinishSpec,
   FloorServiceHole,
 } from '@pryzm/core-app-model';
+// §A.21.D48 — seat the finish ON the slab top (shared canonical helper).
+import { resolveFinishSeating, DEFAULT_FINISH_THICKNESS_M as FINISH_THICKNESS_DEFAULT_M } from '@pryzm/core-app-model';
 import type { FloorsState } from '../store.js';
 
 export interface CreateFloorPayload {
@@ -36,10 +38,17 @@ export interface CreateFloorPayload {
   readonly ifcGuid?: string;
   /** CCW polygon of floor boundary (xz-plane).  Min 3 vertices required. */
   readonly polygon?: FloorVertex[];
-  /** Y offset above level datum (m).  Default: 0. */
+  /** Y offset above level datum (m).
+   *  §A.21.D48: when OMITTED, the finish is auto-seated on the slab top (bottom at
+   *  slab top, stacks up by `finishThicknessM`) so it never overlaps the slab. */
   readonly baseOffset?: number;
-  /** Assembly thickness (m).  Default: 0.075 (75 mm). */
+  /** Assembly thickness (m). §A.21.D48: OMITTED → thin applied FINISH, not a 75 mm
+   *  structural floor. Pass explicitly for a structural / authored-thickness floor. */
   readonly thickness?: number;
+  /** §A.21.D48 — applied finish thickness (m) for the bare finish path. Default 0.015. */
+  readonly finishThicknessM?: number;
+  /** §A.21.D48 — slab TOP face offset relative to the level datum (m). Default 0. */
+  readonly slabTopOffsetM?: number;
   readonly levelId?: string;
   readonly label?: string;
   readonly systemTypeId?: string;
@@ -66,7 +75,8 @@ export class CreateFloorHandler
     if (cmd.polygon !== undefined && cmd.polygon.length < 3) {
       return { valid: false, reason: 'polygon requires ≥ 3 vertices' };
     }
-    const thickness = cmd.thickness ?? 0.075;
+    // §A.21.D48 — bare finish floors default to a thin applied finish, not 75 mm.
+    const thickness = cmd.thickness ?? cmd.finishThicknessM ?? FINISH_THICKNESS_DEFAULT_M;
     if (!Number.isFinite(thickness) || thickness <= 0) {
       return { valid: false, reason: 'thickness must be > 0' };
     }
@@ -83,8 +93,16 @@ export class CreateFloorHandler
     return withHandlerSpan(this.type + '.handler', { 'pryzm.command.type': this.type }, () => {
       const floorId = (cmd.floorId ?? createId('floor')) as string;
       const now = Date.now();
-      const thickness = cmd.thickness ?? 0.075;
-      const baseOffset = cmd.baseOffset ?? 0;
+      // §A.21.D48 — seat the finish ON the slab top: a thin finish whose BOTTOM rests
+      // at the slab top so finish & slab volumes are disjoint (no Z-fighting). Explicit
+      // thickness / baseOffset / layers are honoured verbatim (structural / IFC paths).
+      const { thickness, baseOffset } = resolveFinishSeating({
+        finishThicknessM: cmd.finishThicknessM,
+        thickness: cmd.thickness,
+        baseOffset: cmd.baseOffset,
+        hasLayers: !!(cmd.layers && cmd.layers.length > 0),
+        slabTopOffsetM: cmd.slabTopOffsetM,
+      });
       const polygon: FloorVertex[] = cmd.polygon ?? [];
 
       const floorCount = Object.keys(ctx.stores.floor).length + 1;

@@ -70,9 +70,12 @@ export class FloorSlabBindingHandler {
     console.log(`[FloorSlabBindingHandler] Slab "${slab.id}" updated — re-binding ${boundFloors.length} floor(s).`);
 
     for (const floor of boundFloors) {
-      // The slab's top face is at: level.elevation + slab.baseOffset (or slab.position.y)
-      // The floor's baseOffset should equal the slab's top face relative to its level.
-      const newBaseOffset = this._resolveSlabTopOffset(slab, floor.levelId);
+      // §A.21.D48 — the finish RESTS ON the slab top (finish bottom = slab top), so
+      // the finish FFL (= baseOffset, since the builder extrudes DOWNWARD from FFL)
+      // must be the slab-top offset PLUS the finish thickness. This keeps the finish
+      // strictly above the slab top after the slab moves — never re-overlapping it.
+      const slabTopOffset = this._resolveSlabTopOffset(slab, floor.levelId);
+      const newBaseOffset = slabTopOffset + (floor.boundary.thickness ?? 0);
       if (Math.abs(newBaseOffset - floor.boundary.baseOffset) < 0.0001) continue; // No change
 
       const updated = this._floorStore.update(floor.id, {
@@ -119,27 +122,31 @@ export class FloorSlabBindingHandler {
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   /**
-   * Compute the slab's top face offset relative to the floor's level.
-   * Returns a baseOffset value to assign to floor.boundary.baseOffset.
+   * Compute the slab's TOP face offset relative to the floor's level datum.
    *
-   * Slab top face world Y = level.elevation + slab.baseOffset (PRYZM convention).
-   * Floor's FFL should be at the same world Y, so floor.boundary.baseOffset = slab.baseOffset.
+   * §A.21.D48 — PRYZM slab convention (SlabFragmentBuilder.resolveWorldY):
+   *   slab top face world Y = level.elevation + slab.baseOffset
+   *   (the slab body extends DOWNWARD from its top by slab.thickness).
+   * So the slab-top offset relative to the level is simply `slab.baseOffset`
+   * — NOT `baseOffset + thickness`. The caller then adds the finish thickness so
+   * the finish RESTS ON this top face.
    */
   private _resolveSlabTopOffset(slab: any, floorLevelId: string): number {
-    // Try to get baseOffset from slab (standard PRYZM slab has slab.boundary.baseOffset)
+    // Standard PRYZM slab — top face anchored to level.elevation + baseOffset.
     if (typeof slab.boundary?.baseOffset === 'number') {
-      // slab top face is at: level.elevation + slab.boundary.baseOffset + slab.boundary.thickness
-      return (slab.boundary.baseOffset ?? 0) + (slab.boundary.thickness ?? 0);
+      return slab.boundary.baseOffset ?? 0;
     }
 
-    // Fallback: try slab.position.y relative to level
+    // Fallback: derive the slab TOP from slab.position.y. SlabFragmentBuilder sets
+    // root.position.y = slabTop − thickness, so slab top = position.y + thickness.
     if (this._bimManager && typeof slab.position?.y === 'number') {
       const level = this._bimManager.getLevelById(floorLevelId);
       const levelElevation = level?.elevation ?? 0;
-      return slab.position.y - levelElevation;
+      const slabThickness = slab.boundary?.thickness ?? slab.thickness ?? 0;
+      return (slab.position.y + slabThickness) - levelElevation;
     }
 
-    // Default: floor stays at current baseOffset
+    // Default: slab top = level datum.
     return 0;
   }
 }
