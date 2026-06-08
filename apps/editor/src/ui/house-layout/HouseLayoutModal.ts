@@ -22,9 +22,11 @@ import { buildHouseCardModel, type HouseCardModel } from './houseCardModel.js';
 import {
     buildHouseModalHtml,
     buildHouseCardGridHtml,
+    collectStoreyOptions,
     type HouseProgramFormState,
 } from './houseModalHtml.js';
 import { buildLayoutThumbnailSvg } from '../apartment-layout/layoutThumbnail.js';
+import { buildOccupancyLegendHtml } from '../apartment-layout/layoutModalHtml.js';
 
 export interface HouseLayoutModalCallbacks {
     /** User picked variant `index` ("Use this layout"). */
@@ -116,7 +118,12 @@ export class HouseLayoutModal {
         if (!this._el) return;
         const grid = this._el.querySelector('[data-role="grid"]');
         if (!grid) return;
-        grid.innerHTML = buildHouseCardGridHtml(this._cards(options), this._storeyThumbs(options));
+        const cards = this._cards(options);
+        grid.innerHTML = buildHouseCardGridHtml(cards, this._storeyThumbs(options));
+        // A.21.D51 — refresh the room-type legend in lock-step with the cards
+        // (editing floors/bedrooms can change which occupancies are present).
+        const legend = this._el.querySelector('[data-role="legend"]');
+        if (legend) legend.innerHTML = buildOccupancyLegendHtml(collectStoreyOptions(cards));
         this._setHint('');
         this.setBusy(false);
     }

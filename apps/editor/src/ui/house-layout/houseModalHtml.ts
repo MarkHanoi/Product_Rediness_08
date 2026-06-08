@@ -18,7 +18,8 @@
 // builder — `buildLayoutThumbnailSvg`).
 
 import type { HouseCardModel } from './houseCardModel.js';
-import type { ApartmentProgram, ScoringWeights } from '@pryzm/ai-host';
+import type { ApartmentProgram, ScoringWeights, LayoutOption } from '@pryzm/ai-host';
+import { buildOccupancyLegendHtml } from '../apartment-layout/layoutModalHtml.js';
 
 /** Local pure HTML escape (recognised by the xss-guards gate as a safe guard). */
 function escHtml(value: unknown): string {
@@ -175,12 +176,40 @@ export function buildHouseModalHtml(
         ? ''
         : ` <small>${cards.length} option${cards.length === 1 ? '' : 's'}</small>`;
     const programForm = formState ? buildHouseProgramEditFormHtml(formState) : '';
+    // A.21.D51 — founder feedback #2: a room-type colour legend. The house cards'
+    // per-storey thumbnails are painted by `buildLayoutThumbnailSvg`, which fills
+    // each room polygon from the SHARED `OCCUPANCY_FILL` map. We collect every
+    // storey option across every card as a flat `LayoutOption[]` and reuse the
+    // apartment modal's `buildOccupancyLegendHtml` so the swatches are keyed to
+    // the SAME colour source as the thumbnails (no drift). Rendered ONCE per modal
+    // (not per card). Empty cards / no-occupancy options ⇒ no legend.
+    const legendInner = buildOccupancyLegendHtml(collectStoreyOptions(cards));
+    const legend = legendInner
+        ? `<div class="alm-legend" data-role="legend">${legendInner}</div>`
+        : '';
     return (
         '<div class="alm-panel">' +
         `<div class="alm-header">Choose a house layout${headerCount}</div>` +
         programForm +
+        legend +
         `<div class="alm-grid" data-role="grid">${grid}</div>` +
         '<div class="alm-footer"><button type="button" class="alm-cancel">Cancel</button></div>' +
         '</div>'
     );
+}
+
+/** Flatten every storey's chosen layout option across all house cards into one
+ *  `LayoutOption[]` — the input `buildOccupancyLegendHtml` expects. The legend
+ *  collapses these to one swatch per distinct room occupancy. Pure. Exported so
+ *  the modal's `refresh()` can rebuild the legend in lock-step with the cards. */
+export function collectStoreyOptions(cards: readonly HouseCardModel[]): LayoutOption[] {
+    // StoreyCardSummary.option is a ScoredLayoutOption (extends LayoutOption), so
+    // it's directly assignable — no cast needed.
+    const out: LayoutOption[] = [];
+    for (const card of cards) {
+        for (const storey of card.storeys) {
+            if (storey.option) out.push(storey.option);
+        }
+    }
+    return out;
 }

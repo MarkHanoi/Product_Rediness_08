@@ -13,9 +13,15 @@ export const APARTMENT_LAYOUT_MODAL_STYLES = `
   padding: 24px;
 }
 .alm-panel {
+  /* A.21.D51 — founder feedback #1: the picker must fill ~90% of the viewport so
+   * the layout thumbnails are large + readable (was min(960px,96vw)/88vh — too
+   * small, thumbnails near-illegible). Now ~90vw × ~90vh, capped on ultrawide so
+   * it never sprawls to an absurd width. Stays scrollable (the .alm-grid scrolls)
+   * and brand-true (white + #6600FF). */
   background: #ffffff; color: #0f172a;
   border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.35);
-  width: min(960px, 96vw); max-height: 88vh; display: flex; flex-direction: column;
+  width: min(1600px, 90vw); height: 90vh; max-height: 90vh;
+  display: flex; flex-direction: column;
   overflow: hidden; font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 .alm-header {
@@ -24,8 +30,11 @@ export const APARTMENT_LAYOUT_MODAL_STYLES = `
 }
 .alm-header small { font-size: 12px; font-weight: 500; color: #64748b; }
 .alm-grid {
-  padding: 16px 20px; overflow-y: auto;
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px;
+  padding: 16px 20px; overflow-y: auto; flex: 1 1 auto; min-height: 0;
+  /* A.21.D51 — wider min column (was 260px) so the bigger modal shows fewer,
+   * LARGER cards → each plan thumbnail is readable. */
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 16px;
+  align-content: start;
 }
 .alm-card {
   border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px;
@@ -34,8 +43,11 @@ export const APARTMENT_LAYOUT_MODAL_STYLES = `
 }
 .alm-card:hover { border-color: #6600FF; box-shadow: 0 4px 16px rgba(102,0,255,0.12); }
 .alm-thumb {
+  /* A.21.D51 — taller plan preview (was 120px) so rooms + labels read at the
+   * larger modal size. Scales with the card so it stays large on wide screens. */
   background: #ffffff; border: 1px solid #eef2f7; border-radius: 8px;
-  height: 120px; display: flex; align-items: center; justify-content: center; overflow: hidden;
+  height: clamp(180px, 22vh, 320px);
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
 }
 .alm-thumb svg { width: 100%; height: 100%; }
 .alm-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -229,11 +241,13 @@ export const APARTMENT_LAYOUT_MODAL_STYLES = `
   margin: 4px 0;
 }
 .hlm-storey {
-  display: grid; grid-template-columns: 92px 1fr; gap: 10px; align-items: center;
-  padding: 6px; border: 1px solid #eef2f7; border-radius: 8px; background: #ffffff;
+  /* A.21.D51 — wider thumb column (was 92px) so the per-storey plan is readable
+   * in the enlarged modal. */
+  display: grid; grid-template-columns: 160px 1fr; gap: 12px; align-items: center;
+  padding: 8px; border: 1px solid #eef2f7; border-radius: 8px; background: #ffffff;
 }
 .hlm-storey-thumb {
-  height: 64px; width: 92px; overflow: hidden;
+  height: 120px; width: 160px; overflow: hidden;
   display: flex; align-items: center; justify-content: center;
   background: #ffffff; border: 1px solid #eef2f7; border-radius: 6px;
 }
