@@ -151,16 +151,21 @@ describe('emitWindowsForRoom — door avoidance (T1.W-B-2)', () => {
     });
 
     it('slides the window clear of a centred door on the same wall (no overlap)', () => {
-        // 6 m wall; a 0.9 m door centred at 2550..3450. A 2 m living window
-        // centred at 2000..4000 would overlap → must slide clear.
+        // A.21.D45 — a 7 m wall (long enough to slide a 2 m living window clear of a
+        // centred 0.9 m door AND keep the 0.7 m corner pier at both ends). The centred
+        // window 2500..4500 overlaps the door at 2550..3450 → it slides past the door
+        // (to ~3550..5550) while still inside [setback, len−setback].
         const doors = [door(0, 2550, 900)];
-        const ws = emitWindowsForRoom('living', [wide(6000)], undefined, doors);
+        const ws = emitWindowsForRoom('living', [wide(7000)], undefined, doors);
         expect(ws).toHaveLength(1);
         const w = ws[0]!;
         const wLo = w.offsetMm, wHi = w.offsetMm + w.widthMm;
         const dLo = 2550, dHi = 3450;
         expect(wLo < dHi && wHi > dLo).toBe(false);   // no overlap with the door
         expect(w.wallIndex).toBe(0);
+        // and clear of both corners with the real pier.
+        expect(wLo).toBeGreaterThanOrEqual(700 - 1e-6);
+        expect(wHi).toBeLessThanOrEqual(7000 - 700 + 1e-6);
     });
 
     it('falls through to the next wall when the longest is fully blocked', () => {

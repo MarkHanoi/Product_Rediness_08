@@ -5,6 +5,7 @@ import {
     matchShellHost,
     resolveShellWindow,
     resolveAllShellWindows,
+    cornerSetbackForWall,
     type ShellWall,
 } from '../src/workflows/apartmentLayout/windowEmission/shellWallMatch.js';
 import type { LayoutWall, LayoutWindow } from '../src/workflows/apartmentLayout/types.js';
@@ -172,11 +173,12 @@ describe('resolveShellWindow (T1.W-C)', () => {
             [shell('shell-1', 5, 0, 0, 0)],
         );
         expect(r).not.toBeNull();
-        // Width clamped to wall length − 2×0.1 m end clearance.
-        expect(r!.widthM).toBeCloseTo(4.8, 6);
-        // The WHOLE opening stays on the wall: 0 ≤ offset and offset+width ≤ 5 m.
-        expect(r!.offsetM).toBeGreaterThanOrEqual(0.1 - 1e-9);
-        expect(r!.offsetM + r!.widthM).toBeLessThanOrEqual(5 + 1e-9);
+        // A.21.D45 — width clamped to wall length − 2×CORNER_SETBACK (0.5 m on a 5 m
+        // wall) = 5 − 1.0 = 4.0 m, leaving a real corner pier at each end.
+        expect(r!.widthM).toBeCloseTo(4.0, 6);
+        // The WHOLE opening stays on the wall WITH the corner setback at both ends.
+        expect(r!.offsetM).toBeGreaterThanOrEqual(0.5 - 1e-9);
+        expect(r!.offsetM + r!.widthM).toBeLessThanOrEqual(5 - 0.5 + 1e-9);
     });
 
     it('drops a window when the host shell wall is too short for any opening', () => {
@@ -196,8 +198,9 @@ describe('resolveShellWindow (T1.W-C)', () => {
             [shell('shell-1', 0, 0, 5, 0)],
         );
         expect(r).not.toBeNull();
-        expect(r!.offsetM).toBeGreaterThanOrEqual(0.1 - 1e-9);
-        expect(r!.offsetM + r!.widthM).toBeLessThanOrEqual(5 - 0.1 + 1e-9);
+        // A.21.D45 — the real corner setback (0.5 m on a 5 m wall) at both ends.
+        expect(r!.offsetM).toBeGreaterThanOrEqual(0.5 - 1e-9);
+        expect(r!.offsetM + r!.widthM).toBeLessThanOrEqual(5 - 0.5 + 1e-9);
     });
 });
 
@@ -254,24 +257,45 @@ describe('resolveShellWindow — §WINDOW-IN-SHELL-FINAL: opening never floats o
     });
 });
 
-describe('resolveShellWindow — §WINDOW-CORNER-FIT (A.21.D39): drop a window that can not fully fit at a corner', () => {
+describe('resolveShellWindow — §WINDOW-CORNER-FIT (A.21.D39 + A.21.D45): graze-corner drops, exact-corner slides', () => {
     const win = (over: Partial<LayoutWindow> = {}): LayoutWindow => ({
         wallRef: 0, offset: 0, width: 1500, height: 1300, sillHeight: 900, ...over,
     });
     const shellLen = 5;
-    const END_CLEAR = 0.1;
+    // A.21.D45 — corner setback on a 5 m wall = 0.5 m (the real masonry pier).
+    const END_CLEAR = 0.5;
+    // A skewed (tolerant-match) option wall — 0.2 m drift so it matches the shell via
+    // §SHELL-MATCH-TOLERANT (NOT an exact endpoint match), exercising the corner-fit
+    // DROP path (the room only grazes the host near the corner → sliding would
+    // misrepresent the façade, so it is dropped).
+    const skewed = (sxMm = 0, syMm = 0, exMm = shellLen * 1000, eyMm = 200): LayoutWall =>
+        optWall(sxMm, syMm, exMm, eyMm);
 
-    it('drops a window whose projected centre is closer to a corner than half-width + end clearance', () => {
-        // 1.5 m window on a 5 m shell wall, centred at 0.5 m from the start corner.
-        // It cannot sit fully inside with the 0.1 m end-clearance from BOTH corners
-        // (needs centre ≥ 0.75 + 0.1 = 0.85 m) → the old offset-clamp would have
-        // dragged it flush against the corner; now it is DROPPED.
+    it('drops a window whose GRAZED (tolerant-match) centre is closer to a corner than half-width + setback', () => {
+        // 1.5 m window grazing a corner of a skew-matched shell: centre ≈ 0.5 m from the
+        // start corner. It cannot sit fully inside with the 0.5 m corner setback from
+        // BOTH corners (needs centre ≥ 0.75 + 0.5 = 1.25 m) → DROPPED (not slid onto a
+        // wall the room only grazes).
         const r = resolveShellWindow(
-            win({ offset: -250, width: 1500 }),   // centre at offset+width/2 = 0.5 m
-            [optWall(0, 0, shellLen * 1000, 0)],
+            win({ offset: -250, width: 1500 }),   // centre at offset+width/2 ≈ 0.5 m
+            [skewed()],
             [shell('shell-1', 0, 0, shellLen, 0)],
         );
         expect(r).toBeNull();
+    });
+
+    it('SLIDES an EXACT-match window inward to the corner pier instead of dropping it (A.21.D45)', () => {
+        // The dominant orthogonal case: the room fronts the WHOLE shell wall (exact
+        // endpoint match). A window that lands near the corner is SLID inward to the
+        // 0.5 m pier, NOT dropped — so a long façade keeps its distributed windows.
+        const r = resolveShellWindow(
+            win({ offset: -250, width: 1500 }),   // would-be centre 0.5 m (near corner)
+            [optWall(0, 0, shellLen * 1000, 0)],  // EXACT match
+            [shell('shell-1', 0, 0, shellLen, 0)],
+        );
+        expect(r).not.toBeNull();
+        expect(r!.offsetM).toBeGreaterThanOrEqual(END_CLEAR - 1e-6);    // slid to the pier
+        expect(r!.offsetM + r!.widthM).toBeLessThanOrEqual(shellLen - END_CLEAR + 1e-6);
     });
 
     it('keeps a window comfortably away from both corners', () => {
@@ -286,10 +310,10 @@ describe('resolveShellWindow — §WINDOW-CORNER-FIT (A.21.D39): drop a window t
         expect(r!.offsetM + r!.widthM).toBeLessThanOrEqual(shellLen - END_CLEAR + 1e-6);
     });
 
-    it('drops a window crowding the FAR corner too', () => {
+    it('drops a GRAZED (tolerant-match) window crowding the FAR corner too', () => {
         const r = resolveShellWindow(
-            win({ offset: 4250, width: 1500 }),   // centre at 5.0 m == far corner
-            [optWall(0, 0, shellLen * 1000, 0)],
+            win({ offset: 4250, width: 1500 }),   // centre ≈ 5.0 m == far corner
+            [skewed()],
             [shell('shell-1', 0, 0, shellLen, 0)],
         );
         expect(r).toBeNull();
@@ -338,7 +362,8 @@ describe('resolveShellWindow — §WINDOW-CORNER-SPAN: full span respects end cl
     const win = (over: Partial<LayoutWindow> = {}): LayoutWindow => ({
         wallRef: 0, offset: 0, width: 1500, height: 1300, sillHeight: 900, ...over,
     });
-    const END_CLEAR = 0.1;
+    // A.21.D45 — corner setback on a 5 m wall = 0.5 m (the real masonry pier).
+    const END_CLEAR = 0.5;
 
     // Sweep a range of offsets/widths/option-extents on a 5 m shell wall: EVERY
     // resolved opening must sit inside [END_CLEAR, shellLen − END_CLEAR] — never just
@@ -377,26 +402,27 @@ describe('resolveShellWindow — §WINDOW-CORNER-SPAN: full span respects end cl
     });
 
     it('width-clamps a window so it fits WITH corner clearance on a short wall', () => {
-        // 1.5 m window on a 1.6 m shell wall: §WINDOW-SHELL-CLAMP shrinks the width to
-        // 1.6 − 2×0.1 = 1.4 m so it sits inside [0.1, 1.5] — fully clear of both corners
-        // (rather than overrunning a corner). It is hosted, not dropped.
+        // 1.5 m window on a 1.6 m shell wall: A.21.D45 corner setback = 0.5 m, so
+        // §WINDOW-SHELL-CLAMP shrinks the width to 1.6 − 2×0.5 = 0.6 m and it sits
+        // inside [0.5, 1.1] — fully clear of both corners with a real pier. Hosted.
         const r = resolveShellWindow(
             win({ offset: 0, width: 1500 }),
             [optWall(0, 0, 1600, 0)],
             [shell('short', 0, 0, 1.6, 0)],
         );
         expect(r).not.toBeNull();
-        expect(r!.widthM).toBeCloseTo(1.4, 6);
+        expect(r!.widthM).toBeCloseTo(0.6, 6);
         expect(r!.offsetM).toBeGreaterThanOrEqual(END_CLEAR - 1e-6);
         expect(r!.offsetM + r!.widthM).toBeLessThanOrEqual(1.6 - END_CLEAR + 1e-6);
     });
 
     it('drops a window when the wall is too short to host even a minimal opening', () => {
-        // A 0.5 m shell wall: maxWidth = 0.5 − 0.2 = 0.3 m < the 0.4 m minimum → dropped.
+        // A 0.3 m shell wall: even with the corner setback collapsed to 0, the
+        // usable width (0.3 m) is below the 0.4 m minimum window → dropped.
         const r = resolveShellWindow(
             win({ offset: 0, width: 1500 }),
-            [optWall(0, 0, 500, 0)],
-            [shell('tiny', 0, 0, 0.5, 0)],
+            [optWall(0, 0, 300, 0)],
+            [shell('tiny', 0, 0, 0.3, 0)],
         );
         expect(r).toBeNull();
     });
@@ -429,8 +455,10 @@ describe('resolveAllShellWindows — §WINDOW-DEOVERLAP: no overlapping spans on
     });
 
     it('keeps both windows when their spans are clear of each other on one wall', () => {
+        // A.21.D45 — both windows sit clear of the 0.8 m corner setback on this 8 m
+        // wall AND clear of each other → both kept.
         const windows: LayoutWindow[] = [
-            { wallRef: 0, offset: 500,  width: 1500, height: 1300, sillHeight: 900 },  // [0.5, 2.0]
+            { wallRef: 0, offset: 1000, width: 1500, height: 1300, sillHeight: 900 },  // [1.0, 2.5]
             { wallRef: 0, offset: 4000, width: 1500, height: 1300, sillHeight: 900 },  // [4.0, 5.5]
         ];
         const out = resolveAllShellWindows(
@@ -459,5 +487,64 @@ describe('resolveAllShellWindows — §WINDOW-DEOVERLAP: no overlapping spans on
             [shell('south', 0, 0, 5, 0), shell('east', 5, 0, 5, 4)],
         );
         expect(out).toHaveLength(2);
+    });
+});
+
+// ── §WINDOW-CORNER-SETBACK (A.21.D45, 2026-06-08) — "window on the EDGE" FINALLY ─
+//
+// The recurring founder defect: shell windows landed at `offset=0.100m` from the
+// wall start (the live `[WallOccupancyStore] canPlace OK … offset=0.100m`) — flush
+// against the corner with only the cosmetic 0.1 m `END_CLEAR_M` as a pier. The
+// corner clearance is now a REAL wall-length-scaled masonry setback (≥ 0.5 m), and
+// EVERY resolved opening must sit inside [setback, shellLen − setback] at BOTH ends.
+describe('resolveShellWindow — §WINDOW-CORNER-SETBACK (A.21.D45): real corner pier, no edge windows', () => {
+    const win = (over: Partial<LayoutWindow> = {}): LayoutWindow => ({
+        wallRef: 0, offset: 0, width: 1500, height: 1300, sillHeight: 900, ...over,
+    });
+
+    it('cornerSetbackForWall scales with wall length within [0.5, 1.2] m', () => {
+        expect(cornerSetbackForWall(5)).toBeCloseTo(0.5, 6);    // floor on a short-ish wall
+        expect(cornerSetbackForWall(8)).toBeCloseTo(0.8, 6);    // 0.10 × 8
+        expect(cornerSetbackForWall(16.983)).toBeCloseTo(1.2, 6); // capped on the live-log wall
+        // Never the cosmetic 0.1 m, ever.
+        for (const len of [2, 4, 6, 10, 17, 30]) {
+            expect(cornerSetbackForWall(len)).toBeGreaterThanOrEqual(0.4);
+        }
+    });
+
+    // The EXACT live-log reproduction: a 1.8 m window emitted at offset 0.1 m on a
+    // 16.983 m shell wall (the founder's `offset=0.100m width=1.800m wallLen=16.983m`).
+    // After the fix the resolved opening must be pulled well clear of the corner —
+    // its offset must be ≥ the 1.2 m setback for this wall, NOT 0.1 m.
+    it('pulls the live-log corner-hugging window back to a real pier (NOT offset 0.1 m)', () => {
+        const shellLen = 16.983;
+        const r = resolveShellWindow(
+            win({ offset: 100, width: 1800 }),     // the live-log window (mm)
+            [optWall(0, 0, shellLen * 1000, 0)],
+            [shell('wall_live', 0, 0, shellLen, 0)],
+        );
+        expect(r).not.toBeNull();
+        const setback = cornerSetbackForWall(shellLen); // 1.2 m
+        expect(r!.offsetM).toBeGreaterThanOrEqual(setback - 1e-6);
+        expect(r!.offsetM).toBeGreaterThan(0.1);        // NEVER the old corner-hug
+        expect(r!.offsetM + r!.widthM).toBeLessThanOrEqual(shellLen - setback + 1e-6);
+    });
+
+    // Sweep offsets all along a long wall: NONE may resolve within the setback of a
+    // corner — first, last, or middle. The matcher returns null OR an in-pier opening.
+    it('no offset along a long wall ever resolves within the corner setback', () => {
+        const shellLen = 16.983;
+        const setback = cornerSetbackForWall(shellLen);
+        for (let offMm = 0; offMm <= shellLen * 1000; offMm += 500) {
+            const r = resolveShellWindow(
+                win({ offset: offMm, width: 1800 }),
+                [optWall(0, 0, shellLen * 1000, 0)],
+                [shell('wall_live', 0, 0, shellLen, 0)],
+            );
+            if (r === null) continue;
+            expect(r.offsetM, `off=${offMm}`).toBeGreaterThanOrEqual(setback - 1e-6);
+            expect(r.offsetM + r.widthM, `off=${offMm}`)
+                .toBeLessThanOrEqual(shellLen - setback + 1e-6);
+        }
     });
 });

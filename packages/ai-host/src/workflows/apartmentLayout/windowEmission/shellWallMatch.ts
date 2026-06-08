@@ -83,6 +83,58 @@ const OVERLAP_TOL_M = 0.05;
  *  dropped. */
 const EPS_M = 0.001;
 
+// ── §WINDOW-CORNER-SETBACK (A.21.D45, 2026-06-08) — real masonry pier ─────────
+//
+// Founder, recurring (FINALLY): "windows placed on the EDGE of the perimeter
+// wall". The live log proved it — shell windows landed at `offset=0.100m` from
+// the wall start, i.e. flush against the corner with only the cosmetic 0.1 m
+// `END_CLEAR_M` corner-clearance constant as a "pier". That 0.1 m reads as a
+// window ON the edge, not a window WITH a return. It was NOT happening originally
+// because T1.W-A placed ONE centred window (offset = (len−width)/2 ≈ mid-wall);
+// the D5.c multi-window rework (`98e02342`) distributes the FIRST window at the
+// bare end margin and the resolver then honoured that 0.1 m floor straight
+// through. ROOT FIX: replace the cosmetic 0.1 m corner clearance with a REAL,
+// architecturally-meaningful corner setback — a minimum masonry pier/return at
+// each corner that NO window (first, last, or middle) may encroach.
+//
+// The setback is wall-length-scaled with a hard architectural floor + cap so a
+// long façade gets a generous return and a short wall still hosts a window:
+//   target  = clamp(WALL_FRACTION·len, MIN_CORNER_SETBACK_M, MAX_CORNER_SETBACK_M)
+//   capped  = min(target, (len − MIN_WINDOW_M)/2)   — never starve a hostable wall
+// If even the floor can't leave room for a minimal opening the window is DROPPED
+// (per the full-span-or-drop doctrine), never slammed to the corner.
+
+/** Hard floor (m) for the corner setback — a real visible pier, never the old
+ *  cosmetic 0.1 m. ≈ a half-brick + reveal return; the architectural minimum
+ *  that reads as a window set INTO a wall, not floating on its edge. */
+const MIN_CORNER_SETBACK_M = 0.5;
+/** Cap (m) so a very long façade doesn't push the glazing into an over-narrow
+ *  central band — keeps windows distributed, not bunched at mid-wall. */
+const MAX_CORNER_SETBACK_M = 1.2;
+/** Fraction of wall length used to scale the setback between the floor + cap, so
+ *  a longer wall earns a proportionally larger return. */
+const CORNER_SETBACK_WALL_FRACTION = 0.10;
+/** Below this an opening isn't a usable window (shared with §WINDOW-SHELL-CLAMP). */
+const MIN_WINDOW_M = 0.4;
+
+/**
+ * The corner setback (m) for a shell wall of `shellLenM`: a real masonry pier at
+ * EACH corner that no window may encroach. Wall-length-scaled between the floor
+ * and the cap, then reduced (never below 0) on a short wall so the wall can still
+ * host a minimal opening rather than being starved to nothing. Pure + deterministic.
+ */
+export function cornerSetbackForWall(shellLenM: number): number {
+    if (!Number.isFinite(shellLenM) || shellLenM <= 0) return MIN_CORNER_SETBACK_M;
+    const scaled = Math.min(
+        MAX_CORNER_SETBACK_M,
+        Math.max(MIN_CORNER_SETBACK_M, CORNER_SETBACK_WALL_FRACTION * shellLenM),
+    );
+    // Don't starve a wall that can host a minimal window: keep ≥ MIN_WINDOW_M of
+    // usable span between the two setbacks when physically possible.
+    const maxAffordable = Math.max(0, (shellLenM - MIN_WINDOW_M) / 2);
+    return Math.min(scaled, maxAffordable);
+}
+
 interface UnitDir { readonly x: number; readonly z: number; readonly len: number }
 
 const segDir = (a: { x: number; z: number }, b: { x: number; z: number }): UnitDir => {
@@ -116,18 +168,21 @@ export function matchShellHost(
     optionWall: LayoutWall,
     shellWalls: readonly ShellWall[],
     planToWorld: PlanToWorldXZ = defaultPlanToWorld,
-): { shell: ShellWall; reversed: boolean } | null {
+): { shell: ShellWall; reversed: boolean; exact: boolean } | null {
     const a = planToWorld(optionWall.start);
     const b = planToWorld(optionWall.end);
     // 1) EXACT endpoint match (cheap; preserves the orthogonal behaviour + tests).
+    //    `exact: true` — the room fronts the WHOLE shell wall, so a window may be
+    //    SLID inward to a corner pier (A.21.D45) rather than dropped when it lands
+    //    near a corner. (The tolerant/skewed branch sets `exact: false`.)
     for (const s of shellWalls) {
         // Same-direction match: shell.start ≈ option.start AND shell.end ≈ option.end
         if (dist(s.start, a) <= ENDPOINT_TOL_M && dist(s.end, b) <= ENDPOINT_TOL_M) {
-            return { shell: s, reversed: false };
+            return { shell: s, reversed: false, exact: true };
         }
         // Reverse-direction match: shell.start ≈ option.end AND shell.end ≈ option.start
         if (dist(s.start, b) <= ENDPOINT_TOL_M && dist(s.end, a) <= ENDPOINT_TOL_M) {
-            return { shell: s, reversed: true };
+            return { shell: s, reversed: true, exact: true };
         }
     }
     // 2) §SHELL-MATCH-TOLERANT — no exact match (the non-orthogonal case): fall
@@ -136,7 +191,7 @@ export function matchShellHost(
     const od = segDir(a, b);
     if (od.len < 1e-6) return null;
     const mid = { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 };
-    let best: { shell: ShellWall; reversed: boolean } | null = null;
+    let best: { shell: ShellWall; reversed: boolean; exact: boolean } | null = null;
     let bestScore = Infinity;
     for (const s of shellWalls) {
         const sd = segDir(s.start, s.end);
@@ -162,7 +217,7 @@ export function matchShellHost(
         const score = ang * 2 + perp;
         if (score < bestScore) {
             bestScore = score;
-            best = { shell: s, reversed: (od.x * sd.x + od.z * sd.z) < 0 };
+            best = { shell: s, reversed: (od.x * sd.x + od.z * sd.z) < 0, exact: false };
         }
     }
     return best;
@@ -210,8 +265,11 @@ export function resolveShellWindow(
     // fit the host shell wall (leaving a small clearance at each end so the opening
     // never reaches the very corner where two walls join), and DROP the window when
     // the shell wall is too short to host even a minimal opening.
-    const MIN_WINDOW_M = 0.4;          // below this it isn't a usable window
-    const END_CLEAR_M = 0.1;           // keep clear of each wall end / corner join
+    // §WINDOW-CORNER-SETBACK (A.21.D45) — the corner clearance is now a REAL
+    // wall-length-scaled masonry pier (≥ 0.5 m), not the old cosmetic 0.1 m. Both
+    // the width clamp and the offset clamps below use it, so NO window — first,
+    // last, or middle — lands within the setback of a corner.
+    const END_CLEAR_M = cornerSetbackForWall(shellDir.len);
     const maxWidthM = shellDir.len - 2 * END_CLEAR_M;
     if (maxWidthM < MIN_WINDOW_M) return null;   // shell wall can't host any window
     const widthM = Math.min(win.width / 1000, maxWidthM);
@@ -269,11 +327,18 @@ export function resolveShellWindow(
     // window (whose width was clamped to fit the wall, §WINDOW-SHELL-CLAMP) is a
     // different intent: it is centred mid-wall and intentionally drag-fitted — the
     // pre-existing behaviour the A.21.D28 test pins. Only an un-clamped window crowding
-    // a corner is the off-shell escape this guard closes. An exact-match orthogonal
-    // window (centre well inside the span, width unchanged) passes untouched — so no
-    // regression on the dominant case.
+    // a corner is the off-shell escape this guard closes.
+    //
+    // A.21.D45 SCOPE NARROWING: the DROP only fires on a TOLERANT (skewed) match —
+    // where the room merely GRAZES the host near a corner and sliding the window inward
+    // would misrepresent the frontage (the original D39 intent). On an EXACT endpoint
+    // match the room fronts the WHOLE shell wall, so a window that lands near a corner
+    // is legitimately SLID inward to the corner pier by the §WINDOW-CORNER-SPAN clamp
+    // below (the founder's "evenly distributed, real pier" intent) rather than dropped.
+    // This is what keeps the live-log corner-hugging window — and ALL distributed shell
+    // windows on a long orthogonal façade — instead of silently dropping them.
     const wasWidthClamped = widthM < (win.width / 1000) - EPS_M;
-    if (!wasWidthClamped) {
+    if (!wasWidthClamped && !match.exact) {
         const minCentre = widthM / 2 + END_CLEAR_M;
         if (centreParam < minCentre - EPS_M || centreParam > shellDir.len - minCentre + EPS_M) return null;
     }
