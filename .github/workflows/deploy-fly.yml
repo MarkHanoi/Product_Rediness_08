@@ -107,3 +107,4 @@ jobs:
 # deploy-marker: v48-trigger — explicit deploy (house geometry + grid-planes + D35 climate viz + railing cleanup)
 # deploy-marker: v49 — D39: ground-floor room-closure ROOT FIX (weld partitions to pre-drawn shell → real rooms, fixes furniture-overlap cascade) + corner-window drop + house placed on photoreal globe + window glass (shadow-through) + climate ingest on Forma (wind rose populates)
 # deploy-marker: v49-trigger — explicit deploy (D39 room-closure root fix + house-on-globe + window-glass + climate-on-Forma)
+# deploy-marker: v50 — D40: mirror-shadow fix (drop buried ground bottom-face) + house ON photoreal 3D-tiles (sampleHeight reseat) + transparent BIM window glass (MeshPhysical transmission) + window full-span corner-clearance + per-wall de-overlap + ground-walls-stay-put (rebuildWallBodies, no whole-level re-trim)
