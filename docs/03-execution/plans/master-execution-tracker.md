@@ -2290,3 +2290,28 @@ some walls, the joins go off and the window openings too."*
 ---
 
 *Addendum continues 2026-06-08 — §22.7 rotated-plate wall-join→opening→room-merge cascade (WJ-SKEW · ROOM-MERGE · WIN-DROP · STAIR-OFF-SHELL · HALL-NO-ENTRANCE). GIS-LOC + VIEW-ZOOM fixes shipped v60.*
+
+### §22.8 — Fix wave 2 shipped (v61) + house-generator audit findings (2026-06-08)
+
+**Shipped v61** (multi-agent fix wave; ai-host 2041/2041, editor typecheck clean):
+| ID | Fix | Status |
+|---|---|---|
+| **WJ-SKEW** + **ROOM-MERGE** + **WIN-DROP** | `DEFAULT_PARTITION_WELD_M` 0.05 → 0.20 m so cross-wall endpoints fuse BEFORE the resolver (which clusters at 0.5–1.0 m) → no self-cluster → no dropped wall → no room merge / orphaned opening. Root-cause = a 3-way tolerance gap (subdivide 0.05 / weld 0.05 / resolver 0.5–1.0). | ✅ v61 (rotated-plate; verify on prod) |
+| **STAIR-OFF-SHELL** | `snapRectInsidePoly()` re-validates the stair core against the ROTATED shell polygon after the bbox clamp (bbox ⊋ polygon on a skew). Axis-aligned = verbatim (D18). | ✅ v61 |
+| **HALL-NO-ENTRANCE** | `wallBoundsRoom()` restricts the entrance door to a shell wall the HALL actually fronts (vertex-on-wall), not the nearest wall to its centroid. | ✅ v61 |
+| **BND-90** | Ortho boundary lock now opt-in (default OFF; first line free, then toggle 90°). | ✅ v61 |
+
+**House-generator deep reference + audit** written to `docs/04-reference/LAYOUT-GENERATION-ALGORITHM.md` (§ "Residential House Generator (Casa Unifamiliar)"). AUDIT FINDINGS (queued — NOT yet fixed):
+| ID | Finding | Severity |
+|---|---|---|
+| **HSE-AUDIT-1** | `perStoreyLayout` is NOT reliably index-aligned with `storeys` — `assembleHouse` pushes a StoreyPlate always but the option only when non-null, so a blank middle storey desyncs the arrays the executor pairs by index. | ⚠ HIGH (correctness) |
+| **HSE-AUDIT-2** | `goodViewKinds` (the "unless the view is good" half of the worst-aspect stair rule) is wired in `aspectScore` but never populated by any caller — only sun-derived aspect is reachable. | ⚠ MED (dead path) |
+| **HSE-AUDIT-3** | Vertical acoustic preference is computed but never consumed (single deterministic allocation, no candidate set to rank) — comment overstates wiring. | ⚠ LOW |
+| **HSE-AUDIT-4** | Riser counts diverge: the executor re-derives `totalRisers` with its own clamp, so `StairCore.flights[].riserCount` isn't what's built (works, but not identical). | ⚠ LOW |
+| **HSE-AUDIT-5** | Blank-storey (wall-only) + large-plate cap ("rooms hug one side, empty perimeter band" when plate > grossMax/0.85) ship silently — need a founder call on intended graceful degradation. | ❓ founder |
+
+**Still pending:** FLR-VIEWS (patch spec ready — needs view-create dispatch API + skip-duplicate-ground-view verification before shipping) · DEMO-2 (Living-Graph-in-modal) · DEMO-1 · FORMA-CTX · BUG-ANNO-DRAG · BUG-FB-ZEROSIZE · A.27 P5–P7 · HSE-AUDIT-1..5.
+
+---
+
+*Addendum continues 2026-06-08 — §22.8 fix wave 2 (WJ-SKEW/STAIR-OFF-SHELL/HALL-NO-ENTRANCE/BND-90 shipped v61) + house-generator deep reference + 5 audit findings (HSE-AUDIT-1..5).*
