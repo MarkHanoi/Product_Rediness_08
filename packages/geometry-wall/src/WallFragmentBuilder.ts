@@ -10,6 +10,9 @@ import { buildCurvedLayerGeometry, computeStations } from './CurvedWallLayerBuil
 import { projectCapVertex } from './CurvedWallCapMiter';
 import { clusterOpenings, buildLayeredWallSegmentsAroundOpenings } from './LayeredWallOpeningBuilder';
 import { buildMiterPrism } from './MiterPrismBuilder';
+// §WALL-PLAIN-HOLE-EXTRUDE — pure (testable) single-body geometry for a plain
+// straight wall with openings (one continuous ExtrudeGeometry, no segment seams).
+import { buildWallHoleBodyGeometry } from './WallHoleBodyBuilder';
 // ADR-0055 — Pascal-style wall pipeline (default ON since 2026-05-27).
 // The orchestrator (`WallRebuildCoordinator._flush`) calls `refreshV2Cache()`
 // once per level rebuild with the same `levelWalls` slice it feeds to
@@ -1805,13 +1808,34 @@ export class WallFragmentBuilder {
                 wallGroup.add(outlineEdges);
             }
 
-            // §WALL-PLAIN-SEAM-MERGE (#96): collapse the abutting body box segments
-            // (before / sill / lintel / header / after) into ONE creased-normal mesh
-            // so the coplanar segment boundaries stop rendering as shaded "division
-            // lines" beside openings under SSGI. Mirrors the layered-wall grid fix
-            // (greedy-merge + toCreasedNormals) without needing CSG/WASM. Safe: on any
-            // failure it leaves the original separate segments untouched.
-            this._mergeWallBodySegments(wallGroup, wall);
+            // §WALL-PLAIN-HOLE-EXTRUDE (2026-06-08): a plain straight wall with
+            // openings now renders as ONE continuous profile-extrude body with a
+            // rectangular hole per opening — no internal segment boundaries, so no
+            // vertical seam beside the hole and no horizontal break below/above it
+            // (the recurring founder live-test defect). The before/sill/header/after
+            // box segments built above were abutting-but-separate quads: their shared
+            // edges are T-junctions (the full-height face has no vertex at the sill /
+            // head line), which shade as visible division lines even after
+            // mergeGeometries + toCreasedNormals. A single Shape-with-holes ExtrudeGeometry
+            // has continuous front/back faces and continuous reveal (jamb/sill/lintel)
+            // faces by construction. Only applies when the wall has NO miter join at
+            // either end (the apartment generator's plain-partition production case);
+            // a mitered end needs the angled end-cut the box/miter-prism path provides,
+            // so that case keeps the segments + the legacy seam-merge fallback. Safe:
+            // on any failure it leaves the original separate segments (merged) intact.
+            const _hasMiterEnd = !!(openingStartMN || openingEndMN);
+            const _extrudeBodyOk =
+                !_hasMiterEnd &&
+                this._rebuildPlainWallBodyAsHoleExtrude(
+                    wallGroup, wall, sortedClusters, wallLength, wallHeight, wallThickness, wallBaseOffset,
+                    Math.atan2(direction.z, direction.x),
+                );
+            if (!_extrudeBodyOk) {
+                // Mitered wall, or the extrude failed — collapse the abutting box
+                // segments into ONE creased-normal mesh as the fallback (still removes
+                // most of the coplanar division-line shading; §WALL-PLAIN-SEAM-MERGE #96).
+                this._mergeWallBodySegments(wallGroup, wall);
+            }
 
             // §WALL-AUDIT-2026-C1 (move-restore): identity is locked once at the
             // top of buildWall(); only mutable fields sync here.
@@ -2040,6 +2064,114 @@ export class WallFragmentBuilder {
                 '[WallFragmentBuilder] §WALL-PLAIN-SEAM-MERGE failed, keeping segments:',
                 (err as Error)?.message ?? err,
             );
+        }
+    }
+
+    /**
+     * §WALL-PLAIN-HOLE-EXTRUDE (2026-06-08) — replace a plain straight wall's
+     * abutting body box segments with ONE continuous ExtrudeGeometry: a wall-rect
+     * Shape (x along the wall, y vertical) minus one rectangular hole per opening,
+     * extruded through the wall thickness.
+     *
+     * WHY: the segmented body (before / sill / header / after boxes) abut but are
+     * separate quads. The full-height before/after face has no vertex at the
+     * sill/head line, so the shared edge is a T-junction — it shades as a visible
+     * vertical seam beside the hole and a horizontal break below/above it, even
+     * after mergeGeometries + toCreasedNormals (those weld co-located vertices and
+     * recompute normals but cannot heal a T-junction). A Shape-with-holes extrude
+     * has ONE continuous front face, ONE continuous back face, and continuous
+     * reveal (jamb/sill/lintel) faces around each hole — seamless by construction,
+     * no CSG/WASM needed (P2-safe: THREE only, this file is renderer-side already).
+     *
+     * Local frame matches the box-segment convention this method replaces:
+     *   x ∈ [0, length], y ∈ [baseOffset, baseOffset + height], z centred on 0
+     *   (BoxGeometry is z-centred; ExtrudeGeometry runs 0→depth so we translate
+     *   z by −thickness/2). The wallGroup is rotated −angle by the caller, so
+     *   local-x maps to the wall direction exactly as the segments did.
+     *
+     * Returns true when the single body was built (box segments removed, single
+     * body added); false to signal the caller to keep the segmented + merge
+     * fallback (mitered ends, overlapping/clustered holes, degenerate hole, or any
+     * THREE error). NEVER leaves an empty wall — on false the segments are intact.
+     */
+    private _rebuildPlainWallBodyAsHoleExtrude(
+        wallGroup: THREE.Group,
+        wall: WallData,
+        clusters: ReadonlyArray<{ minLeft: number; maxRight: number; openings: Opening[] }>,
+        length: number,
+        height: number,
+        thickness: number,
+        baseOffset: number,
+        angle: number,
+    ): boolean {
+        try {
+            if (!(length > 0 && height > 0 && thickness > 0)) return false;
+
+            // Flatten the cluster openings and build ONE continuous body geometry
+            // (wall rectangle minus a hole per opening) via the pure helper. The
+            // helper returns null when the openings are not cleanly extrude-able
+            // (degenerate / edge-touching / overlapping) — in which case we keep
+            // the segmented + merge fallback. NOTE: do NOT computeVertexNormals on
+            // the result — ExtrudeGeometry already emits per-face normals that keep
+            // the front/back caps crisp against the 90° reveal (jamb/sill/lintel)
+            // faces; re-averaging would round those corners.
+            const _openingRects = clusters.flatMap((c) =>
+                c.openings.map((op) => ({
+                    offset: op.offset,
+                    width: op.width,
+                    height: op.height,
+                    sillHeight: op.sillHeight ?? 0,
+                })),
+            );
+            const geo = buildWallHoleBodyGeometry({
+                length, height, thickness, baseOffset, openings: _openingRects,
+            });
+            if (!geo) return false;
+
+            const mesh = new THREE.Mesh(geo, this.createWallMaterial(wall));
+            // The extrude body is built in an axis-aligned frame (local-x = wall
+            // length axis). Rotate by −angle about the group origin (= wall start)
+            // so local-x maps to the wall direction — identical to the −angle the
+            // box segments applied via positionLocal().
+            mesh.position.set(0, 0, 0);
+            mesh.rotation.set(0, -angle, 0);
+            mesh.userData = {
+                materialId: wall.materialId,
+                materialColor: wall.materialColor,
+                elementType: 'WallPart',
+                modelId: 'model-default',
+                role: 'geometry',
+                selectable: false,
+                holeExtrudeBody: true,
+            };
+
+            // Remove the abutting box segments this body replaces (keep frames,
+            // edge overlay, etc.). Only WallPart meshes are body segments.
+            const parts: THREE.Mesh[] = [];
+            for (const child of wallGroup.children) {
+                const m = child as THREE.Mesh;
+                if (m.isMesh && (m.userData as { elementType?: string })?.elementType === 'WallPart') {
+                    parts.push(m);
+                }
+            }
+            for (const m of parts) {
+                wallGroup.remove(m);
+                m.geometry?.dispose?.();
+            }
+            wallGroup.add(mesh);
+            // NOTE: like the merged-segment body (`_mergeWallBodySegments`), the body
+            // mesh is added to the group but NOT registered as a separate fragment —
+            // the original box segments were never fragments either (only door/window
+            // frames are). Selection/picking resolve via the wallGroup root
+            // (elementRegistry) + child traversal, so no fragment record is needed and
+            // adding one would diverge from the established plain-wall behaviour.
+            return true;
+        } catch (err) {
+            console.warn(
+                '[WallFragmentBuilder] §WALL-PLAIN-HOLE-EXTRUDE failed, keeping segments:',
+                (err as Error)?.message ?? err,
+            );
+            return false;
         }
     }
 
