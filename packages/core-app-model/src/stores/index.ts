@@ -40,7 +40,10 @@ export type {
     FloorProperties, FloorMetadata, FloorEdgeRef, FloorFreeLineEdge, FloorHostReferenceEdge,
     FloorSketchEdge, FloorSketchLoop, FloorSketch, FloorToolState, FloorTypeCategory,
     FloorSystemType, FloorData, FloorToolCallbacks,
+    FinishSeatingInput, FinishSeating,
 } from './FloorTypes.js';
+// §A.21.D48 — finish-on-slab seating (value exports).
+export { DEFAULT_FINISH_THICKNESS_M, resolveFinishSeating } from './FloorTypes.js';
 
 export {
     FLOOR_DEFAULTS, FLOOR_LAYER_COLORS, resolveFloorColor, resolveLayerColor,
