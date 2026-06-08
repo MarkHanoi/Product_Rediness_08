@@ -38,6 +38,7 @@ export * from './LayeredWallOpeningBuilder';
 export * from './CurvedWallLayerBuilder';
 export * from './CurvedWallCapMiter';
 export * from './MiterPrismBuilder';
+export * from './WallHoleBodyBuilder';
 
 // ── ADR-0055 Pascal-style wall junction pipeline ─────────────────────────────
 // New L/T/X-clean geometry: P1 resolver → P2 footprint → P3a extruder → P3b shim.
