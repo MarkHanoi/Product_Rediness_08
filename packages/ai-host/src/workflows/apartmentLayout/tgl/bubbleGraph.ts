@@ -177,6 +177,39 @@ export function buildBubbleGraph(
     const ensuiteId = program.masterEnSuite && beds > 0 ? push('ensuite', 'En-suite', true) : null;
     for (let i = 0; i < baths; i++) push('bathroom', baths > 1 ? `Bathroom ${i + 1}` : 'Bathroom', true);
 
+    // §ROOM-TYPES-BY-NAME (A.26.4, ADR-0061 / C52) — per-INSTANCE TYPE override
+    // (sibling of roomAreasByName). RE-TYPE a minted room by its display name —
+    // "make Bedroom 2 a Study". Applied HERE, after the rooms are minted but
+    // BEFORE area allocation + edge construction, so the new type drives the
+    // room's area weight / minima / habitability (roomRule) AND the semantic
+    // edges (typeById below reads the re-typed array). Re-typing a PRIVATE room's
+    // `isPrivate`/`needsWindow` is re-derived from the new rule. The override
+    // never adds/removes/re-orders a room — only its `type` (+ derived
+    // needsWindow / isPrivate). An entry equal to the room's existing type is a
+    // no-op; a name with no minted room is ignored. Empty/absent ⇒ identity
+    // (ADR-0061 I2 — byte-identical baseline). VALID-TYPE-GUARD: a non-RoomType
+    // value (or one not in the rules DB) is ignored so an illegal edit can't
+    // produce a phantom type.
+    const typeOverrides = rawProgram.roomTypesByName;
+    if (typeOverrides && Object.keys(typeOverrides).length > 0) {
+        for (let i = 0; i < rooms.length; i++) {
+            const r = rooms[i]!;
+            const next = typeOverrides[r.name];
+            if (!next || next === r.type) continue;
+            const rule = roomRule(next);
+            // roomRule returns the FALLBACK (utility) for an unknown string —
+            // reject any value whose rule.type doesn't echo the request, so only
+            // real RoomTypes re-type a room.
+            if (rule.type !== next) continue;
+            rooms[i] = {
+                ...r,
+                type: next,
+                isPrivate: rule.privacy === 'private',
+                needsWindow: rule.needsWindow,
+            };
+        }
+    }
+
     // ── Area targets: weight-scaled to fill the shell, then clamped up to minima.
     // §ROOM-AREAS / §ROOM-AREAS-BY-NAME (2026-05-29):
     //   1. `program.roomAreasByName[r.name]` — per-instance override

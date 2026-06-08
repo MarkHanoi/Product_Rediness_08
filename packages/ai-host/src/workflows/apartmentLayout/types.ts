@@ -141,6 +141,27 @@ export interface ApartmentProgram {
      *  en-suite changes "Bedroom 1" → "Master Bedroom"). The same
      *  architectural-minimum clamp applies. */
     roomAreasByName?: Partial<Record<string, number>>;
+    /** §ROOM-TYPES-BY-NAME (A.26.4, 2026-06-08, ADR-0061 / C52): per-INSTANCE
+     *  ROOM-TYPE (occupancy) override, keyed by the deterministic bubble-graph
+     *  display name ("Bedroom 1", "Master Bedroom", "Study", …). The direct
+     *  sibling of `roomAreasByName`: where that re-targets a room's AREA, this
+     *  re-targets its TYPE. It lets the Editable Living Graph (A.26.4) re-type a
+     *  single DETECTED room — "make Bedroom 2 a Study" — without touching the
+     *  program's bedroom/bathroom COUNT flags.
+     *
+     *  Consumed in `buildBubbleGraph` AFTER the rooms are minted from the program
+     *  flags: a minted room whose `name` has an override is re-typed to the new
+     *  `RoomType` (its `needsWindow`, area weight, minima, adjacency rules + the
+     *  semantic edges it participates in then all derive from the NEW type, via
+     *  the single-source-of-truth `roomRule`). Because the override re-types an
+     *  EXISTING room slot (it never adds or removes a room), the room set, order,
+     *  ids + names are unchanged — only the type. Names that don't match any
+     *  minted room are silently ignored; an entry whose value equals the room's
+     *  existing type is a no-op.
+     *
+     *  Omitted / undefined / empty object ⇒ engine default (types come purely
+     *  from the program flags) ⇒ byte-identical baseline (ADR-0061 invariant I2). */
+    roomTypesByName?: Partial<Record<string, RoomType>>;
 }
 
 export interface ScoringWeights {

@@ -19,6 +19,7 @@ import { resolveApartmentBrief } from './briefToProgram.js';
 import { getActiveBriefMetadata } from './activeBrief.js';
 import { getActiveScoringWeights, getActiveEngineTuning } from './activeDesignParams.js';
 import { getRoomAreaOverrides } from './activeRoomAreaOverrides.js';
+import { getRoomTypeOverrides } from './activeRoomTypeOverrides.js';
 import { getCurrentSiteOrigin } from '../site/siteDispatch.js';
 
 interface WallRecord {
@@ -125,6 +126,19 @@ export function gatherLayoutPayload(
     const roomAreaOverrides = getRoomAreaOverrides();
     if (roomAreaOverrides) {
         program.roomAreasByName = { ...(program.roomAreasByName ?? {}), ...roomAreaOverrides };
+    }
+
+    // A.26.4 — Editable Living Graph: merge the per-room TYPE (occupancy)
+    // overrides the inspect card stashed into the program's `roomTypesByName`
+    // field (the direct sibling of the AREA merge above). The D-TGL bubble graph
+    // re-types the minted room of that name, re-deriving its area weight / minima
+    // / habitability / adjacency rules from the new type (ADR-0061 / C52). NULL ⇒
+    // no overrides ⇒ the field is omitted ⇒ generation reproduces the byte-
+    // identical baseline (ADR-0061 invariant I2). Same per-node-override seam as
+    // the AREA edit + the A.25 sliders — no parallel mutator.
+    const roomTypeOverrides = getRoomTypeOverrides();
+    if (roomTypeOverrides) {
+        program.roomTypesByName = { ...(program.roomTypesByName ?? {}), ...roomTypeOverrides };
     }
 
     // A.25.1 — Living Design Parameters: apply the user's design sliders (if any)

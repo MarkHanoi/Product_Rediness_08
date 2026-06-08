@@ -1,7 +1,8 @@
 # ADR-0061 — The building graph is a bidirectional edit substrate, not a read-only projection
 
-**Status:** PROPOSED (DRAFT, 2026-06-08)
+**Status:** ACCEPTED (2026-06-08) — now governed by the normative contract [C52 — Editable Building Graph](../contracts/C52-EDITABLE-BUILDING-GRAPH.md). (Was PROPOSED/DRAFT 2026-06-08; ratified the same day on the A.26.4 occupancy/type slice, which proved the per-node-override family generalises beyond area.)
 **Tracker:** A.26 ("editable Living Graph" — the founder's BIM 2.0/3.0 differentiator, master-execution-tracker)
+**Contract:** [C52](../contracts/C52-EDITABLE-BUILDING-GRAPH.md) (the normative form of this ADR).
 **Related:** [ADR-0058](./0058-unified-building-graph.md) (UBG — specialised graphs are projections of one node/edge model), [ADR-0060](./0060-living-design-parameters.md) (Living Design Parameters bind to existing substrate, not a parallel scorer — the global-slider sibling of this per-node decision).
 **Spec source:** [SPEC-LIVING-BUILDING-GRAPH.md](../../03-execution/specs/SPEC-LIVING-BUILDING-GRAPH.md), [SPEC-LIVING-DESIGN-PARAMETERS.md](../../03-execution/specs/SPEC-LIVING-DESIGN-PARAMETERS.md).
 
@@ -124,9 +125,23 @@ Concretely:
   the stash and fires the **existing** debounced `triggerApartmentLayout` re-generate. The graph
   re-lays-out on the resulting `pryzm:building-graph-rebuilt` (existing path).
 
-A.26 follow-on slices (occupancy edit, adjacency-preference edit, privacy edit) are tracked
-separately; this ADR governs the bidirectional-edit-substrate principle + the per-node-override
-invariants (I1–I4) + the A.26.3 area slice.
+A.26 follow-on slices are tracked separately; this ADR governs the bidirectional-edit-substrate
+principle + the per-node-override invariants (I1–I4) + the A.26.3 area slice.
+
+## Implementation (A.26.4 — occupancy/type edit, the second per-node attribute)
+
+A.26.4 added the **per-room TYPE** override `ApartmentProgram.roomTypesByName` — the direct
+sibling of `roomAreasByName`. It re-types a minted bubble-graph room IN PLACE (re-deriving its
+area weight / minima / habitability / adjacency rules from the new type's `roomRule`), without
+touching the program's bedroom/bathroom COUNT flags. The headline finding that validated this
+ADR's per-node-override family beyond area: the engine already mints + names rooms deterministically,
+so a name-keyed type remap binds cleanly into `buildBubbleGraph` exactly like area — no parallel
+mechanism, no new engine path. Files: `types.ts` (`roomTypesByName`), `tgl/bubbleGraph.ts` (re-type),
+`apps/editor/.../activeRoomTypeOverrides.ts` (stash), `gatherLayoutPayload.ts` (merge),
+`LivingGraphOverlay.ts` (`occupancyField` select). Baseline identity (I2) test-guarded in
+`roomTypeOverride.test.ts`. The ADR was promoted to ACCEPTED + the contract C52 authored on this
+slice. Adjacency-preference (E3) + sun/acoustic (E4) remain planned; they MUST bind to the existing
+scorer axes per §2/§3 of C52 (no new knob).
 
 ## Alternatives considered
 

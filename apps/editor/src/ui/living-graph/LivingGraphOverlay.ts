@@ -37,6 +37,15 @@ import {
   setRoomAreaOverride,
   getRoomAreaOverride,
 } from '../apartment-layout/activeRoomAreaOverrides';
+// A.26.4 — Editable Living Graph: the inspect card's OCCUPANCY/TYPE select writes
+// a per-room type override to this stash, then fires the SAME debounced
+// apartment re-generate (ADR-0061 / C52 — sibling of the A.26.3 area edit).
+import {
+  setRoomTypeOverride,
+  getRoomTypeOverride,
+  ROOM_TYPE_VALUES,
+  type RoomTypeValue,
+} from '../apartment-layout/activeRoomTypeOverrides';
 import { triggerApartmentLayout } from '../apartment-layout/apartmentLayoutTrigger';
 import {
   createSimState,
@@ -62,6 +71,22 @@ import {
 } from './livingGraphSchema';
 
 const ACCENT = '#6600ff';
+// A.26.4 — friendly labels for the editable occupancy/type select (keys are the
+// engine RoomType values from `ROOM_TYPE_VALUES`).
+const ROOM_TYPE_LABEL: Record<RoomTypeValue, string> = {
+  master: 'Master Bedroom',
+  bedroom: 'Bedroom',
+  living: 'Living Room',
+  kitchen: 'Kitchen',
+  dining: 'Dining',
+  bathroom: 'Bathroom',
+  ensuite: 'En-suite',
+  wc: 'WC',
+  hall: 'Entrance Hall',
+  corridor: 'Corridor',
+  study: 'Study',
+  utility: 'Utility',
+};
 const REBUILT_EVENT = 'pryzm:building-graph-rebuilt';
 // A.26.3 — fired by ApartmentLayoutExecutor after a (re-)generate commits a new
 // layout; the overlay rebuilds the UBG so an area edit's re-generate re-lays-out
@@ -314,29 +339,42 @@ export class LivingGraphOverlay {
     this.anchoredTopLeft = true;
   }
 
+  /**
+   * §A.26.2 — the Living Graph adopts the INSPECT-TAB chrome: a purple-gradient
+   * header (the canonical onboarding / InspectPanel header — `linear-gradient(
+   * 135deg, #6600ff, #8b2fe0)` + white text) over the white body. Reads as "the
+   * inspect tab, as a panel". The header stays the drag handle (movable) and the
+   * resize grip + zoom/pan are untouched (still movable/zoomable). The badges +
+   * Freeze + ✕ are restyled for legibility on the purple ground (translucent-
+   * white chips + white outline buttons).
+   */
   private buildHeader(): HTMLElement {
     const bar = document.createElement('div');
     Object.assign(bar.style, {
       display: 'flex',
       alignItems: 'center',
       gap: '8px',
-      padding: '10px 12px',
+      padding: '11px 12px',
       cursor: 'grab',
-      background: 'linear-gradient(180deg, #ffffff, #faf7ff)',
+      // §A.26.2 — Inspect-tab purple gradient (matches onboardingStyles.ts +
+      // the InspectPanel header). White text on top.
+      background: 'linear-gradient(135deg, #6600ff 0%, #8b2fe0 100%)',
+      color: '#ffffff',
     } satisfies Partial<CSSStyleDeclaration>);
 
+    // §A.26.2 — an Inspect "🔍" affordance + title, so it reads as the Inspect tab.
     const title = document.createElement('div');
-    title.textContent = 'Living Graph';
-    Object.assign(title.style, { font: '700 13px/1 system-ui, sans-serif', color: '#241a3a', flexShrink: '0' });
+    title.textContent = '🔍 Inspect · Living Graph';
+    Object.assign(title.style, { font: '700 13px/1 system-ui, sans-serif', color: '#ffffff', flexShrink: '0' });
 
     const settled = document.createElement('span');
     settled.textContent = 'settling…';
-    Object.assign(settled.style, badgeStyle('rgba(102,0,255,0.1)', ACCENT));
+    Object.assign(settled.style, headerChipStyle());
     this.settledBadge = settled;
 
     const rooms = document.createElement('span');
     rooms.textContent = '0 rooms';
-    Object.assign(rooms.style, badgeStyle('rgba(36,26,58,0.06)', '#4b4163'));
+    Object.assign(rooms.style, headerChipStyle());
     this.roomsBadge = rooms;
 
     const spacer = document.createElement('div');
@@ -345,7 +383,7 @@ export class LivingGraphOverlay {
     const freeze = document.createElement('button');
     freeze.type = 'button';
     freeze.textContent = '⏸ Freeze';
-    Object.assign(freeze.style, pillBtnStyle());
+    Object.assign(freeze.style, headerBtnStyle());
     this.on(freeze, 'click', () => this.toggleFreeze());
     this.freezeBtn = freeze;
 
@@ -353,7 +391,7 @@ export class LivingGraphOverlay {
     close.type = 'button';
     close.textContent = '✕';
     close.setAttribute('aria-label', 'Close living graph');
-    Object.assign(close.style, { ...pillBtnStyle(), padding: '4px 9px' });
+    Object.assign(close.style, { ...headerBtnStyle(), padding: '4px 9px' });
     this.on(close, 'click', () => this.hide());
 
     // Drag from the header.
@@ -1022,10 +1060,10 @@ export class LivingGraphOverlay {
     if (this.settledBadge) {
       const settled = isSettled(this.sim) || this.frozen;
       this.settledBadge.textContent = settled ? '✓ settled' : 'settling…';
-      Object.assign(
-        this.settledBadge.style,
-        settled ? badgeStyle('rgba(36,180,120,0.14)', '#1a8a5a') : badgeStyle('rgba(102,0,255,0.1)', ACCENT),
-      );
+      // §A.26.2 — header chips sit on the purple Inspect-tab gradient: keep them
+      // white-on-translucent. Settled gets a faint green tint to read "done".
+      Object.assign(this.settledBadge.style, headerChipStyle());
+      if (settled) this.settledBadge.style.background = 'rgba(120,240,180,0.30)';
     }
   }
 
@@ -1096,6 +1134,10 @@ export class LivingGraphOverlay {
       // override + fires the existing debounced apartment re-generate so the
       // layout updates this room's size (and the graph re-lays-out).
       this.areaField(node),
+      // A.26.4 — the OCCUPANCY/TYPE is now EDITABLE. Picking a new room type
+      // stashes a per-room type override + fires the SAME debounced re-generate
+      // so the engine re-types that room (sibling of the area edit).
+      this.occupancyField(node),
       this.metricSpan('☀', `${(node.sunExposure * 100) | 0}%`),
       this.metricSpan('♪', `${(node.noiseLevel * 100) | 0}%`),
       this.metricSpan('●', node.type, ROOM_TYPE_COLOUR[node.type]),
@@ -1277,6 +1319,82 @@ export class LivingGraphOverlay {
   }
 
   /**
+   * §A.26.4 — the EDITABLE occupancy/type select for the inspect card. A compact
+   * `<select>` (brand white + #6600FF) of the real engine room types (from the
+   * program rules). The first option "— (detected)" clears any override (reverts
+   * the room to the engine's flag-derived type). Picking a type writes the
+   * per-room override keyed by the room's DISPLAY NAME — the deterministic name
+   * the bubble graph mints + honours via `roomTypesByName` — into the session
+   * stash, then fires the EXISTING debounced apartment re-generate. Mutation
+   * stays on the existing trigger → command-bus path (P6).
+   *
+   * We seed the select from any PENDING override (so a re-opened card shows the
+   * user's choice); with no override it sits on "— (detected)" rather than
+   * guessing the room's specific engine RoomType from the coarse graph `type`
+   * (the graph node carries a RoomKind + an occupancy STRING, not the engine
+   * RoomType — see livingGraphSchema). This keeps the edit honest: the user
+   * declares the target type; an un-touched select never triggers a re-generate.
+   */
+  private occupancyField(node: GraphNode): HTMLElement {
+    const wrap = document.createElement('span');
+    Object.assign(wrap.style, { display: 'inline-flex', alignItems: 'center', gap: '3px', whiteSpace: 'nowrap' });
+
+    const icon = document.createElement('span');
+    icon.textContent = '🏷';
+
+    const select = document.createElement('select');
+    select.setAttribute('aria-label', `Room type of ${node.label}`);
+    select.title = 'Change this room’s type — the layout re-generates to match';
+    Object.assign(select.style, {
+      maxWidth: '110px',
+      border: `1px solid ${ACCENT}`,
+      borderRadius: '6px',
+      padding: '1px 4px',
+      font: '600 11px/1.4 system-ui, sans-serif',
+      color: '#241a3a',
+      background: '#ffffff',
+      outline: 'none',
+      cursor: 'pointer',
+    } satisfies Partial<CSSStyleDeclaration>);
+
+    // First option clears the override (revert to the detected/engine default).
+    const blank = document.createElement('option');
+    blank.value = '';
+    blank.textContent = '— (detected)';
+    select.appendChild(blank);
+
+    const pending = getRoomTypeOverride(node.label);
+    for (const t of ROOM_TYPE_VALUES) {
+      const opt = document.createElement('option');
+      opt.value = t;
+      opt.textContent = ROOM_TYPE_LABEL[t] ?? t;
+      if (pending === t) opt.selected = true;
+      select.appendChild(opt);
+    }
+    if (!pending) blank.selected = true;
+
+    const commit = (): void => {
+      const raw = select.value;
+      const next: RoomTypeValue | null = raw && (ROOM_TYPE_VALUES as readonly string[]).includes(raw)
+        ? (raw as RoomTypeValue)
+        : null;
+      const prev = getRoomTypeOverride(node.label) ?? null;
+      // Only re-generate when the committed value actually changes the override
+      // (an un-touched select never triggers generation — baseline-identity).
+      if (next === prev) return;
+      setRoomTypeOverride(node.label, next);
+      this.scheduleAreaRegen();
+    };
+    this.on(select, 'change', () => commit());
+    // Don't let canvas/panel drag handlers swallow clicks into the select.
+    this.on(select, 'mousedown', (ev) => ev.stopPropagation());
+    this.on(select, 'pointerdown', (ev) => ev.stopPropagation());
+
+    wrap.append(icon, select);
+    return wrap;
+  }
+
+  /**
    * §A.26.3 — debounced live re-generate via the EXISTING apartment trigger.
    * `gatherLayoutPayload` reads the per-room override stash we just set →
    * merges it into `program.roomAreasByName` → the deterministic engine sizes
@@ -1410,13 +1528,28 @@ export class LivingGraphOverlay {
   }
 }
 
-function badgeStyle(bg: string, fg: string): Partial<CSSStyleDeclaration> {
+/** §A.26.2 — a translucent-white chip for the purple Inspect-tab header. */
+function headerChipStyle(): Partial<CSSStyleDeclaration> {
   return {
-    background: bg,
-    color: fg,
+    background: 'rgba(255,255,255,0.20)',
+    color: '#ffffff',
     borderRadius: '999px',
     padding: '2px 8px',
     font: '600 10px/1 system-ui, sans-serif',
+    whiteSpace: 'nowrap',
+  };
+}
+
+/** §A.26.2 — a white-outline pill button for the purple Inspect-tab header. */
+function headerBtnStyle(): Partial<CSSStyleDeclaration> {
+  return {
+    cursor: 'pointer',
+    border: '1px solid rgba(255,255,255,0.6)',
+    background: 'rgba(255,255,255,0.12)',
+    color: '#ffffff',
+    borderRadius: '999px',
+    padding: '4px 11px',
+    font: '600 11px/1 system-ui, sans-serif',
     whiteSpace: 'nowrap',
   };
 }
