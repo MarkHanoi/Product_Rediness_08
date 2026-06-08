@@ -282,9 +282,13 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         // No direct hall→kitchen: kitchen is reached via the living/dining zone.
         accessFrom: ['corridor', 'living', 'dining', 'utility'], maxDoors: INF,
         // §ADJACENCY-PREFERENCE — kitchen↔dining is the classic open-plan pair (1.0),
-        // kitchen↔living is the common open-plan extension (0.8), kitchen↔corridor is
-        // permitted but architecturally weak (0.3), utility off the kitchen is sensible.
-        adjacencyPreference: { dining: 1.0, living: 0.8, utility: 0.6, corridor: 0.3 },
+        // kitchen↔living is the common open-plan extension (0.8), utility off the
+        // kitchen is sensible (0.6).
+        // §F1-2 (2026-06-08, layout-quality fix-pass) — kitchen↔corridor raised 0.3 → 0.6.
+        // The old 0.3 only LIGHTLY penalised a kitchen buried in the private zone (behind
+        // the corridor, separated from living/dining by bedrooms). 0.6 stays below
+        // kitchen↔dining (1.0) but is strong enough to discourage a wrong-zone kitchen.
+        adjacencyPreference: { dining: 1.0, living: 0.8, utility: 0.6, corridor: 0.6 },
         requiredFurniture: ['kitchen_straight'], optionalFurniture: ['kitchen_straight', 'pantry_cabinet'], requiredFixtures: ['sink'],
         furnitureSpec: [
             // Kitchen runs sit on the LONGEST FREE WALL (architectural intent of
