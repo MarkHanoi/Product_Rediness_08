@@ -661,6 +661,61 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
     // Boot view is 3-D — hide the overlay immediately so it never flashes.
     _applyRoomOverlayVisibilityForView('3D');
 
+    // ── A.21.D44: Hide the flat PARCEL-BOUNDARY FILL in the 3D model view ──────
+    // DISTINCT artifact from the datum lines / floor hatch / room-fill overlay above
+    // (this is NOT D42 #6 / `isRoomOverlay`). ParcelBoundarySceneRenderer (A.8.x)
+    // draws the committed C19 site boundary as a violet ground outline PLUS a faint
+    // translucent ShapeGeometry FILL (`pryzm-parcel-boundary-fill`,
+    // userData.isParcelBoundaryFill) spanning the WHOLE drawn lot. The fill is a flat
+    // XZ plane at y≈0.02 sized to the PARCEL, not the building footprint — so in the
+    // orbit-able pure-3D BIM model view it floats BESIDE / below the generated house
+    // (the lot overshoots the footprint and is usually offset/angled vs the building)
+    // and, at #6600FF @ 0.06 opacity over the white viewport, reads as a large flat
+    // light-grey rectangular slab off to the side. That is EXACTLY the founder's
+    // recurring "floating grey shade beside the house" (A.21.D44). It is a real scene
+    // mesh on EDITOR_LAYER — NOT a cast shadow, NOT a shadow-catcher — so the Pascal
+    // sun/AO shadows and the Forma/Cesium ground are untouched.
+    //
+    // The parcel fill is SITE context: it legitimately belongs in the site / GIS /
+    // plan views (where the lot footprint reads correctly from above), so — exactly
+    // like the datum-line, floor-hatch and room-overlay fixes — we GATE it (hide in
+    // pure '3D', show in every other view) rather than deleting it. The thin violet
+    // boundary LINE is left visible in all views (a harmless outline that keeps the
+    // lot legible without the slab artifact). Re-applied on every view switch AND
+    // whenever the renderer rebuilds the fill (`site.parcel-boundary-set`), since the
+    // renderer always creates the fill visible.
+    const _applyParcelFillVisibilityForView = (mode?: string): void => {
+        try {
+            const is3DModelView = mode === '3D';
+            const scene = world.scene.three as THREE.Scene;
+            scene.traverse((obj: THREE.Object3D) => {
+                if (obj.userData?.isParcelBoundaryFill === true) {
+                    obj.visible = !is3DModelView;
+                }
+            });
+        } catch { /* non-fatal: parcel fill keeps its last visibility */ }
+    };
+    let _lastParcelFillViewMode: string | undefined = '3D';
+    window.runtime?.events?.on('view-activated', (payload: unknown) => { // F.events.8
+        _lastParcelFillViewMode = (payload as { mode?: string })?.mode;
+        _applyParcelFillVisibilityForView(_lastParcelFillViewMode);
+    });
+    // Re-apply when the boundary is (re)authored — the renderer rebuilds the fill
+    // visible, so without this a boundary committed while in the 3-D view would show
+    // its grey slab until the next view switch. Deferred to a microtask so the
+    // (synchronous) renderer refresh() has already (re)added the fill mesh before we
+    // toggle its visibility.
+    try {
+        const _parcelEvtSub = window.runtime?.events?.on('site.parcel-boundary-set', () => {
+            queueMicrotask(() => _applyParcelFillVisibilityForView(_lastParcelFillViewMode));
+        });
+        if (import.meta.hot && typeof _parcelEvtSub === 'function') {
+            import.meta.hot.dispose(() => { try { _parcelEvtSub(); } catch { /* noop */ } });
+        }
+    } catch { /* non-fatal: gate still re-applies on view switch */ }
+    // Boot view is 3-D — hide the parcel fill immediately so it never flashes.
+    _applyParcelFillVisibilityForView('3D');
+
     viewDependencyTracker.setLevelResolver((elementId) => bimManager.getLevelForElement(elementId)?.id);
     viewDependencyTracker.init();
     nativeElementMeshExporter.setBimManager(bimManager);
