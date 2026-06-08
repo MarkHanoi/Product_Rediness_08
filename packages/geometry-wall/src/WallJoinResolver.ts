@@ -793,6 +793,33 @@ export class WallJoinResolver {
                 // ── Non-pinned, non-primary: trim to consensus and mark handled ─
                 // §SECONDARY-PINNED-FIX: bl.set is now deferred to this point
                 // (only runs for endpoints that actually need the consensus trim).
+                //
+                // §CONSENSUS-PROXIMITY-GUARD (2026-06-08) — only collapse an endpoint
+                // to the averaged consensus when it is GENUINELY at this junction. The
+                // level-wide cluster snap radius (≤1.0 m) is far wider than the upstream
+                // partition weld band (0.45 m, §WJ-SKEW), so a wide cluster can sweep
+                // DISTINCT junctions together and average a consensus near none of them.
+                // Trimming such an endpoint drags a partition up to ~1 m off the
+                // perimeter → the room never seals (the "Living/Bedroom/Corridor" merge).
+                // If the endpoint is farther from consensus (in the XZ plane) than the
+                // weld band, do NOT trim it here — leave it un-handled so the pair-wise
+                // corner/T-join pass resolves it against its TRUE neighbour, or leaves it
+                // on the perimeter where the weld correctly placed it.
+                const epPos = ep.side === 'start' ? ws : we;
+                const CONSENSUS_TRIM_TOL = Math.min(thresholds.snapRadius, 0.45);
+                const _dxC = epPos.x - consensusPoint.x;
+                const _dzC = epPos.z - consensusPoint.z;
+                if (Math.hypot(_dxC, _dzC) > CONSENSUS_TRIM_TOL) {
+                    if (_verboseClusterLogs) {
+                        console.log(
+                            `[WallJoinResolver] §CONSENSUS-PROXIMITY-GUARD  wall=${ep.wallId}(${ep.side}) ` +
+                            `${Math.hypot(_dxC, _dzC).toFixed(3)}m from consensus > ${CONSENSUS_TRIM_TOL.toFixed(3)}m ` +
+                            `— NOT trimmed (deferred to pair-wise loop; perimeter weld preserved)`
+                        );
+                    }
+                    continue;
+                }
+
                 const trimPt = consensusPoint.clone();
                 trimPt.y = ep.side === 'start' ? ws.y : we.y;   // preserve floor Y
 

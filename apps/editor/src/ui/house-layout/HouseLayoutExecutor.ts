@@ -1283,6 +1283,12 @@ export class HouseLayoutExecutor {
                                 const set = s.set;
                                 const openingItems = [
                                     ...set.openingCommands.map(op => ({ p: op.payload as { wallId: string; opening: unknown } })),
+                                    // §WINDOW-VOID-FIX (2026-06-08) — windows hosted on NEW interior/partition
+                                    // walls were built into the plan but never dispatched (only doors + shell
+                                    // windows were punched), so they got a frame but NO void cut in the wall.
+                                    // Punch them through the SAME CreateWallOpenings batch so each lands in
+                                    // wall.openings[] and the hole is carved.
+                                    ...set.windowOpeningCommands.map(op => ({ p: op.payload as { wallId: string; opening: unknown } })),
                                     ...set.shellWindowOpeningCommands.map(op => ({ p: op.payload as { wallId: string; opening: unknown } })),
                                 ];
                                 if (openingItems.length > 0) {
@@ -1344,6 +1350,8 @@ export class HouseLayoutExecutor {
                     const openingWallIds = [...new Set([
                         ...perStorey.flatMap(s => [
                             ...s.set.openingCommands.map(op => (op.payload as { wallId: string }).wallId),
+                            // §WINDOW-VOID-FIX (2026-06-08) — rebuild interior-window host walls too.
+                            ...s.set.windowOpeningCommands.map(op => (op.payload as { wallId: string }).wallId),
                             ...s.set.shellWindowOpeningCommands.map(op => (op.payload as { wallId: string }).wallId),
                         ]),
                         // §A.21.D29 #3 — rebuild the entrance door's shell host so its

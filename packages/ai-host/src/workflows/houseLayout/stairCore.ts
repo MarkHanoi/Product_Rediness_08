@@ -50,6 +50,19 @@ function aspectBiasFor(solar: StairSolar | undefined): AspectBias | undefined {
 const STAIR_W_MM = 1000;
 const STAIR_H_MM = 3000;
 
+// §STAIR-RUN-BOUND (2026-06-08) — the executor builds a straight I-flight whose run
+// length is totalRisers × tread (HouseLayoutExecutor STAIR_TREAD_M). The legacy 3.0 m
+// reserved depth is SHORTER than that run (e.g. 17 risers × 0.27 = 4.59 m), so the
+// rendered flight overran the reserved cell and poked past the shell wall — the
+// "stairs out of the shell" defect. §STAIR-OFF-SHELL only kept the (too-small) rect
+// inside the polygon; the actual stair is bigger than the rect. When the caller
+// supplies the riser count we size the reserved DEPTH to bound the real run (+ a small
+// top step-off margin), so snapRectInsidePoly keeps the GEOMETRY — not a too-small
+// proxy — inside the (possibly rotated) shell. Keep STAIR_TREAD_MM in lock-step with
+// HouseLayoutExecutor's STAIR_TREAD_M.
+const STAIR_TREAD_MM = 270;          // === HouseLayoutExecutor STAIR_TREAD_M (0.27 m)
+const STAIR_RUN_MARGIN_MM = 300;     // top step-off / landing nose
+
 /** Never let the core eat more than this fraction of either plate dimension. */
 const MAX_FRACTION = 0.45;
 
@@ -100,16 +113,26 @@ export function reserveStairCore(
     // §STAIR-WORST-ASPECT — optional site solar so the I-core hugs the poor-aspect
     // perimeter wall. Absent ⇒ legacy waste-only placement (bit-identical).
     solar?: StairSolar,
+    // §STAIR-RUN-BOUND — floor-to-floor riser count. When present the reserved I-run
+    // depth is sized to the REAL flight length (totalRisers × tread + margin) instead of
+    // the legacy 3.0 m literal, so the reserved cell bounds the rendered stair. Absent
+    // ⇒ the 3.0 m default (byte-identical to the pre-fix path and direct test callers).
+    totalRisers?: number,
 ): { x: number; y: number; w: number; h: number } {
     const bb = bboxOf(footprint);
     const plateWmm = Math.max(0, (bb.maxX - bb.minX) * 1000);
     const plateHmm = Math.max(0, (bb.maxZ - bb.minZ) * 1000);
 
+    // §STAIR-RUN-BOUND — bound the reserved depth to the real straight-run length.
+    const runDepthMm = totalRisers && totalRisers > 0
+        ? Math.round(totalRisers) * STAIR_TREAD_MM + STAIR_RUN_MARGIN_MM
+        : STAIR_H_MM;
+
     // Size the core, clamped so it never exceeds MAX_FRACTION of either dimension.
     const maxW = plateWmm * MAX_FRACTION;
     const maxH = plateHmm * MAX_FRACTION;
     let w = Math.min(STAIR_W_MM, maxW > 0 ? maxW : STAIR_W_MM);
-    let h = Math.min(STAIR_H_MM, maxH > 0 ? maxH : STAIR_H_MM);
+    let h = Math.min(runDepthMm, maxH > 0 ? maxH : runDepthMm);
     // Keep a positive, sane minimum where the plate allows it.
     w = Math.max(Math.min(MIN_DIM_MM, plateWmm > 0 ? plateWmm : MIN_DIM_MM), w);
     h = Math.max(Math.min(MIN_DIM_MM, plateHmm > 0 ? plateHmm : MIN_DIM_MM), h);
@@ -255,9 +278,11 @@ export function reserveStairCoreShaped(
         availH > 0 ? availH : Infinity,
     );
 
-    // For I we reuse the straight-run reservation verbatim (1.0 × 3.0 m rect).
+    // For I we reuse the straight-run reservation — now sized to the real run length
+    // (§STAIR-RUN-BOUND) by threading the riser count through, so the reserved cell
+    // bounds the rendered flight and the stair stays inside the shell.
     if (shape === 'I') {
-        const rect = reserveStairCore(footprint, storeyCount, solar);
+        const rect = reserveStairCore(footprint, storeyCount, solar, totalRisers);
         return { rectMm: rect, shape: 'I', risersBeforeLanding: 0, landingDepthM: 0 };
     }
 

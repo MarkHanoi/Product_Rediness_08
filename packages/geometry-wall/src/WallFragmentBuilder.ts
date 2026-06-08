@@ -878,8 +878,14 @@ export class WallFragmentBuilder {
             this._syncMutableWallUserData(wallGroup, wall, { isInstanced: true });
 
             const intentColour = this._resolveIntent3DColour(wall);
+            // §BEIGE-WALL-FIX (2026-06-08) — the instanced "simple wall" path (plain
+            // wall, no openings, no miter join) must default to the SAME white as the
+            // standard mesh path (createWallMaterial → WALL_SCHEMATIC_MATERIAL 0xe8e8e8).
+            // The old '#d4c5b0' beige fallback made join/opening-free walls (e.g. whole
+            // ground-floor runs of a generated house) render tan while their
+            // opening-bearing neighbours rendered white — the "beige walls failing" bug.
             const mat = new THREE.MeshStandardMaterial({
-                color: new THREE.Color(intentColour ?? wall.materialColor ?? '#d4c5b0'),
+                color: new THREE.Color(intentColour ?? wall.materialColor ?? '#e8e8e8'),
             });
             this._instanceBridge!.register(wall, resolvedY, joinData, mat);
 

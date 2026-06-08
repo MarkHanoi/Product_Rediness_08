@@ -74,8 +74,12 @@ export class WallInstanceBridge {
         // Rotation angle around Y to align the unit box with the baseline direction.
         const angle = -Math.atan2(direction.z, direction.x);
 
+        // §BEIGE-WALL-FIX (2026-06-08) — white default to match the standard mesh path
+        // (WALL_SCHEMATIC_MATERIAL 0xe8e8e8). Latent duplicate of the call-site default
+        // in WallFragmentBuilder; kept in lock-step so the instanced fallback is never
+        // the old '#d4c5b0' beige.
         const mat = material ?? new THREE.MeshStandardMaterial({
-            color: new THREE.Color(wall.materialColor ?? '#d4c5b0'),
+            color: new THREE.Color(wall.materialColor ?? '#e8e8e8'),
         });
 
         // Unit geometry: BoxGeometry(1,1,1). The actual wall dimensions are encoded
