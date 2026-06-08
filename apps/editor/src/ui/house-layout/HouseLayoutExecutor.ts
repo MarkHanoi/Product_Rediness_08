@@ -375,7 +375,20 @@ export class HouseLayoutExecutor {
                 // so the hall centroid + shell walls share a frame. Only the ground
                 // storey gets an external entrance (upper storeys are reached by stair).
                 if (isGround && shellWalls.length > 0) {
-                    entranceDoor = resolveEntranceDoor(option, shellWalls);
+                    // §ENTRANCE-DOOR-CLEAR (G4, 2026-06-08) — pass the shell-window spans
+                    // already claimed on each shell wall so the entrance door lands in a
+                    // CLEAR gap (and falls back to another hall-fronting wall if needed),
+                    // instead of dead-centre where it collided with a window and the
+                    // CreateWallOpenings batch skipped it ("no entrance door" defect).
+                    const shellWindowSpans = new Map<string, Array<readonly [number, number]>>();
+                    for (const op of set.shellWindowOpeningCommands) {
+                        const p = op.payload as { wallId: string; opening: { offset: number; width: number } };
+                        const s = p.opening.offset;
+                        const span: readonly [number, number] = [s, s + p.opening.width];
+                        const arr = shellWindowSpans.get(p.wallId);
+                        if (arr) arr.push(span); else shellWindowSpans.set(p.wallId, [span]);
+                    }
+                    entranceDoor = resolveEntranceDoor(option, shellWalls, undefined, shellWindowSpans);
                     if (entranceDoor) {
                         // §DOOR-IN-WALL-SPAN (founder v46) — defensively VERIFY (and, if
                         // needed, clamp) the resolved entrance door against its host
@@ -1291,10 +1304,41 @@ export class HouseLayoutExecutor {
                                     ...set.windowOpeningCommands.map(op => ({ p: op.payload as { wallId: string; opening: unknown } })),
                                     ...set.shellWindowOpeningCommands.map(op => ({ p: op.payload as { wallId: string; opening: unknown } })),
                                 ];
+                                // §DOOR-LIVE-CLAMP (2026-06-08, CRITICAL accessibility) — the
+                                // WallJoinResolver (run by the earlier wall.batch.create) can TRIM a
+                                // host wall AFTER the engine sized the door for the untrimmed length.
+                                // Re-clamp every DOOR opening against the LIVE wall span here — exactly
+                                // the guard the entrance door already has (§DOOR-IN-WALL-SPAN, ~line 403)
+                                // — so a trimmed wall yields a FITTED door instead of an "extends beyond
+                                // wall length" SKIP that seals the room (the bathroom-no-door defect:
+                                // "all rooms must be accessible"). Windows pass through unchanged (a
+                                // window overrun is cosmetic; a door overrun makes a room inaccessible).
+                                const liveDoorOpening = (wallId: string, opening: unknown): unknown | null => {
+                                    const o = opening as { type?: string; offset?: number; width?: number };
+                                    if (o.type !== 'door' || typeof o.offset !== 'number' || typeof o.width !== 'number') return opening;
+                                    const w = wallStore?.getById?.(wallId) as { baseLine?: ReadonlyArray<{ x: number; z: number }> } | undefined;
+                                    const bl = w?.baseLine;
+                                    if (!bl || bl.length < 2 || !bl[0] || !bl[1]) return opening;   // wall not found → leave as-is
+                                    const len = Math.hypot(bl[1].x - bl[0].x, bl[1].z - bl[0].z);
+                                    if (isDoorWithinWallSpan(o.offset, o.width, len)) return opening;
+                                    const clamped = clampDoorToWallSpan(o.offset, o.width, len);
+                                    if (!clamped) {
+                                        console.warn('[house-layout] §DOOR-LIVE-CLAMP host wall too short for any door — dropping', wallId, `liveLen=${len.toFixed(2)}m`);
+                                        return null;                                                 // can't fit even a minimal door → drop (was being skipped anyway)
+                                    }
+                                    return { ...o, offset: clamped.offsetM, width: clamped.widthM };
+                                };
                                 if (openingItems.length > 0) {
                                     try {
-                                        cm.execute!(new CreateWallOpeningsBatchCommand(openingItems.map(it => ({ wallId: it.p.wallId, openingData: it.p.opening }))));
-                                        totalItems += openingItems.length;
+                                        const mapped: Array<{ wallId: string; openingData: unknown }> = [];
+                                        for (const it of openingItems) {
+                                            const od = liveDoorOpening(it.p.wallId, it.p.opening);
+                                            if (od !== null) mapped.push({ wallId: it.p.wallId, openingData: od });
+                                        }
+                                        if (mapped.length > 0) {
+                                            cm.execute!(new CreateWallOpeningsBatchCommand(mapped));
+                                            totalItems += mapped.length;
+                                        }
                                     } catch (e) { console.warn('[house-layout] openings batch failed on', s.levelId, e); }
                                 }
                                 if (set.boundaryCommands.length > 0) {

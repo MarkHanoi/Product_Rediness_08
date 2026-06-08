@@ -232,7 +232,13 @@ mandatory window). This couples placement (§1 depth) with the window rule.
 | **G6** | No entrance→core distance metric | (rule absent) | §5 D-PROX | open — **new** axis + hard ceiling |
 | **G7** | Dining/study windows not mandatory | rooms can ship dark | §6 W1 | open — flip `windowMandatory` after review |
 | **G8** | Stair still slightly outside shell on some plates | stair proud of perimeter | `stairCore` L/U overrun (I-run fixed v66 §STAIR-RUN-BOUND) | open — extend run-bound to L/U |
-| **G9** | Generic unnamed room ("Room 00-006") | room had no resolved program role | room naming / program assignment | open — every detected room must map to a program role |
+| **G9** | Generic unnamed room ("Room 00-006") | room had no resolved program role (often a G12 dropped room leaving an unlabelled cell) | room naming / program assignment | open — every detected room must map to a program role |
+| **G10** | Upper-level room colours render on the ground floor | plan-view projection bleeds another level's room fills onto L0 | editor plan-view projection | open — level-scope the room-fill projection |
+| **G11** | Windows all face 1–2 façades (south) | window emission over-prefers an orientation; no spread | window emission | open — distribute across orientations, keep daylight bias |
+| **G12** | Footprint can't fit program → rooms DROPPED (`§FEASIBILITY-ALLOC`, `§ENSUITE` unplaced, `§CIRCULATION-REROUTE`) | drawn boundary too small for the requested room set | bubbleGraph/subdivide + brief | **open (HIGH)** — scale footprint to brief OR degrade gracefully (no generic rooms / sealed rooms) |
+| **G13** | Brief sliders (target-area, style, master-floor) don't drive output | not threaded into `EngineTuning`/program | onboarding → `gatherLayoutPayload` | open — wire the brief panel into generation |
+| **DOOR-LIVE-CLAMP** | Interior doors skipped after wall trim → sealed room | `_finishOpenings` dispatched the door against the pre-trim wall | `HouseLayoutExecutor._finishOpenings` | ✅ **FIXED v68** — re-clamp each door to the LIVE wall span (mirrors the entrance-door guard) |
+| **SELF-CLUSTER-FLOOR** | Engine kept 0.05–0.5 m stubs the resolver self-clustered + dropped | engine degeneracy floor (0.05 m) < resolver cluster band (0.5 m) | `wallsAndDoors.ts` `WJR_SAFE_MIN_LEN_M` | ✅ **FIXED v68** — floor raised 0.05 → 0.50 m (ai-host 2043 green) |
 
 **Hard validation gates (reject the layout):**
 - any `windowMandatory` room without a window (W1);

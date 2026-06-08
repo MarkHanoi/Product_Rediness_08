@@ -436,8 +436,22 @@ const snapToGrid = (n: number): number => Math.round(n / JUNCTION_GRID_M) * JUNC
  *  resolver and no wall goes silently missing. Equals the editor's degeneracy floor so
  *  a wall we KEEP is one the editor can validly join. Real partitions are always
  *  ≥ a wall thickness (~0.1 m) → never dropped; axis-aligned room edges are metres
- *  long → this is a no-op on the apartment + rectilinear paths (no regression). */
-const WJR_SAFE_MIN_LEN_M = 0.05;
+ *  long → this is a no-op on the apartment + rectilinear paths (no regression).
+ *
+ *  §SELF-CLUSTER-FLOOR (2026-06-08) — RAISED 0.05 → 0.50 m. The prior 0.05 m comment
+ *  claimed it "equals the editor's degeneracy floor", but the resolver actually
+ *  self-clusters any wall shorter than its CLUSTER SNAP RADIUS — clamped to [0.05, 1.0]
+ *  with a 0.5 m default, which is what a non-ortho batch rebuild uses. So a stub of
+ *  0.05–0.50 m survived the engine but had BOTH endpoints fall in one cluster in the
+ *  resolver → §SELF-CLUSTER-GUARD flagged it §WJR-INVALID → the mesh builder skipped it
+ *  → a MISSING wall + a room that floods into its neighbour (the founder's
+ *  "Kitchen / Entrance Hall merged" + upper-floor missing wall). Matching the floor to
+ *  the resolver's 0.5 m band guarantees every wall the engine KEEPS is one the resolver
+ *  can join WITHOUT self-clustering. Real residential partitions are ≥ 1 m; a 0.05–0.5 m
+ *  segment is a clamp/weld artifact on a skewed plate, not a wanted wall — dropping it
+ *  lets the adjacent (long) room edges form the boundary. Axis-aligned/apartment paths
+ *  have metre-long edges → still a no-op. */
+const WJR_SAFE_MIN_LEN_M = 0.50;
 
 /**
  * §JUNCTION-REPAIR — drop degenerate segments + weld coincident endpoints so the

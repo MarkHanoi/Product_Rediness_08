@@ -119,4 +119,41 @@ describe('resolveEntranceDoor (A.21.D29 #3)', () => {
         const d = resolveEntranceDoor(opt, wideShell)!;
         expect(d.shellWallId).toBe('long');
     });
+
+    // §ENTRANCE-DOOR-CLEAR (G4, 2026-06-08) — the door must avoid a shell window
+    // already claimed on the same wall (else it overlaps → the batch skips it → the
+    // "no entrance door" defect the founder hit).
+    it('places the entrance door in a CLEAR gap, avoiding a shell window on the same wall', () => {
+        const opt = option([
+            room({ type: 'hall', name: 'Entrance Hall', centroid: { x: 5000, y: 7500 } }), // fronts 's'
+            room({ type: 'living', centroid: { x: 5000, y: 3000 } }),
+        ]);
+        // A window sits across the CENTRE of the south wall ('s'), where the door
+        // would otherwise go.
+        const spans = new Map<string, ReadonlyArray<readonly [number, number]>>([
+            ['s', [[4.0, 5.5]]],
+        ]);
+        const d = resolveEntranceDoor(opt, SHELL, undefined, spans)!;
+        expect(d).not.toBeNull();
+        expect(d.shellWallId).toBe('s');
+        // Door span [offset, offset+width] must NOT overlap the window span [4.0, 5.5].
+        const dStart = d.offsetM, dEnd = d.offsetM + d.widthM;
+        const overlaps = dStart < 5.5 && 4.0 < dEnd;
+        expect(overlaps).toBe(false);
+        // Still a usable leaf, still inside the wall.
+        expect(d.widthM).toBeGreaterThanOrEqual(0.7);
+        expect(d.offsetM).toBeGreaterThanOrEqual(0.15 - 1e-9);
+        expect(dEnd).toBeLessThanOrEqual(10 - 0.15 + 1e-9);
+    });
+
+    it('is byte-identical to the centred path when NO window spans are supplied', () => {
+        const opt = option([
+            room({ type: 'hall', name: 'Entrance Hall', centroid: { x: 5000, y: 7500 } }),
+            room({ type: 'living', centroid: { x: 5000, y: 3000 } }),
+        ]);
+        const noSpans = new Map<string, ReadonlyArray<readonly [number, number]>>();
+        // Empty map (size 0) and the absent-arg call must both take the original path.
+        expect(resolveEntranceDoor(opt, SHELL, undefined, noSpans))
+            .toEqual(resolveEntranceDoor(opt, SHELL));
+    });
 });

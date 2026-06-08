@@ -2387,3 +2387,49 @@ unconsumed, riser divergence, blank-storey) · A.27 P5-7 (corridor-face hint, st
 ---
 
 *Addendum continues 2026-06-08 — §22.12 v65 polish (DEMO-3 toast · BUG-ANNO-DRAG handler).*
+
+### §22.13 — Residential layout AUDIT (v66/v67 prod test, 2026-06-08) — "the layout needs to be perfect"
+
+Founder ran the house generator on v66/v67 (note: **v67 #148 was docs-only — no engine fix**, so it
+showed the v66 layout). Full log + 5 screenshots audited. Governing spec:
+[SPEC-ROOM-PLACEMENT-RULES.md](../specs/SPEC-ROOM-PLACEMENT-RULES.md) (gaps G1–G13).
+
+**✅ Confirmed FIXED in v66:** wall colours (beige→white), windows render with holes, rooms went
+from 1 merged 121.8 m² blob → 6 distinct rooms (§CONSENSUS-PROXIMITY-GUARD).
+
+**🔑 BIGGEST NEW FINDING (G12) — over-program room drops.** The log shows the subdivider DROPPING
+rooms wholesale before they're drawn:
+```
+§FEASIBILITY-ALLOC: rect 51.67 m² < Σ minimum 68.00 m² for 7 room(s) — Dropping bedroom / dining / hall / kitchen / living
+§ENSUITE-FROM-MASTER: master rect too tight (7.45 m²) — ensuite left unplaced
+§CIRCULATION-REROUTE: habitable room reachable only through a non-circulation room — circulation compromise
+```
+The drawn footprint can't fit the requested program, so rooms are dropped → the generic **"Room"**,
+the **merged hall**, and the **bathroom with no legal corridor wall → no door**. This single cause
+underlies several of the symptoms below. Compounded by **G13**: the "Target area 220 m²" slider (and
+Style, Master-floor) are NOT wired into generation (audited: `gatherLayoutPayload.ts` → `EngineTuning`
+carries none of them), so the engine can't scale the footprint to the brief.
+
+**Consolidated issue table** (founder point → gap → root cause → status):
+
+| # | Founder report | Gap | Root cause | Priority | Status |
+|---|---|---|---|---|---|
+| 1 | No entrance door | **G4** | Door centred on a shell wall already holding a window → `Opening overlaps existing opening` → skipped | HIGH | ✅ **FIXED v68** — gap-aware placement (`entranceDoor.ts` §ENTRANCE-DOOR-CLEAR) + fallback wall; +2 tests |
+| 8 | **Bathroom has NO door — "all rooms must be accessible" (CRITICAL)** | **G12/G1** | Bathroom shares no wall with a corridor (over-program), OR its door was on a wall trimmed by WallJoinResolver → skipped | **CRITICAL** | 🔬 under agent investigation; likely needs a post-resolve accessibility guarantee |
+| 4 | Kitchen / Entrance Hall need a wall between | **G1/G2** | Partition trimmed (wall-not-closing) OR hall dropped (G12) | HIGH | 🔬 under investigation |
+| 7 | Perimeter wall junctions still bad | **G1** | Residual `trimmed=3` clusters + `§WJR-INVALID self-cluster` (degenerate wall dropped) after the v66 guard | HIGH | 🔬 under investigation (extend-to-shell vs trim) |
+| 2 | Stair still outside on both sides ("origin of placement") | **G8** | Prod stair is a **U** (17 risers, rot 34.9°): the v66 §STAIR-RUN-BOUND fixed the **I-run only**; U/L footprint (2 flights + landing + width) still overruns the reserved rect | HIGH | OPEN — extend run-bound to L/U + verify origin |
+| 5 | A room called "Room" | **G9** | Detected region not matched to a program role (often a G12 dropped room leaving an unlabelled cell) | MED | OPEN — every detected region must map to a role |
+| 3 | Upper-level room colours render on ground floor | **G10 (new)** | Plan-view projection bleeds another level's room fills onto L0 | MED | OPEN — level-scope the room-fill projection |
+| 6 | Windows all face 1–2 façades (south?) | **G11 (new)** | Window emission over-prefers a façade/orientation; no distribution across orientations | MED | OPEN — distribute windows across orientations while keeping daylight bias |
+| — | Footprint can't fit program → rooms dropped | **G12 (new)** | Over-program; drawn boundary too small for the requested room set | **HIGH** | OPEN — scale footprint to brief OR warn + degrade gracefully (no generic rooms) |
+| — | Brief sliders not driving output | **G13 (new)** | `targetArea`, `style`, `masterFloor` not threaded into generation | MED | OPEN — wire the brief panel into `EngineTuning`/program |
+| — | `/items/Sofas/*.glb` 404 | KNOWN-HARMLESS | `.dockerignore` excludes `/items` GLBs on prod (by design); furniture falls back to primitives | — | NOT A BUG (see prod-test-findings 2026-06-05) |
+
+**Priority order to make the layout "perfect":**
+1. **G12** (over-program drops) + **G13** (wire target-area) — the keystone: stop dropping rooms; scale the plot to the program. Fixes #5, much of #4/#8.
+2. **G1** residual (wall-closing: extend-to-shell + self-cluster) — fixes #4, #7, and the G5/G8-bathroom door skips.
+3. **G8-bathroom accessibility guarantee** (CRITICAL) — every room MUST get a door post-resolve.
+4. **G8 stair** U/L overrun.
+5. **G10** colour bleed, **G11** window orientation, **G9** room naming.
+

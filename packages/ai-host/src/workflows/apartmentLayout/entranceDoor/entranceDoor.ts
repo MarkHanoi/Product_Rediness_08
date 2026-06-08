@@ -33,6 +33,65 @@ export const ENTRANCE_DOOR_HEIGHT_M = 2.1;
 const MIN_DOOR_M = 0.7;
 /** Keep the opening clear of each wall end / corner join (A.21.D28 #5 discipline). */
 const END_CLEAR_M = 0.15;
+/** §ENTRANCE-DOOR-CLEAR (G4, 2026-06-08) — keep the entrance door clear of an
+ *  already-placed opening (a shell window) on the same wall, so the door doesn't
+ *  collide with a window and get skipped ("no entrance door" defect). */
+const OPENING_GAP_M = 0.1;
+
+/** A claimed span along a wall, in metres from the wall start: [startM, endM]. */
+export type Span = readonly [number, number];
+
+/**
+ * §ENTRANCE-DOOR-CLEAR (G4) — find a clear offset for an entrance door on a wall of
+ * length `wallLen`, avoiding the `occupied` spans (shell windows) plus an
+ * OPENING_GAP_M margin and the END_CLEAR_M corner clearance at each end. Returns the
+ * door `{ offsetM (start), widthM }` placed in the free gap NEAREST the wall centre
+ * (so the entrance stays as central as the windows allow), or null when no gap fits a
+ * usable (≥ MIN_DOOR_M) door. Pure + deterministic.
+ */
+export function findClearDoorOffset(
+    wallLen: number,
+    occupied: readonly Span[],
+): { readonly offsetM: number; readonly widthM: number } | null {
+    const lo = END_CLEAR_M;
+    const hi = wallLen - END_CLEAR_M;
+    if (hi - lo < MIN_DOOR_M) return null;
+    // Blocked = occupied ± gap, clamped to the usable interval, sorted.
+    const blocked: [number, number][] = occupied
+        .map(([s, e]): [number, number] => [Math.min(s, e) - OPENING_GAP_M, Math.max(s, e) + OPENING_GAP_M])
+        .map(([s, e]): [number, number] => [Math.max(lo, s), Math.min(hi, e)])
+        .filter(([s, e]) => e > s)
+        .sort((a, b) => a[0] - b[0]);
+    // Merge overlapping blocked intervals.
+    const merged: [number, number][] = [];
+    for (const b of blocked) {
+        const last = merged[merged.length - 1];
+        if (last && b[0] <= last[1]) last[1] = Math.max(last[1], b[1]);
+        else merged.push([b[0], b[1]]);
+    }
+    // Free intervals = [lo,hi] minus merged.
+    const free: [number, number][] = [];
+    let cursor = lo;
+    for (const [s, e] of merged) {
+        if (s > cursor) free.push([cursor, s]);
+        cursor = Math.max(cursor, e);
+    }
+    if (cursor < hi) free.push([cursor, hi]);
+    // Pick the usable free interval whose centre is nearest the wall centre.
+    const centre = wallLen / 2;
+    let best: [number, number] | null = null;
+    let bestDist = Infinity;
+    for (const iv of free) {
+        if (iv[1] - iv[0] < MIN_DOOR_M) continue;
+        const dist = Math.abs((iv[0] + iv[1]) / 2 - centre);
+        if (dist < bestDist) { bestDist = dist; best = iv; }
+    }
+    if (!best) return null;
+    const ivLen = best[1] - best[0];
+    const widthM = Math.min(ENTRANCE_DOOR_WIDTH_M, ivLen);
+    const offsetM = best[0] + (ivLen - widthM) / 2;
+    return { offsetM, widthM };
+}
 
 export type PlanToWorldXZ = (p: Vec2mm) => { readonly x: number; readonly z: number };
 const defaultPlanToWorld: PlanToWorldXZ = (p) => ({ x: p.x / 1000, z: p.y / 1000 });
@@ -140,6 +199,13 @@ export function resolveEntranceDoor(
     option: LayoutOption,
     shellWalls: readonly ShellWall[],
     planToWorld: PlanToWorldXZ = defaultPlanToWorld,
+    // §ENTRANCE-DOOR-CLEAR (G4, 2026-06-08) — already-claimed opening spans (shell
+    // windows) per shell-wall id, in metres along the wall. When supplied, the door
+    // is placed in a clear gap on the chosen wall (avoiding windows) and, if that
+    // wall has no usable gap, the next-best hall-fronting wall is tried. Absent ⇒ the
+    // single-chosen-wall centred path (byte-identical to the pre-G4 behaviour; the
+    // apartment pipeline + existing tests pass no spans).
+    occupiedSpansByWall?: ReadonlyMap<string, readonly Span[]>,
 ): EntranceDoorDispatch | null {
     if (!shellWalls || shellWalls.length === 0) return null;
 
@@ -214,20 +280,59 @@ export function resolveEntranceDoor(
     tied.sort((a, b) => b.len - a.len || (a.wall.id < b.wall.id ? -1 : a.wall.id > b.wall.id ? 1 : 0));
     const chosen = tied[0]!.wall;
 
-    return makeDoorOnWall(chosen, hall?.type);
+    // No window spans supplied ⇒ the original single-wall centred path (byte-identical).
+    if (!occupiedSpansByWall || occupiedSpansByWall.size === 0) {
+        return makeDoorOnWall(chosen, hall?.type);
+    }
+
+    // §ENTRANCE-DOOR-CLEAR (G4) — try the chosen wall in a clear gap first, then the
+    // remaining hall-fronting candidates best-first (lowest blended score, then longer
+    // façade, then id). The first wall with a usable gap wins; a wall whose windows
+    // leave no room returns null from makeDoorOnWall and we fall through to the next.
+    const fallbackOrder = [...cands].sort((a, b) =>
+        a.perp - b.perp || b.len - a.len || (a.wall.id < b.wall.id ? -1 : a.wall.id > b.wall.id ? 1 : 0),
+    ).map(c => c.wall);
+    const tryOrder = [chosen, ...fallbackOrder.filter(w => w.id !== chosen.id)];
+    const seen = new Set<string>();
+    for (const w of tryOrder) {
+        if (seen.has(w.id)) continue;
+        seen.add(w.id);
+        const door = makeDoorOnWall(w, hall?.type, occupiedSpansByWall.get(w.id));
+        if (door) return door;
+    }
+    return null;
 }
 
 /** Build a centred, clamped entrance-door dispatch on the given shell wall, or
- *  null when the wall is too short to host even a minimal door. */
-function makeDoorOnWall(wall: ShellWall, hallType?: LayoutRoom['type']): EntranceDoorDispatch | null {
+ *  null when the wall is too short to host even a minimal door.
+ *
+ *  §ENTRANCE-DOOR-CLEAR (G4) — when `occupiedSpans` (shell-window spans on THIS wall)
+ *  is supplied and non-empty, the door is placed in the free gap nearest the wall
+ *  centre (avoiding the windows) instead of dead-centre; returns null when no gap
+ *  fits, so the caller tries the next candidate wall. Absent/empty ⇒ the original
+ *  centred placement (byte-identical to the pre-G4 path). */
+function makeDoorOnWall(
+    wall: ShellWall,
+    hallType?: LayoutRoom['type'],
+    occupiedSpans?: readonly Span[],
+): EntranceDoorDispatch | null {
     const d = segDir(wall.start, wall.end);
     const maxWidthM = d.len - 2 * END_CLEAR_M;
     if (maxWidthM < MIN_DOOR_M) return null;          // can't host any door
-    const widthM = Math.min(ENTRANCE_DOOR_WIDTH_M, maxWidthM);
-    // Centre on the wall, then clamp so the whole leaf stays inside both ends.
-    const centreOffset = (d.len - widthM) / 2;
-    const maxOffsetM = Math.max(END_CLEAR_M, d.len - widthM - END_CLEAR_M);
-    const offsetM = Math.min(Math.max(END_CLEAR_M, centreOffset), maxOffsetM);
+    let widthM: number;
+    let offsetM: number;
+    if (occupiedSpans && occupiedSpans.length > 0) {
+        const clear = findClearDoorOffset(d.len, occupiedSpans);
+        if (!clear) return null;                       // no clear gap → caller tries next wall
+        widthM = clear.widthM;
+        offsetM = clear.offsetM;
+    } else {
+        widthM = Math.min(ENTRANCE_DOOR_WIDTH_M, maxWidthM);
+        // Centre on the wall, then clamp so the whole leaf stays inside both ends.
+        const centreOffset = (d.len - widthM) / 2;
+        const maxOffsetM = Math.max(END_CLEAR_M, d.len - widthM - END_CLEAR_M);
+        offsetM = Math.min(Math.max(END_CLEAR_M, centreOffset), maxOffsetM);
+    }
     // Per-pair finish — the entrance connects the hall (or corridor) to the
     // EXTERIOR. We reuse the apartment door resolver's hall↔hall pairing as a
     // proxy for "circulation-grade leaf" (a solid timber entry); the resolver is
