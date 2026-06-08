@@ -29,7 +29,7 @@ import {
 } from '@pryzm/building-graph';
 import { buildLiveGraph } from './livingGraphData';
 import { LivingGraphCanvas, type DrawState } from './LivingGraphCanvas';
-import { RoomFocusController, type RoomFocusMode } from './livingGraphSelection';
+import { RoomFocusController, roomIdForElement, type RoomFocusMode } from './livingGraphSelection';
 // A.26.3 — Editable Living Graph: the inspect card's AREA edit writes a per-room
 // override to this session stash, then fires the EXISTING debounced apartment
 // re-generate (ADR-0061: no parallel mutator — same seam as the A.25 sliders).
@@ -96,6 +96,38 @@ const LAYOUT_EXECUTED_EVENT = 'apartment.layout-executed';
 // emits them; harmless if it never does.
 const RESYNC_EVENTS = ['pryzm:room-renamed', 'pryzm:room-occupancy-changed'];
 
+// §A.26.5a — DIRECT model-edit signals (the inverse projection's INPUT side). The
+// editor stores fire these `window` DOM CustomEvents on every add/update/remove
+// (the SAME events the Hierarchy tree, project browser + save orchestrator react
+// to). While the Living Graph is OPEN we subscribe to them and rebuild the UBG
+// (debounced + coalesced) so a hand-edit — drag/add/delete a wall, redetect a
+// room — re-lays-out the graph LIVE. Closed ⇒ no subscription (no leak, no work).
+const MODEL_EDIT_DOM_EVENTS = [
+  'bim-room-added', 'bim-room-updated', 'bim-room-removed',
+  'bim-wall-added', 'bim-wall-updated', 'bim-wall-removed',
+  'bim-door-added', 'bim-door-updated', 'bim-door-removed',
+  'bim-window-added', 'bim-window-updated', 'bim-window-removed',
+] as const;
+// §A.26.5a — the ADR-057-P1 single-wall mutation signal (drag-move commit) lives
+// on the typed runtime bus, not the DOM. We listen to it too so a wall MOVE (not
+// just add/remove) re-lays-out the graph.
+const WALL_MUTATION_EVENT = 'bim-wall-mutation-committed';
+// §A.26.5a — debounce window for the live MODEL→GRAPH rebuild. Long enough that a
+// batch (generate, multi-element edit, redetect sweep) coalesces into ONE rebuild;
+// short enough to feel live (~½s). Sibling of the A.26.3 area-edit debounce.
+const MODEL_EDIT_REBUILD_DEBOUNCE_MS = 400;
+
+/** §A.26.5b — the canonical SelectionBus surface (registered on `window` by
+ *  engineLauncher). We subscribe to it to reflect a 3D/plan pick → graph node.
+ *  Minimal structural typing so the overlay needs no core-app-model import. */
+interface SelectionBusLike {
+  subscribe?(handler: (event: { type?: string; source?: string; elementIds?: string[] }) => void): () => void;
+}
+// §A.26.5b — the selection SOURCES that ORIGINATE in the graph itself, so we can
+// ignore our own echoes (the RoomFocusController dispatches with this source) and
+// never fight the user's graph click with a self-reflect.
+const GRAPH_SELECTION_SOURCES = new Set<string>(['inspect-panel']);
+
 type TickDisposer = () => void;
 type DomHandler = (ev: Event) => void;
 
@@ -115,6 +147,8 @@ interface OverlayWindow {
   /** The cached UBG the binder reads — a real BuildingGraph (A.21.D24 inspector
    *  reads it through the building-graph rationale helpers). */
   __pryzmBuildingGraph?: BuildingGraph;
+  /** §A.26.5b — the canonical bidirectional SelectionBus (Contract 27). */
+  selectionBus?: SelectionBusLike;
 }
 function ow(): OverlayWindow | undefined {
   return (typeof window !== 'undefined' ? window : undefined) as unknown as OverlayWindow | undefined;
@@ -182,6 +216,14 @@ export class LivingGraphOverlay {
   // A.26.3 — debounce for the live re-generate fired by an AREA edit, so typing
   // doesn't spam the generate pipeline (mirrors DesignParamsPanel's debounce).
   private areaRegenTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // §A.26.5a — debounce/coalesce timer for the live MODEL→GRAPH rebuild. A burst
+  // of model-edit events (a generate, a multi-element drag, a redetect sweep)
+  // collapses into ONE rebuild after the field goes quiet.
+  private modelEditRebuildTimer: ReturnType<typeof setTimeout> | null = null;
+  // §A.26.5b — true while WE are driving the selection bus (graph click → 3D), so
+  // the bus echo doesn't re-enter the graph→3D focus path as a 3D→graph reflect.
+  private reflectingSelection = false;
 
   // Chrome refs we update live.
   private settledBadge: HTMLElement | null = null;
@@ -253,6 +295,11 @@ export class LivingGraphOverlay {
 
     this.wireCanvasEvents();
     this.wireRebuilt();
+    // §A.26.5 — the inverse loop: direct model edits → graph live (a), and a 3D
+    // pick → graph node highlight (b). Both gate on `this.visible`, so a hidden
+    // panel does no work; both are torn down on dispose (no leak).
+    this.wireModelEdits();
+    this.wireSelectionReflect();
   }
 
   /** §A.21.D33(g) — a BOTTOM-RIGHT drag grip that resizes the panel (the
@@ -562,6 +609,8 @@ export class LivingGraphOverlay {
     this.stopTicker();
     // A.26.3 — cancel any pending area-edit re-generate.
     if (this.areaRegenTimer !== null) { clearTimeout(this.areaRegenTimer); this.areaRegenTimer = null; }
+    // §A.26.5a — cancel any pending model-edit graph rebuild.
+    if (this.modelEditRebuildTimer !== null) { clearTimeout(this.modelEditRebuildTimer); this.modelEditRebuildTimer = null; }
     // §A.21.D37 — drop any 3D highlight/isolation + tear down the pipeline.
     try { this.focusCtl.dispose(); } catch { /* ignore */ }
     for (const u of this.unsubs) {
@@ -624,6 +673,9 @@ export class LivingGraphOverlay {
   hide(): void {
     this.visible = false;
     this.stopTicker();
+    // §A.26.5a — drop any pending model-edit rebuild so a closed panel never
+    // does deferred work (the fire-time `this.visible` check also guards this).
+    if (this.modelEditRebuildTimer !== null) { clearTimeout(this.modelEditRebuildTimer); this.modelEditRebuildTimer = null; }
     // §A.21.D37 — closing the panel must not leave the 3D model highlighted /
     // isolated. Restore the scene (keeps the pipeline alive for the next open).
     try { this.focusCtl.clear(); } catch { /* ignore */ }
@@ -741,6 +793,172 @@ export class LivingGraphOverlay {
     } catch {
       /* defensive — a graph-rebuild failure must never break the overlay */
     }
+  }
+
+  /**
+   * §A.26.5a — MODEL→GRAPH LIVE. Subscribe (while mounted) to the EXISTING
+   * model-mutation signals — the `bim-*-added/updated/removed` window DOM events
+   * the editor stores already fire, plus the typed `bim-wall-mutation-committed`
+   * runtime event (the ADR-057-P1 drag-move commit). On any of them, while the
+   * panel is OPEN, schedule a DEBOUNCED + COALESCED rebuild of the UBG via the
+   * EXISTING `rebuildGraphFromModel()` (→ `window.pryzmBuildBuildingGraph()` →
+   * `pryzm:building-graph-rebuilt` → the overlay re-binds). A burst of edits (a
+   * generate, a multi-element drag, a redetect sweep) collapses into ONE rebuild.
+   * No parallel graph builder, no model mutation (P6 — read-only). Defensive: a
+   * handler never throws; a closed panel skips the work; dispose tears it down.
+   */
+  private wireModelEdits(): void {
+    const schedule = (): void => {
+      // Only when OPEN — a hidden panel does no work. We DON'T skip on
+      // `resyncing`: a model edit during a resync must still queue the next
+      // rebuild (the debounce coalesces it safely).
+      if (!this.visible) return;
+      this.scheduleModelEditRebuild();
+    };
+    // DOM CustomEvents (room/wall/door/window add/update/remove).
+    for (const ev of MODEL_EDIT_DOM_EVENTS) {
+      this.on(window, ev, () => schedule());
+    }
+    // Typed runtime event (single-wall drag-move commit) — prefer the runtime
+    // bus, fall back to a DOM listener if the editor mirrors it there.
+    const events = ow()?.runtime?.events;
+    if (events?.on) {
+      try {
+        this.unsubs.push(events.on(WALL_MUTATION_EVENT, () => schedule()));
+        return;
+      } catch {
+        /* fall through to DOM */
+      }
+    }
+    this.on(window, WALL_MUTATION_EVENT, () => schedule());
+  }
+
+  /**
+   * §A.26.5a — the debounced + coalesced MODEL→GRAPH rebuild. Resets the timer on
+   * every edit so a batch fires ONE rebuild ~400 ms after the edits go quiet.
+   * Re-checks `this.visible` at fire time (the panel may have closed during the
+   * debounce). Never throws.
+   */
+  private scheduleModelEditRebuild(): void {
+    if (this.modelEditRebuildTimer !== null) clearTimeout(this.modelEditRebuildTimer);
+    this.modelEditRebuildTimer = setTimeout(() => {
+      this.modelEditRebuildTimer = null;
+      if (!this.visible || this.resyncing) return;
+      try {
+        this.rebuildGraphFromModel();
+      } catch (e) {
+        console.warn('[living-graph] model-edit rebuild failed (non-fatal):', e);
+      }
+    }, MODEL_EDIT_REBUILD_DEBOUNCE_MS);
+  }
+
+  /**
+   * §A.26.5b — SELECT-IN-3D → HIGHLIGHT-IN-GRAPH (the reverse of A.26.1).
+   * Subscribe (while mounted) to the canonical SelectionBus. When an element /
+   * room is picked in the 3D or plan model (any source OTHER than the graph
+   * itself), map the picked element → its ROOM via `roomIdForElement` (the
+   * reverse of `elementIdsForRoom`) and EMPHASISE that room's graph node: focus +
+   * inspect card + pan-into-view. This is the LIGHTWEIGHT reflection — it sets the
+   * draw focus + shows the card; it does NOT call `focusCtl.focus` (no isolation /
+   * re-select side-effects back into the model, which would loop). Falls back to
+   * the `bim-selection-changed` DOM/runtime event when the bus is absent.
+   */
+  private wireSelectionReflect(): void {
+    const handle = (elementId: string | null | undefined, source?: string): void => {
+      if (!this.visible) return;
+      // Ignore our own echoes (graph click → 3D select dispatches with this
+      // source) so we don't fight the user's graph selection.
+      if (this.reflectingSelection) return;
+      if (source && GRAPH_SELECTION_SOURCES.has(source)) return;
+      if (!elementId) return;
+      this.reflectGraphFocusFromModel(elementId);
+    };
+    const bus = ow()?.selectionBus;
+    if (bus?.subscribe) {
+      try {
+        this.unsubs.push(
+          bus.subscribe((event) => {
+            if (event?.type === 'clear') return; // a clear-all shouldn't yank graph focus
+            const id = event?.elementIds?.[0];
+            handle(id, event?.source);
+          }),
+        );
+        return;
+      } catch {
+        /* fall through to the event bus */
+      }
+    }
+    // Fallback: the `bim-selection-changed` signal (typed runtime bus or DOM).
+    const events = ow()?.runtime?.events;
+    if (events?.on) {
+      try {
+        this.unsubs.push(
+          events.on('bim-selection-changed', (payload: unknown) => {
+            const id = (payload as { elementId?: string } | undefined)?.elementId;
+            handle(id);
+          }),
+        );
+        return;
+      } catch {
+        /* fall through to DOM */
+      }
+    }
+    this.on(window, 'bim-selection-changed', (ev) => {
+      const id = (ev as CustomEvent<{ elementId?: string }>)?.detail?.elementId;
+      handle(id);
+    });
+  }
+
+  /**
+   * §A.26.5b — given an element id picked in the model, resolve its ROOM and
+   * highlight the matching graph node (focus + inspect card + pan it into view).
+   * Lightweight: no isolation, no model write — it only moves the graph's own
+   * focus. If the element maps to no room, or the room has no node in the current
+   * graph, it's a quiet no-op. Re-entry guarded so a self-echo can't loop.
+   */
+  private reflectGraphFocusFromModel(elementId: string): void {
+    let roomId: string | null = null;
+    try {
+      roomId = roomIdForElement(elementId);
+    } catch {
+      roomId = null;
+    }
+    // The picked element may BE a graph node directly (a room, or a window/door
+    // node the graph carries). Prefer the resolved room, else the raw id.
+    const target = roomId && this.graph.nodes.some((n) => n.id === roomId)
+      ? roomId
+      : this.graph.nodes.some((n) => n.id === elementId)
+        ? elementId
+        : null;
+    if (!target) return;
+    if (this.draw.focusedId === target) return; // already focused — no churn
+    this.reflectingSelection = true;
+    try {
+      this.draw.focusedId = target;
+      this.updateInspector();
+      this.panNodeIntoView(target);
+      this.paintOnce();
+    } finally {
+      this.reflectingSelection = false;
+    }
+  }
+
+  /**
+   * §A.26.5b — pan (no zoom change) so the given node is centred in the canvas,
+   * emphasising it after a 3D→graph reflect. Suspends auto-fit (the user is now
+   * looking at a specific node) and re-heats lightly so the field settles around
+   * the focus. Defensive — a missing node / canvas is a no-op.
+   */
+  private panNodeIntoView(nodeId: string): void {
+    const node = this.graph.nodes.find((n) => n.id === nodeId);
+    if (!node) return;
+    const s = this.draw.scale ?? 1;
+    // The renderer maps screen = W/2 + offset + layout*scale (see canvasToLayout),
+    // so to CENTRE the node (screen = W/2) we set offset = -layout*scale.
+    this.draw.offsetX = -node.x * s;
+    this.draw.offsetY = -node.y * s;
+    this.userNavigated = true; // don't let auto-fit yank the focus away
+    this.ensureTicking();
   }
 
   // ── Spacing + auto-fit (A.21.D34(e)) ─────────────────────────────────────────

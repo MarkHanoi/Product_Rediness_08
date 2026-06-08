@@ -73,6 +73,38 @@ export function elementIdsForRoom(roomId: string): string[] {
   }
 }
 
+/**
+ * §A.26.5b — the REVERSE of {@link elementIdsForRoom}: given an element id
+ * selected in the 3D/plan model (the selection bus), resolve the ROOM it
+ * belongs to, so the open Living Graph can highlight that room's node. Uses the
+ * SAME `buildModelElementLocations` projection in reverse: find the element's
+ * `elementInstance` location and read the `room` entry off its parent chain. If
+ * the selected id IS a room (or already maps to a room node), that id is
+ * returned directly. Read-only, never throws — an absent/partial model yields
+ * null.
+ */
+export function roomIdForElement(elementId: string): string | null {
+  if (!elementId) return null;
+  try {
+    const locations = buildModelElementLocations(resolveRuntime());
+    // Fast path: the id IS a room node in the projection.
+    for (const loc of locations) {
+      if (loc.kind === 'room' && loc.elementId === elementId) return elementId;
+    }
+    // Reverse path: an element instance → its room parent.
+    for (const loc of locations) {
+      if (loc.kind !== 'elementInstance' || loc.elementId !== elementId) continue;
+      for (const p of loc.parentChain) {
+        if (p.kind === 'room') return p.id;
+      }
+      return null;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 /** The InspectSelection for a room node (level 4 in the C27 master tree). */
 function roomSelection(roomId: string): InspectSelection {
   return { kind: 'room', id: roomId, level: 4, breadcrumb: [] };
