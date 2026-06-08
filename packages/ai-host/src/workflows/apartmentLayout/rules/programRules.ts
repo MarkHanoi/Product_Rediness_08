@@ -646,3 +646,88 @@ export const ALL_ROOM_RULES: readonly RoomRule[] = [
     ROOM_RULES.bathroom, ROOM_RULES.ensuite, ROOM_RULES.wc,
     ROOM_RULES.utility,
 ];
+
+// ─── §DOOR-MINIMUMS (A.21.D47, 2026-06-08) ───────────────────────────────────
+//
+// "Every door needs to have a [minimum] door … and the rules were defined
+// earlier." — founder. Two architectural guarantees this section underpins:
+//   (1) every habitable/service room is reachable through AT LEAST ONE door
+//       (no sealed room) — enforced in wallsAndDoors §SEALED-ROOMS +
+//       §CIRCULATION-REROUTE; the WIDTH floor below makes sure the door that
+//       reconciliation places is never narrower than the room type can use.
+//   (2) every emitted door clears a MINIMUM CLEAR WIDTH per room type — the
+//       architectural FLOOR a door must never drop below, even on a short wall.
+//
+// The pre-existing L3-γ-3 per-EdgeType widths (SOCIAL_FLOW 1.10 / CEREMONIAL
+// 1.00 / BUFFER · SERVICE 0.90 / INTIMATE 0.80) set the PREFERRED width by the
+// door's architectural role; the values below are the HARD per-room-type floor
+// the emission clamps UP to (never a parallel scheme — preferred ≥ floor by
+// construction). A wall too short for the floor is a wall the room must not
+// door onto (pick a longer wall) — NOT a reason to shrink the door below its
+// floor. Values are CLEAR-OPENING widths in metres, from the UK Building Regs
+// Part M / Approved Document M accessible-threshold table (the same source the
+// area minima cite):
+//   • general habitable (bedroom · master · study · living · kitchen · dining ·
+//     utility): 0.80 m — the Part M minimum clear width for an internal doorway
+//     approached head-on (0.75 m is the absolute floor; 0.80 m is the usable
+//     residential standard and what the BUFFER/STANDARD door already emits).
+//   • entrance / front door (hall): 0.90 m — a wider arrival leaf (matches the
+//     §A.21.D29 entrance-door 1.0 m intent; 0.90 m is its hard floor).
+//   • wet rooms (bathroom · ensuite · wc): 0.70 m — the compact-cloakroom floor
+//     (Part M permits 0.70 m clear to a WC/shower room); narrower than a
+//     habitable door because the room itself is small, but never below 0.70 m.
+//
+// This is kept as a STANDALONE table + helper (NOT a new RoomRule field) so it
+// stays clear of the parallel corridor-rules edits to ROOM_RULES and is trivial
+// to merge. Pure data lookup; deterministic.
+
+/** General habitable-room clear-door floor (m) — Part M internal doorway. */
+const MIN_DOOR_WIDTH_GENERAL_M = 0.80;
+/** Entrance / front-door clear floor (m) — the arrival leaf (§A.21.D29). */
+const MIN_DOOR_WIDTH_ENTRANCE_M = 0.90;
+/** Compact wet-room clear floor (m) — cloakroom WC / shower room (Part M). */
+const MIN_DOOR_WIDTH_WET_M = 0.70;
+
+/**
+ * Minimum CLEAR door width (m) for a doorway INTO this room type. The hard
+ * architectural floor an emitted door must never drop below. Exhaustive over
+ * RoomType (Record enforces a value for every room type at compile time).
+ */
+export const MIN_DOOR_WIDTH_BY_TYPE: Readonly<Record<RoomType, number>> = {
+    // Habitable + service — 0.80 m Part M internal doorway.
+    master:   MIN_DOOR_WIDTH_GENERAL_M,
+    bedroom:  MIN_DOOR_WIDTH_GENERAL_M,
+    living:   MIN_DOOR_WIDTH_GENERAL_M,
+    kitchen:  MIN_DOOR_WIDTH_GENERAL_M,
+    dining:   MIN_DOOR_WIDTH_GENERAL_M,
+    study:    MIN_DOOR_WIDTH_GENERAL_M,
+    utility:  MIN_DOOR_WIDTH_GENERAL_M,
+    corridor: MIN_DOOR_WIDTH_GENERAL_M,
+    // Entrance / arrival — wider leaf.
+    hall:     MIN_DOOR_WIDTH_ENTRANCE_M,
+    // Wet rooms — compact floor.
+    bathroom: MIN_DOOR_WIDTH_WET_M,
+    ensuite:  MIN_DOOR_WIDTH_WET_M,
+    wc:       MIN_DOOR_WIDTH_WET_M,
+};
+
+/** Absolute floor for ANY door (the narrowest a single leaf may ever be), used
+ *  for an unknown room-type string. Matches the wet-room compact minimum. */
+export const MIN_DOOR_WIDTH_FLOOR_M = MIN_DOOR_WIDTH_WET_M;
+
+/** Minimum clear door width (m) for a doorway into a single room type. Returns
+ *  the absolute floor for an unknown string (fallback-safe, like `roomRule`). */
+export function minDoorWidthFor(type: RoomType | string): number {
+    return (MIN_DOOR_WIDTH_BY_TYPE as Record<string, number>)[type] ?? MIN_DOOR_WIDTH_FLOOR_M;
+}
+
+/**
+ * §DOOR-MINIMUMS — the minimum clear width (m) a door between two room types
+ * must clear. The door serves BOTH rooms, so the floor is the MAX of the two
+ * per-room minima (the more-demanding room wins): a corridor↔bathroom door is
+ * sized for the corridor's 0.80 m, a hall↔living door for the hall's 0.90 m.
+ * Deterministic, pure.
+ */
+export function minDoorWidthBetween(a: RoomType | string, b: RoomType | string): number {
+    return Math.max(minDoorWidthFor(a), minDoorWidthFor(b));
+}
