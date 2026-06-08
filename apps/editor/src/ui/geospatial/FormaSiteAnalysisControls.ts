@@ -227,8 +227,14 @@ export class FormaSiteAnalysisControls {
         if (this.climateEnsureRequested) return;
         const rt = this.runtime;
         if (!rt) return;
-        // Already have data → nothing to do.
-        if (this.resolveDataset()) return;
+        // Already have data → no ingest needed, but STILL repaint. §A.21.D40(#6):
+        // a dataset can already be present here because `GISAreaLayout.mountFormaAnalysis`
+        // fires a standalone `ensureSiteClimate(runtime)` IN PARALLEL with constructing
+        // these controls; if that ingest's `climateStore._notify()` fired in the gap
+        // BEFORE this panel subscribed, the subscription repaint was missed and the
+        // synchronous mount-render painted the empty state. Repaint now (idempotent)
+        // so the rose + weather card + 3D overlay never latch empty over live data.
+        if (this.resolveDataset()) { this.renderWindRose(); this.renderWeatherCard(); return; }
         // Attempt when a site OR a resolvable location exists. §A.21.D33(f):
         // the house/onboarding handoff can set the LTP-ENU origin (map shows
         // lat/lon) BEFORE a Site aggregate is created — `ensureSiteClimate` now

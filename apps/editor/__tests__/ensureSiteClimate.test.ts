@@ -192,6 +192,43 @@ describe('ensureSiteClimate — live wiring', () => {
         expect(climate.resolveSite(created!.id as never)).not.toBeNull();
     });
 
+    // §A.21.D40(#6) — DEAD-BRANCH FIX. On the editor, `window.projectContext` is the
+    // core-app-model ProjectContext (no `projectId` field), so the D39 third fallback
+    // was always undefined. The legacy `window.__pendingProjectId` global IS populated
+    // on the house demo flow → it must key the Site when audit + runtime.projectContext
+    // are both empty. (No DOM env here, so mirror the global onto `globalThis.window`.)
+    it('falls back to window.__pendingProjectId when audit + projectContext are empty', async () => {
+        const climate = new ClimateStore();
+        const siteStore = new SiteModelStore();
+        const g = globalThis as unknown as { window?: unknown };
+        const hadWindow = 'window' in g;
+        const prevWindow = g.window;
+        // siteDispatch reads `window.__pendingProjectId`; resolveSiteContext also
+        // reads `window.runtime` (left absent — we pass the runtime explicitly).
+        g.window = { __pendingProjectId: 'proj-pending-003' };
+        try {
+            const runtime = {
+                audit: { projectId: '', actorId: 'u', clientId: 'c' },
+                // No projectContext → forces the window.__pendingProjectId branch.
+                siteModelStore: {
+                    getSite: () => siteStore.getSite(),
+                    getLocation: () => ({ latitude: 41.39, longitude: 2.17, elevationAsl: 5 }),
+                    set: (s: unknown) => siteStore.set(s as never),
+                },
+                climateStore: climate,
+                events: { emit: () => {}, on: () => () => {} },
+            } as unknown as Parameters<typeof ensureSiteClimate>[0];
+            const ok = await ensureSiteClimate(runtime, { fetchImpl: null });
+            expect(ok).toBe(true);
+            const created = siteStore.getSite();
+            expect(created!.id).toBe('site_proj-pending-003');
+            expect(climate.resolveSite(created!.id as never)).not.toBeNull();
+        } finally {
+            if (hadWindow) g.window = prevWindow;
+            else delete g.window;
+        }
+    });
+
     it('makeLiveClimateFetch returns undefined when no fetch is available', () => {
         // Simulate a headless runtime with no global fetch by removing it.
         const prev = (globalThis as { fetch?: unknown }).fetch;
