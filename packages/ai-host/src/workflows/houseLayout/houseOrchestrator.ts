@@ -469,11 +469,35 @@ function enumeratePerStorey(
         // area passes through untouched (usableArea ≤ grossMax there). The TRUE
         // footprint (walls/elevations) is unchanged — only the room-budget the
         // bubble graph subdivides is capped, so rooms stay sensibly sized.
-        const houseMax = houseStoreyBand({ program: storeyProgram, grossAreaM2: usableAreaM2 }).grossMaxM2;
-        const presentedAreaM2 = Math.min(usableAreaM2, houseMax);
+        // §AREA-AGREEMENT (G12, 2026-06-08) — only cap a SPARSE storey whose programme
+        // genuinely under-fills the plate (the "1 bedroom on a 3-storey upper plate" case
+        // the cap was written for). A storey already enriched toward its plate (gross
+        // target ≥ half the plate) keeps its TRUE area so its rooms fill the real rects —
+        // capping it shrinks the bubble-graph budget and starves the program, forcing
+        // §FEASIBILITY-ALLOC to drop rooms on a plate that is actually big enough (the
+        // founder's generic "Room 00-00x" voids). Deterministic; apartment path untouched.
+        const band = houseStoreyBand({ program: storeyProgram, grossAreaM2: usableAreaM2 });
+        const presentedAreaM2 = band.grossTargetM2 >= usableAreaM2 * 0.5
+            ? usableAreaM2
+            : Math.min(usableAreaM2, band.grossMaxM2);
         const storeyShell: ShellAnalysis =
             presentedAreaM2 !== shell.netAreaM2 ? { ...shell, netAreaM2: presentedAreaM2 } : shell;
 
+        // §DIAG-STOREY (G12, 2026-06-08) — the money log for over-program diagnosis: the
+        // TRUE plate vs the area presented to the subdivider vs the program's gross
+        // target/max, the room SET, and the stair shape. If presentedArea << usableArea
+        // while the program wants the whole plate, that's the §AREA-AGREEMENT starve; if
+        // the subdivider then logs §DIAG-RECTS with many small fragments, that's the stair
+        // fragmenting the plate. Read both together to pinpoint a room drop.
+        console.log(
+            `[house-layout] §DIAG-STOREY i=${i} role=${sp.role} usableArea=${usableAreaM2.toFixed(1)} ` +
+            `presentedArea=${presentedAreaM2.toFixed(1)} grossTarget=${band.grossTargetM2.toFixed(1)} ` +
+            `grossMax=${band.grossMaxM2.toFixed(1)} program={bed:${storeyProgram.bedrooms},bath:${storeyProgram.bathrooms},` +
+            `kitchen:${storeyProgram.includeKitchen ?? false},living:${storeyProgram.livingRoom ?? false},` +
+            `dining:${storeyProgram.openPlanKitchenDining ?? false},hall:${storeyProgram.entranceHall ?? false},` +
+            `ensuite:${storeyProgram.masterEnSuite ?? false}} ` +
+            `stair=${core ? `${core.shape}@(${(core.rectMm.x / 1000).toFixed(1)},${(core.rectMm.y / 1000).toFixed(1)}) ${(core.rectMm.w / 1000).toFixed(1)}×${(core.rectMm.h / 1000).toFixed(1)}m` : 'none'}`,
+        );
         const options = generateDeterministicLayouts(
             storeyShell,
             storeyProgram,

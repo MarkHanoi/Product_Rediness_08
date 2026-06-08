@@ -1254,7 +1254,16 @@ export function subdivideWithReport(
         // "Dominant" = holds the clear majority of the buildable area. Below this the
         // plate is genuinely split (e.g. a mid-edge stair leaving two comparable
         // wings) and the generic per-rect path is the right tool.
-        const DOMINANT_FRACTION = 0.55;
+        // §STAIR-FRAGMENT (G12, 2026-06-08) — LOWERED 0.55 → 0.45. The stair keep-out
+        // fragments the plate (e.g. 51.67/34.22/31.42 m²); at 0.55 a 0.44-dominant plate
+        // fell through to packMultiRect, which crams the WHOLE program into one fragment
+        // and drops rooms (the generic "Room 00-00x" voids + missing windows). At 0.45 the
+        // dominant-rect corridor carve fires for these plates too; it runs BOTH carve and
+        // packMultiRect and keeps whichever drops FEWER rooms, so this is never worse on
+        // drop count and adds a corridor spine when it helps. (The real cure is keeping the
+        // stair from fragmenting the plate — tracked separately.)
+        const DOMINANT_FRACTION = 0.45;
+        console.log(`[D-TGL subdivide] §DIAG-RECTS stairCarved=true rects=${valid.length} areas=[${valid.map(r => rectArea(r).toFixed(1)).join(', ')}] total=${totalArea.toFixed(1)} dominantFrac=${(rectArea(dominant) / Math.max(EPS, totalArea)).toFixed(2)} rooms=${graph.rooms.length} gate=${DOMINANT_FRACTION}`);
         if (rectArea(dominant) >= DOMINANT_FRACTION * totalArea) {
             const carved = trySingleRectCarve(dominant, graph, corridorWidthM);
             // §STAIR-CARVE-NO-DROP (2026-06-08) — the dominant-rect carve gives every
@@ -1272,6 +1281,8 @@ export function subdivideWithReport(
                 const generic = packMultiRect(valid, graph);
                 const carvedDrops = carved.droppedRooms.length;
                 const genericDrops = generic.droppedRooms.length;
+                const pick = genericDrops < carvedDrops ? 'generic' : 'carve';
+                console.log(`[D-TGL subdivide] §DIAG-BRANCH dominant-carve eligible: carveDrops=${carvedDrops} genericDrops=${genericDrops} → picked ${pick}${(pick === 'carve' ? carved : generic).droppedRooms.length > 0 ? ` (DROPPED ${(pick === 'carve' ? carved : generic).droppedRooms.map(d => d.type).join(',')})` : ''}`);
                 return finalise(genericDrops < carvedDrops ? generic : carved);
             }
             // No corridor/private split (e.g. studio brief): squarify the whole

@@ -1,5 +1,14 @@
 # SPEC — Room-Placement Rules (Residential)
 
+> **SUPERSEDED IN PART (2026-06-08):** the founder issued a more prescriptive **Room Layout
+> Engine — Algorithm Architecture & Element Specification v2.0** that governs where it conflicts
+> with this v1.0. Key v2.0 deltas to fold into the engine: **dining + study windows upgraded to
+> MANDATORY** (every habitable room ≥1 window — only corridor/hall/wc/utility/storage exempt);
+> entrance hall **ground-floor only** (upper floors get a landing/corridor, not an "Entrance
+> Hall"); explicit **aspect-ratio + min-width** per room (§11); **furniture-fit** as a validity
+> proof (§12); walking-distance (not just hop) proximity targets (§9); per-room solar orientation
+> table (§10). This v1.0 doc remains the working gap tracker (G1–G13); v2.0 is the normative target.
+
 **Status:** DRAFT v1.0 · 2026-06-08
 **Owner:** layout engine (`packages/ai-host`) + executor (`apps/editor/src/ui/house-layout`)
 **Scope:** the conceptual rules that decide **where each room goes, how rooms connect,

@@ -2433,3 +2433,42 @@ carries none of them), so the engine can't scale the footprint to the brief.
 4. **G8 stair** U/L overrun.
 5. **G10** colour bleed, **G11** window orientation, **G9** room naming.
 
+
+### §22.14 — v68 prod test + v69 (G12 keystone + DIAG instrumentation, 2026-06-08)
+
+**v68 founder verdict (progress + remaining):**
+- ✅ Ground-floor perimeter wall joins now ALL GOOD (§SELF-CLUSTER-FLOOR worked).
+- ✅ Stair now off on ONE side only (was both) — origin/placement still needs work (#2, G8).
+- ❌ Still generic rooms ("Room 00-004", "Room 00-001") = dropped-room voids (G12/G9).
+- ❌ Most rooms have doors but NOT windows — "daylight super important; every room needs ≥1
+  window except corridor/storage/hall" (#5). **ROOT: downstream of G12** — the generic voids
+  aren't real program rooms so they get no glazing; fix G12 → real rooms keep their windows.
+- ❌ First-floor wall joins still bad (#3) — §SELF-CLUSTER-FLOOR + §GROUND-WELD only cover the
+  ground; upper floors use `_buildPerimeterShell` and still self-cluster/trim. (G1 upper-floor.)
+- ❌ "Entrance Hall" appears on the FIRST floor (#4) — `enrichStoreyProgramToPlate` sets
+  `entranceHall:true` on UPPER storeys (houseProgramFloor.ts:213) to seed the stair landing, but
+  it renders as "Entrance Hall". Should be a Landing/Corridor on upper floors. (NEW gap G14.)
+- ❌ living/dining/kitchen not clustered; entrance room not well located near the hall (G6/proximity).
+
+**Founder issued Room Layout Engine SPEC v2.0** (supersedes SPEC-ROOM-PLACEMENT-RULES v1.0 where
+they conflict) — prescriptive §0–§15: perimeter classification, program resolution, 4-zone
+partitioning, bubble graph (weighted), Rodrigues-Shekhawat rectangular-dual + Squarify allocation,
+circulation spine, door emission order, **entrance-door-reserve-before-windows**, **dining+study
+windows MANDATORY / every habitable room ≥1 window**, walking-distance proximity (§9), per-room
+solar orientation (§10), aspect-ratio + min-width (§11), furniture-fit validity (§12), validation
+severity taxonomy (§14), acceptance criteria (§15). This is the normative target for the engine.
+
+**v69 shipped:**
+- §AREA-AGREEMENT (G12) — stop capping `presentedAreaM2` below the true plate for an enriched
+  storey (gross target ≥ ½ plate) → rooms sized to the real plate, not a starved budget.
+- §STAIR-FRAGMENT (G12) — `DOMINANT_FRACTION` 0.55 → 0.45 so the corridor-spine carve fires on a
+  stair-fragmented plate (never worse on drops; adds a spine when it helps). ai-host 2043 green.
+- **§DIAG instrumentation** (founder request — rich logs for console-paste diagnosis): `§DIAG-STOREY`
+  (true vs presented area, gross target/max, program set, stair shape+pos), `§DIAG-RECTS` +
+  `§DIAG-BRANCH` (decomposition rects, dominant fraction, carve-vs-generic pick + dropped types),
+  `§DIAG-ROOMS` (per-room type/area/windowCount + storey door/window totals + ⚠ WINDOWLESS list).
+
+**Keystone still open:** G12's COMPLETE cure is keeping the stair from fragmenting the plate (tied
+to G8 stair placement/origin). The v69 nudges + diag logs will reveal from the next console paste
+whether fragmentation still drops rooms. Then: G8 stair-corner placement, G14 upper-floor
+landing-not-hall, G1 upper-floor walls, then the v2.0 window-mandate + proximity + solar layers.

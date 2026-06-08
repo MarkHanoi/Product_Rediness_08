@@ -369,6 +369,23 @@ export class HouseLayoutExecutor {
                 }
                 perStorey.push({ levelId: storey.levelId, set, option });
 
+                // §DIAG-ROOMS (2026-06-08) — per-room glazing/access summary so a single
+                // console paste shows exactly which rooms lack a window (the founder's
+                // "rooms have doors but not windows" + daylight focus). Lists every room
+                // with its type + engine windowCount, plus storey totals split into
+                // interior vs shell openings.
+                try {
+                    const rms = (option as { rooms?: Array<{ type?: string; name?: string; windowCount?: number; area?: number }> }).rooms ?? [];
+                    const doorN = set.openingCommands.length;
+                    const intWin = set.windowOpeningCommands.length;
+                    const shellWin = set.shellWindowOpeningCommands.length;
+                    const NO_WINDOW_OK = new Set(['corridor', 'hall', 'wc', 'utility', 'storage', 'ensuite']);
+                    const windowless = rms.filter(r => (r.windowCount ?? 0) === 0 && !NO_WINDOW_OK.has(r.type ?? '')).map(r => `${r.name ?? r.type}[${r.type}]`);
+                    console.log(`[house-layout] §DIAG-ROOMS ${storey.levelId}: rooms=${rms.length} doors=${doorN} windows=${intWin + shellWin} (${intWin} interior + ${shellWin} shell) boundaries=${set.boundaryCommands.length}`);
+                    console.log(`[house-layout] §DIAG-ROOMS ${storey.levelId} detail: ${rms.map(r => `${r.name ?? r.type}[${r.type}] a=${(r.area ?? 0).toFixed(1)} w=${r.windowCount ?? '?'}`).join(' | ')}`);
+                    if (windowless.length > 0) console.warn(`[house-layout] §DIAG-ROOMS ${storey.levelId} ⚠ WINDOWLESS habitable room(s): ${windowless.join(', ')}`);
+                } catch (e) { console.warn('[house-layout] §DIAG-ROOMS failed (non-fatal):', e); }
+
                 // §A.21.D29 #3 — resolve the GROUND-floor main entrance on the drawn
                 // shell. Uses the SAME default plan(mm)→world(m) projector
                 // buildLayoutCommands used above (no `planToWorldXZ` override in `opts`),
