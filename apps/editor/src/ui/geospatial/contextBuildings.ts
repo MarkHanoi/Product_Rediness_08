@@ -69,7 +69,7 @@ export type Bbox = readonly [number, number, number, number];
  * single mirror being down doesn't kill context buildings. All keyless + CORS-
  * enabled. Overture-keyed swap: replace the whole `fetchContextBuildings` body.
  */
-const OVERPASS_ENDPOINTS = [
+export const OVERPASS_ENDPOINTS = [
     'https://overpass-api.de/api/interpreter',
     'https://overpass.kumi.systems/api/interpreter',
     // §A.21.D-GLOBE2 (2026-06-05) — extra keyless CORS mirrors so heavy testing that
@@ -131,7 +131,7 @@ export const CONTEXT_BBOX_FALLBACK_HALF_DEG = 0.005;
  * on (still below the server-side `timeout:25` in the QL). The UI never blocks on
  * this — the fetch is always awaited off the placement path.
  */
-const OVERPASS_TIMEOUT_MS = 20000;
+export const OVERPASS_TIMEOUT_MS = 20000;
 
 /** Per-bbox-key cache so panning within a tile doesn't refetch. */
 const cache = new Map<string, ContextBuildingCollection>();

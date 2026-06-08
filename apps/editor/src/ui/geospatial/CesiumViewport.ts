@@ -7,6 +7,7 @@ import {
     fetchContextBuildings,
     type ContextBuildingCollection,
 } from "./contextBuildings";
+import { fetchContextRoads, type ContextRoadCollection } from "./contextRoads";
 // FORMA.5 — pure NOAA solar-position calculator (L2, no THREE / no I/O).
 // `solarSample(lat, lon, utcIso)` → { altitudeRad, azimuthRad, isAboveHorizon }.
 // This is the SAME pure algorithm the ClimatePanel sun-path uses; FORMA.5 reads
@@ -119,6 +120,8 @@ const FORMA_PALETTE = {
   /** §A.21.D34(d) — coarse STAIR volume tint (light graphite, sits between the
    *  white shell and the dark door so the stairwell mass reads). */
   stair: '#B9B3A8',
+  /** FORMA-CTX §22.2 — thin grey road centre-lines (Forma/Archistar look). */
+  road: '#8A8A8A',
 } as const;
 
 /**
@@ -354,6 +357,9 @@ export class CesiumViewport {
   /** The (lat,lon) the context buildings were last loaded for — skip a refetch
    *  when the site hasn't moved (the loader also caches per bbox). */
   private contextBuildingsAt: { lat: number; lon: number } | null = null;
+  /** FORMA-CTX §22.2 — OSM road centre-line polylines (visual-only context). */
+  private contextRoadEntities: Cesium.Entity[] = [];
+  private contextRoadsAbort: AbortController | null = null;
   /** Abort handle for an in-flight context-building fetch (cancelled on a newer
    *  load / dispose so a stale response can't repaint the wrong site). */
   private contextBuildingsAbort: AbortController | null = null;
@@ -2401,6 +2407,7 @@ export class CesiumViewport {
         this.contextBuildingsAt = null;
       } else {
         void this.loadContextBuildings(originLat, originLon);
+        void this.loadContextRoads(originLat, originLon);   // FORMA-CTX §22.2
       }
     }
 
@@ -2921,6 +2928,77 @@ export class CesiumViewport {
       }
     }
     this.contextBuildingEntities = [];
+  }
+
+  /**
+   * FORMA-CTX §22.2 — load OSM road centre-lines (keyless Overpass — contextRoads.ts)
+   * and draw them as thin grey polylines on the Forma flat-ground study, mirroring
+   * loadContextBuildings' ENU bridge. Visual-only: NO layout/model impact. Pedestrian
+   * ways are fetched but not yet drawn (slice 2). Never throws.
+   */
+  public async loadContextRoads(lat: number, lon: number, force = false): Promise<void> {
+    const viewer = this.viewer;
+    if (!viewer) return;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) return;
+    if (!force && this.contextRoadEntities.length > 0 && this.contextBuildingsAt &&
+        Math.abs(this.contextBuildingsAt.lat - lat) < 1e-6 &&
+        Math.abs(this.contextBuildingsAt.lon - lon) < 1e-6) return;
+
+    this.contextRoadsAbort?.abort();
+    this.contextRoadsAbort = new AbortController();
+    const signal = this.contextRoadsAbort.signal;
+
+    let collection: ContextRoadCollection;
+    try { collection = await fetchContextRoads(lat, lon, signal); }
+    catch { return; }
+    if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
+
+    this.clearContextRoads();
+    if (collection.ways.length === 0) return;
+
+    const enu = Cesium.Transforms.eastNorthUpToFixedFrame(
+      Cesium.Cartesian3.fromDegrees(lon, lat, 0),
+    );
+    const invEnu = Cesium.Matrix4.inverse(enu, new Cesium.Matrix4());
+    const base = this.formaTerrainBaseHeight + 0.05; // hair above ground; no z-fight
+    const roadColor = Cesium.Color.fromCssColorString(FORMA_PALETTE.road).withAlpha(0.95);
+
+    let placed = 0;
+    for (const way of collection.ways) {
+      if (way.kind !== 'road') continue; // slice 1 = roads only
+      try {
+        const positions = way.coords.map(([flon, flat]) => {
+          const fc = Cesium.Cartesian3.fromDegrees(flon, flat, 0);
+          const off = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
+          return this.enuToCartesian(enu, off.x, off.y, base);
+        });
+        if (positions.length < 2) continue;
+        const ent = viewer.entities.add({
+          name: 'pryzm-forma-context-road',
+          polyline: {
+            positions,
+            width: 2,
+            clampToGround: false,
+            arcType: Cesium.ArcType.NONE,
+            material: roadColor,
+            depthFailMaterial: new Cesium.ColorMaterialProperty(roadColor),
+          },
+        });
+        this.contextRoadEntities.push(ent);
+        placed++;
+      } catch { /* skip one malformed way */ }
+    }
+    viewer.scene.requestRender();
+    console.log(`[CesiumViewport][forma] FORMA-CTX road centre-lines rendered: ${placed} way(s).`);
+  }
+
+  /** FORMA-CTX §22.2 — remove all road polylines (idempotent). */
+  public clearContextRoads(): void {
+    const viewer = this.viewer;
+    if (viewer) for (const ent of this.contextRoadEntities) {
+      try { viewer.entities.remove(ent); } catch { /* gone */ }
+    }
+    this.contextRoadEntities = [];
   }
 
   /** Log the "context buildings unavailable / degraded" message at most once. */
