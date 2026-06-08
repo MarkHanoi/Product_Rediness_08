@@ -332,6 +332,24 @@ export function initBusHandlers(
         // §P3.5-AN (IMPL-PLAN-2026-05-17): annotation.create bridge removed.
         // registerAnnotationHandlers() in engineLauncher.ts registers the typed handler.
         // Phase 3 exit gate: grep 'annotation.create' fn: initBusHandlers.ts → 0 entries.
+        //
+        // BUG-ANNO-DRAG (2026-06-08): PlanViewInteraction._onMouseUp dispatches the
+        // LEGACY UpdateAnnotationCommand on runtime.bus (type 'UPDATE_ANNOTATION') to
+        // move a room-tag in window.annotationStore — but no handler existed, so the
+        // drag threw CommandBusError and the move was lost. The payload IS an already-
+        // constructed UpdateAnnotationCommand, so forward it through the legacy
+        // commandManager (its canExecute/execute/undo own the store mutation + undo
+        // snapshot) — mirrors RoomTagAutoPopulator's create/delete path. (No typed
+        // handler exists for the legacy room-tag store; the new annotation.* handlers
+        // write a different anchor-keyed store, so we cannot repoint to them.)
+        {
+            type: 'UPDATE_ANNOTATION',
+            stores: [] as const,
+            validate: (cmd) => (cmd && typeof (cmd as { execute?: unknown }).execute === 'function'
+                ? null
+                : 'UPDATE_ANNOTATION payload must be an UpdateAnnotationCommand'),
+            fn: (cmd) => { _cmExec(cmd); },
+        },
 
         // ── E.5.4: create element bridges ───────────────────────────────────
         // §P3.2-FL (IMPL-PLAN-2026-05-17): floor.create bridge removed.

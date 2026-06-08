@@ -217,6 +217,12 @@ export class LivingGraphOverlay {
   // doesn't spam the generate pipeline (mirrors DesignParamsPanel's debounce).
   private areaRegenTimer: ReturnType<typeof setTimeout> | null = null;
 
+  // §DEMO-3 — the transient "Regenerating layout…" indicator + its safety timeout.
+  // Shown the moment an area/type edit SCHEDULES a re-generate; hidden when the
+  // re-generate commits (`apartment.layout-executed`) or after a max-wait fallback.
+  private regenToastEl: HTMLElement | null = null;
+  private regenToastTimer: ReturnType<typeof setTimeout> | null = null;
+
   // §A.26.5a — debounce/coalesce timer for the live MODEL→GRAPH rebuild. A burst
   // of model-edit events (a generate, a multi-element drag, a redetect sweep)
   // collapses into ONE rebuild after the field goes quiet.
@@ -290,6 +296,7 @@ export class LivingGraphOverlay {
 
     target.appendChild(root);
     this.root = root;
+    root.appendChild(this.buildRegenToast());   // §DEMO-3
     const ctx = canvas.getContext('2d');
     if (ctx) this.renderer = new LivingGraphCanvas(canvas, ctx);
 
@@ -609,6 +616,9 @@ export class LivingGraphOverlay {
     this.stopTicker();
     // A.26.3 — cancel any pending area-edit re-generate.
     if (this.areaRegenTimer !== null) { clearTimeout(this.areaRegenTimer); this.areaRegenTimer = null; }
+    // §DEMO-3 — clear the regen-toast safety timeout (the element goes with root).
+    if (this.regenToastTimer !== null) { clearTimeout(this.regenToastTimer); this.regenToastTimer = null; }
+    this.regenToastEl = null;
     // §A.26.5a — cancel any pending model-edit graph rebuild.
     if (this.modelEditRebuildTimer !== null) { clearTimeout(this.modelEditRebuildTimer); this.modelEditRebuildTimer = null; }
     // §A.21.D37 — drop any 3D highlight/isolation + tear down the pipeline.
@@ -676,6 +686,8 @@ export class LivingGraphOverlay {
     // §A.26.5a — drop any pending model-edit rebuild so a closed panel never
     // does deferred work (the fire-time `this.visible` check also guards this).
     if (this.modelEditRebuildTimer !== null) { clearTimeout(this.modelEditRebuildTimer); this.modelEditRebuildTimer = null; }
+    // §DEMO-3 — hide the regen indicator + clear its safety timeout on close.
+    this.hideRegenToast();
     // §A.21.D37 — closing the panel must not leave the 3D model highlighted /
     // isolated. Restore the scene (keeps the pipeline alive for the next open).
     try { this.focusCtl.clear(); } catch { /* ignore */ }
@@ -755,6 +767,9 @@ export class LivingGraphOverlay {
     // Guarded + re-entry-safe (raises `resyncing` so the rebuild's own emitted
     // event isn't double-handled). Only when visible — a closed panel skips it.
     const onLayoutExecuted = () => {
+      // §DEMO-3 — the re-generate committed: dismiss the "Regenerating…" toast
+      // (before the visibility guard so a panel closed mid-regen never shows stale).
+      this.hideRegenToast();
       if (!this.visible || this.resyncing) return;
       this.rebuildGraphFromModel();
     };
@@ -1613,6 +1628,56 @@ export class LivingGraphOverlay {
   }
 
   /**
+   * §DEMO-3 — a self-contained "Regenerating layout…" indicator. A brand-#6600FF
+   * pill pinned to the bottom of the overlay root (NOT the global PlatformToast,
+   * which is timer-only + theme-accent-coloured), holdable until the async
+   * re-generate completes. Hidden by default; toggled by show/hideRegenToast.
+   */
+  private buildRegenToast(): HTMLElement {
+    const t = document.createElement('div');
+    t.setAttribute('data-testid', 'living-graph-regen-toast');
+    t.setAttribute('role', 'status');
+    t.setAttribute('aria-live', 'polite');
+    Object.assign(t.style, {
+      position: 'absolute', left: '50%', bottom: '14px', transform: 'translateX(-50%)',
+      display: 'none', alignItems: 'center', gap: '7px', background: ACCENT,
+      color: '#ffffff', borderRadius: '999px', padding: '6px 13px',
+      font: '600 11px/1 system-ui, sans-serif', boxShadow: '0 6px 18px rgba(102,0,255,0.35)',
+      whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: '3',
+    } satisfies Partial<CSSStyleDeclaration>);
+    const spinner = document.createElement('span');
+    Object.assign(spinner.style, {
+      display: 'inline-block', width: '11px', height: '11px',
+      border: '2px solid rgba(255,255,255,0.45)', borderTopColor: '#ffffff', borderRadius: '50%',
+    } satisfies Partial<CSSStyleDeclaration>);
+    try {
+      spinner.animate(
+        [{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }],
+        { duration: 800, iterations: Infinity },
+      );
+    } catch { /* WAAPI absent (older test env) — static ring is fine */ }
+    const label = document.createElement('span');
+    label.textContent = 'Regenerating layout…';
+    t.append(spinner, label);
+    this.regenToastEl = t;
+    return t;
+  }
+
+  /** §DEMO-3 — show the indicator + arm a safety timeout so a re-generate that
+   *  errors or never emits `apartment.layout-executed` can't leave it stuck. */
+  private showRegenToast(): void {
+    if (this.regenToastEl) this.regenToastEl.style.display = 'inline-flex';
+    if (this.regenToastTimer !== null) clearTimeout(this.regenToastTimer);
+    this.regenToastTimer = setTimeout(() => this.hideRegenToast(), 8000);
+  }
+
+  /** §DEMO-3 — hide the indicator + clear its safety timeout. Idempotent. */
+  private hideRegenToast(): void {
+    if (this.regenToastTimer !== null) { clearTimeout(this.regenToastTimer); this.regenToastTimer = null; }
+    if (this.regenToastEl) this.regenToastEl.style.display = 'none';
+  }
+
+  /**
    * §A.26.3 — debounced live re-generate via the EXISTING apartment trigger.
    * `gatherLayoutPayload` reads the per-room override stash we just set →
    * merges it into `program.roomAreasByName` → the deterministic engine sizes
@@ -1621,6 +1686,9 @@ export class LivingGraphOverlay {
    * the graph re-lays-out automatically. No new generate path (ADR-0061).
    */
   private scheduleAreaRegen(): void {
+    // §DEMO-3 — surface the indicator immediately on the edit commit (covers the
+    // 450 ms debounce wait, which otherwise feels dead).
+    this.showRegenToast();
     if (this.areaRegenTimer !== null) clearTimeout(this.areaRegenTimer);
     this.areaRegenTimer = setTimeout(() => {
       this.areaRegenTimer = null;
