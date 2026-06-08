@@ -97,20 +97,41 @@ const MAX_HEIGHT_M = 400;
 /**
  * Half-extent (degrees) of the bbox we fetch around the site centre.
  *
- * §A.21.D43(b) — widened 0.005 → 0.0125 (~±550 m → ~±1.4 km, a ~2.8 km square,
- * i.e. ≈2.5× the old extent / ≈6× the area) so the Forma context reads as a real
- * surrounding NEIGHBOURHOOD instead of a small square of immediate neighbours
- * (founder: "context dataset too small"). 2.5× keeps the Overpass `way["building"]`
- * fetch well-sized — a ~2.8 km urban tile is a few thousand footprints, comfortably
- * inside the public-endpoint timeout — without becoming a city-scale pathological
- * query. The bbox values feed `bboxKey` (toFixed(4)) so a larger extent is simply a
- * NEW cache key; the 7-day localStorage TTL + 4-mirror fallback are unchanged (old
- * smaller-bbox entries just age out, they are never read for the new key).
+ * §A.21.D43(b) — widened 0.005 → 0.0125 (~±550 m → ~±1.4 km) so the Forma context
+ * reads as a real surrounding NEIGHBOURHOOD instead of a small square of immediate
+ * neighbours (founder: "context dataset too small").
+ *
+ * §A.21.D54 (2026-06-08) — REGRESSION FIX: the 0.0125° (~2.8 km) tile over a DENSE
+ * urban site returns several thousand `out geom` footprints — a multi-MB Overpass
+ * response that routinely exceeded the 9 s client timeout (and brushed the public
+ * endpoints' rate limits), so EVERY mirror aborted, `fetchContextBuildings`
+ * degraded to an EMPTY collection, and the Forma context "stopped rendering" (the
+ * never-throw swallowed it silently). We dial the primary half-extent back to
+ * 0.008° (~±900 m, ~1.8 km square — still ≈2.5× the original AREA, a proper
+ * neighbourhood) which reliably returns inside the timeout, AND add an automatic
+ * narrow fallback to `CONTEXT_BBOX_FALLBACK_HALF_DEG` (the prior 0.005°) when the
+ * wide fetch comes back empty — so a too-big/timed-out wide tile still yields the
+ * immediate neighbours instead of nothing. The bbox values feed `bboxKey`
+ * (toFixed(4)) so each extent is simply its OWN cache key; the 7-day localStorage
+ * TTL + 4-mirror fallback are unchanged (old wider-bbox entries just age out).
  */
-export const CONTEXT_BBOX_HALF_DEG = 0.0125;
+export const CONTEXT_BBOX_HALF_DEG = 0.008;
 
-/** Overpass request timeout (ms) — keep short so the UI never hangs on it. */
-const OVERPASS_TIMEOUT_MS = 9000;
+/**
+ * §A.21.D54 — narrow fallback half-extent (the pre-D43 0.005°, ~±550 m). Used
+ * automatically when the primary (wider) fetch returns EMPTY — typically because a
+ * dense urban wide tile timed out — so the Forma study still gets its immediate
+ * context buildings rather than a bare ground plane.
+ */
+export const CONTEXT_BBOX_FALLBACK_HALF_DEG = 0.005;
+
+/**
+ * Overpass request timeout (ms). §A.21.D54 — raised 9 s → 20 s so a legitimately
+ * large urban tile has time to come back over a slow public mirror before we move
+ * on (still below the server-side `timeout:25` in the QL). The UI never blocks on
+ * this — the fetch is always awaited off the placement path.
+ */
+const OVERPASS_TIMEOUT_MS = 20000;
 
 /** Per-bbox-key cache so panning within a tile doesn't refetch. */
 const cache = new Map<string, ContextBuildingCollection>();
@@ -147,9 +168,19 @@ function lsWrite(key: string, c: ContextBuildingCollection): void {
     } catch { /* quota / unavailable — non-fatal */ }
 }
 
-/** Compute the fetch bbox `[w,s,e,n]` centred on a site lat/lon. */
-export function contextBboxAround(lat: number, lon: number): Bbox {
-    const h = CONTEXT_BBOX_HALF_DEG;
+/**
+ * Compute the fetch bbox `[w,s,e,n]` centred on a site lat/lon.
+ *
+ * §A.21.D54 — `halfDeg` defaults to the primary `CONTEXT_BBOX_HALF_DEG`; the
+ * empty-result fallback passes `CONTEXT_BBOX_FALLBACK_HALF_DEG` for a narrower,
+ * always-cheap retry.
+ */
+export function contextBboxAround(
+    lat: number,
+    lon: number,
+    halfDeg: number = CONTEXT_BBOX_HALF_DEG,
+): Bbox {
+    const h = halfDeg;
     // Widen E/W a touch by latitude so the metric extent is roughly square.
     const lonScale = 1 / Math.max(0.2, Math.cos((lat * Math.PI) / 180));
     return [lon - h * lonScale, lat - h, lon + h * lonScale, lat + h];
@@ -256,7 +287,28 @@ export async function fetchContextBuildings(
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) {
         return emptyContextCollection();
     }
-    const bbox = contextBboxAround(lat, lon);
+    // §A.21.D54 — try the primary (wider neighbourhood) bbox first; if it comes back
+    // EMPTY (dense urban tile timed out, mirror rate-limited, or genuinely sparse)
+    // retry once at the narrower fallback extent so the Forma study still gets the
+    // immediate context rather than nothing. The narrow retry is cheap + has its own
+    // cache key, so a re-visit hits the cache directly.
+    const primary = await fetchForBbox(contextBboxAround(lat, lon, CONTEXT_BBOX_HALF_DEG), signal);
+    if (primary.features.length > 0 || signal?.aborted) return primary;
+
+    console.warn(
+        '[gis] context buildings: wide bbox returned 0 footprints — retrying the ' +
+            'narrower fallback extent (the immediate neighbourhood).',
+    );
+    return fetchForBbox(contextBboxAround(lat, lon, CONTEXT_BBOX_FALLBACK_HALF_DEG), signal);
+}
+
+/**
+ * §A.21.D54 — fetch + cache the building footprints for ONE explicit bbox (keyless
+ * OSM via Overpass, mirror-fallback). Extracted from `fetchContextBuildings` so the
+ * primary + narrow-fallback extents share the same fetch/cache/never-throw path.
+ * NEVER throws — any failure resolves to an EMPTY collection.
+ */
+async function fetchForBbox(bbox: Bbox, signal?: AbortSignal): Promise<ContextBuildingCollection> {
     const key = bboxKey(bbox);
     const cached = cache.get(key);
     if (cached) return cached;
