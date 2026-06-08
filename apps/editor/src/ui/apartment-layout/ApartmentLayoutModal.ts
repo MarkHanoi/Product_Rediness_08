@@ -17,6 +17,7 @@
 import type { ScoredLayoutOption, ApartmentProgram } from '@pryzm/ai-host';
 import { buildLayoutCardModel } from './layoutCardModel.js';
 import { buildLayoutThumbnailSvg, type PerimeterSpan } from './layoutThumbnail.js';
+import { buildLayoutBubbleGraphSvg } from './layoutBubbleGraph.js';
 import {
     buildLayoutModalHtml,
     buildLayoutCardGridHtml,
@@ -73,10 +74,13 @@ export class ApartmentLayoutModal {
         const thumbOpts = { background: '#ffffff', ...this._spans };
         const cards = options.map((o, i) => buildLayoutCardModel(o, i));
         const thumbs = options.map(o => buildLayoutThumbnailSvg(o, thumbOpts));
+        // DEMO-2 — the Living Graph (bubble/adjacency diagram) per option. White
+        // background matches the thumbnail so the Plan/Graph swap is seamless.
+        const graphs = options.map(o => buildLayoutBubbleGraphSvg(o, { background: '#ffffff' }));
 
         const overlay = document.createElement('div');
         overlay.className = 'alm-overlay';
-        overlay.innerHTML = buildLayoutModalHtml(cards, thumbs, program, options);
+        overlay.innerHTML = buildLayoutModalHtml(cards, thumbs, program, options, graphs);
 
         this._onProgramChange = cb.onProgramChange ?? null;
 
@@ -105,6 +109,21 @@ export class ApartmentLayoutModal {
                 if (card) {
                     const expanded = card.classList.toggle('alm-card--expanded');
                     pill.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+                }
+                return;
+            }
+            // DEMO-2 — Plan / Graph per-card toggle. Scoped + stopPropagation so the
+            // click never falls through to "Use this layout" (.alm-select).
+            const viewBtn = target.closest('.alm-view-btn') as HTMLElement | null;
+            if (viewBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                const card = viewBtn.closest('.alm-card') as HTMLElement | null;
+                if (card) {
+                    const wantGraph = viewBtn.getAttribute('data-view') === 'graph';
+                    card.classList.toggle('alm-card--graph', wantGraph);
+                    card.querySelector('.alm-view-btn--plan')?.setAttribute('aria-pressed', wantGraph ? 'false' : 'true');
+                    card.querySelector('.alm-view-btn--graph')?.setAttribute('aria-pressed', wantGraph ? 'true' : 'false');
                 }
                 return;
             }
@@ -168,7 +187,8 @@ export class ApartmentLayoutModal {
         const thumbOpts = { background: '#ffffff', ...this._spans };
         const cards = options.map((o, i) => buildLayoutCardModel(o, i));
         const thumbs = options.map(o => buildLayoutThumbnailSvg(o, thumbOpts));
-        grid.innerHTML = buildLayoutCardGridHtml(cards, thumbs);
+        const graphs = options.map(o => buildLayoutBubbleGraphSvg(o, { background: '#ffffff' }));
+        grid.innerHTML = buildLayoutCardGridHtml(cards, thumbs, graphs);
         // §MODAL-DYNAMIC part-3: refresh the legend too — toggling the program
         // (e.g. turning Living Room off) changes which occupancies are present.
         const legend = this._el.querySelector('[data-role="legend"]');

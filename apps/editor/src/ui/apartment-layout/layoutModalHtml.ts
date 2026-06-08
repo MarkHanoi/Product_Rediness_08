@@ -214,7 +214,7 @@ function validationHtml(card: LayoutCardModel): string {
     );
 }
 
-function cardHtml(card: LayoutCardModel, safeThumb: string): string {
+function cardHtml(card: LayoutCardModel, safeThumb: string, safeGraph: string): string {
     const bars = card.bars.map(b =>
         `<div class="alm-bar"><span class="alm-bar-label">${escHtml(b.label)}</span>` +
         `<span class="alm-bar-track"><span class="alm-bar-fill" style="width:${b.pct}%"></span></span>` +
@@ -237,7 +237,16 @@ function cardHtml(card: LayoutCardModel, safeThumb: string): string {
 
     return (
         `<div class="alm-card" data-index="${card.index}">` +
-        `<div class="alm-thumb">${safeThumb}</div>` +
+        // DEMO-2 — Plan / Graph toggle. Default view = plan thumbnail; clicking
+        // "Graph" sets .alm-card--graph (controller) to reveal the Living Graph.
+        // The buttons carry data-action so the delegated click handler intercepts +
+        // stopPropagation (never fires "Use this layout").
+        `<div class="alm-view-toggle" role="tablist" aria-label="Card view">` +
+        `<button type="button" class="alm-view-btn alm-view-btn--plan" data-action="toggle-graph" data-view="plan" data-index="${card.index}" aria-pressed="true">Plan</button>` +
+        `<button type="button" class="alm-view-btn alm-view-btn--graph" data-action="toggle-graph" data-view="graph" data-index="${card.index}" aria-pressed="false">Graph</button>` +
+        `</div>` +
+        `<div class="alm-thumb alm-view alm-view--plan">${safeThumb}</div>` +
+        `<div class="alm-thumb alm-view alm-view--graph">${safeGraph}</div>` +
         `<div class="alm-card-head"><span class="alm-title">${escHtml(card.title)}</span>` +
         `<span class="alm-overall" title="overall score">${card.overall}<small>/100</small></span></div>` +
         `<div class="alm-bars">${bars}</div>` +
@@ -299,11 +308,12 @@ export function buildOccupancyLegendHtml(options: readonly LayoutOption[]): stri
 export function buildLayoutCardGridHtml(
     cards: readonly LayoutCardModel[],
     thumbnails: readonly string[],
+    graphs: readonly string[] = [],
 ): string {
     if (cards.length === 0) {
         return '<div class="alm-empty">No valid layouts were generated. Try adjusting the program or constraints.</div>';
     }
-    return cards.map((c, i) => cardHtml(c, thumbnails[i] ?? '')).join('');
+    return cards.map((c, i) => cardHtml(c, thumbnails[i] ?? '', graphs[i] ?? '')).join('');
 }
 
 /**
@@ -318,6 +328,7 @@ export function buildLayoutModalHtml(
     thumbnails: readonly string[] = [],
     program?: ApartmentProgram,
     options: readonly LayoutOption[] = [],
+    graphs: readonly string[] = [],
 ): string {
     // §ROOM-AREAS-BY-NAME (2026-05-29) — when the modal has options in hand,
     // the form renders per-INSTANCE area inputs (one per actual room name);
@@ -325,7 +336,7 @@ export function buildLayoutModalHtml(
     // future AI path that doesn't provide LayoutOptions yet).
     const roomNames = options.length > 0 ? collectRoomNames(options) : [];
     const programForm = program ? buildProgramEditFormHtml(program, roomNames) : '';
-    const grid = buildLayoutCardGridHtml(cards, thumbnails);
+    const grid = buildLayoutCardGridHtml(cards, thumbnails, graphs);
     const headerCount = cards.length === 0
         ? ''
         : ` <small>${cards.length} option${cards.length === 1 ? '' : 's'}</small>`;

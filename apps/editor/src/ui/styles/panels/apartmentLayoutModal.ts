@@ -259,4 +259,26 @@ export const APARTMENT_LAYOUT_MODAL_STYLES = `
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .hlm-storey-stats { font-size: 11px; color: #94a3b8; }
+
+/* DEMO-2 (Living Graph) — Plan / Graph per-card toggle + view swap. The plan
+ * thumbnail shows by default; clicking "Graph" sets .alm-card--graph on the card,
+ * hiding the plan view and revealing the bubble graph. Brand violet #6600FF. */
+.alm-view-toggle {
+  display: inline-flex; align-self: flex-start; gap: 0; margin-bottom: 6px;
+  border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;
+}
+.alm-view-btn {
+  padding: 3px 10px; border: none; cursor: pointer;
+  font: inherit; font-size: 11px; font-weight: 600;
+  background: #ffffff; color: #64748b; transition: background .12s, color .12s;
+}
+.alm-view-btn + .alm-view-btn { border-left: 1px solid #e2e8f0; }
+.alm-view-btn:hover { background: #f1f5f9; color: #334155; }
+.alm-view-btn[aria-pressed="true"] { background: #6600FF; color: #ffffff; }
+
+/* View swap: default = plan visible, graph hidden. .alm-card--graph inverts. The
+ * revealed view keeps .alm-thumb's flex centering so the SVG stays centred. */
+.alm-view--graph { display: none; }
+.alm-card--graph .alm-view--plan { display: none; }
+.alm-card--graph .alm-view--graph { display: flex; }
 `;
