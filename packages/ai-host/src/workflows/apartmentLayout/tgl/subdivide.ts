@@ -28,7 +28,7 @@ import type { BubbleGraph, ProgramRoom } from './bubbleGraph.js';
 import type { RoomType } from '../types.js';
 import { rectArea, type Rect } from './rectDecomposition.js';
 import { squarify } from './squarify.js';
-import { roomRule } from '../rules/programRules.js';
+import { roomRule, preferenceBetween } from '../rules/programRules.js';
 
 /** A room's realised footprint inside the shell. */
 export interface RoomPlacement {
@@ -409,6 +409,60 @@ function allocationOrder(rooms: readonly ProgramRoom[]): ProgramRoom[] {
     return [...hoisted, ...sorted];
 }
 
+/**
+ * §ADJACENCY-SORT (2026-06-08, Phase 4) — reorder `rooms` within a zone so rooms
+ * connected by HIGH-preference adjacencies land consecutively. squarify packs
+ * consecutive rooms into the same strip/row, so adjacency-sorted rooms tend to land
+ * spatially adjacent (kitchen next to dining, master next to the wall its en-suite is
+ * carved from, bedrooms clustered off the corridor face). This converts the type-level
+ * adjacency PREFERENCE (programRules) from a post-hoc SCORING input into a pre-hoc
+ * PLACEMENT constraint — the missing link the A.27 spec's Cause-1 analysis identifies.
+ *
+ * Algorithm (greedy nearest-neighbour by adjacency weight):
+ *   1. weight w(a,b) = preferenceBetween(a.type, b.type) — type-based (programRules);
+ *      no bubble-edge object is needed, so the function stays a pure list transform.
+ *   2. Seed with the room of highest TOTAL weight to all others in the zone.
+ *   3. Greedily append the unplaced room with the highest weight to the LAST placed.
+ *   4. Ties broken by lowest INPUT INDEX (stable) — NOT room id. The A.27 spec wrote
+ *      "lowest room id", but the zone lists arrive from `allocationOrder` (which hoists
+ *      living/master), so they are NOT id-sorted; an index tie-break is the only rule
+ *      that satisfies the spec's §4c INVARIANT below.
+ *
+ * INVARIANT (§4c, unit-tested): when every pair-weight in the zone is equal (e.g. a
+ * zone whose rooms declare no preferences → all 1.0, or all 0.0), the seed and every
+ * greedy pick are decided purely by the input-index tie-break, so the output EQUALS the
+ * input order → byte-identical to the pre-Phase-4 `allocationOrder` placement.
+ *
+ * Pure + deterministic; does not mutate inputs.
+ */
+export function adjacencySortForZone(rooms: readonly ProgramRoom[]): ProgramRoom[] {
+    if (rooms.length <= 2) return rooms.slice();
+    const w = (a: ProgramRoom, b: ProgramRoom): number => preferenceBetween(a.type, b.type);
+    const remaining = rooms.map((room, idx) => ({ room, idx }));
+    // Seed: highest total adjacency weight to all others; tie → lowest input index.
+    let seedPos = 0, seedScore = -Infinity;
+    for (let i = 0; i < remaining.length; i++) {
+        let tot = 0;
+        for (let j = 0; j < remaining.length; j++) if (i !== j) tot += w(remaining[i]!.room, remaining[j]!.room);
+        if (tot > seedScore + EPS || (Math.abs(tot - seedScore) <= EPS && remaining[i]!.idx < remaining[seedPos]!.idx)) {
+            seedScore = tot; seedPos = i;
+        }
+    }
+    const out = [remaining.splice(seedPos, 1)[0]!];
+    while (remaining.length > 0) {
+        const last = out[out.length - 1]!.room;
+        let bestPos = 0, bestW = -Infinity;
+        for (let i = 0; i < remaining.length; i++) {
+            const wi = w(last, remaining[i]!.room);
+            if (wi > bestW + EPS || (Math.abs(wi - bestW) <= EPS && remaining[i]!.idx < remaining[bestPos]!.idx)) {
+                bestW = wi; bestPos = i;
+            }
+        }
+        out.push(remaining.splice(bestPos, 1)[0]!);
+    }
+    return out.map(t => t.room);
+}
+
 // ── §SINGLE-RECT-CARVE: corridor strip + ensuite-from-master ─────────────────
 
 interface CorridorCarve {
@@ -629,11 +683,15 @@ function trySingleRectCarve(shell: Rect, graph: BubbleGraph, corridorWidthM?: nu
     const droppedRooms: DroppedRoom[] = [];
     // Corridor IS the strip.
     out.push({ roomId: corridor.id, rect: roundRect(carve.corridorRect) });
-    // Public + private rooms squarified into their own sub-rects.
-    const pub = placeInRectReported(carve.publicRect, allocationOrder(publicRooms));
+    // Public + private rooms squarified into their own sub-rects. §ADJACENCY-SORT
+    // (Phase 4) reorders each zone AFTER allocationOrder so high-preference pairs
+    // (kitchen↔dining in public; master↔bedrooms off the corridor in private) land in
+    // the same squarify strip → spatially adjacent. Uniform-preference zones are
+    // identity (byte-identical to the pre-Phase-4 allocationOrder placement).
+    const pub = placeInRectReported(carve.publicRect, adjacencySortForZone(allocationOrder(publicRooms)));
     out.push(...pub.placements);
     droppedRooms.push(...pub.droppedRooms);
-    const orderedPrivate = allocationOrder(privateRooms);
+    const orderedPrivate = adjacencySortForZone(allocationOrder(privateRooms));
     let priv = placeInRectReported(carve.privateRect, orderedPrivate);
     // §MASTER-SURPLUS (F3) — grow the master past every other bedroom by donating area
     // from the largest bedroom (deterministic, no-drop). `ensuiteCarveArea` is the area

@@ -4,7 +4,7 @@
 // present iff corridorId.
 
 import { describe, expect, it } from 'vitest';
-import { subdivide, subdivideWithReport } from '../src/workflows/apartmentLayout/tgl/subdivide.js';
+import { subdivide, subdivideWithReport, adjacencySortForZone } from '../src/workflows/apartmentLayout/tgl/subdivide.js';
 import { buildBubbleGraph, type ProgramRoom } from '../src/workflows/apartmentLayout/tgl/bubbleGraph.js';
 import { decomposeToRects, rectArea, subtractRectsFromRects, type Pt, type Rect } from '../src/workflows/apartmentLayout/tgl/rectDecomposition.js';
 import { roomRule } from '../src/workflows/apartmentLayout/rules/programRules.js';
@@ -185,5 +185,42 @@ describe('subdivideWithReport — stair-carved plate keeps a corridor spine (Def
         const a = subdivideWithReport(rects, g, { stairCarved: true });
         const b = subdivideWithReport(rects, g, { stairCarved: true });
         expect(JSON.stringify(a)).toEqual(JSON.stringify(b));
+    });
+});
+
+// §ADJACENCY-SORT (Phase 4) — reorder a zone so high-preference pairs land consecutively.
+describe('adjacencySortForZone (Phase 4 — §ADJACENCY-SORT)', () => {
+    const room = (id: string, type: ProgramRoom['type'], name = id): ProgramRoom => ({
+        id, type, name, targetAreaM2: 12, isPrivate: roomRule(type).privacy === 'private',
+        needsWindow: roomRule(type).needsWindow,
+    });
+
+    it('§4c INVARIANT — uniform pair-weights preserve the input order exactly', () => {
+        // bedroom↔bedroom, bedroom↔wc, bedroom↔study all resolve to preferenceBetween
+        // 1.0 (no declared pair) → a uniform-weight zone → the sort is the identity.
+        const input = [room('r5', 'bedroom'), room('r2', 'wc'), room('r9', 'study'), room('r1', 'bedroom')];
+        const out = adjacencySortForZone(input);
+        expect(out.map(r => r.id)).toEqual(['r5', 'r2', 'r9', 'r1']);
+    });
+
+    it('clusters by an EXPLICIT preference difference (kitchen↔dining 1.0 > kitchen↔corridor 0.6 > dining↔corridor 0.4)', () => {
+        // preferenceBetween saturates at 1.0 for undeclared pairs, so the sort only
+        // re-clusters where pairs are EXPLICITLY distinct. kitchen↔dining (1.0) is the
+        // unique strongest edge here; kitchen↔corridor (0.6) and dining↔corridor (0.4)
+        // are weaker, so the greedy sort pulls kitchen + dining together and leaves the
+        // corridor (the weak link) at the seam — genuinely REORDERING the scrambled input.
+        const input = [room('a', 'corridor'), room('b', 'dining'), room('c', 'kitchen')];
+        const out = adjacencySortForZone(input).map(r => r.type);
+        const ki = out.indexOf('kitchen'), di = out.indexOf('dining');
+        expect(Math.abs(ki - di)).toBe(1);                              // strongest pair adjacent
+        expect(out).not.toEqual(['corridor', 'dining', 'kitchen']);     // actually reordered
+    });
+
+    it('is a pure permutation (same multiset, deterministic)', () => {
+        const input = [room('a', 'kitchen'), room('b', 'living'), room('c', 'dining'), room('d', 'hall')];
+        const a = adjacencySortForZone(input).map(r => r.id).sort();
+        const b = adjacencySortForZone(input).map(r => r.id).sort();
+        expect(a).toEqual(['a', 'b', 'c', 'd']);
+        expect(JSON.stringify(adjacencySortForZone(input))).toEqual(JSON.stringify(adjacencySortForZone(input)));
     });
 });
