@@ -3340,16 +3340,32 @@ export class CesiumViewport {
       // ONE ENU frame at the site origin, seated at the tile-clamped base height —
       // the SAME anchor the massing uses, so the real model lands exactly where the
       // pastel blocks did (and ON the tiles via the v50 clamp).
+      //
+      // §A.21.D54 — PRECISE LOCATION + HEADING. The Forma massing places each scene
+      // point with `enu · (x, −z, up)` — i.e. the explicit mapping scene→ENU is
+      // (east = x, north = −z, up = y). For the real glTF model to coincide with the
+      // massing (founder: massing is correctly located, the real model is "slightly
+      // off"), Cesium's INTERNAL glTF axis conversion must produce the SAME mapping.
+      // Cesium's `Axis.Y_UP_TO_Z_UP` (the default for a Y-up glTF) is a +90° rotation
+      // about X → (x, y, z) ↦ (x, −z, y) = ENU(east = x, north = −z, up = y), which
+      // matches the massing EXACTLY. We now PIN `upAxis`/`forwardAxis` to those
+      // values explicitly (rather than relying on the implicit Cesium default, which
+      // the D49 agent flagged as unverified on non-square plates) so the heading is
+      // guaranteed true-north-aligned and the model never lands rotated/mirrored.
       const position = Cesium.Cartesian3.fromDegrees(input.originLon, input.originLat, baseHeight);
       const modelMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(position);
 
       // Same option shape as the established `loadBimGltf` path (Cesium depth-tests
       // scene primitives against the loaded 3D-Tiles natively → correct occlusion).
+      // §A.21.D54 — explicit Y-up / Z-forward (the THREE→glTF export convention) so
+      // the ENU heading matches the massing's `north = −z` placement, not a default.
       const newModel = await Cesium.Model.fromGltfAsync({
         url: input.glbUrl,
         modelMatrix,
         scale: 1.0,
         allowPicking: true,
+        upAxis: Cesium.Axis.Y,
+        forwardAxis: Cesium.Axis.Z,
       });
 
       // A re-toggle may have torn the viewer down while the GLB parsed — bail.
