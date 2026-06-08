@@ -46,6 +46,7 @@ import {
     generateHouseLayout,
     generateHouseLayoutOptions,
     analyseShell,
+    classifyPerimeter,
     type ShellAnalysis,
     type ShellWallInput,
     type HouseLayoutResult,
@@ -232,6 +233,20 @@ export class HouseLayoutExecutor {
 
             const baseElevationM = ground.elevation ?? 0;
             console.log('[house-layout] executor: ground level', ground.id, 'storeys', storeyCount, 'ftf', floorToFloorM, 'shell area', shell.netAreaM2.toFixed(1));
+
+            // §DIAG-SHAPE (2026-06-08) — classify the plate the generator actually
+            // receives (§PERIMETER-CLASS). A CONVEX-RECT takes the clean zoning+squarify
+            // path; an elongated CONVEX-POLY (aspect > 3:1) or an L/T-U is exactly where
+            // top-down slicing produces tunnels + can't guarantee adjacencies (the merge
+            // root) — so this log tells us, per prod test, whether the founder's poor
+            // layouts come from a hard plate shape (→ needs the rectangular-dual solver)
+            // or a clean plate the engine still mishandles. Pure/read-only; makes the
+            // staged classifier live without changing any layout behavior.
+            try {
+                const pc = classifyPerimeter(shell.perimeter);
+                console.log(`[house-layout] §DIAG-SHAPE plate=${pc.class} corners=${pc.corners} reflex=${pc.reflexCorners} aspect=${pc.aspect.toFixed(2)} (area ${shell.netAreaM2.toFixed(1)}m² ${shell.widthM.toFixed(1)}×${shell.depthM.toFixed(1)}m)`);
+                if (pc.class !== 'CONVEX-RECT') console.warn(`[house-layout] §DIAG-SHAPE ⚠ non-rectangular plate (${pc.class}) — top-down slicing may tunnel/merge; rectangular-dual solver is the structural cure.`);
+            } catch (e) { console.warn('[house-layout] §DIAG-SHAPE failed (non-fatal):', e); }
 
             // ── (a) Mint storeys 1…n-1 ABOVE the ground. Ground reuses the active
             // level id; upper levels are minted here so we own the real ids and

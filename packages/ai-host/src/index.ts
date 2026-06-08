@@ -221,6 +221,7 @@ export {
   analyseShell,
   wallsToPolygon,
   polygonAreaM2,
+  classifyPerimeter,
 } from './workflows/apartmentLayout/shellAnalysis.js';
 export { createStoreShellReader } from './workflows/apartmentLayout/shellReader.js';
 // A.21.D29 #3 — main-entrance door resolver for the generated house (pure).
@@ -241,6 +242,8 @@ export type {
   ShellAnalysisOptions,
   ShellFaceInfo,
   FaceClass,
+  PerimeterClass,
+  PerimeterClassification,
 } from './workflows/apartmentLayout/shellAnalysis.js';
 export type {
   ApartmentGenerateLayoutPayload,
