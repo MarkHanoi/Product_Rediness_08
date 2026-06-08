@@ -64,7 +64,7 @@ export function nameDetectedRooms(
         let hard: ReturnType<typeof setTimeout> | undefined;
         const renameStartMs = performance.now();
 
-        const apply = (source: 'subscription' | 'hard-timeout'): void => {
+        const apply = (source: 'subscription' | 'hard-timeout' | 'already-present'): void => {
             if (done) return;
             const detected = roomStore.getByLevel!(levelId);
             if (detected.length === 0) return;                 // redetect not run yet — keep waiting
@@ -111,14 +111,34 @@ export function nameDetectedRooms(
             }
             if (renames.length === 0) return;
 
+            // §A.21.D40 — room.rename is PURE METADATA (name + occupancy tag); it
+            // adds NO new geometry, so the post-batch synchronous geometry-compile
+            // pass (§FIX-POST-GEOMETRY-COMPILE-V2, which fires for batches ≤32
+            // elements with skipPbrUpgrade=false) is wasted work here — and on a
+            // large generated scene that single rpm.render() pass measured ~972 ms.
+            // Mark the rename batch skipPbrUpgrade so it never triggers that pass.
             batchCoordinator.runBatch(() => {
                 for (const r of renames) {
                     try { void runtime.bus.executeCommand('room.rename', r); }
                     catch (e) { console.warn(`${logTag} room.rename failed (skipped):`, e); }
                 }
-            }, { levelIds: [levelId], totalElementCount: renames.length, skipRedetectRooms: true });
+            }, { levelIds: [levelId], totalElementCount: renames.length, skipRedetectRooms: true, skipPbrUpgrade: true });
             console.log(`${logTag} named ${renames.length} room(s) on ${levelId}`);
         };
+
+        // §A.21.D40 FAST-PATH — the editor's room redetect is DEFERRED, but the
+        // HOUSE / apartment callers only invoke naming AFTER the finalizing batch
+        // (skipRedetectRooms:false) has already run the redetect + settled. In that
+        // common case the rooms are ALREADY in the store synchronously, so the
+        // subscription never fires a fresh change and we used to burn the full
+        // 2500 ms hard-timeout (then the orchestrator's 3500 ms wait) per storey —
+        // pure dead wait, the §POLL-TELEMETRY `source=hard-timeout` lines. Check
+        // synchronously first: if rooms are present, resolve NOW. Only fall back to
+        // the subscription + hard-timeout when the redetect genuinely hasn't run.
+        if ((roomStore.getByLevel(levelId)?.length ?? 0) > 0) {
+            apply('already-present');
+            return;
+        }
 
         if (roomStore.subscribe) {
             unsub = roomStore.subscribe(() => {
