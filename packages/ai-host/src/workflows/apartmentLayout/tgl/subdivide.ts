@@ -131,6 +131,16 @@ const ABSOLUTE_MIN_SHORT_SIDE_M = 0.9;  // sanity floor: a room narrower than th
  *  (corridor.minShortSideM = 1.0 m; UK HQI recommends 1.2 m). */
 const CORRIDOR_STRIP_WIDTH_M = 1.2;
 
+/** §MASTER-SURPLUS (2026-06-08, layout-quality fix-pass F3) — the master bedroom
+ *  must read as visibly larger than every other bedroom. The squarifier biases the
+ *  master via its 1.3 areaWeight, but the §AREA-FRACTIONS clamps (master ≤ 20 %,
+ *  bedroom ≤ 16 %) let a master come out the SAME size as a secondary bedroom on a
+ *  small plate (the founder's "master is no bigger than the spare room" defect). This
+ *  is the minimum AREA (m²) the master must exceed the largest non-master bedroom by.
+ *  Enforced by transferring area target from the largest bedroom to the master before
+ *  squarify (donor = lowest-priority bedroom, beneficiary = master — never a drop). */
+const MIN_MASTER_SURPLUS_M2 = 2.0;
+
 function shortSideM(r: Rect): number {
     return Math.min(r.x1 - r.x0, r.z1 - r.z0);
 }
@@ -518,6 +528,64 @@ function tryCarveEnsuiteFromMaster(
     return null;
 }
 
+/**
+ * §MASTER-SURPLUS (2026-06-08, F3) — ensure the master's effective (post-ensuite-carve)
+ * area exceeds every non-master bedroom by ≥ `MIN_MASTER_SURPLUS_M2`. Deterministic and
+ * NO-DROP: it transfers area TARGET from the LARGEST non-master bedroom (the binding
+ * constraint; all bedrooms share a drop-rank so this is the lowest-priority donor by
+ * allocation order) to the master, then re-squarifies the private rect. Bounded to 3
+ * iterations. The donor is clamped to its own §FEASIBILITY minimum area, so a bedroom
+ * never shrinks below its floor — the §FEASIBILITY-ALLOC no-drop guarantee holds. Squarify
+ * scales targets to fill the rect; because a transfer preserves the target SUM the
+ * scale factor is constant, so a Δ-target shift maps near-linearly to a Δ-area shift and
+ * the bounded loop converges. `ensuiteReserveM2` is the area later carved from the master
+ * for its en-suite (0 when none) — subtracted so the comparison uses the master's TRUE
+ * final area. Pure + deterministic. When the master already leads, or the donor cannot
+ * give without dropping below its floor, the input result is returned unchanged.
+ */
+function applyMasterSurplus(
+    rect: Rect,
+    ordered: readonly ProgramRoom[],
+    result: SubdivideResult,
+    masterId: string,
+    ensuiteReserveM2: number,
+): SubdivideResult {
+    if (!ordered.some(r => r.type === 'bedroom') || !ordered.some(r => r.id === masterId)) return result;
+    const rectA = Math.max(EPS, rectArea(rect));
+    const sumTargets = ordered.reduce((s, r) => s + Math.max(EPS, r.targetAreaM2), 0) || EPS;
+    const scale = rectA / sumTargets;     // target→final-area factor (sum is preserved across a transfer)
+
+    let rooms = ordered.map(r => ({ ...r }));
+    let cur = result;
+    for (let iter = 0; iter < 3; iter++) {
+        const byId = new Map(cur.placements.map(p => [p.roomId, p]));
+        const mp = byId.get(masterId);
+        if (!mp) return cur;
+        const masterEff = rectArea(mp.rect) - Math.max(0, ensuiteReserveM2);
+        let maxBedArea = -Infinity, maxBedId: string | null = null;
+        for (const r of rooms) {
+            if (r.type !== 'bedroom') continue;
+            const p = byId.get(r.id);
+            if (!p) continue;
+            const a = rectArea(p.rect);
+            if (a > maxBedArea) { maxBedArea = a; maxBedId = r.id; }
+        }
+        if (maxBedId === null) return cur;
+        const deficit = (maxBedArea + MIN_MASTER_SURPLUS_M2) - masterEff;
+        if (deficit <= EPS) return cur;                       // master already visibly larger → done
+        const donor = rooms.find(r => r.id === maxBedId)!;
+        const donorMinTarget = minAreaFor(donor.type) / scale;
+        const give = Math.min(deficit / scale, Math.max(0, donor.targetAreaM2 - donorMinTarget));
+        if (give <= EPS) return cur;                          // donor at its floor — never drop it below
+        rooms = rooms.map(r =>
+            r.id === donor.id ? { ...r, targetAreaM2: r.targetAreaM2 - give }
+            : r.id === masterId ? { ...r, targetAreaM2: r.targetAreaM2 + give }
+            : r);
+        cur = placeInRectReported(rect, rooms);
+    }
+    return cur;
+}
+
 /** Single-rect carve flow: returns the placements (corridor + public + private,
  *  with ensuite carved from master) + the structured drop report. Returns null
  *  when the carve can't fit (caller falls back to the whole-shell squarify). */
@@ -565,7 +633,12 @@ function trySingleRectCarve(shell: Rect, graph: BubbleGraph, corridorWidthM?: nu
     const pub = placeInRectReported(carve.publicRect, allocationOrder(publicRooms));
     out.push(...pub.placements);
     droppedRooms.push(...pub.droppedRooms);
-    const priv = placeInRectReported(carve.privateRect, allocationOrder(privateRooms));
+    const orderedPrivate = allocationOrder(privateRooms);
+    let priv = placeInRectReported(carve.privateRect, orderedPrivate);
+    // §MASTER-SURPLUS (F3) — grow the master past every other bedroom by donating area
+    // from the largest bedroom (deterministic, no-drop). `ensuiteCarveArea` is the area
+    // later sliced from the master for its en-suite, so the surplus holds AFTER the carve.
+    if (master) priv = applyMasterSurplus(carve.privateRect, orderedPrivate, priv, master.id, ensuiteCarveArea);
     const privatePlacements = [...priv.placements];
     droppedRooms.push(...priv.droppedRooms);
 

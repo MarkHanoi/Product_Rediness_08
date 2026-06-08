@@ -55,9 +55,27 @@ export function validateCirculationSequence(
     if (!entryPlacement) {
         return { admissible: true, hardFindings: [], softFindings: [] };
     }
+
+    // §HALL-ENTRANCE-FACE (2026-06-08, F2) — the hall must have at least one wall on the
+    // entrance perimeter. The entrance face is conventionally min-Z (the y=0 façade in the
+    // layout frame — see stairPosition.ts). A hall whose front edge sits well inside the
+    // plate cannot be physically reached from the front door. SOFT for now (a hard gate
+    // risks rejecting valid non-rectangular shells); revisit after observing failure rates.
+    const extraSoft: TopologyFinding[] = [];
+    if (placements.length > 0) {
+        const shellMinZ = Math.min(...placements.map(p => p.rect.z0));
+        if (entryPlacement.rect.z0 > shellMinZ + 1.5) {
+            extraSoft.push({
+                category: 'sequence', severity: 'soft', metric: 'hallEntranceFace',
+                roomIdA: entryId, delta: 0.8,
+                reason: `entry hall front edge (z=${entryPlacement.rect.z0.toFixed(1)}) is more than 1.5 m from the entrance face (z=${shellMinZ.toFixed(1)}) — not reachable from the front door`,
+            });
+        }
+    }
+
     const entryArea = area(entryPlacement.rect);
     if (entryArea <= 0) {
-        return { admissible: true, hardFindings: [], softFindings: [] };
+        return { admissible: true, hardFindings: [], softFindings: extraSoft };
     }
 
     // Find rooms door-connected to the entry. Open thresholds (boundaries) are
@@ -85,7 +103,7 @@ export function validateCirculationSequence(
     if (adjacentHabitables.length === 0) {
         // Entry has no habitable neighbour — nothing to release into; this
         // is its own architectural issue but not THIS validator's concern.
-        return { admissible: true, hardFindings: [], softFindings: [] };
+        return { admissible: true, hardFindings: [], softFindings: extraSoft };
     }
 
     // Find the largest adjacent habitable. If the entry exceeds it, we have a
@@ -111,10 +129,10 @@ export function validateCirculationSequence(
             roomIdA: entryId, roomIdB: largestNeighbourId, delta,
             reason: `entry (${entryArea.toFixed(1)} m²) is larger than its first habitable space (${maxNeighbourArea.toFixed(1)} m²) — no compression-release sequence`,
         }];
-        return { admissible: true, hardFindings: [], softFindings: soft };
+        return { admissible: true, hardFindings: [], softFindings: [...extraSoft, ...soft] };
     }
 
-    return { admissible: true, hardFindings: [], softFindings: [] };
+    return { admissible: true, hardFindings: [], softFindings: extraSoft };
 }
 
 function area(r: SequencePlacement['rect']): number {

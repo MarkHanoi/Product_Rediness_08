@@ -114,8 +114,10 @@ describe('programRules — connectivity matrix (the user\'s rules)', () => {
         // kitchen.adjacencyPreference.dining = 1.0 → strongly preferred (the
         // open-plan classic). dining.adjacencyPreference.kitchen = 1.0 also.
         expect(preferenceBetween('kitchen', 'dining')).toBeCloseTo(1.0, 5);
-        // kitchen.adjacencyPreference.corridor = 0.3 (permitted but weak).
-        expect(preferenceBetween('kitchen', 'corridor')).toBeCloseTo(0.3, 5);
+        // §F1-2 (2026-06-08) — kitchen.adjacencyPreference.corridor raised 0.3 → 0.6 so a
+        // kitchen buried in the private zone (behind the corridor) is penalised enough to
+        // discourage it, while staying below kitchen↔dining (1.0).
+        expect(preferenceBetween('kitchen', 'corridor')).toBeCloseTo(0.6, 5);
         // master ↔ ensuite is the defining adjacency.
         expect(preferenceBetween('master', 'ensuite')).toBeCloseTo(1.0, 5);
         // The function is symmetric — direction-independent.
