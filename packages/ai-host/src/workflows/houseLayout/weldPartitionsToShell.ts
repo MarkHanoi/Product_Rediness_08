@@ -48,18 +48,24 @@ export interface WeldOptions {
 }
 
 const DEFAULT_SHELL_SNAP_M = 0.30;
-// §WJ-SKEW (2026-06-08, tracker §22.7) — raised 0.05 → 0.20 m. ROOT CAUSE of the
-// rotated-plate wall-join cascade: the upstream weld fused endpoints only within 0.05 m,
-// but the downstream WallJoinResolver CLUSTERS endpoints within 0.5–1.0 m. On a rotated
-// plate the principal-axis snap leaves perimeter-intersection residuals of ~0.1–0.4 m,
-// so two ends of ONE partition land un-fused by the weld yet inside ONE resolver cluster
-// → a degenerate "self-cluster" → the wall is dropped (§WJR-INVALID) → the room gap
-// merges adjacent rooms AND its window/door openings are orphaned (§22.7 ROOM-MERGE +
-// WIN-DROP). Welding at 0.20 m fuses those cross-wall endpoints into a clean SHARED
-// corner BEFORE the resolver sees them, so no self-cluster forms. 0.20 m is still far
-// below any real room-wall offset; the self-endpoint guard (a wall's own two ends never
-// fuse) + the min-length drop both remain, so a partition can never self-collapse.
-const DEFAULT_PARTITION_WELD_M = 0.20;
+// §WJ-SKEW / §WJ-SKEW-2 (2026-06-08, tracker §22.7/§22.10) — raised 0.05 → 0.20 → 0.45 m.
+// ROOT CAUSE of the rotated-plate wall-join cascade: the upstream weld fused endpoints
+// only within 0.05 m, but the downstream WallJoinResolver CLUSTERS endpoints within its
+// camera tolerance, clamped to [0.05, 1.0] m (≈0.5 m at a typical zoom). On a rotated
+// plate the principal-axis snap leaves perimeter-intersection residuals of ~0.1–0.4 m, so
+// two ends of ONE partition land un-fused by the weld yet inside ONE resolver cluster → a
+// degenerate "self-cluster" → the wall is dropped (§WJR-INVALID) → the room gap merges
+// adjacent rooms AND its window/door openings are orphaned (§22.7 ROOM-MERGE + WIN-DROP).
+// WJ-SKEW first raised this to 0.20 m; §WJ-SKEW-2 raises it to 0.45 m so the weld radius
+// MATCHES the resolver's typical cluster band — any pair the resolver WOULD cluster is
+// already fused into a clean SHARED corner BEFORE the resolver sees it, so no self-cluster
+// can form. 0.45 m is still below any real room-wall offset (bedroom min short side 2.6 m,
+// corridor strip 1.2 m); and because an axis-aligned subdivision produces clean COINCIDENT
+// endpoints (no 0.05–0.45 m residuals), raising the tolerance only affects ROTATED plates
+// (the broken case) — axis-aligned houses are unchanged. The self-endpoint guard (a wall's
+// own two ends never fuse) + the min-length drop both remain, so a partition can never
+// self-collapse, however wide the tolerance.
+const DEFAULT_PARTITION_WELD_M = 0.45;
 const DEFAULT_GRID_M = 0.001;
 const EPS = 1e-9;
 
