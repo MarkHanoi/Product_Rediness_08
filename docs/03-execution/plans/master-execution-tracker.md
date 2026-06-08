@@ -2171,6 +2171,12 @@ public/beta opens:
 | **BUG-FB-ZEROSIZE** | On the 3D→plan→3D view round-trip a burst of `GL_INVALID_FRAMEBUFFER_OPERATION … Framebuffer is incomplete: Attachment has zero size` (then "too many errors") — a render target is sized 0 during the view switch (the combined-view layout/zoom timing). Likely the same root as VIEW-ZOOM (canvas/framebuffer sized before geometry is framed). | console: repeated `glClear/glDrawArrays … Attachment has zero size` | ☐ |
 | **PERF-NOTE** | House post-gen shows long PSO/PBR longtasks (`FIRST-RENDER-POST-SUPPRESS totalSuppressedMs=4372ms`, `PBR-UPGRADE-COMPLETE totalPbrMs=2306ms`, `DEFERRED-RESUME-FLUSH delayed 2862ms — main thread blocked`). Acceptable for now but a demo-smoothness risk on the 2-storey path. | console timings | ◐ (perf backlog) |
 
+### §22.5 — GIS georeferencing defect (HIGH — demo blocker) (2026-06-08)
+
+| ID | Defect | Evidence | Status |
+|---|---|---|---|
+| **GIS-LOC** | **Cesium / 3D-Tiles view places the house TOO HIGH and in the WRONG location.** In **Forma** the house is correctly aligned to the **plan-view definition** (site boundary), but in the **Cesium 3D-globe + Google 3D-Tiles** view the house "comes nicely into view" yet floats well **above** the terrain and is **not georeferenced to the right spot** (founder screenshots: a tan-roofed house hovering above a real photoreal block). Founder flags this as **important**. Likely the **GLB/3D-Tiles placement path** does not seat on sampled terrain height **and** the LTP-ENU → globe transform's anchor/elevation diverges from the Forma/plan path. (Relates to A.21.D56 GLB world-transform bake + A.21.D40 house-on-tiles `sampleHeight` reseat — those fixed Forma/precise-location but the **Cesium-tiles elevation + lat/long anchor still wrong**.) FIX: unify the site-anchor + terrain-height seat so Cesium-tiles placement == Forma == plan definition. | console + 2 imgs | ☐ HIGH |
+
 ### §22.3 — A.27 layout-quality programme status (this session)
 
 | Phase | Change | Status |
