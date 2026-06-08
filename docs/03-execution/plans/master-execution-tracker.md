@@ -2194,4 +2194,48 @@ public/beta opens:
 
 ---
 
-*Demo-queue addendum 2026-06-08 — 7 founder items (DEMO-1/2/3 · BND-90 · FORMA-CTX · FLR-VIEWS · LAYOUT-Q) + A.27 P2–P7 status.*
+### §22.6 — DEMO CODE-AUDIT: per-beat verification of the LinkedIn post (2026-06-08)
+
+Each claim in the "site → living layout" post was audited against the real source (4 parallel
+code-audit agents). Verdict per beat + the SPECIFIC work needed for the recorded demo to be
+truthful. **Headline: 3 of 5 beats are solid; 2 are blocked (graph-before-geometry + 3D-on-tiles).**
+
+#### Beat 1 — "Draw the plot boundary on a real map" → ✅ **WORKS** (BND-90 UX needs a flip)
+- Impl: `apps/editor/src/ui/geospatial/SiteBoundaryMap2D.ts` (MapLibre cream/Forma 2D draw, `mountSiteBoundaryMap2D`), Cesium fallback `SiteBoundaryDrawTool.ts`, ortho lock `geospatial/orthoSnap.ts` (`resolveOrthoSnap`, ±8°), rail `tools-panel/panels/GISRailPanel.ts`, chain → `apartmentFromBoundary.ts` (`generateApartmentFromBoundary` → `polygonToFootprint` → `generateApartmentFromScratch`). Verified end-to-end.
+- **BND-90 task (small):** the ortho checkbox defaults **ON** (`SiteBoundaryMap2D.ts` ~L343/L397 `orthoEnabled=true`). Spec wants **first-line-free → opt-IN** ⇒ flip default to **OFF**; first edge already free (snap needs ≥2 verts). ~1–2 h.
+
+#### Beat 2 — "Read its Living Graph BEFORE any geometry exists" → ❌ **BROKEN (DEMO-2 not started)**
+- The option modal (`apps/editor/src/ui/apartment-layout/ApartmentLayoutModal.ts` + `layoutThumbnail.ts`) shows **geometric floor-plan thumbnails + score bars**, NOT a bubble/adjacency graph. The real Living Graph (`ui/living-graph/LivingGraphOverlay.ts`) only opens on the `apartment.layout-executed` event — i.e. **after** geometry is committed. Adjacency data (`option.rooms[].adjacentTo`) exists on the option but is only used for validation, not drawn.
+- **DEMO-2 tasks (~5–7 dev-days, OR ~0 for the demo via the 2-click workaround):**
+  1. New pure renderer `apps/editor/src/ui/apartment-layout/layoutBubbleGraph.ts` — `buildLayoutBubbleGraphSvg(option)`, node-per-room + edge-per-adjacency, occupancy-coloured (mirror `layoutThumbnail.ts`, Node-testable, no THREE).
+  2. Slot it into the card: `layoutCardModel.ts` → `layoutModalHtml.ts` (+ `.alm-bubble-graph` CSS in `apartmentLayoutModal.ts`); a "graph/plan" toggle per card. Scope clicks so the graph doesn't fire "Use this layout".
+  3. **Demo fallback if not built:** pick option → open Living-Graph panel on the canvas immediately after (2 clicks; already in the demo script).
+
+#### Beat 3 — "code-aware residential layout … walls/rooms/doors/windows/stairs as semantic BIM" → ✅ **WORKS (multi-storey, 23 integration tests)**
+- `apps/editor/src/ui/house-layout/HouseLayoutController.ts` → pure `packages/ai-host/.../houseLayout/houseOrchestrator.ts` (`generateHouseLayout`, 1/2/3-storey) → `HouseLayoutExecutor.ts` → `buildLayoutCommands` (`executePlan.ts`): walls/doors(`wall.createOpening`+`door.batch.create`, per-pair privacy finish)/windows(per-room glazing, shell-host match)/stairs(`CreateStairCommand` per adjacent pair)/slabs/roof/handrails. Pure, P6 single-undo, byte-deterministic. `houseLayoutPipeline.test.ts` covers 1/2/3 storey. **No work needed for the claim** (but FLR-VIEWS + GIS-LOC affect how it's *shown*).
+
+#### Beat 4 — "Change a room's area on the graph → regenerates deterministically, on the fly" → ✅ **WORKS (A.26.3/.4, test-guarded)**
+- `ui/living-graph/LivingGraphOverlay.ts` area/type inspect fields → `activeRoomAreaOverrides.ts`/`activeRoomTypeOverrides.ts` → `gatherLayoutPayload.ts` (`roomAreasByName`/`roomTypesByName`) → `triggerApartmentLayout` → D-TGL → graph re-lays-out on `apartment.layout-executed`. Empty stash = byte-identical baseline (ADR-0061 I2, guarded). **450 ms debounce** + ~100–500 ms graph rebuild.
+- **Hardening for demo (small):** (a) "Regenerating…" toast on area commit (debounce is invisible today); (b) clamp note when area < `minAreaM2` (silently clamped — don't surprise the presenter); (c) NEW test: 2-storey area-edit round-trip (editing ground-floor area must not disturb the upper storey); (d) clear overrides on project close (stale-bleed guard).
+
+#### Beat 5 — "Read it in 3D on photoreal tiles, with sun, wind, comfort" → ◐ **PARTIAL — climate ✅, tiles placement ❌ (GIS-LOC)**
+- **Climate overlays ✅:** `ui/geospatial/CesiumViewport.ts` `renderSunPathOverlay`/`renderWindOverlay`/`renderHeatOverlay` (sun arcs, wind streamlines+rose, comfort heat grid), driven by `ensureSiteClimate` (NOAA normals). Photoreal Google 3D Tiles gated on `VITE_CESIUM_TOKEN`/`VITE_GOOGLE_MAPS_KEY` (keyless ESRI fallback).
+- **GIS-LOC ❌ (root cause now pinpointed):** the house floats too high + off-spot on the tiles because the **Cesium anchor diverges from the Forma/plan anchor**:
+  - **Anchor drift:** `GISAreaLayout.getFormaOrigin()` prefers the LTP origin (`getCurrentSiteOrigin()` from `ui/site/siteDispatch.ts`), but can **fall back to the geocoded address** (`siteModelStore.getLocation()`), which the comment notes is ~10–15 m off. Forma uses the LTP origin; Cesium can end up on the address ⇒ wrong location.
+  - **Elevation:** `CesiumViewport.renderRealModelOnGlobe` (~L3324–3411) seats the GLB at `Cartesian3.fromDegrees(originLon, originLat, baseHeight)` where `baseHeight = formaTerrainBaseHeight` sampled at the **boundary CENTROID** (`sampleHeightMostDetailed`, ~L2440), **not at the origin** ⇒ on sloped terrain the house sits too high.
+  - **FIX (GIS-LOC, HIGH):** (1) freeze ONE site origin at boundary-commit and use it for BOTH Forma render AND Cesium placement (no address fallback once a boundary exists); (2) sample terrain height AT that same anchor (origin == height-sample point); (3) add a console.log of `getCurrentSiteOrigin()` at `placeRealModelOnGlobe` to confirm it's populated (not null→address). Files: `siteDispatch.ts`, `GISAreaLayout.ts` (`getFormaOrigin`/`placeRealModelOnGlobe` ~L1342–1375), `CesiumViewport.ts` (`renderRealModelOnGlobe`).
+
+#### Demo go/no-go summary
+| Beat | Status | Blocker | Demo workaround |
+|---|---|---|---|
+| 1 Boundary draw | ✅ | BND-90 default flip (minor) | usable as-is; flip default for polish |
+| 2 Living Graph before geometry | ❌ | DEMO-2 not built | 2-click: pick option → open Living Graph panel |
+| 3 Generate residential BIM | ✅ | — | film single-storey until FLR-VIEWS |
+| 4 Edit area → regen | ✅ | feedback polish | rehearse one area edit |
+| 5 3D photoreal + climate | ◐ | **GIS-LOC** (tiles) | climate ✅; for the on-tiles shot, fix GIS-LOC first OR use Forma context |
+
+**To make the post fully truthful (not worked-around): fix GIS-LOC (HIGH) + build DEMO-2 + ship FLR-VIEWS + VIEW-ZOOM. BND-90 flip + Beat-4 feedback are quick polish.**
+
+---
+
+*Demo-queue addendum 2026-06-08 — 7 founder items (DEMO-1/2/3 · BND-90 · FORMA-CTX · FLR-VIEWS · LAYOUT-Q) + §22.4 bugs + §22.5 GIS-LOC + §22.6 per-beat code audit + A.27 P2–P7 status.*
