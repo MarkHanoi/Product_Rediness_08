@@ -2115,3 +2115,77 @@ After §21:
 ---
 
 *End — PRYZM Master Execution Tracker, 2026-06-01 — CANONICAL (with §12 · §14 · §16 · §17 · §18 · §19 · §20 · §21 — ~584 named deliverables · ALL upstream commitments traced to delivery · NO orphans · END-STATE VERIFIED §21.11).*
+
+---
+
+## §22 — FOUNDER DEMO-SESSION FEEDBACK QUEUE (2026-06-08)
+
+Captured live during the founder's A.27 layout-quality + demo-prep session (2026-06-08).
+These are **new founder requests**, queued for sequencing into Phase A. The app is **not yet
+public (not even private beta)** due to instability — the immediate strategic goal these
+items serve is a **single, scripted, end-to-end residential demo** for LinkedIn (see
+`docs/05-guides/DEMO-SCRIPT-RESIDENTIAL-2026-06-08.md`). Status legend: ☐ queued · ◐ in
+progress · ✅ shipped.
+
+### §22.1 — The target demo flow (the "happy path" we are hardening)
+
+The demo is one continuous residential story; every step below must be reliable BEFORE the
+public/beta opens:
+
+1. **House project creation** — user starts a *residential house* project. **DEMO-1 ☐ —
+   SKIP the user-profile / persona modal step** (founder: "not sure the profile of the users
+   matters here at all — probably this modal step should be avoided"). Go straight from "new
+   House project" to the map.
+2. **Site on the map** — user goes to the map, selects the site, and **defines the site
+   boundary** by drawing.
+3. **Design-option modal** — after the boundary is closed, the modal offers design options.
+   **DEMO-2 ☐ — show the LIVING GRAPHS at this stage** (the bubble/adjacency graph for each
+   candidate option, so the user reasons about the option *before* committing geometry).
+4. **Layout on the main interface** — the chosen layout generates in the main PRYZM editor.
+5. **On-the-fly optimisation** — **DEMO-3 ◐ — user edits data (e.g. a room's surface area,
+   room type) and the layout REGENERATES live.** (Substrate exists: A.26 editable Living
+   Graph → `roomAreasByName` / `roomTypesByName` → re-run deterministic engine. Harden for
+   demo reliability.)
+6. **3D interrogation** — user interrogates the result in 3D with **3D Tiles + Forma** massing.
+7. **Live site/climate analysis** — user interrogates the 3D site with **climate analysis on
+   the fly** (sun / wind / comfort overlays).
+
+### §22.2 — Specific founder requests (the deltas this session)
+
+| ID | Request | Source | Notes / relation to existing work | Status |
+|---|---|---|---|---|
+| **DEMO-1** | Remove/auto-skip the user-profile modal in the House-project create flow | demo msg | "this modal step should be avoided" | ☐ |
+| **DEMO-2** | Surface the **Living Graphs** inside the design-option modal (per-option bubble/adjacency graph) | demo msg | builds on A.26 Living Graph + bubbleGraph; new surfacing in the option picker | ☐ |
+| **DEMO-3** | **On-the-fly layout edit**: change room surface/data → layout updates live on the main canvas | demo msg | A.26 substrate exists; harden + make demo-reliable | ◐ |
+| **BND-90** | **Orthogonal (90°) boundary drawing.** The FIRST boundary line is free; from the 2nd line on, the user can **opt in to "orthogonal-to-latest-line"** so every subsequent corner is 90° → produces rectilinear plots far better for housing AND **helps stair placement**. Goal: "create 90° walls during the boundary definition." | layout feedback + img | **Refines A.21.D60** (`feat(gis): orthogonal-to-previous-edge boundary draw lock`, on main). D60 added the ortho lock; this asks for the explicit **first-line-free → then opt-in toggle** UX + guaranteeing 90° corners flow into the wall/stair engine. | ◐ |
+| **FORMA-CTX** | **Richer Forma 3D context** — not just extruded building volumes. Add **terrain contour lines, road centre-lines, and pedestrian data** to the Forma/3D-tiles site view (founder reference screenshots: the abstract grey massing + contours view, AND the coloured-plot view with roads/trees/water). | demo msg + 2 imgs | extends FORMA.* site stack; needs OSM roads + pedestrian network + terrain contour extraction into the Forma scene | ☐ |
+| **FLR-VIEWS** | When the user creates a **2- or 3-floor house**, **automatically create floor-plan VIEWS for every floor that was generated** (today the "Floor Plans" panel shows only *Ground Floor*; upper storeys are built but get no plan view). | floor-plan msg + img | house orchestrator already produces per-storey `levelId` plates; wire each generated storey to an auto-registered Floor Plan view | ☐ |
+| **VIEW-ZOOM** | On entering the **"3D + plan"** combined view (and on any view switch), **auto zoom-to-fit the geometry** so the house is framed immediately — today the 3D view opens empty/zoomed-out and the user must click **Home** to bring the house into frame. | view-zoom msg + img | call zoom-to-extents on `view-activated` when the active level/scene has geometry (debounced); applies to 3D + plan + Forma | ☐ |
+| **LAYOUT-Q** | **Layout quality still not good enough** after A.27 Phases 2–4 (kitchen-zone weight, master surplus, hall face, door approach, adjacency sort). Continue the A.27 spec (Phases 5–7: corridor-face hint, stair-head corridor alignment, double-loaded corridor parti) AND treat the above (BND-90 rectilinear plots, stair location) as a quality lever. | layout feedback + img | A.27 Phases 5–7 remain; rectilinear (90°) plots from BND-90 are expected to materially improve subdivision + stair placement | ◐ |
+
+### §22.4 — Observed-in-log defects (founder console paste 2026-06-08)
+
+| ID | Defect | Evidence | Status |
+|---|---|---|---|
+| **BUG-ANNO-DRAG** | Dragging a **room-tag annotation in plan view throws** `CommandBusError: no handler registered for: UPDATE_ANNOTATION` (PlanViewInteraction `_onMouseUp`). The move is dispatched but no `UPDATE_ANNOTATION` handler is registered → uncaught promise rejection; the tag move is lost. | console: `Uncaught (in promise) CommandBusError: no handler registered for: UPDATE_ANNOTATION` | ☐ |
+| **BUG-FB-ZEROSIZE** | On the 3D→plan→3D view round-trip a burst of `GL_INVALID_FRAMEBUFFER_OPERATION … Framebuffer is incomplete: Attachment has zero size` (then "too many errors") — a render target is sized 0 during the view switch (the combined-view layout/zoom timing). Likely the same root as VIEW-ZOOM (canvas/framebuffer sized before geometry is framed). | console: repeated `glClear/glDrawArrays … Attachment has zero size` | ☐ |
+| **PERF-NOTE** | House post-gen shows long PSO/PBR longtasks (`FIRST-RENDER-POST-SUPPRESS totalSuppressedMs=4372ms`, `PBR-UPGRADE-COMPLETE totalPbrMs=2306ms`, `DEFERRED-RESUME-FLUSH delayed 2862ms — main thread blocked`). Acceptable for now but a demo-smoothness risk on the 2-storey path. | console timings | ◐ (perf backlog) |
+
+### §22.3 — A.27 layout-quality programme status (this session)
+
+| Phase | Change | Status |
+|---|---|---|
+| A.27 P2 | F1-2 kitchen↔corridor pref 0.3→0.6 · F3 §MASTER-SURPLUS · F2 §HALL-ENTRANCE-FACE | ✅ shipped (deploy **v58**, ai-host 2038/2038) |
+| A.27 P3 | §DOOR-APPROACH-QUALITY (centre doors on longest clear wall-run) | ✅ committed (`05687f39`, on main local) |
+| A.27 P4 | §ADJACENCY-SORT pre-placement zone ordering (+3 tests) | ✅ committed (`15ccef19`, on main local; ai-host 2041/2041) |
+| A.27 P5 | §CORRIDOR-FACE-HINT in squarify | ☐ queued |
+| A.27 P6 | §STAIR-HEAD-AXIS upper-storey corridor alignment | ☐ queued |
+| A.27 P7 | §DOUBLE-LOADED-PARTI new strategy | ☐ queued |
+
+> NOTE (2026-06-08): P3 + P4 are committed locally on `main` but **not yet pushed/deployed**
+> (awaiting the P5–P7 batch or a founder go for an interim **v59**). P2 + the 17 founder-held
+> v57 commits shipped in **v58**.
+
+---
+
+*Demo-queue addendum 2026-06-08 — 7 founder items (DEMO-1/2/3 · BND-90 · FORMA-CTX · FLR-VIEWS · LAYOUT-Q) + A.27 P2–P7 status.*
