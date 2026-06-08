@@ -4,9 +4,9 @@
 // present iff corridorId.
 
 import { describe, expect, it } from 'vitest';
-import { subdivide } from '../src/workflows/apartmentLayout/tgl/subdivide.js';
+import { subdivide, subdivideWithReport } from '../src/workflows/apartmentLayout/tgl/subdivide.js';
 import { buildBubbleGraph, type ProgramRoom } from '../src/workflows/apartmentLayout/tgl/bubbleGraph.js';
-import { decomposeToRects, rectArea, type Pt, type Rect } from '../src/workflows/apartmentLayout/tgl/rectDecomposition.js';
+import { decomposeToRects, rectArea, subtractRectsFromRects, type Pt, type Rect } from '../src/workflows/apartmentLayout/tgl/rectDecomposition.js';
 import { roomRule } from '../src/workflows/apartmentLayout/rules/programRules.js';
 import type { ApartmentProgram } from '../src/workflows/apartmentLayout/types.js';
 
@@ -106,5 +106,84 @@ describe('subdivide (TGL P3b)', () => {
         const empty = buildBubbleGraph({ bedrooms: 0, bathrooms: 0, masterEnSuite: false, openPlanKitchenDining: false, livingRoom: false, entranceHall: false }, 0);
         // kitchen is always pushed, so this still has 1 room — but a zero-area shell yields [].
         expect(subdivide([{ x0: 0, z0: 0, x1: 0, z1: 0 }], empty)).toEqual([]);
+    });
+});
+
+// ───────────────── §STAIR-OBSTACLE-CARVE (2026-06-08, Defect A) ───────────────
+//
+// A multi-storey house carves a stair-core keep-out out of the plate, fracturing
+// the single rectangle into a FRAME / L of 2–4 sub-rects. The generic multi-rect
+// path packs each fragment INDEPENDENTLY → no corridor spine across the hole → the
+// plan ships as a merged blob with a §CIRCULATION-REROUTE compromise (the founder's
+// central-stair defect: ONE giant "Living/Corridor/Bedroom/Kitchen/Bathroom" room).
+// With `stairCarved: true` the subdivider runs the corridor carve on the DOMINANT
+// sub-rect so every room is enclosed + corridor-linked and the slivers stay empty.
+
+describe('subdivideWithReport — stair-carved plate keeps a corridor spine (Defect A)', () => {
+    /** Carve a stair keep-out hole (metres) out of a single plate, return the
+     *  fractured rect set the way enumerate.ts builds it. */
+    const carve = (plate: Rect, hole: Rect): Rect[] =>
+        subtractRectsFromRects([plate], [{
+            x0: hole.x0 - 0.05, z0: hole.z0 - 0.05, x1: hole.x1 + 0.05, z1: hole.z1 + 0.05,
+        }]);
+
+    const plate: Rect = { x0: 0, z0: 0, x1: 13, z1: 10 };   // 130 m² ground floor
+
+    it('a CENTRAL hole fractures the plate into ≥3 sub-rects (the failure topology)', () => {
+        const rects = carve(plate, { x0: 5.5, z0: 3.6, x1: 7.5, z1: 6.4 });
+        // bottom + top full-width bands + left + right side bands.
+        expect(rects.length).toBeGreaterThanOrEqual(3);
+    });
+
+    // The BACK-CORNER stair the placement engine (§STAIR-CORNER-ANCHOR) now produces:
+    // flush to a side wall AND the rear wall → a clean L = one dominant rect + a small
+    // corner sliver, so the corridor carve runs on the dominant rect.
+    const cornerCore: Rect = { x0: 0, z0: 7.2, x1: 2, z1: 10 };
+
+    it('with stairCarved=true a back-CORNER hole yields a corridor + many enclosed rooms', () => {
+        const rects = carve(plate, cornerCore);
+        expect(rects.length).toBeGreaterThanOrEqual(2);
+        const g = buildBubbleGraph(PROGRAM, rectArea(plate));
+        const res = subdivideWithReport(rects, g, { stairCarved: true });
+        // A real corridor is placed (the spine), plus multiple distinct rooms.
+        expect(res.placements.some(p => p.roomId === g.corridorId)).toBe(true);
+        expect(res.placements.length).toBeGreaterThanOrEqual(4);
+        // Every placement stays clear of the stair keep-out (no room over the core).
+        for (const p of res.placements) {
+            const o = p.rect.x0 < cornerCore.x1 - 1e-6 && cornerCore.x0 < p.rect.x1 - 1e-6 &&
+                      p.rect.z0 < cornerCore.z1 - 1e-6 && cornerCore.z0 < p.rect.z1 - 1e-6;
+            expect(o, `placement ${p.roomId} must not overlap the stair core`).toBe(false);
+        }
+    });
+
+    it('the stairCarved corridor carve produces NON-overlapping placements', () => {
+        const rects = carve(plate, cornerCore);
+        const g = buildBubbleGraph(PROGRAM, rectArea(plate));
+        const res = subdivideWithReport(rects, g, { stairCarved: true });
+        for (let i = 0; i < res.placements.length; i++)
+            for (let j = i + 1; j < res.placements.length; j++)
+                expect(overlaps(res.placements[i]!.rect, res.placements[j]!.rect)).toBe(false);
+    });
+
+    it('a NON-carved multi-rect L-shell is UNCHANGED by the stairCarved flag default-off', () => {
+        // Regression guard: a real L shell (not a stair carve) must NOT trigger the
+        // dominant-rect corridor carve — it uses the generic multi-rect path.
+        const poly: Pt[] = [
+            { x: 0, z: 0 }, { x: 12, z: 0 }, { x: 12, z: 6 },
+            { x: 6, z: 6 }, { x: 6, z: 10 }, { x: 0, z: 10 },
+        ];
+        const shell = decomposeToRects(poly);
+        const g = buildBubbleGraph(PROGRAM, shell.reduce((s, r) => s + rectArea(r), 0));
+        const withoutFlag = subdivideWithReport(shell, g);
+        const withFlagOff = subdivideWithReport(shell, g, { stairCarved: false });
+        expect(JSON.stringify(withFlagOff)).toEqual(JSON.stringify(withoutFlag));
+    });
+
+    it('is deterministic with the stairCarved flag set', () => {
+        const rects = carve(plate, cornerCore);
+        const g = buildBubbleGraph(PROGRAM, rectArea(plate));
+        const a = subdivideWithReport(rects, g, { stairCarved: true });
+        const b = subdivideWithReport(rects, g, { stairCarved: true });
+        expect(JSON.stringify(a)).toEqual(JSON.stringify(b));
     });
 });

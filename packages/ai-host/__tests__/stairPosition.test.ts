@@ -9,7 +9,9 @@ import { describe, expect, it } from 'vitest';
 import {
     chooseStairCorePosition,
     stairCoreWaste,
+    aspectFromSunDir,
     __candidatesForTest as candidates,
+    __aspectScoreForTest as aspectScore,
 } from '../src/workflows/houseLayout/stairPosition.js';
 import {
     reserveStairCore, reserveStairCoreShaped, generateHouseLayout,
@@ -189,5 +191,132 @@ describe('stair-core position — stacking invariant preserved', () => {
         const a = reserveStairCoreShaped(FOOT, 2, 17);
         const b = reserveStairCoreShaped(FOOT, 2, 17);
         expect(JSON.stringify(a)).toEqual(JSON.stringify(b));
+    });
+});
+
+// ───────────────── §STAIR-WORST-ASPECT (2026-06-08, founder ask) ──────────────
+//
+// Founder rule: "the stair should occupy the LEAST space possible and always tend
+// to be ADJACENT TO A WALL — ideally the wall where the view/sunlight is WORST
+// (normally NORTH unless the view is good)." Frame: y=0 is the entrance (front,
+// min-Z) façade; y=plateH is the BACK (max-Z) façade. The sun direction comes from
+// site latitude (Northern → sun toward +y = BACK wall; the stair must AVOID it).
+
+describe('aspectFromSunDir — plate-local sun direction from latitude', () => {
+    it('Northern hemisphere → sun toward +y (the BACK / max-Z wall)', () => {
+        expect(aspectFromSunDir(51.5)).toEqual({ x: 0, y: 1 });
+    });
+    it('Southern hemisphere → sun toward −y (the FRONT / entrance wall)', () => {
+        expect(aspectFromSunDir(-34)).toEqual({ x: 0, y: -1 });
+    });
+    it('near the equator (|lat| < 10°) → no preference (null)', () => {
+        expect(aspectFromSunDir(5)).toBeNull();
+        expect(aspectFromSunDir(undefined)).toBeNull();
+        expect(aspectFromSunDir(Number.NaN)).toBeNull();
+    });
+});
+
+describe('aspectScore — poorer aspect scores higher (better for a stair)', () => {
+    const north = { sunDir: { x: 0, y: 1 } };   // sun to the back → back is the GOOD wall
+    it('the SUN-facing wall (back) is the WORST stair choice (score 0)', () => {
+        expect(aspectScore('back', north)).toBeCloseTo(0, 6);
+    });
+    it('a side wall is aspect-neutral (~0.5)', () => {
+        expect(aspectScore('left', north)).toBeCloseTo(0.5, 6);
+        expect(aspectScore('right', north)).toBeCloseTo(0.5, 6);
+    });
+    it('a wall flagged GOOD-VIEW is avoided (score 0) regardless of sun', () => {
+        expect(aspectScore('left', { sunDir: { x: 0, y: 1 }, goodViewKinds: ['left'] })).toBe(0);
+    });
+    it('no sun direction → every perimeter wall is neutral (0.5)', () => {
+        expect(aspectScore('left', { sunDir: null })).toBe(0.5);
+        expect(aspectScore('back', { sunDir: null })).toBe(0.5);
+    });
+    it('central (no façade) always scores 0', () => {
+        expect(aspectScore('central', north)).toBe(0);
+    });
+});
+
+describe('chooseStairCorePosition — worst-aspect bias (Defect B)', () => {
+    it('with the sun to the BACK the stair AVOIDS the back wall, hugs a side wall', () => {
+        const pos = chooseStairCorePosition(
+            12000, 10000, 2000, 2800, undefined, { sunDir: { x: 0, y: 1 } },
+        );
+        // Never the sun-facing back wall; always a perimeter (never central).
+        expect(pos.kind).not.toBe('back');
+        expect(pos.kind).not.toBe('central');
+        expect(['left', 'right']).toContain(pos.kind);
+    });
+
+    it('ALWAYS prefers a PERIMETER candidate over central when one exists (Defect A)', () => {
+        // Even with NO sun preference (null), the perimeter-preference term keeps the
+        // stair off-centre so it never holes the middle of the plate.
+        const pos = chooseStairCorePosition(
+            12000, 10000, 2000, 2800, undefined, { sunDir: null },
+        );
+        expect(pos.kind).not.toBe('central');
+    });
+
+    it('a tiny plate (no perimeter candidate) still falls back to central', () => {
+        const pos = chooseStairCorePosition(
+            2000, 2000, 1000, 1500, undefined, { sunDir: { x: 0, y: 1 } },
+        );
+        expect(pos.kind).toBe('central');
+    });
+
+    it('is deterministic with an aspect bias (no RNG)', () => {
+        const a = chooseStairCorePosition(12000, 10000, 2000, 2800, undefined, { sunDir: { x: 0, y: 1 } });
+        const b = chooseStairCorePosition(12000, 10000, 2000, 2800, undefined, { sunDir: { x: 0, y: 1 } });
+        expect(JSON.stringify(a)).toEqual(JSON.stringify(b));
+    });
+});
+
+describe('generateHouseLayout — stair hugs a perimeter wall on the poor-aspect side', () => {
+    it('a 2-storey house with a northern latitude puts the stair ADJACENT to a SIDE wall', () => {
+        const res = generateHouseLayout(
+            SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2, solar: { latDeg: 51.5 } },
+        );
+        const core = res.stairs[0]!.rectMm;
+        // Shares ≥1 edge with the 12×10 m (12000×10000 mm) shell bounding box.
+        const touchesLeft  = Math.abs(core.x) < 1e-6;
+        const touchesRight = Math.abs(core.x + core.w - 12000) < 1e-6;
+        const touchesFront = Math.abs(core.y) < 1e-6;   // entrance edge — never expected
+        // §STAIR-CORNER-ANCHOR — with the sun to the back (north lat → +y good), the
+        // chooser prefers a SIDE-wall back corner: its PRIMARY face is the aspect-
+        // neutral side wall (keeps the prime front façade for habitable rooms), and
+        // it carves cleanly (a back corner → one dominant rect). The core therefore
+        // hugs a side wall; it is never on the entrance edge.
+        expect(touchesLeft || touchesRight).toBe(true);
+        expect(touchesFront).toBe(false);
+        expect(core.y).toBeGreaterThan(0);
+    });
+
+    it('the stair core is minimal-footprint (≤ MAX_FRACTION of either plate dim)', () => {
+        const res = generateHouseLayout(
+            SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2, solar: { latDeg: 51.5 } },
+        );
+        const core = res.stairs[0]!.rectMm;
+        expect(core.w).toBeLessThanOrEqual(0.45 * 12000 + 1e-6);
+        expect(core.h).toBeLessThanOrEqual(0.45 * 10000 + 1e-6);
+    });
+
+    it('a Southern-hemisphere site (sun to the front) still keeps the stair off the entrance', () => {
+        const res = generateHouseLayout(
+            SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2, solar: { latDeg: -34 } },
+        );
+        const core = res.stairs[0]!.rectMm;
+        expect(core.y).toBeGreaterThan(0);                       // never on the entrance edge
+        expect(core.x + core.w).toBeLessThanOrEqual(12000 + 1e-6);
+        expect(core.y + core.h).toBeLessThanOrEqual(10000 + 1e-6);
+    });
+
+    it('stays deterministic + stacks across storeys with solar threaded', () => {
+        const opts = { storeyCount: 3, solar: { latDeg: 51.5 } };
+        const a = generateHouseLayout(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, opts);
+        const b = generateHouseLayout(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, opts);
+        expect(JSON.stringify(a.stairs)).toEqual(JSON.stringify(b.stairs));
+        const expected = a.stairs[0]!.rectMm;
+        for (const s of a.stairs) expect(s.rectMm).toEqual(expected);
+        for (const v of a.voids) expect(v.rectMm).toEqual(expected);
     });
 });

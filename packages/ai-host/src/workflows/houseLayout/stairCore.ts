@@ -15,7 +15,36 @@
 // Single-storey houses don't call this (no stair), but it is still well-defined.
 
 import type { Pt, StairShape } from './types.js';
-import { chooseStairCorePosition } from './stairPosition.js';
+import { chooseStairCorePosition, aspectFromSunDir, type AspectBias } from './stairPosition.js';
+
+/** §STAIR-WORST-ASPECT (2026-06-08) — optional site solar data the stair reservation
+ *  uses to bias the core toward the POOR-ASPECT perimeter wall (founder rule: the
+ *  stair takes the worst façade so habitable rooms keep the best). Absent ⇒ the
+ *  legacy waste-only placement (perimeter-vs-central decided purely by circulation
+ *  waste; no behaviour change). The latitude is the SAME `solar.latDeg` the window-
+ *  orientation engine already consumes.
+ *
+ *  `sunDirLayout` (optional) is the sun/equator-facing unit direction ALREADY mapped
+ *  into the PLATE-LOCAL (principal-axis-rotated) frame the core is reserved in
+ *  (x=East, y=plan-Z). When present it OVERRIDES the latitude derivation — the
+ *  orchestrator supplies it so a SKEWED plate's aspect is correct in the rotated
+ *  frame (the same −angle map `runDeterministicLayout` applies to the window sun
+ *  direction). On an axis-aligned plate `sunDirLayout` equals `aspectFromSunDir`. */
+export interface StairSolar {
+    readonly latDeg: number;
+    readonly sunDirLayout?: { readonly x: number; readonly y: number } | null;
+}
+
+/** Build the plate-local AspectBias from optional solar data. Always returns a bias
+ *  object when `solar` is present (even near the equator → sunDir null, which still
+ *  activates the §STAIR-WORST-ASPECT perimeter preference — the stair hugs a wall
+ *  regardless of latitude, which is what fixes the central-hole subdivision break).
+ *  Absent ⇒ undefined → `chooseStairCorePosition` uses its legacy waste-only path. */
+function aspectBiasFor(solar: StairSolar | undefined): AspectBias | undefined {
+    if (!solar) return undefined;
+    const sunDir = solar.sunDirLayout !== undefined ? solar.sunDirLayout : aspectFromSunDir(solar.latDeg);
+    return { sunDir };
+}
 
 /** Default reserved stair-core dimensions (mm): 1.0 m wide × 3.0 m deep run. */
 const STAIR_W_MM = 1000;
@@ -68,6 +97,9 @@ function plateLocalPolyMm(footprint: readonly Pt[], bb: BBoxM): { x: number; y: 
 export function reserveStairCore(
     footprint: Pt[],
     _storeyCount: number,
+    // §STAIR-WORST-ASPECT — optional site solar so the I-core hugs the poor-aspect
+    // perimeter wall. Absent ⇒ legacy waste-only placement (bit-identical).
+    solar?: StairSolar,
 ): { x: number; y: number; w: number; h: number } {
     const bb = bboxOf(footprint);
     const plateWmm = Math.max(0, (bb.maxX - bb.minX) * 1000);
@@ -93,7 +125,11 @@ export function reserveStairCore(
     // returns the central candidate (stable tie-break) → byte-identical to before.
     // A.21.D34(a) — cull candidates to the real (possibly rotated) shell polygon so a
     // perimeter "flush" candidate never pokes outside a skewed plate.
-    const pos = chooseStairCorePosition(plateWmm, plateHmm, w, h, plateLocalPolyMm(footprint, bb));
+    // §STAIR-WORST-ASPECT — bias toward the poor-aspect perimeter wall when site
+    // solar is supplied (else legacy waste-only).
+    const pos = chooseStairCorePosition(
+        plateWmm, plateHmm, w, h, plateLocalPolyMm(footprint, bb), aspectBiasFor(solar),
+    );
     let x = minXmm + pos.x;
     let y = minZmm + pos.y;
 
@@ -199,6 +235,9 @@ export function reserveStairCoreShaped(
     footprint: Pt[],
     storeyCount: number,
     totalRisers: number,
+    // §STAIR-WORST-ASPECT — optional site solar (latitude) so the shaped core hugs
+    // the poor-aspect perimeter wall. Absent ⇒ legacy waste-only (bit-identical).
+    solar?: StairSolar,
 ): StairCoreShaped {
     const bb = bboxOf(footprint);
     const plateWmm = Math.max(0, (bb.maxX - bb.minX) * 1000);
@@ -215,7 +254,7 @@ export function reserveStairCoreShaped(
 
     // For I we reuse the straight-run reservation verbatim (1.0 × 3.0 m rect).
     if (shape === 'I') {
-        const rect = reserveStairCore(footprint, storeyCount);
+        const rect = reserveStairCore(footprint, storeyCount, solar);
         return { rectMm: rect, shape: 'I', risersBeforeLanding: 0, landingDepthM: 0 };
     }
 
@@ -234,7 +273,10 @@ export function reserveStairCoreShaped(
     // shaped (L/U) core too, on its OWN footprint (w×h), and take the least-waste
     // one (central tie-break → no shift where central is best). See stairPosition.ts.
     // A.21.D34(a) — cull to the rotated shell polygon (see reserveStairCore).
-    const pos = chooseStairCorePosition(plateWmm, plateHmm, w, h, plateLocalPolyMm(footprint, bb));
+    // §STAIR-WORST-ASPECT — bias toward the poor-aspect wall when solar is supplied.
+    const pos = chooseStairCorePosition(
+        plateWmm, plateHmm, w, h, plateLocalPolyMm(footprint, bb), aspectBiasFor(solar),
+    );
     let x = minXmm + pos.x;
     let y = minZmm + pos.y;
     x = clamp(x, minXmm, minXmm + plateWmm - w);

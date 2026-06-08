@@ -84,6 +84,20 @@ export interface SubdivideOptions {
      *  accessibility slider raises it (wider, step-free corridors). Clamped to a
      *  sane band. Neutral 1.2 m is byte-identical to the legacy carve. */
     readonly corridorWidthM?: number;
+    /**
+     * §STAIR-OBSTACLE-CARVE (2026-06-08) — set true by `enumerate.ts` when the rect
+     * set is the result of carving a stair-core keep-out out of the plate (a multi-
+     * storey HOUSE). A keep-out turns the single plate into a FRAME / L of 2–4 sub-
+     * rects, which the generic multi-rect path packs INDEPENDENTLY per rect — so no
+     * corridor spine links the rooms across the hole and the plan ships as a merged
+     * blob with a §CIRCULATION-REROUTE compromise (the founder's central-stair
+     * defect). When this flag is set AND one sub-rect dominates the plate, the
+     * subdivider runs the §SINGLE-RECT corridor carve on that DOMINANT rect with the
+     * whole programme, so a real corridor encloses + links every room and the tiny
+     * stair-clearance slivers are left empty (correct — they ARE the landing zone).
+     * Absent / false ⇒ the generic multi-rect path (apartment + L/U/T shells
+     * unchanged). */
+    readonly stairCarved?: boolean;
 }
 
 /** Axis-line snap tolerance (m). Matches the EPS_M used by the SCORING
@@ -717,6 +731,60 @@ export function subdivideWithReport(
         if (carved !== null) return finalise(carved);
     }
 
+    // §STAIR-OBSTACLE-CARVE (2026-06-08) — a stair keep-out fractured the plate into
+    // a frame/L of sub-rects (multi-storey house). The generic multi-rect path below
+    // would pack each sub-rect independently → no corridor spine → merged blob +
+    // §CIRCULATION-REROUTE (the founder's central-stair defect). Instead, when one
+    // sub-rect DOMINATES the plate, carve the corridor in that dominant rect with the
+    // WHOLE programme so a real corridor encloses + links every room. The tiny stair-
+    // clearance slivers are left empty — they are the landing zone around the stair,
+    // not habitable space. Only fires when the carve actually succeeds; otherwise we
+    // fall through to the unchanged generic multi-rect path (no regression).
+    if (options.stairCarved && valid.length >= 2) {
+        const totalArea = valid.reduce((s, r) => s + rectArea(r), 0);
+        const dominant = valid[0]!;            // valid is sorted byAreaDesc
+        // "Dominant" = holds the clear majority of the buildable area. Below this the
+        // plate is genuinely split (e.g. a mid-edge stair leaving two comparable
+        // wings) and the generic per-rect path is the right tool.
+        const DOMINANT_FRACTION = 0.55;
+        if (rectArea(dominant) >= DOMINANT_FRACTION * totalArea) {
+            const carved = trySingleRectCarve(dominant, graph, corridorWidthM);
+            // §STAIR-CARVE-NO-DROP (2026-06-08) — the dominant-rect carve gives every
+            // room a corridor spine (the founder's central-blob fix), but squeezing the
+            // WHOLE programme into the dominant rect (which is smaller than the full
+            // plate by the stair sliver) can force it to DROP a room — e.g. on a
+            // perimeter back-corner stair the dominant rect is ~75% of the plate and the
+            // master en-suite no longer fits. The generic multi-rect path uses ALL the
+            // sub-rects (incl. the sliver) so it usually keeps every room — but with no
+            // corridor spine (the merged-blob risk). So we run BOTH and prefer whichever
+            // drops FEWER programme rooms; on a tie we keep the CARVE (its corridor spine
+            // is what fixes the central-stair merged blob). This preserves the vertical
+            // programme (master + en-suite stay placed) without abandoning the spine.
+            if (carved !== null) {
+                const generic = packMultiRect(valid, graph);
+                const carvedDrops = carved.droppedRooms.length;
+                const genericDrops = generic.droppedRooms.length;
+                return finalise(genericDrops < carvedDrops ? generic : carved);
+            }
+            // No corridor/private split (e.g. studio brief): squarify the whole
+            // programme into the dominant rect so it still reads as one enclosed,
+            // detectable set rather than scattered per-sliver fragments.
+            const packed = placeInRectReported(dominant, allocationOrder(graph.rooms));
+            if (packed.placements.length > 0) return finalise(packed);
+        }
+    }
+
+    return finalise(packMultiRect(valid, graph));
+}
+
+/**
+ * Generic multi-rect packing (L / T / U shells, and the fall-through for a
+ * stair-carved plate). Allocates rooms to rects ∝ area, public-first, reserving
+ * ≥1 room for every later rect so each rect is actually filled. Extracted so the
+ * §STAIR-OBSTACLE-CARVE branch can evaluate it as an ALTERNATIVE to the dominant-
+ * rect corridor carve and pick whichever drops fewer programme rooms. Pure.
+ */
+function packMultiRect(valid: readonly Rect[], graph: BubbleGraph): SubdivideResult {
     const rooms = allocationOrder(graph.rooms);
 
     // Common case — a rectangular (single-rect) shell, no carve (no corridor,
@@ -725,7 +793,7 @@ export function subdivideWithReport(
     // rect (can't fill N rects with <N one-footprint rooms without splitting a
     // room). Real programs always have rooms ≥ rects, so this is a safety net.
     if (valid.length === 1 || rooms.length < valid.length) {
-        return finalise(placeInRectReported(valid[0]!, rooms));
+        return placeInRectReported(valid[0]!, rooms);
     }
 
     // Multi-rect shell (L / T / U): allocate rooms to rects ∝ area, public-first,
@@ -751,7 +819,7 @@ export function subdivideWithReport(
         droppedRooms.push(...r.droppedRooms);
         cursor += take;
     }
-    return finalise({ placements: out, droppedRooms });
+    return { placements: out, droppedRooms };
 }
 
 /**
