@@ -2337,3 +2337,35 @@ some walls, the joins go off and the window openings too."*
 ---
 
 *Addendum continues 2026-06-08 — §22.10 deploy CONFIRMED (v61 live; stale-cache on founder re-test) + WJ-SKEW-2/WALLS-DONT-REACH/CORRIDOR-NO-TRIM contingencies if hard-reload still fails.*
+
+### §22.11 — WJ-SKEW CONFIRMED working + v62–v64 demo completion (2026-06-08)
+
+- **WJ-SKEW CONFIRMED FIXED (founder hard-reloaded log).** On a fresh bundle the founder ran a
+  **38.5°-rotated** plate (`stair … rot 38.5°`): the WallJoinResolver logged ONLY clean
+  `§MULTI-CLUSTER … trimmed=3` entries with **ZERO `§SELF-CLUSTER-GUARD` / `§WJR-INVALID
+  self-cluster`** (the broken build was full of them), and the upper level detected **9 rooms**
+  (vs the old merged blob). The earlier "still wrong" reports were STALE CACHE. The weld fix
+  (0.05→0.20→0.45 m) eliminates the self-cluster → no dropped walls → no room-merge / window-drop.
+- **WJ-SKEW-2 (weld 0.45 m)** — shipped (2041/2041), strengthens the above. ✅ v64
+- **DEMO-1** — guided New-Project onboarding skips the persona/role step (seedRole='architect'). ✅ v64
+- **SITE-PANEL-UI** — Forma site-analysis panel openable ("☀ Analysis" toolbar toggle) + closeable
+  (header ✕), state persisted. ✅ v64
+- **FLR-VIEWS + HSE-AUDIT-1** ✅ v62 · **DEMO-2** (Living Graph in modal) ✅ v63.
+- **CORRIDOR-NO-TRIM — DEFERRED (diagnosed, not fixed).** Agent root-cause: on the §SINGLE-RECT
+  carve the PRIVATE (dependent) zone tiles the corridor's ENTIRE long face, so the dependent-union
+  served-extent (`needLo/needHi`, subdivide.ts:1044-1064) always equals the full corridor span →
+  `freesLow/freesHigh` always false (subdivide.ts:1081-1083) → `trimCorridorToLastDoor` is a
+  structural IDENTITY. NOT rotated-geometry (the trim sees axis-aligned rects in the principal-axis
+  frame) and NOT the sealing gate. The real fix needs the trim to drive off the PUBLIC-face frontage
+  (the reclaimable own-façade rooms), not the dependent union — a non-trivial re-model touching the
+  §EVERY-ROOM-ACCESS invariant. Held for a focused pass rather than a blind apply (the agent's
+  servedLo/Hi sketch reduces to the existing needLo/Hi). ☐ MED — queued.
+
+**Demo path now end-to-end (v64):** House (no persona step) → map + boundary → option modal w/
+Living Graph → clean rotated-plate layout (WJ-SKEW, 9 rooms, no merge) → 3D on photoreal tiles
+(GIS-LOC) → openable/closeable climate panel. Remaining polish: CORRIDOR-NO-TRIM, DEMO-3 toast,
+BUG-ANNO-DRAG, FORMA-CTX, HSE-AUDIT-2..5, A.27 P5-7.
+
+---
+
+*Addendum continues 2026-06-08 — §22.11 WJ-SKEW CONFIRMED (38.5° plate, zero self-clusters, 9 rooms) + v64 (WJ-SKEW-2 · DEMO-1 · SITE-PANEL-UI); CORRIDOR-NO-TRIM diagnosed + deferred.*
