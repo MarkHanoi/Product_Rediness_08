@@ -2,6 +2,39 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { GLTFExporter } from '@pryzm/renderer-three';
 
 /**
+ * §A.21.D56 — Clone a source element and BAKE its full scene-world transform.
+ *
+ * `Object3D.clone(true)` copies only the element's LOCAL transform
+ * (position/quaternion/scale relative to its parent) — it does NOT carry the
+ * composed ancestor chain. So an element that lived under a translated/rotated
+ * parent group used to lose that ancestor X/Z (and rotation) once re-parented
+ * under the fresh `exportRoot`, laterally shifting the GLB from the true site
+ * origin when Cesium seats it at the ENU frame (scene-world origin === site
+ * origin; see CesiumViewport.renderRealModelOnGlobe).
+ *
+ * This bakes the source's `matrixWorld` (composed ancestor chain) onto the
+ * clone's LOCAL transform, so once added straight under an IDENTITY parent the
+ * clone's world transform equals the source's original scene-world transform.
+ * Exported element positions then match the editor scene EXACTLY, and a
+ * downloaded/round-tripped GLB is world-correct too.
+ *
+ * Exported (rather than inlined) so it is unit-testable without the DOM-bound
+ * `GLTFExporter`.
+ */
+export function cloneWithBakedWorldTransform(element: THREE.Object3D): THREE.Object3D {
+  const clone = element.clone(true);
+
+  // Refresh the ancestor chain on the SOURCE, then bake its composed world
+  // matrix onto the clone's local transform.
+  element.updateWorldMatrix(true, false);
+  clone.matrix.copy(element.matrixWorld);
+  clone.matrix.decompose(clone.position, clone.quaternion, clone.scale);
+  clone.matrixAutoUpdate = true;
+
+  return clone;
+}
+
+/**
  * Exports fragments from a Three.js scene to a GLB binary format
  * Preserves hierarchy and lets Cesium handle world placement.
  * Model base is anchored to Y = 0.
@@ -43,16 +76,20 @@ export async function exportFragmentsToGLB(scene: THREE.Scene): Promise<string> 
   console.log(`📊 Found ${elementsToExport.length} root elements to export.`);
 
   // ------------------------------------------------------------
-  // ✅ Clone elements WITHOUT baking transforms
+  // ✅ Clone elements AND BAKE THEIR FULL WORLD TRANSFORM (§A.21.D56)
   // ------------------------------------------------------------
+  // `exportRoot` stays at identity below, so a clone carrying its source's baked
+  // scene-world transform lands at exactly the editor scene-world position. This
+  // restores the ancestor X/Z (and rotation) that the bare `clone(true)` dropped,
+  // so the GLB is no longer laterally shifted from the site origin on the globe.
   for (const element of elementsToExport) {
     // deep clone can fail if userData has circular refs (common in BIM)
     // We sanitize userData before cloning to avoid "Converting circular structure to JSON"
-    
+
     // Simple sanitization: only keep primitive-like data for export
     // or just temporarily remove it if it's too complex
-    const clone = element.clone(true);
-    
+    const clone = cloneWithBakedWorldTransform(element);
+
     // Ensure the clone doesn't carry over circular references in userData
     clone.traverse((child) => {
       if (child.userData) {
