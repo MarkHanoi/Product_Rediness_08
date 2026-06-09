@@ -42,6 +42,39 @@ export interface HouseLayoutModalCallbacks {
 
 const DEBOUNCE_MS = 250;
 
+/** §SHARED-FLOOR-BOUNDS (2026-06-09) — the union of every storey's room-polygon
+ *  bounds (fallback: wall endpoints) across one house card, in the mm PLAN frame
+ *  the thumbnail draws in (same frame as `buildLayoutThumbnailSvg`'s mapX/mapY).
+ *  Returns null when no storey carries usable geometry → each thumbnail falls
+ *  back to its own per-option fit (legacy behaviour). Pure. */
+function unionStoreyBoundsMm(
+    card: HouseCardModel,
+): { minX: number; maxX: number; minY: number; maxY: number } | null {
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    let have = false;
+    const acc = (x: number, y: number): void => {
+        have = true;
+        if (x < minX) minX = x; if (x > maxX) maxX = x;
+        if (y < minY) minY = y; if (y > maxY) maxY = y;
+    };
+    for (const s of card.storeys) {
+        const opt = s.option;
+        let storeyHasPoly = false;
+        for (const r of opt.rooms ?? []) {
+            if (!r.polygon || r.polygon.length < 3) continue;
+            storeyHasPoly = true;
+            for (const p of r.polygon) acc(p.x, p.y);
+        }
+        // Fall back to this storey's wall endpoints only when it has no polygons
+        // (mirrors the thumbnail's own per-option bounds preference).
+        if (!storeyHasPoly) {
+            for (const w of opt.walls ?? []) { acc(w.start.x, w.start.y); acc(w.end.x, w.end.y); }
+        }
+    }
+    if (!have || !(maxX > minX) || !(maxY > minY)) return null;
+    return { minX, maxX, minY, maxY };
+}
+
 export class HouseLayoutModal {
     private _el: HTMLDivElement | null = null;
     private _escHandler: ((e: KeyboardEvent) => void) | null = null;
@@ -161,10 +194,19 @@ export class HouseLayoutModal {
     }
 
     private _storeyThumbs(options: readonly ScoredHouseLayoutOption[]): string[][] {
-        const thumbOpts = { background: '#ffffff' } as const;
-        return this._cards(options).map(card =>
-            card.storeys.map(s => buildLayoutThumbnailSvg(s.option, thumbOpts)),
-        );
+        return this._cards(options).map(card => {
+            // §SHARED-FLOOR-BOUNDS (2026-06-09, founder feedback #1) — fit EVERY
+            // storey of this variant to ONE shared bounding box (the union of all
+            // storeys' room polygons / wall endpoints, in the same mm plan frame
+            // the thumbnail draws in). Storeys share an identical exterior shell
+            // footprint (StoreyPlate.footprint is "identical on every storey"), so
+            // a shared fit makes the Ground-floor and upper-floor thumbnails render
+            // at the SAME scale + extent — they no longer look like different-sized
+            // footprints just because an upper storey has fewer/smaller rooms.
+            const boundsMm = unionStoreyBoundsMm(card);
+            const thumbOpts = { background: '#ffffff', ...(boundsMm ? { boundsMm } : {}) } as const;
+            return card.storeys.map(s => buildLayoutThumbnailSvg(s.option, thumbOpts));
+        });
     }
 
     // ── §MODAL-DYNAMIC internals ────────────────────────────────────────────

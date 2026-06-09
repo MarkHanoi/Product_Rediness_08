@@ -47,6 +47,17 @@ export interface ThumbnailOptions {
      *  front door from §DOOR-AVOIDANCE). Rendered the same way as the
      *  generated interior doors but in PURPLE on the perimeter walls. */
     readonly doorSpansWorld?: ReadonlyArray<PerimeterSpan>;
+    /**
+     * §SHARED-FLOOR-BOUNDS (2026-06-09, founder feedback #1) — an EXTERNALLY
+     * supplied bounding box in mm (plan coords, same frame as room polygons /
+     * wall endpoints) to fit-and-centre this thumbnail to, INSTEAD of fitting
+     * to the option's own rooms. The house-layout modal passes the SAME bounds
+     * (the building footprint / union of all storeys) to every storey of a
+     * variant so the Ground-floor and First-floor thumbnails render at an
+     * IDENTICAL scale + extent — i.e. the smaller upper-storey plate no longer
+     * "zooms in" and looks like a different-sized footprint. Omitted ⇒ the
+     * legacy per-option fit-to-rooms (apartment single-plate path is unchanged). */
+    readonly boundsMm?: { readonly minX: number; readonly maxX: number; readonly minY: number; readonly maxY: number };
 }
 
 const DEFAULTS = {
@@ -147,20 +158,33 @@ export function buildLayoutThumbnailSvg(option: LayoutOption, opts: ThumbnailOpt
     // Bounding box: prefer the union of room polygons (the EXACT shell), fall
     // back to wall endpoints (back-compat for AI options without polygons).
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    let havePoly = false;
-    for (const r of rooms) {
-        if (!r.polygon || r.polygon.length < 3) continue;
-        havePoly = true;
-        for (const p of r.polygon) {
-            if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
-            if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
-        }
-    }
-    if (!havePoly) {
-        for (const w of walls) {
-            for (const p of [w.start, w.end]) {
+    // §SHARED-FLOOR-BOUNDS (2026-06-09) — when the caller supplies an explicit
+    // bounds (the shared building footprint), fit to THAT instead of the option's
+    // own rooms, so sibling storeys render at one consistent scale + extent. The
+    // mapX/mapY below stay identical; only the source of min/maxX/Y changes.
+    if (opts.boundsMm
+        && isFinite(opts.boundsMm.minX) && isFinite(opts.boundsMm.maxX)
+        && isFinite(opts.boundsMm.minY) && isFinite(opts.boundsMm.maxY)
+        && opts.boundsMm.maxX > opts.boundsMm.minX
+        && opts.boundsMm.maxY > opts.boundsMm.minY) {
+        minX = opts.boundsMm.minX; maxX = opts.boundsMm.maxX;
+        minY = opts.boundsMm.minY; maxY = opts.boundsMm.maxY;
+    } else {
+        let havePoly = false;
+        for (const r of rooms) {
+            if (!r.polygon || r.polygon.length < 3) continue;
+            havePoly = true;
+            for (const p of r.polygon) {
                 if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
                 if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
+            }
+        }
+        if (!havePoly) {
+            for (const w of walls) {
+                for (const p of [w.start, w.end]) {
+                    if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
+                    if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
+                }
             }
         }
     }

@@ -377,4 +377,82 @@ describe('buildLayoutThumbnailSvg (A5-modal-core)', () => {
             expect(delta).toBe(4);   // 2 lines per window × 2 windows
         });
     });
+
+    // §SHARED-FLOOR-BOUNDS (2026-06-09, founder feedback #1) — the house modal
+    // fits every storey of a variant to ONE shared bounds so the Ground-floor and
+    // upper-floor thumbnails render at the SAME scale + extent.
+    describe('§SHARED-FLOOR-BOUNDS boundsMm override', () => {
+        function roomOpt(maxXmm: number, maxYmm: number): LayoutOption {
+            return {
+                summary: '', corridorWidthMin: 0, doors: [], walls: [],
+                rooms: [{
+                    name: '', type: 'living', area: 0, windowCount: 0,
+                    hasDirectAccess: true, adjacentTo: [],
+                    polygon: [
+                        { x: 0, y: 0 }, { x: maxXmm, y: 0 },
+                        { x: maxXmm, y: maxYmm }, { x: 0, y: maxYmm },
+                    ],
+                    occupancy: 'living-room',
+                }],
+            };
+        }
+
+        function firstPolygonPoints(svg: string): Array<[number, number]> {
+            const m = svg.match(/<polygon points="([^"]+)"/);
+            if (!m) return [];
+            return m[1]!.split(' ').map(pair => {
+                const [x, y] = pair.split(',').map(Number);
+                return [x!, y!] as [number, number];
+            });
+        }
+
+        it('fits the SAME footprint to an explicit larger bounds at a SMALLER scale', () => {
+            const cfg = { width: 320, height: 240, padding: 12, showScaleBar: false } as const;
+            // A small 6×4 m plate fit to its OWN bounds fills the box.
+            const own = buildLayoutThumbnailSvg(roomOpt(6000, 4000), cfg);
+            // The SAME plate fit to a larger SHARED bounds (a 10×8 m shell) draws
+            // smaller — it occupies only part of the box, leaving margin.
+            const shared = buildLayoutThumbnailSvg(roomOpt(6000, 4000), {
+                ...cfg, boundsMm: { minX: 0, maxX: 10000, minY: 0, maxY: 8000 },
+            });
+            const ownPts = firstPolygonPoints(own);
+            const sharedPts = firstPolygonPoints(shared);
+            const span = (pts: Array<[number, number]>): number => {
+                const xs = pts.map(p => p[0]);
+                return Math.max(...xs) - Math.min(...xs);
+            };
+            // The polygon's on-screen width must be SMALLER under the larger shared
+            // bounds than under its own fit-to-rooms bounds.
+            expect(span(sharedPts)).toBeLessThan(span(ownPts));
+        });
+
+        it('two DIFFERENT-sized plates share an IDENTICAL scale under the same boundsMm', () => {
+            const bounds = { minX: 0, maxX: 10000, minY: 0, maxY: 8000 };
+            const cfg = { width: 320, height: 240, padding: 12, showScaleBar: false, boundsMm: bounds } as const;
+            // Ground (full 10×8 m shell) and First (smaller 6×4 m plate) share the
+            // same bounds → the same metre-to-pixel scale. A 10000 mm edge on the
+            // ground plate and a 6000 mm edge on the first plate must scale by the
+            // SAME factor (ratio of on-screen spans == ratio of mm spans).
+            const ground = buildLayoutThumbnailSvg(roomOpt(10000, 8000), cfg);
+            const first = buildLayoutThumbnailSvg(roomOpt(6000, 4000), cfg);
+            const span = (svg: string): number => {
+                const pts = firstPolygonPoints(svg);
+                const xs = pts.map(p => p[0]);
+                return Math.max(...xs) - Math.min(...xs);
+            };
+            const scaleGround = span(ground) / 10000;
+            const scaleFirst = span(first) / 6000;
+            expect(Math.abs(scaleGround - scaleFirst)).toBeLessThan(1e-6);
+        });
+
+        it('ignores a degenerate boundsMm and falls back to per-option fit', () => {
+            const cfg = { width: 320, height: 240, padding: 12, showScaleBar: false } as const;
+            const own = buildLayoutThumbnailSvg(roomOpt(6000, 4000), cfg);
+            // maxX == minX → not a usable box → legacy per-option fit (identical svg).
+            const degenerate = buildLayoutThumbnailSvg(roomOpt(6000, 4000), {
+                ...cfg, boundsMm: { minX: 5, maxX: 5, minY: 0, maxY: 8000 },
+            });
+            expect(degenerate).toBe(own);
+        });
+    });
 });
