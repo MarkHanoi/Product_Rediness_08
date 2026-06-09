@@ -47,7 +47,26 @@ export interface WeldOptions {
     readonly gridM?: number;
 }
 
-const DEFAULT_SHELL_SNAP_M = 0.30;
+// §SHELL-SNAP-WIDEN (2026-06-09, room-merge root-cause fix) — raised 0.30 → 0.60 m.
+// FORENSIC PROOF (weldResolverRoomDetectionChain.test.ts + headless generator probes):
+// the room-merge defect is NOT the WallJoinResolver re-opening the seal (the resolver
+// provably never reduces the detected room count vs the welded geometry) and NOT the
+// perimeter ring failing to close (_buildPerimeterShell already dedupes <50 mm, wraps
+// last→first, and emits bit-exact shared endpoints). The merge is a PRE-RESOLVER gap:
+// on a rotated/elongated plate the engine tiles interior partitions against the
+// principal-axis frame and the perimeter-TERMINATING endpoints land OFF the world
+// perimeter ring by a residual that, at 0.30 m, the weld could not bridge — so the
+// endpoint stayed > the detector's own 0.30 m corner-snap from the shell → an OPEN SEAM
+// → RoomDetectionEngine floods across it → adjacent rooms merge.
+// 0.60 m absorbs the residual on moderate rotations while the SPAN-INTERIOR guard below
+// (only snap when the perpendicular foot is strictly INSIDE the shell wall's span) keeps
+// a genuinely-interior endpoint — which is metres from any shell BODY — from being
+// dragged onto a shell. Axis-aligned plates are byte-identical (residual 0 → no snap).
+const DEFAULT_SHELL_SNAP_M = 0.60;
+/** Margin (m) from a shell wall's ends within which a perpendicular foot is treated as a
+ *  near-CORNER hit and NOT snapped (Pass 2's endpoint weld owns corners). Keeps the
+ *  widened shell snap from dragging a far interior endpoint onto a shell wall's extreme. */
+const SHELL_SNAP_SPAN_MARGIN_M = 0.10;
 // §WJ-SKEW / §WJ-SKEW-2 / §WJ-SKEW-3 / §WJ-SKEW-4 (2026-06-08/09, tracker §22.7/§22.10/§22.11/§22.12) —
 // raised 0.05 → 0.20 → 0.45 → 0.60, then settled back to 0.50 + a per-endpoint room-safety guard.
 // ROOT CAUSE of the rotated-plate wall-join cascade: the upstream weld fused endpoints
@@ -160,12 +179,22 @@ export function weldPartitionsToShell(
     }
 
     // ── Pass 1: SHELL SNAP ───────────────────────────────────────────────────────
+    // §SHELL-SNAP-WIDEN — snap a partition endpoint onto the closest shell wall whose
+    // perpendicular foot is (a) within `shellSnapTolM` and (b) strictly INSIDE that
+    // shell wall's span (≥ SHELL_SNAP_SPAN_MARGIN_M from either end). The span-interior
+    // guard means the widened 0.60 m tolerance only ever pulls a partition that genuinely
+    // RUNS UP TO a shell BODY (the perimeter-terminating end) onto it — never a distant
+    // interior endpoint that happens to be < 0.60 m from a shell CORNER. Corners are
+    // owned by Pass 2's endpoint weld.
     for (const ep of eps) {
         let bestPerp = shellSnapTolM;
         let best: { x: number; z: number } | null = null;
         for (const s of shellSegs) {
             if (s.len < EPS) continue;
             const c = closestOnSeg(ep, s);
+            // Span-interior guard: reject near-corner feet so we don't drag a far
+            // interior endpoint onto a shell wall's extreme end.
+            if (c.along <= SHELL_SNAP_SPAN_MARGIN_M || c.along >= s.len - SHELL_SNAP_SPAN_MARGIN_M) continue;
             if (c.perp < bestPerp) { bestPerp = c.perp; best = { x: c.x, z: c.z }; }
         }
         if (best) { ep.x = best.x; ep.z = best.z; }
@@ -186,9 +215,16 @@ export function weldPartitionsToShell(
     // axis-aligned plate (its endpoints are already coincident at corners, not mid-span).
     const spanSegs = partitions.map((_, i) => unitSeg(eps[i * 2]!, eps[i * 2 + 1]!));
     const TJUNC_MARGIN_M = 0.10;   // only the span INTERIOR — near-end cases belong to Pass 2
+    // §SHELL-SNAP-WIDEN — the partition↔partition T-junction snap KEEPS the original
+    // 0.30 m band (NOT the widened shell tol): a partition ending near ANOTHER
+    // partition's mid-span is an INTERIOR junction whose acceptable drift is small, and
+    // widening it would falsely fuse near-parallel interior partitions. Only the shell
+    // (perimeter) snap in Pass 1 was widened — that is the perimeter-terminating gap the
+    // forensics implicate.
+    const TJUNC_SNAP_TOL_M = 0.30;
     for (let i = 0; i < eps.length; i++) {
         const ownPart = i >> 1;
-        let bestPerp = shellSnapTolM;
+        let bestPerp = TJUNC_SNAP_TOL_M;
         let best: { x: number; z: number } | null = null;
         for (let q = 0; q < spanSegs.length; q++) {
             if (q === ownPart) continue;                 // never snap onto its own span

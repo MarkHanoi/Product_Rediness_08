@@ -562,6 +562,77 @@ export class HouseLayoutExecutor {
 
                 perStorey.push({ levelId: storey.levelId, set, option });
 
+                // ── §DIAG-SEAL (2026-06-09, founder room-merge forensics) ─────────────
+                // The decisive instrumentation: AFTER the weld decision, for EVERY
+                // interior-partition endpoint on this storey, log the distance to the
+                // nearest perimeter (shell) wall body AND to the nearest OTHER partition
+                // endpoint. RoomDetectionEngine seals a loop only when each sealing
+                // endpoint sits within its corner-snap (`_snapNearbyCorners` = 0.30 m) of
+                // a perimeter wall OR another partition endpoint; an endpoint whose BOTH
+                // distances exceed 0.30 m is an OPEN seam → the detector floods across it
+                // → adjacent rooms merge (the founder's "5 rooms → 1 blob"). The headless
+                // weld→resolver→detection chain (weldResolverRoomDetectionChain.test.ts)
+                // proves the resolver does NOT re-open a seal the weld closed and proves a
+                // RESIDUAL > 0.30 m (which the weld's shellSnapTolM=0.30 cannot bridge) is
+                // what merges. This per-endpoint log makes that residual VISIBLE in the
+                // next prod run: any line with seal > 0.300 m is a confirmed merge seam,
+                // and `wld=` shows whether the weld ran on this storey. Pure/read-only.
+                try {
+                    const sealPartitions = (set.wallBatch.payload as {
+                        walls: Array<{ id: string; baseLine: Array<{ x: number; z: number }> }>;
+                    }).walls;
+                    const distToSeg = (px: number, pz: number, a: { x: number; z: number }, b: { x: number; z: number }): number => {
+                        const dx = b.x - a.x, dz = b.z - a.z, len2 = dx * dx + dz * dz;
+                        let t = len2 > 0 ? ((px - a.x) * dx + (pz - a.z) * dz) / len2 : 0;
+                        t = Math.max(0, Math.min(1, t));
+                        return Math.hypot(px - (a.x + t * dx), pz - (a.z + t * dz));
+                    };
+                    type SealEp = { id: string; side: 'start' | 'end'; x: number; z: number };
+                    const eps: SealEp[] = [];
+                    for (const w of sealPartitions) {
+                        const bl = w.baseLine;
+                        if (!bl || bl.length < 2 || !bl[0] || !bl[1]) continue;
+                        eps.push({ id: w.id, side: 'start', x: bl[0].x, z: bl[0].z });
+                        eps.push({ id: w.id, side: 'end', x: bl[1].x, z: bl[1].z });
+                    }
+                    const SEAL_GRID_M = 0.30;   // RoomDetectionEngine._snapNearbyCorners threshold
+                    let openSeamCount = 0;
+                    let maxSeal = 0;
+                    const lines: string[] = [];
+                    for (const ep of eps) {
+                        let nearPerim = Infinity;
+                        for (const sw of shellWalls) {
+                            const d = distToSeg(ep.x, ep.z, sw.start, sw.end);
+                            if (d < nearPerim) nearPerim = d;
+                        }
+                        let nearPart = Infinity;
+                        for (const o of eps) {
+                            if (o.id === ep.id) continue;   // never its own wall's other end
+                            const d = Math.hypot(ep.x - o.x, ep.z - o.z);
+                            if (d < nearPart) nearPart = d;
+                        }
+                        const seal = Math.min(nearPerim, nearPart);
+                        maxSeal = Math.max(maxSeal, seal);
+                        if (seal > SEAL_GRID_M) openSeamCount++;
+                        lines.push(`${ep.id}(${ep.side}) perim=${nearPerim.toFixed(3)}m part=${nearPart.toFixed(3)}m seal=${seal.toFixed(3)}m${seal > SEAL_GRID_M ? ' ⚠OPEN-SEAM' : ''}`);
+                    }
+                    const weldRan = isGround
+                        ? (shellWalls.length >= 3)   // ground weld decision logged above
+                        : (shellWalls.length >= 3 && !this._footprintIsAxisAlignedRect(storey.footprint));
+                    console.log(
+                        `[house-layout] §DIAG-SEAL ${storey.levelId} parts=${sealPartitions.length} eps=${eps.length} ` +
+                        `wld=${weldRan} maxSeal=${maxSeal.toFixed(3)}m openSeams(>${SEAL_GRID_M}m)=${openSeamCount} ` +
+                        `(an OPEN-SEAM endpoint is a confirmed room-merge gap: > detector corner-snap 0.30m)`,
+                    );
+                    if (openSeamCount > 0) {
+                        console.warn(
+                            `[house-layout] §DIAG-SEAL ${storey.levelId} ⚠ ${openSeamCount} OPEN-SEAM endpoint(s) — ` +
+                            `these WILL merge adjacent rooms (engine residual exceeds the 0.30m weld+detector snap):\n  ` +
+                            lines.filter(l => l.includes('OPEN-SEAM')).join('\n  '),
+                        );
+                    }
+                } catch (e) { console.warn('[house-layout] §DIAG-SEAL failed (non-fatal):', e); }
+
                 // §DIAG-ROOMS (2026-06-08) — per-room glazing/access summary so a single
                 // console paste shows exactly which rooms lack a window (the founder's
                 // "rooms have doors but not windows" + daylight focus). Lists every room
