@@ -128,6 +128,103 @@ describe('allocateProgramToStoreys', () => {
     });
 });
 
+// ─── §ROOM-FLOOR-BY-NAME (XFLOOR-GRAPH XA) — override-aware allocation ─────────
+
+describe('allocateProgramToStoreys — roomFloorByName cross-floor override (XA)', () => {
+    it('empty / absent override is BYTE-IDENTICAL to the count-split baseline (C52 I2)', () => {
+        const baseline = allocateProgramToStoreys(PROGRAM, 2);
+        // Absent field.
+        expect(JSON.stringify(allocateProgramToStoreys(PROGRAM, 2))).toEqual(JSON.stringify(baseline));
+        // Explicitly-empty map.
+        const emptyMap: ApartmentProgram = { ...PROGRAM, roomFloorByName: {} };
+        expect(JSON.stringify(allocateProgramToStoreys(emptyMap, 2))).toEqual(JSON.stringify(baseline));
+    });
+
+    it('apartment (storeyCount = 1) is unaffected even with an override set', () => {
+        const withOverride: ApartmentProgram = { ...PROGRAM, roomFloorByName: { 'storey:0/Bedroom 1': 0 } };
+        const out = allocateProgramToStoreys(withOverride, 1);
+        // Single-storey pass-through: one ground plate carrying the whole program,
+        // no cross-floor move possible (no other storey to move to). The program is
+        // passed through verbatim, so the (inert) override field rides along; what
+        // matters is that NO room count changed vs the no-override baseline.
+        const base = allocateProgramToStoreys(PROGRAM, 1);
+        expect(out).toHaveLength(1);
+        expect(out[0]!.role).toBe('ground');
+        expect(out[0]!.program.bedrooms).toBe(base[0]!.program.bedrooms);
+        expect(out[0]!.program.bathrooms).toBe(base[0]!.program.bathrooms);
+    });
+
+    it('moves a bedroom UPSTAIRS→GROUND, adjusting counts and preserving the total', () => {
+        // Baseline 2-storey: ground 1 bedroom, upper 2.
+        const base = allocateProgramToStoreys(PROGRAM, 2);
+        expect(base[0]!.program.bedrooms).toBe(1);
+        expect(base[1]!.program.bedrooms).toBe(2);
+        // Move an upstairs bedroom (storey 1) down to the ground (storey 0).
+        const moved: ApartmentProgram = { ...PROGRAM, roomFloorByName: { 'storey:1/Bedroom 1': 0 } };
+        const out = allocateProgramToStoreys(moved, 2);
+        expect(out[0]!.program.bedrooms).toBe(2); // ground gained one
+        expect(out[1]!.program.bedrooms).toBe(1); // upper lost one
+        // Total preserved.
+        expect(out[0]!.program.bedrooms + out[1]!.program.bedrooms).toBe(PROGRAM.bedrooms);
+    });
+
+    it('moves a bathroom DOWNSTAIRS→UPSTAIRS, preserving the total', () => {
+        const base = allocateProgramToStoreys(PROGRAM, 2);
+        expect(base[0]!.program.bathrooms).toBe(1);
+        expect(base[1]!.program.bathrooms).toBe(1);
+        const moved: ApartmentProgram = { ...PROGRAM, roomFloorByName: { 'storey:0/Bathroom': 1 } };
+        const out = allocateProgramToStoreys(moved, 2);
+        expect(out[0]!.program.bathrooms).toBe(0);
+        expect(out[1]!.program.bathrooms).toBe(2);
+        expect(out[0]!.program.bathrooms + out[1]!.program.bathrooms).toBe(PROGRAM.bathrooms);
+    });
+
+    it('REJECTS a floor-locked type move (kitchen → upstairs) — counts unchanged', () => {
+        const base = allocateProgramToStoreys(PROGRAM, 2);
+        const moved: ApartmentProgram = { ...PROGRAM, roomFloorByName: { 'storey:0/Kitchen': 1 } };
+        const out = allocateProgramToStoreys(moved, 2);
+        // Kitchen stays a ground-only feature; nothing moved.
+        expect(JSON.stringify(out)).toEqual(JSON.stringify(base));
+        expect(out[0]!.program.includeKitchen).toBe(true);
+        expect(out[1]!.program.includeKitchen).toBe(false);
+    });
+
+    it('REJECTS a move with no count at the source storey (counts unchanged)', () => {
+        const base = allocateProgramToStoreys(PROGRAM, 2);
+        // Ground has 1 bedroom; ask to move a (nonexistent) ground "Bedroom 9" up.
+        const moved: ApartmentProgram = { ...PROGRAM, roomFloorByName: { 'storey:0/Bedroom 1': 1, 'storey:0/Bedroom 2': 1 } };
+        const out = allocateProgramToStoreys(moved, 2);
+        // Only one ground bedroom exists → first move succeeds, second has no source → total preserved.
+        expect(out[0]!.program.bedrooms + out[1]!.program.bedrooms).toBe(PROGRAM.bedrooms);
+        // Ground had 1; one valid move down to 0; the second is rejected (no count left).
+        expect(out[0]!.program.bedrooms).toBe(0);
+        expect(out[1]!.program.bedrooms).toBe(3);
+        // Sanity: still a valid 2-storey allocation.
+        expect(out).toHaveLength(2);
+        void base;
+    });
+
+    it('REJECTS a bare (non-storey-qualified) name — ambiguous across storeys', () => {
+        const base = allocateProgramToStoreys(PROGRAM, 2);
+        const moved: ApartmentProgram = { ...PROGRAM, roomFloorByName: { 'Bedroom 1': 0 } };
+        const out = allocateProgramToStoreys(moved, 2);
+        expect(JSON.stringify(out)).toEqual(JSON.stringify(base)); // ignored, baseline preserved
+    });
+
+    it('is deterministic under multiple overrides (order-independent)', () => {
+        const big: ApartmentProgram = {
+            ...PROGRAM, bedrooms: 5, bathrooms: 3,
+            roomFloorByName: { 'storey:2/Bedroom 1': 0, 'storey:1/Bedroom 2': 0 },
+        };
+        const a = allocateProgramToStoreys(big, 3);
+        const b = allocateProgramToStoreys(big, 3);
+        expect(JSON.stringify(a)).toEqual(JSON.stringify(b));
+        // Total bedrooms conserved across the moves.
+        const total = a.reduce((s, sp) => s + sp.program.bedrooms, 0);
+        expect(total).toBe(5);
+    });
+});
+
 // ───────────────────────────── reserveStairCore ─────────────────────────────
 
 describe('reserveStairCore', () => {

@@ -162,6 +162,27 @@ export interface ApartmentProgram {
      *  Omitted / undefined / empty object ⇒ engine default (types come purely
      *  from the program flags) ⇒ byte-identical baseline (ADR-0061 invariant I2). */
     roomTypesByName?: Partial<Record<string, RoomType>>;
+    /** §ROOM-FLOOR-BY-NAME (XFLOOR-GRAPH XA, 2026-06-09, SPEC §9.4b / C52 / ADR-0061):
+     *  per-INSTANCE FLOOR (storey) override for the multi-storey HOUSE engine, keyed
+     *  by the concatenated-graph STOREY-QUALIFIED node id (`"storey:<s>/<roomName>"`)
+     *  → target storey index (0 = ground). It lets the cross-floor Living Graph
+     *  "move a bedroom from upstairs to downstairs" by re-assigning which storey a
+     *  named room instance lives on — without a parallel mutator (C52 §3.4).
+     *
+     *  Consumed ONLY by `allocateProgramToStoreys` (the one place that decides a
+     *  room's storey): after the count-based default split, each `(nodeId → target)`
+     *  moves ONE count of that room's TYPE (derived from the room name) from the
+     *  SOURCE storey (the `storey:<s>/` id prefix) to the target. Floor-pinned types
+     *  (kitchen/dining/living/entrance hall) are GROUND-only and a move that violates
+     *  the pin is REJECTED (logged), keeping each storey feasible.
+     *
+     *  Room names are unique WITHIN a storey but NOT across, so the key MUST be the
+     *  storey-qualified node id (a bare name would be ambiguous). Apartment (single
+     *  storey) is unaffected — `storeyCount === 1` has no other storey to move to.
+     *
+     *  Omitted / undefined / empty object ⇒ no move ⇒ the count-split is unchanged ⇒
+     *  byte-identical baseline (ADR-0061 invariant I2). */
+    roomFloorByName?: Partial<Record<string, number>>;
 }
 
 export interface ScoringWeights {
