@@ -3114,3 +3114,65 @@ ships with these docs.
 *Addendum 2026-06-09 — §29 GEODATA-LAYERS queued with full governance: strategy §2.6 + C55 (DRAFT) +
 SPEC-GEODATA-ANALYTICAL-LAYERS (DRAFT) + ADR-0065 (PROPOSED), all registered. Founder-requested
 strategy+contract+spec+ADR.*
+
+---
+
+## §30 — Georeferenced 3D-Gaussian-Splatting context layer (`GS-PHOTOREAL`) — QUEUED (2026-06-09)
+
+**Founder directive:** spike Apple Maps' radiance-field Flyover — is it free? how powerful? better than
+Cesium? → then "create work item(s) to add this into the pipeline + queue + master tracker:
+**Cesium's April 2026 release, CesiumJS (the exact library PRYZM already runs) natively supports
+georeferenced 3D-Gaussian-splat tilesets via 3D Tiles + the open `KHR_gaussian_splatting` glTF extension.**"
+
+**Spike verdict** ([SPIKE-GAUSSIAN-SPLATTING-PHOTOREAL-3D](../spikes/SPIKE-GAUSSIAN-SPLATTING-PHOTOREAL-3D.md)):
+Apple's Flyover splats are **inaccessible** (app-only render feature, no API/SDK, MapKit JS is 2D + Look
+Around only, ToS forbids caching/derived data) → **reject Apple**. BUT 3DGS itself is the best photoreal-
+capture representation (fixes photogrammetry's broccoli-trees/melted-glass), is an **open Khronos/OGC
+standard** (`KHR_gaussian_splatting` + SPZ, Aug 2025), needs **WebGPU** (PRYZM has it), and **CesiumJS now
+renders georeferenced 3DGS tilesets natively** via 3D Tiles with hierarchical LOD. So PRYZM gets the same
+tech without Apple — context-only (≈7.8 cm error, NOT measurement-grade, NOT CAD-editable).
+
+**Work items (slot under C55 geodata-layers / the Forma site-context view; deferred until the founder picks it up):**
+- [ ] **GS.1 — CesiumJS bump.** Upgrade CesiumJS from ~1.140 to the GS-capable release (≥ the April-2026
+  line with `KHR_gaussian_splatting` + 3D-Tiles GS LOD). Audit breaking changes vs `CesiumViewport.ts`
+  (the `Cesium3DTileset` / `fromIonAssetId` / `createGooglePhotorealistic3DTileset` paths ~:604/:611/:625/:649,
+  the imageryLayers basemap path ~:535/:545). This bump is the only real blocker — render code is solved.
+- [ ] **GS.2 — 3DGS tileset layer.** Add an additive georeferenced 3DGS `Cesium3DTileset` branch mirroring
+  the existing Google-Photoreal-3D-Tiles branch, behind a **C55 geodata-layer toggle** (`drapeMode: building`,
+  C19-anchored, context-only), composing with terrain + context buildings + white BIM massing.
+- [ ] **GS.3 — Data source + attribution.** Host/source georeferenced splats (Cesium ion Community free tier
+  / open splat capture e.g. SuperSplat/Luma/Scaniverse exports), with provenance/attribution per C55 §1.5.
+- [ ] **GS.4 — Fallback.** Graceful no-WebGPU / no-splat-data path → fall back to the current Google/ESRI
+  photoreal tiles (C45 tiering).
+
+**Near-term recommendation (spike):** STAY on Cesium + Google Photoreal 3D Tiles (already working); prototype
+GS.1–GS.2 on the next Cesium bump as a C55 layer. Governed by C55 (geodata layers) + C19 (site) + C45
+(WebGPU tiering); no new contract.
+
+**Status: spiked + queued (GS.1–GS.4), NOT started.**
+
+---
+
+## §31 — Session addendum 2026-06-09 (later) — pipeline architecture · robustness · level-stack · modularity
+
+- **Pipeline architecture (DOC, done):** [PIPELINE-ARCHITECTURE-APARTMENT-VS-HOUSE](../../04-reference/PIPELINE-ARCHITECTURE-APARTMENT-VS-HOUSE.md)
+  — founder-requested contractual side-by-side diagram of both generative pipelines (apartment single-plate
+  vs house storey-loop): **23 shared engine stages / 11 house-only spine / 4 compensating bolt-ons** the
+  apartment never needs (the parallel program sizer, the forked envelope validator, the ground weld, the
+  upper-shell weld). 4 named reuse seams (payload-in / engine-out `LayoutOption`+`HouseLayoutResult` /
+  `buildLayoutCommands` / the command verbs). No new C-number — C53 + ADR-0063 already govern; recommends
+  in-place C53 cross-refs (§5 name seams ③④, §10 link the diagram + ADR-0063).
+- **ROBUSTNESS REVIEW (queued):** on the *successful* "more coherent" 146 m² 2-bed apartment prod test,
+  `§TOPO-HARD-REJECT-ALL` fired — ALL 8 strategies failed the hard **[window]** rule yet it shipped least-bad
+  (safe floor worked). Re-run with `§DIAG-TOPO-GATE` to decide: daylight/frontage gate too strict (loosen
+  `windowMandatoryFor` for open-plan-adjacent rooms that DO carry light through the open threshold) vs a real
+  frontage shortfall (surface the reason in the modal like `§ENVELOPE-DIAGNOSTIC`). The one concrete gap the
+  good prod test exposed.
+- **MODULARITY convergence (ADR-0063 H1 / audit Stages 1–4, queued):** **M-A** finish `§GROUND-ENGINE-PERIMETER`
+  as default so the rotated ground stops taking the `WELD-FALLBACK` (§8.5.5) · **M-B** parameterise
+  `scaleProgramToShell` with a `plateRole` → retire the parallel program sizer + `§AREA-AGREEMENT` · **M-C**
+  unify the envelope validator · **M-D** solve windowless-room + from-scratch entrance once in the engine.
+- **§LEVEL-STACK rooms + furniture (SHIPPED, this session):** room name labels (THREE.Sprites with no
+  `levelId`) now stamped from `roomStore` so they bucket + lift with their storey in both explode paths;
+  fills/volumes/furniture already `levelId`-tagged; collapse restores exact; diagnostics report per-level
+  rm/lbl/fur counts. (Composed with the v93 §LEVEL-STACK instanced-wall fix + 2-state toggle.)
