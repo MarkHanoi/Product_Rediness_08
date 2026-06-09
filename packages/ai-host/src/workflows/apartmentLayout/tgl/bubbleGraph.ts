@@ -89,12 +89,61 @@ const cap = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
  *   400 m²  → 3 beds / 1 bath + ensuite
  *   500 m²  → 4 beds / 2 baths + ensuite
  *   650 m²+ → 5 beds / 2 baths + ensuite (cap)
+ *
+ * §PLATE-ROLE (M-B, ADR-0063 H1, 2026-06-09) — `plateRole` lets the HOUSE
+ * orchestrator route a storey's sub-programme through this SAME shared sizer
+ * instead of its parallel `enrichStoreyProgramToPlate`/`fillGroundPlate` density
+ * model. The convergence finding (`PIPELINE-ARCHITECTURE-APARTMENT-VS-HOUSE.md`
+ * M-B): the subdivider fills the real plate EXACTLY (squarify), so the ONLY lever
+ * on per-room size is room COUNT. The apartment is coherent because
+ * `scaleProgramToShell` scales bedroom COUNT to the plate (~130 m²/bed) — so a
+ * larger apartment gets MORE rooms, each in-band, never one ballooned room. The
+ * house's parallel sizer capped growth far too low (≤5 enriched / ≤2 ground beds at
+ * ~45 m²/bed) so a large house storey was starved of rooms and every room
+ * stretched to fill the plate (the founder's "Living 108 m² / Bedroom 88 m²").
+ *
+ * The role tunes ONLY the density (m² of plate per added bedroom), because the
+ * three roles fill the plate with DIFFERENT room mixes:
+ *   - `'single'` (apartment / single-storey-house whole programme): ~130 m²/bed —
+ *     a full unit (public + private + circulation) per bedroom. UNCHANGED, so the
+ *     apartment is BYTE-IDENTICAL (the default).
+ *   - `'ground'` / `'upper'` (a house STOREY): a denser ~`HOUSE_AREA_PER_BEDROOM`
+ *     (45 m²/bed) because the storey holds only PART of the dwelling (the upper is
+ *     bedrooms+baths only; the ground's public set is already minted by the
+ *     enricher), so each added bedroom consumes less of the plate. This is the SAME
+ *     45 m² the retired §ENRICH-DENSITY-CAP used — promoted from a CAP into the
+ *     positive count target.
+ * Bathroom/en-suite derivation is identical across roles. Pure + deterministic.
  */
-export function scaleProgramToShell(program: ApartmentProgram, shellAreaM2: number): ApartmentProgram {
+export type PlateRole = 'single' | 'ground' | 'upper';
+
+/** §PLATE-ROLE — m² of plate per bedroom for a HOUSE storey (ground/upper). Denser
+ *  than the apartment's 130 because a storey holds only part of the dwelling. */
+const HOUSE_AREA_PER_BEDROOM = 45;
+/** §PLATE-ROLE — m² of plate per bedroom for a self-contained unit ('single' /
+ *  apartment). The original luxury-apartment rule of thumb (UNCHANGED). */
+const UNIT_AREA_PER_BEDROOM = 130;
+/** §PLATE-ROLE — bedroom-count CEILING per role. 'single' (apartment) keeps the
+ *  original 5 (above which it's an HMO, not a flat — BYTE-IDENTICAL). A house storey
+ *  may pack more (a large floor genuinely wants more rooms so each stays in-band),
+ *  but still bounded so a too-big plate doesn't author a dormitory. */
+const MAX_BEDROOMS_SINGLE = 5;
+const MAX_BEDROOMS_HOUSE_STOREY = 8;
+
+export function scaleProgramToShell(
+    program: ApartmentProgram,
+    shellAreaM2: number,
+    plateRole: PlateRole = 'single',
+): ApartmentProgram {
     // An EXPLICIT studio request (bedrooms === 0 AND bathrooms === 0) stays a
     // studio — auto-scale never invents rooms the caller deliberately omitted.
     if (program.bedrooms === 0 && program.bathrooms === 0) return program;
-    const targetBedrooms = Math.min(5, Math.max(program.bedrooms, Math.round(shellAreaM2 / 130)));
+    // §PLATE-ROLE — the density + count ceiling are the ONLY role-dependent terms.
+    // 'single' is the original 130 m²/bed @ ≤5 (apartment byte-identical); a house
+    // storey packs denser (45 m²/bed) and allows more rooms so each stays in-band.
+    const areaPerBedroom = plateRole === 'single' ? UNIT_AREA_PER_BEDROOM : HOUSE_AREA_PER_BEDROOM;
+    const maxBedrooms = plateRole === 'single' ? MAX_BEDROOMS_SINGLE : MAX_BEDROOMS_HOUSE_STOREY;
+    const targetBedrooms = Math.min(maxBedrooms, Math.max(program.bedrooms, Math.round(shellAreaM2 / areaPerBedroom)));
     const targetBathrooms = Math.min(3, Math.max(program.bathrooms, Math.max(1, Math.floor(targetBedrooms / 2))));
     return {
         ...program,

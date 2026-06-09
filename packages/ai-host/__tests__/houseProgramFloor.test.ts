@@ -181,8 +181,14 @@ describe('§HOUSE-GROUND-FILL — A.21.D28 #4 (multi-storey ground = one giant r
     });
 
     it('growGroundRooms never balloons the ground past the low guest-bedroom cap', () => {
-        const out = enrichStoreyProgramToPlate(EMPTY, 1000, 'ground', { growGroundRooms: true });
-        expect(out.bedrooms).toBeLessThanOrEqual(2);        // MAX_GROUND_FILL_BEDROOMS
+        // §HOUSE-GROUND-FILL-LARGE (M-B, 2026-06-09) — a genuinely large ground plate
+        // may add a 2nd→3rd guest/study room (≤3) so its few public rooms don't
+        // balloon; still FAR below the upper (the private level) so "bedrooms live
+        // upstairs" holds. A normal ~165 m² ground stays at 1–2.
+        const big = enrichStoreyProgramToPlate(EMPTY, 1000, 'ground', { growGroundRooms: true });
+        expect(big.bedrooms).toBeLessThanOrEqual(3);        // bounded large-ground cap
+        const normal = enrichStoreyProgramToPlate(EMPTY, 165, 'ground', { growGroundRooms: true });
+        expect(normal.bedrooms).toBeLessThanOrEqual(2);     // MAX_GROUND_FILL_BEDROOMS
     });
 
     it('growGroundRooms keeps an ALLOCATED single guest bedroom (does not add a 2nd) for a normal brief', () => {
@@ -262,8 +268,13 @@ describe('enrichStoreyProgramToPlate — pure unit', () => {
     });
 
     it('respects the bedroom cap (never an HMO) and is bounded', () => {
+        // §PLATE-ROLE (M-B, 2026-06-09) — a house STOREY may pack denser than a
+        // self-contained flat (≤ MAX_BEDROOMS_HOUSE_STOREY = 8) so a large floor is
+        // filled with ENOUGH rooms that each stays in its comfortable band instead of
+        // ballooning — but it is still HARD-bounded (never an unbounded dormitory).
         const out = enrichStoreyProgramToPlate(EMPTY, 1000, 'upper', { growBedrooms: true });
-        expect(out.bedrooms).toBeLessThanOrEqual(5);
+        expect(out.bedrooms).toBeLessThanOrEqual(8);
+        expect(out.bedrooms).toBeGreaterThanOrEqual(5);   // a 1000 m² floor packs many
     });
 
     it('a zero/degenerate plate area is a safe pass-through', () => {

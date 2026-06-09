@@ -23,33 +23,25 @@
 // The §HOUSE-MAX-CAP in the orchestrator still bounds the SUBDIVISION budget so the
 // added rooms stay sensibly sized; this enricher and that cap are complementary.
 //
+// §PLATE-ROLE CONVERGENCE (M-B, ADR-0063 H1, 2026-06-09) — the bedroom-COUNT growth
+// (both the upper/single-storey `growBedrooms` pass AND the multi-storey ground
+// `fillGroundPlate`) now delegates to the SHARED `scaleProgramToShell(…, 'ground' |
+// 'upper')` density model — the apartment's own sizer — instead of the retired
+// parallel `houseStoreyBand` grow-loop + §ENRICH-DENSITY-CAP. The convergence
+// finding: the subdivider fills the real plate EXACTLY (squarify), so the ONLY lever
+// on per-room size is room COUNT; a large house storey was starved of rooms (the old
+// ≤5/≤2 caps) so each room stretched. The shared sizer packs the storey with ENOUGH
+// rooms (denser ~45 m²/bed, bounded ≤8) that each squarifies into its band. This
+// enricher keeps ONLY the genuinely-additional house logic: the role room-SET
+// composition (ground public set vs upper private set, §LANDING-NOT-HALL) and the
+// low ground guest-bedroom cap (bedrooms live upstairs).
+//
 // No I/O, no THREE, no DOM, no Math.random — same convention as the rest of the
 // houseLayout pure core (spans live at the AiPlane boundary, P8 §C09 §2.4).
 
 import type { ApartmentProgram } from '../apartmentLayout/types.js';
 import type { StoreyRole } from './types.js';
-import { houseStoreyBand } from './houseEnvelope.js';
-
-/** A bedroom + its share of a bathroom consume ≈ this much comfortable-target area
- *  (bedroom mid-band ~13.5 m² + a fraction of a bathroom). Used to decide how many
- *  bedrooms a sparse plate can still absorb before the §HOUSE-MAX-CAP would bite. */
-const APPROX_BEDROOM_BLOCK_M2 = 18;
-
-/** Don't enrich past this many bedrooms on a single storey — above this you're
- *  authoring an HMO, and the brief should say so explicitly. Mirrors the apartment
- *  `scaleProgramToShell` cap philosophy. */
-const MAX_ENRICHED_BEDROOMS = 5;
-
-/** §ENRICH-DENSITY-CAP (ADR-0062 D8 / F1, 2026-06-08) — the comfortable area a bedroom
- *  consumes INCLUDING its share of bath + corridor/landing circulation. The bedroom
- *  enrichment is capped by `floor(plateArea / this)` so a large plate is NOT packed with
- *  more bedrooms than it can CIRCULATE — the §DIAG-ENRICH runaway (a 1-bed brief grown to
- *  5 bedrooms on a 176 m² plate, making every candidate topoOK=false / all rooms sealed).
- *  Area-with-circulation is the proxy for window-facade capacity (the true D8 limit), which
- *  is not available at this pure stage; ~45 m² keeps a 176 m² floor at ≤ 3 bedrooms (vs 5),
- *  leaving real room for a corridor that can reach every room. Never reduces below the
- *  user's stated bedroom count (this is a CAP on enrichment, never on the brief). */
-const AREA_PER_BEDROOM_WITH_CIRCULATION_M2 = 45;
+import { scaleProgramToShell } from '../apartmentLayout/tgl/bubbleGraph.js';
 
 /** §HOUSE-GROUND-FILL (A.21.D28 #4) — the most bedrooms a MULTI-storey GROUND
  *  floor may be filled with. The private level is upstairs, so the ground keeps at
@@ -58,10 +50,9 @@ const AREA_PER_BEDROOM_WITH_CIRCULATION_M2 = 45;
  *  well-behaved 3-bed/2-storey case (1 ground guest bedroom) is unchanged. */
 const MAX_GROUND_FILL_BEDROOMS = 2;
 
-/** Stop adding rooms once the programme's comfortable area reaches this fraction of
- *  the plate. Below 1.0 because walls + circulation gross-up (the HOUSE_CIRCULATION
- *  _FACTOR) consume the remainder; aiming at ~85 % of net keeps rooms in their
- *  comfortable band rather than stretched to the hard max. */
+/** §DIAG-ENRICH target-fill fraction — diagnostic-only (the bedroom GROWTH now goes
+ *  through the shared `scaleProgramToShell` density, not this fraction). Retained so
+ *  the §DIAG-ENRICH "targetFillM2" log line keeps its meaning for prod diagnosis. */
 const TARGET_FILL_FRACTION = 0.85;
 
 /** Bedrooms-to-bathrooms ratio when enriching: 1 bath per 2 bedrooms, ≥1. */
@@ -104,37 +95,45 @@ function fillGroundPlate(program: ApartmentProgram, plateAreaM2: number): Apartm
     // so a big empty-brief plate gets real partitions; otherwise keep the allocated
     // count (never invent a second ground bedroom for a house whose bedrooms belong
     // upstairs).
+    // §HOUSE-GROUND-FILL-LARGE (M-B, 2026-06-09) — a genuinely LARGE multi-storey
+    // ground plate (a 250 m²+ floor) cannot be filled by living+kitchen+dining+hall
+    // + ONE guest bedroom without those few rooms ballooning (the founder's "Living
+    // 108 m²"). Such a ground legitimately reads as a home with a study/second guest
+    // suite, so scale the ground cap GENTLY with the plate (≤3) — far below the upper
+    // (the private level), so the "bedrooms live upstairs" invariant holds and the
+    // well-behaved ~165 m² ground (→ cap 2, but allocated-1 collapses it to 1) is
+    // unchanged. Bounded + deterministic.
+    const largeGroundCap = Math.min(3, Math.max(MAX_GROUND_FILL_BEDROOMS, Math.floor(plateAreaM2 / 90)));
     const bedCap = allocatedGroundBeds === 0
-        ? MAX_GROUND_FILL_BEDROOMS
+        ? largeGroundCap
         : Math.max(1, allocatedGroundBeds);
 
-    let enriched: ApartmentProgram = { ...program };
     // A multi-storey ground always reads as a home with at least a guest bedroom +
     // a bath — even from an empty brief — so the public set isn't stretched across
     // the whole plate. Raise (never lower) to that floor first.
-    enriched = {
-        ...enriched,
-        bedrooms: Math.max(1, Math.floor(enriched.bedrooms)),
-        bathrooms: Math.max(1, Math.floor(enriched.bathrooms)),
+    const floored: ApartmentProgram = {
+        ...program,
+        bedrooms: Math.max(1, Math.floor(program.bedrooms)),
+        bathrooms: Math.max(1, Math.floor(program.bathrooms)),
     };
-
-    const targetArea = plateAreaM2 * TARGET_FILL_FRACTION;
-    for (let guard = 0; guard < MAX_GROUND_FILL_BEDROOMS; guard++) {
-        const band = houseStoreyBand({ program: enriched, grossAreaM2: plateAreaM2 });
-        if (band.grossTargetM2 >= targetArea) break;
-        if (enriched.bedrooms >= bedCap) break;
-        const nextBedrooms = enriched.bedrooms + 1;
-        enriched = {
-            ...enriched,
-            bedrooms: nextBedrooms,
-            // 1 bath per 2 bedrooms, ≥ the existing count (a WC + a guest bath).
-            bathrooms: Math.max(enriched.bathrooms, bathroomsForBedrooms(nextBedrooms)),
-            // The master/en-suite stays UPSTAIRS — the ground never gets one here
-            // (mirrors `allocateProgramToStoreys`, which keeps masterEnSuite false on
-            // the ground role).
-        };
-    }
-    return enriched;
+    // §PLATE-ROLE (M-B, 2026-06-09) — size the ground's guest-bedroom count through
+    // the SHARED `scaleProgramToShell` density (the apartment's exact discipline)
+    // instead of the retired `houseStoreyBand` grow-loop, then CLAMP to the low
+    // ground cap (the private level is upstairs). On a normal plate this collapses to
+    // the allocated guest bedroom (unchanged); on a big empty-brief plate it adds the
+    // second guest bedroom the cap allows so the ground gets real partitions.
+    const scaled = scaleProgramToShell(floored, plateAreaM2, 'ground');
+    const groundBeds = Math.min(bedCap, Math.max(floored.bedrooms, scaled.bedrooms));
+    return {
+        ...floored,
+        bedrooms: groundBeds,
+        // 1 bath per 2 bedrooms, ≥ the existing count (a WC + a guest bath).
+        bathrooms: Math.max(floored.bathrooms, bathroomsForBedrooms(groundBeds)),
+        // The master/en-suite stays UPSTAIRS — the ground never gets one here
+        // (mirrors `allocateProgramToStoreys`, which keeps masterEnSuite false on
+        // the ground role).
+        masterEnSuite: false,
+    };
 }
 
 /** Options for {@link enrichStoreyProgramToPlate}. */
@@ -279,48 +278,39 @@ export function enrichStoreyProgramToPlate(
         return logEnrichAfter(fillGroundPlate(enriched, plateAreaM2), 'fillGroundPlate');
     }
 
-    // 2. Grow bedrooms (+ proportional bathrooms) until the programme's comfortable
-    //    area reaches TARGET_FILL_FRACTION of the plate, capped at
-    //    MAX_ENRICHED_BEDROOMS. Bounded, deterministic — at most a handful of steps.
-    //    Gated: only when this storey is meant to hold the house's bedrooms.
+    // 2. §PLATE-ROLE (M-B, ADR-0063 H1, 2026-06-09) — grow bedrooms (+ proportional
+    //    baths + en-suite) through the SHARED `scaleProgramToShell` density model
+    //    (the apartment's exact discipline) instead of the retired parallel
+    //    `houseStoreyBand` grow-loop + §ENRICH-DENSITY-CAP. Gated: only when this
+    //    storey holds the house's bedrooms (an upper storey, or a single-storey
+    //    ground). `scaleProgramToShell('upper')` scales the bedroom COUNT to the
+    //    plate at the house density (~45 m²/bed, bounded ≤ MAX_BEDROOMS_HOUSE_STOREY),
+    //    so a large storey is filled with ENOUGH rooms that each one squarifies into
+    //    its comfortable band — never the founder's "Bedroom 88 m²". It NEVER lowers a
+    //    stated count (scaleProgramToShell only raises). Pure + deterministic.
     if (!opts.growBedrooms) return logEnrichAfter(enriched, 'room-set-floor');
 
-    const targetArea = plateAreaM2 * TARGET_FILL_FRACTION;
-    // §ENRICH-DENSITY-CAP (ADR-0062 D8 / F1, 2026-06-08) — cap the enriched bedroom count
-    // by what the plate can CIRCULATE (area-with-circulation proxy for facade capacity),
-    // NEVER below the brief's count. Stops the §DIAG-ENRICH runaway where a 1-bed brief on
-    // a 176 m² plate grew to 5 bedrooms (→ every candidate topoOK=false, rooms sealed). At
-    // ~45 m²/bedroom a 176 m² floor caps at 3, leaving real room for a reaching corridor.
-    const bedroomCap = Math.min(
-        MAX_ENRICHED_BEDROOMS,
-        Math.max(Math.floor(enriched.bedrooms), Math.floor(plateAreaM2 / AREA_PER_BEDROOM_WITH_CIRCULATION_M2)),
-    );
-    for (let guard = 0; guard < MAX_ENRICHED_BEDROOMS; guard++) {
-        const band = houseStoreyBand({ program: enriched, grossAreaM2: plateAreaM2 });
-        // programAreaM2 is NET room area; grossTarget folds in circulation. Compare
-        // the gross target to the plate so we don't over-pack (walls eat the rest).
-        if (band.grossTargetM2 >= targetArea) break;
-        if (enriched.bedrooms >= bedroomCap) break;
-        // Roughly how many bedroom blocks the remaining area can still absorb; add
-        // at least one per iteration so the loop always progresses.
-        const remaining = targetArea - band.grossTargetM2;
-        const add = Math.max(1, Math.floor(remaining / APPROX_BEDROOM_BLOCK_M2));
-        const nextBedrooms = Math.min(bedroomCap, enriched.bedrooms + add);
-        if (nextBedrooms === enriched.bedrooms) break;   // no progress → stop
-        enriched = {
-            ...enriched,
-            bedrooms: nextBedrooms,
-            bathrooms: Math.max(enriched.bathrooms, bathroomsForBedrooms(nextBedrooms)),
-            // A house with ≥3 bedrooms gets a master en-suite (parity with
-            // scaleProgramToShell); never DOWN-grade an explicit en-suite.
-            masterEnSuite: enriched.masterEnSuite || nextBedrooms >= 3,
-        };
-    }
+    // A bedroom-bearing storey ALWAYS has ≥1 bedroom + ≥1 bath FLOOR before density
+    // scaling. This matters for a SINGLE-STOREY ground enriched from an EMPTY/SPARSE
+    // brief (bedrooms=0 ∧ bathrooms=0): `scaleProgramToShell`'s studio escape hatch
+    // (0 beds ∧ 0 baths ⇒ pass-through) would otherwise leave the whole house with no
+    // bedrooms. The `ground` set-floor (above) adds the public set but NOT a bedroom;
+    // here we add the private floor so the shared density sizer engages. (`upper` was
+    // already floored to ≥1/≥1 in step 1.)
+    const floored: ApartmentProgram = {
+        ...enriched,
+        bedrooms: Math.max(1, Math.floor(enriched.bedrooms)),
+        bathrooms: Math.max(1, Math.floor(enriched.bathrooms)),
+    };
+    const scaled = scaleProgramToShell(floored, plateAreaM2, 'upper');
+    enriched = {
+        ...enriched,
+        bedrooms: Math.max(floored.bedrooms, scaled.bedrooms),
+        bathrooms: Math.max(floored.bathrooms, scaled.bathrooms),
+        // A house with ≥3 bedrooms gets a master en-suite (parity with
+        // scaleProgramToShell); never DOWN-grade an explicit en-suite.
+        masterEnSuite: enriched.masterEnSuite || scaled.masterEnSuite,
+    };
 
     return logEnrichAfter(enriched, 'grow-bedrooms');
 }
-
-export {
-    APPROX_BEDROOM_BLOCK_M2 as __APPROX_BEDROOM_BLOCK_M2_FOR_TEST,
-    TARGET_FILL_FRACTION as __TARGET_FILL_FRACTION_FOR_TEST,
-};
