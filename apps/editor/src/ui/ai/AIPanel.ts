@@ -47,6 +47,9 @@ import { triggerCeilingLayout } from '../ceiling-layout/ceilingLayoutTrigger';
 // __pryzmValidateLayout in apps/editor/src/dev/installPryzmTestFunctions.ts.
 import { openFamilyPlatformTestModal } from '../dev/familyPlatformTestModal';
 import { openValidateLayoutTestModal } from '../dev/validateLayoutTestModal';
+// DOC-AUTO — the "Documentation" AI command: auto-generate the documentation set
+// (per-level plans + cropped room plans now; building elevations + set-out + PDF queued).
+import { generateDocumentationSet } from '../documentation/generateDocumentationSet';
 // C27 INS-α-5 — dev surface for the Master Tree (single tree component
 // per C27 §1.2).  Opens a modal that mounts the live ModelTreeComponent +
 // shows the InspectSelection payload on each click.
@@ -361,6 +364,31 @@ const COMMAND_TREE: SuggestionNode[] = [
             { label: 'Count elements',   query: 'How many elements are in the model?',    autoSend: true },
             { label: 'List levels',      query: 'What levels exist in the model?',        autoSend: true },
             { label: 'Custom query…',    prefill: '' },
+        ],
+    },
+    {
+        // DOC-AUTO — auto-documentation: build the numbered sheet set (per-level plans +
+        // building elevations + per-room cropped plan + interior elevations) from the live
+        // model. Direct action (C17 CB-8 style) — runs generateDocumentationSet (DS6 plan →
+        // view.createDefinition). PDF + sheet placement wiring per C24.1 §4 is the follow-up.
+        label: 'Documentation',
+        hint: 'auto sheets — plans · elevations · rooms',
+        category: 'create',
+        children: [
+            {
+                label: 'Generate documentation set',
+                hint: 'per-level plans + cropped room plans (elevations + PDF next)',
+                scopeBadge: 'batch',
+                action: () => {
+                    const rt = (window as unknown as { runtime?: unknown }).runtime;
+                    if (rt) { generateDocumentationSet(rt as Parameters<typeof generateDocumentationSet>[0]); }
+                    else { (window as unknown as { runtime?: { events?: { emit(k: string, p: unknown): void } } }).runtime?.events?.emit('pryzm:toast', { message: 'Runtime not ready.', severity: 'error' }); }
+                },
+            },
+            { label: 'Floor plan per level',    query: 'create a floor plan view for every level', autoSend: true },
+            { label: 'Building elevations',     query: 'create the four building elevations',      autoSend: true },
+            { label: 'Export sheets to PDF',    query: 'export all sheets to pdf',                 autoSend: true },
+            { label: 'Ask about documentation…', prefill: 'documentation ' },
         ],
     },
     {

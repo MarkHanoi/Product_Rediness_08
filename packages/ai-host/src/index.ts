@@ -315,6 +315,16 @@ export type {
   ClampedDoorSpan,
   WallVerticalExtent,
   Pt as HousePt,
+  // DOC-AUTO DS3/DS4/DS6 (2026-06-09).
+  BuildingElevationMark,
+  RoomCropRegion,
+  RoomElevationMark,
+  DocSetInput,
+  DocLevelInput,
+  DocRoomInput,
+  DocViewKind,
+  DocViewSpec,
+  DocSheetPlan,
 } from './workflows/houseLayout/index.js';
 
 // ── D-FLE Furniture Layout Engine — public surface ───────────────────────────
