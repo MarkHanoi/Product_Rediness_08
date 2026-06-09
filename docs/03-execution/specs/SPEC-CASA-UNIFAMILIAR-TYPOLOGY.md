@@ -91,6 +91,22 @@ kitchen | dining | bathroom | ensuite | wc | hall | corridor | study | utility`.
 - **Upper level(s):** **landing (stair top-anchor)**, master + ensuite, remaining
   bedrooms, family bathroom, optional study.
 
+**§LANDING-NOT-HALL (G14 ✅ SHIPPED 2026-06-09) — the entrance hall is GROUND-ONLY; the
+upper-floor stair arrival is a LANDING.** An "Entrance Hall" is the room where the FRONT
+DOOR lands, so it can only exist on the **ground (entrance) floor**; an upper floor is
+reached by the stair, which arrives at a **landing** (circulation), never an entrance
+hall. The shared bubble graph mints a `hall` room named "Entrance Hall" purely from
+`program.entranceHall === true`, so BOTH `allocateProgramToStoreys` and
+`enrichStoreyProgramToPlate` now leave **`entranceHall:false` on UPPER storeys** (only the
+ground role sets it true). The upper storey's stair-arrival circulation is the engine's
+existing **`corridor`** — always present on an upper storey because its room-set floor
+guarantees beds + baths ≥ 1 — which the editor's `HouseLayoutExecutor` **relabels
+"Landing"** for storeyIndex > 0 (the ground floor's hall is untouched). The
+front-door/entrance logic (§A.21.D29 `resolveEntranceDoor`) is already ground-only and
+falls back to `corridor` when no hall is present, so it is unaffected. No new `RoomType`
+was introduced (Approach A). The single-storey apartment path (one ground storey) keeps
+its hall and is byte-identical.
+
 The allocation is a **policy function** `allocateProgramToStoreys(program, storeys)`
 → `StoreyProgram[]`, each a single-plate `ApartmentProgram`-shaped sub-program the
 existing D-TGL engine can consume **per storey**.

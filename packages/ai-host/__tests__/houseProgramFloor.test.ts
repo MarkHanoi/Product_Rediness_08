@@ -95,6 +95,39 @@ describe('§HOUSE-PLATE-PROGRAM-FLOOR — Defect 2 (one giant room)', () => {
         expect(upperTypes).not.toContain('kitchen');
     });
 
+    it('§LANDING-NOT-HALL (G14): the UPPER floor has NO entrance hall but DOES have stair-arrival circulation', () => {
+        // The founder bug: an upper storey minted a `hall` named "Entrance Hall",
+        // which is architecturally impossible (the front door — hence the entrance
+        // hall — can only land on the ground floor). The upper storey must instead
+        // have a LANDING — the engine's `corridor` (named "Landing" by the executor).
+        for (const brief of [EMPTY, SPARSE, FULL]) {
+            const r = generateHouseLayout(plate(165, 15), brief, C, W, { storeyCount: 2 });
+            const upper = r.perStoreyLayout[1]!.rooms;
+            const upperTypes = upper.map(rm => rm.type);
+            // No upper-floor entrance hall.
+            expect(upperTypes).not.toContain('hall');
+            // No upper-floor room is named "Entrance Hall".
+            expect(upper.map(rm => rm.name)).not.toContain('Entrance Hall');
+            // The stair arrives at circulation — the engine's `corridor`.
+            expect(upperTypes).toContain('corridor');
+        }
+    });
+
+    it('§LANDING-NOT-HALL (G14): the GROUND floor STILL keeps its entrance hall', () => {
+        // The fix is upper-only — the ground (entrance) floor must keep its hall.
+        const r = generateHouseLayout(plate(165, 15), FULL, C, W, { storeyCount: 2 });
+        const groundTypes = r.perStoreyLayout[0]!.rooms.map(rm => rm.type);
+        expect(groundTypes).toContain('hall');
+    });
+
+    it('§LANDING-NOT-HALL (G14): a 3-storey house has a hall ONLY on the ground, NOT on either upper floor', () => {
+        const r = generateHouseLayout(plate(165, 15), FULL, C, W, { storeyCount: 3 });
+        expect(r.perStoreyLayout).toHaveLength(3);
+        expect(r.perStoreyLayout[0]!.rooms.map(rm => rm.type)).toContain('hall');
+        expect(r.perStoreyLayout[1]!.rooms.map(rm => rm.type)).not.toContain('hall');
+        expect(r.perStoreyLayout[2]!.rooms.map(rm => rm.type)).not.toContain('hall');
+    });
+
     it('is deterministic — same sparse input → identical room counts', () => {
         const a = generateHouseLayout(plate(165, 15), SPARSE, C, W, { storeyCount: 2 });
         const b = generateHouseLayout(plate(165, 15), SPARSE, C, W, { storeyCount: 2 });
@@ -199,11 +232,20 @@ describe('enrichStoreyProgramToPlate — pure unit', () => {
         expect(out.openPlanKitchenDining).toBe(true);
     });
 
-    it('guarantees the UPPER private set (≥1 bedroom, ≥1 bath, no kitchen)', () => {
+    it('guarantees the UPPER private set (≥1 bedroom, ≥1 bath, no kitchen, NO entrance hall)', () => {
         const out = enrichStoreyProgramToPlate(EMPTY, 165, 'upper');
         expect(out.bedrooms).toBeGreaterThanOrEqual(1);
         expect(out.bathrooms).toBeGreaterThanOrEqual(1);
         expect(out.includeKitchen).toBe(false);
+        // §LANDING-NOT-HALL (G14) — an upper storey never mints an entrance hall;
+        // the stair arrives at the `corridor` (guaranteed by beds+baths ≥ 1).
+        expect(out.entranceHall).toBe(false);
+    });
+
+    it('§LANDING-NOT-HALL (G14): an upper enrich does NOT add a hall even when the brief had one', () => {
+        // A whole-house brief WITH a hall must not leak that hall onto an upper storey.
+        const out = enrichStoreyProgramToPlate({ ...FULL, entranceHall: true }, 165, 'upper', { growBedrooms: true });
+        expect(out.entranceHall).toBe(false);
     });
 
     it('without growBedrooms it only guarantees the SET (does not balloon bedrooms)', () => {

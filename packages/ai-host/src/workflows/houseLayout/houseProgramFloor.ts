@@ -182,8 +182,11 @@ export interface EnrichStoreyOptions {
  * `role` selects the room-set FLOOR (always guaranteed, regardless of growth):
  *  - `ground`: guarantees living + kitchen + dining + entrance hall (so the
  *    entrance level always reads as a house, never one open blob).
- *  - `upper`: guarantees a circulation seed + ≥1 bedroom + a bathroom, never a
- *    kitchen (SPEC-CASA §3).
+ *  - `upper`: guarantees ≥1 bedroom + a bathroom, never a kitchen (SPEC-CASA §3)
+ *    and — §LANDING-NOT-HALL (G14) — NEVER an entrance hall. The stair-arrival
+ *    circulation is the `corridor` the engine mints from bedrooms+bathrooms > 0
+ *    (named "Landing" by the executor), not an impossible upper-floor "Entrance
+ *    Hall" (that room is where the front door lands → GROUND-only).
  *
  * The bedroom-GROWTH pass (gated on `opts.growBedrooms`) then raises bedrooms/baths
  * until the programme's comfortable-target area reaches the plate. The growth loop
@@ -239,16 +242,29 @@ export function enrichStoreyProgramToPlate(
         };
     } else if (role === 'upper') {
         // Upper storeys are the private level: at least one bedroom + a bathroom,
-        // a hall flag to seed the stair-top landing/corridor, never a kitchen.
+        // never a kitchen. §LANDING-NOT-HALL (G14, 2026-06-09) — NEVER an entrance
+        // hall: an "Entrance Hall" is where the front door lands (GROUND-only). The
+        // stair arrives at a LANDING, which is the `corridor` the bubble graph mints
+        // whenever bedrooms+bathrooms > 0 — guaranteed here by the bedroom+bathroom
+        // floor below — so leaving `entranceHall` OFF still gives every upper storey
+        // its stair-arrival circulation, just typed `corridor` (named "Landing" by
+        // the executor) instead of an impossible upper-floor "Entrance Hall".
         enriched = {
             ...enriched,
             bedrooms: Math.max(1, Math.floor(enriched.bedrooms)),
             bathrooms: Math.max(1, Math.floor(enriched.bathrooms)),
-            entranceHall: true,
+            entranceHall: false,
             includeKitchen: false,
             openPlanKitchenDining: false,
             livingRoom: false,
         };
+        // §LANDING-NOT-HALL (G14, 2026-06-09) — record the upper-storey circulation
+        // decision: no entrance hall; the stair arrives at a LANDING (the engine's
+        // `corridor`, present because beds+baths ≥ 1 here), named "Landing" downstream.
+        console.log(
+            `[D-TGL] §LANDING-NOT-HALL role=upper hall=false circulation=corridor->Landing ` +
+            `(beds=${Math.max(1, Math.floor(enriched.bedrooms))} baths=${Math.max(1, Math.floor(enriched.bathrooms))})`,
+        );
     }
 
     // 2b. §HOUSE-GROUND-FILL (A.21.D28 #4) — fill a MULTI-storey GROUND plate with

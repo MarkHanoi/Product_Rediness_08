@@ -59,8 +59,8 @@ one undoable batch, and a post-gen chain fills floors/ceilings/furniture/lightin
 | File | Role |
 |---|---|
 | `houseOrchestrator.ts` | **House entry.** `generateHouseLayout` / `generateHouseLayoutOptions` — storey loop over the apartment engine, stair core, `bestStoreyOptionIndex` (variant-0 invariant), assembly of stairs/voids/roof. |
-| `storeyAllocation.ts` | Split the brief across storeys (`allocateProgramToStoreys`). |
-| `houseProgramFloor.ts` | `enrichStoreyProgramToPlate` — raise a sparse storey program to a full house floor. |
+| `storeyAllocation.ts` | Split the brief across storeys (`allocateProgramToStoreys`). The entrance hall is **ground-only** — UPPER storeys carry `entranceHall:false` (§LANDING-NOT-HALL / G14). |
+| `houseProgramFloor.ts` | `enrichStoreyProgramToPlate` — raise a sparse storey program to a full house floor. The UPPER room-set floor is bedroom + bathroom + the engine's `corridor` (the stair LANDING), **never** an entrance hall (§LANDING-NOT-HALL / G14). |
 | `houseEnvelope.ts` | `validateHouseStorey` / `houseStoreyBand` — house-aware gross-area gate (injected into the engine). |
 | `stairCore.ts` | `reserveStairCoreShaped` — pick stair rect + I/L/U shape + flight split. |
 | `stairPosition.ts` | `chooseStairCorePosition` — worst-aspect/back-corner placement scoring. |
@@ -339,7 +339,12 @@ type); `ensuite.accessFrom = ['master']` only.
    downscales (user counts are a floor). An explicit studio (0 bed/0 bath) stays a studio.
 2. **Mint rooms in public-first order** (lines 160-178): hall → living → kitchen → dining →
    corridor → bedrooms/master → ensuite → bathrooms. The corridor exists only when there
-   are private rooms.
+   are private rooms. The `hall` ("Entrance Hall") is minted purely from
+   `program.entranceHall === true` — and per **§LANDING-NOT-HALL (G14)** only the **ground
+   (entrance) storey** of a house carries that flag, so an upper floor never mints a hall.
+   Its stair arrival is the `corridor` (always present upstairs because beds+baths ≥ 1),
+   relabelled "Landing" by `HouseLayoutExecutor`. An entrance hall is where the front door
+   lands → ground-only; upper floors are reached by the stair → a landing.
 3. **Per-instance overrides** (`roomTypesByName`, lines 193-211; `roomAreasByName`/
    `roomAreas`, lines 224-227) — A.26 editable-living-graph + ADR-0061; re-type a named
    room, or pin its area, then re-derive its weight/minima from the new rule.

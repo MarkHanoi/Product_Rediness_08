@@ -10,7 +10,9 @@
 //  - GROUND (entrance) level: public/wet/living + kitchen + dining + entrance hall,
 //    a WC (one ground bathroom), and OPTIONALLY one ground-floor bedroom (guest /
 //    accessible master).
-//  - UPPER level(s): bedrooms + bathrooms, the master en-suite. No kitchen.
+//  - UPPER level(s): bedrooms + bathrooms, the master en-suite. No kitchen, and
+//    NO entrance hall — the stair arrives at a LANDING (the engine's `corridor`),
+//    never an "Entrance Hall" (§LANDING-NOT-HALL / G14).
 //  - A stair + landing is reserved on every storey it passes through (handled
 //    geometrically by `reserveStairCore` — the program here just carries the
 //    room counts; the stair core is a non-room obstacle, not a program room).
@@ -128,10 +130,17 @@ export function allocateProgramToStoreys(
                 includeKitchen: false, // §A.21.x-KITCHEN — SPEC-CASA §3: upper storeys have NO kitchen
                 openPlanKitchenDining: false,
                 livingRoom: false,
-                // Upper storeys get a landing, not an entrance hall; the layout
-                // engine still benefits from a circulation seed, so keep the hall
-                // flag to anchor the stair-top landing/corridor.
-                entranceHall: true,
+                // §LANDING-NOT-HALL (G14, 2026-06-09) — an UPPER storey must NOT mint an
+                // entrance hall. An "Entrance Hall" is where the FRONT DOOR lands and can
+                // ONLY exist on the GROUND (entrance) floor; an upper storey is reached by
+                // the stair, which arrives at a LANDING (circulation), not an entrance hall.
+                // The bubble graph mints a `hall` named "Entrance Hall" purely from
+                // `entranceHall === true`, so we leave it OFF here — the stair-arrival
+                // circulation seed is the `corridor` the engine already mints whenever
+                // bedrooms+bathrooms > 0 (guaranteed on every upper storey by
+                // `enrichStoreyProgramToPlate`'s upper room-set floor), named "Landing" on
+                // upper storeys by the executor's naming pass.
+                entranceHall: false,
                 ...(program.roomAreas ? { roomAreas: program.roomAreas } : {}),
                 ...(program.roomAreasByName ? { roomAreasByName: program.roomAreasByName } : {}),
             },

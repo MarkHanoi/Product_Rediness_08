@@ -2445,9 +2445,22 @@ carries none of them), so the engine can't scale the footprint to the brief.
   aren't real program rooms so they get no glazing; fix G12 → real rooms keep their windows.
 - ❌ First-floor wall joins still bad (#3) — §SELF-CLUSTER-FLOOR + §GROUND-WELD only cover the
   ground; upper floors use `_buildPerimeterShell` and still self-cluster/trim. (G1 upper-floor.)
-- ❌ "Entrance Hall" appears on the FIRST floor (#4) — `enrichStoreyProgramToPlate` sets
-  `entranceHall:true` on UPPER storeys (houseProgramFloor.ts:213) to seed the stair landing, but
-  it renders as "Entrance Hall". Should be a Landing/Corridor on upper floors. (NEW gap G14.)
+- ✅ **G14 RESOLVED (§LANDING-NOT-HALL, 2026-06-09)** — "Entrance Hall" appeared on the FIRST/SECOND
+  floor (#4). **Root:** an entrance hall is where the FRONT DOOR lands → it can only exist on the
+  GROUND (entrance) floor; upper floors are reached by the stair, which arrives at a LANDING
+  (circulation). The bubble graph mints a `hall` named "Entrance Hall" purely from
+  `program.entranceHall === true`, and BOTH `allocateProgramToStoreys` (storeyAllocation.ts:134) and
+  `enrichStoreyProgramToPlate` (houseProgramFloor.ts:247) set `entranceHall:true` on UPPER storeys
+  "to seed the stair landing" — so the upper storey minted a `hall` (→ "Entrance Hall") AND a
+  `corridor`. **Fix (Approach A — hall is GROUND-ONLY; no new RoomType):** upper storeys now leave
+  `entranceHall:false`. The stair-arrival circulation is the engine's existing `corridor` (always
+  present on an upper storey because beds+baths ≥ 1 there), which the house executor RELABELS
+  "Landing" (`HouseLayoutExecutor.nameStorey`, storeyIndex > 0; ground untouched). **Rule:** hall =
+  ground-only; upper-floor stair arrival = a corridor named "Landing". Front-door/entrance logic
+  (§A.21.D29) was already ground-only (`resolveEntranceDoor` runs only when `isGround`, and falls
+  back to `corridor` when no hall) — verified unchanged. Apartment (single-storey = one ground
+  storey) byte-identical. §DIAG line `§LANDING-NOT-HALL`. Tests: houseProgramFloor.test.ts +
+  houseLayout.test.ts (ai-host 2091 green).
 - ❌ living/dining/kitchen not clustered; entrance room not well located near the hall (G6/proximity).
 
 **Founder issued Room Layout Engine SPEC v2.0** (supersedes SPEC-ROOM-PLACEMENT-RULES v1.0 where
@@ -2470,8 +2483,9 @@ severity taxonomy (§14), acceptance criteria (§15). This is the normative targ
 
 **Keystone still open:** G12's COMPLETE cure is keeping the stair from fragmenting the plate (tied
 to G8 stair placement/origin). The v69 nudges + diag logs will reveal from the next console paste
-whether fragmentation still drops rooms. Then: G8 stair-corner placement, G14 upper-floor
-landing-not-hall, G1 upper-floor walls, then the v2.0 window-mandate + proximity + solar layers.
+whether fragmentation still drops rooms. Then: G8 stair-corner placement, ~~G14 upper-floor
+landing-not-hall~~ ✅ (§LANDING-NOT-HALL, 2026-06-09), G1 upper-floor walls, then the v2.0
+window-mandate + proximity + solar layers.
 
 ### §22.15 — Generative-layout WORLD-MODEL strategy + SPEC v3.0 governance (2026-06-08)
 

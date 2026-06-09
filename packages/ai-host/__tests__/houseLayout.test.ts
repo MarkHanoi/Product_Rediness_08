@@ -61,6 +61,24 @@ describe('allocateProgramToStoreys', () => {
         expect(upper.program.livingRoom).toBe(false);
     });
 
+    it('§LANDING-NOT-HALL (G14): the GROUND keeps its entrance hall; UPPER storeys get NONE', () => {
+        const out = allocateProgramToStoreys(PROGRAM, 3);
+        // Ground (entrance level) carries the brief's entrance hall.
+        expect(out[0]!.role).toBe('ground');
+        expect(out[0]!.program.entranceHall).toBe(true);
+        // Both upper storeys: NO entrance hall (the stair arrives at a landing, the
+        // engine's corridor — minting a `hall` here named an impossible "Entrance Hall").
+        expect(out[1]!.program.entranceHall).toBe(false);
+        expect(out[2]!.program.entranceHall).toBe(false);
+    });
+
+    it('§LANDING-NOT-HALL (G14): a brief WITHOUT a ground hall still leaves upper storeys hall-free', () => {
+        const noHall: ApartmentProgram = { ...PROGRAM, entranceHall: false };
+        const out = allocateProgramToStoreys(noHall, 2);
+        expect(out[0]!.program.entranceHall).toBe(false);
+        expect(out[1]!.program.entranceHall).toBe(false);
+    });
+
     it('2 storeys: most bedrooms go UPSTAIRS (one guest bedroom kept on ground)', () => {
         const out = allocateProgramToStoreys(PROGRAM, 2);
         const ground = out[0]!.program;

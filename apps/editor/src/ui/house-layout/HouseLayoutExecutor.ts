@@ -853,10 +853,33 @@ export class HouseLayoutExecutor {
                 // awaits that storey's `apartment.room-name-completed` event before
                 // furnishing it, so EVERY storey (ground included) is tagged first.
                 const optionByLevel = new Map(perStorey.map(s => [s.levelId, s.option] as const));
+                // §LANDING-NOT-HALL (G14, 2026-06-09) — the stair arrives on an UPPER
+                // storey at a LANDING, not an entrance hall. The engine no longer mints
+                // a `hall`/"Entrance Hall" on upper storeys (storeyAllocation +
+                // houseProgramFloor leave entranceHall OFF); the stair-arrival
+                // circulation is the engine's `corridor`. RELABEL that corridor "Landing"
+                // on upper storeys (storeyIndex > 0) so it reads as a stair landing, not
+                // a generic corridor. GROUND (levelIds[0]) is untouched — it keeps its
+                // real "Entrance Hall". Pure metadata: we clone the option + rename only
+                // the corridor room's display name (type/occupancy unchanged), so the
+                // furnish/floor/ceiling occupancy keys are byte-identical.
+                const groundLevelId = levelIds[0];
+                const relabelUpperCirculation = (option: ScoredLayoutOption): ScoredLayoutOption => ({
+                    ...option,
+                    rooms: option.rooms.map(r =>
+                        r.type === 'corridor' ? { ...r, name: 'Landing' } : r,
+                    ),
+                });
                 const nameStorey = (levelId: string): void => {
                     const option = optionByLevel.get(levelId);
                     if (!option) { console.warn('[house-layout] no layout option to name storey', levelId); return; }
-                    nameDetectedRooms(runtime, levelId, option, '[house-layout]');
+                    const isGround = levelId === groundLevelId;
+                    nameDetectedRooms(
+                        runtime,
+                        levelId,
+                        isGround ? option : relabelUpperCirculation(option),
+                        '[house-layout]',
+                    );
                 };
                 // §A.21.i — fan the post-generation finish chain (name → floor →
                 // ceiling → furnish → light) out across EVERY storey level, in
