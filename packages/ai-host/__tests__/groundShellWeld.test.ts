@@ -15,7 +15,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { RoomDetectionEngine } from '@pryzm/room-topology';
-import { weldPartitionsToShell, type WeldWall } from '../src/workflows/houseLayout/weldPartitionsToShell.js';
+import { weldPartitionsToShell, type WeldWall, type XZ } from '../src/workflows/houseLayout/weldPartitionsToShell.js';
 import { generateHouseLayout } from '../src/workflows/houseLayout/houseOrchestrator.js';
 import { buildLayoutCommands } from '../src/workflows/apartmentLayout/executePlan.js';
 import { polygonAreaM2 } from '../src/workflows/apartmentLayout/shellAnalysis.js';
@@ -172,6 +172,70 @@ describe('§GROUND-WELD — GROUND floor detects its full room set', () => {
         const welded = weldPartitionsToShell(raw, shellWalls);
         const weldedDetected = detect([...shellWalls.map(toEngine), ...welded.map(toEngine)]);
         expect(weldedDetected.length).toBeGreaterThanOrEqual(cleanDetected.length);
+    });
+});
+
+describe('§WJ-SKEW-3 — rotated-plate Y-junction endpoints fully fuse (2026-06-09)', () => {
+    const noShell: WeldWall[] = [];
+
+    it('welds 3 partition endpoints meeting at a Y-junction (spread ~0.5–0.6 m, the −44° residual) to ONE shared coordinate', () => {
+        // Three partitions whose interior ends SHOULD coincide at one Y-junction but,
+        // after the principal-axis snap on a strongly-rotated (~−44°) plate, are spread
+        // ~0.5–0.6 m apart — beyond the old 0.45 m weld band, so union-find never fused
+        // them and the downstream resolver logged `§MULTI-CLUSTER pinned=0 trimmed=3`.
+        // The three meeting ends sit within a ~0.56 m radius of their centroid.
+        // Inner ends form a near-equilateral triangle of side ~0.52 m around (4.55, 5.00) —
+        // every pair sits in the 0.45–0.60 m band: too far for the OLD 0.45 m weld (so the
+        // resolver trimmed them), inside the NEW 0.60 m band (so union-find fuses all three).
+        const parts: WeldWall[] = [
+            { id: 'p0', start: { x: 0,    z: 0 },   end: { x: 4.29, z: 4.85 } }, // arm 1, inner end ↗
+            { id: 'p1', start: { x: 10,   z: 0 },   end: { x: 4.81, z: 4.85 } }, // arm 2, inner end ↖
+            { id: 'p2', start: { x: 5,    z: 10 },  end: { x: 4.55, z: 5.30 } }, // arm 3, inner end ↓
+        ];
+        // Confirm the three inner ends are genuinely spread (the residual we must absorb)
+        // yet every PAIR is within the 0.60 m band (fuses without relying on transitivity).
+        const inner = [parts[0]!.end, parts[1]!.end, parts[2]!.end];
+        const gap = (a: XZ, b: XZ) => Math.hypot(a.x - b.x, a.z - b.z);
+        expect(gap(inner[0]!, inner[1]!)).toBeGreaterThan(0.45);
+        expect(gap(inner[0]!, inner[1]!)).toBeLessThan(0.60);
+        expect(gap(inner[1]!, inner[2]!)).toBeGreaterThan(0.45);
+        expect(gap(inner[1]!, inner[2]!)).toBeLessThan(0.60);
+        expect(gap(inner[0]!, inner[2]!)).toBeGreaterThan(0.45);
+        expect(gap(inner[0]!, inner[2]!)).toBeLessThan(0.60);
+
+        const welded = weldPartitionsToShell(parts, noShell);
+        // All three survive (none collapse below MIN_LEN) and none was dropped.
+        expect(welded).toHaveLength(3);
+        const p0 = welded.find(w => w.id === 'p0')!;
+        const p1 = welded.find(w => w.id === 'p1')!;
+        const p2 = welded.find(w => w.id === 'p2')!;
+        // The three inner ends now share ONE exact coordinate (the cluster centroid) —
+        // a clean pinnable junction, so the resolver no longer trims them.
+        expect(p0.end.x).toBe(p1.end.x); expect(p0.end.z).toBe(p1.end.z);
+        expect(p1.end.x).toBe(p2.end.x); expect(p1.end.z).toBe(p2.end.z);
+        // And the OUTER ends (far apart) were NOT pulled in.
+        expect(p0.start).toEqual({ x: 0, z: 0 });
+        expect(p1.start).toEqual({ x: 10, z: 0 });
+        expect(p2.start).toEqual({ x: 5, z: 10 });
+    });
+
+    it('CONTROL — two genuinely-separate parallel walls 1.2 m apart do NOT fuse (no over-welding at 0.60 m)', () => {
+        // Two corridor-width-spaced walls: their facing endpoints are 1.2 m apart, well
+        // above the 0.60 m band, so neither end may be welded to the other.
+        const parts: WeldWall[] = [
+            { id: 'p0', start: { x: 0, z: 0 }, end: { x: 0, z: 5 } },
+            { id: 'p1', start: { x: 1.2, z: 0 }, end: { x: 1.2, z: 5 } },
+        ];
+        const welded = weldPartitionsToShell(parts, noShell);
+        expect(welded).toHaveLength(2);
+        const p0 = welded.find(w => w.id === 'p0')!;
+        const p1 = welded.find(w => w.id === 'p1')!;
+        // Coordinates unchanged — the two walls remain 1.2 m apart at both ends.
+        expect(p0.start).toEqual({ x: 0, z: 0 });
+        expect(p0.end).toEqual({ x: 0, z: 5 });
+        expect(p1.start).toEqual({ x: 1.2, z: 0 });
+        expect(p1.end).toEqual({ x: 1.2, z: 5 });
+        expect(p0.start.x).not.toBe(p1.start.x);
     });
 });
 

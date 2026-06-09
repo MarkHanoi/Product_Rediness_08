@@ -11,6 +11,7 @@
 
 import type { Pt } from '../apartmentLayout/tgl/rectDecomposition.js';
 import type { ApartmentProgram, ScoredLayoutOption } from '../apartmentLayout/types.js';
+import type { StairCorePositionKind } from './stairPosition.js';
 
 export type { Pt };
 
@@ -101,6 +102,18 @@ export interface StairCore {
     /** A.21.D24 — the world-XZ pivot (metres) the principal-axis rotation turns
      *  about (the footprint centroid). Paired with `principalAxisRad`. */
     readonly pivot: { readonly x: number; readonly z: number };
+    /**
+     * §STAIR-HALF-LANDING-INWARD (2026-06-09, founder "set the half-landing towards the
+     * inside") — the stair-core placement KIND (`'central' | 'left' | 'right' | 'back'`)
+     * from {@link chooseStairCorePosition}, in the plate-local LAYOUT frame. It tells the
+     * editor which plate side the INTERIOR is on so a U-stair's half-landing + return
+     * flight fold INWARD rather than poking OUT past the perimeter wall the core hugs:
+     *   `'left'` (flush x≈0) → interior +x · `'right'` (flush x≈plateW) → interior −x ·
+     *   `'back'` (flush rear) → interior −z · `'central'` → no flush wall (legacy offset).
+     * OPTIONAL for backward compatibility — absent ⇒ the executor keeps the legacy
+     * left-of-flight-1 offset (I/L are unaffected; only the U branch consumes it).
+     */
+    readonly interiorSide?: StairCorePositionKind;
 }
 
 /**

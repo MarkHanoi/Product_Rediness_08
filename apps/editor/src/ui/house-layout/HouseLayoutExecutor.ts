@@ -915,7 +915,10 @@ export class HouseLayoutExecutor {
 
             // Build flights + landings in the LAYOUT frame (axis-aligned dir1Layout),
             // so any startOverride (U-shape) is computed consistently in that frame.
-            const built = this._buildFlights(shape, startLayout, dir1Layout, split, width, tread, null);
+            // §STAIR-HALF-LANDING-INWARD (2026-06-09) — pass the engine's interior side
+            // (layout frame, same as dir1Layout) so a U-stair's half-landing folds toward
+            // the plate INTERIOR, not out past the flush perimeter wall.
+            const built = this._buildFlights(shape, startLayout, dir1Layout, split, width, tread, null, stair.interiorSide);
 
             // Rotate the rigid stair body back to WORLD (+angle about pivot): the
             // start position + any per-flight startOverride. y (height) is untouched.
@@ -942,7 +945,9 @@ export class HouseLayoutExecutor {
                 flights: worldFlights,
                 ...(built.landings.length > 0 ? { landings: built.landings } : {}),
                 ...(shape === 'L' ? { turnDirection: 'left' as const, stepsBeforeLanding: split.before } : {}),
-                ...(shape === 'U' ? { secondRunSide: 'left' as const, stepsBeforeLanding: split.before } : {}),
+                // §STAIR-HALF-LANDING-INWARD — keep secondRunSide consistent with the
+                // interior-folded offset the U flights were actually built with.
+                ...(shape === 'U' ? { secondRunSide: built.secondRunSide, stepsBeforeLanding: split.before } : {}),
                 accessibilityType: 'standard',
                 // autoCreateOpening defaults to true → punches the slab-void above,
                 // sized to the stair's full bounding footprint (covers L/U too).
@@ -1129,10 +1134,17 @@ export class HouseLayoutExecutor {
         width: number,
         tread: number,
         engFlights: ReadonlyArray<{ riserCount: number; direction: { x: number; y: number; z: number } }> | null,
-    ): { flights: FlightInput[]; landings: { depth: number }[] } {
+        // §STAIR-HALF-LANDING-INWARD (2026-06-09) — the plate-side the INTERIOR is on,
+        // in the SAME LAYOUT frame as `start`/`dir1` (the engine's StairCore.interiorSide):
+        //   'left' → interior +x · 'right' → interior −x · 'back' → interior −z.
+        // Used (U-shape only) to fold the half-landing + return flight TOWARD the
+        // interior instead of always to the left of flight 1. Absent / 'central' /
+        // parallel-to-flight-1 ⇒ legacy left-of-flight-1 offset (byte-identical).
+        interiorSide?: 'central' | 'left' | 'right' | 'back',
+    ): { flights: FlightInput[]; landings: { depth: number }[]; secondRunSide: 'left' | 'right' } {
         const d1 = this._unit(dir1);
         if (shape === 'I') {
-            return { flights: [{ direction: d1, riserCount: split.before }], landings: [] };
+            return { flights: [{ direction: d1, riserCount: split.before }], landings: [], secondRunSide: 'left' };
         }
         // Flight-2 direction: from the engine if present, else derived
         // (L = left turn (-z,0,x); U = reverse). Matches StairCreationController.
@@ -1150,17 +1162,48 @@ export class HouseLayoutExecutor {
                     { direction: d2, riserCount: split.after },
                 ],
                 landings: [{ depth: width }],
+                secondRunSide: 'left',
             };
         }
         // U: flight 2 runs parallel back the other way, offset across by the stair
         // width; landing depth spans both runs (2×width). Mirror StairCreationController.
         const firstLen = split.before * tread;
-        const perp = this._unit({ x: -d1.z, y: 0, z: d1.x }); // left side
+        // §STAIR-HALF-LANDING-INWARD (2026-06-09, founder "set the half-landing towards the
+        // inside") — the offset side that pins flight 2's parallel return run. LEGACY: always
+        // "left of flight 1" (perp = (−d1.z, d1.x)), which on a wall-flush U-stair poked the
+        // half-landing OUT past the perimeter (prod §DIAG-STAIR cornersInShell=1/4). FIX: when
+        // the engine tells us which side the plate INTERIOR is on (`interiorSide`, layout
+        // frame), offset toward THAT side. We project the interior unit direction onto the
+        // axis PERPENDICULAR to flight 1 (the only valid offset axis) and take its sign:
+        //   'left' → +x · 'right' → −x · 'back' → −z. If the interior direction is parallel
+        // to flight 1 (no perpendicular component), 'central', or absent, we keep the legacy
+        // left-of-flight-1 offset — so I/L, central plates, and any plate where the legacy
+        // left already faced interior are BYTE-IDENTICAL.
+        const legacyPerp = this._unit({ x: -d1.z, y: 0, z: d1.x }); // left of flight 1
+        const interiorDir =
+            interiorSide === 'left'  ? { x: 1,  z: 0 } :
+            interiorSide === 'right' ? { x: -1, z: 0 } :
+            interiorSide === 'back'  ? { x: 0,  z: -1 } :
+            null;
+        // The component of the interior direction along the perpendicular (offset) axis.
+        // `legacyPerp` already IS that axis (a unit perpendicular to d1); a non-zero dot
+        // means the interior has a perpendicular component → offset along legacyPerp with
+        // that sign. A ~zero dot (interior parallel to flight 1, e.g. 'back' on a Z-run)
+        // gives no usable side → fall back to legacy left.
+        const interiorDot = interiorDir ? interiorDir.x * legacyPerp.x + interiorDir.z * legacyPerp.z : 0;
+        const perp = Math.abs(interiorDot) > 1e-6
+            ? this._unit({ x: legacyPerp.x * Math.sign(interiorDot), y: 0, z: legacyPerp.z * Math.sign(interiorDot) })
+            : legacyPerp;
         const secondStart = {
             x: start.x + d1.x * (firstLen + tread) + perp.x * width,
             y: start.y,
             z: start.z + d1.z * (firstLen + tread) + perp.z * width,
         };
+        // §STAIR-HALF-LANDING-INWARD — report the side flight 2 was offset to relative to
+        // flight 1, so the `secondRunSide` flag passed to CreateStairCommand stays
+        // consistent with the geometry we built. `perp === legacyPerp` ⇒ left (default).
+        const secondRunSide: 'left' | 'right' =
+            (Math.abs(interiorDot) > 1e-6 && Math.sign(interiorDot) < 0) ? 'right' : 'left';
         return {
             flights: [
                 { direction: d1, riserCount: split.before },
@@ -1168,6 +1211,7 @@ export class HouseLayoutExecutor {
                 { direction: d2, riserCount: split.after, startOverride: secondStart },
             ],
             landings: [{ depth: 2 * width }],
+            secondRunSide,
         };
     }
 

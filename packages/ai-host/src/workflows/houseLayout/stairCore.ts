@@ -15,7 +15,7 @@
 // Single-storey houses don't call this (no stair), but it is still well-defined.
 
 import type { Pt, StairShape } from './types.js';
-import { chooseStairCorePosition, aspectFromSunDir, snapRectInsidePoly, type AspectBias } from './stairPosition.js';
+import { chooseStairCorePosition, aspectFromSunDir, snapRectInsidePoly, type AspectBias, type StairCorePositionKind } from './stairPosition.js';
 
 /** §STAIR-WORST-ASPECT (2026-06-08) — optional site solar data the stair reservation
  *  uses to bias the core toward the POOR-ASPECT perimeter wall (founder rule: the
@@ -227,6 +227,21 @@ export interface StairCoreShaped {
     readonly risersBeforeLanding: number;
     /** Landing depth (m); 0 for I. */
     readonly landingDepthM: number;
+    /**
+     * §STAIR-HALF-LANDING-INWARD (2026-06-09, founder "set the half-landing towards
+     * the inside") — the WINNING placement KIND from {@link chooseStairCorePosition}
+     * (`'central' | 'left' | 'right' | 'back'`). It tells the editor which side of the
+     * plate the INTERIOR lies on, so a U-stair's second (return) flight + half-landing
+     * fold TOWARD the plate interior instead of poking OUT past the perimeter wall the
+     * core is flush against:
+     *   - `'left'`  → core flush to the LEFT wall (x≈0)        → interior is +x
+     *   - `'right'` → core flush to the RIGHT wall (x≈plateW)  → interior is −x
+     *   - `'back'`  → core flush to the REAR wall (max-Z)      → interior is −z
+     *   - `'central'` → no flush wall → keep the legacy left-of-flight-1 offset.
+     * Plate-local LAYOUT frame (the same frame `rectMm` is authored in). Only the
+     * U-shape executor branch consumes it; I/L are byte-identical regardless.
+     */
+    readonly interiorSide: StairCorePositionKind;
 }
 
 /**
@@ -283,7 +298,15 @@ export function reserveStairCoreShaped(
     // bounds the rendered flight and the stair stays inside the shell.
     if (shape === 'I') {
         const rect = reserveStairCore(footprint, storeyCount, solar, totalRisers);
-        return { rectMm: rect, shape: 'I', risersBeforeLanding: 0, landingDepthM: 0 };
+        // §STAIR-HALF-LANDING-INWARD — re-derive the placement KIND for the I-rect with
+        // the SAME scorer `reserveStairCore` ran (identical inputs → identical winner), so
+        // the shaped core still reports which wall it abuts. The I executor branch ignores
+        // it (a straight run has no return flight to fold), so this is metadata-only for I.
+        const iPoly = plateLocalPolyMm(footprint, bb);
+        const iPos = chooseStairCorePosition(
+            plateWmm, plateHmm, rect.w, rect.h, iPoly, aspectBiasFor(solar),
+        );
+        return { rectMm: rect, shape: 'I', risersBeforeLanding: 0, landingDepthM: 0, interiorSide: iPos.kind };
     }
 
     // L / U: size a square-ish rect to the shape's target footprint, clamped to
@@ -325,6 +348,10 @@ export function reserveStairCoreShaped(
         shape,
         risersBeforeLanding: before,
         landingDepthM,
+        // §STAIR-HALF-LANDING-INWARD — the winning placement kind tells the executor
+        // which side of the plate the interior lies on, so a U-stair's half-landing +
+        // return flight fold INWARD (not out past the flush perimeter wall).
+        interiorSide: pos.kind,
     };
 }
 

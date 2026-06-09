@@ -9,3 +9,4 @@ export * from './ViewportContent.js';
 export * from './ViewportToSvg.js';
 export * from './SheetWithContentToSvg.js';
 export * from './buildSheetFromRooms.js';
+export * from './buildSheetFromViews.js';

@@ -194,6 +194,57 @@ describe('stair-core position — stacking invariant preserved', () => {
     });
 });
 
+// ── §STAIR-HALF-LANDING-INWARD (2026-06-09, founder "set the half-landing towards
+// the inside") — the shaped core + emitted StairCore now report which plate side the
+// INTERIOR is on (`interiorSide` = the winning placement kind), so the editor folds a
+// U-stair's half-landing TOWARD the interior instead of out past the flush perimeter
+// wall (prod §DIAG-STAIR cornersInShell=1/4 → out of shell). The KIND mapping:
+//   'left'  (flush x≈0)       → interior +x
+//   'right' (flush x≈plateW)  → interior −x
+//   'back'  (flush rear/max-Z)→ interior −z
+//   'central' → no flush wall (legacy left-of-flight-1 offset retained downstream).
+describe('§STAIR-HALF-LANDING-INWARD — shaped core carries the interior side', () => {
+    it('reserveStairCoreShaped.interiorSide equals the chooseStairCorePosition kind', () => {
+        // Same footprint → same plate/core dims → the shaped core must report the SAME
+        // placement kind the position scorer chose (no drift between the two).
+        const shaped = reserveStairCoreShaped(FOOT, 2, 17);
+        const pos = chooseStairCorePosition(12000, 10000, shaped.rectMm.w, shaped.rectMm.h);
+        expect(shaped.interiorSide).toBe(pos.kind);
+    });
+
+    it('a LEFT-flush core (x≈0) → interiorSide "left" → interior is +x', () => {
+        // The wide 12×10 plate flushes the core to the LEFT side wall (x=0); the
+        // interior therefore lies in +x, reported as 'left'.
+        const shaped = reserveStairCoreShaped(FOOT, 2, 17);
+        expect(shaped.rectMm.x).toBe(0);
+        expect(shaped.interiorSide).toBe('left');
+    });
+
+    it('a RIGHT-flush core → interiorSide "right" → interior is −x', () => {
+        // Force a RIGHT flush by NOTCHING the LEFT side of the shell so the left-wall
+        // candidate is culled (its rect pokes out of the notched polygon) and the
+        // right-wall candidate wins. Plate bbox stays 12×10; the right core abuts
+        // x≈plateW so the interior lies in −x.
+        const notchedFoot = [
+            { x: 0, z: 0 }, { x: 12, z: 0 }, { x: 12, z: 10 },
+            { x: 4, z: 10 }, { x: 4, z: 4 }, { x: 0, z: 4 },
+        ];
+        const shaped = reserveStairCoreShaped(notchedFoot, 2, 17);
+        // The core must hug the RIGHT wall (its right edge at the plate's right bbox edge).
+        expect(shaped.rectMm.x + shaped.rectMm.w).toBeCloseTo(12000, 0);
+        expect(shaped.interiorSide).toBe('right');
+    });
+
+    it('the emitted StairCore threads interiorSide through generateHouseLayout', () => {
+        const res = generateHouseLayout(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 });
+        const expected = reserveStairCoreShaped(FOOT, 2, 17);
+        expect(res.stairs.length).toBeGreaterThan(0);
+        for (const st of res.stairs) {
+            expect(st.interiorSide).toBe(expected.interiorSide);
+        }
+    });
+});
+
 // ───────────────── §STAIR-WORST-ASPECT (2026-06-08, founder ask) ──────────────
 //
 // Founder rule: "the stair should occupy the LEAST space possible and always tend

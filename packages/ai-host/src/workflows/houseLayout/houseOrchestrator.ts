@@ -585,6 +585,10 @@ function assembleHouse(
                 // (startPosition / startOverride) back to world by (+angle about pivot).
                 principalAxisRad,
                 pivot: { x: pivot.x, z: pivot.z },
+                // §STAIR-HALF-LANDING-INWARD (2026-06-09) — carry the core's placement kind
+                // so the editor folds a U-stair's half-landing TOWARD the plate interior
+                // (away from the flush perimeter wall). Layout-frame, same as `rectMm`.
+                interiorSide: core.interiorSide,
             });
         }
     }
