@@ -69,6 +69,7 @@ import {
     wallExtentForLevel,
     weldPartitionsToShell,
     computeInwardContainmentOffset,
+    allCornersInside,
     type WeldWall,
 } from '@pryzm/ai-host';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
@@ -1013,6 +1014,15 @@ export class HouseLayoutExecutor {
                         ...(built.landings.length > 0 ? { landings: built.landings } : {}),
                     });
                     if (fp0 && fp0.length >= 3) {
+                        const fp0XZ = fp0.map(c => ({ x: c.x, z: c.z }));
+                        // Shell centroid (world XZ) — used both for the central/absent
+                        // interior fallback and as the §STAIR-CONTAIN-GATE last-resort
+                        // direction when the interiorSide nudge alone can't contain it.
+                        let cx = 0, cz = 0; for (const p of shellPolyWorld) { cx += p.x; cz += p.z; }
+                        cx /= shellPolyWorld.length; cz /= shellPolyWorld.length;
+                        let fx = 0, fz = 0; for (const c of fp0) { fx += c.x; fz += c.z; } fx /= fp0.length; fz /= fp0.length;
+                        const centroidDir = { x: cx - fx, z: cz - fz };
+
                         // Interior direction: interiorSide is the LAYOUT-frame interior; rotate to world.
                         const sideLayout =
                             stair.interiorSide === 'left'  ? { x: 1, y: 0, z: 0 } :
@@ -1022,18 +1032,39 @@ export class HouseLayoutExecutor {
                         let inward = this._rotateXZDir(sideLayout, principalAxisRad);
                         // Fallback for central/absent: head toward the shell centroid from the footprint centre.
                         if (Math.hypot(inward.x, inward.z) < 1e-6) {
-                            let cx = 0, cz = 0; for (const p of shellPolyWorld) { cx += p.x; cz += p.z; }
-                            cx /= shellPolyWorld.length; cz /= shellPolyWorld.length;
-                            let fx = 0, fz = 0; for (const c of fp0) { fx += c.x; fz += c.z; } fx /= fp0.length; fz /= fp0.length;
-                            inward = { x: cx - fx, y: 0, z: cz - fz };
+                            inward = { x: centroidDir.x, y: 0, z: centroidDir.z };
                         }
-                        const off = computeInwardContainmentOffset(
-                            fp0.map(c => ({ x: c.x, z: c.z })), shellPolyWorld, { x: inward.x, z: inward.z }, 0.1, 4.0,
-                        );
+                        // §STAIR-CONTAIN — primary nudge along the (rotated) interior side.
+                        const off = computeInwardContainmentOffset(fp0XZ, shellPolyWorld, { x: inward.x, z: inward.z }, 0.1, 4.0);
                         containDx = off.dx; containDz = off.dz;
+                        // §STAIR-CONTAIN-GATE (2026-06-09, ROOT A hard gate) — the
+                        // containment is now a GATE, not just a warning: if the interior-
+                        // side nudge did NOT contain the footprint (offset {0,0} AND not
+                        // already inside), make a SECOND attempt toward the shell centroid
+                        // (the geometrically-guaranteed inward direction for any convex-ish
+                        // plate), with a finer step + larger reach. Deterministic, pure.
+                        const alreadyInside = allCornersInside(fp0XZ, shellPolyWorld);
+                        if (containDx === 0 && containDz === 0 && !alreadyInside && Math.hypot(centroidDir.x, centroidDir.z) > 1e-6) {
+                            const off2 = computeInwardContainmentOffset(fp0XZ, shellPolyWorld, centroidDir, 0.05, 8.0);
+                            containDx = off2.dx; containDz = off2.dz;
+                            if (containDx !== 0 || containDz !== 0) {
+                                console.log('[house-layout] §STAIR-CONTAIN-GATE interior-side nudge insufficient — contained toward shell centroid');
+                            }
+                        }
                         if (containDx !== 0 || containDz !== 0) {
                             console.log('[house-layout] §STAIR-CONTAIN nudged stair inward by',
                                 `(${containDx.toFixed(2)},${containDz.toFixed(2)})m to keep its footprint inside the shell`);
+                        }
+                        // Final hard-gate verification — log the post-nudge cornersInShell
+                        // (target 4/4) so §DIAG-STAIR's count reflects the SHIPPED body, not
+                        // the pre-nudge core rect. A residual <4/4 means no offset within
+                        // reach contains it (degenerate/oversized core) → best-effort, logged.
+                        const shiftedFp = fp0XZ.map(c => ({ x: c.x + containDx, z: c.z + containDz }));
+                        const cornersIn = shiftedFp.filter(c => this._pointInPolyXZ(c, shellPolyWorld)).length;
+                        if (cornersIn < 4) {
+                            console.warn(`[house-layout] §STAIR-CONTAIN-GATE ⚠ stair still ${cornersIn}/4 corners inside after nudge — could not fully contain (best-effort, body shipped as nudged)`);
+                        } else {
+                            console.log('[house-layout] §STAIR-CONTAIN-GATE stair footprint fully contained (4/4 corners inside shell)');
                         }
                     }
                 }
@@ -1198,6 +1229,21 @@ export class HouseLayoutExecutor {
             } catch (e) { console.warn('[house-layout] void guard edge skipped:', e); }
         });
         console.log(`[house-layout] stairwell-void guardrail — ${railed}/3 edge(s) railed on ${topLevelId} (1 step-off side open)`);
+    }
+
+    /** §STAIR-CONTAIN-GATE — ray-cast point-in-polygon (world XZ). Mirrors the
+     *  §DIAG-STAIR inline test so the post-nudge corner count is measured the SAME
+     *  way the diagnostic reports it. Pure; no allocation beyond the loop. */
+    private _pointInPolyXZ(
+        pt: { x: number; z: number },
+        poly: ReadonlyArray<{ x: number; z: number }>,
+    ): boolean {
+        let c = false;
+        for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+            const a = poly[i]!, b = poly[j]!;
+            if (((a.z > pt.z) !== (b.z > pt.z)) && (pt.x < (b.x - a.x) * (pt.z - a.z) / ((b.z - a.z) || 1e-30) + a.x)) c = !c;
+        }
+        return c;
     }
 
     /** A.21.D24 — rotate a world point's XZ by `angleRad` about an XZ pivot (metres),

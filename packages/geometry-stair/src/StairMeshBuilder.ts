@@ -496,7 +496,23 @@ export class StairMeshBuilder {
                     //
                     // In plain terms: centre at -width/2 in perpDir (left edge of Run 1)
                     // so the slab covers Run1 in +perpDir half and Run2 in -perpDir half.
-                    const perpDir = new THREE.Vector3(-flatDir.z, 0, flatDir.x).normalize();
+                    //
+                    // §STAIR-U-LANDING-SIDE (2026-06-09, ROOT B fix) — the perpDir must
+                    // MIRROR the side flight 2 was actually placed on. flight 2's
+                    // `startOverride` is offset perpendicular to flight 1 toward
+                    // `stair.secondRunSide` (StairCreationController._computeUPerpDir /
+                    // HouseLayoutExecutor._buildFlights, which folds the U toward the plate
+                    // interior). The landing slab spans BOTH runs, so it must extend toward
+                    // the SAME side — previously it was HARDCODED to LEFT (`-flatDir.z,
+                    // flatDir.x`), so a RIGHT-fold U-stair drew the landing on the wrong
+                    // side → it projected past the footprint even when the footprint rect
+                    // (which absorbs flight 2's override on either side) was correct.
+                    //   left  perp = (-flatDir.z, 0, +flatDir.x)   [legacy default]
+                    //   right perp = (+flatDir.z, 0, -flatDir.x)
+                    // `secondRunSide` absent / 'left' ⇒ byte-identical to the old path.
+                    const perpDir = stair.secondRunSide === 'right'
+                        ? new THREE.Vector3(flatDir.z, 0, -flatDir.x).normalize()
+                        : new THREE.Vector3(-flatDir.z, 0, flatDir.x).normalize();
                     const landingRotMatrix = rotationToDir(perpDir);
 
                     // Shift the landing FORWARD so it begins at the far edge of the
