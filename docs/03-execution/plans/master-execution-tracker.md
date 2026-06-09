@@ -3052,3 +3052,65 @@ with these docs.
 
 *Addendum 2026-06-09 — §28 WIND-CFD queued with full governance: C54 (DRAFT) + SPEC-WIND-CFD-LBM
 (DRAFT) + ADR-0064 (PROPOSED), all registered. Founder-requested contract+spec+ADR.*
+
+---
+
+## §29 — Geodata Analytical Layers (`GEODATA-LAYERS`) — QUEUED + GOVERNED (2026-06-09)
+
+**Founder directive:** reference — **Hektar** (a Nordic early-stage land-analysis tool): a **Layers panel** on the
+right of a 3D massing+terrain view, analytical geodata layers **grouped by country** (Denmark / Norway /
+Sweden) plus a cross-country top group (Europe — Labels / Other / Noise Pollution / Population / Natura
+2000 Habitats). Each layer is a **toggle + opacity slider**; layers **drape** over the 3D terrain + white
+building massing. Layers seen: Property Regions, Ground Coverage, Detail Plans, Terrain Shading, Terrain
+Slope, Soil types, Landslide Susceptibility, Calculated Maximum Flood, 200-year Flood, 100-year Flood,
+Ancient Monuments, Drainage Basins, Population per km², Noise Pollution, Natura 2000 Habitats. Sources
+credited: Lantmäteriet, SGU (Sveriges geologiska undersökning), Mapbox, Nimbo. Founder wants this on
+PRYZM's **Forma 3D view**, and explicitly asked for a **strategy + contract + spec + ADR**.
+
+**Governance (all authored 2026-06-09):**
+- **Strategy:** [`docs/01-strategy/site-and-cognition-strategy.md` §2.6](../../01-strategy/site-and-cognition-strategy.md)
+  — positions geodata layers as the site substrate (PG0) made VISIBLE: the "WHERE-IT-LIVES" axis on the
+  view designers already use; how it extends (not duplicates) the existing climate overlays + C54 wind CFD;
+  the pluggable-provider data-source strategy; discipline-neutral framing.
+- **Contract:** [C55 — Geodata Analytical Layers](../../02-decisions/contracts/C55-GEODATA-ANALYTICAL-LAYERS.md)
+  (DRAFT) — 9 invariants incl. declarative descriptor, layers-DRAPE-never-BIM, pluggable-provider (no
+  country in core), graceful per-layer absence, mandatory attribution/provenance, C22 PII tier on
+  population/noise, opacity-without-re-fetch perf, feed-existing-consumers (future flood/landslide keep-out
+  seam), layered placement. Registered in the [contracts README](../../02-decisions/contracts/README.md).
+- **Spec:** [SPEC-GEODATA-ANALYTICAL-LAYERS](../specs/SPEC-GEODATA-ANALYTICAL-LAYERS.md) (DRAFT) — the
+  `GeodataLayer` descriptor + `GeodataProvider` interface + `GeodataLayerRegistry`, the country-grouped
+  Layers panel UX (toggle + opacity slider), raster/vector draping on Cesium, the §7 initial layer
+  catalogue, the Lantmäteriet/SGU reference adapter + OGC fallback, lazy-load/tile/cache perf, and the
+  GL.1–GL.5 phased build plan.
+- **ADR:** [ADR-0065 — Geodata analytical layers are a first-class pluggable-provider subsystem draped on
+  Forma/Cesium](../../02-decisions/adrs/0065-geodata-analytical-layers-pluggable-provider.md)
+  (**PROPOSED**) — the decision (vs hardcoded per-country vs a single global provider vs commit-as-BIM vs
+  nothing) + alternatives. Registered in the [ADR README](../../02-decisions/adrs/README.md).
+
+**Where it sits (cite the substrate):** the THIRD analysis family on the EXISTING Forma 3D view, alongside the
+climate overlays — sun scrubber / soft shadow / wind rose + 3D streaks / comfort heat field
+(`apps/editor/src/ui/geospatial/FormaSiteAnalysisControls.ts`, SPEC-FORMA-SITE-VIEW §6) — and the C54
+wind-CFD field (a sibling layer). Drapes onto the EXISTING Cesium viewer (`CesiumViewport.ts`, the
+`viewer.imageryLayers.addImageryProvider` basemap path) over the existing context buildings + white massing,
+in the C12 LTP-ENU/WGS84 frame, against the C19 Site/parcel bbox. PRYZM already carries a `HEKTAR_PALETTE`
+2D cartography style (`apps/editor/src/ui/geospatial/siteMap2DStyle.ts`) inspired by the same reference —
+the analytical-layers panel is the 3D completion of that thread. NEW pure registry/provider package
+`packages/geodata-layers/` (L1/L2) + L0 schemas + an `apps/editor/` Layers panel via `geodata.*` commands.
+
+**Build breakdown (GL.1–GL.5, SPEC §11):**
+- [ ] **GL.1** — Registry + Layers panel shell (schemas + `GeodataLayerRegistry` + `GeodataProvider` interface + country-grouped accordions + toggle + opacity slider; `geodata.toggleLayer`/`setOpacity`/`registerProvider`; stub provider).
+- [ ] **GL.2** — Raster drape (Cesium `ImageryLayer` + terrain clamp + opacity-in-place, no re-fetch).
+- [ ] **GL.3** — Vector layers (clamped-to-ground drape through the THREE/Cesium owner + legends).
+- [ ] **GL.4** — Provider adapters (Sweden Lantmäteriet + SGU reference adapter + generic OGC fallback; C12 CRS reprojection; attribution + C22 tier on population/noise).
+- [ ] **GL.5** — Legend + attribution + graceful "no data here" + OTel spans + C45 tiling/tiering pass.
+
+**Future tie-in (reserved, NOT in GL.1–GL.5):** a flood / landslide / slope layer MAY later feed an EXISTING
+site-constraint / suitability input the generator already reads (a build keep-out surface) — never a parallel
+objective (C55 §1.8, SPEC §10), mirroring the C54 §1.6 wind precedent.
+
+**Status: documented (strategy + contract + spec + ADR), NOT started** (pending founder go). No layer code
+ships with these docs.
+
+*Addendum 2026-06-09 — §29 GEODATA-LAYERS queued with full governance: strategy §2.6 + C55 (DRAFT) +
+SPEC-GEODATA-ANALYTICAL-LAYERS (DRAFT) + ADR-0065 (PROPOSED), all registered. Founder-requested
+strategy+contract+spec+ADR.*
