@@ -686,8 +686,11 @@ export class HouseLayoutExecutor {
                             name,
                             viewType: 'plan',
                             spatial:  { levelId: storey.levelId },
+                            // §GHOST-FIX (founder 2026-06-09) — belowLevelDepth-0 plan
+                            // intent so the storey BELOW does not ghost through this plan.
+                            intent:   'system-architectural-plan-current-level',
                         });
-                        console.log('[house-layout] §FLR-VIEWS created plan view', name, 'for', storey.levelId);
+                        console.log('[house-layout] §FLR-VIEWS created plan view', name, 'for', storey.levelId, '(no below-level projection)');
                     } catch (e) {
                         console.warn('[house-layout] §FLR-VIEWS plan view create failed for', storey.levelId, e);
                     }
@@ -710,6 +713,8 @@ export class HouseLayoutExecutor {
                                 name:     'Roof Plan',
                                 viewType: 'plan',
                                 spatial:  { levelId: roofLevelId },
+                                // §GHOST-FIX — roof plan must not project the top storey below it.
+                                intent:   'system-architectural-plan-current-level',
                             });
                             console.log('[house-layout] §ROOF-VIEW created Roof Plan view for', roofLevelId);
                         } catch (e) {

@@ -5,6 +5,11 @@ export const SYSTEM_INTENT_IDS = {
     architecturalDocumentation: 'system-architectural-documentation',
     cleanPresentation: 'system-clean-presentation',
     structuralCoordination: 'system-structural-coordination',
+    // §GHOST-FIX (founder 2026-06-09) — a plan intent that does NOT project the
+    // storey BELOW the cut plane (belowLevelDepth 0). Auto-assigned to generated
+    // per-storey + roof plan views so ground-floor walls stop ghosting through the
+    // first-floor plan. Same pen/symbol conventions as the default doc intent.
+    architecturalPlanCurrentLevel: 'system-architectural-plan-current-level',
 } as const;
 
 function now(): string {
@@ -142,6 +147,33 @@ export const SYSTEM_VISIBILITY_INTENTS: readonly VisibilityIntent[] = Object.fre
         description: 'Default documentation intent using PRYZM pen-weight table conventions.',
         purposeModifiers: BUILT_IN_PURPOSE_MODIFIERS,
         planViewRange: { belowLevelDepth: 1.20, structuralPlanBelowLevelDepth: 1.20 },
+        modifiers: [
+            {
+                viewType: 'plan',
+                elementType: 'door',
+                statePatch: { projection: { symbolicRule: 'plan-door-swing' } },
+            },
+            {
+                viewType: 'plan',
+                elementType: 'window',
+                statePatch: { projection: { symbolicRule: 'plan-window-cased' } },
+            },
+            {
+                viewType: '3d',
+                elementType: 'wall',
+                statePatch: { projection: { fill: { style: 'solid', colour: '#ffffff', opacity: 1 } } },
+            },
+            ...SECTION_AND_DETAIL_MODIFIERS,
+        ],
+    }),
+    makeIntent({
+        // §GHOST-FIX — identical to the default documentation intent EXCEPT
+        // belowLevelDepth 0: the plan does not project the storey below the cut.
+        id: SYSTEM_INTENT_IDS.architecturalPlanCurrentLevel,
+        name: 'Architectural Plan — Current Level Only',
+        description: 'Documentation plan intent that does NOT show the storey below (belowLevelDepth 0).',
+        purposeModifiers: BUILT_IN_PURPOSE_MODIFIERS,
+        planViewRange: { belowLevelDepth: 0, structuralPlanBelowLevelDepth: 0 },
         modifiers: [
             {
                 viewType: 'plan',

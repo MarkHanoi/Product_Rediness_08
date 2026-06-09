@@ -63,6 +63,8 @@ export function generateDocumentationSet(runtime: PryzmRuntime): number {
                         if (hasPlanView(view.levelId, id)) continue;
                         runtime.bus.executeCommand('view.createDefinition', {
                             id, name: view.label, viewType: 'plan', spatial: { levelId: view.levelId },
+                            // §GHOST-FIX — no storey-below projection on generated plan sheets.
+                            intent: 'system-architectural-plan-current-level',
                         });
                         created += 1;
                     } else if (view.kind === 'room-plan' && view.levelId && view.cropRegion) {
@@ -71,6 +73,7 @@ export function generateDocumentationSet(runtime: PryzmRuntime): number {
                         runtime.bus.executeCommand('view.createDefinition', {
                             id, name: view.label, viewType: 'plan',
                             spatial: { levelId: view.levelId, cropRegion: view.cropRegion },
+                            intent: 'system-architectural-plan-current-level',
                         });
                         created += 1;
                     }

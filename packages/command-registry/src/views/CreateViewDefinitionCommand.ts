@@ -85,7 +85,10 @@ export class CreateViewDefinitionCommand implements Command {
         // F4.1-B — direct static import; no longer relies on a runtime window bridge.
         vgGovernanceStore.ensureView(this.params.id, this.params.name, 'model-default');
 
-        viewIntentInstanceStore.assign(this.params.id);
+        // §GHOST-FIX — honour an explicit intent on the payload (e.g. the
+        // belowLevelDepth-0 plan intent for generated storey/roof views). When
+        // omitted, assign() falls back to the default system intent as before.
+        viewIntentInstanceStore.assign(this.params.id, this.params.intent);
 
         return { success: true, affectedElementIds: [this.params.id] };
     }
