@@ -2777,3 +2777,64 @@ root (L1-plan ghost lines); per-room windowless-habitable recovery; the stair-he
 alignment (A.27 P6).
 
 *Addendum 2026-06-09 — §24.1 DOC-AUTO impl status (DS1-DS6 cores + C24.1 shipped) + §24.2 house-layout fixes (stair cure + rotated-plate merge).*
+
+---
+
+## §25 — LIVE single-option layout modal (`LIVE-MODAL`) — analysis + plan (2026-06-09)
+
+**Founder directive (verbatim):** *"the modal preview image is not accurate — the wall perimeter
+shell should be better defined — it appears like windows going out of the perimeter shell already on
+the preview — let's do something — i want only ONE option in the modal preview + living graph — but
+better visibility — the user could change data in slider + living graph and the modal preview of the
+floor plan should change LIVE accordingly."*
+
+**Spec:** [SPEC-LIVE-SINGLE-OPTION-LAYOUT-MODAL](../specs/SPEC-LIVE-SINGLE-OPTION-LAYOUT-MODAL.md).
+**Target:** the "Choose a house layout" modal (`apps/editor/src/ui/house-layout/*`).
+**Governance:** C52 (editable building graph) · ADR-0061 · ADR-0060 (living design params) ·
+ADR-0056 (typology brief) · C50/SPEC-TGL (the one deterministic engine).
+
+### §25.1 — As-is (verified)
+
+- The house modal opens with **3 variant cards** (`HouseLayoutController.HOUSE_OPTION_COUNT = 3`,
+  `:42`; `generateHouseLayoutOptions(...)` best-first, `houseOrchestrator.ts:237`). Variant 0 is
+  already the single best (A.21.D18 equality invariant, `:288`).
+- The modal **already has** a debounced (250 ms) inline program-edit form + synchronous re-generate
+  (`HouseLayoutModal._scheduleProgramChange :214` → `HouseLayoutController._regenerate :231` →
+  `modal.refresh`). The house engine is an offline deterministic L2 call (no relay) → re-run is sync.
+- The modal has **no living graph** (the apartment modal does, via `buildLayoutBubbleGraphSvg` +
+  the per-card `.alm-view-toggle` Plan/Graph CSS — house just never calls them).
+- The plan thumbnail (`layoutThumbnail.ts`) has **no dedicated perimeter-shell ring** and **does not
+  clamp window/door spans to the host wall** → the "windows poking out of the shell" defect.
+
+### §25.2 — Reusable substrate (do NOT reinvent)
+
+- **Slider → re-render:** ALREADY in the house modal (§25.1) — reuse verbatim.
+- **Graph edit → re-generate:** the apartment C52 loop — `activeRoomAreaOverrides.ts` /
+  `activeRoomTypeOverrides.ts` (session stashes) + `LivingGraphOverlay.ts` (node edit → stash →
+  debounced `triggerApartmentLayout` → `apartment.layout-executed` → graph re-projection). The modal
+  reuses the SAME stashes; the house path merges them into `program.roomAreasByName/roomTypesByName`
+  in `_computeVariants` and re-runs the SAME engine (sync, not via the async apartment trigger).
+
+### §25.3 — Task breakdown
+
+- [ ] **LIVE-MODAL.A — single option (R1).** `HouseLayoutController.request/_regenerate` pass only
+      `variants[0]`; `houseModalHtml` header drops "N options" / reword to "Choose your house layout".
+- [ ] **LIVE-MODAL.B — living graph (R2).** `HouseLayoutModal._storeyGraphs` (mirror `_storeyThumbs`)
+      → `buildLayoutBubbleGraphSvg` per storey; `houseModalHtml.cardHtml` gains the `.alm-view-toggle`
+      Plan/Graph buttons + `.alm-view--graph` container; overlay click toggles `.alm-card--graph`.
+- [ ] **LIVE-MODAL.C — better visibility (R3).** [P with B] `layoutThumbnail` opt-in
+      `shellPolygonMm`/`drawShellRing` (R3a, perimeter ring) + `clampSpansToWall` (R3b, pin
+      windows/doors to the host wall); house passes the storey footprint + clamp ON + hero size;
+      CSS `.hlm-storey-thumb` enlarged. Default-OFF ⇒ apartment byte-identical.
+- [ ] **LIVE-MODAL.D — editable modal graph (R4 graph).** [after B] opt-in `BubbleGraphOptions.interactive`
+      (emit `data-room-name` + clickable nodes); modal node-click → inline area/type editor →
+      `setRoomAreaOverride`/`setRoomTypeOverride` → `_scheduleGraphEdit` (coalesce onto the slider
+      debounce) → `_regenerate`; controller `_computeVariants` merges the override stash into the program.
+- [ ] **LIVE-MODAL.E — brief sliders + seeding (R4 slider).** [P with D] present brief numerics as
+      sliders; seed initial `formState` from `activeBrief` (`getActiveBriefMetadata`, O.12 parity).
+- [ ] **LIVE-MODAL.F — tests + docs.** editor `layoutModalHtml`/`layoutThumbnail` tests (single card,
+      graph present, shell ring, window clamp); ai-host C52-I2 baseline-identity test for the house program.
+
+**Critical path:** A → B → D → F. Off-critical (parallel): C, E.
+**Risks:** re-gen latency (mitigated: 250 ms debounce + sync offline engine); no live async closure
+(controller caches data only); apartment regression (R3a/R3b/interactive all default-off).
