@@ -16,7 +16,7 @@
 // Pure + deterministic — no I/O, no THREE, no DOM.
 
 import type { LayoutWall, LayoutWindow, RoomType, Vec2mm } from '../types.js';
-import { windowMandatoryFor } from '../rules/programRules.js';
+import { windowMandatoryFor, windowDesiredFor } from '../rules/programRules.js';
 
 /** A shell wall already present in the editor's wall store. World METRES. */
 export interface ShellWall {
@@ -498,9 +498,17 @@ function deOverlapShellWindowItems(items: readonly DeOverlapItem[]): DeOverlapIt
     for (const e of items) {
         (byWall.get(e.r.shellWallId) ?? byWall.set(e.r.shellWallId, []).get(e.r.shellWallId)!).push(e);
     }
-    // Priority: 0 = rescued mandatory (claims first), 1 = habitable, 2 = wet/service.
+    // Priority: 0 = rescued HABITABLE/mandatory (claims first), 1 = habitable,
+    // 2 = wet/service. §WINDOW-DESIRED (A.21.D61) — a rescued WET/SERVICE window
+    // (bathroom/ensuite/wc, NOT habitable) must NOT pre-empt a habitable room's
+    // window: it claims at the normal wet/service priority (2), so it only ever
+    // displaces another wet/service conflicter, never a bedroom/living. A rescued
+    // HABITABLE window keeps the top priority (0) so a bedroom whose only span was
+    // lost still pre-empts a lower-priority conflicter (the original task-2b intent).
     const winPriority = (e: DeOverlapItem): number =>
-        e.rescued ? 0 : (HABITABLE_WIN.has(e.r.roomType ?? '') ? 1 : 2);
+        e.rescued
+            ? (HABITABLE_WIN.has(e.r.roomType ?? '') ? 0 : 2)
+            : (HABITABLE_WIN.has(e.r.roomType ?? '') ? 1 : 2);
     const keptIdx = new Set<number>();
     for (const group of byWall.values()) {
         const sorted = group.slice().sort((a, b) =>
@@ -567,7 +575,12 @@ export function resolveAllShellWindows(
             out.push({
                 r, i: idx++,
                 roomKey:   roomKeyOf(w),
-                mandatory: windowMandatoryFor(w.roomType ?? ''),
+                // `mandatory` here drives the de-overlap collateral protection +
+                // the "already keeps a window" short-circuit. §WINDOW-DESIRED widens
+                // it to every window-DESIRED room (incl. wet rooms) so a bathroom that
+                // already kept a window is not re-rescued, and a kept desired window is
+                // protected from rescue collateral exactly like a mandatory one.
+                mandatory: windowDesiredFor(w.roomType ?? ''),
                 rescued:   false,
             });
         } else unmatched++;
@@ -577,21 +590,39 @@ export function resolveAllShellWindows(
     // "CONFLICT … opening skipped" log → dropped window).
     let keptItems = deOverlapShellWindowItems(out);
 
-    // ── §WINDOW-MANDATORY-RESCUE (A.21.D60, 2026-06-09) ───────────────────────────────
-    // Which window-mandatory rooms ended up with ZERO kept windows? Those are the hard
-    // quality defect (the founder's "rooms have doors but not windows"). For each, run a
-    // relaxed rescue pass (corner-setback → width → match tolerance) to retain ONE window.
+    // ── §WINDOW-MANDATORY-RESCUE (A.21.D60) + §WINDOW-DESIRED (A.21.D61, 2026-06-09) ────
+    // Which window-DESIRED rooms ended up with ZERO kept windows? The founder's rule is
+    // "EVERY room has a window" — so the rescue protects the WHOLE windowable set, not
+    // just the legally-mandatory living/kitchen/master/bedroom. The extra rooms
+    // (dining/study + the wet rooms bathroom/ensuite/wc) keep ≥1 window WHEN they have
+    // external frontage; a room with literally NO external wall reports NO-FRONTAGE (a
+    // frontage limitation surfaced in the log, never a silent windowless drop). For each
+    // zero-window desired room, run the relaxed rescue ladder (corner-setback → width →
+    // match tolerance) to retain ONE window.
+    //
+    // Order: LEGALLY-MANDATORY rooms first (they must never yield frontage to a wet-room
+    // rescue), then the wider desired set. A rescued wet room claims at the normal
+    // wet-priority in the de-overlap, so it can only ever displace another wet conflicter.
     const mandatoryRooms = new Map<string, LayoutWindow[]>();
-    for (const w of windows) {
-        if (!windowMandatoryFor(w.roomType ?? '')) continue;
+    const orderedWindows = [...windows].sort((a, b) => {
+        const ma = windowMandatoryFor(a.roomType ?? '') ? 0 : 1;
+        const mb = windowMandatoryFor(b.roomType ?? '') ? 0 : 1;
+        return ma - mb;
+    });
+    for (const w of orderedWindows) {
+        if (!windowDesiredFor(w.roomType ?? '')) continue;
         const key = roomKeyOf(w);
         (mandatoryRooms.get(key) ?? mandatoryRooms.set(key, []).get(key)!).push(w);
     }
     // A room is "protected" from rescue collateral when it ALREADY keeps a window AND is
-    // habitable/mandatory — a rescued window must never displace another habitable room's
-    // only window (it may only pre-empt a lower-priority WET/SERVICE conflicter, task 2b).
+    // HABITABLE (living/kitchen/dining/master/bedroom/study) — a rescued window must
+    // never displace another habitable room's only window. §WINDOW-DESIRED (A.21.D61):
+    // protection is keyed on HABITABLE_WIN (NOT the wider `mandatory`/desired flag, which
+    // now includes wet rooms): a rescued window — habitable OR a wet-room rescue — may
+    // still pre-empt a lower-priority WET/SERVICE conflicter (the task-2b behaviour the
+    // tests pin), but never a habitable one.
     const protectedKeys = (its: readonly DeOverlapItem[]): Set<string> =>
-        new Set(its.filter(e => !e.rescued && (e.mandatory || HABITABLE_WIN.has(e.r.roomType ?? ''))).map(e => e.roomKey));
+        new Set(its.filter(e => !e.rescued && HABITABLE_WIN.has(e.r.roomType ?? '')).map(e => e.roomKey));
     const keptKeys = new Set(keptItems.filter(e => e.mandatory).map(e => e.roomKey));
     const rescueLog: string[] = [];
     for (const [key, roomWindows] of mandatoryRooms) {
@@ -663,6 +694,41 @@ export function resolveAllShellWindows(
     if (rescueLog.length > 0) {
         console.log(`[D-TGL] §WINDOW-MANDATORY-RESCUE fired for ${rescueLog.length} room(s) → ${rescueLog.join(' ')}`);
     }
+
+    // ── §DIAG-WINDOW-RULE (A.21.D61, 2026-06-09) ──────────────────────────────────
+    // The founder's explicit ask: "make sure EVERY room has a window … windows
+    // location." Print one line per WINDOW-DESIRED room: has-window ✓/✗, and when ✗
+    // the REASON (NO-FRONTAGE = the room emitted no external window at all → it has
+    // no external wall; else the gate that dropped its last window from
+    // §DIAG-WIN-UNMATCHED). Then a one-line roll-up. Pure logging — no behaviour
+    // change. `keptKeysFinal` is recomputed from the FINAL kept set (post-rescue).
+    const keptKeysFinal = new Set(keptItems.map(e => e.roomKey));
+    // Every window-desired room the engine emitted ANY window for (its roomKey appears
+    // in `windows`); plus the rooms that emitted ZERO external windows (NO-FRONTAGE).
+    const desiredRoomKeys = new Map<string, string>();   // key → roomType label
+    for (const w of windows) {
+        if (!windowDesiredFor(w.roomType ?? '')) continue;
+        desiredRoomKeys.set(roomKeyOf(w), w.roomType ?? '?');
+    }
+    const rescueByKey = new Map(rescueLog.map(s => {
+        const i = s.lastIndexOf(':');
+        return [s.slice(0, i), s.slice(i + 1)] as const;
+    }));
+    let winYes = 0;
+    const winNo: string[] = [];
+    for (const [key, type] of [...desiredRoomKeys.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
+        const has = keptKeysFinal.has(key);
+        if (has) { winYes++; console.log(`[D-TGL] §DIAG-WINDOW-RULE ${key}(${type}) → window ✓`); }
+        else {
+            const reason = rescueByKey.get(key) === 'NO-FRONTAGE' ? 'NO-FRONTAGE (no external wall)' : 'all candidates dropped (see §DIAG-WIN-UNMATCHED)';
+            winNo.push(`${key}(${type})`);
+            console.log(`[D-TGL] §DIAG-WINDOW-RULE ${key}(${type}) → window ✗ — ${reason}`);
+        }
+    }
+    console.log(
+        `[D-TGL] §DIAG-WINDOW-RULE roomsWithWindow=${winYes}/${desiredRoomKeys.size} ` +
+        `roomsWithoutWindow=[${winNo.join(',') || 'none'}]`,
+    );
 
     return kept;
 }

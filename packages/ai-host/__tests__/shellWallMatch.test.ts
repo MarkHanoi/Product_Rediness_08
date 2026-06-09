@@ -617,10 +617,25 @@ describe('resolveAllShellWindows — §WINDOW-MANDATORY-RESCUE: a mandatory room
         expect(out.some(o => o.roomType === 'bedroom')).toBe(false);
     });
 
-    it('does NOT rescue a non-mandatory room (study) left windowless', () => {
-        // study has windowMandatory: false — a windowless study is acceptable, no rescue.
+    it('§WINDOW-DESIRED (A.21.D61) — RESCUES a window-DESIRED room (study) with external frontage', () => {
+        // The founder's rule is "EVERY room has a window": §WINDOW-DESIRED widens the
+        // rescue beyond the legally-mandatory set to the whole windowable set (study,
+        // dining, and the wet rooms) WHEN they have external frontage. A study on a
+        // skewed external wall whose only window cornerFitDrops on the normal path is
+        // now rescued (it previously shipped windowless — the pre-D61 behaviour).
         const windows: LayoutWindow[] = [
             { wallRef: 0, offset: 200, width: 1500, height: 1300, sillHeight: 900, roomType: 'study', name: 'Study Window' },
+        ];
+        const out = resolveAllShellWindows(windows, [optWall(0, 0, 5000, 300)], [shell('s', 0, 0, 5, 0)]);
+        expect(out).toHaveLength(1);
+        expect(out[0]!.roomType).toBe('study');
+    });
+
+    it('§WINDOW-DESIRED (A.21.D61) — does NOT rescue a NON-windowable room (corridor)', () => {
+        // corridor / hall / utility are never glazed — windowDesiredFor is false, so no
+        // rescue fires even with external frontage (the closed-world windowable set holds).
+        const windows: LayoutWindow[] = [
+            { wallRef: 0, offset: 200, width: 1500, height: 1300, sillHeight: 900, roomType: 'corridor', name: 'Corridor Window' },
         ];
         const out = resolveAllShellWindows(windows, [optWall(0, 0, 5000, 300)], [shell('s', 0, 0, 5, 0)]);
         expect(out).toHaveLength(0);

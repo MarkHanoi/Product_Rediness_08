@@ -141,6 +141,14 @@ const CORRIDOR_STRIP_WIDTH_M = 1.2;
  *  squarify (donor = lowest-priority bedroom, beneficiary = master — never a drop). */
 const MIN_MASTER_SURPLUS_M2 = 2.0;
 
+/** §COMB-DEPTH-GATE (A.21.D61, 2026-06-09) — max private-zone DEPTH (m) for the
+ *  §EVERY-ROOM-ACCESS-COMB. A single-loaded comb slices rooms full-depth; past this
+ *  depth a small wet room's full-depth slice over-sizes it (bathroom > its 28 m²
+ *  no-blob cap on a large house plate). 6.8 m keeps a normal apartment / typical-
+ *  house private zone (depth ≈ 4–6 m) on the comb while large deep plates fall back
+ *  to the squarified treemap. */
+const MAX_COMB_DEPTH_M = 6.8;
+
 function shortSideM(r: Rect): number {
     return Math.min(r.x1 - r.x0, r.z1 - r.z0);
 }
@@ -469,6 +477,12 @@ interface CorridorCarve {
     readonly publicRect: Rect;
     readonly corridorRect: Rect;
     readonly privateRect: Rect;
+    /** Orientation of the corridor strip. 'horizontal' ⇒ the strip runs the full
+     *  WIDTH (x) and the public/private zones stack on z; the private zone abuts the
+     *  corridor along its full x-edge, so a §EVERY-ROOM-ACCESS-COMB slices the private
+     *  rooms along 'x'. 'vertical' ⇒ the strip runs the full HEIGHT (z); comb slices
+     *  along 'z'. */
+    readonly orientation: 'horizontal' | 'vertical';
 }
 
 /** Slice the shell into [public | 1.2 m corridor | private] along its LONGER
@@ -503,6 +517,7 @@ function tryCarveCorridor(
             publicRect:   { x0: shell.x0, z0: shell.z0,    x1: shell.x1, z1: zPubBottom },
             corridorRect: { x0: shell.x0, z0: zPubBottom,  x1: shell.x1, z1: zCorBottom },
             privateRect:  { x0: shell.x0, z0: zCorBottom,  x1: shell.x1, z1: shell.z1 },
+            orientation,
         };
     } else {
         const xPubRight = shell.x0 + publicDepth;
@@ -511,8 +526,106 @@ function tryCarveCorridor(
             publicRect:   { x0: shell.x0,   z0: shell.z0, x1: xPubRight, z1: shell.z1 },
             corridorRect: { x0: xPubRight,  z0: shell.z0, x1: xCorRight, z1: shell.z1 },
             privateRect:  { x0: xCorRight,  z0: shell.z0, x1: shell.x1,  z1: shell.z1 },
+            orientation,
         };
     }
+}
+
+// ── §EVERY-ROOM-ACCESS-COMB (A.21.D61, 2026-06-09) ────────────────────────────
+//
+// THE accessibility keystone (founder rule: "EVERY room … connected by doors …
+// which rooms are connected by doors to which rooms"). The §SINGLE-RECT carve
+// builds a corridor strip running the WHOLE long axis between the public + private
+// zones, then SQUARIFIES the private zone into a treemap. squarify lays rooms in
+// ROWS: only the FIRST row abuts the corridor face — every deeper row is buried
+// behind another private room with NO shared wall to the corridor. `wallsAndDoors`
+// can only host a door on a SHARED wall, so a buried bedroom has no corridor-
+// adjacent wall → no door → it ships §SEALED / unrouted (the prod evidence:
+// upper storey rooms=8 doors=2, circulation=0.00, §CIRCULATION-REROUTE fired).
+// bedroom↔bedroom is forbidden so even the multihop reroute can't rescue it.
+//
+// The COMB layout is the architectural cure: lay the private rooms as a single
+// row of slices PERPENDICULAR to the corridor face, each spanning the full DEPTH
+// of the private rect, so EVERY private room shares its short edge with the
+// corridor strip — a guaranteed corridor-adjacent wall for a door. This is the
+// canonical residential "rooms off a corridor" plan.
+//
+// Pure + deterministic. Returns null when a comb slice can't keep every room above
+// its short-side floor (the caller then keeps the squarified placement — the comb
+// is best-effort and NEVER drops a room or seals it worse than squarify would).
+//
+// `faceAxis` is the axis ALONG which the corridor face runs (the slicing axis):
+//   • corridor horizontal (full-width strip) ⇒ private rooms slice along 'x'
+//     (each room is a full-depth vertical column abutting the corridor's long edge).
+//   • corridor vertical   (full-height strip) ⇒ private rooms slice along 'z'.
+// The caller derives it from the carve orientation.
+function sliceZoneAlongFace(
+    zone: Rect,
+    rooms: readonly ProgramRoom[],
+    faceAxis: 'x' | 'z',
+    // §COMB-MIN-ALONG (A.21.D61) — optional per-room MINIMUM width ALONG the face
+    // (m). The caller widens a room's slot beyond its short-side floor when the
+    // room must host an inner carve: the MASTER carrying an ensuite needs enough
+    // along-face width that `tryCarveEnsuiteFromMaster` can slice the ensuite out
+    // AND leave the master above its own minShortSide (otherwise the comb's narrow
+    // master slice forces the ensuite to be dropped — the §DIAG `master rect too
+    // tight to carve ensuite` regression). Returns the floor for any room not in
+    // the map. Absent ⇒ every room uses its plain short-side floor (no change).
+    minAlongFor?: (room: ProgramRoom) => number,
+): SubdivideResult | null {
+    if (rooms.length === 0) return { placements: [], droppedRooms: [] };
+    const along = faceAxis === 'x' ? zone.x1 - zone.x0 : zone.z1 - zone.z0;   // the corridor-face run
+    const depth = faceAxis === 'x' ? zone.z1 - zone.z0 : zone.x1 - zone.x0;   // perpendicular (into the zone)
+    if (along <= EPS || depth <= EPS) return null;
+
+    // §COMB-DEPTH-GATE (A.21.D61) — a single-loaded comb slices every room FULL-DEPTH,
+    // which is right for a normal residential private zone (apartment / typical house:
+    // depth ≈ 4–6 m → a bedroom is a comfortable near-square, a wet room a sensible
+    // small cell). On a DEEP private zone (a large house plate, depth ≳ 7 m) a full-
+    // depth slice over-sizes the SMALL rooms — a 2.8 m-wide bathroom × 10 m depth is a
+    // 28 m² wet-room blob (NO_BLOB_MAX bathroom = 28 m²). Past this depth the right
+    // architecture is a double-loaded corridor (rooms both sides), not a deeper comb —
+    // so we defer to the squarified treemap (its area-rebalance keeps wet rooms small),
+    // accepting that some back-row rooms reach circulation via the multihop reroute.
+    // The founder's reported case (146 m² apartment, 500 m² stair-fragmented house
+    // dominant rect → moderate depth) is BELOW this gate → the comb fires.
+    if (depth > MAX_COMB_DEPTH_M + EPS) return null;
+
+    // Every sliced room spans the FULL depth, so its SHORT side is min(slot, depth).
+    // The slot WIDTH each room earns is proportional to its target area, but clamped
+    // up to its own MIN-ALONG (≥ short-side floor; wider for a master carrying an
+    // ensuite); if the mins don't fit on the run we bail to squarify.
+    const total = rooms.reduce((s, r) => s + Math.max(EPS, r.targetAreaM2), 0) || EPS;
+    const minAlong = (r: ProgramRoom): number => Math.max(floorFor(r.type), minAlongFor?.(r) ?? 0);
+    const floorSum = rooms.reduce((s, r) => s + minAlong(r), 0);
+    if (floorSum > along + EPS) return null;            // can't give every room its min width → squarify
+    // A room sliced full-depth is only sane when the DEPTH itself clears its floor
+    // (otherwise the slice is a thin tunnel) — if depth is below the largest room's
+    // floor the comb would produce tunnels, so defer to squarify's rebalance.
+    const maxFloor = rooms.reduce((m, r) => Math.max(m, floorFor(r.type)), 0);
+    if (depth < maxFloor - EPS) return null;
+
+    // Width per room = min-along + proportional share of the leftover run.
+    const leftover = Math.max(0, along - floorSum);
+    const widths = rooms.map(r => minAlong(r) + leftover * (Math.max(EPS, r.targetAreaM2) / total));
+    // Re-normalise to fill the run EXACTLY (float drift after the floor+share split).
+    const wSum = widths.reduce((s, w) => s + w, 0) || EPS;
+    const norm = widths.map(w => (w / wSum) * along);
+
+    const placements: RoomPlacement[] = [];
+    let cursor = faceAxis === 'x' ? zone.x0 : zone.z0;
+    for (let i = 0; i < rooms.length; i++) {
+        const w = norm[i]!;
+        const rect: Rect = faceAxis === 'x'
+            ? { x0: cursor, z0: zone.z0, x1: cursor + w, z1: zone.z1 }
+            : { x0: zone.x0, z0: cursor, x1: zone.x1, z1: cursor + w };
+        // Belt-and-braces: never emit a slice below the absolute floor on EITHER
+        // axis (defends the determinism + the §HARD-MIN-SIDE guarantee).
+        if (shortSideM(rect) < ABSOLUTE_MIN_SHORT_SIDE_M - EPS) return null;
+        placements.push({ roomId: rooms[i]!.id, rect: roundRect(rect) });
+        cursor += w;
+    }
+    return { placements, droppedRooms: [] };
 }
 
 /** Carve the ensuite out of the master's squarified rect along its LONGER
@@ -692,11 +805,41 @@ function trySingleRectCarve(shell: Rect, graph: BubbleGraph, corridorWidthM?: nu
     out.push(...pub.placements);
     droppedRooms.push(...pub.droppedRooms);
     const orderedPrivate = adjacencySortForZone(allocationOrder(privateRooms));
-    let priv = placeInRectReported(carve.privateRect, orderedPrivate);
+    // §EVERY-ROOM-ACCESS-COMB (A.21.D61, 2026-06-09) — FIRST try laying the private
+    // rooms as a single row of full-depth slices PERPENDICULAR to the corridor face,
+    // so EVERY private room shares a wall with the corridor strip (a guaranteed
+    // corridor-adjacent wall for its door). This is the accessibility keystone: the
+    // founder's "every room a door onto circulation". The squarified treemap (the
+    // fallback below) buries deeper rows behind front-row rooms → no corridor wall →
+    // §SEALED (the prod evidence: 8 rooms / 2 doors). The comb is best-effort: it
+    // returns null when a slice can't keep every room above its floor, in which case
+    // we keep the squarified placement (never worse than before).
+    // faceAxis: corridor 'horizontal' ⇒ private abuts along x ⇒ slice along x; etc.
+    const combFaceAxis: 'x' | 'z' = carve.orientation === 'horizontal' ? 'x' : 'z';
+    // §COMB-MIN-ALONG — the master carrying an ensuite needs enough ALONG-FACE width
+    // that `tryCarveEnsuiteFromMaster` can slice the ensuite strip out AND leave the
+    // master above its own minShortSide; otherwise the narrow comb master slice forces
+    // the ensuite to be dropped. masterMin + ensuiteMin is the safe floor (a width-axis
+    // carve keeps the master ≥ masterMin; a depth-axis carve already keeps full width).
+    const combMinAlong = (master && ensuite)
+        ? (r: ProgramRoom): number => (r.id === master.id
+            ? roomRule('master').minShortSideM + roomRule('ensuite').minShortSideM
+            : 0)
+        : undefined;
+    const comb = sliceZoneAlongFace(carve.privateRect, orderedPrivate, combFaceAxis, combMinAlong);
+    let priv: SubdivideResult = comb ?? placeInRectReported(carve.privateRect, orderedPrivate);
+    console.log(
+        `[D-TGL subdivide] §EVERY-ROOM-ACCESS-COMB ${comb ? 'APPLIED' : 'fell back to squarify'} ` +
+        `privateRooms=${orderedPrivate.length} faceAxis=${combFaceAxis} ` +
+        `(${comb ? 'every private room abuts the corridor face' : 'comb infeasible — floors/depth too tight'})`,
+    );
     // §MASTER-SURPLUS (F3) — grow the master past every other bedroom by donating area
     // from the largest bedroom (deterministic, no-drop). `ensuiteCarveArea` is the area
     // later sliced from the master for its en-suite, so the surplus holds AFTER the carve.
-    if (master) priv = applyMasterSurplus(carve.privateRect, orderedPrivate, priv, master.id, ensuiteCarveArea);
+    // Only meaningful on the squarified path (the comb already gives the master a full
+    // slice; applyMasterSurplus re-squarifies, so skip it when the comb applied to keep
+    // every room corridor-adjacent).
+    if (master && !comb) priv = applyMasterSurplus(carve.privateRect, orderedPrivate, priv, master.id, ensuiteCarveArea);
     const privatePlacements = [...priv.placements];
     droppedRooms.push(...priv.droppedRooms);
 

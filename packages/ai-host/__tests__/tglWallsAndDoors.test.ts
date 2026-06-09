@@ -181,6 +181,53 @@ describe('buildWallsAndDoors (TGL P4)', () => {
             expect(doorAllowedBetween(ta, tb), `forbidden door pair ${ta}↔${tb} was placed`).toBe(true);
         }
     });
+
+    // §EVERY-ROOM-ACCESS-COMB (A.21.D61) — the founder's accessibility keystone:
+    // EVERY private/service room (except the ensuite, reached via its master) must
+    // get a DIRECT door onto circulation. The prod defect was a squarified private
+    // zone burying deep-row rooms with NO corridor-adjacent wall → 8 rooms / 2 doors,
+    // circulation=0.00. The comb lays the private rooms as full-depth slices along the
+    // corridor face so every one shares a corridor wall → every one gets a door.
+    it('§EVERY-ROOM-ACCESS-COMB: a single-rect 3-bed apartment gives EVERY room a door — none sealed', async () => {
+        const { isCirculation } = await import('../src/workflows/apartmentLayout/rules/programRules.js');
+        const program: ApartmentProgram = {
+            bedrooms: 3, bathrooms: 1, masterEnSuite: true,
+            openPlanKitchenDining: true, livingRoom: true, entranceHall: true,
+        };
+        // A single rectangle ~13×9 = 117 m² → moderate private-zone depth (< the comb gate).
+        const poly: Pt[] = [{ x: 0, z: 0 }, { x: 13, z: 0 }, { x: 13, z: 9 }, { x: 0, z: 9 }];
+        const g = buildBubbleGraph(program, 117);
+        const placements = subdivide(decomposeToRects(poly), g);
+        const { openings, sealedRoomIds, unroutedToCirculationRoomIds } = buildWallsAndDoors(placements, g, { shellPolygon: poly });
+        const typeOf = new Map(g.rooms.map(r => [r.id, r.type]));
+        // Only consider rooms that actually got placed (subdivide may drop on a tight plot).
+        const placedIds = new Set(placements.map(p => p.roomId));
+
+        // (1) No PLACED room is sealed (zero doors). The ensuite IS allowed to reach
+        //     circulation only via its master, but it must still have its (master) door.
+        for (const id of sealedRoomIds) {
+            expect(placedIds.has(id), `room ${id}(${typeOf.get(id)}) shipped SEALED (no door)`).toBe(false);
+        }
+        // (2) Every placed private/service room (NOT ensuite) opens onto circulation.
+        const circIds = new Set(g.rooms.filter(r => isCirculation(r.type)).map(r => r.id));
+        for (const id of unroutedToCirculationRoomIds) {
+            expect(placedIds.has(id), `room ${id}(${typeOf.get(id)}) is land-locked from circulation`).toBe(false);
+        }
+        // (3) Concretely: each placed bedroom/master has a door onto a circulation room.
+        for (const r of g.rooms) {
+            if (!placedIds.has(r.id)) continue;
+            if (r.type !== 'bedroom' && r.type !== 'master') continue;
+            const hasCirc = openings.some(o => {
+                if (o.type !== 'door') return false;
+                const [a, b] = o.betweenRoomIds;
+                if (!b) return false;
+                if (a === r.id) return circIds.has(b);
+                if (b === r.id) return circIds.has(a);
+                return false;
+            });
+            expect(hasCirc, `${r.id}(${r.type}) has no circulation door`).toBe(true);
+        }
+    });
 });
 
 // ─── §CIRCULATION-REROUTE (A.APT.SA.2) ────────────────────────────────────────

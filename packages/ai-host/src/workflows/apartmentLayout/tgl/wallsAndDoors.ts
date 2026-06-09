@@ -1181,6 +1181,44 @@ export function buildWallsAndDoors(
         `walls=${segmentsOut.length} sealed=[${sealedNamed}] unroutedToCirculation=[${reroutedNamed}]`,
     );
 
+    // ── §DIAG-ADJACENCY + §DIAG-DOOR-RULE (A.21.D61, 2026-06-09) ──────────────────
+    // The founder's explicit ask: "which rooms are connected by doors to which
+    // rooms … add logs so we can understand what's going on." For the WINNING
+    // layout, print one line per room naming the rooms it is door-connected to,
+    // each tagged ✓/✗ for whether that door satisfies the access-permission matrix
+    // (`doorAllowedBetween`), and flag any room with ZERO doors. Then a one-line
+    // §DIAG-DOOR-RULE roll-up: rooms-with-door / rooms-without / permission
+    // violations. Pure logging — no behaviour change.
+    const doorPartners = new Map<string, Array<{ other: string; ok: boolean }>>();
+    for (const r of graph.rooms) doorPartners.set(r.id, []);
+    let permissionViolations = 0;
+    for (const o of openings) {
+        if (o.type !== 'door') continue;
+        const [a, b] = o.betweenRoomIds as readonly [string, string?];
+        if (!a || !b) continue;
+        const ta = typeOf.get(a) ?? '?', tb = typeOf.get(b) ?? '?';
+        const ok = doorAllowedBetween(ta, tb);
+        if (!ok) permissionViolations++;
+        doorPartners.get(a)?.push({ other: b, ok });
+        doorPartners.get(b)?.push({ other: a, ok });
+    }
+    const roomsWithDoor: string[] = [];
+    const roomsWithoutDoor: string[] = [];
+    for (const r of [...graph.rooms].sort((p, q) => (p.id < q.id ? -1 : 1))) {
+        const partners = doorPartners.get(r.id) ?? [];
+        if (partners.length === 0) roomsWithoutDoor.push(`${r.id}(${r.type})`);
+        else roomsWithDoor.push(r.id);
+        const desc = partners.length === 0
+            ? 'NO DOOR ✗'
+            : partners.map(p => `${typeOf.get(p.other) ?? '?'}${p.ok ? '✓' : '✗'}`).join(', ');
+        console.log(`[D-TGL] §DIAG-ADJACENCY ${r.id}(${r.type}) → ${desc}`);
+    }
+    console.log(
+        `[D-TGL] §DIAG-DOOR-RULE roomsWithDoor=${roomsWithDoor.length}/${graph.rooms.length} ` +
+        `roomsWithoutDoor=[${roomsWithoutDoor.join(',') || 'none'}] ` +
+        `permissionViolations=${permissionViolations}`,
+    );
+
     return { segments: segmentsOut, openings, boundaries, compromises, sealedRoomIds, unroutedToCirculationRoomIds };
 }
 

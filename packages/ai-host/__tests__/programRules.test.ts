@@ -8,6 +8,7 @@ import {
     ROOM_RULES, ALL_ROOM_RULES, roomRule, occupancyOf, isCirculation, isPrivate,
     isOpenPlanEligible,
     doorAllowedBetween, maxDoorsFor, programForOccupancy, preferenceBetween,
+    windowMandatoryFor, windowDesiredFor,
 } from '../src/workflows/apartmentLayout/rules/programRules.js';
 import { scaleProgramToShell } from '../src/workflows/apartmentLayout/tgl/bubbleGraph.js';
 import type { RoomType } from '../src/workflows/apartmentLayout/types.js';
@@ -37,6 +38,28 @@ describe('programRules — database integrity', () => {
 
     it('roomRule falls back gracefully for an unknown type', () => {
         expect(roomRule('does-not-exist').type).toBe('utility');
+    });
+
+    it('§WINDOW-DESIRED (A.21.D61) — the founder\'s "every room a window" set is the windowable set', () => {
+        // windowDesiredFor ⊇ windowMandatoryFor: the LEGAL mandatory set
+        // (living/kitchen/master/bedroom) is a strict subset of the DESIRED set, which
+        // additionally covers dining + study + the wet rooms (bathroom/ensuite/wc).
+        for (const t of ALL_TYPES) {
+            if (windowMandatoryFor(t)) expect(windowDesiredFor(t), `mandatory ⇒ desired for ${t}`).toBe(true);
+        }
+        // Every windowable room is desired (the founder wants a window in ALL of them).
+        for (const t of ['living', 'kitchen', 'dining', 'master', 'bedroom', 'study', 'bathroom', 'ensuite', 'wc'] as RoomType[]) {
+            expect(windowDesiredFor(t), `${t} should be window-desired`).toBe(true);
+        }
+        // The wet rooms are NEWLY desired (they were NOT mandatory).
+        for (const t of ['bathroom', 'ensuite', 'wc', 'dining', 'study'] as RoomType[]) {
+            expect(windowMandatoryFor(t)).toBe(false);
+            expect(windowDesiredFor(t)).toBe(true);
+        }
+        // Circulation + service are never glazed.
+        for (const t of ['corridor', 'hall', 'utility'] as RoomType[]) {
+            expect(windowDesiredFor(t), `${t} must never be window-desired`).toBe(false);
+        }
     });
 });
 

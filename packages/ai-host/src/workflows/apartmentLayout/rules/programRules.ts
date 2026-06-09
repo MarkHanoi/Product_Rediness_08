@@ -633,6 +633,30 @@ export function isCirculation(type: RoomType | string): boolean {
 export function windowMandatoryFor(type: RoomType | string): boolean {
     return roomRule(type).windowMandatory === true;
 }
+
+/**
+ * §WINDOW-DESIRED (A.21.D61, 2026-06-09) — the founder's rule "make sure EVERY
+ * room has a window". WIDER than `windowMandatoryFor` (which is the LEGAL hard
+ * requirement — living/kitchen/master/bedroom — and drives the §TOPO-HARD-REJECT
+ * gate). `windowDesiredFor` additionally covers the rooms the founder wants
+ * windowed WHEN they have external frontage but which are NOT a hard reject when
+ * interior: the wet rooms (bathroom/ensuite/wc — an obscure-glazed window is
+ * desirable) plus dining + study. It is exactly the §WINDOW-MANDATORY-RESCUE
+ * protection set: a room of this type with ANY external wall must keep ≥1 window,
+ * and only a room with literally NO external frontage may ship windowless (logged
+ * as a frontage limitation, never a silent drop).
+ *
+ * NOT used by the HARD gate (windowMandatory stays the legal set) — so a buried
+ * interior bathroom is still a LEGAL plan, it just can't be rescued (no frontage).
+ * Equal to the closed windowable set EXCEPT corridor/hall/utility (never glazed).
+ * Pure data lookup; deterministic.
+ */
+export function windowDesiredFor(type: RoomType | string): boolean {
+    const t = roomRule(type).type;
+    return t === 'living' || t === 'kitchen' || t === 'dining'
+        || t === 'master' || t === 'bedroom' || t === 'study'
+        || t === 'bathroom' || t === 'ensuite' || t === 'wc';
+}
 export function isPrivate(type: RoomType | string): boolean {
     const p = roomRule(type).privacy;
     return p === 'private';
