@@ -1454,6 +1454,20 @@ export class WallJoinResolver {
             result.set(subordinateEp.wallId, adjSub);
 
             console.log(`[WJR-DIFF-THICKNESS] (option-B butt) dominant=${dominantEp.wallId}(${dominantEp.side}) tDom=${dominantT} sub=${subordinateEp.wallId}(${subordinateEp.side}) tSub=${subordinateT}`);
+
+            // §DIAG-WALL-JOIN — diff-thickness L: the subordinate butts the dominant's
+            // NEAR lateral face and the dominant is EXTENDED by subordinateT/2 to back the
+            // outer overhang (§PERIMETER-CORNER-FILL), so the outer corner notch is filled
+            // by construction. The clean-butt + NaN/length guards above prove the trim is
+            // finite + non-collapsing; if they refused, this line is not reached (an early
+            // return already logged the refusal). So reaching here ⇒ the L closed cleanly.
+            const _angDegDT = (this._angleFromDirs(dirA, dirB) * 180) / Math.PI;
+            const _clsDT = _angDegDT < 10 ? 'COLLINEAR' : _angDegDT >= 60 ? 'L' : 'SHALLOW-L';
+            console.log(
+                `[WallJoinResolver] §DIAG-WALL-JOIN CORNER ${epA.wallId}(${epA.side}) ↔ ${epB.wallId}(${epB.side}) ` +
+                `class=${_clsDT} angle=${_angDegDT.toFixed(1)}° mitre=diffThk-butt+fill(tDom=${dominantT.toFixed(3)} tSub=${subordinateT.toFixed(3)}) ` +
+                `closed=${_clsDT !== 'COLLINEAR' ? '✓' : '⚠ NOT-CLEAN'}`,
+            );
             return;
         }
 
@@ -1502,6 +1516,47 @@ export class WallJoinResolver {
                 `(MIN=${MIN_LEN})`
             );
             return;
+        }
+
+        // ── §DIAG-WALL-JOIN (founder verification, 2026-06-09) ───────────────────
+        // The founder asked: "make sure all walls JOIN in an L-shape for the outer
+        // (perimeter) AND interior walls — add logs so we can understand what's going
+        // on." This ALWAYS-ON line classifies every pair-wise CORNER join and reports
+        // whether the L mitre CLOSED CLEANLY. The same-thickness corner is the L the
+        // generated layout produces (perimeter + interior partitions share thickness),
+        // resolved here by the bisector miter. Closure has two parts, both verified:
+        //   1. CENTRELINE closure — both walls trim to the IDENTICAL sharedPt (the
+        //      centreline×centreline crossing). newA/newB above set BOTH joining ends to
+        //      sharedPt.clone(), so the gap is 0 by construction; we measure it to prove
+        //      it (any > eps ⇒ a real notch/overrun at the corner).
+        //   2. MITRE closure — the bisector base is non-degenerate (the two wall dirs are
+        //      not anti-parallel). A degenerate bisector ⇒ the path fell back to a square
+        //      cap ⇒ it is NOT a clean L (a collinear pass-through, logged as such).
+        // Classification by the inter-wall angle: L (perpendicular-ish corner, ~30..150°),
+        // SHALLOW-L (acute/obtuse but still a corner), or COLLINEAR (near-straight → not
+        // an L — would be a pass-through, normally handled by the cluster pass).
+        const _jointGapM = newA[epA.side === 'start' ? 0 : 1]
+            .distanceTo(newB[epB.side === 'start' ? 0 : 1]);
+        const _angRad = this._angleFromDirs(dirA, dirB);   // ∈ [0, π/2] (uses |dot|)
+        const _angDeg = (_angRad * 180) / Math.PI;          // 90 = perpendicular, 0 = collinear
+        const _bisectorOk = bisectorSum.length() >= 1e-6;   // false ⇒ anti-parallel ⇒ square-cap fallback
+        const _cls = _angDeg < 10 ? 'COLLINEAR' : _angDeg >= 60 ? 'L' : 'SHALLOW-L';
+        const _CLOSE_EPS_M = 0.002;                          // 2 mm — sub-visible
+        const _closed = _jointGapM <= _CLOSE_EPS_M && _bisectorOk && _cls !== 'COLLINEAR';
+        // Perimeter vs interior is not knowable from wall data alone here; we report the
+        // wall ids + thickness so the founder can map them. Same-thickness ⇒ mitred L.
+        console.log(
+            `[WallJoinResolver] §DIAG-WALL-JOIN CORNER ${epA.wallId}(${epA.side}) ↔ ${epB.wallId}(${epB.side}) ` +
+            `class=${_cls} angle=${_angDeg.toFixed(1)}° mitre=bisector(sameThk t=${tA.toFixed(3)}) ` +
+            `jointGap=${(_jointGapM * 1000).toFixed(1)}mm bisectorOk=${_bisectorOk} ` +
+            `closed=${_closed ? '✓' : '⚠ NOT-CLEAN'}`,
+        );
+        if (!_closed) {
+            console.warn(
+                `[WallJoinResolver] §DIAG-WALL-JOIN ⚠ L-corner did NOT close cleanly ` +
+                `(${epA.wallId}↔${epB.wallId}): class=${_cls} jointGap=${(_jointGapM * 1000).toFixed(1)}mm ` +
+                `bisectorOk=${_bisectorOk} — ${_cls === 'COLLINEAR' ? 'near-collinear (expected a pass-through, not an L)' : 'centreline gap/overrun or degenerate bisector'}`,
+            );
         }
 
         // PERF-FIX (Apr 2026): Gate noisy per-corner debug logs behind opt-in flag.

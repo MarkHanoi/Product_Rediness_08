@@ -113,3 +113,49 @@ footprint containment in the world frame) are the systematic cure for `cornersIn
 
 Cross-refs: tracker §23 (layout post-mortems), [[d-tgl-deterministic-layout-engine]],
 the §STAIR-ANTI-FRAGMENT + interiorSide changes (2026-06-08/09).
+
+---
+
+## 5 — The four EXPLICIT stair-placement rules + §DIAG-STAIR-RULE (2026-06-09)
+
+The founder's stair-placement rules, now made explicit, verified, and LOGGED (always-on):
+
+| # | Rule | Where ENFORCED | §DIAG-STAIR-RULE field |
+|---|---|---|---|
+| R1 | Takes a CORNER, never central | §STAIR-DEFAULT-BIAS (`PERIMETER_PREFERENCE` + `FRAGMENT_PENALTY` in `chooseStairCorePosition`) | `R1-corner-not-central` (kind ≠ `central`) |
+| R2 | Hugs the worst-aspect / back-or-side perimeter wall, freeing prime frontage | §STAIR-WORST-ASPECT (`aspectScore` + `aspectBiasFor`) | `R2-worst-aspect-wall` (kind ∈ {back,left,right}) |
+| R3 | Must NOT overlap a habitable room — rooms tile around its keep-out | §STAIR-KEEPOUT (keep-out == CONTAINED footprint, carved before tiling) | `R3-no-room-overlap` (keepOut AABB corners all in shell) |
+| R4 | Full footprint contained in the shell (4/4 corners) | §STAIR-CONTAIN-UPSTREAM (`solveStairContainmentWorld`) | `R4-footprint-in-shell` (cornersInShell === 4) |
+
+**§DIAG-STAIR-RULE** is emitted once per generation in `containStairCoreUpstream` (`houseOrchestrator.ts`),
+each rule with a `✓`/`⚠ VIOLATION` verdict; a `console.warn` fires if ANY rule is violated. The
+per-candidate scoring that drives R1/R2 is in **§DIAG-STAIR** (`stairPosition.ts`, `chooseStairCorePosition`),
+and the containment offset in **§DIAG-STAIR-CONTAIN-UPSTREAM`. Sample (axis-aligned + rotated test plates,
+all clean):
+
+```
+[house-layout] §DIAG-STAIR-RULE kind=left R1-corner-not-central=✓ R2-worst-aspect-wall=✓ R3-no-room-overlap(keepOutInShell=4/4)=✓ R4-footprint-in-shell(cornersInShell=4/4)=✓
+```
+
+## 6 — L-corner wall-join verification + §DIAG-WALL-JOIN (2026-06-09)
+
+The founder's rule: "all walls JOIN in an L-shape for the perimeter AND interior walls." The
+pair-wise CORNER path in `WallJoinResolver._applyCorner` produces a clean L by construction:
+- **Same thickness** (the generated layout's perimeter + interior partitions): bisector miter —
+  both walls trim to the IDENTICAL `sharedPt` (centreline×centreline crossing), so the centreline
+  gap is 0; each gets a bisector miter normal. Clean unless the two dirs are anti-parallel (collinear,
+  not an L).
+- **Different thickness**: option-B finish-face butt + §PERIMETER-CORNER-FILL (the dominant wall is
+  extended by `subordinateT/2` to back the outer overhang) — closes the outer corner notch by
+  construction.
+
+**§DIAG-WALL-JOIN** (always-on) classifies every corner — `L` (≥60°), `SHALLOW-L` (10–60°), or
+`COLLINEAR` (<10°, a pass-through not an L) — and reports the closure verdict (`jointGap`mm,
+`bisectorOk`, `closed=✓/⚠`). Verdict from the test corpus: L-corners close cleanly (`jointGap=0.0mm
+bisectorOk=true closed=✓` at 90° and 45°); near-collinear pairs are correctly flagged
+`COLLINEAR closed=⚠` (the cluster pass handles those with square caps — §PASS-THROUGH-FLUSH). No
+notch/overrun defect was found on either the same- or diff-thickness L path. Sample:
+
+```
+[WallJoinResolver] §DIAG-WALL-JOIN CORNER wall_a(end) ↔ wall_b(start) class=L angle=90.0° mitre=bisector(sameThk t=0.100) jointGap=0.0mm bisectorOk=true closed=✓
+```

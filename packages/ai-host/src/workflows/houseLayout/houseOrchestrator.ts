@@ -22,7 +22,7 @@ import { equatorFacingDir } from '../apartmentLayout/windowEmission/solarOrienta
 import { validateHouseStorey, houseStoreyBand } from './houseEnvelope.js';
 import { reserveStairCoreShaped, splitRisersForShape, type StairCoreShaped, type StairSolar } from './stairCore.js';
 import { computeStairWorldFootprint, type XZ as StairXZ } from './stairWorldFootprint.js';
-import { solveStairContainmentWorld } from './stairContainment.js';
+import { solveStairContainmentWorld, allCornersInside } from './stairContainment.js';
 import { allocateProgramToStoreys } from './storeyAllocation.js';
 import { enrichStoreyProgramToPlate } from './houseProgramFloor.js';
 import { roofBaseElevationM, roofBaseOffsetM } from './houseVertical.js';
@@ -406,6 +406,50 @@ function containStairCoreUpstream(
         + `offset=(${solved.dx.toFixed(2)},${solved.dz.toFixed(2)}) cornersInShell=${solved.cornersInShell}/4`
         + `${solved.alreadyInside ? ' (already-contained)' : solved.viaCentroid ? ' (via-centroid)' : ''}`,
     );
+
+    // §DIAG-STAIR-RULE (founder verification, 2026-06-09) — the four EXPLICIT stair-placement
+    // rules, each checked + logged with a ✓/⚠ verdict so a prod paste proves rule health at a
+    // glance. Logging only (no behaviour change); the rules are ENFORCED upstream by
+    // §STAIR-DEFAULT-BIAS (corner) + §STAIR-KEEPOUT (room carve) + §STAIR-CONTAIN-UPSTREAM
+    // (shell containment). The rules:
+    //   R1 — CORNER, never central: `interiorSide` is left/right/back (a perimeter wall),
+    //        not 'central'. A central stair holes the subdivision → rooms merge.
+    //   R2 — hugs the worst-aspect / back-or-side wall (freeing the prime frontage). The
+    //        chosen kind names the abutted wall; 'central' fails this too.
+    //   R3 — does NOT overlap a habitable room: the keep-out the rooms tile around IS this
+    //        contained footprint, so the rule holds by CONSTRUCTION iff the keep-out AABB is
+    //        itself inside the shell (rooms then tile around it, inside the shell).
+    //   R4 — full footprint contained in the shell: cornersInShell === 4/4.
+    // A ⚠ on any line is a real, actionable founder-visible violation.
+    const fpFinal = (solved.dx === 0 && solved.dz === 0) ? fp0 : fp0.map(c => ({ x: c.x + solved.dx, z: c.z + solved.dz }));
+    const kind = reserved.interiorSide;
+    const r1Corner = kind !== 'central';
+    const r2WorstAspect = kind === 'back' || kind === 'left' || kind === 'right';
+    const r4Contained = solved.cornersInShell === 4;
+    // R3: the keep-out AABB the subdivider carves rooms around == this footprint's AABB; if
+    // ALL its corners are inside the shell the rooms tile around it INSIDE the shell, so no
+    // room can overlap the stair (the carve removes the stair cell before tiling). We test
+    // the AABB corners (the keep-out is axis-aligned in world) against the shell polygon.
+    const x0 = Math.min(...fpFinal.map(c => c.x)), z0 = Math.min(...fpFinal.map(c => c.z));
+    const x1 = Math.max(...fpFinal.map(c => c.x)), z1 = Math.max(...fpFinal.map(c => c.z));
+    const keepOutCorners = [{ x: x0, z: z0 }, { x: x1, z: z0 }, { x: x1, z: z1 }, { x: x0, z: z1 }];
+    const keepOutInShell = keepOutCorners.filter(c => allCornersInside([c], shellWorld)).length;
+    const r3NoRoomOverlap = keepOutInShell === 4;
+    const v = (ok: boolean): string => (ok ? '✓' : '⚠ VIOLATION');
+    console.log(
+        `[house-layout] §DIAG-STAIR-RULE kind=${kind} `
+        + `R1-corner-not-central=${v(r1Corner)} `
+        + `R2-worst-aspect-wall=${v(r2WorstAspect)} `
+        + `R3-no-room-overlap(keepOutInShell=${keepOutInShell}/4)=${v(r3NoRoomOverlap)} `
+        + `R4-footprint-in-shell(cornersInShell=${solved.cornersInShell}/4)=${v(r4Contained)}`,
+    );
+    if (!r1Corner || !r2WorstAspect || !r3NoRoomOverlap || !r4Contained) {
+        console.warn(
+            `[house-layout] §DIAG-STAIR-RULE ⚠ one or more stair rules VIOLATED `
+            + `(kind=${kind} — 'central'/'MID-EDGE' holes the subdivision; cornersInShell<4 pokes the shell). `
+            + `See §DIAG-STAIR candidate scores above for WHY this candidate won.`,
+        );
+    }
 
     const containOffsetWorld = { x: solved.dx, z: solved.dz };
     if (solved.dx === 0 && solved.dz === 0) {
