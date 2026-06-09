@@ -117,7 +117,12 @@ export function buildSemanticGraph(
     segments.forEach((s, i) => {
         const guid = ifcGuid(seed, 'Wall', i, s.id);
         wallGuid.set(s.id, guid);
-        const isExternal = s.boundsRoomIds.length === 1;
+        // §FRACTURE-SEAL (2026-06-09) — a one-sided wall is normally exterior, BUT on a
+        // stair-carved house plate the seal bordering the empty stair fragment is also
+        // one-sided yet INTERIOR. buildWallsAndDoors sets `s.isExternal` explicitly when
+        // the shell is known (it tests perimeter membership): honour it. Undefined (the
+        // apartment / AI path, no shell) ⇒ the legacy `length===1` heuristic (bit-identical).
+        const isExternal = s.isExternal ?? (s.boundsRoomIds.length === 1);
         nodes.push({
             guid, kind: 'Wall', sourceId: s.id,
             attrs: { thickness: s.thickness, heightM: wallH, isExternal },

@@ -31,6 +31,27 @@ export interface WallSeg {
     readonly thickness: number;            // metres
     /** Rooms this wall bounds: 2 ⇒ interior shared, 1 ⇒ exterior. */
     readonly boundsRoomIds: readonly string[];
+    /**
+     * §FRACTURE-SEAL (2026-06-09, multi-storey room-merge cure) — explicit
+     * exterior classification, set whenever the shell polygon is known (every TGL path).
+     * A one-sided wall (`boundsRoomIds.length === 1`) is normally EXTERIOR, but on a
+     * STAIR-CARVED plate the dominant rect's boundary that borders the EMPTY stair
+     * keep-out fragment is ALSO one-sided — yet it is an INTERIOR sealing wall, not a
+     * perimeter wall. semanticGraph flags `length===1 ⇒ isExternal` and the executor's
+     * `skipExteriorWalls` then SKIPS it → the rooms abutting the fracture edge are left
+     * open → RoomDetection floods across the gap → every room merges into one.
+     *
+     * When set, this overrides the `length===1` heuristic: a one-sided wall whose body
+     * does NOT lie on the real shell perimeter is `false` (interior seal → BUILT), so the
+     * loop closes by construction; a one-sided wall that DOES lie on the perimeter is
+     * `true` — EQUAL to the legacy classification. The apartment / L-U-T / axis-aligned
+     * plates are fully tiled (no empty fragment), so every one-sided wall is a genuine
+     * perimeter wall → `true` for ALL of them → the CLASSIFICATION is unchanged there
+     * (the field is now present, but its value matches `length===1`). Undefined only when
+     * the shell polygon is unknown (the AI path never passes one) ⇒ semanticGraph falls
+     * back to the legacy `length===1` heuristic.
+     */
+    readonly isExternal?: boolean;
 }
 
 export interface OpeningSpec {
@@ -181,6 +202,41 @@ function pointOnPolygonBoundary(p: Pt, poly: readonly Pt[]): boolean {
         if (dx * dx + dz * dz <= POLY_EPS * POLY_EPS) return true;
     }
     return false;
+}
+
+/** Perpendicular distance from `p` to the closed polygon ring (metres). */
+function distPointToRing(p: Pt, poly: readonly Pt[]): number {
+    let best = Infinity;
+    for (let i = 0; i < poly.length; i++) {
+        const a = poly[i]!, b = poly[(i + 1) % poly.length]!;
+        const ex = b.x - a.x, ez = b.z - a.z;
+        const L2 = ex * ex + ez * ez;
+        let t = L2 > 0 ? ((p.x - a.x) * ex + (p.z - a.z) * ez) / L2 : 0;
+        t = Math.max(0, Math.min(1, t));
+        const d = Math.hypot(p.x - (a.x + t * ex), p.z - (a.z + t * ez));
+        if (d < best) best = d;
+    }
+    return best;
+}
+
+/** §FRACTURE-SEAL membership test (metres). A one-sided wall segment is a genuine
+ *  PERIMETER wall (→ exterior, skipped by the executor's pre-drawn shell) iff its
+ *  BODY lies on the real shell ring: the segment is sampled at three points (both
+ *  ends + midpoint) and ALL must be within `tol` of the ring. A wall that borders an
+ *  EMPTY stair-carve fragment lies metres inside the ring → fails this test → it is an
+ *  INTERIOR seal that MUST be built. On an apartment / axis-aligned / L-U-T plate every
+ *  one-sided wall genuinely sits on the perimeter (rooms tile the whole shell) → every
+ *  sample is on the ring → returns true for all of them → byte-identical (no room is
+ *  ever flipped from exterior to interior there). `tol` is generous (matches the
+ *  §RECTIFY bbox-vs-shell divergence band) so a perimeter wall on a slightly-rectified
+ *  edge is never mis-flagged interior. */
+const PERIMETER_MEMBER_TOL_M = 0.35;
+function segmentOnPerimeter(a: Pt, b: Pt, poly: readonly Pt[], tol = PERIMETER_MEMBER_TOL_M): boolean {
+    if (poly.length < 3) return true;                    // unknown shell → preserve legacy (treat as perimeter)
+    const mid: Pt = { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 };
+    return distPointToRing(a, poly) <= tol
+        && distPointToRing(b, poly) <= tol
+        && distPointToRing(mid, poly) <= tol;
 }
 
 /** Standard point-in-polygon (ray-cast). True if `p` is STRICTLY inside `poly`.
@@ -634,6 +690,9 @@ export function buildWallsAndDoors(
     const boundaries: BoundarySeg[] = [];
     const sharedWallByPair = new Map<string, WallSeg>();
     let wid = 0;
+    // §FRACTURE-SEAL — the real shell ring for one-sided-wall classification (house path
+    // only; apartment / AI path leaves shellPolygon undefined → legacy heuristic).
+    const shellPoly = opts.shellPolygon && opts.shellPolygon.length >= 3 ? opts.shellPolygon : null;
 
     const emit = (axis: 'v' | 'h', coord: number, run: Run): void => {
         const ids = [run.neg, run.pos].filter((x): x is string => x !== null);
@@ -649,7 +708,19 @@ export function buildWallsAndDoors(
             boundaries.push({ a, b, betweenRoomIds: [bounds[0]!, bounds[1]!] });
             return;
         }
-        const seg: WallSeg = { id: `w${wid++}`, a, b, thickness, boundsRoomIds: bounds };
+        // §FRACTURE-SEAL — classify one-sided walls against the REAL shell when known
+        // (house path). A one-sided wall on the perimeter is exterior (legacy); one that
+        // borders an empty stair-carve fragment lies INSIDE the shell → interior seal →
+        // must be built (NOT skipped as exterior). Two-sided walls are always interior.
+        // shellPolygon absent (apartment / AI path) ⇒ field left undefined ⇒ semanticGraph
+        // uses the legacy `length===1` heuristic → byte-identical.
+        const isExternal = bounds.length === 1 && shellPoly
+            ? segmentOnPerimeter(a, b, shellPoly)
+            : undefined;
+        const seg: WallSeg = {
+            id: `w${wid++}`, a, b, thickness, boundsRoomIds: bounds,
+            ...(isExternal !== undefined ? { isExternal } : {}),
+        };
         segments.push(seg);
         if (bounds.length === 2) sharedWallByPair.set(pairKey(bounds[0]!, bounds[1]!), seg);
     };
