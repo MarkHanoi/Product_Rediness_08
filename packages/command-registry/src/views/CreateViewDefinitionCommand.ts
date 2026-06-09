@@ -22,7 +22,7 @@ import { viewIntentInstanceStore } from '@pryzm/core-app-model';
 // with a static, type-checked import. Eliminates DI-via-globals and the
 // silent no-op when the bridge has not been wired before command execution.
 import { vgGovernanceStore } from '@pryzm/core-app-model';
-import type { ViewDefinition, ViewSpatialContext, ViewTemporalContext } from '@pryzm/core-app-model';
+import type { ViewDefinition, ViewSpatialContext, ViewTemporalContext, ViewCropSettings } from '@pryzm/core-app-model';
 
 export interface CreateViewDefinitionParams {
     id:           string;
@@ -31,6 +31,13 @@ export interface CreateViewDefinitionParams {
     discipline?:  ViewDefinition['discipline'];
     spatial?:     ViewSpatialContext;
     temporal?:    ViewTemporalContext;
+    /**
+     * §DOC-ROOM-CROP — interactive crop window. Distinct from `spatial.cropRegion`
+     * (the EdgeProjector geometry pre-filter): `crop` is the one PlanViewCanvas
+     * honours for BOTH camera framing (fitToDrawing) and 2D clipping. Per-room
+     * documentation plans set this so the view fits tight to the room boundary.
+     */
+    crop?:        ViewCropSettings;
     vgTemplateId?: string;
     intent?:      string;
     createdBy?:   string;

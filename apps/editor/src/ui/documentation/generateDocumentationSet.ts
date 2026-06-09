@@ -70,9 +70,25 @@ export function generateDocumentationSet(runtime: PryzmRuntime): number {
                     } else if (view.kind === 'room-plan' && view.levelId && view.cropRegion) {
                         const id = `vd-doc-room-${sheet.sheetNumber}`;
                         if (hasPlanView(view.levelId, id)) continue;
+                        const cr = view.cropRegion;
+                        // §DOC-ROOM-CROP — `spatial.cropRegion` is only the EdgeProjector
+                        // geometry pre-filter (and only when EDGE_PROJECTOR_NATIVE is on);
+                        // PlanViewCanvas frames (fitToDrawing) + clips (_applyCropClip) by
+                        // `crop` (ViewCropSettings). Set BOTH so the per-room sheet actually
+                        // fits tight to the room boundary instead of showing the whole floor.
+                        const crop = {
+                            enabled: true,
+                            region: { min: [cr.minX, cr.minZ] as [number, number], max: [cr.maxX, cr.maxZ] as [number, number] },
+                            annotationCrop: true,
+                        };
+                        console.log(
+                            `[documentation] §DOC-ROOM-CROP fit "${view.label}" → ` +
+                            `X[${cr.minX.toFixed(2)},${cr.maxX.toFixed(2)}] Z[${cr.minZ.toFixed(2)},${cr.maxZ.toFixed(2)}] (m)`,
+                        );
                         runtime.bus.executeCommand('view.createDefinition', {
                             id, name: view.label, viewType: 'plan',
                             spatial: { levelId: view.levelId, cropRegion: view.cropRegion },
+                            crop,
                             intent: 'system-architectural-plan-current-level',
                         });
                         created += 1;

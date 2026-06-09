@@ -28,6 +28,22 @@ describe('DS4 — roomCropRegion', () => {
     });
 });
 
+describe('§DOC-ROOM-CROP — RoomCropRegion → ViewCropSettings.region mapping', () => {
+    // The editor wiring (generateDocumentationSet) must map the {minX,minZ,maxX,maxZ}
+    // RoomCropRegion onto the ViewCropSettings.region shape ({min:[x,z], max:[x,z]})
+    // that PlanViewCanvas actually frames + clips by. The bug was that only
+    // spatial.cropRegion was set (an EdgeProjector-only field), never `crop`.
+    it('produces a region whose min/max arrays match the bbox corners (metres)', () => {
+        const c = roomCropRegion(ROOM, 0.5)!;
+        const region = { min: [c.minX, c.minZ] as [number, number], max: [c.maxX, c.maxZ] as [number, number] };
+        expect(region.min).toEqual([1.5, 0.5]);
+        expect(region.max).toEqual([6.5, 4.5]);
+        // min strictly below max on both axes → a non-degenerate clip rect.
+        expect(region.max[0]).toBeGreaterThan(region.min[0]);
+        expect(region.max[1]).toBeGreaterThan(region.min[1]);
+    });
+});
+
 describe('DS4 — computeRoomInteriorElevationMarks', () => {
     it('produces 4 interior marks at the room centroid looking OUTWARD at each wall', () => {
         const m = computeRoomInteriorElevationMarks(ROOM);
