@@ -16,6 +16,7 @@
 // Pure + deterministic — no I/O, no THREE, no DOM.
 
 import type { LayoutWall, LayoutWindow, RoomType, Vec2mm } from '../types.js';
+import { windowMandatoryFor } from '../rules/programRules.js';
 
 /** A shell wall already present in the editor's wall store. World METRES. */
 export interface ShellWall {
@@ -72,6 +73,16 @@ const dist = (a: { x: number; z: number }, b: { x: number; z: number }): number 
 // land on the real drawn shell even when the generated perimeter is off-axis.
 const ANGLE_TOL_RAD = (30 * Math.PI) / 180; // max direction difference (either way)
 const PERP_TOL_M = 1.0;                       // max perpendicular distance to the shell line
+
+// ── §WINDOW-MANDATORY-RESCUE (A.21.D60, 2026-06-09) — last-resort match widening ──
+//
+// When a window-MANDATORY room (bedroom/master/living/kitchen) would otherwise keep
+// ZERO windows, the rescue pass re-resolves its windows with WIDER match tolerances so
+// a near-parallel shell wall that just missed the normal angle/perp gate can still host
+// the room's one rescue window. Applied ONLY on the rescue path — the normal path uses
+// the tight tolerances above and is byte-identical.
+const RESCUE_ANGLE_TOL_RAD = (45 * Math.PI) / 180;
+const RESCUE_PERP_TOL_M = 1.6;
 /** A.21.D34(b) — slack (m) allowed when requiring the option wall's midpoint to
  *  project within the matched shell segment span. A small float-drift tolerance; the
  *  midpoint must be essentially inside the wall it is hosted on. */
@@ -116,6 +127,30 @@ const MAX_CORNER_SETBACK_M = 1.2;
 const CORNER_SETBACK_WALL_FRACTION = 0.10;
 /** Below this an opening isn't a usable window (shared with §WINDOW-SHELL-CLAMP). */
 const MIN_WINDOW_M = 0.4;
+
+// ── §WINDOW-MANDATORY-RESCUE (A.21.D60, 2026-06-09) — relaxed corner pier ─────────
+//
+// On the rescue path the corner setback is reduced toward the BARE no-touch
+// clearance (NOT slammed to the exact corner — a window flush on the corner reads
+// worse than a windowless wall). This is the architectural minimum that still keeps
+// a visible reveal: it lets the room's ONE rescue window fit on a short external wall
+// (or near a corner) that the full 0.5 m masonry pier would have starved. Normal
+// path is untouched (full `cornerSetbackForWall`).
+const RESCUE_CORNER_SETBACK_M = 0.1;
+
+/** Per-window relaxation toggles for the §WINDOW-MANDATORY-RESCUE path. All flags
+ *  default OFF (the normal path passes no relax object → byte-identical). */
+export interface RescueRelax {
+    /** (a) Reduce the corner setback toward the bare clearance so a short / near-corner
+     *  external wall can still host the room's one window. */
+    readonly relaxCorner: boolean;
+    /** (c) Widen the shell-match angle/perp tolerance so a near-parallel shell wall that
+     *  just missed the normal gate can host this rescue window. */
+    readonly widenMatch: boolean;
+    /** (d) Accept a smaller window variant (shrink the requested width toward
+     *  MIN_WINDOW_M) so an over-wide spec that couldn't fit still keeps ONE window. */
+    readonly shrinkWidth: boolean;
+}
 
 /**
  * The corner setback (m) for a shell wall of `shellLenM`: a real masonry pier at
@@ -168,7 +203,12 @@ export function matchShellHost(
     optionWall: LayoutWall,
     shellWalls: readonly ShellWall[],
     planToWorld: PlanToWorldXZ = defaultPlanToWorld,
+    // §WINDOW-MANDATORY-RESCUE — optional widened tolerances for the rescue path.
+    // Omitted on the normal path → tight defaults → byte-identical behaviour.
+    tol?: { readonly angleTolRad: number; readonly perpTolM: number },
 ): { shell: ShellWall; reversed: boolean; exact: boolean } | null {
+    const angleTol = tol?.angleTolRad ?? ANGLE_TOL_RAD;
+    const perpTol = tol?.perpTolM ?? PERP_TOL_M;
     const a = planToWorld(optionWall.start);
     const b = planToWorld(optionWall.end);
     // 1) EXACT endpoint match (cheap; preserves the orthogonal behaviour + tests).
@@ -198,9 +238,9 @@ export function matchShellHost(
         if (sd.len < 1e-6) continue;
         const cos = Math.abs(od.x * sd.x + od.z * sd.z);        // 1 = parallel
         const ang = Math.acos(Math.min(1, cos));
-        if (ang > ANGLE_TOL_RAD) continue;                      // not parallel enough
+        if (ang > angleTol) continue;                           // not parallel enough
         const perp = perpDist(mid, s.start, sd);
-        if (perp > PERP_TOL_M) continue;                        // too far off the shell line
+        if (perp > perpTol) continue;                           // too far off the shell line
         // The option wall must project onto the shell segment's span (overlap).
         const t0 = projParam(a, s.start, sd);
         const t1 = projParam(b, s.start, sd);
@@ -245,13 +285,21 @@ export function resolveShellWindow(
     // report WHY each window failed to host (notExternal vs noShellMatch vs a corner/span
     // guard drop). Pure: incrementing a caller-owned counter, no behaviour change.
     reasonTally?: Record<string, number>,
+    // §WINDOW-MANDATORY-RESCUE (A.21.D60, 2026-06-09) — optional per-window guard
+    // relaxation. Omitted on the normal path (undefined) → all guards at full strength →
+    // byte-identical behaviour. Set ONLY by the rescue pass for a window-mandatory room
+    // that would otherwise keep ZERO windows.
+    relax?: RescueRelax,
 ): ShellWindowDispatch | null {
     const fail = (reason: string): null => { if (reasonTally) reasonTally[reason] = (reasonTally[reason] ?? 0) + 1; return null; };
     if (win.wallRef < 0 || win.wallRef >= optionWalls.length) return fail('wallRefOutOfRange');
     const host = optionWalls[win.wallRef]!;
     if (host.isExternal !== true) return fail('hostNotExternal');
 
-    const match = matchShellHost(host, shellWalls, planToWorld);
+    const match = matchShellHost(
+        host, shellWalls, planToWorld,
+        relax?.widenMatch ? { angleTolRad: RESCUE_ANGLE_TOL_RAD, perpTolM: RESCUE_PERP_TOL_M } : undefined,
+    );
     if (!match) return fail('noShellMatch');
 
     const hostStartW = planToWorld(host.start);
@@ -274,10 +322,22 @@ export function resolveShellWindow(
     // wall-length-scaled masonry pier (≥ 0.5 m), not the old cosmetic 0.1 m. Both
     // the width clamp and the offset clamps below use it, so NO window — first,
     // last, or middle — lands within the setback of a corner.
-    const END_CLEAR_M = cornerSetbackForWall(shellDir.len);
+    // §WINDOW-MANDATORY-RESCUE (a) — on the rescue path reduce the corner pier toward the
+    // bare clearance (but never to the exact corner) so a short / near-corner wall can
+    // still host the room's one window. Normal path uses the full masonry pier.
+    const END_CLEAR_M = relax?.relaxCorner
+        ? Math.min(cornerSetbackForWall(shellDir.len), RESCUE_CORNER_SETBACK_M)
+        : cornerSetbackForWall(shellDir.len);
     const maxWidthM = shellDir.len - 2 * END_CLEAR_M;
     if (maxWidthM < MIN_WINDOW_M) return fail('shellWallTooShort');   // shell wall can't host any window
-    const widthM = Math.min(win.width / 1000, maxWidthM);
+    // §WINDOW-MANDATORY-RESCUE (d) — accept a smaller window so an over-wide spec that
+    // couldn't fit the host still keeps ONE window: shrink the REQUESTED width toward the
+    // largest that fits (down to MIN_WINDOW_M). The normal path requests win.width and is
+    // width-clamped by §WINDOW-SHELL-CLAMP below exactly as before.
+    const requestedWidthM = relax?.shrinkWidth
+        ? Math.max(MIN_WINDOW_M, Math.min(win.width / 1000, maxWidthM))
+        : win.width / 1000;
+    const widthM = Math.min(requestedWidthM, maxWidthM);
 
     // §SHELL-MATCH-TOLERANT — project the window's CENTRE onto the matched shell
     // wall so the offset is correct even when the shell wall has different
@@ -398,6 +458,19 @@ export function resolveShellWindow(
  *  (the founder's `CONFLICT … opening skipped` log). */
 const WINDOW_GAP_M = 0.1;
 
+/** Internal de-overlap candidate: a resolved dispatch plus the metadata the priority-
+ *  aware greedy needs (room identity, mandatory flag, rescue flag). Not exported — the
+ *  public surface still returns plain `ShellWindowDispatch`s. */
+interface DeOverlapItem {
+    readonly r: ShellWindowDispatch;
+    readonly i: number;            // stable original index (deterministic tiebreak)
+    readonly roomKey: string;      // groups one room's windows (name, else type+wallRef bucket)
+    readonly mandatory: boolean;   // window-mandatory room (rescue protects these)
+    readonly rescued: boolean;     // a §WINDOW-MANDATORY-RESCUE window (pre-empts conflicters)
+}
+
+const HABITABLE_WIN = new Set(['living', 'kitchen', 'dining', 'master', 'bedroom', 'study']);
+
 /**
  * De-conflict a set of resolved shell-window dispatches so that NO two windows on the
  * SAME shell wall have overlapping spans. Windows on DIFFERENT walls never interact.
@@ -409,50 +482,59 @@ const WINDOW_GAP_M = 0.1;
  * "windows dropped" symptom. Here we instead drop the conflicting window DELIBERATELY,
  * up front, so the dispatched set is conflict-free by construction.
  *
- * Deterministic greedy keep: per shell wall, sort by offset (ties by width desc, then
- * a stable original-index tiebreak); walk in order, keep a window iff its span starts
- * at least `WINDOW_GAP_M` after the previous KEPT window's end; otherwise drop it.
+ * Priority order (highest first), then offset / width / stable index:
+ *   1. §WINDOW-MANDATORY-RESCUE — a rescued mandatory window claims the wall first, so a
+ *      bedroom whose ONLY span was lost to de-overlap pre-empts the lower-priority
+ *      conflicter (task 2b) rather than yielding.
+ *   2. §WINDOW-HABITABLE-PRIORITY (F3 / ADR-0062) — habitable rooms (living/kitchen/
+ *      dining/master/bedroom/study) claim the wall before wet/service rooms.
+ * Byte-identical when no rescue + no cross-priority conflict exists on a wall (same-
+ * priority groups still resolve by offset, exactly as before). Deterministic.
+ *
+ * Returns the kept items (so callers can inspect which rooms survived).
  */
-function deOverlapShellWindows(
-    resolved: readonly ShellWindowDispatch[],
-): ShellWindowDispatch[] {
-    // Preserve original order via an index so the result is stable + the kept set is
-    // re-assembled in emission order (not grouped) — callers iterate it positionally.
-    const indexed = resolved.map((r, i) => ({ r, i }));
-    const byWall = new Map<string, { r: ShellWindowDispatch; i: number }[]>();
-    for (const e of indexed) {
+function deOverlapShellWindowItems(items: readonly DeOverlapItem[]): DeOverlapItem[] {
+    const byWall = new Map<string, DeOverlapItem[]>();
+    for (const e of items) {
         (byWall.get(e.r.shellWallId) ?? byWall.set(e.r.shellWallId, []).get(e.r.shellWallId)!).push(e);
     }
-    // §WINDOW-HABITABLE-PRIORITY (F3 / ADR-0062, 2026-06-08) — when two rooms front the
-    // SAME shell wall with overlapping window spans, the HABITABLE room (living/kitchen/
-    // dining/master/bedroom/study) keeps its window; the wet/service room (bathroom/
-    // ensuite/wc/utility) yields. The §DIAG-WIN trace showed the opposite: an En-suite
-    // and a Bathroom kept 3 windows each while a Bedroom's ONLY window was deleted by the
-    // de-overlap. We sort habitable-first, then walk a priority-aware greedy that checks
-    // each candidate against ALL already-kept spans (not just the last) so a later
-    // habitable window can't be pre-empted by an earlier wet-room one. Byte-identical when
-    // no cross-priority conflict exists on a wall (same-priority groups still resolve by
-    // offset, exactly as before). Deterministic (stable index tiebreak).
-    const HABITABLE_WIN = new Set(['living', 'kitchen', 'dining', 'master', 'bedroom', 'study']);
-    const winPriority = (r: ShellWindowDispatch): number => (HABITABLE_WIN.has(r.roomType ?? '') ? 0 : 1);
+    // Priority: 0 = rescued mandatory (claims first), 1 = habitable, 2 = wet/service.
+    const winPriority = (e: DeOverlapItem): number =>
+        e.rescued ? 0 : (HABITABLE_WIN.has(e.r.roomType ?? '') ? 1 : 2);
     const keptIdx = new Set<number>();
     for (const group of byWall.values()) {
-        group.sort((a, b) =>
-            (winPriority(a.r) - winPriority(b.r)) ||   // habitable rooms claim the wall first
+        const sorted = group.slice().sort((a, b) =>
+            (winPriority(a) - winPriority(b)) ||       // rescued, then habitable, claim first
             (a.r.offsetM - b.r.offsetM) ||
             (b.r.widthM - a.r.widthM) ||
             (a.i - b.i));
         const keptSpans: Array<readonly [number, number]> = [];
-        for (const { r, i } of group) {
-            const s = r.offsetM, e = r.offsetM + r.widthM;
+        for (const e of sorted) {
+            const s = e.r.offsetM, end = e.r.offsetM + e.r.widthM;
             // Conflicts with a kept span when neither sits clear of the other by WINDOW_GAP_M.
-            const overlaps = keptSpans.some(([ks, ke]) => s < ke + WINDOW_GAP_M - 1e-9 && ks < e + WINDOW_GAP_M - 1e-9);
-            if (!overlaps) { keptIdx.add(i); keptSpans.push([s, e]); }
+            const overlaps = keptSpans.some(([ks, ke]) => s < ke + WINDOW_GAP_M - 1e-9 && ks < end + WINDOW_GAP_M - 1e-9);
+            if (!overlaps) { keptIdx.add(e.i); keptSpans.push([s, end]); }
             // else: overlaps an already-kept (higher-priority / earlier) window → drop it.
         }
     }
-    return indexed.filter(e => keptIdx.has(e.i)).map(e => e.r);
+    // Re-assemble in emission order (stable) so callers iterate positionally.
+    return items.filter(e => keptIdx.has(e.i)).slice().sort((a, b) => a.i - b.i);
 }
+
+/** Room identity for grouping a room's windows: the stamped `name` (all of one room's
+ *  windows share `"<RoomName> Window"`); falls back to `type@wallRef` when unnamed (unit-
+ *  test / legacy callers) so a room still groups deterministically. */
+const roomKeyOf = (w: LayoutWindow): string =>
+    w.name ?? `${w.roomType ?? '?'}@${w.wallRef}`;
+
+/** The escalating relaxation ladder the §WINDOW-MANDATORY-RESCUE pass tries, in order.
+ *  Each step ADDS a relaxation; the first that yields a hostable window wins. Pure data. */
+const RESCUE_LADDER: ReadonlyArray<{ readonly label: string; readonly relax: RescueRelax }> = [
+    { label: 'relaxCorner',                 relax: { relaxCorner: true,  widenMatch: false, shrinkWidth: false } },
+    { label: 'relaxCorner+shrinkWidth',     relax: { relaxCorner: true,  widenMatch: false, shrinkWidth: true  } },
+    { label: 'relaxCorner+widenMatch',      relax: { relaxCorner: true,  widenMatch: true,  shrinkWidth: false } },
+    { label: 'relaxCorner+widenMatch+shrinkWidth', relax: { relaxCorner: true, widenMatch: true, shrinkWidth: true } },
+];
 
 /**
  * Resolve all shell-hosted windows in an option. Convenience wrapper —
@@ -461,6 +543,12 @@ function deOverlapShellWindows(
  * Windows that don't match (interior-side or unmatchable externals) are dropped
  * silently here; the wiring layer surfaces them as warnings against the original
  * list.
+ *
+ * §WINDOW-MANDATORY-RESCUE (A.21.D60, 2026-06-09): after the normal pass, any
+ * window-mandatory room (bedroom/master/living/kitchen) that kept ZERO windows is
+ * retried with relaxed drop guards — as a LAST RESORT to retain ONE window — so a
+ * habitable room with ANY external frontage is never left windowless. The normal path
+ * is byte-identical: the rescue only runs when a mandatory room would otherwise be 0.
  */
 export function resolveAllShellWindows(
     windows: readonly LayoutWindow[],
@@ -468,19 +556,75 @@ export function resolveAllShellWindows(
     shellWalls: readonly ShellWall[],
     planToWorld: PlanToWorldXZ = defaultPlanToWorld,
 ): readonly ShellWindowDispatch[] {
-    const out: ShellWindowDispatch[] = [];
+    const out: DeOverlapItem[] = [];
     let unmatched = 0;
     // §DIAG-WIN-UNMATCHED — tally WHY each window failed to host (see resolveShellWindow).
     const reasonTally: Record<string, number> = {};
+    let idx = 0;
     for (const w of windows) {
         const r = resolveShellWindow(w, optionWalls, shellWalls, planToWorld, reasonTally);
-        if (r) out.push(r);
-        else unmatched++;
+        if (r) {
+            out.push({
+                r, i: idx++,
+                roomKey:   roomKeyOf(w),
+                mandatory: windowMandatoryFor(w.roomType ?? ''),
+                rescued:   false,
+            });
+        } else unmatched++;
     }
     // §WINDOW-DEOVERLAP — ensure no two windows on the SAME shell wall overlap, so the
     // wall.createOpening occupancy check never silently rejects a window (the founder's
     // "CONFLICT … opening skipped" log → dropped window).
-    const kept = deOverlapShellWindows(out);
+    let keptItems = deOverlapShellWindowItems(out);
+
+    // ── §WINDOW-MANDATORY-RESCUE (A.21.D60, 2026-06-09) ───────────────────────────────
+    // Which window-mandatory rooms ended up with ZERO kept windows? Those are the hard
+    // quality defect (the founder's "rooms have doors but not windows"). For each, run a
+    // relaxed rescue pass (corner-setback → width → match tolerance) to retain ONE window.
+    const mandatoryRooms = new Map<string, LayoutWindow[]>();
+    for (const w of windows) {
+        if (!windowMandatoryFor(w.roomType ?? '')) continue;
+        const key = roomKeyOf(w);
+        (mandatoryRooms.get(key) ?? mandatoryRooms.set(key, []).get(key)!).push(w);
+    }
+    // A room is "protected" from rescue collateral when it ALREADY keeps a window AND is
+    // habitable/mandatory — a rescued window must never displace another habitable room's
+    // only window (it may only pre-empt a lower-priority WET/SERVICE conflicter, task 2b).
+    const protectedKeys = (its: readonly DeOverlapItem[]): Set<string> =>
+        new Set(its.filter(e => !e.rescued && (e.mandatory || HABITABLE_WIN.has(e.r.roomType ?? ''))).map(e => e.roomKey));
+    const keptKeys = new Set(keptItems.filter(e => e.mandatory).map(e => e.roomKey));
+    const rescueLog: string[] = [];
+    for (const [key, roomWindows] of mandatoryRooms) {
+        if (keptKeys.has(key)) continue;                              // already keeps ≥1 — no rescue
+        // Try the engine's emitted windows for THIS room, escalating the relaxation ladder.
+        // Accept the FIRST (relaxation, window) pair that resolves AND, after a priority-
+        // aware de-overlap, both (i) survives itself and (ii) does NOT cost any previously-
+        // kept habitable/mandatory room its window. Such a rescue only ever drops a lower-
+        // priority WET/SERVICE conflicter (task 2b).
+        const protectedBefore = protectedKeys(keptItems);
+        let chosen: { items: DeOverlapItem[]; label: string } | null = null;
+        outer: for (const step of RESCUE_LADDER) {
+            for (const w of roomWindows) {
+                const r = resolveShellWindow(w, optionWalls, shellWalls, planToWorld, undefined, step.relax);
+                if (!r) continue;
+                const candidate: DeOverlapItem = { r, i: idx, roomKey: key, mandatory: true, rescued: true };
+                const after = deOverlapShellWindowItems([...keptItems, candidate]);
+                const survived = after.some(e => e.i === candidate.i);
+                const protectedAfter = new Set(after.filter(e => !e.rescued).map(e => e.roomKey));
+                const noCollateral = [...protectedBefore].every(k => protectedAfter.has(k));
+                if (survived && noCollateral) { chosen = { items: after, label: step.label }; idx++; break outer; }
+            }
+        }
+        if (!chosen) {
+            // Genuinely no external frontage with a glazable run (or only conflicts that
+            // would cost a higher-priority room) — surfaced, not silently shipped windowless.
+            rescueLog.push(`${key}:NO-FRONTAGE`);
+            continue;
+        }
+        keptItems = chosen.items;
+        rescueLog.push(`${key}:${chosen.label}`);
+    }
+    const kept = keptItems.map(e => e.r);
 
     // §DIAG-WIN-DIST — façade window distribution (logging only; no behaviour change).
     // Bucket the FINAL kept windows by the compass orientation of their host shell
@@ -498,10 +642,11 @@ export function resolveAllShellWindows(
     const buckets: Record<string, number> = {};
     for (const k of kept) buckets[compassOf(k.shellWallId)] = (buckets[compassOf(k.shellWallId)] ?? 0) + 1;
     const dist = Object.entries(buckets).map(([f, n]) => `${f}:${n}`).join(' ') || 'none';
+    const rescuedKept = keptItems.filter(e => e.rescued).length;
     console.log(
         `[D-TGL] §DIAG-WIN-DIST resolved=${out.length} kept=${kept.length} ` +
-        `droppedByDeOverlap=${out.length - kept.length} unmatchedToShell=${unmatched} ` +
-        `façadeAxisDist={${dist}}`,
+        `droppedByDeOverlap=${out.length - (kept.length - rescuedKept)} unmatchedToShell=${unmatched} ` +
+        `rescued=${rescuedKept} façadeAxisDist={${dist}}`,
     );
     // §DIAG-WIN-UNMATCHED — the unmatched count, broken down by CAUSE, so the next prod
     // test says exactly which gate eats the windows (hostNotExternal = engine emitted on
@@ -510,6 +655,13 @@ export function resolveAllShellWindows(
     if (unmatched > 0) {
         const breakdown = Object.entries(reasonTally).map(([r, n]) => `${r}:${n}`).join(' ') || 'none';
         console.log(`[D-TGL] §DIAG-WIN-UNMATCHED total=${unmatched} → ${breakdown}`);
+    }
+    // §WINDOW-MANDATORY-RESCUE (A.21.D60) — state when the rescue fired + which relaxation
+    // it used for each window-mandatory room that would otherwise have been windowless. A
+    // `NO-FRONTAGE` entry means the room has no external wall with a glazable run at all (a
+    // LAYOUT/frontage issue, surfaced rather than silently shipped windowless).
+    if (rescueLog.length > 0) {
+        console.log(`[D-TGL] §WINDOW-MANDATORY-RESCUE fired for ${rescueLog.length} room(s) → ${rescueLog.join(' ')}`);
     }
 
     return kept;

@@ -577,14 +577,29 @@ PERP_TOL 1 m) for non-orthogonal plots.
   cosmetic `END_CLEAR_M`); the D5.c multi-window rework had distributed the first window at
   that bare margin. The fix replaced the cosmetic 0.1 m with this real setback in *both*
   `emitWindows.ts` (`endSetbackMm`, line 91) and `shellWallMatch.ts`.
-- **De-overlap** (`deOverlapShellWindows`, line 411): two rooms fronting the same shell wall
+- **De-overlap** (`deOverlapShellWindowItems`): two rooms fronting the same shell wall
   can resolve to overlapping spans (each room de-overlaps only its own walls); the later one
   is dropped deliberately up front (`WINDOW_GAP_M = 0.1`) so `wall.createOpening` never
-  silently rejects it.
+  silently rejects it. Priority-aware: a **rescued** mandatory window (below) claims the wall
+  first, then habitable rooms, then wet/service (`§WINDOW-HABITABLE-PRIORITY`).
 - **Full-span-or-drop:** `§WINDOW-SHELL-CLAMP` (width clamped to fit the host wall),
   `§WINDOW-CORNER-FIT`/`§WINDOW-CORNER-SPAN`/`§WINDOW-IN-SHELL-FINAL` (the full span must sit
   inside `[setback, len−setback]`; if no clearance-respecting position exists, the window is
   **dropped**, never slammed to a corner).
+- **A `windowMandatory` room keeps ≥ 1 window (rescue fallback)** (`§WINDOW-MANDATORY-RESCUE`,
+  A.21.D60, 2026-06-09): when a window-mandatory room (`bedroom`/`master`/`living`/`kitchen`,
+  per `windowMandatoryFor` in `programRules.ts`) would otherwise resolve to **zero** kept
+  windows — because every emitted window was dropped by `cornerFitDrop` / `noShellMatch` /
+  de-overlap — `resolveAllShellWindows` runs a **last-resort relaxed retry** to retain ONE
+  window. The relaxations escalate in order: **(a)** reduce the corner setback toward the bare
+  clearance (`RESCUE_CORNER_SETBACK_M = 0.1 m`, never the exact corner); **(b)** accept a
+  smaller window (shrink toward `MIN_WINDOW_M`); **(c)** widen the shell-match tolerance (angle
+  30°→45°, perp 1 m→1.6 m). A rescued window may pre-empt only a **lower-priority wet/service**
+  conflicter on a shared wall — it never displaces another habitable room (that case surfaces
+  as `NO-FRONTAGE`). The fallback is the **only** behavioural change: when a mandatory room
+  already keeps ≥ 1 window the path is **byte-identical** to before. A room with literally no
+  external frontage stays windowless but is **surfaced** (`§WINDOW-MANDATORY-RESCUE … NO-FRONTAGE`),
+  not silently shipped. Pure + deterministic (ADR-0061; no `Date.now`/`Math.random`).
 
 ### 7.3 How the sun drives the layout — `solarOrientation.ts` + `envDrivers.ts`
 
@@ -815,6 +830,7 @@ raise a superseding ADR.
 | `§DOOR-MINIMUMS` | `programRules.ts:650`, `wallsAndDoors.ts:728` | Per-room-type clear-width floor. |
 | `§EXTEND-TO-PERIMETER` / `§JUNCTION-REPAIR` | `wallsAndDoors.ts` | Close gaps on slanted shells; weld junctions for room detection. |
 | `§WINDOW-CORNER-SETBACK` (A.21.D45) | `emitWindows.ts:67`, `shellWallMatch.ts:86` | Real masonry pier at each corner (reverts the edge-hugging window). |
+| `§WINDOW-MANDATORY-RESCUE` (A.21.D60) | `shellWallMatch.ts`, `programRules.ts` | A windowMandatory room never ends with 0 windows: last-resort relaxed retry (corner→width→match-tolerance) retains 1; only fallback, byte-identical otherwise. |
 | `§KITCHEN-DISTINCT` / `§BATH-CORRIDOR-ONLY` | `bubbleGraph.ts`, `programRules.ts` | Kitchen always enclosed; bath off corridor only. |
 | `§STAIR-WORST-ASPECT` / `§STAIR-CORNER-ANCHOR` | `stairPosition.ts`, `stairCore.ts` | Stair takes the poor-aspect back corner. |
 | `§COLLINEAR-MERGE` | `executePlan.ts:184` | Fold collinear segments at T/X junctions into passthrough walls. |

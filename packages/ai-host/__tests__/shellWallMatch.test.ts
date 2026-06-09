@@ -548,3 +548,95 @@ describe('resolveShellWindow — §WINDOW-CORNER-SETBACK (A.21.D45): real corner
         }
     });
 });
+
+// ── §WINDOW-MANDATORY-RESCUE (A.21.D60, 2026-06-09) — never zero windows ──────
+//
+// The founder's recurring "rooms have doors but not windows": a window-MANDATORY
+// room (bedroom/master/living/kitchen) ends with ZERO kept windows because every
+// emitted window was DROPPED during shell-matching — the prod log was
+//   §DIAG-WIN-DIST resolved=6 kept=4 droppedByDeOverlap=2 unmatchedToShell=6
+//   §DIAG-WIN-UNMATCHED total=6 → cornerFitDrop:3 noShellMatch:3
+// → a Bedroom with `w=0`. resolveAllShellWindows now runs a LAST-RESORT relaxed
+// rescue (corner-setback → width → match tolerance) so such a room keeps ≥1 window
+// whenever it has ANY external frontage with a glazable run.
+describe('resolveAllShellWindows — §WINDOW-MANDATORY-RESCUE: a mandatory room never ends windowless', () => {
+    // The EXACT bug: a skewed (tolerant-match) bedroom window whose centre lands near a
+    // corner → the normal path drops it with `cornerFitDrop`. Proven by the relax=undefined
+    // resolve returning null with that reason; the rescue (relaxCorner) reclaims it.
+    it('reproduces the cornerFitDrop and proves the relaxed resolve reclaims the window', () => {
+        const w: LayoutWindow = { wallRef: 0, offset: 200, width: 1500, height: 1300, sillHeight: 900, roomType: 'bedroom', name: 'Bedroom 1 Window' };
+        const walls = [optWall(0, 0, 5000, 300)];           // 3.4° skew → tolerant (non-exact) match
+        const shells = [shell('s', 0, 0, 5, 0)];
+        // Normal path drops it via cornerFitDrop.
+        const tally: Record<string, number> = {};
+        expect(resolveShellWindow(w, walls, shells, undefined, tally)).toBeNull();
+        expect(tally.cornerFitDrop).toBe(1);
+        // Relaxed (corner) resolve reclaims it.
+        const r = resolveShellWindow(w, walls, shells, undefined, undefined, { relaxCorner: true, widenMatch: false, shrinkWidth: false });
+        expect(r).not.toBeNull();
+        expect(r!.shellWallId).toBe('s');
+    });
+
+    it('keeps ≥1 window for a mandatory bedroom whose only emitted window cornerFitDropped', () => {
+        const windows: LayoutWindow[] = [
+            { wallRef: 0, offset: 200, width: 1500, height: 1300, sillHeight: 900, roomType: 'bedroom', name: 'Bedroom 1 Window' },
+        ];
+        const out = resolveAllShellWindows(windows, [optWall(0, 0, 5000, 300)], [shell('s', 0, 0, 5, 0)]);
+        expect(out).toHaveLength(1);
+        expect(out[0]!.roomType).toBe('bedroom');
+    });
+
+    it('rescued bedroom PRE-EMPTS a lower-priority WET conflicter on the same wall (task 2b)', () => {
+        // Bathroom (wet) takes the wall exactly; the bedroom's only window is a skewed
+        // near-corner overlap that normally cornerFitDrops. The rescue must reclaim the
+        // bedroom and DROP the overlapping bathroom (habitable-mandatory beats wet).
+        const windows: LayoutWindow[] = [
+            { wallRef: 1, offset: 1000, width: 1500, height: 1300, sillHeight: 900, roomType: 'bathroom', name: 'Bathroom Window' },
+            { wallRef: 0, offset: 200,  width: 1500, height: 1300, sillHeight: 900, roomType: 'bedroom',  name: 'Bedroom 1 Window' },
+        ];
+        const out = resolveAllShellWindows(
+            windows,
+            [optWall(0, 0, 5000, 300), optWall(0, 0, 5000, 0)],   // both front shell 's'
+            [shell('s', 0, 0, 5, 0)],
+        );
+        expect(out.some(o => o.roomType === 'bedroom')).toBe(true);
+        // The bathroom yielded — the bedroom (mandatory) claimed the shared wall.
+        expect(out.some(o => o.roomType === 'bathroom')).toBe(false);
+    });
+
+    it('does NOT displace another HABITABLE room — reports NO-FRONTAGE instead', () => {
+        // The bedroom's only window overlaps a LIVING window (also habitable) on the only
+        // wall. The rescue must NOT cost the living room its window → bedroom stays
+        // windowless and the situation is surfaced (NO-FRONTAGE), not silently swapped.
+        const windows: LayoutWindow[] = [
+            { wallRef: 0, offset: 1000, width: 1500, height: 1300, sillHeight: 900, roomType: 'living',  name: 'Living Window' },
+            { wallRef: 0, offset: 1800, width: 1500, height: 1300, sillHeight: 900, roomType: 'bedroom', name: 'Bedroom 1 Window' },
+        ];
+        const out = resolveAllShellWindows(windows, [optWall(0, 0, 8000, 0)], [shell('s', 0, 0, 8, 0)]);
+        expect(out.some(o => o.roomType === 'living')).toBe(true);
+        expect(out.some(o => o.roomType === 'bedroom')).toBe(false);
+    });
+
+    it('does NOT rescue a non-mandatory room (study) left windowless', () => {
+        // study has windowMandatory: false — a windowless study is acceptable, no rescue.
+        const windows: LayoutWindow[] = [
+            { wallRef: 0, offset: 200, width: 1500, height: 1300, sillHeight: 900, roomType: 'study', name: 'Study Window' },
+        ];
+        const out = resolveAllShellWindows(windows, [optWall(0, 0, 5000, 300)], [shell('s', 0, 0, 5, 0)]);
+        expect(out).toHaveLength(0);
+    });
+
+    it('normal path is byte-identical when a mandatory room already keeps ≥1 window (no rescue)', () => {
+        // A clean orthogonal bedroom window that hosts fine — the rescue must not run nor
+        // perturb the result. Compare the dispatch to the single-window resolve.
+        const windows: LayoutWindow[] = [
+            { wallRef: 0, offset: 1000, width: 1500, height: 1300, sillHeight: 900, roomType: 'bedroom', name: 'Bedroom 1 Window' },
+        ];
+        const walls = [optWall(0, 0, 5000, 0)];
+        const shells = [shell('s', 0, 0, 5, 0)];
+        const out = resolveAllShellWindows(windows, walls, shells);
+        const direct = resolveShellWindow(windows[0]!, walls, shells);   // no relax
+        expect(out).toHaveLength(1);
+        expect(out[0]).toEqual(direct);                                   // identical, un-relaxed
+    });
+});

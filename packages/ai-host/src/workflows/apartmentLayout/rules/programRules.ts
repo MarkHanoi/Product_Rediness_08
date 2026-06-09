@@ -621,6 +621,18 @@ export function occupancyOf(type: RoomType | string): string {
 export function isCirculation(type: RoomType | string): boolean {
     return roomRule(type).privacy === 'circulation';
 }
+
+/**
+ * §WINDOW-MANDATORY-RESCUE (A.21.D60, 2026-06-09) — does this room type LEGALLY
+ * require at least one window? True for the habitable rooms the room DB marks
+ * `windowMandatory` (living / kitchen / master / bedroom). A layout where such a
+ * room ends up with ZERO kept windows is a hard quality defect (the founder's
+ * "rooms have doors but not windows"); the shell-window resolver runs a relaxed
+ * rescue pass for exactly these rooms. Pure data lookup; deterministic.
+ */
+export function windowMandatoryFor(type: RoomType | string): boolean {
+    return roomRule(type).windowMandatory === true;
+}
 export function isPrivate(type: RoomType | string): boolean {
     const p = roomRule(type).privacy;
     return p === 'private';
