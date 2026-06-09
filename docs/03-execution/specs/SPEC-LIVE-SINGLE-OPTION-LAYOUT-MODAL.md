@@ -414,4 +414,328 @@ D depends on B (graph must exist before it's editable). E is independent of B/C/
 
 ---
 
-*Authored 2026-06-09 (founder house-modal feedback). Tracker: master-execution-tracker §25.*
+## §9 — Concatenated cross-floor living graph (plan-LEFT / graph-RIGHT) — `XFLOOR-GRAPH`
+
+**Status:** DRAFT (2026-06-09) — founder follow-up, the next evolution of the §4 modal.
+**Builds on:** the §2–§8 single-option modal (the per-storey Plan/Graph TOGGLE + the interactive
+C52 living-graph nodes, both SHIPPED as `LIVE-MODAL.*` / tracker §25).
+
+### §9.1 — The founder directive (verbatim)
+
+> *"the goal will be to have the graph NEXT TO the plan view — also we should have a CONCATENATED
+> graph in case we want to move a bedroom from upstairs to downstairs — it should work like
+> mural/miro the graphs — we should have the plan views to the LEFT and the graphs to the RIGHT —
+> the graphs are connected as a SINGLE LIVING ENTITY — and the plan view reflects graphically the
+> data. the graphs are the SEMANTIC TRUTH; the UI should be more dynamic — on the fly the user can
+> easily change data with sliders."*
+
+Decomposed into five requirements:
+
+1. **X1 — Side-by-side, not a toggle.** Plan views on the LEFT, living graph on the RIGHT,
+   simultaneously visible (replacing the per-storey Plan/Graph toggle shipped as §LIVE-MODAL.B).
+2. **X2 — ONE concatenated graph spanning ALL storeys** — a single connected entity (storey-
+   clustered visual lanes), not one graph per floor. Inter-floor edges = the stair / vertical
+   circulation link.
+3. **X3 — Move a room between floors** — drag a node from one floor-cluster to another → the
+   program/layout re-generates with that room moved between storeys.
+4. **X4 — Miro/Mural canvas** — pan / zoom / draggable nodes; the graph is the SEMANTIC TRUTH and
+   the plan is a projection of it.
+5. **X5 — On-the-fly sliders** — editing the graph OR a slider re-runs the engine and the plan
+   re-renders (extends the §5 live loop, already partly shipped).
+
+### §9.2 — What is shipped TODAY vs the target (verified 2026-06-09)
+
+| Capability | Shipped today (§LIVE-MODAL / §25) | Target (this §9) |
+|---|---|---|
+| Plan ↔ graph | per-storey **TOGGLE** (`.alm-view-toggle`, `houseModalHtml.ts:124`; click handler `HouseLayoutModal.ts:134-146`) | **side-by-side** plan-LEFT / graph-RIGHT |
+| Graph scope | **one SVG per storey** (`_storeyGraphs`, `HouseLayoutModal.ts:272`; `buildLayoutBubbleGraphSvg` per `card.storeys[i]`) | **ONE concatenated** graph, storey-clustered, with inter-floor stair edges |
+| Graph renderer | static **SVG string** (`layoutBubbleGraph.ts`) — no pan/zoom/drag | **Canvas2D Miro/Mural** field (reuse `LivingGraphCanvas`/`LivingGraphOverlay`) |
+| Node edit | click → inline area/type popover → C52 stash → debounced regen (`_openGraphNodeEditor`, `HouseLayoutModal.ts:311`) | keep + **drag a node across a floor-cluster boundary → room→floor override** |
+| Room→floor override | **DOES NOT EXIST** (see §9.4) | **NEW `roomFloorByName` stash + orchestrator honour** |
+| Sliders → live regen | SHIPPED (`_scheduleProgramChange` → `_regenerate`, sync offline engine) | keep, unchanged |
+
+So the modal today is plan-OR-graph (per storey, toggled), with editable but STATIC per-storey
+SVG graphs. The target is plan-AND-graph (side by side), with ONE pannable/zoomable/draggable
+canvas graph spanning every storey, where dragging a node between floor-clusters re-allocates the
+room to a different storey.
+
+### §9.3 — The concatenated graph data model (X2) — the single semantic truth
+
+The orchestrator already returns everything needed: `HouseLayoutResult.perStoreyLayout[i]` is the
+`ScoredLayoutOption` for `storeys[i]` (strictly index-aligned, `houseOrchestrator.ts:725`,
+`types.ts:176`), and `HouseLayoutResult.stairs[]` carries `{ fromLevelId, toLevelId }` per adjacent
+storey pair (`houseOrchestrator.ts:759`, `types.ts:77`).
+
+**Build ONE `LiveGraph`** (the `livingGraphSchema` shape the `LivingGraphCanvas` already renders)
+from the whole `ScoredHouseLayoutOption`, NOT per storey:
+
+- **Nodes.** For every storey `s`, for every room in `perStoreyLayout[s].rooms`, emit one node.
+  - `id` = a deterministic composite `storey:<s>/<roomName>` (room names are unique *within* a
+    storey, not across — "Bathroom" can exist on ground AND first; the storey prefix disambiguates).
+  - Carry `storeyIndex` + `levelId` on the node so the canvas can lane-cluster it.
+  - `label` / `type` / `areaSqm` / occupancy / centroid map exactly as the per-storey SVG does
+    today (`layoutBubbleGraph.ts:103 roomCentreMm`, `:115 roomFill`, `:121 roomShort`).
+- **Intra-floor edges.** `room.adjacentTo` (room NAMES, deduped symmetric) — the same edge source
+  the per-storey SVG uses (`layoutBubbleGraph.ts:204-224`), resolved *within* the storey's name set.
+- **Inter-floor edges (the stair link).** For each `HouseLayoutResult.stairs[k]`, add an edge
+  between the stair-arrival node on `fromLevelId` and on `toLevelId` (the storey's `corridor` /
+  `Landing` circulation seed — the room the stair lands at, per §LANDING-NOT-HALL,
+  `storeyAllocation.ts:133`). Tag it `layer: 'structural'` (the riser-cluster layer the canvas
+  already dashes, `LivingGraphCanvas.ts:35`). This is what makes the graph **one connected entity**
+  rather than N disjoint floor-graphs.
+- **Storey clustering / lanes (X2 visual).** The canvas is currently a free force-field. For the
+  concatenated graph we constrain each storey to a horizontal LANE (a y-band per `storeyIndex`,
+  ground at the bottom — matching the plan stacking in §9.6) by adding a per-node lane-anchor force
+  to `forceSimulation` (a soft spring toward `y = laneBandFor(storeyIndex)`), so floors read as
+  stacked bands while still being one field. The stair edges then visibly bridge the bands.
+
+This graph IS the semantic truth (X4): the plan thumbnails are a read-only projection of the SAME
+`perStoreyLayout` the graph nodes come from. No separate plan model.
+
+### §9.4 — Room→floor override (X3) — **must be ADDED** (does not exist today)
+
+**Finding (verified):** room→storey assignment today is **by COUNT, not by named instance.**
+`allocateProgramToStoreys(program, storeyCount)` (`storeyAllocation.ts:44`) splits the whole-house
+`ApartmentProgram` into per-storey `StoreyProgram`s purely by integer counts — e.g.:
+
+```ts
+// storeyAllocation.ts:80-86
+const groundBedrooms = totalBedrooms >= 2 ? 1 : 0;     // a guest bedroom downstairs
+const upperBedrooms  = totalBedrooms - groundBedrooms; // the rest upstairs
+const groundBathrooms = totalBathrooms > 0 ? 1 : 0;    // one WC on the ground
+const upperBathrooms  = totalBathrooms - groundBathrooms;
+```
+
+The per-storey program then carries `bedrooms: groundBedrooms` etc. (`:104`, `:127`) — there is **no
+per-instance "which floor does Bedroom 2 live on" field.** The `ApartmentProgram` has
+`roomAreasByName` (`apartmentLayout/types.ts:143`) and `roomTypesByName` (`:164`) — per-instance
+AREA and TYPE overrides — but **no `roomFloorByName`** (grep-confirmed: only those two name-keyed
+maps exist). Therefore moving a specific room between floors is **not expressible today** and a new
+override + an orchestrator change are required.
+
+**Design (note it; do NOT build it in this analysis pass):**
+
+**(a) The session stash — `activeRoomFloorOverrides.ts`** (sibling of `activeRoomAreaOverrides.ts` /
+`activeRoomTypeOverrides.ts`, in `apps/editor/src/ui/apartment-layout/`):
+
+```ts
+// name → target storeyIndex (0 = ground). Empty ⇒ no override ⇒ byte-identical baseline (C52 I2).
+let _overrides: Record<string, number> = {};
+export function setRoomFloorOverride(roomName: string, storeyIndex: number | null): void { … }
+export function getRoomFloorOverrides(): Record<string, number> | null { … }
+export function clearRoomFloorOverrides(): void { … }
+```
+
+Keyed by the room's display name exactly as the area/type stashes are. Empty ⇒ no override ⇒ the
+C52 **I2** baseline-identity invariant holds (un-edited graph reproduces the byte-identical best).
+
+**(b) The `ApartmentProgram` field** — add `roomFloorByName?: Partial<Record<string, number>>` to
+`apartmentLayout/types.ts` (alongside `roomAreasByName`/`roomTypesByName`). Pure type; L0/L2 only.
+
+**(c) The orchestrator honour — the single engine change.** `allocateProgramToStoreys` is the ONE
+place that decides which storey a room belongs to. It currently assigns by count; it must become
+override-AWARE. The minimal sound design (count-based default + named exceptions, deterministic):
+
+1. Compute the count-based default allocation exactly as today.
+2. After the default split, apply `program.roomFloorByName`: for each `(name → targetStorey)`, if
+   the named room is currently allocated to a different storey, DECREMENT the source storey's count
+   for that room's type and INCREMENT the target storey's count — i.e. the override moves the room's
+   *count budget* between storeys, then the per-storey D-TGL engine re-mints the room set on the new
+   storey (room re-minting is name-deterministic, so the moved room keeps its name).
+3. Re-validate each storey against the house envelope (`validateHouseStorey`, already injected at
+   `houseOrchestrator.ts:698`) — a move that over/under-fills a storey is soft-handled the same way
+   a sparse storey is today (`§HOUSE-PLATE-PROGRAM-FLOOR` enrichment, `houseOrchestrator.ts:643`).
+4. Keep the §LANDING-NOT-HALL / kitchen-on-ground invariants (`storeyAllocation.ts:130,143`) HARD —
+   an override that tries to move the kitchen upstairs is clamped (kitchen stays ground) and the
+   modal surfaces a non-blocking notice. (Bedrooms/baths/study are freely movable; the entrance
+   hall + kitchen are floor-pinned by typology.)
+
+Because step (1) is unchanged and an empty `roomFloorByName` skips steps (2)–(4) entirely, the
+no-override path is **byte-identical** (C52 I2). The controller merges the stash into the program in
+`_computeVariants._mergeOverrides` (`HouseLayoutController.ts:249`) exactly as it already merges
+area/type, and `_build` merges it too so the BUILT house honours the move (mirrors the existing
+area/type merge at `:325`).
+
+> **Naming caveat (risk).** Room names are unique *within* a storey but not *across* (a "Bathroom"
+> on each floor). `roomFloorByName` is whole-house, so a bare "Bathroom" key is ambiguous. The
+> graph node id is the disambiguated `storey:<s>/<name>`, so the stash should key on the **node id
+> (storey-qualified name)**, and the orchestrator resolves the source storey from the id prefix —
+> NOT a bare name. This is the one place the house override diverges from the apartment area/type
+> stashes (which are single-storey, so a bare name is unambiguous there).
+
+### §9.5 — The move-room-between-floors interaction (X3)
+
+Reusing the canvas drag already shipped in `LivingGraphOverlay` (`onCanvasPointerDown :1153` →
+`onCanvasPointerMove :1180` pins the node under the cursor → `onCanvasPointerUp :1202`):
+
+1. The user drags a node. While dragging, the node is pinned under the cursor (existing behaviour).
+2. On drop, the canvas computes which storey LANE (§9.3) the node's final y falls in (`laneFor(y)`).
+3. If the drop lane's `storeyIndex` differs from the node's `storeyIndex`, fire a **move**:
+   `setRoomFloorOverride(nodeId, dropStoreyIndex)` → the SAME debounced re-generate the slider/area
+   edit uses (`_scheduleGraphEdit`, `HouseLayoutModal.ts:295`, coalesced on the one 250 ms timer).
+4. The controller `_regenerate` re-runs `generateHouseLayoutOptions` with the merged program (now
+   carrying `roomFloorByName`) → `allocateProgramToStoreys` honours the move (§9.4c) → the plan
+   thumbnails AND the concatenated graph both re-render from the new `perStoreyLayout` (single
+   source — §5.5 "graph + plan diverge" risk is structurally avoided).
+5. A within-lane drop (no storey change) is a plain reposition — no override, no regen (the canvas
+   already re-anneals the field, `LivingGraphOverlay.ts:1210`).
+
+### §9.6 — Side-by-side layout (X1) + plan stacking
+
+Replace the per-storey Plan/Graph toggle (`.alm-view-toggle`, shipped §LIVE-MODAL.B) with a two-
+column flex body inside `.alm-card`:
+
+```
+┌─ Choose your house layout ─────────────────────────────────── [✕] ┐
+│  ┌─ Brief sliders … ───────────────────────────────────────────┐ │
+│  └─────────────────────────────────────────────────────────────┘ │
+│  ┌── PLAN (left) ───────────────┐ ┌── CONCATENATED GRAPH (right) ┐│
+│  │  ┌ First floor  (plan SVG) ┐ │ │   ╭ first-floor lane ╮        ││
+│  │  └─────────────────────────┘ │ │   ● Bed ─ ● Bath              ││
+│  │  ┌ Ground floor (plan SVG) ┐ │ │     │ (stair edge)            ││
+│  │  └─────────────────────────┘ │ │   ╰ ground-floor lane ╯        ││
+│  │                              │ │   ● Living ─ ● Kitchen         ││
+│  └──────────────────────────────┘ └──── (pan / zoom / drag) ──────┘│
+│  [legend]                                    [ Use this layout ]   │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+- **Plan column (LEFT).** Stack the per-storey plan thumbnails vertically, **top floor at the top,
+  ground at the bottom** (so the visual order matches the graph lanes in §9.3). The `_storeyThumbs`
+  helper (`HouseLayoutModal.ts:244`) already builds one SVG per storey at hero size with a SHARED
+  footprint bound (`unionStoreyBoundsMm :60`); reverse the storey order for top-down stacking.
+- **Graph column (RIGHT).** ONE `LivingGraphCanvas` mounted in the card (not the floating overlay)
+  rendering the §9.3 concatenated `LiveGraph`. The graph column gets the larger share (~55–60 %).
+- **Brand.** Reuse the `.alm-*`/`.hlm-*` classes (white + #6600FF, no black) — the canvas already
+  paints a white field with a lavender wash (`LivingGraphCanvas.ts:108-114`).
+
+### §9.7 — Which existing canvas to REUSE (X4) — `LivingGraphCanvas` + `LivingGraphOverlay`
+
+**Do NOT reinvent the canvas.** The Miro/Mural behaviours the founder asks for are ALL already
+implemented in `apps/editor/src/ui/living-graph/` (the A.21.D17 / A.21.D37 Living Building Graph):
+
+| Behaviour | Where it lives today |
+|---|---|
+| Pan (drag empty canvas) | `LivingGraphOverlay.onCanvasPointerDown :1153` (empty → `panning`) / `…Move :1194` |
+| Zoom toward cursor (wheel) | `onCanvasWheel :1132` (clamped 0.25×–4×, keeps layout point under pointer) |
+| Drag a node | `onCanvasPointerDown :1157` (hit a node → `nodeDragId`) / `…Move :1181` pins it |
+| Hit-test | `LivingGraphCanvas.pick :78` |
+| Force-directed layout | `forceSimulation.ts` (`simulateStep`/`scatterNodes`/`fitToCanvas`/`reheat`) |
+| Auto-fit + manual-nav suspend | `autoFit :997` / `userNavigated :197` (don't fight the user) |
+| Render (nodes √area, layered dashed edges, sun halo, labels) | `LivingGraphCanvas.draw :98` |
+| P3-safe ticker (frame-bus first, guarded `setInterval` fallback, stops on settle) | `ensureTicking :1007` / `frame :1037` |
+| Node edit → C52 stash → debounced regen | `areaField :1492` / `occupancyField` → `setRoomAreaOverride`/`setRoomTypeOverride` → `scheduleAreaRegen` |
+
+**The reuse strategy (two options, pick at build time):**
+
+- **Option A (preferred) — embed the renderer + interaction primitives.** Mount a bare
+  `LivingGraphCanvas` in the modal card and lift the pan/zoom/drag pointer handlers
+  (`onCanvasWheel`/`onCanvasPointerDown/Move/Up`) into a small shared `MiroCanvasController` (extract
+  from `LivingGraphOverlay` so both the overlay and the modal use ONE copy — avoids a fork). The
+  modal feeds it the §9.3 concatenated `LiveGraph` (built from `ScoredHouseLayoutOption`, not the
+  live UBG) and wires node-drop → `setRoomFloorOverride` (§9.5) + node-click → the existing inline
+  area/type editor.
+- **Option B (lighter, more divergence) — keep the static SVG bubble graph** (`layoutBubbleGraph.ts`)
+  but render ONE concatenated SVG with lane bands and add HTML-level pan/zoom (CSS transform on a
+  wrapper) + SVG node drag. Cheaper but re-implements pan/zoom/drag that already exist in the canvas,
+  so it duplicates §9.7's table. **Not recommended** — it contradicts "reuse rather than reinvent".
+
+The §9.7 reuse keeps the canvas the single Miro/Mural surface; the modal becomes a SECOND mount of
+it (the overlay is the first), fed a different graph source.
+
+### §9.8 — Live slider + on-the-fly regen (X5) — extends §5, already partly shipped
+
+No new mechanism. The slider → debounced `_regenerate` loop is SHIPPED (§3.1 / §5.1). This §9 adds
+ONE more override kind (`roomFloorByName`) to the SAME merge in `_computeVariants._mergeOverrides`
+(`HouseLayoutController.ts:249`), and the graph drag fires the SAME `_scheduleGraphEdit` debounce
+(`HouseLayoutModal.ts:295`) the area/type edit already uses. The plan + graph both re-render from
+the one `options[0]`. The only genuinely new engine work is §9.4c (the orchestrator move honour).
+
+### §9.9 — File-by-file implementation plan (parallelisable slices + risks)
+
+**[P]** = parallelisable within its group. Sequenced smallest-first.
+
+- **Slice XA — the room→floor override substrate (X3 core, the engine change).** *Sequential gate.*
+  1. `apps/editor/src/ui/apartment-layout/activeRoomFloorOverrides.ts` — NEW stash (§9.4a),
+     keyed by the storey-qualified node id; `get/set/clear` + `getRoomFloorOverrides()`.
+  2. `packages/ai-host/src/workflows/apartmentLayout/types.ts` — add
+     `roomFloorByName?: Partial<Record<string, number>>` to `ApartmentProgram` (§9.4b).
+  3. `packages/ai-host/src/workflows/houseLayout/storeyAllocation.ts` — make
+     `allocateProgramToStoreys` override-aware (§9.4c): default split → apply moves → re-validate →
+     clamp floor-pinned rooms. Empty override ⇒ byte-identical (C52 I2). Pure, deterministic, span-free.
+  4. `packages/ai-host/__tests__/houseLayout.test.ts` — count-based default unchanged; a
+     `roomFloorByName` move shifts the room's count between storeys; empty ⇒ baseline (I2); a
+     kitchen-move-up is clamped.
+
+- **Slice XB — the concatenated graph builder (X2).** *[P] with XC.*
+  5. NEW `apps/editor/src/ui/house-layout/buildConcatenatedHouseGraph.ts` — pure
+     `(option: ScoredHouseLayoutOption) → LiveGraph` (§9.3): storey-prefixed node ids, intra-floor
+     `adjacentTo` edges, inter-floor stair edges from `result.stairs[].from/toLevelId`, `storeyIndex`
+     + `levelId` on each node. Node-testable (no DOM).
+  6. `apps/editor/src/ui/living-graph/forceSimulation.ts` — add an OPTIONAL per-node lane-anchor
+     spring (toward `laneBandFor(storeyIndex)`), default-off so the overlay's free field is unchanged.
+
+- **Slice XC — extract the Miro canvas controller (X4 reuse).** *[P] with XB.*
+  7. NEW `apps/editor/src/ui/living-graph/MiroCanvasController.ts` — lift `onCanvasWheel` /
+     `onCanvasPointerDown/Move/Up` / `clientToCanvas` / `canvasToLayout` / `autoFit` / `userNavigated`
+     out of `LivingGraphOverlay` into a reusable controller over a `LivingGraphCanvas` + a `LiveGraph`.
+  8. `LivingGraphOverlay.ts` — refactor to USE `MiroCanvasController` (no behaviour change; the
+     overlay's existing tests guard parity). This is the only touch to the shipped overlay.
+
+- **Slice XD — the side-by-side modal body (X1) + mount the canvas.** *Sequential after XB+XC.*
+  9. `apps/editor/src/ui/house-layout/houseModalHtml.ts` — replace the per-storey `.alm-view-toggle`
+     (`storeyHtml :118`) with a two-column `.hlm-body` (plan column + graph-canvas mount point);
+     stack plan thumbnails top-floor-first.
+  10. `apps/editor/src/ui/house-layout/HouseLayoutModal.ts` — on `show`/`refresh`, build the §9.3
+      graph (`buildConcatenatedHouseGraph(options[0])`), mount a `LivingGraphCanvas` +
+      `MiroCanvasController` into the graph column, wire node-drop → `setRoomFloorOverride` +
+      `_scheduleGraphEdit`, node-click → the EXISTING `_openGraphNodeEditor` (area/type). Replace
+      `_storeyGraphs` (the per-storey SVGs) with the single canvas. Dispose the canvas on `dismiss`.
+  11. `apps/editor/src/ui/styles/panels/apartmentLayoutModal.ts` — `.hlm-body` two-column flex
+      (plan ~40 %, graph ~60 %); the graph column gets a fixed-height canvas box.
+
+- **Slice XE — wire the floor override through the controller (X3 wiring).** *After XA+XD.*
+  12. `apps/editor/src/ui/house-layout/HouseLayoutController.ts` — `_mergeOverrides` (`:249`): also
+      merge `getRoomFloorOverrides()` into `program.roomFloorByName`. (`_computeVariants` + `_build`
+      already call `_mergeOverrides`, so the move flows to both preview AND build with no other change.)
+
+- **Slice XF — tests + docs.** *Last.*
+  13. `apps/editor/__tests__/buildConcatenatedHouseGraph.test.ts` — one graph for a 2-storey option;
+      stair edge present; node ids storey-qualified; empty/blank storey handled.
+  14. Extend `houseModalHtml.liveModal.test.ts` — side-by-side body (no toggle); graph mount point.
+  15. This SPEC + tracker §26.
+
+**Critical path:** XA → XD → XE → XF. Off-critical (parallel): XB, XC (both feed XD).
+
+**Risks + mitigations:**
+
+| Risk | Mitigation |
+|---|---|
+| **Cross-floor re-allocation correctness** (§9.4c) — moving a count between storeys can over/under-fill the target and starve the source. | Re-validate per storey via the existing `validateHouseStorey` + `§HOUSE-PLATE-PROGRAM-FLOOR` enrichment (`houseOrchestrator.ts:643,698`); a move that breaks the envelope surfaces a non-blocking modal notice and is rejected (no silent bad layout). |
+| **Graph layout stability when nodes move** — a re-generate could reshuffle the whole field, losing the user's mental map. | Reuse the overlay's position-preservation (`resync` carries forward `x/y/vx/vy` for surviving nodes, `LivingGraphOverlay.ts:715-728`) + lane anchoring (§9.3) so floors stay banded; only re-scatter on an explicit Rerun. |
+| **Re-gen latency** on every drag/slider. | The 250 ms debounce + the sync offline house engine (no relay) — same envelope as the shipped slider path (§5.5); a within-lane drag fires NO regen (§9.5.5). |
+| **Name ambiguity across storeys** (a "Bathroom" per floor). | Key `roomFloorByName` on the storey-qualified node id, NOT a bare name (§9.4 caveat); the orchestrator resolves the source storey from the id prefix. |
+| **Forking the canvas** (two copies of pan/zoom/drag). | Slice XC extracts ONE `MiroCanvasController`; the overlay refactors to use it (XC.8) so there is a single copy guarded by the overlay's existing tests. |
+| **Apartment / overlay regression** from shared-code changes. | The lane-anchor spring (XB.6) is default-off; the `MiroCanvasController` extraction is behaviour-preserving (overlay tests guard it); the override field + stash default to a no-op (C52 I2). |
+
+### §9.10 — Acceptance criteria (X1–X5)
+
+- **AX1 (X1):** the modal shows plan thumbnails on the LEFT and ONE graph on the RIGHT, both visible
+  at once (no Plan/Graph toggle); top floor stacks above ground in both columns.
+- **AX2 (X2):** the graph is ONE connected field spanning every storey, storey-clustered into lanes,
+  with a visible stair/structural edge bridging adjacent floors.
+- **AX3 (X3):** dragging a movable room node (bedroom/bath/study) across a floor-lane boundary re-
+  allocates it to that storey and re-renders the plan + graph; floor-pinned rooms (kitchen, entrance
+  hall) snap back with a notice; an un-moved graph reproduces the byte-identical baseline (C52 I2).
+- **AX4 (X4):** the graph canvas pans (drag empty), zooms (wheel, toward cursor), and lets nodes be
+  dragged — reusing `LivingGraphCanvas`/`MiroCanvasController` (no reinvented canvas).
+- **AX5 (X5):** a brief/weight slider OR a graph edit re-runs the engine within ~½ s and the plan +
+  graph re-render from the one best option (single source — they never diverge).
+- **AX6 (governance):** new `roomFloorByName` is a per-instance C52-style override + a session stash;
+  the ONLY engine change is `allocateProgramToStoreys` becoming override-aware; no parallel mutator,
+  no second engine; P3/P6/P8 + C52 §3 hold; empty overrides ⇒ byte-identical baseline.
+
+---
+
+*§1–§8 authored 2026-06-09 (founder house-modal feedback). §9 authored 2026-06-09 (founder cross-
+floor living-graph follow-up). Tracker: master-execution-tracker §25 (§1–§8) + §26 (§9).*
