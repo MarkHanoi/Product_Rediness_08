@@ -2782,11 +2782,19 @@ non-rectangular footprints; force-directed label placement (deferred per C24.1 �
 | **§STAIR-HALF-LANDING-INWARD** | U-stair second flight folds toward the plate interior (`StairCore.interiorSide` from position kind) | v81 | ai-host (+4) |
 | **§WJ-SKEW-3** | partition weld tol 0.45→0.60 m so rotated-plate (~−44°) Y-junction endpoints fuse → closes `§MULTI-CLUSTER pinned=0 trimmed=3` room merge | v81 | ai-host (+2) |
 | **§STAIR-CONTAIN** | validate the FULL world-frame stair footprint vs the rotated shell + nudge the whole body inward until contained (`computeInwardContainmentOffset`) — the deeper cure for the systematic `cornersInShell=1/4` | v82 | ai-host (+5) |
+| **§STAIR-DEFAULT-BIAS (Fix 1)** | orchestrator ALWAYS supplies an `AspectBias` to `chooseStairCorePosition` — default N-hemisphere `{x:0,y:1}` (`STAIR_DEFAULT_LAT_DEG=45`) when no site solar → `PERIMETER_PREFERENCE`+`FRAGMENT_PENALTY` always fire → stair takes a back/side CORNER (one dominant rect), never central → fixes the central-stair merged blob. TOPOLOGY-level fix. Apartment/solar paths byte-identical | v83 | ai-host (+6) |
+| **§STAIR-FRAGMENT (Fix 4)** | `DOMINANT_FRACTION` 0.45→0.40 in `subdivide.ts` so a corner-carved plate reliably triggers `§STAIR-OBSTACLE-CARVE`; defence-in-depth (still runs BOTH carve+packMultiRect, keeps fewer drops). `stairCarved`-gated → apartment unaffected | v83 | ai-host (+2) |
+| **§DIAG-STAIR-RESERVE / §DIAG-BRANCH (Part 8)** | deterministic prod-verification logs: `§DIAG-STAIR-RESERVE storey=… kind=…` (corner-vs-central tell, `houseOrchestrator.ts`) + `§DIAG-BRANCH stairCarved dominantFrac=… path=carve\|generic` (`subdivide.ts`) | v83 | — |
 | **§WALL-TOP-AT-SLAB-BOTTOM** | ground shell wall head = L1 floor (no protrusion into the floor-above plan) | v77 | — |
 | **§BND-90-DEFAULT-ON** | orthogonal boundary lock default-on + 8°→22° snap (rectilinear plots) | v77 | — |
 
 Reference: **[STAIR-CREATION-PIPELINE-AND-ANCHOR-ANALYSIS.md](../../04-reference/STAIR-CREATION-PIPELINE-AND-ANCHOR-ANALYSIS.md)**
-(stair pipeline + the founder-confirmed start-corner-anchor analysis). **Queued (founder-flagged, needs a
+(stair pipeline + the founder-confirmed start-corner-anchor analysis). **Master algorithm reference:**
+[LAYOUT-GENERATION-ALGORITHM.md](../../04-reference/LAYOUT-GENERATION-ALGORITHM.md) now opens with a
+2-page MASTER SUMMARY (D-TGL engine + apartment-single-plate vs house-storey-loop orchestration) and adds
+**§8.4 "Why the apartment beats the house"** (engine 100% shared; gaps = stair + ground weld + parallel
+program sizer) + **§8.5 "The stair is the circulation root-cause"** (the `position→keep-out→tile→nudge`
+desync, grounded in the prod `§STAIR-CONTAIN (-1.50,-0.55)m` run). **Queued (founder-flagged, needs a
 prod test to pick the path):** lower-level INTERIOR walls → upper-slab top vs the exporter beyond-linework
 root (L1-plan ghost lines); per-room windowless-habitable recovery; the stair-head-axis upper-corridor
 alignment (A.27 P6).

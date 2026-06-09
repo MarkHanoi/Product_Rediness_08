@@ -186,6 +186,45 @@ describe('subdivideWithReport — stair-carved plate keeps a corridor spine (Def
         const b = subdivideWithReport(rects, g, { stairCarved: true });
         expect(JSON.stringify(a)).toEqual(JSON.stringify(b));
     });
+
+    // §STAIR-FRAGMENT (Fix 4, 2026-06-09) — the dominant-gate floor is 0.40. A plate
+    // whose dominant rect holds ~0.42 of the buildable area (between the OLD 0.45 floor
+    // and the NEW 0.40 floor) must NOW take the corridor carve, where at 0.45 it would
+    // have fallen through to the merge-prone generic per-rect path.
+    it('a ~0.42-dominant carved plate takes the corridor carve at the 0.40 gate (Fix 4)', () => {
+        // Three rects whose areas are ~0.42 / ~0.33 / ~0.25 of the total (dominant just
+        // above 0.40, below the old 0.45). Built as a single plate with a side notch.
+        const dom: Rect = { x0: 0, z0: 0, x1: 7, z1: 9 };       // 63 m² — dominant ~0.42
+        const mid: Rect = { x0: 7, z0: 0, x1: 12.5, z1: 9 };    // ~49.5 m² — ~0.33
+        const small: Rect = { x0: 12.5, z0: 0, x1: 16, z1: 9 }; // ~31.5 m² — ~0.21
+        const rects = [dom, mid, small];
+        const totalArea = rects.reduce((s, r) => s + rectArea(r), 0);
+        const domFrac = rectArea(dom) / totalArea;
+        // Guard the fixture sits in the (0.40, 0.45) window the fix targets.
+        expect(domFrac).toBeGreaterThanOrEqual(0.40);
+        expect(domFrac).toBeLessThan(0.45);
+        const g = buildBubbleGraph(PROGRAM, totalArea);
+        const res = subdivideWithReport(rects, g, { stairCarved: true });
+        // The corridor spine is placed → the carve fired (not the generic per-rect path,
+        // which never places the corridor room as a spine across the dominant rect).
+        expect(res.placements.some(p => p.roomId === g.corridorId)).toBe(true);
+        expect(res.placements.length).toBeGreaterThanOrEqual(4);
+    });
+
+    // Apartment-path guard: with stairCarved DEFAULT-OFF the lowered gate is never
+    // reached (the whole §STAIR-OBSTACLE-CARVE branch is skipped). A multi-rect plate
+    // passed WITHOUT the flag is identical with the flag explicitly false → the
+    // DOMINANT_FRACTION change cannot affect the apartment path.
+    it('the lowered gate cannot affect the no-keep-out (apartment) path', () => {
+        const dom: Rect = { x0: 0, z0: 0, x1: 7, z1: 9 };
+        const mid: Rect = { x0: 7, z0: 0, x1: 12.5, z1: 9 };
+        const small: Rect = { x0: 12.5, z0: 0, x1: 16, z1: 9 };
+        const rects = [dom, mid, small];
+        const g = buildBubbleGraph(PROGRAM, rects.reduce((s, r) => s + rectArea(r), 0));
+        const noFlag = subdivideWithReport(rects, g);
+        const flagOff = subdivideWithReport(rects, g, { stairCarved: false });
+        expect(JSON.stringify(flagOff)).toEqual(JSON.stringify(noFlag));
+    });
 });
 
 // §ADJACENCY-SORT (Phase 4) — reorder a zone so high-preference pairs land consecutively.

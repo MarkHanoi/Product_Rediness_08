@@ -24,6 +24,110 @@ one undoable batch, and a post-gen chain fills floors/ceilings/furniture/lightin
 
 ---
 
+## MASTER SUMMARY — the whole system in two pages
+
+> Read this first. It is the executive walkthrough; §1–§12 are the drill-down. Two new
+> deep-dive sections follow it: **"Why the apartment generator beats the house"** (after §8)
+> and **"The stair is the circulation root-cause"** (the most important addition, §8.4).
+
+### The engine has a name: **D-TGL**
+
+The room-quality core is the **D-TGL deterministic layout engine**
+(`packages/ai-host/src/workflows/apartmentLayout/tgl/`). It is **one pure function** —
+`generateDeterministicLayouts(shell, program, …)`
+(`tgl/runDeterministicLayout.ts:86`) — and **both** the apartment generator and the house
+generator call **the same function**, unchanged. There is no second subdivision engine. Same
+input ⇒ byte-identical output: no `Math.random`, no time budget, no population evolution.
+
+### The eight stages, end to end
+
+1. **Brief + site → program + shell.** The user draws a parcel boundary on the Cesium/Forma
+   GIS surface (C19); the committed boundary becomes **shell walls** in the wall store, and a
+   typology brief (sliders / RAC) becomes an `ApartmentProgram`. The editor seam
+   `gatherLayoutPayload.ts` reads the live walls (with `isExterior`), the hand-placed front-door
+   opening spans, the brief, the A.25 design sliders, and the **site latitude**
+   (`getCurrentSiteOrigin()`, `siteDispatch.ts:65`) into one `ApartmentGenerateLayoutPayload`.
+
+2. **Shell → axis-aligned frame.** `generateDeterministicLayouts` rotates a skewed plot into
+   its principal-axis frame (`§PRINCIPAL-AXIS`, `runDeterministicLayout.ts:122-149`) — a
+   rectilinear shell rotates by 0 and is bit-identical. Window/door avoidance spans, the stair
+   keep-out, and the sun direction are all forward-mapped into that frame.
+
+3. **8-strategy deterministic enumerate.** `enumerateLayouts` (`tgl/enumerate.ts:524`) is the
+   NSGA-II replacement: instead of evolving a random population it builds **exactly 8**
+   candidate tilings — `for axis∈{f,t} for order∈{fwd,rev} for mirror∈{f,t}`
+   (`enumerate.ts:144-152`). Each strategy runs the full **P1→P7** pipeline:
+   shell→rects (`rectDecomposition.ts`, P1) · program→bubble graph + area allocation
+   (`bubbleGraph.ts`, P2) · rooms→footprints via squarify + corridor spine
+   (`subdivide.ts`/`squarify.ts`, P3) · dimensional shape/fit gate (`dimensions/*`) ·
+   footprints→walls+doors (`wallsAndDoors.ts`, P4) · persistent `LayoutGraph`
+   (`semanticGraph.ts`, P5) · topology gate (`topology/*`) · space-syntax depth
+   (`spaceSyntax.ts`, P6) · the **20-axis `ObjectiveVector`** (`objectives.ts`, P7).
+
+4. **Gate → Pareto + weighted rank.** A 5-tier gate keeps the cleanest pool
+   (legal ∧ shaped ∧ routed → … → anything), then candidates are ranked by **exact Pareto
+   dominance** (`assignParetoRanks`, `enumerate.ts:506`), tie-broken by a **weighted sum** of
+   the 20 axes driven by the 4 user sliders + the E.1 priority band (`weightedSum`, line 398).
+   Final order is stable (`rank asc → weighted desc → strategy string`).
+
+5. **Emit geometry (P9).** For each ranked candidate, `emitGeometry` (`emitGeometry.ts:57`)
+   projects the `LayoutGraph` → a `LayoutOption` in mm — `LayoutRoom`s, `LayoutWall`s, doors as
+   `{wallRef, offset, width}`, plus the per-room **window emission** (`emitWindows.ts`, sun-biased
+   face + size). The option is rotated back to world and scored (`scoreLayout`).
+
+6. **Editor executor commits.** The user picks an option in the modal;
+   `buildLayoutCommands(option)` (`executePlan.ts:516`) turns it into a dispatchable set —
+   pre-minted `wall.batch.create` ids, one `wall.createOpening` per door/window (C15 cascade),
+   `door`/`window.batch.create`, and `roomBoundingLine.create` for open-plan splitters.
+   `skipExteriorWalls` omits the perimeter (the drawn shell already exists). The whole set runs
+   inside **one `BatchCoordinator.runBatch`** → a single undo.
+
+7. **Room detection + naming.** The shared `RoomDetectionEngine` re-detects the enclosed rooms;
+   `nameDetectedRooms` tags each room's occupancy. **This is where the system can fail visibly:**
+   if a partition endpoint does not land on the shell centreline, the detection loop never
+   closes and N rooms collapse into ONE merged room (see §8.4 — the stair is the dominant cause).
+
+8. **Post-gen finish chain.** `runHousePostGenChain.ts` fans floors → ceilings → furniture →
+   lighting across every level, in sequence, awaiting room-naming before furnishing. The
+   apartment fires this chain **once** on the active level.
+
+### The orchestration — apartment (single plate) vs house (storey loop)
+
+This is the crux of the founder's "why is the apartment better" question, so it is stated up
+front and proven in the two sections below:
+
+- **Apartment = single plate.** There is **no orchestrator**. The editor calls D-TGL once for
+  the active level and commits. No stair, no per-storey program sizer, no ground-shell weld.
+
+- **House = the SAME engine wrapped in a storey loop.** `houseOrchestrator.ts`
+  (`generateHouseLayout`) splits the brief across storeys (`allocateProgramToStoreys`), reserves
+  a vertically-aligned **stair core** (`stairCore.ts` + `stairPosition.ts`), calls
+  `generateDeterministicLayouts` **once per storey** (with a per-storey program sizer
+  `enrichStoreyProgramToPlate` and the stair core carved out as a keep-out), then the editor
+  `HouseLayoutExecutor` builds every storey + the actual stair + slab voids + a roof.
+
+**The seam** between the pure engine and the live editor is one shape: the engine returns a
+`LayoutOption` (apartment) / `HouseLayoutResult` (house); the executor calls the **same**
+`buildLayoutCommands` and the **same** batch commands for both. Everything that decides
+*per-plate room maturity* is shared; everything the house adds is either the genuinely-additional
+multi-storey spine (stair / slab / roof) or **two compensating heuristics** (the ground-shell
+weld and the parallel program sizer) that exist only because the house feeds the engine
+differently. See **"Why the apartment generator beats the house"** below.
+
+### What is genuinely broken today (honest)
+
+The single largest live defect is the **stair desync** (§8.4): the engine carves the room-tiling
+keep-out at the stair's *original reserved* position, but the editor then **nudges the shipped
+stair body to a different position** to fit a rotated shell — so the final stair overlaps the
+rooms tiled in the vacated region, its void cuts the partitions that were sealing rooms, and room
+detection floods into one merged room. The founder's instinct is exactly right: **the stair is
+the circulation root-cause.** A secondary, downstream-coupled gap is that on a rotated ground
+plate the partition↔shell weld can still merge rooms (`§GROUND-ENGINE-PERIMETER` takes the
+`WELD-FALLBACK` path and `WallJoinResolver` reports `§MULTI-CLUSTER … PASS-THROUGH` joins plus the
+occasional `§WJR-INVALID … self-cluster`). Both are documented with file:line in §8.4–§8.5.
+
+---
+
 ## Files Index
 
 ### Core engine — `packages/ai-host/src/workflows/apartmentLayout/`
@@ -668,6 +772,30 @@ The founder's rule: *the stair takes the least space, hugs a wall, ideally the w
 The same rect is reserved on **every storey** (it's a pure function of the footprint →
 vertical alignment §7).
 
+#### 8.2.1 `§STAIR-DEFAULT-BIAS` — always supply an aspect bias (Fix 1, SHIPPED 2026-06-09)
+
+The cost terms above (`PERIMETER_PREFERENCE`, `FRAGMENT_PENALTY`) only fire **when an
+`AspectBias` is supplied** to `chooseStairCorePosition` (`aspect` parameter). Previously the
+orchestrator (`houseOrchestrator.ts`) built `stairSolar` **only when `opts.solar` was present**;
+on the common modal path (no captured latitude) it passed `undefined`, so the chooser ran the
+legacy **waste-only** path with neither term. On most plates the waste scorer alone already
+corners the stair, but on plates where a `back` MID-EDGE candidate ties/beats a true CORNER by
+waste — or where shell-containment culls thin the candidate set — the stair could land
+mid-plate/mid-edge → the plate fractures into a 4-way picture-frame (no dominant rect) →
+`§STAIR-OBSTACLE-CARVE` can't run the corridor spine → the private rooms merge into one blob
+(the founder's *"Bedroom 2 / Bedroom 1 / Bathroom 101.8 m²"*).
+
+**Fix (shipped):** `houseOrchestrator.ts` now **always** synthesises a `StairSolar` — when
+`opts.solar` is absent it falls back to a deterministic Northern-hemisphere default
+(`STAIR_DEFAULT_LAT_DEG = 45` → `equatorFacingDir` → `{x:0, y:1}`, back wall = best aspect). So
+`aspectBiasFor` always returns a real bias → `PERIMETER_PREFERENCE` + `FRAGMENT_PENALTY` always
+fire → the stair takes a back/side **CORNER**. `kind='central'` survives only as a genuine last
+resort (a tiny plate with no fitting perimeter candidate). Pure + deterministic (constant
+direction; no Date/RNG). When `opts.solar` **is** present the bias is byte-identical to before.
+This is the **TOPOLOGY-level** fix (more robust than the geometry weld). The
+`§DIAG-STAIR-RESERVE` line (`houseOrchestrator.ts`) logs the reserve `kind` so a prod run proves
+corner vs central.
+
 ### 8.3 Vertical continuity, void, roof — `houseOrchestrator.ts` + `houseVertical.ts`
 
 `assembleHouse` (`houseOrchestrator.ts:504`):
@@ -682,6 +810,254 @@ vertical alignment §7).
 
 The editor's `HouseLayoutExecutor` + `houseStairVoids.ts` then build the actual stair, punch
 the void, and place the roof (railings + the stair geometry come from the stair plugin).
+
+---
+
+## 8.4 WHY THE APARTMENT GENERATOR BEATS THE HOUSE
+
+> Founder's question, verbatim: *"WHY is the apartment layout generator way better, providing
+> better design than the house?"* The honest, source-grounded answer is below. Full audit:
+> `docs/03-execution/plans/HOUSE-APARTMENT-UNIFICATION-AUDIT-2026-06-09.md`.
+
+### 8.4.1 The headline: the room-quality ENGINE is 100% shared
+
+The apartment is **not** better because it has a better subdivision engine. **There is only one
+engine.** Per storey the house calls the *exact same* `generateDeterministicLayouts(...)`
+(D-TGL) the apartment calls, the *exact same* `buildLayoutCommands(...)` + opening/door/boundary
+batch commands the apartment executor uses, and the *exact same* `nameDetectedRooms` +
+floor/ceiling/furnish/light chain
+(audit §1, `HOUSE-APARTMENT-UNIFICATION-AUDIT-2026-06-09.md:14-45`). The side-by-side map (audit
+§2) marks **SHARE** on every row that determines per-plate room maturity:
+bubble graph, rect decomposition, squarify, subdivide, program rules, wall+door emission,
+window emission, plan→commands, room detection, room naming.
+
+So the house's lower quality comes **entirely from the editor-side multi-storey orchestration it
+bolts on top of the shared engine** — three things, in order of impact:
+
+### 8.4.2 (a) The STAIR — the apartment has none
+
+The apartment is a single plate with **no stair, no stair keep-out, no stair containment**. The
+house must reserve a vertically-aligned stair core, carve it out of every storey's buildable
+region, and build a real stair body that must fit a (possibly rotated) shell. When that body
+pokes out (`§DIAG-STAIR cornersInShell=1/4`) it conflicts the perimeter and the partitions —
+and, as §8.5 proves, the *containment* of that body is the dominant root-cause of the house's
+"merged room" defect. This is **genuinely additional** (it must stay) but it is the single
+biggest maturity gap. (`HouseLayoutExecutor.ts:1000-1008`, `stairContainment.ts:1-16`.)
+
+### 8.4.3 (b) The ground-shell weld + the §GROUND-ENGINE-PERIMETER / §UPPER-SHELL-WELD reconciliation
+
+The house's GROUND floor reuses the user's **pre-drawn, mitred, height-raised** shell that the
+engine did not author, so partition endpoints don't land on the shell-wall centreline → the
+`RoomDetectionEngine`'s 20 mm node grid never closes the loop →
+`rooms_total=1` (`weldPartitionsToShell.ts:1-21`). The house papers over this with the fragile
+geometric `weldPartitionsToShell` heuristic whose tolerance has been re-tuned **five times**
+(`DEFAULT_PARTITION_WELD_M = 0.50`, `weldPartitionsToShell.ts:51-84`, §WJ-SKEW-1..4). The
+2026-06-09 Stage-1 mitigation `§GROUND-ENGINE-PERIMETER` (`HouseLayoutExecutor.ts:434-494`)
+tries to make the ground close like the upper storeys by checking whether the drawn shell is
+still ON the engine footprint ring — if so it takes the bit-exact **ENGINE-PERIMETER path**
+(`:489-494`), otherwise it falls back to the load-bearing **WELD-FALLBACK path** (`:496-503`).
+The upper storeys have the sister `§UPPER-SHELL-WELD` (`HouseLayoutExecutor.ts:998-1040`,
+`:548-553`). **The apartment executor has NO weld at all** — `ApartmentLayoutExecutor.ts` calls
+`buildLayoutCommands` → batches, with no `weldPartitionsToShell` import (audit §3 Gap 1,
+`:86-101`). The apartment is "just lucky": its small flat plate has small residuals and the weld
+isn't even in its code path.
+
+### 8.4.4 (c) The parallel per-storey program sizer can starve or over-pack
+
+The apartment uses the engine's internal `scaleProgramToShell` (tuned for a small flat plate).
+The house cannot: a sparse captured brief stretched across a 165 m² storey would make `squarify`
+balloon one room to fill the plate (the founder's "165 m² Room 00-001"). So the house runs a
+**parallel program sizer** — `enrichStoreyProgramToPlate` / `fillGroundPlate`
+(`houseProgramFloor.ts:1-13`, `:184-262`) — plus the `houseStoreyBand` envelope
+(`houseEnvelope.ts`) and the `houseOrchestrator.ts` `presentedArea` reconciliation
+(`houseOrchestrator.ts:472-484`, §AREA-AGREEMENT). The audit names the failure mode this fork
+introduces verbatim: capping the area *"shrinks the bubble-graph budget and starves the program,
+forcing §FEASIBILITY-ALLOC to drop rooms on a plate that is actually big enough (the founder's
+generic 'Room 00-00x' voids)"* (`houseOrchestrator.ts:472-478`, audit §3 Gap 2). So a
+correctly-sized apartment path was forked into a house path that can **both** under-fill (giant
+room) **and** over-pack (dropped rooms) depending on the area math.
+
+### 8.4.5 The cure direction (audit §4–§6, recommendation — not yet code)
+
+The cure is **not** "share the engine" (already done). It is *"reduce the house's extra
+orchestration to the multi-storey spine, and make every per-storey plate identical to an
+apartment plate."* The smallest highest-leverage slice (audit §5): make the GROUND storey use the
+**engine-authored perimeter** the upper storeys already use (`_buildPerimeterShell`), so the
+ground closes rooms exactly the way the upper storeys do, and delete the weld from the common
+path. **KEEP** only the genuinely-additional spine: the storey loop, level minting, slab voids,
+the roof, and the stair (whose own deeper cure is §8.5). The one-line answer to the founder
+(audit §6): *"the house already uses the apartment's engine for every room; it 'looks less
+mature' because of two compensating bolt-ons the apartment never needs (a fragile ground-floor
+weld and a parallel program sizer) plus the genuinely-new stair."*
+
+---
+
+## 8.5 THE STAIR IS THE CIRCULATION ROOT-CAUSE
+
+> Founder, verbatim: *"honestly and clearly it seems like the main issue is the STAIR — the
+> circulation needs to be critically sound and perfectly orchestrated."* This section documents
+> the **exact desync** the founder is hitting, grounded in a real production run, traced through
+> source. It is the most important addition to this doc.
+
+### 8.5.1 The real prod run
+
+```
+§DIAG-STAIR #0 … shape=U rect=2.0×2.8m rot=-41.3° centreWorld=(11.9,2.8) centreInShell=true cornersInShell=1/4
+§DIAG-STAIR ⚠ stair #0 is NOT fully inside the shell (1/4 corners in)
+§STAIR-CONTAIN-GATE interior-side nudge insufficient — contained toward shell centroid
+§STAIR-CONTAIN nudged stair inward by (-1.50,-0.55)m to keep its footprint inside the shell
+§STAIR-CONTAIN-GATE stair footprint fully contained (4/4 corners inside shell)
+```
+
+The engine reported a clean six-room plan for that level — `§DIAG-ROOMS L0: rooms=6 …` — yet the
+editor shipped **one merged room**: *"Living Room / Bedroom 1 / Kitchen / Bathroom / Corridor
+76.0 m²"*. Six designed rooms collapsed into one. The `§STAIR-CONTAIN nudged stair inward by
+(-1.50,-0.55)m` line is the smoking gun.
+
+### 8.5.2 The mechanism — position → keep-out → tile → nudge (the desync)
+
+The defect is a **position desync between two stages that each use a *different* stair position**:
+
+**Stage 1 — the engine reserves the core and carves the keep-out at the ORIGINAL position.**
+`chooseStairCorePosition` (`stairPosition.ts:363`) picks the core's min-corner `(x,y)` in the
+layout frame. The orchestrator turns **that** `core.rectMm` into a world-XZ keep-out:
+
+```ts
+// houseOrchestrator.ts:404-417  — keepOutRectsWorld is derived from core.rectMm (the ORIGINAL position)
+const keepOutRectsWorld = coreRect
+    ? (() => {
+        const corners = [ /* the 4 corners of coreRect */ ]
+            .map(c => principalAxisRad === 0 ? c : rotatePt(c, principalAxisRad, pivot));
+        return [{ x0: min…, z0: min…, x1: max…, z1: max… }];
+      })()
+    : undefined;
+```
+
+That keep-out is threaded into the per-storey D-TGL call (`houseOrchestrator.ts:515`
+`keepOutRectsWorld`). Inside the engine, `enumerate.ts` inflates it by `KEEPOUT_MARGIN_M = 0.05`
+on every side and **subtracts it from the buildable rects** (`enumerate.ts:187-202`) via
+`subtractRectsFromRects` (`rectDecomposition.ts:279`) **before** subdivide. So **all rooms are
+tiled AROUND the stair at its ORIGINAL reserved position** — the partitions seal the rooms
+precisely up to the edge of that original keep-out.
+
+**Stage 2 — the editor nudges the SHIPPED stair body to a DIFFERENT position.** After the rooms
+are already tiled, the editor `HouseLayoutExecutor` builds the actual rotated stair body, finds
+its full footprint pokes out of the rotated shell (`cornersInShell=1/4`), and **moves the whole
+body inward** to fit:
+
+```ts
+// HouseLayoutExecutor.ts:1297-1316  — §STAIR-CONTAIN: nudge the SHIPPED body AFTER the rooms were tiled
+const off = computeInwardContainmentOffset(fp0XZ, shellPolyWorld, { x: inward.x, z: inward.z }, 0.1, 4.0);
+containDx = off.dx; containDz = off.dz;
+// … if the interior-side nudge failed, a SECOND attempt toward the shell centroid:
+const off2 = computeInwardContainmentOffset(fp0XZ, shellPolyWorld, centroidDir, 0.05, 8.0);
+// → console: §STAIR-CONTAIN nudged stair inward by (-1.50,-0.55)m …
+```
+
+`computeInwardContainmentOffset` (`stairContainment.ts:64-85`) steps the footprint inward until
+every corner is inside the shell — here by **(-1.50, -0.55) m**.
+
+**The consequence.** The final stair body now sits **1.5 m away from the keep-out the rooms were
+tiled around.** It therefore overlaps the rooms/partitions that were tiled in the region the
+stair vacated (the stair *"clashes with internal walls"*), and the stair void + stair walls cut
+through the partitions that were sealing those rooms. Once a sealing partition is cut, room
+detection floods across the gap and the six engine rooms merge into one — exactly the
+`§DIAG-ROOMS rooms=6` (engine) vs *"Living Room / Bedroom 1 / Kitchen / Bathroom / Corridor 76.0
+m²"* (shipped) divergence. **The post-hoc containment nudge is the architectural defect:
+`position → keep-out → tile` uses one position; the shipped stair uses another.**
+
+The `stairContainment.ts` header states the same conclusion (`stairContainment.ts:1-16`): the
+nudge is "the CURE" for the pokes-out symptom, but it is applied *after* the engine has already
+committed the room tiling against the un-nudged keep-out — so it fixes the stair-in-shell
+geometry while *creating* the stair-vs-rooms overlap.
+
+### 8.5.3 Why cornersInShell is SYSTEMATICALLY 1/4 — the start-corner-anchor problem
+
+The `cornersInShell=1/4` is not random float noise; it is the **same every rotated run**, which
+means a fixed geometric cause. The stair body is **ANCHORED at a start corner and GROWN in a
+fixed direction** — only the anchor is positioned, the full footprint is never validated against
+the rotated shell. A 2.0×2.8 m axis-aligned core rect, after a ~−44° rotation, becomes a diamond
+whose far corners swing outside the rotated polygon; near 45° (the worst case for axis-snap
+quantisation) a centre-ward nudge can't contain it, so only the centre + one corner end up inside.
+This is documented in full in
+`docs/04-reference/STAIR-CREATION-PIPELINE-AND-ANCHOR-ANALYSIS.md` (§2 — "the founder's
+hypothesis is correct: it's an ANCHOR problem"; the 5-stage pipeline + the file map in §4).
+
+### 8.5.4 The CURE direction (documented recommendation — NOT code)
+
+The robust model is the **opposite** of "anchor + grow + nudge afterward": the stair must be
+**CONTAINED in the engine / orchestrator BEFORE the keep-out is carved**, so that:
+
+1. **The keep-out == the final shipped stair footprint.** Resolve `§STAIR-CONTAIN` **upstream**
+   — in `stairPosition.ts` / `houseOrchestrator.ts`, against the rotated shell, on the *full*
+   footprint (all flights + landings), not as a downstream `HouseLayoutExecutor` nudge. Then the
+   rooms are tiled around the **contained** stair and no overlap can arise by construction.
+2. **Reserve / position the core in the ROTATED frame for strongly-rotated plates** (anchor to
+   the interior or the abutted perimeter wall, grow inward), so the corner anchor is genuinely
+   inside the shell, not an axis-aligned rect rotated whole
+   (`STAIR-CREATION-PIPELINE-AND-ANCHOR-ANALYSIS.md` §3, steps 1–3).
+3. **The corridor / circulation must explicitly connect to the stair LANDING.** Upstairs the
+   stair arrival is the `corridor` relabelled "Landing" (§LANDING-NOT-HALL / G14); the
+   reconciliation passes (`§CIRCULATION-REROUTE`, `wallsAndDoors.ts`) must guarantee a door from
+   that landing to every private room, with the stair footprint as a *first-class* circulation
+   node — not an obstacle the rooms merely avoid.
+
+In short: **make the position that drives the keep-out equal to the position the stair ships at,
+and make the stair body a contained, validated footprint before tiling — not an anchored body
+nudged into place after.** The 2026-06-09 `interiorSide` change (half-landing inward) is the
+first half of step 1; the full-footprint upstream containment (steps 2–3) is queued.
+
+#### 8.5.4.1 Fix 1 + Fix 4 — the topology defence (SHIPPED 2026-06-09)
+
+A central/mid-edge stair is what fractures the plate so the corridor spine can't run and the
+rooms merge. The §8.5.4 cure (upstream geometric containment) is the deep geometry fix; **Fix 1 +
+Fix 4 are the complementary, more robust TOPOLOGY fix — now shipped** — that stops the stair from
+fragmenting the plate in the first place:
+
+- **Fix 1 — `§STAIR-DEFAULT-BIAS` (`houseOrchestrator.ts`).** The orchestrator now ALWAYS supplies
+  an `AspectBias` to `chooseStairCorePosition` (default Northern-hemisphere `{x:0,y:1}` when no
+  site solar is captured), so the corner-preferring `PERIMETER_PREFERENCE` + `FRAGMENT_PENALTY`
+  terms always fire → the stair takes a back/side **CORNER** (one dominant rect ~75-80 %), never
+  the centre. See §8.2.1. Apartment/solar paths byte-identical. **Moved from recommendation →
+  shipped.**
+- **Fix 4 — `§STAIR-FRAGMENT` (`subdivide.ts`).** `DOMINANT_FRACTION` lowered `0.45 → 0.40` so a
+  corner-carved plate reliably triggers the `§STAIR-OBSTACLE-CARVE` corridor carve. Defence-in-
+  depth: the branch still runs BOTH carve and `packMultiRect` and keeps whichever drops fewer
+  rooms (`§STAIR-CARVE-NO-DROP`), so a lower gate can only ADD a corridor spine, never remove
+  rooms. Gated on `stairCarved=true` → the apartment (no-keep-out) path is unaffected. **Moved from
+  recommendation → shipped.**
+- **Diagnostics (Part 8).** `§DIAG-STAIR-RESERVE storey=… shape=… kind=… rect=… rot=…`
+  (`houseOrchestrator.ts`, the `kind` is the corner-vs-central tell) and
+  `§DIAG-BRANCH stairCarved dominantFrac=… path=carve|generic` (`subdivide.ts`) so the next prod
+  run proves whether the stair went central and which subdivision path fired.
+
+---
+
+## 8.5.5 The other current wall-sealing gap (honest, downstream-coupled)
+
+Even with `§GROUND-ENGINE-PERIMETER` / `§UPPER-SHELL-WELD` / `§SHELL-ANCHOR-PRESERVE` shipped,
+the **same prod run** still merged rooms on the rotated ground plate. The evidence:
+
+- **`§GROUND-ENGINE-PERIMETER` took the `WELD-FALLBACK` path** — the drawn (mitred/rotated) shell
+  drifted off the engine footprint ring, so the bit-exact `ENGINE-PERIMETER` path was *not* taken
+  and the load-bearing weld ran (`HouseLayoutExecutor.ts:496-503`). The cleaner path
+  (`:489-494`) only fires when the drawn shell is still on the footprint ring within tolerance.
+- **`WallJoinResolver` reports mostly `§MULTI-CLUSTER … PASS-THROUGH`** junctions —
+  *"PASS-THROUGH (collinear pair → square caps to consensus) trimmed=3"* (`WallJoinResolver.ts`
+  `§MULTI-CLUSTER-WHY` at `:586-602`, `§PASS-THROUGH-FLUSH` at `:671-710`). A pass-through join
+  caps a near-collinear pair to a consensus point rather than forming a true mitred corner —
+  acceptable for a real collinear run, but it means the rotated-plate junctions are being treated
+  as pass-throughs, not crisp corners.
+- **One wall hit `§WJR-INVALID … self-cluster`** — a degenerate wall whose **both** endpoints
+  landed in one junction cluster; the resolver flags it `invalid` and skips it
+  (`WallJoinResolver.ts:621-622`, `_flagInvalid` at `:230`). A skipped/invalid wall is one fewer
+  sealing partition → a room can leak.
+
+This is an **OPEN issue**, and it is **downstream-coupled to the stair desync**: the rotated
+plate that forces the `WELD-FALLBACK` path is the same plate whose stair is nudged 1.5 m off its
+keep-out. Fixing the stair containment upstream (§8.5.4) removes the partition-cutting cause;
+moving the ground onto the engine-authored perimeter (§8.4.5, audit §5) removes the
+weld-fallback cause. Both must land for the rotated-plate ground to seal reliably.
 
 ---
 
@@ -833,6 +1209,10 @@ raise a superseding ADR.
 | `§WINDOW-MANDATORY-RESCUE` (A.21.D60) | `shellWallMatch.ts`, `programRules.ts` | A windowMandatory room never ends with 0 windows: last-resort relaxed retry (corner→width→match-tolerance) retains 1; only fallback, byte-identical otherwise. |
 | `§KITCHEN-DISTINCT` / `§BATH-CORRIDOR-ONLY` | `bubbleGraph.ts`, `programRules.ts` | Kitchen always enclosed; bath off corridor only. |
 | `§STAIR-WORST-ASPECT` / `§STAIR-CORNER-ANCHOR` | `stairPosition.ts`, `stairCore.ts` | Stair takes the poor-aspect back corner. |
+| `§STAIR-KEEPOUT` | `houseOrchestrator.ts:395-417`, `enumerate.ts:187-202` | Carve the core (at its ORIGINAL reserved position) out of the buildable rects before tiling. |
+| `§STAIR-CONTAIN` / `§STAIR-CONTAIN-GATE` | `HouseLayoutExecutor.ts:1260-1331`, `stairContainment.ts:64` | Nudge the SHIPPED stair body inward to fit the rotated shell — applied AFTER tiling → the §8.5 desync. |
+| `§GROUND-ENGINE-PERIMETER` / `§UPPER-SHELL-WELD` | `HouseLayoutExecutor.ts:434-553` | Close the ground like the upper storeys; ENGINE-PERIMETER path vs the load-bearing WELD-FALLBACK path. |
+| `§MULTI-CLUSTER` / `§PASS-THROUGH-FLUSH` / `§WJR-INVALID` | `WallJoinResolver.ts:179-622` | 3+-endpoint junction resolution; collinear pass-through caps; durable degenerate (self-cluster) flag. |
 | `§COLLINEAR-MERGE` | `executePlan.ts:184` | Fold collinear segments at T/X junctions into passthrough walls. |
 
 ---
@@ -848,6 +1228,19 @@ raise a superseding ADR.
 - **Stair worst-aspect / corner anchor (2026-06-08) — SHIPPED.** Central stairs holed the
   subdivision; the chooser now strongly prefers a perimeter back-corner on the poor-aspect
   (north-default) façade.
+- **Stair containment desync — OPEN (the #1 live defect; §8.5).** The engine carves the
+  room-tiling keep-out at the stair's *original* reserved position
+  (`houseOrchestrator.ts:404-417` → `enumerate.ts:187-202`), but the editor `§STAIR-CONTAIN`
+  nudges the *shipped* stair body to a *different* position to fit a rotated shell
+  (`HouseLayoutExecutor.ts:1297-1316`, observed `(-1.50,-0.55)m`). Result: the stair overlaps the
+  rooms tiled around the original keep-out, its void cuts sealing partitions, room detection
+  floods, and `§DIAG-ROOMS rooms=6` ships as one merged "Living/Bedroom/Kitchen/Bathroom/Corridor"
+  room. Cure direction = contain upstream (keep-out == shipped footprint), §8.5.4.
+- **Rotated-ground weld-fallback merge — OPEN (§8.5.5).** Even with §GROUND-ENGINE-PERIMETER /
+  §UPPER-SHELL-WELD / §SHELL-ANCHOR-PRESERVE shipped, the rotated ground still takes the
+  `WELD-FALLBACK` path (`HouseLayoutExecutor.ts:496-503`); `WallJoinResolver` reports mostly
+  `§MULTI-CLUSTER … PASS-THROUGH` joins + one `§WJR-INVALID … self-cluster`. Downstream-coupled to
+  the stair desync.
 - **`§STAIR-CARVE-NO-DROP` (2026-06-08) — SHIPPED.** The dominant-rect corridor carve could
   drop a room; the subdivider now runs both carve + generic packing and keeps whichever drops
   fewer rooms (tie → carve, to preserve the corridor spine).
@@ -1079,6 +1472,9 @@ its OWN w×h, computes `risersBeforeLanding` via `splitRisersForShape`, and sets
 solar data. Always returns a bias object when `solar` is present (even near the equator → `sunDir`
 null, which still activates the perimeter preference — the stair hugs a wall regardless of latitude;
 that is what fixes the central-hole subdivision break). Absent → `undefined` → legacy waste-only path.
+**NOTE (Fix 1, §8.2.1):** since 2026-06-09 the orchestrator **always** passes a `StairSolar` (a
+default Northern-hemisphere bias when no site solar is captured), so the production stair path
+**never** hits the `undefined`/waste-only branch — only direct test calls do.
 
 ### H6. The stair core — position scoring — `stairPosition.ts`
 
@@ -1276,7 +1672,7 @@ before`, `:200-201`).
 A keep-out turns the single plate into a FRAME/L of 2–4 sub-rects, which the generic multi-rect packer
 (`packMultiRect`, `:1295-1331`) would pack INDEPENDENTLY per rect → no corridor spine → a merged blob +
 §CIRCULATION-REROUTE compromise (the founder's central-stair defect). When `options.stairCarved &&
-valid.length ≥ 2` (`:1251`): if the largest sub-rect holds ≥ `DOMINANT_FRACTION = 0.55` of the buildable
+valid.length ≥ 2` (`:1251`): if the largest sub-rect holds ≥ `DOMINANT_FRACTION = 0.40` (Fix 4, was 0.55→0.45) of the buildable
 area (`:1257-1258`), run `trySingleRectCarve` (the §SINGLE-RECT corridor carve) on that **dominant rect**
 with the WHOLE programme so a real corridor encloses + links every room; the tiny stair-clearance slivers
 are left empty (correct — they ARE the landing zone).

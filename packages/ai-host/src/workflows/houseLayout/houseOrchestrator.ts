@@ -20,7 +20,7 @@ import { generateDeterministicLayouts } from '../apartmentLayout/tgl/runDetermin
 import { principalAxisAngle, rotatePt } from '../apartmentLayout/tgl/rectDecomposition.js';
 import { equatorFacingDir } from '../apartmentLayout/windowEmission/solarOrientation.js';
 import { validateHouseStorey, houseStoreyBand } from './houseEnvelope.js';
-import { reserveStairCoreShaped, splitRisersForShape, type StairCoreShaped } from './stairCore.js';
+import { reserveStairCoreShaped, splitRisersForShape, type StairCoreShaped, type StairSolar } from './stairCore.js';
 import { allocateProgramToStoreys } from './storeyAllocation.js';
 import { enrichStoreyProgramToPlate } from './houseProgramFloor.js';
 import { roofBaseElevationM, roofBaseOffsetM } from './houseVertical.js';
@@ -34,6 +34,14 @@ const DEFAULT_ROOF_KIND: RoofKind = 'gable';
 const DEFAULT_ROOF_PITCH_DEG = 30;
 /** Target riser height (m) — sets the total riser count for the floor-to-floor gap. */
 const STAIR_RISER_TARGET_M = 0.18;
+
+/** §STAIR-DEFAULT-BIAS (Fix 1) — the latitude used to synthesise a stair AspectBias
+ *  when the caller captured NO site solar. A mid-Northern-hemisphere value (≥ the
+ *  equatorial band) so `equatorFacingDir` returns the constant `{x:0,y:1}` (back/max-Z
+ *  wall = best aspect): the chooser then prefers a back/side CORNER, never the centre.
+ *  A pure constant — deterministic; no Date/RNG. NOT a real climate claim (no real
+ *  solar windows are emitted from it — only the stair-corner topology preference). */
+const STAIR_DEFAULT_LAT_DEG = 45;
 
 /** Resolve the per-flight plan directions for a shaped stair core (A.21.D18).
  *  Flight 1 runs along the core's LONGER plan axis. For L the second flight turns
@@ -369,28 +377,72 @@ function enumeratePerStorey(
     // into that frame by the SAME −principalAxisRad rotation `runDeterministicLayout`
     // applies to the window sun direction (a direction → pivot is the origin). +y in
     // the layout frame then means the BACK (max-Z) wall. On an axis-aligned plate the
-    // rotation is identity. Absent solar ⇒ a wall-hugging placement by circulation-
-    // waste alone (still off-centre — Defect A — just aspect-blind).
-    const stairSolar = opts.solar
-        ? (() => {
-            const worldSun = equatorFacingDir(opts.solar.latDeg);   // (x=East, y=South=+planZ) or null
-            const sunDirLayout = worldSun
-                ? (() => {
-                    const r = principalAxisRad === 0
-                        ? { x: worldSun.x, z: worldSun.y }
-                        : rotatePt({ x: worldSun.x, z: worldSun.y }, -principalAxisRad, { x: 0, z: 0 });
-                    return { x: r.x, y: r.z };
-                })()
-                : null;
-            return { latDeg: opts.solar.latDeg, sunDirLayout };
-        })()
-        : undefined;
+    // rotation is identity.
+    //
+    // §STAIR-DEFAULT-BIAS (Fix 1, 2026-06-09, founder "stair location critical") —
+    // ALWAYS supply an AspectBias to the position chooser, even when NO solar/latitude
+    // is captured (the common modal path). PREVIOUSLY a missing `opts.solar` left
+    // `stairSolar = undefined`, so `reserveStairCoreShaped` → `chooseStairCorePosition`
+    // ran the legacy WASTE-ONLY path with NEITHER the PERIMETER_PREFERENCE nor the
+    // FRAGMENT_PENALTY term. On most plates the waste scorer alone already corners the
+    // stair, but on plates where a MID-EDGE (`back`) candidate ties/beats a true CORNER
+    // by waste, OR where shell-containment culls thin the candidate set, the chooser
+    // could land the stair MID-PLATE/MID-EDGE → the plate fractures into a 4-way
+    // picture-frame (no dominant rect) → §STAIR-OBSTACLE-CARVE can't run the corridor
+    // spine → the private zone merges into one blob (the founder's "Bedroom 2 / Bedroom
+    // 1 / Bathroom 101.8 m²"). Forcing a CORNER yields one dominant rect (~75-80 %) so
+    // the corridor carve fires and the rooms stay distinct — a TOPOLOGY-level fix.
+    //
+    // So when solar is absent we fall back to a DETERMINISTIC Northern-hemisphere
+    // default (`worldSun = {x:0, y:1}` — the back/max-Z wall treated as best-aspect, the
+    // entrance-opposite wall as worst), mapped into the layout frame the same way the
+    // real solar path is. `aspectBiasFor` then returns a real bias → the corner-
+    // preferring PERIMETER_PREFERENCE + FRAGMENT_PENALTY always fire → the stair takes a
+    // back/side CORNER and never holes the centre. `kind='central'` survives ONLY as a
+    // genuine last resort (no perimeter candidate fits — a tiny plate). Pure +
+    // deterministic (constant direction; no Date/RNG). When solar IS present the bias is
+    // byte-identical to before (this branch is unchanged).
+    const stairSolar: StairSolar = (() => {
+        const latDeg = opts.solar?.latDeg ?? STAIR_DEFAULT_LAT_DEG;
+        // Real solar uses the equator-facing dir for the captured latitude; the no-solar
+        // default uses a constant +y (Northern-hemisphere) world sun so a bias ALWAYS
+        // exists. equatorFacingDir(STAIR_DEFAULT_LAT_DEG) === {x:0,y:1} by construction,
+        // so both paths share one code path with no behavioural fork.
+        const worldSun = equatorFacingDir(latDeg);   // (x=East, y=South=+planZ) or null
+        const sunDirLayout = worldSun
+            ? (() => {
+                const r = principalAxisRad === 0
+                    ? { x: worldSun.x, z: worldSun.y }
+                    : rotatePt({ x: worldSun.x, z: worldSun.y }, -principalAxisRad, { x: 0, z: 0 });
+                return { x: r.x, y: r.z };
+            })()
+            : null;
+        return { latDeg, sunDirLayout };
+    })();
     const core: StairCoreShaped | null =
         storeyCount > 1
             ? reserveStairCoreShaped(footprintLayout, storeyCount, totalRisers, stairSolar)
             : null;
     const coreRect = core ? core.rectMm : null;   // in the LAYOUT frame (mm)
     const coreAreaM2 = coreRect ? stairCoreAreaM2(coreRect) : 0;
+
+    // §DIAG-STAIR-RESERVE (Part 8, 2026-06-09, founder verification line) — log the
+    // shared stair reserve (it is identical across ALL storeys by construction — the
+    // §7 vertical-alignment invariant — so one line describes every storey). The `kind`
+    // field is THE key signal: `left`/`right`/`back` = a CORNER/side reserve (one
+    // dominant rect → the corridor carve fires → distinct rooms); `central` = the
+    // founder's merged-blob risk (should now appear ONLY on a tiny plate with no fitting
+    // perimeter candidate, after Fix 1). `rect` is the LAYOUT-frame mm rect; `rot` is the
+    // principal-axis angle the editor rotates the stair back to world by. Logging only —
+    // no behaviour change. Pure/deterministic.
+    if (core) {
+        console.log(
+            `[house-layout] §DIAG-STAIR-RESERVE storey=${storeyCount > 1 ? '0..' + (storeyCount - 1) : '0'} `
+            + `shape=${core.shape} kind=${core.interiorSide} `
+            + `rect=${Math.round(core.rectMm.x)},${Math.round(core.rectMm.y)},${Math.round(core.rectMm.w)},${Math.round(core.rectMm.h)}mm `
+            + `rot=${principalAxisRad.toFixed(4)}rad`,
+        );
+    }
 
     // §STAIR-KEEPOUT (A.21.D21, SPEC-CASA §7) — the core rect as a WORLD-XZ keep-out
     // (mm → metres). Threaded into the per-storey D-TGL call so the subdivider carves

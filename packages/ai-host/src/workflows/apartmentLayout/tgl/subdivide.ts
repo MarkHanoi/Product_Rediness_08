@@ -1262,8 +1262,31 @@ export function subdivideWithReport(
         // packMultiRect and keeps whichever drops FEWER rooms, so this is never worse on
         // drop count and adds a corridor spine when it helps. (The real cure is keeping the
         // stair from fragmenting the plate — tracked separately.)
-        const DOMINANT_FRACTION = 0.45;
-        console.log(`[D-TGL subdivide] §DIAG-RECTS stairCarved=true rects=${valid.length} areas=[${valid.map(r => rectArea(r).toFixed(1)).join(', ')}] total=${totalArea.toFixed(1)} dominantFrac=${(rectArea(dominant) / Math.max(EPS, totalArea)).toFixed(2)} rooms=${graph.rooms.length} gate=${DOMINANT_FRACTION}`);
+        //
+        // §STAIR-FRAGMENT (Fix 4, 2026-06-09, defence-in-depth) — LOWERED 0.45 → 0.40.
+        // Fix 1 forces the stair to a CORNER so the dominant rect is now ~75-80 % (the
+        // gate is easily cleared); this lower floor is a SAFETY NET for plates the
+        // corner carve fragments slightly harder (e.g. a small notch + the stair sliver
+        // leave the dominant rect at ~0.42) so the corridor carve still fires instead of
+        // falling through to packMultiRect's merge-prone per-rect packing. Never worse:
+        // the branch still runs BOTH carve and packMultiRect and keeps whichever drops
+        // FEWER rooms (§STAIR-CARVE-NO-DROP), so a lower gate can only ADD a corridor
+        // spine, never remove rooms. Gated on `options.stairCarved` (set true ONLY when a
+        // stair keep-out was carved — the multi-storey HOUSE path); the APARTMENT path
+        // passes no keep-out → `stairCarved=false` → this whole branch is skipped →
+        // apartment byte-identical.
+        const DOMINANT_FRACTION = 0.40;
+        const dominantFrac = rectArea(dominant) / Math.max(EPS, totalArea);
+        console.log(`[D-TGL subdivide] §DIAG-RECTS stairCarved=true rects=${valid.length} areas=[${valid.map(r => rectArea(r).toFixed(1)).join(', ')}] total=${totalArea.toFixed(1)} dominantFrac=${dominantFrac.toFixed(2)} rooms=${graph.rooms.length} gate=${DOMINANT_FRACTION}`);
+        // §DIAG-BRANCH (Part 8, 2026-06-09) — deterministic branch line for the next prod
+        // run: WHICH path the stair-carved plate took. `path=carve` ⇒ the dominant gate
+        // fired → the corridor spine runs in the dominant rect (the founder's fix); the
+        // detailed carve-vs-generic pick line below refines it. `path=generic` ⇒ no
+        // dominant rect → packMultiRect (the merge-prone path the Fix 1 corner stair +
+        // Fix 4 lower gate are meant to AVOID). Read this against §DIAG-STAIR-RESERVE's
+        // `kind`: a CORNER reserve should always land here as `path=carve`.
+        const branchPath = dominantFrac >= DOMINANT_FRACTION ? 'carve' : 'generic';
+        console.log(`[D-TGL subdivide] §DIAG-BRANCH stairCarved dominantFrac=${dominantFrac.toFixed(2)} path=${branchPath}`);
         if (rectArea(dominant) >= DOMINANT_FRACTION * totalArea) {
             const carved = trySingleRectCarve(dominant, graph, corridorWidthM);
             // §STAIR-CARVE-NO-DROP (2026-06-08) — the dominant-rect carve gives every

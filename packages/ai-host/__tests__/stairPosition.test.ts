@@ -654,3 +654,93 @@ describe('§STAIR-ANTI-FRAGMENT — aspect path prefers a CORNER carve over a MI
         expect(legacy.kind).toBe(again.kind);
     });
 });
+
+// ───────────────── §STAIR-DEFAULT-BIAS (Fix 1, 2026-06-09) ────────────────────
+//
+// The founder's TOPOLOGY fix: the orchestrator must ALWAYS hand the position chooser
+// an AspectBias — even with NO captured site solar (the common modal path) — so the
+// PERIMETER_PREFERENCE + FRAGMENT_PENALTY terms ALWAYS fire and the stair takes a
+// back/side CORNER. A central stair fractures the plate into a 4-way picture-frame
+// (no dominant rect) → §STAIR-OBSTACLE-CARVE can't run the corridor spine → the
+// private rooms merge into one blob. A corner stair yields one dominant rect (~75-80 %)
+// so the corridor carve fires and the rooms stay distinct.
+
+describe('§STAIR-DEFAULT-BIAS — chooser corners on a rectangular plate (Fix 1 regression)', () => {
+    // The chooser itself: on a typical rectangular plate the WINNER must be a CORNER
+    // (left/right flush to a side wall AND the rear wall), NOT central. This holds on
+    // both the legacy no-aspect path AND with a default-style aspect bias supplied.
+    const plateW = 12000, plateH = 10000, coreW = 2000, coreH = 2800;
+    const isCorner = (p: { kind: string; x: number; y: number }): boolean => {
+        if (p.kind === 'central') return false;
+        const flushSide = p.x <= 1 || Math.abs(p.x + coreW - plateW) <= 1;
+        const flushBack = Math.abs(p.y + coreH - plateH) <= 1;
+        return flushSide && flushBack;
+    };
+
+    it('with NO solar bias the chooser still returns a CORNER (not central)', () => {
+        const pos = chooseStairCorePosition(plateW, plateH, coreW, coreH);
+        expect(pos.kind).not.toBe('central');
+        expect(isCorner(pos)).toBe(true);
+    });
+
+    it('with the Fix-1 default Northern bias the chooser returns a CORNER (not central)', () => {
+        // STAIR_DEFAULT_LAT_DEG (45°N) → equatorFacingDir → {x:0, y:1} (back = good
+        // aspect). The chooser must AVOID the back wall and corner against a side wall.
+        const pos = chooseStairCorePosition(
+            plateW, plateH, coreW, coreH, undefined, { sunDir: { x: 0, y: 1 } },
+        );
+        expect(pos.kind).not.toBe('central');
+        expect(['left', 'right']).toContain(pos.kind);
+        expect(isCorner(pos)).toBe(true);
+    });
+});
+
+describe('§STAIR-DEFAULT-BIAS — generateHouseLayout corners the stair with NO solar (Fix 1)', () => {
+    // The end-to-end regression: a multi-storey house generated with NO `solar` option
+    // (the common modal path) must place the stair at a CORNER (hugging a side wall and
+    // off the entrance edge), NOT marooned centrally. BEFORE Fix 1 the orchestrator
+    // passed `stairSolar = undefined` → the waste-only path, which could land central /
+    // mid-edge on some plates → the merged-room blob. AFTER Fix 1 a default bias is
+    // always supplied → a corner.
+    it('a 2-storey house with NO solar places the stair AT a side wall (off centre)', () => {
+        const res = generateHouseLayout(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 });
+        const core = res.stairs[0]!.rectMm;
+        const touchesLeft = Math.abs(core.x) < 1e-6;
+        const touchesRight = Math.abs(core.x + core.w - 12000) < 1e-6;
+        const touchesBack = Math.abs(core.y + core.h - 10000) < 1e-6;
+        // Hugs a side wall (left/right) AND the rear wall → a clean corner carve.
+        expect(touchesLeft || touchesRight).toBe(true);
+        expect(touchesBack).toBe(true);
+        // Never on the entrance edge.
+        expect(core.y).toBeGreaterThan(0);
+    });
+
+    it('the NO-solar reserve reports a CORNER interiorSide (left/right/back), not central', () => {
+        const res = generateHouseLayout(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 });
+        for (const st of res.stairs) {
+            expect(st.interiorSide).not.toBe('central');
+            expect(['left', 'right', 'back']).toContain(st.interiorSide);
+        }
+    });
+
+    it('the NO-solar layout is still deterministic + stacks across storeys', () => {
+        const opts = { storeyCount: 3 };
+        const a = generateHouseLayout(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, opts);
+        const b = generateHouseLayout(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, opts);
+        expect(JSON.stringify(a.stairs)).toEqual(JSON.stringify(b.stairs));
+        const expected = a.stairs[0]!.rectMm;
+        for (const s of a.stairs) expect(s.rectMm).toEqual(expected);
+        for (const v of a.voids) expect(v.rectMm).toEqual(expected);
+    });
+
+    it('an EXPLICIT northern solar yields the SAME corner as the NO-solar default (45°N)', () => {
+        // Both resolve to equatorFacingDir → {x:0,y:1}; on this axis-aligned plate the
+        // default-bias path must match an explicit mid-northern latitude (same corner).
+        const noSolar = generateHouseLayout(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 });
+        const north = generateHouseLayout(
+            SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2, solar: { latDeg: 51.5 } },
+        );
+        expect(noSolar.stairs[0]!.rectMm).toEqual(north.stairs[0]!.rectMm);
+        expect(noSolar.stairs[0]!.interiorSide).toBe(north.stairs[0]!.interiorSide);
+    });
+});
