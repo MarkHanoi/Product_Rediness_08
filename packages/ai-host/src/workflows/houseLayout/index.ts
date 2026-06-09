@@ -36,6 +36,9 @@ export type { XZ2 as StairContainXZ } from './stairContainment.js';
 // DOC-AUTO DS3 (2026-06-09) — pure building-exterior elevation marks from a footprint.
 export { computeBuildingElevationMarks } from './buildingElevations.js';
 export type { BuildingElevationMark, BuildingElevationOptions } from './buildingElevations.js';
+// DOC-AUTO DS4 (2026-06-09) — pure per-room crop region + interior elevation marks.
+export { roomCropRegion, computeRoomInteriorElevationMarks } from './roomDocumentation.js';
+export type { RoomCropRegion, RoomElevationMark } from './roomDocumentation.js';
 export type {
     HouseLayoutResult,
     ScoredHouseLayoutOption,

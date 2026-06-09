@@ -290,6 +290,9 @@ export {
   allCornersInside,
   // DOC-AUTO DS3 (2026-06-09) — pure building-exterior elevation marks from a footprint.
   computeBuildingElevationMarks,
+  // DOC-AUTO DS4 (2026-06-09) — pure per-room crop region + interior elevation marks.
+  roomCropRegion,
+  computeRoomInteriorElevationMarks,
 } from './workflows/houseLayout/index.js';
 export type {
   WeldWall,
