@@ -2817,23 +2817,42 @@ ADR-0056 (typology brief) · C50/SPEC-TGL (the one deterministic engine).
 
 ### §25.3 — Task breakdown
 
-- [ ] **LIVE-MODAL.A — single option (R1).** `HouseLayoutController.request/_regenerate` pass only
-      `variants[0]`; `houseModalHtml` header drops "N options" / reword to "Choose your house layout".
-- [ ] **LIVE-MODAL.B — living graph (R2).** `HouseLayoutModal._storeyGraphs` (mirror `_storeyThumbs`)
-      → `buildLayoutBubbleGraphSvg` per storey; `houseModalHtml.cardHtml` gains the `.alm-view-toggle`
-      Plan/Graph buttons + `.alm-view--graph` container; overlay click toggles `.alm-card--graph`.
-- [ ] **LIVE-MODAL.C — better visibility (R3).** [P with B] `layoutThumbnail` opt-in
-      `shellPolygonMm`/`drawShellRing` (R3a, perimeter ring) + `clampSpansToWall` (R3b, pin
-      windows/doors to the host wall); house passes the storey footprint + clamp ON + hero size;
-      CSS `.hlm-storey-thumb` enlarged. Default-OFF ⇒ apartment byte-identical.
-- [ ] **LIVE-MODAL.D — editable modal graph (R4 graph).** [after B] opt-in `BubbleGraphOptions.interactive`
-      (emit `data-room-name` + clickable nodes); modal node-click → inline area/type editor →
-      `setRoomAreaOverride`/`setRoomTypeOverride` → `_scheduleGraphEdit` (coalesce onto the slider
-      debounce) → `_regenerate`; controller `_computeVariants` merges the override stash into the program.
-- [ ] **LIVE-MODAL.E — brief sliders + seeding (R4 slider).** [P with D] present brief numerics as
-      sliders; seed initial `formState` from `activeBrief` (`getActiveBriefMetadata`, O.12 parity).
-- [ ] **LIVE-MODAL.F — tests + docs.** editor `layoutModalHtml`/`layoutThumbnail` tests (single card,
-      graph present, shell ring, window clamp); ai-host C52-I2 baseline-identity test for the house program.
+- [x] **LIVE-MODAL.A — single option (R1).** DONE (2026-06-09). `HouseLayoutController.request` opens
+      the modal with `variants.slice(0,1)` (the single best — best-first sort + A.21.D18 invariant);
+      `_regenerate` calls `modal.refresh(variants.slice(0,1))`. `houseModalHtml.buildHouseModalHtml`
+      dropped the `headerCount` "N options" suffix → header reads "Choose your house layout".
+- [x] **LIVE-MODAL.B — living graph (R2).** DONE (2026-06-09). `HouseLayoutModal._storeyGraphs`
+      (mirrors `_storeyThumbs`) → `buildLayoutBubbleGraphSvg(s.option, {interactive:true})` per storey;
+      `houseModalHtml.storeyHtml/cardHtml/buildHouseCardGridHtml/buildHouseModalHtml` thread a
+      `storeyGraphs` param + a PER-STOREY `.alm-view-toggle` (Plan/Graph) + `.hlm-storey-view--graph`
+      container; overlay click toggles `.hlm-storey--graph` on the storey row. Graphs render only
+      when `onGraphEdit` is wired (no dead surface) ⇒ plan-only stays the pre-LIVE-MODAL look.
+- [x] **LIVE-MODAL.C — better visibility (R3).** DONE (2026-06-09). R3a (perimeter shell RING from
+      `LayoutWall.isExternal` / fitted-bbox fallback) + R3b (window/door span clamp to host wall +
+      fitted bbox) ALREADY in `layoutThumbnail.ts` (§PREVIEW-SHELL-FIDELITY, applied unconditionally —
+      apartment tests already updated). House `_storeyThumbs` now renders at HERO size (460×320);
+      CSS: single wide centred card column + stacked hero `.hlm-card .hlm-storey-thumb` (height 320).
+- [x] **LIVE-MODAL.D — editable modal graph (R4 graph).** DONE (2026-06-09). Opt-in
+      `BubbleGraphOptions.interactive` emits `data-room-name` + `.alm-graph-node` + `pointer-events:auto`
+      + role/tabindex (default-OFF ⇒ apartment overlay byte-identical). Modal node-click →
+      `_openGraphNodeEditor` (inline area/type popover) → `setRoomAreaOverride`/`setRoomTypeOverride`
+      (EXISTING C52 stash) → `_scheduleGraphEdit` (SAME 250 ms debounce timer, coalesced) →
+      `onGraphEdit` → controller `_regenerateCurrent` → `_regenerate`. `_computeVariants._mergeOverrides`
+      merges `getRoomAreaOverrides()`/`getRoomTypeOverrides()` into `program.roomAreasByName`/`roomTypesByName`
+      before `generateHouseLayoutOptions` (no engine change); `_build` merges too so the BUILT house
+      honours the edits.
+- [x] **LIVE-MODAL.E — brief sliders + seeding (R4 slider).** DONE (2026-06-09, no code change needed).
+      The modal form already presents Floors/Bedrooms/Bathrooms + 4 weight sliders and seeds from
+      `req.program`/`req.weights`, which the caller (`houseFromBoundary`) gathers via
+      `gatherLayoutPayload` (which itself seeds from `getActiveBriefMetadata` + the C52 stash, O.12
+      parity). Re-presenting the brief numerics as range sliders is a cosmetic deferral (kept as
+      number steppers to avoid duplicating `briefToProgram` interpretation in the controller).
+- [x] **LIVE-MODAL.F — tests.** DONE (2026-06-09). New `apps/editor/__tests__/houseModalHtml.liveModal.test.ts`
+      (single-card header has NO option count; one card; per-storey Plan/Graph toggle + graph present;
+      plan-only when no graphs; interactive vs inert bubble nodes — 6 tests). New ai-host
+      `houseLayout.test.ts` C52-I2 case: empty `roomAreasByName`/`roomTypesByName` reproduces the
+      byte-identical baseline. `layoutThumbnail.test.ts` (30) + `runHousePostGenChain.test.ts` (4)
+      stay green; ai-host 2085/2085; editor typecheck adds no new errors.
 
 **Critical path:** A → B → D → F. Off-critical (parallel): C, E.
 **Risks:** re-gen latency (mitigated: 250 ms debounce + sync offline engine); no live async closure

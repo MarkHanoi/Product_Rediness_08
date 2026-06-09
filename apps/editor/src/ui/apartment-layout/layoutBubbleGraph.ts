@@ -28,6 +28,13 @@ export interface BubbleGraphOptions {
     readonly edgeColor?: string;    // default slate-400
     readonly nodeStroke?: string;   // default slate-700
     readonly showLabels?: boolean;  // default true
+    /** §LIVE-MODAL.D (R4 graph half) — when true, nodes become CLICKABLE: each
+     *  circle carries `data-room-name="<minted name>"` + `class="alm-graph-node"`
+     *  + `pointer-events:auto` + `role="button"`/`tabindex` so a delegated click
+     *  can land on a node and open the inline area/type editor (the C52 edit
+     *  surface, A.26 / ADR-0061). DEFAULT-OFF: the apartment floating overlay +
+     *  the static-picture use-sites are byte-identical (nodes stay inert). */
+    readonly interactive?: boolean; // default false
 }
 
 const DEFAULTS = {
@@ -127,6 +134,7 @@ export function buildLayoutBubbleGraphSvg(
     const edgeColor = opts.edgeColor ?? DEFAULTS.edgeColor;
     const nodeStroke = opts.nodeStroke ?? DEFAULTS.nodeStroke;
     const showLabels = opts.showLabels ?? DEFAULTS.showLabels;
+    const interactive = opts.interactive ?? false;
 
     const open = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="room adjacency graph">`;
     const bgRect = bg !== 'none' ? `<rect x="0" y="0" width="${W}" height="${H}" fill="${bg}"/>` : '';
@@ -215,13 +223,20 @@ export function buildLayoutBubbleGraphSvg(
         }
     });
 
-    // 5. Nodes — occupancy-coloured circles. NO interactive class so a click in the
-    //    graph never triggers selection or area-focus; the SVG is inert as a picture.
+    // 5. Nodes — occupancy-coloured circles. By default NO interactive class so a
+    //    click in the graph never triggers selection or area-focus; the SVG is inert
+    //    as a picture (the apartment overlay + static use-sites). §LIVE-MODAL.D —
+    //    when `interactive`, each node carries `data-room-name` + `alm-graph-node`
+    //    + `pointer-events:auto` + role/tabindex so a delegated click/keyboard
+    //    activation can open the inline area/type editor (the C52 edit surface).
     const nodeEls = rooms.map((r, i) => {
         const c = mapped[i]!;
         const fill = roomFill(r);
         const title = `<title>${esc(r.name)}${typeof r.area === 'number' && r.area > 0 ? ` — ${Math.round(r.area)} m²` : ''}</title>`;
-        return `<circle cx="${f1(c.x)}" cy="${f1(c.y)}" r="${f1(radius)}" fill="${fill}" stroke="${nodeStroke}" stroke-width="1.2" pointer-events="none">${title}</circle>`;
+        const interactiveAttrs = interactive
+            ? ` data-room-name="${esc(r.name)}" class="alm-graph-node" role="button" tabindex="0" aria-label="Edit ${esc(r.name)}" pointer-events="auto" style="cursor:pointer"`
+            : ' pointer-events="none"';
+        return `<circle cx="${f1(c.x)}" cy="${f1(c.y)}" r="${f1(radius)}" fill="${fill}" stroke="${nodeStroke}" stroke-width="1.2"${interactiveAttrs}>${title}</circle>`;
     }).join('');
 
     // 6. Labels — short room-type text centred on the node, only when readable.

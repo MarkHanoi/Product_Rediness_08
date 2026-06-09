@@ -663,4 +663,19 @@ describe('generateHouseLayoutOptions — N whole-house variants for the modal', 
         expect(variants[0]!.result.storeys).toHaveLength(1);
         expect(variants[0]!.result.stairs).toHaveLength(0);
     });
+
+    // §LIVE-MODAL.F (C52 invariant I2) — the modal's living-graph edit merges the
+    // per-room area/type override stash into program.roomAreasByName/roomTypesByName
+    // before re-running this same generator. An EMPTY override set (the un-edited
+    // graph) must reproduce the byte-identical baseline so a no-edit preview never
+    // drifts from the un-edited result. Mirrors the apartment roomAreaOverride I2 test.
+    it('empty roomAreasByName / roomTypesByName reproduces the byte-identical baseline (C52 I2)', () => {
+        const baseline = generateHouseLayoutOptions(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 }, 3);
+        const withEmpty = generateHouseLayoutOptions(
+            SHELL,
+            { ...PROGRAM, roomAreasByName: {}, roomTypesByName: {} },
+            CONSTRAINTS, WEIGHTS, { storeyCount: 2 }, 3,
+        );
+        expect(JSON.stringify(withEmpty)).toEqual(JSON.stringify(baseline));
+    });
 });

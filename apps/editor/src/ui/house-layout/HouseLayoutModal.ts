@@ -26,7 +26,10 @@ import {
     type HouseProgramFormState,
 } from './houseModalHtml.js';
 import { buildLayoutThumbnailSvg } from '../apartment-layout/layoutThumbnail.js';
+import { buildLayoutBubbleGraphSvg } from '../apartment-layout/layoutBubbleGraph.js';
 import { buildOccupancyLegendHtml } from '../apartment-layout/layoutModalHtml.js';
+import { setRoomAreaOverride } from '../apartment-layout/activeRoomAreaOverrides.js';
+import { setRoomTypeOverride, ROOM_TYPE_VALUES } from '../apartment-layout/activeRoomTypeOverrides.js';
 
 export interface HouseLayoutModalCallbacks {
     /** User picked variant `index` ("Use this layout"). */
@@ -38,6 +41,13 @@ export interface HouseLayoutModalCallbacks {
      *  `refresh()` with the new variants. Optional — when omitted the form is
      *  not rendered (static card grid, the pre-A.21.D22 behaviour). */
     readonly onProgramChange?: (state: HouseProgramFormState) => void;
+    /** §LIVE-MODAL.D (R4 graph half): a living-graph node edit changed a room's
+     *  AREA or TYPE override (written to the C52 stash). Debounced 250 ms (the
+     *  SAME timer as the form change). The controller should re-run generation
+     *  against the LATEST cached state (it reads the override stash inside
+     *  `_computeVariants`) and call `refresh()`. Optional — when omitted the
+     *  graph nodes render but are not editable. */
+    readonly onGraphEdit?: () => void;
 }
 
 const DEBOUNCE_MS = 250;
@@ -80,6 +90,7 @@ export class HouseLayoutModal {
     private _escHandler: ((e: KeyboardEvent) => void) | null = null;
     private _debounceTimer: ReturnType<typeof setTimeout> | null = null;
     private _onProgramChange: ((state: HouseProgramFormState) => void) | null = null;
+    private _onGraphEdit: (() => void) | null = null;
 
     get isOpen(): boolean { return this._el !== null; }
 
@@ -98,13 +109,19 @@ export class HouseLayoutModal {
         // Only render the form when a change handler exists — a form with no
         // wiring would mislead the user (edits would do nothing).
         const formForHtml = cb.onProgramChange ? formState : undefined;
+        // §LIVE-MODAL.B/D — render the per-storey living graphs ONLY when a graph
+        // editor is wired (`onGraphEdit`), so the interactive nodes are never a
+        // dead surface. Without it the modal stays plan-only (pre-LIVE-MODAL look).
+        const graphs = cb.onGraphEdit ? this._storeyGraphs(options) : [];
         overlay.innerHTML = buildHouseModalHtml(
             this._cards(options),
             this._storeyThumbs(options),
             formForHtml,
+            graphs,
         );
 
         this._onProgramChange = cb.onProgramChange ?? null;
+        this._onGraphEdit = cb.onGraphEdit ?? null;
 
         overlay.addEventListener('click', (e: MouseEvent) => {
             const target = e.target as HTMLElement | null;
@@ -112,6 +129,32 @@ export class HouseLayoutModal {
             // Backdrop click (outside the panel) → cancel.
             if (target === overlay) { this.dismiss(); cb.onCancel(); return; }
             if (target.closest('.alm-cancel')) { this.dismiss(); cb.onCancel(); return; }
+            // §LIVE-MODAL.B — per-storey Plan/Graph toggle. Scoped to the storey
+            // row + stopPropagation so it never falls through to "Use this layout".
+            const viewBtn = target.closest('.alm-view-btn') as HTMLElement | null;
+            if (viewBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                const row = viewBtn.closest('.hlm-storey') as HTMLElement | null;
+                if (row) {
+                    const wantGraph = viewBtn.getAttribute('data-view') === 'graph';
+                    row.classList.toggle('hlm-storey--graph', wantGraph);
+                    row.querySelector('.alm-view-btn--plan')?.setAttribute('aria-pressed', wantGraph ? 'false' : 'true');
+                    row.querySelector('.alm-view-btn--graph')?.setAttribute('aria-pressed', wantGraph ? 'true' : 'false');
+                }
+                return;
+            }
+            // §LIVE-MODAL.D — a click on a living-graph node opens the inline
+            // area/type editor (the C52 edit surface). `closest` works on the
+            // SVG-namespaced <circle>.
+            const node = (target as Element).closest?.('.alm-graph-node') as Element | null;
+            if (node) {
+                e.preventDefault();
+                e.stopPropagation();
+                const name = node.getAttribute('data-room-name');
+                if (name) this._openGraphNodeEditor(node, name);
+                return;
+            }
             const sel = target.closest('.alm-select') as HTMLElement | null;
             if (sel) {
                 const idx = Number(sel.getAttribute('data-index'));
@@ -152,7 +195,11 @@ export class HouseLayoutModal {
         const grid = this._el.querySelector('[data-role="grid"]');
         if (!grid) return;
         const cards = this._cards(options);
-        grid.innerHTML = buildHouseCardGridHtml(cards, this._storeyThumbs(options));
+        // §LIVE-MODAL.B/D — re-render the per-storey graphs in lock-step with the
+        // plans when graph editing is wired, so an edit's re-render keeps the
+        // toggle + interactive nodes.
+        const graphs = this._onGraphEdit ? this._storeyGraphs(options) : [];
+        grid.innerHTML = buildHouseCardGridHtml(cards, this._storeyThumbs(options), graphs);
         // A.21.D51 — refresh the room-type legend in lock-step with the cards
         // (editing floors/bedrooms can change which occupancies are present).
         const legend = this._el.querySelector('[data-role="legend"]');
@@ -184,6 +231,7 @@ export class HouseLayoutModal {
             this._debounceTimer = null;
         }
         this._onProgramChange = null;
+        this._onGraphEdit = null;
         if (this._el) { this._el.remove(); this._el = null; }
     }
 
@@ -204,9 +252,29 @@ export class HouseLayoutModal {
             // at the SAME scale + extent — they no longer look like different-sized
             // footprints just because an upper storey has fewer/smaller rooms.
             const boundsMm = unionStoreyBoundsMm(card);
-            const thumbOpts = { background: '#ffffff', ...(boundsMm ? { boundsMm } : {}) } as const;
+            // §LIVE-MODAL.C (R3) — "better visibility": render each storey plan at
+            // a HERO size (was the renderer default 320×240) so the single best
+            // card's plan is clearly legible. The perimeter SHELL RING + the
+            // window/door span clamp (§PREVIEW-SHELL-FIDELITY) are already in
+            // `buildLayoutThumbnailSvg` (applied from `LayoutWall.isExternal` /
+            // the fitted bbox), so no extra flags are needed — the SVG scales to
+            // fit the enlarged `.hlm-storey-thumb` CSS box.
+            const thumbOpts = { background: '#ffffff', width: 460, height: 320, ...(boundsMm ? { boundsMm } : {}) } as const;
             return card.storeys.map(s => buildLayoutThumbnailSvg(s.option, thumbOpts));
         });
+    }
+
+    /** §LIVE-MODAL.B/D — per-storey living-graph SVGs, mirroring `_storeyThumbs`.
+     *  One `buildLayoutBubbleGraphSvg` per storey with `interactive:true` so the
+     *  nodes carry `data-room-name` + `.alm-graph-node` (clickable → the inline
+     *  area/type editor → the C52 override stash → debounced re-generate). Sized
+     *  to the same hero box as the plan. */
+    private _storeyGraphs(options: readonly ScoredHouseLayoutOption[]): string[][] {
+        return this._cards(options).map(card =>
+            card.storeys.map(s => buildLayoutBubbleGraphSvg(s.option, {
+                background: '#ffffff', width: 460, height: 320, interactive: true,
+            })),
+        );
     }
 
     // ── §MODAL-DYNAMIC internals ────────────────────────────────────────────
@@ -219,6 +287,75 @@ export class HouseLayoutModal {
             this.setBusy(true);
             this._onProgramChange?.(state);
         }, DEBOUNCE_MS);
+    }
+
+    /** §LIVE-MODAL.D — schedule the graph-edit re-generate on the SAME debounce
+     *  timer the slider uses, so a rapid sequence of node edits (or a node edit
+     *  during a slider drag) coalesces into ONE re-run. */
+    private _scheduleGraphEdit(): void {
+        if (this._debounceTimer !== null) clearTimeout(this._debounceTimer);
+        this._debounceTimer = setTimeout(() => {
+            this._debounceTimer = null;
+            this.setBusy(true);
+            this._onGraphEdit?.();
+        }, DEBOUNCE_MS);
+    }
+
+    /** §LIVE-MODAL.D — open a tiny inline popover anchored near the clicked graph
+     *  node to edit its AREA (m²) + TYPE. On apply it writes the EXISTING C52
+     *  per-room override stashes (`setRoomAreaOverride` / `setRoomTypeOverride`,
+     *  A.26 / ADR-0061) — NO new stash, NO direct geometry mutation — then fires
+     *  the SAME debounced re-generate as a slider (`_scheduleGraphEdit`). The
+     *  popover is a plain HTML overlay child (not SVG) so the form controls are
+     *  native. Re-opening replaces any prior popover. */
+    private _openGraphNodeEditor(node: Element, roomName: string): void {
+        if (!this._el) return;
+        // Remove any open editor first.
+        this._el.querySelector('.hlm-node-editor')?.remove();
+
+        const editor = document.createElement('div');
+        editor.className = 'hlm-node-editor';
+        const typeOptions = ROOM_TYPE_VALUES
+            .map(t => `<option value="${t}">${t}</option>`)
+            .join('');
+        editor.innerHTML =
+            `<div class="hlm-node-editor-title">${this._escAttr(roomName)}</div>` +
+            `<label class="hlm-node-field"><span>Area m²</span>` +
+            `<input type="number" class="hlm-node-area" min="1" max="200" step="0.5" placeholder="auto"></label>` +
+            `<label class="hlm-node-field"><span>Type</span>` +
+            `<select class="hlm-node-type"><option value="">(keep)</option>${typeOptions}</select></label>` +
+            `<div class="hlm-node-actions">` +
+            `<button type="button" class="hlm-node-apply">Apply</button>` +
+            `<button type="button" class="hlm-node-close">Cancel</button>` +
+            `</div>`;
+
+        // Anchor near the node in VIEWPORT coords (the panel is `overflow:hidden`,
+        // so the editor lives on the overlay root with `position:fixed`).
+        const nodeRect = (node as SVGGraphicsElement).getBoundingClientRect?.();
+        if (nodeRect) {
+            editor.style.position = 'fixed';
+            editor.style.left = `${Math.max(8, Math.min(nodeRect.left, window.innerWidth - 170))}px`;
+            editor.style.top = `${Math.max(8, Math.min(nodeRect.bottom + 4, window.innerHeight - 160))}px`;
+        }
+        this._el.appendChild(editor);
+
+        const apply = (): void => {
+            const areaEl = editor.querySelector('.hlm-node-area') as HTMLInputElement | null;
+            const typeEl = editor.querySelector('.hlm-node-type') as HTMLSelectElement | null;
+            const rawArea = Number(areaEl?.value);
+            // Blank/zero clears the override (revert to engine default for that room).
+            setRoomAreaOverride(roomName, Number.isFinite(rawArea) && rawArea > 0 ? rawArea : null);
+            setRoomTypeOverride(roomName, typeEl?.value || null);
+            editor.remove();
+            this._scheduleGraphEdit();
+        };
+        editor.querySelector('.hlm-node-apply')?.addEventListener('click', apply);
+        editor.querySelector('.hlm-node-close')?.addEventListener('click', () => editor.remove());
+        (editor.querySelector('.hlm-node-area') as HTMLInputElement | null)?.focus();
+    }
+
+    private _escAttr(s: string): string {
+        return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
     /** Parse the edited form into a `HouseProgramFormState`. Storeys clamp 1–3,

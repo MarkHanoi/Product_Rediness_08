@@ -106,11 +106,36 @@ export function buildHouseProgramEditFormHtml(state: HouseProgramFormState): str
 }
 
 /** One storey panel inside a house card. `safeThumb` is the per-storey plan SVG
- *  (produced by `buildLayoutThumbnailSvg`, provably safe). */
-function storeyHtml(label: string, safeThumb: string, roomSummary: string, areaM2: number, score: number): string {
+ *  (produced by `buildLayoutThumbnailSvg`, provably safe); `safeGraph` is the
+ *  per-storey living-graph SVG (`buildLayoutBubbleGraphSvg`). §LIVE-MODAL.B —
+ *  each storey gets its OWN Plan/Graph toggle (a house card is a per-storey
+ *  strip, so the graph is per storey, mirroring the per-storey plan). The toggle
+ *  buttons reuse the apartment `.alm-view-toggle` CSS; the delegated click
+ *  handler (HouseLayoutModal) toggles `.hlm-storey--graph` on the storey row.
+ *  `storeyKey` is a stable per-row index so the handler scopes to ONE row. When
+ *  `safeGraph` is empty (no graph for this storey) the toggle is omitted and the
+ *  plan shows alone. */
+function storeyHtml(
+    label: string, safeThumb: string, safeGraph: string, roomSummary: string,
+    areaM2: number, score: number, cardIndex: number, storeyKey: number,
+): string {
+    const hasGraph = safeGraph.length > 0;
+    const toggle = hasGraph
+        ? `<div class="alm-view-toggle hlm-storey-toggle" role="tablist" aria-label="Storey view">` +
+          `<button type="button" class="alm-view-btn alm-view-btn--plan" data-action="toggle-graph" data-view="plan" data-index="${cardIndex}" data-storey="${storeyKey}" aria-pressed="true">Plan</button>` +
+          `<button type="button" class="alm-view-btn alm-view-btn--graph" data-action="toggle-graph" data-view="graph" data-index="${cardIndex}" data-storey="${storeyKey}" aria-pressed="false">Graph</button>` +
+          `</div>`
+        : '';
+    const graphView = hasGraph
+        ? `<div class="hlm-storey-thumb hlm-storey-view hlm-storey-view--graph">${safeGraph}</div>`
+        : '';
     return (
-        '<div class="hlm-storey">' +
-        `<div class="hlm-storey-thumb">${safeThumb}</div>` +
+        `<div class="hlm-storey" data-storey="${storeyKey}">` +
+        `<div class="hlm-storey-views">` +
+        toggle +
+        `<div class="hlm-storey-thumb hlm-storey-view hlm-storey-view--plan">${safeThumb}</div>` +
+        graphView +
+        `</div>` +
         `<div class="hlm-storey-meta">` +
         `<span class="hlm-storey-label">${escHtml(label)}</span>` +
         `<span class="hlm-storey-summary">${escHtml(roomSummary)}</span>` +
@@ -120,10 +145,15 @@ function storeyHtml(label: string, safeThumb: string, roomSummary: string, areaM
     );
 }
 
-/** One whole-house card. `storeyThumbs[i]` is the SVG for `card.storeys[i]`. */
-function cardHtml(card: HouseCardModel, storeyThumbs: readonly string[]): string {
+/** One whole-house card. `storeyThumbs[i]` / `storeyGraphs[i]` are the plan +
+ *  living-graph SVGs for `card.storeys[i]`. */
+function cardHtml(
+    card: HouseCardModel,
+    storeyThumbs: readonly string[],
+    storeyGraphs: readonly string[] = [],
+): string {
     const storeys = card.storeys
-        .map((s, i) => storeyHtml(s.label, storeyThumbs[i] ?? '', s.roomSummary, s.totalAreaM2, s.score))
+        .map((s, i) => storeyHtml(s.label, storeyThumbs[i] ?? '', storeyGraphs[i] ?? '', s.roomSummary, s.totalAreaM2, s.score, card.index, i))
         .join('');
     const roofLabel = card.roofKind.charAt(0).toUpperCase() + card.roofKind.slice(1);
     const stairText = card.stairCount > 0
@@ -147,16 +177,19 @@ function cardHtml(card: HouseCardModel, storeyThumbs: readonly string[]): string
 
 /**
  * Build the card grid HTML — extracted so a future refresh can replace JUST the
- * cards. `storeyThumbnails[i]` is the per-storey SVG list for `cards[i]`.
+ * cards. `storeyThumbnails[i]` is the per-storey plan SVG list for `cards[i]`;
+ * `storeyGraphs[i]` is the parallel per-storey living-graph SVG list (§LIVE-MODAL.B,
+ * optional — empty ⇒ no Plan/Graph toggle, plan only, the pre-LIVE-MODAL look).
  */
 export function buildHouseCardGridHtml(
     cards: readonly HouseCardModel[],
     storeyThumbnails: readonly (readonly string[])[],
+    storeyGraphs: readonly (readonly string[])[] = [],
 ): string {
     if (cards.length === 0) {
         return '<div class="alm-empty">No valid house layouts were generated. Try a larger plot or a simpler programme.</div>';
     }
-    return cards.map((c, i) => cardHtml(c, storeyThumbnails[i] ?? [])).join('');
+    return cards.map((c, i) => cardHtml(c, storeyThumbnails[i] ?? [], storeyGraphs[i] ?? [])).join('');
 }
 
 /**
@@ -170,11 +203,9 @@ export function buildHouseModalHtml(
     cards: readonly HouseCardModel[],
     storeyThumbnails: readonly (readonly string[])[] = [],
     formState?: HouseProgramFormState,
+    storeyGraphs: readonly (readonly string[])[] = [],
 ): string {
-    const grid = buildHouseCardGridHtml(cards, storeyThumbnails);
-    const headerCount = cards.length === 0
-        ? ''
-        : ` <small>${cards.length} option${cards.length === 1 ? '' : 's'}</small>`;
+    const grid = buildHouseCardGridHtml(cards, storeyThumbnails, storeyGraphs);
     const programForm = formState ? buildHouseProgramEditFormHtml(formState) : '';
     // A.21.D51 — founder feedback #2: a room-type colour legend. The house cards'
     // per-storey thumbnails are painted by `buildLayoutThumbnailSvg`, which fills
@@ -189,7 +220,10 @@ export function buildHouseModalHtml(
         : '';
     return (
         '<div class="alm-panel">' +
-        `<div class="alm-header">Choose a house layout${headerCount}</div>` +
+        // §LIVE-MODAL.A (R1) — single best option; the header no longer advertises
+        // an option COUNT (the modal shows ONE card, the single best whole-house
+        // variant). Reworded to a possessive directive.
+        `<div class="alm-header">Choose your house layout</div>` +
         programForm +
         legend +
         `<div class="alm-grid" data-role="grid">${grid}</div>` +

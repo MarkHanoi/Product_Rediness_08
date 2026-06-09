@@ -36,6 +36,8 @@ import { facadeOrientationService } from '@pryzm/spatial-index';
 import { HouseLayoutModal } from './HouseLayoutModal.js';
 import { HouseLayoutExecutor } from './HouseLayoutExecutor.js';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
+import { getRoomAreaOverrides } from '../apartment-layout/activeRoomAreaOverrides.js';
+import { getRoomTypeOverrides } from '../apartment-layout/activeRoomTypeOverrides.js';
 import type { HouseProgramFormState } from './houseModalHtml.js';
 
 /** How many whole-house variants the modal offers. */
@@ -171,9 +173,16 @@ export class HouseLayoutController {
                 return { ok: false, reason: 'no variants' };
             }
 
-            console.log('[house-layout] controller: computed', variants.length, 'house variant(s) — opening modal');
+            // §LIVE-MODAL.A (R1) — the modal shows ONE option: the single best
+            // whole-house variant. `variants[0]` is already the best (best-first
+            // sort + the A.21.D18 equality invariant, houseOrchestrator.ts:295),
+            // so we hand the modal `variants.slice(0,1)`. The full set is still
+            // computed (the executor re-enumerates by index on pick) — we only
+            // change what the PREVIEW shows.
+            const best = variants.slice(0, 1);
+            console.log('[house-layout] controller: computed', variants.length, 'house variant(s) — opening modal with the single best');
             this.modal.show(
-                variants,
+                best,
                 {
                     onSelect: (index: number) => this._build(runtime, index),
                     onCancel: () => {
@@ -182,6 +191,10 @@ export class HouseLayoutController {
                     },
                     // §MODAL-DYNAMIC live regenerate: a debounced form change.
                     onProgramChange: (state) => this._regenerate(state),
+                    // §LIVE-MODAL.D (R4 graph) — a debounced living-graph node edit
+                    // re-runs the SAME synchronous generate against the latest
+                    // cached state; `_computeVariants` merges the C52 override stash.
+                    onGraphEdit: () => this._regenerateCurrent(),
                 },
                 // Initial form values mirror the request brief.
                 { storeyCount, program: req.program, weights: req.weights },
@@ -205,8 +218,17 @@ export class HouseLayoutController {
     ): ScoredHouseLayoutOption[] {
         const r = this._regen;
         if (!r) return [];
+        // §LIVE-MODAL.D (R4 graph) — merge the C52 per-room AREA/TYPE override
+        // stashes (the SAME stashes the apartment Living Graph + `gatherLayoutPayload`
+        // use) into the program's `roomAreasByName` / `roomTypesByName` BEFORE the
+        // pure generate. The house orchestrator threads `program` straight through to
+        // each per-storey `generateDeterministicLayouts`, so NO engine change is
+        // needed — the controller inlines the merge because it re-runs the engine
+        // synchronously (not via the async apartment trigger). EMPTY stashes ⇒
+        // program unchanged ⇒ byte-identical baseline (C52 invariant I2).
+        const mergedProgram = this._mergeOverrides(program);
         return generateHouseLayoutOptions(
-            r.shell, program, r.constraints, weights,
+            r.shell, mergedProgram, r.constraints, weights,
             {
                 storeyCount,
                 floorToFloorM: r.floorToFloorM,
@@ -216,6 +238,26 @@ export class HouseLayoutController {
             },
             HOUSE_OPTION_COUNT,
         );
+    }
+
+    /** §LIVE-MODAL.D — return `program` with the C52 area/type override stashes
+     *  merged into `roomAreasByName` / `roomTypesByName`. Returns the SAME object
+     *  reference when no overrides are set (null from both getters), so the
+     *  no-edit path is byte-identical (C52 I2). The stash values win over any
+     *  brief-supplied name-keyed entry for the same room (matching
+     *  `gatherLayoutPayload`'s apartment merge exactly). */
+    private _mergeOverrides(program: ApartmentProgram): ApartmentProgram {
+        const areaOverrides = getRoomAreaOverrides();
+        const typeOverrides = getRoomTypeOverrides();
+        if (!areaOverrides && !typeOverrides) return program;
+        const merged: ApartmentProgram = { ...program };
+        if (areaOverrides) {
+            merged.roomAreasByName = { ...(program.roomAreasByName ?? {}), ...areaOverrides };
+        }
+        if (typeOverrides) {
+            merged.roomTypesByName = { ...(program.roomTypesByName ?? {}), ...typeOverrides };
+        }
+        return merged;
     }
 
     /**
@@ -236,13 +278,28 @@ export class HouseLayoutController {
             r.program = state.program;
             r.weights = state.weights;
             const variants = this._computeVariants(state.storeyCount, state.program, state.weights);
-            console.log('[house-layout] controller: regenerated', variants.length, 'variant(s) for', state.storeyCount, 'storey(s) — refreshing modal');
-            this.modal.refresh(variants);
+            console.log('[house-layout] controller: regenerated', variants.length, 'variant(s) for', state.storeyCount, 'storey(s) — refreshing modal with the single best');
+            // §LIVE-MODAL.A — refresh shows the single best (variant[0]) only.
+            this.modal.refresh(variants.slice(0, 1));
         } catch (err) {
             console.error('[house-layout] controller: regenerate threw:', err);
             this.modal.setBusy(false);
             r.runtime.events?.emit('pryzm:toast', { message: `House layout regenerate failed: ${String(err)}`, severity: 'error' });
         }
+    }
+
+    /**
+     * §LIVE-MODAL.D (R4 graph half): re-run generation against the LATEST cached
+     * program/storeys/weights — the entry point a living-graph node edit uses.
+     * The C52 area/type overrides are read from the global stash inside
+     * `_computeVariants` at re-run time (not copied into `_regen`), so a graph
+     * edit (which writes the stash, then calls this) is honoured without any new
+     * state in the controller. Mirrors `_regenerate` but with no form-state arg.
+     */
+    private _regenerateCurrent(): void {
+        const r = this._regen;
+        if (!r) { this.modal.setBusy(false); return; }
+        this._regenerate({ storeyCount: r.storeyCount, program: r.program, weights: r.weights });
     }
 
     /** Build the picked variant via the executor using the LATEST cached
@@ -261,7 +318,11 @@ export class HouseLayoutController {
                 variantIndex: index,
                 variantCount: HOUSE_OPTION_COUNT,
             },
-            r.program,
+            // §LIVE-MODAL.D — build the EDITED variant: the executor re-enumerates
+            // the SAME deterministic set with this program, so it must carry the
+            // C52 overrides the preview used (else the built house would ignore the
+            // graph edits the user saw in the preview).
+            this._mergeOverrides(r.program),
             r.constraints,
             r.weights,
             r.siteLatitudeDeg,

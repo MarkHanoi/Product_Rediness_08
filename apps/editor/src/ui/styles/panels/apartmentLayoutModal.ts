@@ -281,4 +281,56 @@ export const APARTMENT_LAYOUT_MODAL_STYLES = `
 .alm-view--graph { display: none; }
 .alm-card--graph .alm-view--plan { display: none; }
 .alm-card--graph .alm-view--graph { display: flex; }
+
+/* §LIVE-MODAL (2026-06-09) — the house modal now shows the SINGLE best option at
+ * "better visibility": one wide card, a HERO-size per-storey plan, a per-storey
+ * Plan/Graph toggle, and an editable living graph. */
+
+/* Single card → one wide centred column (no auto-fill grid). */
+.alm-grid:has(.hlm-card) {
+  grid-template-columns: minmax(0, 720px);
+  justify-content: center;
+}
+
+/* Hero per-storey strip: the plan/graph sits ABOVE the meta (stacked), full width,
+ * so the enlarged SVG is legible — overrides the compact 160px side-by-side. */
+.hlm-card .hlm-storey {
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+.hlm-card .hlm-storey-views { display: flex; flex-direction: column; gap: 4px; }
+.hlm-card .hlm-storey-thumb {
+  width: 100%; height: 320px; max-width: 100%;
+}
+
+/* §LIVE-MODAL.B — per-storey Plan/Graph view swap. Plan visible by default;
+ * .hlm-storey--graph (set by the click handler) reveals the graph. */
+.hlm-storey-view--graph { display: none; }
+.hlm-storey--graph .hlm-storey-view--plan { display: none; }
+.hlm-storey--graph .hlm-storey-view--graph { display: flex; }
+.hlm-storey-toggle { margin-bottom: 4px; }
+
+/* Editable graph nodes — a subtle hover affordance. */
+.alm-graph-node:hover { stroke: #6600FF; stroke-width: 2; }
+
+/* §LIVE-MODAL.D — the inline node area/type editor popover. White + #6600FF brand. */
+.hlm-node-editor {
+  z-index: 10; min-width: 150px;
+  background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.18);
+  padding: 10px; display: flex; flex-direction: column; gap: 6px;
+  font-size: 12px; color: #0f172a;
+}
+.hlm-node-editor-title { font-weight: 700; font-size: 12px; color: #0f172a; }
+.hlm-node-field { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: #475569; }
+.hlm-node-field input, .hlm-node-field select {
+  font: inherit; padding: 3px 6px; border: 1px solid #cbd5e1; border-radius: 6px;
+}
+.hlm-node-actions { display: flex; gap: 6px; margin-top: 2px; }
+.hlm-node-apply, .hlm-node-close {
+  flex: 1; padding: 4px 8px; border-radius: 6px; cursor: pointer;
+  font: inherit; font-size: 11px; font-weight: 600; border: 1px solid #e2e8f0;
+}
+.hlm-node-apply { background: #6600FF; color: #ffffff; border-color: #6600FF; }
+.hlm-node-close { background: #ffffff; color: #64748b; }
 `;
