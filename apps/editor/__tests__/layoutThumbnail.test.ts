@@ -557,4 +557,67 @@ describe('buildLayoutThumbnailSvg (A5-modal-core)', () => {
             expect(degenerate).toBe(own);
         });
     });
+
+    // §PREVIEW-PREDICTS-BUILD (2026-06-09, founder #1/#3) — the house preview must
+    // draw the COMPLETE real footprint ring + the stair where it will be built.
+    describe('§PREVIEW-PREDICTS-BUILD (house preview fidelity)', () => {
+        it('draws the explicit perimeter ring as ONE closed polygon, overriding partial isExternal walls', () => {
+            // An option whose ONLY external wall is a single short edge (a partial
+            // shell, the founder's "holes"). With an explicit ring it must NOT be used.
+            const partial = opt({
+                walls: [{ start: { x: 0, y: 0 }, end: { x: 5000, y: 0 }, isExternal: true }],
+                doors: [],
+            });
+            const ring = [
+                { x: 0, y: 0 }, { x: 5000, y: 0 }, { x: 5000, y: 4000 }, { x: 0, y: 4000 },
+            ];
+            const svg = buildLayoutThumbnailSvg(partial, { showScaleBar: false, perimeterRingMm: ring });
+            // The shell ring is a single closed <polygon class="alm-shell-ring"> with
+            // 4 vertices — the complete perimeter, not the 1 partial external wall.
+            const m = svg.match(/<polygon class="alm-shell-ring" points="([^"]+)"/);
+            expect(m).toBeTruthy();
+            expect(m![1].trim().split(/\s+/).length).toBe(4);
+        });
+
+        it('the perimeter ring is never clipped (fits inside the padded box)', () => {
+            const ring = [
+                { x: 0, y: 0 }, { x: 10000, y: 0 }, { x: 10000, y: 6000 }, { x: 0, y: 6000 },
+            ];
+            const svg = buildLayoutThumbnailSvg(opt({ walls: [], doors: [] }), {
+                width: 200, height: 150, padding: 10, showScaleBar: false, perimeterRingMm: ring,
+            });
+            const pts = svg.match(/<polygon class="alm-shell-ring" points="([^"]+)"/)![1]
+                .trim().split(/\s+/).map(p => p.split(',').map(Number));
+            for (const [x, y] of pts) {
+                expect(x).toBeGreaterThanOrEqual(10 - 0.01);
+                expect(x).toBeLessThanOrEqual(200 - 10 + 0.01);
+                expect(y).toBeGreaterThanOrEqual(10 - 0.01);
+                expect(y).toBeLessThanOrEqual(150 - 10 + 0.01);
+            }
+        });
+
+        it('draws a labelled, hatched stair rect where the build places it', () => {
+            const ring = [
+                { x: 0, y: 0 }, { x: 6000, y: 0 }, { x: 6000, y: 6000 }, { x: 0, y: 6000 },
+            ];
+            const stair = [
+                { x: 0, y: 0 }, { x: 2000, y: 0 }, { x: 2000, y: 3000 }, { x: 0, y: 3000 },
+            ];
+            const svg = buildLayoutThumbnailSvg(opt({ walls: [], doors: [] }), {
+                showScaleBar: false, perimeterRingMm: ring, stairRectsMm: [stair],
+            });
+            expect(svg).toContain('alm-stair-hatch');         // hatch pattern present
+            expect(svg).toContain('>Stair</text>');           // labelled
+        });
+
+        it('omitting perimeterRingMm + stairRectsMm is byte-identical to the legacy path (apartment guard)', () => {
+            const o = opt();
+            const cfg = { width: 320, height: 240, showScaleBar: false } as const;
+            expect(buildLayoutThumbnailSvg(o, cfg)).toBe(buildLayoutThumbnailSvg(o, { ...cfg }));
+            // and neither stair nor explicit-ring markup leaks in.
+            const svg = buildLayoutThumbnailSvg(o, cfg);
+            expect(svg).not.toContain('alm-stair-hatch');
+            expect(svg).not.toContain('<polygon class="alm-shell-ring"');
+        });
+    });
 });

@@ -58,6 +58,31 @@ export interface ThumbnailOptions {
      * "zooms in" and looks like a different-sized footprint. Omitted ⇒ the
      * legacy per-option fit-to-rooms (apartment single-plate path is unchanged). */
     readonly boundsMm?: { readonly minX: number; readonly maxX: number; readonly minY: number; readonly maxY: number };
+    /**
+     * §PREVIEW-PREDICTS-BUILD (2026-06-09, founder #1) — an EXPLICIT closed
+     * perimeter ring in the mm PLAN frame (same frame as room polygons / wall
+     * endpoints: plan-x = world-x × 1000, plan-y = world-z × 1000). When supplied
+     * it is drawn as THE shell ring, INSTEAD of deriving the shell from the
+     * option's `isExternal` walls. The house modal passes the storey FOOTPRINT
+     * (`StoreyPlate.footprint`, the real world shell ring the executor builds), so
+     * the preview perimeter is the SAME complete ring the build has — closing the
+     * "perimeter has holes / is short" + "shifted middle" divergence where the
+     * engine's emitted external walls are PARTIAL (a face only exists where a room
+     * reaches the edge) and, on a rotated plate, UN-rectified (left on the bbox
+     * edge, not the real shell — §RECTIFY-SHELL-PROJECT only projects INTERIOR
+     * walls). Omitted ⇒ legacy `isExternal`/bbox-ring behaviour (apartment path
+     * unchanged). Polygon, mm; auto-closed. */
+    readonly perimeterRingMm?: ReadonlyArray<{ readonly x: number; readonly y: number }>;
+    /**
+     * §PREVIEW-PREDICTS-BUILD — stair footprint rectangles to draw (mm plan frame,
+     * world-aligned). The house engine carves a stair keep-out from the room
+     * tiling, so the rooms avoid the stair and the preview otherwise shows an empty
+     * HOLE there (the founder's "stair is where Bedroom 1 is" / "gap"). Drawing the
+     * stair rect — labelled — where the executor will actually build it (post
+     * §STAIR-CONTAIN-UPSTREAM) makes that hole read as the stair. Each polygon is
+     * filled with a hatched fill + a "Stair" label. Empty/omitted ⇒ no stair marks
+     * (apartment + single-storey paths unchanged). */
+    readonly stairRectsMm?: ReadonlyArray<ReadonlyArray<{ readonly x: number; readonly y: number }>>;
 }
 
 const DEFAULTS = {
@@ -171,6 +196,17 @@ export function buildLayoutThumbnailSvg(option: LayoutOption, opts: ThumbnailOpt
         minY = opts.boundsMm.minY; maxY = opts.boundsMm.maxY;
     } else {
         let havePoly = false;
+        // §PREVIEW-PREDICTS-BUILD — when an explicit perimeter ring is supplied
+        // (the house footprint), it is the authoritative shell extent: fit to it
+        // FIRST so the complete ring is always inside the viewBox (the engine's
+        // partial external walls may be a strict sub-extent of the real footprint).
+        if (opts.perimeterRingMm && opts.perimeterRingMm.length >= 3) {
+            havePoly = true;
+            for (const p of opts.perimeterRingMm) {
+                if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
+                if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
+            }
+        }
         for (const r of rooms) {
             if (!r.polygon || r.polygon.length < 3) continue;
             havePoly = true;
@@ -262,7 +298,16 @@ export function buildLayoutThumbnailSvg(option: LayoutOption, opts: ThumbnailOpt
     const shellW = wallW + 1.6;
     const externalWalls = walls.filter(w => w.isExternal);
     let shellEls = '';
-    if (externalWalls.length > 0) {
+    // §PREVIEW-PREDICTS-BUILD — an EXPLICIT perimeter ring (the house footprint)
+    // ALWAYS wins: draw it as ONE closed polygon so the shell is the COMPLETE,
+    // real ring the executor builds — never the engine's partial / un-rectified
+    // `isExternal` set (the "holes / short perimeter" + "shifted middle" root).
+    if (opts.perimeterRingMm && opts.perimeterRingMm.length >= 3) {
+        const ringPts = opts.perimeterRingMm
+            .map(p => `${f1(mapX(p.x))},${f1(mapY(p.y))}`)
+            .join(' ');
+        shellEls = `<polygon class="alm-shell-ring" points="${ringPts}" fill="none" stroke="${wallColor}" stroke-width="${shellW}" stroke-linejoin="miter"/>`;
+    } else if (externalWalls.length > 0) {
         shellEls = externalWalls.map(w =>
             `<line x1="${f1(mapX(w.start.x))}" y1="${f1(mapY(w.start.y))}" x2="${f1(mapX(w.end.x))}" y2="${f1(mapY(w.end.y))}" stroke="${wallColor}" stroke-width="${shellW}" stroke-linecap="square" stroke-linejoin="miter"/>`,
         ).join('');
@@ -409,8 +454,38 @@ export function buildLayoutThumbnailSvg(option: LayoutOption, opts: ThumbnailOpt
         }
     }
 
-    // §PREVIEW-SHELL-FIDELITY draw order: room fills → heavy shell ring →
-    // interior walls → openings → labels → scale bar. The shell ring sits
-    // beneath the openings so window/door symbols read as sitting IN the wall.
-    return `${open}${bgRect}${roomEls}${shellEls}${wallEls}${doorEls}${windowEls}${perimDoorEls}${optionWindowEls}${labelEls}${scaleBarEls}${close}`;
+    // §PREVIEW-PREDICTS-BUILD — stair footprint(s). The engine carves a keep-out
+    // for the stair so the rooms tile AROUND it; without drawing the stair the
+    // preview shows that region as an empty hole (the founder's "stair is where
+    // Bedroom 1 is" / "gap"). Draw each stair rect — where the executor will
+    // actually build it (post §STAIR-CONTAIN-UPSTREAM) — with a distinct hatched
+    // fill + a "Stair" label so the hole reads as the stair, not a missing room.
+    const stairRects = opts.stairRectsMm ?? [];
+    let stairEls = '';
+    if (stairRects.length > 0) {
+        const hatchId = 'alm-stair-hatch';
+        const hatch =
+            `<defs><pattern id="${hatchId}" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">` +
+            `<line x1="0" y1="0" x2="0" y2="6" stroke="#94a3b8" stroke-width="1"/></pattern></defs>`;
+        stairEls = hatch + stairRects.map(poly => {
+            if (!poly || poly.length < 3) return '';
+            const pts = poly.map(p => `${f1(mapX(p.x))},${f1(mapY(p.y))}`).join(' ');
+            let sx = 0, sy = 0;
+            for (const p of poly) { sx += mapX(p.x); sy += mapY(p.y); }
+            const cx = sx / poly.length, cy = sy / poly.length;
+            const bb = polyBboxMm(poly.map(p => ({ x: p.x, y: p.y })));
+            const wpx = bb.w * scale, hpx = bb.h * scale;
+            const label = (wpx >= 40 && hpx >= 16)
+                ? `<text x="${f1(cx)}" y="${f1(cy + 3)}" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="9" font-weight="600" fill="#475569" pointer-events="none">Stair</text>`
+                : '';
+            return `<polygon points="${pts}" fill="url(#${hatchId})" stroke="#64748b" stroke-width="1" stroke-dasharray="3 2"/>${label}`;
+        }).join('');
+    }
+
+    // §PREVIEW-SHELL-FIDELITY draw order: room fills → stair marks → heavy shell
+    // ring → interior walls → openings → labels → scale bar. The shell ring sits
+    // beneath the openings so window/door symbols read as sitting IN the wall;
+    // stair marks sit ABOVE the room fills (where a room would be) but BELOW the
+    // walls so partition lines around the stair stay crisp.
+    return `${open}${bgRect}${roomEls}${stairEls}${shellEls}${wallEls}${doorEls}${windowEls}${perimDoorEls}${optionWindowEls}${labelEls}${scaleBarEls}${close}`;
 }

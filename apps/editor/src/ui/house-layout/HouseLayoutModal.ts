@@ -17,8 +17,10 @@
 // `generateHouseLayoutOptions(...)` and refreshes the cards IN PLACE (the modal
 // stays open). `setBusy(true)` shows a "Regenerating…" hint during the call.
 
-import type { ScoredHouseLayoutOption, ApartmentProgram, ScoringWeights } from '@pryzm/ai-host';
+import type { ScoredHouseLayoutOption, ApartmentProgram, ScoringWeights, ScoredLayoutOption } from '@pryzm/ai-host';
+import { resolveEntranceDoor } from '@pryzm/ai-host';
 import { buildHouseCardModel, type HouseCardModel } from './houseCardModel.js';
+import type { PerimeterSpan } from '../apartment-layout/layoutThumbnail.js';
 import {
     buildHouseModalHtml,
     buildHouseCardGridHtml,
@@ -59,6 +61,7 @@ const DEBOUNCE_MS = 250;
  *  back to its own per-option fit (legacy behaviour). Pure. */
 function unionStoreyBoundsMm(
     card: HouseCardModel,
+    perimeterRingMm?: ReadonlyArray<{ x: number; y: number }>,
 ): { minX: number; maxX: number; minY: number; maxY: number } | null {
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     let have = false;
@@ -67,6 +70,10 @@ function unionStoreyBoundsMm(
         if (x < minX) minX = x; if (x > maxX) maxX = x;
         if (y < minY) minY = y; if (y > maxY) maxY = y;
     };
+    // §PREVIEW-PREDICTS-BUILD — the real footprint ring is the authoritative
+    // extent: include it so the complete perimeter is never clipped by a fit to
+    // only the (possibly inset) room polygons.
+    if (perimeterRingMm) for (const p of perimeterRingMm) acc(p.x, p.y);
     for (const s of card.storeys) {
         const opt = s.option;
         let storeyHasPoly = false;
@@ -83,6 +90,109 @@ function unionStoreyBoundsMm(
     }
     if (!have || !(maxX > minX) || !(maxY > minY)) return null;
     return { minX, maxX, minY, maxY };
+}
+
+/** Rotate a world-XZ point by `+rad` about `pivot` (world metres). Mirrors the
+ *  executor's `_rotateXZ` + the orchestrator's `rotatePt` so the preview's stair
+ *  placement matches the build. Pure. */
+function rotateXZWorld(
+    p: { x: number; z: number },
+    rad: number,
+    pivot: { x: number; z: number },
+): { x: number; z: number } {
+    if (rad === 0) return p;
+    const c = Math.cos(rad), s = Math.sin(rad);
+    const dx = p.x - pivot.x, dz = p.z - pivot.z;
+    return { x: pivot.x + dx * c - dz * s, z: pivot.z + dx * s + dz * c };
+}
+
+/**
+ * §PREVIEW-PREDICTS-BUILD (2026-06-09, founder #3) — the WORLD-XZ AABB of a stair
+ * core, in the mm PLAN frame the thumbnail draws in. Replicates the orchestrator's
+ * keep-out derivation (houseOrchestrator §STAIR-KEEPOUT fallback): the reserved
+ * `rectMm` (LAYOUT frame, mm) → world corners (÷1000 → rotate by `principalAxisRad`
+ * about `pivot`) → shift by the inward `containOffsetWorld` (the same shift the
+ * executor applies to the shipped body) → axis-aligned bbox → back to mm (×1000).
+ * This is the region the room tiling avoids, so drawing it labels the otherwise
+ * empty hole as the stair where the build places it. Pure + deterministic. */
+function stairRectMmForLevel(
+    result: ScoredHouseLayoutOption['result'],
+    storeyIndex: number,
+): ReadonlyArray<{ x: number; y: number }> | null {
+    // A stair connects storey i→i+1; show it on BOTH the from- and to-storey plans
+    // (the void appears on the upper, the run starts on the lower). The stair core
+    // is identical (same rectMm/rotation) on every storey it passes through (§7),
+    // so the FIRST stair touching this storey index is representative. Map by INDEX
+    // (the option's own `levelId` is the graph-internal 'shell' placeholder, not the
+    // storey level — so id-matching would never hit).
+    const plates = result.storeys ?? [];
+    const levelId = plates[storeyIndex]?.levelId;
+    if (!levelId) return null;
+    const stair = (result.stairs ?? []).find(s => s.fromLevelId === levelId || s.toLevelId === levelId);
+    if (!stair) return null;
+    const r = stair.rectMm;
+    if (!r || !(r.w > 0) || !(r.h > 0)) return null;
+    const rad = stair.principalAxisRad ?? 0;
+    const pivot = stair.pivot ?? { x: 0, z: 0 };
+    const off = stair.containOffsetWorld ?? { x: 0, z: 0 };
+    const cornersM = [
+        { x: r.x / 1000, z: r.y / 1000 },
+        { x: (r.x + r.w) / 1000, z: r.y / 1000 },
+        { x: (r.x + r.w) / 1000, z: (r.y + r.h) / 1000 },
+        { x: r.x / 1000, z: (r.y + r.h) / 1000 },
+    ].map(c => {
+        const w = rotateXZWorld(c, rad, pivot);
+        return { x: w.x + off.x, z: w.z + off.z };
+    });
+    const x0 = Math.min(...cornersM.map(c => c.x)), x1 = Math.max(...cornersM.map(c => c.x));
+    const z0 = Math.min(...cornersM.map(c => c.z)), z1 = Math.max(...cornersM.map(c => c.z));
+    // mm plan frame: plan-x = world-x×1000, plan-y = world-z×1000.
+    return [
+        { x: x0 * 1000, y: z0 * 1000 },
+        { x: x1 * 1000, y: z0 * 1000 },
+        { x: x1 * 1000, y: z1 * 1000 },
+        { x: x0 * 1000, y: z1 * 1000 },
+    ];
+}
+
+/**
+ * §PREVIEW-PREDICTS-BUILD (2026-06-09, founder #6) — resolve the GROUND-floor
+ * entrance door span for the preview, mirroring the executor's §A.21.D29 (which
+ * runs `resolveEntranceDoor` on the GROUND storey only). The executor resolves it
+ * against the drawn shell walls; here there are no element ids, so we synthesise
+ * shell walls FROM the footprint ring (each edge = one wall, world-XZ metres) and
+ * run the SAME pure `resolveEntranceDoor`. The result `{shellWallId, offsetM,
+ * widthM}` is converted to a world-XZ `PerimeterSpan` along the chosen edge, which
+ * the thumbnail draws as a purple leaf ON the hall-fronting shell wall — so the
+ * preview shows the entrance on the hall, as the build will. Returns null when no
+ * hall-fronting wall fits a door (matching the executor's "no entrance" branch).
+ * Pure + deterministic. */
+function entranceSpanForGround(
+    option: ScoredLayoutOption,
+    footprintWorld: ReadonlyArray<{ x: number; z: number }>,
+): PerimeterSpan | null {
+    try {
+        if (footprintWorld.length < 3) return null;
+        const shellWalls = footprintWorld.map((a, i) => {
+            const b = footprintWorld[(i + 1) % footprintWorld.length]!;
+            return { id: `fp-${i}`, start: { x: a.x, z: a.z }, end: { x: b.x, z: b.z } };
+        });
+        const door = resolveEntranceDoor(option, shellWalls);
+        if (!door) return null;
+        const host = shellWalls.find(w => w.id === door.shellWallId);
+        if (!host) return null;
+        const dx = host.end.x - host.start.x, dz = host.end.z - host.start.z;
+        const len = Math.hypot(dx, dz) || 1;
+        const ux = dx / len, uz = dz / len;
+        const a0 = Math.max(0, Math.min(door.offsetM, len));
+        const a1 = Math.max(0, Math.min(door.offsetM + door.widthM, len));
+        return {
+            a: { x: host.start.x + ux * a0, z: host.start.z + uz * a0 },
+            b: { x: host.start.x + ux * a1, z: host.start.z + uz * a1 },
+        };
+    } catch {
+        return null;
+    }
 }
 
 export class HouseLayoutModal {
@@ -242,7 +352,9 @@ export class HouseLayoutModal {
     }
 
     private _storeyThumbs(options: readonly ScoredHouseLayoutOption[]): string[][] {
-        return this._cards(options).map(card => {
+        const cards = this._cards(options);
+        return cards.map((card, ci) => {
+            const result = options[ci]?.result;
             // §SHARED-FLOOR-BOUNDS (2026-06-09, founder feedback #1) — fit EVERY
             // storey of this variant to ONE shared bounding box (the union of all
             // storeys' room polygons / wall endpoints, in the same mm plan frame
@@ -251,16 +363,38 @@ export class HouseLayoutModal {
             // a shared fit makes the Ground-floor and upper-floor thumbnails render
             // at the SAME scale + extent — they no longer look like different-sized
             // footprints just because an upper storey has fewer/smaller rooms.
-            const boundsMm = unionStoreyBoundsMm(card);
+            // §PREVIEW-PREDICTS-BUILD — the real exterior footprint (world XZ
+            // metres → mm plan frame: x×1000, y=z×1000) the executor builds. It is
+            // identical on every storey (StoreyPlate.footprint), so any storey with
+            // a footprint yields the shared ring. This is the COMPLETE shell — the
+            // preview now draws THIS instead of the engine's partial/un-rectified
+            // `isExternal` walls (fixes the "holes / short perimeter" + "shifted
+            // middle" + apparent flip vs the build).
+            const footprintWorld = result?.storeys?.find(s => s.footprint && s.footprint.length >= 3)?.footprint;
+            const perimeterRingMm = footprintWorld
+                ? footprintWorld.map(p => ({ x: p.x * 1000, y: p.z * 1000 }))
+                : undefined;
+            const boundsMm = unionStoreyBoundsMm(card, perimeterRingMm);
             // §LIVE-MODAL.C (R3) — "better visibility": render each storey plan at
             // a HERO size (was the renderer default 320×240) so the single best
-            // card's plan is clearly legible. The perimeter SHELL RING + the
-            // window/door span clamp (§PREVIEW-SHELL-FIDELITY) are already in
-            // `buildLayoutThumbnailSvg` (applied from `LayoutWall.isExternal` /
-            // the fitted bbox), so no extra flags are needed — the SVG scales to
-            // fit the enlarged `.hlm-storey-thumb` CSS box.
-            const thumbOpts = { background: '#ffffff', width: 460, height: 320, ...(boundsMm ? { boundsMm } : {}) } as const;
-            return card.storeys.map(s => buildLayoutThumbnailSvg(s.option, thumbOpts));
+            // card's plan is clearly legible.
+            return card.storeys.map(s => {
+                const stairRect = result ? stairRectMmForLevel(result, s.storeyIndex) : null;
+                // §PREVIEW-PREDICTS-BUILD #6 — the entrance door is resolved by the
+                // executor on the GROUND storey only; mirror that here so the preview
+                // shows the entrance on the hall-fronting shell wall.
+                const entranceSpan = (s.storeyIndex === 0 && footprintWorld)
+                    ? entranceSpanForGround(s.option, footprintWorld)
+                    : null;
+                const thumbOpts = {
+                    background: '#ffffff', width: 460, height: 320,
+                    ...(boundsMm ? { boundsMm } : {}),
+                    ...(perimeterRingMm ? { perimeterRingMm } : {}),
+                    ...(stairRect ? { stairRectsMm: [stairRect] } : {}),
+                    ...(entranceSpan ? { doorSpansWorld: [entranceSpan] } : {}),
+                } as const;
+                return buildLayoutThumbnailSvg(s.option, thumbOpts);
+            });
         });
     }
 
