@@ -83,6 +83,8 @@ Other options + why we rejected each.
 | 0058 | [Unified Building Graph](./0058-unified-building-graph.md) | Accepted | — | 2026-06-03 |
 | 0060 | [Living Design Parameters bind to substrate](./0060-living-design-parameters.md) | Accepted | — | 2026-06-06 |
 | 0061 | [Building graph is a bidirectional edit substrate](./0061-building-graph-bidirectional-edit-substrate.md) | PROPOSED | — | 2026-06-08 |
+| 0062 | [Layout engine: deterministic combinatorial expansion + rectangular dual-graph solver](./0062-layout-engine-deterministic-graph-solver.md) | Accepted | — | 2026-06-08 |
+| 0063 | [House generative-layout doctrine: per-storey apartment pipeline + multi-storey spine only](./0063-house-generative-layout-doctrine.md) | Accepted | — | 2026-06-09 |
 
 ### Strategic ADRs (3-digit `ADR-NNN-*.md`)
 

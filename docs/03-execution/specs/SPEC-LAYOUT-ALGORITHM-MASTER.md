@@ -234,10 +234,11 @@ dining/study/wet = false) is a HARD reject axis — but only fires if the room I
 
 | Gap | Stage | Symptom | State |
 |---|---|---|---|
-| **G12** | 5/6/7c-d | over-program → dropped rooms → generic "Room" + missing windows | nudged v69 (§AREA-AGREEMENT + §STAIR-FRAGMENT); **complete cure = stop the stair fragmenting the plate (§G8)** |
-| **G8** | 4 | stair pokes outside (now 1 side); fragments the plate | I-run fixed v66; L/U overrun + corner-vs-mid-edge placement OPEN |
-| **G1** | 9b | wall joins: ground good, **upper-floor bad** | ground fixed (weld + self-cluster floor); upper-floor (`_buildPerimeterShell`) OPEN |
-| **G14** | 5 | "Entrance Hall" on floor 1 | `entranceHall:true` on upper storeys → should be Landing/Corridor |
+| **G12** | 5/6/7c-d | over-program → dropped rooms → generic "Room" + missing windows | nudged v69 (§AREA-AGREEMENT + §STAIR-FRAGMENT); **largely closed v93** by the stair no longer fragmenting the plate (§STAIR-DEFAULT-BIAS corner-anchor + §STAIR-CONTAIN-UPSTREAM, §G8) + §WINDOW-MANDATORY-RESCUE |
+| **G8** | 4 | stair pokes outside (now 1 side); fragments the plate | **CLOSED v93** — §STAIR-CONTAIN-UPSTREAM (keep-out == shipped footprint, by construction; ADR-0063 H3) + §STAIR-DEFAULT-BIAS (corner-anchor, never central; ADR-0063 H4). Was: I-run fixed v66, L/U overrun OPEN |
+| **G1** | 9b | wall joins: ground good, **upper-floor bad** | ground fixed (§SHELL-ANCHOR-PRESERVE v89 + engine ring §GROUND-ENGINE-PERIMETER v90); upper-floor weld-to-minted-perimeter §UPPER-SHELL-WELD v91 (ADR-0063 H1/H2) |
+| **G14** | 5 | "Entrance Hall" on floor 1 | **CLOSED v91** — §LANDING-NOT-HALL: entrance hall is GROUND-ONLY; upper storeys get a Landing (ADR-0063 H4) |
+| **G-TOPO** | 6 | candidate ships windowless/sealed/privacy-breach (topologyQuality=0.00) | **CLOSED v93** — §TOPO-HARD-REJECT (Stage 5): hard-valid candidates rank above hard-invalid; safe-floor fallback never empties the pool (ADR-0062 D4-SHARPENED/D6; tracker F2b) |
 | **G11/W4** | 8 | most habitable rooms lack a window | per-room longest-wall + no frontage swap; interior rooms unglazed |
 | **G9** | 10 | generic "Room 00-00x" | dropped-room void detected as a room (⊂ G12) |
 | **G6** | 7e | living/dining/kitchen not clustered; entrance not near hall | adjacency soft-scored; no walking-distance metric |

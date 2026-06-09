@@ -446,6 +446,32 @@ untouched** (this is house-orchestrator + house-executor only). Determinism pres
 carried + applied on a skewed shell, flight 1 == the world-axis run rotated by `+angle`,
 directions are off-axis unit vectors, and the result is deterministic.
 
+### §7.5 — Stair contained UPSTREAM + corner-anchored (2026-06-09, SHIPPED — ADR-0063)
+
+**Problem (the desync that survived §7.3/§7.4).** Even with a correctly-rotated keep-out, the stair
+body was *positioned*, the keep-out *carved*, rooms *tiled* around it, and only *then* nudged inward
+to stay in the shell — so on a strongly-rotated plate the carved keep-out and the **shipped**
+footprint diverged (`§DIAG-STAIR cornersInShell=1/4`), conflicting the perimeter and partitions.
+
+**Fix — containment moves UPSTREAM (ADR-0063 H3).** `houseOrchestrator.containStairCoreUpstream`
+solves containment *before* the keep-out is carved: `computeStairWorldFootprint` (a byte-for-byte
+port of `geometry-stair`'s `computeStairFootprintRect`) builds the shared world footprint,
+`stairContainment.solveStairContainmentWorld` solves the inward offset, the keep-out becomes the
+world AABB of the **contained** footprint (rooms tile around the FINAL position), and the offset
+rides `StairCore.containOffsetWorld` to the executor which applies the *same* shift — so the shipped
+footprint == the carved keep-out **by construction**. The executor's downstream `§STAIR-CONTAIN` is
+demoted to a VERIFICATION (expects `{0,0}` residual; loud `§STAIR-CONTAIN ⚠ DESYNC` otherwise).
+Reserved `core.rectMm` is unchanged (preserves the §STAIR-DEFAULT-BIAS wall-hug). Proof:
+`stairContainUpstream.test.ts` (×8).
+
+**Corner-anchor (ADR-0063 H4, `§STAIR-DEFAULT-BIAS`).** The orchestrator ALWAYS supplies an
+`AspectBias` to `chooseStairCorePosition` (default N-hemisphere when no site solar) so
+`PERIMETER_PREFERENCE` + `FRAGMENT_PENALTY` always fire and the stair takes a back/side CORNER of one
+dominant rectangle — never central (a central stair fragments the plate into a merged private blob);
+`DOMINANT_FRACTION` 0.40 makes the corner carve reliable. On upper floors the stair arrival is a
+**Landing**, never an entrance hall (`§LANDING-NOT-HALL`, G14 — the entrance hall is GROUND-ONLY).
+Apartment + single-storey are byte-identical (no core ⇒ the block is skipped).
+
 ---
 
 ## §8 — Brief schema (typology-declared, slider-driven; ADR-0056)
@@ -561,6 +587,11 @@ control; per-storey generation modal; level-selector + dollhouse explode result 
   gating, per-stage OTel spans (P8).
 - **ADR-0056** — the brief is typology-declared + slider-driven (no UI-hardcoded
   house brief).
+- **ADR-0063 — House generative-layout doctrine** (the binding house decision): per
+  storey, run the apartment pipeline; the house layer adds ONLY the multi-storey spine
+  (stair / roof / slab); the stair is contained UPSTREAM so the carved keep-out == the
+  shipped footprint (§7.5); the stair corner-anchors, never central. ADR-0062 D5 (vertical
+  structural stacking is a HARD constraint) is its platform companion.
 - **C19 Site / C20 Building+Level aggregates** — always site-first; the generator
   reads the parcel boundary; note the BimManager-vs-C20 level-model risk (§4).
 - **product-vision §5** — the RAC → "what project type?" → typology pipeline journey;
