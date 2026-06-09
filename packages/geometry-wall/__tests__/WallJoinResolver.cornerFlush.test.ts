@@ -535,3 +535,86 @@ describe('WallJoinResolver — §PERIMETER-CORNER-FILL (diff-thickness L-corner)
         }
     });
 });
+
+/**
+ * §SHELL-ANCHOR-PRESERVE (2026-06-09 — founder room-merge fix)
+ *
+ * THE founder defect: the house-layout generator's OWN room detection reports 7
+ * sealed ground-floor rooms, but after the walls are created in the editor the
+ * EXECUTED model merges most of them into ONE 82.4 m² blob. The smoking gun:
+ * every interior junction cluster logs `primary=0 t-into=0 pinned=0 trimmed=3`.
+ *
+ * Mechanism: weldPartitionsToShell snaps interior partition endpoints ONTO the
+ * BODY (mid-span) of a long perimeter (shell) wall. The shell wall's OWN endpoints
+ * are at its far corners, so the shell is NOT a member of the resolver cluster —
+ * the cluster contains only the nearby PARTITION endpoints, none coincident (the
+ * §WJ-SKEW-4 weld guard deliberately leaves short-room partitions unfused), so
+ * pinned=0 → primary=0 → all members trim to the partition-only consensus. That
+ * consensus is INTERIOR, so the trim drags the shell-anchored partition endpoint
+ * OFF the perimeter → the room stops sealing → RoomDetectionEngine floods the gap.
+ *
+ * Fix: if a clustered endpoint sits on the BODY of a NON-cluster wall (the shell),
+ * do NOT consensus-trim it — defer to the pair-wise T-join so it stays on the
+ * perimeter. These tests assert the shell-anchored partition ends stay on the
+ * shell line (z ≈ 0) instead of being pulled inward to the interior consensus.
+ */
+describe('WallJoinResolver — §SHELL-ANCHOR-PRESERVE (partition welded onto shell body)', () => {
+    it('two partitions welded onto a long shell body, clustered but unfused, STAY on the shell', () => {
+        // Long horizontal shell wall along z=0 (its endpoints at x=-10 and x=10 are
+        // FAR from the interior junction → not cluster members).
+        const shell = mk([-10, 0], [10, 0], 0.2, 1);
+        // Two interior partitions rising from the shell BODY near x≈0. Their join
+        // (start) endpoints were shell-snapped onto z=0 by the weld but left ~0.20 m
+        // apart (unfused — within the resolver's snapRadius, so they CLUSTER, but
+        // > 1 mm so they are NOT pinned). A third partition end nearby completes the
+        // 3-way cluster signature.
+        const pA = mk([-0.10, 3], [-0.10, 0.0], 0.2, 2);   // joins at end (-0.10, 0)
+        const pB = mk([ 0.10, 3], [ 0.10, 0.0], 0.2, 3);   // joins at end ( 0.10, 0)
+        const pC = mk([ 0.00, 4], [ 0.00, 0.05], 0.2, 4);  // joins at end ( 0.00, 0.05)
+
+        const res = WallJoinResolver.resolveLevel([shell, pA, pB, pC], { snapRadius: 0.5 });
+
+        // Shell is the perimeter — never moved, never invalidated. As the unchanged
+        // HOST of a pure T-join it may carry NO result entry at all (host walls are
+        // left untouched by _applyT); if it DOES carry one it must be valid + full-span.
+        const jShell = res.get(shell.id);
+        if (jShell) {
+            expect(jShell.invalid).toBeFalsy();
+            expect(jShell.baseLine[0].x).toBeCloseTo(-10, 3);
+            expect(jShell.baseLine[1].x).toBeCloseTo(10, 3);
+        }
+
+        // Each partition's joining (end) endpoint must reach the shell — the
+        // pair-wise T-join trims it to the shell's LATERAL FACE (z = ±halfThickness =
+        // ±0.10 for the 0.2 m shell), NOT pulled INWARD to the interior consensus
+        // (which sits at z ≈ 0.017 → after the cluster trim the partition would stop
+        // at z ≈ 0.05+ short of the shell, opening the gap that merges the rooms).
+        // Reaching the shell face (|z| ≤ halfThickness + ε) is exactly what seals
+        // the room — the partition body overlaps the shell body.
+        const shellHalfT = 0.2 / 2;
+        for (const p of [pA, pB, pC]) {
+            const jp = res.get(p.id)!;
+            expect(jp.invalid).toBeFalsy();
+            const joinEnd = jp.baseLine[1] as THREE.Vector3;   // all join at 'end'
+            // The endpoint reaches the shell body (face), not stranded inside the room.
+            expect(Math.abs(joinEnd.z)).toBeLessThanOrEqual(shellHalfT + 0.01);
+            // And it is NOT collapsed / inverted.
+            expect(jp.baseLine[0].distanceTo(jp.baseLine[1])).toBeGreaterThan(2.5);
+        }
+    });
+
+    it('regression: a pure interior Y-junction (no shell under it) still consensus-trims', () => {
+        // No long body under the junction → bodyHost is null for every endpoint →
+        // the consensus-trim path is taken exactly as before (ends fuse within 0.30 m).
+        const a = mk([-3, 10], [-0.05, 10.00], 0.2, 1);
+        const b = mk([ 2, 11], [ 0.02, 10.04], 0.2, 2);
+        const c = mk([ 2,  9], [ 0.02,  9.96], 0.2, 3);
+        const res = WallJoinResolver.resolveLevel([a, b, c], { snapRadius: 0.5 });
+        const ja = res.get(a.id)!.baseLine[1] as THREE.Vector3;
+        const jb = res.get(b.id)!.baseLine[1] as THREE.Vector3;
+        const jc = res.get(c.id)!.baseLine[1] as THREE.Vector3;
+        for (const [p, q] of [[ja, jb], [ja, jc], [jb, jc]] as const) {
+            expect(Math.hypot(p.x - q.x, p.z - q.z)).toBeLessThanOrEqual(0.30);
+        }
+    });
+});

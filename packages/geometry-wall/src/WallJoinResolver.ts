@@ -319,6 +319,9 @@ export class WallJoinResolver {
             // Per-cluster outcome counters used for the always-on summary line.
             let _cntPrimary = 0, _cntTInto = 0, _cntPinned = 0, _cntTrimmed = 0;
             let _cntSkippedSelfCluster = 0;
+            // §SHELL-ANCHOR-PRESERVE: endpoints left for the pair-wise T-join because
+            // they sit on a non-cluster (shell) wall body — must stay on the perimeter.
+            let _cntShellAnchorPreserved = 0;
 
             if (_verboseClusterLogs) {
                 console.log(
@@ -540,6 +543,68 @@ export class WallJoinResolver {
             // pairs handled inline (separate from singleton-pinned deferrals).
             let _cntSecPinned = 0;
 
+            // ── §MULTI-CLUSTER-WHY (2026-06-09 diagnostic) ───────────────────────
+            // The founder reported the recurring "rooms merge after creation"
+            // defect with EVERY interior cluster logging `primary=0 t-into=0
+            // pinned=0 trimmed=3`. That signature means: NO two endpoints from
+            // different walls in this cluster are within PINNED_TOL (1 mm), so no
+            // pinned pair → no primary corner → no T-into → every member falls to
+            // the consensus trim. When one of those members was actually welded
+            // ONTO a SHELL (perimeter) wall's BODY — and the shell wall's own
+            // endpoints are far away (not cluster members) — the resolver has no
+            // idea the endpoint is perimeter-anchored, so the consensus trim pulls
+            // it OFF the shell toward the interior partition-only centroid → the
+            // room stops sealing. This block surfaces, per cluster + per endpoint,
+            // exactly WHY the cluster is unpinned and which endpoints sit on a
+            // non-cluster wall body (a shell T-anchor the trim would break).
+            const _whyOn = !!(globalThis as any).window?.__pryzmDebugWalls || true; // always on (founder asked)
+            // Endpoints in THIS cluster, by key, for "is the body-host a cluster member?" test.
+            const _clusterWallIds = new Set(endpoints.map(e => e.wallId));
+            // Detect, per endpoint, whether it lies on the BODY (mid-span, not at an
+            // endpoint) of some OTHER wall that is NOT part of this cluster. That is
+            // the shell-T-anchor case the consensus trim must not break.
+            const _bodyAnchorOf = (ep: { wallId: string; side: Side }): { hostId: string; perp: number } | null => {
+                const pos = this._getEpPos(ep, bl);
+                let bestHost: string | null = null;
+                let bestPerp = thresholds.snapRadius;
+                for (const w of walls) {
+                    if (w.id === ep.wallId) continue;
+                    if (_clusterWallIds.has(w.id)) continue;      // only NON-cluster (e.g. shell) bodies
+                    const [hs, he] = bl.get(w.id)!;
+                    const c = this._closestOnSegment(pos, hs, he);
+                    const perp = pos.distanceTo(c);
+                    if (perp > bestPerp) continue;
+                    // Must be on the BODY, not at one of the host's endpoints (≥0.05 m in).
+                    if (c.distanceTo(hs) < 0.05 || c.distanceTo(he) < 0.05) continue;
+                    bestPerp = perp; bestHost = w.id;
+                }
+                return bestHost ? { hostId: bestHost, perp: bestPerp } : null;
+            };
+            const _hasPinned   = pinnedKeys.size > 0;
+            const _hasPrimary  = !!primaryPair;
+            if (_whyOn) {
+                const _reason =
+                    clusterHasPassThrough ? 'PASS-THROUGH (collinear pair → square caps to consensus)'
+                    : _hasPrimary         ? 'HAS-PRIMARY-CORNER (pinned perpendicular pair found)'
+                    : _hasPinned          ? 'PINNED-BUT-NOT-PERPENDICULAR (pinned pair(s) exist, none < PERP_DOT)'
+                    : 'UNPINNED (no two cross-wall endpoints within 1 mm → ALL will trim to consensus)';
+                const _epLines = endpoints.map(ep => {
+                    const pos = this._getEpPos(ep, bl);
+                    const body = _bodyAnchorOf(ep);
+                    const dC = Math.hypot(pos.x - consensusPoint.x, pos.z - consensusPoint.z);
+                    return `${ep.wallId}(${ep.side}) @(${pos.x.toFixed(3)},${pos.z.toFixed(3)}) ` +
+                        `dConsensus=${dC.toFixed(3)}m` +
+                        (body ? ` BODY-ANCHORED→${body.hostId} perp=${body.perp.toFixed(3)}m` : ' free') +
+                        (_selfClusterWallIds.has(ep.wallId) ? ' SELF-CLUSTER' : '');
+                });
+                console.log(
+                    `[WallJoinResolver] §MULTI-CLUSTER-WHY ${endpoints.length}-way @ ` +
+                    `(${consensusPoint.x.toFixed(3)},${consensusPoint.z.toFixed(3)}) reason=${_reason} ` +
+                    `pinned=${pinnedKeys.size} primaryPair=${_hasPrimary} passThrough=${clusterHasPassThrough}\n  ` +
+                    _epLines.join('\n  ')
+                );
+            }
+
             for (const ep of endpoints) {
                 // §SELF-CLUSTER-GUARD: skip walls whose BOTH endpoints are in
                 // this cluster. Trimming either end would collapse the wall.
@@ -565,6 +630,43 @@ export class WallJoinResolver {
                 if (handledKeys.has(epKey)) continue;
 
                 const [ws, we] = bl.get(ep.wallId)!;
+
+                // ── §SHELL-ANCHOR-PRESERVE (2026-06-09, THE founder room-merge fix) ──
+                // This endpoint may have been welded ONTO the BODY of a perimeter
+                // (shell) wall by weldPartitionsToShell. That shell wall's OWN
+                // endpoints are at its far corners, so it is NOT a member of THIS
+                // cluster — the cluster sees only the nearby PARTITION endpoints and
+                // computes an interior-only consensus (or, when two partitions are
+                // near-parallel, classifies it as a PASS-THROUGH). EITHER way the
+                // cluster pass trims this endpoint to that interior point and pulls
+                // the partition OFF the shell — the founder's "wall_…ZRQMW did not
+                // reach perimeter wall_…C7XT". The room then never seals →
+                // RoomDetectionEngine floods across the gap and merges the social
+                // rooms into the 82.4 m² blob (Living/Bedroom/Kitchen/Hall).
+                //
+                // FIX: if this endpoint currently lies on the BODY (mid-span) of a
+                // NON-cluster wall within snapRadius, do NOT let the cluster pass
+                // touch it AT ALL (pre-empts pass-through, pinned, primary AND the
+                // consensus trim). Leave it UN-handled so the pair-wise T-join pass
+                // (_detect → _applyT) trims it cleanly onto that shell wall's lateral
+                // face — keeping the partition ON the perimeter where the weld
+                // correctly placed it, so the room seals. Pure read of the working
+                // baselines; no new state. Regression-safe: a TRUE interior Y/star
+                // junction has no non-cluster body under its endpoints → bodyHost is
+                // null → behaviour byte-identical. A genuine partition↔partition
+                // corner whose host IS a cluster member is excluded by the
+                // _clusterWallIds filter inside _bodyAnchorOf, so it is unaffected.
+                const _bodyHost = _bodyAnchorOf(ep);
+                if (_bodyHost) {
+                    _cntShellAnchorPreserved++;
+                    console.log(
+                        `[WallJoinResolver] §SHELL-ANCHOR-PRESERVE  wall=${ep.wallId}(${ep.side}) ` +
+                        `on non-cluster (perimeter) body of ${_bodyHost.hostId} ` +
+                        `(perp=${_bodyHost.perp.toFixed(3)}m) — NOT cluster-trimmed; deferred to ` +
+                        `pair-wise T-join so it stays on the perimeter and the room seals`
+                    );
+                    continue;
+                }
 
                 // ── §PASS-THROUGH-FLUSH: square cap to consensus for the whole cluster ──
                 // When this cluster contains a near-collinear pass-through pair the
@@ -890,6 +992,7 @@ export class WallJoinResolver {
                 `[primary=${_cntPrimary} t-into=${_cntTInto} pinned=${_cntPinned}` +
                 (_cntSecPinned ? ` sec-pinned=${_cntSecPinned}` : '') +
                 ` trimmed=${_cntTrimmed}` +
+                (_cntShellAnchorPreserved ? ` shellAnchor=${_cntShellAnchorPreserved}` : '') +
                 (_cntSkippedSelfCluster ? ` selfCluster=${_cntSkippedSelfCluster}` : '') + `]`
             );
             if (_cntSkippedSelfCluster > 0) {
