@@ -756,12 +756,38 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
      * from the level; roof elevation lives on the level too), so we borrow the
      * per-storey elevation the walls already resolve correctly. This is exactly
      * the elevation the wall massing stacks each storey at, so slabs/roofs line
-     * up with their storey. Levels with no wall fall back to ground (0).
+     * up with their storey.
+     *
+     * §ROOF-FORMA (2026-06-09) — the house generator now mints a DEDICATED "Roof"
+     * level ABOVE the top storey (§ROOF-LEVEL in HouseLayoutExecutor) and creates
+     * the roof there with `baseOffset: 0`; the level's OWN `elevation` already
+     * encodes the top-storey wall head. That roof level has NO WALLS, so the
+     * walls-only map never contained it → the roof resolved to elevation 0 and
+     * rendered buried at ground level (the founder's "roof disappeared from the
+     * FORMA view"). FIX: SEED the map from the authoritative level store
+     * (`bimManager.getLevels()`, elevation in metres — same unit + convention the
+     * walls resolve to, see AddLevelCommand) so EVERY level — wall-less roof
+     * levels included — has its true world elevation. Walls then OVERRIDE per
+     * level (they take precedence, preserving the prior storey behaviour exactly
+     * for levels that DO have walls). Levels still unknown fall back to ground (0).
      */
     const levelElevationFromWalls = (): Map<string, number> => {
         const map = new Map<string, number>();
+        // Seed from the level store first (covers wall-less levels like the roof
+        // level); units are metres, the same as the wall-derived elevations below.
+        try {
+            const levels: Array<{ id?: string; elevation?: number }> =
+                (window.bimManager as { getLevels?: () => Array<{ id?: string; elevation?: number }> } | undefined)
+                    ?.getLevels?.() ?? [];
+            for (const l of levels) {
+                if (typeof l.id === 'string' && l.id && typeof l.elevation === 'number' && Number.isFinite(l.elevation)) {
+                    map.set(l.id, l.elevation);
+                }
+            }
+        } catch { /* no level store yet → walls-only, prior behaviour */ }
+        // Walls take precedence (unchanged behaviour for wall-bearing storeys).
         for (const w of getFormaWalls()) {
-            if (w.levelId && !map.has(w.levelId)) map.set(w.levelId, w.baseElevation);
+            if (w.levelId) map.set(w.levelId, w.baseElevation);
         }
         return map;
     };
@@ -900,6 +926,16 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             if (!ring) continue;
             const baseElev =
                 typeof r.levelId === 'string' && levelElev.has(r.levelId) ? levelElev.get(r.levelId)! : 0;
+            // §ROOF-FORMA (2026-06-09) — roof inclusion decision. The roof now
+            // lives on its own wall-less "Roof" level (§ROOF-LEVEL); its elevation
+            // is resolved from the level store (seeded into levelElev above), NOT
+            // from walls. Log whether the level resolved so a buried-roof
+            // regression is diagnosable from the console.
+            console.log(
+                `[gis][forma] §ROOF-FORMA include roof: levelId=${r.levelId ?? '(none)'} ` +
+                `resolved=${typeof r.levelId === 'string' && levelElev.has(r.levelId)} ` +
+                `levelElev=${baseElev}m`,
+            );
             const baseOffset =
                 typeof r.baseOffset === 'number' && Number.isFinite(r.baseOffset) ? r.baseOffset : 0;
             // pitch radians: prefer the C11 `pitch`; else convert legacy `slope` (rise/run).
