@@ -349,6 +349,65 @@ describe('resolveAllShellWindows (T1.W-C)', () => {
     });
 });
 
+// ── §DIAG-PARTY-WALL (PW.1, 2026-06-09) — blind/party-wall window suppression ──
+//
+// Founder: a shell wall that abuts a neighbouring building (a party/blind wall)
+// must carry NO windows. resolveAllShellWindows takes an optional `blindFacadeWallIds`
+// set; any window that resolves onto a blind shell wall is suppressed. The mechanism
+// is ADDITIVE: empty / absent ⇒ byte-identical to the no-party-wall baseline.
+describe('resolveAllShellWindows — §DIAG-PARTY-WALL: blind façade suppresses windows', () => {
+    const windows: LayoutWindow[] = [
+        { wallRef: 0, offset: 500,  width: 1500, height: 1300, sillHeight: 900,  roomType: 'bedroom' },
+        { wallRef: 1, offset: 1000, width: 1200, height: 1200, sillHeight: 1000, roomType: 'kitchen' },
+    ];
+    const walls: LayoutWall[] = [
+        optWall(0, 0, 5000, 0),
+        optWall(5000, 0, 5000, 4000),
+    ];
+    const shells: ShellWall[] = [
+        shell('south', 0, 0, 5, 0),
+        shell('east',  5, 0, 5, 4),
+    ];
+
+    it('ADDITIVE: empty / absent blind set is byte-identical to the baseline', () => {
+        const base = resolveAllShellWindows(windows, walls, shells);
+        const emptyArr = resolveAllShellWindows(windows, walls, shells, undefined, []);
+        const emptySet = resolveAllShellWindows(windows, walls, shells, undefined, new Set());
+        expect(emptyArr).toEqual(base);
+        expect(emptySet).toEqual(base);
+        expect(base.length).toBeGreaterThan(0);
+    });
+
+    it('suppresses every window hosted on a blind shell wall', () => {
+        const out = resolveAllShellWindows(windows, walls, shells, undefined, ['south']);
+        // The south-fronting bedroom window is suppressed; the east kitchen window stays.
+        expect(out.map(r => r.shellWallId)).toEqual(['east']);
+    });
+
+    it('accepts a Set as well as an array for the blind set', () => {
+        const out = resolveAllShellWindows(windows, walls, shells, undefined, new Set(['east']));
+        expect(out.map(r => r.shellWallId)).toEqual(['south']);
+    });
+
+    it('suppresses ALL windows when every façade is blind', () => {
+        const out = resolveAllShellWindows(windows, walls, shells, undefined, ['south', 'east']);
+        expect(out).toHaveLength(0);
+    });
+
+    it('the rescue pass never rescues a mandatory room onto a blind wall', () => {
+        // A bedroom whose only external frontage is the (blind) south wall: the engine
+        // would normally rescue it, but the blind set must block the rescue too →
+        // the room stays windowless rather than getting a party-wall window.
+        const bedroomOnly: LayoutWindow[] = [
+            { wallRef: 0, offset: 0, width: 0, height: 1300, sillHeight: 900, roomType: 'bedroom', name: 'Bedroom' },
+        ];
+        const out = resolveAllShellWindows(
+            bedroomOnly, [optWall(0, 0, 5000, 300)], [shell('south', 0, 0, 5, 0)], undefined, ['south'],
+        );
+        expect(out).toHaveLength(0);
+    });
+});
+
 // ── §WINDOW-CORNER-SPAN (A.21.D40 #1, 2026-06-07) — founder v49 re-test ───────
 //
 // The founder still saw a window poke past a CORNER on some plots. The old final

@@ -20,6 +20,7 @@ import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import type { ScoredLayoutOption, IdPrefix, LayoutExecuteOptions, LayoutCommandSet } from '@pryzm/ai-host';
 import { resolveActiveLevel } from './activeLevel.js';
 import { nameDetectedRooms } from './nameDetectedRooms.js';
+import { resolveBlindFacades } from './resolveBlindFacades.js';
 
 /** T1.W-C (2026-05-30) — gather existing shell walls from the wall store
  *  for a given level. Returns world-metres { id, start, end } records for
@@ -108,6 +109,13 @@ export class ApartmentLayoutExecutor {
             const shellWalls = gatherShellWalls(level.id);
             console.log(`[apartment-layout] §T1.W-C shellWalls=${shellWalls.length}`);
 
+            // §DIAG-PARTY-WALL (PW.1, 2026-06-09) — resolve the BLIND/PARTY shell
+            // walls (façades abutting a neighbour within setback). On those façades
+            // the engine suppresses every window + the entrance door. Default ⇒ empty
+            // set ⇒ byte-identical to the pre-PW.1 behaviour (neighbour DETECTION is
+            // the PW.2 follow-up; see resolveBlindFacades.ts + SPEC-PARTY-WALL-AWARENESS).
+            const blindFacadeWallIds = resolveBlindFacades(shellWalls);
+
             const opts: LayoutExecuteOptions = {
                 levelId: level.id,
                 // No wallTypeId → walls use the editor's DEFAULT wall type. Passing an
@@ -120,6 +128,7 @@ export class ApartmentLayoutExecutor {
                 // skipped so we never duplicate the shell (would corrupt detection).
                 skipExteriorWalls: true,
                 ...(shellWalls.length > 0 ? { shellWalls } : {}),
+                ...(blindFacadeWallIds.size > 0 ? { blindFacadeWallIds } : {}),
             };
             const set = buildLayoutCommands(option, opts, (p: IdPrefix) => createId(p));
 

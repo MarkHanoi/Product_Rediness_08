@@ -73,6 +73,7 @@ import {
 } from '@pryzm/ai-host';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
 import { nameDetectedRooms } from '../apartment-layout/nameDetectedRooms.js';
+import { resolveBlindFacades } from '../apartment-layout/resolveBlindFacades.js';
 import { runHousePostGenChain } from './runHousePostGenChain.js';
 import { resetStairVoids, recordStairVoid } from './houseStairVoids.js';
 
@@ -417,6 +418,11 @@ export class HouseLayoutExecutor {
                 const shellWalls = isGround
                     ? gatherShellWalls(storey.levelId)
                     : (perimeter?.shellWalls ?? []);
+                // §DIAG-PARTY-WALL (PW.1, 2026-06-09) — blind/party façades for this
+                // storey's shell walls. The engine suppresses windows + the entrance
+                // door there. Default ⇒ empty ⇒ byte-identical (neighbour DETECTION is
+                // the PW.2 follow-up; see resolveBlindFacades + SPEC-PARTY-WALL-AWARENESS).
+                const blindFacadeWallIds = resolveBlindFacades(shellWalls);
                 const opts: LayoutExecuteOptions = {
                     levelId: storey.levelId,
                     baseElevationM: storey.elevationM,
@@ -427,6 +433,7 @@ export class HouseLayoutExecutor {
                     // detection — the apartment invariant).
                     skipExteriorWalls: true,
                     ...(shellWalls.length > 0 ? { shellWalls } : {}),
+                    ...(blindFacadeWallIds.size > 0 ? { blindFacadeWallIds } : {}),
                 };
                 let set = buildLayoutCommands(option, opts, (p: IdPrefix) => createId(p));
 
@@ -669,7 +676,12 @@ export class HouseLayoutExecutor {
                         const arr = shellWindowSpans.get(p.wallId);
                         if (arr) arr.push(span); else shellWindowSpans.set(p.wallId, [span]);
                     }
-                    entranceDoor = resolveEntranceDoor(option, shellWalls, undefined, shellWindowSpans);
+                    entranceDoor = resolveEntranceDoor(
+                        option, shellWalls, undefined, shellWindowSpans,
+                        // §DIAG-PARTY-WALL (PW.1) — never place the entrance on a blind/party
+                        // façade. Empty ⇒ byte-identical to the pre-PW.1 entrance resolution.
+                        blindFacadeWallIds.size > 0 ? blindFacadeWallIds : undefined,
+                    );
                     if (entranceDoor) {
                         // §DOOR-IN-WALL-SPAN (founder v46) — defensively VERIFY (and, if
                         // needed, clamp) the resolved entrance door against its host

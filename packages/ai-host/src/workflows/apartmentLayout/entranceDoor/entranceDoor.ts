@@ -206,8 +206,36 @@ export function resolveEntranceDoor(
     // single-chosen-wall centred path (byte-identical to the pre-G4 behaviour; the
     // apartment pipeline + existing tests pass no spans).
     occupiedSpansByWall?: ReadonlyMap<string, readonly Span[]>,
+    // §DIAG-PARTY-WALL (PW.1, 2026-06-09) — ids of BLIND/PARTY shell walls (abut a
+    // neighbour within the setback). The entrance door is NEVER placed on a blind
+    // façade — those walls are removed from the candidate set up front, so the
+    // entrance lands on a non-blind, street-facing wall. Optional + ADDITIVE:
+    // omitted / empty ⇒ byte-identical to the pre-PW.1 behaviour. If EVERY shell
+    // wall is blind (no legal frontage) the resolver returns null (no entrance) —
+    // surfaced by the caller, never forced onto a party wall.
+    blindFacadeWallIds?: ReadonlySet<string> | readonly string[],
 ): EntranceDoorDispatch | null {
     if (!shellWalls || shellWalls.length === 0) return null;
+
+    // §DIAG-PARTY-WALL (PW.1) — drop blind/party façades from the candidate pool
+    // BEFORE any selection. Empty / absent set ⇒ `shellWalls` unchanged (byte-
+    // identical). If every wall is blind, fall through with an empty pool → null.
+    const blind: ReadonlySet<string> =
+        blindFacadeWallIds instanceof Set ? blindFacadeWallIds : new Set(blindFacadeWallIds ?? []);
+    if (blind.size > 0) {
+        const nonBlind = shellWalls.filter(w => !blind.has(w.id));
+        if (nonBlind.length === 0) {
+            console.log('[D-TGL] §DIAG-PARTY-WALL entrance: ALL shell walls are blind — no entrance placed');
+            return null;
+        }
+        if (nonBlind.length !== shellWalls.length) {
+            console.log(
+                `[D-TGL] §DIAG-PARTY-WALL entrance: excluded ${shellWalls.length - nonBlind.length} ` +
+                `blind façade(s) from the entrance candidate set`,
+            );
+        }
+        shellWalls = nonBlind;
+    }
 
     // 1. Target room centre (entrance hall → corridor → all-rooms centroid).
     const hall = findEntranceHall(option.rooms ?? []);

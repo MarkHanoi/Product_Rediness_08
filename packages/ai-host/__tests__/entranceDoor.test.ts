@@ -156,4 +156,40 @@ describe('resolveEntranceDoor (A.21.D29 #3)', () => {
         expect(resolveEntranceDoor(opt, SHELL, undefined, noSpans))
             .toEqual(resolveEntranceDoor(opt, SHELL));
     });
+
+    // ── §DIAG-PARTY-WALL (PW.1, 2026-06-09) — the entrance never lands on a blind/party
+    // façade. The blind shell-wall ids are dropped from the candidate set up front, so
+    // the entrance picks the next-best NON-blind wall (or returns null if all are blind).
+    describe('§DIAG-PARTY-WALL: entrance avoids blind/party façades', () => {
+        it('ADDITIVE: empty / absent blind set is byte-identical to the baseline', () => {
+            const opt = option([room({ type: 'hall', centroid: { x: 5000, y: 7500 } })]);
+            const base = resolveEntranceDoor(opt, SHELL)!;
+            expect(resolveEntranceDoor(opt, SHELL, undefined, undefined, [])).toEqual(base);
+            expect(resolveEntranceDoor(opt, SHELL, undefined, undefined, new Set())).toEqual(base);
+        });
+
+        it('moves the entrance OFF a blind façade onto another hall-fronting wall', () => {
+            // Hall sits in a corner fronting BOTH south ('s') and east ('e'). Without a
+            // blind set the door lands on 's' (longest tie-break). Marking 's' blind must
+            // push it to 'e'.
+            const opt = option([room({ type: 'hall', centroid: { x: 9500, y: 7500 } })]);
+            const baseline = resolveEntranceDoor(opt, SHELL)!;
+            const withBlind = resolveEntranceDoor(opt, SHELL, undefined, undefined, [baseline.shellWallId])!;
+            expect(withBlind).not.toBeNull();
+            expect(withBlind.shellWallId).not.toBe(baseline.shellWallId);
+        });
+
+        it('returns null when EVERY shell wall is blind (no legal frontage)', () => {
+            const opt = option([room({ type: 'hall', centroid: { x: 5000, y: 7500 } })]);
+            const all = SHELL.map(w => w.id);
+            expect(resolveEntranceDoor(opt, SHELL, undefined, undefined, all)).toBeNull();
+        });
+
+        it('accepts a Set for the blind set as well as an array', () => {
+            const opt = option([room({ type: 'hall', centroid: { x: 5000, y: 7500 } })]);
+            const base = resolveEntranceDoor(opt, SHELL)!;
+            const withBlind = resolveEntranceDoor(opt, SHELL, undefined, undefined, new Set([base.shellWallId]))!;
+            expect(withBlind.shellWallId).not.toBe(base.shellWallId);
+        });
+    });
 });

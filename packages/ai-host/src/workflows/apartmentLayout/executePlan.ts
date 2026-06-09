@@ -77,6 +77,15 @@ export interface LayoutExecuteOptions {
      *  id. Without this, shell-hosted windows are dropped (they target a
      *  wall the build doesn't recreate). */
     readonly shellWalls?: readonly import('./windowEmission/shellWallMatch.js').ShellWall[];
+    /** §DIAG-PARTY-WALL (PW.1, 2026-06-09) — ids of BLIND/PARTY shell walls: shell
+     *  walls that ABUT a neighbouring building within the setback. NO window and NO
+     *  entrance door is placed on these façades — they are solid blind walls by
+     *  construction. The ids must be a subset of `shellWalls[].id`. Optional +
+     *  ADDITIVE: omitted / empty ⇒ byte-identical to the pre-PW.1 behaviour
+     *  (apartment + house unaffected), deterministic per ADR-0061. The producer that
+     *  derives this set from neighbour footprints is the PW.2 follow-up — see
+     *  docs/03-execution/specs/SPEC-PARTY-WALL-AWARENESS.md. */
+    readonly blindFacadeWallIds?: ReadonlySet<string> | readonly string[];
 }
 
 /** A single wall spec, METRES — structurally a CreateWallPayload. */
@@ -682,6 +691,9 @@ export function buildLayoutCommands(
             option.walls,
             opts.shellWalls,
             opts.planToWorldXZ,
+            // §DIAG-PARTY-WALL (PW.1) — suppress every window that would resolve onto a
+            // blind/party shell wall. Omitted / empty ⇒ no suppression (byte-identical).
+            opts.blindFacadeWallIds,
         );
         for (const r of resolved) {
             const openingId = mintId('opening');

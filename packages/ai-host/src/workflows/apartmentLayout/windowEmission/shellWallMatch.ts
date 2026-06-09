@@ -563,14 +563,34 @@ export function resolveAllShellWindows(
     optionWalls: readonly LayoutWall[],
     shellWalls: readonly ShellWall[],
     planToWorld: PlanToWorldXZ = defaultPlanToWorld,
+    // §DIAG-PARTY-WALL (PW.1, 2026-06-09) — the set of BLIND shell-wall ids: shell
+    // (perimeter) walls that ABUT a neighbouring building within the setback (a
+    // party/blind wall). NO window is hosted on a blind shell wall — the façade is
+    // a solid blind wall by construction. Optional + ADDITIVE: omitted / empty ⇒
+    // byte-identical to the pre-PW.1 behaviour (apartment + house unaffected),
+    // deterministic per ADR-0061. The producer that computes this set from
+    // neighbour footprints is the PW.2 follow-up (see SPEC-PARTY-WALL-AWARENESS).
+    blindFacadeWallIds?: ReadonlySet<string> | readonly string[],
 ): readonly ShellWindowDispatch[] {
+    const blind: ReadonlySet<string> =
+        blindFacadeWallIds instanceof Set
+            ? blindFacadeWallIds
+            : new Set(blindFacadeWallIds ?? []);
     const out: DeOverlapItem[] = [];
     let unmatched = 0;
+    let blindSuppressed = 0;
     // §DIAG-WIN-UNMATCHED — tally WHY each window failed to host (see resolveShellWindow).
     const reasonTally: Record<string, number> = {};
     let idx = 0;
     for (const w of windows) {
         const r = resolveShellWindow(w, optionWalls, shellWalls, planToWorld, reasonTally);
+        if (r && blind.size > 0 && blind.has(r.shellWallId)) {
+            // §DIAG-PARTY-WALL — the window resolved onto a BLIND façade → suppress it.
+            // It is NOT counted as `unmatched` (a layout/tolerance failure) — it is a
+            // DELIBERATE party-wall suppression, tallied separately.
+            blindSuppressed++;
+            continue;
+        }
         if (r) {
             out.push({
                 r, i: idx++,
@@ -638,6 +658,10 @@ export function resolveAllShellWindows(
             for (const w of roomWindows) {
                 const r = resolveShellWindow(w, optionWalls, shellWalls, planToWorld, undefined, step.relax);
                 if (!r) continue;
+                // §DIAG-PARTY-WALL (PW.1) — the rescue MUST honour blind façades too:
+                // never rescue a mandatory room's window onto a party/blind wall. Skip
+                // this candidate so the ladder tries another (non-blind) frontage.
+                if (blind.size > 0 && blind.has(r.shellWallId)) { blindSuppressed++; continue; }
                 const candidate: DeOverlapItem = { r, i: idx, roomKey: key, mandatory: true, rescued: true };
                 const after = deOverlapShellWindowItems([...keptItems, candidate]);
                 const survived = after.some(e => e.i === candidate.i);
@@ -679,6 +703,15 @@ export function resolveAllShellWindows(
         `droppedByDeOverlap=${out.length - (kept.length - rescuedKept)} unmatchedToShell=${unmatched} ` +
         `rescued=${rescuedKept} façadeAxisDist={${dist}}`,
     );
+    // §DIAG-PARTY-WALL (PW.1, 2026-06-09) — which shell walls are BLIND (party walls
+    // abutting a neighbour within setback) + how many windows were suppressed there.
+    // Only logs when a blind set was actually supplied, so the default path is silent.
+    if (blind.size > 0) {
+        console.log(
+            `[D-TGL] §DIAG-PARTY-WALL blindFacades=${blind.size} [${[...blind].join(',')}] ` +
+            `windowsSuppressed=${blindSuppressed}`,
+        );
+    }
     // §DIAG-WIN-UNMATCHED — the unmatched count, broken down by CAUSE, so the next prod
     // test says exactly which gate eats the windows (hostNotExternal = engine emitted on
     // an interior wall → a LAYOUT issue; noShellMatch = matcher tolerance; *Drop = a
