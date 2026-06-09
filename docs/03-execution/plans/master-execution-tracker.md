@@ -3176,3 +3176,66 @@ GS.1–GS.2 on the next Cesium bump as a C55 layer. Governed by C55 (geodata lay
   `levelId`) now stamped from `roomStore` so they bucket + lift with their storey in both explode paths;
   fills/volumes/furniture already `levelId`-tagged; collapse restores exact; diagnostics report per-level
   rm/lbl/fur counts. (Composed with the v93 §LEVEL-STACK instanced-wall fix + 2-state toggle.)
+
+---
+
+## §32 — Interior Style System (queued)
+
+**Status:** QUEUED · SPEC authored 2026-06-09 · [SPEC-INTERIOR-STYLE-SYSTEM](../specs/SPEC-INTERIOR-STYLE-SYSTEM.md)
+
+Founder: ONE **Style selector** must drive ALL materials/finishes platform-wide, not just furniture
+(Nordic → cream-paint walls + light-wood furniture/doors/windows + large windows; Mediterranean →
+terracotta + deep blue + BIG windows; etc.). Today only **furniture + floors** are styled, for **4**
+styles (`styleFinish.ts` + `floorFinish.ts`, A.21.D19 / SPEC-FURNISHING-STYLES). This SPEC is the
+**superset**: **6 founder styles** — Nordic · Mediterranean · Classic · Countryside/Farmhouse ·
+Japanese · Industrial — extended to **walls, doors, windows, lighting + a window-size (glazing) bias**.
+
+- **Style descriptor + StyleRegistry** (§2–§4): pure data — palette of wall paint, floor finish,
+  furniture wood/upholstery Slots, door/window finish, lighting fixtures, feature hints, and a numeric
+  `glazingBias`. `resolveStyle()` absorbs the legacy `modern/minimal/warm/minimalist` aliases.
+- **Maps onto EXISTING material/finish systems, no new mutation path** (§5, audited file:line):
+  furniture `data.color`+material (`FurnitureFragmentBuilder.ts:155-159,232` / `MaterialService.ts:13-48`
+  / `styleFinish.ts:187-195`); wall paint `wall.materialColor` (`WallFragmentBuilder.ts:887,1135,1492`,
+  default `#e8e8e8`/`#d4c5b0` — **no wall-finish pipeline today**); doors `DoorSystemType` frame/leaf
+  (`DoorSystemTypeStore.ts:13-18,150`) after the per-room type from `defaultElementTypes.ts:84-89`;
+  windows `WindowSystemType` from `defaultElementTypes.ts:145-147`; floors `floorFinishFor`
+  (`floorFinish.ts:91-102`, already per-style for 3 styles).
+- **Window-size bias** (§6): multiply `WINDOW_SPECS` width/height by `palette.glazingBias` at the same
+  clamp as the climate factor (`windowEmission/emitWindows.ts:433-443`; specs `types.ts:66-75`).
+  **Bigger-window styles = Mediterranean (~1.25) + Nordic (~1.20)**; Industrial ~0.95; rest ~1.0–1.05.
+- **Phased** ST.1 descriptor+registry → ST.2 floors-to-6 → ST.3 wall-paint stamp → ST.4 door/window
+  finish → ST.5 glazing bias → ST.6 lighting (later) → ST.7 picker+brief (6 options both manifests).
+- **Contract note:** SPEC now; warrants a future **C-number** (Interior Style / Material Authority,
+  single source of finish truth) when built. Supersedes SPEC-FURNISHING-STYLES in scope.
+
+---
+
+## §33 — Cesium 3D globe stuck (queued, analysed)
+
+**Status:** QUEUED · ANALYSED (read-only) 2026-06-09 · [ANALYSIS-CESIUM-GLOBE-STUCK](../spikes/ANALYSIS-CESIUM-GLOBE-STUCK.md)
+
+Founder: "Cesium 3D globe is getting stuck." Prod log on `/#/start` shows **two independent problems**:
+
+- **Problem A — zero-size framebuffer freeze.** `GL_INVALID_FRAMEBUFFER_OPERATION: glClear/glDrawElements/
+  glDrawArrays: Framebuffer is incomplete: Attachment has zero size` (repeated). Root: `CesiumViewport`
+  is built into a `display:none`/0×0 container (`CesiumViewport.ts:402,:466`), and several paths fire
+  `requestRender()` while still hidden/0-size — mount `setTimeout` (`:794-804`), `frameSiteLocation`
+  (`:932`), `setFormaMode` (`:995`), `moveEnd` (`:807`), `site.location-changed` flyTo (`:958`). The
+  existing `forceResizeAndRender` size-mitigation only guards the `setVisible(true)` transition
+  (`:4032,:4055,:4063`), not those paths; no `width>0 && height>0` precondition gates render.
+  **Fix dir:** central `canRender()` size guard + `requestRenderIfSized()`; `ResizeObserver`
+  first-nonzero resize (replace the `:4046` rAF retry); optionally pause `useDefaultRenderLoop` while hidden.
+- **Problem B — collab catch-up replay factory gaps.**
+  - `No factory for type: CREATE_STAIR_RAILING / CREATE_FLOORS_BY_ROOM_TYPE / CREATE_VIEW_DEFINITION /
+    CREATE_ANNOTATION` → 25 skipped: these verbs have **command classes but no `REGISTRY` entry**
+    (`CommandRegistry.ts:151-298`; skip path `RemoteCommandDispatcher.ts:68-74,:169-172`). Same class as
+    the already-fixed `ASSIGN_BEAM_SUPPORTS` (`:275-279`). **Fix dir:** register the four factories + a
+    CI declared-vs-registered guard (mirror `check:commandmanager`).
+  - `Factory failed for type: ADD_OPENING TypeError: …(reading 'id') at … roofId`: `ADD_OPENING` IS
+    registered (`CommandRegistry.ts:177-180`) but its host element is **undefined at replay** (replay
+    order doesn't guarantee the host wall/roof exists — `RemoteCommandDispatcher.ts:157-159`); the
+    execute path is async `bus.dispatch` whose `.catch` only catches the **promise**, not a synchronous
+    throw (`:96-105`). **Fix dir:** catch sync throws on the bus path; skip host-missing commands with a
+    logged reason (honour Invariant E-3); optional 2-pass topological replay.
+- B can **abort the `/#/start` bootstrap** that arms the GIS surface, so A's render never gets its
+  resize → reinforces the "stuck" globe. Both fixed together; no new contract (bug-class fixes).
