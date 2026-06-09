@@ -431,20 +431,78 @@ export class HouseLayoutExecutor {
                 };
                 let set = buildLayoutCommands(option, opts, (p: IdPrefix) => createId(p));
 
-                // §GROUND-WELD (A.21.D39) — the recurring "ground floor = ONE merged
-                // room" defect (D14/D25/D28/D34/D36). The GROUND reuses the user's
-                // PRE-DRAWN shell (drawn edge-by-edge, mitred by WallJoinResolver, then
-                // raised by D38), so its post-miter wall centrelines can sit > the
-                // RoomDetectionEngine's 20 mm node grid away from where the engine tiled
-                // its interior partitions — the loop never closes. The UPPER storeys
-                // don't hit this because `_buildPerimeterShell` builds their shell with
-                // the SAME emitter that produced the partitions (exact shared endpoints).
-                // FIX: weld the GROUND interior partition endpoints ONTO the gathered
-                // (authoritative) shell walls + to each other, so the ground closes every
-                // room the same way the upper floors do — robustly, independent of how
-                // far the editor moved the drawn shell's endpoints. Pure ai-host helper.
+                // §GROUND-ENGINE-PERIMETER (A.21.Stage-1, audit 2026-06-09 §5) —
+                // unify the GROUND room-closure with the UPPER storeys. The upper
+                // storeys "subdivide fine" because their perimeter is ENGINE-AUTHORED
+                // (`_buildPerimeterShell` builds the footprint ring with the SAME
+                // emitter that produced the partitions → partition endpoints are
+                // BIT-EXACT on the ring → rooms close with no weld). The GROUND instead
+                // reuses the user's PRE-DRAWN shell (mitred by WallJoinResolver, raised
+                // by D38), so its post-miter centrelines can drift > the
+                // RoomDetectionEngine's 20 mm node grid from where the engine tiled the
+                // partitions → the loop never closes → "ONE merged room" → patched by
+                // the §WJ-SKEW-tuned weld (D14/D25/D28/D34/D36).
+                //
+                // KEY DATA-FLOW FACT (traced 2026-06-09): `storey.footprint` for EVERY
+                // storey === `shell.perimeter` (houseOrchestrator.ts:337/561), and
+                // `shell.perimeter` === `wallsToPolygon(<drawn shell wall baselines>)`
+                // (analyseShell). So the engine footprint ring and the DRAWN ground shell
+                // are the SAME ring up to the editor's post-miter drift. The engine
+                // emits the GROUND partitions at their footprint-aligned plan coords
+                // (buildLayoutPlan toWorld — NOT moved by shellWalls), so on a CLEAN
+                // plate (drawn shell still on the footprint ring) the partition endpoints
+                // ALREADY land on the drawn shell the detector reads → the weld is a
+                // NO-OP (proven by the §GROUND-WELD "exact-on-shell = deterministic
+                // no-op" unit test).
+                //
+                // COINCIDENT-WALL HAZARD (executor comment ~L426): the drawn ground
+                // shell ALREADY EXISTS and is the persistent building envelope (drawn by
+                // houseFromBoundary, height-raised by §WALL-SLAB-CONTINUITY, hosts the
+                // entrance door, read by gatherShellWalls). We must NOT mint a SECOND
+                // engine ring on the ground (two coincident exterior rings corrupt room
+                // detection — the apartment invariant). So this slice does NOT replace
+                // the drawn ring; it keys the SAFE engine-perimeter behaviour off the
+                // fact that — when the drawn ring is STILL the footprint ring — the
+                // engine partitions are already bit-exact on it.
+                //
+                // THE SLICE: gate on `_groundShellOnEnginePerimeter` (the drawn shell is
+                // a clean, axis-aligned, on-footprint ring). When TRUE, SKIP the weld —
+                // the ground now closes rooms exactly the way the upper storeys do
+                // (engine-authored endpoints on the engine ring), with NONE of the
+                // §WJ-SKEW union-find over-grab / endpoint-misplacement risk the weld
+                // carries. When FALSE (rotated / drifted / non-rect plate, where the weld
+                // is genuinely load-bearing), FALL BACK to `_weldGroundPartitions` — the
+                // weld stays as a flag-gated defensive fallback (NOT deleted) so the
+                // change is reversible + zero-regression for the unsafe cases.
+                //
+                // Flag (default ON; founder can disable to force the legacy weld for ALL
+                // ground plates): `window.__pryzmHouseGroundEnginePerimeter === false`.
                 if (isGround && shellWalls.length >= 3) {
-                    set = this._weldGroundPartitions(set, shellWalls);
+                    const enginePerimeterEnabled =
+                        (window as unknown as { __pryzmHouseGroundEnginePerimeter?: boolean })
+                            .__pryzmHouseGroundEnginePerimeter !== false;
+                    const onRing = enginePerimeterEnabled
+                        && this._groundShellOnEnginePerimeter(shellWalls, shell.perimeter);
+                    if (onRing) {
+                        // §DIAG — ENGINE-PERIMETER path: ground closes like the upper
+                        // storeys; the weld is skipped (would be a no-op here anyway).
+                        console.log(
+                            '[house-layout] §GROUND-ENGINE-PERIMETER ground took the ENGINE-PERIMETER path '
+                            + '(drawn shell is on the footprint ring within tolerance) — '
+                            + 'partition endpoints are bit-exact on the perimeter, weld SKIPPED '
+                            + '(unified with the upper-storey closure; no §WJ-SKEW risk).',
+                        );
+                    } else {
+                        // §DIAG — WELD-FALLBACK path: the drawn shell drifted off the
+                        // footprint ring (rotated / mitred / non-rect plate) so the weld
+                        // is load-bearing; run it exactly as before.
+                        console.log(
+                            '[house-layout] §GROUND-ENGINE-PERIMETER ground took the WELD-FALLBACK path '
+                            + `(reason: ${enginePerimeterEnabled ? 'drawn shell NOT on the footprint ring within tolerance' : 'engine-perimeter flag OFF'}) — `
+                            + 'welding partitions onto the drawn shell (the defensive §WJ-SKEW path).',
+                        );
+                        set = this._weldGroundPartitions(set, shellWalls);
+                    }
                 }
                 perStorey.push({ levelId: storey.levelId, set, option });
 
@@ -776,6 +834,84 @@ export class HouseLayoutExecutor {
             console.error('[house-layout] executor threw:', err);
             toast(`House build failed: ${String(err)}`, 'error');
             return { ok: false, reason: String(err) };
+        }
+    }
+
+    /**
+     * §GROUND-ENGINE-PERIMETER (A.21.Stage-1, audit 2026-06-09 §5) — is the drawn
+     * GROUND shell still ON the engine footprint ring within tolerance?
+     *
+     * Returns TRUE only when it is PROVABLY SAFE to treat the drawn shell as the
+     * engine-authored perimeter — i.e. the user's drawn exterior walls have NOT
+     * drifted off the footprint ring `buildLayoutCommands` tiled the partitions
+     * against. In that regime the engine emits the GROUND partitions terminating on
+     * the footprint edge AND the detector reads the drawn walls AT those same edges,
+     * so the rooms close with NO weld (the weld would be a no-op) — the ground behaves
+     * exactly like an upper storey. When this returns FALSE the caller keeps the weld.
+     *
+     * The test is intentionally CONSERVATIVE (favours the weld fallback on any doubt):
+     *   1. The footprint ring must be an AXIS-ALIGNED CONVEX-RECT. A rotated /
+     *      L-/T-/U- / elongated plate is exactly where the post-miter principal-axis
+     *      residuals exceed the detector grid (the §WJ-SKEW class) — keep the weld.
+     *   2. EVERY drawn shell wall's two endpoints must lie within `tolM` (the
+     *      RoomDetectionEngine ~20 mm node grid) of the footprint ring's perimeter.
+     *      If any endpoint drifted further, the detector's perimeter ≠ the partition
+     *      endpoints → the weld is load-bearing → keep it.
+     *
+     * Pure + deterministic (no Date.now/Math.random) per ADR-0061. Read-only.
+     */
+    private _groundShellOnEnginePerimeter(
+        shellWalls: readonly { id: string; start: { x: number; z: number }; end: { x: number; z: number } }[],
+        footprint: ReadonlyArray<{ x: number; z: number }>,
+    ): boolean {
+        try {
+            if (shellWalls.length < 3 || footprint.length < 3) return false;
+
+            // (1) Axis-aligned convex rectangle only. A non-rect / rotated plate has
+            // post-miter residuals beyond the detector grid → the weld is needed.
+            const xs = footprint.map(p => p.x), zs = footprint.map(p => p.z);
+            const minX = Math.min(...xs), maxX = Math.max(...xs);
+            const minZ = Math.min(...zs), maxZ = Math.max(...zs);
+            const w = maxX - minX, d = maxZ - minZ;
+            if (w < 1e-3 || d < 1e-3) return false;
+            const AXIS_EPS = 0.02;   // 20 mm — every footprint vertex sits on a bbox edge
+            const onBBoxEdge = footprint.every(p =>
+                Math.abs(p.x - minX) < AXIS_EPS || Math.abs(p.x - maxX) < AXIS_EPS ||
+                Math.abs(p.z - minZ) < AXIS_EPS || Math.abs(p.z - maxZ) < AXIS_EPS);
+            if (!onBBoxEdge) return false;
+            // A clean rectangle's area equals its bbox area; an L/T/U fills < bbox.
+            const RECT_AREA_TOL = 0.02;   // 2 % of the bbox
+            let signed = 0;
+            for (let i = 0; i < footprint.length; i++) {
+                const a = footprint[i]!, b = footprint[(i + 1) % footprint.length]!;
+                signed += a.x * b.z - b.x * a.z;
+            }
+            const polyArea = Math.abs(signed) / 2;
+            if (Math.abs(polyArea - w * d) > RECT_AREA_TOL * (w * d)) return false;
+
+            // (2) Every drawn shell wall endpoint within the detector grid of the ring.
+            // Distance from a point to the closed footprint ring (min over edges).
+            const tolM = 0.02;   // ~RoomDetectionEngine 20 mm node grid
+            const distToRing = (p: { x: number; z: number }): number => {
+                let best = Infinity;
+                for (let i = 0; i < footprint.length; i++) {
+                    const a = footprint[i]!, b = footprint[(i + 1) % footprint.length]!;
+                    const dx = b.x - a.x, dz = b.z - a.z;
+                    const len2 = dx * dx + dz * dz;
+                    let t = len2 > 0 ? ((p.x - a.x) * dx + (p.z - a.z) * dz) / len2 : 0;
+                    t = Math.max(0, Math.min(1, t));
+                    const cx = a.x + t * dx, cz = a.z + t * dz;
+                    const dd = Math.hypot(p.x - cx, p.z - cz);
+                    if (dd < best) best = dd;
+                }
+                return best;
+            };
+            for (const sw of shellWalls) {
+                if (distToRing(sw.start) > tolM || distToRing(sw.end) > tolM) return false;
+            }
+            return true;
+        } catch {
+            return false;   // any failure → conservative: keep the weld
         }
     }
 
