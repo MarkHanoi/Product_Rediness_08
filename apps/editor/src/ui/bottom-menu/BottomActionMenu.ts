@@ -800,9 +800,37 @@ export class BottomActionMenu {
         });
     }
 
+    /**
+     * §LEVEL-STACK (Bug rooms+furniture) — room-NAME labels are THREE.Sprites that
+     * carry only `userData.roomId` + `userData.type='room-label'` (no `id`/`levelId`/
+     * `storeyName`), so `_isBimObject` rejects them and they were never bucketed — the
+     * "labels float at the wrong storey" report. Room FILL/VOLUME overlays and Furniture
+     * roots DO stamp `userData.levelId` at build time, but generator-placed or legacy
+     * records can arrive without it. This pre-pass resolves the owning level for any
+     * such object via the room store and stamps `userData.levelId` so they enter the
+     * SAME `byLevel` bucket the walls use — no separate offset path. Pure visual tag;
+     * never mutates a store record.
+     */
+    private _stampAnnotationLevelTags(scene: THREE.Scene): void {
+        const roomStore = window.roomStore as { getById?: (id: string) => { levelId?: string } | undefined } | undefined; // TODO(TASK-08)
+        scene.traverse((obj: any) => {
+            const ud = obj.userData;
+            if (!ud || ud.levelId) return;
+            // Room labels (sprites) + any room overlay/volume that lost its tag.
+            const roomId = ud.roomId ?? (ud.type === 'room' && ud.id);
+            if (roomId && roomStore?.getById) {
+                const lvl = roomStore.getById(String(roomId))?.levelId;
+                if (lvl) { ud.levelId = String(lvl); return; }
+            }
+        });
+    }
+
     private _buildLevelRootMap(): Array<{ level: LevelInfo; index: number; roots: THREE.Object3D[] }> {
         const scene = this._getScene();
         if (!scene) return [];
+        // §LEVEL-STACK — tag level-less annotations (room labels especially) BEFORE
+        // bucketing so they lift with their storey.
+        this._stampAnnotationLevelTags(scene);
         const objectById = new Map<string, THREE.Object3D>();
         // §LEVEL-STACK — collect ALL level-tagged objects (including instanced wall
         // groups that carry userData.levelId but NO per-element userData.id) so they
@@ -851,26 +879,41 @@ export class BottomActionMenu {
     private _applyLevelTransforms(): void {
         const groups = this._buildLevelRootMap();
         // §LEVEL-STACK — diagnostics: log how many roots each level offsets so a
-        // mismatch (e.g. instanced walls left behind) is visible at a glance.
+        // mismatch (e.g. instanced walls / room labels / furniture left behind) is
+        // visible at a glance. Break the count out by class so the founder's
+        // "rooms + furniture don't lift" classes are independently auditable.
         const diag: string[] = [];
+        let totalRooms = 0, totalLabels = 0, totalFurniture = 0;
         for (const group of groups) {
             const targetOffset = this._levelMode === 'exploded' ? group.index * EXPLODE_GAP : 0;
+            let rooms = 0, labels = 0, furniture = 0;
             for (const root of group.roots) {
                 if (!this._levelOriginalY.has(root)) this._levelOriginalY.set(root, root.position.y);
                 this._levelTargetY.set(root, (this._levelOriginalY.get(root) ?? root.position.y) + targetOffset);
+                const ud = (root as any).userData ?? {};
+                if (ud.type === 'room-label') labels++;
+                else if (ud.elementType === 'Furniture' || ud.furnitureType) furniture++;
+                else if (ud.isRoomOverlay || ud.isRoomVolume || ud.elementType === 'room') rooms++;
             }
-            diag.push(`${group.level.name ?? group.level.id ?? `#${group.index}`}=${group.roots.length}`);
+            totalRooms += rooms; totalLabels += labels; totalFurniture += furniture;
+            diag.push(`${group.level.name ?? group.level.id ?? `#${group.index}`}=${group.roots.length}(rm${rooms}+lbl${labels}+fur${furniture})`);
         }
-        console.log(`[§LEVEL-STACK] ${this._levelMode}: offset roots per level — ${diag.join(', ')} (total ${this._levelOriginalY.size})`);
+        console.log(`[§LEVEL-STACK] ${this._levelMode}: offset roots per level — ${diag.join(', ')} (total ${this._levelOriginalY.size}; rooms ${totalRooms}, labels ${totalLabels}, furniture ${totalFurniture})`);
         this._startLevelAnimation();
     }
 
     private _restoreLevelTransforms(): void {
         // D.7.5 batch #3: dispose the FrameScheduler tick listener.
         if (this._raf !== null) { this._raf(); this._raf = null; }
-        let restored = 0;
-        for (const [obj, y] of this._levelOriginalY) { obj.position.y = y; restored++; }
-        console.log(`[§LEVEL-STACK] collapse: restored ${restored} root Y positions`);
+        let restored = 0, rooms = 0, labels = 0, furniture = 0;
+        for (const [obj, y] of this._levelOriginalY) {
+            obj.position.y = y; restored++;
+            const ud = (obj as any).userData ?? {};
+            if (ud.type === 'room-label') labels++;
+            else if (ud.elementType === 'Furniture' || ud.furnitureType) furniture++;
+            else if (ud.isRoomOverlay || ud.isRoomVolume || ud.elementType === 'room') rooms++;
+        }
+        console.log(`[§LEVEL-STACK] collapse: restored ${restored} root Y positions (rooms ${rooms}, labels ${labels}, furniture ${furniture})`);
         this._levelOriginalY.clear();
         this._levelTargetY.clear();
     }

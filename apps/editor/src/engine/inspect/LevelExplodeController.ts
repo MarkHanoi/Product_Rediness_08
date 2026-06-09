@@ -206,6 +206,22 @@ export class LevelExplodeController {
     // userData.levelId but NO per-element userData.id, so the id-keyed lookup alone
     // skipped them — they were "left behind" at ground level while CSG walls on the
     // same level lifted. We now also gather by userData.levelId.
+    // §LEVEL-STACK (rooms+furniture) — room-NAME labels are THREE.Sprites carrying
+    // only userData.roomId (no levelId), so the levelId-keyed bucket below skipped
+    // them and they floated at the wrong storey. Stamp the owning level onto any
+    // level-less room annotation FIRST (resolved via the room store) so it buckets
+    // like the room fill/volume + furniture roots (which already carry levelId).
+    const roomStore = (window as { roomStore?: { getById?: (id: string) => { levelId?: string } | undefined } }).roomStore;
+    this._scene.traverse(obj => {
+      const ud = obj.userData as { levelId?: string; roomId?: string; type?: string; id?: string };
+      if (ud.levelId) return;
+      const roomId = ud.roomId ?? (ud.type === 'room' ? ud.id : undefined);
+      if (roomId && roomStore?.getById) {
+        const lvl = roomStore.getById(String(roomId))?.levelId;
+        if (lvl) ud.levelId = String(lvl);
+      }
+    });
+
     const objectById = new Map<string, THREE.Object3D>();
     const byLevel    = new Map<string, THREE.Object3D[]>();
     this._scene.traverse(obj => {
@@ -258,12 +274,28 @@ export class LevelExplodeController {
       });
     }
 
+    const classify = (roots: THREE.Object3D[]) => {
+      let rm = 0, lbl = 0, fur = 0;
+      for (const r of roots) {
+        const ud = r.userData as { type?: string; elementType?: string; furnitureType?: string; isRoomOverlay?: boolean; isRoomVolume?: boolean };
+        if (ud.type === 'room-label') lbl++;
+        else if (ud.elementType === 'Furniture' || ud.furnitureType) fur++;
+        else if (ud.isRoomOverlay || ud.isRoomVolume || ud.elementType === 'room') rm++;
+      }
+      return { rm, lbl, fur };
+    };
+    let totalRooms = 0, totalLabels = 0, totalFurniture = 0;
     const perLevel = this._levelGroups
-      .map(g => `${g.levelId}=${g.roots.length}`)
+      .map(g => {
+        const c = classify(g.roots);
+        totalRooms += c.rm; totalLabels += c.lbl; totalFurniture += c.fur;
+        return `${g.levelId}=${g.roots.length}(rm${c.rm}+lbl${c.lbl}+fur${c.fur})`;
+      })
       .join(', ');
     console.log(
       `[§LEVEL-STACK] Built ${this._levelGroups.length} level groups` +
-      ` (${this._levelGroups.reduce((acc, g) => acc + g.roots.length, 0)} roots total)` +
+      ` (${this._levelGroups.reduce((acc, g) => acc + g.roots.length, 0)} roots total;` +
+      ` rooms ${totalRooms}, labels ${totalLabels}, furniture ${totalFurniture})` +
       ` — per level: ${perLevel}`
     );
   }
