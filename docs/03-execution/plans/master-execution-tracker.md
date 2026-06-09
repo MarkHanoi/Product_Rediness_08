@@ -2737,3 +2737,43 @@ core + Node tests → editor executor dispatching commands (P6) → §DIAG line 
 additive to the existing interactive tools. Status: **documented, NOT started** (pending founder go).
 
 *Addendum 2026-06-09 — §24 DOC-AUTO analysis + plan added (4-agent substrate/contracts audit).*
+
+### §24.1 — DOC-AUTO implementation status (2026-06-09)
+
+The pure DOC-AUTO decision layer is **IMPLEMENTED + tested**; the remaining work is editor wiring.
+Governed by **[C24.1](../../02-decisions/contracts/C24.1-AUTO-DOCUMENTATION-SHEETS-PROTOCOL.md)** (DRAFT).
+
+| Item | What shipped | Deploy | Tests |
+|---|---|---|---|
+| **DS5** | `set-out` `DimensionAutoMode` producer mode (offset-from-wall-start + width + overall; `hostWallId` on door/window) — `geometry-kernel/dimensions/producer.ts` | v80 | gk 600/600 (+6) |
+| **DS1** | `buildSheetFromViews` — N views → scale-fit grid sheet (`drawing-primitives/sheet`) | v81 | dp 138/138 (+11) |
+| **DS3** | `computeBuildingElevationMarks` — 4 N/S/E/W exterior marks from footprint (`ai-host/houseLayout/buildingElevations.ts`) | v83 | ai-host (+5) |
+| **DS4** | `roomCropRegion` + `computeRoomInteriorElevationMarks` — per-room crop + 4 interior elevations (`roomDocumentation.ts`) | v84 | ai-host (+7) |
+| **DS6** | `planDocumentationSet` — numbered sheet plan (A-1xx plans · A-2xx elevations · A-3xx set-out · A-4xx room sheets) (`documentationSet.ts`) | v85 | ai-host (+5) |
+| **C24.1** | Auto-Documentation Sheets Protocol contract (DRAFT) + README | v86 | — |
+
+**ai-host 2082/2082** with all DOC-AUTO cores. **REMAINING (editor wiring, untestable without a deploy —
+do as ONE focused task):** the `docSheets` executor (`planDocumentationSet` → `view.createDefinition`
+per `DocViewSpec` → `buildSheetFromViews` → `sheet.create`/`addViewport` → DrawingSet) + **DS2**
+(`sheet.export.pdf` command + an "Export PDF" surface, wiring the existing `sheetToPdfBytes`).
+Open refinements: per-wall isolation in interior elevations; principal-axis (vs bbox) framing for
+non-rectangular footprints; force-directed label placement (deferred per C24.1 §1.5).
+
+### §24.2 — House-layout fixes shipped this session (2026-06-09)
+
+| Fix | What | Deploy | Tests |
+|---|---|---|---|
+| **§STAIR-ANTI-FRAGMENT** | stair scorer prefers a CORNER carve (one dominant rect) over a fragmenting MID-EDGE → stops `§FEASIBILITY-ALLOC` room drops | v78 | ai-host (+3) |
+| **§STAIR-HALF-LANDING-INWARD** | U-stair second flight folds toward the plate interior (`StairCore.interiorSide` from position kind) | v81 | ai-host (+4) |
+| **§WJ-SKEW-3** | partition weld tol 0.45→0.60 m so rotated-plate (~−44°) Y-junction endpoints fuse → closes `§MULTI-CLUSTER pinned=0 trimmed=3` room merge | v81 | ai-host (+2) |
+| **§STAIR-CONTAIN** | validate the FULL world-frame stair footprint vs the rotated shell + nudge the whole body inward until contained (`computeInwardContainmentOffset`) — the deeper cure for the systematic `cornersInShell=1/4` | v82 | ai-host (+5) |
+| **§WALL-TOP-AT-SLAB-BOTTOM** | ground shell wall head = L1 floor (no protrusion into the floor-above plan) | v77 | — |
+| **§BND-90-DEFAULT-ON** | orthogonal boundary lock default-on + 8°→22° snap (rectilinear plots) | v77 | — |
+
+Reference: **[STAIR-CREATION-PIPELINE-AND-ANCHOR-ANALYSIS.md](../../04-reference/STAIR-CREATION-PIPELINE-AND-ANCHOR-ANALYSIS.md)**
+(stair pipeline + the founder-confirmed start-corner-anchor analysis). **Queued (founder-flagged, needs a
+prod test to pick the path):** lower-level INTERIOR walls → upper-slab top vs the exporter beyond-linework
+root (L1-plan ghost lines); per-room windowless-habitable recovery; the stair-head-axis upper-corridor
+alignment (A.27 P6).
+
+*Addendum 2026-06-09 — §24.1 DOC-AUTO impl status (DS1-DS6 cores + C24.1 shipped) + §24.2 house-layout fixes (stair cure + rotated-plate merge).*
