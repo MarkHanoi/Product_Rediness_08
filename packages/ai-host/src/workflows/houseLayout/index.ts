@@ -33,6 +33,9 @@ export type { WeldWall, WeldOptions, XZ as WeldXZ } from './weldPartitionsToShel
 // §STAIR-CONTAIN (2026-06-09) — pure full-footprint inward-containment for the house stair.
 export { computeInwardContainmentOffset, allCornersInside } from './stairContainment.js';
 export type { XZ2 as StairContainXZ } from './stairContainment.js';
+// DOC-AUTO DS3 (2026-06-09) — pure building-exterior elevation marks from a footprint.
+export { computeBuildingElevationMarks } from './buildingElevations.js';
+export type { BuildingElevationMark, BuildingElevationOptions } from './buildingElevations.js';
 export type {
     HouseLayoutResult,
     ScoredHouseLayoutOption,

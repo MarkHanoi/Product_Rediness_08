@@ -288,6 +288,8 @@ export {
   // §STAIR-CONTAIN (2026-06-09) — pure full-footprint inward-containment for the house stair.
   computeInwardContainmentOffset,
   allCornersInside,
+  // DOC-AUTO DS3 (2026-06-09) — pure building-exterior elevation marks from a footprint.
+  computeBuildingElevationMarks,
 } from './workflows/houseLayout/index.js';
 export type {
   WeldWall,
