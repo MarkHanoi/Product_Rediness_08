@@ -2697,3 +2697,43 @@ that incremental gate/score tweaks will NOT fix**. Two structural cures, both al
 > for PM-6 + PM-7 + the tunnels (PM-3) + the generic regions (G9), all at once, by construction. The
 > engine is ready (8 clean rooms); the solver is what makes the editor render them as separate, windowed
 > rooms. Everything else is a band-aid on the slicing solver this replaces.
+
+---
+
+## §24 — Auto-Documentation Sheets (`DOC-AUTO`) — analysis + plan (2026-06-09)
+
+Founder brief: a **full set of PDF-ready documentation sheets for each floor plan and each room** —
+per-level plan sheets, automatic building elevations, per-room interior elevations + cropped plan
+views, and an automatic wall/door/window **SET-OUT plan with core dimensions** — all auto-placed on
+numbered sheets. Full analysis/gap-audit/roadmap: **[AUTO-DOCUMENTATION-SHEETS-PLAN.md](AUTO-DOCUMENTATION-SHEETS-PLAN.md)**.
+
+**Headline (4-agent codebase + contracts sweep):** ~80% of the substrate already EXISTS — Sheet/
+Viewport/TitleBlock schemas (L0), `drawing-primitives` (L2, incl `buildSheetFromRooms`),
+`plugins/sheets` (11+ handlers + book-exporter), `DrawingSetStore`, `sheetToPdfBytes` (pdf-export),
+ViewDefinition (plan/elevation/section first-class) + `DefaultViewsManager` + **§FLR-VIEWS already
+auto-creates per-storey plan views**, full elevation/section projection via EdgeProjectorService,
+`CreateElevationMarkCommand` (auto-detects room + scopes), a 6-kind `DimensionString` schema + a
+5-mode `produceDimensions()` auto-producer (per-element/room-bounding/elevation/section/rcp), and
+grid/datum injection. **The gap is the ORCHESTRATION layer** that strings these into an auto sheet set.
+
+**Governance:** complies with C24 (Sheet Composition) · C29 (PDF Vector Export) · C30 (Drawing Set
+Mgmt) · C34 (Print & Drawing Standards) · SPEC-04 (Drawing Engine) · SPEC-30 (Plan-View Perf) ·
+ADR-016/ADR-039. **Needs ONE new contract — C24.1 "Auto-Documentation Sheets Protocol"** (auto vs
+interactive authoring, per-room/per-level coverage rule, auto-numbering, rule-based label/dim
+placement) before the dimensioning/assembly items land.
+
+**Tracked items (☐ queued — sequence in §7 of the plan doc):**
+| Item | Scope | Maps gap |
+|---|---|---|
+| **DS1** | Per-level plan sheets (reuse §FLR-VIEWS + new pure `viewToSheet` factory) | G1+G2 |
+| **DS2** | `sheet.export.pdf` command + "Export PDF" UI (wire `sheetToPdfBytes`; bridge book-exporter) | G3 |
+| **DS3** | Building elevations — auto-place 4 N/S/E/W exterior marks from footprint → views → sheet | G4 |
+| **DS4** | Per-room interior elevations + cropped plan views (cropRegion=room bbox; per-wall isolation) → room sheets | G5+G6 |
+| **DS5** | Core dimensions / SET-OUT plan — new `set-out` producer mode (grid/datum-keyed chains + opening offset/width callouts) | G7 |
+| **DS6** | Auto sheet set + numbering (A-1xx/2xx/3xx/4xx) + DrawingSet wiring + book PDF | G8 |
+
+**Build order:** DS2 → DS1 → DS3 → DS5 (needs C24.1 draft) → DS4 → DS6. Each: pure deterministic
+core + Node tests → editor executor dispatching commands (P6) → §DIAG line + OTel span (P8); purely
+additive to the existing interactive tools. Status: **documented, NOT started** (pending founder go).
+
+*Addendum 2026-06-09 — §24 DOC-AUTO analysis + plan added (4-agent substrate/contracts audit).*
