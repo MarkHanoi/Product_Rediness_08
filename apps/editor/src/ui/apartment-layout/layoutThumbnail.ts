@@ -203,6 +203,17 @@ export function buildLayoutThumbnailSvg(option: LayoutOption, opts: ThumbnailOpt
     const mapX = (x: number): number => offX + (x - minX) * scale;
     const mapY = (y: number): number => offY + (maxY - y) * scale; // flip: north up
 
+    // §PREVIEW-SHELL-FIDELITY (2026-06-09, founder feedback) — clamp a mm plan
+    // point to the fitted bounding box so NO opening mark (window/door) can be
+    // drawn beyond the perimeter shell. Window spans derived from a host-wall
+    // `offset + width` that overruns the wall, or world-XZ spans that fall
+    // slightly outside the shared building bounds, were poking THROUGH/OUTSIDE
+    // the perimeter; this keeps every glazing/leaf mark inside the footprint so
+    // it reads as a symbol sitting IN the wall. A tiny epsilon avoids
+    // marks vanishing exactly on the edge line.
+    const clampXmm = (x: number): number => x < minX ? minX : x > maxX ? maxX : x;
+    const clampYmm = (y: number): number => y < minY ? minY : y > maxY ? maxY : y;
+
     // 1. Room polygons (BENEATH walls) — filled by occupancy. Each polygon
     //    carries `data-room-name` + class `alm-room-polygon` so the modal can
     //    wire click → focus the matching `area_n_<name>` input (§CLICK-FOCUS).
@@ -238,8 +249,34 @@ export function buildLayoutThumbnailSvg(option: LayoutOption, opts: ThumbnailOpt
         return `<text x="${f1(cx)}" y="${f1(cy)}" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="10" fill="#0f172a" pointer-events="none">${nameLine}${areaLine}</text>`;
     }).join('');
 
-    // 3. Walls.
-    const wallEls = walls.map(w =>
+    // 3a. §PREVIEW-SHELL-FIDELITY — the perimeter SHELL drawn as ONE clear,
+    //     CLOSED ring with a heavier, distinct stroke so the building outline
+    //     reads unambiguously and visually CONTAINS every interior wall /
+    //     opening mark. Two sources, in priority order:
+    //       (1) the external walls (`LayoutWall.isExternal`) when supplied —
+    //           drawn as a heavy poly-line so the true shell geometry shows; or
+    //       (2) the fitted bounding box as a closed rectangle ring fallback
+    //           (covers the common rectilinear shell + any option whose walls
+    //           don't flag isExternal). The ring sits UNDER the interior walls
+    //           and openings but ABOVE the room fills.
+    const shellW = wallW + 1.6;
+    const externalWalls = walls.filter(w => w.isExternal);
+    let shellEls = '';
+    if (externalWalls.length > 0) {
+        shellEls = externalWalls.map(w =>
+            `<line x1="${f1(mapX(w.start.x))}" y1="${f1(mapY(w.start.y))}" x2="${f1(mapX(w.end.x))}" y2="${f1(mapY(w.end.y))}" stroke="${wallColor}" stroke-width="${shellW}" stroke-linecap="square" stroke-linejoin="miter"/>`,
+        ).join('');
+    } else {
+        // Bounding-box ring fallback: a closed rectangle on the fitted shell extent.
+        const x0 = f1(mapX(minX)), x1 = f1(mapX(maxX));
+        const y0 = f1(mapY(minY)), y1 = f1(mapY(maxY));
+        shellEls = `<path class="alm-shell-ring" d="M ${x0} ${y0} L ${x1} ${y0} L ${x1} ${y1} L ${x0} ${y1} Z" fill="none" stroke="${wallColor}" stroke-width="${shellW}" stroke-linejoin="miter"/>`;
+    }
+
+    // 3b. Interior walls — same as before. (External walls are already part of
+    //     the heavy shell ring above; drawing them again at the thin weight is
+    //     harmless overdraw but we skip them so the shell stroke stays crisp.)
+    const wallEls = walls.filter(w => !w.isExternal).map(w =>
         `<line x1="${f1(mapX(w.start.x))}" y1="${f1(mapY(w.start.y))}" x2="${f1(mapX(w.end.x))}" y2="${f1(mapY(w.end.y))}" stroke="${wallColor}" stroke-width="${wallW}" stroke-linecap="round"/>`,
     ).join('');
 
@@ -254,11 +291,16 @@ export function buildLayoutThumbnailSvg(option: LayoutOption, opts: ThumbnailOpt
         const dy = w.end.y - w.start.y;
         const len = Math.hypot(dx, dy) || 1;
         const ux = dx / len, uy = dy / len;
-        // Opening span endpoints in mm.
-        const ax = w.start.x + ux * d.offset;
-        const ay = w.start.y + uy * d.offset;
-        const bx = w.start.x + ux * (d.offset + d.width);
-        const by = w.start.y + uy * (d.offset + d.width);
+        // Opening span endpoints in mm. §PREVIEW-SHELL-FIDELITY: clamp the
+        // along-wall extent to the host wall span [0, len] so an overrunning
+        // offset/width can't push the opening past the wall, then clamp the
+        // endpoints into the fitted bbox.
+        const o0 = Math.max(0, Math.min(d.offset, len));
+        const o1 = Math.max(0, Math.min(d.offset + d.width, len));
+        const ax = clampXmm(w.start.x + ux * o0);
+        const ay = clampYmm(w.start.y + uy * o0);
+        const bx = clampXmm(w.start.x + ux * o1);
+        const by = clampYmm(w.start.y + uy * o1);
         // SVG-y flip for the arc-end (the door swings INTO the room — we don't
         // know which side here, so we draw the arc on the LEFT of the wall
         // direction; in plan that's "above" in screen y for east-pointing walls
@@ -286,9 +328,11 @@ export function buildLayoutThumbnailSvg(option: LayoutOption, opts: ThumbnailOpt
     //    white gap + a small bar in PURPLE (matches the interior door symbol's
     //    palette so the user can read the front door at a glance).
     const renderSpanSymbol = (span: PerimeterSpan, kind: 'window' | 'door'): string => {
-        // mm coords
-        const axMm = span.a.x * 1000, ayMm = span.a.z * 1000;
-        const bxMm = span.b.x * 1000, byMm = span.b.z * 1000;
+        // mm coords — §PREVIEW-SHELL-FIDELITY: clamp into the fitted bbox so a
+        // world-XZ span sitting on (or fractionally past) the shell edge never
+        // draws OUTSIDE the perimeter ring.
+        const axMm = clampXmm(span.a.x * 1000), ayMm = clampYmm(span.a.z * 1000);
+        const bxMm = clampXmm(span.b.x * 1000), byMm = clampYmm(span.b.z * 1000);
         const sx = mapX(axMm), sy = mapY(ayMm);
         const ex = mapX(bxMm), ey = mapY(byMm);
         const widthPx = Math.hypot(ex - sx, ey - sy);
@@ -322,10 +366,16 @@ export function buildLayoutThumbnailSvg(option: LayoutOption, opts: ThumbnailOpt
         const dy = host.end.y - host.start.y;
         const len = Math.hypot(dx, dy) || 1;
         const ux = dx / len, uy = dy / len;
-        const ax = host.start.x + ux * w.offset;
-        const ay = host.start.y + uy * w.offset;
-        const bx = host.start.x + ux * (w.offset + w.width);
-        const by = host.start.y + uy * (w.offset + w.width);
+        // §PREVIEW-SHELL-FIDELITY: clamp the opening's along-wall extent to the
+        // host wall span [0, len] so an offset/width that OVERRUNS the wall
+        // (the founder's "windows going OUT OF the perimeter") can't draw past
+        // the corner; then clamp the resulting endpoints into the fitted bbox.
+        const o0 = Math.max(0, Math.min(w.offset, len));
+        const o1 = Math.max(0, Math.min(w.offset + w.width, len));
+        const ax = clampXmm(host.start.x + ux * o0);
+        const ay = clampYmm(host.start.y + uy * o0);
+        const bx = clampXmm(host.start.x + ux * o1);
+        const by = clampYmm(host.start.y + uy * o1);
         const sx = mapX(ax), sy = mapY(ay);
         const ex = mapX(bx), ey = mapY(by);
         const widthPx = Math.hypot(ex - sx, ey - sy);
@@ -359,5 +409,8 @@ export function buildLayoutThumbnailSvg(option: LayoutOption, opts: ThumbnailOpt
         }
     }
 
-    return `${open}${bgRect}${roomEls}${wallEls}${doorEls}${windowEls}${perimDoorEls}${optionWindowEls}${labelEls}${scaleBarEls}${close}`;
+    // §PREVIEW-SHELL-FIDELITY draw order: room fills → heavy shell ring →
+    // interior walls → openings → labels → scale bar. The shell ring sits
+    // beneath the openings so window/door symbols read as sitting IN the wall.
+    return `${open}${bgRect}${roomEls}${shellEls}${wallEls}${doorEls}${windowEls}${perimDoorEls}${optionWindowEls}${labelEls}${scaleBarEls}${close}`;
 }

@@ -33,9 +33,15 @@ describe('buildLayoutThumbnailSvg (A5-modal-core)', () => {
         // Walls: one <line> per wall + one <line> per door (opening gap).
         // (2 walls + 1 door's opening line = 3 lines.)
         expect((svg.match(/<line /g) ?? []).length).toBe(3);
-        // Each door = ONE swing-arc path + ONE hinge circle.
-        expect((svg.match(/<path /g) ?? []).length).toBe(1);
+        // §PREVIEW-SHELL-FIDELITY: with no isExternal walls a bbox shell RING is
+        // emitted as a <path class="alm-shell-ring">. Count the DOOR arc paths
+        // specifically (arc paths use the "A" elliptical-arc command) so the
+        // shell ring doesn't pollute the door-symbol count: 1 door = 1 arc.
+        const arcPaths = svg.match(/<path d="M [^"]*A[^"]*"/g) ?? [];
+        expect(arcPaths.length).toBe(1);
         expect((svg.match(/<circle /g) ?? []).length).toBe(1);
+        // The shell ring is present and distinct (closed Z path, no arc).
+        expect(svg).toContain('class="alm-shell-ring"');
     });
 
     it('keeps drawn coordinates inside the padded box', () => {
@@ -66,7 +72,8 @@ describe('buildLayoutThumbnailSvg (A5-modal-core)', () => {
             { showScaleBar: false },
         );
         // No door symbols rendered: only the 2 wall lines, no arc, no hinge.
-        expect((svg.match(/<path /g) ?? []).length).toBe(0);
+        // (The shell-ring <path> still exists, so count DOOR arc paths only.)
+        expect((svg.match(/<path d="M [^"]*A[^"]*"/g) ?? []).length).toBe(0);
         expect((svg.match(/<circle /g) ?? []).length).toBe(0);
         expect((svg.match(/<line /g) ?? []).length).toBe(2);
     });
@@ -375,6 +382,101 @@ describe('buildLayoutThumbnailSvg (A5-modal-core)', () => {
             const base = buildLayoutThumbnailSvg(opt(), { showScaleBar: false });
             const delta = (svg.match(/<line /g) ?? []).length - (base.match(/<line /g) ?? []).length;
             expect(delta).toBe(4);   // 2 lines per window × 2 windows
+        });
+    });
+
+    // §PREVIEW-SHELL-FIDELITY (2026-06-09, founder feedback) — the perimeter
+    // shell reads as ONE clear closed ring, and NO opening mark pokes outside it.
+    describe('§PREVIEW-SHELL-FIDELITY perimeter ring + opening clamp', () => {
+        // 5 × 4 m rectilinear shell from a single room polygon (no isExternal walls).
+        const shellOpt = (over: Partial<LayoutOption> = {}): LayoutOption => ({
+            summary: '', corridorWidthMin: 0, doors: [], walls: [],
+            rooms: [{
+                name: '', type: 'living', area: 0, windowCount: 0,
+                hasDirectAccess: true, adjacentTo: [],
+                polygon: [
+                    { x: 0, y: 0 }, { x: 5000, y: 0 },
+                    { x: 5000, y: 4000 }, { x: 0, y: 4000 },
+                ],
+                occupancy: 'living-room',
+            }],
+            ...over,
+        });
+
+        function bbox(svg: string): { minX: number; maxX: number; minY: number; maxY: number } {
+            const nums = [...svg.matchAll(/(?:x1|x2|cx)="(-?[\d.]+)"/g)].map(m => Number(m[1]));
+            const ynums = [...svg.matchAll(/(?:y1|y2|cy)="(-?[\d.]+)"/g)].map(m => Number(m[1]));
+            // include the shell-ring path corners too
+            for (const m of svg.matchAll(/[ML] (-?[\d.]+) (-?[\d.]+)/g)) {
+                nums.push(Number(m[1])); ynums.push(Number(m[2]));
+            }
+            return {
+                minX: Math.min(...nums), maxX: Math.max(...nums),
+                minY: Math.min(...ynums), maxY: Math.max(...ynums),
+            };
+        }
+
+        it('emits a distinct closed shell RING path when no isExternal walls are present', () => {
+            const svg = buildLayoutThumbnailSvg(shellOpt(), { showScaleBar: false });
+            expect(svg).toContain('class="alm-shell-ring"');
+            // Closed rectangle ring → ends in Z.
+            expect(svg).toMatch(/class="alm-shell-ring" d="M [^"]*Z"/);
+        });
+
+        it('draws isExternal walls as the HEAVY shell stroke (not the bbox ring)', () => {
+            const wallW = 2.5;
+            const svg = buildLayoutThumbnailSvg({
+                summary: '', corridorWidthMin: 0, doors: [], rooms: [],
+                walls: [
+                    { start: { x: 0, y: 0 }, end: { x: 5000, y: 0 }, isExternal: true },
+                    { start: { x: 5000, y: 0 }, end: { x: 5000, y: 4000 }, isExternal: true },
+                    { start: { x: 2000, y: 0 }, end: { x: 2000, y: 4000 } }, // interior
+                ],
+            }, { showScaleBar: false, wallWidth: wallW });
+            // No bbox-ring fallback when external walls exist.
+            expect(svg).not.toContain('alm-shell-ring');
+            // The 2 external walls render at the heavier shell stroke (wallW + 1.6),
+            // the interior wall at the normal wallW.
+            const shellStroke = `stroke-width="${wallW + 1.6}"`;
+            expect((svg.match(new RegExp(shellStroke.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) ?? []).length).toBe(2);
+        });
+
+        it('clamps an option.window whose offset+width OVERRUNS the host wall to within the perimeter bbox', () => {
+            // Host wall (wallRef 0) spans x∈[0,5000] at y=0. A window with
+            // offset 4500 + width 2000 would run to x=6500 — OUT of the shell —
+            // without the clamp.
+            const svg = buildLayoutThumbnailSvg(shellOpt({
+                walls: [{ start: { x: 0, y: 0 }, end: { x: 5000, y: 0 } }],
+                windows: [{ wallRef: 0, offset: 4500, width: 2000, height: 1300, sillHeight: 900 }],
+            }), { width: 200, height: 150, padding: 10, showScaleBar: false });
+            const bb = bbox(svg);
+            // The shell ring maps x∈[0,5000] to a fixed pixel span; the glazing
+            // line must not exceed the ring's right edge. Pull the shell-ring max-x
+            // and assert no opening x exceeds it.
+            const ring = svg.match(/class="alm-shell-ring" d="([^"]+)"/)![1]!;
+            const ringXs = [...ring.matchAll(/[ML] (-?[\d.]+) /g)].map(m => Number(m[1]));
+            const ringMaxX = Math.max(...ringXs);
+            expect(bb.maxX).toBeLessThanOrEqual(ringMaxX + 0.5);
+        });
+
+        it('clamps a windowSpansWorld span lying OUTSIDE the shared bounds into the perimeter', () => {
+            // boundsMm shell is 5×4 m (0..5000 × 0..4000 mm). A window world-span
+            // on the EAST wall running x∈[5.5, 6.0] m (past the shell) at
+            // z∈[1.0, 2.0] m — the x is past the east edge so must be clamped to
+            // maxX (5000 mm) → the glazing mark lands ON the east ring edge, not
+            // beyond it.
+            const svg = buildLayoutThumbnailSvg(shellOpt(), {
+                width: 200, height: 150, padding: 10, showScaleBar: false,
+                boundsMm: { minX: 0, maxX: 5000, minY: 0, maxY: 4000 },
+                windowSpansWorld: [{ a: { x: 5.5, z: 1.0 }, b: { x: 6.0, z: 2.0 } }],
+            });
+            const ring = svg.match(/class="alm-shell-ring" d="([^"]+)"/)![1]!;
+            const ringXs = [...ring.matchAll(/[ML] (-?[\d.]+) /g)].map(m => Number(m[1]));
+            const ringMaxX = Math.max(...ringXs);
+            // The glazing line (sky-blue) x coords must sit ON/inside the ring edge.
+            const glazing = svg.match(/stroke="#0ea5e9"[^/]*\/>/)![0]!;
+            const gx = [...glazing.matchAll(/x[12]="(-?[\d.]+)"/g)].map(m => Number(m[1]));
+            for (const x of gx) expect(x).toBeLessThanOrEqual(ringMaxX + 0.5);
         });
     });
 
