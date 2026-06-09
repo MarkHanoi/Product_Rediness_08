@@ -2800,6 +2800,7 @@ non-rectangular footprints; force-directed label placement (deferred per C24.1 �
 | **§LANDING-NOT-HALL (G14)** | entrance hall is GROUND-ONLY; upper floors get a Landing (stair arrival = circulation). **Doctrine = [ADR-0063](../../02-decisions/adrs/0063-house-generative-layout-doctrine.md) H4.** | v91 (da48f3e1) | house |
 | **§WINDOW-MANDATORY-RESCUE** | a `windowMandatory` room never ends up windowless (rescue pass in window emission) | v92 (3388b75d) | ai-host/layout |
 | **§LEVEL-STACK** | instanced walls lift with their level; collapse restores the 3D view exactly (editor level-stack visualisation fix) | v93 (d81bdf0a) | editor |
+| **§RECTIFY-SHELL-PROJECT** | by-construction cure for the rotated/sheared-plate room-merge: project bbox-edge interior-partition endpoints onto the REAL shell (in the rotated frame, before rotate-back) so they meet the executor perimeter ring within 20 mm — the weld becomes a safety net. Verified root: §RECTIFY-QUAD tiles the bbox while the executor ring is the real sheared quad (~1.9–2.1 m divergence). No-op (byte-identical) for the apartment + rectilinear plates. `rectShellProject.test.ts` + `tglRunDeterministicLayout.test.ts`. **Doctrine = [ADR-0063](../../02-decisions/adrs/0063-house-generative-layout-doctrine.md) H5.** | v95 (uncommitted) | ai-host/layout |
 
 Reference: **[STAIR-CREATION-PIPELINE-AND-ANCHOR-ANALYSIS.md](../../04-reference/STAIR-CREATION-PIPELINE-AND-ANCHOR-ANALYSIS.md)**
 (stair pipeline + the founder-confirmed start-corner-anchor analysis). **Master algorithm reference:**

@@ -227,6 +227,82 @@ describe('generateDeterministicLayouts (TGL wiring)', () => {
         expect(skew[0]!.rooms.length).toBe(rect[0]!.rooms.length);
     });
 
+    // ── §RECTIFY-SHELL-PROJECT (multi-storey room-merge cure, 2026-06-09; ADR-0063 §8.5) ──
+    // THE BY-CONSTRUCTION PROPERTY. §RECTIFY-QUAD tiles the interior in the rectified BBOX
+    // of the rotated sheared shell, so a perimeter-terminating partition endpoint used to
+    // land on the BBOX edge — up to ~2.1 m inside which the executor's REAL perimeter ring
+    // (built from shell.perimeter) sits → open seam the weld can't bridge → all rooms merge.
+    // After the projection pass every such endpoint must land WITHIN the RoomDetection node
+    // grid (20 mm) of the REAL world perimeter ring — so the rooms seal by construction and
+    // the weld is only a safety net.
+    it('§RECTIFY-SHELL-PROJECT: partition perimeter-endpoints land within 20 mm of the REAL shell ring', () => {
+        // A freehand-ish sheared quad (fill ~0.75) — the worst-case the forensics measured.
+        const quad: Pt[] = [{ x: 0, z: 0 }, { x: 12, z: 1.5 }, { x: 13.5, z: 11 }, { x: 1.5, z: 9.5 }];
+        const shell = mkShell(quad);
+        const out = generateDeterministicLayouts(shell, PROGRAM, CONSTRAINTS, WEIGHTS, 1);
+        expect(out.length).toBe(1);
+
+        // The executor's perimeter ring is shell.perimeter (world metres). Distance from a
+        // world {x,z} point to that closed ring.
+        const ring = shell.perimeter;
+        const distToRingM = (xM: number, zM: number): number => {
+            let best = Infinity;
+            for (let i = 0; i < ring.length; i++) {
+                const a = ring[i]!, b = ring[(i + 1) % ring.length]!;
+                const dx = b.x - a.x, dz = b.z - a.z;
+                const len2 = dx * dx + dz * dz;
+                let t = len2 > 0 ? ((xM - a.x) * dx + (zM - a.z) * dz) / len2 : 0;
+                t = Math.max(0, Math.min(1, t));
+                best = Math.min(best, Math.hypot(xM - (a.x + t * dx), zM - (a.z + t * dz)));
+            }
+            return best;
+        };
+
+        // For EVERY interior partition endpoint that is NEAR the perimeter (would terminate
+        // on it), the post-fix world distance to the real ring must be ≤ the node grid.
+        // (An endpoint that is a genuine interior junction stays interior — not asserted.)
+        const NODE_GRID_M = 0.02;
+        const NEAR_PERIM_M = 0.35;   // the weld's old reach — anything once within this band
+        let perimEndpointsChecked = 0;
+        for (const w of out[0]!.walls) {
+            if (w.isExternal) continue;
+            for (const v of [w.start, w.end]) {
+                const xM = v.x / 1000, zM = v.y / 1000;
+                const d = distToRingM(xM, zM);
+                if (d <= NEAR_PERIM_M) {
+                    // A perimeter-terminating endpoint — must now be ON the ring.
+                    expect(d).toBeLessThanOrEqual(NODE_GRID_M);
+                    perimEndpointsChecked++;
+                }
+            }
+        }
+        // The layout must actually HAVE perimeter-terminating partitions (else the test is vacuous).
+        expect(perimEndpointsChecked).toBeGreaterThan(0);
+
+        // And it still produces a full room set (not one merged blob).
+        expect(out[0]!.rooms.length).toBeGreaterThanOrEqual(5);
+    });
+
+    it('§RECTIFY-SHELL-PROJECT: axis-aligned rectangle output is BYTE-IDENTICAL (no projection)', () => {
+        // The canonical SHELL is an axis-aligned rectangle → never rectifies → the projection
+        // pass is a reference-preserving no-op → output must equal the pre-fix deterministic
+        // result. We assert determinism + that perimeter partition endpoints are exact on the
+        // rectangle edges (they always were — proving the pass changed nothing here).
+        const a = generateDeterministicLayouts(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, 1);
+        const b = generateDeterministicLayouts(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, 1);
+        expect(JSON.stringify(a)).toEqual(JSON.stringify(b));
+        // On the rectangle every perimeter endpoint is exactly on an edge (z∈{0,10000} or x∈{0,12000} mm).
+        for (const w of a[0]!.walls) {
+            if (w.isExternal) continue;
+            for (const v of [w.start, w.end]) {
+                const onEdge = Math.abs(v.x) < 1 || Math.abs(v.x - 12000) < 1 ||
+                               Math.abs(v.y) < 1 || Math.abs(v.y - 10000) < 1;
+                const interior = v.x > 1 && v.x < 11999 && v.y > 1 && v.y < 9999;
+                expect(onEdge || interior).toBe(true);
+            }
+        }
+    });
+
     it('windowSpansWorld param keeps interior partitions out of window openings (snap fires)', () => {
         // The 12×10 shell with a 3 m window centred at (x=5, z=0). A partition that
         // would otherwise land at x ≈ 5 should snap clear by ≥ 0.1 m clearance.

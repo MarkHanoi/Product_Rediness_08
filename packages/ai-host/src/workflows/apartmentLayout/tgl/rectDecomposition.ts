@@ -133,6 +133,150 @@ export function rectifyConvexQuad(poly: readonly Pt[], minFill = 0.5): Pt[] {
     ];
 }
 
+// ── §RECTIFY-SHELL-PROJECT (multi-storey room-merge cure, 2026-06-09) ─────────
+//
+// THE CURE for the rotated/sheared-plate room-merge (forensic root cause, ADR-0063
+// §8.5). §RECTIFY-QUAD tiles the interior partitions inside the AXIS-ALIGNED BOUNDING
+// RECTANGLE of the (principal-axis-rotated) sheared shell — so a partition endpoint
+// that should terminate on the PERIMETER lands on the BBOX edge instead. The executor's
+// perimeter ring (`HouseLayoutExecutor._buildPerimeterShell`, built from
+// `storey.footprint === shell.perimeter`) is the REAL sheared shell, which sits INSIDE
+// the bbox by up to ~1.9–2.1 m on a freehand quad (measured: a 0.75-fill quad diverges
+// 2.12 m at a corner). The 0.60 m weld (§SHELL-SNAP-WIDEN) cannot bridge that → the
+// partition never reaches the perimeter → RoomDetectionEngine floods across the open
+// seam → every interior room merges into one.
+//
+// FIX (smallest, by-construction, engine-side): AFTER tiling in the rectified bbox and
+// BEFORE the principal-axis rotate-back, PROJECT every partition endpoint that lies on a
+// rectified-bbox EDGE OUTWARD/inward onto the REAL shell polygon edge — along the bbox
+// edge's perpendicular (vertical for the top/bottom bbox edge → keep x, move z to the
+// shell; horizontal for the left/right edge → keep z, move x). The interior tiling keeps
+// its clean rectangular benefit; only the perimeter-TERMINATING endpoints are moved onto
+// the true shell, so the partition perimeter contacts now meet the executor's real ring
+// within the RoomDetection node grid by construction (the weld becomes a safety net).
+//
+// SAFETY (no apartment / axis-aligned regression):
+//   • When `rectifyConvexQuad(realShell)` returns the shell UNCHANGED (axis-aligned
+//     rectangle, concave L/U/T, > 4 vertices, or sub-fill sheared quad → no rectify),
+//     this returns the walls UNCHANGED (reference-preserving) → BYTE-IDENTICAL. The
+//     apartment (which never rectifies its small flat plates) and every rectilinear
+//     shell are untouched.
+//   • Only endpoints WITHIN `edgeTolM` of a bbox edge are candidates — a genuinely
+//     interior junction (metres from any bbox edge) is never moved.
+//   • An endpoint is moved only if the projection target is found on the real ring and
+//     the move is ≤ `maxMoveM` (a sane cap; the bbox→shell gap is bounded by the shear).
+//   • Pure + deterministic; no I/O, no THREE, no DOM (L2 invariant).
+
+/** mm point in the LayoutOption frame (plan-y = world-z). */
+interface XYmm { x: number; y: number }
+
+/** Real-shell-projection tuning. Defaults match the RoomDetection 20 mm node grid +
+ *  the observed sheared-quad divergence band. */
+export interface ShellProjectOpts {
+    /** A bbox-edge endpoint is a candidate when within this (metres) of a bbox edge.
+     *  60 mm covers float / emitter dust without catching a true interior endpoint. */
+    readonly edgeTolM?: number;
+    /** Reject a projection that would move an endpoint further than this (metres) — a
+     *  guard against a pathological cast. The sheared-quad gap is bounded (≤ ~2.2 m on
+     *  a 0.5-fill quad), so 3 m never clips a legitimate move. */
+    readonly maxMoveM?: number;
+}
+
+/** Cast a ray from `p` in unit direction (dx,dz) and return the nearest forward
+ *  intersection distance with the closed polygon ring, or null if none within `maxT`. */
+function rayRingHit(p: Pt, dx: number, dz: number, ring: readonly Pt[], maxT: number): number | null {
+    let best: number | null = null;
+    for (let i = 0; i < ring.length; i++) {
+        const a = ring[i]!, b = ring[(i + 1) % ring.length]!;
+        const ex = b.x - a.x, ez = b.z - a.z;
+        // Solve p + t*d = a + s*e  →  t along the ray, s along the edge ([0,1]).
+        const denom = dx * ez - dz * ex;
+        if (Math.abs(denom) < EPS) continue;                 // parallel
+        const wx = a.x - p.x, wz = a.z - p.z;
+        const t = (wx * ez - wz * ex) / denom;
+        const s = (wx * dz - wz * dx) / denom;
+        if (t < -EPS || t > maxT + EPS) continue;
+        if (s < -EPS || s > 1 + EPS) continue;
+        if (best === null || t < best) best = Math.max(0, t);
+    }
+    return best;
+}
+
+/**
+ * §RECTIFY-SHELL-PROJECT — project bbox-edge partition endpoints onto the real shell.
+ *
+ * `walls` are LayoutOption walls (mm, plan-y = world-z) emitted in the principal-axis
+ * frame BEFORE rotate-back. `realShellPolyM` is the REAL (un-rectified) shell polygon
+ * in that SAME rotated frame (metres {x,z}) — the executor builds its perimeter ring
+ * from exactly this shape. Returns a NEW walls array with perimeter-terminating
+ * endpoints moved onto the real shell; on a non-rectified shell it returns `walls`
+ * UNCHANGED (same reference) so the apartment / axis-aligned paths are byte-identical.
+ *
+ * Exported for unit testing + reuse.
+ */
+export function projectPartitionEndpointsToShell<W extends { start: XYmm; end: XYmm; isExternal?: boolean }>(
+    walls: readonly W[],
+    realShellPolyM: readonly Pt[],
+    opts: ShellProjectOpts = {},
+): readonly W[] {
+    if (realShellPolyM.length < 3) return walls;
+    const rectified = rectifyConvexQuad(realShellPolyM);
+    // No rectify → the tiling frame === the real shell → nothing to project (byte-identical).
+    if (rectified.length === realShellPolyM.length) {
+        let identical = true;
+        for (let i = 0; i < rectified.length; i++) {
+            if (Math.abs(rectified[i]!.x - realShellPolyM[i]!.x) > EPS || Math.abs(rectified[i]!.z - realShellPolyM[i]!.z) > EPS) { identical = false; break; }
+        }
+        if (identical) return walls;
+    }
+    const bb = polygonBBox(rectified);
+    const edgeTolM = opts.edgeTolM ?? 0.06;
+    const maxMoveM = opts.maxMoveM ?? 3.0;
+    const realRing = realShellPolyM;
+
+    /** Project one mm endpoint (if on a bbox edge) onto the real shell; returns the
+     *  moved mm point or the original if no move applies. */
+    const project = (pt: XYmm): XYmm => {
+        const xM = pt.x / 1000, zM = pt.y / 1000;
+        const onLeft = Math.abs(xM - bb.x0) <= edgeTolM;
+        const onRight = Math.abs(xM - bb.x1) <= edgeTolM;
+        const onBottom = Math.abs(zM - bb.z0) <= edgeTolM;
+        const onTop = Math.abs(zM - bb.z1) <= edgeTolM;
+        if (!onLeft && !onRight && !onBottom && !onTop) return pt;   // interior endpoint
+        const p: Pt = { x: xM, z: zM };
+        // Cast INWARD along the bbox-edge perpendicular to find the real shell.
+        // Prefer the vertical cast for top/bottom edges, horizontal for left/right.
+        // A corner endpoint (on two edges) tries both and takes the shorter move.
+        let bestX = xM, bestZ = zM, bestMove = Infinity;
+        const tryCast = (dx: number, dz: number): void => {
+            const t = rayRingHit(p, dx, dz, realRing, maxMoveM);
+            if (t === null) return;
+            const nx = xM + dx * t, nz = zM + dz * t;
+            const move = Math.hypot(nx - xM, nz - zM);
+            if (move <= maxMoveM && move < bestMove) { bestMove = move; bestX = nx; bestZ = nz; }
+        };
+        if (onBottom) tryCast(0, +1);
+        if (onTop) tryCast(0, -1);
+        if (onLeft) tryCast(+1, 0);
+        if (onRight) tryCast(-1, 0);
+        if (!Number.isFinite(bestMove)) return pt;
+        return { x: Math.round(bestX * 1e9) / 1e6, y: Math.round(bestZ * 1e9) / 1e6 };
+    };
+
+    // Only project INTERIOR partitions. External/perimeter walls are dropped by the
+    // executor (skipExteriorWalls) and moving them would shift already-emitted window
+    // offsets (windows reference wallRef + offset-along-wall). Skip them entirely.
+    let moved = false;
+    const out = walls.map(w => {
+        if (w.isExternal === true) return w;
+        const start = project(w.start), end = project(w.end);
+        if (start !== w.start || end !== w.end) moved = true;
+        return { ...w, start, end };
+    });
+    // Reference-preserving no-op when nothing moved (keeps callers' byte-identical fast path).
+    return moved ? out : walls;
+}
+
 /**
  * Decompose a simple polygon (CW or CCW) into axis-aligned rectangles.
  * `minCellM` drops slivers narrower/shallower than that. Exact for rectilinear

@@ -384,6 +384,32 @@ Vertex-count + convexity (not fill-ratio) is the discriminator — an L can fill
 *more* than a sheared quad. The outer shell walls remain the real drawn shape (emitted
 separately and `§EXTEND-TO-PERIMETER`-extended); only the partition grid is rectified.
 
+**`§RECTIFY-SHELL-PROJECT` — the by-construction cure for the rotated/sheared-plate
+room-merge (2026-06-09, `rectDecomposition.ts` `projectPartitionEndpointsToShell`, line ~136;
+wired `runDeterministicLayout.ts` after `emitGeometry`, before `rotateOptionBack`).** The
+"only the partition grid is rectified" trade-off had a hidden cost: because the interior is
+tiled inside the **bbox** of the rotated sheared quad, a partition endpoint that should
+**terminate on the perimeter** lands on the **bbox edge** — but the executor's perimeter ring
+(`HouseLayoutExecutor._buildPerimeterShell`, built from `storey.footprint === shell.perimeter`)
+is the **real sheared shell**, which sits inside the bbox by up to **~1.9–2.1 m** on a
+freehand quad (measured: a 0.75-fill quad diverges **2.12 m** at a corner; a 0.95-fill quad
+~0.37 m). The 0.60 m weld (`§SHELL-SNAP-WIDEN`) cannot bridge that → an open seam →
+RoomDetection floods → **every interior room merges into one** (the founder's recurring house
+defect). The cure runs in the **same rotated frame the partitions were tiled in, before the
+rotate-back**: for every **interior** partition endpoint lying on a rectified-bbox edge, cast
+along that edge's perpendicular onto the **real** shell polygon and move the endpoint there
+(keep x for a top/bottom edge, keep z for a left/right edge — so a vertical partition stays
+vertical and meets the perimeter at the same plan position). The interior keeps its clean
+rectangular tiling; only the perimeter contacts move onto the true ring, so the partitions
+meet the executor ring **within the 20 mm RoomDetection node grid by construction** and the
+weld degrades to a safety net. **Safety:** when the shell does NOT rectify (axis-aligned
+rectangle, L/U/T, >4 vertices, or sub-fill quad), `projectPartitionEndpointsToShell` returns
+the walls **unchanged (same reference)** → byte-identical for the apartment + every
+rectilinear plate; external/perimeter walls are never moved (they are dropped by
+`skipExteriorWalls` and moving them would shift already-emitted window offsets). Proven by
+`rectShellProject.test.ts` (7 unit tests) + `tglRunDeterministicLayout.test.ts` (the
+by-construction ≤20 mm property on a sheared quad + an axis-aligned byte-identical assertion).
+
 ### 3.3 Principal-axis rotation for skewed plots
 
 `principalAxisAngle(poly)` (`rectDecomposition.ts:211`) returns the residual rotation to
@@ -1271,6 +1297,7 @@ raise a superseding ADR.
 |---|---|---|
 | `§PRINCIPAL-AXIS` | `runDeterministicLayout.ts`, `rectDecomposition.ts` | Rotate skewed plots to dominant-edge frame, untransform after. |
 | `§RECTIFY-QUAD` | `rectDecomposition.ts:43` | Convex quad → bbox so it tiles as one clean rect. |
+| `§RECTIFY-SHELL-PROJECT` | `rectDecomposition.ts` `projectPartitionEndpointsToShell`; wired `runDeterministicLayout.ts` (after `emitGeometry`, before `rotateOptionBack`) | Project bbox-edge interior-partition endpoints onto the REAL shell so they meet the executor perimeter ring within 20 mm by construction (the multi-storey room-merge cure; §8.5.5). No-op when the shell does not rectify → byte-identical for the apartment + rectilinear plates. |
 | `§AREA-FRACTIONS` | `programRules.ts`, `bubbleGraph.ts` | Size-scaled min/max room-area clamps. |
 | `§SINGLE-RECT-CARVE` | `subdivide.ts:402` | `[public \| corridor \| private]` slice + ensuite-from-master. |
 | `§STAIR-OBSTACLE-CARVE` / `§STAIR-KEEPOUT` | `subdivide.ts`, `enumerate.ts`, `rectDecomposition.ts` | Carve the stair core out before subdivide; keep a spine. |
@@ -1314,11 +1341,22 @@ raise a superseding ADR.
   offset rides `StairCore.containOffsetWorld` to the executor, and the executor's `§STAIR-CONTAIN`
   is now a verified no-op (a non-zero residual logs `§STAIR-CONTAIN ⚠ DESYNC`). Keep-out ==
   shipped footprint by construction; proven in `stairContainUpstream.test.ts`. §8.5.4.
-- **Rotated-ground weld-fallback merge — OPEN (§8.5.5).** Even with §GROUND-ENGINE-PERIMETER /
-  §UPPER-SHELL-WELD / §SHELL-ANCHOR-PRESERVE shipped, the rotated ground still takes the
-  `WELD-FALLBACK` path (`HouseLayoutExecutor.ts:496-503`); `WallJoinResolver` reports mostly
-  `§MULTI-CLUSTER … PASS-THROUGH` joins + one `§WJR-INVALID … self-cluster`. Downstream-coupled to
-  the stair desync.
+- **Rotated/sheared-plate room-merge — CURED 2026-06-09 (`§RECTIFY-SHELL-PROJECT`, §8.5.5).**
+  ROOT (forensically established): `§RECTIFY-QUAD` tiles the interior partitions inside the
+  **bbox** of the rotated sheared shell, so perimeter-terminating partition endpoints land on
+  the bbox edge — up to **~1.9–2.1 m** inside which the executor's real perimeter ring
+  (`storey.footprint === shell.perimeter`) sits. The 0.60 m weld (`§SHELL-SNAP-WIDEN`) cannot
+  bridge that → open seam → RoomDetection floods → one merged room. **Fixed** by
+  `projectPartitionEndpointsToShell` (`rectDecomposition.ts`, wired in `runDeterministicLayout.ts`
+  after `emitGeometry`, before `rotateOptionBack`): the interior partition endpoints on a
+  rectified-bbox edge are projected onto the **real** shell polygon in the rotated frame, so the
+  partitions meet the executor ring within the 20 mm RoomDetection node grid **by construction**;
+  the weld + `§UPPER-SHELL-WELD` + `§SHELL-ANCHOR-PRESERVE` degrade to a safety net. No-op (same
+  reference) when the shell does not rectify → byte-identical for the apartment + every
+  rectilinear plate. Proven in `rectShellProject.test.ts` + `tglRunDeterministicLayout.test.ts`
+  (≤20 mm by-construction property + axis-aligned byte-identical). Any *residual* on a non-quad
+  rotated plate that does not rectify is still caught by the `WELD-FALLBACK` path
+  (`HouseLayoutExecutor.ts`) and surfaced by the `§DIAG-SEAL` prod measurement.
 - **`§STAIR-CARVE-NO-DROP` (2026-06-08) — SHIPPED.** The dominant-rect corridor carve could
   drop a room; the subdivider now runs both carve + generic packing and keeps whichever drops
   fewer rooms (tie → carve, to preserve the corridor spine).

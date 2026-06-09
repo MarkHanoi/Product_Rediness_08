@@ -95,6 +95,39 @@ an "Entrance Hall" — the entrance hall is GROUND-ONLY (`§LANDING-NOT-HALL`, G
 
 `§GROUND-ENGINE-PERIMETER` (H1, v90), `§UPPER-SHELL-WELD` (H2 upper-plate weld-to-minted-perimeter,
 v91), `§STAIR-CONTAIN-UPSTREAM` (H3, v93, `stairContainUpstream.test.ts` ×8), `§STAIR-DEFAULT-BIAS`
-+ `DOMINANT_FRACTION 0.40` (H4, v83), `§LANDING-NOT-HALL` (H4 landing, v91). Tracker: §24.2 +
-§A.21.*. CI invariant: `houseLayoutInvariants.test.ts` (stair-corner I1 / no merged-name I3 /
-no silent-drop I4).
++ `DOMINANT_FRACTION 0.40` (H4, v83), `§LANDING-NOT-HALL` (H4 landing, v91),
+`§RECTIFY-SHELL-PROJECT` (H5 — the by-construction rotated/sheared-plate room-merge cure, v95).
+Tracker: §24.2 + §A.21.*. CI invariant: `houseLayoutInvariants.test.ts` (stair-corner I1 / no
+merged-name I3 / no silent-drop I4).
+
+### H5 — `§RECTIFY-SHELL-PROJECT` (rotated/sheared-plate room-merge, the by-construction cure)
+
+`§RECTIFY-QUAD` (`rectDecomposition.ts`) rectifies a sheared convex-quad shell to its axis-aligned
+**bounding box** before tiling, so the interior subdivides cleanly. But the partition endpoints
+that should **terminate on the perimeter** then land on the **bbox edge**, while the executor's
+perimeter ring (`HouseLayoutExecutor._buildPerimeterShell`, from `storey.footprint ===
+shell.perimeter`) is the **real sheared shell** — sitting inside the bbox by up to **~1.9–2.1 m**
+on a freehand quad (verified numerically; a 0.75-fill quad diverges 2.12 m at a corner). The
+0.60 m weld (`§SHELL-SNAP-WIDEN`) cannot bridge that → an open seam → RoomDetection floods →
+**one merged room** per storey. This was the dominant remaining maturity gap on rotated plots
+(prior §8.5.5 OPEN item).
+
+**Decision:** project the **interior** partition endpoints that lie on a rectified-bbox edge
+onto the **real** shell polygon, **in the same principal-axis-rotated frame the partitions were
+tiled in, after `emitGeometry` and before `rotateOptionBack`** (`runDeterministicLayout.ts` →
+`projectPartitionEndpointsToShell`). The endpoint is cast along the bbox-edge perpendicular onto
+the real ring (keep-x for top/bottom edges, keep-z for left/right), so a vertical partition stays
+vertical and meets the perimeter at the same plan position. The interior keeps its clean
+rectangular tiling; only the perimeter contacts move onto the true ring → the partitions meet the
+executor ring **within the 20 mm RoomDetection node grid by construction**, and the weld +
+`§UPPER-SHELL-WELD` + `§SHELL-ANCHOR-PRESERVE` become a safety net rather than the primary seal.
+
+**Safety / no-regression:** when the shell does NOT rectify (axis-aligned rectangle, concave
+L/U/T, >4 vertices, or sub-fill quad), the helper returns the walls **unchanged (same
+reference)** → byte-identical output for the apartment (whose flat plates never rectify) and
+every rectilinear plate. External/perimeter walls are never moved (dropped by
+`skipExteriorWalls`; moving them would shift already-emitted window offsets). Pure L2 (no I/O /
+THREE / DOM). Proven in `rectShellProject.test.ts` (7 unit tests, incl. axis-aligned + apartment
+byte-identical + external-wall-untouched) and `tglRunDeterministicLayout.test.ts` (the ≤20 mm
+by-construction property on a sheared quad through the real engine + an axis-aligned
+byte-identical assertion). 2140 ai-host + 50 geometry-wall tests green.

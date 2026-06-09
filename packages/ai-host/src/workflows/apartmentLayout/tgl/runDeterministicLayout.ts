@@ -12,7 +12,7 @@ import type { ShellAnalysis } from '../shellAnalysis.js';
 import { scoreLayout } from '../score.js';
 import { enumerateLayouts } from './enumerate.js';
 import { emitGeometry } from './emitGeometry.js';
-import { principalAxisAngle, rotatePt, type Pt } from './rectDecomposition.js';
+import { principalAxisAngle, rotatePt, projectPartitionEndpointsToShell, type Pt } from './rectDecomposition.js';
 import { equatorFacingDir } from '../windowEmission/solarOrientation.js';
 
 const r3 = (n: number): number => Math.round(n * 1000) / 1000;
@@ -204,9 +204,30 @@ export function generateDeterministicLayouts(
         // (they aren't BIM elements, just a room-detection helper) and are merged
         // into the LayoutOption alongside the graph projection.
         const emitted = emitGeometry(c.graph, emitOpts);
+
+        // §RECTIFY-SHELL-PROJECT (multi-storey room-merge cure, 2026-06-09; ADR-0063 §8.5).
+        // §RECTIFY-QUAD tiles the interior partitions inside the AXIS-ALIGNED BBOX of the
+        // (rotated) sheared shell, so a partition that should terminate on the PERIMETER
+        // lands on the bbox edge — up to ~2.1 m INSIDE which the executor's real
+        // (`storey.footprint === shell.perimeter`) ring sits → an open seam the 0.60 m weld
+        // can't bridge → RoomDetection floods → every room merges into one. CURE: in the
+        // SAME rotated frame the partitions were tiled in (BEFORE rotate-back), project the
+        // bbox-edge partition endpoints OUTWARD onto the REAL shell polygon (= shellPolygon,
+        // the rotated perimeter). Only INTERIOR (non-external) walls are projected — the
+        // external/perimeter walls are dropped by the executor's skipExteriorWalls and moving
+        // them would shift already-emitted window offsets. When the shell does NOT rectify
+        // (axis-aligned rectangle, L/U/T, > 4 vertices, sub-fill quad → no rectify), the helper
+        // returns the walls UNCHANGED (same reference) → BYTE-IDENTICAL for the apartment + every
+        // rectilinear plate (proven by rectShellProject.test.ts). The weld now degrades from the
+        // primary seal to a safety net (composes with §SHELL-SNAP-WIDEN + §SHELL-ANCHOR-PRESERVE).
+        const projectedWalls = projectPartitionEndpointsToShell(emitted.option.walls, shellPolygon);
+        const emittedOption = projectedWalls === emitted.option.walls
+            ? emitted.option
+            : { ...emitted.option, walls: projectedWalls as typeof emitted.option.walls };
+
         // §PRINCIPAL-AXIS inverse map (axis-aligned frame → world): rotate emitted
         // mm geometry by +angle about the mm pivot. No-op when angle === 0.
-        const option = angle === 0 ? emitted.option : rotateOptionBack(emitted.option, angle, pivotMm);
+        const option = angle === 0 ? emittedOption : rotateOptionBack(emittedOption, angle, pivotMm);
         const MM = 1000;
         const mm = (n: number): number => Math.round(n * MM * 1e6) / 1e6;
         const rotateBoundary = (pt: { x: number; y: number }): { x: number; y: number } =>
