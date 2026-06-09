@@ -178,30 +178,32 @@ describe('§GROUND-WELD — GROUND floor detects its full room set', () => {
 describe('§WJ-SKEW-3 — rotated-plate Y-junction endpoints fully fuse (2026-06-09)', () => {
     const noShell: WeldWall[] = [];
 
-    it('welds 3 partition endpoints meeting at a Y-junction (spread ~0.5–0.6 m, the −44° residual) to ONE shared coordinate', () => {
-        // Three partitions whose interior ends SHOULD coincide at one Y-junction but,
-        // after the principal-axis snap on a strongly-rotated (~−44°) plate, are spread
-        // ~0.5–0.6 m apart — beyond the old 0.45 m weld band, so union-find never fused
-        // them and the downstream resolver logged `§MULTI-CLUSTER pinned=0 trimmed=3`.
-        // The three meeting ends sit within a ~0.56 m radius of their centroid.
-        // Inner ends form a near-equilateral triangle of side ~0.52 m around (4.55, 5.00) —
-        // every pair sits in the 0.45–0.60 m band: too far for the OLD 0.45 m weld (so the
-        // resolver trimmed them), inside the NEW 0.60 m band (so union-find fuses all three).
+    it('welds 3 partition endpoints meeting at a Y-junction (spread within the 0.50 m band, the −44° residual) to ONE shared coordinate', () => {
+        // Three LONG-armed partitions whose interior ends SHOULD coincide at one Y-junction
+        // but, after the principal-axis snap on a strongly-rotated (~−44°) plate, are spread
+        // apart — beyond the old 0.45 m weld band, so union-find never fused them and the
+        // downstream resolver logged `§MULTI-CLUSTER pinned=0 trimmed=3`. Inner ends form a
+        // near-equilateral triangle of side ~0.42 m around (4.55, 5.00) — every pair sits in
+        // the 0.30–0.50 m band: too far for the OLD 0.45 m weld on the widest pair (so the
+        // resolver trimmed them), inside the §WJ-SKEW-4 0.50 m band so union-find fuses all
+        // three. Each arm is several metres long, so the §WJ-SKEW-4 room-safety guard never
+        // excludes a member (collapsing to the centroid keeps every arm well above the 0.8 m
+        // usable floor and each end moves only ~0.24 m — under the 0.50 m move-cap).
         const parts: WeldWall[] = [
-            { id: 'p0', start: { x: 0,    z: 0 },   end: { x: 4.29, z: 4.85 } }, // arm 1, inner end ↗
-            { id: 'p1', start: { x: 10,   z: 0 },   end: { x: 4.81, z: 4.85 } }, // arm 2, inner end ↖
-            { id: 'p2', start: { x: 5,    z: 10 },  end: { x: 4.55, z: 5.30 } }, // arm 3, inner end ↓
+            { id: 'p0', start: { x: 0,    z: 0 },   end: { x: 4.55, z: 4.76 } }, // arm 1, inner end (centroid + r∠90°↓ in z)
+            { id: 'p1', start: { x: 10,   z: 0 },   end: { x: 4.34, z: 5.12 } }, // arm 2, inner end (centroid + r∠210°)
+            { id: 'p2', start: { x: 5,    z: 10 },  end: { x: 4.76, z: 5.12 } }, // arm 3, inner end (centroid + r∠330°)
         ];
         // Confirm the three inner ends are genuinely spread (the residual we must absorb)
-        // yet every PAIR is within the 0.60 m band (fuses without relying on transitivity).
+        // yet every PAIR is within the 0.50 m band (fuses without relying on transitivity).
         const inner = [parts[0]!.end, parts[1]!.end, parts[2]!.end];
         const gap = (a: XZ, b: XZ) => Math.hypot(a.x - b.x, a.z - b.z);
-        expect(gap(inner[0]!, inner[1]!)).toBeGreaterThan(0.45);
-        expect(gap(inner[0]!, inner[1]!)).toBeLessThan(0.60);
-        expect(gap(inner[1]!, inner[2]!)).toBeGreaterThan(0.45);
-        expect(gap(inner[1]!, inner[2]!)).toBeLessThan(0.60);
-        expect(gap(inner[0]!, inner[2]!)).toBeGreaterThan(0.45);
-        expect(gap(inner[0]!, inner[2]!)).toBeLessThan(0.60);
+        expect(gap(inner[0]!, inner[1]!)).toBeGreaterThan(0.30);
+        expect(gap(inner[0]!, inner[1]!)).toBeLessThan(0.50);
+        expect(gap(inner[1]!, inner[2]!)).toBeGreaterThan(0.30);
+        expect(gap(inner[1]!, inner[2]!)).toBeLessThan(0.50);
+        expect(gap(inner[0]!, inner[2]!)).toBeGreaterThan(0.30);
+        expect(gap(inner[0]!, inner[2]!)).toBeLessThan(0.50);
 
         const welded = weldPartitionsToShell(parts, noShell);
         // All three survive (none collapse below MIN_LEN) and none was dropped.
@@ -217,6 +219,47 @@ describe('§WJ-SKEW-3 — rotated-plate Y-junction endpoints fully fuse (2026-06
         expect(p0.start).toEqual({ x: 0, z: 0 });
         expect(p1.start).toEqual({ x: 10, z: 0 });
         expect(p2.start).toEqual({ x: 5, z: 10 });
+    });
+
+    it('§WJ-SKEW-4 ROOM-SAFE — a SHORT small-room partition between two junctions is NOT over-shortened into a merge', () => {
+        // The §WJ-SKEW-3 regression: a small room (entrance hall ~7 m², corridor ~6 m²) is
+        // sealed by a SHORT partition (~1.3 m). Each of its two endpoints lands within the
+        // weld band of OTHER partition endpoints that belong to NEIGHBOURING junctions whose
+        // centroids sit INWARD of the short wall's ends. At 0.50 m the union-find grabs both
+        // ends; without the room-safety guard each end is pulled to its inward centroid,
+        // shortening the wall well below a usable length (or mis-placing it) — room detection
+        // then floods across the resulting gap and the two small rooms merge.
+        //
+        // Geometry: the short wall S runs x:4.4→5.7 at z=5 (length 1.3 m). At its LEFT end a
+        // pair of long-arm endpoints sits at x=4.85, z=5 (0.45 m inward of S.start); at its
+        // RIGHT end a pair sits at x=5.25, z=5 (0.45 m inward of S.end). Both within the 0.50 m
+        // band, so the union-find grabs S's two ends. Collapsing each end to its inward cluster
+        // centroid (≈4.70 / ≈5.40) would leave S only ≈0.70 m — below the 0.8 m usable floor —
+        // so the room-safety guard EXCLUDES both of S's ends from the fuse (S keeps its 1.3 m
+        // span). The long neighbour arms still fuse among themselves (the §WJ-SKEW-3 fix holds).
+        const parts: WeldWall[] = [
+            // The short small-room seal wall (1.3 m) — must survive at usable length.
+            { id: 'S',  start: { x: 4.4, z: 5 }, end: { x: 5.7, z: 5 } },
+            // LEFT junction: two long arms whose inner ends are at (4.85, 5), 0.45 m from S.start.
+            { id: 'L0', start: { x: 4.85, z: 0 }, end: { x: 4.85, z: 5 } },
+            { id: 'L1', start: { x: 0,    z: 0 }, end: { x: 4.85, z: 5 } },
+            // RIGHT junction: two long arms whose inner ends are at (5.25, 5), 0.45 m from S.end.
+            { id: 'R0', start: { x: 5.25, z: 0 },  end: { x: 5.25, z: 5 } },
+            { id: 'R1', start: { x: 10,   z: 0 },  end: { x: 5.25, z: 5 } },
+        ];
+        const welded = weldPartitionsToShell(parts, noShell);
+        const s = welded.find(w => w.id === 'S')!;
+        // S survives (not dropped) AND stays at a usable length — never collapsed/over-shortened.
+        expect(s).toBeDefined();
+        const sLen = Math.hypot(s.end.x - s.start.x, s.end.z - s.start.z);
+        expect(sLen).toBeGreaterThanOrEqual(0.8);          // the room-safety usable floor
+        // Specifically it kept (near) its original 1.3 m span — its ends were NOT dragged
+        // to the inward neighbour centroids.
+        expect(sLen).toBeGreaterThan(1.2);
+        // The neighbouring junction arms still fused among themselves (the §WJ-SKEW-3 fix is
+        // preserved for genuine usable junctions): L0.end and L1.end share one coordinate.
+        const l0 = welded.find(w => w.id === 'L0')!, l1 = welded.find(w => w.id === 'L1')!;
+        expect(l0.end.x).toBe(l1.end.x); expect(l0.end.z).toBe(l1.end.z);
     });
 
     it('CONTROL — two genuinely-separate parallel walls 1.2 m apart do NOT fuse (no over-welding at 0.60 m)', () => {

@@ -273,6 +273,34 @@ export class HouseLayoutExecutor {
             }
             console.log('[house-layout] minted levels', levelIds);
 
+            // ── §ROOF-LEVEL (founder 2026-06-09) — mint a DEDICATED "Roof" level
+            // ABOVE the top storey. The roof must NOT render in the top storey's
+            // plan view (it currently does, because it's stamped on the top level);
+            // moving it to its own level gives it its own "Roof Plan" view and
+            // removes it from the first-floor / top-storey plan. The roof level's
+            // elevation = the top storey's WALL HEAD = baseElevationM + storeyCount ×
+            // floorToFloorM (the exact world Y the roof currently sits at — see
+            // _createRoof). Captured here + threaded into _createRoof so the roof,
+            // built with baseOffset:0 on this level, keeps its world Y UNCHANGED.
+            // Mirrors the storey-level mint (same AddLevelCommand path, same abort).
+            let roofLevelId: string | null = null;
+            {
+                const id = `L-house-${Date.now()}-roof-${Math.random().toString(36).slice(2, 8)}`;
+                const elevation = baseElevationM + storeyCount * floorToFloorM;
+                let added = false;
+                if (cm?.execute) {
+                    const res = cm.execute(new AddLevelCommand({ levelId: id, name: 'Roof', elevation, height: floorToFloorM }), { source: 'HOUSE_PIPELINE_ROOF_LEVEL' });
+                    added = res?.success ?? false;
+                }
+                if (!added) {
+                    console.warn('[house-layout] AddLevelCommand failed for roof level', id, '— aborting');
+                    toast('Could not create the roof level. See console.', 'error');
+                    return { ok: false, reason: 'roof level creation failed' };
+                }
+                roofLevelId = id;
+                console.log('[house-layout] §ROOF-LEVEL minted roof level', roofLevelId, '@ elevation', elevation);
+            }
+
             // ── (b) Pure generation against the REAL editor level ids. ────────────
             // A.21.k — when the modal supplied a picked VARIANT, enumerate the SAME
             // N options (deterministic) and build that variant; otherwise build the
@@ -583,11 +611,14 @@ export class HouseLayoutExecutor {
                 }
 
                 // 4. Roof cap over the TOP storey footprint (A.21.D24 — the roof
-                //    must cap the uppermost storey, never the ground). Pass the top
-                //    storey so the roof targets its level + sits on its wall head.
-                if (cm?.execute) {
+                //    must cap the uppermost storey, never the ground). §ROOF-LEVEL:
+                //    the roof now lives on its OWN dedicated "Roof" level (above the
+                //    top storey) so it no longer renders in the top-storey plan. We
+                //    still pass the top storey (for footprint + arithmetic) plus the
+                //    roof level id; _createRoof keeps the roof's world Y unchanged.
+                if (cm?.execute && roofLevelId) {
                     const topStorey = result.storeys[result.storeys.length - 1];
-                    if (topStorey) this._createRoof(cm, result.roof, topStorey, wallHeightM);
+                    if (topStorey) this._createRoof(cm, result.roof, topStorey, wallHeightM, roofLevelId);
                 }
             }, { levelIds: allLevelIds, totalElementCount: totalWallCount + result.storeys.length + result.stairs.length + 1, skipRedetectRooms: true });
 
@@ -659,6 +690,31 @@ export class HouseLayoutExecutor {
                         console.log('[house-layout] §FLR-VIEWS created plan view', name, 'for', storey.levelId);
                     } catch (e) {
                         console.warn('[house-layout] §FLR-VIEWS plan view create failed for', storey.levelId, e);
+                    }
+                }
+
+                // §ROOF-VIEW (founder 2026-06-09) — a dedicated "Roof Plan" view for
+                // the roof level, mirroring the per-storey plan views above (same P6
+                // view.createDefinition bus command + same dedupe guard). So the roof,
+                // which now lives on its own level, is viewable in its own plan rather
+                // than the top-storey plan. Only when a roof level was minted (house /
+                // multi-storey path) — the apartment path never mints one.
+                if (roofLevelId) {
+                    const roofHasPlan = viewDefinitionStore
+                        .getByLevel(roofLevelId)
+                        .some(v => v.viewType === 'plan');
+                    if (!roofHasPlan) {
+                        try {
+                            runtime.bus.executeCommand('view.createDefinition', {
+                                id:       `vd-plan-${roofLevelId}`,
+                                name:     'Roof Plan',
+                                viewType: 'plan',
+                                spatial:  { levelId: roofLevelId },
+                            });
+                            console.log('[house-layout] §ROOF-VIEW created Roof Plan view for', roofLevelId);
+                        } catch (e) {
+                            console.warn('[house-layout] §ROOF-VIEW Roof Plan view create failed for', roofLevelId, e);
+                        }
                     }
                 }
 
@@ -1366,7 +1422,7 @@ export class HouseLayoutExecutor {
      *  `topStorey` carries the uppermost level id + its elevation so the roof
      *  caps the top of the stack for ANY storeyCount (1/2/3), independent of the
      *  async-commit timing of the upper-storey walls. */
-    private _createRoof(cm: CommandManagerLike, roof: RoofDescriptor, topStorey: StoreyPlate, wallHeightM: number): void {
+    private _createRoof(cm: CommandManagerLike, roof: RoofDescriptor, topStorey: StoreyPlate, wallHeightM: number, roofLevelId: string): void {
         try {
             const poly: ReadonlyArray<{ x: number; z: number }> = roof.footprint;
             if (poly.length < 3) return;
@@ -1414,52 +1470,41 @@ export class HouseLayoutExecutor {
                 : 0;
             const slope = pitchDeg > 0 ? Math.tan((pitchDeg * Math.PI) / 180) : undefined;
 
-            // §ROOF-LEVEL (A.21.D24) — Defect 2 fix (roof on the WRONG level). The
-            // roof MUST cap the TOP storey, never the ground. We target the top
-            // storey's level id (== `roof.levelId` from the engine — asserted equal
-            // here) and pass an EXPLICIT, deterministic `baseOffset` = top-storey
-            // wall height with `autoBaseOffset: false`. The prior `autoBaseOffset:
-            // true` recomputed the offset from `wallStore.getByLevel(topLevel)` at
-            // command time — but the top-storey walls are dispatched on the ASYNC
-            // bus and are NOT committed when this synchronous roof command runs, so
-            // the lookup was racy/empty. With the top level + an explicit offset,
-            // `RoofFragmentBuilder` resolves `worldY = topLevel.elevation +
-            // baseOffset = topStorey.elevationM + wallHeightM` = the top of the
-            // uppermost storey's walls, for any storeyCount.
-            const topLevelId = topStorey.levelId;
-            if (roof.levelId !== topLevelId) {
-                console.warn('[house-layout] roof.levelId', roof.levelId, '≠ top storey level', topLevelId, '— forcing top storey');
-            }
-            // §ROOF-CAP-ELEVATION (founder v45) — the roof base offset above the TOP
-            // storey's floor is the PURE ai-host decision (roof.baseOffsetM, computed
-            // from storeyCount × floorToFloor). It equals the wall head (wallHeightM)
-            // but we consume the descriptor's value so the source of truth is ai-host
-            // (and a single test pins it). Fall back to wallHeightM for any older
-            // result that predates the field. RoofFragmentBuilder resolves the world-Y
-            // as topLevel.elevation + baseOffset = topStorey.elevationM + baseOffset,
-            // which equals roof.baseElevationM by construction — the roof caps the top
-            // storey's walls for ANY storeyCount (never a storey too low, never floating).
-            const roofBaseOffset = typeof roof.baseOffsetM === 'number' && roof.baseOffsetM > 0
-                ? roof.baseOffsetM
-                : wallHeightM;
+            // §ROOF-LEVEL (founder 2026-06-09) — the roof now lives on its OWN
+            // dedicated "Roof" level ABOVE the top storey, so it NO LONGER renders in
+            // the top-storey plan view (the founder's request) and gets its own "Roof
+            // Plan" view. World-Y MUST stay identical to before:
+            //   • OLD: levelId = topStorey.level (elev = topStorey.elevationM),
+            //          baseOffset = wallHeightM → worldY = topStorey.elevationM + wallHeightM.
+            //   • NEW: levelId = roof level (elev = baseElevationM + storeyCount × ftf
+            //          = topStorey.elevationM + floorToFloorM = topStorey.elevationM +
+            //          wallHeightM, since wallHeightM === floorToFloorM), baseOffset = 0
+            //          → worldY = roofLevel.elevation + 0 = topStorey.elevationM + wallHeightM.
+            // Both resolve to the SAME world Y = the top storey's wall head → the roof
+            // does NOT move vertically; only its owning level (and hence plan view)
+            // changes. We still compute the expected cap elevation for the log so a
+            // regression is visible. `autoBaseOffset:false` keeps it deterministic.
+            const roofBaseOffset = 0;
             const expectedRoofElevM = typeof roof.baseElevationM === 'number'
                 ? roof.baseElevationM
-                : topStorey.elevationM + roofBaseOffset;
+                : topStorey.elevationM + wallHeightM;
             cm.execute?.(new CreateRoofCommand(createId('roof'), {
-                levelId: topLevelId,
+                levelId: roofLevelId,
                 footprint: { polygon, centroid: [cx, cz] },
                 roofType: effectiveKind,
                 ...(effectiveKind !== 'flat' && slope ? { slope } : {}),
                 // Eave overhang beyond the shell (~400 mm) so the roof projects past
                 // the walls like a real house. Flat roofs get a small/zero eave.
                 overhang: effectiveKind !== 'flat' ? DEFAULT_ROOF_OVERHANG_M : 0,
-                // Sit the roof on the TOP storey's wall head (deterministic, not racy).
+                // The roof level's elevation already IS the top storey's wall head, so
+                // the roof sits flush at baseOffset 0 (same world Y as the old top-level
+                // + wallHeightM offset). Deterministic, not racy.
                 baseOffset: roofBaseOffset,
                 autoBaseOffset: false,
                 thickness: DEFAULT_ROOF_THICKNESS_M,
             }), { source: 'HOUSE_PIPELINE_ROOF' });
-            console.log('[house-layout] roof created on top level', topLevelId,
-                `(${effectiveKind}${effectiveKind !== roof.kind ? ` ←gable-fallback` : ''}, ~${pitchDeg.toFixed(0)}°, eave ${(DEFAULT_ROOF_OVERHANG_M * 1000).toFixed(0)}mm, baseOffset ${roofBaseOffset}m @ floor elev ${topStorey.elevationM}m → roof caps @ ${expectedRoofElevM.toFixed(2)}m)`);
+            console.log('[house-layout] §ROOF-LEVEL roof created on dedicated roof level', roofLevelId,
+                `(${effectiveKind}${effectiveKind !== roof.kind ? ` ←gable-fallback` : ''}, ~${pitchDeg.toFixed(0)}°, eave ${(DEFAULT_ROOF_OVERHANG_M * 1000).toFixed(0)}mm, baseOffset ${roofBaseOffset}m → roof caps @ ${expectedRoofElevM.toFixed(2)}m = top wall head, world-Y unchanged)`);
         } catch (e) { console.warn('[house-layout] roof create failed (skipped):', e); }
     }
 

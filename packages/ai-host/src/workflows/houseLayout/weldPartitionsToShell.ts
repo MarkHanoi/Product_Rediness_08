@@ -48,8 +48,8 @@ export interface WeldOptions {
 }
 
 const DEFAULT_SHELL_SNAP_M = 0.30;
-// §WJ-SKEW / §WJ-SKEW-2 / §WJ-SKEW-3 (2026-06-08/09, tracker §22.7/§22.10/§22.11) —
-// raised 0.05 → 0.20 → 0.45 → 0.60 m.
+// §WJ-SKEW / §WJ-SKEW-2 / §WJ-SKEW-3 / §WJ-SKEW-4 (2026-06-08/09, tracker §22.7/§22.10/§22.11/§22.12) —
+// raised 0.05 → 0.20 → 0.45 → 0.60, then settled back to 0.50 + a per-endpoint room-safety guard.
 // ROOT CAUSE of the rotated-plate wall-join cascade: the upstream weld fused endpoints
 // only within 0.05 m, but the downstream WallJoinResolver CLUSTERS endpoints within its
 // camera tolerance, clamped to [0.05, 1.0] m (≈0.5 m at a typical zoom). On a rotated
@@ -59,23 +59,42 @@ const DEFAULT_SHELL_SNAP_M = 0.30;
 // the wall(s) are dropped/trimmed (§WJR-INVALID) → the room gap merges adjacent rooms AND
 // its window/door openings are orphaned (§22.7 ROOM-MERGE + WIN-DROP).
 // WJ-SKEW first raised this to 0.20 m; §WJ-SKEW-2 to 0.45 m so the weld radius MATCHED the
-// resolver's typical cluster band. §WJ-SKEW-3 (this change) raises it to 0.60 m: on a
-// STRONGLY-rotated plate (~−44°, the near-45° worst case for axis-snap quantisation) the
-// principal-axis snap leaves Y-junction residuals that exceed 0.45 m, so 3 partition
-// endpoints meeting at a point stay un-fused by the union-find → the resolver logs
-// `§MULTI-CLUSTER pinned=0 trimmed=3` (×~10), trims them, leaves gaps, and the room detector
-// floods across the gaps (rooms merge). 0.60 m absorbs that near-45° residual while keeping
-// a clean factor-of-2 margin below the TIGHTEST real distinct-junction spacing (corridor min
-// strip 1.2 m; bedroom min short side 2.6 m is far larger) — two endpoints belonging to
-// DIFFERENT rooms are ≥1.2 m apart, so even with union-find transitivity no genuine pair can
-// chain-fuse at 0.60 m. Because an axis-aligned subdivision produces clean COINCIDENT
-// endpoints (no residuals at all), raising the tolerance is a NO-OP on axis-aligned plates —
-// only ROTATED plates (the broken case) are affected. The self-endpoint guard (a wall's own
-// two ends never fuse, line ~188) + the min-length drop (line ~208) both remain, so a
-// partition can never self-collapse, however wide the tolerance.
-const DEFAULT_PARTITION_WELD_M = 0.60;
+// resolver's typical cluster band. §WJ-SKEW-3 raised it to 0.60 m to absorb a near-45°
+// (~−44°) Y-junction residual that exceeds 0.45 m.
+//
+// §WJ-SKEW-4 (this change) — REGRESSION FIX: at 0.60 m the union-find began grabbing BOTH
+// endpoints of a SHORT small-room partition (entrance hall ~7 m², corridor ~6 m²) and pulling
+// them to two different cluster centroids — shortening / mis-placing the very wall that seals
+// the small room, so room detection floods across the gap and merges adjacent rooms
+// ("Bathroom + Entrance Hall", "Kitchen + Corridor"). The min-length DROP (0.05 m) only
+// catches a FULL collapse, never the partial shortening / endpoint mis-placement that leaves
+// a sub-wall gap. The robust fix is NOT to retreat the tolerance (that re-opens the §WJ-SKEW-3
+// Y-junction) but to make the FUSE itself room-safe: before a clustered endpoint is collapsed
+// to its centroid, check that doing so (a) keeps its partition ≥ a USABLE length and (b) does
+// not move the endpoint more than the weld tolerance from its shell-snapped position. If either
+// is violated the endpoint is EXCLUDED from the fuse — it keeps its shell-snapped position — so
+// a genuine Y-junction whose members stay usable still fuses, but a short small-room partition
+// is never shortened/mis-placed into a merge. With the guard in place the DEFAULT settles to
+// 0.50 m: still well above the §WJ-SKEW-2 resolver band (so the common rotated case fuses
+// directly) while the guard — not raw tolerance — handles the near-45° worst case AND protects
+// small rooms. Because an axis-aligned subdivision produces clean COINCIDENT endpoints (zero
+// movement → guard never triggers, both guard distances are 0), the guard + 0.50 m are a
+// byte-identical NO-OP on axis-aligned plates. The self-endpoint guard (a wall's own two ends
+// never fuse, line ~188) + the min-length drop both remain.
+const DEFAULT_PARTITION_WELD_M = 0.50;
 const DEFAULT_GRID_M = 0.001;
 const EPS = 1e-9;
+
+// §WJ-SKEW-4 guard thresholds (room-safety):
+//   USABLE-MIN — a fused partition must stay ≥ this long, well above the 0.05 m degeneracy
+//   floor (so a partial shortening is caught, not just a full collapse) and below a real
+//   corridor strip (1.2 m) so genuine short walls are never falsely excluded.
+const USABLE_MIN_LEN_M = 0.8;
+//   MOVE-CAP — a fused endpoint may not travel more than this from its shell-snapped position.
+//   Set equal to the default weld tolerance: a member of a genuine cluster sits within ~one
+//   tolerance of the centroid, but an outlier endpoint dragged across a room boundary by
+//   transitivity moves further — that one is excluded. Scales with the configured tolerance.
+const MOVE_CAP_FACTOR = 1.0;
 
 interface UnitSeg { readonly ax: number; readonly az: number; readonly ux: number; readonly uz: number; readonly len: number }
 
@@ -200,12 +219,51 @@ export function weldPartitionsToShell(
     }
     const clusters = new Map<number, number[]>();
     for (let i = 0; i < n; i++) (clusters.get(find(i)) ?? clusters.set(find(i), []).get(find(i))!).push(i);
-    const welded = new Array<{ x: number; z: number }>(n);
+
+    // Pre-compute every endpoint's cluster centroid (a singleton's centroid is itself), so
+    // the room-safety length guard below can measure a partition's prospective length against
+    // BOTH ends' fused positions — catching the both-ends-pulled-inward shortening, not just a
+    // single end moving.
+    const centroidX = new Array<number>(n);
+    const centroidZ = new Array<number>(n);
     for (const members of clusters.values()) {
         let sx = 0, sz = 0;
         for (const m of members) { sx += eps[m]!.x; sz += eps[m]!.z; }
         const px = snapToGrid(sx / members.length), pz = snapToGrid(sz / members.length);
-        for (const m of members) welded[m] = { x: px, z: pz };
+        for (const m of members) { centroidX[m] = px; centroidZ[m] = pz; }
+    }
+
+    // §WJ-SKEW-4 — ROOM-SAFE cluster collapse. Each cluster member is moved to the cluster
+    // centroid ONLY IF that move keeps its partition usable (≥ USABLE_MIN_LEN_M) AND the
+    // endpoint travels ≤ the weld tolerance (MOVE_CAP) from its shell-snapped position. A
+    // member that would VIOLATE either guard is EXCLUDED from the fuse: it keeps its
+    // shell-snapped position, so a short small-room partition is never shortened or
+    // mis-placed across a room boundary, while a genuine Y-junction (members close to the
+    // centroid, both arms long) still fuses cleanly. The length guard measures against the
+    // OTHER end's PROSPECTIVE fused position (its own cluster centroid) — so a partition whose
+    // BOTH ends are pulled inward by neighbouring junctions is caught (the combined shortening
+    // is seen, not just one end). Using the precomputed centroids keeps the pass fully
+    // deterministic and order-independent. On axis-aligned plates the centroid equals the
+    // coincident endpoints so both guard distances are 0 → no exclusion (byte-identical no-op).
+    const moveCapSq = (partitionWeldTolM * MOVE_CAP_FACTOR) * (partitionWeldTolM * MOVE_CAP_FACTOR);
+    const usableMinSq = USABLE_MIN_LEN_M * USABLE_MIN_LEN_M;
+    const welded = new Array<{ x: number; z: number }>(n);
+    for (const members of clusters.values()) {
+        const px = centroidX[members[0]!]!, pz = centroidZ[members[0]!]!;
+        for (const m of members) {
+            // The other endpoint of this partition, at its PROSPECTIVE fused position.
+            const ox = centroidX[m ^ 1]!, oz = centroidZ[m ^ 1]!;
+            const newLenSq = (px - ox) * (px - ox) + (pz - oz) * (pz - oz);
+            const moveSq = (px - eps[m]!.x) * (px - eps[m]!.x) + (pz - eps[m]!.z) * (pz - eps[m]!.z);
+            // EXCLUDE the move if it would over-shorten the partition or drag the endpoint
+            // too far (across a room boundary). A singleton cluster trivially passes
+            // (centroid === endpoint → moveSq 0, length unchanged).
+            if (newLenSq < usableMinSq || moveSq > moveCapSq) {
+                welded[m] = { x: snapToGrid(eps[m]!.x), z: snapToGrid(eps[m]!.z) };
+            } else {
+                welded[m] = { x: px, z: pz };
+            }
+        }
     }
 
     // ── Pass 3: rebuild partitions; drop weld-collapsed / sub-min-length stubs ─────
