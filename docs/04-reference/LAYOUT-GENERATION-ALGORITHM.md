@@ -64,11 +64,14 @@ input ⇒ byte-identical output: no `Math.random`, no time budget, no population
    (`semanticGraph.ts`, P5) · topology gate (`topology/*`) · space-syntax depth
    (`spaceSyntax.ts`, P6) · the **20-axis `ObjectiveVector`** (`objectives.ts`, P7).
 
-4. **Gate → Pareto + weighted rank.** A 5-tier gate keeps the cleanest pool
+4. **Gate → Pareto + weighted rank.** The **§TOPO-HARD-REJECT** top-level split prefers
+   hard-valid candidates (no windowless habitable room / no land-locked room / no
+   private-room-off-hall — §5.4.1); within that, a 5/7-tier gate keeps the cleanest pool
    (legal ∧ shaped ∧ routed → … → anything), then candidates are ranked by **exact Pareto
    dominance** (`assignParetoRanks`, `enumerate.ts:506`), tie-broken by a **weighted sum** of
    the 20 axes driven by the 4 user sliders + the E.1 priority band (`weightedSum`, line 398).
-   Final order is stable (`rank asc → weighted desc → strategy string`).
+   Final order is stable (`rank asc → weighted desc → strategy string`). The pool is never
+   emptied — if all 8 strategies are hard-invalid, the least-bad ships with a loud warning.
 
 5. **Emit geometry (P9).** For each ranked candidate, `emitGeometry` (`emitGeometry.ts:57`)
    projects the `LayoutGraph` → a `LayoutOption` in mm — `LayoutRoom`s, `LayoutWall`s, doors as
@@ -324,6 +327,10 @@ It returns a `TglCandidate` carrying `objectives`, `weighted`, `compromises`,
   (`priorityMultiplier`, lines 488), normalises, and sums. Used as the **secondary
   tie-break within a Pareto rank**.
 - Final sort (`enumerate.ts:616`): `rank asc → weighted desc → strategy string` (stable).
+- **§TOPO-HARD-REJECT** (Stage 5 — see §5.4.1): a **new top-level tier split** runs the whole
+  tier fallback over the **hard-valid** candidates first (no windowless habitable room / no
+  land-locked room / no private-room-off-hall). Hard-invalid candidates rank **below** every
+  hard-valid one; the pool is never emptied (loud `§TOPO-HARD-REJECT-ALL` if all 8 fail).
 
 ### 2.4 `bestStoreyOptionIndex` / variant-0 invariant
 
@@ -576,6 +583,43 @@ is a permitted pair), wet-cluster (≤1 plumbing stack — soft), acoustic zonin
 buffering — soft), circulation sequence + corridor connectivity (every private room opens
 onto circulation). Hard findings drop the candidate from the clean pool; soft findings
 gradient `topologyQuality`.
+
+#### 5.4.1 §TOPO-HARD-REJECT — the Stage-5 HARD topology gate
+
+The four-flag `clean`/`legal`/`routed` tiering (§2.3) is **too permissive** on an
+elongated/rotated plate: when every candidate fails the shape gate, the fallback could ship a
+`circRouted=false` / `topologyQuality=0.00` layout (the founder's console audit — merged-name
+rooms + windowless bedrooms). The **§TOPO-HARD-REJECT** gate adds a **new top-level tier split**
+above the existing tiers: a candidate is **hard-invalid** if it violates ANY of three
+architectural rules, and hard-invalid candidates rank **below every hard-valid one** so the
+ranker prefers a better one of the 8 strategies.
+
+The three rules (each REUSES a signal already computed in `buildCandidate` — no new geometry
+pass; predicate in `enumerate.ts:evaluateHardTopology`, internal/pure, ADR-0061):
+
+1. **W (window)** — a `windowMandatory` room (bedroom/master/living/kitchen/dining per
+   `ROOM_RULES`) is **fully interior** ⇒ no perimeter wall to host a window ⇒ ZERO windows.
+   Reuses the **`frontage` validator's hard findings** (§5.3 `validateFrontage`), intersected
+   with `windowMandatoryFor`. (§WINDOW-MANDATORY-RESCUE already reduces this; the gate catches
+   the residual.)
+2. **C (circulation)** — any room has NO door onto circulation. Reuses the
+   `unroutedToCirculationRoomIds` / §SEALED-ROOMS signal (`circulationRouted === false`).
+3. **P (privacy)** — a **private room opens DIRECTLY off the entrance hall** (a privacy breach;
+   `hall.accessFrom` lists only `living`/`corridor`). NEW (trivial) computation: scan the
+   realised door set for a `hall`↔private pair.
+
+**Safe floor (CRITICAL — "prefer hard-valid, never crash"):** the existing 5/7-tier fallback is
+factored into `selectTier(cands)` and run over the **hard-valid subset first**; only when EVERY
+one of the 8 strategies is hard-invalid (a genuinely hard plate/program) does it fall through to
+the same fallback over **all** candidates, emitting a loud **`§TOPO-HARD-REJECT-ALL`** warning that
+names the failing rule(s). The pool is **NEVER emptied**. Byte-identical when at least one strategy
+is hard-valid (the common case) — so no passing test regresses. Per-candidate decision logged as
+`§DIAG-TOPO-GATE strategy=<s> hardValid=<bool> failed=[<rules>]`; the winner carries `hardValid` +
+`hardFailedRules` on the `TglCandidate` and in `§DIAG-WINNER`.
+
+**Both apartment + house use this gate** (one engine). Verified on a 45°-rotated 2-storey house
+(`__tests__/houseLayoutInvariants.test.ts`): stair corner-not-central (I1), no merged-name rooms
+(I3), no silently-dropped rooms (I4) — all PASS today.
 
 ---
 

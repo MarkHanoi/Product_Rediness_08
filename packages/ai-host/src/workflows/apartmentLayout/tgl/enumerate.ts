@@ -31,6 +31,7 @@ import { validateWetCluster } from '../topology/validateWetCluster.js';
 import { validateAcousticZoning } from '../topology/validateAcousticZoning.js';
 import { validateCirculationSequence } from '../topology/validateCirculationSequence.js';
 import { validateCorridorConnectivity } from '../topology/validateCorridorConnectivity.js';
+import { windowMandatoryFor, isPrivate, doorAllowedBetween, roomRule } from '../rules/programRules.js';
 
 export interface EnumerateInput {
     readonly shellPolygon: readonly Pt[];      // metres, plan frame
@@ -120,6 +121,26 @@ export interface TglCandidate {
      *  `unroutedToCirculationRoomIds` diagnostic. */
     readonly circulationRouted: boolean;
     /**
+     * §TOPO-HARD-REJECT (Stage 5, 2026-06-09) — the founder's HARD topology gate.
+     * A candidate is `hardValid: false` when it violates ANY of three architectural
+     * rules that a topology-quality-0 layout exhibits (merged-name rooms / windowless
+     * bedrooms in the founder's console audit):
+     *   • W — a `windowMandatory` habitable room (bedroom/master/living/kitchen/dining)
+     *         is FULLY INTERIOR ⇒ no perimeter wall to host a window ⇒ ZERO windows
+     *         (reuses the `frontage` validator's hard findings; §WINDOW-MANDATORY-RESCUE
+     *         already reduces the residual — this gate catches what's left).
+     *   • C — at least one room has NO door onto circulation (the
+     *         `unroutedToCirculationRoomIds` / §SEALED-ROOMS signal; == !circulationRouted).
+     *   • P — a private room (bedroom/master/bathroom/ensuite/wc) opens DIRECTLY off
+     *         the entrance hall (a privacy breach — `hall.accessFrom` excludes them).
+     * The ranker tier-splits hard-valid ABOVE hard-invalid; if EVERY strategy is
+     * hard-invalid the pool is NEVER emptied (a loud §TOPO-HARD-REJECT-ALL warning
+     * names the failing rules and the least-bad ships). The specific rules that failed
+     * are in `hardFailedRules` (subset of {'window','circulation','privacy'}).
+     */
+    readonly hardValid: boolean;
+    readonly hardFailedRules: readonly ('window' | 'circulation' | 'privacy')[];
+    /**
      * §FEASIBILITY-ALLOC (A.21.D5, 2026-06-06) — requested rooms that could NOT
      * be placed at their per-type minimum short side in this strategy, even
      * after the subdivider's area-rebalance retry. Empty in the common case.
@@ -150,6 +171,71 @@ const STRATEGIES: readonly Strategy[] = (() => {
     return out;                                 // 8, in fixed order
 })();
 const strategyKey = (s: Strategy): string => `${s.axis ? 'z' : 'x'}-${s.order}-${s.mirror ? 'mir' : 'id'}`;
+
+/**
+ * §TOPO-HARD-REJECT (Stage 5) — the founder's HARD topology gate predicate.
+ *
+ * Returns which of the three architectural rules a candidate violates (empty ⇒
+ * hard-valid). Pure + deterministic — reuses signals already computed in
+ * `buildCandidate` (the `frontage` validator's hard findings, the
+ * `unroutedToCirculationRoomIds` signal, and the realised door set), so it adds
+ * no new geometry pass. NOT exported — an internal slice of the enumerate/rank
+ * path (no new exported package function ⇒ no new P8 span; consistent with the
+ * other pure tgl engine functions, ADR-0061).
+ *
+ *   W (window)      — a `windowMandatory` room is fully interior (no perimeter
+ *                     wall ⇒ it can host ZERO windows).
+ *   C (circulation) — a room is land-locked (no door onto the spine).
+ *   P (privacy)     — a private room opens DIRECTLY off the entrance hall.
+ */
+function evaluateHardTopology(args: {
+    readonly bubble: BubbleGraph;
+    readonly frontageHardRoomIds: readonly string[];
+    readonly unroutedToCirculationRoomIds: readonly string[];
+    readonly doorOpenings: readonly DoorOpening[];
+}): readonly ('window' | 'circulation' | 'privacy')[] {
+    const { bubble, frontageHardRoomIds, unroutedToCirculationRoomIds, doorOpenings } = args;
+    const typeById = new Map<string, string>();
+    for (const r of bubble.rooms) typeById.set(r.id, r.type);
+
+    const failed: ('window' | 'circulation' | 'privacy')[] = [];
+
+    // Rule W — a windowMandatory room with no perimeter frontage (the frontage
+    // validator's hard findings ARE the rooms with no perimeter wall). The
+    // frontage:'required' set ⊇ the windowMandatory set; intersect to the
+    // founder's exact predicate so a non-windowMandatory frontage-required room
+    // (none today, but future-safe) doesn't trip this rule.
+    if (frontageHardRoomIds.some(id => windowMandatoryFor(typeById.get(id) ?? ''))) {
+        failed.push('window');
+    }
+
+    // Rule C — any room land-locked from circulation (== !circulationRouted).
+    if (unroutedToCirculationRoomIds.length > 0) {
+        failed.push('circulation');
+    }
+
+    // Rule P — a private room opens DIRECTLY off the entrance hall. We read the
+    // realised door set: a door between a `hall`-type room and a private room is a
+    // privacy breach (`hall.accessFrom` lists only living/corridor). The
+    // forbidden-adjacency validator already rejects this pair, but the founder
+    // wants it as an explicit hard rule so a least-bad fallback that ships such a
+    // door is still ranked below a hard-valid plan.
+    for (const o of doorOpenings) {
+        if (o.type !== 'door') continue;
+        const [a, b] = o.betweenRoomIds as readonly [string, string?];
+        if (!a || !b) continue;
+        const ta = typeById.get(a);
+        const tb = typeById.get(b);
+        if (!ta || !tb) continue;
+        const hallSide = roomRule(ta).type === 'hall' ? tb : roomRule(tb).type === 'hall' ? ta : null;
+        if (hallSide && isPrivate(hallSide)) {
+            failed.push('privacy');
+            break;
+        }
+    }
+
+    return failed;
+}
 
 /** Coordinate transform for a strategy (involutions ⇒ inv is the reverse compose). */
 function makeTransform(bb: Rect, s: Strategy): { fwd: (p: Pt) => Pt; inv: (p: Pt) => Pt } {
@@ -387,6 +473,23 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     // `unroutedToCirculationRoomIds` means at least one room is land-locked.
     const circulationRouted = unroutedToCirculationRoomIds.length === 0;
 
+    // §TOPO-HARD-REJECT (Stage 5) — the founder's HARD topology gate. A candidate
+    // is hard-invalid if it breaks ANY of the three architectural rules (windowless
+    // habitable room / land-locked room / private-room-off-hall). Reuses the
+    // already-computed frontage hard findings + unrouted signal + realised doors.
+    const hardFailedRules = evaluateHardTopology({
+        bubble,
+        frontageHardRoomIds: frontage.hardFindings.map(f => f.roomId),
+        unroutedToCirculationRoomIds,
+        doorOpenings,
+    });
+    const hardValid = hardFailedRules.length === 0;
+    // §DIAG-TOPO-GATE — per-candidate hard-gate decision line (logging only).
+    console.log(
+        `[D-TGL] §DIAG-TOPO-GATE strategy=${strategyKey(s)} hardValid=${hardValid} ` +
+        `failed=[${hardFailedRules.join(',') || 'none'}]`,
+    );
+
     // §DIAG-ENUM — terse per-candidate decision line (logging only; no behaviour
     // change). Surfaces the strategy, the rooms it DROPPED, the frontage-required
     // rooms that failed to touch the shell (the missing-window root), and the key
@@ -409,7 +512,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         strategy: strategyKey(s), graph, objectives,
         weighted, rank: 0,
         compromises, connected: metrics.connected, shapeAdmissible, topologyAdmissible,
-        circulationRouted, droppedRooms, boundaries,
+        circulationRouted, hardValid, hardFailedRules, droppedRooms, boundaries,
     };
 }
 
@@ -616,33 +719,68 @@ export function enumerateLayouts(input: EnumerateInput): TglCandidate[] {
     //                                 topology issue (acoustic / wet) is present
     //   connected                   ← reachable; multiple compromises
     //   anything                    ← last resort
-    const connected = candidates.filter(c => c.connected);
-    const legal = connected.filter(c => c.compromises === 0);
-    const clean = candidates.filter(c => c.shapeAdmissible && c.topologyAdmissible);
-    const cleanAndLegal = clean.filter(c => c.connected && c.compromises === 0);
-    const cleanLegalRouted = cleanAndLegal.filter(c => c.circulationRouted);
-    const cleanAndConn = clean.filter(c => c.connected);
+    // The existing 5-tier (now 7-tier) clean→legal→connected fallback, factored so
+    // it can run over the hard-valid subset first (§TOPO-HARD-REJECT below).
     // §TOPO-ROUTED-PREFERENCE (F2 / ADR-0062 D4-sharpened, 2026-06-08) — when EVERY
     // candidate fails the shape gate (universal on elongated/rotated plates, so the
     // three `clean*` tiers are empty), the old fallback dropped straight to `legal`/
     // `connected`, which do NOT prefer a circulation-routed plan — so the engine could
     // ship a `circRouted=false` / `topologyQuality=0.00` layout (the founder's console
-    // audit, F2). Insert two routed-preferring tiers BELOW the clean tiers: among
+    // audit, F2). Two routed-preferring tiers sit BELOW the clean tiers: among
     // connected+legal (and then connected) candidates, prefer the circulation-routed
     // ones. SAFE: each tier is only chosen if non-empty and otherwise falls straight
     // through, so the pool is NEVER emptied (D4 — never a zero result); byte-identical
     // when a clean tier is populated OR when no routed candidate exists at that tier.
-    const legalRouted = legal.filter(c => c.circulationRouted);
-    const connectedRouted = connected.filter(c => c.circulationRouted);
-    let pool =
-        cleanLegalRouted.length > 0 ? cleanLegalRouted :
-        cleanAndLegal.length > 0 ? cleanAndLegal :
-        cleanAndConn.length > 0 ? cleanAndConn :
-        legalRouted.length > 0 ? legalRouted :
-        legal.length > 0 ? legal :
-        connectedRouted.length > 0 ? connectedRouted :
-        connected.length > 0 ? connected :
-        candidates;
+    const selectTier = (cs: TglCandidate[]): TglCandidate[] => {
+        const connected = cs.filter(c => c.connected);
+        const legal = connected.filter(c => c.compromises === 0);
+        const clean = cs.filter(c => c.shapeAdmissible && c.topologyAdmissible);
+        const cleanAndLegal = clean.filter(c => c.connected && c.compromises === 0);
+        const cleanLegalRouted = cleanAndLegal.filter(c => c.circulationRouted);
+        const cleanAndConn = clean.filter(c => c.connected);
+        const legalRouted = legal.filter(c => c.circulationRouted);
+        const connectedRouted = connected.filter(c => c.circulationRouted);
+        return (
+            cleanLegalRouted.length > 0 ? cleanLegalRouted :
+            cleanAndLegal.length > 0 ? cleanAndLegal :
+            cleanAndConn.length > 0 ? cleanAndConn :
+            legalRouted.length > 0 ? legalRouted :
+            legal.length > 0 ? legal :
+            connectedRouted.length > 0 ? connectedRouted :
+            connected.length > 0 ? connected :
+            cs
+        );
+    };
+
+    // §TOPO-HARD-REJECT (Stage 5, 2026-06-09) — the founder's NEW TOP-LEVEL TIER
+    // SPLIT. A candidate that breaks any of the three architectural rules
+    // (windowless habitable room / land-locked room / private-room-off-hall) is
+    // HARD-INVALID and must rank BELOW every hard-valid candidate, so the ranker
+    // picks a better one of the 8 strategies instead of shipping the
+    // topologyQuality=0 layout the founder's console audit caught (merged-name
+    // rooms + windowless bedrooms). The split is applied OUTSIDE the existing
+    // tier ordering: run the clean→legal→connected fallback over the HARD-VALID
+    // candidates first; only if NO strategy is hard-valid (a genuinely hard
+    // plate/program) do we fall through to the same fallback over ALL candidates —
+    // the pool is NEVER emptied ("prefer hard-valid, never crash"). Byte-identical
+    // when at least one strategy already passed the three rules (the common case).
+    const hardValidCands = candidates.filter(c => c.hardValid);
+    const allHardInvalid = hardValidCands.length === 0;
+    let pool = selectTier(allHardInvalid ? candidates : hardValidCands);
+    if (allHardInvalid) {
+        // Name the rules that failed in the least-bad shipped plan so the gap is
+        // diagnosable (the founder's "name which rule failed"). The union across
+        // the chosen pool is the most informative single line.
+        const failedUnion = Array.from(
+            new Set(pool.flatMap(c => c.hardFailedRules)),
+        ).join(',') || 'unknown';
+        console.warn(
+            `[apartment-layout] §TOPO-HARD-REJECT-ALL: every one of the ${candidates.length} ` +
+            `strategies is HARD-INVALID (failed rules across the shipped pool: [${failedUnion}]). ` +
+            'The shell + program forces an architectural compromise — shipping the LEAST-BAD ' +
+            'layout (never an empty result). Surface the failing rule(s) to the user.',
+        );
+    }
 
     // §FEASIBILITY-ALLOC (A.21.D5) — within the chosen tier, prefer the
     // strategies that DROP THE FEWEST rooms. A tiling that keeps all requested
@@ -674,20 +812,24 @@ export function enumerateLayouts(input: EnumerateInput): TglCandidate[] {
     // and the final dropped rooms — so a single paste shows EXACTLY which strategy
     // shipped and where it compromised.
     if (best) {
+        // Tier name derived from the winning candidate's own flags (the per-subset
+        // tier variables now live inside `selectTier`); `hardInvalid` marks the
+        // §TOPO-HARD-REJECT-ALL least-bad fallback.
         const pool_ =
-            cleanLegalRouted.length > 0 ? 'clean+legal+routed' :
-            cleanAndLegal.length > 0 ? 'clean+legal' :
-            cleanAndConn.length > 0 ? 'clean+connected' :
-            legalRouted.length > 0 ? 'legal+routed' :
-            legal.length > 0 ? 'legal' :
-            connectedRouted.length > 0 ? 'connected+routed' :
-            connected.length > 0 ? 'connected' : 'any';
+            best.shapeAdmissible && best.topologyAdmissible && best.connected && best.compromises === 0 && best.circulationRouted ? 'clean+legal+routed' :
+            best.shapeAdmissible && best.topologyAdmissible && best.connected && best.compromises === 0 ? 'clean+legal' :
+            best.shapeAdmissible && best.topologyAdmissible && best.connected ? 'clean+connected' :
+            best.connected && best.compromises === 0 && best.circulationRouted ? 'legal+routed' :
+            best.connected && best.compromises === 0 ? 'legal' :
+            best.connected && best.circulationRouted ? 'connected+routed' :
+            best.connected ? 'connected' : 'any';
         const axes = OBJECTIVE_AXES
             .map(a => `${a}=${best.objectives[a].toFixed(2)}`)
             .join(' ');
         const winDropped = best.droppedRooms.map(d => d.type).join(',') || 'none';
         console.log(
             `[D-TGL] §DIAG-WINNER strategy=${best.strategy} tier=${pool_} ` +
+            `hardValid=${best.hardValid} hardFailed=[${best.hardFailedRules.join(',') || 'none'}] ` +
             `rank=${best.rank} weighted=${best.weighted.toFixed(3)} ` +
             `connected=${best.connected} shapeOK=${best.shapeAdmissible} ` +
             `topoOK=${best.topologyAdmissible} circRouted=${best.circulationRouted} ` +

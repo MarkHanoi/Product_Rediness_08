@@ -2662,6 +2662,7 @@ challenges, visual + console post-mortems). This is the running status as items 
 | **F1 — enrichment density-cap** | ADR-0062 D8 / §ENRICH-DENSITY-CAP | ✅ **DONE** | v72 (1eb23641) | Caps bedrooms by plate circulation capacity (~45 m²/bed); test logs show upper floor 5→2-3 beds, candidates flip from all-`topoOK=false` to `topoOK=true circRouted=true connected=true` (x-rev-id 0.700) → ranking now picks a VALID topology |
 | **F3 — habitable window priority** | ADR-0062 / §23.6 F3 / §WINDOW-HABITABLE-PRIORITY | ✅ **DONE** | v73 | `deOverlapShellWindows` keeps habitable-room windows over wet-room windows (was deleting a bedroom's only window while a bathroom kept 3). Byte-identical when no cross-priority wall conflict |
 | **F2 — topology routed-preference** | ADR-0062 D4-sharpened / §TOPO-ROUTED-PREFERENCE | ✅ **DONE** | v74 | Inserted `legalRouted` + `connectedRouted` ranking tiers BELOW the `clean` tiers: when every candidate fails the shape gate (universal on elongated plates), the engine now prefers a circulation-ROUTED plan instead of shipping `circRouted=false` / `topologyQuality=0.00` (the founder console audit). D4-safe (never empties the pool → never zero-result); byte-identical when a clean tier is populated or no routed candidate exists. ai-host 2043/2043 |
+| **F2b — topology HARD-REJECT gate** | §TOPO-HARD-REJECT (Stage 5) / ADR-0062 D4/D6 | ✅ **DONE (code; uncommitted)** | — | The full HARD gate the original F2 brief called for ("a sealed room is FATAL, not a warning"). New TOP-LEVEL tier split in `enumerate.ts`: a candidate is hard-invalid if a `windowMandatory` room is fully interior (W, reuses `frontage` hard findings), any room is land-locked (C, reuses `unroutedToCirculationRoomIds`), or a private room opens off the entrance hall (P, new scan). Hard-valid ranks ABOVE hard-invalid; `selectTier` runs over the hard-valid subset first, falls through to ALL candidates with a loud `§TOPO-HARD-REJECT-ALL` warning only when every strategy fails — **never empties the pool**. `§DIAG-TOPO-GATE` per candidate; `hardValid`/`hardFailedRules` on `TglCandidate`. CI invariant test `houseLayoutInvariants.test.ts` (45° plate: stair-corner I1 / no merged-name I3 / no silent-drop I4 — all PASS). ai-host **2118/2118**; byte-identical when ≥1 strategy is hard-valid |
 | **PM-0 — upper-floor no-merge** | §CONSENSUS-ON-CENTRELINE (extend) | 🟡 **likely reduced by F1** | — | The 101.7 m² upper blob was driven by the 5-bedroom cram; F1 cuts the room count. RE-TEST on prod to confirm the upper floor no longer merges post-F1 before adding `_buildPerimeterShell` work |
 | F1+F3 suite | ADR-0061 determinism | ✅ ai-host **2043/2043** green | — | byte-identical where the caps/priority don't bind |
 | **M2 — slider-as-intent (G13)** | C53 §6 | ⚪ queued | — | wire all UI controls → `EngineTuning` weights, never absolute dimensions |
@@ -2882,3 +2883,77 @@ ADR-0056 (typology brief) · C50/SPEC-TGL (the one deterministic engine).
 **Critical path:** A → B → D → F. Off-critical (parallel): C, E.
 **Risks:** re-gen latency (mitigated: 250 ms debounce + sync offline engine); no live async closure
 (controller caches data only); apartment regression (R3a/R3b/interactive all default-off).
+
+## §26 — Concatenated cross-floor living graph, plan-LEFT / graph-RIGHT (`XFLOOR-GRAPH`) — analysis + plan (2026-06-09)
+
+**Founder directive (verbatim):** *"the goal will be to have the graph NEXT TO the plan view — also
+we should have a CONCATENATED graph in case we want to move a bedroom from upstairs to downstairs —
+it should work like mural/miro the graphs — we should have the plan views to the LEFT and the graphs
+to the RIGHT — the graphs are connected as a SINGLE LIVING ENTITY — and the plan view reflects
+graphically the data. the graphs are the SEMANTIC TRUTH; the UI should be more dynamic — on the fly
+the user can easily change data with sliders."*
+
+**Spec:** [SPEC-LIVE-SINGLE-OPTION-LAYOUT-MODAL §9](../specs/SPEC-LIVE-SINGLE-OPTION-LAYOUT-MODAL.md#9--concatenated-cross-floor-living-graph-plan-left--graph-right--xfloor-graph).
+**Target:** the "Choose a house layout" modal (`apps/editor/src/ui/house-layout/*`) — the next
+evolution of the §25 single-option modal.
+**Governance:** C52 (editable building graph) · ADR-0061 (bidirectional substrate) · ADR-0060
+(living design params) · the UBG / `@pryzm/building-graph` strategy · C50/SPEC-TGL (the one engine).
+
+### §26.1 — Shipped today vs target (verified)
+
+- **Shipped (§25 / `LIVE-MODAL.*`):** single best option; per-storey Plan/Graph **TOGGLE**; ONE
+  static editable **SVG bubble graph per storey** (`buildLayoutBubbleGraphSvg`, `interactive:true`);
+  node-click → inline area/type editor → C52 stash → debounced sync regen.
+- **Target (this §26 / SPEC §9):** plan-LEFT / graph-RIGHT **side-by-side** (no toggle); ONE
+  **concatenated** graph spanning all storeys (storey lanes + stair edges); a **Miro/Mural**
+  pan/zoom/drag CANVAS (reuse `LivingGraphCanvas`/`LivingGraphOverlay`); **drag a node between
+  floor-lanes → move the room to that storey** → re-generate.
+
+### §26.2 — Key findings (cite)
+
+- **Room→floor assignment is by COUNT, not by instance** — `allocateProgramToStoreys`
+  (`storeyAllocation.ts:44`, splits by `groundBedrooms`/`upperBedrooms`/… integer counts, `:80-86`).
+- **No `roomFloorByName` exists** — `ApartmentProgram` has `roomAreasByName` (`apartmentLayout/types.ts:143`)
+  + `roomTypesByName` (`:164`) but NO per-instance floor map. → must be ADDED (SPEC §9.4).
+- **The Miro canvas already exists** — `apps/editor/src/ui/living-graph/` (`LivingGraphCanvas` +
+  `LivingGraphOverlay`): pan (`onCanvasPointerDown :1153`), wheel-zoom-to-cursor (`onCanvasWheel :1132`),
+  node-drag (`:1181`), hit-test (`pick :78`), force sim (`forceSimulation.ts`), P3-safe ticker
+  (`ensureTicking :1007`), node-edit → C52 stash. **Reuse, do not reinvent** (SPEC §9.7).
+
+### §26.3 — Task breakdown
+
+- [ ] **XFLOOR-GRAPH.XA — room→floor override substrate (engine change, the gate).**
+      `activeRoomFloorOverrides.ts` (NEW stash, keyed on storey-qualified node id) +
+      `ApartmentProgram.roomFloorByName` (`apartmentLayout/types.ts`) + `allocateProgramToStoreys`
+      made override-aware (default split → apply moves → re-validate via `validateHouseStorey` →
+      clamp floor-pinned kitchen/hall). Empty ⇒ byte-identical (C52 I2). + ai-host tests.
+- [ ] **XFLOOR-GRAPH.XB — concatenated graph builder [P with XC].** NEW pure
+      `buildConcatenatedHouseGraph(option) → LiveGraph` (storey-prefixed ids, intra-floor
+      `adjacentTo` edges, inter-floor stair edges from `result.stairs[].from/toLevelId`,
+      `storeyIndex`/`levelId` per node) + an optional lane-anchor spring in `forceSimulation.ts`
+      (default-off so the overlay is unchanged).
+- [ ] **XFLOOR-GRAPH.XC — extract `MiroCanvasController` [P with XB].** Lift pan/zoom/drag +
+      autoFit/userNavigated out of `LivingGraphOverlay` into a reusable controller over a
+      `LivingGraphCanvas` + `LiveGraph`; refactor the overlay to use it (behaviour-preserving,
+      guarded by the overlay's existing tests). ONE copy of the canvas nav (no fork).
+- [ ] **XFLOOR-GRAPH.XD — side-by-side modal body (after XB+XC).** `houseModalHtml.ts` two-column
+      `.hlm-body` (plan LEFT, graph-canvas mount RIGHT), plan thumbnails stacked top-floor-first;
+      `HouseLayoutModal` mounts ONE `LivingGraphCanvas` + `MiroCanvasController` fed
+      `buildConcatenatedHouseGraph(options[0])`, wires node-drop → `setRoomFloorOverride` +
+      `_scheduleGraphEdit`, node-click → existing `_openGraphNodeEditor`; disposes on `dismiss`.
+      CSS `.hlm-body` flex (plan ~40 %, graph ~60 %).
+- [ ] **XFLOOR-GRAPH.XE — wire the floor override through the controller (after XA+XD).**
+      `HouseLayoutController._mergeOverrides` (`:249`) also merges `getRoomFloorOverrides()` into
+      `program.roomFloorByName` — flows to both preview (`_computeVariants`) and build (`_build`)
+      with no other change.
+- [ ] **XFLOOR-GRAPH.XF — tests + docs (last).** `buildConcatenatedHouseGraph.test.ts` (one graph
+      for a 2-storey option, stair edge present, ids storey-qualified, blank-storey safe); extend
+      `houseModalHtml.liveModal.test.ts` (side-by-side body, no toggle, graph mount); this SPEC §9 +
+      tracker §26.
+
+**Critical path:** XA → XD → XE → XF. Off-critical (parallel): XB, XC (both feed XD).
+**Risks:** cross-floor re-allocation correctness (re-validate per storey + non-blocking reject);
+graph stability on regen (reuse position-preservation `resync :715` + lane anchoring); re-gen
+latency (250 ms debounce + sync engine; within-lane drag fires no regen); name ambiguity across
+storeys (key on storey-qualified node id, not bare name); canvas fork (XC extracts ONE controller);
+apartment/overlay regression (lane spring + override field + stash all default to no-op / C52 I2).
