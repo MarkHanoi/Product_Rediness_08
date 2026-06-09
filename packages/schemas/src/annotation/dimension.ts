@@ -146,6 +146,11 @@ export const DimensionAutoModeSchema = z.enum([
   'elevation',
   'section',
   'rcp',
+  // DOC-AUTO DS5 (2026-06-09) — a SET-OUT plan: every wall opening dimensioned by its
+  // OFFSET from the host wall's start (the "set-out" datum) + its width, plus the wall's
+  // overall length. The classic builder's setting-out drawing. See
+  // docs/03-execution/plans/AUTO-DOCUMENTATION-SHEETS-PLAN.md §5 DS5.
+  'set-out',
 ]);
 export type DimensionAutoMode = z.infer<typeof DimensionAutoModeSchema>;
 

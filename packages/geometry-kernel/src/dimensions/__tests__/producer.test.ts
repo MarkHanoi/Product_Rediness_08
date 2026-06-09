@@ -167,4 +167,63 @@ describe('produceDimensions', () => {
     const ids = new Set(dims.map((d) => d.id));
     expect(ids.size).toBe(dims.length);
   });
+
+  // ── DOC-AUTO DS5 — set-out mode ───────────────────────────────────────────
+  const SETOUT_SNAP: DimensionElementSnapshot = {
+    walls: [{ id: 'wall_A', levelId: 'level_L1' }, { id: 'wall_B' }],
+    doors: [{ id: 'door_1', hostWallId: 'wall_A', levelId: 'level_L1' }],
+    windows: [{ id: 'win_1', hostWallId: 'wall_B' }, { id: 'win_2' /* no host */ }],
+  };
+
+  it('set-out: wall overall (per wall) + offset-from-start (per HOSTED opening) + width (per opening)', () => {
+    const dims = produceDimensions(
+      { mode: 'set-out', viewId: 'view_001' },
+      SETOUT_SNAP,
+      makeMonotonicDimensionIdFactory(),
+    );
+    // 2 wall overalls + (door: offset+width) + (win_1: offset+width) + (win_2: width only) = 2+2+2+1 = 7
+    expect(dims).toHaveLength(7);
+    expect(dims.every((d) => d.autoMode === 'set-out')).toBe(true);
+  });
+
+  it('set-out: a hosted opening offset string is wall.start → opening.left (cross-element)', () => {
+    const dims = produceDimensions(
+      { mode: 'set-out', viewId: 'view_001' },
+      { walls: [{ id: 'wall_A' }], doors: [{ id: 'door_1', hostWallId: 'wall_A' }] },
+      makeMonotonicDimensionIdFactory(),
+    );
+    // [wall overall, door offset, door width]
+    const offset = dims[1];
+    expect(offset.references[0].elementId).toBe('wall_A');
+    expect(offset.references[0].anchor).toBe('start');
+    expect(offset.references[1].elementId).toBe('door_1');
+    expect(offset.references[1].anchor).toBe('left');
+    expect(offset.witnessLines.weight).toBe(0.13); // light witness for the opening string
+  });
+
+  it('set-out: an opening with NO hostWallId gets a width dim but NO offset string', () => {
+    const dims = produceDimensions(
+      { mode: 'set-out', viewId: 'view_001' },
+      { windows: [{ id: 'win_orphan' }] },
+      makeMonotonicDimensionIdFactory(),
+    );
+    expect(dims).toHaveLength(1);                       // width only
+    expect(dims[0].references[0].anchor).toBe('left');
+    expect(dims[0].references[1].anchor).toBe('right');
+  });
+
+  it('set-out: every emitted dim parses cleanly via DimensionStringSchema', () => {
+    const dims = produceDimensions(
+      { mode: 'set-out', viewId: 'view_001' },
+      SETOUT_SNAP,
+      makeMonotonicDimensionIdFactory(),
+    );
+    for (const d of dims) expect(() => DimensionStringSchema.parse(d)).not.toThrow();
+  });
+
+  it('set-out: deterministic (same input + factory → identical output)', () => {
+    const a = produceDimensions({ mode: 'set-out', viewId: 'view_001' }, SETOUT_SNAP, makeMonotonicDimensionIdFactory());
+    const b = produceDimensions({ mode: 'set-out', viewId: 'view_001' }, SETOUT_SNAP, makeMonotonicDimensionIdFactory());
+    expect(a).toEqual(b);
+  });
 });
