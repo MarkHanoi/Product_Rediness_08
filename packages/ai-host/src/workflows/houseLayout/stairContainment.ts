@@ -83,3 +83,67 @@ export function computeInwardContainmentOffset(
     }
     return { dx: 0, dz: 0 };   // couldn't contain within maxM — leave as-is (best-effort)
 }
+
+/** The shell centroid (world XZ); {0,0} for a degenerate shell. */
+function polyCentroid(poly: readonly XZ2[]): XZ2 {
+    if (poly.length === 0) return { x: 0, z: 0 };
+    let cx = 0, cz = 0;
+    for (const p of poly) { cx += p.x; cz += p.z; }
+    return { x: cx / poly.length, z: cz / poly.length };
+}
+
+/**
+ * §STAIR-CONTAIN-UPSTREAM — the SINGLE containment SOLVER both the orchestrator (at
+ * reserve time, to contain the stair BEFORE the keep-out is carved) and the editor
+ * executor (as a verification of the already-contained body) call, so the carved
+ * keep-out and the shipped footprint agree by construction.
+ *
+ * Two-attempt gate (mirrors the old in-executor §STAIR-CONTAIN-GATE):
+ *  1. Primary nudge along `inwardDirWorld` (the rotated interior side), step 0.1 m,
+ *     reach 4.0 m.
+ *  2. If that fails to contain (offset {0,0} AND not already inside), a finer second
+ *     attempt toward the shell CENTROID (the geometrically-guaranteed inward
+ *     direction for a convex-ish plate), step 0.05 m, reach 8.0 m.
+ *
+ * Returns the resolved offset + diagnostics:
+ *  - `alreadyInside` — the footprint was contained with NO nudge (the normal upstream
+ *    path → the executor's verification is a no-op).
+ *  - `viaCentroid` — the centroid fallback was needed.
+ *  - `cornersInShell` — corners inside AFTER applying the returned offset (target 4).
+ *
+ * Pure + deterministic (no Date/RNG). A degenerate inwardDir (e.g. a central/absent
+ * interior side) falls back to the centroid direction for the primary attempt too.
+ */
+export function solveStairContainmentWorld(
+    footprintCornersWorld: readonly XZ2[],
+    shellPolyWorld: readonly XZ2[],
+    inwardDirWorld: XZ2,
+): { dx: number; dz: number; alreadyInside: boolean; viaCentroid: boolean; cornersInShell: number } {
+    const n = footprintCornersWorld.length;
+    if (shellPolyWorld.length < 3 || n === 0) {
+        return { dx: 0, dz: 0, alreadyInside: true, viaCentroid: false, cornersInShell: n };
+    }
+    const alreadyInside = allCornersInside(footprintCornersWorld, shellPolyWorld);
+
+    const centroid = polyCentroid(shellPolyWorld);
+    let fx = 0, fz = 0; for (const c of footprintCornersWorld) { fx += c.x; fz += c.z; }
+    fx /= n; fz /= n;
+    const centroidDir: XZ2 = { x: centroid.x - fx, z: centroid.z - fz };
+
+    // Primary inward direction; fall back to the centroid direction when degenerate.
+    const inward = Math.hypot(inwardDirWorld.x, inwardDirWorld.z) > 1e-6 ? inwardDirWorld : centroidDir;
+    let { dx, dz } = computeInwardContainmentOffset(footprintCornersWorld, shellPolyWorld, inward, 0.1, 4.0);
+    let viaCentroid = false;
+
+    if (dx === 0 && dz === 0 && !alreadyInside && Math.hypot(centroidDir.x, centroidDir.z) > 1e-6) {
+        const off2 = computeInwardContainmentOffset(footprintCornersWorld, shellPolyWorld, centroidDir, 0.05, 8.0);
+        dx = off2.dx; dz = off2.dz;
+        if (dx !== 0 || dz !== 0) viaCentroid = true;
+    }
+
+    const shifted = footprintCornersWorld.map(c => ({ x: c.x + dx, z: c.z + dz }));
+    // Count with the SAME tolerance `allCornersInside` uses to DECIDE containment (1e-3),
+    // so cornersInShell===4 iff the gate considers the body contained.
+    const cornersInShell = shifted.filter(c => pointInPoly(c, shellPolyWorld, 1e-3)).length;
+    return { dx, dz, alreadyInside, viaCentroid, cornersInShell };
+}

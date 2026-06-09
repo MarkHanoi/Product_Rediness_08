@@ -31,8 +31,12 @@ export type { ClampedDoorSpan, WallVerticalExtent } from './houseVertical.js';
 export { weldPartitionsToShell } from './weldPartitionsToShell.js';
 export type { WeldWall, WeldOptions, XZ as WeldXZ } from './weldPartitionsToShell.js';
 // §STAIR-CONTAIN (2026-06-09) — pure full-footprint inward-containment for the house stair.
-export { computeInwardContainmentOffset, allCornersInside } from './stairContainment.js';
+export { computeInwardContainmentOffset, allCornersInside, solveStairContainmentWorld } from './stairContainment.js';
 export type { XZ2 as StairContainXZ } from './stairContainment.js';
+// §STAIR-CONTAIN-UPSTREAM (2026-06-09) — the SHARED world stair-footprint builder used
+// by BOTH the orchestrator (keep-out + containment) and the editor executor (dispatch).
+export { computeStairWorldFootprint, resolveTotalRisers } from './stairWorldFootprint.js';
+export type { StairWorldFootprintInput, StairWorldFootprint, FlightGeom as StairFlightGeom } from './stairWorldFootprint.js';
 // DOC-AUTO DS3 (2026-06-09) — pure building-exterior elevation marks from a footprint.
 export { computeBuildingElevationMarks } from './buildingElevations.js';
 export type { BuildingElevationMark, BuildingElevationOptions } from './buildingElevations.js';

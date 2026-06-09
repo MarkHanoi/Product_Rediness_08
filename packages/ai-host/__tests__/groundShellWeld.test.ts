@@ -97,7 +97,7 @@ describe('§GROUND-WELD — weldPartitionsToShell unit', () => {
 });
 
 describe('§GROUND-WELD — GROUND floor detects its full room set', () => {
-    it('a faithful GROUND floor (footprint = shell; shell drifted within snap range) detects ≥4 rooms and weld never regresses it', () => {
+    it('a faithful GROUND floor (footprint = shell; shell drifted within snap range) detects ≥3 rooms and weld never regresses it', () => {
         // Faithful model: the engine footprint IS the drawn shell perimeter (same
         // source). The DETECTION shell walls are the post-WallJoinResolver geometry,
         // drifted (mitre/trim) within the engine's snap range. The weld makes the
@@ -121,7 +121,14 @@ describe('§GROUND-WELD — GROUND floor detects its full room set', () => {
         // eslint-disable-next-line no-console
         console.log('§GROUND-WELD faithful raw=', rawDetected.length, 'welded=', detected.length, 'parts=', rawParts.length);
         // A multi-bed ground programme → clearly NOT one merged room.
-        expect(detected.length).toBeGreaterThanOrEqual(4);
+        // §STAIR-CONTAIN-UPSTREAM (2026-06-09): the room-tiling keep-out now reflects the
+        // CONTAINED, SHIPPED stair FOOTPRINT (all flights + landings + width) rather than
+        // the smaller reserved 2.0×2.8 core, so on this tight 14×11 / 2-storey plate the
+        // ground floor correctly tiles 3 distinct rooms AROUND the real stair (previously it
+        // tiled 4 around the too-small core, which the shipped stair then overlapped — the
+        // §8.5 desync this fix closes). Still clearly NOT a merged blob; the weld invariant
+        // (welded never below raw) is the actual subject under test and is unchanged.
+        expect(detected.length).toBeGreaterThanOrEqual(3);
         expect(detected.length).toBeGreaterThanOrEqual(rawDetected.length);
     });
 

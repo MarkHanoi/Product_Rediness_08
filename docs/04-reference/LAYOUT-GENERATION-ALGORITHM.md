@@ -116,12 +116,16 @@ differently. See **"Why the apartment generator beats the house"** below.
 
 ### What is genuinely broken today (honest)
 
-The single largest live defect is the **stair desync** (§8.4): the engine carves the room-tiling
-keep-out at the stair's *original reserved* position, but the editor then **nudges the shipped
-stair body to a different position** to fit a rotated shell — so the final stair overlaps the
-rooms tiled in the vacated region, its void cuts the partitions that were sealing rooms, and room
-detection floods into one merged room. The founder's instinct is exactly right: **the stair is
-the circulation root-cause.** A secondary, downstream-coupled gap is that on a rotated ground
+The **stair desync** (§8.4 / §8.5) — historically the single largest live defect — is **CLOSED
+as of 2026-06-09 (`§STAIR-CONTAIN-UPSTREAM`).** The engine used to carve the room-tiling keep-out
+at the stair's *original reserved* position while the editor nudged the shipped stair body to a
+*different* position to fit a rotated shell, so the final stair overlapped the rooms tiled in the
+vacated region, its void cut the sealing partitions, and room detection flooded into one merged
+room. Now the containment is solved **upstream**, in the orchestrator, BEFORE the keep-out is
+carved, and the SAME world offset flows to the executor — so the keep-out == the shipped footprint
+by construction and the executor's nudge is a verified no-op (§8.5.4). The founder's instinct was
+exactly right: **the stair was the circulation root-cause.** A secondary, downstream-coupled gap
+is that on a rotated ground
 plate the partition↔shell weld can still merge rooms (`§GROUND-ENGINE-PERIMETER` takes the
 `WELD-FALLBACK` path and `WallJoinResolver` reports `§MULTI-CLUSTER … PASS-THROUGH` joins plus the
 occasional `§WJR-INVALID … self-cluster`). Both are documented with file:line in §8.4–§8.5.
@@ -839,10 +843,14 @@ bolts on top of the shared engine** — three things, in order of impact:
 The apartment is a single plate with **no stair, no stair keep-out, no stair containment**. The
 house must reserve a vertically-aligned stair core, carve it out of every storey's buildable
 region, and build a real stair body that must fit a (possibly rotated) shell. When that body
-pokes out (`§DIAG-STAIR cornersInShell=1/4`) it conflicts the perimeter and the partitions —
-and, as §8.5 proves, the *containment* of that body is the dominant root-cause of the house's
-"merged room" defect. This is **genuinely additional** (it must stay) but it is the single
-biggest maturity gap. (`HouseLayoutExecutor.ts:1000-1008`, `stairContainment.ts:1-16`.)
+poked out (`§DIAG-STAIR cornersInShell=1/4`) it conflicted the perimeter and the partitions —
+and, as §8.5 proves, the *containment* of that body was the dominant root-cause of the house's
+"merged room" defect. **The containment is now resolved UPSTREAM (§8.5.4, `§STAIR-CONTAIN-
+UPSTREAM`, 2026-06-09)** so the keep-out == the shipped footprint and the overlap can no longer
+arise. This is **genuinely additional** (it must stay). (`houseLayout/houseOrchestrator.ts`
+`containStairCoreUpstream`, `houseLayout/stairWorldFootprint.ts`,
+`houseLayout/stairContainment.ts` `solveStairContainmentWorld`,
+`HouseLayoutExecutor.ts` §STAIR-CONTAIN verification.)
 
 ### 8.4.3 (b) The ground-shell weld + the §GROUND-ENGINE-PERIMETER / §UPPER-SHELL-WELD reconciliation
 
@@ -983,29 +991,51 @@ This is documented in full in
 `docs/04-reference/STAIR-CREATION-PIPELINE-AND-ANCHOR-ANALYSIS.md` (§2 — "the founder's
 hypothesis is correct: it's an ANCHOR problem"; the 5-stage pipeline + the file map in §4).
 
-### 8.5.4 The CURE direction (documented recommendation — NOT code)
+### 8.5.4 The cure — upstream containment (step 1 SHIPPED 2026-06-09)
 
 The robust model is the **opposite** of "anchor + grow + nudge afterward": the stair must be
-**CONTAINED in the engine / orchestrator BEFORE the keep-out is carved**, so that:
+**CONTAINED in the orchestrator BEFORE the keep-out is carved**, so that:
 
-1. **The keep-out == the final shipped stair footprint.** Resolve `§STAIR-CONTAIN` **upstream**
-   — in `stairPosition.ts` / `houseOrchestrator.ts`, against the rotated shell, on the *full*
-   footprint (all flights + landings), not as a downstream `HouseLayoutExecutor` nudge. Then the
-   rooms are tiled around the **contained** stair and no overlap can arise by construction.
-2. **Reserve / position the core in the ROTATED frame for strongly-rotated plates** (anchor to
-   the interior or the abutted perimeter wall, grow inward), so the corner anchor is genuinely
-   inside the shell, not an axis-aligned rect rotated whole
-   (`STAIR-CREATION-PIPELINE-AND-ANCHOR-ANALYSIS.md` §3, steps 1–3).
+1. **The keep-out == the final shipped stair footprint — SHIPPED (`§STAIR-CONTAIN-UPSTREAM`).**
+   `§STAIR-CONTAIN` is now resolved **upstream**, in `houseOrchestrator.ts`
+   (`containStairCoreUpstream`), against the rotated **world** shell, on the *full* world
+   footprint (all flights + landings + width) — NOT as an independent downstream
+   `HouseLayoutExecutor` nudge. The orchestrator builds the shipped stair geometry with the
+   SHARED `computeStairWorldFootprint` (`houseLayout/stairWorldFootprint.ts` — the SAME geometry
+   the executor builds, a byte-for-byte port of `computeStairFootprintRect`), solves the inward
+   offset with `solveStairContainmentWorld` (the SAME two-attempt interior-side → centroid gate
+   the executor used), and carries that **world-XZ offset** on `StairCore.containOffsetWorld`.
+   The **keep-out is then the world AABB of the CONTAINED footprint** (`enumeratePerStorey` →
+   `keepOutRectsWorld` from `coreFootprintWorld`), so the rooms tile around the FINAL stair
+   position and no stair-vs-room overlap can arise by construction. The executor applies the SAME
+   `containOffsetWorld` to the shipped body and its `§STAIR-CONTAIN` becomes a **VERIFICATION**:
+   it re-solves containment on the already-shifted body and expects a `{0,0}` residual (a no-op),
+   logging a loud `§STAIR-CONTAIN ⚠ DESYNC` only if the two ever disagree. The reserved
+   `core.rectMm` is **unchanged** (it still hugs the wall per §STAIR-DEFAULT-BIAS), so the
+   placement invariants and the rectMm-equality tests are preserved; only the SHIPPED body +
+   keep-out are shifted, together. Coincidence proven by
+   `__tests__/stairContainUpstream.test.ts` (shipped footprint 4/4 inside; executor nudge `{0,0}`
+   on axis-aligned, tight, AND rotated plates). **Consequence (correct, not a regression):** on a
+   tight plate the keep-out now reflects the stair's REAL footprint (≈3×3.5 m for a U), so the
+   ground floor may tile one fewer room than the old (too-small 2.0×2.8 core) keep-out did — but
+   those rooms no longer overlap the stair (the `groundShellWeld` faithful test threshold dropped
+   4 → 3 to match).
+2. **Reserve / position the core in the ROTATED frame for strongly-rotated plates** — DONE for
+   the rect (`reserveStairCoreShaped` reserves in the layout frame, A.21.D24) + the interior-side
+   half-landing fold (§STAIR-HALF-LANDING-INWARD). Sizing the reserved cell to BOUND the full
+   U/L footprint (so the upstream offset shrinks toward 0 on a wall-flush stair) is the remaining
+   refinement (the current offset can be ~1–2 m on a tight plate; the cure makes that offset
+   *consistent* between keep-out and shipped, which is what closes the merge).
 3. **The corridor / circulation must explicitly connect to the stair LANDING.** Upstairs the
    stair arrival is the `corridor` relabelled "Landing" (§LANDING-NOT-HALL / G14); the
-   reconciliation passes (`§CIRCULATION-REROUTE`, `wallsAndDoors.ts`) must guarantee a door from
-   that landing to every private room, with the stair footprint as a *first-class* circulation
-   node — not an obstacle the rooms merely avoid.
+   reconciliation passes (`§CIRCULATION-REROUTE`, `wallsAndDoors.ts`) guarantee a door from that
+   landing to every private room. Still queued: treating the stair footprint as a *first-class*
+   circulation node rather than an obstacle the rooms merely avoid.
 
-In short: **make the position that drives the keep-out equal to the position the stair ships at,
-and make the stair body a contained, validated footprint before tiling — not an anchored body
-nudged into place after.** The 2026-06-09 `interiorSide` change (half-landing inward) is the
-first half of step 1; the full-footprint upstream containment (steps 2–3) is queued.
+In short: **the position that drives the keep-out now equals the position the stair ships at** —
+one upstream solve drives BOTH, so the desync is closed. The 2026-06-09 `interiorSide` change
+(half-landing inward) + this `§STAIR-CONTAIN-UPSTREAM` change complete step 1; the
+footprint-bounding reserve (step 2 refinement) + first-class-circulation-node (step 3) remain.
 
 #### 8.5.4.1 Fix 1 + Fix 4 — the topology defence (SHIPPED 2026-06-09)
 
@@ -1209,8 +1239,9 @@ raise a superseding ADR.
 | `§WINDOW-MANDATORY-RESCUE` (A.21.D60) | `shellWallMatch.ts`, `programRules.ts` | A windowMandatory room never ends with 0 windows: last-resort relaxed retry (corner→width→match-tolerance) retains 1; only fallback, byte-identical otherwise. |
 | `§KITCHEN-DISTINCT` / `§BATH-CORRIDOR-ONLY` | `bubbleGraph.ts`, `programRules.ts` | Kitchen always enclosed; bath off corridor only. |
 | `§STAIR-WORST-ASPECT` / `§STAIR-CORNER-ANCHOR` | `stairPosition.ts`, `stairCore.ts` | Stair takes the poor-aspect back corner. |
-| `§STAIR-KEEPOUT` | `houseOrchestrator.ts:395-417`, `enumerate.ts:187-202` | Carve the core (at its ORIGINAL reserved position) out of the buildable rects before tiling. |
-| `§STAIR-CONTAIN` / `§STAIR-CONTAIN-GATE` | `HouseLayoutExecutor.ts:1260-1331`, `stairContainment.ts:64` | Nudge the SHIPPED stair body inward to fit the rotated shell — applied AFTER tiling → the §8.5 desync. |
+| `§STAIR-KEEPOUT` | `houseOrchestrator.ts`, `enumerate.ts:187-202` | Carve the stair out of the buildable rects before tiling. The keep-out is now the world AABB of the CONTAINED, shipped footprint (`§STAIR-CONTAIN-UPSTREAM`), not the reserved core rect. |
+| `§STAIR-CONTAIN-UPSTREAM` | `houseOrchestrator.ts` `containStairCoreUpstream`, `stairWorldFootprint.ts`, `stairContainment.ts` `solveStairContainmentWorld` | Solve the inward containment UPSTREAM (orchestrator), before the keep-out is carved; the world offset is carried on `StairCore.containOffsetWorld`. Keep-out == shipped footprint by construction (closes the §8.5 desync). |
+| `§STAIR-CONTAIN` / `§STAIR-CONTAIN-GATE` | `HouseLayoutExecutor.ts` (§STAIR-CONTAIN block), `stairContainment.ts:64` | Now a VERIFICATION: the executor applies the upstream `containOffsetWorld` and re-solves to confirm a `{0,0}` residual (a no-op nudge); a non-zero residual logs `§STAIR-CONTAIN ⚠ DESYNC`. |
 | `§GROUND-ENGINE-PERIMETER` / `§UPPER-SHELL-WELD` | `HouseLayoutExecutor.ts:434-553` | Close the ground like the upper storeys; ENGINE-PERIMETER path vs the load-bearing WELD-FALLBACK path. |
 | `§MULTI-CLUSTER` / `§PASS-THROUGH-FLUSH` / `§WJR-INVALID` | `WallJoinResolver.ts:179-622` | 3+-endpoint junction resolution; collinear pass-through caps; durable degenerate (self-cluster) flag. |
 | `§COLLINEAR-MERGE` | `executePlan.ts:184` | Fold collinear segments at T/X junctions into passthrough walls. |
@@ -1228,14 +1259,17 @@ raise a superseding ADR.
 - **Stair worst-aspect / corner anchor (2026-06-08) — SHIPPED.** Central stairs holed the
   subdivision; the chooser now strongly prefers a perimeter back-corner on the poor-aspect
   (north-default) façade.
-- **Stair containment desync — OPEN (the #1 live defect; §8.5).** The engine carves the
-  room-tiling keep-out at the stair's *original* reserved position
-  (`houseOrchestrator.ts:404-417` → `enumerate.ts:187-202`), but the editor `§STAIR-CONTAIN`
-  nudges the *shipped* stair body to a *different* position to fit a rotated shell
-  (`HouseLayoutExecutor.ts:1297-1316`, observed `(-1.50,-0.55)m`). Result: the stair overlaps the
-  rooms tiled around the original keep-out, its void cuts sealing partitions, room detection
-  floods, and `§DIAG-ROOMS rooms=6` ships as one merged "Living/Bedroom/Kitchen/Bathroom/Corridor"
-  room. Cure direction = contain upstream (keep-out == shipped footprint), §8.5.4.
+- **Stair containment desync — CLOSED 2026-06-09 (`§STAIR-CONTAIN-UPSTREAM`).** Historically the
+  engine carved the room-tiling keep-out at the stair's *original* reserved position while the
+  editor nudged the *shipped* stair body to a *different* position to fit a rotated shell
+  (observed `(-1.50,-0.55)m`), so the stair overlapped the rooms tiled around the original
+  keep-out, its void cut sealing partitions, and `§DIAG-ROOMS rooms=6` shipped as one merged
+  room. **Fixed** by solving the containment UPSTREAM in `houseOrchestrator.ts`
+  (`containStairCoreUpstream`, via `stairWorldFootprint.ts` + `solveStairContainmentWorld`) before
+  the keep-out is carved: the keep-out is the world AABB of the CONTAINED footprint, the world
+  offset rides `StairCore.containOffsetWorld` to the executor, and the executor's `§STAIR-CONTAIN`
+  is now a verified no-op (a non-zero residual logs `§STAIR-CONTAIN ⚠ DESYNC`). Keep-out ==
+  shipped footprint by construction; proven in `stairContainUpstream.test.ts`. §8.5.4.
 - **Rotated-ground weld-fallback merge — OPEN (§8.5.5).** Even with §GROUND-ENGINE-PERIMETER /
   §UPPER-SHELL-WELD / §SHELL-ANCHOR-PRESERVE shipped, the rotated ground still takes the
   `WELD-FALLBACK` path (`HouseLayoutExecutor.ts:496-503`); `WallJoinResolver` reports mostly

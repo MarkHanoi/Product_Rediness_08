@@ -114,6 +114,18 @@ export interface StairCore {
      * left-of-flight-1 offset (I/L are unaffected; only the U branch consumes it).
      */
     readonly interiorSide?: StairCorePositionKind;
+    /**
+     * §STAIR-CONTAIN-UPSTREAM (2026-06-09, founder "circulation must be perfectly
+     * orchestrated") — the WORLD-XZ inward-containment offset (metres) the orchestrator
+     * solved AT RESERVE TIME against the (rotated) world shell, so the room-tiling
+     * keep-out is carved around the CONTAINED stair footprint. The editor executor
+     * applies this SAME shift to the shipped stair body (start + every flight
+     * startOverride) so the shipped footprint == the carved keep-out by construction —
+     * closing the §8.5 desync. {0,0} (or absent) ⇒ the reserved footprint already fits
+     * (axis-aligned plates / fitting cores are byte-identical). The executor's
+     * §STAIR-CONTAIN then becomes a VERIFICATION of this offset, not an independent move.
+     */
+    readonly containOffsetWorld?: { readonly x: number; readonly z: number };
 }
 
 /**

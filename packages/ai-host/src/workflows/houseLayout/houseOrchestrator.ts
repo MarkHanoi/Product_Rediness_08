@@ -21,6 +21,8 @@ import { principalAxisAngle, rotatePt } from '../apartmentLayout/tgl/rectDecompo
 import { equatorFacingDir } from '../apartmentLayout/windowEmission/solarOrientation.js';
 import { validateHouseStorey, houseStoreyBand } from './houseEnvelope.js';
 import { reserveStairCoreShaped, splitRisersForShape, type StairCoreShaped, type StairSolar } from './stairCore.js';
+import { computeStairWorldFootprint, type XZ as StairXZ } from './stairWorldFootprint.js';
+import { solveStairContainmentWorld } from './stairContainment.js';
 import { allocateProgramToStoreys } from './storeyAllocation.js';
 import { enrichStoreyProgramToPlate } from './houseProgramFloor.js';
 import { roofBaseElevationM, roofBaseOffsetM } from './houseVertical.js';
@@ -315,6 +317,10 @@ interface EnumeratedHouse {
     /** The stair-core rect in the LAYOUT (principal-axis) frame (mm). On an
      *  axis-aligned plot this equals the world rect (angle 0). */
     readonly coreRect: { x: number; y: number; w: number; h: number } | null;
+    /** §STAIR-CONTAIN-UPSTREAM — the WORLD-XZ inward-containment offset (m) the
+     *  executor applies to the shipped stair body so it sits inside the (rotated)
+     *  shell. {0,0} when the reserved footprint already fits. */
+    readonly containOffsetWorld: { x: number; z: number };
     readonly totalRisers: number;
     readonly floorToFloorM: number;
     readonly baseElevationM: number;
@@ -324,6 +330,92 @@ interface EnumeratedHouse {
      *  rect/flights are rotated back by. 0 / footprint-centroid for axis-aligned. */
     readonly principalAxisRad: number;
     readonly pivot: { x: number; z: number };
+}
+
+/**
+ * §STAIR-CONTAIN-UPSTREAM (2026-06-09) — contain the reserved stair core INSIDE the
+ * (rotated) world shell BEFORE the room-tiling keep-out is carved, so the carved
+ * keep-out == the shipped stair footprint (the §8.5 cure).
+ *
+ * Frames (verified against source):
+ *  - `reserved.rectMm` is the LAYOUT (principal-axis) frame, mm. The keep-out + the
+ *    executor both rotate it to WORLD by `+principalAxisRad` about `pivot`.
+ *  - `shellWorld` (shell) is WORLD-XZ metres (ShellAnalysis.perimeter).
+ *  - The containment offset is solved in the WORLD frame (the frame the executor's
+ *    §STAIR-CONTAIN ran in). It is returned as a WORLD-XZ translation that flows to the
+ *    executor on StairCore.containOffsetWorld so the executor applies the SAME shift.
+ *
+ * The RESERVED `rectMm` is NOT mutated (it keeps the §STAIR-DEFAULT-BIAS wall-hugging
+ * placement); only the SHIPPED body is shifted by the returned offset. Returns the
+ * WORLD-XZ footprint of the CONTAINED body (4 corners) for the keep-out AABB.
+ *
+ * Pure + deterministic. When the footprint already fits, the offset is {0,0} (no
+ * regression to §STAIR-DEFAULT-BIAS / the rectMm-equality invariants).
+ */
+function containStairCoreUpstream(
+    reserved: StairCoreShaped,
+    shellWorld: { x: number; z: number }[],
+    totalRisers: number,
+    floorToFloorM: number,
+    principalAxisRad: number,
+    pivot: { x: number; z: number },
+    storeyCount: number,
+): { containOffsetWorld: { x: number; z: number }; footprintWorld: StairXZ[] | null } {
+    // The WORLD-rotated per-flight plan (same `resolveFlightPlans` the assembler uses).
+    const flights = resolveFlightPlans(reserved, totalRisers, principalAxisRad);
+
+    const fpInput = {
+        rectMm: reserved.rectMm,
+        shape: reserved.shape,
+        flights: flights.map(f => ({ riserCount: f.riserCount, direction: f.direction })),
+        risersBeforeLanding: reserved.risersBeforeLanding,
+        interiorSide: reserved.interiorSide,
+        principalAxisRad,
+        pivot,
+        floorToFloorM,
+        startY: 0,   // footprint is XZ-only; y is ignored by computeStairFootprintRect
+    } as const;
+
+    // (1) un-contained world footprint.
+    const built0 = computeStairWorldFootprint(fpInput, { x: 0, z: 0 });
+    const fp0 = built0.footprintWorld;
+    if (!fp0 || fp0.length < 3 || shellWorld.length < 3) {
+        // Degenerate — no offset; the keep-out falls back to the core-rect AABB and the
+        // executor's §STAIR-CONTAIN still guards (best-effort).
+        return { containOffsetWorld: { x: 0, z: 0 }, footprintWorld: fp0 };
+    }
+
+    // (2) inward direction = the LAYOUT-frame interior side rotated to WORLD (same as the
+    //     executor); central/absent → degenerate → the solver falls back to the centroid.
+    const sideLayout =
+        reserved.interiorSide === 'left' ? { x: 1, z: 0 } :
+        reserved.interiorSide === 'right' ? { x: -1, z: 0 } :
+        reserved.interiorSide === 'back' ? { x: 0, z: -1 } :
+        { x: 0, z: 0 };
+    const inwardWorld = principalAxisRad === 0
+        ? sideLayout
+        : rotatePt(sideLayout, principalAxisRad, { x: 0, z: 0 });
+
+    // (3) solve the world-frame containment (same two-attempt gate as the old executor).
+    const solved = solveStairContainmentWorld(fp0, shellWorld, inwardWorld);
+
+    // §DIAG-STAIR-CONTAIN-UPSTREAM — log the reserve-time containment so a prod run proves
+    // the keep-out now matches the shipped footprint. `storey=0..N-1` (the core is shared).
+    console.log(
+        `[house-layout] §DIAG-STAIR-CONTAIN-UPSTREAM storey=0..${storeyCount - 1} `
+        + `offset=(${solved.dx.toFixed(2)},${solved.dz.toFixed(2)}) cornersInShell=${solved.cornersInShell}/4`
+        + `${solved.alreadyInside ? ' (already-contained)' : solved.viaCentroid ? ' (via-centroid)' : ''}`,
+    );
+
+    const containOffsetWorld = { x: solved.dx, z: solved.dz };
+    if (solved.dx === 0 && solved.dz === 0) {
+        // Already contained — keep-out == the un-shifted footprint.
+        return { containOffsetWorld, footprintWorld: fp0 };
+    }
+    // (4) the CONTAINED world footprint = the un-contained footprint shifted by the world
+    //     offset (the executor will shift the SAME body by the SAME StairCore.containOffsetWorld).
+    const fpContained = fp0.map(c => ({ x: c.x + solved.dx, z: c.z + solved.dz }));
+    return { containOffsetWorld, footprintWorld: fpContained };
 }
 
 /** Enumerate up to `count` options per storey via the UNCHANGED apartment engine.
@@ -419,11 +511,44 @@ function enumeratePerStorey(
             : null;
         return { latDeg, sunDirLayout };
     })();
-    const core: StairCoreShaped | null =
+    const reservedCore: StairCoreShaped | null =
         storeyCount > 1
             ? reserveStairCoreShaped(footprintLayout, storeyCount, totalRisers, stairSolar)
             : null;
-    const coreRect = core ? core.rectMm : null;   // in the LAYOUT frame (mm)
+
+    // §STAIR-CONTAIN-UPSTREAM (2026-06-09, founder "circulation must be perfectly
+    // orchestrated") — CONTAIN the stair BEFORE the keep-out is carved, so the carved
+    // room-tiling keep-out == the SHIPPED stair footprint (closing the §8.5 desync).
+    //
+    // PREVIOUSLY the keep-out was derived from the RESERVED `core.rectMm` (the reserved
+    // cell), and the editor then NUDGED the actual stair body ~1.5 m inward to fit the
+    // rotated shell — AFTER the rooms were tiled around the un-nudged cell — so the
+    // shipped stair overlapped the rooms tiled in the vacated region and cut their
+    // sealing partitions → room-detection flood → merge.
+    //
+    // NOW: build the SHARED world footprint (the SAME geometry the executor builds, via
+    // `computeStairWorldFootprint`), solve the inward-containment offset against the
+    // (rotated) world shell with the SAME two-attempt gate the executor used
+    // (`solveStairContainmentWorld`), and carry that WORLD offset on
+    // `StairCore.containOffsetWorld`. The executor applies the SAME shift to the SAME body,
+    // so its §STAIR-CONTAIN becomes a no-op verification. The RESERVED `rectMm` is left
+    // UNCHANGED (so §STAIR-DEFAULT-BIAS wall-hug + the rectMm-equality tests hold); only the
+    // SHIPPED body + the keep-out move together. The keep-out below is the CONTAINED footprint.
+    //
+    // House-only: a single-storey house / the apartment path has NO core → this block is
+    // skipped entirely (apartment byte-identical). Pure + deterministic (ADR-0061).
+    const contained = reservedCore
+        ? containStairCoreUpstream(reservedCore, footprint, totalRisers, floorToFloorM, principalAxisRad, pivot, storeyCount)
+        : null;
+    // §STAIR-CONTAIN-UPSTREAM — the RESERVED core is preserved UNCHANGED (rectMm still
+    // hugs the wall per §STAIR-DEFAULT-BIAS / §STAIR-WORST-ASPECT); the inward-containment
+    // is carried as a SEPARATE world-XZ offset on the StairCore so the executor applies the
+    // SAME shift to the SAME body. The keep-out below is derived from the CONTAINED footprint
+    // (`coreFootprintWorld`), so the rooms tile around the FINAL stair position.
+    const core: StairCoreShaped | null = reservedCore;
+    const containOffsetWorld = contained ? contained.containOffsetWorld : { x: 0, z: 0 };
+    const coreFootprintWorld = contained ? contained.footprintWorld : null;
+    const coreRect = core ? core.rectMm : null;   // RESERVED, in the LAYOUT frame (mm)
     const coreAreaM2 = coreRect ? stairCoreAreaM2(coreRect) : 0;
 
     // §DIAG-STAIR-RESERVE (Part 8, 2026-06-09, founder verification line) — log the
@@ -444,29 +569,38 @@ function enumeratePerStorey(
         );
     }
 
-    // §STAIR-KEEPOUT (A.21.D21, SPEC-CASA §7) — the core rect as a WORLD-XZ keep-out
-    // (mm → metres). Threaded into the per-storey D-TGL call so the subdivider carves
-    // the core out of the buildable region: rooms/partitions never tile across the
-    // stair (resolves Deviation A — the old area-shrink reduced the budget but left
-    // the core's LOCATION un-carved, so a partition could still cross the run).
-    // A.21.D24: `coreRect` is now in the LAYOUT frame, so map its corners BACK to
-    // world (+angle about pivot) → a genuine world-XZ rect. runDeterministicLayout
-    // then maps it back into the engine's principal-axis frame internally (the same
-    // −angle as the shell), so the round-trip is exact and the keep-out lands tight.
-    const keepOutRectsWorld = coreRect
-        ? (() => {
-            const corners = [
-                { x: coreRect.x / 1000, z: coreRect.y / 1000 },
-                { x: (coreRect.x + coreRect.w) / 1000, z: coreRect.y / 1000 },
-                { x: (coreRect.x + coreRect.w) / 1000, z: (coreRect.y + coreRect.h) / 1000 },
-                { x: coreRect.x / 1000, z: (coreRect.y + coreRect.h) / 1000 },
-            ].map(c => principalAxisRad === 0 ? c : rotatePt(c, principalAxisRad, pivot));
-            return [{
-                x0: Math.min(...corners.map(c => c.x)), z0: Math.min(...corners.map(c => c.z)),
-                x1: Math.max(...corners.map(c => c.x)), z1: Math.max(...corners.map(c => c.z)),
-            }];
-        })()
-        : undefined;
+    // §STAIR-KEEPOUT (A.21.D21, SPEC-CASA §7) — the keep-out the subdivider carves out
+    // of every storey's buildable region so rooms/partitions never tile across the stair.
+    //
+    // §STAIR-CONTAIN-UPSTREAM — the keep-out is now the world AABB of the CONTAINED,
+    // SHIPPED stair FOOTPRINT (all flights + landings + width), NOT the smaller reserved
+    // `core.rectMm`. Because `core` was already contained upstream, this AABB == the AABB
+    // of the body the executor ships, so the rooms tile around the FINAL stair position
+    // and no stair-vs-room overlap can arise by construction (the §8.5 acceptance: the
+    // carved keep-out region coincides with the executor's final footprint within ε).
+    //
+    // The shared `computeStairWorldFootprint` builds the SAME world geometry the executor
+    // builds; `coreFootprintWorld` (computed in `containStairCoreUpstream`) is reused here.
+    const keepOutRectsWorld = core && coreFootprintWorld && coreFootprintWorld.length >= 3
+        ? [{
+            x0: Math.min(...coreFootprintWorld.map(c => c.x)), z0: Math.min(...coreFootprintWorld.map(c => c.z)),
+            x1: Math.max(...coreFootprintWorld.map(c => c.x)), z1: Math.max(...coreFootprintWorld.map(c => c.z)),
+        }]
+        : coreRect
+            ? (() => {
+                // Fallback (degenerate footprint): the contained core-rect AABB.
+                const corners = [
+                    { x: coreRect.x / 1000, z: coreRect.y / 1000 },
+                    { x: (coreRect.x + coreRect.w) / 1000, z: coreRect.y / 1000 },
+                    { x: (coreRect.x + coreRect.w) / 1000, z: (coreRect.y + coreRect.h) / 1000 },
+                    { x: coreRect.x / 1000, z: (coreRect.y + coreRect.h) / 1000 },
+                ].map(c => principalAxisRad === 0 ? c : rotatePt(c, principalAxisRad, pivot));
+                return [{
+                    x0: Math.min(...corners.map(c => c.x)), z0: Math.min(...corners.map(c => c.z)),
+                    x1: Math.max(...corners.map(c => c.x)), z1: Math.max(...corners.map(c => c.z)),
+                }];
+            })()
+            : undefined;
 
     // (c) per-storey layout via the UNCHANGED single-plate engine — enumerate up
     // to `count` options each (the apartment engine already Pareto-ranks them).
@@ -570,7 +704,7 @@ function enumeratePerStorey(
     }
 
     return {
-        perStorey, footprint, core, coreRect, totalRisers,
+        perStorey, footprint, core, coreRect, containOffsetWorld, totalRisers,
         floorToFloorM, baseElevationM, levelIdForStorey, roofKind,
         principalAxisRad, pivot,
     };
@@ -585,7 +719,7 @@ function assembleHouse(
     h: EnumeratedHouse,
     select: (storeyIndex: number, options: ScoredLayoutOption[]) => ScoredLayoutOption | null,
 ): HouseLayoutResult {
-    const { footprint, core, coreRect, totalRisers, floorToFloorM, baseElevationM, levelIdForStorey, roofKind, principalAxisRad, pivot } = h;
+    const { footprint, core, coreRect, containOffsetWorld, totalRisers, floorToFloorM, baseElevationM, levelIdForStorey, roofKind, principalAxisRad, pivot } = h;
 
     const storeys: StoreyPlate[] = [];
     const perStoreyLayout: (ScoredLayoutOption | null)[] = [];
@@ -641,6 +775,12 @@ function assembleHouse(
                 // so the editor folds a U-stair's half-landing TOWARD the plate interior
                 // (away from the flush perimeter wall). Layout-frame, same as `rectMm`.
                 interiorSide: core.interiorSide,
+                // §STAIR-CONTAIN-UPSTREAM (2026-06-09) — the WORLD-XZ inward-containment
+                // offset solved at reserve time (against the rotated shell). The executor
+                // applies this SAME shift to the shipped body so it matches the carved
+                // keep-out; its §STAIR-CONTAIN then VERIFIES (a no-op nudge). {0,0} when the
+                // reserved footprint already fits (axis-aligned plates byte-identical).
+                containOffsetWorld: { x: containOffsetWorld.x, z: containOffsetWorld.z },
             });
         }
     }

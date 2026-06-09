@@ -288,6 +288,11 @@ export {
   // §STAIR-CONTAIN (2026-06-09) — pure full-footprint inward-containment for the house stair.
   computeInwardContainmentOffset,
   allCornersInside,
+  // §STAIR-CONTAIN-UPSTREAM (2026-06-09) — shared world stair-footprint builder + the
+  // single containment solver (orchestrator carves keep-out == executor's shipped footprint).
+  solveStairContainmentWorld,
+  computeStairWorldFootprint,
+  resolveTotalRisers,
   // DOC-AUTO DS3 (2026-06-09) — pure building-exterior elevation marks from a footprint.
   computeBuildingElevationMarks,
   // DOC-AUTO DS4 (2026-06-09) — pure per-room crop region + interior elevation marks.
