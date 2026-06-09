@@ -57,7 +57,6 @@ const STRUCTURE_TOOLS: Array<{ id: StructureToolId; icon: string; label: string;
     { id: 'ceiling',     icon: ICONS.ceiling,     label: 'Ceiling',      badge: 'CE' },
 ];
 
-const LEVEL_MODE_ORDER: BAMLevelMode[] = ['stacked', 'exploded', 'solo'];
 const TOOL_STORAGE_KEY = 'pryzm:bam:selected-tool';
 const EXPLODE_GAP = 5;
 
@@ -310,9 +309,22 @@ export class BottomActionMenu {
     }
 
     private _cycleLevelMode(): void {
-        const idx = LEVEL_MODE_ORDER.indexOf(this._levelMode);
-        this._levelMode = LEVEL_MODE_ORDER[(idx + 1) % LEVEL_MODE_ORDER.length];
-        this._applyLevelTransforms();
+        // §LEVEL-STACK (Bug 2) — the Level-Stack button is now a 2-state TOGGLE
+        // (stacked ↔ exploded), NOT a 3-state cycle. The old cycle landed on 'solo'
+        // when the user pressed the button a 2nd time expecting to COLLAPSE; solo
+        // hides every level except the active one (so "most elements vanish") AND
+        // its icon is the sun glyph — exactly the founder's "shows a sun and most
+        // elements are not present" report. Solo remains available via the dedicated
+        // "Active Level Only" button. Collapsing now fully restores the pre-explode
+        // state via _restoreLevelTransforms() (exact original-Y snap-back).
+        this._levelMode = this._levelMode === 'exploded' ? 'stacked' : 'exploded';
+        if (this._levelMode === 'stacked') {
+            // Full collapse: snap every offset root back to its captured original Y
+            // and re-apply visibility (no solo/active-level hiding lingers).
+            this._restoreLevelTransforms();
+        } else {
+            this._applyLevelTransforms();
+        }
         this._applySceneVisibilityFilters();
         this.runtime?.events?.emit('pryzm-inspect-level-explode', { mode: this._levelMode, soloLevelId: this._getActiveLevelId() ?? undefined, source: 'bottom-menu' }); // F.events.15
         this._render();
@@ -792,44 +804,73 @@ export class BottomActionMenu {
         const scene = this._getScene();
         if (!scene) return [];
         const objectById = new Map<string, THREE.Object3D>();
+        // §LEVEL-STACK — collect ALL level-tagged objects (including instanced wall
+        // groups that carry userData.levelId but NO per-element userData.id) so they
+        // lift with their level. Without this, batch/instanced walls were skipped
+        // entirely and "left behind" at ground level while CSG walls on the same
+        // level lifted (Bug 1).
+        const byLevel = new Map<string, THREE.Object3D[]>();
         scene.traverse((obj: any) => {
             const id = obj.userData?.id;
             if (id && !objectById.has(String(id))) objectById.set(String(id), obj);
+            if (this._isBimObject(obj)) {
+                const lvl = this._objectLevelId(obj);
+                if (lvl) {
+                    const arr = byLevel.get(lvl);
+                    if (arr) arr.push(obj); else byLevel.set(lvl, [obj]);
+                }
+            }
         });
+        // Drop any level-tagged object whose ancestor is ALSO level-tagged for the
+        // same level — offsetting both parent and child would compound the Y shift.
+        const dropDescendants = (objs: THREE.Object3D[]): THREE.Object3D[] => {
+            const set = new Set(objs);
+            return objs.filter((o) => {
+                for (let p = o.parent; p; p = p.parent) if (set.has(p)) return false;
+                return true;
+            });
+        };
         return this._getLevels()
             .slice()
             .sort((a, b) => Number(a.elevation ?? 0) - Number(b.elevation ?? 0))
             .map((level, index) => {
-                const roots: THREE.Object3D[] = [];
+                const roots = new Set<THREE.Object3D>();
                 for (const id of level.childrenIds ?? []) {
                     const obj = objectById.get(String(id));
-                    if (obj) roots.push(obj);
+                    if (obj) roots.add(obj);
                 }
-                if (roots.length === 0 && level.id) {
-                    scene.traverse((obj: any) => {
-                        if (this._objectLevelId(obj) === String(level.id) && obj.userData?.id) roots.push(obj);
-                    });
+                // Always merge in level-tagged objects (id-less instanced groups etc.),
+                // not only as a zero-roots fallback.
+                if (level.id) {
+                    for (const obj of byLevel.get(String(level.id)) ?? []) roots.add(obj);
                 }
-                return { level, index, roots: Array.from(new Set(roots)) };
+                return { level, index, roots: dropDescendants(Array.from(roots)) };
             });
     }
 
     private _applyLevelTransforms(): void {
         const groups = this._buildLevelRootMap();
+        // §LEVEL-STACK — diagnostics: log how many roots each level offsets so a
+        // mismatch (e.g. instanced walls left behind) is visible at a glance.
+        const diag: string[] = [];
         for (const group of groups) {
             const targetOffset = this._levelMode === 'exploded' ? group.index * EXPLODE_GAP : 0;
             for (const root of group.roots) {
                 if (!this._levelOriginalY.has(root)) this._levelOriginalY.set(root, root.position.y);
                 this._levelTargetY.set(root, (this._levelOriginalY.get(root) ?? root.position.y) + targetOffset);
             }
+            diag.push(`${group.level.name ?? group.level.id ?? `#${group.index}`}=${group.roots.length}`);
         }
+        console.log(`[§LEVEL-STACK] ${this._levelMode}: offset roots per level — ${diag.join(', ')} (total ${this._levelOriginalY.size})`);
         this._startLevelAnimation();
     }
 
     private _restoreLevelTransforms(): void {
         // D.7.5 batch #3: dispose the FrameScheduler tick listener.
         if (this._raf !== null) { this._raf(); this._raf = null; }
-        for (const [obj, y] of this._levelOriginalY) obj.position.y = y;
+        let restored = 0;
+        for (const [obj, y] of this._levelOriginalY) { obj.position.y = y; restored++; }
+        console.log(`[§LEVEL-STACK] collapse: restored ${restored} root Y positions`);
         this._levelOriginalY.clear();
         this._levelTargetY.clear();
     }

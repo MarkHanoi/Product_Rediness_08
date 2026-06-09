@@ -116,15 +116,17 @@ export class LevelExplodeController {
     this._mode = 'stacked';
     this._cancelRaf();
 
+    let restored = 0;
     for (const group of this._levelGroups) {
       for (const root of group.roots) {
         const origY = group.originalY.get(root);
         if (origY !== undefined) root.position.y = origY;
         root.visible = true;
+        restored++;
       }
     }
     this._levelGroups = [];
-    console.log('[LevelExplodeController] Deactivated — positions and visibility restored');
+    console.log(`[§LEVEL-STACK] Deactivated — restored ${restored} root positions + visibility`);
   }
 
   dispose(): void {
@@ -199,24 +201,46 @@ export class LevelExplodeController {
     const allLevels = bm.getLevels().sort((a, b) => a.elevation - b.elevation);
     if (allLevels.length === 0) return;
 
-    // Build a single-pass lookup: elementId → Object3D
+    // Build a single-pass lookup: elementId → Object3D, plus a per-level bucket of
+    // every level-tagged object. §LEVEL-STACK (Bug 1): instanced wall groups carry
+    // userData.levelId but NO per-element userData.id, so the id-keyed lookup alone
+    // skipped them — they were "left behind" at ground level while CSG walls on the
+    // same level lifted. We now also gather by userData.levelId.
     const objectById = new Map<string, THREE.Object3D>();
+    const byLevel    = new Map<string, THREE.Object3D[]>();
     this._scene.traverse(obj => {
       const id = obj.userData.id as string | undefined;
       if (id && !objectById.has(id)) {
         objectById.set(id, obj);
       }
+      const lvl = obj.userData.levelId as string | undefined;
+      if (lvl) {
+        const arr = byLevel.get(lvl);
+        if (arr) arr.push(obj); else byLevel.set(lvl, [obj]);
+      }
     });
+
+    // Drop any level-tagged object whose ancestor is ALSO selected for the same
+    // level — offsetting both would compound the Y shift.
+    const dropDescendants = (objs: THREE.Object3D[]): THREE.Object3D[] => {
+      const set = new Set(objs);
+      return objs.filter(o => {
+        for (let p = o.parent; p; p = p.parent) if (set.has(p)) return false;
+        return true;
+      });
+    };
 
     for (let i = 0; i < allLevels.length; i++) {
       const level = allLevels[i];
-      const roots: THREE.Object3D[] = [];
+      const rootSet = new Set<THREE.Object3D>();
 
       for (const childId of level.childrenIds) {
         const obj = objectById.get(childId);
-        if (obj) roots.push(obj);
+        if (obj) rootSet.add(obj);
       }
+      for (const obj of byLevel.get(level.id) ?? []) rootSet.add(obj);
 
+      const roots = dropDescendants(Array.from(rootSet));
       if (roots.length === 0) continue; // skip empty levels
 
       const originalY = new Map<THREE.Object3D, number>();
@@ -234,9 +258,13 @@ export class LevelExplodeController {
       });
     }
 
+    const perLevel = this._levelGroups
+      .map(g => `${g.levelId}=${g.roots.length}`)
+      .join(', ');
     console.log(
-      `[LevelExplodeController] Built ${this._levelGroups.length} level groups` +
-      ` (${this._levelGroups.reduce((acc, g) => acc + g.roots.length, 0)} roots total)`
+      `[§LEVEL-STACK] Built ${this._levelGroups.length} level groups` +
+      ` (${this._levelGroups.reduce((acc, g) => acc + g.roots.length, 0)} roots total)` +
+      ` — per level: ${perLevel}`
     );
   }
 
