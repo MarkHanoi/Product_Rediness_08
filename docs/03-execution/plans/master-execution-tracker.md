@@ -2979,3 +2979,76 @@ graph stability on regen (reuse position-preservation `resync :715` + lane ancho
 latency (250 ms debounce + sync engine; within-lane drag fires no regen); name ambiguity across
 storeys (key on storey-qualified node id, not bare name); canvas fork (XC extracts ONE controller);
 apartment/overlay regression (lane spring + override field + stash all default to no-op / C52 I2).
+
+## §27 — Interior Daylight colour-code graph (`DAYLIGHT-GRAPH`) — QUEUED (2026-06-09)
+
+**Founder directive (verbatim):** *"a daylight colour code graph inside the rooms that depending on
+the size of the window it updates."* — add to the queue + the master tracker for later.
+
+**Reference:** Autodesk Forma's **Interior Daylight** — a per-room **daylight-factor (DF) heatmap**:
+a grid of coloured points across each room's floor, recoloured live as window/aperture size changes,
+with a space-average DF %, median, % below 1% / above 2%, and a DF histogram.
+
+**Target:** a per-room daylight-factor FIELD visualisation — a colour-coded point grid inside each
+room (plan + 3D), recomputed LIVE when a window's size / aperture changes. The "graph" is the
+spatial heat-field over the floor (and a small per-room DF stats card + histogram), not a node graph.
+
+**Why it fits the substrate (cite):** the layout engine already has a `daylight` **ObjectiveVector
+axis** (`SPEC-TGL-DETERMINISTIC-LAYOUT-ENGINE` §83 / §225 — `Σ area(spaces with window) / totalArea`,
+window proximity to façade) and a live **window-emission** module (`windowEmission/`, incl
+`solarOrientation.ts`, A.21.D6) feeding window placement + size; the realtime-edit substrate already
+recomputes geometry on a window change (per the door/window setOffset/baseline rebuild path, ADR-057).
+A DF field is the per-room VISUALISATION of that daylight signal, driven by the SAME window geometry,
+recomputed on the SAME live-edit hook. Ties into the C19 Site / C21 climate substrate for sky model
+inputs when present (graceful default sky otherwise).
+
+**Phased breakdown (☐ queued — do NOT build before founder picks it up):**
+| Item | Scope |
+|---|---|
+| **DG.1** | **DF model (pure, L2).** A daylight-factor estimator per room from window area / head height / room area / glazing transmittance + obstruction (split-flux / simplified DF to start; sky-component + externally-reflected + internally-reflected). Pure, unit-tested, no THREE/DOM. |
+| **DG.2** | **Per-room point grid.** Sample the room floor on a regular grid (room-bbox / polygon-clipped), compute DF per point → a `DaylightField` data model (per-room points + value + the space-average / median / %<1% / %>2% stats). |
+| **DG.3** | **Colour-map overlay.** Render the DF field as a coloured point/heat overlay inside each room (plan + 3D) in a perceptual ramp; a small per-room DF stats card + histogram. Renders through the THREE owner (P2); visibility intent (P7). |
+| **DG.4** | **Live recompute on window-size change.** Subscribe the DF field to the existing window-edit hook (window create / resize / aperture / move) so the field + stats recolour LIVE as the user drags a window-size slider — reuse the realtime-edit rebuild path (ADR-057), debounced; cancellable. |
+
+**Governance note:** NO contract / spec / ADR is being authored now (founder asked only to QUEUE it).
+**It MAY warrant a SPEC when picked up** (the DF model + grid + live-recompute hook are spec-worthy);
+at that point it would relate to `SPEC-ENVIRONMENTAL-DESIGN-DRIVERS` §2 (solar/daylight), the
+`daylight` ObjectiveVector axis, `windowEmission/`, C19/C21 (sky/site inputs), and C04 (render/rAF).
+
+*Addendum 2026-06-09 — §27 DAYLIGHT-GRAPH queued (founder request: per-room daylight-factor heatmap,
+live on window size). Queue-only; no governance doc authored (may warrant a SPEC when picked up).*
+
+## §28 — In-Browser Wind CFD (`WIND-CFD`) — QUEUED + GOVERNED (2026-06-09)
+
+**Founder directive:** R&D reference — a wind CFD simulation of flow around buildings running IN THE
+BROWSER on **WebGPU + Lattice-Boltzmann (LBM)**, no cloud/queue, tens of seconds; goal = a **free,
+fast, early-stage wind-comfort assessment between buildings** (recirculation, roof-edge separation,
+corner accelerations); validated against **AIJ benchmarks** (Case B isolated body **r≈0.84**);
+absolute velocities in sheltered zones still calibrating. Founder explicitly asked for a **contract +
+spec + ADR**.
+
+**Governance (all three authored 2026-06-09):**
+- **Contract:** [C54 — In-Browser Wind CFD](../../02-decisions/contracts/C54-IN-BROWSER-WIND-CFD.md)
+  (DRAFT) — 8 invariants incl. the honesty/BETA rule, WebGPU compute boundary + soft-fallback, AIJ
+  CI validation gate, determinism, domain-from-Site, feed-the-existing-objective, perf/privacy,
+  layered placement. Registered in the [contracts README](../../02-decisions/contracts/README.md).
+- **Spec:** [SPEC-WIND-CFD-LBM](../specs/SPEC-WIND-CFD-LBM.md) (DRAFT) — WebGPU LBM solver (D2Q9→D3Q19),
+  domain/inlet from C19 context-buildings + C21 wind rose, AIJ validation harness, pedestrian-comfort
+  output, tens-of-seconds perf NFT, no-WebGPU fallback, the W.1–W.7 phased build plan.
+- **ADR:** [ADR-0064 — Wind CFD runs client-side on WebGPU + LBM](../../02-decisions/adrs/0064-in-browser-wind-cfd-webgpu-lbm.md)
+  (**PROPOSED**) — the decision (vs cloud CFD vs none) + alternatives. Registered in the
+  [ADR README](../../02-decisions/adrs/README.md).
+
+**Where it sits (cite the substrate):** the high-fidelity sibling of the EXISTING coarse wind cue —
+the wind rose (`packages/schemas/src/climate/windRose.ts`, `buildWindRose`) rendered as 2D rose +
+3D streaks (`SPEC-FORMA-SITE-VIEW` §6, A.21.D24 `windStreakSegments()`) — and a better DATA source
+for the EXISTING wind driver: `SPEC-ENVIRONMENTAL-DESIGN-DRIVERS` §3 (wind) + §5 **E.4
+`naturalVentilation`** objective (`tgl/envDrivers.ts`). Consumes C19 Site context-buildings + C21
+climate read-only, in the C12 LTP-ENU frame; renders through the THREE/Cesium owner (C04). NEW pure
+compute package `packages/wind-cfd/` (L1/L2) + an `apps/editor/` site-analysis surface.
+
+**Status: documented (contract + spec + ADR), NOT started** (pending founder go). No solver code ships
+with these docs.
+
+*Addendum 2026-06-09 — §28 WIND-CFD queued with full governance: C54 (DRAFT) + SPEC-WIND-CFD-LBM
+(DRAFT) + ADR-0064 (PROPOSED), all registered. Founder-requested contract+spec+ADR.*
