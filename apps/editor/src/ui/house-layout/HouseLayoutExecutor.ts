@@ -68,6 +68,7 @@ import {
     isDoorWithinWallSpan,
     wallExtentForLevel,
     weldPartitionsToShell,
+    computeInwardContainmentOffset,
     type WeldWall,
 } from '@pryzm/ai-host';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
@@ -577,7 +578,7 @@ export class HouseLayoutExecutor {
                 //    when the stair runs → the void IS punched. §VOID.
                 if (cm?.execute) {
                     for (const stair of result.stairs) {
-                        this._createStair(cm, stair, floorToFloorM, baseElevationM, result.storeys);
+                        this._createStair(cm, stair, floorToFloorM, baseElevationM, result.storeys, shell.perimeter);
                     }
                 }
 
@@ -863,6 +864,7 @@ export class HouseLayoutExecutor {
         floorToFloorM: number,
         baseElevationM: number,
         storeys: readonly StoreyPlate[],
+        shellPolyWorld?: ReadonlyArray<{ x: number; z: number }>,
     ): void {
         try {
             // Total risers sized to the gap: count = round(ftf / target), clamped so
@@ -922,8 +924,8 @@ export class HouseLayoutExecutor {
 
             // Rotate the rigid stair body back to WORLD (+angle about pivot): the
             // start position + any per-flight startOverride. y (height) is untouched.
-            const startPosition = this._rotateXZ(startLayout, principalAxisRad, pivot);
-            const worldFlights: FlightInput[] = built.flights.map((f, idx) => ({
+            const startPosition0 = this._rotateXZ(startLayout, principalAxisRad, pivot);
+            const worldFlights0: FlightInput[] = built.flights.map((f, idx) => ({
                 ...f,
                 // Prefer the engine's already-world-rotated direction; fall back to
                 // rotating the layout direction (older results without world flights).
@@ -932,6 +934,60 @@ export class HouseLayoutExecutor {
                     : this._unit(this._rotateXZDir(f.direction, principalAxisRad)),
                 ...(f.startOverride ? { startOverride: this._rotateXZ(f.startOverride, principalAxisRad, pivot) } : {}),
             }));
+
+            // §STAIR-CONTAIN (2026-06-09) — the deeper cure for the systematic "stair pokes
+            // OUT of the rotated shell" defect (§DIAG-STAIR cornersInShell=1/4). The body is
+            // anchored at a start CORNER and grown in a fixed direction, so on a rotated plate
+            // its far corners swing outside the perimeter. Here we validate the FULL world
+            // footprint (all flights + landings) against the shell polygon and, if any corner
+            // is outside, NUDGE THE WHOLE BODY INWARD (along the interior side) until contained,
+            // BEFORE dispatch. Pure decision = `computeInwardContainmentOffset` (ai-host).
+            // Byte-identical when already contained (offset {0,0}) → axis-aligned plates unchanged.
+            // See docs/04-reference/STAIR-CREATION-PIPELINE-AND-ANCHOR-ANALYSIS.md §3.
+            let containDx = 0, containDz = 0;
+            try {
+                if (shellPolyWorld && shellPolyWorld.length >= 3) {
+                    const fp0 = computeStairFootprintRect({
+                        shape, width, treadDepth: tread, startPosition: startPosition0, flights: worldFlights0,
+                        ...(built.landings.length > 0 ? { landings: built.landings } : {}),
+                    });
+                    if (fp0 && fp0.length >= 3) {
+                        // Interior direction: interiorSide is the LAYOUT-frame interior; rotate to world.
+                        const sideLayout =
+                            stair.interiorSide === 'left'  ? { x: 1, y: 0, z: 0 } :
+                            stair.interiorSide === 'right' ? { x: -1, y: 0, z: 0 } :
+                            stair.interiorSide === 'back'  ? { x: 0, y: 0, z: -1 } :
+                            { x: 0, y: 0, z: 0 };   // central/absent → toward plate centre fallback below
+                        let inward = this._rotateXZDir(sideLayout, principalAxisRad);
+                        // Fallback for central/absent: head toward the shell centroid from the footprint centre.
+                        if (Math.hypot(inward.x, inward.z) < 1e-6) {
+                            let cx = 0, cz = 0; for (const p of shellPolyWorld) { cx += p.x; cz += p.z; }
+                            cx /= shellPolyWorld.length; cz /= shellPolyWorld.length;
+                            let fx = 0, fz = 0; for (const c of fp0) { fx += c.x; fz += c.z; } fx /= fp0.length; fz /= fp0.length;
+                            inward = { x: cx - fx, y: 0, z: cz - fz };
+                        }
+                        const off = computeInwardContainmentOffset(
+                            fp0.map(c => ({ x: c.x, z: c.z })), shellPolyWorld, { x: inward.x, z: inward.z }, 0.1, 4.0,
+                        );
+                        containDx = off.dx; containDz = off.dz;
+                        if (containDx !== 0 || containDz !== 0) {
+                            console.log('[house-layout] §STAIR-CONTAIN nudged stair inward by',
+                                `(${containDx.toFixed(2)},${containDz.toFixed(2)})m to keep its footprint inside the shell`);
+                        }
+                    }
+                }
+            } catch (e) { console.warn('[house-layout] §STAIR-CONTAIN check failed (skipped):', e); }
+
+            // Apply the inward shift to the whole rigid body (start + every flight override).
+            const startPosition = (containDx || containDz)
+                ? { x: startPosition0.x + containDx, y: startPosition0.y, z: startPosition0.z + containDz }
+                : startPosition0;
+            const worldFlights: FlightInput[] = (containDx || containDz)
+                ? worldFlights0.map(f => ({
+                    ...f,
+                    ...(f.startOverride ? { startOverride: { x: f.startOverride.x + containDx, y: f.startOverride.y, z: f.startOverride.z + containDz } } : {}),
+                }))
+                : worldFlights0;
 
             cm.execute?.(new CreateStairCommand({
                 id: createId('stair'),

@@ -285,6 +285,9 @@ export {
   wallExtentForLevel,
   // §GROUND-WELD (A.21.D39) — weld ground interior partitions onto the pre-drawn shell.
   weldPartitionsToShell,
+  // §STAIR-CONTAIN (2026-06-09) — pure full-footprint inward-containment for the house stair.
+  computeInwardContainmentOffset,
+  allCornersInside,
 } from './workflows/houseLayout/index.js';
 export type {
   WeldWall,

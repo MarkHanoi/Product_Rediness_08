@@ -30,6 +30,9 @@ export type { ClampedDoorSpan, WallVerticalExtent } from './houseVertical.js';
 // so the GROUND floor closes every room like the upper floors do.
 export { weldPartitionsToShell } from './weldPartitionsToShell.js';
 export type { WeldWall, WeldOptions, XZ as WeldXZ } from './weldPartitionsToShell.js';
+// §STAIR-CONTAIN (2026-06-09) — pure full-footprint inward-containment for the house stair.
+export { computeInwardContainmentOffset, allCornersInside } from './stairContainment.js';
+export type { XZ2 as StairContainXZ } from './stairContainment.js';
 export type {
     HouseLayoutResult,
     ScoredHouseLayoutOption,
