@@ -293,6 +293,8 @@ export {
   // DOC-AUTO DS4 (2026-06-09) — pure per-room crop region + interior elevation marks.
   roomCropRegion,
   computeRoomInteriorElevationMarks,
+  // DOC-AUTO DS6 (2026-06-09) — pure documentation-set orchestration (numbered sheet plan).
+  planDocumentationSet,
 } from './workflows/houseLayout/index.js';
 export type {
   WeldWall,

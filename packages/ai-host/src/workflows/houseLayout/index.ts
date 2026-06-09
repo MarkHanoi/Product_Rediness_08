@@ -39,6 +39,9 @@ export type { BuildingElevationMark, BuildingElevationOptions } from './building
 // DOC-AUTO DS4 (2026-06-09) — pure per-room crop region + interior elevation marks.
 export { roomCropRegion, computeRoomInteriorElevationMarks } from './roomDocumentation.js';
 export type { RoomCropRegion, RoomElevationMark } from './roomDocumentation.js';
+// DOC-AUTO DS6 (2026-06-09) — pure documentation-set orchestration (numbered sheet plan).
+export { planDocumentationSet } from './documentationSet.js';
+export type { DocSetInput, DocLevelInput, DocRoomInput, DocViewKind, DocViewSpec, DocSheetPlan } from './documentationSet.js';
 export type {
     HouseLayoutResult,
     ScoredHouseLayoutOption,
