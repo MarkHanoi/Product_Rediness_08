@@ -504,6 +504,63 @@ export class HouseLayoutExecutor {
                         set = this._weldGroundPartitions(set, shellWalls);
                     }
                 }
+
+                // ── §UPPER-SHELL-WELD (2026-06-09, THE upper-floor room-merge fix) ──
+                // The UPPER storeys were ASSUMED bit-exact on their minted perimeter
+                // ("`_buildPerimeterShell` builds the ring with the SAME emitter that
+                // produced the partitions"). That holds ONLY on an AXIS-ALIGNED plate.
+                // On a ROTATED plate (the founder's ~−44° plate) the engine tiles the
+                // interior partitions against the AXIS-ALIGNED BBOX/grid of the
+                // principal-axis-rotated shell, then rotates the emitted geometry BACK
+                // by +angle. The minted perimeter ring, by contrast, is the orchestrator
+                // `storey.footprint` (the world perimeter, NOT round-tripped through the
+                // rotate/grid). So the partition endpoints land OFF the perimeter ring by
+                // the principal-axis residual (the §WJ-SKEW class) — exactly the drift the
+                // GROUND weld was written for, but on the UPPER storeys NOTHING welds them.
+                //
+                // CONSEQUENCE: the off-perimeter partition endpoint is NOT on any
+                // perimeter-wall BODY, so the WallJoinResolver §SHELL-ANCHOR-PRESERVE
+                // guard (which only fires for an endpoint sitting on a NON-cluster wall
+                // body within snapRadius) CANNOT fire — its `_bodyAnchorOf` returns null.
+                // The interior cluster then consensus-trims the endpoint (the
+                // §MULTI-CLUSTER `primary=0 pinned=0 trimmed=N` signature), the room
+                // never seals, and RoomDetectionEngine floods across the gap → the
+                // "Bedroom 2 / Bedroom 1 / Bathroom" merge the founder saw on L1 (the
+                // bedrooms are the UPPER program — proof the merge is on L1, not ground).
+                //
+                // FIX (symmetric with the GROUND): when the footprint is NOT a clean
+                // axis-aligned rectangle, WELD the upper partitions onto the minted
+                // perimeter (`weldPartitionsToShell` via the SAME `_weldGroundPartitions`
+                // reconciler, which also fixes openings/doors/boundaries on dropped
+                // partitions). The partition endpoints then land ON the perimeter body,
+                // so §SHELL-ANCHOR-PRESERVE preserves them and the rooms seal — exactly
+                // the way the ground now closes. On an axis-aligned plate the partitions
+                // ARE bit-exact (endpoints coincident at corners → weld is a deterministic
+                // no-op), so the common case is byte-identical and the bit-exact path is
+                // untouched. Flag (default ON): `window.__pryzmHouseUpperShellWeld === false`
+                // forces the legacy (no-weld) upper path.
+                if (!isGround && shellWalls.length >= 3) {
+                    const upperWeldEnabled =
+                        (window as unknown as { __pryzmHouseUpperShellWeld?: boolean })
+                            .__pryzmHouseUpperShellWeld !== false;
+                    const axisAligned = this._footprintIsAxisAlignedRect(storey.footprint);
+                    if (upperWeldEnabled && !axisAligned) {
+                        console.log(
+                            `[house-layout] §UPPER-SHELL-WELD ${storey.levelId} took the WELD path `
+                            + '(footprint is NOT an axis-aligned rectangle → rotated-plate residual) — '
+                            + 'welding partitions onto the minted perimeter so §SHELL-ANCHOR-PRESERVE '
+                            + 'can seat them on the shell and the rooms seal (mirrors the ground fix).',
+                        );
+                        set = this._weldGroundPartitions(set, shellWalls);
+                    } else {
+                        console.log(
+                            `[house-layout] §UPPER-SHELL-WELD ${storey.levelId} took the BIT-EXACT path `
+                            + `(reason: ${upperWeldEnabled ? 'axis-aligned footprint — partitions already bit-exact on the perimeter' : 'upper-weld flag OFF'}) — `
+                            + 'no weld (engine-authored endpoints already on the ring).',
+                        );
+                    }
+                }
+
                 perStorey.push({ levelId: storey.levelId, set, option });
 
                 // §DIAG-ROOMS (2026-06-08) — per-room glazing/access summary so a single
@@ -912,6 +969,50 @@ export class HouseLayoutExecutor {
             return true;
         } catch {
             return false;   // any failure → conservative: keep the weld
+        }
+    }
+
+    /**
+     * §UPPER-SHELL-WELD (2026-06-09) — is the storey footprint a CLEAN, AXIS-ALIGNED
+     * rectangle? On such a plate the engine tiles the interior partitions bit-exact on
+     * the (axis-aligned) perimeter ring, so the upper-storey weld is a deterministic
+     * no-op and we keep the legacy bit-exact path. When this returns FALSE (rotated /
+     * L-/T-/U- / elongated plate) the engine's principal-axis tiling leaves the
+     * partition endpoints OFF the minted ring by the §WJ-SKEW residual, so the caller
+     * welds them onto the perimeter (the same cure the ground uses).
+     *
+     * This is the FOOTPRINT-only sister of `_groundShellOnEnginePerimeter` (which ALSO
+     * tests drawn-shell drift): the upper perimeter is minted EXACTLY on the footprint,
+     * so the only question is whether the PLATE itself is axis-aligned-rectangular.
+     * Pure + deterministic; read-only.
+     */
+    private _footprintIsAxisAlignedRect(
+        footprint: ReadonlyArray<{ x: number; z: number }>,
+    ): boolean {
+        try {
+            if (footprint.length < 3) return false;
+            const xs = footprint.map(p => p.x), zs = footprint.map(p => p.z);
+            const minX = Math.min(...xs), maxX = Math.max(...xs);
+            const minZ = Math.min(...zs), maxZ = Math.max(...zs);
+            const w = maxX - minX, d = maxZ - minZ;
+            if (w < 1e-3 || d < 1e-3) return false;
+            // Every vertex must sit on a bbox edge (axis-aligned), …
+            const AXIS_EPS = 0.02;   // 20 mm — matches the detector node grid
+            const onBBoxEdge = footprint.every(p =>
+                Math.abs(p.x - minX) < AXIS_EPS || Math.abs(p.x - maxX) < AXIS_EPS ||
+                Math.abs(p.z - minZ) < AXIS_EPS || Math.abs(p.z - maxZ) < AXIS_EPS);
+            if (!onBBoxEdge) return false;
+            // … and the polygon must FILL its bbox (a true rectangle, not an L/T/U).
+            const RECT_AREA_TOL = 0.02;   // 2 % of the bbox
+            let signed = 0;
+            for (let i = 0; i < footprint.length; i++) {
+                const a = footprint[i]!, b = footprint[(i + 1) % footprint.length]!;
+                signed += a.x * b.z - b.x * a.z;
+            }
+            const polyArea = Math.abs(signed) / 2;
+            return Math.abs(polyArea - w * d) <= RECT_AREA_TOL * (w * d);
+        } catch {
+            return false;   // any failure → conservative: treat as non-axis-aligned → weld
         }
     }
 
