@@ -25,8 +25,20 @@
 // forever — every deploy left users on old code until a manual "Clear site data".
 // v3 deletes that cache on activate AND switches navigations to network-first
 // (below), so a new deploy's shell is always picked up when online.
-const CACHE_NAME = 'pryzm-v3';
-const ASSETS_CACHE = 'pryzm-assets-v3';
+//
+// v4 (2026-06-10) — §SW-LAZY-CHUNK-404. v3 still 404'd LAZY chunks after a deploy:
+// the SW body was byte-identical across deploys (no `updatefound` → no auto-reload),
+// so a returning visitor kept the v3-cached shell + eager chunks while the SERVER
+// moved on (new hashes). When a feature then dynamic-imported a chunk
+// (`import('@pryzm/ai-host')` → /assets/index-*.js), the OLD hash was gone from the
+// server and the SPA catch-all returned index.html (text/html) → "Failed to load
+// module script ... MIME type text/html". Two fixes: (1) bump the cache version so
+// the poisoned v3 shell+asset caches are evicted AND the new SW body fires
+// updatefound→controllerchange→one-time reload onto the fresh graph; (2) the asset
+// branch now NEVER returns/caches an HTML fallback for a /assets/* request — on a
+// text/html or non-OK response it discards the cache entry and self-recovers.
+const CACHE_NAME = 'pryzm-v4';
+const ASSETS_CACHE = 'pryzm-assets-v4';
 const VALID_CACHES = new Set([CACHE_NAME, ASSETS_CACHE]);
 
 const APP_SHELL = [
@@ -88,15 +100,46 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Vite-hashed assets (/assets/): cache-first (immutable)
+  // Vite-hashed assets (/assets/): cache-first (immutable) with an HTML-fallback
+  // guard. §SW-LAZY-CHUNK-404: when a content-hashed chunk is missing on the
+  // server (a stale shell asked for an old hash after a deploy) the SPA catch-all
+  // returns index.html — `text/html` for a `.js`/`.css` request. That poisons the
+  // module loader ("Expected a JavaScript module ... got text/html") and, if
+  // cached, would persist. So we treat any non-OK OR text/html response to an
+  // /assets/* request as a MISS: never cache it, never return it. Instead we
+  // surface it as a network error so the page's own dynamic-import .catch runs,
+  // and we nudge the SW to re-check for a newer build (which then reloads the
+  // shell onto the current chunk graph).
   if (url.pathname.startsWith('/assets/')) {
     event.respondWith(
       caches.open(ASSETS_CACHE).then(async (cache) => {
         const cached = await cache.match(request);
-        if (cached) return cached;
-        const response = await fetch(request);
-        if (response.ok) cache.put(request, response.clone());
-        return response;
+        if (cached) {
+          // A previously-cached HTML fallback (from an older SW) must not be
+          // served as a module — drop it and fall through to a fresh fetch.
+          const cachedType = cached.headers.get('Content-Type') || '';
+          if (!cachedType.includes('text/html')) return cached;
+          await cache.delete(request);
+        }
+        let response;
+        try {
+          response = await fetch(request);
+        } catch (err) {
+          // True network failure (offline) — propagate so the importer's
+          // .catch handles it; don't mask as an HTML document.
+          throw err;
+        }
+        const ctype = response.headers.get('Content-Type') || '';
+        const isHtmlFallback = ctype.includes('text/html');
+        if (response.ok && !isHtmlFallback) {
+          cache.put(request, response.clone());
+          return response;
+        }
+        // Missing chunk → SPA fallback HTML (or a non-OK status). Do NOT cache
+        // and do NOT return the HTML (it would break the module script). Ask the
+        // browser to re-check /sw.js so a newer deploy can take over + reload.
+        try { await self.registration.update(); } catch { /* best-effort */ }
+        return new Response('', { status: 504, statusText: 'Stale asset (chunk hash not on server)' });
       })
     );
     return;
