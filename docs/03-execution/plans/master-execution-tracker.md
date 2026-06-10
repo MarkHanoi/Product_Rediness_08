@@ -3605,6 +3605,37 @@ biggest lever is execution-boundary fidelity, NOT rebuilding the engine.
 - [ ] **B4 — Robust non-orthogonal polygon offset.** Replace the `§DIAG-FLOOR-INSET` miter fall-back
   ladder with a Clipper-style offset OR enforce orthogonal/45° partitions. `NEW` (lowest priority).
 
+### §SW-LAZY-CHUNK-404 — stale-shell deploy defect (prod blocker, 2026-06-10)
+
+- [x] **Root cause (evidence-backed).** On prod v106 the batch-furnish (`import('@pryzm/ai-host')`
+  → `/assets/index-BbFNqnZ7.js`) + the §A.21.D49 globe overlay (`import('@pryzm/file-format')`
+  → `/assets/index-TEa8OqkW.js`) lazy chunks 404 → the SPA catch-all (`server.js:5476`
+  `app.get('*')` → `dist/index.html`) returns `text/html` → module-script MIME failure. Verified
+  via curl: the client's loaded eager hashes (`main-wyhJdWlF.js`, `engineLauncher-Byu7X2QJ.js`)
+  return `200 text/html` (gone from the server), while the CURRENT prod shell references
+  `main-CnowHNbh.js` → `engineLauncher-CZtUc5SR.js` → `index-{092PLv5A,BA-wrdwa,CON3wsoA,epGLtisX}.js`.
+  So the client is running an OLDER build than the server serves = **hash skew**. Cause: the
+  deployed `/sw.js` is `pryzm-v3` with a **cache-first `/assets/*`** branch + a byte-identical SW
+  body across deploys (no `updatefound` → no auto-reload), so a returning visitor kept the
+  v3-cached shell + eager chunks while the lazy chunks (never cached) 404 on the moved-on server.
+  NOT a build-emit failure (the build deterministically emits the `index-*.js` chunks — local dist
+  has 11; `engineLauncher`/`main` reference them) and NOT an image exclusion (`Dockerfile:145`
+  copies `dist` wholesale; `.dockerignore` `dist` only affects the context upload, not the
+  builder-stage dist). Distinct from the harmless `/items/*.glb` runtime-asset 404s
+  (`.dockerignore:146` OBJECT-STORAGE-GLB, served by the dedicated `/items` static at
+  `server.js:1606`).
+- [x] **Fix (`public/sw.js`, ships via Vite `public/`→`dist/` copy).** (1) Bump cache version
+  `v3`→`v4` so the poisoned `pryzm-v3` shell + `pryzm-assets-v3` asset caches are evicted on
+  activate AND the new SW body fires `updatefound`→`controllerchange`→one-time auto-reload
+  (`src/main.ts:558`) onto the fresh graph. (2) Harden the `/assets/*` branch: a cached or fetched
+  response that is `text/html` (the SPA fallback for a missing chunk) or non-OK is treated as a MISS
+  — never returned, never cached; the SW calls `self.registration.update()` to pull the newer SW
+  and returns a 504 so the importer's own `.catch` runs instead of the browser choking on an HTML
+  module script. **Verify after deploy:** `curl https://pryzm.fly.dev/sw.js | grep pryzm-v4`, then
+  hard-reload prod, run batch-furnish, confirm the lazy chunk loads (current hash) with no
+  `text/html` MIME error.
+- **Governance:** C07 §7 (PWA / service worker), ADR-055 (deploy), `sw-stale-cache-fixed` memory.
+
 ### Status summary
 
 - **DONE / IN-FLIGHT (2026-06-10):** `§ROOM-NAME-BIJECTIVE`
