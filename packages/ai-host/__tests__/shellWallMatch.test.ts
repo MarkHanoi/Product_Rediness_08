@@ -1,6 +1,6 @@
 // T1.W-C — shell-wall matcher pure tests.
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
     matchShellHost,
     resolveShellWindow,
@@ -712,5 +712,131 @@ describe('resolveAllShellWindows — §WINDOW-MANDATORY-RESCUE: a mandatory room
         const direct = resolveShellWindow(windows[0]!, walls, shells);   // no relax
         expect(out).toHaveLength(1);
         expect(out[0]).toEqual(direct);                                   // identical, un-relaxed
+    });
+});
+
+// ── Founder rule #1 GENERAL (2026-06-10) — every perimeter room keeps a window ──
+//
+// Founder: "EVERY room that has a PERIMETER (shell) wall as part of its boundary MUST
+// have ≥1 window" — except blind party-wall façades. The window-emission engine already
+// rescues every WINDOW-DESIRED room that fronts a façade; this block pins the GENERAL
+// guarantees the prompt asks for: a room touching only an external wall keeps ≥1 window,
+// a blind façade stays windowless even though it's a perimeter wall, and the
+// §DIAG-WINDOW-RULE perimeter-room domain is honoured.
+describe('resolveAllShellWindows — founder rule #1: every perimeter room keeps a window', () => {
+    it('a room touching ONLY an external wall keeps ≥1 window', () => {
+        // A bedroom whose sole boundary wall is the external south shell → it must keep
+        // a window (it fronts the outside; it is glazable).
+        const windows: LayoutWindow[] = [
+            { wallRef: 0, offset: 1500, width: 1500, height: 1300, sillHeight: 900, roomType: 'bedroom', name: 'Bedroom 1 Window' },
+        ];
+        const out = resolveAllShellWindows(
+            windows, [optWall(0, 0, 6000, 0)], [shell('south', 0, 0, 6, 0)],
+            undefined, undefined, [['Bedroom 1 Window', 'bedroom']],
+        );
+        expect(out).toHaveLength(1);
+        expect(out[0]!.roomType).toBe('bedroom');
+    });
+
+    it('a blind-façade perimeter wall stays windowless even though it is a perimeter wall', () => {
+        // The bedroom's only frontage is the blind party wall → no window, even though it
+        // is a perimeter room (founder exception: blind façades carry NO glazing).
+        const windows: LayoutWindow[] = [
+            { wallRef: 0, offset: 1500, width: 1500, height: 1300, sillHeight: 900, roomType: 'bedroom', name: 'Bedroom 1 Window' },
+        ];
+        const out = resolveAllShellWindows(
+            windows, [optWall(0, 0, 6000, 0)], [shell('south', 0, 0, 6, 0)],
+            undefined, ['south'], [['Bedroom 1 Window', 'bedroom']],
+        );
+        expect(out).toHaveLength(0);   // blind façade suppresses the window
+    });
+
+    it('ADDITIVE: passing the perimeter-room set is byte-identical to omitting it', () => {
+        // The perimeter set only drives §DIAG-WINDOW-RULE logging — it must NOT change the
+        // dispatched windows.
+        const windows: LayoutWindow[] = [
+            { wallRef: 0, offset: 1000, width: 1500, height: 1300, sillHeight: 900, roomType: 'bedroom', name: 'Bedroom 1 Window' },
+            { wallRef: 1, offset: 1000, width: 1200, height: 1200, sillHeight: 1000, roomType: 'kitchen', name: 'Kitchen Window' },
+        ];
+        const walls = [optWall(0, 0, 6000, 0), optWall(6000, 0, 6000, 4000)];
+        const shells = [shell('south', 0, 0, 6, 0), shell('east', 6, 0, 6, 4)];
+        const base = resolveAllShellWindows(windows, walls, shells);
+        const withSet = resolveAllShellWindows(
+            windows, walls, shells, undefined, undefined,
+            [['Bedroom 1 Window', 'bedroom'], ['Kitchen Window', 'kitchen']],
+        );
+        expect(withSet).toEqual(base);
+    });
+
+    it('flags a perimeter room left windowless via §DIAG-WINDOW-RULE (⚠ violation logged)', () => {
+        // A bedroom that fronts a façade but whose only candidate is dropped (a sub-minimal
+        // host wall) → it appears in the perimeter set yet keeps no window → the resolver
+        // must surface it as a perimeter-room violation. We assert the ⚠ line is logged.
+        const logs: string[] = [];
+        const spy = vi.spyOn(console, 'log').mockImplementation((...a: unknown[]) => { logs.push(a.join(' ')); });
+        try {
+            // wallRef host is INTERIOR (isExternal false) so the window cannot resolve onto
+            // a shell → the bedroom keeps zero windows though it is declared perimeter.
+            const windows: LayoutWindow[] = [
+                { wallRef: 0, offset: 1000, width: 1500, height: 1300, sillHeight: 900, roomType: 'bedroom', name: 'Ghost Bedroom Window' },
+            ];
+            resolveAllShellWindows(
+                windows, [optWall(0, 0, 6000, 0, false)], [shell('south', 0, 0, 6, 0)],
+                undefined, undefined, [['Ghost Bedroom Window', 'bedroom']],
+            );
+        } finally { spy.mockRestore(); }
+        const ruleLines = logs.filter(l => l.includes('§DIAG-WINDOW-RULE'));
+        expect(ruleLines.some(l => l.includes('Ghost Bedroom Window') && l.includes('PERIMETER-ROOM WINDOWLESS'))).toBe(true);
+        expect(ruleLines.some(l => /perimeterRoomViolations=[1-9]/.test(l))).toBe(true);
+    });
+});
+
+// ── Founder rule #2 (2026-06-10) — two windows never overlap (de-overlap + diag) ──
+describe('resolveAllShellWindows — founder rule #2: §DIAG-WINDOW-OVERLAP de-overlap', () => {
+    it('two windows that would overlap on one wall end up disjoint (lower-priority dropped)', () => {
+        // Two windows on the SAME shell wall whose spans overlap → the de-overlap pass must
+        // leave the kept set DISJOINT with the min gap; never overlapping.
+        const windows: LayoutWindow[] = [
+            { wallRef: 0, offset: 1000, width: 1500, height: 1300, sillHeight: 900, roomType: 'bedroom', name: 'Bedroom Window' },  // [1.0, 2.5]
+            { wallRef: 0, offset: 2000, width: 1500, height: 1300, sillHeight: 900, roomType: 'bedroom', name: 'Bedroom Window' },  // [2.0, 3.5] overlaps
+        ];
+        const out = resolveAllShellWindows(windows, [optWall(0, 0, 8000, 0)], [shell('south', 0, 0, 8, 0)]);
+        // Disjoint with the 0.1 m gap.
+        const spans = out.map(r => [r.offsetM, r.offsetM + r.widthM] as const).sort((a, b) => a[0] - b[0]);
+        for (let i = 1; i < spans.length; i++) {
+            expect(spans[i]![0]).toBeGreaterThanOrEqual(spans[i - 1]![1] + 0.1 - 1e-9);
+        }
+    });
+
+    it('logs §DIAG-WINDOW-OVERLAP with overlapsRemoved and a disjoint ✓ roll-up', () => {
+        const logs: string[] = [];
+        const spy = vi.spyOn(console, 'log').mockImplementation((...a: unknown[]) => { logs.push(a.join(' ')); });
+        try {
+            const windows: LayoutWindow[] = [
+                { wallRef: 0, offset: 1000, width: 1500, height: 1300, sillHeight: 900, roomType: 'bedroom', name: 'A Window' },
+                { wallRef: 0, offset: 2000, width: 1500, height: 1300, sillHeight: 900, roomType: 'bedroom', name: 'B Window' },
+            ];
+            resolveAllShellWindows(windows, [optWall(0, 0, 8000, 0)], [shell('south', 0, 0, 8, 0)]);
+        } finally { spy.mockRestore(); }
+        const ov = logs.filter(l => l.includes('§DIAG-WINDOW-OVERLAP'));
+        expect(ov.some(l => /overlapsRemoved=[1-9]/.test(l))).toBe(true);
+        // The final roll-up must assert the kept set is disjoint.
+        expect(ov.some(l => l.includes('all disjoint') && l.includes('residualOverlaps=0'))).toBe(true);
+    });
+
+    it('does NOT report removals when the windows are already disjoint', () => {
+        const logs: string[] = [];
+        const spy = vi.spyOn(console, 'log').mockImplementation((...a: unknown[]) => { logs.push(a.join(' ')); });
+        try {
+            const windows: LayoutWindow[] = [
+                { wallRef: 0, offset: 1000, width: 1500, height: 1300, sillHeight: 900, roomType: 'bedroom', name: 'A Window' },  // [1.0, 2.5]
+                { wallRef: 0, offset: 4000, width: 1500, height: 1300, sillHeight: 900, roomType: 'bedroom', name: 'B Window' },  // [4.0, 5.5]
+            ];
+            resolveAllShellWindows(windows, [optWall(0, 0, 8000, 0)], [shell('south', 0, 0, 8, 0)]);
+        } finally { spy.mockRestore(); }
+        const roll = logs.find(l => l.includes('§DIAG-WINDOW-OVERLAP') && l.includes('wallsWithWindows'));
+        expect(roll).toBeDefined();
+        expect(roll!).toContain('overlapsRemoved=0');
+        expect(roll!).toContain('all disjoint');
     });
 });

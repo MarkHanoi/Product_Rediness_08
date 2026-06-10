@@ -239,6 +239,36 @@ export function resolveEntranceDoor(
 
     // 1. Target room centre (entrance hall → corridor → all-rooms centroid).
     const hall = findEntranceHall(option.rooms ?? []);
+
+    // §DIAG-ENTRANCE (ADR-0063 founder rule #3, 2026-06-10) — the shell wall ids that
+    // BOUND the entrance hall's room boundary (a hall-polygon vertex sits on the wall).
+    // The founder requires the main entrance door to land on the perimeter segment that
+    // is part of the HALL's OWN boundary (so you enter directly into the hall, not a
+    // neighbour's façade). We compute the set once here and (a) restrict the candidate
+    // walls to it below — §HALL-NO-ENTRANCE — and (b) report the verdict (✓ door wall
+    // bounds the hall / ⚠ it doesn't) on the single emitted entrance via `finish()`.
+    const hallBoundsWallIds: ReadonlySet<string> =
+        hall && hall.polygon && hall.polygon.length >= 3
+            ? new Set(shellWalls.filter(w => wallBoundsRoom(w, hall.polygon!, planToWorld)).map(w => w.id))
+            : new Set<string>();
+    /** Emit the §DIAG-ENTRANCE verdict for the one resolved door and pass it through. A
+     *  door on a wall in `hallBoundsWallIds` is ✓ (front door is on the hall's own
+     *  perimeter boundary); otherwise ⚠ (a fallback wall — no hall / no bounding wall fit
+     *  a door). The caller only invokes the resolver on the GROUND storey, so ground=✓. */
+    const finish = (d: EntranceDoorDispatch | null): EntranceDoorDispatch | null => {
+        if (d) {
+            const onHall = hallBoundsWallIds.size > 0 && hallBoundsWallIds.has(d.shellWallId);
+            console.log(
+                `[D-TGL] §DIAG-ENTRANCE door wall=${d.shellWallId} boundsHall=${onHall ? '✓' : '⚠'} ` +
+                `hall=${hall ? (hall.name ?? hall.type) : 'none'} ground=✓ ` +
+                `offset=${d.offsetM.toFixed(2)}m width=${d.widthM.toFixed(2)}m`,
+            );
+        } else {
+            console.log(`[D-TGL] §DIAG-ENTRANCE door=NONE hall=${hall ? (hall.name ?? hall.type) : 'none'} (no hall-bounding shell wall fit a door)`);
+        }
+        return d;
+    };
+
     let target: XZ | null = hall ? roomCentreWorld(hall, planToWorld) : null;
     if (!target) {
         const centres = (option.rooms ?? [])
@@ -257,7 +287,7 @@ export function resolveEntranceDoor(
             (a, b) => segDir(b.start, b.end).len - segDir(a.start, a.end).len
               || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
         )[0]!;
-        return makeDoorOnWall(longest, hall?.type);
+        return finish(makeDoorOnWall(longest, hall?.type));
     }
 
     // §HALL-NO-ENTRANCE — restrict the candidate shell walls to those the HALL
@@ -265,11 +295,11 @@ export function resolveEntranceDoor(
     // entrance door lands on a wall that bounds the hall, not the nearest wall to its
     // centroid (which can be a neighbour room's — e.g. the kitchen's — façade). Falls
     // back to ALL shell walls when no hall exists, the hall has no polygon, or no wall
-    // bounds it (robustness), so the no-hall / studio path is byte-identical.
+    // bounds it (robustness), so the no-hall / studio path is byte-identical. Reuses
+    // the `hallBoundsWallIds` set computed above for the §DIAG-ENTRANCE verdict.
     let candidateWalls = shellWalls;
-    if (hall && hall.polygon && hall.polygon.length >= 3) {
-        const bounded = shellWalls.filter(w => wallBoundsRoom(w, hall.polygon!, planToWorld));
-        if (bounded.length > 0) candidateWalls = bounded;
+    if (hallBoundsWallIds.size > 0) {
+        candidateWalls = shellWalls.filter(w => hallBoundsWallIds.has(w.id));
     }
 
     // 2-3. Rank shell walls: perpendicular distance to the target, tie-break by
@@ -310,7 +340,7 @@ export function resolveEntranceDoor(
 
     // No window spans supplied ⇒ the original single-wall centred path (byte-identical).
     if (!occupiedSpansByWall || occupiedSpansByWall.size === 0) {
-        return makeDoorOnWall(chosen, hall?.type);
+        return finish(makeDoorOnWall(chosen, hall?.type));
     }
 
     // §ENTRANCE-DOOR-CLEAR (G4) — try the chosen wall in a clear gap first, then the
@@ -326,9 +356,9 @@ export function resolveEntranceDoor(
         if (seen.has(w.id)) continue;
         seen.add(w.id);
         const door = makeDoorOnWall(w, hall?.type, occupiedSpansByWall.get(w.id));
-        if (door) return door;
+        if (door) return finish(door);
     }
-    return null;
+    return finish(null);
 }
 
 /** Build a centred, clamped entrance-door dispatch on the given shell wall, or

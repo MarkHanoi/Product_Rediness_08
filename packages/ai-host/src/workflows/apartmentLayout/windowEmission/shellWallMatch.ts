@@ -493,7 +493,14 @@ const HABITABLE_WIN = new Set(['living', 'kitchen', 'dining', 'master', 'bedroom
  *
  * Returns the kept items (so callers can inspect which rooms survived).
  */
-function deOverlapShellWindowItems(items: readonly DeOverlapItem[]): DeOverlapItem[] {
+function deOverlapShellWindowItems(
+    items: readonly DeOverlapItem[],
+    // §DIAG-WINDOW-OVERLAP (2026-06-10) — optional per-wall telemetry sink. When
+    // supplied, records for each host shell wall how many windows it RECEIVED and how
+    // many were DROPPED here because their span (padded by WINDOW_GAP_M) overlapped an
+    // already-kept window. Pure: writing to a caller-owned map; no behaviour change.
+    overlapStats?: Map<string, { received: number; dropped: number }>,
+): DeOverlapItem[] {
     const byWall = new Map<string, DeOverlapItem[]>();
     for (const e of items) {
         (byWall.get(e.r.shellWallId) ?? byWall.set(e.r.shellWallId, []).get(e.r.shellWallId)!).push(e);
@@ -510,20 +517,22 @@ function deOverlapShellWindowItems(items: readonly DeOverlapItem[]): DeOverlapIt
             ? (HABITABLE_WIN.has(e.r.roomType ?? '') ? 0 : 2)
             : (HABITABLE_WIN.has(e.r.roomType ?? '') ? 1 : 2);
     const keptIdx = new Set<number>();
-    for (const group of byWall.values()) {
+    for (const [wallId, group] of byWall.entries()) {
         const sorted = group.slice().sort((a, b) =>
             (winPriority(a) - winPriority(b)) ||       // rescued, then habitable, claim first
             (a.r.offsetM - b.r.offsetM) ||
             (b.r.widthM - a.r.widthM) ||
             (a.i - b.i));
         const keptSpans: Array<readonly [number, number]> = [];
+        let droppedHere = 0;
         for (const e of sorted) {
             const s = e.r.offsetM, end = e.r.offsetM + e.r.widthM;
             // Conflicts with a kept span when neither sits clear of the other by WINDOW_GAP_M.
             const overlaps = keptSpans.some(([ks, ke]) => s < ke + WINDOW_GAP_M - 1e-9 && ks < end + WINDOW_GAP_M - 1e-9);
             if (!overlaps) { keptIdx.add(e.i); keptSpans.push([s, end]); }
-            // else: overlaps an already-kept (higher-priority / earlier) window → drop it.
+            else droppedHere++;   // overlaps an already-kept (higher-priority / earlier) window → drop it.
         }
+        if (overlapStats) overlapStats.set(wallId, { received: group.length, dropped: droppedHere });
     }
     // Re-assemble in emission order (stable) so callers iterate positionally.
     return items.filter(e => keptIdx.has(e.i)).slice().sort((a, b) => a.i - b.i);
@@ -571,11 +580,27 @@ export function resolveAllShellWindows(
     // deterministic per ADR-0061. The producer that computes this set from
     // neighbour footprints is the PW.2 follow-up (see SPEC-PARTY-WALL-AWARENESS).
     blindFacadeWallIds?: ReadonlySet<string> | readonly string[],
+    // §DIAG-WINDOW-RULE (founder rule #1, 2026-06-10) — the GENERAL perimeter rule:
+    // "EVERY room that has a PERIMETER (shell) wall as part of its boundary MUST have
+    // ≥1 window" (except blind party-wall façades). The caller (emitGeometry) knows the
+    // full set of WINDOW-DESIRED rooms that actually FRONT a façade — including rooms
+    // whose emitted window candidates were ALL dropped (walls too short / corner-fit /
+    // de-overlap) and so never appear in `windows`. Passing that set here lets
+    // §DIAG-WINDOW-RULE flag ANY perimeter-touching room that ends WINDOWLESS as a ⚠
+    // violation, not just rooms that emitted at least one candidate. Each entry is a
+    // `roomKey` (matching `roomKeyOf`) mapped to its room-type label. Optional +
+    // ADDITIVE: omitted ⇒ the diagnostic falls back to the emitted-window key set
+    // (pre-rule-#1 behaviour), so apartment/house output is byte-identical.
+    perimeterRoomKeys?: ReadonlyMap<string, string> | ReadonlyArray<readonly [string, string]>,
 ): readonly ShellWindowDispatch[] {
     const blind: ReadonlySet<string> =
         blindFacadeWallIds instanceof Set
             ? blindFacadeWallIds
             : new Set(blindFacadeWallIds ?? []);
+    const perimeterRooms: ReadonlyMap<string, string> =
+        perimeterRoomKeys instanceof Map
+            ? perimeterRoomKeys
+            : new Map(perimeterRoomKeys as ReadonlyArray<readonly [string, string]> ?? []);
     const out: DeOverlapItem[] = [];
     let unmatched = 0;
     let blindSuppressed = 0;
@@ -608,7 +633,9 @@ export function resolveAllShellWindows(
     // §WINDOW-DEOVERLAP — ensure no two windows on the SAME shell wall overlap, so the
     // wall.createOpening occupancy check never silently rejects a window (the founder's
     // "CONFLICT … opening skipped" log → dropped window).
-    let keptItems = deOverlapShellWindowItems(out);
+    // §DIAG-WINDOW-OVERLAP — capture per-wall received/dropped counts for the diagnostic.
+    const overlapStats = new Map<string, { received: number; dropped: number }>();
+    let keptItems = deOverlapShellWindowItems(out, overlapStats);
 
     // ── §WINDOW-MANDATORY-RESCUE (A.21.D60) + §WINDOW-DESIRED (A.21.D61, 2026-06-09) ────
     // Which window-DESIRED rooms ended up with ZERO kept windows? The founder's rule is
@@ -703,6 +730,39 @@ export function resolveAllShellWindows(
         `droppedByDeOverlap=${out.length - (kept.length - rescuedKept)} unmatchedToShell=${unmatched} ` +
         `rescued=${rescuedKept} façadeAxisDist={${dist}}`,
     );
+    // ── §DIAG-WINDOW-OVERLAP (founder rule #2, 2026-06-10) ────────────────────────
+    // Founder: "two windows can NEVER overlap" — the image showed two windows on the
+    // same wall span. The §WINDOW-DEOVERLAP pass guarantees a conflict-free dispatched
+    // set; this diagnostic PROVES it. Per host wall it reports the window count kept +
+    // how many overlapping windows were removed, then asserts (logging only) that NO
+    // two FINAL kept windows on the same wall overlap. Only logs the per-wall detail
+    // when at least one overlap was actually removed; the roll-up line always prints.
+    const finalByWall = new Map<string, ShellWindowDispatch[]>();
+    for (const k of kept) (finalByWall.get(k.shellWallId) ?? finalByWall.set(k.shellWallId, []).get(k.shellWallId)!).push(k);
+    let totalRemovedByOverlap = 0;
+    let residualOverlaps = 0;
+    for (const [wallId, ws] of finalByWall.entries()) {
+        const removed = overlapStats.get(wallId)?.dropped ?? 0;
+        totalRemovedByOverlap += removed;
+        // Verify the FINAL kept set on this wall is genuinely disjoint (belt-and-braces).
+        const spans = ws.map(w => [w.offsetM, w.offsetM + w.widthM] as const).sort((a, b) => a[0] - b[0]);
+        let wallResidual = 0;
+        for (let i = 1; i < spans.length; i++) {
+            if (spans[i]![0] < spans[i - 1]![1] + WINDOW_GAP_M - 1e-9) wallResidual++;
+        }
+        residualOverlaps += wallResidual;
+        if (removed > 0 || wallResidual > 0) {
+            console.log(
+                `[D-TGL] §DIAG-WINDOW-OVERLAP wall=${wallId} windows=${ws.length} ` +
+                `overlapsRemoved=${removed}${wallResidual > 0 ? ` ⚠ RESIDUAL-OVERLAP=${wallResidual}` : ''}`,
+            );
+        }
+    }
+    console.log(
+        `[D-TGL] §DIAG-WINDOW-OVERLAP wallsWithWindows=${finalByWall.size} ` +
+        `overlapsRemoved=${totalRemovedByOverlap} residualOverlaps=${residualOverlaps}` +
+        `${residualOverlaps > 0 ? ' ⚠ DE-OVERLAP INVARIANT VIOLATED' : ' ✓ all disjoint'}`,
+    );
     // §DIAG-PARTY-WALL (PW.1, 2026-06-09) — which shell walls are BLIND (party walls
     // abutting a neighbour within setback) + how many windows were suppressed there.
     // Only logs when a blind set was actually supplied, so the default path is silent.
@@ -728,20 +788,36 @@ export function resolveAllShellWindows(
         console.log(`[D-TGL] §WINDOW-MANDATORY-RESCUE fired for ${rescueLog.length} room(s) → ${rescueLog.join(' ')}`);
     }
 
-    // ── §DIAG-WINDOW-RULE (A.21.D61, 2026-06-09) ──────────────────────────────────
-    // The founder's explicit ask: "make sure EVERY room has a window … windows
-    // location." Print one line per WINDOW-DESIRED room: has-window ✓/✗, and when ✗
-    // the REASON (NO-FRONTAGE = the room emitted no external window at all → it has
-    // no external wall; else the gate that dropped its last window from
-    // §DIAG-WIN-UNMATCHED). Then a one-line roll-up. Pure logging — no behaviour
-    // change. `keptKeysFinal` is recomputed from the FINAL kept set (post-rescue).
+    // ── §DIAG-WINDOW-RULE (A.21.D61 → founder rule #1 GENERAL, 2026-06-10) ─────────
+    // The founder's GENERAL perimeter rule: "EVERY room that has a PERIMETER (shell)
+    // wall as part of its room boundary MUST have ≥1 window" (except blind party-wall
+    // façades). Print one line per perimeter-touching WINDOW-DESIRED room: has-window
+    // ✓/✗, and when ✗ a ⚠ VIOLATION with the REASON. Then a one-line roll-up.
+    //
+    // The room domain is the UNION of:
+    //   (a) the caller-supplied `perimeterRooms` — every window-desired room that
+    //       actually FRONTS a façade, INCLUDING rooms whose every emitted candidate was
+    //       dropped (walls too short / corner-fit / de-overlap) and so never appears in
+    //       `windows`. This is what makes the rule GENERAL: such a room is now flagged
+    //       as a ⚠ perimeter-room violation instead of silently vanishing; and
+    //   (b) the window-desired rooms the engine emitted ANY candidate for (back-compat
+    //       fallback when the caller passes no perimeter set — pre-rule-#1 behaviour).
+    // Pure logging — no behaviour change. `keptKeysFinal` is the FINAL kept set
+    // (post-rescue); a room is satisfied iff it kept ≥1 window.
     const keptKeysFinal = new Set(keptItems.map(e => e.roomKey));
-    // Every window-desired room the engine emitted ANY window for (its roomKey appears
-    // in `windows`); plus the rooms that emitted ZERO external windows (NO-FRONTAGE).
     const desiredRoomKeys = new Map<string, string>();   // key → roomType label
     for (const w of windows) {
         if (!windowDesiredFor(w.roomType ?? '')) continue;
         desiredRoomKeys.set(roomKeyOf(w), w.roomType ?? '?');
+    }
+    // (a) Union in the caller's perimeter-room set — the GENERAL rule's true domain.
+    //     A perimeter room here that kept NO window is a ⚠ violation even if it emitted
+    //     zero candidates (so a glazable room touching the outside is never silently
+    //     left windowless). Only glazable types are admitted (defensive — the caller
+    //     already filters, but the rule never applies to circulation/utility/stair).
+    for (const [key, type] of perimeterRooms) {
+        if (!windowDesiredFor(type)) continue;
+        desiredRoomKeys.set(key, type);
     }
     const rescueByKey = new Map(rescueLog.map(s => {
         const i = s.lastIndexOf(':');
@@ -751,16 +827,27 @@ export function resolveAllShellWindows(
     const winNo: string[] = [];
     for (const [key, type] of [...desiredRoomKeys.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
         const has = keptKeysFinal.has(key);
+        // A room the caller declared as PERIMETER-touching MUST have a window — a miss is
+        // a rule VIOLATION (⚠). A room only in the emitted-fallback set (no perimeter
+        // declaration) that ends windowless is reported but not asserted as a violation
+        // (it may be a genuinely interior room whose stray candidate was dropped).
+        const isPerimeter = perimeterRooms.has(key);
         if (has) { winYes++; console.log(`[D-TGL] §DIAG-WINDOW-RULE ${key}(${type}) → window ✓`); }
         else {
-            const reason = rescueByKey.get(key) === 'NO-FRONTAGE' ? 'NO-FRONTAGE (no external wall)' : 'all candidates dropped (see §DIAG-WIN-UNMATCHED)';
+            const reason = rescueByKey.get(key) === 'NO-FRONTAGE'
+                ? 'NO-FRONTAGE (no external wall)'
+                : 'all candidates dropped (see §DIAG-WIN-UNMATCHED)';
             winNo.push(`${key}(${type})`);
-            console.log(`[D-TGL] §DIAG-WINDOW-RULE ${key}(${type}) → window ✗ — ${reason}`);
+            const flag = isPerimeter ? '⚠ PERIMETER-ROOM WINDOWLESS — RULE VIOLATION' : 'window ✗';
+            console.log(`[D-TGL] §DIAG-WINDOW-RULE ${key}(${type}) → ${flag} — ${reason}`);
         }
     }
+    const perimViolations = winNo.filter(k => perimeterRooms.has(k.slice(0, k.lastIndexOf('('))));
     console.log(
         `[D-TGL] §DIAG-WINDOW-RULE roomsWithWindow=${winYes}/${desiredRoomKeys.size} ` +
-        `roomsWithoutWindow=[${winNo.join(',') || 'none'}]`,
+        `roomsWithoutWindow=[${winNo.join(',') || 'none'}] ` +
+        `perimeterRoomViolations=${perimViolations.length}` +
+        `${perimViolations.length > 0 ? ` ⚠ [${perimViolations.join(',')}]` : ' ✓'}`,
     );
 
     return kept;

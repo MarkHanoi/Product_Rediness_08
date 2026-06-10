@@ -66,8 +66,18 @@ export function allocateProgramToStoreys(
     };
 
     // Single-storey: pass-through. The whole program lives on the ground plate.
+    // §HALL-SINGLETON (ADR-0063 founder rule #1, 2026-06-10) — a residential house
+    // ALWAYS has exactly ONE entrance hall and it is ALWAYS on the GROUND (entrance)
+    // storey. Even a 1-storey pass-through must carry `entranceHall: true` so the
+    // single plate mints the hall the front door lands in — never zero. (Downstream
+    // `enrichStoreyProgramToPlate(role:'ground')` also forces this on, but pinning it
+    // HERE makes the singleton invariant hold at the allocation layer independent of
+    // the enrich pass.)
     if (storeys === 1) {
-        const out: StoreyProgram[] = [{ storeyIndex: 0, role: 'ground', program: { ...program } }];
+        const out: StoreyProgram[] = [
+            { storeyIndex: 0, role: 'ground', program: { ...program, entranceHall: true } },
+        ];
+        assertHallSingleton(out);
         out.forEach(logAllocStorey);
         return out;
     }
@@ -121,7 +131,10 @@ export function allocateProgramToStoreys(
             includeKitchen: true, // §A.21.x-KITCHEN — the house kitchen lives on the ground floor only
             openPlanKitchenDining: program.openPlanKitchenDining,
             livingRoom: program.livingRoom,
-            entranceHall: program.entranceHall,
+            // §HALL-SINGLETON (ADR-0063 #1) — the ground storey ALWAYS carries the one
+            // entrance hall (the house's single entry). Forced ON regardless of the
+            // brief flag so a brief that omits it never yields a hall-less house.
+            entranceHall: true,
             ...(program.roomAreas ? { roomAreas: program.roomAreas } : {}),
             ...(program.roomAreasByName ? { roomAreasByName: program.roomAreasByName } : {}),
         },
@@ -159,8 +172,46 @@ export function allocateProgramToStoreys(
         });
     }
 
+    assertHallSingleton(out);
     out.forEach(logAllocStorey);
     return out;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §HALL-SINGLETON (ADR-0063 founder rule #1, 2026-06-10) — exactly ONE entrance
+// hall, ALWAYS on the GROUND storey, NONE on any upper storey. The bubble graph
+// mints a `hall` iff a storey's program carries `entranceHall === true`, so the
+// singleton invariant reduces to "ground program has the flag; no upper does".
+// This pass HARD-CORRECTS any stack that disagrees (deterministically — turn the
+// ground flag ON, every upper flag OFF) and logs the verdict. Pure; mutates the
+// emitted program copies in place (they are freshly-built `{...}` objects, never
+// the caller's brief). No I/O beyond the diagnostic console line.
+// ─────────────────────────────────────────────────────────────────────────────
+function assertHallSingleton(out: StoreyProgram[]): void {
+    let groundFlag = false;
+    let upperFlags = 0;
+    for (let i = 0; i < out.length; i++) {
+        const s = out[i]!;
+        const wantsHall = s.program.entranceHall === true;
+        if (s.role === 'ground') {
+            // The ground storey MUST carry the one hall.
+            if (!wantsHall) out[i] = { ...s, program: { ...s.program, entranceHall: true } };
+            groundFlag = true;
+        } else {
+            // No upper storey may carry an entrance hall (§LANDING-NOT-HALL).
+            if (wantsHall) { out[i] = { ...s, program: { ...s.program, entranceHall: false } }; upperFlags++; }
+        }
+    }
+    // After correction: exactly one ground hall, zero upper halls — by construction.
+    const groundHalls = out.filter(s => s.role === 'ground' && s.program.entranceHall === true).length;
+    const upperHalls = out.filter(s => s.role !== 'ground' && s.program.entranceHall === true).length;
+    const ok = groundHalls === 1 && upperHalls === 0;
+    console.log(
+        `[D-TGL] §HALL-SINGLETON storeys=${out.length} groundHall=${groundHalls} upperHalls=${upperHalls} ` +
+        `${ok ? '✓' : '⚠ CORRECTED'}` +
+        (groundFlag ? '' : ' (no ground storey!)') +
+        (upperFlags > 0 ? ` strippedUpperHall=${upperFlags}` : ''),
+    );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

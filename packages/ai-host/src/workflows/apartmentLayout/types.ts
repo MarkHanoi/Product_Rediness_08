@@ -96,6 +96,15 @@ export interface LayoutOption {
      *  the prior live-fix that reached into the wall store from the executor
      *  itself. Omitted ⇒ executor falls back to level.height, then default. */
     floorToCeilingMm?: number;
+    /** §DIAG-WINDOW-RULE (founder rule #1 GENERAL, 2026-06-10) — every WINDOW-DESIRED
+     *  room that FRONTS a façade (has ≥1 external/shell wall on its boundary), as
+     *  `[roomKey, roomType]` pairs. The `roomKey` matches the window-emission engine's
+     *  `roomKeyOf` (the room's stamped window name, e.g. `"Bedroom 1 Window"`, else
+     *  `type@wallRef`). Lets the shell-window resolver's §DIAG-WINDOW-RULE flag ANY
+     *  perimeter-touching room that ends WINDOWLESS as a ⚠ rule violation — even when
+     *  the room emitted ZERO surviving window candidates. Optional + ADDITIVE: omitted
+     *  ⇒ the diagnostic falls back to the emitted-window set (byte-identical output). */
+    perimeterWindowRooms?: ReadonlyArray<readonly [string, string]>;
 }
 
 export interface ApartmentConstraints {

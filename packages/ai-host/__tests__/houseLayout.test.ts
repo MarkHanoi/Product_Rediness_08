@@ -72,10 +72,13 @@ describe('allocateProgramToStoreys', () => {
         expect(out[2]!.program.entranceHall).toBe(false);
     });
 
-    it('§LANDING-NOT-HALL (G14): a brief WITHOUT a ground hall still leaves upper storeys hall-free', () => {
+    it('§HALL-SINGLETON (ADR-0063 #1): a brief WITHOUT a ground hall still FORCES exactly one ground hall, none upper', () => {
+        // Strengthened founder rule #1 (2026-06-10): a residential house ALWAYS has the
+        // one entrance hall on the GROUND (never zero), so a brief that omits it is
+        // corrected up — while the upper storeys stay hall-free (§LANDING-NOT-HALL G14).
         const noHall: ApartmentProgram = { ...PROGRAM, entranceHall: false };
         const out = allocateProgramToStoreys(noHall, 2);
-        expect(out[0]!.program.entranceHall).toBe(false);
+        expect(out[0]!.program.entranceHall).toBe(true);
         expect(out[1]!.program.entranceHall).toBe(false);
     });
 

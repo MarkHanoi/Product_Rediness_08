@@ -243,6 +243,25 @@ export function emitGeometry(graph: LayoutGraph, opts?: EmitGeometryOpts): Emitt
     }
 
     const windows: LayoutOption['windows'] = [];
+    // §DIAG-WINDOW-RULE (founder rule #1 GENERAL, 2026-06-10) — the set of WINDOW-DESIRED
+    // rooms that FRONT a façade. The shell-window resolver uses this to flag ANY
+    // perimeter-touching room that ends WINDOWLESS as a ⚠ rule violation — even when its
+    // emitted candidates were ALL dropped (walls too short / corner-fit / de-overlap), so
+    // such a room never silently vanishes. The key mirrors the resolver's `roomKeyOf`:
+    // `"<roomName> Window"` when a name exists, else `<type>@<wallRef>` (the FIRST
+    // external wall index the room fronts, matching the emitted window's wallRef bucket).
+    const perimeterWindowRooms: Array<readonly [string, string]> = [];
+    for (const n of spaceNodes) {
+        const rt = (str(n.attrs.spaceType, 'utility') as RoomType);
+        // GENERAL perimeter rule: a glazable room that fronts a façade MUST end up with a
+        // window. Record it here regardless of whether emission below succeeds.
+        if (isWindowable(rt) && frontsFacade.has(n.guid) && (externalWallsBySpace.get(n.guid)?.length ?? 0) > 0) {
+            const roomName = str(n.attrs.name, n.sourceId);
+            const firstWallRef = externalWallsBySpace.get(n.guid)![0]!.wallIndex;
+            const key = roomName ? `${roomName} Window` : `${rt}@${firstWallRef}`;
+            perimeterWindowRooms.push([key, rt]);
+        }
+    }
     for (const n of spaceNodes) {
         const rt = (str(n.attrs.spaceType, 'utility') as RoomType);
         // A.21.D55 — DAYLIGHT IN EVERY ROOM. Emit a window for EVERY windowable
@@ -293,6 +312,7 @@ export function emitGeometry(graph: LayoutGraph, opts?: EmitGeometryOpts): Emitt
         summary: `D-TGL layout — ${rooms.length} rooms, ${walls.length} walls, ${doors.length} doors, ${windows.length} windows`,
         rooms, walls, doors, corridorWidthMin,
         ...(windows.length > 0 ? { windows } : {}),
+        ...(perimeterWindowRooms.length > 0 ? { perimeterWindowRooms } : {}),
     };
     return { option, wallGuids, doorGuids, spaceGuids };
 }

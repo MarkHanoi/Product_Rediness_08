@@ -192,4 +192,68 @@ describe('resolveEntranceDoor (A.21.D29 #3)', () => {
             expect(withBlind.shellWallId).not.toBe(base.shellWallId);
         });
     });
+
+    // ── §DIAG-ENTRANCE (ADR-0063 founder rule #3, 2026-06-10) — the main entrance door
+    // must land on the perimeter wall segment that is part of the HALL's OWN room
+    // boundary (you enter directly into the hall), not merely the nearest shell wall to
+    // its centroid. When the hall has a polygon the resolver restricts the candidate
+    // walls to those a hall vertex sits on (§HALL-NO-ENTRANCE / wallBoundsRoom).
+    describe('§DIAG-ENTRANCE: door binds to a perimeter segment of the HALL boundary', () => {
+        // A hall hugging the WEST wall but whose CENTROID is nearer the south wall: the
+        // centroid-only path would (wrongly) pick the south wall; the polygon binding
+        // forces the door onto the west wall the hall actually fronts.
+        it('picks the hall-bounding perimeter wall, NOT merely the centroid-nearest wall', () => {
+            // Hall polygon: a tall thin strip along the WEST wall (x=0), z from 0..8, but
+            // only 1 m deep (x 0..1). Centroid ≈ (0.5 m, 4 m) — equally near west; we make
+            // the geometry unambiguous: the hall's vertices sit ON the west wall (x=0).
+            const hall = room({
+                type: 'hall', name: 'Entrance Hall',
+                centroid: { x: 500, y: 4000 },
+                polygon: [
+                    { x: 0, y: 0 }, { x: 1000, y: 0 },
+                    { x: 1000, y: 8000 }, { x: 0, y: 8000 },
+                ],
+            });
+            const opt = option([hall, room({ type: 'living', centroid: { x: 6000, y: 4000 } })]);
+            const d = resolveEntranceDoor(opt, SHELL)!;
+            expect(d).not.toBeNull();
+            // The west wall is the only shell wall a hall vertex sits on (x=0). North &
+            // south are touched at their x=0 endpoint too, but west is the long fronting
+            // segment the §HALL-NO-ENTRANCE restriction + longest tie-break selects.
+            expect(d.shellWallId).toBe('w');
+        });
+
+        it('a hall touching TWO perimeter walls picks the longer hall-bounding façade deterministically', () => {
+            // Corner hall fronting BOTH north (z=0) and west (x=0); polygon vertices sit on
+            // both. The tie-break prefers the LONGER fronting façade → west (8 m) over the
+            // 3 m north segment the hall spans.
+            const hall = room({
+                type: 'hall', name: 'Entrance Hall',
+                centroid: { x: 1500, y: 1500 },
+                polygon: [
+                    { x: 0, y: 0 }, { x: 3000, y: 0 },
+                    { x: 3000, y: 3000 }, { x: 0, y: 8000 },
+                ],
+            });
+            const opt = option([hall]);
+            const a = resolveEntranceDoor(opt, SHELL)!;
+            const b = resolveEntranceDoor(opt, SHELL)!;
+            expect(a).toEqual(b);                       // deterministic (ADR-0061)
+            // The chosen wall must be one the hall genuinely bounds (north or west), never
+            // the far east/south walls the hall doesn't touch.
+            expect(['n', 'w']).toContain(a.shellWallId);
+        });
+
+        it('degrades to the centroid path (byte-identical) when the hall has NO polygon', () => {
+            // No polygon → hallBoundsWallIds empty → candidate walls = all shell walls →
+            // the original centroid-nearest selection. Same result as the polygon-free
+            // baseline test above (door on the south wall).
+            const opt = option([
+                room({ type: 'hall', name: 'Entrance Hall', centroid: { x: 5000, y: 7500 } }),
+                room({ type: 'living', centroid: { x: 5000, y: 3000 } }),
+            ]);
+            const d = resolveEntranceDoor(opt, SHELL)!;
+            expect(d.shellWallId).toBe('s');
+        });
+    });
 });

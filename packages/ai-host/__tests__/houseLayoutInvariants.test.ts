@@ -128,3 +128,49 @@ describe('house-layout invariants on a 45°-rotated plate (founder CI invariant)
         expect(JSON.stringify(a)).toEqual(JSON.stringify(b));
     });
 });
+
+// ── §HALL-SINGLETON (ADR-0063 founder rule #1, 2026-06-10) ──────────────────────────
+// A residential house has EXACTLY ONE entrance hall, ALWAYS on the GROUND storey,
+// NONE on any upper storey. The bubble graph mints a `hall` iff a storey's program
+// carries `entranceHall === true`, so the invariant is verified on the per-storey
+// program split (`allocateProgramToStoreys`) the engine actually consumes.
+describe('§HALL-SINGLETON: exactly one entrance hall, ground-only (founder rule #1)', () => {
+    const countGroundHalls = (storeyCount: number, p: ApartmentProgram = PROGRAM): number => {
+        const ss = allocateProgramToStoreys(p, storeyCount);
+        return ss.filter(s => s.role === 'ground' && s.program.entranceHall === true).length;
+    };
+    const countUpperHalls = (storeyCount: number, p: ApartmentProgram = PROGRAM): number => {
+        const ss = allocateProgramToStoreys(p, storeyCount);
+        return ss.filter(s => s.role !== 'ground' && s.program.entranceHall === true).length;
+    };
+
+    for (const n of [1, 2, 3]) {
+        it(`a ${n}-storey house has exactly ONE ground hall and ZERO upper halls`, () => {
+            expect(countGroundHalls(n)).toBe(1);
+            expect(countUpperHalls(n)).toBe(0);
+        });
+    }
+
+    it('forces a ground hall even when the brief OMITS entranceHall (never zero)', () => {
+        const noHallBrief: ApartmentProgram = { ...PROGRAM, entranceHall: false };
+        for (const n of [1, 2, 3]) {
+            expect(countGroundHalls(n, noHallBrief)).toBe(1);
+            expect(countUpperHalls(n, noHallBrief)).toBe(0);
+        }
+    });
+
+    it('strips an upper hall if the brief somehow carries one (singleton correction)', () => {
+        // The allocator builds upper programs with entranceHall:false by construction;
+        // this asserts the post-build §HALL-SINGLETON pass also keeps upper halls at zero
+        // regardless of the incoming flag (the flag only seeds the GROUND storey).
+        const ss = allocateProgramToStoreys({ ...PROGRAM, entranceHall: true }, 3);
+        expect(ss.filter(s => s.role !== 'ground' && s.program.entranceHall === true)).toHaveLength(0);
+        expect(ss.filter(s => s.role === 'ground' && s.program.entranceHall === true)).toHaveLength(1);
+    });
+
+    it('is deterministic (same brief + storey count → identical split)', () => {
+        const a = allocateProgramToStoreys(PROGRAM, 3);
+        const b = allocateProgramToStoreys(PROGRAM, 3);
+        expect(JSON.stringify(a)).toEqual(JSON.stringify(b));
+    });
+});

@@ -694,6 +694,11 @@ export function buildLayoutCommands(
             // §DIAG-PARTY-WALL (PW.1) — suppress every window that would resolve onto a
             // blind/party shell wall. Omitted / empty ⇒ no suppression (byte-identical).
             opts.blindFacadeWallIds,
+            // §DIAG-WINDOW-RULE (founder rule #1 GENERAL) — every glazable room that fronts
+            // a façade, so the resolver flags any perimeter room left windowless as a ⚠
+            // violation even when its candidates were all dropped. Omitted ⇒ falls back to
+            // the emitted-window set (byte-identical).
+            option.perimeterWindowRooms,
         );
         for (const r of resolved) {
             const openingId = mintId('opening');
