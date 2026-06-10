@@ -16,10 +16,12 @@ import type { ScoredLayoutOption } from '@pryzm/ai-host';
 import { matchDetectedRooms } from './matchDetectedRooms.js';
 import { logExecRoomDiagnostics } from '../house-layout/houseExecDiagnostics.js';
 import { getStairRects } from '../house-layout/houseStairRects.js';
+import { resolveStairRooms, type DetectedRoomLite } from '../house-layout/resolveStairRooms.js';
 
 interface DetectedRoomLike {
     id: string;
     boundary?: { polygon?: Array<{ x: number; z: number }> };
+    computed?: { area?: number; centroid?: { x: number; z: number } };
 }
 interface RoomStoreLike {
     getByLevel?: (id: string) => DetectedRoomLike[];
@@ -89,11 +91,74 @@ export function nameDetectedRooms(
             // "Room 00-00x" fallback label. The pure `matchDetectedRooms` encodes the
             // two-pass bijective fix (direct containment → nearest-unused fallback) so
             // the contract is unit-testable without the runtime.
-            const detectedPolys = detected.map(room => ({
-                id: room.id,
-                polygon: room.boundary?.polygon ?? [],
-            }));
-            const { renames, unmatched: fallbackCount } = matchDetectedRooms(tgl, detectedPolys);
+            // §STAIR-VOID-EXCLUDE (founder defect #7, 2026-06-10) — collapse the
+            // detected rooms inside the stair void to EXACTLY ONE non-habitable
+            // `stair` room BEFORE the engine→detected name matcher runs. The editor's
+            // redetect traces the BUILT wall graph: the stair body spans a wall line,
+            // so the footprint splits into TWO enclosed faces (the founder's 8.1 m² +
+            // 25.3 m²). §ROOM-NAME-BIJECTIVE stops the duplicate NAME, but the second
+            // cell survives as a ~25 m² habitable-looking fallback room. Here we (a)
+            // KEEP the centre-nearest cell, name it "Stair" + occupancy `stair`, (b)
+            // DELETE every other cell in the void, and (c) EXCLUDE both keep + dropped
+            // ids from the matcher input so no engine room re-names a stair cell. The
+            // stair keep-out rects come from `houseStairRects` (empty for the apartment
+            // path ⇒ stairResolution is empty ⇒ byte-identical, ADR-0061). Governance:
+            // ADR-0063 (one non-habitable stair void) · C53 · C11 (post-detection
+            // reconciliation) — completes §STAIR-ROOM-TYPE at the DETECTION boundary.
+            const stairRects = getStairRects(levelId);
+            const detectedLite: DetectedRoomLite[] = detected.map(room => {
+                const poly = room.boundary?.polygon ?? [];
+                let cx = room.computed?.centroid?.x ?? 0;
+                let cz = room.computed?.centroid?.z ?? 0;
+                if (!room.computed?.centroid && poly.length > 0) {
+                    cx = 0; cz = 0;
+                    for (const p of poly) { cx += p.x; cz += p.z; }
+                    cx /= poly.length; cz /= poly.length;
+                }
+                return { id: room.id, cx, cz, area: room.computed?.area ?? 0 };
+            });
+            const stairResolution = resolveStairRooms(detectedLite, stairRects);
+            const stairExcluded = stairResolution.excludedRoomIds;
+
+            // §DIAG-STAIR-VOID-EXCLUDE (founder defect #7 verification, 2026-06-10) —
+            // per level: detected rooms that fell in each stair void + the action taken
+            // (kept-as-Stair vs deleted). After this pass the §DIAG-EXEC-STAIR rollup
+            // must read roomsOverStairVoid=1 with NO ⚠ HABITABLE-ON-STAIR. Logging only.
+            if (stairRects.length > 0) {
+                const counts = stairResolution.perRectCounts.join(',');
+                const ok = stairResolution.keep.length === stairRects.length && stairResolution.drop.length === 0;
+                console.log(
+                    `${logTag} §DIAG-STAIR-VOID-EXCLUDE level=${levelId} stairRects=${stairRects.length} ` +
+                    `roomsInVoidPerRect=[${counts}] kept=${stairResolution.keep.length} dropped=${stairResolution.drop.length} ` +
+                    `${ok ? '✓' : `⚠ ${stairResolution.drop.length}-PHANTOM-ROOM(S)-MERGED`}`,
+                );
+            }
+
+            // Engine→detected name matcher runs over the NON-stair detected rooms only
+            // (the stair cells are typed below from the resolution, not from an engine
+            // pairing — so an engine `stair` room never double-names a kept cell and a
+            // habitable engine room never reaches a dropped cell).
+            const detectedPolys = detected
+                .filter(room => !stairExcluded.has(room.id))
+                .map(room => ({
+                    id: room.id,
+                    polygon: room.boundary?.polygon ?? [],
+                }));
+            // The engine `stair` room(s) are EXCLUDED from the matcher when we have
+            // resolved the stair void ourselves above — otherwise the matcher's Pass-2
+            // nearest-unused fallback could name a NON-stair detected cell "Stair" (the
+            // stair detected cell it belonged to is no longer in `detectedPolys`). With
+            // no stair rects (apartment) `stairRects` is empty so we keep `tgl` whole
+            // (byte-identical). `stair`-typed engine rooms are matched only through the
+            // resolution's keeps above.
+            const tglForMatch = stairRects.length > 0 ? tgl.filter(r => r.occupancy !== 'stair') : tgl;
+            const { renames, unmatched: fallbackCount } = matchDetectedRooms(tglForMatch, detectedPolys);
+
+            // Prepend the stair keeps (name "Stair" + occupancy `stair`) so the single
+            // retained void cell is typed non-habitable. The drops are deleted below.
+            for (const k of stairResolution.keep) {
+                renames.push({ roomId: k.roomId, name: k.name, occupancy: k.occupancy });
+            }
 
             // §DIAG-STAIR-NAME (founder verification, 2026-06-10) — exactly ONE detected
             // room must end up named "Stair" (vertical-circulation, non-habitable), and
@@ -122,7 +187,8 @@ export function nameDetectedRooms(
             // houseStairRects (empty for the apartment path ⇒ EXEC-STAIR is skipped).
             logExecRoomDiagnostics(levelId, option, logTag, getStairRects(levelId));
 
-            if (renames.length === 0) return;
+            const stairDrops = stairResolution.drop;
+            if (renames.length === 0 && stairDrops.length === 0) return;
 
             // §A.21.D40 — room.rename is PURE METADATA (name + occupancy tag); it
             // adds NO new geometry, so the post-batch synchronous geometry-compile
@@ -130,13 +196,25 @@ export function nameDetectedRooms(
             // elements with skipPbrUpgrade=false) is wasted work here — and on a
             // large generated scene that single rpm.render() pass measured ~972 ms.
             // Mark the rename batch skipPbrUpgrade so it never triggers that pass.
+            // §STAIR-VOID-EXCLUDE — the phantom stair cells (`stairDrops`) are DELETED
+            // in the SAME batch so the footprint resolves to exactly one `stair` room.
+            // `room.delete` removes a detected room record (no geometry change). Both
+            // pass skipRedetectRooms:true so the delete is NOT undone by a re-detect.
+            const totalOps = renames.length + stairDrops.length;
             batchCoordinator.runBatch(() => {
                 for (const r of renames) {
                     try { void runtime.bus.executeCommand('room.rename', r); }
                     catch (e) { console.warn(`${logTag} room.rename failed (skipped):`, e); }
                 }
-            }, { levelIds: [levelId], totalElementCount: renames.length, skipRedetectRooms: true, skipPbrUpgrade: true });
-            console.log(`${logTag} named ${renames.length} room(s) on ${levelId}`);
+                for (const roomId of stairDrops) {
+                    try { void runtime.bus.executeCommand('room.delete', { roomId }); }
+                    catch (e) { console.warn(`${logTag} room.delete (stair-void) failed (skipped):`, e); }
+                }
+            }, { levelIds: [levelId], totalElementCount: totalOps, skipRedetectRooms: true, skipPbrUpgrade: true });
+            console.log(
+                `${logTag} named ${renames.length} room(s) on ${levelId}` +
+                `${stairDrops.length > 0 ? ` + dropped ${stairDrops.length} phantom stair-void room(s)` : ''}`,
+            );
         };
 
         // §A.21.D40 FAST-PATH — the editor's room redetect is DEFERRED, but the
