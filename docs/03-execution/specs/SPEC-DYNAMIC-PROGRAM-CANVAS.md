@@ -59,6 +59,55 @@ Decomposed into requirements:
 | **R7** | **Sliders** — dynamic global design controls | §5.5 |
 | **R8** | See **ALL plan views AND all graphs at the same time**, changes show **instantly** | §6 (multi-view) |
 | **R9** | **Replaces** the project-brief panel **and** the modal form | §7 |
+| **R10** | **Connect rooms** in the graph (draw an edge) → an adjacency/access edit → the plan updates | §5.6 |
+| **R11** | A **room-type palette** in the tools rail → **drag a room type onto a level's graph** to add it to that storey | §5.7 |
+| **R12** | **Selection sync** — select a node/card/polygon → the **same room highlights** across plan + graph + card | §5.8 |
+
+### §1.1 — The three-pane refinement (founder directive, verbatim 2026-06-10)
+
+> *"I want to remove [the current stacked modal] and add the information in the modal as 3 sections:
+> in GREEN [LEFT] the floor plans — ground and first; in RED [CENTER] the graphs — the existing
+> living graph by level; when the user selects a node the room highlighted on the modal; then in BLUE
+> [RIGHT] the tools bar — user can dynamically change the number of levels from 1 to 3 the screen
+> updates automatically, the user can update the number of bedrooms in first floor; the tool bars
+> have a section like a tool-bar canvas — the user can add elements to the graph by drag and drop —
+> drag a bedroom to the ground-level graph — creates relationships — that will manifest in placing and
+> distributing a new bedroom in the layout; user can connect the rooms and the plan view updates;
+> increase size of room with a slider; drag a room from graph first floor to ground floor — the floor
+> plan updates, etc."*
+
+This fixes the **layout** of §6's multi-view surface into **THREE columns** (the §26.5 tracker entry):
+
+| Column | Colour (founder annotation) | Content |
+|---|---|---|
+| **LEFT** | 🟩 green | **Plan view per storey**, stacked (ground + each upper) — `buildLayoutThumbnailSvg` per storey. |
+| **CENTER** | 🟥 red | **The Living Graph per storey** (`LivingGraphCanvas`, one per level) — node-select highlights the room (R12). The semantic centrepiece. |
+| **RIGHT** | 🟦 blue | **The tools rail** — level stepper (1→3, R6) · per-storey bedroom/bath controls (R3) · the room-type **palette** to drag onto a graph (R11) · the per-room size sliders (R4) · the global `ScoringWeights` sliders (R7). |
+
+The graph is the SEMANTIC TRUTH (the founder's words across §26 / A.21.D37); the plan reflects it; the
+right rail is where the program is authored. This **replaces** the current generate modal entirely.
+
+### §1.2 — Pre-execution, single, canvas-driven (founder directive, verbatim 2026-06-10)
+
+> *"The goal is to have a dynamic SINGLE panel where the user can modify on the fly BEFORE executing
+> the geometry on the main PRYZM canvas — everything needs to be dynamic flowing — canvas driven."*
+
+This fixes the **operating model** (and resolves R-D in `SPIKE-DYNAMIC-PROGRAM-CANVAS §7`):
+
+1. **One panel, pre-execution.** The canvas is a SINGLE dynamic panel the user manipulates **before**
+   any geometry lands on the main Pryzm scene. All edits drive the **pure** regenerate loop (§3.1) —
+   plan + graph projections refresh live **inside the panel** — and **no** wall/door/room is written
+   to the editor stores until the user hits **Execute / Use this layout**. This is exactly the
+   lifecycle where `HouseLayoutController._regen` is **alive** (it is only torn down at build —
+   `HouseLayoutController.ts:385`), so the live loop works by construction; the §6 dockable
+   [tools]-area evolution (own shell-analysis lifecycle) is Phase 3, not the initial model.
+2. **Canvas-driven, everything flowing.** Every control (cards, sliders, level stepper, palette drag,
+   edge-connect) writes a program/stash delta and re-runs the engine; the three panes flow in
+   lock-step. There is no static form step and no intermediate commit — the panel is continuously
+   live until the single terminal **Execute** action commits the chosen result to the main canvas
+   (the existing `HouseLayoutExecutor` build path, one undoable batch).
+3. **OQ2 resolved.** Per this directive the panel does NOT auto-commit; it is a pre-execution
+   authoring surface terminating in one explicit **Execute** → geometry on the main canvas.
 
 ---
 
@@ -200,6 +249,35 @@ The canvas header carries the `ScoringWeights` sliders (Daylight / Privacy / Kit
 the `WEIGHT_SLIDERS` set, `houseModalHtml.ts:61`) bound to the **existing** weight inputs, plus any
 typology-declared brief fields (§7). A slider change updates `weights` / the brief and regenerates —
 the ADR-0060 global-slider seam, unchanged.
+
+### §5.6 — Connect two rooms in the graph → adjacency/access edit (R10)
+Drawing an edge between two graph nodes (drag from node A to node B in the CENTER pane) records a
+**desired-adjacency override** for that pair and regenerates → the engine prefers a layout where A
+and B share a wall/door, and the plan updates to reflect it. Mechanism: a new per-instance stash
+`activeRoomAdjacencyOverrides.ts` → a program field `roomAdjacencyByName: Array<[nameA, nameB]>` that
+the bubble graph reads as **extra desired edges** (it already builds an adjacency edge set —
+`bubbleGraph.ts` `link()`), subject to the **permission matrix** (`doorAllowedBetween`,
+`programRules.ts`): an illegal pair (e.g. bedroom↔bedroom) is rejected with a soft "not permitted"
+hint, never forced. Removing the drawn edge clears the override. **Engine seam to add (XADJ):** the
+`roomAdjacencyByName` field + the bubble-graph consumer; empty ⇒ byte-identical (C52 I2). New vs the
+existing area/type/floor stashes — see §8.
+
+### §5.7 — Room-type palette → drag a room onto a level's graph (R11)
+The RIGHT rail carries a **palette** of room-type chips (Bedroom · Bathroom · Study · Living · …,
+sourced from the typology's `ROOM_RULES`). Dragging a chip onto a storey's graph lane (or plan)
+**adds one room of that type to that storey** — the spatial form of §5.1's add-room. For
+count-backed types (bedroom/bath) it increments the storey's count via `roomFloorByName` semantics
+(add at target storey); for the per-instance types it mints a `roomTypesByName` room. Regenerate; the
+engine places + distributes the new room (e.g. "drag a bedroom onto the ground graph → a bedroom is
+placed + the layout redistributes"). The drop position is a hint to the placement, not a hard pin
+(geometry stays engine-derived per ADR-0067).
+
+### §5.8 — Selection sync across the three panes (R12)
+Selecting a room in ANY pane — a card (RIGHT), a graph node (CENTER), or a plan polygon (LEFT) —
+highlights the **same** room instance in **all three**, via the shared storey-qualified id (§3.2) and
+the editor's existing `window.selectionBus` (the §BUBBLE-SELECT-HIGHLIGHT path shipped in v112 sends
+the room id as the primary selection). This is a **read-only projection** (no program edit), so it is
+unconstrained by §8 and works in the live panel before execution as well as on the committed scene.
 
 ---
 

@@ -40,6 +40,21 @@ E1 + E2 share ONE mechanism family: a **name-keyed per-instance override** on `A
 
 A re-type (E2) re-types an **existing** room slot — it never adds, removes, or re-orders a room. The room id + name are preserved; only `type` (and the `needsWindow` / `isPrivate` re-derived from the new type's rule) change. A name with no minted room, an invalid type value, or a value equal to the room's existing type is a no-op.
 
+### §2.2 — The Dynamic Program Canvas is the canvas-driven authoring surface for this family (ADR-0069)
+
+The per-node-override family (E1–E4) + the cross-storey move are authored, as of 2026-06-10, on the **Dynamic Program Canvas** ([ADR-0069](../adrs/0069-dynamic-program-canvas-as-primary-authoring-surface.md) / [SPEC-DYNAMIC-PROGRAM-CANVAS](../../03-execution/specs/SPEC-DYNAMIC-PROGRAM-CANVAS.md)) — a **single, pre-execution, three-pane panel** (plan LEFT · graph CENTER · tools RIGHT) where the user manipulates the program **before** geometry is committed to the main canvas. The canvas is a spatial UI over **exactly this contract's write-path** — it adds **no** new mutation mechanism (it would otherwise be the §3.4 parallel-mutator trap). The mapping:
+
+| Canvas interaction (SPEC) | This contract's seam |
+|---|---|
+| Resize a room card / size slider (R4, §5.2) | **E1** `roomAreasByName` |
+| Re-type a card (bedroom→study) | **E2** `roomTypesByName` |
+| **Connect two rooms** in the graph (R10, §5.6) | **E3** adjacency preference (the drawn edge raises the `adjacencyPreference` for that pair, gated by `doorAllowedBetween` — never forces a forbidden pair) |
+| **Drag a room from the palette / drag between storeys** (R5/R11, §5.3/§5.7) | the **storey-move** override `roomFloorByName` (keyed `storey:<s>/<roomName>`, the XFLOOR-GRAPH seam — a name-keyed sibling of §2.1; default-no-op, §3 discipline) + the program count for add-room |
+| Add level (R6) / sliders (R7) | `storeyCount` / `ScoringWeights` (program-level, not per-node — the ADR-0060 global seam) |
+| **Selection sync** (R12, §5.8) | NONE — a **read-only** projection (`window.selectionBus`), not an override; unconstrained by §3 |
+
+`roomFloorByName` and the E3 adjacency override, when implemented, MUST obey §2.1 (name-keyed, default-no-op) + §3 (per-node delta → existing trigger → no geometry write) + I2 (baseline identity) exactly as E1/E2 do. The terminal **Execute** action is the ONE place geometry lands on the scene (via `HouseLayoutExecutor`, P6, one undoable batch).
+
 ---
 
 ## §3 — The write-path discipline (MUST / MUST NOT)

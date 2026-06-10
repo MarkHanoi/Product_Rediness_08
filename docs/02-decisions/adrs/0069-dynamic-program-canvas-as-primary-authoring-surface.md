@@ -24,6 +24,23 @@ The founder's direction (2026-06-10, verbatim):
 > at the same time and changes will dynamically show on the screen instantly. User could add levels
 > on the fly, etc. This will also REPLACE the original 'project brief' panel — it should go."*
 
+**Refinements (founder, 2026-06-10, same thread — see SPEC §1.1 / §1.2):**
+- **Three-pane layout fixed:** LEFT = plan view per storey (stacked) · CENTER = the **Living Graph per
+  level** (`LivingGraphCanvas`, node-select highlights the room) · RIGHT = the tools rail (level
+  stepper 1→3 · per-storey bedroom/bath · a room-type **palette** to drag onto a graph · per-room size
+  sliders · global weight sliders). The graph is the SEMANTIC TRUTH; the plan reflects it.
+- **Single, pre-execution, canvas-driven:** *"a dynamic SINGLE panel where the user can modify on the
+  fly BEFORE executing the geometry on the main PRYZM canvas — everything dynamic flowing — canvas
+  driven."* The panel is continuously live (pure regenerate inside the panel, NO scene write) until ONE
+  terminal **Execute** commits the result to the main canvas via the existing `HouseLayoutExecutor`.
+  **This resolves SPEC §11 OQ2** (the panel does NOT auto-commit; it terminates in an explicit
+  Execute) and the SPIKE R-D lifecycle question (build it as the modal body where `_regen` is alive).
+- **Three new interaction seams** beyond area/type/floor: **connect two rooms** in the graph → a
+  desired-adjacency override (new `roomAdjacencyByName`, gated by the `doorAllowedBetween` permission
+  matrix); a **room-type palette drag** onto a level's graph → add a room of that type to that storey;
+  **selection sync** → selecting a card/node/polygon highlights the same room across all three panes
+  (read-only projection via `window.selectionBus`, the v112 §BUBBLE-SELECT-HIGHLIGHT path).
+
 Today the program is authored in **two disconnected one-shot forms**: the onboarding **Project
 Brief** panel (`apps/editor/src/ui/onboarding/BriefSchemaForm.ts`, a typology-declared slider/stepper
 form) and the generation **modal form** (`apps/editor/src/ui/house-layout/houseModalHtml.ts`
