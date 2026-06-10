@@ -16,6 +16,8 @@ import type { RoomType } from '../src/workflows/apartmentLayout/types.js';
 const ALL_TYPES: RoomType[] = [
     'master', 'bedroom', 'living', 'kitchen', 'dining',
     'bathroom', 'ensuite', 'wc', 'hall', 'corridor', 'study', 'utility',
+    // §STAIR-ROOM-TYPE (ADR-0063) — vertical-circulation first-class room type.
+    'stair',
 ];
 
 describe('programRules — database integrity', () => {
@@ -56,8 +58,8 @@ describe('programRules — database integrity', () => {
             expect(windowMandatoryFor(t)).toBe(false);
             expect(windowDesiredFor(t)).toBe(true);
         }
-        // Circulation + service are never glazed.
-        for (const t of ['corridor', 'hall', 'utility'] as RoomType[]) {
+        // Circulation + service (incl. the §STAIR-ROOM-TYPE stair core) are never glazed.
+        for (const t of ['corridor', 'hall', 'stair', 'utility'] as RoomType[]) {
             expect(windowDesiredFor(t), `${t} must never be window-desired`).toBe(false);
         }
     });
@@ -189,8 +191,9 @@ describe('programRules — privacy door caps', () => {
         expect(isOpenPlanEligible('living')).toBe(true);
         expect(isOpenPlanEligible('kitchen')).toBe(true);
         expect(isOpenPlanEligible('dining')).toBe(true);
-        // NOT eligible — sleeping / wet / circulation rooms are ALWAYS walled.
-        for (const t of ['bedroom', 'master', 'study', 'bathroom', 'ensuite', 'wc', 'corridor', 'hall', 'utility'] as RoomType[]) {
+        // NOT eligible — sleeping / wet / circulation rooms (incl. the §STAIR-ROOM-TYPE
+        // stair core) are ALWAYS walled.
+        for (const t of ['bedroom', 'master', 'study', 'bathroom', 'ensuite', 'wc', 'corridor', 'hall', 'stair', 'utility'] as RoomType[]) {
             expect(isOpenPlanEligible(t)).toBe(false);
         }
     });

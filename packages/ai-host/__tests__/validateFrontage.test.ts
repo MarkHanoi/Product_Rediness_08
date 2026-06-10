@@ -85,18 +85,35 @@ describe('T2.5 — validateFrontage', () => {
         expect(result.softFindings[0]!.metric).toBe('frontagePreferred');
     });
 
-    it("rooms with frontage 'none' (corridor / hall / utility) are skipped entirely", () => {
+    // §HALL-PERIMETER (ADR-0063) — the hall LEFT the 'none' set (now 'required'); the
+    // §STAIR-ROOM-TYPE `stair` core is interior-acceptable ('none').
+    it("rooms with frontage 'none' (corridor / stair / utility) are skipped entirely", () => {
         const result = validateFrontage({
             shellPolygon: SHELL,
             rooms: [
                 r('cor', 'corridor', 4, 4, 8, 6),    // interior — frontage 'none', not flagged
-                r('hal', 'hall',     4, 6, 6, 8),    // interior — frontage 'none', not flagged
+                r('str', 'stair',    4, 6, 6, 8),    // interior — frontage 'none', not flagged
                 r('uti', 'utility',  6, 6, 7, 8),    // interior — frontage 'none', not flagged
             ],
         });
         expect(result.admissible).toBe(true);
         expect(result.hardFindings).toEqual([]);
         expect(result.softFindings).toEqual([]);
+    });
+
+    // §HALL-PERIMETER (ADR-0063, founder rule #2) — a FULLY-INTERIOR entrance hall is
+    // a HARD finding (the entrance door has no perimeter wall to land on).
+    it('a fully-interior hall is HARD-rejected (frontage required)', () => {
+        const result = validateFrontage({
+            shellPolygon: SHELL,
+            rooms: [
+                r('hal', 'hall', 4, 6, 6, 8),        // interior — frontage 'required' now
+            ],
+        });
+        expect(result.admissible).toBe(false);
+        expect(result.hardFindings).toHaveLength(1);
+        expect(result.hardFindings[0]!.roomId).toBe('hal');
+        expect(result.hardFindings[0]!.metric).toBe('frontageRequired');
     });
 
     // §A.21.D55 — DAYLIGHT IN EVERY ROOM. The wet rooms (bathroom / ensuite / wc)

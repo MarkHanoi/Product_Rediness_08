@@ -187,6 +187,12 @@ function minAreaFor(type: RoomType): number {
  *
  * Pure data lookup — deterministic. */
 const DROP_PRIORITY_RANK: Readonly<Record<RoomType, number>> = {
+    // §STAIR-ROOM-TYPE (ADR-0063) — the stair is a FIXED keep-out obstacle, never a
+    // subdividable room, so it is never in the pool this rank drops from. It still
+    // needs a value for the exhaustive Record; rank it ABOVE everything (it is the
+    // single non-negotiable element — a multi-storey house without its stair is
+    // unbuildable) so even a hypothetical drop pass would protect it first.
+    stair: 110,
     living: 100,
     kitchen: 95,
     master: 90,

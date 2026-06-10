@@ -7,7 +7,14 @@
 
 export type RoomType =
     | 'master' | 'bedroom' | 'living' | 'kitchen' | 'dining'
-    | 'bathroom' | 'ensuite' | 'wc' | 'hall' | 'corridor' | 'study' | 'utility';
+    | 'bathroom' | 'ensuite' | 'wc' | 'hall' | 'corridor' | 'study' | 'utility'
+    // §STAIR-ROOM-TYPE (ADR-0063, 2026-06-10, founder rule #1) — vertical-
+    // circulation as a FIRST-CLASS room type. A multi-storey HOUSE reserves a
+    // stair keep-out; modelling it as a NAMED `stair` room (not just a tiling
+    // hole) makes the modal "Stair" cell EQUAL the executed stair cell so a
+    // habitable room can never tile into the stair footprint. The apartment
+    // (single storey) NEVER mints a `stair`, so it is byte-identical (ADR-0061).
+    | 'stair';
 
 /** A room in an AI-proposed layout (areas in m², coordinates in mm). */
 export interface LayoutRoom {

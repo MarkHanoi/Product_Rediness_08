@@ -11,6 +11,8 @@ import type { RoomType } from '../src/workflows/apartmentLayout/types.js';
 
 const ALL_TYPES: readonly RoomType[] = [
     'living', 'kitchen', 'dining', 'hall', 'corridor',
+    // §STAIR-ROOM-TYPE (ADR-0063) — vertical-circulation first-class room type.
+    'stair',
     'master', 'bedroom', 'study', 'bathroom', 'ensuite', 'wc', 'utility',
 ];
 

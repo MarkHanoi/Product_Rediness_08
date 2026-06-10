@@ -633,10 +633,19 @@ describe('generateHouseLayout — stair core keep-out (Defect 4, §7)', () => {
         expect(core.h).toBeGreaterThan(0);
     });
 
-    it('NO room on ANY storey overlaps the stair-core rect (genuine keep-out)', () => {
+    // §STAIR-ROOM-TYPE (ADR-0063, founder rule #1) — the keep-out is now MODELLED as a
+    // named `stair` room occupying that rect. So the keep-out is no longer EMPTY: the
+    // ONLY room allowed to overlap the core is the `stair` itself. Every HABITABLE /
+    // service room must still be strictly clear of it (the original founder bug: a
+    // BEDROOM tiled where the modal showed "Stair").
+    const isStairRoom = (room: { type?: string; occupancy?: string }): boolean =>
+        room.type === 'stair' || room.occupancy === 'stair';
+
+    it('NO NON-STAIR room on ANY storey overlaps the stair-core rect (genuine keep-out)', () => {
         let checked = 0;
         for (const layout of res.perStoreyLayout) {
             for (const room of layout.rooms) {
+                if (isStairRoom(room)) continue;        // the stair room SHOULD sit on the core
                 const bb = roomBboxMm(room);
                 if (!bb) continue;
                 checked++;
@@ -650,16 +659,55 @@ describe('generateHouseLayout — stair core keep-out (Defect 4, §7)', () => {
         expect(checked).toBeGreaterThan(0);
     });
 
+    it('a named STAIR room IS emitted at the keep-out on every storey (founder rule #1)', () => {
+        for (const layout of res.perStoreyLayout) {
+            const stairRooms = layout.rooms.filter(isStairRoom);
+            expect(stairRooms.length, 'every storey must mint a stair room').toBeGreaterThan(0);
+            // The stair room's footprint must coincide with the reserved core rect.
+            const onCore = stairRooms.some((room) => {
+                const bb = roomBboxMm(room);
+                return bb !== null && rectsOverlap(bb, coreRect);
+            });
+            expect(onCore, 'the stair room must sit on the reserved stair-core rect').toBe(true);
+        }
+    });
+
     it('holds for a 3-storey stack on every storey', () => {
         const r3 = generateHouseLayout(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 3 });
         const c = r3.stairs[0]!.rectMm;
         const cr = { x0: c.x, z0: c.y, x1: c.x + c.w, z1: c.y + c.h };
         for (const layout of r3.perStoreyLayout) {
             for (const room of layout.rooms) {
+                if (isStairRoom(room)) continue;        // the stair room SHOULD sit on the core
                 const bb = roomBboxMm(room);
                 if (!bb) continue;
                 expect(rectsOverlap(bb, cr)).toBe(false);
             }
+        }
+    });
+
+    it('the stair room connects to circulation (a door pairs stair ↔ corridor/hall)', () => {
+        // §STAIR-ROOM-TYPE (founder rule #1) — the stair is REACHED from the landing /
+        // corridor / hall. Assert at least one storey realises a door whose pair
+        // includes the stair and a circulation room. (Emitted doors carry roomTypeA/B.)
+        let anyStairDoor = false;
+        for (const layout of res.perStoreyLayout) {
+            for (const d of layout.doors) {
+                const pair = [d.roomTypeA, d.roomTypeB];
+                if (!pair.includes('stair')) continue;
+                const other = pair.find(t => t !== 'stair');
+                if (other === 'corridor' || other === 'hall') anyStairDoor = true;
+            }
+        }
+        expect(anyStairDoor, 'a stair↔circulation door must be realised on some storey').toBe(true);
+    });
+
+    it('a single-storey house mints NO stair room (apartment path byte-identical)', () => {
+        // §STAIR-ROOM-TYPE — the stair room is house-only; with no keep-out the
+        // injection block is skipped, so no `stair`-typed room can appear.
+        const r1 = generateHouseLayout(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 1 });
+        for (const layout of r1.perStoreyLayout) {
+            expect(layout.rooms.some(isStairRoom), 'no stair room on a single-storey house').toBe(false);
         }
     });
 
@@ -672,6 +720,50 @@ describe('generateHouseLayout — stair core keep-out (Defect 4, §7)', () => {
         expect(r1.stairs).toHaveLength(0);
         expect(r1.voids).toHaveLength(0);
         expect(r1.perStoreyLayout[0]!.rooms.length).toBeGreaterThan(0);
+    });
+});
+
+// §HALL-PERIMETER (ADR-0063, founder rule #2) — the entrance hall hosts the main
+// entrance door, so it MUST abut a perimeter wall, and it is GROUND-ONLY (an upper
+// storey gets a Landing, not a Hall — §LANDING-NOT-HALL / G14).
+describe('generateHouseLayout — entrance hall ground-only + perimeter (founder rule #2)', () => {
+    // Shell bbox (mm) — a room edge ON this bbox is perimeter-adjacent (rect shells
+    // have their perimeter on the bbox edges).
+    const shellBboxMm = (() => {
+        let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
+        for (const p of SHELL.perimeter as ReadonlyArray<{ x: number; z: number }>) {
+            x0 = Math.min(x0, p.x * 1000); z0 = Math.min(z0, p.z * 1000);
+            x1 = Math.max(x1, p.x * 1000); z1 = Math.max(z1, p.z * 1000);
+        }
+        return { x0, z0, x1, z1 };
+    })();
+    const TOL = 50;     // mm — a hall edge within 50 mm of the shell bbox is perimeter-adjacent.
+
+    const res2 = generateHouseLayout(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 });
+
+    it('the hall lives ONLY on the ground storey (upper = Landing, not Hall)', () => {
+        res2.perStoreyLayout.forEach((layout, i) => {
+            const halls = layout.rooms.filter(r => r.type === 'hall');
+            if (i === 0) {
+                expect(halls.length, 'ground storey should host the entrance hall').toBeGreaterThan(0);
+            } else {
+                expect(halls.length, `storey ${i} must NOT host a hall (it is a Landing)`).toBe(0);
+            }
+        });
+    });
+
+    it('the ground hall abuts a perimeter wall (frontage satisfied)', () => {
+        const ground = res2.perStoreyLayout[0]!;
+        const halls = ground.rooms.filter(r => r.type === 'hall');
+        expect(halls.length).toBeGreaterThan(0);
+        for (const hall of halls) {
+            const bb = roomBboxMm(hall);
+            expect(bb).not.toBeNull();
+            const touches =
+                Math.abs(bb!.x0 - shellBboxMm.x0) < TOL || Math.abs(bb!.x1 - shellBboxMm.x1) < TOL ||
+                Math.abs(bb!.z0 - shellBboxMm.z0) < TOL || Math.abs(bb!.z1 - shellBboxMm.z1) < TOL;
+            expect(touches, `hall "${hall.name}" bbox ${JSON.stringify(bb)} must touch the shell perimeter`).toBe(true);
+        }
     });
 });
 

@@ -12,7 +12,7 @@
 
 import type { ApartmentProgram, ScoringWeights } from '../types.js';
 import { decomposeToRects, polygonBBox, rectArea, subtractRectsFromRects, type Pt, type Rect } from './rectDecomposition.js';
-import { buildBubbleGraph, type BubbleGraph } from './bubbleGraph.js';
+import { buildBubbleGraph, type BubbleGraph, type ProgramRoom, type AdjacencyEdge } from './bubbleGraph.js';
 import { subdivideWithReport, type DroppedRoom, type RoomPlacement } from './subdivide.js';
 import { buildWallsAndDoors, type BoundarySeg } from './wallsAndDoors.js';
 import { snapRectsAwayFromWindows, type WindowSpan } from './windowAvoidance.js';
@@ -22,7 +22,7 @@ import { computeObjectives, OBJECTIVE_AXES, type ObjectiveVector } from './objec
 import { priorityMultiplier } from './envDrivers.js';
 import { validateAllRoomShapes, type RoomShape } from '../dimensions/validateRoomShape.js';
 import { validateRoomFit } from '../dimensions/validateRoomFit.js';
-import { validateFrontage } from '../dimensions/validateFrontage.js';
+import { validateFrontage, rectTouchesPerimeter } from '../dimensions/validateFrontage.js';
 import { validateApartmentEnvelope } from '../dimensions/validateApartmentEnvelope.js';
 import type { DimensionalValidation } from '../dimensions/types.js';
 import { validateMandatoryAdjacencies, type DoorOpening } from '../topology/validateMandatoryAdjacencies.js';
@@ -31,6 +31,7 @@ import { validateWetCluster } from '../topology/validateWetCluster.js';
 import { validateAcousticZoning } from '../topology/validateAcousticZoning.js';
 import { validateCirculationSequence } from '../topology/validateCirculationSequence.js';
 import { validateCorridorConnectivity } from '../topology/validateCorridorConnectivity.js';
+import { validateNoRoomOverlap, type RoomOverlap } from '../topology/validateNoRoomOverlap.js';
 import { windowMandatoryFor, isPrivate, doorAllowedBetween, roomRule } from '../rules/programRules.js';
 
 export interface EnumerateInput {
@@ -133,13 +134,18 @@ export interface TglCandidate {
      *         `unroutedToCirculationRoomIds` / §SEALED-ROOMS signal; == !circulationRouted).
      *   • P — a private room (bedroom/master/bathroom/ensuite/wc) opens DIRECTLY off
      *         the entrance hall (a privacy breach — `hall.accessFrom` excludes them).
+     *   • O — §ROOM-OVERLAP-HARD (founder bug, 2026-06-10): two rooms claim the SAME
+     *         interior floor area (Area(R_i ∩ R_j) > ε). Rooms may touch along shared
+     *         walls only; an interior overlap is invalid (ambiguous ownership). This
+     *         makes a NON-overlapping strategy rank ABOVE an overlapping one, so when
+     *         any of the 8 strategies is overlap-free the engine ships it.
      * The ranker tier-splits hard-valid ABOVE hard-invalid; if EVERY strategy is
      * hard-invalid the pool is NEVER emptied (a loud §TOPO-HARD-REJECT-ALL warning
      * names the failing rules and the least-bad ships). The specific rules that failed
-     * are in `hardFailedRules` (subset of {'window','circulation','privacy'}).
+     * are in `hardFailedRules` (subset of {'window','circulation','privacy','overlap'}).
      */
     readonly hardValid: boolean;
-    readonly hardFailedRules: readonly ('window' | 'circulation' | 'privacy')[];
+    readonly hardFailedRules: readonly ('window' | 'circulation' | 'privacy' | 'overlap')[];
     /**
      * §FEASIBILITY-ALLOC (A.21.D5, 2026-06-06) — requested rooms that could NOT
      * be placed at their per-type minimum short side in this strategy, even
@@ -150,6 +156,11 @@ export interface TglCandidate {
      * engine NEVER silently loses a requested room. Deterministic.
      */
     readonly droppedRooms: readonly DroppedRoom[];
+    /** §ROOM-OVERLAP-HARD (founder bug, 2026-06-10) — the overlapping room pairs in
+     *  this candidate (DISPLAY NAMES + area m²), empty when overlap-free. Stored so
+     *  the ranker can emit the founder's "Room Overlap Detected" message naming the
+     *  actual rooms IF the shipped winner overlaps (every strategy over-capacity). */
+    readonly roomOverlaps: readonly { readonly nameA: string; readonly nameB: string; readonly areaM2: number }[];
     /** Virtual room-bounding lines at open-plan thresholds (no wall, no door)
      *  in METRES; the LayoutOption converts to mm at emit time. */
     readonly boundaries: readonly BoundarySeg[];
@@ -187,18 +198,22 @@ const strategyKey = (s: Strategy): string => `${s.axis ? 'z' : 'x'}-${s.order}-$
  *                     wall ⇒ it can host ZERO windows).
  *   C (circulation) — a room is land-locked (no door onto the spine).
  *   P (privacy)     — a private room opens DIRECTLY off the entrance hall.
+ *   O (overlap)     — §ROOM-OVERLAP-HARD: two rooms' interior floor areas overlap
+ *                     (Area(R_i ∩ R_j) > ε). `hasRoomOverlap` is the precomputed
+ *                     `validateNoRoomOverlap(...).ok === false` signal.
  */
 function evaluateHardTopology(args: {
     readonly bubble: BubbleGraph;
     readonly frontageHardRoomIds: readonly string[];
     readonly unroutedToCirculationRoomIds: readonly string[];
     readonly doorOpenings: readonly DoorOpening[];
-}): readonly ('window' | 'circulation' | 'privacy')[] {
-    const { bubble, frontageHardRoomIds, unroutedToCirculationRoomIds, doorOpenings } = args;
+    readonly hasRoomOverlap: boolean;
+}): readonly ('window' | 'circulation' | 'privacy' | 'overlap')[] {
+    const { bubble, frontageHardRoomIds, unroutedToCirculationRoomIds, doorOpenings, hasRoomOverlap } = args;
     const typeById = new Map<string, string>();
     for (const r of bubble.rooms) typeById.set(r.id, r.type);
 
-    const failed: ('window' | 'circulation' | 'privacy')[] = [];
+    const failed: ('window' | 'circulation' | 'privacy' | 'overlap')[] = [];
 
     // Rule W — a windowMandatory room with no perimeter frontage (the frontage
     // validator's hard findings ARE the rooms with no perimeter wall). The
@@ -232,6 +247,14 @@ function evaluateHardTopology(args: {
             failed.push('privacy');
             break;
         }
+    }
+
+    // Rule O — §ROOM-OVERLAP-HARD (founder bug, 2026-06-10). Any pairwise interior
+    // floor-area overlap makes the candidate hard-invalid, so a non-overlapping
+    // strategy is preferred when one exists (and the §TOPO-HARD-REJECT-ALL least-bad
+    // path still ships when ALL strategies overlap — a genuinely over-capacity shell).
+    if (hasRoomOverlap) {
+        failed.push('overlap');
     }
 
     return failed;
@@ -296,7 +319,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         input.program, shellArea, input.shellPolygon,
         input.spaceGenerosity !== undefined ? { spaceGenerosity: input.spaceGenerosity } : undefined,
     );
-    const bubble: BubbleGraph = s.order === 'rev' ? { ...base, rooms: [...base.rooms].reverse() } : base;
+    let bubble: BubbleGraph = s.order === 'rev' ? { ...base, rooms: [...base.rooms].reverse() } : base;
 
     // A.25.3 — the `accessibility` slider widens the corridor strip. Absent ⇒ the
     // subdivider uses its built-in CORRIDOR_STRIP_WIDTH_M (1.2 m).
@@ -343,6 +366,65 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
             rectsWithIds, clearanceSpans, input.windowClearanceM ?? 0.1,
         );
         placements = snapped.map(r => ({ roomId: r.id, rect: { x0: r.x0, z0: r.z0, x1: r.x1, z1: r.z1 } }));
+    }
+
+    // §STAIR-OBSTACLE-CARVE — EMIT a named `stair` room (founder rule #1, ADR-0063).
+    // The stair keep-out was SUBTRACTED from the buildable plate above (so no room
+    // tiles across it); here we MODEL that same region as a first-class `stair` room
+    // so the modal draws a "Stair" cell EQUAL to the executed stair footprint and the
+    // executor never places a habitable room there. We add ONE `stair` ProgramRoom to
+    // the bubble + ONE `stair` placement at the keep-out rect (already in the engine
+    // frame, like `placements` after the t.inv map back). The reconcile pass then
+    // connects it to the circulation spine (corridor / hall) over the shared wall —
+    // `doorAllowedBetween('stair','corridor'/'hall')` holds (stair.accessFrom). The
+    // stair is `frontage:'none'` + not windowMandatory, so it never trips the
+    // frontage / window gates. House-only: the apartment never passes a keep-out, so
+    // `input.keepOutRects` is empty and this block is skipped (byte-identical, ADR-0061).
+    if (input.keepOutRects && input.keepOutRects.length > 0) {
+        const circId = bubble.corridorId ?? bubble.entryId;   // landing/corridor, else hall
+        const stairRooms: ProgramRoom[] = [];
+        const stairEdges: AdjacencyEdge[] = [];
+        const stairPlacements: RoomPlacement[] = [];
+        input.keepOutRects.forEach((ko, i) => {
+            // The plate was carved with the keep-out INFLATED by KEEPOUT_MARGIN_M on
+            // every side (so rooms sit a 0.05 m clearance ring clear of the real core).
+            // Fill that SAME inflated region with the stair rect so the stair is FLUSH
+            // with the cleared rooms — its faces are then coincident with the adjacent
+            // room/corridor faces, so `buildWallsAndDoors` shares a wall + the reconcile
+            // pass can place the stair↔circulation door. (Clamping to the shell happens
+            // downstream via §EXTEND-TO-PERIMETER for one-sided walls.)
+            const rect: Rect = {
+                x0: ko.x0 - KEEPOUT_MARGIN_M, z0: ko.z0 - KEEPOUT_MARGIN_M,
+                x1: ko.x1 + KEEPOUT_MARGIN_M, z1: ko.z1 + KEEPOUT_MARGIN_M,
+            };
+            // Skip a degenerate keep-out (sub-mm) — nothing to model.
+            if (rect.x1 - rect.x0 < 1e-3 || rect.z1 - rect.z0 < 1e-3) return;
+            const id = `stair${i}`;
+            stairRooms.push({
+                id, type: 'stair',
+                name: input.keepOutRects!.length > 1 ? `Stair ${i + 1}` : 'Stair',
+                targetAreaM2: round6((rect.x1 - rect.x0) * (rect.z1 - rect.z0)),
+                isPrivate: false, needsWindow: false,
+            });
+            stairPlacements.push({ roomId: id, rect });
+            // Connect the stair to the circulation it serves (door). The geometric
+            // door is only realised if the stair shares a real wall with `circId`;
+            // when it does not, the reconcile pass still routes it over any permitted
+            // shared wall (stair.accessFrom = corridor/hall) so it is never sealed.
+            if (circId) stairEdges.push({ a: id, b: circId, via: 'door' });
+        });
+        if (stairRooms.length > 0) {
+            bubble = {
+                ...bubble,
+                rooms: [...bubble.rooms, ...stairRooms],
+                edges: [...bubble.edges, ...stairEdges],
+            };
+            placements = [...placements, ...stairPlacements];
+            console.log(
+                `[D-TGL] §STAIR-ROOM cand ${strategyKey(s)} emitted ${stairRooms.length} stair room(s) ` +
+                `at keep-out connected=${circId ? `→${circId}` : 'NONE'}`,
+            );
+        }
     }
 
     // §D3.1 — pre-furnishing SHAPE GATE. Validate every room rectangle against
@@ -419,6 +501,30 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     // `roomId`. Adapt at the boundary so the validators can stay
     // independent of the tgl/subdivide.ts internal naming.
     const idPlacements = placements.map((p) => ({ id: p.roomId, rect: p.rect }));
+    // §ROOM-OVERLAP-HARD (founder bug, 2026-06-10) — DETECT any pairwise interior
+    // floor-area overlap (Area(R_i ∩ R_j) > ε). Rooms may share walls/edges/corners
+    // (zero-area intersection) but NEVER interior floor. The squarified tiling is
+    // exact, but the subdivider's post-passes (snapAxisLines / comb carve / window
+    // snap) move rects independently, so overlaps can appear on a tight shell.
+    const nameById = new Map<string, string>();
+    for (const r of bubble.rooms) nameById.set(r.id, r.name);
+    const overlapResult = validateNoRoomOverlap(idPlacements);
+    const roomOverlaps = overlapResult.overlaps.map((o: RoomOverlap) => ({
+        nameA: nameById.get(o.a) ?? o.a,
+        nameB: nameById.get(o.b) ?? o.b,
+        areaM2: o.areaM2,
+    }));
+    // §DIAG-ROOM-OVERLAP — always-on per-candidate diagnostic (logging only).
+    {
+        const detail = roomOverlaps
+            .map(o => `${o.nameA}↔${o.nameB} area=${o.areaM2.toFixed(1)}m²`)
+            .join(', ');
+        console.log(
+            `[D-TGL] §DIAG-ROOM-OVERLAP cand ${strategyKey(s)} ` +
+            `pairsChecked=${overlapResult.pairsChecked} overlaps=${roomOverlaps.length}` +
+            `${detail ? ` [${detail}]` : ''}`,
+        );
+    }
     const wet = validateWetCluster(bubble, idPlacements);
     const acoustic = validateAcousticZoning(bubble, idPlacements);
     const sequence = validateCirculationSequence(bubble, idPlacements, doorOpenings);
@@ -446,6 +552,28 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
             };
         }),
     });
+    // §DIAG-HALL-PERIMETER (ADR-0063, founder rule #2) — confirm the entrance hall(s)
+    // abut a perimeter wall (the front door's shell edge). frontage:'required' makes a
+    // fully-interior hall a HARD frontage finding, so the ranker prefers perimeter
+    // halls; this line surfaces the per-candidate verdict (✓ all halls perimeter-
+    // adjacent / ⚠ at least one interior). Logging only — no behaviour change.
+    {
+        const hallPlacements = placements.filter(p => {
+            const r = bubble.rooms.find(br => br.id === p.roomId);
+            return r?.type === 'hall';
+        });
+        if (hallPlacements.length > 0) {
+            const onPerimeter = hallPlacements.filter(p =>
+                rectTouchesPerimeter(p.rect, input.shellPolygon),
+            ).length;
+            const allOn = onPerimeter === hallPlacements.length;
+            console.log(
+                `[D-TGL] §DIAG-HALL-PERIMETER cand ${strategyKey(s)} ` +
+                `halls=${hallPlacements.length} perimeterAdjacent=${onPerimeter} ` +
+                `${allOn ? '✓' : '⚠'}`,
+            );
+        }
+    }
     const topologyAdmissible =
         mand.admissible && forb.admissible &&
         wet.admissible && acoustic.admissible && sequence.admissible &&
@@ -482,6 +610,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         frontageHardRoomIds: frontage.hardFindings.map(f => f.roomId),
         unroutedToCirculationRoomIds,
         doorOpenings,
+        hasRoomOverlap: !overlapResult.ok,
     });
     const hardValid = hardFailedRules.length === 0;
     // §DIAG-TOPO-GATE — per-candidate hard-gate decision line (logging only).
@@ -512,7 +641,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         strategy: strategyKey(s), graph, objectives,
         weighted, rank: 0,
         compromises, connected: metrics.connected, shapeAdmissible, topologyAdmissible,
-        circulationRouted, hardValid, hardFailedRules, droppedRooms, boundaries,
+        circulationRouted, hardValid, hardFailedRules, droppedRooms, roomOverlaps, boundaries,
     };
 }
 
@@ -844,6 +973,29 @@ export function enumerateLayouts(input: EnumerateInput): TglCandidate[] {
             'only through a non-circulation room (no legal corridor/hall-adjacent ' +
             `wall to re-route it onto) in the best layout (strategy ${best.strategy}). ` +
             'The plan ships connected but with an architectural circulation compromise.',
+        );
+    }
+    // §ROOM-OVERLAP-HARD (founder bug, 2026-06-10) — when even the shipped WINNER
+    // overlaps (EVERY one of the 8 strategies had an interior floor-area overlap —
+    // a genuinely over-capacity shell), surface the founder's user-facing message
+    // naming the actual overlapping rooms, the same way §TOPO-HARD-REJECT-ALL and
+    // §CIRCULATION-REROUTE surface a relayable line. The gate already ranked any
+    // overlap-free strategy ABOVE this one, so this only fires when none exists.
+    if (best && best.roomOverlaps.length > 0) {
+        const pairs = best.roomOverlaps
+            .map(o => `${o.nameA} ↔ ${o.nameB} (${o.areaM2.toFixed(1)} m²)`)
+            .join('; ');
+        const names = Array.from(
+            new Set(best.roomOverlaps.flatMap(o => [o.nameA, o.nameB])),
+        );
+        const primary = names[0] ?? 'A room';
+        const others = names.slice(1).join(' and/or ') || 'neighbouring rooms';
+        console.warn(
+            `[apartment-layout] §ROOM-OVERLAP-HARD (strategy ${best.strategy}): ` +
+            `Room Overlap Detected: The ${primary} overlaps with neighboring rooms ` +
+            `(${others}). Room polygons must be mutually exclusive and may only touch ` +
+            'along shared boundaries. Adjust the room boundaries so that no floor area ' +
+            `belongs to more than one room. [overlaps: ${pairs}]`,
         );
     }
     // §FEASIBILITY-ALLOC (A.21.D5) — when even the best (fewest-drop) candidate

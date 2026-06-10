@@ -58,9 +58,12 @@ describe('T1.6 — frontage field on RoomRule', () => {
         }
     });
 
-    it('frontage REQUIRED: living / kitchen / master / bedroom', () => {
+    // §HALL-PERIMETER (ADR-0063, founder rule #2) — the entrance hall is now
+    // frontage REQUIRED: it hosts the main entrance door so it must abut the
+    // perimeter shell. (It is NOT windowMandatory — never a hard window reject.)
+    it('frontage REQUIRED: living / kitchen / master / bedroom + hall', () => {
         const required = new Set(FRONTAGE_REQUIRED_TYPES);
-        const expected: RoomType[] = ['living', 'kitchen', 'master', 'bedroom'];
+        const expected: RoomType[] = ['living', 'kitchen', 'master', 'bedroom', 'hall'];
         for (const t of expected) expect(required.has(t), `${t} should require frontage`).toBe(true);
         expect(required.size).toBe(expected.length);
     });
@@ -75,11 +78,15 @@ describe('T1.6 — frontage field on RoomRule', () => {
         expect(preferred.size).toBe(expected.length);
     });
 
-    it('frontage NONE: hall / corridor / utility only (wet rooms promoted by A.21.D55)', () => {
-        const none: RoomType[] = ['hall', 'corridor', 'utility'];
+    // §HALL-PERIMETER (ADR-0063) — hall left the 'none' set (now 'required').
+    // §STAIR-ROOM-TYPE (ADR-0063) — the new `stair` core is interior-acceptable ('none').
+    it('frontage NONE: corridor / stair / utility only (hall promoted by ADR-0063; wet rooms by A.21.D55)', () => {
+        const none: RoomType[] = ['corridor', 'stair', 'utility'];
         for (const t of none) {
             expect(ROOM_RULES[t].frontage).toBe('none');
         }
+        // The hall must NO LONGER be 'none' (it hosts the entrance door on the perimeter).
+        expect(ROOM_RULES.hall.frontage).toBe('required');
         // The wet rooms must NO LONGER be 'none'.
         for (const t of ['bathroom', 'ensuite', 'wc'] as RoomType[]) {
             expect(ROOM_RULES[t].frontage).not.toBe('none');

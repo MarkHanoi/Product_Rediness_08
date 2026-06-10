@@ -74,6 +74,19 @@ export const ROOM_DIMENSIONS: Readonly<Record<RoomType, RoomDimensions>> = {
         // Corridor has no required furniture so usableWallMin = 0 (no anchor needed).
         usableWallMin: 0,
     },
+    stair: {
+        type: 'stair',
+        // §STAIR-ROOM-TYPE (ADR-0063) — vertical-circulation core. The envelope is
+        // sized for a U-stair (≈ 2.0 × 2.8 m); bands are loose because the stair's
+        // rect is the FIXED keep-out (sized by the stair geometry), not subdivided —
+        // these only feed the SOFT shape gate so a real stair core never penalises.
+        areaMin: 4.0, areaComfortableMin: 5, areaComfortableMax: 9, areaHardMax: 16,
+        widthMin: 2.0, widthPreferredMin: 2.2, widthPreferredMax: 3.2, widthHardMax: INF,
+        lengthSoftMax: 5.0, lengthHardMax: 7.0,
+        aspectSoftMax: 2.5, aspectHardMax: 3.5,
+        // No furniture anchor — the stair geometry is its content.
+        usableWallMin: 0,
+    },
 
     // ── Private (sleeping / work) ────────────────────────────────────────────
     master: {
@@ -152,7 +165,7 @@ export const ROOM_DIMENSIONS: Readonly<Record<RoomType, RoomDimensions>> = {
 /** All dimensions, deterministically ordered (matches privacy gradient). */
 export const ALL_ROOM_DIMENSIONS: readonly RoomDimensions[] = [
     ROOM_DIMENSIONS.living, ROOM_DIMENSIONS.kitchen, ROOM_DIMENSIONS.dining,
-    ROOM_DIMENSIONS.hall, ROOM_DIMENSIONS.corridor,
+    ROOM_DIMENSIONS.hall, ROOM_DIMENSIONS.corridor, ROOM_DIMENSIONS.stair,
     ROOM_DIMENSIONS.master, ROOM_DIMENSIONS.bedroom, ROOM_DIMENSIONS.study,
     ROOM_DIMENSIONS.bathroom, ROOM_DIMENSIONS.ensuite, ROOM_DIMENSIONS.wc,
     ROOM_DIMENSIONS.utility,

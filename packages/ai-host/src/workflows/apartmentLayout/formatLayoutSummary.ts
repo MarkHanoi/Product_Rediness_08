@@ -22,6 +22,7 @@ const ROOM_LABEL: Readonly<Record<RoomType, string>> = {
     wc: 'wc',
     hall: 'hall',
     corridor: 'corridor',
+    stair: 'stair',
     study: 'study',
     utility: 'utility',
 };
@@ -39,6 +40,7 @@ const TYPE_ORDER: readonly RoomType[] = [
     'study',
     'hall',
     'corridor',
+    'stair',
     'utility',
 ];
 

@@ -34,10 +34,16 @@ export type AcousticRole = 'source' | 'receiver' | 'neutral';
  * T1.6 — Frontage preference
  * (APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK §19.1).
  * How strongly this room type benefits from sitting on the external perimeter:
- *   'required'  — habitable + window-mandatory (living, master, bedroom)
+ *   'required'  — MUST abut the perimeter (HARD reject when fully interior in
+ *                 `validateFrontage`). The habitable + window-mandatory rooms
+ *                 (living, kitchen, master, bedroom) AND — §HALL-PERIMETER
+ *                 (ADR-0063, founder rule #2) — the entrance `hall`, which hosts
+ *                 the main entrance door on the shell. (The hall is required on
+ *                 the perimeter but NOT windowMandatory, so it never trips the
+ *                 §TOPO-HARD-REJECT window rule.)
  *   'preferred' — gains quality from a façade but can ship without
  *                 (study, kitchen when not en-suite to dining, dining)
- *   'none'      — interior-acceptable (bathroom, wc, corridor, hall, utility)
+ *   'none'      — interior-acceptable (bathroom, wc, corridor, stair, utility)
  * Distinct from `windowMandatory` (which is about the glazing requirement when
  * a room IS on the perimeter). Read by L4-δ-4 frontage allocators + T2.5 spatial-
  * proportion validators.
@@ -334,7 +340,16 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
     // ── Circulation ──────────────────────────────────────────────────────────────
     hall: {
         type: 'hall', occupancy: 'entrance-lobby', privacy: 'circulation',
-        acousticRole: 'neutral', frontage: 'none',
+        // §HALL-PERIMETER (ADR-0063, 2026-06-10, founder rule #2) — the entrance
+        // hall HOSTS THE MAIN ENTRANCE DOOR, so it MUST abut an external/perimeter
+        // wall (the front door lands on the shell, in the hall). frontage 'required'
+        // makes `validateFrontage` penalise a fully-interior hall (the hall is added
+        // to the frontage-required set alongside living/kitchen/master/bedroom), and
+        // the subdivider biases frontage-required rooms onto the shell. UNLIKE the
+        // habitable rooms, the hall is NOT windowMandatory (needsWindow stays false),
+        // so it never trips the §TOPO-HARD-REJECT window rule — an interior hall is a
+        // SOFT penalty, never a hard reject (preserves the Pareto-equality baseline).
+        acousticRole: 'neutral', frontage: 'required',
         // DB-065 minAreaM2 2.5 (HQI mandatory); DB-062 main corridor clear 1.0 m.
         areaWeight: 0.5, minAreaM2: 2.5, minShortSideM: 1.2, needsWindow: false, windowMandatory: false,
         // The entrance hall is a CLEAN lobby: it distributes ONLY to the living space
@@ -401,6 +416,39 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         requiredFurniture: [], optionalFurniture: [], requiredFixtures: [],
         furnitureSpec: [],   // circulation — kept clear by design.
         description: 'Private-zone circulation spine. Serves bedrooms, bathrooms, study, utility; never an en-suite.',
+    },
+
+    // §STAIR-ROOM-TYPE (ADR-0063, 2026-06-10, founder rule #1) — VERTICAL
+    // circulation as a first-class room type. A multi-storey HOUSE reserves a
+    // stair core keep-out; the house path mints a NAMED `stair` room occupying
+    // that keep-out (subdivide / enumerate §STAIR-OBSTACLE-CARVE) so:
+    //   (a) the modal draws a "Stair" cell that EQUALS the executed stair, and
+    //   (b) no habitable room ever tiles into the stair footprint.
+    // Rules mirror a real U-stair core (≈ 2.0 × 2.8 m): it is CIRCULATION (never
+    // glazed, no frontage, never open-plan — no room merges into a stair), reached
+    // from the landing/corridor/hall it serves. `isOpenPlanEligible('stair')` is
+    // false by construction (only living/kitchen/dining are eligible), so the
+    // §OPEN-PLAN-ELIGIBLE guard already forbids merging a stair into any open zone.
+    // Apartment (single storey) never mints a `stair`, so it is byte-identical.
+    stair: {
+        type: 'stair', occupancy: 'stair', privacy: 'circulation',
+        acousticRole: 'neutral', frontage: 'none',
+        // A U-stair core footprint ≈ 2.0 m × 2.8 m ≈ 5.6 m²; short side 2.0 m is
+        // the clear stair-well width (two 0.9 m flights + a half-landing). A small
+        // areaWeight keeps it from claiming plate area (its rect is the keep-out,
+        // sized by the stair geometry — the weight only matters as a tie-break).
+        areaWeight: 0.4, minAreaM2: 4.0, minShortSideM: 2.0, needsWindow: false, windowMandatory: false,
+        // The landing / corridor / hall REACHES the stair: a door connects the
+        // circulation spine to the vertical core. Symmetric permission means a
+        // corridor↔stair or hall↔stair door is legal; nothing else may door onto it.
+        // NOTE: a "Landing" is NOT a distinct room type — it is a `corridor`-typed
+        // room named "Landing" on an upper storey (§LANDING-NOT-HALL / G14). So the
+        // landing is covered by `corridor` here; there is no `landing` RoomType.
+        accessFrom: ['corridor', 'hall'], maxDoors: 2,
+        adjacencyPreference: { corridor: 1.0, hall: 1.0 },
+        requiredFurniture: [], optionalFurniture: [], requiredFixtures: [],
+        furnitureSpec: [],   // vertical circulation — the stair geometry IS its content.
+        description: 'Vertical-circulation core (stair). Reached from the landing / corridor / hall; never glazed, never open-plan, no room merges into it. House-only — the apartment has no stair.',
     },
 
     // ── Private (sleeping / work) ──────────────────────────────────────────────
@@ -740,7 +788,7 @@ export function furnitureSpecsFor(occupancy: string): readonly FurnitureSpec[] {
 /** All room rules, in privacy-gradient order (public → circulation → private → service). */
 export const ALL_ROOM_RULES: readonly RoomRule[] = [
     ROOM_RULES.living, ROOM_RULES.kitchen, ROOM_RULES.dining,
-    ROOM_RULES.hall, ROOM_RULES.corridor,
+    ROOM_RULES.hall, ROOM_RULES.corridor, ROOM_RULES.stair,
     ROOM_RULES.master, ROOM_RULES.bedroom, ROOM_RULES.study,
     ROOM_RULES.bathroom, ROOM_RULES.ensuite, ROOM_RULES.wc,
     ROOM_RULES.utility,
@@ -802,6 +850,9 @@ export const MIN_DOOR_WIDTH_BY_TYPE: Readonly<Record<RoomType, number>> = {
     study:    MIN_DOOR_WIDTH_GENERAL_M,
     utility:  MIN_DOOR_WIDTH_GENERAL_M,
     corridor: MIN_DOOR_WIDTH_GENERAL_M,
+    // §STAIR-ROOM-TYPE — the door onto the vertical core is a general 0.80 m leaf
+    // (a stair-well access door, sized like any circulation doorway).
+    stair:    MIN_DOOR_WIDTH_GENERAL_M,
     // Entrance / arrival — wider leaf.
     hall:     MIN_DOOR_WIDTH_ENTRANCE_M,
     // Wet rooms — compact floor.
