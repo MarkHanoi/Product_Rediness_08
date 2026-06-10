@@ -255,15 +255,19 @@ export class HouseLayoutModal {
                 }
                 return;
             }
-            // §LIVE-MODAL.D — a click on a living-graph node opens the inline
-            // area/type editor (the C52 edit surface). `closest` works on the
-            // SVG-namespaced <circle>.
-            const node = (target as Element).closest?.('.alm-graph-node') as Element | null;
-            if (node) {
+            // §LIVE-MODAL.D + §3PANE IT-3 SELECTION-SYNC (SPEC §5.8) — a click on a
+            // living-graph node OR a plan room polygon (both carry `data-room-name`)
+            // (a) HIGHLIGHTS that room across ALL panes (graph + every plan), and
+            // (b) opens the inline area/type editor (the C52 edit surface).
+            const roomEl = (target as Element).closest?.('.alm-graph-node, .alm-room-polygon') as Element | null;
+            if (roomEl) {
                 e.preventDefault();
                 e.stopPropagation();
-                const name = node.getAttribute('data-room-name');
-                if (name) this._openGraphNodeEditor(node, name);
+                const name = roomEl.getAttribute('data-room-name');
+                if (name) {
+                    this._highlightRoom(name);
+                    this._openGraphNodeEditor(roomEl, name);
+                }
                 return;
             }
             const sel = target.closest('.alm-select') as HTMLElement | null;
@@ -459,6 +463,20 @@ export class HouseLayoutModal {
      *  the SAME debounced re-generate as a slider (`_scheduleGraphEdit`). The
      *  popover is a plain HTML overlay child (not SVG) so the form controls are
      *  native. Re-opening replaces any prior popover. */
+    /** §3PANE IT-3 SELECTION-SYNC (SPEC §5.8) — highlight EVERY element that
+     *  represents `roomName` across all panes (the graph node + each plan room
+     *  polygon, both carrying `data-room-name`); clears any prior highlight first.
+     *  Read-only (no program edit); the highlight clears on the next regen when the
+     *  panes rebuild. */
+    private _highlightRoom(roomName: string): void {
+        if (!this._el) return;
+        this._el.querySelectorAll('.hlm-selected').forEach(el => el.classList.remove('hlm-selected'));
+        const sel = `[data-room-name="${roomName.replace(/["\\]/g, '\\$&')}"]`;
+        try {
+            this._el.querySelectorAll(sel).forEach(el => el.classList.add('hlm-selected'));
+        } catch { /* an exotic name that breaks the attribute selector — skip */ }
+    }
+
     private _openGraphNodeEditor(node: Element, roomName: string): void {
         if (!this._el) return;
         // Remove any open editor first.

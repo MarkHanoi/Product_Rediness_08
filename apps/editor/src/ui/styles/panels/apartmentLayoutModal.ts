@@ -376,4 +376,9 @@ export const APARTMENT_LAYOUT_MODAL_STYLES = `
 .alm-program-size-label { color: #64748b; }
 .alm-program-size input[type=range] { width: 100%; accent-color: #6600FF; }
 .alm-program-size-val { color: #6600FF; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+/* §3PANE IT-3 SELECTION-SYNC — click a graph node or a plan room → highlight that
+ * room across every pane (same data-room-name). */
+.hlm-pane-plan .alm-room-polygon { cursor: pointer; }
+.hlm-pane-plan .alm-room-polygon.hlm-selected { stroke: #6600FF; stroke-width: 1.8; stroke-opacity: 1; }
+.alm-graph-node.hlm-selected { stroke: #6600FF; stroke-width: 3; }
 `;
