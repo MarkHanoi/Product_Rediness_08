@@ -7,11 +7,16 @@
 // `batchCoordinator.runBatch` — one undo unit, skipRedetectRooms because
 // lighting fixtures aren't room-bounding.
 //
-// PURE wiring: the engine is dynamic-imported on first invoke (lazy chunk).
+// PURE wiring: the engine is imported STATICALLY (§SW-LAZY-CHUNK-404,
+// 2026-06-10). `@pryzm/ai-host` is already eager (engineLauncher imports
+// `aiService` from the same barrel), so a lazy `await import` only duplicated
+// the engine into a separate chunk hash that 404'd for returning clients after
+// a deploy. Static import folds it into the main graph — no lazy chunk to miss.
 
 import { batchCoordinator, storeRegistry } from '@pryzm/core-app-model';
 import { createId } from '@pryzm/schemas';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
+import { lightRoom, buildLightingCommands } from '@pryzm/ai-host';
 import type { LightRoomInput, PlacedLight } from '@pryzm/ai-host';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
 
@@ -79,7 +84,7 @@ export class LightingLayoutExecutor {
             const levelElevation = level.elevation ?? 0;
             const ceilingY = levelElevation + (level.height ?? 2.7);
 
-            const { lightRoom, buildLightingCommands } = await import('@pryzm/ai-host');
+            // §SW-LAZY-CHUNK-404: engine imported statically at module top.
 
             const allPlaced: PlacedLight[] = [];
             let lit = 0, skipped = 0;

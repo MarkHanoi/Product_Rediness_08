@@ -8,13 +8,20 @@
 // whole furnishing is ONE undo unit + the room redetect is skipped (furniture
 // doesn't change room topology).
 //
-// PURE wiring: the pure engine (`@pryzm/ai-host` furnishLayout) is dynamic-
-// imported on first invoke so the chunk stays off first-paint. Console
-// command `window.pryzmFurnishAllRooms()` bypasses the AI panel for testing.
+// PURE wiring: the pure engine (`@pryzm/ai-host` furnishLayout) is imported
+// STATICALLY (§SW-LAZY-CHUNK-404, 2026-06-10) — `@pryzm/ai-host` is already in
+// the eager graph (engineLauncher imports `aiService` from the same barrel), so
+// a lazy `await import` only duplicated the engine into a separate chunk hash
+// that 404'd for returning clients after a deploy. Console command
+// `window.pryzmFurnishAllRooms()` bypasses the AI panel for testing.
 
 import { batchCoordinator, storeRegistry } from '@pryzm/core-app-model';
 import { createId } from '@pryzm/schemas';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
+import {
+    furnishRoom, furnishRoomCompound, buildFurnishCommands,
+    validateFurnishedRoom,
+} from '@pryzm/ai-host';
 import type {
     FurnishRoomInput,
     OpeningPose,
@@ -190,11 +197,17 @@ export class FurnishLayoutExecutor {
                 facades = w.facadeOrientationService?.getFacades?.(level.id);
             } catch { facades = undefined; }
 
-            // Dynamic-import the pure engine on first invoke.
-            const {
-                furnishRoom, furnishRoomCompound, buildFurnishCommands,
-                validateFurnishedRoom,
-            } = await import('@pryzm/ai-host');
+            // §SW-LAZY-CHUNK-404 (2026-06-10): the pure engine
+            // (`furnishRoom`/`buildFurnishCommands`/…) is imported STATICALLY at
+            // module top now, NOT via `await import('@pryzm/ai-host')`. The
+            // dynamic split bought nothing — `@pryzm/ai-host` is ALREADY in the
+            // eager graph (engineLauncher.ts imports `aiService` from the same
+            // barrel), so the lazy split merely DUPLICATED the engine into a
+            // fragile `index-<hash>.js` chunk. A returning client holding a stale
+            // shell would 404 that hash after a deploy and the feature would die
+            // ("Failed to fetch dynamically imported module"). Static import
+            // folds the code into the main eager graph → no separate chunk hash
+            // to go missing. See report + tracker DEPLOY-LAZY-CHUNK-404.
 
             // A.21.D20 — kitchen/wardrobe run-shape options from the brief.
             // `kitchenLayout` / `wardrobeLayout` chips → planKitchen/planWardrobe.

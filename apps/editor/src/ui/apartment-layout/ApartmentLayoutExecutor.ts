@@ -17,6 +17,7 @@ import { createId } from '@pryzm/schemas';
 import { CreateWallOpeningsBatchCommand, CreateRoomBoundingLinesBatchCommand } from '@pryzm/command-registry';
 import { facadeOrientationService } from '@pryzm/spatial-index';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
+import { buildLayoutCommands } from '@pryzm/ai-host';
 import type { ScoredLayoutOption, IdPrefix, LayoutExecuteOptions, LayoutCommandSet } from '@pryzm/ai-host';
 import { resolveActiveLevel } from './activeLevel.js';
 import { nameDetectedRooms } from './nameDetectedRooms.js';
@@ -82,8 +83,12 @@ export class ApartmentLayoutExecutor {
             }
             console.log('[apartment-layout] executor: level', level.id, 'walls', option.walls.length, 'doors', option.doors.length);
 
-            // Pure command-set (dynamic import keeps ai-host off first-paint).
-            const { buildLayoutCommands } = await import('@pryzm/ai-host');
+            // §SW-LAZY-CHUNK-404 (2026-06-10): `buildLayoutCommands` is imported
+            // STATICALLY now — `@pryzm/ai-host` is already eager (engineLauncher
+            // imports `aiService` from the same barrel), so the old lazy
+            // `await import` bought nothing and merely duplicated the engine into
+            // a fragile `index-<hash>.js` chunk that 404'd for returning clients
+            // after a deploy. Static import → no separate chunk to go missing.
 
             // §INTERIOR-HEIGHT-MATCH (2026-05-29 audit follow-up): the
             // partition height is now plumbed through the LayoutOption.

@@ -7,11 +7,16 @@
 // command INSIDE ONE `batchCoordinator.runBatch` — one undo unit,
 // skipRedetectRooms because ceiling slabs aren't room-bounding.
 //
-// PURE wiring: the engine is dynamic-imported on first invoke (lazy chunk).
+// PURE wiring: the engine is imported STATICALLY (§SW-LAZY-CHUNK-404,
+// 2026-06-10). `@pryzm/ai-host` is already eager (engineLauncher imports
+// `aiService` from the same barrel), so a lazy `await import` only duplicated
+// the engine into a separate chunk hash that 404'd for returning clients after
+// a deploy. Static import folds it into the main graph — no lazy chunk to miss.
 
 import { batchCoordinator, storeRegistry } from '@pryzm/core-app-model';
 import { createId } from '@pryzm/schemas';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
+import { ceilingForRoom, buildCeilingCommands } from '@pryzm/ai-host';
 import type { CeilingRoomInput, PlacedCeiling } from '@pryzm/ai-host';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
 import { getStairVoidsForLevel } from '../house-layout/houseStairVoids.js';
@@ -61,7 +66,7 @@ export class CeilingLayoutExecutor {
             const levelElevation = level.elevation ?? 0;
             const ceilingOverrideM = typeof level.height === 'number' ? level.height : undefined;
 
-            const { ceilingForRoom, buildCeilingCommands } = await import('@pryzm/ai-host');
+            // §SW-LAZY-CHUNK-404: engine imported statically at module top.
 
             // §A.21.D29 #1 — stairwell voids on THIS level. The ceiling producer
             // (produceCeiling) fans a SOLID polygon from its centroid and cannot carry

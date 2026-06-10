@@ -6,15 +6,23 @@
 // submitting, NOT at boot — calling it at boot would eagerly load the ai-host
 // chunk and break the lazy K3-A "AI bytes off first-paint" budget.
 //
-// ai-host is reached via DYNAMIC import (the chunk is already resolved by
-// `runtime.ai.getHost()`); its types are type-only (erased, zero bytes).
-// core-app-model + spatial-index are always-present in the editor graph, so a
-// static import is fine. The heavy accessors (wall store, facade orientation)
-// live here at L5 — keeping ai-host + the P1 composition root dep-clean.
+// §SW-LAZY-CHUNK-404 (2026-06-10): the ai-host registration factories are now
+// imported STATICALLY. The previous comment claimed a lazy `await import` kept
+// "AI bytes off first-paint", but that budget is ALREADY spent — engineLauncher,
+// BimService, initDataPlatform and the AI panels all statically import from the
+// same `@pryzm/ai-host` barrel, so the package is unavoidably in the eager
+// engineLauncher chunk. The lazy `await import('@pryzm/ai-host')` therefore
+// bought nothing and only duplicated the barrel into a fragile `index-<hash>.js`
+// chunk that 404'd for returning clients after a deploy. NOTE: `runtime.ai.getHost()`
+// (below) is a SEPARATE, genuinely-lazy chunk (`AiHost.impl-*.js`) and stays lazy.
 
 import { storeRegistry, apiFetch } from '@pryzm/core-app-model';
 import { facadeOrientationService } from '@pryzm/spatial-index';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
+import {
+    createApartmentLayoutRegistration,
+    createCfWorkerRelay,
+} from '@pryzm/ai-host';
 import type { ApartmentLayoutRegistrationResult } from '@pryzm/ai-host';
 import { buildGetWall, type WallStoreLike } from './apartmentLayoutWallMapper.js';
 
@@ -31,12 +39,11 @@ export async function ensureApartmentLayoutRegistered(
         // getHost loads the lazy ai-host chunk on first call — appropriate here
         // because the user is actively invoking the AI feature.
         const host = await runtime.ai.getHost();
-        const aiHost = await import('@pryzm/ai-host');
 
         const wallStore = storeRegistry.getStoreForType('wall') as unknown as WallStoreLike | undefined;
         const getWall = buildGetWall(wallStore);
 
-        return aiHost.createApartmentLayoutRegistration({
+        return createApartmentLayoutRegistration({
             host: host as { plane?: unknown },
             // A7 — live relay through the server BFF (POST /api/anthropic/v1/messages
             // → CF Worker / Anthropic). MUST use the editor's authed apiFetch (adds
@@ -44,7 +51,7 @@ export async function ensureApartmentLayoutRegistered(
             // behind authMiddleware). If the server has no AI upstream configured
             // (ANTHROPIC_API_KEY / CF_WORKER_URL) it returns 500 — and the offline
             // fallback below produces a real layout instead of failing.
-            relay: aiHost.createCfWorkerRelay(undefined, apiFetch),
+            relay: createCfWorkerRelay(undefined, apiFetch),
             // Offline fallback: when the AI is unavailable (no key / 401 / 500),
             // run the deterministic D-TGL engine (SPEC-TGL-DETERMINISTIC-LAYOUT-
             // ENGINE) — a real rectilinear, space-syntax-ranked, semantically-rich
