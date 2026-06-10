@@ -23,7 +23,7 @@ import { buildHouseCardModel, type HouseCardModel } from './houseCardModel.js';
 import type { PerimeterSpan } from '../apartment-layout/layoutThumbnail.js';
 import {
     buildHouseModalHtml,
-    buildHouseCardGridHtml,
+    buildHousePanesHtml,
     collectStoreyOptions,
     type HouseProgramFormState,
 } from './houseModalHtml.js';
@@ -309,7 +309,10 @@ export class HouseLayoutModal {
         // plans when graph editing is wired, so an edit's re-render keeps the
         // toggle + interactive nodes.
         const graphs = this._onGraphEdit ? this._storeyGraphs(options) : [];
-        grid.innerHTML = buildHouseCardGridHtml(cards, this._storeyThumbs(options), graphs);
+        // §3PANE — refresh() rebuilds the LEFT plans + CENTER graphs (the regenerated
+        // region) for the single best option; the RIGHT tools rail stays put.
+        const thumbs = this._storeyThumbs(options);
+        grid.innerHTML = buildHousePanesHtml(cards[0], thumbs[0] ?? [], graphs[0] ?? []);
         // A.21.D51 — refresh the room-type legend in lock-step with the cards
         // (editing floors/bedrooms can change which occupancies are present).
         const legend = this._el.querySelector('[data-role="legend"]');

@@ -238,11 +238,49 @@ export function buildHouseCardGridHtml(
 }
 
 /**
- * Build the modal's inner HTML. `storeyThumbnails[i]` is the per-storey SVG list
- * for `cards[i]`. When `formState` is supplied the §MODAL-DYNAMIC program-edit
- * form renders at the top of the panel and the modal controller wires its change
- * events to a live re-generation flow. Returns header + form + card grid +
- * footer (Cancel). Pure.
+ * §3PANE (SPEC-DYNAMIC-PROGRAM-CANVAS §1.1, ADR-0069) — the THREE-PANE body for the
+ * single best whole-house option: LEFT = a stacked PLAN view per storey · CENTER = a
+ * stacked GRAPH (living graph) per storey · (the RIGHT tools rail is built separately
+ * in `buildHouseModalHtml` and is NOT rebuilt on regen). This is the
+ * `[data-role="grid"]` content the modal's `refresh()` re-renders in lock-step on every
+ * live edit, so both the plans and the graphs flow with the program. No per-storey
+ * Plan/Graph toggle (both panes are always visible). Pure.
+ */
+export function buildHousePanesHtml(
+    card: HouseCardModel | undefined,
+    storeyThumbs: readonly string[] = [],
+    storeyGraphs: readonly string[] = [],
+): string {
+    if (!card || card.storeys.length === 0) {
+        return '<div class="alm-empty">No valid house layouts were generated. Try a larger plot or a simpler programme.</div>';
+    }
+    const plans = card.storeys.map((s, i) =>
+        `<div class="hlm-pane-storey">` +
+        `<div class="hlm-pane-storey-label">${escHtml(s.label)}</div>` +
+        `<div class="hlm-pane-plan">${storeyThumbs[i] ?? ''}</div>` +
+        `<div class="hlm-pane-storey-stats">${s.totalAreaM2} m² · score ${s.score}</div>` +
+        `</div>`,
+    ).join('');
+    const graphs = card.storeys.map((s, i) =>
+        `<div class="hlm-pane-storey">` +
+        `<div class="hlm-pane-storey-label">${escHtml(s.label)}</div>` +
+        `<div class="hlm-pane-graph">${storeyGraphs[i] ?? '<div class="hlm-pane-graph-empty">—</div>'}</div>` +
+        `</div>`,
+    ).join('');
+    return (
+        `<div class="hlm-pane hlm-pane--plans" aria-label="Plan views">${plans}</div>` +
+        `<div class="hlm-pane hlm-pane--graphs" aria-label="Graphs">${graphs}</div>`
+    );
+}
+
+/**
+ * Build the modal's inner HTML — the §3PANE workspace (SPEC-DYNAMIC-PROGRAM-CANVAS):
+ * header + a three-column body { LEFT plans · CENTER graphs (= `[data-role="grid"]`,
+ * the regenerated region) · RIGHT tools rail (program-edit form + legend + result +
+ * "Use this layout") } + footer (Cancel). The single best whole-house option is shown
+ * (`cards[0]`). When `formState` is supplied the §MODAL-DYNAMIC program-edit form
+ * renders in the RIGHT rail and the controller wires its change events to the live
+ * re-generation flow. Pure.
  */
 export function buildHouseModalHtml(
     cards: readonly HouseCardModel[],
@@ -250,7 +288,8 @@ export function buildHouseModalHtml(
     formState?: HouseProgramFormState,
     storeyGraphs: readonly (readonly string[])[] = [],
 ): string {
-    const grid = buildHouseCardGridHtml(cards, storeyThumbnails, storeyGraphs);
+    const best = cards[0];
+    const panes = buildHousePanesHtml(best, storeyThumbnails[0] ?? [], storeyGraphs[0] ?? []);
     const programForm = formState ? buildHouseProgramEditFormHtml(formState) : '';
     // A.21.D51 — founder feedback #2: a room-type colour legend. The house cards'
     // per-storey thumbnails are painted by `buildLayoutThumbnailSvg`, which fills
@@ -263,15 +302,41 @@ export function buildHouseModalHtml(
     const legend = legendInner
         ? `<div class="alm-legend" data-role="legend">${legendInner}</div>`
         : '';
-    return (
-        '<div class="alm-panel">' +
-        // §LIVE-MODAL.A (R1) — single best option; the header no longer advertises
-        // an option COUNT (the modal shows ONE card, the single best whole-house
-        // variant). Reworded to a possessive directive.
-        `<div class="alm-header">Choose your house layout</div>` +
+    // §3PANE RIGHT rail — the tools + the result summary + the single terminal
+    // EXECUTE ("Use this layout"). NOT rebuilt on regen (the form is the user's input);
+    // the result line is refreshed separately by the modal when it matters.
+    const roofLabel = best ? best.roofKind.charAt(0).toUpperCase() + best.roofKind.slice(1) : '';
+    const stairText = best && best.stairCount > 0
+        ? `${best.stairCount} stair${best.stairCount === 1 ? '' : 's'}`
+        : 'single storey';
+    const resultBlock = best
+        ? `<div class="hlm-tools-result" data-role="result">` +
+          `<div class="alm-card-head"><span class="alm-title">${escHtml(best.title)}</span>` +
+          `<span class="alm-overall" title="overall score">${best.overall}<small>/100</small></span></div>` +
+          `<div class="alm-bars"><div class="alm-bar">` +
+          `<span class="alm-bar-label">Overall</span>` +
+          `<span class="alm-bar-track"><span class="alm-bar-fill" style="width:${best.overall}%"></span></span>` +
+          `<span class="alm-bar-pct">${best.overall}</span></div></div>` +
+          `<div class="alm-meta">${best.storeyCount} storey${best.storeyCount === 1 ? '' : 's'} · ${escHtml(stairText)} · ${escHtml(roofLabel)} roof</div>` +
+          `<button type="button" class="alm-select hlm-execute" data-index="${best.index}">Use this layout</button>` +
+          `</div>`
+        : '';
+    const toolsRail =
+        '<div class="hlm-tools-rail" data-role="tools">' +
         programForm +
         legend +
-        `<div class="alm-grid" data-role="grid">${grid}</div>` +
+        resultBlock +
+        '</div>';
+    return (
+        '<div class="alm-panel hlm-3pane-panel">' +
+        // §3PANE (SPEC §1.1) — plan LEFT · graph CENTER · tools RIGHT.
+        `<div class="alm-header">Design your house — live</div>` +
+        '<div class="hlm-3pane">' +
+        // LEFT plans + CENTER graphs live INSIDE the regenerated [data-role="grid"]
+        // region (refresh() rebuilds it on every edit); RIGHT tools rail is static.
+        `<div class="hlm-panes" data-role="grid">${panes}</div>` +
+        toolsRail +
+        '</div>' +
         '<div class="alm-footer"><button type="button" class="alm-cancel">Cancel</button></div>' +
         '</div>'
     );

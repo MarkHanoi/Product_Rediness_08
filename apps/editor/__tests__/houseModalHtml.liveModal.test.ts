@@ -51,19 +51,30 @@ function houseOption(index: number): ScoredHouseLayoutOption {
     };
 }
 
-describe('§LIVE-MODAL.A — single-option house modal', () => {
-    it('header no longer advertises an option count', () => {
+describe('§3PANE — three-pane house modal (SPEC-DYNAMIC-PROGRAM-CANVAS §1.1)', () => {
+    it('header reads "Design your house — live" (no option count)', () => {
         const card = buildHouseCardModel(houseOption(0), 0);
         const html = buildHouseModalHtml([card]);
-        expect(html).toContain('Choose your house layout');
+        expect(html).toContain('Design your house — live');
         // No "N option(s)" suffix.
         expect(html).not.toMatch(/\d+ option/);
     });
 
-    it('renders exactly ONE card when handed the single best variant', () => {
+    it('renders the three panes (plans LEFT, graphs CENTER) + tools rail RIGHT + one Execute', () => {
         const card = buildHouseCardModel(houseOption(0), 0);
-        const html = buildHouseModalHtml([card], [['<svg></svg>', '<svg></svg>']]);
-        expect((html.match(/class="alm-card hlm-card"/g) ?? []).length).toBe(1);
+        const html = buildHouseModalHtml([card], [['<svg id="plan0"></svg>', '<svg id="plan1"></svg>']]);
+        // LEFT plans + CENTER graphs panes, RIGHT tools rail.
+        expect(html).toContain('hlm-pane--plans');
+        expect(html).toContain('hlm-pane--graphs');
+        expect(html).toContain('hlm-tools-rail');
+        // The LEFT+CENTER live in the regenerated [data-role="grid"] region.
+        expect(html).toContain('data-role="grid"');
+        expect(html).toContain('<svg id="plan0"></svg>');
+        // Exactly one terminal Execute ("Use this layout") for the single best option.
+        expect((html.match(/class="alm-select hlm-execute"/g) ?? []).length).toBe(1);
+        // The 3-pane body is NOT the old card grid + has no per-storey toggle.
+        expect(html).not.toContain('class="alm-card hlm-card"');
+        expect(html).not.toContain('hlm-storey-toggle');
     });
 });
 

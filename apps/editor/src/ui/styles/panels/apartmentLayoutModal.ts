@@ -333,4 +333,41 @@ export const APARTMENT_LAYOUT_MODAL_STYLES = `
 }
 .hlm-node-apply { background: #6600FF; color: #ffffff; border-color: #6600FF; }
 .hlm-node-close { background: #ffffff; color: #64748b; }
+
+/* §3PANE (SPEC-DYNAMIC-PROGRAM-CANVAS §1.1, ADR-0069) — the dynamic three-column
+ * workspace: LEFT plan view(s) · CENTER graph(s) · RIGHT tools rail. Brand white +
+ * #6600FF, no black. The LEFT+CENTER share the regenerated [data-role="grid"] region. */
+.hlm-3pane { flex: 1 1 auto; min-height: 0; display: flex; gap: 14px; padding: 12px 16px; overflow: hidden; }
+.hlm-panes { flex: 1 1 auto; min-width: 0; display: flex; gap: 14px; overflow: hidden; }
+.alm-busy .hlm-panes { opacity: 0.55; pointer-events: none; transition: opacity .15s; }
+.hlm-pane { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; padding-right: 4px; }
+.hlm-pane-storey {
+  border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px 10px; background: #f8fafc;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.hlm-pane--plans .hlm-pane-storey { border-top: 3px solid #c4b5fd; }
+.hlm-pane--graphs .hlm-pane-storey { border-top: 3px solid #6600FF; }
+.hlm-pane-storey-label { font-weight: 600; font-size: 12px; color: #6600FF; }
+.hlm-pane-plan, .hlm-pane-graph {
+  background: #ffffff; border: 1px solid #eef2f7; border-radius: 8px;
+  height: clamp(200px, 32vh, 420px);
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+}
+.hlm-pane-plan svg, .hlm-pane-graph svg { width: 100%; height: 100%; }
+.hlm-pane-graph-empty { color: #cbd5e1; font-size: 24px; }
+.hlm-pane-storey-stats { font-size: 11px; color: #94a3b8; }
+.hlm-tools-rail {
+  flex: 0 0 340px; min-width: 0; display: flex; flex-direction: column; gap: 14px;
+  overflow-y: auto; padding: 4px 2px 4px 14px; border-left: 1px solid #e2e8f0;
+}
+.hlm-tools-rail .alm-program, .hlm-tools-rail .hlm-program { width: 100%; }
+.hlm-tools-result {
+  border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; background: #f8fafc;
+  display: flex; flex-direction: column; gap: 10px; margin-top: auto;
+}
+.hlm-execute {
+  background: #6600FF; color: #ffffff; border: none; border-radius: 8px;
+  padding: 11px 14px; font-weight: 650; cursor: pointer; font-size: 13px; width: 100%;
+}
+.hlm-execute:hover { background: #5200cc; }
 `;
