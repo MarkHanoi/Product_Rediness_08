@@ -2980,6 +2980,30 @@ latency (250 ms debounce + sync engine; within-lane drag fires no regen); name a
 storeys (key on storey-qualified node id, not bare name); canvas fork (XC extracts ONE controller);
 apartment/overlay regression (lane spring + override field + stash all default to no-op / C52 I2).
 
+### §26.5 — THREE-PANE refinement + Dynamic Program Canvas (founder 2026-06-10)
+
+**Founder directive (verbatim, 2026-06-10):** *"I requested a shift from the existing modal to another
+one where the user can see the plan views to the LEFT — the graph to the CENTER — and the tool bar to
+the RIGHT."*
+
+This **refines** §26's two-pane (plan-LEFT / graph-RIGHT) into a **THREE-pane** workspace:
+**LEFT = plan view(s) · CENTER = the living/concatenated graph (Miro/Mural canvas) · RIGHT = the
+tools / program editor** (room-card add/resize/move, sliders — the "tools" rail). The graph is the
+semantic centrepiece; the plan reflects it; the right rail is where the user edits the program. This
+**replaces the existing generate modal** (and, per the canvas spec, eventually the onboarding Project
+Brief panel). It is the same vision as the **Dynamic Program Canvas** authored this session:
+- **SPEC:** [SPEC-DYNAMIC-PROGRAM-CANVAS](../specs/SPEC-DYNAMIC-PROGRAM-CANVAS.md) — the full model
+  (room cards as the editable program; storey lanes; the live card↔program↔engine↔plan↔graph loop;
+  add room / resize → roomAreas / drag between storeys → roomFloorByName / add level; multi-view).
+- **ADR:** [ADR-0069 — dynamic program canvas as the primary authoring surface](../../02-decisions/adrs/0069-dynamic-program-canvas-as-primary-authoring-surface.md).
+- **SPIKE (Phase 0, smallest end-to-end slice):** [SPIKE-DYNAMIC-PROGRAM-CANVAS](./SPIKE-DYNAMIC-PROGRAM-CANVAS.md)
+  — one storey lane of draggable room cards beside one live plan, resize→roomAreas→regenerate, reusing
+  `HouseLayoutController._regenerateCurrent` + `LivingGraphCanvas`; the only NEW file is
+  `ProgramCanvasPanel.ts` + a small controller facade.
+Relates to §26 (XFLOOR-GRAPH — the cross-floor graph substrate XA–XF feeds the CENTER pane) and
+A.21.D37 (Miro/Mural pan-zoom + select-to-3D). The RIGHT-rail tools layout is the new element vs §26.
+**Status: 🔵 QUEUED — Phase-0 spike scoped, not yet built (net-new UI; build → prod-test → refine loop).**
+
 ## §27 — Interior Daylight colour-code graph (`DAYLIGHT-GRAPH`) — QUEUED (2026-06-09)
 
 **Founder directive (verbatim):** *"a daylight colour code graph inside the rooms that depending on
