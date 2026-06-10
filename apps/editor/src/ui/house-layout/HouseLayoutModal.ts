@@ -34,6 +34,7 @@ import { buildOccupancyLegendHtml } from '../apartment-layout/layoutModalHtml.js
 import { setRoomAreaOverride } from '../apartment-layout/activeRoomAreaOverrides.js';
 import { setRoomTypeOverride, ROOM_TYPE_VALUES } from '../apartment-layout/activeRoomTypeOverrides.js';
 import { setRoomFloorOverride } from '../apartment-layout/activeRoomFloorOverrides.js';
+import { addRoomAdjacency } from '../apartment-layout/activeRoomAdjacencyOverrides.js';
 
 export interface HouseLayoutModalCallbacks {
     /** User picked variant `index` ("Use this layout"). */
@@ -505,6 +506,20 @@ export class HouseLayoutModal {
               ).join('') +
               `</select></label>`
             : '';
+        // §3PANE IT-3b CONNECT-ROOMS — other rooms on the SAME storey the user can
+        // connect this room to (a desired door edge → §ROOM-ADJACENCY, gated by the
+        // permission matrix in the engine). Collected from the storey's panes by name.
+        const others = new Set<string>();
+        this._el.querySelectorAll(`[data-storey-index="${srcStorey}"] [data-room-name]`).forEach(el => {
+            const n = el.getAttribute('data-room-name');
+            if (n && n !== roomName) others.add(n);
+        });
+        const connectField = others.size > 0
+            ? `<label class="hlm-node-field"><span>Connect to</span>` +
+              `<select class="hlm-node-connect"><option value="">(none)</option>` +
+              Array.from(others).map(n => `<option value="${this._escAttr(n)}">${this._escAttr(n)}</option>`).join('') +
+              `</select></label>`
+            : '';
         editor.innerHTML =
             `<div class="hlm-node-editor-title">${this._escAttr(roomName)}</div>` +
             `<label class="hlm-node-field"><span>Area m²</span>` +
@@ -512,6 +527,7 @@ export class HouseLayoutModal {
             `<label class="hlm-node-field"><span>Type</span>` +
             `<select class="hlm-node-type"><option value="">(keep)</option>${typeOptions}</select></label>` +
             floorField +
+            connectField +
             `<div class="hlm-node-actions">` +
             `<button type="button" class="hlm-node-apply">Apply</button>` +
             `<button type="button" class="hlm-node-close">Cancel</button>` +
@@ -541,6 +557,11 @@ export class HouseLayoutModal {
                 if (Number.isInteger(target) && target !== srcStorey) {
                     setRoomFloorOverride(`storey:${srcStorey}/${roomName}`, target);
                 }
+            }
+            // §3PANE IT-3b — connect this room to the chosen one (desired adjacency).
+            const connectEl = editor.querySelector('.hlm-node-connect') as HTMLSelectElement | null;
+            if (connectEl && connectEl.value) {
+                addRoomAdjacency(roomName, connectEl.value);
             }
             editor.remove();
             this._scheduleGraphEdit();

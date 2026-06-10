@@ -39,6 +39,7 @@ import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
 import { getRoomAreaOverrides } from '../apartment-layout/activeRoomAreaOverrides.js';
 import { getRoomTypeOverrides } from '../apartment-layout/activeRoomTypeOverrides.js';
 import { getRoomFloorOverrides } from '../apartment-layout/activeRoomFloorOverrides.js';
+import { getRoomAdjacencyOverrides } from '../apartment-layout/activeRoomAdjacencyOverrides.js';
 import type { HouseProgramFormState } from './houseModalHtml.js';
 
 /** How many whole-house variants the modal offers. */
@@ -310,8 +311,10 @@ export class HouseLayoutController {
         // override-aware) + the stash already shipped; this merge is what flows it to
         // BOTH the preview (`_computeVariants`) and the build (`_build`).
         const floorOverrides = getRoomFloorOverrides();
+        // §3PANE IT-3b / §ROOM-ADJACENCY (C52 E3) — the connect-rooms stash.
+        const adjOverrides = getRoomAdjacencyOverrides();
         // C52 I2 — empty stashes ⇒ same program ref ⇒ byte-identical baseline.
-        if (!areaOverrides && !typeOverrides && !floorOverrides) return program;
+        if (!areaOverrides && !typeOverrides && !floorOverrides && !adjOverrides) return program;
         const merged: ApartmentProgram = { ...program };
         if (areaOverrides) {
             merged.roomAreasByName = { ...(program.roomAreasByName ?? {}), ...areaOverrides };
@@ -321,6 +324,9 @@ export class HouseLayoutController {
         }
         if (floorOverrides) {
             merged.roomFloorByName = { ...(program.roomFloorByName ?? {}), ...floorOverrides };
+        }
+        if (adjOverrides) {
+            merged.roomAdjacencyByName = [...(program.roomAdjacencyByName ?? []), ...adjOverrides];
         }
         return merged;
     }

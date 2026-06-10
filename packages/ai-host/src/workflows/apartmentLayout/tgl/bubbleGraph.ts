@@ -8,7 +8,7 @@
 // connectivity (space syntax) against them. Pure: ZERO imports except types.
 
 import type { ApartmentProgram, RoomType } from '../types.js';
-import { roomRule } from '../rules/programRules.js';
+import { roomRule, doorAllowedBetween } from '../rules/programRules.js';
 import { apartmentDimensionsFor } from '../dimensions/roomDimensions.js';
 import { computeFacadeValueField, type FacadeValueField } from '../environment/facadeValueField.js';
 import { computeDaylightDepthField, type DaylightDepthField } from '../environment/daylightDepthField.js';
@@ -458,6 +458,31 @@ export function buildBubbleGraph(
     for (const bid of bedIds) link(spine, bid, 'door');
     link(bedIds[0] ?? null, ensuiteId, 'door');     // master ↔ ensuite
     for (const r of withAreas) if (r.type === 'bathroom') link(spine, r.id, 'door');
+
+    // §ROOM-ADJACENCY (SPEC-DYNAMIC-PROGRAM-CANVAS §5.6, C52 E3) — desired-adjacency
+    // overrides: the user connected two rooms in the program-canvas graph. Add a
+    // `door` edge between the named pair IFF it is PERMITTED (doorAllowedBetween — a
+    // forbidden pair like bedroom↔bedroom is ignored, never forced) and not already
+    // linked. Name-keyed, per-instance; empty ⇒ no extra edge ⇒ byte-identical (I2).
+    const adjPairs = rawProgram.roomAdjacencyByName;
+    if (adjPairs && adjPairs.length > 0) {
+        const byName = new Map<string, ProgramRoom>();
+        for (const r of withAreas) byName.set(r.name, r);
+        const linked = (x: string, y: string): boolean =>
+            edges.some(e => (e.a === x && e.b === y) || (e.a === y && e.b === x));
+        for (const pair of adjPairs) {
+            const ra = byName.get(pair[0]);
+            const rb = byName.get(pair[1]);
+            if (!ra || !rb || ra.id === rb.id) continue;
+            if (linked(ra.id, rb.id)) continue;
+            if (!doorAllowedBetween(ra.type, rb.type)) {
+                console.log(`[D-TGL] §ROOM-ADJACENCY skipped ${ra.name}↔${rb.name} — not a permitted pair`);
+                continue;
+            }
+            link(ra.id, rb.id, 'door');
+            console.log(`[D-TGL] §ROOM-ADJACENCY added ${ra.name}↔${rb.name} (door)`);
+        }
+    }
 
     // §DIAG-BUBBLE — per-room sizing + total target vs available area (logging only;
     // no behaviour change). One line per room, then a totals line. minShortSideM is

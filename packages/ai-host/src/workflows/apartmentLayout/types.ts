@@ -199,6 +199,15 @@ export interface ApartmentProgram {
      *  Omitted / undefined / empty object ⇒ no move ⇒ the count-split is unchanged ⇒
      *  byte-identical baseline (ADR-0061 invariant I2). */
     roomFloorByName?: Partial<Record<string, number>>;
+    /** §ROOM-ADJACENCY (SPEC-DYNAMIC-PROGRAM-CANVAS §5.6, C52 E3, 2026-06-10): desired
+     *  room-to-room adjacencies the user drew as edges in the program-canvas graph
+     *  ("connect two rooms → they share a door"). Each `[nameA, nameB]` pair (the
+     *  deterministic minted display names) asks the bubble graph to add a `door`
+     *  edge between those rooms — but ONLY when the pair is PERMITTED
+     *  (`doorAllowedBetween`); a forbidden pair (e.g. bedroom↔bedroom) is ignored, so
+     *  the override can never breach the permission matrix. A pair already linked is a
+     *  no-op. Omitted / empty ⇒ no extra edge ⇒ byte-identical baseline (ADR-0061 I2). */
+    roomAdjacencyByName?: ReadonlyArray<readonly [string, string]>;
 }
 
 export interface ScoringWeights {
