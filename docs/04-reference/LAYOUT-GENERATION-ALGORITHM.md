@@ -15,7 +15,7 @@
 The engine is **NOT** a search/optimiser with randomness. It is a *fixed enumeration*:
 for a given shell + program it builds **exactly 8 candidate layouts** (a deterministic
 strategy set), runs each through a pure `P1→P9` pipeline, ranks them by **exact Pareto
-dominance** then a **weighted sum** of 20 objective axes, and returns the best `N`.
+dominance** then a **weighted sum** of 21 objective axes, and returns the best `N`.
 Same input ⇒ byte-identical output, every run (no `Math.random`, no time budget, no
 population evolution). "House" is the same single-plate engine wrapped in a storey loop
 that adds a stair core, per-storey level stamping, slab voids and a roof. The editor
@@ -62,14 +62,14 @@ input ⇒ byte-identical output: no `Math.random`, no time budget, no population
    (`subdivide.ts`/`squarify.ts`, P3) · dimensional shape/fit gate (`dimensions/*`) ·
    footprints→walls+doors (`wallsAndDoors.ts`, P4) · persistent `LayoutGraph`
    (`semanticGraph.ts`, P5) · topology gate (`topology/*`) · space-syntax depth
-   (`spaceSyntax.ts`, P6) · the **20-axis `ObjectiveVector`** (`objectives.ts`, P7).
+   (`spaceSyntax.ts`, P6) · the **21-axis `ObjectiveVector`** (`objectives.ts`, P7).
 
 4. **Gate → Pareto + weighted rank.** The **§TOPO-HARD-REJECT** top-level split prefers
    hard-valid candidates (no windowless habitable room / no land-locked room / no
    private-room-off-hall — §5.4.1); within that, a 5/7-tier gate keeps the cleanest pool
    (legal ∧ shaped ∧ routed → … → anything), then candidates are ranked by **exact Pareto
    dominance** (`assignParetoRanks`, `enumerate.ts:506`), tie-broken by a **weighted sum** of
-   the 20 axes driven by the 4 user sliders + the E.1 priority band (`weightedSum`, line 398).
+   the 21 axes driven by the 4 user sliders + the E.1 priority band (`weightedSum`, line 681).
    Final order is stable (`rank asc → weighted desc → strategy string`). The pool is never
    emptied — if all 8 strategies are hard-invalid, the least-bad ships with a loud warning.
 
@@ -151,14 +151,16 @@ occasional `§WJR-INVALID … self-cluster`). Both are documented with file:line
 | `tgl/semanticGraph.ts` | **P5.** Placements + walls + openings → persistent `LayoutGraph` (Spaces/Walls/Openings/Doors/Windows + typed edges + deterministic GUIDs). |
 | `tgl/edgeTypes.ts` | `classifyEdge` — semantic EdgeType (SOCIAL_FLOW / INTIMATE_ACCESS / BUFFER / …) per bubble edge. |
 | `tgl/spaceSyntax.ts` | **P6.** Space-syntax depth metrics from the entry (drives the `circulation`/`hierarchy` axes). |
-| `tgl/objectives.ts` | **P7.** The 20-axis `ObjectiveVector` + `computeObjectives`. |
+| `tgl/objectives.ts` | **P7.** The 21-axis `ObjectiveVector` (`OBJECTIVE_AXES`, `objectives.ts:309`) + `computeObjectives`. |
 | `tgl/envDrivers.ts` | E.1 priority bands + E.2 solar / E.3 acoustic / E.4 ventilation objective scorers. |
 | `tgl/emitGeometry.ts` | **P9.** `LayoutGraph` → `LayoutOption` (mm), incl. the per-room window emission call. |
 | `rules/programRules.ts` | **The normative room DB.** `ROOM_RULES`, `doorAllowedBetween`, `maxDoorsFor`, `isOpenPlanEligible`, `preferenceBetween`, `MIN_DOOR_WIDTH_BY_TYPE`/`§DOOR-MINIMUMS`. |
 | `dimensions/*` | Dimensional validators: `validateRoomShape`, `validateRoomFit`, `validateFrontage`, `validateApartmentEnvelope`, kitchen-triangle, corridor-width, daylight, hierarchy. |
 | `topology/*` | Topology validators: mandatory/forbidden adjacency, wet-cluster, acoustic-zoning, circulation sequence/connectivity. |
 | `windowEmission/emitWindows.ts` | Per-room window placement: multi-window distribution, `§WINDOW-CORNER-SETBACK`, door/junction avoidance, climate sizing. |
-| `windowEmission/shellWallMatch.ts` | Maps engine windows onto pre-existing shell walls; `cornerSetbackForWall`, de-overlap, full-span-or-drop guards. |
+| `windowEmission/shellWallMatch.ts` | Maps engine windows onto pre-existing shell walls; `cornerSetbackForWall`, de-overlap, `§WINDOW-MANDATORY-RESCUE`/`§WINDOW-DESIRED`, `§DIAG-WINDOW-RULE`, `§DIAG-PARTY-WALL` blind-façade suppression. |
+| `entranceDoor/entranceDoor.ts` | **House front door** (`§A.21.D29`). `resolveEntranceDoor` — pick the hall's exterior shell wall, centre + clamp a 1.0 m door clear of windows (`findClearDoorOffset`, `§ENTRANCE-DOOR-CLEAR`). |
+| `topology/validateNoRoomOverlap.ts` | `§ROOM-OVERLAP-HARD` detector — pairwise interior floor-area overlap (the 4th hard-gate rule). |
 | `windowEmission/solarOrientation.ts` | `equatorFacingDir`, `solarLengthMultiplier`, `climateGlazingFactor` — the sun bias. |
 | `executePlan.ts` | `buildLayoutPlan`/`buildLayoutCommands` — `LayoutOption` → dispatchable `wall.batch.create` + `wall.createOpening` + `door`/`window.batch.create`. `§COLLINEAR-MERGE`. |
 | `resolvers/defaultElementTypes.ts` | Per-room default door/window finish (`dt-*`/`wt-*`). |
@@ -220,7 +222,7 @@ ENGINE (L2, pure)
            P5 buildSemanticGraph        → LayoutGraph           [semanticGraph.ts]
            T3.3 topology gate                                   [topology/*]
            P6 computeSpaceSyntax        depth metrics           [spaceSyntax.ts]
-           P7 computeObjectives         20-axis vector          [objectives.ts + envDrivers.ts]
+           P7 computeObjectives         21-axis vector          [objectives.ts + envDrivers.ts]
          GATE  (5-tier: clean∧legal∧routed → … → anything)
          RANK  Pareto dominance, then weighted sum, stable tie-break
     └─ for each ranked candidate:
@@ -250,8 +252,8 @@ The single bridge between the editor and the pure engine is
    ranked `TglCandidate`s.
 4. For each candidate, projects the graph to a `LayoutOption` via
    `emitGeometry` (`runDeterministicLayout.ts:206`), rotates the emitted geometry back to
-   world (`rotateOptionBack`, line 52), scores it with `scoreLayout`, and pins the 20
-   objective axes onto `score.breakdown` for the modal (lines 235–256).
+   world (`rotateOptionBack`, line 52), scores it with `scoreLayout`, and pins the
+   objective axes onto `score.breakdown` for the modal (lines 257–277).
 
 **Entry points:**
 - AI panel leaf + console: `triggerApartmentLayout()`
@@ -309,7 +311,7 @@ but every emitted graph is in the canonical `{x,z}` frame.
 8. **Topology gate** (T3.3): mandatory/forbidden adjacency, wet-cluster, acoustic,
    sequence, frontage, corridor-connectivity → `topologyAdmissible` + soft
    `topologyQuality` (lines 327-377).
-9. `computeSpaceSyntax` (P6) + `computeObjectives` (P7) → the 20-axis vector.
+9. `computeSpaceSyntax` (P6) + `computeObjectives` (P7) → the 21-axis vector.
 
 It returns a `TglCandidate` carrying `objectives`, `weighted`, `compromises`,
 `connected`, `shapeAdmissible`, `topologyAdmissible`, `circulationRouted`,
@@ -321,7 +323,7 @@ It returns a `TglCandidate` carrying `objectives`, `weighted`, `compromises`,
   axis (EPS-tolerant, rounded to 1e-6) and `>` on at least one.
 - **Pareto ranks** (`assignParetoRanks`, line 506): repeatedly peel the non-dominated
   front (rank 0, then 1, …). No evolution — pure non-dominated sorting.
-- **Weighted sum** (`weightedSum`, line 398): maps the 4 user weights onto the 20 axes
+- **Weighted sum** (`weightedSum`, line 681): maps the 4 user weights onto the 21 axes
   (the rest carry fixed weights — `regularity 0.5`, `shapeQuality 0.6`,
   `topologyQuality 0.6`, etc.), applies the E.1 priority band multiplier
   (`priorityMultiplier`, lines 488), normalises, and sums. Used as the **secondary
@@ -329,8 +331,9 @@ It returns a `TglCandidate` carrying `objectives`, `weighted`, `compromises`,
 - Final sort (`enumerate.ts:616`): `rank asc → weighted desc → strategy string` (stable).
 - **§TOPO-HARD-REJECT** (Stage 5 — see §5.4.1): a **new top-level tier split** runs the whole
   tier fallback over the **hard-valid** candidates first (no windowless habitable room / no
-  land-locked room / no private-room-off-hall). Hard-invalid candidates rank **below** every
-  hard-valid one; the pool is never emptied (loud `§TOPO-HARD-REJECT-ALL` if all 8 fail).
+  land-locked room / no private-room-off-hall / **no room-overlap**). Hard-invalid candidates rank
+  **below** every hard-valid one; the pool is never emptied (loud `§TOPO-HARD-REJECT-ALL` if all 8
+  fail). The four-rule predicate is `{window, circulation, privacy, overlap}`.
 
 ### 2.4 `bestStoreyOptionIndex` / variant-0 invariant
 
@@ -470,6 +473,63 @@ The privacy matrix encodes the founder's hard rules directly, e.g. `hall.accessF
 social space and the corridor — never a bedroom/bathroom); `bathroom.accessFrom =
 ['corridor']` only (`§BATH-CORRIDOR-ONLY` — a bath-off-bedroom is an *ensuite*, a separate
 type); `ensuite.accessFrom = ['master']` only.
+
+#### 4.1.1 The full `RoomType` table — every room + its governing rule
+
+The `RoomType` union has **14 members** (incl. `stair`, house-only). `ROOM_RULES`
+(`programRules.ts:246`) is `Record<RoomType, RoomRule>`, so adding a member fails to compile until
+its rule is authored. Areas are UK Building-Regs / HQI minima (each carries its `DB-NNN` constraint
+id from SPEC-LAYOUT-CONSTRAINT-DATABASE). `area%` = the `§AREA-FRACTIONS` `min/max` share clamps;
+`win` = `windowMandatory`; `front` = frontage preference; `cap` = `maxDoors`.
+
+| type | privacy | front | win | areaWt | minM² / minShort | area% (min/max) | accessFrom | cap |
+|---|---|---|---|---|---|---|---|---|
+| `living` | public | required | ✓ | 1.7 | 14 / 3.2 m | 15% / 32% | hall, corridor, kitchen, dining | ∞ |
+| `kitchen` | public | required | ✓ | 0.95 | 6 / 1.8 m | 7% / 16% | corridor, living, dining, utility | ∞ |
+| `dining` | public | preferred | — | 0.9 | 9 / 2.4 m | — / 16% | corridor, living, kitchen | ∞ |
+| `hall` | circulation | **required** | — | 0.5 | 2.5 / 1.2 m | — | living, corridor | ∞ |
+| `corridor` | circulation | none | — | 0.85 | 0 / 1.0 m | — / 10% | hall, living, kitchen, dining, bedroom, master, bathroom, study, utility | ∞ |
+| `stair` *(house-only)* | circulation | none | — | 0.4 | 4.0 / 2.0 m | — | corridor, hall | 2 |
+| `master` | private | required | ✓ | 1.3 | 12 / 2.75 m | — / 20% | corridor, living, dining, ensuite | 2 |
+| `bedroom` | private | required | ✓ | 1.0 | 11.5 / 2.6 m | — / 16% | corridor, living, dining | **1** |
+| `study` | private | preferred | — | 0.85 | 5 / 2.0 m | — | corridor, living | 1 |
+| `bathroom` | private | preferred | — | 0.45 | 5 / 1.8 m | 5% / — | corridor | 1 |
+| `ensuite` | private | preferred | — | 0.4 | 3.5 / 1.5 m | — | master | 1 |
+| `wc` | private | preferred | — | 0.25 | 1.2 / 0.9 m | — | corridor, hall | 1 |
+| `utility` | service | none | — | 0.4 | 3.5 / 1.5 m | — | corridor, kitchen | 1 |
+
+Notes the table can't show: the `corridor` carries the `§CORRIDOR-PHYSIOGNOMY` band
+(`maxShortSideM 1.2`, `minLongSideM 2.0`, `maxLongSideM 6.0` — but the long axis is NEVER trimmed
+below the served-room span, the `§EVERY-ROOM-ACCESS` invariant); `living`/`kitchen`/`dining` carry
+the `§SOCIAL-CAVERN-CAP` `maxAreaFrac` ceiling; the wet rooms were all promoted `frontage 'none' →
+'preferred'` (A.21.D55, "daylight in every room") so an interior bath is a SOFT penalty, never a
+hard reject. `bedroom.maxDoors = 1` and `bedroom.accessFrom` excluding `bedroom` is what enforces
+"no bedroom reachable only through another bedroom".
+
+A representative entry (the `bedroom` rule — `programRules.ts:494`):
+
+```ts
+bedroom: {
+    type: 'bedroom', occupancy: 'bedroom', privacy: 'private',
+    acousticRole: 'receiver', frontage: 'required',
+    // DB-026 double bedroom 11.5 m² (Building Regs); DB-028 min clear width 2.6 m.
+    areaWeight: 1.0, minAreaM2: 11.5, minShortSideM: 2.6, needsWindow: true, windowMandatory: true,
+    maxAreaFrac: 0.16,                          // §AREA-FRACTIONS — ≤16% each (spec ceiling)
+    accessFrom: ['corridor', 'living', 'dining'], maxDoors: 1,   // never another bedroom / the hall
+    adjacencyPreference: { corridor: 1.0, living: 0.4, dining: 0.3 },
+    requiredFurniture: ['bed', 'bedside_table', 'wardrobe', 'lamp'],
+    optionalFurniture: ['curtain_rod', 'curtain_panel'], requiredFixtures: [],
+    furnitureSpec: [ /* door-vector-aware: bed opposite the door on a solid wall, … */ ],
+    description: 'Bedroom. Exactly one door, onto a corridor / living / dining. …',
+},
+```
+
+**Key predicates** beyond `doorAllowedBetween` / `maxDoorsFor` / `isOpenPlanEligible`:
+`windowMandatoryFor(type)` (`programRules.ts:681`) — the LEGAL hard-window set
+(living/kitchen/master/bedroom) that drives the §TOPO-HARD-REJECT `W` rule; `windowDesiredFor(type)`
+(`:702`) — the WIDER "every room wants a window" set (adds dining/study + the wet rooms) that drives
+the §WINDOW-MANDATORY-RESCUE protection and `§DIAG-WINDOW-RULE`; `isPrivate(type)` (`:708`) — drives
+the privacy `P` rule.
 
 ### 4.2 `bubbleGraph.ts` — program → bubble graph + area allocation
 
@@ -616,11 +676,12 @@ The four-flag `clean`/`legal`/`routed` tiering (§2.3) is **too permissive** on 
 elongated/rotated plate: when every candidate fails the shape gate, the fallback could ship a
 `circRouted=false` / `topologyQuality=0.00` layout (the founder's console audit — merged-name
 rooms + windowless bedrooms). The **§TOPO-HARD-REJECT** gate adds a **new top-level tier split**
-above the existing tiers: a candidate is **hard-invalid** if it violates ANY of three
+above the existing tiers: a candidate is **hard-invalid** if it violates ANY of **four**
 architectural rules, and hard-invalid candidates rank **below every hard-valid one** so the
-ranker prefers a better one of the 8 strategies.
+ranker prefers a better one of the 8 strategies. (Originally three rules; `O` overlap was added
+2026-06-10 — see the gate code in §6 below.)
 
-The three rules (each REUSES a signal already computed in `buildCandidate` — no new geometry
+The four rules (each REUSES a signal already computed in `buildCandidate` — no new geometry
 pass; predicate in `enumerate.ts:evaluateHardTopology`, internal/pure, ADR-0061):
 
 1. **W (window)** — a `windowMandatory` room (bedroom/master/living/kitchen/dining per
@@ -631,8 +692,12 @@ pass; predicate in `enumerate.ts:evaluateHardTopology`, internal/pure, ADR-0061)
 2. **C (circulation)** — any room has NO door onto circulation. Reuses the
    `unroutedToCirculationRoomIds` / §SEALED-ROOMS signal (`circulationRouted === false`).
 3. **P (privacy)** — a **private room opens DIRECTLY off the entrance hall** (a privacy breach;
-   `hall.accessFrom` lists only `living`/`corridor`). NEW (trivial) computation: scan the
-   realised door set for a `hall`↔private pair.
+   `hall.accessFrom` lists only `living`/`corridor`). Scans the realised door set for a
+   `hall`↔private pair.
+4. **O (overlap)** — `§ROOM-OVERLAP-HARD` (2026-06-10): two rooms claim the SAME interior floor
+   (`Area(R_i ∩ R_j) > ε`). Rooms may touch along shared walls only; an interior overlap is
+   invalid. Reuses `validateNoRoomOverlap(...).ok === false` (already computed for the
+   `§DIAG-ROOM-OVERLAP` line). Makes a non-overlapping strategy rank above an overlapping one.
 
 **Safe floor (CRITICAL — "prefer hard-valid, never crash"):** the existing 5/7-tier fallback is
 factored into `selectTier(cands)` and run over the **hard-valid subset first**; only when EVERY
@@ -642,6 +707,46 @@ names the failing rule(s). The pool is **NEVER emptied**. Byte-identical when at
 is hard-valid (the common case) — so no passing test regresses. Per-candidate decision logged as
 `§DIAG-TOPO-GATE strategy=<s> hardValid=<bool> failed=[<rules>]`; the winner carries `hardValid` +
 `hardFailedRules` on the `TglCandidate` and in `§DIAG-WINNER`.
+
+**4th rule — `O` (overlap), 2026-06-10.** `§ROOM-OVERLAP-HARD` adds a fourth hard rule: two rooms'
+interior floor areas overlap (`Area(R_i ∩ R_j) > ε`). The `hardFailedRules` type is therefore
+`('window' | 'circulation' | 'privacy' | 'overlap')[]`. The pure predicate REUSES already-computed
+signals — no new geometry pass (`enumerate.ts:205-261`):
+
+```ts
+// enumerate.ts:216-258 (abridged) — the 4-rule hard topology predicate (internal, pure, ADR-0061)
+const failed: ('window'|'circulation'|'privacy'|'overlap')[] = [];
+// W — a windowMandatory room with no perimeter frontage (reuses validateFrontage hard findings)
+if (frontageHardRoomIds.some(id => windowMandatoryFor(typeById.get(id) ?? ''))) failed.push('window');
+// C — any room land-locked from circulation (== !circulationRouted)
+if (unroutedToCirculationRoomIds.length > 0) failed.push('circulation');
+// P — a private room opens DIRECTLY off the entrance hall (read the realised door set)
+for (const o of doorOpenings) { /* … a hall↔private door → */ failed.push('privacy'); break; }
+// O — §ROOM-OVERLAP-HARD: any pairwise interior floor overlap
+if (hasRoomOverlap) failed.push('overlap');
+```
+
+**The ranking** (`enumerate.ts:908-974`): the existing clean→legal→routed fallback is factored into
+`selectTier(cands)` and run over the **hard-valid subset first**; only if every strategy is
+hard-invalid does it run over all candidates (with the loud `§TOPO-HARD-REJECT-ALL`). Then within the
+tier, prefer fewest dropped rooms, then Pareto-rank, then weighted-sum, stable tie-break:
+
+```ts
+// enumerate.ts:941-974 (abridged) — hard-split → tier → fewest-drops → Pareto → weighted → stable
+const hardValidCands = candidates.filter(c => c.hardValid);
+const allHardInvalid = hardValidCands.length === 0;
+let pool = selectTier(allHardInvalid ? candidates : hardValidCands);   // never emptied
+// … §FEASIBILITY-ALLOC: narrow to the fewest-dropped-rooms subset (never empties) …
+const ranked = assignParetoRanks(pool).sort((a, b) =>
+    a.rank - b.rank ||                 // 1° exact Pareto front (assignParetoRanks, :799)
+    b.weighted - a.weighted ||         // 2° weighted-sum tie-break (weightedSum, :681)
+    (a.strategy < b.strategy ? -1 : a.strategy > b.strategy ? 1 : 0));  // 3° stable strategy string
+return ranked.slice(0, Math.max(1, input.count));
+```
+
+`dominates` (`enumerate.ts:788`) is EPS-tolerant (rounded to 1e-6): `a` dominates `b` iff `a ≥ b` on
+**every** one of the 21 axes and `>` on at least one. `assignParetoRanks` (`:799`) peels non-dominated
+fronts (rank 0, 1, …) — pure non-dominated sorting, **no evolution**.
 
 **Both apartment + house use this gate** (one engine). Verified on a 45°-rotated 2-storey house
 (`__tests__/houseLayoutInvariants.test.ts`): stair corner-not-central (I1), no merged-name rooms
@@ -1190,9 +1295,227 @@ Intelligence layer + the geospatial PG0 plan), not a live input to the generator
 
 ---
 
+## 9.5 THE DIAGNOSTIC SUITE — `§DIAG-*` (the founder's debugging surface)
+
+> This is the single most useful section for triaging a live generation. Every stage of the
+> engine emits an **always-on** `[D-TGL]` / `[apartment-layout]` / `[floor §DIAG]` /
+> `[WallJoinResolver]` console line tagged `§DIAG-…`. They are **logging-only** (no behaviour
+> change, ADR-0061-safe) and were added deliberately so a single console paste from a prod run
+> tells you *exactly* which strategy shipped, where it compromised, and which invariant broke.
+> Read them top-to-bottom: they fire in pipeline order (program → bubble → subdivide → walls →
+> doors → topology gate → winner → windows → executor → room detection → floors).
+
+### 9.5.1 How to read a run
+
+A clean apartment run emits, per generation: one `§DIAG-PROGRAM-FIT`, one `§DIAG-BUBBLE`, then —
+**for each of the 8 strategies** — a block of `§DIAG-RECTS` / `§DIAG-BRANCH` / `§DIAG-DOORS` /
+`§DIAG-ADJACENCY` / `§DIAG-DOOR-RULE` / `§DIAG-ROOM-OVERLAP` / `§DIAG-HALL-PERIMETER` /
+`§DIAG-TOPO-GATE` / `§DIAG-ENUM`, and finally **one** `§DIAG-WINNER` (+ its objectives line). The
+window pass then emits `§DIAG-WIN*` / `§DIAG-WINDOW-RULE` / `§DIAG-WINDOW-OVERLAP` /
+`§DIAG-PARTY-WALL`, the entrance pass `§DIAG-ENTRANCE`, the house path `§DIAG-STAIR*` /
+`§DIAG-ALLOC` / `§DIAG-ENRICH` / `§DIAG-LEVELS`, and finally the executor's floor pass emits
+`[floor §DIAG]` / `§DIAG-FLOOR-INSET`. The two lines that matter most:
+- **`§DIAG-WINNER`** — *which* strategy shipped, its tier, `hardValid`, every objective axis, and
+  the rooms it dropped. If the shipped plan looks wrong, start here.
+- **`§DIAG-TOPO-GATE`** (one per strategy) + the `§TOPO-HARD-REJECT-ALL` warning — *why* a bad
+  plan was the best available (which of window/circulation/privacy/overlap every strategy failed).
+
+### 9.5.2 The full `§DIAG-*` table
+
+| Tag | Where (file) | What it logs / how to read it |
+|---|---|---|
+| `§DIAG-PROGRAM-FIT` | `tgl/bubbleGraph.ts:458,468` | The scaled program vs the shell: requested vs scaled bedroom/bath count, the §3.1 envelope band, and the fill verdict. The first place an over-/under-capacity shell shows up (drives §ENVELOPE-FIT-GROWTH). |
+| `§DIAG-BUBBLE` | `tgl/bubbleGraph.ts:437,445,452` | The minted rooms + their target areas + the bubble edges (the "diagram"). Confirms the room SET (hall? corridor? ensuite?) and the `§AREA-FRACTIONS` clamped targets. |
+| `§DIAG-RECTS` | `tgl/subdivide.ts:1429`, `houseOrchestrator.ts:720` | The buildable rect set after decomposition (+ stair carve): count + areas. A single big rect ⇒ `§RECTIFY-QUAD` fired; 2–4 rects ⇒ a stair fractured the plate. |
+| `§DIAG-BRANCH` | `tgl/subdivide.ts:1430,1438,1457` | Which subdivision path ran: `path=carve` (the §STAIR-OBSTACLE-CARVE corridor carve on the dominant rect) vs `path=generic` (independent multi-rect pack) + the `dominantFrac`. On a house, this is the tell for whether the corridor spine survived the stair. |
+| `§DIAG-DOORS` | `tgl/wallsAndDoors.ts:888,895,1170,1180` | Per-strategy door pipeline: how many doors each pass placed (bubble / permitted / over-cap / reroute / multi-hop) and which rooms ended sealed. |
+| `§DIAG-ADJACENCY` | `tgl/wallsAndDoors.ts:1184,1214` | Realised room↔room adjacencies vs the bubble's required set — a missing mandatory adjacency (e.g. master↔ensuite) surfaces here. |
+| `§DIAG-DOOR-RULE` | `tgl/wallsAndDoors.ts:1184,1190,1217` | Per-door legality: each door's pair + whether it is a PERMITTED pair (`doorAllowedBetween`) and within the privacy cap (`maxDoorsFor`). A forbidden/over-cap door is flagged (counts as a `compromise`). |
+| `§DIAG-ROOM-OVERLAP` | `tgl/enumerate.ts:549,555`; detector `topology/validateNoRoomOverlap.ts` | **§ROOM-OVERLAP-HARD.** Per-strategy `pairsChecked` + the count of interior floor-area overlaps + each overlapping pair (names + m²). A non-zero count makes the strategy `hardValid=false`. |
+| `§DIAG-HALL-PERIMETER` | `tgl/enumerate.ts:587,603` | Founder rule #2 (ADR-0063): does every entrance `hall` abut a perimeter wall (where the front door lands)? `✓` all halls on perimeter / `⚠` at least one interior. |
+| `§DIAG-TOPO-GATE` | `tgl/enumerate.ts:648,650` | **The hard gate decision, one line per strategy:** `strategy=<s> hardValid=<bool> failed=[window,circulation,privacy,overlap]`. The single most important triage line — it names exactly which architectural rule each candidate broke. |
+| `§DIAG-ENUM` | `tgl/enumerate.ts:654,663` | The terse per-candidate scoreboard: weighted score, `connected`/`shapeOK`/`topoOK`/`circRouted`/`compromises`, dropped rooms, frontage-fail room ids, and the key objective values (`eff`/`adj`/`daylight`/`circ`/`daylightReach`). |
+| `§DIAG-WINNER` | `tgl/enumerate.ts:984,1005,1012` | **The chosen layout:** winning strategy, tier (`clean+legal+routed` … `any`), `hardValid` + `hardFailed`, Pareto `rank`, `weighted`, all flags, dropped rooms — plus a second line with EVERY objective axis. Paste this to see what shipped and where it compromised. |
+| `§DIAG-LEVELS` | `tgl/enumerate.ts:417` | The per-level wall accounting (interior seal walls vs EXTERNAL/perimeter walls) — the founder's "ground-only EXTRA 4" stair-clamp regression was caught here (`§STAIR-SHELL-CLAMP`). |
+| `§DIAG-WIN` | `windowEmission/emitWindows.ts:366…479` | Per-room window EMISSION: which external walls qualified, the solar-biased ranking, the count emitted per wall, and door/junction blocking. |
+| `§DIAG-WIN-DIST` | `windowEmission/shellWallMatch.ts:711,729` | Window distribution along a shell wall (even-spacing offsets, corner-setback respected). |
+| `§DIAG-WIN-UNMATCHED` | `windowEmission/shellWallMatch.ts:284,607…` | A window that could NOT host on any shell wall + the *reason tally* (`noShellMatch`/`cornerFitDrop`/`tooShort`). The first place a "missing window" shows up. |
+| `§DIAG-WINDOW-OVERLAP` | `windowEmission/shellWallMatch.ts:498,636,733…` | Per shell-wall received-vs-dropped window counts from the §WINDOW-DEOVERLAP pass (two rooms fronting the same wall → the lower-priority one dropped before `wall.createOpening` can silently reject it). |
+| `§DIAG-WINDOW-RULE` | `windowEmission/shellWallMatch.ts:583…847`, `emitGeometry.ts:246`, `executePlan.ts:697`, `types.ts:99` | **Founder rule #1 (2026-06-10): every room that FRONTS a perimeter wall must keep ≥1 window** (except a blind party-wall). Flags any perimeter-touching room that ends windowless as `⚠`, even when all its candidates were dropped upstream. |
+| `§DIAG-PARTY-WALL` | `windowEmission/shellWallMatch.ts:575…771`, `executePlan.ts:80,694`, `entranceDoor.ts:209…233` | **PW.1 blind-façade suppression:** a window/door that resolved onto a *blind* shell wall (one abutting a neighbour within the setback) is deliberately suppressed (no glazing on a party wall), tallied separately from `unmatched`. |
+| `§DIAG-ENTRANCE` | `entranceDoor/entranceDoor.ts:243…299` | The resolved main entrance (house path, A.21.D29): which hall + which shell wall + the clamped offset/width, or the degrade-to-nearest fallback. |
+| `§DIAG-ALLOC` | `houseLayout/storeyAllocation.ts:50…61` | How the whole-house brief split across storeys (ground guest bed + WC; upper bedrooms/baths). |
+| `§DIAG-FLOOR-OVERRIDE` | `houseLayout/storeyAllocation.ts:322,344` | Per-storey program overrides (`roomAreas`/floor-count) applied. |
+| `§DIAG-ENRICH` | `houseLayout/houseProgramFloor.ts:53…219` | The §HOUSE-PLATE-PROGRAM-FLOOR enricher raising a sparse storey program to fill the plate (the "165 m² Room" cure): rooms added + the band fill. |
+| `§DIAG-STAIR` / `§DIAG-STAIR-RESERVE` / `§DIAG-STAIR-CONTAIN-UPSTREAM` / `§DIAG-STAIR-RULE` | `houseLayout/stairPosition.ts:596…`, `houseOrchestrator.ts:402…609`, `stairContainment.ts:4` | The stair lifecycle: **`§DIAG-STAIR-RESERVE`** logs `kind=corner|central` (the corner-vs-central tell — see §8.2.1); **`§DIAG-STAIR-CONTAIN-UPSTREAM`** logs the upstream world-offset solve (`§STAIR-CONTAIN-UPSTREAM`); **`§DIAG-STAIR`** logs `centreInShell`/`cornersInShell=n/4`. |
+| `§DIAG-STOREY` / `§DIAG-RECTS` (house) | `houseOrchestrator.ts:716,720,723` | Per-storey enumerate accounting (program, usable area, rect set). |
+| `§DIAG-SEAL` | (measured in `__tests__/weldResolverRoomDetectionChain.test.ts`, `stairFractureSeam.test.ts`) | The end-to-end room-merge measurement: how many rooms RoomDetection actually closed vs the engine's count. The acceptance signal for the §FRACTURE-SEAL / §RECTIFY-SHELL-PROJECT / weld chain. |
+| `§DIAG-WALL-JOIN` | `geometry-wall/WallJoinResolver.ts:367…1733` | Always-on wall-junction rule compliance: each cluster's kind (corner / T / multi-cluster pass-through), trims, and the §PARTITION-SHELL-INNER-FACE clamp decisions. |
+| `§DIAG-FLOOR-INSET` | `room-topology/RoomPolygonUtils.ts:268…372`, `command-registry/.../CreateFloorsByRoomTypeCommand.ts:293` | **§FLOOR-INNER-FACE.** The per-room floor inset (centreline → inner face): miter-clamp fires (near-parallel/runaway corners → bevel fall-back), winding-inversion / larger-than-source / near-zero-area fall-backs. The cure for floors overlapping under partitions + the "floor spike" defect. |
+| `[floor §DIAG]` (boundary/door-gap line) | `CreateFloorsByRoomTypeCommand.ts:160…295` | Per floored room: boundary source (`inner-face ✓` / `centreline ⚠`), the inset applied, and how many door-gap thresholds the floor met a neighbour at. |
+
+### 9.5.3 The user-relayable warnings (not just logs)
+
+Three `§…` lines are emitted as `console.warn` precisely so the trigger/modal can relay them to the
+user as a toast — they describe a genuine architectural compromise the shell + program forced, never
+a crash:
+
+- **`§TOPO-HARD-REJECT-ALL`** (`enumerate.ts:951`) — *all 8 strategies are hard-invalid*; names the
+  union of failing rules and ships the least-bad (the pool is never emptied).
+- **`§CIRCULATION-REROUTE`** (`enumerate.ts:1016`) — the best plan still has a land-locked room (no
+  legal corridor/hall-adjacent wall to re-route it onto).
+- **`§ROOM-OVERLAP-HARD`** (`enumerate.ts:1038`) — even the winner overlaps (a genuinely
+  over-capacity shell); emits the founder's "Room Overlap Detected" message naming the actual rooms.
+- **`§FEASIBILITY-ALLOC`** (`enumerate.ts:1055`) — the winner dropped N requested rooms ("you asked
+  for N bedrooms, M fit"); never a silent loss.
+
+---
+
+## 9.6 RECENTLY-SHIPPED MECHANISMS (this session — 2026-06-09/10)
+
+> These eight mechanisms shipped in the current session and are the most likely to be unfamiliar.
+> Each is gated so the apartment / rectilinear-plate path stays byte-identical (ADR-0061).
+
+### 9.6.1 `stair` is now a first-class room type — `§STAIR-ROOM-TYPE`
+
+`programRules.ts:433` adds a full `ROOM_RULES.stair` entry (ADR-0063, founder rule #1). On the
+house path, after the stair keep-out is carved out of the buildable plate, `buildCandidate`
+**mints a named `stair` ProgramRoom + placement at the (clamped, inflated) keep-out rect**
+(`enumerate.ts:385-460`) so (a) the modal draws a "Stair" cell EQUAL to the executed stair body, and
+(b) no habitable room can tile into the stair footprint. The stair is `privacy:'circulation'`,
+`frontage:'none'`, `needsWindow:false`, `accessFrom:['corridor','hall']`, `maxDoors:2` — so the
+reconcile pass connects it to the landing/corridor over a shared wall and `isOpenPlanEligible('stair')`
+is false by construction (no room ever merges into it). **The apartment never passes a keep-out**, so
+the block is skipped and the apartment is byte-identical.
+
+```ts
+// programRules.ts:433-452 — the stair room rule (house-only; apartment never mints one)
+stair: {
+    type: 'stair', occupancy: 'stair', privacy: 'circulation',
+    acousticRole: 'neutral', frontage: 'none',
+    areaWeight: 0.4, minAreaM2: 4.0, minShortSideM: 2.0, needsWindow: false, windowMandatory: false,
+    accessFrom: ['corridor', 'hall'], maxDoors: 2,
+    adjacencyPreference: { corridor: 1.0, hall: 1.0 },
+    requiredFurniture: [], optionalFurniture: [], requiredFixtures: [],
+    furnitureSpec: [],   // vertical circulation — the stair geometry IS its content.
+    description: 'Vertical-circulation core (stair). … House-only — the apartment has no stair.',
+},
+```
+
+`§STAIR-SHELL-CLAMP` (`enumerate.ts:410-431`): the keep-out is INFLATED by `KEEPOUT_MARGIN_M` so the
+stair cell is flush with the cleared rooms — but the inflation is **clamped back into the shell bbox**
+so a façade-abutting ground stair never pushes a stair edge 0.05 m outside the shell (the founder's
+"purple wall beyond the façade" + the ground-only "EXTRA 4" seal walls in `§DIAG-LEVELS`). On an
+interior keep-out the clamp is a no-op → byte-identical.
+
+### 9.6.2 Over-capacity shell growth — `§ENVELOPE-FIT-GROWTH`
+
+`bubbleGraph.ts:160-186` (`scaleProgramToShell`, founder bug #1). The #1 recurring residential defect:
+an OVER-CAPACITY shell (much larger than the program's max area) inflated a fixed small program to fill
+the plate → rooms collide/merge + every strategy `§TOPO-HARD-REJECT`s. Root cause: the 130 m²/bed
+density is far sparser than the §3.1 envelope (~37-55 m²/bed), so a 206 m² shell rounded to only
+2 bedrooms — yet the 2-bed envelope hard-maxes at 120 m². The cure grows the count one bedroom at a
+time until the shell fits inside that count's envelope band:
+
+```ts
+// bubbleGraph.ts:179-186 — grow the bedroom count to FIT the §3.1 envelope (apartment 'single' role only)
+if (plateRole === 'single' && envelopeFitGrowth) {
+    while (
+        targetBedrooms < maxBedrooms &&
+        shellAreaM2 > apartmentDimensionsFor(targetBedrooms).grossMax + 1e-6
+    ) {
+        targetBedrooms += 1;
+    }
+}
+```
+
+This grows MORE rooms of NORMAL size rather than fewer ballooned ones, and **aligns
+`scaleProgramToShell` with the §D3.5 envelope gate** (`enumerate.ts:845-850` now validates the SCALED
+count, so the gate no longer hard-rejects the very shell it could grow into). The 130-rule result is
+the FLOOR (`Math.max` never lowers it) → an in-band/small shell is byte-identical. The **house passes
+`envelopeFitGrowth=false`** (`enumerate.ts:326`) — a house storey already sized its bedroom count via
+its own `'ground'/'upper'` density (`PlateRole`, `bubbleGraph.ts:119-194`: 45 m²/bed vs the
+apartment's 130), so re-growing it to the apartment envelope would re-inflate the sub-programme.
+
+### 9.6.3 Hard room-overlap rule — `§ROOM-OVERLAP-HARD`
+
+`validateNoRoomOverlap.ts` + the `O` rule in `evaluateHardTopology` (`enumerate.ts:252-258`). Two
+rooms may share walls/edges/corners (zero-area intersection) but NEVER interior floor. The squarified
+tiling is exact, but the subdivider's post-passes (`snapAxisLines` / comb carve / window snap) move
+rects independently, so an overlap can appear on a tight shell. Detecting `Area(R_i ∩ R_j) > ε` makes
+the candidate `hardValid=false`, so a non-overlapping strategy ranks above it; only when ALL 8 overlap
+(a genuinely over-capacity shell) does the winner overlap and emit the user-facing
+`§ROOM-OVERLAP-HARD` warning naming the actual rooms.
+
+### 9.6.4 Fracture-seal external classification — `§FRACTURE-SEAL`
+
+`wallsAndDoors.ts:35-43, 222-230, 711-719`. A one-sided wall (`boundsRoomIds.length === 1`) is normally
+EXTERIOR (skipped by the executor's pre-drawn shell). But on a STAIR-CARVED plate the dominant rect's
+boundary that borders the EMPTY stair keep-out fragment is ALSO one-sided — yet it is an INTERIOR
+sealing wall. Classifying it as exterior makes `skipExteriorWalls` drop it → the rooms abutting the
+fracture edge leak → RoomDetection floods → one merged room. The fix passes the real shell polygon and
+tests a one-sided wall's BODY against the ring:
+
+```ts
+// wallsAndDoors.ts:717-719 — classify a one-sided wall against the REAL shell ring (house path)
+const isExternal = bounds.length === 1 && shellPoly
+    ? segmentOnPerimeter(a, b, shellPoly)   // sample both ends + midpoint, ALL within tol of the ring
+    : undefined;
+```
+
+A wall bordering an empty stair fragment lies metres inside the ring → `false` → built as an interior
+seal. **The apartment / AI path leaves `shellPolygon` undefined → the legacy `length===1` heuristic →
+byte-identical.**
+
+### 9.6.5 Partition→shell inner-face join — `§PARTITION-SHELL-INNER-FACE`
+
+`geometry-wall/WallJoinResolver.ts:205-223, 228-356` (founder invariant, 2026-06-10). A FINAL clamp
+after the pairwise corner/T resolution: a partition endpoint that terminates ON a shell (perimeter /
+through) wall must butt the shell's **INNER (room-side) face** — never the centreline, never through to
+the outer face. Two routes can leave a partition end on the shell centreline, whose square-capped body
+then crosses the shell and pokes out the façade (the founder's "partition stubs through the wall").
+`_clampPartitionEndsToShellInnerFace` clamps it back to the inner face; it **refuses** the clamp if it
+would collapse/invert the wall (logging `§PARTITION-SHELL-INNER-FACE REFUSED`), and the HOST (shell) is
+never moved (§SHELL-ANCHOR-PRESERVE).
+
+### 9.6.6 Floor inner-face inset — `§FLOOR-INNER-FACE`
+
+`command-registry/.../CreateFloorsByRoomTypeCommand.ts:110-295` + the pure
+`insetPolygonToInnerFaces` (`room-topology/RoomPolygonUtils.ts`). The room boundary runs along wall
+CENTRELINES, so building the floor on it spans to the wall centre and OVERLAPS the neighbour's floor
+under the partition. The fix insets each edge inward by the bounding wall's `thickness/2` — but keeps
+the inset at **0 across a door span** so the two rooms' floors meet at the threshold. The pure inset
+miters the offset edges with a robust fall-back ladder (`§DIAG-FLOOR-INSET`): near-parallel/runaway
+corners bevel instead of spiking; winding-inversion / larger-than-source / near-zero-area all fall back
+to the centreline polygon so a floor is **always** produced.
+
+### 9.6.7 The entrance door — `entranceDoor.ts` (`§A.21.D29` / `§ENTRANCE-DOOR-CLEAR`)
+
+The apartment relies on a HAND-PLACED front door (the user draws it before generating; its opening span
+is threaded as a `doorSpan` so partitions avoid it). A generated house has none, so
+`resolveEntranceDoor` (`entranceDoor/entranceDoor.ts`) **purely + deterministically** picks the
+ground-floor `hall`, finds the EXTERIOR shell wall bounding it, and computes a centred, clamped door
+(`ENTRANCE_DOOR_WIDTH_M = 1.0`, clamped down to fit a short wall, `END_CLEAR_M = 0.15` corner
+clearance). `findClearDoorOffset` (`:52`) keeps the door clear of any already-placed shell window
+(`OPENING_GAP_M = 0.1`, `§ENTRANCE-DOOR-CLEAR / G4`) so it never collides with a window and gets
+skipped. The executor dispatches it exactly like a shell-hosted window (`wall.createOpening type 'door'`
++ `door.batch.create` on the existing shell id).
+
+### 9.6.8 Single-hall + landing-not-hall — `§HALL-SINGLETON` / `§LANDING-NOT-HALL`
+
+The entrance `hall` ("Entrance Hall") is minted **once**, purely from `program.entranceHall === true`
+(`bubbleGraph.ts` mint order). Per `§LANDING-NOT-HALL` (G14, `storeyAllocation.ts` /
+`houseProgramFloor.ts`) **only the ground (entrance) storey** of a house carries that flag, so an upper
+floor never mints a hall — its stair arrival is the `corridor`, relabelled "Landing" by
+`HouseLayoutExecutor`. There is no `landing` RoomType; a landing IS a `corridor`-typed room. This is why
+a house has exactly one entrance hall (ground only) and N landings (one per upper storey), and why
+`hall.frontage = 'required'` (the front door lands on the shell, in the hall — `§DIAG-HALL-PERIMETER`).
+
+---
+
 ## 10. OBJECTIVES + RANKING
 
-### 10.1 `objectives.ts` — the 20-axis `ObjectiveVector`
+### 10.1 `objectives.ts` — the 21-axis `ObjectiveVector`
 
 `computeObjectives` (`objectives.ts:317`) produces every axis raw (un-weighted) in `[0,1]`:
 
@@ -1212,8 +1535,9 @@ Intelligence layer + the geospatial PG0 plan), not a live input to the generator
 | `wetStackAlignment` / `alignmentField` | plumbing-axis + plan-wide axis discipline |
 | `facadeAlignment` | habitable rooms on high-value shell edges (`facadeValueField`) |
 | `solarOrientation` / `acousticZoning` / `naturalVentilation` | E.2/E.3/E.4 env drivers (`envDrivers.ts`) |
+| `daylightReach` | **(A.21.D55, the 21st axis)** fraction of the WIDER *windowable* set (habitable **+** wet — `WINDOWABLE_TYPES`, `objectives.ts:315`) that touches the façade. A per-ROOM count, where `daylight` is the AREA-weighted habitable-only axis — so this term specifically rewards a tiling that fronts the bathroom/wc too ("a window in every room"). Neutral 1.0 when there are no windowable rooms / no external walls. |
 
-`OBJECTIVE_AXES` (line 287) lists all 20 in fixed order. Many axes return a **neutral 1.0**
+`OBJECTIVE_AXES` (`objectives.ts:309`) lists all 21 in fixed order. Many axes return a **neutral 1.0**
 when their driver is absent (no site latitude, no acoustic tension, no window data) — a
 constant across candidates is rank-invisible, so absent data leaves the order byte-identical.
 
@@ -1226,7 +1550,7 @@ variant for `entrySightline` when every space carries a polygon.
 ### 10.3 Weights — `score.ts` + `ScoringWeights` + the A.25 sliders
 
 - `weightedSum` (`enumerate.ts:398`) maps the 4 user weights — `corridorEfficiency`,
-  `kitchenWorkflow`, `naturalLight`, `privacy` — onto the 20 axes (e.g. `daylight ←
+  `kitchenWorkflow`, `naturalLight`, `privacy` — onto the 21 axes (e.g. `daylight ←
   naturalLight`, `circulation ← privacy`, `adjacency ← kitchenWorkflow`), with the quality
   axes at fixed weights, then applies the **E.1 priority band** (`priorityMultiplier`,
   `envDrivers.ts:158`: site-fixed 1.30 > env-performance 1.10 > technical 1.00 >
@@ -1316,6 +1640,20 @@ raise a superseding ADR.
 | `§GROUND-ENGINE-PERIMETER` / `§UPPER-SHELL-WELD` | `HouseLayoutExecutor.ts:434-553` | Close the ground like the upper storeys; ENGINE-PERIMETER path vs the load-bearing WELD-FALLBACK path. |
 | `§MULTI-CLUSTER` / `§PASS-THROUGH-FLUSH` / `§WJR-INVALID` | `WallJoinResolver.ts:179-622` | 3+-endpoint junction resolution; collinear pass-through caps; durable degenerate (self-cluster) flag. |
 | `§COLLINEAR-MERGE` | `executePlan.ts:184` | Fold collinear segments at T/X junctions into passthrough walls. |
+| `§STAIR-ROOM-TYPE` | `programRules.ts:433`, `enumerate.ts:385-460` | Mint a named `stair` room at the keep-out (house-only) so the modal shows a Stair cell + no room tiles into it. |
+| `§STAIR-SHELL-CLAMP` | `enumerate.ts:410-431` | Clamp the inflated stair keep-out back into the shell bbox so a façade-abutting stair never pokes a wall stub past the shell. |
+| `§ENVELOPE-FIT-GROWTH` | `bubbleGraph.ts:160-186`; gate `enumerate.ts:845-850` | Grow the apartment bedroom count to FIT the §3.1 envelope on an over-capacity shell (more normal rooms, not one ballooned). House passes `false`. |
+| `§ROOM-OVERLAP-HARD` | `topology/validateNoRoomOverlap.ts`, `enumerate.ts:252-258` | 4th hard-gate rule: any pairwise interior floor-area overlap makes a strategy hard-invalid. |
+| `§FRACTURE-SEAL` | `wallsAndDoors.ts:35-43,222-230,711-719` | Classify a one-sided wall against the REAL shell ring: a wall bordering an empty stair fragment is an INTERIOR seal, not exterior. Apartment = byte-identical. |
+| `§PARTITION-SHELL-INNER-FACE` | `geometry-wall/WallJoinResolver.ts:205-356` | Final clamp: a partition end on a shell wall butts the shell's INNER face, never the centreline/outer face. Refuses a collapsing clamp; never moves the host. |
+| `§FLOOR-INNER-FACE` / `§DIAG-FLOOR-INSET` | `CreateFloorsByRoomTypeCommand.ts:110-295`, `room-topology/RoomPolygonUtils.ts:268-372` | Inset each room floor edge by the wall `thickness/2` (0 across a door span) so floors meet at the threshold, not overlap under partitions. Robust miter/bevel/centreline fall-backs. |
+| `§HALL-SINGLETON` / `§LANDING-NOT-HALL` (G14) | `bubbleGraph.ts`, `storeyAllocation.ts`, `houseProgramFloor.ts` | Exactly one entrance hall (ground only, `frontage:'required'`); upper storeys mint a `corridor` relabelled "Landing", never a hall. No `landing` RoomType. |
+| `§ENTRANCE-DOOR-CLEAR` (G4) / `§A.21.D29` | `entranceDoor/entranceDoor.ts` | House front-door resolver: pick the hall's exterior shell wall, centre + clamp a 1.0 m door clear of windows + corners. |
+| `§WINDOW-MANDATORY-RESCUE` (A.21.D60) / `§WINDOW-DESIRED` (A.21.D61) | `shellWallMatch.ts`, `programRules.ts:681-707` | A window-DESIRED room with external frontage keeps ≥1 window via a relaxed retry ladder (corner→width→match-tolerance); a room with NO frontage reports `NO-FRONTAGE`, never silent. |
+| `§DIAG-WINDOW-RULE` | `shellWallMatch.ts:583-847`, `emitGeometry.ts:246` | Founder rule #1: flag ANY perimeter-touching room that ends windowless (except a blind party wall). |
+| `§DIAG-PARTY-WALL` (PW.1) | `shellWallMatch.ts:575-771`, `executePlan.ts:80` | Suppress glazing/doors on a BLIND shell wall (one abutting a neighbour within the setback); tallied separately from `unmatched`. |
+| `§SOCIAL-CAVERN-CAP` (PM-5) | `programRules.ts` (living/kitchen/dining `maxAreaFrac`) | Cap the social rooms' area share so a large/elongated plate doesn't stretch one into a daylight-starved deep-plan cavern. |
+| `§PLATE-ROLE` | `bubbleGraph.ts:119-194` | `scaleProgramToShell(program, area, plateRole)`: `'single'` 130 m²/bed (apartment, byte-identical) vs `'ground'/'upper'` 45 m²/bed (a house storey holds only part of the dwelling). |
 
 ---
 

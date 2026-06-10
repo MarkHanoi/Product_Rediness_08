@@ -13,6 +13,7 @@
 import { batchCoordinator, storeRegistry } from '@pryzm/core-app-model';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import type { ScoredLayoutOption } from '@pryzm/ai-host';
+import { matchDetectedRooms } from './matchDetectedRooms.js';
 
 interface DetectedRoomLike {
     id: string;
@@ -21,15 +22,6 @@ interface DetectedRoomLike {
 interface RoomStoreLike {
     getByLevel?: (id: string) => DetectedRoomLike[];
     subscribe?: (fn: () => void) => (() => void);
-}
-
-function pointInPolygon(px: number, pz: number, poly: Array<{ x: number; z: number }>): boolean {
-    let hit = false;
-    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-        const xi = poly[i]!.x, zi = poly[i]!.z, xj = poly[j]!.x, zj = poly[j]!.z;
-        if (((zi > pz) !== (zj > pz)) && (px < ((xj - xi) * (pz - zi)) / (zj - zi) + xi)) hit = !hit;
-    }
-    return hit;
 }
 
 /**
@@ -83,31 +75,40 @@ export function nameDetectedRooms(
                 });
             } catch { /* event bus failures must never break the executor */ }
 
-            const renames: Array<{ roomId: string; name: string; occupancy?: string }> = [];
-            for (const room of detected) {
-                const poly = room.boundary?.polygon ?? [];
-                if (poly.length < 3) continue;
-                let matches = tgl.filter(t => pointInPolygon(t.cx, t.cz, poly));
-                if (matches.length === 0) {
-                    // §ROOM-NAME-NEAREST — on skewed builds the D-TGL centroid can
-                    // land just outside the detected polygon → fall back to the
-                    // nearest D-TGL room so every detected room still gets a name.
-                    let cx = 0, cz = 0;
-                    for (const p of poly) { cx += p.x; cz += p.z; }
-                    cx /= poly.length; cz /= poly.length;
-                    let best: (typeof tgl)[number] | null = null;
-                    let bestD = Infinity;
-                    for (const t of tgl) {
-                        const d = (t.cx - cx) * (t.cx - cx) + (t.cz - cz) * (t.cz - cz);
-                        if (d < bestD) { bestD = d; best = t; }
-                    }
-                    if (best) matches = [best];
-                }
-                if (matches.length === 0) continue;
-                const compoundName = matches.map(m => m.name).filter(Boolean).join(' / ');
-                if (!compoundName) continue;
-                const dominantOccupancy = matches[0]!.occupancy;
-                renames.push({ roomId: room.id, name: compoundName, ...(dominantOccupancy ? { occupancy: dominantOccupancy } : {}) });
+            // §ROOM-NAME-BIJECTIVE (founder duplicate-Stair bug, 2026-06-10) — the
+            // matching must be a one-to-one assignment: each D-TGL room names AT MOST
+            // ONE detected room. The previous single-pass matcher had no "used"
+            // tracking, so a single engine room could name MANY detected rooms — the
+            // duplicate "Stair" the founder saw (the lone minted `stair` room was
+            // assigned to its own detected cell by direct containment AND to a second
+            // neighbouring cell by the §ROOM-NAME-NEAREST fallback, which scanned ALL
+            // engine rooms with no exclusion). A detected cell that loses the contest
+            // then had no engine partner left → it kept its empty name → the UI's
+            // "Room 00-00x" fallback label. The pure `matchDetectedRooms` encodes the
+            // two-pass bijective fix (direct containment → nearest-unused fallback) so
+            // the contract is unit-testable without the runtime.
+            const detectedPolys = detected.map(room => ({
+                id: room.id,
+                polygon: room.boundary?.polygon ?? [],
+            }));
+            const { renames, unmatched: fallbackCount } = matchDetectedRooms(tgl, detectedPolys);
+
+            // §DIAG-STAIR-NAME (founder verification, 2026-06-10) — exactly ONE detected
+            // room must end up named "Stair" (vertical-circulation, non-habitable), and
+            // every detected room should match an engine room (no "Room 00-00x"
+            // fallback). Surface the stair count + the unmatched (→ fallback-named)
+            // detected-room count so a regression to the duplicate-Stair / unnamed-room
+            // defect is loud in the console. Logging only — no behaviour change.
+            {
+                const stairNamed = renames.filter(r => r.occupancy === 'stair').length;
+                const stairOk = stairNamed <= 1;
+                console.log(
+                    `${logTag} §DIAG-STAIR-NAME level=${levelId} detected=${detected.length} ` +
+                    `named=${renames.length} stairRooms=${stairNamed} unmatched=${fallbackCount} ` +
+                    `${stairOk && fallbackCount === 0 ? '✓' : '⚠'}` +
+                    `${stairNamed > 1 ? ' DUPLICATE-STAIR' : ''}` +
+                    `${fallbackCount > 0 ? ` ${fallbackCount}-ROOM-FALLBACK` : ''}`,
+                );
             }
             if (renames.length === 0) return;
 
