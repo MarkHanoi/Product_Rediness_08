@@ -200,6 +200,104 @@ export function pointInPolygon(px: number, pz: number, polygon: RoomVertex[]): b
 }
 
 /**
+ * §FLOOR-INNER-FACE (2026-06-10) — inset a room CENTRELINE polygon inward, per
+ * edge, to the INNER FACES of the bounding walls.
+ *
+ * The room boundary polygon runs along the wall CENTRELINES (the planar-topology
+ * face tracer walks wall-graph nodes, which sit on `wall.baseLine`). A floor finish
+ * built on that polygon therefore spans to the wall centre and OVERLAPS the
+ * neighbouring room's floor UNDER the partition. The founder requires the floor to
+ * stop at each wall's inner face — the actual usable floor area.
+ *
+ * This pure helper offsets each directed edge `i` (from `polygon[i]` to
+ * `polygon[i+1]`) INWARD by `edgeInsets[i]` metres — normally the bounding wall's
+ * `thickness / 2` — and recomputes each vertex as the intersection of its two
+ * adjacent offset edge-lines (a MITER join, exactly like a wall corner). A
+ * per-edge inset of `0` leaves that edge on the centreline (used at door openings,
+ * so adjacent rooms' floors meet at the threshold).
+ *
+ * Winding: the input is assumed CCW (RoomDetectionEngine calls `ensureCCW`); for a
+ * CCW ring the interior lies to the LEFT of each directed edge, so the inward
+ * normal of edge (a→b) with direction (dx,dz) is (dz, -dx) normalised. The result
+ * is re-sanitised (drops the degenerate verts a too-large inset can produce); if
+ * the inset collapses the polygon (≥1 non-finite / <3 verts / near-zero area) the
+ * ORIGINAL polygon is returned unchanged so a floor is always produced (fail-safe).
+ *
+ * Pure: no THREE, no store access, no I/O. O(n).
+ *
+ * @param polygon   CCW centreline ring (≥3 verts).
+ * @param edgeInsets Per-edge inward offset in metres; `edgeInsets[i]` applies to
+ *                   the edge starting at `polygon[i]`. Length MUST equal
+ *                   `polygon.length`. Missing/NaN entries are treated as 0.
+ */
+export function insetPolygonToInnerFaces(
+  polygon: RoomVertex[],
+  edgeInsets: number[],
+): RoomVertex[] {
+  const n = polygon.length;
+  if (n < 3) return polygon;
+
+  // Offset each edge-line inward by its inset. Represent each offset line by a
+  // point on it (the offset midpoint anchor) plus its direction (unchanged).
+  interface Line { px: number; pz: number; dx: number; dz: number; }
+  const lines: Line[] = [];
+  for (let i = 0; i < n; i++) {
+    const a = polygon[i]!;
+    const b = polygon[(i + 1) % n]!;
+    let dx = b.x - a.x;
+    let dz = b.z - a.z;
+    const len = Math.hypot(dx, dz);
+    if (len < 1e-9) {
+      // Degenerate edge — keep the line through `a` with a placeholder direction;
+      // adjacent intersections will skip it gracefully.
+      lines.push({ px: a.x, pz: a.z, dx: 0, dz: 0 });
+      continue;
+    }
+    dx /= len; dz /= len;
+    // Inward normal for a CCW ring: the interior lies to the LEFT of each directed
+    // edge, so rotate the edge direction by +90° → (-dz, dx).
+    const nx = -dz, nz = dx;
+    const rawInset = edgeInsets[i];
+    const inset = (typeof rawInset === 'number' && Number.isFinite(rawInset)) ? Math.max(0, rawInset) : 0;
+    lines.push({ px: a.x + nx * inset, pz: a.z + nz * inset, dx, dz });
+  }
+
+  // Each NEW vertex i is the intersection of offset-line (i-1) and offset-line (i)
+  // (the two edges meeting at original vertex i). Parallel / degenerate pairs fall
+  // back to the original vertex so the inset never explodes.
+  const out: RoomVertex[] = [];
+  for (let i = 0; i < n; i++) {
+    const prev = lines[(i - 1 + n) % n]!;
+    const cur = lines[i]!;
+    const orig = polygon[i]!;
+    const cross = prev.dx * cur.dz - prev.dz * cur.dx;
+    if (Math.abs(cross) < 1e-9 || (prev.dx === 0 && prev.dz === 0) || (cur.dx === 0 && cur.dz === 0)) {
+      out.push({ x: orig.x, z: orig.z });
+      continue;
+    }
+    // Solve prev.p + t*prev.d = cur.p + s*cur.d for the crossing point.
+    const wx = cur.px - prev.px;
+    const wz = cur.pz - prev.pz;
+    const t = (wx * cur.dz - wz * cur.dx) / cross;
+    out.push({ x: prev.px + t * prev.dx, z: prev.pz + t * prev.dz });
+  }
+
+  const sane = sanitisePolygon(out);
+  if (!sane) return polygon;          // fail-safe — never lose the floor
+  if (polygonAreaM2(sane) < 0.01) return polygon;
+  // Inversion guard — a too-large inset crosses the offset edges past each other
+  // and FLIPS the winding (the "polygon" turns inside-out, often with a larger
+  // unsigned area, so the area check above misses it). If the signed-area sign no
+  // longer matches the input, the inset has collapsed → fall back to the original.
+  const srcCCW = computeSignedArea(polygon) >= 0;
+  const dstCCW = computeSignedArea(sane) >= 0;
+  if (srcCCW !== dstCCW) return polygon;
+  // Sanity: the inner face can never be LARGER than the centreline polygon.
+  if (polygonAreaM2(sane) > polygonAreaM2(polygon) + 1e-6) return polygon;
+  return sane;
+}
+
+/**
  * Computes all RoomComputedMetrics from a boundary.
  */
 export function computeRoomMetrics(boundary: RoomBoundary): RoomComputedMetrics {
