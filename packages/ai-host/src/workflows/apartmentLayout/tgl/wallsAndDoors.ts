@@ -1004,6 +1004,18 @@ export function buildWallsAndDoors(
     const needsCirculationAccess = (id: string): boolean => {
         const t = typeOf.get(id) ?? '';
         if (t === 'ensuite') return false;                    // master-only by design
+        // §STAIR-ROOM-DOOR (founder defect, 2026-06-10) — the `stair` is a CIRCULATION
+        // type but, unlike the corridor/hall spine, it is a DEAD-END VERTICAL CORE that
+        // must be REACHED FROM the landing/corridor/hall (accessFrom = corridor/hall).
+        // Its only door came from the bubble-edge primary pass, which fires solely when
+        // the stair already shares a realised wall with circId — so a stair tiled one
+        // rect off the spine logged `stair0(stair) → NO DOOR`. Treat the stair as a
+        // reroute TARGET so the circulation-reroute + multihop passes give it a legal
+        // door (circWallsFor / chainToCirculation already gate on `permitted`, so only a
+        // corridor/hall wall is ever chosen). All OTHER circulation rooms (corridor/hall)
+        // ARE the spine and stay excluded → byte-identical for the apartment (no stair)
+        // and for any layout whose stair already has its bubble-edge door.
+        if (t === 'stair') return true;
         if (isCircType(id)) return false;                     // a circulation room IS the spine
         const p = roomRule(t).privacy;
         return p === 'private' || p === 'service';

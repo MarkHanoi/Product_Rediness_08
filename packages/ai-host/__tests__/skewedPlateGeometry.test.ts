@@ -30,8 +30,11 @@ import { generateDeterministicLayouts } from '../src/workflows/apartmentLayout/t
 import {
     __repairSegmentsForTest as repairSegments,
     __WJR_SAFE_MIN_LEN_M as WJR_MIN,
+    buildWallsAndDoors,
     type WallSeg,
 } from '../src/workflows/apartmentLayout/tgl/wallsAndDoors.js';
+import { enumerateLayouts } from '../src/workflows/apartmentLayout/tgl/enumerate.js';
+import type { BubbleGraph } from '../src/workflows/apartmentLayout/tgl/bubbleGraph.js';
 import {
     resolveAllShellWindows, type ShellWall,
 } from '../src/workflows/apartmentLayout/windowEmission/shellWallMatch.js';
@@ -292,6 +295,82 @@ describe('A.21.D34 — skewed result is deterministic', () => {
         const a = generateHouseLayout(mkShell(skew), PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 });
         const b = generateHouseLayout(mkShell(skew), PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 });
         expect(a.stairs[0]!.rectMm).toEqual(b.stairs[0]!.rectMm);
+    });
+});
+
+// ── §FRONTAGE-RECTIFY-FRAME — rotated plate is not 100% window-hard-invalid ────
+//
+// The founder v107 218 m² rotated (~−26.5°) plate tripped the `window` HARD rule on
+// EVERY one of the 8 strategies because frontage was tested against the raw sheared
+// quad (all-diagonal edges) instead of the rectified bbox the rooms tile into. The
+// engine ran `enumerateLayouts` against the PRINCIPAL-AXIS-ROTATED shellPolygon (the
+// frame runDeterministicLayout passes). Here we feed a freehand convex quad in that
+// frame directly and assert at least one candidate is window-hard-valid.
+describe('§FRONTAGE-RECTIFY-FRAME — rotated convex-quad plate has ≥1 window-valid candidate', () => {
+    // A freehand near-rectangle quad (~12 × 11.7 bbox ≈ 140 m²) whose four edges are all
+    // slightly off-axis — exactly the convex-quad case rectifyConvexQuad fires on. (Kept
+    // under the §D3.5 220 m² 2-bed envelope ceiling so the envelope gate isn't the
+    // differentiator — frontage is.)
+    const QUAD = [
+        { x: -0.15, z: 0.3 }, { x: 11.7, z: -0.2 },
+        { x: 12.1, z: 11.8 }, { x: 0.0, z: 11.5 },
+    ];
+
+    it('not every strategy fails the window hard rule (frontage no longer false-fails)', () => {
+        const cands = enumerateLayouts({
+            shellPolygon: QUAD,
+            program: PROGRAM,
+            levelId: 'shell',
+            seed: 'frontage-rectify-frame-test',
+            weights: WEIGHTS,
+            count: 8,
+        });
+        expect(cands.length).toBeGreaterThan(0);
+        // The cure: `window` is NOT the universal failure across the whole pool (the old
+        // bug — frontage tested against the all-diagonal raw quad — failed `window` on
+        // ALL 8). With the rectified-frame fix at least one candidate is window-valid.
+        const allFailWindow = cands.every(c => c.hardFailedRules.includes('window'));
+        expect(allFailWindow).toBe(false);
+        expect(cands.some(c => !c.hardFailedRules.includes('window'))).toBe(true);
+    });
+});
+
+// ── §STAIR-ROOM-DOOR — minted stair gets a circulation door ────────────────────
+//
+// The `stair` is a CIRCULATION-privacy type, so the pre-fix `needsCirculationAccess`
+// excluded it from every reroute pass ("a circulation room IS the spine"). But a stair
+// is a DEAD-END vertical core reached FROM the corridor/hall — when its only bubble-edge
+// door wasn't realised it logged `stair0(stair) → NO DOOR`. The fix makes the stair a
+// reroute target so the circulation-reroute pass gives it a corridor/hall door.
+describe('§STAIR-ROOM-DOOR — a stair sharing a corridor wall gets a door', () => {
+    // Stair (2×3) directly below a corridor (6-wide spine), sharing the z = 3 wall.
+    // NO bubble edge between stair and corridor → only the reroute pass can connect it.
+    const graph: BubbleGraph = {
+        rooms: [
+            { id: 'cor', type: 'corridor', name: 'Corridor', targetAreaM2: 18, isPrivate: false, needsWindow: false },
+            { id: 'stair0', type: 'stair', name: 'Stair', targetAreaM2: 6, isPrivate: false, needsWindow: false },
+            { id: 'bed', type: 'bedroom', name: 'Bedroom 1', targetAreaM2: 12, isPrivate: true, needsWindow: true },
+        ],
+        edges: [
+            { a: 'cor', b: 'bed', via: 'door' },   // corridor↔bedroom (NOT stair)
+        ],
+        corridorId: 'cor',
+        entryId: null,
+    };
+    const placements = [
+        { roomId: 'cor', rect: { x0: 0, z0: 3, x1: 6, z1: 4 } },      // corridor spine
+        { roomId: 'stair0', rect: { x0: 0, z0: 0, x1: 2, z1: 3 } },   // stair below, shares z=3
+        { roomId: 'bed', rect: { x0: 2, z0: 0, x1: 6, z1: 3 } },      // bedroom below, shares z=3
+    ];
+
+    it('the minted stair gets a door onto the corridor (no longer NO DOOR)', () => {
+        const { openings } = buildWallsAndDoors(placements, graph);
+        const stairDoor = openings.some(o =>
+            o.type === 'door' &&
+            o.betweenRoomIds.includes('stair0') &&
+            o.betweenRoomIds.some(id => id === 'cor'),
+        );
+        expect(stairDoor).toBe(true);
     });
 });
 

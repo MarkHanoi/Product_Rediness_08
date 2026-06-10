@@ -11,7 +11,7 @@
 // layouts — but every emitted graph is in the canonical {x,z} frame.
 
 import type { ApartmentProgram, ScoringWeights } from '../types.js';
-import { decomposeToRects, polygonBBox, rectArea, subtractRectsFromRects, type Pt, type Rect } from './rectDecomposition.js';
+import { decomposeToRects, polygonBBox, rectArea, rectifyConvexQuad, subtractRectsFromRects, type Pt, type Rect } from './rectDecomposition.js';
 import { buildBubbleGraph, scaleProgramToShell, type BubbleGraph, type ProgramRoom, type AdjacencyEdge } from './bubbleGraph.js';
 import { subdivideWithReport, type DroppedRoom, type RoomPlacement } from './subdivide.js';
 import { buildWallsAndDoors, type BoundarySeg } from './wallsAndDoors.js';
@@ -22,7 +22,7 @@ import { computeObjectives, OBJECTIVE_AXES, type ObjectiveVector } from './objec
 import { priorityMultiplier } from './envDrivers.js';
 import { validateAllRoomShapes, type RoomShape } from '../dimensions/validateRoomShape.js';
 import { validateRoomFit } from '../dimensions/validateRoomFit.js';
-import { validateFrontage, rectTouchesPerimeter } from '../dimensions/validateFrontage.js';
+import { validateFrontage, rectTouchesPerimeter, rectDistToPerimeter } from '../dimensions/validateFrontage.js';
 import { validateApartmentEnvelope } from '../dimensions/validateApartmentEnvelope.js';
 import type { DimensionalValidation } from '../dimensions/types.js';
 import { validateMandatoryAdjacencies, type DoorOpening } from '../topology/validateMandatoryAdjacencies.js';
@@ -572,8 +572,26 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     // could still register some daylight via field falloff from neighbours;
     // T2.5 makes it a hard rule). SOFT penalty for `frontage: 'preferred'`
     // rooms (dining / study) that are fully interior.
+    // §FRONTAGE-RECTIFY-FRAME (rotated-plate frontage false-negative cure, 2026-06-10;
+    // ADR-0063 §8.6). The room rects in `placements` were TILED by `decomposeToRects`,
+    // which internally rectifies a convex quad to its bbox (§RECTIFY-QUAD) before the
+    // axis-sweep — so on a freehand (rotated) quad the rooms sit on the RECTIFIED BBOX
+    // edges, NOT on the raw sheared-quad edges. `rectTouchesPerimeter` only matches
+    // AXIS-ALIGNED shell edges (it skips diagonals by construction); a principal-axis-
+    // rotated freehand quad has FOUR diagonal edges in this frame → every room reads
+    // "interior" → EVERY frontage:'required' room false-fails → all 8 strategies trip
+    // the `window` hard rule (founder v107 218 m² rotated-plate defect: frontageFail=
+    // [living,kitchen,hall,bed,bed], perimeterAdjacent=0, daylight=0.12).
+    //
+    // CURE: test frontage against the SAME perimeter the rooms were tiled against —
+    // `rectifyConvexQuad(input.shellPolygon)`. This is the IDENTITY for any shell that
+    // does NOT rectify (axis-aligned rectangle, concave L/U/T, > 4 vertices, sub-fill
+    // quad → `rectifyConvexQuad` returns the polygon unchanged), so axis-aligned plates
+    // and the apartment are BYTE-IDENTICAL (ADR-0061). Only the convex-quad path — which
+    // is exactly the path that tiles to the bbox — now tests against the bbox it tiled to.
+    const frontagePerimeter = rectifyConvexQuad(input.shellPolygon);
     const frontage = validateFrontage({
-        shellPolygon: input.shellPolygon,
+        shellPolygon: frontagePerimeter,
         rooms: placements.map(p => {
             const r = bubble.rooms.find(br => br.id === p.roomId);
             return {
@@ -584,6 +602,28 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
             };
         }),
     });
+    // §DIAG-FRONTAGE-DIST — per frontageFail room, its distance (m) to the nearest
+    // perimeter edge in the FRAME BEING TESTED (the rectified frontage perimeter). A
+    // near-zero distance on a "fail" proves a FALSE NEGATIVE (room is on the edge but the
+    // test missed it); a metres-large distance proves a GENUINE interior room (comb /
+    // stair pushed it in). Logging only — no behaviour change.
+    if (frontage.hardFindings.length > 0 || frontage.softFindings.length > 0) {
+        const placementById = new Map(placements.map(p => [p.roomId, p.rect]));
+        const failIds = [
+            ...frontage.hardFindings.map(f => f.roomId),
+            ...frontage.softFindings.map(f => f.roomId),
+        ];
+        const detail = failIds.map(id => {
+            const rect = placementById.get(id);
+            const d = rect ? rectDistToPerimeter(rect, frontagePerimeter) : -1;
+            return `${id}=${d < 0 ? '?' : `${d.toFixed(2)}m`}`;
+        }).join(' ');
+        console.log(
+            `[D-TGL] §DIAG-FRONTAGE-DIST cand ${strategyKey(s)} ` +
+            `rectified=${frontagePerimeter.length !== input.shellPolygon.length || frontagePerimeter.some((p, i) => Math.abs(p.x - input.shellPolygon[i]!.x) > 1e-6 || Math.abs(p.z - input.shellPolygon[i]!.z) > 1e-6)} ` +
+            `[${detail}]`,
+        );
+    }
     // §DIAG-HALL-PERIMETER (ADR-0063, founder rule #2) — confirm the entrance hall(s)
     // abut a perimeter wall (the front door's shell edge). frontage:'required' makes a
     // fully-interior hall a HARD frontage finding, so the ranker prefers perimeter
@@ -596,7 +636,9 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         });
         if (hallPlacements.length > 0) {
             const onPerimeter = hallPlacements.filter(p =>
-                rectTouchesPerimeter(p.rect, input.shellPolygon),
+                // §FRONTAGE-RECTIFY-FRAME — test against the rectified frontage perimeter
+                // (the frame the rooms were tiled in), identical to validateFrontage above.
+                rectTouchesPerimeter(p.rect, frontagePerimeter),
             ).length;
             const allOn = onPerimeter === hallPlacements.length;
             console.log(

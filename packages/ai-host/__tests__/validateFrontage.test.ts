@@ -2,8 +2,9 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-    validateFrontage, rectTouchesPerimeter,
+    validateFrontage, rectTouchesPerimeter, rectDistToPerimeter,
 } from '../src/workflows/apartmentLayout/dimensions/validateFrontage.js';
+import { rectifyConvexQuad } from '../src/workflows/apartmentLayout/tgl/rectDecomposition.js';
 import type { RoomType } from '../src/workflows/apartmentLayout/types.js';
 
 // 12×10 rectilinear shell for the tests.
@@ -144,5 +145,87 @@ describe('T2.5 — validateFrontage', () => {
             shellPolygon: [{ x: 0, z: 0 }],
             rooms: [r('liv', 'living', 0, 0, 5, 4)],
         }).admissible).toBe(true);
+    });
+});
+
+describe('rectDistToPerimeter (§DIAG-FRONTAGE-DIST helper)', () => {
+    it('a room flush with a façade has distance 0', () => {
+        expect(rectDistToPerimeter({ x0: 2, z0: 0, x1: 6, z1: 3 }, SHELL)).toBeCloseTo(0, 9);
+    });
+    it('a fully-interior room has the gap to the nearest parallel façade', () => {
+        // rect z0=3 above the south façade z=0 (nearest overlapping façade is z=0 or z=10).
+        // x-span 4..6 overlaps both south(z=0) and north(z=10) edges → min(3, 4) = 3.
+        expect(rectDistToPerimeter({ x0: 4, z0: 3, x1: 6, z1: 6 }, SHELL)).toBeCloseTo(3, 9);
+    });
+    it('returns +∞ when no axis-aligned edge overlaps the rect span', () => {
+        expect(rectDistToPerimeter({ x0: 2, z0: 2, x1: 4, z1: 4 }, [{ x: 0, z: 0 }, { x: 1, z: 0 }])).toBe(Number.POSITIVE_INFINITY);
+    });
+});
+
+// §FRONTAGE-RECTIFY-FRAME (rotated-plate frontage false-negative cure, 2026-06-10).
+// On a freehand CONVEX QUAD, the engine tiles rooms inside `rectifyConvexQuad`'s BBOX
+// but the founder-v107 bug tested frontage against the raw sheared-quad edges — which
+// are ALL DIAGONAL in the rotated frame, so `rectTouchesPerimeter` skipped every one →
+// every required-frontage room false-failed. The cure tests against the SAME rectified
+// bbox the rooms were tiled in. These tests pin BOTH the false-negative (raw quad) and
+// the cure (rectified quad), and the axis-aligned no-regression identity.
+describe('§FRONTAGE-RECTIFY-FRAME — rotated convex-quad frontage', () => {
+    // A freehand near-rectangle quad already principal-axis-rotated: NO two opposite
+    // edges are exactly parallel to an axis → all four edges are diagonal in this frame.
+    const QUAD = [
+        { x: -0.2, z: 0.4 }, { x: 14.7, z: -0.3 },
+        { x: 15.1, z: 14.8 }, { x: 0.0, z: 14.4 },
+    ];
+    // A living room tiled flush against the rectified bbox SOUTH edge (z = bbox z0).
+    const bbox = rectifyConvexQuad(QUAD);    // = [{x0,z0},{x1,z0},{x1,z1},{x0,z1}] ring
+    const z0 = Math.min(...bbox.map(p => p.z));
+    const x0 = Math.min(...bbox.map(p => p.x));
+
+    it('rectifyConvexQuad turns the freehand quad into its axis-aligned bbox ring', () => {
+        // Proves rectify FIRES (the room-tiling frame) — its edges ARE axis-aligned.
+        expect(bbox).toHaveLength(4);
+        const allAxis = bbox.every((p, i) => {
+            const q = bbox[(i + 1) % 4]!;
+            return Math.abs(p.x - q.x) < 1e-6 || Math.abs(p.z - q.z) < 1e-6;
+        });
+        expect(allAxis).toBe(true);
+    });
+
+    it('BUG repro: a perimeter room reads INTERIOR against the raw sheared quad (all diagonal edges)', () => {
+        const liv = { x0: x0, z0: z0, x1: x0 + 6, z1: z0 + 4 };   // flush on the bbox south edge
+        // Raw quad edges are all diagonal → rectTouchesPerimeter skips them → false.
+        expect(rectTouchesPerimeter(liv, QUAD)).toBe(false);
+    });
+
+    it('CURE: the same perimeter room reads frontage ✓ against the rectified bbox', () => {
+        const liv = { x0: x0, z0: z0, x1: x0 + 6, z1: z0 + 4 };
+        expect(rectTouchesPerimeter(liv, bbox)).toBe(true);
+        const result = validateFrontage({
+            shellPolygon: bbox,
+            rooms: [r('liv', 'living', liv.x0, liv.z0, liv.x1, liv.z1)],
+        });
+        expect(result.admissible).toBe(true);
+        expect(result.hardFindings).toEqual([]);
+    });
+
+    it('a GENUINELY interior room still HARD-fails against the rectified bbox (no over-relaxation)', () => {
+        const z1 = Math.max(...bbox.map(p => p.z));
+        const mid = (z0 + z1) / 2;
+        const result = validateFrontage({
+            shellPolygon: bbox,
+            rooms: [r('mas', 'master', x0 + 4, mid - 1, x0 + 8, mid + 1)],   // metres off every edge
+        });
+        expect(result.admissible).toBe(false);
+        expect(result.hardFindings[0]!.roomId).toBe('mas');
+    });
+
+    it('axis-aligned shell → rectifyConvexQuad is identity → byte-identical frontage', () => {
+        // SHELL is an axis-aligned rectangle; rectify returns the same ring (re-ordered
+        // CCW), and frontage against it equals frontage against the raw SHELL.
+        const room = r('liv', 'living', 0, 0, 6, 4);
+        const viaRaw = validateFrontage({ shellPolygon: SHELL, rooms: [room] });
+        const viaRectified = validateFrontage({ shellPolygon: rectifyConvexQuad(SHELL), rooms: [room] });
+        expect(viaRectified.admissible).toBe(viaRaw.admissible);
+        expect(viaRectified.hardFindings).toEqual(viaRaw.hardFindings);
     });
 });

@@ -81,6 +81,44 @@ export function rectTouchesPerimeter(
 }
 
 /**
+ * Distance (metres) from a room rect to the NEAREST shell-perimeter edge, measured in
+ * the SAME frame the rect is tested in. Used by the §DIAG-FRONTAGE-DIST diagnostic to
+ * distinguish a FALSE-NEGATIVE frontage fail (distance ≈ 0 — room IS on the edge but the
+ * coincidence test missed it) from a GENUINE interior room (distance ≫ 0 — the room was
+ * pushed inward by a corridor carve / stair keep-out). Diagnostic only — not a gate.
+ *
+ * Matches `rectTouchesPerimeter`'s convention: only axis-aligned shell edges contribute;
+ * for each such edge the distance is the gap between the nearest parallel rect edge and
+ * the shell edge (0 when the rect already touches it). Returns +∞ when no axis-aligned
+ * shell edge overlaps the rect's span (no edge to measure to). Pure; no I/O.
+ */
+export function rectDistToPerimeter(
+    rect: FrontageRoomInput['rect'],
+    shellPolygon: readonly Pt[],
+): number {
+    if (shellPolygon.length < 3) return Number.POSITIVE_INFINITY;
+    const n = shellPolygon.length;
+    let best = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < n; i++) {
+        const a = shellPolygon[i]!;
+        const b = shellPolygon[(i + 1) % n]!;
+        if (Math.abs(a.x - b.x) < EPS) {
+            // Vertical shell edge — only if the rect's z-span overlaps the edge's z-span.
+            const zMin = Math.min(a.z, b.z), zMax = Math.max(a.z, b.z);
+            if (rect.z1 > zMin + EPS && rect.z0 < zMax - EPS) {
+                best = Math.min(best, Math.abs(rect.x0 - a.x), Math.abs(rect.x1 - a.x));
+            }
+        } else if (Math.abs(a.z - b.z) < EPS) {
+            const xMin = Math.min(a.x, b.x), xMax = Math.max(a.x, b.x);
+            if (rect.x1 > xMin + EPS && rect.x0 < xMax - EPS) {
+                best = Math.min(best, Math.abs(rect.z0 - a.z), Math.abs(rect.z1 - a.z));
+            }
+        }
+    }
+    return best;
+}
+
+/**
  * Validate that every required-frontage room touches the perimeter.
  *
  * HARD-REJECT when a `frontage: 'required'` room is fully interior.
