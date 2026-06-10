@@ -3647,3 +3647,99 @@ biggest lever is execution-boundary fidelity, NOT rebuilding the engine.
 - **QUEUED:** the diagnostic→gate promotions (door / window / area / access-graph) and the four (B)
   doctrine items above.
 - **Governance:** ADR-0066 (PROPOSED) + SPEC-ACCESS-GRAPH-AND-SPATIAL-GRAMMAR (DRAFT) + C53 §1.
+
+## §48 — BIM 3.0 Graph-IR / Intent-First Building Graph (north-star) (`GRAPH-IR`)
+
+**Status: IMMINENT / PRIORITIZED (founder-flagged 2026-06-10) · staged adoption QUEUED.**
+
+**Founder manifesto (captured faithfully):**
+
+> *"Rooms are NOT the primary node type — that's the mistake every BIM/CAD/generative system makes.
+> The graph should represent **intent → spatial systems → geometry**, NOT geometry directly — think
+> of it as a COMPILER IR for architecture."*
+
+- **7 node families:** **Intent · SpatialCluster · Site · Space · System · Geometry · Performance**
+  (SpatialCluster = Private/Public/Service/Sleeping/Work Zone, sitting between Intent and rooms).
+- **Node kernel** `{id, type, properties, constraints[], embeddings[], confidence}`; **edge kernel**
+  `{source, target, relation, weight, hard}` — *most information lives in the edges*.
+- **9-edge taxonomy:** `INFLUENCES · ADJACENT · SEPARATED_FROM · CONTAINS · ACCESSIBLE_VIA ·
+  SERVED_BY · FACES · DEPENDS_ON · PART_OF`.
+- **Space nodes NEVER know geometry** (no x/y/polygon/wall). **Sliders ARE Intent nodes** whose
+  `priority` (0–1) propagates through `INFLUENCES` edges (Privacy↑ → separation/visibility
+  constraints↑ → circulation adjusts → geometry recomputes) — pure graph propagation, no hardcoded
+  logic. **Compiler pipeline:** `Intent Graph → Spatial Graph → Constraint Graph → Layout Graph →
+  Geometry Graph → BIM Model`. **Geometry is a DERIVED projection, never user-authored.**
+
+### The honest A/B split (the headline finding)
+
+**PRYZM already has a large fraction of this — built geometry-rooted, not intent-rooted. The genuine
+delta is the intent-first INVERSION, not the graph itself.** Do not claim PRYZM lacks what it has, nor
+that the manifesto is done.
+
+- **(A) ALREADY-BUILT.**
+  - Typed persistent graph + projection principle: C53 §1 (`C53-…:23-28` *"topology is the source of
+    truth; geometry is a projection of it"*); P5 `LayoutGraph` (`tgl/semanticGraph.ts:46-50`) with
+    deterministic IFC GUIDs.
+  - The compiler pipeline *in spirit*: P1→P9 `program → bubbleGraph → subdivide → semanticGraph →
+    emitGeometry` (`LAYOUT-GENERATION-ALGORITHM.md`).
+  - Typed semantic edges: `tgl/edgeTypes.ts:33-50` (`SOCIAL_FLOW`/`INTIMATE_ACCESS`/`BUFFER`/
+    `SERVICE_ACCESS`/`CEREMONIAL_THRESHOLD`/`VISUAL_CONNECTION`/`ACOUSTIC_SEPARATION`, classified
+    `:76-99`) + structural `EdgeKind` (`semanticGraph.ts:26`).
+  - "Performance" + optimizer objectives: the **21-axis** `ObjectiveVector` (`tgl/objectives.ts:24`)
+    already encodes `circulation`, `hierarchy` (privacy-depth), `adjacency`, `daylight`,
+    `wetStackAlignment`, `acousticZoning`, `arrivalSequence`, `entrySightline`, `spatialClimax`,
+    `solarOrientation`, `naturalVentilation` — i.e. most of the founder's penalty/reward optimizer
+    list (circulation-first, privacy gradient, social-core, wet-core vertical clustering).
+  - Privacy-gradient / "no bedroom off hall" / "every room on circulation" **enforced**, not just
+    scored: `accessFrom` matrix (`rules/programRules.ts:200-203`,`:262`+) + `§TOPO-HARD-REJECT` gate
+    (`tgl/enumerate.ts:125,187,636,929`).
+  - Sliders already re-weight the ENGINE (not just the scorer): ADR-0060 + A.25
+    `designParamsToScoringWeights.ts` (4 → `ScoringWeights`, 4 → `EngineTuning`).
+  - Unified/editable building graph already exists: ADR-0058, C52, SPEC-LIVING-BUILDING-GRAPH,
+    SemanticGraph/TemporalGraph/DependencyResolver/RoomGraphService.
+- **(B) GENUINE DELTA — the intent-first inversion.**
+  - **B1.** `NodeKind` is geometry-rooted: `'Space'|'Wall'|'Opening'|'Door'|'Window'|'Level'`
+    (`semanticGraph.ts:25`) — **no** Intent/SpatialCluster/Site/System/Performance node kind. Graph
+    starts at *program/Space*, not *intent*.
+  - **B2.** **Space nodes DO know geometry today** — `Space` carries
+    `geometry: { polygon: rectPolygon(p.rect) }` (`semanticGraph.ts:34,108`) — contradicts the
+    manifesto. Target: derived Geometry node `PART_OF` the Space.
+  - **B3.** Sliders are an *external* numeric mapping (`designParamsToScoringWeights.ts`, ADR-0060
+    "bind, don't fork"), **not** Intent nodes with `INFLUENCES` propagation.
+  - **B4.** Pipeline is `program → geometry`; no materialised Intent-Graph / Constraint-Graph stage;
+    constraints live as code rules + scorer, not as node `constraints[]` / edge `hard` flags.
+  - **B5.** No `Site`/`System` node families in the layout graph (C19 site + MEP exist elsewhere, not
+    woven in as `SERVED_BY`/`FACES`-linked nodes).
+
+### Optimizer-objectives note
+
+The founder's circulation-first optimizer (clear spine before rooms; every private room on
+circulation; stair as circulation anchor; Entrance→Hall→Living→Transition→Private privacy gradient;
+open-plan social core; wet-core vertical clustering; penalty/reward list) is **mostly already encoded**
+in `tgl/objectives.ts` (the 21 axes above) and **enforced** by the `accessFrom` matrix +
+`§TOPO-HARD-REJECT` gate (§47). The delta is *promoting these from scorer axes / code rules to
+first-class `Performance` nodes + `constraints[]`*, not inventing the objectives.
+
+### Governance
+
+- **NEW: [ADR-0067 — Graph-IR / Intent-First Building Graph (BIM 3.0)](../../02-decisions/adrs/0067-graph-ir-intent-first-building-graph-bim3.md)** (PROPOSED; GIR1–GIR5 + S1–S4 migration).
+- Builds on: C52 (editable building graph) · C53 §1 (topology-first) · C50 (typology pipeline) ·
+  C19 (site) · ADR-0058 (unified building graph) · ADR-0060 (sliders bind to substrate) ·
+  ADR-0061/0062 (determinism + deterministic solver) · ADR-0066 (access-graph-first) · the GRAPH.*
+  unified-building-graph strategy (`PRYZM-BUILDING-GRAPH-AND-RELATIONAL-AI-FOUNDATION.md`,
+  `GENERATIVE-LAYOUT-WORLD-MODEL-STRATEGY.md`).
+
+### Staged adoption checklist (additive, NOT a rewrite — each stage independently shippable,
+gated by the determinism + topo-reject invariants; shipped single-plate path stays byte-identical)
+
+- [ ] **S1 — Intent + SpatialCluster node types in the schema.** Extend `NodeKind`
+  (`semanticGraph.ts:25`) with `Intent`/`SpatialCluster`; brief/bedroom-count → Intent nodes;
+  Private/Public/Service/Sleeping/Work zones → SpatialCluster nodes `CONTAINS`-linking Spaces. `NEW`.
+- [ ] **S2 — Sliders → Intent nodes + INFLUENCES propagation.** Reframe the ADR-0060 sliders as Intent
+  nodes whose `priority` propagates via `INFLUENCES`; `designParamsToScoringWeights.ts` becomes a
+  graph-propagation function (initially identical weights — Pareto-equality invariant). `NEW`.
+- [ ] **S3 — Site / System / Performance node families.** Weave C19 site (`FACES`/climate edges),
+  MEP/structure (`SERVED_BY`), and promote the `ObjectiveVector` axes to `Performance` nodes. `NEW`.
+- [ ] **S4 — Geometry-as-derived-projection formalised.** Move `Space.geometry.polygon`
+  (`semanticGraph.ts:108`) into a derived `Geometry` node (`Geometry --PART_OF--> Space`); Space
+  becomes geometry-free (GIR3); Geometry family is an explicit recomputed output (GIR5). `NEW`.
