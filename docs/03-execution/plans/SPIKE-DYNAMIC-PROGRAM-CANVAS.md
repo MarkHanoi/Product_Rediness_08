@@ -127,3 +127,22 @@ is reuse.
 - **R-C:** the spike rides the modal's cached `ShellAnalysis`; the dockable [tools]-area panel
   (Phase 3) will need its own shell-analysis lifecycle (the user can redraw the boundary while the
   canvas is open). Note it; don't solve it in Phase 0.
+- **R-D (BLOCKER for the naïve plan — found 2026-06-10 by code inspection):** the controller's
+  regenerate context **`_regen` is set to `null` on build** (`HouseLayoutController.ts:385`, in
+  `_build`). So a canvas that edits the **built** (post-generate) layout can NOT call
+  `_regenerateCurrent()` — the cached `ShellAnalysis` + program is already torn down. §3's data flow
+  (`setRoomAreaOverride → _regenerateCurrent`) only works **while the modal is still open** (pre-build).
+  **Design implication for Phase 0** — pick ONE:
+  1. **Live-while-modal-open** (smallest, true to §2): mount the canvas as the modal's body (replacing
+     the static form) so it operates entirely within the open-modal lifecycle where `_regen` is alive;
+     the "Build" action commits and tears it down — no post-build editing yet. This is the honest
+     Phase-0 and matches §26.5's "replace the modal".
+  2. **Persist the context past build**: stop nulling `_regen` in `_build` (or snapshot it), so the
+     canvas can regenerate after build. Larger surface (build/undo interaction, stale-shell risk).
+  3. **Re-analyse + regenerate per edit** post-build: the canvas re-runs `analyseActiveShell` +
+     `generateHouseLayoutOptions` itself on each edit (its own lifecycle). Heaviest; effectively the
+     Phase-3 dockable-panel design pulled early.
+  **Recommendation:** Phase 0 = option 1 (canvas IS the modal body, pre-build). It needs no controller
+  facade beyond exposing the open-modal's resolved variant + a `regenerate()` that calls the existing
+  `_regenerateCurrent`, and it directly realises §26.5 (plan LEFT / graph CENTER / tools RIGHT as the
+  modal). Post-build editing (option 2/3) is a later phase.
