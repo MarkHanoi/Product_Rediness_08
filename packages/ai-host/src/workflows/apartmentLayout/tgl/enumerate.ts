@@ -12,7 +12,7 @@
 
 import type { ApartmentProgram, ScoringWeights } from '../types.js';
 import { decomposeToRects, polygonBBox, rectArea, subtractRectsFromRects, type Pt, type Rect } from './rectDecomposition.js';
-import { buildBubbleGraph, type BubbleGraph, type ProgramRoom, type AdjacencyEdge } from './bubbleGraph.js';
+import { buildBubbleGraph, scaleProgramToShell, type BubbleGraph, type ProgramRoom, type AdjacencyEdge } from './bubbleGraph.js';
 import { subdivideWithReport, type DroppedRoom, type RoomPlacement } from './subdivide.js';
 import { buildWallsAndDoors, type BoundarySeg } from './wallsAndDoors.js';
 import { snapRectsAwayFromWindows, type WindowSpan } from './windowAvoidance.js';
@@ -315,9 +315,23 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     // today; ready for the next commit's façade-priority allocator.
     // A.25.3 — the `space` slider modulates habitable-room area weights. Absent /
     // neutral (1.0) ⇒ byte-identical bubble graph (Pareto-equality invariant).
+    // §ENVELOPE-FIT-GROWTH (founder bug #1, 2026-06-10) — enable the apartment §3.1
+    // envelope-fit bedroom growth ONLY on the apartment path. A HOUSE storey injects an
+    // `envelopeValidator` (validateHouseStorey) and has ALREADY sized + clamped its storey
+    // bedroom count via the house's own 'ground'/'upper' density; growing it again to the
+    // apartment envelope wrongly inflates the sub-programme (the §HOUSE-PLATE blob
+    // regression). The internal re-scale DENSITY stays 'single' for both (the house always
+    // relied on it as a no-op 130-rule floor) — only the new growth is suppressed, so the
+    // house is byte-identical (ADR-0061). Apartment: no validator ⇒ growth ON ⇒ bug cured.
+    const envelopeFitGrowth = !input.envelopeValidator;
     const base = buildBubbleGraph(
         input.program, shellArea, input.shellPolygon,
-        input.spaceGenerosity !== undefined ? { spaceGenerosity: input.spaceGenerosity } : undefined,
+        (input.spaceGenerosity !== undefined || !envelopeFitGrowth)
+            ? {
+                ...(input.spaceGenerosity !== undefined ? { spaceGenerosity: input.spaceGenerosity } : {}),
+                envelopeFitGrowth,
+            }
+            : undefined,
     );
     let bubble: BubbleGraph = s.order === 'rev' ? { ...base, rooms: [...base.rooms].reverse() } : base;
 
@@ -814,11 +828,24 @@ export function enumerateLayouts(input: EnumerateInput): TglCandidate[] {
     // can surface as a clear toast.
     // A.21.h — use the injected envelope validator when present (the house
     // orchestrator threads `validateHouseStorey`); otherwise the default apartment
-    // §D3.5 gate keyed on bedroom count. Default path is byte-identical.
+    // §D3.5 gate keyed on bedroom count.
+    //
+    // §ENVELOPE-FIT-GROWTH (founder bug #1, 2026-06-10) — the gate must validate the
+    // SCALED bedroom count (the program `buildCandidate` actually builds via
+    // `scaleProgramToShell`), NOT the raw request. Before this, an over-capacity shell
+    // (e.g. 206 m² with a 2-bed request) was hard-rejected here at the raw 2-bed
+    // grossMax (120 m²) — even though the engine would grow it to a 4-bed program that
+    // FITS the §3.1 envelope (grossMax 220 m²). Scaling the gate's count to match the
+    // builder turns "over-capacity ⇒ hard-reject" into "over-capacity ⇒ grow the
+    // program + admit". A genuinely-TOO-SMALL shell still hard-rejects (D2.4 grossMin):
+    // growth only RAISES the count, never lowers it, so a shell below the floor count's
+    // grossMin still fails grossMin. Byte-identical for an in-band shell (the scaled
+    // count equals the raw count there). The house path is untouched — its injected
+    // validator already judges the full storey programme.
     const env = input.envelopeValidator
         ? input.envelopeValidator({ program: input.program, grossAreaM2: shellArea })
         : validateApartmentEnvelope({
-            bedrooms: input.program.bedrooms,
+            bedrooms: scaleProgramToShell(input.program, shellArea).bedrooms,
             grossAreaM2: shellArea,
         });
     if (!env.admissible) {

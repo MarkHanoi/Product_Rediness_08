@@ -221,6 +221,32 @@ describe('programRules — auto-scale bedrooms/baths from shell area (the user\'
         expect(out.bedrooms).toBeGreaterThanOrEqual(5);
         expect(out.bathrooms).toBeGreaterThanOrEqual(3);
     });
+
+    // §ENVELOPE-FIT-GROWTH (founder bug #1, 2026-06-10) — the #1 recurring residential
+    // defect: an OVER-CAPACITY shell (≫ the program's max area) inflated a fixed small
+    // program to fill the plate → rooms collide/merge + every strategy §TOPO-HARD-REJECTs.
+    // The cure: grow the bedroom COUNT until the shell fits inside that count's §3.1
+    // envelope band, so a big shell yields MORE rooms of normal size, not fewer giants.
+    describe('§ENVELOPE-FIT-GROWTH — an over-capacity shell grows the bedroom count', () => {
+        it('the founder 206.7 m² 2-bed shell grows to 4 bedrooms (was stuck at 2 → over-capacity)', () => {
+            // 2-bed grossMax is 120 m²; the 130-rule rounds 206.7 → 2 (the BUG). Growth lifts
+            // it to 4-bed (grossMax 220 ≥ 206.7), so the program fills the shell in-band.
+            const out = scaleProgramToShell(base, 206.7);
+            expect(out.bedrooms).toBe(4);
+            expect(out.bathrooms).toBe(2);     // ⌊4/2⌋
+            expect(out.masterEnSuite).toBe(true);   // auto at ≥3 beds
+        });
+
+        it('an in-band / small shell is UNCHANGED (the byte-identical regression guard)', () => {
+            // 90 m² and 120 m² both fit the 2-bed envelope (grossMax 120) → no growth.
+            expect(scaleProgramToShell(base, 90).bedrooms).toBe(2);
+            expect(scaleProgramToShell(base, 120).bedrooms).toBe(2);
+        });
+
+        it('growth never exceeds the §3.1 envelope cap (a huge shell stops at 5 beds)', () => {
+            expect(scaleProgramToShell(base, 800).bedrooms).toBe(5);
+        });
+    });
 });
 
 describe('programRules — occupancy + program', () => {

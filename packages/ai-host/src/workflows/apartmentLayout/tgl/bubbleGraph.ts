@@ -9,6 +9,7 @@
 
 import type { ApartmentProgram, RoomType } from '../types.js';
 import { roomRule } from '../rules/programRules.js';
+import { apartmentDimensionsFor } from '../dimensions/roomDimensions.js';
 import { computeFacadeValueField, type FacadeValueField } from '../environment/facadeValueField.js';
 import { computeDaylightDepthField, type DaylightDepthField } from '../environment/daylightDepthField.js';
 import { classifyEdge, type EdgeType } from './edgeTypes.js';
@@ -134,6 +135,17 @@ export function scaleProgramToShell(
     program: ApartmentProgram,
     shellAreaM2: number,
     plateRole: PlateRole = 'single',
+    // §ENVELOPE-FIT-GROWTH (founder bug #1, 2026-06-10) — apply the §3.1 apartment-
+    // envelope-fit bedroom growth (grow the count while the shell exceeds the count's
+    // grossMax). DEFAULTS TRUE for the apartment 'single' role so the standalone
+    // apartment path (+ its direct callers) get the fix. The HOUSE path passes FALSE
+    // because the house already sized + clamped each storey's bedroom count through its
+    // own 'ground'/'upper' density — re-growing it to the apartment envelope wrongly
+    // inflates a house-storey sub-programme (the §HOUSE-PLATE blob regression). When the
+    // role is NOT 'single' the growth never runs regardless (only the apartment has a
+    // §3.1 envelope), so this flag only matters for the house's internal 'single'
+    // re-scale of a storey programme inside `buildBubbleGraph`.
+    envelopeFitGrowth = true,
 ): ApartmentProgram {
     // An EXPLICIT studio request (bedrooms === 0 AND bathrooms === 0) stays a
     // studio — auto-scale never invents rooms the caller deliberately omitted.
@@ -143,7 +155,36 @@ export function scaleProgramToShell(
     // storey packs denser (45 m²/bed) and allows more rooms so each stays in-band.
     const areaPerBedroom = plateRole === 'single' ? UNIT_AREA_PER_BEDROOM : HOUSE_AREA_PER_BEDROOM;
     const maxBedrooms = plateRole === 'single' ? MAX_BEDROOMS_SINGLE : MAX_BEDROOMS_HOUSE_STOREY;
-    const targetBedrooms = Math.min(maxBedrooms, Math.max(program.bedrooms, Math.round(shellAreaM2 / areaPerBedroom)));
+    let targetBedrooms = Math.min(maxBedrooms, Math.max(program.bedrooms, Math.round(shellAreaM2 / areaPerBedroom)));
+
+    // §ENVELOPE-FIT-GROWTH (founder bug #1, 2026-06-10) — the #1 recurring residential
+    // defect: an OVER-CAPACITY shell (much larger than the program's max area) inflated
+    // a fixed small program to fill the plate → rooms collide/merge + every strategy
+    // §TOPO-HARD-REJECTs. ROOT CAUSE: the 130 m²/bed density above is FAR sparser than
+    // the §3.1 envelope table's real density (~37-55 m²/bed), so a 206 m² shell rounded
+    // to only 2 bedrooms — yet the 2-bed envelope hard-maxes at 120 m². The engine then
+    // tried to cram a 2-bed program into 206 m² (fillRatio ≈ 1.0, no circulation slack →
+    // §EVERY-ROOM-ACCESS-COMB infeasible → overlaps).
+    //
+    // CURE (apartment 'single' role ONLY — a house storey injects its own envelope so
+    // this never reaches it): when the shell EXCEEDS the §3.1 grossMax for the current
+    // bedroom count, GROW the count one bedroom at a time until the shell fits inside
+    // that count's envelope band (shell ≤ grossMax) — bounded by `maxBedrooms`. This
+    // grows MORE rooms of NORMAL size rather than fewer ballooned ones, and aligns
+    // `scaleProgramToShell` with the §D3.5 envelope gate (`validateApartmentEnvelope`)
+    // so the gate no longer hard-rejects the very shell it could grow into. The 130-rule
+    // result is the FLOOR (`Math.max` below never lowers it), so an in-band / small shell
+    // is BYTE-IDENTICAL (90 m², 120 m² → 2-bed unchanged; the founder's regression guard).
+    // Pure + deterministic (table lookup, no RNG) per ADR-0061.
+    if (plateRole === 'single' && envelopeFitGrowth) {
+        while (
+            targetBedrooms < maxBedrooms &&
+            shellAreaM2 > apartmentDimensionsFor(targetBedrooms).grossMax + 1e-6
+        ) {
+            targetBedrooms += 1;
+        }
+    }
+
     const targetBathrooms = Math.min(3, Math.max(program.bathrooms, Math.max(1, Math.floor(targetBedrooms / 2))));
     return {
         ...program,
@@ -168,6 +209,15 @@ export interface BubbleGraphOpts {
      *  study) at the expense of the rest via the existing weighted share. The
      *  `space` slider drives this. Absent / 1.0 ⇒ byte-identical allocation. */
     readonly spaceGenerosity?: number;
+    /** §ENVELOPE-FIT-GROWTH (founder bug #1, 2026-06-10) — apply the §3.1 apartment-
+     *  envelope-fit bedroom growth inside the internal `scaleProgramToShell` call.
+     *  DEFAULTS TRUE (apartment). The HOUSE passes FALSE so a house-storey sub-programme
+     *  (already sized + clamped by the house's own 'ground'/'upper' density) is NOT
+     *  re-inflated to the apartment envelope. The DENSITY stays 'single' either way — the
+     *  house's internal re-scale was always a 'single' 130-rule FLOOR; only the new growth
+     *  is suppressed, so the house allocation is byte-identical to its pre-fix baseline
+     *  (ADR-0061). Absent ⇒ true (byte-identical apartment behaviour). */
+    readonly envelopeFitGrowth?: boolean;
 }
 
 export function buildBubbleGraph(
@@ -176,7 +226,14 @@ export function buildBubbleGraph(
     shellPolygon?: readonly Pt[],
     opts?: BubbleGraphOpts,
 ): BubbleGraph {
-    const program = scaleProgramToShell(rawProgram, availableAreaM2);
+    // §ENVELOPE-FIT-GROWTH — the internal re-scale stays at the 'single' 130-rule density
+    // (the house always relied on it as a no-op FLOOR, so the house is byte-identical).
+    // Only the NEW §3.1 envelope-fit growth is gated: the apartment enables it (default
+    // true) to cure the founder bug #1; the house disables it so a pre-sized storey
+    // sub-programme isn't re-inflated to the apartment envelope.
+    const program = scaleProgramToShell(
+        rawProgram, availableAreaM2, 'single', opts?.envelopeFitGrowth ?? true,
+    );
     // A.25.3 — `space` slider: a >1 multiplier grows habitable rooms. Clamped to a
     // sane band so the area arithmetic stays stable. Neutral (1.0) is identity.
     const rawGen = opts?.spaceGenerosity;
@@ -397,6 +454,24 @@ export function buildBubbleGraph(
         `fillRatio=${availableAreaM2 > 0 ? (totalTargetM2 / availableAreaM2).toFixed(2) : 'n/a'} ` +
         `corridorId=${corridorId ?? 'none'} entryId=${entryId ?? 'none'}`,
     );
+
+    // §DIAG-PROGRAM-FIT (founder bug #1, 2026-06-10) — surface the §ENVELOPE-FIT-GROWTH
+    // decision in one line: the shell area, the requested vs chosen bedroom count, the
+    // chosen room count, the final fillRatio, and whether the program GREW to fit the
+    // shell or shipped as requested. This is THE line that proves an over-capacity shell
+    // now grows MORE rooms of normal size instead of inflating a fixed small program.
+    {
+        const grewBeds = program.bedrooms - Math.max(0, Math.floor(rawProgram.bedrooms));
+        const grewRooms = grewBeds > 0;
+        const fit = availableAreaM2 > 0 ? (totalTargetM2 / availableAreaM2) : 0;
+        console.log(
+            `[D-TGL] §DIAG-PROGRAM-FIT shellAreaM2=${availableAreaM2.toFixed(1)} ` +
+            `requestedBeds=${Math.max(0, Math.floor(rawProgram.bedrooms))} chosenBeds=${program.bedrooms} ` +
+            `chosenBaths=${program.bathrooms} rooms=${withAreas.length} ` +
+            `fillRatio=${fit.toFixed(2)} ` +
+            `${grewRooms ? `grew +${grewBeds} bedroom(s) (over-capacity shell)` : 'as-requested'}`,
+        );
+    }
 
     return {
         rooms: withAreas, edges, corridorId, entryId,

@@ -24,6 +24,7 @@ import {
     scaleProgramToShell,
     type PlateRole,
 } from '../src/workflows/apartmentLayout/tgl/bubbleGraph.js';
+import { apartmentDimensionsFor } from '../src/workflows/apartmentLayout/dimensions/roomDimensions.js';
 import { generateDeterministicLayouts } from '../src/workflows/apartmentLayout/tgl/runDeterministicLayout.js';
 import type { ShellAnalysis } from '../src/workflows/apartmentLayout/shellAnalysis.js';
 import type {
@@ -94,10 +95,19 @@ describe('M-B §PLATE-ROLE — apartment is BYTE-IDENTICAL (the HARD SAFETY GATE
             for (const area of [20, 60, 100, 120, 146, 200, 260, 400, 500, 650, 1000]) {
                 const legacy = scaleProgramToShell(p, area);                 // default param
                 const explicit = scaleProgramToShell(p, area, 'single');     // explicit role
+                // THE role-parameterisation safety gate: 'single' === default, ALWAYS.
+                // (§ENVELOPE-FIT-GROWTH applies equally to both, so the equality holds.)
                 expect(JSON.stringify(explicit)).toEqual(JSON.stringify(legacy));
-                // And the value MUST match the pre-M-B heuristic verbatim (130 m²/bed, ≤5).
+                // And the value MUST match the count model: the 130 m²/bed heuristic FLOOR
+                // (≤5) THEN §ENVELOPE-FIT-GROWTH (founder bug #1, 2026-06-10) — grow the
+                // count one bedroom at a time while the shell EXCEEDS the §3.1 grossMax for
+                // the current count, so an over-capacity shell fills the plate with MORE
+                // in-band rooms rather than inflating a fixed small program.
                 if (!(p.bedrooms === 0 && p.bathrooms === 0)) {
-                    const expectedBeds = Math.min(5, Math.max(p.bedrooms, Math.round(area / 130)));
+                    let expectedBeds = Math.min(5, Math.max(p.bedrooms, Math.round(area / 130)));
+                    while (expectedBeds < 5 && area > apartmentDimensionsFor(expectedBeds).grossMax + 1e-6) {
+                        expectedBeds += 1;
+                    }
                     expect(legacy.bedrooms).toBe(expectedBeds);
                 }
             }
@@ -131,6 +141,33 @@ describe('M-B §PLATE-ROLE — apartment is BYTE-IDENTICAL (the HARD SAFETY GATE
             const a = roomAreaM2(r);
             const cap = MEDIUM_MAX[r.type] ?? 55;
             expect(a, `apartment ${r.type} = ${a.toFixed(1)} m²`).toBeLessThanOrEqual(cap);
+        }
+    });
+
+    // §ENVELOPE-FIT-GROWTH (founder bug #1, 2026-06-10) — the over-capacity 206.7 m²
+    // shell with a 2-bed request used to hit §TOPO-HARD-REJECT-ALL (every strategy
+    // HARD-INVALID, rooms overlapping/merged at fillRatio ≈ 1.0, §EVERY-ROOM-ACCESS-COMB
+    // infeasible). Growing the program to 4 bedrooms gives MORE rooms of normal size so
+    // the comb fires + every room reaches circulation. This asserts the shipped layout is
+    // architecturally valid (more rooms than the 2-bed program + every room a door).
+    it('the over-capacity 206.7 m² 2-bed shell ships a grown, valid layout (founder bug #1)', () => {
+        const TWO_BED: ApartmentProgram = {
+            bedrooms: 2, bathrooms: 1, masterEnSuite: false,
+            openPlanKitchenDining: true, livingRoom: true, entranceHall: true,
+        };
+        const opts = generateDeterministicLayouts(plate(206.7, 12), TWO_BED, C, W, 1);
+        // No §TOPO-HARD-REJECT-ALL / no empty pool — a real layout ships.
+        expect(opts.length).toBeGreaterThan(0);
+        const bedroomCount = opts[0]!.rooms.filter(r =>
+            r.type === 'bedroom' || r.type === 'master').length;
+        // Grew from 2 → 4 bedrooms (more rooms of normal size, not 2 ballooned ones).
+        expect(bedroomCount).toBeGreaterThanOrEqual(3);
+        // Every habitable room stays within the "no blob" band — proof the shell grew
+        // MORE rooms rather than inflating a fixed small program past its envelope.
+        for (const r of opts[0]!.rooms) {
+            const a = roomAreaM2(r);
+            const cap = NO_BLOB_MAX[r.type] ?? 110;
+            expect(a, `206 m² apartment ${r.type} = ${a.toFixed(1)} m²`).toBeLessThanOrEqual(cap);
         }
     });
 });
