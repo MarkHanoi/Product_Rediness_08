@@ -24,6 +24,7 @@ import type { PerimeterSpan } from '../apartment-layout/layoutThumbnail.js';
 import {
     buildHouseModalHtml,
     buildHousePanesHtml,
+    buildHouseResultHtml,
     collectStoreyOptions,
     type HouseProgramFormState,
 } from './houseModalHtml.js';
@@ -279,7 +280,16 @@ export class HouseLayoutModal {
         if (this._onProgramChange) {
             const form = overlay.querySelector('form.alm-program') as HTMLFormElement | null;
             if (form) {
-                const handler = (): void => this._scheduleProgramChange(form);
+                const handler = (e?: Event): void => {
+                    // §3PANE IT-2 — live m² readout for a size slider (immediate, before
+                    // the debounced regen). The slider's <output> mirrors its value.
+                    const t = e?.target as HTMLInputElement | undefined;
+                    if (t && typeof t.matches === 'function' && t.matches('input[data-area-slider]')) {
+                        const out = form.querySelector(`output[data-readout-for="${t.name}"]`);
+                        if (out) out.textContent = Number(t.value) > 0 ? `${t.value} m²` : 'auto';
+                    }
+                    this._scheduleProgramChange(form);
+                };
                 form.addEventListener('input', handler);
                 form.addEventListener('change', handler);
             }
@@ -317,6 +327,10 @@ export class HouseLayoutModal {
         // (editing floors/bedrooms can change which occupancies are present).
         const legend = this._el.querySelector('[data-role="legend"]');
         if (legend) legend.innerHTML = buildOccupancyLegendHtml(collectStoreyOptions(cards));
+        // §3PANE IT-2 — refresh the RIGHT-rail result (score / storey count / Execute)
+        // so changing the level count or a slider updates the summary live too.
+        const result = this._el.querySelector('[data-role="result"]');
+        if (result) result.outerHTML = buildHouseResultHtml(cards[0]);
         this._setHint('');
         this.setBusy(false);
     }

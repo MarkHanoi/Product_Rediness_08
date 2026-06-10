@@ -370,4 +370,10 @@ export const APARTMENT_LAYOUT_MODAL_STYLES = `
   padding: 11px 14px; font-weight: 650; cursor: pointer; font-size: 13px; width: 100%;
 }
 .hlm-execute:hover { background: #5200cc; }
+/* §3PANE IT-2 — per-room SIZE sliders in the tools rail (founder: "increase size of room with a slider") */
+.hlm-tools-rail .alm-program-areas { display: flex; flex-direction: column; gap: 6px; }
+.alm-program-size { display: grid; grid-template-columns: 60px 1fr 50px; align-items: center; gap: 8px; font-size: 11px; }
+.alm-program-size-label { color: #64748b; }
+.alm-program-size input[type=range] { width: 100%; accent-color: #6600FF; }
+.alm-program-size-val { color: #6600FF; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
 `;

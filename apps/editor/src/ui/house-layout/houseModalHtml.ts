@@ -75,25 +75,30 @@ const WEIGHT_SLIDERS: ReadonlyArray<{ key: keyof ScoringWeights; label: string }
  * engine default (auto). This is the founder's "increase/decrease the size of each
  * room" control as a discoverable stepper row (the per-INSTANCE graph-node editor
  * — §LIVE-MODAL.D — remains for fine-grained per-room overrides). */
-const AREA_FIELDS: ReadonlyArray<{ type: RoomType; label: string }> = [
-    { type: 'living',   label: 'Living' },
-    { type: 'kitchen',  label: 'Kitchen' },
-    { type: 'dining',   label: 'Dining' },
-    { type: 'bedroom',  label: 'Bedroom' },
-    { type: 'master',   label: 'Master' },
-    { type: 'bathroom', label: 'Bath' },
+const AREA_FIELDS: ReadonlyArray<{ type: RoomType; label: string; max: number }> = [
+    { type: 'living',   label: 'Living',  max: 60 },
+    { type: 'kitchen',  label: 'Kitchen', max: 30 },
+    { type: 'dining',   label: 'Dining',  max: 28 },
+    { type: 'bedroom',  label: 'Bedroom', max: 30 },
+    { type: 'master',   label: 'Master',  max: 40 },
+    { type: 'bathroom', label: 'Bath',    max: 15 },
 ];
 
+/** §3PANE IT-2 (SPEC §5.2) — per-RoomType size as a SLIDER (the founder's "increase
+ *  size of room with a slider"). value 0 ⇒ auto (engine default); >0 ⇒
+ *  `roomAreas[<type>]` (the C52 hook, clamped to the type minimum). Same
+ *  `name="area_t_<type>"` so the form reader is unchanged; a live `<output>` shows the
+ *  m² (or "auto"), updated by the modal's form-input listener. */
 function areaInputsHtml(program: ApartmentProgram): string {
     const overrides = program.roomAreas ?? {};
     return AREA_FIELDS.map(f => {
         const cur = (overrides as Record<string, number>)[f.type];
-        const value = (typeof cur === 'number' && Number.isFinite(cur) && cur > 0)
-            ? cur.toString() : '';
+        const num = (typeof cur === 'number' && Number.isFinite(cur) && cur > 0) ? cur : 0;
+        const readout = num > 0 ? `${num} m²` : 'auto';
         return (
-            `<label class="alm-program-area"><span>${escHtml(f.label)}</span>` +
-            `<input type="number" name="area_t_${escHtml(f.type)}" min="0" step="0.5" value="${escHtml(value)}" placeholder="auto">` +
-            `<span class="alm-program-area-unit">m²</span></label>`
+            `<label class="alm-program-size"><span class="alm-program-size-label">${escHtml(f.label)}</span>` +
+            `<input type="range" name="area_t_${escHtml(f.type)}" min="0" max="${f.max}" step="0.5" value="${num}" data-area-slider>` +
+            `<output class="alm-program-size-val" data-readout-for="area_t_${escHtml(f.type)}">${escHtml(readout)}</output></label>`
         );
     }).join('');
 }
@@ -273,6 +278,30 @@ export function buildHousePanesHtml(
     );
 }
 
+/** §3PANE RIGHT-rail result summary (score + storeys/stairs/roof) + the single
+ *  terminal EXECUTE ("Use this layout"). Exported so the modal's `refresh()` rebuilds
+ *  it in lock-step with the panes when a live edit changes the level count / score
+ *  (IT-2). Empty when there is no best option. Pure. */
+export function buildHouseResultHtml(best: HouseCardModel | undefined): string {
+    if (!best) return '<div class="hlm-tools-result" data-role="result"></div>';
+    const roofLabel = best.roofKind.charAt(0).toUpperCase() + best.roofKind.slice(1);
+    const stairText = best.stairCount > 0
+        ? `${best.stairCount} stair${best.stairCount === 1 ? '' : 's'}`
+        : 'single storey';
+    return (
+        `<div class="hlm-tools-result" data-role="result">` +
+        `<div class="alm-card-head"><span class="alm-title">${escHtml(best.title)}</span>` +
+        `<span class="alm-overall" title="overall score">${best.overall}<small>/100</small></span></div>` +
+        `<div class="alm-bars"><div class="alm-bar">` +
+        `<span class="alm-bar-label">Overall</span>` +
+        `<span class="alm-bar-track"><span class="alm-bar-fill" style="width:${best.overall}%"></span></span>` +
+        `<span class="alm-bar-pct">${best.overall}</span></div></div>` +
+        `<div class="alm-meta">${best.storeyCount} storey${best.storeyCount === 1 ? '' : 's'} · ${escHtml(stairText)} · ${escHtml(roofLabel)} roof</div>` +
+        `<button type="button" class="alm-select hlm-execute" data-index="${best.index}">Use this layout</button>` +
+        `</div>`
+    );
+}
+
 /**
  * Build the modal's inner HTML — the §3PANE workspace (SPEC-DYNAMIC-PROGRAM-CANVAS):
  * header + a three-column body { LEFT plans · CENTER graphs (= `[data-role="grid"]`,
@@ -302,30 +331,11 @@ export function buildHouseModalHtml(
     const legend = legendInner
         ? `<div class="alm-legend" data-role="legend">${legendInner}</div>`
         : '';
-    // §3PANE RIGHT rail — the tools + the result summary + the single terminal
-    // EXECUTE ("Use this layout"). NOT rebuilt on regen (the form is the user's input);
-    // the result line is refreshed separately by the modal when it matters.
-    const roofLabel = best ? best.roofKind.charAt(0).toUpperCase() + best.roofKind.slice(1) : '';
-    const stairText = best && best.stairCount > 0
-        ? `${best.stairCount} stair${best.stairCount === 1 ? '' : 's'}`
-        : 'single storey';
-    const resultBlock = best
-        ? `<div class="hlm-tools-result" data-role="result">` +
-          `<div class="alm-card-head"><span class="alm-title">${escHtml(best.title)}</span>` +
-          `<span class="alm-overall" title="overall score">${best.overall}<small>/100</small></span></div>` +
-          `<div class="alm-bars"><div class="alm-bar">` +
-          `<span class="alm-bar-label">Overall</span>` +
-          `<span class="alm-bar-track"><span class="alm-bar-fill" style="width:${best.overall}%"></span></span>` +
-          `<span class="alm-bar-pct">${best.overall}</span></div></div>` +
-          `<div class="alm-meta">${best.storeyCount} storey${best.storeyCount === 1 ? '' : 's'} · ${escHtml(stairText)} · ${escHtml(roofLabel)} roof</div>` +
-          `<button type="button" class="alm-select hlm-execute" data-index="${best.index}">Use this layout</button>` +
-          `</div>`
-        : '';
     const toolsRail =
         '<div class="hlm-tools-rail" data-role="tools">' +
         programForm +
         legend +
-        resultBlock +
+        buildHouseResultHtml(best) +
         '</div>';
     return (
         '<div class="alm-panel hlm-3pane-panel">' +
