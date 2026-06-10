@@ -11,8 +11,22 @@
 //   • labels + an area badge,
 //   • hit-testing (`pick`) for click → inspect.
 //
-// The renderer is stateless beyond the canvas/ctx + DPR; the overlay owns the
-// graph, layer state, sim + interaction and calls `draw()` each frame.
+// §GRAPH-UNIFY (founder 2026-06-10) — the Living Graph now wears the SAME fluid
+// "living blob" aesthetic as the static Building-Graph blob overlay
+// (ui/graph/BuildingGraphOverlay): a lavender radial field wash, additively-
+// composited ('lighter') metaball glow halos that merge when nodes are close,
+// flowing tapered edge gradients with a slow phase ripple, and a gentle perpetual
+// breathe — so the two graph surfaces read as ONE renderer + ONE look. The
+// SEMANTICS stay the Living Graph's own: per-LAYER edge colour/dash, room-type
+// node colour, sun/acoustic metric rings, area badges, focus/hover rings, and
+// all the existing edit interactions (the overlay owns those, unchanged). Ported
+// (Option B) rather than sharing the blob class because that overlay is a
+// monolithic full-screen UbgNode-bound surface, not a {nodes,edges} component.
+//
+// The renderer is stateless beyond the canvas/ctx + DPR + a perpetual-motion
+// `phase` clock (advanced deterministically each draw — NO rAF; the overlay's
+// existing P3-safe ticker calls draw()); the overlay owns the graph, layer
+// state, sim + interaction and calls `draw()` each frame.
 
 import {
   EDGE_LAYER_COLOUR,
@@ -50,6 +64,10 @@ export interface DrawState {
 
 export class LivingGraphCanvas {
   private dpr = 1;
+  /** §GRAPH-UNIFY — perpetual-motion clock (radians) driving the breathe +
+   *  edge-flow ripple, so the field feels "alive" like the blob overlay.
+   *  Advanced a fixed step on every draw() — deterministic, NO rAF. */
+  private phase = 0;
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -94,21 +112,30 @@ export class LivingGraphCanvas {
     return best;
   }
 
-  /** Paint one frame. White canvas, dark text — brand. */
+  /** Paint one frame. White canvas, dark text — brand. §GRAPH-UNIFY: with the
+   *  fluid "living blob" glow (additive metaball halos + flowing edge gradients +
+   *  a gentle breathe) so it matches the static Building-Graph blob overlay. */
   draw(graph: LiveGraph, active: LayerState, st: DrawState): void {
     const ctx = this.ctx;
     const W = this.canvas.clientWidth || 360;
     const H = this.canvas.clientHeight || 300;
 
+    // §GRAPH-UNIFY — advance the perpetual-motion clock (deterministic step, no
+    // rAF). Wrap at 2π so it never grows unbounded over a long-lived panel.
+    this.phase = (this.phase + 0.018) % (Math.PI * 2);
+    const phase = this.phase;
+
     ctx.save();
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
 
-    // White card field with a faint lavender wash (brand, NOT dark).
+    // White card field with a faint lavender wash (brand, NOT dark). §GRAPH-UNIFY:
+    // a touch stronger + softly off-centre, matching the blob overlay's living field.
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, W, H);
-    const wash = ctx.createRadialGradient(W * 0.5, H * 0.42, 0, W * 0.5, H * 0.42, Math.max(W, H) * 0.7);
-    wash.addColorStop(0, 'rgba(102,0,255,0.05)');
+    const wash = ctx.createRadialGradient(W * 0.5, H * 0.42, 0, W * 0.5, H * 0.42, Math.max(W, H) * 0.72);
+    wash.addColorStop(0, 'rgba(150,100,255,0.10)');
+    wash.addColorStop(0.5, 'rgba(120,70,240,0.045)');
     wash.addColorStop(1, 'rgba(102,0,255,0)');
     ctx.fillStyle = wash;
     ctx.fillRect(0, 0, W, H);
@@ -117,8 +144,13 @@ export class LivingGraphCanvas {
     const s = st.scale ?? 1;
     /** A node's ON-SCREEN radius (auto-fit zoom applied). */
     const screenR = (n: GraphNode): number => n.radius * s;
+    /** §GRAPH-UNIFY — a node's gentle, deterministic per-node "breathe" factor. */
+    const breatheOf = (n: GraphNode): number => 1 + Math.sin(phase * 1.3 + n.radius) * 0.06;
 
-    // 1) Edges — one curved, dashed stroke per ACTIVE layer the edge carries.
+    // 1) Edges — one curved stroke per ACTIVE layer, now a FLOWING tapered light
+    //    band (faint at the node ends, luminous mid-span, with a slow phase ripple
+    //    sliding the bright band along) — the blob overlay's "liquid bridge" look.
+    //    The per-layer COLOUR + DASH (the Living Graph's semantics) are preserved.
     ctx.lineCap = 'round';
     for (const e of graph.edges) {
       const from = byId.get(e.a);
@@ -136,16 +168,24 @@ export class LivingGraphCanvas {
       const mx = (a.x + b.x) / 2;
       const my = (a.y + b.y) / 2;
       // Fan multiple active layers out with small parallel bows so they're all
-      // visible (the prototype draws one curve per active relation).
+      // visible (one curve per active relation), with a slow flowing bow ripple.
       activeLayers.forEach((layer, idx) => {
         const spread = (idx - (activeLayers.length - 1) / 2) * 10;
-        const bow = len * 0.12 + 6 + spread;
+        const bow = (len * 0.12 + 6 + spread) * (1 + Math.sin(phase + len) * 0.18);
         const cxp = mx + nx * bow;
         const cyp = my + ny * bow;
         ctx.beginPath();
         ctx.moveTo(a.x, a.y);
         ctx.quadraticCurveTo(cxp, cyp, b.x, b.y);
-        ctx.strokeStyle = EDGE_LAYER_COLOUR[layer];
+        // Tapered flow gradient in the layer's colour: dim ends → bright core, the
+        // bright band sliding slowly along (phase ripple) so bridges read as light.
+        const base = EDGE_LAYER_COLOUR[layer];
+        const eg = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
+        const flow = Math.max(0.15, Math.min(0.85, 0.5 + Math.sin(phase * 0.6 + len * 0.01) * 0.12));
+        eg.addColorStop(0, withAlpha(base, 0.3));
+        eg.addColorStop(flow, base);
+        eg.addColorStop(1, withAlpha(base, 0.3));
+        ctx.strokeStyle = eg;
         ctx.setLineDash(LAYER_DASH[layer]);
         ctx.lineWidth = 1 + Math.min(2.4, e.weight * 0.8);
         ctx.stroke();
@@ -179,13 +219,35 @@ export class LivingGraphCanvas {
       }
     }
 
-    // 3) Node cores — room-type colour, √area radius, focus/hover ring.
+    // 2b) §GRAPH-UNIFY — METABALL GLOW. Additive ('lighter') radial-gradient halos
+    //     in each node's room-type colour. Overlapping halos SUM into one continuous
+    //     luminous field — the "living blob" merge. Drawn UNDER the solid cores.
+    ctx.globalCompositeOperation = 'lighter';
+    for (const n of graph.nodes) {
+      const p = this.toScreen(n, st);
+      const r = screenR(n);
+      const isActive = st.focusedId === n.id || st.hoveredId === n.id;
+      const breathe = breatheOf(n);
+      const haloR = Math.max(8, r * 2.4 * breathe);
+      const c = ROOM_TYPE_COLOUR[n.type];
+      const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, haloR);
+      grad.addColorStop(0, withAlpha(c, isActive ? 0.7 : 0.5));
+      grad.addColorStop(0.45, withAlpha(c, isActive ? 0.26 : 0.18));
+      grad.addColorStop(1, withAlpha(c, 0));
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, haloR, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+
+    // 3) Node cores — room-type colour, √area radius (breathing), focus/hover ring.
     for (const n of graph.nodes) {
       const p = this.toScreen(n, st);
       const isFocus = st.focusedId === n.id;
       const isHover = st.hoveredId === n.id;
       ctx.beginPath();
-      ctx.arc(p.x, p.y, screenR(n), 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, screenR(n) * breatheOf(n), 0, Math.PI * 2);
       ctx.fillStyle = ROOM_TYPE_COLOUR[n.type];
       ctx.fill();
       ctx.lineWidth = isFocus ? 3 : isHover ? 2 : 1.25;
@@ -254,6 +316,27 @@ function ellipsize(ctx: CanvasRenderingContext2D, text: string, maxPx: number): 
     else hi = mid - 1;
   }
   return lo <= 0 ? ell : text.slice(0, lo).trimEnd() + ell;
+}
+
+/**
+ * §GRAPH-UNIFY — return `colour` (an `#rrggbb` or `rgba(...)` string) as an
+ * `rgba()` with the given alpha, so the glow halos + flowing edge gradients can
+ * fade a semantic colour to transparent. Mirrors the blob overlay's helper.
+ * Falls back to the input string if it parses as neither.
+ */
+function withAlpha(colour: string, alpha: number): string {
+  if (colour.startsWith('#')) {
+    const r = parseInt(colour.slice(1, 3), 16);
+    const g = parseInt(colour.slice(3, 5), 16);
+    const b = parseInt(colour.slice(5, 7), 16);
+    return `rgba(${r},${g},${b},${alpha})`;
+  }
+  const m = colour.match(/rgba?\(([^)]+)\)/);
+  if (m) {
+    const parts = m[1].split(',').map((s) => s.trim());
+    return `rgba(${parts[0]},${parts[1]},${parts[2]},${alpha})`;
+  }
+  return colour;
 }
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
