@@ -3509,3 +3509,110 @@ correct `secondRunSide` (mirrors the mesh slab). geometry-stair 26/26 (+21).
 
 **Governance assigned:** stair pipeline ref `docs/04-reference/STAIR-CREATION-PIPELINE-AND-ANCHOR-ANALYSIS.md`;
 consistent with `§STAIR-U-LANDING-SIDE`. **Status: SHIPPED** (`8b880a6f`, v101).
+
+## §47 — Access-graph-first layout grammar + execution-boundary fidelity (`ACCESS-GRAPH`)
+
+**Founder critique (2026-06-10, captured faithfully):**
+
+> *"A domestic floor plan is not a collection of rooms that fit inside a perimeter — it is a
+> HIERARCHICAL ACCESS GRAPH. Every room must be reachable from the front door by traversing a
+> defined sequence of spaces. The correct grammar for a two-storey house is:
+> **Street → Front door → Entrance hall → [Living/Kitchen/Dining/Stair] → Landing →
+> [Bedrooms/Bathrooms].** The algorithm generates rooms as isolated units and connects them with
+> doors AFTER the fact — this is backwards. The access graph must be defined FIRST as a topology,
+> and rooms placed to satisfy it."*
+
+His 7 fundamental gaps: (1) no access-graph-first spatial grammar; (2) incomplete room-type
+vocabulary (entrance-hall ground anchor / rectangular landing / ground WC / utility); (3) no per-type
+ENFORCED area caps **at the SHIPPED level** (en-suite shipped ~53 m², master 29 m² — 50–200 % over);
+(4) en-suite duplication / labelling collisions; (5) miter-clamp warnings from diagonal-wall
+degeneracy; (6) window placement per-WALL not per-ROOM; (7) the stair making two phantom rooms instead
+of one excluded void.
+
+### The honest A/B split (the headline finding)
+
+**Most of this grammar is ALREADY designed into the engine — the divergence is at the engine→editor
+EXECUTION/DETECTION/NAMING boundary, not a missing engine.** The 53 m² en-suite is **geometrically
+impossible** from the engine's `§AREA-FRACTIONS` caps → it is a *detected merged polygon* (two engine
+rooms flooded into one when a partition endpoint misses the shell centreline), then mislabelled. The
+biggest lever is execution-boundary fidelity, NOT rebuilding the engine.
+
+- **(A) Already-designed-but-not-reliably-shipping (EXECUTION-BOUNDARY)** — dominant cause. Targeted by
+  the just-shipped `§ROOM-NAME-BIJECTIVE` (1:1 room↔name match) + the new `§DIAG-EXEC-*`
+  execution-boundary diagnostics.
+- **(B) Genuinely-missing / doctrine-level (NEW)** — the access-graph-FIRST re-assertion on the
+  *detected* plan (C53 §1 mandates topology-first but it is never re-checked post-detection), detected-
+  room cap validation, the stair-as-excluded-void-before-detection, robust non-orthogonal polygon offset.
+
+### Governance
+
+- **ADR-0066 — Access-Graph-First Generative Layout Doctrine** (PROPOSED) —
+  `docs/02-decisions/adrs/0066-access-graph-first-generative-layout-doctrine.md`. AG1–AG5 + the
+  what-already-exists-vs-what-changes ledger. References ADR-0061/0062/0063, C53, C52,
+  SPEC-ARCHITECTURAL-PROGRAM-RULES.
+- **SPEC-ACCESS-GRAPH-AND-SPATIAL-GRAMMAR** —
+  `docs/03-execution/specs/SPEC-ACCESS-GRAPH-AND-SPATIAL-GRAMMAR.md`. §2 grammar · §3 vocabulary ·
+  §4 shipped-area caps (+ founder table) · §5 en-suite parent-child · §6 stair-void-before-detection ·
+  §7 per-room window · §8 door coverage · §9 non-orthogonal robustness · §10 `§DIAG-EXEC-*` acceptance.
+- **C53 §1** (topology is the source of truth; geometry is a projection) is the contract this doctrine
+  extends from pre-detection design to a post-detection invariant.
+
+### Priority fix list (founder's table) — each tagged ALREADY-ENGINE / EXECUTION-BOUNDARY / NEW
+
+**CRITICAL**
+- [ ] Every room ≥1 door — **EXECUTION-BOUNDARY**. Engine: `§SEALED-ROOMS`/`§CIRCULATION-REROUTE`
+  (`wallsAndDoors.ts`) + `§EVERY-ROOM-ACCESS-COMB`. Diagnostic SHIPPED (`§DIAG-EXEC-DOORS` → ⚠ NO-DOOR);
+  hard gate QUEUED.
+- [ ] Every room ≥1 window on an exterior wall — **EXECUTION-BOUNDARY**. Engine: per-room
+  `emitWindows.ts` + `windowMandatory` + `§WINDOW-MANDATORY-RESCUE`. Diagnostic SHIPPED
+  (`§DIAG-EXEC-WINDOWS` → ⚠ NO-WINDOW / ⚠ WINDOW-ON-PARTITION); hard gate QUEUED.
+- [ ] En-suite ≤ parent bedroom area — **ALREADY-ENGINE** (carved from inside the master,
+  `subdivide.ts:460`; `ensuite.accessFrom=['master']`). Duplicate-en-suite was a naming collision →
+  `§ROOM-NAME-BIJECTIVE` **DONE**. Detected-pair area assertion QUEUED.
+- [ ] Add entrance hall / lobby — **ALREADY-ENGINE** (`§HALL-SINGLETON` + `§LANDING-NOT-HALL`/G14,
+  `bubbleGraph.ts:160-178`, `hall.frontage='required'`). Boundary fix = bijective naming so it is never
+  merged away (`§ROOM-NAME-BIJECTIVE` **DONE**).
+- [ ] Bathrooms must not be the sole access to a bedroom — **ALREADY-ENGINE**
+  (`bathroom.accessFrom=['corridor']` `§BATH-CORRIDOR-ONLY`; `bedroom.accessFrom` excludes `bedroom`,
+  `maxDoors=1`; `§TOPO-HARD-REJECT` privacy rule).
+
+**HIGH**
+- [ ] Fix unnamed "Room 00-008" fallback resolver — **EXECUTION-BOUNDARY**. `§ROOM-NAME-BIJECTIVE`
+  two-pass match (`matchDetectedRooms.ts` / `nameDetectedRooms.ts`) **DONE/IN-FLIGHT**.
+- [ ] Upper-floor continuous corridor from landing to all bedrooms — **ALREADY-ENGINE**
+  (corridor spine `§SINGLE-RECT-CARVE` runs full length; upper `corridor`=Landing). Assert on detected
+  plan QUEUED.
+- [ ] Per-room-type min/max area caps at the SHIPPED level — **B2 / EXECUTION-BOUNDARY**. Engine TARGET
+  caps `§AREA-FRACTIONS` (`programRules.ts:494`, `bubbleGraph.ts:256-279`). Detected-polygon validation:
+  `§DIAG-EXEC-AREA` SHIPPED (OK/⚠ OVER-CAP/⚠ NO-ENGINE-MATCH); hard gate QUEUED.
+
+**MEDIUM**
+- [ ] Fix 45° rotation normalisation — **ALREADY-ENGINE** (`§PRINCIPAL-AXIS` rotate-to-frame +
+  `§RECTIFY-QUAD` + `§RECTIFY-SHELL-PROJECT`). `§DIAG-EXEC-ROTATION` surfaces the applied angle.
+- [ ] Stair connects to hallway / entrance — **ALREADY-ENGINE** (`stair.accessFrom=['corridor','hall']`,
+  `§STAIR-CORNER-ANCHOR`/ADR-0063 H4).
+- [ ] Landing = proper rectangle, not residual sliver — **EXECUTION-BOUNDARY** (detection quality;
+  surfaced by `§DIAG-EXEC-ROOMS`).
+
+### Genuinely-NEW doctrine items (B)
+
+- [ ] **B1 — Post-detection access-graph re-assertion.** Reconcile the detected door/room set against
+  the engine `LayoutGraph` (P5); G1–G4 violated on the *shipped* plan = a surfaced defect. `NEW` (gate).
+- [ ] **B2 — Detected-room area-cap gate.** Promote `§DIAG-EXEC-AREA` from observer to gate. `NEW`.
+- [ ] **B3 — Stair footprint as a detection-time EXCLUSION.** Feed the contained world footprint
+  (`§STAIR-CONTAIN-UPSTREAM` makes keep-out == shipped) to `RoomDetectionEngine` so the stair never
+  splits into two phantom rooms. `§DIAG-EXEC-STAIR` is the diagnostic. `NEW`.
+- [ ] **B4 — Robust non-orthogonal polygon offset.** Replace the `§DIAG-FLOOR-INSET` miter fall-back
+  ladder with a Clipper-style offset OR enforce orthogonal/45° partitions. `NEW` (lowest priority).
+
+### Status summary
+
+- **DONE / IN-FLIGHT (2026-06-10):** `§ROOM-NAME-BIJECTIVE`
+  (`apps/editor/src/ui/apartment-layout/matchDetectedRooms.ts` + `nameDetectedRooms.ts`) ·
+  `§DIAG-EXEC-*` (`apps/editor/src/ui/house-layout/houseExecDiagnostics.ts`:
+  `-ROOMS`/`-AREA`/`-DOORS`/`-WINDOWS`/`-STAIR`/`-ROTATION` + ROLLUP) · prior enablers
+  `§ENVELOPE-FIT-GROWTH`, `§DIAG-FLOOR-INSET`, `§AREA-FRACTIONS`, `§HALL-SINGLETON`,
+  `§STAIR-CONTAIN-UPSTREAM`, `§TOPO-HARD-REJECT`.
+- **QUEUED:** the diagnostic→gate promotions (door / window / area / access-graph) and the four (B)
+  doctrine items above.
+- **Governance:** ADR-0066 (PROPOSED) + SPEC-ACCESS-GRAPH-AND-SPATIAL-GRAMMAR (DRAFT) + C53 §1.
