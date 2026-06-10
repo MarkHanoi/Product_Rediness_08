@@ -149,21 +149,31 @@ describe('realism gap 2 — wardrobe sized to the room', () => {
 });
 
 // ── Gap 3 — kitchen fridge ───────────────────────────────────────────────────
+// §KITCHEN-PARAMETRIC-RUN (2026-06-10): furnishRoom(kitchen) now emits a single
+// parametric run; the fridge lives on a cabinet-unit appliance slot in the
+// config (rendered by KitchenCabinetEngine), not as a loose `fridge` element.
 describe('realism gap 3 — kitchen includes a fridge', () => {
-    it('an I / L / U kitchen all carry a fridge in the run', () => {
+    const hasFridgeSlot = (placed: ReturnType<typeof furnishRoom>): boolean => {
+        const run = placed.find(p =>
+            p.kind === 'kitchen_straight' || p.kind === 'kitchen_l_shape' || p.kind === 'kitchen_u_shape');
+        const appliances = (run?.kitchenConfig?.units ?? []).map(u => u.appliance).filter(Boolean);
+        return appliances.some(a => String(a).startsWith('fridge'));
+    };
+
+    it('an I / L / U kitchen all carry a fridge in the run config', () => {
         for (const layoutDims of [[3.0, 2.4], [5.0, 4.0], [4.5, 4.5]] as const) {
             const placed = furnishRoom(rectRoom('kitchen', layoutDims[0], layoutDims[1]));
-            expect(placed.some(p => p.kind === 'fridge'),
-                `kitchen ${layoutDims[0]}×${layoutDims[1]} should have a fridge`).toBe(true);
+            expect(hasFridgeSlot(placed),
+                `kitchen ${layoutDims[0]}×${layoutDims[1]} should have a fridge slot`).toBe(true);
         }
     });
 
-    it('the fridge sits inside the room and does not overlap the counter run', () => {
-        const placed = furnishRoom(rectRoom('kitchen', 5.0, 4.0));
-        const fridge = placed.find(p => p.kind === 'fridge')!;
-        const fr = rectOf(fridge);
-        for (const c of placed.filter(p => p.kind !== 'fridge' && p.kind !== 'extractor')) {
-            expect(rectsOverlap(fr, rectOf(c))).toBe(false);
-        }
+    it('the kitchen run sits inside the room', () => {
+        const room = rectRoom('kitchen', 5.0, 4.0);
+        const placed = furnishRoom(room);
+        const run = placed.find(p =>
+            p.kind === 'kitchen_straight' || p.kind === 'kitchen_l_shape' || p.kind === 'kitchen_u_shape')!;
+        expect(run).toBeDefined();
+        expect(pointInPolygon({ x: run.position.x, z: run.position.z }, room.polygon as Pt[])).toBe(true);
     });
 });

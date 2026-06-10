@@ -56,23 +56,41 @@ export function buildFurnishCommands(
         const id = mintId('furniture');
         ids.push(id);
         const finish = styleFinishFor(finishStyle, p.kind);
-        commands.push({
-            command: 'furniture.create',
-            payload: {
-                id,
-                furnitureType: p.kind,
-                position: { x: round6(p.position.x), y: round6(p.position.y), z: round6(p.position.z) },
-                rotation: round6(p.rotationY),                 // SCALAR yaw (radians)
-                levelId,
-                baseOffset: round6(p.position.y - levelElevation),
+
+        // §KITCHEN-PARAMETRIC-RUN (2026-06-10) — a parametric kitchen run carries a
+        // resolved KitchenCabinetConfigLike. Forward it (+ furnitureCategory
+        // 'kitchen') so the editor's KitchenBuilder/KitchenCabinetEngine renders the
+        // swappable-cabinet run; the user can keep editing it via the existing
+        // Kitchen inspectors. Mirror KitchenCabinetTool's payload mapping:
+        // width = run length, length = cabinet depth (NOT the placeholder footprint).
+        const kc = p.kitchenConfig;
+        const base = {
+            id,
+            furnitureType: p.kind,
+            position: { x: round6(p.position.x), y: round6(p.position.y), z: round6(p.position.z) },
+            rotation: round6(p.rotationY),                 // SCALAR yaw (radians)
+            levelId,
+            baseOffset: round6(p.position.y - levelElevation),
+            color: finish.color,                           // A.21.D4 — style colour (hex)
+            material: finish.material,                     // A.21.D4 — style finish
+            metadata: { hostedSpaceId: p.hostedSpaceId, style: finishStyle },
+        };
+        const payload = kc
+            ? {
+                ...base,
+                width: round6(kc.length),
+                length: round6(kc.depth),
+                height: round6(kc.height),
+                furnitureCategory: 'kitchen',
+                kitchenConfig: kc,
+            }
+            : {
+                ...base,
                 width: round6(p.footprint.w),
                 length: round6(p.footprint.l),
                 height: round6(p.footprint.h),
-                color: finish.color,                           // A.21.D4 — style colour (hex)
-                material: finish.material,                     // A.21.D4 — style finish
-                metadata: { hostedSpaceId: p.hostedSpaceId, style: finishStyle },
-            },
-        });
+            };
+        commands.push({ command: 'furniture.create', payload });
     }
 
     return { levelId, commands, ids, totalElementCount: commands.length, warnings };

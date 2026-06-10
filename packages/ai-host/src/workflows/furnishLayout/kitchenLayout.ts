@@ -20,6 +20,7 @@
 
 import type {
     FurnishRoomInput, PlacedFurniture, Pt, RoomWallSeg, FurnitureKind,
+    KitchenCabinetConfigLike,
 } from './types.js';
 import { footprintOf } from './footprints.js';
 import { quadInPolygon, quadOverlapsAny, footprintCorners, type Quad } from './collision.js';
@@ -358,6 +359,176 @@ export function planKitchen(
 
     return out;
 }
+
+// ── §KITCHEN-PARAMETRIC-RUN (2026-06-10) ─────────────────────────────────────
+//
+// The auto-furnish kitchen now emits ONE parametric kitchen RUN that the editor
+// renders with the GOOD `@pryzm/geometry-furniture` `KitchenCabinetEngine`
+// (swappable cabinet units + integrated appliances + a unified countertop),
+// instead of the legacy concatenation of individual appliance box proxies
+// (`planKitchen` → separate sink/hob/oven/base_unit/fridge items).
+//
+// This produces a single `PlacedFurniture` whose `kind` is the matching
+// `kitchen_straight | kitchen_l_shape | kitchen_u_shape` and which carries a
+// fully-resolved `KitchenCabinetConfigLike`. `buildFurnishCommands` forwards the
+// config (+ `furnitureCategory:'kitchen'`) onto the `furniture.create` payload,
+// and the user can keep swapping cabinets/appliances afterward via the existing
+// KitchenUnitInspector / KitchenRunInspector UI (the placed run IS a real
+// kitchen-cabinet furniture element, identical to one dropped from the carousel).
+//
+// SCOPE (smallest real slice): the run is built along the kitchen's longest
+// usable (door-free) wall as the spine. I-shape is the guaranteed minimum; L / U
+// are emitted when the auto/forced shape chooses them AND a perpendicular arm
+// wall is available, sizing each arm to the chosen wall length. Per-cabinet swap
+// + a tighter wall-by-wall fit remain follow-ups (SPEC-KITCHEN-WARDROBE-WALL-DRIVEN).
+
+const KITCHEN_DEPTH = 0.60;        // base cabinet depth (m) — matches KITCHEN_DEFAULTS.depth
+const KITCHEN_HEIGHT = 0.90;       // worktop height (m)    — matches KITCHEN_DEFAULTS.height
+const KITCHEN_UNIT_W = 0.60;       // 600 mm standard module — matches KITCHEN_DEFAULTS.unitWidth
+const KITCHEN_MIN_RUN = 1.20;      // a run shorter than this can't host the triangle → bail
+
+type KUnit = NonNullable<KitchenCabinetConfigLike['units']>[number];
+
+/** Whole number of 600 mm units that fit along a usable arm length, clamped to
+ *  ≥1; the arm depth (0.60 m) is reserved at the corner for L/U so secondary
+ *  arms don't double-count the corner cell. */
+function unitsForArm(armLength: number): number {
+    return Math.max(1, Math.floor((armLength + 1e-6) / KITCHEN_UNIT_W));
+}
+
+/**
+ * Build the parametric kitchen RUN as a single PlacedFurniture carrying a
+ * resolved KitchenCabinetConfigLike. Mirrors `planKitchen`'s shape choice + the
+ * sink↔hob↔fridge work-triangle (mapped onto cabinet-unit appliance slots), but
+ * emits the run as ONE element the GOOD KitchenCabinetEngine renders.
+ *
+ * Pure + deterministic. Returns [] for degenerate rooms (caller falls back).
+ */
+export function planKitchenRun(
+    input: FurnishRoomInput,
+    layout: KitchenLayout = 'auto',
+    opts: { washingMachine?: boolean } = {},
+): PlacedFurniture[] {
+    if (input.walls.length === 0 || input.areaM2 <= 0) return [];
+
+    const usableWalls = runWalls(input).filter(w => !wallHasDoor(w, input.doors));
+    const walls = usableWalls.length > 0 ? usableWalls : runWalls(input);
+    const shape = chooseShape(input, walls, layout);
+    const arms = pickArms(walls, shape);
+    if (arms.length === 0) return [];
+
+    // The SPINE arm carries the worktop run + sink/hob. For an L/U it's the arm
+    // every other arm shares a corner with (chosen as arm[1]/back for U, arm[0]
+    // for L by buildChain ordering — same convention as planKitchen).
+    const spineIdx = arms.length >= 3 ? 1 : 0;
+    const spine = arms[spineIdx]!;
+
+    // Main-arm geometry: the engine builds the main run centred on the spine
+    // midpoint, units facing local +Z, then offsets the group by -length/2 in X.
+    // So we anchor the placement at the spine MIDPOINT, push it the cabinet half
+    // depth INTO the room (along the wall's inward normal), and yaw so the run's
+    // local +Z points into the room.
+    const mainLen = Math.min(spine.length, KITCHEN_UNIT_W * 12);   // cap absurdly long walls
+    if (mainLen < KITCHEN_MIN_RUN) return [];
+    const numMain = unitsForArm(mainLen);
+
+    // Secondary arm lengths (L/U) — left arm for L+U, right arm for U.
+    const secondaries = arms.filter((_, i) => i !== spineIdx);
+    const hasLeft = (shape === 'L' || shape === 'U') && secondaries.length >= 1;
+    const hasRight = shape === 'U' && secondaries.length >= 2;
+    const leftLen = hasLeft
+        ? Math.max(0, Math.min(secondaries[0]!.length, KITCHEN_UNIT_W * 8) - KITCHEN_DEPTH)
+        : 0;
+    const rightLen = hasRight
+        ? Math.max(0, Math.min(secondaries[1]!.length, KITCHEN_UNIT_W * 8) - KITCHEN_DEPTH)
+        : 0;
+    const numLeft = leftLen >= KITCHEN_UNIT_W ? unitsForArm(leftLen) : 0;
+    const numRight = rightLen >= KITCHEN_UNIT_W ? unitsForArm(rightLen) : 0;
+
+    const layoutType: KitchenCabinetConfigLike['layoutType'] =
+        numRight > 0 ? 'kitchen_u_shape' : numLeft > 0 ? 'kitchen_l_shape' : 'kitchen_straight';
+
+    // ── Work-triangle → unit appliance slots ────────────────────────────────
+    // Spine (main) arm: sink near one end, hob spread one+ cell along, washing
+    // machine when requested. Fridge goes on the FIRST secondary arm (L/U) one
+    // cell off the corner, or on the main run's far end for an I kitchen — the
+    // same triangle doctrine `planKitchen` uses, expressed as appliance slots.
+    const units: KUnit[] = [];
+    const main: KUnit[] = [];
+    for (let i = 0; i < numMain; i++) main.push({ index: i, arm: 'main', front: 'door' });
+
+    const setAppliance = (arr: KUnit[], idx: number, appliance: string): void => {
+        if (idx >= 0 && idx < arr.length) arr[idx]!.appliance = appliance;
+    };
+    // Sink at the start cell; hob two cells along (≈1.2 m → NKBA leg).
+    setAppliance(main, 0, 'sink_inox');
+    if (numMain >= 3) setAppliance(main, 2, 'hob');
+    else if (numMain >= 2) setAppliance(main, numMain - 1, 'hob');
+    if (opts.washingMachine && numMain >= 4) setAppliance(main, 3, 'washing_machine_white');
+
+    const left: KUnit[] = [];
+    for (let i = 0; i < numLeft; i++) left.push({ index: i, arm: 'left', front: 'door' });
+    const right: KUnit[] = [];
+    for (let i = 0; i < numRight; i++) right.push({ index: i, arm: 'right', front: 'door' });
+
+    // Fridge: prefer the first secondary arm one cell off the corner; else the
+    // far end of the main run. Combi fridge replaces the carcass at that slot.
+    if (numLeft >= 1) {
+        setAppliance(left, Math.min(1, numLeft - 1), 'fridge_combi_silver');
+    } else {
+        setAppliance(main, numMain - 1, 'fridge_combi_silver');
+    }
+
+    units.push(...main, ...left, ...right);
+
+    const config: KitchenCabinetConfigLike = {
+        layoutType,
+        depth: KITCHEN_DEPTH,
+        length: round6(mainLen),
+        height: KITCHEN_HEIGHT,
+        numUnits: numMain,
+        // L/U arm fields are omitted (not set to undefined) so the config is
+        // clean under exactOptionalPropertyTypes.
+        ...(numLeft > 0 ? { lengthLeft: round6(leftLen), numUnitsLeft: numLeft } : {}),
+        ...(numRight > 0 ? { lengthRight: round6(rightLen), numUnitsRight: numRight } : {}),
+        // Default materials — oak doors + marble worktop, matching the carousel
+        // default (buildDefaultKitchenConfig); the user can re-finish via the UI.
+        frontMaterialId: 'wood-oak',
+        countertopMaterialId: 'stone-marble-white',
+        units,
+    };
+
+    // ── Placement (position + yaw) ────────────────────────────────────────────
+    // Engine convention: main arm along local +X (centred → group offset
+    // -length/2 in X), units front at local +Z. So:
+    //   yaw   = yawFromNormal(inwardNormal)  → local +Z maps to the room interior
+    //   origin = spine MIDPOINT pushed depth/2 into the room (the run's centre of
+    //            mass sits half-a-cabinet off the wall).
+    const yaw = yawFromNormal(spine.inwardNormal);
+    const mid = wallMid(spine);
+    const cx = mid.x + spine.inwardNormal.x * (KITCHEN_DEPTH / 2);
+    const cz = mid.z + spine.inwardNormal.z * (KITCHEN_DEPTH / 2);
+
+    const footprint = {
+        w: round6(mainLen),
+        l: KITCHEN_DEPTH,
+        h: KITCHEN_HEIGHT,
+        baseOffset: 0,
+        clearFront: 1.0,
+        clearSides: 0,
+    };
+
+    return [{
+        kind: layoutType as FurnitureKind,
+        position: { x: round6(cx), y: input.levelElevation, z: round6(cz) },
+        rotationY: yaw,
+        footprint,
+        hostedSpaceId: input.roomId,
+        kitchenConfig: config,
+    }];
+}
+
+const round6 = (n: number): number => Math.round(n * 1e6) / 1e6;
 
 /** Extract the explicit work-triangle points (sink / hob / fridge) from a planned
  *  kitchen, for the dimensional validator. Returns null if any point is missing. */

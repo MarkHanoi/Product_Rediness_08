@@ -194,4 +194,49 @@ export interface PlacedFurniture {
     readonly rotationY: number;     // radians
     readonly footprint: Footprint;
     readonly hostedSpaceId: string;
+    /**
+     * §KITCHEN-PARAMETRIC-RUN (2026-06-10) — when this placement is a parametric
+     * kitchen run (`kind` is `kitchen_straight` | `kitchen_l_shape` |
+     * `kitchen_u_shape`), this carries the fully-resolved
+     * `@pryzm/geometry-furniture` `KitchenCabinetConfig` so the auto-furnish step
+     * renders the GOOD parametric `KitchenCabinetEngine` (swappable cabinet units +
+     * appliances + countertop) instead of a concatenation of individual appliance
+     * box proxies. `buildFurnishCommands` forwards it onto the `furniture.create`
+     * payload (+ `furnitureCategory:'kitchen'`); the editor's `KitchenBuilder`
+     * (FurnitureFactory) consumes it. Kept as an optional structural field on the
+     * pure type so `furnishLayout` carries no geometry runtime dependency — only
+     * an erased `import type`. */
+    readonly kitchenConfig?: KitchenCabinetConfigLike;
+}
+
+/**
+ * Structural mirror of `@pryzm/geometry-furniture` `KitchenCabinetConfig` — kept
+ * here (not imported) so the pure D-FLE foundations stay import-free and unit-test
+ * in plain Node. The producer (`kitchenLayout.planKitchenRun`) builds this; the
+ * editor wiring casts it back to the real `KitchenCabinetConfig` when it reaches
+ * `furniture.create`. Field-compatible with the real DTO (excess optional fields
+ * on the real type are accepted structurally).
+ */
+export interface KitchenCabinetConfigLike {
+    readonly layoutType: 'kitchen_straight' | 'kitchen_l_shape' | 'kitchen_u_shape'
+        | 'kitchen_island' | 'kitchen_straight_tall' | 'kitchen_l_shape_tall' | 'kitchen_u_shape_tall';
+    readonly depth: number;
+    readonly length: number;
+    readonly height: number;
+    readonly numUnits: number;
+    readonly lengthLeft?: number;
+    readonly numUnitsLeft?: number;
+    readonly lengthRight?: number;
+    readonly numUnitsRight?: number;
+    readonly frontMaterialId?: string;
+    readonly countertopMaterialId?: string;
+    readonly carcassMaterialId?: string;
+    readonly units?: ReadonlyArray<{
+        readonly index: number;
+        readonly arm: 'main' | 'left' | 'right';
+        front: 'door' | 'glass_door' | 'framed_glass_door' | 'drawers' | 'shelf' | 'none';
+        width?: number;
+        label?: string;
+        appliance?: string;
+    }>;
 }

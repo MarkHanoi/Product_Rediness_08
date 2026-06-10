@@ -76,28 +76,25 @@ describe('furnishRoom (D-FLE F5/F7)', () => {
         assertSane(items, room.polygon as Pt[]);
     });
 
-    it('kitchen (A.21.D20): a normal kitchen gets base units + appliances (sink/hob/oven/fridge), sane', () => {
+    it('kitchen (§KITCHEN-PARAMETRIC-RUN): a normal kitchen is ONE parametric run with a config, sane', () => {
+        // §KITCHEN-PARAMETRIC-RUN (2026-06-10) — furnishRoom(kitchen) now emits a
+        // SINGLE parametric kitchen run (rendered by the GOOD KitchenCabinetEngine
+        // with swappable cabinet units + integrated appliances + countertop), NOT a
+        // concatenation of loose sink/hob/base_unit/fridge items. The appliances
+        // live on the config's cabinet-unit slots; the extractor is part of the run
+        // mesh. The per-item layout is still exercised directly via planKitchen.
         const room = rectRoom('kitchen', 4, 3);
         const items = furnishRoom(room);
-        expect(items.some(i => i.kind === 'base_unit')).toBe(true);
-        expect(items.some(i => i.kind === 'sink')).toBe(true);
-        expect(items.some(i => i.kind === 'hob')).toBe(true);
-        expect(items.some(i => i.kind === 'fridge')).toBe(true);
-        // The extractor is height-stacked DIRECTLY above the hob (1.5 m vs 0.9 m)
-        // — it overlaps the hob in PLAN by design, so exclude it from the
-        // floor-plan overlap sanity check (mirrors curtain-rod / wall items).
-        assertSane(items.filter(i => i.kind !== 'extractor'), room.polygon as Pt[]);
-    });
-
-    it('kitchen (A.21.D20): the extractor sits directly above the hob', () => {
-        const items = furnishRoom(rectRoom('kitchen', 4, 3));
-        const hob = items.find(i => i.kind === 'hob');
-        const hood = items.find(i => i.kind === 'extractor');
-        expect(hob).toBeDefined();
-        expect(hood).toBeDefined();
-        expect(hood!.position.x).toBeCloseTo(hob!.position.x, 5);
-        expect(hood!.position.z).toBeCloseTo(hob!.position.z, 5);
-        expect(hood!.position.y).toBeGreaterThan(hob!.position.y); // mounted higher
+        expect(items.length).toBe(1);
+        const run = items[0]!;
+        expect(['kitchen_straight', 'kitchen_l_shape', 'kitchen_u_shape']).toContain(run.kind);
+        const cfg = run.kitchenConfig;
+        expect(cfg).toBeDefined();
+        const appliances = (cfg!.units ?? []).map(u => u.appliance).filter(Boolean);
+        expect(appliances.some(a => a === 'sink_inox')).toBe(true);
+        expect(appliances.some(a => String(a).startsWith('fridge'))).toBe(true);
+        // The run element sits inside the room and doesn't self-overlap (one item).
+        assertSane(items, room.polygon as Pt[]);
     });
 
     it('no furniture overlaps the door swing', () => {
@@ -230,19 +227,19 @@ describe('furnishRoom (D-FLE F5/F7)', () => {
         // fouls the working zone). A door-wall module faces +z (yaw ≈ 0) AND
         // sits near z = 0; side-wall modules face ±x (yaw ≈ ±π/2). Assert no
         // floor module is a door-wall module.
-        it('no kitchen module anchors on the door wall', () => {
-            // 3.5 × 3 room — door on the bottom wall; the kitchen run must clear it.
+        it('the parametric kitchen run does not anchor on the door wall', () => {
+            // 3.5 × 3 room — door on the bottom wall; the run's spine wall must
+            // clear it. §KITCHEN-PARAMETRIC-RUN: furnishRoom emits ONE run; its
+            // yaw + position reflect the spine wall it anchors on. A door-wall
+            // spine would face +z (yaw ≈ 0) AND sit near z = 0.
             const room = rectRoom('kitchen', 3.5, 3);
             const items = furnishRoom(room).filter(i =>
-                i.kind === 'base_unit' || i.kind === 'sink' || i.kind === 'hob' ||
-                i.kind === 'oven' || i.kind === 'dishwasher' || i.kind === 'fridge');
+                i.kind === 'kitchen_straight' || i.kind === 'kitchen_l_shape' || i.kind === 'kitchen_u_shape');
             expect(items.length).toBeGreaterThan(0);
             for (const it of items) {
-                // A bottom-wall (door) module faces into the room with yaw ≈ 0
-                // (its front normal is +z) and sits with centre z < ~0.5.
                 const facesUp = Math.abs(Math.sin(it.rotationY)) < 0.1 && Math.cos(it.rotationY) > 0.9;
                 const onDoorWall = facesUp && it.position.z < 0.5;
-                expect(onDoorWall, `${it.kind} sits on the door wall`).toBe(false);
+                expect(onDoorWall, `${it.kind} anchors on the door wall`).toBe(false);
             }
         });
 
@@ -288,8 +285,13 @@ describe('furnishRoom (D-FLE F5/F7)', () => {
             const room = rectRoom('living-room', 8, 6);
             const placed = furnishRoomCompound(room, ['living-room', 'kitchen', 'dining-room']);
             expect(placed.some(p => p.kind === 'sofa')).toBe(true);
-            // A.21.D20 — kitchen sub-program now produces base units + appliances.
-            expect(placed.some(p => p.kind === 'base_unit' || p.kind === 'sink')).toBe(true);
+            // §KITCHEN-PARAMETRIC-RUN — the kitchen sub-program now contributes ONE
+            // parametric run element (rendered by KitchenCabinetEngine) carrying a
+            // kitchenConfig, instead of loose base_unit/sink modules.
+            const kitchenRun = placed.find(p =>
+                p.kind === 'kitchen_straight' || p.kind === 'kitchen_l_shape' || p.kind === 'kitchen_u_shape');
+            expect(kitchenRun).toBeDefined();
+            expect(kitchenRun!.kitchenConfig).toBeDefined();
             expect(placed.some(p => p.kind === 'dining_table')).toBe(true);
         });
 

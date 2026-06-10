@@ -8,8 +8,9 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-    planKitchen, kitchenTrianglePoints, normaliseKitchenLayout,
+    planKitchen, planKitchenRun, kitchenTrianglePoints, normaliseKitchenLayout,
 } from '../src/workflows/furnishLayout/kitchenLayout.js';
+import { buildFurnishCommands } from '../src/workflows/furnishLayout/buildFurnishCommands.js';
 import {
     planWardrobe, normaliseWardrobeLayout,
 } from '../src/workflows/furnishLayout/wardrobeLayout.js';
@@ -208,6 +209,67 @@ describe('§KITCHEN-ISLAND — central island on roomy kitchens', () => {
     it('island placement is deterministic', () => {
         const a = JSON.stringify(planKitchen(rectRoom('kitchen', 6, 5), 'auto'));
         const b = JSON.stringify(planKitchen(rectRoom('kitchen', 6, 5), 'auto'));
+        expect(a).toEqual(b);
+    });
+});
+
+describe('§KITCHEN-PARAMETRIC-RUN — auto-furnish emits the GOOD parametric run', () => {
+    it('furnishRoom(kitchen) emits ONE run element carrying a kitchenConfig (not loose appliances)', () => {
+        const placed = furnishRoom(rectRoom('kitchen', 4.5, 3.8));
+        expect(placed.length).toBe(1);
+        const run = placed[0]!;
+        expect(['kitchen_straight', 'kitchen_l_shape', 'kitchen_u_shape']).toContain(run.kind);
+        expect(run.kitchenConfig).toBeDefined();
+        // The legacy per-item kinds are NOT emitted as separate elements anymore.
+        const kinds = new Set(placed.map(p => p.kind));
+        for (const loose of ['sink', 'hob', 'oven', 'base_unit', 'fridge', 'extractor'] as const) {
+            expect(kinds.has(loose), `loose ${loose} should be absent`).toBe(false);
+        }
+    });
+
+    it('the config carries cabinet units with the work-triangle appliances on slots', () => {
+        const run = planKitchenRun(rectRoom('kitchen', 5, 4), 'auto')[0]!;
+        const cfg = run.kitchenConfig!;
+        expect(cfg.numUnits).toBeGreaterThanOrEqual(2);
+        expect(cfg.units && cfg.units.length).toBeGreaterThan(0);
+        const appliances = (cfg.units ?? []).map(u => u.appliance).filter(Boolean);
+        expect(appliances.some(a => a === 'sink_inox')).toBe(true);
+        expect(appliances.some(a => String(a).startsWith('fridge'))).toBe(true);
+    });
+
+    it('forced I → kitchen_straight, no arms; the run length spans the spine wall', () => {
+        const run = planKitchenRun(rectRoom('kitchen', 5, 4), 'I')[0]!;
+        const cfg = run.kitchenConfig!;
+        expect(cfg.layoutType).toBe('kitchen_straight');
+        expect(cfg.numUnitsLeft).toBeUndefined();
+        expect(cfg.numUnitsRight).toBeUndefined();
+        expect(cfg.length).toBeGreaterThan(0);
+    });
+
+    it('forced L → kitchen_l_shape with a left arm', () => {
+        const run = planKitchenRun(rectRoom('kitchen', 4.5, 3.8), 'L')[0]!;
+        const cfg = run.kitchenConfig!;
+        expect(cfg.layoutType).toBe('kitchen_l_shape');
+        expect(cfg.numUnitsLeft).toBeGreaterThanOrEqual(1);
+    });
+
+    it('buildFurnishCommands forwards kitchenConfig + furnitureCategory onto the payload', () => {
+        const placed = furnishRoom(rectRoom('kitchen', 5, 4));
+        let n = 0;
+        const set = buildFurnishCommands(placed, 'L0', 0, () => `furniture-${n++}`);
+        expect(set.commands.length).toBe(1);
+        const p = set.commands[0]!.payload as Record<string, unknown>;
+        expect(p.furnitureCategory).toBe('kitchen');
+        expect(p.kitchenConfig).toBeDefined();
+        // KitchenCabinetTool parity: width = run length, length = cabinet depth.
+        const cfg = (placed[0]!.kitchenConfig)!;
+        expect(p.width).toBeCloseTo(cfg.length, 6);
+        expect(p.length).toBeCloseTo(cfg.depth, 6);
+    });
+
+    it('is deterministic', () => {
+        const a = JSON.stringify(planKitchenRun(rectRoom('kitchen', 5, 4), 'auto'));
+        const b = JSON.stringify(planKitchenRun(rectRoom('kitchen', 5, 4), 'auto'));
         expect(a).toEqual(b);
     });
 });

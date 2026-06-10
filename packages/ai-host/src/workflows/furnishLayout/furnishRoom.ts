@@ -10,7 +10,7 @@
 
 import { archetypeFor } from './archetypes.js';
 import { placeRoom, placeRoomMulti } from './placeSolver.js';
-import { planKitchen, normaliseKitchenLayout, type KitchenLayout } from './kitchenLayout.js';
+import { planKitchen, planKitchenRun, normaliseKitchenLayout, type KitchenLayout } from './kitchenLayout.js';
 import { planWardrobe, normaliseWardrobeLayout, type WardrobeLayout } from './wardrobeLayout.js';
 import { placeBedsideLamps } from './bedsideLamps.js';
 import type { FurnishRoomInput, PlacedFurniture } from './types.js';
@@ -28,11 +28,16 @@ export interface FurnishOptions {
 
 export function furnishRoom(input: FurnishRoomInput, options: FurnishOptions = {}): PlacedFurniture[] {
     if (input.occupancy === 'kitchen') {
-        return planKitchen(
-            input,
-            normaliseKitchenLayout(options.kitchenLayout),
-            { washingMachine: !!options.kitchenWashingMachine },
-        );
+        // §KITCHEN-PARAMETRIC-RUN (2026-06-10) — emit ONE parametric kitchen run
+        // (rendered by the GOOD KitchenCabinetEngine: swappable cabinet units +
+        // integrated appliances + unified countertop) instead of the legacy
+        // concatenation of individual appliance box proxies. Falls back to the
+        // per-item `planKitchen` only if the run planner can't build one (a
+        // degenerate room) so a kitchen is never left bare.
+        const kl = normaliseKitchenLayout(options.kitchenLayout);
+        const run = planKitchenRun(input, kl, { washingMachine: !!options.kitchenWashingMachine });
+        if (run.length > 0) return run;
+        return planKitchen(input, kl, { washingMachine: !!options.kitchenWashingMachine });
     }
     const archetype = archetypeFor(input.occupancy);
     if (!archetype || archetype.items.length === 0) return [];
@@ -71,15 +76,14 @@ export function furnishRoomCompound(
     const placed: PlacedFurniture[] = [];
     if (archetypes.length > 0) placed.push(...placeRoomMulti(input, archetypes));
     if (hasKitchen) {
-        // Run the kitchen planner in a fresh pass; it re-derives its run walls.
-        // (The open-plan polygon is large; the kitchen claims the longest clear
-        //  wall, which the sofa/dining archetypes left for it via wall-longest
-        //  yielding — close enough for the demo open-plan case.)
-        placed.push(...planKitchen(
-            input,
-            normaliseKitchenLayout(options.kitchenLayout),
-            { washingMachine: !!options.kitchenWashingMachine },
-        ));
+        // §KITCHEN-PARAMETRIC-RUN — run the parametric run planner in a fresh
+        // pass; it re-derives its run walls. (The open-plan polygon is large; the
+        // kitchen claims the longest clear wall, which the sofa/dining archetypes
+        // left for it.) Falls back to per-item placement on a degenerate room.
+        const kl = normaliseKitchenLayout(options.kitchenLayout);
+        const wm = !!options.kitchenWashingMachine;
+        const run = planKitchenRun(input, kl, { washingMachine: wm });
+        placed.push(...(run.length > 0 ? run : planKitchen(input, kl, { washingMachine: wm })));
     }
     return placed;
 }
