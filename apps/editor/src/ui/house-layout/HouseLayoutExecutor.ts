@@ -76,6 +76,7 @@ import { nameDetectedRooms } from '../apartment-layout/nameDetectedRooms.js';
 import { resolveBlindFacades } from '../apartment-layout/resolveBlindFacades.js';
 import { runHousePostGenChain } from './runHousePostGenChain.js';
 import { resetStairVoids, recordStairVoid } from './houseStairVoids.js';
+import { resetStairRects, recordStairRect } from './houseStairRects.js';
 
 const MM_PER_M = 1000;
 const DEFAULT_FLOOR_TO_FLOOR_M = 3.0;
@@ -337,6 +338,24 @@ export class HouseLayoutExecutor {
             // partitions to bound it. `rectMm` is authored in the rotated LAYOUT frame, so we
             // rotate its centre + corners by principalAxisRad about pivot to world (same transform
             // _createStair uses) before testing containment in the shell polygon. Read-only.
+            // §DIAG-EXEC-STAIR support — clear any stair keep-out rects a PREVIOUS
+            // build recorded (the §DIAG-STAIR loop below records this build's rects in
+            // WORLD XZ so the per-room §DIAG-EXEC-STAIR overlap test can read them back).
+            resetStairRects();
+
+            // §DIAG-EXEC-ROTATION (founder 2026-06-10) — the rotation the engine applied
+            // to this plate's layout frame (principal axis). On a SKEWED plot the engine
+            // rotates the whole layout to the dominant-edge orientation; the stair core
+            // carries that `principalAxisRad`. Report it (per the first stair, the uniform
+            // plate rotation; 0 for an axis-aligned plate) so the founder's "45° rotated
+            // plan" is confirmed as the EXPECTED drawn-boundary principal axis vs an
+            // erroneous transform. Read-only.
+            try {
+                const appliedRad = result.stairs[0]?.principalAxisRad ?? 0;
+                const appliedDeg = appliedRad * 180 / Math.PI;
+                console.log(`[house-layout] §DIAG-EXEC-ROTATION level=${ground.id} principalAxisDeg=${appliedDeg.toFixed(1)}° (engine layout-frame rotation; 0 ⇒ axis-aligned plate, non-zero ⇒ the drawn-boundary principal axis)`);
+            } catch (e) { console.warn('[house-layout] §DIAG-EXEC-ROTATION failed (non-fatal):', e); }
+
             try {
                 const sp = shell.perimeter;
                 const sxs = sp.map(p => p.x), szs = sp.map(p => p.z);
@@ -359,6 +378,17 @@ export class HouseLayoutExecutor {
                     const centreWorld = this._rotateXZ({ x: x0 + w / 2, y: 0, z: z0 + h / 2 }, ax, piv);
                     const cornersIn = cornersWorld.filter(c => inPoly(c, sp)).length;
                     const centreIn = inPoly(centreWorld, sp);
+                    // §DIAG-EXEC-STAIR support — record this stair's WORLD-XZ keep-out
+                    // AABB on BOTH the level its body sits on (fromLevelId) and the level
+                    // whose slab it voids (toLevelId), so the per-room §DIAG-EXEC-STAIR
+                    // overlap test (run after detection) can flag any HABITABLE room that
+                    // tiled into the stair footprint. Read-only — logging support only.
+                    {
+                        const cxs = cornersWorld.map(c => c.x), czs = cornersWorld.map(c => c.z);
+                        const rect = { minX: Math.min(...cxs), maxX: Math.max(...cxs), minZ: Math.min(...czs), maxZ: Math.max(...czs) };
+                        recordStairRect(st.fromLevelId, rect);
+                        recordStairRect(st.toLevelId, rect);
+                    }
                     console.log(`[house-layout] §DIAG-STAIR #${si} ${st.fromLevelId}→${st.toLevelId} shape=${st.shape ?? 'I'} rect=${w.toFixed(1)}×${h.toFixed(1)}m rot=${(ax * 180 / Math.PI).toFixed(1)}° centreWorld=(${centreWorld.x.toFixed(1)},${centreWorld.z.toFixed(1)}) centreInShell=${centreIn} cornersInShell=${cornersIn}/4`);
                     if (!centreIn || cornersIn < 4) console.warn(`[house-layout] §DIAG-STAIR ⚠ stair #${si} is NOT fully inside the shell (${cornersIn}/4 corners in) — it will conflict the perimeter/partitions.`);
                 }

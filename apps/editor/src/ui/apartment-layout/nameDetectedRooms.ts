@@ -14,6 +14,8 @@ import { batchCoordinator, storeRegistry } from '@pryzm/core-app-model';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import type { ScoredLayoutOption } from '@pryzm/ai-host';
 import { matchDetectedRooms } from './matchDetectedRooms.js';
+import { logExecRoomDiagnostics } from '../house-layout/houseExecDiagnostics.js';
+import { getStairRects } from '../house-layout/houseStairRects.js';
 
 interface DetectedRoomLike {
     id: string;
@@ -110,6 +112,16 @@ export function nameDetectedRooms(
                     `${fallbackCount > 0 ? ` ${fallbackCount}-ROOM-FALLBACK` : ''}`,
                 );
             }
+
+            // §DIAG-EXEC-* (founder 2026-06-10) — the EXECUTION-BOUNDARY diagnostics:
+            // compare what the engine DESIGNED (this `option`) against what the editor
+            // DETECTED (the room store, just read above) for THIS level — room
+            // count/area/door/window/stair divergence. Logging only; runs once per
+            // generation per level (this `apply` fires once, guarded by `done`). Stair
+            // keep-out AABBs (world XZ) are supplied by the HouseLayoutExecutor via
+            // houseStairRects (empty for the apartment path ⇒ EXEC-STAIR is skipped).
+            logExecRoomDiagnostics(levelId, option, logTag, getStairRects(levelId));
+
             if (renames.length === 0) return;
 
             // §A.21.D40 — room.rename is PURE METADATA (name + occupancy tag); it
