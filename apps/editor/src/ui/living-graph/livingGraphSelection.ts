@@ -217,7 +217,7 @@ export class RoomFocusController {
     if (this.mode === 'select') {
       // Highlight only — and lift any isolation so the two modes don't stack.
       this.clearIsolation();
-      this.applySelection(ids);
+      this.applySelection(roomId, ids);
     } else {
       // Dim the rest — and drop the scene highlight so isolation reads cleanly.
       this.clearSelection();
@@ -242,12 +242,28 @@ export class RoomFocusController {
 
   // ── Select (highlight) via the canonical selectionBus ───────────────────────
 
-  private applySelection(ids: string[]): void {
+  /**
+   * §BUBBLE-SELECT-HIGHLIGHT — highlight the picked room in the active plan /
+   * 3D canvas. We select the ROOM id ITSELF (as the PRIMARY) plus its child
+   * element instances (walls / doors / windows) as secondary highlights. Making
+   * the room the primary is what makes the room's own geometry (the room mesh /
+   * boundary fill) light up — SelectionManager.selectById(roomId) finds the
+   * `elementType:'room'` mesh and applies the highlight in BOTH the 2D plan and
+   * the 3D viewport. Previously we passed ONLY the child element ids, so a room
+   * with no in-scene element instances produced an EMPTY selectMany → cleared
+   * the selection → nothing lit up (the founder's "inspector updates but the
+   * canvas doesn't highlight" report). Source 'inspect-panel' so the bus treats
+   * us as the inspect surface (no feedback loop). P6-safe: selection is
+   * view-state, not a model mutation.
+   */
+  private applySelection(roomId: string, childIds: string[]): void {
     const bus = sw()?.selectionBus;
     if (!bus?.selectMany) return;
+    // selectMany treats the LAST id as the primary (drives the inspector +
+    // highlight); put the ROOM last so the room itself is the focused element,
+    // its child walls/doors/windows the secondary marquee highlights.
+    const ids = [...childIds.filter((x) => x && x !== roomId), roomId];
     try {
-      // Source 'inspect-panel' — the bus's feedback-loop guard treats us as the
-      // tree/inspect surface, so the 3D canvas + property panel react correctly.
       bus.selectMany(ids, 'inspect-panel');
     } catch (err) {
       console.warn('[living-graph] selection highlight failed:', err);

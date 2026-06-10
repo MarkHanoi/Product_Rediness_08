@@ -30,6 +30,10 @@ interface UbgNodeLike {
   id: string;
   kind: string;
   props?: Record<string, unknown>;
+  /** Ids this node references but doesn't own — a DOOR node carries
+   *  `refs: [roomA, roomB]` (roomGraph adapter), so we read realised door
+   *  connectivity straight off the node (§DOOR-REFS-CIRCULATION). */
+  refs?: string[];
 }
 interface UbgEdgeLike {
   from: string;
@@ -327,11 +331,94 @@ export function buildLiveGraph(): LiveGraph {
     addLayer(e.from, e.to, layer, typeof e.weight === 'number' ? Math.max(0, e.weight) : 1);
   }
 
+  // 2b) §DOOR-REFS-CIRCULATION — the REAL realised-door connectivity. The
+  //     Circulation (master) graph MUST reflect the doors actually built between
+  //     rooms, not only the `connectsTo` edges the roomGraph adapter projected
+  //     (which can diverge: the door's geometric room-resolution can fail, or the
+  //     adapter can be skipped when the live RoomGraphService isn't wired at
+  //     graph-build time). Every DOOR node carries `refs: [roomA, roomB]` (the
+  //     two rooms its opening connects). We walk those refs and emit a
+  //     `circulation` edge between the two ROOM nodes — so a door that physically
+  //     exists is ALWAYS a circulation edge (e.g. the Entrance Hall↔Corridor door
+  //     the founder reported missing). Idempotent with the `connectsTo` pass
+  //     above (addLayer dedups the undirected pair + merges the layer). The door
+  //     count + any door with no resolvable in-graph edge is reported in §DIAG.
+  let doorNodeCount = 0;
+  let doorsWithoutEdge = 0;
+  for (const n of rawNodes) {
+    if (!n || n.kind !== 'door') continue;
+    doorNodeCount++;
+    const roomRefs = (n.refs ?? []).filter((r) => roomIds.has(r));
+    if (roomRefs.length >= 2) {
+      // Connect every distinct room-pair the door references (normally exactly
+      // two). The door's opening width, if the node carries one, scales the
+      // spring; default to a typical doorway weight.
+      const w = num((n.props ?? {}).doorWidth) ?? num((n.props ?? {}).width) ?? 0.9;
+      for (let i = 0; i < roomRefs.length; i++) {
+        for (let j = i + 1; j < roomRefs.length; j++) {
+          addLayer(roomRefs[i]!, roomRefs[j]!, 'circulation', w);
+        }
+      }
+    } else {
+      // A door with <2 in-graph rooms (e.g. the ENTRANCE door — one side is
+      // outside the building, so it has no second room node) → no room↔room
+      // circulation edge is derivable. Counted for the §DIAG note.
+      doorsWithoutEdge++;
+    }
+  }
+
   // 3) Augment: derive acoustic / environmental / structural layers from the
   //    room metrics + topology (the prototype's `augmentEdges`).
   augmentEdges(nodes, byId, edgeMap, addLayer);
 
-  return { nodes, edges: [...edgeMap.values()] };
+  const graph: LiveGraph = { nodes, edges: [...edgeMap.values()] };
+
+  // §DIAG-GRAPH — an always-on, per-view edge/node census so the founder can see
+  // EXACTLY which graph carries which relations + whether a realised door is
+  // missing its circulation edge. Deterministic, read-only, one console group.
+  logGraphDiagnostics(graph, { doorNodeCount, doorsWithoutEdge });
+
+  return graph;
+}
+
+/**
+ * §DIAG-GRAPH — log a deterministic, per-view census of the built LiveGraph:
+ * the node count, and for EACH named graph (circulation / adjacency / service /
+ * separation / …) the number of edges that view would render. Plus a NOTE when a
+ * detected door produced no room↔room circulation edge (e.g. the entrance door,
+ * one side outside the shell). Read-only — never throws, never mutates. The
+ * console group makes the "is the Hall↔Corridor door an edge?" question
+ * answerable at a glance.
+ */
+function logGraphDiagnostics(
+  graph: LiveGraph,
+  doors: { doorNodeCount: number; doorsWithoutEdge: number },
+): void {
+  try {
+    const layers: EdgeLayer[] = [
+      'circulation',
+      'adjacency',
+      'structural',
+      'separation',
+      'acoustic',
+      'environmental',
+      'access',
+    ];
+    const perLayer = layers
+      .map((l) => `${l}=${graph.edges.filter((e) => e.layers.includes(l)).length}`)
+      .join('  ');
+    // eslint-disable-next-line no-console
+    console.log(
+      `§DIAG-GRAPH nodes=${graph.nodes.length} edges=${graph.edges.length}  ` +
+        `[${perLayer}]  doors=${doors.doorNodeCount}` +
+        (doors.doorsWithoutEdge > 0
+          ? `  ⚠ ${doors.doorsWithoutEdge} door(s) with no room↔room circulation edge ` +
+            `(e.g. the entrance door — one side is outside the shell)`
+          : ''),
+    );
+  } catch {
+    /* diagnostics must never break the build */
+  }
 }
 
 /**

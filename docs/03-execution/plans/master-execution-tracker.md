@@ -3830,6 +3830,17 @@ PRYZM lacks the machinery, nor that the model is done.
 - [x] **S2 — The dropdown UI (Deliverable 2).** `buildGraphSelector()` + `setView()` replace the
   all-on layer chips with a single-select dropdown (Circulation = master/default); the canvas renders
   ONLY the selected view's sparse edges; Access shown "(soon)" + stub. `SHIPPED`.
+- [x] **S2.1 — Circulation reflects REAL realised doors + bubble→canvas highlight (founder 2026-06-10).**
+  (1) `§DOOR-REFS-CIRCULATION` — `buildLiveGraph` now derives the Circulation (master) edge set from
+  the REALISED door nodes' `refs: [roomA, roomB]` (not only the `connectsTo` edges the roomGraph adapter
+  may skip / mis-resolve), so the Entrance Hall↔Corridor door the founder reported missing IS an edge;
+  idempotent with `connectsTo` (addLayer dedups). `§DIAG-GRAPH` — per-view node/edge census + a NOTE when
+  a detected door has no room↔room edge (e.g. the entrance door, one side outside the shell)
+  (`livingGraphData.ts`). (2) `§BUBBLE-SELECT-HIGHLIGHT` — selecting a bubble now selects the ROOM id
+  itself as the PRIMARY (+ its child elements) via `selectionBus.selectMany`, so the room highlights in
+  BOTH the 2D plan + 3D canvas (`SelectionManager.selectById` finds the `elementType:'room'` mesh);
+  previously an element-less room produced an empty selection → no highlight (`livingGraphSelection.ts`).
+  C52 / ADR-0058 (one UBG, graphs as projections) · C04 (selection = view-state, P6-safe). `SHIPPED`.
 - [ ] **S3 — Node roles + role-rules.** Derive `ENTRY/CIRCULATION/PUBLIC/SEMI_PRIVATE/PRIVATE/SERVICE/
   VERTICAL` per node (from `RoomKind` + `privacy`); enforce "PRIVATE may not connect directly to
   ENTRY". `NEW`.
