@@ -3404,3 +3404,108 @@ group). No element mutation; view-state only.
   `packages/room-topology/src/RoomLabelRenderer.ts` (sprite visibility). View-visibility, not a BIM mutation.
 
 **Status: QUEUED → SHIPPING (impl in flight this session).** Commit/`§MARKER` TBD by main agent.
+
+---
+
+## §40 — Partition→shell inner-face join (`PARTITION-SHELL-INNER-FACE`)
+
+**Founder requirement:** interior partition walls must ALWAYS join to the **inner face** of the perimeter
+(shell) wall — never protrude through it, never poke past the outer façade. "Should be covered in the wall-join
+mechanism."
+
+**Root cause:** interior partitions welded onto the shell **centreline** (left there by the `§MULTI-CLUSTER`
+consensus-trim) were square-capped across the full shell thickness → poked out the outer façade.
+
+**Fix:** `§PARTITION-SHELL-INNER-FACE` final clamp pass in `packages/geometry-wall/src/WallJoinResolver.ts` —
+any partition endpoint on a longer through-host's body is clamped to the host's INNER face (shell unmoved,
+`§SHELL-ANCHOR-PRESERVE`), + `§DIAG-WALL-JOIN PARTITION→SHELL` log. geometry-wall 54/54 (+4).
+
+**Governance assigned:** **ADR-0055** (wall-junction Pascal pipeline) — extends its T-join doctrine.
+**Status: SHIPPED** (commit `f28384a1`, v102).
+
+## §41 — Window rules: perimeter-room window + no two windows overlap (`WINDOW-RULES`)
+
+**Founder requirement:** (1) every room that has a perimeter (exterior/shell) wall in its boundary must have ≥1
+window (minus blind party-wall façades); (2) two windows can NEVER overlap on the same wall span.
+
+**Fix:** generalised `§DIAG-WINDOW-RULE` to flag any glazable room fronting a façade that ends up windowless;
+`perimeterWindowRooms` channel; `§DIAG-WINDOW-OVERLAP` per-wall de-overlap proof (disjoint spans + 0.1m gap,
+keeps the higher-priority window). `packages/ai-host/.../windowEmission/shellWallMatch.ts` + `tgl/emitGeometry.ts`.
+ai-host 2198/2198. Blind-façade (PW.1) respected.
+
+**Governance assigned:** **C15** (hosted elements: windows in walls) + **SPEC-ARCHITECTURAL-PROGRAM-RULES**
+(`windowMandatory`/`windowDesiredFor`) + **C53** + **ADR-0061** (determinism). **Status: SHIPPED** (`4c58ba69`, v102).
+
+## §42 — Entrance hall singleton + door on hall boundary (`HALL-SINGLETON`)
+
+**Founder requirement:** exactly ONE entrance room in the residential house — always ground floor, always
+adjacent to a perimeter wall, and the portion of the perimeter wall belonging to the hall's room boundary must
+contain the MAIN ENTRANCE DOOR.
+
+**Fix:** `§HALL-SINGLETON` hard invariant in `houseLayout/storeyAllocation.ts` (`assertHallSingleton` — force
+ground hall ON, strip any upper hall, never zero); entrance door bound to a perimeter segment of the hall's OWN
+boundary (`resolveEntranceDoor` candidate walls = `wallBoundsRoom`); `§DIAG-ENTRANCE` verdict line. Builds on the
+already-shipped `§HALL-PERIMETER` (§37) + `§LANDING-NOT-HALL`. ai-host 2198/2198.
+
+**Governance assigned:** **SPEC-ARCHITECTURAL-PROGRAM-RULES** + **§A.21.D29** (entrance resolver) + **ADR-0063**
+(house doctrine) + **C53**. **Status: SHIPPED** (`4c58ba69`, v102).
+
+## §43 — Extra/out-of-shell walls in the stair area (`STAIR-SHELL-CLAMP`)
+
+**Founder bug (v101 regression):** extra walls created in the stair area, some OUTSIDE the perimeter shell;
+ground floor showed `§DIAG-LEVELS … live=23 intended≈19 ⚠ EXTRA 4`.
+
+**Root cause:** the §36 `STAIR-ROOM-TYPE` mint inflated the stair keep-out by `KEEPOUT_MARGIN_M`; a
+perimeter-abutting ground keep-out pushed the stair rect 0.05m outside the shell → out-of-façade wall stub +
+ground-only EXTRA 4.
+
+**Fix:** `§STAIR-SHELL-CLAMP` in `tgl/enumerate.ts` — clamp the inflated stair rect to the shell bbox so a
+perimeter-coincident edge classifies `isExternal` → `skipExteriorWalls` drops the duplicate/outside wall.
+Interior keep-outs byte-identical (ADR-0061). +5 tests, ai-host 2203/2203.
+
+**Governance assigned:** **ADR-0063** + **SPEC-ARCHITECTURAL-PROGRAM-RULES** + **C53**. **Status: SHIPPED**
+(`dc2f277b`, v102).
+
+## §44 — Floor finish bounded by wall inner faces (`FLOOR-INNER-FACE`)
+
+**Founder requirement:** a room's floor finish must be bounded by the INNER FACES of its walls (the usable room
+polygon), NOT the wall centrelines — floors must not run under the partitions; adjacent rooms' floors should meet
+ONLY at door openings.
+
+**Fix:** `§FLOOR-INNER-FACE` — `CreateFloorsByRoomTypeCommand` insets each room edge inward by the bounding
+wall's half-thickness (new `insetPolygonToInnerFaces` in `@pryzm/room-topology`) so the floor stops at the inner
+face; at door openings the edge keeps inset 0 so adjacent floors meet at the threshold (`§FLOOR-DOOR-GAP`).
+`§DIAG` per room (inner-face ✓ / centreline ⚠ + door-gaps). room-topology 19/19.
+
+**Governance assigned:** **C11** (element-creation pipeline) + **C15** (door openings define where floors meet) +
+**C04** (rendering). P2/P6 respected. **Status: SHIPPED** (`9543b18b`, v102).
+
+## §45 — Wall-Cutaway / Wall-Low-Height toggle-back loses openings (`DIAG-CUTAWAY-RESTORE`)
+
+**Founder bug:** the bottom-toolbar Wall-Low/High (cutaway) toggle hides walls perfectly on the first press, but
+on toggle-back the walls reappear SOLID — the door/window voids are not re-carved.
+
+**Root cause:** same family as §38 `§DIAG-OPENING-VOID` — the toggle only hid/clipped wall bodies and never
+re-ran `buildWall`, so a restored body kept its last (solid/instanced) geometry; the openings are still in
+`wall.openings[]` but were never re-cut.
+
+**Fix:** on the restore edge, re-queue every opening-bearing wall through `__wallRebuildControl.rebuildWalls`
+(whole-level, openings-aware, carries the §DIAG-OPENING-VOID verify+fallback). New `§DIAG-CUTAWAY-RESTORE` log.
+First-press hide + plain-wall rendering untouched. `apps/editor/src/ui/bottom-menu/BottomActionMenu.ts`.
+
+**Governance assigned:** **C15** (hosted-element voids must render) + **C04** (rebuild via the existing
+coordinator, P6/P2). **Status: SHIPPED** (`73c3b657`, v102).
+
+## §46 — U-stair half-landing railing guard (`U-LANDING-GUARD`)
+
+**Founder bug:** the generated U-stair had no railing across the mid/half-landing open edge (each flight had
+balusters but the landing turn was unguarded).
+
+**Root cause:** `StairRailingBuilder.buildLandingSegment` early-returned for U-shape landings (the railing
+generator is per-flight; the landing is a separate slab with no steps).
+
+**Fix:** `§U-LANDING-GUARD` — emit a handrail + balusters + posts along the landing's OPEN forward edge on the
+correct `secondRunSide` (mirrors the mesh slab). geometry-stair 26/26 (+21).
+
+**Governance assigned:** stair pipeline ref `docs/04-reference/STAIR-CREATION-PIPELINE-AND-ANCHOR-ANALYSIS.md`;
+consistent with `§STAIR-U-LANDING-SIDE`. **Status: SHIPPED** (`8b880a6f`, v101).
