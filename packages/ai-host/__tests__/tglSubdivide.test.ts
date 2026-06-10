@@ -107,6 +107,54 @@ describe('subdivide (TGL P3b)', () => {
         // kitchen is always pushed, so this still has 1 room — but a zero-area shell yields [].
         expect(subdivide([{ x0: 0, z0: 0, x1: 0, z1: 0 }], empty)).toEqual([]);
     });
+
+    // §NO-PUBLIC-CARVE (founder defect, 2026-06-10) — an UPPER HOUSE STOREY has a
+    // corridor + bedrooms + baths but NO public room (no living/kitchen/dining/hall).
+    // The 3-zone carve hard-required a public zone, so the corridor was squarified as
+    // a treemap cell touching only the front-row master → every other bedroom/bath
+    // SEALED (prod: 8 rooms / 2 doors). The double-loaded carve must make EVERY
+    // private room share a wall with the corridor so wallsAndDoors can place its door.
+    it('§NO-PUBLIC-CARVE: upper-storey (no public room) — every private room abuts the corridor', () => {
+        // Two ways two rects SHARE A WALL (a common edge of non-zero extent).
+        const sharesWall = (a: Rect, b: Rect): boolean => {
+            const vAbut = Math.abs(a.x1 - b.x0) < 0.05 || Math.abs(b.x1 - a.x0) < 0.05;
+            const zOv = Math.min(a.z1, b.z1) - Math.max(a.z0, b.z0);
+            if (vAbut && zOv > 0.05) return true;
+            const hAbut = Math.abs(a.z1 - b.z0) < 0.05 || Math.abs(b.z1 - a.z0) < 0.05;
+            const xOv = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0);
+            return hAbut && xOv > 0.05;
+        };
+        // Upper-storey programme: 3 bedrooms + 2 baths + ensuite, NO public rooms.
+        const upper: ApartmentProgram = {
+            bedrooms: 3, bathrooms: 2, masterEnSuite: true,
+            openPlanKitchenDining: false, livingRoom: false, entranceHall: false,
+            includeKitchen: false,
+        };
+        const shell = [{ x0: 0, z0: 0, x1: 12, z1: 9 }];   // 108 m²
+        const g = buildBubbleGraph(upper, rectArea(shell[0]!));
+        // No public room minted (the trigger for the double-loaded path).
+        expect(g.rooms.every(r => roomRule(r.type).privacy !== 'public')).toBe(true);
+        expect(g.corridorId).not.toBeNull();
+        const out = subdivide(shell, g);
+        assertContract(out, shell, g.rooms);
+
+        const corridor = out.find(p => p.roomId === g.corridorId)!;
+        expect(corridor).toBeDefined();
+        // EVERY private room (bedroom / master / bathroom) must share a wall with the
+        // corridor — the ensuite is the only exception (reached through the master).
+        const ensuiteId = g.rooms.find(r => r.type === 'ensuite')?.id;
+        const privateIds = g.rooms
+            .filter(r => roomRule(r.type).privacy === 'private' && r.id !== ensuiteId)
+            .map(r => r.id);
+        const placedPrivate = out.filter(p => privateIds.includes(p.roomId));
+        expect(placedPrivate.length).toBeGreaterThan(0);
+        for (const p of placedPrivate) {
+            expect(
+                sharesWall(p.rect, corridor.rect),
+                `private room ${p.roomId} must abut the corridor (double-loaded spine)`,
+            ).toBe(true);
+        }
+    });
 });
 
 // ───────────────── §STAIR-OBSTACLE-CARVE (2026-06-08, Defect A) ───────────────

@@ -537,6 +537,65 @@ function tryCarveCorridor(
     }
 }
 
+/** §NO-PUBLIC-CARVE (founder defect, 2026-06-10) — a DOUBLE-LOADED corridor carve
+ *  for a plate whose programme has a corridor + private rooms but NO public room
+ *  (the canonical UPPER HOUSE STOREY: bedrooms + baths + a landing/corridor, no
+ *  living/kitchen/dining). The 3-zone {@link tryCarveCorridor} hard-requires a
+ *  public zone to sit opposite the private zone, so it never fired upstairs and the
+ *  corridor was squarified as a treemap cell touching only the front-row master —
+ *  every other bedroom/bath SEALED. This split runs the corridor strip down the
+ *  MIDDLE of the plate (along its longer axis) with a private zone on EITHER side,
+ *  so the private rooms can be combed off BOTH faces and EVERY one shares a wall
+ *  with the corridor — and each side's depth is roughly HALVED, keeping the comb
+ *  feasible on a deep upper plate (the §COMB-DEPTH-GATE). Returns null when the
+ *  short axis can't host the strip + one usable zone each side. Pure + deterministic. */
+interface DoubleLoadedCarve {
+    readonly corridorRect: Rect;
+    readonly sideARect: Rect;
+    readonly sideBRect: Rect;
+    /** Same meaning as CorridorCarve.orientation: 'horizontal' ⇒ the strip runs the
+     *  full WIDTH (x), the two private zones stack on z and comb-slice along 'x'. */
+    readonly orientation: 'horizontal' | 'vertical';
+}
+
+function tryCarveDoubleLoadedCorridor(
+    shell: Rect,
+    corridorWidthM: number = CORRIDOR_STRIP_WIDTH_M,
+): DoubleLoadedCarve | null {
+    const W = shell.x1 - shell.x0;
+    const H = shell.z1 - shell.z0;
+    // Run the corridor along the LONGER axis (a longer spine borders more rooms);
+    // the SHORT axis is then split [private | corridor | private].
+    const orientation: 'horizontal' | 'vertical' = W >= H ? 'horizontal' : 'vertical';
+    const shortDim = orientation === 'horizontal' ? H : W;
+    const MIN_ZONE_DEPTH = 2.0;
+    // Need the strip + a usable private zone on BOTH sides.
+    if (shortDim < corridorWidthM + 2 * MIN_ZONE_DEPTH - EPS) return null;
+    const usable = shortDim - corridorWidthM;
+    // Centre the strip so each side gets an equal (halved) depth — this keeps the
+    // §EVERY-ROOM-ACCESS-COMB feasible on a deep plate.
+    const sideADepth = usable / 2;
+
+    if (orientation === 'horizontal') {
+        const zA = shell.z0 + sideADepth;
+        const zCor = zA + corridorWidthM;
+        return {
+            sideARect:    { x0: shell.x0, z0: shell.z0, x1: shell.x1, z1: zA },
+            corridorRect: { x0: shell.x0, z0: zA,       x1: shell.x1, z1: zCor },
+            sideBRect:    { x0: shell.x0, z0: zCor,     x1: shell.x1, z1: shell.z1 },
+            orientation,
+        };
+    }
+    const xA = shell.x0 + sideADepth;
+    const xCor = xA + corridorWidthM;
+    return {
+        sideARect:    { x0: shell.x0, z0: shell.z0, x1: xA,        z1: shell.z1 },
+        corridorRect: { x0: xA,       z0: shell.z0, x1: xCor,      z1: shell.z1 },
+        sideBRect:    { x0: xCor,     z0: shell.z0, x1: shell.x1,  z1: shell.z1 },
+        orientation,
+    };
+}
+
 // ── §EVERY-ROOM-ACCESS-COMB (A.21.D61, 2026-06-09) ────────────────────────────
 //
 // THE accessibility keystone (founder rule: "EVERY room … connected by doors …
@@ -780,10 +839,12 @@ function trySingleRectCarve(shell: Rect, graph: BubbleGraph, corridorWidthM?: nu
     }
     // No corridor, or no private rooms ⇒ the carve is pointless; fall back to
     // the existing whole-shell squarify.
-    if (!corridor || privateRooms.length === 0 || publicRooms.length === 0) return null;
+    if (!corridor || privateRooms.length === 0) return null;
 
     // Hoist ensuite's target area onto master so squarify gives master the
-    // combined footprint — we'll slice the ensuite out of it after.
+    // combined footprint — we'll slice the ensuite out of it after. (Done BEFORE
+    // the §NO-PUBLIC-CARVE branch so the double-loaded path inherits the same
+    // ensuite-from-master carve.)
     let ensuiteCarveArea = 0;
     if (master && ensuite) {
         ensuiteCarveArea = ensuite.targetAreaM2;
@@ -791,6 +852,21 @@ function trySingleRectCarve(shell: Rect, graph: BubbleGraph, corridorWidthM?: nu
         if (masterIdx >= 0) {
             privateRooms[masterIdx] = { ...master, targetAreaM2: master.targetAreaM2 + ensuite.targetAreaM2 };
         }
+    }
+
+    // §NO-PUBLIC-CARVE (founder defect, 2026-06-10) — when the programme has a
+    // corridor + private rooms but NO public room (the UPPER HOUSE STOREY:
+    // bedrooms + baths + a landing/corridor), the 3-zone carve below can't run
+    // (it needs a public zone). Without it the corridor was squarified as a
+    // treemap cell touching only the front-row master → every other bedroom/bath
+    // SEALED (the prod log: 8 rooms / 2 doors, r2/r3/r4/r6/r7 NO DOOR). Run a
+    // DOUBLE-LOADED corridor instead: a central strip with private rooms combed
+    // off BOTH sides so EVERY private room shares a wall with the corridor. See
+    // `tryNoPublicDoubleLoadedCarve`.
+    if (publicRooms.length === 0) {
+        return tryNoPublicDoubleLoadedCarve(
+            shell, corridor, privateRooms, master, ensuite, ensuiteCarveArea, corridorWidthM,
+        );
     }
 
     const publicAreaTarget  = publicRooms.reduce((s, r) => s + r.targetAreaM2, 0);
@@ -874,6 +950,112 @@ function trySingleRectCarve(shell: Rect, graph: BubbleGraph, corridorWidthM?: nu
         }
     }
     out.push(...privatePlacements);
+    return { placements: out, droppedRooms };
+}
+
+/**
+ * §NO-PUBLIC-CARVE (founder defect, 2026-06-10) — the corridor-spine carve for a
+ * NO-PUBLIC programme (an UPPER HOUSE STOREY: corridor + bedrooms + baths, no
+ * living/kitchen/dining). Places the corridor as a CENTRAL strip and combs the
+ * private rooms off BOTH sides so EVERY private room shares a wall with the
+ * corridor — the founder's hard requirement "all bedrooms reachable only via a
+ * corridor". The two-sided split roughly HALVES each side's depth, keeping the
+ * §EVERY-ROOM-ACCESS-COMB feasible on a deep upper plate.
+ *
+ * Master+ensuite are kept on the SAME side (the ensuite is carved from the master
+ * after combing — `ensuite.accessFrom = ['master']`). Returns null when the
+ * double-loaded carve can't fit OR a side's comb is infeasible, so the caller
+ * falls back to the whole-shell squarify (never worse than the pre-fix behaviour).
+ * Pure + deterministic (greedy LPT split + stable sort — no RNG, ADR-0061).
+ */
+function tryNoPublicDoubleLoadedCarve(
+    shell: Rect,
+    corridor: ProgramRoom,
+    privateRooms: readonly ProgramRoom[],
+    master: ProgramRoom | undefined,
+    ensuite: ProgramRoom | undefined,
+    ensuiteCarveArea: number,
+    corridorWidthM?: number,
+): SubdivideResult | null {
+    const carve = tryCarveDoubleLoadedCorridor(shell, corridorWidthM);
+    if (!carve) return null;
+
+    const orderedPrivate = adjacencySortForZone(allocationOrder(privateRooms));
+    // Split the private rooms into two balanced groups (greedy longest-processing-
+    // time on target area) so the two sides of the corridor fill comparably and no
+    // side is starved. The MASTER is pinned to side A first so the ensuite carve
+    // (master-only access) always has a host; the rest are dealt to whichever side
+    // currently holds less area. Stable + deterministic.
+    const sideA: ProgramRoom[] = [];
+    const sideB: ProgramRoom[] = [];
+    let areaA = 0, areaB = 0;
+    if (master) {
+        const m = orderedPrivate.find(r => r.id === master.id);
+        if (m) { sideA.push(m); areaA += Math.max(EPS, m.targetAreaM2); }
+    }
+    for (const r of orderedPrivate) {
+        if (master && r.id === master.id) continue;             // already pinned to side A
+        if (areaA <= areaB) { sideA.push(r); areaA += Math.max(EPS, r.targetAreaM2); }
+        else { sideB.push(r); areaB += Math.max(EPS, r.targetAreaM2); }
+    }
+
+    // Comb each side off its corridor face. The corridor runs along the SAME axis
+    // for both sides; 'horizontal' strip ⇒ comb slices along 'x', 'vertical' ⇒ 'z'.
+    const combFaceAxis: 'x' | 'z' = carve.orientation === 'horizontal' ? 'x' : 'z';
+    const combMinAlong = (master && ensuite)
+        ? (r: ProgramRoom): number => (r.id === master.id
+            ? roomRule('master').minShortSideM + roomRule('ensuite').minShortSideM
+            : 0)
+        : undefined;
+    const combA = sliceZoneAlongFace(carve.sideARect, sideA, combFaceAxis, combMinAlong);
+    const combB = sideB.length > 0
+        ? sliceZoneAlongFace(carve.sideBRect, sideB, combFaceAxis, combMinAlong)
+        : { placements: [], droppedRooms: [] };
+    // Best-effort: a side that can't comb every room above its floor bails the
+    // whole no-public carve (the caller keeps the squarify). Never seal a room.
+    if (!combA || !combB) {
+        console.log(
+            `[D-TGL subdivide] §NO-PUBLIC-CARVE comb infeasible ` +
+            `(sideA=${combA ? 'ok' : 'FAIL'} sideB=${combB ? 'ok' : 'FAIL'}) — fell back to squarify`,
+        );
+        return null;
+    }
+
+    const out: RoomPlacement[] = [];
+    const droppedRooms: DroppedRoom[] = [];
+    out.push({ roomId: corridor.id, rect: roundRect(carve.corridorRect) });
+    const privatePlacements = [...combA.placements, ...combB.placements];
+    droppedRooms.push(...combA.droppedRooms, ...combB.droppedRooms);
+
+    // Carve the ensuite out of the master's combed slice (master-only access).
+    if (master && ensuite && ensuiteCarveArea > 0) {
+        const masterIdx = privatePlacements.findIndex(p => p.roomId === master.id);
+        if (masterIdx >= 0) {
+            const masterP = privatePlacements[masterIdx]!;
+            const ec = tryCarveEnsuiteFromMaster(masterP.rect, ensuiteCarveArea);
+            if (ec) {
+                privatePlacements[masterIdx] = { roomId: master.id, rect: roundRect(ec.master) };
+                privatePlacements.push({ roomId: ensuite.id, rect: roundRect(ec.ensuite) });
+            } else {
+                console.warn(
+                    `[D-TGL subdivide] §NO-PUBLIC-CARVE §ENSUITE-FROM-MASTER: master slice too ` +
+                    `tight to carve ensuite (${ensuiteCarveArea.toFixed(2)} m²) — ensuite left ` +
+                    `unplaced (reported via droppedRooms — NOT silent).`,
+                );
+                droppedRooms.push({
+                    roomId: ensuite.id, type: ensuite.type,
+                    shortSideM: 0, minShortSideM: floorFor(ensuite.type),
+                });
+            }
+        }
+    }
+    out.push(...privatePlacements);
+    console.log(
+        `[D-TGL subdivide] §NO-PUBLIC-CARVE APPLIED double-loaded corridor: ` +
+        `corridor=${corridor.id} sideA=[${sideA.map(r => r.id).join(',')}] ` +
+        `sideB=[${sideB.map(r => r.id).join(',')}] orientation=${carve.orientation} ` +
+        `(every private room abuts the central corridor)`,
+    );
     return { placements: out, droppedRooms };
 }
 

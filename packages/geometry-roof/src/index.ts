@@ -25,3 +25,14 @@ export { RoofSlopeSymbolBuilder } from './RoofSlopeSymbolBuilder';
 // A.21.D24 §RIDGE-PRINCIPAL-AXIS — pure (THREE-free) gable ridge-axis helpers.
 export { principalAxis, gableRidge, isGableFriendly, isConvexPolygon } from './roofRidgeAxis';
 export type { Pt2 } from './roofRidgeAxis';
+
+// §ROOF-CONCAVE-DECOMPOSE (founder L-shape defect, 2026-06-10) — pure rectilinear
+// decomposition of a concave (L/T/U) footprint into rectangular wings, so the
+// caller can keep a PITCHED roof (one gable per wing) instead of flat-degrading.
+export {
+    decomposeRectilinear,
+    rectToPolygon,
+    isRectilinear,
+    canDecomposeConcave,
+} from './roofDecompose';
+export type { Rect2 } from './roofDecompose';

@@ -185,7 +185,22 @@ function clearOffsetMm(
     if (maxOff < minOff) {
         // Wall too short to keep both end-setbacks — fall back to a simple centred
         // offset (no door overlap possible if there are no doors).
-        const centred = Math.max(0, (wallLenMm - widthMm) / 2);
+        // §WINDOW-SPAN-FIT (founder defect, 2026-06-10) — when the window is WIDER than
+        // its host wall the old `Math.max(0, (wallLen − width)/2)` clamped the offset to
+        // 0, leaving [offset, offset+width] = [0, width] running PAST the wall end (the
+        // founder's "window beyond the shell"). A window that cannot fit ON the wall must
+        // be DROPPED here rather than emitted overrunning it; the shell-match resolver's
+        // §WINDOW-SHELL-CLAMP catches the matched path, but this is the producer-side
+        // guarantee that NO emitted span ever exceeds its host wall. Deterministic.
+        if (widthMm > wallLenMm - 1e-6) {
+            console.log(
+                `[D-TGL] §WINDOW-SPAN-FIT drop: window width=${Math.round(widthMm)}mm ` +
+                `> wallLen=${Math.round(wallLenMm)}mm — cannot fit on host wall, dropped ` +
+                `(never emitted past the shell).`,
+            );
+            return null;
+        }
+        const centred = (wallLenMm - widthMm) / 2;     // ≥ 0 here (width ≤ wallLen)
         return blocked.length > 0 && overlapsAny(centred, widthMm, blocked) ? null : centred;
     }
     const centred = (wallLenMm - widthMm) / 2;

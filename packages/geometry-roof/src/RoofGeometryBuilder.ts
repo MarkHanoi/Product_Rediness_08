@@ -1,6 +1,7 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import { RoofData, SlopeArrow } from './RoofTypes.js';
-import { gableRidge } from './roofRidgeAxis.js';
+import { gableRidge, isConvexPolygon } from './roofRidgeAxis.js';
+import { decomposeRectilinear, rectToPolygon, type Pt2 } from './roofDecompose.js';
 
 type Pt = [number, number]; // [x, z] in level-local space
 
@@ -31,6 +32,28 @@ export class RoofGeometryBuilder {
         // P3.4 — Segment composition: if segments defined, merge their geometries
         if (data.segments && data.segments.length > 0) {
             return this._buildSegmentedGeometry(data);
+        }
+
+        // §ROOF-CONCAVE-DECOMPOSE (founder L-shape defect, 2026-06-10) — a pitched
+        // roofType (gable/hip/dutch) on a CONCAVE footprint (L/T/U) cannot be capped
+        // by the convex-only single-ridge builders (their inward edge-shifts cross at
+        // the re-entrant corner → clashing planes). Instead split the rectilinear
+        // footprint into rectangular wings and put a real gable on EACH wing at the
+        // same pitch & eave height; the ridges meet at a valley where wings abut.
+        // Convex footprints are UNCHANGED (skip this branch entirely → no regression).
+        if (this._isPitched(data.roofType)) {
+            const poly = this._resolvePolygon(data);
+            if (poly.length >= 3 && !isConvexPolygon(poly.map(([x, z]) => ({ x, z })))) {
+                const concave = this._buildConcavePitched(data, poly);
+                if (concave) return concave;
+                // decomposition failed → fall through to flat-degrade (logged).
+                console.log(
+                    `[geometry-roof] §DIAG-ROOF concave footprint verts=${poly.length} ` +
+                    `requestedKind=${data.roofType} chosenKind=flat (§ROOF-CONCAVE-DECOMPOSE: ` +
+                    `non-rectilinear / undecomposable → flat-degrade)`,
+                );
+                return this.generateFlat(data);
+            }
         }
 
         switch (data.roofType) {
@@ -110,6 +133,113 @@ export class RoofGeometryBuilder {
         }
 
         return this._toGeo(allPositions, allIndices, allGroups);
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // §ROOF-CONCAVE-DECOMPOSE — concave (L/T/U) pitched roof via rectangular wings
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /** A pitched roofType whose convex single-ridge builder fails on a concave shell. */
+    private static _isPitched(t: RoofData['roofType']): boolean {
+        return t === 'gable' || t === 'hip' || t === 'dutch';
+    }
+
+    /**
+     * Build a real pitched roof over a CONCAVE footprint by decomposing it into
+     * axis-aligned rectangular wings (an L → 2, a T/U → 3) and putting a gable on
+     * each wing at the SAME slope & eave height. Ridges of abutting wings meet at a
+     * valley by construction (shared eave-height edge). Returns `null` if the shell
+     * is not rectilinearly decomposable (caller flat-degrades).
+     *
+     * Overhang is applied ONLY on rectangle edges that lie on the footprint's OUTER
+     * boundary (not on an internal edge shared with another wing) so the eaves
+     * project past the walls outside while the wings stay flush at the valley.
+     * Deterministic — no Date / no Math.random (ADR-0061).
+     */
+    private static _buildConcavePitched(data: Readonly<RoofData>, poly: Pt[]): THREE.BufferGeometry | null {
+        const rects = decomposeRectilinear(poly as Pt2[]);
+        if (!rects || rects.length === 0) return null;
+
+        const slope     = data.slope    ?? 0.4;
+        const overhang  = data.overhang ?? 0;
+        const thickness = data.thickness;
+
+        // §DIAG-ROOF — report how many wings the footprint split into.
+        console.log(
+            `[geometry-roof] §DIAG-ROOF §ROOF-CONCAVE-DECOMPOSE footprint verts=${poly.length} ` +
+            `requestedKind=${data.roofType} chosenKind=gable-per-wing parts=${rects.length} ` +
+            `(rectilinear decomposition → one gable per wing @ slope=${slope.toFixed(3)})`,
+        );
+
+        const geometries: THREE.BufferGeometry[] = [];
+        for (const r of rects) {
+            // Expand each outer edge of this rect outward by the overhang. An edge is
+            // "outer" iff a probe just outside it (along THIS rect's own span) is NOT
+            // inside the footprint; an inner edge (abuts another wing) stays flush.
+            const eMinX = this._isOuterEdge(poly, r.minX, 'minX', r.minZ, r.maxZ) ? r.minX - overhang : r.minX;
+            const eMaxX = this._isOuterEdge(poly, r.maxX, 'maxX', r.minZ, r.maxZ) ? r.maxX + overhang : r.maxX;
+            const eMinZ = this._isOuterEdge(poly, r.minZ, 'minZ', r.minX, r.maxX) ? r.minZ - overhang : r.minZ;
+            const eMaxZ = this._isOuterEdge(poly, r.maxZ, 'maxZ', r.minX, r.maxX) ? r.maxZ + overhang : r.maxZ;
+
+            const eavePts = rectToPolygon({ minX: eMinX, maxX: eMaxX, minZ: eMinZ, maxZ: eMaxZ }) as Pt[];
+
+            // Per-wing gable: ridge along the wing's principal (longer) axis, centred.
+            // gableRidge handles the orientation; identical machinery to generateGable
+            // (no overhang re-applied here — the rect is already the eave polygon).
+            const { ridge, ridgeH } = gableRidge(eavePts as Pt2[], slope);
+            const [rP1, rP2] = ridge;
+            geometries.push(
+                this._buildMultiLevel(eavePts, 0, [rP1 as Pt, rP2 as Pt], ridgeH, null, 0, thickness),
+            );
+        }
+
+        if (geometries.length === 1) return geometries[0]!;
+        return this._mergeGeometries(geometries);
+    }
+
+    /**
+     * Is the given axis-aligned boundary line of a sub-rect an OUTER edge of the
+     * footprint? Probes points just outside the line, sampled along THIS rect's own
+     * span (`spanLo..spanHi` on the perpendicular axis): if every probe is outside
+     * the footprint the edge faces the outside world (eave gets the overhang); if any
+     * probe is inside, the edge abuts another wing (no overhang → flush valley).
+     *
+     * `side` says which face of the rect the coordinate `v` bounds. Deterministic.
+     */
+    private static _isOuterEdge(
+        poly: Pt[], v: number, side: 'minX' | 'maxX' | 'minZ' | 'maxZ',
+        spanLo: number, spanHi: number,
+    ): boolean {
+        const probe = 1e-3;
+        const samples = 9;
+        for (let i = 0; i <= samples; i++) {
+            const t = i / samples;
+            const s = spanLo + t * (spanHi - spanLo);
+            let px: number, pz: number;
+            switch (side) {
+                case 'minX': px = v - probe; pz = s; break;
+                case 'maxX': px = v + probe; pz = s; break;
+                case 'minZ': pz = v - probe; px = s; break;
+                default:     pz = v + probe; px = s; break;
+            }
+            if (this._pointInPoly(poly, px, pz)) return false; // inside ⇒ shared inner edge
+        }
+        return true; // nowhere inside just past it ⇒ outer edge
+    }
+
+    /** Even-odd point-in-polygon (XZ). */
+    private static _pointInPoly(poly: Pt[], px: number, pz: number): boolean {
+        let inside = false;
+        const n = poly.length;
+        for (let i = 0, j = n - 1; i < n; j = i++) {
+            const [xi, zi] = poly[i]!;
+            const [xj, zj] = poly[j]!;
+            const intersect =
+                (zi > pz) !== (zj > pz) &&
+                px < ((xj - xi) * (pz - zi)) / ((zj - zi) || 1e-9) + xi;
+            if (intersect) inside = !inside;
+        }
+        return inside;
     }
 
     // ──────────────────────────────────────────────────────────────────────────

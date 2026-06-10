@@ -40,7 +40,7 @@ import {
 } from '@pryzm/command-registry';
 import { facadeOrientationService } from '@pryzm/spatial-index';
 import { computeStairFootprintRect } from '@pryzm/geometry-stair';
-import { isGableFriendly, isConvexPolygon } from '@pryzm/geometry-roof';
+import { isGableFriendly, isConvexPolygon, canDecomposeConcave } from '@pryzm/geometry-roof';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import {
     generateHouseLayout,
@@ -78,6 +78,7 @@ import { runHousePostGenChain } from './runHousePostGenChain.js';
 import { resetStairVoids, recordStairVoid } from './houseStairVoids.js';
 import { resetStairRects, recordStairRect } from './houseStairRects.js';
 import { resetShellWalls, recordShellWalls } from './houseShellWalls.js';
+import { reseatEntranceOnHallWall } from './houseEntranceWall.js';
 
 const MM_PER_M = 1000;
 const DEFAULT_FLOOR_TO_FLOOR_M = 3.0;
@@ -478,6 +479,19 @@ export class HouseLayoutExecutor {
                 };
                 let set = buildLayoutCommands(option, opts, (p: IdPrefix) => createId(p));
 
+                // §DIAG-SEAL-DROP (ADR-0066 editor-seam, 2026-06-10) — capture the PRE-weld
+                // interior-partition id set so §DIAG-SEAL (below) can report DIVIDERS the weld
+                // DROPPED. ROOT CAUSE of the L-shape "openSeams=0 yet rooms MERGE" puzzle: the
+                // weld (`_weldGroundPartitions` → `weldPartitionsToShell`) DROPS any partition it
+                // collapses below the 0.05 m floor, and §DIAG-SEAL measures the POST-weld set —
+                // so a dropped DIVIDER (the wall that was supposed to separate two rooms) is
+                // INVISIBLE to the seal check: every SURVIVING endpoint seals (openSeams=0) yet
+                // the two rooms it used to divide now flood together (corridor 68m², a 1.3m²
+                // NO-ENGINE-MATCH sliver). This snapshot makes the dropped divider VISIBLE.
+                const preWeldPartitionIds = new Set<string>(
+                    ((set.wallBatch.payload as { walls?: Array<{ id: string }> }).walls ?? []).map(w => w.id),
+                );
+
                 // §GROUND-ENGINE-PERIMETER (A.21.Stage-1, audit 2026-06-09 §5) —
                 // unify the GROUND room-closure with the UPPER storeys. The upper
                 // storeys "subdivide fine" because their perimeter is ENGINE-AUTHORED
@@ -704,6 +718,34 @@ export class HouseLayoutExecutor {
                             lines.filter(l => l.includes('OPEN-SEAM')).join('\n  '),
                         );
                     }
+                    // §DIAG-SEAL-DROP (ADR-0066, 2026-06-10) — THE missing seal-merge signal.
+                    // §DIAG-SEAL above measures only the SURVIVING (post-weld) partitions, so it
+                    // reports openSeams=0 even when the weld DROPPED a divider (a partition it
+                    // collapsed below the 0.05 m floor) — and a dropped divider is EXACTLY what
+                    // merges two rooms into one giant unclassified blob (the L-shape "corridor
+                    // 68m²" + 1.3m² NO-ENGINE-MATCH sliver: detection floods across where the
+                    // dropped wall used to separate them). Compare the PRE-weld id snapshot to the
+                    // surviving set and flag every dropped divider LOUDLY — this is the root-cause
+                    // line the puzzle was missing. Read-only; deterministic.
+                    const survivingIds = new Set(sealPartitions.map(w => w.id));
+                    const droppedDividers = [...preWeldPartitionIds].filter(id => !survivingIds.has(id));
+                    if (droppedDividers.length > 0) {
+                        console.warn(
+                            `[house-layout] §DIAG-SEAL-DROP ${storey.levelId} ⚠ weld DROPPED ${droppedDividers.length} ` +
+                            `partition(s) (${preWeldPartitionIds.size} pre-weld → ${survivingIds.size} surviving): ` +
+                            `${droppedDividers.join(', ')} — a dropped DIVIDER merges the two rooms it separated ` +
+                            `(detection floods the gap; §DIAG-SEAL cannot see it — measures only survivors). ` +
+                            `If rooms merged with openSeams=0, THIS is the cause (engine-side: the partition the ` +
+                            `weld collapsed must be emitted on the dividing line — another agent owns the weld geometry).`,
+                        );
+                    } else if (preWeldPartitionIds.size !== survivingIds.size) {
+                        console.log(
+                            `[house-layout] §DIAG-SEAL-DROP ${storey.levelId} pre-weld=${preWeldPartitionIds.size} ` +
+                            `surviving=${survivingIds.size} (count differs but no id dropped — ids preserved).`,
+                        );
+                    } else {
+                        console.log(`[house-layout] §DIAG-SEAL-DROP ${storey.levelId} OK — no partition dropped by the weld (${survivingIds.size} preserved).`);
+                    }
                 } catch (e) { console.warn('[house-layout] §DIAG-SEAL failed (non-fatal):', e); }
 
                 // §DIAG-ROOMS (2026-06-08) — per-room glazing/access summary so a single
@@ -748,6 +790,25 @@ export class HouseLayoutExecutor {
                         // façade. Empty ⇒ byte-identical to the pre-PW.1 entrance resolution.
                         blindFacadeWallIds.size > 0 ? blindFacadeWallIds : undefined,
                     );
+                    // §DIAG-ENTRANCE-FIX (ADR-0066 editor-seam, 2026-06-10) — the resolver's
+                    // STRICT vertex-on-wall hall-bounding test (tolM 0.2 m) reports boundsHall=⚠
+                    // and falls back to a centroid-nearest (often NEIGHBOUR) façade whenever the
+                    // pre-drawn shell drifted off the engine footprint ring (WELD-FALLBACK /
+                    // rotated plate) by > 0.2 m. RE-SEAT the door onto the shell wall the hall
+                    // actually FRONTS (longest collinear-and-alongside hall-boundary overlap,
+                    // generous 0.65 m perp tol to survive the drift), placing it in a window-clear
+                    // gap of that frontage. No-op when the resolver already chose a hall-fronting
+                    // wall, or when the hall is genuinely not perimeter-adjacent (logged LOUD —
+                    // an engine-side failure another agent owns; resolver pick kept).
+                    {
+                        const hall =
+                            (option.rooms ?? []).find(r => r.type === 'hall')
+                            ?? (option.rooms ?? []).find(r => r.type === 'corridor')
+                            ?? null;
+                        entranceDoor = reseatEntranceOnHallWall(
+                            entranceDoor, hall, shellWalls, '[house-layout]', shellWindowSpans,
+                        );
+                    }
                     if (entranceDoor) {
                         // §DOOR-IN-WALL-SPAN (founder v46) — defensively VERIFY (and, if
                         // needed, clamp) the resolved entrance door against its host
@@ -1220,21 +1281,52 @@ export class HouseLayoutExecutor {
             const welded = weldPartitionsToShell(partitions, shell);
             const weldedById = new Map(welded.map(w => [w.id, w]));
 
-            // Rebuild the wall payload preserving every kept wall's y / height /
-            // thickness; drop walls the weld collapsed (their openings/doors follow).
+            // §DIVIDER-RETAIN (ADR-0066 editor-seam, 2026-06-10) — the weld DROPS any partition it
+            // collapses below its 0.05 m floor. When that partition was a USABLE DIVIDER (its
+            // ORIGINAL, pre-weld length was a real wall, ≥ DIVIDER_MIN_LEN_M), dropping it MERGES
+            // the two rooms it separated (the §DIAG-SEAL-DROP root cause). A divider sitting a few
+            // cm off the shell is FAR better than a missing one — the detector's own 0.30 m
+            // corner-snap + the welded survivors still close the loop, whereas a dropped divider
+            // GUARANTEES a flood-merge. So instead of dropping a collapsed USABLE divider we
+            // RETAIN its ORIGINAL baseline (un-welded). Genuinely degenerate engine stubs (original
+            // length < DIVIDER_MIN_LEN_M) are STILL dropped — keeping those would re-introduce the
+            // phantom-wall hazard (WallJoinResolver degenerate-wall bug). On a clean axis-aligned
+            // plate nothing collapses, so this is a byte-identical no-op there.
+            const DIVIDER_MIN_LEN_M = 0.5;   // a real interior divider; above the 0.05 m floor, below a corridor strip
+            const origLenById = new Map<string, number>();
+            for (const w of inWalls) {
+                const bl = w.baseLine;
+                if (bl && bl[0] && bl[1]) origLenById.set(w.id, Math.hypot(bl[1].x - bl[0].x, bl[1].z - bl[0].z));
+            }
+
+            // Rebuild the wall payload preserving every kept wall's y / height / thickness;
+            // §DIVIDER-RETAIN keeps a collapsed-but-usable divider at its original baseline.
             const keptIds = new Set<string>();
+            const retainedDividers: string[] = [];
             const newWalls = inWalls
-                .filter(w => weldedById.has(w.id))
+                .filter(w => weldedById.has(w.id) || (origLenById.get(w.id) ?? 0) >= DIVIDER_MIN_LEN_M)
                 .map(w => {
                     keptIds.add(w.id);
-                    const ww = weldedById.get(w.id)!;
+                    const ww = weldedById.get(w.id);
                     const y = w.baseLine[0]!.y ?? 0;
-                    return { ...w, baseLine: [{ x: ww.start.x, y, z: ww.start.z }, { x: ww.end.x, y, z: ww.end.z }] };
+                    if (ww) {
+                        return { ...w, baseLine: [{ x: ww.start.x, y, z: ww.start.z }, { x: ww.end.x, y, z: ww.end.z }] };
+                    }
+                    // Weld collapsed this divider — retain its ORIGINAL (un-welded) baseline.
+                    retainedDividers.push(w.id);
+                    return w;
                 });
 
             const droppedCount = inWalls.length - newWalls.length;
             if (droppedCount > 0) {
                 console.warn('[house-layout] §GROUND-WELD dropped', droppedCount, 'degenerate ground partition(s) after welding to shell');
+            }
+            if (retainedDividers.length > 0) {
+                console.warn(
+                    '[house-layout] §DIVIDER-RETAIN kept', retainedDividers.length,
+                    'collapsed-but-usable divider(s) at original baseline (a slightly-off divider beats a missing one →',
+                    'prevents the §DIAG-SEAL-DROP room-merge):', retainedDividers.join(', '),
+                );
             }
             console.log('[house-layout] §GROUND-WELD welded', newWalls.length, 'ground partition(s) onto', shell.length, 'shell wall(s)');
 
@@ -1886,25 +1978,29 @@ export class HouseLayoutExecutor {
             // footprint by construction — the soundest fallback that still looks
             // like a real pitched roof. Flat/hip are passed through unchanged.
             //
-            // §ROOF-CONCAVE (founder L-shape defect, 2026-06-10) — BUT the hip builder
-            // (RoofGeometryBuilder._shrinkPolygon + _computeInradius) is CONVEX-ONLY.
-            // On a CONCAVE footprint (an L — 6 verts, one re-entrant corner) the
-            // inward edge-shift normals cross at the inner corner, so the shrunken
-            // "ridge" polygon self-intersects and `_connectLevels` (nearest-vertex)
-            // wires the eave edges to the wrong ridge verts → the TWO CLASHING roof
-            // planes the founder saw at the L's inner corner. A proper L hip needs a
-            // full straight-skeleton hip-and-valley solve (NOT bounded here — scoped
-            // below). The smallest CORRECT change that yields ONE coherent roof over
-            // the true L polygon is to degrade a concave footprint to FLAT: the flat
-            // builder triangulates ANY simple polygon (incl. an L) via
-            // THREE.ShapeUtils.triangulateShape, so the roof is a single clean slab
-            // over the real footprint — far better than two clashing hip planes.
-            // Convex footprints (rectangle / parallelogram / convex hex) are
+            // §ROOF-CONCAVE-DECOMPOSE (founder L-shape defect, 2026-06-10) — the founder
+            // does NOT want a flat roof on an L-shape house; he wants a real PITCHED roof
+            // that follows the L (an L-shaped gable with a valley where the wings meet).
+            // The single-ridge hip/gable builders are convex-only (their inward edge-shift
+            // normals cross at a re-entrant corner → clashing planes), BUT geometry-roof
+            // now has a concave-aware path: `RoofGeometryBuilder.generate` decomposes a
+            // rectilinear concave footprint into rectangular WINGS and puts one gable on
+            // each wing at the same pitch & eave height (valley by construction). So for a
+            // concave footprint we KEEP the pitched kind as long as geometry-roof can
+            // decompose it (`canDecomposeConcave`); flat is now ONLY the final fallback
+            // for a NON-rectilinear concave shell (which the builder also flat-degrades,
+            // logged). Convex footprints (rectangle / parallelogram / convex hex) are
             // UNCHANGED → gable/hip pass through exactly as before (no regression).
+            const polyTuples = poly.map(p => [p.x, p.z] as [number, number]);
             const concave = !isConvexPolygon(poly);
+            const decomposable = concave && canDecomposeConcave(polyTuples);
             const effectiveKind: RoofDescriptor['kind'] =
                 concave
-                    ? 'flat'
+                    ? (decomposable
+                        // Keep a pitched kind so geometry-roof routes through the per-wing
+                        // gable decomposition. `gable` reads as the L-shaped pitched roof.
+                        ? (roof.kind === 'flat' ? 'gable' : roof.kind)
+                        : 'flat') // non-rectilinear concave → genuine flat fallback
                     : roof.kind === 'gable' && !isGableFriendly(poly) ? 'hip' : roof.kind;
 
             // A.21.D18 — domestic pitched roof. The engine carries a pitch in
@@ -1956,13 +2052,16 @@ export class HouseLayoutExecutor {
                 `(${effectiveKind}${effectiveKind !== roof.kind ? ` ←gable-fallback` : ''}, ~${pitchDeg.toFixed(0)}°, eave ${(DEFAULT_ROOF_OVERHANG_M * 1000).toFixed(0)}mm, baseOffset ${roofBaseOffset}m → roof caps @ ${expectedRoofElevM.toFixed(2)}m = top wall head, world-Y unchanged)`);
             // §DIAG-ROOF (founder L-shape verification, 2026-06-10) — ALWAYS-ON. Shows
             // the roof FOOTPRINT vertex count + convexity + requested-vs-chosen kind so
-            // the next run proves which branch fired. A concave footprint (e.g. an L's
-            // 6 verts, convex=false) MUST land kind=flat (the §ROOF-CONCAVE degrade);
-            // a clashing-planes regression would show concave + kind=hip/gable instead.
+            // the next run proves which branch fired. A concave RECTILINEAR footprint
+            // (e.g. an L's 6 verts, convex=false) now KEEPS a pitched kind (gable) and
+            // geometry-roof builds one gable per decomposed wing (§ROOF-CONCAVE-DECOMPOSE);
+            // flat is only the chosenKind for a NON-rectilinear concave shell.
             console.log(
                 `[house-layout] §DIAG-ROOF footprint verts=${poly.length} convex=${isConvexPolygon(poly)} ` +
                 `requestedKind=${roof.kind} chosenKind=${effectiveKind}` +
-                `${concave ? ' (§ROOF-CONCAVE degrade→flat: hip builder is convex-only; flat triangulates the L cleanly)' : ''}`,
+                `${concave ? (decomposable
+                    ? ' (§ROOF-CONCAVE-DECOMPOSE: concave+rectilinear → pitched per-wing gable, valley at wing junction)'
+                    : ' (§ROOF-CONCAVE flat-degrade: concave but NON-rectilinear → undecomposable → flat)') : ''}`,
             );
         } catch (e) { console.warn('[house-layout] roof create failed (skipped):', e); }
     }

@@ -452,6 +452,69 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
                 edges: [...bubble.edges, ...stairEdges],
             };
             placements = [...placements, ...stairPlacements];
+
+            // §STAIR-SPINE-TOUCH (founder defect, 2026-06-10) — the stair room sits at
+            // the carved keep-out, which is OUTSIDE the dominant rect the corridor was
+            // carved into, so the stair often does NOT share a wall with the corridor →
+            // `buildWallsAndDoors` can place no door and the stair ships SEALED (the prod
+            // log `stair0(stair) → NO DOOR`; the stair may only door onto a corridor/hall
+            // per `stair.accessFrom`, so the multihop reroute can't rescue it either).
+            // CURE: when the corridor and a stair are SEPARATED ONLY BY EMPTY SPACE (the
+            // carved clearance sliver — never another room), GROW the corridor rect across
+            // that gap so its face becomes coincident with the stair's → a shared wall →
+            // the §STAIR-ROOM-DOOR reconcile pass places the corridor↔stair door. The
+            // growth is REJECTED if it would overlap any non-corridor/non-stair room
+            // (interior floor), so a room is never clipped (§EVERY-ROOM-ACCESS preserved).
+            // Pure + deterministic; house-only (apartment passes no keep-out).
+            if (circId) {
+                const corIdx = placements.findIndex(p => p.roomId === circId);
+                if (corIdx >= 0) {
+                    let cor = placements[corIdx]!.rect;
+                    const others = placements.filter(p => p.roomId !== circId);
+                    const interiorOverlaps = (r: Rect): boolean => others.some(p => {
+                        if (p.roomId.startsWith('stair')) return false;   // empty sliver / the target stair
+                        const ox = Math.min(r.x1, p.rect.x1) - Math.max(r.x0, p.rect.x0);
+                        const oz = Math.min(r.z1, p.rect.z1) - Math.max(r.z0, p.rect.z0);
+                        return ox > 1e-3 && oz > 1e-3;                    // real interior-area overlap
+                    });
+                    const sharesWall = (a: Rect, b: Rect): boolean => {
+                        const vAbut = Math.abs(a.x1 - b.x0) < 0.05 || Math.abs(b.x1 - a.x0) < 0.05;
+                        const zOv = Math.min(a.z1, b.z1) - Math.max(a.z0, b.z0);
+                        if (vAbut && zOv > 0.05) return true;
+                        const hAbut = Math.abs(a.z1 - b.z0) < 0.05 || Math.abs(b.z1 - a.z0) < 0.05;
+                        const xOv = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0);
+                        return hAbut && xOv > 0.05;
+                    };
+                    let bridged = 0;
+                    for (const sp of stairPlacements) {
+                        if (sharesWall(cor, sp.rect)) { bridged++; continue; }   // already touching
+                        // Grow the corridor toward the stair on the axis with the smaller
+                        // gap (the clearance sliver), keeping the perpendicular overlap so
+                        // the new face actually coincides with the stair edge. Try each of
+                        // the 4 directions; accept the first that touches without overlap.
+                        const candidates: Rect[] = [
+                            { ...cor, x1: Math.max(cor.x1, sp.rect.x0) },   // grow +x to stair's left
+                            { ...cor, x0: Math.min(cor.x0, sp.rect.x1) },   // grow −x to stair's right
+                            { ...cor, z1: Math.max(cor.z1, sp.rect.z0) },   // grow +z to stair's near
+                            { ...cor, z0: Math.min(cor.z0, sp.rect.z1) },   // grow −z to stair's far
+                        ];
+                        for (const cand of candidates) {
+                            if (cand.x1 - cand.x0 < 1e-3 || cand.z1 - cand.z0 < 1e-3) continue;
+                            if (interiorOverlaps(cand)) continue;
+                            if (!sharesWall(cand, sp.rect)) continue;
+                            cor = cand;
+                            placements[corIdx] = { roomId: circId, rect: cand };
+                            bridged++;
+                            break;
+                        }
+                    }
+                    console.log(
+                        `[D-TGL] §STAIR-SPINE-TOUCH cand ${strategyKey(s)} corridor=${circId} ` +
+                        `stairsBridgedToCorridor=${bridged}/${stairPlacements.length}`,
+                    );
+                }
+            }
+
             console.log(
                 `[D-TGL] §STAIR-ROOM cand ${strategyKey(s)} emitted ${stairRooms.length} stair room(s) ` +
                 `at keep-out connected=${circId ? `→${circId}` : 'NONE'}`,

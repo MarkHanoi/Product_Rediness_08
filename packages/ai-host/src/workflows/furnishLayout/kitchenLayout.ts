@@ -65,29 +65,94 @@ function perpendicular(a: RoomWallSeg, b: RoomWallSeg): boolean {
     return Math.abs(da.x * db.x + da.z * db.z) < 0.2;       // |cos θ| ≈ 0
 }
 
-/** Choose the run shape. `auto`: U when ≥3 usable walls AND the room is squarish
- *  + roomy; L when ≥2 usable perpendicular walls; else I. */
+/** Two usable walls form a workable L corner only when BOTH arms are long enough
+ *  to host cabinetry past the shared corner cell: the secondary arm reserves one
+ *  module (0.60 m) for the corner, so it needs ≥ ~1.2 m to seat even a single
+ *  off-corner unit. We test the perpendicular-chained arms (not just any 2 walls)
+ *  so "two usable walls" that are PARALLEL (a galley) don't masquerade as an L. */
+const L_MIN_PRIMARY = 1.6;     // m — spine must host sink+hob (≈ 2 modules + clearance)
+const L_MIN_SECONDARY = 1.2;   // m — secondary must clear the corner + 1 off-corner unit
+// U back-wall cap: an elongated room (one long wall) is still better as an L
+// (sink+hob on the long wall, fridge perpendicular) than an over-wide U whose
+// fridge↔hob cross-leg blows the NKBA window. We keep that principle but the
+// rest of the U gate is RELAXED (§KITCHEN-LU-PREFER): the upper area limit (was
+// 11 m²) is dropped so larger squarish kitchens still U, and the cap is nudged
+// 3.3 → 3.6 m so a typical squarish kitchen back wall qualifies.
+const U_BACK_WALL_MAX = 3.6;   // m — U back-wall (spine) cap
+const U_MIN_THIRD = 1.2;       // m — each side arm must host a cell off the corner
+
+/** Can the longest-first, perpendicular-chained walls actually host an L? */
+function canHostL(walls: RoomWallSeg[]): boolean {
+    const chain = buildChain(walls, 2);
+    return chain.length >= 2 &&
+        chain[0]!.length >= L_MIN_PRIMARY && chain[1]!.length >= L_MIN_SECONDARY;
+}
+
+/** Can three perpendicular-chained walls actually host a U (compact back wall)? */
+function canHostU(walls: RoomWallSeg[]): boolean {
+    const chain = buildChain(walls, 3);
+    if (chain.length < 3) return false;
+    // chain = [arm0, back(spine), arm2] after buildChain's perpendicular weave; the
+    // SPINE (the wall both side arms share a corner with) is the middle element.
+    const back = chain[1]!;
+    return back.length <= U_BACK_WALL_MAX &&
+        chain[0]!.length >= U_MIN_THIRD && chain[2]!.length >= U_MIN_THIRD;
+}
+
+/**
+ * §KITCHEN-LU-PREFER (2026-06-10) — bias the AUTO shape choice toward L and U.
+ *
+ * Founder doctrine: real kitchens almost always wrap a corner, so the planner
+ * should PREFER L (two adjacent usable walls) and U (three) and only fall back to
+ * a straight I run when the geometry genuinely can't host a corner — a narrow
+ * single-wall galley, a too-small room, or two usable walls that are parallel
+ * rather than perpendicular.
+ *
+ * Selection (AUTO):
+ *   • U  — three perpendicular-chained usable walls, back wall ≤ U_BACK_WALL_MAX,
+ *          both side arms long enough to host the fridge a cell off the corner,
+ *          AND the room is roomy enough (areaM2 ≥ 6) to walk a three-wall run.
+ *   • L  — two perpendicular usable walls, both arms long enough past the corner.
+ *   • I  — everything else (single usable wall, parallel-only pair, or arms too
+ *          short for a corner cell).
+ *
+ * The explicit-brief path still wins (degrading gracefully when the geometry
+ * can't host the requested shape). The result is reported on a §DIAG-KITCHEN line.
+ */
 function chooseShape(input: FurnishRoomInput, walls: RoomWallSeg[], pref: KitchenLayout): 'I' | 'L' | 'U' {
     const usable = walls.filter(w => !wallHasDoor(w, input.doors));
-    if (pref !== 'auto') {
-        // Respect the brief but degrade gracefully if the geometry can't host it.
-        if (pref === 'U' && usable.length >= 3) return 'U';
-        if (pref === 'L' && usable.length >= 2) return 'L';
-        if (pref === 'I') return 'I';
-        // requested shape doesn't fit → fall through to auto
-    }
-    // AUTO doctrine: the L-shape is the most reliable work-triangle (sink+hob on
-    // one wall, fridge on the perpendicular wall — both legs short). A U is only
-    // chosen when the room is COMPACT enough that the back wall stays short
-    // (≤ ~3.3 m) so the cross-U fridge↔hob leg stays workable; otherwise a wide
-    // U spreads the triangle past the NKBA cap. Long thin galleys → I.
-    const backWallMax = 3.3;
     const longest = usable.reduce((m, w) => Math.max(m, w.length), 0);
-    if (usable.length >= 3 && input.areaM2 >= 6 && input.areaM2 <= 11 && longest <= backWallMax) {
-        return 'U';
-    }
-    if (usable.length >= 2) return 'L';
-    return 'I';
+
+    const decide = (): { shape: 'I' | 'L' | 'U'; why: string } => {
+        if (pref !== 'auto') {
+            // Respect the brief but degrade gracefully if the geometry can't host it.
+            if (pref === 'U' && usable.length >= 3) return { shape: 'U', why: 'brief=U' };
+            if (pref === 'L' && usable.length >= 2) return { shape: 'L', why: 'brief=L' };
+            if (pref === 'I') return { shape: 'I', why: 'brief=I' };
+            // requested shape doesn't fit the wall count → fall through to auto
+        }
+        // AUTO — prefer the corner shapes. U first (three workable walls), then L
+        // (two perpendicular workable walls), then I as the genuine fallback.
+        if (usable.length >= 3 && input.areaM2 >= 6 && canHostU(usable)) {
+            return { shape: 'U', why: `3+ walls, back≤${U_BACK_WALL_MAX}m, area=${input.areaM2.toFixed(1)}m²` };
+        }
+        if (usable.length >= 2 && canHostL(usable)) {
+            return { shape: 'L', why: '2 perpendicular usable walls (corner fits)' };
+        }
+        if (usable.length >= 2 && !canHostL(usable)) {
+            return { shape: 'I', why: 'two usable walls but parallel/too-short → no corner' };
+        }
+        return { shape: 'I', why: `single-wall galley (usable=${usable.length})` };
+    };
+
+    const { shape, why } = decide();
+    // §DIAG-KITCHEN — always-on rule-compliance log of the chosen run shape.
+    // eslint-disable-next-line no-console
+    console.log(
+        `§DIAG-KITCHEN room=${input.roomId} shape=${shape} pref=${pref} ` +
+        `usableWalls=${usable.length} longest=${longest.toFixed(2)}m area=${input.areaM2.toFixed(1)}m² — ${why}`,
+    );
+    return shape;
 }
 
 /** Build a chain of `want` walls where each consecutive pair is perpendicular
@@ -447,6 +512,18 @@ export function planKitchenRun(
 
     const layoutType: KitchenCabinetConfigLike['layoutType'] =
         numRight > 0 ? 'kitchen_u_shape' : numLeft > 0 ? 'kitchen_l_shape' : 'kitchen_straight';
+
+    // §DIAG-KITCHEN — report the EMITTED run shape (after secondary-arm sizing).
+    // If `shape` (the chosen geometry) and `layoutType` (the emitted run) disagree,
+    // a secondary arm was too short to host a cabinet past the corner cell → the
+    // run legitimately degraded one step (U→L or L→I). Surfacing it here makes that
+    // collapse visible instead of silent. §KITCHEN-LU-PREFER.
+    // eslint-disable-next-line no-console
+    console.log(
+        `§DIAG-KITCHEN room=${input.roomId} RUN layoutType=${layoutType} chosenShape=${shape} ` +
+        `mainUnits=${numMain} leftUnits=${numLeft} rightUnits=${numRight} ` +
+        `mainLen=${mainLen.toFixed(2)}m leftLen=${leftLen.toFixed(2)}m rightLen=${rightLen.toFixed(2)}m`,
+    );
 
     // ── Work-triangle → unit appliance slots ────────────────────────────────
     // Spine (main) arm: sink near one end, hob spread one+ cell along, washing

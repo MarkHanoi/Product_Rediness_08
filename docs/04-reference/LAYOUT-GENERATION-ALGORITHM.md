@@ -135,6 +135,277 @@ occasional `§WJR-INVALID … self-cluster`). Both are documented with file:line
 
 ---
 
+## HOUSE ENGINE — COMPLETE ARCHITECTURE & ORCHESTRATION (master diagram)
+
+> **This is the single entry-point map for the residential-HOUSE pipeline.** It is the
+> consolidated architecture + orchestration view a new engineer should read first; the
+> apartment internals it references (the `P1→P9` D-TGL pipeline) are documented in **§1–§10**
+> and NOT re-drawn here, and the line-by-line house deep-reference is **H0–H11** (the
+> "Residential House Generator (Casa Unifamiliar)" section) + the **AUDIT FINDINGS** at the end.
+> Every box is annotated with the layer it lives in (L0–L7.5, see CLAUDE.md) and a `file:line`
+> anchor. All claims are grounded in the CURRENT source (verified 2026-06-10).
+
+### HE.0 — The one sentence
+
+The house is the **apartment's single-plate D-TGL engine wrapped in a storey loop**. The shared
+pure engine `generateDeterministicLayouts` (`tgl/runDeterministicLayout.ts:86`) is **FROZEN** and
+called **once per storey, unchanged**; everything the house adds is either the multi-storey spine
+(stair core · per-storey level stamping · slab voids · roof) or **two compensating heuristics**
+(the ground-shell weld and the parallel program sizer) that exist only because the house feeds the
+engine differently. See **§8.4** for *why the apartment beats the house* and the honest defect list.
+
+### HE.1 — Master architecture / orchestration diagram (end to end)
+
+```text
+                            ┌──────────────────────────────────────────────────────────────────────┐
+                            │  INPUT                                                          (L7.5) │
+                            │  • drawn parcel boundary  → ShellAnalysis (perimeter+netAreaM2)        │
+                            │      C19 SiteModel / ParcelBoundary → houseFromBoundary.ts:77           │
+                            │      → analyseActiveShell()  HouseLayoutExecutor.ts:142  (exterior      │
+                            │        walls + entrance + window counts + SL-3 orientation)            │
+                            │  • typology brief (sliders / RAC)  → ApartmentProgram + ScoringWeights  │
+                            │  • site latitude (climate)  → solar.latDeg                              │
+                            └───────────────────────────────────┬──────────────────────────────────┘
+                                                                │
+                       request() / modal / preview              ▼
+   ┌───────────────────────────────────────────────────────────────────────────────────────────────┐
+   │  EDITOR SEAM (L5 apps/editor)                                                                    │
+   │  houseLayoutTrigger.ts:31 (console) · HouseLayoutController.ts:109 (request → modal → pick)      │
+   │  HouseLayoutModal (cards) ── §MODAL-DYNAMIC re-runs generateHouseLayoutOptions on program edit   │
+   └───────────────────────────────────┬───────────────────────────────────────────────────────────┘
+                                        │  generateHouseLayout / generateHouseLayoutOptions(shell,program,…,opts)
+                                        ▼
+ ╔═══════════════════════════════════════════════════════════════════════════════════════════════════╗
+ ║  ORCHESTRATOR — houseOrchestrator.ts            (L2, pure/deterministic, NO spans :10-13)           ║
+ ║                                                                                                     ║
+ ║  generateHouseLayout :190 ─┐     generateHouseLayoutOptions :247 ─┐  (N modal variants)             ║
+ ║                            └──────────────► enumeratePerStorey :467 ◄──────┘                         ║
+ ║                                                    │                                                ║
+ ║  ── §PRINCIPAL-AXIS world↔layout FRAME boundary (:483-499) ────────────────────────────────────    ║
+ ║     principalAxisAngle(footprint) → rotate plot to axis-aligned LAYOUT frame; angle 0 ⇒ identity.   ║
+ ║     EVERYTHING below runs in the LAYOUT frame; geometry is rotated BACK to world on emit.           ║
+ ║                                                    │                                                ║
+ ║   (a) allocateProgramToStoreys  storeyAllocation.ts:44   split brief → StoreyProgram[]              ║
+ ║         └ §HALL-SINGLETON :69/181  exactly ONE entrance hall (ground only); uppers get a Landing    ║
+ ║   (b) reserveStairCoreShaped    stairCore.ts:275  + chooseStairCorePosition  stairPosition.ts:525   ║
+ ║         └ §STAIR-DEFAULT-BIAS :541  ALWAYS a corner (never central) · I/L/U shape from aspect       ║
+ ║   (b') §STAIR-CONTAIN-UPSTREAM  containStairCoreUpstream :355  solve inward containment vs ROTATED  ║
+ ║         shell BEFORE the keep-out is carved → carved keep-out == shipped footprint (the §8.5 cure)  ║
+ ║         emits §DIAG-STAIR-CONTAIN-UPSTREAM + §DIAG-STAIR-RULE (R1 corner/R2 aspect/R3 no-overlap/R4 in-shell)║
+ ║   ── per storey loop (:653) ─────────────────────────────────────────────────────────────────────  ║
+ ║   (c) enrichStoreyProgramToPlate  houseProgramFloor.ts:197  raise sparse brief → full floor program ║
+ ║         └ growBedrooms (upper / single) · growGroundRooms (multi-storey ground)  [PARALLEL SIZER]   ║
+ ║       §HOUSE-MAX-CAP / §AREA-AGREEMENT (:709-714)  cap subdivision budget for a sparse oversize plate║
+ ║       §STAIR-KEEPOUT (:628)  AABB of CONTAINED stair footprint carved out of the buildable plate    ║
+ ║                                                    │                                                ║
+ ║       ┌──────────────────────────────────────────────────────────────────────────────────────┐    ║
+ ║       │  SHARED ENGINE  generateDeterministicLayouts  runDeterministicLayout.ts:86  (L2)        │    ║
+ ║       │  SAME function the apartment calls — see §1–§10 for the full pipeline:                  │    ║
+ ║       │   P1 shell→rects · P2 bubble graph + area alloc (§ENVELOPE-FIT-GROWTH OFF for house)    │    ║
+ ║       │   · P3 squarify subdivide + corridor spine · dimensional gate · P4 walls/doors          │    ║
+ ║       │   · P5 LayoutGraph · topology gate (§ROOM-OVERLAP-HARD · §FRONTAGE-RECTIFY-FRAME)        │    ║
+ ║       │   · P6/P7 21-axis ObjectiveVector · Pareto+weighted rank · P9 emit (+ §STAIR-ROOM-TYPE  │    ║
+ ║       │     mints a named `stair` cell at the keep-out)                                          │    ║
+ ║       │  INJECTED: validateHouseStorey  houseEnvelope.ts:120 (envelope gate keyed on FULL       │    ║
+ ║       │  programme, not bedroom count) + keepOutRectsWorld (stair carve)                         │    ║
+ ║       └──────────────────────────────────────────────────────────────────────────────────────┘    ║
+ ║                                                    │  ScoredLayoutOption[] per storey               ║
+ ║   (d) assembleHouse :762  StairCore per adjacent pair (flights rotated BACK to world :802)          ║
+ ║   (e)               SlabVoid on every NON-ground slab :833                                           ║
+ ║   (f)               RoofDescriptor over top storey, §ROOF-CAP-ELEVATION :847                         ║
+ ╚═══════════════════════════════════════════════════════════════════════════════════════════════════╝
+                                        │  HouseLayoutResult { storeys[], perStoreyLayout[], stairs[], voids[], roof }
+                                        ▼
+ ┌───────────────────────────────────────────────────────────────────────────────────────────────────┐
+ │  EDITOR EXECUTOR — HouseLayoutExecutor.ts:216 execute()                          (L5 apps/editor)    │
+ │  (a) mint upper levels + dedicated Roof level (AddLevelCommand)                  :261 / §ROOF-LEVEL  │
+ │  (b) generateHouseLayout / …Options with levelIdForStorey → REAL editor ids      :314-332            │
+ │  per-storey shell:  GROUND = drawn shell (skipExteriorWalls)                                          │
+ │                     UPPER  = minted explicit perimeter  _buildPerimeterShell  (§PERIMETER-SHELL)     │
+ │       └ §GROUND-ENGINE-PERIMETER :527 (weld SKIP when on-ring) / §UPPER-SHELL-WELD :589 (rotated)    │
+ │  buildLayoutCommands(option) :479  → LayoutCommandSet (pure ai-host core, SHARED with apartment)     │
+ │  ── ONE batchCoordinator.runBatch :799 (one undo, skipRedetectRooms) ──                              │
+ │     0 upper perimeters → 0.5 §WALL-SLAB-CONTINUITY ground-wall bump → 1 partitions → 2 slabs         │
+ │     → 3 stairs (computeStairFootprintRect; autoCreateOpening punches the §VOID) → 4 roof             │
+ │       roof: §ROOF-CONCAVE :1889 (hip is convex-only → L/T/U degrade to flat)                         │
+ │  _finishOpenings(perStorey, entranceDoor) :896  DEFERRED 2nd batch (walls must exist first):         │
+ │       wall.createOpening (doors+windows, C15 cascade) · door/window.batch.create · boundaries        │
+ │       + §A.21.D29 ground entrance door (resolveEntranceDoor) · final room redetect across storeys    │
+ │  §DIAG-LEVELS :897 (live vs intended wall count per level) · §FLR-VIEWS/§ROOF-VIEW plan views        │
+ └───────────────────────────────────┬───────────────────────────────────────────────────────────────┘
+                                      │  emit 'house.layout-executed'  →  POST-GEN chain
+                                      ▼
+ ┌───────────────────────────────────────────────────────────────────────────────────────────────────┐
+ │  POST-GEN — runHousePostGenChain.ts:170                                          (L5 apps/editor)    │
+ │  per storey, IN SEQUENCE (setActiveLevel → unchanged per-stage executors resolve it):                │
+ │     room detect+NAME (nameDetectedRooms; §ROOM-NAME-BIJECTIVE + §STAIR-VOID-EXCLUDE on the stair)    │
+ │     → floor (§FLOOR-INNER-FACE inset) + ceiling  →  furnish  →  light   (await *.layout-executed)    │
+ │  beginHouseFanout guard suppresses the apartment cascade so stages don't double-fire :185            │
+ └───────────────────────────────────┬───────────────────────────────────────────────────────────────┘
+                                      ▼
+ ┌───────────────────────────────────────────────────────────────────────────────────────────────────┐
+ │  DERIVED — Living Graph / UBG  is a PROJECTION of the committed result, not an input (ADR-0061).     │
+ │  Rooms/walls/doors/stairs become graph nodes/edges read-only-derived from the stores post-commit.   │
+ └───────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Frame boundary (read this twice).** The `§PRINCIPAL-AXIS` rotation
+(`houseOrchestrator.ts:483-499`, mirroring `runDeterministicLayout.ts:122-149`) is the single place
+world coordinates become layout coordinates. The stair core is *reserved* in the layout frame
+(`stairCore.ts`), its flight directions are *resolved* in the layout frame then rotated **back** to
+world (`resolveFlightPlans`, `houseOrchestrator.ts:57-85`), and `containStairCoreUpstream` solves
+containment in the **world** frame (the frame the executor ships in) and carries the world offset on
+`StairCore.containOffsetWorld`. On an axis-aligned plate the angle is 0 and every transform is the
+identity — the apartment / rectilinear path is byte-identical.
+
+### HE.2 — The orchestration sequence (apartment vs house)
+
+**(a) Single plate vs storey loop.** The apartment has **no orchestrator**: the editor calls
+`generateDeterministicLayouts` once for the active level and commits (one plate, one level, no stair,
+no roof). The house is the **same engine wrapped in a storey loop** — `enumeratePerStorey`
+(`houseOrchestrator.ts:467`) iterates `allocateProgramToStoreys`' output and calls the engine once
+per storey, then `assembleHouse` (`:762`) stitches the storeys with the multi-storey spine. The
+genuinely-additional things the house adds are exactly three (`houseOrchestrator.ts:1-13`, H0):
+
+1. a **vertically-aligned stair core** — the same XZ rect on every storey (`reserveStairCoreShaped`),
+2. **per-storey `levelId` + elevation stamping** — the apartment stamps ONE level, the house N,
+3. **a stairwell void on every non-ground slab + a roof cap** (`assembleHouse` (e)/(f)).
+
+**(b) The two compensating heuristics** (NOT new spine — they exist only because the house feeds the
+engine a *footprint-derived* program + a *pre-drawn* ground shell, see §8.4):
+
+- **Ground-shell weld** — the drawn ground shell is mitred/raised by the editor, so its post-miter
+  centrelines can drift past the room-detection node grid from where the engine tiled the partitions.
+  `§GROUND-ENGINE-PERIMETER` (`HouseLayoutExecutor.ts:527`, `_groundShellOnEnginePerimeter:1091`)
+  SKIPS the weld when the shell is provably still on the engine ring, else falls back to
+  `_weldGroundPartitions`. Its sibling `§UPPER-SHELL-WELD` (`:589`) welds rotated-plate upper
+  partitions onto the minted perimeter.
+- **Parallel program sizer** — `enrichStoreyProgramToPlate` (`houseProgramFloor.ts:197`) raises a
+  sparse captured brief to a full house floor sized to its plate (`growBedrooms` for the private
+  upper level / single-storey; `growGroundRooms` for a multi-storey ground), and `§HOUSE-MAX-CAP` /
+  `§AREA-AGREEMENT` (`houseOrchestrator.ts:709-714`) cap the subdivision budget so a sparse oversize
+  plate doesn't balloon one room. The apartment never calls either.
+
+Both are cross-referenced in **§8.4** ("Why the apartment generator beats the house"). The seam stays
+one shape: the engine returns a `LayoutOption`/`HouseLayoutResult`; the executor calls the **same**
+`buildLayoutCommands` and the **same** batch verbs for both apartment and house.
+
+### HE.3 — Per-storey data-flow diagram (the world/layout transforms + §DIAG-* checkpoints)
+
+```text
+  ShellAnalysis (WORLD m)           StoreyProgram (full floor)
+  perimeter + netAreaM2                allocateProgramToStoreys → enrichStoreyProgramToPlate
+        │                                          │
+        ▼                                          ▼
+  ┌─────────────────────────────────────────────────────────────────┐
+  │  rotate WORLD → LAYOUT frame   (−principalAxisRad about pivot)    │  §PRINCIPAL-AXIS
+  └─────────────────────────────────────────────────────────────────┘
+        │                                          │
+        │  footprintLayout                         │  storeyShell.netAreaM2 −= stairCoreArea
+        ▼                                          ▼
+  reserve stair core (LAYOUT)  ──►  containStairCoreUpstream  ──►  keepOutRectsWorld (WORLD AABB)
+        │  §DIAG-STAIR-RESERVE          │  §DIAG-STAIR-CONTAIN-UPSTREAM + §DIAG-STAIR-RULE
+        │                              ▼
+        │                    ┌──────────────────────────────────────────────┐
+        └───────────────────►│  generateDeterministicLayouts (LAYOUT frame)  │  §DIAG-STOREY (i, role,
+                             │  P1..P7 → rank → P9 emitGeometry              │   usable/presented area)
+                             │  + validateHouseStorey + keepOutRectsWorld    │
+                             └──────────────────────────────────────────────┘
+                                              │  rotate LAYOUT → WORLD on emit (+principalAxisRad)
+                                              ▼
+                                   ScoredLayoutOption (WORLD mm)  → assembleHouse → HouseLayoutResult
+                                              │
+        ── EDITOR EXECUTOR (WORLD m) ─────────┼────────────────────────────────────────────────────
+                                              ▼
+   buildLayoutCommands(option)  →  LayoutCommandSet      §DIAG-SHAPE (plate class) · §DIAG-STAIR
+        │  ground: drawn shell  ·  upper: minted perimeter (_buildPerimeterShell)
+        │  weld decision: §GROUND-ENGINE-PERIMETER / §UPPER-SHELL-WELD   §DIAG-SEAL (open-seam ≥0.30m)
+        ▼
+   runBatch: perimeters → §WALL-SLAB-CONTINUITY → partitions → slabs → stairs(§VOID) → roof
+        │  _finishOpenings: doors/windows + §A.21.D29 entrance door     §DIAG-LEVELS · §DIAG-ROOMS
+        ▼
+   FINAL room redetect  →  detected rooms (per storey)  →  POST-GEN (name+§ROOM-NAME-BIJECTIVE
+                                                            +§STAIR-VOID-EXCLUDE → floor/ceiling
+                                                            (§FLOOR-INNER-FACE) → furnish → light)
+```
+
+The `§DIAG-*` checkpoints are the founder's debugging surface (full catalogue in §9.5): the reserve
+(`§DIAG-STAIR-RESERVE`), the upstream containment + the four rule verdicts (`§DIAG-STAIR-CONTAIN-UPSTREAM`,
+`§DIAG-STAIR-RULE`, `houseOrchestrator.ts:404-452`), the per-storey area reconciliation (`§DIAG-STOREY`,
+`:722`), the plate classifier (`§DIAG-SHAPE`, `HouseLayoutExecutor.ts:249`), the world-containment of
+the shipped stair (`§DIAG-STAIR`, `:365`), the per-endpoint seal forensics (`§DIAG-SEAL`, `:628`), the
+glazing/access summary (`§DIAG-ROOMS`, `:714`), and the level-distribution audit (`§DIAG-LEVELS`, `:897`).
+
+### HE.4 — Where the recently-shipped mechanisms sit on the flow
+
+(Each is detailed in **§9.6**; this is the map.)
+
+| Mechanism | Where on the flow | Anchor |
+|---|---|---|
+| `§STAIR-ROOM-TYPE` | engine P9 mints a named `stair` cell at the keep-out (so the modal draws it + nothing tiles in) | `programRules.ts:421/853` · `subdivide.ts:190` · `roomDimensions.ts:79` |
+| `§HALL-SINGLETON` | orchestrator (a) — one entrance hall on ground only | `storeyAllocation.ts:69/181` |
+| `§ENVELOPE-FIT-GROWTH` | engine P2 area alloc; **OFF for house** (house sizes via its own density) | `bubbleGraph.ts:160` · `enumerate.ts:318/326` |
+| `§ROOM-OVERLAP-HARD` | engine topology gate — hard-reject any interior floor overlap | `enumerate.ts:252` · `validateNoRoomOverlap.ts` |
+| `§FRONTAGE-RECTIFY-FRAME` | engine topology gate — rotated-plate frontage false-negative cure | `enumerate.ts:575` |
+| `§PARTITION-SHELL-INNER-FACE` | post-commit wall resolution — partition butts the shell INNER face | `geometry-wall/WallJoinResolver.ts:205-356` |
+| `§FLOOR-INNER-FACE` | post-gen floor — inset room polygon to inner wall faces | `CreateFloorsByRoomTypeCommand.ts:110-295` · `RoomPolygonUtils.insetPolygonToInnerFaces` |
+| `§ROOF-CONCAVE` | executor step 4 — hip is convex-only → L/T/U degrade to flat | `HouseLayoutExecutor.ts:1889/1960` |
+| `§STAIR-VOID-EXCLUDE` | post-gen naming — collapse the phantom void-cell stair rooms | `nameDetectedRooms.ts:95/211` · `resolveStairRooms.ts` |
+| `§ROOM-NAME-BIJECTIVE` | post-gen naming — one detected room ↔ one option room (no duplicate "Stair") | `matchDetectedRooms.ts` · `nameDetectedRooms.ts:83` |
+| `§STAIR-CONTAIN-UPSTREAM` | orchestrator (b') — the §8.5 stair-desync cure | `houseOrchestrator.ts:355/563` |
+| `§PRINCIPAL-AXIS` | the world↔layout frame boundary (whole flow) | `houseOrchestrator.ts:483` · `runDeterministicLayout.ts:116` |
+
+### HE.5 — Governance + file map for the house
+
+**Pure orchestration core — `packages/ai-host/src/workflows/houseLayout/` (L2):**
+
+| File | Role |
+|---|---|
+| `houseOrchestrator.ts` | the storey loop: `generateHouseLayout:190` / `generateHouseLayoutOptions:247` → `enumeratePerStorey:467` → `assembleHouse:762`; `containStairCoreUpstream:355`; `resolveFlightPlans:57` |
+| `storeyAllocation.ts` | `allocateProgramToStoreys:44` (split brief; §HALL-SINGLETON); `storeyAcousticProfiles:233` |
+| `houseProgramFloor.ts` | `enrichStoreyProgramToPlate:197` (the parallel program sizer) |
+| `houseEnvelope.ts` | `validateHouseStorey:120` + `houseStoreyBand:100` (the injected house-aware envelope gate) |
+| `stairCore.ts` / `stairPosition.ts` | `reserveStairCoreShaped:275` + `chooseStairCorePosition:525` (corner placement, I/L/U) |
+| `stairContainment.ts` / `stairWorldFootprint.ts` | `solveStairContainmentWorld` + `computeStairWorldFootprint` (the shared world footprint) |
+| `houseVertical.ts` | `roofBaseElevationM` / `roofBaseOffsetM` (§ROOF-CAP-ELEVATION) |
+| `types.ts` | `HouseLayoutResult`, `StairCore`, `SlabVoid`, `RoofDescriptor`, `StoreyPlate` (see H1) |
+| `buildingElevations.ts`, `houseVertical.ts`, `documentationSet.ts`, `roomDocumentation.ts` | elevations + auto-documentation helpers |
+
+**Editor seam — `apps/editor/src/ui/house-layout/` (L5):**
+
+| File | Role |
+|---|---|
+| `houseLayoutTrigger.ts:31` | console trigger (`installHouseLayoutConsoleTrigger`) |
+| `HouseLayoutController.ts:109` | `request()` → modal → pick; §MODAL-DYNAMIC live regenerate |
+| `HouseLayoutModal.ts` / `houseModalHtml.ts` / `houseCardModel.ts` | the "Choose a house layout" modal |
+| `HouseLayoutExecutor.ts:216` | the executor: level mint, build, ONE batch, `_finishOpenings:896` |
+| `runHousePostGenChain.ts:170` | per-storey name → floor/ceiling → furnish → light |
+| `houseFromBoundary.ts:77` | `generateHouseFromBoundary` (C19 boundary → shell → generate) |
+| `houseShellWalls.ts` / `houseStairRects.ts` / `houseStairVoids.ts` / `houseFanoutGuard.ts` | per-build state stores for the §DIAG-* + void/finish passes |
+| `resolveStairRooms.ts` / `houseExecDiagnostics.ts` | §STAIR-VOID-EXCLUDE pure resolver + exec diagnostics |
+
+**Contracts / ADRs / SPEC (governance, read before non-trivial change):**
+
+- **ADR-0063** `docs/02-decisions/adrs/0063-house-generative-layout-doctrine.md` — the house doctrine
+  (stair-as-room, hall-singleton, the storey-loop reuse).
+- **ADR-0061** `docs/02-decisions/adrs/0061-building-graph-bidirectional-edit-substrate.md` — purity /
+  determinism + the derived Living Graph as a projection.
+- **ADR-0062 / ADR-0066** — the deterministic graph-solver + access-graph-first doctrines (the engine).
+- **C53** `docs/02-decisions/contracts/C53-GENERATIVE-LAYOUT-ENGINE-ARCHITECTURE.md` — the generative
+  layout engine architecture contract.
+- **C19** `docs/02-decisions/contracts/C19-SITE-MODEL-AND-PARCEL.md` — the drawn parcel boundary / site
+  model that becomes the INPUT shell.
+- **C50** `docs/02-decisions/contracts/C50-TYPOLOGY-PIPELINE.md` — the typology pipeline (house is one
+  typology pack).
+- **SPEC** `docs/03-execution/specs/SPEC-CASA-UNIFAMILIAR-TYPOLOGY.md` — the Casa Unifamiliar typology
+  spec (the §-tag rationale `A.21.Dxx`, the stages H0–H11 mirror).
+
+> **Drill-down:** for the line-by-line house reference (output shapes, stair geometry, the envelope
+> reconciliation, the per-finding audit), read **H0–H11** + **AUDIT FINDINGS** below. For the shared
+> engine internals every storey runs, read **§1–§10**. For the stair root-cause narrative, **§8.4–§8.5**.
+
+---
+
 ## Files Index
 
 ### Core engine — `packages/ai-host/src/workflows/apartmentLayout/`
