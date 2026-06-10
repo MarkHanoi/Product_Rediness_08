@@ -110,27 +110,48 @@ describe('room.create — round-trip', () => {
   });
 });
 
-describe('room.delete', () => {
+describe('room.delete — legacy bridge', () => {
+  // DeleteRoomHandler is now an F-1.x bridge (like RenameRoomHandler): it does
+  // NOT mutate the plugin RoomsState; it forwards to the legacy DeleteRoomCommand
+  // via window.commandManager (where the detected/rendered rooms actually live).
   let env: ReturnType<typeof buildEnv>;
-  afterEach(() => env?.detach());
-
-  it('removes the room and inverts back', async () => {
-    env = buildEnv();
-    const id = createId('room');
-    await env.bus.executeCommand('room.create', { id, name: 'Lobby' });
-    const before = snap(env.room);
-
-    const ev = await env.bus.executeCommand('room.delete', { roomId: id });
-    expect(env.room.size()).toBe(0);
-
-    undoLast(env.room, ev);
-    expect(snap(env.room)).toEqual(before);
+  const g = globalThis as unknown as { window?: unknown };
+  const savedWindow = g.window;
+  afterEach(() => {
+    env?.detach();
+    if (savedWindow === undefined) delete g.window;
+    else g.window = savedWindow;
   });
 
-  it('rejects unknown ids', async () => {
+  it('bridges to the legacy DeleteRoomCommand via window.commandManager', async () => {
     env = buildEnv();
+    const executed: Array<{ targetIds?: readonly string[] }> = [];
+    g.window = {
+      __pryzmInitComplete: true,
+      commandManager: { execute: (c: unknown) => executed.push(c as { targetIds?: readonly string[] }) },
+    };
+    await env.bus.executeCommand('room.delete', { roomId: 'room_abc' });
+    // The bridge mutates no plugin store…
+    expect(env.room.size()).toBe(0);
+    // …and forwarded exactly one DeleteRoomCommand targeting the room.
+    expect(executed).toHaveLength(1);
+    expect(executed[0]?.targetIds).toContain('room_abc');
+  });
+
+  it('no-ops (does not throw) before the engine is initialised', async () => {
+    env = buildEnv();
+    g.window = {
+      __pryzmInitComplete: false,
+      commandManager: { execute: () => { throw new Error('must not run pre-init'); } },
+    };
+    await expect(env.bus.executeCommand('room.delete', { roomId: 'room_x' })).resolves.toBeDefined();
+  });
+
+  it('rejects an empty roomId payload', async () => {
+    env = buildEnv();
+    g.window = { __pryzmInitComplete: true, commandManager: { execute: () => {} } };
     await expect(
-      env.bus.executeCommand('room.delete', { roomId: 'room_nonexistent' }),
+      env.bus.executeCommand('room.delete', { roomId: '' }),
     ).rejects.toThrow();
   });
 });
