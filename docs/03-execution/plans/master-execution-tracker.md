@@ -3002,7 +3002,34 @@ Brief panel). It is the same vision as the **Dynamic Program Canvas** authored t
   `ProgramCanvasPanel.ts` + a small controller facade.
 Relates to §26 (XFLOOR-GRAPH — the cross-floor graph substrate XA–XF feeds the CENTER pane) and
 A.21.D37 (Miro/Mural pan-zoom + select-to-3D). The RIGHT-rail tools layout is the new element vs §26.
-**Status: 🔵 QUEUED — Phase-0 spike scoped, not yet built (net-new UI; build → prod-test → refine loop).**
+**Status: 🟢 IN PROGRESS — SHIPPED v117–v121 (see §26.6).**
+
+### §26.6 — §3PANE SHIPPED log (v117–v121, 2026-06-10)
+
+The three-pane Dynamic Program Canvas (built as the house modal body, pre-execution — SPIKE R-D option 1)
+shipped in five test-gated iterations:
+
+- **v117 — IT-1 three-pane layout.** `buildHousePanesHtml` + restructured `buildHouseModalHtml`/`refresh()`:
+  LEFT = plan per storey · CENTER = the living graph per storey · RIGHT = tools rail (program form + legend +
+  result + the single terminal "Use this layout" Execute). LEFT+CENTER are the regenerated `[data-role="grid"]`.
+- **v118 — IT-2 size sliders + live level/result.** Per-RoomType size as range sliders (live m² `<output>`,
+  0 ⇒ auto); `refresh()` also rebuilds the result block so the level stepper updates the whole panel live.
+- **v119 — IT-3a selection-sync (R12).** Click a graph node OR a plan polygon (same `data-room-name`) →
+  `.hlm-selected` highlight across all panes + the C52 editor.
+- **v120 — IT-3c move-between-floors (R5) + §26 XE.** `HouseLayoutController._mergeOverrides` now merges
+  `roomFloorByName` (the missing wire; XA engine half already shipped); the node editor gains a Floor selector
+  → `setRoomFloorOverride("storey:<src>/<name>", target)` → re-allocate.
+- **v121 — IT-3b connect-rooms (R10 / C52 E3).** New `ApartmentProgram.roomAdjacencyByName` + bubble-graph
+  consumer (desired door edge, gated by `doorAllowedBetween`) + `activeRoomAdjacencyOverrides.ts` stash +
+  `_mergeOverrides` merge + a "Connect to" select in the node editor.
+
+vs the original XA–XF plan: **XA** ✅ (engine, prior) · **XD** ✅ (the 3-pane modal body, v117) · **XE** ✅ (v121
+controller merge) · **XB/XC** (concatenated cross-floor graph + a reusable `MiroCanvasController`) NOT done —
+the shipped version uses the EXISTING per-storey bubble-graph SVGs, not one concatenated pannable canvas.
+**Remaining:** R3/R11 the room-type **palette + drag-to-add**, true **drag-and-drop** (cards/nodes between
+lanes, vs the current Floor/Connect SELECTS), XB/XC the concatenated Miro canvas, IT-2.5 per-storey bedroom
+COUNT steppers, and replacing the apartment modal + onboarding brief (SPEC §9 Phase 3–4). All edits are
+pre-execution (no scene write until Execute); governed by SPEC-DYNAMIC-PROGRAM-CANVAS + ADR-0069 + C52 §2.2.
 
 ## §27 — Interior Daylight colour-code graph (`DAYLIGHT-GRAPH`) — QUEUED (2026-06-09)
 
