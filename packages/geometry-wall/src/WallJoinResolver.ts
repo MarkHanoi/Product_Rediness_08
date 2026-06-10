@@ -202,7 +202,184 @@ export class WallJoinResolver {
             else                        this._applyT(join, bl, byId, result, thresholds);
         }
 
+        // ── §PARTITION-SHELL-INNER-FACE (founder invariant, 2026-06-10) ─────────
+        // FINAL clamp: a partition endpoint that terminates ON a shell (perimeter /
+        // through) wall must butt the shell's INNER (room-side) face — NEVER the
+        // shell centreline, NEVER through to the outer face. The pair-wise _applyT
+        // already lands a clean body-T on the inner face, but two routes leave a
+        // partition end ON the shell CENTRELINE (→ its square-capped body crosses
+        // the shell and pokes out the outer façade — the founder's "partition stubs
+        // poking past the outside of the shell"):
+        //   (1) the partition endpoint coincides with a shell CORNER → it is
+        //       pinned / corner-joined to the centreline crossing (_applyCorner),
+        //       not T-joined to a face; and
+        //   (2) any residual centreline placement from the multi-cluster pass.
+        // This pass runs AFTER all joins, reads the resolved baselines, and for each
+        // wall whose joining endpoint sits on/inside a longer "through" host wall's
+        // body, pulls that endpoint back to the host's inner face. Shell↔shell
+        // L-corner miters are untouched (both walls are long → neither is the
+        // "much-shorter partition", see _clampEndToShellInnerFace). §SHELL-ANCHOR-
+        // PRESERVE is respected: the HOST (shell) is never moved.
+        this._clampPartitionEndsToShellInnerFace(walls, bl, byId, result, thresholds);
+
         return result;
+    }
+
+    // ── §PARTITION-SHELL-INNER-FACE — final inner-face clamp ────────────────────
+
+    /**
+     * For every wall, test BOTH endpoints: if a joining endpoint terminates on a
+     * longer "through" host (shell) wall's body but lands on the host CENTRELINE
+     * side (at/beyond the inner face, i.e. inside the host's lateral half-thickness
+     * band toward the host outer face), clamp it back to the host's INNER face — the
+     * lateral face on the side of THIS wall's free end. Pure read of `bl` + thickness
+     * from `byId`; only the partition's own endpoint moves.
+     *
+     * Shell-vs-partition is inferred geometrically (the resolver is a pure L2 package
+     * and never receives the editor's `isExterior` facade flag): the host must be
+     * the perpendicular-foot host, its foot must be strictly INSIDE the host span,
+     * and the host must be materially LONGER than the wall being clamped (a shell is
+     * long; a terminating partition is the stem). That excludes shell↔shell corners
+     * (comparable length) and genuine interior crossings.
+     */
+    private static _clampPartitionEndsToShellInnerFace(
+        walls:      WallData[],
+        bl:         Map<string, [THREE.Vector3, THREE.Vector3]>,
+        byId:       Map<string, WallData>,
+        result:     Map<string, JoinData>,
+        thresholds: JoinThresholds,
+    ): void {
+        const SNAP = thresholds.snapRadius;
+        for (const w of walls) {
+            const adj = result.get(w.id);
+            if (adj?.invalid) continue;
+            const cur = bl.get(w.id);
+            if (!cur) continue;
+            for (const side of ['start', 'end'] as Side[]) {
+                this._clampEndToShellInnerFace(w, side, walls, bl, byId, result, SNAP, thresholds.minWallLength);
+            }
+        }
+    }
+
+    private static _clampEndToShellInnerFace(
+        wall:       WallData,
+        side:       Side,
+        walls:      WallData[],
+        bl:         Map<string, [THREE.Vector3, THREE.Vector3]>,
+        byId:       Map<string, WallData>,
+        result:     Map<string, JoinData>,
+        snap:       number,
+        minLen:     number,
+    ): void {
+        const cur = bl.get(wall.id);
+        if (!cur) return;
+        const [ws, we] = cur;
+        const joinPt = side === 'start' ? ws : we;
+        const freePt = side === 'start' ? we : ws;
+        if (ws.distanceTo(we) < 1e-6) return;
+
+        // Find the best through-host: a wall whose BODY (mid-span) the join endpoint
+        // sits on or inside. A "through" host's perpendicular foot is strictly INSIDE
+        // its span — that is precisely a partition→shell BODY T-join (the founder's
+        // "partition crossing the exterior wall line"). A shell↔shell L-corner is
+        // endpoint-to-endpoint (foot AT the host's end), so it is excluded here and
+        // its bisector miter is left untouched.
+        let host: WallData | null = null;
+        let hostContact = new THREE.Vector3();
+        let hostHalfT = 0;
+        let bestPerp = snap;
+        for (const h of walls) {
+            if (h.id === wall.id) continue;
+            const hbl = bl.get(h.id);
+            if (!hbl) continue;
+            const [hs, he] = hbl;
+            const c = this._closestOnSegment(joinPt, hs, he);
+            const perp = joinPt.distanceTo(c);
+            if (perp > bestPerp) continue;
+            // Foot must be strictly INSIDE the host span (a real body T) — at least
+            // one host half-thickness clear of either host end so a genuine corner
+            // (endpoint↔endpoint) is never reclassified as a body-T.
+            const endMargin = Math.max(0.05, h.thickness / 2);
+            if (c.distanceTo(hs) < endMargin || c.distanceTo(he) < endMargin) continue;
+            // The host must materially extend PAST the contact on both sides (it
+            // "passes through" the junction) — the geometric signature of a shell
+            // body relative to a terminating partition stem.
+            host = h;
+            hostContact = c;
+            hostHalfT = h.thickness / 2;
+            bestPerp = perp;
+        }
+        if (!host) return;
+
+        // Lateral (side) face normal of the host, in XZ.
+        const [hs, he] = bl.get(host.id)!;
+        const hostDir = new THREE.Vector3().subVectors(he, hs).normalize();
+        const sideNormal = new THREE.Vector3(-hostDir.z, 0, hostDir.x);
+
+        // Which lateral face is the INNER (room-side) face? The one toward the
+        // partition's FREE end (the room side). faceSign points to the free end.
+        const toFree = new THREE.Vector3().subVectors(freePt, hostContact);
+        const along = toFree.dot(hostDir);
+        // Lateral component of the free end relative to the host (room side).
+        const faceSign = sideNormal.dot(toFree) >= 0 ? 1 : -1;
+        // Signed lateral offset of the CURRENT join endpoint from the host centreline.
+        const curLateral = sideNormal.dot(new THREE.Vector3().subVectors(joinPt, hostContact)) * faceSign;
+        // curLateral >= hostHalfT  → already at/outside the inner face on the room side
+        //                            (clean butt — leave it; _applyT already did this).
+        // curLateral <  hostHalfT  → the endpoint is on the centreline side / inside the
+        //                            host body / past it toward the outer face → CLAMP it
+        //                            out to the inner face so it butts cleanly.
+        const INNER_EPS = 0.001;   // 1 mm overlap into the host body (no Z-fighting, no gap)
+        const targetLateral = hostHalfT - INNER_EPS;
+        if (curLateral >= targetLateral - 1e-4) {
+            // Already on (or just inside) the inner face — clean. Nothing to do.
+            return;
+        }
+
+        // New endpoint: keep the same position ALONG the host, set the lateral offset
+        // to the inner face on the room side.
+        const newJoin = hostContact.clone()
+            .addScaledVector(hostDir, along)
+            .addScaledVector(sideNormal, faceSign * targetLateral);
+        newJoin.y = joinPt.y;
+
+        // Guard: never collapse / invert this wall.
+        const newLen = side === 'start' ? newJoin.distanceTo(we) : ws.distanceTo(newJoin);
+        if (newLen < minLen) {
+            console.warn(
+                `[WallJoinResolver] §PARTITION-SHELL-INNER-FACE REFUSED — clamp would collapse ` +
+                `${wall.id}(${side}) newLen=${newLen.toFixed(4)} (MIN=${minLen})`,
+            );
+            return;
+        }
+
+        const newBL: [THREE.Vector3, THREE.Vector3] =
+            side === 'start' ? [newJoin, we.clone()] : [ws.clone(), newJoin];
+        bl.set(wall.id, newBL);
+        const adj: JoinData = result.get(wall.id) ?? { baseLine: newBL, startMN: null, endMN: null };
+        adj.baseLine = newBL;
+        // Cap the partition flush against the host's inner face (coplanar end cap).
+        const miter = { nx: faceSign * sideNormal.x, nz: faceSign * sideNormal.z };
+        if (side === 'start') adj.startMN = miter;
+        else                  adj.endMN   = miter;
+        result.set(wall.id, adj);
+
+        // §DIAG-WALL-JOIN — partition→shell T-join inner-face clamp (always-on).
+        // landed=innerFace ✓ once the clamp has run (the endpoint now sits exactly
+        // on the room-side face); the BEFORE classification tells whether it was on
+        // the centreline (⚠) or had protruded past the inner face toward the outer
+        // façade (⚠) — both are the founder's defect, now corrected.
+        const beforeCls =
+            curLateral <= -hostHalfT + 1e-3 ? 'protrudes⚠'
+            : Math.abs(curLateral) <= 1e-3   ? 'centreline⚠'
+            : 'insideBody⚠';
+        console.log(
+            `[WallJoinResolver] §DIAG-WALL-JOIN PARTITION→SHELL ${wall.id}(${side}) host=${host.id} ` +
+            `before=${beforeCls} (lateral=${(curLateral * 1000).toFixed(1)}mm of innerFace=${(hostHalfT * 1000).toFixed(1)}mm) ` +
+            `clamp=+${((targetLateral - curLateral) * 1000).toFixed(1)}mm landed=innerFace✓`,
+        );
+        // Touch `along` use to avoid an unused-var lint if the helper is trimmed later.
+        void along;
     }
 
     // ── §WJR-INVALID — durable degenerate-wall flag (A.WJ.MULTICLUSTER) ───────

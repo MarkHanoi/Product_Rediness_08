@@ -618,3 +618,108 @@ describe('WallJoinResolver — §SHELL-ANCHOR-PRESERVE (partition welded onto sh
         }
     });
 });
+
+/**
+ * §PARTITION-SHELL-INNER-FACE (founder invariant, 2026-06-10)
+ *
+ * THE founder defect (3D screenshot + 2D plan, red arrows): interior PARTITION
+ * walls PROTRUDE THROUGH the exterior perimeter (shell) wall — partition stubs poke
+ * OUT past the outside face of the façade; in plan the partition ends cross the
+ * (diagonal) exterior wall line.
+ *
+ * Required invariant: a partition that terminates on a shell wall must butt the
+ * shell's INNER (room-side) face — never the centreline, never through to the outer
+ * face. The pair-wise _applyT already lands a clean body-T on the inner face, but the
+ * MULTI-CLUSTER consensus-trim branch (3+ unpinned partition endpoints welded onto a
+ * shell body) leaves each end on the shell CENTRELINE with a square cap, so its body
+ * crosses the shell and pokes out the outer façade. The §PARTITION-SHELL-INNER-FACE
+ * final clamp pulls any such endpoint back to the host's inner face.
+ *
+ * These tests pin: (1) a partition welded onto a shell BODY at the centreline lands
+ * on the INNER face (distance from centreline === shellThickness/2 on the room side),
+ * NOT the centreline, NOT the outer face; (2) the diagonal/rotated shell case has no
+ * protrusion past the outer face; (3) a clean axis-aligned L-corner (shell↔shell) is
+ * byte-unchanged (still bisector miter, end NOT clamped).
+ */
+describe('WallJoinResolver — §PARTITION-SHELL-INNER-FACE (partition butts shell inner face, never through)', () => {
+    it('3-way consensus partitions welded onto a shell body land on the INNER face, not the centreline', () => {
+        // Long horizontal shell along z=0 (half-thickness 0.10 → inner face z=+0.10 on
+        // the room side, where the partitions rise). Three interior partitions welded
+        // onto the shell centreline (z=0) near x=0, mutually unfused/un-pinned → the
+        // MULTI-CLUSTER consensus-trim would leave them on the centreline (the founder
+        // protrusion). The clamp must move each joining end out to the inner face.
+        const shell = mk([-10, 0], [10, 0], 0.2, 1);
+        const pA = mk([-0.10, 3], [-0.10, 0.0], 0.2, 2);   // free end z=+3 → room side +z
+        const pB = mk([ 0.10, 3], [ 0.10, 0.0], 0.2, 3);
+        const pC = mk([ 0.00, 4], [ 0.00, 0.0], 0.2, 4);
+        const res = WallJoinResolver.resolveLevel([shell, pA, pB, pC], { snapRadius: 0.5 });
+
+        const shellHalfT = 0.2 / 2;   // 0.10 m
+        for (const p of [pA, pB, pC]) {
+            const jp = res.get(p.id)!;
+            expect(jp.invalid).toBeFalsy();
+            const joinEnd = jp.baseLine[1] as THREE.Vector3;   // all join at 'end'
+            // INNER face: z === +shellHalfT (room side), within 1 mm. NOT the centreline
+            // (z=0) and NOT the outer face (z=-shellHalfT).
+            expect(joinEnd.z).toBeCloseTo(shellHalfT, 2);
+            expect(joinEnd.z).toBeGreaterThan(0.05);   // off the centreline, on the room side
+            // Not collapsed / inverted.
+            expect(jp.baseLine[0].distanceTo(jp.baseLine[1])).toBeGreaterThan(2.5);
+        }
+        // Shell (the host) is never moved — full span preserved.
+        const jShell = res.get(shell.id);
+        if (jShell) {
+            expect(jShell.baseLine[0].x).toBeCloseTo(-10, 3);
+            expect(jShell.baseLine[1].x).toBeCloseTo(10, 3);
+        }
+    });
+
+    it('diagonal/rotated shell: partition butts the inner face — no protrusion past the outer face', () => {
+        // 45° exterior shell from (0,0) to (10,10), half-thickness 0.10. A partition
+        // welded onto the shell centreline at its midpoint (5,5), running inward. The
+        // partition end must land on the shell's inner face — exactly halfThickness off
+        // the centreline on the room side — so its body never crosses to the outer face.
+        const shell = mk([0, 0], [10, 10], 0.2, 1);
+        const part = mk([8, 2], [5, 5], 0.2, 2);   // join end on the shell centreline (5,5)
+        const res = WallJoinResolver.resolveLevel([shell, part], { snapRadius: 0.5 });
+        const jp = res.get(part.id)!;
+        expect(jp.invalid).toBeFalsy();
+        const join = jp.baseLine[1] as THREE.Vector3;
+        // Distance from the shell centreline === halfThickness (on the inner face).
+        const distCentre = Math.hypot(join.x - 5, join.z - 5);
+        expect(distCentre).toBeCloseTo(0.10, 2);
+        // And the endpoint is on the ROOM side (toward the free end (8,2)): the shell
+        // outward normal is (-1,1)/√2; the inner face is the −normal side, where the
+        // free end sits. Verify the join is on the same lateral side as the free end.
+        const nx = -1 / Math.SQRT2, nz = 1 / Math.SQRT2;   // shell left normal
+        const joinLat = (join.x - 5) * nx + (join.z - 5) * nz;
+        const freeLat = (8 - 5) * nx + (2 - 5) * nz;
+        expect(Math.sign(joinLat)).toBe(Math.sign(freeLat));   // same (room) side, not through
+    });
+
+    it('regression: a clean axis-aligned shell↔shell L-corner is UNCHANGED (no clamp)', () => {
+        // Two comparable-length shell walls forming the building corner. Endpoint↔
+        // endpoint (not a body-T) → the clamp must NOT fire: bisector miter, ends stay
+        // exactly at the centreline crossing (4,0).
+        const a = mk([0, 0], [4, 0], 0.2, 1);
+        const b = mk([4, 0], [4, 3], 0.2, 2);
+        const res = WallJoinResolver.resolveLevel([a, b]);
+        const ja = res.get(a.id)!, jb = res.get(b.id)!;
+        expect(ja.baseLine[1].x).toBeCloseTo(4, 3);
+        expect(ja.baseLine[1].z).toBeCloseTo(0, 3);
+        expect(jb.baseLine[0].x).toBeCloseTo(4, 3);
+        expect(jb.baseLine[0].z).toBeCloseTo(0, 3);
+        expect(ja.endMN).toBeTruthy();   // still a bisector miter, not a face clamp
+        expect(jb.startMN).toBeTruthy();
+    });
+
+    it('regression: a clean perpendicular body-T (already on the inner face via _applyT) is unchanged', () => {
+        // A single partition welded onto a shell body. _applyT already lands it on the
+        // inner face; the clamp sees curLateral ≥ inner-face target and is a no-op.
+        const shell = mk([-10, 0], [10, 0], 0.2, 1);
+        const part = mk([0, 3], [0, 0], 0.2, 2);
+        const res = WallJoinResolver.resolveLevel([shell, part], { snapRadius: 0.5 });
+        const join = res.get(part.id)!.baseLine[1] as THREE.Vector3;
+        expect(join.z).toBeCloseTo(0.10, 2);   // inner face, idempotent
+    });
+});
