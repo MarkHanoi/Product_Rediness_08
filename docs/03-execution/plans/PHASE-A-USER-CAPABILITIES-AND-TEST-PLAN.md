@@ -51,9 +51,9 @@ When Phase A is GA-complete a user will:
 | **4. Climate substrate** |
 | 4.1 | Upload EPW file → ingest | Climate pane | A.10.b + A.10.e | ✅ DONE (L2 + L3) | Upload EPW → parses (9 + 10 field LOCATION) → 4 builders (monthly normals · wind rose · design temps · degree days) run |
 | 4.2 | Auto-fetch NOAA normals on boundary commit | Background | A.10.e | ✅ DONE (L3) | EPW unavailable → NOAA fallback loads 12 monthlies for site centroid |
-| 4.3 | View sun-path overlay (per-date) | Climate panel sun-path tab | A.11 | ⚪ PLANNED | Date slider → sun azimuth + elevation drawn on plan |
-| 4.4 | View wind rose | Climate panel wind tab | A.11 | ⚪ PLANNED | 16-sector × 6-bin Beaufort rose rendered |
-| 4.5 | View temp + humidity profile | Climate panel | A.11 | ⚪ PLANNED | Monthly normals charted |
+| 4.3 | View sun-path overlay (per-date) | Climate panel (Forma site card → "Open full climate card") | A.11 | ✅ DONE (FORMA.5) | `ClimatePanel._sunPathBlock` draws sun arcs from lat/lon alone (no EPW needed); renders whenever the site has a location |
+| 4.4 | View wind rose | Climate panel | A.11 | ✅ DONE (FORMA.5) | `ClimatePanel._windRoseBlock` renders the 16-sector radial frequency rose once an EPW/NOAA dataset is loaded |
+| 4.5 | View temp + humidity profile | Climate panel | A.11 | ✅ DONE (FORMA.5) | `ClimatePanel._tempProfileBlock` charts the monthly normals from the loaded dataset |
 | 4.6 | Solar samples for a date+time | Climate API | A.10.c | ✅ DONE | `climate.solarSample(lat, lon, utcIso)` returns SolarSample |
 | **5. Typology + apartment generation** |
 | 5.1 | Pick apartment typology (default), house, small-office | Typology picker | A.20 (C50 contract) + A.4 (apartment) + A.21 (house) + A.22 (office) | 🟢 IN PROGRESS (apartment shipped; house + office PLANNED) | Typology picker shows 3 cards (Apartment ✅, House ⚪, Office ⚪) |
