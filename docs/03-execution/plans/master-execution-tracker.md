@@ -3278,3 +3278,129 @@ console logs." Verified the rules already hold and made them explicit + always-o
   + interior) close at jointGap=0.0mm — clean, no notch/overrun.** The interior PASS-THROUGH/collinear
   junctions the founder saw are square-capped consensus trims, not failed L-mitres.
 ai-host 2158/2158, geometry-wall 50/50, 0 new typecheck errors. Diagnostics-only (no behaviour change).
+
+---
+
+> **Batch note (2026-06-10):** §36–§39 below are **four founder requests queued and SHIPPING in
+> parallel this session** — implementation agents are in flight concurrently (stair room-type,
+> entrance-hall placement, interior-door void, room-label toggle). Each entry below assigns the
+> governing contract/spec/ADR up front; the exact commit hash + `§MARKER` is left for the main agent
+> to fill on land. Status on all four: **QUEUED → SHIPPING (impl in flight this session).**
+
+---
+
+## §36 — Stair / vertical-circulation ROOM TYPE (`STAIR-ROOM-TYPE`) — QUEUED → SHIPPING (impl in flight this session)
+
+**Founder request:** the layout modal's living graph shows a **"Stair"** area on the ground floor, but the
+**EXECUTED** ground floor put a **BEDROOM** in that footprint. Make the stair a **first-class room type** so
+**modal == execution** and no room tiles into the stair keep-out.
+
+**Rule:** a `stair` (vertical-circulation) `RoomType` in the normative room DB — **circulation privacy**, **no
+window** (`windowMandatory=false`), **adjacent to corridor/landing**, **no open-plan merge**, and it
+**occupies the stair keep-out** (the contained core footprint the engine already reserves) so the program
+sizer never re-allocates that area to a habitable room. Modal graph "Stair" node ⇒ same `stair` room in
+execution.
+
+**Approach:** add the `stair` RoomType to the program-rules DB (`programRules.ts`) with the circulation
+profile above; thread it as a **reserved/keep-out room** through the subdivision so squarified subdivision
+and `scaleProgramToShell` skip the stair footprint; the multi-storey spine (the contained stair core) is the
+anchor the room hangs on. The stair is already the **storey-loop spine** in the house doctrine — this makes
+the SHELL plan agree with it.
+
+**Governance assigned:**
+- **SPEC-ARCHITECTURAL-PROGRAM-RULES** — extends the normative room DB (the `programRules.ts` single source
+  of truth). [`docs/03-execution/specs/SPEC-ARCHITECTURAL-PROGRAM-RULES.md`](../specs/SPEC-ARCHITECTURAL-PROGRAM-RULES.md) ✅ exists.
+- **ADR-0063 — House generative-layout doctrine** (the stair is the multi-storey spine; reserved-core
+  placement). [`docs/02-decisions/adrs/0063-house-generative-layout-doctrine.md`](../../02-decisions/adrs/0063-house-generative-layout-doctrine.md) ✅ exists.
+- **C53 — Generative Layout Engine Architecture** (the deterministic engine that consumes the rule + keep-out).
+  [`docs/02-decisions/contracts/C53-GENERATIVE-LAYOUT-ENGINE-ARCHITECTURE.md`](../../02-decisions/contracts/C53-GENERATIVE-LAYOUT-ENGINE-ARCHITECTURE.md) ✅ exists.
+- **Reference:** [`docs/04-reference/STAIR-CREATION-PIPELINE-AND-ANCHOR-ANALYSIS.md`](../../04-reference/STAIR-CREATION-PIPELINE-AND-ANCHOR-ANALYSIS.md) ✅ exists
+  (the contained-core footprint + keep-out the room type must occupy).
+
+**Status: QUEUED → SHIPPING (impl in flight this session).** Commit/`§MARKER` TBD by main agent.
+
+---
+
+## §37 — Entrance Hall: ground-only + perimeter-adjacent (`HALL-PERIMETER`) — QUEUED → SHIPPING (impl in flight this session)
+
+**Founder request:** the **entrance hall must be ground-floor-only AND adjacent to a perimeter (shell) wall**,
+because it hosts the **main entrance door**. Today the hall can be sized/placed without guaranteeing a shell
+edge, so the front door has nowhere correct to land (cf. §HALL-NO-ENTRANCE, where the one entrance landed on
+the kitchen's shell wall instead of the hall).
+
+**Rule:** `hall.frontage = 'required'` (must touch the exterior shell) **+** ground-floor-only (already
+enforced — upper storeys get a **Landing**, §LANDING-NOT-HALL / ADR-0063 H4) **+** the hall is placed on the
+**entrance shell edge** where §A.21.D29 `resolveEntranceDoor` lands the front door (so the door is hosted on
+*the hall's* perimeter wall, not a neighbour room's).
+
+**Approach:** set `frontage: 'required'` on the `hall` rule in `programRules.ts`; in placement, bias/constrain
+the hall cell to a shell-adjacent position coincident with the resolved entrance edge; keep the existing
+ground-only gate (`resolveEntranceDoor` runs only when `isGround`).
+
+**Governance assigned:**
+- **SPEC-ARCHITECTURAL-PROGRAM-RULES** — the hall `frontage='required'` rule lives in the room DB.
+  [`docs/03-execution/specs/SPEC-ARCHITECTURAL-PROGRAM-RULES.md`](../specs/SPEC-ARCHITECTURAL-PROGRAM-RULES.md) ✅ exists.
+- **SPEC-ROOM-PLACEMENT-RULES** — the perimeter-adjacency / shell-edge placement rule.
+  [`docs/03-execution/specs/SPEC-ROOM-PLACEMENT-RULES.md`](../specs/SPEC-ROOM-PLACEMENT-RULES.md) ✅ **exists**
+  (the cited doc is present — it is the right home for the placement half).
+- **§A.21.D29 entrance** — `resolveEntranceDoor` (ground-only, lands the front door on the entrance shell
+  edge). Tracker row **A.21.D29** (≈ line 435) + the ground-only verification (≈ line 2461). The
+  ground-only/Landing doctrine is **ADR-0063 H4** ([`0063-house-generative-layout-doctrine.md`](../../02-decisions/adrs/0063-house-generative-layout-doctrine.md) ✅).
+
+**Status: QUEUED → SHIPPING (impl in flight this session).** Commit/`§MARKER` TBD by main agent.
+
+---
+
+## §38 — Interior doors missing the wall opening/void (`INTERIOR-DOOR-VOID`) — QUEUED → SHIPPING (impl in flight this session)
+
+**Founder request:** **interior** doors hosted on **internal partition walls** show the door **leaf** but
+**no hole is cut through the wall** — you see the leaf floating in a solid partition. **Shell (exterior)
+openings cut correctly.**
+
+**Rule / root class:** the bug is in the **interior-wall opening/void path**, not the door itself. PRYZM has
+**two wall-opening render paths**: plain walls cut a **single-volume CSG** void, while **LAYERED** walls cut a
+**per-cell grid** (`LayeredWallOpeningBuilder.ts`). The interior-partition path is failing to register/cut the
+opening through its host wall (host-id mismatch, single-volume producer flag off for that wall, or the layered
+grid not punching the cell) — so the leaf is placed but the void is absent. Files in scope:
+`packages/geometry-wall/src/WallFragmentBuilder.ts` and `packages/geometry-wall/src/LayeredWallOpeningBuilder.ts`.
+
+**Approach:** trace the interior-door create → host-wall opening registration → fragment rebuild, confirm the
+opening reaches the correct producer (single-volume CSG vs layered grid) for an interior partition, and ensure
+the void is cut (and the wall fragment rebuilt) exactly as the shell path does. Add a diagnostic that logs the
+chosen path + whether a void was cut per interior opening.
+
+**Governance assigned:**
+- **C15 — Hosted Element / Host-Wall Contract** (doors/windows hosted in walls; the host-opening invariant).
+  [`docs/02-decisions/contracts/C15-HOSTED-ELEMENT-CONTRACT.md`](../../02-decisions/contracts/C15-HOSTED-ELEMENT-CONTRACT.md) ✅ exists.
+- **C11 — Element Creation Pipeline** (the create→host→rebuild pipeline the opening flows through).
+  [`docs/02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md`](../../02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md) ✅ exists.
+- **Note on the cited reference:** the task referenced `docs/...wall-opening-seam-two-paths` — **that path does
+  NOT exist under `docs/`** (it is a `~/.claude` **MEMORY topic file**, "Wall-opening seam: two render paths",
+  not a repo doc). The "two render paths" knowledge is captured here in this entry and is governed by **C15**;
+  no repo doc to cite for it — do not invent one. The in-repo code anchors are the two builder files named above.
+
+**Status: QUEUED → SHIPPING (impl in flight this session).** Commit/`§MARKER` TBD by main agent.
+
+---
+
+## §39 — Room-tag (3D label) visibility toggle button (`ROOM-LABEL-TOGGLE`) — QUEUED → SHIPPING (impl in flight this session)
+
+**Founder request:** a **direct on/off button** in the **bottom toolbar** for the **3D room-name labels**
+(the `RoomLabelRenderer` sprites) — so the user can hide/show floating room tags on demand.
+
+**Rule:** room-label visibility is a **view-visibility concern**, NOT a BIM mutation — toggling it must **not**
+go through the command/mutation path (no `commandBus` element write, no undo entry); it flips a render/view
+flag that the label renderer subscribes to. (Distinct from P7 visibility *intent* on BIM elements — this is
+pure UI/view state for an annotation overlay.)
+
+**Approach:** add a toggle button to the bottom toolbar (`apps/editor/src/ui/bottom-menu/BottomActionMenu.ts`)
+that flips a view flag consumed by `packages/room-topology/src/RoomLabelRenderer.ts` (show/hide the sprite
+group). No element mutation; view-state only.
+
+**Governance assigned:**
+- **C04 — Rendering & Scheduling** (render/view-state ownership; the label sprites + their visibility flag are
+  a rendering concern). [`docs/02-decisions/contracts/C04-RENDERING-AND-SCHEDULING.md`](../../02-decisions/contracts/C04-RENDERING-AND-SCHEDULING.md) ✅ exists.
+- **Surface:** editor UI — `apps/editor/src/ui/bottom-menu/BottomActionMenu.ts` (button) →
+  `packages/room-topology/src/RoomLabelRenderer.ts` (sprite visibility). View-visibility, not a BIM mutation.
+
+**Status: QUEUED → SHIPPING (impl in flight this session).** Commit/`§MARKER` TBD by main agent.
