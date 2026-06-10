@@ -557,8 +557,23 @@ export class StairRailingBuilder {
             .add(flatDir.clone().multiplyScalar(totalRun))
             .add(offset);
 
-        // U-shape: skip the landing connector — flights terminate at correct positions.
+        // ── U-shape half-landing guard (§U-LANDING-GUARD) ────────────────────────
+        // For U (half-turn) stairs flight 2 uses a `startOverride`. The two flights'
+        // rails run alongside the landing in `flatDir`, but the landing's OPEN
+        // (exposed) edge — the forward edge in `flatDir`, running across in `perpDir`
+        // — was previously left UNGUARDED (the original code returned here). That is
+        // the founder-reported defect: balusters on both flights but none across the
+        // half-landing. Emit a horizontal guard rail + balusters along that open
+        // edge, connecting flight 1's top rail to flight 2's bottom rail.
+        //
+        // Geometry mirrors StairMeshBuilder's U landing slab (§STAIR-U-LANDING-SIDE):
+        //   perpDir points toward `secondRunSide` (flight 2's side); the slab spans
+        //   `flatDir` by `width` from flight 1's last-tread far edge, and `perpDir`
+        //   by `landing.depth` (= 2*width). The open edge is the slab's forward
+        //   `flatDir` edge, spanning from flight 1's OUTER rail line (perpDir*-width/2)
+        //   to flight 2's OUTER rail line (perpDir*+3*width/2).
         if (nextFlight.startOverride) {
+            this.buildULandingGuard(group, f, railing, stair, sideSign, buildSegment);
             return;
         }
 
@@ -623,6 +638,93 @@ export class StairRailingBuilder {
         }
         // Inner open side (projLen ≈ treadDepth/2): no connector — each flight
         // terminates cleanly with its newel post, leaving the landing path clear.
+    }
+
+    // ── U-shape half-landing guard (§U-LANDING-GUARD) ────────────────────────────
+    // Builds the horizontal handrail + balusters along the OPEN (exposed) forward
+    // edge of a U-stair half-landing — the architecturally-required guard along the
+    // landing's open side, which the old code omitted entirely.
+    //
+    // The guard is a single physical edge shared by both flights, so it is emitted
+    // ONCE — from the railing config sitting on flight 1's OUTER side (the side away
+    // from flight 2). With `offset = sideAxis * sideSign * width/2` and
+    // `perpDir` pointing toward `secondRunSide`, the outer side is `-perpDir`:
+    //   left-fold  (perpDir = +sideAxis) → outer is the 'right' railing
+    //   right-fold (perpDir = -sideAxis) → outer is the 'left'  railing
+    // Emitting from the inner-side config too would double-draw the same rail.
+    private buildULandingGuard(
+        group: THREE.Group,
+        f: ReturnType<StairRailingBuilder['resolveFlightPositions']>[0],
+        railing: StairRailingConfig,
+        stair: StairData,
+        sideSign: number,
+        buildSegment: (start: THREE.Vector3, end: THREE.Vector3) => THREE.Mesh
+    ): void {
+        const { flightStart, flatDir, totalRun, totalRise } = f;
+        const width = stair.width;
+
+        // perpDir mirrors StairMeshBuilder §STAIR-U-LANDING-SIDE — toward secondRunSide.
+        const perpDir = stair.secondRunSide === 'right'
+            ? new THREE.Vector3(flatDir.z, 0, -flatDir.x).normalize()
+            : new THREE.Vector3(-flatDir.z, 0, flatDir.x).normalize();
+
+        // Emit ONCE, from the railing on flight 1's OUTER side (offset == -perpDir).
+        // sideAxis (the 'left' perp) == perpDir on a left-fold, so for left-fold the
+        // outer railing is 'right' (sideSign -1); for right-fold it is 'left' (+1).
+        const outerSideSignForLeftFold = -1; // 'right'
+        const wantSideSign = stair.secondRunSide === 'right' ? 1 : outerSideSignForLeftFold;
+        if (sideSign !== wantSideSign) return;
+
+        const railHeight = railing.topRailHeight;
+        // Landing platform sits at flight 1's TOP elevation (= flight 2's start).
+        const landingElev = flightStart.y + totalRise;
+
+        // currentPosition equivalent: flight 1's last-tread centre.
+        const lastTreadCentre = flightStart.clone()
+            .add(flatDir.clone().multiplyScalar(totalRun));
+
+        // Open edge = slab's forward flatDir edge: flatDir*(flightTread/2 + width)
+        // from the last-tread centre (matches the mesh slab's far flatDir face).
+        const flightTread = stair.treadDepth;
+        const frontEdgeBase = lastTreadCentre.clone()
+            .add(flatDir.clone().multiplyScalar(flightTread / 2 + width));
+
+        // The front edge runs in perpDir across the full landing front: from flight 1's
+        // OUTER rail line (perpDir*-width/2) to flight 2's OUTER rail line (perpDir*+3*width/2).
+        const p0 = frontEdgeBase.clone().add(perpDir.clone().multiplyScalar(-width / 2)).setY(landingElev);
+        const p1 = frontEdgeBase.clone().add(perpDir.clone().multiplyScalar(width * 1.5)).setY(landingElev);
+
+        // ── Top rail along the open edge ─────────────────────────────────────────
+        const railStart = p0.clone().setY(landingElev + railHeight);
+        const railEnd = p1.clone().setY(landingElev + railHeight);
+        const rail = buildSegment(railStart, railEnd);
+        rail.userData.elementType = 'stair-railing';
+        rail.userData.selectable = false;
+        group.add(rail);
+
+        // ── Balusters along the open edge ─────────────────────────────────────────
+        if (railing.railingType !== 'none' && railing.railingType !== 'glass-panel') {
+            const spanLen = p0.distanceTo(p1);
+            const balSpacing = railing.balusterSpacing;
+            const balCount = Math.max(1, Math.floor(spanLen / balSpacing));
+            const bw = railing.balusterWidth;
+            for (let i = 0; i <= balCount; i++) {
+                const t = i / balCount;
+                const basePos = p0.clone().lerp(p1, t);
+                const balGeom = railing.railingType === 'circular'
+                    ? new THREE.CylinderGeometry(bw / 2, bw / 2, railHeight, 8)
+                    : new THREE.BoxGeometry(bw, railHeight, bw);
+                const bal = new THREE.Mesh(balGeom, this.makeMaterial(railing.material, 0x7a5c38));
+                bal.position.set(basePos.x, landingElev + railHeight / 2, basePos.z);
+                bal.userData.elementType = 'stair-railing';
+                bal.userData.selectable = false;
+                group.add(bal);
+            }
+        }
+
+        // ── Corner posts at both ends of the open edge ────────────────────────────
+        this.addPost(group, p0.clone(), landingElev, railHeight, 0.06, this.makeMaterial(railing.material, 0x7a5c38));
+        this.addPost(group, p1.clone(), landingElev, railHeight, 0.06, this.makeMaterial(railing.material, 0x7a5c38));
     }
 
     // ── Geometry helpers ─────────────────────────────────────────────────────────

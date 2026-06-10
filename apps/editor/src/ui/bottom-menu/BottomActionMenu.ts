@@ -33,6 +33,7 @@ const ICONS = {
     sun: S('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>'),
     moon: S('<path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8z"/>'),
     eye: S('<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'),
+    roomLabel: S('<path d="M3 7a2 2 0 0 1 2-2h7l7 7-7 7-7-7V7z"/><circle cx="8" cy="10" r="1.4"/>'),
     activeLevel: S('<path d="M4 18h16"/><path d="M7 14h10"/><path d="M10 10h4"/><path d="M12 4v10"/><path d="m8 8 4-4 4 4"/>'),
     reset: S('<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/>'),
     stacked: S('<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>'),
@@ -76,6 +77,9 @@ export class BottomActionMenu {
     private _isNight = false;
     private _elementsInViewOnly = false;
     private _activeLevelOnly = false;
+    // §ROOM-LABELS-TOGGLE (2026-06-10) — 3D room-name sprite visibility. Default
+    // true (current behaviour); the toggle button flips it via RoomLabelRenderer.
+    private _roomLabelsVisible = true;
     private _expanded = false;
     private _sectionBoxActive = false;
     private _pendingKey: string | null = null;
@@ -460,6 +464,28 @@ export class BottomActionMenu {
         }
     }
 
+    /**
+     * §ROOM-LABELS-TOGGLE (2026-06-10) — flips the 3D room-name sprite labels
+     * on/off. Drives RoomLabelRenderer.setRoomLabelsVisible() (single owner of
+     * the sprites) so future labels honour the flag too; falls back to a direct
+     * scene traverse of `userData.type === 'room-label'` sprites if the renderer
+     * instance is not yet on window. Does NOT touch the 2D plan-view room tags.
+     */
+    private _toggleRoomLabels(): void {
+        this._roomLabelsVisible = !this._roomLabelsVisible;
+        const renderer = window.roomLabelRenderer; // §ROOM-LABELS-TOGGLE — set in initBuilders
+        if (renderer?.setRoomLabelsVisible) {
+            renderer.setRoomLabelsVisible(this._roomLabelsVisible);
+        } else {
+            // Fallback: flip the sprites directly (no THREE import needed — pure flag).
+            const scene = this._getScene();
+            scene?.traverse((obj: any) => {
+                if (obj.userData?.type === 'room-label') obj.visible = this._roomLabelsVisible;
+            });
+        }
+        this._render();
+    }
+
     private _toggleActiveLevelOnly(): void {
         if (!this._getActiveLevelId()) this._setActiveLevelToFirstAvailable();
         this._activeLevelOnly = !this._activeLevelOnly;
@@ -470,6 +496,8 @@ export class BottomActionMenu {
     private async _resetView(): Promise<void> {
         this._elementsInViewOnly = false;
         this._activeLevelOnly = false;
+        // §ROOM-LABELS-TOGGLE — restore default (labels visible) on reset.
+        if (!this._roomLabelsVisible) this._toggleRoomLabels();
         if (this._isNight) this._toggleDayNight();
         if (this._sectionBoxActive) {
             this._sectionBoxActive = false;
@@ -659,6 +687,12 @@ export class BottomActionMenu {
             title: this._elementsInViewOnly ? 'Elements in View: On' : 'Elements in View',
             cls: this._elementsInViewOnly ? 'bam-mode-active-amber' : '',
             onClick: () => this._toggleElementsInView(),
+        }));
+        viewWrap.appendChild(this._makeBtn({
+            svg: ICONS.roomLabel,
+            title: this._roomLabelsVisible ? 'Room labels: On — click to hide' : 'Room labels: Off — click to show',
+            cls: this._roomLabelsVisible ? 'bam-mode-active-amber' : '',
+            onClick: () => this._toggleRoomLabels(),
         }));
         viewWrap.appendChild(this._makeBtn({
             svg: ICONS.activeLevel,

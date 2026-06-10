@@ -489,6 +489,16 @@ export class WallRebuildCoordinator {
     ): void {
         this._joinsResolving = true;
         const _rebuiltWallIds: string[] = [];
+        // §DIAG-OPENING-VOID (2026-06-10) — walls whose store record HAS openings but
+        // whose group came out of the body-only rebuild WITHOUT a void-cut body (still
+        // instanced, or no WallPart body mesh). Those are the interior-partition doors
+        // the founder saw "leaf against a solid wall". We collect them and fall back to
+        // the proven whole-level `_rebuildWalls` path (the apartment behaviour) so the
+        // void is actually carved — the body-only fast path's cached join can leave the
+        // wall un-bodied (e.g. a stale/`invalid` cached JoinData hides the group at
+        // buildWall:760, or the instance→mesh transition didn't fire). Empty in the
+        // common (correct) case ⇒ no extra resolveLevel, welded-shell-stays-put intact.
+        const _voidNotCut: string[] = [];
         try {
             for (const wallId of wallIds) {
                 const fresh = store.getById(wallId);
@@ -500,6 +510,53 @@ export class WallRebuildCoordinator {
                 try {
                     builder.updateWall(fresh, cachedJoinData, resolveOpeningRenderMap(fresh, store), slabOff);
                     _rebuiltWallIds.push(wallId);
+
+                    // §DIAG-OPENING-VOID — verify the void was actually cut for every
+                    // opening-bearing wall on this fast path. The wall body is rendered
+                    // as box segments AROUND each opening (a WallPart child mesh per
+                    // segment); an instanced wall has NO WallPart child (only a hit-proxy)
+                    // and a `joinData.invalid`-hidden group has NO body at all. Either ⇒
+                    // the door leaf shows but no hole is carved (the founder's interior-
+                    // partition defect). Detect it and queue the wall for the whole-level
+                    // fallback below.
+                    const _openings = fresh.openings ?? [];
+                    if (_openings.length > 0) {
+                        // An instanced wall's group has only a `hit-proxy` child and NO
+                        // WallPart/WallLayer body mesh; a `joinData.invalid`-hidden group
+                        // has no body either. Both ⇒ bodyParts === 0 ⇒ no void carved.
+                        const group = builder.getWallRoot(wallId);
+                        let bodyParts = 0;
+                        let isHidden = false;
+                        let hasHitProxy = false;
+                        if (group) {
+                            isHidden = group.visible === false || group.userData?.__wjrNaNHidden === true;
+                            for (const child of group.children) {
+                                const ud = (child as { userData?: { elementType?: string; role?: string } }).userData;
+                                if (ud?.elementType === 'WallPart' || ud?.elementType === 'WallLayer') bodyParts++;
+                                if (ud?.role === 'hit-proxy') hasHitProxy = true;
+                            }
+                        }
+                        const voidCut = !isHidden && bodyParts > 0;
+                        const path = !group ? 'no-group'
+                            : (bodyParts === 0 && hasHitProxy) ? 'instanced'
+                            : isHidden ? 'hidden(invalid-join?)'
+                            : (fresh.layers && fresh.layers.length > 0) ? 'layered-grid'
+                            : 'single-segmented';
+                        console.log(
+                            `[WallRebuildCoordinator] §DIAG-OPENING-VOID wall=${wallId} ` +
+                            `level=${levelId} openings=${_openings.length} path=${path} ` +
+                            `bodyParts=${bodyParts} cachedJoin=${cachedJoinData ? (cachedJoinData.invalid ? 'INVALID' : 'yes') : 'null'} ` +
+                            `voidCut=${voidCut}`,
+                        );
+                        if (!voidCut) {
+                            console.warn(
+                                `[WallRebuildCoordinator] §DIAG-OPENING-VOID ⚠ wall=${wallId} has ${_openings.length} ` +
+                                `opening(s) but the body-only rebuild did NOT cut the void (path=${path}) — ` +
+                                `routing to the whole-level rebuild so the hole is carved.`,
+                            );
+                            _voidNotCut.push(wallId);
+                        }
+                    }
                 } catch (err) {
                     console.error(`[WallRebuildCoordinator] §ADR-057-P1: openings-only updateWall failed for wall "${wallId}" — continuing.`, err);
                 }
@@ -512,6 +569,18 @@ export class WallRebuildCoordinator {
             }
         } finally {
             this._joinsResolving = false;
+        }
+
+        // §DIAG-OPENING-VOID — whole-level fallback for any opening-bearing wall the
+        // body-only path failed to carve. `_rebuildWalls` queues each as an `update`
+        // with no prevState ⇒ `_flush` runs the authoritative whole-level rebuild
+        // (fresh `resolveLevel` join + `buildWall` from current store data, which
+        // unregisters from instancing and builds the segmented void body) — exactly
+        // the path the apartment generator's interior doors take, where the void IS
+        // cut. Runs AFTER `_joinsResolving` is cleared so it isn't deferred onto an
+        // in-flight resolve.
+        if (_voidNotCut.length > 0) {
+            this._rebuildWalls(_voidNotCut);
         }
 
         // §WALL-AUDIT-2026-W6 §COMMIT-BARRIER — emit the quiescent signal exactly

@@ -17,6 +17,13 @@ const Y_OFFSET = 0.08;
 
 export class RoomLabelRenderer {
     private readonly _sprites: Map<string, THREE.Sprite> = new Map();
+    /**
+     * §ROOM-LABELS-TOGGLE (2026-06-10) — global visibility flag for the 3D
+     * room-name sprites, driven by the BottomActionMenu toggle button. Default
+     * `true` preserves the current always-visible behaviour. New labels created
+     * while hidden inherit this flag (applied in {@link updateRoom}).
+     */
+    private _visible = true;
 
     constructor(
         private readonly _scene: THREE.Scene,
@@ -36,9 +43,25 @@ export class RoomLabelRenderer {
         sprite.name = `room-label-${room.id}`;
         sprite.userData.roomId = room.id;
         sprite.userData.type   = 'room-label';
+        sprite.visible         = this._visible;
 
         this._scene.add(sprite);
         this._sprites.set(room.id, sprite);
+    }
+
+    /**
+     * §ROOM-LABELS-TOGGLE — show/hide every 3D room-name sprite. Idempotent;
+     * remembers the flag so labels created later (room add/update) honour it.
+     * Pure visibility flip — does not add/remove sprites or touch any store.
+     */
+    setRoomLabelsVisible(visible: boolean): void {
+        this._visible = visible;
+        for (const sprite of this._sprites.values()) sprite.visible = visible;
+    }
+
+    /** §ROOM-LABELS-TOGGLE — current visibility flag (default `true`). */
+    get roomLabelsVisible(): boolean {
+        return this._visible;
     }
 
     removeRoom(roomId: string): void {

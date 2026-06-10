@@ -432,6 +432,9 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     }
 
     const roomLabelRenderer = new RoomLabelRenderer(scene, bimManager);
+    // §ROOM-LABELS-TOGGLE (2026-06-10) — expose so the BottomActionMenu toggle
+    // button can call setRoomLabelsVisible(); mirrors window.roomBoundaryBuilder.
+    window.roomLabelRenderer = roomLabelRenderer;
 
     // Projection Layer Binding: RoomStore → RoomBoundaryBuilder + RoomLabelRenderer
     // NOTE: bim-room-* events carry { id, levelId } — look up full room from store.

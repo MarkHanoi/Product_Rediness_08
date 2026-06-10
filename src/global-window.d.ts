@@ -145,6 +145,7 @@ declare global {
     slabBuilder?: any;
     plumbingFragmentBuilder?: any;
     roomBoundaryBuilder?: any;
+    roomLabelRenderer?: any; // §ROOM-LABELS-TOGGLE — RoomLabelRenderer (3D room-name sprite visibility)
     roomContentsService?: any;
     roomTopologyObserver?: any;
     furnitureFragmentBuilder?: any;
