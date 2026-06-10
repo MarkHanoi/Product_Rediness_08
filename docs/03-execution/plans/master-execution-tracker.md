@@ -3849,3 +3849,108 @@ PRYZM lacks the machinery, nor that the model is done.
 - [ ] **S5 — Circulation as the generation source-of-truth (the pipeline inversion).** HOUSE →
   Circulation → {Access, Adjacency, Service} → Geometry; big engine-side change across D-TGL +
   bubbleGraph + `enumerate` gate. `NEW` (north-star).
+
+## §50 — 3D pane empty on 3D+plan entry → auto-frame the building (`VIEW-AUTOFRAME`) — SHIPPED (2026-06-10)
+
+Founder (Q3): selecting the "3D + plan" combined view shows an **EMPTY 3D pane** until the user manually
+runs camera → Home / zoom. "This should be done automatically — zoom in to the building."
+
+### §50.1 — Root cause (cite)
+- `SplitViewManager.activate()` calls `_fitCamTargetToScene()` which fits **only the PLAN pane's Canvas2D
+  camera** (`_camTarget`/`_frustumH` → `_syncPlanCanvasState()`) — the SECONDARY pane.
+  (`apps/editor/src/engine/views/SplitViewManager.ts:198` + `:1579-1599`). The **MAIN 3D viewport's** OBC
+  camera is never touched on split-view entry, so it stays at its seed pose (initViewSetup's `(20,20,20)`
+  default, `apps/editor/src/engine/initViewSetup.ts:42-43`) or a stale plan-only pose → the generated
+  building (at the scene/site frame) is off-screen.
+- The existing `§3D-FRAME-ON-VIEW-SWITCH` handler (`apps/editor/src/engine/initTools.ts:1853-1872`) frames
+  the 3D camera only **once per project session** (`_3dViewFirstFrameDone` guard) and only on a
+  `view-activated` **perspective** event — which the split-view toggle does **not** emit (it emits
+  `split-view-activated`, `SplitViewManager.ts:252`). So it never re-frames on subsequent 3D+plan entries.
+
+### §50.2 — The fix (reused, additive)
+- Reused the already-registered `zoom-fit` bus command (`engineLauncher.ts:509-522` §C-B1 →
+  `initViewSetup.ts` `zoomToAll()`), which computes BIM scene bounds and frames the main perspective
+  camera. `zoomToAll()` self-guards on an empty scene (`initViewSetup.ts:80-83`), so it's safe to fire
+  before geometry exists.
+- `SplitViewManager.activate()` now dispatches `window.runtime.bus.executeCommand('zoom-fit', {})` deferred
+  ~320 ms (so just-committed meshes + matrixWorld are present — same posture as §13-CAM /
+  §3D-FRAME-ON-VIEW-SWITCH), guarded by a re-check of `this._active`.
+  (`apps/editor/src/engine/views/SplitViewManager.ts:257-291`, tag `§VIEW-AUTOFRAME`, console line
+  `[SplitViewManager] §VIEW-AUTOFRAME: framed main 3D viewport on split-view entry.`)
+- Additive only — does NOT touch the plan pane, the 2D-Map path, or the Site-3D/globe path. The dispatch
+  shape matches `MainToolbar._dispatch` (`MainToolbar.ts:206`).
+
+### §50.3 — Not changed (deliberate)
+- The plain "3D" view (no split) keeps its one-shot `§3D-FRAME-ON-VIEW-SWITCH` framing. Relaxing that
+  guard was **deliberately removed earlier** (`initTools.ts:1823-1830`, 2026-05-24 user request — it
+  hijacked the user's chosen 3D framing). The founder's specific complaint is the **3D+plan** combined
+  view, which §VIEW-AUTOFRAME now covers without regressing that decision. `SHIPPED`.
+
+## §51 — Generated model offset from context buildings on the 3D globe (`GLOBE-LOCATION-SPIKE`) — SPIKE (documented, NOT implemented) (2026-06-10)
+
+Founder (Q2): the generated model is **not in the correct location** on the 3D-globe / Cesium 3D-tiles /
+Forma "Site 3D" view — it appears offset from where it should sit relative to the real context buildings.
+
+### §51.1 — How placement works today (cite)
+- The site **LTP-ENU origin** (`getCurrentSiteOrigin()`, `apps/editor/src/ui/site/siteDispatch.ts:65`) is set
+  to the **geocoded address lat/lon** inside `dispatchSiteLocation → setLtpOriginIfSafe`
+  (`siteDispatch.ts:81-111`, `:270`) — NOT the first-drawn boundary vertex (the GISAreaLayout comment at
+  `:636-646` describes "first vertex", but the boundary-draw tool projects about the **Site location** when
+  one exists: `SiteBoundaryDrawTool.ts:267-271`).
+- The parcel **boundary** is projected to scene-XZ relative to that same origin via a local-equirectangular
+  approximation (`boundaryProjection.ts:53-62`, `buildBoundaryFromLatLonRing` `:143-161`).
+- The generated **building geometry** lives in scene-XZ in that same frame (it's generated from the
+  boundary).
+- The **Forma massing** path (`renderFormaMassing`, `CesiumViewport.ts:1573+`) re-projects each wall XZ via
+  one `eastNorthUpToFixedFrame` anchored at `getFormaOrigin()` (`GISAreaLayout.ts:647-662`) with the mapping
+  `enu·(east=x, north=−z, up=y)` (`CesiumViewport.ts:1758-1764`).
+- The **real GLB model** path (`renderRealModelOnGlobe`, `CesiumViewport.ts:3441-3528`) serialises the live
+  THREE scene to GLB (`exportFragmentsToGLB`, `GLBExporter.ts:42`) and places it with the SAME
+  `eastNorthUpToFixedFrame(fromDegrees(originLon, originLat, baseHeight))` at the SAME origin,
+  `upAxis: Y, forwardAxis: Z`.
+
+### §51.2 — Findings (what is NOT the bug)
+- **Axis mapping is correct.** Cesium's documented defaults for `Model.fromGltfAsync` are exactly
+  `upAxis=Axis.Y, forwardAxis=Axis.Z`
+  (`node_modules/.pnpm/@cesium+engine@24.0.0/.../Scene/Model/Model.js:2934-2935`). The explicit pinning at
+  `CesiumViewport.ts:3500-3501` (D54) is a **no-op vs the default**; `Y_UP_TO_Z_UP` yields
+  `(east=x, north=−z, up=y)`, matching the massing's mapping exactly.
+- **GLB world transform is baked correctly + tested.** `cloneWithBakedWorldTransform`
+  (`GLBExporter.ts:24-35`) carries each element's composed ancestor `matrixWorld` (regression-guarded by
+  `packages/file-format/__tests__/glb-export-world-transform.test.ts`). No lateral drop.
+- **Massing and real-model share the SAME ENU anchor + origin**, so they coincide horizontally; the only
+  per-path difference is `exportRoot.position.y -= minY` (`GLBExporter.ts:123`) which re-anchors the GLB to
+  base Y=0 — a **vertical-only** adjustment (cannot cause the lateral offset the founder sees).
+
+### §51.3 — Root cause (the real one)
+The georeference frame is **internally consistent** (boundary, building, massing, real-model, ENU anchor
+ALL share the geocoded-address origin), so the model lands at the **geocoded address point** on the globe.
+The offset relative to context buildings is because **the geocode point ≠ the true parcel location**:
+- A geocoded address resolves to a street-interpolated / rooftop-centroid point that is commonly ~10-15 m
+  from the actual lot (the `GISAreaLayout.ts:644` comment notes the address is "a DIFFERENT point once a
+  boundary is committed (~10-15 m away)"). Anchoring the ENU frame at the address rather than the true
+  parcel centroid offsets the whole model among the real-world context buildings.
+- Secondary contributor: `boundaryProjection.latLonToSceneXZ` is a **local-equirectangular approximation**
+  that ignores the UTM conformal correction (`boundaryProjection.ts:8-30`); sub-mm at a single lot but a
+  documented stand-in for `LTPENURebase.projectToScene` (proj4 UTM, C12/C19 §1.3), which is **not yet wired
+  at the draw surface** (`siteDispatch.ts:30-54`).
+
+### §51.4 — Decision: SPIKE only (NOT a one-liner)
+There is **no single wrong transform** to flip — the frames already agree. Fixing the offset is
+**architectural**: anchor the ENU frame on the **drawn parcel centroid/first-vertex** rather than the
+geocoded address, AND wire the real `LTPENURebase` (proj4 UTM) projection at the draw surface to replace
+the equirectangular approximation. Per the task guardrails (implement only a clear, low-risk one-liner;
+otherwise document) this is left **unimplemented**.
+
+### §51.5 — Fix plan (when scheduled)
+1. **Anchor on the parcel, not the address.** In `siteDispatch.setLtpOriginIfSafe`, when a parcel boundary
+   is being committed, set the LTP origin to the **boundary centroid (or first vertex)** lat/lon, and have
+   `getFormaOrigin()` / `getCurrentSiteOrigin()` return that. (`siteDispatch.ts:81-111`,
+   `GISAreaLayout.ts:647-662`). This re-centres the model on the actual lot among context buildings.
+2. **Wire `LTPENURebase` (proj4 UTM) at the draw surface** to replace `latLonToSceneXZ` (the documented
+   C19 §1.3 follow-up, `boundaryProjection.ts:26-31`, `siteDispatch.ts:30-54`).
+3. **Optional:** allow the user to nudge the placed model (existing `TransformGizmo` /
+   `transformModel(translation, rotationAngle)` `CesiumViewport.ts:4189`) to fine-tune against the tiles.
+Relationship to Q3: **NOT the same root cause.** Q3 (§50) is a missing camera-frame call on the PRYZM 3D
+viewport; Q2 (§51) is a georeference anchor/projection-accuracy issue on the Cesium globe. They are
+independent. `SPIKE`.

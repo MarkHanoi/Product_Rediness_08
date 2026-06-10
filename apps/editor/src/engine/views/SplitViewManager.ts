@@ -253,6 +253,41 @@ export class SplitViewManager implements ISplitViewManager {
         window.runtime?.events?.emit('split-view-layout-changed', { splitRatio: this._splitRatio });
         window.runtime?.events?.emit('split-view-view-changed', { viewId: this._planViewId });
         console.log('[SplitViewManager] Split view activated (Canvas2D plan mode)');
+
+        // §VIEW-AUTOFRAME (Q3, 2026-06-10) — auto-frame the MAIN 3D viewport on the
+        // building when the user enters the 3D + plan combined view.
+        //
+        // ROOT CAUSE of the founder-reported "3D pane is always EMPTY until I do
+        // camera → Home": `activate()` only fits the PLAN pane's Canvas2D camera
+        // (`_fitCamTargetToScene()` above writes `_camTarget`/`_frustumH`, which
+        // feed `_syncPlanCanvasState()` — the SECONDARY pane only). The MAIN 3D
+        // viewport's OBC camera is left at whatever pose it held (typically the
+        // (20,20,20) default seed from initViewSetup, or a stale plan-only pose),
+        // so the freshly-generated building — which sits at the scene/site frame —
+        // is off-screen until the user manually zoom-to-fits. The existing
+        // §3D-FRAME-ON-VIEW-SWITCH handler (initTools.ts) only fires ONCE per
+        // project session on a `view-activated` perspective event, which the
+        // split-view toggle does not emit — so it never re-frames on subsequent
+        // entries to 3D+plan.
+        //
+        // FIX: reuse the existing zoom-to-fit path. We dispatch the already-
+        // registered `zoom-fit` bus command (engineLauncher §C-B1 → initViewSetup
+        // `zoomToAll()`), which computes the BIM scene bounds and frames the main
+        // perspective camera. `zoomToAll()` self-guards on an empty scene (logs
+        // "[zoomToAll] No geometry found in scene" and no-ops), so this is safe to
+        // fire before geometry exists. Deferred ~320 ms so any just-committed
+        // element meshes + matrixWorld are present before bounds are read (the same
+        // posture as §3D-FRAME-ON-VIEW-SWITCH / §13-CAM). Additive: does NOT touch
+        // the plan pane, 2D Map, or Site-3D paths.
+        setTimeout(() => {
+            if (!this._active) return; // toggled back off before the frame landed
+            try {
+                window.runtime?.bus?.executeCommand('zoom-fit', {});
+                console.log('[SplitViewManager] §VIEW-AUTOFRAME: framed main 3D viewport on split-view entry.');
+            } catch (err) {
+                console.warn('[SplitViewManager] §VIEW-AUTOFRAME: zoom-fit dispatch failed (non-fatal):', err);
+            }
+        }, 320);
     }
 
     deactivate(): void {
