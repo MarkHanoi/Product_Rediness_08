@@ -335,19 +335,96 @@ export class BottomActionMenu {
     }
 
     private _toggleWallCutaway(): void {
+        const prevMode = this._wallCutMode;
         this._wallCutMode = this._wallCutMode === 'cutaway' ? 'up' : 'cutaway';
         this._applyWallCutawayClipping();
         this._applySceneVisibilityFilters();
+        // §DIAG-CUTAWAY-RESTORE — toggling BACK to full height must re-cut every
+        // wall's door/window voids (see _restoreWallOpeningsAfterCutaway).
+        if (prevMode !== 'up' && this._wallCutMode === 'up') this._restoreWallOpeningsAfterCutaway(prevMode);
         this.runtime?.events?.emit('bam:wall-cut-mode-changed', { mode: this._wallCutMode }); // F.events.14
         this._render();
     }
 
     private _toggleWallLowHeight(): void {
+        const prevMode = this._wallCutMode;
         this._wallCutMode = this._wallCutMode === 'down' ? 'up' : 'down';
         this._applyWallCutawayClipping();
         this._applySceneVisibilityFilters();
+        // §DIAG-CUTAWAY-RESTORE — toggling BACK to full height must re-cut every
+        // wall's door/window voids (see _restoreWallOpeningsAfterCutaway).
+        if (prevMode !== 'up' && this._wallCutMode === 'up') this._restoreWallOpeningsAfterCutaway(prevMode);
         this.runtime?.events?.emit('bam:wall-cut-mode-changed', { mode: this._wallCutMode }); // F.events.14
         this._render();
+    }
+
+    /**
+     * §DIAG-CUTAWAY-RESTORE (2026-06-10) — re-cut every wall opening (door +
+     * window void) after a Wall-Cutaway / Wall-Low-Height toggle returns to full
+     * height ('up').
+     *
+     * ROOT CAUSE this guards against: the cutaway/low toggle hides or clips the
+     * wall bodies (visibility flip in `_applySceneVisibilityFilters` +
+     * `mat.clippingPlanes` in `_applyWallCutawayClipping`). When toggled back, the
+     * wall meshes reappear — but any wall whose segmented opening body had been
+     * dropped to an instanced/solid box (or whose group was hidden while another
+     * subsystem re-instanced it) comes back SOLID: the door/window leaf shows
+     * against an un-carved wall, exactly the §DIAG-OPENING-VOID interior-partition
+     * defect. The openings are still in `wall.openings[]` (they are data) — the
+     * body geometry just was not rebuilt to carve them.
+     *
+     * FIX: on the restore edge only, re-queue every opening-bearing wall through
+     * the apartment-proven whole-level rebuild
+     * (`window.__wallRebuildControl.rebuildWalls`). That path runs `resolveLevel`
+     * + `buildWall` from current store data — unregistering each wall from
+     * instancing and building the segmented void body — and carries the
+     * §DIAG-OPENING-VOID verify-and-fallback. It is a no-op for walls with no
+     * openings, so plain walls and the first-press hide are untouched.
+     *
+     * P6: no direct store writes — we only READ `wall.openings` and call the
+     * existing rebuild control surface. P2: no THREE here.
+     */
+    private _restoreWallOpeningsAfterCutaway(fromMode: BAMWallCutMode): void {
+        const store = window.wallStore; // TODO(D.4): replace with runtime.scene wall store — Phase D.4
+        const ctl = window.__wallRebuildControl;
+        if (!store?.getAll || !ctl?.rebuildWalls) {
+            console.warn(
+                `[BottomActionMenu] §DIAG-CUTAWAY-RESTORE from=${fromMode} — wall store / rebuild control ` +
+                `unavailable (store=${!!store?.getAll}, rebuild=${!!ctl?.rebuildWalls}); skipping opening re-cut.`,
+            );
+            return;
+        }
+        let walls: Array<{ id: string; openings?: ReadonlyArray<unknown> }> = [];
+        try { walls = store.getAll() ?? []; } catch (e) {
+            console.warn('[BottomActionMenu] §DIAG-CUTAWAY-RESTORE — wallStore.getAll() threw; skipping.', e);
+            return;
+        }
+        const openingWallIds: string[] = [];
+        for (const w of walls) {
+            if (w?.id && (w.openings?.length ?? 0) > 0) openingWallIds.push(String(w.id));
+        }
+        if (openingWallIds.length === 0) {
+            console.log(
+                `[BottomActionMenu] §DIAG-CUTAWAY-RESTORE from=${fromMode} — walls restored=${walls.length}, ` +
+                `no opening-bearing walls to re-cut.`,
+            );
+            return;
+        }
+        try {
+            ctl.rebuildWalls(openingWallIds);
+            console.log(
+                `[BottomActionMenu] §DIAG-CUTAWAY-RESTORE from=${fromMode} — walls restored=${walls.length}, ` +
+                `openings re-cut requested for ${openingWallIds.length} wall(s) via whole-level rebuild ` +
+                `(carries §DIAG-OPENING-VOID verify+fallback; any wall that comes back solid ⚠ is logged by ` +
+                `WallRebuildCoordinator).`,
+            );
+        } catch (e) {
+            console.warn(
+                `[BottomActionMenu] §DIAG-CUTAWAY-RESTORE ⚠ from=${fromMode} — rebuildWalls threw for ` +
+                `${openingWallIds.length} wall(s); openings may stay solid.`,
+                e,
+            );
+        }
     }
 
     /**
@@ -506,8 +583,12 @@ export class BottomActionMenu {
         }
         this._visibleElementIds.clear();
         this._levelMode = 'stacked';
+        const _wasCut = this._wallCutMode !== 'up';
         this._wallCutMode = 'up';
         this._applyWallCutawayClipping();
+        // §DIAG-CUTAWAY-RESTORE — a reset FROM a cut/low state must also re-cut
+        // every wall's openings, same as the explicit toggle-back.
+        if (_wasCut) this._restoreWallOpeningsAfterCutaway('cutaway');
         this._restoreLevelTransforms();
         for (const [obj, visible] of this._originalVisibility) obj.visible = visible;
         this._originalVisibility.clear();
