@@ -4,7 +4,7 @@
 // non-convex footprints are flagged for the hip fallback.
 
 import { describe, it, expect } from 'vitest';
-import { principalAxis, gableRidge, isGableFriendly, type Pt2 } from '../src/roofRidgeAxis';
+import { principalAxis, gableRidge, isGableFriendly, isConvexPolygon, type Pt2 } from '../src/roofRidgeAxis';
 
 const SLOPE = 0.5;
 
@@ -110,5 +110,41 @@ describe('isGableFriendly', () => {
 
     it('degenerate (<3 pts) → NOT gable-friendly', () => {
         expect(isGableFriendly(toXZ([[0, 0], [1, 1]]))).toBe(false);
+    });
+});
+
+// §ROOF-CONCAVE (founder L-shape defect, 2026-06-10) — convexity test that the
+// house roof builder uses to degrade a concave footprint to a FLAT roof (the hip
+// builder is convex-only → clashing planes at an L's inner corner otherwise).
+describe('isConvexPolygon', () => {
+    const toXZ = (pts: Pt2[]) => pts.map(([x, z]) => ({ x, z }));
+
+    it('axis-aligned rectangle → convex', () => {
+        expect(isConvexPolygon(toXZ([[-5, -2], [5, -2], [5, 2], [-5, 2]]))).toBe(true);
+    });
+
+    it('rotated parallelogram → convex', () => {
+        const rotated = ([[-5, -2], [5, -2], [7, 2], [-3, 2]] as Pt2[]).map(p => rot(p, 16));
+        expect(isConvexPolygon(toXZ(rotated))).toBe(true);
+    });
+
+    it('convex hexagon (>5 verts) → convex (unlike isGableFriendly, no vertex cap)', () => {
+        const hex: Pt2[] = [[2, 0], [1, 2], [-1, 2], [-2, 0], [-1, -2], [1, -2]];
+        expect(isConvexPolygon(toXZ(hex))).toBe(true);
+        expect(isGableFriendly(toXZ(hex))).toBe(false); // capped at 5 verts
+    });
+
+    it('L-shape (6 verts, one re-entrant corner) → NOT convex → flat degrade', () => {
+        const lShape: Pt2[] = [[0, 0], [6, 0], [6, 3], [3, 3], [3, 6], [0, 6]];
+        expect(isConvexPolygon(toXZ(lShape))).toBe(false);
+    });
+
+    it('T-shape (concave) → NOT convex', () => {
+        const tShape: Pt2[] = [[0, 0], [6, 0], [6, 2], [4, 2], [4, 5], [2, 5], [2, 2], [0, 2]];
+        expect(isConvexPolygon(toXZ(tShape))).toBe(false);
+    });
+
+    it('degenerate (<3 pts) → NOT convex', () => {
+        expect(isConvexPolygon(toXZ([[0, 0], [1, 1]]))).toBe(false);
     });
 });

@@ -1720,11 +1720,22 @@ export class WallJoinResolver {
         const _cls = _angDeg < 10 ? 'COLLINEAR' : _angDeg >= 60 ? 'L' : 'SHALLOW-L';
         const _CLOSE_EPS_M = 0.002;                          // 2 mm — sub-visible
         const _closed = _jointGapM <= _CLOSE_EPS_M && _bisectorOk && _cls !== 'COLLINEAR';
+        // §DIAG-CORNER-TURN (founder L-shape verification, 2026-06-10) — the L's INNER
+        // (concave/reflex) corner turns the OPPOSITE way to its convex corners. The
+        // signed XZ cross of the two join directions gives a deterministic turn sign so
+        // the founder can pick the concave corner out of the log (it will read turn=CW
+        // where the convex corners read turn=CCW, or vice-versa, for a consistently-wound
+        // shell). The bisector miter below is sign-agnostic (`_pickMiterNormal` chooses
+        // +base/−base per wall from each wall's own outward·wallDir constraint), so BOTH
+        // convex and concave corners close by construction — the turn sign is diagnostic
+        // only, it does NOT change the trim. A magnitude near 0 ⇒ collinear (not a turn).
+        const _turnCross = dirA.x * dirB.z - dirA.z * dirB.x;
+        const _turn = Math.abs(_turnCross) < 1e-6 ? 'STRAIGHT' : (_turnCross > 0 ? 'CCW' : 'CW');
         // Perimeter vs interior is not knowable from wall data alone here; we report the
         // wall ids + thickness so the founder can map them. Same-thickness ⇒ mitred L.
         console.log(
             `[WallJoinResolver] §DIAG-WALL-JOIN CORNER ${epA.wallId}(${epA.side}) ↔ ${epB.wallId}(${epB.side}) ` +
-            `class=${_cls} angle=${_angDeg.toFixed(1)}° mitre=bisector(sameThk t=${tA.toFixed(3)}) ` +
+            `class=${_cls} angle=${_angDeg.toFixed(1)}° turn=${_turn} mitre=bisector(sameThk t=${tA.toFixed(3)}) ` +
             `jointGap=${(_jointGapM * 1000).toFixed(1)}mm bisectorOk=${_bisectorOk} ` +
             `closed=${_closed ? '✓' : '⚠ NOT-CLEAN'}`,
         );

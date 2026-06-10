@@ -82,6 +82,26 @@ export function isGableFriendly(poly: ReadonlyArray<{ x: number; z: number }>): 
     const n = poly.length;
     if (n < 3) return false;
     if (n > 5) return false; // materially more than a quad → not a single-ridge shape
+    return isConvexPolygon(poly);
+}
+
+/**
+ * §ROOF-CONCAVE (founder L-shape defect, 2026-06-10) — is this footprint CONVEX?
+ *
+ * Returns `true` iff every turn has the same sign (no re-entrant / reflex
+ * corner), `false` for any concave polygon (an L, T, U, plus-shape, …). Unlike
+ * `isGableFriendly` this does NOT cap the vertex count — a convex hexagon is
+ * convex — so it is the correct test for "can the polygon-offset (straight-
+ * skeleton-step) HIP builder cap this shape?". The hip builder (`_shrinkPolygon`
+ * + `_computeInradius`) is convex-only by construction: at a re-entrant corner
+ * the inward edge-shift normals cross, producing a self-intersecting ridge
+ * polygon → the two clashing roof planes the founder saw at an L's inner corner.
+ * Callers degrade a concave footprint to a FLAT roof, which triangulates ANY
+ * simple polygon (incl. an L) cleanly. Pure + deterministic.
+ */
+export function isConvexPolygon(poly: ReadonlyArray<{ x: number; z: number }>): boolean {
+    const n = poly.length;
+    if (n < 3) return false;
     let sign = 0;
     for (let i = 0; i < n; i++) {
         const a = poly[i]!;

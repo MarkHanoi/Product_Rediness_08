@@ -40,7 +40,7 @@ import {
 } from '@pryzm/command-registry';
 import { facadeOrientationService } from '@pryzm/spatial-index';
 import { computeStairFootprintRect } from '@pryzm/geometry-stair';
-import { isGableFriendly } from '@pryzm/geometry-roof';
+import { isGableFriendly, isConvexPolygon } from '@pryzm/geometry-roof';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import {
     generateHouseLayout,
@@ -1885,8 +1885,27 @@ export class HouseLayoutExecutor {
             // polygon offset (straight-skeleton-style inset) and handles ANY convex
             // footprint by construction — the soundest fallback that still looks
             // like a real pitched roof. Flat/hip are passed through unchanged.
+            //
+            // §ROOF-CONCAVE (founder L-shape defect, 2026-06-10) — BUT the hip builder
+            // (RoofGeometryBuilder._shrinkPolygon + _computeInradius) is CONVEX-ONLY.
+            // On a CONCAVE footprint (an L — 6 verts, one re-entrant corner) the
+            // inward edge-shift normals cross at the inner corner, so the shrunken
+            // "ridge" polygon self-intersects and `_connectLevels` (nearest-vertex)
+            // wires the eave edges to the wrong ridge verts → the TWO CLASHING roof
+            // planes the founder saw at the L's inner corner. A proper L hip needs a
+            // full straight-skeleton hip-and-valley solve (NOT bounded here — scoped
+            // below). The smallest CORRECT change that yields ONE coherent roof over
+            // the true L polygon is to degrade a concave footprint to FLAT: the flat
+            // builder triangulates ANY simple polygon (incl. an L) via
+            // THREE.ShapeUtils.triangulateShape, so the roof is a single clean slab
+            // over the real footprint — far better than two clashing hip planes.
+            // Convex footprints (rectangle / parallelogram / convex hex) are
+            // UNCHANGED → gable/hip pass through exactly as before (no regression).
+            const concave = !isConvexPolygon(poly);
             const effectiveKind: RoofDescriptor['kind'] =
-                roof.kind === 'gable' && !isGableFriendly(poly) ? 'hip' : roof.kind;
+                concave
+                    ? 'flat'
+                    : roof.kind === 'gable' && !isGableFriendly(poly) ? 'hip' : roof.kind;
 
             // A.21.D18 — domestic pitched roof. The engine carries a pitch in
             // DEGREES (gable default ~30°); CreateRoofCommand expects `slope` as
@@ -1935,6 +1954,16 @@ export class HouseLayoutExecutor {
             }), { source: 'HOUSE_PIPELINE_ROOF' });
             console.log('[house-layout] §ROOF-LEVEL roof created on dedicated roof level', roofLevelId,
                 `(${effectiveKind}${effectiveKind !== roof.kind ? ` ←gable-fallback` : ''}, ~${pitchDeg.toFixed(0)}°, eave ${(DEFAULT_ROOF_OVERHANG_M * 1000).toFixed(0)}mm, baseOffset ${roofBaseOffset}m → roof caps @ ${expectedRoofElevM.toFixed(2)}m = top wall head, world-Y unchanged)`);
+            // §DIAG-ROOF (founder L-shape verification, 2026-06-10) — ALWAYS-ON. Shows
+            // the roof FOOTPRINT vertex count + convexity + requested-vs-chosen kind so
+            // the next run proves which branch fired. A concave footprint (e.g. an L's
+            // 6 verts, convex=false) MUST land kind=flat (the §ROOF-CONCAVE degrade);
+            // a clashing-planes regression would show concave + kind=hip/gable instead.
+            console.log(
+                `[house-layout] §DIAG-ROOF footprint verts=${poly.length} convex=${isConvexPolygon(poly)} ` +
+                `requestedKind=${roof.kind} chosenKind=${effectiveKind}` +
+                `${concave ? ' (§ROOF-CONCAVE degrade→flat: hip builder is convex-only; flat triangulates the L cleanly)' : ''}`,
+            );
         } catch (e) { console.warn('[house-layout] roof create failed (skipped):', e); }
     }
 

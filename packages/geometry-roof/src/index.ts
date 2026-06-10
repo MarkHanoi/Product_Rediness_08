@@ -23,5 +23,5 @@ export type { RoofToolDeps, RoofToolCallbacks } from './RoofTool';
 export { RoofSlopeSymbolBuilder } from './RoofSlopeSymbolBuilder';
 
 // A.21.D24 §RIDGE-PRINCIPAL-AXIS — pure (THREE-free) gable ridge-axis helpers.
-export { principalAxis, gableRidge, isGableFriendly } from './roofRidgeAxis';
+export { principalAxis, gableRidge, isGableFriendly, isConvexPolygon } from './roofRidgeAxis';
 export type { Pt2 } from './roofRidgeAxis';
