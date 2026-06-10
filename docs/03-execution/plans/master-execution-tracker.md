@@ -3995,3 +3995,30 @@ door to a corridor, so the multi-hop reroute can't rescue them either).
 
 Test-gated, deterministic, apartment byte-identical (the spur only fires when the single-loaded comb fails).
 This is a focused subdivision-geometry task, NOT a quick patch — three rushed attempts proved that.
+
+### §52.6 — Instrumented finding: the blank-area + sealed-rooms is a COUPLED CHAIN, not one function (2026-06-10)
+
+A focused instrumented run (289 m² single-storey, `§DIAG-RECTS` / `§DIAG-BRANCH` / `§DIAG-COMB-BAIL` added
+temporarily then reverted) pinned the chain with numbers — the high-impact fix is bigger than
+`sliceZoneAlongFace`:
+
+1. **§HOUSE-MAX-CAP caps the presented area far below the plate.** On the 289 m² plate the subdivider was
+   handed only **111 m²** (`§DIAG-RECTS areas=[69.3, 33.8, 8.0] total=111.1`) — **178 m² left blank.** THIS is
+   the dominant source of the founder's "blank areas" (confirmed with numbers). The cap keys on the
+   programme's `grossMax`; the programme didn't grow enough to lift it.
+2. **The stair keep-out fragments even the capped plate** into 3 rects (`dominantFrac=0.62`), so there is no
+   single clean rect to carve a corridor through.
+3. **The dominant-rect corridor carve would DROP rooms**, so `§STAIR-CARVE-NO-DROP` picks the generic
+   multi-rect pack instead (`carveDrops=5 genericDrops=0 → picked generic`) — and generic packing has **no
+   corridor spine**, so rooms reach circulation only if squarify happens to abut them → the rest **seal**.
+4. **The comb (`sliceZoneAlongFace`) fails even at privateRooms=2** on the small fragmented rects
+   ("floors/depth too tight") — so the comb-gate is real but SECONDARY to (1)–(3).
+
+**Revised fix order (the coupled chain — all needed, in this order):**
+  (a) **§HOUSE-MAX-CAP**: present (most of) a large single-storey/ground plate (don't shrink 289→111); let
+      the programme enrich to fill it (bounded). (b) **Stair-carve-no-drop**: the dominant-rect carve must not
+      drop rooms (or fall to the §52 spur double-load) so a corridor spine survives. (c) **comb-gate**
+      (§52.3 spur + `sliceZoneAlongFace` depth/floor gates) so the surviving rooms all abut the corridor.
+This is a dedicated multi-step session with the house test as the live gate — NOT a single-function tweak.
+The cap (a) is the single highest-leverage sub-fix (it owns the blank area), but shipping it alone re-opens
+the sealed-rooms problem (more rooms than the carve/comb can connect), which is why (a)+(b)+(c) land together.
