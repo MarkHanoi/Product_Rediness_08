@@ -77,6 +77,7 @@ import { resolveBlindFacades } from '../apartment-layout/resolveBlindFacades.js'
 import { runHousePostGenChain } from './runHousePostGenChain.js';
 import { resetStairVoids, recordStairVoid } from './houseStairVoids.js';
 import { resetStairRects, recordStairRect } from './houseStairRects.js';
+import { resetShellWalls, recordShellWalls } from './houseShellWalls.js';
 
 const MM_PER_M = 1000;
 const DEFAULT_FLOOR_TO_FLOOR_M = 3.0;
@@ -342,6 +343,11 @@ export class HouseLayoutExecutor {
             // build recorded (the §DIAG-STAIR loop below records this build's rects in
             // WORLD XZ so the per-room §DIAG-EXEC-STAIR overlap test can read them back).
             resetStairRects();
+            // §DIAG-EXEC-WINDOWS support — clear any shell wall-id set a PREVIOUS build
+            // recorded (each storey records its authoritative shell wall ids below so the
+            // §DIAG-EXEC-WINDOWS WINDOW-ON-PARTITION test reads shell-vs-partition robustly
+            // instead of trusting the façade service, which mis-marked real shell walls).
+            resetShellWalls();
 
             // §DIAG-EXEC-ROTATION (founder 2026-06-10) — the rotation the engine applied
             // to this plate's layout frame (principal axis). On a SKEWED plot the engine
@@ -448,6 +454,11 @@ export class HouseLayoutExecutor {
                 const shellWalls = isGround
                     ? gatherShellWalls(storey.levelId)
                     : (perimeter?.shellWalls ?? []);
+                // §DIAG-EXEC-WINDOWS support — record this storey's authoritative shell
+                // (perimeter) wall ids so the later §DIAG-EXEC-WINDOWS pass decides
+                // shell-vs-partition from the EXECUTOR's own shell set (robust), not the
+                // façade service (which mis-marked real shell walls → false positives).
+                if (shellWalls.length > 0) recordShellWalls(storey.levelId, shellWalls.map(w => w.id));
                 // §DIAG-PARTY-WALL (PW.1, 2026-06-09) — blind/party façades for this
                 // storey's shell walls. The engine suppresses windows + the entrance
                 // door there. Default ⇒ empty ⇒ byte-identical (neighbour DETECTION is
@@ -636,6 +647,21 @@ export class HouseLayoutExecutor {
                     let openSeamCount = 0;
                     let maxSeal = 0;
                     const lines: string[] = [];
+                    // §DIAG-SEAL-TJUNC (v106 forensics, 2026-06-10) — the original §DIAG-SEAL
+                    // measured `part=` as endpoint↔ENDPOINT distance only, so it could NOT
+                    // distinguish (a) a partition end that floats off the SHELL from (b) a
+                    // partition end that floats off ANOTHER partition's MID-SPAN (a T-join).
+                    // The v106 Living↔Bedroom1 merge is TWO STACKED rooms — their divider is a
+                    // partition whose end must meet either the shell OR a crossing partition's
+                    // span; an endpoint sealed to a span shows a LARGE endpoint distance yet is
+                    // closed. Add `partSpan=` (nearest OTHER partition SEGMENT, not just its
+                    // endpoints): a true seal is min(perim, partSpan) ≤ 0.30 m. The seal verdict
+                    // now uses partSpan (the geometry the detector actually traces), so a real
+                    // T-junction no longer reads as a false OPEN-SEAM and a genuine floating end
+                    // is still caught. Read-only; deterministic.
+                    const partSegs = sealPartitions
+                        .map(w => ({ id: w.id, a: w.baseLine?.[0], b: w.baseLine?.[1] }))
+                        .filter((s): s is { id: string; a: { x: number; z: number }; b: { x: number; z: number } } => !!s.a && !!s.b);
                     for (const ep of eps) {
                         let nearPerim = Infinity;
                         for (const sw of shellWalls) {
@@ -648,10 +674,20 @@ export class HouseLayoutExecutor {
                             const d = Math.hypot(ep.x - o.x, ep.z - o.z);
                             if (d < nearPart) nearPart = d;
                         }
-                        const seal = Math.min(nearPerim, nearPart);
+                        // §DIAG-SEAL-TJUNC — nearest OTHER partition SEGMENT (mid-span T-joins).
+                        let nearPartSpan = Infinity;
+                        for (const ps of partSegs) {
+                            if (ps.id === ep.id) continue;   // not its own wall's span
+                            const d = distToSeg(ep.x, ep.z, ps.a, ps.b);
+                            if (d < nearPartSpan) nearPartSpan = d;
+                        }
+                        // A loop closes when the endpoint sits within the detector corner-snap of
+                        // the SHELL body OR a crossing partition's SPAN. Endpoint↔endpoint is the
+                        // strictest case; the span distance is the true seal for a T-junction.
+                        const seal = Math.min(nearPerim, nearPartSpan);
                         maxSeal = Math.max(maxSeal, seal);
                         if (seal > SEAL_GRID_M) openSeamCount++;
-                        lines.push(`${ep.id}(${ep.side}) perim=${nearPerim.toFixed(3)}m part=${nearPart.toFixed(3)}m seal=${seal.toFixed(3)}m${seal > SEAL_GRID_M ? ' ⚠OPEN-SEAM' : ''}`);
+                        lines.push(`${ep.id}(${ep.side}) perim=${nearPerim.toFixed(3)}m part=${nearPart.toFixed(3)}m partSpan=${nearPartSpan.toFixed(3)}m seal=${seal.toFixed(3)}m${seal > SEAL_GRID_M ? ' ⚠OPEN-SEAM' : ''}`);
                     }
                     const weldRan = isGround
                         ? (shellWalls.length >= 3)   // ground weld decision logged above

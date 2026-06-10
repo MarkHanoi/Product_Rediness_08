@@ -16,6 +16,7 @@ import type { ScoredLayoutOption } from '@pryzm/ai-host';
 import { matchDetectedRooms } from './matchDetectedRooms.js';
 import { logExecRoomDiagnostics } from '../house-layout/houseExecDiagnostics.js';
 import { getStairRects } from '../house-layout/houseStairRects.js';
+import { getShellWalls } from '../house-layout/houseShellWalls.js';
 import { resolveStairRooms, type DetectedRoomLite } from '../house-layout/resolveStairRooms.js';
 
 interface DetectedRoomLike {
@@ -185,7 +186,18 @@ export function nameDetectedRooms(
             // generation per level (this `apply` fires once, guarded by `done`). Stair
             // keep-out AABBs (world XZ) are supplied by the HouseLayoutExecutor via
             // houseStairRects (empty for the apartment path ⇒ EXEC-STAIR is skipped).
-            logExecRoomDiagnostics(levelId, option, logTag, getStairRects(levelId));
+            // §DIAG-EXEC-* false-positive fixes (founder v106): pass (a) the executor's
+            // authoritative SHELL wall-id set so WINDOW-ON-PARTITION is decided by real
+            // shell membership (not the mis-marking façade service), and (b) the resolver's
+            // KEEP ids so HABITABLE-ON-STAIR treats the just-decided (not-yet-committed)
+            // stair room as the stair instead of reading its uncommitted `unclassified`
+            // occupancy. The apartment path records no shell walls + no stair keeps ⇒ both
+            // are empty ⇒ byte-identical behaviour (ADR-0061).
+            const stairKeepIds = new Set(stairResolution.keep.map(k => k.roomId));
+            logExecRoomDiagnostics(
+                levelId, option, logTag, getStairRects(levelId),
+                getShellWalls(levelId), stairKeepIds,
+            );
 
             const stairDrops = stairResolution.drop;
             if (renames.length === 0 && stairDrops.length === 0) return;

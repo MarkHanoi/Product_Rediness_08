@@ -165,12 +165,23 @@ function pairDetectedToEngine(
  * @param logTag   console prefix ('[house-layout]' / '[apartment-layout]').
  * @param stairRectsWorld  OPTIONAL stair keep-out rects in WORLD XZ (metres), for
  *   the §DIAG-EXEC-STAIR overlap test. Omitted/empty ⇒ EXEC-STAIR is skipped.
+ * @param shellWallIds  OPTIONAL authoritative SHELL (perimeter) wall-id set for this
+ *   level (from the executor via houseShellWalls). When supplied, shell-vs-partition
+ *   is decided by membership in this set (robust) — a window on a shell wall is NEVER
+ *   flagged WINDOW-ON-PARTITION. Falls back to the façade service when omitted/empty.
+ * @param stairKeepRoomIds  OPTIONAL detected-room ids the stair resolver KEEPS as the
+ *   single non-habitable `stair` room (from `resolveStairRooms().keep`). The
+ *   §DIAG-EXEC-STAIR HABITABLE-ON-STAIR flag treats these as the stair regardless of
+ *   their (not-yet-committed) occupancy/name — so a room over the void that IS the
+ *   resolved stair keep is never falsely flagged habitable.
  */
 export function logExecRoomDiagnostics(
     levelId: string,
     option: ScoredLayoutOption,
     logTag = '[house-layout]',
     stairRectsWorld?: ReadonlyArray<{ minX: number; maxX: number; minZ: number; maxZ: number }>,
+    shellWallIds?: ReadonlySet<string>,
+    stairKeepRoomIds?: ReadonlySet<string>,
 ): void {
     try {
         // ── Gather the DETECTED rooms (RoomData) for this level. ──────────────
@@ -236,7 +247,17 @@ export function logExecRoomDiagnostics(
         let facades: Map<string, { isExterior: boolean }> | undefined;
         try { facades = facadeOrientationService.getFacades(levelId) as unknown as Map<string, { isExterior: boolean }>; }
         catch { facades = undefined; }
-        const isExteriorWall = (wallId: string): boolean => facades?.get(wallId)?.isExterior ?? false;
+        // §DIAG-EXEC-WINDOWS shell-vs-partition (founder v106 false-positive fix) — a wall
+        // is SHELL/exterior if (a) it is in the executor's authoritative shell wall-id set
+        // (the drawn ground shell that hosts the entrance door + façade windows, or the
+        // minted upper-storey perimeter ring), OR (b) the façade service marks it exterior.
+        // The shell set is decisive: on the founder's plate the façade service returned
+        // false/unknown for genuine shell walls (the 22.7 m perimeter walls), wrongly
+        // flagging façade windows as WINDOW-ON-PARTITION. Only when NEITHER signal marks a
+        // wall as shell is its window treated as on an interior partition.
+        const haveShellSet = !!shellWallIds && shellWallIds.size > 0;
+        const isExteriorWall = (wallId: string): boolean =>
+            (haveShellSet && shellWallIds!.has(wallId)) || (facades?.get(wallId)?.isExterior ?? false);
 
         // Rollup accumulators.
         let roomsWithDoor = 0, windowlessCount = 0, overCapCount = 0, noEngineMatchCount = 0;
@@ -297,7 +318,15 @@ export function logExecRoomDiagnostics(
                 const onStair = stairRectsWorld.some(r => c.x >= r.minX && c.x <= r.maxX && c.z >= r.minZ && c.z <= r.maxZ);
                 if (!onStair) continue;
                 overlaps.push(`${d.name}[${d.occupancyType}]`);
-                const isStairRoom = STAIR_OCC.has(d.occupancyType) || /stair/i.test(d.name);
+                // §DIAG-EXEC-STAIR HABITABLE-ON-STAIR (founder v106 false-positive fix) —
+                // the diagnostic runs BEFORE the room.rename / SET_ROOM_OCCUPANCY batch
+                // commits, so a freshly-detected stair cell still reads occupancy
+                // `unclassified`. Treat the resolver's KEEP ids (the room about to be typed
+                // `stair`) as the stair — so the just-decided stair room is never falsely
+                // flagged habitable. Fall back to the committed occupancy/name for paths
+                // that pass no keep set.
+                const isStairRoom = (stairKeepRoomIds?.has(d.id) ?? false)
+                    || STAIR_OCC.has(d.occupancyType) || /stair/i.test(d.name);
                 if (!isStairRoom) habitableOnStair.push(`${d.name}[${d.occupancyType}]`);
             }
             console.log(`${logTag} §DIAG-EXEC-STAIR ${levelId} roomsOverStairVoid=${overlaps.length} (${overlaps.join(', ') || 'none'}) — expect exactly 1 = "Stair"`);
