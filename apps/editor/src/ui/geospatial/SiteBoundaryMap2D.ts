@@ -62,6 +62,8 @@ import {
 } from './siteMap2DStyle.js';
 // MAP-DATA-OVERTURE — keyless OSM/Overture context-building loader.
 import { fetchContextBuildings } from './contextBuildings.js';
+// PW.2 (§DIAG-PARTY-WALL) — capture neighbour footprints for the layout pipeline.
+import { setNeighbourFootprints } from '../site/neighbourFootprintStore.js';
 // A.21.D60 — pure relative-right-angle (orthogonal-to-previous-edge) draw aid.
 import { resolveOrthoSnap } from './orthoSnap.js';
 
@@ -624,6 +626,11 @@ export function mountSiteBoundaryMap2D(
             const signal = ctxAbort.signal;
             void fetchContextBuildings(c.lat, c.lng, signal).then((collection) => {
                 if (disposed || signal.aborted) return;
+                // PW.2 (§DIAG-PARTY-WALL) — capture neighbour footprints for the
+                // layout pipeline (resolveBlindFacades → party/blind-wall detection).
+                // The 2D draw map is often the FIRST surface to fetch (onboarding
+                // draw, before Cesium mounts), so capturing here primes the store.
+                setNeighbourFootprints(c.lat, c.lng, collection);
                 const live = map.getSource(CONTEXT_BUILDINGS_SOURCE) as GeoJSONSource | undefined;
                 if (live) {
                     live.setData(collection as unknown as GeoJSON.FeatureCollection);

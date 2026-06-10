@@ -8,6 +8,9 @@ import {
     type ContextBuildingCollection,
 } from "./contextBuildings";
 import { fetchContextRoads, type ContextRoadCollection } from "./contextRoads";
+// PW.2 (§DIAG-PARTY-WALL) — capture neighbour footprints for the layout pipeline
+// (party/blind-wall detection in resolveBlindFacades). Editor-side store, no engine dep.
+import { setNeighbourFootprints } from "../site/neighbourFootprintStore";
 // FORMA.5 — pure NOAA solar-position calculator (L2, no THREE / no I/O).
 // `solarSample(lat, lon, utcIso)` → { altitudeRad, azimuthRad, isAboveHorizon }.
 // This is the SAME pure algorithm the ClimatePanel sun-path uses; FORMA.5 reads
@@ -2798,6 +2801,12 @@ export class CesiumViewport {
     }
     // A newer load (or dispose) superseded us.
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
+
+    // PW.2 (§DIAG-PARTY-WALL) — capture the neighbour footprints for the layout
+    // pipeline (resolveBlindFacades reads them + projects them into world-XZ to
+    // suppress windows/doors on a party/blind wall). Visual-only until PW.2; this
+    // is the cleanest fetch-capture point. Best-effort, never throws.
+    setNeighbourFootprints(lat, lon, collection);
 
     this.clearContextBuildings();
     this.contextBuildingsAt = { lat, lon };
