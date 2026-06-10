@@ -289,7 +289,11 @@ export class CreateFloorsByRoomTypeCommand implements Command {
 
             if (ring.length < 3) { this._diag.push(`[floor §DIAG] ${this._roomTag(room)} boundary=centreline ⚠ (degenerate after subdivide)`); return centreline; }
 
-            const inner = insetPolygonToInnerFaces(ring, insets);
+            const inner = insetPolygonToInnerFaces(ring, insets, (line) => {
+                // §DIAG-FLOOR-INSET — surface the miter-clamp / fall-back reason per
+                // room so we can see which rooms triggered the robustness path.
+                this._diag.push(`[floor §DIAG] ${this._roomTag(room)} ${line}`);
+            });
             const ok = inner !== ring; // util returns the SAME array ref on fail-safe
             const maxInset = insets.reduce((m, v) => Math.max(m, v), 0);
             this._diag.push(

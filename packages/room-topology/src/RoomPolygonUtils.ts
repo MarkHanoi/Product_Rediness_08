@@ -233,6 +233,7 @@ export function pointInPolygon(px: number, pz: number, polygon: RoomVertex[]): b
 export function insetPolygonToInnerFaces(
   polygon: RoomVertex[],
   edgeInsets: number[],
+  onDiag?: (line: string) => void,
 ): RoomVertex[] {
   const n = polygon.length;
   if (n < 3) return polygon;
@@ -241,6 +242,7 @@ export function insetPolygonToInnerFaces(
   // point on it (the offset midpoint anchor) plus its direction (unchanged).
   interface Line { px: number; pz: number; dx: number; dz: number; }
   const lines: Line[] = [];
+  let maxInset = 0;
   for (let i = 0; i < n; i++) {
     const a = polygon[i]!;
     const b = polygon[(i + 1) % n]!;
@@ -259,41 +261,115 @@ export function insetPolygonToInnerFaces(
     const nx = -dz, nz = dx;
     const rawInset = edgeInsets[i];
     const inset = (typeof rawInset === 'number' && Number.isFinite(rawInset)) ? Math.max(0, rawInset) : 0;
+    if (inset > maxInset) maxInset = inset;
     lines.push({ px: a.x + nx * inset, pz: a.z + nz * inset, dx, dz });
   }
 
+  // §DIAG-FLOOR-INSET (2026-06-10) — bound for how far a mitered corner vertex may
+  // legitimately move from its source corner. A true miter can grow with 1/sin(θ),
+  // so for an acute corner it is sometimes a few × the inset — but a runaway
+  // near-parallel intersection lands HUNDREDS of metres away (the founder's
+  // "spike"). The two thresholds below separate the two cases robustly:
+  //   - MITER_SIN_EPS: |cross| below this → adjacent edges too near-parallel to
+  //     trust the intersection; bevel-fall-back instead.
+  //   - maxMiterDist:  even when the intersection is computed, reject any vertex
+  //     further than this from the original corner; bevel-fall-back.
+  // The bevel fall-back offsets the original corner along the AVERAGE inward normal
+  // by the local inset (a finite, local, never-exploding join). This keeps the
+  // corner near the room and the floor plausible on irregular / rotated polygons.
+  const MITER_SIN_EPS = 0.06;                 // ~3.4° between adjacent edges
+  const maxMiterDist = Math.max(0.5, maxInset * 8); // ≥0.5 m, else 8× the inset
+  let clampedCount = 0;
+
+  // Bevel fall-back for vertex i: average the two adjacent edges' inward normals
+  // (weighted equally) and step the original corner inward by the local inset
+  // (the larger of the two adjacent edge insets, so a thick wall still pulls back).
+  const bevelVertex = (i: number): RoomVertex => {
+    const orig = polygon[i]!;
+    const prevLine = lines[(i - 1 + n) % n]!;
+    const curLine = lines[i]!;
+    // Inward normal of a directed edge (dx,dz) on a CCW ring is (-dz, dx).
+    const pnx = -prevLine.dz, pnz = prevLine.dx;
+    const cnx = -curLine.dz, cnz = curLine.dx;
+    let anx = pnx + cnx, anz = pnz + cnz;
+    const alen = Math.hypot(anx, anz);
+    if (alen < 1e-9) {
+      // Opposed normals (collinear spike corner) — no sensible bevel direction;
+      // keep the original corner (a 0-offset, never a spike).
+      return { x: orig.x, z: orig.z };
+    }
+    anx /= alen; anz /= alen;
+    const insetPrev = Math.max(0, edgeInsets[(i - 1 + n) % n] ?? 0);
+    const insetCur = Math.max(0, edgeInsets[i] ?? 0);
+    const localInset = Math.max(
+      Number.isFinite(insetPrev) ? insetPrev : 0,
+      Number.isFinite(insetCur) ? insetCur : 0,
+    );
+    return { x: orig.x + anx * localInset, z: orig.z + anz * localInset };
+  };
+
   // Each NEW vertex i is the intersection of offset-line (i-1) and offset-line (i)
-  // (the two edges meeting at original vertex i). Parallel / degenerate pairs fall
-  // back to the original vertex so the inset never explodes.
+  // (the two edges meeting at original vertex i). Parallel / degenerate / runaway
+  // pairs fall back to a local bevel so the inset never explodes into a spike.
   const out: RoomVertex[] = [];
   for (let i = 0; i < n; i++) {
     const prev = lines[(i - 1 + n) % n]!;
     const cur = lines[i]!;
     const orig = polygon[i]!;
     const cross = prev.dx * cur.dz - prev.dz * cur.dx;
-    if (Math.abs(cross) < 1e-9 || (prev.dx === 0 && prev.dz === 0) || (cur.dx === 0 && cur.dz === 0)) {
-      out.push({ x: orig.x, z: orig.z });
+    // MITER CLAMP (1): near-parallel adjacent edges → intersection is unreliable
+    // (divides by ~0 → huge coordinate). Bevel instead.
+    if (Math.abs(cross) < MITER_SIN_EPS || (prev.dx === 0 && prev.dz === 0) || (cur.dx === 0 && cur.dz === 0)) {
+      out.push(bevelVertex(i));
+      clampedCount++;
       continue;
     }
     // Solve prev.p + t*prev.d = cur.p + s*cur.d for the crossing point.
     const wx = cur.px - prev.px;
     const wz = cur.pz - prev.pz;
     const t = (wx * cur.dz - wz * cur.dx) / cross;
-    out.push({ x: prev.px + t * prev.dx, z: prev.pz + t * prev.dz });
+    const vx = prev.px + t * prev.dx;
+    const vz = prev.pz + t * prev.dz;
+    // MITER CLAMP (2): even with a non-trivial cross the intersection can land far
+    // from the corner on a shallow/irregular join → reject + bevel.
+    if (!Number.isFinite(vx) || !Number.isFinite(vz) || Math.hypot(vx - orig.x, vz - orig.z) > maxMiterDist) {
+      out.push(bevelVertex(i));
+      clampedCount++;
+      continue;
+    }
+    out.push({ x: vx, z: vz });
+  }
+
+  if (clampedCount > 0) {
+    onDiag?.(`§DIAG-FLOOR-INSET miter-clamp fired on ${clampedCount}/${n} corner(s) (near-parallel/runaway) → bevel fall-back`);
+  }
+
+  // PER-VERTEX SANITY: no output vertex may sit further than maxMiterDist from the
+  // SOURCE polygon's corresponding corner. A spike that survived the per-corner
+  // clamp (e.g. a finite-but-large miter just under the distance bound stacking
+  // with another) is rejected here — fall back to the original centreline polygon
+  // so the floor is still produced (a slightly-too-large floor beats a spike).
+  for (let i = 0; i < out.length; i++) {
+    const o = out[i]!;
+    const src = polygon[i]!;
+    if (!Number.isFinite(o.x) || !Number.isFinite(o.z) || Math.hypot(o.x - src.x, o.z - src.z) > maxMiterDist + 1e-6) {
+      onDiag?.(`§DIAG-FLOOR-INSET per-vertex sanity rejected vertex ${i} (${Math.hypot(o.x - src.x, o.z - src.z).toFixed(1)}m from source) → centreline fall-back`);
+      return polygon;
+    }
   }
 
   const sane = sanitisePolygon(out);
-  if (!sane) return polygon;          // fail-safe — never lose the floor
-  if (polygonAreaM2(sane) < 0.01) return polygon;
+  if (!sane) { onDiag?.('§DIAG-FLOOR-INSET sanitise failed → centreline fall-back'); return polygon; } // fail-safe — never lose the floor
+  if (polygonAreaM2(sane) < 0.01) { onDiag?.('§DIAG-FLOOR-INSET near-zero area → centreline fall-back'); return polygon; }
   // Inversion guard — a too-large inset crosses the offset edges past each other
   // and FLIPS the winding (the "polygon" turns inside-out, often with a larger
   // unsigned area, so the area check above misses it). If the signed-area sign no
   // longer matches the input, the inset has collapsed → fall back to the original.
   const srcCCW = computeSignedArea(polygon) >= 0;
   const dstCCW = computeSignedArea(sane) >= 0;
-  if (srcCCW !== dstCCW) return polygon;
+  if (srcCCW !== dstCCW) { onDiag?.('§DIAG-FLOOR-INSET winding inverted → centreline fall-back'); return polygon; }
   // Sanity: the inner face can never be LARGER than the centreline polygon.
-  if (polygonAreaM2(sane) > polygonAreaM2(polygon) + 1e-6) return polygon;
+  if (polygonAreaM2(sane) > polygonAreaM2(polygon) + 1e-6) { onDiag?.('§DIAG-FLOOR-INSET larger than source → centreline fall-back'); return polygon; }
   return sane;
 }
 
