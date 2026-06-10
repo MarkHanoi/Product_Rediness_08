@@ -463,6 +463,101 @@ describe('§CIRCULATION-REROUTE — every habitable room opens onto the spine', 
         expect(unroutedToCirculationRoomIds).toEqual([]);
     });
 
+    // ─── §BEDROOM-ENSUITE-2DOOR (founder rule, 2026-06-10) ────────────────────────
+    // "All bedrooms are meant to be connected ONLY by a corridor … UNLESS it has a
+    // connection with a [private] bathroom directly — in which case it will have 2
+    // doors — one with a corridor and another with a bathroom." A NON-master bedroom
+    // PAIRED with its own ensuite (via the per-instance `ensuiteHostId`) earns exactly
+    // ONE extra door slot (corridor + ensuite = 2); every OTHER bedroom stays at 1, and
+    // an ensuite may only open onto ITS paired bedroom (never a shared bathroom / an
+    // un-paired bedroom). The pairing is per-INSTANCE so it cannot reintroduce
+    // bedroom-through-bedroom or over-cap abuse.
+    it('§BEDROOM-ENSUITE-2DOOR: a non-master bedroom paired with an ensuite gets EXACTLY 2 doors (corridor + ensuite); a plain bedroom stays at 1', () => {
+        // Plan (corridor spine along the top z∈[0,1.2]):
+        //   host bedroom 'bh' : x∈[0,5],  z∈[1.2,6]  (touches corridor AND its ensuite)
+        //   ensuite      'en' : x∈[5,8],  z∈[1.2,6]  (touches ONLY the host bedroom)
+        //   plain bedroom 'bp': x∈[8,12], z∈[1.2,6]  (touches corridor only)
+        const corridor: RoomPlacement = { roomId: 'cor', rect: { x0: 0, z0: 0, x1: 12, z1: 1.2 } };
+        const host: RoomPlacement = { roomId: 'bh', rect: { x0: 0, z0: 1.2, x1: 5, z1: 6 } };
+        const ensuite: RoomPlacement = { roomId: 'en', rect: { x0: 5, z0: 1.2, x1: 8, z1: 6 } };
+        const plain: RoomPlacement = { roomId: 'bp', rect: { x0: 8, z0: 1.2, x1: 12, z1: 6 } };
+        const rooms: ProgramRoom[] = [
+            { id: 'cor', type: 'corridor', name: 'cor', targetAreaM2: 14, isPrivate: false, needsWindow: false },
+            { id: 'bh', type: 'bedroom', name: 'bh', targetAreaM2: 24, isPrivate: true, needsWindow: true },
+            // The per-instance pairing: this ensuite is hosted by the NON-master bedroom 'bh'.
+            { id: 'en', type: 'ensuite', name: 'en', targetAreaM2: 12, isPrivate: true, needsWindow: false, ensuiteHostId: 'bh' },
+            { id: 'bp', type: 'bedroom', name: 'bp', targetAreaM2: 19, isPrivate: true, needsWindow: true },
+        ];
+        const g: BubbleGraph = {
+            rooms,
+            // The bubble pairs the ensuite to its host with a door edge (as the real builder does).
+            edges: [{ a: 'bh', b: 'en', via: 'door' }],
+            corridorId: 'cor', entryId: 'cor',
+        };
+        const { openings, compromises, unroutedToCirculationRoomIds } =
+            buildWallsAndDoors([corridor, host, ensuite, plain], g);
+
+        const doorsOf = (id: string): Array<readonly [string, string?]> =>
+            openings.filter(o => o.type === 'door' && o.betweenRoomIds.includes(id))
+                .map(o => o.betweenRoomIds);
+        const partnersOf = (id: string): string[] =>
+            doorsOf(id).map(([a, b]) => (a === id ? b! : a)).sort();
+
+        // (1) The host bedroom has EXACTLY 2 doors: one to the corridor, one to its ensuite.
+        expect(partnersOf('bh')).toEqual(['cor', 'en']);
+        // (2) The plain bedroom has EXACTLY 1 door — to the corridor only (never the ensuite).
+        expect(partnersOf('bp')).toEqual(['cor']);
+        // (3) The ensuite opens ONLY onto its host bedroom (never the corridor / plain bedroom).
+        expect(partnersOf('en')).toEqual(['bh']);
+        // (4) No compromise + nothing land-locked — this is a fully legal arrangement.
+        expect(compromises).toBe(0);
+        expect(unroutedToCirculationRoomIds).toEqual([]);
+    });
+
+    it('§BEDROOM-ENSUITE-2DOOR: WITHOUT a pairing, an ensuite-adjacent bedroom stays single-door (no ensuite door, never over-cap)', () => {
+        // SAME geometry as above but the ensuite has NO `ensuiteHostId` → the per-instance
+        // relaxation never fires: a bare `bedroom`↔`ensuite` pair is forbidden by the type
+        // rule, so no ensuite door is placed and the bedroom keeps its single corridor door.
+        const corridor: RoomPlacement = { roomId: 'cor', rect: { x0: 0, z0: 0, x1: 12, z1: 1.2 } };
+        const host: RoomPlacement = { roomId: 'bh', rect: { x0: 0, z0: 1.2, x1: 5, z1: 6 } };
+        const ensuite: RoomPlacement = { roomId: 'en', rect: { x0: 5, z0: 1.2, x1: 8, z1: 6 } };
+        const rooms: ProgramRoom[] = [
+            { id: 'cor', type: 'corridor', name: 'cor', targetAreaM2: 14, isPrivate: false, needsWindow: false },
+            { id: 'bh', type: 'bedroom', name: 'bh', targetAreaM2: 24, isPrivate: true, needsWindow: true },
+            { id: 'en', type: 'ensuite', name: 'en', targetAreaM2: 12, isPrivate: true, needsWindow: false }, // NO ensuiteHostId
+        ];
+        const g: BubbleGraph = {
+            rooms,
+            edges: [{ a: 'bh', b: 'en', via: 'door' }],   // requested, but forbidden by the type rule
+            corridorId: 'cor', entryId: 'cor',
+        };
+        const { openings } = buildWallsAndDoors([corridor, host, ensuite], g);
+        const bedToEnsuite = openings.some(o => {
+            const s = new Set(o.betweenRoomIds);
+            return s.has('bh') && s.has('en');
+        });
+        expect(bedToEnsuite).toBe(false);
+        // The bedroom keeps ONE corridor door; it never gains a second.
+        const bhDoors = openings.filter(o => o.betweenRoomIds.includes('bh'));
+        expect(bhDoors).toHaveLength(1);
+        expect([...bhDoors[0]!.betweenRoomIds].sort()).toEqual(['bh', 'cor']);
+    });
+
+    it('§BEDROOM-ENSUITE-2DOOR: the bubble graph stamps ensuiteHostId on the master en-suite (apartment path)', () => {
+        const program: ApartmentProgram = {
+            bedrooms: 3, bathrooms: 1, masterEnSuite: true,
+            openPlanKitchenDining: true, livingRoom: true, entranceHall: true,
+        };
+        const g = buildBubbleGraph(program, 130);
+        const ensuite = g.rooms.find(r => r.type === 'ensuite');
+        const master = g.rooms.find(r => r.type === 'master');
+        expect(ensuite).toBeDefined();
+        expect(master).toBeDefined();
+        // The ensuite is paired to the MASTER (bed[0]) — byte-identical to the prior
+        // behaviour where the master's type rule already permitted both door + 2-cap.
+        expect(ensuite!.ensuiteHostId).toBe(master!.id);
+    });
+
     it('is deterministic — identical input yields byte-identical output (incl. re-route doors)', () => {
         const corridor: RoomPlacement = { roomId: 'cor', rect: { x0: 0, z0: 0, x1: 10, z1: 1.2 } };
         const living: RoomPlacement = { roomId: 'lv', rect: { x0: 0, z0: 1.2, x1: 5, z1: 5 } };

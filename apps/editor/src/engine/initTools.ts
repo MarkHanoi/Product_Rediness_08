@@ -873,10 +873,44 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             // paths register too (§FIX-VDT-DUAL-PATH). registerElement only does
             // _elementLevelMap.set / level.childrenIds.push — neither reads the store, so
             // running before add() is safe.
-            try { viewDependencyTracker.registerElement(ev.wallId, ev.levelId ?? 'L0'); }
-            catch (err) { console.warn('[initTools] §P2.1 VDT.registerElement failed (non-fatal):', err); }
-            try { bimManager.registerElement(ev.wallId, ev.levelId ?? 'L0'); }
-            catch { /* non-fatal — bimManager may already have it from legacy CreateWallCommand */ }
+            //
+            // §DIAG-WALL-LEVEL (founder 2026-06-10 — "SOMETIMES first-floor rooms
+            // overlap on the ground plan"). ROOT CAUSE of that intermittent bleed:
+            // the three sinks below previously resolved the level THREE different
+            // ways for the SAME wall — VDT + bimManager used `ev.levelId ?? 'L0'`
+            // (nullish-coalescing, which does NOT catch the empty string '' that
+            // CommandEventBridge emits for a wall whose payload omitted levelId —
+            // `'' ?? 'L0'` is '', NOT 'L0'), while the legacy WallStore mirror used
+            // a bare `ev.levelId`. So a wall arriving with a missing/empty levelId
+            // could land:
+            //   • in bimManager.level.childrenIds under '' (orphan) OR 'L0' (ground),
+            //   • in the legacy WallStore under undefined,
+            // and the NativeElementMeshExporter (which builds the plan projection
+            // from level.childrenIds) would then project that wall onto WHICHEVER
+            // level it was mis-filed under — most often Ground. The "sometimes" is
+            // exactly this store divergence + the silent default-to-Ground.
+            //
+            // FIX: resolve the level ONCE, canonically, for all three sinks; treat
+            // '' and undefined identically; and when the level is genuinely unknown
+            // emit a loud diagnostic + skip spatial registration (so a mis-stamped
+            // wall surfaces in the logs the founder is asked to check, instead of
+            // silently bleeding onto the ground plan). A wall left unregistered
+            // simply does not appear in any plan view — strictly safer than landing
+            // on the wrong floor.
+            const rawLevelId = (ev.levelId ?? '').trim();
+            const resolvedLevelId = rawLevelId.length > 0 ? rawLevelId : null;
+            if (resolvedLevelId === null) {
+                console.warn(
+                    '[initTools] §DIAG-WALL-LEVEL ⚠ wall.created with NO levelId — ' +
+                    'skipping spatial registration to avoid bleeding it onto the ground plan. wallId=',
+                    ev.wallId,
+                );
+            } else {
+                try { viewDependencyTracker.registerElement(ev.wallId, resolvedLevelId); }
+                catch (err) { console.warn('[initTools] §P2.1 VDT.registerElement failed (non-fatal):', err); }
+                try { bimManager.registerElement(ev.wallId, resolvedLevelId); }
+                catch { /* non-fatal — bimManager may already have it from legacy CreateWallCommand */ }
+            }
 
             const alreadyMirrored = !!_legacyWallStoreForBridge.getById(ev.wallId);
             if (!alreadyMirrored) {
@@ -884,7 +918,11 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                     _legacyWallStoreForBridge.add({
                         id:        ev.wallId,
                         type:      'wall' as const,
-                        levelId:   ev.levelId,
+                        // §DIAG-WALL-LEVEL — mirror the SAME resolved level the
+                        // spatial registration used (was a bare `ev.levelId`, which
+                        // diverged from the `?? 'L0'` registration above). '' when
+                        // unknown keeps the legacy-store S07 allowance.
+                        levelId:   resolvedLevelId ?? '',
                         baseLine:  [
                             { x: ev.baseLine[0].x, y: ev.baseLine[0].y ?? 0, z: ev.baseLine[0].z },
                             { x: ev.baseLine[1].x, y: ev.baseLine[1].y ?? 0, z: ev.baseLine[1].z },

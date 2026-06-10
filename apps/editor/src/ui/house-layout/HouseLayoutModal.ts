@@ -493,8 +493,11 @@ export class HouseLayoutModal {
     }
 
     /** Parse the edited form into a `HouseProgramFormState`. Storeys clamp 1–3,
-     *  bedrooms 0–5, bathrooms 1–3 (matching the input attributes + the engine's
-     *  envelope expectations); slider 0–100 → 0–1 weights. */
+     *  bedrooms 0–8, bathrooms 1–4 (matching the §MODAL-FILL input attributes +
+     *  the engine's MAX_BEDROOMS_HOUSE_STOREY=8 ceiling); slider 0–100 → 0–1
+     *  weights. §MODAL-PROGRAM-EDIT — the `area_t_<type>` inputs are collected into
+     *  `program.roomAreas` (the C52 per-RoomType size hook); a blank input clears
+     *  that type's override. */
     private _readFormState(form: HTMLFormElement): HouseProgramFormState {
         const numByName = (name: string, def: number): number => {
             const el = form.elements.namedItem(name) as HTMLInputElement | null;
@@ -502,9 +505,9 @@ export class HouseLayoutModal {
             const v = Number(el.value);
             return Number.isFinite(v) ? v : def;
         };
-        const boolByName = (name: string): boolean => {
+        const boolByName = (name: string, def = false): boolean => {
             const el = form.elements.namedItem(name) as HTMLInputElement | null;
-            return !!el?.checked;
+            return el ? !!el.checked : def;
         };
         const weightByName = (key: keyof ScoringWeights, def: number): number => {
             const el = form.elements.namedItem(`weight_${key}`) as HTMLInputElement | null;
@@ -513,14 +516,33 @@ export class HouseLayoutModal {
             if (!Number.isFinite(v)) return def;
             return Math.max(0, Math.min(1, v / 100));
         };
+        // §MODAL-PROGRAM-EDIT — collect every `area_t_<RoomType>` input that carries
+        // a positive number into a `roomAreas` override map. Blank/zero/non-finite
+        // values are omitted (revert that type to the engine default). Iterates the
+        // form's named elements so it stays in lock-step with `AREA_FIELDS` without a
+        // duplicated list.
+        const roomAreas: Record<string, number> = {};
+        for (const el of Array.from(form.elements)) {
+            const input = el as HTMLInputElement;
+            const name = input.name || '';
+            if (!name.startsWith('area_t_')) continue;
+            const v = Number(input.value);
+            if (Number.isFinite(v) && v > 0) roomAreas[name.slice('area_t_'.length)] = v;
+        }
 
         const program: ApartmentProgram = {
-            bedrooms: Math.max(0, Math.min(5, Math.round(numByName('bedrooms', 1)))),
-            bathrooms: Math.max(1, Math.min(3, Math.round(numByName('bathrooms', 1)))),
+            bedrooms: Math.max(0, Math.min(8, Math.round(numByName('bedrooms', 1)))),
+            bathrooms: Math.max(1, Math.min(4, Math.round(numByName('bathrooms', 1)))),
             masterEnSuite: boolByName('masterEnSuite'),
             openPlanKitchenDining: boolByName('openPlanKitchenDining'),
             livingRoom: boolByName('livingRoom'),
+            // §MODAL-PROGRAM-EDIT — Kitchen toggle (defaults on; the engine treats
+            // absent/true as "include a kitchen", false as "no kitchen").
+            includeKitchen: boolByName('includeKitchen', true),
             entranceHall: false,
+            ...(Object.keys(roomAreas).length > 0
+                ? { roomAreas: roomAreas as ApartmentProgram['roomAreas'] }
+                : {}),
         };
         const weights: ScoringWeights = {
             naturalLight: weightByName('naturalLight', 0.5),

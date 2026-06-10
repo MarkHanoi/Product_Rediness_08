@@ -22,7 +22,7 @@
 import type { BubbleGraph } from './bubbleGraph.js';
 import type { Pt, Rect } from './rectDecomposition.js';
 import type { RoomPlacement } from './subdivide.js';
-import { doorAllowedBetween, isCirculation, isOpenPlanEligible, maxDoorsFor, minDoorWidthBetween, roomRule } from '../rules/programRules.js';
+import { doorAllowedBetween, ENSUITE_HOST_EXTRA_DOORS, isCirculation, isOpenPlanEligible, maxDoorsFor, minDoorWidthBetween, roomRule } from '../rules/programRules.js';
 
 export interface WallSeg {
     readonly id: string;
@@ -746,6 +746,55 @@ export function buildWallsAndDoors(
     let oid = 0;
     let compromises = 0;
 
+    // §BEDROOM-ENSUITE-2DOOR (founder rule, 2026-06-10) — per-INSTANCE ensuite
+    // pairing. The bubble graph stamps `ensuiteHostId` on each ensuite with the
+    // id of the bedroom/master that hosts it. We build the symmetric pair set so
+    // the door pipeline can, for THAT specific pair only: (a) PERMIT the
+    // ensuite↔host door even when the host's type rule wouldn't (a non-master
+    // bedroom's `accessFrom` excludes ensuite by design), and (b) grant the HOST
+    // ONE extra door slot (corridor door + ensuite door = 2). Every other bedroom
+    // keeps `maxDoors = 1` and an ensuite never opens onto a shared bathroom or an
+    // un-paired bedroom — the global type rules are untouched. The master host is
+    // byte-identical: its type rule already permits the door + a 2-door cap, so
+    // both overrides below are no-ops for it (ADR-0061).
+    const ensuiteHostPairKeys = new Set<string>();   // pairKey(ensuiteId, hostId)
+    const ensuiteHostBonus = new Map<string, number>();  // hostId → extra door slots
+    for (const r of graph.rooms) {
+        if (r.type !== 'ensuite' || !r.ensuiteHostId) continue;
+        // The host must be a real bedroom/master in this layout (a stale id is ignored).
+        const hostType = typeOf.get(r.ensuiteHostId);
+        if (hostType !== 'bedroom' && hostType !== 'master') continue;
+        ensuiteHostPairKeys.add(pairKey(r.id, r.ensuiteHostId));
+        // The CAP bonus is granted ONLY to a NON-master host: the `master` type rule
+        // already encodes `maxDoors = 2` (corridor + ensuite), so bumping it would let
+        // the master earn a SPURIOUS 3rd door (master↔living/dining) — a behaviour
+        // change. Keeping the master strictly byte-identical (ADR-0061), the extra slot
+        // is for a `bedroom` host whose type cap is 1 → 2. The pair PERMISSION above is
+        // still set for both (a no-op for the master, which already permits the pair).
+        if (hostType === 'bedroom') {
+            ensuiteHostBonus.set(
+                r.ensuiteHostId, (ensuiteHostBonus.get(r.ensuiteHostId) ?? 0) + ENSUITE_HOST_EXTRA_DOORS,
+            );
+        }
+    }
+    const isEnsuiteHostPair = (a: string, b: string): boolean =>
+        ensuiteHostPairKeys.has(pairKey(a, b));
+
+    // §DIAG-BEDROOM-ENSUITE-2DOOR — one line naming each ensuite-hosting bedroom,
+    // its host id + type, and the host's effective door cap (type cap + ensuite
+    // bonus). For the apartment this is the master (cap was already 2, bonus a
+    // no-op); a non-master host shows cap 1+1=2 — the founder's "corridor + ensuite"
+    // arrangement. Logging only; no behaviour change.
+    for (const r of graph.rooms) {
+        if (r.type !== 'ensuite' || !r.ensuiteHostId) continue;
+        const hostType = typeOf.get(r.ensuiteHostId) ?? '?';
+        const paired = isEnsuiteHostPair(r.id, r.ensuiteHostId);
+        console.log(
+            `[D-TGL] §DIAG-BEDROOM-ENSUITE-2DOOR ensuite=${r.id} host=${r.ensuiteHostId}(${hostType}) ` +
+            `paired=${paired} hostEffectiveMaxDoors=${maxDoorsFor(hostType) + (ensuiteHostBonus.get(r.ensuiteHostId) ?? 0)}`,
+        );
+    }
+
     // §DOOR-CLEAR-OFFSET (2026-05-28): a door's footprint along its host wall must
     // NOT contain a perpendicular wall's endpoint — otherwise that perpendicular
     // wall visibly slices the door cavity (architect's main-entrance screenshot:
@@ -859,9 +908,18 @@ export function buildWallsAndDoors(
         doorCount.set(b, (doorCount.get(b) ?? 0) + 1);
         return true;
     };
-    const underCap = (id: string): boolean => (doorCount.get(id) ?? 0) < maxDoorsFor(typeOf.get(id) ?? '');
+    // §BEDROOM-ENSUITE-2DOOR — the effective door cap is the type cap PLUS any
+    // per-instance ensuite-host bonus (only a bedroom that hosts its own ensuite
+    // earns it; the master's type cap is already 2 so its bonus is irrelevant).
+    const effectiveMaxDoors = (id: string): number =>
+        maxDoorsFor(typeOf.get(id) ?? '') + (ensuiteHostBonus.get(id) ?? 0);
+    const underCap = (id: string): boolean => (doorCount.get(id) ?? 0) < effectiveMaxDoors(id);
+    // §BEDROOM-ENSUITE-2DOOR — a door is permitted when the type rule allows it OR
+    // when this is the specific ensuite↔host pair the bubble graph minted. This is
+    // the ONLY relaxation of the access matrix, and it is per-instance: an ensuite
+    // can still never open onto a shared bathroom or an un-paired bedroom.
     const permitted = (a: string, b: string): boolean =>
-        doorAllowedBetween(typeOf.get(a) ?? '', typeOf.get(b) ?? '');
+        doorAllowedBetween(typeOf.get(a) ?? '', typeOf.get(b) ?? '') || isEnsuiteHostPair(a, b);
 
     // Connectivity DSU (rooms connected via open thresholds + placed doors).
     const cRoot = new Map<string, string>(graph.rooms.map(r => [r.id, r.id]));
@@ -1209,7 +1267,10 @@ export function buildWallsAndDoors(
         const [a, b] = o.betweenRoomIds as readonly [string, string?];
         if (!a || !b) continue;
         const ta = typeOf.get(a) ?? '?', tb = typeOf.get(b) ?? '?';
-        const ok = doorAllowedBetween(ta, tb);
+        // §BEDROOM-ENSUITE-2DOOR — the per-instance ensuite↔host pair is legal even
+        // when the host's type rule wouldn't permit it (a non-master bedroom), so it
+        // is NOT a permission violation.
+        const ok = doorAllowedBetween(ta, tb) || isEnsuiteHostPair(a, b);
         if (!ok) permissionViolations++;
         doorPartners.get(a)?.push({ other: b, ok });
         doorPartners.get(b)?.push({ other: a, ok });

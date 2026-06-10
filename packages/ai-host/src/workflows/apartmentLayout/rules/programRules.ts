@@ -746,6 +746,44 @@ export function maxDoorsFor(type: RoomType | string): number {
     return roomRule(type).maxDoors;
 }
 
+// ─── §BEDROOM-ENSUITE-2DOOR (founder rule, 2026-06-10) ───────────────────────
+//
+// Founder rule (verbatim): "All bedrooms are meant to be connected ONLY by a
+// corridor with other spaces — UNLESS it has a connection with a bathroom
+// directly — in which case it will have 2 doors — one with a corridor and
+// another with a bathroom."
+//
+// Architecturally: a bedroom normally has EXACTLY ONE door (to the corridor).
+// A bedroom that has its OWN private/adjacent bathroom (an ENSUITE) is allowed a
+// SECOND door directly into that ensuite — so it has 2 doors: corridor + ensuite.
+// The MASTER already encodes this at the TYPE level (`master.accessFrom`
+// includes 'ensuite', `master.maxDoors = 2`); the rest of the bedrooms keep
+// `bedroom.maxDoors = 1` and an `ensuite.accessFrom = ['master']` that excludes
+// 'bedroom'. That is DELIBERATE — raising those GLOBAL rules would let ANY
+// bedroom get a 2nd door (over-cap abuse: two corridor doors, bedroom↔living +
+// bedroom↔corridor) and let an ensuite open off ANY adjacent bedroom (not just
+// its paired one) — reintroducing the bedroom-through-bedroom / shared-ensuite
+// anti-patterns the type rules guard against.
+//
+// So the generalisation to a NON-master bedroom-with-ensuite is encoded PER
+// INSTANCE, NOT as a global rule change: when the bubble graph PAIRS an ensuite
+// to a specific bedroom, it stamps that bedroom's id on the ensuite's
+// `ProgramRoom.ensuiteHostId`. `buildWallsAndDoors` then, for THAT specific pair
+// only: (a) permits the ensuite↔host door (even though the bedroom type rule
+// wouldn't), and (b) grants the host bedroom ONE extra door slot (the corridor
+// door stays mandatory — the ensuite is the EXTRA, never a replacement). Every
+// OTHER bedroom stays at `maxDoors = 1` and an ensuite never opens onto a SHARED
+// `bathroom` (only its OWN paired room). The master path is byte-identical
+// because the type rule already grants the master both the permission and the
+// cap, so the per-instance override is a no-op there (ADR-0061).
+
+/** §BEDROOM-ENSUITE-2DOOR — the extra door slot a bedroom earns by HOSTING its
+ *  own ensuite (on top of the type's `maxDoors`). Exactly one: the corridor door
+ *  (type cap) + the ensuite door. The master's type rule already bakes this in
+ *  (`master.maxDoors = 2`), so this is only consumed for a non-master bedroom
+ *  that the bubble graph paired with an ensuite. */
+export const ENSUITE_HOST_EXTRA_DOORS = 1;
+
 /**
  * §ADJACENCY-PREFERENCE (2026-05-29, queue #6) — soft preference weight in
  * [0,1] for an adjacency between two room types. Returns the MAX of either

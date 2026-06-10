@@ -181,6 +181,25 @@ export class HouseLayoutController {
             // change what the PREVIEW shows.
             const best = variants.slice(0, 1);
             console.log('[house-layout] controller: computed', variants.length, 'house variant(s) — opening modal with the single best');
+            // §MODAL-FILL (2026-06-10, founder #1 modal ask) — seed the program-edit
+            // form with the program the engine ACTUALLY built to fill the plate, not
+            // the (often sparse) captured brief. The engine grows each storey's
+            // programme internally (enrichStoreyProgramToPlate / scaleProgramToShell,
+            // §HOUSE-PLATE-PROGRAM-FLOOR), so a 1-bedroom brief on a big plate becomes
+            // a multi-bedroom house — but the FORM used to show "1 bedroom", making the
+            // grown rooms look unexplained + leaving the user unsure how to add more.
+            // We count the bedrooms/bathrooms in the best computed variant (across all
+            // its storeys) and seed the form with max(brief, resolved). The form is
+            // thus a faithful, editable mirror of the filled plate from the first open.
+            const resolved = this._resolvedProgramFor(variants[0], req.program);
+            // Cache the seeded program so a later `Use this layout` (with no edits)
+            // builds exactly what the seeded form + preview show.
+            if (this._regen) this._regen.program = resolved;
+            console.log(
+                '[house-layout] §MODAL-FILL seed: brief beds/baths',
+                req.program.bedrooms, '/', req.program.bathrooms,
+                '→ plate-filled', resolved.bedrooms, '/', resolved.bathrooms,
+            );
             this.modal.show(
                 best,
                 {
@@ -196,8 +215,8 @@ export class HouseLayoutController {
                     // cached state; `_computeVariants` merges the C52 override stash.
                     onGraphEdit: () => this._regenerateCurrent(),
                 },
-                // Initial form values mirror the request brief.
-                { storeyCount, program: req.program, weights: req.weights },
+                // §MODAL-FILL — initial form mirrors the PLATE-FILLED program.
+                { storeyCount, program: resolved, weights: req.weights },
             );
             return { ok: true, optionCount: variants.length };
         } catch (err) {
@@ -238,6 +257,42 @@ export class HouseLayoutController {
             },
             HOUSE_OPTION_COUNT,
         );
+    }
+
+    /**
+     * §MODAL-FILL (2026-06-10) — derive the program the engine actually BUILT to
+     * fill the plate, by counting the bedroom + bathroom rooms across every storey
+     * of the best computed variant. Returns `brief` with `bedrooms`/`bathrooms`
+     * RAISED (never lowered) to those resolved counts, so the modal's program form
+     * opens already reflecting the filled plate. No engine import (the density sizer
+     * `scaleProgramToShell` is not on the ai-host barrel and ai-host is off-limits);
+     * counting the produced rooms is the truest "what fills the plate" and is pure.
+     * Bedrooms/bathrooms are summed across storeys because the whole-house brief is
+     * the user's whole-house total (the orchestrator allocates it across storeys).
+     */
+    private _resolvedProgramFor(
+        variant: ScoredHouseLayoutOption | undefined,
+        brief: ApartmentProgram,
+    ): ApartmentProgram {
+        if (!variant) return brief;
+        const perStorey = variant.result?.perStoreyLayout ?? [];
+        let beds = 0, baths = 0;
+        for (const opt of perStorey) {
+            for (const r of opt?.rooms ?? []) {
+                const t = (r.type || '').toLowerCase();
+                const occ = ((r as { occupancy?: string }).occupancy || '').toLowerCase();
+                if (t.includes('bed') || t === 'master' || occ.includes('bed')) beds++;
+                else if (t.includes('bath') || t === 'ensuite' || t === 'wc' || occ.includes('bath')) baths++;
+            }
+        }
+        // Raise — never lower — the brief counts to what the plate produced. Clamp to
+        // the form's representable ranges (beds ≤ 8, baths ≤ 4) so the seeded value is
+        // valid in the number inputs.
+        return {
+            ...brief,
+            bedrooms: Math.min(8, Math.max(brief.bedrooms, beds)),
+            bathrooms: Math.min(4, Math.max(brief.bathrooms, baths)),
+        };
     }
 
     /** §LIVE-MODAL.D — return `program` with the C52 area/type override stashes

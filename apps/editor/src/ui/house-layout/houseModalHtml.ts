@@ -18,7 +18,7 @@
 // builder — `buildLayoutThumbnailSvg`).
 
 import type { HouseCardModel } from './houseCardModel.js';
-import type { ApartmentProgram, ScoringWeights, LayoutOption } from '@pryzm/ai-host';
+import type { ApartmentProgram, ScoringWeights, LayoutOption, RoomType } from '@pryzm/ai-host';
 import { buildOccupancyLegendHtml } from '../apartment-layout/layoutModalHtml.js';
 
 /** Local pure HTML escape (recognised by the xss-guards gate as a safe guard). */
@@ -65,6 +65,39 @@ const WEIGHT_SLIDERS: ReadonlyArray<{ key: keyof ScoringWeights; label: string }
     { key: 'corridorEfficiency',  label: 'Compactness' },
 ];
 
+/**
+ * §MODAL-PROGRAM-EDIT (2026-06-10, founder #1 modal ask) — per-RoomType ABSOLUTE
+ * size override (m²) for a house, mirroring the apartment modal's `§ROOM-AREAS`
+ * row. Each input feeds `program.roomAreas[<type>]` (the C52 engine hook — the
+ * bubble graph reads `roomAreas[r.type]` as the room's target area, clamped to the
+ * type's architectural minimum). Input `name="area_t_<RoomType>"` so the modal
+ * controller's form reader collects them by prefix without a side map. Blank =
+ * engine default (auto). This is the founder's "increase/decrease the size of each
+ * room" control as a discoverable stepper row (the per-INSTANCE graph-node editor
+ * — §LIVE-MODAL.D — remains for fine-grained per-room overrides). */
+const AREA_FIELDS: ReadonlyArray<{ type: RoomType; label: string }> = [
+    { type: 'living',   label: 'Living' },
+    { type: 'kitchen',  label: 'Kitchen' },
+    { type: 'dining',   label: 'Dining' },
+    { type: 'bedroom',  label: 'Bedroom' },
+    { type: 'master',   label: 'Master' },
+    { type: 'bathroom', label: 'Bath' },
+];
+
+function areaInputsHtml(program: ApartmentProgram): string {
+    const overrides = program.roomAreas ?? {};
+    return AREA_FIELDS.map(f => {
+        const cur = (overrides as Record<string, number>)[f.type];
+        const value = (typeof cur === 'number' && Number.isFinite(cur) && cur > 0)
+            ? cur.toString() : '';
+        return (
+            `<label class="alm-program-area"><span>${escHtml(f.label)}</span>` +
+            `<input type="number" name="area_t_${escHtml(f.type)}" min="0" step="0.5" value="${escHtml(value)}" placeholder="auto">` +
+            `<span class="alm-program-area-unit">m²</span></label>`
+        );
+    }).join('');
+}
+
 function weightSlidersHtml(weights: ScoringWeights): string {
     return WEIGHT_SLIDERS.map(s => {
         const raw = Number(weights[s.key]);
@@ -79,28 +112,40 @@ function weightSlidersHtml(weights: ScoringWeights): string {
 
 export function buildHouseProgramEditFormHtml(state: HouseProgramFormState): string {
     const storeys = Math.max(1, Math.min(3, Math.round(state.storeyCount)));
-    const bedrooms = Math.max(0, Math.min(5, Math.round(state.program.bedrooms)));
-    const bathrooms = Math.max(1, Math.min(3, Math.round(state.program.bathrooms)));
+    // §MODAL-FILL (2026-06-10) — the bedroom range tops out at 8 (the engine's
+    // MAX_BEDROOMS_HOUSE_STOREY) so the seeded plate-filling count is representable
+    // and the user can dial a generous whole-house programme up to what the plate
+    // actually holds (was capped at 5, which silently truncated a large plate's
+    // resolved count).
+    const bedrooms = Math.max(0, Math.min(8, Math.round(state.program.bedrooms)));
+    const bathrooms = Math.max(1, Math.min(4, Math.round(state.program.bathrooms)));
     const chk = (b: boolean): string => b ? ' checked' : '';
+    const includeKitchen = state.program.includeKitchen !== false;
     return (
         '<form class="alm-program hlm-program" autocomplete="off" data-role="program">' +
         '<div class="alm-program-row">' +
         `<label class="alm-program-num"><span>Floors</span>` +
         `<input type="number" name="storeys" min="1" max="3" step="1" value="${storeys}"></label>` +
         `<label class="alm-program-num"><span>Bedrooms</span>` +
-        `<input type="number" name="bedrooms" min="0" max="5" step="1" value="${bedrooms}"></label>` +
+        `<input type="number" name="bedrooms" min="0" max="8" step="1" value="${bedrooms}"></label>` +
         `<label class="alm-program-num"><span>Bathrooms</span>` +
-        `<input type="number" name="bathrooms" min="1" max="3" step="1" value="${bathrooms}"></label>` +
+        `<input type="number" name="bathrooms" min="1" max="4" step="1" value="${bathrooms}"></label>` +
         '</div>' +
         '<div class="alm-program-row alm-program-checks">' +
         `<label class="alm-program-chk"><input type="checkbox" name="livingRoom"${chk(state.program.livingRoom)}> Living room</label>` +
+        `<label class="alm-program-chk"><input type="checkbox" name="includeKitchen"${chk(includeKitchen)}> Kitchen</label>` +
         `<label class="alm-program-chk"><input type="checkbox" name="openPlanKitchenDining"${chk(state.program.openPlanKitchenDining)}> Open-plan kitchen + dining</label>` +
         `<label class="alm-program-chk"><input type="checkbox" name="masterEnSuite"${chk(state.program.masterEnSuite)}> Master en-suite</label>` +
+        '</div>' +
+        // §MODAL-PROGRAM-EDIT — per-room-type size (m²) row. Blank = auto. This is
+        // the founder's "increase / decrease the space of each room" control.
+        '<div class="alm-program-row alm-program-areas">' +
+        areaInputsHtml(state.program) +
         '</div>' +
         '<div class="alm-program-row alm-program-sliders">' +
         weightSlidersHtml(state.weights) +
         '</div>' +
-        '<div class="alm-program-hint" data-role="program-hint">Edit any field — the house layouts regenerate automatically.</div>' +
+        '<div class="alm-program-hint" data-role="program-hint">Add rooms or set a room size (m²) — leave size blank for auto. The house layouts regenerate automatically.</div>' +
         '</form>'
     );
 }

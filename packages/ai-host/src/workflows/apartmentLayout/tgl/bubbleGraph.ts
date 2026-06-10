@@ -22,6 +22,20 @@ export interface ProgramRoom {
     readonly targetAreaM2: number;
     readonly isPrivate: boolean;    // off the corridor (bedrooms, baths, ensuite)
     readonly needsWindow: boolean;  // §8 V2 habitable rooms
+    /**
+     * §BEDROOM-ENSUITE-2DOOR (founder rule, 2026-06-10) — set ONLY on an
+     * `ensuite` room: the id of the bedroom/master this ensuite is PAIRED to.
+     * This per-INSTANCE pairing is what lets `buildWallsAndDoors` permit the
+     * ensuite↔host door AND grant the host bedroom its extra (ensuite) door
+     * slot WITHOUT a global rule change — so only the paired bedroom may open
+     * onto its own ensuite, and every other bedroom stays single-door. Absent
+     * on every other room type and on an ensuite with no resolved host (the
+     * door pipeline then falls back to the type rule — master-only). The
+     * apartment's lone ensuite always pairs with the master, where the type
+     * rule already permits the door + 2-door cap, so this is byte-identical
+     * there (ADR-0061).
+     */
+    readonly ensuiteHostId?: string;
 }
 
 export interface AdjacencyEdge {
@@ -281,6 +295,17 @@ export function buildBubbleGraph(
         bedIds.push(push(isMaster ? 'master' : 'bedroom', isMaster ? 'Master Bedroom' : `Bedroom ${i + (program.masterEnSuite ? 0 : 1)}`, true));
     }
     const ensuiteId = program.masterEnSuite && beds > 0 ? push('ensuite', 'En-suite', true) : null;
+    // §BEDROOM-ENSUITE-2DOOR (founder rule, 2026-06-10) — PAIR the ensuite to the
+    // bedroom that hosts it (today always bed[0] = the master, but the per-instance
+    // pairing generalises to any host bedroom). Stamping `ensuiteHostId` is what lets
+    // wallsAndDoors permit the ensuite↔host door + grant the host its extra door slot
+    // WITHOUT a global rule change (so no OTHER bedroom can door onto an ensuite). The
+    // master host is byte-identical (its type rule already permits both); the field is
+    // additive metadata only. The ensuite room is rebuilt with the host id in place.
+    if (ensuiteId && bedIds[0]) {
+        const ei = rooms.findIndex(r => r.id === ensuiteId);
+        if (ei >= 0) rooms[ei] = { ...rooms[ei]!, ensuiteHostId: bedIds[0] };
+    }
     for (let i = 0; i < baths; i++) push('bathroom', baths > 1 ? `Bathroom ${i + 1}` : 'Bathroom', true);
 
     // §ROOM-TYPES-BY-NAME (A.26.4, ADR-0061 / C52) — per-INSTANCE TYPE override
