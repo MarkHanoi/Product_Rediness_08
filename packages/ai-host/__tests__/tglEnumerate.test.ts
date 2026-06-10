@@ -124,6 +124,83 @@ describe('enumerateLayouts (TGL P8)', () => {
         }
     });
 
+    // §STAIR-SHELL-CLAMP (v102 regression cure, 2026-06-10) — the house stair keep-out
+    // mints a named `stair` room (§STAIR-ROOM-TYPE) inflated by KEEPOUT_MARGIN_M. When the
+    // keep-out ABUTS the perimeter (the GROUND-floor stair against the bottom façade in the
+    // founder v101 screenshot), the inflation pushed the stair rect 0.05 m OUTSIDE the shell
+    // → a wall stub beyond the façade + EXTRA seal walls (the §DIAG-LEVELS ground-only
+    // "EXTRA 4"). The fix clamps the inflated rect to the shell bbox.
+    describe('§STAIR-SHELL-CLAMP — perimeter-abutting stair keep-out', () => {
+        // 14×10 = 140 m² shell so a 3-bed house program fits cleanly.
+        const SHELL14: Pt[] = [{ x: 0, z: 0 }, { x: 14, z: 0 }, { x: 14, z: 10 }, { x: 0, z: 10 }];
+        const HOUSE_PROGRAM: ApartmentProgram = {
+            bedrooms: 3, bathrooms: 2, masterEnSuite: true,
+            openPlanKitchenDining: true, livingRoom: true, entranceHall: true,
+        };
+        const houseInput = (keepOut: ReadonlyArray<{ x0: number; z0: number; x1: number; z1: number }>): EnumerateInput =>
+            input({ shellPolygon: SHELL14, program: HOUSE_PROGRAM, count: 4, keepOutRects: keepOut });
+        // The shell bbox + a tolerance: a wall body strictly beyond this is OUTSIDE the façade.
+        const BBOX = { x0: 0, z0: 0, x1: 14, z1: 10 };
+        const OUT_TOL = 1e-3;   // 1 mm — the clamp lands ON the perimeter, never past it.
+        const wallsOf = (c: TglCandidate) => c.graph.nodes.filter(n => n.kind === 'Wall');
+        const hasStairRoom = (c: TglCandidate): boolean =>
+            c.graph.nodes.some(n => n.kind === 'Space' && /stair/i.test(String(n.attrs?.name ?? '') + String(n.attrs?.spaceType ?? '')));
+        const anyWallOutsideShell = (c: TglCandidate): boolean => {
+            for (const w of wallsOf(c)) {
+                const bl = w.geometry?.baseLine;
+                if (!bl) continue;
+                for (const p of bl) {
+                    if (p.x < BBOX.x0 - OUT_TOL || p.x > BBOX.x1 + OUT_TOL ||
+                        p.z < BBOX.z0 - OUT_TOL || p.z > BBOX.z1 + OUT_TOL) return true;
+                }
+            }
+            return false;
+        };
+
+        it('a stair keep-out ABUTTING the perimeter mints a stair room but emits NO wall outside the shell', () => {
+            // Keep-out flush with the bottom façade (z0 = 0). Pre-fix the inflated stair
+            // rect reached z = -0.05 → a wall beyond the façade.
+            const out = enumerateLayouts(houseInput([{ x0: 5, z0: 0, x1: 8, z1: 3 }]));
+            expect(out.length).toBeGreaterThan(0);
+            const best = out[0]!;
+            expect(hasStairRoom(best), 'the stair room must still be minted (§STAIR-ROOM-TYPE preserved)').toBe(true);
+            for (const c of out) {
+                expect(anyWallOutsideShell(c), 'no wall may sit outside the shell perimeter').toBe(false);
+            }
+        });
+
+        it('a CORNER keep-out (two perimeter edges) still emits NO out-of-shell wall', () => {
+            // Bottom-left corner: x0=0 AND z0=0 both abut the perimeter → both inflated
+            // edges would protrude pre-fix.
+            const out = enumerateLayouts(houseInput([{ x0: 0, z0: 0, x1: 3, z1: 3 }]));
+            expect(out.length).toBeGreaterThan(0);
+            for (const c of out) {
+                expect(anyWallOutsideShell(c)).toBe(false);
+            }
+        });
+
+        it('a FULLY-INTERIOR keep-out still mints the stair room with its own partition walls', () => {
+            const out = enumerateLayouts(houseInput([{ x0: 5.5, z0: 4, x1: 8.5, z1: 7 }]));
+            expect(out.length).toBeGreaterThan(0);
+            expect(hasStairRoom(out[0]!), 'interior stair room is minted').toBe(true);
+            for (const c of out) {
+                expect(anyWallOutsideShell(c)).toBe(false);
+            }
+        });
+
+        it('determinism preserved with a keep-out (ADR-0061) — two runs byte-identical', () => {
+            const ko = [{ x0: 5, z0: 0, x1: 8, z1: 3 }];
+            expect(JSON.stringify(enumerateLayouts(houseInput(ko))))
+                .toEqual(JSON.stringify(enumerateLayouts(houseInput(ko))));
+        });
+
+        it('apartment path (NO keep-out) is unaffected — no stair room, no out-of-shell wall', () => {
+            const out = enumerateLayouts(input({ shellPolygon: SHELL14, program: HOUSE_PROGRAM, count: 4 }));
+            expect(out.length).toBeGreaterThan(0);
+            expect(hasStairRoom(out[0]!)).toBe(false);
+        });
+    });
+
     it('completes a 12-room program in well under 2 s', () => {
         const big: ApartmentProgram = { bedrooms: 4, bathrooms: 2, masterEnSuite: true, openPlanKitchenDining: true, livingRoom: true, entranceHall: true };
         const start = performance.now();

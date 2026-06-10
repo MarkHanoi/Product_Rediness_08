@@ -391,11 +391,29 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
             // Fill that SAME inflated region with the stair rect so the stair is FLUSH
             // with the cleared rooms — its faces are then coincident with the adjacent
             // room/corridor faces, so `buildWallsAndDoors` shares a wall + the reconcile
-            // pass can place the stair↔circulation door. (Clamping to the shell happens
-            // downstream via §EXTEND-TO-PERIMETER for one-sided walls.)
+            // pass can place the stair↔circulation door.
+            //
+            // §STAIR-SHELL-CLAMP (v102 regression cure, 2026-06-10) — the inflation must
+            // NEVER push the stair rect past the shell perimeter. When a keep-out ABUTS the
+            // façade (the GROUND-floor stair against the bottom wall in the founder v101
+            // screenshot), `ko ± KEEPOUT_MARGIN_M` puts the stair's outer edge 0.05 m OUTSIDE
+            // the shell → that one-sided edge becomes a wall stub BEYOND the façade (the
+            // purple wall the founder saw) AND the inflated interior edges no longer coincide
+            // with a neighbour room face, so they emit EXTRA seal walls (the ground-only
+            // "EXTRA 4" the §DIAG-LEVELS log reported). CLAMP the inflated rect back into the
+            // shell bounding box: the un-inflated keep-out is guaranteed fully inside the
+            // shell (the orchestrator's R3 `keepOutInShell === 4` gate), so an edge clamped to
+            // the bbox lies ON the perimeter (→ §FRACTURE-SEAL classifies it EXTERNAL → the
+            // executor's pre-drawn shell already bounds the stair, no duplicate wall) and a
+            // fully-interior edge is unchanged (the inflation is preserved, still flush with
+            // the cleared rooms). On an interior keep-out (no façade contact) the clamp is a
+            // no-op → byte-identical (ADR-0061). `bb` is the shell-polygon bbox in this
+            // (world) frame, computed once above.
             const rect: Rect = {
-                x0: ko.x0 - KEEPOUT_MARGIN_M, z0: ko.z0 - KEEPOUT_MARGIN_M,
-                x1: ko.x1 + KEEPOUT_MARGIN_M, z1: ko.z1 + KEEPOUT_MARGIN_M,
+                x0: Math.max(ko.x0 - KEEPOUT_MARGIN_M, bb.x0),
+                z0: Math.max(ko.z0 - KEEPOUT_MARGIN_M, bb.z0),
+                x1: Math.min(ko.x1 + KEEPOUT_MARGIN_M, bb.x1),
+                z1: Math.min(ko.z1 + KEEPOUT_MARGIN_M, bb.z1),
             };
             // Skip a degenerate keep-out (sub-mm) — nothing to model.
             if (rect.x1 - rect.x0 < 1e-3 || rect.z1 - rect.z0 < 1e-3) return;
