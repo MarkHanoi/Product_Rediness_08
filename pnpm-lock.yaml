@@ -954,6 +954,9 @@ importers:
       '@pryzm/geospatial':
         specifier: workspace:*
         version: link:../../packages/geospatial
+      '@pryzm/keyboard-registry':
+        specifier: workspace:*
+        version: link:../../packages/keyboard-registry
       '@pryzm/persistence-client':
         specifier: workspace:*
         version: link:../../packages/persistence-client

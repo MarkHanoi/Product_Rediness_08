@@ -78,7 +78,7 @@ When Phase A is GA-complete a user will:
 | 6.9 | 2D ↔ 3D view toggle | View toolbar / `3` key | (existing) | ✅ DONE | 3 key → 3D camera |
 | 6.10 | Split-view (plan + 3D simultaneously) | View menu / Ctrl-\ | (existing) | ✅ DONE | Toggle split → plan left, 3D right |
 | **7. Keyboard surface (accessibility)** |
-| 7.1 | View all keyboard shortcuts (`?` cheat-sheet) | `?` overlay | A.33.a (L2) + A.33.b (L5 PLANNED) | 🟢 IN PROGRESS | Shift-/ opens overlay — registry shipped (35 shortcuts in 7 categories); L5 UI PLANNED |
+| 7.1 | View all keyboard shortcuts (`?` cheat-sheet) | `?` overlay | A.33.a (L2) + A.33.b (L5) | ✅ DONE | Press `?` (Shift-/) anywhere → overlay lists all 35 shortcuts in 7 categories, rendered live from `@pryzm/keyboard-registry` (no drift), platform-aware (⌘ on macOS / Ctrl on Win-Linux), experimental rows muted |
 | 7.2 | Shortcuts render platform-aware | Cheat-sheet | A.33.a | ✅ DONE | macOS: ⌘ S · Windows/Linux: Ctrl+S |
 | 7.3 | Every tool has a keyboard shortcut | Every tool | A.33 (CI guard PLANNED) | 🟢 IN PROGRESS | Registry + CI guard `check-keyboard-coverage.ts` |
 | 7.4 | WCAG 2.2 AA contrast on every surface | All UI | A.32.α (static gate DONE) + A.32.β (Playwright dynamic gate PLANNED) + A.34.a + A.34.b (token registry DONE) | 🟢 IN PROGRESS | `pnpm run check:a11y-contrast` runs the static audit (17 pairs, 0 failing); E2E axe-core gate still pending |

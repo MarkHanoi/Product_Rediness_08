@@ -1,15 +1,15 @@
 /**
- * ShortcutCheatSheet — global keyboard shortcut reference overlay.
+ * ShortcutCheatSheet — global keyboard shortcut reference overlay (A.33.b).
  *
  * Toggled by pressing `?` (Shift+/) anywhere in the app, except inside text
- * inputs / textareas. Renders a centered modal listing every shortcut from:
+ * inputs / textareas. Renders a centered modal listing every shortcut.
  *
- *   • Element creation layer (Alt+letter) — see
- *     docs/00_AI_COMMANDS_REFERENCE/PRYZM-CREATION-SHORTCUTS.md
- *   • Contextual edit layer (single letter when an element is selected) —
- *     see docs/02-decisions/contracts/11-KEYBOARD-SHORTCUTS-CONTRACT.md
- *   • Global layer (Ctrl+Z, Escape, etc.)
- *   • Visibility layer (H / I / G with selection)
+ * §A.33.b (2026-06-10) — the overlay now renders from the canonical
+ * `@pryzm/keyboard-registry` (A.33.a) via `buildCheatSheetData(platform)`,
+ * NOT a hand-curated list. This makes it (a) the single source of truth (the
+ * cheat sheet can never drift from the live registry / CI guard) and (b)
+ * platform-aware (`⌘ S` on macOS per Apple HIG, `Ctrl+S` on Windows/Linux per
+ * the MS style guide). Experimental shortcuts render muted (per C43 §1.3).
  *
  * The overlay is dismissed by `?`, `Escape`, or clicking the backdrop.
  *
@@ -18,109 +18,30 @@
  *   §05 §7.6 — All styling inline; no independent <style> injection.
  *   §11      — Reserved keys policy: `?` is a discoverable, modifier-free key
  *              that is only treated as a shortcut when no input is focused.
+ *   C43 §1.3 — cheat sheet sourced from the registry, never hand-curated.
  */
 
-interface ShortcutEntry {
-    keys:  string;
-    label: string;
+import {
+    buildCheatSheetData,
+    type CheatSheetData,
+    type CheatSheetSection,
+    type Platform,
+} from '@pryzm/keyboard-registry';
+
+/** Detect the active platform for combo glyph rendering. The registry's
+ *  formatter is pure (platform passed explicitly, no file-scope sniff); the
+ *  sniff lives here in the L5 component where the real environment is known. */
+function detectPlatform(): Platform {
+    const s = (typeof navigator !== 'undefined'
+        ? (navigator.platform || navigator.userAgent || '')
+        : '').toLowerCase();
+    if (s.includes('mac') || s.includes('iphone') || s.includes('ipad')) return 'mac';
+    if (s.includes('win')) return 'win';
+    return 'linux';
 }
 
-interface ShortcutSection {
-    heading: string;
-    note?:   string;
-    entries: ShortcutEntry[];
-}
-
-const SECTIONS: ShortcutSection[] = [
-    {
-        heading: 'Element Creation — Architecture',
-        note:    'Hold Alt + letter (works anywhere except text inputs).',
-        entries: [
-            { keys: 'Alt+W',        label: 'Wall' },
-            { keys: 'Alt+Q',        label: 'Curtain Wall' },
-            { keys: 'Alt+D',        label: 'Door' },
-            { keys: 'Alt+I',        label: 'Window' },
-            { keys: 'Alt+T',        label: 'Stair (I)' },
-            { keys: 'Alt+Shift+T',  label: 'Stair (L)' },
-            { keys: 'Alt+Ctrl+T',   label: 'Stair (U)' },
-            { keys: 'Alt+H',        label: 'Handrail' },
-            { keys: 'Alt+P',        label: 'Ramp' },
-            { keys: 'Alt+C',        label: 'Ceiling' },
-            { keys: 'Alt+Shift+C',  label: 'Auto Ceiling' },
-            { keys: 'Alt+F',        label: 'Floor' },
-            { keys: 'Alt+Shift+F',  label: 'Auto Floor' },
-            { keys: 'Alt+R',        label: 'Room' },
-            { keys: 'Alt+Shift+R',  label: 'Room (level auto-detect)' },
-            { keys: 'Alt+B',        label: 'Room Bounding line' },
-        ],
-    },
-    {
-        heading: 'Element Creation — Structure',
-        entries: [
-            { keys: 'Alt+K',        label: 'Column' },
-            { keys: 'Alt+E',        label: 'Beam' },
-            { keys: 'Alt+S',        label: 'Slab' },
-            { keys: 'Alt+O',        label: 'Roof (2-point)' },
-            { keys: 'Alt+Shift+O',  label: 'Roof (polyline)' },
-            { keys: 'Alt+Ctrl+O',   label: 'Roof (region)' },
-            { keys: 'Alt+N',        label: 'Slab Opening' },
-        ],
-    },
-    {
-        heading: 'Element Creation — Services',
-        entries: [
-            { keys: 'Alt+J',        label: 'Bath' },
-            { keys: 'Alt+L',        label: 'Toilet' },
-            { keys: 'Alt+Y',        label: 'Sink' },
-            { keys: 'Alt+G',        label: 'Shower' },
-        ],
-    },
-    {
-        heading: 'Edit — when an element is selected',
-        note:    'Single letter, no modifier.',
-        entries: [
-            { keys: 'M then V',   label: 'Move (two-key chord, plan view)' },
-            { keys: 'M',          label: 'Translate (3-D mode)' },
-            { keys: 'R',          label: 'Rotate' },
-            { keys: 'F',          label: 'Mirror' },
-            { keys: 'L',          label: 'Align' },
-            { keys: 'S',          label: 'Scale' },
-            { keys: 'O',          label: 'Offset / Parallel' },
-            { keys: 'J',          label: 'Join' },
-            { keys: 'X',          label: 'Cut / Trim' },
-            { keys: 'E',          label: 'Reference Edit' },
-            { keys: 'Del / ⌫',    label: 'Delete' },
-            { keys: 'Ctrl+C',     label: 'Copy' },
-            { keys: 'Ctrl+V',     label: 'Paste' },
-        ],
-    },
-    {
-        heading: 'View visibility — when an element is selected',
-        entries: [
-            { keys: 'H',          label: 'Hide selected in current view' },
-            { keys: 'I',          label: 'Isolate selected in current view' },
-            { keys: 'G',          label: 'Ghost selected in current view' },
-        ],
-    },
-    {
-        heading: 'Global',
-        entries: [
-            { keys: 'Ctrl+Z',         label: 'Undo' },
-            { keys: 'Ctrl+Y',         label: 'Redo' },
-            { keys: 'Ctrl+Shift+Z',   label: 'Redo (alternative)' },
-            { keys: 'Escape',         label: 'Cancel active tool' },
-            { keys: 'Space (hold)',   label: 'Pan camera (3-D mode)' },
-            { keys: 'Shift + drag',   label: 'Marquee multi-select (3-D)' },
-            { keys: 'F1 / F2 / F3',   label: 'Author / Data / Inspect mode' },
-            { keys: 'P',              label: 'Room point-pick' },
-            { keys: 'R',              label: 'Roof rectangle (no selection)' },
-            { keys: '?',              label: 'Open / close this cheat sheet' },
-        ],
-    },
-];
-
-let _overlayEl:    HTMLElement | null = null;
-let _installed                           = false;
+let _overlayEl: HTMLElement | null = null;
+let _installed = false;
 
 export function installShortcutCheatSheet(
     runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null = null /* B-runtime installShortcutCheatSheet */,
@@ -150,27 +71,31 @@ export function installShortcutCheatSheet(
 
 export function toggleShortcutCheatSheet(): void {
     if (_overlayEl) hideShortcutCheatSheet();
-    else            showShortcutCheatSheet();
+    else showShortcutCheatSheet();
 }
 
 export function showShortcutCheatSheet(): void {
     if (_overlayEl) return;
 
+    // §A.33.b — render the LIVE registry, platform-aware. Single source of truth.
+    const data: CheatSheetData = buildCheatSheetData(detectPlatform());
+
     const overlay = document.createElement('div');
     overlay.id = 'pryzm-shortcut-cheatsheet';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', 'Keyboard shortcuts');
     overlay.style.cssText = `
         position: fixed;
         inset: 0;
-        /* §PANEL-BACKDROP-UNIFY — shared scrim (was rgba(15,18,25,0.55)). */
-        background: var(--pryzm-panel-backdrop);
-        backdrop-filter: var(--pryzm-panel-backdrop-blur);
-        -webkit-backdrop-filter: var(--pryzm-panel-backdrop-blur);
+        background: var(--pryzm-panel-backdrop, rgba(15,18,25,0.55));
+        backdrop-filter: var(--pryzm-panel-backdrop-blur, blur(2px));
+        -webkit-backdrop-filter: var(--pryzm-panel-backdrop-blur, blur(2px));
         z-index: 9999;
         display: flex;
         align-items: center;
         justify-content: center;
         padding: 32px;
-        backdrop-filter: blur(2px);
     `;
     overlay.addEventListener('click', (e) => {
         if (e.target === overlay) hideShortcutCheatSheet();
@@ -215,7 +140,7 @@ export function showShortcutCheatSheet(): void {
         color: var(--app-text-muted, #888);
         margin-top: 2px;
     `;
-    subtitle.textContent = 'Press ? again or Escape to close.';
+    subtitle.textContent = `${data.totalShortcuts} shortcuts · press ? again or Escape to close.`;
 
     const titleWrap = document.createElement('div');
     titleWrap.appendChild(title);
@@ -250,7 +175,7 @@ export function showShortcutCheatSheet(): void {
         align-items: start;
     `;
 
-    for (const section of SECTIONS) {
+    for (const section of data.sections) {
         body.appendChild(buildSection(section));
     }
 
@@ -268,7 +193,7 @@ export function hideShortcutCheatSheet(): void {
     _overlayEl = null;
 }
 
-function buildSection(section: ShortcutSection): HTMLElement {
+function buildSection(section: CheatSheetSection): HTMLElement {
     const wrap = document.createElement('div');
     wrap.style.cssText = `
         display: flex;
@@ -288,30 +213,19 @@ function buildSection(section: ShortcutSection): HTMLElement {
         padding-bottom: 4px;
         margin-bottom: 4px;
     `;
-    h.textContent = section.heading;
+    h.textContent = section.displayName;
     wrap.appendChild(h);
 
-    if (section.note) {
-        const note = document.createElement('div');
-        note.style.cssText = `
-            font-size: 10px;
-            color: var(--app-text-muted, #888);
-            margin-bottom: 6px;
-            font-style: italic;
-        `;
-        note.textContent = section.note;
-        wrap.appendChild(note);
-    }
-
-    for (const e of section.entries) {
+    for (const r of section.rows) {
         const row = document.createElement('div');
         row.style.cssText = `
             display: grid;
-            grid-template-columns: 120px 1fr;
-            align-items: center;
+            grid-template-columns: 132px 1fr;
+            align-items: baseline;
             gap: 12px;
             padding: 4px 0;
             font-size: 12px;
+            opacity: ${r.experimental ? '0.55' : '1'};
         `;
 
         const k = document.createElement('span');
@@ -327,19 +241,37 @@ function buildSection(section: ShortcutSection): HTMLElement {
             letter-spacing: 0.02em;
             white-space: nowrap;
         `;
-        k.textContent = e.keys;
+        // Primary combo, plus any alias combos in parentheses.
+        k.textContent = r.aliasCombos.length > 0
+            ? `${r.primaryCombo}  ·  ${r.aliasCombos.join(' · ')}`
+            : r.primaryCombo;
+
+        const textWrap = document.createElement('span');
+        textWrap.style.cssText = `min-width: 0;`;
 
         const l = document.createElement('span');
         l.style.cssText = `
             color: var(--app-text, #1a1a1a);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            display: block;
+            font-weight: 500;
         `;
-        l.textContent = e.label;
+        l.textContent = r.experimental ? `${r.label} (experimental)` : r.label;
+        textWrap.appendChild(l);
+
+        if (r.description && r.description !== r.label) {
+            const d = document.createElement('span');
+            d.style.cssText = `
+                color: var(--app-text-muted, #888);
+                font-size: 10.5px;
+                display: block;
+                margin-top: 1px;
+            `;
+            d.textContent = r.description;
+            textWrap.appendChild(d);
+        }
 
         row.appendChild(k);
-        row.appendChild(l);
+        row.appendChild(textWrap);
         wrap.appendChild(row);
     }
 
