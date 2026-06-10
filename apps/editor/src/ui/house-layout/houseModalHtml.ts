@@ -260,14 +260,14 @@ export function buildHousePanesHtml(
         return '<div class="alm-empty">No valid house layouts were generated. Try a larger plot or a simpler programme.</div>';
     }
     const plans = card.storeys.map((s, i) =>
-        `<div class="hlm-pane-storey">` +
+        `<div class="hlm-pane-storey" data-storey-index="${i}">` +
         `<div class="hlm-pane-storey-label">${escHtml(s.label)}</div>` +
         `<div class="hlm-pane-plan">${storeyThumbs[i] ?? ''}</div>` +
         `<div class="hlm-pane-storey-stats">${s.totalAreaM2} m² · score ${s.score}</div>` +
         `</div>`,
     ).join('');
     const graphs = card.storeys.map((s, i) =>
-        `<div class="hlm-pane-storey">` +
+        `<div class="hlm-pane-storey" data-storey-index="${i}">` +
         `<div class="hlm-pane-storey-label">${escHtml(s.label)}</div>` +
         `<div class="hlm-pane-graph">${storeyGraphs[i] ?? '<div class="hlm-pane-graph-empty">—</div>'}</div>` +
         `</div>`,

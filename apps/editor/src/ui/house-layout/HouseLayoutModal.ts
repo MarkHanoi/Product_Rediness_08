@@ -33,6 +33,7 @@ import { buildLayoutBubbleGraphSvg } from '../apartment-layout/layoutBubbleGraph
 import { buildOccupancyLegendHtml } from '../apartment-layout/layoutModalHtml.js';
 import { setRoomAreaOverride } from '../apartment-layout/activeRoomAreaOverrides.js';
 import { setRoomTypeOverride, ROOM_TYPE_VALUES } from '../apartment-layout/activeRoomTypeOverrides.js';
+import { setRoomFloorOverride } from '../apartment-layout/activeRoomFloorOverrides.js';
 
 export interface HouseLayoutModalCallbacks {
     /** User picked variant `index` ("Use this layout"). */
@@ -266,7 +267,13 @@ export class HouseLayoutModal {
                 const name = roomEl.getAttribute('data-room-name');
                 if (name) {
                     this._highlightRoom(name);
-                    this._openGraphNodeEditor(roomEl, name);
+                    // §3PANE IT-3c — the SOURCE storey of the clicked room (its pane's
+                    // data-storey-index) + how many storeys exist, so the editor can
+                    // offer a Floor move (`storey:<src>/<name>` → target).
+                    const wrap = (roomEl as Element).closest('[data-storey-index]');
+                    const srcStorey = wrap ? Number(wrap.getAttribute('data-storey-index')) : 0;
+                    const storeyCount = this._el?.querySelectorAll('.hlm-pane--graphs .hlm-pane-storey').length ?? 1;
+                    this._openGraphNodeEditor(roomEl, name, Number.isInteger(srcStorey) ? srcStorey : 0, storeyCount);
                 }
                 return;
             }
@@ -477,7 +484,7 @@ export class HouseLayoutModal {
         } catch { /* an exotic name that breaks the attribute selector — skip */ }
     }
 
-    private _openGraphNodeEditor(node: Element, roomName: string): void {
+    private _openGraphNodeEditor(node: Element, roomName: string, srcStorey = 0, storeyCount = 1): void {
         if (!this._el) return;
         // Remove any open editor first.
         this._el.querySelector('.hlm-node-editor')?.remove();
@@ -487,12 +494,24 @@ export class HouseLayoutModal {
         const typeOptions = ROOM_TYPE_VALUES
             .map(t => `<option value="${t}">${t}</option>`)
             .join('');
+        // §3PANE IT-3c — a Floor move control (only when the house has >1 storey).
+        // Choosing a different floor writes the cross-storey override
+        // (`storey:<src>/<roomName>` → target) the engine re-allocates on.
+        const floorField = storeyCount > 1
+            ? `<label class="hlm-node-field"><span>Floor</span>` +
+              `<select class="hlm-node-floor">` +
+              Array.from({ length: storeyCount }, (_, i) =>
+                  `<option value="${i}"${i === srcStorey ? ' selected' : ''}>${i === 0 ? 'Ground' : `Level ${i}`}</option>`,
+              ).join('') +
+              `</select></label>`
+            : '';
         editor.innerHTML =
             `<div class="hlm-node-editor-title">${this._escAttr(roomName)}</div>` +
             `<label class="hlm-node-field"><span>Area m²</span>` +
             `<input type="number" class="hlm-node-area" min="1" max="200" step="0.5" placeholder="auto"></label>` +
             `<label class="hlm-node-field"><span>Type</span>` +
             `<select class="hlm-node-type"><option value="">(keep)</option>${typeOptions}</select></label>` +
+            floorField +
             `<div class="hlm-node-actions">` +
             `<button type="button" class="hlm-node-apply">Apply</button>` +
             `<button type="button" class="hlm-node-close">Cancel</button>` +
@@ -515,6 +534,14 @@ export class HouseLayoutModal {
             // Blank/zero clears the override (revert to engine default for that room).
             setRoomAreaOverride(roomName, Number.isFinite(rawArea) && rawArea > 0 ? rawArea : null);
             setRoomTypeOverride(roomName, typeEl?.value || null);
+            // §3PANE IT-3c — move the room to the chosen floor (when it changed).
+            const floorEl = editor.querySelector('.hlm-node-floor') as HTMLSelectElement | null;
+            if (floorEl) {
+                const target = Number(floorEl.value);
+                if (Number.isInteger(target) && target !== srcStorey) {
+                    setRoomFloorOverride(`storey:${srcStorey}/${roomName}`, target);
+                }
+            }
             editor.remove();
             this._scheduleGraphEdit();
         };

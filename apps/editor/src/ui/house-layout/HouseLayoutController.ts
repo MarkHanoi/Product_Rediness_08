@@ -38,6 +38,7 @@ import { HouseLayoutExecutor } from './HouseLayoutExecutor.js';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
 import { getRoomAreaOverrides } from '../apartment-layout/activeRoomAreaOverrides.js';
 import { getRoomTypeOverrides } from '../apartment-layout/activeRoomTypeOverrides.js';
+import { getRoomFloorOverrides } from '../apartment-layout/activeRoomFloorOverrides.js';
 import type { HouseProgramFormState } from './houseModalHtml.js';
 
 /** How many whole-house variants the modal offers. */
@@ -304,13 +305,22 @@ export class HouseLayoutController {
     private _mergeOverrides(program: ApartmentProgram): ApartmentProgram {
         const areaOverrides = getRoomAreaOverrides();
         const typeOverrides = getRoomTypeOverrides();
-        if (!areaOverrides && !typeOverrides) return program;
+        // §3PANE IT-3c / §26 XE — the cross-storey move stash (`roomFloorByName`,
+        // keyed `storey:<s>/<roomName>`). The engine half (XA, `allocateProgramToStoreys`
+        // override-aware) + the stash already shipped; this merge is what flows it to
+        // BOTH the preview (`_computeVariants`) and the build (`_build`).
+        const floorOverrides = getRoomFloorOverrides();
+        // C52 I2 — empty stashes ⇒ same program ref ⇒ byte-identical baseline.
+        if (!areaOverrides && !typeOverrides && !floorOverrides) return program;
         const merged: ApartmentProgram = { ...program };
         if (areaOverrides) {
             merged.roomAreasByName = { ...(program.roomAreasByName ?? {}), ...areaOverrides };
         }
         if (typeOverrides) {
             merged.roomTypesByName = { ...(program.roomTypesByName ?? {}), ...typeOverrides };
+        }
+        if (floorOverrides) {
+            merged.roomFloorByName = { ...(program.roomFloorByName ?? {}), ...floorOverrides };
         }
         return merged;
     }
