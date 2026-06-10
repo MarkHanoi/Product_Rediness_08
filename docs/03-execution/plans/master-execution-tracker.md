@@ -3954,3 +3954,44 @@ otherwise document) this is left **unimplemented**.
 Relationship to Q3: **NOT the same root cause.** Q3 (§50) is a missing camera-frame call on the PRYZM 3D
 viewport; Q2 (§51) is a georeference anchor/projection-accuracy issue on the Cesium globe. They are
 independent. `SPIKE`.
+
+## §52 — Ground-floor corridor-branching for diversified / many-room plates (`GROUND-CORRIDOR-BRANCH`) — SPEC (3 attempts reverted, 2026-06-10)
+
+Founder root complaint: large house plates show **blank area + ballooned rooms** (dining 51 m²); filling the
+plate with more rooms (the chosen "sensible bounded auto-fill") needs every room to keep a door. Three direct
+attempts this session were implemented and **reverted** because each broke a hard constraint — recording the
+constraints here so the focused implementation lands first time.
+
+### §52.1 — Why it's hard (the coupling)
+The ground carve `trySingleRectCarve` (`tgl/subdivide.ts:824`) is **single-loaded**: `tryCarveCorridor` lays
+one corridor strip with the **public** zone on one side and the **private** zone on the other, and
+`sliceZoneAlongFace` (`:627`) combs the private rooms along the **one** corridor face (already the plate's
+long axis — maximal run). It serves ~2–3 private rooms. Add study/WC/utility and there are 4–5 private rooms
+for one face → the comb bails to squarify → back rows **sealed** (no door; `study`/`wc`/`bathroom` can only
+door to a corridor, so the multi-hop reroute can't rescue them either).
+
+### §52.2 — The THREE hard constraints any fix must satisfy simultaneously (each broke one attempt)
+1. **No sealed rooms** — every room shares a wall with the corridor (a door). [Attempt 1: diversify only →
+   sealed rooms, `roomsWithDoor=6/10`, 3 tests failed.]
+2. **Entrance hall on the perimeter** (founder rule #2 — it hosts the front door). [Attempt 3: double-load
+   EVERY room off a central corridor → the hall got combed into the interior → `houseLayout.test.ts` "ground
+   hall abuts a perimeter wall" failed.]
+3. **One rectangular corridor room** — the placement model gives each room ONE rect, so an L/T corridor isn't
+   directly representable; the corridor strip must physically touch BOTH the public block AND both private
+   sides. [Attempt 2: a central double-loaded private corridor doesn't reach a public block at the end.]
+
+### §52.3 — The fix (when scheduled): public-perimeter-block + double-loaded-private with a corridor SPUR
+- Keep PUBLIC rooms (hall + living + kitchen + dining, open-plan) as a block on the **perimeter** at one end
+  of the plate (satisfies C2; reuse the existing public squarify).
+- Run a corridor **spur** from the public/private boundary INTO the private zone, with private rooms combed
+  off BOTH faces of the spur (satisfies C1; reuse `tryNoPublicDoubleLoadedCarve`'s both-sides comb logic).
+- The spur's base sits on the public/private boundary so it's adjacent to the public block (door
+  public↔corridor) and the corridor stays ONE rect (satisfies C3).
+- This is a NEW carve (`tryPublicBlockSpurCarve`) — the central-strip double-load can't reach a perimeter
+  public block, so a spur (corridor perpendicular to the split, based at the public boundary) is required.
+- THEN re-apply `§PLATE-FILL-DIVERSIFY` (the saved flags + bubble mint + bounded ground-fill — sound code,
+  reverted only because the carve couldn't host the extra rooms).
+- GATE: `houseLayout.test.ts` green (every room a door AND the hall on the perimeter) for a diversified ground.
+
+Test-gated, deterministic, apartment byte-identical (the spur only fires when the single-loaded comb fails).
+This is a focused subdivision-geometry task, NOT a quick patch — three rushed attempts proved that.
