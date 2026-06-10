@@ -3239,3 +3239,42 @@ Founder: "Cesium 3D globe is getting stuck." Prod log on `/#/start` shows **two 
     logged reason (honour Invariant E-3); optional 2-pass topological replay.
 - B can **abort the `/#/start` bootstrap** that arms the GIS surface, so A's render never gets its
   resize → reinforces the "stuck" globe. Both fixed together; no new contract (bug-class fixes).
+
+---
+
+## §34 — Party-Wall Awareness — no windows/doors on a façade against a neighbour (PW)
+
+**Status:** PW.1 mechanism **DONE/shipped (v99)** · detection PW.2/PW.3 QUEUED · [SPEC-PARTY-WALL-AWARENESS](../specs/SPEC-PARTY-WALL-AWARENESS.md)
+
+Founder: a façade snapped hard against an existing neighbour building must be **BLIND** — no windows, no
+doors, no entrance. **Audit verdict: NOT considered today** — context buildings are visual-only
+(`contextBuildings.ts` → Cesium/2D map only), the layout payload (`gatherLayoutPayload.ts:62`) carries no
+neighbour data, and openings (`emitWindows.ts`, `shellWallMatch.ts:561`, `entranceDoor.ts:198`) land on any
+external/hall wall blind to what abuts it.
+
+- **PW.1 — suppression mechanism — DONE (v99).** Additive, deterministic `blindFacadeWallIds` set (keyed on
+  shell wall id) threaded payload → windowEmission + shell-window matcher + entrance resolver: NO window and
+  NO entrance on a blind/party wall; §WINDOW-MANDATORY-RESCUE also skips blind walls. Empty/absent ⇒
+  **byte-identical** (apartment + house unaffected). Editor seam `resolveBlindFacades.ts` (empty default +
+  `window.__pryzmBlindFacadeWallIds` injection point) wired into both executors. §DIAG-PARTY-WALL logs blind
+  walls + suppressed openings. +9 tests; ai-host 2167/2167.
+- **PW.2 — neighbour-footprint detection — TODO.** Plumb a neighbour-footprint store reachable from the
+  executor (context-building lon/lat → world-ENU via the C19 site origin) + a per-shell-wall proximity/
+  overlap test → `resolveBlindFacades` returns the computed set. Ties to C19 Site + C55 geodata.
+- **PW.3 — setback config + cadastral party-wall data — TODO.**
+
+---
+
+## §35 — Stair-placement rules + L-corner wall-join diagnostics (§DIAG-STAIR-RULE / §DIAG-WALL-JOIN) — shipped v99
+
+Founder: "create rules for where the stair goes + make all walls join L-shape (outer + interior) + add
+console logs." Verified the rules already hold and made them explicit + always-on logged:
+- **§DIAG-STAIR-RULE** (`houseOrchestrator.containStairCoreUpstream`): per generation, the 4 rules —
+  R1 corner-not-central (§STAIR-DEFAULT-BIAS PERIMETER_PREFERENCE 1.0 + FRAGMENT_PENALTY 0.5), R2 worst-
+  aspect wall, R3 no-room-overlap (keep-out = contained footprint), R4 footprint-in-shell (cornersInShell
+  4/4) — each ✓/⚠, warns on violation. No violation in the test corpus.
+- **§DIAG-WALL-JOIN** (`WallJoinResolver._applyCorner`, same- + diff-thickness paths): per-corner
+  L / SHALLOW-L / COLLINEAR class + jointGap(mm) + bisectorOk + closed ✓/⚠. **Verdict: L-corners (perimeter
+  + interior) close at jointGap=0.0mm — clean, no notch/overrun.** The interior PASS-THROUGH/collinear
+  junctions the founder saw are square-capped consensus trims, not failed L-mitres.
+ai-host 2158/2158, geometry-wall 50/50, 0 new typecheck errors. Diagnostics-only (no behaviour change).
