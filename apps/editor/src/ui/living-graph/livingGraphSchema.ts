@@ -34,16 +34,94 @@ export type EdgeLayer =
   | 'circulation'
   | 'environmental'
   | 'acoustic'
-  | 'structural';
+  | 'structural'
+  // §49 FIVE-GRAPH — the founder's two NEW relationship classes the prototype
+  // layers never carried: ACCESS (route depth/privacy from the entrance) and
+  // SEPARATION (negative "should-NOT-touch" relations). Both ride the same edge
+  // mechanism (a GraphEdge tagged with the layer); SEPARATION is derived in the
+  // binder from the privacy gradient, ACCESS is stubbed pending the route solver.
+  | 'access'
+  | 'separation';
 
-/** The closed, ordered layer set — drives the toggle chips + the sim. */
+/** The closed, ordered layer set — drives the sim + (legacy) toggle chips. */
 export const EDGE_LAYERS: readonly EdgeLayer[] = [
   'adjacency',
   'circulation',
   'environmental',
   'acoustic',
   'structural',
+  'access',
+  'separation',
 ] as const;
+
+/**
+ * §49 FIVE-GRAPH MODEL (founder 2026-06-10, ADR-0068) — the FIVE DISTINCT named
+ * graphs the user picks between in the dropdown, replacing the "one dense
+ * everything-network" the layer chips produced. The **Circulation graph is the
+ * MASTER** (source of truth, default selection). Each view renders ONLY its own
+ * (sparse) edge set so an optimiser — and the eye — can tell "must connect" from
+ * "should be near" from "must NOT touch" from "people move through here".
+ *
+ * | view          | the relationship it isolates                              | maps to EdgeLayer |
+ * |---------------|-----------------------------------------------------------|-------------------|
+ * | `circulation` | walkable routes (MASTER / source of truth)                | `circulation`     |
+ * | `access`      | how you REACH a room — depth/privacy/route from entrance  | `access` (stub)   |
+ * | `adjacency`   | functional must-touch / preferred / optional adjacency    | `adjacency`       |
+ * | `separation`  | negative "should-NOT-touch" relations (privacy/acoustic)  | `separation`(NEW) |
+ * | `service`     | wet-area clustering for plumbing/MEP only                 | `structural`      |
+ */
+export type GraphView = 'circulation' | 'access' | 'adjacency' | 'separation' | 'service';
+
+/** The closed, ordered view set — drives the dropdown. Circulation FIRST = master/default. */
+export const GRAPH_VIEWS: readonly GraphView[] = [
+  'circulation',
+  'access',
+  'adjacency',
+  'separation',
+  'service',
+] as const;
+
+/** §49 — the EdgeLayer each named graph renders. Circulation/Adjacency/Service
+ *  map onto existing (real) layers; Access/Separation onto the two new layers. */
+export const GRAPH_VIEW_LAYER: Record<GraphView, EdgeLayer> = {
+  circulation: 'circulation',
+  access: 'access',
+  adjacency: 'adjacency',
+  separation: 'separation',
+  service: 'structural',
+};
+
+/** §49 — which views carry REAL derived data today vs. are stubbed ("coming
+ *  soon" in the dropdown) pending a deeper engine slice. Circulation/Adjacency/
+ *  Service + Separation are real; Access awaits the entrance-rooted route solver. */
+export const GRAPH_VIEW_READY: Record<GraphView, boolean> = {
+  circulation: true,
+  access: false, // stub — needs the entrance-rooted route/depth solver (S-Access)
+  adjacency: true,
+  separation: true, // derived from the privacy gradient (see livingGraphData)
+  service: true,
+};
+
+/** §49 — dropdown labels (the master is marked). */
+export const GRAPH_VIEW_LABEL: Record<GraphView, string> = {
+  circulation: 'Circulation (master)',
+  access: 'Access',
+  adjacency: 'Functional Adjacency',
+  separation: 'Separation',
+  service: 'Service / Wet-core',
+};
+
+/** §49 — one-line description shown under the dropdown for the active view. */
+export const GRAPH_VIEW_HINT: Record<GraphView, string> = {
+  circulation: 'Walkable routes — the source-of-truth graph that drives generation.',
+  access: 'How you reach each room (depth & privacy from the entrance). Coming soon.',
+  adjacency: 'Functional adjacency: must-touch / preferred / optional.',
+  separation: 'Negative relations — rooms that should NOT touch (privacy / acoustic).',
+  service: 'Wet-area clustering for plumbing / MEP stacking only.',
+};
+
+/** §49 — the default (master) view the dropdown opens on. */
+export const DEFAULT_GRAPH_VIEW: GraphView = 'circulation';
 
 /**
  * The functional ROOM-TYPE taxonomy (the prototype's `inferRoomType` output).
@@ -119,7 +197,9 @@ export interface LiveGraph {
   edges: GraphEdge[];
 }
 
-/** All layers on by default (the prototype's initial state). */
+/** All layers on by default (the prototype's initial state). §49: the dropdown
+ *  now overrides this each frame with a SINGLE active view; this default is kept
+ *  for the legacy chip path + the initial (pre-dropdown) state. */
 export function defaultLayerState(): LayerState {
   return {
     adjacency: true,
@@ -127,6 +207,24 @@ export function defaultLayerState(): LayerState {
     environmental: true,
     acoustic: true,
     structural: true,
+    access: false,
+    separation: false,
+  };
+}
+
+/** §49 — a LayerState that shows ONLY the one named graph the dropdown selected
+ *  (every other layer off), so the canvas renders that view's sparse edge set
+ *  alone. This is how the dropdown collapses the old dense multi-layer network. */
+export function layerStateForView(view: GraphView): LayerState {
+  const target = GRAPH_VIEW_LAYER[view];
+  return {
+    adjacency: target === 'adjacency',
+    circulation: target === 'circulation',
+    environmental: target === 'environmental',
+    acoustic: target === 'acoustic',
+    structural: target === 'structural',
+    access: target === 'access',
+    separation: target === 'separation',
   };
 }
 
@@ -149,6 +247,8 @@ export const EDGE_LAYER_COLOUR: Record<EdgeLayer, string> = {
   environmental: 'rgba(255,176,32,0.7)', // amber — sun / daylight
   acoustic: 'rgba(225,75,140,0.7)', // magenta — noise separation
   structural: 'rgba(19,168,158,0.7)', // teal — wet/service clustering
+  access: 'rgba(60,140,220,0.75)', // blue — route depth from the entrance (§49)
+  separation: 'rgba(220,60,70,0.7)', // red — negative "should-NOT-touch" (§49)
 };
 
 /** Human-friendly layer label for the toggle chips. */
@@ -158,4 +258,6 @@ export const EDGE_LAYER_LABEL: Record<EdgeLayer, string> = {
   environmental: 'Sun',
   acoustic: 'Acoustic',
   structural: 'Structural',
+  access: 'Access',
+  separation: 'Separation',
 };

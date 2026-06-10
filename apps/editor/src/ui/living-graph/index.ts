@@ -34,15 +34,25 @@ export {
   defaultLayerState,
   ROOM_TYPE_COLOUR,
   EDGE_LAYER_COLOUR,
+  // §49 FIVE-GRAPH MODEL (ADR-0068) — the named-graph dropdown surface.
+  GRAPH_VIEWS,
+  GRAPH_VIEW_LABEL,
+  GRAPH_VIEW_LAYER,
+  GRAPH_VIEW_READY,
+  GRAPH_VIEW_HINT,
+  DEFAULT_GRAPH_VIEW,
+  layerStateForView,
 } from './livingGraphSchema';
 export type {
   EdgeLayer,
+  GraphView,
   GraphNode,
   GraphEdge,
   LayerState,
   LiveGraph,
   RoomKind,
 } from './livingGraphSchema';
+export { separationWeight } from './livingGraphData';
 
 interface LivingGraphWindow {
   /** A.21.D17 — open (show) the Living Building Graph overlay. */

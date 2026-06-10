@@ -59,13 +59,17 @@ import {
   type SimState,
 } from './forceSimulation';
 import {
-  EDGE_LAYERS,
   EDGE_LAYER_COLOUR,
-  EDGE_LAYER_LABEL,
+  GRAPH_VIEWS,
+  GRAPH_VIEW_HINT,
+  GRAPH_VIEW_LABEL,
+  GRAPH_VIEW_LAYER,
+  GRAPH_VIEW_READY,
+  DEFAULT_GRAPH_VIEW,
   ROOM_TYPE_COLOUR,
-  defaultLayerState,
-  type EdgeLayer,
+  layerStateForView,
   type GraphNode,
+  type GraphView,
   type LayerState,
   type LiveGraph,
 } from './livingGraphSchema';
@@ -171,7 +175,11 @@ export class LivingGraphOverlay {
 
   private graph: LiveGraph = { nodes: [], edges: [] };
   private sim: SimState = createSimState();
-  private layers: LayerState = defaultLayerState();
+  // §49 FIVE-GRAPH — the user picks ONE named graph from the dropdown; the canvas
+  // + sim see ONLY that view's layer active (sparse, not the old dense network).
+  // Circulation is the master/default. `layers` is DERIVED from `view`.
+  private view: GraphView = DEFAULT_GRAPH_VIEW;
+  private layers: LayerState = layerStateForView(DEFAULT_GRAPH_VIEW);
   /** A.21.D34(e) — spacing-scaled force params (by node count + canvas size).
    *  Recomputed on resync + resize so the field spreads to FILL the panel. */
   private params: SimParams = scaledParams(0, 380, 300);
@@ -236,7 +244,10 @@ export class LivingGraphOverlay {
   private roomsBadge: HTMLElement | null = null;
   private inspectorEl: HTMLElement | null = null;
   private freezeBtn: HTMLButtonElement | null = null;
-  private chipEls = new Map<EdgeLayer, HTMLButtonElement>();
+  // §49 FIVE-GRAPH — the dropdown + its live hint line (replaces the layer chips).
+  private viewSelectEl: HTMLSelectElement | null = null;
+  private viewHintEl: HTMLElement | null = null;
+  private viewSwatchEl: HTMLElement | null = null;
 
   // Drag state.
   private dragging = false;
@@ -290,7 +301,7 @@ export class LivingGraphOverlay {
 
     root.appendChild(this.buildModeToggle());
     root.appendChild(this.buildInspector());
-    root.appendChild(this.buildChips());
+    root.appendChild(this.buildGraphSelector()); // §49 FIVE-GRAPH dropdown
     root.appendChild(this.buildControls());
     root.appendChild(this.buildResizeGrip(canvas));
 
@@ -555,24 +566,111 @@ export class LivingGraphOverlay {
     this.refreshModeButtons();
   }
 
-  private buildChips(): HTMLElement {
+  /**
+   * §49 FIVE-GRAPH MODEL (founder 2026-06-10, ADR-0068) — the Living Graph was
+   * "too messy": one dense ~80-edge network that mixed adjacency + circulation +
+   * privacy + service into one tangle an optimiser (and the eye) couldn't read.
+   * This DROPDOWN replaces the multi-toggle layer chips: the user picks WHICH of
+   * the five DISTINCT graphs to view, and the canvas renders ONLY that view's
+   * (sparse) edge set. Circulation is the MASTER (default). The line under the
+   * dropdown explains the active view; stubbed views (Access) are marked "(soon)"
+   * and render no edges yet. Brand-styled (#6600FF / white, no black).
+   */
+  private buildGraphSelector(): HTMLElement {
     const wrap = document.createElement('div');
     Object.assign(wrap.style, {
       display: 'flex',
-      flexWrap: 'wrap',
-      gap: '6px',
+      flexDirection: 'column',
+      gap: '5px',
       padding: '10px 12px',
     } satisfies Partial<CSSStyleDeclaration>);
-    for (const layer of EDGE_LAYERS) {
-      const chip = document.createElement('button');
-      chip.type = 'button';
-      chip.textContent = EDGE_LAYER_LABEL[layer];
-      this.styleChip(chip, layer, this.layers[layer]);
-      this.on(chip, 'click', () => this.toggleLayer(layer));
-      this.chipEls.set(layer, chip);
-      wrap.appendChild(chip);
+
+    const row = document.createElement('div');
+    Object.assign(row.style, {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+    } satisfies Partial<CSSStyleDeclaration>);
+
+    const label = document.createElement('label');
+    label.textContent = 'Graph';
+    label.htmlFor = 'pryzm-lg-graph-select';
+    Object.assign(label.style, {
+      color: '#6b6385',
+      font: '600 11px/1 system-ui, sans-serif',
+      flexShrink: '0',
+    } satisfies Partial<CSSStyleDeclaration>);
+
+    const select = document.createElement('select');
+    select.id = 'pryzm-lg-graph-select';
+    select.setAttribute('data-testid', 'living-graph-view-select');
+    select.setAttribute('aria-label', 'Which graph to view');
+    Object.assign(select.style, {
+      flex: '1',
+      cursor: 'pointer',
+      border: `1.5px solid ${ACCENT}`,
+      borderRadius: '8px',
+      background: '#ffffff',
+      color: ACCENT,
+      padding: '5px 9px',
+      font: '600 11px/1.2 system-ui, sans-serif',
+      accentColor: ACCENT,
+    } satisfies Partial<CSSStyleDeclaration>);
+    for (const v of GRAPH_VIEWS) {
+      const opt = document.createElement('option');
+      opt.value = v;
+      opt.textContent = GRAPH_VIEW_READY[v] ? GRAPH_VIEW_LABEL[v] : `${GRAPH_VIEW_LABEL[v]} (soon)`;
+      select.appendChild(opt);
     }
+    select.value = this.view;
+    this.on(select, 'change', () => this.setView(select.value as GraphView));
+    this.viewSelectEl = select;
+
+    // A small colour swatch of the active view's edge colour (semantic legend).
+    const swatch = document.createElement('span');
+    swatch.setAttribute('data-testid', 'living-graph-view-swatch');
+    Object.assign(swatch.style, {
+      display: 'inline-block',
+      width: '10px',
+      height: '10px',
+      borderRadius: '3px',
+      flexShrink: '0',
+      background: EDGE_LAYER_COLOUR[GRAPH_VIEW_LAYER[this.view]],
+    } satisfies Partial<CSSStyleDeclaration>);
+    this.viewSwatchEl = swatch;
+
+    row.append(label, select, swatch);
+
+    const hint = document.createElement('div');
+    hint.setAttribute('data-testid', 'living-graph-view-hint');
+    Object.assign(hint.style, {
+      color: '#9b93b5',
+      font: '500 10px/1.4 system-ui, sans-serif',
+    } satisfies Partial<CSSStyleDeclaration>);
+    hint.textContent = GRAPH_VIEW_HINT[this.view];
+    this.viewHintEl = hint;
+
+    wrap.append(row, hint);
     return wrap;
+  }
+
+  /**
+   * §49 — switch the active named graph. Derives the single-layer `LayerState`
+   * for the view (every other layer off → the canvas + sim see only this graph's
+   * sparse edges), updates the hint + swatch, and re-anneals the field from the
+   * current positions (a layer change asks "a different spatial question").
+   */
+  private setView(view: GraphView): void {
+    if (view === this.view) return;
+    this.view = view;
+    this.layers = layerStateForView(view);
+    if (this.viewSelectEl && this.viewSelectEl.value !== view) this.viewSelectEl.value = view;
+    if (this.viewHintEl) this.viewHintEl.textContent = GRAPH_VIEW_HINT[view];
+    if (this.viewSwatchEl) this.viewSwatchEl.style.background = EDGE_LAYER_COLOUR[GRAPH_VIEW_LAYER[view]];
+    // Re-settle from CURRENT positions (not a full scatter) — same "different
+    // spatial question" annealing the layer chips used to do.
+    reheat(this.sim, 0.85);
+    this.ensureTicking();
   }
 
   private buildControls(): HTMLElement {
@@ -1254,16 +1352,6 @@ export class LivingGraphOverlay {
 
   // ── Controls ─────────────────────────────────────────────────────────────────
 
-  private toggleLayer(layer: EdgeLayer): void {
-    this.layers[layer] = !this.layers[layer];
-    const chip = this.chipEls.get(layer);
-    if (chip) this.styleChip(chip, layer, this.layers[layer]);
-    // Toggling a layer re-settles the field from CURRENT positions (not a full
-    // scatter) — the prototype's "ask a different spatial question".
-    reheat(this.sim, 0.85);
-    this.ensureTicking();
-  }
-
   private toggleFreeze(): void {
     this.frozen = !this.frozen;
     if (this.freezeBtn) this.freezeBtn.textContent = this.frozen ? '▶ Resume' : '⏸ Freeze';
@@ -1731,36 +1819,6 @@ export class LivingGraphOverlay {
     for (const r of rows) list.appendChild(r);
     sec.appendChild(list);
     return sec;
-  }
-
-  private styleChip(chip: HTMLButtonElement, layer: EdgeLayer, on: boolean): void {
-    const colour = EDGE_LAYER_COLOUR[layer];
-    Object.assign(chip.style, {
-      cursor: 'pointer',
-      border: `1.5px solid ${on ? ACCENT : 'rgba(36,26,58,0.18)'}`,
-      background: on ? 'rgba(102,0,255,0.08)' : '#ffffff',
-      color: on ? ACCENT : '#9b93b5',
-      borderRadius: '999px',
-      padding: '4px 11px',
-      font: '600 11px/1 system-ui, sans-serif',
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: '6px',
-      opacity: on ? '1' : '0.7',
-    } satisfies Partial<CSSStyleDeclaration>);
-    // Layer colour swatch.
-    chip.replaceChildren();
-    const sw = document.createElement('span');
-    Object.assign(sw.style, {
-      display: 'inline-block',
-      width: '8px',
-      height: '8px',
-      borderRadius: '2px',
-      background: colour,
-    });
-    const label = document.createElement('span');
-    label.textContent = EDGE_LAYER_LABEL[layer];
-    chip.append(sw, label);
   }
 
   // ── Drag ────────────────────────────────────────────────────────────────────

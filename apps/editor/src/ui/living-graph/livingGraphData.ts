@@ -218,7 +218,7 @@ function hasUsableBoundary(node: UbgNodeLike, area: number): boolean {
 /** Sort node ids deterministically (insertion order is already deterministic,
  *  but we normalise pair keys a<b so undirected edges dedup stably). */
 function pairKey(a: string, b: string): string {
-  return a < b ? `${a} ${b}` : `${b} ${a}`;
+  return a < b ? `${a} ${b}` : `${b} ${a}`;
 }
 
 // ── Build the LiveGraph ─────────────────────────────────────────────────────────
@@ -395,8 +395,44 @@ function augmentEdges(
       if (isWetService(a) && isWetService(b)) {
         addLayer(a.id, b.id, 'structural', 1);
       }
+
+      // §49 FIVE-GRAPH — SEPARATION (the founder's "currently missing" negative
+      // graph). A "should-NOT-touch" relation between rooms whose PRIVACY gradient
+      // clashes (Master--X--Living, Bathroom--X--Dining, Bedroom--X--Entrance):
+      // derived from the RoomKind privacy class on the nodes (no programRules
+      // import — L5 stays clean). Weight = the clash severity. The render shows it
+      // as a RED edge so the eye reads "keep these apart", not "connect these".
+      const sep = separationWeight(a.type, b.type);
+      if (sep > 0) addLayer(a.id, b.id, 'separation', sep);
     }
   }
+}
+
+/**
+ * §49 — the SEPARATION weight (0 = no separation desired, →1.5 = strong "keep
+ * apart") between two room kinds, from the privacy gradient. Mirrors the engine's
+ * `accessFrom`/privacy doctrine (`programRules.ts`) but over the coarse RoomKind
+ * the Living Graph already carries, so it needs no L2 import:
+ *
+ *  • PRIVATE sleeping/wet rooms must not touch PUBLIC living or the ENTRY —
+ *    that's the privacy-gradient violation the founder names.
+ *  • WET rooms must not touch a social/eating space (bathroom--X--dining).
+ *
+ * Pure + symmetric + deterministic. Returns 0 for any pair with no clash (most
+ * pairs), keeping the Separation graph SPARSE — exactly the founder's intent.
+ */
+export function separationWeight(a: RoomKind, b: RoomKind): number {
+  const isPrivate = (t: RoomKind): boolean => t === 'sleeping' || t === 'wet';
+  const isPublic = (t: RoomKind): boolean => t === 'living' || t === 'service';
+  const isEntry = (t: RoomKind): boolean => t === 'entry';
+
+  // Bedroom / bathroom directly off the entrance — the sharpest violation.
+  if ((isPrivate(a) && isEntry(b)) || (isPrivate(b) && isEntry(a))) return 1.5;
+  // Wet room next to a social / eating space (bathroom--X--dining/living/kitchen).
+  if ((a === 'wet' && isPublic(b)) || (b === 'wet' && isPublic(a))) return 1.2;
+  // Sleeping room next to a loud public space (master--X--living/kitchen).
+  if ((a === 'sleeping' && isPublic(b)) || (b === 'sleeping' && isPublic(a))) return 1.0;
+  return 0;
 }
 
 export { ROOM_TYPE_COLOUR };

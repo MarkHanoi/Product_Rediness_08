@@ -47,6 +47,8 @@ const LAYER_DASH: Record<EdgeLayer, number[]> = {
   environmental: [8, 5], // long dash — sun aspect
   acoustic: [4, 4], // even dash — separation
   structural: [10, 3, 2, 3], // dash-dot — riser cluster
+  access: [6, 3], // §49 — medium dash — route depth from entrance
+  separation: [2, 3], // §49 — tight dot — negative "should-NOT-touch"
 };
 
 export interface DrawState {

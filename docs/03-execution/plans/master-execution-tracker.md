@@ -3743,3 +3743,98 @@ gated by the determinism + topo-reject invariants; shipped single-plate path sta
 - [ ] **S4 — Geometry-as-derived-projection formalised.** Move `Space.geometry.polygon`
   (`semanticGraph.ts:108`) into a derived `Geometry` node (`Geometry --PART_OF--> Space`); Space
   becomes geometry-free (GIR3); Geometry family is an explicit recomputed output (GIR5). `NEW`.
+
+## §49 — Five-Graph Model / Circulation-First Living Graph (`FIVE-GRAPH`)
+
+**Status: IMMINENT / PRIORITIZED (founder-flagged 2026-06-10) · S1+S2 SHIPPED, S3–S5 QUEUED.**
+
+**Founder direction (captured faithfully):** the Living Graph is *"too messy"* — one dense ~80-edge
+network that mixes adjacency + desired adjacency + circulation + privacy + floor hierarchy + plumbing,
+so *"an optimizer can't tell 'must connect' from 'should be near' from 'should NOT be near' from
+'people move through here.'"* **Split it into FIVE distinct graphs with a DROPDOWN to switch between
+them, + node roles + graph metrics, with the Circulation Graph as the MASTER (source of truth).**
+
+- **The five graphs** *(Circulation = master/default)*:
+  1. **Circulation** *(master)* — walkable routes; sparse (~15 rooms ≈ 18–25 edges, NOT 80+).
+     Entrance→Hall→Living→Dining→Kitchen; Hall→Stair→Landing→{B1,B2,B3}.
+  2. **Access** — "how do I reach this room?": depth / privacy / route-length / visibility from the
+     entrance.
+  3. **Functional Adjacency** — Kitchen↔Dining, Living↔Dining, Master↔Ensuite; 0.95 must-touch / 0.75
+     preferred / 0.25 optional.
+  4. **Separation** *(was MISSING)* — negative relations: Master‑‑X‑‑Living, Bathroom‑‑X‑‑Dining,
+     Bedroom‑‑X‑‑Entrance.
+  5. **Service** — wet-area clustering (Kitchen | Bathroom | Ensuite) for plumbing/stacking/MEP only;
+     must NOT influence circulation.
+- **Node roles:** `ENTRY / CIRCULATION / PUBLIC / SEMI_PRIVATE / PRIVATE / SERVICE / VERTICAL` + rules
+  (PRIVATE cannot connect directly to ENTRY).
+- **Graph metrics:** betweenness centrality (Hall high = good, Dining high = bad), privacy depth
+  (distance from entrance), circulation efficiency (avg shortest path), room-hub penalty
+  (Bedroom/Bathroom degree > 3 penalised; Hall > 5 / Landing > 4 rewarded).
+- **Source-graph hierarchy inversion:** HOUSE → Circulation → {Access, Adjacency, Service} → Geometry
+  Solver — inverting the usual Rooms → Adjacency → Geometry → Corridors.
+
+### The honest A/B split (the headline finding)
+
+**PRYZM already has FIVE relationship LAYERS + per-layer springs + a typed semantic edge taxonomy + the
+enforced privacy/access matrix — but they are the WRONG five (physics/environmental, not intent/route),
+shown ALL-AT-ONCE (toggles, not a chosen view), with NO Separation graph and NO master.** Do not claim
+PRYZM lacks the machinery, nor that the model is done.
+
+- **(A) ALREADY-BUILT.**
+  - Five-layer relationship model: `EdgeLayer = adjacency | circulation | environmental | acoustic |
+    structural` (`apps/editor/src/ui/living-graph/livingGraphSchema.ts:32-37`) + `EDGE_LAYERS:40` +
+    per-layer colour (`:146`) + per-layer dash (`LivingGraphCanvas.ts:44`) + the layer-toggle chips
+    (`LivingGraphOverlay.ts buildChips`) + **per-layer springs** (`forceSimulation.ts edgeActive:152`,
+    `activeLayerCount:160`, summed `simulateStep:243-259`). One `GraphEdge` carries every layer it's in
+    (`GraphEdge.layers`, `livingGraphSchema.ts:108`).
+  - Typed engine LayoutGraph + semantic edge taxonomy: `tgl/semanticGraph.ts:46-50` +
+    `tgl/edgeTypes.ts:33-50` (`SOCIAL_FLOW`/`INTIMATE_ACCESS`/`BUFFER`/`SERVICE_ACCESS`/
+    `CEREMONIAL_THRESHOLD`/`VISUAL_CONNECTION`/`ACOUSTIC_SEPARATION`, `classifyEdge:76-99`).
+  - Privacy gradient + access ENFORCED: per-room `privacy` class (`rules/programRules.ts:136`) +
+    `accessFrom` matrix (`:200-203`,`:262`+) + `doorAllowedBetween` (`:739-741`) + `§TOPO-HARD-REJECT`
+    (`tgl/enumerate.ts`).
+  - Circulation-as-anchor doctrine: ADR-0066 + the 21-axis `ObjectiveVector` (`tgl/objectives.ts`).
+  - One UBG, graphs as projections: ADR-0058 + C52; Living Graph reads cached UBG
+    (`livingGraphData.ts buildLiveGraph:278`).
+- **(B) GENUINE DELTA — the five-graph reframe.**
+  - **B1.** WRONG five — today's `adjacency/circulation/environmental/acoustic/structural` ≠ the
+    founder's `Circulation(master)/Access/Adjacency/Separation/Service`. Map:
+    `circulation→Circulation`, `adjacency→Functional Adjacency`, `structural→Service`; `environmental`
+    (sun) + `acoustic` are NOT in the founder's five (→ metric/derivation); **Access + Separation are
+    genuinely new**.
+  - **B2.** **Separation graph does not exist** — no negative "should-NOT-touch" relation; closest is
+    the `acoustic` loud↔quiet *spring* (`livingGraphData.ts augmentEdges:378-386`), a physics push, not
+    a declared privacy-gradient negative.
+  - **B3.** Graphs shown ALL-AT-ONCE via toggles → the dense tangle; no "the graph you're looking at",
+    no master.
+  - **B4.** Circulation is one co-equal layer, NOT the generation source-of-truth; engine pipeline is
+    still `program → bubbleGraph → geometry` (the OPPOSITE of HOUSE → Circulation → … → Geometry).
+  - **B5.** No node ROLES (`ENTRY/CIRCULATION/PUBLIC/SEMI_PRIVATE/PRIVATE/SERVICE/VERTICAL` — nodes
+    carry only `RoomKind`, `livingGraphSchema.ts:53`) and no graph METRICS panel.
+
+### Governance
+
+- **NEW: [ADR-0068 — Five-Graph Model: Circulation-First Building Graph](../../02-decisions/adrs/0068-five-graph-model-circulation-first-building-graph.md)** (PROPOSED; FG1–FG6 + S1–S5 migration).
+- Concretizes ADR-0067 (Graph-IR — Adjacency ⊂ `ADJACENT`, Separation ⊂ `SEPARATED_FROM`, Access ⊂
+  `ACCESSIBLE_VIA`, Service ⊂ `SERVED_BY` for residential); builds on ADR-0066 (access-graph-first) ·
+  ADR-0058 (one UBG, graphs as projections) · C52 · C53 §1 · ADR-0061/0062 (determinism) · the GRAPH.*
+  unified-building-graph strategy.
+
+### Staged checklist (additive; the five graphs are PROJECTIONS of the one UBG, not a fork — FG6)
+
+- [x] **S1 — Reframe the five layers → the five named graphs + add Separation.** `GraphView` vocabulary
+  + `GRAPH_VIEW_LAYER`/`GRAPH_VIEW_LABEL`/`GRAPH_VIEW_READY`/`GRAPH_VIEW_HINT` + `DEFAULT_GRAPH_VIEW` +
+  `layerStateForView` (`livingGraphSchema.ts`); two new `access`/`separation` `EdgeLayer`s (colour/dash);
+  `separationWeight(a,b)` deriving Separation from the privacy gradient (`livingGraphData.ts`).
+  `SHIPPED`.
+- [x] **S2 — The dropdown UI (Deliverable 2).** `buildGraphSelector()` + `setView()` replace the
+  all-on layer chips with a single-select dropdown (Circulation = master/default); the canvas renders
+  ONLY the selected view's sparse edges; Access shown "(soon)" + stub. `SHIPPED`.
+- [ ] **S3 — Node roles + role-rules.** Derive `ENTRY/CIRCULATION/PUBLIC/SEMI_PRIVATE/PRIVATE/SERVICE/
+  VERTICAL` per node (from `RoomKind` + `privacy`); enforce "PRIVATE may not connect directly to
+  ENTRY". `NEW`.
+- [ ] **S4 — Graph-metrics panel.** Betweenness centrality (Hall good / Dining bad), privacy depth,
+  circulation efficiency (avg shortest path), room-hub penalty/reward. `NEW`.
+- [ ] **S5 — Circulation as the generation source-of-truth (the pipeline inversion).** HOUSE →
+  Circulation → {Access, Adjacency, Service} → Geometry; big engine-side change across D-TGL +
+  bubbleGraph + `enumerate` gate. `NEW` (north-star).
