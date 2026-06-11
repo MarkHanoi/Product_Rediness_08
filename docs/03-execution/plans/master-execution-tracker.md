@@ -4192,7 +4192,7 @@ the v132 `§DIAG-EXEC-WALLS/-FILL/-STAIR-SIZE/-ADJ`.
 | **57.1** | **Rooms overlap sometimes — "not possible"** | 🔴 HARD | `§DIAG-EXEC-OVERLAP` added; root unknown (subdivider emits overlapping rects, or detection). Await next log → fix. |
 | **57.2** | **Multiple windows clashing — "not possible"** | 🔴 HARD | `§DIAG-EXEC-WIN-CLASH` added; the v134 §WINDOW-EVERY-FRONTAGE last-resort or the de-overlap may place 2 on one wall. WINDOWS agent (§57.8) owns the fix. |
 | **57.3** | **Big merge "Living Room / Dining / Bathroom 81.9 m²"** | 🔴 HARD | A MISSING divider (detection agent proof, v133 note): the engine weld drops a real divider. Fix = `weldPartitionsToShell` clamp-don't-drop (engine). |
-| **57.4** | **Entrance hall must be on the perimeter + have the main door — "not re-enforced … STILL centered, cannot be there!!!"** (founder re-flagged 2026-06-11, emphatic) | 🔴 HARD · 🟠 IN PROGRESS | `§DIAG-EXEC-ENTRANCE` flags `⚠ NOT-ON-PERIMETER`. ENGINE agent in flight (subdivide PUBLIC-zone places the `hall` on the SHELL EDGE — bounds an exterior wall for the front door — AND shares a wall inward with corridor/living; new engine `§DIAG-ENTRANCE-PERIMETER`). Modelled on v142 §STAIR-CIRC-FACE (force a room to abut a target). Coupled with 57.1/57.3/57.5 (same subdivider quality — the persistent "Living/Dining/Corridor 56m²" merge + the upper blank are the next subdivider passes, sequenced after the hall to avoid concurrent subdivide.ts edits). |
+| **57.4** | **Entrance hall must be on the perimeter + have the main door — "not re-enforced … STILL centered, cannot be there!!!"** (founder re-flagged 2026-06-11, emphatic) | 🟢 DONE v144 | `§ENTRANCE-SHELL-SLICE` (`placePublicWithHallOnShell`, subdivide.ts): carves the `hall` as a full-depth column on a SHELL edge of the public rect, perpendicular to the corridor face → it bounds a perimeter wall (door OUT, the front door seats there) AND shares a wall inward with corridor/living. Falls back to plain squarify (byte-identical) when no hall / hall-only / a sibling can't clear its floor → never drops a room; suppressed on rectified (sheared) shells. New `§DIAG-ENTRANCE-PERIMETER` log (`boundsShellWall=YES`, frontage 3.4–5.0 m on every tested plate; was interior). ai-host 2307/2307 (139 files), root tsc 0. |
 | **57.5** | **White blank upstairs (intermittent)** | 🟠 HIGH | Upper undivided area ("Room 01-005 53.7 m²"). The v135 spine-carve targeted the ground; extend to the upper storey. `§DIAG-EXEC-FILL` STRETCHED flag surfaces it. |
 | **57.6** | **Door/window opening lines "breaking the walls" during AI-batch gen (apartment + house)** | 🟠 HIGH | A previously-fixed opening-void render regressed under the batch path. Investigate `§DIAG-OPENING-VOID` / WallRebuildCoordinator under batch. |
 | **57.7** | **Stair: smaller/cornered room; upper stair must connect the corridor** | 🟡 MED | Stair keep-out sizing (engine) + a 1.5 m landing (founder §53-adjacent). `§DIAG-EXEC-STAIR-SIZE` roomToFootprint flags oversized. Coupled with §52.6 (smaller keep-out ⇒ less fragmentation). |
@@ -4285,6 +4285,43 @@ Sun-path, FORMA.5 climate). The OPEN QUESTIONS for the spike (research/feasibili
    sampling) is the right place to compute it, and whether the visual sun-through-window can be unified with the
    numeric per-room average. **Deliverable:** a short feasibility doc (options + recommendation), NOT code.
    **Status: 🔵 QUEUED (spike).**
+
+## §62 — Washing-machine door circle on the wrong axis (`§WM-DOOR-AXIS`) — QUEUED, no priority (2026-06-11)
+
+Founder (queue, no priority, with 3D close-up): the washing-machine DOOR circle + its swing/handle arcs are built in
+the **X–Y (horizontal) plane** — they lie FLAT at the base of the unit — but they must be VERTICAL, on the front
+FACE of the machine (rotated into the **vertical** plane so the circle normal is the room-horizontal facing
+direction, not up). A washing-machine / fridge / oven round door faces the user; the arc geometry needs a 90°
+rotation from the floor plane onto the appliance front. Lives in the furniture geometry builder (the washing-machine
+/ appliance-with-round-door mesh — `FurnitureGeometryBuildersB.ts` / `FurnitureGeometryFactory.ts`); fix = orient
+the door-circle + arcs in the vertical façade plane of the module, anchored to its front, not the XY footprint.
+**Status: 🔵 QUEUED (no priority).**
+
+## §63 — Bathroom fixture quality (material · openings · wall-hosting) — QUEUED, no priority (2026-06-11)
+
+Founder (queue, no priority, 3D close-ups + the FURNITURE inspector showing `bathroom_mirror`, Material `metal`):
+
+| # | Defect (founder words) | Fix direction |
+|---|---|---|
+| **63.1** | **Mirror is black — should have a MIRROR material** | The `bathroom_mirror` module is built with `Material: metal` (dark/opaque) → renders black. Give it a **reflective mirror material** (high specular / low roughness / env-reflection, or a mirror shader). In `styleFinish.ts` / the furniture material map. |
+| **63.2** | **Mirror should be ALIGNED with the wall, as if hosted on it** | The mirror is free-standing/tilted (inspector: angled, Base Offset 1.1 m). It must be **wall-hosted**: flush against the nearest wall, vertical, at eye height. Needs a wall-mount placement (snap the mirror's back plane to the wall + orient its normal into the room) in the bathroom furnish placement (`furnishRoom`/`wallAnalysis`/`placeSolver`). |
+| **63.3** | **The BATH should have a hole / opening** (the tub basin) | The bath renders as a solid block — it needs the **inner tub recess** (a subtracted/inset basin volume), not a closed box. In the bath geometry builder (`FurnitureGeometryBuildersB.ts` / `FurnitureGeometryFactory.ts`). |
+| **63.4** | **The SINK too** (basin opening) | Same — the sink/vanity top needs the **basin bowl opening** (recessed), currently a faint flat circle. Sink geometry builder. |
+| **63.5** | **The RADIATOR (towel rail) should be wall-aligned + a little higher** | The towel-rail radiator sits on the floor mid-wall; it must be **wall-hosted** (flush to the wall) and **raised** off the floor (typical mount ~300–600 mm up). Wall-mount placement + a base-offset raise. |
+
+Cross-refs: these are **bathroom module geometry + material + wall-hosting** — the natural first consumers of the
+§59 Room-Module Rule Engine **P6 per-room rollout** (bathroom ontology: bath/sink/mirror/WC/radiator with their
+mount type = floor vs wall-hosted). Until P6, a targeted furniture-builder + material + wall-snap pass closes them.
+**Status: 🔵 QUEUED (no priority).**
+
+## §64 — Split-view control overlaps the bottom-left graph buttons (`§SPLITVIEW-OVERLAP`) — QUEUED (2026-06-11)
+
+Founder (queue, screenshot): the **split-view** control in the main PRYZM 3D scene OVERLAPS the bottom-left graph
+button stack (`✦ Living Graph` / `❉ Graph` / `+ Grid`) — they collide. Move the split-view control slightly so it
+no longer overlaps, and **align it with the bottom** of that button group. CSS/layout fix in the bottom-left
+overlay controls (the split-view toggle vs the `Living Graph`/`Graph`/`+ Grid` cluster — `SplitViewManager` UI /
+the bottom-menu / the canvas overlay z-stack); nudge the split-view button's position + bottom-align so the two
+groups sit flush, not on top of each other. **Status: 🔵 QUEUED.**
 
 ## §54 — Living-graph node CARDS (select → interrogate → flowing canvas) — QUEUED (2026-06-11)
 

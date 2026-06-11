@@ -343,10 +343,21 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     // §STAIR-OBSTACLE-CARVE — `stairCarved` tells the subdivider a stair keep-out
     // fractured the plate so it keeps a corridor spine across the hole. Both
     // options reach subdivideWithReport.
+    // §ENTRANCE-HALL-ON-SHELL (tracker §57.4, 2026-06-11) — the shell was RECTIFIED iff its
+    // rectified (bbox) form differs from the raw perimeter (a sheared/skewed convex quad). On
+    // such a plate the subdivider suppresses the hall-slice (the §RECTIFY-SHELL-PROJECT invariant
+    // only snaps bbox-edge endpoints, so a re-squarified `others` partition could dangle a few cm
+    // shy of the projected ring). Axis-aligned rectangle / L / U / T → rectify is the identity →
+    // false → the hall-slice runs (the founder's primary case).
+    const rectifiedPoly = rectifyConvexQuad(input.shellPolygon);
+    const shellRectified =
+        rectifiedPoly.length !== input.shellPolygon.length ||
+        rectifiedPoly.some((p, i) => Math.abs(p.x - input.shellPolygon[i]!.x) > 1e-6 || Math.abs(p.z - input.shellPolygon[i]!.z) > 1e-6);
     const subRes = subdivideWithReport(
         rectsT, bubble,
         {
             stairCarved,
+            shellRectified,
             ...(input.corridorWidthM !== undefined ? { corridorWidthM: input.corridorWidthM } : {}),
             // §STAIR-CIRC-FACE — pass the inflated keep-out(s) so the subdivider orients the
             // corridor/landing to share a wall with the stair (founder defect 2026-06-11).

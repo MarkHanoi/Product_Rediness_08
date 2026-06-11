@@ -155,6 +155,76 @@ describe('subdivide (TGL P3b)', () => {
             ).toBe(true);
         }
     });
+
+    // §ENTRANCE-HALL-ON-SHELL (tracker §57.4, founder defect, 2026-06-11) — the
+    // entrance `hall` is the arrival space the FRONT DOOR opens into, so it MUST bound
+    // a PERIMETER (shell/exterior) wall AND connect INWARD to circulation (the corridor
+    // or the public zone). The squarified public zone could bury the hall in a deeper
+    // row touching NO shell wall → the editor's §DIAG-ENTRANCE flagged ⚠ NOT-ON-PERIMETER
+    // and the front door landed on a neighbour façade. The shell-slice carve forces the
+    // hall onto a shell edge.
+    it('§ENTRANCE-HALL-ON-SHELL: the ground hall bounds ≥1 perimeter wall AND abuts corridor/living', () => {
+        // Two rects share a wall (a common edge of non-zero extent).
+        const sharesWall = (a: Rect, b: Rect): boolean => {
+            const vAbut = Math.abs(a.x1 - b.x0) < 0.05 || Math.abs(b.x1 - a.x0) < 0.05;
+            const zOv = Math.min(a.z1, b.z1) - Math.max(a.z0, b.z0);
+            if (vAbut && zOv > 0.05) return true;
+            const hAbut = Math.abs(a.z1 - b.z0) < 0.05 || Math.abs(b.z1 - a.z0) < 0.05;
+            const xOv = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0);
+            return hAbut && xOv > 0.05;
+        };
+        // The shell-fronting (perimeter) length of a room rect against the OUTER shell
+        // edges — the same edges the editor seam (`reseatEntranceOnHallWall`) tests.
+        const shellFrontageM = (r: Rect, shell: Rect): number => {
+            const t = (a: number, b: number): boolean => Math.abs(a - b) < 0.05;
+            let len = 0;
+            if (t(r.z0, shell.z0)) len = Math.max(len, r.x1 - r.x0);
+            if (t(r.z1, shell.z1)) len = Math.max(len, r.x1 - r.x0);
+            if (t(r.x0, shell.x0)) len = Math.max(len, r.z1 - r.z0);
+            if (t(r.x1, shell.x1)) len = Math.max(len, r.z1 - r.z0);
+            return len;
+        };
+
+        // A 2-storey house GROUND storey: full residential public programme + a hall +
+        // corridor + private rooms (the §SINGLE-RECT carve path that buries the hall).
+        const ground: ApartmentProgram = {
+            bedrooms: 2, bathrooms: 1, masterEnSuite: true,
+            openPlanKitchenDining: false, livingRoom: true, entranceHall: true,
+        };
+
+        // Exercise several plate shapes/orientations (wide, tall, near-square).
+        for (const dims of [[12, 10], [10, 12], [14, 9], [9, 14], [11, 11]] as const) {
+            const shell: Rect = { x0: 0, z0: 0, x1: dims[0], z1: dims[1] };
+            const g = buildBubbleGraph(ground, rectArea(shell));
+            const hall = g.rooms.find(r => r.type === 'hall');
+            expect(hall, `plate ${dims[0]}x${dims[1]} mints a hall`).toBeDefined();
+
+            const out = subdivide([shell], g);
+            assertContract(out, [shell], g.rooms);
+
+            const hallP = out.find(p => p.roomId === hall!.id);
+            expect(hallP, `plate ${dims[0]}x${dims[1]}: hall is PLACED (not dropped)`).toBeDefined();
+
+            // (1) the hall bounds ≥1 perimeter wall (a shell-edge cell) — a door-width run.
+            const frontage = shellFrontageM(hallP!.rect, shell);
+            expect(
+                frontage,
+                `plate ${dims[0]}x${dims[1]}: hall fronts a perimeter wall (got ${frontage.toFixed(2)} m)`,
+            ).toBeGreaterThanOrEqual(0.9 - 1e-6);
+
+            // (2) the hall connects INWARD — it shares a wall with the corridor OR the living.
+            const corridorP = out.find(p => p.roomId === g.corridorId);
+            const livingId = g.rooms.find(r => r.type === 'living')?.id;
+            const livingP = livingId ? out.find(p => p.roomId === livingId) : undefined;
+            const inward =
+                (corridorP !== undefined && sharesWall(hallP!.rect, corridorP.rect)) ||
+                (livingP !== undefined && sharesWall(hallP!.rect, livingP.rect));
+            expect(
+                inward,
+                `plate ${dims[0]}x${dims[1]}: hall abuts the corridor or living (inward door)`,
+            ).toBe(true);
+        }
+    });
 });
 
 // ───────────────── §STAIR-OBSTACLE-CARVE (2026-06-08, Defect A) ───────────────

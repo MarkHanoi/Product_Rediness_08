@@ -112,6 +112,18 @@ export interface SubdivideOptions {
      * preserving, so no room changes size and nothing is dropped. Absent / empty ⇒ the
      * pass is a no-op (apartment + every keep-out-free path byte-identical, ADR-0061). */
     readonly keepOutRects?: readonly Rect[];
+    /**
+     * §ENTRANCE-HALL-ON-SHELL (tracker §57.4, 2026-06-11) — set true by `enumerate.ts`
+     * when the shell was RECTIFIED (a sheared/skewed convex quad tiled in its bounding
+     * box, then projected back to the real ring). On such a plate the §ENTRANCE-HALL-ON-
+     * SHELL hall-slice is SUPPRESSED: the slice reshapes the public-zone squarify, and on
+     * a sheared ring the re-squarified `others` partition can leave an interior endpoint a
+     * few cm shy of the projected perimeter (the §RECTIFY-SHELL-PROJECT invariant only
+     * snaps bbox-EDGE endpoints). The founder's hall-centred defect is a RECTILINEAR-plate
+     * case (rectangle / L / U / T — never rectified), where the slice's outer endpoint
+     * lands EXACTLY on the perimeter, so suppressing it on rectified quads loses nothing.
+     * Absent / false ⇒ the hall-slice runs (the common axis-aligned case). */
+    readonly shellRectified?: boolean;
 }
 
 /** Axis-line snap tolerance (m). Matches the EPS_M used by the SCORING
@@ -880,6 +892,92 @@ function applyMasterSurplus(
     return cur;
 }
 
+// ── §ENTRANCE-HALL-ON-SHELL (tracker §57.4, founder defect, 2026-06-11) ────────
+//
+// THE DEFECT (founder, emphatic + repeated): "the entrance hall still centered —
+// cannot be there — where the entrance door is!!!". The `hall` room is the arrival
+// space the FRONT DOOR opens into, so it MUST bound an EXTERIOR/shell (perimeter)
+// wall — the editor seam (`reseatEntranceOnHallWall`, §DIAG-ENTRANCE-FIX) places
+// the front door on the longest shell wall the hall's polygon fronts. When the
+// public zone is SQUARIFIED (`placeInRectReported`), squarify lays rooms in ROWS:
+// the hall can land in a DEEPER row buried behind living/kitchen, fronting NO shell
+// wall → the editor's strict bounds test fails → §DIAG-EXEC-ENTRANCE logs
+// `⚠ NOT-ON-PERIMETER` and the door lands on a neighbour's façade.
+//
+// THE CURE — the §STAIR-CIRC-FACE model (force a room to share a wall with a target
+// via placement): carve the HALL as a dedicated full-DEPTH slice on a SHELL EDGE of
+// the public rect, PERPENDICULAR to the corridor face. The public rect's outer edges
+// (x0/x1 + the away-from-corridor z) are ALL shell/perimeter walls; the corridor-
+// facing edge is the public/private split. A full-depth hall column therefore bounds
+//   • a shell wall along its OUTER long edge AND its near shell corner   (door OUT),
+//   • the corridor along its SHORT corridor-facing edge                  (door IN),
+// i.e. the entry transition outside → hall → corridor/living. We pin it to the END of
+// the public rect (the corner) so it gets the LONGEST shell frontage (two shell walls
+// meet there → an entry-appropriate wall) and never buries it behind a sibling.
+//
+// Returns null (caller keeps the plain squarify) when the hall can't be sliced without
+// starving it or the remaining public rooms below their floors — so it is byte-
+// identical on plates where the carve doesn't apply, and NEVER drops a room to force
+// the hall out. Pure + deterministic (no RNG, ADR-0061).
+function placePublicWithHallOnShell(
+    publicRect: Rect,
+    publicRooms: readonly ProgramRoom[],
+    // The corridor face of the public rect — the side that abuts the corridor strip.
+    // 'horizontal' carve ⇒ corridor is on the +z side (publicRect.z1); the hall slices
+    // along x (a full-z-depth column). 'vertical' ⇒ corridor on +x; hall slices along z.
+    orientation: 'horizontal' | 'vertical',
+): SubdivideResult | null {
+    const hall = publicRooms.find(r => r.type === 'hall');
+    if (!hall) return null;                       // no ground entrance hall → nothing to force
+    if (publicRooms.length < 2) return null;      // hall-only public zone — squarify already perimeter
+
+    // The hall is a full-DEPTH slice perpendicular to the corridor face, so its short
+    // side is min(slot-width-along-face, depth). The slice axis is the corridor face's
+    // own axis (along which siblings sit), guaranteeing the hall column reaches BOTH the
+    // outer shell edge and the corridor edge.
+    const faceAxis: 'x' | 'z' = orientation === 'horizontal' ? 'x' : 'z';
+    const along = faceAxis === 'x' ? publicRect.x1 - publicRect.x0 : publicRect.z1 - publicRect.z0;
+    const depth = faceAxis === 'x' ? publicRect.z1 - publicRect.z0 : publicRect.x1 - publicRect.x0;
+    if (along <= EPS || depth <= EPS) return null;
+
+    const hallFloor = floorFor('hall');
+    // The depth (perpendicular run, shell-to-corridor) must itself clear the hall floor,
+    // else a full-depth slice is a thin tunnel — defer to squarify.
+    if (depth < hallFloor - EPS) return null;
+
+    // Hall slot width along the face: its area target ÷ depth, clamped to ≥ its floor.
+    // Cap it so the rest of the public rooms keep their own floors on the leftover run.
+    const others = publicRooms.filter(r => r.id !== hall.id);
+    const othersFloorSum = others.reduce((s, r) => s + floorFor(r.type), 0);
+    const hallWantWidth = Math.max(hallFloor, hall.targetAreaM2 / depth);
+    const maxHallWidth = along - othersFloorSum;
+    if (maxHallWidth < hallFloor - EPS) return null;     // no room for the hall + siblings → squarify
+    const hallWidth = Math.min(hallWantWidth, maxHallWidth);
+    if (hallWidth < hallFloor - EPS) return null;
+
+    // Pin the hall to the END of the public rect along the face (the corner → longest
+    // shell frontage). We choose the x0/z0 end deterministically (the shell-origin corner).
+    const out: RoomPlacement[] = [];
+    let remainingRect: Rect;
+    if (faceAxis === 'x') {
+        const split = publicRect.x0 + hallWidth;
+        out.push({ roomId: hall.id, rect: roundRect({ x0: publicRect.x0, z0: publicRect.z0, x1: split, z1: publicRect.z1 }) });
+        remainingRect = { x0: split, z0: publicRect.z0, x1: publicRect.x1, z1: publicRect.z1 };
+    } else {
+        const split = publicRect.z0 + hallWidth;
+        out.push({ roomId: hall.id, rect: roundRect({ x0: publicRect.x0, z0: publicRect.z0, x1: publicRect.x1, z1: split }) });
+        remainingRect = { x0: publicRect.x0, z0: split, x1: publicRect.x1, z1: publicRect.z1 };
+    }
+
+    // Squarify the remaining public rooms (living/kitchen/dining) into the leftover rect.
+    // If any of them can't clear its floor there, the WHOLE carve is abandoned (caller
+    // keeps the plain squarify) — we never drop a public room to seat the hall.
+    const restPlaced = placeInRectReported(remainingRect, adjacencySortForZone(allocationOrder(others)));
+    if (restPlaced.droppedRooms.length > 0) return null;
+    out.push(...restPlaced.placements);
+    return { placements: out, droppedRooms: [] };
+}
+
 /** Single-rect carve flow: returns the placements (corridor + public + private,
  *  with ensuite carved from master) + the structured drop report. Returns null
  *  when the carve can't fit (caller falls back to the whole-shell squarify). */
@@ -895,6 +993,9 @@ function trySingleRectCarve(
     // to the keep-out edge. So on a keep-out storey we PREFER single-loaded; double-loaded stays
     // the fallback. False (the default) ⇒ byte-identical (apartment + every keep-out-free path).
     preferSingleLoaded: boolean = false,
+    // §ENTRANCE-HALL-ON-SHELL (tracker §57.4) — when the shell was RECTIFIED (sheared quad),
+    // suppress the hall-slice (see SubdivideOptions.shellRectified). Default false ⇒ slice runs.
+    shellRectified: boolean = false,
 ): SubdivideResult | null {
     const corridor = graph.rooms.find(r => r.type === 'corridor');
     const master   = graph.rooms.find(r => r.type === 'master');
@@ -966,9 +1067,52 @@ function trySingleRectCarve(
     // (kitchen↔dining in public; master↔bedrooms off the corridor in private) land in
     // the same squarify strip → spatially adjacent. Uniform-preference zones are
     // identity (byte-identical to the pre-Phase-4 allocationOrder placement).
-    const pub = placeInRectReported(carve.publicRect, adjacencySortForZone(allocationOrder(publicRooms)));
+    // §ENTRANCE-HALL-ON-SHELL (tracker §57.4, 2026-06-11) — FIRST try to seat the hall
+    // as a dedicated full-depth shell-edge slice so it bounds a PERIMETER wall (the front
+    // door wall) AND the corridor. Falls back to the plain squarify (byte-identical) when
+    // there is no hall, the public zone is hall-only, or the carve can't fit every public
+    // room — never drops a room to force the hall out.
+    const hallCarve = shellRectified
+        ? null   // §ENTRANCE-HALL-ON-SHELL suppressed on a rectified/sheared shell (see option doc)
+        : placePublicWithHallOnShell(carve.publicRect, publicRooms, carve.orientation);
+    const pub = hallCarve ?? placeInRectReported(carve.publicRect, adjacencySortForZone(allocationOrder(publicRooms)));
     out.push(...pub.placements);
     droppedRooms.push(...pub.droppedRooms);
+    // §DIAG-ENTRANCE-PERIMETER (tracker §57.4, 2026-06-11) — per-storey engine-side proof
+    // that the entrance hall bounds a shell/exterior (perimeter) wall, so the editor's
+    // §A.21.D29 / §DIAG-ENTRANCE-FIX resolver can host the front door on it. The publicRect's
+    // outer edges (everything except the corridor-facing split) are perimeter walls; a hall
+    // footprint that touches one of those edges fronts the perimeter. Logs YES + the shell-
+    // wall length so the next console paste turns the editor's `⚠ NOT-ON-PERIMETER` to ✓.
+    {
+        const hallRoom = publicRooms.find(r => r.type === 'hall');
+        const hallP = hallRoom ? pub.placements.find(p => p.roomId === hallRoom.id) : undefined;
+        if (hallRoom && hallP) {
+            const pr = carve.publicRect;
+            // Perimeter edges of the public rect = its outer edges MINUS the corridor-facing
+            // one. horizontal ⇒ corridor on +z (publicRect.z1); so perimeter = z0, x0, x1.
+            // vertical ⇒ corridor on +x (publicRect.x1); so perimeter = x0, z0, z1.
+            const touchesEdge = (a: number, b: number): boolean => Math.abs(a - b) < ALIGNMENT_SNAP_EPS_M;
+            const hr = hallP.rect;
+            let shellLenM = 0;
+            if (carve.orientation === 'horizontal') {
+                if (touchesEdge(hr.z0, pr.z0)) shellLenM = Math.max(shellLenM, hr.x1 - hr.x0);   // top shell wall
+                if (touchesEdge(hr.x0, pr.x0)) shellLenM = Math.max(shellLenM, hr.z1 - hr.z0);   // left shell wall
+                if (touchesEdge(hr.x1, pr.x1)) shellLenM = Math.max(shellLenM, hr.z1 - hr.z0);   // right shell wall
+            } else {
+                if (touchesEdge(hr.x0, pr.x0)) shellLenM = Math.max(shellLenM, hr.z1 - hr.z0);   // left shell wall
+                if (touchesEdge(hr.z0, pr.z0)) shellLenM = Math.max(shellLenM, hr.x1 - hr.x0);   // bottom shell wall
+                if (touchesEdge(hr.z1, pr.z1)) shellLenM = Math.max(shellLenM, hr.x1 - hr.x0);   // top shell wall
+            }
+            const boundsShell = shellLenM >= STAIR_DOOR_MIN_M - EPS;   // ≥ a door width (0.9 m)
+            console.log(
+                `[D-TGL subdivide] §DIAG-ENTRANCE-PERIMETER hall=${hallRoom.id} carve=${hallCarve ? 'SHELL-SLICE' : 'squarify'} ` +
+                `boundsShellWall=${boundsShell ? 'YES' : 'NO'} shellWallLenM=${shellLenM.toFixed(2)} ` +
+                `(YES ⇒ the front door can be hosted on the hall's perimeter wall — editor §DIAG-ENTRANCE turns ✓; ` +
+                `NO ⇒ hall is interior, front door falls back to a neighbour façade)`,
+            );
+        }
+    }
     const orderedPrivate = adjacencySortForZone(allocationOrder(privateRooms));
     // §EVERY-ROOM-ACCESS-COMB (A.21.D61, 2026-06-09) — FIRST try laying the private
     // rooms as a single row of full-depth slices PERPENDICULAR to the corridor face,
@@ -1794,6 +1938,9 @@ export function subdivideWithReport(
     // §STAIR-CIRC-FACE — the stair keep-out rect(s) (strategy frame), used by `finalise` to
     // orient the carve so the corridor abuts the stair. Absent ⇒ [] ⇒ the pass is a no-op.
     const keepOutRects = (options.keepOutRects ?? []).filter(r => rectArea(r) > EPS);
+    // §ENTRANCE-HALL-ON-SHELL (tracker §57.4) — suppress the hall-slice on a rectified
+    // (sheared) shell (the §RECTIFY-SHELL-PROJECT invariant; see SubdivideOptions doc).
+    const shellRectified = options.shellRectified === true;
     const valid = rects.filter(r => rectArea(r) > EPS).sort(byAreaDesc);
     if (valid.length === 0 || graph.rooms.length === 0) return { placements: [], droppedRooms: [] };
 
@@ -1875,7 +2022,7 @@ export function subdivideWithReport(
 
     // §SINGLE-RECT-CARVE — single-rect shell with corridor + private rooms.
     if (valid.length === 1) {
-        const carved = trySingleRectCarve(valid[0]!, graph, corridorWidthM);
+        const carved = trySingleRectCarve(valid[0]!, graph, corridorWidthM, false, shellRectified);
         if (carved !== null) return finalise(carved);
     }
 
@@ -1931,7 +2078,7 @@ export function subdivideWithReport(
             // §STAIR-CIRC-FACE — when a stair keep-out is supplied, prefer the single-loaded
             // (one-face) corridor so the §STAIR-CIRC-FACE reflection in `finalise` can bring it
             // to the keep-out edge (a centred double-loaded strip can't reach an edge keep-out).
-            const carved = trySingleRectCarve(dominant, graph, corridorWidthM, keepOutRects.length > 0);
+            const carved = trySingleRectCarve(dominant, graph, corridorWidthM, keepOutRects.length > 0, shellRectified);
             // §STAIR-CARVE-NO-DROP (2026-06-08) — the dominant-rect carve gives every
             // room a corridor spine (the founder's central-blob fix), but squeezing the
             // WHOLE programme into the dominant rect (which is smaller than the full
@@ -2303,7 +2450,10 @@ function tryStairSpanningCorridor(
         // fragment is shallower than the standard carve's 5.2 m gate, per §SPAN-SHALLOW-ONLY).
         // Fall back to the standard single-rect carve defensively (e.g. a near-5.2 m band).
         const spineRes = trySpineBandCarve(spine, spineGraph, corridorWidthM, cutAtVMax)
-            ?? trySingleRectCarve(spine, spineGraph, corridorWidthM);
+            // §ENTRANCE-HALL-ON-SHELL suppressed (last arg true) — a shallow spine-band
+            // fallback is a degenerate fragment; the hall-slice's full-depth column is for the
+            // normal public-zone carve, not a sliver band.
+            ?? trySingleRectCarve(spine, spineGraph, corridorWidthM, false, true);
         if (!spineRes || spineRes.droppedRooms.length > 0) continue;
 
         // Pack the leftover public rooms into the OTHER fragments (they chain to the entry —
