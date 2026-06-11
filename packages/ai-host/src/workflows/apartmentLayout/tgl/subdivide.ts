@@ -98,6 +98,20 @@ export interface SubdivideOptions {
      * Absent / false ⇒ the generic multi-rect path (apartment + L/U/T shells
      * unchanged). */
     readonly stairCarved?: boolean;
+    /**
+     * §STAIR-CIRC-FACE (founder defect, 2026-06-11) — the stair-core keep-out rect(s)
+     * in the SAME frame as `rects` (the strategy frame `enumerate.ts` subdivides in,
+     * already inflated by KEEPOUT_MARGIN_M). Used ONLY to orient the carve so the
+     * minted corridor/landing SHARES A WALL with the stair keep-out: a multi-storey
+     * UPPER storey carves its corridor against one face of the buildable plate, but the
+     * stair sits OUTSIDE that plate on whichever edge the keep-out was subtracted from —
+     * if that is the OPPOSITE edge the corridor never reaches the stair, so the stair's
+     * only door lands on the bedroom that wraps it (the founder's "stair served through
+     * Bedroom 3"). The §STAIR-CIRC-FACE post-pass reflects the carved placements within
+     * their own bbox to bring the corridor face to the keep-out edge — area/shape-
+     * preserving, so no room changes size and nothing is dropped. Absent / empty ⇒ the
+     * pass is a no-op (apartment + every keep-out-free path byte-identical, ADR-0061). */
+    readonly keepOutRects?: readonly Rect[];
 }
 
 /** Axis-line snap tolerance (m). Matches the EPS_M used by the SCORING
@@ -869,7 +883,19 @@ function applyMasterSurplus(
 /** Single-rect carve flow: returns the placements (corridor + public + private,
  *  with ensuite carved from master) + the structured drop report. Returns null
  *  when the carve can't fit (caller falls back to the whole-shell squarify). */
-function trySingleRectCarve(shell: Rect, graph: BubbleGraph, corridorWidthM?: number): SubdivideResult | null {
+function trySingleRectCarve(
+    shell: Rect,
+    graph: BubbleGraph,
+    corridorWidthM?: number,
+    // §STAIR-CIRC-FACE (founder defect, 2026-06-11) — when a stair keep-out is present, the
+    // corridor MUST be reachable from the stair. The double-loaded (centre-strip) §NO-PUBLIC
+    // carve buries the corridor down the MIDDLE of the plate, so it never abuts a keep-out on
+    // an EDGE — even after the §STAIR-CIRC-FACE reflection (a centred strip reflects to itself).
+    // The single-loaded carve lays the corridor against ONE FACE, which the reflection CAN bring
+    // to the keep-out edge. So on a keep-out storey we PREFER single-loaded; double-loaded stays
+    // the fallback. False (the default) ⇒ byte-identical (apartment + every keep-out-free path).
+    preferSingleLoaded: boolean = false,
+): SubdivideResult | null {
     const corridor = graph.rooms.find(r => r.type === 'corridor');
     const master   = graph.rooms.find(r => r.type === 'master');
     const ensuite  = graph.rooms.find(r => r.type === 'ensuite');
@@ -912,6 +938,15 @@ function trySingleRectCarve(shell: Rect, graph: BubbleGraph, corridorWidthM?: nu
     // off BOTH sides so EVERY private room shares a wall with the corridor. See
     // `tryNoPublicDoubleLoadedCarve`.
     if (publicRooms.length === 0) {
+        // §STAIR-CIRC-FACE — on a keep-out storey, try the single-loaded (one-face) corridor
+        // FIRST so the §STAIR-CIRC-FACE reflection can bring it to the keep-out edge. Falls
+        // through to the double-loaded carve when single-loaded is infeasible (no regression).
+        if (preferSingleLoaded) {
+            const single = tryNoPublicSingleLoadedCarve(
+                shell, corridor, privateRooms, master, ensuite, ensuiteCarveArea, corridorWidthM,
+            );
+            if (single) return single;
+        }
         return tryNoPublicDoubleLoadedCarve(
             shell, corridor, privateRooms, master, ensuite, ensuiteCarveArea, corridorWidthM,
         );
@@ -1340,6 +1375,104 @@ function roomsWithAnySharedWall(placements: readonly RoomPlacement[]): Set<strin
     return connected;
 }
 
+// ── §STAIR-CIRC-FACE (founder defect, 2026-06-11) ──────────────────────────────
+
+/** Length (m) of the SHARED axis-aligned edge between two rects — 0 when they do not
+ *  abut, or abut only at a corner. This is exactly the wall length `wallsAndDoors`
+ *  has to host a door on, so it is the right metric for "does the corridor reach the
+ *  stair with enough run for a door". Pure + deterministic. */
+function sharedWallLengthM(a: Rect, b: Rect): number {
+    const vAbut = Math.abs(a.x1 - b.x0) < ALIGNMENT_SNAP_EPS_M || Math.abs(b.x1 - a.x0) < ALIGNMENT_SNAP_EPS_M;
+    if (vAbut) {
+        const zOv = Math.min(a.z1, b.z1) - Math.max(a.z0, b.z0);
+        if (zOv > ALIGNMENT_SNAP_EPS_M) return zOv;
+    }
+    const hAbut = Math.abs(a.z1 - b.z0) < ALIGNMENT_SNAP_EPS_M || Math.abs(b.z1 - a.z0) < ALIGNMENT_SNAP_EPS_M;
+    if (hAbut) {
+        const xOv = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0);
+        if (xOv > ALIGNMENT_SNAP_EPS_M) return xOv;
+    }
+    return 0;
+}
+
+/** A door width (m) — the minimum corridor↔stair shared-wall run that lets the door
+ *  pipeline place the stair's circulation door. Mirrors the test's DOOR_W. */
+const STAIR_DOOR_MIN_M = 0.9;
+
+/** The axis-aligned bounding box of a placement set. */
+function placementsBBox(placements: readonly RoomPlacement[]): Rect {
+    let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
+    for (const p of placements) {
+        x0 = Math.min(x0, p.rect.x0); z0 = Math.min(z0, p.rect.z0);
+        x1 = Math.max(x1, p.rect.x1); z1 = Math.max(z1, p.rect.z1);
+    }
+    return { x0, z0, x1, z1 };
+}
+
+/** Reflect a rect about a bbox on the chosen axes (area- + shape-preserving; the
+ *  whole set stays inside the SAME bbox and stays non-overlapping). */
+function reflectRect(r: Rect, bb: Rect, flipX: boolean, flipZ: boolean): Rect {
+    let { x0, x1, z0, z1 } = r;
+    if (flipX) { const nx0 = bb.x0 + (bb.x1 - x1); const nx1 = bb.x0 + (bb.x1 - x0); x0 = nx0; x1 = nx1; }
+    if (flipZ) { const nz0 = bb.z0 + (bb.z1 - z1); const nz1 = bb.z0 + (bb.z1 - z0); z0 = nz0; z1 = nz1; }
+    return roundRect({ x0, z0, x1, z1 });
+}
+
+/**
+ * §STAIR-CIRC-FACE (founder defect, 2026-06-11) — guarantee the minted corridor /
+ * landing SHARES A WALL with the stair keep-out on EVERY storey, so the door pipeline
+ * (`wallsAndDoors` §STAIR-ROOM-DOOR) can place the stair's door onto CIRCULATION rather
+ * than onto a habitable room.
+ *
+ * THE DEFECT: a multi-storey UPPER storey carves its corridor against ONE face of the
+ * buildable plate (e.g. the centre, for the double-loaded `§NO-PUBLIC-CARVE`, or one
+ * long edge, for `§NO-SEAL-SINGLE-LOAD`). The stair keep-out was SUBTRACTED from the
+ * plate on whichever edge the stair core sits — frequently the OPPOSITE edge from the
+ * corridor face. The corridor then never reaches the stair, so the stair's only legal
+ * door lands on the bedroom that wraps it (the founder's node inspector: "stair … Not on
+ * circulation ✗ — served through Bedroom 3").
+ *
+ * THE FIX: the carve fills its dominant rect EXACTLY, so reflecting the entire placement
+ * set within its own bbox is area-, shape- and tiling-preserving — it only swaps WHICH
+ * edge each zone lands on. Try the 4 axis-flips (identity, flip-x, flip-z, flip-both) and
+ * keep the one that gives the corridor the LONGEST shared wall with the keep-out (≥ a door
+ * width). Identity wins ties (so a layout whose corridor already abuts the stair is
+ * byte-identical). Returns the placements UNCHANGED when no keep-out is supplied, no
+ * corridor was placed, or no flip can bring the corridor to a keep-out edge (then the
+ * enumerate-side §STAIR-SPINE-TOUCH bridge / the door pipeline's reroute handle it).
+ *
+ * Pure + deterministic. House-only: the apartment passes no keep-out (`keepOutRects`
+ * empty) → identity → byte-identical (ADR-0061).
+ */
+function orientCorridorToKeepOut(
+    placements: readonly RoomPlacement[],
+    corridorId: string | null,
+    keepOuts: readonly Rect[],
+): readonly RoomPlacement[] {
+    if (!corridorId || keepOuts.length === 0 || placements.length === 0) return placements;
+    const corrIdx = placements.findIndex(p => p.roomId === corridorId);
+    if (corrIdx < 0) return placements;
+    const bb = placementsBBox(placements);
+
+    // Best corridor↔keep-out shared-wall run over ALL keep-outs for a candidate flip.
+    const corridorReach = (corr: Rect): number =>
+        keepOuts.reduce((best, ko) => Math.max(best, sharedWallLengthM(corr, ko)), 0);
+
+    const FLIPS: ReadonlyArray<readonly [boolean, boolean]> = [
+        [false, false], [true, false], [false, true], [true, true],
+    ];
+    let bestReach = corridorReach(placements[corrIdx]!.rect);
+    let bestFlip: readonly [boolean, boolean] = [false, false];
+    for (const [fx, fz] of FLIPS) {
+        if (!fx && !fz) continue;                       // identity already measured (ties → identity)
+        const corr = reflectRect(placements[corrIdx]!.rect, bb, fx, fz);
+        const reach = corridorReach(corr);
+        if (reach > bestReach + EPS) { bestReach = reach; bestFlip = [fx, fz]; }
+    }
+    if (bestFlip[0] === false && bestFlip[1] === false) return placements;   // identity wins
+    return placements.map(p => ({ roomId: p.roomId, rect: reflectRect(p.rect, bb, bestFlip[0], bestFlip[1]) }));
+}
+
 /**
  * §CORRIDOR-PHYSIOGNOMY (A.21.D46, 2026-06-08) — reshape the corridor placement
  * into a NARROW STRIP whenever it came out wider than its rule's `maxShortSideM`.
@@ -1658,6 +1791,9 @@ export function subdivideWithReport(
     const corridorWidthM = typeof options.corridorWidthM === 'number' && Number.isFinite(options.corridorWidthM)
         ? Math.max(1.0, Math.min(2.0, options.corridorWidthM))
         : undefined;
+    // §STAIR-CIRC-FACE — the stair keep-out rect(s) (strategy frame), used by `finalise` to
+    // orient the carve so the corridor abuts the stair. Absent ⇒ [] ⇒ the pass is a no-op.
+    const keepOutRects = (options.keepOutRects ?? []).filter(r => rectArea(r) > EPS);
     const valid = rects.filter(r => rectArea(r) > EPS).sort(byAreaDesc);
     if (valid.length === 0 || graph.rooms.length === 0) return { placements: [], droppedRooms: [] };
 
@@ -1706,8 +1842,33 @@ export function subdivideWithReport(
         const trimSealsARoom = [...roomsWithAnySharedWall(physiognomised)].some(id => !afterTrim.has(id));
         const chosen = trimSealsARoom ? physiognomised : trimmed;
 
+        // §STAIR-CIRC-FACE (founder defect, 2026-06-11) — orient the carve so the corridor /
+        // landing shares a wall with the stair keep-out (the door pipeline can then place the
+        // stair door onto circulation, not the bedroom that wraps it). No-op without a keep-out
+        // (apartment + every keep-out-free path byte-identical). Reflection is area/shape/tiling-
+        // preserving, so it can never seal a room or change drop count.
+        const oriented = keepOutRects.length > 0
+            ? orientCorridorToKeepOut(chosen, graph.corridorId, keepOutRects)
+            : chosen;
+
+        // §DIAG-STAIR-CIRC (founder defect, 2026-06-11) — per-storey engine-side proof that the
+        // corridor/landing reaches the stair keep-out. The next storey whose `corridorReachM` is
+        // 0 ships the stair served through a habitable room (the founder's bug); a value ≥ 0.9 m
+        // means a stair↔corridor door CAN be hosted. House-only (apartment passes no keep-out).
+        if (keepOutRects.length > 0 && graph.corridorId) {
+            const corrP = oriented.find(p => p.roomId === graph.corridorId);
+            const reachM = corrP
+                ? keepOutRects.reduce((best, ko) => Math.max(best, sharedWallLengthM(corrP.rect, ko)), 0)
+                : 0;
+            console.log(
+                `[D-TGL subdivide] §DIAG-STAIR-CIRC corridor=${graph.corridorId} keepOuts=${keepOutRects.length} ` +
+                `corridorReachM=${reachM.toFixed(2)} sharesStairWall=${reachM >= STAIR_DOOR_MIN_M - EPS ? 'YES' : 'NO'} ` +
+                `(YES ⇒ stair can door onto circulation; NO ⇒ enumerate §STAIR-SPINE-TOUCH must bridge or the stair is served through a room)`,
+            );
+        }
+
         return {
-            placements: alignmentSnap ? snapAxisLines(chosen) : chosen.slice(),
+            placements: alignmentSnap ? snapAxisLines(oriented) : oriented.slice(),
             droppedRooms: res.droppedRooms,
         };
     };
@@ -1767,7 +1928,10 @@ export function subdivideWithReport(
         const branchPath = dominantFrac >= DOMINANT_FRACTION ? 'carve' : 'generic';
         console.log(`[D-TGL subdivide] §DIAG-BRANCH stairCarved dominantFrac=${dominantFrac.toFixed(2)} path=${branchPath}`);
         if (rectArea(dominant) >= DOMINANT_FRACTION * totalArea) {
-            const carved = trySingleRectCarve(dominant, graph, corridorWidthM);
+            // §STAIR-CIRC-FACE — when a stair keep-out is supplied, prefer the single-loaded
+            // (one-face) corridor so the §STAIR-CIRC-FACE reflection in `finalise` can bring it
+            // to the keep-out edge (a centred double-loaded strip can't reach an edge keep-out).
+            const carved = trySingleRectCarve(dominant, graph, corridorWidthM, keepOutRects.length > 0);
             // §STAIR-CARVE-NO-DROP (2026-06-08) — the dominant-rect carve gives every
             // room a corridor spine (the founder's central-blob fix), but squeezing the
             // WHOLE programme into the dominant rect (which is smaller than the full

@@ -293,8 +293,11 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     // every room strictly clear of the actual stair footprint — a genuine keep-out,
     // and an architecturally-correct clearance gap around the stair.
     let stairCarved = false;                      // §STAIR-OBSTACLE-CARVE signal
+    // §STAIR-CIRC-FACE (2026-06-11) — the inflated keep-out(s) in THIS strategy's frame,
+    // hoisted so the subdivider can orient the corridor against the stair (see below).
+    let holesT: Rect[] = [];
     if (input.keepOutRects && input.keepOutRects.length > 0) {
-        const holesT = input.keepOutRects.map(r => {
+        holesT = input.keepOutRects.map(r => {
             const h = xfRect(r, t.fwd);
             return {
                 x0: h.x0 - KEEPOUT_MARGIN_M, z0: h.z0 - KEEPOUT_MARGIN_M,
@@ -345,6 +348,9 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         {
             stairCarved,
             ...(input.corridorWidthM !== undefined ? { corridorWidthM: input.corridorWidthM } : {}),
+            // §STAIR-CIRC-FACE — pass the inflated keep-out(s) so the subdivider orients the
+            // corridor/landing to share a wall with the stair (founder defect 2026-06-11).
+            ...(holesT.length > 0 ? { keepOutRects: holesT } : {}),
         },
     );
     const placementsT = subRes.placements;

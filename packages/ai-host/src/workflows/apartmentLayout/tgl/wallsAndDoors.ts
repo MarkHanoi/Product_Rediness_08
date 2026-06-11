@@ -1237,6 +1237,32 @@ export function buildWallsAndDoors(
         .map(r => r.id)
         .sort();
 
+    // §DIAG-STAIR-CIRC (founder defect, 2026-06-11) — the STAIR is a vertical-circulation
+    // CORE that MUST be reached FROM the corridor/hall/landing, never through a habitable
+    // room (the founder's "stair … served through Bedroom 3"). For EVERY `stair` room, log
+    // (a) does it SHARE A WALL with a corridor/hall (so a door CAN be placed there), and
+    // (b) does its REALISED door land on circulation. A stair whose door partner is a
+    // bedroom (`doorOntoCirc=NO` with a non-circulation partner) is the founder's bug — the
+    // next console paste confirms the fix. Pure logging; house-only (apartment has no stair).
+    for (const r of graph.rooms) {
+        if (r.type !== 'stair') continue;
+        const sharesCircWall = shared.some(c => {
+            const other = c.a === r.id ? c.b : c.b === r.id ? c.a : null;
+            return other !== null && isCirculation(typeOf.get(other) ?? '') && c.len >= 0.9;
+        });
+        const doorPartnerTypes = openings
+            .filter(o => o.type === 'door')
+            .map(o => o.betweenRoomIds as readonly [string, string?])
+            .filter(([a, b]) => b && (a === r.id || b === r.id))
+            .map(([a, b]) => typeOf.get(a === r.id ? b! : a) ?? '?');
+        const doorOntoCirc = doorPartnerTypes.some(t => isCirculation(t));
+        console.log(
+            `[D-TGL] §DIAG-STAIR-CIRC ${r.id}(stair) sharesCorridorWall=${sharesCircWall ? 'YES' : 'NO'} ` +
+            `doorPartners=[${doorPartnerTypes.join(',') || 'none'}] ` +
+            `doorOntoCirculation=${doorOntoCirc ? 'YES' : doorPartnerTypes.length > 0 ? 'NO (served through a room — founder bug)' : 'NO (SEALED)'}`,
+        );
+    }
+
     // §DIAG-DOORS — final summary (logging only; no behaviour change). Names the
     // total doors, any SEALED (door-less) rooms, and any room left land-locked /
     // routed only via a compromise (unrouted-to-circulation).
