@@ -7,10 +7,14 @@ import { describe, expect, it } from 'vitest';
 import {
     defaultDoorSystemTypeId,
     defaultDoorReason,
+    defaultEntranceDoorSystemTypeId,
+    defaultEntranceDoorReason,
     defaultWindowSystemTypeId,
     defaultWindowReason,
     DEFAULT_DOOR_TYPE_ID,
     DEFAULT_WINDOW_TYPE_ID,
+    LIVING_PATIO_WINDOW_TYPE_ID,
+    ENTRANCE_DOOR_TYPE_ID,
 } from '../src/workflows/apartmentLayout/resolvers/defaultElementTypes.js';
 
 describe('defaultDoorSystemTypeId (T1.D)', () => {
@@ -58,10 +62,40 @@ describe('defaultDoorSystemTypeId (T1.D)', () => {
         expect(defaultDoorSystemTypeId('hall', 'living')).toBe(DEFAULT_DOOR_TYPE_ID);
     });
 
+    it('bathroom door → solid privacy leaf (white-primed flush, never a glazed/thin leaf)', () => {
+        // Founder: bathroom/ensuite/wc = solid privacy door.
+        for (const t of ['bathroom', 'ensuite', 'wc'] as const) {
+            const id = defaultDoorSystemTypeId('corridor', t);
+            expect(id).toBe('dt-white-primed');
+            expect(id).not.toBe('dt-glazed-timber');
+            expect(id).not.toBe('dt-glazed-aluminium');
+        }
+    });
+
     it('reason text mirrors the picked id', () => {
         expect(defaultDoorReason('corridor', 'bathroom')).toMatch(/wet-room|privacy/);
         expect(defaultDoorReason('living', 'kitchen')).toMatch(/glazed|sight/);
         expect(defaultDoorReason('corridor', 'bedroom')).toMatch(/editor default/);
+    });
+});
+
+describe('defaultEntranceDoorSystemTypeId (§ENTRANCE-DOOR-TYPE)', () => {
+    it('front / main entrance → dedicated external entrance leaf', () => {
+        expect(defaultEntranceDoorSystemTypeId()).toBe(ENTRANCE_DOOR_TYPE_ID);
+        expect(defaultEntranceDoorSystemTypeId()).toBe('dt-solid-timber');
+    });
+
+    it('entrance reason text says external / entrance', () => {
+        expect(defaultEntranceDoorReason()).toMatch(/entrance|external/i);
+    });
+
+    it('entrance id is a real door catalogue id', () => {
+        const KNOWN_DOOR_IDS = new Set([
+            'dt-solid-timber', 'dt-white-primed', 'dt-glazed-timber',
+            'dt-glazed-aluminium', 'dt-fire-rated-60', 'dt-fire-rated-30',
+            'dt-steel-industrial', 'dt-aluminium-commercial',
+        ]);
+        expect(KNOWN_DOOR_IDS.has(defaultEntranceDoorSystemTypeId())).toBe(true);
     });
 });
 
@@ -80,15 +114,32 @@ describe('defaultWindowSystemTypeId (T1.D)', () => {
         expect(defaultWindowSystemTypeId('kitchen')).toBe('wt-upvc-tilt-turn');
     });
 
-    it('living + bedroom + study → timber-casement (heritage default)', () => {
-        for (const t of ['living', 'dining', 'bedroom', 'master', 'study'] as const) {
+    it('dining + bedroom + master + study → timber-casement (heritage default)', () => {
+        for (const t of ['dining', 'bedroom', 'master', 'study'] as const) {
             expect(defaultWindowSystemTypeId(t)).toBe('wt-timber-casement');
         }
+    });
+
+    // §LIVING-PATIO-TYPE (founder 2026-06-11) — living is a full-height glazed
+    // sliding / patio door (v159 dims), so its TYPE is the glazed-wall product,
+    // NOT a small casement.
+    it('living → glazed sliding / patio door product (not a casement)', () => {
+        expect(defaultWindowSystemTypeId('living')).toBe(LIVING_PATIO_WINDOW_TYPE_ID);
+        expect(defaultWindowSystemTypeId('living')).toBe('wt-aluminium-triple-glazed');
+        expect(defaultWindowSystemTypeId('living')).not.toBe('wt-timber-casement');
+        expect(defaultWindowReason('living')).toMatch(/sliding|patio/);
     });
 
     it('corridor + hall → single-pane', () => {
         expect(defaultWindowSystemTypeId('corridor')).toBe('wt-single-pane');
         expect(defaultWindowSystemTypeId('hall')).toBe('wt-single-pane');
+    });
+
+    it('unmapped room type falls back to the editor default (timber casement)', () => {
+        // `stair` is a real RoomType with no window default → fallback.
+        expect(defaultWindowSystemTypeId('stair')).toBe(DEFAULT_WINDOW_TYPE_ID);
+        expect(defaultWindowSystemTypeId('stair')).toBe('wt-timber-casement');
+        expect(defaultWindowReason('stair')).toMatch(/editor default/);
     });
 
     it('reason text is room-specific and informative', () => {

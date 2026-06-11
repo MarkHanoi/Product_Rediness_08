@@ -38,6 +38,38 @@ export const DEFAULT_DOOR_TYPE_ID = 'dt-solid-timber';
 /** Editor default window (matches WindowTool.ts:69). */
 export const DEFAULT_WINDOW_TYPE_ID = 'wt-timber-casement';
 
+/**
+ * §LIVING-PATIO-TYPE (founder 2026-06-11) — the product id for the living
+ * room's full-height glazed SLIDING / PATIO door.
+ *
+ * v159 already SIZED the living "window" as a full-height patio door (sill
+ * 10 mm, 2.19 m tall — WINDOW_SPECS.living, a glazed wall), but its product
+ * TYPE still resolved to the generic `wt-timber-casement`, so the editor +
+ * schedules showed a small casement product against a patio-door geometry.
+ *
+ * The window catalogue (geometry-window/WindowSystemTypeStore.ts) has no
+ * dedicated "sliding-door" leaf, so we tag the living glazing with the
+ * closest glazed-wall-grade product it DOES carry: `wt-aluminium-triple-
+ * glazed` — a slim aluminium frame over a full glass infill, which is exactly
+ * how a residential sliding patio set reads (and the energy spec a glazed
+ * wall needs). When a true `wt-sliding-door` product lands in the catalogue
+ * this constant is the single place to repoint it. */
+export const LIVING_PATIO_WINDOW_TYPE_ID = 'wt-aluminium-triple-glazed';
+
+/**
+ * §ENTRANCE-DOOR-TYPE (founder 2026-06-11) — the product id for the apartment's
+ * FRONT / main entrance door (hall/corridor ↔ building exterior).
+ *
+ * The door catalogue (geometry-door/DoorSystemTypeStore.ts) has no dedicated
+ * "external entrance door" leaf, so we tag the entrance with the heaviest,
+ * most secure RESIDENTIAL leaf it carries: `dt-solid-timber` — a solid
+ * hardwood door, the correct external entry reading for a dwelling (the
+ * commercial `dt-aluminium-commercial` shopfront leaf is wrong for a home).
+ * Distinct, documented constant so the entrance never silently inherits a
+ * thin interior leaf, and so a future `dt-external-entrance` product has one
+ * place to repoint. */
+export const ENTRANCE_DOOR_TYPE_ID = 'dt-solid-timber';
+
 // ── Door resolver ──────────────────────────────────────────────────────────
 
 /**
@@ -98,6 +130,27 @@ export function defaultDoorReason(a: RoomType, b: RoomType): string {
     return 'editor default (solid timber)';
 }
 
+/**
+ * §ENTRANCE-DOOR-TYPE — the FRONT / main entrance door resolves to a dedicated
+ * EXTERNAL entrance leaf, NOT an interior pair finish.
+ *
+ * The entrance connects the hall/corridor to the building EXTERIOR; the
+ * interior `defaultDoorSystemTypeId(hall, hall)` proxy used before fell through
+ * to the generic interior solid-timber leaf, blurring the entrance with an
+ * interior door in the schedule. This resolver is the explicit, documented
+ * entrance default (`ENTRANCE_DOOR_TYPE_ID`); it ignores room type because the
+ * entrance is exterior-facing by definition, so any hall/corridor entrance gets
+ * the same heavy external leaf. Single place to repoint to a future
+ * `dt-external-entrance` product. */
+export function defaultEntranceDoorSystemTypeId(): string {
+    return ENTRANCE_DOOR_TYPE_ID;
+}
+
+/** Companion to `defaultEntranceDoorSystemTypeId` — human-readable reason. */
+export function defaultEntranceDoorReason(): string {
+    return 'main external entrance (solid hardwood entry leaf)';
+}
+
 // ── Window resolver ────────────────────────────────────────────────────────
 
 /**
@@ -122,10 +175,16 @@ const WINDOW_DEFAULTS_BY_TYPE: Readonly<Partial<Record<RoomType, {
     // obstructing the worktop.
     kitchen:  { windowTypeId: 'wt-upvc-tilt-turn', reason: 'kitchen tilt-turn (over-sink ventilation)' },
 
-    // Living + dining + bedrooms + study — heritage timber casement is the
-    // residential default. Same finish as the editor's default — only listed
-    // here for the modal-badge reason text.
-    living:   { windowTypeId: 'wt-timber-casement', reason: 'living timber casement' },
+    // §LIVING-PATIO-TYPE — living = full-height glazed SLIDING / PATIO door
+    // (v159 sized it as one — sill 10 mm, ~2.19 m tall, a glazed wall). Tag the
+    // TYPE to match the geometry: the slim-frame full-glass aluminium product,
+    // the catalogue's closest glazed-wall / patio-door reading. NOT a small
+    // casement (which is what it used to resolve to, against patio-door dims).
+    living:   { windowTypeId: LIVING_PATIO_WINDOW_TYPE_ID, reason: 'living full-height glazed sliding / patio door' },
+
+    // Dining + bedrooms + study — heritage timber casement is the residential
+    // default. Same finish as the editor's default — only listed here for the
+    // modal-badge reason text.
     dining:   { windowTypeId: 'wt-timber-casement', reason: 'dining timber casement' },
     bedroom:  { windowTypeId: 'wt-timber-casement', reason: 'bedroom timber casement' },
     master:   { windowTypeId: 'wt-timber-casement', reason: 'master timber casement' },

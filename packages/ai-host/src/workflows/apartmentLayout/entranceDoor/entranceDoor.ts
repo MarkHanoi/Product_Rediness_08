@@ -22,7 +22,7 @@
 
 import type { LayoutOption, LayoutRoom, Vec2mm } from '../types.js';
 import type { ShellWall } from '../windowEmission/shellWallMatch.js';
-import { defaultDoorSystemTypeId } from '../resolvers/defaultElementTypes.js';
+import { defaultEntranceDoorSystemTypeId } from '../resolvers/defaultElementTypes.js';
 
 /** Standard residential entry-door width (m) — A.21.D29 brief: ~0.9–1.0 m. We use
  *  1.0 m (a generous single leaf) but clamp DOWN to fit a short shell wall. */
@@ -391,11 +391,15 @@ function makeDoorOnWall(
         const maxOffsetM = Math.max(END_CLEAR_M, d.len - widthM - END_CLEAR_M);
         offsetM = Math.min(Math.max(END_CLEAR_M, centreOffset), maxOffsetM);
     }
-    // Per-pair finish — the entrance connects the hall (or corridor) to the
-    // EXTERIOR. We reuse the apartment door resolver's hall↔hall pairing as a
-    // proxy for "circulation-grade leaf" (a solid timber entry); the resolver is
-    // total over RoomType so any hallType resolves to a real system-type id.
-    const sysType = hallType ? defaultDoorSystemTypeId(hallType, hallType) : undefined;
+    // §ENTRANCE-DOOR-TYPE (founder 2026-06-11) — the entrance connects the hall
+    // (or corridor) to the building EXTERIOR, so it gets the DEDICATED external
+    // entrance leaf, not an interior pair finish. (Previously it reused the
+    // interior hall↔hall pairing, which fell through to the generic interior
+    // solid-timber door and blurred the entrance with an interior door in the
+    // schedule.) `hallType` no longer affects the leaf — an entrance is exterior
+    // by definition — but is kept in the signature for the caller's call sites.
+    void hallType;
+    const sysType = defaultEntranceDoorSystemTypeId();
     return {
         shellWallId: wall.id,
         offsetM,
