@@ -37,21 +37,43 @@ export function isWindowable(t: RoomType): t is WindowableRoomType {
 
 /**
  * Per-room window dimensions. All mm. Source: UK residential typical sizes
- * + Approved Doc M / NHBC ranges for the wet rooms. The sill height tracks
- * the use:
- *   • living / dining        : 400 mm (full view from the sofa)
- *   • master / bedroom / study: 900 mm (above a bed headboard / desk)
- *   • kitchen                 : 1000 mm (above a 900 mm worktop + clearance)
- *   • bathroom / ensuite / wc : 1700 mm (above eye-level for privacy; pairs
- *                                       with the privacy uPVC casement
- *                                       from T1.D's window resolver)
+ * + Approved Doc M / NHBC ranges for the wet rooms, RAISED to generous-but-
+ * realistic daylight-first defaults (§68.16, founder 2026-06-11 — "we need
+ * BIGGER windows and windows in ALL rooms").
  *
- * Width tracks the spec target — typical UK ranges:
- *   living  ≈ 2.0 m, dining ≈ 1.8 m, bedroom ≈ 1.5 m, kitchen ≈ 1.2 m,
- *   wet rooms ≈ 0.6 m. The `minWallLengthMm` is the architectural floor:
- *   a wall shorter than this is rejected as the host even if it's external,
- *   and the engine falls back to the next-best wall (a smaller variant)
- *   or skips emission for this room.
+ * §WINDOW-HEAD-FIT — the HEAD height (sillMm + heightMm) of EVERY spec sits at
+ * or below `MAX_WINDOW_HEAD_MM` (2300 mm). The house/apartment generator builds
+ * ~3.0 m floor-to-floor partitions and a typical ~2.4–2.7 m CLEAR interior
+ * height; keeping the head ≤ 2300 mm guarantees the opening sits UNDER the
+ * lintel within the wall head height (a window can never poke above the wall).
+ * The living sliding-door head reaches the founder's 2200 mm; every other spec
+ * tops out at 2200 mm too, so all sizes are buildable under the storey.
+ *
+ * The sill height tracks the use:
+ *   • living                  :   10 mm — a full-height glazed SLIDING/PATIO door
+ *                                         (§68.11 "as much daylight as possible";
+ *                                         founder's 0.01 m sill, 2.19 m tall →
+ *                                         head 2200 mm); reads as a glazed wall.
+ *   • dining                  :  400 mm (full view from the table)
+ *   • master / bedroom        :  700 mm (generous, still above a low headboard)
+ *   • study                   :  750 mm (above a desk)
+ *   • kitchen                 :  900 mm (above a 900 mm worktop — sill = worktop)
+ *   • bathroom / ensuite / wc : 1400 mm (above eye-level for privacy; pairs with
+ *                                       the privacy uPVC casement from T1.D's
+ *                                       window resolver) — bigger but still private.
+ *
+ * Width tracks the daylight-first target:
+ *   living ≈ 2.4 m (patio span, 2–3 m), dining ≈ 2.1 m, bedroom/master ≈ 1.8 m,
+ *   kitchen ≈ 1.5 m, study ≈ 1.5 m, wet rooms ≈ 0.7–0.8 m. The `minWallLengthMm`
+ *   is the architectural floor for the PREFERRED width: a wall shorter than this
+ *   is rejected as a preferred host even if it's external, and the engine falls
+ *   back to `minWidthMm` (a smaller variant), then — via the §WINDOW-EVERY-FRONTAGE
+ *   last-resort tier — to the largest opening the wall can physically host down to
+ *   MIN_WINDOW_MM, so a real frontage room never ships windowless.
+ *
+ * §WINDOW-SPAN-FIT — the bigger widths are CLAMPED to fit the host wall run by the
+ * placer (a window wider than its wall is shrunk to fit between the corner piers,
+ * never overflowing the shell), so a generous spec on a short wall stays in-bounds.
  */
 export interface WindowSpec {
     readonly widthMm:         number;
@@ -63,16 +85,25 @@ export interface WindowSpec {
     readonly minWidthMm:      number;
 }
 
+/** §WINDOW-HEAD-FIT — the maximum window HEAD height (sill + height, mm). Keeps
+ *  every emitted opening under the lintel of a ~2.4 m clear storey (the generator
+ *  builds ~3.0 m floor-to-floor / ~2.4–2.7 m clear). NO spec's head may exceed this. */
+export const MAX_WINDOW_HEAD_MM = 2300;
+
 export const WINDOW_SPECS: Readonly<Record<WindowableRoomType, WindowSpec>> = {
-    living:   { widthMm: 2000, heightMm: 1500, sillMm:  400, minWallLengthMm: 2400, minWidthMm: 1200 },
-    kitchen:  { widthMm: 1200, heightMm: 1200, sillMm: 1000, minWallLengthMm: 1600, minWidthMm:  900 },
-    dining:   { widthMm: 1800, heightMm: 1500, sillMm:  400, minWallLengthMm: 2200, minWidthMm: 1200 },
-    master:   { widthMm: 1500, heightMm: 1300, sillMm:  900, minWallLengthMm: 1900, minWidthMm: 1000 },
-    bedroom:  { widthMm: 1500, heightMm: 1300, sillMm:  900, minWallLengthMm: 1900, minWidthMm: 1000 },
-    study:    { widthMm: 1200, heightMm: 1300, sillMm:  900, minWallLengthMm: 1600, minWidthMm:  900 },
-    bathroom: { widthMm:  600, heightMm:  600, sillMm: 1700, minWallLengthMm: 1000, minWidthMm:  500 },
-    ensuite:  { widthMm:  600, heightMm:  600, sillMm: 1700, minWallLengthMm: 1000, minWidthMm:  500 },
-    wc:       { widthMm:  600, heightMm:  600, sillMm: 1700, minWallLengthMm: 1000, minWidthMm:  500 },
+    // §68.11 — living = full-height glazed SLIDING/PATIO door. sill 10 mm, height 2190
+    // mm → head 2200 mm; preferred 2.4 m span (2–3 m), min 2.0 m so it stays a patio
+    // door, never a small window. Applied to ALL living rooms (see §WINDOW-LIVING-PATIO
+    // note in emitWindows.ts re: storey-awareness).
+    living:   { widthMm: 2400, heightMm: 2190, sillMm:   10, minWallLengthMm: 2400, minWidthMm: 2000 },
+    kitchen:  { widthMm: 1500, heightMm: 1200, sillMm:  900, minWallLengthMm: 1700, minWidthMm: 1100 },
+    dining:   { widthMm: 2100, heightMm: 1700, sillMm:  400, minWallLengthMm: 2400, minWidthMm: 1400 },
+    master:   { widthMm: 1800, heightMm: 1500, sillMm:  700, minWallLengthMm: 2100, minWidthMm: 1200 },
+    bedroom:  { widthMm: 1800, heightMm: 1500, sillMm:  700, minWallLengthMm: 2100, minWidthMm: 1200 },
+    study:    { widthMm: 1500, heightMm: 1400, sillMm:  750, minWallLengthMm: 1800, minWidthMm: 1000 },
+    bathroom: { widthMm:  800, heightMm:  800, sillMm: 1400, minWallLengthMm: 1100, minWidthMm:  600 },
+    ensuite:  { widthMm:  800, heightMm:  800, sillMm: 1400, minWallLengthMm: 1100, minWidthMm:  600 },
+    wc:       { widthMm:  700, heightMm:  800, sillMm: 1400, minWallLengthMm: 1000, minWidthMm:  600 },
 };
 
 /**

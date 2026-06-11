@@ -210,7 +210,7 @@ describe('emitGeometry (TGL P9)', () => {
         // that fronts an external wall must ALSO get a window — previously the
         // emission gated on `needsWindow === true`, which is FALSE for wet rooms, so
         // a bathroom with external frontage emitted ZERO windows. The wet-room window
-        // uses the privacy spec (raised 1700 mm sill) from WINDOW_SPECS.
+        // uses the privacy spec (raised 1400 mm sill) from WINDOW_SPECS.
         it('a WET room (bathroom) with an exterior wall gets a window (raised sill)', () => {
             // Minimal graph: one external wall (long enough for the 600 mm wet window)
             // BOUNDS a bathroom space. spaceType=bathroom, needsWindow=false (the gate
@@ -235,8 +235,8 @@ describe('emitGeometry (TGL P9)', () => {
             const { option } = emitGeometry(g);
             const bathWindows = (option.windows ?? []).filter(w => w.roomType === 'bathroom');
             expect(bathWindows.length).toBeGreaterThan(0);
-            // Wet-room privacy: raised sill (1700 mm per WINDOW_SPECS.bathroom).
-            expect(bathWindows[0]!.sillHeight).toBe(1700);
+            // Wet-room privacy: raised sill (1400 mm per WINDOW_SPECS.bathroom, §68.16).
+            expect(bathWindows[0]!.sillHeight).toBe(1400);
         });
 
         it('an INTERIOR-only room type (corridor) never gets a window even with frontage', () => {

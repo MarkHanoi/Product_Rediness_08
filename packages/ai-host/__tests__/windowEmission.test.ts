@@ -46,19 +46,33 @@ describe('WINDOW_SPECS (T1.W-A)', () => {
         }
     });
 
-    it('wet-room sills are at privacy height (> 1500 mm)', () => {
-        expect(WINDOW_SPECS.bathroom.sillMm).toBeGreaterThan(1500);
-        expect(WINDOW_SPECS.ensuite.sillMm).toBeGreaterThan(1500);
-        expect(WINDOW_SPECS.wc.sillMm).toBeGreaterThan(1500);
+    it('wet-room sills are at privacy height (> 1300 mm, above eye level)', () => {
+        // §68.16 — wet-room windows are bigger but still privacy-silled (1400 mm).
+        expect(WINDOW_SPECS.bathroom.sillMm).toBeGreaterThan(1300);
+        expect(WINDOW_SPECS.ensuite.sillMm).toBeGreaterThan(1300);
+        expect(WINDOW_SPECS.wc.sillMm).toBeGreaterThan(1300);
     });
 
-    it('living + dining sills are at view height (≤ 500 mm)', () => {
-        expect(WINDOW_SPECS.living.sillMm).toBeLessThanOrEqual(500);
+    it('living is a full-height sliding/patio door (§68.11 — sill ≈ 10 mm, head ≈ 2200 mm, 2–3 m span)', () => {
+        expect(WINDOW_SPECS.living.sillMm).toBeLessThanOrEqual(50);          // ~0.01 m sill
+        expect(WINDOW_SPECS.living.sillMm + WINDOW_SPECS.living.heightMm).toBe(2200); // head 2200 mm
+        expect(WINDOW_SPECS.living.widthMm).toBeGreaterThanOrEqual(2000);    // patio span 2–3 m
+        expect(WINDOW_SPECS.living.widthMm).toBeLessThanOrEqual(3000);
+        expect(WINDOW_SPECS.living.minWidthMm).toBeGreaterThanOrEqual(2000); // never a small window
+    });
+
+    it('dining sill is at view height (≤ 500 mm)', () => {
         expect(WINDOW_SPECS.dining.sillMm).toBeLessThanOrEqual(500);
     });
 
     it('kitchen sill clears a 900 mm worktop', () => {
         expect(WINDOW_SPECS.kitchen.sillMm).toBeGreaterThanOrEqual(900);
+    });
+
+    it('§WINDOW-HEAD-FIT — every spec head (sill + height) fits under a ~2.4 m clear storey (≤ 2300 mm)', () => {
+        for (const [type, spec] of Object.entries(WINDOW_SPECS)) {
+            expect(spec.sillMm + spec.heightMm, `${type} head height`).toBeLessThanOrEqual(2300);
+        }
     });
 });
 
@@ -79,15 +93,15 @@ describe('emitWindowsForRoom (T1.W-A)', () => {
         expect(emitWindowsForRoom('living', tooShort)).toHaveLength(0);
     });
 
-    it('places ONE living-room window centred on a 5 m wall', () => {
+    it('places ONE living-room sliding-door window centred on a 5 m wall (§68.11)', () => {
         const ws = emitWindowsForRoom('living', [wall(5000, 0)]);
         expect(ws).toHaveLength(1);
         const w = ws[0]!;
-        expect(w.widthMm).toBe(2000);                // preferred width
-        expect(w.heightMm).toBe(1500);
-        expect(w.sillMm).toBe(400);
-        // Centred: (5000 - 2000) / 2 = 1500
-        expect(w.offsetMm).toBe(1500);
+        expect(w.widthMm).toBe(2400);                // preferred patio-door span
+        expect(w.heightMm).toBe(2190);               // full-height (head 2200 mm)
+        expect(w.sillMm).toBe(10);                   // ~0.01 m sill (founder)
+        // Centred: (5000 - 2400) / 2 = 1300
+        expect(w.offsetMm).toBe(1300);
         expect(w.roomType).toBe('living');
         expect(w.wallIndex).toBe(0);
     });
@@ -96,22 +110,22 @@ describe('emitWindowsForRoom (T1.W-A)', () => {
         const walls = [wall(2500, 0), wall(4000, 1), wall(3000, 2)];
         const ws = emitWindowsForRoom('living', walls);
         expect(ws[0]!.wallIndex).toBe(1);            // 4 m wall wins
-        expect(ws[0]!.offsetMm).toBe(1000);          // (4000 - 2000) / 2
+        expect(ws[0]!.offsetMm).toBe(800);           // (4000 - 2400) / 2
     });
 
     it('falls back to the SMALLER variant when no wall hosts the preferred width', () => {
-        // bedroom preferred = 1500 width / 1900 min host; fallback minWidth = 1000.
-        // A 1700 mm wall is below 1900 but above minWidth + 200 = 1200.
+        // bedroom preferred = 1800 width / 2100 min host; fallback minWidth = 1200.
+        // A 1700 mm wall is below 2100 but above minWidth + 200 = 1400.
         const ws = emitWindowsForRoom('bedroom', [wall(1700, 0)]);
         expect(ws).toHaveLength(1);
-        expect(ws[0]!.widthMm).toBe(1000);           // fell back to minWidthMm
+        expect(ws[0]!.widthMm).toBe(1200);           // fell back to minWidthMm
     });
 
     it('emits a privacy bathroom window with high sill', () => {
         const ws = emitWindowsForRoom('bathroom', [wall(1500, 0)]);
         expect(ws).toHaveLength(1);
-        expect(ws[0]!.widthMm).toBe(600);
-        expect(ws[0]!.sillMm).toBeGreaterThan(1500);   // privacy height
+        expect(ws[0]!.widthMm).toBe(800);
+        expect(ws[0]!.sillMm).toBeGreaterThan(1300);   // privacy height
     });
 
     it('stamps the room name on the placement when supplied', () => {
@@ -214,7 +228,7 @@ describe('emitWindowsForRoom — door avoidance (T1.W-B-2)', () => {
 
     it('with no occupied spans, behaves exactly like before (centred)', () => {
         const ws = emitWindowsForRoom('living', [wide(5000)], undefined, []);
-        expect(ws[0]!.offsetMm).toBe(1500);          // (5000 - 2000) / 2
+        expect(ws[0]!.offsetMm).toBe(1300);          // (5000 - 2400) / 2
     });
 
     it('slides the window clear of a centred door on the same wall (no overlap)', () => {
@@ -254,7 +268,7 @@ describe('emitWindowsForRoom — door avoidance (T1.W-B-2)', () => {
     it('ignores doors on OTHER walls', () => {
         const doors = [door(7, 2000, 900)];           // door on an unrelated wall
         const ws = emitWindowsForRoom('living', [wide(5000, 0)], undefined, doors);
-        expect(ws[0]!.offsetMm).toBe(1500);           // unaffected → centred
+        expect(ws[0]!.offsetMm).toBe(1300);           // unaffected → centred (5000-2400)/2
     });
 });
 
@@ -271,19 +285,19 @@ describe('emitWindowsForRoom — multiple windows on a long wall (D5.c)', () => 
         a.lo < b.hi && a.hi > b.lo;
 
     it('keeps ONE centred window on a medium (5 m) wall', () => {
-        // Unchanged behaviour: 5 m is not "much longer" than a 2 m living window.
+        // Unchanged behaviour: 5 m is not "much longer" than a 2.4 m living patio span.
         const ws = emitWindowsForRoom('living', [wide(5000)]);
         expect(ws).toHaveLength(1);
-        expect(ws[0]!.offsetMm).toBe(1500);   // still centred
+        expect(ws[0]!.offsetMm).toBe(1300);   // still centred (5000-2400)/2
     });
 
     it('emits ≥ 2 evenly-spaced windows on a genuinely long wall', () => {
-        // 10 m living wall: floor((10000-1400)/(2000+1400)) = floor(2.53) = 2.
+        // 10 m living wall: floor((10000-1400)/(2400+1400)) = floor(2.26) = 2.
         const ws = emitWindowsForRoom('living', [wide(10000)]);
         expect(ws.length).toBeGreaterThanOrEqual(2);
         for (const w of ws) {
             expect(w.wallIndex).toBe(0);
-            expect(w.widthMm).toBe(2000);
+            expect(w.widthMm).toBe(2400);
             // inside the wall with end clearance
             expect(w.offsetMm).toBeGreaterThanOrEqual(100);
             expect(w.offsetMm + w.widthMm).toBeLessThanOrEqual(10000 - 100 + 1e-6);
@@ -342,12 +356,21 @@ describe('emitWindowsForRoom — multiple external walls per room (D5.c)', () =>
         expect(walls.has(1)).toBe(true);
     });
 
-    it('caps total windows per room at 4 even with many long walls', () => {
+    it('caps total windows per NON-living room at 4 even with many long walls', () => {
+        const many = [
+            wide(10000, 0), wide(10000, 1), wide(10000, 2), wide(10000, 3), wide(10000, 4),
+        ];
+        const ws = emitWindowsForRoom('bedroom', many);
+        expect(ws.length).toBeLessThanOrEqual(4);
+    });
+
+    it('§WINDOW-LIVING-PATIO — the LIVING room earns a more generous cap (≤ 6) so it glazes more frontage', () => {
         const many = [
             wide(10000, 0), wide(10000, 1), wide(10000, 2), wide(10000, 3), wide(10000, 4),
         ];
         const ws = emitWindowsForRoom('living', many);
-        expect(ws.length).toBeLessThanOrEqual(4);
+        expect(ws.length).toBeLessThanOrEqual(6);
+        expect(ws.length).toBeGreaterThan(4);   // genuinely more than the standard cap
     });
 });
 
@@ -369,7 +392,7 @@ describe('emitWindowsForRoom — interior-partition avoidance (A.21.D33(d))', ()
 
     it('with no junctions, behaves exactly like before (centred)', () => {
         const ws = emitWindowsForRoom('living', [wide(5000)], undefined, [], null, []);
-        expect(ws[0]!.offsetMm).toBe(1500);          // (5000 - 2000) / 2
+        expect(ws[0]!.offsetMm).toBe(1300);          // (5000 - 2400) / 2
     });
 
     it('offsets a window clear of a partition junction it would otherwise straddle', () => {
@@ -393,18 +416,27 @@ describe('emitWindowsForRoom — interior-partition avoidance (A.21.D33(d))', ()
         expect(overlaps(spanOf(ws[0]!), bandOf(thick[0]!))).toBe(false);
     });
 
-    it('drops the window when junctions leave no clear span long enough', () => {
-        // A short 2.6 m living wall (just hosts a 2 m window normally) with a junction
-        // dead-centre: there is no 2 m clear slot either side → window dropped.
+    it('§68.16 GUARANTEE — a short wall split by a junction still keeps ONE minimal window in a sub-portion', () => {
+        // A short 2.6 m living wall with a junction dead-centre: no 2.4 m patio span fits
+        // either side, but the room's portion ([0,1300] longest interval) DOES host a
+        // minimal opening. The founder's guarantee — "a window in every windowable
+        // perimeter room with usable frontage" — now retains that minimal window via the
+        // §WINDOW-EVERY-FRONTAGE safety net rather than dropping it. The window stays IN
+        // its sub-portion and clear of the junction band.
         const js = [junction(0, 1300, 100)];
         const ws = emitWindowsForRoom('living', [wide(2600)], undefined, [], null, js);
-        expect(ws).toHaveLength(0);
+        expect(ws).toHaveLength(1);
+        const w = ws[0]!;
+        expect(w.widthMm).toBeGreaterThanOrEqual(400);                  // ≥ MIN_WINDOW_MM
+        expect(overlaps(spanOf(w), bandOf(js[0]!))).toBe(false);        // clears the junction
+        expect(w.offsetMm).toBeGreaterThanOrEqual(0);
+        expect(w.offsetMm + w.widthMm).toBeLessThanOrEqual(2600 + 1e-6); // on the wall
     });
 
     it('ignores junctions on OTHER walls', () => {
         const js = [junction(7, 2500, 100)];        // unrelated wall
         const ws = emitWindowsForRoom('living', [wide(5000, 0)], undefined, [], null, js);
-        expect(ws[0]!.offsetMm).toBe(1500);          // unaffected → centred
+        expect(ws[0]!.offsetMm).toBe(1300);          // unaffected → centred (5000-2400)/2
     });
 
     it('avoids BOTH a door and a partition junction on the same wall', () => {
@@ -498,6 +530,80 @@ describe('emitWindowsForRoom — §WINDOW-ROOM-PORTION centring (§57.8 / §57.2
             expect(w.offsetMm).toBeGreaterThanOrEqual(4000 - 1e-6);
             expect(w.offsetMm + w.widthMm).toBeLessThanOrEqual(10000 + 1e-6);
         }
+    });
+});
+
+// ── §68.16 — BIGGER windows + a window in EVERY windowable perimeter room ──────
+//
+// Founder 2026-06-11: "windows are a big issue — we need BIGGER windows and windows
+// in ALL rooms." These pin the three new guarantees: (1) bigger generous specs that
+// still fit under the storey head height; (2) a window in EVERY windowable room that
+// fronts a usable external wall (≥ MIN_WINDOW_MM between corner piers); (3) the bigger
+// widths stay IN-BOUNDS — a window wider than its host wall clamps to fit, never
+// overruns the run.
+describe('§68.16 — bigger windows + window in every windowable perimeter room', () => {
+    const wide = (lenMm: number, wallIndex = 0): ExternalWallSegment =>
+        ({ start: { x: 0, y: 0 }, end: { x: lenMm, y: 0 }, wallIndex });
+
+    it('every windowable perimeter room on a representative house plate gets ≥1 window', () => {
+        // A house plate's rooms, each fronting one external wall of a realistic length.
+        // BEFORE §68.16 (old specs + reject-on-short-wall) several of these — a wall just
+        // below the room's minWallLength with no fallback host — shipped WINDOWLESS; the
+        // guarantee now retains ≥1 window for each. (See the FAIL-before note below.)
+        const plate: ReadonlyArray<readonly [Parameters<typeof emitWindowsForRoom>[0], number]> = [
+            ['living',   3200],
+            ['kitchen',  1800],
+            ['dining',   2300],
+            ['master',   2000],
+            ['bedroom',  1900],
+            ['bedroom',  1600],
+            ['study',    1500],
+            ['bathroom', 1100],
+            ['ensuite',  1050],
+            ['wc',        900],
+        ];
+        plate.forEach(([type, lenMm], i) => {
+            const ws = emitWindowsForRoom(type, [wide(lenMm, i)], `${type}-${i}`);
+            expect(ws.length, `${type} @ ${lenMm}mm must get ≥1 window`).toBeGreaterThanOrEqual(1);
+            for (const w of ws) {
+                // Every emitted window sits ON its host wall run (in-bounds).
+                expect(w.offsetMm, `${type} offset ≥ 0`).toBeGreaterThanOrEqual(0);
+                expect(w.offsetMm + w.widthMm, `${type} fits on wall`).toBeLessThanOrEqual(lenMm + 1e-6);
+                // Head height fits under a ~2.4 m clear storey.
+                expect(w.sillMm + w.heightMm, `${type} head ≤ 2300`).toBeLessThanOrEqual(2300);
+            }
+        });
+    });
+
+    it('a bigger spec on a SHORT wall clamps to fit — never overruns the host run (§68.4)', () => {
+        // A living patio door (preferred 2400 mm) on a 2.5 m wall: it cannot host the
+        // full span, so the engine emits a shrunk-to-fit minimal window that stays ON
+        // the wall (never a 2400 mm span overflowing a 2500 mm wall).
+        for (const [type, lenMm] of [['living', 2500], ['master', 2300], ['dining', 2400]] as const) {
+            const ws = emitWindowsForRoom(type, [wide(lenMm)]);
+            expect(ws.length, `${type} @ ${lenMm}mm`).toBeGreaterThanOrEqual(1);
+            for (const w of ws) {
+                expect(w.offsetMm).toBeGreaterThanOrEqual(0);
+                expect(w.offsetMm + w.widthMm, `${type} window must not overrun the wall`)
+                    .toBeLessThanOrEqual(lenMm + 1e-6);
+            }
+        }
+    });
+
+    it('a generous wall keeps the FULL bigger spec width (no shrink when it fits)', () => {
+        // Living on a 4 m wall hosts the full 2400 mm patio span; bedroom 1800 mm; etc.
+        expect(emitWindowsForRoom('living', [wide(4000)])[0]!.widthMm).toBe(2400);
+        expect(emitWindowsForRoom('bedroom', [wide(4000)])[0]!.widthMm).toBe(1800);
+        expect(emitWindowsForRoom('dining', [wide(4000)])[0]!.widthMm).toBe(2100);
+        expect(emitWindowsForRoom('kitchen', [wide(4000)])[0]!.widthMm).toBe(1500);
+    });
+
+    it('the living spec is the full-height sliding/patio door (dims)', () => {
+        const w = emitWindowsForRoom('living', [wide(5000)])[0]!;
+        expect(w.sillMm).toBe(10);
+        expect(w.heightMm).toBe(2190);
+        expect(w.sillMm + w.heightMm).toBe(2200);   // head reaches 2.2 m
+        expect(w.widthMm).toBe(2400);
     });
 });
 

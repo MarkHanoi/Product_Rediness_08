@@ -224,13 +224,22 @@ function projectAlongWall(seg: ExternalWallSegment, ptMm: { x: number; y: number
 }
 
 /** Max windows the engine will emit per ROOM (across all its external walls),
- *  so a corner living room with two long façades doesn't sprout a curtain wall
- *  of openings. A small architectural cap that still meaningfully improves the
- *  "not enough windows" reading. */
+ *  so a corner room with two long façades doesn't sprout a curtain wall of
+ *  openings. A small architectural cap that still meaningfully improves the
+ *  "not enough windows" reading.
+ *
+ *  §WINDOW-LIVING-PATIO (§68.11, founder 2026-06-11) — the LIVING room is the
+ *  daylight showpiece ("as much daylight as possible … reads as a glazed wall"),
+ *  so it earns a more generous per-room + per-wall budget (the patio-door spans
+ *  are wide, so the count is naturally smaller, but a corner living room can now
+ *  glaze BOTH frontages fully). Every other room keeps the conservative caps. */
 const MAX_WINDOWS_PER_ROOM = 4;
+const MAX_WINDOWS_PER_ROOM_LIVING = 6;
 /** Max windows on a SINGLE wall — long runs read best as a rhythm of 2–3, not a
- *  ribbon. The wall-length budget caps this further. */
+ *  ribbon. The wall-length budget caps this further. The living room glazes its
+ *  frontage more fully (a run of patio-door spans). */
 const MAX_WINDOWS_PER_WALL = 3;
+const MAX_WINDOWS_PER_WALL_LIVING = 4;
 
 /**
  * Find the offset (mm from wall start) for a `widthMm`-wide window on a wall of
@@ -314,14 +323,14 @@ const WINDOW_STRIDE_GAP_MM = 1400;
  * walls keep ONE window and only long runs get a balanced 2–3.
  * Returns ≥ 1 (the caller has already verified a single window hosts).
  */
-function windowCountForWall(wallLenMm: number, widthMm: number): number {
+function windowCountForWall(wallLenMm: number, widthMm: number, maxPerWall = MAX_WINDOWS_PER_WALL): number {
     // N·width + (N+1)·gap ≤ wallLen  ⇒  N ≤ (wallLen − gap) / (width + gap)
     // §WINDOW-CORNER-SETBACK (A.21.D45) — the COUNT budget is unchanged (so a 5 m wall
     // still keeps ONE centred window for every room type, per D5.c); the corner pier
     // only governs WHERE the windows sit (the end margins in `evenOffsetsMm`), not how
     // many a wall earns.
     const n = Math.floor((wallLenMm - WINDOW_STRIDE_GAP_MM) / (widthMm + WINDOW_STRIDE_GAP_MM));
-    return Math.max(1, Math.min(MAX_WINDOWS_PER_WALL, n));
+    return Math.max(1, Math.min(maxPerWall, n));
 }
 
 /**
@@ -474,6 +483,14 @@ export function emitWindowsForRoom(
         return [];
     }
 
+    // §WINDOW-LIVING-PATIO (§68.11) — the living room is the daylight showpiece: it
+    // earns a more generous per-room + per-wall window budget so a corner living room
+    // glazes BOTH frontages as a wall of patio-door spans. Every other room keeps the
+    // conservative caps (no behaviour change).
+    const isLiving = roomType === 'living';
+    const maxPerRoom = isLiving ? MAX_WINDOWS_PER_ROOM_LIVING : MAX_WINDOWS_PER_ROOM;
+    const maxPerWall = isLiving ? MAX_WINDOWS_PER_WALL_LIVING : MAX_WINDOWS_PER_WALL;
+
     // Score = physical length × solar-orientation multiplier. The minimum-length
     // FILTER still uses raw length (a window needs the wall to physically host it),
     // but RANKING uses the climate-biased score.
@@ -553,7 +570,7 @@ export function emitWindowsForRoom(
     // each other too.
     const out: WindowPlacement[] = [];
     for (const cand of candidates) {
-        if (out.length >= MAX_WINDOWS_PER_ROOM) break;
+        if (out.length >= maxPerRoom) break;
         const wallLenMm = cand.lenMm;
         let widthMm = chosenWidthMm;
         let heightMm = spec.heightMm;
@@ -605,10 +622,10 @@ export function emitWindowsForRoom(
         // budget. §WINDOW-EVERY-FRONTAGE — the last-resort tier emits exactly ONE window
         // per wall (the band is barely long enough for a single minimal opening; a rhythm
         // of 2+ would never fit). The normal/fallback tiers earn 1–3 per band as before.
-        const remaining = MAX_WINDOWS_PER_ROOM - out.length;
+        const remaining = maxPerRoom - out.length;
         const wantOnWall = lastResort
             ? Math.min(remaining, 1)
-            : Math.min(remaining, windowCountForWall(bandLenMm, widthMm));
+            : Math.min(remaining, windowCountForWall(bandLenMm, widthMm, maxPerWall));
         // Place within the band, then translate the band-local offsets back to wall coords.
         const offsets = evenOffsetsMm(bandLenMm, widthMm, wantOnWall, blocked).map(o => o + band.lo);
         // §DIAG-WIN — per-wall placement outcome. When a qualifying wall yields ZERO
@@ -622,7 +639,7 @@ export function emitWindowsForRoom(
                 : ` offsetsMm=[${offsets.map(o => Math.round(o)).join(',')}]`}`,
         );
         for (const offsetMm of offsets) {
-            if (out.length >= MAX_WINDOWS_PER_ROOM) break;
+            if (out.length >= maxPerRoom) break;
             out.push({
                 wallIndex: cand.w.wallIndex,
                 offsetMm,
@@ -634,12 +651,96 @@ export function emitWindowsForRoom(
             });
         }
     }
+    // ── §WINDOW-EVERY-FRONTAGE safety net (§68.16, founder 2026-06-11) ────────────
+    // The GUARANTEE: a windowable room fronting a usable external wall MUST end with
+    // ≥1 window. The candidate tiers above can still yield ZERO when the PREFERRED /
+    // fallback width hosted but every slot was crowded out by doors/partitions/de-
+    // overlap (so the last-resort tier — which only fires when NO candidate width
+    // hosted — never ran). This net retries EVERY external wall with the SMALLEST
+    // opening (down to MIN_WINDOW_MM, shrunk per-wall to fit the room band + piers),
+    // honouring doors, partition junctions, and the room band exactly as the main
+    // loop does. It only ever ADDS a window to a room that would otherwise be
+    // windowless despite real frontage — a room with ≥1 window is untouched
+    // (byte-identical), and an interior room (no hostable wall) still emits nothing.
+    if (out.length === 0) {
+        const netCandidates = externalWalls
+            .map(w => ({ w, lenMm: segLenMm(w) }))
+            .filter(x => x.lenMm - 2 * endSetbackMm(x.lenMm) >= MIN_WINDOW_MM)
+            .sort((a, b) => score(b.w) - score(a.w) || a.w.wallIndex - b.w.wallIndex);
+        for (const cand of netCandidates) {
+            if (out.length >= 1) break;
+            const wallLenMm = cand.lenMm;
+            const doorSpans = blockedSpansFor(cand.w.wallIndex, occupied);
+            const junctionSpans = blockedSpansForJunctions(cand.w.wallIndex, partitionJunctions);
+            const centroidPt = roomCentroidMm ?? solar?.roomCentroidMm ?? null;
+            const centroidAlong = centroidPt ? projectAlongWall(cand.w, centroidPt) : undefined;
+            const band = roomWindowBand(wallLenMm, junctionSpans, centroidAlong);
+            const bandLenMm = band.hi - band.lo;
+            const blocked = [...doorSpans, ...junctionSpans]
+                .map(b => ({ lo: b.lo - band.lo, hi: b.hi - band.lo }))
+                .filter(b => b.hi > 1e-6 && b.lo < bandLenMm - 1e-6)
+                .sort((a, b) => a.lo - b.lo);
+            const usableBand = bandLenMm - 2 * endSetbackMm(bandLenMm);
+            const widthMm = Math.max(MIN_WINDOW_MM, Math.min(spec.minWidthMm, usableBand));
+            const off = clearOffsetMm(bandLenMm, widthMm, blocked);
+            if (off === null) continue;
+            out.push({
+                wallIndex: cand.w.wallIndex,
+                offsetMm:  off + band.lo,
+                widthMm,
+                heightMm:  spec.heightMm,
+                sillMm:    spec.sillMm,
+                roomType:  roomType as WindowableRoomType,
+                ...(roomName ? { name: `${roomName} Window` } : {}),
+            });
+            console.log(
+                `[D-TGL] §WINDOW-EVERY-FRONTAGE ${winTag}: safety-net window on wall#${cand.w.wallIndex} ` +
+                `(len=${Math.round(wallLenMm)}mm) width=${Math.round(widthMm)}mm — room had real frontage ` +
+                `but every spec-width candidate was crowded out; one minimal window retained.`,
+            );
+        }
+    }
+
     // §DIAG-WIN — room summary: total windows emitted + the wall indices they landed on.
     console.log(
         `[D-TGL] §DIAG-WIN ${winTag}: emitted ${out.length} window(s) ` +
         `on wall(s)=[${[...new Set(out.map(w => w.wallIndex))].join(',') || 'none'}]` +
         `${out.length === 0 ? ' — every qualifying wall was crowded out by openings' : ''}`,
     );
+
+    // ── §DIAG-WINDOW-GUARANTEE (§68.16, founder 2026-06-11) ───────────────────────
+    // The founder's GUARANTEE: ANY windowable-type room that FRONTS at least one
+    // external wall segment of usable length (≥ MIN_WINDOW_MM between its corner piers)
+    // MUST emit ≥1 window. This line proves it PER room at the producer boundary — the
+    // sister of the shell-resolver's §DIAG-WINDOW-RULE (which proves the SURVIVING set
+    // after de-overlap / shell-match). A room that has a hostable external wall but
+    // ends with 0 windows here is a ⚠ GUARANTEE VIOLATION; a room whose every external
+    // wall is genuinely too short (no MIN_WINDOW_MM opening fits between the piers) is a
+    // legitimate NO-USABLE-FRONTAGE skip, surfaced not silently dropped.
+    const hostableWalls = externalWalls.filter(w => {
+        const l = segLenMm(w);
+        return l - 2 * endSetbackMm(l) >= MIN_WINDOW_MM;
+    });
+    if (hostableWalls.length > 0) {
+        const lens = hostableWalls.map(w => Math.round(segLenMm(w))).join(',');
+        if (out.length > 0) {
+            console.log(
+                `[D-TGL] §DIAG-WINDOW-GUARANTEE ${winTag}: emitted ${out.length} — ✓ ` +
+                `(${hostableWalls.length} hostable external wall(s) mm=[${lens}])`,
+            );
+        } else {
+            console.log(
+                `[D-TGL] §DIAG-WINDOW-GUARANTEE ${winTag}: emitted 0 with ${hostableWalls.length} ` +
+                `hostable external wall(s) mm=[${lens}] — ⚠ GUARANTEE VIOLATION (every candidate ` +
+                `crowded out by doors/partitions/de-overlap)`,
+            );
+        }
+    } else {
+        console.log(
+            `[D-TGL] §DIAG-WINDOW-GUARANTEE ${winTag}: skipped — NO-USABLE-FRONTAGE ` +
+            `(no external wall hosts a ${MIN_WINDOW_MM}mm opening between corner piers)`,
+        );
+    }
     return out;
 }
 
