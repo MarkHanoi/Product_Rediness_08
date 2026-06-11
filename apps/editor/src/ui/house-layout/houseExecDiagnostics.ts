@@ -62,6 +62,22 @@ const MAX_AREA_FRAC: Readonly<Record<string, number>> = {
     bedroom: 0.16,   // §AREA-FRACTIONS ceiling (each secondary bedroom)
 };
 
+// ── §DIAG-EXEC-MIN-AREA floor table (§68.1) ──────────────────────────────────
+// Per room TYPE the MINIMUM habitable area (m²). Mirror of `ROOM_DIMENSIONS[*].areaMin`
+// in packages/ai-host/src/workflows/apartmentLayout/dimensions/roomDimensions.ts
+// (the SINGLE SOURCE OF TRUTH). Hardcoded here with this pointer because that DB is not
+// re-exported from the @pryzm/ai-host barrel and the editor L7 layer must not reach into
+// the package internals. Founder 2026-06-11: "a bedroom 2 m² should be forbidden (min 9/8)"
+// — the auto-sizer must never emit below this; this diagnostic SURFACES any violation in
+// the BUILT result so the §68.1 engine clamp can be verified from a console paste.
+const AREA_MIN: Readonly<Record<string, number>> = {
+    living: 14, kitchen: 5.5, dining: 8, hall: 2.5, corridor: 0, stair: 4.0,
+    master: 12, bedroom: 9, study: 6, bathroom: 3.5, ensuite: 3.0, wc: 1.8, utility: 3.5,
+};
+
+/** Habitable types that MUST never fall below AREA_MIN (circulation/wet excluded from the hard flag). */
+const MIN_AREA_HABITABLE = new Set(['living', 'kitchen', 'dining', 'master', 'bedroom', 'study']);
+
 /** Rooms that legitimately carry no window (so EXEC-WINDOWS does not flag them). */
 const NO_WINDOW_OK = new Set(['corridor', 'hall', 'wc', 'utility', 'storage', 'ensuite', 'stair']);
 
@@ -231,8 +247,14 @@ export function logExecRoomDiagnostics(
         // areas can sum differently after a merge — that's exactly what we surface.)
         const plateM2 = engine.reduce((n, r) => n + r.areaM2, 0);
 
-        // ── §DIAG-EXEC-ROOMS ─────────────────────────────────────────────────
+        // ── §DIAG-EXEC banner (founder 2026-06-11: "add as many logs as possible" +
+        //    the recurring "I pasted the wrong logs") — a loud delimiter so the GENERATE
+        //    diagnostic block is findable in a noisy console. Filter the console by
+        //    "§DIAG-EXEC" to see ONLY this. ─────────────────────────────────────────────
         const N = engine.length, M = detected.length;
+        console.log(`${logTag} ════════ §DIAG-EXEC BEGIN level=${levelId} (engineRooms=${N} detectedRooms=${M}) ════════ [filter console by "§DIAG-EXEC"]`);
+
+        // ── §DIAG-EXEC-ROOMS ─────────────────────────────────────────────────
         console.log(`${logTag} §DIAG-EXEC-ROOMS level=${levelId} engineRooms=${N} detectedRooms=${M}${N === M ? ' ✓' : ' ⚠ COUNT-MISMATCH (detection diverged from design — merge/split)'}`);
         if (N !== M) {
             const eng = engine.map(r => `${r.name}[${r.type}] ${r.areaM2.toFixed(1)}m²`).join(' | ');
@@ -267,6 +289,8 @@ export function logExecRoomDiagnostics(
 
         // Rollup accumulators.
         let roomsWithDoor = 0, windowlessCount = 0, overCapCount = 0, noEngineMatchCount = 0;
+        // §68 new accumulators (founder 2026-06-11 test report).
+        let underMinCount = 0, genericNameCount = 0, winOutOfBoundsCount = 0, corridorDeadEndCount = 0;
 
         // ── §DIAG-EXEC-AREA + §DIAG-EXEC-DOORS + §DIAG-EXEC-WINDOWS (per room) ─
         for (const d of detected) {
@@ -280,6 +304,25 @@ export function logExecRoomDiagnostics(
             else if (Number.isFinite(cap) && d.areaM2 > cap + 0.05) { verdict = '⚠ OVER-CAP'; overCapCount++; }
             else verdict = 'OK';
             console.log(`${logTag} §DIAG-EXEC-AREA ${levelId} ${d.name}[${type}] detected=${d.areaM2.toFixed(1)}m² engineTarget=${targetStr}m² cap=${capStr}m² ${verdict}`);
+
+            // §DIAG-EXEC-MIN-AREA (§68.1 — "a 2 m² bedroom must be forbidden") — flag any
+            // habitable room built BELOW its type minimum. This is the console proof for the
+            // §68.1 engine sizer clamp (the auto-sizer must never emit below areaMin).
+            if (MIN_AREA_HABITABLE.has(type)) {
+                const floor = AREA_MIN[type];
+                if (typeof floor === 'number' && d.areaM2 < floor - 0.05) {
+                    underMinCount++;
+                    console.warn(`${logTag} §DIAG-EXEC-MIN-AREA ${levelId} ${d.name}[${type}] ⚠ UNDER-MIN detected=${d.areaM2.toFixed(1)}m² < min=${floor}m² (FORBIDDEN — sizer emitted a sub-minimum habitable room)`);
+                }
+            }
+
+            // §DIAG-EXEC-NAMES (§68.8 — generic "Room NN" names) — a detected room left with a
+            // generic/placeholder name means detection produced a cell the namer couldn't match
+            // to an engine room (a merge/flood remnant). Count + flag.
+            if (/^room\b/i.test(d.name) || /^room[\s-]?\d/i.test(d.name) || d.occupancyType === 'unclassified' && !eng) {
+                genericNameCount++;
+                console.warn(`${logTag} §DIAG-EXEC-NAMES ${levelId} ⚠ GENERIC-NAME "${d.name}" [${type}] ${d.areaM2.toFixed(1)}m² (detection cell with no engine match — merge/flood remnant)`);
+            }
 
             // §DIAG-EXEC-DOORS — door openings on this room's bounding walls.
             let doorN = 0, perimeterFronting = false, windowN = 0;
@@ -509,12 +552,99 @@ export function logExecRoomDiagnostics(
             }
         }
 
+        // ── §DIAG-EXEC-PROGRAM (§68.2 — "an option had NO kitchen and NO living") ──
+        //    Count rooms by TYPE in the engine design AND the detected build; flag the
+        //    mandatory social rooms (kitchen, living) when absent. A missing kitchen/living
+        //    must be a HARD program violation, never a low score — this surfaces it. ──────
+        {
+            const tally = (rooms: { type?: string; occupancyType?: string }[], key: (r: { type?: string; occupancyType?: string }) => string) => {
+                const m = new Map<string, number>();
+                for (const r of rooms) { const t = key(r); m.set(t, (m.get(t) ?? 0) + 1); }
+                return m;
+            };
+            const engT = tally(engine, r => r.type ?? '?');
+            const detT = tally(detected, d => (pairing.get((d as DetectedRoomCmp).id)?.type ?? (d as { occupancyType?: string }).occupancyType ?? '?'));
+            const fmt = (m: Map<string, number>) => [...m.entries()].sort((a, b) => a[0] < b[0] ? -1 : 1).map(([t, n]) => `${t}×${n}`).join(' ');
+            console.log(`${logTag} §DIAG-EXEC-PROGRAM ${levelId} engineByType={${fmt(engT)}} detectedByType={${fmt(detT)}}`);
+            // Ground-only mandatory social rooms. (On upper storeys a kitchen/living is not expected.)
+            const isGround = /l0|ground|level.?0|^l0/i.test(levelId) || levelId.endsWith('0');
+            if (isGround) {
+                for (const mand of ['kitchen', 'living']) {
+                    const inEngine = (engT.get(mand) ?? 0) > 0;
+                    const inDetected = (detT.get(mand) ?? 0) > 0;
+                    if (!inEngine) console.warn(`${logTag} §DIAG-EXEC-PROGRAM ${levelId} ⚠ MISSING-MANDATORY "${mand}" absent from the ENGINE design (a requested mandatory room was dropped — must be HARD-invalid, not low-score)`);
+                    else if (!inDetected) console.warn(`${logTag} §DIAG-EXEC-PROGRAM ${levelId} ⚠ MANDATORY-LOST "${mand}" designed but NOT detected in the build (merged/flooded away)`);
+                }
+            }
+        }
+
+        // ── §DIAG-EXEC-WIN-BOUNDS (§68.4/68.5 — "window off the shell" / "windows cutting
+        //    walls") — per window opening with offset+width, verify the span
+        //    [offset−w/2, offset+w/2] lies WITHIN the host wall run [0, len]. A span past
+        //    either end = the window protrudes off the wall (off-shell) or clips the corner
+        //    (cutting the wall). This is the console proof for the §68.4 placement clamp. ──
+        {
+            let checked = 0;
+            for (const w of wallById.values()) {
+                const len = wallLen(w);
+                if (len <= 0) continue;
+                for (const op of w.openings ?? []) {
+                    if (op.type !== 'window') continue;
+                    if (typeof op.offset !== 'number' || typeof op.width !== 'number') continue;
+                    checked++;
+                    const lo = op.offset - op.width / 2, hi = op.offset + op.width / 2;
+                    const EPS = 0.02;
+                    if (lo < -EPS || hi > len + EPS) {
+                        winOutOfBoundsCount++;
+                        const over = lo < -EPS ? `${(-lo).toFixed(2)}m past START` : `${(hi - len).toFixed(2)}m past END`;
+                        console.warn(`${logTag} §DIAG-EXEC-WIN-BOUNDS ${levelId} ⚠ wall ${w.id.slice(-6)} (${isExteriorWall(w.id) ? 'shell' : 'partition'}) len=${len.toFixed(2)}m window span=[${lo.toFixed(2)},${hi.toFixed(2)}] OUT-OF-BOUNDS ${over} (window off the shell / cutting the wall — clamp the opening inside the host run)`);
+                    }
+                }
+            }
+            console.log(`${logTag} §DIAG-EXEC-WIN-BOUNDS ${levelId} windowsChecked=${checked} outOfBounds=${winOutOfBoundsCount}${winOutOfBoundsCount === 0 ? ' ✓' : ' ⚠'}`);
+        }
+
+        // ── §DIAG-EXEC-STAIR-CORNER (§68.6 — "stairs should be cornered") — the stair host
+        //    room should sit in a CORNER (bound ≥2 shell walls). A stair bounding 0–1 shell
+        //    walls is floating mid-plate. Complements §DIAG-EXEC-STAIR-SIZE (oversized). ────
+        {
+            const stairHosts = detected.filter(d => (stairKeepRoomIds?.has(d.id) ?? false) || /stair/i.test(d.name) || d.occupancyType === 'stair');
+            for (const h of stairHosts) {
+                const shellWallsN = h.boundingWallIds.filter(wid => isExteriorWall(wid)).length;
+                const cornered = shellWallsN >= 2;
+                console.log(`${logTag} §DIAG-EXEC-STAIR-CORNER ${levelId} ${h.name} shellWalls=${shellWallsN} cornered=${cornered ? '✓' : '✗'}${cornered ? '' : ' ⚠ NOT-CORNERED (stair should hug a corner — ≥2 perimeter walls)'}`);
+            }
+        }
+
+        // ── §DIAG-EXEC-CORRIDOR (§68.7 — "corridor without connecting spaces") — each
+        //    corridor must link ≥2 rooms (its purpose). A corridor connecting <2 rooms is a
+        //    dead-end stub that should be absorbed or removed. ──────────────────────────────
+        {
+            const roomByWall2 = new Map<string, string[]>();
+            for (const d of detected) for (const wid of d.boundingWallIds) {
+                (roomByWall2.get(wid) ?? roomByWall2.set(wid, []).get(wid)!).push(d.id);
+            }
+            const corridors = detected.filter(d => {
+                const t = pairing.get(d.id)?.type ?? d.occupancyType;
+                return t === 'corridor' || t === 'hall' || /corridor|landing/i.test(d.name);
+            });
+            for (const c of corridors) {
+                const neigh = new Set<string>();
+                for (const wid of c.boundingWallIds) for (const rid of roomByWall2.get(wid) ?? []) if (rid !== c.id) neigh.add(rid);
+                const ok = neigh.size >= 2;
+                if (!ok) corridorDeadEndCount++;
+                console.log(`${logTag} §DIAG-EXEC-CORRIDOR ${levelId} ${c.name} connectsRooms=${neigh.size}${ok ? ' ✓' : ' ⚠ DEAD-END (a corridor must link ≥2 rooms — absorb or remove)'}`);
+            }
+        }
+
         // ── ROLLUP ───────────────────────────────────────────────────────────
         console.log(
             `${logTag} §DIAG-EXEC-ROLLUP ${levelId} roomsWithDoor=${roomsWithDoor}/${M} ` +
             `windowless=${windowlessCount} overCap=${overCapCount} noEngineMatch=${noEngineMatchCount} ` +
+            `underMin=${underMinCount} genericNames=${genericNameCount} winOutOfBounds=${winOutOfBoundsCount} corridorDeadEnds=${corridorDeadEndCount} ` +
             `(plate≈${plateM2.toFixed(1)}m²)`,
         );
+        console.log(`${logTag} ════════ §DIAG-EXEC END level=${levelId} ════════`);
     } catch (e) {
         console.warn(`${logTag} §DIAG-EXEC-* failed (non-fatal):`, e);
     }

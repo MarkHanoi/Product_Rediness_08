@@ -4382,6 +4382,24 @@ Cross-ref: this is the furniture/aesthetic complement to §63 (bathroom fixtures
 (each room's module ontology + placement rules: rug-under-host, integrated-vs-separate bed, shape-aware sofa).
 **Status: 🔵 QUEUED.**
 
+## §68 — Test report 2026-06-11 (4-bed / 2-storey AEG, casa-unifamiliar) — TRIAGE
+
+**Founder prod test** (screenshots predate v147–v149 — the deploy was in flight; the triple-merge "Kitchen / Bedroom 1 / Dining" + "Room 01-003/004" blanks shown ARE the v148 §ROOM-LOOP-BREAK target → re-confirm once green). New + recurring defects:
+
+| # | Defect | Subsystem | Status / plan |
+|---|---|---|---|
+| **68.1** | **2 m² bedroom produced in AUTO mode** — must be FORBIDDEN (bedroom min 9 m², master 14). `roomDimensions.ts` ALREADY has `bedroom.areaMin=9` / `master.areaMin=14` → the AUTO **sizer is not clamping to `areaMin`**. | ai-host `apartmentLayout` sizer (subdivide/§AREA-FRACTIONS) + program | 🔴 **NEXT (engine).** The auto-sizer must never emit a habitable room below its `areaMin`; if the plate can't fit every mandatory room ≥ areaMin, DROP a bedroom / reduce count, never shrink below min. Add a `§DIAG-MIN-AREA` per-room floor check. |
+| **68.2** | **A generated option had NO kitchen and NO living** (photo 2: ground = Bedroom/Bath/Corridor only, score 55) | ai-host program generation | 🔴 **NEXT (engine).** Mandatory rooms (kitchen unless `includeKitchen=false`; living unless `livingRoom=false`) must ALWAYS be present in every Pareto candidate. A candidate missing a requested mandatory room is HARD-invalid, not a low score. |
+| **68.3** | **Upper floor blank NEVER fills on live-resize** — on GROUND, resizing living/dining/kitchen fills the blank; on FIRST FLOOR the blank never gets covered (photo 3 red arrow) | ai-host upper-floor fill | 🟡 **§65.2 agent IN PROGRESS** covers large-plate upper fill; this adds the LIVE-RESIZE-on-upper case (the regenerate fills ground but not upper). Fold into §65.2 follow-up. |
+| **68.4** | **Window off the shell** — a window floats OUTSIDE the perimeter wall (photo 4 + photo 6 ground red arrow) — recurring | ai-host `windowEmission/` + opening placement | 🔴 **§66.5 (engine).** Window centre/extent must be clamped INSIDE the host wall's run (never past a corner / outside the shell). Focused agent after §65.2. |
+| **68.5** | **Windows cutting walls** (opening clipped through a wall, photo 7 — the diagonal wall ghost) | geometry-wall opening + windowEmission | 🔴 Recurring. Likely the same off-shell root (opening placed where no solid host wall exists). Bundle with §68.4. |
+| **68.6** | **Stair room TOO BIG; stair should be CORNERED** (photo 1 "Stair 31 m²"; photos 5/6 huge stair cell) | ai-host stair keep-out sizing | 🔴 The stair keep-out is over-sized (~30 m²) and centred, not cornered. Size to the actual U/L-stair footprint (~2.0×2.8 m ≈ 6 m² incl. landing per `roomDimensions.stair`) + place in a corner. Separate from v149 (which fixed connect+overlap, not SIZE/placement). |
+| **68.7** | **Corridor without connecting spaces** (corridor that links nothing) | ai-host bubbleGraph/circulation | 🔴 A corridor must connect ≥2 rooms; a dead-end corridor should be absorbed or removed. |
+| **68.8** | **Rooms still merged unintentionally + generic "Room NN" names** (photo 6 "Kitchen / Bedroom 1 / Dining", "Room 01-003") | room-topology / detection | 🟡 **v148 §ROOM-LOOP-BREAK target** — re-confirm on the new deploy before further work. |
+| **68.9** | **Bathroom layout still not fixed** (fixtures/arrangement) | §63 furnish | 🔴 Cross-ref §63.2–63.5 (bathroom fixtures). |
+
+**Sequencing (engine items share `workflows/**` → run SEQUENTIALLY, no parallel collision):** §65.2 (running) → §68.1+68.2+68.3 program-correctness → §68.4+68.5 window-placement → §68.6 stair size/corner → §68.7 corridor → §63 bathroom. §68.8 gated on v148 re-test. **Status: 🔴 ACTIVE.**
+
 ## §54 — Living-graph node CARDS (select → interrogate → flowing canvas) — QUEUED (2026-06-11)
 
 **Founder 2026-06-11:** on the Miro canvas each node (e.g. Kitchen) should behave like an individual selectable
