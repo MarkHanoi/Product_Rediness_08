@@ -461,6 +461,22 @@ class BatchCoordinatorImpl {
     private _onBatchEnd: (() => void) | null = null;
     /** §FIX-GPU-COMPILE-LABEL: fires just before the first post-suppress render frame. */
     private _onGpuCompileStart: (() => void) | null = null;
+    /**
+     * §POSTGEN-SETTLE (2026-06-11) — one-shot "this batch has fully settled"
+     * subscribers. Unlike `_onFinalSweepComplete` (a single engine-owned slot),
+     * this is a multi-subscriber FIFO list of fire-once callbacks. Each is invoked
+     * exactly once after the NEXT batch's onComplete flips `_isBatching` to false
+     * (i.e. all store events delivered, registrations drained, redetect kicked) —
+     * then the list is cleared. Used by serialized post-gen orchestrators
+     * (runHousePostGenChain) to await true batch completion before enqueuing the
+     * next storey's batch, instead of racing ahead on the synchronously-emitted
+     * `*.layout-executed` event (which fires the instant `runBatch` RETURNS, long
+     * before the async drain / PSO compile / PBR upgrade have run). Letting those
+     * deferred passes drain between storeys is what un-starves the deferred
+     * resume-flush rAF (§BN-07). Also flushed by the error path + forceReset() so a
+     * subscriber is never stranded if a batch aborts or a project switch interrupts.
+     */
+    private _settleListeners: Array<() => void> = [];
 
     // ── Injection (called once from EngineBootstrap after initScene) ──────────
     inject(
@@ -610,6 +626,45 @@ class BatchCoordinatorImpl {
      */
     setGpuCompileStartCallback(cb: () => void): void {
         this._onGpuCompileStart = cb;
+    }
+
+    /**
+     * §POSTGEN-SETTLE (2026-06-11) — register a one-shot callback that fires once
+     * the current/next batch has FULLY settled (onComplete reached, `_isBatching`
+     * back to false). If no batch is currently in progress, the callback fires on
+     * the next microtask (there is nothing to wait for) so callers never hang.
+     *
+     * This is the completion signal serialized post-gen orchestrators need: the
+     * `*.layout-executed` events the executors emit fire synchronously the moment
+     * `runBatch()` RETURNS — before the async registration drain, the first
+     * post-suppress render (PSO compile) and the deferred PBR upgrade have run.
+     * Awaiting THIS instead lets each storey's batch drain its deferred main-thread
+     * work before the next storey enqueues more, removing the back-to-back batch
+     * pile-up that starves the deferred resume-flush rAF for tens of seconds (§BN-07).
+     *
+     * Multi-subscriber + fire-once: safe to call concurrently with the engine's
+     * single `setFinalSweepCallback` slot. The list is also flushed on the runBatch
+     * error path and in forceReset() so a pending awaiter is never stranded.
+     */
+    onNextSettle(cb: () => void): void {
+        if (!this._isBatching) {
+            // Nothing in flight — resolve on the next microtask, not synchronously,
+            // so the caller's `await` always yields control at least once.
+            Promise.resolve().then(() => { try { cb(); } catch (e) { console.warn('[BatchCoordinator] §POSTGEN-SETTLE immediate callback error:', e); } });
+            return;
+        }
+        this._settleListeners.push(cb);
+    }
+
+    /** §POSTGEN-SETTLE — drain + clear the one-shot settle subscriber list. Each
+     *  callback is fire-once; errors are swallowed so one bad subscriber never
+     *  blocks the rest or the batch lifecycle. */
+    private _flushSettleListeners(): void {
+        if (this._settleListeners.length === 0) return;
+        const subs = this._settleListeners.splice(0);
+        for (const cb of subs) {
+            try { cb(); } catch (e) { console.warn('[BatchCoordinator] §POSTGEN-SETTLE callback error (non-fatal):', e); }
+        }
     }
 
     /**
@@ -833,6 +888,9 @@ class BatchCoordinatorImpl {
             this._isBatching = false;
             this._pendingLevelIds.clear();
             this._registrationQueue = [];
+            // §POSTGEN-SETTLE — the async onComplete will never fire on this path,
+            // so release any settle awaiters here or they would hang forever.
+            this._flushSettleListeners();
             console.error('[BatchCoordinator] runBatch fn() threw — batch aborted, bus cleaned up:', err);
             throw err;
         }
@@ -1313,6 +1371,15 @@ class BatchCoordinatorImpl {
                 // period suppresses spurious REDETECT_ROOMS from RoomTopologyObserver's
                 // _commitBarrierListener and _scheduleRedetect (Bug 3 fix — preserved).
                 this._isBatching = false;
+
+                // §POSTGEN-SETTLE (2026-06-11) — the batch has fully settled (all
+                // events delivered, registrations drained, redetect kicked). Notify any
+                // one-shot settle awaiters NOW so a serialized post-gen orchestrator can
+                // advance to the next storey's batch only after this one's deferred work
+                // is free to drain — instead of racing ahead on the synchronous
+                // `*.layout-executed` event and piling overlapping batches that starve
+                // the deferred resume-flush rAF (§BN-07).
+                this._flushSettleListeners();
 
                 // §PERF-VIEW-BATCH-SUPPRESS: Lift the suppression NOW that _isBatching
                 // is false, then schedule ONE targeted reprojection for only the plan
@@ -1862,6 +1929,12 @@ class BatchCoordinatorImpl {
 
         // Step 6 — deferred flag reset (see CONTRACT above).
         Promise.resolve().then(() => { this._sweepCancelled = false; });
+
+        // §POSTGEN-SETTLE — a project switch cancels any in-flight batch, so the
+        // onComplete that normally fires settle awaiters will never run. Release
+        // them here so a serialized post-gen orchestrator interrupted by a switch
+        // does not hang on its `await`.
+        this._flushSettleListeners();
 
         console.log('[BatchCoordinator] C13 forceReset() — all batch state cleared for project switch');
     }

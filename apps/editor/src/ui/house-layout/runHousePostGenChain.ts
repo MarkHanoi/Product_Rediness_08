@@ -33,6 +33,7 @@
 // safety timer, mirroring the §CHAIN-TIMEOUT pattern the apartment triggers use.
 
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
+import { batchCoordinator } from '@pryzm/core-app-model';
 import { triggerFloorLayout } from '../floor-layout/floorLayoutTrigger.js';
 import { beginHouseFanout, endHouseFanout } from './houseFanoutGuard.js';
 
@@ -40,6 +41,69 @@ interface ProjectContextLike { activeLevelId?: string | null }
 interface EventsLike {
     on?: (k: string, fn: (p: unknown) => void) => (() => void) | void;
     emit: (k: string, p: unknown) => void;
+}
+
+/**
+ * §POSTGEN-SETTLE / §BN-07 (2026-06-11) — yield the main thread until the batch
+ * the just-dispatched stage opened has FULLY SETTLED, then let its deferred work
+ * drain a few frames before the next stage enqueues more geometry.
+ *
+ * WHY: each finish stage (ceiling / furnish / lighting) dispatches a
+ * `batchCoordinator.runBatch`, then the executor emits its `*.layout-executed`
+ * event SYNCHRONOUSLY the instant `runBatch` RETURNS. But `runBatch` returns long
+ * before the batch's async tail runs: the deferred resume-flush rAF, the first
+ * post-suppress render (WebGPU PSO compile LONGTASK), and the deferred PBR upgrade
+ * (whole-scene traverse, skipPbrUpgrade defaults to false for these geometry
+ * batches). The old chain `await`ed only the synchronous `*.layout-executed`
+ * event, so it raced straight on to the next storey/stage — piling overlapping
+ * batches whose PSO-compile + PBR passes saturated the main thread back-to-back.
+ * The deferred resume-flush rAF could then not get a slot for tens of seconds
+ * (`§BN-07 DEFERRED-RESUME-FLUSH delayed 51086ms`).
+ *
+ * FIX: after a batch-bearing stage, await `batchCoordinator.onNextSettle` (fires
+ * after the batch's onComplete flips isBatching=false — all events delivered,
+ * registrations drained, redetect kicked), then yield a couple of `post-render`
+ * frames + one idle slot so the PSO-compile / PBR-upgrade tail can run BEFORE the
+ * next batch opens. Serializing storeys against true completion (not the sync
+ * event) is behaviour-preserving — the same batches run, the same final scene
+ * results — it only spaces them so the rAF is never starved.
+ *
+ * Bounded so a missing/never-settling batch never strands the chain.
+ *
+ * Yielding is done with macrotask (`setTimeout(0)`) ticks rather than a raw
+ * `requestAnimationFrame` (P3: the editor owns no rogue rAF). Each `setTimeout(0)`
+ * returns control to the event loop, which lets the browser interleave its own
+ * rAF callbacks — the deferred resume-flush, the first post-suppress render (PSO
+ * compile) and the requestIdleCallback-scheduled PBR upgrade all get to run before
+ * we resolve. Macrotask yields also keep the helper testable in a non-rAF node
+ * env (no dependency on the frame-scheduler pump being live).
+ */
+function yieldBatchSettled(timeoutMs = 8_000): Promise<void> {
+    return new Promise<void>(resolve => {
+        let done = false;
+        const finish = (): void => { if (done) return; done = true; clearTimeout(guard); resolve(); };
+        const guard = setTimeout(finish, timeoutMs);
+        try {
+            batchCoordinator.onNextSettle(() => {
+                // Batch settled. Let the deferred tail (resume-flush rAF, first
+                // post-suppress render / PSO compile, PBR-upgrade traverse) get a
+                // few event-loop turns before we resolve and the next stage enqueues
+                // more work. A small fixed number of macrotask yields, then one idle
+                // slot for the requestIdleCallback-scheduled PBR upgrade.
+                let yields = 3;
+                const drain = (): void => {
+                    if (--yields > 0) { setTimeout(drain, 0); return; }
+                    const settleIdle = (): void => finish();
+                    if (typeof requestIdleCallback !== 'undefined') requestIdleCallback(settleIdle, { timeout: 1_000 });
+                    else setTimeout(settleIdle, 0);
+                };
+                setTimeout(drain, 0);
+            });
+        } catch (e) {
+            console.warn('[house-postgen] §POSTGEN-SETTLE onNextSettle threw — advancing without settle wait:', e);
+            finish();
+        }
+    });
 }
 
 /** Per-stage settle budgets. The chain is async (command-bus drains + the
@@ -104,6 +168,22 @@ async function runChainForLevel(
     const events = runtime.events as unknown as EventsLike;
     setActiveLevel(levelId);
 
+    // §DIAG-POSTGEN-TIMING (2026-06-11) — per-step elapsed so the next prod run
+    // quantifies which finish-chain step costs what main-thread time. Logged at
+    // each step boundary (storey · step · elapsed ms since the storey started and
+    // since the previous step). The numbers include the §POSTGEN-SETTLE yield, so
+    // a high "settleMs" on furnish/lighting localises the PSO/PBR drain cost.
+    const storeyT0 = performance.now();
+    let lastStepT = storeyT0;
+    const diagStep = (step: string): void => {
+        const now = performance.now();
+        console.log(
+            `[house-postgen] §DIAG-POSTGEN-TIMING storey=${levelId} step=${step} ` +
+            `stepMs=${(now - lastStepT).toFixed(0)} cumMs=${(now - storeyT0).toFixed(0)}`,
+        );
+        lastStepT = now;
+    };
+
     // 0. §A.21.D25 — NAME this storey's rooms (occupancy-tag them) and AWAIT
     //    completion BEFORE furnishing. Furnish/floor/ceiling all key off each
     //    room's occupancy; if we furnish before naming finishes, the engine sees
@@ -123,6 +203,7 @@ async function runChainForLevel(
         );
         try { nameStorey(levelId); } catch (e) { console.warn('[house-postgen] nameStorey threw for', levelId, e); }
         await named;
+        diagStep('name');
     }
 
     // 1. Floor + ceiling — parallel (neither bounds rooms; same as the apartment
@@ -138,20 +219,38 @@ async function runChainForLevel(
     await new Promise<void>(r => setTimeout(r, 0));
     events.emit('ceiling.layout-execute', {});
     await ceilingDone;
+    // §POSTGEN-SETTLE — the ceiling executor opened a runBatch and emitted
+    // `ceiling.layout-executed` the instant it RETURNED. Wait for that batch to
+    // truly settle + drain its PSO-compile/PBR tail before furnish enqueues more.
+    await yieldBatchSettled();
+    diagStep('floor+ceiling');
 
     // 2. Furnish — after the shell is enclosed (apartment ordering).
     console.log('[house-postgen] storey', levelId, '→ furnish');
     const furnishDone = waitForEvent(events, 'furnish.layout-executed', FURNISH_TIMEOUT_MS);
     events.emit('furnish.layout-execute', {});
     await furnishDone;
+    // §POSTGEN-SETTLE — furniture is the heaviest finish batch (dozens–hundreds of
+    // meshes with many distinct material variants → the largest PSO-compile + PBR
+    // pass). Let it fully settle before lighting/next storey stacks onto it.
+    await yieldBatchSettled();
+    diagStep('furnish');
 
     // 3. Lighting — the chain terminus for this storey.
     console.log('[house-postgen] storey', levelId, '→ lighting');
     const lightingDone = waitForEvent(events, 'lighting.layout-executed', LIGHTING_TIMEOUT_MS);
     events.emit('lighting.layout-execute', {});
     await lightingDone;
+    // §POSTGEN-SETTLE — drain the lighting batch before the next storey begins, so
+    // the per-storey loop never opens storey N+1's batches on top of storey N's
+    // still-pending deferred resume-flush (the §BN-07 starvation).
+    await yieldBatchSettled();
+    diagStep('lighting');
 
-    console.log('[house-postgen] storey', levelId, '✓ finish chain complete');
+    console.log(
+        `[house-postgen] storey ${levelId} ✓ finish chain complete ` +
+        `(§DIAG-POSTGEN-TIMING totalMs=${(performance.now() - storeyT0).toFixed(0)})`,
+    );
 }
 
 /**

@@ -18,6 +18,20 @@ vi.mock('../src/ui/floor-layout/floorLayoutTrigger.js', () => ({
     triggerFloorLayout: () => { floorCalls.push('floor'); },
 }));
 
+// §POSTGEN-SETTLE — the orchestrator now imports `batchCoordinator` to await true
+// batch completion between stages. Mock the @pryzm/core-app-model barrel so the
+// test stays a pure ordering check (the real barrel transitively pulls in
+// @thatopen/ui, which needs a DOM the node test env lacks). The mock's
+// `onNextSettle` resolves on the next microtask — there is no real batch in this
+// pure-ordering harness — so the chain advances exactly as in production once the
+// batch's onComplete has fired.
+vi.mock('@pryzm/core-app-model', () => ({
+    batchCoordinator: {
+        get isBatching() { return false; },
+        onNextSettle: (cb: () => void) => { Promise.resolve().then(cb); },
+    },
+}));
+
 import { runHousePostGenChain } from '../src/ui/house-layout/runHousePostGenChain.js';
 
 /** A minimal synchronous event bus matching the EventsLike shape the
