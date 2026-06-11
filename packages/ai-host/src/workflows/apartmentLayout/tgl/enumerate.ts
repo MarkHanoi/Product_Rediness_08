@@ -33,6 +33,23 @@ import { validateCirculationSequence } from '../topology/validateCirculationSequ
 import { validateCorridorConnectivity } from '../topology/validateCorridorConnectivity.js';
 import { validateNoRoomOverlap, type RoomOverlap } from '../topology/validateNoRoomOverlap.js';
 import { windowMandatoryFor, isPrivate, roomRule } from '../rules/programRules.js';
+import { dimensionsFor } from '../dimensions/roomDimensions.js';
+
+/** §DIAG-MIN-AREA-GATE / §DIAG-MANDATORY-GATE (tracker §68.1/§68.2) — the HARD
+ *  architectural rules a candidate can fail. `minarea` = a habitable room below its
+ *  `areaMin`; `mandatory` = a requested mandatory room (kitchen/living/bedroom/
+ *  bathroom) is missing. The first four mirror the original §TOPO-HARD-REJECT set. */
+export type HardFailedRule =
+    | 'window' | 'circulation' | 'privacy' | 'overlap' | 'minarea' | 'mandatory';
+
+/** §DIAG-MIN-AREA-GATE (tracker §68.1) — the habitable room types whose own
+ *  `areaMin` is enforced as a HARD floor. A room of one of these types emitted below
+ *  its minimum makes the candidate hard-invalid (the auto-sizer must drop a room, not
+ *  shrink one below its minimum). Wet/service/circulation rooms are excluded — they
+ *  legitimately come small and are governed by the short-side / drop logic instead. */
+const MIN_AREA_HABITABLE_TYPES: ReadonlySet<RoomType> = new Set<RoomType>([
+    'living', 'kitchen', 'dining', 'master', 'bedroom', 'study',
+]);
 
 export interface EnumerateInput {
     readonly shellPolygon: readonly Pt[];      // metres, plan frame
@@ -149,13 +166,36 @@ export interface TglCandidate {
      *         walls only; an interior overlap is invalid (ambiguous ownership). This
      *         makes a NON-overlapping strategy rank ABOVE an overlapping one, so when
      *         any of the 8 strategies is overlap-free the engine ships it.
+     *   • A — §DIAG-MIN-AREA-GATE (tracker §68.1, 2026-06-11): a HABITABLE room
+     *         (living/kitchen/dining/master/bedroom/study) is emitted BELOW its
+     *         `roomDimensions[type].areaMin` (e.g. a 2 m² bedroom, min 9 m²). The
+     *         auto-sizer must DROP a room before it shrinks one under its minimum, so
+     *         a candidate that still contains a sub-areaMin habitable room is HARD-
+     *         INVALID (filtered from the Pareto set), never just low-scored. The
+     *         specific room ids + areas are logged via §DIAG-MIN-AREA-GATE.
+     *   • M — §DIAG-MANDATORY-GATE (tracker §68.2, 2026-06-11): a REQUESTED mandatory
+     *         room — kitchen (unless includeKitchen=false), living (unless
+     *         livingRoom=false), plus the requested bedroom + bathroom counts — is
+     *         MISSING from the realised layout. A candidate that dropped a mandatory
+     *         room down to a low score is HARD-INVALID, not low-score. When NO strategy
+     *         can satisfy the full mandatory set the engine surfaces a structured
+     *         rejection (empty result + reason) rather than ship a degenerate option.
      * The ranker tier-splits hard-valid ABOVE hard-invalid; if EVERY strategy is
      * hard-invalid the pool is NEVER emptied (a loud §TOPO-HARD-REJECT-ALL warning
-     * names the failing rules and the least-bad ships). The specific rules that failed
-     * are in `hardFailedRules` (subset of {'window','circulation','privacy','overlap'}).
+     * names the failing rules and the least-bad ships) — EXCEPT a universal `mandatory`
+     * failure, which IS surfaced as an empty/structured rejection (§68.2). The specific
+     * rules that failed are in `hardFailedRules` (subset of {'window','circulation',
+     * 'privacy','overlap','minarea','mandatory'}).
      */
     readonly hardValid: boolean;
-    readonly hardFailedRules: readonly ('window' | 'circulation' | 'privacy' | 'overlap')[];
+    readonly hardFailedRules: readonly HardFailedRule[];
+    /** §DIAG-MIN-AREA-GATE / §DIAG-MANDATORY-GATE (tracker §68.1/§68.2) — the
+     *  habitable rooms emitted below their `areaMin` (with the realised area), and
+     *  the requested-but-missing mandatory room TYPES, for this candidate. Empty in
+     *  the common case. Surfaced so the trigger/modal can report the exact shortfall
+     *  ("Bedroom 2 was 6.4 m² < 9 m² min" / "no kitchen on this plate"). Deterministic. */
+    readonly underMinAreaRooms: readonly { readonly roomId: string; readonly type: RoomType; readonly areaM2: number; readonly areaMinM2: number }[];
+    readonly missingMandatoryTypes: readonly RoomType[];
     /**
      * §FEASIBILITY-ALLOC (A.21.D5, 2026-06-06) — requested rooms that could NOT
      * be placed at their per-type minimum short side in this strategy, even
@@ -218,12 +258,16 @@ function evaluateHardTopology(args: {
     readonly unroutedToCirculationRoomIds: readonly string[];
     readonly doorOpenings: readonly DoorOpening[];
     readonly hasRoomOverlap: boolean;
-}): readonly ('window' | 'circulation' | 'privacy' | 'overlap')[] {
-    const { bubble, frontageHardRoomIds, unroutedToCirculationRoomIds, doorOpenings, hasRoomOverlap } = args;
+    /** §DIAG-MIN-AREA-GATE (§68.1) — true ⇒ at least one habitable room is below its areaMin. */
+    readonly hasUnderMinArea: boolean;
+    /** §DIAG-MANDATORY-GATE (§68.2) — true ⇒ at least one requested mandatory room is missing. */
+    readonly hasMissingMandatory: boolean;
+}): readonly HardFailedRule[] {
+    const { bubble, frontageHardRoomIds, unroutedToCirculationRoomIds, doorOpenings, hasRoomOverlap, hasUnderMinArea, hasMissingMandatory } = args;
     const typeById = new Map<string, string>();
     for (const r of bubble.rooms) typeById.set(r.id, r.type);
 
-    const failed: ('window' | 'circulation' | 'privacy' | 'overlap')[] = [];
+    const failed: HardFailedRule[] = [];
 
     // Rule W — a windowMandatory room with no perimeter frontage (the frontage
     // validator's hard findings ARE the rooms with no perimeter wall). The
@@ -267,7 +311,57 @@ function evaluateHardTopology(args: {
         failed.push('overlap');
     }
 
+    // Rule A — §DIAG-MIN-AREA-GATE (tracker §68.1, 2026-06-11). A habitable room
+    // (living/kitchen/dining/master/bedroom/study) emitted below its own
+    // `roomDimensions[type].areaMin` is a hard architectural failure (a "2 m²
+    // bedroom"). The engine must drop a room before it shrinks one under its
+    // minimum, so any candidate that still carries a sub-areaMin habitable room
+    // ranks BELOW every candidate that doesn't — never just low-scored.
+    if (hasUnderMinArea) {
+        failed.push('minarea');
+    }
+
+    // Rule M — §DIAG-MANDATORY-GATE (tracker §68.2, 2026-06-11). A requested
+    // mandatory room (kitchen / living / the requested bedroom + bathroom counts)
+    // MISSING from the realised layout is a hard failure: the picker must never be
+    // offered a candidate that silently dropped the kitchen or living down to a low
+    // score. A universal `mandatory` failure is surfaced as a structured rejection
+    // by `enumerateLayouts` (empty result + reason), like the §ENVELOPE-DIAGNOSTIC.
+    if (hasMissingMandatory) {
+        failed.push('mandatory');
+    }
+
     return failed;
+}
+
+/**
+ * §DIAG-MANDATORY-GATE (tracker §68.2) — the set of mandatory room TYPES the program
+ * REQUESTED, as a multiset count keyed by type. Mirrors `buildBubbleGraph`'s minting:
+ *   • kitchen — unless `includeKitchen === false`
+ *   • living  — when `livingRoom` is set
+ *   • dining  — when `openPlanKitchenDining` is set (a separate dining room is minted)
+ *   • bedroom/master — `bedrooms` count (the first is a master iff `masterEnSuite`)
+ *   • bathroom — `bathrooms` count
+ * Small apartments (studio / 1-bed) that legitimately set `livingRoom:false` get NO
+ * living in the requested set, so the gate is keyed on the REQUESTED program, never a
+ * blanket rule. Hall / corridor / ensuite / wc / study / utility are NOT mandatory
+ * here (they are desirable-but-droppable; the §FEASIBILITY-ALLOC drop logic governs
+ * them). Pure + deterministic.
+ */
+function requestedMandatoryCounts(program: ApartmentProgram): Map<RoomType, number> {
+    const want = new Map<RoomType, number>();
+    const add = (t: RoomType, n: number): void => { if (n > 0) want.set(t, (want.get(t) ?? 0) + n); };
+    if (program.includeKitchen !== false) add('kitchen', 1);
+    if (program.livingRoom) add('living', 1);
+    if (program.openPlanKitchenDining) add('dining', 1);
+    const beds = Math.max(0, Math.floor(program.bedrooms));
+    const baths = Math.max(0, Math.floor(program.bathrooms));
+    if (beds > 0) {
+        if (program.masterEnSuite) { add('master', 1); add('bedroom', beds - 1); }
+        else add('bedroom', beds);
+    }
+    add('bathroom', baths);
+    return want;
 }
 
 /** Coordinate transform for a strategy (involutions ⇒ inv is the reverse compose). */
@@ -696,6 +790,78 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         });
     }
     const shapeVal = validateAllRoomShapes(roomShapes);
+
+    // §DIAG-MIN-AREA-GATE (tracker §68.1, 2026-06-11) — collect every HABITABLE room
+    // (living/kitchen/dining/master/bedroom/study) whose realised footprint is below
+    // its own `roomDimensions[type].areaMin`. A "2 m² bedroom" is the founder defect:
+    // the auto-sizer must DROP a room (the §FEASIBILITY-ALLOC drop logic) rather than
+    // shrink one below its minimum. A candidate that still carries such a room is
+    // HARD-INVALID below. Wet/service/circulation rooms are excluded — they come small
+    // by design and are governed by the short-side / drop logic, not an area floor.
+    const underMinAreaRooms: { roomId: string; type: RoomType; areaM2: number; areaMinM2: number }[] = [];
+    for (const rs of roomShapes) {
+        if (!MIN_AREA_HABITABLE_TYPES.has(rs.type)) continue;
+        const areaMinM2 = dimensionsFor(rs.type).areaMin;
+        const areaM2 = (rs.rect.x1 - rs.rect.x0) * (rs.rect.z1 - rs.rect.z0);
+        if (areaM2 < areaMinM2 - 1e-6) {
+            underMinAreaRooms.push({ roomId: rs.id, type: rs.type, areaM2, areaMinM2 });
+        }
+    }
+    const hasUnderMinArea = underMinAreaRooms.length > 0;
+
+    // §DIAG-MANDATORY-GATE (tracker §68.2, 2026-06-11) — the requested mandatory room
+    // multiset (kitchen/living/dining/bedroom+master/bathroom, keyed on the REQUESTED
+    // program) MUST be fully present in the realised PLACED set. A candidate that
+    // dropped a mandatory room to a low score is HARD-INVALID below. We count the
+    // PLACED rooms by type (a dropped room has no placement, so it is absent here) and
+    // compare against the requested multiset.
+    //
+    // The requested mandatory multiset is read from the BUBBLE's MINTED rooms (which
+    // already reflect any `roomTypesByName` re-type — e.g. "Bedroom 2 → Study" removes a
+    // bedroom from the requested set), NOT the raw program flags, so a re-typed program
+    // is judged on what it actually asked the engine to build. We intersect the minted
+    // types with the program's mandatory set so only kitchen/living/dining/sleeping/
+    // bathroom rooms count (a minted study/hall/corridor is droppable, not mandatory).
+    //
+    // PATH SPLIT — the founder's §68.2 defect ("ground = Bedroom/Bath/Corridor only, no
+    // kitchen + no living") spans BOTH the apartment AND the multi-storey HOUSE GROUND.
+    // So the PUBLIC mandatory rooms (kitchen / living / dining) are gated on EVERY path:
+    // a storey that minted them must never drop them. The SLEEPING-room + BATHROOM COUNT
+    // check, however, is APARTMENT-ONLY (`!input.envelopeValidator`): the house storey
+    // program deliberately OVER-REQUESTS bedrooms (the density allocates e.g. 7 to a
+    // 500 m² plate and relies on the engine packing what fits, the rest landing on other
+    // storeys), so a house storey legitimately places fewer sleeping rooms than its raw
+    // request — counting them would wrongly reject every house plate (byte-identical
+    // house preserved, ADR-0061).
+    const isHousePath = input.envelopeValidator !== undefined;
+    const PUBLIC_MANDATORY: ReadonlySet<RoomType> = new Set<RoomType>(['kitchen', 'living', 'dining']);
+    const programMand = requestedMandatoryCounts(input.program);
+    const mandTypes = new Set<RoomType>(programMand.keys());
+    const wantMand = new Map<RoomType, number>();
+    for (const r of bubble.rooms) {
+        if (!mandTypes.has(r.type)) continue;
+        // On the house path, count ONLY the public mandatory rooms (kitchen/living/
+        // dining); skip the sleeping + bathroom count (the house over-requests those).
+        if (isHousePath && !PUBLIC_MANDATORY.has(r.type)) continue;
+        wantMand.set(r.type, (wantMand.get(r.type) ?? 0) + 1);
+    }
+    const placedByType = new Map<RoomType, number>();
+    for (const rs of roomShapes) placedByType.set(rs.type, (placedByType.get(rs.type) ?? 0) + 1);
+    // Sleeping rooms (master + bedroom) are compared as ONE combined count: the gate
+    // cares that the requested NUMBER of sleeping rooms is present, not how the engine
+    // split master vs secondary. A genuinely missing bedroom (a dropped sleeping room)
+    // still trips the gate; a master↔bedroom re-label does not. (Empty on the house path.)
+    const wantSleep = (wantMand.get('master') ?? 0) + (wantMand.get('bedroom') ?? 0);
+    const haveSleep = (placedByType.get('master') ?? 0) + (placedByType.get('bedroom') ?? 0);
+    const missingMandatoryTypes: RoomType[] = [];
+    for (const [type, need] of wantMand) {
+        if (type === 'master' || type === 'bedroom') continue;   // handled by the combined sleep count
+        const have = placedByType.get(type) ?? 0;
+        for (let i = 0; i < need - have; i++) missingMandatoryTypes.push(type);
+    }
+    for (let i = 0; i < wantSleep - haveSleep; i++) missingMandatoryTypes.push('bedroom');
+    const hasMissingMandatory = missingMandatoryTypes.length > 0;
+
     // §D2.2 (2026-05-30) — fold the furniture-fit lower-bound check into the
     // same shape gate. A room that's geometrically valid (D2.1) but too
     // small for its required furniture program (D2.2) is dropped at the
@@ -902,6 +1068,8 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         unroutedToCirculationRoomIds,
         doorOpenings,
         hasRoomOverlap: !overlapResult.ok,
+        hasUnderMinArea,
+        hasMissingMandatory,
     });
     const hardValid = hardFailedRules.length === 0;
     // §DIAG-TOPO-GATE — per-candidate hard-gate decision line (logging only).
@@ -909,6 +1077,32 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         `[D-TGL] §DIAG-TOPO-GATE strategy=${strategyKey(s)} hardValid=${hardValid} ` +
         `failed=[${hardFailedRules.join(',') || 'none'}]`,
     );
+    // §DIAG-MIN-AREA-GATE (tracker §68.1) — per-candidate min-area decision line: the
+    // habitable rooms emitted below their areaMin (room → area < min), and whether the
+    // candidate was rejected (hard-invalid). Logging only.
+    {
+        const detail = underMinAreaRooms
+            .map(r => `${r.roomId}(${r.type})=${r.areaM2.toFixed(1)}<${r.areaMinM2}`)
+            .join(' ');
+        console.log(
+            `[D-TGL] §DIAG-MIN-AREA-GATE cand ${strategyKey(s)} ` +
+            `underMin=${underMinAreaRooms.length}${detail ? ` [${detail}]` : ''} ` +
+            `rejected=${hasUnderMinArea ? 'YES' : 'no'}`,
+        );
+    }
+    // §DIAG-MANDATORY-GATE (tracker §68.2) — per-candidate mandatory-set decision line:
+    // the requested mandatory multiset vs the realised PLACED set, plus the missing
+    // types (the reject reason). Logging only.
+    {
+        const requested = Array.from(requestedMandatoryCounts(input.program).entries())
+            .map(([t, n]) => `${n}×${t}`).join(',') || 'none';
+        const missing = missingMandatoryTypes.join(',') || 'none';
+        console.log(
+            `[D-TGL] §DIAG-MANDATORY-GATE cand ${strategyKey(s)} ` +
+            `requested=[${requested}] missing=[${missing}] ` +
+            `rejected=${hasMissingMandatory ? 'YES' : 'no'}`,
+        );
+    }
 
     // §DIAG-ENUM — terse per-candidate decision line (logging only; no behaviour
     // change). Surfaces the strategy, the rooms it DROPPED, the frontage-required
@@ -965,6 +1159,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         weighted, rank: 0,
         compromises, connected: metrics.connected, shapeAdmissible, topologyAdmissible,
         circulationRouted, hardValid, hardFailedRules, droppedRooms, roomOverlaps, boundaries,
+        underMinAreaRooms, missingMandatoryTypes,
     };
 }
 
@@ -1229,9 +1424,64 @@ export function enumerateLayouts(input: EnumerateInput): TglCandidate[] {
     // plate/program) do we fall through to the same fallback over ALL candidates —
     // the pool is NEVER emptied ("prefer hard-valid, never crash"). Byte-identical
     // when at least one strategy already passed the three rules (the common case).
-    const hardValidCands = candidates.filter(c => c.hardValid);
+    // §DIAG-MANDATORY-GATE (§68.2) + §DIAG-MIN-AREA-GATE (§68.1) — VIABILITY GATE.
+    //
+    // A candidate is "viable" only when it realises the FULL requested mandatory set
+    // (kitchen / living / dining always; the requested bedroom + bathroom counts on the
+    // apartment path) AND emits NO habitable room below its `areaMin`. These two gates
+    // are coupled on a tight plate: the only way to keep every mandatory room is
+    // sometimes to shrink one below its minimum (§68.1) — and the founder rule is that
+    // the engine must REDUCE the room count rather than shrink below minimum, which makes
+    // the candidate mandatory-INCOMPLETE. So "complete at minimum sizes" is the right
+    // viability predicate.
+    const isViable = (c: TglCandidate): boolean =>
+        c.missingMandatoryTypes.length === 0 && c.underMinAreaRooms.length === 0;
+    const viable = candidates.filter(isViable);
+
+    // APARTMENT STRUCTURED REJECTION — when NO strategy is viable on the APARTMENT path,
+    // the plate is genuinely too small for the requested program at minimum room sizes;
+    // there is no degenerate option worth shipping. Return EMPTY so the caller
+    // (generate.ts) surfaces a structured `status:'rejected'` with the reason, exactly
+    // like the §ENVELOPE-DIAGNOSTIC HARD reject — NEVER ship a "no kitchen + no living"
+    // OR a "2 m² bedroom" option down to a low score.
+    //
+    // HOUSE PATH (`input.envelopeValidator` present) — the multi-storey house has NO
+    // rejection UX: a storey MUST always produce a layout (the orchestrator stacks the
+    // storeys, then documents/exports them). So the house NEVER empties here; instead the
+    // viability filter is applied only as a RANKING PREFERENCE below (a viable candidate
+    // ranks above a sub-min / mandatory-incomplete one when one exists), and the
+    // least-bad fallback over ALL candidates still ships when none is viable. This keeps
+    // the house byte-identical when a viable candidate exists, and never worse than the
+    // pre-fix least-bad when none does (ADR-0061). The founder's §68.2 house-ground
+    // "no kitchen+living" defect is still cured by the public-mandatory hard-invalid
+    // ranking (a kitchen+living candidate ALWAYS outranks one that dropped them).
+    const isHousePath = input.envelopeValidator !== undefined;
+    if (viable.length === 0 && !isHousePath) {
+        const anyMandatoryComplete = candidates.some(c => c.missingMandatoryTypes.length === 0);
+        const missingUnion = Array.from(new Set(candidates.flatMap(c => c.missingMandatoryTypes)));
+        const underMinUnion = Array.from(new Set(candidates.flatMap(c => c.underMinAreaRooms.map(r => r.type))));
+        const requested = Array.from(requestedMandatoryCounts(input.program).entries())
+            .map(([t, n]) => `${n}× ${t}`).join(', ');
+        const reason = !anyMandatoryComplete
+            ? `every strategy dropped a REQUESTED mandatory room (missing: [${missingUnion.join(', ')}])`
+            : `every strategy shrank a habitable room below its minimum area (under-min: [${underMinUnion.join(', ')}])`;
+        console.warn(
+            `[apartment-layout] §DIAG-MANDATORY-GATE/§DIAG-MIN-AREA-GATE reject: ` +
+            `${reason} across all ${candidates.length} strategies. The plate is too small for the ` +
+            `requested program (${requested}) at minimum room sizes — surfacing a structured ` +
+            `rejection rather than shipping a degenerate option (no kitchen/living, or a sub-min room).`,
+        );
+        return [];
+    }
+
+    // §68.1/§68.2 — prefer the VIABLE subset (full mandatory set + no sub-areaMin room)
+    // when one exists; otherwise (house path only, since apartment already returned) fall
+    // back to ALL candidates so the house is never emptied. The standard hard-valid →
+    // least-bad fallback then runs over the chosen pool.
+    const eligible = viable.length > 0 ? viable : candidates;
+    const hardValidCands = eligible.filter(c => c.hardValid);
     const allHardInvalid = hardValidCands.length === 0;
-    let pool = selectTier(allHardInvalid ? candidates : hardValidCands);
+    let pool = selectTier(allHardInvalid ? eligible : hardValidCands);
     if (allHardInvalid) {
         // Name the rules that failed in the least-bad shipped plan so the gap is
         // diagnosable (the founder's "name which rule failed"). The union across
