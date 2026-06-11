@@ -25,25 +25,40 @@ describe('F1.11 — curtain_rod + curtain_panel on the ai-host side', () => {
         expect(p.l).toBeLessThan(0.1);      // thin slab depth
     });
 
-    it("bedroom + living-room + master archetypes wire curtains as 'curtains' group, anchored on window wall", () => {
-        for (const occ of ['bedroom', 'living-room'] as const) {
-            const arch = archetypeFor(occ)!;
-            const rod = arch.items.find(i => i.kind === 'curtain_rod');
-            const panel = arch.items.find(i => i.kind === 'curtain_panel');
-            expect(rod, `${occ} missing rod`).toBeDefined();
-            expect(panel, `${occ} missing panel`).toBeDefined();
-            expect(rod!.group).toBe('curtains');
-            expect(panel!.group).toBe('curtains');
-            expect(rod!.anchor).toBe('wall-window');
-            expect(panel!.count).toBe(2);  // two panels per rod
-        }
+    it("living-room archetype wires curtains (rod + 2 panels) as 'curtains' group, anchored on window wall", () => {
+        // §bedroom-mirror (2026-06-11) — the BEDROOM curtain_panel was swapped for a
+        // wall_mirror (reflective mirror); only the LIVING-ROOM keeps curtain panels.
+        const arch = archetypeFor('living-room')!;
+        const rod = arch.items.find(i => i.kind === 'curtain_rod');
+        const panel = arch.items.find(i => i.kind === 'curtain_panel');
+        expect(rod, 'living-room missing rod').toBeDefined();
+        expect(panel, 'living-room missing panel').toBeDefined();
+        expect(rod!.group).toBe('curtains');
+        expect(panel!.group).toBe('curtains');
+        expect(rod!.anchor).toBe('wall-window');
+        expect(panel!.count).toBe(2);  // two panels per rod
     });
 
-    it('programRules.living + bedroom + master carry curtain_rod + curtain_panel', () => {
-        for (const ruleKey of ['living', 'bedroom', 'master'] as const) {
+    it("bedroom archetype keeps the curtain_rod but its window-wall PANEL is a wall_mirror (founder swap)", () => {
+        const arch = archetypeFor('bedroom')!;
+        expect(arch.items.find(i => i.kind === 'curtain_rod'), 'bedroom missing rod').toBeDefined();
+        // No curtain_panel in the bedroom anymore — replaced by a mirror.
+        expect(arch.items.find(i => i.kind === 'curtain_panel')).toBeUndefined();
+        // The swapped-in mirror lives in the 'curtains' group, count 2.
+        const mirror = arch.items.find(i => i.kind === 'wall_mirror' && i.group === 'curtains');
+        expect(mirror, 'bedroom missing window-wall wall_mirror').toBeDefined();
+        expect(mirror!.count).toBe(2);
+    });
+
+    it('programRules.living carries curtain_rod + curtain_panel; bedroom + master carry curtain_rod + wall_mirror', () => {
+        expect(ROOM_RULES.living.optionalFurniture).toContain('curtain_rod');
+        expect(ROOM_RULES.living.optionalFurniture).toContain('curtain_panel');
+        // §bedroom-mirror — bedroom + master swapped curtain_panel → wall_mirror.
+        for (const ruleKey of ['bedroom', 'master'] as const) {
             const rule = ROOM_RULES[ruleKey];
             expect(rule.optionalFurniture).toContain('curtain_rod');
-            expect(rule.optionalFurniture).toContain('curtain_panel');
+            expect(rule.optionalFurniture).toContain('wall_mirror');
+            expect(rule.optionalFurniture).not.toContain('curtain_panel');
         }
     });
 });

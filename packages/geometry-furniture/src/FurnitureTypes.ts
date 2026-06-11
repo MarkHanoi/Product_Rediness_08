@@ -245,7 +245,12 @@ export type FurnitureMaterial =
     | 'wood'
     | 'metal'
     | 'fabric'
-    | 'glass';
+    | 'glass'
+    // §63.1 / bedroom-mirror (2026-06-11) — reflective mirror finish. Routed by
+    // furnishLayout/styleFinish.ts for the mirror kinds (wall_mirror,
+    // bathroom_mirror, wc_mirror); the mirror builders render the glass plane as a
+    // high-metalness / low-roughness polished surface that reads as a mirror.
+    | 'mirror';
 
 export interface FurnitureData {
     id: string;

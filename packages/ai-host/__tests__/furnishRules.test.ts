@@ -188,11 +188,14 @@ describe('F4 activity-groups follow-ups', () => {
         }
     });
 
-    it('(3) curtain wiring follows the rod+panel(count:2) pattern in every wired room', () => {
-        // Pin the wiring shape: every curtain-bearing archetype must use the
+    it('(3) curtain wiring follows the rod+panel(count:2) pattern in every PANEL-wired room', () => {
+        // Pin the wiring shape: every curtain-PANEL-bearing archetype must use the
         // same canonical pair (rod on window wall + two panels flanking via
         // 'beside') so the engine treats them uniformly.
-        const wired = ['bedroom', 'living-room', 'kitchen', 'dining-room', 'private-office'] as const;
+        // §bedroom-mirror (2026-06-11) — the BEDROOM dropped its curtain_panel in
+        // favour of a wall_mirror (founder swap), so it is no longer panel-wired;
+        // its rod-on-window-wall + wall_mirror×2 shape is covered separately below.
+        const wired = ['living-room', 'kitchen', 'dining-room', 'private-office'] as const;
         for (const occ of wired) {
             const items = archetypeFor(occ)!.items;
             const rod = items.find(i => i.kind === 'curtain_rod')!;
@@ -201,6 +204,18 @@ describe('F4 activity-groups follow-ups', () => {
             expect(panel.anchor, `${occ} curtain_panel anchor`).toBe('beside');
             expect(panel.count, `${occ} curtain_panel count`).toBe(2);
         }
+    });
+
+    it('(3) bedroom: rod on the window wall + wall_mirror×2 (panel→mirror swap)', () => {
+        // §bedroom-mirror — the bedroom keeps the rod but swapped the flanking
+        // curtain panels for reflective wall_mirror panels.
+        const items = archetypeFor('bedroom')!.items;
+        const rod = items.find(i => i.kind === 'curtain_rod')!;
+        const mirror = items.find(i => i.kind === 'wall_mirror' && i.group === 'curtains')!;
+        expect(rod.anchor, 'bedroom curtain_rod anchor').toBe('wall-window');
+        expect(items.some(i => i.kind === 'curtain_panel'), 'bedroom must NOT carry curtain_panel').toBe(false);
+        expect(mirror.anchor, 'bedroom window-wall mirror anchor').toBe('beside');
+        expect(mirror.count, 'bedroom window-wall mirror count').toBe(2);
     });
 });
 

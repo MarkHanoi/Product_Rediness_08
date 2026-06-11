@@ -34,11 +34,16 @@ export type CanonicalStyle = 'nordic' | 'mediterranean' | 'minimalist' | 'classi
  */
 export type FurnishStyle = CanonicalStyle | 'modern' | 'minimal' | 'warm';
 
-/** Material finishes the geometry-furniture builders understand. */
-export type FurnishFinish = 'fabric' | 'wood' | 'metal' | 'glass';
+/** Material finishes the geometry-furniture builders understand.
+ *  §63.1 / bedroom-mirror (2026-06-11): + 'mirror' — a reflective surface for the
+ *  mirror kinds (wall_mirror / bathroom_mirror / wc_mirror). The mirror builders
+ *  render this as a high-metalness / low-roughness polished plane (see
+ *  geometry-furniture/builders/MirrorMaterial.ts). */
+export type FurnishFinish = 'fabric' | 'wood' | 'metal' | 'glass' | 'mirror';
 
-/** Furniture finish CATEGORIES — the columns of the palette table. */
-export type FinishCategory = 'upholstery' | 'wood' | 'table' | 'metal' | 'soft' | 'neutral';
+/** Furniture finish CATEGORIES — the columns of the palette table.
+ *  §63.1: + 'mirror' — the reflective-glass category for mirror kinds. */
+export type FinishCategory = 'upholstery' | 'wood' | 'table' | 'metal' | 'soft' | 'neutral' | 'mirror';
 
 /** One palette slot: a colour + the builder-understood material finish. */
 interface Slot {
@@ -54,6 +59,7 @@ interface StylePalette {
     readonly metal: Slot;      // metal/hardware-forward pieces
     readonly soft: Slot;       // soft furnishings (rugs, cushions) — future use
     readonly neutral: Slot;    // appliances, fixtures, misc fallback
+    readonly mirror: Slot;     // §63.1 — mirror kinds (reflective silver glass)
     /** Floor finish hint (the canonical floor mapping lives in floorFinish.ts). */
     readonly floorColor: string;
     /** Wall accent hint (no wall-finish pipeline yet — see SPEC follow-up). */
@@ -73,6 +79,7 @@ const PALETTE_TABLE: Readonly<Record<CanonicalStyle, StylePalette>> = {
         metal:      { color: '#9FA4A8', material: 'metal'  }, // brushed matte steel
         soft:       { color: '#C7CCC9', material: 'fabric' }, // cool wool grey
         neutral:    { color: '#ECEAE4', material: 'metal'  }, // white-grey
+        mirror:     { color: '#EEF2F4', material: 'mirror' }, // §63.1 — silver mirror
         floorColor: '#E2D6BE',
         wallAccent: '#F3F1EC', // off-white
     },
@@ -85,6 +92,7 @@ const PALETTE_TABLE: Readonly<Record<CanonicalStyle, StylePalette>> = {
         metal:      { color: '#3B352E', material: 'metal'  }, // wrought iron (dark)
         soft:       { color: '#7A8450', material: 'fabric' }, // olive green textile
         neutral:    { color: '#C97B4A', material: 'wood'   }, // terracotta
+        mirror:     { color: '#EEEAE0', material: 'mirror' }, // §63.1 — warm silver mirror
         floorColor: '#C8794D', // terracotta tile
         wallAccent: '#EFE3CE', // lime plaster
     },
@@ -97,6 +105,7 @@ const PALETTE_TABLE: Readonly<Record<CanonicalStyle, StylePalette>> = {
         metal:      { color: '#4A4A4A', material: 'metal'  }, // matte black accent
         soft:       { color: '#B5B5B5', material: 'fabric' }, // low-contrast grey
         neutral:    { color: '#DFDFDF', material: 'metal'  }, // light grey
+        mirror:     { color: '#F0F3F5', material: 'mirror' }, // §63.1 — cool silver mirror
         floorColor: '#DCDCDC', // polished concrete / pale tile
         wallAccent: '#F4F4F4', // near-white
     },
@@ -109,6 +118,7 @@ const PALETTE_TABLE: Readonly<Record<CanonicalStyle, StylePalette>> = {
         metal:      { color: '#B08D3C', material: 'metal'  }, // brass / bronze
         soft:       { color: '#1F3A5F', material: 'fabric' }, // deep navy
         neutral:    { color: '#7D6A4A', material: 'wood'   }, // aged brass-brown
+        mirror:     { color: '#E8EAEC', material: 'mirror' }, // §63.1 — antiqued silver mirror
         floorColor: '#5A3A22', // dark herringbone wood
         wallAccent: '#E7E0D2', // warm parchment / marble
     },
@@ -158,6 +168,13 @@ const WOOD_KINDS = new Set<string>([
     'shoe_cabinet', 'tv_unit', 'pantry_cabinet', 'cabinet', 'shelf', 'shelving',
 ]);
 
+// §63.1 / bedroom-mirror (2026-06-11) — the mirror kinds. These read the 'mirror'
+// palette slot so the editor assigns the reflective MIRROR material instead of
+// 'metal' (which rendered the glass dark/black) or 'glass' (transparent).
+const MIRROR_KINDS = new Set<string>([
+    'wall_mirror', 'bathroom_mirror', 'wc_mirror',
+]);
+
 /**
  * Normalise an arbitrary brief value to a CANONICAL style. Accepts the four
  * canonical ids, the legacy A.21.D4 chips, and a few free-text synonyms; anything
@@ -170,6 +187,7 @@ export function normaliseStyle(s: unknown): CanonicalStyle {
 
 /** Map a furniture `kind` to its finish category. */
 function categoryFor(kind: string): FinishCategory {
+    if (MIRROR_KINDS.has(kind)) return 'mirror';
     if (UPHOLSTERED.has(kind)) return 'upholstery';
     if (TABLE_KINDS.has(kind)) return 'table';
     if (WOOD_KINDS.has(kind)) return 'wood';

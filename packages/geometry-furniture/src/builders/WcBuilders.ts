@@ -22,6 +22,7 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { IFurnitureBuilder } from './IFurnitureBuilder';
 import { FurnitureData } from '../FurnitureTypes';
 import { MaterialService } from '../MaterialService';
+import { makeMirrorMaterial } from './MirrorMaterial';
 
 // Per-builder edge-angle tag for plan-rendering crease detection
 // (mirrors the BathroomVanityBuilder helper of the same name).
@@ -103,13 +104,8 @@ export class WcMirrorBuilder implements IFurnitureBuilder {
         const BASE = 0;
 
         const frameMat = this.materialService.getMaterial(0x303030, 'standard') as THREE.MeshStandardMaterial;
-        const glassMat = new THREE.MeshStandardMaterial({
-            color: 0xe8eef0,
-            emissive: 0x303030,
-            emissiveIntensity: 0.08,
-            roughness: 0.05,
-            metalness: 0.9,
-        });
+        // §63.1 — reflective mirror glass (was a dark-emissive slab → rendered BLACK).
+        const glassMat = makeMirrorMaterial();
 
         // Outer frame
         const frameGeo = new THREE.BoxGeometry(W, H, L);

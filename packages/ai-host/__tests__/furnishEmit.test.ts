@@ -140,7 +140,9 @@ describe('A.21.D4 — style → furniture finish', () => {
         for (const c of set.commands) {
             const p = payload(c);
             expect(typeof p.color).toBe('string');
-            expect(['fabric', 'wood', 'metal', 'glass']).toContain(p.material);
+            // §bedroom-mirror (2026-06-11) — + 'mirror' (the bedroom now places
+            // wall_mirror items, which route to the reflective 'mirror' finish).
+            expect(['fabric', 'wood', 'metal', 'glass', 'mirror']).toContain(p.material);
             expect((p.metadata as { style: string }).style).toBe('classic');
         }
     });

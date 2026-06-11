@@ -15,6 +15,7 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { IFurnitureBuilder } from './IFurnitureBuilder';
 import { FurnitureData } from '../FurnitureTypes';
 import { MaterialService } from '../MaterialService';
+import { makeMirrorMaterial } from './MirrorMaterial';
 
 const tagEdge30 = (g: THREE.Group): void => {
     g.traverse(o => {
@@ -69,13 +70,8 @@ export class WallMirrorBuilder implements IFurnitureBuilder {
         const BASE = 0;
 
         const frameMat = this.materialService.getMaterial(0xb59563, 'standard') as THREE.MeshStandardMaterial;
-        const glassMat = new THREE.MeshStandardMaterial({
-            color: 0xe8eef0,
-            emissive: 0x202020,
-            emissiveIntensity: 0.05,
-            roughness: 0.05,
-            metalness: 0.95,
-        });
+        // §63.1 — reflective mirror glass (was a dark-emissive slab that read black).
+        const glassMat = makeMirrorMaterial();
 
         const FRAME_THK = 0.02;
         const frameGeo = new THREE.BoxGeometry(W, H, L);

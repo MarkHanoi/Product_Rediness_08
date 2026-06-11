@@ -153,20 +153,37 @@ describe('F4 — activity-systems audit (Tier 9 pin)', () => {
     });
 
     // ── S7 — Window dressing (curtains) ──────────────────────────────────
-    describe('S7 — window dressing (curtains: every room with a window)', () => {
-        it.each(['bedroom', 'living-room'] as const)('%s carries a curtain_rod + curtain_panel pair in the "curtains" group', (occ) => {
-            const rod = leader(occ, 'curtain_rod');
-            const panel = leader(occ, 'curtain_panel');
+    // §bedroom-mirror (2026-06-11) — the BEDROOM's curtain PANEL was swapped for a
+    // wall_mirror (reflective mirror material) per the founder request. The bedroom
+    // 'curtains' group is now rod (leader) + wall_mirror ×2; only the LIVING-ROOM
+    // keeps the rod + curtain_panel ×2 pairing.
+    describe('S7 — window dressing (curtains / mirror)', () => {
+        it('living-room carries a curtain_rod + curtain_panel pair in the "curtains" group', () => {
+            const rod = leader('living-room', 'curtain_rod');
+            const panel = leader('living-room', 'curtain_panel');
             expect(rod.group).toBe('curtains');
             expect(panel.group).toBe('curtains');
+        });
+
+        it('bedroom carries a curtain_rod + wall_mirror pair in the "curtains" group (panel→mirror swap)', () => {
+            const rod = leader('bedroom', 'curtain_rod');
+            const mirror = itemsIn('bedroom', 'wall_mirror').find(i => i.group === 'curtains');
+            expect(rod.group).toBe('curtains');
+            expect(mirror, 'bedroom missing window-wall wall_mirror').toBeDefined();
+            expect(itemsIn('bedroom', 'curtain_panel').length).toBe(0);
         });
 
         it.each(['bedroom', 'living-room'] as const)('%s curtain_rod anchors on the window wall', (occ) => {
             expect(leader(occ, 'curtain_rod').anchor).toBe('wall-window');
         });
 
-        it.each(['bedroom', 'living-room'] as const)('%s curtain_panel count is exactly 2 (flanking panels)', (occ) => {
-            expect(leader(occ, 'curtain_panel').count).toBe(2);
+        it('living-room curtain_panel count is exactly 2 (flanking panels)', () => {
+            expect(leader('living-room', 'curtain_panel').count).toBe(2);
+        });
+
+        it('bedroom window-wall wall_mirror count is exactly 2 (flanking the rod)', () => {
+            const mirror = itemsIn('bedroom', 'wall_mirror').find(i => i.group === 'curtains');
+            expect(mirror!.count).toBe(2);
         });
     });
 

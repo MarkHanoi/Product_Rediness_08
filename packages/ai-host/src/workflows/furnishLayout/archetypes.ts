@@ -32,10 +32,14 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
             // F1.10 (2026-05-30) — Wall mirror above the bed wall (paired
             // with the bed group — the mirror reads as a headboard accent).
             { kind: 'wall_mirror', anchor: 'beside', facing: 'into-room', required: false, group: 'bed' },
-            // F1.11 (2026-05-30) — Curtains (S7 precursor). Rod on the window
-            // wall + two panels flanking. Optional so small bedrooms ship clean.
-            { kind: 'curtain_rod',   anchor: 'wall-window', facing: 'to-wall', required: false, group: 'curtains' },
-            { kind: 'curtain_panel', anchor: 'beside',      facing: 'to-wall', required: false, group: 'curtains', count: 2 },
+            // F1.11 (2026-05-30) — Curtain rod on the window wall (S7 precursor).
+            // §bedroom-mirror (2026-06-11) — the founder asked for the bedroom's
+            // curtain PANEL to be swapped for a MIRROR. The two flanking
+            // curtain_panel slabs become two wall_mirror panels (reflective
+            // mirror material — see styleFinish MIRROR_KINDS + MirrorMaterial.ts).
+            // The rod stays; the LIVING-ROOM curtain_panel is untouched.
+            { kind: 'curtain_rod', anchor: 'wall-window', facing: 'to-wall', required: false, group: 'curtains' },
+            { kind: 'wall_mirror', anchor: 'beside',      facing: 'to-wall', required: false, group: 'curtains', count: 2 },
             // F3.3 (2026-05-30) — Optional reading chair in a corner of
             // larger bedrooms (the classic primary-bedroom reading nook).
             { kind: 'lounge_chair', anchor: 'corner', facing: 'into-room', required: false },
