@@ -32,7 +32,7 @@ import { validateAcousticZoning } from '../topology/validateAcousticZoning.js';
 import { validateCirculationSequence } from '../topology/validateCirculationSequence.js';
 import { validateCorridorConnectivity } from '../topology/validateCorridorConnectivity.js';
 import { validateNoRoomOverlap, type RoomOverlap } from '../topology/validateNoRoomOverlap.js';
-import { windowMandatoryFor, isPrivate, doorAllowedBetween, roomRule } from '../rules/programRules.js';
+import { windowMandatoryFor, isPrivate, roomRule } from '../rules/programRules.js';
 
 export interface EnumerateInput {
     readonly shellPolygon: readonly Pt[];      // metres, plan frame

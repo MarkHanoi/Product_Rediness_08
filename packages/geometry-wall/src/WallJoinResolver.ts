@@ -266,7 +266,7 @@ export class WallJoinResolver {
         side:       Side,
         walls:      WallData[],
         bl:         Map<string, [THREE.Vector3, THREE.Vector3]>,
-        byId:       Map<string, WallData>,
+        _byId:      Map<string, WallData>,
         result:     Map<string, JoinData>,
         snap:       number,
         minLen:     number,
