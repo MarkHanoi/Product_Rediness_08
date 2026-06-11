@@ -4100,3 +4100,44 @@ in the bubble graph: study, family, utility/WC) so the ground programme can grow
 plate WITHOUT stretching a handful of rooms into blobs → (b) carve a corridor spine that reaches them → (c) comb-gate
 so each abuts circulation.** Raising the cap alone re-creates the "167 m² Living Room" blob (few rooms, big area);
 growing the count alone re-seals (carve can't reach them) — confirming the coupling, now scoped to the GROUND set.
+
+**✅ SHIPPED v124 (`§HOUSE-GROUND-PUBLIC-SET`, 2026-06-11)** — the (a′) ground-public-set expansion landed:
+new `ApartmentProgram.includeStudy/includeUtility` flags → bubbleGraph mints a study/utility room linked
+OFF THE CORRIDOR SPINE (corridor-served → carve/comb reaches them → never seal) → `houseEnvelope.storeyRoomTypes`
+mirrors them so the band's grossTarget grows → `fillGroundPlate` OR-ins study (≥200 m²), utility (≥240), a 2nd
+corridor-served guest bedroom (≥270) on a large multi-storey ground. **Blank eliminated at every plate size
+(289 m²: 71→0)**; small plates + axis-aligned + apartment path byte-identical. ai-host 2234/2234 (+6, incl. a new
+no-sealed-room hard-gate on a real 289 m² 2-storey run). Closes the (a′) sub-fix; (b)/(c) carve/comb were not
+needed because the corridor-served mint reaches the new rooms by construction.
+
+## §53 — PROJECT NORTH vs TRUE NORTH (the rotated-plate root fix — major 5 defects) — IMPLEMENTING (2026-06-11)
+
+**Founder root-cause insight:** like Revit, separate **Project North** (an orthogonal authoring frame whose
+X-axis = the first significant drawn boundary edge / principal axis) from **True North** (the real-world/site
+rotation). Author all generative geometry orthogonally; carry θ separately. Dissolves the 43.2°-rotated-plate
+**residual** that opens partition seams → the major-5 cascade (sealed bedroom, generic "Room NN-xxx" names,
+`§TOPO-HARD-REJECT [circulation]`, 1-door-upstairs, stair "1/4 corners").
+
+**Governance:** [ADR-0070](../../02-decisions/adrs/0070-project-north-vs-true-north-authoring-frame.md) (Accepted) +
+[SPEC-PROJECT-NORTH-AUTHORING-FRAME](../specs/SPEC-PROJECT-NORTH-AUTHORING-FRAME.md). Core rule **RIGID-TRANSFORM-LAST**:
+construct + **rectify** + weld + seal in the axis-aligned Project-North frame (residual = 0), then apply +θ as ONE
+rigid transform last. **RECTIFY** is load-bearing (§3.3): the ground reuses the user's *drawn* shell (a model
+mismatch vs the engine's idealized principal-axis rectangle), so de-rotate alone preserves the residual —
+de-rotating then snapping near-axis edges to exact axis makes the two shells the SAME clean polygon.
+**Model B** (bake-once at generation, flag `window.__pryzmProjectNorth`) chosen for Phase 1 — contained to
+`houseLayout/` + `apartmentLayout/tgl/` + the executor, no renderer/detection/persistence/IFC change. **Model A**
+(editor-wide project transform + Project Base Point, true IFC `TrueNorth` parity, orthogonal editing everywhere)
+deferred to Phase 2+. **Gate:** `houseLayoutInvariants.test.ts` 45°-rotated plate must reach `roomsWithDoor=N/N`,
+no `§TOPO-HARD-REJECT`, no generic names; axis-aligned byte-identical. NOT claimed solved by §53: kitchen
+NO-FRONTAGE + entrance-hall-not-perimeter (separate layout-quality, §51-adjacent). **Status: 🟠 IMPLEMENTING.**
+
+## §54 — Living-graph node CARDS (select → interrogate → flowing canvas) — QUEUED (2026-06-11)
+
+**Founder 2026-06-11:** on the Miro canvas each node (e.g. Kitchen) should behave like an individual selectable
+**card**: select → INTERROGATE → a panel pops up with its **information · dependencies · adjacency · circulation**
+(the living-graph data, not just the Area/Type/Floor/Connect editor we ship today), AND keep drag-and-drop /
+connect-to-other-nodes / move-between-floors. Goal: "a more flowing and dynamic layout". Builds on the v122/123
+Miro canvas (pan/zoom + node-drag) + the v119/120/121 C52 node editor — this EXTENDS the editor popover into a
+richer **node inspector card** sourcing each room's graph relationships (its `adjacentTo`, its circulation route
+to a corridor/hall, its program dependencies from the rules DB). SPEC: extend SPEC-DYNAMIC-PROGRAM-CANVAS (new
+§5.9 node-inspector). **Status: 🔵 QUEUED — parallel agent (apps/editor, disjoint from §53 engine work).**
