@@ -109,6 +109,12 @@ export function generateDeterministicLayouts(
     // corridor width / solar weight / habitable-area generosity). Absent ⇒ engine
     // defaults — byte-identical to the pre-A.25.3 baseline (Pareto-equality invariant).
     tuning?: EngineTuning,
+    // §DIAG-FILL-RESIDUAL (founder defect §65.2, 2026-06-11) — OPTIONAL extra WORLD-XZ
+    // exclusion rect(s) consumed ONLY by the residual-claim pass (NOT the main carve), so
+    // a grown/minted leftover cell never tiles into them. Carries the RESERVED stair-core
+    // (the modal "Stair" cell), which can sit offset from the shipped-footprint keep-out.
+    // Mapped into the engine frame exactly like `keepOutRectsWorld`. Absent ⇒ no effect.
+    residualExcludeRectsWorld?: ReadonlyArray<{ x0: number; z0: number; x1: number; z1: number }>,
 ): ScoredLayoutOption[] {
     const perimeter = shell.perimeter as Pt[];
     if (!perimeter || perimeter.length < 3) return [];
@@ -155,7 +161,7 @@ export function generateDeterministicLayouts(
     // (house shells are typically axis-aligned). Otherwise we rotate the four
     // corners by −angle about the pivot and take their axis-aligned bbox — a
     // conservative cover of the core in the rotated frame (never under-reserves).
-    const keepOutEngine = keepOutRectsWorld?.map(r => {
+    const mapRectToEngine = (r: { x0: number; z0: number; x1: number; z1: number }) => {
         if (angle === 0) return { x0: r.x0, z0: r.z0, x1: r.x1, z1: r.z1 };
         const corners = [
             rotatePt({ x: r.x0, z: r.z0 }, -angle, pivot),
@@ -167,7 +173,9 @@ export function generateDeterministicLayouts(
             x0: Math.min(...corners.map(c => c.x)), z0: Math.min(...corners.map(c => c.z)),
             x1: Math.max(...corners.map(c => c.x)), z1: Math.max(...corners.map(c => c.z)),
         };
-    });
+    };
+    const keepOutEngine = keepOutRectsWorld?.map(mapRectToEngine);
+    const residualExcludeEngine = residualExcludeRectsWorld?.map(mapRectToEngine);
 
     const candidates = enumerateLayouts({
         shellPolygon,
@@ -183,6 +191,7 @@ export function generateDeterministicLayouts(
         ...(doorSpans && doorSpans.length > 0 ? { doorSpansWorld: doorSpans } : {}),
         ...(envelopeValidator ? { envelopeValidator } : {}),
         ...(keepOutEngine && keepOutEngine.length > 0 ? { keepOutRects: keepOutEngine } : {}),
+        ...(residualExcludeEngine && residualExcludeEngine.length > 0 ? { residualExcludeRects: residualExcludeEngine } : {}),
         // §ENV-E2-SOLAR (E.2) — thread the site latitude so the engine biases
         // daytime rooms toward the sun face. Reuses the SAME `solar.latDeg` the
         // window-orientation pass (A.21.D6) already consumes. Absent ⇒ neutral axis.

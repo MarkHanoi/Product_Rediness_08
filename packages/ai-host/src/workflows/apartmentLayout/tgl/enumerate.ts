@@ -10,10 +10,10 @@
 // subdivision and untransform the result), so candidates are genuinely different
 // layouts — but every emitted graph is in the canonical {x,z} frame.
 
-import type { ApartmentProgram, ScoringWeights } from '../types.js';
+import type { ApartmentProgram, RoomType, ScoringWeights } from '../types.js';
 import { decomposeToRects, polygonBBox, rectArea, rectifyConvexQuad, subtractRectsFromRects, type Pt, type Rect } from './rectDecomposition.js';
 import { buildBubbleGraph, scaleProgramToShell, type BubbleGraph, type ProgramRoom, type AdjacencyEdge } from './bubbleGraph.js';
-import { subdivideWithReport, findCorridorStubToKeepOut, type DroppedRoom, type RoomPlacement } from './subdivide.js';
+import { subdivideWithReport, findCorridorStubToKeepOut, claimResidualPlacements, type DroppedRoom, type RoomPlacement } from './subdivide.js';
 import { buildWallsAndDoors, type BoundarySeg } from './wallsAndDoors.js';
 import { snapRectsAwayFromWindows, type WindowSpan } from './windowAvoidance.js';
 import { buildSemanticGraph, type LayoutGraph } from './semanticGraph.js';
@@ -69,6 +69,16 @@ export interface EnumerateInput {
      *  room/partition ever tiles across the stair (SPEC-CASA §7). Apartment path
      *  never passes any ⇒ decomposition is bit-identical. */
     readonly keepOutRects?: readonly Rect[];
+    /** §DIAG-FILL-RESIDUAL (founder defect §65.2, 2026-06-11) — OPTIONAL extra
+     *  axis-aligned exclusion rect(s) in the engine plan frame that the residual-claim
+     *  pass treats as occupied (so a grown/minted cell never tiles into them) but the
+     *  main subdivide carve IGNORES (so layouts are byte-identical). Used to carry the
+     *  RESERVED stair-core rect (the modal "Stair" cell), which can differ in position
+     *  from the SHIPPED stair-footprint `keepOutRects` (the core is reserved BEFORE the
+     *  upstream containment shift). Without this the residual pass could mint a "Store"
+     *  in the reserved-core cell (the v149 keep-out invariant). Absent ⇒ no extra
+     *  exclusion (apartment + every keep-out-free path byte-identical). */
+    readonly residualExcludeRects?: readonly Rect[];
     /** §ENV-E2-SOLAR (E.2, 2026-06-07) — OPTIONAL site latitude (decimal degrees)
      *  for the solar room-placement bias axis (`objectives.solarOrientation`).
      *  Threaded straight into `computeObjectives`. Absent / non-finite / near-
@@ -614,6 +624,58 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         }
     }
 
+    // §DIAG-FILL-RESIDUAL (founder defect §65.2, 2026-06-11) — guarantee EVERY plate is
+    // fully tiled by NAMED rooms (no blank "Room NN" cell). On a large/dense HOUSE plate the
+    // stair keep-out fractures the plate; the §STAIR-CARVE-NO-DROP short-circuit packs the
+    // whole programme into the DOMINANT rect and leaves the side fragments (e.g. a 51 m² band)
+    // EMPTY → room detection ships them as the founder's "Room 00-001 63.9 m²" blanks.
+    //
+    // RANK-NEUTRALITY (critical): the claim is computed here but applied to the EMITTED geometry
+    // ONLY (`graph` below) — it is DELIBERATELY EXCLUDED from every SCORING / gate computation
+    // (shapeVal, objectives, validators, Pareto rank), which all run on the UN-augmented
+    // `placements`/`bubble`. So the residual fill can NEVER flip the Pareto winner toward an
+    // otherwise-inferior candidate (e.g. promoting a squarified-blob plate). The chosen plan is
+    // identical to the pre-fix ranking; we then fill ITS blanks. House-only (gated on a keep-out):
+    // apartment passes none ⇒ no claim ⇒ byte-identical (ADR-0061). The stair keep-out is honoured
+    // by construction (the buildable set has the stair subtracted + every stair placement is
+    // occupied), so no grown/minted cell ever tiles across the stair (v149 keep-out invariant).
+    // §RESIDUAL-RECTILINEAR-ONLY — suppress the claim on a RECTIFIED (sheared/skewed convex
+    // quad) shell, exactly as the §ENTRANCE-HALL-ON-SHELL hall-slice is suppressed there: the
+    // residual rects are computed from the rectified (bbox) decomposition, so on a sheared ring
+    // a minted cell's outer edge can dangle a fraction off the projected perimeter → an open
+    // seam (the §RECTIFY-SHELL-PROJECT invariant only snaps bbox-EDGE endpoints). The founder's
+    // §65.2 blanks are RECTILINEAR-plate cases (rectangle / L / U / T — never rectified), where
+    // every minted edge lands exactly on the perimeter. Axis-aligned ⇒ `shellRectified` false ⇒
+    // the claim runs (the founder's case). Apartment never reaches here (no keep-out).
+    let residualMints: readonly NonNullable<import('./subdivide.js').ClaimedResidual['mint']>[] = [];
+    let residualPlacements: readonly RoomPlacement[] = placements;
+    if (input.keepOutRects && input.keepOutRects.length > 0 && placements.length > 0 && !shellRectified) {
+        const stairExclusions: Rect[] = [...input.keepOutRects, ...(input.residualExcludeRects ?? [])];
+        const buildableWorld = subtractRectsFromRects(
+            decomposeToRects(input.shellPolygon), stairExclusions,
+        );
+        // Per-room max-area cap (§AREA-FRACTIONS: maxAreaFrac × shellArea; ∞ when uncapped) so a
+        // GROWN room can never exceed its own ceiling (no "master over-allocated" oversize).
+        const roomMeta = new Map<string, { type: RoomType; maxAreaM2: number }>();
+        for (const r of bubble.rooms) {
+            const frac = roomRule(r.type).maxAreaFrac;
+            roomMeta.set(r.id, {
+                type: r.type,
+                maxAreaM2: frac !== undefined ? frac * shellArea : Number.POSITIVE_INFINITY,
+            });
+        }
+        const claim = claimResidualPlacements(placements, buildableWorld, roomMeta, strategyKey(s));
+        residualMints = claim.mints;
+        residualPlacements = claim.placements;
+        console.log(
+            `[D-TGL] §DIAG-FILL-RESIDUAL cand ${strategyKey(s)} ` +
+            `largestBlankBefore=${claim.largestBlankBeforeM2.toFixed(1)} totalBlankBefore=${claim.totalBlankBeforeM2.toFixed(1)} ` +
+            `→ grown+minted ${claim.mints.length} mint(s) ` +
+            `largestBlankAfter=${claim.largestBlankM2.toFixed(1)} totalBlankAfter=${claim.totalBlankM2.toFixed(1)} ` +
+            `(target ~0; >2 m² after ⇒ a still-blank cell — the §65.2 defect surface)`,
+        );
+    }
+
     // §D3.1 — pre-furnishing SHAPE GATE. Validate every room rectangle against
     // its dimensional envelope (D2.1). Hard findings flag the candidate as
     // `shapeAdmissible: false` — the enumerateLayouts gate prefers admissible
@@ -866,8 +928,40 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         `daylightReach=${objectives.daylightReach.toFixed(2)}`,
     );
 
+    // §DIAG-FILL-RESIDUAL — build the EMITTED graph from the residual-augmented placements +
+    // bubble (the minted "Store" cells / grown rooms that tile every blank). This is the ONLY
+    // place the fill touches; all scoring above used the un-augmented `graph`, so the Pareto
+    // ranking is byte-identical to the pre-fix engine — the fill never flips the winner. When no
+    // residual was claimed (the common + apartment case) the augmented data === the originals, so
+    // `emitGraph === graph` semantically (byte-identical, ADR-0061).
+    let emitGraph = graph;
+    if (residualMints.length > 0) {
+        const mintRooms: ProgramRoom[] = residualMints.map(m => ({
+            id: m.id, type: m.type, name: m.name,
+            targetAreaM2: m.targetAreaM2, isPrivate: false, needsWindow: false,
+        }));
+        const mintEdges: AdjacencyEdge[] = residualMints
+            .filter(m => m.neighbourId !== null)
+            // Minted cell joins the room it abuts via an OPEN threshold (extra space — never sealed).
+            .map(m => ({ a: m.id, b: m.neighbourId as string, via: 'open' as const }));
+        const emitBubble: BubbleGraph = {
+            ...bubble,
+            rooms: [...bubble.rooms, ...mintRooms],
+            edges: [...bubble.edges, ...mintEdges],
+        };
+        const emitWalls = buildWallsAndDoors(residualPlacements, emitBubble, {
+            ...(input.wallThicknessM !== undefined ? { wallThicknessM: input.wallThicknessM } : {}),
+            ...(input.doorWidthM !== undefined ? { doorWidthM: input.doorWidthM } : {}),
+            shellPolygon: input.shellPolygon,
+        });
+        emitGraph = buildSemanticGraph(residualPlacements, emitWalls.segments, emitWalls.openings, emitBubble, {
+            levelId: input.levelId, seed: `${input.seed}|${strategyKey(s)}`, shellAreaM2: shellArea,
+            ...(input.wallHeightM !== undefined ? { wallHeightM: input.wallHeightM } : {}),
+        });
+    }
+
     return {
-        strategy: strategyKey(s), graph, objectives,
+        strategy: strategyKey(s), graph: emitGraph, objectives,
         weighted, rank: 0,
         compromises, connected: metrics.connected, shapeAdmissible, topologyAdmissible,
         circulationRouted, hardValid, hardFailedRules, droppedRooms, roomOverlaps, boundaries,

@@ -26,9 +26,10 @@
 
 import type { BubbleGraph, ProgramRoom } from './bubbleGraph.js';
 import type { RoomType } from '../types.js';
-import { rectArea, type Rect } from './rectDecomposition.js';
+import { rectArea, subtractRectsFromRects, mergeHorizontally, type Rect } from './rectDecomposition.js';
 import { squarify } from './squarify.js';
 import { roomRule, preferenceBetween } from '../rules/programRules.js';
+import { dimensionsFor } from '../dimensions/roomDimensions.js';
 
 /** A room's realised footprint inside the shell. */
 export interface RoomPlacement {
@@ -2766,6 +2767,350 @@ function packMultiRect(valid: readonly Rect[], graph: BubbleGraph): SubdivideRes
         cursor += take;
     }
     return { placements: out, droppedRooms };
+}
+
+/** §DIAG-FILL-RESIDUAL (founder defect §65.2, 2026-06-11) — a leftover buildable
+ *  fragment claimed by {@link claimResidualPlacements}: either GROWN into an
+ *  eligible neighbour (no new room) or MINTED as a fresh named circulation/store
+ *  room. The diagnostic + the enumerate fold both read this. */
+export interface ClaimedResidual {
+    /** A newly-minted room (grow → null; mint → the room to add to the graph). */
+    readonly mint: {
+        readonly id: string;
+        readonly type: RoomType;
+        readonly name: string;
+        readonly rect: Rect;
+        readonly targetAreaM2: number;
+        /** The placed room this fragment was adjacent to (→ an `open` edge so the
+         *  minted cell joins the circulation it abuts; never sealed). */
+        readonly neighbourId: string | null;
+    } | null;
+}
+
+/** §DIAG-FILL-RESIDUAL result: the (possibly grown) placement set + the rooms to
+ *  mint into the bubble graph + the residual telemetry the caller logs. */
+export interface ResidualClaimResult {
+    readonly placements: readonly RoomPlacement[];
+    readonly mints: readonly NonNullable<ClaimedResidual['mint']>[];
+    /** Largest single unclaimed (still-blank) fragment AFTER the pass (m²). ~0 is the goal. */
+    readonly largestBlankM2: number;
+    /** Total still-unclaimed area AFTER the pass (m²). ~0 is the goal. */
+    readonly totalBlankM2: number;
+    /** Largest blank BEFORE the pass (m²) — the §65.2 defect surface. */
+    readonly largestBlankBeforeM2: number;
+    readonly totalBlankBeforeM2: number;
+}
+
+/** Room types whose rect MAY be grown to absorb an adjacent leftover fragment.
+ *  HABITABLE + CIRCULATION — a leftover band beside one of these reads naturally as
+ *  that room being a little larger (a bigger living/bedroom, a wider landing). Wet
+ *  rooms (bathroom/ensuite/wc) and the stair are EXCLUDED — they are fixture-sized
+ *  and must never grow. CRUCIALLY the grow is capped at the room's own dimensional
+ *  HARD-MAX (`areaHardMax`, well under every per-type sanity cap), so it can NEVER
+ *  recreate the "master over-allocated / 44 m² bedroom" oversize defect — a room at
+ *  its hard-max is skipped and the slack is minted instead. */
+const RESIDUAL_GROW_ELIGIBLE: ReadonlySet<RoomType> = new Set<RoomType>([
+    'corridor', 'hall', 'living', 'dining', 'study', 'bedroom', 'master',
+]);
+
+/** §65.2 — a residual fragment below this area is genuine wall/clearance slack
+ *  (the stair clearance ring, alignment slivers); never worth a room. Above it is
+ *  the founder's blank "Room NN". 2 m² is well under any habitable minimum. */
+export const RESIDUAL_EPS_M2 = 2.0;
+
+/** §65.2 — the claim pass only fires when the plate's LARGEST blank reaches this area:
+ *  the founder's "huge undivided cell" defect surfaces as a 50–68 m² cavern, while a
+ *  well-tiled normal house plate (≤ ~165 m², the byte-identical guard) carries only
+ *  small slack (≤ ~45 m² on its WORST candidate, ~0 on its winner). Gating at 48 m²
+ *  keeps every normal-plate candidate BYTE-IDENTICAL (so the winner — and the score
+ *  ranking — is unchanged) and fires ONLY on the genuinely cavernous large/dense
+ *  plates the founder reported. Below it the pass is a strict no-op. */
+export const RESIDUAL_MIN_LARGEST_BLANK_M2 = 48.0;
+
+/** The min short side a MINTED residual room may have (a real, usable cell — not a
+ *  tunnel). Below this the fragment is left as clearance (never a 0.3 m × 8 m sliver). */
+const RESIDUAL_MINT_MIN_SHORT_M = 1.0;
+
+/** A grown room may never exceed its type's own dimensional HARD-MAX (less a hair, so
+ *  the §D3.1 shape gate stays admissible). This is the architectural ceiling per room
+ *  type (living 45, bedroom 22, master 35, study 20, dining 28, corridor 12, hall 10
+ *  m²) — far below any plate fraction, so a grow can never blob a room. */
+function growCapForType(type: RoomType): number {
+    return Math.max(0, dimensionsFor(type).areaHardMax - 0.25);
+}
+
+/** Would extending a room to `r` keep it within its type's shape envelope (so the
+ *  §D3.1 gate stays admissible): area ≤ hard-max, long side ≤ lengthHardMax, aspect ≤
+ *  aspectHardMax. A grow that would breach any of these is rejected (slack is minted). */
+function withinShapeEnvelope(type: RoomType, r: Rect): boolean {
+    const d = dimensionsFor(type);
+    const w = r.x1 - r.x0, h = r.z1 - r.z0;
+    if (w <= EPS || h <= EPS) return false;
+    if (rectArea(r) > d.areaHardMax + 1e-6) return false;
+    const long = Math.max(w, h), short = Math.min(w, h);
+    if (long > d.lengthHardMax + 1e-6) return false;
+    if (long / short > d.aspectHardMax + 1e-6) return false;
+    return true;
+}
+
+/** Does `union(a, b)` form a single axis-aligned rectangle (the two rects abut on a
+ *  full shared edge)? Only then can a neighbour absorb a fragment by extending its
+ *  rect without leaving a re-entrant (non-rectangular) room. */
+function unionIsRect(a: Rect, b: Rect): Rect | null {
+    const xMatch = Math.abs(a.x0 - b.x0) < 1e-3 && Math.abs(a.x1 - b.x1) < 1e-3;
+    const zMatch = Math.abs(a.z0 - b.z0) < 1e-3 && Math.abs(a.z1 - b.z1) < 1e-3;
+    // Vertically stacked: same x-span, touching on z.
+    if (xMatch && (Math.abs(a.z1 - b.z0) < 1e-3 || Math.abs(b.z1 - a.z0) < 1e-3)) {
+        return roundRect({ x0: a.x0, z0: Math.min(a.z0, b.z0), x1: a.x1, z1: Math.max(a.z1, b.z1) });
+    }
+    // Horizontally adjacent: same z-span, touching on x.
+    if (zMatch && (Math.abs(a.x1 - b.x0) < 1e-3 || Math.abs(b.x1 - a.x0) < 1e-3)) {
+        return roundRect({ x0: Math.min(a.x0, b.x0), z0: a.z0, x1: Math.max(a.x1, b.x1), z1: a.z1 });
+    }
+    return null;
+}
+
+/** §65.2 — the largest area a MINTED residual cell may have. A minted cell is typed
+ *  `utility` (a "Store"; the only type with no widthHardMax, so a habitable-shaped band
+ *  fits it), whose dimensional hard-max is 8 m². A bigger leftover is SPLIT into cells
+ *  ≤ this so every minted Store passes the §D3.1 shape gate AND stays well under the
+ *  per-type sanity caps — and so no minted cell is itself a cavernous undivided
+ *  rectangle (the founder's complaint applies to a 50 m² Store as much as to a blank). */
+const RESIDUAL_MINT_MAX_M2 = dimensionsFor('utility').areaHardMax - 0.5;   // ~7.5 m²
+
+/**
+ * GROW a neighbour into AS MUCH of `frag` as its cap allows when the full union would
+ * overflow: slice `frag` perpendicular to the shared edge so the neighbour reaches
+ * (but never exceeds) its cap, returning the grown rect + the un-absorbed remainder
+ * (null when none). Returns null when nothing can be absorbed (cap already reached, or
+ * the rects don't form a rectangle). Pure.
+ */
+function growPartial(nb: Rect, frag: Rect, capM2: number): { grown: Rect; remainder: Rect | null } | null {
+    const full = unionIsRect(nb, frag);
+    if (!full) return null;
+    if (rectArea(full) <= capM2 + 1e-6) return { grown: full, remainder: null };
+    const headroom = capM2 - rectArea(nb);
+    if (headroom <= EPS) return null;                          // neighbour already at its cap
+    // Absorb a slab of `frag` along the shared-edge axis worth `headroom` of area.
+    const sameX = Math.abs(nb.x0 - frag.x0) < 1e-3 && Math.abs(nb.x1 - frag.x1) < 1e-3;
+    if (sameX) {
+        // Stacked on z; the shared edge has width (x1-x0). Take a z-slab of `frag`.
+        const width = nb.x1 - nb.x0;
+        const slab = headroom / Math.max(EPS, width);
+        if (slab < RESIDUAL_MINT_MIN_SHORT_M) return null;     // can't absorb a usable slab
+        if (Math.abs(nb.z1 - frag.z0) < 1e-3) {                // frag is ABOVE nb
+            const cut = Math.min(frag.z1, frag.z0 + slab);
+            const grown = roundRect({ x0: nb.x0, z0: nb.z0, x1: nb.x1, z1: cut });
+            const rem = frag.z1 - cut > RESIDUAL_MINT_MIN_SHORT_M ? roundRect({ x0: frag.x0, z0: cut, x1: frag.x1, z1: frag.z1 }) : null;
+            return { grown, remainder: rem };
+        }
+        // frag is BELOW nb.
+        const cut = Math.max(frag.z0, frag.z1 - slab);
+        const grown = roundRect({ x0: nb.x0, z0: cut, x1: nb.x1, z1: nb.z1 });
+        const rem = cut - frag.z0 > RESIDUAL_MINT_MIN_SHORT_M ? roundRect({ x0: frag.x0, z0: frag.z0, x1: frag.x1, z1: cut }) : null;
+        return { grown, remainder: rem };
+    }
+    // Adjacent on x; the shared edge has height (z1-z0). Take an x-slab of `frag`.
+    const height = nb.z1 - nb.z0;
+    const slab = headroom / Math.max(EPS, height);
+    if (slab < RESIDUAL_MINT_MIN_SHORT_M) return null;
+    if (Math.abs(nb.x1 - frag.x0) < 1e-3) {                    // frag is RIGHT of nb
+        const cut = Math.min(frag.x1, frag.x0 + slab);
+        const grown = roundRect({ x0: nb.x0, z0: nb.z0, x1: cut, z1: nb.z1 });
+        const rem = frag.x1 - cut > RESIDUAL_MINT_MIN_SHORT_M ? roundRect({ x0: cut, z0: frag.z0, x1: frag.x1, z1: frag.z1 }) : null;
+        return { grown, remainder: rem };
+    }
+    // frag is LEFT of nb.
+    const cut = Math.max(frag.x0, frag.x1 - slab);
+    const grown = roundRect({ x0: cut, z0: nb.z0, x1: nb.x1, z1: nb.z1 });
+    const rem = cut - frag.x0 > RESIDUAL_MINT_MIN_SHORT_M ? roundRect({ x0: frag.x0, z0: frag.z0, x1: cut, z1: frag.z1 }) : null;
+    return { grown, remainder: rem };
+}
+
+/** Split a large leftover `frag` into a grid of ≤ {@link RESIDUAL_MINT_MAX_M2} cells so
+ *  no minted Store is cavernous AND each cell stays within the `utility` aspect hard-max
+ *  (3.5) — a long thin band is split along its LONG axis into near-square cells (never a
+ *  3.5-aspect-breaching tunnel). Deterministic. */
+function splitFragmentForMint(frag: Rect): Rect[] {
+    const area = rectArea(frag);
+    const w = frag.x1 - frag.x0, h = frag.z1 - frag.z0;
+    if (area <= RESIDUAL_MINT_MAX_M2 + 1e-6 && Math.max(w, h) / Math.max(EPS, Math.min(w, h)) <= 3.5 + 1e-6) {
+        return [roundRect(frag)];
+    }
+    // Number of slices along the LONG axis: enough that each cell is both ≤ the mint-max
+    // AND near the short side in proportion (aspect ≤ ~2). Split only the long axis (the
+    // short side is already the band depth, ≤ its own dimension).
+    const long = Math.max(w, h), short = Math.min(w, h);
+    const byArea = Math.ceil(area / RESIDUAL_MINT_MAX_M2);
+    const byAspect = Math.ceil(long / Math.max(EPS, short * 1.8));
+    const n = Math.max(1, byArea, byAspect);
+    const out: Rect[] = [];
+    if (w >= h) {
+        const step = w / n;
+        for (let k = 0; k < n; k++) out.push(roundRect({ x0: frag.x0 + k * step, z0: frag.z0, x1: frag.x0 + (k + 1) * step, z1: frag.z1 }));
+    } else {
+        const step = h / n;
+        for (let k = 0; k < n; k++) out.push(roundRect({ x0: frag.x0, z0: frag.z0 + k * step, x1: frag.x1, z1: frag.z0 + (k + 1) * step }));
+    }
+    return out;
+}
+
+/** Shared-wall run (m) between two abutting rects (0 if they don't touch). */
+function sharedEdgeM(a: Rect, b: Rect): number {
+    const vAbut = Math.abs(a.x1 - b.x0) < 0.05 || Math.abs(b.x1 - a.x0) < 0.05;
+    if (vAbut) return Math.max(0, Math.min(a.z1, b.z1) - Math.max(a.z0, b.z0));
+    const hAbut = Math.abs(a.z1 - b.z0) < 0.05 || Math.abs(b.z1 - a.z0) < 0.05;
+    if (hAbut) return Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0));
+    return 0;
+}
+
+/**
+ * §DIAG-FILL-RESIDUAL (founder defect §65.2, 2026-06-11) — guarantee EVERY plate is
+ * fully tiled by NAMED rooms: no blank cell larger than {@link RESIDUAL_EPS_M2}.
+ *
+ * THE DEFECT (the bail): on a large/dense house plate the stair keep-out fractures the
+ * plate into a dominant rect + side fragments; the §STAIR-CARVE-NO-DROP short-circuit
+ * (subdivideWithReport) places the WHOLE programme in the dominant rect and returns —
+ * leaving the side fragments (e.g. a 51 m² band) completely EMPTY. Room detection then
+ * ships those as generic "Room 00-001 63.9 m²" blanks (and on upper floors the sparser
+ * private programme under-fills the plate the same way). squarify always fills the rect
+ * it is GIVEN, so the blank is never a squarify gap — it is a rect that received NO room.
+ *
+ * THE FILL (smallest lever first, never oversize):
+ *   1. GROW — if the fragment abuts a single grow-eligible room (circulation / habitable,
+ *      never a wet room or the stair) on a FULL shared edge so the union stays a rectangle
+ *      AND the grown area stays ≤ that room's own max-area cap → extend the room's rect to
+ *      swallow the fragment. Cap-bounded, so it can NEVER recreate the "master over-
+ *      allocated" oversize defect (a room at its cap is skipped → the fragment is minted).
+ *   2. MINT — otherwise mint a fresh NAMED room sized to the fragment: typed `corridor`
+ *      (named "Landing" upstairs / "Hall" downstairs) when it abuts circulation, else
+ *      `utility` (named "Store"). The minted cell is wired `open` to the neighbour it abuts
+ *      so it is never sealed. A fragment narrower than {@link RESIDUAL_MINT_MIN_SHORT_M} or
+ *      below {@link RESIDUAL_EPS_M2} is left as clearance (true wall/landing slack).
+ *
+ * Pure + deterministic. The stair keep-out is honoured by construction: `buildableRects`
+ * is the plate with the stair ALREADY subtracted (the caller passes the post-keep-out
+ * rects), and every stair PLACEMENT is subtracted as occupied area — so a grown or minted
+ * room can never tile across the stair (v149 keep-out invariant preserved).
+ */
+export function claimResidualPlacements(
+    placements: readonly RoomPlacement[],
+    buildableRects: readonly Rect[],
+    roomById: ReadonlyMap<string, { type: RoomType; maxAreaM2: number }>,
+    seed: string,
+): ResidualClaimResult {
+    const occupied = placements.map(p => p.rect);
+    // The still-blank region = buildable minus every placed room. Slivers < 0.5 m are
+    // dropped by the subtractor; we then greedy-merge to coalesce a band the guillotine
+    // split, and apply the real RESIDUAL_EPS_M2 / min-short floors below.
+    const rawResidual = mergeHorizontally(subtractRectsFromRects(buildableRects, occupied))
+        .filter(r => rectArea(r) > EPS)
+        .sort(byAreaDesc);
+    const blankBefore = rawResidual.filter(r => rectArea(r) >= RESIDUAL_EPS_M2);
+    const largestBlankBeforeM2 = blankBefore.length > 0 ? rectArea(blankBefore[0]!) : 0;
+    const totalBlankBeforeM2 = blankBefore.reduce((s, r) => s + rectArea(r), 0);
+
+    // §65.2 GATE — only fire on the founder's CAVERNOUS-blank defect (a plate whose
+    // largest blank is genuinely big). A well-tiled normal house plate (≤ ~165 m², the
+    // byte-identical guard) never clears this, so the pass is a strict no-op there — the
+    // winner AND the score ranking stay byte-identical (ADR-0061). Above it the plate is
+    // the founder's large/dense case and gets fully tiled below.
+    if (largestBlankBeforeM2 < RESIDUAL_MIN_LARGEST_BLANK_M2) {
+        return {
+            placements, mints: [],
+            largestBlankM2: largestBlankBeforeM2, totalBlankM2: totalBlankBeforeM2,
+            largestBlankBeforeM2, totalBlankBeforeM2,
+        };
+    }
+
+    // Mutable working copy of placements (grow rewrites a neighbour's rect in place).
+    const work: RoomPlacement[] = placements.map(p => ({ roomId: p.roomId, rect: p.rect }));
+    const mints: NonNullable<ClaimedResidual['mint']>[] = [];
+    let mintCounter = 0;
+
+    // Worklist so a partially-absorbed fragment's REMAINDER is re-examined (it may abut a
+    // DIFFERENT eligible neighbour) before it is finally minted. Bounded: every iteration
+    // either consumes the fragment or shrinks it past a grow-eligible neighbour, and the
+    // mint path always terminates (a fragment with no further grow is minted, never re-queued).
+    const worklist: Rect[] = [...rawResidual];
+    let guard = rawResidual.length * 8 + 16;                    // deterministic safety bound
+    while (worklist.length > 0 && guard-- > 0) {
+        const frag = worklist.shift()!;
+        if (rectArea(frag) < RESIDUAL_EPS_M2) continue;
+        const shortSide = Math.min(frag.x1 - frag.x0, frag.z1 - frag.z0);
+        if (shortSide < RESIDUAL_MINT_MIN_SHORT_M) continue;   // clearance sliver — leave blank
+
+        // The grow-eligible placed room sharing the LONGEST FULL (rectangular-union) wall with
+        // this fragment, with headroom under its HARD-MAX cap, where the grown rect STILL fits
+        // its shape envelope — its natural owner to grow into.
+        let bestIdx = -1, bestShared = 0;
+        for (let i = 0; i < work.length; i++) {
+            const meta = roomById.get(work[i]!.roomId);
+            if (!meta || !RESIDUAL_GROW_ELIGIBLE.has(meta.type)) continue;
+            const cap = Math.min(meta.maxAreaM2, growCapForType(meta.type));
+            if (rectArea(work[i]!.rect) >= cap - 1e-6) continue;            // already at its ceiling
+            const res = growPartial(work[i]!.rect, frag, cap);
+            if (!res) continue;                                            // union not rectangular / no slab
+            if (!withinShapeEnvelope(meta.type, res.grown)) continue;      // would breach the shape gate
+            const shared = sharedEdgeM(work[i]!.rect, frag);
+            if (shared > bestShared + 1e-9) { bestShared = shared; bestIdx = i; }
+        }
+
+        // 1. GROW — absorb as much of the fragment as the neighbour's hard-max allows; re-queue
+        //    any remainder. Hard-max + shape-envelope bounded → can NEVER recreate the "master
+        //    over-allocated" oversize defect (a room at its ceiling is skipped, slack is minted).
+        if (bestIdx >= 0 && bestShared > 0.05) {
+            const nb = work[bestIdx]!;
+            const meta = roomById.get(nb.roomId)!;
+            const cap = Math.min(meta.maxAreaM2, growCapForType(meta.type));
+            const res = growPartial(nb.rect, frag, cap);
+            if (res && withinShapeEnvelope(meta.type, res.grown)) {
+                work[bestIdx] = { roomId: nb.roomId, rect: res.grown };
+                if (res.remainder) worklist.push(res.remainder);
+                continue;
+            }
+        }
+
+        // 2. MINT — split the leftover into bounded NAMED `utility` "Store" cells (the only type
+        //    with no width-hard-max, so a habitable-shaped band fits; areaHardMax 8 m², so every
+        //    Store passes the §D3.1 shape gate and stays well under per-type sanity caps). Each
+        //    is wired `open` to the room it abuts so it is never a sealed island. (`utility` is
+        //    used for ALL leftover; "Landing"/"Hall" naming is reserved for the corridor-GROW
+        //    path above, where a real circulation strip — not a wide store — is produced.)
+        for (const cell of splitFragmentForMint(frag)) {
+            if (rectArea(cell) < RESIDUAL_EPS_M2) continue;
+            const cs = Math.min(cell.x1 - cell.x0, cell.z1 - cell.z0);
+            if (cs < RESIDUAL_MINT_MIN_SHORT_M) continue;                  // sliver — leave clearance
+            let nbIdx = -1, nbShared = 0;
+            for (let i = 0; i < work.length; i++) {
+                const shared = sharedEdgeM(work[i]!.rect, cell);
+                if (shared > nbShared + 1e-9) { nbShared = shared; nbIdx = i; }
+            }
+            const neighbourId = nbIdx >= 0 && nbShared > 0.05 ? work[nbIdx]!.roomId : null;
+            const id = `residual_${seed}_${mintCounter++}`;
+            mints.push({
+                id, type: 'utility', name: 'Store', rect: cell,
+                targetAreaM2: round6(rectArea(cell)), neighbourId,
+            });
+            work.push({ roomId: id, rect: cell });
+        }
+    }
+
+    // After-pass blank: re-subtract the (now grown + minted) placements.
+    const afterResidual = mergeHorizontally(subtractRectsFromRects(buildableRects, work.map(p => p.rect)))
+        .filter(r => rectArea(r) >= RESIDUAL_EPS_M2)
+        .sort(byAreaDesc);
+    const largestBlankM2 = afterResidual.length > 0 ? rectArea(afterResidual[0]!) : 0;
+    const totalBlankM2 = afterResidual.reduce((s, r) => s + rectArea(r), 0);
+
+    return {
+        placements: work,
+        mints,
+        largestBlankM2,
+        totalBlankM2,
+        largestBlankBeforeM2,
+        totalBlankBeforeM2,
+    };
 }
 
 /**

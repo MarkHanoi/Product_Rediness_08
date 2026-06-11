@@ -646,6 +646,26 @@ function enumeratePerStorey(
             })()
             : undefined;
 
+    // §DIAG-FILL-RESIDUAL (founder defect §65.2, 2026-06-11) — the RESERVED stair-core world
+    // AABB (the modal "Stair" cell, `coreRect`). It can sit OFFSET from `keepOutRectsWorld`
+    // (the SHIPPED footprint, contained upstream), so the residual-claim pass excludes BOTH
+    // (it must never mint a "Store" in the cell the modal draws the stair). Consumed ONLY by
+    // that pass (NOT the main carve) so every layout is byte-identical. None ⇒ undefined.
+    const residualExcludeRectsWorld = coreRect
+        ? (() => {
+            const corners = [
+                { x: coreRect.x / 1000, z: coreRect.y / 1000 },
+                { x: (coreRect.x + coreRect.w) / 1000, z: coreRect.y / 1000 },
+                { x: (coreRect.x + coreRect.w) / 1000, z: (coreRect.y + coreRect.h) / 1000 },
+                { x: coreRect.x / 1000, z: (coreRect.y + coreRect.h) / 1000 },
+            ].map(c => principalAxisRad === 0 ? c : rotatePt(c, principalAxisRad, pivot));
+            return [{
+                x0: Math.min(...corners.map(c => c.x)), z0: Math.min(...corners.map(c => c.z)),
+                x1: Math.max(...corners.map(c => c.x)), z1: Math.max(...corners.map(c => c.z)),
+            }];
+        })()
+        : undefined;
+
     // (c) per-storey layout via the UNCHANGED single-plate engine — enumerate up
     // to `count` options each (the apartment engine already Pareto-ranks them).
     // §STAIR-KEEPOUT is passed into each per-storey engine call below.
@@ -743,6 +763,11 @@ function enumeratePerStorey(
             // §STAIR-KEEPOUT (A.21.D21) — carve the stair core out of every storey's
             // buildable region (incl. the ground floor, so the run is clear there too).
             keepOutRectsWorld,
+            // tuning — house orchestrator uses engine defaults.
+            undefined,
+            // §DIAG-FILL-RESIDUAL (§65.2) — the RESERVED stair-core cell the residual-claim
+            // pass must keep clear (the modal "Stair" cell, offset from the shipped footprint).
+            residualExcludeRectsWorld,
         );
         perStorey.push({ storeyIndex: i, options });
     }
