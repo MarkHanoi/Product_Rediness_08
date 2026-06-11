@@ -8,6 +8,8 @@ export { GenerateStairGeometryCommand } from './GenerateStairGeometryCommand';
 export type { GenerateStairGeometryInput } from './GenerateStairGeometryCommand';
 export { DeleteStairCommand } from './DeleteStairCommand';
 export type { DeleteStairInput } from './DeleteStairCommand';
+export { MoveStairCommand } from './MoveStairCommand';
+export type { MoveStairInput } from './MoveStairCommand';
 export { UpdateStairFlightsCommand } from './UpdateStairFlightsCommand';
 export type { UpdateStairFlightsInput, StairFlightInput, StairLandingInput } from './UpdateStairFlightsCommand';
 export { ChangeStairShapeCommand } from './ChangeStairShapeCommand';

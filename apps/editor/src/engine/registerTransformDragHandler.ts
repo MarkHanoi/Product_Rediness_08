@@ -39,7 +39,7 @@ interface DragHandlerDeps extends TransformControllerSet {
 export function registerTransformDragHandler(deps: DragHandlerDeps): void {
     const {
         transformControls, levelPlaneConstraint,
-        hostedDragController, wallTransformController, wallEndpointController,
+        hostedDragController, wallTransformController, stairTransformController, wallEndpointController,
         world, bimManager, selectionManager, updateInspector,
     } = deps;
 
@@ -360,20 +360,39 @@ export function registerTransformDragHandler(deps: DragHandlerDeps): void {
                 }
             }
 
-            // ── Stair — graceful degradation ─────────────────────────────────
-            // OI-039: UpdateStairParametersCommand has no positional payload —
-            // stair geometry is defined by flight/landing data, not a top-level
-            // position vector. Snapping the mesh back prevents a visual glitch
-            // where the stair group stays at the dragged position until the
-            // next full rebuild. Direct users to the Plan View move tool.
-            if (elemType === 'stair' && obj.userData?.id) {
+            // ── Stair — 3D-gizmo move (§STAIR-3D-MOVE 2026-06-11) ─────────────
+            // The stair mesh bakes its geometry in WORLD coordinates with the
+            // group at local origin (0,0,0). StairTransformController anchors the
+            // gizmo at the stair (proxy at the bbox centre) and, during the drag,
+            // translates the stair GROUP by the gizmo delta — so obj.position now
+            // holds the live XZ offset. Mirror the wall path: compute the delta,
+            // dispatch `stair.move` { stairId, delta } on the bus (→ MoveStairCommand
+            // shifts startPosition + flight overrides + landing centres and the
+            // StairMeshBuilder rebuilds the geometry at the new anchor at (0,0,0)).
+            // Y is level-locked (LevelPlaneConstraint), so only XZ is persisted.
+            if ((elemType === 'stair' || elemType === 'stairs') && obj.userData?.id) {
                 const id = obj.userData.id as string;
-                console.warn(
-                    `[registerTransformDragHandler] 3D-gizmo move on stair "${id}" is not supported ` +
-                    `— stair geometry is defined by flight data. Use the Plan View move tool instead. ` +
-                    `Dispatching rebuild event to snap mesh back.`
-                );
-                window.runtime?.events?.emit('bim-stair-updated', { id }); // F.events.15
+                const dx = obj.position.x;
+                const dz = obj.position.z;
+                if (Math.abs(dx) > 1e-6 || Math.abs(dz) > 1e-6) {
+                    // Reset the group offset immediately — the rebuilt mesh from
+                    // MoveStairCommand is authored at the new world anchor with the
+                    // group back at (0,0,0); leaving the offset would double the move.
+                    obj.position.set(0, obj.position.y, 0);
+                    window.runtime?.bus?.executeCommand('stair.move', {
+                        stairId: id,
+                        delta: { x: dx, y: 0, z: dz },
+                    })?.catch((e: unknown) => console.error('[TransformDrag] stair.move failed:', e));
+                    const captured = obj;
+                    const sched = getFrameScheduler();
+                    sched.scheduleOnce('drag-stair-rehighlight-1', () => {
+                        sched.scheduleOnce('drag-stair-rehighlight-2', () => {
+                            if (selectionManager.selectedObject === captured) {
+                                selectionManager.applyHighlight(captured);
+                            }
+                        });
+                    });
+                }
             }
 
             // ── Handrail / railing — graceful degradation ────────────────────
@@ -432,11 +451,13 @@ export function registerTransformDragHandler(deps: DragHandlerDeps): void {
         const detail = payload as { object?: THREE.Object3D | null };
         if (detail?.object) {
             wallTransformController.activateFor(detail.object);
+            stairTransformController.activateFor(detail.object); // §STAIR-3D-MOVE — anchor gizmo at stair
             wallEndpointController.activateFor(detail.object);
             hostedDragController.activateFor(detail.object); // ← LAST: wins over wall/endpoint deactivation
         } else {
             hostedDragController.deactivate();
             wallTransformController.deactivate();
+            stairTransformController.deactivate();
             wallEndpointController.deactivate();
         }
     });

@@ -33,6 +33,7 @@ export class PlanOrdering {
         [CommandType.UPDATE_WALL_PROPERTIES]: 40,
         [CommandType.UPDATE_WALL_HEIGHT]: 41,
         [CommandType.UPDATE_STAIR_PARAMETERS]: 42,
+        [CommandType.MOVE_STAIR]: 42,
         [CommandType.VALIDATE_STAIR]: 43,
         [CommandType.GENERATE_STAIR_GEOMETRY]: 44,
         [CommandType.DELETE_STAIR]: 45,

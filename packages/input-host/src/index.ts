@@ -266,6 +266,7 @@ export { MarqueeSelectionTool } from './MarqueeSelectionTool.js';
 export { DetailViewTool } from './DetailViewTool.js';
 export { WallEndpointController } from './WallEndpointController.js';
 export { WallTransformController } from './WallTransformController.js';
+export { StairTransformController } from './StairTransformController.js';
 export { HostedElementDragController } from './HostedElementDragController.js';
 export { BeamTool } from './BeamTool.js';
 export type { BeamTypeConfig } from './BeamTool.js';

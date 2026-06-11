@@ -184,7 +184,7 @@ export async function bootstrap(
 
     const {
         transformControls, levelPlaneConstraint,
-        hostedDragController, wallTransformController, wallEndpointController,
+        hostedDragController, wallTransformController, stairTransformController, wallEndpointController,
     } = createTransformControllers(world);
 
     const { zoomToAll } = initViewSetup({ components, world, viewController });
@@ -609,7 +609,7 @@ export async function bootstrap(
 
     registerTransformDragHandler({
         transformControls, levelPlaneConstraint, hostedDragController,
-        wallTransformController, wallEndpointController,
+        wallTransformController, stairTransformController, wallEndpointController,
         world, bimManager, selectionManager, updateInspector,
     });
 

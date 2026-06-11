@@ -39,6 +39,7 @@ import {
   // CreateSectionMarkCommand removed — §P3.4-SE: section.create now routes to CreateSectionHandler
   // via registerSectionHandlers() in engineLauncher.ts. Phase 3 exit gate: grep 'section.create' bridges → 0 entries.
   CreateStairCommand,
+  MoveStairCommand,
   CreateElevationMarkCommand,
   AssignViewIntentCommand,
   CreateVisibilityIntentCommand,
@@ -393,6 +394,17 @@ export function initBusHandlers(
             stores: [] as const,
             validate: (cmd) => (!cmd.baseLevelId ? 'baseLevelId is required' : null),
             fn: (cmd) => { _cmExec(new CreateStairCommand(cmd)); },
+        },
+        // §STAIR-3D-MOVE (2026-06-11) — translate a stair by a world-space delta.
+        // Mirrors the wall move path (wall.updateBaseline). The 3D-gizmo drag-end
+        // in registerTransformDragHandler.ts dispatches this; MoveStairCommand
+        // shifts startPosition + flight overrides + landing centres and re-emits
+        // bim-stair-updated so StairMeshBuilder rebuilds at the new location.
+        {
+            type: 'stair.move',
+            stores: [] as const,
+            validate: (cmd) => (!cmd.stairId ? 'stairId is required' : (!cmd.delta ? 'delta is required' : null)),
+            fn: (cmd) => { _cmExec(new MoveStairCommand(cmd)); },
         },
         {
             type: 'elevation.create',

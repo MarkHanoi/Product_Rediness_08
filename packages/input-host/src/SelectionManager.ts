@@ -1259,13 +1259,19 @@ export class SelectionManager implements ISelectionManager {
         this.applyHighlight(obj);
         this.updateInspector(obj);
 
-        // Stairs have world-space geometry baked into the mesh at local position (0,0,0).
-        // Attaching TransformControls to them places the gizmo at the world origin
-        // rather than at the stair — skip gizmo attachment for stair elements.
+        // §STAIR-3D-MOVE (2026-06-11) — stairs are now movable via the gizmo, the
+        // same way walls/columns/beams/furniture are. The stair mesh bakes its
+        // geometry in WORLD coordinates with the group at local origin (0,0,0), so
+        // attaching TransformControls directly here would place the gizmo at the
+        // world origin. We therefore attach as usual (parity with every other
+        // element), then StairTransformController.activateFor() — fired by the
+        // bim-selection-changed event below, exactly like WallTransformController —
+        // RE-ATTACHES the gizmo to an invisible proxy positioned AT THE STAIR so it
+        // renders in the right place and the drag delta moves the stair correctly.
+        // Rooms still skip the gizmo (they are not directly movable).
         const elemType = (obj.userData?.elementType ?? obj.userData?.type ?? '').toLowerCase();
-        const isStair = elemType === 'stairs' || elemType === 'stair';
         const isRoom  = elemType === 'room';
-        if (!isStair && !isRoom) {
+        if (!isRoom) {
             this.transformControls.attach(obj);
         }
         // Note: applyHighlight() already applies LevelPlaneConstraint for non-hosted

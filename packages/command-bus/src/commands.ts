@@ -755,6 +755,12 @@ export type PlanMutationCommands = {
     };
     'stair.createRailing':       { stairId?: string; [k: string]: unknown };
     'stair.updateParameters':    { stairId: string; updates: Record<string, unknown> };
+    /**
+     * §STAIR-3D-MOVE (2026-06-11) — translate a stair by a world-space delta.
+     * Bridged to MoveStairCommand in initBusHandlers.ts. Dispatched by the 3D
+     * transform-gizmo drag-end handler (registerTransformDragHandler.ts).
+     */
+    'stair.move':                { stairId: string; delta: { x: number; y?: number; z: number } };
     'roof.update':               { id: string; updates: Record<string, unknown> };
     'beam.create':               { [k: string]: unknown };
     'handrail.create':           { [k: string]: unknown };

@@ -2,6 +2,7 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { TransformControls } from '@pryzm/renderer-three';
 import { HostedElementDragController } from '@pryzm/input-host';
 import { WallTransformController } from '@pryzm/input-host';
+import { StairTransformController } from '@pryzm/input-host';
 import { WallEndpointController } from '@pryzm/input-host';
 import { LevelPlaneConstraint } from '@pryzm/input-host';
 
@@ -10,6 +11,7 @@ export interface TransformControllerSet {
     levelPlaneConstraint: InstanceType<typeof LevelPlaneConstraint>;
     hostedDragController: InstanceType<typeof HostedElementDragController>;
     wallTransformController: InstanceType<typeof WallTransformController>;
+    stairTransformController: InstanceType<typeof StairTransformController>;
     wallEndpointController: InstanceType<typeof WallEndpointController>;
 }
 
@@ -61,6 +63,11 @@ export function createTransformControllers(world: any): TransformControllerSet {
         world.scene.three as THREE.Scene,
     );
 
+    const stairTransformController = new StairTransformController(
+        transformControls,
+        world.scene.three as THREE.Scene,
+    );
+
     const wallEndpointController = new WallEndpointController(
         world.scene.three as THREE.Scene,
         world.camera.three as THREE.Camera,
@@ -70,5 +77,5 @@ export function createTransformControllers(world: any): TransformControllerSet {
         transformControls,
     );
 
-    return { transformControls, levelPlaneConstraint, hostedDragController, wallTransformController, wallEndpointController };
+    return { transformControls, levelPlaneConstraint, hostedDragController, wallTransformController, stairTransformController, wallEndpointController };
 }

@@ -209,6 +209,7 @@ export * from './stair/CreateStairCommand';
 export * from './stair/CreateStairRailingCommand';
 export * from './stair/DeleteStairCommand';
 export * from './stair/GenerateStairGeometryCommand';
+export * from './stair/MoveStairCommand';
 export * from './stair/UpdateStairFlightsCommand';
 export * from './stair/UpdateStairParametersCommand';
 export * from './stair/ValidateStairCommand';
