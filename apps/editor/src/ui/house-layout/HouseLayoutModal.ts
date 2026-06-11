@@ -265,6 +265,10 @@ export class HouseLayoutModal {
             if (roomEl) {
                 e.preventDefault();
                 e.stopPropagation();
+                // §3PANE IT-4b/c — a just-completed node DRAG (move-between-floors /
+                // connect) also emits a click; swallow it so the drag doesn't ALSO open
+                // the inline editor on the dragged node.
+                if (this._suppressNodeClick) { this._suppressNodeClick = false; return; }
                 const name = roomEl.getAttribute('data-room-name');
                 if (name) {
                     this._highlightRoom(name);
@@ -454,6 +458,7 @@ export class HouseLayoutModal {
     // wired in IT-4b/c; here a pointerdown that starts on a node does NOT pan (so the
     // node click → selection + C52 editor still fires).
     private _miro = { x: 16, y: 12, scale: 1 };
+    private _suppressNodeClick = false;
 
     private _applyMiroTransform(world: HTMLElement): void {
         world.style.transform = `translate(${this._miro.x}px, ${this._miro.y}px) scale(${this._miro.scale})`;
@@ -530,6 +535,104 @@ export class HouseLayoutModal {
                 this._miro.scale = next;
             }
             this._applyMiroTransform(world);
+        });
+
+        this._wireMiroNodeDrag(viewport);
+    }
+
+    /**
+     * §3PANE IT-4b/c — DRAG a living-graph node (founder 2026-06-11: "move a bedroom
+     * from first floor to ground floor … and the plan view will update automatically …
+     * also user can connect spaces … with a link (line) will create connections via
+     * circulation"). Drop a node:
+     *   • onto the OTHER storey's lane  → MOVE that room to that floor
+     *     (`setRoomFloorOverride`, the v120/§26 XE seam) → regen → plans update.
+     *   • onto ANOTHER node             → CONNECT the two rooms (`addRoomAdjacency`,
+     *     the v121 §ROOM-ADJACENCY seam; the engine adds a door iff permitted) → regen.
+     * A sub-threshold movement is NOT a drag — it falls through to the node CLICK
+     * (selection + the C52 inline editor). A completed drag sets `_suppressNodeClick`
+     * so the trailing click doesn't also open the editor. Pointer math is screen-space
+     * (`elementFromPoint`), so it is independent of the world's pan/zoom transform.
+     */
+    private _wireMiroNodeDrag(viewport: HTMLElement): void {
+        const THRESH = 6; // px before a press becomes a drag
+        let srcName = '', srcStorey = 0;
+        let startX = 0, startY = 0, armed = false, dragging = false;
+        let ghost: HTMLElement | null = null;
+
+        const cleanup = (): void => {
+            if (ghost) { ghost.remove(); ghost = null; }
+            viewport.querySelectorAll('.hlm-miro-lane--drop, .alm-graph-node.hlm-drop-target')
+                .forEach(el => el.classList.remove('hlm-miro-lane--drop', 'hlm-drop-target'));
+            armed = false; dragging = false;
+            window.removeEventListener('pointermove', onMove);
+            window.removeEventListener('pointerup', onUp);
+        };
+
+        const onMove = (e: PointerEvent): void => {
+            if (!armed) return;
+            if (!dragging && Math.hypot(e.clientX - startX, e.clientY - startY) < THRESH) return;
+            dragging = true;
+            if (!ghost) {
+                ghost = document.createElement('div');
+                ghost.className = 'hlm-miro-ghost';
+                ghost.textContent = srcName;
+                document.body.appendChild(ghost);
+            }
+            ghost.style.left = `${e.clientX}px`;
+            ghost.style.top = `${e.clientY}px`;
+            // Highlight the drop target under the cursor (hide the ghost for the hit-test).
+            ghost.style.display = 'none';
+            const under = document.elementFromPoint(e.clientX, e.clientY);
+            ghost.style.display = '';
+            viewport.querySelectorAll('.hlm-miro-lane--drop, .alm-graph-node.hlm-drop-target')
+                .forEach(el => el.classList.remove('hlm-miro-lane--drop', 'hlm-drop-target'));
+            const overNode = under?.closest?.('.alm-graph-node') as Element | null;
+            const overLane = under?.closest?.('.hlm-miro-lane') as HTMLElement | null;
+            if (overNode && overNode.getAttribute('data-room-name') !== srcName) {
+                overNode.classList.add('hlm-drop-target');
+            } else if (overLane && Number(overLane.getAttribute('data-storey-index')) !== srcStorey) {
+                overLane.classList.add('hlm-miro-lane--drop');
+            }
+        };
+
+        const onUp = (e: PointerEvent): void => {
+            if (dragging) {
+                if (ghost) ghost.style.display = 'none';
+                const under = document.elementFromPoint(e.clientX, e.clientY);
+                const overNode = under?.closest?.('.alm-graph-node') as Element | null;
+                const overLane = under?.closest?.('.hlm-miro-lane') as HTMLElement | null;
+                const dstName = overNode?.getAttribute('data-room-name') ?? '';
+                if (overNode && dstName && dstName !== srcName) {
+                    // CONNECT → desired adjacency (engine adds a door iff permitted).
+                    addRoomAdjacency(srcName, dstName);
+                    this._suppressNodeClick = true;
+                    this._setHint(`Connecting ${srcName} ↔ ${dstName}…`);
+                    this._scheduleGraphEdit();
+                } else if (overLane) {
+                    const dstStorey = Number(overLane.getAttribute('data-storey-index'));
+                    if (Number.isInteger(dstStorey) && dstStorey !== srcStorey) {
+                        // MOVE BETWEEN FLOORS.
+                        setRoomFloorOverride(`storey:${srcStorey}/${srcName}`, dstStorey);
+                        this._suppressNodeClick = true;
+                        this._setHint(`Moving ${srcName} to ${overLane.getAttribute('data-storey-label') ?? `floor ${dstStorey}`}…`);
+                        this._scheduleGraphEdit();
+                    }
+                }
+            }
+            cleanup();
+        };
+
+        viewport.addEventListener('pointerdown', (e: PointerEvent) => {
+            const n = (e.target as Element | null)?.closest?.('.alm-graph-node') as Element | null;
+            if (!n) return;
+            srcName = n.getAttribute('data-room-name') ?? '';
+            const lane = n.closest('[data-storey-index]');
+            srcStorey = lane ? Number(lane.getAttribute('data-storey-index')) : 0;
+            if (!Number.isInteger(srcStorey)) srcStorey = 0;
+            startX = e.clientX; startY = e.clientY; armed = true; dragging = false;
+            window.addEventListener('pointermove', onMove);
+            window.addEventListener('pointerup', onUp);
         });
     }
 

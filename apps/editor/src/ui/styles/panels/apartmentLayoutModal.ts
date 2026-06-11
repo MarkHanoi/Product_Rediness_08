@@ -405,4 +405,12 @@ export const APARTMENT_LAYOUT_MODAL_STYLES = `
 .hlm-miro-lane-label { font-weight: 650; font-size: 12px; color: #6600FF; margin: 2px 2px 4px; }
 .hlm-miro-lane-graph { width: 460px; height: 320px; }
 .hlm-miro-lane-graph svg { width: 100%; height: 100%; display: block; }
+.hlm-miro-lane-graph .alm-graph-node { cursor: grab; }
+/* §3PANE IT-4b/c — node drag: ghost label that follows the cursor + drop-target cues. */
+.hlm-miro-ghost { position: fixed; z-index: 100000; transform: translate(-50%, -140%);
+  background: #6600FF; color: #fff; font-size: 11px; font-weight: 650; padding: 3px 8px;
+  border-radius: 7px; pointer-events: none; box-shadow: 0 2px 8px rgba(102,0,255,0.35); white-space: nowrap; }
+.hlm-miro-lane--drop { border-color: #6600FF; border-style: solid;
+  background: #f6f1ff; box-shadow: 0 0 0 2px rgba(102,0,255,0.25); }
+.alm-graph-node.hlm-drop-target { stroke: #6600FF; stroke-width: 4; }
 `;
