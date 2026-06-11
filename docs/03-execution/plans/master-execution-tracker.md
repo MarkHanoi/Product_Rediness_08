@@ -4284,7 +4284,7 @@ Sun-path, FORMA.5 climate). The OPEN QUESTIONS for the spike (research/feasibili
    which renderer (or an offline analytic pass independent of the renderer — e.g. a ray-cast / radiance-style
    sampling) is the right place to compute it, and whether the visual sun-through-window can be unified with the
    numeric per-room average. **Deliverable:** a short feasibility doc (options + recommendation), NOT code.
-   **Status: 🔵 QUEUED (spike).**
+   **Status: ✅ DONE (spike doc) 2026-06-11 — [SPIKE-DAYLIGHT-SUN-PENETRATION-2026-06-11.md](../analysis/SPIKE-DAYLIGHT-SUN-PENETRATION-2026-06-11.md).** Findings: (A) visual sun-through-window is ALREADY largely possible — FORMA.6 (v158) loads the real building with actual window voids + Cesium/Forma shadows enabled, so a sunbeam falls on the interior floor; remaining work is TUNING (shadow-map size/cascades/soft-shadows + verify glass alpha survives the GLB), lowest-risk in the Forma view first. (B) per-room average daylight should NOT be read back from the renderer (non-deterministic, resolution-bound, violates ADR-0061) — build an OFFLINE ANALYTIC pass (pure L2, ray-cast sun-vector vs window apertures per room, integrated over the RealSunService sun-path; inputs all already exist: room polys + windowEmission apertures + sun-path + site lat). Feeds §27 DAYLIGHT-GRAPH + §59 natural-light scorecard. Recommendation: ship A (tuning) first, B (analytic pass) second, unified by the shared sun-path.
 
 ## §62 — Washing-machine door circle on the wrong axis (`§WM-DOOR-AXIS`) — QUEUED, no priority (2026-06-11)
 
