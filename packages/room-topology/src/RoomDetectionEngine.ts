@@ -200,6 +200,24 @@ export class RoomDetectionEngine {
     // §T-INTO-CORNER, bisector miter for non-perpendicular L).  The corner-snap
     // pre-pass below absorbs the residual offset from `hostThickness/2` and
     // miter-bisector trim.  See file-header notes for the full rationale.
+    // §DIAG-ROOM-LOOP / §TJUNCTION-SHELL-THICKNESS: thickness of every host wall by
+    // BASE id (sub-segment suffixes stripped at lookup time). _splitAtTJunctions uses
+    // this to widen the T-junction snap radius to cover a thick host's half-thickness:
+    // the WallJoinResolver §PARTITION-SHELL-INNER-FACE clamp pulls a partition endpoint
+    // back to the shell's INNER FACE — i.e. hostHalfThickness from the shell centreline.
+    // For a shell ≥ 0.40 m the endpoint then sits ≥ 0.20 m from the centreline, beyond
+    // the legacy fixed 0.20 m snap, so the T-junction is missed and the room loop floods.
+    const thicknessByBaseId = new Map<string, number>();
+    for (const wall of walls) {
+      if (typeof wall.thickness === 'number' && wall.thickness > 0) {
+        thicknessByBaseId.set(wall.id, wall.thickness);
+      }
+    }
+    for (const cw of curtainWalls) {
+      const t = (cw as { thickness?: number }).thickness;
+      if (typeof t === 'number' && t > 0) thicknessByBaseId.set(cw.id, t);
+    }
+
     const wallGraphInput: Array<{ wallUUID: string; start: THREE.Vector3; end: THREE.Vector3 }> = [];
     for (const wall of walls) {
       if (wall.curve) {
@@ -305,7 +323,7 @@ export class RoomDetectionEngine {
     // Split walls at T-junctions AND snap guest endpoints to split points.
     // This ensures interior partition endpoints share the exact same coordinates
     // as the outer wall sub-segment endpoints, collapsing to the same graph node.
-    const wallGraphInputSplit = this._splitAtTJunctions(wallGraphInputCrossings);
+    const wallGraphInputSplit = this._splitAtTJunctions(wallGraphInputCrossings, thicknessByBaseId);
 
     const wallGraph = buildWallGraph(wallGraphInputSplit);
     const topology = computeTopology(wallGraph);
@@ -424,7 +442,81 @@ export class RoomDetectionEngine {
     }
 
     console.log(`[RoomDetectionEngine] Detected ${detected.length} room(s) on level '${levelId}'`);
+
+    // §DIAG-ROOM-LOOP (2026-06-11): flag any partition endpoint that sits on a host
+    // wall's BODY (mid-span) but beyond the legacy fixed 0.20 m T-junction floor — the
+    // signature of a §PARTITION-SHELL-INNER-FACE clamp onto a thick shell. Each such
+    // endpoint is a room-loop break UNLESS the data-driven per-host snap now covers it.
+    // A flagged endpoint with coveredByHostSnap=false means the loop did NOT close and
+    // detection will flood (founder's "Room NN" blanks + compound merges).
+    this._diagRoomLoop(combinedInput, thicknessByBaseId, levelId, detected.length);
+
     return detected;
+  }
+
+  /**
+   * §DIAG-ROOM-LOOP — always-on room-loop-break audit. For every guest endpoint that
+   * projects onto another wall's mid-span (a body T-junction), report whether the
+   * guest→host-centreline distance is within that host's snap radius. Distances above
+   * the legacy 0.20 m floor but within the widened per-host radius are the thick-shell
+   * partition endpoints this fix rescues; any distance ABOVE the per-host radius is a
+   * genuine loop break the engine could not close.
+   */
+  private _diagRoomLoop(
+    segs: Array<{ wallUUID: string; start: THREE.Vector3; end: THREE.Vector3 }>,
+    thicknessByBaseId: Map<string, number>,
+    levelId: string,
+    detectedRoomCount: number,
+  ): void {
+    const SNAP_FLOOR = 0.20;
+    const SHELL_MARGIN = 0.02;
+    let flagged = 0;
+    let breaks = 0;
+    for (const host of segs) {
+      const dx = host.end.x - host.start.x;
+      const dz = host.end.z - host.start.z;
+      const len2 = dx * dx + dz * dz;
+      if (len2 < 1e-6) continue;
+      const baseId = host.wallUUID.replace(/(_[cs]\d+)+$/, '');
+      const th = thicknessByBaseId.get(baseId);
+      const hostSnap = (typeof th === 'number' && th > 0)
+        ? Math.max(SNAP_FLOOR, th / 2 + SHELL_MARGIN)
+        : SNAP_FLOOR;
+      for (const guest of segs) {
+        if (guest.wallUUID === host.wallUUID) continue;
+        for (const pt of [guest.start, guest.end]) {
+          const t = ((pt.x - host.start.x) * dx + (pt.z - host.start.z) * dz) / len2;
+          if (t <= 0.01 || t >= 0.99) continue; // endpoint zone, not a body-T
+          const cx = host.start.x + t * dx;
+          const cz = host.start.z + t * dz;
+          const dist = Math.hypot(pt.x - cx, pt.z - cz);
+          if (dist <= SNAP_FLOOR || dist >= hostSnap + 1e-6) {
+            // Within legacy floor (always fine) OR beyond even the widened radius.
+            if (dist > SNAP_FLOOR && dist >= hostSnap + 1e-6 && dist < 1.0) {
+              breaks++;
+              console.warn(
+                `[RoomDetectionEngine] §DIAG-ROOM-LOOP BREAK level='${levelId}' guest=${guest.wallUUID} ` +
+                `on host=${host.wallUUID} body — endpoint ${(dist * 1000).toFixed(0)}mm from centreline ` +
+                `EXCEEDS hostSnap ${(hostSnap * 1000).toFixed(0)}mm → loop will NOT close (flood/merge risk)`,
+              );
+            }
+            continue;
+          }
+          // dist in (SNAP_FLOOR, hostSnap] — rescued only by the data-driven widening.
+          flagged++;
+          console.log(
+            `[RoomDetectionEngine] §DIAG-ROOM-LOOP level='${levelId}' guest=${guest.wallUUID} → ` +
+            `thick-shell host=${host.wallUUID} (thick=${((th ?? 0) * 1000).toFixed(0)}mm): endpoint ` +
+            `${(dist * 1000).toFixed(0)}mm from centreline > 200mm floor, coveredByHostSnap=✓ ` +
+            `(hostSnap=${(hostSnap * 1000).toFixed(0)}mm) — T-junction registers, room loop closes`,
+          );
+        }
+      }
+    }
+    console.log(
+      `[RoomDetectionEngine] §DIAG-ROOM-LOOP level='${levelId}' detectedRooms=${detectedRoomCount} ` +
+      `thickShellTJunctionsRescued=${flagged} unresolvedLoopBreaks=${breaks}`,
+    );
   }
 
   /**
@@ -872,6 +964,7 @@ export class RoomDetectionEngine {
    */
   private _splitAtTJunctions(
     walls: Array<{ wallUUID: string; start: THREE.Vector3; end: THREE.Vector3 }>,
+    thicknessByBaseId?: Map<string, number>,
   ): Array<{ wallUUID: string; start: THREE.Vector3; end: THREE.Vector3 }> {
     // SNAP covers the common case where a wall endpoint was trimmed to the HOST FACE
     // (offset from the host centreline by hostWall.thickness/2). For typical interior
@@ -884,7 +977,31 @@ export class RoomDetectionEngine {
     //   producing room polygons that bore no resemblance to the user's wall layout.
     //   200 mm covers walls up to 400 mm thick (which is already very thick) without
     //   distorting precisely-drawn floor plans.
-    const SNAP = 0.20; // metres — T-junction detection radius
+    //
+    // §TJUNCTION-SHELL-THICKNESS (2026-06-11): the fixed 200 mm floor SILENTLY MISSED
+    //   T-junctions onto shells ≥ 0.40 m thick. The WallJoinResolver
+    //   §PARTITION-SHELL-INNER-FACE clamp pulls each partition endpoint back to the
+    //   host shell's INNER FACE — exactly hostHalfThickness from the centreline. The
+    //   guest-endpoint→host-centreline distance measured here is therefore ≈
+    //   hostHalfThickness; for a 0.40 m shell that is 0.20 m, NOT < 0.20, so the
+    //   junction was dropped → the room loop never closed → detection flooded across
+    //   the gap (founder's "Room NN" blanks + "Bedroom 1 / Bathroom" compound merges).
+    //   Fix: make the snap radius DATA-DRIVEN per host — max(0.20, hostHalfT + margin).
+    //   THIN shells (hostHalfT ≤ 0.20) are byte-identical: the floor still wins, so
+    //   apartment 0.10 m partitions (hostHalfT 0.05) behave exactly as before.
+    const SNAP = 0.20;        // metres — T-junction detection radius (floor)
+    const SHELL_MARGIN = 0.02; // 20 mm safety so the inner-face endpoint clears the bound
+
+    // Per-host snap radius: covers a thick host's half-thickness without inflating the
+    // radius for thin walls. `host` is the wall being split (the shell); the guest
+    // endpoint sits ≈ hostHalfThickness from this host's centreline after the clamp.
+    const snapForHost = (hostUUID: string): number => {
+      if (!thicknessByBaseId || thicknessByBaseId.size === 0) return SNAP;
+      const baseId = hostUUID.replace(/(_[cs]\d+)+$/, '');
+      const th = thicknessByBaseId.get(baseId);
+      if (typeof th !== 'number' || th <= 0) return SNAP;
+      return Math.max(SNAP, th / 2 + SHELL_MARGIN);
+    };
 
     // ── Pass 1: collect all T-junction pairs ─────────────────────────────────
 
@@ -904,6 +1021,11 @@ export class RoomDetectionEngine {
 
       if (len2 < 1e-6) continue;
 
+      // `wall` is the HOST being split. Widen the snap to cover its half-thickness
+      // (see §TJUNCTION-SHELL-THICKNESS) so partition endpoints clamped to a thick
+      // shell's INNER FACE are still recognised as T-junctions.
+      const hostSnap = snapForHost(wall.wallUUID);
+
       for (const other of walls) {
         if (other.wallUUID === wall.wallUUID) continue;
 
@@ -920,7 +1042,7 @@ export class RoomDetectionEngine {
           const cz = wall.start.z + t * dz;
           const dist = Math.sqrt((pt.x - cx) ** 2 + (pt.z - cz) ** 2);
 
-          if (dist < SNAP) {
+          if (dist < hostSnap) {
             junctions.push({
               hostWallUUID: wall.wallUUID,
               t,
