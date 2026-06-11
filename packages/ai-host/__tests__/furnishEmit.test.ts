@@ -86,6 +86,49 @@ describe('buildFurnishCommands (D-FLE F8)', () => {
     });
 });
 
+describe('§LAMP-FLOAT-FIX — bedside lamp rests ON the nightstand top', () => {
+    // Regression for the 2026-06-11 founder report: the bedside table lamp
+    // floated ~0.50 m above the nightstand. The vertical contract is
+    // `worldY = levelElevation + baseOffset` (FurnitureFragmentBuilder applies
+    // the mount offset EXACTLY ONCE; furnitureElevation.furnitureWorldY). So the
+    // lamp's emitted baseOffset MUST equal the bedside table's TOP surface
+    // (table baseOffset + table height), placing the lamp base flush on the
+    // table — no gap, no double-count.
+    const LEVEL_ELEV = 3.0; // upper storey — exercises the floor-datum offset too
+
+    function bedsideTable(levelElev: number): PlacedFurniture {
+        // As placeSolver emits a floor item: position.y = levelElevation + baseOffset(0).
+        return {
+            kind: 'bedside_table',
+            position: { x: 1, y: levelElev, z: 2 },
+            rotationY: 0,
+            footprint: { w: 0.45, l: 0.40, h: 0.50, baseOffset: 0, clearFront: 0, clearSides: 0 },
+            hostedSpaceId: 'space-1',
+        } as PlacedFurniture;
+    }
+
+    it('lamp baseOffset === table top, so worldY rests on the table (not floating)', async () => {
+        const { placeBedsideLamps } = await import('../src/workflows/furnishLayout/bedsideLamps.js');
+        const table = bedsideTable(LEVEL_ELEV);
+        const tableTop = table.position.y + table.footprint.h; // 3.50 m world
+        const lamps = placeBedsideLamps({ roomId: 'space-1', levelElevation: LEVEL_ELEV } as FurnishRoomInput, [table]);
+        expect(lamps.length).toBe(1);
+
+        let n = 0;
+        const set = buildFurnishCommands([table, ...lamps], 'L0', LEVEL_ELEV, () => `f-${n++}`);
+        const lampCmd = set.commands.find((c) => (c.payload as Record<string, unknown>).furnitureType === 'lamp');
+        expect(lampCmd, 'lamp furniture.create emitted').toBeDefined();
+        const p = lampCmd!.payload as Record<string, unknown>;
+
+        // Emitted baseOffset = table-top mount height (0.50), NOT 0 and NOT doubled.
+        expect(p.baseOffset as number).toBeCloseTo(0.50, 6);
+
+        // FragmentBuilder world Y = levelElevation + baseOffset → lands ON the table top.
+        const worldY = LEVEL_ELEV + (p.baseOffset as number);
+        expect(worldY).toBeCloseTo(tableTop, 6);
+    });
+});
+
 describe('A.21.D4 — style → furniture finish', () => {
     const mk = () => { let n = 0; return () => `f-${n++}`; };
     const payload = (c: { payload: unknown }) => c.payload as Record<string, unknown>;

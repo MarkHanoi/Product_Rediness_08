@@ -1740,17 +1740,35 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             if (!_fs) return;
             if (_fs.get?.(ev.id)) return; // dedup guard
             try {
+                // §LAMP-FLOAT-FIX / A.21.D15 datum contract — FurnitureFragmentBuilder
+                // applies the mount height EXACTLY ONCE: world Y = position.y + baseOffset
+                // (furnitureElevation.furnitureWorldY). So `position.y` MUST be the storey
+                // FLOOR datum (the level's elevation), NOT a pre-baked elevation. The
+                // AI-furnish engine emits `position.y = floor + baseOffset` (its own
+                // datum: see buildFurnishCommands.ts — baseOffset is derived as
+                // position.y - levelElevation). Forwarding that baked Y here made the
+                // builder add baseOffset a SECOND time → every NON-floor accessory
+                // floated at `floor + 2 × offset`. The most visible victim was the
+                // bedside table lamp (baseOffset = table-top 0.50 m), which hovered 0.50 m
+                // above the nightstand. Floor items (baseOffset 0) are unaffected:
+                // floor + 0 either way → byte-identical. Anchor to the floor datum and
+                // pass the real level elevation, mirroring CreateFurnitureCommand's D15 fix.
+                const _lvl = (() => {
+                    try { return ev.levelId ? bimManager.getLevelById(ev.levelId) : undefined; }
+                    catch { return undefined; }
+                })();
+                const _floorY = (_lvl as { elevation?: number } | undefined)?.elevation ?? 0;
                 _fs.add({
                     id:             ev.id,
                     type:           'furniture',
                     furnitureType:  ev.furnitureType,
-                    position:       { x: ev.position.x, y: ev.position.y, z: ev.position.z },
+                    position:       { x: ev.position.x, y: _floorY, z: ev.position.z },
                     // §FIX-FURNITURE-ROTATION: the plan tool sends a SCALAR yaw;
                     // legacy FurnitureData.rotation is an EulerDTO — lift yaw into .y.
                     rotation:       { x: 0, y: ev.rotation ?? 0, z: 0 },
                     levelId:        ev.levelId ?? '',
                     levelName:      '',
-                    levelElevation: 0,
+                    levelElevation: _floorY,
                     baseOffset:     ev.baseOffset ?? 0,
                     width:          ev.width  ?? 0.6,
                     length:         ev.length ?? 0.6,
