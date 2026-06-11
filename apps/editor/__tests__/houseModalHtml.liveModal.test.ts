@@ -7,10 +7,17 @@ import {
     buildHouseModalHtml,
     buildHouseCardGridHtml,
     buildNodeInspectorHtml,
+    buildHouseProgramEditFormHtml,
 } from '../src/ui/house-layout/houseModalHtml.js';
 import { buildHouseCardModel } from '../src/ui/house-layout/houseCardModel.js';
 import { buildLayoutBubbleGraphSvg } from '../src/ui/apartment-layout/layoutBubbleGraph.js';
-import type { LayoutOption, LayoutRoom, ScoredLayoutOption, ScoredHouseLayoutOption } from '@pryzm/ai-host';
+// §BARREL-LAZY — HouseLayoutModal no longer eagerly imports the @pryzm/ai-host value
+// barrel (it lazily loads `resolveEntranceDoor`), so the pure `parseHouseProgramFormState`
+// is statically importable in this DOM-free `node` suite.
+import { parseHouseProgramFormState } from '../src/ui/house-layout/HouseLayoutModal.js';
+import type {
+    LayoutOption, LayoutRoom, ScoredLayoutOption, ScoredHouseLayoutOption, ApartmentProgram,
+} from '@pryzm/ai-host';
 
 function room(name: string, occupancy: string, x: number, y: number) {
     return {
@@ -208,5 +215,69 @@ describe('§54 — living-graph node inspector (INFORMATION · DEPENDENCIES · A
         const html = buildNodeInspectorHtml(evil, [evil]);
         expect(html).not.toContain('<img src=x>');
         expect(html).toContain('&lt;img src=x&gt;');
+    });
+});
+
+// §MODAL-SIZE-OVERRIDE-THREADED (2026-06-11, founder house-modal size bug) — proves
+// the per-RoomType size SLIDER (`area_t_<type>`) is parsed into
+// `program.roomAreas[<type>]`, which the controller passes straight to the engine
+// (HouseLayoutController._computeVariants → generateHouseLayoutOptions, whose bubble
+// graph reads `roomAreas[r.type]` as the room target). This is the exact thread the
+// "kitchen size doesn't adapt" bug lives on. The parse is exercised through the PURE
+// `parseHouseProgramFormState` (DOM-free) over the fields the form HTML emits, so the
+// slider-name ↔ reader contract can't silently drift. The ENGINE half (does a bigger
+// `roomAreas[kitchen]` build a bigger kitchen, modulo the §AREA-FRACTIONS clamp) is
+// covered by the ai-host suite (packages/ai-host/__tests__/houseLayout.test.ts) and is
+// not re-run here (importing the engine barrel needs a DOM env this `node` suite lacks).
+describe('§MODAL-SIZE-OVERRIDE-THREADED — area_t_<type> slider → program.roomAreas[<type>]', () => {
+    // The form-emitted control set: the area sliders the HTML builder renders, plus the
+    // count fields. Mirrors what `form.elements` yields (name + string value + checked).
+    const fields = [
+        { name: 'storeys', value: '2' },
+        { name: 'bedrooms', value: '3' },
+        { name: 'bathrooms', value: '2' },
+        { name: 'livingRoom', value: 'on', checked: true },
+        { name: 'includeKitchen', value: 'on', checked: true },
+        { name: 'area_t_kitchen', value: '24' },   // the user dragged the Kitchen slider
+        { name: 'area_t_living', value: '0' },      // untouched → auto
+        { name: 'area_t_bedroom', value: '0' },     // untouched → auto
+        { name: 'weight_naturalLight', value: '50' },
+    ];
+
+    it('a positive Kitchen slider value lands on program.roomAreas.kitchen', () => {
+        const state = parseHouseProgramFormState(fields);
+        // The override the engine reads as the kitchen target — the bug = this is dropped.
+        expect(state.program.roomAreas).toBeTruthy();
+        expect(state.program.roomAreas!.kitchen).toBe(24);
+        // Untouched (value 0) sliders are OMITTED → that type stays "auto".
+        expect(state.program.roomAreas!.living).toBeUndefined();
+        expect(state.program.roomAreas!.bedroom).toBeUndefined();
+        // Counts + storeys are threaded too.
+        expect(state.storeyCount).toBe(2);
+        expect(state.program.bedrooms).toBe(3);
+        expect(state.program.bathrooms).toBe(2);
+    });
+
+    it('all-zero area sliders ⇒ no roomAreas field (byte-identical baseline)', () => {
+        const zeroed = fields.map(f => (f.name.startsWith('area_t_') ? { ...f, value: '0' } : f));
+        const state = parseHouseProgramFormState(zeroed);
+        expect(state.program.roomAreas).toBeUndefined();
+    });
+
+    it('the form HTML emits an area_t_kitchen slider seeded from program.roomAreas (round-trip)', () => {
+        const html = buildHouseProgramEditFormHtml({
+            storeyCount: 1,
+            program: {
+                bedrooms: 1, bathrooms: 1, masterEnSuite: false,
+                openPlanKitchenDining: false, livingRoom: true, includeKitchen: true, entranceHall: false,
+                roomAreas: { kitchen: 18 },
+            } as ApartmentProgram,
+            weights: { naturalLight: 0.5, privacy: 0.5, kitchenWorkflow: 0.5, corridorEfficiency: 0.5 },
+        });
+        // The slider exists with the reader's expected name and is seeded with the override
+        // (so re-opening the modal mirrors the last requested size, and the reader round-trips).
+        expect(html).toContain('name="area_t_kitchen"');
+        expect(html).toContain('value="18"');
+        expect(html).toContain('data-readout-for="area_t_kitchen"');
     });
 });

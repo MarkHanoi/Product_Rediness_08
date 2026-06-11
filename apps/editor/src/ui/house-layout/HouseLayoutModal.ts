@@ -18,7 +18,6 @@
 // stays open). `setBusy(true)` shows a "Regenerating…" hint during the call.
 
 import type { ScoredHouseLayoutOption, ApartmentProgram, ScoringWeights, ScoredLayoutOption, LayoutRoom } from '@pryzm/ai-host';
-import { resolveEntranceDoor } from '@pryzm/ai-host';
 import { buildHouseCardModel, type HouseCardModel } from './houseCardModel.js';
 import type { PerimeterSpan } from '../apartment-layout/layoutThumbnail.js';
 import {
@@ -36,6 +35,90 @@ import { setRoomAreaOverride } from '../apartment-layout/activeRoomAreaOverrides
 import { setRoomTypeOverride, ROOM_TYPE_VALUES } from '../apartment-layout/activeRoomTypeOverrides.js';
 import { setRoomFloorOverride } from '../apartment-layout/activeRoomFloorOverrides.js';
 import { addRoomAdjacency } from '../apartment-layout/activeRoomAdjacencyOverrides.js';
+
+/** A single form control reduced to the fields the program-state parser needs:
+ *  its `name`, its string `value`, and (for checkboxes) `checked`. This is the
+ *  DOM-free contract `parseHouseProgramFormState` consumes so the slider →
+ *  `program.roomAreas` parse is pure + Node-testable (the apps/editor vitest env
+ *  is `node`, no DOM). */
+export interface HouseFormField {
+    readonly name: string;
+    readonly value: string;
+    readonly checked?: boolean;
+}
+
+/**
+ * §MODAL-PROGRAM-EDIT / §MODAL-SIZE-OVERRIDE (2026-06-11) — PURE parser for the
+ * house program-edit form. Given the form's controls (name/value/checked), build the
+ * `HouseProgramFormState` the controller re-generates from. Extracted from the DOM
+ * reader so the critical "the size slider's `area_t_<type>` value is threaded into
+ * `program.roomAreas[<type>]`" step (the founder's "kitchen size doesn't adapt" bug)
+ * is unit-testable WITHOUT a DOM. The bubble graph reads `roomAreas[r.type]` as the
+ * room's target area (clamped to the type minimum + §AREA-FRACTIONS max), so a
+ * non-empty `roomAreas` here is what actually moves the regenerated geometry.
+ *
+ * Clamps mirror the §MODAL-FILL input attributes + the engine ceilings: storeys 1–3,
+ * bedrooms 0–8, bathrooms 1–4; weight sliders 0–100 → 0–1. Blank/zero/non-finite
+ * `area_t_*` values are OMITTED (that type reverts to the engine default — "auto"),
+ * so an empty form yields no `roomAreas` field ⇒ byte-identical baseline.
+ */
+export function parseHouseProgramFormState(fields: readonly HouseFormField[]): HouseProgramFormState {
+    const byName = new Map<string, HouseFormField>();
+    for (const f of fields) if (f && f.name) byName.set(f.name, f);
+    const numByName = (name: string, def: number): number => {
+        const f = byName.get(name);
+        if (!f) return def;
+        const v = Number(f.value);
+        return Number.isFinite(v) ? v : def;
+    };
+    const boolByName = (name: string, def = false): boolean => {
+        const f = byName.get(name);
+        return f ? !!f.checked : def;
+    };
+    const weightByName = (key: keyof ScoringWeights, def: number): number => {
+        const f = byName.get(`weight_${key}`);
+        if (!f) return def;
+        const v = Number(f.value);
+        if (!Number.isFinite(v)) return def;
+        return Math.max(0, Math.min(1, v / 100));
+    };
+    // §MODAL-PROGRAM-EDIT — collect every `area_t_<RoomType>` control that carries a
+    // positive number into a `roomAreas` per-type override map (this is the size-slider
+    // value → engine target hook). Blank/zero/non-finite ⇒ omitted (engine default).
+    const roomAreas: Record<string, number> = {};
+    for (const f of fields) {
+        const name = f?.name || '';
+        if (!name.startsWith('area_t_')) continue;
+        const v = Number(f.value);
+        if (Number.isFinite(v) && v > 0) roomAreas[name.slice('area_t_'.length)] = v;
+    }
+
+    const program: ApartmentProgram = {
+        bedrooms: Math.max(0, Math.min(8, Math.round(numByName('bedrooms', 1)))),
+        bathrooms: Math.max(1, Math.min(4, Math.round(numByName('bathrooms', 1)))),
+        masterEnSuite: boolByName('masterEnSuite'),
+        openPlanKitchenDining: boolByName('openPlanKitchenDining'),
+        livingRoom: boolByName('livingRoom'),
+        // §MODAL-PROGRAM-EDIT — Kitchen toggle (defaults on; the engine treats
+        // absent/true as "include a kitchen", false as "no kitchen").
+        includeKitchen: boolByName('includeKitchen', true),
+        entranceHall: false,
+        ...(Object.keys(roomAreas).length > 0
+            ? { roomAreas: roomAreas as ApartmentProgram['roomAreas'] }
+            : {}),
+    };
+    const weights: ScoringWeights = {
+        naturalLight: weightByName('naturalLight', 0.5),
+        privacy: weightByName('privacy', 0.5),
+        kitchenWorkflow: weightByName('kitchenWorkflow', 0.5),
+        corridorEfficiency: weightByName('corridorEfficiency', 0.5),
+    };
+    return {
+        storeyCount: Math.max(1, Math.min(3, Math.round(numByName('storeys', 1)))),
+        program,
+        weights,
+    };
+}
 
 export interface HouseLayoutModalCallbacks {
     /** User picked variant `index` ("Use this layout"). */
@@ -57,6 +140,25 @@ export interface HouseLayoutModalCallbacks {
 }
 
 const DEBOUNCE_MS = 250;
+
+// §BARREL-LAZY (2026-06-11) — `resolveEntranceDoor` is the ONLY value this DOM module
+// needs from the `@pryzm/ai-host` barrel, and the barrel's transitive graph eagerly
+// pulls heavy DOM/THREE deps (`@thatopen/ui`). A static value import therefore makes the
+// whole module impossible to load in a DOM-free unit test (and bloats the module's eager
+// cost). We instead load it LAZILY: `ensureEntranceResolver()` (fire-and-forget) caches
+// the function on first call, and the sync preview overlay (`entranceSpanForGround`) uses
+// the cache when present — gracefully skipping the cosmetic entrance leaf for the first
+// render or two until the dynamic import settles. This keeps the pure
+// `parseHouseProgramFormState` export (and the rest of the module) cheaply importable.
+type ResolveEntranceDoorFn = typeof import('@pryzm/ai-host')['resolveEntranceDoor'];
+let _resolveEntranceDoor: ResolveEntranceDoorFn | null = null;
+let _entranceResolverPromise: Promise<void> | null = null;
+function ensureEntranceResolver(): void {
+    if (_resolveEntranceDoor || _entranceResolverPromise) return;
+    _entranceResolverPromise = import('@pryzm/ai-host')
+        .then(m => { _resolveEntranceDoor = m.resolveEntranceDoor; })
+        .catch(() => { /* preview entrance overlay stays absent — non-fatal */ });
+}
 
 /** §SHARED-FLOOR-BOUNDS (2026-06-09) — the union of every storey's room-polygon
  *  bounds (fallback: wall endpoints) across one house card, in the mm PLAN frame
@@ -181,7 +283,10 @@ function entranceSpanForGround(
             const b = footprintWorld[(i + 1) % footprintWorld.length]!;
             return { id: `fp-${i}`, start: { x: a.x, z: a.z }, end: { x: b.x, z: b.z } };
         });
-        const door = resolveEntranceDoor(option, shellWalls);
+        // §BARREL-LAZY — use the lazily-loaded resolver; skip the cosmetic entrance
+        // overlay until the dynamic import has settled (kicked off in the constructor).
+        if (!_resolveEntranceDoor) { ensureEntranceResolver(); return null; }
+        const door = _resolveEntranceDoor(option, shellWalls);
         if (!door) return null;
         const host = shellWalls.find(w => w.id === door.shellWallId);
         if (!host) return null;
@@ -223,6 +328,9 @@ export class HouseLayoutModal {
     ): void {
         this.dismiss();
         this._options = options;
+        // §BARREL-LAZY — start loading the entrance-door resolver now so the ground-floor
+        // entrance leaf is available by the first refresh (it's a cosmetic preview overlay).
+        ensureEntranceResolver();
 
         const overlay = document.createElement('div');
         overlay.className = 'alm-overlay';
@@ -361,8 +469,64 @@ export class HouseLayoutModal {
         // §3PANE IT-4 — refresh() rebuilt [data-role="grid"] (incl. the Miro canvas),
         // so re-wire pan/zoom + re-apply the preserved transform (zoom survives a regen).
         this._wireMiroCanvas();
+        // §MODAL-SIZE-OVERRIDE-CLAMP (2026-06-11) — reconcile each size-slider readout
+        // with the area the ENGINE actually produced for that room type. On a small
+        // plate the kitchen (and other rooms) are clamped by the architectural minimum
+        // + the §AREA-FRACTIONS maximum, so a requested 25 m² may build as ~11 m². The
+        // readout now shows that effective value (with a "max for this plot" note when
+        // the request was bounded), so the size control never looks like it "did
+        // nothing" — it distinguishes a real change from a clamp.
+        this._reconcileAreaReadouts(options);
         this._setHint('');
         this.setBusy(false);
+    }
+
+    /**
+     * §MODAL-SIZE-OVERRIDE-CLAMP — after a regen, for every `area_t_<type>` size
+     * slider update its `<output data-readout-for="area_t_<type>">` to the area the
+     * engine ACTUALLY produced for that room type in the best regenerated option. When
+     * a positive override was requested but the produced area differs by >0.5 m² (a
+     * clamp to the type minimum or the §AREA-FRACTIONS maximum), the readout appends a
+     * short "(min/max for this plot)" note. No override (slider 0) keeps the plain
+     * "auto" readout. Pure DOM write — no program mutation, no regen. No-op when the
+     * modal is closed or no option carries the type. */
+    private _reconcileAreaReadouts(options: readonly ScoredHouseLayoutOption[]): void {
+        if (!this._el) return;
+        const best = options[0]?.result;
+        if (!best) return;
+        // Largest produced area per room type across every storey of the best variant
+        // (a type may appear on multiple storeys — the slider is a per-type control, so
+        // the most generous instance is the faithful "this is how big it built" value).
+        const producedByType = new Map<string, number>();
+        for (const opt of best.perStoreyLayout ?? []) {
+            for (const r of opt?.rooms ?? []) {
+                const type = String(r.type ?? '').toLowerCase();
+                const area = typeof r.area === 'number' && Number.isFinite(r.area) ? r.area : 0;
+                if (!type || area <= 0) continue;
+                if (area > (producedByType.get(type) ?? 0)) producedByType.set(type, area);
+            }
+        }
+        const outputs = this._el.querySelectorAll('output[data-readout-for^="area_t_"]');
+        outputs.forEach(out => {
+            const key = out.getAttribute('data-readout-for') ?? '';
+            const type = key.slice('area_t_'.length).toLowerCase();
+            // The slider that drives this readout (same name as the readout key).
+            const slider = this._el?.querySelector(`input[name="${key}"]`) as HTMLInputElement | null;
+            const requested = slider ? Number(slider.value) : 0;
+            const produced = producedByType.get(type) ?? 0;
+            if (!(requested > 0)) {
+                // No override → show the engine's auto size if known, else "auto".
+                out.textContent = produced > 0 ? `${Math.round(produced)} m² (auto)` : 'auto';
+                return;
+            }
+            if (produced <= 0) { out.textContent = `${requested} m²`; return; }
+            const eff = Math.round(produced);
+            // Clamp note: the engine bounded the requested value (min or max for the plot).
+            const clamped = Math.abs(produced - requested) > 0.5;
+            out.textContent = clamped
+                ? `${eff} m² (${produced < requested ? 'max' : 'min'} for this plot)`
+                : `${eff} m²`;
+        });
     }
 
     /**
@@ -811,62 +975,15 @@ export class HouseLayoutModal {
      *  `program.roomAreas` (the C52 per-RoomType size hook); a blank input clears
      *  that type's override. */
     private _readFormState(form: HTMLFormElement): HouseProgramFormState {
-        const numByName = (name: string, def: number): number => {
-            const el = form.elements.namedItem(name) as HTMLInputElement | null;
-            if (!el) return def;
-            const v = Number(el.value);
-            return Number.isFinite(v) ? v : def;
-        };
-        const boolByName = (name: string, def = false): boolean => {
-            const el = form.elements.namedItem(name) as HTMLInputElement | null;
-            return el ? !!el.checked : def;
-        };
-        const weightByName = (key: keyof ScoringWeights, def: number): number => {
-            const el = form.elements.namedItem(`weight_${key}`) as HTMLInputElement | null;
-            if (!el) return def;
-            const v = Number(el.value);
-            if (!Number.isFinite(v)) return def;
-            return Math.max(0, Math.min(1, v / 100));
-        };
-        // §MODAL-PROGRAM-EDIT — collect every `area_t_<RoomType>` input that carries
-        // a positive number into a `roomAreas` override map. Blank/zero/non-finite
-        // values are omitted (revert that type to the engine default). Iterates the
-        // form's named elements so it stays in lock-step with `AREA_FIELDS` without a
-        // duplicated list.
-        const roomAreas: Record<string, number> = {};
-        for (const el of Array.from(form.elements)) {
+        // Reduce the live form controls to the DOM-free `HouseFormField[]` contract,
+        // then delegate to the PURE `parseHouseProgramFormState` (Node-testable). The
+        // `area_t_<type>` size sliders are `type="range"` controls, so iterate the full
+        // `form.elements` (not just `input[type=number]`) to capture them.
+        const fields: HouseFormField[] = Array.from(form.elements).map(el => {
             const input = el as HTMLInputElement;
-            const name = input.name || '';
-            if (!name.startsWith('area_t_')) continue;
-            const v = Number(input.value);
-            if (Number.isFinite(v) && v > 0) roomAreas[name.slice('area_t_'.length)] = v;
-        }
-
-        const program: ApartmentProgram = {
-            bedrooms: Math.max(0, Math.min(8, Math.round(numByName('bedrooms', 1)))),
-            bathrooms: Math.max(1, Math.min(4, Math.round(numByName('bathrooms', 1)))),
-            masterEnSuite: boolByName('masterEnSuite'),
-            openPlanKitchenDining: boolByName('openPlanKitchenDining'),
-            livingRoom: boolByName('livingRoom'),
-            // §MODAL-PROGRAM-EDIT — Kitchen toggle (defaults on; the engine treats
-            // absent/true as "include a kitchen", false as "no kitchen").
-            includeKitchen: boolByName('includeKitchen', true),
-            entranceHall: false,
-            ...(Object.keys(roomAreas).length > 0
-                ? { roomAreas: roomAreas as ApartmentProgram['roomAreas'] }
-                : {}),
-        };
-        const weights: ScoringWeights = {
-            naturalLight: weightByName('naturalLight', 0.5),
-            privacy: weightByName('privacy', 0.5),
-            kitchenWorkflow: weightByName('kitchenWorkflow', 0.5),
-            corridorEfficiency: weightByName('corridorEfficiency', 0.5),
-        };
-        return {
-            storeyCount: Math.max(1, Math.min(3, Math.round(numByName('storeys', 1)))),
-            program,
-            weights,
-        };
+            return { name: input.name || '', value: input.value ?? '', checked: !!input.checked };
+        });
+        return parseHouseProgramFormState(fields);
     }
 
     private _setHint(text: string): void {
