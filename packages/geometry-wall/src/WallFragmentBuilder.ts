@@ -2027,16 +2027,35 @@ export class WallFragmentBuilder {
                 geos.push(ni);
             }
 
-            // §WALL-PLAIN-SEAM-MERGE-GUARD (2026-05-24): mergeGeometries() REQUIRES every
-            // geometry to share the same attribute set. Plain box segments carry a `uv`
-            // attribute; miter-prism join segments do not — feeding both made
-            // mergeGeometries log an error and return null (console-error spam on every
-            // joined-wall rebuild, e.g. during project load). Pre-check attribute
-            // uniformity and skip the merge cleanly when they differ: the wall keeps its
-            // separate segments (the same safe fallback) WITHOUT the error noise.
+            // §WALL-PLAIN-SEAM-MERGE-ATTR (2026-06-11) — REGRESSION FIX (§57.6).
+            // mergeGeometries() REQUIRES every geometry to share the same attribute
+            // set. Plain BoxGeometry segments carry a `uv` attribute; miter-prism join
+            // segments (MiterPrismBuilder emits only position + normal) do NOT. The
+            // PREVIOUS guard (§WALL-PLAIN-SEAM-MERGE-GUARD, 2026-05-24) merely DETECTED
+            // the mismatch and SKIPPED the merge — which left an interior partition wall
+            // (mitered/T-joined onto the shell, hence a miter-prism first segment) that
+            // ALSO carries a door/window opening (the surrounding box segments) rendered
+            // as SEPARATE fragments: the founder's "walls fragment when openings are
+            // placed" defect. The hole-extrude single-body path only covers NON-mitered
+            // walls, so the mitered+opening case depends ENTIRELY on this merge.
+            //
+            // Fix: instead of bailing, NORMALISE the segments to the common minimal
+            // attribute set (position + normal) by dropping `uv` from the segments that
+            // carry it. The wall body is schematic/PBR-shaded by world position, not by
+            // a uv map, so discarding the box uv is visually a no-op — and now the
+            // mitered partition + its opening box segments merge into ONE creased mesh
+            // (no internal seam, no fragmentation). Only `position`+`normal` are kept,
+            // which both geometry sources always provide.
+            for (const g of geos) {
+                for (const name of Object.keys(g.attributes)) {
+                    if (name !== 'position' && name !== 'normal') g.deleteAttribute(name);
+                }
+            }
             const sig = (g: THREE.BufferGeometry): string => Object.keys(g.attributes).sort().join(',');
             const first = geos[0];
             if (!first || !geos.every((g) => sig(g) === sig(first))) {
+                // Should not happen now (all reduced to position+normal); kept as the
+                // never-an-empty-wall safety net (SPEC §4) for any exotic attribute set.
                 geos.forEach((g) => g.dispose());
                 return;
             }

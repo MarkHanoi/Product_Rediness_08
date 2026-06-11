@@ -4194,7 +4194,7 @@ the v132 `§DIAG-EXEC-WALLS/-FILL/-STAIR-SIZE/-ADJ`.
 | **57.3** | **Big merge "Living Room / Dining / Bathroom 81.9 m²"** | 🟢 DONE v146 | NOT a weld drop — `§OPEN-PLAN-LIVING-DINING`: the "open-plan kitchen+dining" flag was opening the WRONG pair. `bubbleGraph:463` made LIVING↔DINING the `open` edge (divider suppressed → flood-merge) while kitchen↔dining stayed walled. Fix: new `openPlanLivingDining` flag (false for house ground via houseProgramFloor) → the open zone moves to the literal kitchen↔dining, Living becomes a separate walled room. + `§DIAG-MERGE-DIVIDER` log. ai-host 2313/2313, apartment byte-identical. |
 | **57.4** | **Entrance hall must be on the perimeter + have the main door — "not re-enforced … STILL centered, cannot be there!!!"** (founder re-flagged 2026-06-11, emphatic) | 🟢 DONE v144 | `§ENTRANCE-SHELL-SLICE` (`placePublicWithHallOnShell`, subdivide.ts): carves the `hall` as a full-depth column on a SHELL edge of the public rect, perpendicular to the corridor face → it bounds a perimeter wall (door OUT, the front door seats there) AND shares a wall inward with corridor/living. Falls back to plain squarify (byte-identical) when no hall / hall-only / a sibling can't clear its floor → never drops a room; suppressed on rectified (sheared) shells. New `§DIAG-ENTRANCE-PERIMETER` log (`boundsShellWall=YES`, frontage 3.4–5.0 m on every tested plate; was interior). ai-host 2307/2307 (139 files), root tsc 0. |
 | **57.5** | **White blank upstairs (intermittent)** | 🟠 HIGH | Upper undivided area ("Room 01-005 53.7 m²"). The v135 spine-carve targeted the ground; extend to the upper storey. `§DIAG-EXEC-FILL` STRETCHED flag surfaces it. |
-| **57.6** | **Door/window opening lines "breaking the walls" during AI-batch gen (apartment + house)** | 🟠 HIGH | A previously-fixed opening-void render regressed under the batch path. Investigate `§DIAG-OPENING-VOID` / WallRebuildCoordinator under batch. |
+| **57.6** | **Walls FRAGMENT when doors/windows are placed (REGRESSION — "previous version solved it, but it's back")** | 🔴 HARD · 🟠 IN PROGRESS | **KEY INSIGHT (founder 2026-06-11):** the MODAL PREVIEW (engine room polygons, no openings) is correct/covered, but the BUILT result (after openings) diverges — blanks ("Room 01-001/002"), compound merges ("Bedroom 1 / Bathroom 29 m²"), generic names. So the opening-void wall fragmentation BREAKS the room boundary → detection FLOODS → likely the SINGLE ROOT of most build-vs-preview divergence (blanks + merges + names), NOT the subdivider. AGENT in flight (geometry-wall / WallRebuildCoordinator opening-void path; git-investigate the regressing change — plain-wall routed to segmented/layered path, or greedy-merge/creased-normals dropped, or the v131 partition-height clamp opened a sub-grid gap). DISJOINT from the §65 subdivider agent. |
 | **57.7** | **Stair: smaller/cornered room; upper stair must connect the corridor** | 🟡 MED | Stair keep-out sizing (engine) + a 1.5 m landing (founder §53-adjacent). `§DIAG-EXEC-STAIR-SIZE` roomToFootprint flags oversized. Coupled with §52.6 (smaller keep-out ⇒ less fragmentation). |
 | **57.8** | **Windows in ALL rooms + CENTERED on the room's shared external/perimeter wall** | 🟡 MED | v134 guarantees a window where an external wall exists; this adds CENTERING on the room's external-wall segment. WINDOWS agent in flight. |
 | — | WebGL `Framebuffer … zero size` spam | ⚪ NOISE | Off-screen/split pane created at 0×0; non-fatal. Guard later. |
@@ -4345,6 +4345,42 @@ quality failures — all in `tgl/subdivide.ts` (the file the §57.3 MERGE agent 
 (kitchen-in-stair), huge blanks, stair not reaching the corridor. These are coupled and want a **holistic dense-plate
 subdivider pass** (not piecemeal): seal the stair keep-out against ALL rooms, fill blanks, guarantee the corridor
 reaches the stair. Sequenced after §57.3 (same file). The kitchen-in-stair (65.1) is the hard-error to fix first.
+
+## §66 — Post-v146 test: build-vs-preview divergence is the framing (founder 2026-06-11) — 🔴 HIGH
+
+**The unifying insight:** the modal PREVIEW (engine room polygons) is correct/covered/named, but the BUILT result
+(after weld + openings + detection) diverges. So a class of defects the founder keeps reporting are NOT the engine
+SUBDIVIDER (the preview proves it designs the rooms) but the EXECUTOR / OPENING-VOID / DETECTION corrupting the
+build. Items:
+
+| # | Defect (founder) | Likely layer | Status |
+|---|---|---|---|
+| **66.1a** | **Walls fragment (visible 3D seams) at openings** | EXECUTOR wall-body (geometry-wall) | 🟢 **DONE v147** §WALL-PLAIN-SEAM-MERGE-ATTR — a 2026-05-24 merge-guard bailed when a mitered partition's miter-prism segment (no UVs) mixed with opening boxes (UVs); fix normalises attributes → one continuous wall body. geometry-wall 57/57. |
+| **66.1b** | **Room LOOP breaks → blanks + merges + generic names** (the BUILD-vs-preview divergence) | room-topology tolerance vs the §PARTITION-SHELL-INNER-FACE clamp | 🔴 **THE REAL ROOT (next).** §57.6 agent traced it: opening creation → whole-level re-resolve → `WallJoinResolver` `§PARTITION-SHELL-INNER-FACE` (2026-06-10) pulls each partition endpoint back to the shell inner face by `hostHalfT`; on a shell ≥~0.40 m thick that exceeds `RoomDetectionEngine`'s 0.20 m T-junction snap → the T-junction isn't detected → room loop opens → flood. FIX: raise the T-junction tolerance to cover `hostHalfT` (RoomDetectionEngine.ts:887) AND/OR don't shorten a partition below the detection tolerance AND/OR route opening-creation through the baseline-preserving body-only rebuild (§A.21.D40). **This — not the subdivider — is the blanks/merges/names root.** |
+| **66.2** | **"Bedroom 1 / Bathroom 29 m²" merge** (ground) — a new compound merge (distinct from the v146 living/dining) | divider broken at an opening (66.1) OR a missing bedroom↔bathroom divider | confirm after §57.6 lands; if it persists, a §57.3-style bubble-graph check for the bedroom↔bathroom pair |
+| **66.3** | **Blank "Room 01-001/002" on first floor in the BUILD** (the preview shows them covered) | detection flood from 66.1 | confirm after §57.6 |
+| **66.4** | **Generic "Room NN" names** (Room 00-007, 00-001, 01-001/002) | unmatched detected cells from the floods (66.1) | confirm after §57.6 |
+| **66.5** | **A window goes OUT of the perimeter wall** | window emission / placement beyond the shell segment | NEW — window offset+width can exceed the room's external wall span (esp. after §WINDOW-ROOM-PORTION band math); clamp the window span strictly within the shell wall. |
+| **66.6** | **Modify a room size → ground blank fills but FIRST FLOOR blank remains** | the size-driven regen fills the ground (v124 §HOUSE-GROUND-PUBLIC-SET) but the UPPER storey still leaves blank cells | = §65.2 (upper blank); the ground-fill enricher isn't applied to the upper storey the same way. |
+
+**Sequencing:** §57.6 (wall fragmentation) is the highest-leverage — if it's the root, 66.2/66.3/66.4 clear with it.
+Then 66.5 (window clamp) + 65.2/66.6 (upper blank). The §65 + §57.6 agents are both in flight (disjoint files).
+
+## §67 — Soft furnishings + furniture variety (auto-furnish enrichment) — QUEUED (2026-06-11)
+
+Founder (queue, "consider adding…", INTERIORS → Soft Furnishings screenshot): enrich the D-FLE auto-furnish output
+with soft furnishings + module variety. These slot directly into the §59 Room-Module Rule Engine (per-room
+ontology + placement rules):
+
+| # | Request | Notes / where |
+|---|---|---|
+| **67.1** | **RUGS / CARPETS** auto-placed: in front of the bed, **under the dining table**, under the coffee table / sofa | The Soft Furnishings carousel category exists (screenshot); the AUTO-FURNISH (`furnishLayout/`) must PLACE a rug as an anchored accessory: `anchor: under/in-front-of` the host (bed/dining-table/coffee-table/sofa), sized to the host, baseOffset 0 (on the floor, under the furniture), no collision with the host. New `rug` kind(s) + a "place rug under/in-front-of host" placement rule. |
+| **67.2** | **Bed VARIETY by layout** — different bed types; some with **integrated bedside tables + lamps**; check CONSISTENCY (don't place separate bedside tables when the bed already includes them) | The bed builder/archetype should offer variants (e.g. `bed_with_nightstands` that bakes in the tables + lamps) and the bedroom archetype must pick ONE coherent set — either the integrated bed OR a plain bed + separate bedside_table + lamp, never both (the consistency check). |
+| **67.3** | **L-SHAPE sofa** variant | An `l_sofa` / corner-sofa module + the living-room archetype picks it when the room shape/size suits (corner placement), per the §59 shape-aware furniture rules. |
+
+Cross-ref: this is the furniture/aesthetic complement to §63 (bathroom fixtures) — both are §59 **P6 per-room rollout**
+(each room's module ontology + placement rules: rug-under-host, integrated-vs-separate bed, shape-aware sofa).
+**Status: 🔵 QUEUED.**
 
 ## §54 — Living-graph node CARDS (select → interrogate → flowing canvas) — QUEUED (2026-06-11)
 
