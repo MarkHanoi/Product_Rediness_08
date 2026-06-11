@@ -416,6 +416,10 @@ export class HouseLayoutExecutor {
             // The wall height per storey = floorToFloor (so partitions reach the
             // slab above).
             const wallHeightM = floorToFloorM;
+            // §PARTITION-TOP-AT-SLAB-UNDERSIDE (founder 2026-06-11) — the TOP storey has no
+            // slab above (just the roof), so its partitions keep the full height; every storey
+            // BELOW the top has its interior partitions clamped to the slab UNDERSIDE in step 1.
+            const topStoreyLevelId = result.storeys[result.storeys.length - 1]?.levelId;
 
             // §PERIMETER-SHELL (A.21.D21, SPEC-CASA §7) — Defect 3 fix. The GROUND
             // storey reuses the pre-drawn shell (skipExteriorWalls). Each UPPER storey
@@ -945,6 +949,27 @@ export class HouseLayoutExecutor {
                 //    await — the batch drains them, exactly like the apartment executor).
                 for (const s of perStorey) {
                     try {
+                        // §PARTITION-TOP-AT-SLAB-UNDERSIDE (founder 2026-06-11, "the internal
+                        // walls need to automatically be set to the plane of under slab — the
+                        // bottom of the slab level"). An interior partition built at the full
+                        // floor-to-floor `wallHeightM` tops at the upper floor level and so runs
+                        // THROUGH the level-above slab (which occupies [floorAbove − thickness,
+                        // floorAbove]), poking into the storey-above plan as ghost reference
+                        // linework. The shell already gets §WALL-TOP-AT-SLAB-BOTTOM; partitions
+                        // did NOT, so on a multi-storey house the ground partitions showed on the
+                        // first-floor plan. For every storey that HAS a slab above (i.e. NOT the
+                        // top storey), clamp its partition heights to `wallHeightM − slabThickness`
+                        // so each partition stops at the slab UNDERSIDE and the solid slab occludes
+                        // it from the plan above. The TOP storey (roof above, no slab) is untouched
+                        // → single-storey + the top floor are byte-identical.
+                        if (topStoreyLevelId && s.levelId !== topStoreyLevelId) {
+                            const pl = s.set.wallBatch.payload as { walls?: Array<{ height?: number }> };
+                            if (Array.isArray(pl.walls)) {
+                                const underSlabH = Math.max(0.1, wallHeightM - DEFAULT_SLAB_THICKNESS_M);
+                                for (const w of pl.walls) w.height = underSlabH;
+                                console.log(`[house-layout] §PARTITION-TOP-AT-SLAB-UNDERSIDE ${s.levelId} — clamped ${pl.walls.length} interior partition(s) to ${underSlabH.toFixed(3)}m (slab underside; no protrusion into the plan above)`);
+                            }
+                        }
                         const r = runtime.bus.executeCommand(s.set.wallBatch.command, s.set.wallBatch.payload) as unknown;
                         if (r && typeof (r as { catch?: unknown }).catch === 'function') {
                             (r as Promise<unknown>).catch((e: unknown) => console.warn('[house-layout] wall.batch.create failed on', s.levelId, e));
