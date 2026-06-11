@@ -316,12 +316,15 @@ export function logExecRoomDiagnostics(
                 }
             }
 
-            // §DIAG-EXEC-NAMES (§68.8 — generic "Room NN" names) — a detected room left with a
-            // generic/placeholder name means detection produced a cell the namer couldn't match
-            // to an engine room (a merge/flood remnant). Count + flag.
-            if (/^room\b/i.test(d.name) || /^room[\s-]?\d/i.test(d.name) || d.occupancyType === 'unclassified' && !eng) {
+            // §DIAG-EXEC-NAMES (§68.8 — generic "Room NN" names) — a detected room the namer
+            // CAN'T match to an engine room (a merge/flood remnant) ships as a generic "Room NN".
+            // NOTE: this diagnostic runs BEFORE the rename batch commits, so EVERY detected room
+            // still carries its placeholder "Room NN" name here — keying off the name would flag
+            // all of them (a false positive). The TRUE signal is NO ENGINE MATCH (`!eng`): a cell
+            // with a paired engine room WILL be renamed; one without is the genuine flood remnant.
+            if (!eng) {
                 genericNameCount++;
-                console.warn(`${logTag} §DIAG-EXEC-NAMES ${levelId} ⚠ GENERIC-NAME "${d.name}" [${type}] ${d.areaM2.toFixed(1)}m² (detection cell with no engine match — merge/flood remnant)`);
+                console.warn(`${logTag} §DIAG-EXEC-NAMES ${levelId} ⚠ GENERIC-NAME "${d.name}" [${type}] ${d.areaM2.toFixed(1)}m² (detection cell with NO engine match — merge/flood remnant; will ship as a generic "Room NN")`);
             }
 
             // §DIAG-EXEC-DOORS — door openings on this room's bounding walls.
