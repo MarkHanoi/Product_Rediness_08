@@ -285,6 +285,14 @@ export function buildBubbleGraph(
     const kitchenId = program.includeKitchen === false ? null : push('kitchen', 'Kitchen', false);
     const diningId = program.openPlanKitchenDining ? push('dining', 'Dining', false) : null;
 
+    // §HOUSE-GROUND-PUBLIC-SET (A.21.D28 #4, 2026-06-11) — optional public/service
+    // ground-floor rooms (study, utility). Minted from the program flags exactly like
+    // the kitchen/dining toggles. Both are corridor-served (study.accessFrom +
+    // utility.accessFrom include 'corridor'), so they link off the spine below and
+    // never seal. Absent ⇒ no room ⇒ byte-identical (apartment never sets the flags).
+    const studyId = program.includeStudy === true ? push('study', 'Study', false) : null;
+    const utilityId = program.includeUtility === true ? push('utility', 'Utility', false) : null;
+
     const beds = Math.max(0, Math.floor(program.bedrooms));
     const baths = Math.max(0, Math.floor(program.bathrooms));
     const corridorId = beds + baths > 0 ? push('corridor', 'Corridor', false) : null;
@@ -455,6 +463,12 @@ export function buildBubbleGraph(
     link(livingId, diningId, program.openPlanKitchenDining ? 'open' : 'door');
     // Private zone hangs off the corridor (or the hall when there's no corridor).
     const spine = corridorId ?? entryId ?? livingId;
+    // §HOUSE-GROUND-PUBLIC-SET (A.21.D28 #4, 2026-06-11) — the study + utility hang off
+    // the SAME spine (a 'door' edge), so the corridor carve/comb reaches them just like
+    // a bedroom and they never seal. study.accessFrom + utility.accessFrom both include
+    // 'corridor', so the door is permitted. No-op when the flag is off (null id).
+    link(spine, studyId, 'door');
+    link(spine, utilityId, 'door');
     for (const bid of bedIds) link(spine, bid, 'door');
     link(bedIds[0] ?? null, ensuiteId, 'door');     // master ↔ ensuite
     for (const r of withAreas) if (r.type === 'bathroom') link(spine, r.id, 'door');

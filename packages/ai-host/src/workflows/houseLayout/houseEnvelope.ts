@@ -70,6 +70,12 @@ function storeyRoomTypes(p: ApartmentProgram): RoomType[] {
     if (p.livingRoom) types.push('living');
     types.push('kitchen');
     if (p.openPlanKitchenDining) types.push('dining');
+    // §HOUSE-GROUND-PUBLIC-SET (A.21.D28 #4, 2026-06-11) — mirror buildBubbleGraph's
+    // optional study/utility mint (after public, before corridor) so the summed
+    // programme area — and hence grossTarget / grossMax / §HOUSE-MAX-CAP — grows when
+    // the ground floor adds these rooms. Absent ⇒ unchanged (apartment byte-identical).
+    if (p.includeStudy === true) types.push('study');
+    if (p.includeUtility === true) types.push('utility');
 
     const beds = Math.max(0, Math.floor(p.bedrooms));
     const baths = Math.max(0, Math.floor(p.bathrooms));

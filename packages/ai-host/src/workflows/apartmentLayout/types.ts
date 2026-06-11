@@ -128,6 +128,23 @@ export interface ApartmentProgram {
      *  single-plate engine pushed a kitchen onto EVERY storey → a 2-storey house
      *  had 2 kitchens (A.21.x test finding). */
     includeKitchen?: boolean;
+    /** §HOUSE-GROUND-PUBLIC-SET (A.21.D28 #4, 2026-06-11): whether this plate gets a
+     *  STUDY (home office). Optional; ABSENT or `false` → no study (apartment default
+     *  + every storey that doesn't ask — unchanged / byte-identical). `true` → mint a
+     *  `study` room linked off the corridor spine (study.accessFrom includes
+     *  'corridor', maxDoors 1). Used ONLY by the multi-storey HOUSE GROUND `fillGroundPlate`
+     *  to grow the ground floor's PUBLIC room SET on a large plate (so the few public
+     *  rooms aren't stretched into a blob and the §HOUSE-MAX-CAP presents the whole
+     *  plate) WITHOUT moving bedrooms off the upper storeys. A study is corridor-served,
+     *  so it never seals. */
+    includeStudy?: boolean;
+    /** §HOUSE-GROUND-PUBLIC-SET (A.21.D28 #4, 2026-06-11): whether this plate gets a
+     *  UTILITY / laundry room. Optional; ABSENT or `false` → no utility (apartment
+     *  default — unchanged / byte-identical). `true` → mint a `utility` room linked off
+     *  the corridor spine (utility.accessFrom includes 'corridor', maxDoors 1). Same
+     *  role as {@link includeStudy}: a corridor-served service room that grows the
+     *  multi-storey GROUND floor's room SET on a large plate without sealing. */
+    includeUtility?: boolean;
     /** §ROOM-AREAS (2026-05-29, user-request from modal dynamic feedback):
      *  per-`RoomType` ABSOLUTE area override in m². When supplied, the bubble
      *  graph uses this value as the room's `targetAreaM2` directly, BYPASSING

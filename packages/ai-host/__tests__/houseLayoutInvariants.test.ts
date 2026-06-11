@@ -174,3 +174,61 @@ describe('§HALL-SINGLETON: exactly one entrance hall, ground-only (founder rule
         expect(JSON.stringify(a)).toEqual(JSON.stringify(b));
     });
 });
+
+// ── §HOUSE-GROUND-PUBLIC-SET (A.21.D28 #4, 2026-06-11) ──────────────────────────
+// The multi-storey GROUND floor under-filled a LARGE plate (32 m² blank @ 250 m²,
+// 71 @ 289) because its bedrooms live UPSTAIRS, so growing the bedroom count never
+// lifted the ground programme toward the plate — §HOUSE-MAX-CAP clamped the presented
+// area to grossMax≈218 and the rest was blank. The fix grows the ground's PUBLIC/
+// SERVICE room SET (study + utility — both CORRIDOR-SERVED, so they never seal) so
+// the programme — and the cap — reach the plate. This block is the no-seal hard gate.
+describe('§HOUSE-GROUND-PUBLIC-SET: a large multi-storey ground fills its plate without sealing', () => {
+    // A 17 × 17 m (289 m²) detached plate — the large case the defect was measured on.
+    const BIG = mkShell([{ x: 0, z: 0 }, { x: 17, z: 0 }, { x: 17, z: 17 }, { x: 0, z: 17 }]);
+    const res = generateHouseLayout(BIG, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 });
+    const ground = res.perStoreyLayout[0]!;
+
+    it('produces a non-null ground storey with rooms', () => {
+        expect(ground).not.toBeNull();
+        expect(ground.rooms.length).toBeGreaterThan(0);
+    });
+
+    it('the large ground floor mints a study AND a utility (the public-set fill)', () => {
+        const types = new Set(ground.rooms.map(r => r.type));
+        expect(types.has('study'), 'large ground should include a study').toBe(true);
+        expect(types.has('utility'), 'large ground should include a utility').toBe(true);
+    });
+
+    it('every ground room is reachable — NO sealed room (no door-less room)', () => {
+        // A room is reachable if it declares direct access OR a door/adjacency links it.
+        // The ensuite is the one architectural exception (reached via its host bedroom).
+        for (const room of ground.rooms) {
+            if (room.type === 'ensuite') continue;
+            const reachable = room.hasDirectAccess === true
+                || (Array.isArray(room.adjacentTo) && room.adjacentTo.length > 0);
+            expect(reachable, `ground room "${room.name}" (${room.type}) is SEALED — no access`).toBe(true);
+        }
+    });
+
+    it('no merged compound name on the large ground (the under-fill blob signature)', () => {
+        for (const room of ground.rooms) {
+            expect((room.name ?? '').includes('/'),
+                `ground room "${room.name}" carries a merged name`).toBe(false);
+        }
+    });
+
+    it('the normal ~130 m² ground is UNCHANGED (no study/utility — byte-identical case)', () => {
+        const small = generateHouseLayout(
+            mkShell([{ x: 0, z: 0 }, { x: 13, z: 0 }, { x: 13, z: 10 }, { x: 0, z: 10 }]),
+            PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 },
+        );
+        const types = new Set(small.perStoreyLayout[0]!.rooms.map(r => r.type));
+        expect(types.has('study'), 'a normal-size ground must NOT gain a study').toBe(false);
+        expect(types.has('utility'), 'a normal-size ground must NOT gain a utility').toBe(false);
+    });
+
+    it('is deterministic on the large plate (same input → identical result)', () => {
+        const b = generateHouseLayout(BIG, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 });
+        expect(JSON.stringify(res)).toEqual(JSON.stringify(b));
+    });
+});

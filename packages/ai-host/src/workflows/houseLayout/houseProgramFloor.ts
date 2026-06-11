@@ -104,9 +104,17 @@ function fillGroundPlate(program: ApartmentProgram, plateAreaM2: number): Apartm
     // well-behaved ~165 m² ground (→ cap 2, but allocated-1 collapses it to 1) is
     // unchanged. Bounded + deterministic.
     const largeGroundCap = Math.min(3, Math.max(MAX_GROUND_FILL_BEDROOMS, Math.floor(plateAreaM2 / 90)));
+    // §HOUSE-GROUND-FILL-XL (A.21.D28 #4, 2026-06-11) — on a GENUINELY large ground
+    // (≥ ~270 m²), the public set + study + utility + ONE guest bedroom still under-fill
+    // the plate (grossTarget tops out ~109 ⇒ grossMax ~262 < 289 ⇒ ~27 m² blank). Such a
+    // floor honestly reads as having a SECOND guest suite, so let an allocated-1 ground
+    // take ONE more guest bedroom there (corridor-served, bounded ≤2 — far below the
+    // upper level, so "bedrooms live upstairs" still holds). Below ~270 m² this is a
+    // no-op (the well-behaved ~165 m² ground keeps its single guest bedroom, unchanged).
+    const xlGuestBeds = plateAreaM2 >= 270 ? 2 : 1;
     const bedCap = allocatedGroundBeds === 0
         ? largeGroundCap
-        : Math.max(1, allocatedGroundBeds);
+        : Math.max(1, Math.min(xlGuestBeds, allocatedGroundBeds + (xlGuestBeds - 1)));
 
     // A multi-storey ground always reads as a home with at least a guest bedroom +
     // a bath — even from an empty brief — so the public set isn't stretched across
@@ -124,6 +132,30 @@ function fillGroundPlate(program: ApartmentProgram, plateAreaM2: number): Apartm
     // second guest bedroom the cap allows so the ground gets real partitions.
     const scaled = scaleProgramToShell(floored, plateAreaM2, 'ground');
     const groundBeds = Math.min(bedCap, Math.max(floored.bedrooms, scaled.bedrooms));
+
+    // §HOUSE-GROUND-PUBLIC-SET (A.21.D28 #4, 2026-06-11) — the ROOT cause of the
+    // multi-storey ground BLANK: the ground's bedrooms live UPSTAIRS, so growing the
+    // guest-bedroom count alone (above) cannot lift the programme toward a large plate
+    // — its grossTarget is FLAT (~91 m²) regardless of plate size, so §HOUSE-MAX-CAP
+    // clamps `presented = min(plate, grossMax≈218)` and the rest is BLANK on plates
+    // > ~218 m² (numerically: 32 m² blank @ 250, 71 @ 289). Raising the cap alone
+    // re-creates the "167 m² Living blob" (few rooms, big area). The architecturally
+    // correct fill for a large GROUND floor is MORE PUBLIC/SERVICE rooms — a study
+    // (home office) + a utility/laundry — NOT more bedrooms. Both are CORRIDOR-SERVED
+    // (study.accessFrom + utility.accessFrom include 'corridor'), so the corridor
+    // carve/comb reaches them exactly like a bedroom and they NEVER seal. They grow the
+    // band's grossTarget (storeyRoomTypes mirrors the mint) so the cap presents more of
+    // the plate WITHOUT ballooning the existing rooms.
+    //
+    // Thresholds are deterministic + bounded, keyed off the plate area (a denser
+    // ground than the apartment because the storey holds only the public set):
+    //   ≥ ~200 m² → add a study   (a large ground legitimately reads as having an office)
+    //   ≥ ~240 m² → add a utility (and a laundry/utility for a still-larger floor)
+    // A normal ~165 m² ground gets NEITHER (byte-identical to the well-behaved case),
+    // and the apartment path never calls fillGroundPlate at all.
+    const addStudy = plateAreaM2 >= 200;
+    const addUtility = plateAreaM2 >= 240;
+
     return {
         ...floored,
         bedrooms: groundBeds,
@@ -133,6 +165,11 @@ function fillGroundPlate(program: ApartmentProgram, plateAreaM2: number): Apartm
         // (mirrors `allocateProgramToStoreys`, which keeps masterEnSuite false on
         // the ground role).
         masterEnSuite: false,
+        // §HOUSE-GROUND-PUBLIC-SET — grow the PUBLIC room set on a large plate. Never
+        // turn a user-stated flag OFF (only OR-in): a brief that already asked for a
+        // study/utility keeps it.
+        includeStudy: floored.includeStudy === true || addStudy,
+        includeUtility: floored.includeUtility === true || addUtility,
     };
 }
 
