@@ -156,6 +156,15 @@ const DEFAULT_STYLE: CanonicalStyle = 'nordic';
 const UPHOLSTERED = new Set<string>([
     'sofa', 'lounge_chair', 'bed', 'dining_chair', 'desk_chair', 'entry_bench',
     'vanity_stool', 'armchair', 'bench', 'ottoman', 'stool',
+    // §67.2 / §67.3 (2026-06-11) — the L-shape corner sofa + the integrated bed
+    // variants read the upholstery palette (fabric), like the straight sofa/bed.
+    'corner_sofa', 'nordic_bed', 'solid_wood_bed',
+]);
+
+// §67.1 (2026-06-11) — soft furnishings (rugs). Read the 'soft' palette slot →
+// a fabric finish in a soft accent colour, distinct from upholstery.
+const SOFT_KINDS = new Set<string>([
+    'rug',
 ]);
 
 const TABLE_KINDS = new Set<string>([
@@ -188,6 +197,7 @@ export function normaliseStyle(s: unknown): CanonicalStyle {
 /** Map a furniture `kind` to its finish category. */
 function categoryFor(kind: string): FinishCategory {
     if (MIRROR_KINDS.has(kind)) return 'mirror';
+    if (SOFT_KINDS.has(kind)) return 'soft';
     if (UPHOLSTERED.has(kind)) return 'upholstery';
     if (TABLE_KINDS.has(kind)) return 'table';
     if (WOOD_KINDS.has(kind)) return 'wood';

@@ -163,6 +163,24 @@ const FP: Readonly<Record<FurnitureKind, Footprint>> = {
     //     Cross-room; archetype places TWO per rod (left + right) via count: 2.
     curtain_rod:      { w: 2.00, l: 0.04, h: 0.04, baseOffset: 2.40, clearFront: 0.00, clearSides: 0.00 },
     curtain_panel:    { w: 1.00, l: 0.05, h: 2.40, baseOffset: 0,    clearFront: 0.00, clearSides: 0.00 },
+    // §67.1 (2026-06-11) — soft-furnishing RUG. A thin flat rug (1.60 × 2.30 m)
+    // sitting ON the floor (baseOffset 0, h 0.02). ZERO clearances + collision-
+    // EXEMPT (placeSolver `under` anchor): it underlaps the bed / dining table /
+    // sofa it is laid beneath, so it must NOT reserve space or block placement.
+    // The engine resizes it at placement to fit under the leader.
+    rug:              { w: 1.60, l: 2.30, h: 0.02, baseOffset: 0, clearFront: 0.00, clearSides: 0.00 },
+    // §67.3 (2026-06-11) — L-shape / corner sofa. `w` (2.60 m) is the main run
+    // along the anchor wall; `l` (2.00 m) is the side run's depth into the room.
+    // clearFront 0.45 (like the straight sofa) keeps the coffee-table / walkway
+    // zone; clearSides 0.10. Mirrors the geometry-furniture CornerSofaBuilder
+    // (width = main run, length = side run).
+    corner_sofa:      { w: 2.60, l: 2.00, h: 0.85, baseOffset: 0, clearFront: 0.45, clearSides: 0.10 },
+    // §67.2 (2026-06-11) — bed variety. The integrated set's variant beds. Sized
+    // to the BedFactory presets (nordic 1.80 × 2.20, solid_wood 1.75 × 2.20) with
+    // the plain `bed`'s circulation clearances (0.80 foot, 0.60 sides). The
+    // plain `bed` footprint above stays the rules-DB-pinned 1.35 × 1.90.
+    nordic_bed:       { w: 1.80, l: 2.20, h: 0.50, baseOffset: 0, clearFront: 0.80, clearSides: 0.60 },
+    solid_wood_bed:   { w: 1.75, l: 2.20, h: 0.55, baseOffset: 0, clearFront: 0.80, clearSides: 0.60 },
 };
 
 /** Footprint for a furniture kind (always defined for supported kinds). */

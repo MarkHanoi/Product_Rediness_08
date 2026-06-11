@@ -238,6 +238,7 @@ export const FURNITURE_TYPE_TO_MATERIAL_INTENT: Readonly<Record<FurnitureType, F
     'parametric_chevron_carpet':    'fabric-soft',
     'parametric_patchwork_carpet':  'fabric-soft',
     'parametric_stripe_carpet':     'fabric-soft',
+    'rug':                          'fabric-soft', // §67.1 — auto-furnish rug
 
     // ── Curtains + window dressing ────────────────────────────────────
     'curtain_rod':                  'metal-cool',

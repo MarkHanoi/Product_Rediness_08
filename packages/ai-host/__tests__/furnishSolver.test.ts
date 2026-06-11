@@ -34,6 +34,13 @@ const rectOf = (p: { position: { x: number; z: number }; footprint: { w: number;
 // runs them through its collision set; the floor-plan sanity check mirrors that by
 // exempting any pair where one item RESTS ON the other (higher Y + its centre lies
 // within the other's rect).
+// §67.2 (2026-06-11) — bed variety: a bedroom may carry the plain `bed` OR an
+// integrated variant bed (nordic_bed / solid_wood_bed). All read as "a bed".
+const isBed = (k: string): boolean => k === 'bed' || k === 'nordic_bed' || k === 'solid_wood_bed';
+// §67.1 (2026-06-11) — a rug is laid UNDER the bed / table / sofa; it is
+// collision-EXEMPT by design (it underlaps the furniture above it) so the
+// floor-plan overlap sanity check must skip any pair involving a rug.
+const isRug = (k: string): boolean => k === 'rug';
 const restsOn = (a: ReturnType<typeof furnishRoom>[number], b: ReturnType<typeof furnishRoom>[number]): boolean => {
     if (a.position.y <= b.position.y + 1e-6) return false;        // a must be above b
     const rb = rectOf(b);
@@ -45,6 +52,7 @@ const assertSane = (items: ReturnType<typeof furnishRoom>, poly: Pt[]): void => 
     for (let i = 0; i < rects.length; i++)
         for (let j = i + 1; j < rects.length; j++) {
             if (restsOn(items[i]!, items[j]!) || restsOn(items[j]!, items[i]!)) continue;
+            if (isRug(items[i]!.kind) || isRug(items[j]!.kind)) continue;   // §67.1 rug is collision-exempt
             expect(rectsOverlap(rects[i]!, rects[j]!)).toBe(false);
         }
 };
@@ -53,18 +61,21 @@ describe('furnishRoom (D-FLE F5/F7)', () => {
     it('bedroom: bed + bedside tables (+wardrobe), all inside, non-overlapping', () => {
         const room = rectRoom('bedroom', 4, 3);
         const items = furnishRoom(room);
-        expect(items.some(i => i.kind === 'bed')).toBe(true);
+        expect(items.some(i => isBed(i.kind))).toBe(true);
         expect(items.filter(i => i.kind === 'bedside_table').length).toBeGreaterThanOrEqual(1);
         assertSane(items, room.polygon as Pt[]);
         // bed is against the FAR wall (opposite the door on z=0) → bed z well above 0
-        const bed = items.find(i => i.kind === 'bed')!;
+        const bed = items.find(i => isBed(i.kind))!;
         expect(bed.position.z).toBeGreaterThan(1.0);
     });
 
     it('living-room: sofa + coffee table, sane', () => {
+        // §67.3 (2026-06-11) — a 5 × 4 (20 m²) living room is large enough that
+        // the engine prefers the L-shape corner sofa over the straight sofa.
+        const isSofa = (k: string): boolean => k === 'sofa' || k === 'corner_sofa';
         const room = rectRoom('living-room', 5, 4);
         const items = furnishRoom(room);
-        expect(items.some(i => i.kind === 'sofa')).toBe(true);
+        expect(items.some(i => isSofa(i.kind))).toBe(true);
         assertSane(items, room.polygon as Pt[]);
     });
 
@@ -140,7 +151,7 @@ describe('furnishRoom (D-FLE F5/F7)', () => {
         it('a 30°-rotated bedroom still places the bed + bedsides (AABB solver would drop them)', () => {
             const room = rotatedRoom('bedroom', 4, 3, Math.PI / 6);
             const items = furnishRoom(room);
-            expect(items.some(i => i.kind === 'bed')).toBe(true);
+            expect(items.some(i => isBed(i.kind))).toBe(true);
             expect(items.length).toBeGreaterThanOrEqual(3); // bed + ≥1 bedside (+ wardrobe)
             // every placed item's centre lies inside the rotated polygon
             for (const it of items)
@@ -174,7 +185,7 @@ describe('furnishRoom (D-FLE F5/F7)', () => {
 
         it('bedroom bed never anchors on the window wall', () => {
             const room = windowOppositeDoor(4, 3);
-            const bed = furnishRoom(room).find(i => i.kind === 'bed');
+            const bed = furnishRoom(room).find(i => isBed(i.kind));
             expect(bed).toBeDefined();
             // A bed against the window wall (z = 3) has centre z ≈ 3 − 1.9/2 ≈ 2.05.
             // A side-wall placement puts the centre near the room z-midpoint (1.5).
@@ -253,7 +264,7 @@ describe('furnishRoom (D-FLE F5/F7)', () => {
                 windows: [{ type: 'window', center: { x: 2, z: 3 }, normal: { x: 0, z: -1 }, width: 1.5 }],
             };
             const items = furnishRoom(room);
-            expect(items.some(i => i.kind === 'bed')).toBe(true);
+            expect(items.some(i => isBed(i.kind))).toBe(true);
             expect(items.some(i => i.kind === 'wardrobe')).toBe(true);
         });
     });

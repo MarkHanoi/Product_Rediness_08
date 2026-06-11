@@ -18,6 +18,10 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
             // wall WITHOUT the door (you don't sleep next to the door swing).
             { kind: 'bed', anchor: 'wall-opposite-door', facing: 'to-wall', required: true, group: 'bed', excludeWindowWall: true, excludeDoorSwing: true },
             { kind: 'bedside_table', anchor: 'beside', facing: 'to-wall', required: true, group: 'bed', count: 2 },
+            // §67.1 (2026-06-11) — a rug in FRONT OF / under the bed (centred on
+            // the bed via the 'under' anchor). Collision-EXEMPT: it underlaps the
+            // bed + bedside tables. Placed after the bed so it reads the bed pose.
+            { kind: 'rug', anchor: 'under', facing: 'to-wall', required: false, group: 'bed' },
             { kind: 'wardrobe', anchor: 'wall-longest', facing: 'to-wall', required: true, excludeWindowWall: true, excludeDoorSwing: true },
             // F1.12 (2026-05-30) — Bedroom dressing. Dresser on longest free
             // wall (yields to the wardrobe); vanity_table beside the window
@@ -59,6 +63,10 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
             // is the entry path; the sofa anchors on the opposite/long wall.
             { kind: 'sofa', anchor: 'wall-longest', facing: 'into-room', required: true, group: 'sofa', excludeDoorSwing: true },
             { kind: 'coffee_table', anchor: 'beside', facing: 'into-room', required: false, group: 'sofa' },
+            // §67.1 (2026-06-11) — a rug in FRONT OF the sofa / under the coffee
+            // table (centred on the sofa group via the 'under' anchor). Collision-
+            // EXEMPT — it underlaps the sofa + coffee table.
+            { kind: 'rug', anchor: 'under', facing: 'into-room', required: false, group: 'sofa' },
             // F1.3 (2026-05-30) — Media wall (S1 activity system anchor).
             // The TV unit anchors on the wall opposite the sofa (the "media
             // wall"), excluding the window wall (no daylight glare on the
@@ -124,6 +132,10 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
         items: [
             { kind: 'dining_table', anchor: 'center', facing: 'into-room', required: true, group: 'dining' },
             { kind: 'dining_chair', anchor: 'beside', facing: 'into-room', required: false, group: 'dining', count: 4 },
+            // §67.1 (2026-06-11) — a rug UNDER the dining table (centred on the
+            // table via the 'under' anchor). Collision-EXEMPT — it underlaps the
+            // table + chairs (the classic "anchor the dining zone" rug).
+            { kind: 'rug', anchor: 'under', facing: 'into-room', required: false, group: 'dining' },
             // F1.9 (2026-05-30) — Dining-room storage. Sideboard preferred
             // over buffet (lower profile reads better against the dining
             // table's silhouette). Both anchor on the longest free wall.

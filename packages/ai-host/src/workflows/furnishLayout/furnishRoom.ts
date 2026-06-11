@@ -13,6 +13,10 @@ import { placeRoom, placeRoomMulti } from './placeSolver.js';
 import { planKitchen, planKitchenRun, normaliseKitchenLayout, type KitchenLayout } from './kitchenLayout.js';
 import { planWardrobe, normaliseWardrobeLayout, type WardrobeLayout } from './wardrobeLayout.js';
 import { placeBedsideLamps } from './bedsideLamps.js';
+import {
+    chooseBedSet, applyBedSet, integratedSetUsesInlineLamps, placeIntegratedBedLamps,
+} from './bedVariety.js';
+import { preferCornerSofa, polygonExtent, applyCornerSofa } from './sofaVariety.js';
 import type { FurnishRoomInput, PlacedFurniture } from './types.js';
 
 /** A.21.D20 — per-run furnishing options (sourced from the typology brief).
@@ -39,15 +43,33 @@ export function furnishRoom(input: FurnishRoomInput, options: FurnishOptions = {
         if (run.length > 0) return run;
         return planKitchen(input, kl, { washingMachine: !!options.kitchenWashingMachine });
     }
-    const archetype = archetypeFor(input.occupancy);
-    if (!archetype || archetype.items.length === 0) return [];
+    const baseArchetype = archetypeFor(input.occupancy);
+    if (!baseArchetype || baseArchetype.items.length === 0) return [];
+
+    // §67.2 (2026-06-11) — bedroom bed variety: pick a coherent bed set per room
+    // (deterministic by room id). §67.3 — living-room L-sofa: swap the straight
+    // sofa for a corner sofa when the room is large enough and one fits.
+    let archetype = baseArchetype;
+    let bedSet: ReturnType<typeof chooseBedSet> | null = null;
+    if (input.occupancy === 'bedroom') {
+        bedSet = chooseBedSet(input.roomId);
+        archetype = applyBedSet(baseArchetype, bedSet, input.roomId);
+    } else if (input.occupancy === 'living-room') {
+        const ext = polygonExtent(input.polygon);
+        archetype = applyCornerSofa(baseArchetype, preferCornerSofa(input.areaM2, ext.w, ext.d));
+    }
+
     const placed = placeRoom(input, archetype);
     if (input.occupancy === 'bedroom') {
         const withWardrobe = withWardrobePlan(input, placed, normaliseWardrobeLayout(options.wardrobeLayout));
-        // Bedside lamps sit ON the bedside tables (realism: a ceiling fixture
-        // alone reads cold). Placed last so they ride the final bedside-table
-        // positions; never on the floor → no circulation/collision impact.
-        return [...withWardrobe, ...placeBedsideLamps(input, withWardrobe)];
+        // §67.2 CONSISTENCY GUARD — place lamps from EXACTLY ONE source so a
+        // bedroom never gets double nightstand lamps:
+        //   • integrated set → inline lamps here (bedsideLamps.ts suppressed),
+        //   • separate set   → bedsideLamps.ts (the existing default).
+        const lamps = bedSet && integratedSetUsesInlineLamps(bedSet)
+            ? placeIntegratedBedLamps(input, withWardrobe)
+            : placeBedsideLamps(input, withWardrobe);
+        return [...withWardrobe, ...lamps];
     }
     return placed;
 }

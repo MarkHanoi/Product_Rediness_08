@@ -213,6 +213,10 @@ export class FurnitureFactory {
             case 'parametric_chevron_carpet':   return new ChevronCarpetBuilder(materialService);
             case 'parametric_patchwork_carpet': return new PatchworkCarpetBuilder(materialService);
             case 'parametric_stripe_carpet':    return new StripeCarpetBuilder(materialService);
+            // §67.1 (2026-06-11) — the auto-furnish semantic `rug` kind. Routes
+            // to the patchwork carpet builder (a soft, broadly-liked flat rug);
+            // the thin profile + dimensions come from the FurnitureData footprint.
+            case 'rug':                          return new PatchworkCarpetBuilder(materialService);
 
             case 'wardrobe':           return { build: () => new THREE.Group() };
             case 'wardrobe_glass_door': return new WardrobeGlassBuilder(materialService);

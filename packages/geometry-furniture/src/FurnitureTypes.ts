@@ -185,6 +185,12 @@ export type FurnitureType =
     | 'parametric_chevron_carpet'
     | 'parametric_patchwork_carpet'
     | 'parametric_stripe_carpet'
+    // ── §67.1 (2026-06-11) — auto-furnish soft-furnishing RUG. A thin flat
+    // rug the D-FLE engine lays UNDER the bed / dining table / sofa+coffee
+    // table (floor z-order, collision-exempt). Routes to a carpet builder in
+    // FurnitureFactory. Distinct from the manual `parametric_*_carpet`
+    // drag-and-drop variants (this is the archetype-placed semantic kind).
+    | 'rug'
     // ── Japanese Bed Collection (parametric — BedEngine) ──────────────────────
     | 'japanese_platform_bed'
     | 'japanese_float_bed'

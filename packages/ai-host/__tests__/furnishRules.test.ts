@@ -241,7 +241,10 @@ describe('furnishRoom places the bedroom program', () => {
         // — both bedside tables then flank the bed head without colliding the wardrobe.
         const placed = furnishRoom(bedroom(3.6, 5.2));
         const kinds = placed.map(p => p.kind);
-        expect(kinds).toContain('bed');
+        // §67.2 (2026-06-11) — bed variety: the bedroom may carry the plain `bed`
+        // OR an integrated variant bed (nordic_bed / solid_wood_bed).
+        const isBed = (k: string): boolean => k === 'bed' || k === 'nordic_bed' || k === 'solid_wood_bed';
+        expect(kinds.some(isBed)).toBe(true);
         expect(kinds.filter(k => k === 'bedside_table').length).toBe(2);
         expect(kinds).toContain('wardrobe');
         expect(kinds).toContain('lamp');

@@ -19,6 +19,16 @@ const SLIDE_STEP = 0.25;
 const add = (a: Pt, b: Pt, s = 1): Pt => ({ x: a.x + b.x * s, z: a.z + b.z * s });
 const perp = (n: Pt): Pt => ({ x: n.z, z: -n.x });   // wall direction from inward normal
 
+/** §67.2 — every bed-like kind (plain `bed` + the integrated variant beds) so
+ *  bedside tables flank them and rugs centre under them identically. */
+const BED_KINDS = new Set<PlacedFurniture['kind']>(['bed', 'nordic_bed', 'solid_wood_bed']);
+const isBedKind = (k: PlacedFurniture['kind']): boolean => BED_KINDS.has(k);
+
+/** §67.3 — every sofa-like kind (straight `sofa` + the L-shape `corner_sofa`) so
+ *  the coffee table sits in front and the rug centres in front identically. */
+const SOFA_KINDS = new Set<PlacedFurniture['kind']>(['sofa', 'corner_sofa']);
+const isSofaKind = (k: PlacedFurniture['kind']): boolean => SOFA_KINDS.has(k);
+
 /** Door swing / keep-clear obstacle quads (in front of each door). */
 function doorObstacles(input: FurnishRoomInput): Quad[] {
     return input.doors.map(d => {
@@ -149,14 +159,14 @@ function placeBeside(spec: FurnitureItemSpec, leader: Placement, input: FurnishR
         if (p) { out.push(p); obstacles.push(p.quad); }
     };
 
-    if (L.kind === 'bed') {
+    if (isBedKind(L.kind)) {
         // flank the bed head (at the wall) with up to `count` bedside tables
         const wallPt = add({ x: L.position.x, z: L.position.z }, n, -L.footprint.l / 2);
         const headCtr = add(wallPt, n, fp.l / 2 + GAP);
         const side = L.footprint.w / 2 + fp.w / 2 + GAP;
         const slots = [side, -side].slice(0, count);
         for (const s of slots) tryPush(add(headCtr, d, s), L.rotationY);
-    } else if (L.kind === 'sofa') {
+    } else if (isSofaKind(L.kind)) {
         // coffee table in front of the sofa, toward the room
         const c = add({ x: L.position.x, z: L.position.z }, n, L.footprint.l / 2 + 0.35 + fp.l / 2);
         tryPush(c, L.rotationY);
@@ -180,6 +190,74 @@ function placeBeside(spec: FurnitureItemSpec, leader: Placement, input: FurnishR
         tryPush(add({ x: L.position.x, z: L.position.z }, n, L.footprint.l / 2 + 0.1 + fp.l / 2), L.rotationY + Math.PI);
     }
     return out;
+}
+
+/**
+ * §67.1 (2026-06-11) — place a RUG UNDER its group leader (bed / dining_table /
+ * sofa). The rug is centred on the leader, inherits the leader's yaw, and is
+ * sized to sit beneath the leader + its dependents (a rug reads as the zone
+ * anchor: it extends past the bed foot, past the dining chairs, in front of the
+ * sofa). Collision-EXEMPT: the rug underlaps the furniture above it, so it is
+ * NEITHER tested against obstacles NOR added as one — it must never block a
+ * placement or count against circulation. We DO clamp it inside the room
+ * polygon (shrinking if a full rug would poke outside) so it never spills past a
+ * wall. Pure + deterministic.
+ */
+function placeUnder(
+    spec: FurnitureItemSpec, leader: Placement, input: FurnishRoomInput,
+): Placement | null {
+    const fpBase = footprintOf(spec.kind);
+    const L = leader.item;
+    const n: Pt = { x: Math.sin(L.rotationY), z: Math.cos(L.rotationY) };  // leader inward normal
+    const yaw = L.rotationY;
+
+    // Target rug extent: cover the leader generously (the rug "anchors the zone").
+    //   • bed: a touch wider than the bed, extending well past the foot.
+    //   • dining_table: cover the table + the chair ring.
+    //   • sofa: in front of the sofa (under the coffee table), sofa-width.
+    let targetW: number;
+    let targetL: number;
+    if (L.kind === 'dining_table') {
+        targetW = L.footprint.w + 1.4;       // table + chairs on both sides
+        targetL = L.footprint.l + 1.4;
+    } else if (isSofaKind(L.kind)) {
+        targetW = L.footprint.w;             // sofa width
+        targetL = Math.max(fpBase.l, L.footprint.l + 0.9);   // reach in front
+    } else {
+        // bed (or any other leader): wider than the bed, past the foot.
+        targetW = L.footprint.w + 0.5;
+        targetL = L.footprint.l + 0.7;
+    }
+
+    // Centre: dining/bed → on the leader centroid; sofa → shifted toward the room
+    // so the rug sits in FRONT of the sofa (under the coffee table), not under it.
+    let cx = L.position.x;
+    let cz = L.position.z;
+    if (isSofaKind(L.kind)) {
+        const shift = L.footprint.l / 2 + 0.35;   // ~coffee-table gap
+        cx += n.x * shift;
+        cz += n.z * shift;
+    }
+
+    // Clamp inside the polygon: shrink the rug (keeping its centre + aspect) until
+    // its oriented quad fits. Deterministic fixed shrink ladder — never RNG.
+    for (let scale = 1.0; scale >= 0.4 - 1e-9; scale -= 0.1) {
+        const w = targetW * scale;
+        const l = targetL * scale;
+        const quad = footprintCorners(cx, cz, w, l, yaw);
+        if (quadInPolygon(quad, input.polygon)) {
+            const footprint = { ...fpBase, w, l };
+            return {
+                item: {
+                    kind: spec.kind,
+                    position: { x: cx, y: input.levelElevation + fpBase.baseOffset, z: cz },
+                    rotationY: yaw, footprint, hostedSpaceId: input.roomId,
+                },
+                quad,
+            };
+        }
+    }
+    return null;
 }
 
 /** Corner candidates (room bbox corners inset by half the footprint). The
@@ -222,6 +300,17 @@ function applyArchetype(
             const leader = spec.group ? leaders.get(spec.group) : undefined;
             if (!leader) continue;       // leader couldn't place → drop the dependents
             for (const p of placeBeside(spec, leader, input, obstacles)) added.push(p);
+            continue;
+        }
+        if (spec.anchor === 'under') {
+            // §67.1 — RUG under its leader. Collision-EXEMPT: it is placed by the
+            // leader pose only and is NEITHER overlap-tested NOR pushed onto the
+            // obstacle set (it underlaps the furniture above it). Dropped if no
+            // leader placed (nothing to sit under).
+            const leader = spec.group ? leaders.get(spec.group) : undefined;
+            if (!leader) continue;
+            const rug = placeUnder(spec, leader, input);
+            if (rug) added.push(rug);    // intentionally NOT added to `obstacles`
             continue;
         }
         let p: Placement | null = null;

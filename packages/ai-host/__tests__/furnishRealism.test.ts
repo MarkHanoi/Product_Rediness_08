@@ -138,8 +138,9 @@ describe('realism gap 2 — wardrobe sized to the room', () => {
 
     it('the wardrobe never overlaps the bed / bedside tables', () => {
         const placed = furnishRoom(rectRoom('bedroom', 4.5, 6.0));
+        const isBed = (k: string): boolean => k === 'bed' || k === 'nordic_bed' || k === 'solid_wood_bed';
         const wardrobes = placed.filter(p => p.kind === 'wardrobe').map(rectOf);
-        const others = placed.filter(p => p.kind === 'bed' || p.kind === 'bedside_table').map(rectOf);
+        const others = placed.filter(p => isBed(p.kind) || p.kind === 'bedside_table').map(rectOf);
         for (const w of wardrobes) {
             for (const o of others) {
                 expect(rectsOverlap(w, o)).toBe(false);

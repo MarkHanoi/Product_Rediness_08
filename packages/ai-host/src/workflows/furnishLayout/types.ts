@@ -85,7 +85,21 @@ export type FurnitureKind =
     // F1.11 (2026-05-30) — curtain primitives. Cross-room; placed on
     // every exterior-window wall by the auto-pipeline.
     // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §F1.11)
-    | 'curtain_rod' | 'curtain_panel';
+    | 'curtain_rod' | 'curtain_panel'
+    // §67.1 (2026-06-11) — soft-furnishing RUG. A thin flat rug laid UNDER the
+    // bed / dining table / sofa+coffee table. Floor z-order, collision-EXEMPT
+    // (it underlaps the furniture it sits beneath; it must not block placement
+    // or circulation). Routes to a carpet builder in geometry-furniture.
+    | 'rug'
+    // §67.3 (2026-06-11) — L-shape / corner sofa. The living-room archetype
+    // picks this (instead of the straight `sofa`) when the room is large enough
+    // to seat an L in a corner. Routes to CornerSofaBuilder.
+    | 'corner_sofa'
+    // §67.2 (2026-06-11) — bed variety. The integrated bedroom set uses a
+    // BedFactory variant bed (these route to JapaneseBedBuilder in the
+    // geometry catalogue) instead of the plain `bed`. The choice is per-room
+    // deterministic (see bedVariety.ts) so different bedrooms read distinct.
+    | 'nordic_bed' | 'solid_wood_bed';
 
 /** Editor RoomOccupancyType values this engine furnishes (subset).
  *  F3.5 (2026-05-30): + 'wc' for the cloakroom-toilet archetype (uses the
@@ -116,7 +130,12 @@ export type Anchor =
     | 'wall-longest'         // longest free wall segment
     | 'wall-opposite-door'   // wall most opposite the primary door
     | 'wall-window'          // wall carrying a window (prefer S-facing)
-    | 'corner' | 'center' | 'beside';
+    | 'corner' | 'center' | 'beside'
+    // §67.1 (2026-06-11) — RUG anchor: lay the item CENTRED on its group leader
+    // (bed / dining_table / sofa), inheriting the leader's yaw. Collision-EXEMPT
+    // — the rug underlaps the leader (and its bedside tables / chairs / coffee
+    // table), so it is neither tested against obstacles nor added as one.
+    | 'under';
 
 /** One item in an archetype (placed in order; later items yield to earlier). */
 export interface FurnitureItemSpec {

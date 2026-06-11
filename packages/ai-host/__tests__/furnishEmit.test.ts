@@ -151,8 +151,12 @@ describe('A.21.D4 — style → furniture finish', () => {
         const items = furnishRoom(rectRoom('bedroom', 4, 3));
         const modern = buildFurnishCommands(items, 'L0', 0, mk(), 'modern');
         const classic = buildFurnishCommands(items, 'L0', 0, mk(), 'classic');
-        const bedM = modern.commands.find((c) => payload(c).furnitureType === 'bed');
-        const bedC = classic.commands.find((c) => payload(c).furnitureType === 'bed');
+        // §67.2 (2026-06-11) — the bedroom may carry the plain `bed` OR an
+        // integrated variant bed (nordic_bed / solid_wood_bed). Match whichever.
+        const isBed = (ft: unknown): boolean =>
+            ft === 'bed' || ft === 'nordic_bed' || ft === 'solid_wood_bed';
+        const bedM = modern.commands.find((c) => isBed(payload(c).furnitureType));
+        const bedC = classic.commands.find((c) => isBed(payload(c).furnitureType));
         expect(bedM).toBeDefined();
         expect(bedC).toBeDefined();
         expect(payload(bedM!).color).not.toBe(payload(bedC!).color);
