@@ -1779,6 +1779,33 @@ export function subdivideWithReport(
             // drops FEWER programme rooms; on a tie we keep the CARVE (its corridor spine
             // is what fixes the central-stair merged blob). This preserves the vertical
             // programme (master + en-suite stay placed) without abandoning the spine.
+            if (carved !== null && carved.droppedRooms.length === 0) {
+                // The whole-programme carve fits with ZERO drops — keep it exactly as before
+                // (byte-identical). The original code ran packMultiRect and picked
+                // `genericDrops < carvedDrops`; with carvedDrops=0 that is always false, so
+                // the carve always wins — we short-circuit to the identical result.
+                const generic = packMultiRect(valid, graph);
+                const genericDrops = generic.droppedRooms.length;
+                console.log(`[D-TGL subdivide] §DIAG-BRANCH dominant-carve eligible: carveDrops=0 genericDrops=${genericDrops} → picked carve`);
+                return finalise(carved);
+            }
+            // §STAIR-SPANNING-CORRIDOR (tracker §52.3 / §52.6, 2026-06-11) — the
+            // whole-programme dominant carve is INFEASIBLE (null: the dominant band is too
+            // shallow for the 3-zone strip) OR it DROPS a room. The old code then either
+            // squarified the dominant rect (dropping + sealing) or fell to the generic
+            // per-fragment pack (no corridor across fragment boundaries → the room in a
+            // non-corridor fragment SEALS — the last §52.6 land-lock; bathroom.accessFrom =
+            // ['corridor'] ONLY, no chain rescues it). BEFORE that, try the SPANNING corridor:
+            // carve only the circulation-DEPENDENT cluster (corridor + private/service rooms)
+            // in the dominant rect and relocate the PUBLIC rooms (which chain to the entry,
+            // never need the corridor) into the other fragments — so EVERY habitable room
+            // reaches the corridor WITHOUT dropping one. Only fires with 0 drops + a real
+            // corridor; otherwise null ⇒ we keep the original behaviour below (no regression).
+            const spanning = tryStairSpanningCorridor(valid, graph, corridorWidthM);
+            if (spanning !== null) {
+                console.log(`[D-TGL subdivide] §DIAG-BRANCH whole-programme carve ${carved === null ? 'infeasible' : `would drop ${carved.droppedRooms.map(d => d.type).join(',')}`} → §STAIR-SPANNING-CORRIDOR rescued (0 drops, every dependent abuts the corridor)`);
+                return finalise(spanning);
+            }
             if (carved !== null) {
                 const generic = packMultiRect(valid, graph);
                 const carvedDrops = carved.droppedRooms.length;
@@ -1793,9 +1820,363 @@ export function subdivideWithReport(
             const packed = placeInRectReported(dominant, allocationOrder(graph.rooms));
             if (packed.placements.length > 0) return finalise(packed);
         }
+        // §STAIR-SPANNING-CORRIDOR (tracker §52.3 / §52.6, 2026-06-11) — the dominant
+        // rect did NOT clear the DOMINANT_FRACTION gate (the plate is genuinely split into
+        // comparable bands by a mid-edge stair), so the dominant-rect carve never ran and we
+        // are about to fall through to the generic per-fragment pack — which seals any
+        // private/service room outside the corridor fragment (the §52.6 land-lock). Try the
+        // spanning corridor FIRST: carve the circulation-dependent cluster in the LARGEST
+        // band and relocate the public rooms to the others. Only fires with 0 drops + a real
+        // corridor; otherwise null ⇒ the unchanged generic pack below (no regression).
+        const spanning = tryStairSpanningCorridor(valid, graph, corridorWidthM);
+        if (spanning !== null) {
+            console.log(`[D-TGL subdivide] §STAIR-SPANNING-CORRIDOR fired on the sub-dominant (generic) path (dominantFrac < gate) — every dependent abuts the corridor, 0 drops`);
+            return finalise(spanning);
+        }
     }
 
     return finalise(packMultiRect(valid, graph));
+}
+
+/**
+ * §SPAN-SPINE-CARVE (tracker §52.3 / §52.6, 2026-06-11) — carve a SHALLOW full-span band
+ * (a stair-fragment, e.g. 10 m × 3.95 m) as [public-zone | corridor-strip | private-zone]
+ * with the corridor running along the band's SHORT axis (the corridor is a FULL-DEPTH strip
+ * splitting the LONG axis). This is the key the existing carves miss: `tryCarveCorridor`
+ * always splits the SHORT axis (needs short ≥ strip + 2·2 m = 5.2 m), which a shallow band
+ * fails — but a wide band has ample run on its LONG axis, so a corridor laid ACROSS the long
+ * axis fits, and every private room combed off the corridor face spans the band's FULL depth
+ * (so a 2.6 m bedroom is never depth-starved on a 3.15–3.95 m band).
+ *
+ * Layout (band wider than tall ⇒ corridor is a vertical strip):
+ *   [ public columns | corridor (full-depth) | private columns combed off the corridor ]
+ * The corridor's strip spans the band's full depth, so its far edge sits ON the keep-out cut
+ * line → the side bands abut it too (a private room overflowed into a side band still reaches
+ * the corridor). Public rooms are squarified into the public zone (they only need to be
+ * non-sealed); private/service rooms are COMBED (each shares the corridor wall → a door).
+ *
+ * Returns null when: the band can't host the strip + a usable public + private zone, OR the
+ * private comb is infeasible, OR a room would drop. Pure + deterministic. No ensuite handling
+ * (the ground guest-suite has no ensuite; a spine carrying a master+ensuite falls through to
+ * the caller, which keeps the existing pick — never a regression).
+ */
+function trySpineBandCarve(
+    spine: Rect,
+    spineGraph: BubbleGraph,
+    corridorWidthM: number = CORRIDOR_STRIP_WIDTH_M,
+    // §SPAN-CUT-EDGE — which v-edge of the band faces the keep-out / the other fragments. The
+    // corridor strip is laid on THAT edge so it abuts the side fragments (a leftover public room
+    // in a side band then shares the corridor wall). For a bottom band the cut edge is v-MAX
+    // (toward the keep-out above it); for a top band it is v-MIN. Undefined ⇒ v-MAX (legacy).
+    cutAtVMax: boolean = true,
+): SubdivideResult | null {
+    const corridor = spineGraph.rooms.find(r => r.type === 'corridor');
+    if (!corridor) return null;
+    const publicRooms: ProgramRoom[] = [];
+    const privateRooms: ProgramRoom[] = [];
+    for (const r of spineGraph.rooms) {
+        if (r.id === corridor.id) continue;
+        const p = roomRule(r.type).privacy;
+        if (p === 'public' || p === 'circulation') publicRooms.push(r);
+        else privateRooms.push(r);
+    }
+    if (privateRooms.length === 0) return null;             // nothing to comb → not our case
+
+    const W = spine.x1 - spine.x0;
+    const H = spine.z1 - spine.z0;
+    // Work in a NORMALISED frame where `u` = the band's LONG axis (ample run) and `v` = its
+    // SHORT axis (the shallow depth). A wide band (W ≥ H) ⇒ u=x, v=z; a tall band ⇒ u=z, v=x.
+    // The corridor is laid as a strip running ALONG `u` (so it splits the SHORT `v` axis just
+    // ONCE, leaving a private comb zone), and the private rooms are combed along `u` off that
+    // strip — each private room keeps its full short-side along `u` (ample) and a slice of the
+    // remaining v-depth. The DEEP-needing public rooms (those whose floor exceeds the comb
+    // depth) take a FULL-DEPTH end column so they keep the band's whole short side `v`.
+    const wide = W >= H;
+    const uLen = wide ? W : H;      // long axis run
+    const vLen = wide ? H : W;      // short axis depth
+    const MIN_ZONE_DEPTH = 2.0;
+
+    // The private comb sits below the corridor strip ⇒ its depth = vLen − stripW. §SPAN-CORRIDOR-
+    // FIT — on a SHALLOW band the default 1.2 m strip can starve the comb below a private floor
+    // (e.g. a 3.75 m band − 1.2 = 2.55 < bedroom 2.6); narrow the strip toward the corridor's own
+    // architectural minimum (1.0 m) so the comb keeps the floor rather than failing. Never below
+    // a real corridor width. (A room that STILL exceeds combDepth becomes a full-depth column —
+    // see §SPAN-DEEP-PRIVATE / §SPAN-DEEP-PUBLIC below — so the strip never has to swallow it.)
+    const corridorMin = floorFor('corridor');               // 1.0 m
+    const stripW = Math.max(corridorMin, Math.min(corridorWidthM, vLen - corridorMin));
+    const combDepth = vLen - stripW;
+    if (combDepth < MIN_ZONE_DEPTH - EPS) return null;       // no usable comb depth at all
+
+    // A room whose floor exceeds the comb depth can ONLY sit at the band's FULL short-side
+    // depth (e.g. `living` needs 3.2 m, or a `bedroom` 2.6 m, on a band whose comb depth is
+    // 2.45 m). Such rooms take a full-`v`-depth end COLUMN. The rest are COMBED off the corridor
+    // (they keep a slice of the comb depth). Split each privacy class by depth need.
+    const isDeep = (r: ProgramRoom): boolean => floorFor(r.type) > combDepth + EPS;
+    const deepPrivate = privateRooms.filter(isDeep);
+    const combPrivate = privateRooms.filter(r => !isDeep(r));
+    const deepPublic = publicRooms.filter(isDeep);
+    const combPublic = publicRooms.filter(r => !isDeep(r));
+
+    // §SPAN-DEEP-PRIVATE — a deep PRIVATE room must still reach the corridor. It is placed as a
+    // full-depth column IMMEDIATELY past the corridor's u-end, so it abuts the corridor along
+    // the corridor's end edge (length = stripW ≥ a door width). Only the FIRST such column
+    // touches the corridor, so we can host AT MOST ONE deep private room this way; more than one
+    // would seal the rest → bail to the caller (no regression). Deep public rooms have no
+    // corridor requirement, so any number sit further along the column.
+    if (deepPrivate.length > 1) return null;
+    if (stripW < floorFor('corridor') - EPS) return null;   // corridor end edge too short for a door
+
+    // Run budget along `u`: corridor + combed rooms occupy [0, combRunU]; the deep columns
+    // (deep private FIRST so it abuts the corridor end, then deep public) occupy [combRunU, uLen]
+    // at full depth.
+    const deepRooms = [...deepPrivate, ...deepPublic];       // deep private first → abuts corridor end
+    const deepColRun = deepRooms.length > 0
+        ? Math.max(
+            deepRooms.reduce((s, r) => s + floorFor(r.type), 0),
+            Math.min(
+                deepRooms.reduce((s, r) => s + Math.max(EPS, r.targetAreaM2), 0),
+                deepRooms.reduce((s, r) => s + minAreaFor(r.type), 0),
+            ) / Math.max(EPS, vLen),
+          )
+        : 0;
+    const combRooms = [...combPrivate, ...combPublic];
+    const combRunMin = combRooms.reduce((s, r) => s + floorFor(r.type), 0);
+    // Need the comb run (≥ its floors) AND the deep column run on the long axis. The corridor
+    // strip sits over the comb run only; the deep column needs ≥ a door's worth of the corridor
+    // edge, already guaranteed by combRunMin > 0 (≥1 combed room) OR deepPrivate abutting.
+    if (combRooms.length === 0 && deepPrivate.length === 0) return null;   // nothing to comb/abut
+    if (deepColRun + Math.max(combRunMin, deepPrivate.length > 0 ? stripW : 0) > uLen + EPS) return null;
+
+    // Helper to build a Rect from normalised (u0,u1,v0,v1) coords.
+    const mk = (u0: number, u1: number, v0: number, v1: number): Rect => wide
+        ? { x0: spine.x0 + u0, z0: spine.z0 + v0, x1: spine.x0 + u1, z1: spine.z0 + v1 }
+        : { x0: spine.x0 + v0, z0: spine.z0 + u0, x1: spine.x0 + v1, z1: spine.z0 + u1 };
+
+    const combRunU = uLen - deepColRun;
+    // The corridor strip sits on the CUT edge (toward the keep-out) so it abuts the side
+    // fragments; the comb fills the rest of the v-depth on the perimeter side.
+    const corStripV0 = cutAtVMax ? vLen - stripW : 0;
+    const corStripV1 = cutAtVMax ? vLen : stripW;
+    const combV0 = cutAtVMax ? 0 : stripW;
+    const combV1 = cutAtVMax ? vLen - stripW : vLen;
+    const corridorRect = mk(0, combRunU, corStripV0, corStripV1);
+    const combZone = combRooms.length > 0 ? mk(0, combRunU, combV0, combV1) : null;
+    const deepZone = deepRooms.length > 0 ? mk(combRunU, uLen, 0, vLen) : null;
+
+    const out: RoomPlacement[] = [];
+    const droppedRooms: DroppedRoom[] = [];
+    out.push({ roomId: corridor.id, rect: roundRect(corridorRect) });
+
+    // Comb the {comb-private + comb-public} rooms off the corridor strip along `u`. §SPAN-COMB-
+    // ORDER — PRIVATE rooms sit at the corridor-START end, PUBLIC comb rooms (hall) at the
+    // DEEP-COLUMN end, so a deep PUBLIC room (living) abuts the comb's public tail (hall) — a
+    // permitted living↔hall threshold — as well as its short corridor-end edge. Each combed
+    // room shares the corridor's long edge → a corridor-adjacent wall → a door.
+    if (combZone && combRooms.length > 0) {
+        const combFaceAxis: 'x' | 'z' = wide ? 'x' : 'z';
+        const combPriv = adjacencySortForZone(allocationOrder(combPrivate));
+        const combPub = adjacencySortForZone(allocationOrder(combPublic));
+        const orderedComb = [...combPriv, ...combPub];      // private near corridor start, public near deep column
+        const comb = sliceZoneAlongFace(combZone, orderedComb, combFaceAxis);
+        if (!comb || comb.droppedRooms.length > 0) return null;
+        out.push(...comb.placements);
+    }
+
+    // Deep columns into the full-depth end column. §SPAN-DEEP-ORDER — deep PRIVATE first
+    // (adjacent to the corridor end so it abuts the corridor over the stripW edge), then deep
+    // public. A single deep public room (living) lands against the comb's public tail (hall),
+    // giving it a permitted threshold even when its corridor-end edge is short.
+    if (deepZone && deepRooms.length > 0) {
+        const dp = placeInRectReported(deepZone, deepRooms);    // order preserved: deep private first
+        if (dp.droppedRooms.length > 0) return null;
+        out.push(...dp.placements);
+    }
+    return { placements: out, droppedRooms };
+}
+
+/**
+ * §STAIR-SPANNING-CORRIDOR (tracker §52.3 / §52.6, 2026-06-11) — the last sealed-room
+ * case: a STAIR-FRAGMENTED multi-storey GROUND plate. The stair keep-out guillotines
+ * the plate into a frame of sub-rects (e.g. a full-width bottom band + a full-width top
+ * band + two side bands) where NO single fragment fits the whole ground programme. The
+ * §STAIR-CARVE-NO-DROP decision then picks the generic `packMultiRect` (which would drop
+ * fewer rooms than squeezing everything into the dominant rect) — but generic packs each
+ * fragment INDEPENDENTLY with no corridor crossing fragment boundaries, so the rooms that
+ * land in a non-corridor fragment share no wall with the corridor → SEALED +
+ * §TOPO-HARD-REJECT [circulation] (bathroom.accessFrom = ['corridor'] ONLY — no chain can
+ * rescue it).
+ *
+ * THE FIX — DO NOT cram the whole programme into one fragment (drops rooms / blobs). Split
+ * the programme by circulation NEED:
+ *   • DEPENDENTS = the corridor + every private/service room (bedroom/bathroom/wc/study/
+ *     utility/master/ensuite) — the rooms that need a corridor-adjacent wall for their door.
+ *   • OTHERS = the public rooms (living/kitchen/dining) + the hall — which reach the entry
+ *     by a PERMITTED door chain (public↔public↔hall) and never need the corridor directly,
+ *     so they are NEVER in `unroutedToCirculationRoomIds` (they only must not be SEALED).
+ * Choose a SPINE BAND (`§SPAN-SPINE-SEARCH`, deepest-first) and carve the corridor + the
+ * circulation-DEPENDENT cluster there via `§SPAN-SPINE-CARVE` (corridor along the band's LONG
+ * axis — the only carve that fits a shallow full-span band; private rooms combed off it, a
+ * deep-needing public room like `living` as a full-depth end column). Any public room that can
+ * ONLY fit the deepest band's depth is PINNED into the spine; the rest fill the OTHER fragments
+ * (they chain to the entry, never need the corridor). The corridor strip sits on the keep-out
+ * CUT edge so the side fragments abut it too.
+ *
+ * Gated to fire ONLY when EVERY fragment is too shallow for the standard whole-programme carve
+ * (`§SPAN-SHALLOW-ONLY`) — the corner-stair deep-dominant case keeps the existing
+ * §STAIR-CARVE-NO-DROP path (byte-identical). Returns null (caller keeps the existing pick)
+ * when there is no corridor, no dependents, no OTHERS, a deep band exists, the spine carve
+ * drops a room, OR the leftover pack drops a room — i.e. it only ever fires when it connects
+ * EVERY dependent to the corridor with ZERO drops. Pure + deterministic. `stairCarved`-gated
+ * (HOUSE path only; the apartment passes no keep-out → this whole branch is skipped).
+ */
+function tryStairSpanningCorridor(
+    valid: readonly Rect[],
+    graph: BubbleGraph,
+    corridorWidthM?: number,
+): SubdivideResult | null {
+    const corridor = graph.rooms.find(r => r.type === 'corridor');
+    if (!corridor || valid.length < 2) return null;
+
+    // DEPENDENTS = corridor + every room that needs a circulation door (private/service) +
+    // the HALL (a circulation room whose only permitted neighbours are living/corridor, so it
+    // SEALS if packed into a leftover fragment touching only kitchen/bedroom — it belongs on
+    // the corridor spine, where it is also the natural front-door entrance).
+    // OTHERS = the remaining public rooms (living/kitchen/dining) — which chain to the entry
+    // and never need the corridor directly.
+    const dependents: ProgramRoom[] = [];
+    const others: ProgramRoom[] = [];
+    for (const r of graph.rooms) {
+        if (r.id === corridor.id) { dependents.push(r); continue; }
+        const p = roomRule(r.type).privacy;
+        if (p === 'private' || p === 'service' || r.type === 'hall') dependents.push(r);
+        else others.push(r);                              // public (living/kitchen/dining)
+    }
+    // Needs at least one dependent room (else there is nothing to land-lock) AND at least
+    // one OTHER to relocate (else the plain whole-programme dominant carve is already the
+    // right tool — relocating nothing changes nothing; keep the existing pick).
+    if (dependents.length <= 1 || others.length === 0) return null;
+
+    // §SPAN-SHALLOW-ONLY — only intervene when EVERY fragment is too SHALLOW for the standard
+    // whole-programme 3-zone carve (short side < strip + 2·2 m = 5.2 m). That is exactly the
+    // §52.6 stair-fragmented case (≥2 comparable wide-shallow bands). When some fragment IS
+    // deep enough (the corner-stair deep-DOMINANT case), the existing §STAIR-CARVE-NO-DROP
+    // path already carves the whole programme there with its real bubble-edge doors — leave it
+    // untouched (byte-identical, no regression on the corner-stair plates).
+    const depthOfRect = (r: Rect): number => Math.min(r.x1 - r.x0, r.z1 - r.z0);
+    const STD_CARVE_MIN_SHORT = CORRIDOR_STRIP_WIDTH_M + 2 * 2.0;   // tryCarveCorridor's gate (5.2 m)
+    const deepestDepth = Math.max(...valid.map(depthOfRect));
+    if (deepestDepth >= STD_CARVE_MIN_SHORT - EPS) return null;
+
+    // §SPAN-SPINE-SEARCH — choose the SPINE BAND that hosts the corridor + private/service
+    // cluster, and let the PUBLIC rooms fill the rest. The hard constraint a naive split
+    // misses: a wide-SHALLOW full-span band (e.g. 10 m × 3.15 m) is too shallow for a
+    // single-loaded corridor + a bedroom combed FULL-DEPTH (bedroom minShort 2.6 + corridor
+    // 1.2 = 3.8 m > the band depth), AND `living` (minShort 3.2 m) only fits the DEEPEST
+    // band — so the private cluster and the bulky living room can COMPETE for the one deep
+    // band. The cure: run the spine corridor along the band's SHORT axis (a full-DEPTH strip
+    // splitting the LONG axis), so the private rooms are combed as columns spanning the full
+    // band depth (no depth starvation), and co-locate ANY public room that needs that depth
+    // (living) in the same spine band; the remaining public rooms fill the other fragments.
+    //
+    // Concretely: for each candidate spine band (deepest first — it must clear the private
+    // rooms' + corridor's depth), build the spine sub-programme = {corridor + all private/
+    // service rooms + every public room whose minShortSide exceeds the SHALLOWER fragments'
+    // depth (so it can ONLY live in this deep band)}, carve it via the single-rect corridor
+    // (corridor + comb), then pack the LEFTOVER public rooms into the other fragments. The
+    // corridor's strip touches the keep-out cut line, so the side bands abut it too. Accept
+    // the first spine with 0 drops in BOTH the carve and the leftover pack. Deterministic
+    // (deepest-first, stable byAreaDesc tie-break).
+    const privateServiceIds = new Set(dependents.filter(r => r.id !== corridor.id).map(r => r.id));
+    // Candidate spine bands: full-span bands (the two ends of the guillotine), deepest first.
+    const spineCandidates = valid
+        .map((r, i) => ({ r, i }))
+        .sort((a, b) => depthOfRect(b.r) - depthOfRect(a.r) || rectArea(b.r) - rectArea(a.r) || a.i - b.i);
+
+    for (const { r: spine, i: spineIdx } of spineCandidates) {
+        const otherRects = valid.filter((_, i) => i !== spineIdx);
+        const shallowestOtherDepth = otherRects.length > 0
+            ? Math.max(...otherRects.map(depthOfRect))
+            : 0;
+        // Public rooms that can ONLY live in this (deepest) spine band — their minShortSide
+        // exceeds every OTHER fragment's depth — are pinned into the spine sub-programme so
+        // they are not orphaned in a too-shallow fragment. The rest stay as `others`.
+        const pinnedPublic = others.filter(r => floorFor(r.type) > shallowestOtherDepth + EPS);
+        const leftoverPublic = others.filter(r => floorFor(r.type) <= shallowestOtherDepth + EPS);
+
+        // Spine sub-programme = corridor + private/service + pinned public. Carved as a
+        // single-rect corridor (public-zone | corridor | private comb) so every private/
+        // service room shares the corridor wall.
+        const spineRooms = graph.rooms.filter(r =>
+            r.id === corridor.id || privateServiceIds.has(r.id) || pinnedPublic.some(p => p.id === r.id));
+        const spineIds = new Set(spineRooms.map(r => r.id));
+        const spineGraph: BubbleGraph = {
+            ...graph,
+            rooms: spineRooms,
+            edges: graph.edges.filter(e => spineIds.has(e.a) && spineIds.has(e.b)),
+            corridorId: corridor.id,
+            // Keep the entry only if it is actually in the spine (else null so the carve
+            // treats it as a no-public/normal carve correctly).
+            entryId: graph.entryId !== null && spineIds.has(graph.entryId) ? graph.entryId : null,
+        };
+        // §SPAN-CUT-EDGE — find which v-edge of the spine faces the OTHER fragments (the
+        // keep-out side) so the corridor strip is laid there and abuts the side bands. For a
+        // wide band v=z: count other rects on the z>spine.z1 side vs the z<spine.z0 side.
+        const wideSpine = (spine.x1 - spine.x0) >= (spine.z1 - spine.z0);
+        const spineVMax = wideSpine ? spine.z1 : spine.x1;
+        const spineVMin = wideSpine ? spine.z0 : spine.x0;
+        const coord = (r: Rect): { lo: number; hi: number } => wideSpine
+            ? { lo: r.z0, hi: r.z1 } : { lo: r.x0, hi: r.x1 };
+        let onMax = 0, onMin = 0;
+        for (const r of otherRects) {
+            const c = coord(r);
+            if (c.lo >= spineVMax - EPS) onMax++;
+            else if (c.hi <= spineVMin + EPS) onMin++;
+        }
+        const cutAtVMax = onMax >= onMin;
+
+        // Carve the spine band with §SPAN-SPINE-CARVE (corridor along the band's LONG axis —
+        // the only carve that fits a shallow full-span band; we are here only because EVERY
+        // fragment is shallower than the standard carve's 5.2 m gate, per §SPAN-SHALLOW-ONLY).
+        // Fall back to the standard single-rect carve defensively (e.g. a near-5.2 m band).
+        const spineRes = trySpineBandCarve(spine, spineGraph, corridorWidthM, cutAtVMax)
+            ?? trySingleRectCarve(spine, spineGraph, corridorWidthM);
+        if (!spineRes || spineRes.droppedRooms.length > 0) continue;
+
+        // Pack the leftover public rooms into the OTHER fragments (they chain to the entry —
+        // no corridor wall needed; any non-sealed tiling is legal). Empty leftover ⇒ trivially
+        // fine (every room is in the spine). §SPAN-SLIVER-SKIP — drop UNUSABLE sliver fragments
+        // (too small/shallow to hold the smallest leftover room) from the pack; they are the
+        // stair landing/clearance space and are correctly left empty (per §STAIR-OBSTACLE-CARVE
+        // "the tiny stair-clearance slivers are left empty"). Without this a 0.55 m-deep sliver
+        // would force a phantom drop and defeat the whole spanning carve.
+        const minLeftoverArea = leftoverPublic.reduce((m, r) => Math.min(m, minAreaFor(r.type)), Infinity);
+        const minLeftoverFloor = leftoverPublic.reduce((m, r) => Math.min(m, floorFor(r.type)), Infinity);
+        const usableOtherRects = otherRects.filter(r =>
+            rectArea(r) >= minLeftoverArea - EPS && depthOfRect(r) >= minLeftoverFloor - EPS);
+        const leftoverGraph: BubbleGraph = {
+            ...graph,
+            rooms: leftoverPublic,
+            edges: graph.edges.filter(e =>
+                leftoverPublic.some(r => r.id === e.a) && leftoverPublic.some(r => r.id === e.b)),
+        };
+        const leftoverRes = leftoverPublic.length > 0
+            ? packMultiRect(usableOtherRects, leftoverGraph)
+            : { placements: [] as RoomPlacement[], droppedRooms: [] as DroppedRoom[] };
+        if (leftoverRes.droppedRooms.length > 0) continue;   // a public room would drop — try another spine
+
+        console.log(
+            `[D-TGL subdivide] §STAIR-SPANNING-CORRIDOR APPLIED: spine fragment #${spineIdx} ` +
+            `(area ${rectArea(spine).toFixed(1)} m², depth ${depthOfRect(spine).toFixed(2)} m) carves ` +
+            `[${spineRooms.map(r => r.type).join(',')}] (corridor reaches every private/service room); ` +
+            `leftover public [${leftoverPublic.map(r => r.type).join(',')}] packed into ${otherRects.length} ` +
+            `other fragment(s) — 0 drops, 0 sealed habitable rooms across the stair-fragmented plate.`,
+        );
+        return {
+            placements: [...spineRes.placements, ...leftoverRes.placements],
+            droppedRooms: [],
+        };
+    }
+    return null;
 }
 
 /**
