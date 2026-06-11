@@ -4192,7 +4192,7 @@ the v132 `§DIAG-EXEC-WALLS/-FILL/-STAIR-SIZE/-ADJ`.
 | **57.1** | **Rooms overlap sometimes — "not possible"** | 🔴 HARD | `§DIAG-EXEC-OVERLAP` added; root unknown (subdivider emits overlapping rects, or detection). Await next log → fix. |
 | **57.2** | **Multiple windows clashing — "not possible"** | 🔴 HARD | `§DIAG-EXEC-WIN-CLASH` added; the v134 §WINDOW-EVERY-FRONTAGE last-resort or the de-overlap may place 2 on one wall. WINDOWS agent (§57.8) owns the fix. |
 | **57.3** | **Big merge "Living Room / Dining / Bathroom 81.9 m²"** | 🔴 HARD | A MISSING divider (detection agent proof, v133 note): the engine weld drops a real divider. Fix = `weldPartitionsToShell` clamp-don't-drop (engine). |
-| **57.4** | **Entrance hall must be on the perimeter + have the main door — "not re-enforced"** | 🟠 HIGH | `§DIAG-EXEC-ENTRANCE` added; enforce hall→shell-wall adjacency + the entrance door (engine bubble graph hall placement + executor entrance resolver). |
+| **57.4** | **Entrance hall must be on the perimeter + have the main door — "not re-enforced … STILL centered, cannot be there!!!"** (founder re-flagged 2026-06-11, emphatic) | 🔴 HARD · 🟠 IN PROGRESS | `§DIAG-EXEC-ENTRANCE` flags `⚠ NOT-ON-PERIMETER`. ENGINE agent in flight (subdivide PUBLIC-zone places the `hall` on the SHELL EDGE — bounds an exterior wall for the front door — AND shares a wall inward with corridor/living; new engine `§DIAG-ENTRANCE-PERIMETER`). Modelled on v142 §STAIR-CIRC-FACE (force a room to abut a target). Coupled with 57.1/57.3/57.5 (same subdivider quality — the persistent "Living/Dining/Corridor 56m²" merge + the upper blank are the next subdivider passes, sequenced after the hall to avoid concurrent subdivide.ts edits). |
 | **57.5** | **White blank upstairs (intermittent)** | 🟠 HIGH | Upper undivided area ("Room 01-005 53.7 m²"). The v135 spine-carve targeted the ground; extend to the upper storey. `§DIAG-EXEC-FILL` STRETCHED flag surfaces it. |
 | **57.6** | **Door/window opening lines "breaking the walls" during AI-batch gen (apartment + house)** | 🟠 HIGH | A previously-fixed opening-void render regressed under the batch path. Investigate `§DIAG-OPENING-VOID` / WallRebuildCoordinator under batch. |
 | **57.7** | **Stair: smaller/cornered room; upper stair must connect the corridor** | 🟡 MED | Stair keep-out sizing (engine) + a 1.5 m landing (founder §53-adjacent). `§DIAG-EXEC-STAIR-SIZE` roomToFootprint flags oversized. Coupled with §52.6 (smaller keep-out ⇒ less fragmentation). |
@@ -4249,6 +4249,20 @@ inside each cabinet*.
 **Queue note:** the full corpus (hard/workflow/adjacency/module/shape/MEP/ergonomic/accessibility/light/visual/
 storage/cleaning/construction/door-drawer-sim/island/proportion/cabinet-taxonomy) accretes across P2–P5; each
 appliance/cabinet carries its own constraint set. This is a multi-session program — P1 is the foundation.
+
+## §60 — Stair landing railing continuity (`§STAIR-RAIL-LANDING-JOIN`) — QUEUED (2026-06-11)
+
+Founder (queue, with 3D screenshot): "the stair in the landing requires extra railing — connecting the end and
+beginning of the runs to the existing landing railing." On a U/half-landing stair the per-FLIGHT railings
+(`StairRailingBuilder`, left/right, 2 flights) and the stairwell-VOID guardrail (`§VOID-FINISH` /
+`CREATE_HANDRAIL`, "3/3 edge(s) railed, 1 step-off side open") are built INDEPENDENTLY, so there are OPEN GAPS at
+the junctions where a flight's railing END/START meets the landing guardrail (the red gaps in the screenshot —
+the top of the lower flight and the bottom of the upper flight don't tie into the landing rail). Fix direction:
+where a flight railing endpoint is within tolerance of a landing/void-guardrail endpoint (or the landing edge),
+emit a short CONNECTING rail segment (or extend the flight rail to the landing rail) so the balustrade is
+continuous around the half-landing — no open ends at the run↔landing transition. Lives in the stair railing/
+handrail build (`StairRailingBuilder` + the void-guardrail in the house executor's stair finish). Code-compliance
+relevant (a guardrail must be continuous — no gap a child could fall through). **Status: 🔵 QUEUED.**
 
 ## §54 — Living-graph node CARDS (select → interrogate → flowing canvas) — QUEUED (2026-06-11)
 
