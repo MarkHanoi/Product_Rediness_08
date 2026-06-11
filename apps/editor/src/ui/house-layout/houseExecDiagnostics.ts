@@ -95,6 +95,10 @@ interface WallRec {
     levelId: string;
     baseLine?: ReadonlyArray<{ x: number; z: number }>;
     openings?: ReadonlyArray<{ type: 'window' | 'door'; elementId?: string }>;
+    // §VERBOSE-DIAG (founder 2026-06-11) — surfaced for the wall-height / partition-slab
+    // diagnostics (§DIAG-EXEC-WALLS). Optional: a record without it logs height=?.
+    height?: number;
+    thickness?: number;
 }
 
 /** Detected room as the room store exposes it (RoomData subset). */
@@ -332,6 +336,95 @@ export function logExecRoomDiagnostics(
             console.log(`${logTag} §DIAG-EXEC-STAIR ${levelId} roomsOverStairVoid=${overlaps.length} (${overlaps.join(', ') || 'none'}) — expect exactly 1 = "Stair"`);
             if (habitableOnStair.length > 0) {
                 console.warn(`${logTag} §DIAG-EXEC-STAIR ${levelId} ⚠ HABITABLE-ON-STAIR: ${habitableOnStair.join(', ')} (a non-stair room tiled into the stair keep-out — the void was not cut / detection flooded it)`);
+            }
+        }
+
+        // ════════════════════════════════════════════════════════════════════
+        // §VERBOSE-DIAG (founder 2026-06-11: "add a lot of logs!!!!!") — deep
+        // per-storey instrumentation so a single console paste explains the layout.
+        // All best-effort + guarded by the outer try/catch; logging only, no behaviour.
+        // ════════════════════════════════════════════════════════════════════
+        const wallLen = (w: WallRec): number => {
+            const bl = w.baseLine; if (!bl || bl.length < 2) return 0;
+            return Math.hypot(bl[1]!.x - bl[0]!.x, bl[1]!.z - bl[0]!.z);
+        };
+
+        // ── §DIAG-EXEC-WALLS — every wall: role (shell/partition), length, HEIGHT,
+        //    thickness, opening count. Surfaces §PARTITION-TOP-AT-SLAB-UNDERSIDE
+        //    (partition height should be < shell height on a non-top storey) + the
+        //    recurring "EXTRA N walls" divergence. ──────────────────────────────────
+        {
+            const levelWalls = [...wallById.values()];
+            let shellN = 0, partN = 0; const heights = new Set<string>();
+            for (const w of levelWalls) {
+                const isShell = isExteriorWall(w.id);
+                isShell ? shellN++ : partN++;
+                heights.add((typeof w.height === 'number' ? w.height.toFixed(3) : '?'));
+            }
+            console.log(`${logTag} §DIAG-EXEC-WALLS ${levelId} total=${levelWalls.length} shell=${shellN} partition=${partN} distinctHeights={${[...heights].join(',')}}m`);
+            for (const w of levelWalls) {
+                const role = isExteriorWall(w.id) ? 'shell' : 'partition';
+                const ops = w.openings ?? [];
+                const doors = ops.filter(o => o.type === 'door').length;
+                const wins = ops.filter(o => o.type === 'window').length;
+                console.log(`${logTag} §DIAG-EXEC-WALL ${levelId} ${w.id.slice(-6)} ${role} len=${wallLen(w).toFixed(2)}m h=${typeof w.height === 'number' ? w.height.toFixed(3) + 'm' : '?'} thk=${typeof w.thickness === 'number' ? (w.thickness * 1000).toFixed(0) + 'mm' : '?'} doors=${doors} windows=${wins}`);
+            }
+        }
+
+        // ── §DIAG-EXEC-FILL — plate budget vs what got built, per room + total, so the
+        //    "white / blank areas" question is answerable from the log. engineTarget is
+        //    the design budget; detected is what room-detection found; Δ surfaces a
+        //    stretch (detected ≫ target → a room ballooned into blank space) or a merge. ─
+        {
+            const detectedSum = detected.reduce((n, d) => n + d.areaM2, 0);
+            const engineSum = plateM2;
+            console.log(`${logTag} §DIAG-EXEC-FILL ${levelId} engineBudget=${engineSum.toFixed(1)}m² detectedSum=${detectedSum.toFixed(1)}m² Δ=${(detectedSum - engineSum).toFixed(1)}m² coverage=${(detectedSum / Math.max(engineSum, 0.01) * 100).toFixed(0)}% rooms=${M} (a big +Δ on one room = it stretched into blank plate; a count-mismatch above = a merge)`);
+            for (const d of detected) {
+                const eng = pairing.get(d.id);
+                if (eng) {
+                    const delta = d.areaM2 - eng.areaM2;
+                    const flag = Math.abs(delta) > Math.max(3, eng.areaM2 * 0.4) ? (delta > 0 ? ' ⚠ STRETCHED' : ' ⚠ SHRUNK') : '';
+                    console.log(`${logTag} §DIAG-EXEC-FILL-ROOM ${levelId} ${d.name}[${eng.type}] detected=${d.areaM2.toFixed(1)} target=${eng.areaM2.toFixed(1)} Δ=${delta >= 0 ? '+' : ''}${delta.toFixed(1)}m²${flag}`);
+                }
+            }
+        }
+
+        // ── §DIAG-EXEC-STAIR-SIZE (founder 2026-06-11: "the stair should occupy a smaller
+        //    room … cornered … min 1.5 m circulation in front of the entrance") — the stair
+        //    keep-out footprint vs the room that actually contains it. A room ≫ footprint
+        //    means the stair sits in an oversized space (the founder's complaint). ────────
+        if (stairRectsWorld && stairRectsWorld.length > 0) {
+            stairRectsWorld.forEach((r, i) => {
+                const w = r.maxX - r.minX, dep = r.maxZ - r.minZ, footprint = w * dep;
+                // the detected room hosting the stair (keep-set, occupancy, or name).
+                const host = detected.find(d => (stairKeepRoomIds?.has(d.id) ?? false)
+                    || /stair/i.test(d.name) || d.occupancyType === 'stair');
+                const hostArea = host?.areaM2 ?? 0;
+                const ratio = footprint > 0 ? hostArea / footprint : 0;
+                console.log(`${logTag} §DIAG-EXEC-STAIR-SIZE ${levelId} rect#${i} footprint=${w.toFixed(2)}×${dep.toFixed(2)}m=${footprint.toFixed(1)}m² hostRoom=${host?.name ?? '(none)'} hostArea=${hostArea.toFixed(1)}m² roomToFootprint=${ratio.toFixed(1)}×${ratio > 1.6 ? ' ⚠ OVERSIZED (stair should be cornered + a tight ~1.5m landing, not a large room)' : ''}`);
+            });
+        }
+
+        // ── §DIAG-EXEC-ADJACENCY — for each room: which OTHER rooms it shares a wall with,
+        //    and whether it touches CIRCULATION (corridor/hall/stair). Surfaces sealed /
+        //    land-locked rooms (no circulation neighbour) at the DETECTED-geometry level. ──
+        {
+            const CIRC = new Set(['corridor', 'hall', 'stair', 'stairwell', 'landing']);
+            const roomByWall = new Map<string, string[]>();
+            for (const d of detected) for (const wid of d.boundingWallIds) {
+                (roomByWall.get(wid) ?? roomByWall.set(wid, []).get(wid)!).push(d.id);
+            }
+            const nameById = new Map(detected.map(d => [d.id, d.name]));
+            const typeById = new Map(detected.map(d => [d.id, (pairing.get(d.id)?.type ?? d.occupancyType)]));
+            for (const d of detected) {
+                const neigh = new Set<string>();
+                for (const wid of d.boundingWallIds) for (const rid of roomByWall.get(wid) ?? []) if (rid !== d.id) neigh.add(rid);
+                const neighNames = [...neigh].map(id => `${nameById.get(id)}[${typeById.get(id)}]`);
+                const touchesCirc = [...neigh].some(id => CIRC.has(String(typeById.get(id) ?? '')));
+                const self = pairing.get(d.id)?.type ?? d.occupancyType;
+                const needsCirc = !CIRC.has(String(self));
+                const circFlag = needsCirc ? (touchesCirc ? ' circ=✓' : ' circ=✗ ⚠ NOT-ON-CIRCULATION') : ' circ=n/a';
+                console.log(`${logTag} §DIAG-EXEC-ADJ ${levelId} ${d.name}[${self}] neighbours=[${neighNames.join(', ') || 'none'}]${circFlag}`);
             }
         }
 
