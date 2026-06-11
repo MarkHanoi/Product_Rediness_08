@@ -273,7 +273,8 @@ export class HouseLayoutModal {
                     // offer a Floor move (`storey:<src>/<name>` → target).
                     const wrap = (roomEl as Element).closest('[data-storey-index]');
                     const srcStorey = wrap ? Number(wrap.getAttribute('data-storey-index')) : 0;
-                    const storeyCount = this._el?.querySelectorAll('.hlm-pane--graphs .hlm-pane-storey').length ?? 1;
+                    const storeyCount = this._el?.querySelectorAll('.hlm-miro-lane').length
+                        || this._el?.querySelectorAll('.hlm-pane--plans .hlm-pane-storey').length || 1;
                     this._openGraphNodeEditor(roomEl, name, Number.isInteger(srcStorey) ? srcStorey : 0, storeyCount);
                 }
                 return;
@@ -314,6 +315,8 @@ export class HouseLayoutModal {
 
         document.body.appendChild(overlay);
         this._el = overlay;
+        // §3PANE IT-4 — wire the unified Miro canvas (pan/zoom) now that it is in the DOM.
+        this._wireMiroCanvas();
         console.log('[house-layout] modal mounted to <body> —', options.length, 'card(s), overlay z-index', getComputedStyle(overlay).zIndex || '(unstyled — alm- CSS missing?)');
     }
 
@@ -343,6 +346,9 @@ export class HouseLayoutModal {
         // so changing the level count or a slider updates the summary live too.
         const result = this._el.querySelector('[data-role="result"]');
         if (result) result.outerHTML = buildHouseResultHtml(cards[0]);
+        // §3PANE IT-4 — refresh() rebuilt [data-role="grid"] (incl. the Miro canvas),
+        // so re-wire pan/zoom + re-apply the preserved transform (zoom survives a regen).
+        this._wireMiroCanvas();
         this._setHint('');
         this.setBusy(false);
     }
@@ -438,6 +444,93 @@ export class HouseLayoutModal {
                 background: '#ffffff', width: 460, height: 320, interactive: true,
             })),
         );
+    }
+
+    // ── §3PANE IT-4 Miro canvas (pan/zoom) ──────────────────────────────────────
+    // The CENTER canvas hosts BOTH storeys' living graphs as lanes inside one world
+    // div. Pan (drag the background) + zoom (wheel / toolbar) transform the world.
+    // The transform is PRESERVED on the instance so a live regen (which rebuilds the
+    // grid) keeps the user's zoom/pan. Node DRAG (move-between-floors / connect) is
+    // wired in IT-4b/c; here a pointerdown that starts on a node does NOT pan (so the
+    // node click → selection + C52 editor still fires).
+    private _miro = { x: 16, y: 12, scale: 1 };
+
+    private _applyMiroTransform(world: HTMLElement): void {
+        world.style.transform = `translate(${this._miro.x}px, ${this._miro.y}px) scale(${this._miro.scale})`;
+    }
+
+    private _wireMiroCanvas(): void {
+        if (!this._el) return;
+        const viewport = this._el.querySelector('[data-role="miro-viewport"]') as HTMLElement | null;
+        const world = this._el.querySelector('[data-role="miro-world"]') as HTMLElement | null;
+        if (!viewport || !world) return;
+        this._applyMiroTransform(world);
+
+        const clampScale = (s: number): number => Math.max(0.4, Math.min(2.5, s));
+
+        // Wheel → zoom toward the cursor (keep the point under the pointer fixed).
+        viewport.addEventListener('wheel', (e: WheelEvent) => {
+            e.preventDefault();
+            const rect = viewport.getBoundingClientRect();
+            const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
+            const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+            const next = clampScale(this._miro.scale * factor);
+            const ratio = next / this._miro.scale;
+            this._miro.x = cx - (cx - this._miro.x) * ratio;
+            this._miro.y = cy - (cy - this._miro.y) * ratio;
+            this._miro.scale = next;
+            this._applyMiroTransform(world);
+        }, { passive: false });
+
+        // Drag the background → pan. Skip when the gesture starts on a node (let the
+        // click/selection + the IT-4b node-drag own that), or on the toolbar buttons.
+        let panning = false;
+        let startX = 0, startY = 0, originX = 0, originY = 0;
+        viewport.addEventListener('pointerdown', (e: PointerEvent) => {
+            const t = e.target as HTMLElement | null;
+            if (t && t.closest('.alm-graph-node, .hlm-miro-btn')) return;
+            panning = true;
+            startX = e.clientX; startY = e.clientY;
+            originX = this._miro.x; originY = this._miro.y;
+            viewport.classList.add('hlm-miro-viewport--panning');
+            try { viewport.setPointerCapture(e.pointerId); } catch { /* older browsers */ }
+        });
+        viewport.addEventListener('pointermove', (e: PointerEvent) => {
+            if (!panning) return;
+            this._miro.x = originX + (e.clientX - startX);
+            this._miro.y = originY + (e.clientY - startY);
+            this._applyMiroTransform(world);
+        });
+        const endPan = (e: PointerEvent): void => {
+            if (!panning) return;
+            panning = false;
+            viewport.classList.remove('hlm-miro-viewport--panning');
+            try { viewport.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+        };
+        viewport.addEventListener('pointerup', endPan);
+        viewport.addEventListener('pointercancel', endPan);
+
+        // Toolbar zoom buttons (zoom toward the viewport centre) + reset.
+        const toolbar = this._el.querySelector('.hlm-miro-toolbar');
+        toolbar?.addEventListener('click', (e: Event) => {
+            const btn = (e.target as HTMLElement | null)?.closest('.hlm-miro-btn') as HTMLElement | null;
+            if (!btn) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const kind = btn.getAttribute('data-miro');
+            if (kind === 'reset') {
+                this._miro = { x: 16, y: 12, scale: 1 };
+            } else {
+                const rect = viewport.getBoundingClientRect();
+                const cx = rect.width / 2, cy = rect.height / 2;
+                const next = clampScale(this._miro.scale * (kind === 'in' ? 1.2 : 1 / 1.2));
+                const ratio = next / this._miro.scale;
+                this._miro.x = cx - (cx - this._miro.x) * ratio;
+                this._miro.y = cy - (cy - this._miro.y) * ratio;
+                this._miro.scale = next;
+            }
+            this._applyMiroTransform(world);
+        });
     }
 
     // ── §MODAL-DYNAMIC internals ────────────────────────────────────────────

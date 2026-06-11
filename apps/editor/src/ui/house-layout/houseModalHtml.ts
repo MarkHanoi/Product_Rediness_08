@@ -266,15 +266,49 @@ export function buildHousePanesHtml(
         `<div class="hlm-pane-storey-stats">${s.totalAreaM2} m² · score ${s.score}</div>` +
         `</div>`,
     ).join('');
-    const graphs = card.storeys.map((s, i) =>
-        `<div class="hlm-pane-storey" data-storey-index="${i}">` +
-        `<div class="hlm-pane-storey-label">${escHtml(s.label)}</div>` +
-        `<div class="hlm-pane-graph">${storeyGraphs[i] ?? '<div class="hlm-pane-graph-empty">—</div>'}</div>` +
+    return (
+        `<div class="hlm-pane hlm-pane--plans" aria-label="Plan views">${plans}</div>` +
+        `<div class="hlm-pane hlm-pane--graphs" aria-label="Living graph canvas">${buildHouseMiroCanvasHtml(card, storeyGraphs)}</div>`
+    );
+}
+
+/**
+ * §3PANE IT-4 — the unified Miro/Mural CENTER canvas (SPEC-DYNAMIC-PROGRAM-CANVAS
+ * §1.1 + R-D, founder 2026-06-11: "both [floor graphs] on the same canvas … like
+ * mural/miro … zoom in and out … move the nodes … move a bedroom from first floor to
+ * ground floor … connect spaces"). Both storeys' living graphs render as labelled
+ * LANES inside ONE pan/zoom WORLD (`[data-role="miro-world"]`, transform applied by the
+ * modal's `_wireMiroCanvas`), stacked Ground→top so dragging a node UP moves it toward
+ * the ground floor. Each lane keeps `data-storey-index` (the SOURCE storey for a
+ * cross-floor move) and the graph SVG's `.alm-graph-node[data-room-name]` nodes
+ * (clickable → the C52 inline editor; draggable in IT-4b/c). Pure HTML; all
+ * interaction is wired in `HouseLayoutModal`. Exported for the modal + tests.
+ */
+export function buildHouseMiroCanvasHtml(
+    card: HouseCardModel | undefined,
+    storeyGraphs: readonly string[] = [],
+): string {
+    if (!card || card.storeys.length === 0) return '<div class="hlm-pane-graph-empty">—</div>';
+    const lanes = card.storeys.map((s, i) =>
+        `<div class="hlm-miro-lane" data-storey-index="${i}" data-storey-label="${escHtml(s.label)}">` +
+        `<div class="hlm-miro-lane-label">${escHtml(s.label)}</div>` +
+        `<div class="hlm-miro-lane-graph">${storeyGraphs[i] ?? '<div class="hlm-pane-graph-empty">—</div>'}</div>` +
         `</div>`,
     ).join('');
     return (
-        `<div class="hlm-pane hlm-pane--plans" aria-label="Plan views">${plans}</div>` +
-        `<div class="hlm-pane hlm-pane--graphs" aria-label="Graphs">${graphs}</div>`
+        '<div class="hlm-miro" data-role="miro">' +
+        '<div class="hlm-miro-toolbar">' +
+        '<span class="hlm-miro-hint">Drag a room across floors to move it · drag room → room to connect</span>' +
+        '<span class="hlm-miro-zoom">' +
+        '<button type="button" class="hlm-miro-btn" data-miro="out" aria-label="Zoom out">−</button>' +
+        '<button type="button" class="hlm-miro-btn" data-miro="reset" aria-label="Reset view">Reset</button>' +
+        '<button type="button" class="hlm-miro-btn" data-miro="in" aria-label="Zoom in">+</button>' +
+        '</span>' +
+        '</div>' +
+        '<div class="hlm-miro-viewport" data-role="miro-viewport">' +
+        `<div class="hlm-miro-world" data-role="miro-world">${lanes}</div>` +
+        '</div>' +
+        '</div>'
     );
 }
 

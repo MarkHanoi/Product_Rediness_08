@@ -381,4 +381,28 @@ export const APARTMENT_LAYOUT_MODAL_STYLES = `
 .hlm-pane-plan .alm-room-polygon { cursor: pointer; }
 .hlm-pane-plan .alm-room-polygon.hlm-selected { stroke: #6600FF; stroke-width: 1.8; stroke-opacity: 1; }
 .alm-graph-node.hlm-selected { stroke: #6600FF; stroke-width: 3; }
+/* §3PANE IT-4 — the unified Miro/Mural CENTER canvas: both storeys' living graphs as
+ * lanes inside one pan/zoom world (founder 2026-06-11). The CENTER pane becomes a single
+ * full-height canvas (not a scrolling stack). Brand white + #6600FF, no black. */
+.hlm-pane--graphs { padding-right: 0; overflow: hidden; }
+.hlm-miro { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
+  border: 1px solid #e2e8f0; border-radius: 10px; background: #ffffff; overflow: hidden; }
+.hlm-miro-toolbar { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; padding: 6px 10px; border-bottom: 1px solid #eef2f7; background: #faf8ff; }
+.hlm-miro-hint { font-size: 10.5px; color: #94a3b8; }
+.hlm-miro-zoom { display: flex; gap: 4px; flex: 0 0 auto; }
+.hlm-miro-btn { border: 1px solid #ddd6fe; background: #ffffff; color: #6600FF; border-radius: 6px;
+  min-width: 26px; height: 24px; padding: 0 8px; font-size: 13px; font-weight: 650; cursor: pointer; line-height: 1; }
+.hlm-miro-btn:hover { background: #f3efff; }
+.hlm-miro-viewport { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden;
+  cursor: grab; touch-action: none;
+  background-image: radial-gradient(#ede9fe 1px, transparent 1px); background-size: 22px 22px; }
+.hlm-miro-viewport--panning { cursor: grabbing; }
+.hlm-miro-world { position: absolute; top: 0; left: 0; transform-origin: 0 0;
+  display: flex; flex-direction: column; gap: 18px; padding: 4px; will-change: transform; }
+.hlm-miro-lane { border: 1px dashed #ddd6fe; border-radius: 12px; background: #ffffff;
+  padding: 6px 8px 8px; box-shadow: 0 1px 4px rgba(102,0,255,0.06); }
+.hlm-miro-lane-label { font-weight: 650; font-size: 12px; color: #6600FF; margin: 2px 2px 4px; }
+.hlm-miro-lane-graph { width: 460px; height: 320px; }
+.hlm-miro-lane-graph svg { width: 100%; height: 100%; display: block; }
 `;

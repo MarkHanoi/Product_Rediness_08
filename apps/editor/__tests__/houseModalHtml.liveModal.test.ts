@@ -76,6 +76,29 @@ describe('§3PANE — three-pane house modal (SPEC-DYNAMIC-PROGRAM-CANVAS §1.1)
         expect(html).not.toContain('class="alm-card hlm-card"');
         expect(html).not.toContain('hlm-storey-toggle');
     });
+
+    // §3PANE IT-4 — the CENTER pane is ONE unified Miro/Mural canvas (both storeys'
+    // graphs as lanes in a pan/zoom world), not two stacked graph boxes.
+    it('CENTER pane is a unified Miro canvas: viewport + world + one lane per storey + zoom controls', () => {
+        const card = buildHouseCardModel(houseOption(0), 0);
+        const graphs = [['<svg id="g0"></svg>', '<svg id="g1"></svg>']];
+        const html = buildHouseModalHtml([card], [['<svg id="plan0"></svg>']], undefined, graphs);
+        expect(html).toContain('data-role="miro"');
+        expect(html).toContain('data-role="miro-viewport"');
+        expect(html).toContain('data-role="miro-world"');
+        // One lane per storey, each tagged with its source storey index (the cross-floor
+        // move handle) — the card has 2 storeys.
+        expect((html.match(/class="hlm-miro-lane"/g) ?? []).length).toBe(card.storeys.length);
+        expect(html).toContain('data-storey-index="0"');
+        expect(html).toContain('data-storey-index="1"');
+        // Both storey graphs land inside the single canvas.
+        expect(html).toContain('<svg id="g0"></svg>');
+        expect(html).toContain('<svg id="g1"></svg>');
+        // Zoom controls present.
+        expect(html).toContain('data-miro="in"');
+        expect(html).toContain('data-miro="out"');
+        expect(html).toContain('data-miro="reset"');
+    });
 });
 
 describe('§LIVE-MODAL.B — living graph + per-storey Plan/Graph toggle', () => {
