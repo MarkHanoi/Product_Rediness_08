@@ -1543,6 +1543,59 @@ function sharedWallLengthM(a: Rect, b: Rect): number {
  *  pipeline place the stair's circulation door. Mirrors the test's DOOR_W. */
 const STAIR_DOOR_MIN_M = 0.9;
 
+/** Interior-floor overlap AREA (m²) between two rects (0 ⇒ they share at most an edge). */
+function overlapAreaM2(a: Rect, b: Rect): number {
+    const ox = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0);
+    const oz = Math.min(a.z1, b.z1) - Math.max(a.z0, b.z0);
+    return ox > EPS && oz > EPS ? ox * oz : 0;
+}
+
+/**
+ * §STAIR-OVERLAP-CLIP (founder defect §65.1, 2026-06-11) — a HARD invariant guard: NO habitable
+ * room rect may overlap the stair keep-out. The keep-out is subtracted from the buildable plate
+ * BEFORE subdivide (enumerate.ts §STAIR-KEEPOUT), so on the handled axis-aligned plates no room
+ * tiles across it — but the founder observed a "Kitchen" (~41 m²) drawn straight ACROSS the stair
+ * on a dense plate (the kitchen absorbed the stair area, also blowing the kitchen plate-cap). This
+ * post-pass is the BY-CONSTRUCTION net: every non-stair room rect that intersects a keep-out is
+ * CLIPPED back to the largest axis-aligned sub-rectangle clear of it (shrunk on the axis where the
+ * keep-out bites least, so the room keeps the most area). A room fully inside a keep-out (should
+ * never happen) is left as-is for the caller's drop logic. The `stair` room placement, added by
+ * enumerate.ts AT the keep-out, is exempt — it is the ONLY room allowed to occupy the keep-out.
+ *
+ * Idempotent + pure. No keep-out ⇒ identity (apartment + every keep-out-free plate byte-identical).
+ */
+function clipRoomsOutOfKeepOut(
+    placements: readonly RoomPlacement[],
+    keepOuts: readonly Rect[],
+    typeById: ReadonlyMap<string, RoomType>,
+): readonly RoomPlacement[] {
+    if (keepOuts.length === 0) return placements;
+    let changed = false;
+    const out = placements.map(p => {
+        if ((typeById.get(p.roomId) ?? '') === 'stair') return p;   // the stair OWNS the keep-out
+        let r = p.rect;
+        for (const ko of keepOuts) {
+            if (overlapAreaM2(r, ko) <= EPS) continue;
+            // The four candidate clips that remove the overlap by pushing ONE edge to the keep-out
+            // boundary. Keep the one that preserves the most area AND stays non-degenerate.
+            const cands: Rect[] = [
+                { ...r, x1: Math.min(r.x1, ko.x0) },   // cut the right part (keep left of the keep-out)
+                { ...r, x0: Math.max(r.x0, ko.x1) },   // cut the left part  (keep right)
+                { ...r, z1: Math.min(r.z1, ko.z0) },   // cut the top part   (keep below)
+                { ...r, z0: Math.max(r.z0, ko.z1) },   // cut the bottom part(keep above)
+            ].filter(c => c.x1 - c.x0 > EPS && c.z1 - c.z0 > EPS);
+            if (cands.length === 0) continue;          // room fully inside the keep-out — leave for drop logic
+            r = roundRect(cands.reduce((best, c) => (rectArea(c) > rectArea(best) ? c : best)));
+        }
+        if (r !== p.rect && (r.x0 !== p.rect.x0 || r.z0 !== p.rect.z0 || r.x1 !== p.rect.x1 || r.z1 !== p.rect.z1)) {
+            changed = true;
+            return { roomId: p.roomId, rect: r };
+        }
+        return p;
+    });
+    return changed ? out : placements;
+}
+
 /** The axis-aligned bounding box of a placement set. */
 function placementsBBox(placements: readonly RoomPlacement[]): Rect {
     let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
@@ -1615,6 +1668,152 @@ function orientCorridorToKeepOut(
     }
     if (bestFlip[0] === false && bestFlip[1] === false) return placements;   // identity wins
     return placements.map(p => ({ roomId: p.roomId, rect: reflectRect(p.rect, bb, bestFlip[0], bestFlip[1]) }));
+}
+
+/**
+ * §STAIR-CIRC-STUB (founder defect §65.3, 2026-06-11) — the FRAGMENTED-DENSE fallback for
+ * `orientCorridorToKeepOut`. On a dense GROUND plate the corridor is a full-width strip on
+ * one z-band and the stair keep-out sits on the OPPOSITE z-edge, with the private comb in
+ * between. A bbox reflection only swaps WHICH face the strip lands on — it can never bring a
+ * strip whose LONG axis is PARALLEL to the keep-out edge across the comb to that edge — so the
+ * corridor never reaches the stair (`§DIAG-STAIR-CIRC sharesStairWall=NO`) and the stair ships
+ * served through a bedroom (the founder's bug).
+ *
+ * THE FIX: when no reflection brought the corridor to a door-width of a keep-out, find a STUB —
+ * a narrow (corridor-width) channel running PERPENDICULAR from the corridor's face to the keep-out
+ * edge, THROUGH EMPTY SPACE ONLY (the carved keep-out clearance slivers + the genuinely-empty
+ * bands beside the keep-out; never carving through a habitable room, which the post-subdivide
+ * snap could turn into an overlap). Returns the stub RECT (or null); `enumerate.ts` mints it as a
+ * dedicated circulation room (`corridorStubN`) in the bubble graph — ONE rect per room — wired
+ * `stub↔corridor` + `stub↔stair`, so the stair doors onto circulation. When no empty channel
+ * reaches the keep-out the stub bails and the door pipeline's reroute handles the stair (the
+ * §65.3 compromise the brief permits).
+ *
+ * Pure + deterministic. `shellBB` is the true shell bbox (the empty band beside a keep-out is
+ * roomless, so the placements bbox under-states it); absent ⇒ the placements bbox (conservative).
+ */
+export function findCorridorStubToKeepOut(
+    placements: readonly RoomPlacement[],
+    corridorId: string | null,
+    keepOuts: readonly Rect[],
+    typeById: ReadonlyMap<string, RoomType>,
+    corridorWidthM: number,
+    shellBB?: Rect,
+): Rect | null {
+    if (!corridorId || keepOuts.length === 0 || placements.length === 0) return null;
+    const corrIdx = placements.findIndex(p => p.roomId === corridorId);
+    if (corrIdx < 0) return null;
+    const corr = placements[corrIdx]!.rect;
+
+    // Already within a door-width of SOME keep-out? Nothing to route (the reflection won).
+    const reaches = (r: Rect): boolean =>
+        keepOuts.some(ko => sharedWallLengthM(r, ko) >= STAIR_DOOR_MIN_M - EPS);
+    if (reaches(corr)) return null;
+
+    const W = Math.max(roomRule('corridor').minShortSideM, Math.min(corridorWidthM, corr.x1 - corr.x0, corr.z1 - corr.z0, 1.2));
+
+    // §STAIR-STUB-SHELL-CLAMP — the keep-out arrives INFLATED by KEEPOUT_MARGIN_M (enumerate.ts),
+    // so a keep-out abutting the façade extends ~0.05 m OUTSIDE the shell. A stub routed flush to
+    // that inflated edge would emit a wall beyond the perimeter (§STAIR-SHELL-CLAMP regression).
+    // Clamp every stub coordinate to the buildable extent. The SHELL bbox (passed in) is the
+    // correct bound — the empty band beside a keep-out is roomless, so the placements' bbox would
+    // under-state the buildable extent there and wrongly decline a valid empty stub. Fall back to
+    // the placements bbox when no shell bbox was supplied (conservative — never protrudes).
+    const buildBB = shellBB ?? placementsBBox(placements);
+    const clampX = (v: number): number => Math.max(buildBB.x0, Math.min(buildBB.x1, v));
+    const clampZ = (v: number): number => Math.max(buildBB.z0, Math.min(buildBB.z1, v));
+
+    // Build the stub toward ONE keep-out along ONE axis. `axis` is the travel axis (the stub
+    // runs ALONG it from the corridor to the keep-out); `lane` (perp) is the stub's narrow span.
+    type Stub = { rect: Rect; reach: number };
+    const overlapArea = (a: Rect, b: Rect): number => {
+        const ox = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0);
+        const oz = Math.min(a.z1, b.z1) - Math.max(a.z0, b.z0);
+        return ox > EPS && oz > EPS ? ox * oz : 0;
+    };
+
+    // Candidate lane positions (the stub's perpendicular [lo,hi]) for travel axis `axis`:
+    // flush to each crossed room edge that lies inside the keep-out's perp span, so the stub
+    // SHAVES (never splits). We evaluate a candidate by shrinking every crossed room out of the
+    // stub lane and measuring keep-out reach + how many rooms fall below their type-min.
+    const tryStub = (axis: 'x' | 'z', dir: 1 | -1, ko: Rect): Stub | null => {
+        // Travel span: from the corridor face toward the keep-out, ending at the keep-out's near edge.
+        // Both ends clamped to the buildable extent (the inflated keep-out can sit outside the shell).
+        const clampT = axis === 'z' ? clampZ : clampX;
+        const corrFar = axis === 'z' ? (dir > 0 ? corr.z1 : corr.z0) : (dir > 0 ? corr.x1 : corr.x0);
+        const koNear  = axis === 'z' ? (dir > 0 ? ko.z1   : ko.z0)   : (dir > 0 ? ko.x1   : ko.x0);
+        const t0 = clampT(Math.min(corrFar, koNear)), t1 = clampT(Math.max(corrFar, koNear));
+        if (t1 - t0 < EPS) return null;
+        // The lane axis (perpendicular). The lane must overlap the keep-out's perp span by ≥ W
+        // and align (flush) to a crossed-room edge. Perp span of the keep-out (clamped to the shell):
+        const clampL = axis === 'z' ? clampX : clampZ;
+        const koLo = clampL(axis === 'z' ? ko.x0 : ko.z0);
+        const koHi = clampL(axis === 'z' ? ko.x1 : ko.z1);
+        if (koHi - koLo < STAIR_DOOR_MIN_M - EPS) return null;   // keep-out too narrow to door onto
+
+        // Candidate lane low-edges: flush-left of the keep-out (koLo), flush-right (koHi − W), and
+        // flush to any room edge inside [koLo, koHi − W] that the corridor already abuts. We keep
+        // the stub fully inside the keep-out's perp span so its keep-out shared wall is maximal.
+        const laneLos = new Set<number>();
+        laneLos.add(koLo);
+        laneLos.add(koHi - W);
+        for (const p of placements) {
+            if (p.roomId === corridorId) continue;
+            const e0 = axis === 'z' ? p.rect.x0 : p.rect.z0;
+            const e1 = axis === 'z' ? p.rect.x1 : p.rect.z1;
+            for (const e of [e0, e1 - W, e1, e0 - W]) {
+                if (e >= koLo - EPS && e + W <= koHi + EPS) laneLos.add(round6(e));
+            }
+        }
+
+        let best: Stub | null = null;
+        for (const laneLo of laneLos) {
+            const lo = Math.max(laneLo, koLo);
+            const hi = Math.min(lo + W, koHi);
+            if (hi - lo < STAIR_DOOR_MIN_M - EPS) continue;
+            const stubRect: Rect = axis === 'z'
+                ? roundRect({ x0: lo, z0: t0, x1: hi, z1: t1 })
+                : roundRect({ x0: t0, z0: lo, x1: t1, z1: hi });
+
+            // §STUB-EMPTY-ONLY — the stub may run ONLY through space NOT occupied by a habitable
+            // room (the carved keep-out clearance slivers + genuinely-empty bands beside the
+            // keep-out). A lane that crosses ANY non-stair room is REJECTED: shaving a crossed
+            // room is unsafe — the post-subdivide passes (snap / window-snap) move rects
+            // independently and a shave can leave two rects OVERLAPPING (the founder §65.1
+            // `overlap` hard-fail). When NO empty channel reaches the keep-out the stub bails and
+            // the door pipeline's reroute / §STAIR-SPINE-TOUCH bridge handle the stair (or it
+            // ships the logged compromise — never an overlap).
+            let blockedByRoom = false;
+            for (let i = 0; i < placements.length; i++) {
+                const p = placements[i]!;
+                if (p.roomId === corridorId) continue;
+                if ((typeById.get(p.roomId) ?? '') === 'stair') continue;
+                if (overlapArea(p.rect, stubRect) > EPS) { blockedByRoom = true; break; }
+            }
+            if (blockedByRoom) continue;
+            const reach = sharedWallLengthM(stubRect, ko);
+            if (reach < STAIR_DOOR_MIN_M - EPS) continue;
+            const cand: Stub = { rect: stubRect, reach };
+            // Prefer the LONGEST keep-out shared wall (most robust door host); the corridor area
+            // added is identical (W × travel), so reach is the only quality axis.
+            if (!best || cand.reach > best.reach + EPS) best = cand;
+        }
+        return best;
+    };
+
+    // Evaluate every (keep-out × axis × direction); keep the stub with the longest keep-out reach.
+    let chosen: Stub | null = null;
+    for (const ko of keepOuts) {
+        if (sharedWallLengthM(corr, ko) >= STAIR_DOOR_MIN_M - EPS) continue;   // this one already reached
+        for (const axis of ['z', 'x'] as const) {
+            for (const dir of [1, -1] as const) {
+                const s = tryStub(axis, dir, ko);
+                if (!s) continue;
+                if (!chosen || s.reach > chosen.reach + EPS) chosen = s;
+            }
+        }
+    }
+    return chosen ? chosen.rect : null;
 }
 
 /**
@@ -1994,9 +2193,40 @@ export function subdivideWithReport(
         // stair door onto circulation, not the bedroom that wraps it). No-op without a keep-out
         // (apartment + every keep-out-free path byte-identical). Reflection is area/shape/tiling-
         // preserving, so it can never seal a room or change drop count.
-        const oriented = keepOutRects.length > 0
+        const reflected = keepOutRects.length > 0
             ? orientCorridorToKeepOut(chosen, graph.corridorId, keepOutRects)
             : chosen;
+
+        // §STAIR-OVERLAP-CLIP (founder defect §65.1, 2026-06-11) — the HARD invariant net: clip ANY
+        // non-stair room rect that intersects a keep-out back clear of it, so no habitable room is
+        // ever drawn across the stair (the founder's "Kitchen across the stair" defect). Runs after
+        // the reflection so it also covers a reflection that grazed a keep-out. No-op when no room
+        // overlaps (the common case on the handled plates) → byte-identical.
+        // (The §65.3 corridor-STUB to a fragmented-dense keep-out is routed in enumerate.ts's
+        // §STAIR-SPINE-TOUCH, where a new circulation room can be minted in the bubble graph —
+        // one rect per room — rather than as a second corridor placement here.)
+        const typeByRoomId: ReadonlyMap<string, RoomType> = new Map(graph.rooms.map(r => [r.id, r.type]));
+        const oriented = keepOutRects.length > 0
+            ? clipRoomsOutOfKeepOut(reflected, keepOutRects, typeByRoomId)
+            : reflected;
+
+        // §DIAG-STAIR-OVERLAP (founder defect §65.1, 2026-06-11) — per-storey engine-side proof
+        // that NO habitable room rect intersects the stair keep-out (only the `stair` room may).
+        // YES here is the founder's bug surface (a room flooded across the stair); after the clip
+        // it must always read NO.
+        if (keepOutRects.length > 0) {
+            let worst: { id: string; type: string; ov: number } | null = null;
+            for (const p of oriented) {
+                if ((typeByRoomId.get(p.roomId) ?? '') === 'stair') continue;
+                const ov = keepOutRects.reduce((m, ko) => Math.max(m, overlapAreaM2(p.rect, ko)), 0);
+                if (ov > 1e-3 && (!worst || ov > worst.ov)) worst = { id: p.roomId, type: typeByRoomId.get(p.roomId) ?? '?', ov };
+            }
+            console.log(
+                `[D-TGL subdivide] §DIAG-STAIR-OVERLAP roomOverlapsKeepOut=${worst ? 'YES' : 'NO'}` +
+                `${worst ? ` offending=${worst.id}(${worst.type}) overlapM2=${worst.ov.toFixed(2)}` : ''} ` +
+                `(YES ⇒ a habitable room is drawn across the stair keep-out — the §65.1 defect; NO ⇒ only the stair occupies it)`,
+            );
+        }
 
         // §DIAG-STAIR-CIRC (founder defect, 2026-06-11) — per-storey engine-side proof that the
         // corridor/landing reaches the stair keep-out. The next storey whose `corridorReachM` is
@@ -2005,7 +2235,7 @@ export function subdivideWithReport(
         if (keepOutRects.length > 0 && graph.corridorId) {
             const corrP = oriented.find(p => p.roomId === graph.corridorId);
             const reachM = corrP
-                ? keepOutRects.reduce((best, ko) => Math.max(best, sharedWallLengthM(corrP.rect, ko)), 0)
+                ? keepOutRects.reduce((b, ko) => Math.max(b, sharedWallLengthM(corrP.rect, ko)), 0)
                 : 0;
             console.log(
                 `[D-TGL subdivide] §DIAG-STAIR-CIRC corridor=${graph.corridorId} keepOuts=${keepOutRects.length} ` +

@@ -13,7 +13,7 @@
 import type { ApartmentProgram, ScoringWeights } from '../types.js';
 import { decomposeToRects, polygonBBox, rectArea, rectifyConvexQuad, subtractRectsFromRects, type Pt, type Rect } from './rectDecomposition.js';
 import { buildBubbleGraph, scaleProgramToShell, type BubbleGraph, type ProgramRoom, type AdjacencyEdge } from './bubbleGraph.js';
-import { subdivideWithReport, type DroppedRoom, type RoomPlacement } from './subdivide.js';
+import { subdivideWithReport, findCorridorStubToKeepOut, type DroppedRoom, type RoomPlacement } from './subdivide.js';
 import { buildWallsAndDoors, type BoundarySeg } from './wallsAndDoors.js';
 import { snapRectsAwayFromWindows, type WindowSpan } from './windowAvoidance.js';
 import { buildSemanticGraph, type LayoutGraph } from './semanticGraph.js';
@@ -503,6 +503,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
                         return hAbut && xOv > 0.05;
                     };
                     let bridged = 0;
+                    const unbridged: RoomPlacement[] = [];
                     for (const sp of stairPlacements) {
                         if (sharesWall(cor, sp.rect)) { bridged++; continue; }   // already touching
                         // Grow the corridor toward the stair on the axis with the smaller
@@ -515,20 +516,94 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
                             { ...cor, z1: Math.max(cor.z1, sp.rect.z0) },   // grow +z to stair's near
                             { ...cor, z0: Math.min(cor.z0, sp.rect.z1) },   // grow −z to stair's far
                         ];
+                        let grew = false;
                         for (const cand of candidates) {
                             if (cand.x1 - cand.x0 < 1e-3 || cand.z1 - cand.z0 < 1e-3) continue;
                             if (interiorOverlaps(cand)) continue;
                             if (!sharesWall(cand, sp.rect)) continue;
                             cor = cand;
                             placements[corIdx] = { roomId: circId, rect: cand };
-                            bridged++;
+                            bridged++; grew = true;
                             break;
                         }
+                        if (!grew) unbridged.push(sp);
                     }
                     console.log(
                         `[D-TGL] §STAIR-SPINE-TOUCH cand ${strategyKey(s)} corridor=${circId} ` +
                         `stairsBridgedToCorridor=${bridged}/${stairPlacements.length}`,
                     );
+
+                    // §STAIR-CIRC-STUB (founder defect §65.3, 2026-06-11) — the FRAGMENTED-DENSE
+                    // fallback: on a dense GROUND plate the corridor is a full-width strip on one
+                    // z-band and the stair sits on the OPPOSITE z-edge with the private comb in
+                    // between, so neither the §STAIR-CIRC-FACE reflection (a parallel strip can't
+                    // reach an opposite-edge keep-out) nor the §STAIR-SPINE-TOUCH straight grow
+                    // (the comb blocks it) connects the stair → it ships served through a bedroom.
+                    // CURE: route a PERPENDICULAR corridor STUB through the EMPTY band beside the
+                    // keep-out and mint it as a DEDICATED circulation room (`corridorStubN`, type
+                    // corridor) wired stub↔corridor + stub↔stair — ONE rect per room (so the
+                    // semantic graph stays clean; no duplicate corridor placement). Empty-space
+                    // only: never carves through a habitable room (no overlap). When no empty
+                    // channel exists the stair stays on the door-pipeline reroute (the §65.3
+                    // compromise the brief permits). House-only; deterministic.
+                    // §STUB-ONLY-RESCUE-CLEAN — fire the stub ONLY when it WON'T flip the Pareto
+                    // winner toward a worse-SIZED candidate on a plate v142 already handled. The
+                    // §PLATE-ROLE sizer tests guard against "blob" candidates (an OVERSIZED room —
+                    // bedroom 85 m², bathroom 27 m²): without the stub such a candidate ships
+                    // circulation-FAILED and ranks below the well-sized winner; WITH a stub it becomes
+                    // circulation-routed and wrongly WINS. So we skip the stub on any candidate that
+                    // ALREADY carries a room overlap OR an OVERSIZE / blob shape finding (areaHardMax,
+                    // widthHardMax, lengthHardMax, aspectHardMax) — adding a stub there would only
+                    // perturb the ranking. We DELIBERATELY still stub a candidate whose only shape
+                    // flaws are UNDERSIZE (areaMin / widthMin) — the genuinely over-constrained dense
+                    // founder plate the brief says to keep "clear+connected" (the §65.3 compromise).
+                    const typeOfRoom = new Map(bubble.rooms.map(r => [r.id, r.type]));
+                    const habitable = placements.filter(p => (typeOfRoom.get(p.roomId) ?? '') !== 'stair');
+                    const preStubOverlap = validateNoRoomOverlap(
+                        habitable.map(p => ({ id: p.roomId, rect: p.rect })),
+                    ).ok === false;
+                    const preStubShapes: RoomShape[] = [];
+                    for (const p of habitable) {
+                        const t = typeOfRoom.get(p.roomId);
+                        if (t) preStubShapes.push({ id: p.roomId, type: t, rect: p.rect });
+                    }
+                    const OVERSIZE_METRICS = new Set(['areaHardMax', 'widthHardMax', 'lengthHardMax', 'aspectHardMax']);
+                    const preStubBlob = validateAllRoomShapes(preStubShapes).hardFindings
+                        .some(f => OVERSIZE_METRICS.has(f.metric));
+                    if (unbridged.length > 0 && !preStubOverlap && !preStubBlob) {
+                        const shellBBWorld = polygonBBox(input.shellPolygon);
+                        const typeByRoomId = new Map(bubble.rooms.map(r => [r.id, r.type]));
+                        let stubbed = 0;
+                        unbridged.forEach((sp, k) => {
+                            const stubRect = findCorridorStubToKeepOut(
+                                placements, circId, [sp.rect], typeByRoomId,
+                                input.corridorWidthM ?? 1.2, shellBBWorld,
+                            );
+                            if (!stubRect) return;
+                            const stubId = `corridorStub_${sp.roomId}_${k}`;
+                            const stubRoom: ProgramRoom = {
+                                id: stubId, type: 'corridor', name: 'Stair Corridor',
+                                targetAreaM2: round6(rectArea(stubRect)),
+                                isPrivate: false, needsWindow: false,
+                            };
+                            bubble = {
+                                ...bubble,
+                                rooms: [...bubble.rooms, stubRoom],
+                                edges: [
+                                    ...bubble.edges,
+                                    { a: stubId, b: circId, via: 'open' },   // stub IS the corridor — no door between
+                                    { a: sp.roomId, b: stubId, via: 'door' }, // the stair's door lands on the stub
+                                ],
+                            };
+                            placements = [...placements, { roomId: stubId, rect: stubRect }];
+                            typeByRoomId.set(stubId, 'corridor');
+                            stubbed++;
+                        });
+                        console.log(
+                            `[D-TGL] §STAIR-CIRC-STUB cand ${strategyKey(s)} routed ${stubbed}/${unbridged.length} ` +
+                            `empty-space corridor stub(s) to otherwise-landlocked stair(s) (§65.3)`,
+                        );
+                    }
                 }
             }
 

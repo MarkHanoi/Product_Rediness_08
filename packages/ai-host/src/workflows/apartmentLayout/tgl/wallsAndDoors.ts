@@ -680,9 +680,17 @@ export function buildWallsAndDoors(
     // central blob: a bedroom / bathroom / corridor can never be merged into a
     // shared open space, whatever adjacency the bubble/AI graph requests.
     const eligibleById = new Map<string, boolean>(graph.rooms.map(r => [r.id, isOpenPlanEligible(r.type)]));
+    // §STAIR-CIRC-STUB (founder defect §65.3, 2026-06-11) — a corridor STUB (minted by enumerate.ts
+    // to reach an otherwise-landlocked stair) is type `corridor` and joins the main corridor via an
+    // `open` edge: they are the SAME circulation function, so the shared wall is omitted (the L-leg
+    // reads as one continuous corridor) and a virtual boundary line still splits them for room
+    // detection — exactly the open-plan kitchen↔living mechanism, restricted to corridor↔corridor.
+    const typeForOpen = new Map<string, string>(graph.rooms.map(r => [r.id, roomRule(r.type).type]));
+    const bothCorridor = (a: string, b: string): boolean =>
+        typeForOpen.get(a) === 'corridor' && typeForOpen.get(b) === 'corridor';
     for (const e of graph.edges) {
         if (e.via !== 'open') continue;
-        if (eligibleById.get(e.a) === true && eligibleById.get(e.b) === true) union(e.a, e.b);
+        if ((eligibleById.get(e.a) === true && eligibleById.get(e.b) === true) || bothCorridor(e.a, e.b)) union(e.a, e.b);
     }
     const sameZone = (a: string, b: string): boolean => find(a) === find(b);
 
@@ -748,8 +756,10 @@ export function buildWallsAndDoors(
             const tx = roomTypeById.get(x), ty = roomTypeById.get(y);
             if (!tx || !ty) return;
             // A pair is LEGITIMATELY wall-less only when it is an intentional open-plan
-            // merge: both rooms open-plan-eligible AND the engine put them in one open zone.
-            const legitOpenPlan = openZone && eligibleById.get(x) === true && eligibleById.get(y) === true;
+            // merge (both open-plan-eligible) OR a §STAIR-CIRC-STUB corridor↔corridor L-leg join
+            // (the same circulation function), with the engine in one open zone.
+            const legitOpenPlan = openZone
+                && ((eligibleById.get(x) === true && eligibleById.get(y) === true) || bothCorridor(x, y));
             const shouldSeparate = !legitOpenPlan;
             if (!shouldSeparate) return;   // intentional kitchen-diner — not a divider candidate
             const ok = dividerPresent;
