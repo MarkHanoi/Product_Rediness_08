@@ -728,6 +728,52 @@ export function buildWallsAndDoors(
     for (const { coord, faces } of groupByCoord(vFaces)) for (const run of runsForLine(faces)) emit('v', coord, run);
     for (const { coord, faces } of groupByCoord(hFaces)) for (const run of runsForLine(faces)) emit('h', coord, run);
 
+    // ── §DIAG-MERGE-DIVIDER (tracker §57.3, 2026-06-11) ───────────────────────────
+    // Per ADJACENT room pair that SHOULD be separated by a real partition, log whether a
+    // divider wall is present (`dividerPresent=YES/NO`) and whether the wall was instead
+    // suppressed as an OPEN-PLAN threshold (`openZone=YES/NO` — the wall-less merge). A
+    // pair that should separate but ends with NO divider AND is NOT a legitimate open-plan
+    // pair is the room-MERGE defect (the compound "Living Room / Dining / Bathroom"). The
+    // ONLY legitimate wall-less pair is two open-plan-eligible rooms (kitchen/dining/living)
+    // the program intentionally merged into one open zone. Logging only — no behaviour
+    // change; the next console paste confirms the divider survived. `weldDropped` is left to
+    // the editor's §GROUND-WELD log (this pure pass has no shell to weld against).
+    {
+        const roomTypeById = new Map(graph.rooms.map(r => [r.id, r.type]));
+        const seen = new Set<string>();
+        const reportPair = (x: string, y: string, dividerPresent: boolean, openZone: boolean): void => {
+            const key = pairKey(x, y);
+            if (seen.has(key)) return;
+            seen.add(key);
+            const tx = roomTypeById.get(x), ty = roomTypeById.get(y);
+            if (!tx || !ty) return;
+            // A pair is LEGITIMATELY wall-less only when it is an intentional open-plan
+            // merge: both rooms open-plan-eligible AND the engine put them in one open zone.
+            const legitOpenPlan = openZone && eligibleById.get(x) === true && eligibleById.get(y) === true;
+            const shouldSeparate = !legitOpenPlan;
+            if (!shouldSeparate) return;   // intentional kitchen-diner — not a divider candidate
+            const ok = dividerPresent;
+            console.log(
+                `[D-TGL] §DIAG-MERGE-DIVIDER pair=${tx}↔${ty} dividerPresent=${ok ? 'YES' : 'NO'} ` +
+                `openZone=${openZone ? 'YES' : 'NO'} weldDropped=${'N/A(pre-weld)'} ` +
+                `${ok ? '✓' : '⚠ MERGE-RISK (room-separating wall missing → rooms flood-merge)'}`,
+            );
+            if (!ok) {
+                console.warn(
+                    `[D-TGL] §DIAG-MERGE-DIVIDER ⚠ ${tx}↔${ty} should be SEPARATE rooms but has NO divider ` +
+                    `(openZone=${openZone}). If this is NOT an intended open-plan kitchen+dining pair the two ` +
+                    `rooms will detect as ONE compound room. See §OPEN-PLAN-ELIGIBLE / openPlanLivingDining.`,
+                );
+            }
+        };
+        // Real-wall pairs (have a divider).
+        for (const [, seg] of sharedWallByPair) {
+            if (seg.boundsRoomIds.length === 2) reportPair(seg.boundsRoomIds[0]!, seg.boundsRoomIds[1]!, true, false);
+        }
+        // Open-zone pairs (no wall — a virtual boundary line only).
+        for (const bd of boundaries) reportPair(bd.betweenRoomIds[0]!, bd.betweenRoomIds[1]!, false, true);
+    }
+
     // ── Doors ────────────────────────────────────────────────────────────────────
     // A door needs a real shared wall + must fit; one door per wall. The pipeline:
     //   (1) place the doors the bubble graph asks for (intended adjacencies);

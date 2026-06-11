@@ -121,6 +121,22 @@ export interface ApartmentProgram {
     openPlanKitchenDining: boolean;
     livingRoom: boolean;
     entranceHall: boolean;
+    /** §DIAG-MERGE-DIVIDER (tracker §57.3, 2026-06-11) — whether the LIVING room
+     *  shares an OPEN (wall-less) threshold with the dining zone (the "lounge-diner"
+     *  pattern). Optional; ABSENT or `true` → the legacy behaviour: when
+     *  {@link openPlanKitchenDining} is on, LIVING ↔ DINING is an `open` edge
+     *  (apartment default — byte-identical). `false` → LIVING is a SEPARATE, fully
+     *  WALLED room (a `door` edge to dining) while the open-plan merge moves to the
+     *  literal KITCHEN ↔ DINING pair (the architecturally-correct "open-plan kitchen +
+     *  dining" = one kitchen-diner; Living distinct).
+     *
+     *  THE DEFECT this closes: the multi-storey HOUSE GROUND floor forced
+     *  `openPlanKitchenDining: true`, which under the legacy edge opened LIVING ↔ DINING
+     *  and SUPPRESSED the divider between them — so room detection flooded across the
+     *  missing wall and shipped the compound "Living Room / Dining" (and on deeper plates
+     *  swept a corridor / bathroom in too). The HOUSE ground now sets this `false`, so
+     *  Living keeps its sealing partition; kitchen + dining still merge as intended. */
+    openPlanLivingDining?: boolean;
     /** §A.21.x-KITCHEN (2026-06-06): whether this plate gets a kitchen. Optional;
      *  ABSENT or `true` → a kitchen is created (apartment default — unchanged).
      *  `false` → NO kitchen (multi-storey HOUSE upper storeys, per SPEC-CASA §3:

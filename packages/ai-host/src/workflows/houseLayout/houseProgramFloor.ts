@@ -275,6 +275,19 @@ export function enrichStoreyProgramToPlate(
             // on so the kitchen has a dining companion rather than the kitchen blob
             // stretching to fill the plate.
             openPlanKitchenDining: true,
+            // §DIAG-MERGE-DIVIDER (tracker §57.3, 2026-06-11) — the open-plan merge on a
+            // HOUSE ground floor is the literal KITCHEN + DINING (one kitchen-diner). The
+            // LIVING room is a SEPARATE, fully WALLED room — never merged into the dining
+            // zone. PREVIOUSLY the ground forced openPlanKitchenDining=true under the
+            // legacy "lounge-diner" edge, which opened LIVING ↔ DINING and SUPPRESSED the
+            // divider between them, so room detection flooded the gap and shipped the
+            // compound "Living Room / Dining" (and on deeper plates a corridor/bathroom
+            // was swept in). Forcing this false moves the open threshold to kitchen↔dining
+            // and keeps Living's sealing partition. (Never turn a user-stated TRUE off —
+            // but the ground enrich never sets this true, so this is the authoritative
+            // ground default.) Apartment path never calls fillGroundPlate/this branch, so
+            // the apartment output is byte-identical (the flag defaults to legacy there).
+            openPlanLivingDining: false,
         };
     } else if (role === 'upper') {
         // Upper storeys are the private level: at least one bedroom + a bathroom,

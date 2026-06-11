@@ -4191,7 +4191,7 @@ the v132 `§DIAG-EXEC-WALLS/-FILL/-STAIR-SIZE/-ADJ`.
 |---|---|---|---|
 | **57.1** | **Rooms overlap sometimes — "not possible"** | 🔴 HARD | `§DIAG-EXEC-OVERLAP` added; root unknown (subdivider emits overlapping rects, or detection). Await next log → fix. |
 | **57.2** | **Multiple windows clashing — "not possible"** | 🔴 HARD | `§DIAG-EXEC-WIN-CLASH` added; the v134 §WINDOW-EVERY-FRONTAGE last-resort or the de-overlap may place 2 on one wall. WINDOWS agent (§57.8) owns the fix. |
-| **57.3** | **Big merge "Living Room / Dining / Bathroom 81.9 m²"** | 🔴 HARD | A MISSING divider (detection agent proof, v133 note): the engine weld drops a real divider. Fix = `weldPartitionsToShell` clamp-don't-drop (engine). |
+| **57.3** | **Big merge "Living Room / Dining / Bathroom 81.9 m²"** | 🟢 DONE v146 | NOT a weld drop — `§OPEN-PLAN-LIVING-DINING`: the "open-plan kitchen+dining" flag was opening the WRONG pair. `bubbleGraph:463` made LIVING↔DINING the `open` edge (divider suppressed → flood-merge) while kitchen↔dining stayed walled. Fix: new `openPlanLivingDining` flag (false for house ground via houseProgramFloor) → the open zone moves to the literal kitchen↔dining, Living becomes a separate walled room. + `§DIAG-MERGE-DIVIDER` log. ai-host 2313/2313, apartment byte-identical. |
 | **57.4** | **Entrance hall must be on the perimeter + have the main door — "not re-enforced … STILL centered, cannot be there!!!"** (founder re-flagged 2026-06-11, emphatic) | 🟢 DONE v144 | `§ENTRANCE-SHELL-SLICE` (`placePublicWithHallOnShell`, subdivide.ts): carves the `hall` as a full-depth column on a SHELL edge of the public rect, perpendicular to the corridor face → it bounds a perimeter wall (door OUT, the front door seats there) AND shares a wall inward with corridor/living. Falls back to plain squarify (byte-identical) when no hall / hall-only / a sibling can't clear its floor → never drops a room; suppressed on rectified (sheared) shells. New `§DIAG-ENTRANCE-PERIMETER` log (`boundsShellWall=YES`, frontage 3.4–5.0 m on every tested plate; was interior). ai-host 2307/2307 (139 files), root tsc 0. |
 | **57.5** | **White blank upstairs (intermittent)** | 🟠 HIGH | Upper undivided area ("Room 01-005 53.7 m²"). The v135 spine-carve targeted the ground; extend to the upper storey. `§DIAG-EXEC-FILL` STRETCHED flag surfaces it. |
 | **57.6** | **Door/window opening lines "breaking the walls" during AI-batch gen (apartment + house)** | 🟠 HIGH | A previously-fixed opening-void render regressed under the batch path. Investigate `§DIAG-OPENING-VOID` / WallRebuildCoordinator under batch. |
@@ -4295,7 +4295,12 @@ direction, not up). A washing-machine / fridge / oven round door faces the user;
 rotation from the floor plane onto the appliance front. Lives in the furniture geometry builder (the washing-machine
 / appliance-with-round-door mesh — `FurnitureGeometryBuildersB.ts` / `FurnitureGeometryFactory.ts`); fix = orient
 the door-circle + arcs in the vertical façade plane of the module, anchored to its front, not the XY footprint.
-**Status: 🔵 QUEUED (no priority).**
+**Status: 🔵 QUEUED (no priority).** **INVESTIGATION 2026-06-11:** the standalone `WashingMachineBuilder`
+(`UtilityBuilders.ts`) porthole IS already front-facing (a `CylinderGeometry` rotated `x=π/2` → faces +Z, with a
+front-facing bezel `TorusGeometry` at `L/2`), so the wrong-axis circle in the founder's screenshot is likely a
+DIFFERENT element — a door-swing arc (the 2D plan symbol leaking into 3D) or the KITCHEN appliance variant
+(`washing_machine_dark`/`_white` in `KitchenCabinetEngine`), or the dishwasher door. Needs the founder to confirm
+which unit, or a deeper look at the kitchen-appliance + door-swing-arc geometry. Not the standalone washing machine.
 
 ## §63 — Bathroom fixture quality (material · openings · wall-hosting) — QUEUED, no priority (2026-06-11)
 
@@ -4322,6 +4327,24 @@ no longer overlaps, and **align it with the bottom** of that button group. CSS/l
 overlay controls (the split-view toggle vs the `Living Graph`/`Graph`/`+ Grid` cluster — `SplitViewManager` UI /
 the bottom-menu / the canvas overlay z-stack); nudge the split-view button's position + bottom-align so the two
 groups sit flush, not on top of each other. **Status: 🔵 QUEUED.**
+
+## §65 — Dense-plate subdivider failures (founder test 2026-06-11, post-v145) — 🔴 HIGH
+
+Founder test on a DENSE plate (180 m² ground, **7 bedrooms**, 4 baths, study, open-plan K+D). Multiple subdivider
+quality failures — all in `tgl/subdivide.ts` (the file the §57.3 MERGE agent is editing right now, so these are
+**sequenced immediately after it lands** — a second concurrent subdivide editor would corrupt it):
+
+| # | Defect (founder words + screenshot) | Severity | Notes |
+|---|---|---|---|
+| **65.1** | **"The kitchen is in the stair room"** — ground Kitchen detected **41.4 m²** with the STAIR drawn inside it (kitchen + stair-void flooded into one room; kitchen also way over its ~16%-of-plate cap) | 🔴 HARD | The stair keep-out did NOT seal the kitchen → detection flooded across it. The §STAIR-VOID-EXCLUDE / keep-out subtraction failed on this plate. A room must NEVER tile across the stair keep-out (= §57.1 overlap class for the stair). |
+| **65.2** | **Big white/blank space on BOTH floors** — ground "Room 00-001 **63.9 m²**", first "Room 01-005 **48.2 m²**" + "Room 01-004 **30.2 m²**" (huge undivided cells) | 🔴 HIGH | = §57.5/58.3, now on a large plate AND both floors. The subdivider leaves huge un-partitioned cells when the program doesn't fill the plate / the carve bails. The v124 §HOUSE-GROUND-PUBLIC-SET filled the ground for SMALL plates; large + dense plates still blank. `§DIAG-EXEC-FILL` STRETCHED surfaces it. |
+| **65.3** | **Stair (first floor) STILL not connected to the corridor** | 🔴 HARD | v142 §STAIR-CIRC-FACE did NOT hold on this dense 7-bed plate (the spine band is too fragmented / the reflection can't reach the keep-out). §58.1 regression on dense plates — `§DIAG-STAIR-CIRC sharesStairWall=NO` should confirm in the gen log. Extend §STAIR-CIRC-FACE to the multi-fragment / spine-band fallback. |
+| — | "Living Room / Dining 46.9 m²" merge | 🟡 | Open-plan kitchen+dining is ON → living+dining merging may be intentional; the §57.3 merge agent distinguishes intentional vs defect. |
+
+**Root pattern:** on a DENSE (many-bedroom) / LARGE plate the subdivider's quality degrades — keep-out not sealed
+(kitchen-in-stair), huge blanks, stair not reaching the corridor. These are coupled and want a **holistic dense-plate
+subdivider pass** (not piecemeal): seal the stair keep-out against ALL rooms, fill blanks, guarantee the corridor
+reaches the stair. Sequenced after §57.3 (same file). The kitchen-in-stair (65.1) is the hard-error to fix first.
 
 ## §54 — Living-graph node CARDS (select → interrogate → flowing canvas) — QUEUED (2026-06-11)
 

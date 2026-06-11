@@ -459,8 +459,25 @@ export function buildBubbleGraph(
     // walls. The kitchen always gets walls + a door; the §ADJACENCY-PREFERENCE
     // 1.0 weight on kitchen↔dining keeps them clustered architecturally.
     link(livingId ?? corridorId, kitchenId, 'door');
-    link(kitchenId, diningId, 'door');
-    link(livingId, diningId, program.openPlanKitchenDining ? 'open' : 'door');
+    // §DIAG-MERGE-DIVIDER (tracker §57.3, 2026-06-11) — resolve which pair the open-plan
+    // threshold opens.
+    //   • LEGACY (apartment default — `openPlanLivingDining` absent/true): the
+    //     "lounge-diner" — LIVING ↔ DINING is `open` when openPlanKitchenDining is on,
+    //     kitchen always walled (the §KITCHEN-DISTINCT design). Byte-identical.
+    //   • `openPlanLivingDining === false` (the multi-storey HOUSE ground): the literal
+    //     "open-plan kitchen + dining" — the OPEN merge moves to KITCHEN ↔ DINING (one
+    //     kitchen-diner) and LIVING is a SEPARATE WALLED room (`door` to dining). This is
+    //     what stops the GROUND-floor "Living Room / Dining" merge: Living keeps its
+    //     sealing divider instead of having it suppressed as an open-zone threshold.
+    const openPlanLivingDining = program.openPlanLivingDining !== false;
+    if (openPlanLivingDining) {
+        link(kitchenId, diningId, 'door');
+        link(livingId, diningId, program.openPlanKitchenDining ? 'open' : 'door');
+    } else {
+        // Living is its own walled room; kitchen + dining form the open kitchen-diner.
+        link(kitchenId, diningId, program.openPlanKitchenDining ? 'open' : 'door');
+        link(livingId, diningId, 'door');
+    }
     // Private zone hangs off the corridor (or the hall when there's no corridor).
     const spine = corridorId ?? entryId ?? livingId;
     // §HOUSE-GROUND-PUBLIC-SET (A.21.D28 #4, 2026-06-11) — the study + utility hang off
