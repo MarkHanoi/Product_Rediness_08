@@ -18,6 +18,8 @@ const ALL_TYPES: RoomType[] = [
     'bathroom', 'ensuite', 'wc', 'hall', 'corridor', 'study', 'utility',
     // §STAIR-ROOM-TYPE (ADR-0063) — vertical-circulation first-class room type.
     'stair',
+    // §NEW-ROOM-TYPES (2026-06-12, queue #1) — three OPT-IN types.
+    'open_plan', 'balcony', 'storage',
 ];
 
 describe('programRules — database integrity', () => {
@@ -158,6 +160,26 @@ describe('programRules — connectivity matrix (the user\'s rules)', () => {
         expect(preferenceBetween('utility', 'kitchen')).toBeCloseTo(0.6, 5);
     });
 
+    // §ADJACENCY-PREFERENCE (queue #6 / founder #3) — PREFERENCE ≠ PERMISSION.
+    it('a preferred adjacency RANKS ABOVE a merely-permitted one — without rejecting the permitted one', () => {
+        // bedroom PERMITS both corridor (preferred 1.0) and living (permitted 0.4).
+        // Both are legal doors (permission), but the corridor route is strictly preferred.
+        expect(doorAllowedBetween('bedroom', 'corridor')).toBe(true);
+        expect(doorAllowedBetween('bedroom', 'living')).toBe(true);     // STILL permitted
+        const prefCorridor = preferenceBetween('bedroom', 'corridor');
+        const prefLiving = preferenceBetween('bedroom', 'living');
+        // The soft weight distinguishes "good" (corridor) from "merely-legal" (living) …
+        expect(prefCorridor).toBeGreaterThan(prefLiving);
+        // … yet the merely-permitted adjacency is NOT hard-invalid: its weight is a
+        // positive soft score, so a layout that realises it is penalised, not rejected.
+        expect(prefLiving).toBeGreaterThan(0);
+        // Same pattern for the social cluster: kitchen↔dining (1.0, the open-plan
+        // classic) preferred above kitchen↔corridor (0.6, a wrong-zone fallback).
+        expect(preferenceBetween('kitchen', 'dining'))
+            .toBeGreaterThan(preferenceBetween('kitchen', 'corridor'));
+        expect(preferenceBetween('kitchen', 'corridor')).toBeGreaterThan(0);
+    });
+
     it('every room has at least one legal access path (no orphan type)', () => {
         for (const a of ALL_TYPES) {
             const reachable = ALL_TYPES.some(b => b !== a && doorAllowedBetween(a, b));
@@ -246,6 +268,90 @@ describe('programRules — auto-scale bedrooms/baths from shell area (the user\'
         it('growth never exceeds the §3.1 envelope cap (a huge shell stops at 5 beds)', () => {
             expect(scaleProgramToShell(base, 800).bedrooms).toBe(5);
         });
+    });
+});
+
+// ─── §NEW-ROOM-TYPES (2026-06-12, queue #1) — balcony / storage / open_plan ────
+describe('programRules — §NEW-ROOM-TYPES (queue #1)', () => {
+    it('each new type has a complete, self-consistent rule', () => {
+        for (const t of ['balcony', 'storage', 'open_plan'] as RoomType[]) {
+            const r = ROOM_RULES[t];
+            expect(r, `${t} rule exists`).toBeDefined();
+            expect(r.type).toBe(t);
+            expect(r.occupancy.length).toBeGreaterThan(0);
+            expect(r.areaWeight).toBeGreaterThan(0);
+            expect(r.minAreaM2).toBeGreaterThan(0);
+            expect(r.maxDoors).toBeGreaterThanOrEqual(1);
+            // Every new type has a sane access set including at least one existing room.
+            expect(r.accessFrom.length).toBeGreaterThan(0);
+            const reachable = r.accessFrom.some(b => doorAllowedBetween(t, b));
+            expect(reachable, `${t} is reachable`).toBe(true);
+        }
+    });
+
+    it('balcony — exterior outdoor extension off a habitable room (never windowed, never open-plan)', () => {
+        // Opens off the social + sleeping rooms, never off circulation / wet / service.
+        expect(doorAllowedBetween('balcony', 'living')).toBe(true);
+        expect(doorAllowedBetween('balcony', 'master')).toBe(true);
+        expect(doorAllowedBetween('balcony', 'bedroom')).toBe(true);
+        expect(doorAllowedBetween('balcony', 'corridor')).toBe(false);
+        expect(doorAllowedBetween('balcony', 'bathroom')).toBe(false);
+        // It is open air — NOT window-desired, NOT open-plan-eligible.
+        expect(windowDesiredFor('balcony')).toBe(false);
+        expect(windowMandatoryFor('balcony')).toBe(false);
+        expect(isOpenPlanEligible('balcony')).toBe(false);
+        expect(ROOM_RULES.balcony.frontage).toBe('none');
+    });
+
+    it('storage — small windowless service room off a corridor/hall/bedroom', () => {
+        expect(doorAllowedBetween('storage', 'corridor')).toBe(true);
+        expect(doorAllowedBetween('storage', 'hall')).toBe(true);
+        expect(doorAllowedBetween('storage', 'bedroom')).toBe(true);   // walk-in dressing case
+        expect(doorAllowedBetween('storage', 'kitchen')).toBe(false);
+        expect(windowDesiredFor('storage')).toBe(false);               // windowless OK
+        expect(windowMandatoryFor('storage')).toBe(false);
+        expect(isOpenPlanEligible('storage')).toBe(false);
+        expect(isPrivate('storage')).toBe(false);                      // it's 'service'
+        expect(ROOM_RULES.storage.privacy).toBe('service');
+    });
+
+    it('open_plan — fused kitchen-living-dining great room: public, windowed, open-plan-eligible', () => {
+        expect(doorAllowedBetween('open_plan', 'hall')).toBe(true);
+        expect(doorAllowedBetween('open_plan', 'corridor')).toBe(true);
+        expect(windowDesiredFor('open_plan')).toBe(true);
+        expect(windowMandatoryFor('open_plan')).toBe(true);            // primary daylit space
+        expect(isOpenPlanEligible('open_plan')).toBe(true);           // eligible by construction
+        expect(isCirculation('open_plan')).toBe(false);
+        expect(ROOM_RULES.open_plan.privacy).toBe('public');
+    });
+
+    it('windowMandatory ⇒ needsWindow still holds for the new types', () => {
+        for (const t of ['balcony', 'storage', 'open_plan'] as RoomType[]) {
+            if (ROOM_RULES[t].windowMandatory) expect(ROOM_RULES[t].needsWindow).toBe(true);
+        }
+    });
+});
+
+// ─── §ASYMMETRIC-ACCESS (2026-06-12, queue #5) — directed accessTo grant ────────
+describe('programRules — §ASYMMETRIC-ACCESS (queue #5)', () => {
+    it('the ensuite-in-corridor hole is CLOSED: an ensuite is reachable ONLY from its master', () => {
+        // The documented hole (queue #2/#5): an ensuite must never be a through-room
+        // off the corridor. corridor.accessFrom must NOT list ensuite, ensuite.accessFrom
+        // lists ONLY master, and no accessTo grant re-opens it.
+        expect(ROOM_RULES.corridor.accessFrom).not.toContain('ensuite');
+        expect(ROOM_RULES.ensuite.accessFrom).toEqual(['master']);
+        expect(doorAllowedBetween('ensuite', 'corridor')).toBe(false);
+        expect(doorAllowedBetween('ensuite', 'hall')).toBe(false);
+        expect(doorAllowedBetween('ensuite', 'bedroom')).toBe(false);
+        expect(doorAllowedBetween('ensuite', 'master')).toBe(true);
+    });
+
+    it('accessTo is a back-compat OPTIONAL grant — no rule sets it today, so the matrix is unchanged', () => {
+        // Invariant: every rule's directed permission is fully covered by the
+        // symmetric accessFrom, so accessTo is omitted everywhere (the helper is identity).
+        for (const r of ALL_ROOM_RULES) {
+            expect(r.accessTo === undefined, `${r.type} must not set accessTo yet`).toBe(true);
+        }
     });
 });
 

@@ -22,9 +22,11 @@ describe('T1.3 — acousticRole field on RoomRule', () => {
         }
     });
 
-    it('canonical noise sources: living / kitchen / dining / utility', () => {
+    it('canonical noise sources: living / kitchen / dining / utility (+ open_plan, queue #1)', () => {
         const sources = new Set(ACOUSTIC_SOURCE_TYPES);
-        const expected: RoomType[] = ['living', 'kitchen', 'dining', 'utility'];
+        // §NEW-ROOM-TYPES — the fused great room is a noise source (it subsumes the
+        // kitchen + living). balcony + storage are neutral, so they don't join here.
+        const expected: RoomType[] = ['living', 'kitchen', 'dining', 'utility', 'open_plan'];
         for (const t of expected) expect(sources.has(t), `${t} should be a source`).toBe(true);
         expect(sources.size).toBe(expected.length);
     });
@@ -61,9 +63,11 @@ describe('T1.6 — frontage field on RoomRule', () => {
     // §HALL-PERIMETER (ADR-0063, founder rule #2) — the entrance hall is now
     // frontage REQUIRED: it hosts the main entrance door so it must abut the
     // perimeter shell. (It is NOT windowMandatory — never a hard window reject.)
-    it('frontage REQUIRED: living / kitchen / master / bedroom + hall', () => {
+    it('frontage REQUIRED: living / kitchen / master / bedroom + hall (+ open_plan, queue #1)', () => {
         const required = new Set(FRONTAGE_REQUIRED_TYPES);
-        const expected: RoomType[] = ['living', 'kitchen', 'master', 'bedroom', 'hall'];
+        // §NEW-ROOM-TYPES — the windowed great room is frontage-required (like the
+        // living it subsumes). balcony + storage are interior-acceptable ('none').
+        const expected: RoomType[] = ['living', 'kitchen', 'master', 'bedroom', 'hall', 'open_plan'];
         for (const t of expected) expect(required.has(t), `${t} should require frontage`).toBe(true);
         expect(required.size).toBe(expected.length);
     });
@@ -80,8 +84,10 @@ describe('T1.6 — frontage field on RoomRule', () => {
 
     // §HALL-PERIMETER (ADR-0063) — hall left the 'none' set (now 'required').
     // §STAIR-ROOM-TYPE (ADR-0063) — the new `stair` core is interior-acceptable ('none').
-    it('frontage NONE: corridor / stair / utility only (hall promoted by ADR-0063; wet rooms by A.21.D55)', () => {
-        const none: RoomType[] = ['corridor', 'stair', 'utility'];
+    it('frontage NONE: corridor / stair / utility (+ balcony / storage, queue #1)', () => {
+        // §NEW-ROOM-TYPES — balcony IS the perimeter (skipped by the frontage/light
+        // validators) and storage is interior-acceptable, so both are 'none'.
+        const none: RoomType[] = ['corridor', 'stair', 'utility', 'balcony', 'storage'];
         for (const t of none) {
             expect(ROOM_RULES[t].frontage).toBe('none');
         }

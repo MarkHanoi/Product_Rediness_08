@@ -221,6 +221,9 @@ const DROP_PRIORITY_RANK: Readonly<Record<RoomType, number>> = {
     // unbuildable) so even a hypothetical drop pass would protect it first.
     stair: 110,
     living: 100,
+    // §NEW-ROOM-TYPES (2026-06-12, queue #1) — the fused great room ranks with the
+    // social cluster it subsumes (protected — never the first to drop on a tight plate).
+    open_plan: 100,
     kitchen: 95,
     master: 90,
     bathroom: 85,
@@ -232,6 +235,10 @@ const DROP_PRIORITY_RANK: Readonly<Record<RoomType, number>> = {
     ensuite: 30,
     wc: 25,
     utility: 20,
+    // Balcony + storage are the lowest-priority OPT-IN extras — the first to go
+    // when the plate can't hold every requested room at its minimum.
+    balcony: 15,
+    storage: 10,
 };
 function dropRankFor(type: RoomType): number {
     return DROP_PRIORITY_RANK[type] ?? 40;

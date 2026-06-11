@@ -25,6 +25,10 @@ const ROOM_LABEL: Readonly<Record<RoomType, string>> = {
     stair: 'stair',
     study: 'study',
     utility: 'utility',
+    // §NEW-ROOM-TYPES (2026-06-12, queue #1) — labels for the three OPT-IN types.
+    open_plan: 'open-plan',
+    balcony: 'balcony',
+    storage: 'storage',
 };
 
 /** Order rooms appear in the summary — programme-first then service. */
@@ -32,12 +36,15 @@ const TYPE_ORDER: readonly RoomType[] = [
     'master',
     'bedroom',
     'living',
+    'open_plan',
     'dining',
     'kitchen',
+    'balcony',
     'ensuite',
     'bathroom',
     'wc',
     'study',
+    'storage',
     'hall',
     'corridor',
     'stair',

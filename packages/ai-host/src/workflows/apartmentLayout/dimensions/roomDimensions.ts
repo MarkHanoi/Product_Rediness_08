@@ -160,6 +160,46 @@ export const ROOM_DIMENSIONS: Readonly<Record<RoomType, RoomDimensions>> = {
         // Washer + dryer span ≥ 1.4 m.
         usableWallMin: 1.4,
     },
+
+    // ── §NEW-ROOM-TYPES (2026-06-12, queue #1) — three OPT-IN envelopes ─────────
+    // Mirrors the dimensional-limits rows already pinned in
+    // `validators/dimensional/limits.ts` (balcony areaMax 20 / width 3.5 / aspect 6;
+    // storage areaMax 8 / width 3 / aspect 4) so the two databases agree.
+    balcony: {
+        type: 'balcony',
+        // A balcony is SHALLOW + EXTERIOR: a generous depth band but a hard cap so a
+        // "balcony" can't swallow interior area. usableWallMin 0 ⇒ no furnishing anchor
+        // (it is open air — the wall-usability validator skips a 0-sentinel room).
+        areaMin: 2.0, areaComfortableMin: 3.5, areaComfortableMax: 12, areaHardMax: 20,
+        widthMin: 1.2, widthPreferredMin: 1.4, widthPreferredMax: 2.4, widthHardMax: 3.5,
+        // Balconies are typically long + shallow, so the aspect band is loose.
+        lengthSoftMax: 6.0, lengthHardMax: 9.0,
+        aspectSoftMax: 4.0, aspectHardMax: 6.0,
+        usableWallMin: 0,
+    },
+    storage: {
+        type: 'storage',
+        // A small WINDOWLESS store / walk-in. Tight minima; modest cap (a "storage"
+        // bigger than ~8 m² is really a room). usableWallMin 0.6 = one short shelf wall.
+        areaMin: 1.0, areaComfortableMin: 1.5, areaComfortableMax: 4, areaHardMax: 8,
+        widthMin: 0.8, widthPreferredMin: 0.9, widthPreferredMax: 2.0, widthHardMax: INF,
+        lengthSoftMax: 3.5, lengthHardMax: 5.0,
+        aspectSoftMax: 3.0, aspectHardMax: 4.0,
+        usableWallMin: 0.6,
+    },
+    open_plan: {
+        type: 'open_plan',
+        // The fused kitchen-living-dining great room — LARGE. Floor carries the three
+        // fused minima (living 14 + a kitchen run + a dining set ≈ 20 m²); generous
+        // comfortable band; a high hard cap (it is the dominant social space) but still
+        // bounded so it can't become an un-daylit cavern.
+        areaMin: 20, areaComfortableMin: 26, areaComfortableMax: 48, areaHardMax: 70,
+        widthMin: 3.2, widthPreferredMin: 3.8, widthPreferredMax: 7.0, widthHardMax: INF,
+        lengthSoftMax: 11.0, lengthHardMax: 14.0,
+        aspectSoftMax: 2.4, aspectHardMax: 3.3,
+        // Needs a long uninterrupted wall for the kitchen run (≥ 3 m) AND a sofa wall.
+        usableWallMin: 3.0,
+    },
 };
 
 /** All dimensions, deterministically ordered (matches privacy gradient). */
@@ -169,6 +209,8 @@ export const ALL_ROOM_DIMENSIONS: readonly RoomDimensions[] = [
     ROOM_DIMENSIONS.master, ROOM_DIMENSIONS.bedroom, ROOM_DIMENSIONS.study,
     ROOM_DIMENSIONS.bathroom, ROOM_DIMENSIONS.ensuite, ROOM_DIMENSIONS.wc,
     ROOM_DIMENSIONS.utility,
+    // §NEW-ROOM-TYPES (2026-06-12, queue #1) — the three OPT-IN envelopes.
+    ROOM_DIMENSIONS.open_plan, ROOM_DIMENSIONS.balcony, ROOM_DIMENSIONS.storage,
 ];
 
 /** Dimension envelope for a room type. Throws on unknown — exhaustive Record. */

@@ -14,7 +14,19 @@ export type RoomType =
     // hole) makes the modal "Stair" cell EQUAL the executed stair cell so a
     // habitable room can never tile into the stair footprint. The apartment
     // (single storey) NEVER mints a `stair`, so it is byte-identical (ADR-0061).
-    | 'stair';
+    | 'stair'
+    // §NEW-ROOM-TYPES (2026-06-12, program-rules-improvements-queue #1) — three
+    // OPT-IN room types. A program that doesn't request them is byte-identical
+    // (no minter creates them by default), but the type vocabulary + the single-
+    // source-of-truth rule/dimension databases now cover them so a future modal
+    // or AI brief can ask for one and the engine validates it correctly:
+    //   • balcony   — EXTERIOR outdoor extension of a habitable room (shallow,
+    //                 never glazed/windowed — it IS open air; never open-plan-merged).
+    //   • storage   — small WINDOWLESS service room (store / walk-in / dressing);
+    //                 interior-acceptable, never glazed, off a corridor/hall/bedroom.
+    //   • open_plan — a FUSED kitchen-living-dining "great room" as a FIRST-CLASS
+    //                 type (public, windowed, open-plan-eligible by construction).
+    | 'balcony' | 'storage' | 'open_plan';
 
 /** A room in an AI-proposed layout (areas in m², coordinates in mm). */
 export interface LayoutRoom {

@@ -14,6 +14,8 @@ const ALL_TYPES: readonly RoomType[] = [
     // §STAIR-ROOM-TYPE (ADR-0063) — vertical-circulation first-class room type.
     'stair',
     'master', 'bedroom', 'study', 'bathroom', 'ensuite', 'wc', 'utility',
+    // §NEW-ROOM-TYPES (2026-06-12, queue #1) — three OPT-IN types.
+    'open_plan', 'balcony', 'storage',
 ];
 
 describe('roomDimensions — D1 dimensional database', () => {

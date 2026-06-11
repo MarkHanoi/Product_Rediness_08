@@ -201,6 +201,25 @@ export interface RoomRule {
      * else is FORBIDDEN (e.g. bedroom↔bedroom, bathroom↔kitchen, ensuite↔corridor).
      */
     readonly accessFrom: readonly RoomType[];
+
+    /**
+     * §ASYMMETRIC-ACCESS (2026-06-12, program-rules-improvements-queue #5) —
+     * OPTIONAL one-way access grant. `accessFrom` is symmetric (a door A↔B is
+     * legal when EITHER side lists the other), which can't express a DIRECTED
+     * permission like "an ensuite is reached ONLY FROM its master, never used as
+     * a through-room TO somewhere else". `accessTo` lets a rule additionally grant
+     * doors it INITIATES, on top of the symmetric `accessFrom` union:
+     *   doorAllowedBetween(a,b) = accessFrom-symmetric(a,b)
+     *                              OR a.accessTo?.includes(b)
+     *                              OR b.accessTo?.includes(a)
+     * Today every rule's directed permission is fully covered by the symmetric
+     * `accessFrom`, so `accessTo` is OMITTED everywhere and the helper is
+     * byte-identical (the `?? false` short-circuits). The field exists so a future
+     * directed grant (e.g. a service room reachable one-way) is expressible WITHOUT
+     * widening a symmetric `accessFrom` (which would also grant the reverse door).
+     * Missing ⇒ no extra grant. Pure data; deterministic.
+     */
+    readonly accessTo?: readonly RoomType[];
     /** Privacy door cap — max doorways this room may have (Infinity ⇒ uncapped). */
     readonly maxDoors: number;
 
@@ -658,6 +677,89 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         furnitureSpec: [],   // washer/dryer not yet catalogued as renderable furniture.
         description: 'Utility / laundry. One door to the corridor or the kitchen.',
     },
+
+    // ── §NEW-ROOM-TYPES (2026-06-12, queue #1) — three OPT-IN types ──────────────
+    // None of these is minted by the default apartment / house program, so a
+    // program that doesn't request them is byte-identical. They exist so the
+    // single-source-of-truth DB can validate them when a future modal / AI brief
+    // asks for one.
+
+    // BALCONY — exterior outdoor extension of a habitable room. It is OPEN AIR, so
+    // it is never "windowed" (windowDesiredFor returns false) and never merged into
+    // an interior open-plan zone (isOpenPlanEligible false). It opens off a social
+    // or sleeping room via a French-door / sliding door (accessFrom the habitable
+    // rooms). PUBLIC privacy (it extends the social gradient), neutral acoustics,
+    // 'none' frontage (it IS the perimeter — the frontage/lighting validators skip
+    // a balcony explicitly, so 'none' avoids tripping the §TOPO window rule).
+    balcony: {
+        type: 'balcony', occupancy: 'balcony', privacy: 'public',
+        acousticRole: 'neutral', frontage: 'none',
+        // A usable balcony is ≥ ~1.4 m deep × ~2.5 m wide ≈ 3.5 m²; shallow + long.
+        areaWeight: 0.3, minAreaM2: 2.0, minShortSideM: 1.4, needsWindow: false, windowMandatory: false,
+        // Opens off the social rooms + the bedrooms it serves (never off circulation
+        // or a wet/service room — you don't step onto a balcony from a corridor).
+        accessFrom: ['living', 'dining', 'kitchen', 'master', 'bedroom'], maxDoors: 1,
+        // §ADJACENCY-PREFERENCE — the living-room balcony is the canonical pairing
+        // (the outdoor extension of the social space); a bedroom balcony is also
+        // common; off the kitchen is the service-balcony pattern (less preferred).
+        adjacencyPreference: { living: 1.0, master: 0.8, bedroom: 0.8, dining: 0.7, kitchen: 0.4 },
+        requiredFurniture: [], optionalFurniture: ['lamp'], requiredFixtures: [],
+        furnitureSpec: [],   // exterior — no enclosed furniture program.
+        description: 'Exterior balcony / terrace — an open-air extension of a habitable room. Reached through a French / sliding door off the living, dining, kitchen, master or a bedroom. Never glazed (it is open air), never open-plan-merged.',
+    },
+
+    // STORAGE — small WINDOWLESS service room (store cupboard / walk-in / dressing).
+    // Interior-acceptable by design (no daylight requirement), so 'none' frontage +
+    // needsWindow false. SERVICE privacy. Reached off the circulation spine OR a
+    // bedroom (a walk-in dressing room off a bedroom is the common case).
+    storage: {
+        type: 'storage', occupancy: 'storage', privacy: 'service',
+        acousticRole: 'neutral', frontage: 'none',
+        // A useful store is ≥ ~1.5 m² with a ≥ 0.9 m clear short side (door + reach).
+        areaWeight: 0.25, minAreaM2: 1.5, minShortSideM: 0.9, needsWindow: false, windowMandatory: false,
+        accessFrom: ['corridor', 'hall', 'bedroom', 'master'], maxDoors: 1,
+        // §ADJACENCY-PREFERENCE — a store off the corridor/hall is the utility case;
+        // off a bedroom/master is the walk-in dressing case (both fully sensible).
+        adjacencyPreference: { corridor: 1.0, hall: 0.8, master: 0.8, bedroom: 0.7 },
+        requiredFurniture: [], optionalFurniture: [], requiredFixtures: [],
+        furnitureSpec: [],   // shelving not yet catalogued as renderable furniture.
+        description: 'Storage / store cupboard / walk-in. One door — off a corridor, the hall, or a bedroom (the walk-in dressing case). Windowless by design (no daylight requirement).',
+    },
+
+    // OPEN_PLAN — a FUSED kitchen-living-dining "great room" as a FIRST-CLASS type.
+    // It is the social cluster collapsed into ONE windowed, public space; it is
+    // OPEN-PLAN-ELIGIBLE by construction (so it may carry wall-less thresholds) and
+    // windowMandatory (it is the apartment's primary daylit living space). Reached
+    // from the entrance hall / corridor like the living room it subsumes.
+    open_plan: {
+        type: 'open_plan', occupancy: 'living-room', privacy: 'public',
+        acousticRole: 'source', frontage: 'required',
+        // A combined K-L-D great room is large: it carries the living + kitchen +
+        // dining minima fused, so the floor is generous (≈ living 14 + kitchen 6).
+        areaWeight: 2.4, minAreaM2: 20, minShortSideM: 3.2, needsWindow: true, windowMandatory: true,
+        // §AREA-FRACTIONS — the great room is the dominant social space: ≥ 22 %,
+        // capped at 45 % so even a fused room doesn't become a daylight-starved cavern.
+        minAreaFrac: 0.22, maxAreaFrac: 0.45,
+        accessFrom: ['hall', 'corridor'], maxDoors: INF,
+        // §ADJACENCY-PREFERENCE — opens cleanly off the entrance hall (1.0); the
+        // corridor route to the private zone is the secondary connection (0.7).
+        adjacencyPreference: { hall: 1.0, corridor: 0.7 },
+        requiredFurniture: ['sofa', 'kitchen_straight', 'dining_table', 'dining_chair'],
+        optionalFurniture: ['coffee_table', 'tv_unit', 'tv', 'pantry_cabinet', 'sideboard', 'lamp'],
+        requiredFixtures: ['sink'],
+        furnitureSpec: [
+            // The fused program: the sofa zone + the kitchen run + the dining set,
+            // each anchored independently (the D-FLE open-plan path constrains each
+            // sub-program to its own sub-zone). Mirrors the living/kitchen/dining specs.
+            { kind: 'sofa',             sizeW: 2000, sizeD: 900,  clearFoot: 450,  clearSide: 100, placementRule: 'longest_wall', excludeDoorSwing: true,  excludeWindowWall: false, required: true,  group: 'sofa' },
+            { kind: 'coffee_table',     sizeW: 1100, sizeD: 600,  clearFoot: 300,  clearSide: 100, placementRule: 'beside_group',  excludeDoorSwing: true,  excludeWindowWall: false, required: false, group: 'sofa' },
+            { kind: 'kitchen_straight', sizeW: 3000, sizeD: 600,  clearFoot: 1000, clearSide: 0,   placementRule: 'longest_wall', excludeDoorSwing: true,  excludeWindowWall: false, required: true },
+            { kind: 'dining_table',     sizeW: 1400, sizeD: 900,  clearFoot: 900,  clearSide: 900, placementRule: 'centre',       excludeDoorSwing: true,  excludeWindowWall: false, required: true,  group: 'dining' },
+            { kind: 'dining_chair',     sizeW: 500,  sizeD: 500,  clearFoot: 0,    clearSide: 0,   placementRule: 'around_group', excludeDoorSwing: false, excludeWindowWall: false, required: false, group: 'dining', count: 4 },
+            { kind: 'lamp',             sizeW: 350,  sizeD: 350,  clearFoot: 100,  clearSide: 0,   placementRule: 'corner',       excludeDoorSwing: false, excludeWindowWall: false, required: false },
+        ],
+        description: 'Open-plan great room — kitchen + living + dining fused into one windowed public space. Reached off the entrance hall / corridor. Open-plan-eligible by construction; windowMandatory (the primary daylit social space).',
+    },
 };
 
 const FALLBACK: RoomRule = ROOM_RULES.utility;
@@ -709,7 +811,10 @@ export function windowDesiredFor(type: RoomType | string): boolean {
     const t = roomRule(type).type;
     return t === 'living' || t === 'kitchen' || t === 'dining'
         || t === 'master' || t === 'bedroom' || t === 'study'
-        || t === 'bathroom' || t === 'ensuite' || t === 'wc';
+        || t === 'bathroom' || t === 'ensuite' || t === 'wc'
+        // §NEW-ROOM-TYPES — the fused great room is windowed like the living it
+        // subsumes. balcony (open air) + storage (windowless) are NOT window-desired.
+        || t === 'open_plan';
 }
 export function isPrivate(type: RoomType | string): boolean {
     const p = roomRule(type).privacy;
@@ -734,7 +839,9 @@ export function isPrivate(type: RoomType | string): boolean {
  */
 export function isOpenPlanEligible(type: RoomType | string): boolean {
     const t = roomRule(type).type;
-    return t === 'living' || t === 'kitchen' || t === 'dining';
+    // §NEW-ROOM-TYPES — `open_plan` IS the social cluster fused into one room, so
+    // it is open-plan-eligible by construction (it may carry wall-less thresholds).
+    return t === 'living' || t === 'kitchen' || t === 'dining' || t === 'open_plan';
 }
 
 /**
@@ -744,7 +851,13 @@ export function isOpenPlanEligible(type: RoomType | string): boolean {
  */
 export function doorAllowedBetween(a: RoomType | string, b: RoomType | string): boolean {
     const ra = roomRule(a), rb = roomRule(b);
-    return ra.accessFrom.includes(b as RoomType) || rb.accessFrom.includes(a as RoomType);
+    // Symmetric `accessFrom` grant (the legacy rule) …
+    const symmetricOk = ra.accessFrom.includes(b as RoomType) || rb.accessFrom.includes(a as RoomType);
+    // … plus the OPTIONAL §ASYMMETRIC-ACCESS directed grant (§queue #5). Today no
+    // rule sets `accessTo`, so both sides are `?? false` and this is identity.
+    const aToB = ra.accessTo?.includes(b as RoomType) ?? false;
+    const bToA = rb.accessTo?.includes(a as RoomType) ?? false;
+    return symmetricOk || aToB || bToA;
 }
 
 /** Privacy door cap for a room type (Infinity ⇒ uncapped). */
@@ -836,6 +949,9 @@ export const ALL_ROOM_RULES: readonly RoomRule[] = [
     ROOM_RULES.master, ROOM_RULES.bedroom, ROOM_RULES.study,
     ROOM_RULES.bathroom, ROOM_RULES.ensuite, ROOM_RULES.wc,
     ROOM_RULES.utility,
+    // §NEW-ROOM-TYPES (2026-06-12, queue #1) — the three OPT-IN types, appended at
+    // the end so the existing privacy-gradient ordering of the core set is unchanged.
+    ROOM_RULES.open_plan, ROOM_RULES.balcony, ROOM_RULES.storage,
 ];
 
 // ─── §DOOR-MINIMUMS (A.21.D47, 2026-06-08) ───────────────────────────────────
@@ -903,6 +1019,12 @@ export const MIN_DOOR_WIDTH_BY_TYPE: Readonly<Record<RoomType, number>> = {
     bathroom: MIN_DOOR_WIDTH_WET_M,
     ensuite:  MIN_DOOR_WIDTH_WET_M,
     wc:       MIN_DOOR_WIDTH_WET_M,
+    // §NEW-ROOM-TYPES — a balcony's French/sliding door + the open-plan great-room
+    // door are general 0.80 m leaves; a storage cupboard takes the compact wet-room
+    // floor (a small store needs only a narrow access door, like a cloakroom).
+    balcony:   MIN_DOOR_WIDTH_GENERAL_M,
+    open_plan: MIN_DOOR_WIDTH_GENERAL_M,
+    storage:   MIN_DOOR_WIDTH_WET_M,
 };
 
 /** Absolute floor for ANY door (the narrowest a single leaf may ever be), used
