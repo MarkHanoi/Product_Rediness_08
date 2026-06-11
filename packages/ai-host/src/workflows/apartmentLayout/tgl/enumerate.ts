@@ -758,7 +758,15 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
                 maxAreaM2: frac !== undefined ? frac * shellArea : Number.POSITIVE_INFINITY,
             });
         }
-        const claim = claimResidualPlacements(placements, buildableWorld, roomMeta, strategyKey(s));
+        // §STAIR-LANDING-SEAL (founder §68.6) — pass the INFLATED stair keep-out(s) so the
+        // residual claim ALWAYS seals a blank band that abuts the stair (the unwalled landing
+        // slack that floods the stair room at detection — the founder's oversized-stair
+        // defect), even on a plate that is otherwise below the §65.2 cavern gate. The
+        // residualExcludeRects (the reserved cell) are NOT stair adjacency keys — only the
+        // SHIPPED keep-out is the wall a landing-band shares — so we pass `input.keepOutRects`.
+        const claim = claimResidualPlacements(
+            placements, buildableWorld, roomMeta, strategyKey(s), input.keepOutRects,
+        );
         residualMints = claim.mints;
         residualPlacements = claim.placements;
         console.log(

@@ -571,10 +571,44 @@ export function chooseStairCorePosition(
         const flushBack = flushS(plateH - (c.y + coreH));                  // the rear wall
         return flushSide >= 1 && flushBack >= 1;                           // abuts TWO walls = clean L-carve
     };
+    // §STAIR-CENTRAL-SPINE (founder §68.6, 2026-06-11, "central stair with two rooms each
+    // side — U-stair") — measure whether the plate can genuinely host a central-spine stair
+    // flanked by a usable room bank on BOTH sides. Viability = both flank bands are ≥ a usable
+    // room depth AND the stair leaves real depth front and back (it sits on the interior spine,
+    // not on the façade). The DECISION (how this viability is weighed against the corner
+    // preference) is in `preferCentralSpine` below — kept strictly subordinate to wall-hugging.
+    const CENTRAL_SPINE_BANK_MIN = PERIMETER_MIN_OPEN_MM;   // a usable room depth each side (≥2.4 m)
+    const flankL = Math.max(0, plateW / 2 - coreW / 2);     // symmetric central flank widths
+    const flankR = flankL;
+    const frontDepth = Math.max(0, plateH / 3);             // central back-third Y → front band
+    const backDepth = Math.max(0, plateH - (plateH / 3 + coreH));
+    const centralSpineViable =
+        flankL >= CENTRAL_SPINE_BANK_MIN && flankR >= CENTRAL_SPINE_BANK_MIN &&
+        frontDepth >= CENTRAL_SPINE_BANK_MIN && backDepth >= WALL_LANDING_MM;
+    // §STAIR-CENTRAL-SPINE — the founder PREFERS a central-spine U-stair flanked by two room
+    // banks. BUT the existing §STAIR-DEFAULT-BIAS invariant (A.21.D52 / D59 — "the stair hugs a
+    // perimeter wall, never central, on a real/jittery/sheared shell") and the subdivider's much
+    // more reliable CLEAN-CORNER carve (a central carve quarters the plate → the §DIAG "predicts
+    // plate fragmentation" path → merged rooms / large blanks) both demand that a wall candidate
+    // win whenever one is OFFERED. So the central-spine preference is PLATE-DRIVEN and STRICTLY
+    // SUBORDINATE to wall-hugging: it can only win when the plate offers NO perimeter candidate
+    // at all (a plate too small/odd to flush the core to any wall) AND the central spine is
+    // genuinely viable (two usable banks each side + real front/back depth). In that lone case
+    // the founder's central U is preferred over a marooned mid-plate stair; in EVERY case where a
+    // wall candidate exists the corner keeps the full preference (no regression to D52/D59, no
+    // destabilised corner layout). A stronger central-spine default awaits a hardened central
+    // carve (tracked separately, §68.6); today it is a documented, conservative lean.
+    const hasPerimeterCandidate = candidates.some(c => c.kind !== 'central');
+    const preferCentralSpine = centralSpineViable && !hasPerimeterCandidate;
     const cost = (c: { kind: StairCorePositionKind; x: number; y: number }): number => {
         const waste = stairCoreWaste(plateW, plateH, coreW, coreH, c.x, c.y);
         if (!aspect) return waste;
-        const centralPenalty = c.kind === 'central' ? PERIMETER_PREFERENCE : 0;
+        // §STAIR-CENTRAL-SPINE — central pays NO penalty only when it is the founder's preferred
+        // spine AND no wall candidate exists; otherwise it pays the full corner-preferring penalty
+        // so any offered perimeter candidate wins (D52/D59 wall-hug invariant preserved).
+        const centralPenalty = c.kind === 'central'
+            ? (preferCentralSpine ? 0 : PERIMETER_PREFERENCE)
+            : 0;
         const fragPenalty = (c.kind !== 'central' && !isCornerCarve(c)) ? FRAGMENT_PENALTY : 0;
         return waste + centralPenalty + fragPenalty - ASPECT_WEIGHT * aspectScore(c.kind, aspect);
     };

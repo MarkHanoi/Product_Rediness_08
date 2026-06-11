@@ -443,13 +443,49 @@ function containStairCoreUpstream(
         + `R3-no-room-overlap(keepOutInShell=${keepOutInShell}/4)=${v(r3NoRoomOverlap)} `
         + `R4-footprint-in-shell(cornersInShell=${solved.cornersInShell}/4)=${v(r4Contained)}`,
     );
-    if (!r1Corner || !r2WorstAspect || !r3NoRoomOverlap || !r4Contained) {
+    // §STAIR-CENTRAL-SPINE (founder §68.6, 2026-06-11) — a CENTRAL stair is no longer an
+    // automatic R1/R2 violation: the founder explicitly prefers a central-spine U-stair
+    // flanked by two room banks WHEN the plate is wide enough (the §STAIR-LANDING-SEAL +
+    // corridor spine keep it from fragmenting). So the chooser now LEGITIMATELY returns
+    // 'central' on a wide plate. R1/R2 are about the OTHER failure mode (a stair marooned
+    // MID-PLATE with NO clean carve); a deliberate central-spine is fine. We therefore only
+    // warn when the placement is neither a wall-corner NOR a viable central spine.
+    const centralSpine = kind === 'central';
+    const r1ok = r1Corner || centralSpine;
+    const r2ok = r2WorstAspect || centralSpine;
+    if (!r1ok || !r2ok || !r3NoRoomOverlap || !r4Contained) {
         console.warn(
             `[house-layout] §DIAG-STAIR-RULE ⚠ one or more stair rules VIOLATED `
-            + `(kind=${kind} — 'central'/'MID-EDGE' holes the subdivision; cornersInShell<4 pokes the shell). `
+            + `(kind=${kind} — a MID-EDGE/marooned stair holes the subdivision; cornersInShell<4 pokes the shell). `
             + `See §DIAG-STAIR candidate scores above for WHY this candidate won.`,
         );
     }
+
+    // §DIAG-STAIR-FOOTPRINT-RATIO (founder §68.6, 2026-06-11) — the stair must be a TIGHT
+    // vertical-circulation core (footprint + ~1.5 m landing), NOT an oversized room. This
+    // engine-side line reports the carved STAIR-CELL (the room-tiling keep-out AABB the rooms
+    // tile around — what becomes the detected stair room) ÷ the TIGHT stair geometry footprint
+    // (flights + landings + width). Target ≤ ~1.6×: at/above that the cell is bigger than the
+    // stair needs (the founder's oversized-stair room). It also names the disposition: a
+    // central-spine stair (flanked by two room banks — the founder's preferred U-stair) vs a
+    // cornered stair (≥2 perimeter walls). Logging only; the TIGHTENING is enforced by
+    // §STAIR-LANDING-SEAL (the residual claim seals the landing band so detection can't flood
+    // the cell) + the tight keep-out == the shipped footprint (containStairCoreUpstream).
+    const cellArea = (x1 - x0) * (z1 - z0);                       // the keep-out AABB (stair cell)
+    // The tight oriented stair footprint area (flights+landings+width) = the convex span of
+    // fpFinal's 4 corners along its own axes; the AABB over-covers a skewed run, so use the
+    // edge lengths of the oriented rect (corner0→1 × corner1→2) as the true footprint area.
+    const e01 = Math.hypot(fpFinal[1]!.x - fpFinal[0]!.x, fpFinal[1]!.z - fpFinal[0]!.z);
+    const e12 = Math.hypot(fpFinal[2]!.x - fpFinal[1]!.x, fpFinal[2]!.z - fpFinal[1]!.z);
+    const footprintArea = Math.max(1e-6, e01 * e12);
+    const cellToFootprint = cellArea / footprintArea;
+    const disposition = centralSpine ? 'central-spine (U, two banks)' : `cornered (${kind})`;
+    console.log(
+        `[house-layout] §DIAG-STAIR-FOOTPRINT-RATIO storey=0..${storeyCount - 1} `
+        + `stairCell=${cellArea.toFixed(1)}m² footprint=${footprintArea.toFixed(1)}m² `
+        + `cellToFootprint=${cellToFootprint.toFixed(2)}× disposition=${disposition}`
+        + `${cellToFootprint > 1.6 ? ' ⚠ OVERSIZED (stair should be a tight ~1.5 m landing, not a large room)' : ' ✓ tight'}`,
+    );
 
     const containOffsetWorld = { x: solved.dx, z: solved.dz };
     if (solved.dx === 0 && solved.dz === 0) {

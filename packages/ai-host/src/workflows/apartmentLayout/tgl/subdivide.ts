@@ -2998,6 +2998,17 @@ export function claimResidualPlacements(
     buildableRects: readonly Rect[],
     roomById: ReadonlyMap<string, { type: RoomType; maxAreaM2: number }>,
     seed: string,
+    // §STAIR-LANDING-SEAL (founder §68.6, 2026-06-11) — OPTIONAL stair keep-out rect(s)
+    // (engine/strategy frame, INFLATED, same as the residual `stairExclusions`). When a
+    // blank band SHARES A WALL with the stair keep-out it is the unwalled "landing slack"
+    // that room-detection FLOODS into the stair cell — the founder's ~30 m² / 2.8×
+    // oversized stair room. Such a band MUST be claimed (grown into a neighbour or minted
+    // as a "Landing"/"Store") EVEN BELOW the §65.2 cavern gate, so a real room borders the
+    // stair on its open side and `buildWallsAndDoors` seals the stair tight (no flood). On
+    // a plate with NO stair-adjacent blank this is a strict no-op below the gate (every
+    // non-stair plate byte-identical). Absent / empty ⇒ legacy behaviour (apartment + every
+    // keep-out-free path byte-identical, ADR-0061). */
+    stairKeepOuts: readonly Rect[] = [],
 ): ResidualClaimResult {
     const occupied = placements.map(p => p.rect);
     // The still-blank region = buildable minus every placed room. Slivers < 0.5 m are
@@ -3010,12 +3021,27 @@ export function claimResidualPlacements(
     const largestBlankBeforeM2 = blankBefore.length > 0 ? rectArea(blankBefore[0]!) : 0;
     const totalBlankBeforeM2 = blankBefore.reduce((s, r) => s + rectArea(r), 0);
 
+    // §STAIR-LANDING-SEAL — does this blank fragment abut a stair keep-out (the unwalled
+    // landing band that floods the stair at detection)? Such a band must be sealed off
+    // even if the plate is otherwise well-tiled (below the §65.2 cavern gate).
+    const touchesStair = (r: Rect): boolean =>
+        stairKeepOuts.some(ko => sharedEdgeM(r, ko) > 0.05);
+    const hasStairAdjacentBlank = blankBefore.some(touchesStair);
+
     // §65.2 GATE — only fire on the founder's CAVERNOUS-blank defect (a plate whose
     // largest blank is genuinely big). A well-tiled normal house plate (≤ ~165 m², the
     // byte-identical guard) never clears this, so the pass is a strict no-op there — the
     // winner AND the score ranking stay byte-identical (ADR-0061). Above it the plate is
     // the founder's large/dense case and gets fully tiled below.
-    if (largestBlankBeforeM2 < RESIDUAL_MIN_LARGEST_BLANK_M2) {
+    //
+    // §STAIR-LANDING-SEAL (§68.6) — EXCEPTION: a blank band that SHARES A WALL WITH THE
+    // STAIR is always claimed (it would otherwise flood the stair room — the oversized-
+    // stair defect), so when one exists we fire BELOW the cavern gate too, but restrict
+    // the worklist to ONLY the stair-adjacent fragments + their remainders (so a non-
+    // cavern plate's OTHER blanks stay untouched → byte-identical there). When the cavern
+    // gate is met we run the full worklist exactly as before.
+    const cavern = largestBlankBeforeM2 >= RESIDUAL_MIN_LARGEST_BLANK_M2;
+    if (!cavern && !hasStairAdjacentBlank) {
         return {
             placements, mints: [],
             largestBlankM2: largestBlankBeforeM2, totalBlankM2: totalBlankBeforeM2,
@@ -3032,7 +3058,9 @@ export function claimResidualPlacements(
     // DIFFERENT eligible neighbour) before it is finally minted. Bounded: every iteration
     // either consumes the fragment or shrinks it past a grow-eligible neighbour, and the
     // mint path always terminates (a fragment with no further grow is minted, never re-queued).
-    const worklist: Rect[] = [...rawResidual];
+    // §STAIR-LANDING-SEAL — below the cavern gate, seed ONLY the stair-adjacent fragments
+    // (the bands that flood the stair); above the gate, seed the full residual (legacy).
+    const worklist: Rect[] = cavern ? [...rawResidual] : rawResidual.filter(touchesStair);
     let guard = rawResidual.length * 8 + 16;                    // deterministic safety bound
     while (worklist.length > 0 && guard-- > 0) {
         const frag = worklist.shift()!;
