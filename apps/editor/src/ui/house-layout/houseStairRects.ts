@@ -14,6 +14,11 @@ export interface StairRectWorld {
     readonly maxX: number;
     readonly minZ: number;
     readonly maxZ: number;
+    /** §STAIR-ROTATED-POLY (founder defect #1, 2026-06-11) — the TRUE rotated stair
+     *  cell corners (world XZ, metres). On a rotated plate the AABB above over-bounds
+     *  the real cell; the resolver tests this polygon for exact containment (AABB stays
+     *  the fast pre-cull). Omitted ⇒ AABB-only keep-out (apartment path is unaffected). */
+    readonly poly?: ReadonlyArray<{ readonly x: number; readonly z: number }>;
 }
 
 const rectsByLevel = new Map<string, StairRectWorld[]>();

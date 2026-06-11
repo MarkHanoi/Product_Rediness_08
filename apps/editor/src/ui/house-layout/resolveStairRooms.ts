@@ -30,13 +30,19 @@
 // reconciliation). The §STAIR-ROOM-TYPE doctrine (one named `stair` room at the
 // keep-out) is enforced here at the DETECTION boundary, completing it.
 
-/** A stair keep-out AABB in WORLD XZ (metres) — the same shape `houseStairRects`
- *  records and `§DIAG-EXEC-STAIR` already reads. */
+/** A stair keep-out region in WORLD XZ (metres) — the same shape `houseStairRects`
+ *  records and `§DIAG-EXEC-STAIR` already reads. The min/max fields are the
+ *  axis-aligned AABB (used as a fast pre-cull); `poly` — when present — is the
+ *  TRUE rotated stair cell (4 corners, world XZ), so containment is exact on a
+ *  rotated plate where the AABB over-bounds the real cell (founder defect #1). */
 export interface StairRect {
     readonly minX: number;
     readonly maxX: number;
     readonly minZ: number;
     readonly maxZ: number;
+    /** The rotated stair cell's corners (world XZ, metres). When omitted the AABB
+     *  alone is the keep-out (apartment path / unit tests pass AABB-only rects). */
+    readonly poly?: ReadonlyArray<{ readonly x: number; readonly z: number }>;
 }
 
 /** A detected room flattened for the decision (world XZ metres). */
@@ -78,8 +84,30 @@ function centreOf(r: StairRect): { x: number; z: number } {
     return { x: (r.minX + r.maxX) / 2, z: (r.minZ + r.maxZ) / 2 };
 }
 
+/** Ray-cast point-in-polygon test (world XZ). */
+function pointInPoly(
+    px: number, pz: number, poly: ReadonlyArray<{ readonly x: number; readonly z: number }>,
+): boolean {
+    let hit = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const xi = poly[i]!.x, zi = poly[i]!.z, xj = poly[j]!.x, zj = poly[j]!.z;
+        if (((zi > pz) !== (zj > pz)) && (px < ((xj - xi) * (pz - zi)) / (zj - zi) + xi)) hit = !hit;
+    }
+    return hit;
+}
+
+// §STAIR-ROTATED-POLY (founder defect #1, 2026-06-11) — the AABB (min/max) is the
+// fast pre-cull only; the AUTHORITATIVE containment is point-in the ROTATED stair
+// cell `poly`. On a 42.9°-rotated plate the AABB over-bounds the real cell, so a
+// detected room whose centroid is inside the AABB but OUTSIDE the rotated cell was
+// wrongly excluded (roomsInVoidPerRect mismatch → the stair cell kept an empty
+// fallback name). Testing the rotated polygon fixes the bijection on a skewed plate.
+// When no `poly` is supplied (apartment path / AABB-only tests) the AABB IS the
+// keep-out, so the behaviour is byte-identical there.
 function centroidInRect(d: DetectedRoomLite, r: StairRect): boolean {
-    return d.cx >= r.minX && d.cx <= r.maxX && d.cz >= r.minZ && d.cz <= r.maxZ;
+    if (d.cx < r.minX || d.cx > r.maxX || d.cz < r.minZ || d.cz > r.maxZ) return false;
+    if (r.poly && r.poly.length >= 3) return pointInPoly(d.cx, d.cz, r.poly);
+    return true;
 }
 
 /**

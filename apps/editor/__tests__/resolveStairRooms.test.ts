@@ -89,6 +89,34 @@ describe('resolveStairRooms — §STAIR-VOID-EXCLUDE', () => {
         expect(res.perRectCounts).toEqual([0]);
     });
 
+    it('§STAIR-ROTATED-POLY: a centroid inside the AABB but OUTSIDE the rotated cell is NOT captured', () => {
+        // A 45°-rotated unit-ish stair cell centred at (5,5). Its AABB spans the full
+        // bounding square, but the rotated diamond excludes the AABB corners.
+        const c = 5, r = 2;
+        const poly = [
+            { x: c, z: c - r }, { x: c + r, z: c }, { x: c, z: c + r }, { x: c - r, z: c },
+        ];
+        const stairRect: StairRect = { minX: c - r, maxX: c + r, minZ: c - r, maxZ: c + r, poly };
+        const detected: DetectedRoomLite[] = [
+            room('in-diamond', c, c, 6),                  // dead centre — inside the rotated cell
+            room('aabb-corner', c - r + 0.1, c - r + 0.1, 9), // inside AABB, OUTSIDE the diamond
+        ];
+        const res = resolveStairRooms(detected, [stairRect]);
+        // Only the diamond-interior room is the stair; the AABB-corner room is untouched.
+        expect(res.keep).toHaveLength(1);
+        expect(res.keep[0]!.roomId).toBe('in-diamond');
+        expect(res.drop).toEqual([]);
+        expect(res.excludedRoomIds.has('aabb-corner')).toBe(false);
+        expect(res.perRectCounts).toEqual([1]);
+    });
+
+    it('§STAIR-ROTATED-POLY: AABB-only rect (no poly) keeps the legacy AABB containment', () => {
+        const stairRect: StairRect = { minX: 4, maxX: 7, minZ: 6, maxZ: 10 };
+        const res = resolveStairRooms([room('s', 4.5, 6.5, 6)], [stairRect]);
+        expect(res.keep).toHaveLength(1);   // an AABB-corner point IS inside (no poly cull)
+        expect(res.keep[0]!.roomId).toBe('s');
+    });
+
     it('is deterministic (same inputs → identical resolution)', () => {
         const rects: StairRect[] = [{ minX: 4, maxX: 7, minZ: 6, maxZ: 10 }];
         const detected: DetectedRoomLite[] = [

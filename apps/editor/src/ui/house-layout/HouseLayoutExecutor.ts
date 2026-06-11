@@ -396,7 +396,13 @@ export class HouseLayoutExecutor {
                     // tiled into the stair footprint. Read-only — logging support only.
                     {
                         const cxs = cornersWorld.map(c => c.x), czs = cornersWorld.map(c => c.z);
-                        const rect = { minX: Math.min(...cxs), maxX: Math.max(...cxs), minZ: Math.min(...czs), maxZ: Math.max(...czs) };
+                        // §STAIR-ROTATED-POLY (founder defect #1, 2026-06-11) — carry the
+                        // ROTATED cell corners (world XZ) alongside the AABB so the stair-room
+                        // resolver tests true containment on a rotated plate (the AABB alone
+                        // over-bounds the 42.9°-skewed cell → the stair cell kept an empty
+                        // fallback name). `cornersWorld` is already the rotated quad.
+                        const poly = cornersWorld.map(c => ({ x: c.x, z: c.z }));
+                        const rect = { minX: Math.min(...cxs), maxX: Math.max(...cxs), minZ: Math.min(...czs), maxZ: Math.max(...czs), poly };
                         recordStairRect(st.fromLevelId, rect);
                         recordStairRect(st.toLevelId, rect);
                     }
@@ -1375,12 +1381,71 @@ export class HouseLayoutExecutor {
                 if (bl && bl[0] && bl[1]) origLenById.set(w.id, Math.hypot(bl[1].x - bl[0].x, bl[1].z - bl[0].z));
             }
 
+            // §DIVIDER-RETAIN-DEDUP (founder defect #2, 2026-06-11) — a divider the weld
+            // collapsed is RETAINED only when it adds REAL separation. The weld collapses a
+            // divider to <0.05 m when both its endpoints snapped to (near-)coincident points
+            // — frequently because the divider lay ON a shell wall or DUPLICATED another
+            // partition. Retaining such a baseline adds a SPURIOUS coincident wall (the
+            // §DIAG-LEVELS EXTRA-walls + the detector reads a doubled edge → mis-split). So
+            // before retaining, test the original baseline against the segments that already
+            // EXIST after the weld (welded survivors' final baselines + the shell walls) and
+            // against already-retained dividers: skip any retain that DUPLICATES (endpoint-
+            // match in either orientation) or COLLINEAR-OVERLAPS one of them. A real divider
+            // between two rooms is not coincident with any existing wall, so it still survives.
+            const SEG_EPS_M = 0.08;   // 80 mm — generous endpoint coincidence (> the 0.05 m weld floor)
+            type Seg = { ax: number; az: number; bx: number; bz: number };
+            const segLen = (s: Seg): number => Math.hypot(s.bx - s.ax, s.bz - s.az);
+            const ptEq = (ax: number, az: number, bx: number, bz: number): boolean =>
+                Math.hypot(ax - bx, az - bz) <= SEG_EPS_M;
+            // True when `s` duplicates or is collinear-and-overlapping with `t`.
+            const segDuplicate = (s: Seg, t: Seg): boolean => {
+                // Endpoint-for-endpoint match in either orientation ⇒ duplicate.
+                if ((ptEq(s.ax, s.az, t.ax, t.az) && ptEq(s.bx, s.bz, t.bx, t.bz)) ||
+                    (ptEq(s.ax, s.az, t.bx, t.bz) && ptEq(s.bx, s.bz, t.ax, t.az))) return true;
+                // Collinear + overlapping ⇒ duplicate (the retained baseline lies on `t`).
+                const tlen = segLen(t), slen = segLen(s);
+                if (tlen < 1e-6 || slen < 1e-6) return false;
+                const tdx = (t.bx - t.ax) / tlen, tdz = (t.bz - t.az) / tlen;
+                // Perpendicular distance of BOTH s-endpoints to t's infinite line must be ~0.
+                const perp = (px: number, pz: number): number =>
+                    Math.abs((px - t.ax) * tdz - (pz - t.az) * tdx);
+                if (perp(s.ax, s.az) > SEG_EPS_M || perp(s.bx, s.bz) > SEG_EPS_M) return false;
+                // Projection overlap of s onto t's axis (param in [0,tlen]).
+                const proj = (px: number, pz: number): number => (px - t.ax) * tdx + (pz - t.az) * tdz;
+                const s0 = proj(s.ax, s.az), s1 = proj(s.bx, s.bz);
+                const lo = Math.min(s0, s1), hi = Math.max(s0, s1);
+                const overlap = Math.min(hi, tlen) - Math.max(lo, 0);
+                return overlap > SEG_EPS_M;   // real shared run ⇒ duplicate
+            };
+
+            // Segments that already exist after the weld (shell + welded survivors) — a
+            // retained divider duplicating any of these adds nothing.
+            const occupiedSegs: Seg[] = shell.map(s => ({ ax: s.start.x, az: s.start.z, bx: s.end.x, bz: s.end.z }));
+            for (const w of inWalls) {
+                const ww = weldedById.get(w.id);
+                if (ww) occupiedSegs.push({ ax: ww.start.x, az: ww.start.z, bx: ww.end.x, bz: ww.end.z });
+            }
+
             // Rebuild the wall payload preserving every kept wall's y / height / thickness;
             // §DIVIDER-RETAIN keeps a collapsed-but-usable divider at its original baseline.
             const keptIds = new Set<string>();
             const retainedDividers: string[] = [];
+            const skippedSpurious: string[] = [];
+            const retainedSegs: Seg[] = [];
             const newWalls = inWalls
-                .filter(w => weldedById.has(w.id) || (origLenById.get(w.id) ?? 0) >= DIVIDER_MIN_LEN_M)
+                .filter(w => {
+                    if (weldedById.has(w.id)) return true;                          // welded survivor — keep
+                    if ((origLenById.get(w.id) ?? 0) < DIVIDER_MIN_LEN_M) return false; // degenerate stub — drop
+                    // Collapsed-but-usable divider: retain ONLY if it adds real separation.
+                    const bl = w.baseLine;
+                    const s: Seg = { ax: bl[0]!.x, az: bl[0]!.z, bx: bl[1]!.x, bz: bl[1]!.z };
+                    if (occupiedSegs.some(t => segDuplicate(s, t)) || retainedSegs.some(t => segDuplicate(s, t))) {
+                        skippedSpurious.push(w.id);
+                        return false;   // duplicates an existing/retained wall — spurious, drop
+                    }
+                    retainedSegs.push(s);
+                    return true;
+                })
                 .map(w => {
                     keptIds.add(w.id);
                     const ww = weldedById.get(w.id);
@@ -1396,6 +1461,13 @@ export class HouseLayoutExecutor {
             const droppedCount = inWalls.length - newWalls.length;
             if (droppedCount > 0) {
                 console.warn('[house-layout] §GROUND-WELD dropped', droppedCount, 'degenerate ground partition(s) after welding to shell');
+            }
+            if (skippedSpurious.length > 0) {
+                console.warn(
+                    '[house-layout] §DIVIDER-RETAIN-DEDUP skipped', skippedSpurious.length,
+                    'spurious collapsed divider(s) that duplicate an existing/retained wall',
+                    '(prevents the §DIAG-LEVELS EXTRA-walls + detector mis-split):', skippedSpurious.join(', '),
+                );
             }
             if (retainedDividers.length > 0) {
                 console.warn(
