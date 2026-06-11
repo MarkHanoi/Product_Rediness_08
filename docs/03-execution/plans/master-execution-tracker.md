@@ -4264,6 +4264,28 @@ continuous around the half-landing — no open ends at the run↔landing transit
 handrail build (`StairRailingBuilder` + the void-guardrail in the house executor's stair finish). Code-compliance
 relevant (a guardrail must be continuous — no gap a child could fall through). **Status: 🔵 QUEUED.**
 
+## §61 — SPIKE: window-aware sun penetration + per-room daylight (3D-tiles globe + Forma) — QUEUED (2026-06-11)
+
+Founder (spike request): "Is it possible in Google 3D tiles (3D globe view) that the windows allow the sun to go
+through the room? Also in the Forma 3D view — so that we can then calculate the average sun in each room depending
+on the window size and location?" PRYZM already has a sun system (the `VIEW PROPERTIES → Sun Settings`
+azimuth/elevation/intensity in the screenshot, `RealSunService` NOAA sun-path, the Site-analysis Sun-&-shadow /
+Sun-path, FORMA.5 climate). The OPEN QUESTIONS for the spike (research/feasibility only — no implementation):
+
+1. **Cesium 3D-tiles (3D globe view):** does the sun light actually pass THROUGH the window voids (wall openings)
+   onto the interior floor/room, or does Cesium's lighting + the building mesh stop at the façade? Can we get
+   real shadow/light penetration through openings in the Cesium renderer (shadow maps respecting the window
+   voids), or is a different technique needed (a per-room light-probe, ray-cast sun vector vs the window aperture)?
+2. **Forma 3D view:** the same question in the Forma massing/site renderer — do openings transmit sun?
+3. **The downstream goal — per-room average daylight:** compute a per-room daylight/insolation metric from
+   {window size · position · orientation/façade · the sun-path over the day/year · the site latitude}. This is
+   the quantitative core of a daylight analysis (and ties to §27 `DAYLIGHT-GRAPH`, the cognition-stack Perceptual-
+   Sim layer, and the §59 kitchen "natural-light" scorecard axis + window-rules). The spike should establish:
+   which renderer (or an offline analytic pass independent of the renderer — e.g. a ray-cast / radiance-style
+   sampling) is the right place to compute it, and whether the visual sun-through-window can be unified with the
+   numeric per-room average. **Deliverable:** a short feasibility doc (options + recommendation), NOT code.
+   **Status: 🔵 QUEUED (spike).**
+
 ## §54 — Living-graph node CARDS (select → interrogate → flowing canvas) — QUEUED (2026-06-11)
 
 **Founder 2026-06-11:** on the Miro canvas each node (e.g. Kitchen) should behave like an individual selectable
