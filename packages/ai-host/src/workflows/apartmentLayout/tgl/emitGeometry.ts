@@ -285,7 +285,13 @@ export function emitGeometry(graph: LayoutGraph, opts?: EmitGeometryOpts): Emitt
         const solar = opts?.solar
             ? (() => { const c = polyCentroid(n); return { sunDir: opts.solar!.sunDir, roomCentroidMm: { x: mm(c.cx), y: mm(c.cz) }, ...(opts.solar!.weight !== undefined ? { weight: opts.solar!.weight } : {}), ...(opts.solar!.latDeg !== undefined ? { latDeg: opts.solar!.latDeg } : {}) }; })()
             : null;
-        const placements = emitWindowsForRoom(rt, externals, roomName, doorSpansByWall, solar, partitionJunctions);
+        // §WINDOW-ROOM-PORTION (§57.8, founder 2026-06-11) — the room centroid (emit-frame
+        // mm) is passed INDEPENDENTLY of `solar` (which is absent near the equator) so the
+        // window-placer can confine + centre each window on THIS room's stretch of a shared
+        // façade wall (the junction-bounded interval containing the centroid), never a
+        // neighbour's. Always available from the room polygon.
+        const roomCentroid = (() => { const c = polyCentroid(n); return { x: mm(c.cx), y: mm(c.cz) }; })();
+        const placements = emitWindowsForRoom(rt, externals, roomName, doorSpansByWall, solar, partitionJunctions, roomCentroid);
         for (const p of placements) {
             windows.push({
                 wallRef:    p.wallIndex,

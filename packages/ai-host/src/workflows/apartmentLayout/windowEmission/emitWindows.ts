@@ -154,6 +154,75 @@ function overlapsAny(off: number, widthMm: number, blocked: readonly BlockedSpan
     return blocked.some(b => off < b.hi && hi > b.lo);
 }
 
+// ── §WINDOW-ROOM-PORTION (§57.8, founder 2026-06-11) ──────────────────────────
+//
+// A room that fronts a façade shares ONE long external (shell) wall with the
+// neighbouring rooms along that same façade. The wiring layer (emitGeometry)
+// passes the FULL shell-wall segment as the room's `ExternalWallSegment` — so the
+// engine previously centred / distributed the room's window across the WHOLE wall
+// length, scattering openings into the NEIGHBOURING rooms' stretches of that wall.
+// Two defects fell out of this:
+//   • §57.2 — two rooms' windows landed on the SAME shell wall with overlapping
+//     spans (the cross-room de-overlap in shellWallMatch then had to DROP one);
+//   • §57.8 — a single-external-wall room's window was NOT centred on the room's
+//     own portion of the façade (it centred on the whole wall, i.e. a neighbour's
+//     stretch), so it read as pushed toward a corner of the room.
+//
+// The interior PARTITION JUNCTIONS on a wall (where the room's dividing partitions
+// meet the shell) ALREADY mark the boundaries of each room's portion of that wall.
+// They split the wall into intervals; the room owns exactly ONE of them — its
+// window-band. By confining ALL placement (count, even spacing, centring, door /
+// junction avoidance) to that band, the window is centred on the ROOM's portion and
+// can NEVER spill into a neighbour's stretch — so same-wall cross-room overlap is
+// impossible BY CONSTRUCTION (the resolver de-overlap stays as belt-and-braces).
+//
+// Picking the room's interval: when the caller supplies the room centroid (the
+// solar context already carries `roomCentroidMm`), the band is the interval that
+// CONTAINS the centroid's projection onto the wall. Otherwise (unit-test / legacy
+// callers, or no solar) the band is the LONGEST junction-bounded interval — the
+// room's main frontage run — which is the room's portion in the dominant case.
+
+/** The room's window-band `[lo, hi]` (mm along the wall) on a wall of `wallLenMm`
+ *  given the interior-partition junctions on it. The junctions split the wall into
+ *  intervals; we return the one the room owns. When `centroidAlongMm` is finite the
+ *  owned interval is the one CONTAINING it; otherwise the LONGEST interval. Junction-
+ *  free walls return the full wall. Pure + deterministic. */
+function roomWindowBand(
+    wallLenMm: number,
+    junctions: readonly BlockedSpan[],   // junction bands (already in wall coords)
+    centroidAlongMm?: number,
+): { lo: number; hi: number } {
+    // Boundary cuts at each junction CENTRE (mid of its blocked band), sorted + unique.
+    const cuts = junctions
+        .map(j => (j.lo + j.hi) / 2)
+        .filter(c => c > 1e-6 && c < wallLenMm - 1e-6)
+        .sort((a, b) => a - b);
+    if (cuts.length === 0) return { lo: 0, hi: wallLenMm };
+    const bounds = [0, ...cuts, wallLenMm];
+    const intervals: Array<{ lo: number; hi: number }> = [];
+    for (let i = 1; i < bounds.length; i++) intervals.push({ lo: bounds[i - 1]!, hi: bounds[i]! });
+    if (typeof centroidAlongMm === 'number' && Number.isFinite(centroidAlongMm)) {
+        const c = Math.min(Math.max(centroidAlongMm, 0), wallLenMm);
+        const owned = intervals.find(iv => c >= iv.lo - 1e-6 && c <= iv.hi + 1e-6);
+        if (owned) return owned;
+    }
+    // Longest interval (room's main frontage run); ties broken by the lower `lo` for
+    // determinism.
+    let best = intervals[0]!;
+    for (const iv of intervals) if (iv.hi - iv.lo > best.hi - best.lo + 1e-6) best = iv;
+    return best;
+}
+
+/** Project a point (mm, emit frame) onto a wall segment, returning the signed
+ *  distance ALONG the wall from its `start` (mm). Used to find which room-portion
+ *  interval the room centroid sits in. Pure. */
+function projectAlongWall(seg: ExternalWallSegment, ptMm: { x: number; y: number }): number {
+    const dx = seg.end.x - seg.start.x, dy = seg.end.y - seg.start.y;
+    const len = Math.hypot(dx, dy);
+    if (len < 1e-9) return 0;
+    return ((ptMm.x - seg.start.x) * dx + (ptMm.y - seg.start.y) * dy) / len;
+}
+
 /** Max windows the engine will emit per ROOM (across all its external walls),
  *  so a corner living room with two long façades doesn't sprout a curtain wall
  *  of openings. A small architectural cap that still meaningfully improves the
@@ -377,6 +446,15 @@ export function emitWindowsForRoom(
     // (the window stays within ONE room's façade, not straddling the partition).
     // Omit / pass [] to disable (legacy + unit-test callers — no behaviour change).
     partitionJunctions: readonly PartitionJunction[] = [],
+    // §WINDOW-ROOM-PORTION (§57.8, founder 2026-06-11) — the room's centroid (emit-frame
+    // mm). When supplied, the window-band on each (possibly shared) façade wall is the
+    // junction-bounded interval CONTAINING the centroid's projection — so the window is
+    // centred on THIS room's stretch of the wall, never a neighbour's. This is the
+    // RELIABLE signal (independent of `solar`, which is absent near the equator). When
+    // omitted, the band falls back to `solar.roomCentroidMm` if present, else the longest
+    // junction-bounded interval (the room's main frontage run). Additive — omit for
+    // byte-identical legacy/unit-test behaviour on junction-free walls.
+    roomCentroidMm?: { readonly x: number; readonly y: number } | null,
 ): readonly WindowPlacement[] {
     // §DIAG-WIN — per-room window-emission decision (logging only; no behaviour
     // change). The `why` cases below pinpoint WHY a room gets ZERO windows.
@@ -477,50 +555,68 @@ export function emitWindowsForRoom(
     for (const cand of candidates) {
         if (out.length >= MAX_WINDOWS_PER_ROOM) break;
         const wallLenMm = cand.lenMm;
-        // A.21.D6.3 — climate-driven glazing SIZE: scale each window on THIS wall by
-        // the passive-solar factor for the wall's sun-orientation (bigger sun-facing
-        // glazing in cold climates, smaller in hot). Width is clamped so it still
-        // hosts on the wall; height/sill track. No solar context → unchanged.
         let widthMm = chosenWidthMm;
         let heightMm = spec.heightMm;
-        // §WINDOW-EVERY-FRONTAGE — on the last-resort tier the wall is too short for the
-        // spec width: shrink THIS window to the largest opening that fits between the
-        // wall's corner piers (never below MIN_WINDOW_MM). The corner setbacks below
-        // (`evenOffsetsMm` / `clearOffsetMm`) then place it with a real reveal.
-        if (lastResort) {
-            const usable = wallLenMm - 2 * endSetbackMm(wallLenMm);
-            widthMm = Math.max(MIN_WINDOW_MM, Math.min(chosenWidthMm, usable));
-        }
+        // A.21.D33(d) — doors AND interior-partition junctions are both treated as
+        // blocked spans: the placer slides/drops windows clear of either. Merged so a
+        // window is kept off a door footprint AND off any partition-to-shell junction.
+        const doorSpans = blockedSpansFor(cand.w.wallIndex, occupied);
+        const junctionSpans = blockedSpansForJunctions(cand.w.wallIndex, partitionJunctions);
+        // §WINDOW-ROOM-PORTION (§57.8 / §57.2) — confine ALL placement to the ROOM's
+        // own stretch of this (possibly shared) façade wall. The partition junctions on
+        // the wall mark each room's boundary on it; `roomWindowBand` returns the interval
+        // this room owns (the one containing the room centroid when known, else the
+        // longest run). Placing within [bandLo, bandHi] centres the window on the ROOM's
+        // portion (§57.8) and makes it impossible for one room's window to spill into a
+        // neighbour's stretch of the same wall (§57.2 — cross-room same-wall overlap).
+        const centroidPt = roomCentroidMm ?? solar?.roomCentroidMm ?? null;
+        const centroidAlong = centroidPt
+            ? projectAlongWall(cand.w, centroidPt)
+            : undefined;
+        const band = roomWindowBand(wallLenMm, junctionSpans, centroidAlong);
+        const bandLenMm = band.hi - band.lo;
+        // Blocked spans inside the band, shifted into band-local coordinates. The
+        // junctions that DEFINE the band edges are dropped (the band already excludes
+        // them); junctions/doors that fall WITHIN the room's own stretch still block.
+        const blocked = [...doorSpans, ...junctionSpans]
+            .map(b => ({ lo: b.lo - band.lo, hi: b.hi - band.lo }))
+            .filter(b => b.hi > 1e-6 && b.lo < bandLenMm - 1e-6)
+            .sort((a, b) => a.lo - b.lo);
+        // A.21.D6.3 — climate-driven glazing SIZE: scale each window by the passive-solar
+        // factor for the wall's sun-orientation (bigger sun-facing glazing in cold
+        // climates, smaller in hot). Width is clamped so it still hosts within the ROOM's
+        // band; height/sill track. No solar context → unchanged.
         if (solar && !lastResort) {
             const fit = orientationFit(outwardNormal(cand.w.start, cand.w.end, solar.roomCentroidMm), solar.sunDir);
             const factor = climateGlazingFactor(solar.latDeg, fit);
             if (factor !== 1) {
-                const maxWidth = Math.max(spec.minWidthMm, wallLenMm - 2 * WINDOW_CLEARANCE_MM);
+                const maxWidth = Math.max(spec.minWidthMm, bandLenMm - 2 * WINDOW_CLEARANCE_MM);
                 widthMm = Math.round(Math.max(spec.minWidthMm, Math.min(chosenWidthMm * factor, maxWidth)));
                 heightMm = Math.round(spec.heightMm * factor);
             }
         }
-        // A.21.D33(d) — doors AND interior-partition junctions are both treated as
-        // blocked spans: the placer slides/drops windows clear of either. Merged so a
-        // window is kept off a door footprint AND off any partition-to-shell junction.
-        const blocked = [
-            ...blockedSpansFor(cand.w.wallIndex, occupied),
-            ...blockedSpansForJunctions(cand.w.wallIndex, partitionJunctions),
-        ].sort((a, b) => a.lo - b.lo);
-        // How many windows this wall can host, capped by the remaining room budget.
-        // §WINDOW-EVERY-FRONTAGE — the last-resort tier emits exactly ONE window per wall
-        // (the wall is barely long enough for a single minimal opening; a rhythm of 2+
-        // would never fit). The normal/fallback tiers earn 1–3 per wall as before.
+        // §WINDOW-EVERY-FRONTAGE — the last-resort tier shrinks the window to fit the
+        // ROOM band (corner piers included) so a short shared frontage still hosts one.
+        if (lastResort) {
+            const usableBand = bandLenMm - 2 * endSetbackMm(bandLenMm);
+            widthMm = Math.max(MIN_WINDOW_MM, Math.min(widthMm, usableBand));
+        }
+        // How many windows this room's portion can host, capped by the remaining room
+        // budget. §WINDOW-EVERY-FRONTAGE — the last-resort tier emits exactly ONE window
+        // per wall (the band is barely long enough for a single minimal opening; a rhythm
+        // of 2+ would never fit). The normal/fallback tiers earn 1–3 per band as before.
         const remaining = MAX_WINDOWS_PER_ROOM - out.length;
         const wantOnWall = lastResort
             ? Math.min(remaining, 1)
-            : Math.min(remaining, windowCountForWall(wallLenMm, widthMm));
-        const offsets = evenOffsetsMm(wallLenMm, widthMm, wantOnWall, blocked);
+            : Math.min(remaining, windowCountForWall(bandLenMm, widthMm));
+        // Place within the band, then translate the band-local offsets back to wall coords.
+        const offsets = evenOffsetsMm(bandLenMm, widthMm, wantOnWall, blocked).map(o => o + band.lo);
         // §DIAG-WIN — per-wall placement outcome. When a qualifying wall yields ZERO
         // offsets the window was de-overlapped away by doors/partitions/other windows.
         const wantOnWall0 = wantOnWall;
         console.log(
             `[D-TGL] §DIAG-WIN ${winTag}: wall#${cand.w.wallIndex} len=${Math.round(wallLenMm)}mm ` +
+            `roomBand=[${Math.round(band.lo)},${Math.round(band.hi)}] ` +
             `wanted=${wantOnWall0} placed=${offsets.length}${offsets.length === 0
                 ? ' (all removed by door/partition/de-overlap)'
                 : ` offsetsMm=[${offsets.map(o => Math.round(o)).join(',')}]`}`,

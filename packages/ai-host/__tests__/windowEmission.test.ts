@@ -429,6 +429,78 @@ describe('emitWindowsForRoom — interior-partition avoidance (A.21.D33(d))', ()
     });
 });
 
+// ── §WINDOW-ROOM-PORTION (§57.2 + §57.8, founder 2026-06-11) ──────────────────
+//
+// Two founder defects on the generative path:
+//   §57.8 — a room's window must be CENTRED on the room's OWN stretch of the
+//           (possibly shared) external façade wall, not the whole wall.
+//   §57.2 — two rooms fronting the SAME wall must not produce overlapping windows.
+// The wiring passes the FULL shell wall as each room's ExternalWallSegment; the
+// partition junctions on it bracket each room's portion. The window-band is the
+// junction-bounded interval containing the room centroid (passed explicitly so it
+// works near the equator where `solar` is absent), so the window centres on the
+// room's stretch and can never spill into a neighbour's stretch of the same wall.
+describe('emitWindowsForRoom — §WINDOW-ROOM-PORTION centring (§57.8 / §57.2)', () => {
+    const wide = (lenMm: number, wallIndex = 0): ExternalWallSegment =>
+        ({ start: { x: 0, y: 0 }, end: { x: lenMm, y: 0 }, wallIndex });
+    const junction = (atMm: number, thicknessMm = 100): PartitionJunction =>
+        ({ wallIndex: 0, atMm, thicknessMm });
+    const centreOf = (w: { offsetMm: number; widthMm: number }) => w.offsetMm + w.widthMm / 2;
+
+    it('single-external-wall room: window is centred on the wall segment', () => {
+        // A room whose ONLY external wall is a 6 m segment → window centred at 3000.
+        const ws = emitWindowsForRoom('bedroom', [wide(6000)], 'Bed');
+        expect(ws).toHaveLength(1);
+        // within 10% of the segment centre (3000 mm)
+        expect(Math.abs(centreOf(ws[0]!) - 3000)).toBeLessThanOrEqual(0.10 * 6000);
+        expect(ws[0]!.offsetMm).toBeCloseTo((6000 - ws[0]!.widthMm) / 2, 6);
+    });
+
+    it('shared façade: window centres on the ROOM portion (containing the centroid), not the wall', () => {
+        // 12 m shared wall; THIS room owns [3000, 7000] (partitions at 3000 & 7000),
+        // its centroid projects to ~5000 along the wall. The window must centre on the
+        // room portion centre (5000), NOT the full-wall centre (6000) nor a neighbour's
+        // stretch. Centroid passed explicitly (equator-safe path, no solar).
+        const js = [junction(3000), junction(7000)];
+        const ws = emitWindowsForRoom('bedroom', [wide(12000)], 'Bed', [], null, js, { x: 5000, y: 2000 });
+        expect(ws.length).toBeGreaterThanOrEqual(1);
+        // every emitted window sits inside the room's own portion [3000, 7000]
+        for (const w of ws) {
+            expect(w.offsetMm).toBeGreaterThanOrEqual(3000 - 1e-6);
+            expect(w.offsetMm + w.widthMm).toBeLessThanOrEqual(7000 + 1e-6);
+        }
+        // and the (single) window is centred on the room portion centre (5000) ±10%
+        expect(Math.abs(centreOf(ws[0]!) - 5000)).toBeLessThanOrEqual(0.10 * 4000);
+    });
+
+    it('two rooms on the SAME shared wall never produce overlapping spans (no spill)', () => {
+        // Wall split at 6000: room A owns [0, 6000] (centroid ~3000), room B owns
+        // [6000, 12000] (centroid ~9000). Each emits within its own half → disjoint.
+        const js = [junction(6000)];
+        const a = emitWindowsForRoom('bedroom', [wide(12000)], 'A', [], null, js, { x: 3000, y: 2000 });
+        const b = emitWindowsForRoom('bedroom', [wide(12000)], 'B', [], null, js, { x: 9000, y: 2000 });
+        expect(a.length + b.length).toBeGreaterThanOrEqual(2);
+        // No A window overlaps any B window on this shared wall.
+        for (const wa of a) for (const wb of b) {
+            const aLo = wa.offsetMm, aHi = wa.offsetMm + wa.widthMm;
+            const bLo = wb.offsetMm, bHi = wb.offsetMm + wb.widthMm;
+            expect(aLo < bHi && aHi > bLo, `A[${aLo},${aHi}] vs B[${bLo},${bHi}]`).toBe(false);
+        }
+    });
+
+    it('falls back to the longest junction interval when no centroid is supplied', () => {
+        // No centroid + a junction at 4000 on a 10 m wall → band = longest interval
+        // [4000, 10000] (6 m) over [0, 4000] (4 m). Window stays inside that interval.
+        const js = [junction(4000)];
+        const ws = emitWindowsForRoom('living', [wide(10000)], 'L', [], null, js);
+        expect(ws.length).toBeGreaterThanOrEqual(1);
+        for (const w of ws) {
+            expect(w.offsetMm).toBeGreaterThanOrEqual(4000 - 1e-6);
+            expect(w.offsetMm + w.widthMm).toBeLessThanOrEqual(10000 + 1e-6);
+        }
+    });
+});
+
 describe('emitAllWindows (T1.W-A)', () => {
     it('flattens emissions across multiple rooms', () => {
         const out = emitAllWindows([
