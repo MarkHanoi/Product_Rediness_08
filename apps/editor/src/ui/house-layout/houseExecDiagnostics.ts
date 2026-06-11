@@ -94,7 +94,9 @@ interface WallRec {
     id: string;
     levelId: string;
     baseLine?: ReadonlyArray<{ x: number; z: number }>;
-    openings?: ReadonlyArray<{ type: 'window' | 'door'; elementId?: string }>;
+    // §VERBOSE-DIAG-2 (founder 2026-06-11) — offset/width surfaced for the window-clash
+    // diagnostic (§DIAG-EXEC-WIN-CLASH). Optional: undefined → clash check skipped for that wall.
+    openings?: ReadonlyArray<{ type: 'window' | 'door'; elementId?: string; offset?: number; width?: number }>;
     // §VERBOSE-DIAG (founder 2026-06-11) — surfaced for the wall-height / partition-slab
     // diagnostics (§DIAG-EXEC-WALLS). Optional: a record without it logs height=?.
     height?: number;
@@ -425,6 +427,85 @@ export function logExecRoomDiagnostics(
                 const needsCirc = !CIRC.has(String(self));
                 const circFlag = needsCirc ? (touchesCirc ? ' circ=✓' : ' circ=✗ ⚠ NOT-ON-CIRCULATION') : ' circ=n/a';
                 console.log(`${logTag} §DIAG-EXEC-ADJ ${levelId} ${d.name}[${self}] neighbours=[${neighNames.join(', ') || 'none'}]${circFlag}`);
+            }
+        }
+
+        // ── §DIAG-EXEC-OVERLAP (founder 2026-06-11: "some rooms overlap sometimes — this
+        //    is not possible") — pairwise detected-room AABB overlap. A real room overlap is
+        //    a hard geometry error; the AABB test is a cheap proxy (a true overlap always
+        //    overlaps in AABB; an AABB overlap with no polygon overlap is a near-miss flagged
+        //    as a watch). Logs the overlap area so the next paste pinpoints the colliding pair. ─
+        {
+            const bbox = (poly: ReadonlyArray<{ x: number; z: number }>) => {
+                let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
+                for (const p of poly) { x0 = Math.min(x0, p.x); z0 = Math.min(z0, p.z); x1 = Math.max(x1, p.x); z1 = Math.max(z1, p.z); }
+                return { x0, z0, x1, z1, ok: poly.length >= 3 };
+            };
+            const boxes = detected.map(d => ({ d, b: bbox(d.polygon) }));
+            let overlaps = 0;
+            for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+                const a = boxes[i]!, c = boxes[j]!;
+                if (!a.b.ok || !c.b.ok) continue;
+                const ox = Math.min(a.b.x1, c.b.x1) - Math.max(a.b.x0, c.b.x0);
+                const oz = Math.min(a.b.z1, c.b.z1) - Math.max(a.b.z0, c.b.z0);
+                if (ox > 0.10 && oz > 0.10) {   // > 0.1 m both axes = a real shared region, not a touching edge
+                    overlaps++;
+                    console.warn(`${logTag} §DIAG-EXEC-OVERLAP ${levelId} ⚠ ${a.d.name} ∩ ${c.d.name} aabbOverlap=${(ox * oz).toFixed(1)}m² (${ox.toFixed(2)}×${oz.toFixed(2)}m) — rooms must NOT overlap`);
+                }
+            }
+            console.log(`${logTag} §DIAG-EXEC-OVERLAP ${levelId} pairsChecked=${boxes.length * (boxes.length - 1) / 2} overlaps=${overlaps}${overlaps === 0 ? ' ✓' : ' ⚠'}`);
+        }
+
+        // ── §DIAG-EXEC-WIN-CLASH (founder 2026-06-11: "we cannot have multiple windows
+        //    clashing — not possible") — per wall, windows whose [offset−w/2, offset+w/2]
+        //    spans overlap. Needs opening offset+width (optional on WallRec); when absent,
+        //    falls back to flagging ≥2 windows on a wall as a CLASH-RISK to investigate. ──────
+        {
+            let clashes = 0, riskWalls = 0;
+            for (const w of wallById.values()) {
+                const wins = (w.openings ?? []).filter(o => o.type === 'window');
+                if (wins.length < 2) continue;
+                const haveSpans = wins.every(o => typeof o.offset === 'number' && typeof o.width === 'number');
+                if (haveSpans) {
+                    const spans = wins.map(o => [o.offset! - o.width! / 2, o.offset! + o.width! / 2] as [number, number]).sort((p, q) => p[0] - q[0]);
+                    for (let i = 1; i < spans.length; i++) {
+                        if (spans[i]![0] < spans[i - 1]![1] - 0.001) {
+                            clashes++;
+                            console.warn(`${logTag} §DIAG-EXEC-WIN-CLASH ${levelId} ⚠ wall ${w.id.slice(-6)} windows OVERLAP (${spans[i - 1]![0].toFixed(2)}-${spans[i - 1]![1].toFixed(2)} ∩ ${spans[i]![0].toFixed(2)}-${spans[i]![1].toFixed(2)}m) — windows must not clash`);
+                        }
+                    }
+                } else {
+                    riskWalls++;
+                    console.warn(`${logTag} §DIAG-EXEC-WIN-CLASH ${levelId} ⚠ wall ${w.id.slice(-6)} has ${wins.length} windows (no offset/width data) — CLASH-RISK, verify spacing`);
+                }
+            }
+            console.log(`${logTag} §DIAG-EXEC-WIN-CLASH ${levelId} clashes=${clashes} riskWalls=${riskWalls}${clashes === 0 && riskWalls === 0 ? ' ✓' : ' ⚠'}`);
+        }
+
+        // ── §DIAG-EXEC-ENTRANCE (founder 2026-06-11: "the entrance hall — no matter what —
+        //    needs to be connected with the perimeter wall and have the main door; this is not
+        //    re-enforced") — the hall must (a) bound at least one EXTERIOR/shell wall and (b)
+        //    have a door on a shell wall (the main entrance). Flags a hall that is interior. ──
+        {
+            const halls = detected.filter(d => {
+                const t = pairing.get(d.id)?.type ?? d.occupancyType;
+                return t === 'hall' || /entrance|hall|lobby/i.test(String(t)) || /entrance hall/i.test(d.name);
+            });
+            if (halls.length === 0) {
+                console.log(`${logTag} §DIAG-EXEC-ENTRANCE ${levelId} — no entrance hall on this level (expected on GROUND only)`);
+            }
+            for (const h of halls) {
+                let onPerimeter = false, hasShellDoor = false, shellWalls2 = 0;
+                for (const wid of h.boundingWallIds) {
+                    if (!isExteriorWall(wid)) continue;
+                    onPerimeter = true; shellWalls2++;
+                    const w = wallById.get(wid);
+                    if ((w?.openings ?? []).some(o => o.type === 'door')) hasShellDoor = true;
+                }
+                const verdict = onPerimeter && hasShellDoor ? '✓'
+                    : !onPerimeter ? '⚠ NOT-ON-PERIMETER (hall is interior — must bound a shell wall)'
+                    : '⚠ NO-MAIN-DOOR (hall fronts the perimeter but has no door on a shell wall)';
+                console.log(`${logTag} §DIAG-EXEC-ENTRANCE ${levelId} ${h.name} perimeter=${onPerimeter} shellWalls=${shellWalls2} mainDoor=${hasShellDoor} ${verdict}`);
             }
         }
 

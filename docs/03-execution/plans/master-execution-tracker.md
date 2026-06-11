@@ -4179,6 +4179,30 @@ stair → "Room 00-001" over the stair on a rotated plate; fix = use the rotated
 plan screenshot was a STALE pre-v126 build (`§PROJECT-NORTH` never fired) → re-test on v126+ before re-litigating
 the room-merge.
 
+## §57 — Interior-layout remaining defects (founder test 2026-06-11) — TRIAGED + INSTRUMENTED
+
+Founder feedback after the v133–v136 deploy ("sometimes works better but…"). Prioritised + each tied to a
+diagnostic so the next console paste pinpoints it. **Logs added v137** (`houseExecDiagnostics`, all guarded):
+`§DIAG-EXEC-OVERLAP` (pairwise room AABB overlap), `§DIAG-EXEC-WIN-CLASH` (windows whose spans overlap on a
+wall, or ≥2-on-a-wall risk), `§DIAG-EXEC-ENTRANCE` (hall perimeter-adjacency + main-door presence) — on top of
+the v132 `§DIAG-EXEC-WALLS/-FILL/-STAIR-SIZE/-ADJ`.
+
+| # | Defect (founder words) | Severity | Status / plan |
+|---|---|---|---|
+| **57.1** | **Rooms overlap sometimes — "not possible"** | 🔴 HARD | `§DIAG-EXEC-OVERLAP` added; root unknown (subdivider emits overlapping rects, or detection). Await next log → fix. |
+| **57.2** | **Multiple windows clashing — "not possible"** | 🔴 HARD | `§DIAG-EXEC-WIN-CLASH` added; the v134 §WINDOW-EVERY-FRONTAGE last-resort or the de-overlap may place 2 on one wall. WINDOWS agent (§57.8) owns the fix. |
+| **57.3** | **Big merge "Living Room / Dining / Bathroom 81.9 m²"** | 🔴 HARD | A MISSING divider (detection agent proof, v133 note): the engine weld drops a real divider. Fix = `weldPartitionsToShell` clamp-don't-drop (engine). |
+| **57.4** | **Entrance hall must be on the perimeter + have the main door — "not re-enforced"** | 🟠 HIGH | `§DIAG-EXEC-ENTRANCE` added; enforce hall→shell-wall adjacency + the entrance door (engine bubble graph hall placement + executor entrance resolver). |
+| **57.5** | **White blank upstairs (intermittent)** | 🟠 HIGH | Upper undivided area ("Room 01-005 53.7 m²"). The v135 spine-carve targeted the ground; extend to the upper storey. `§DIAG-EXEC-FILL` STRETCHED flag surfaces it. |
+| **57.6** | **Door/window opening lines "breaking the walls" during AI-batch gen (apartment + house)** | 🟠 HIGH | A previously-fixed opening-void render regressed under the batch path. Investigate `§DIAG-OPENING-VOID` / WallRebuildCoordinator under batch. |
+| **57.7** | **Stair: smaller/cornered room; upper stair must connect the corridor** | 🟡 MED | Stair keep-out sizing (engine) + a 1.5 m landing (founder §53-adjacent). `§DIAG-EXEC-STAIR-SIZE` roomToFootprint flags oversized. Coupled with §52.6 (smaller keep-out ⇒ less fragmentation). |
+| **57.8** | **Windows in ALL rooms + CENTERED on the room's shared external/perimeter wall** | 🟡 MED | v134 guarantees a window where an external wall exists; this adds CENTERING on the room's external-wall segment. WINDOWS agent in flight. |
+| — | WebGL `Framebuffer … zero size` spam | ⚪ NOISE | Off-screen/split pane created at 0×0; non-fatal. Guard later. |
+
+**Sequencing:** 57.2/57.8 (windows) → agent now. 57.3 (merge weld) + 57.4 (entrance) + 57.1 (overlap) → next, driven
+by the v137 logs. 57.5/57.7 → engine subdivider/stair, after the hard errors. **Visual (parallel):** night-mode
+dark-blue bg + all-lights-on (v138), bedside-lamp height (agent).
+
 ## §54 — Living-graph node CARDS (select → interrogate → flowing canvas) — QUEUED (2026-06-11)
 
 **Founder 2026-06-11:** on the Miro canvas each node (e.g. Kitchen) should behave like an individual selectable
