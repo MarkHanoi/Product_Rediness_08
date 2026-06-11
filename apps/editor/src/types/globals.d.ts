@@ -246,6 +246,10 @@ declare global {
         /** FORMA.2 — toggle the Cesium Forma massing render mode directly. Registered
          *  by CesiumViewport at mount. */
         pryzmSetCesiumFormaMode?: (on: boolean) => void;
+        /** FORMA.6 — toggle the Forma study building fidelity ('real' = full PRYZM
+         *  model / 'massing' = abstract pastel volumes). Default 'real'. Registered
+         *  by GISAreaLayout; re-exports + re-places on switch to 'real'. */
+        pryzmSetFormaBuildingFidelity?: (fidelity: 'massing' | 'real') => void;
         /** §HELP — prints every pryzm…() console command for the apartment
          *  generation pipeline (apartment → ceiling → furnish → lighting). */
         pryzmShowApartmentHelp?: () => void;

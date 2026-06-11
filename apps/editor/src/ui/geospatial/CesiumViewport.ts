@@ -17,6 +17,9 @@ import { setNeighbourFootprints } from "../site/neighbourFootprintStore";
 // it to drive the Cesium directional light (read-only consumer — SPEC §6).
 import { solarSample } from "@pryzm/climate-host";
 import { getCurrentSiteOrigin } from "../site/siteDispatch";
+// FORMA.6 — pure building-fidelity helpers (no THREE/Cesium/DOM): the floor-filter
+// show-all decision + geometry signature for the REAL full-fidelity Forma model.
+import { realModelStaysVisible } from "./formaBuildingFidelity";
 // A.21.D24 — pure 3D climate-overlay geometry generators (no THREE/Cesium/DOM)
 // + the pure wind-rose chart helper. The Cesium placement below anchors these
 // ENU points with the SAME eastNorthUpToFixedFrame used for the massing.
@@ -242,6 +245,29 @@ export class CesiumViewport {
    *  tile clamp can RE-SEAT it (cheap modelMatrix update, no GLB reload) once
    *  `formaTerrainBaseHeight` settles. */
   private realModelOnGlobeOrigin: { lat: number; lon: number } | null = null;
+
+  // ---- FORMA.6 — REAL full-fidelity building on the FORMA (flat-ground) study ----
+  /** FORMA.6 — building fidelity on the FORMA flat-ground study view:
+   *   • 'real'    (default — founder's ask) = the live PRYZM BIM scene serialised
+   *     to glTF and placed as a native Cesium.Model (every element: walls with CSG
+   *     openings, windows, doors, roof, slabs, furniture, stairs — full fidelity),
+   *     replacing the abstract pastel massing blocks.
+   *   • 'massing' = the existing abstract white/pastel volume study (still reachable
+   *     for the massing-study workflow).
+   *  Toggled via `setFormaBuildingFidelity`. */
+  private formaBuildingFidelity: 'massing' | 'real' = 'real';
+  /** FORMA.6 — the REAL detailed PRYZM model placed on the FORMA flat-ground study
+   *  (kept SEPARATE from `realModelOnGlobe`, which is the photoreal-globe overlay,
+   *  so the two views never clobber each other's primitive). Replaced on each
+   *  `renderRealModelOnForma`; dropped on dispose / fidelity→massing. */
+  private realModelOnForma: Cesium.Model | null = null;
+  /** FORMA.6 — the object URL backing `realModelOnForma`, revoked when replaced/dropped. */
+  private realModelOnFormaUrl: string | null = null;
+  /** FORMA.6 — the site origin of the placed Forma real model, so the async terrain
+   *  clamp can RE-SEAT it (cheap modelMatrix update, no GLB reload) once
+   *  `formaTerrainBaseHeight` settles. */
+  private realModelOnFormaOrigin: { lat: number; lon: number } | null = null;
+
   private gizmo: TransformGizmo | null = null;
   /** Disposer for the `site.location-changed` runtime subscription (cleaned up
    *  in dispose() so it does not leak across project switches). */
@@ -1292,6 +1318,11 @@ export class CesiumViewport {
     if (!viewer) return;
     const scene = viewer.scene;
     const globe = scene.globe;
+
+    // FORMA.6 — leaving the Forma flat-ground study: drop the study real model so it
+    // never lingers over the photoreal globe (the globe has its OWN realModelOnGlobe
+    // overlay). Harmless no-op when no Forma real model is placed.
+    try { this.clearRealModelOnForma(); } catch { /* already gone */ }
 
     try {
       // Re-show imagery; hide globe again only if a tileset is present + shown.
@@ -2421,6 +2452,16 @@ export class CesiumViewport {
     // the abstract pastel mass never resurfaces on top of the detailed model.
     if (input.keepPhotoreal && this.realModelOnGlobe && !this.realModelOnGlobe.isDestroyed()) {
       this.reseatRealModelOnGlobe();
+      this.clearFormaMassingEntitiesOnly();
+    }
+
+    // FORMA.6 — the SAME logic for the FORMA flat-ground study real model. On the
+    // study path (keepPhotoreal falsy), if the real full-fidelity model is already
+    // placed (case b: a terrain-clamp re-place just settled `formaTerrainBaseHeight`)
+    // re-seat it and hide the freshly re-created massing blocks so the pastel mass
+    // never resurfaces on top of the detailed model.
+    if (!input.keepPhotoreal && this.realModelOnForma && !this.realModelOnForma.isDestroyed() && this.realModelOnForma.show) {
+      this.reseatRealModelOnForma();
       this.clearFormaMassingEntitiesOnly();
     }
   }
@@ -3567,6 +3608,228 @@ export class CesiumViewport {
     }
   }
 
+  // ════════════════════════════════════════════════════════════════════════
+  // FORMA.6 — REAL FULL-FIDELITY building on the FORMA flat-ground study view
+  // ════════════════════════════════════════════════════════════════════════
+  //
+  // The founder asked for "in Forma view the same as the 3D globe tiles view —
+  // the building/elements coming from the PRYZM WebGPU scene" with FULL element
+  // fidelity. The §A.21.D49 globe path already does exactly this for the photoreal
+  // globe; FORMA.6 brings the SAME glTF bridge to the Forma flat-ground STUDY view
+  // (Forma directional light / soft shadows / AO + flat warm-grey ground hit the
+  // real meshes), via a SEPARATE tracked primitive so the two views never clobber
+  // each other.
+  //
+  // SAME bridge as the globe (renderer-agnostic across the WebGPU↔WebGL split):
+  // the caller serialises the live BIM THREE scene to GLB (`exportFragmentsToGLB`,
+  // file-format — owns the THREE access, P2-safe) and hands us the blob URL. We
+  // load it as a native `Cesium.Model` at the SAME single `eastNorthUpToFixedFrame`
+  // anchor + `formaTerrainBaseHeight` terrain clamp the massing uses, with the SAME
+  // explicit Y-up / Z-forward axes (§A.21.D54) so it lands exactly where the pastel
+  // massing did — at the boundary, upright, metres, true-north-aligned.
+
+  /**
+   * FORMA.6 — set the FORMA study building fidelity ('real' = full PRYZM model,
+   * 'massing' = abstract pastel volumes). Default is 'real'. When switching to
+   * 'massing', the real-model primitive is dropped + the massing blocks are
+   * re-shown (re-rendered from the last input). Switching to 'real' leaves the
+   * massing up until the caller re-exports + calls `renderRealModelOnForma`
+   * (the massing is the graceful fallback while the GLB exports).
+   */
+  public setFormaBuildingFidelity(fidelity: 'massing' | 'real'): void {
+    if (fidelity !== 'massing' && fidelity !== 'real') {
+      console.warn(`[CesiumViewport][forma6] setFormaBuildingFidelity: bad value ${String(fidelity)} — ignored.`);
+      return;
+    }
+    if (this.formaBuildingFidelity === fidelity) return;
+    this.formaBuildingFidelity = fidelity;
+    console.log(`[CesiumViewport][forma6] building fidelity → ${fidelity}.`);
+    if (fidelity === 'massing') {
+      // Drop the real model + bring the abstract massing back (re-render the last
+      // input, no re-fly / no re-clamp — cheap toggle).
+      this.clearRealModelOnForma();
+      const input = this.formaLastMassingInput;
+      if (input && !input.keepPhotoreal) {
+        this.renderFormaMassing({ ...input, frameCentroid: false, _skipTerrainClamp: true });
+      }
+    }
+    // → 'real': the caller (GISAreaLayout) re-exports the GLB and calls
+    // renderRealModelOnForma; the massing stays as the fallback until then.
+  }
+
+  /** FORMA.6 — current Forma study building fidelity. */
+  public getFormaBuildingFidelity(): 'massing' | 'real' {
+    return this.formaBuildingFidelity;
+  }
+
+  /**
+   * FORMA.6 — load the REAL full-fidelity PRYZM model (the live BIM THREE scene
+   * serialised to GLB) onto the FORMA flat-ground study at the site ENU origin,
+   * replacing the abstract massing blocks. Mirrors `renderRealModelOnGlobe` but:
+   *   • seats at `formaTerrainBaseHeight` (the Forma terrain clamp, NOT the
+   *     photoreal-tile clamp), so it sits on the SAME flat warm-grey ground as the
+   *     massing;
+   *   • tracks a SEPARATE primitive (`realModelOnForma`) so the photoreal globe
+   *     overlay and the study overlay never collide.
+   *
+   * Fully guarded + best-effort: any failure leaves the (already-rendered) massing
+   * in place as the fallback and returns false. Never throws.
+   *
+   * No-op (returns false) when fidelity is 'massing' (caller chose the study look).
+   *
+   * @returns true if the real model primitive was added; false on any failure (the
+   *   caller then keeps the Forma massing as the fallback).
+   */
+  public async renderRealModelOnForma(input: {
+    glbUrl: string;
+    originLat: number;
+    originLon: number;
+    /** Override base height; defaults to the Forma terrain-clamped `formaTerrainBaseHeight`. */
+    baseHeight?: number;
+  }): Promise<boolean> {
+    const viewer = this.viewer;
+    if (!viewer) {
+      console.warn('[CesiumViewport][forma6] renderRealModelOnForma before mount — ignored.');
+      return false;
+    }
+    if (this.formaBuildingFidelity !== 'real') {
+      console.log('[CesiumViewport][forma6] fidelity is "massing" — skipping real-model placement.');
+      return false;
+    }
+    if (!input.glbUrl) {
+      console.warn('[CesiumViewport][forma6] renderRealModelOnForma: no GLB url — ignored.');
+      return false;
+    }
+    try {
+      const baseHeight =
+        typeof input.baseHeight === 'number' && Number.isFinite(input.baseHeight)
+          ? input.baseHeight
+          : this.formaTerrainBaseHeight;
+
+      // SAME single ENU anchor + axis convention as the massing (and the globe real
+      // model, §A.21.D54): scene→ENU is (east = x, north = −z, up = y); Cesium's
+      // Y-up→Z-up glTF conversion (pinned via upAxis=Y / forwardAxis=Z) yields the
+      // same mapping, so the model lands exactly where the massing did — upright,
+      // metres, true-north-aligned.
+      const position = Cesium.Cartesian3.fromDegrees(input.originLon, input.originLat, baseHeight);
+      const modelMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(position);
+
+      const newModel = await Cesium.Model.fromGltfAsync({
+        url: input.glbUrl,
+        modelMatrix,
+        scale: 1.0,
+        allowPicking: true,
+        upAxis: Cesium.Axis.Y,
+        forwardAxis: Cesium.Axis.Z,
+        // Cast soft shadows onto the flat Forma ground (Forma shadowMap is on).
+        shadows: Cesium.ShadowMode.ENABLED,
+      });
+
+      // A re-toggle may have torn the viewer down while the GLB parsed — bail.
+      if (!this.viewer) {
+        if (!newModel.isDestroyed()) newModel.destroy();
+        return false;
+      }
+      // The user may have flipped to 'massing' while the GLB parsed — bail.
+      if (this.formaBuildingFidelity !== 'real') {
+        if (!newModel.isDestroyed()) newModel.destroy();
+        return false;
+      }
+
+      // Replace any prior Forma real-model primitive (dedup) + revoke its blob URL.
+      this.clearRealModelOnForma();
+
+      this.realModelOnForma = newModel;
+      this.realModelOnFormaUrl = input.glbUrl;
+      this.realModelOnFormaOrigin = { lat: input.originLat, lon: input.originLon };
+      this.viewer.scene.primitives.add(newModel);
+
+      // Hide the abstract massing blocks so the two don't double-render (keep the
+      // storey-band metadata + selector intact).
+      this.clearFormaMassingEntitiesOnly();
+      // Re-apply the current floor filter to the freshly placed model.
+      this.applyFormaRealModelFloorFilter();
+      this.viewer.scene.requestRender();
+
+      console.log(
+        `[CesiumViewport][forma6] REAL full-fidelity model placed on the Forma study ` +
+          `at LAT ${input.originLat.toFixed(6)} LON ${input.originLon.toFixed(6)} base ${baseHeight.toFixed(2)} m.`,
+      );
+      return true;
+    } catch (err) {
+      console.warn('[CesiumViewport][forma6] renderRealModelOnForma failed (keeping massing fallback):', err);
+      return false;
+    }
+  }
+
+  /**
+   * FORMA.6 — drop the Forma real-model primitive (if any) and revoke its backing
+   * object URL. Safe to call when nothing is placed.
+   */
+  public clearRealModelOnForma(): void {
+    try {
+      if (this.realModelOnForma && this.viewer) {
+        this.viewer.scene.primitives.remove(this.realModelOnForma);
+        if (!this.realModelOnForma.isDestroyed()) this.realModelOnForma.destroy();
+      }
+    } catch {
+      /* already gone */
+    }
+    this.realModelOnForma = null;
+    this.realModelOnFormaOrigin = null;
+    if (this.realModelOnFormaUrl) {
+      try { URL.revokeObjectURL(this.realModelOnFormaUrl); } catch { /* not a blob url */ }
+      this.realModelOnFormaUrl = null;
+    }
+  }
+
+  /**
+   * FORMA.6 — re-seat the already-placed Forma real model at the CURRENT
+   * `formaTerrainBaseHeight` (cheap modelMatrix update, no GLB reload). Called when
+   * the async terrain clamp settles after the model was first placed at a stale
+   * base. No-op when no Forma real model is placed.
+   */
+  private reseatRealModelOnForma(): void {
+    const model = this.realModelOnForma;
+    const origin = this.realModelOnFormaOrigin;
+    if (!model || !origin || model.isDestroyed()) return;
+    try {
+      const position = Cesium.Cartesian3.fromDegrees(origin.lon, origin.lat, this.formaTerrainBaseHeight);
+      model.modelMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(position);
+      this.viewer?.scene.requestRender();
+    } catch (e) {
+      console.warn('[CesiumViewport][forma6] reseatRealModelOnForma failed (non-fatal):', e);
+    }
+  }
+
+  /**
+   * FORMA.6 — honour the multi-floor visibility filter (`setVisibleFormaLevels`)
+   * for the real model. The GLB is a SINGLE primitive (no per-storey nodes exposed
+   * here), so partial-floor filtering can't slice it the way the per-storey massing
+   * is sliced. We therefore degrade gracefully: when a PARTIAL filter is active
+   * (some-but-not-all storeys), hide the whole real model and fall back to the
+   * per-storey massing (which IS sliceable); when the filter is "show all"
+   * (null/empty), show the real model. This keeps the floor selector meaningful
+   * without faking per-storey slicing of a monolithic GLB.
+   *
+   * @returns true if the real model should remain the visible representation;
+   *   false if it was hidden in favour of the sliceable massing.
+   */
+  private applyFormaRealModelFloorFilter(): boolean {
+    const model = this.realModelOnForma;
+    if (!model || model.isDestroyed()) return false;
+    const showAll = realModelStaysVisible(this.formaVisibleLevels, this.formaStoreyBands.length);
+    model.show = showAll;
+    if (!showAll) {
+      console.log(
+        '[CesiumViewport][forma6] partial floor filter active — hiding the monolithic real model, ' +
+          'showing the sliceable massing for the selected storeys.',
+      );
+    }
+    this.viewer?.scene.requestRender();
+    return showAll;
+  }
+
   /**
    * §A.21.D24 — group walls into STOREY BANDS by their base elevation so the
    * massing can be extruded per floor (stacked at true elevations) instead of
@@ -3649,6 +3912,25 @@ export class CesiumViewport {
       console.warn('[CesiumViewport][forma] setVisibleFormaLevels: no massing placed yet — stored for next render.');
       return;
     }
+
+    // FORMA.6 — when the REAL full-fidelity model is the active representation, the
+    // GLB is monolithic (no per-storey slicing here). Apply the filter to the model:
+    //   • "show all" → keep the real model visible (and don't re-create massing).
+    //   • partial filter → hide the real model + fall through to the per-storey
+    //     massing render below (which IS sliceable) so the selected storeys still
+    //     show. Re-selecting "all" re-shows the real model + clears the massing.
+    if (this.realModelOnForma && !this.realModelOnForma.isDestroyed()) {
+      const realStaysVisible = this.applyFormaRealModelFloorFilter();
+      if (realStaysVisible) {
+        // Show-all: the real model covers it; drop any massing blocks shown for a
+        // prior partial filter so they don't double-render over the model.
+        this.clearFormaMassingEntitiesOnly();
+        return;
+      }
+      // Partial filter: real model hidden; render the sliceable massing for the
+      // selected storeys (fall through).
+    }
+
     // Re-render the same massing with the new filter; never re-fly, never
     // re-clamp terrain (cheap toggle, the camera stays put).
     this.renderFormaMassing({
@@ -4098,6 +4380,12 @@ export class CesiumViewport {
       this.clearRealModelOnGlobe();
     } catch (e) {
       console.warn('[CesiumViewport] real-model-on-globe dispose failed:', e);
+    }
+    // FORMA.6 — drop the Forma study real-model primitive + revoke its blob URL.
+    try {
+      this.clearRealModelOnForma();
+    } catch (e) {
+      console.warn('[CesiumViewport] real-model-on-forma dispose failed:', e);
     }
     this.formaMassingOrigin = null;
     // A.21.D24 — drop all 3D climate overlays (sun-path/wind/heat) so they don't

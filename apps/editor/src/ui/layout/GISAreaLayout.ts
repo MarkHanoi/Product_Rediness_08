@@ -3,6 +3,8 @@ import type { CesiumThreeBridge } from '@pryzm/plugin-geospatial';
 import type { UIProps } from '../Layout';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
 import { getCurrentSiteOrigin } from '../site/siteDispatch';
+// FORMA.6 — pure geometry signature for the real-building GLB re-export cache.
+import { buildingGeometrySignature } from '../geospatial/formaBuildingFidelity';
 
 export interface GISCallbacks {
     toggleGIS: (active: boolean) => void;
@@ -1303,6 +1305,15 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         });
         // §A.21.D24 — rebuild the Floors selector from the storeys just placed.
         refreshFormaFloorSelector();
+
+        // FORMA.6 — overlay the REAL full-fidelity PRYZM model (live BIM scene →
+        // glTF) on the Forma study, replacing the abstract massing blocks. The
+        // massing above is the SAFE FALLBACK + does the real work this depends on
+        // (establishes the terrain clamp + storey-band floor selector). Best-effort,
+        // off the critical path (deferred), cache-gated by geometry signature.
+        if (formaBuildingFidelity === 'real') {
+            void placeRealModelOnForma({ lat: origin.lat, lon: origin.lon });
+        }
     };
 
     // §A.21.D39#5 — place the SAME authored building massing on the PHOTOREAL globe
@@ -1407,6 +1418,112 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             }
         } catch (err) {
             console.warn('[gis][globe] §A.21.D49 real-model overlay failed (keeping massing fallback):', err);
+        }
+    };
+
+    // ════════════════════════════════════════════════════════════════════════
+    // FORMA.6 — REAL full-fidelity building on the FORMA flat-ground study view
+    // ════════════════════════════════════════════════════════════════════════
+    //
+    // The founder asked for "in Forma view the same as the 3D globe tiles view —
+    // the building/elements coming from the PRYZM WebGPU scene", with FULL element
+    // fidelity. We reuse the SAME glTF bridge the globe path uses: serialise the
+    // live BIM THREE scene to GLB (`exportFragmentsToGLB`, @pryzm/file-format —
+    // owns the THREE access, so apps/editor never imports THREE → P2-safe) and hand
+    // the blob URL to `CesiumViewport.renderRealModelOnForma`, which places it as a
+    // native Cesium.Model at the SAME ENU origin + terrain clamp the massing uses.
+    //
+    // Default fidelity is 'real' (the founder's ask). The abstract massing remains
+    // reachable via setFormaBuildingFidelity('massing') (+ the console command).
+
+    // Default 'real' per the founder; the toggle / console command flips it.
+    let formaBuildingFidelity: 'massing' | 'real' = 'real';
+    // Repaints the [Real][Massing] toggle buttons; assigned when the bar mounts,
+    // no-op before then (e.g. a console-driven fidelity flip with no toggle bar).
+    let refreshFormaFidelityButtons: () => void = () => { /* bar not mounted yet */ };
+
+    // PERF (task #4) — cache the exported GLB keyed by a cheap geometry signature so
+    // an unchanged building isn't re-serialised on every live-update re-place. The
+    // signature folds element counts + a coarse hash of wall endpoints/openings; any
+    // edit (move/add/remove) changes it. The blob URL is owned by the viewport once
+    // placed (it revokes on replace/dispose), so we only cache the SIGNATURE here to
+    // decide whether a re-export is needed — we do NOT hold a stale blob.
+    let formaRealLastSig: string | null = null;
+    let formaRealExporting = false;
+    // True once a real model is actually placed on the Forma study (so the cache can
+    // skip re-export only when something IS on screen). Reset on fidelity→massing.
+    let formaRealPlaced = false;
+
+    const computeBuildingSignature = (): string => {
+        try {
+            return buildingGeometrySignature({
+                walls: getFormaWalls(),
+                openings: getFormaOpenings(),
+                slabCount: getFormaSlabs().length,
+                roofCount: getFormaRoofs().length,
+                stairCount: getFormaStairs().length,
+                furnitureCount: getFormaFurniture().length,
+            });
+        } catch {
+            // Any reader failure → a unique signature so we always re-export (safe).
+            return `err-${Date.now()}`;
+        }
+    };
+
+    // FORMA.6 — export the live BIM scene to GLB and place it as the REAL detailed
+    // model on the FORMA flat-ground study. On success the viewport hides the
+    // abstract massing blocks so only the real model shows. Any failure leaves the
+    // massing in place (the fallback) — this never throws. Off the critical path
+    // (the massing is already rendered when this runs) + skips the re-export when
+    // the geometry signature is unchanged (task #4 perf).
+    const placeRealModelOnForma = async (origin: { lat: number; lon: number }): Promise<void> => {
+        try {
+            if (formaBuildingFidelity !== 'real') return;             // massing study chosen.
+            if (!cesiumViewport?.renderRealModelOnForma) {
+                console.warn('[gis][forma6] renderRealModelOnForma unavailable (old build) — keeping massing.');
+                return;
+            }
+            if (formaRealExporting) return;                           // an export is already in flight.
+            const sig = computeBuildingSignature();
+            // Skip re-export when geometry is unchanged AND a model is already placed.
+            if (sig === formaRealLastSig && formaRealPlaced && formaRealLastSig !== null) {
+                // Geometry unchanged — just re-seat (cheap) by re-placing nothing; the
+                // viewport keeps the existing model. Done.
+                console.log('[gis][forma6] geometry unchanged — reusing placed real model (no re-export).');
+                return;
+            }
+            const scene = props.world?.scene?.three;
+            if (!scene) {
+                console.warn('[gis][forma6] no BIM scene to serialise — keeping massing.');
+                return;
+            }
+            formaRealExporting = true;
+            const { exportFragmentsToGLB } = await import('@pryzm/file-format');
+            const glbUrl = await exportFragmentsToGLB(scene as any);
+            if (!glbUrl) {
+                console.warn('[gis][forma6] GLB export returned no url — keeping massing.');
+                return;
+            }
+            const placed = await cesiumViewport.renderRealModelOnForma({
+                glbUrl,
+                originLat: origin.lat,
+                originLon: origin.lon,
+            });
+            if (placed) {
+                formaRealLastSig = sig;
+                formaRealPlaced = true;
+                console.log('[gis][forma6] REAL full-fidelity model placed on the Forma study — massing blocks hidden.');
+            } else {
+                // Declined (fidelity flipped mid-export, or load failed) — revoke the
+                // blob we won't use so it doesn't leak, keep the massing fallback.
+                try { URL.revokeObjectURL(glbUrl); } catch { /* not a blob */ }
+                formaRealPlaced = false;
+                console.log('[gis][forma6] real-model placement declined — massing fallback kept.');
+            }
+        } catch (err) {
+            console.warn('[gis][forma6] real-model overlay failed (keeping massing fallback):', err);
+        } finally {
+            formaRealExporting = false;
         }
     };
 
@@ -1694,6 +1811,48 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         });
         bar.appendChild(analysisBtn);
 
+        // FORMA.6 — building-fidelity toggle: [ ◉ Real ] [ ▢ Massing ]. "Real" (the
+        // default, founder's ask) places the live PRYZM model (full elements:
+        // windows/doors/roof/furniture/stairs) via the glTF bridge; "Massing" shows
+        // the abstract pastel volume study. Flipping it re-renders in place (no
+        // re-fly). Repainted by refreshFormaFidelityButton() when state changes.
+        const mkFidelityBtn = (
+            fidelity: 'real' | 'massing',
+            label: string,
+            title: string,
+            leftBorder: boolean,
+        ): HTMLButtonElement => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'pryzm-forma-fidelity-btn';
+            b.setAttribute('data-forma-fidelity', fidelity);
+            b.setAttribute('data-testid', `forma-fidelity-${fidelity}`);
+            b.textContent = label;
+            b.title = title;
+            Object.assign(b.style, {
+                appearance: 'none', border: 'none', cursor: 'pointer',
+                padding: '7px 12px', borderRadius: '7px', color: '#6600FF',
+                background: 'transparent', font: 'inherit',
+                borderLeft: leftBorder ? '1px solid #ece7fb' : 'none',
+            } satisfies Partial<CSSStyleDeclaration>);
+            b.addEventListener('mouseenter', () => { if (formaBuildingFidelity !== fidelity) b.style.background = '#f4f0ff'; });
+            b.addEventListener('mouseleave', () => { refreshFormaFidelityButtons(); });
+            b.addEventListener('click', () => { setFormaBuildingFidelity(fidelity); refreshFormaFidelityButtons(); });
+            return b;
+        };
+        const realBtn = mkFidelityBtn('real', '◉ Real', 'Show the real PRYZM building with full elements (windows · doors · roof · furniture)', true);
+        const massingBtn = mkFidelityBtn('massing', '▢ Massing', 'Show the abstract Forma massing study (white/pastel volumes)', false);
+        refreshFormaFidelityButtons = (): void => {
+            for (const [b, f] of [[realBtn, 'real'], [massingBtn, 'massing']] as const) {
+                const on = formaBuildingFidelity === f;
+                b.style.background = on ? '#6600FF' : 'transparent';
+                b.style.color = on ? '#ffffff' : '#6600FF';
+            }
+        };
+        refreshFormaFidelityButtons();
+        bar.appendChild(realBtn);
+        bar.appendChild(massingBtn);
+
         // §A.21.D24 — Floors selector. A compact <select> populated from the REAL
         // storeys of the placed massing (CesiumViewport.getFormaStoreyBands()).
         // "All floors" (default) shows every storey stacked at its true elevation;
@@ -1826,6 +1985,31 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // FORMA.4 — on-demand re-render hook (console + programmatic). `frame` flies
     // the NW oblique camera; live-update callers pass false (no re-fly).
     window.pryzmRenderFormaMassing = (frame?: boolean) => renderFormaMassing(frame ?? false);
+    // FORMA.6 — toggle the Forma study building fidelity. 'real' (default) re-exports
+    // the live BIM scene → glTF and places it; 'massing' drops the model + re-shows
+    // the abstract pastel volumes. Syncs both the local flag AND the viewport flag,
+    // then re-renders (no re-fly) so the switch is immediate.
+    const setFormaBuildingFidelity = (fidelity: 'massing' | 'real'): void => {
+        if (fidelity !== 'massing' && fidelity !== 'real') {
+            console.warn(`[gis][forma6] setFormaBuildingFidelity: bad value ${String(fidelity)} — ignored.`);
+            return;
+        }
+        formaBuildingFidelity = fidelity;
+        if (fidelity === 'real') {
+            formaRealLastSig = null; // force a re-export on next place.
+        } else {
+            formaRealPlaced = false; // model is dropped by the viewport on 'massing'.
+        }
+        cesiumViewport?.setFormaBuildingFidelity?.(fidelity);
+        refreshFormaFidelityButtons();
+        console.log(`[gis][forma6] Forma building fidelity → ${fidelity}.`);
+        // Re-render the current massing (no re-fly); when 'real' this re-places the
+        // model, when 'massing' the viewport already re-showed the blocks.
+        if (cesiumViewport?.renderFormaMassing && formaViewMode !== 'map2d') {
+            renderFormaMassing(false);
+        }
+    };
+    window.pryzmSetFormaBuildingFidelity = setFormaBuildingFidelity;
     // FORMA.3 / FORMA-PLAN-OBLIQUE — mount the [2D Map][Plan][3D] toggle. Defaults
     // to the Forma PLAN-oblique (the signature look — near-top-down shadowed
     // massing) so the demo lands straight on the Forma "plan view". Mirrors
