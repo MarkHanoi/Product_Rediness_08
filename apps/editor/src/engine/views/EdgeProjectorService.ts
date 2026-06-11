@@ -562,11 +562,12 @@ function _suppressWallOpeningSeams(
  * @param cutPlaneY  World-space Y elevation of the section cut plane.
  * @param epsilon    Tolerance in metres (default: CUT_LINE_EPSILON).
  */
-function classifyByVertexY(
+export function classifyByVertexY(
     srcGeo:     THREE.BufferGeometry,
     cutPlaneY:  number,
     floorY:     number | null = null,
     epsilon:    number = CUT_LINE_EPSILON,
+    belowY:     number | null = null,
 ): { cutGeo: THREE.BufferGeometry | null; projGeo: THREE.BufferGeometry | null; beyondGeo: THREE.BufferGeometry | null } {
     const posAttr = srcGeo.getAttribute('position') as THREE.BufferAttribute | undefined;
     if (!posAttr) return { cutGeo: null, projGeo: null, beyondGeo: null };
@@ -583,8 +584,20 @@ function classifyByVertexY(
         const isCut =
             Math.abs(y0 - cutPlaneY) <= epsilon ||
             Math.abs(y1 - cutPlaneY) <= epsilon;
-        // Segments with average Y below the level floor → beyond reference linework.
-        const isBeyond = floorY !== null && !isCut && avgY < floorY - epsilon;
+        // A segment whose average Y sits below the level floor is storey-below
+        // reference linework. It belongs on the :beyond layer ONLY when an active
+        // beyond zone exists (belowY = floorY − belowLevelDepth). §VIEW-RANGE-BELOW
+        // (founder 2026-06-11, ADR/ViewRangeIntentResolver contract): when the active
+        // VISIBILITY INTENT's `belowLevelDepth = 0` the renderer receives belowY=null
+        // (no beyond zone) → the storey below must NOT be shown, so DROP those edges
+        // instead of mis-tagging every below-floor segment as :beyond (the prior bug:
+        // `isBeyond = avgY < floorY` had no lower bound, so belowLevelDepth=0 still
+        // leaked the whole storey below as ghost linework). When belowY is set the
+        // beyond zone is [belowY, floorY) — segments below belowY are also dropped, so
+        // the depth value is honoured rather than reaching the hardcoded `near − 2.5`.
+        const belowFloor = floorY !== null && !isCut && avgY < floorY - epsilon;
+        const isBeyond = belowFloor && belowY !== null && avgY >= belowY - epsilon;
+        if (belowFloor && !isBeyond) continue;   // storey below, outside the beyond zone → suppress
         const target = isCut ? cutPositions : isBeyond ? beyondPositions : projPositions;
         target.push(
             posAttr.getX(i), y0, posAttr.getZ(i),
@@ -1915,7 +1928,7 @@ export class EdgeProjectorService {
                     };
 
                     if (cutPlaneY !== null && mergedGeo) {
-                        const { cutGeo, projGeo, beyondGeo } = classifyByVertexY(mergedGeo, cutPlaneY, planFloorY);
+                        const { cutGeo, projGeo, beyondGeo } = classifyByVertexY(mergedGeo, cutPlaneY, planFloorY, CUT_LINE_EPSILON, planBelowY);
                         if (cutGeo) {
                             addProjectedLayer(cutGeo, _layerCut(layerName));
                             tempGeosToDispose.push(cutGeo);
@@ -2230,8 +2243,10 @@ export class EdgeProjectorService {
 
                         if (cutPlaneY !== null) {
                             // Plan view: classify edges as cut / proj / beyond.
-                            // beyondGeo captures segments below the level floor when planFloorY is set.
-                            const { cutGeo, projGeo, beyondGeo } = classifyByVertexY(edgesGeo, cutPlaneY, planFloorY);
+                            // beyondGeo captures segments inside the beyond zone [planBelowY, floorY)
+                            // when planFloorY is set; with belowLevelDepth=0 (planBelowY=null) the
+                            // storey below is suppressed (§VIEW-RANGE-BELOW).
+                            const { cutGeo, projGeo, beyondGeo } = classifyByVertexY(edgesGeo, cutPlaneY, planFloorY, CUT_LINE_EPSILON, planBelowY);
                             if (cutGeo) {
                                 addIfcLayer(cutGeo, _layerCut(layerName));
                                 cutGeo.dispose();
