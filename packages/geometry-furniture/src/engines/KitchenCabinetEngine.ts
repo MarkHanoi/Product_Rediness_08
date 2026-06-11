@@ -1017,20 +1017,25 @@ export class KitchenCabinetEngine {
         const portholeZ = mD / 2 - 0.002;
         const ringR = Math.min(mW, mD) * 0.33;
 
+        // A default TorusGeometry already lies in the XY plane with its axis
+        // (normal) along +Z, i.e. facing the user on the unit's FRONT face.
+        // It must NOT be rotated onto the floor plane — keep the ring VERTICAL,
+        // concentric with the porthole, exactly like the standalone washing
+        // machine's bezel (UtilityBuilders.WashingMachineStandaloneBuilder).
         const outerRing = new THREE.Mesh(new THREE.TorusGeometry(ringR + 0.018, 0.012, 16, 40), chromeMat);
-        outerRing.rotation.x = Math.PI / 2;
         outerRing.position.set(0, portholeY, portholeZ + 0.002);
         outerRing.castShadow = true;
         outerRing.userData.isKitchenPart = true;
         group.add(outerRing);
 
-        // Bosch-style concentric ring grooves (characteristic wave pattern)
+        // Bosch-style concentric ring grooves (characteristic wave pattern) —
+        // also vertical/front-facing, centred on the porthole and stepping
+        // inward in radius (NOT shifted across the body and NOT laid flat).
         for (let i = 0; i < 3; i++) {
             const rr = ringR - 0.02 - i * 0.015;
             if (rr <= 0.02) continue;
             const rGroove = new THREE.Mesh(new THREE.TorusGeometry(rr, 0.004, 8, 30), bodyMat);
-            rGroove.rotation.x = Math.PI / 2;
-            rGroove.position.set(-mW * 0.28 + (i * 0.012), portholeY, portholeZ + 0.008 + i * 0.003);
+            rGroove.position.set(0, portholeY, portholeZ + 0.008 + i * 0.003);
             rGroove.userData.isKitchenPart = true;
             group.add(rGroove);
         }
