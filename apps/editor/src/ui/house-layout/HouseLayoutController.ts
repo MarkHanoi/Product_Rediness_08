@@ -133,6 +133,12 @@ export class HouseLayoutController {
         weights: ScoringWeights;
     } | null = null;
 
+    /** §DIAG-PREVIEW (founder 2026-06-11: "the ground floor plan modifies but never the
+     *  upper floor" + "add many many more logs") — per-storey room-area signature from the
+     *  PREVIOUS regen, so `_logPreviewDiagnostics` can PROVE whether a slider edit actually
+     *  changed each storey (CHANGED vs UNCHANGED). Keyed by storeyIndex. */
+    private _prevStoreySig = new Map<number, string>();
+
     /**
      * Compute N house variants for the active shell + open the modal. On the
      * user's pick, build that variant via the executor. Never throws — returns
@@ -350,6 +356,10 @@ export class HouseLayoutController {
             r.weights = state.weights;
             const variants = this._computeVariants(state.storeyCount, state.program, state.weights);
             console.log('[house-layout] controller: regenerated', variants.length, 'variant(s) for', state.storeyCount, 'storey(s) — refreshing modal with the single best');
+            // §DIAG-PREVIEW — loud per-storey instrumentation of the REGENERATED best variant
+            // (founder "add many many more logs" + the upper-floor-not-updating + buttons-work
+            // questions). Best-effort; never blocks the refresh.
+            try { this._logPreviewDiagnostics(variants, state); } catch (e) { console.warn('[house-layout] §DIAG-PREVIEW failed (non-fatal):', e); }
             // §LIVE-MODAL.A — refresh shows the single best (variant[0]) only.
             this.modal.refresh(variants.slice(0, 1));
         } catch (err) {
@@ -357,6 +367,82 @@ export class HouseLayoutController {
             this.modal.setBusy(false);
             r.runtime.events?.emit('pryzm:toast', { message: `House layout regenerate failed: ${String(err)}`, severity: 'error' });
         }
+    }
+
+    /**
+     * §DIAG-PREVIEW (founder 2026-06-11) — loud, structured console instrumentation of the
+     * MODAL PREVIEW path (the engine result the modal renders, BEFORE any build). Answers the
+     * founder's live questions from a single console paste:
+     *   • §DIAG-PREVIEW-PROGRAM — every program flag actually reaching the engine
+     *     (livingRoom / includeKitchen / openPlanKitchenDining / masterEnSuite / per-type
+     *     area overrides / weights) → "do those buttons really work?": the values are here.
+     *   • §DIAG-PREVIEW-STOREY — per storey: rooms (name[type] area), covered vs footprint,
+     *     BLANK area → the "top floor empty near the stair" (preview blank) with a number.
+     *   • §DIAG-PREVIEW-CHANGED — per storey: CHANGED vs UNCHANGED since the last regen →
+     *     proves the "ground modifies but the upper floor never does" report.
+     *   • §DIAG-PREVIEW-FLAGS — did the flags take EFFECT in the result (an ensuite present
+     *     when masterEnSuite=true; a kitchen+dining open zone when openPlanKitchenDining=true)?
+     * Pure read of the computed variants — no mutation, never throws to the caller.
+     */
+    private _logPreviewDiagnostics(
+        variants: readonly ScoredHouseLayoutOption[],
+        state: HouseProgramFormState,
+    ): void {
+        const T = '[house-layout] §DIAG-PREVIEW';
+        const best = variants[0];
+        const p = state.program as ApartmentProgram & { roomAreas?: Record<string, number> };
+        console.log(`${T} ════════ BEGIN (variants=${variants.length}, storeys=${state.storeyCount}) ════════ [filter console by "§DIAG-PREVIEW"]`);
+        // ── PROGRAM flags (the "do the buttons work?" answer — these are the values the
+        //    engine received this regen). ──────────────────────────────────────────────
+        const areaOv = p.roomAreas ? Object.entries(p.roomAreas).map(([k, v]) => `${k}=${v}`).join(' ') : '(none)';
+        console.log(`${T}-PROGRAM bedrooms=${p.bedrooms} bathrooms=${p.bathrooms} livingRoom=${p.livingRoom} includeKitchen=${p.includeKitchen !== false} openPlanKitchenDining=${p.openPlanKitchenDining} masterEnSuite=${p.masterEnSuite} areaOverrides={${areaOv}}`);
+        console.log(`${T}-PROGRAM weights naturalLight=${state.weights.naturalLight} privacy=${state.weights.privacy} kitchenWorkflow=${state.weights.kitchenWorkflow} corridorEfficiency=${state.weights.corridorEfficiency}`);
+        if (!best) { console.warn(`${T} ⚠ NO VARIANT produced — engine returned 0 options for this program (plate may reject the requested set).`); console.log(`${T} ════════ END ════════`); return; }
+        console.log(`${T} bestScore=${(best.overallScore ?? 0).toFixed(0)} variantIndex=${best.variantIndex} storeysInResult=${best.result?.perStoreyLayout?.length ?? 0}`);
+
+        const perStorey = best.result?.perStoreyLayout ?? [];
+        const footprints = best.result?.storeys ?? [];
+        const polyAreaM2 = (poly?: ReadonlyArray<{ x: number; z: number }>): number => {
+            if (!poly || poly.length < 3) return 0;
+            let a = 0; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) a += (poly[j]!.x + poly[i]!.x) * (poly[j]!.z - poly[i]!.z);
+            return Math.abs(a / 2);
+        };
+        const footprintM2 = polyAreaM2(footprints.find(s => s.footprint && s.footprint.length >= 3)?.footprint as ReadonlyArray<{ x: number; z: number }> | undefined);
+
+        let changedStoreys = 0, blankStoreys = 0, hasEnsuite = false, hasKitchen = false, hasLiving = false, hasDining = false;
+        perStorey.forEach((opt, si) => {
+            const rooms = opt?.rooms ?? [];
+            const covered = rooms.reduce((n, r) => n + (typeof r.area === 'number' ? r.area : 0), 0);
+            const blank = footprintM2 > 0 ? Math.max(0, footprintM2 - covered) : 0;
+            const blankPct = footprintM2 > 0 ? (blank / footprintM2 * 100) : 0;
+            const roomList = rooms.map(r => `${r.name}[${r.type}]${(typeof r.area === 'number' ? r.area.toFixed(0) : '?')}`).join(' ');
+            // CHANGED detection — a stable signature of this storey's (type,area) multiset.
+            const sig = rooms.map(r => `${r.type}:${(typeof r.area === 'number' ? r.area.toFixed(1) : '?')}`).sort().join('|');
+            const prev = this._prevStoreySig.get(si);
+            const changed = prev !== undefined && prev !== sig;
+            const unchangedNote = prev === undefined ? '(first regen)' : changed ? 'CHANGED ✓' : '⚠ UNCHANGED (this storey did NOT respond to the edit)';
+            this._prevStoreySig.set(si, sig);
+            if (changed) changedStoreys++;
+            const blankFlag = blankPct > 8 ? ` ⚠ BLANK=${blank.toFixed(1)}m² (${blankPct.toFixed(0)}% of plate — preview shows an empty area, likely by the stair)` : '';
+            if (blankPct > 8) blankStoreys++;
+            console.log(`${T}-STOREY ${si} rooms=${rooms.length} covered=${covered.toFixed(1)}m² footprint=${footprintM2.toFixed(1)}m²${blankFlag} ${unchangedNote}`);
+            console.log(`${T}-STOREY ${si} list: ${roomList || '(none)'}`);
+            for (const r of rooms) {
+                const t = String(r.type ?? '').toLowerCase();
+                if (t === 'ensuite') hasEnsuite = true;
+                if (t === 'kitchen') hasKitchen = true;
+                if (t === 'living') hasLiving = true;
+                if (t === 'dining') hasDining = true;
+            }
+        });
+
+        // ── FLAGS-TOOK-EFFECT (the deeper "do the buttons work?" answer) ──────────────
+        if (p.masterEnSuite) console.log(`${T}-FLAGS masterEnSuite=ON → ensuiteInResult=${hasEnsuite}${hasEnsuite ? ' ✓' : ' ⚠ NO ENSUITE produced (button had no effect)'}`);
+        if (p.includeKitchen !== false) console.log(`${T}-FLAGS includeKitchen=ON → kitchenInResult=${hasKitchen}${hasKitchen ? ' ✓' : ' ⚠ NO KITCHEN (mandatory missing!)'}`);
+        if (p.livingRoom) console.log(`${T}-FLAGS livingRoom=ON → livingInResult=${hasLiving}${hasLiving ? ' ✓' : ' ⚠ NO LIVING (mandatory missing!)'}`);
+        if (p.openPlanKitchenDining) console.log(`${T}-FLAGS openPlanKitchenDining=ON → kitchen=${hasKitchen} dining=${hasDining} (open-plan should fuse them; a separate Dining room means the flag may not have merged)`);
+        console.log(`${T} ROLLUP storeys=${perStorey.length} changedSinceLastRegen=${changedStoreys} storeysWithBlank=${blankStoreys} (if you edited a slider and changedSinceLastRegen<storeys, an unchanged storey ignored the edit)`);
+        console.log(`${T} ════════ END ════════`);
     }
 
     /**
