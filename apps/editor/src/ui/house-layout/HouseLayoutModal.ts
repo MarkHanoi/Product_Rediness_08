@@ -17,7 +17,7 @@
 // `generateHouseLayoutOptions(...)` and refreshes the cards IN PLACE (the modal
 // stays open). `setBusy(true)` shows a "Regenerating…" hint during the call.
 
-import type { ScoredHouseLayoutOption, ApartmentProgram, ScoringWeights, ScoredLayoutOption } from '@pryzm/ai-host';
+import type { ScoredHouseLayoutOption, ApartmentProgram, ScoringWeights, ScoredLayoutOption, LayoutRoom } from '@pryzm/ai-host';
 import { resolveEntranceDoor } from '@pryzm/ai-host';
 import { buildHouseCardModel, type HouseCardModel } from './houseCardModel.js';
 import type { PerimeterSpan } from '../apartment-layout/layoutThumbnail.js';
@@ -25,6 +25,7 @@ import {
     buildHouseModalHtml,
     buildHousePanesHtml,
     buildHouseResultHtml,
+    buildNodeInspectorHtml,
     collectStoreyOptions,
     type HouseProgramFormState,
 } from './houseModalHtml.js';
@@ -204,6 +205,11 @@ export class HouseLayoutModal {
     private _debounceTimer: ReturnType<typeof setTimeout> | null = null;
     private _onProgramChange: ((state: HouseProgramFormState) => void) | null = null;
     private _onGraphEdit: (() => void) | null = null;
+    /** §54 — the currently-rendered house variants, cached at show/refresh time so
+     *  a node click can look up the clicked room's `LayoutRoom` (+ its storey's full
+     *  room list) to source the inspector's ADJACENCY/CIRCULATION/INFORMATION. The
+     *  single best option (`cards[0]` ⇒ `options[0]`) is what the 3-pane body shows. */
+    private _options: readonly ScoredHouseLayoutOption[] = [];
 
     get isOpen(): boolean { return this._el !== null; }
 
@@ -216,6 +222,7 @@ export class HouseLayoutModal {
         formState?: HouseProgramFormState,
     ): void {
         this.dismiss();
+        this._options = options;
 
         const overlay = document.createElement('div');
         overlay.className = 'alm-overlay';
@@ -331,6 +338,7 @@ export class HouseLayoutModal {
      */
     refresh(options: readonly ScoredHouseLayoutOption[]): void {
         if (!this._el) return;
+        this._options = options;
         const grid = this._el.querySelector('[data-role="grid"]');
         if (!grid) return;
         const cards = this._cards(options);
@@ -381,7 +389,20 @@ export class HouseLayoutModal {
         }
         this._onProgramChange = null;
         this._onGraphEdit = null;
+        this._options = [];
         if (this._el) { this._el.remove(); this._el = null; }
+    }
+
+    /** §54 — the full `LayoutRoom[]` for the best option's storey `srcStorey`
+     *  (`options[0].result.perStoreyLayout[srcStorey].rooms`). Used by the node
+     *  inspector to (a) find the clicked room by name and (b) resolve each
+     *  `adjacentTo` name → its type for the circulation check. Empty when the
+     *  storey / option is unavailable. */
+    private _storeyRooms(srcStorey: number): readonly LayoutRoom[] {
+        const result = this._options[0]?.result;
+        const opt = result?.perStoreyLayout?.[srcStorey];
+        const rooms = opt?.rooms;
+        return Array.isArray(rooms) ? (rooms as readonly LayoutRoom[]) : [];
     }
 
     // ── view helpers ────────────────────────────────────────────────────────
@@ -716,7 +737,16 @@ export class HouseLayoutModal {
               Array.from(others).map(n => `<option value="${this._escAttr(n)}">${this._escAttr(n)}</option>`).join('') +
               `</select></label>`
             : '';
+        // §54 LIVING-GRAPH NODE INSPECTOR — read-only relationships card ABOVE the
+        // edit controls (INFORMATION · DEPENDENCIES · ADJACENCY · CIRCULATION). The
+        // clicked room's `LayoutRoom` + its storey's full room list come from the
+        // cached options (`_storeyRooms`); matched by `name`. Falls back to '' (bare
+        // editor) when the room can't be resolved (e.g. a stale/missing option).
+        const storeyRooms = this._storeyRooms(srcStorey);
+        const room = storeyRooms.find(r => r && r.name === roomName);
+        const inspectorHtml = buildNodeInspectorHtml(room, storeyRooms);
         editor.innerHTML =
+            inspectorHtml +
             `<div class="hlm-node-editor-title">${this._escAttr(roomName)}</div>` +
             `<label class="hlm-node-field"><span>Area m²</span>` +
             `<input type="number" class="hlm-node-area" min="1" max="200" step="0.5" placeholder="auto"></label>` +
@@ -734,8 +764,11 @@ export class HouseLayoutModal {
         const nodeRect = (node as SVGGraphicsElement).getBoundingClientRect?.();
         if (nodeRect) {
             editor.style.position = 'fixed';
-            editor.style.left = `${Math.max(8, Math.min(nodeRect.left, window.innerWidth - 170))}px`;
-            editor.style.top = `${Math.max(8, Math.min(nodeRect.bottom + 4, window.innerHeight - 160))}px`;
+            // §54 — the inspector makes the popover taller; anchor it so it stays in
+            // the viewport (the CSS caps height + scrolls, so a near-top anchor never
+            // overflows the bottom). Width clamp uses the 280px max from the CSS.
+            editor.style.left = `${Math.max(8, Math.min(nodeRect.left, window.innerWidth - 296))}px`;
+            editor.style.top = `${Math.max(8, Math.min(nodeRect.bottom + 4, window.innerHeight - 320))}px`;
         }
         this._el.appendChild(editor);
 

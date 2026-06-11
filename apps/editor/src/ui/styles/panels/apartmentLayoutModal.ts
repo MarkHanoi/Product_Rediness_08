@@ -315,13 +315,41 @@ export const APARTMENT_LAYOUT_MODAL_STYLES = `
 
 /* §LIVE-MODAL.D — the inline node area/type editor popover. White + #6600FF brand. */
 .hlm-node-editor {
-  z-index: 10; min-width: 150px;
+  z-index: 10; min-width: 200px; max-width: 280px;
+  max-height: calc(100vh - 24px); overflow-y: auto;
   background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.18);
   padding: 10px; display: flex; flex-direction: column; gap: 6px;
   font-size: 12px; color: #0f172a;
 }
 .hlm-node-editor-title { font-weight: 700; font-size: 12px; color: #0f172a; }
+
+/* §54 LIVING-GRAPH NODE INSPECTOR — read-only relationships card above the editor.
+ * INFORMATION · DEPENDENCIES · ADJACENCY · CIRCULATION. Brand white + #6600FF. */
+.hlm-node-inspector {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 10px; margin: -2px -2px 4px; border-radius: 8px;
+  background: #faf7ff; border: 1px solid #ece5ff;
+}
+.hlm-insp-section { display: flex; flex-direction: column; gap: 3px; }
+.hlm-insp-label {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: #6600FF;
+}
+.hlm-insp-line { font-size: 12px; color: #1e1b2e; }
+.hlm-insp-line b { font-weight: 700; }
+.hlm-insp-meta { font-size: 11px; color: #6b7280; }
+.hlm-insp-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.hlm-insp-chip {
+  display: inline-block; padding: 2px 8px; border-radius: 999px;
+  background: #ffffff; border: 1px solid #d9ccff; color: #4b2fa6;
+  font-size: 10px; font-weight: 600; line-height: 1.4;
+}
+.hlm-insp-empty { font-size: 11px; color: #9aa0ac; font-style: italic; }
+.hlm-insp-circ { font-size: 11px; font-weight: 600; }
+.hlm-insp-circ small { font-weight: 500; color: #6b7280; }
+.hlm-insp-circ--on { color: #6600FF; }
+.hlm-insp-circ--off { color: #b45309; }
 .hlm-node-field { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: #475569; }
 .hlm-node-field input, .hlm-node-field select {
   font: inherit; padding: 3px 6px; border: 1px solid #cbd5e1; border-radius: 6px;

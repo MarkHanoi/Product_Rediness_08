@@ -6,10 +6,11 @@ import { describe, expect, it } from 'vitest';
 import {
     buildHouseModalHtml,
     buildHouseCardGridHtml,
+    buildNodeInspectorHtml,
 } from '../src/ui/house-layout/houseModalHtml.js';
 import { buildHouseCardModel } from '../src/ui/house-layout/houseCardModel.js';
 import { buildLayoutBubbleGraphSvg } from '../src/ui/apartment-layout/layoutBubbleGraph.js';
-import type { LayoutOption, ScoredLayoutOption, ScoredHouseLayoutOption } from '@pryzm/ai-host';
+import type { LayoutOption, LayoutRoom, ScoredLayoutOption, ScoredHouseLayoutOption } from '@pryzm/ai-host';
 
 function room(name: string, occupancy: string, x: number, y: number) {
     return {
@@ -139,5 +140,73 @@ describe('§LIVE-MODAL.D — interactive bubble-graph nodes (opt-in)', () => {
         expect(svg).toContain('data-room-name="Kitchen"');
         expect(svg).toContain('pointer-events="auto"');
         expect(svg).toContain('role="button"');
+    });
+});
+
+describe('§54 — living-graph node inspector (INFORMATION · DEPENDENCIES · ADJACENCY · CIRCULATION)', () => {
+    // A small storey: a corridor that serves a bedroom + bathroom; a sealed store.
+    const storey: LayoutRoom[] = [
+        { name: 'Corridor', type: 'corridor', area: 6, adjacentTo: ['Bedroom 1', 'Bathroom'] } as LayoutRoom,
+        { name: 'Bedroom 1', type: 'bedroom', area: 14, adjacentTo: ['Corridor'] } as LayoutRoom,
+        { name: 'Bathroom', type: 'bathroom', area: 5, adjacentTo: ['Corridor'] } as LayoutRoom,
+        { name: 'Store', type: 'utility', area: 3, adjacentTo: ['Bedroom 1'] } as LayoutRoom,
+    ];
+
+    it('renders all four labelled sections for a room', () => {
+        const html = buildNodeInspectorHtml(storey[1], storey); // Bedroom 1
+        expect(html).toContain('data-role="node-inspector"');
+        expect(html).toContain('>Information<');
+        expect(html).toContain('>Dependencies<');
+        expect(html).toContain('>Adjacency<');
+        expect(html).toContain('>Circulation<');
+    });
+
+    it('INFORMATION shows name, human type label + area', () => {
+        const html = buildNodeInspectorHtml(storey[1], storey); // Bedroom 1
+        expect(html).toContain('<b>Bedroom 1</b>');
+        expect(html).toContain('Bedroom · 14 m²');
+    });
+
+    it('ADJACENCY renders each connected room as a chip', () => {
+        const html = buildNodeInspectorHtml(storey[0], storey); // Corridor
+        expect(html).toContain('class="hlm-insp-chip">Bedroom 1<');
+        expect(html).toContain('class="hlm-insp-chip">Bathroom<');
+    });
+
+    it('CIRCULATION = ON when adjacent to a corridor/hall (shows the via-room)', () => {
+        const html = buildNodeInspectorHtml(storey[1], storey); // Bedroom 1 → Corridor
+        expect(html).toContain('On circulation ✓');
+        expect(html).toContain('(via Corridor)');
+        expect(html).toContain('hlm-insp-circ--on');
+    });
+
+    it('CIRCULATION = OFF when served only through a non-circulation room', () => {
+        const html = buildNodeInspectorHtml(storey[3], storey); // Store → Bedroom 1 (not circulation)
+        expect(html).toContain('Not on circulation ✗');
+        expect(html).toContain('served through Bedroom 1');
+        expect(html).toContain('hlm-insp-circ--off');
+    });
+
+    it('DEPENDENCIES derives a program role from type (private/public)', () => {
+        expect(buildNodeInspectorHtml(storey[1], storey)).toContain('Private — off the corridor'); // bedroom
+        expect(buildNodeInspectorHtml(storey[0], storey)).toContain('Circulation — serves other rooms'); // corridor
+    });
+
+    it('empty adjacency → "No connected rooms" + sealed circulation', () => {
+        const sealed: LayoutRoom = { name: 'Vault', type: 'utility', area: 2, adjacentTo: [] } as LayoutRoom;
+        const html = buildNodeInspectorHtml(sealed, [sealed]);
+        expect(html).toContain('No connected rooms');
+        expect(html).toContain('(sealed)');
+    });
+
+    it('missing room → empty string (modal falls back to the bare editor)', () => {
+        expect(buildNodeInspectorHtml(undefined, storey)).toBe('');
+    });
+
+    it('escapes runtime strings (XSS guard)', () => {
+        const evil: LayoutRoom = { name: '<img src=x>', type: 'bedroom', area: 10, adjacentTo: [] } as LayoutRoom;
+        const html = buildNodeInspectorHtml(evil, [evil]);
+        expect(html).not.toContain('<img src=x>');
+        expect(html).toContain('&lt;img src=x&gt;');
     });
 });

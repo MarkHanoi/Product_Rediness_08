@@ -18,7 +18,7 @@
 // builder — `buildLayoutThumbnailSvg`).
 
 import type { HouseCardModel } from './houseCardModel.js';
-import type { ApartmentProgram, ScoringWeights, LayoutOption, RoomType } from '@pryzm/ai-host';
+import type { ApartmentProgram, ScoringWeights, LayoutOption, LayoutRoom, RoomType } from '@pryzm/ai-host';
 import { buildOccupancyLegendHtml } from '../apartment-layout/layoutModalHtml.js';
 
 /** Local pure HTML escape (recognised by the xss-guards gate as a safe guard). */
@@ -382,6 +382,140 @@ export function buildHouseModalHtml(
         toolsRail +
         '</div>' +
         '<div class="alm-footer"><button type="button" class="alm-cancel">Cancel</button></div>' +
+        '</div>'
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §54 LIVING-GRAPH NODE INSPECTOR (founder 2026-06-11) — each living-graph node is
+// an individual CARD the user can INTERROGATE. Clicking a node opens the inline
+// editor (Area/Type/Floor/Connect) PRECEDED by this read-only INSPECTOR section:
+// INFORMATION · DEPENDENCIES · ADJACENCY · CIRCULATION (the living-graph
+// relationships), so the canvas reads as "a more flowing and dynamic layout".
+//
+// All four sections are DERIVED editor-side from the storey's `LayoutRoom[]`:
+//   • INFORMATION  — `room.name` / `room.type` (humanised) / `room.area`.
+//   • ADJACENCY    — `room.adjacentTo` (room NAMES it shares an edge/door with).
+//   • CIRCULATION  — does it touch a `corridor`/`hall` room on this storey? Looked
+//                    up by mapping each `adjacentTo` name → that room's `type`.
+//   • DEPENDENCIES — a one-line program ROLE derived ONLY from `type` (no ai-host
+//                    rules import). Public/entry vs private/off-the-corridor.
+// Pure → Node-testable (`buildNodeInspectorHtml`). The modal injects the returned
+// markup ABOVE the existing edit controls in `_openGraphNodeEditor`.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Human-readable label for a RoomType (e.g. `master` → "Master bedroom"). Falls
+ *  back to a Title-cased version of the raw type. Pure. */
+const ROOM_TYPE_LABEL: Readonly<Record<string, string>> = {
+    master:   'Master bedroom',
+    bedroom:  'Bedroom',
+    living:   'Living room',
+    kitchen:  'Kitchen',
+    dining:   'Dining room',
+    bathroom: 'Bathroom',
+    ensuite:  'En-suite',
+    wc:       'WC',
+    hall:     'Hall',
+    corridor: 'Corridor',
+    study:    'Study',
+    utility:  'Utility',
+    stair:    'Stair',
+};
+
+function roomTypeLabel(type: string): string {
+    if (ROOM_TYPE_LABEL[type]) return ROOM_TYPE_LABEL[type]!;
+    const t = String(type ?? '').trim();
+    return t ? t.charAt(0).toUpperCase() + t.slice(1) : 'Room';
+}
+
+/** Circulation room types — a room "on circulation" shares an edge/door with one
+ *  of these on its storey. */
+const CIRCULATION_TYPES: ReadonlySet<string> = new Set(['corridor', 'hall']);
+
+/** Program ROLE one-liner, derived ONLY from the room type (no ai-host rules).
+ *  Public/entry zone vs private (off-the-corridor) vs service/circulation. */
+function roomDependencyRole(type: string): string {
+    switch (type) {
+        case 'hall':     return 'Public — entry zone';
+        case 'corridor': return 'Circulation — serves other rooms';
+        case 'living':
+        case 'kitchen':
+        case 'dining':   return 'Public — entry zone';
+        case 'master':
+        case 'bedroom':  return 'Private — off the corridor';
+        case 'bathroom':
+        case 'ensuite':
+        case 'wc':       return 'Private — off the corridor';
+        case 'study':    return 'Private — off the corridor';
+        case 'utility':  return 'Service — off the circulation';
+        case 'stair':    return 'Circulation — connects floors';
+        default:         return 'Room';
+    }
+}
+
+/**
+ * §54 — pure builder for the living-graph node INSPECTOR card. `room` is the
+ * clicked room's `LayoutRoom`; `storeyRooms` is that storey's full `LayoutRoom[]`
+ * (used to resolve each `adjacentTo` NAME → its type for the circulation check).
+ * Returns a `<div class="hlm-node-inspector">…</div>` block of four labelled
+ * sections (INFORMATION · DEPENDENCIES · ADJACENCY · CIRCULATION). Every runtime
+ * string is `escHtml`-guarded. Pure + Node-testable. Returns '' when `room` is
+ * missing so the modal can fall back to the bare editor. */
+export function buildNodeInspectorHtml(
+    room: LayoutRoom | undefined,
+    storeyRooms: readonly LayoutRoom[] = [],
+): string {
+    if (!room) return '';
+    const typeByName = new Map<string, string>();
+    for (const r of storeyRooms) {
+        if (r && typeof r.name === 'string') typeByName.set(r.name, String(r.type ?? ''));
+    }
+
+    const typeLabel = roomTypeLabel(String(room.type ?? ''));
+    const areaText = (typeof room.area === 'number' && Number.isFinite(room.area) && room.area > 0)
+        ? `${Math.round(room.area)} m²`
+        : 'auto';
+
+    const adjacent = Array.isArray(room.adjacentTo)
+        ? room.adjacentTo.filter((n): n is string => typeof n === 'string' && n.length > 0 && n !== room.name)
+        : [];
+    const adjacencyInner = adjacent.length > 0
+        ? adjacent.map(n => `<span class="hlm-insp-chip">${escHtml(n)}</span>`).join('')
+        : '<span class="hlm-insp-empty">No connected rooms</span>';
+
+    // CIRCULATION — the first adjacent room whose type is a corridor/hall.
+    const circVia = adjacent.find(n => CIRCULATION_TYPES.has(typeByName.get(n) ?? ''));
+    const circulationHtml = circVia
+        ? `<span class="hlm-insp-circ hlm-insp-circ--on">On circulation ✓ <small>(via ${escHtml(circVia)})</small></span>`
+        : adjacent.length > 0
+            ? `<span class="hlm-insp-circ hlm-insp-circ--off">Not on circulation ✗ <small>(served through ${escHtml(adjacent[0]!)})</small></span>`
+            : `<span class="hlm-insp-circ hlm-insp-circ--off">Not on circulation ✗ <small>(sealed)</small></span>`;
+
+    const role = roomDependencyRole(String(room.type ?? ''));
+
+    return (
+        '<div class="hlm-node-inspector" data-role="node-inspector">' +
+        // INFORMATION
+        '<div class="hlm-insp-section hlm-insp-info">' +
+        '<span class="hlm-insp-label">Information</span>' +
+        `<span class="hlm-insp-line"><b>${escHtml(room.name)}</b></span>` +
+        `<span class="hlm-insp-meta">${escHtml(typeLabel)} · ${escHtml(areaText)}</span>` +
+        '</div>' +
+        // DEPENDENCIES
+        '<div class="hlm-insp-section hlm-insp-deps">' +
+        '<span class="hlm-insp-label">Dependencies</span>' +
+        `<span class="hlm-insp-line">${escHtml(role)}</span>` +
+        '</div>' +
+        // ADJACENCY
+        '<div class="hlm-insp-section hlm-insp-adj">' +
+        '<span class="hlm-insp-label">Adjacency</span>' +
+        `<span class="hlm-insp-chips">${adjacencyInner}</span>` +
+        '</div>' +
+        // CIRCULATION
+        '<div class="hlm-insp-section hlm-insp-circulation">' +
+        '<span class="hlm-insp-label">Circulation</span>' +
+        circulationHtml +
+        '</div>' +
         '</div>'
     );
 }
