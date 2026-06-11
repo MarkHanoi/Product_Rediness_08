@@ -316,7 +316,7 @@ export class StairRailingBuilder {
             }
 
             // ── Landing segment ──────────────────────────────────────────────────
-            this.buildLandingSegment(group, f, railing, stair, sideSign, railMat.clone(), (s, e) => this.buildBoxRail(s, e, railW, railH, railMat.clone()));
+            this.buildLandingSegment(group, f, railing, stair, sideSign, railMat.clone(), (s, e) => this.buildBoxRail(s, e, railW, railH, railMat.clone()), flights);
         });
     }
 
@@ -383,7 +383,7 @@ export class StairRailingBuilder {
                 mesh.userData.elementType = 'stair-railing';
                 mesh.userData.selectable = false;
                 return mesh;
-            });
+            }, flights);
         });
     }
 
@@ -482,7 +482,7 @@ export class StairRailingBuilder {
             }
 
             // ── Landing segment ──────────────────────────────────────────────────
-            this.buildLandingSegment(group, f, railing, stair, sideSign, railMat.clone(), (s, e) => this.buildBoxRail(s, e, 0.05, 0.04, railMat.clone()));
+            this.buildLandingSegment(group, f, railing, stair, sideSign, railMat.clone(), (s, e) => this.buildBoxRail(s, e, 0.05, 0.04, railMat.clone()), flights);
         });
     }
 
@@ -517,7 +517,7 @@ export class StairRailingBuilder {
                 m.userData.elementType = 'stair-railing';
                 m.userData.selectable = false;
                 return m;
-            });
+            }, flights);
         });
     }
 
@@ -546,10 +546,14 @@ export class StairRailingBuilder {
         stair: StairData,
         sideSign: number,
         _railMat: THREE.MeshStandardMaterial,
-        buildSegment: (start: THREE.Vector3, end: THREE.Vector3) => THREE.Mesh
+        buildSegment: (start: THREE.Vector3, end: THREE.Vector3) => THREE.Mesh,
+        flights: ReturnType<StairRailingBuilder['resolveFlightPositions']>
     ): void {
         const { flightStart, flatDir, offset, totalRun, totalRise, landing, nextFlight } = f;
         if (!nextFlight || !landing) return;
+        // §60/§46 — flight 2's resolved rail track (this railing's OWN next flight),
+        // used to tie the guard's open-edge ends back into the run rails (continuity).
+        const nextEntry = flights[f.flightIndex + 1];
 
         const railHeight = railing.topRailHeight;
         const flightEndElev = flightStart.y + totalRise;
@@ -573,7 +577,7 @@ export class StairRailingBuilder {
         //   `flatDir` edge, spanning from flight 1's OUTER rail line (perpDir*-width/2)
         //   to flight 2's OUTER rail line (perpDir*+3*width/2).
         if (nextFlight.startOverride) {
-            this.buildULandingGuard(group, f, railing, stair, sideSign, buildSegment);
+            this.buildULandingGuard(group, f, railing, stair, sideSign, buildSegment, nextEntry);
             return;
         }
 
@@ -658,9 +662,10 @@ export class StairRailingBuilder {
         railing: StairRailingConfig,
         stair: StairData,
         sideSign: number,
-        buildSegment: (start: THREE.Vector3, end: THREE.Vector3) => THREE.Mesh
+        buildSegment: (start: THREE.Vector3, end: THREE.Vector3) => THREE.Mesh,
+        nextEntry?: ReturnType<StairRailingBuilder['resolveFlightPositions']>[0]
     ): void {
-        const { flightStart, flatDir, totalRun, totalRise } = f;
+        const { flightStart, flatDir, offset, totalRun, totalRise } = f;
         const width = stair.width;
 
         // perpDir mirrors StairMeshBuilder §STAIR-U-LANDING-SIDE — toward secondRunSide.
@@ -725,6 +730,60 @@ export class StairRailingBuilder {
         // ── Corner posts at both ends of the open edge ────────────────────────────
         this.addPost(group, p0.clone(), landingElev, railHeight, 0.06, this.makeMaterial(railing.material, 0x7a5c38));
         this.addPost(group, p1.clone(), landingElev, railHeight, 0.06, this.makeMaterial(railing.material, 0x7a5c38));
+
+        // ── §60/§46 CONTINUITY — tie the run rails into the guard ─────────────────
+        // The per-flight rails (built independently in buildRailingType_*) END at the
+        // top of flight 1 and START at the bottom of flight 2, both at the last/first
+        // tread centreline — but the open-edge guard sits one slab-depth FORWARD
+        // (flatDir*(tread/2 + width)) of those terminals. That forward step left an
+        // OPEN gap at each run↔landing transition (the founder-reported red gaps): a
+        // guardrail must be continuous (no opening a child could fall through). Emit a
+        // short connecting rail (top rail at rail height + a closing post) from each
+        // flight terminal to the NEAREST guard corner so the balustrade is unbroken
+        // all the way around the half-landing.
+        //
+        // This guard is emitted from flight 1's OUTER railing config (see the
+        // sideSign gate above); that SAME config also owns flight 2's rail (the next
+        // entry resolved by the caller), so both terminals are available here and the
+        // two connectors are emitted exactly once.
+        const railStartFlat = new THREE.Vector3(railStart.x, 0, railStart.z);
+        const railEndFlat = new THREE.Vector3(railEnd.x, 0, railEnd.z);
+        const nearestCorner = (pt: THREE.Vector3): THREE.Vector3 => {
+            const ptFlat = new THREE.Vector3(pt.x, 0, pt.z);
+            return ptFlat.distanceTo(railStartFlat) <= ptFlat.distanceTo(railEndFlat)
+                ? railStart.clone()
+                : railEnd.clone();
+        };
+        const connect = (terminal: THREE.Vector3): void => {
+            const corner = nearestCorner(terminal);
+            // Snap the connector's terminal Y to the guard rail height so the joining
+            // segment is a clean closing piece (deterministic, respects rail height).
+            const t = terminal.clone().setY(corner.y);
+            if (t.distanceTo(corner) <= 0.02) return; // already coincident — no gap
+            const seg = buildSegment(t, corner);
+            seg.userData.elementType = 'stair-railing';
+            seg.userData.selectable = false;
+            group.add(seg);
+            // Closing post at the flight terminal locks the corner visually.
+            this.addPost(group, new THREE.Vector3(t.x, 0, t.z), landingElev, railHeight, 0.06,
+                this.makeMaterial(railing.material, 0x7a5c38));
+        };
+
+        // Flight 1 OUTER rail TOP terminal (top of lower flight).
+        const flight1RailEnd = flightStart.clone()
+            .add(flatDir.clone().multiplyScalar(totalRun))
+            .add(offset)
+            .setY(landingElev + railHeight);
+        connect(flight1RailEnd);
+
+        // Flight 2 OUTER rail BOTTOM terminal (bottom of upper flight). Flight 2 starts
+        // at the landing platform, so its start elevation == landingElev.
+        if (nextEntry) {
+            const flight2RailStart = nextEntry.flightStart.clone()
+                .add(nextEntry.offset)
+                .setY(nextEntry.flightStart.y + railHeight);
+            connect(flight2RailStart);
+        }
     }
 
     // ── Geometry helpers ─────────────────────────────────────────────────────────

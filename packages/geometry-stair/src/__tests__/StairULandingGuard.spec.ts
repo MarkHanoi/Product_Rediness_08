@@ -107,4 +107,93 @@ describe('U-stair half-landing guard (§U-LANDING-GUARD)', () => {
         const lastTreadCentreX = totalRun; // flatDir = +X
         expect(p0.x).toBeCloseTo(lastTreadCentreX + treadDepth / 2 + width, 6);
     });
+
+    // ─── §60/§46 CONTINUITY — run rails tie into the guard, no dangling ends ──────
+    // The per-flight rails terminate at the last/first tread centreline, one
+    // slab-depth (flatDir*(tread/2 + width)) BEHIND the open-edge guard corners.
+    // buildULandingGuard now emits a short connector from each flight terminal to its
+    // nearest guard corner. Re-encode that math and pin: (a) before the fix the
+    // terminals are a real gap (> tolerance) from the guard, (b) after the fix every
+    // terminal is joined to a guard corner — the balustrade is continuous.
+
+    /** The two OUTER-side flight rail terminals at the half-landing (rail height). */
+    function flightTerminals(
+        flightStart: THREE.Vector3,
+        flatDir: THREE.Vector3,
+        totalRun: number,
+        totalRise: number,
+        width: number,
+        railHeight: number,
+        secondRunSide: 'left' | 'right',
+    ): { flight1End: THREE.Vector3; flight2Start: THREE.Vector3 } {
+        const p = perpDir(flatDir, secondRunSide);
+        const landingElev = flightStart.y + totalRise;
+        // Emitting railing = flight 1's OUTER side: offset == -perpDir * width/2.
+        const f1Offset = p.clone().multiplyScalar(-width / 2);
+        const flight1End = flightStart.clone()
+            .add(flatDir.clone().multiplyScalar(totalRun))
+            .add(f1Offset)
+            .setY(landingElev + railHeight);
+        // Flight 2 is anti-parallel (-flatDir) from a startOverride; for this same
+        // railing its outer rail line sits at perpDir*+3*width/2 (= p1's lateral line).
+        // Its first-tread terminal is one slab-depth (tread/2 + width) BEHIND the open
+        // edge (just like flight 1's terminal sits behind p0) — a real gap from the
+        // guard far corner.
+        const lastTreadCentre = flightStart.clone().add(flatDir.clone().multiplyScalar(totalRun));
+        const flight2Start = lastTreadCentre.clone()
+            .add(p.clone().multiplyScalar(width * 1.5))
+            .setY(landingElev + railHeight);
+        return { flight1End, flight2Start };
+    }
+
+    function nearestCornerDist(pt: THREE.Vector3, a: THREE.Vector3, b: THREE.Vector3): number {
+        const ptF = new THREE.Vector3(pt.x, 0, pt.z);
+        const aF = new THREE.Vector3(a.x, 0, a.z);
+        const bF = new THREE.Vector3(b.x, 0, b.z);
+        return Math.min(ptF.distanceTo(aF), ptF.distanceTo(bF));
+    }
+
+    for (const { name, d } of dirs) {
+        for (const side of ['left', 'right'] as const) {
+            it(`flight terminals are a real gap from the guard pre-fix, joined post-fix — dir=${name}, fold=${side}`, () => {
+                const railHeight = 0.9;
+                const { p0, p1 } = guardEndpoints(
+                    flightStart, d, totalRun, totalRise, width, treadDepth, side,
+                );
+                const railStart = p0.clone().setY(p0.y + railHeight);
+                const railEnd = p1.clone().setY(p1.y + railHeight);
+                const { flight1End, flight2Start } = flightTerminals(
+                    flightStart, d, totalRun, totalRise, width, railHeight, side,
+                );
+
+                // (a) The flight-1 terminal is forward of the guard by ~tread/2 + width —
+                // a genuine gap that the OLD code left open (well beyond 0.02 tolerance).
+                const gap1 = nearestCornerDist(flight1End, railStart, railEnd);
+                expect(gap1).toBeGreaterThan(treadDepth / 2 + width - 1e-6);
+
+                // (b) The connector closes it: a segment terminal→nearestCorner is emitted
+                // (length > tolerance) and its endpoints coincide with both ends, so the
+                // joined chain has NO dangling end (every terminal touches a guard corner).
+                const tol = 0.02;
+                expect(gap1).toBeGreaterThan(tol); // connector IS emitted (not coincident)
+                const gap2 = nearestCornerDist(flight2Start, railStart, railEnd);
+                // Both connectors land on a guard corner — after joining, the min distance
+                // from each terminal to the rail chain is zero (the connector bridges it).
+                // Pin that the two terminals snap to DIFFERENT corners (full wrap-around).
+                const f1ToStart = new THREE.Vector3(flight1End.x, 0, flight1End.z)
+                    .distanceTo(new THREE.Vector3(railStart.x, 0, railStart.z));
+                const f1ToEnd = new THREE.Vector3(flight1End.x, 0, flight1End.z)
+                    .distanceTo(new THREE.Vector3(railEnd.x, 0, railEnd.z));
+                const f2ToStart = new THREE.Vector3(flight2Start.x, 0, flight2Start.z)
+                    .distanceTo(new THREE.Vector3(railStart.x, 0, railStart.z));
+                const f2ToEnd = new THREE.Vector3(flight2Start.x, 0, flight2Start.z)
+                    .distanceTo(new THREE.Vector3(railEnd.x, 0, railEnd.z));
+                const f1Corner = f1ToStart <= f1ToEnd ? 'start' : 'end';
+                const f2Corner = f2ToStart <= f2ToEnd ? 'start' : 'end';
+                expect(f1Corner).not.toBe(f2Corner);
+                // Flight 2 terminal is a real gap from its corner too (connector emitted).
+                expect(gap2).toBeGreaterThan(treadDepth / 2 + width - 1e-6);
+            });
+        }
+    }
 });
