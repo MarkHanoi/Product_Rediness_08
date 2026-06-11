@@ -61,9 +61,15 @@ export async function fetchContextRoads(
 
     const body = 'data=' + encodeURIComponent(overpassRoadQuery(bbox));
     for (const endpoint of OVERPASS_ENDPOINTS) {
+        // §GIS-ABORT-REASON (founder 2026-06-11) — explicit reasons so the console reads
+        // "Overpass timeout" / "caller cancelled" instead of "aborted without reason"
+        // (non-fatal graceful-degrade; roads context is skipped, the scene still renders).
         const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), OVERPASS_TIMEOUT_MS);
-        const onAbort = (): void => ctrl.abort();
+        const timer = setTimeout(
+            () => ctrl.abort(new DOMException(`Overpass timeout after ${OVERPASS_TIMEOUT_MS}ms (mirror slow/rate-limited)`, 'TimeoutError')),
+            OVERPASS_TIMEOUT_MS,
+        );
+        const onAbort = (): void => ctrl.abort(new DOMException('caller cancelled (view/location change)', 'AbortError'));
         signal?.addEventListener('abort', onAbort, { once: true });
         try {
             const res = await fetch(endpoint, {

@@ -320,10 +320,17 @@ async function fetchForBbox(bbox: Bbox, signal?: AbortSignal): Promise<ContextBu
     const body = 'data=' + encodeURIComponent(overpassQuery(bbox));
 
     for (const endpoint of OVERPASS_ENDPOINTS) {
-        // Per-endpoint timeout, also honouring a caller abort.
+        // Per-endpoint timeout, also honouring a caller abort. §GIS-ABORT-REASON
+        // (founder 2026-06-11) — pass an explicit reason so the console reads "Overpass
+        // timeout" instead of the alarming "AbortError: signal is aborted without reason"
+        // (the public mirrors are routinely slow / rate-limited; this is a NON-FATAL
+        // graceful-degrade, the building + massing still render).
         const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), OVERPASS_TIMEOUT_MS);
-        const onAbort = (): void => ctrl.abort();
+        const timer = setTimeout(
+            () => ctrl.abort(new DOMException(`Overpass timeout after ${OVERPASS_TIMEOUT_MS}ms (mirror slow/rate-limited)`, 'TimeoutError')),
+            OVERPASS_TIMEOUT_MS,
+        );
+        const onAbort = (): void => ctrl.abort(new DOMException('caller cancelled (view/location change)', 'AbortError'));
         signal?.addEventListener('abort', onAbort, { once: true });
         try {
             const res = await fetch(endpoint, {
