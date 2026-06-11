@@ -312,13 +312,37 @@ export class RoomDetectionEngine {
     //   accidentally fused.  See file-header notes for the full rationale.
     const wallGraphInputCornerSnapped = this._snapNearbyCorners(combinedInput, 0.30);
 
+    // §PARTITION-REACH (tracker §68.12, 2026-06-11) — reconnect a DANGLING partition
+    // endpoint that the editor's whole-level WallJoinResolver trimmed ~0.3–1.2 m short
+    // of the host it was meant to T-junction onto. ROOT CAUSE: on a generated house the
+    // engine emits 3 partitions meeting at one EXACT Y-junction point; the resolver then
+    // CLUSTERS those endpoints and, finding no pinnable pair, TRIMS one member back along
+    // its own axis (§MULTI-CLUSTER pinned=0 trimmed=N) — leaving a free end up to ~1 m
+    // from the host wall's body. That gap vastly exceeds the thickness-driven T-junction
+    // snap (≤ 0.20 m for a thin partition), so `_splitAtTJunctions` misses it → the room
+    // loop never closes → RoomDetection floods across the gap → the founder's compound
+    // merges ("Kitchen / Dining", "Bedroom 2 / Corridor"), 55.7 m² no-door flood cell,
+    // and HABITABLE-ON-STAIR.
+    //
+    // This pass moves ONLY a GENUINELY-DANGLING endpoint (not connected to ANY other
+    // wall by corner OR existing T-junction) onto the nearest host wall BODY when the
+    // dangling wall RUNS UP TO that host (the gap direction is collinear with the wall's
+    // own axis, and the perpendicular foot is strictly INSIDE the host span). A precisely-
+    // drawn plan has NO such ends — every partition either already meets its host (within
+    // the corner/T-snap, so it is NOT dangling) or genuinely terminates free in open space
+    // (its axis does NOT aim at a host body) — so the pass is a strict no-op there. Bounded
+    // reach + collinearity + dangling guards keep it from teleporting unrelated walls (the
+    // §STRICT-ROOMS hazard). Runs BEFORE body-crossing + T-junction split so the reconnected
+    // endpoint is then split into the host exactly like a clean emit.
+    const wallGraphInputReconnected = this._reconnectDanglingEnds(wallGraphInputCornerSnapped, thicknessByBaseId);
+
     // Pre-pass: split walls at true body-to-body crossings (X-junctions).
     // When a partition wall physically crosses through another wall (e.g. extends
     // past the outer wall on both sides) this splits BOTH walls at the exact
     // intersection point so the graph builder sees them as connected nodes.
     // This is the critical fix for "room not detected when wall doesn't end precisely
     // at the intersection point with an existing wall".
-    const wallGraphInputCrossings = this._splitAtBodyCrossings(wallGraphInputCornerSnapped);
+    const wallGraphInputCrossings = this._splitAtBodyCrossings(wallGraphInputReconnected);
 
     // Split walls at T-junctions AND snap guest endpoints to split points.
     // This ensures interior partition endpoints share the exact same coordinates
@@ -517,6 +541,187 @@ export class RoomDetectionEngine {
       `[RoomDetectionEngine] §DIAG-ROOM-LOOP level='${levelId}' detectedRooms=${detectedRoomCount} ` +
       `thickShellTJunctionsRescued=${flagged} unresolvedLoopBreaks=${breaks}`,
     );
+  }
+
+  /**
+   * §PARTITION-REACH (tracker §68.12, 2026-06-11) — reconnect a DANGLING partition
+   * endpoint onto the host wall body it was meant to meet.
+   *
+   * THE DEFECT it closes (verified by repro): on a generated multi-room house the
+   * D-TGL engine emits up to 3 interior partitions sharing one EXACT Y-junction point.
+   * The editor's whole-level WallJoinResolver then clusters those coincident endpoints,
+   * finds no pinnable pair, and TRIMS one member back along its own axis (its
+   * §MULTI-CLUSTER pinned=0 trimmed=N path) — leaving that partition's end up to ~1 m
+   * SHORT of the host. The thickness-driven T-junction snap (`_splitAtTJunctions`,
+   * ≤ 0.20 m for a thin partition) cannot bridge a ~1 m gap, so the loop never closes
+   * and detection floods across it → the founder's compound merges + flood cells.
+   *
+   * THE FIX — move ONLY a genuinely-DANGLING endpoint onto the nearest host BODY when:
+   *   (a) DANGLING: the endpoint is not already connected to ANY other wall — it has no
+   *       other endpoint within {@link CORNER_CONNECTED_TOL_M} AND does not already lie
+   *       within that host's T-snap radius of any wall body (so a clean junction is
+   *       NEVER touched — the pass is a strict no-op on a precisely-drawn / clean-emit
+   *       plan);
+   *   (b) RUNS-UP-TO the host: the gap from the endpoint to its perpendicular foot on the
+   *       host is COLLINEAR with the dangling wall's own axis (|cos| ≥ {@link REACH_COLLINEAR_MIN})
+   *       — i.e. the partition aims at the host, it is not a wall that merely passes near
+   *       a parallel neighbour;
+   *   (c) BOUNDED + INTERIOR: the gap ≤ {@link REACH_MAX_M} and the perpendicular foot is
+   *       strictly INSIDE the host span (a real body-T, not an end-to-end corner — corners
+   *       are owned by `_snapNearbyCorners`).
+   *
+   * A wall that genuinely terminates free in open space (a peninsula / return) fails (b)
+   * — its axis does not point at a host body — so it is left untouched. The reconnected
+   * endpoint then flows into `_splitAtBodyCrossings` + `_splitAtTJunctions` and closes the
+   * loop exactly like a clean emit. Pure geometry; deterministic (stable nearest-host pick
+   * tie-broken by the smaller gap then wallUUID).
+   */
+  private _reconnectDanglingEnds(
+    walls: Array<{ wallUUID: string; start: THREE.Vector3; end: THREE.Vector3 }>,
+    thicknessByBaseId?: Map<string, number>,
+  ): Array<{ wallUUID: string; start: THREE.Vector3; end: THREE.Vector3 }> {
+    if (walls.length < 2) {
+      return walls.map(w => ({ wallUUID: w.wallUUID, start: w.start.clone(), end: w.end.clone() }));
+    }
+
+    // Endpoint is "already connected" to another wall within this distance (corner) — it
+    // is NOT dangling. Matches `_snapNearbyCorners`'s 0.30 m corner radius so anything that
+    // pass fused is excluded here (no double handling).
+    const CORNER_CONNECTED_TOL_M = 0.30;
+    // Max gap a dangling end may be moved to reach a host body. Covers the observed
+    // ~0.96 m resolver trim with headroom, but well below a real room dimension so a wall
+    // is never dragged across a room. (A gap beyond this is left for the §DIAG-ROOM-LOOP
+    // audit to flag — it is not a confident reconnection.)
+    const REACH_MAX_M = 1.25;
+    // The gap direction must be ≥ this |cos| with the dangling wall's own axis — the
+    // partition RUNS UP TO the host, it is not merely near a parallel neighbour. ~25°.
+    const REACH_COLLINEAR_MIN = 0.9;
+    // Strictly-interior margin on the host span (a body-T, not a corner the snap owns).
+    const SPAN_MARGIN_M = 0.05;
+    const SNAP_FLOOR = 0.20;
+    const SHELL_MARGIN = 0.02;
+
+    const result = walls.map(w => ({ wallUUID: w.wallUUID, start: w.start.clone(), end: w.end.clone() }));
+
+    const snapForHost = (hostUUID: string): number => {
+      if (!thicknessByBaseId || thicknessByBaseId.size === 0) return SNAP_FLOOR;
+      const baseId = hostUUID.replace(/(_[cs]\d+)+$/, '');
+      const th = thicknessByBaseId.get(baseId);
+      if (typeof th !== 'number' || th <= 0) return SNAP_FLOOR;
+      return Math.max(SNAP_FLOOR, th / 2 + SHELL_MARGIN);
+    };
+
+    // Flat endpoint list (reference into `result` so a move mutates the segment).
+    type Side = 'start' | 'end';
+    interface EpRef { wallIdx: number; side: Side; x: number; z: number }
+    const eps: EpRef[] = [];
+    for (let i = 0; i < result.length; i++) {
+      eps.push({ wallIdx: i, side: 'start', x: result[i]!.start.x, z: result[i]!.start.z });
+      eps.push({ wallIdx: i, side: 'end',   x: result[i]!.end.x,   z: result[i]!.end.z   });
+    }
+
+    // Closest point on segment + perpendicular distance + along-param (metres).
+    const closestOnSeg = (px: number, pz: number, ax: number, az: number, bx: number, bz: number) => {
+      const dx = bx - ax, dz = bz - az;
+      const len2 = dx * dx + dz * dz;
+      if (len2 < 1e-9) return { fx: ax, fz: az, perp: Math.hypot(px - ax, pz - az), along: 0, len: 0 };
+      const len = Math.sqrt(len2);
+      let t = ((px - ax) * dx + (pz - az) * dz) / len2;
+      t = Math.max(0, Math.min(1, t));
+      const fx = ax + t * dx, fz = az + t * dz;
+      return { fx, fz, perp: Math.hypot(px - fx, pz - fz), along: t * len, len };
+    };
+
+    // True when endpoint (px,pz) is ALREADY connected to wall `oi` — either by a near
+    // corner (any of its endpoints within the corner tol) or already on its body within
+    // that host's T-snap radius. Such an endpoint is NOT dangling and is skipped.
+    const connectedToWall = (px: number, pz: number, oi: number): boolean => {
+      const o = result[oi]!;
+      if (Math.hypot(px - o.start.x, pz - o.start.z) <= CORNER_CONNECTED_TOL_M) return true;
+      if (Math.hypot(px - o.end.x,   pz - o.end.z)   <= CORNER_CONNECTED_TOL_M) return true;
+      const c = closestOnSeg(px, pz, o.start.x, o.start.z, o.end.x, o.end.z);
+      if (c.len > 1e-6 && c.along > SPAN_MARGIN_M && c.along < c.len - SPAN_MARGIN_M
+        && c.perp <= snapForHost(o.wallUUID)) return true;     // already a body-T
+      return false;
+    };
+
+    let reconnected = 0;
+    for (const ep of eps) {
+      const ownIdx = ep.wallIdx;
+      // (a) DANGLING — not already connected to ANY other wall.
+      let dangling = true;
+      for (let oi = 0; oi < result.length && dangling; oi++) {
+        if (oi === ownIdx) continue;
+        if (connectedToWall(ep.x, ep.z, oi)) dangling = false;
+      }
+      if (!dangling) continue;
+
+      // The dangling wall's OWN axis (unit), pointing OUTWARD from the far end through
+      // this endpoint (the direction the partition is heading).
+      const own = result[ownIdx]!;
+      const farX = ep.side === 'start' ? own.end.x : own.start.x;
+      const farZ = ep.side === 'start' ? own.end.z : own.start.z;
+      const adx = ep.x - farX, adz = ep.z - farZ;
+      const aLen = Math.hypot(adx, adz);
+      if (aLen < 1e-6) continue;
+      const aux = adx / aLen, auz = adz / aLen;
+
+      // The nearest host TARGET this endpoint runs up to (collinear, bounded). Two kinds,
+      // both guarded identically (dangling + collinear + bounded):
+      //   • BODY-T — perpendicular foot strictly INSIDE a host span (the classic T-junction
+      //              the resolver trimmed away from);
+      //   • CORNER — the dangling axis aims at another wall's ENDPOINT (the host is split into
+      //              two COLLINEAR segments meeting exactly at the targeted junction, so the
+      //              body-T test alone misses it — the foot falls at the shared end). A bounded
+      //              collinear corner-reach onto a free end is safe BECAUSE this endpoint is
+      //              provably dangling (connects to nothing).
+      const cands: Array<{ fx: number; fz: number; gap: number; hostUUID: string }> = [];
+      for (let oi = 0; oi < result.length; oi++) {
+        if (oi === ownIdx) continue;
+        const o = result[oi]!;
+        const c = closestOnSeg(ep.x, ep.z, o.start.x, o.start.z, o.end.x, o.end.z);
+        if (c.len < 1e-6) continue;
+        const interior = c.along > SPAN_MARGIN_M && c.along < c.len - SPAN_MARGIN_M;
+        let tx = 0, tz = 0, gap = -1;
+        if (interior) {
+          // (c) BODY-T — bounded gap beyond the host's own T-snap radius.
+          if (c.perp > snapForHost(o.wallUUID)) { tx = c.fx; tz = c.fz; gap = c.perp; }
+        } else {
+          // CORNER — the foot is at (or past) a host end; aim at the NEARER host endpoint.
+          const ds = Math.hypot(ep.x - o.start.x, ep.z - o.start.z);
+          const de = Math.hypot(ep.x - o.end.x,   ep.z - o.end.z);
+          // Only a gap beyond the corner-snap (≥ CORNER_CONNECTED_TOL_M, already excluded as
+          // "connected") is a real reach; nearer ones were handled by _snapNearbyCorners.
+          if (ds <= de && ds > CORNER_CONNECTED_TOL_M) { tx = o.start.x; tz = o.start.z; gap = ds; }
+          else if (de < ds && de > CORNER_CONNECTED_TOL_M) { tx = o.end.x; tz = o.end.z; gap = de; }
+        }
+        if (gap <= 0 || gap > REACH_MAX_M) continue;
+        const gdx = (tx - ep.x) / gap, gdz = (tz - ep.z) / gap;
+        if (Math.abs(gdx * aux + gdz * auz) < REACH_COLLINEAR_MIN) continue;   // (b) collinear
+        cands.push({ fx: tx, fz: tz, gap, hostUUID: o.wallUUID });
+      }
+      // Deterministic pick: smallest gap, tie-broken by hostUUID.
+      cands.sort((a, b) => (a.gap - b.gap) || (a.hostUUID < b.hostUUID ? -1 : a.hostUUID > b.hostUUID ? 1 : 0));
+      const chosen = cands.length > 0 ? cands[0]! : null;
+
+      if (chosen) {
+        const seg = result[ownIdx]!;
+        if (ep.side === 'start') { seg.start.x = chosen.fx; seg.start.z = chosen.fz; }
+        else { seg.end.x = chosen.fx; seg.end.z = chosen.fz; }
+        ep.x = chosen.fx; ep.z = chosen.fz;
+        reconnected++;
+        console.log(
+          `[RoomDetectionEngine] §DIAG-PARTITION-REACH reconnected guest=${seg.wallUUID}.${ep.side} ` +
+          `onto host=${chosen.hostUUID} body — closed a ${(chosen.gap * 1000).toFixed(0)}mm dangling gap ` +
+          `(resolver-trim recovery; loop now closes)`,
+        );
+      }
+    }
+
+    if (reconnected > 0) {
+      console.log(`[RoomDetectionEngine] §DIAG-PARTITION-REACH reconnected ${reconnected} dangling partition end(s)`);
+    }
+    return result;
   }
 
   /**
