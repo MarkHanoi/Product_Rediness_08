@@ -2,7 +2,9 @@ import * as THREE from '@pryzm/renderer-three/three';
 
 export const SCENE_BG_HEX = '#ffffff';
 export const SCENE_BG_NUM = 0xffffff;
-export const SCENE_BG_DARK_HEX = '#1f2433';
+// §NIGHT-DARK-BLUE-BG (2026-06-11) — night-mode background is a deep navy blue
+// (was grey-navy #1f2433). Mirrors DARK_BG_HEX in renderer-three BackgroundUniform.
+export const SCENE_BG_DARK_HEX = '#0a0f2c';
 export const GRID_COLOR_NUM = 0x9aaac8;
 export const SCENE_BG_STORAGE_KEY = 'pryzm_scene_bg_color';
 

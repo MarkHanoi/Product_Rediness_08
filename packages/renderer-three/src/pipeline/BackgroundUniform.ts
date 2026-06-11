@@ -28,8 +28,15 @@ import type { UniformNode } from '../tsl-types';
 
 // ── Theme colours — exactly match the editor (post-processing.tsx lines 49–50) ──
 
-/** Dark-theme background. Editor: `const DARK_BG = '#1f2433'` */
-export const DARK_BG_HEX  = '#1f2433' as const;
+/**
+ * Dark-theme (night-mode) background — deep navy blue.
+ * §NIGHT-DARK-BLUE-BG (2026-06-11): founder request — the perspective 3D scene
+ * should read as a tasteful dark *blue* at night (was a grey-navy `#1f2433`),
+ * complementing the brand purple (#6600FF) + white without clashing. The
+ * orthographic / plan path still forces #ffffff via setColor() (initScene A4),
+ * so this only affects the night-mode perspective background.
+ */
+export const DARK_BG_HEX  = '#0a0f2c' as const;
 
 /** Light-theme background. Editor: `const LIGHT_BG = '#ffffff'` */
 export const LIGHT_BG_HEX = '#ffffff' as const;

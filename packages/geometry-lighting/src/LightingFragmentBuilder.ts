@@ -964,15 +964,36 @@ export class LightingFragmentBuilder {
     // ── Night-mode light management ───────────────────────────────────────────
 
     private _syncAllLights(): void {
-        for (const [id, group] of this._roots) {
-            if (this._isNight) {
-                const stored = this._getAllData();
-                const data = stored.find(d => d.id === id);
-                if (data) this._attachLight(data, group);
-            } else {
-                this._detachLight(id, group);
-            }
+        // §NIGHT-ALL-LIGHTS-ON (2026-06-11) — read the store ONCE (not per-root),
+        // and attach a light to EVERY placed fixture. If the store has no record
+        // for a root (e.g. it was built from a path that didn't mirror into the
+        // legacy LightingStore), synthesise minimal LightingData from the group's
+        // userData so the fixture still illuminates — no fixture is left dark.
+        if (!this._isNight) {
+            for (const [id, group] of this._roots) this._detachLight(id, group);
+            return;
         }
+        const byId = new Map(this._getAllData().map(d => [d.id, d]));
+        for (const [id, group] of this._roots) {
+            const data = byId.get(id) ?? this._synthesizeData(id, group);
+            this._attachLight(data, group);
+        }
+    }
+
+    /**
+     * §NIGHT-ALL-LIGHTS-ON — fallback LightingData for a root that has a built
+     * fixture group but no store record. Uses the immutable userData stamped in
+     * add() (id + fixtureType) and the group's world-independent local position.
+     */
+    private _synthesizeData(id: string, group: THREE.Group): LightingData {
+        const ft = (group.userData.fixtureType as LightingData['fixtureType']) ?? 'downlight';
+        return {
+            id,
+            type: 'lighting',
+            levelId: (group.userData.levelId as string) ?? '',
+            fixtureType: ft,
+            position: { x: group.position.x, y: group.position.y, z: group.position.z },
+        } as LightingData;
     }
 
     /** Stored data accessor — builder doesn't own store; use window ref. */
@@ -1052,12 +1073,21 @@ export class LightingFragmentBuilder {
             }
         }
 
-        light.castShadow = true;
-        if (light.shadow) {
-            light.shadow.mapSize.set(512, 512);
-            light.shadow.camera.near = 0.1;
-            light.shadow.camera.far  = 8;
-        }
+        // §NIGHT-ALL-LIGHTS-ON (2026-06-11) — every placed fixture must illuminate
+        // in night mode, not just a few. The previous code set `castShadow = true`
+        // on EVERY fixture PointLight. A shadow-casting PointLight needs a cube
+        // shadow map (6 faces) and a texture-unit slot; WebGL/WebGPU has a hard
+        // cap (MAX_TEXTURE_IMAGE_UNITS, commonly 16). Once enough fixtures are
+        // placed the renderer silently drops the shadow lights past the cap, so
+        // only the first few fixtures appeared to "switch on".
+        //
+        // Fix: fixture PointLights no longer cast shadows. They still illuminate
+        // (diffuse/specular) from every fixture without consuming a shadow-map
+        // slot, so ALL fixtures light up. Room geometry still receives shadows
+        // from the Pascal sun/main lights, which is where the cap budget belongs.
+        // A small shadow-casting budget can be reintroduced later if desired, but
+        // illumination from all fixtures is the founder's requirement.
+        light.castShadow = false;
 
         group.add(light);
         this._lights.set(data.id, light);

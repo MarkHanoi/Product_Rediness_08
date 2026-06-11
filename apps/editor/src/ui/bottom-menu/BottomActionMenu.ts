@@ -479,14 +479,16 @@ export class BottomActionMenu {
             // Also update the viewport container's CSS background so the div behind
             // the WebGPU canvas matches the rendered scene colour (not stuck at white).
             const vp = window.viewportContainer as HTMLElement | null;
-            if (vp) vp.style.background = this._isNight ? '#1f2433' : '#ffffff';
+            // §NIGHT-DARK-BLUE-BG (2026-06-11) — deep navy blue at night (must match
+            // DARK_BG_HEX in renderer-three BackgroundUniform / SCENE_BG_DARK_HEX).
+            if (vp) vp.style.background = this._isNight ? '#0a0f2c' : '#ffffff';
         } else {
             // Fallback for non-WebGPU / pipeline-less rendering paths.
             const scene = this._getScene();
             if (scene) {
                 if (this._savedBackground === undefined) this._savedBackground = scene.background;
                 scene.background = this._isNight
-                    ? new THREE.Color(0x1f2433)
+                    ? new THREE.Color(0x0a0f2c) // §NIGHT-DARK-BLUE-BG — deep navy (see DARK_BG_HEX)
                     : (this._savedBackground ?? new THREE.Color(0xffffff));
             }
         }
