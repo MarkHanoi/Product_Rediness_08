@@ -38,9 +38,12 @@ import { dimensionsFor } from '../dimensions/roomDimensions.js';
 /** §DIAG-MIN-AREA-GATE / §DIAG-MANDATORY-GATE (tracker §68.1/§68.2) — the HARD
  *  architectural rules a candidate can fail. `minarea` = a habitable room below its
  *  `areaMin`; `mandatory` = a requested mandatory room (kitchen/living/bedroom/
- *  bathroom) is missing. The first four mirror the original §TOPO-HARD-REJECT set. */
+ *  bathroom) is missing. The first four mirror the original §TOPO-HARD-REJECT set.
+ *  `reach` (tracker §55, §DIAG-CIRCULATION-REACH) = a HABITABLE room is SEALED /
+ *  unreachable from the entrance through the door + open-threshold access graph —
+ *  computed angle-independently (graph BFS, no axis-aligned bbox heuristic). */
 export type HardFailedRule =
-    | 'window' | 'circulation' | 'privacy' | 'overlap' | 'minarea' | 'mandatory';
+    | 'window' | 'circulation' | 'privacy' | 'overlap' | 'minarea' | 'mandatory' | 'reach';
 
 /** §DIAG-MIN-AREA-GATE (tracker §68.1) — the habitable room types whose own
  *  `areaMin` is enforced as a HARD floor. A room of one of these types emitted below
@@ -233,6 +236,98 @@ const STRATEGIES: readonly Strategy[] = (() => {
 })();
 const strategyKey = (s: Strategy): string => `${s.axis ? 'z' : 'x'}-${s.order}-${s.mirror ? 'mir' : 'id'}`;
 
+/** §DIAG-CIRCULATION-REACH (tracker §55) — the HABITABLE room types whose
+ *  reachability from the entrance is enforced as a HARD architectural floor. A
+ *  room of one of these types that the access graph cannot reach FROM THE ENTRANCE
+ *  is a SEALED room (the "bedroom you can only enter through a wall" / "windowless
+ *  living room with no door" defect) ⇒ the candidate is hard-invalid. Mirrors the
+ *  §68.1 MIN_AREA_HABITABLE_TYPES set: wet/service/circulation rooms come small and
+ *  are governed by the circulation-reroute / drop logic, not this gate. */
+const REACH_HABITABLE_TYPES: ReadonlySet<RoomType> = new Set<RoomType>([
+    'living', 'kitchen', 'dining', 'master', 'bedroom', 'study',
+]);
+
+/**
+ * §DIAG-CIRCULATION-REACH (tracker §55, 2026-06-11) — ANGLE-INDEPENDENT entrance
+ * reachability. Returns the HABITABLE rooms (REACH_HABITABLE_TYPES) that the
+ * door + open-threshold access graph CANNOT reach starting from the entrance,
+ * deterministically sorted by id (empty ⇒ every habitable room is reachable).
+ *
+ * The permeability graph is purely TOPOLOGICAL — realised doors
+ * (`doorOpenings` of type 'door') PLUS bubble open-plan thresholds
+ * (`bubble.edges` with `via === 'open'`) — so the check operates identically on
+ * an axis-aligned plate and on a rotated/skewed one (the founder's
+ * angle-dependent failures came from axis-aligned bbox heuristics; this uses NONE).
+ * It does NOT depend on room polygons, wall coordinates, or any orientation.
+ *
+ * Root selection (deterministic, never throws): the bubble's `entryId` when set,
+ * else the lowest-id circulation room (hall/corridor/stair), else the lowest-id
+ * room — so a program with no explicit entrance still gets a well-defined root and
+ * the gate measures "reachable from SOME single front", not "graph is one blob".
+ *
+ * Pure + deterministic. Exported ONLY for the §55 regression test (the gate must be
+ * verifiable angle-independently in isolation); it is a pure predicate over an
+ * in-memory graph — no I/O, no THREE, no DOM — so it adds no runtime side effect and
+ * needs no P8 span (consistent with the other tgl engine predicates, ADR-0061).
+ */
+export function unreachableHabitableRoomIds(args: {
+    readonly bubble: BubbleGraph;
+    readonly doorOpenings: readonly DoorOpening[];
+}): readonly string[] {
+    const { bubble, doorOpenings } = args;
+    const ids = bubble.rooms.map(r => r.id);
+    if (ids.length === 0) return [];
+    const typeById = new Map<string, RoomType>();
+    for (const r of bubble.rooms) typeById.set(r.id, r.type);
+
+    // Permeability adjacency: realised doors + open thresholds. Sorted neighbour
+    // lists ⇒ stable BFS order (determinism).
+    const adj = new Map<string, string[]>();
+    for (const id of ids) adj.set(id, []);
+    const link = (a: string | undefined, b: string | undefined): void => {
+        if (!a || !b || a === b) return;
+        if (!adj.has(a) || !adj.has(b)) return;             // ignore ids not in the room set
+        adj.get(a)!.push(b);
+        adj.get(b)!.push(a);
+    };
+    for (const o of doorOpenings) {
+        if (o.type !== 'door') continue;                    // only doorways are permeable connectors
+        const [a, b] = o.betweenRoomIds as readonly [string, string?];
+        link(a, b ?? undefined);
+    }
+    for (const e of bubble.edges) {
+        if (e.via === 'open') link(e.a, e.b);               // open-plan threshold (no wall, no door)
+    }
+    for (const [, ns] of adj) ns.sort();
+
+    // Deterministic entrance root.
+    const isCirc = (t: RoomType | undefined): boolean => {
+        if (!t) return false;
+        const p = roomRule(t).privacy;
+        return p === 'circulation';
+    };
+    const sortedIds = [...ids].sort();
+    const root =
+        (bubble.entryId && adj.has(bubble.entryId)) ? bubble.entryId :
+        (sortedIds.find(id => isCirc(typeById.get(id))) ?? sortedIds[0]!);
+
+    // BFS over the permeability graph from the entrance.
+    const reached = new Set<string>([root]);
+    const queue: string[] = [root];
+    while (queue.length) {
+        const cur = queue.shift()!;
+        for (const nb of adj.get(cur) ?? []) {
+            if (!reached.has(nb)) { reached.add(nb); queue.push(nb); }
+        }
+    }
+
+    // The unreachable HABITABLE rooms (the sealed set).
+    return sortedIds.filter(id => {
+        const t = typeById.get(id);
+        return t !== undefined && REACH_HABITABLE_TYPES.has(t) && !reached.has(id);
+    });
+}
+
 /**
  * §TOPO-HARD-REJECT (Stage 5) — the founder's HARD topology gate predicate.
  *
@@ -246,7 +341,11 @@ const strategyKey = (s: Strategy): string => `${s.axis ? 'z' : 'x'}-${s.order}-$
  *
  *   W (window)      — a `windowMandatory` room is fully interior (no perimeter
  *                     wall ⇒ it can host ZERO windows).
- *   C (circulation) — a room is land-locked (no door onto the spine).
+ *   C (circulation) — a room is land-locked (no DIRECT door onto the spine).
+ *   R (reach)       — §DIAG-CIRCULATION-REACH: a HABITABLE room is SEALED /
+ *                     unreachable from the ENTRANCE through the door + open-threshold
+ *                     access graph (strictly stronger than C: catches a sealed PUBLIC
+ *                     room and any disconnected-from-front room). Angle-independent.
  *   P (privacy)     — a private room opens DIRECTLY off the entrance hall.
  *   O (overlap)     — §ROOM-OVERLAP-HARD: two rooms' interior floor areas overlap
  *                     (Area(R_i ∩ R_j) > ε). `hasRoomOverlap` is the precomputed
@@ -262,8 +361,12 @@ function evaluateHardTopology(args: {
     readonly hasUnderMinArea: boolean;
     /** §DIAG-MANDATORY-GATE (§68.2) — true ⇒ at least one requested mandatory room is missing. */
     readonly hasMissingMandatory: boolean;
+    /** §DIAG-CIRCULATION-REACH (§55) — the HABITABLE rooms the access graph cannot
+     *  reach from the entrance (the SEALED set). Non-empty ⇒ Rule R fails. Computed
+     *  angle-independently by `unreachableHabitableRoomIds`. */
+    readonly unreachableHabitableRoomIds: readonly string[];
 }): readonly HardFailedRule[] {
-    const { bubble, frontageHardRoomIds, unroutedToCirculationRoomIds, doorOpenings, hasRoomOverlap, hasUnderMinArea, hasMissingMandatory } = args;
+    const { bubble, frontageHardRoomIds, unroutedToCirculationRoomIds, doorOpenings, hasRoomOverlap, hasUnderMinArea, hasMissingMandatory, unreachableHabitableRoomIds } = args;
     const typeById = new Map<string, string>();
     for (const r of bubble.rooms) typeById.set(r.id, r.type);
 
@@ -281,6 +384,22 @@ function evaluateHardTopology(args: {
     // Rule C — any room land-locked from circulation (== !circulationRouted).
     if (unroutedToCirculationRoomIds.length > 0) {
         failed.push('circulation');
+    }
+
+    // Rule R — §DIAG-CIRCULATION-REACH (tracker §55, 2026-06-11). A SEALED habitable
+    // room: a living/kitchen/dining/master/bedroom/study that the door + open-threshold
+    // ACCESS GRAPH cannot reach FROM THE ENTRANCE. This is STRICTLY STRONGER than Rule C
+    // in two ways the founder hit: (a) Rule C only inspects PRIVATE/SERVICE rooms via
+    // `unroutedToCirculationRoomIds` and so MISSES a sealed PUBLIC room (a living/kitchen
+    // with zero doors is reachable=false but circulation-routed=true); (b) Rule C asks
+    // "has a DIRECT circulation door", not "is reachable from the entrance", so a room
+    // reachable only across a disconnected sub-graph (no path back to the front door) can
+    // pass Rule C yet be a genuine sealed room. Rule R closes both. It is computed
+    // ANGLE-INDEPENDENTLY (pure graph BFS over doors + open thresholds — no axis-aligned
+    // bbox, no room-polygon orientation), so it rejects a sealed room on a ROTATED/SKEWED
+    // plate identically to an axis-aligned one (the founder's prior angle-dependent miss).
+    if (unreachableHabitableRoomIds.length > 0) {
+        failed.push('reach');
     }
 
     // Rule P — a private room opens DIRECTLY off the entrance hall. We read the
@@ -1066,10 +1185,32 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     // `unroutedToCirculationRoomIds` means at least one room is land-locked.
     const circulationRouted = unroutedToCirculationRoomIds.length === 0;
 
+    // §DIAG-CIRCULATION-REACH (tracker §55) — ANGLE-INDEPENDENT entrance reachability:
+    // the HABITABLE rooms the door + open-threshold access graph cannot reach from the
+    // entrance (the SEALED set). Computed on the room/adjacency graph, NOT on any
+    // axis-aligned bbox — so it rejects a sealed room on a rotated plate identically.
+    const unreachableHabitable = unreachableHabitableRoomIds({ bubble, doorOpenings });
+    {
+        const typeById = new Map<string, string>();
+        for (const r of bubble.rooms) typeById.set(r.id, r.type);
+        const habitable = bubble.rooms.filter(r => REACH_HABITABLE_TYPES.has(r.type));
+        const unreachNamed = unreachableHabitable
+            .map(id => `${id}(${typeById.get(id) ?? '?'})`)
+            .join(',') || 'none';
+        console.log(
+            `[D-TGL] §DIAG-CIRCULATION-REACH cand ${strategyKey(s)} ` +
+            `entry=${bubble.entryId ?? 'none'} ` +
+            `allHabitableReachable=${unreachableHabitable.length === 0 ? 'YES' : 'NO'} ` +
+            `reachable=${habitable.length - unreachableHabitable.length}/${habitable.length} ` +
+            `sealed=[${unreachNamed}]`,
+        );
+    }
+
     // §TOPO-HARD-REJECT (Stage 5) — the founder's HARD topology gate. A candidate
-    // is hard-invalid if it breaks ANY of the three architectural rules (windowless
-    // habitable room / land-locked room / private-room-off-hall). Reuses the
-    // already-computed frontage hard findings + unrouted signal + realised doors.
+    // is hard-invalid if it breaks ANY architectural rule (windowless habitable room /
+    // land-locked room / SEALED-unreachable habitable room / private-room-off-hall /
+    // overlap / sub-min / missing-mandatory). Reuses the already-computed frontage hard
+    // findings + unrouted signal + realised doors + the angle-independent reach set.
     const hardFailedRules = evaluateHardTopology({
         bubble,
         frontageHardRoomIds: frontage.hardFindings.map(f => f.roomId),
@@ -1078,6 +1219,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         hasRoomOverlap: !overlapResult.ok,
         hasUnderMinArea,
         hasMissingMandatory,
+        unreachableHabitableRoomIds: unreachableHabitable,
     });
     const hardValid = hardFailedRules.length === 0;
     // §DIAG-TOPO-GATE — per-candidate hard-gate decision line (logging only).

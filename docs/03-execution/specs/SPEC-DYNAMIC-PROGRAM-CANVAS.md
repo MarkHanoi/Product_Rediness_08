@@ -62,6 +62,7 @@ Decomposed into requirements:
 | **R10** | **Connect rooms** in the graph (draw an edge) → an adjacency/access edit → the plan updates | §5.6 |
 | **R11** | A **room-type palette** in the tools rail → **drag a room type onto a level's graph** to add it to that storey | §5.7 |
 | **R12** | **Selection sync** — select a node/card/polygon → the **same room highlights** across plan + graph + card | §5.8 |
+| **R13** | **Node inspector** — select → INTERROGATE a node: information · dependencies · adjacency · circulation (read-only living-graph card above the editor) | §5.9 |
 
 ### §1.1 — The three-pane refinement (founder directive, verbatim 2026-06-10)
 
@@ -278,6 +279,30 @@ highlights the **same** room instance in **all three**, via the shared storey-qu
 the editor's existing `window.selectionBus` (the §BUBBLE-SELECT-HIGHLIGHT path shipped in v112 sends
 the room id as the primary selection). This is a **read-only projection** (no program edit), so it is
 unconstrained by §8 and works in the live panel before execution as well as on the committed scene.
+
+### §5.9 — Node inspector card — INTERROGATE a graph node (§54)
+Selecting a living-graph node (or its twin plan polygon — both carry `data-room-name`) opens the
+**node editor popover** (`HouseLayoutModal._openGraphNodeEditor`) PRECEDED by a read-only **inspector
+card** (`buildNodeInspectorHtml`, `houseModalHtml.ts`) so each node reads as a selectable, interrogable
+CARD rather than a bare Area/Type/Floor/Connect form. The inspector renders four labelled sections,
+all **derived editor-side** from the clicked room's `LayoutRoom` + its storey's full `LayoutRoom[]`
+(`HouseLayoutModal._storeyRooms(srcStorey)` ⇒ `options[0].result.perStoreyLayout[srcStorey].rooms`) —
+**no ai-host rules-DB import**, pure + Node-testable:
+
+- **Information** — `room.name`, a humanised `room.type` label, and `room.area` (m², or "auto").
+- **Dependencies** — a one-line program ROLE from a small local `type → role` map (public/entry vs
+  private off-the-corridor vs circulation/service) mirroring the known room roles.
+- **Adjacency** — each `room.adjacentTo` neighbour as a chip; "No connected rooms" when empty.
+- **Circulation** — does the room touch a `corridor`/`hall` (the `CIRCULATION_TYPES` set, resolved by
+  mapping each `adjacentTo` name → its room type)? Renders **On circulation ✓ (via X)** /
+  **Not on circulation ✗ (served through Y / sealed)**.
+
+The card is **additive** — it sits ABOVE the existing edit controls; all prior behaviour is preserved:
+drag-and-drop nodes, connect-to-other-nodes (`addRoomAdjacency`), move-between-floors
+(`setRoomFloorOverride`), and the Area/Type/Floor edits + debounced regenerate. The popover is white +
+#6600FF (brand), compact, draggable by its title (`§54-DRAG`), and dismissible. Returns `''` for a
+missing room so the modal falls back to the bare editor. Covered by the `§54` test block in
+`houseModalHtml.liveModal.test.ts`.
 
 ---
 
