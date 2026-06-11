@@ -70,9 +70,26 @@ construction**, at any rotation angle.
 
 ## Consequences
 
-**Dissolved (residual class — the reported cascade):** sealed rooms / open seams, generic
-"Room NN-xxx" names, `§TOPO-HARD-REJECT [circulation]`, 1-door-upstairs, the stair "1/4 corners"
-false positive. These are all downstream of the residual and go away in Model B.
+> **CORRECTION (2026-06-11, verified during implementation):** the original hypothesis below
+> over-attributed the cascade to the residual. A headless probe measured the symptoms at **θ = 0
+> (axis-aligned)** on the same program and found `§TOPO-HARD-REJECT [circulation]`, the **sealed
+> room (no door)**, and the circulation-reroute fire **IDENTICALLY** axis-aligned. They are
+> therefore **pre-weld ENGINE layout-quality verdicts** (the `enumerate.ts` hard-topology gate +
+> `wallsAndDoors` door placement), **NOT downstream of the rotation residual** — a weld cannot
+> change them. What §PROJECT-NORTH provably dissolves is the **geometric seam residual** → the
+> rotated-plate **ROOM-MERGE** (flooded room detection → the generic **"Room NN-xxx"** names, 45°
+> plate `maxSeal 0.355 m → 0.000 m`). The sealed-room + circulation-reject + the kitchen/entrance
+> layout-quality items remain for the **subdivider / door-placement** work on their own tracker
+> lines. The ADR decision stands (the seam fix is correct + valuable); only the breadth of the
+> claim is narrowed.
+
+**Dissolved (geometric seam residual):** rotated-plate ROOM-MERGE → generic "Room NN-xxx" names,
+the open-seam class the §WJ-SKEW / §SHELL-SNAP-WIDEN tolerances were band-aiding, and the stair
+"1/4 corners" false positive (a clean closed shell reads containment correctly).
+
+**NOT dissolved (separate, angle-independent — proven above):** sealed rooms / no-door,
+`§TOPO-HARD-REJECT [circulation]`, 1-door-upstairs, kitchen NO-FRONTAGE, entrance-hall-not-
+perimeter. Engine layout-quality; tracked separately.
 
 **Improved but not guaranteed (separate layout-quality concerns on tight plates):** kitchen
 NO-FRONTAGE windowless, entrance-hall-not-perimeter. Cleaner geometry helps the subdivider place

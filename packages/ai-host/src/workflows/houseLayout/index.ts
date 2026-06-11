@@ -30,6 +30,16 @@ export type { ClampedDoorSpan, WallVerticalExtent } from './houseVertical.js';
 // so the GROUND floor closes every room like the upper floors do.
 export { weldPartitionsToShell } from './weldPartitionsToShell.js';
 export type { WeldWall, WeldOptions, XZ as WeldXZ } from './weldPartitionsToShell.js';
+// §PROJECT-NORTH (ADR-0070 Model B) — RIGID-TRANSFORM-LAST weld: de-rotate + rectify +
+// weld in the axis-aligned Project-North frame, then rotate the welded assembly to world.
+export {
+    deriveProjectNorthFrame,
+    rectifyShellRing,
+    projectNorthWeld,
+    projectNorthWeldBoundary,
+    projectNorthWeldSet,
+} from './projectNorthWeld.js';
+export type { ProjectNorthFrame, ProjectNorthWeldResult } from './projectNorthWeld.js';
 // §STAIR-CONTAIN (2026-06-09) — pure full-footprint inward-containment for the house stair.
 export { computeInwardContainmentOffset, allCornersInside, solveStairContainmentWorld } from './stairContainment.js';
 export type { XZ2 as StairContainXZ } from './stairContainment.js';

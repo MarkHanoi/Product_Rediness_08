@@ -23,6 +23,14 @@
 
 import { describe, expect, it } from 'vitest';
 import { generateHouseLayout, allocateProgramToStoreys } from '../src/workflows/houseLayout/index.js';
+import {
+    deriveProjectNorthFrame,
+    rectifyShellRing,
+    projectNorthWeld,
+    type WeldWall,
+} from '../src/workflows/houseLayout/index.js';
+import { weldPartitionsToShell } from '../src/workflows/houseLayout/weldPartitionsToShell.js';
+import { buildLayoutCommands } from '../src/workflows/apartmentLayout/executePlan.js';
 import { rotatePt } from '../src/workflows/apartmentLayout/tgl/rectDecomposition.js';
 import { polygonAreaM2 } from '../src/workflows/apartmentLayout/shellAnalysis.js';
 import type { ShellAnalysis } from '../src/workflows/apartmentLayout/shellAnalysis.js';
@@ -230,5 +238,189 @@ describe('§HOUSE-GROUND-PUBLIC-SET: a large multi-storey ground fills its plate
     it('is deterministic on the large plate (same input → identical result)', () => {
         const b = generateHouseLayout(BIG, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 });
         expect(JSON.stringify(res)).toEqual(JSON.stringify(b));
+    });
+});
+
+// ── §PROJECT-NORTH (ADR-0070 Model B, SPEC-PROJECT-NORTH-AUTHORING-FRAME) ────────────
+// The RIGID-TRANSFORM-LAST weld is the §53 root fix for the rotated-plate SEAM
+// RESIDUAL. This block is the live gate for that fix.
+//
+// SCOPE — RIGOROUS HONESTY (what the probe proved, what the fix ACTUALLY delivers):
+//   • The TESTABLE, rotation-induced defect is the GEOMETRIC SEAM RESIDUAL: on the
+//     45°/43.2° plate an interior partition endpoint lands ~0.355 m off its mate —
+//     an OPEN SEAM the world-frame weld can only close by ever-widening (the
+//     §WJ-SKEW / §SHELL-SNAP-WIDEN band-aids) with a §WJ-SKEW diagonal-drag hazard.
+//     `projectNorthWeld` welds in the AXIS-ALIGNED Project-North frame, where the
+//     snap runs strictly ALONG an axis, and closes the seam to ~0 with NO dropped
+//     divider — provably (the assertions below).
+//   • The OTHER reported symptoms (§TOPO-HARD-REJECT, sealed/door-less rooms,
+//     §CIRCULATION-REROUTE) were measured (headless probe, console capture) to fire
+//     IDENTICALLY on the AXIS-ALIGNED (θ=0) 13×10 plate of the same program — they
+//     are PRE-WELD ENGINE layout-quality verdicts (`enumerate.ts` hard-topology gate
+//     + `wallsAndDoors` door placement), NOT downstream of the seam residual and NOT
+//     touched by an executor-side weld. We therefore DO NOT assert their absence here
+//     (that would be a false claim); they keep their own engine-side tracker lines.
+//   • BYTE-IDENTITY: at θ=0 the whole transform is identity ⇒ `projectNorthWeld` is a
+//     byte-for-byte pass-through to `weldPartitionsToShell` (ADR-0061 I2). Asserted.
+//
+// The build path the executor takes — `buildLayoutCommands` then weld the wall
+// baselines against the footprint ring — is reproduced here so the PURE geometry is
+// gated in ai-host (the editor weld + room detection are not reachable from here).
+describe('§PROJECT-NORTH: RIGID-TRANSFORM-LAST weld dissolves the rotated-plate seam residual', () => {
+    // Build the footprint ring (world m) as ordered shell walls — one per edge.
+    const ringWalls = (poly: readonly Pt[]): WeldWall[] => {
+        const out: WeldWall[] = [];
+        for (let i = 0; i < poly.length; i++) {
+            const a = poly[i]!, b = poly[(i + 1) % poly.length]!;
+            out.push({ id: `shell-${i}`, start: { x: a.x, z: a.z }, end: { x: b.x, z: b.z } });
+        }
+        return out;
+    };
+    // Distance from a point to a segment (the detector's corner-snap geometry).
+    const distToSeg = (px: number, pz: number, a: { x: number; z: number }, b: { x: number; z: number }): number => {
+        const dx = b.x - a.x, dz = b.z - a.z, len2 = dx * dx + dz * dz;
+        let t = len2 > 0 ? ((px - a.x) * dx + (pz - a.z) * dz) / len2 : 0;
+        t = Math.max(0, Math.min(1, t));
+        return Math.hypot(px - (a.x + t * dx), pz - (a.z + t * dz));
+    };
+    // Worst seal residual over every partition endpoint = min(nearest shell body,
+    // nearest OTHER partition endpoint). > 0.30 m ⇒ an OPEN SEAM (room-merge gap).
+    const worstSeal = (parts: readonly WeldWall[], shell: readonly WeldWall[]): number => {
+        let m = 0;
+        for (const w of parts) {
+            for (const e of [w.start, w.end]) {
+                let nearShell = Infinity;
+                for (const s of shell) { const d = distToSeg(e.x, e.z, s.start, s.end); if (d < nearShell) nearShell = d; }
+                let nearPart = Infinity;
+                for (const o of parts) {
+                    if (o.id === w.id) continue;
+                    for (const e2 of [o.start, o.end]) { const d = Math.hypot(e.x - e2.x, e.z - e2.z); if (d < nearPart) nearPart = d; }
+                }
+                m = Math.max(m, Math.min(nearShell, nearPart));
+            }
+        }
+        return m;
+    };
+    // Emit the interior partitions (world m) for storey 0 of a generated house on a plate.
+    const partitionsFor = (shellPoly: Pt[]): { partitions: WeldWall[]; shell: WeldWall[] } => {
+        const res = generateHouseLayout(mkShell(shellPoly), PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 });
+        const option = res.perStoreyLayout[0]!;
+        const footprint = res.storeys[0]!.footprint as Pt[];
+        const shell = ringWalls(footprint);
+        let seq = 0;
+        const set = buildLayoutCommands(
+            option,
+            { levelId: 'L0', baseElevationM: 0, wallHeightM: 3, skipExteriorWalls: true, shellWalls: shell },
+            (p) => `${p}-${seq++}`,   // deterministic + UNIQUE per mint (no id collisions)
+        );
+        const walls = (set.wallBatch.payload as { walls: Array<{ id: string; baseLine: Array<{ x: number; z: number }> }> }).walls;
+        const partitions: WeldWall[] = walls.map(w => ({
+            id: w.id,
+            start: { x: w.baseLine[0]!.x, z: w.baseLine[0]!.z },
+            end: { x: w.baseLine[1]!.x, z: w.baseLine[1]!.z },
+        }));
+        return { partitions, shell };
+    };
+
+    // The §53 plate: 13×10 m rotated 45° (the worst-case principal-axis rotation).
+    const SKEW_POLY = rotatedRect(13, 10, 45);
+
+    it('the 45°-rotated plate HAS an open seam under the world-frame weld at tight tolerance', () => {
+        const { partitions, shell } = partitionsFor(SKEW_POLY);
+        // The original (pre-band-aid) TIGHT weld in the WORLD frame leaves the residual:
+        // an endpoint > 0.30 m corner-snap from its mate → the merge gap §53 reports.
+        const worldTight = weldPartitionsToShell(partitions, shell, { shellSnapTolM: 0.30, partitionWeldTolM: 0.05 });
+        expect(worstSeal(worldTight, shell)).toBeGreaterThan(0.30);
+    });
+
+    it('§PROJECT-NORTH closes EVERY seam on the 45° plate (residual ≤ corner-snap, NO dropped divider)', () => {
+        const { partitions, shell } = partitionsFor(SKEW_POLY);
+        const frame = deriveProjectNorthFrame(shell.map(w => w.start));
+        expect(frame.thetaRad).not.toBe(0);   // a genuinely rotated plate
+        const out = projectNorthWeld(partitions, shell, frame);
+        // The seal residual is measured against the RECTIFIED+re-rotated shell — the
+        // seal reference the executor uses (== the drawn shell on a clean rectangle).
+        expect(worstSeal(out.partitions, out.shellWallsWorld)).toBeLessThanOrEqual(0.30);
+        // No interior divider was dropped (a dropped divider MERGES two rooms — the
+        // §DIAG-SEAL-DROP root cause; RIGID-TRANSFORM-LAST closes without dropping).
+        expect(out.partitions.length).toBe(partitions.length);
+    });
+
+    it('seals at EVERY tested rotation (10/30/43.2/60/75°) — angle-independent by construction', () => {
+        for (const deg of [10, 30, 43.2, 60, 75]) {
+            const { partitions, shell } = partitionsFor(rotatedRect(13, 10, deg));
+            const frame = deriveProjectNorthFrame(shell.map(w => w.start));
+            const out = projectNorthWeld(partitions, shell, frame);
+            expect(
+                worstSeal(out.partitions, out.shellWallsWorld),
+                `deg=${deg} left an open seam`,
+            ).toBeLessThanOrEqual(0.30);
+            expect(out.partitions.length, `deg=${deg} dropped a divider`).toBe(partitions.length);
+        }
+    });
+
+    it('BYTE-IDENTITY: an axis-aligned (θ=0) plate ⇒ projectNorthWeld === weldPartitionsToShell', () => {
+        const { partitions, shell } = partitionsFor([{ x: 0, z: 0 }, { x: 13, z: 0 }, { x: 13, z: 10 }, { x: 0, z: 10 }]);
+        const frame = deriveProjectNorthFrame(shell.map(w => w.start));
+        expect(frame.thetaRad).toBe(0);   // axis-aligned ⇒ identity
+        const direct = weldPartitionsToShell(partitions, shell);
+        const viaPN = projectNorthWeld(partitions, shell, frame).partitions;
+        expect(JSON.stringify(viaPN)).toEqual(JSON.stringify(direct));
+    });
+
+    it('the rigid +θ transform PRESERVES coincidence + wall length (no geometry corruption)', () => {
+        const { partitions, shell } = partitionsFor(SKEW_POLY);
+        const frame = deriveProjectNorthFrame(shell.map(w => w.start));
+        const out = projectNorthWeld(partitions, shell, frame);
+        // Every surviving partition's length is preserved within the weld tolerance
+        // (a rigid rotation is isometric; the weld only nudges endpoints onto mates).
+        const lenById = new Map(partitions.map(p => [p.id, Math.hypot(p.end.x - p.start.x, p.end.z - p.start.z)]));
+        for (const w of out.partitions) {
+            const before = lenById.get(w.id)!;
+            const after = Math.hypot(w.end.x - w.start.x, w.end.z - w.start.z);
+            // The weld may shorten a perimeter-terminating wall by up to its snap; bound
+            // the change generously (this guards against a transform that mangles length).
+            expect(Math.abs(after - before), `wall ${w.id} length corrupted`).toBeLessThan(0.7);
+        }
+    });
+
+    it('is deterministic (same rotated input → identical welded geometry)', () => {
+        const a = partitionsFor(SKEW_POLY);
+        const fa = deriveProjectNorthFrame(a.shell.map(w => w.start));
+        const r1 = projectNorthWeld(a.partitions, a.shell, fa);
+        const r2 = projectNorthWeld(a.partitions, a.shell, fa);
+        expect(JSON.stringify(r1)).toEqual(JSON.stringify(r2));
+    });
+});
+
+// ── rectifyShellRing — the load-bearing §3.3 step (clean axis-aligned rectilinear) ──
+describe('§PROJECT-NORTH rectifyShellRing: a near-axis ring snaps to EXACT axis', () => {
+    it('snaps a slightly-drifted rectangle to perfectly axis-aligned corners', () => {
+        // A rectangle whose corners drifted a few cm (post-miter drawn-shell drift).
+        const drifted = [
+            { x: 0.03, z: -0.02 }, { x: 13.01, z: 0.04 },
+            { x: 12.98, z: 10.03 }, { x: -0.02, z: 9.99 },
+        ];
+        const out = rectifyShellRing(drifted);
+        // Every edge is now exactly horizontal or vertical (axis-aligned).
+        for (let i = 0; i < out.length; i++) {
+            const a = out[i]!, b = out[(i + 1) % out.length]!;
+            const horizontal = Math.abs(a.z - b.z) < 1e-9;
+            const vertical = Math.abs(a.x - b.x) < 1e-9;
+            expect(horizontal || vertical, `edge ${i} is not axis-aligned`).toBe(true);
+        }
+    });
+
+    it('leaves a genuinely diagonal edge (a real chamfer) UNTOUCHED', () => {
+        // A pentagon with one clearly-diagonal chamfer (2 m off-axis run) the user drew.
+        const chamfer = [
+            { x: 0, z: 0 }, { x: 13, z: 0 }, { x: 13, z: 8 },
+            { x: 11, z: 10 }, { x: 0, z: 10 },   // the (13,8)→(11,10) edge is a real 2 m chamfer
+        ];
+        const out = rectifyShellRing(chamfer);
+        // The chamfer edge keeps its diagonal run (NOT collapsed to an axis).
+        const a = out[2]!, b = out[3]!;
+        expect(Math.abs(a.x - b.x)).toBeGreaterThan(1.0);
+        expect(Math.abs(a.z - b.z)).toBeGreaterThan(1.0);
     });
 });

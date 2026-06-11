@@ -285,6 +285,12 @@ export {
   wallExtentForLevel,
   // §GROUND-WELD (A.21.D39) — weld ground interior partitions onto the pre-drawn shell.
   weldPartitionsToShell,
+  // §PROJECT-NORTH (ADR-0070 Model B) — RIGID-TRANSFORM-LAST weld in the axis-aligned frame.
+  deriveProjectNorthFrame,
+  rectifyShellRing,
+  projectNorthWeld,
+  projectNorthWeldBoundary,
+  projectNorthWeldSet,
   // §STAIR-CONTAIN (2026-06-09) — pure full-footprint inward-containment for the house stair.
   computeInwardContainmentOffset,
   allCornersInside,
@@ -304,6 +310,9 @@ export {
 export type {
   WeldWall,
   WeldOptions,
+  // §PROJECT-NORTH (ADR-0070 Model B).
+  ProjectNorthFrame,
+  ProjectNorthWeldResult,
   HouseLayoutOptions,
   HouseLayoutResult,
   ScoredHouseLayoutOption,

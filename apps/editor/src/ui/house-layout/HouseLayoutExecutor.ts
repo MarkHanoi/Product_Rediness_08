@@ -68,8 +68,12 @@ import {
     isDoorWithinWallSpan,
     wallExtentForLevel,
     weldPartitionsToShell,
+    deriveProjectNorthFrame,
+    projectNorthWeld,
+    projectNorthWeldBoundary,
     solveStairContainmentWorld,
     type WeldWall,
+    type ProjectNorthFrame,
 } from '@pryzm/ai-host';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
 import { nameDetectedRooms } from '../apartment-layout/nameDetectedRooms.js';
@@ -492,6 +496,35 @@ export class HouseLayoutExecutor {
                     ((set.wallBatch.payload as { walls?: Array<{ id: string }> }).walls ?? []).map(w => w.id),
                 );
 
+                // §PROJECT-NORTH (ADR-0070 Model B, SPEC-PROJECT-NORTH-AUTHORING-FRAME) —
+                // RIGID-TRANSFORM-LAST. Behind `window.__pryzmProjectNorth` (DEFAULT ON;
+                // set `=== false` to force the legacy world-frame weld). When the plate is
+                // rotated (θ≠0), the ground + upper welds run in the axis-aligned Project-
+                // North frame (de-rotate → rectify → weld → re-rotate), so partition seams
+                // that close in that exact frame STAY closed after the single rigid +θ
+                // rotation — dissolving the GEOMETRIC SEAM RESIDUAL that forced the
+                // §WJ-SKEW / §SHELL-SNAP-WIDEN band-aids (proven: 45° plate maxSeal
+                // 0.355→0.000 m). NOTE (honest scope, verified at θ=0): this closes the
+                // rotated-plate ROOM-MERGE (flooded detection → generic "Room NN" names); it
+                // does NOT remove the sealed-room / §TOPO-HARD-REJECT [circulation] verdicts,
+                // which reproduce IDENTICALLY on an axis-aligned plate — those are pre-weld
+                // ENGINE layout-quality bugs (door placement / topo gate), tracked separately.
+                // θ derives from the storey footprint's principal axis. θ=0 ⇒ byte-identical
+                // pass-through; flag forced OFF ⇒ `weldFrame` undefined ⇒ legacy weld (byte-
+                // identical to today). Only the rotated-plate WELD-FALLBACK path changes.
+                const projectNorthEnabled =
+                    (window as unknown as { __pryzmProjectNorth?: boolean }).__pryzmProjectNorth !== false;
+                const weldFrame: ProjectNorthFrame | undefined = projectNorthEnabled
+                    ? deriveProjectNorthFrame(storey.footprint)
+                    : undefined;
+                if (weldFrame && weldFrame.thetaRad !== 0) {
+                    console.log(
+                        `[house-layout] §PROJECT-NORTH ${storey.levelId} ON — RIGID-TRANSFORM-LAST weld in the `
+                        + `Project-North frame (θ=${(weldFrame.thetaRad * 180 / Math.PI).toFixed(1)}°, `
+                        + `pivot=(${weldFrame.pivot.x.toFixed(2)},${weldFrame.pivot.z.toFixed(2)})).`,
+                    );
+                }
+
                 // §GROUND-ENGINE-PERIMETER (A.21.Stage-1, audit 2026-06-09 §5) —
                 // unify the GROUND room-closure with the UPPER storeys. The upper
                 // storeys "subdivide fine" because their perimeter is ENGINE-AUTHORED
@@ -562,7 +595,10 @@ export class HouseLayoutExecutor {
                             + `(reason: ${enginePerimeterEnabled ? 'drawn shell NOT on the footprint ring within tolerance' : 'engine-perimeter flag OFF'}) — `
                             + 'welding partitions onto the drawn shell (the defensive §WJ-SKEW path).',
                         );
-                        set = this._weldGroundPartitions(set, shellWalls);
+                        // §PROJECT-NORTH — pass the frame so the weld runs RIGID-TRANSFORM-
+                        // LAST (axis-aligned frame) when the flag is ON + θ≠0; undefined ⇒
+                        // legacy world-frame weld (byte-identical).
+                        set = this._weldGroundPartitions(set, shellWalls, weldFrame);
                     }
                 }
 
@@ -612,7 +648,9 @@ export class HouseLayoutExecutor {
                             + 'welding partitions onto the minted perimeter so §SHELL-ANCHOR-PRESERVE '
                             + 'can seat them on the shell and the rooms seal (mirrors the ground fix).',
                         );
-                        set = this._weldGroundPartitions(set, shellWalls);
+                        // §PROJECT-NORTH — RIGID-TRANSFORM-LAST weld in the Project-North
+                        // frame when the flag is ON + θ≠0; undefined ⇒ legacy weld.
+                        set = this._weldGroundPartitions(set, shellWalls, weldFrame);
                     } else {
                         console.log(
                             `[house-layout] §UPPER-SHELL-WELD ${storey.levelId} took the BIT-EXACT path `
@@ -1262,6 +1300,13 @@ export class HouseLayoutExecutor {
     private _weldGroundPartitions(
         set: LayoutCommandSet,
         shellWalls: readonly { id: string; start: { x: number; z: number }; end: { x: number; z: number } }[],
+        // §PROJECT-NORTH (ADR-0070 Model B) — when supplied (flag ON + θ≠0), the weld
+        // runs RIGID-TRANSFORM-LAST: de-rotate partitions + shell into the axis-aligned
+        // Project-North frame, RECTIFY the shell, weld there (the existing weld at its
+        // own tolerance, now snapping strictly ALONG an axis — no §WJ-SKEW diagonal
+        // drag), then rotate the welded assembly back to world. Omitted ⇒ the legacy
+        // world-frame weld (byte-identical to today). See SPEC-PROJECT-NORTH §3.
+        frame?: ProjectNorthFrame,
     ): LayoutCommandSet {
         try {
             const payload = set.wallBatch.payload as {
@@ -1278,7 +1323,13 @@ export class HouseLayoutExecutor {
                 end:   { x: w.baseLine[1]!.x, z: w.baseLine[1]!.z },
             }));
 
-            const welded = weldPartitionsToShell(partitions, shell);
+            // §PROJECT-NORTH — RIGID-TRANSFORM-LAST weld when a frame is supplied;
+            // otherwise the legacy world-frame weld. `projectNorthWeld` with θ=0 is a
+            // byte-identical pass-through to `weldPartitionsToShell`, so the only
+            // behavioural difference is on a rotated plate with the flag ON.
+            const welded = (frame && frame.thetaRad !== 0)
+                ? projectNorthWeld(partitions, shell, frame).partitions
+                : weldPartitionsToShell(partitions, shell);
             const weldedById = new Map(welded.map(w => [w.id, w]));
 
             // §DIVIDER-RETAIN (ADR-0066 editor-seam, 2026-06-10) — the weld DROPS any partition it
@@ -1345,8 +1396,15 @@ export class HouseLayoutExecutor {
             // a one-off partition); endpoints that don't reach a shell wall are left as-is.
             const boundaryCommands = set.boundaryCommands.map(bc => {
                 const p = bc.payload as { id: string; levelId: string; start: { x: number; z: number }; end: { x: number; z: number } };
+                const boundaryWall: WeldWall = { id: p.id, start: { x: p.start.x, z: p.start.z }, end: { x: p.end.x, z: p.end.z } };
+                // §PROJECT-NORTH — weld the boundary in the same frame as the partitions.
+                if (frame && frame.thetaRad !== 0) {
+                    const wb = projectNorthWeldBoundary(boundaryWall, shell, frame);
+                    if (!wb) return bc;
+                    return { ...bc, payload: { ...p, start: { x: wb.start.x, z: wb.start.z }, end: { x: wb.end.x, z: wb.end.z } } };
+                }
                 const w = weldPartitionsToShell(
-                    [{ id: p.id, start: { x: p.start.x, z: p.start.z }, end: { x: p.end.x, z: p.end.z } }],
+                    [boundaryWall],
                     shell,
                     { partitionWeldTolM: 0 },   // a lone boundary: shell-snap only, no self-weld
                 );

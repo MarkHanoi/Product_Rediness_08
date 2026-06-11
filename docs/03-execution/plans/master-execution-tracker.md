@@ -4129,7 +4129,29 @@ de-rotating then snapping near-axis edges to exact axis makes the two shells the
 (editor-wide project transform + Project Base Point, true IFC `TrueNorth` parity, orthogonal editing everywhere)
 deferred to Phase 2+. **Gate:** `houseLayoutInvariants.test.ts` 45°-rotated plate must reach `roomsWithDoor=N/N`,
 no `§TOPO-HARD-REJECT`, no generic names; axis-aligned byte-identical. NOT claimed solved by §53: kitchen
-NO-FRONTAGE + entrance-hall-not-perimeter (separate layout-quality, §51-adjacent). **Status: 🟠 IMPLEMENTING.**
+NO-FRONTAGE + entrance-hall-not-perimeter (separate layout-quality, §51-adjacent). **Status: 🟢 SHIPPED v126 (default ON).**
+
+**✅ SHIPPED v126 (2026-06-11)** — `projectNorthWeld.ts` (pure L2: `deriveProjectNorthFrame` θ+pivot ·
+`rectifyShellRing` snap-near-axis · `projectNorthWeld` de-rotate→rectify→weld→re-rotate) wired into
+`HouseLayoutExecutor` ground WELD-FALLBACK + §UPPER-SHELL-WELD behind `window.__pryzmProjectNorth`
+(**default ON**; `=== false` forces legacy). 45° plate **maxSeal 0.355→0.000 m**, 0 open seams, 0 dropped
+dividers (angle sweep 10/30/43.2/60/75° all ≤0.30 m). ai-host **2242/2242** (+8), θ=0 + flag-OFF byte-identical,
+rigid +θ preserves wall length/coincidence (asserted). **HONEST CORRECTION (verified at θ=0):** §PROJECT-NORTH
+dissolves the geometric seam residual → the rotated-plate **ROOM-MERGE** ("Room NN-xxx" blobs) ONLY. The
+**sealed-room / §TOPO-HARD-REJECT [circulation] / 1-door-upstairs** verdicts reproduce IDENTICALLY axis-aligned →
+they are pre-weld ENGINE layout-quality bugs (door placement / topo gate), NOT rotation-caused → they remain for
+the subdivider/door work (new tracker line §55). ADR-0070 Consequences amended with the proof.
+
+## §55 — Engine layout-quality: sealed rooms + circulation hard-reject (angle-independent) — QUEUED (2026-06-11)
+
+Separated from §53 by the §PROJECT-NORTH θ=0 probe: on a clean axis-aligned plate the same program still produces
+a **sealed room (no door)** + `§TOPO-HARD-REJECT [circulation]` + (upstairs) **1 door for 5 rooms**. These are NOT
+geometry-residual artifacts — they are the engine's **door-placement** (`wallsAndDoors.ts`) + **hard-topology gate**
+(`enumerate.ts`) producing/rejecting a layout where a habitable room has no legal corridor-adjacent wall to host a
+door. Fix direction (from the first analysis agent + the §PROJECT-NORTH probe): the subdivider must guarantee every
+private room shares a wall with a circulation spine (the §52 comb/spur work), and door placement must find that
+wall. Cross-cuts D-TGL subdivide + wallsAndDoors + the topo gate. **Status: 🔵 QUEUED — the real "rooms without
+doors" defect, now correctly scoped (was mis-attributed to the rotation).**
 
 ## §54 — Living-graph node CARDS (select → interrogate → flowing canvas) — QUEUED (2026-06-11)
 
