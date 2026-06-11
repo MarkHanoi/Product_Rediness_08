@@ -613,6 +613,36 @@ export class PlatformRouter {
             });
         }
 
+        // IT-4e (founder 2026-06-11: "remove [the PROJECT BRIEF panel] — I believe
+        // everything is covered on the modal now") — for the GUIDED path (an authed
+        // user who picked a typology in the New-Project modal) the live "Design your
+        // house — live" modal now owns the WHOLE program brief (floors / bedrooms /
+        // bathrooms / sizes / design sliders), so the separate RAC PROJECT-BRIEF panel
+        // is redundant. SKIP it and drive the proven pipeline directly (create project →
+        // location → draw-or-skip → generate → live modal) with a default brief; the
+        // user adjusts the program live in the modal. The standalone anonymous "Build
+        // something" RAC entry (NOT authed, or no seeded typology) still shows the panel
+        // below — it also owns lead capture + the auth handoff. Reversible + scoped:
+        // gated on authed + a generator-ready seeded typology; everything else unchanged.
+        if (getCurrentUser() && seededTypologyId) {
+            // Mirror the authed onBriefReady branch's hub-flash suppression (O.15):
+            // hide #platform-root synchronously before the async create→generate chain.
+            const platformRoot = document.getElementById(ROOT_ID);
+            if (platformRoot) platformRoot.style.display = 'none';
+            history.replaceState({ view: 'onboarding' }, '', '#/start');
+            console.log(
+                '[onboarding] IT-4e — PROJECT-BRIEF panel skipped (authed + seeded "'
+                + seededTypologyId + '"); the live modal owns the brief. '
+                + 'Emitting pryzm:onboarding-brief-ready with defaults.',
+            );
+            this.runtime?.events?.emit('pryzm:onboarding-brief-ready', {
+                role: 'architect',
+                typologyId: seededTypologyId,
+                metadata: seedMetadata,
+            });
+            return;
+        }
+
         const panel = new RACChatbotPanel({
             registry,
             ...(seededTypologyId ? { seedTypologyId: seededTypologyId } : {}),
