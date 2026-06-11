@@ -411,6 +411,11 @@ export function emitWindowsForRoom(
 
     let chosenWidthMm = spec.widthMm;
     let candidates = longEnough;
+    // §WINDOW-EVERY-FRONTAGE (founder 2026-06-11) — when set, the chosen width is
+    // computed PER WALL (the largest opening that hosts on THAT wall, down to
+    // MIN_WINDOW_MM) instead of a single spec width. Used only by the last-resort tier
+    // below, where a real but very short external wall must still earn ONE window.
+    let lastResort = false;
     if (candidates.length === 0) {
         // Try the smaller variant — minWidthMm + 100 mm padding either side.
         const minHostMm = spec.minWidthMm + 200;
@@ -419,15 +424,46 @@ export function emitWindowsForRoom(
             .filter(x => x.lenMm >= minHostMm)
             .sort((a, b) => score(b.w) - score(a.w) || a.w.wallIndex - b.w.wallIndex);
         if (candidates.length === 0) {
-            const lens = externalWalls.map(w => Math.round(segLenMm(w))).join(',');
+            // ── §WINDOW-EVERY-FRONTAGE last-resort tier (founder defect, 2026-06-11) ──
+            // The founder's rule: EVERY room that CAN have a window — i.e. has a real
+            // EXTERNAL wall long enough to host even a MINIMAL opening — MUST get one.
+            // Both gates above (preferred minWallLength, then minWidthMm+200 fallback)
+            // could reject a genuine external wall that is only just too short, so the
+            // room emitted ZERO candidates. The shell rescue retries the room's EMITTED
+            // windows — so a room with zero candidates was never rescuable and shipped
+            // WINDOWLESS despite fronting a façade. This tier guarantees a candidate:
+            // any external wall that can physically host a MIN_WINDOW_MM-wide opening
+            // WITH its corner piers becomes a candidate, and the per-wall width is shrunk
+            // to fit (down to MIN_WINDOW_MM) in the emission loop below. A wall that
+            // genuinely can't host even a minimal opening is still skipped (returns []),
+            // and an INTERIOR room (no external wall) is unaffected — the only behaviour
+            // change is that a perimeter room with a short-but-hostable external wall now
+            // gets its window instead of being silently dropped.
+            candidates = externalWalls
+                .map(w => ({ w, lenMm: segLenMm(w) }))
+                // Hostable iff a MIN_WINDOW_MM opening fits between the two corner piers.
+                .filter(x => x.lenMm - 2 * endSetbackMm(x.lenMm) >= MIN_WINDOW_MM)
+                .sort((a, b) => score(b.w) - score(a.w) || a.w.wallIndex - b.w.wallIndex);
+            if (candidates.length === 0) {
+                const lens = externalWalls.map(w => Math.round(segLenMm(w))).join(',');
+                console.log(
+                    `[D-TGL] §DIAG-WIN ${winTag}: 0 windows — all ${externalWalls.length} external ` +
+                    `wall(s) shorter than minWallLength=${spec.minWallLengthMm}mm, fallback ` +
+                    `minHost=${minHostMm}mm, AND the last-resort minimal opening ` +
+                    `(${MIN_WINDOW_MM}mm + corner piers) (wall lengths mm=[${lens}])`,
+                );
+                return [];
+            }
+            lastResort = true;
+            chosenWidthMm = spec.minWidthMm;
             console.log(
-                `[D-TGL] §DIAG-WIN ${winTag}: 0 windows — all ${externalWalls.length} external ` +
-                `wall(s) shorter than minWallLength=${spec.minWallLengthMm}mm AND fallback ` +
-                `minHost=${minHostMm}mm (wall lengths mm=[${lens}])`,
+                `[D-TGL] §WINDOW-EVERY-FRONTAGE ${winTag}: last-resort window on a short external ` +
+                `wall (longest=${Math.round(candidates[0]!.lenMm)}mm) — a real frontage room must not ` +
+                `ship windowless; width shrunk per-wall toward ${MIN_WINDOW_MM}mm.`,
             );
-            return [];
+        } else {
+            chosenWidthMm = spec.minWidthMm;
         }
-        chosenWidthMm = spec.minWidthMm;
     }
 
     // D5.c — cover MORE of the façade. Walk qualifying walls in score order
@@ -447,7 +483,15 @@ export function emitWindowsForRoom(
         // hosts on the wall; height/sill track. No solar context → unchanged.
         let widthMm = chosenWidthMm;
         let heightMm = spec.heightMm;
-        if (solar) {
+        // §WINDOW-EVERY-FRONTAGE — on the last-resort tier the wall is too short for the
+        // spec width: shrink THIS window to the largest opening that fits between the
+        // wall's corner piers (never below MIN_WINDOW_MM). The corner setbacks below
+        // (`evenOffsetsMm` / `clearOffsetMm`) then place it with a real reveal.
+        if (lastResort) {
+            const usable = wallLenMm - 2 * endSetbackMm(wallLenMm);
+            widthMm = Math.max(MIN_WINDOW_MM, Math.min(chosenWidthMm, usable));
+        }
+        if (solar && !lastResort) {
             const fit = orientationFit(outwardNormal(cand.w.start, cand.w.end, solar.roomCentroidMm), solar.sunDir);
             const factor = climateGlazingFactor(solar.latDeg, fit);
             if (factor !== 1) {
@@ -464,12 +508,17 @@ export function emitWindowsForRoom(
             ...blockedSpansForJunctions(cand.w.wallIndex, partitionJunctions),
         ].sort((a, b) => a.lo - b.lo);
         // How many windows this wall can host, capped by the remaining room budget.
+        // §WINDOW-EVERY-FRONTAGE — the last-resort tier emits exactly ONE window per wall
+        // (the wall is barely long enough for a single minimal opening; a rhythm of 2+
+        // would never fit). The normal/fallback tiers earn 1–3 per wall as before.
         const remaining = MAX_WINDOWS_PER_ROOM - out.length;
-        const wantOnWall = Math.min(remaining, windowCountForWall(wallLenMm, widthMm));
+        const wantOnWall = lastResort
+            ? Math.min(remaining, 1)
+            : Math.min(remaining, windowCountForWall(wallLenMm, widthMm));
         const offsets = evenOffsetsMm(wallLenMm, widthMm, wantOnWall, blocked);
         // §DIAG-WIN — per-wall placement outcome. When a qualifying wall yields ZERO
         // offsets the window was de-overlapped away by doors/partitions/other windows.
-        const wantOnWall0 = Math.min(remaining, windowCountForWall(wallLenMm, widthMm));
+        const wantOnWall0 = wantOnWall;
         console.log(
             `[D-TGL] §DIAG-WIN ${winTag}: wall#${cand.w.wallIndex} len=${Math.round(wallLenMm)}mm ` +
             `wanted=${wantOnWall0} placed=${offsets.length}${offsets.length === 0

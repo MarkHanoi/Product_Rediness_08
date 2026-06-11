@@ -71,10 +71,12 @@ describe('emitWindowsForRoom (T1.W-A)', () => {
         expect(emitWindowsForRoom('living', [])).toHaveLength(0);
     });
 
-    it('returns [] when every external wall is below the minimum host length', () => {
-        // living min host = 2400; min fallback = minWidthMm+200 = 1400
-        const tiny = [wall(800, 0)];   // below minWidthMm + 200
-        expect(emitWindowsForRoom('living', tiny)).toHaveLength(0);
+    it('returns [] when no external wall can host EVEN a minimal opening (with corner piers)', () => {
+        // §WINDOW-EVERY-FRONTAGE (founder 2026-06-11) — the floor is now the MINIMAL
+        // opening (MIN_WINDOW_MM=400) + its two corner piers, NOT the spec/fallback width.
+        // A 350 mm wall genuinely can't host a 400 mm window between any reveals → [].
+        const tooShort = [wall(350, 0)];
+        expect(emitWindowsForRoom('living', tooShort)).toHaveLength(0);
     });
 
     it('places ONE living-room window centred on a 5 m wall', () => {
@@ -134,6 +136,71 @@ describe('emitWindowsForRoom (T1.W-A)', () => {
             expect(ws, `${t} should emit one window`).toHaveLength(1);
             expect(ws[0]!.widthMm, `${t} preferred width`).toBe(WINDOW_SPECS[t].widthMm);
         }
+    });
+});
+
+describe('emitWindowsForRoom — §WINDOW-EVERY-FRONTAGE last-resort tier (founder 2026-06-11)', () => {
+    // Founder rule: EVERY room that CAN have a window (has a real external wall long
+    // enough to host even a minimal opening) MUST get one. The defect: a façade-fronting
+    // window-desired room whose ONLY external wall was just below the spec/fallback host
+    // length emitted ZERO candidates → the shell rescue (which retries the room's EMITTED
+    // windows) had nothing to retry → the room shipped WINDOWLESS. The last-resort tier
+    // guarantees ≥1 candidate on any external wall that can physically host MIN_WINDOW_MM
+    // (400) + corner piers.
+    const win = (lenMm: number, idx = 0): ExternalWallSegment =>
+        ({ start: { x: 0, y: 0 }, end: { x: lenMm, y: 0 }, wallIndex: idx });
+
+    // Each type, with an external wall just BELOW its `minWidthMm + 200` fallback host —
+    // previously ZERO, now exactly ONE minimal window that sits ON the wall.
+    const belowFallback: ReadonlyArray<readonly [Parameters<typeof emitWindowsForRoom>[0], number]> = [
+        ['living',   1300],   // fallback 1400
+        ['kitchen',  1000],   // fallback 1100
+        ['dining',   1300],   // fallback 1400
+        ['master',   1150],   // fallback 1200
+        ['bedroom',  1100],   // fallback 1200
+        ['study',    1000],   // fallback 1100
+        ['bathroom',  600],   // fallback  700
+        ['ensuite',   600],   // fallback  700
+        ['wc',        600],   // fallback  700
+    ];
+
+    it('emits exactly ONE on-wall window for every window-desired room with a short-but-hostable external wall', () => {
+        for (const [type, lenMm] of belowFallback) {
+            const ws = emitWindowsForRoom(type, [win(lenMm)]);
+            expect(ws, `${type} @ ${lenMm}mm should get its one frontage window`).toHaveLength(1);
+            const w = ws[0]!;
+            // On the wall, ≥ MIN_WINDOW_MM wide, never overrunning either end.
+            expect(w.widthMm, `${type} width`).toBeGreaterThanOrEqual(400);
+            expect(w.offsetMm, `${type} offset ≥ 0`).toBeGreaterThanOrEqual(0);
+            expect(w.offsetMm + w.widthMm, `${type} fits on wall`).toBeLessThanOrEqual(lenMm + 1e-6);
+            expect(w.roomType).toBe(type);
+        }
+    });
+
+    it('still returns [] when the wall is too short for even a minimal opening + piers', () => {
+        // 350 mm < MIN_WINDOW_MM (400) → no opening fits between any reveals.
+        for (const type of ['living', 'bedroom', 'bathroom'] as const) {
+            expect(emitWindowsForRoom(type, [win(350)]), `${type} @ 350mm`).toHaveLength(0);
+        }
+    });
+
+    it('an interior room (no external wall) still emits NOTHING (last-resort only fires on real frontage)', () => {
+        for (const type of ['living', 'bedroom', 'bathroom'] as const) {
+            expect(emitWindowsForRoom(type, [])).toHaveLength(0);
+        }
+    });
+
+    it('does NOT change the normal tier — a generous wall keeps its full spec width + multi-window rhythm', () => {
+        // 9 m living wall (well above the 2400 host) → the normal tier, byte-identical:
+        // full 2000 mm windows, NOT shrunk to the 400 mm last-resort minimum.
+        const ws = emitWindowsForRoom('living', [win(9000)]);
+        expect(ws.length).toBeGreaterThanOrEqual(2);
+        for (const w of ws) expect(w.widthMm).toBe(WINDOW_SPECS.living.widthMm);
+    });
+
+    it('non-windowable rooms (corridor) never get a last-resort window', () => {
+        expect(emitWindowsForRoom('corridor', [win(1300)])).toHaveLength(0);
+        expect(emitWindowsForRoom('hall', [win(1300)])).toHaveLength(0);
     });
 });
 
