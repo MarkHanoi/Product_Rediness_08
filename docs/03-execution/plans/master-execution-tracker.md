@@ -4073,3 +4073,30 @@ temporarily then reverted) pinned the chain with numbers — the high-impact fix
 This is a dedicated multi-step session with the house test as the live gate — NOT a single-function tweak.
 The cap (a) is the single highest-leverage sub-fix (it owns the blank area), but shipping it alone re-opens
 the sealed-rooms problem (more rooms than the carve/comb can connect), which is why (a)+(b)+(c) land together.
+
+#### §52.6.1 — SHARPENED numeric diagnosis (2026-06-11): the blank area is the MULTI-STOREY GROUND floor
+
+A clean reproduction (probe over `enrichStoreyProgramToPlate` + `houseStoreyBand`, sparse {1 bed,1 bath}
+brief, varied plate) localises the defect precisely — it is NOT the single-storey path and NOT a generic cap:
+
+| Path | 120 m² | 200 m² | 250 m² | 289 m² |
+|---|---|---|---|---|
+| **Single-storey** (growBedrooms) | beds3, gT135, **blank 0** | beds4, gT158, **blank 0** | — | beds6, gT196, **blank 0** |
+| **Multi-storey GROUND** (growGroundRooms) | beds1, gT91, blank 0 | beds1, gT91, blank 0 | beds1, gT91, **blank 32** | beds1, gT91, **blank 71** |
+
+The single-storey enricher grows bedrooms to the plate (grossTarget tracks the plate ⇒ the §AREA-AGREEMENT
+`grossTarget ≥ 0.5·plate` branch keeps the TRUE area ⇒ zero blank). The **multi-storey ground is FLAT at
+grossTarget≈91 for EVERY plate** because `fillGroundPlate` collapses to a single guest bedroom
+(`Math.min(bedCap, max(floored, scaled))` where `scaleProgramToShell('ground')` returns ≤1) — so on any plate
+> ~200 m² the cap clamps `presented = min(plate, grossMax=218)` and the rest is blank.
+
+**This is exactly the founder's "if I add more rooms still those areas are not being filled in":** in a
+multi-storey house, the Bedrooms stepper grows the UPPER storeys (the private level), never the ground — so the
+GROUND blank is invariant to the bedroom count. The ground floor needs MORE PUBLIC rooms (study / family / utility /
+a larger living+dining), but the frozen bubble graph (`tgl/bubbleGraph`) has **no study/family/utility room-type
+flag** — adding them is the bubble-graph room-type expansion that the (b)+(c) carve/comb work then has to connect
+without sealing. So the sharpened fix order is: **(a′) expand the ground-floor room SET (new public room-type flags
+in the bubble graph: study, family, utility/WC) so the ground programme can grow its grossTarget toward a large
+plate WITHOUT stretching a handful of rooms into blobs → (b) carve a corridor spine that reaches them → (c) comb-gate
+so each abuts circulation.** Raising the cap alone re-creates the "167 m² Living Room" blob (few rooms, big area);
+growing the count alone re-seals (carve can't reach them) — confirming the coupling, now scoped to the GROUND set.
