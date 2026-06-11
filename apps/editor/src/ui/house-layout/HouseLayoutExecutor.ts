@@ -2237,8 +2237,22 @@ export class HouseLayoutExecutor {
         entranceDoor?: EntranceDoorDispatch | null,
     ): Promise<void> {
         // All host walls the openings need, across all storeys.
+        //
+        // §68.10 GATE-FIX — the wall-store-ready gate previously waited ONLY for the
+        // DOOR opening hosts (`openingCommands`). But the dispatch (below) ALSO punches
+        // `windowOpeningCommands` (interior windows on freshly-minted partition walls)
+        // and `shellWindowOpeningCommands` (façade windows). An interior-window host
+        // that had NOT yet committed when the batch fired meant its window opening was
+        // dispatched against a missing wall id → the void was never carved (the founder's
+        // "windows not present"). Wait for EVERY opening source so each host has landed
+        // before we punch. Ground shell + façade hosts are pre-committed, so adding them
+        // never delays the batch — it only closes the race for new interior-window walls.
         const neededWallIds = new Set<string>();
-        for (const s of perStorey) for (const op of s.set.openingCommands) neededWallIds.add((op.payload as { wallId: string }).wallId);
+        for (const s of perStorey) {
+            for (const op of s.set.openingCommands) neededWallIds.add((op.payload as { wallId: string }).wallId);
+            for (const op of s.set.windowOpeningCommands) neededWallIds.add((op.payload as { wallId: string }).wallId);
+            for (const op of s.set.shellWindowOpeningCommands) neededWallIds.add((op.payload as { wallId: string }).wallId);
+        }
         // §A.21.D29 #3 — the main entrance hosts on an EXISTING ground shell wall;
         // include it so the wall-store-ready gate covers it too (it's already
         // committed, so this never delays the batch).

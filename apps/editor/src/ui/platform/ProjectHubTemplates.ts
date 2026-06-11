@@ -127,17 +127,41 @@ export function renderShell(ctx: PhRenderCtx): string {
                     <div class="ph-modal-field">
                         <label class="ph-modal-label">Building type</label>
                         <select class="ph-modal-input" id="ph-new-type">
-                            <!-- §A.6.c — explicit building typologies drive the
+                            <!-- §A.6.c / §69 — explicit building typologies drive the
                                  generator: Apartment + House are wired end-to-end.
                                  "Residential — let me choose" defers to the RAC
-                                 typology step; Commercial/Mixed/Other are captured
-                                 as project metadata (generator wired later). -->
-                            <option value="apartment">Apartment</option>
-                            <option value="casa-unifamiliar">House — single-family</option>
-                            <option value="residential">Residential — let me choose</option>
-                            <option value="commercial">Commercial</option>
-                            <option value="mixed">Mixed Use</option>
-                            <option value="other">Other</option>
+                                 typology step; every other value is captured as project
+                                 metadata + defers to the RAC conversation (its generator
+                                 Pack is wired later — see tracker §69 / typology-expansion-
+                                 roadmap.md). _typologyForProjectType maps only the wired
+                                 ids to a Pack, so an unwired value is SAFE (seededTypologyId
+                                 = undefined, the conversation asks). Founder 2026-06-11:
+                                 surface the core building typologies now, for the future. -->
+                            <optgroup label="Residential">
+                                <option value="apartment">Apartment</option>
+                                <option value="casa-unifamiliar">House — single-family</option>
+                                <option value="residential-multifamily">Residential building — multi-family</option>
+                                <option value="residential">Residential — let me choose</option>
+                            </optgroup>
+                            <optgroup label="Commercial">
+                                <option value="commercial">Commercial building — office</option>
+                                <option value="retail">Commercial space — retail / shop</option>
+                                <option value="pharmacy">Pharmacy</option>
+                                <option value="hospitality">Hotel / hospitality</option>
+                            </optgroup>
+                            <optgroup label="Civic &amp; institutional">
+                                <option value="school">School / education</option>
+                                <option value="healthcare">Hospital / clinic</option>
+                                <option value="transport">Transport building — station / terminal</option>
+                                <option value="civic">Civic / public building</option>
+                            </optgroup>
+                            <optgroup label="Industrial">
+                                <option value="industrial">Industrial / warehouse</option>
+                            </optgroup>
+                            <optgroup label="Other">
+                                <option value="mixed">Mixed Use</option>
+                                <option value="other">Other</option>
+                            </optgroup>
                         </select>
                     </div>
                 </div>

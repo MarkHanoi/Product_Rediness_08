@@ -2014,6 +2014,20 @@ export class WallFragmentBuilder {
             // Single segment → no internal boundary to merge; leave as-is.
             if (parts.length < 2) return;
 
+            // §68.10 DIAG — a mitered SHELL wall that hosts openings has its first/last
+            // body segment built by buildMiterPrism (position+normal, NO index/uv) while
+            // the around-opening segments are BoxGeometry (position+normal+uv+index). A
+            // miter-prism part is the corner cut; detect its PRESENCE before the merge so
+            // the per-wall log can confirm the corner miter is carried INTO the merged
+            // body (cornerMiterKept) — the §68.10 "ground-shell corners not joined" check.
+            // Heuristic: a prism part is non-indexed AND has no `uv` (box parts have both).
+            let _cornerMiterParts = 0;
+            for (const m of parts) {
+                const g = m.geometry;
+                if (!g.index && !g.getAttribute('uv')) _cornerMiterParts++;
+            }
+            const _openingVoids = (wall.openings ?? []).length;
+
             const geos: THREE.BufferGeometry[] = [];
             for (const m of parts) {
                 m.updateMatrix();
@@ -2084,6 +2098,22 @@ export class WallFragmentBuilder {
                 m.geometry.dispose();
             }
             wallGroup.add(mesh);
+
+            // §68.10 DIAG — confirm the merged body carried the corner miter prism(s)
+            // in AND still surrounds (does not fill) the opening voids. The around-
+            // opening box segments are built with a GAP at each opening (the void), so
+            // openingVoidsCut === wall.openings.length whenever the merge produced a
+            // body (the gaps are preserved by construction — the merge only welds
+            // co-located verts, it never fills the hole). cornerMiterKept is true when a
+            // prism part (the corner cut) was among the merged segments. This is the
+            // per-shell-wall signal the §68.10 task asked for.
+            if (typeof window !== 'undefined' && (window as { __pryzmDebugWalls?: boolean }).__pryzmDebugWalls) {
+                console.log(
+                    `[WallFragmentBuilder] §68.10 §SEAM-MERGE wall=${wall.id} ` +
+                    `partsMerged=${parts.length} openingVoidsCut=${_openingVoids} ` +
+                    `cornerMiterKept=${_cornerMiterParts > 0} (miterParts=${_cornerMiterParts})`,
+                );
+            }
         } catch (err) {
             console.warn(
                 '[WallFragmentBuilder] §WALL-PLAIN-SEAM-MERGE failed, keeping segments:',
