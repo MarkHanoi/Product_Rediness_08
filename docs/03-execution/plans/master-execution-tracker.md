@@ -4150,8 +4150,34 @@ geometry-residual artifacts — they are the engine's **door-placement** (`walls
 (`enumerate.ts`) producing/rejecting a layout where a habitable room has no legal corridor-adjacent wall to host a
 door. Fix direction (from the first analysis agent + the §PROJECT-NORTH probe): the subdivider must guarantee every
 private room shares a wall with a circulation spine (the §52 comb/spur work), and door placement must find that
-wall. Cross-cuts D-TGL subdivide + wallsAndDoors + the topo gate. **Status: 🔵 QUEUED — the real "rooms without
-doors" defect, now correctly scoped (was mis-attributed to the rotation).**
+wall. Cross-cuts D-TGL subdivide + wallsAndDoors + the topo gate. **Status: 🟡 PARTIAL v129 — the real "rooms
+without doors" defect, now correctly scoped (was mis-attributed to the rotation).**
+
+**🟡 PARTIAL v129 (`§NO-SEAL-SINGLE-LOAD`, subdivide.ts +151)** — the UPPER-STOREY single-rect seal is closed:
+when the §NO-PUBLIC double-loaded corridor carve/comb is infeasible (shallow short-axis, or a side's comb fails)
+the subdivider no longer squarifies (which buries back-row rooms with no corridor wall → sealed); it falls to a
+SINGLE-LOADED corridor (strip on one long face, all private rooms combed off it as one row, ensuite from the
+master slice, no drops). ai-host **2256/2256** (+14 `tglNoSealedRoom.test.ts`: no sealed/unrouted habitable room +
+every private room shares a ≥0.9 m corridor wall + 0 drops). Byte-identical when the double-loaded carve already
+succeeds. **RESIDUAL (still §52.6):** the GROUND floor of a STAIR-FRAGMENTED multi-storey plate still land-locks —
+the stair keep-out splits the plate into 3 sub-rects and `§STAIR-CARVE-NO-DROP` picks generic `packMultiRect`
+(no corridor spine), so rooms in a non-corridor fragment seal. Closing it needs the §52.3 multi-rect corridor (a
+spine spanning fragment boundaries) — a dedicated session (3 prior reverts), NOT attempted here.
+
+### §56 — Plan View Range below-level (`§VIEW-RANGE-BELOW`) — SHIPPED v128 (2026-06-11)
+
+Founder deep-review: plan View Range `belowLevelDepth = 0` yet storey-below ghost linework still showed. Audit:
+the active VISIBILITY INTENT's `belowLevelDepth` IS read correctly (`PlanViewManager` → `planBelowY`), but the
+per-segment classifier `EdgeProjectorService.classifyByVertexY` was always given `planFloorY` and never
+`planBelowY`, so `isBeyond = avgY < floorY` had NO lower bound → every below-floor edge tagged `:beyond` (+ a
+hardcoded `near − 2.5 m` fallback). **Fixed:** thread `planBelowY`; a below-floor segment is `:beyond` ONLY inside
+`[belowY, floor)`; `belowY = null` (depth 0) ⇒ storey below suppressed; depth>0 ⇒ bounded to the value. The View
+Range number now governs below-level linework per `ViewRangeIntentResolver`. `classifyByVertexY` exported + 3
+tests. **Plus a QUEUED bug (logs agent):** stair-room naming tests the centroid against the AABB of the *rotated*
+stair → "Room 00-001" over the stair on a rotated plate; fix = use the rotated stair polygon, not its AABB
+(`resolveStairRooms.ts` + `HouseLayoutExecutor.ts` stair-rect recording). Also confirmed: the founder's last
+plan screenshot was a STALE pre-v126 build (`§PROJECT-NORTH` never fired) → re-test on v126+ before re-litigating
+the room-merge.
 
 ## §54 — Living-graph node CARDS (select → interrogate → flowing canvas) — QUEUED (2026-06-11)
 
