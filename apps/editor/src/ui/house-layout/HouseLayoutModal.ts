@@ -936,6 +936,33 @@ export class HouseLayoutModal {
         }
         this._el.appendChild(editor);
 
+        // §54-DRAG (founder 2026-06-11: "this information panel needs to be draggable
+        // — movable") — drag the inspector card by its title. position:fixed, so we set
+        // left/top directly in viewport coords; pointer capture keeps the drag smooth.
+        const title = editor.querySelector('.hlm-node-editor-title') as HTMLElement | null;
+        if (title) {
+            title.style.cursor = 'move';
+            title.style.userSelect = 'none';
+            title.addEventListener('pointerdown', (e: PointerEvent) => {
+                e.preventDefault();
+                const rect = editor.getBoundingClientRect();
+                const dx = e.clientX - rect.left, dy = e.clientY - rect.top;
+                editor.style.position = 'fixed';
+                const onMove = (ev: PointerEvent): void => {
+                    editor.style.left = `${Math.max(0, Math.min(ev.clientX - dx, window.innerWidth - rect.width))}px`;
+                    editor.style.top = `${Math.max(0, Math.min(ev.clientY - dy, window.innerHeight - 40))}px`;
+                };
+                const onUp = (ev: PointerEvent): void => {
+                    window.removeEventListener('pointermove', onMove);
+                    window.removeEventListener('pointerup', onUp);
+                    try { title.releasePointerCapture(ev.pointerId); } catch { /* ignore */ }
+                };
+                try { title.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+                window.addEventListener('pointermove', onMove);
+                window.addEventListener('pointerup', onUp);
+            });
+        }
+
         const apply = (): void => {
             const areaEl = editor.querySelector('.hlm-node-area') as HTMLInputElement | null;
             const typeEl = editor.querySelector('.hlm-node-type') as HTMLSelectElement | null;

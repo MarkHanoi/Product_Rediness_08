@@ -4203,6 +4203,17 @@ the v132 `§DIAG-EXEC-WALLS/-FILL/-STAIR-SIZE/-ADJ`.
 by the v137 logs. 57.5/57.7 → engine subdivider/stair, after the hard errors. **Visual (parallel):** night-mode
 dark-blue bg + all-lights-on (v138), bedside-lamp height (agent).
 
+**SHIPPED since:** v138 night-mode, v139 lamp-float, v140 §WINDOW-ROOM-PORTION (57.2 clash + 57.8 centering).
+
+## §58 — Founder test 2026-06-11 (post-v140): stair circulation + connect + draggable inspector
+
+| # | Defect (founder words) | Severity | Status / plan |
+|---|---|---|---|
+| **58.1** | **Upper stair NOT connected to the corridor** — node inspector proves "Stair · Not on circulation ✗ (served through Bedroom 3)"; you reach the stair THROUGH a bedroom | 🔴 HARD | The stair (vertical core) must abut the corridor/landing + door onto it on EVERY storey. Same class as §52.6 but for the upper stair. ENGINE agent in flight (subdivide corridor-abuts-stair + wallsAndDoors §STAIR-ROOM-DOOR prefers the corridor wall) + new `§DIAG-STAIR-CIRC`. |
+| **58.2** | **Connecting rooms in the modal doesn't change the layout** | 🟠 HIGH | The v121 §ROOM-ADJACENCY only ADDS A DOOR when the pair is ALREADY adjacent + permitted; connecting two NON-adjacent rooms is a no-op (the bubble graph doesn't RELOCATE rooms to honour a requested adjacency). True "connect → rooms move adjacent + get a door" is adjacency-driven PLACEMENT (a substantial bubbleGraph/subdivider change). Interim: verify the override reaches the engine + a door appears for adjacent pairs; document the relocate limitation. |
+| **58.3** | **White/blank space on the first floor persists** | 🟠 HIGH | = §57.5. Upper undivided area ("Room 01-004 47.2 m²" + many generic "Room 01-xxx"). The v135 spine-carve was ground-scoped; extend the upper-storey subdivision. `§DIAG-EXEC-FILL` STRETCHED + `§DIAG-EXEC-OVERLAP`/the generic-name count surface it. |
+| **58.4** | **Node inspector panel must be draggable** | 🟢 DONE v141 | §54-DRAG — drag the inspector card by its title (pointer-capture, viewport-clamped). |
+
 ## §54 — Living-graph node CARDS (select → interrogate → flowing canvas) — QUEUED (2026-06-11)
 
 **Founder 2026-06-11:** on the Miro canvas each node (e.g. Kitchen) should behave like an individual selectable
