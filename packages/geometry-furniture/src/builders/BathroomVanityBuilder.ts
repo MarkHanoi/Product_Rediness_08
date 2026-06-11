@@ -59,13 +59,51 @@ export class VanityUnitBuilder implements IFurnitureBuilder {
         counter.position.set(0, bodyH + COUNTER_THK / 2, 0);
         group.add(counter);
 
-        // Recessed round basin in the centre of the countertop
-        const basinR = Math.min(W, L) * 0.18;
-        const basinGeo = new THREE.CylinderGeometry(basinR, basinR * 0.85, COUNTER_THK + 0.01, 20, 1, true);
+        // §63.4 (2026-06-11) — REAL recessed basin BOWL. The pre-fix vanity had a
+        // single open-ended cylinder flush with the counter top — it read as just a
+        // "faint flat circle" (founder defect: "the sink has no basin bowl"). We now
+        // build a genuine inset bowl: a wider rim ring + an inner bowl wall (a
+        // truncated cone tapering DOWN into the counter) + a bowl floor BELOW the
+        // counter surface + a drain. The cavity is recessed ~90 mm below the top, so
+        // it reads as a proper washbasin you can see into.
         const basinMat = this.materialService.getMaterial(0xffffff, 'standard') as THREE.MeshStandardMaterial;
-        const basin = new THREE.Mesh(basinGeo, basinMat);
-        basin.position.set(0, bodyH + COUNTER_THK / 2, 0);
-        group.add(basin);
+        const counterTopY = bodyH + COUNTER_THK;                 // counter top surface
+        const basinR = Math.min(W, L) * 0.22;                    // bowl rim radius
+        const BOWL_DEPTH = 0.09;                                 // recess depth below the top
+        const bowlFloorR = basinR * 0.55;                        // narrower at the bottom
+        const bowlFloorY = counterTopY - BOWL_DEPTH;             // recessed floor height
+
+        // Rim ring — a low torus-like ring at the top edge of the bowl (a thin
+        // raised lip framing the recess).
+        const RIM_RING = 0.018;
+        const rimGeo = new THREE.CylinderGeometry(basinR + RIM_RING, basinR + RIM_RING, 0.012, 28, 1, false);
+        const rim = new THREE.Mesh(rimGeo, basinMat);
+        rim.position.set(0, counterTopY + 0.006, 0);
+        group.add(rim);
+
+        // Inner bowl WALL — open-ended truncated cone tapering inward+down (the
+        // visible inside surface of the basin). Open-ended so you see into it.
+        const bowlWallGeo = new THREE.CylinderGeometry(basinR, bowlFloorR, BOWL_DEPTH, 28, 1, true);
+        const bowlWall = new THREE.Mesh(bowlWallGeo, basinMat);
+        bowlWall.position.set(0, counterTopY - BOWL_DEPTH / 2, 0);
+        group.add(bowlWall);
+
+        // Bowl FLOOR — a small disc at the bottom of the recess (slightly darker so
+        // the cavity reads as depth) with a drain hole hint at the centre.
+        const bowlFloorMat = basinMat.clone();
+        bowlFloorMat.color = new THREE.Color(0xf0efe9);
+        bowlFloorMat.roughness = 0.5;
+        const bowlFloorGeo = new THREE.CylinderGeometry(bowlFloorR, bowlFloorR, 0.01, 24);
+        const bowlFloor = new THREE.Mesh(bowlFloorGeo, bowlFloorMat);
+        bowlFloor.position.set(0, bowlFloorY + 0.005, 0);
+        group.add(bowlFloor);
+
+        // Chrome drain at the bowl floor centre.
+        const drainMat = this.materialService.getMaterial(0xb8c0c8, 'standard') as THREE.MeshStandardMaterial;
+        const drainGeo = new THREE.CylinderGeometry(bowlFloorR * 0.18, bowlFloorR * 0.18, 0.008, 14);
+        const drain = new THREE.Mesh(drainGeo, drainMat);
+        drain.position.set(0, bowlFloorY + 0.011, 0);
+        group.add(drain);
 
         // Small upturned tap behind the basin
         const tapMat = this.materialService.getMaterial(0xc0c0c0, 'standard') as THREE.MeshStandardMaterial;

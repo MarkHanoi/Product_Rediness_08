@@ -29,6 +29,31 @@ const isBedKind = (k: PlacedFurniture['kind']): boolean => BED_KINDS.has(k);
 const SOFA_KINDS = new Set<PlacedFurniture['kind']>(['sofa', 'corner_sofa']);
 const isSofaKind = (k: PlacedFurniture['kind']): boolean => SOFA_KINDS.has(k);
 
+/** §63.2 / §63.5 (2026-06-11) — WALL-HOSTED 'beside' kinds. These are flat
+ *  panels / wall-mounted accessories that must sit FLUSH on their leader's wall
+ *  (back plane on the wall face), VERTICAL, at their own baseOffset height —
+ *  ABOVE / beside the floor-standing leader (the vanity, basin, sofa, tv unit,
+ *  console). The pre-fix generic `placeBeside` else-branch floated them OUT INTO
+ *  the room in front of the leader (the founder's "mirror floats / tilts" +
+ *  "towel-rail radiator mid-wall on the floor" defects). For these kinds the
+ *  solver instead pins them to the leader's wall with the leader's yaw + along-
+ *  wall position, recessed so the back is on the wall. The mount height is the
+ *  footprint's `baseOffset` (mirror ~1.1 m, towel rail ~0.4 m), so no tilt and
+ *  the right eye / mount height. */
+const WALL_HOSTED_BESIDE = new Set<PlacedFurniture['kind']>([
+    'bathroom_mirror', 'wc_mirror', 'wall_mirror', 'wall_art', 'tv', 'towel_rail',
+]);
+const isWallHostedBeside = (k: PlacedFurniture['kind']): boolean => WALL_HOSTED_BESIDE.has(k);
+
+/** §63.5 — wall-hosted kinds that mount BESIDE (to the side of) their leader at
+ *  mid height, NOT stacked above it — the heated towel rail hangs next to the
+ *  vanity within arm's reach of the basin, so it must offset along the wall past
+ *  the leader's edge instead of centring on (and clashing with) the vanity body.
+ *  Eye-level panels (mirror / art / TV) sit ABOVE the leader (high baseOffset),
+ *  so they centre on it without a clash. */
+const WALL_HOSTED_SIDE = new Set<PlacedFurniture['kind']>(['towel_rail']);
+const isWallHostedSide = (k: PlacedFurniture['kind']): boolean => WALL_HOSTED_SIDE.has(k);
+
 /** Door swing / keep-clear obstacle quads (in front of each door). */
 function doorObstacles(input: FurnishRoomInput): Quad[] {
     return input.doors.map(d => {
@@ -146,6 +171,89 @@ function resolveAnchorWalls(spec: FurnitureItemSpec, input: FurnishRoomInput): R
     return ordered;
 }
 
+/**
+ * §63.2 / §63.5 — true when the leader sits with its BACK on a room wall (so a
+ * wall-hosted accessory can pin to that wall). We project the wall face point
+ * behind the leader (leaderCentre − n·(L.l/2)) onto each wall segment and accept
+ * if it lies within the segment span AND within ~12 cm of the wall line. A
+ * centre-anchored leader (dining table, kitchen island) fails this (its back is
+ * not near any wall) → the caller falls back to the generic in-front placement.
+ */
+function leaderIsWallAnchored(L: PlacedFurniture, input: FurnishRoomInput): boolean {
+    const n: Pt = { x: Math.sin(L.rotationY), z: Math.cos(L.rotationY) };
+    const fx = L.position.x - n.x * (L.footprint.l / 2);
+    const fz = L.position.z - n.z * (L.footprint.l / 2);
+    for (const w of input.walls) {
+        const dir = wallDir(w);
+        const t = (fx - w.a.x) * dir.x + (fz - w.a.z) * dir.z;
+        if (t < -0.05 || t > w.length + 0.05) continue;
+        const px = w.a.x + dir.x * t, pz = w.a.z + dir.z * t;
+        if (Math.hypot(fx - px, fz - pz) < 0.12) return true;
+    }
+    return false;
+}
+
+/**
+ * §63.2 / §63.5 (2026-06-11) — place a WALL-HOSTED accessory (mirror / wall art /
+ * TV / towel rail) FLUSH on its leader's wall, above / beside the leader.
+ *
+ * The leader was placed against a wall: its centre sits at
+ *   wallPoint + n·(L.l/2 + GAP)   (n = leader inward normal).
+ * So the wall face is at  leaderCentre − n·(L.l/2 + GAP). We pin the accessory's
+ * BACK on that wall face → its centre is  wallFace + n·(fp.l/2). Same along-wall
+ * position + same yaw as the leader (vertical, normal into the room), and its
+ * floor height comes from the footprint baseOffset (mirror ~1.1 m, towel rail
+ * ~0.4 m) applied via `levelElevation + fp.baseOffset`.
+ *
+ * Wall-hosted accessories are height-stacked above the leader (mirror above the
+ * vanity) or are thin flat panels (towel rail) — they do NOT contend for floor
+ * space, so the placement is collision-EXEMPT (neither tested against obstacles
+ * nor pushed as one), exactly like the rug. This keeps the mirror reliably above
+ * the vanity instead of being slid away / dropped by the floor-collision set.
+ * `count` accessories (e.g. two flanking wall_mirror panels) are spread along the
+ * wall symmetrically about the leader. Deterministic.
+ */
+function placeOnLeaderWall(spec: FurnitureItemSpec, leader: Placement, input: FurnishRoomInput): Placement[] {
+    const out: Placement[] = [];
+    const L = leader.item;
+    const n: Pt = { x: Math.sin(L.rotationY), z: Math.cos(L.rotationY) };   // leader inward normal
+    const d = perp(n);                                                       // along the wall
+    const fp = footprintOf(spec.kind);
+    const count = spec.count ?? 1;
+    // Wall face behind the leader, then push the accessory's back onto it.
+    const wallFaceX = L.position.x - n.x * (L.footprint.l / 2);
+    const wallFaceZ = L.position.z - n.z * (L.footprint.l / 2);
+    const baseX = wallFaceX + n.x * (fp.l / 2);
+    const baseZ = wallFaceZ + n.z * (fp.l / 2);
+    // §63.5 SIDE-MOUNT: a towel rail hangs to the SIDE of the vanity (offset
+    // along the wall past the leader's edge) so it doesn't clash with the cabinet
+    // body. ABOVE-MOUNT panels (mirror / art / TV) sit at high baseOffset directly
+    // over the leader → no clash, centre on it.
+    const sideMount = isWallHostedSide(spec.kind);
+    const sideShift = L.footprint.w / 2 + fp.w / 2 + GAP;   // just past the leader edge
+    // Spread `count` items symmetrically along the wall, centred on the leader.
+    // (1 → centred; 2 → ±(leaderW − fp.w)/2; N → evenly across the leader span.)
+    const span = Math.max(L.footprint.w - fp.w, 0);
+    for (let i = 0; i < count; i++) {
+        const t = sideMount
+            ? (count === 1 ? sideShift : ((i % 2 === 0 ? 1 : -1) * sideShift))
+            : (count === 1 ? 0 : (i / (count - 1) - 0.5) * span);   // −span/2 … +span/2
+        const cx = baseX + d.x * t;
+        const cz = baseZ + d.z * t;
+        const yaw = L.rotationY;
+        const quad = footprintCorners(cx, cz, fp.w, fp.l, yaw);
+        out.push({
+            item: {
+                kind: spec.kind,
+                position: { x: cx, y: input.levelElevation + fp.baseOffset, z: cz },
+                rotationY: yaw, footprint: fp, hostedSpaceId: input.roomId,
+            },
+            quad,
+        });
+    }
+    return out;
+}
+
 /** Place the 'beside' items of a group relative to its already-placed leader. */
 function placeBeside(spec: FurnitureItemSpec, leader: Placement, input: FurnishRoomInput, obstacles: Quad[]): Placement[] {
     const out: Placement[] = [];
@@ -158,6 +266,15 @@ function placeBeside(spec: FurnitureItemSpec, leader: Placement, input: FurnishR
         const p = placeAtPoint(spec.kind, c, yaw, input, obstacles);
         if (p) { out.push(p); obstacles.push(p.quad); }
     };
+
+    // §63.2 / §63.5 — wall-hosted accessory: pin FLUSH on the leader's wall
+    // (above / beside it), collision-EXEMPT. Only valid when the leader is itself
+    // wall-anchored (its back sits on a room wall); a centre-anchored leader has
+    // no wall to host against → fall through to the generic in-front placement.
+    if (isWallHostedBeside(spec.kind) && leaderIsWallAnchored(L, input)) {
+        for (const p of placeOnLeaderWall(spec, leader, input)) out.push(p);
+        return out;
+    }
 
     if (isBedKind(L.kind)) {
         // flank the bed head (at the wall) with up to `count` bedside tables

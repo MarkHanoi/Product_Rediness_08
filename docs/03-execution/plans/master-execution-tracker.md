@@ -4302,7 +4302,10 @@ DIFFERENT element — a door-swing arc (the 2D plan symbol leaking into 3D) or t
 (`washing_machine_dark`/`_white` in `KitchenCabinetEngine`), or the dishwasher door. Needs the founder to confirm
 which unit, or a deeper look at the kitchen-appliance + door-swing-arc geometry. Not the standalone washing machine.
 
-## §63 — Bathroom fixture quality (material · openings · wall-hosting) — QUEUED, no priority (2026-06-11)
+## §63 — Bathroom fixture quality (material · openings · wall-hosting) — ✅ DONE v162 (2026-06-11)
+
+**§63.2–63.5 shipped v162** (63.1 was v145): **63.2 mirror wall-hosted** — placeSolver `placeOnLeaderWall` for `WALL_HOSTED_BESIDE` kinds (bathroom/wc/wall mirror, wall art, tv): pinned FLUSH on the leader's wall (back plane on the wall face, leader yaw → vertical no tilt, centred over the leader at ~1.5 m eye height), was floating into the room via the generic `placeBeside` branch. **63.3 bath tub recess** — BathBuilder replaced the solid inner box with a real open well (pedestal + 4 basin side walls + ~150 mm rim band + recessed inner floor ~150 mm below rim; hollow at the rim plane). **63.4 sink basin bowl** — BathroomVanityBuilder replaced the open cylinder with a rim ring + truncated-cone bowl wall ~90 mm deep + bowl floor below the counter + chrome drain. **63.5 towel radiator wall-mount + raise** — footprint baseOffset 0→0.30; ToiletRadiatorBuilder anchors the ladder to the wall side of the footprint (was centred → floated ~0.35 m mid-wall); placeSolver side-mounts the `towel_rail` past the vanity edge (WALL_HOSTED_SIDE) at 0.40 m. ai-host 2386 (+3), geometry-furniture 23 (+3 bathroomFixtureRecess.test.ts), root tsc 0. Limits: not in-browser-verified; the radiator vertical lift relies on FurnitureFragmentBuilder applying baseOffset on the group root (A.21.D15, same as every wall-mounted builder); the towel-rail side-mount assumes free wall beside the vanity (optional + collision-exempt → worst case cosmetic crowd).
+
 
 Founder (queue, no priority, 3D close-ups + the FURNITURE inspector showing `bathroom_mirror`, Material `metal`):
 

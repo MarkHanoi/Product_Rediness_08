@@ -23,15 +23,30 @@ export class ToiletRadiatorBuilder implements IFurnitureBuilder {
         const width = data.width || 0.5;
         const height = data.height || 1.2;
 
+        // §63.5 (2026-06-11) — WALL-FLUSH: the heated towel rail is a thin
+        // wall-hung ladder, NOT a deep floor unit. The placement footprint depth
+        // (`data.length`, ~0.70 m) pushes the group centre well off the wall; if
+        // the panel sat at the group's local z = 0 it would FLOAT ~0.35 m into the
+        // room (the founder's "mid-wall floating radiator"). Anchor the ladder at
+        // the WALL side of the footprint instead: the inward normal is local +z, so
+        // the wall is at local −length/2. We seat the panel a small projection
+        // (~70 mm) off the wall. The vertical RAISE off the floor is applied on the
+        // group root via baseOffset by FurnitureFragmentBuilder — the builder stays
+        // floor-relative (y = 0 = bottom of the ladder).
+        const footprintDepth = data.length || 0.12;
+        const PROJECTION = 0.07;                      // ladder centre this far off the wall
+        const zPanel = -footprintDepth / 2 + PROJECTION;   // wall side of the footprint
+        const zWall = -footprintDepth / 2 + 0.01;          // brackets a touch behind the panel
+
         // Vertical side bars
         const sideBarGeo = new THREE.CylinderGeometry(0.015, 0.015, height, 16);
 
         const leftBar = new THREE.Mesh(sideBarGeo, metalMaterial);
-        leftBar.position.set(-width / 2 + 0.015, height / 2, 0);
+        leftBar.position.set(-width / 2 + 0.015, height / 2, zPanel);
         group.add(leftBar);
 
         const rightBar = new THREE.Mesh(sideBarGeo, metalMaterial);
-        rightBar.position.set(width / 2 - 0.015, height / 2, 0);
+        rightBar.position.set(width / 2 - 0.015, height / 2, zPanel);
         group.add(rightBar);
 
         // Horizontal rails (ladder style)
@@ -41,17 +56,17 @@ export class ToiletRadiatorBuilder implements IFurnitureBuilder {
 
         for (let i = 0; i < railCount; i++) {
             const rail = new THREE.Mesh(railGeo, metalMaterial);
-            rail.position.set(0, 0.05 + i * railSpacing, 0);
+            rail.position.set(0, 0.05 + i * railSpacing, zPanel);
             group.add(rail);
         }
 
-        // Wall connectors
+        // Wall connectors — bridge from the panel back to the wall face.
         const connectorGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.05, 12);
         const connectorPositions: Array<[number, number, number]> = [
-            [-width / 2 + 0.015, height * 0.2, -0.025],
-            [ width / 2 - 0.015, height * 0.2, -0.025],
-            [-width / 2 + 0.015, height * 0.8, -0.025],
-            [ width / 2 - 0.015, height * 0.8, -0.025],
+            [-width / 2 + 0.015, height * 0.2, zWall],
+            [ width / 2 - 0.015, height * 0.2, zWall],
+            [-width / 2 + 0.015, height * 0.8, zWall],
+            [ width / 2 - 0.015, height * 0.8, zWall],
         ];
 
         connectorPositions.forEach(pos => {
@@ -64,7 +79,7 @@ export class ToiletRadiatorBuilder implements IFurnitureBuilder {
         // Heating element / valve at bottom (LOD 350 detail)
         const valveGeo = new THREE.BoxGeometry(0.05, 0.05, 0.05);
         const valve = new THREE.Mesh(valveGeo, metalMaterial);
-        valve.position.set(width / 2 - 0.015, -0.025, 0);
+        valve.position.set(width / 2 - 0.015, -0.025, zPanel);
         group.add(valve);
 
         return group;

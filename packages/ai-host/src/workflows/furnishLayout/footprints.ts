@@ -27,7 +27,13 @@ const FP: Readonly<Record<FurnitureKind, Footprint>> = {
     // Lighting (floor / corner lamp) — small footprint, kept out of circulation.
     lamp:           { w: 0.35, l: 0.35, h: 1.50, baseOffset: 0, clearFront: 0.10, clearSides: 0.00 },
     // Bathroom fixtures
-    toilet_radiator:    { w: 0.40, l: 0.70, h: 0.80, baseOffset: 0, clearFront: 0.60, clearSides: 0.10 },
+    // §63.5 (2026-06-11) — the heated TOWEL-RAIL radiator is WALL-MOUNTED + RAISED
+    // (bottom rail ~300 mm AFF, the standard mount), NOT floor-standing mid-wall.
+    // baseOffset 0.30 lifts it off the floor; the placement (placeAgainstWall) keeps
+    // it flush + into-room (back on the wall). w/l/clear* stay pinned to the
+    // programRules furnitureSpec (sizeW 400 / sizeD 700 / clearFoot 600 / clearSide
+    // 100 mm) — only baseOffset (not pinned) changes here.
+    toilet_radiator:    { w: 0.40, l: 0.70, h: 0.80, baseOffset: 0.30, clearFront: 0.60, clearSides: 0.10 },
     shower_glass_panel: { w: 0.90, l: 0.90, h: 2.00, baseOffset: 0, clearFront: 0.20, clearSides: 0.00 },
     // F1.6' (2026-05-30) — drop-in residential bath (UK standard
     // 1700×700×500 mm). clearFront 0.45 leaves stepping-over room at

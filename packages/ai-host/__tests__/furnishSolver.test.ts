@@ -364,4 +364,78 @@ describe('furnishRoom (D-FLE F5/F7)', () => {
             expect(inFront).toBe(false);
         });
     });
+
+    describe('§63.2 / §63.5 — bathroom fixtures wall-hosted + raised', () => {
+        // A generous 3.2 × 3 bathroom: room enough for the vanity (the mirror's
+        // leader) so the wall-host placement engages. The mirror must sit FLUSH on
+        // the vanity wall (not floating in the room), VERTICAL (yaw = leader yaw),
+        // at eye height (~1.5 m centre = baseOffset 1.10 + half its 0.70 m height),
+        // normal into the room. The radiator must be flush + raised off the floor.
+        const bigBath = (): FurnishRoomInput => rectRoom('bathroom', 3.2, 3);
+
+        it('the bathroom mirror is wall-hosted: back on the wall, vertical, at eye height', () => {
+            const items = furnishRoom(bigBath());
+            const vanity = items.find(i => i.kind === 'vanity_unit');
+            const mirror = items.find(i => i.kind === 'bathroom_mirror');
+            expect(vanity, 'vanity must place to host the mirror').toBeDefined();
+            expect(mirror, 'mirror must place').toBeDefined();
+            // Same yaw as the vanity (vertical, no tilt; rotationY is the only
+            // rotation — pitch/roll are always 0 in the engine → never angled).
+            expect(mirror!.rotationY).toBeCloseTo(vanity!.rotationY, 6);
+            // Mounted at eye height: baseOffset 1.10 m on the FLOOR datum.
+            expect(mirror!.position.y).toBeCloseTo(1.10, 6);
+            // FLUSH: the mirror's BACK plane lies on the same wall as the vanity's
+            // back. Both backs sit at wallFace = centre − n·(l/2) along the inward
+            // normal; project both onto the normal and require they match.
+            const n = { x: Math.sin(vanity!.rotationY), z: Math.cos(vanity!.rotationY) };
+            const vanityBack = (vanity!.position.x - n.x * vanity!.footprint.l / 2) * n.x
+                             + (vanity!.position.z - n.z * vanity!.footprint.l / 2) * n.z;
+            const mirrorBack = (mirror!.position.x - n.x * mirror!.footprint.l / 2) * n.x
+                             + (mirror!.position.z - n.z * mirror!.footprint.l / 2) * n.z;
+            expect(mirrorBack).toBeCloseTo(vanityBack, 4);
+            // Centred over the vanity (same along-wall position).
+            const d = { x: n.z, z: -n.x };
+            const along = (p: { x: number; z: number }): number => p.x * d.x + p.z * d.z;
+            expect(along(mirror!.position)).toBeCloseTo(along(vanity!.position), 4);
+        });
+
+        it('the towel-rail radiator is RAISED off the floor and flush to a wall', () => {
+            const items = furnishRoom(bigBath());
+            const rad = items.find(i => i.kind === 'toilet_radiator');
+            expect(rad, 'radiator is required').toBeDefined();
+            // §63.5 — raised: baseOffset 0.30 m (bottom rail off the floor), NOT 0.
+            expect(rad!.position.y).toBeCloseTo(0.30, 6);
+            // Flush to a wall: the radiator was placed against a room wall, so its
+            // BACK plane lies on a wall line within tolerance.
+            const n = { x: Math.sin(rad!.rotationY), z: Math.cos(rad!.rotationY) };
+            const bx = rad!.position.x - n.x * rad!.footprint.l / 2;
+            const bz = rad!.position.z - n.z * rad!.footprint.l / 2;
+            const onAWall = bigBath().walls.some(w => {
+                const len = Math.hypot(w.b.x - w.a.x, w.b.z - w.a.z) || 1;
+                const dx = (w.b.x - w.a.x) / len, dz = (w.b.z - w.a.z) / len;
+                const t = (bx - w.a.x) * dx + (bz - w.a.z) * dz;
+                if (t < -0.05 || t > len + 0.05) return false;
+                const px = w.a.x + dx * t, pz = w.a.z + dz * t;
+                return Math.hypot(bx - px, bz - pz) < 0.05;
+            });
+            expect(onAWall, 'radiator back must lie on a wall (flush)').toBe(true);
+        });
+
+        it('the towel rail (heated rail) is raised + hosted on the vanity wall', () => {
+            const items = furnishRoom(bigBath());
+            const vanity = items.find(i => i.kind === 'vanity_unit');
+            const towel = items.find(i => i.kind === 'towel_rail');
+            if (!vanity || !towel) return;     // optional — only assert when both placed
+            // Wall-hung at its mount height (0.40 m), not on the floor.
+            expect(towel.position.y).toBeCloseTo(0.40, 6);
+            // Same yaw as the vanity (hosted on the same wall, into-room normal).
+            expect(towel.rotationY).toBeCloseTo(vanity.rotationY, 6);
+            // SIDE-mounted: offset along the wall PAST the vanity edge (not centred
+            // on / clashing with the cabinet body).
+            const d = { x: Math.cos(vanity.rotationY), z: -Math.sin(vanity.rotationY) };
+            const along = (p: { x: number; z: number }): number => p.x * d.x + p.z * d.z;
+            expect(Math.abs(along(towel.position) - along(vanity.position)))
+                .toBeGreaterThan(vanity.footprint.w / 2);
+        });
+    });
 });
