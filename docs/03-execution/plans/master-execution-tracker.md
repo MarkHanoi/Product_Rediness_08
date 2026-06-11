@@ -4214,6 +4214,42 @@ dark-blue bg + all-lights-on (v138), bedside-lamp height (agent).
 | **58.3** | **White/blank space on the first floor persists** | 🟠 HIGH | = §57.5. Upper undivided area ("Room 01-004 47.2 m²" + many generic "Room 01-xxx"). The v135 spine-carve was ground-scoped; extend the upper-storey subdivision. `§DIAG-EXEC-FILL` STRETCHED + `§DIAG-EXEC-OVERLAP`/the generic-name count surface it. |
 | **58.4** | **Node inspector panel must be draggable** | 🟢 DONE v141 | §54-DRAG — drag the inspector card by its title (pointer-capture, viewport-clamped). |
 
+**SHIPPED:** 58.1 (v142 §STAIR-CIRC-FACE), 58.4 (v141). 58.2/58.3 queued.
+
+## §59 — Room-and-Module Rule Engine (kitchen reference, per-room general) — SCAFFOLDED (2026-06-11)
+
+Founder-supplied professional kitchen-planner rule corpus (~300–500 rules) + the ask: model every module with
+metadata, solve the room as a **constraint-satisfaction + scoring optimisation**, make the schema **per-room**.
+Governed by **[ADR-0071](../../02-decisions/adrs/0071-room-and-module-rule-engine.md)** +
+**[SPEC-ROOM-MODULE-RULE-ENGINE](../specs/SPEC-ROOM-MODULE-RULE-ENGINE.md)** (consolidates SPEC-KITCHEN-WARDROBE-*).
+Extends the existing **D-FLE** engine (`furnishLayout/`), it does NOT fork it.
+
+**Architecture (5 layers):** L1 Ontology (module metadata, data) · L2 Rules (HARD predicates + SCORING fns by
+category) · L3 Solver (wall-classify → shape → place in canonical order → validate HARD → score) · L4 Intelligence
+(generate N alternatives, rank by the 100-pt scorecard, record sub-scores) · L5 Per-room (kitchen reference;
+bathroom/bedroom/utility/… follow the same schema). Two optimisation levels: L1 *where modules go*, L2 *what's
+inside each cabinet*.
+
+**Phased plan (each shippable + test-gated):**
+- **P1 ✅ SCAFFOLDED (this turn):** `furnishLayout/rules/ruleSchema.ts` (ModuleMeta · ModuleClearance · CabinetOption ·
+  ScorecardWeights · LayoutScore · `weightedTotal`) + `moduleOntology.ts` (the KITCHEN ontology seed — 13 modules
+  with the corpus thresholds: dishwasher front 900, fridge vent 25/50, hob 300, corner-forbidden appliances, L2
+  cabinet taxonomy) + `roomModuleRules.test.ts` (9/9, scorecard sums 100, C01 corner-forbidden, drawers>doors).
+  Typed, exported, unit-tested; NOT yet wired into placement.
+- **P2 (queued):** wire the HARD kitchen rules (collision · clearance · corner-forbidden · hob/sink safety ·
+  door/drawer-swing · window conflicts · MEP-blocking) as a VALIDATION pass over the existing `kitchenLayout`
+  output → reject invalid placements.
+- **P3:** the scorecard + generate-N-and-rank loop (work-triangle 1.2–2.7 m legs / 4–7.9 m perimeter · adjacency
+  dishwasher↔sink/prep-between/fridge-near-entry · circulation first).
+- **P4:** §BIM04 wall classification + shape selection (I/L/U/Island/Peninsula) from the boundary + windows/doors/MEP.
+- **P5:** Level-2 cabinet selection + internal storage allocation + family-size capacity (single≥1200L / couple≥1800L
+  / family4≥2500L).
+- **P6:** per-room rollout (bathroom → bedroom/wardrobe → utility → dining → study) on the same schema.
+
+**Queue note:** the full corpus (hard/workflow/adjacency/module/shape/MEP/ergonomic/accessibility/light/visual/
+storage/cleaning/construction/door-drawer-sim/island/proportion/cabinet-taxonomy) accretes across P2–P5; each
+appliance/cabinet carries its own constraint set. This is a multi-session program — P1 is the foundation.
+
 ## §54 — Living-graph node CARDS (select → interrogate → flowing canvas) — QUEUED (2026-06-11)
 
 **Founder 2026-06-11:** on the Miro canvas each node (e.g. Kitchen) should behave like an individual selectable
