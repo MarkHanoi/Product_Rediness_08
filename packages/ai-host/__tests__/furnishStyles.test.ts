@@ -143,15 +143,20 @@ describe('A.21.D19 — floorFinish styles (command-registry, lock-step)', () => 
     it('architecturally grounded floor spot checks', () => {
         // Classic = dark walnut herringbone in living rooms.
         expect(floorFinishFor('living-room', 'classic')?.finishPattern).toBe('plank-herringbone');
-        // Minimalist kitchens = polished concrete (seamless).
-        expect(floorFinishFor('kitchen', 'minimalist')?.finishPattern).toBe('seamless');
+        // ST.2 (SPEC §4) — the legacy 'minimalist' brief now folds to JAPANESE floors
+        // (the founder set has no Minimalist). The polished-concrete/seamless read moved
+        // to INDUSTRIAL.
+        expect(floorFinishFor('kitchen', 'industrial')?.finishPattern).toBe('seamless');
         // Mediterranean baths = terracotta.
         expect(floorFinishFor('bathroom', 'mediterranean')?.materialName).toMatch(/Terracotta/);
     });
 
     it('normaliseFloorStyle resolves aliases + defaults to nordic', () => {
-        expect(normaliseFloorStyle('modern')).toBe('minimalist');
-        expect(normaliseFloorStyle('minimal')).toBe('minimalist');
+        // ST.2 (SPEC-INTERIOR-STYLE-SYSTEM §4) — the founder set has no "Minimalist";
+        // the legacy clean-line chips modern/minimal now fold onto JAPANESE (lock-step
+        // with the ai-host resolveStyleId alias map), not the retired minimalist key.
+        expect(normaliseFloorStyle('modern')).toBe('japanese');
+        expect(normaliseFloorStyle('minimal')).toBe('japanese');
         expect(normaliseFloorStyle('warm')).toBe('mediterranean');
         expect(normaliseFloorStyle('scandinavian')).toBe('nordic');
         expect(normaliseFloorStyle('classic')).toBe('classic');

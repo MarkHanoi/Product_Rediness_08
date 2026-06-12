@@ -17,11 +17,23 @@
 import type { FloorPattern } from '@pryzm/core-app-model';
 
 /**
- * Canonical floor styles — mirror the A.21.D19 furnishLayout CanonicalStyle set
- * (Nordic · Mediterranean · Minimalist · Classic). The legacy A.21.D4 chips
- * (modern/minimal/warm) resolve to these via normaliseFloorStyle.
+ * Canonical floor styles — ST.2 (SPEC-INTERIOR-STYLE-SYSTEM) extends the
+ * original A.21.D19 set (Nordic · Mediterranean · Minimalist · Classic) to the
+ * SIX founder styles: Nordic · Mediterranean · Classic · Farmhouse · Japanese ·
+ * Industrial. The legacy `minimalist` floor key is RETAINED as an alias target
+ * (legacy briefs / saved projects keep resolving) but folds onto Japanese for
+ * the clean-line read in `normaliseFloorStyle`, kept in lock-step with the
+ * ai-host `resolveStyleId` alias map.
  */
-export type FloorStyle = 'nordic' | 'mediterranean' | 'minimalist' | 'classic';
+export type FloorStyle =
+    | 'nordic'
+    | 'mediterranean'
+    | 'classic'
+    | 'farmhouse'
+    | 'japanese'
+    | 'industrial'
+    /** legacy key — `minimalist` floor finishes (preserved for back-compat). */
+    | 'minimalist';
 
 export interface FloorFinishChoice {
     readonly finishColor: string;
@@ -50,6 +62,10 @@ const TIMBER_BY_STYLE: Record<FloorStyle, FloorFinishChoice> = {
     mediterranean: { finishColor: '#B07C44', finishPattern: 'plank-90',          materialName: 'Honey Oak Plank' },
     minimalist:    { finishColor: '#D8CDB6', finishPattern: 'plank-90',          materialName: 'Pale Oak — Wide Plank' },
     classic:       { finishColor: '#5A3A22', finishPattern: 'plank-herringbone', materialName: 'Dark Walnut — Herringbone' },
+    // ST.2 — new founder styles.
+    farmhouse:     { finishColor: '#8B6A47', finishPattern: 'plank-90',          materialName: 'Reclaimed Wide-Plank Oak' },
+    japanese:      { finishColor: '#C9B98F', finishPattern: 'plank-90',          materialName: 'Natural Oak / Tatami Tone' },
+    industrial:    { finishColor: '#8C8884', finishPattern: 'seamless',          materialName: 'Polished Concrete' },
 };
 
 /** Wet-room finishes — small/medium format tile, style-coherent tones. */
@@ -58,6 +74,10 @@ const WET_TILE_BY_STYLE: Record<FloorStyle, FloorFinishChoice> = {
     mediterranean: { finishColor: '#C8794D', finishPattern: 'tile-300x300', materialName: 'Terracotta — Ceramic' },
     minimalist:    { finishColor: '#DCDCDC', finishPattern: 'tile-600x600', materialName: 'Large-Format Pale Tile' },
     classic:       { finishColor: '#E7E0D2', finishPattern: 'tile-300x300', materialName: 'Marble — Veined White' },
+    // ST.2 — new founder styles.
+    farmhouse:     { finishColor: '#CBB89A', finishPattern: 'tile-300x300', materialName: 'Matte Stone — Warm Cream' },
+    japanese:      { finishColor: '#CFCABB', finishPattern: 'tile-600x600', materialName: 'Pebble / Slate — Muted' },
+    industrial:    { finishColor: '#7E7B77', finishPattern: 'seamless',     materialName: 'Microcement — Charcoal' },
 };
 
 /** Kitchen & service / circulation — larger-format tile, terrazzo or concrete. */
@@ -66,19 +86,33 @@ const DRY_TILE_BY_STYLE: Record<FloorStyle, FloorFinishChoice> = {
     mediterranean: { finishColor: '#C8794D', finishPattern: 'tile-600x300', materialName: 'Terracotta Tile — Warm' },
     minimalist:    { finishColor: '#DCDCDC', finishPattern: 'seamless',     materialName: 'Polished Concrete' },
     classic:       { finishColor: '#E7E0D2', finishPattern: 'tile-600x600', materialName: 'Marble — Polished' },
+    // ST.2 — new founder styles.
+    farmhouse:     { finishColor: '#C2A57E', finishPattern: 'tile-600x300', materialName: 'Quarry Tile — Warm Clay' },
+    japanese:      { finishColor: '#CFCABB', finishPattern: 'tile-600x600', materialName: 'Honed Stone — Muted' },
+    industrial:    { finishColor: '#8C8884', finishPattern: 'seamless',     materialName: 'Polished Concrete — Grey' },
 };
 
 /**
- * Normalise an arbitrary style string to one of the four CANONICAL floor styles
- * (Nordic · Mediterranean · Minimalist · Classic). Accepts the legacy A.21.D4
- * chips (modern→minimalist, minimal→minimalist, warm→mediterranean) + synonyms.
- * Default → 'nordic'.
+ * Normalise an arbitrary style string to one of the SIX CANONICAL floor styles
+ * (Nordic · Mediterranean · Classic · Farmhouse · Japanese · Industrial). ST.2:
+ * extended from four. Kept in LOCK-STEP with the ai-host `resolveStyleId` alias
+ * map (SPEC-INTERIOR-STYLE-SYSTEM §4): the legacy `minimal`/`modern`/
+ * `minimalist`/`contemporary` clean-line chips fold onto JAPANESE; `rustic`/
+ * `countryside` onto FARMHOUSE; `warm`/`cozy` onto MEDITERRANEAN. Default →
+ * 'nordic'.
+ *
+ * NOTE: this is a hand-mirror of `resolveStyleId` (floorFinish.ts cannot import
+ * ai-host without a package cycle). If the alias map changes there, change it
+ * here too (the furnishStyles.test asserts they agree).
  */
 export function normaliseFloorStyle(style: string | undefined): FloorStyle {
     const s = (style ?? '').toLowerCase().trim();
     if (s === 'classic' || s === 'traditional') return 'classic';
-    if (s === 'mediterranean' || s === 'warm' || s === 'rustic' || s === 'cozy' || s === 'cosy') return 'mediterranean';
-    if (s === 'minimalist' || s === 'minimal' || s === 'modern' || s === 'contemporary') return 'minimalist';
+    if (s === 'mediterranean' || s === 'warm' || s === 'cozy' || s === 'cosy') return 'mediterranean';
+    if (s === 'farmhouse' || s === 'rustic' || s === 'countryside' || s === 'country') return 'farmhouse';
+    if (s === 'industrial' || s === 'warehouse' || s === 'loft') return 'industrial';
+    if (s === 'japanese' || s === 'japandi' || s === 'zen'
+        || s === 'minimalist' || s === 'minimal' || s === 'modern' || s === 'contemporary') return 'japanese';
     if (s === 'nordic' || s === 'scandinavian' || s === 'scandi') return 'nordic';
     return 'nordic';
 }

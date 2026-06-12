@@ -43,6 +43,7 @@
 import type { RoomType } from '../types.js';
 import {
     isWindowable,
+    MAX_WINDOW_HEAD_MM,
     WINDOW_SPECS,
     type ExternalWallSegment,
     type OccupiedSpan,
@@ -464,7 +465,20 @@ export function emitWindowsForRoom(
     // junction-bounded interval (the room's main frontage run). Additive — omit for
     // byte-identical legacy/unit-test behaviour on junction-free walls.
     roomCentroidMm?: { readonly x: number; readonly y: number } | null,
+    // ST.5 (SPEC-INTERIOR-STYLE-SYSTEM §6) — the selected interior STYLE's glazing-
+    // size bias. Multiplies the emitted window width AND height, composing
+    // MULTIPLICATIVELY with the per-window climate factor (`width = spec.width ×
+    // climateFactor × glazingBias`). Mediterranean ~1.25 / Nordic ~1.20 earn bigger
+    // windows; Industrial ~0.95 slightly smaller. The biased width is still CLAMPED
+    // to the room band (§WINDOW-SPAN-FIT — never overflows the host wall / corner
+    // piers) and the biased head (sill + height) is capped at MAX_WINDOW_HEAD_MM
+    // (§WINDOW-HEAD-FIT — never pokes above the wall). Absent / 1 / non-finite /
+    // ≤ 0 → NO bias → BYTE-IDENTICAL to the pre-ST.5 emission. Deterministic.
+    glazingBias: number = 1,
 ): readonly WindowPlacement[] {
+    // ST.5 — normalise the bias to a safe positive multiplier; 1 (the default) is a
+    // no-op so the legacy / unit-test path is byte-identical.
+    const bias = Number.isFinite(glazingBias) && glazingBias > 0 ? glazingBias : 1;
     // §DIAG-WIN — per-room window-emission decision (logging only; no behaviour
     // change). The `why` cases below pinpoint WHY a room gets ZERO windows.
     const winTag = roomName ? `${roomName} (${roomType})` : roomType;
@@ -572,8 +586,13 @@ export function emitWindowsForRoom(
     for (const cand of candidates) {
         if (out.length >= maxPerRoom) break;
         const wallLenMm = cand.lenMm;
-        let widthMm = chosenWidthMm;
-        let heightMm = spec.heightMm;
+        // ST.5 — the STYLE glazing bias scales the BASE width/height that the climate
+        // factor then composes with (multiplicative: spec × climate × bias). The
+        // last-resort tier ignores the bias (it already shrinks to a minimal opening
+        // to guarantee a frontage window). bias === 1 → byte-identical base.
+        const styleBias = lastResort ? 1 : bias;
+        let widthMm = chosenWidthMm * styleBias;
+        let heightMm = spec.heightMm * styleBias;
         // A.21.D33(d) — doors AND interior-partition junctions are both treated as
         // blocked spans: the placer slides/drops windows clear of either. Merged so a
         // window is kept off a door footprint AND off any partition-to-shell junction.
@@ -601,16 +620,33 @@ export function emitWindowsForRoom(
             .sort((a, b) => a.lo - b.lo);
         // A.21.D6.3 — climate-driven glazing SIZE: scale each window by the passive-solar
         // factor for the wall's sun-orientation (bigger sun-facing glazing in cold
-        // climates, smaller in hot). Width is clamped so it still hosts within the ROOM's
-        // band; height/sill track. No solar context → unchanged.
+        // climates, smaller in hot). ST.5 — the STYLE glazing bias COMPOSES with the
+        // climate factor MULTIPLICATIVELY: width = spec.width × climateFactor × styleBias.
+        // Width is clamped so it still hosts within the ROOM's band (§WINDOW-SPAN-FIT);
+        // height/sill track. No solar context → only the style bias applies (handled in
+        // the styleBias-only branch below). No solar AND bias 1 → unchanged.
         if (solar && !lastResort) {
             const fit = orientationFit(outwardNormal(cand.w.start, cand.w.end, solar.roomCentroidMm), solar.sunDir);
             const factor = climateGlazingFactor(solar.latDeg, fit);
-            if (factor !== 1) {
+            if (factor !== 1 || styleBias !== 1) {
                 const maxWidth = Math.max(spec.minWidthMm, bandLenMm - 2 * WINDOW_CLEARANCE_MM);
-                widthMm = Math.round(Math.max(spec.minWidthMm, Math.min(chosenWidthMm * factor, maxWidth)));
-                heightMm = Math.round(spec.heightMm * factor);
+                widthMm = Math.round(Math.max(spec.minWidthMm, Math.min(chosenWidthMm * factor * styleBias, maxWidth)));
+                heightMm = Math.round(spec.heightMm * factor * styleBias);
             }
+        } else if (styleBias !== 1 && !lastResort) {
+            // ST.5 — STYLE bias with NO solar context. Apply the same band clamp the
+            // climate branch uses so the biased window still hosts within the room's
+            // portion of the façade (§WINDOW-SPAN-FIT — never overflows the host wall).
+            const maxWidth = Math.max(spec.minWidthMm, bandLenMm - 2 * WINDOW_CLEARANCE_MM);
+            widthMm = Math.round(Math.max(spec.minWidthMm, Math.min(chosenWidthMm * styleBias, maxWidth)));
+            heightMm = Math.round(spec.heightMm * styleBias);
+        }
+        // ST.5 — §WINDOW-HEAD-FIT: a biased-UP window must still fit under the lintel.
+        // Cap the head (sill + height) at MAX_WINDOW_HEAD_MM by trimming height; the
+        // sill is fixed per spec. A biased-down or neutral window is already under the
+        // cap (the base specs are), so this only ever shrinks an over-tall biased one.
+        if (heightMm + spec.sillMm > MAX_WINDOW_HEAD_MM) {
+            heightMm = Math.max(1, MAX_WINDOW_HEAD_MM - spec.sillMm);
         }
         // §WINDOW-EVERY-FRONTAGE — the last-resort tier shrinks the window to fit the
         // ROOM band (corner piers included) so a short shared frontage still hosts one.

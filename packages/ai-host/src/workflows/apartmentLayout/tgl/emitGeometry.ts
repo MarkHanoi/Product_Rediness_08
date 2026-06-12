@@ -49,6 +49,12 @@ export interface EmitGeometryOpts {
         /** A.21.D6.3 — site latitude for climate-driven glazing SIZE. */
         readonly latDeg?: number;
     };
+    /** ST.5 (SPEC-INTERIOR-STYLE-SYSTEM §6) — the selected interior STYLE's
+     *  glazing-size bias, multiplying every emitted window's width/height
+     *  MULTIPLICATIVELY with the climate factor. Absent / 1 → no bias (byte-
+     *  identical window emission). Mediterranean ~1.25 / Nordic ~1.20 bigger;
+     *  Industrial ~0.95 smaller. */
+    readonly glazingBias?: number;
 }
 
 /** Project a LayoutGraph to a LayoutOption (+ aligned GUIDs).
@@ -291,7 +297,8 @@ export function emitGeometry(graph: LayoutGraph, opts?: EmitGeometryOpts): Emitt
         // façade wall (the junction-bounded interval containing the centroid), never a
         // neighbour's. Always available from the room polygon.
         const roomCentroid = (() => { const c = polyCentroid(n); return { x: mm(c.cx), y: mm(c.cz) }; })();
-        const placements = emitWindowsForRoom(rt, externals, roomName, doorSpansByWall, solar, partitionJunctions, roomCentroid);
+        // ST.5 — thread the selected style's glazing bias (default 1 → byte-identical).
+        const placements = emitWindowsForRoom(rt, externals, roomName, doorSpansByWall, solar, partitionJunctions, roomCentroid, opts?.glazingBias ?? 1);
         for (const p of placements) {
             windows.push({
                 wallRef:    p.wallIndex,

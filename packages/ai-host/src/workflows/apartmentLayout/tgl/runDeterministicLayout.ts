@@ -11,9 +11,11 @@ import type { ApartmentConstraints, ApartmentProgram, ScoringWeights, ScoredLayo
 import type { ShellAnalysis } from '../shellAnalysis.js';
 import { scoreLayout } from '../score.js';
 import { enumerateLayouts } from './enumerate.js';
-import { emitGeometry } from './emitGeometry.js';
+import { emitGeometry, type EmitGeometryOpts } from './emitGeometry.js';
 import { principalAxisAngle, rotatePt, projectPartitionEndpointsToShell, type Pt } from './rectDecomposition.js';
 import { equatorFacingDir } from '../windowEmission/solarOrientation.js';
+// ST.5 — the StyleRegistry resolves the brief style to a numeric glazing bias.
+import { glazingBiasFor } from '../../furnishLayout/style/StyleRegistry.js';
 
 const r3 = (n: number): number => Math.round(n * 1000) / 1000;
 
@@ -115,6 +117,12 @@ export function generateDeterministicLayouts(
     // (the modal "Stair" cell), which can sit offset from the shipped-footprint keep-out.
     // Mapped into the engine frame exactly like `keepOutRectsWorld`. Absent ⇒ no effect.
     residualExcludeRectsWorld?: ReadonlyArray<{ x0: number; z0: number; x1: number; z1: number }>,
+    // ST.5 (SPEC-INTERIOR-STYLE-SYSTEM §6) — the selected interior STYLE (brief
+    // value, e.g. 'mediterranean'/'nordic'/'industrial'). Resolved once via the
+    // StyleRegistry to a numeric glazing bias that scales every emitted window
+    // (composing with the climate factor). Absent / unknown → no bias (byte-
+    // identical window emission, since glazingBias defaults to 1).
+    style?: string,
 ): ScoredLayoutOption[] {
     const perimeter = shell.perimeter as Pt[];
     if (!perimeter || perimeter.length < 3) return [];
@@ -143,8 +151,15 @@ export function generateDeterministicLayouts(
     // value (or the D6 default 0.6 inside the emitter) stands — identity when
     // climate is centred (tuning is null).
     const effectiveSolarWeight = tuning?.solarWeight ?? solar?.weight;
-    const emitOpts = emitSun
-        ? { solar: { sunDir: emitSun, ...(effectiveSolarWeight !== undefined ? { weight: effectiveSolarWeight } : {}), ...(solar?.latDeg !== undefined ? { latDeg: solar.latDeg } : {}) } }
+    // ST.5 — resolve the style's glazing bias ONCE. Only thread a non-neutral bias
+    // (≠ 1) so the absent/default-style path produces byte-identical window emission.
+    const glazingBias = style !== undefined ? glazingBiasFor(style) : 1;
+    const hasBias = glazingBias !== 1;
+    const emitOpts: EmitGeometryOpts | undefined = emitSun || hasBias
+        ? {
+            ...(emitSun ? { solar: { sunDir: emitSun, ...(effectiveSolarWeight !== undefined ? { weight: effectiveSolarWeight } : {}), ...(solar?.latDeg !== undefined ? { latDeg: solar.latDeg } : {}) } } : {}),
+            ...(hasBias ? { glazingBias } : {}),
+        }
         : undefined;
 
     // Forward map (world → axis-aligned frame): rotate by −angle about the centroid.

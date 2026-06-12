@@ -1,6 +1,6 @@
 # SPEC-INTERIOR-STYLE-SYSTEM — Platform-wide Interior Design Style System
 
-**Status:** QUEUED (SPEC authored 2026-06-09) · **Tracker:** §32 · **Supersedes scope of:** SPEC-FURNISHING-STYLES (A.21.D19, furniture+floor only)
+**Status:** CORE SHIPPED (ST.1 · ST.2 · ST.3-furniture · ST.5 done 2026-06-12; ST.4/ST.6/ST.7 queued) · **Tracker:** §32 · **Supersedes scope of:** SPEC-FURNISHING-STYLES (A.21.D19, furniture+floor only)
 **Future contract:** warrants a C-number when built (e.g. C5x — Interior Style / Material Authority). SPEC for now.
 
 ## 1. Motivation (founder brief)
@@ -106,13 +106,13 @@ Window widths come from `WINDOW_SPECS[roomType].widthMm` and are already scaled 
 
 ## 8. Phased plan ST.1–ST.7
 
-- **ST.1 — Style descriptor + StyleRegistry.** Author the `Style`/`StylePalette` types + `STYLE_REGISTRY` (6 styles) + `resolveStyle` aliases. Pin exact hexes (reuse `styleFinish.ts`/`floorFinish.ts` for the 3 existing; author Farmhouse/Japanese/Industrial). Pure module + unit tests (distinct palettes, alias resolution, valid hex, default).
-- **ST.2 — Floors to 6 styles.** Add Farmhouse/Japanese/Industrial rows to `floorFinish.ts` timber/wet/dry tables; keep `normaliseFloorStyle` in lock-step with `resolveStyle`.
-- **ST.3 — Wall paint wiring.** Generator stamps `materialColor = palette.wallPaint` on interior wall batch payloads (founder "cream paint interior walls"); optional per-room accent.
-- **ST.4 — Door/window finish.** Style overrides DoorSystemType `frameColor`/`leafColor` + WindowSystemType frame after the per-room TYPE is resolved by `defaultElementTypes.ts` (light wood Nordic, dark walnut Classic, black-metal Industrial).
-- **ST.5 — Glazing-size bias.** Multiply window width/height by `palette.glazingBias` at `emitWindows.ts:433-443`, composing with the climate factor. Mediterranean/Nordic bigger.
-- **ST.6 — Lighting fixtures (optional/later).** Light emitter reads `palette.lighting` fixture family + tone.
-- **ST.7 — Picker + brief.** Replace the 4-option `style` select in both typology manifests (apartment + casa) with the 6 styles; default `nordic`. Wire the modal preview swatch.
+- **ST.1 — Style descriptor + StyleRegistry. ✅ DONE (2026-06-12).** `packages/ai-host/src/workflows/furnishLayout/style/StyleRegistry.ts` — pure LEAF module (zero imports). Exports `STYLE_REGISTRY` (6 `StyleDescriptor`), `STYLE_IDS`, `DEFAULT_STYLE_ID`, `resolveStyleId`/`resolveStyle` (absorbs BOTH legacy alias maps — `styleFinish.ts` ALIASES + `floorFinish.ts` synonyms; `minimal`/`modern`/`minimalist`/`contemporary` fold onto **japanese** per §4), and `glazingBiasFor`. The 3 shipped styles reuse the exact `styleFinish.ts` hexes; Farmhouse/Japanese/Industrial authored fresh. Tests: `__tests__/interiorStyleSystem.test.ts`.
+- **ST.2 — Floors to 6 styles. ✅ DONE (2026-06-12).** `packages/command-registry/src/floors/floorFinish.ts` — `FloorStyle` extended to the 6 ids (legacy `minimalist` key retained for back-compat but folded to japanese in `normaliseFloorStyle`); Farmhouse/Japanese/Industrial rows added to the timber/wet/dry tables; `normaliseFloorStyle` kept LOCK-STEP with `resolveStyleId` (asserted in the new test). Floor authority stays in floorFinish.ts (no ai-host import → no package cycle).
+- **ST.3 — Furniture to 6 styles. ✅ DONE (2026-06-12).** `styleFinish.ts` extended: the 3 NEW styles + their unique synonyms resolve furniture slots from the StyleRegistry; the legacy 4 styles + EVERY legacy alias keep the unchanged `normaliseStyle`/PALETTE_TABLE path → BYTE-IDENTICAL. (The **wall-paint wiring** portion of ST.3 — stamping `materialColor = palette.wallPaint` on interior wall payloads — is the cross-package follow-on and remains QUEUED.)
+- **ST.4 — Door/window finish. QUEUED.** Style overrides DoorSystemType `frameColor`/`leafColor` + WindowSystemType frame after the per-room TYPE is resolved by `defaultElementTypes.ts` (light wood Nordic, dark walnut Classic, black-metal Industrial). Descriptor fields (`doorFinish`/`windowFinish`) authored in ST.1; wiring deferred.
+- **ST.5 — Glazing-size bias. ✅ DONE (2026-06-12).** `emitWindowsForRoom` takes an optional `glazingBias` (default 1 → byte-identical) that multiplies window width/height, composing MULTIPLICATIVELY with the climate factor (`width = spec × climate × bias`). Still respects §WINDOW-SPAN-FIT (band/corner-pier clamp) + §WINDOW-HEAD-FIT (head capped at `MAX_WINDOW_HEAD_MM`). Threaded `EmitGeometryOpts.glazingBias` → `emitGeometry` → `generateDeterministicLayouts(style)` (resolves via `glazingBiasFor`) → `GenerateLayoutInput.style`, the SAME seam as the climate `siteLatitudeDeg`. The editor populating `input.style` is the (small) remaining wiring step.
+- **ST.6 — Lighting fixtures (optional/later). QUEUED.** Light emitter reads `palette.lighting` fixture family + tone (authored in ST.1).
+- **ST.7 — Picker + brief. QUEUED.** Replace the 4-option `style` select in both typology manifests (apartment + casa) with the 6 styles; default `nordic`. Wire the modal preview swatch.
 
 ## 9. Contract note
 

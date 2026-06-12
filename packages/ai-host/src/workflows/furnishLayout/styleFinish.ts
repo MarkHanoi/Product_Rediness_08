@@ -24,6 +24,11 @@
 // The PALETTE_TABLE below is the design of record (see
 // docs/03-execution/specs/SPEC-FURNISHING-STYLES.md). Keep it the single source.
 
+// ST.3 (SPEC-INTERIOR-STYLE-SYSTEM) — the only import: the pure StyleRegistry
+// LEAF module (zero imports itself), source of the three NEW founder styles'
+// furniture slots. The legacy 4-style path below is unchanged (byte-identical).
+import { STYLE_REGISTRY } from './style/StyleRegistry.js';
+
 /** The four CANONICAL furnishing styles (A.21.D19). */
 export type CanonicalStyle = 'nordic' | 'mediterranean' | 'minimalist' | 'classic';
 
@@ -204,6 +209,44 @@ function categoryFor(kind: string): FinishCategory {
     return 'neutral';
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ST.3 (SPEC-INTERIOR-STYLE-SYSTEM) — furniture finish extended to the SIX
+// founder styles. The LEGACY four (nordic/mediterranean/minimalist/classic) and
+// EVERY legacy alias (modern/minimal/warm/…) keep resolving through the
+// unchanged `normaliseStyle` + PALETTE_TABLE path above → BYTE-IDENTICAL output.
+// The THREE NEW styles (farmhouse · japanese · industrial) and their UNIQUE
+// synonyms — none of which were previously legacy aliases — resolve from the
+// pure StyleRegistry. Additive: no legacy input changes meaning.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** New-style ids + their UNIQUE synonyms (disjoint from the legacy ALIASES keys
+ *  so no existing brief value is re-pointed). Maps to the StyleRegistry id. */
+const NEW_STYLE_INPUTS: Readonly<Record<string, 'farmhouse' | 'japanese' | 'industrial'>> = {
+    farmhouse: 'farmhouse',
+    countryside: 'farmhouse',
+    country: 'farmhouse',
+    japanese: 'japanese',
+    japandi: 'japanese',
+    zen: 'japanese',
+    industrial: 'industrial',
+    warehouse: 'industrial',
+    loft: 'industrial',
+};
+
+/** When `style` names one of the three NEW founder styles, return its
+ *  StyleRegistry furniture slots; otherwise null (caller uses the legacy path).
+ *  StyleRegistry is a LEAF module (zero imports) so a static import has no cycle. */
+function newStyleSlots(
+    style: unknown,
+    category: FinishCategory,
+): { readonly color: string; readonly material: FurnishFinish } | null {
+    if (typeof style !== 'string') return null;
+    const id = NEW_STYLE_INPUTS[style.toLowerCase().trim()];
+    if (!id) return null;
+    const slot = STYLE_REGISTRY[id].furniture[category];
+    return { color: slot.color, material: slot.material as FurnishFinish };
+}
+
 /**
  * Resolve the {color, material} finish for a furniture `kind` under `style`.
  * `style` may be a canonical id, a legacy chip, or any string (normalised).
@@ -216,9 +259,14 @@ export function styleFinishFor(
     style: FurnishStyle | string,
     kind: string,
 ): { readonly color: string; readonly material: FurnishFinish } {
+    const category = categoryFor(kind);
+    // ST.3 — the three NEW founder styles resolve from the StyleRegistry; every
+    // legacy id/alias falls through to the unchanged PALETTE_TABLE path below.
+    const ns = newStyleSlots(style, category);
+    if (ns) return ns;
     const canonical = normaliseStyle(style);
     const palette = PALETTE_TABLE[canonical];
-    const slot = palette[categoryFor(kind)];
+    const slot = palette[category];
     return { color: slot.color, material: slot.material };
 }
 
@@ -230,6 +278,14 @@ export function styleFinishFor(
 export function styleAccentsFor(
     style: FurnishStyle | string,
 ): { readonly floorColor: string; readonly wallAccent: string } {
+    // ST.3 — new founder styles resolve their accents from the StyleRegistry.
+    if (typeof style === 'string') {
+        const id = NEW_STYLE_INPUTS[style.toLowerCase().trim()];
+        if (id) {
+            const d = STYLE_REGISTRY[id];
+            return { floorColor: d.floorColor, wallAccent: d.wallAccent };
+        }
+    }
     const p = PALETTE_TABLE[normaliseStyle(style)];
     return { floorColor: p.floorColor, wallAccent: p.wallAccent };
 }

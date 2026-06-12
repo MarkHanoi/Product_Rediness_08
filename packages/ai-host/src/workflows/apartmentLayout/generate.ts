@@ -66,6 +66,13 @@ export interface GenerateLayoutInput {
      *  D-TGL offline engine; the AI path ignores it. Absent ⇒ engine defaults
      *  (identity — byte-identical to pre-A.25.3 behaviour). */
     tuning?: EngineTuning;
+    /** ST.5 (SPEC-INTERIOR-STYLE-SYSTEM §6) — the selected interior STYLE (brief
+     *  value, e.g. 'mediterranean'/'nordic'/'industrial'). Forwarded to D-TGL,
+     *  which resolves it via the StyleRegistry to a glazing-size bias scaling every
+     *  emitted window (Mediterranean/Nordic bigger, Industrial smaller). Threads the
+     *  SAME way `siteLatitudeDeg` (the climate factor) does. Absent / unknown ⇒ no
+     *  bias (byte-identical window emission). The AI path ignores it. */
+    style?: string;
 }
 
 export interface GenerateLayoutResult {
@@ -227,6 +234,8 @@ export async function generateLayoutOptions(
             input.siteLatitudeDeg !== undefined ? { latDeg: input.siteLatitudeDeg } : undefined,
             undefined, undefined,
             input.tuning,
+            undefined,      // residualExcludeRectsWorld
+            input.style,    // ST.5 — glazing-size bias
         );
         if (deterministic.length > 0) {
             return { options: deterministic, status: 'ok', attempts: attempt, reason: 'AI unavailable — deterministic D-TGL offline layout' };
@@ -313,6 +322,8 @@ export async function generateLayoutOptions(
                 input.siteLatitudeDeg !== undefined ? { latDeg: input.siteLatitudeDeg } : undefined,
                 undefined, undefined,
                 input.tuning,
+                undefined,      // residualExcludeRectsWorld
+                input.style,    // ST.5 — glazing-size bias
             );
             if (dtgl2.length > 0) {
                 return {
