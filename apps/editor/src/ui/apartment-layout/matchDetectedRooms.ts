@@ -19,6 +19,15 @@ export interface EngineRoom {
     /** Centroid in the SAME frame as the detected polygons (metres, world XZ). */
     readonly cx: number;
     readonly cz: number;
+    /** §ROOM-NAME-ROBUST (founder full-house test, 2026-06-12) — the engine room's
+     *  OWN footprint polygon (world XZ, metres), when the layout supplies it. Lets
+     *  the fallback pass match by CROSS-CONTAINMENT (detected centroid inside the
+     *  engine polygon) and by max polygon-OVERLAP, not centroid distance alone — so
+     *  a detected cell whose own centroid drifts just outside the engine centroid
+     *  (open-plan / slightly-off Living/Dining) is still named, instead of keeping
+     *  the editor's "Room NN-NNN" fallback. Optional: absent ⇒ distance-only
+     *  fallback (byte-identical to the prior behaviour, ADR-0061). */
+    readonly polygon?: ReadonlyArray<{ readonly x: number; readonly z: number }>;
 }
 
 export interface DetectedRoomPoly {
@@ -41,6 +50,35 @@ export function pointInPolygon(
         if (((zi > pz) !== (zj > pz)) && (px < ((xj - xi) * (pz - zi)) / (zj - zi) + xi)) hit = !hit;
     }
     return hit;
+}
+
+/** Mean of a polygon's vertices (world XZ, metres). A cheap, winding-agnostic
+ *  centroid proxy — good enough for the nearest-room tie-break. */
+function polyMean(poly: ReadonlyArray<{ readonly x: number; readonly z: number }>): { cx: number; cz: number } {
+    let cx = 0, cz = 0;
+    for (const p of poly) { cx += p.x; cz += p.z; }
+    return { cx: cx / poly.length, cz: cz / poly.length };
+}
+
+/** §ROOM-NAME-ROBUST — a deterministic overlap PROXY between an engine room and a
+ *  detected polygon, returned as a small ordered score (higher = stronger match):
+ *    2  the detected centroid lies inside the engine polygon (and/or vice-versa)
+ *    1  only one of the cross-containment tests passes
+ *    0  neither — fall back to centroid distance only.
+ *  No polygon clipping (which would need robust non-convex intersection); the two
+ *  cross-containment tests catch the founder's "centroid drifted just outside"
+ *  failure mode cheaply and deterministically. When the engine room has no polygon
+ *  the score is 0 and the match degrades to nearest-centroid (prior behaviour). */
+function containmentScore(
+    engine: EngineRoom,
+    detPoly: ReadonlyArray<{ readonly x: number; readonly z: number }>,
+    detCx: number,
+    detCz: number,
+): number {
+    let s = 0;
+    if (engine.polygon && engine.polygon.length >= 3 && pointInPolygon(detCx, detCz, engine.polygon)) s++;
+    if (detPoly.length >= 3 && pointInPolygon(engine.cx, engine.cz, detPoly)) s++;
+    return s;
 }
 
 /**
@@ -78,7 +116,12 @@ export function matchDetectedRooms(
         renames.push({ roomId, name: compoundName, ...(dominantOccupancy ? { occupancy: dominantOccupancy } : {}) });
     };
 
-    interface Pending { id: string; cx: number; cz: number }
+    interface Pending {
+        id: string;
+        cx: number;
+        cz: number;
+        poly: ReadonlyArray<{ readonly x: number; readonly z: number }>;
+    }
     const unmatched: Pending[] = [];
 
     // Pass 1 — direct centroid-in-polygon containment (uniqueness-tracked).
@@ -91,21 +134,35 @@ export function matchDetectedRooms(
             pushRename(room.id, hits);
             continue;
         }
-        let cx = 0, cz = 0;
-        for (const p of poly) { cx += p.x; cz += p.z; }
-        cx /= poly.length; cz /= poly.length;
-        unmatched.push({ id: room.id, cx, cz });
+        const { cx, cz } = polyMean(poly);
+        unmatched.push({ id: room.id, cx, cz, poly });
     }
 
-    // Pass 2 — nearest fallback over STILL-UNUSED engine rooms, nearest-first.
-    const candidates: Array<{ p: Pending; t: EngineRoom; d: number }> = [];
+    // Pass 2 — §ROOM-NAME-ROBUST fallback over STILL-UNUSED engine rooms. The prior
+    // pass paired purely on centroid DISTANCE, so a detected cell whose centroid
+    // drifted just outside its engine room's centroid lost the race to a closer (but
+    // wrong) engine room, and — once the right engine room was consumed by another
+    // cell — stayed UNNAMED (the founder's "Room 00-001"/"Room 01-003" for Living /
+    // Dining). Now each (detected, engine) pair is ranked by CROSS-CONTAINMENT first
+    // (detected centroid inside the engine polygon, or vice-versa) and only then by
+    // distance, so the correctly-overlapping engine room wins even when neither
+    // centroid sits exactly inside the other. Still a strict BIJECTION (each engine
+    // room names ≤1 detected room) so the duplicate-"Stair" guard holds, and fully
+    // deterministic — score desc, distance asc, then id tie-breaks (ADR-0061).
+    const candidates: Array<{ p: Pending; t: EngineRoom; score: number; d: number }> = [];
     for (const p of unmatched) {
         for (const t of tgl) {
             const d = (t.cx - p.cx) * (t.cx - p.cx) + (t.cz - p.cz) * (t.cz - p.cz);
-            candidates.push({ p, t, d });
+            const score = containmentScore(t, p.poly, p.cx, p.cz);
+            candidates.push({ p, t, score, d });
         }
     }
-    candidates.sort((a, b) => a.d - b.d);
+    candidates.sort((a, b) =>
+        (b.score - a.score) ||           // stronger cross-containment first
+        (a.d - b.d) ||                   // then nearest centroid
+        (a.p.id < b.p.id ? -1 : a.p.id > b.p.id ? 1 : 0) ||   // deterministic id tie-break
+        (a.t.name < b.t.name ? -1 : a.t.name > b.t.name ? 1 : 0),
+    );
     const claimedRooms = new Set<string>();
     for (const c of candidates) {
         if (claimedRooms.has(c.p.id) || usedTgl.has(c.t)) continue;

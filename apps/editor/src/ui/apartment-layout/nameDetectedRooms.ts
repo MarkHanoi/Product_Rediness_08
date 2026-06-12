@@ -49,9 +49,20 @@ export function nameDetectedRooms(
         if (!roomStore?.getByLevel) return;
 
         // D-TGL rooms with world centroids (mm→m, plan-y = world-z), largest first.
+        // §ROOM-NAME-ROBUST (founder full-house test, 2026-06-12) — also carry each
+        // engine room's footprint polygon (mm→m, plan-y = world-z) when the layout
+        // supplies one, so the matcher's fallback can pair by CROSS-CONTAINMENT /
+        // overlap (not centroid distance alone). Missing polygon ⇒ distance-only
+        // fallback (byte-identical to the prior behaviour).
         const tgl = option.rooms
             .filter(r => r.centroid)
-            .map(r => ({ name: r.name, occupancy: r.occupancy, area: r.area, cx: r.centroid!.x / 1000, cz: r.centroid!.y / 1000 }))
+            .map(r => ({
+                name: r.name, occupancy: r.occupancy, area: r.area,
+                cx: r.centroid!.x / 1000, cz: r.centroid!.y / 1000,
+                ...(r.polygon && r.polygon.length >= 3
+                    ? { polygon: r.polygon.map(p => ({ x: p.x / 1000, z: p.y / 1000 })) }
+                    : {}),
+            }))
             .sort((a, b) => b.area - a.area);
         if (tgl.length === 0) return;
 

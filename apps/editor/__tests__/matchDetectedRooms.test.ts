@@ -94,6 +94,35 @@ describe('matchDetectedRooms — §ROOM-NAME-BIJECTIVE', () => {
         expect(renames[0]!.occupancy).toBe('kitchen');       // dominant (largest-area first)
     });
 
+    it('§ROOM-NAME-ROBUST — a detected cell whose centroid drifts OUTSIDE the engine centroid is still named (no "Room NN" fallback)', () => {
+        // Founder full-house defect: modal had "Living" + "Dining"; the BUILT cells
+        // came out "Room 00-001"/"Room 00-007". Reproduce the failure shape: the
+        // engine Living/Dining centroids do NOT land inside their own detected cells
+        // (the detected polygons drifted), and a sibling cell sits BETWEEN them so a
+        // pure-distance fallback would mis-assign and leave one cell unnamed.
+        const engine: EngineRoom[] = [
+            // Engine Living centroid at x=2; its detected cell is centred at x=4 (drift).
+            { name: 'Living', occupancy: 'living-room', area: 25, cx: 2, cz: 3,
+              polygon: [{ x: 0, z: 0 }, { x: 5, z: 0 }, { x: 5, z: 6 }, { x: 0, z: 6 }] },
+            // Engine Dining centroid at x=9; its detected cell is centred at x=7 (drift).
+            { name: 'Dining', occupancy: 'dining-room', area: 12, cx: 9, cz: 3,
+              polygon: [{ x: 6, z: 0 }, { x: 11, z: 0 }, { x: 11, z: 6 }, { x: 6, z: 6 }] },
+        ];
+        const detected: DetectedRoomPoly[] = [
+            squareRoom('living-cell', 4, 3, 1.6),   // centroid (4,3) — inside engine Living poly
+            squareRoom('dining-cell', 7, 3, 1.6),   // centroid (7,3) — inside engine Dining poly
+        ];
+
+        const { renames, unmatched } = matchDetectedRooms(engine, detected);
+        const byId = new Map(renames.map(r => [r.roomId, r]));
+        // BOTH cells named via cross-containment — neither falls back to "Room NN".
+        expect(unmatched).toBe(0);
+        expect(byId.get('living-cell')!.name).toBe('Living');
+        expect(byId.get('dining-cell')!.name).toBe('Dining');
+        // Still a bijection — each engine room used exactly once.
+        expect(renames).toHaveLength(2);
+    });
+
     it('is deterministic (same inputs → identical renames)', () => {
         const engine: EngineRoom[] = [
             { name: 'Stair', occupancy: 'stair', area: 5.6, cx: 6, cz: 8 },

@@ -1131,21 +1131,23 @@ export class HouseLayoutExecutor {
                 // awaits that storey's `apartment.room-name-completed` event before
                 // furnishing it, so EVERY storey (ground included) is tagged first.
                 const optionByLevel = new Map(perStorey.map(s => [s.levelId, s.option] as const));
-                // §LANDING-NOT-HALL (G14, 2026-06-09) — the stair arrives on an UPPER
-                // storey at a LANDING, not an entrance hall. The engine no longer mints
-                // a `hall`/"Entrance Hall" on upper storeys (storeyAllocation +
-                // houseProgramFloor leave entranceHall OFF); the stair-arrival
-                // circulation is the engine's `corridor`. RELABEL that corridor "Landing"
-                // on upper storeys (storeyIndex > 0) so it reads as a stair landing, not
-                // a generic corridor. GROUND (levelIds[0]) is untouched — it keeps its
-                // real "Entrance Hall". Pure metadata: we clone the option + rename only
-                // the corridor room's display name (type/occupancy unchanged), so the
-                // furnish/floor/ceiling occupancy keys are byte-identical.
+                // §UPPER-CIRCULATION-CORRIDOR (founder full-house test, 2026-06-12) —
+                // the stair arrives on an UPPER storey into the engine's `corridor`
+                // circulation space. The engine no longer mints a `hall`/"Entrance Hall"
+                // on upper storeys (storeyAllocation + houseProgramFloor leave
+                // entranceHall OFF). This circulation room must read "Corridor" — the
+                // founder is explicit it is the upper-floor CORRIDOR, not a "Landing"
+                // (a "Landing" is only the small step-off cell at the top of the stair,
+                // which is the `stair` void, named separately). GROUND (levelIds[0]) is
+                // untouched — it keeps its real "Entrance Hall". Pure metadata: we clone
+                // the option + rename only the corridor room's display name (type /
+                // occupancy unchanged), so the furnish/floor/ceiling occupancy keys are
+                // byte-identical. Supersedes §LANDING-NOT-HALL (G14, 2026-06-09).
                 const groundLevelId = levelIds[0];
                 const relabelUpperCirculation = (option: ScoredLayoutOption): ScoredLayoutOption => ({
                     ...option,
                     rooms: option.rooms.map(r =>
-                        r.type === 'corridor' ? { ...r, name: 'Landing' } : r,
+                        r.type === 'corridor' ? { ...r, name: 'Corridor' } : r,
                     ),
                 });
                 const nameStorey = (levelId: string): void => {
