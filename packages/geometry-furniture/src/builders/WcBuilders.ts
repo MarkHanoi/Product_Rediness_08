@@ -103,7 +103,10 @@ export class WcMirrorBuilder implements IFurnitureBuilder {
         // group root by FurnitureFragmentBuilder (baseOffset).
         const BASE = 0;
 
-        const frameMat = this.materialService.getMaterial(0x303030, 'standard') as THREE.MeshStandardMaterial;
+        // §63.6 (2026-06-12) — brushed-metal frame (was near-black 0x303030 → the
+        // whole mirror read dark). Light satin-chrome + slim reveal so the
+        // reflective glass dominates.
+        const frameMat = this.materialService.getMaterial(0x9aa0a6, 'standard') as THREE.MeshStandardMaterial;
         // §63.1 — reflective mirror glass (was a dark-emissive slab → rendered BLACK).
         const glassMat = makeMirrorMaterial();
 
@@ -113,13 +116,13 @@ export class WcMirrorBuilder implements IFurnitureBuilder {
         frame.position.set(0, BASE + H / 2, 0);
         group.add(frame);
 
-        // Glass face — slightly proud of the front.
-        const FRAME_THK = 0.02;
+        // Glass face — proud of the front, thin reveal so the mirror fills the panel.
+        const FRAME_THK = 0.015;
         const glassW = Math.max(0.1, W - FRAME_THK * 2);
         const glassH = Math.max(0.1, H - FRAME_THK * 2);
-        const glassGeo = new THREE.BoxGeometry(glassW, glassH, L * 0.5);
+        const glassGeo = new THREE.BoxGeometry(glassW, glassH, Math.max(0.01, L * 0.6));
         const glass = new THREE.Mesh(glassGeo, glassMat);
-        glass.position.set(0, BASE + H / 2, L / 2 + 0.001);
+        glass.position.set(0, BASE + H / 2, L / 2 + 0.002);
         group.add(glass);
 
         tagEdge30(group);

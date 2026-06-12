@@ -23,18 +23,31 @@ export const MIRROR_SILVER = 0xeef2f4;
 /**
  * Build the reflective mirror-glass material.
  *
- * - `metalness: 1.0`        — a mirror is a pure metallic reflector.
- * - `roughness: 0.04`       — near-mirror-smooth (0.03–0.08 reads as glass mirror).
+ * - `metalness: 0.95`       — a near-pure metallic reflector (a hair under 1.0 so
+ *                             a sliver of diffuse remains → never pitch-black when
+ *                             no env map is bound; pure metal has NO diffuse term
+ *                             and relies entirely on reflections, which is exactly
+ *                             how the §63.1 fix could still read dark in the
+ *                             default no-IBL scene the founder tested).
+ * - `roughness: 0.06`       — near-mirror-smooth, but rough enough that direct
+ *                             scene lights produce a visible specular highlight
+ *                             (a perfectly smooth metal with no env map shows
+ *                             almost nothing).
  * - `color: MIRROR_SILVER`  — light silvery tint so it never renders dark.
- * - `envMapIntensity: 1.6`  — boost any available scene reflection (IBL / env map);
+ * - `envMapIntensity: 1.8`  — boost any available scene reflection (IBL / env map);
  *                             harmless when no env map is bound.
- * - NO `emissive` darkening  — the previous dark emissive is what made it read black.
+ * - `emissive` faint silver  — a small floor brightness so the panel reads as a
+ *                             bright mirror even in a flat / unlit preview. This is
+ *                             a LIFT (light), not the §63.1-era dark emissive that
+ *                             made it read black.
  */
 export function makeMirrorMaterial(color: number = MIRROR_SILVER): THREE.MeshStandardMaterial {
     return new THREE.MeshStandardMaterial({
         color,
-        metalness: 1.0,
-        roughness: 0.04,
-        envMapIntensity: 1.6,
+        metalness: 0.95,
+        roughness: 0.06,
+        envMapIntensity: 1.8,
+        emissive: new THREE.Color(0x222a30),
+        emissiveIntensity: 0.35,
     });
 }

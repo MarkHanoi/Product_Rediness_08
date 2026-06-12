@@ -66,24 +66,38 @@ export class VanityUnitBuilder implements IFurnitureBuilder {
         // truncated cone tapering DOWN into the counter) + a bowl floor BELOW the
         // counter surface + a drain. The cavity is recessed ~90 mm below the top, so
         // it reads as a proper washbasin you can see into.
+        // §63.7 (2026-06-12) — DEEPER, WIDER basin bowl. The §63.4 recess was real
+        // but too small/shallow (rim radius ≈ 0.11 m, 90 mm deep) so it still read
+        // as a "flat disk" in the 3D view (founder #10c). We widen the bowl to fill
+        // the counter, deepen the recess, and add a COUNTERTOP RING that sits flush
+        // around the bowl so the cavity reads as a subtracted hole in the worktop.
         const basinMat = this.materialService.getMaterial(0xffffff, 'standard') as THREE.MeshStandardMaterial;
         const counterTopY = bodyH + COUNTER_THK;                 // counter top surface
-        const basinR = Math.min(W, L) * 0.22;                    // bowl rim radius
-        const BOWL_DEPTH = 0.09;                                 // recess depth below the top
-        const bowlFloorR = basinR * 0.55;                        // narrower at the bottom
+        const basinR = Math.min(W * 0.30, L * 0.36);             // wider bowl rim radius
+        const BOWL_DEPTH = 0.13;                                  // deeper recess below the top
+        const bowlFloorR = basinR * 0.5;                         // narrower at the bottom (concave)
         const bowlFloorY = counterTopY - BOWL_DEPTH;             // recessed floor height
 
-        // Rim ring — a low torus-like ring at the top edge of the bowl (a thin
-        // raised lip framing the recess).
-        const RIM_RING = 0.018;
-        const rimGeo = new THREE.CylinderGeometry(basinR + RIM_RING, basinR + RIM_RING, 0.012, 28, 1, false);
+        // Counter RING — a flush annulus around the bowl so the worktop visibly
+        // wraps the recess (the "hole in the countertop" read). A flat ring disc
+        // sitting on the counter top, with the bowl opening cut conceptually inside.
+        const ringGeo = new THREE.RingGeometry(basinR, basinR + 0.10, 36);
+        const ringMat = stoneMat;
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.set(0, counterTopY + 0.002, 0);
+        group.add(ring);
+
+        // Rim ring — a low raised lip at the top edge of the bowl (frames the recess).
+        const RIM_RING = 0.015;
+        const rimGeo = new THREE.CylinderGeometry(basinR + RIM_RING, basinR + RIM_RING, 0.01, 32, 1, false);
         const rim = new THREE.Mesh(rimGeo, basinMat);
-        rim.position.set(0, counterTopY + 0.006, 0);
+        rim.position.set(0, counterTopY + 0.005, 0);
         group.add(rim);
 
         // Inner bowl WALL — open-ended truncated cone tapering inward+down (the
-        // visible inside surface of the basin). Open-ended so you see into it.
-        const bowlWallGeo = new THREE.CylinderGeometry(basinR, bowlFloorR, BOWL_DEPTH, 28, 1, true);
+        // visible concave inside surface). Open-ended so you see into the hole.
+        const bowlWallGeo = new THREE.CylinderGeometry(basinR, bowlFloorR, BOWL_DEPTH, 32, 1, true);
         const bowlWall = new THREE.Mesh(bowlWallGeo, basinMat);
         bowlWall.position.set(0, counterTopY - BOWL_DEPTH / 2, 0);
         group.add(bowlWall);
@@ -91,9 +105,9 @@ export class VanityUnitBuilder implements IFurnitureBuilder {
         // Bowl FLOOR — a small disc at the bottom of the recess (slightly darker so
         // the cavity reads as depth) with a drain hole hint at the centre.
         const bowlFloorMat = basinMat.clone();
-        bowlFloorMat.color = new THREE.Color(0xf0efe9);
+        bowlFloorMat.color = new THREE.Color(0xeae9e2);
         bowlFloorMat.roughness = 0.5;
-        const bowlFloorGeo = new THREE.CylinderGeometry(bowlFloorR, bowlFloorR, 0.01, 24);
+        const bowlFloorGeo = new THREE.CylinderGeometry(bowlFloorR, bowlFloorR, 0.01, 28);
         const bowlFloor = new THREE.Mesh(bowlFloorGeo, bowlFloorMat);
         bowlFloor.position.set(0, bowlFloorY + 0.005, 0);
         group.add(bowlFloor);
@@ -150,7 +164,10 @@ export class BathroomMirrorBuilder implements IFurnitureBuilder {
         // group root by FurnitureFragmentBuilder (baseOffset).
         const BASE = 0;
 
-        const frameMat = this.materialService.getMaterial(0x303030, 'standard') as THREE.MeshStandardMaterial;
+        // §63.6 (2026-06-12) — brushed-metal frame (was near-black 0x303030, which
+        // made the whole mirror read dark even with the reflective glass). A light
+        // satin-chrome frame + a slim profile so the reflective glass dominates.
+        const frameMat = this.materialService.getMaterial(0x9aa0a6, 'standard') as THREE.MeshStandardMaterial;
         // §63.1 — reflective mirror glass (was a dark-emissive slab → rendered BLACK).
         const glassMat = makeMirrorMaterial();
 
@@ -160,13 +177,14 @@ export class BathroomMirrorBuilder implements IFurnitureBuilder {
         frame.position.set(0, BASE + H / 2, 0);
         group.add(frame);
 
-        // Glass face — slightly proud of the front
-        const FRAME_THK = 0.025;
+        // Glass face — proud of the front, thin frame reveal so the mirror fills
+        // most of the panel (reads as a mirror, not a framed dark board).
+        const FRAME_THK = 0.018;
         const glassW = W - FRAME_THK * 2;
         const glassH = H - FRAME_THK * 2;
-        const glassGeo = new THREE.BoxGeometry(glassW, glassH, L * 0.5);
+        const glassGeo = new THREE.BoxGeometry(glassW, glassH, Math.max(0.01, L * 0.6));
         const glass = new THREE.Mesh(glassGeo, glassMat);
-        glass.position.set(0, BASE + H / 2, L / 2 + 0.001);
+        glass.position.set(0, BASE + H / 2, L / 2 + 0.002);
         group.add(glass);
 
         tagEdge30(group);
