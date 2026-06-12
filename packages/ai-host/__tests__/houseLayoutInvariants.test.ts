@@ -325,12 +325,19 @@ describe('§PROJECT-NORTH: RIGID-TRANSFORM-LAST weld dissolves the rotated-plate
     // The §53 plate: 13×10 m rotated 45° (the worst-case principal-axis rotation).
     const SKEW_POLY = rotatedRect(13, 10, 45);
 
-    it('the 45°-rotated plate HAS an open seam under the world-frame weld at tight tolerance', () => {
+    it('the 45°-rotated plate world-frame weld leaves NO unsealed residual (overlap-net cleaned the layout)', () => {
+        // HISTORICAL NOTE (§ROOM-OVERLAP-NET, founder defect #3, 2026-06-12): this test ORIGINALLY
+        // asserted the world-frame weld leaves an open seam > 0.30 m on the 45° plate — the residual
+        // that motivated the project-north weld. The §ROOM-OVERLAP-NET now CLIPS the ~0.8 m² room-
+        // over-room overlap that `snapAxisLines` previously left on this rotated plate (the founder's
+        // "extremely forbidden" overlap), so the layout that reaches the weld is CLEANER and the plain
+        // world-frame weld already lands within tolerance. The project-north weld's value is still
+        // fully covered by the sibling tests below (it seals at EVERY rotation, drops no divider, and
+        // is byte-identical on an axis-aligned plate). Here we lock the improvement: the world-frame
+        // weld now leaves no unsealed seam beyond the corner-snap tolerance.
         const { partitions, shell } = partitionsFor(SKEW_POLY);
-        // The original (pre-band-aid) TIGHT weld in the WORLD frame leaves the residual:
-        // an endpoint > 0.30 m corner-snap from its mate → the merge gap §53 reports.
         const worldTight = weldPartitionsToShell(partitions, shell, { shellSnapTolM: 0.30, partitionWeldTolM: 0.05 });
-        expect(worstSeal(worldTight, shell)).toBeGreaterThan(0.30);
+        expect(worstSeal(worldTight, shell)).toBeLessThanOrEqual(0.30);
     });
 
     it('§PROJECT-NORTH closes EVERY seam on the 45° plate (residual ≤ corner-snap, NO dropped divider)', () => {

@@ -1096,7 +1096,12 @@ describe('computeObjectives (TGL P7)', () => {
             expect(d.privateRooms).toBe(2);
             expect(d.directAccess).toBe(1);
             expect(d.servedThrough).toBe(1);
-            expect(d.score).toBeCloseTo(0.5, 6);
+            // §CORRIDOR-CONNECTOR (founder #1, 2026-06-12) — the score is now PRIORITY-WEIGHTED:
+            // the bedroom (weight 1.0) doors onto the corridor; the ensuite (weight 0.3, reached
+            // via its master by design) does not. Score = wServed/wTotal = 1.0/(1.0+0.3) ≈ 0.769.
+            // The high-priority bedroom IS directly served, so the layout rightly scores ABOVE the
+            // old unweighted 1/2 — the ensuite's missing corridor door is expected, not a defect.
+            expect(d.score).toBeCloseTo(1.0 / 1.3, 6);
         });
 
         it('every axis stays in [0, 1] on the real pipeline graph (with the two new axes)', () => {

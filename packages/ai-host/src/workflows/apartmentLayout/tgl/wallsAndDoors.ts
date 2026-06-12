@@ -608,6 +608,13 @@ export { repairSegments as __repairSegmentsForTest, JUNCTION_WELD_TOL_M as __JUN
  * back-compat). Caller can override via `opts.doorWidthM` — when set,
  * that width is used uniformly (back-compat for tests).
  */
+/** §DOOR-NO-CLASH (founder defect #7, 2026-06-12) — minimum separation (m) the door pipeline keeps
+ *  between two door openings on the SAME room's walls (and the clearance their swings need not to
+ *  overlap). A door leaf is ~the door width; 0.5 m of clear wall between two leaves (and between a
+ *  leaf and a perpendicular corner door) keeps the swings from colliding while staying small enough
+ *  that a normal corridor can still host all its doors. Deterministic constant (no RNG). */
+const DOOR_SWING_CLEAR_M = 0.5;
+
 const DOOR_WIDTH_BY_KIND = {
     SOCIAL_FLOW:          1.10,
     CEREMONIAL_THRESHOLD: 1.00,
@@ -827,6 +834,20 @@ export function buildWallsAndDoors(
     let oid = 0;
     let compromises = 0;
 
+    // §DOOR-NO-CLASH (founder defect #7, 2026-06-12) — doors must not be placed too close
+    // together / with overlapping swings, ESPECIALLY in a small corridor that hosts many doors.
+    // `findClearOffset` already slides a door clear of perpendicular WALL endpoints (so a partition
+    // never slices the cavity); this adds the symmetric guard against an existing DOOR LEAF. We
+    // record each placed door's two world endpoints + the rooms it serves; when a NEW door is sized
+    // on a wall, any already-placed door leaf within DOOR_SWING_CLEAR_M of the host line (a door at
+    // a shared corner, or another door on the same room's adjacent wall) becomes a BLOCKED point the
+    // new door slides clear of — so two door openings keep a min separation and their swings don't
+    // collide. Deterministic (offsets come from the deterministic findClearOffset). On a wall with
+    // room to slide this never changes connectivity (the door is still placed); only its OFFSET
+    // moves. A 1-door-per-room apartment corridor has no second door to clash → byte-identical.
+    interface PlacedDoor { readonly p0: Pt; readonly p1: Pt; readonly rooms: ReadonlySet<string> }
+    const placedDoors: PlacedDoor[] = [];
+
     // §BEDROOM-ENSUITE-2DOOR (founder rule, 2026-06-10) — per-INSTANCE ensuite
     // pairing. The bubble graph stamps `ensuiteHostId` on each ensuite with the
     // id of the bedroom/master that hosts it. We build the symmetric pair set so
@@ -907,12 +928,42 @@ export function buildWallsAndDoors(
                 crossings.push(t);
             }
         }
-        if (crossings.length === 0) return centred;
 
-        // A blocked zone for an endpoint at parameter `t` is [t - width, t]:
-        // any door offset inside that zone has the endpoint inside [off, off+width].
+        // §DOOR-NO-CLASH (founder defect #7) — add a blocked point for every ALREADY-PLACED door
+        // whose leaf would clash with a door on THIS host: project each placed door's two endpoints
+        // onto the host line and, when an endpoint lies within DOOR_SWING_CLEAR_M of the host wall
+        // (a door at a shared corridor corner, or another door on the same room's adjacent wall),
+        // treat that projection as a crossing the new door must keep DOOR_SWING_CLEAR_M clear of.
+        // We only guard against doors that SHARE A ROOM with the host wall (the same corridor /
+        // room hosts both leaves — the clash the founder reported); doors in unrelated rooms can
+        // never collide. The `width`-zone in `blocked` (below) is widened by the swing clearance so
+        // two openings keep a real gap, not merely non-overlapping footprints.
+        const hostRooms = new Set(host.boundsRoomIds);
+        const swingPoints: number[] = [];
+        for (const d of placedDoors) {
+            let sharesRoom = false;
+            for (const rid of d.rooms) if (hostRooms.has(rid)) { sharesRoom = true; break; }
+            if (!sharesRoom) continue;
+            for (const p of [d.p0, d.p1]) {
+                const wx = p.x - host.a.x, wz = p.z - host.a.z;
+                const t = wx * ux + wz * uz;
+                if (t < -DOOR_SWING_CLEAR_M || t > len + DOOR_SWING_CLEAR_M) continue;
+                const perpX = wx - t * ux, perpZ = wz - t * uz;
+                if (Math.hypot(perpX, perpZ) > DOOR_SWING_CLEAR_M + 1e-3) continue;
+                swingPoints.push(Math.max(0, Math.min(len, t)));
+            }
+        }
+        if (crossings.length === 0 && swingPoints.length === 0) return centred;
+
+        // A blocked zone for a WALL-endpoint crossing at `t` is [t - width, t]: any door offset
+        // inside that zone puts the endpoint inside the cavity [off, off+width]. A §DOOR-NO-CLASH
+        // swing point at `t` blocks the WIDER zone [t - width - swing, t + swing]: the new door must
+        // keep DOOR_SWING_CLEAR_M clear of an existing door leaf on either side (so two openings
+        // never abut and their swings don't overlap).
+        const sw = DOOR_SWING_CLEAR_M;
         const blocked = (off: number): boolean =>
-            crossings.some(t => off > t - width - EPS && off < t + EPS);
+            crossings.some(t => off > t - width - EPS && off < t + EPS)
+            || swingPoints.some(t => off > t - width - sw - EPS && off < t + sw + EPS);
         if (!blocked(centred)) return centred;
 
         // Candidate offsets: just outside each blocked zone, plus the two wall
@@ -922,6 +973,10 @@ export function buildWallsAndDoors(
             candidates.push(t + EPS);            // door starts just after the endpoint
             candidates.push(t - width - EPS);    // door ends just before the endpoint
         }
+        for (const t of swingPoints) {
+            candidates.push(t + sw + EPS);             // door starts a swing-clearance past the leaf
+            candidates.push(t - width - sw - EPS);     // door ends a swing-clearance before the leaf
+        }
         // §DOOR-APPROACH-QUALITY (2026-06-08, F3 P2-3) — among the CLEAR slid
         // candidates, prefer the one that sits on the LONGEST unobstructed run of wall
         // (maximises the SHORTER of its two clear approaches), so the door reads
@@ -930,7 +985,7 @@ export function buildWallsAndDoors(
         // door at [off, off+width] each side's clear approach is the gap to the nearest
         // obstacle beyond the leaf. Tie-break: closest to the centred default (the prior
         // behaviour), so equal-approach candidates are byte-identical to before.
-        const obstacles = [0, len, ...crossings];
+        const obstacles = [0, len, ...crossings, ...swingPoints];
         const approachScore = (off: number): number => {
             let left = 0, right = len;
             for (const o of obstacles) {
@@ -988,6 +1043,19 @@ export function buildWallsAndDoors(
             offsetM: round6(offset), widthM: round6(width), heightM: doorH, sillM: 0,
             betweenRoomIds: [a, b],
         });
+        // §DOOR-NO-CLASH (founder defect #7) — record this door's world endpoints + the rooms it
+        // serves so the NEXT door on either of those rooms slides clear of this leaf (min separation
+        // + non-overlapping swings, esp. in a small corridor hosting many doors).
+        {
+            const dxw = wall.b.x - wall.a.x, dzw = wall.b.z - wall.a.z;
+            const wlen = Math.hypot(dxw, dzw) || 1;
+            const wux = dxw / wlen, wuz = dzw / wlen;
+            placedDoors.push({
+                p0: { x: wall.a.x + wux * offset, z: wall.a.z + wuz * offset },
+                p1: { x: wall.a.x + wux * (offset + width), z: wall.a.z + wuz * (offset + width) },
+                rooms: new Set([a, b]),
+            });
+        }
         wallHasDoor.add(wall.id);
         doorCount.set(a, (doorCount.get(a) ?? 0) + 1);
         doorCount.set(b, (doorCount.get(b) ?? 0) + 1);

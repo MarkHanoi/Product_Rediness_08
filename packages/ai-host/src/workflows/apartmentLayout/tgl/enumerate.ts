@@ -13,7 +13,7 @@
 import type { ApartmentProgram, RoomType, ScoringWeights } from '../types.js';
 import { decomposeToRects, polygonBBox, rectArea, rectifyConvexQuad, subtractRectsFromRects, type Pt, type Rect } from './rectDecomposition.js';
 import { buildBubbleGraph, scaleProgramToShell, type BubbleGraph, type ProgramRoom, type AdjacencyEdge } from './bubbleGraph.js';
-import { subdivideWithReport, findCorridorStubToKeepOut, claimResidualPlacements, type DroppedRoom, type RoomPlacement } from './subdivide.js';
+import { subdivideWithReport, findCorridorStubToKeepOut, claimResidualPlacements, resolveRoomOverlaps, type DroppedRoom, type RoomPlacement } from './subdivide.js';
 import { buildWallsAndDoors, type BoundarySeg } from './wallsAndDoors.js';
 import { snapRectsAwayFromWindows, type WindowSpan } from './windowAvoidance.js';
 import { buildSemanticGraph, type LayoutGraph } from './semanticGraph.js';
@@ -888,6 +888,39 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         );
         residualMints = claim.mints;
         residualPlacements = claim.placements;
+        // §ROOM-OVERLAP-NET (founder defect §65.1, 2026-06-12) — the residual GROW/MINT extends and
+        // mints rects WITHOUT a cross-placement overlap check (it only guarantees the union with its
+        // chosen neighbour is rectangular + the cell is empty vs the ROOMLESS residual), so on a dense
+        // plate a grown room can come to overlap a NON-neighbour room and a mint can overlap a room the
+        // subtractor's 0.5 m sliver-drop hid. This is the most likely late source of the founder's
+        // "Room 01-002 overlapping" defect on the EMITTED geometry. Run the HARD overlap net over the
+        // residual-augmented set (originals + grown + minted) BEFORE the geometry emit so NO two emitted
+        // rooms ever share interior floor. A mint that gets fully clipped is also pruned from the mint
+        // list so its bubble node carries no rect. Identity on a clean set (apartment never reaches the
+        // claim → byte-identical, ADR-0061).
+        {
+            const typeByIdNet = new Map<string, RoomType>();
+            for (const r of bubble.rooms) typeByIdNet.set(r.id, r.type);
+            for (const m of claim.mints) typeByIdNet.set(m.id, m.type);
+            const net = resolveRoomOverlaps(residualPlacements, typeByIdNet);
+            if (net.resolved.length > 0 || net.dropped.length > 0) {
+                console.warn(
+                    `[D-TGL] §DIAG-OVERLAP cand ${strategyKey(s)} EMIT-net resolved ${net.resolved.length} ` +
+                    `room-room overlap(s) after residual fill — dropped=[${net.dropped.join(',') || 'none'}] ` +
+                    `worstResidualM2=${net.worstResidualM2.toFixed(4)} (the residual grow/mint left an overlap; net clipped it)`,
+                );
+            }
+            console.assert(
+                net.worstResidualM2 <= 0.05 + 1e-9,
+                `[D-TGL] §DIAG-OVERLAP INVARIANT VIOLATED after residual fill — ${net.worstResidualM2.toFixed(4)} m² overlap`,
+            );
+            residualPlacements = net.placements;
+            // Prune any mint whose cell the net dropped entirely (so its bubble node has no orphan rect).
+            if (net.dropped.length > 0) {
+                const droppedSet = new Set(net.dropped);
+                residualMints = claim.mints.filter(m => !droppedSet.has(m.id));
+            }
+        }
         const grownCount = claim.claims.filter(c => c.how === 'grown').length;
         console.log(
             `[D-TGL] §DIAG-FILL-RESIDUAL cand ${strategyKey(s)} ` +

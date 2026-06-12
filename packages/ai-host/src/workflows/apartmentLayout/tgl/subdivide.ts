@@ -1604,6 +1604,149 @@ function clipRoomsOutOfKeepOut(
     return changed ? out : placements;
 }
 
+/** §DIAG-OVERLAP / §ROOM-OVERLAP-NET (founder defect §65.1 "NO ROOMS OVERLAPPING — extremely
+ *  forbidden!!", 2026-06-12) — the result of the FINAL overlap-resolution net. */
+export interface OverlapResolution {
+    readonly placements: readonly RoomPlacement[];
+    /** Room ids fully consumed by a higher-priority neighbour (no clear sub-rect left) and
+     *  dropped. Empty in the common case. Deterministic — in resolution (drop) order. */
+    readonly dropped: readonly string[];
+    /** Worst residual overlap area (m²) AFTER the net — must be ≤ the hairline tolerance.
+     *  A non-zero value here would be a §DIAG-OVERLAP assertion failure (never shipped). */
+    readonly worstResidualM2: number;
+    /** Overlap pairs RESOLVED by the net (display via roomId), with the pre-clip overlap area. */
+    readonly resolved: ReadonlyArray<{ readonly a: string; readonly b: string; readonly areaM2: number }>;
+}
+
+/** Overlap-net hairline DETECTION tolerance (m²). Matches `validateNoRoomOverlap`'s default epsilon
+ *  so the net and the gate agree: an overlap above this is reported. */
+const OVERLAP_NET_EPS_M2 = 1e-3;
+
+/** Overlap-net CLIP-ACTION floor (m²). The net only CLIPS/DROPS a room when its overlap exceeds
+ *  this — a real architectural collision (the founder's multi-m² "Room 01-002 across another
+ *  room"). Sub-floor overlaps are SNAP DUST: `snapAxisLines` snaps two near-coincident edges to a
+ *  cluster mean and can leave a ≤ few-cm² interior sliver between two rects whose shared wall the
+ *  editor's 20 mm node grid + weld collapses to nothing anyway. Clipping that dust would move a
+ *  partition off a projected (rotated/sheared-back) ring and re-open a §53-style seam, so dust is
+ *  REPORTED (the §DIAG-OVERLAP line) but not clipped. 0.05 m² = 500 cm²: far below any habitable
+ *  room yet far above the cm² snap sliver, so every REAL room-over-room collision is clipped while
+ *  the snap dust (and the apartment/rotated-plate geometry) is byte-identical. */
+const OVERLAP_NET_CLIP_M2 = 0.05;
+
+/**
+ * §ROOM-OVERLAP-NET (founder defect §65.1, 2026-06-12) — THE HARD INVARIANT: after EVERY placement /
+ * residual-fill / reflection pass, NO two emitted room rects may overlap by more than a hairline.
+ *
+ * The squarified treemap tiles EXACTLY, but the independent post-passes (snapAxisLines, the
+ * §EVERY-ROOM-ACCESS comb, the §STAIR-CIRC-FACE reflection, windowEmission's snap, and — the most
+ * likely late source — the §DIAG-FILL-RESIDUAL grow/mint which extends/mints rects WITHOUT a
+ * cross-placement overlap check) can leave two rects overlapping on a tight/dense plate. The
+ * founder observed a generic "Room 01-002" cell drawn ACROSS the stair / another room on the first
+ * floor — the bug this net closes BY CONSTRUCTION.
+ *
+ * The net is a deterministic detect-and-clip:
+ *   1. Find the worst-overlapping ordered pair (largest overlap area; ties → lower roomId pair).
+ *   2. The HIGHER-priority room (by `dropRankFor`, ties → lower roomId) is kept intact; the LOWER-
+ *      priority room is CLIPPED to the largest axis-aligned sub-rect clear of the higher one
+ *      (the same 4-candidate edge-push `clipRoomsOutOfKeepOut` uses).
+ *   3. If the lower room has no clear sub-rect (fully covered), it is DROPPED — never left
+ *      overlapping (the founder rule is absolute: "extremely forbidden!!").
+ *   4. Repeat to a fixed point (bounded — every step strictly shrinks/removes a rect).
+ *
+ * The `stair` room is NEVER clipped or dropped (it is the fixed vertical core); a room overlapping
+ * the stair is clipped/dropped instead (the §STAIR-OVERLAP-CLIP guard already handles keep-outs,
+ * but a residual grow could re-introduce a stair overlap, so the stair is protected here too).
+ *
+ * Pure + deterministic. An already-non-overlapping set (the apartment + every clean plate) is a
+ * strict identity → byte-identical (ADR-0061): the worst pair is below epsilon, the loop never
+ * enters, `dropped` is empty.
+ */
+export function resolveRoomOverlaps(
+    placements: readonly RoomPlacement[],
+    typeById: ReadonlyMap<string, RoomType>,
+    // The CLIP-ACTION floor (m²): a pair is clipped/dropped only when its overlap exceeds this.
+    // Defaults to OVERLAP_NET_CLIP_M2 (0.05 m²) so cm²-scale snap dust is reported but not clipped
+    // (preserving rotated/sheared-projected geometry). Pass OVERLAP_NET_EPS_M2 to clip every
+    // above-hairline overlap (the strictest form — used where the geometry is the final emit).
+    clipFloorM2: number = OVERLAP_NET_CLIP_M2,
+): OverlapResolution {
+    // Priority of a room: the stair is supreme (never clipped); otherwise the drop-rank, so a
+    // lower-priority room yields to a higher-priority one. Ties broken by lower roomId (stable).
+    const rankOf = (id: string): number =>
+        (typeById.get(id) ?? '') === 'stair' ? Number.POSITIVE_INFINITY : dropRankFor(typeById.get(id) ?? ('corridor' as RoomType));
+    const isStair = (id: string): boolean => (typeById.get(id) ?? '') === 'stair';
+
+    const work: RoomPlacement[] = placements.map(p => ({ roomId: p.roomId, rect: p.rect }));
+    const dropped: string[] = [];
+    const resolved: Array<{ a: string; b: string; areaM2: number }> = [];
+
+    // Clip `loser` out of `winner` → the largest axis-aligned sub-rect clear of the winner, or null
+    // when fully covered (loser is then dropped).
+    const clipOut = (loser: Rect, winner: Rect): Rect | null => {
+        const cands: Rect[] = [
+            { ...loser, x1: Math.min(loser.x1, winner.x0) },
+            { ...loser, x0: Math.max(loser.x0, winner.x1) },
+            { ...loser, z1: Math.min(loser.z1, winner.z0) },
+            { ...loser, z0: Math.max(loser.z0, winner.z1) },
+        ].filter(c => c.x1 - c.x0 > EPS && c.z1 - c.z0 > EPS && overlapAreaM2(c, winner) <= OVERLAP_NET_EPS_M2);
+        if (cands.length === 0) return null;
+        return roundRect(cands.reduce((best, c) => (rectArea(c) > rectArea(best) ? c : best)));
+    };
+
+    // Bounded fixed-point: each iteration resolves the single worst pair (shrink or drop the loser).
+    // The bound is generous — every step removes ≥ OVERLAP_NET_EPS_M2 of overlap or a whole room.
+    const MAX_ITERS = placements.length * placements.length + 8;
+    for (let iter = 0; iter < MAX_ITERS; iter++) {
+        // Find the worst remaining overlapping pair ABOVE the clip-action floor (sub-floor snap
+        // dust is left in place — reported via worstResidual, never clipped).
+        let worst: { i: number; j: number; area: number } | null = null;
+        for (let i = 0; i < work.length; i++) {
+            for (let j = i + 1; j < work.length; j++) {
+                const area = overlapAreaM2(work[i]!.rect, work[j]!.rect);
+                if (area <= clipFloorM2) continue;
+                const better = !worst
+                    || area > worst.area + EPS
+                    || (Math.abs(area - worst.area) <= EPS
+                        && (work[i]!.roomId < work[worst.i]!.roomId
+                            || (work[i]!.roomId === work[worst.i]!.roomId && work[j]!.roomId < work[worst.j]!.roomId)));
+                if (better) worst = { i, j, area };
+            }
+        }
+        if (!worst) break;                                  // no overlaps left → done
+
+        const A = work[worst.i]!, B = work[worst.j]!;
+        // The LOSER is the lower-priority room; ties → higher roomId (so the lower id is kept).
+        let loserIdx: number, winnerIdx: number;
+        const ra = rankOf(A.roomId), rb = rankOf(B.roomId);
+        if (ra < rb || (ra === rb && A.roomId > B.roomId)) { loserIdx = worst.i; winnerIdx = worst.j; }
+        else { loserIdx = worst.j; winnerIdx = worst.i; }
+        // Two stairs overlapping (degenerate) — both supreme; clip the higher-id one defensively.
+        const loser = work[loserIdx]!, winner = work[winnerIdx]!;
+        resolved.push({ a: winner.roomId, b: loser.roomId, areaM2: round6(worst.area) });
+
+        if (isStair(loser.roomId) && isStair(winner.roomId)) {
+            // Never happens on the handled plates; clip the loser anyway to honour the invariant.
+        }
+        const clipped = clipOut(loser.rect, winner.rect);
+        if (clipped === null) {
+            dropped.push(loser.roomId);
+            work.splice(loserIdx, 1);
+        } else {
+            work[loserIdx] = { roomId: loser.roomId, rect: clipped };
+        }
+    }
+
+    // Worst residual overlap AFTER the net (the §DIAG-OVERLAP assertion value — must be ≤ eps).
+    let worstResidualM2 = 0;
+    for (let i = 0; i < work.length; i++) {
+        for (let j = i + 1; j < work.length; j++) {
+            const a = overlapAreaM2(work[i]!.rect, work[j]!.rect);
+            if (a > worstResidualM2) worstResidualM2 = a;
+        }
+    }
+    return { placements: work, dropped, worstResidualM2: round6(worstResidualM2), resolved };
+}
+
 /** The axis-aligned bounding box of a placement set. */
 function placementsBBox(placements: readonly RoomPlacement[]): Rect {
     let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
@@ -2252,9 +2395,52 @@ export function subdivideWithReport(
             );
         }
 
+        const snapped = alignmentSnap ? snapAxisLines(oriented) : oriented.slice();
+
+        // §ROOM-OVERLAP-NET (founder defect §65.1, 2026-06-12) — THE HARD INVARIANT net: after
+        // every placement / reflection / alignment-snap pass, clip (or, only if fully covered,
+        // drop) any room rect that still overlaps another by more than a hairline, so NO two
+        // emitted rooms ever share interior floor ("extremely forbidden!!"). snapAxisLines moves
+        // rects independently — the documented late overlap source — so the net runs LAST here.
+        // A clean (already-tiling) set is a strict identity → byte-identical (apartment + every
+        // non-overlapping plate, ADR-0061). The §DIAG-OVERLAP assertion below proves NO overlap
+        // ever ships (it must always read worstResidual ≈ 0).
+        //
+        // The CLIP-ACTION floor (OVERLAP_NET_CLIP_M2 = 0.05 m²) protects the rotated/sheared-plate
+        // case: the placements live in the principal-axis (bbox) frame and are projected back to the
+        // real ring downstream, where a cm²-scale snapAxisLines sliver is not a real world collision;
+        // clipping it would move a partition off the projected ring (re-opening a §53 seam). Sub-floor
+        // dust is therefore REPORTED but not clipped; only architecturally-real (≥ 0.05 m²) overlaps —
+        // the founder's "Room 01-002 across another room" — are clipped/dropped.
+        const typeByRoomIdNet: ReadonlyMap<string, RoomType> = new Map(graph.rooms.map(r => [r.id, r.type]));
+        const net = resolveRoomOverlaps(snapped, typeByRoomIdNet);
+        if (net.resolved.length > 0 || net.dropped.length > 0) {
+            console.warn(
+                `[D-TGL subdivide] §DIAG-OVERLAP resolved ${net.resolved.length} room-room overlap(s) ` +
+                `(clipped/dropped the lower-priority room) — dropped=[${net.dropped.join(',') || 'none'}] ` +
+                `worstClippedM2=${(net.resolved[0]?.areaM2 ?? 0).toFixed(4)} worstResidualM2=${net.worstResidualM2.toFixed(4)} ` +
+                `(an overlap reached the net — a placement post-pass left two rooms overlapping; ` +
+                `harden the upstream pass so this is a no-op)`,
+            );
+        }
+        // §DIAG-OVERLAP HARD assertion (never ships): after the net NO architecturally-meaningful
+        // overlap (above the clip-action floor) may remain. Sub-floor snap dust is allowed (and
+        // collapses in the editor's node grid anyway). A breach here is a logic error in the net.
+        console.assert(
+            net.worstResidualM2 <= OVERLAP_NET_CLIP_M2 + EPS,
+            `[D-TGL subdivide] §DIAG-OVERLAP INVARIANT VIOLATED — ${net.worstResidualM2.toFixed(4)} m² residual room overlap after the net`,
+        );
+        // Drops from the overlap net are reported through `droppedRooms` (NOT silent) so the
+        // trigger/modal can surface them, exactly like the §FEASIBILITY-ALLOC drops.
+        const netDropReports: DroppedRoom[] = net.dropped.map(id => ({
+            roomId: id,
+            type: typeByRoomIdNet.get(id) ?? ('corridor' as RoomType),
+            shortSideM: 0,
+            minShortSideM: floorFor(typeByRoomIdNet.get(id) ?? ('corridor' as RoomType)),
+        }));
         return {
-            placements: alignmentSnap ? snapAxisLines(oriented) : oriented.slice(),
-            droppedRooms: res.droppedRooms,
+            placements: net.placements,
+            droppedRooms: [...res.droppedRooms, ...netDropReports],
         };
     };
 

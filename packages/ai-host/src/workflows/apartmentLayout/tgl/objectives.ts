@@ -368,8 +368,26 @@ const WINDOWABLE_TYPES = new Set<string>(['living', 'kitchen', 'dining', 'master
 const CIRCULATION_TYPES = new Set<string>(['corridor', 'hall']);
 /** §A.21.D5 — the PRIVATE room types served by the spine. The corridorAccess axis
  *  rewards each of these that doors DIRECTLY onto a corridor/hall (vs served-through
- *  another room). Mirrors the `isPrivate` programRules set without importing it. */
-const PRIVATE_SERVED_TYPES = new Set<string>(['bedroom', 'master', 'bathroom', 'ensuite', 'wc', 'study']);
+ *  another room). Mirrors the `isPrivate` programRules set without importing it.
+ *
+ *  §CORRIDOR-CONNECTOR (founder defect #1, 2026-06-12) — the `stair` is ADDED: a multi-
+ *  storey vertical core MUST be reached FROM the spine (the founder's "upstairs corridor
+ *  must connect to the stair"), so it is a served room the corridorAccess axis rewards. */
+const PRIVATE_SERVED_TYPES = new Set<string>(['bedroom', 'master', 'bathroom', 'ensuite', 'wc', 'study', 'stair']);
+
+/** §CORRIDOR-CONNECTOR (founder defect #1, 2026-06-12) — the founder's connect PRIORITY:
+ *  "bedrooms + bathrooms to the stair + entrance hall first, then living/dining/kitchen".
+ *  The corridorAccess axis weights each served room's direct-corridor-door by this priority so
+ *  a layout that connects the BEDROOMS, BATHROOMS, MASTER and the STAIR to the spine scores far
+ *  above one that only connects a study/wc — the spine is rewarded for being the CONNECTOR of
+ *  the high-priority private rooms first. ensuite is reached via its master by design → lowest
+ *  weight (its corridor door is neither required nor expected). The axis stays SOFT (neutral 1.0
+ *  when there is no corridor / no served rooms) and deterministic (ADR-0061). */
+const CORRIDOR_ACCESS_PRIORITY: Readonly<Record<string, number>> = {
+    stair: 1.0, master: 1.0, bedroom: 1.0, bathroom: 1.0,
+    wc: 0.6, study: 0.6, ensuite: 0.3,
+};
+const corridorAccessWeight = (t: string): number => CORRIDOR_ACCESS_PRIORITY[t] ?? 0.6;
 const num = (v: unknown, d = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 const polyWH = (n: GraphNode): { w: number; h: number } => {
     const p = n.geometry?.polygon ?? [];
@@ -923,16 +941,21 @@ export function scoreCorridorInterior(graph: LayoutGraph): number {
  *                        corridor/hall (no spine) or no private rooms.
  */
 export function measureCorridorAccess(graph: LayoutGraph): { privateRooms: number; directAccess: number; servedThrough: number; score: number } {
-    // Corridor / hall + private-room GUIDs.
+    // Corridor / hall + private-room GUIDs (with their type so the §CORRIDOR-CONNECTOR
+    // priority weighting can favour bed/bath/master/stair over a study/wc).
     const corridorGuids = new Set<string>();
     const privateGuids: string[] = [];
+    const typeByGuid = new Map<string, string>();
     for (const n of graph.nodes) {
         if (n.kind !== 'Space') continue;
         const t = typeof n.attrs.spaceType === 'string' ? n.attrs.spaceType : '';
         if (CIRCULATION_TYPES.has(t)) { corridorGuids.add(n.guid); continue; }
         // A room counts as "private to serve" by spaceType OR the explicit
         // isPrivate attr (back-compat with graphs that only set the flag).
-        if (PRIVATE_SERVED_TYPES.has(t) || n.attrs.isPrivate === true) privateGuids.push(n.guid);
+        if (PRIVATE_SERVED_TYPES.has(t) || n.attrs.isPrivate === true) {
+            privateGuids.push(n.guid);
+            typeByGuid.set(n.guid, t);
+        }
     }
     // No spine OR no private rooms → nothing to score → neutral 1.0.
     if (corridorGuids.size === 0 || privateGuids.length === 0) {
@@ -946,10 +969,23 @@ export function measureCorridorAccess(graph: LayoutGraph): { privateRooms: numbe
         if (fromCorr && !toCorr) doorsToCorridor.add(e.to);
         else if (toCorr && !fromCorr) doorsToCorridor.add(e.from);
     }
+    // §CORRIDOR-CONNECTOR (founder #1) — PRIORITY-WEIGHTED direct access: each served room's
+    // direct-corridor-door counts by its connect priority (bed/bath/master/stair = 1.0, study/wc
+    // = 0.6, ensuite = 0.3), so the axis rewards a spine that connects the HIGH-priority private
+    // rooms FIRST. The plain count (`directAccess`) is preserved for the diagnostic. Score is the
+    // priority-weighted fraction = Σ(weight · served) / Σ(weight) ∈ [0,1]; with uniform weights it
+    // is byte-identical to the old direct/privateRooms ratio (so a no-stair/no-priority graph is
+    // unchanged). Stays SOFT (neutral 1.0 above when no spine/no private rooms).
     let direct = 0;
-    for (const g of privateGuids) if (doorsToCorridor.has(g)) direct += 1;
+    let wTotal = 0, wServed = 0;
+    for (const g of privateGuids) {
+        const w = corridorAccessWeight(typeByGuid.get(g) ?? '');
+        wTotal += w;
+        if (doorsToCorridor.has(g)) { direct += 1; wServed += w; }
+    }
     const privateRooms = privateGuids.length;
-    return { privateRooms, directAccess: direct, servedThrough: privateRooms - direct, score: clamp01(direct / privateRooms) };
+    const score = wTotal > 0 ? clamp01(wServed / wTotal) : 1;
+    return { privateRooms, directAccess: direct, servedThrough: privateRooms - direct, score };
 }
 
 /** §A.21.D5 corridorAccess — the axis value (see `measureCorridorAccess`). */
