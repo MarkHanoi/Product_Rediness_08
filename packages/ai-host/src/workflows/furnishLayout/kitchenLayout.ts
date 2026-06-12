@@ -27,6 +27,7 @@ import { quadInPolygon, quadOverlapsAny, footprintCorners, type Quad } from './c
 import {
     wallDir, wallMid, yawFromNormal, wallHasDoor, wallHasWindow,
 } from './wallAnalysis.js';
+import { validateKitchenLayout, formatKitchenViolations } from './rules/kitchenValidation.js';
 
 /** The selectable kitchen run shape. `auto` lets the planner pick by geometry. */
 export type KitchenLayout = 'auto' | 'I' | 'L' | 'U';
@@ -187,6 +188,113 @@ function buildChain(walls: RoomWallSeg[], want: number): RoomWallSeg[] {
 function pickArms(walls: RoomWallSeg[], shape: 'I' | 'L' | 'U'): RoomWallSeg[] {
     const want = shape === 'U' ? 3 : shape === 'L' ? 2 : 1;
     return buildChain(walls, want);
+}
+
+// ── §KITCHEN-WINDOW-SINK (2026-06-12) — window-over-the-sink ──────────────────
+//
+// Founder doctrine + classic ergonomic: "always plan a window in one section of
+// the L-shape kitchen" → the worktop/SINK run must hug an EXTERIOR wall that has a
+// WINDOW, with the sink centred under that window. So when one of the chosen arms
+// is an exterior window wall, we make THAT arm the SPINE (it carries the sink+hob),
+// and the sink module is shifted to sit beneath the window aperture.
+//
+// `runWalls` mildly DE-prioritises window walls (tall units block daylight), which
+// is right for ranking the candidate set — but once the shape's arms are chosen we
+// WANT the sink's spine on the window wall. This reorders the arms so the spine is
+// a window-bearing exterior wall when available; otherwise the existing convention
+// (arm[0] for L, arm[1] for U) is preserved. Deterministic.
+
+/** Does the wall carry a window AND front the exterior (the window-over-sink wall)?
+ *  Exterior is preferred but an interior window still qualifies (the founder's ask
+ *  is "a window over the sink" — any window wall hosting the sink satisfies it). */
+function isWindowSpineCandidate(w: RoomWallSeg, windows: readonly { center: Pt; normal: Pt; width: number; type: string }[]): boolean {
+    return wallHasWindow(w, windows as never);
+}
+
+/**
+ * The window over which to centre the sink on `spine`, or null. Returns the window
+ * whose centre projects onto the spine span; prefers the window nearest the spine
+ * midpoint so the sink lands on a usable central stretch (not jammed at a corner).
+ * Deterministic.
+ */
+function windowOnWall(spine: RoomWallSeg, input: FurnishRoomInput): FurnishRoomInput['windows'][number] | null {
+    const d = wallDir(spine);
+    const mid = wallMid(spine);
+    let best: FurnishRoomInput['windows'][number] | null = null;
+    let bestScore = Infinity;
+    for (const win of input.windows) {
+        const t = (win.center.x - spine.a.x) * d.x + (win.center.z - spine.a.z) * d.z;
+        if (t < -0.05 || t > spine.length + 0.05) continue;
+        const px = spine.a.x + d.x * t, pz = spine.a.z + d.z * t;
+        if (Math.hypot(win.center.x - px, win.center.z - pz) > 0.3) continue;
+        const score = Math.hypot(win.center.x - mid.x, win.center.z - mid.z);
+        if (score < bestScore - 1e-9) { bestScore = score; best = win; }
+    }
+    return best;
+}
+
+/**
+ * Reorder the shape's arms so the SPINE (sink-carrying arm) is an exterior window
+ * wall when one of the arms qualifies. Returns the (possibly reordered) arms +
+ * the spine index within them. When no arm has a window, the default convention is
+ * kept (spineIdx = 1 for U / 0 otherwise). Pure + deterministic.
+ */
+function orderArmsForWindowSink(
+    arms: RoomWallSeg[], shape: 'I' | 'L' | 'U', input: FurnishRoomInput,
+): { arms: RoomWallSeg[]; spineIdx: number } {
+    const defaultSpine = arms.length >= 3 ? 1 : 0;
+    if (arms.length < 2) return { arms, spineIdx: defaultSpine };
+
+    // Candidate spine = an arm carrying a window, exterior preferred, longest first.
+    const candidates = arms
+        .map((w, i) => ({ w, i }))
+        .filter(({ w }) => isWindowSpineCandidate(w, input.windows))
+        .sort((a, b) => {
+            const ext = (b.w.isExterior ? 1 : 0) - (a.w.isExterior ? 1 : 0);
+            if (ext !== 0) return ext;
+            const len = b.w.length - a.w.length;
+            if (Math.abs(len) > 1e-9) return len;
+            return a.i - b.i;   // stable
+        });
+    if (candidates.length === 0) return { arms, spineIdx: defaultSpine };
+
+    const chosen = candidates[0]!.i;
+    if (chosen === defaultSpine) return { arms, spineIdx: defaultSpine };
+
+    // For an L the spine convention is arm[0]; swap the window arm into slot 0.
+    // For a U the spine is the MIDDLE (back) arm — moving a side arm into the back
+    // slot would break the perpendicular weave, so for U we only adopt the window
+    // arm as spine when it is already the back arm (chosen === 1). Here chosen ≠
+    // defaultSpine, so for U we keep the default and rely on planKitchen's sink-
+    // under-window offset only when the back arm itself carries the window.
+    if (shape === 'L') {
+        const reordered = [...arms];
+        const tmp = reordered[0]!;
+        reordered[0] = reordered[chosen]!;
+        reordered[chosen] = tmp;
+        return { arms: reordered, spineIdx: 0 };
+    }
+    return { arms, spineIdx: defaultSpine };
+}
+
+/** The along-spine offset (from the spine's lay ORIGIN) that centres the sink under
+ *  the window. `fromEnd` mirrors the lay direction. Returns null when there is no
+ *  window on the spine (caller keeps the corner-clustered triangle). The returned
+ *  offset is the cursor value so that sink centre = window centre projection.
+ *  The sink width is `MODULE` (0.60); we clamp to keep the sink fully on the wall. */
+function sinkOffsetUnderWindow(
+    spine: RoomWallSeg, input: FurnishRoomInput, fromEnd: boolean, sinkW: number,
+): number | null {
+    const win = windowOnWall(spine, input);
+    if (!win) return null;
+    const d = wallDir(spine);
+    const t = (win.center.x - spine.a.x) * d.x + (win.center.z - spine.a.z) * d.z;
+    // cursor measures from `origin` along `dir`. For fromEnd the origin is `b` and
+    // dir is reversed, so the along-wall distance from origin is (length - t).
+    const along = fromEnd ? spine.length - t : t;
+    // cursor + sinkW/2 = along  ⇒  cursor = along - sinkW/2. Clamp on-wall.
+    const cursor = along - sinkW / 2;
+    return Math.max(GAP, Math.min(cursor, spine.length - sinkW - GAP));
 }
 
 /** The per-arm module plan.
@@ -372,8 +480,15 @@ export function planKitchen(
     const usableWalls = runWalls(input).filter(w => !wallHasDoor(w, input.doors));
     const walls = usableWalls.length > 0 ? usableWalls : runWalls(input);
     const shape = chooseShape(input, walls, layout);
-    const arms = pickArms(walls, shape);
-    if (arms.length === 0) return [];
+    const rawArms = pickArms(walls, shape);
+    if (rawArms.length === 0) return [];
+
+    // §KITCHEN-WINDOW-SINK — reorder the arms so the SPINE (the sink-carrying arm)
+    // hugs an exterior WINDOW wall when one of the arms qualifies, so the sink lands
+    // under the window ("window over the sink"). When no arm has a window, the
+    // default convention (arm[0] for L / arm[1] back for U) is kept.
+    const { arms, spineIdx } = orderArmsForWindowSink(rawArms, shape, input);
+    const spine = arms[spineIdx]!;
 
     // Per-arm module sequences: the work-triangle stations sit COMPACT around the
     // arms' shared corner(s). Each arm lays its run STARTING FROM the corner it
@@ -382,21 +497,26 @@ export function planKitchen(
     const perArm = moduleSequencesByArm(arms.length, { washingMachine: !!opts.washingMachine });
     const out: PlacedFurniture[] = [];
 
-    // The spine arm is the one every other arm shares a corner with (the back
-    // wall in a U; arm-0 in an L). The spine carries the sink+hob; the spine lays
-    // from its corner with arm-0. Non-spine arms lay from their shared corner with
-    // the spine, INSET by one module so they clear the spine's corner cell (no
-    // appliance-on-appliance collision at the corner).
-    const spineIdx = arms.length >= 3 ? 1 : 0;
-    const spine = arms[spineIdx]!;
+    // The spine carries the sink+hob. When the spine is a window wall we lay the
+    // sink module CENTRED under the window (rather than corner-clustered), then the
+    // hob/oven extend along the wall from there. The sink-under-window offset is
+    // computed against the spine's lay direction below.
+    const spineRef = arms[spineIdx === 0 ? 1 : 0] ?? spine;
+    const spineFromEnd = sharedCornerIsB(spine, spineRef);
+    const sinkOffset = sinkOffsetUnderWindow(spine, input, spineFromEnd, footprintOf('sink').w);
+
     // Lay the spine FIRST so its corner cell is an obstacle the others avoid.
     const order = [spineIdx, ...arms.map((_, i) => i).filter(i => i !== spineIdx)];
     for (const i of order) {
         const arm = arms[i]!;
         const kinds = perArm[i] ?? [];
-        const ref = i === spineIdx ? (arms[i === 0 ? 1 : 0] ?? arm) : spine;
-        const fromEnd = sharedCornerIsB(arm, ref);
-        const inset = i === spineIdx ? GAP : MODULE + GAP;   // clear the corner cell
+        const ref = i === spineIdx ? spineRef : spine;
+        const fromEnd = i === spineIdx ? spineFromEnd : sharedCornerIsB(arm, ref);
+        // Spine: when a window is present, start the sink under it; else the usual
+        // corner-clustered inset. Non-spine arms inset by a module past the corner.
+        const inset = i === spineIdx
+            ? (sinkOffset !== null ? sinkOffset : GAP)
+            : MODULE + GAP;
         const { placed } = layAlongWall(arm, kinds, input, obstacles, inset, fromEnd);
         out.push(...placed);
     }
@@ -422,7 +542,26 @@ export function planKitchen(
     const island = tryIsland(input, obstacles);
     if (island) out.push(island);
 
+    // §59 P2 — HARD-rule VALIDATION pass over the planned modules. We REPORT the
+    // result on a §DIAG-KITCHEN-RULES line (the FIRST real use of the §59 corpus);
+    // the layout is preferred-valid by construction (sink under the window, runs
+    // off the corners), and any residual HARD violation surfaces for the UI rather
+    // than crashing the placement. Pure — no side-effect on `out`.
+    reportKitchenRules(input.roomId, out, input);
+
     return out;
+}
+
+/** Run the §59 P2 validation pass + emit the §DIAG-KITCHEN-RULES line. Pure apart
+ *  from the always-on diagnostic log (mirrors §DIAG-KITCHEN). Returns the result so
+ *  callers/tests can assert on it. */
+function reportKitchenRules(
+    roomId: string, placed: readonly PlacedFurniture[], input: FurnishRoomInput,
+): ReturnType<typeof validateKitchenLayout> {
+    const res = validateKitchenLayout(placed, input);
+    // eslint-disable-next-line no-console
+    console.log(formatKitchenViolations(roomId, res));
+    return res;
 }
 
 // ── §KITCHEN-PARAMETRIC-RUN (2026-06-10) ─────────────────────────────────────
@@ -461,6 +600,33 @@ function unitsForArm(armLength: number): number {
     return Math.max(1, Math.floor((armLength + 1e-6) / KITCHEN_UNIT_W));
 }
 
+/** Clamp `v` to [lo,hi]; `fallback` when the clamp would collapse the range. */
+function clampInt(v: number, lo: number, hi: number, fallback: number): number {
+    if (hi < lo) return fallback;
+    return Math.max(lo, Math.min(hi, v));
+}
+
+/** §KITCHEN-WINDOW-SINK — the main-run cabinet-cell index whose centre lands nearest
+ *  the window centred on `spine` (so the sink unit sits under the window). Returns 0
+ *  when the spine carries no window (the default start-cell sink). The run cells
+ *  span 0..mainLen along the spine; the window's projection `t` picks the cell.
+ *  Deterministic. */
+function sinkUnitIndexUnderWindow(
+    spine: RoomWallSeg, input: FurnishRoomInput, numUnits: number, unitW: number, mainLen: number,
+): number {
+    const win = windowOnWall(spine, input);
+    if (!win || numUnits <= 1) return 0;
+    const d = wallDir(spine);
+    let t = (win.center.x - spine.a.x) * d.x + (win.center.z - spine.a.z) * d.z;
+    // The run is centred on the spine midpoint with length `mainLen`; it occupies the
+    // central `mainLen` band of the (possibly longer) wall, starting at
+    // (spine.length - mainLen)/2 from endpoint a. Shift t into run-local coordinates.
+    const runStart = (spine.length - mainLen) / 2;
+    t -= runStart;
+    const cell = Math.floor(t / unitW);
+    return clampInt(cell, 0, numUnits - 1, 0);
+}
+
 /**
  * Build the parametric kitchen RUN as a single PlacedFurniture carrying a
  * resolved KitchenCabinetConfigLike. Mirrors `planKitchen`'s shape choice + the
@@ -479,13 +645,12 @@ export function planKitchenRun(
     const usableWalls = runWalls(input).filter(w => !wallHasDoor(w, input.doors));
     const walls = usableWalls.length > 0 ? usableWalls : runWalls(input);
     const shape = chooseShape(input, walls, layout);
-    const arms = pickArms(walls, shape);
-    if (arms.length === 0) return [];
+    const rawArms = pickArms(walls, shape);
+    if (rawArms.length === 0) return [];
 
-    // The SPINE arm carries the worktop run + sink/hob. For an L/U it's the arm
-    // every other arm shares a corner with (chosen as arm[1]/back for U, arm[0]
-    // for L by buildChain ordering — same convention as planKitchen).
-    const spineIdx = arms.length >= 3 ? 1 : 0;
+    // §KITCHEN-WINDOW-SINK — make the SPINE (sink-carrying main run) hug an exterior
+    // window wall when one of the arms qualifies, so the sink lands under the window.
+    const { arms, spineIdx } = orderArmsForWindowSink(rawArms, shape, input);
     const spine = arms[spineIdx]!;
 
     // Main-arm geometry: the engine builds the main run centred on the spine
@@ -537,23 +702,37 @@ export function planKitchenRun(
     const setAppliance = (arr: KUnit[], idx: number, appliance: string): void => {
         if (idx >= 0 && idx < arr.length) arr[idx]!.appliance = appliance;
     };
-    // Sink at the start cell; hob two cells along (≈1.2 m → NKBA leg).
-    setAppliance(main, 0, 'sink_inox');
-    if (numMain >= 3) setAppliance(main, 2, 'hob');
-    else if (numMain >= 2) setAppliance(main, numMain - 1, 'hob');
-    if (opts.washingMachine && numMain >= 4) setAppliance(main, 3, 'washing_machine_white');
+    // §KITCHEN-WINDOW-SINK — the sink slot: under the window when the spine wall has
+    // one (the founder's "window over the sink"), else the start cell. The main run
+    // is centred on the spine midpoint with unit 0 at the lay-origin end; the cell
+    // whose centre is nearest the window-centre projection carries the sink.
+    const sinkCell = sinkUnitIndexUnderWindow(spine, input, numMain, KITCHEN_UNIT_W, mainLen);
+    setAppliance(main, sinkCell, 'sink_inox');
+    // Hob two cells along from the sink (≈1.2 m → NKBA leg), clamped on-run and away
+    // from the sink cell so they never collide.
+    const hobCell = numMain >= 3
+        ? clampInt(sinkCell + 2, 0, numMain - 1, sinkCell)
+        : (numMain >= 2 ? (sinkCell === numMain - 1 ? sinkCell - 1 : numMain - 1) : sinkCell);
+    if (numMain >= 2 && hobCell !== sinkCell) setAppliance(main, hobCell, 'hob');
+    if (opts.washingMachine && numMain >= 4) {
+        const wmCell = [0, 1, numMain - 1, numMain - 2].find(i => i !== sinkCell && i !== hobCell);
+        if (wmCell !== undefined) setAppliance(main, wmCell, 'washing_machine_white');
+    }
 
     const left: KUnit[] = [];
     for (let i = 0; i < numLeft; i++) left.push({ index: i, arm: 'left', front: 'door' });
     const right: KUnit[] = [];
     for (let i = 0; i < numRight; i++) right.push({ index: i, arm: 'right', front: 'door' });
 
-    // Fridge: prefer the first secondary arm one cell off the corner; else the
-    // far end of the main run. Combi fridge replaces the carcass at that slot.
+    // Fridge: prefer the first secondary arm one cell off the corner; else a free
+    // main-run cell (far end, then walking inward) that isn't the sink/hob/wm cell.
     if (numLeft >= 1) {
         setAppliance(left, Math.min(1, numLeft - 1), 'fridge_combi_silver');
     } else {
-        setAppliance(main, numMain - 1, 'fridge_combi_silver');
+        const used = new Set(main.filter(u => u.appliance).map(u => u.index));
+        let fridgeCell = -1;
+        for (let i = numMain - 1; i >= 0; i--) { if (!used.has(i)) { fridgeCell = i; break; } }
+        if (fridgeCell >= 0) setAppliance(main, fridgeCell, 'fridge_combi_silver');
     }
 
     units.push(...main, ...left, ...right);
@@ -595,7 +774,7 @@ export function planKitchenRun(
         clearSides: 0,
     };
 
-    return [{
+    const result: PlacedFurniture[] = [{
         kind: layoutType as FurnitureKind,
         position: { x: round6(cx), y: input.levelElevation, z: round6(cz) },
         rotationY: yaw,
@@ -603,6 +782,13 @@ export function planKitchenRun(
         hostedSpaceId: input.roomId,
         kitchenConfig: config,
     }];
+
+    // §59 P2 — validation pass over the emitted run (door-swing / window-overlap of
+    // the run footprint). The run is one parametric element; the per-appliance HARD
+    // rules are enforced by construction in slot assignment above. §DIAG line only.
+    reportKitchenRules(input.roomId, result, input);
+
+    return result;
 }
 
 const round6 = (n: number): number => Math.round(n * 1e6) / 1e6;
