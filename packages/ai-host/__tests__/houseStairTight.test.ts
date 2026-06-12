@@ -42,11 +42,15 @@ describe('§STAIR-LANDING-SEAL — a blank band abutting the stair is sealed eve
         ['bed1', { type: 'bedroom', maxAreaM2: 22 }],
     ]);
 
-    it('WITHOUT the stair keep-out the band stays blank (below the §65.2 gate — legacy no-op)', () => {
+    it('WITHOUT the stair keep-out the 18 m² band is STILL claimed (§65.2-MODERATE — a moderate blank)', () => {
+        // §65.2-MODERATE (founder 2026-06-12): the 18 m² band is a MODERATE blank (≥ the 6 m²
+        // usable-cell floor), so it is now claimed even with NO stair keep-out and below the
+        // 48 m² cavern gate — the founder's top-floor "Room NN" fix. (Pre-fix this was a no-op
+        // because the gate fired only ≥ 48 m².) It is grown into the abutting bedroom up to its
+        // hard-max, the rest minted as a named Store → the moderate blank is gone.
         const r = claimResidualPlacements(placements, buildable, roomMeta, 'seed');
-        // The 18 m² band is below the 48 m² cavern gate → no claim → still blank.
-        expect(r.mints.length).toBe(0);
-        expect(r.largestBlankM2).toBeGreaterThanOrEqual(2.0);
+        expect(r.claims.length).toBeGreaterThan(0);
+        expect(r.largestBlankM2, 'an 18 m² moderate blank must be claimed').toBeLessThan(6.0);
     });
 
     it('WITH the stair keep-out the abutting band is claimed (sealed) — the fix', () => {
@@ -57,10 +61,12 @@ describe('§STAIR-LANDING-SEAL — a blank band abutting the stair is sealed eve
         expect(r.largestBlankM2).toBeLessThan(2.0);
     });
 
-    it('a band NOT touching the stair stays untouched below the gate (byte-identical elsewhere)', () => {
+    it('a band NOT touching the stair is claimed the SAME with or without the keep-out (keep-out is rank-neutral)', () => {
         // The stair keep-out is fully surrounded by placed rooms (no open side); a separate
         // blank band sits AWAY from it, separated by a placed room — so it does NOT abut the
-        // stair. Below the gate the claim must be a strict no-op (non-stair plate unchanged).
+        // stair. The 9 m² band is a §65.2-MODERATE blank, so it is claimed in BOTH passes; the
+        // presence of a (sealed) stair keep-out must not change a NON-stair-adjacent claim —
+        // the two passes are identical (the keep-out only affects bands that abut the stair).
         const farKO: Rect = { x0: 0, z0: 0, x1: 4, z1: 3 };
         const ps: RoomPlacement[] = [
             { roomId: 'stair0', rect: { x0: 0, z0: 0, x1: 4, z1: 3 } },     // stair, corner

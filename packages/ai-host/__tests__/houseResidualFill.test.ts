@@ -23,9 +23,13 @@
 import { describe, expect, it } from 'vitest';
 import { generateHouseLayout } from '../src/workflows/houseLayout/index.js';
 import { dimensionsFor } from '../src/workflows/apartmentLayout/dimensions/roomDimensions.js';
+import {
+    claimResidualPlacements, RESIDUAL_MODERATE_BLANK_M2, type RoomPlacement,
+} from '../src/workflows/apartmentLayout/tgl/subdivide.js';
+import type { Rect } from '../src/workflows/apartmentLayout/tgl/rectDecomposition.js';
 import type { ShellAnalysis } from '../src/workflows/apartmentLayout/shellAnalysis.js';
 import type {
-    ApartmentConstraints, ApartmentProgram, ScoringWeights,
+    ApartmentConstraints, ApartmentProgram, RoomType, ScoringWeights,
 } from '../src/workflows/apartmentLayout/types.js';
 
 const C: ApartmentConstraints = { minCorridorWidth: 900, wallThickness: 100, floorToCeiling: 2700, wallTypeId: '' };
@@ -157,10 +161,12 @@ describe('§65.2 — the no-oversize / keep-out invariants hold while filling', 
         expect(checked).toBeGreaterThan(0);
     });
 
-    it('apartment + small (165 m²) house plates are BYTE-IDENTICAL (the fill is a strict no-op there)', () => {
-        // The §65.2 gate only fires on a genuinely CAVERNOUS blank (≥ 48 m²); a well-tiled
-        // small house plate never clears it, so this guard simply confirms the small plate
-        // still produces a sensible, deterministic room set with no oversize / no generic blank.
+    it('small (165 m²) house plate is DETERMINISTIC with no generic blank (fill is rank-neutral)', () => {
+        // After §65.2-MODERATE the fill claims any blank ≥ 6 m² (not just ≥ 48 m² caverns), so a
+        // well-tiled small plate may now have a moderate band filled — but the fill is RANK-NEUTRAL
+        // and DETERMINISTIC, so identical inputs still yield byte-identical room sets, with no
+        // oversize and no generic "Room NN" blank. (A plate whose largest blank is < 6 m² is a
+        // strict no-op; apartment, with no stair keep-out, never reaches the claim at all.)
         const SMALL: ApartmentProgram = {
             bedrooms: 3, bathrooms: 2, masterEnSuite: true,
             openPlanKitchenDining: true, livingRoom: true, entranceHall: true,
@@ -173,6 +179,99 @@ describe('§65.2 — the no-oversize / keep-out invariants hold while filling', 
             for (const room of opt.rooms) {
                 expect(/^room\s*\d/i.test(room.name), `small-plate generic blank "${room.name}"`).toBe(false);
             }
+        }
+    });
+});
+
+// ─────────────────── §65.2-MODERATE — the founder's UPPER-floor blank ──────────────────
+//
+// Founder 2026-06-12: "empty space on the top floor" — a generated house shipped a moderate
+// 15–30 m² BLANK as a generic "Room 01-001 19.8 m²" / "Room 01-005 28.9 m²" on the UPPER
+// floor. ROOT: the §65.2 residual-fill fired ONLY when the largest blank reached the 48 m²
+// "cavern gate"; a non-stair-adjacent 15–30 m² blank is BELOW 48 → never claimed → shipped as
+// a generic undivided cell. FIX: the MODERATE-blank floor (RESIDUAL_MODERATE_BLANK_M2 ≈ 6 m²):
+// ANY blank ≥ a usable-cell floor is claimed (grown into an adjacent room ≤ its hard-max, else
+// minted as a named Store), so a 15–30 m² blank is filled, never a "Room NN". This UNIT locks
+// the gate change deterministically; it FAILS on the pre-fix engine (the moderate blank was a
+// strict no-op below the cavern gate → r.largestBlankM2 stayed ≈ the blank area).
+describe('§65.2-MODERATE — a moderate (15–30 m²) UPPER-floor blank is claimed, not shipped as "Room NN"', () => {
+    // Model the founder's upper floor: a private level whose sparser programme under-fills the
+    // plate. An 11×6 m upper plate; a placed master (5×6 = 30 m², under its 35 m² hard-max, so
+    // it has a little grow headroom) on the left; the right 6×6 = 36 m² band is BLANK (a moderate
+    // blank, well below the 48 m² cavern gate, NOT touching any stair) and shares the master's
+    // FULL right wall. No stair keep-out is passed — exactly the path a non-stair moderate blank
+    // takes. The fill grows the master to its hard-max (≤ 35 — never oversize) and mints the
+    // remainder as named Store cells, so the moderate blank is gone (the founder fix).
+    const plateRect: Rect = { x0: 0, z0: 0, x1: 11, z1: 6 };
+    const placements: RoomPlacement[] = [
+        { roomId: 'master0', rect: { x0: 0, z0: 0, x1: 5, z1: 6 } },        // master 30 m² — placed
+        // right band (x 5..11, z 0..6 = 36 m²) is BLANK — the founder's "Room 01-001".
+    ];
+    const buildable: Rect[] = [plateRect];
+    const roomMeta = new Map<string, { type: RoomType; maxAreaM2: number }>([
+        ['master0', { type: 'master', maxAreaM2: 35 }],
+    ]);
+
+    const r = claimResidualPlacements(placements, buildable, roomMeta, 'seedUpper');
+
+    it('the 24 m² moderate blank IS claimed below the cavern gate (the founder fix)', () => {
+        expect(RESIDUAL_MODERATE_BLANK_M2).toBeLessThan(24);          // the band clears the moderate floor
+        expect(r.claims.length, 'a moderate blank must be claimed').toBeGreaterThan(0);
+    });
+
+    it('largestBlankAfter ≤ the small wall-slack floor (no usable blank left)', () => {
+        // Target: only genuine sub-floor wall-slack may remain (≤ the 6 m² moderate floor).
+        expect(r.largestBlankM2, `${r.largestBlankM2.toFixed(1)} m² still blank`)
+            .toBeLessThanOrEqual(RESIDUAL_MODERATE_BLANK_M2);
+    });
+
+    it('NO grown/minted room is oversize (no-oversize invariant preserved)', () => {
+        // Every grown room stays ≤ its type hard-max; every minted Store ≤ the utility hard-max.
+        const masterHardMax = dimensionsFor('master').areaHardMax;
+        const storeHardMax = dimensionsFor('utility').areaHardMax + 0.5;
+        const area = (q: Rect) => (q.x1 - q.x0) * (q.z1 - q.z0);
+        for (const p of r.placements) {
+            if (p.roomId === 'master0') {
+                expect(area(p.rect), 'grown master oversize').toBeLessThanOrEqual(masterHardMax + 1e-6);
+            }
+        }
+        for (const m of r.mints) {
+            expect(area(m.rect), 'minted Store oversize').toBeLessThanOrEqual(storeHardMax);
+        }
+    });
+
+    it('the per-fragment §DIAG-FILL-RESIDUAL audit records area + grown-into vs minted-as', () => {
+        for (const c of r.claims) {
+            expect(c.areaM2).toBeGreaterThan(0);
+            expect(['grown', 'minted']).toContain(c.how);
+        }
+    });
+
+    it('the stair keep-out is honoured: with a keep-out, no claim crosses it (no-cross-keepout)', () => {
+        // A stair keep-out in the far corner (x 0..3, z 0..3) overlapping the master's region:
+        // re-run with the master placed clear of it and a blank band on the right; assert no
+        // minted cell overlaps the keep-out. (Construction guarantees this — buildable already
+        // has the stair subtracted; this asserts the invariant explicitly.)
+        const stairKO: Rect = { x0: 9, z0: 0, x1: 12, z1: 3 };            // far-corner stair
+        const buildableKO: Rect[] = [{ x0: 0, z0: 0, x1: 9, z1: 6 }, { x0: 0, z0: 3, x1: 12, z1: 6 }];
+        const ps: RoomPlacement[] = [
+            { roomId: 'stair0', rect: { x0: 9, z0: 0, x1: 12, z1: 3 } },
+            { roomId: 'master1', rect: { x0: 0, z0: 0, x1: 5, z1: 6 } },
+            // x 5..9, z 0..6 (24 m²) blank, away from the stair on the master side.
+        ];
+        const meta = new Map<string, { type: RoomType; maxAreaM2: number }>([
+            ['stair0', { type: 'stair', maxAreaM2: 16 }],
+            ['master1', { type: 'master', maxAreaM2: 35 }],
+        ]);
+        const overlaps = (a: Rect, b: Rect) =>
+            a.x0 < b.x1 - 1e-6 && a.x1 > b.x0 + 1e-6 && a.z0 < b.z1 - 1e-6 && a.z1 > b.z0 + 1e-6;
+        const rk = claimResidualPlacements(ps, buildableKO, meta, 'seedKO', [stairKO]);
+        for (const m of rk.mints) {
+            expect(overlaps(m.rect, stairKO), 'a minted cell crossed the stair keep-out').toBe(false);
+        }
+        for (const p of rk.placements) {
+            if (p.roomId === 'stair0') continue;
+            expect(overlaps(p.rect, stairKO), `"${p.roomId}" crossed the stair keep-out`).toBe(false);
         }
     });
 });

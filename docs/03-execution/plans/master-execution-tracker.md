@@ -4250,6 +4250,8 @@ inside each cabinet*.
 storage/cleaning/construction/door-drawer-sim/island/proportion/cabinet-taxonomy) accretes across P2–P5; each
 appliance/cabinet carries its own constraint set. This is a multi-session program — P1 is the foundation.
 
+**FOUNDER 2026-06-12 (test feedback):** (1) **"Always plan a window in one section of the L-shape kitchen"** — the L-kitchen must place ≥1 section (a leg) against an exterior wall that has/gets a window, with the SINK/prep under it (the classic "window over the sink" rule). This is §59 **P4** (shape selection from boundary + windows) + a P2 HARD/SCORING rule (window↔sink adjacency). NEXT concrete §59 step: kitchenLayout (furnishLayout) coordinates with windowEmission so the L's window-bearing leg hosts the sink. (2) Founder asked whether the extensive kitchen rules are IMPLEMENTED — answer: scaffolded (P1 L1 ontology/schema, tested) but NOT yet enforcing; P2 (wire the HARD rules as a validation pass over kitchenLayout) is the priority to start actually USING the corpus. Sequence the L-kitchen-window + P2 as a focused furnishLayout pass once the in-flight corner-sofa agent (same dir) lands.
+
 ## §60 — Stair landing railing continuity (`§STAIR-RAIL-LANDING-JOIN`) — QUEUED (2026-06-11)
 
 Founder (queue, with 3D screenshot): "the stair in the landing requires extra railing — connecting the end and

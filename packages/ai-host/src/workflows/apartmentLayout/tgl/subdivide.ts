@@ -2794,11 +2794,27 @@ export interface ClaimedResidual {
     } | null;
 }
 
+/** §DIAG-FILL-RESIDUAL — one claimed fragment's telemetry (per-fragment audit trail the
+ *  caller logs: area, how it was claimed, and which neighbour it bonded to). */
+export interface ResidualClaimDetail {
+    /** Fragment area (m²) at the moment it was claimed. */
+    readonly areaM2: number;
+    /** GROWN into an adjacent room (its rect was extended) vs MINTED as a new named cell. */
+    readonly how: 'grown' | 'minted';
+    /** The room the fragment bonded to — the grown room (grow) or the abutting neighbour the
+     *  minted Store wired `open` to (mint); null when a minted cell found no neighbour. */
+    readonly neighbourId: string | null;
+    /** For a mint: the minted room's name ("Store"); for a grow: the grown room's id. */
+    readonly label: string;
+}
+
 /** §DIAG-FILL-RESIDUAL result: the (possibly grown) placement set + the rooms to
  *  mint into the bubble graph + the residual telemetry the caller logs. */
 export interface ResidualClaimResult {
     readonly placements: readonly RoomPlacement[];
     readonly mints: readonly NonNullable<ClaimedResidual['mint']>[];
+    /** Per-fragment claim audit (§65.2-MODERATE — area, grown-into vs minted-as, neighbour). */
+    readonly claims: readonly ResidualClaimDetail[];
     /** Largest single unclaimed (still-blank) fragment AFTER the pass (m²). ~0 is the goal. */
     readonly largestBlankM2: number;
     /** Total still-unclaimed area AFTER the pass (m²). ~0 is the goal. */
@@ -2825,14 +2841,30 @@ const RESIDUAL_GROW_ELIGIBLE: ReadonlySet<RoomType> = new Set<RoomType>([
  *  the founder's blank "Room NN". 2 m² is well under any habitable minimum. */
 export const RESIDUAL_EPS_M2 = 2.0;
 
-/** §65.2 — the claim pass only fires when the plate's LARGEST blank reaches this area:
- *  the founder's "huge undivided cell" defect surfaces as a 50–68 m² cavern, while a
- *  well-tiled normal house plate (≤ ~165 m², the byte-identical guard) carries only
- *  small slack (≤ ~45 m² on its WORST candidate, ~0 on its winner). Gating at 48 m²
- *  keeps every normal-plate candidate BYTE-IDENTICAL (so the winner — and the score
- *  ranking — is unchanged) and fires ONLY on the genuinely cavernous large/dense
- *  plates the founder reported. Below it the pass is a strict no-op. */
+/** §65.2 — the LEGACY "cavern gate". Originally the claim pass fired ONLY when the
+ *  plate's LARGEST blank reached this area (a 50–68 m² undivided cell). Retained as the
+ *  threshold above which the FULL residual worklist is seeded (every blank claimed,
+ *  including remainders below the moderate floor that abut a grown room). Below it the
+ *  moderate-blank / stair-adjacent triggers govern instead (see §65.2-MODERATE). */
 export const RESIDUAL_MIN_LARGEST_BLANK_M2 = 48.0;
+
+/** §65.2-MODERATE (founder defect, 2026-06-12 — "empty space on the top floor"): the
+ *  upper-floor cell the founder reported (19.8 / 28.9 m² "Room 01-NNN") is a NON-stair,
+ *  NON-cavern blank — BELOW the 48 m² cavern gate, so the legacy gate never claimed it →
+ *  it shipped as a generic undivided "Room NN". This is the MODERATE-blank floor: ANY
+ *  leftover fragment ≥ this (a genuinely usable cell, ~the §D3.1 smallest mintable room)
+ *  is claimed — GROWN into an adjacent habitable/circulation room (capped at its
+ *  dimensional hard-max → never an oversize), else MINTED as a NAMED room. Below it the
+ *  fragment is GENUINE wall/clearance slack (a <6 m² alignment sliver, the stair-
+ *  clearance ring) and is correctly left blank. Sits just above the smallest mintable
+ *  Store-cell floor (utility areaHardMax ~8 m²) and the §STAIR-LANDING-SEAL band size so
+ *  the founder's 15–30 m² blanks are all caught while real slack is preserved.
+ *
+ *  BYTE-IDENTITY: a plate whose largest blank is < this floor is UNCHANGED (the trigger
+ *  doesn't fire). A plate that previously shipped a 6–45 m² blank now ships it filled —
+ *  that is the intended fix (the founder's defect); such cases re-aim their assertions to
+ *  the filled output. Apartment (no keep-out) never reaches the claim at all. */
+export const RESIDUAL_MODERATE_BLANK_M2 = 6.0;
 
 /** The min short side a MINTED residual room may have (a real, usable cell — not a
  *  tunnel). Below this the fragment is left as clearance (never a 0.3 m × 8 m sliver). */
@@ -3035,22 +3067,27 @@ export function claimResidualPlacements(
         stairKeepOuts.some(ko => sharedEdgeM(r, ko) > 0.05);
     const hasStairAdjacentBlank = blankBefore.some(touchesStair);
 
-    // §65.2 GATE — only fire on the founder's CAVERNOUS-blank defect (a plate whose
-    // largest blank is genuinely big). A well-tiled normal house plate (≤ ~165 m², the
-    // byte-identical guard) never clears this, so the pass is a strict no-op there — the
-    // winner AND the score ranking stay byte-identical (ADR-0061). Above it the plate is
-    // the founder's large/dense case and gets fully tiled below.
-    //
-    // §STAIR-LANDING-SEAL (§68.6) — EXCEPTION: a blank band that SHARES A WALL WITH THE
-    // STAIR is always claimed (it would otherwise flood the stair room — the oversized-
-    // stair defect), so when one exists we fire BELOW the cavern gate too, but restrict
-    // the worklist to ONLY the stair-adjacent fragments + their remainders (so a non-
-    // cavern plate's OTHER blanks stay untouched → byte-identical there). When the cavern
-    // gate is met we run the full worklist exactly as before.
+    // §65.2-MODERATE — a blank fragment ≥ the MODERATE-blank floor is a genuinely usable
+    // cell (the founder's 19.8 / 28.9 m² upper-floor "Room NN") and MUST be claimed, even
+    // below the cavern gate. A fragment below the floor is real wall/clearance slack and
+    // stays blank. This is what catches the founder's UPPER-floor case (the sparser private
+    // programme under-fills the plate with a 15–30 m² blank that never reached 48 m²).
+    const isModerate = (r: Rect): boolean => rectArea(r) >= RESIDUAL_MODERATE_BLANK_M2;
+    const hasModerateBlank = blankBefore.some(isModerate);
+
+    // §65.2 GATE (three tiers, ALL paths honour no-oversize + no-cross-stair-keepout +
+    // rank-neutrality — the claim only ever touches emitted geometry, never the score):
+    //   • CAVERN  (largest blank ≥ 48 m²): seed the FULL residual (legacy founder cavern).
+    //   • MODERATE (any blank ≥ 6 m²): seed the moderate fragments — the founder's top-floor
+    //     defect. A previously-blank-free plate (largest blank < 6 m²) is UNCHANGED.
+    //   • STAIR-LANDING-SEAL (§68.6): a band sharing a wall with the stair keep-out is always
+    //     claimed (it would otherwise flood the stair room) even below 6 m².
+    // A plate with no blank ≥ 6 m² and no stair-adjacent blank is a strict NO-OP → unchanged
+    // (apartment never reaches here; an already blank-free plate is byte-identical). ADR-0061.
     const cavern = largestBlankBeforeM2 >= RESIDUAL_MIN_LARGEST_BLANK_M2;
-    if (!cavern && !hasStairAdjacentBlank) {
+    if (!cavern && !hasModerateBlank && !hasStairAdjacentBlank) {
         return {
-            placements, mints: [],
+            placements, mints: [], claims: [],
             largestBlankM2: largestBlankBeforeM2, totalBlankM2: totalBlankBeforeM2,
             largestBlankBeforeM2, totalBlankBeforeM2,
         };
@@ -3059,15 +3096,22 @@ export function claimResidualPlacements(
     // Mutable working copy of placements (grow rewrites a neighbour's rect in place).
     const work: RoomPlacement[] = placements.map(p => ({ roomId: p.roomId, rect: p.rect }));
     const mints: NonNullable<ClaimedResidual['mint']>[] = [];
+    const claims: ResidualClaimDetail[] = [];
     let mintCounter = 0;
 
     // Worklist so a partially-absorbed fragment's REMAINDER is re-examined (it may abut a
     // DIFFERENT eligible neighbour) before it is finally minted. Bounded: every iteration
     // either consumes the fragment or shrinks it past a grow-eligible neighbour, and the
     // mint path always terminates (a fragment with no further grow is minted, never re-queued).
-    // §STAIR-LANDING-SEAL — below the cavern gate, seed ONLY the stair-adjacent fragments
-    // (the bands that flood the stair); above the gate, seed the full residual (legacy).
-    const worklist: Rect[] = cavern ? [...rawResidual] : rawResidual.filter(touchesStair);
+    // Seeding (below the cavern gate, restrict to the fragments the triggers selected so an
+    // already blank-free plate stays byte-identical):
+    //   • CAVERN: the FULL residual (legacy — every blank + every remainder claimed).
+    //   • else: the MODERATE fragments (≥ 6 m² — the founder's top-floor cells) ∪ the
+    //     STAIR-ADJACENT fragments (the landing bands that flood the stair). A fragment that
+    //     is neither (genuine sub-6 m² wall slack that doesn't touch the stair) is left blank.
+    const worklist: Rect[] = cavern
+        ? [...rawResidual]
+        : rawResidual.filter(r => isModerate(r) || touchesStair(r));
     let guard = rawResidual.length * 8 + 16;                    // deterministic safety bound
     while (worklist.length > 0 && guard-- > 0) {
         const frag = worklist.shift()!;
@@ -3100,6 +3144,10 @@ export function claimResidualPlacements(
             const cap = Math.min(meta.maxAreaM2, growCapForType(meta.type));
             const res = growPartial(nb.rect, frag, cap);
             if (res && withinShapeEnvelope(meta.type, res.grown)) {
+                claims.push({
+                    areaM2: round6(rectArea(res.grown) - rectArea(nb.rect)),
+                    how: 'grown', neighbourId: nb.roomId, label: nb.roomId,
+                });
                 work[bestIdx] = { roomId: nb.roomId, rect: res.grown };
                 if (res.remainder) worklist.push(res.remainder);
                 continue;
@@ -3127,6 +3175,10 @@ export function claimResidualPlacements(
                 id, type: 'utility', name: 'Store', rect: cell,
                 targetAreaM2: round6(rectArea(cell)), neighbourId,
             });
+            claims.push({
+                areaM2: round6(rectArea(cell)),
+                how: 'minted', neighbourId, label: 'Store',
+            });
             work.push({ roomId: id, rect: cell });
         }
     }
@@ -3141,6 +3193,7 @@ export function claimResidualPlacements(
     return {
         placements: work,
         mints,
+        claims,
         largestBlankM2,
         totalBlankM2,
         largestBlankBeforeM2,

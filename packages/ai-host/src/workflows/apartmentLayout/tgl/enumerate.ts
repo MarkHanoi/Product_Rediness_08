@@ -888,13 +888,23 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         );
         residualMints = claim.mints;
         residualPlacements = claim.placements;
+        const grownCount = claim.claims.filter(c => c.how === 'grown').length;
         console.log(
             `[D-TGL] §DIAG-FILL-RESIDUAL cand ${strategyKey(s)} ` +
             `largestBlankBefore=${claim.largestBlankBeforeM2.toFixed(1)} totalBlankBefore=${claim.totalBlankBeforeM2.toFixed(1)} ` +
-            `→ grown+minted ${claim.mints.length} mint(s) ` +
+            `→ claimed ${claim.claims.length} fragment(s) (${grownCount} grown, ${claim.mints.length} minted) ` +
             `largestBlankAfter=${claim.largestBlankM2.toFixed(1)} totalBlankAfter=${claim.totalBlankM2.toFixed(1)} ` +
-            `(target ~0; >2 m² after ⇒ a still-blank cell — the §65.2 defect surface)`,
+            `(target largestBlankAfter ≤ ~6 m² wall-slack; >6 m² after ⇒ a still-blank usable cell — the §65.2 defect surface)`,
         );
+        // §DIAG-FILL-RESIDUAL — per-fragment audit (the founder's §65.2-MODERATE top-floor
+        // case: each moderate blank logged with its area + grown-into vs minted-as + neighbour).
+        for (const c of claim.claims) {
+            console.log(
+                `[D-TGL] §DIAG-FILL-RESIDUAL   • ${c.areaM2.toFixed(1)} m² ${c.how} ` +
+                `${c.how === 'grown' ? `into ${c.label}` : `as "${c.label}"`} ` +
+                `(neighbour ${c.neighbourId ?? 'none'})`,
+            );
+        }
     }
 
     // §D3.1 — pre-furnishing SHAPE GATE. Validate every room rectangle against
