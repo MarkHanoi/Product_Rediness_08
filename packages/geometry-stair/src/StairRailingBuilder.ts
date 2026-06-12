@@ -707,25 +707,13 @@ export class StairRailingBuilder {
         rail.userData.selectable = false;
         group.add(rail);
 
-        // ── Balusters along the open edge ─────────────────────────────────────────
-        if (railing.railingType !== 'none' && railing.railingType !== 'glass-panel') {
-            const spanLen = p0.distanceTo(p1);
-            const balSpacing = railing.balusterSpacing;
-            const balCount = Math.max(1, Math.floor(spanLen / balSpacing));
-            const bw = railing.balusterWidth;
-            for (let i = 0; i <= balCount; i++) {
-                const t = i / balCount;
-                const basePos = p0.clone().lerp(p1, t);
-                const balGeom = railing.railingType === 'circular'
-                    ? new THREE.CylinderGeometry(bw / 2, bw / 2, railHeight, 8)
-                    : new THREE.BoxGeometry(bw, railHeight, bw);
-                const bal = new THREE.Mesh(balGeom, this.makeMaterial(railing.material, 0x7a5c38));
-                bal.position.set(basePos.x, landingElev + railHeight / 2, basePos.z);
-                bal.userData.elementType = 'stair-railing';
-                bal.userData.selectable = false;
-                group.add(bal);
-            }
-        }
+        // ── Infill along the open edge ────────────────────────────────────────────
+        // §U-LANDING-INFILL — emit the SAME per-type infill the flights use (square
+        // balusters / round balusters / glass panel / none), via the shared emitter.
+        // Previously this inline loop drew balusters for flat-bar/circular but emitted
+        // NOTHING for glass-panel — leaving the landing open edge as a bare top rail
+        // for the glass type (one of the founder-reported gaps).
+        this.emitHorizontalInfill(group, p0, p1, landingElev, railHeight, railing);
 
         // ── Corner posts at both ends of the open edge ────────────────────────────
         this.addPost(group, p0.clone(), landingElev, railHeight, 0.06, this.makeMaterial(railing.material, 0x7a5c38));
@@ -764,6 +752,14 @@ export class StairRailingBuilder {
             seg.userData.elementType = 'stair-railing';
             seg.userData.selectable = false;
             group.add(seg);
+            // §U-LANDING-INFILL — the connector span (run terminal → guard corner) is
+            // the "area BETWEEN the flight runs and the BACK of the landing" the
+            // founder red-lined: it previously carried only a top rail + closing post
+            // with NO baluster/spindle/glass infill. Emit the SAME per-type infill the
+            // flights and the open edge use, so the pattern is continuous all the way
+            // around the half-landing for ANY railing type. This connector is flat at
+            // landingElev (both terminal and corner snap to the guard rail height).
+            this.emitHorizontalInfill(group, t, corner, landingElev, railHeight, railing);
             // Closing post at the flight terminal locks the corner visually.
             this.addPost(group, new THREE.Vector3(t.x, 0, t.z), landingElev, railHeight, 0.06,
                 this.makeMaterial(railing.material, 0x7a5c38));
@@ -783,6 +779,87 @@ export class StairRailingBuilder {
                 .add(nextEntry.offset)
                 .setY(nextEntry.flightStart.y + railHeight);
             connect(flight2RailStart);
+        }
+    }
+
+    // ── Shared per-type INFILL emitter (§U-LANDING-INFILL) ───────────────────────
+    // Emits the SAME baluster/spindle/glass infill the flights use, along an
+    // arbitrary HORIZONTAL segment (start→end, both at the same base elevation).
+    // Reused by buildULandingGuard for the landing open-edge AND for every §60
+    // run↔landing connector so the half-landing carries an unbroken infill pattern
+    // continuous with the flights — for ANY railing type.
+    //
+    //   flat-bar     → square (box) balusters at `balusterSpacing`
+    //   circular     → round (cylinder) balusters at `balusterSpacing`
+    //   glass-panel  → a single vertical glass quad spanning the segment
+    //   none         → nothing
+    //
+    // The spacing/profile/width are read straight from the railing config, so this
+    // matches the flights' infill exactly (the founder-required continuity). Pure +
+    // deterministic: identical inputs ⇒ identical baluster count and positions.
+    private emitHorizontalInfill(
+        group: THREE.Group,
+        start: THREE.Vector3,
+        end: THREE.Vector3,
+        baseElev: number,
+        railHeight: number,
+        railing: StairRailingConfig
+    ): void {
+        const type = railing.railingType ?? 'flat-bar';
+        if (type === 'none') return;
+
+        const a = new THREE.Vector3(start.x, baseElev, start.z);
+        const b = new THREE.Vector3(end.x, baseElev, end.z);
+        const spanLen = a.distanceTo(b);
+        if (spanLen < 0.01) return;
+
+        if (type === 'glass-panel') {
+            // Vertical glass panel spanning the segment (matches the flights' glass).
+            const glassMat = new THREE.MeshStandardMaterial({
+                color: 0xaaddff,
+                transparent: true,
+                opacity: 0.35,
+                roughness: 0.1,
+                metalness: 0.1,
+                side: THREE.DoubleSide,
+            });
+            const panelH = railHeight - 0.15;
+            const baseL = a.clone().setY(baseElev + 0.05);
+            const baseR = b.clone().setY(baseElev + 0.05);
+            const topL = baseL.clone().setY(baseL.y + panelH);
+            const topR = baseR.clone().setY(baseR.y + panelH);
+            const positions = new Float32Array([
+                baseL.x, baseL.y, baseL.z,
+                baseR.x, baseR.y, baseR.z,
+                topR.x,  topR.y,  topR.z,
+                topL.x,  topL.y,  topL.z,
+            ]);
+            const panelGeom = new THREE.BufferGeometry();
+            panelGeom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            panelGeom.setIndex([0, 1, 2, 0, 2, 3]);
+            panelGeom.computeVertexNormals();
+            const panelMesh = new THREE.Mesh(panelGeom, glassMat);
+            panelMesh.userData.elementType = 'stair-railing';
+            panelMesh.userData.selectable = false;
+            group.add(panelMesh);
+            return;
+        }
+
+        // flat-bar / circular: vertical balusters at the flight spacing/profile.
+        const balSpacing = railing.balusterSpacing;
+        const balCount = Math.max(1, Math.floor(spanLen / balSpacing));
+        const bw = railing.balusterWidth;
+        for (let i = 0; i <= balCount; i++) {
+            const t = i / balCount;
+            const basePos = a.clone().lerp(b, t);
+            const balGeom = type === 'circular'
+                ? new THREE.CylinderGeometry(bw / 2, bw / 2, railHeight, 8)
+                : new THREE.BoxGeometry(bw, railHeight, bw);
+            const bal = new THREE.Mesh(balGeom, this.makeMaterial(railing.material, 0x7a5c38));
+            bal.position.set(basePos.x, baseElev + railHeight / 2, basePos.z);
+            bal.userData.elementType = 'stair-railing';
+            bal.userData.selectable = false;
+            group.add(bal);
         }
     }
 
