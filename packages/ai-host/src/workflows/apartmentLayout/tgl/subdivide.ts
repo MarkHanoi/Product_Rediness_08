@@ -3046,11 +3046,16 @@ export const RESIDUAL_MIN_LARGEST_BLANK_M2 = 48.0;
  *  Store-cell floor (utility areaHardMax ~8 m²) and the §STAIR-LANDING-SEAL band size so
  *  the founder's 15–30 m² blanks are all caught while real slack is preserved.
  *
+ *  §65.2-TIGHT (founder 2026-06-12, "really bad — always white spaces without being used"):
+ *  the floor was 6 m², so a 3–6 m² cell shipped as a generic blank. The founder's target is
+ *  NO unprogrammed cell above ~3 m² (pack the plot like the apartment). Lowered to 3 m² so a
+ *  ≥3 m² leftover is ALWAYS grown into a neighbour (≤ its hard-max → never oversize) or minted
+ *  as a named Store; only genuine sub-3 m² wall/clearance slivers may remain blank. A grow/mint
+ *  still needs a ≥1 m short side, so a thin 3 m² sliver (e.g. 0.4×7) is left as true clearance.
+ *
  *  BYTE-IDENTITY: a plate whose largest blank is < this floor is UNCHANGED (the trigger
- *  doesn't fire). A plate that previously shipped a 6–45 m² blank now ships it filled —
- *  that is the intended fix (the founder's defect); such cases re-aim their assertions to
- *  the filled output. Apartment (no keep-out) never reaches the claim at all. */
-export const RESIDUAL_MODERATE_BLANK_M2 = 6.0;
+ *  doesn't fire). Apartment (no keep-out) never reaches the claim at all. */
+export const RESIDUAL_MODERATE_BLANK_M2 = 3.0;
 
 /** The min short side a MINTED residual room may have (a real, usable cell — not a
  *  tunnel). Below this the fragment is left as clearance (never a 0.3 m × 8 m sliver). */

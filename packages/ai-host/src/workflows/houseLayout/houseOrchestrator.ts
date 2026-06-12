@@ -360,7 +360,7 @@ function containStairCoreUpstream(
     principalAxisRad: number,
     pivot: { x: number; z: number },
     storeyCount: number,
-): { containOffsetWorld: { x: number; z: number }; footprintWorld: StairXZ[] | null } {
+): { containOffsetWorld: { x: number; z: number }; footprintWorld: StairXZ[] | null; footprintLayout: StairXZ[] | null } {
     // The WORLD-rotated per-flight plan (same `resolveFlightPlans` the assembler uses).
     const flights = resolveFlightPlans(reserved, totalRisers, principalAxisRad);
 
@@ -382,8 +382,14 @@ function containStairCoreUpstream(
     if (!fp0 || fp0.length < 3 || shellWorld.length < 3) {
         // Degenerate — no offset; the keep-out falls back to the core-rect AABB and the
         // executor's §STAIR-CONTAIN still guards (best-effort).
-        return { containOffsetWorld: { x: 0, z: 0 }, footprintWorld: fp0 };
+        return { containOffsetWorld: { x: 0, z: 0 }, footprintWorld: fp0, footprintLayout: null };
     }
+    // §STAIR-KEEPOUT-LAYOUT-TIGHT — rotate a WORLD footprint back into the LAYOUT
+    // (principal-axis) frame by −principalAxisRad about the pivot. The stair body is
+    // axis-aligned in that frame, so the rotated footprint is itself axis-aligned ⇒
+    // its AABB is TIGHT (no rotation inflation). Used to carve a tight room keep-out.
+    const toLayout = (fp: StairXZ[]): StairXZ[] =>
+        principalAxisRad === 0 ? fp : fp.map(c => rotatePt(c, -principalAxisRad, pivot));
 
     // (2) inward direction = the LAYOUT-frame interior side rotated to WORLD (same as the
     //     executor); central/absent → degenerate → the solver falls back to the centroid.
@@ -490,12 +496,12 @@ function containStairCoreUpstream(
     const containOffsetWorld = { x: solved.dx, z: solved.dz };
     if (solved.dx === 0 && solved.dz === 0) {
         // Already contained — keep-out == the un-shifted footprint.
-        return { containOffsetWorld, footprintWorld: fp0 };
+        return { containOffsetWorld, footprintWorld: fp0, footprintLayout: toLayout(fp0) };
     }
     // (4) the CONTAINED world footprint = the un-contained footprint shifted by the world
     //     offset (the executor will shift the SAME body by the SAME StairCore.containOffsetWorld).
     const fpContained = fp0.map(c => ({ x: c.x + solved.dx, z: c.z + solved.dz }));
-    return { containOffsetWorld, footprintWorld: fpContained };
+    return { containOffsetWorld, footprintWorld: fpContained, footprintLayout: toLayout(fpContained) };
 }
 
 /** Enumerate up to `count` options per storey via the UNCHANGED apartment engine.
@@ -628,6 +634,10 @@ function enumeratePerStorey(
     const core: StairCoreShaped | null = reservedCore;
     const containOffsetWorld = contained ? contained.containOffsetWorld : { x: 0, z: 0 };
     const coreFootprintWorld = contained ? contained.footprintWorld : null;
+    // §STAIR-KEEPOUT-LAYOUT-TIGHT — the CONTAINED stair footprint expressed in the LAYOUT
+    // (principal-axis) frame, where the stair body is axis-aligned ⇒ its AABB is tight (no
+    // rotation inflation). Carved as the room keep-out directly in the engine frame.
+    const coreFootprintLayout = contained ? contained.footprintLayout : null;
     const coreRect = core ? core.rectMm : null;   // RESERVED, in the LAYOUT frame (mm)
     const coreAreaM2 = coreRect ? stairCoreAreaM2(coreRect) : 0;
 
@@ -661,6 +671,21 @@ function enumeratePerStorey(
     //
     // The shared `computeStairWorldFootprint` builds the SAME world geometry the executor
     // builds; `coreFootprintWorld` (computed in `containStairCoreUpstream`) is reused here.
+    // §STAIR-KEEPOUT-LAYOUT-TIGHT (founder oversized-stair defect, 2026-06-12) — carve the
+    // room keep-out as the stair footprint's TIGHT LAYOUT-frame AABB. On a SKEWED plate the
+    // old world-AABB keep-out (below) is inflated ONCE by the rotation, then `mapRectToEngine`
+    // AABBs it AGAIN — a double inflation that bloated the stair cell to ~1.8× the real
+    // footprint (the founder's ~33 m² "Stair" + the matching empty cell above it). In the
+    // layout frame the stair body is axis-aligned, so this AABB == the real footprint (tight).
+    // Passed via the engine-frame `keepOutRectsLayout` param so it bypasses mapRectToEngine.
+    // Axis-aligned plate (principalAxisRad 0) ⇒ layout == world ⇒ byte-identical. Apartment
+    // passes no core ⇒ undefined ⇒ unchanged (ADR-0061).
+    const keepOutRectsLayout = core && coreFootprintLayout && coreFootprintLayout.length >= 3
+        ? [{
+            x0: Math.min(...coreFootprintLayout.map(c => c.x)), z0: Math.min(...coreFootprintLayout.map(c => c.z)),
+            x1: Math.max(...coreFootprintLayout.map(c => c.x)), z1: Math.max(...coreFootprintLayout.map(c => c.z)),
+        }]
+        : undefined;
     const keepOutRectsWorld = core && coreFootprintWorld && coreFootprintWorld.length >= 3
         ? [{
             x0: Math.min(...coreFootprintWorld.map(c => c.x)), z0: Math.min(...coreFootprintWorld.map(c => c.z)),
@@ -700,6 +725,18 @@ function enumeratePerStorey(
                 x1: Math.max(...corners.map(c => c.x)), z1: Math.max(...corners.map(c => c.z)),
             }];
         })()
+        : undefined;
+
+    // §STAIR-KEEPOUT-LAYOUT-TIGHT — the RESERVED core (`coreRect`) is authored DIRECTLY in
+    // the LAYOUT frame and is axis-aligned there, so its layout-frame residual-exclude is the
+    // rect verbatim (no rotation). Passed via `residualExcludeRectsLayout` so it bypasses
+    // mapRectToEngine in lock-step with the layout keep-out above. Axis-aligned ⇒ identical
+    // to `residualExcludeRectsWorld`.
+    const residualExcludeRectsLayout = coreRect
+        ? [{
+            x0: coreRect.x / 1000, z0: coreRect.y / 1000,
+            x1: (coreRect.x + coreRect.w) / 1000, z1: (coreRect.y + coreRect.h) / 1000,
+        }]
         : undefined;
 
     // (c) per-storey layout via the UNCHANGED single-plate engine — enumerate up
@@ -804,6 +841,13 @@ function enumeratePerStorey(
             // §DIAG-FILL-RESIDUAL (§65.2) — the RESERVED stair-core cell the residual-claim
             // pass must keep clear (the modal "Stair" cell, offset from the shipped footprint).
             residualExcludeRectsWorld,
+            // style — house orchestrator uses no interior style here.
+            undefined,
+            // §STAIR-KEEPOUT-LAYOUT-TIGHT — the TIGHT layout-frame keep-out / residual-exclude.
+            // When present these SUPERSEDE the world rects (avoiding the double-AABB inflation
+            // that bloated the stair on a skewed plate). Axis-aligned plate ⇒ identical values.
+            keepOutRectsLayout,
+            residualExcludeRectsLayout,
         );
         perStorey.push({ storeyIndex: i, options });
     }

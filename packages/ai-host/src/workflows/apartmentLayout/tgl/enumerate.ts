@@ -920,6 +920,35 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
                 const droppedSet = new Set(net.dropped);
                 residualMints = claim.mints.filter(m => !droppedSet.has(m.id));
             }
+
+            // §OVERLAP-RECLAIM (founder defect §65.2, 2026-06-12) — `resolveRoomOverlaps` clips a
+            // lower-priority room to its largest CLEAR sub-rect (or drops it entirely). The
+            // clipped-away / dropped area becomes a fresh BLANK that nothing re-absorbs → on a
+            // dense plate it ships as the founder's generic "Room NN" cell (e.g. above the stair,
+            // where a residual-grown room got clipped back). RE-CLAIM that freed area: re-run the
+            // residual fill over the NET placements so an adjacent grow-eligible room grows into
+            // the gap (≤ its hard-max → never oversize) or a named Store is minted; then re-run the
+            // overlap net ONCE so the re-claim can never re-introduce an overlap. Only fires when
+            // the net actually clipped/dropped something (otherwise byte-identical). Bounded (one
+            // re-claim + one net). Apartment never reaches the claim ⇒ untouched (ADR-0061).
+            if (net.resolved.length > 0 || net.dropped.length > 0) {
+                const reclaim = claimResidualPlacements(
+                    residualPlacements, buildableWorld, roomMeta, `${strategyKey(s)}-rc`, input.keepOutRects,
+                );
+                if (reclaim.claims.length > 0) {
+                    for (const m of reclaim.mints) typeByIdNet.set(m.id, m.type);
+                    const net2 = resolveRoomOverlaps(reclaim.placements, typeByIdNet);
+                    residualPlacements = net2.placements;
+                    const drop2 = new Set(net2.dropped);
+                    // The full mint set after re-claim = surviving original mints + surviving re-claim
+                    // mints, minus anything the second net dropped.
+                    residualMints = [...residualMints, ...reclaim.mints].filter(m => !drop2.has(m.id));
+                    console.log(
+                        `[D-TGL] §OVERLAP-RECLAIM cand ${strategyKey(s)} re-absorbed ${reclaim.claims.length} freed ` +
+                        `fragment(s) after overlap clip (largestBlank ${reclaim.largestBlankBeforeM2.toFixed(1)}→${reclaim.largestBlankM2.toFixed(1)} m²)`,
+                    );
+                }
+            }
         }
         const grownCount = claim.claims.filter(c => c.how === 'grown').length;
         console.log(

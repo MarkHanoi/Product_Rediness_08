@@ -123,6 +123,20 @@ export function generateDeterministicLayouts(
     // (composing with the climate factor). Absent / unknown → no bias (byte-
     // identical window emission, since glazingBias defaults to 1).
     style?: string,
+    // §STAIR-KEEPOUT-LAYOUT-TIGHT (founder oversized-stair defect, 2026-06-12) —
+    // OPTIONAL keep-out / residual-exclude rect(s) ALREADY EXPRESSED IN THE ENGINE
+    // (principal-axis / layout) FRAME, so they BYPASS `mapRectToEngine`. The world-
+    // frame `keepOutRectsWorld` path takes the AABB of the rotated stair footprint
+    // (inflated once) then `mapRectToEngine` AABBs it AGAIN (inflated twice) — on a
+    // SKEWED plate that double-AABB bloated the stair keep-out to ~1.8× the real
+    // footprint (the founder's ~33 m² stair + the matching empty cell above it). The
+    // house orchestrator instead carves the stair footprint's TIGHT layout-frame AABB
+    // (axis-aligned in that frame ⇒ no inflation) and passes it here. When supplied it
+    // SUPERSEDES the world keep-out (the orchestrator passes one or the other, never
+    // both). Absent ⇒ the legacy world path (apartment + axis-aligned house byte-
+    // identical, ADR-0061).
+    keepOutRectsLayout?: ReadonlyArray<{ x0: number; z0: number; x1: number; z1: number }>,
+    residualExcludeRectsLayout?: ReadonlyArray<{ x0: number; z0: number; x1: number; z1: number }>,
 ): ScoredLayoutOption[] {
     const perimeter = shell.perimeter as Pt[];
     if (!perimeter || perimeter.length < 3) return [];
@@ -189,8 +203,16 @@ export function generateDeterministicLayouts(
             x1: Math.max(...corners.map(c => c.x)), z1: Math.max(...corners.map(c => c.z)),
         };
     };
-    const keepOutEngine = keepOutRectsWorld?.map(mapRectToEngine);
-    const residualExcludeEngine = residualExcludeRectsWorld?.map(mapRectToEngine);
+    // §STAIR-KEEPOUT-LAYOUT-TIGHT — a layout-frame keep-out (already axis-aligned in the
+    // engine frame) SUPERSEDES the world keep-out so it is NOT re-AABB'd by mapRectToEngine
+    // (which would inflate a rotated stair footprint a second time). The orchestrator passes
+    // one or the other, never both; when the layout-frame set is present we use it verbatim.
+    const keepOutEngine = keepOutRectsLayout && keepOutRectsLayout.length > 0
+        ? keepOutRectsLayout.map(r => ({ x0: r.x0, z0: r.z0, x1: r.x1, z1: r.z1 }))
+        : keepOutRectsWorld?.map(mapRectToEngine);
+    const residualExcludeEngine = residualExcludeRectsLayout && residualExcludeRectsLayout.length > 0
+        ? residualExcludeRectsLayout.map(r => ({ x0: r.x0, z0: r.z0, x1: r.x1, z1: r.z1 }))
+        : residualExcludeRectsWorld?.map(mapRectToEngine);
 
     const candidates = enumerateLayouts({
         shellPolygon,
