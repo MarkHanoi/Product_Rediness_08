@@ -28,6 +28,8 @@ import {
     wallDir, wallMid, yawFromNormal, wallHasDoor, wallHasWindow,
 } from './wallAnalysis.js';
 import { validateKitchenLayout, formatKitchenViolations } from './rules/kitchenValidation.js';
+import { scoreKitchenLayout, formatKitchenScore } from './rules/kitchenScoring.js';
+import type { LayoutScore } from './rules/ruleSchema.js';
 
 /** The selectable kitchen run shape. `auto` lets the planner pick by geometry. */
 export type KitchenLayout = 'auto' | 'I' | 'L' | 'U';
@@ -459,6 +461,96 @@ function tryIsland(input: FurnishRoomInput, obstacles: readonly Quad[]): PlacedF
     };
 }
 
+// ── §59 P3 — generate-N-and-rank ─────────────────────────────────────────────
+//
+// P2 validates ONE arrangement; P3 GENERATES a few candidate arrangements, HARD-
+// validates + SCORES each on the 100-pt scorecard, and ships the highest-scoring
+// VALID candidate (least-bad — fewest hard violations, then highest score — when
+// none is fully valid). The candidate set is the SHAPES the room geometrically
+// admits (the auto-chosen shape + the explicit alternatives that fit), so the rank
+// only decides between MULTIPLE viable arrangements; a room that admits one shape
+// scores + ships the same arrangement as before (back-compat).
+
+/** The candidate shapes to TRY for an 'auto' room: every shape whose host-gate
+ *  (canHostL / canHostU / always-I) passes for the room's usable walls. An
+ *  explicit brief shape yields exactly that one candidate. Deterministic order
+ *  (I, L, U) so ties between equal scores resolve the same way every run. */
+function candidateShapes(input: FurnishRoomInput, layout: KitchenLayout): Array<'I' | 'L' | 'U'> {
+    if (layout !== 'auto') {
+        // Honour the brief; chooseShape degrades gracefully if it can't host it.
+        return [layout];
+    }
+    const usable = runWalls(input).filter(w => !wallHasDoor(w, input.doors));
+    const shapes: Array<'I' | 'L' | 'U'> = ['I'];   // I always admissible
+    if (usable.length >= 2 && canHostL(usable)) shapes.push('L');
+    if (usable.length >= 3 && input.areaM2 >= 6 && canHostU(usable)) shapes.push('U');
+    return shapes;
+}
+
+/** Validate + score one candidate's placements. Pure. */
+function scoreCandidate(
+    placed: readonly PlacedFurniture[], input: FurnishRoomInput,
+): { score: LayoutScore; hardCount: number } {
+    const v = validateKitchenLayout(placed, input);
+    const score = scoreKitchenLayout(placed, input, {
+        valid: v.valid,
+        hardFailures: v.violations.map(x => x.rule),
+    });
+    return { score, hardCount: v.violations.length };
+}
+
+/**
+ * §59 P3 generate-N-and-rank. Runs `plan(input, shape, opts)` for each candidate
+ * shape the room admits, HARD-validates + scores each, logs a §DIAG-KITCHEN-SCORE
+ * line per candidate, and returns the WINNER's placements:
+ *   • among candidates with ≥1 placement: prefer fully-VALID ones, then the highest
+ *     scorecard total; ties broken deterministically by (hardCount asc, total desc,
+ *     shape order I<L<U).
+ *   • when none is valid: least-bad = fewest hard violations, then highest score.
+ * Pure apart from the always-on diagnostic logs. `tag` distinguishes the modules vs
+ * the parametric-run planner in the log line.
+ */
+function generateAndRank(
+    input: FurnishRoomInput,
+    layout: KitchenLayout,
+    opts: { washingMachine?: boolean },
+    plan: (i: FurnishRoomInput, s: KitchenLayout, o: { washingMachine?: boolean }) => PlacedFurniture[],
+    tag: 'modules' | 'run',
+): PlacedFurniture[] {
+    if (input.walls.length === 0 || input.areaM2 <= 0) return [];
+    const shapes = candidateShapes(input, layout);
+
+    interface Cand { shape: 'I' | 'L' | 'U'; order: number; placed: PlacedFurniture[]; score: LayoutScore; hardCount: number }
+    const cands: Cand[] = [];
+    const shapeOrder: Record<'I' | 'L' | 'U', number> = { I: 0, L: 1, U: 2 };
+    for (const shape of shapes) {
+        const placed = plan(input, shape, opts);
+        if (placed.length === 0) continue;
+        const { score, hardCount } = scoreCandidate(placed, input);
+        cands.push({ shape, order: shapeOrder[shape], placed, score, hardCount });
+        // eslint-disable-next-line no-console
+        console.log(formatKitchenScore(input.roomId, `cand=${tag}/${shape}`, score));
+    }
+    if (cands.length === 0) return [];
+
+    // Rank: valid first, then fewest hard violations, then highest total, then the
+    // deterministic shape order (I<L<U) as the final tiebreak.
+    cands.sort((a, b) => {
+        if (a.score.valid !== b.score.valid) return a.score.valid ? -1 : 1;
+        if (a.hardCount !== b.hardCount) return a.hardCount - b.hardCount;
+        if (Math.abs(a.score.total - b.score.total) > 1e-9) return b.score.total - a.score.total;
+        return a.order - b.order;
+    });
+    const winner = cands[0]!;
+    // eslint-disable-next-line no-console
+    console.log(
+        `§DIAG-KITCHEN-SCORE room=${input.roomId} WON=${tag}/${winner.shape} ` +
+        `total=${winner.score.total} valid=${winner.score.valid} ` +
+        `(from ${cands.length} candidate(s): ${cands.map(c => `${c.shape}:${c.score.total}`).join(', ')})`,
+    );
+    return winner.placed;
+}
+
 /**
  * Plan a kitchen's I / L / U run with appliances laid IN the run, honouring the
  * work-triangle. Returns PlacedFurniture[] (base units + sink + hob + oven +
@@ -466,8 +558,24 @@ function tryIsland(input: FurnishRoomInput, obstacles: readonly Quad[]): PlacedF
  *
  * Pure + deterministic. `layout` overrides the auto shape choice; `washingMachine`
  * adds a kitchen-mounted washer when there is no separate utility room.
+ *
+ * §59 P3 — when `layout` is 'auto', this GENERATES the candidate shapes the room
+ * admits, HARD-validates + SCORES each, and ships the highest-scoring VALID one
+ * (least-bad when none is fully valid). An explicit shape ships that single
+ * arrangement (back-compat). See `generateAndRank`.
  */
 export function planKitchen(
+    input: FurnishRoomInput,
+    layout: KitchenLayout = 'auto',
+    opts: { washingMachine?: boolean } = {},
+): PlacedFurniture[] {
+    return generateAndRank(input, layout, opts, planKitchenSingle, 'modules');
+}
+
+/** Plan ONE kitchen arrangement for a (possibly explicit) shape. The single-
+ *  candidate primitive the §59 P3 generate-N loop scores; identical to the
+ *  pre-P3 `planKitchen` body. Pure + deterministic. */
+function planKitchenSingle(
     input: FurnishRoomInput,
     layout: KitchenLayout = 'auto',
     opts: { washingMachine?: boolean } = {},
@@ -634,8 +742,23 @@ function sinkUnitIndexUnderWindow(
  * emits the run as ONE element the GOOD KitchenCabinetEngine renders.
  *
  * Pure + deterministic. Returns [] for degenerate rooms (caller falls back).
+ *
+ * §59 P3 — when `layout` is 'auto', GENERATES the candidate run shapes the room
+ * admits, HARD-validates + SCORES each, and ships the highest-scoring VALID one
+ * (least-bad when none is fully valid). See `generateAndRank`.
  */
 export function planKitchenRun(
+    input: FurnishRoomInput,
+    layout: KitchenLayout = 'auto',
+    opts: { washingMachine?: boolean } = {},
+): PlacedFurniture[] {
+    return generateAndRank(input, layout, opts, planKitchenRunSingle, 'run');
+}
+
+/** Plan ONE parametric kitchen run for a (possibly explicit) shape. The single-
+ *  candidate primitive the §59 P3 generate-N loop scores; identical to the
+ *  pre-P3 `planKitchenRun` body. Pure + deterministic. */
+function planKitchenRunSingle(
     input: FurnishRoomInput,
     layout: KitchenLayout = 'auto',
     opts: { washingMachine?: boolean } = {},
