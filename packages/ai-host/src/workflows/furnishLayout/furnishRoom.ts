@@ -17,6 +17,10 @@ import {
     chooseBedSet, applyBedSet, integratedSetUsesInlineLamps, placeIntegratedBedLamps,
 } from './bedVariety.js';
 import { preferCornerSofa, polygonExtent, applyCornerSofa } from './sofaVariety.js';
+import {
+    validateLivingLayout, formatLivingViolations,
+    scoreLivingLayout, formatLivingScore,
+} from './rules/livingValidation.js';
 import type { FurnishRoomInput, PlacedFurniture } from './types.js';
 
 /** A.21.D20 — per-run furnishing options (sourced from the typology brief).
@@ -60,6 +64,16 @@ export function furnishRoom(input: FurnishRoomInput, options: FurnishOptions = {
     }
 
     const placed = placeRoom(input, archetype);
+
+    // §LIVING-ROOM-RULE-ENGINE (founder #12) — REPORT the living HARD rules + the
+    // 8-axis scorecard on §DIAG lines (mirrors the kitchen reportKitchenRules). The
+    // layout is preferred-valid by construction (the TV unit seated opposite the
+    // sofa via placeMediaOppositeSofa); any residual HARD violation surfaces for the
+    // UI rather than crashing. Pure — no side-effect on `placed`.
+    if (input.occupancy === 'living-room') {
+        reportLivingRules(input, placed);
+    }
+
     if (input.occupancy === 'bedroom') {
         const withWardrobe = withWardrobePlan(input, placed, normaliseWardrobeLayout(options.wardrobeLayout));
         // §67.2 CONSISTENCY GUARD — place lamps from EXACTLY ONE source so a
@@ -108,6 +122,25 @@ export function furnishRoomCompound(
         placed.push(...(run.length > 0 ? run : planKitchen(input, kl, { washingMachine: wm })));
     }
     return placed;
+}
+
+/** §LIVING-ROOM-RULE-ENGINE — run the living HARD-rule validation + scorecard over
+ *  the placed living-room furniture and emit the §DIAG-LIVING-RULES / -SCORE lines.
+ *  Pure apart from the always-on diagnostic logs (mirrors reportKitchenRules).
+ *  Returns the validation result so callers/tests can assert on it. */
+function reportLivingRules(
+    input: FurnishRoomInput, placed: readonly PlacedFurniture[],
+): ReturnType<typeof validateLivingLayout> {
+    const res = validateLivingLayout(placed, input);
+    const score = scoreLivingLayout(placed, input, {
+        valid: res.valid,
+        hardFailures: res.violations.map(v => v.rule),
+    });
+    // eslint-disable-next-line no-console
+    console.log(formatLivingViolations(input.roomId, res));
+    // eslint-disable-next-line no-console
+    console.log(formatLivingScore(input.roomId, 'placed', score));
+    return res;
 }
 
 /** Replace the generic single `wardrobe` placement with the I/L/U wardrobe run

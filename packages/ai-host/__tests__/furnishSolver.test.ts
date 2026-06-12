@@ -164,10 +164,19 @@ describe('furnishRoom (D-FLE F5/F7)', () => {
                 const tilted = furnishRoom(rotatedRoom('living-room', 5, 4, theta)).length;
                 // Rotation can cost a couple of placements (the discrete 0.25 m slide
                 // offsets land differently against a rotated boundary), but must keep
-                // the bulk — the pre-fix axis-aligned solver dropped to ~0. Require at
-                // least 70% of the axis-aligned count, and never zero.
+                // the bulk — the pre-fix axis-aligned solver dropped to ~0.
+                //
+                // §LIVING-TV-FACES-SOFA (founder #12): at extreme tilt (60°) in this
+                // SYNTHETIC, WINDOWLESS room the media unit is now (correctly) re-seated
+                // on the one clean wall the sofa faces — which in this degenerate case
+                // is the SAME wall the windowless room's fallback curtains would
+                // otherwise borrow, so those decorative pieces drop (~60% retained at
+                // 60°). This is the founder's media-faces-sofa rule winning over a
+                // curtain-with-no-window; in PRODUCTION living rooms (always windowed,
+                // axis-aligned) curtains anchor the WINDOW wall, distinct from the focal
+                // wall, so nothing is lost. Require ≥60% and never zero.
                 expect(tilted).toBeGreaterThan(0);
-                expect(tilted).toBeGreaterThanOrEqual(Math.ceil(flat * 0.7));
+                expect(tilted).toBeGreaterThanOrEqual(Math.ceil(flat * 0.6));
             }
         });
     });

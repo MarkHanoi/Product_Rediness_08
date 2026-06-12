@@ -620,6 +620,133 @@ function cornerSofaPocket(L: PlacedFurniture, fp?: { w: number; l: number }): { 
     return { center, open, yaw };
 }
 
+// ── §LIVING-TV-FACES-SOFA (founder #12, 2026-06-12) — the TV opposite the sofa ──
+//
+// FOUNDER #12: "the TV and the furniture for the TV should be placed IN FRONT OF
+// (or as front as possible to) the sofa."
+//
+// The pre-fix archetype anchored the tv_unit on `wall-opposite-door` — which is
+// NOT guaranteed to be the wall the SOFA faces (the sofa anchors `wall-longest`;
+// the two can coincide, be perpendicular, or even be the same wall → the TV ends
+// up BESIDE or BEHIND the sofa). This path instead seats the media unit on the
+// wall the sofa's FRONT looks at, centred on the sofa's forward axis, FACING back
+// at the sofa — so the screen is squarely in front of the seating.
+//
+// The unit's back is pinned on that focal wall; the tv panel then yields to the
+// unit's wall via the existing `media`-group + isWallHostedBeside path (it mounts
+// flush above the unit). Deterministic — geometry only, no RNG.
+
+/** The sofa's FORWARD (look) direction + the SEAT centre the viewer occupies —
+ *  correct for BOTH a straight sofa (localZ; placement centre) and a corner sofa
+ *  (opening bisector localX+localZ; corner origin pushed into the pocket). Mirrors
+ *  livingValidation.sofaForward/sofaSeatCentre so the placement + the rule module
+ *  agree on where the sofa "faces from". */
+function sofaPose(sofa: PlacedFurniture): { fwd: Pt; seat: Pt } {
+    const v: Pt = { x: Math.sin(sofa.rotationY), z: Math.cos(sofa.rotationY) };    // localZ (look dir)
+    if (sofa.kind === 'corner_sofa') {
+        const u: Pt = { x: Math.cos(sofa.rotationY), z: -Math.sin(sofa.rotationY) };   // localX (main run)
+        const halfMain = sofa.footprint.w / 2, seatDepth = 0.45;
+        const seat: Pt = {
+            x: sofa.position.x + u.x * halfMain + v.x * seatDepth,
+            z: sofa.position.z + u.z * halfMain + v.z * seatDepth,
+        };
+        return { fwd: v, seat };
+    }
+    return { fwd: v, seat: { x: sofa.position.x, z: sofa.position.z } };
+}
+
+/** Pick the wall the sofa's FRONT faces: the wall whose inward normal is most
+ *  anti-parallel to the sofa forward (you look INTO the room toward it), excluding
+ *  the sofa's own wall + door/window walls when alternatives exist. Falls back to
+ *  the most-opposite of all walls. Deterministic. */
+function focalWallForSofa(sofa: PlacedFurniture, input: FurnishRoomInput): RoomWallSeg | null {
+    const { fwd } = sofaPose(sofa);   // sofa forward (main-run look dir)
+    // A corner sofa has TWO seating runs: the main run looks along +localZ (`fwd`)
+    // and the side run along +localX. A screen opposite EITHER run is watchable, so
+    // try both facing directions and keep the best available clean wall — this gives
+    // the corner-sofa case a second chance at a focal wall that doesn't starve the
+    // room's other wall pieces. A straight sofa uses its single forward only.
+    const dirs: Pt[] = sofa.kind === 'corner_sofa'
+        ? [fwd, { x: Math.cos(sofa.rotationY), z: -Math.sin(sofa.rotationY) }]   // localZ, localX
+        : [fwd];
+    // The focal wall's inward normal points BACK toward the sofa → it is most
+    // anti-parallel to the look dir. The sofa's OWN wall's inward normal ≈ the look
+    // dir (the sofa backs onto it, facing into the room), so it scores worst.
+    const prefer = input.walls.filter(w =>
+        !wallHasWindow(w, input.windows) && !wallHasDoor(w, input.doors));
+    // The longest free wall is the FALLBACK anchor for the room's other wall pieces
+    // (bookshelf, curtains). Among walls that ALL face the sofa, prefer the screen on
+    // a NON-longest one so those pieces keep the long wall — but a facing wall always
+    // wins over a non-facing one (facing the sofa is the founder's HARD intent).
+    const longest = longestWall(prefer);
+    let best: RoomWallSeg | null = null;
+    let bestScore = Infinity, bestIsLongest = true;
+    for (const look of dirs) {
+        for (const w of prefer) {
+            const faces = dot2(w.inwardNormal, look);   // most negative = most opposite the run
+            if (faces >= -0.5) continue;                // does not face this run → skip
+            const isLongest = w === longest;
+            // rank: facing strength first, then prefer a NON-longest wall on a tie
+            // (leave the longest free for the bookshelf / curtains fallback).
+            if (faces < bestScore - 1e-3 ||
+                (Math.abs(faces - bestScore) <= 1e-3 && bestIsLongest && !isLongest)) {
+                bestScore = faces; best = w; bestIsLongest = isLongest;
+            }
+        }
+    }
+    // Only seat the screen on a CLEAN wall that a seating run faces. We never relocate
+    // the TV onto a door wall (a screen by the entrance) or a window wall (daylight
+    // glare + blocks the aperture) — if no clean facing wall exists, return null so the
+    // caller keeps the generic anchor instead of worsening the layout.
+    return best;
+}
+
+/**
+ * §LIVING-TV-FACES-SOFA — seat the media unit (`tv_unit`) on the wall the sofa
+ * faces, centred on the sofa's forward axis, facing BACK at the sofa. Returns the
+ * placement (slid along the wall to clear obstacles while staying as close to the
+ * sofa centre-line as possible) or null when no facing wall fits → the caller
+ * falls back to the generic wall path. Pure + deterministic.
+ */
+function placeMediaOppositeSofa(
+    kind: PlacedFurniture['kind'], sofa: PlacedFurniture,
+    input: FurnishRoomInput, obstacles: readonly Quad[],
+): Placement | null {
+    const wall = focalWallForSofa(sofa, input);
+    if (!wall) return null;
+    const fp = footprintOf(kind);
+    const yaw = yawFromNormal(wall.inwardNormal);   // unit faces into the room (back on the wall)
+    // The on-wall centre nearest the sofa's forward axis: project the sofa SEAT
+    // centre (the viewer position) onto the wall line and seat the unit there, then
+    // slide along to clear. For a corner sofa the seat centre is the pocket, not the
+    // back-corner anchor — so the screen lands square in front of the cushions.
+    const { seat } = sofaPose(sofa);
+    const dir = wallDir(wall);
+    const t0 = (seat.x - wall.a.x) * dir.x + (seat.z - wall.a.z) * dir.z;
+    const tClamped = Math.max(fp.w / 2 + GAP, Math.min(t0, wall.length - fp.w / 2 - GAP));
+    const baseOnWall = add(wall.a, dir, tClamped);
+    const base = add(baseOnWall, wall.inwardNormal, fp.l / 2 + GAP);
+    // Slide outward from the sofa-axis centre, nearest first, so the unit stays as
+    // centred on the sofa as obstacles allow ("as front as possible").
+    const maxSlide = Math.max(0, wall.length / 2 - fp.w / 2);
+    const offsets: number[] = [0];
+    for (let s = SLIDE_STEP; s <= maxSlide + 1e-6; s += SLIDE_STEP) { offsets.push(s, -s); }
+    for (const off of offsets) {
+        const c = add(base, dir, off);
+        const quad = footprintCorners(c.x, c.z, fp.w, fp.l, yaw);
+        if (quadInPolygon(quad, input.polygon) && !quadOverlapsAny(quad, obstacles)) {
+            return {
+                item: {
+                    kind, position: { x: c.x, y: input.levelElevation + fp.baseOffset, z: c.z },
+                    rotationY: yaw, footprint: fp, hostedSpaceId: input.roomId,
+                },
+                quad,
+            };
+        }
+    }
+    return null;
+}
+
 /**
  * §FURNITURE-BUILDING-RELATIVE (founder #8/#9, 2026-06-12) — the room's TILT from
  * world axes, folded into [−45°, +45°]. A `center`/`corner` item (dining table,
@@ -694,6 +821,24 @@ function applyArchetype(
             if (p) {
                 cornerAnchored = true;
             } else {
+                for (const wall of resolveAnchorWalls(spec, input)) {
+                    p = placeAgainstWall(spec.kind, wall, input, obstacles);
+                    if (p) break;
+                }
+            }
+        } else if (spec.kind === 'tv_unit') {
+            // §LIVING-TV-FACES-SOFA (founder #12) — the media unit must sit IN
+            // FRONT OF the sofa: the screen FACES the seating, opposite it across
+            // the coffee table. We try the FOCAL wall (the clean wall the sofa
+            // faces) FIRST, seated on the sofa's forward axis facing back at it;
+            // THEN we fall through the archetype's normal anchor walls. Trying the
+            // focal wall first puts the screen in front of the sofa whenever it
+            // fits, but the fallback chain keeps the unit placed (and the room's
+            // other walls free for the decorative items) when it doesn't. The tv
+            // panel yields to the unit's wall via the existing 'media' group.
+            const sofaLeader = leaders.get('sofa');
+            if (sofaLeader) p = placeMediaOppositeSofa(spec.kind, sofaLeader.item, input, obstacles);
+            if (!p) {
                 for (const wall of resolveAnchorWalls(spec, input)) {
                     p = placeAgainstWall(spec.kind, wall, input, obstacles);
                     if (p) break;
