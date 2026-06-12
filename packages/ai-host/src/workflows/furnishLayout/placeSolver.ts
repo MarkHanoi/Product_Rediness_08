@@ -621,6 +621,27 @@ function cornerSofaPocket(L: PlacedFurniture, fp?: { w: number; l: number }): { 
 }
 
 /**
+ * §FURNITURE-BUILDING-RELATIVE (founder #8/#9, 2026-06-12) — the room's TILT from
+ * world axes, folded into [−45°, +45°]. A `center`/`corner` item (dining table,
+ * kitchen island, corner cabinet) was placed at yaw 0 (world X/Z) — so on a rotated
+ * plate the table stayed TRUE-NORTH while the room sat at 45° (the founder: "the
+ * dining table is relative to X/Y true-north angles — it needs to be relative to the
+ * BUILDING and rotate with the layout"). We take the longest wall's direction angle
+ * and subtract the nearest multiple of 90°, yielding the room's rotation away from
+ * axis-aligned. For an AXIS-ALIGNED room (apartment + every existing fixture) this is
+ * exactly 0 → byte-identical, no test churn; for a 45° plate it is ~±45° → the item
+ * rotates WITH the building. Deterministic (pure geometry, ADR-0061).
+ */
+function roomTiltYaw(walls: readonly RoomWallSeg[]): number {
+    const w = longestWall(walls);
+    if (!w) return 0;
+    const d = wallDir(w);
+    const a = Math.atan2(d.z, d.x);                 // longest-wall direction angle
+    const q = Math.PI / 2;
+    return a - Math.round(a / q) * q;               // tilt from axis-aligned ∈ [−45°,45°]
+}
+
+/**
  * Run ONE archetype within an existing obstacle/leader context. Used by both
  * `placeRoom` (fresh context) and `placeRoomMulti` (shared across archetypes
  * for the open-plan merged-room case). Returns the placements appended.
@@ -631,6 +652,9 @@ function applyArchetype(
 ): Placement[] {
     if (input.areaM2 < archetype.minAreaM2 || input.walls.length === 0) return [];
     const added: Placement[] = [];
+    // §FURNITURE-BUILDING-RELATIVE — the yaw a center/corner item takes so it aligns
+    // with the room (0 for an axis-aligned room → no change to existing behaviour).
+    const centerYaw = roomTiltYaw(input.walls);
     for (const spec of archetype.items) {
         if (spec.anchor === 'beside') {
             const leader = spec.group ? leaders.get(spec.group) : undefined;
@@ -655,11 +679,11 @@ function applyArchetype(
         // coffee table + rug). A fallback straight-wall placement uses the bbox.
         let cornerAnchored = false;
         if (spec.anchor === 'center') {
-            p = placeAtPoint(spec.kind, input.centroid, 0, input, obstacles);
+            p = placeAtPoint(spec.kind, input.centroid, centerYaw, input, obstacles);
         } else if (spec.anchor === 'corner') {
             const fp = footprintOf(spec.kind);
             for (const c of cornerPoints(input, Math.max(fp.w, fp.l) / 2 + GAP)) {
-                p = placeAtPoint(spec.kind, c, 0, input, obstacles); if (p) break;
+                p = placeAtPoint(spec.kind, c, centerYaw, input, obstacles); if (p) break;
             }
         } else if (spec.kind === 'corner_sofa') {
             // §67.3 — the L-shape sofa is CORNER-anchored: seat its inside-back
