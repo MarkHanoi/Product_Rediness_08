@@ -315,19 +315,28 @@ export class HouseLayoutModal {
      *  room list) to source the inspector's ADJACENCY/CIRCULATION/INFORMATION. The
      *  single best option (`cards[0]` ⇒ `options[0]`) is what the 3-pane body shows. */
     private _options: readonly ScoredHouseLayoutOption[] = [];
+    /** A.21.D5 follow-up — the current reduced-programme notice HTML (built by
+     *  `buildReducedProgramNoticeHtml` in the controller), cached so a `refresh()`
+     *  (a regen) keeps showing the recomputed notice in the rebuilt result rail.
+     *  '' ⇒ no notice. Updated by `show`/`refresh`. */
+    private _noticeHtml = '';
 
     get isOpen(): boolean { return this._el !== null; }
 
     /** Render the scored house variants as cards. Replaces any open instance.
      *  When `formState` + `cb.onProgramChange` are both supplied, the inline
-     *  program-edit form renders and live-regenerate is wired. */
+     *  program-edit form renders and live-regenerate is wired. `noticeHtml`
+     *  (A.21.D5 follow-up) is the pre-built reduced-programme notice for the
+     *  RIGHT-rail result block; '' ⇒ none. */
     show(
         options: readonly ScoredHouseLayoutOption[],
         cb: HouseLayoutModalCallbacks,
         formState?: HouseProgramFormState,
+        noticeHtml = '',
     ): void {
         this.dismiss();
         this._options = options;
+        this._noticeHtml = noticeHtml;
         // §BARREL-LAZY — start loading the entrance-door resolver now so the ground-floor
         // entrance leaf is available by the first refresh (it's a cosmetic preview overlay).
         ensureEntranceResolver();
@@ -346,6 +355,7 @@ export class HouseLayoutModal {
             this._storeyThumbs(options),
             formForHtml,
             graphs,
+            this._noticeHtml,
         );
 
         this._onProgramChange = cb.onProgramChange ?? null;
@@ -398,6 +408,18 @@ export class HouseLayoutModal {
                 }
                 return;
             }
+            // A.21.D5 follow-up — dismiss the reduced-programme notice (cosmetic only;
+            // never blocks "Use this layout"). Hide the banner + drop the cached HTML
+            // so a subsequent regen that STILL has a shortfall re-shows it (the new
+            // shortfall is recomputed), but an unchanged regen stays dismissed for the
+            // session only if the controller passes '' — here we just hide the node.
+            if (target.closest('[data-action="dismiss-notice"]')) {
+                e.preventDefault();
+                e.stopPropagation();
+                const notice = target.closest('[data-role="reduced-program-notice"]') as HTMLElement | null;
+                if (notice) notice.style.display = 'none';
+                return;
+            }
             const sel = target.closest('.alm-select') as HTMLElement | null;
             if (sel) {
                 const idx = Number(sel.getAttribute('data-index'));
@@ -444,9 +466,14 @@ export class HouseLayoutModal {
      * dismissing the modal or touching the program-edit form. Called by the
      * controller after a re-generation completes. No-op when no modal is open.
      */
-    refresh(options: readonly ScoredHouseLayoutOption[]): void {
+    refresh(options: readonly ScoredHouseLayoutOption[], noticeHtml?: string): void {
         if (!this._el) return;
         this._options = options;
+        // A.21.D5 follow-up — the controller recomputes the reduced-programme notice
+        // on every regen (a slider edit can change which rooms fit). When it passes a
+        // value (incl. '') use it; otherwise keep the last (back-compat with callers
+        // that don't thread it).
+        if (noticeHtml !== undefined) this._noticeHtml = noticeHtml;
         const grid = this._el.querySelector('[data-role="grid"]');
         if (!grid) return;
         const cards = this._cards(options);
@@ -465,7 +492,7 @@ export class HouseLayoutModal {
         // §3PANE IT-2 — refresh the RIGHT-rail result (score / storey count / Execute)
         // so changing the level count or a slider updates the summary live too.
         const result = this._el.querySelector('[data-role="result"]');
-        if (result) result.outerHTML = buildHouseResultHtml(cards[0]);
+        if (result) result.outerHTML = buildHouseResultHtml(cards[0], this._noticeHtml);
         // §3PANE IT-4 — refresh() rebuilt [data-role="grid"] (incl. the Miro canvas),
         // so re-wire pan/zoom + re-apply the preserved transform (zoom survives a regen).
         this._wireMiroCanvas();
@@ -554,6 +581,7 @@ export class HouseLayoutModal {
         this._onProgramChange = null;
         this._onGraphEdit = null;
         this._options = [];
+        this._noticeHtml = '';
         if (this._el) { this._el.remove(); this._el = null; }
     }
 

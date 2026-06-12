@@ -315,8 +315,10 @@ export function buildHouseMiroCanvasHtml(
 /** §3PANE RIGHT-rail result summary (score + storeys/stairs/roof) + the single
  *  terminal EXECUTE ("Use this layout"). Exported so the modal's `refresh()` rebuilds
  *  it in lock-step with the panes when a live edit changes the level count / score
- *  (IT-2). Empty when there is no best option. Pure. */
-export function buildHouseResultHtml(best: HouseCardModel | undefined): string {
+ *  (IT-2). Empty when there is no best option. `noticeHtml` (A.21.D5 follow-up) is the
+ *  pre-built reduced-programme notice (`buildReducedProgramNoticeHtml`) injected just
+ *  ABOVE the score so the user sees WHY fewer rooms were built; '' ⇒ no notice. Pure. */
+export function buildHouseResultHtml(best: HouseCardModel | undefined, noticeHtml = ''): string {
     if (!best) return '<div class="hlm-tools-result" data-role="result"></div>';
     const roofLabel = best.roofKind.charAt(0).toUpperCase() + best.roofKind.slice(1);
     const stairText = best.stairCount > 0
@@ -324,6 +326,7 @@ export function buildHouseResultHtml(best: HouseCardModel | undefined): string {
         : 'single storey';
     return (
         `<div class="hlm-tools-result" data-role="result">` +
+        noticeHtml +
         `<div class="alm-card-head"><span class="alm-title">${escHtml(best.title)}</span>` +
         `<span class="alm-overall" title="overall score">${best.overall}<small>/100</small></span></div>` +
         `<div class="alm-bars"><div class="alm-bar">` +
@@ -350,6 +353,10 @@ export function buildHouseModalHtml(
     storeyThumbnails: readonly (readonly string[])[] = [],
     formState?: HouseProgramFormState,
     storeyGraphs: readonly (readonly string[])[] = [],
+    // A.21.D5 follow-up — the pre-built reduced-programme notice HTML (or '' for
+    // none). Rendered in the RIGHT-rail result block just above the score. Pure
+    // pass-through so the controller owns the requested-vs-built shortfall logic.
+    noticeHtml = '',
 ): string {
     const best = cards[0];
     const panes = buildHousePanesHtml(best, storeyThumbnails[0] ?? [], storeyGraphs[0] ?? []);
@@ -369,7 +376,7 @@ export function buildHouseModalHtml(
         '<div class="hlm-tools-rail" data-role="tools">' +
         programForm +
         legend +
-        buildHouseResultHtml(best) +
+        buildHouseResultHtml(best, noticeHtml) +
         '</div>';
     return (
         '<div class="alm-panel hlm-3pane-panel">' +

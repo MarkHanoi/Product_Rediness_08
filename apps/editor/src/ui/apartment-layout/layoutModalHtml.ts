@@ -329,6 +329,11 @@ export function buildLayoutModalHtml(
     program?: ApartmentProgram,
     options: readonly LayoutOption[] = [],
     graphs: readonly string[] = [],
+    // A.21.D5 editor follow-up — the pre-built reduced-programme notice HTML (or ''
+    // for none). Rendered in a dedicated region between the legend and the cards so
+    // the user sees WHY the built programme is smaller than requested. The modal's
+    // `refresh()` rewrites `[data-role="program-notice"]` in lock-step. Pure pass-through.
+    noticeHtml = '',
 ): string {
     // §ROOM-AREAS-BY-NAME (2026-05-29) — when the modal has options in hand,
     // the form renders per-INSTANCE area inputs (one per actual room name);
@@ -349,6 +354,8 @@ export function buildLayoutModalHtml(
         `<div class="alm-header">Choose a layout${headerCount}</div>` +
         programForm +
         legend +
+        // A.21.D5 follow-up — reduced-programme notice region (refreshed in place).
+        `<div class="alm-notice-region" data-role="program-notice">${noticeHtml}</div>` +
         `<div class="alm-grid" data-role="grid">${grid}</div>` +
         '<div class="alm-footer"><button type="button" class="alm-cancel">Cancel</button></div>' +
         '</div>'

@@ -41,6 +41,11 @@ import { getRoomTypeOverrides } from '../apartment-layout/activeRoomTypeOverride
 import { getRoomFloorOverrides } from '../apartment-layout/activeRoomFloorOverrides.js';
 import { getRoomAdjacencyOverrides } from '../apartment-layout/activeRoomAdjacencyOverrides.js';
 import type { HouseProgramFormState } from './houseModalHtml.js';
+import {
+    computeProgramShortfall,
+    buildReducedProgramNoticeHtml,
+    type ProgramShortfall,
+} from '../apartment-layout/programNotice.js';
 
 /** How many whole-house variants the modal offers. */
 const HOUSE_OPTION_COUNT = 3;
@@ -177,8 +182,18 @@ export class HouseLayoutController {
 
             const variants = this._computeVariants(storeyCount, req.program, req.weights);
             if (variants.length === 0) {
-                toast('Could not generate a house layout for this plot. Try a larger plot or a simpler programme.', 'error');
-                return { ok: false, reason: 'no variants' };
+                // A.21.D5 follow-up — the house orchestrator rejected the plate (every
+                // per-storey envelope/min-area gate failed: too small for the requested
+                // rooms at minimum sizes). The synchronous house path returns no
+                // structured `status:'rejected'` reason (GAP — would need an engine
+                // change to thread `validateHouseStorey`'s reason up), so surface the
+                // actionable hint instead of a blank result.
+                toast(
+                    'No house layout fits this plot at the requested programme. ' +
+                    'Try a larger plot, fewer bedrooms, or smaller room sizes.',
+                    'error',
+                );
+                return { ok: false, reason: 'no variants (plate too small for the requested programme)' };
             }
 
             // §LIVE-MODAL.A (R1) — the modal shows ONE option: the single best
@@ -225,6 +240,11 @@ export class HouseLayoutController {
                 },
                 // §MODAL-FILL — initial form mirrors the PLATE-FILLED program.
                 { storeyCount, program: resolved, weights: req.weights },
+                // A.21.D5 follow-up — the reduced-programme notice compares the USER's
+                // ORIGINAL brief (req.program) against what the best variant built, so a
+                // plate that couldn't fit the requested bedroom count surfaces on first
+                // open (the seeded `resolved` form would hide it by raising the request).
+                this._noticeHtmlFor(variants[0], req.program),
             );
             return { ok: true, optionCount: variants.length };
         } catch (err) {
@@ -303,6 +323,77 @@ export class HouseLayoutController {
         };
     }
 
+    /**
+     * A.21.D5 editor follow-up — count the rooms the best variant ACTUALLY built,
+     * per coarse programme type (bedroom / bathroom), across every storey. The whole-
+     * house brief is a whole-house total, so we sum across storeys (mirrors
+     * `_resolvedProgramFor`). `master` counts as a bedroom and `ensuite`/`wc` count as
+     * bathrooms for the purpose of the reduced-programme shortfall (the brief only
+     * exposes bedroom + bathroom counts). Pure read — no mutation.
+     */
+    private _builtCountsFor(variant: ScoredHouseLayoutOption | undefined): { bedroom: number; bathroom: number } {
+        let bedroom = 0, bathroom = 0;
+        for (const opt of variant?.result?.perStoreyLayout ?? []) {
+            for (const r of opt?.rooms ?? []) {
+                const t = (r.type || '').toLowerCase();
+                const occ = ((r as { occupancy?: string }).occupancy || '').toLowerCase();
+                if (t.includes('bed') || t === 'master' || occ.includes('bed')) bedroom++;
+                else if (t.includes('bath') || t === 'ensuite' || t === 'wc' || occ.includes('bath')) bathroom++;
+            }
+        }
+        return { bedroom, bathroom };
+    }
+
+    /**
+     * A.21.D5 editor follow-up — build the reduced-programme notice HTML for the
+     * RIGHT-rail result block. `requested` is the USER's brief (NOT the plate-filled
+     * `_resolvedProgramFor`, which would hide every shortfall by raising the request to
+     * what built). When the best variant built FEWER bedrooms/bathrooms than the brief
+     * asked for, the difference is a §FEASIBILITY-ALLOC reduced programme — surfaced as
+     * a non-blocking chip. Returns '' when nothing was dropped.
+     *
+     * GAP NOTE (do NOT fix here): the engine's structured `droppedRooms` (the exact
+     * room + the min-size it failed) is NOT threaded onto `ScoredHouseLayoutOption`
+     * today (`runDeterministicLayout.ts` drops the candidate's `droppedRooms`). We
+     * future-proof by reading an OPTIONAL `droppedRooms` on the result if it ever
+     * appears; until then we derive the shortfall from requested-vs-built counts,
+     * which IS available and faithful for the bedroom/bathroom brief.
+     */
+    private _noticeHtmlFor(
+        variant: ScoredHouseLayoutOption | undefined,
+        requested: ApartmentProgram,
+    ): string {
+        if (!variant) return '';
+        const built = this._builtCountsFor(variant);
+        // Future-proof: if the engine ever threads its structured per-room
+        // `droppedRooms` up onto the result, prefer that (exact types) — built =
+        // requested − dropped per type. Until then `structured` is always absent.
+        const structured = (variant.result as { droppedRooms?: ReadonlyArray<{ type: string }> }).droppedRooms;
+        let shortfall: ProgramShortfall[];
+        if (structured && structured.length > 0) {
+            const droppedByType = structured.reduce<Record<string, number>>((m, d) => {
+                const t = String(d.type ?? '').toLowerCase();
+                if (t) m[t] = (m[t] ?? 0) + 1;
+                return m;
+            }, {});
+            const builtByType: Record<string, number> = { bedroom: built.bedroom, bathroom: built.bathroom };
+            const requestedByType: Record<string, number> = { ...builtByType };
+            for (const [t, n] of Object.entries(droppedByType)) {
+                requestedByType[t] = (builtByType[t] ?? 0) + n;
+            }
+            shortfall = computeProgramShortfall(requestedByType, builtByType);
+        } else {
+            // Derive the reduced programme from the USER's brief vs what the plate built.
+            const requestedByType: Record<string, number> = {
+                bedroom: Math.max(0, Math.round(requested.bedrooms || 0)),
+                bathroom: Math.max(0, Math.round(requested.bathrooms || 0)),
+            };
+            const builtByType: Record<string, number> = { bedroom: built.bedroom, bathroom: built.bathroom };
+            shortfall = computeProgramShortfall(requestedByType, builtByType);
+        }
+        return buildReducedProgramNoticeHtml(shortfall);
+    }
+
     /** §LIVE-MODAL.D — return `program` with the C52 area/type override stashes
      *  merged into `roomAreasByName` / `roomTypesByName`. Returns the SAME object
      *  reference when no overrides are set (null from both getters), so the
@@ -361,7 +452,10 @@ export class HouseLayoutController {
             // questions). Best-effort; never blocks the refresh.
             try { this._logPreviewDiagnostics(variants, state); } catch (e) { console.warn('[house-layout] §DIAG-PREVIEW failed (non-fatal):', e); }
             // §LIVE-MODAL.A — refresh shows the single best (variant[0]) only.
-            this.modal.refresh(variants.slice(0, 1));
+            // A.21.D5 follow-up — recompute the reduced-programme notice against the
+            // EDITED form program (state.program is the new request); '' clears it when
+            // the regen now fits the full programme.
+            this.modal.refresh(variants.slice(0, 1), this._noticeHtmlFor(variants[0], state.program));
         } catch (err) {
             console.error('[house-layout] controller: regenerate threw:', err);
             this.modal.setBusy(false);

@@ -81,6 +81,38 @@ export const APARTMENT_LAYOUT_MODAL_STYLES = `
 .alm-cancel:hover { background: #f1f5f9; }
 .alm-empty { padding: 32px 20px; text-align: center; color: #64748b; }
 
+/* A.21.D5 editor follow-up — program-feasibility notices (reduced programme +
+ * plate rejection). NON-BLOCKING; brand white + #6600FF. The reduced-programme
+ * chip sits near the result score; the rejection banner replaces the blank
+ * empty-state. Dismiss button is purely cosmetic (never blocks "Use this layout"). */
+/* Apartment-modal notice region — only takes space when it holds a notice. */
+.alm-notice-region:not(:empty) { padding: 12px 20px 0 20px; }
+.alm-notice {
+  display: flex; align-items: flex-start; gap: 10px;
+  margin: 0 0 10px 0; padding: 10px 12px; border-radius: 8px;
+  font-size: 12px; line-height: 1.4;
+}
+.alm-notice-icon { font-size: 15px; line-height: 1.2; flex: 0 0 auto; }
+.alm-notice-body { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; }
+.alm-notice-title { font-weight: 700; }
+.alm-notice-text { color: inherit; }
+.alm-notice-hint { color: #475569; font-size: 11px; }
+.alm-notice-close {
+  flex: 0 0 auto; border: none; background: transparent; cursor: pointer;
+  font-size: 16px; line-height: 1; color: inherit; opacity: 0.6; padding: 0 2px;
+}
+.alm-notice-close:hover { opacity: 1; }
+/* Reduced programme — informative (purple), non-alarming. */
+.alm-notice--reduced {
+  background: #f3ecff; border: 1px solid #6600FF; color: #3d1a99;
+}
+.alm-notice--reduced .alm-notice-icon { color: #6600FF; }
+/* Rejection — the plate couldn't host the programme at all. */
+.alm-notice--rejected {
+  background: #fff4f4; border: 1px solid #e11d48; color: #9f1239;
+}
+.alm-notice--rejected .alm-notice-icon { color: #e11d48; }
+
 /* §MODAL-DYNAMIC (2026-05-29) — inline program-edit form + busy overlay. */
 .alm-program {
   padding: 12px 20px; border-bottom: 1px solid #e2e8f0; background: #f8fafc;

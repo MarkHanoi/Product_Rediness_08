@@ -16,6 +16,7 @@ import { ApartmentLayoutModal } from './ApartmentLayoutModal.js';
 import { ensureApartmentLayoutRegistered } from '../../engine/ensureApartmentLayoutRegistered.js';
 import type { ApartmentGenerateLayoutPayload } from '@pryzm/ai-host';
 import { patchActiveBriefMetadata } from './activeBrief.js';
+import { computeProgramShortfall, buildReducedProgramNoticeHtml } from './programNotice.js';
 
 /** Max-wait for the regenerate flow's options-ready event after a successful
  *  workflow submit. 15 s is long enough for the slowest realistic D-TGL run
@@ -53,6 +54,36 @@ export class ApartmentLayoutController {
         this._lastCtx = ctx;
     }
 
+    /**
+     * A.21.D5 editor follow-up — build the reduced-programme notice for the apartment
+     * modal: compare the REQUESTED bedroom/bathroom counts (the cached payload's
+     * program) against what the best option actually BUILT (counting its rooms). When
+     * the plate couldn't fit the requested count at minimum sizes the §FEASIBILITY-ALLOC
+     * drop surfaces as a non-blocking chip. Returns '' when nothing was dropped.
+     *
+     * GAP NOTE (do NOT fix here): the engine's structured per-room `droppedRooms` is NOT
+     * threaded onto the exported `ScoredLayoutOption` (`runDeterministicLayout.ts` drops
+     * it), so the shortfall is derived from requested-vs-built counts — which IS
+     * available + faithful for the bedroom/bathroom brief.
+     */
+    private _noticeHtmlFor(options: readonly ScoredLayoutOption[]): string {
+        const program = this._lastPayload?.program;
+        const best = options[0];
+        if (!program || !best) return '';
+        let bedroom = 0, bathroom = 0;
+        for (const r of best.rooms ?? []) {
+            const t = (r.type || '').toLowerCase();
+            const occ = ((r as { occupancy?: string }).occupancy || '').toLowerCase();
+            if (t.includes('bed') || t === 'master' || occ.includes('bed')) bedroom++;
+            else if (t.includes('bath') || t === 'ensuite' || t === 'wc' || occ.includes('bath')) bathroom++;
+        }
+        const shortfall = computeProgramShortfall(
+            { bedroom: Math.max(0, Math.round(program.bedrooms || 0)), bathroom: Math.max(0, Math.round(program.bathrooms || 0)) },
+            { bedroom, bathroom },
+        );
+        return buildReducedProgramNoticeHtml(shortfall);
+    }
+
     /** Subscribe + drive the modal. Idempotent (a second attach is a no-op). */
     attach(runtime: PryzmRuntime): void {
         if (this._dispose) return;
@@ -67,7 +98,7 @@ export class ApartmentLayoutController {
                 // preserves scroll position.
                 if (this._regenerating && this.modal.isOpen) {
                     console.log('[apartment-layout] options-ready (regenerate) —', options.length, 'option(s); refreshing modal');
-                    this.modal.refresh(options);
+                    this.modal.refresh(options, this._noticeHtmlFor(options));
                     this._regenerating = false;
                     if (this._regenerateTimer !== null) {
                         clearTimeout(this._regenerateTimer);
@@ -166,7 +197,9 @@ export class ApartmentLayoutController {
                     ...(this._lastPayload?.doorSpansWorld
                         ? { doorSpansWorld: this._lastPayload.doorSpansWorld }
                         : {}),
-                });
+                },
+                // A.21.D5 follow-up — reduced-programme notice (requested vs built).
+                this._noticeHtmlFor(options));
             } catch (err) {
                 console.error('[apartment-layout] failed to open the options modal:', err);
                 runtime.events?.emit('pryzm:toast', { message: `Could not open the layouts modal: ${String(err)}`, severity: 'error' });
@@ -184,8 +217,11 @@ export class ApartmentLayoutController {
                 const evt = e as { runId?: string; reason?: string; attempts?: number } | null;
                 const reason = (evt?.reason ?? 'Engine declined to generate layouts').trim();
                 console.warn('[apartment-layout] REJECTED:', reason, `(attempts: ${evt?.attempts ?? '?'})`);
+                // A.21.D5 follow-up — surface the engine's STRUCTURED §ENVELOPE-DIAGNOSTIC
+                // reason (plate too small for the requested rooms at minimum sizes) PLUS an
+                // actionable hint, instead of a bare/silent failure.
                 runtime.events?.emit('pryzm:toast', {
-                    message: `Apartment layout engine declined: ${reason}`,
+                    message: `No apartment layout fits this plot: ${reason}. Try a larger plot or reduce the number of bedrooms / room sizes.`,
                     severity: 'error',
                 });
                 // If we were waiting on a regenerate, clear the in-flight state.

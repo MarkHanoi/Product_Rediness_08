@@ -58,18 +58,25 @@ export class ApartmentLayoutModal {
      *  after a regenerate (the spans are fixed across re-runs — the user's
      *  shell + perimeter openings don't change when only the program does). */
     private _spans: PerimeterSpans = {};
+    /** A.21.D5 follow-up — the current reduced-programme notice HTML, cached so a
+     *  `refresh()` (regen) re-renders the recomputed notice. '' ⇒ no notice. */
+    private _noticeHtml = '';
 
     get isOpen(): boolean { return this._el !== null; }
 
-    /** Render the scored options as cards. Replaces any open instance. */
+    /** Render the scored options as cards. Replaces any open instance. `noticeHtml`
+     *  (A.21.D5 follow-up) is the pre-built reduced-programme notice for the notice
+     *  region between the legend and the cards; '' ⇒ none. */
     show(
         options: readonly ScoredLayoutOption[],
         cb: ApartmentLayoutModalCallbacks,
         program?: ApartmentProgram,
         spans?: PerimeterSpans,
+        noticeHtml = '',
     ): void {
         this.dismiss();
         this._spans = spans ?? {};
+        this._noticeHtml = noticeHtml;
 
         const thumbOpts = { background: '#ffffff', ...this._spans };
         const cards = options.map((o, i) => buildLayoutCardModel(o, i));
@@ -80,7 +87,7 @@ export class ApartmentLayoutModal {
 
         const overlay = document.createElement('div');
         overlay.className = 'alm-overlay';
-        overlay.innerHTML = buildLayoutModalHtml(cards, thumbs, program, options, graphs);
+        overlay.innerHTML = buildLayoutModalHtml(cards, thumbs, program, options, graphs, this._noticeHtml);
 
         this._onProgramChange = cb.onProgramChange ?? null;
 
@@ -90,6 +97,15 @@ export class ApartmentLayoutModal {
             // Backdrop click (outside the panel) → cancel.
             if (target === overlay) { this.dismiss(); cb.onCancel(); return; }
             if (target.closest('.alm-cancel')) { this.dismiss(); cb.onCancel(); return; }
+            // A.21.D5 follow-up — dismiss the reduced-programme notice (cosmetic only;
+            // never blocks "Use this layout"). Hide the banner node.
+            if (target.closest('[data-action="dismiss-notice"]')) {
+                e.preventDefault();
+                e.stopPropagation();
+                const notice = target.closest('[data-role="reduced-program-notice"]') as HTMLElement | null;
+                if (notice) notice.style.display = 'none';
+                return;
+            }
             const sel = target.closest('.alm-select') as HTMLElement | null;
             if (sel) {
                 const idx = Number(sel.getAttribute('data-index'));
@@ -180,7 +196,7 @@ export class ApartmentLayoutModal {
      * dismissing the modal or touching the program-edit form. Called by the
      * controller after a re-generation completes. No-op when no modal is open.
      */
-    refresh(options: readonly ScoredLayoutOption[]): void {
+    refresh(options: readonly ScoredLayoutOption[], noticeHtml?: string): void {
         if (!this._el) return;
         const grid = this._el.querySelector('[data-role="grid"]');
         if (!grid) return;
@@ -193,6 +209,11 @@ export class ApartmentLayoutModal {
         // (e.g. turning Living Room off) changes which occupancies are present.
         const legend = this._el.querySelector('[data-role="legend"]');
         if (legend) legend.innerHTML = buildOccupancyLegendHtml(options);
+        // A.21.D5 follow-up — recompute the reduced-programme notice (a regen with a
+        // smaller program may now fit fully → '' clears it). Keep the last when undefined.
+        if (noticeHtml !== undefined) this._noticeHtml = noticeHtml;
+        const noticeRegion = this._el.querySelector('[data-role="program-notice"]');
+        if (noticeRegion) noticeRegion.innerHTML = this._noticeHtml;
         this._setHint('');
         this.setBusy(false);
     }
