@@ -699,6 +699,159 @@ export class WallJoinResolver {
                 }
             }
 
+            // ── §NEAR-CORNER-L (Jun 2026 — founder perimeter-corner-close fix) ──────
+            // THE founder defect: on a GENERATED / WELDED (often ~45° ROTATED) shell the
+            // two perimeter walls meeting at a corner are NOT bit-exact coincident — they
+            // sit a few mm–cm apart (post-weld / post-miter / principal-axis drift). When
+            // an interior partition T-joins the shell mid-span NEAR that corner, the
+            // editor's ZOOM-DEPENDENT (large) snapRadius sweeps all three endpoints into
+            // ONE cluster. Because the two shell endpoints are > PINNED_TOL (1 mm) apart,
+            // the pinned primary-pair loop above finds NO primary corner → the two shell
+            // walls fall to the §MULTI-CLUSTER consensus-trim branch and each gets a
+            // SQUARE (perpendicular) end cap trimmed to its own axis. Two perpendicular
+            // square caps at a corner do NOT share a miter plane → the corner opens (the
+            // founder's "tiny diamond of empty space" in plan, vertical seam in 3D).
+            //
+            // FIX: when the pinned loop found NO primary pair, fall back to a GEOMETRIC
+            // near-corner detection — the CLOSEST endpoint↔endpoint pair from two
+            // DIFFERENT, materially-long, perpendicular-ish walls whose endpoints are
+            // within NEAR_CORNER_TOL of each other (well below the cluster snapRadius, so
+            // a genuine interior Y/star — whose members are spread further apart — is NOT
+            // captured). Treat that pair EXACTLY like a pinned primary corner: leave both
+            // un-handled so the pair-wise _detect → _applyCorner mitres them to the shared
+            // centreline intersection (a closed bisector L), and route every OTHER cluster
+            // member (the partition) through T-INTO-CORNER. This is the SAME deferral the
+            // bit-exact corner already gets, just keyed off near-coincidence instead of
+            // 1 mm coincidence — so a slightly-gapped shell corner closes identically to a
+            // perfect one. Deterministic (ADR-0061): closest-pair + creation-order tie-break.
+            //
+            // Safety: (a) endpoint↔endpoint only (cluster members are endpoints by
+            // construction — never a body-T); (b) both walls must exceed NEAR_CORNER_MIN_LEN
+            // so a degenerate stub never poses as a corner wall; (c) perpendicular-ish gate
+            // (|dot| < PERP_DOT_THRESHOLD) so a near-collinear pass-through is left to
+            // §PASS-THROUGH-FLUSH; (d) only fires when primaryPair is still null, so the
+            // pinned path is byte-unchanged.
+            const NEAR_CORNER_TOL     = Math.min(thresholds.snapRadius, 0.12); // ≤120 mm corner cluster
+            const NEAR_CORNER_MIN_LEN = 0.30;                                   // both walls clearly real
+            if (!primaryPair) {
+                let bestDist = NEAR_CORNER_TOL;
+                let bestDot  = Infinity;
+                let bestCreated = Infinity;
+                for (let i = 0; i < endpoints.length; i++) {
+                    const epA = endpoints[i];
+                    if (_selfClusterWallIds.has(epA.wallId)) continue;
+                    const wallA = _byId.get(epA.wallId);
+                    if (!wallA) continue;
+                    const [aS, aE] = bl.get(epA.wallId)!;
+                    if (aS.distanceTo(aE) < NEAR_CORNER_MIN_LEN) continue;
+                    const posA = this._getEpPos(epA, bl);
+                    for (let j = i + 1; j < endpoints.length; j++) {
+                        const epB = endpoints[j];
+                        if (epA.wallId === epB.wallId) continue;
+                        if (_selfClusterWallIds.has(epB.wallId)) continue;
+                        const wallB = _byId.get(epB.wallId);
+                        if (!wallB) continue;
+                        const [bS, bE] = bl.get(epB.wallId)!;
+                        if (bS.distanceTo(bE) < NEAR_CORNER_MIN_LEN) continue;
+                        const posB = this._getEpPos(epB, bl);
+                        const d = posA.distanceTo(posB);
+                        if (d > NEAR_CORNER_TOL) continue;
+                        const dirA = this._wallDirAtJoin(wallA, epA.side, aS, aE);
+                        const dirB = this._wallDirAtJoin(wallB, epB.side, bS, bE);
+                        const absDot = Math.abs(dirA.dot(dirB));
+                        if (absDot >= PERP_DOT_THRESHOLD) continue;   // leave pass-throughs to §PASS-THROUGH-FLUSH
+                        const maxCreated = Math.max(
+                            wallA.metadata?.createdAt ?? 0,
+                            wallB.metadata?.createdAt ?? 0,
+                        );
+                        // Prefer the CLOSEST pair; ties → most perpendicular; then older.
+                        const closer       = d < bestDist - 1e-4;
+                        const tiedMorePerp = Math.abs(d - bestDist) <= 1e-4 && absDot < bestDot - 1e-3;
+                        const tiedOlder    = Math.abs(d - bestDist) <= 1e-4
+                            && Math.abs(absDot - bestDot) <= 1e-3 && maxCreated < bestCreated;
+                        if (closer || tiedMorePerp || tiedOlder) {
+                            bestDist = d;
+                            bestDot = absDot;
+                            bestCreated = maxCreated;
+                            primaryPair = {
+                                idA: epA.wallId, sideA: epA.side,
+                                idB: epB.wallId, sideB: epB.side,
+                                dirA, dirB,
+                            };
+                        }
+                    }
+                }
+                // §NEAR-CORNER-L DISCRIMINATOR — a perpendicular near-coincident endpoint
+                // pair is AMBIGUOUS: it is EITHER a slightly-gapped shell L-corner (the
+                // founder defect, which needs a bisector miter) OR two arms of a pure
+                // interior Y/star junction (which must keep the §CONSENSUS-ON-CENTRELINE
+                // trim so the room seals — regressing that re-merges rooms). The decisive
+                // difference: at the SHELL corner a THIRD cluster member (the partition)
+                // T-attaches to the BODY (mid-span) of one of the L-pair walls — that is
+                // why they cluster at all; in a pure Y the third arm meets the other two
+                // at their ENDS, never on a body. So only accept the recovered L when some
+                // OTHER cluster member's clustered endpoint sits on the mid-span (not the
+                // end) of one L-pair wall — the T-attacher signature. No T-attacher ⇒ this
+                // is a Y/star ⇒ leave primaryPair null ⇒ the consensus-trim path is
+                // byte-unchanged (no §CONSENSUS regression).
+                if (primaryPair) {
+                    const pp = primaryPair;
+                    const ppPos = this._getEpPos({ wallId: pp.idA, side: pp.sideA }, bl);
+                    // (1) SEPARATION — the L-pair endpoints must be SUBSTANTIALLY closer to
+                    // each other than to any OTHER cluster member. A shell corner: the two
+                    // perimeter ends are ~mm–cm apart while the partition that swept them
+                    // into this (large-snapRadius) cluster is much farther (it runs into
+                    // the room). A pure interior Y/star: all arms meet at a tight triple,
+                    // so no member is well-separated → the pair is NOT a distinct corner →
+                    // keep the consensus trim (no §CONSENSUS-ON-CENTRELINE regression).
+                    const SEP_FACTOR = 2.0;
+                    const SEP_ABS_MIN = 0.10;   // ≥100 mm clear of the corner point
+                    let nearestOther = Infinity;
+                    for (const ep of endpoints) {
+                        if (ep.wallId === pp.idA || ep.wallId === pp.idB) continue;
+                        if (_selfClusterWallIds.has(ep.wallId)) continue;
+                        nearestOther = Math.min(nearestOther, ppPos.distanceTo(this._getEpPos(ep, bl)));
+                    }
+                    const wellSeparated =
+                        nearestOther === Infinity ||   // 2-wall cluster: pair IS the corner
+                        (nearestOther >= SEP_ABS_MIN && nearestOther >= SEP_FACTOR * bestDist);
+                    // (2) T-ATTACHER — at least one other member sits on the BODY (mid-span)
+                    // of an L-pair wall (the partition welded onto the shell), OR the cluster
+                    // is just the 2 corner walls. This is the shell-corner signature; a pure
+                    // Y has its third arm meeting at the ENDS, not on a body.
+                    let hasTAttacher = nearestOther === Infinity;
+                    for (const ep of endpoints) {
+                        if (hasTAttacher) break;
+                        if (ep.wallId === pp.idA || ep.wallId === pp.idB) continue;
+                        if (_selfClusterWallIds.has(ep.wallId)) continue;
+                        const pos = this._getEpPos(ep, bl);
+                        for (const hostId of [pp.idA, pp.idB]) {
+                            const [hs, he] = bl.get(hostId)!;
+                            const c = this._closestOnSegment(pos, hs, he);
+                            if (pos.distanceTo(c) > thresholds.snapRadius) continue;
+                            const host = _byId.get(hostId);
+                            const endMargin = Math.max(0.05, (host?.thickness ?? 0.2) / 2);
+                            if (c.distanceTo(hs) < endMargin || c.distanceTo(he) < endMargin) continue;
+                            hasTAttacher = true;
+                            break;
+                        }
+                    }
+                    if (wellSeparated && hasTAttacher) {
+                        console.log(
+                            `[WallJoinResolver] §NEAR-CORNER-L recovered an un-pinned L-corner in cluster ` +
+                            `@(${consensusPoint.x.toFixed(3)},${consensusPoint.z.toFixed(3)}): ` +
+                            `${pp.idA}(${pp.sideA}) ↔ ${pp.idB}(${pp.sideB}) ` +
+                            `gap=${(bestDist * 1000).toFixed(0)}mm |dot|=${bestDot.toFixed(3)} — ` +
+                            `deferred to pair-wise bisector miter (NOT square-capped) so the corner closes.`,
+                        );
+                    } else {
+                        // No T-attacher → this is a pure Y/star, not a shell corner.
+                        // Discard the recovered pair so the consensus-trim path runs unchanged.
+                        primaryPair = null;
+                    }
+                }
+            }
+
             const primaryWallIds: Set<string> = primaryPair
                 ? new Set([primaryPair.idA, primaryPair.idB])
                 : new Set();

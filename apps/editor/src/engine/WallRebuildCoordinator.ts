@@ -861,6 +861,74 @@ export class WallRebuildCoordinator {
                 for (const w of levelWalls) this._prevJoinMap.delete(w.id);
                 adjustments.forEach((adj: JoinData, wallId: string) => this._prevJoinMap.set(wallId, adj));
 
+                // §DIAG-PERIM-CORNER-WHOLE (founder #5/#11, 2026-06-12) — the active
+                // generated-house repair takes THIS whole-level resolveLevel path (v184
+                // §OPENING-VOID-WHOLE-LEVEL), NOT the body-only §DIAG-PERIM-CORNER probe
+                // in `_rebuildWallBodies`. To actually SEE the perimeter-corner state the
+                // founder reports, mirror that probe here against the FRESH `adjustments`
+                // (the resolver's just-computed trimmed baselines, NOT a stale cache):
+                // cluster all level walls' UNTRIMMED endpoints; for each pure 2-wall
+                // L-corner report the GAP between the two walls' resolved trimmed joining
+                // ends. A clean corner ⇒ the two trimmed ends coincide (gap ≈ 0); a gap ⇒
+                // the cap planes no longer meet → the visible open corner. With the
+                // §NEAR-CORNER-L resolver fix a slightly-gapped (welded/rotated) shell
+                // corner is now mitred to the shared centreline crossing, so this should
+                // read gap≈0 + bothMitred. Pure logging; gated to avoid console flood.
+                try {
+                    const _ends: Array<{ id: string; side: 'start' | 'end'; p: { x: number; z: number } }> = [];
+                    for (const w of levelWalls) {
+                        const src = (w as unknown as { _sourceBaseLine?: ReadonlyArray<{ x: number; z: number }> })._sourceBaseLine ?? w.baseLine;
+                        if (!src || src.length < 2 || !src[0] || !src[1]) continue;
+                        _ends.push({ id: w.id, side: 'start', p: { x: src[0].x, z: src[0].z } });
+                        _ends.push({ id: w.id, side: 'end',   p: { x: src[1].x, z: src[1].z } });
+                    }
+                    const _TOL = 0.12;
+                    const _used = new Set<number>();
+                    let _corners = 0, _bothMitred = 0, _gappy = 0;
+                    const _resBL = (id: string, side: 'start' | 'end'): { x: number; z: number } | null => {
+                        const a = adjustments.get(id) as (JoinData & { baseLine?: [THREE.Vector3, THREE.Vector3] }) | undefined;
+                        const b = a?.baseLine; if (!b) return null;
+                        const v = side === 'start' ? b[0] : b[1]; return { x: v.x, z: v.z };
+                    };
+                    const _resMN = (id: string, side: 'start' | 'end'): boolean => {
+                        const a = adjustments.get(id) as JoinData | undefined;
+                        return !!(side === 'start' ? a?.startMN : a?.endMN);
+                    };
+                    for (let i = 0; i < _ends.length; i++) {
+                        if (_used.has(i)) continue;
+                        const grp = [i];
+                        for (let j = i + 1; j < _ends.length; j++) {
+                            if (_used.has(j) || _ends[i]!.id === _ends[j]!.id) continue;
+                            const dx = _ends[i]!.p.x - _ends[j]!.p.x, dz = _ends[i]!.p.z - _ends[j]!.p.z;
+                            if (dx * dx + dz * dz <= _TOL * _TOL) grp.push(j);
+                        }
+                        if (grp.length !== 2) continue;
+                        grp.forEach(k => _used.add(k));
+                        _corners++;
+                        const a = _ends[grp[0]!]!, b = _ends[grp[1]!]!;
+                        const pa = _resBL(a.id, a.side), pb = _resBL(b.id, b.side);
+                        const bothMitred = _resMN(a.id, a.side) && _resMN(b.id, b.side);
+                        if (bothMitred) _bothMitred++;
+                        const gap = pa && pb ? Math.hypot(pa.x - pb.x, pa.z - pb.z) : NaN;
+                        if (Number.isFinite(gap) && gap > 0.005) {
+                            _gappy++;
+                            console.warn(
+                                `[WallRebuildCoordinator] §DIAG-PERIM-CORNER-WHOLE ⚠ ${levelId} corner ` +
+                                `${a.id}(${a.side})↔${b.id}(${b.side}) GAP=${(gap * 1000).toFixed(0)}mm ` +
+                                `bothMitred=${bothMitred} — open corner (resolver did NOT close it).`,
+                            );
+                        }
+                    }
+                    if (_corners > 0) {
+                        console.log(
+                            `[WallRebuildCoordinator] §DIAG-PERIM-CORNER-WHOLE ${levelId} summary: ` +
+                            `L-corners=${_corners} bothMitred=${_bothMitred} gappy(>5mm)=${_gappy}`,
+                        );
+                    }
+                } catch (err) {
+                    console.warn('[WallRebuildCoordinator] §DIAG-PERIM-CORNER-WHOLE probe failed (non-fatal):', err);
+                }
+
                 // DW-14 FIX: reposition door/window meshes AFTER wall hole geometry is rebuilt.
                 for (const wallId of _rebuiltWallIds) {
                     this._doorBuilder.rebuildForWall(wallId);
