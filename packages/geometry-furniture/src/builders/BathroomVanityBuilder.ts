@@ -53,40 +53,40 @@ export class VanityUnitBuilder implements IFurnitureBuilder {
         body.position.set(0, bodyH / 2, 0);
         group.add(body);
 
-        // Stone countertop
-        const counterGeo = new THREE.BoxGeometry(W + 0.02, COUNTER_THK, L + 0.02);
+        // §SINK-REAL-HOLE (founder #8, 2026-06-12) — the basin radius, computed UP
+        // FRONT so the countertop can be cut with a genuine circular HOLE for it. The
+        // §63.4/§63.7 bowl was modelled BELOW a SOLID counter slab → the slab occluded
+        // the recess from above, so it still read as a flat disc (the founder, twice:
+        // "the sink still doesn't have a hole"). We now build the counter as a slab
+        // with a real circular opening (THREE.Shape + a hole Path, ExtrudeGeometry —
+        // no CSG, deterministic), so you SEE DOWN into the bowl cone + floor below.
+        const basinR = Math.min(W * 0.30, L * 0.36);             // bowl rim radius
+
+        // Stone countertop WITH a circular basin hole (Shape − circular Path).
+        const cShape = new THREE.Shape();
+        const cw = (W + 0.02) / 2, cl = (L + 0.02) / 2;
+        cShape.moveTo(-cw, -cl); cShape.lineTo(cw, -cl); cShape.lineTo(cw, cl); cShape.lineTo(-cw, cl); cShape.closePath();
+        const cHole = new THREE.Path();
+        cHole.absarc(0, 0, basinR, 0, Math.PI * 2, true);
+        cShape.holes.push(cHole);
+        const counterGeo = new THREE.ExtrudeGeometry(cShape, { depth: COUNTER_THK, bevelEnabled: false });
         const counter = new THREE.Mesh(counterGeo, stoneMat);
-        counter.position.set(0, bodyH + COUNTER_THK / 2, 0);
+        // ExtrudeGeometry lies in XY extruded +Z; rotate −90°x to lie flat (XZ), the
+        // extrude depth then runs +Y from bodyH up to bodyH+COUNTER_THK (the top).
+        counter.rotation.x = -Math.PI / 2;
+        counter.position.set(0, bodyH, 0);
+        counter.castShadow = true; counter.receiveShadow = true;
         group.add(counter);
 
-        // §63.4 (2026-06-11) — REAL recessed basin BOWL. The pre-fix vanity had a
-        // single open-ended cylinder flush with the counter top — it read as just a
-        // "faint flat circle" (founder defect: "the sink has no basin bowl"). We now
-        // build a genuine inset bowl: a wider rim ring + an inner bowl wall (a
-        // truncated cone tapering DOWN into the counter) + a bowl floor BELOW the
-        // counter surface + a drain. The cavity is recessed ~90 mm below the top, so
-        // it reads as a proper washbasin you can see into.
-        // §63.7 (2026-06-12) — DEEPER, WIDER basin bowl. The §63.4 recess was real
-        // but too small/shallow (rim radius ≈ 0.11 m, 90 mm deep) so it still read
-        // as a "flat disk" in the 3D view (founder #10c). We widen the bowl to fill
-        // the counter, deepen the recess, and add a COUNTERTOP RING that sits flush
-        // around the bowl so the cavity reads as a subtracted hole in the worktop.
+        // §SINK-REAL-HOLE — the BOWL that sits in the counter's real circular hole
+        // (basinR computed above). The bowl wall (truncated cone) + floor are now
+        // VISIBLE through the actual opening, not hidden under a solid slab. The
+        // §63.7 fake annulus "ring" is gone — the hole is real now, so it's redundant.
         const basinMat = this.materialService.getMaterial(0xffffff, 'standard') as THREE.MeshStandardMaterial;
         const counterTopY = bodyH + COUNTER_THK;                 // counter top surface
-        const basinR = Math.min(W * 0.30, L * 0.36);             // wider bowl rim radius
         const BOWL_DEPTH = 0.13;                                  // deeper recess below the top
         const bowlFloorR = basinR * 0.5;                         // narrower at the bottom (concave)
         const bowlFloorY = counterTopY - BOWL_DEPTH;             // recessed floor height
-
-        // Counter RING — a flush annulus around the bowl so the worktop visibly
-        // wraps the recess (the "hole in the countertop" read). A flat ring disc
-        // sitting on the counter top, with the bowl opening cut conceptually inside.
-        const ringGeo = new THREE.RingGeometry(basinR, basinR + 0.10, 36);
-        const ringMat = stoneMat;
-        const ring = new THREE.Mesh(ringGeo, ringMat);
-        ring.rotation.x = -Math.PI / 2;
-        ring.position.set(0, counterTopY + 0.002, 0);
-        group.add(ring);
 
         // Rim ring — a low raised lip at the top edge of the bowl (frames the recess).
         const RIM_RING = 0.015;

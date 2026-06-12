@@ -37,7 +37,6 @@ export class BathBuilder implements IFurnitureBuilder {
         //   • realistic proportions (~1.7 × 0.75 × 0.55 m).
         // Still a clean parametric mesh: a frame of strips around an open well +
         // chamfer posts + an apron skirt. No CSG, deterministic.
-        const RIM_W = 0.06;                  // narrow flat top rim (the lip)
         const WALL_THK = 0.05;               // ceramic wall thickness
         const RIM_DROP = 0.015;              // rim top is 15 mm below the outer top
         const FLOOR_Y = 0.14;                // well floor height above the unit base (deep recess)
@@ -113,25 +112,35 @@ export class BathBuilder implements IFurnitureBuilder {
         rightWall.position.set( innerW / 2 + WALL_THK / 2, FLOOR_Y + wallH / 2, 0);
         group.add(rightWall);
 
-        // Flat top RIM band (the lip you sit on) — a thin frame capping the walls,
-        // wrapping the full outer footprint so the basin rim ↔ outer edge is solid.
+        // §BATH-DECK-GAPFREE (founder #7, 2026-06-12) — the flat top DECK around the
+        // basin opening. The §63.5 rim used a narrow RIM_W band at the outer edge +
+        // separate side bands, which did NOT reach the basin walls → two uncovered
+        // SLOTS on the top surface (the founder's "two side holes — not sure why").
+        // We now tile the WHOLE frame between the outer footprint and the basin
+        // opening (innerW × innerL) with four decks that meet exactly at the opening
+        // corners — no gaps. Opening = the visible basin well; the basin walls sit
+        // just inside it.
         const RIM_THK = 0.025;
-        const rimLongGeo = new THREE.BoxGeometry(width, RIM_THK, RIM_W);
-        const rimFront = new THREE.Mesh(rimLongGeo, shellMat);
-        rimFront.position.set(0, rimTopY - RIM_THK / 2,  length / 2 - RIM_W / 2);
-        group.add(rimFront);
-        const rimBack = new THREE.Mesh(rimLongGeo, shellMat);
-        rimBack.position.set(0, rimTopY - RIM_THK / 2, -length / 2 + RIM_W / 2);
-        group.add(rimBack);
-        // Side rim bands wide enough to span the gap from outer edge to the basin wall.
-        const sideRimW = (width - innerW) / 2;
-        const rimShortGeo = new THREE.BoxGeometry(sideRimW, RIM_THK, length - 2 * RIM_W);
-        const rimLeft = new THREE.Mesh(rimShortGeo, shellMat);
-        rimLeft.position.set(-width / 2 + sideRimW / 2, rimTopY - RIM_THK / 2, 0);
-        group.add(rimLeft);
-        const rimRight = new THREE.Mesh(rimShortGeo, shellMat);
-        rimRight.position.set( width / 2 - sideRimW / 2, rimTopY - RIM_THK / 2, 0);
-        group.add(rimRight);
+        const deckY = rimTopY - RIM_THK / 2;
+        const fbDepth = (length - innerL) / 2;          // front/back deck depth
+        const lrWidth = (width  - innerW) / 2;          // left/right deck width
+        // Front + back decks span the FULL width (depth = the gap outer-edge→opening).
+        const deckFBGeo = new THREE.BoxGeometry(width, RIM_THK, fbDepth);
+        const deckFront = new THREE.Mesh(deckFBGeo, shellMat);
+        deckFront.position.set(0, deckY,  (innerL / 2 + length / 2) / 2);
+        group.add(deckFront);
+        const deckBack = new THREE.Mesh(deckFBGeo, shellMat);
+        deckBack.position.set(0, deckY, -(innerL / 2 + length / 2) / 2);
+        group.add(deckBack);
+        // Left + right decks fill BETWEEN the front/back decks (depth = innerL) so the
+        // four pieces tile the frame with exactly the basin opening left clear.
+        const deckLRGeo = new THREE.BoxGeometry(lrWidth, RIM_THK, innerL);
+        const deckLeft = new THREE.Mesh(deckLRGeo, shellMat);
+        deckLeft.position.set(-(innerW / 2 + width / 2) / 2, deckY, 0);
+        group.add(deckLeft);
+        const deckRight = new THREE.Mesh(deckLRGeo, shellMat);
+        deckRight.position.set( (innerW / 2 + width / 2) / 2, deckY, 0);
+        group.add(deckRight);
 
         // ── Inner basin FLOOR (slightly darker, the bottom of the open well),
         // inset further inward so the basin floor < basin rim (the bowl tapers).
