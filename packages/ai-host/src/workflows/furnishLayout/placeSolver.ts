@@ -19,6 +19,10 @@ const SLIDE_STEP = 0.25;
 const add = (a: Pt, b: Pt, s = 1): Pt => ({ x: a.x + b.x * s, z: a.z + b.z * s });
 const perp = (n: Pt): Pt => ({ x: n.z, z: -n.x });   // wall direction from inward normal
 
+const dot2 = (a: Pt, b: Pt): number => a.x * b.x + a.z * b.z;
+const len2 = (a: Pt): number => Math.hypot(a.x, a.z);
+const norm2 = (a: Pt): Pt => { const l = len2(a) || 1; return { x: a.x / l, z: a.z / l }; };
+
 /** §67.2 — every bed-like kind (plain `bed` + the integrated variant beds) so
  *  bedside tables flank them and rugs centre under them identically. */
 const BED_KINDS = new Set<PlacedFurniture['kind']>(['bed', 'nordic_bed', 'solid_wood_bed']);
@@ -62,7 +66,15 @@ function doorObstacles(input: FurnishRoomInput): Quad[] {
     });
 }
 
-interface Placement { item: PlacedFurniture; quad: Quad }
+interface Placement {
+    item: PlacedFurniture;
+    quad: Quad;
+    /** §67.3 — true when this is a corner_sofa seated by the dedicated CORNER
+     *  path (position = the inside-back corner origin). When false, a corner_sofa
+     *  fell back to the straight-wall path (position = a wall-anchored centre), so
+     *  its dependents use the straight-sofa front line, not the L pocket. */
+    cornerAnchored?: boolean;
+}
 
 /**
  * §FURNITURE-SPEC clearFront — the keep-clear zone in front of the item where
@@ -283,8 +295,15 @@ function placeBeside(spec: FurnitureItemSpec, leader: Placement, input: FurnishR
         const side = L.footprint.w / 2 + fp.w / 2 + GAP;
         const slots = [side, -side].slice(0, count);
         for (const s of slots) tryPush(add(headCtr, d, s), L.rotationY);
+    } else if (leader.cornerAnchored) {
+        // §67.3 — coffee table centred in the L's INNER POCKET (diagonally out
+        // from the inside-back corner along the opening bisector), aligned to the
+        // sofa facing, ~0.40 m clear of the seat fronts. The pocket centre is the
+        // void framed by the two seat runs, NOT a straight front line.
+        const pk = cornerSofaPocket(L, fp);
+        tryPush(pk.center, pk.yaw);
     } else if (isSofaKind(L.kind)) {
-        // coffee table in front of the sofa, toward the room
+        // coffee table in front of the straight sofa, toward the room
         const c = add({ x: L.position.x, z: L.position.z }, n, L.footprint.l / 2 + 0.35 + fp.l / 2);
         tryPush(c, L.rotationY);
     } else if (L.kind === 'dining_table') {
@@ -350,7 +369,14 @@ function placeUnder(
     // so the rug sits in FRONT of the sofa (under the coffee table), not under it.
     let cx = L.position.x;
     let cz = L.position.z;
-    if (isSofaKind(L.kind)) {
+    if (leader.cornerAnchored) {
+        // §67.3 — the rug anchors the L's INNER POCKET (under the coffee table),
+        // centred diagonally out from the inside-back corner, not on the corner
+        // origin (which is buried in the seat backs).
+        const pk = cornerSofaPocket(L);
+        cx = pk.center.x;
+        cz = pk.center.z;
+    } else if (isSofaKind(L.kind)) {
         const shift = L.footprint.l / 2 + 0.35;   // ~coffee-table gap
         cx += n.x * shift;
         cz += n.z * shift;
@@ -401,6 +427,199 @@ function cornerPoints(input: FurnishRoomInput, inset: number): Pt[] {
     });
 }
 
+// ── §67.3 (2026-06-12) — CORNER (L-shape) SOFA anchoring ─────────────────────
+//
+// WHY THE STRAIGHT-SOFA PATH FLOATS THE L:
+//   The CornerSofaBuilder builds the L with its group ORIGIN at the inside-back
+//   corner (where the two backs meet), the main run extending along LOCAL +X and
+//   the side run along LOCAL +Z (backs on the X=0 and Z=0 edges; the open seat
+//   quadrant faces +X/+Z). The editor sets `group.position = placement.position`
+//   and `group.rotation.y = placement.rotationY` with NO recentring (see the
+//   editor's FurniturePlanToolHandler "inside-back-corner" anchor note). The
+//   generic placeAgainstWall path instead computes `position` as the CENTRE of a
+//   w×l box pinned to one wall — so the editor drops the L's CORNER at that
+//   centre point and the body sprawls +X/+Z into the room → it reads as floating
+//   in the middle, seated against no corner, opening in an arbitrary direction.
+//
+// THE FIX — seat the inside-back corner in a real room corner:
+//   THREE Y-rotation by yaw maps  localX(1,0) → world(cos,-sin)  and
+//   localZ(0,1) → world(sin,cos)  (matches footprintCorners' convention). So if
+//   the main run must run along inward direction `u` (localX → u) then the side
+//   run direction is FORCED to v = (−u.z, u.x) (localZ → v) — the +90° partner.
+//   We seat the corner origin at the room corner, inset by GAP along both legs,
+//   so the two backs sit flush on the two perpendicular walls and the opening
+//   (+X/+Z quadrant) faces into the room.
+
+/** §67.3 — the seat depth of each corner-sofa run (CornerSofaBuilder default). */
+const CORNER_SOFA_SEAT_DEPTH = 0.90;
+/** §67.3 — gap band between a corner sofa's seat fronts and the coffee table. */
+const POCKET_GAP = 0.40;
+
+/** A room corner = a vertex where two (≈perpendicular) walls meet, with the two
+ *  unit "into-room along each wall" leg directions e1,e2 from that vertex. */
+interface RoomCorner { readonly p: Pt; readonly e1: Pt; readonly e2: Pt }
+
+/** Find interior corners: pairs of walls sharing an endpoint whose directions
+ *  are ≈perpendicular. Each leg direction points FROM the shared vertex ALONG
+ *  its wall, into the room span. Deterministic (input wall order). */
+function findRoomCorners(input: FurnishRoomInput): RoomCorner[] {
+    const W = input.walls;
+    const out: RoomCorner[] = [];
+    const near = (a: Pt, b: Pt): boolean => Math.hypot(a.x - b.x, a.z - b.z) < 0.05;
+    // leg direction from a shared endpoint into the wall (toward its other end).
+    const legFrom = (w: RoomWallSeg, v: Pt): Pt => near(w.a, v) ? norm2({ x: w.b.x - v.x, z: w.b.z - v.z })
+                                                                : norm2({ x: w.a.x - v.x, z: w.a.z - v.z });
+    for (let i = 0; i < W.length; i++) {
+        for (let j = i + 1; j < W.length; j++) {
+            const wi = W[i]!, wj = W[j]!;
+            // shared vertex?
+            const verts: Pt[] = [];
+            for (const a of [wi.a, wi.b]) for (const b of [wj.a, wj.b]) if (near(a, b)) verts.push(a);
+            if (verts.length === 0) continue;
+            const v = verts[0]!;
+            const e1 = legFrom(wi, v), e2 = legFrom(wj, v);
+            if (Math.abs(dot2(e1, e2)) > 0.2) continue;   // not ≈perpendicular
+            out.push({ p: v, e1, e2 });
+        }
+    }
+    return out;
+}
+
+/** The media/TV wall (the wall the sofa should face) — wall opposite the door,
+ *  excluding window walls, falling back to the longest. Used to orient the L's
+ *  opening toward the screen. Returns its inward normal, or the room centroid
+ *  direction when no media wall resolves. */
+function mediaFacingDir(input: FurnishRoomInput, from: Pt): Pt {
+    const noWin = input.walls.filter(w => !wallHasWindow(w, input.windows) && !wallHasDoor(w, input.doors));
+    const media = wallOppositeDoor(noWin.length ? noWin : input.walls, input.doors);
+    if (media) {
+        // face toward the media wall's mid-point
+        const m = wallMid(media);
+        return norm2({ x: m.x - from.x, z: m.z - from.z });
+    }
+    return norm2({ x: input.centroid.x - from.x, z: input.centroid.z - from.z });
+}
+
+/**
+ * Seat a `corner_sofa` (L-shape) in a real room corner: BACK of the main run +
+ * SIDE of the side run flush against two perpendicular walls, the open seating
+ * quadrant facing into the room / toward the media wall. Returns the placement
+ * (position = the inside-back CORNER origin, the editor's anchor) or null when
+ * no corner fits both legs collision-clear → caller falls back to straight-sofa.
+ */
+function placeCornerSofa(input: FurnishRoomInput, obstacles: readonly Quad[]): Placement | null {
+    const fp = footprintOf('corner_sofa');
+    const corners = findRoomCorners(input);
+    if (corners.length === 0) return null;
+
+    interface Cand { quad: Quad; pos: Pt; yaw: number; score: number }
+    const cands: Cand[] = [];
+
+    for (const corner of corners) {
+        // Two ways to map the L onto this corner: main run along e1 (side along
+        // e2) OR main run along e2 (side along e1). For each we need localZ's
+        // forced partner v=(−u.z,u.x) to equal the OTHER leg, so the backs land
+        // on both walls. Try both leg-assignments; keep the consistent ones.
+        const tries: Array<{ u: Pt; v: Pt }> = [
+            { u: corner.e1, v: corner.e2 },
+            { u: corner.e2, v: corner.e1 },
+        ];
+        for (const { u, v } of tries) {
+            const forcedV = { x: -u.z, z: u.x };            // localZ partner of u
+            if (dot2(forcedV, v) < 0.95) continue;          // assignment inconsistent
+            // yaw from localX → u:  u = (cos, −sin) → yaw = atan2(−u.z, u.x)
+            const yaw = Math.atan2(-u.z, u.x);
+            // Corner origin: room vertex pushed GAP into the room along both legs
+            // so the backs are flush (GAP) off the two walls.
+            const pos = { x: corner.p.x + (u.x + v.x) * GAP, z: corner.p.z + (u.z + v.z) * GAP };
+            // The L bbox in local frame is [0,w]×[0,l]; its CENTRE is at local
+            // (w/2,l/2) → world = pos + u·(w/2) + v·(l/2). Build the bbox quad for
+            // collision/in-room tests (footprintCorners is centre-based).
+            const cx = pos.x + u.x * (fp.w / 2) + v.x * (fp.l / 2);
+            const cz = pos.z + u.z * (fp.w / 2) + v.z * (fp.l / 2);
+            const quad = footprintCorners(cx, cz, fp.w, fp.l, yaw);
+            if (!quadInPolygon(quad, input.polygon)) continue;
+            if (quadOverlapsAny(quad, obstacles)) continue;
+            // SCORE: prefer the corner+orientation whose open quadrant (the seat
+            // fronts face +X/+Z → the bisector u+v) points toward the media wall,
+            // and whose main (longer) run lies along the longer free leg.
+            const open = norm2({ x: u.x + v.x, z: u.z + v.z });
+            const face = mediaFacingDir(input, { x: cx, z: cz });
+            const openScore = dot2(open, face);            // 1 = opening at the screen
+            cands.push({ quad, pos, yaw, score: openScore });
+        }
+    }
+    if (cands.length === 0) return null;
+    // Deterministic: best open-toward-media score; ties → lower pos.x then pos.z.
+    cands.sort((a, b) => (b.score - a.score) || (a.pos.x - b.pos.x) || (a.pos.z - b.pos.z));
+    const best = cands[0]!;
+    return {
+        item: {
+            kind: 'corner_sofa',
+            position: { x: best.pos.x, y: input.levelElevation + fp.baseOffset, z: best.pos.z },
+            rotationY: best.yaw, footprint: fp, hostedSpaceId: input.roomId,
+        },
+        quad: best.quad,
+    };
+}
+
+/**
+ * §67.3 — the TRUE occupied area of a placed corner sofa is the L (two legs),
+ * NOT its bounding box: the inner pocket is FREE (that's where the coffee table
+ * + rug go). We return the two leg quads (main run w×seatDepth along the back
+ * wall + side run seatDepth×l along the perpendicular wall) so the obstacle set
+ * blocks the seats but leaves the pocket open. Using the bbox instead would make
+ * the coffee table overlap the (empty) pocket and get dropped.
+ */
+function cornerSofaLegQuads(L: PlacedFurniture): Quad[] {
+    const yaw = L.rotationY;
+    const u: Pt = { x: Math.cos(yaw), z: -Math.sin(yaw) };   // main run dir (localX)
+    const v: Pt = { x: Math.sin(yaw), z: Math.cos(yaw) };    // side run dir (localZ)
+    const corner: Pt = { x: L.position.x, z: L.position.z }; // inside-back origin
+    const seatDepth = CORNER_SOFA_SEAT_DEPTH;   // CornerSofaBuilder run depth
+    const w = L.footprint.w, l = L.footprint.l;
+    // Main run: local rect [0,w]×[0,seatDepth] → centre at u·(w/2)+v·(seatDepth/2).
+    const mc: Pt = { x: corner.x + u.x * (w / 2) + v.x * (seatDepth / 2),
+                     z: corner.z + u.z * (w / 2) + v.z * (seatDepth / 2) };
+    const mainQuad = footprintCorners(mc.x, mc.z, w, seatDepth, yaw);
+    // Side run: local rect [0,seatDepth]×[0,l] → centre at u·(seatDepth/2)+v·(l/2).
+    const sc: Pt = { x: corner.x + u.x * (seatDepth / 2) + v.x * (l / 2),
+                     z: corner.z + u.z * (seatDepth / 2) + v.z * (l / 2) };
+    const sideQuad = footprintCorners(sc.x, sc.z, seatDepth, l, yaw);
+    return [mainQuad, sideQuad];
+}
+
+/**
+ * §67.3 — coffee table (and rug) for a CORNER sofa sit in the L's INNER POCKET,
+ * not on a straight front line. The pocket centre is offset from the inside-back
+ * corner DIAGONALLY along the opening bisector (u+v) into the seating void. We
+ * seat the dependent (footprint `fp`) so its trailing edge sits POCKET_GAP past
+ * BOTH inner seat fronts: along the main run (localX = u, table half-extent
+ * fp.w/2) and the side run (localZ = v, table half-extent fp.l/2). The two leg
+ * directions carry different table half-extents, so the reach differs per axis —
+ * this keeps the table centred in the pocket and clear of both seat fronts. When
+ * `fp` is omitted (rug), a nominal reach centres the rug in the void. Aligned to
+ * the sofa facing. Returns the pocket centre + the open bisector + yaw.
+ */
+function cornerSofaPocket(L: PlacedFurniture, fp?: { w: number; l: number }): { center: Pt; open: Pt; yaw: number } {
+    // Reconstruct the leg directions from the yaw: localX→u, localZ→v.
+    const yaw = L.rotationY;
+    const u: Pt = { x: Math.cos(yaw), z: -Math.sin(yaw) };   // main run dir
+    const v: Pt = { x: Math.sin(yaw), z: Math.cos(yaw) };    // side run dir
+    const corner: Pt = { x: L.position.x, z: L.position.z };
+    const open = norm2({ x: u.x + v.x, z: u.z + v.z });
+    // reach along each leg = seat front + gap + the dependent's half-extent on
+    // that axis (so the table edge nearest each seat front sits POCKET_GAP clear,
+    // and its body never overlaps either leg). Rug (no fp) → a nominal pocket.
+    const reachU = CORNER_SOFA_SEAT_DEPTH + POCKET_GAP + (fp ? fp.w / 2 : 0.45);
+    const reachV = CORNER_SOFA_SEAT_DEPTH + POCKET_GAP + (fp ? fp.l / 2 : 0.45);
+    const center: Pt = {
+        x: corner.x + u.x * reachU + v.x * reachV,
+        z: corner.z + u.z * reachU + v.z * reachV,
+    };
+    return { center, open, yaw };
+}
+
 /**
  * Run ONE archetype within an existing obstacle/leader context. Used by both
  * `placeRoom` (fresh context) and `placeRoomMulti` (shared across archetypes
@@ -431,12 +650,30 @@ function applyArchetype(
             continue;
         }
         let p: Placement | null = null;
+        // §67.3 — when the L-shape sofa was seated by the dedicated corner path,
+        // its TRUE obstacle is the two legs (the inner pocket stays free for the
+        // coffee table + rug). A fallback straight-wall placement uses the bbox.
+        let cornerAnchored = false;
         if (spec.anchor === 'center') {
             p = placeAtPoint(spec.kind, input.centroid, 0, input, obstacles);
         } else if (spec.anchor === 'corner') {
             const fp = footprintOf(spec.kind);
             for (const c of cornerPoints(input, Math.max(fp.w, fp.l) / 2 + GAP)) {
                 p = placeAtPoint(spec.kind, c, 0, input, obstacles); if (p) break;
+            }
+        } else if (spec.kind === 'corner_sofa') {
+            // §67.3 — the L-shape sofa is CORNER-anchored: seat its inside-back
+            // corner in a real room corner (both backs flush on two perpendicular
+            // walls, opening into the room). Fall back to the straight-sofa
+            // wall path only when no corner fits both legs collision-clear.
+            p = placeCornerSofa(input, obstacles);
+            if (p) {
+                cornerAnchored = true;
+            } else {
+                for (const wall of resolveAnchorWalls(spec, input)) {
+                    p = placeAgainstWall(spec.kind, wall, input, obstacles);
+                    if (p) break;
+                }
             }
         } else {
             for (const wall of resolveAnchorWalls(spec, input)) {
@@ -445,8 +682,10 @@ function applyArchetype(
             }
         }
         if (p) {
+            if (cornerAnchored) p.cornerAnchored = true;
             added.push(p);
-            obstacles.push(p.quad);
+            if (cornerAnchored) for (const q of cornerSofaLegQuads(p.item)) obstacles.push(q);
+            else obstacles.push(p.quad);
             // §FURNITURE-SPEC clearFront: reserve the working/knee-clearance
             // zone in front of items that have NO group members (sofa→coffee
             // table, bed→bedsides, dining_table→chairs intentionally sit in
