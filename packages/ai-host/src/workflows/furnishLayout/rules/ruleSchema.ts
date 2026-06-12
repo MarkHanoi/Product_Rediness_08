@@ -48,8 +48,11 @@ export interface CabinetOption {
     readonly storageVolumeL?: number;
     readonly ergonomicScore?: number;    // 0..100 (drawers > doors)
     readonly costFactor?: number;        // ×1.0 baseline
-    /** Contents this option is the right home for (drives the storage-adjacency rules). */
-    readonly hosts?: string[];           // 'cutlery' | 'pans' | 'plates' | 'pantry' | 'cleaning' | 'glassware' | …
+    /** Contents this option is the right home for (drives the storage-adjacency rules).
+     *  `readonly` so an `as const` ontology literal (BASE_CABINET_OPTIONS) assigns cleanly —
+     *  matches preferredAdjacent/forbiddenAdjacent above (was `string[]` → broke `tsc
+     *  --skipLibCheck`, which the Fly build runs, so every build since regressed). */
+    readonly hosts?: readonly string[];  // 'cutlery' | 'pans' | 'plates' | 'pantry' | 'cleaning' | 'glassware' | …
 }
 
 /** One placeable module's complete metadata (SPEC §2). Pure data. */
