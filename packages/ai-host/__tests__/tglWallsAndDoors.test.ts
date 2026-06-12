@@ -957,4 +957,74 @@ describe('§EXTEND-TO-PERIMETER — exterior walls reach the slanted shell', () 
             expect(openings[0]!.widthM).toBeCloseTo(0.80, 6);
         });
     });
+
+    // ── §DOOR-WALL-SURVIVES (A.21.D29 #8) — no door may host on a wall the final repair
+    //    drops, and `sealedRoomIds` must be computed from the SURVIVING openings. ────────
+    describe('§DOOR-WALL-SURVIVES: every returned opening hosts on a returned wall', () => {
+        it('no opening references a wall id absent from segments (orphan-opening guard)', () => {
+            // A realistic small private cluster: master + tight ensuite + corridor where
+            // the ensuite↔master shared wall is short enough to be at risk of a repair drop.
+            const master: RoomPlacement = { roomId: 'M', rect: { x0: 0, z0: 0, x1: 4, z1: 4 } };
+            const ensuite: RoomPlacement = { roomId: 'E', rect: { x0: 4, z0: 0, x1: 6, z1: 1.8 } };
+            const corr: RoomPlacement = { roomId: 'C', rect: { x0: 4, z0: 1.8, x1: 6, z1: 4 } };
+            const g = graphOf(
+                [room('M', 'master'), room('E', 'ensuite'), room('C', 'corridor')],
+                [{ a: 'M', b: 'E', via: 'door' }, { a: 'M', b: 'C', via: 'door' }],
+            );
+            // Tag the ensuite host so the ensuite↔master pair is permitted.
+            (g.rooms.find(r => r.id === 'E') as { ensuiteHostId?: string }).ensuiteHostId = 'M';
+            const { segments, openings } = buildWallsAndDoors([master, ensuite, corr], g);
+            const wallIds = new Set(segments.map(s => s.id));
+            for (const o of openings) {
+                expect(wallIds.has(o.wallId), `opening ${o.id} hosts on dropped wall ${o.wallId}`).toBe(true);
+            }
+        });
+
+        it('sealedRoomIds reflects BUILT doors (a door-less room is reported, a door-served one is not)', () => {
+            // corridor ↔ bedroom with a realised door → neither sealed.
+            const A: RoomPlacement = { roomId: 'A', rect: { x0: 0, z0: 0, x1: 5, z1: 4 } };
+            const B: RoomPlacement = { roomId: 'B', rect: { x0: 5, z0: 0, x1: 10, z1: 4 } };
+            const g = graphOf([room('A', 'corridor'), room('B', 'bedroom')], [{ a: 'A', b: 'B', via: 'door' }]);
+            const { openings, sealedRoomIds } = buildWallsAndDoors([A, B], g);
+            expect(openings).toHaveLength(1);
+            expect(sealedRoomIds).toEqual([]);   // both rooms share the built door
+        });
+    });
+
+    // ── §STAIR-DOOR-LANDING (A.21.D29 #5) — the stair door lands on the LONGEST stair↔
+    //    circulation wall, centred + corner-clear. ───────────────────────────────────────
+    describe('§STAIR-DOOR-LANDING: stair door on the longest corridor wall, centred', () => {
+        it('places the stair door on the longest stair↔corridor shared wall, centred', () => {
+            // corridor wraps the stair on two sides: a SHORT shared wall (z=0..1) on the
+            // bottom and a LONG shared wall (x=3, z=0..4) on the side. The stair door must
+            // land on the LONG wall (the landing face), centred.
+            const stair: RoomPlacement = { roomId: 'S', rect: { x0: 0, z0: 0, x1: 3, z1: 4 } };
+            const corrSide: RoomPlacement = { roomId: 'C', rect: { x0: 3, z0: 0, x1: 5, z1: 4 } };
+            const g = graphOf([room('S', 'stair'), room('C', 'corridor')], []);
+            const { segments, openings } = buildWallsAndDoors([stair, corrSide], g);
+            const stairDoors = openings.filter(o => {
+                const [a, b] = o.betweenRoomIds;
+                return a === 'S' || b === 'S';
+            });
+            expect(stairDoors.length).toBe(1);
+            const host = segments.find(s => s.id === stairDoors[0]!.wallId)!;
+            // Longest stair↔corridor wall is the x=3 side wall (length 4), not a stub.
+            const hostLen = Math.hypot(host.b.x - host.a.x, host.b.z - host.a.z);
+            expect(hostLen).toBeGreaterThanOrEqual(3.5);
+            // Centred + corner-clear: the door midpoint sits near the wall centre.
+            const mid = stairDoors[0]!.offsetM + stairDoors[0]!.widthM / 2;
+            expect(Math.abs(mid - hostLen / 2)).toBeLessThanOrEqual(0.3);
+        });
+
+        it('is byte-identical for an apartment program (no stair) — no regression', () => {
+            // A corridor↔bedroom pair has no stair → the §STAIR-DOOR-LANDING pass is a no-op.
+            const A: RoomPlacement = { roomId: 'A', rect: { x0: 0, z0: 0, x1: 5, z1: 4 } };
+            const B: RoomPlacement = { roomId: 'B', rect: { x0: 5, z0: 0, x1: 10, z1: 4 } };
+            const g = graphOf([room('A', 'corridor'), room('B', 'bedroom')], [{ a: 'A', b: 'B', via: 'door' }]);
+            const out1 = buildWallsAndDoors([A, B], g);
+            const out2 = buildWallsAndDoors([A, B], g);
+            expect(JSON.stringify(out1)).toEqual(JSON.stringify(out2));   // deterministic
+            expect(out1.openings).toHaveLength(1);
+        });
+    });
 });

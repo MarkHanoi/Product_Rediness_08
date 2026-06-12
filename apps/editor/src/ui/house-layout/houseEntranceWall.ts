@@ -89,7 +89,22 @@ function hallOverlapSpanOnWall(
     for (let i = 0; i < hallPolyWorld.length; i++) {
         const a = hallPolyWorld[i]!;
         const b = hallPolyWorld[(i + 1) % hallPolyWorld.length]!;
-        if (perp(a, u) > OVERLAP_PERP_TOL_M || perp(b, u) > OVERLAP_PERP_TOL_M) continue;
+        // §ENTRANCE-DRIFT-TOL (A.21.D29 #2, 2026-06-12) — on a ROTATED / drifted plate the
+        // engine hall polygon (projected naively x/1000) lands a few cm off — AND slightly
+        // ROTATED relative to — the user-drawn (world-frame) shell wall. The old per-ENDPOINT
+        // band rejected such an edge whenever ONE endpoint drifted past the tolerance, so the
+        // hall registered as "not perimeter-adjacent" and the door fell back to a neighbour's
+        // façade (the founder's defect). Match on the edge's MIDPOINT perpendicular distance
+        // PLUS a parallelism gate (the edge must run roughly ALONG the wall): this survives the
+        // rotated-plate drift while still rejecting a parallel INTERIOR wall a metre away (its
+        // midpoint is far) and a perpendicular edge (fails parallelism). Pure + deterministic.
+        const elen = Math.hypot(b.x - a.x, b.z - a.z);
+        if (elen < 1e-6) continue;
+        const ex = (b.x - a.x) / elen, ez = (b.z - a.z) / elen;
+        const parallel = Math.abs(ex * u.ux + ez * u.uz);   // |cos θ| between edge + wall dir
+        if (parallel < 0.94) continue;                       // > ~20° off the wall → not alongside
+        const mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2;
+        if (perp({ x: mx, z: mz }, u) > OVERLAP_PERP_TOL_M) continue;
         const ta = Math.max(0, Math.min(u.len, proj(a, u)));
         const tb = Math.max(0, Math.min(u.len, proj(b, u)));
         lo = Math.min(lo, ta, tb);
@@ -97,6 +112,37 @@ function hallOverlapSpanOnWall(
     }
     if (!Number.isFinite(lo) || hi - lo < MIN_OVERLAP_M) return null;
     return { lo, hi };
+}
+
+/** §ENTRANCE-NEAREST-FALLBACK (A.21.D29 #2) — when NO hall edge runs alongside any shell
+ *  wall (a badly-drifted / rotated plate), pick the shell wall whose BODY is nearest the
+ *  hall CENTROID and onto which the centroid projects WITHIN the wall span. This still lands
+ *  the entrance on a wall the hall actually fronts (closest perimeter), never a far neighbour
+ *  façade. Returns the chosen wall + a centred door span, or null when the hall projects onto
+ *  no shell wall at all (genuinely interior hall — the caller keeps the resolver pick + LOGS).
+ *  Pure + deterministic (nearest distance, tie-break ascending id). */
+function nearestShellWallToHall(
+    hallPolyWorld: readonly XZ[],
+    shellWalls: readonly SeamShellWall[],
+): { wall: SeamShellWall; lo: number; hi: number } | null {
+    let cx = 0, cz = 0;
+    for (const p of hallPolyWorld) { cx += p.x; cz += p.z; }
+    const c: XZ = { x: cx / hallPolyWorld.length, z: cz / hallPolyWorld.length };
+    let best: { wall: SeamShellWall; dist: number } | null = null;
+    for (const w of shellWalls) {
+        const u = unit(w.start, w.end);
+        if (u.len < MIN_DOOR_M) continue;
+        const t = proj(c, u);
+        if (t < -OVERLAP_PERP_TOL_M || t > u.len + OVERLAP_PERP_TOL_M) continue;  // not in front of this wall
+        const dist = perp(c, u);
+        if (!best || dist < best.dist - 1e-9
+            || (Math.abs(dist - best.dist) <= 1e-9 && w.id < best.wall.id)) {
+            best = { wall: w, dist };
+        }
+    }
+    if (!best) return null;
+    const u = unit(best.wall.start, best.wall.end);
+    return { wall: best.wall, lo: 0, hi: u.len };
 }
 
 /** Project a plan-mm polygon to world-m with the resolver's default projector. */
@@ -179,14 +225,34 @@ export function reseatEntranceOnHallWall(
         cands.push({ wall: w, lo: span.lo, hi: span.hi, overlap: span.hi - span.lo });
     }
 
-    // No shell wall fronts the hall → the hall is NOT perimeter-adjacent. That is an
-    // engine-side failure (another agent owns it); log LOUDLY but keep the resolver's
-    // closest-shell pick so the house still gets a front door.
+    // No shell wall runs ALONGSIDE the hall boundary. Before declaring the hall interior,
+    // try the §ENTRANCE-NEAREST-FALLBACK — the shell wall the hall CENTROID fronts (nearest
+    // perimeter the centroid projects onto). This rescues a badly-drifted / rotated plate
+    // where the alongside-edge test still missed but the hall genuinely fronts a shell wall.
     if (cands.length === 0) {
+        const near = nearestShellWallToHall(hallPolyWorld, shellWalls);
+        if (near && near.wall.id !== door.shellWallId) {
+            const wallLen = unit(near.wall.start, near.wall.end).len;
+            const spanLo = Math.max(END_CLEAR_M, near.lo);
+            const spanHi = Math.min(wallLen - END_CLEAR_M, near.hi);
+            const occupied = occupiedSpansByWall?.get(near.wall.id) ?? [];
+            const placed = spanHi - spanLo >= MIN_DOOR_M ? placeInClearGap(spanLo, spanHi, occupied) : null;
+            if (placed) {
+                console.log(
+                    `${logTag} §DIAG-ENTRANCE-FIX RE-SEAT (nearest-shell fallback) door from wall=${door.shellWallId} ` +
+                    `→ wall=${near.wall.id} offset=${placed.offsetM.toFixed(2)}m width=${placed.widthM.toFixed(2)}m ` +
+                    `boundsHall≈✓ hall='${hall.name ?? hall.type}' (no edge ran alongside; hall centroid fronts this wall).`,
+                );
+                return { ...door, shellWallId: near.wall.id, offsetM: placed.offsetM, widthM: placed.widthM };
+            }
+        }
+        // Genuinely interior hall (no shell wall fronts it at all) → ENGINE-SIDE failure
+        // (another agent owns it); log LOUDLY but keep the resolver's closest-shell pick so
+        // the house still gets a front door.
         console.warn(
             `${logTag} §DIAG-ENTRANCE-FIX hall='${hall.name ?? hall.type}' is NOT perimeter-adjacent ` +
-            '(no shell wall runs alongside its boundary) — ENGINE-SIDE failure; keeping the resolver pick ' +
-            `wall=${door.shellWallId} (closest shell wall to the hall).`,
+            '(no shell wall runs alongside OR fronts its boundary) — ENGINE-SIDE failure; keeping the resolver ' +
+            `pick wall=${door.shellWallId} (closest shell wall to the hall).`,
         );
         return door;
     }

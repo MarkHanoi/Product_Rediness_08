@@ -736,6 +736,31 @@ export function buildWallsAndDoors(
     for (const { coord, faces } of groupByCoord(vFaces)) for (const run of runsForLine(faces)) emit('v', coord, run);
     for (const { coord, faces } of groupByCoord(hFaces)) for (const run of runsForLine(faces)) emit('h', coord, run);
 
+    // ── §DOOR-WALL-SURVIVES (A.21.D29 #8, 2026-06-12, house ensuite/bathroom sealed) ──
+    // THE DEFECT: door `openings` are placed against the raw `segments` built above, but
+    // the walls the editor actually BUILDS (and the semantic graph hosts doors on) are the
+    // POST-PROCESSED set — `extendWallsToShell` then `repairSegments`, the latter of which
+    // DROPS any wall a weld/clamp collapsed below WJR_SAFE_MIN_LEN_M (0.50 m). A door placed
+    // on a wall that the repair then drops becomes an ORPHAN opening: `buildSemanticGraph`
+    // skips it (host wall guid missing) → the door is never created → the room ships SEALED
+    // (the founder's "En-suite + Bathroom have NO door on the first floor"). Worse, the old
+    // `sealedRoomIds` was derived from `doorCount`, which counted the now-orphaned door, so
+    // the SEAL was INVISIBLE to the §SEALED-ROOMS / §DIAG-ADJACENCY diagnostics.
+    //
+    // THE FIX: compute the FINAL surviving wall-id set HERE (the SAME deterministic
+    // extend→repair the function already runs at the end — these are pure functions of
+    // `segments` + shellPolygon and nothing mutates `segments` after the sweep above, so
+    // this is byte-identical to the later call and is reused for the final output). Doors
+    // are then placed ONLY on walls that SURVIVE the repair, so the reroute / multihop
+    // passes route a sealed room onto a wall that actually gets built. A clean rectilinear
+    // apartment plate has every wall ≥ 1 m → the repair drops nothing → `survivingWallIds`
+    // is the full set → byte-identical door placement (no apartment regression).
+    const segmentsExtendedFinal = opts.shellPolygon && opts.shellPolygon.length >= 3
+        ? extendWallsToShell(segments, opts.shellPolygon)
+        : segments;
+    const segmentsRepaired = repairSegments(segmentsExtendedFinal);
+    const survivingWallIds = new Set(segmentsRepaired.map(s => s.id));
+
     // ── §DIAG-MERGE-DIVIDER (tracker §57.3, 2026-06-11) ───────────────────────────
     // Per ADJACENT room pair that SHOULD be separated by a real partition, log whether a
     // divider wall is present (`dividerPresent=YES/NO`) and whether the wall was instead
@@ -930,6 +955,10 @@ export function buildWallsAndDoors(
 
     const addDoor = (wall: WallSeg, a: string, b: string): boolean => {
         if (wallHasDoor.has(wall.id)) return false;
+        // §DOOR-WALL-SURVIVES (A.21.D29 #8) — never host a door on a wall the final
+        // extend→repair pass DROPS: the editor wouldn't build it and the semantic graph
+        // would orphan the opening (room ships SEALED). Forces reroute onto a built wall.
+        if (!survivingWallIds.has(wall.id)) return false;
         const len = Math.hypot(wall.b.x - wall.a.x, wall.b.z - wall.a.z);
         // L3-γ-3 — per-pair EdgeType-aware width. Falls back to the global
         // default when the edge has no `kind` OR the caller explicitly
@@ -1016,13 +1045,43 @@ export function buildWallsAndDoors(
     // Shared-wall candidates, ranked: circulation-touching first, then longer walls,
     // then stable id (deterministic).
     const shared = segments
-        .filter(s => s.boundsRoomIds.length === 2)
+        // §DOOR-WALL-SURVIVES (A.21.D29 #8) — only walls that survive the final repair
+        // are real door hosts; a dropped wall can never carry a built door.
+        .filter(s => s.boundsRoomIds.length === 2 && survivingWallIds.has(s.id))
         .map(s => {
             const [a, b] = s.boundsRoomIds as readonly [string, string];
             const touchesCirc = isCirculation(typeOf.get(a) ?? '') || isCirculation(typeOf.get(b) ?? '') ? 1 : 0;
             return { seg: s, a, b, pref: touchesCirc, len: Math.hypot(s.b.x - s.a.x, s.b.z - s.a.z) };
         })
         .sort((p, q) => q.pref - p.pref || q.len - p.len || (p.seg.id < q.seg.id ? -1 : 1));
+
+    // (1b) §STAIR-DOOR-LANDING (A.21.D29 #5, 2026-06-12, founder "stair→corridor door
+    // inaccurate") — the STAIR is a vertical-circulation core reached FROM the corridor /
+    // hall / landing. Its door MUST land CLEANLY on the shared stair↔circulation wall:
+    // centred + corner-clear + on the LONGEST such wall (the landing face, where you step
+    // off the flight) — not on whatever short stair stub a later generic pass happens to
+    // claim first. The generic reroute (2c) eventually gives the stair a door, but it runs
+    // AFTER 2a/2b which can already consume the stair's wall budget on a worse run; placing
+    // the stair door HERE, deterministically on its best wall, before any generic pass, is
+    // what makes it land accurately. Only fires for a `stair` room (apartment has none →
+    // byte-identical). `addDoor` centres the door via findClearOffset (corner + junction
+    // clear); we simply pick the longest permitted stair↔circulation wall.
+    for (const r of graph.rooms) {
+        if (r.type !== 'stair') continue;
+        const stairId = r.id;
+        // Longest permitted stair↔(corridor/hall) shared wall, deterministic (length, then id).
+        const stairWalls = shared
+            .filter(c => {
+                const other = c.a === stairId ? c.b : c.b === stairId ? c.a : null;
+                return other !== null && isCirculation(typeOf.get(other) ?? '') && permitted(c.a, c.b);
+            })
+            .sort((p, q) => q.len - p.len || (p.seg.id < q.seg.id ? -1 : 1));
+        for (const c of stairWalls) {
+            if (cFind(c.a) === cFind(c.b)) break;   // stair already door-linked to circulation
+            if (addDoor(c.seg, c.a, c.b)) { cUnion(c.a, c.b); break; }
+        }
+    }
+    diagPass('stair-landing');
 
     // (2a) reconcile over PERMITTED, under-cap pairs only. TWO PASSES so a private
     // room's PRIMARY door always lands on circulation/public — never on a bathroom
@@ -1268,28 +1327,33 @@ export function buildWallsAndDoors(
         .map(r => r.id)
         .sort();
 
-    // §EXTEND-TO-PERIMETER + §EXTEND-INTERIOR (2026-05-29) — for non-rectilinear
-    // shells, walk every axis-aligned wall (exterior- AND interior-bounding)
-    // and extend any endpoint strictly inside the shell polygon outward to the
-    // perimeter. Capped at 0.5 m so interior junctions far from the perimeter
-    // are never pushed past. Rectilinear shells: pass-through.
-    const segmentsExtended = opts.shellPolygon && opts.shellPolygon.length >= 3
-        ? extendWallsToShell(segments, opts.shellPolygon)
-        : segments;
+    // §EXTEND-TO-PERIMETER + §EXTEND-INTERIOR + §JUNCTION-REPAIR — the final wall set.
+    // Computed ONCE at §DOOR-WALL-SURVIVES above (the SAME deterministic extend→repair;
+    // `segments` is not mutated after the sweep), so door placement above and the built
+    // walls here are guaranteed consistent — no orphan-opening sealed room. On a clean
+    // rectilinear layout the repair is a no-op → bit-identical output, no regression.
+    const segmentsOut = segmentsRepaired;
 
-    // §JUNCTION-REPAIR (A.21.D14) — weld coincident endpoints to EXACTLY equal
-    // coordinates + drop degenerate segments, so the editor's RoomDetectionEngine
-    // (20 mm node grid) closes a loop around every enclosed area. Runs LAST so it
-    // also absorbs the sub-grid drift `extendWallsToShell` introduces on slanted
-    // shells. On a clean rectilinear layout it is a no-op (endpoints already
-    // exactly shared) → bit-identical output, no regression.
-    const segmentsOut = repairSegments(segmentsExtended);
+    // §DOOR-WALL-SURVIVES (A.21.D29 #8) — every door was already gated onto a surviving
+    // wall in addDoor, so no opening should reference a dropped wall; prune defensively so
+    // a stray opening can never reach the semantic graph (which would orphan + seal it).
+    const openingsOut = openings.filter(o => survivingWallIds.has(o.wallId));
 
-    // §SEALED-ROOMS (2026-05-29) — diagnostic: which rooms ended up with ZERO
-    // doors? `doorCount` tracks placements per room id; rooms missing from it
-    // OR with count 0 are sealed. Deterministic — sorted by id.
+    // §SEALED-ROOMS (2026-05-29, recomputed from the SURVIVING openings — A.21.D29 #8) —
+    // which rooms ended up with ZERO BUILT doors? Recompute door coverage from
+    // `openingsOut` (the openings whose host wall actually survives) rather than the raw
+    // `doorCount`, so a room whose only door was orphaned by a wall-drop is now CORRECTLY
+    // reported sealed (the old count counted the orphaned door → the seal was invisible).
+    // Deterministic — sorted by id.
+    const builtDoorRooms = new Set<string>();
+    for (const o of openingsOut) {
+        if (o.type !== 'door') continue;
+        const [a, b] = o.betweenRoomIds as readonly [string, string?];
+        if (a) builtDoorRooms.add(a);
+        if (b) builtDoorRooms.add(b);
+    }
     const sealedRoomIds = graph.rooms
-        .filter(r => (doorCount.get(r.id) ?? 0) === 0)
+        .filter(r => !builtDoorRooms.has(r.id))
         .map(r => r.id)
         .sort();
 
@@ -1306,7 +1370,7 @@ export function buildWallsAndDoors(
             const other = c.a === r.id ? c.b : c.b === r.id ? c.a : null;
             return other !== null && isCirculation(typeOf.get(other) ?? '') && c.len >= 0.9;
         });
-        const doorPartnerTypes = openings
+        const doorPartnerTypes = openingsOut
             .filter(o => o.type === 'door')
             .map(o => o.betweenRoomIds as readonly [string, string?])
             .filter(([a, b]) => b && (a === r.id || b === r.id))
@@ -1329,7 +1393,7 @@ export function buildWallsAndDoors(
         .map(id => `${id}(${typeOf.get(id) ?? '?'})`)
         .join(',') || 'none';
     console.log(
-        `[D-TGL] §DIAG-DOORS summary: doors=${openings.length} compromises=${compromises} ` +
+        `[D-TGL] §DIAG-DOORS summary: doors=${openingsOut.length} compromises=${compromises} ` +
         `walls=${segmentsOut.length} sealed=[${sealedNamed}] unroutedToCirculation=[${reroutedNamed}]`,
     );
 
@@ -1344,7 +1408,7 @@ export function buildWallsAndDoors(
     const doorPartners = new Map<string, Array<{ other: string; ok: boolean }>>();
     for (const r of graph.rooms) doorPartners.set(r.id, []);
     let permissionViolations = 0;
-    for (const o of openings) {
+    for (const o of openingsOut) {
         if (o.type !== 'door') continue;
         const [a, b] = o.betweenRoomIds as readonly [string, string?];
         if (!a || !b) continue;
@@ -1374,7 +1438,7 @@ export function buildWallsAndDoors(
         `permissionViolations=${permissionViolations}`,
     );
 
-    return { segments: segmentsOut, openings, boundaries, compromises, sealedRoomIds, unroutedToCirculationRoomIds };
+    return { segments: segmentsOut, openings: openingsOut, boundaries, compromises, sealedRoomIds, unroutedToCirculationRoomIds };
 }
 
 /** True when a door between these two room types satisfies the program rules. */
