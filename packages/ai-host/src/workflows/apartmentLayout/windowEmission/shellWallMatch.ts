@@ -170,6 +170,133 @@ export function cornerSetbackForWall(shellLenM: number): number {
     return Math.min(scaled, maxAffordable);
 }
 
+// ── §WINDOW-ROOM-INTERVAL-CLAMP (#3, founder full-house 2026-06-12) ───────────
+//
+// THE residual "window shared by two rooms" defect lives HERE, not in the engine.
+// The engine (emitWindows.ts) ALREADY confines each window to its room's junction-
+// bounded band on the (possibly shared) shell wall — so `option.windows` (what the
+// MODAL renders) is correct ("in the modal preview it was correct"). But the BUILD
+// path re-projects the window centre onto the matched SHELL wall and re-clamps the
+// offset to the WHOLE shell wall's corner-pier band [END_CLEAR_M, shellLen−END_CLEAR_M]
+// (see §WINDOW-CORNER-SPAN below) — with NO knowledge of the partition junctions that
+// split that shell wall into per-room portions. So a window correctly placed inside its
+// room's portion by the engine can, at dispatch, be (a) carried verbatim past a junction
+// when the engine band ≠ the matched shell span (house case: each room fronts the WHOLE
+// shell wall, the engine band is a sub-interval, and the resolver's whole-wall clamp is a
+// no-op that LEAVES it correct — but the mandatory-RESCUE path below re-resolves with
+// relaxed corner clamps against the WHOLE wall, dropping the band entirely), or (b) the
+// width-clamp/centre re-projection drift can nudge it across a junction.
+//
+// HARDEN (founder's exact spec #3): the FULL window span [offset, offset+width] —
+// centred on its MIDPOINT — must lie strictly inside the room's OWNED interval on the
+// shell wall, bounded by the partition T-junctions / corners that delimit that room on
+// that wall, with a corner setback at each end. We recompute the junctions on the matched
+// shell wall directly from the option walls (the interior partitions whose endpoint lands
+// on it), pick the interval CONTAINING the window's projected midpoint, and clamp the
+// offset strictly inside [intervalStart + setback, intervalEnd − width − setback]; drop
+// when even a minimal opening can't fit; then assert the span crosses NO junction.
+
+/** A junction position on a shell wall, in METRES ALONG the shell from its `start`,
+ *  carrying the meeting partition's half-thickness band (m) the window must clear. */
+export interface ShellJunctionM {
+    /** mm-along projected to metres from the shell `start`. */
+    readonly atM: number;
+    /** Half the clear band kept either side of the junction (m): partitionThickness/2 +
+     *  a small clearance. The owned interval edge sits at `atM ± halfBandM`. */
+    readonly halfBandM: number;
+}
+
+/** Perp tolerance (m) for deciding an interior partition endpoint LANDS on a shell wall
+ *  (mirrors emitGeometry's ON_WALL_PERP_TOL_MM = 200 mm — half a thick shell + weld). */
+const JUNCTION_PERP_TOL_M = 0.20;
+/** Along tolerance (m) the endpoint must project within the shell span (60 mm). */
+const JUNCTION_ALONG_TOL_M = 0.06;
+/** ≥ ~20° off the shell direction → a genuine T-stem, not a parallel-grazing partition. */
+const JUNCTION_MIN_TJOIN_SIN = Math.sin((20 * Math.PI) / 180);
+/** Default clearance (m) added either side of a junction band (matches WINDOW_GAP_M). */
+const JUNCTION_CLEARANCE_M = 0.10;
+/** Two junctions closer than this (m) collapse to one cut (mirrors JUNCTION_CUT_MERGE_MM). */
+const JUNCTION_MERGE_M = 0.08;
+
+/**
+ * Compute the interior-partition junctions on `shell` (the matched shell wall), in metres
+ * ALONG the shell from its `start`. A junction is recorded for every interior (non-
+ * external) option wall whose endpoint lands ON the shell line (perp ≤ tol, along within
+ * the span) and whose direction is sufficiently NON-collinear with the shell (a real
+ * T-stem). Mirrors the emitGeometry §WINDOW-ROOM-PORTION-DETECT pass, in shell coords, so
+ * the dispatch-side room-interval clamp uses the SAME junction set the engine band used.
+ * Pure + deterministic.
+ */
+export function shellJunctionsFromOptionWalls(
+    shell: ShellWall,
+    optionWalls: readonly LayoutWall[],
+    planToWorld: PlanToWorldXZ = defaultPlanToWorld,
+): ShellJunctionM[] {
+    const sd = segDir(shell.start, shell.end);
+    if (sd.len < 1e-6) return [];
+    const out: ShellJunctionM[] = [];
+    for (const w of optionWalls) {
+        if (w.isExternal === true) continue;                  // only INTERIOR partitions
+        const a = planToWorld(w.start);
+        const b = planToWorld(w.end);
+        const wd = segDir(a, b);
+        if (wd.len < 1e-9) continue;
+        // Non-collinearity (sine of the angle to the shell): a parallel-ish wall is not a stem.
+        const sinToShell = Math.abs(wd.x * sd.z - wd.z * sd.x);   // |cross| of unit dirs
+        if (sinToShell < JUNCTION_MIN_TJOIN_SIN) continue;
+        // Carry HALF the partition thickness when known; the option wall has no thickness
+        // field, so use the default-clearance-only band (matches PARTITION_HALF_BAND in the
+        // engine: a window edge never lands within the partition footprint nor against it).
+        const halfBandM = JUNCTION_CLEARANCE_M;
+        for (const ep of [a, b] as const) {
+            const along = projParam(ep, shell.start, sd);
+            const perp = perpDist(ep, shell.start, sd);
+            if (perp > JUNCTION_PERP_TOL_M) continue;
+            if (along < -JUNCTION_ALONG_TOL_M || along > sd.len + JUNCTION_ALONG_TOL_M) continue;
+            out.push({ atM: Math.min(Math.max(along, 0), sd.len), halfBandM });
+        }
+    }
+    return out;
+}
+
+/**
+ * The room's OWNED interval `[lo, hi]` (m along the shell) — the junction-bounded portion
+ * of `shellLenM` that CONTAINS `centreParam` (the window's projected midpoint). The
+ * junctions split the shell into intervals; the room owns exactly the one its window's
+ * midpoint sits in. De-duplicates near-coincident cuts. When `centreParam` lands in no
+ * interval (numerical edge) it picks the nearest. Junction-free shells return the full
+ * span. Pure + deterministic.
+ */
+export function roomIntervalOnShell(
+    shellLenM: number,
+    junctions: readonly ShellJunctionM[],
+    centreParam: number,
+): { lo: number; hi: number } {
+    const raw = junctions
+        .map(j => j.atM)
+        .filter(c => c > 1e-6 && c < shellLenM - 1e-6)
+        .sort((a, b) => a - b);
+    const cuts: number[] = [];
+    for (const c of raw) {
+        const prev = cuts[cuts.length - 1];
+        if (prev === undefined || c - prev > JUNCTION_MERGE_M) cuts.push(c);
+    }
+    if (cuts.length === 0) return { lo: 0, hi: shellLenM };
+    const bounds = [0, ...cuts, shellLenM];
+    const intervals: Array<{ lo: number; hi: number }> = [];
+    for (let i = 1; i < bounds.length; i++) intervals.push({ lo: bounds[i - 1]!, hi: bounds[i]! });
+    const c = Math.min(Math.max(centreParam, 0), shellLenM);
+    const owned = intervals.find(iv => c >= iv.lo - 1e-6 && c <= iv.hi + 1e-6);
+    if (owned) return owned;
+    let nearest = intervals[0]!;
+    let nearestDist = Infinity;
+    for (const iv of intervals) {
+        const d = c < iv.lo ? iv.lo - c : c > iv.hi ? c - iv.hi : 0;
+        if (d < nearestDist - 1e-6) { nearest = iv; nearestDist = d; }
+    }
+    return nearest;
+}
+
 interface UnitDir { readonly x: number; readonly z: number; readonly len: number }
 
 const segDir = (a: { x: number; z: number }, b: { x: number; z: number }): UnitDir => {
@@ -290,6 +417,17 @@ export function resolveShellWindow(
     // byte-identical behaviour. Set ONLY by the rescue pass for a window-mandatory room
     // that would otherwise keep ZERO windows.
     relax?: RescueRelax,
+    // §WINDOW-ROOM-INTERVAL-CLAMP (#3, founder 2026-06-12) — the interior-partition
+    // junctions on the matched SHELL wall (m along the shell from its `start`). When
+    // supplied, the FINAL window span is clamped strictly inside the room's OWNED interval
+    // (the junction-bounded portion that CONTAINS the window's projected midpoint) WITH the
+    // corner setback at each interval end — so a window can NEVER cross a partition junction
+    // onto a neighbouring room, even when the resolver hosts it on the WHOLE shell wall.
+    // Keyed PER shell wall id by the caller (resolveAllShellWindows) and recomputed from the
+    // option's interior partitions; this fn looks up the matched shell's entry. Omitted /
+    // empty ⇒ byte-identical to the pre-#3 behaviour (the engine band still confines the
+    // modal preview; this hardens the BUILT result).
+    junctionsByShell?: ReadonlyMap<string, readonly ShellJunctionM[]>,
 ): ShellWindowDispatch | null {
     const fail = (reason: string): null => { if (reasonTally) reasonTally[reason] = (reasonTally[reason] ?? 0) + 1; return null; };
     if (win.wallRef < 0 || win.wallRef >= optionWalls.length) return fail('wallRefOutOfRange');
@@ -301,6 +439,7 @@ export function resolveShellWindow(
         relax?.widenMatch ? { angleTolRad: RESCUE_ANGLE_TOL_RAD, perpTolM: RESCUE_PERP_TOL_M } : undefined,
     );
     if (!match) return fail('noShellMatch');
+    const shellJunctionsM = junctionsByShell?.get(match.shell.id);
 
     const hostStartW = planToWorld(host.start);
     const hostEndW   = planToWorld(host.end);
@@ -419,15 +558,51 @@ export function resolveShellWindow(
     // [END_CLEAR_M, shellLen − END_CLEAR_M] for EVERY window (clamped or not). If no
     // clearance-respecting position exists (the wall is too short to host the opening
     // WITH the end clearance), DROP it. No window may extend past a wall end / corner.
-    const minOffsetM = END_CLEAR_M;
-    const maxOffsetClearedM = shellDir.len - widthM - END_CLEAR_M;
+    let minOffsetM = END_CLEAR_M;
+    let maxOffsetClearedM = shellDir.len - widthM - END_CLEAR_M;
     if (maxOffsetClearedM < minOffsetM - EPS_M) return fail('cornerClearanceUnfittable');   // can't fit with corner clearance
+
+    // ── §WINDOW-ROOM-INTERVAL-CLAMP (#3, founder 2026-06-12) — NEVER cross a junction ──
+    // Restrict the allowed offset band to the room's OWNED interval on the shell wall (the
+    // junction-bounded portion containing the window's projected MIDPOINT) WITH the corner
+    // setback at each interval end. This is the founder's exact spec #3: the FULL length of
+    // the window, centred on its midpoint, must lie within the room's boundary line shared
+    // with the exterior wall — never straddling the partition T-junction onto a neighbour.
+    // The engine band already confines the modal preview; this re-asserts it on the BUILT
+    // side after the centre re-projection + every rescue/relax path. Pure + deterministic.
+    if (shellJunctionsM && shellJunctionsM.length > 0) {
+        const owned = roomIntervalOnShell(shellDir.len, shellJunctionsM, centreParam);
+        // Set the interval END at the junction band edge (atM ± halfBand collapses inward),
+        // then add the corner setback. We approximate the band edge by pulling each interior
+        // (non-corner) interval end inward by the largest junction half-band at that cut.
+        const halfAtCut = (cut: number): number => {
+            let h = 0;
+            for (const j of shellJunctionsM) if (Math.abs(j.atM - cut) <= JUNCTION_MERGE_M) h = Math.max(h, j.halfBandM);
+            return h;
+        };
+        // Interior interval ends (not the shell corners 0 / len) get the partition half-band
+        // pulled inward so the window edge never lands inside the partition footprint.
+        const loIsCorner = owned.lo <= EPS_M;
+        const hiIsCorner = owned.hi >= shellDir.len - EPS_M;
+        const ivLo = owned.lo + (loIsCorner ? END_CLEAR_M : halfAtCut(owned.lo) + JUNCTION_CLEARANCE_M);
+        const ivHi = owned.hi - (hiIsCorner ? END_CLEAR_M : halfAtCut(owned.hi) + JUNCTION_CLEARANCE_M);
+        const ivMin = ivLo;
+        const ivMax = ivHi - widthM;
+        // Intersect the room interval with the whole-wall corner-pier band.
+        minOffsetM = Math.max(minOffsetM, ivMin);
+        maxOffsetClearedM = Math.min(maxOffsetClearedM, ivMax);
+        if (maxOffsetClearedM < minOffsetM - EPS_M) {
+            // The window can't fit inside its OWN room portion (even minimal) → drop rather
+            // than emit it crossing the junction onto a neighbour.
+            return fail('roomIntervalUnfittable');
+        }
+    }
 
     // Centre the (possibly width-clamped) opening on the projected centre, then clamp
     // the offset so the WHOLE opening sits strictly inside both wall ends WITH the
-    // corner clearance. Because the centre is inside [0, len], the width fits
-    // (maxWidthM check above), and the clearance band is non-empty (check just above),
-    // a feasible in-shell offset always exists.
+    // corner clearance AND inside the room's owned junction-bounded interval. Because the
+    // centre is inside [0, len], the width fits (maxWidthM check above), and the clamped
+    // band is non-empty (checks above), a feasible in-shell offset always exists.
     const finalOffsetM = Math.min(Math.max(minOffsetM, offsetM), maxOffsetClearedM);
 
     // §WINDOW-IN-SHELL-FINAL (A.21.D36 → A.21.D40 #1 hardened) — last-line invariant:
@@ -438,6 +613,19 @@ export function resolveShellWindow(
     // DROP the window — a frame at / past the corner must never render. Belt-and-braces
     // over the centre-band + corner-fit guards above.
     if (finalOffsetM < END_CLEAR_M - EPS_M || finalOffsetM + widthM > shellDir.len - END_CLEAR_M + EPS_M) return fail('finalInvariantDrop');
+
+    // §WINDOW-ROOM-INTERVAL-CLAMP post-condition — the emitted span must cross NO junction
+    // (founder #3: "a window must NEVER cross a partition junction onto a neighbouring
+    // room"). Belt-and-braces over the interval clamp: if any junction's clear band falls
+    // strictly WITHIN the emitted span, drop the window rather than render it spanning two
+    // rooms. (With the interval clamp above this is unreachable in practice; it makes the
+    // guarantee total + self-checking against any future drift.)
+    if (shellJunctionsM && shellJunctionsM.length > 0) {
+        const lo = finalOffsetM, hi = finalOffsetM + widthM;
+        for (const j of shellJunctionsM) {
+            if (j.atM > lo + EPS_M && j.atM < hi - EPS_M) return fail('crossesJunction');
+        }
+    }
 
     return {
         shellWallId: match.shell.id,
@@ -601,6 +789,16 @@ export function resolveAllShellWindows(
         perimeterRoomKeys instanceof Map
             ? perimeterRoomKeys
             : new Map(perimeterRoomKeys as ReadonlyArray<readonly [string, string]> ?? []);
+    // §WINDOW-ROOM-INTERVAL-CLAMP (#3, founder 2026-06-12) — precompute, ONCE per shell
+    // wall, the interior-partition junctions that split it into per-room portions (m along
+    // the shell). Every resolveShellWindow call below clamps its window strictly inside the
+    // room's OWNED junction-bounded interval so a window can never cross a partition onto a
+    // neighbour — the BUILT-side hardening of the founder's "window shared by two rooms".
+    const junctionsByShell = new Map<string, readonly ShellJunctionM[]>();
+    for (const s of shellWalls) {
+        const js = shellJunctionsFromOptionWalls(s, optionWalls, planToWorld);
+        if (js.length > 0) junctionsByShell.set(s.id, js);
+    }
     const out: DeOverlapItem[] = [];
     let unmatched = 0;
     let blindSuppressed = 0;
@@ -608,7 +806,7 @@ export function resolveAllShellWindows(
     const reasonTally: Record<string, number> = {};
     let idx = 0;
     for (const w of windows) {
-        const r = resolveShellWindow(w, optionWalls, shellWalls, planToWorld, reasonTally);
+        const r = resolveShellWindow(w, optionWalls, shellWalls, planToWorld, reasonTally, undefined, junctionsByShell);
         if (r && blind.size > 0 && blind.has(r.shellWallId)) {
             // §DIAG-PARTY-WALL — the window resolved onto a BLIND façade → suppress it.
             // It is NOT counted as `unmatched` (a layout/tolerance failure) — it is a
@@ -683,7 +881,7 @@ export function resolveAllShellWindows(
         let chosen: { items: DeOverlapItem[]; label: string } | null = null;
         outer: for (const step of RESCUE_LADDER) {
             for (const w of roomWindows) {
-                const r = resolveShellWindow(w, optionWalls, shellWalls, planToWorld, undefined, step.relax);
+                const r = resolveShellWindow(w, optionWalls, shellWalls, planToWorld, undefined, step.relax, junctionsByShell);
                 if (!r) continue;
                 // §DIAG-PARTY-WALL (PW.1) — the rescue MUST honour blind façades too:
                 // never rescue a mandatory room's window onto a party/blind wall. Skip

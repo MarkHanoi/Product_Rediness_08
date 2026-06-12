@@ -6,6 +6,8 @@ import {
     resolveShellWindow,
     resolveAllShellWindows,
     cornerSetbackForWall,
+    shellJunctionsFromOptionWalls,
+    roomIntervalOnShell,
     type ShellWall,
 } from '../src/workflows/apartmentLayout/windowEmission/shellWallMatch.js';
 import type { LayoutWall, LayoutWindow } from '../src/workflows/apartmentLayout/types.js';
@@ -838,5 +840,159 @@ describe('resolveAllShellWindows — founder rule #2: §DIAG-WINDOW-OVERLAP de-o
         expect(roll).toBeDefined();
         expect(roll!).toContain('overlapsRemoved=0');
         expect(roll!).toContain('all disjoint');
+    });
+});
+
+// ── §WINDOW-ROOM-INTERVAL-CLAMP (#3, founder full-house 2026-06-12) ────────────
+//
+// THE founder's residual "window shared by two rooms" defect: a window correctly
+// placed in the MODAL (the engine band) could, on the BUILD side, be carried /
+// dragged across a partition T-junction onto a neighbouring room because the shell
+// resolver clamped only to the WHOLE shell wall's corner piers — never to the room's
+// junction-bounded portion. These tests pin the build-side interval clamp: a window
+// on a shell wall shared by two rooms stays fully inside its OWN junction-bounded
+// interval, centred on its midpoint, and NEVER crosses the junction.
+describe('§WINDOW-ROOM-INTERVAL-CLAMP — never cross a partition junction (#3)', () => {
+    // A 10 m south shell wall shared by two rooms. A single interior partition T-joins
+    // it at x = 5 m (perpendicular stem, running south into the plan), splitting the
+    // shell into Room-A [0,5] and Room-B [5,10].
+    const southShell = (): ShellWall => shell('south', 0, 0, 10, 0);
+    const sharedSouthOptWall = (): LayoutWall => optWall(0, 0, 10000, 0, true);
+    // Interior partition: endpoint ON the shell at x=5000mm, stem running to z=3000mm.
+    const partitionAtMid = (): LayoutWall => optWall(5000, 0, 5000, 3000, false);
+
+    it('detects the interior-partition junction on the shared shell wall', () => {
+        const js = shellJunctionsFromOptionWalls(
+            southShell(),
+            [sharedSouthOptWall(), partitionAtMid()],
+        );
+        // Two endpoints of the partition; only the one ON the shell (at x=5) is recorded.
+        expect(js.length).toBe(1);
+        expect(js[0]!.atM).toBeCloseTo(5, 3);
+    });
+
+    it('roomIntervalOnShell returns the junction-bounded portion containing the midpoint', () => {
+        const js = shellJunctionsFromOptionWalls(southShell(), [sharedSouthOptWall(), partitionAtMid()]);
+        // A window whose centre projects to 2.5 m owns the LEFT interval [0,5].
+        expect(roomIntervalOnShell(10, js, 2.5)).toEqual({ lo: 0, hi: 5 });
+        // A window whose centre projects to 7.5 m owns the RIGHT interval [5,10].
+        expect(roomIntervalOnShell(10, js, 7.5)).toEqual({ lo: 5, hi: 10 });
+    });
+
+    it('a Room-A window near the junction is clamped back inside [0,5] (never crosses)', () => {
+        // Room-A bedroom window emitted at offset 3800 mm, 1500 mm wide → span
+        // [3.8, 5.3] m would CROSS the junction at 5.0 m onto Room-B. With the interval
+        // clamp it must end at or before the junction band edge (≤ 5.0 − clearance).
+        const win: LayoutWindow = {
+            wallRef: 0, offset: 3800, width: 1500, height: 1300, sillHeight: 700,
+            roomType: 'bedroom', name: 'Bedroom A Window',
+        };
+        const r = resolveAllShellWindows(
+            [win],
+            [sharedSouthOptWall(), partitionAtMid()],
+            [southShell()],
+        );
+        expect(r.length).toBe(1);
+        const w = r[0]!;
+        expect(w.shellWallId).toBe('south');
+        // The FULL span lies within Room-A's interval [0, 5], clear of the junction.
+        expect(w.offsetM).toBeGreaterThanOrEqual(0.5 - 1e-6);          // corner setback
+        expect(w.offsetM + w.widthM).toBeLessThanOrEqual(5.0 + 1e-6);  // never past the junction
+    });
+
+    it('two rooms sharing one shell wall each keep their window in their own interval', () => {
+        // Room-A window centred ~2.5 m (interval [0,5]); Room-B window centred ~7.5 m
+        // (interval [5,10]). Both must stay strictly on their own side of the 5 m junction.
+        const windows: LayoutWindow[] = [
+            { wallRef: 0, offset: 1750, width: 1500, height: 1300, sillHeight: 700, roomType: 'bedroom', name: 'Bedroom A Window' },  // centre 2.5
+            { wallRef: 0, offset: 6750, width: 1500, height: 1300, sillHeight: 700, roomType: 'bedroom', name: 'Bedroom B Window' },  // centre 7.5
+        ];
+        const r = resolveAllShellWindows(
+            windows,
+            [sharedSouthOptWall(), partitionAtMid()],
+            [southShell()],
+        );
+        expect(r.length).toBe(2);
+        const byName = new Map(r.map(w => [w.name, w]));
+        const a = byName.get('Bedroom A Window')!;
+        const b = byName.get('Bedroom B Window')!;
+        // A is entirely LEFT of the junction; B is entirely RIGHT — neither crosses 5.0 m.
+        expect(a.offsetM + a.widthM).toBeLessThanOrEqual(5.0 + 1e-6);
+        expect(b.offsetM).toBeGreaterThanOrEqual(5.0 - 1e-6);
+        // No two windows overlap (they're on opposite sides of the junction).
+        expect(a.offsetM + a.widthM).toBeLessThan(b.offsetM);
+    });
+
+    it('drops a window that cannot fit inside its own room portion rather than crossing', () => {
+        // Junction at 1.2 m → Room-A interval [0, 1.2] is too short for a 1.5 m window
+        // WITH corner+junction clearance. The window must be DROPPED, not emitted across
+        // the junction. (Its midpoint at ~0.6 m owns [0,1.2].)
+        const partitionNearStart = optWall(1200, 0, 1200, 3000, false);
+        const win: LayoutWindow = {
+            wallRef: 0, offset: 0, width: 1500, height: 1300, sillHeight: 700,
+            roomType: 'bedroom', name: 'Tiny A Window',
+        };
+        const r = resolveAllShellWindows(
+            [win],
+            [sharedSouthOptWall(), partitionNearStart],
+            [southShell()],
+        );
+        // Either dropped, or — if any fit survived — it never crosses the 1.2 m junction.
+        for (const w of r) {
+            expect(w.offsetM + w.widthM).toBeLessThanOrEqual(1.2 + 1e-6);
+        }
+    });
+
+    it('back-compat: a junction-free shell wall is unaffected (byte-identical placement)', () => {
+        // No interior partitions → no junctions → the whole-wall behaviour is preserved.
+        const win: LayoutWindow = {
+            wallRef: 0, offset: 4000, width: 1500, height: 1300, sillHeight: 700, roomType: 'bedroom',
+        };
+        const r = resolveShellWindow(win, [optWall(0, 0, 10000, 0)], [shell('s', 0, 0, 10, 0)]);
+        expect(r).not.toBeNull();
+        // Centred on its emitted midpoint (4.75 m), in-bounds of the whole wall.
+        expect(r!.offsetM).toBeCloseTo(4.0, 3);
+    });
+});
+
+// ── §WINDOW-CORNER-SETBACK (#2, founder full-house 2026-06-12) ─────────────────
+//
+// A window too near a shell corner protrudes past it. The resolver enforces a real
+// masonry pier (≥ 0.5 m) at each corner so the window stays clear of the corner and
+// inside the wall — no window edge lands within the setback of a corner.
+describe('§WINDOW-CORNER-SETBACK — window clear of the corner (#2)', () => {
+    it('a window emitted hard against the corner is pushed back by ≥ the corner pier', () => {
+        // Window emitted at offset 0 (flush to the start corner), 1500 mm wide on a 6 m
+        // wall. The resolver must slide it inward so its near edge is ≥ MIN_CORNER_SETBACK
+        // (0.5 m) — never flush to the corner.
+        const win: LayoutWindow = {
+            wallRef: 0, offset: 0, width: 1500, height: 1300, sillHeight: 700, roomType: 'bedroom',
+        };
+        const r = resolveShellWindow(win, [optWall(0, 0, 6000, 0)], [shell('s', 0, 0, 6, 0)]);
+        expect(r).not.toBeNull();
+        const setback = cornerSetbackForWall(6);
+        expect(setback).toBeGreaterThanOrEqual(0.5 - 1e-9);
+        // Near edge clears the start corner; far edge clears the end corner.
+        expect(r!.offsetM).toBeGreaterThanOrEqual(setback - 1e-6);
+        expect(r!.offsetM + r!.widthM).toBeLessThanOrEqual(6 - setback + 1e-6);
+    });
+
+    it('the corner setback is enforced even when the window owns a corner room interval', () => {
+        // Shared 10 m wall, partition at 5 m. A Room-A window emitted flush to the start
+        // corner (offset 0) must clear BOTH the start corner (≥ setback) AND stay inside
+        // the [0,5] interval — corner pier + junction clamp compose.
+        const win: LayoutWindow = {
+            wallRef: 0, offset: 0, width: 1500, height: 1300, sillHeight: 700,
+            roomType: 'bedroom', name: 'Corner A Window',
+        };
+        const r = resolveAllShellWindows(
+            [win],
+            [optWall(0, 0, 10000, 0, true), optWall(5000, 0, 5000, 3000, false)],
+            [shell('south', 0, 0, 10, 0)],
+        );
+        expect(r.length).toBe(1);
+        const w = r[0]!;
+        expect(w.offsetM).toBeGreaterThanOrEqual(0.5 - 1e-6);         // corner pier
+        expect(w.offsetM + w.widthM).toBeLessThanOrEqual(5.0 + 1e-6); // inside Room-A
     });
 });
