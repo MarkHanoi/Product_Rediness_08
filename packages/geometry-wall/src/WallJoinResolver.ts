@@ -48,6 +48,17 @@ type JoinSpec = CornerJoin | TJoin;
 export const DEFAULT_SNAP_RADIUS   = 0.5;
 /** Minimum wall length below which a trim is refused. */
 export const DEFAULT_MIN_WALL_LENGTH = 0.05;
+/**
+ * §PARTITION-SHELL-DEGENERATE-STUB — a partition whose CURRENT (un-trimmed)
+ * length is already below this threshold is an unusable stub: even if its
+ * inner-face clamp is refused (it would collapse below `minWallLength`), the
+ * un-clamped baseline still protrudes through the shell and would feed the heavy
+ * CSG/extrude build path with degenerate overlapping geometry → phantom spike +
+ * rebuild hang. Such a wall is flagged `invalid` so the mesh builder skips it.
+ * A LONG partition whose single end-clamp is refused is NOT degenerate and is
+ * left un-clamped (rendered), exactly as before.
+ */
+export const DEGENERATE_STUB_LENGTH = 0.15;
 
 const MIN_ANGLE_RAD = 0.1;   // ~5.7° — skip near-parallel walls
 
@@ -346,10 +357,34 @@ export class WallJoinResolver {
         // Guard: never collapse / invert this wall.
         const newLen = side === 'start' ? newJoin.distanceTo(we) : ws.distanceTo(newJoin);
         if (newLen < minLen) {
+            // §PARTITION-SHELL-DEGENERATE-STUB — the inner-face clamp would
+            // collapse this wall below `minLen`. Two distinct cases:
+            //
+            //   (1) DEGENERATE STUB — the wall's CURRENT (un-trimmed) length is
+            //       itself already below DEGENERATE_STUB_LENGTH. This is an
+            //       unusable near-0.1 m partition whose end protrudes through the
+            //       shell. Left un-clamped it feeds the heavy CSG/extrude build
+            //       path with degenerate overlapping geometry → phantom spike +
+            //       rebuild HANG. Flag it `invalid` so WallFragmentBuilder.buildWall
+            //       skips its geometry build entirely (the §WJR-NAN-GUARD near-zero
+            //       sniff at 1e-3 m does NOT catch a 0.1 m stub, so the durable
+            //       invalid flag is the only thing that keeps it out of the build).
+            //
+            //   (2) LEGITIMATE LONG WALL — a long partition whose ONE end-clamp is
+            //       refused. We must NOT drop it (§WJR-INVALID guidance ~L424):
+            //       leave it un-clamped (rendered at its source baseline), exactly
+            //       as the bare `return` did before this fix.
+            const curLen = ws.distanceTo(we);
             console.warn(
                 `[WallJoinResolver] §PARTITION-SHELL-INNER-FACE REFUSED — clamp would collapse ` +
-                `${wall.id}(${side}) newLen=${newLen.toFixed(4)} (MIN=${minLen})`,
+                `${wall.id}(${side}) newLen=${newLen.toFixed(4)} (MIN=${minLen}) curLen=${curLen.toFixed(4)}`,
             );
+            if (curLen < DEGENERATE_STUB_LENGTH) {
+                this._flagInvalid(
+                    wall.id, bl, result,
+                    '§PARTITION-SHELL-INNER-FACE unclampable degenerate stub',
+                );
+            }
             return;
         }
 

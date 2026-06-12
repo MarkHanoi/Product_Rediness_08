@@ -4252,6 +4252,25 @@ appliance/cabinet carries its own constraint set. This is a multi-session progra
 
 **FOUNDER 2026-06-12 (test feedback):** (1) **"Always plan a window in one section of the L-shape kitchen"** — the L-kitchen must place ≥1 section (a leg) against an exterior wall that has/gets a window, with the SINK/prep under it (the classic "window over the sink" rule). This is §59 **P4** (shape selection from boundary + windows) + a P2 HARD/SCORING rule (window↔sink adjacency). NEXT concrete §59 step: kitchenLayout (furnishLayout) coordinates with windowEmission so the L's window-bearing leg hosts the sink. (2) Founder asked whether the extensive kitchen rules are IMPLEMENTED — answer: scaffolded (P1 L1 ontology/schema, tested) but NOT yet enforcing; P2 (wire the HARD rules as a validation pass over kitchenLayout) is the priority to start actually USING the corpus. Sequence the L-kitchen-window + P2 as a focused furnishLayout pass once the in-flight corner-sofa agent (same dir) lands.
 
+## §72 — Test feedback 2026-06-12 (likely a PARTIAL build) — TRIAGE
+
+Founder full-house test, 11 issues. ROOT-CAUSE NOTE: the deployed build was almost certainly **pre-v174** — the build broke v160 (the §59-P1 moduleOntology tsc error) until v173 fixed it, then v174–v179 pushed rapidly each cancelled the prior deploy (concurrency cancel-in-progress, now set FALSE in §DEPLOY-NO-CANCEL). So the defects below that v174–v179 already fix were not in the tested build. SEPARATE the two buckets, re-test on a COMPLETE build (v180+, after the §PARTITION-SHELL-INNER-FACE hang fix) before acting on the "new" ones.
+
+**A — Already fixed in v174–v179 (verify on the next complete deploy, do NOT re-fix yet):** living-room CORNER SOFA → v176 (corner-anchored); KITCHEN APPLIANCES IN CORNERS → v174 §59 P2 (C01 corner-forbidden) + v179 P3 rank; top-floor "Room NN" blanks → v177 moderate-blank fill; corridors → v178.
+
+**B — GENUINELY NEW / not yet covered (queue, fix after v180 baseline confirmed):**
+| # | Defect | Likely root |
+|---|---|---|
+| 72.1 | **Windows NOT centred on the room's wall section** | windowEmission centres on the WALL run, not the room's portion of it — when a partition splits a shell wall, the window should centre on the room's segment. |
+| 72.2 | **A window SPANS multiple rooms** (window on a wall with a partition crossing the middle) | the façade window is emitted on the long shell wall BEFORE/without accounting for the interior partition that divides it → one window straddles 2 rooms. Must clip windows to a single room's wall portion (the §WINDOW-ROOM-PORTION exists — verify it's applied to shell walls split by a partition T-junction). |
+| 72.3 | **Missing interior DOORS + missing WINDOWS** | opening creation gaps — some interior doors / perimeter windows not emitted or not built. |
+| 72.4 | **Windows & doors WITHOUT the wall OPENING (void not cut)** | the opening void isn't cut in the wall body (§68.10 opening-gate v154 covered the race; this is "opening present but no void" — likely the layered/plain wall opening builder on the perimeter exterior walls). |
+| 72.5 | **Exterior SHELL wall corner JOINTS not good** | the perimeter corner miter/join (WallJoinResolver) — related to the §PARTITION-SHELL-INNER-FACE degenerate-wall hang (in flight). |
+| 72.6 | **FLOOR issues** (founder: "issues with the floor") | floor-finish generation defect (needs a specific repro — which floor, what's wrong). |
+| 72.7 | **Generic "Room NN" names + "Bedroom 1 / Bathroom" merge STILL** | IF this persists on a v177 build it's a deep re-occurrence of the §66.1b/§68.12 flood (room-loop break); MOST LIKELY it's the pre-v177 build. Re-confirm on v180. |
+
+**72.2 + 72.1 + 72.4 are a cluster** around window/door emission + opening voids on a shell wall that gets subdivided by an interior partition — likely the single highest-value fix after the baseline. **Status: 🔴 ACTIVE — re-baseline on v180 first.**
+
 ## §60 — Stair landing railing continuity (`§STAIR-RAIL-LANDING-JOIN`) — QUEUED (2026-06-11)
 
 Founder (queue, with 3D screenshot): "the stair in the landing requires extra railing — connecting the end and
