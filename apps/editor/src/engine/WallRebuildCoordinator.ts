@@ -396,6 +396,75 @@ export class WallRebuildCoordinator {
                     ? `; §A.21.D61 routed ${uncachedIds.length} uncached wall(s) to whole-level for corner-cap consistency`
                     : ''),
             );
+            // §DIAG-PERIM-CORNER (founder #10, 2026-06-12) — the founder reports the
+            // perimeter corners read CLEAN right after the shell is drawn but DEGRADE
+            // once interior walls + openings are placed ("the joint generator seems to
+            // not action again"). This body-only repair reuses each wall's CACHED miter
+            // and deliberately skips `resolveLevel`, so the FINAL corner state is whatever
+            // the last whole-level resolve left — and is never re-mitred with the COMPLETE
+            // wall set. To pick the right fix WITHOUT another blind change to this
+            // hang-prone path (v180), capture the exact corner state now: cluster all
+            // level walls' UNTRIMMED endpoints; for every 2-wall L-corner report whether
+            // BOTH walls carry a cached miter and the GAP between their cached TRIMMED
+            // corner endpoints (a clean corner ⇒ the two trimmed ends coincide; a gap ⇒
+            // the cap planes no longer meet → the visible open corner). Pure logging.
+            try {
+                for (const [levelId] of cachedByLevel) {
+                    const lvlWalls = liveStore.getAll().filter((w: WallData) => w.levelId === levelId);
+                    // Untrimmed (source) endpoints → true corners cluster even after a trim.
+                    const ends: Array<{ id: string; side: 'start' | 'end'; p: { x: number; z: number } }> = [];
+                    for (const w of lvlWalls) {
+                        const src = (w as unknown as { _sourceBaseLine?: ReadonlyArray<{ x: number; z: number }> })._sourceBaseLine ?? w.baseLine;
+                        ends.push({ id: w.id, side: 'start', p: { x: src[0].x, z: src[0].z } });
+                        ends.push({ id: w.id, side: 'end',   p: { x: src[1].x, z: src[1].z } });
+                    }
+                    const TOL = 0.12;            // corner-cluster radius (m)
+                    const used = new Set<number>();
+                    let corners = 0, bothCached = 0, gappy = 0;
+                    for (let i = 0; i < ends.length; i++) {
+                        if (used.has(i)) continue;
+                        const grp = [i];
+                        for (let j = i + 1; j < ends.length; j++) {
+                            if (used.has(j)) continue;
+                            if (ends[i]!.id === ends[j]!.id) continue;
+                            const dx = ends[i]!.p.x - ends[j]!.p.x, dz = ends[i]!.p.z - ends[j]!.p.z;
+                            if (dx * dx + dz * dz <= TOL * TOL) grp.push(j);
+                        }
+                        if (grp.length !== 2) continue;            // only pure 2-wall L-corners here
+                        grp.forEach(k => used.add(k));
+                        corners++;
+                        const a = ends[grp[0]!]!, b = ends[grp[1]!]!;
+                        const ja = this._prevJoinMap.get(a.id) as (JoinData & { baseLine?: [THREE.Vector3, THREE.Vector3] }) | undefined;
+                        const jb = this._prevJoinMap.get(b.id) as (JoinData & { baseLine?: [THREE.Vector3, THREE.Vector3] }) | undefined;
+                        const capPt = (j: typeof ja, side: 'start' | 'end'): { x: number; z: number } | null => {
+                            const bl2 = j?.baseLine; if (!bl2) return null;
+                            const v = side === 'start' ? bl2[0] : bl2[1]; return { x: v.x, z: v.z };
+                        };
+                        const pa = capPt(ja, a.side), pb = capPt(jb, b.side);
+                        const both = !!pa && !!pb;
+                        if (both) bothCached++;
+                        const gap = both ? Math.hypot(pa!.x - pb!.x, pa!.z - pb!.z) : NaN;
+                        if (both && gap > 0.005) {
+                            gappy++;
+                            console.warn(
+                                `[WallRebuildCoordinator] §DIAG-PERIM-CORNER ⚠ ${levelId} corner ${a.id}(${a.side})↔${b.id}(${b.side}) ` +
+                                `GAP=${(gap * 1000).toFixed(0)}mm — cached cap planes no longer meet (open corner).`,
+                            );
+                        } else if (!both) {
+                            console.warn(
+                                `[WallRebuildCoordinator] §DIAG-PERIM-CORNER ⚠ ${levelId} corner ${a.id}(${a.side})↔${b.id}(${b.side}) ` +
+                                `cachedMiter: ${a.id}=${ja ? 'yes' : 'NO'} ${b.id}=${jb ? 'yes' : 'NO'} — a square-capped side ⇒ mismatched corner.`,
+                            );
+                        }
+                    }
+                    console.log(
+                        `[WallRebuildCoordinator] §DIAG-PERIM-CORNER ${levelId} summary: L-corners=${corners} ` +
+                        `bothCached=${bothCached} gappy(>5mm or square-cap)=${gappy + (corners - bothCached)}`,
+                    );
+                }
+            } catch (err) {
+                console.warn('[WallRebuildCoordinator] §DIAG-PERIM-CORNER probe failed (non-fatal):', err);
+            }
             // §A.21.D61 — uncached walls (never resolved) need a whole-level pass so the
             // windowed wall AND its corner neighbour are mitred together → flush corner.
             if (uncachedIds.length > 0) {

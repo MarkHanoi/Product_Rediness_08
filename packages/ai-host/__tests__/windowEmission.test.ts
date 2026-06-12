@@ -533,6 +533,111 @@ describe('emitWindowsForRoom — §WINDOW-ROOM-PORTION centring (§57.8 / §57.2
     });
 });
 
+// ── §WINDOW-ROOM-PORTION-ROBUST (§72.1 + §72.2, founder full-house, 2026-06-12) ─
+//
+// The founder's full-house test surfaced a window straddling a partition that
+// T-joins the MIDDLE of a long SHARED shell wall: one window centred on the WHOLE
+// wall run sits ON the partition (visually "shared by two rooms" — §72.2) and is
+// off the room's own portion (§72.1). The §WINDOW-ROOM-PORTION band already confines
+// a window to the room's junction-bounded interval when the junction is supplied;
+// these pin the HARDENED guarantees:
+//   • a window NEVER straddles a T-junction on its host wall's body (the band can't
+//     contain a cut by construction, AND the junction is a blocked span);
+//   • each room's window is CENTRED on the room's OWN portion (not the whole wall);
+//   • duplicate junction detections (one partition surfacing two near-coincident
+//     cuts) don't collapse the band to a sliver; and
+//   • two rooms sharing one wall resolve to DIFFERENT portions even when a centroid
+//     projects onto a junction (no cross-room spill / forced de-overlap drop).
+describe('emitWindowsForRoom — §WINDOW-ROOM-PORTION-ROBUST (§72.1 / §72.2)', () => {
+    const wide = (lenMm: number, wallIndex = 0): ExternalWallSegment =>
+        ({ start: { x: 0, y: 0 }, end: { x: lenMm, y: 0 }, wallIndex });
+    const junction = (atMm: number, thicknessMm = 100): PartitionJunction =>
+        ({ wallIndex: 0, atMm, thicknessMm });
+    const centreOf = (w: { offsetMm: number; widthMm: number }) => w.offsetMm + w.widthMm / 2;
+    const jBand = (j: PartitionJunction) => {
+        const half = (j.thicknessMm ?? 0) > 0 ? j.thicknessMm! / 2 + 100 : 150;
+        return { lo: j.atMm - half, hi: j.atMm + half };
+    };
+    const overlaps = (a: { lo: number; hi: number }, b: { lo: number; hi: number }) =>
+        a.lo < b.hi && a.hi > b.lo;
+
+    it('long shared wall, partition T-joins the MIDDLE: each room owns its portion, neither straddles', () => {
+        // An 8 m shell wall (e.g. a 200 mm shell) shared by TWO bedrooms; a partition
+        // T-joins its dead centre at 4000. Room A's centroid projects to ~2000 (owns
+        // [0,4000]); Room B's to ~6000 (owns [4000,8000]). BEFORE the fix a window
+        // centred on the WHOLE 8 m wall lands at 3100..4900 — straddling the 4000
+        // junction (the founder's "window shared by two rooms"). AFTER, each window is
+        // confined to + centred on its OWN half and clears the partition band.
+        const j = junction(4000);
+        const a = emitWindowsForRoom('bedroom', [wide(8000)], 'A', [], null, [j], { x: 2000, y: 1500 });
+        const b = emitWindowsForRoom('bedroom', [wide(8000)], 'B', [], null, [j], { x: 6000, y: 1500 });
+        expect(a).toHaveLength(1);
+        expect(b).toHaveLength(1);
+        // (§72.2) neither window crosses the partition junction band …
+        expect(overlaps({ lo: a[0]!.offsetMm, hi: a[0]!.offsetMm + a[0]!.widthMm }, jBand(j))).toBe(false);
+        expect(overlaps({ lo: b[0]!.offsetMm, hi: b[0]!.offsetMm + b[0]!.widthMm }, jBand(j))).toBe(false);
+        // … and each lies WHOLLY within its own portion (A in [0,4000], B in [4000,8000]).
+        expect(a[0]!.offsetMm + a[0]!.widthMm).toBeLessThanOrEqual(4000 + 1e-6);
+        expect(b[0]!.offsetMm).toBeGreaterThanOrEqual(4000 - 1e-6);
+        // (§72.1) each is CENTRED on its own portion centre (2000 / 6000), not the wall
+        // centre (4000).
+        expect(Math.abs(centreOf(a[0]!) - 2000)).toBeLessThanOrEqual(0.10 * 4000);
+        expect(Math.abs(centreOf(b[0]!) - 6000)).toBeLessThanOrEqual(0.10 * 4000);
+        // The two windows are disjoint on the shared wall (no spill → no de-overlap drop).
+        const aLo = a[0]!.offsetMm, aHi = a[0]!.offsetMm + a[0]!.widthMm;
+        const bLo = b[0]!.offsetMm, bHi = b[0]!.offsetMm + b[0]!.widthMm;
+        expect(aLo < bHi && aHi > bLo).toBe(false);
+    });
+
+    it('the window that previously SPANNED the junction now does not', () => {
+        // Direct before/after pin. Whole-wall centred window on an 8 m wall = [3100,4900]
+        // for a 1.8 m bedroom window — it SPANS the 4000 junction. With the room-portion
+        // band the emitted window must NOT contain 4000.
+        const j = junction(4000);
+        const ws = emitWindowsForRoom('bedroom', [wide(8000)], 'A', [], null, [j], { x: 2000, y: 1500 });
+        expect(ws).toHaveLength(1);
+        const w = ws[0]!;
+        const spansJunction = w.offsetMm < 4000 && w.offsetMm + w.widthMm > 4000;
+        expect(spansJunction).toBe(false);
+        // The naive whole-wall centred placement WOULD have spanned it (sanity on the repro).
+        const naiveOff = (8000 - w.widthMm) / 2;
+        expect(naiveOff < 4000 && naiveOff + w.widthMm > 4000).toBe(true);
+    });
+
+    it('duplicate junction detections (same partition) do NOT collapse the band to a sliver', () => {
+        // The wiring emits one junction per interior-wall ENDPOINT landing on the shell, so
+        // a single partition can surface two near-coincident cuts (e.g. 4000 and 4040). The
+        // de-dup must treat them as ONE cut so the room still owns a full half, not a sliver.
+        const js = [junction(4000), junction(4040)];
+        const ws = emitWindowsForRoom('bedroom', [wide(8000)], 'A', [], null, js, { x: 2000, y: 1500 });
+        expect(ws).toHaveLength(1);
+        const w = ws[0]!;
+        // Window hosts in the [0,~4000] portion, not squeezed into a sub-40 mm sliver.
+        expect(w.widthMm).toBeGreaterThanOrEqual(400);
+        expect(w.offsetMm + w.widthMm).toBeLessThanOrEqual(4040 + 1e-6);
+    });
+
+    it('three rooms sharing one wall: middle room centres on its MIDDLE portion', () => {
+        // 12 m wall split at 4000 and 8000 → three 4 m portions. The middle room (centroid
+        // ~6000) must centre its window on [4000,8000], not an end portion.
+        const js = [junction(4000), junction(8000)];
+        const mid = emitWindowsForRoom('bedroom', [wide(12000)], 'Mid', [], null, js, { x: 6000, y: 1500 });
+        expect(mid.length).toBeGreaterThanOrEqual(1);
+        for (const w of mid) {
+            expect(w.offsetMm).toBeGreaterThanOrEqual(4000 - 1e-6);
+            expect(w.offsetMm + w.widthMm).toBeLessThanOrEqual(8000 + 1e-6);
+        }
+        expect(Math.abs(centreOf(mid[0]!) - 6000)).toBeLessThanOrEqual(0.10 * 4000);
+    });
+
+    it('is deterministic across runs', () => {
+        const js = [junction(4000)];
+        const a = emitWindowsForRoom('bedroom', [wide(8000)], 'A', [], null, js, { x: 2000, y: 1500 });
+        const b = emitWindowsForRoom('bedroom', [wide(8000)], 'A', [], null, js, { x: 2000, y: 1500 });
+        expect(a.map(w => [w.offsetMm, w.widthMm])).toEqual(b.map(w => [w.offsetMm, w.widthMm]));
+    });
+});
+
 // ── §68.16 — BIGGER windows + a window in EVERY windowable perimeter room ──────
 //
 // Founder 2026-06-11: "windows are a big issue — we need BIGGER windows and windows

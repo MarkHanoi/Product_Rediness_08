@@ -211,8 +211,26 @@ export function emitGeometry(graph: LayoutGraph, opts?: EmitGeometryOpts): Emitt
     // partition's thickness so the placer keeps the window clear of that footprint.
     const interiorWallNodes = allWallNodes.filter(n => n.attrs.isExternal !== true);
     const partitionJunctions: PartitionJunction[] = [];
-    // Tolerance (mm) for an interior endpoint being judged "on" the shell wall line.
-    const ON_WALL_TOL_MM = 60;
+    // §WINDOW-ROOM-PORTION-DETECT (§72.1/§72.2, founder 2026-06-12) — a partition that
+    // T-joins the BODY of a SHARED shell wall splits that wall into per-room portions; its
+    // junction MUST be recorded so the window placer confines each room's window to its OWN
+    // portion (never straddling the partition — §72.2 — and centred on the portion — §72.1).
+    //
+    // The OLD perpendicular tolerance (60 mm) was too tight: a partition endpoint terminating
+    // on the shell can sit further off the shell CENTRELINE than that — half the shell
+    // thickness (~100 mm for a 200 mm shell) + the principal-axis tiling residual the house
+    // weld bridges at up to 0.60 m (§SHELL-SNAP-WIDEN in weldPartitionsToShell). At 60 mm such
+    // a genuine T-junction was MISSED → the window band stayed the WHOLE wall → the centred
+    // window landed dead-centre ON the partition (the founder's "window shared by two rooms").
+    // Widen the PERP gate to catch the real T-junction while staying well under a room's width
+    // so a parallel/adjacent partition can't be mistaken for a junction. The ALONG position is
+    // still taken from the accurate centreline projection.
+    const ON_WALL_PERP_TOL_MM = 200;   // half a thick shell + weld/miter residual
+    const ON_WALL_ALONG_TOL_MM = 60;   // endpoint must project WITHIN the shell span
+    // A real T-junction's stem points AWAY from the shell; require the partition to be
+    // sufficiently NON-collinear with the shell so a partition lying parallel-and-near the
+    // shell line (both endpoints grazing it) is not mistaken for two junctions.
+    const MIN_TJOIN_SIN = Math.sin((20 * Math.PI) / 180);   // ≥ ~20° off the shell direction
     for (const e of graph.edges) {
         if (e.kind !== 'BOUNDS' || !externalWalls.has(e.from)) continue;
         const shellNode = allWallNodes.find(w => w.guid === e.from);
@@ -230,6 +248,13 @@ export function emitGeometry(graph: LayoutGraph, opts?: EmitGeometryOpts): Emitt
             const ibl = iw.geometry?.baseLine;
             if (!ibl || !ibl[0] || !ibl[1]) continue;
             const thicknessMm = mm(num(iw.attrs.thickness, 0.1));
+            // Partition direction (for the T-join non-collinearity gate). A partition
+            // essentially PARALLEL to the shell is not a stem T-joining it — skip it so a
+            // wall lying along the shell line doesn't seed spurious cuts.
+            const idx = ibl[1].x - ibl[0].x, idy = ibl[1].z - ibl[0].z;
+            const ilen = Math.hypot(idx, idy);
+            const sinToShell = ilen > 1e-9 ? Math.abs((idx * uy - idy * ux) / ilen) : 0;
+            if (sinToShell < MIN_TJOIN_SIN) continue;   // parallel-ish → not a T-junction stem
             // Each endpoint of the interior wall: project onto the shell line; keep it
             // when it is ON the segment (perp within tol, param within [0,len]).
             for (const ep of [ibl[0], ibl[1]] as const) {
@@ -237,8 +262,8 @@ export function emitGeometry(graph: LayoutGraph, opts?: EmitGeometryOpts): Emitt
                 const rx = px - sa.x, ry = py - sa.y;
                 const along = rx * ux + ry * uy;                 // mm from shell start
                 const perp = Math.abs(rx * uy - ry * ux);        // mm off the line
-                if (perp > ON_WALL_TOL_MM) continue;
-                if (along < -ON_WALL_TOL_MM || along > len + ON_WALL_TOL_MM) continue;
+                if (perp > ON_WALL_PERP_TOL_MM) continue;
+                if (along < -ON_WALL_ALONG_TOL_MM || along > len + ON_WALL_ALONG_TOL_MM) continue;
                 partitionJunctions.push({
                     wallIndex: wRef,
                     atMm: Math.min(Math.max(along, 0), len),

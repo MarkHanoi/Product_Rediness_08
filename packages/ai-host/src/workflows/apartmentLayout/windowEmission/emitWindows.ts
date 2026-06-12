@@ -183,32 +183,74 @@ function overlapsAny(off: number, widthMm: number, blocked: readonly BlockedSpan
 // callers, or no solar) the band is the LONGEST junction-bounded interval — the
 // room's main frontage run — which is the room's portion in the dominant case.
 
+/** Tolerance (mm) for collapsing two junction CUTS that fall at essentially the
+ *  same point along a wall. The wiring (emitGeometry) emits a junction per interior-
+ *  wall ENDPOINT that lands on the shell, so a partition that both T-joins AND runs
+ *  along can surface duplicate / near-duplicate cuts at one position; a partition that
+ *  meets the shell from both sides (an interior cross) likewise. Without merging,
+ *  duplicate cuts spawn a ZERO/sliver interval that can (a) be wrongly selected as the
+ *  room's portion, collapsing the band to nothing, or (b) split one room's true portion
+ *  in two. 80 mm < a half-partition band (≥150) so it never merges two GENUINELY
+ *  distinct partitions (which the run-splitting keeps ≥ a room's width apart). */
+const JUNCTION_CUT_MERGE_MM = 80;
+
 /** The room's window-band `[lo, hi]` (mm along the wall) on a wall of `wallLenMm`
  *  given the interior-partition junctions on it. The junctions split the wall into
- *  intervals; we return the one the room owns. When `centroidAlongMm` is finite the
- *  owned interval is the one CONTAINING it; otherwise the LONGEST interval. Junction-
- *  free walls return the full wall. Pure + deterministic. */
+ *  intervals; we return the one the room OWNS — the band that all of this room's
+ *  windows are confined to (so a window can NEVER straddle a partition that T-joins
+ *  the wall's body, §72.2, and centres on the room's OWN portion, §72.1).
+ *
+ *  §WINDOW-ROOM-PORTION-ROBUST (§72.1/§72.2, founder 2026-06-12) — interval selection:
+ *   • cuts are de-duplicated (JUNCTION_CUT_MERGE_MM) so a duplicate endpoint detection
+ *     can't spawn a sliver interval that swallows the band;
+ *   • when `centroidAlongMm` is finite the owned interval is the one CONTAINING it; if
+ *     the centroid lands in NO interval (a clamped numerical edge) the owned interval is
+ *     the one whose body the centroid is NEAREST to (clamped distance to [lo,hi]) — a
+ *     deterministic, per-room-DISTINCT choice, so two rooms fronting the same wall pick
+ *     DIFFERENT portions instead of both defaulting to the longest one (the cross-room
+ *     spill that the old `longest` fallback caused);
+ *   • only with NO centroid at all (legacy / unit-test callers) does it fall back to the
+ *     LONGEST interval (the room's dominant frontage run).
+ *  Junction-free walls return the full wall. Pure + deterministic. */
 function roomWindowBand(
     wallLenMm: number,
     junctions: readonly BlockedSpan[],   // junction bands (already in wall coords)
     centroidAlongMm?: number,
 ): { lo: number; hi: number } {
-    // Boundary cuts at each junction CENTRE (mid of its blocked band), sorted + unique.
-    const cuts = junctions
+    // Boundary cuts at each junction CENTRE (mid of its blocked band), sorted, then
+    // DE-DUPLICATED so a near-coincident pair of detections becomes a single cut.
+    const raw = junctions
         .map(j => (j.lo + j.hi) / 2)
         .filter(c => c > 1e-6 && c < wallLenMm - 1e-6)
         .sort((a, b) => a - b);
+    const cuts: number[] = [];
+    for (const c of raw) {
+        const prev = cuts[cuts.length - 1];
+        if (prev === undefined || c - prev > JUNCTION_CUT_MERGE_MM) cuts.push(c);
+    }
     if (cuts.length === 0) return { lo: 0, hi: wallLenMm };
     const bounds = [0, ...cuts, wallLenMm];
     const intervals: Array<{ lo: number; hi: number }> = [];
     for (let i = 1; i < bounds.length; i++) intervals.push({ lo: bounds[i - 1]!, hi: bounds[i]! });
     if (typeof centroidAlongMm === 'number' && Number.isFinite(centroidAlongMm)) {
         const c = Math.min(Math.max(centroidAlongMm, 0), wallLenMm);
+        // Primary: the interval that CONTAINS the centroid projection — the room's own
+        // portion in the dominant (rectilinear, perpendicular partition) case.
         const owned = intervals.find(iv => c >= iv.lo - 1e-6 && c <= iv.hi + 1e-6);
         if (owned) return owned;
+        // Fallback: the centroid landed in NO interval (numerical edge / clamp). Pick the
+        // interval whose body is NEAREST the centroid — distinct per room, so two rooms
+        // sharing the wall still resolve to DIFFERENT portions (no cross-room spill).
+        let nearest = intervals[0]!;
+        let nearestDist = Infinity;
+        for (const iv of intervals) {
+            const d = c < iv.lo ? iv.lo - c : c > iv.hi ? c - iv.hi : 0;
+            if (d < nearestDist - 1e-6) { nearest = iv; nearestDist = d; }
+        }
+        return nearest;
     }
-    // Longest interval (room's main frontage run); ties broken by the lower `lo` for
-    // determinism.
+    // No centroid at all (legacy / unit-test callers): the LONGEST interval (the room's
+    // main frontage run); ties broken by the lower `lo` for determinism.
     let best = intervals[0]!;
     for (const iv of intervals) if (iv.hi - iv.lo > best.hi - best.lo + 1e-6) best = iv;
     return best;
