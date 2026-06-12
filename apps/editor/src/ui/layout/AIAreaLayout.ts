@@ -9,6 +9,7 @@ import { installFurnishLayoutTrigger } from '../furnish-layout/furnishLayoutTrig
 import { installLightingLayoutTrigger } from '../lighting-layout/lightingLayoutTrigger';
 import { installCeilingLayoutTrigger } from '../ceiling-layout/ceilingLayoutTrigger';
 import { installFloorLayoutTrigger } from '../floor-layout/floorLayoutTrigger';
+import { installDaylightConsole } from '../daylight/daylightConsole';
 import { installPryzmTestFunctions } from '../../dev/installPryzmTestFunctions';
 import { createFloorPlanImportPanel } from '../ai/FloorPlanImportPanel';
 import { createDxfImportPanel } from '../import/DxfImportPanel';
@@ -234,6 +235,12 @@ export function mountAIArea(props: UIProps, runtime: PryzmRuntime | null): AIRes
     //       apartment generate → walls/doors → redetect rooms →
     //       CEIL → furnish → LIGHT.
     installLightingLayoutTrigger(runtime ?? null);
+    // §27 / §61 — register the read-only daylight console command
+    // `pryzmComputeDaylight()`. Reads the live room + wall stores, scores
+    // per-room daylight via the OFFLINE analytic pass (@pryzm/ai-host daylight),
+    // and logs a §DIAG-DAYLIGHT table. NEVER mutates a store (a metric, not a
+    // placement) — so it carries no runtime + no auto-fire chain.
+    installDaylightConsole();
 
     // Phase B.31 (S73-WIRE) — thread the composed runtime so AIPanel can reach
     // typed slots (runtime.ai.streamCompletion / runtime.persistence.proposals)

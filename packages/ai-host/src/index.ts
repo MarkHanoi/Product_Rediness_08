@@ -423,6 +423,29 @@ export type {
   CeilingIdMinter,
 } from './workflows/ceilingLayout/buildCeilingCommands.js';
 
+// ── §27 / §61 Daylight Analytic Pass — public surface ─────────────────────────
+// The per-room OFFLINE daylight / insolation metric (SPIKE-DAYLIGHT-SUN-
+// PENETRATION ask B). Pure L2: zero THREE / Cesium / DOM, deterministic. Data
+// source for the §27 DAYLIGHT-GRAPH + the §59 kitchen "natural-light" scorecard
+// axis. The editor's read-only console command (`window.pryzmComputeDaylight()`)
+// assembles RoomDaylightInput[] from the live room/wall stores + runs this pass.
+export {
+  computeRoomDaylight,
+  computeBuildingDaylight,
+  defaultSunSamples,
+  sunDirection,
+} from './workflows/daylight/index.js';
+export type {
+  Pt2 as DaylightPt2,
+  WindowAperture,
+  RoomDaylightInput,
+  SunSample,
+  WindowContribution,
+  RoomDaylightResult,
+  BuildingDaylightResult,
+  DaylightOptions,
+} from './workflows/daylight/index.js';
+
 // ── Sprint H P9 (2026-05-10) — GenerativeTypes ────────────────────────────────
 export * from './generative/GenerativeTypes';
 export { layoutGenerator, roomColour } from './generative/LayoutGenerator.js';
