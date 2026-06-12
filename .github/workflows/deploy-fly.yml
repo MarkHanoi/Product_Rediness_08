@@ -28,14 +28,17 @@ on:
 # always converges on the newest commit (correct for continuous deployment).
 concurrency:
   group: deploy-fly
-  # §DEPLOY-NO-CANCEL (2026-06-12): was `true` — but rapid back-to-back pushes then
-  # cancelled each other's builds mid-flight, so a string of fixes (v174–v179) never
-  # produced a completed deploy and the founder kept testing an OLDER build that lacked
-  # them. `false` = a new push QUEUES behind the running build instead of killing it, so
-  # EVERY pushed commit eventually deploys and the newest still wins (GitHub drops only
-  # the intermediate PENDING runs, never the in-progress one). The right discipline is
-  # still to avoid rapid pushes, but this stops a half-built deploy from being lost.
-  cancel-in-progress: false
+  # §DEPLOY-CANCEL-STALE (2026-06-12, re-flipped to `true`): with `false` a string of
+  # commits (v184–v193) built ONE-AT-A-TIME in a long queue (~10–15 min each), so the
+  # founder kept testing a build several versions BEHIND the latest — they saw pre-fix
+  # behaviour (2.27× stair, unclean corners) for fixes that were merely still queued.
+  # Because EVERY commit's tree is CUMULATIVE (carries all prior changes), cancelling an
+  # in-flight stale build and jumping to the newest loses nothing — the newest already
+  # contains everything. `true` = a new push cancels the running/queued build and builds
+  # the latest, so the founder always tests HEAD. (The original v174–v179 "nothing
+  # completes" failure was from pushing every 1–2 min; the discipline now is to BATCH
+  # agent outputs and push at a slower cadence so a build has time to finish.)
+  cancel-in-progress: true
 
 jobs:
   deploy:
