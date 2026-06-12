@@ -32,6 +32,35 @@ const BED_KINDS = new Set<PlacedFurniture['kind']>([
 ]);
 const isBedKind = (k: PlacedFurniture['kind']): boolean => BED_KINDS.has(k);
 
+/**
+ * §BED-HEADBOARD-FLUSH (founder #7, 2026-06-12) — the metres each bed kind's
+ * HEADBOARD mesh protrudes BEHIND the footprint's geometric back edge (−fp.l/2).
+ *
+ * The bed footprints size `l` to the variant's DECK length (head→foot), but every
+ * variant's headboard panel sits a further `HB_THICKNESS` (≈0.04–0.05 m) behind the
+ * deck head face (BedEngine: headboard at `headZ − HB_THICKNESS`, headZ = −deckL/2).
+ * The plain `bed` (BedBuilder) tucks its headboard INSIDE the frame (back flush at
+ * −length/2) → 0 overhang. The generic wall-anchored placement only recesses the
+ * FOOTPRINT back to GAP off the wall; without compensating for this rear overhang
+ * the headboard mesh pokes (overhang − GAP) INTO the head wall — the founder's
+ * "cabezero goes through the internal wall" defect (worst on the walnut bed, whose
+ * deck was also under-sized in the footprint, compounding it to ~0.35 m).
+ *
+ * `placeBedAgainstWall` pushes the bed this much deeper into the room so the
+ * REAR-MOST mesh face (the headboard back) — not the footprint back — sits at GAP
+ * off the wall, and verifies the full bed (deck + headboard) stays inside the room.
+ * Deterministic constants from the BedEngine geometry (ADR-0061).
+ */
+const BED_REAR_OVERHANG: Readonly<Record<string, number>> = {
+    bed: 0,                          // BedBuilder: headboard inside the frame → flush.
+    japanese_platform_bed: 0.05,     // BedEngine platform HB_THICKNESS.
+    japanese_float_bed: 0.05,        // BedEngine float HB_THICKNESS.
+    japanese_walnut_bed: 0.05,       // BedEngine walnut HB_THICKNESS.
+    nordic_bed: 0.04,                // BedEngine nordic HB_THICKNESS.
+    solid_wood_bed: 0.05,            // BedEngine solid_wood HB_THICKNESS.
+};
+const bedRearOverhang = (k: PlacedFurniture['kind']): number => BED_REAR_OVERHANG[k] ?? 0;
+
 /** §67.3 — every sofa-like kind (straight `sofa` + the L-shape `corner_sofa`) so
  *  the coffee table sits in front and the rug centres in front identically. */
 const SOFA_KINDS = new Set<PlacedFurniture['kind']>(['sofa', 'corner_sofa']);
@@ -157,6 +186,51 @@ function placeAgainstWall(
         const quad = footprintCorners(c.x, c.z, fp.w, fp.l, yaw);
         if (quadInPolygon(quad, input.polygon) && !quadOverlapsAny(quad, obstacles)) {
             return { item: { kind, position: { x: c.x, y: input.levelElevation + fp.baseOffset, z: c.z }, rotationY: yaw, footprint: fp, hostedSpaceId: input.roomId }, quad };
+        }
+    }
+    return null;
+}
+
+/**
+ * §BED-HEADBOARD-FLUSH (founder #7, 2026-06-12) — wall-anchor a BED so its
+ * HEADBOARD sits flush against the wall (back of the headboard at wall face + GAP),
+ * with NO penetration, and the whole bed (deck + headboard) inside the room.
+ *
+ * Same slide-to-fit search as `placeAgainstWall`, but the bed centre is pushed an
+ * extra `overhang` (the headboard's rear protrusion behind −fp.l/2) into the room
+ * so the headboard back — not the deck back — lands at GAP off the wall. The
+ * in-polygon test uses a quad extended by `overhang` on the rear (head) side so the
+ * headboard is verified inside the room; collision against OTHER furniture still
+ * uses the deck footprint (the headboard is a thin panel on the wall, never a floor
+ * obstacle others must avoid). The returned `position` is the bed-mesh origin (deck
+ * centre) so downstream (bedside tables, rug) read the same pose convention. */
+function placeBedAgainstWall(
+    kind: PlacedFurniture['kind'], wall: RoomWallSeg,
+    input: FurnishRoomInput, obstacles: readonly Quad[],
+): Placement | null {
+    const fp = footprintOf(kind);
+    const overhang = bedRearOverhang(kind);
+    const yaw = yawFromNormal(wall.inwardNormal);
+    const n = wall.inwardNormal;
+    // Deck centre so the headboard BACK (deck back − overhang) sits at GAP off wall:
+    //   headboardBack = deckCentre − n·(fp.l/2 + overhang) = wallMid + n·GAP
+    //   ⇒ deckCentre   = wallMid + n·(fp.l/2 + overhang + GAP)
+    const base = add(wallMid(wall), n, fp.l / 2 + overhang + GAP);
+    // A rear-extended quad spanning deck + headboard (length fp.l + overhang), whose
+    // centre is shifted back toward the wall by overhang/2 — used ONLY for the
+    // in-room check so the headboard is proven inside the polygon.
+    const fullLen = fp.l + overhang;
+    const dir = wallDir(wall);
+    const maxSlide = Math.max(0, wall.length / 2 - fp.w / 2);
+    const offsets: number[] = [0];
+    for (let s = SLIDE_STEP; s <= maxSlide + 1e-6; s += SLIDE_STEP) { offsets.push(s, -s); }
+    for (const off of offsets) {
+        const c = add(base, dir, off);
+        const deckQuad = footprintCorners(c.x, c.z, fp.w, fp.l, yaw);          // collision
+        const fullCtr = add(c, n, -overhang / 2);                              // rear-extended centre
+        const fullQuad = footprintCorners(fullCtr.x, fullCtr.z, fp.w, fullLen, yaw); // in-room
+        if (quadInPolygon(fullQuad, input.polygon) && !quadOverlapsAny(deckQuad, obstacles)) {
+            return { item: { kind, position: { x: c.x, y: input.levelElevation + fp.baseOffset, z: c.z }, rotationY: yaw, footprint: fp, hostedSpaceId: input.roomId }, quad: deckQuad };
         }
     }
     return null;
@@ -957,6 +1031,14 @@ function applyArchetype(
                     p = placeAgainstWall(spec.kind, wall, input, obstacles);
                     if (p) break;
                 }
+            }
+        } else if (isBedKind(spec.kind)) {
+            // §BED-HEADBOARD-FLUSH (founder #7) — the bed is wall-anchored via the
+            // bed-aware path so the HEADBOARD (which protrudes behind the deck
+            // footprint) sits flush on the wall instead of penetrating it.
+            for (const wall of resolveAnchorWalls(spec, input)) {
+                p = placeBedAgainstWall(spec.kind, wall, input, obstacles);
+                if (p) break;
             }
         } else {
             for (const wall of resolveAnchorWalls(spec, input)) {

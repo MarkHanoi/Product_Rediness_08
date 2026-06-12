@@ -111,8 +111,11 @@ const PRESETS: Readonly<Record<BedVariant, BedPreset>> = {
     },
     walnut: {
         variant: 'walnut',
+        // §BED-HEADBOARD-FLUSH (2026-06-12) — deck is 1.80 × 2.30 (overhang reduced to
+        // 0.10 m in BedEngine.buildWalnut); buildWalnut ignores cfg.length but keep the
+        // preset honest so any future length-aware path stays consistent.
         defaultWidth:  1.80,
-        defaultLength: 2.00,
+        defaultLength: 2.30,
         defaultHeight: 0.50,
         palette: {
             wood:     0x4a2e1d,   // dark walnut

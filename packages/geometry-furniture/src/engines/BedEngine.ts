@@ -335,10 +335,18 @@ export class BedEngine {
         const MATTRESS_W = 1.60;
         const MATTRESS_L = 2.10;
         const MATTRESS_H = 0.22;
-        const MATTRESS_OVERHANG = 0.25;          // user-requested deck overhang
+        // §BED-HEADBOARD-FLUSH (founder #7, 2026-06-12) — the deck overhang was 0.25 m
+        // each end, giving a 2.10 × 2.60 m deck. That 2.60 m DEPTH (a) does not fit a
+        // standard 3.0 m-deep bedroom clear of the door swing and (b) the matching
+        // footprint made the bed protrude through the head wall in tighter rooms. A
+        // 0.10 m overhang keeps the floating-deck look while bringing the deck to a
+        // queen-sane 1.80 × 2.30 m (same depth as the float variant) so the bed sits
+        // flush + places reliably. The D-FLE footprint (japanese_walnut_bed) tracks
+        // this exactly: 1.80 × 2.30.
+        const MATTRESS_OVERHANG = 0.10;          // deck reveal around the mattress
 
-        const DECK_W = MATTRESS_W + 2 * MATTRESS_OVERHANG;   // 2.10
-        const DECK_L = MATTRESS_L + 2 * MATTRESS_OVERHANG;   // 2.60
+        const DECK_W = MATTRESS_W + 2 * MATTRESS_OVERHANG;   // 1.80
+        const DECK_L = MATTRESS_L + 2 * MATTRESS_OVERHANG;   // 2.30
         const DECK_H = 0.06;
 
         // Recessed base — much smaller than deck so deck reads as floating

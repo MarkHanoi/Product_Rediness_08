@@ -187,14 +187,26 @@ const FP: Readonly<Record<FurnitureKind, Footprint>> = {
     // plain `bed` footprint above stays the rules-DB-pinned 1.35 × 1.90.
     nordic_bed:       { w: 1.80, l: 2.20, h: 0.50, baseOffset: 0, clearFront: 0.80, clearSides: 0.60 },
     solid_wood_bed:   { w: 1.75, l: 2.20, h: 0.55, baseOffset: 0, clearFront: 0.80, clearSides: 0.60 },
-    // §BED-4-TYPES (2026-06-12) — the three JapaneseBedBuilder variants in the
-    // editor's bed picker. Sized to the BedFactory presets (platform 2.00 × 2.20,
-    // float 2.00 × 2.30, walnut 1.80 × 2.00). These variants build their bedside
-    // surfaces INTO the bed mesh, so the footprint's `w` includes the wing/
-    // nightstand spread; clearances mirror the plain bed (0.80 foot, 0.60 sides).
+    // §BED-4-TYPES (2026-06-12) → §BED-HEADBOARD-FLUSH (founder #7, 2026-06-12) —
+    // the three JapaneseBedBuilder variants in the editor's bed picker. The
+    // footprint `l` (depth into the room, head→foot) MUST equal the variant's TRUE
+    // mesh DECK length so the wall-anchored placement leaves the headboard flush on
+    // the wall (the headboard adds a further ~5 cm rear overhang, handled at
+    // placement via BED_REAR_OVERHANG). The BedEngine builds:
+    //   • platform → PLINTH_L = max(1.80, cfg.length)   → length-parametric (2.20).
+    //   • float    → DECK_L   = 2.10 + 0.20  = 2.30      → FIXED (ignores cfg.length).
+    //   • walnut   → DECK_L   = 2.10 + 2×0.10 = 2.30      → FIXED (ignores cfg.length).
+    // The walnut footprint was 1.80 × 2.00 — 0.60 m SHORTER than its (then 2.60 m)
+    // deck — so its headboard projected ~0.35 m past the footprint back edge and
+    // PENETRATED the head wall (founder #7). The walnut deck overhang was reduced to
+    // 0.10 m (BedEngine.buildWalnut) → a queen-sane 1.80 × 2.30 m deck (same depth as
+    // float), and the footprint now tracks it EXACTLY so the headboard sits flush + the
+    // bed fits a standard bedroom. `w` = deck width (bedside WINGS overhang it at the
+    // head end, not reserved — same convention as float). Clearances mirror the plain
+    // bed (0.80 foot, 0.60 sides).
     japanese_platform_bed: { w: 2.00, l: 2.20, h: 0.45, baseOffset: 0, clearFront: 0.80, clearSides: 0.60 },
     japanese_float_bed:    { w: 2.00, l: 2.30, h: 0.45, baseOffset: 0, clearFront: 0.80, clearSides: 0.60 },
-    japanese_walnut_bed:   { w: 1.80, l: 2.00, h: 0.50, baseOffset: 0, clearFront: 0.80, clearSides: 0.60 },
+    japanese_walnut_bed:   { w: 1.80, l: 2.30, h: 0.50, baseOffset: 0, clearFront: 0.80, clearSides: 0.60 },
 };
 
 /** Footprint for a furniture kind (always defined for supported kinds). */
