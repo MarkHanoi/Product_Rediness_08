@@ -95,8 +95,18 @@ export const WINDOW_SPECS: Readonly<Record<WindowableRoomType, WindowSpec>> = {
     // mm → head 2200 mm; preferred 2.4 m span (2–3 m), min 2.0 m so it stays a patio
     // door, never a small window. Applied to ALL living rooms (see §WINDOW-LIVING-PATIO
     // note in emitWindows.ts re: storey-awareness).
+    //
+    // §WINDOW-SIZE-BY-TYPE (#8, founder full-house 2026-06-12) — the founder's daylight
+    // rule: "bedrooms should have LARGE windows, as well as kitchen, living and dining;
+    // SMALL windows only for corridors, hall and bathrooms/ensuite". The size class is
+    // pinned in WINDOW_SIZE_CLASS below; the spec widths realise it: the LARGE habitable
+    // rooms (living/dining/kitchen/master/bedroom/study) all sit ≥ 1500 mm wide with a
+    // generous head, the SMALL wet rooms (bathroom/ensuite/wc) ≤ 800 mm with a raised
+    // privacy sill. Kitchen is RAISED 1500 → 1800 so it reads as a LARGE window (founder
+    // ranked it with living/dining), matching the bedroom span. Corridor/hall are not in
+    // the windowable set at all (no window) — there is no "small corridor window".
     living:   { widthMm: 2400, heightMm: 2190, sillMm:   10, minWallLengthMm: 2400, minWidthMm: 2000 },
-    kitchen:  { widthMm: 1500, heightMm: 1200, sillMm:  900, minWallLengthMm: 1700, minWidthMm: 1100 },
+    kitchen:  { widthMm: 1800, heightMm: 1400, sillMm:  900, minWallLengthMm: 2000, minWidthMm: 1200 },
     dining:   { widthMm: 2100, heightMm: 1700, sillMm:  400, minWallLengthMm: 2400, minWidthMm: 1400 },
     master:   { widthMm: 1800, heightMm: 1500, sillMm:  700, minWallLengthMm: 2100, minWidthMm: 1200 },
     bedroom:  { widthMm: 1800, heightMm: 1500, sillMm:  700, minWallLengthMm: 2100, minWidthMm: 1200 },
@@ -104,6 +114,38 @@ export const WINDOW_SPECS: Readonly<Record<WindowableRoomType, WindowSpec>> = {
     bathroom: { widthMm:  800, heightMm:  800, sillMm: 1400, minWallLengthMm: 1100, minWidthMm:  600 },
     ensuite:  { widthMm:  800, heightMm:  800, sillMm: 1400, minWallLengthMm: 1100, minWidthMm:  600 },
     wc:       { widthMm:  700, heightMm:  800, sillMm: 1400, minWallLengthMm: 1000, minWidthMm:  600 },
+};
+
+/**
+ * §WINDOW-SIZE-BY-TYPE (#8, founder full-house 2026-06-12) — the daylight size CLASS of
+ * each windowable room type. The founder's rule, made explicit + testable:
+ *   • LARGE — living / dining / kitchen / master / bedroom / study. The habitable rooms
+ *     the founder wants generously daylit. Every LARGE spec is ≥ `LARGE_MIN_WIDTH_MM`
+ *     wide (living/dining the widest, as patio/full-view glazing).
+ *   • SMALL — bathroom / ensuite / wc. Wet rooms get a SMALL, privacy-silled obscure
+ *     window (≤ `SMALL_MAX_WIDTH_MM`, raised sill). Corridor / hall are NOT windowable
+ *     (no entry here — they emit no window at all), so the only "small" windows are wet
+ *     rooms, exactly as the founder asked.
+ * This drives nothing on its own (the spec widths already realise it); it is the single
+ * source of truth the size-by-type invariant test pins, so a future spec edit that
+ * breaks the LARGE/SMALL daylight contract fails CI rather than silently shipping. */
+export type WindowSizeClass = 'large' | 'small';
+
+/** Lower bound (mm) every LARGE window's preferred width must meet. */
+export const LARGE_MIN_WIDTH_MM = 1500;
+/** Upper bound (mm) every SMALL (wet-room) window's preferred width must stay under. */
+export const SMALL_MAX_WIDTH_MM = 1000;
+
+export const WINDOW_SIZE_CLASS: Readonly<Record<WindowableRoomType, WindowSizeClass>> = {
+    living:   'large',
+    dining:   'large',
+    kitchen:  'large',
+    master:   'large',
+    bedroom:  'large',
+    study:    'large',
+    bathroom: 'small',
+    ensuite:  'small',
+    wc:       'small',
 };
 
 /**

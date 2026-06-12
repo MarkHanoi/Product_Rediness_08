@@ -8,9 +8,13 @@ import {
 import {
     isWindowable,
     WINDOW_SPECS,
+    WINDOW_SIZE_CLASS,
+    LARGE_MIN_WIDTH_MM,
+    SMALL_MAX_WIDTH_MM,
     type ExternalWallSegment,
     type OccupiedSpan,
     type PartitionJunction,
+    type WindowableRoomType,
 } from '../src/workflows/apartmentLayout/windowEmission/types.js';
 
 // A 5-metre-long horizontal wall starting at the origin.
@@ -700,7 +704,8 @@ describe('§68.16 — bigger windows + window in every windowable perimeter room
         expect(emitWindowsForRoom('living', [wide(4000)])[0]!.widthMm).toBe(2400);
         expect(emitWindowsForRoom('bedroom', [wide(4000)])[0]!.widthMm).toBe(1800);
         expect(emitWindowsForRoom('dining', [wide(4000)])[0]!.widthMm).toBe(2100);
-        expect(emitWindowsForRoom('kitchen', [wide(4000)])[0]!.widthMm).toBe(1500);
+        // §WINDOW-SIZE-BY-TYPE (#8) — kitchen is now a LARGE window (1800), matching bedroom.
+        expect(emitWindowsForRoom('kitchen', [wide(4000)])[0]!.widthMm).toBe(1800);
     });
 
     it('the living spec is the full-height sliding/patio door (dims)', () => {
@@ -709,6 +714,193 @@ describe('§68.16 — bigger windows + window in every windowable perimeter room
         expect(w.heightMm).toBe(2190);
         expect(w.sillMm + w.heightMm).toBe(2200);   // head reaches 2.2 m
         expect(w.widthMm).toBe(2400);
+    });
+});
+
+// ── #4 — §WINDOW-IN-BOUNDS-POSTCOND (founder full-house, 2026-06-12) ───────────
+//
+// "A window STILL goes out through a perimeter wall." The HARD post-condition: EVERY
+// emitted window must satisfy offset ≥ corner-setback AND offset+width ≤ wallLen −
+// corner-setback for its host ExternalWallSegment. These pin the guarantee across the
+// whole emission surface (spec width, climate/style bias, multi-window, short walls,
+// junction-split bands, doors) — no emitted span may ever exceed its host wall run.
+describe('#4 — §WINDOW-IN-BOUNDS-POSTCOND: no window ever exceeds its host wall', () => {
+    const wide = (lenMm: number, wallIndex = 0): ExternalWallSegment =>
+        ({ start: { x: 0, y: 0 }, end: { x: lenMm, y: 0 }, wallIndex });
+    const junction = (atMm: number, thicknessMm = 100): PartitionJunction =>
+        ({ wallIndex: 0, atMm, thicknessMm });
+    const door = (startMm: number, widthMm: number): OccupiedSpan =>
+        ({ wallIndex: 0, startMm, endMm: startMm + widthMm });
+
+    // Corner setback mirrors endSetbackMm in emitWindows.ts (for the assertion).
+    const setbackOf = (wallLenMm: number): number => {
+        const scaled = Math.min(1200, Math.max(500, 0.10 * wallLenMm));
+        const maxAffordable = Math.max(0, (wallLenMm - 400) / 2);
+        return Math.min(scaled, maxAffordable);
+    };
+    const inBounds = (ws: ReadonlyArray<{ offsetMm: number; widthMm: number }>, wallLenMm: number, label: string) => {
+        const sb = setbackOf(wallLenMm);
+        for (const w of ws) {
+            // HARD #4 guarantee: never past either wall end.
+            expect(w.offsetMm, `${label} offset ≥ 0`).toBeGreaterThanOrEqual(-1e-3);
+            expect(w.offsetMm + w.widthMm, `${label} offset+width ≤ wallLen`)
+                .toBeLessThanOrEqual(wallLenMm + 1e-3);
+            // Corner pier honoured WHEN the wall can afford it (a short wall legitimately
+            // centres the window with a reduced/zero pier, like the placer).
+            if (wallLenMm - w.widthMm >= 2 * sb - 1e-3) {
+                expect(w.offsetMm, `${label} offset ≥ setback (afforded)`).toBeGreaterThanOrEqual(sb - 1e-3);
+                expect(w.offsetMm + w.widthMm, `${label} ≤ wallLen − setback (afforded)`)
+                    .toBeLessThanOrEqual(wallLenMm - sb + 1e-3);
+            }
+        }
+    };
+
+    const ALL: WindowableRoomType[] =
+        ['living', 'kitchen', 'dining', 'master', 'bedroom', 'study', 'bathroom', 'ensuite', 'wc'];
+
+    it('every room type, across a sweep of wall lengths, lands strictly in-bounds', () => {
+        for (const t of ALL) {
+            // From just-hostable (≈ a minimal opening + piers) up to a long ribbon wall.
+            for (const lenMm of [900, 1100, 1500, 2000, 2600, 3500, 5000, 7000, 10000, 14000]) {
+                const ws = emitWindowsForRoom(t, [wide(lenMm)], `${t}`);
+                inBounds(ws, lenMm, `${t}@${lenMm}`);
+            }
+        }
+    });
+
+    it('with the style glazing bias up (1.4×), the widened window still stays in-bounds', () => {
+        for (const t of ALL) {
+            for (const lenMm of [2000, 2600, 3500, 5000, 9000]) {
+                const ws = emitWindowsForRoom(t, [wide(lenMm)], `${t}`, [], null, [], null, 1.4);
+                inBounds(ws, lenMm, `${t}@${lenMm} bias1.4`);
+            }
+        }
+    });
+
+    it('a junction-split short band keeps its window in-bounds of the FULL wall', () => {
+        // 2.6 m living wall split dead-centre — the window must stay ON the 2.6 m wall.
+        // (HARD bounds only: the window sits in a ~1.3 m sub-band, whose own affordable
+        // corner pier is smaller than the full-wall pier — the #4 guarantee is the hard
+        // [0, wallLen] span, which the post-condition + band confinement both enforce.)
+        const ws = emitWindowsForRoom('living', [wide(2600)], 'L', [], null, [junction(1300)]);
+        expect(ws.length).toBeGreaterThanOrEqual(1);
+        for (const w of ws) {
+            expect(w.offsetMm, 'living split offset ≥ 0').toBeGreaterThanOrEqual(-1e-3);
+            expect(w.offsetMm + w.widthMm, 'living split ≤ wallLen').toBeLessThanOrEqual(2600 + 1e-3);
+        }
+    });
+
+    it('a crowded long wall (doors + junctions) never emits a window past either corner', () => {
+        const doors = [door(1000, 900), door(5000, 900)];
+        const js = [junction(3000), junction(7000)];
+        for (const t of ['living', 'bedroom', 'kitchen'] as const) {
+            const ws = emitWindowsForRoom(t, [wide(9000)], `${t}`, doors, null, js);
+            inBounds(ws, 9000, `${t} crowded`);
+        }
+    });
+});
+
+// ── #6 — LIVING (and every habitable perimeter room) ALWAYS gets a window ──────
+//
+// "Of extreme importance, the daylight of the living room is really important." The
+// hardened §WINDOW-EVERY-FRONTAGE safety net guarantees a window on ANY external wall
+// that can host a minimal opening between its corner piers — even when the spec-width
+// candidate was crowded out by doors / partition junctions, even when the room's portion
+// is short, by progressively shrinking the width and (as a last resort) ignoring the
+// blocked spans and using the whole wall. A perimeter living room is NEVER windowless.
+describe('#6 — living always gets a window on any hostable frontage', () => {
+    const wide = (lenMm: number, wallIndex = 0): ExternalWallSegment =>
+        ({ start: { x: 0, y: 0 }, end: { x: lenMm, y: 0 }, wallIndex });
+    const junction = (atMm: number, thicknessMm = 100): PartitionJunction =>
+        ({ wallIndex: 0, atMm, thicknessMm });
+    const door = (startMm: number, widthMm: number): OccupiedSpan =>
+        ({ wallIndex: 0, startMm, endMm: startMm + widthMm });
+
+    it('living on a short hostable wall (1.1 m) gets its window', () => {
+        const ws = emitWindowsForRoom('living', [wide(1100)], 'Living');
+        expect(ws.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('living whose only wall is crowded by a centred door STILL gets a window', () => {
+        // A 5 m wall with a centred door — the spec patio span (2400) can't sit clear, but
+        // a smaller window fits in a side gap. The hardened net retains one window.
+        const ws = emitWindowsForRoom('living', [wide(5000)], 'Living', [door(1900, 1200)]);
+        expect(ws.length, 'living must not ship windowless on real frontage').toBeGreaterThanOrEqual(1);
+        const w = ws[0]!;
+        // never carved over the door.
+        expect(w.offsetMm < 3100 && w.offsetMm + w.widthMm > 1900).toBe(false);
+    });
+
+    it('living on a wall split into short portions by two junctions STILL gets a window', () => {
+        // Junctions at 1.4 m + 2.8 m → three ~1.4 m portions; no patio span fits, but the
+        // net shrinks the width / uses the whole wall to keep one window.
+        const ws = emitWindowsForRoom('living', [wide(4200)], 'Living', [], null,
+            [junction(1400), junction(2800)], { x: 700, y: 2000 });
+        expect(ws.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('every habitable perimeter room on a crowded frontage keeps ≥1 window', () => {
+        for (const t of ['living', 'kitchen', 'dining', 'master', 'bedroom', 'study'] as const) {
+            // A wall with a door eating much of the middle but a real side gap remaining.
+            const ws = emitWindowsForRoom(t, [wide(4500)], `${t}`, [door(900, 1800)]);
+            expect(ws.length, `${t} habitable perimeter room must keep a window`).toBeGreaterThanOrEqual(1);
+        }
+    });
+
+    it('a genuinely interior living room (no external wall) still emits nothing', () => {
+        expect(emitWindowsForRoom('living', [])).toHaveLength(0);
+    });
+});
+
+// ── #8 — WINDOW SIZE BY ROOM TYPE (founder full-house, 2026-06-12) ─────────────
+//
+// "Bedrooms should have LARGE windows, as well as kitchen, living and dining; SMALL
+// windows only for corridors, hall and bathrooms/ensuite." The WINDOW_SIZE_CLASS table
+// is the single source of truth; these pin the LARGE/SMALL contract + that the engine
+// realises it on a generous wall.
+describe('#8 — window size by room type (large habitable / small wet)', () => {
+    const wide = (lenMm: number, wallIndex = 0): ExternalWallSegment =>
+        ({ start: { x: 0, y: 0 }, end: { x: lenMm, y: 0 }, wallIndex });
+
+    it('size class table: living/dining/kitchen/master/bedroom/study = large; wet rooms = small', () => {
+        for (const t of ['living', 'dining', 'kitchen', 'master', 'bedroom', 'study'] as const) {
+            expect(WINDOW_SIZE_CLASS[t], `${t} should be LARGE`).toBe('large');
+        }
+        for (const t of ['bathroom', 'ensuite', 'wc'] as const) {
+            expect(WINDOW_SIZE_CLASS[t], `${t} should be SMALL`).toBe('small');
+        }
+    });
+
+    it('every LARGE spec is ≥ LARGE_MIN_WIDTH_MM; every SMALL spec ≤ SMALL_MAX_WIDTH_MM', () => {
+        for (const [t, cls] of Object.entries(WINDOW_SIZE_CLASS)) {
+            const spec = WINDOW_SPECS[t as WindowableRoomType];
+            if (cls === 'large') {
+                expect(spec.widthMm, `${t} large width ≥ ${LARGE_MIN_WIDTH_MM}`).toBeGreaterThanOrEqual(LARGE_MIN_WIDTH_MM);
+                expect(spec.minWidthMm, `${t} large min ≥ 1000`).toBeGreaterThanOrEqual(1000);
+            } else {
+                expect(spec.widthMm, `${t} small width ≤ ${SMALL_MAX_WIDTH_MM}`).toBeLessThanOrEqual(SMALL_MAX_WIDTH_MM);
+            }
+        }
+    });
+
+    it('living/dining/kitchen are the daylight showpieces — strictly wider than the wet rooms', () => {
+        const wet = Math.max(WINDOW_SPECS.bathroom.widthMm, WINDOW_SPECS.ensuite.widthMm, WINDOW_SPECS.wc.widthMm);
+        for (const t of ['living', 'dining', 'kitchen'] as const) {
+            expect(WINDOW_SPECS[t].widthMm, `${t} wider than any wet room`).toBeGreaterThan(wet);
+        }
+    });
+
+    it('emits a LARGE window for bedroom/kitchen and a SMALL one for bathroom on a generous wall', () => {
+        const bedroom = emitWindowsForRoom('bedroom', [wide(5000)])[0]!;
+        const kitchen = emitWindowsForRoom('kitchen', [wide(5000)])[0]!;
+        const bath    = emitWindowsForRoom('bathroom', [wide(5000)])[0]!;
+        expect(bedroom.widthMm).toBeGreaterThanOrEqual(LARGE_MIN_WIDTH_MM);
+        expect(kitchen.widthMm).toBeGreaterThanOrEqual(LARGE_MIN_WIDTH_MM);
+        expect(bath.widthMm).toBeLessThanOrEqual(SMALL_MAX_WIDTH_MM);
+        expect(bath.sillMm).toBeGreaterThan(1300);   // small + privacy-silled
+        // the large rooms are genuinely larger in glazed area than the wet room.
+        expect(bedroom.widthMm).toBeGreaterThan(bath.widthMm);
+        expect(kitchen.widthMm).toBeGreaterThan(bath.widthMm);
     });
 });
 

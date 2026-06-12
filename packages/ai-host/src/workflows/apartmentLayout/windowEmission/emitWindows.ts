@@ -51,6 +51,43 @@ import {
     type WindowPlacement,
     type WindowableRoomType,
 } from './types.js';
+
+// ── §WINDOW-IN-BOUNDS-POSTCOND (#4, founder full-house 2026-06-12) ─────────────
+//
+// The founder's recurring defect: "a window STILL goes out through a perimeter wall".
+// Every placement path in this engine ALREADY confines a window to its room band
+// (⊆ the host wall) and to [setback, wallLen−width−setback] within that band, and the
+// shell-match resolver (shellWallMatch.ts §WINDOW-IN-SHELL-FINAL) re-asserts it on the
+// dispatch side. This is the PRODUCER-side HARD post-condition that makes the guarantee
+// total + self-checking: BEFORE returning, every emitted window is re-validated against
+// its OWN host ExternalWallSegment's length, and any window that — through any future
+// code path / arithmetic drift — would sit outside [setback, wallLen−setback] is
+// CLAMPED back in-bounds (offset pulled into range; width shrunk to fit when the span
+// itself overruns) or DROPPED when even a minimal opening can't fit. A violation also
+// logs a ⚠ line so a regression surfaces in the prod log rather than rendering past the
+// shell. Pure + deterministic; a window already in-bounds is byte-identical.
+const POSTCOND_EPS_MM = 1e-3;
+
+/** Clamp one placement so its span [offset, offset+width] lies within the host wall —
+ *  the HARD #4 guarantee: a window may NEVER exceed [0, wallLen]. This is a pure SAFETY
+ *  BACKSTOP: it does NOT re-impose the corner setback (the placer already honours that as
+ *  far as affordable, and re-clamping toward the pier could push a window onto a door /
+ *  junction it was placed clear of). It corrects ONLY a span that genuinely overruns a
+ *  wall end — shrinking an over-wide width to fit, then pulling the offset into
+ *  [0, wallLen − width]. An already in-bounds window is returned UNCHANGED (byte-identical).
+ *  A wall too short for even a MIN_WINDOW_MM opening → null (drop). Pure + deterministic. */
+function clampPlacementInBounds(p: WindowPlacement, wallLenMm: number): WindowPlacement | null {
+    if (!Number.isFinite(wallLenMm) || wallLenMm <= 0) return null;
+    if (wallLenMm < MIN_WINDOW_MM - POSTCOND_EPS_MM) return null;    // can't host even a minimal opening
+    // Shrink an over-wide span to fit the wall (never below MIN_WINDOW_MM — already gated above).
+    const widthMm = Math.max(MIN_WINDOW_MM, Math.min(p.widthMm, wallLenMm));
+    // Pull the offset into the hard in-bounds range [0, wallLen − width].
+    const offsetMm = Math.min(Math.max(p.offsetMm, 0), wallLenMm - widthMm);
+    if (Math.abs(offsetMm - p.offsetMm) < POSTCOND_EPS_MM && Math.abs(widthMm - p.widthMm) < POSTCOND_EPS_MM) {
+        return p;   // already in-bounds — byte-identical
+    }
+    return { ...p, offsetMm, widthMm };
+}
 import { solarLengthMultiplier, climateGlazingFactor, orientationFit, outwardNormal, type SolarBias } from './solarOrientation.js';
 
 const segLenMm = (s: ExternalWallSegment): number => {
@@ -745,6 +782,58 @@ export function emitWindowsForRoom(
             .map(w => ({ w, lenMm: segLenMm(w) }))
             .filter(x => x.lenMm - 2 * endSetbackMm(x.lenMm) >= MIN_WINDOW_MM)
             .sort((a, b) => score(b.w) - score(a.w) || a.w.wallIndex - b.w.wallIndex);
+        // §WINDOW-EVERY-FRONTAGE-HARDEN (#6, founder full-house 2026-06-12) — the founder's
+        // HIGHEST-priority defect: "the living room got no window … the daylight of the living
+        // room is really important." The old safety net tried each wall ONCE, with a single
+        // width and the room-portion band; if a door/junction crowded that one slot — or the
+        // room's junction-split portion was too short for the chosen width — it gave up on the
+        // wall, so a perimeter living room could still ship windowless. The hardened net is
+        // exhaustive while STILL honouring doors + partition junctions (a window is never
+        // carved over a door): for EVERY hostable external wall it tries, in order,
+        //   (1) the room-portion band with progressively SMALLER widths down to MIN_WINDOW_MM;
+        //   (2) the WHOLE wall (not just the room portion) with the same width ladder — so a
+        //       room whose own junction-split portion is too short still earns a window
+        //       elsewhere on its real frontage.
+        // It adds at most ONE window, never touches a room that already has one, and the
+        // §WINDOW-IN-BOUNDS-POSTCOND below guarantees whatever lands is in-bounds. A wall
+        // GENUINELY blocked door-to-door still yields nothing (the door-avoidance contract).
+        const widthLadder = (usable: number): number[] => {
+            const top = Math.max(MIN_WINDOW_MM, Math.min(spec.minWidthMm, usable));
+            const out2: number[] = [];
+            for (const w of [top, Math.min(top, 800), MIN_WINDOW_MM]) {
+                if (w >= MIN_WINDOW_MM && !out2.includes(w)) out2.push(w);
+            }
+            return out2;
+        };
+        const tryPlaceOnBand = (
+            cand: { w: ExternalWallSegment; lenMm: number },
+            band: { lo: number; hi: number },
+            blockedSpans: readonly BlockedSpan[],
+        ): boolean => {
+            const bandLenMm = band.hi - band.lo;
+            const usableBand = bandLenMm - 2 * endSetbackMm(bandLenMm);
+            for (const widthMm of widthLadder(usableBand)) {
+                const off = clearOffsetMm(bandLenMm, widthMm, blockedSpans);
+                if (off === null) continue;
+                out.push({
+                    wallIndex: cand.w.wallIndex,
+                    offsetMm:  off + band.lo,
+                    widthMm,
+                    heightMm:  spec.heightMm,
+                    sillMm:    spec.sillMm,
+                    roomType:  roomType as WindowableRoomType,
+                    ...(roomName ? { name: `${roomName} Window` } : {}),
+                });
+                console.log(
+                    `[D-TGL] §WINDOW-EVERY-FRONTAGE ${winTag}: safety-net window on wall#${cand.w.wallIndex} ` +
+                    `(len=${Math.round(cand.lenMm)}mm) width=${Math.round(widthMm)}mm band=` +
+                    `[${Math.round(band.lo)},${Math.round(band.hi)}] — room had real frontage but every ` +
+                    `spec-width candidate was crowded out; one minimal window retained.`,
+                );
+                return true;
+            }
+            return false;
+        };
         for (const cand of netCandidates) {
             if (out.length >= 1) break;
             const wallLenMm = cand.lenMm;
@@ -753,31 +842,67 @@ export function emitWindowsForRoom(
             const centroidPt = roomCentroidMm ?? solar?.roomCentroidMm ?? null;
             const centroidAlong = centroidPt ? projectAlongWall(cand.w, centroidPt) : undefined;
             const band = roomWindowBand(wallLenMm, junctionSpans, centroidAlong);
-            const bandLenMm = band.hi - band.lo;
-            const blocked = [...doorSpans, ...junctionSpans]
+            const bandLocal = [...doorSpans, ...junctionSpans]
                 .map(b => ({ lo: b.lo - band.lo, hi: b.hi - band.lo }))
-                .filter(b => b.hi > 1e-6 && b.lo < bandLenMm - 1e-6)
+                .filter(b => b.hi > 1e-6 && b.lo < (band.hi - band.lo) - 1e-6)
                 .sort((a, b) => a.lo - b.lo);
-            const usableBand = bandLenMm - 2 * endSetbackMm(bandLenMm);
-            const widthMm = Math.max(MIN_WINDOW_MM, Math.min(spec.minWidthMm, usableBand));
-            const off = clearOffsetMm(bandLenMm, widthMm, blocked);
-            if (off === null) continue;
-            out.push({
-                wallIndex: cand.w.wallIndex,
-                offsetMm:  off + band.lo,
-                widthMm,
-                heightMm:  spec.heightMm,
-                sillMm:    spec.sillMm,
-                roomType:  roomType as WindowableRoomType,
-                ...(roomName ? { name: `${roomName} Window` } : {}),
-            });
-            console.log(
-                `[D-TGL] §WINDOW-EVERY-FRONTAGE ${winTag}: safety-net window on wall#${cand.w.wallIndex} ` +
-                `(len=${Math.round(wallLenMm)}mm) width=${Math.round(widthMm)}mm — room had real frontage ` +
-                `but every spec-width candidate was crowded out; one minimal window retained.`,
-            );
+            // (1) — the room-portion band, with the width ladder (smaller widths if crowded).
+            if (tryPlaceOnBand(cand, band, bandLocal)) break;
+            // (2) — last resort: the WHOLE wall (corner piers only), still honouring doors +
+            // junctions. A room whose own portion is too short still earns its frontage window.
+            const wholeLocal = [...doorSpans, ...junctionSpans]
+                .filter(b => b.hi > 1e-6 && b.lo < wallLenMm - 1e-6)
+                .sort((a, b) => a.lo - b.lo);
+            if (tryPlaceOnBand(cand, { lo: 0, hi: wallLenMm }, wholeLocal)) break;
         }
     }
+
+    // ── §WINDOW-IN-BOUNDS-POSTCOND (#4) — HARD producer-side post-condition ────────
+    // Re-validate EVERY emitted window against its OWN host wall length before returning.
+    // Any window whose span [offset, offset+width] exceeds [setback, wallLen−setback] is
+    // clamped back in-bounds (offset pulled in; width shrunk to fit) or dropped when even
+    // a minimal opening can't fit between the corner piers. A violation logs ⚠ so a
+    // regression surfaces. A window already in-bounds (the normal case) is byte-identical.
+    const wallLenByIndex = new Map<number, number>();
+    for (const w of externalWalls) wallLenByIndex.set(w.wallIndex, segLenMm(w));
+    const bounded: WindowPlacement[] = [];
+    for (const p of out) {
+        const wallLenMm = wallLenByIndex.get(p.wallIndex);
+        if (wallLenMm === undefined) {
+            // No host wall found for this index — should never happen (the engine only
+            // emits onto candidate walls). Drop defensively rather than emit unverifiable.
+            console.log(
+                `[D-TGL] §WINDOW-IN-BOUNDS-POSTCOND ${winTag}: ⚠ window on wall#${p.wallIndex} ` +
+                `has NO matching external wall — dropped (unverifiable host length).`,
+            );
+            continue;
+        }
+        // The HARD violation is a span that exceeds the WALL itself ([0, wallLen]); the
+        // corner pier is a soft target the placer already honours when affordable, so we
+        // don't flag a legitimately-centred short-wall window as a violation.
+        const overruns = p.offsetMm < -POSTCOND_EPS_MM
+            || p.offsetMm + p.widthMm > wallLenMm + POSTCOND_EPS_MM;
+        const fixed = clampPlacementInBounds(p, wallLenMm);
+        if (!fixed) {
+            console.log(
+                `[D-TGL] §WINDOW-IN-BOUNDS-POSTCOND ${winTag}: ⚠ window on wall#${p.wallIndex} ` +
+                `(off=${Math.round(p.offsetMm)} w=${Math.round(p.widthMm)} wallLen=${Math.round(wallLenMm)}) ` +
+                `cannot fit between corner piers — dropped (never emitted past the shell).`,
+            );
+            continue;
+        }
+        if (overruns) {
+            console.log(
+                `[D-TGL] §WINDOW-IN-BOUNDS-POSTCOND ${winTag}: ⚠ window on wall#${p.wallIndex} was ` +
+                `OUT OF BOUNDS [off=${Math.round(p.offsetMm)} w=${Math.round(p.widthMm)} wallLen=` +
+                `${Math.round(wallLenMm)}] — clamped to [off=${Math.round(fixed.offsetMm)} ` +
+                `w=${Math.round(fixed.widthMm)}] (in-bounds of [0, wallLen]).`,
+            );
+        }
+        bounded.push(fixed);
+    }
+    out.length = 0;
+    for (const p of bounded) out.push(p);
 
     // §DIAG-WIN — room summary: total windows emitted + the wall indices they landed on.
     console.log(
