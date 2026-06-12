@@ -236,16 +236,26 @@ describe('furnishRoom places the bedroom program', () => {
         };
     };
 
-    it('a generous bedroom gets a bed, both bedside tables, a wardrobe and a lamp', () => {
+    it('a generous bedroom gets a bed, bedside provision, a wardrobe and a lamp', () => {
         // Deeper-than-wide so the longest wall (the wardrobe wall) is NOT the bed wall
         // — both bedside tables then flank the bed head without colliding the wardrobe.
         const placed = furnishRoom(bedroom(3.6, 5.2));
         const kinds = placed.map(p => p.kind);
-        // §67.2 (2026-06-11) — bed variety: the bedroom may carry the plain `bed`
-        // OR an integrated variant bed (nordic_bed / solid_wood_bed).
-        const isBed = (k: string): boolean => k === 'bed' || k === 'nordic_bed' || k === 'solid_wood_bed';
+        // §67.2 / §BED-4-TYPES (2026-06-12) — the bedroom carries one of the FOUR
+        // parametric bed types: the plain `bed` (with 2 SEPARATE bedside tables) or
+        // a Japanese variant (japanese_platform/float/walnut — bedside surfaces built
+        // INTO the bed, so NO separate bedside_table). Either way it reads as a
+        // furnished bedroom: bed + wardrobe + lamp (separate bedsides only for `bed`).
+        const JAPANESE = ['japanese_platform_bed', 'japanese_float_bed', 'japanese_walnut_bed'];
+        const isBed = (k: string): boolean => k === 'bed' || JAPANESE.includes(k)
+            || k === 'nordic_bed' || k === 'solid_wood_bed';
         expect(kinds.some(isBed)).toBe(true);
-        expect(kinds.filter(k => k === 'bedside_table').length).toBe(2);
+        const bedKind = placed.find(p => isBed(p.kind))!.kind;
+        if (bedKind === 'bed') {
+            expect(kinds.filter(k => k === 'bedside_table').length).toBe(2);
+        } else {
+            expect(kinds.filter(k => k === 'bedside_table').length).toBe(0);
+        }
         expect(kinds).toContain('wardrobe');
         expect(kinds).toContain('lamp');
     });

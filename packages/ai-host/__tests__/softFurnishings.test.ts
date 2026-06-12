@@ -150,24 +150,24 @@ describe('§67.2 — bed variety + consistency guard', () => {
         expect(onTables.length).toBe(2);
     });
 
-    it('INTEGRATED set: variant bed (no plain bed) + 2 bedside tables + exactly 2 lamps', () => {
+    it('INTEGRATED set: a Japanese variant bed with NO separate bedside tables (built into the bed)', () => {
+        // §BED-4-TYPES (2026-06-12) — the integrated set now uses one of the three
+        // JapaneseBedBuilder picker variants, which build their nightstands/wings
+        // INTO the bed mesh. So the engine DROPS the separate bedside_table pieces
+        // (consistency — never double nightstands).
         const id = roomIdForSet('integrated');
         const placed = furnishRoom(rectRoom('bedroom', 3.6, 5.2, id));
-        // Uses a variant bed, NOT the plain `bed`.
+        const JAPANESE = ['japanese_platform_bed', 'japanese_float_bed', 'japanese_walnut_bed'];
+        // Uses a Japanese variant bed, NOT the plain `bed`.
         expect(placed.some(p => p.kind === 'bed')).toBe(false);
-        expect(placed.some(p => p.kind === integratedBedKind(id))).toBe(true);
-        const tables = placed.filter(p => p.kind === 'bedside_table');
+        expect(placed.some(p => JAPANESE.includes(p.kind))).toBe(true);
+        // No SEPARATE bedside tables — they're built into the variant bed.
+        expect(placed.filter(p => p.kind === 'bedside_table').length).toBe(0);
+        // Lamps: the bedroom archetype's corner floor lamp (1) + up to 2 inline
+        // bedside lamps for platform/walnut (the float bed's lamps are in the mesh).
+        // So a bedroom never carries more than 3 separate lamp pieces.
         const lamps = placed.filter(p => p.kind === 'lamp');
-        expect(tables.length).toBe(2);
-        // CONSISTENCY: exactly one lamp per nightstand — the integrated path owns
-        // its lamps and bedsideLamps.ts is suppressed → never doubled.
-        const onTables = lamps.filter(l =>
-            tables.some(t => Math.abs(t.position.x - l.position.x) < 1e-6
-                          && Math.abs(t.position.z - l.position.z) < 1e-6));
-        expect(onTables.length).toBe(2);
-        // No floor lamp double-count: total lamps == nightstand lamps (the
-        // bedroom corner lamp is separate; assert no MORE than 1 lamp per table).
-        expect(lamps.length).toBeLessThanOrEqual(tables.length + 1);
+        expect(lamps.length).toBeLessThanOrEqual(3);
     });
 });
 

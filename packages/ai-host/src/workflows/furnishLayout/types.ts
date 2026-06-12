@@ -99,7 +99,15 @@ export type FurnitureKind =
     // BedFactory variant bed (these route to JapaneseBedBuilder in the
     // geometry catalogue) instead of the plain `bed`. The choice is per-room
     // deterministic (see bedVariety.ts) so different bedrooms read distinct.
-    | 'nordic_bed' | 'solid_wood_bed';
+    | 'nordic_bed' | 'solid_wood_bed'
+    // §BED-4-TYPES (founder #10, 2026-06-12) — the editor's bed picker exposes
+    // FOUR parametric bed types: the plain `bed` + three JapaneseBedBuilder
+    // variants. The Japanese variants build INTEGRATED bedside surfaces
+    // (platform → nightstand boxes, float → wings + lamps, walnut → wings); the
+    // bedroom archetype rotates between all four by bedroom index so different
+    // bedrooms read distinct, and suppresses the separate bedside_table / lamp
+    // when the variant carries them (consistency — see bedVariety.ts).
+    | 'japanese_platform_bed' | 'japanese_float_bed' | 'japanese_walnut_bed';
 
 /** Editor RoomOccupancyType values this engine furnishes (subset).
  *  F3.5 (2026-05-30): + 'wc' for the cloakroom-toilet archetype (uses the

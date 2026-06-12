@@ -59,13 +59,18 @@ export interface PlacedLight {
     readonly ceilingMounted: boolean;
 }
 
-/** Per-occupancy lighting archetype — minimal MVP: one ceiling fixture per
- *  room sized loosely by area. The list is intentionally ordered: the engine
- *  picks the first ceiling item that fits, so finer-grained area buckets sit
- *  ahead of coarse defaults. Wall-mount items (mount === 'wall') are
- *  evaluated independently — they are emitted IN ADDITION to the ceiling
- *  pick, not as alternatives to it (e.g. a bathroom gets BOTH a downlight
- *  AND a mirror_light). */
+/** Per-occupancy lighting archetype — one ceiling fixture per room sized loosely
+ *  by area, plus optional wall + FLOOR fixtures. The list is intentionally
+ *  ordered: the engine picks the first CEILING item that fits, so finer-grained
+ *  area buckets sit ahead of coarse defaults. Non-ceiling items are evaluated
+ *  independently — they are emitted IN ADDITION to the ceiling pick:
+ *    • mount 'wall'  — a wall-hung fixture at the centroid XZ + wall height
+ *      (e.g. a bathroom mirror_light alongside the downlight).
+ *    • mount 'floor' — §MORE-LIGHTING (founder #11): a floor/standard lamp seated
+ *      in a ROOM CORNER (farthest from the door), at floor level. `count` floor
+ *      lamps are spread across the farthest corners. Living rooms + bedrooms get
+ *      these so a furnished room reads properly lit (ambient ceiling + corner
+ *      task/accent lamps). */
 export interface LightingArchetype {
     readonly occupancy: LightableOccupancy;
     readonly items: ReadonlyArray<{
@@ -73,7 +78,9 @@ export interface LightingArchetype {
         /** Minimum room area (m²) to use this fixture. 0 = always eligible. */
         readonly minAreaM2: number;
         /** Mount strategy — 'ceiling' (default) participates in first-fit;
-         *  'wall' is always emitted when the area threshold is met. */
-        readonly mount?: 'ceiling' | 'wall';
+         *  'wall' / 'floor' are always emitted when the area threshold is met. */
+        readonly mount?: 'ceiling' | 'wall' | 'floor';
+        /** §MORE-LIGHTING (#11) — how many to place (floor lamps). Default 1. */
+        readonly count?: number;
     }>;
 }

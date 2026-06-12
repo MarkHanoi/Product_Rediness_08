@@ -66,15 +66,20 @@ describe('archetypeForLighting', () => {
 });
 
 describe('lightRoom', () => {
-    it('places ONE ceiling fixture at the room centroid', () => {
+    it('places a ceiling fixture (FIRST) at the room centroid', () => {
+        // §MORE-LIGHTING (#11) — a living room also gets corner FLOOR lamps, so the
+        // result is no longer length 1; the CEILING fixture is still the first item
+        // and sits at the centroid.
         const placed = lightRoom(baseInput());
-        expect(placed).toHaveLength(1);
-        expect(placed[0]!.origin.x).toBe(2.5);
-        expect(placed[0]!.origin.z).toBe(2);
+        const ceiling = placed.find(p => p.ceilingMounted)!;
+        expect(ceiling).toBeDefined();
+        expect(ceiling.origin.x).toBe(2.5);
+        expect(ceiling.origin.z).toBe(2);
         // Default ceiling = level elevation (0) + 2.7 m.
-        expect(placed[0]!.origin.y).toBeCloseTo(2.7, 6);
+        expect(ceiling.origin.y).toBeCloseTo(2.7, 6);
+        expect(ceiling.roomId).toBe('r1');
+        // The ceiling fixture is emitted first (first-fit ceiling pick).
         expect(placed[0]!.ceilingMounted).toBe(true);
-        expect(placed[0]!.roomId).toBe('r1');
     });
 
     it('honours explicit ceilingY', () => {
@@ -189,6 +194,61 @@ describe('lightRoom', () => {
         it('corridor < 3 m² falls back to downlight', () => {
             const placed = lightRoom(baseInput({ occupancy: 'corridor', areaM2: 2 }));
             expect(placed[0]!.kind).toBe('downlight');
+        });
+    });
+
+    // §MORE-LIGHTING (founder #11) — floor lamps in living-room + bedroom corners.
+    describe('founder #11 — corner floor lamps (more lighting)', () => {
+        const FLOOR_KINDS = ['floor_arc_brass', 'floor_wood_post', 'floor_tripod_black'];
+
+        it('a living room gets a ceiling fixture PLUS corner floor lamps (at floor level)', () => {
+            const placed = lightRoom(baseInput({ occupancy: 'living-room', areaM2: 20 }));
+            const ceiling = placed.filter(p => p.ceilingMounted);
+            const floors  = placed.filter(p => FLOOR_KINDS.includes(p.kind));
+            expect(ceiling.length).toBe(1);                 // ambient ceiling fixture
+            expect(floors.length).toBeGreaterThanOrEqual(2); // ≥ 2 corner lamps at 20 m²
+            // Floor lamps sit at floor level (levelElevation = 0) and are NOT ceiling.
+            for (const f of floors) {
+                expect(f.ceilingMounted).toBe(false);
+                expect(f.origin.y).toBeCloseTo(0, 6);
+            }
+        });
+
+        it('the two living-room floor lamps land in DIFFERENT corners', () => {
+            const placed = lightRoom(baseInput({ occupancy: 'living-room', areaM2: 20 }));
+            const floors = placed.filter(p => FLOOR_KINDS.includes(p.kind));
+            expect(floors.length).toBe(2);
+            const apart = Math.hypot(
+                floors[0]!.origin.x - floors[1]!.origin.x,
+                floors[0]!.origin.z - floors[1]!.origin.z,
+            );
+            expect(apart).toBeGreaterThan(1.0);            // distinct corners, not stacked
+        });
+
+        it('a bedroom gets a corner floor lamp in addition to the ceiling fixture', () => {
+            const placed = lightRoom(baseInput({ occupancy: 'bedroom', areaM2: 14 }));
+            const floors = placed.filter(p => FLOOR_KINDS.includes(p.kind));
+            expect(floors.length).toBeGreaterThanOrEqual(1);
+            expect(placed.some(p => p.ceilingMounted)).toBe(true);
+        });
+
+        it('a tiny living room (below the floor-lamp threshold) gets NO floor lamp', () => {
+            const placed = lightRoom(baseInput({ occupancy: 'living-room', areaM2: 8 }));
+            expect(placed.filter(p => FLOOR_KINDS.includes(p.kind)).length).toBe(0);
+        });
+
+        it('service rooms (kitchen / bathroom / corridor) get NO floor lamps', () => {
+            for (const occ of ['kitchen', 'bathroom', 'corridor', 'utility-room']) {
+                const placed = lightRoom(baseInput({ occupancy: occ, areaM2: 18 }));
+                expect(placed.filter(p => FLOOR_KINDS.includes(p.kind)).length,
+                    `${occ} should get no floor lamp`).toBe(0);
+            }
+        });
+
+        it('floor-lamp placement is deterministic (ADR-0061)', () => {
+            const a = lightRoom(baseInput({ occupancy: 'living-room', areaM2: 20 }));
+            const b = lightRoom(baseInput({ occupancy: 'living-room', areaM2: 20 }));
+            expect(JSON.stringify(a)).toEqual(JSON.stringify(b));
         });
     });
 });

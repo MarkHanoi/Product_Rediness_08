@@ -187,6 +187,14 @@ const FP: Readonly<Record<FurnitureKind, Footprint>> = {
     // plain `bed` footprint above stays the rules-DB-pinned 1.35 × 1.90.
     nordic_bed:       { w: 1.80, l: 2.20, h: 0.50, baseOffset: 0, clearFront: 0.80, clearSides: 0.60 },
     solid_wood_bed:   { w: 1.75, l: 2.20, h: 0.55, baseOffset: 0, clearFront: 0.80, clearSides: 0.60 },
+    // §BED-4-TYPES (2026-06-12) — the three JapaneseBedBuilder variants in the
+    // editor's bed picker. Sized to the BedFactory presets (platform 2.00 × 2.20,
+    // float 2.00 × 2.30, walnut 1.80 × 2.00). These variants build their bedside
+    // surfaces INTO the bed mesh, so the footprint's `w` includes the wing/
+    // nightstand spread; clearances mirror the plain bed (0.80 foot, 0.60 sides).
+    japanese_platform_bed: { w: 2.00, l: 2.20, h: 0.45, baseOffset: 0, clearFront: 0.80, clearSides: 0.60 },
+    japanese_float_bed:    { w: 2.00, l: 2.30, h: 0.45, baseOffset: 0, clearFront: 0.80, clearSides: 0.60 },
+    japanese_walnut_bed:   { w: 1.80, l: 2.00, h: 0.50, baseOffset: 0, clearFront: 0.80, clearSides: 0.60 },
 };
 
 /** Footprint for a furniture kind (always defined for supported kinds). */

@@ -164,6 +164,9 @@ const UPHOLSTERED = new Set<string>([
     // §67.2 / §67.3 (2026-06-11) — the L-shape corner sofa + the integrated bed
     // variants read the upholstery palette (fabric), like the straight sofa/bed.
     'corner_sofa', 'nordic_bed', 'solid_wood_bed',
+    // §BED-4-TYPES (2026-06-12) — the three JapaneseBedBuilder picker variants
+    // read the upholstery palette too (the mattress/textile reads fabric).
+    'japanese_platform_bed', 'japanese_float_bed', 'japanese_walnut_bed',
 ]);
 
 // §67.1 (2026-06-11) — soft furnishings (rugs). Read the 'soft' palette slot →

@@ -151,10 +151,12 @@ describe('A.21.D4 — style → furniture finish', () => {
         const items = furnishRoom(rectRoom('bedroom', 4, 3));
         const modern = buildFurnishCommands(items, 'L0', 0, mk(), 'modern');
         const classic = buildFurnishCommands(items, 'L0', 0, mk(), 'classic');
-        // §67.2 (2026-06-11) — the bedroom may carry the plain `bed` OR an
-        // integrated variant bed (nordic_bed / solid_wood_bed). Match whichever.
+        // §67.2 / §BED-4-TYPES (2026-06-12) — the bedroom may carry the plain `bed`
+        // OR a parametric variant bed (the 3 Japanese picker types, or the legacy
+        // nordic/solid_wood). Match whichever the per-room type rotation chose.
         const isBed = (ft: unknown): boolean =>
-            ft === 'bed' || ft === 'nordic_bed' || ft === 'solid_wood_bed';
+            ft === 'bed' || ft === 'nordic_bed' || ft === 'solid_wood_bed'
+            || ft === 'japanese_platform_bed' || ft === 'japanese_float_bed' || ft === 'japanese_walnut_bed';
         const bedM = modern.commands.find((c) => isBed(payload(c).furnitureType));
         const bedC = classic.commands.find((c) => isBed(payload(c).furnitureType));
         expect(bedM).toBeDefined();

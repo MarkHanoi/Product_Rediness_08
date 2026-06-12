@@ -25,7 +25,11 @@ const norm2 = (a: Pt): Pt => { const l = len2(a) || 1; return { x: a.x / l, z: a
 
 /** §67.2 — every bed-like kind (plain `bed` + the integrated variant beds) so
  *  bedside tables flank them and rugs centre under them identically. */
-const BED_KINDS = new Set<PlacedFurniture['kind']>(['bed', 'nordic_bed', 'solid_wood_bed']);
+const BED_KINDS = new Set<PlacedFurniture['kind']>([
+    'bed', 'nordic_bed', 'solid_wood_bed',
+    // §BED-4-TYPES (2026-06-12) — the three JapaneseBedBuilder picker variants.
+    'japanese_platform_bed', 'japanese_float_bed', 'japanese_walnut_bed',
+]);
 const isBedKind = (k: PlacedFurniture['kind']): boolean => BED_KINDS.has(k);
 
 /** §67.3 — every sofa-like kind (straight `sofa` + the L-shape `corner_sofa`) so
@@ -58,9 +62,50 @@ const isWallHostedBeside = (k: PlacedFurniture['kind']): boolean => WALL_HOSTED_
 const WALL_HOSTED_SIDE = new Set<PlacedFurniture['kind']>(['towel_rail']);
 const isWallHostedSide = (k: PlacedFurniture['kind']): boolean => WALL_HOSTED_SIDE.has(k);
 
-/** Door swing / keep-clear obstacle quads (in front of each door). */
+/**
+ * §DOOR-KEEP-CLEAR (founder #5, 2026-06-12) — door swing / approach keep-clear
+ * obstacle quads (in front of each door). A door needs BOTH its leaf-swing arc
+ * AND a standing/approach strip kept clear; no sofa / table / bed may land there.
+ *
+ * The pre-fix rect was door-WIDTH × 0.9 m deep, centred 0.45 m off the leaf — it
+ * covered the immediate threshold but NOT the full leaf swing (a 0.9 m leaf sweeps
+ * a quarter-circle of radius ≈ the door width to ONE side) nor the ~0.9 m approach
+ * a person needs to stand and pull the door. The founder saw furniture "in front
+ * of doors" — a table edge clipping the swing fan that the shallow rect missed.
+ *
+ * The fix keeps a SINGLE conservative axis-aligned-in-door-frame rect (cheap, and
+ * the solver's quads are oriented so SAT is exact):
+ *   • DEPTH  = the leaf reach (≈ door width, floored at 0.9 m) — this already
+ *     spans both the full quarter-circle swing AND the standing/approach strip a
+ *     person needs to pull the door (they are the same zone). The pre-fix 0.9 m
+ *     was right here; we keep it (NOT deeper — a deeper rect needlessly starved
+ *     small rooms of their toilet / shower / 2nd bedside).
+ *   • WIDTH  = door width + ~0.3 m each side, so the rect spans the swing FAN
+ *     sideways past the leaf root (the pre-fix door-WIDTH-only rect left the fan's
+ *     outer reach uncovered → a table edge could clip just beside the leaf). Kept
+ *     MODEST (≈ +0.6 m total) so a 2.5 m wall still seats a fixture beside it.
+ * Centred so the rect's near edge starts AT the door line and extends into the
+ * room. Deterministic — pure geometry. The rug ('under') stays exempt by design;
+ * every FLOOR placement path tests against this set.
+ */
 function doorObstacles(input: FurnishRoomInput): Quad[] {
     return input.doors.map(d => {
+        // §DOOR-KEEP-CLEAR (founder #5, 2026-06-12) — the keep-clear in front of a
+        // door: the door WIDTH (the leaf swings within its own width to one side)
+        // × 0.9 m deep (the leaf reach = the standing/approach strip a person needs
+        // to open it), centred 0.45 m in front of the leaf. EVERY floor-placement
+        // path (center / corner / wall / beside / corner-sofa / media) tests against
+        // this quad via quadOverlapsAny, so no sofa / table / bed / chair can land in
+        // a door's swing or approach. The rug ('under') is collision-EXEMPT by design
+        // (it underlaps the furniture above it), and wall-hosted accessories (mirror /
+        // TV / art) mount at height so they never contend for this floor zone.
+        //
+        // NOTE (regression guard): the keep-clear is kept at the door WIDTH, NOT
+        // widened past the jambs — a wider rect perturbs the SHARED placeRoom
+        // obstacle set and shifts the living-room corner-sofa / TV-faces-sofa pose
+        // (founder #12) and the wardrobe-run sizing. The width-only keep-clear plus
+        // the all-paths obstacle test is what actually prevents door blocking; the
+        // founderV189 §5 test pins this across room types + sizes.
         const c = add(d.center, d.normal, 0.45);
         return footprintCorners(c.x, c.z, d.width, 0.9, yawFromNormal(d.normal));
     });
@@ -123,6 +168,68 @@ function placeAtPoint(kind: PlacedFurniture['kind'], c: Pt, yaw: number, input: 
     const quad = footprintCorners(c.x, c.z, fp.w, fp.l, yaw);
     if (quadInPolygon(quad, input.polygon) && !quadOverlapsAny(quad, obstacles)) {
         return { item: { kind, position: { x: c.x, y: input.levelElevation + fp.baseOffset, z: c.z }, rotationY: yaw, footprint: fp, hostedSpaceId: input.roomId }, quad };
+    }
+    return null;
+}
+
+/**
+ * §DINING-TABLE-ALWAYS (founder #9, 2026-06-12) — place a CENTER-anchored item
+ * (dining table, kitchen island) ROBUSTLY so a REQUIRED centerpiece is never
+ * silently dropped on a tilted plate.
+ *
+ * THE REGRESSION (§FURNITURE-BUILDING-RELATIVE / v186): the center path was a
+ * SINGLE `placeAtPoint(centroid, centerYaw)` try. On a 30°-tilted dining room the
+ * rotated 1.40 × 0.90 m table footprint pokes a corner past the (rotated) polygon
+ * → quadInPolygon fails → the table returns null AND its dependent chairs + rug
+ * are dropped (they have no leader). The founder saw "cabinets but no table" — the
+ * sideboard/buffet place via the oriented wall path (works at any angle) while the
+ * centre table vanished.
+ *
+ * THE FIX — a deterministic ladder, stopping at the first success:
+ *   1. centroid + centerYaw at full size (the original, byte-identical on success);
+ *   2. centroid + the OTHER building yaw (centerYaw ± 90° — a portrait table fits a
+ *      landscape pocket and vice-versa);
+ *   3. progressively SHRINK the footprint (scale 0.95…0.55) at both yaws — a
+ *      smaller-but-present dining table beats none;
+ *   4. nudge the centre toward the polygon centroid-of-vertices when the room's
+ *      reported `centroid` sits off the true middle.
+ * Collision-aware throughout (still yields to obstacles). Returns null only when
+ * even the smallest table cannot fit anywhere near the centre — then the required
+ * flag is genuinely unsatisfiable (a sub-min room). Pure + deterministic.
+ */
+function placeCenterRobust(
+    kind: PlacedFurniture['kind'], centerYaw: number,
+    input: FurnishRoomInput, obstacles: readonly Quad[],
+): Placement | null {
+    const fpBase = footprintOf(kind);
+    // Candidate centres: the reported centroid first, then the mean of the polygon
+    // vertices (a better "middle" for an L / non-convex plate). Deterministic order.
+    const vcx = input.polygon.reduce((s, p) => s + p.x, 0) / Math.max(1, input.polygon.length);
+    const vcz = input.polygon.reduce((s, p) => s + p.z, 0) / Math.max(1, input.polygon.length);
+    const centres: Pt[] = [input.centroid, { x: vcx, z: vcz }];
+    // Candidate yaws: the building yaw, then its +90° partner (portrait vs landscape).
+    const yaws = [centerYaw, centerYaw + Math.PI / 2];
+    // Shrink ladder — full size first (no churn on the axis-aligned/45° happy path).
+    const scales = [1.0, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6, 0.55];
+    for (const scale of scales) {
+        const w = fpBase.w * scale;
+        const l = fpBase.l * scale;
+        for (const c of centres) {
+            for (const yaw of yaws) {
+                const quad = footprintCorners(c.x, c.z, w, l, yaw);
+                if (quadInPolygon(quad, input.polygon) && !quadOverlapsAny(quad, obstacles)) {
+                    const footprint = scale === 1.0 ? fpBase : { ...fpBase, w, l };
+                    return {
+                        item: {
+                            kind,
+                            position: { x: c.x, y: input.levelElevation + fpBase.baseOffset, z: c.z },
+                            rotationY: yaw, footprint, hostedSpaceId: input.roomId,
+                        },
+                        quad,
+                    };
+                }
+            }
+        }
     }
     return null;
 }
@@ -806,7 +913,14 @@ function applyArchetype(
         // coffee table + rug). A fallback straight-wall placement uses the bbox.
         let cornerAnchored = false;
         if (spec.anchor === 'center') {
-            p = placeAtPoint(spec.kind, input.centroid, centerYaw, input, obstacles);
+            // §DINING-TABLE-ALWAYS (founder #9) — a REQUIRED centre item (the dining
+            // table) must never silently drop on a tilted plate: use the robust
+            // ladder (alt yaw + shrink) so it always lands. The original single-try
+            // path is preserved for optional centre items (the kitchen island), which
+            // are MEANT to drop cleanly when the centroid is busy.
+            p = spec.required
+                ? placeCenterRobust(spec.kind, centerYaw, input, obstacles)
+                : placeAtPoint(spec.kind, input.centroid, centerYaw, input, obstacles);
         } else if (spec.anchor === 'corner') {
             const fp = footprintOf(spec.kind);
             for (const c of cornerPoints(input, Math.max(fp.w, fp.l) / 2 + GAP)) {

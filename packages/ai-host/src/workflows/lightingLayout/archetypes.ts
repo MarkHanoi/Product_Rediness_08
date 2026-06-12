@@ -19,10 +19,15 @@ const A = (occupancy: LightableOccupancy, items: LightingArchetype['items']): Li
 
 export const LIGHTING_ARCHETYPES: Readonly<Record<LightableOccupancy, LightingArchetype>> = {
     // Large social spaces — pendant for character, downlight for compact ones.
+    // §MORE-LIGHTING (#11) — + a pair of FLOOR lamps in the corners (an arc lamp
+    // + a wood-post standard lamp) so the lounge reads warmly lit beyond the
+    // single ceiling fixture. Spread across the two corners farthest from the door.
     'living-room':    A('living-room', [
         { kind: 'pendant_ceramic_bell', minAreaM2: 25 },
         { kind: 'pendant',              minAreaM2: 12 },
         { kind: 'downlight',            minAreaM2: 0 },
+        { kind: 'floor_arc_brass',      minAreaM2: 12, mount: 'floor' },
+        { kind: 'floor_wood_post',      minAreaM2: 18, mount: 'floor' },
     ]),
     // F1.15 (2026-05-30) — dining rooms ≥ 10 m² get a pendant_cluster
     // centerpiece (typically above the dining table); smaller rooms drop
@@ -43,10 +48,14 @@ export const LIGHTING_ARCHETYPES: Readonly<Record<LightableOccupancy, LightingAr
     ]),
 
     // Private / bedroom — softer pendant.
+    // §MORE-LIGHTING (#11) — + a corner floor lamp (a reading standard lamp in the
+    // far corner) so the bedroom has ambient + accent light beyond the ceiling
+    // fixture (the bedside reading lamps are placed by the FURNITURE engine).
     'bedroom':        A('bedroom', [
         { kind: 'pendant_conical',      minAreaM2: 14 },
         { kind: 'pendant',              minAreaM2: 9 },
         { kind: 'downlight',            minAreaM2: 0 },
+        { kind: 'floor_tripod_black',   minAreaM2: 10, mount: 'floor' },
     ]),
 
     // Service rooms — utilitarian downlight only.
