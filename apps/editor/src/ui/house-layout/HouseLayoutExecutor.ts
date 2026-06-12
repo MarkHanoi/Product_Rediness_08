@@ -2391,22 +2391,40 @@ export class HouseLayoutExecutor {
                         // builds run synchronously rather than being re-queued by isBatching.
                         setTimeout(() => {
                             try {
-                                // §A.21.D40 #3 — rebuild ONLY the host-wall BODIES (the new
-                                // opening holes), reusing each wall's already-resolved miter
-                                // cache, WITHOUT the whole-level resolveLevel re-trim. The
-                                // old `rebuildWalls` (no prevState → whole-level) re-resolved
-                                // the GROUND level after the partitions were welded ONTO the
-                                // pre-drawn shell, and that zoom-dependent re-resolve treated
-                                // partition↔shell contacts as fresh corner joins → it RE-TRIMMED
-                                // (moved) the shell baselines: the "ground walls go off at the
-                                // end" the founder hit. Opening creation never moves a baseline,
-                                // so a body-only rebuild shows the holes while leaving the welded
-                                // ground shell EXACTLY put. Falls back to whole-level when the
-                                // helper isn't present (older runtime).
+                                // §OPENING-VOID-WHOLE-LEVEL (founder #5/#11, 2026-06-12) — the
+                                // post-openings repair now takes the WHOLE-LEVEL resolveLevel
+                                // path (`rebuildWalls`), the SAME path the apartment generator's
+                                // interior openings take, where the void IS reliably cut.
+                                //
+                                // WHY the switch from §A.21.D40 `rebuildWallBodies` (body-only):
+                                // the body-only repair reused each wall's cached miter + SKIPPED
+                                // resolveLevel to keep the welded ground shell from re-trimming
+                                // ("ground walls go off"). But it FAILED to cut the opening voids
+                                // on the ground floor — the founder, repeatedly: "the openings on
+                                // the ground floor for doors and windows did not appear" + "make
+                                // sure interior-wall doors have openings". A wall whose body-only
+                                // rebuild rendered solid (cached-invalid join, or a builder cache
+                                // hit) shipped the door/window leaf against an UNCUT wall. The
+                                // whole-level path rebuilds each wall from a fresh resolveLevel +
+                                // buildWall → the segmented void body is always carved, AND every
+                                // corner is re-mitred with the COMPLETE wall set (also addresses
+                                // #10 "perimeter joins not actioned again after openings").
+                                //
+                                // The "ground walls go off" risk (a re-resolve moving the shell)
+                                // is now acceptable + monitored: (a) v180 made resolveLevel
+                                // hang-safe (degenerate stubs flagged, not spun on); (b) the
+                                // generated shell is axis-clean (auto-drawn rectangle/footprint),
+                                // so its corners are exact → _applyCorner is a no-op on the shell
+                                // endpoints; (c) the §DIAG-PERIM-CORNER probe (v181) logs any
+                                // residual corner gap on the next build, so a genuine drift is
+                                // caught with data rather than silently traded for uncut voids.
+                                // If drift recurs, the fix is the resolver's mid-span-T-vs-corner
+                                // classification (a partition T-join must never re-trim the shell),
+                                // NOT reverting to a path that ships uncut openings.
                                 const ctl = window.__wallRebuildControl;
-                                if (ctl?.rebuildWallBodies) ctl.rebuildWallBodies(openingWallIds);
-                                else ctl?.rebuildWalls?.(openingWallIds);
-                            } catch (e) { console.warn('[house-layout] §A.21.D40 rebuildWallBodies failed (non-fatal):', e); }
+                                if (ctl?.rebuildWalls) ctl.rebuildWalls(openingWallIds);
+                                else ctl?.rebuildWallBodies?.(openingWallIds);
+                            } catch (e) { console.warn('[house-layout] §OPENING-VOID-WHOLE-LEVEL rebuildWalls failed (non-fatal):', e); }
                         }, 250);
                     }
                 } finally {
