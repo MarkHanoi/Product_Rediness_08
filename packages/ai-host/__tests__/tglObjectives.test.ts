@@ -3,7 +3,7 @@
 // known-bad one on the targeted axis.
 
 import { describe, expect, it } from 'vitest';
-import { computeObjectives, OBJECTIVE_AXES, scoreFacadeAlignment } from '../src/workflows/apartmentLayout/tgl/objectives.js';
+import { computeObjectives, OBJECTIVE_AXES, scoreFacadeAlignment, measureCorridorInterior, measureCorridorAccess } from '../src/workflows/apartmentLayout/tgl/objectives.js';
 import { buildSemanticGraph, type GraphEdge, type GraphNode, type LayoutGraph, type Primitive } from '../src/workflows/apartmentLayout/tgl/semanticGraph.js';
 import { computeSpaceSyntax, type SyntaxMetrics } from '../src/workflows/apartmentLayout/tgl/spaceSyntax.js';
 import { buildWallsAndDoors } from '../src/workflows/apartmentLayout/tgl/wallsAndDoors.js';
@@ -988,6 +988,133 @@ describe('computeObjectives (TGL P7)', () => {
 
         it('appears in OBJECTIVE_AXES so Pareto + weighted sums see it', () => {
             expect(OBJECTIVE_AXES).toContain('facadeAlignment');
+        });
+    });
+
+    // §A.21.D5 (2026-06-12, founder D5.b) — the two corridor-quality axes. A corridor
+    // has no window requirement, so it should sit INTERIOR (off the façade) and every
+    // private room should door DIRECTLY onto it (not be served through another room).
+    describe('§A.21.D5 corridorInterior + corridorAccess', () => {
+        // Helper: external wall with a baseLine of the given length on X.
+        const extWall = (guid: string, x0: number, x1: number, z = 0, external = true): GraphNode => ({
+            guid, kind: 'Wall', sourceId: guid,
+            attrs: { isExternal: external },
+            geometry: { baseLine: [{ x: x0, z }, { x: x1, z }] },
+            psets: {},
+        });
+
+        it('both axes appear in OBJECTIVE_AXES so Pareto + weighted sums see them', () => {
+            expect(OBJECTIVE_AXES).toContain('corridorInterior');
+            expect(OBJECTIVE_AXES).toContain('corridorAccess');
+        });
+
+        it('neutral 1.0 (rank-invisible) when there is no corridor / hall', () => {
+            const g = graphOf([
+                space('L', { spaceType: 'living', netAreaM2: 25, isPrivate: false, needsWindow: true }),
+                space('B', { spaceType: 'bedroom', netAreaM2: 15, isPrivate: true, needsWindow: true }),
+            ]);
+            const v = computeObjectives(g, metricsOf({ L: 0, B: 1 }), emptyBubble);
+            expect(v.corridorInterior).toBe(1);
+            expect(v.corridorAccess).toBe(1);
+        });
+
+        // ── corridorInterior: the founder repro. The OLD scorer was indifferent to
+        //    WHERE the corridor sat; this axis prefers the interior-corridor candidate.
+        it('REPRO: interior corridor outscores a façade-abutting corridor (corridorInterior)', () => {
+            // FAÇADE candidate: the corridor is bounded by an EXTERNAL shell wall
+            // (it steals exterior frontage from the rooms that need a window).
+            const facade = graphOf([
+                extWall('Wext', 0, 6, 0, true),                // shell wall, 6 m
+                space('C', { spaceType: 'corridor', netAreaM2: 6, isPrivate: false, needsWindow: false }),
+            ], [{ kind: 'BOUNDS', from: 'Wext', to: 'C' }]);
+            // INTERIOR candidate: the corridor is bounded only by an INTERNAL wall
+            // (it sits inside, leaving the façade for the habitable rooms).
+            const interior = graphOf([
+                extWall('Wint', 0, 6, 0, false),               // interior wall, 6 m
+                space('C', { spaceType: 'corridor', netAreaM2: 6, isPrivate: false, needsWindow: false }),
+            ], [{ kind: 'BOUNDS', from: 'Wint', to: 'C' }]);
+            const m = metricsOf({ C: 1 });
+            const fv = computeObjectives(facade, m, emptyBubble);
+            const iv = computeObjectives(interior, m, emptyBubble);
+            expect(iv.corridorInterior).toBeGreaterThan(fv.corridorInterior);
+            expect(fv.corridorInterior).toBe(0);   // every corridor wall on the shell
+            expect(iv.corridorInterior).toBe(1);   // no corridor wall on the shell
+        });
+
+        it('corridorInterior is fractional when the corridor partly abuts the shell', () => {
+            // Corridor bounded by one 6 m external wall + one 6 m interior wall →
+            // half its perimeter is on the shell → score 0.5.
+            const g = graphOf([
+                extWall('Wext', 0, 6, 0, true),
+                extWall('Wint', 0, 6, 3, false),
+                space('C', { spaceType: 'corridor', netAreaM2: 6, isPrivate: false, needsWindow: false }),
+            ], [
+                { kind: 'BOUNDS', from: 'Wext', to: 'C' },
+                { kind: 'BOUNDS', from: 'Wint', to: 'C' },
+            ]);
+            const detail = measureCorridorInterior(g);
+            expect(detail.corridorExtWallLenM).toBeCloseTo(6, 6);
+            expect(detail.corridorWallLenM).toBeCloseTo(12, 6);
+            expect(detail.score).toBeCloseTo(0.5, 6);
+        });
+
+        // ── corridorAccess: direct-corridor-access ranks above served-through.
+        it('REPRO: every-private-room-doors-onto-corridor outscores a served-through layout (corridorAccess)', () => {
+            const nodes = (): GraphNode[] => [
+                space('C', { spaceType: 'corridor', netAreaM2: 6, isPrivate: false, needsWindow: false }),
+                space('B1', { spaceType: 'bedroom', netAreaM2: 14, isPrivate: true, needsWindow: true }),
+                space('B2', { spaceType: 'bedroom', netAreaM2: 12, isPrivate: true, needsWindow: true }),
+            ];
+            // CLEAN: both bedrooms door directly onto the corridor.
+            const clean = graphOf(nodes(), [
+                { kind: 'CONNECTS_THROUGH', from: 'C', to: 'B1', via: 'd1' },
+                { kind: 'CONNECTS_THROUGH', from: 'C', to: 'B2', via: 'd2' },
+            ]);
+            // SERVED-THROUGH: B1 doors onto the corridor; B2 is reached THROUGH B1.
+            const servedThrough = graphOf(nodes(), [
+                { kind: 'CONNECTS_THROUGH', from: 'C', to: 'B1', via: 'd1' },
+                { kind: 'CONNECTS_THROUGH', from: 'B1', to: 'B2', via: 'd2' },
+            ]);
+            const m = metricsOf({ C: 0, B1: 1, B2: 2 });
+            const cv = computeObjectives(clean, m, emptyBubble);
+            const sv = computeObjectives(servedThrough, m, emptyBubble);
+            expect(cv.corridorAccess).toBeGreaterThan(sv.corridorAccess);
+            expect(cv.corridorAccess).toBe(1);     // 2/2 direct
+            expect(sv.corridorAccess).toBe(0.5);   // 1/2 direct (B2 served-through)
+        });
+
+        it('measureCorridorAccess reports the direct vs served-through split', () => {
+            const g = graphOf([
+                space('C', { spaceType: 'corridor', netAreaM2: 6, isPrivate: false, needsWindow: false }),
+                space('B1', { spaceType: 'bedroom', netAreaM2: 14, isPrivate: true, needsWindow: true }),
+                space('Ens', { spaceType: 'ensuite', netAreaM2: 4, isPrivate: true, needsWindow: false }),
+            ], [
+                { kind: 'CONNECTS_THROUGH', from: 'C', to: 'B1', via: 'd1' },
+                { kind: 'CONNECTS_THROUGH', from: 'B1', to: 'Ens', via: 'd2' },   // ensuite via the bedroom
+            ]);
+            const d = measureCorridorAccess(g);
+            expect(d.privateRooms).toBe(2);
+            expect(d.directAccess).toBe(1);
+            expect(d.servedThrough).toBe(1);
+            expect(d.score).toBeCloseTo(0.5, 6);
+        });
+
+        it('every axis stays in [0, 1] on the real pipeline graph (with the two new axes)', () => {
+            const program: ApartmentProgram = {
+                bedrooms: 2, bathrooms: 1, masterEnSuite: true,
+                openPlanKitchenDining: true, livingRoom: true, entranceHall: true,
+            };
+            const poly: Pt[] = [{ x: 0, z: 0 }, { x: 12, z: 0 }, { x: 12, z: 10 }, { x: 0, z: 10 }];
+            const bubble = buildBubbleGraph(program, 120);
+            const placements = subdivide(decomposeToRects(poly), bubble);
+            const { segments, openings } = buildWallsAndDoors(placements, bubble);
+            const lg = buildSemanticGraph(placements, segments, openings, bubble, { levelId: 'L1', seed: 'seed', shellAreaM2: 120 });
+            const entry = lg.nodes.find(n => n.kind === 'Space' && n.sourceId === bubble.entryId)!.guid;
+            const v = computeObjectives(lg, computeSpaceSyntax(lg, entry), bubble);
+            expect(v.corridorInterior).toBeGreaterThanOrEqual(0);
+            expect(v.corridorInterior).toBeLessThanOrEqual(1);
+            expect(v.corridorAccess).toBeGreaterThanOrEqual(0);
+            expect(v.corridorAccess).toBeLessThanOrEqual(1);
         });
     });
 

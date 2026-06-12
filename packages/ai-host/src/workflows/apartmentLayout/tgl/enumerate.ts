@@ -18,7 +18,7 @@ import { buildWallsAndDoors, type BoundarySeg } from './wallsAndDoors.js';
 import { snapRectsAwayFromWindows, type WindowSpan } from './windowAvoidance.js';
 import { buildSemanticGraph, type LayoutGraph } from './semanticGraph.js';
 import { computeSpaceSyntax } from './spaceSyntax.js';
-import { computeObjectives, OBJECTIVE_AXES, type ObjectiveVector } from './objectives.js';
+import { computeObjectives, OBJECTIVE_AXES, measureCorridorInterior, measureCorridorAccess, type ObjectiveVector } from './objectives.js';
 import { priorityMultiplier } from './envDrivers.js';
 import { validateAllRoomShapes, type RoomShape } from '../dimensions/validateRoomShape.js';
 import { validateRoomFit } from '../dimensions/validateRoomFit.js';
@@ -1216,6 +1216,26 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         );
     }
 
+    // §DIAG-CORRIDOR-QUALITY (A.21.D5 / D5.b, founder rule "corridors insufficient +
+    // mis-placed; bias corridors INTERIOR off the façade") — per-candidate circulation-
+    // spine quality: the corridor's perimeter-abutting wall length (target ≈ 0; a
+    // corridor stealing façade frontage from window-needing rooms reads HIGH here), and
+    // the private-room access split (doored DIRECTLY onto the spine vs served THROUGH
+    // another room). Surfaces the two new SOFT axes that bias the ranker toward an
+    // interior corridor with clean direct access. Logging only — no behaviour change.
+    {
+        const ci = measureCorridorInterior(graph);
+        const ca = measureCorridorAccess(graph);
+        console.log(
+            `[D-TGL] §DIAG-CORRIDOR-QUALITY cand ${strategyKey(s)} ` +
+            `perimeterAbut=${ci.corridorExtWallLenM.toFixed(2)}m/${ci.corridorWallLenM.toFixed(2)}m ` +
+            `interior=${ci.score.toFixed(2)} ` +
+            `directAccess=${ca.directAccess}/${ca.privateRooms} servedThrough=${ca.servedThrough} ` +
+            `access=${ca.score.toFixed(2)} ` +
+            `${ci.corridorExtWallLenM <= 1e-6 && ca.servedThrough === 0 ? '✓' : '⚠'}`,
+        );
+    }
+
     // §TOPO-HARD-REJECT (Stage 5) — the founder's HARD topology gate. A candidate
     // is hard-invalid if it breaks ANY architectural rule (windowless habitable room /
     // land-locked room / SEALED-unreachable habitable room / private-room-off-hall /
@@ -1414,6 +1434,21 @@ function weightedSum(o: ObjectiveVector, w: ScoringWeights): number {
         // constant that cancels in ranking, so absent data leaves the order
         // byte-identical (Pareto-equality baseline preserved).
         daylightReach: Math.max(0, w.naturalLight) * 0.5,
+        // §A.21.D5 corridorInterior (2026-06-12, founder D5.b) — keep the corridor
+        // INTERIOR, off the façade. Coupled to the user's `naturalLight` weight
+        // (scaled 0.5): the corridor-on-the-façade defect is a DAYLIGHT problem —
+        // the corridor steals exterior frontage from the rooms that need a window,
+        // so the same slider that asks for daylight should push the corridor
+        // interior. Neutral (1.0) for every candidate when there is no corridor /
+        // no external walls → a constant that cancels in ranking (baseline safe).
+        corridorInterior: Math.max(0, w.naturalLight) * 0.5,
+        // §A.21.D5 corridorAccess (2026-06-12, founder D5.b) — private rooms door
+        // DIRECTLY onto the spine (vs served-through another room). Coupled to the
+        // user's `privacy` weight (scaled 0.5): a served-through bedroom is both a
+        // privacy AND a circulation defect, and rides the same intent as the
+        // `circulation` / `hierarchy` axes. Neutral (1.0) when there is no corridor
+        // / no private rooms → a constant that cancels in ranking (baseline safe).
+        corridorAccess: Math.max(0, w.privacy) * 0.5,
     };
     // §ENV-E1-PRIORITY (E.1) — apply the priority-hierarchy band (spec §1) ON TOP
     // of the per-axis weights above. Axes that serve a higher-priority driver

@@ -304,15 +304,72 @@ export interface ObjectiveVector {
      * baseline regression, Pareto-equality invariant preserved).
      */
     readonly daylightReach: number;
+    /**
+     * §A.21.D5 corridorInterior (2026-06-12, founder D5.b) — corridor INTERIOR-bias
+     * axis. SOFT-scores how little of the CIRCULATION rooms' wall perimeter
+     * (corridor / hall) abuts an EXTERNAL/shell wall. A corridor has no window
+     * requirement, so it should sit INTERIOR and leave the façade for the rooms
+     * that NEED daylight (living / bedroom / kitchen / dining). A candidate that
+     * places the corridor ON the perimeter — stealing exterior frontage from a
+     * window-needing room — scores LOWER here than one that keeps the corridor
+     * interior.
+     *
+     * Algorithm: sum the baseLine length of every external Wall that BOUNDS a
+     * corridor/hall Space (the corridor's perimeter-abutting length); divide by
+     * the TOTAL baseLine length of all walls bounding corridor/hall spaces. The
+     * axis = 1 − (external corridor wall length / total corridor wall length), so
+     * a fully-interior corridor scores 1.0 and a corridor whose every wall is on
+     * the shell scores 0.0. This is a SOFT preference, never a hard reject — a
+     * tiny corridor-touches-shell at the entrance is architecturally fine, it just
+     * scores a hair below a fully-interior alternative.
+     *
+     * GRACEFUL DEGRADATION: returns the NEUTRAL 1.0 when there are NO corridor/hall
+     * spaces, no external walls, or no wall-length data (test fixtures without
+     * geometry) — a constant across candidates is rank-invisible, so layouts
+     * without circulation rooms or wall geometry are byte-identical (no baseline
+     * regression).
+     */
+    readonly corridorInterior: number;
+    /**
+     * §A.21.D5 corridorAccess (2026-06-12, founder D5.b) — corridor connect-all /
+     * served-through axis. SOFT-scores the fraction of PRIVATE rooms (bedroom /
+     * master / bathroom / ensuite / wc / study) that door DIRECTLY onto a
+     * circulation spine (corridor / hall) — as opposed to being "served through"
+     * another habitable room (the classic walk-through-the-bedroom-to-reach-the-
+     * ensuite anti-pattern). The founder rule: "a corridor should connect all
+     * private rooms"; the hard side (every-room-reachable) is already gated by the
+     * v167 reachability + §EVERY-ROOM-ACCESS-COMB pass — this axis adds the SOFT
+     * preference for the CLEANEST topology (most rooms doored directly off the
+     * spine, fewest served-through).
+     *
+     * Algorithm: for each private Space, check whether it has a CONNECTS_THROUGH
+     * (door) edge to ANY corridor/hall Space. The axis = (private rooms with a
+     * direct corridor door) / (private rooms). 1.0 = every private room opens onto
+     * the spine; lower = more rooms reached through another room.
+     *
+     * GRACEFUL DEGRADATION: returns the NEUTRAL 1.0 when there are NO corridor/hall
+     * spaces (a studio / open-plan layout has no spine to connect to) or NO private
+     * rooms — a constant across candidates is rank-invisible, so spine-less or
+     * all-public layouts are byte-identical (no baseline regression).
+     */
+    readonly corridorAccess: number;
 }
 
 export const OBJECTIVE_AXES: readonly (keyof ObjectiveVector)[] =
-    ['efficiency', 'adjacency', 'daylight', 'circulation', 'regularity', 'hierarchy', 'shapeQuality', 'topologyQuality', 'edgeRealisation', 'openingCadence', 'proportionalElegance', 'spatialClimax', 'entrySightline', 'arrivalSequence', 'wetStackAlignment', 'alignmentField', 'facadeAlignment', 'solarOrientation', 'acousticZoning', 'naturalVentilation', 'daylightReach'] as const;
+    ['efficiency', 'adjacency', 'daylight', 'circulation', 'regularity', 'hierarchy', 'shapeQuality', 'topologyQuality', 'edgeRealisation', 'openingCadence', 'proportionalElegance', 'spatialClimax', 'entrySightline', 'arrivalSequence', 'wetStackAlignment', 'alignmentField', 'facadeAlignment', 'solarOrientation', 'acousticZoning', 'naturalVentilation', 'daylightReach', 'corridorInterior', 'corridorAccess'] as const;
 
 const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n);
 /** §A.21.D55 — rooms that CAN take a window (mirrors windowEmission's `isWindowable`
  *  set): the habitable rooms PLUS the wet rooms. Used by the `daylightReach` axis. */
 const WINDOWABLE_TYPES = new Set<string>(['living', 'kitchen', 'dining', 'master', 'bedroom', 'study', 'bathroom', 'ensuite', 'wc']);
+/** §A.21.D5 — the circulation spine types (the corridorInterior / corridorAccess
+ *  axes). A corridor / hall carries NO window requirement, so it should sit interior
+ *  and the private rooms should door onto it. */
+const CIRCULATION_TYPES = new Set<string>(['corridor', 'hall']);
+/** §A.21.D5 — the PRIVATE room types served by the spine. The corridorAccess axis
+ *  rewards each of these that doors DIRECTLY onto a corridor/hall (vs served-through
+ *  another room). Mirrors the `isPrivate` programRules set without importing it. */
+const PRIVATE_SERVED_TYPES = new Set<string>(['bedroom', 'master', 'bathroom', 'ensuite', 'wc', 'study']);
 const num = (v: unknown, d = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 const polyWH = (n: GraphNode): { w: number; h: number } => {
     const p = n.geometry?.polygon ?? [];
@@ -361,7 +418,7 @@ export function computeObjectives(
     const spaces = graph.nodes.filter(n => n.kind === 'Space');
     const totalArea = spaces.reduce((s, n) => s + num(n.attrs.netAreaM2), 0);
     if (spaces.length === 0 || totalArea <= 0) {
-        return { efficiency: 0, adjacency: 0, daylight: 0, circulation: 0, regularity: 0, hierarchy: 0, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation: 1, openingCadence: 1, proportionalElegance: 1, spatialClimax: 1, entrySightline: 1, arrivalSequence: 1, wetStackAlignment: 1, alignmentField: 1, facadeAlignment: 0, solarOrientation: 1, acousticZoning: 1, naturalVentilation: 1, daylightReach: 1 };
+        return { efficiency: 0, adjacency: 0, daylight: 0, circulation: 0, regularity: 0, hierarchy: 0, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation: 1, openingCadence: 1, proportionalElegance: 1, spatialClimax: 1, entrySightline: 1, arrivalSequence: 1, wetStackAlignment: 1, alignmentField: 1, facadeAlignment: 0, solarOrientation: 1, acousticZoning: 1, naturalVentilation: 1, daylightReach: 1, corridorInterior: 1, corridorAccess: 1 };
     }
 
     // ── efficiency: how little of the floor is circulation. ──────────────────────
@@ -773,7 +830,131 @@ export function computeObjectives(
     //    are byte-identical.
     const naturalVentilation = naturalVentilationScore(graph);
 
-    return { efficiency, adjacency, daylight, circulation, regularity, hierarchy, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation, openingCadence, proportionalElegance, spatialClimax, entrySightline, arrivalSequence, wetStackAlignment, alignmentField, facadeAlignment, solarOrientation, acousticZoning, naturalVentilation, daylightReach };
+    // ── §A.21.D5 corridorInterior: how INTERIOR the circulation spine sits.
+    //    1 − (external corridor wall length / total corridor wall length). A
+    //    corridor abutting the shell steals façade frontage from window-needing
+    //    rooms → lower score. Neutral 1.0 when no corridor / no walls.
+    const corridorInterior = scoreCorridorInterior(graph);
+
+    // ── §A.21.D5 corridorAccess: how cleanly the private rooms door DIRECTLY onto
+    //    the spine. (private rooms with a direct corridor/hall door) / (private
+    //    rooms). Served-through rooms (reached via another room) lower the score.
+    //    Neutral 1.0 when no corridor or no private rooms.
+    const corridorAccess = scoreCorridorAccess(graph);
+
+    return { efficiency, adjacency, daylight, circulation, regularity, hierarchy, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation, openingCadence, proportionalElegance, spatialClimax, entrySightline, arrivalSequence, wetStackAlignment, alignmentField, facadeAlignment, solarOrientation, acousticZoning, naturalVentilation, daylightReach, corridorInterior, corridorAccess };
+}
+
+/**
+ * §A.21.D5 corridorInterior — diagnostic detail + axis value for the circulation
+ * spine's perimeter-abutting fraction. Pure; reused by §DIAG-CORRIDOR-QUALITY.
+ *
+ * Returns the per-candidate measurements:
+ *   • `corridorWallLenM`        — total baseLine length of all walls bounding a
+ *                                 corridor/hall space.
+ *   • `corridorExtWallLenM`     — of those, the length lying on an EXTERNAL/shell
+ *                                 wall (the perimeter-abutting length; target ≈ 0).
+ *   • `score`                   — 1 − ext/total ∈ [0, 1]; 1.0 = fully interior.
+ *     Neutral 1.0 when there is no corridor / no wall geometry.
+ */
+export function measureCorridorInterior(graph: LayoutGraph): { corridorWallLenM: number; corridorExtWallLenM: number; score: number } {
+    // Corridor / hall space GUIDs.
+    const corridorGuids = new Set<string>();
+    for (const n of graph.nodes) {
+        if (n.kind !== 'Space') continue;
+        const t = typeof n.attrs.spaceType === 'string' ? n.attrs.spaceType : '';
+        if (CIRCULATION_TYPES.has(t)) corridorGuids.add(n.guid);
+    }
+    if (corridorGuids.size === 0) return { corridorWallLenM: 0, corridorExtWallLenM: 0, score: 1 };
+
+    // Wall GUID → { lengthM, isExternal }.
+    const wallInfo = new Map<string, { len: number; ext: boolean }>();
+    for (const n of graph.nodes) {
+        if (n.kind !== 'Wall') continue;
+        const bl = n.geometry?.baseLine;
+        if (!bl || bl.length < 2) continue;
+        const [a, b] = bl as readonly [{ x: number; z: number }, { x: number; z: number }];
+        const len = Math.hypot(b.x - a.x, b.z - a.z);
+        if (!(len > 0)) continue;
+        wallInfo.set(n.guid, { len, ext: n.attrs.isExternal === true });
+    }
+    if (wallInfo.size === 0) return { corridorWallLenM: 0, corridorExtWallLenM: 0, score: 1 };
+
+    // Sum the wall lengths bounding the corridor/hall spaces (each wall counted
+    // once even if it bounds two corridor segments — a Set keyed by wall guid).
+    const corridorBoundingWalls = new Set<string>();
+    const corridorBoundingExtWalls = new Set<string>();
+    for (const e of graph.edges) {
+        if (e.kind !== 'BOUNDS') continue;
+        if (!corridorGuids.has(e.to)) continue;          // BOUNDS: Wall(from) → Space(to)
+        const info = wallInfo.get(e.from);
+        if (!info) continue;
+        corridorBoundingWalls.add(e.from);
+        if (info.ext) corridorBoundingExtWalls.add(e.from);
+    }
+    let total = 0, ext = 0;
+    for (const wg of corridorBoundingWalls) total += wallInfo.get(wg)!.len;
+    for (const wg of corridorBoundingExtWalls) ext += wallInfo.get(wg)!.len;
+    // No external walls at all in the graph (test fixtures) → neutral 1.0.
+    if (total <= 0) return { corridorWallLenM: 0, corridorExtWallLenM: 0, score: 1 };
+    const score = clamp01(1 - ext / total);
+    return { corridorWallLenM: round6(total), corridorExtWallLenM: round6(ext), score };
+}
+
+const round6 = (n: number): number => Math.round(n * 1e6) / 1e6;
+
+/** §A.21.D5 corridorInterior — the axis value (see `measureCorridorInterior`). */
+export function scoreCorridorInterior(graph: LayoutGraph): number {
+    return measureCorridorInterior(graph).score;
+}
+
+/**
+ * §A.21.D5 corridorAccess — diagnostic detail + axis value for how cleanly the
+ * private rooms door directly onto the circulation spine. Pure; reused by
+ * §DIAG-CORRIDOR-QUALITY.
+ *
+ * Returns:
+ *   • `privateRooms`   — count of private rooms (the spine should serve).
+ *   • `directAccess`   — of those, how many have a CONNECTS_THROUGH (door) edge to
+ *                        a corridor/hall space.
+ *   • `servedThrough`  — privateRooms − directAccess (reached via another room).
+ *   • `score`          — directAccess / privateRooms ∈ [0, 1]; 1.0 = every private
+ *                        room opens onto the spine. Neutral 1.0 when there is no
+ *                        corridor/hall (no spine) or no private rooms.
+ */
+export function measureCorridorAccess(graph: LayoutGraph): { privateRooms: number; directAccess: number; servedThrough: number; score: number } {
+    // Corridor / hall + private-room GUIDs.
+    const corridorGuids = new Set<string>();
+    const privateGuids: string[] = [];
+    for (const n of graph.nodes) {
+        if (n.kind !== 'Space') continue;
+        const t = typeof n.attrs.spaceType === 'string' ? n.attrs.spaceType : '';
+        if (CIRCULATION_TYPES.has(t)) { corridorGuids.add(n.guid); continue; }
+        // A room counts as "private to serve" by spaceType OR the explicit
+        // isPrivate attr (back-compat with graphs that only set the flag).
+        if (PRIVATE_SERVED_TYPES.has(t) || n.attrs.isPrivate === true) privateGuids.push(n.guid);
+    }
+    // No spine OR no private rooms → nothing to score → neutral 1.0.
+    if (corridorGuids.size === 0 || privateGuids.length === 0) {
+        return { privateRooms: privateGuids.length, directAccess: 0, servedThrough: 0, score: 1 };
+    }
+    // Private GUID → has a door (CONNECTS_THROUGH) to ANY corridor/hall.
+    const doorsToCorridor = new Set<string>();
+    for (const e of graph.edges) {
+        if (e.kind !== 'CONNECTS_THROUGH') continue;
+        const fromCorr = corridorGuids.has(e.from), toCorr = corridorGuids.has(e.to);
+        if (fromCorr && !toCorr) doorsToCorridor.add(e.to);
+        else if (toCorr && !fromCorr) doorsToCorridor.add(e.from);
+    }
+    let direct = 0;
+    for (const g of privateGuids) if (doorsToCorridor.has(g)) direct += 1;
+    const privateRooms = privateGuids.length;
+    return { privateRooms, directAccess: direct, servedThrough: privateRooms - direct, score: clamp01(direct / privateRooms) };
+}
+
+/** §A.21.D5 corridorAccess — the axis value (see `measureCorridorAccess`). */
+export function scoreCorridorAccess(graph: LayoutGraph): number {
+    return measureCorridorAccess(graph).score;
 }
 
 /**

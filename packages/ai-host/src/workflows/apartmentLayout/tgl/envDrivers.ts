@@ -142,6 +142,14 @@ export const AXIS_PRIORITY: Readonly<Partial<Record<keyof ObjectiveVector, Prior
     naturalVentilation: 'env-performance',
     wetStackAlignment: 'technical-systems',
     efficiency: 'technical-systems',
+    // §A.21.D5 — corridorInterior rides the site-fixed (orientation/daylight) band:
+    // keeping the corridor OFF the façade is what frees the façade for the
+    // window-needing rooms (driver 1, same family as daylight / daylightReach).
+    corridorInterior: 'site-fixed',
+    // §A.21.D5 — corridorAccess rides the site-fixed (privacy/circulation) band like
+    // `circulation` / `hierarchy`: a served-through private room is a privacy +
+    // access defect (drivers 4 / 9). Neutral 1.0 when no corridor ⇒ rank-invisible.
+    corridorAccess: 'site-fixed',
 } as const;
 
 /**
