@@ -12,7 +12,7 @@ import type { ShellAnalysis } from '../shellAnalysis.js';
 import { scoreLayout } from '../score.js';
 import { enumerateLayouts } from './enumerate.js';
 import { emitGeometry, type EmitGeometryOpts } from './emitGeometry.js';
-import { principalAxisAngle, rotatePt, projectPartitionEndpointsToShell, type Pt } from './rectDecomposition.js';
+import { principalAxisAngle, rotatePt, projectPartitionEndpointsToShell, rectifyConvexQuad, polygonBBox, type Pt } from './rectDecomposition.js';
 import { equatorFacingDir } from '../windowEmission/solarOrientation.js';
 // ST.5 — the StyleRegistry resolves the brief style to a numeric glazing bias.
 import { glazingBiasFor } from '../../furnishLayout/style/StyleRegistry.js';
@@ -242,7 +242,7 @@ export function generateDeterministicLayouts(
         ...(tuning?.spaceGenerosity !== undefined ? { spaceGenerosity: tuning.spaceGenerosity } : {}),
     });
 
-    return candidates.map(c => {
+    return candidates.map((c, idx) => {
         // Emit ALL walls (perimeter flagged isExternal) so the preview shows the
         // full plan; the executor builds with skipExteriorWalls so the existing
         // shell is never duplicated (coincident walls break room detection).
@@ -270,6 +270,58 @@ export function generateDeterministicLayouts(
         const emittedOption = projectedWalls === emitted.option.walls
             ? emitted.option
             : { ...emitted.option, walls: projectedWalls as typeof emitted.option.walls };
+
+        // §DIAG-RECTIFY-PROJECT (founder §68.6 open question, 2026-06-13) — the multi-storey
+        // room-merge cure is silent today: the founder asked "is §RECTIFY-QUAD even triggering,
+        // and is projectPartitionEndpointsToShell reaching the real shell?" — the two unknowns
+        // that decide whether a merged-room run is the §RECTIFY gap (C) or another cause. This
+        // ALWAYS-ON line answers both per ranked candidate (#0 = the shipped one):
+        //   • rectifyFired — did the shell rectify (→ partitions tiled in the bbox, projection active)?
+        //   • projected   — how many interior walls had an endpoint moved onto the real shell.
+        //   • maxResidual — the largest distance to the REAL shell of any interior endpoint STILL
+        //     on the rectified-bbox edge AFTER projection (a successful projection moves it OFF
+        //     the bbox edge ONTO the shell → 0 such endpoints). A non-zero residual means a
+        //     perimeter-terminating partition FAILED to reach the shell (move > maxMoveM cap, or
+        //     no ray hit) → the open seam that floods RoomDetection. Logging only (ADR-0061).
+        if (idx === 0 && shellPolygon.length >= 3) {
+            const rectified = rectifyConvexQuad(shellPolygon);
+            const rectifyFired = rectified.length !== shellPolygon.length
+                || rectified.some((p, i) => Math.abs(p.x - shellPolygon[i]!.x) > 1e-9 || Math.abs(p.z - shellPolygon[i]!.z) > 1e-9);
+            let projectedCount = 0;
+            let maxResidualM = 0;
+            if (rectifyFired) {
+                for (let wi = 0; wi < emitted.option.walls.length; wi++) {
+                    if (projectedWalls[wi] !== emitted.option.walls[wi]) projectedCount++;
+                }
+                const bb = polygonBBox(rectified);
+                const edgeTolM = 0.06;
+                const distToRing = (xM: number, zM: number): number => {
+                    let best = Infinity;
+                    for (let i = 0; i < shellPolygon.length; i++) {
+                        const a = shellPolygon[i]!, b = shellPolygon[(i + 1) % shellPolygon.length]!;
+                        const ex = b.x - a.x, ez = b.z - a.z;
+                        const l2 = ex * ex + ez * ez || 1e-30;
+                        const t = Math.max(0, Math.min(1, ((xM - a.x) * ex + (zM - a.z) * ez) / l2));
+                        best = Math.min(best, Math.hypot(xM - (a.x + t * ex), zM - (a.z + t * ez)));
+                    }
+                    return best;
+                };
+                for (const w of projectedWalls) {
+                    if ((w as { isExternal?: boolean }).isExternal === true) continue;
+                    for (const e of [w.start, w.end]) {
+                        const xM = e.x / 1000, zM = e.y / 1000;
+                        const onEdge = Math.abs(xM - bb.x0) <= edgeTolM || Math.abs(xM - bb.x1) <= edgeTolM
+                            || Math.abs(zM - bb.z0) <= edgeTolM || Math.abs(zM - bb.z1) <= edgeTolM;
+                        if (onEdge) maxResidualM = Math.max(maxResidualM, distToRing(xM, zM));
+                    }
+                }
+            }
+            console.log(
+                `[D-TGL] §DIAG-RECTIFY-PROJECT rectifyFired=${rectifyFired} projected=${projectedCount} `
+                + `maxResidual=${maxResidualM.toFixed(3)}m`
+                + `${rectifyFired && maxResidualM > 0.02 ? ' ⚠ a perimeter-terminating partition did NOT reach the shell (open seam → room merge)' : rectifyFired ? ' ✓ all perimeter partitions on the shell' : ' (no rectify — stair-step decomposition; partitions tile the real shell directly)'}`,
+            );
+        }
 
         // §PRINCIPAL-AXIS inverse map (axis-aligned frame → world): rotate emitted
         // mm geometry by +angle about the mm pivot. No-op when angle === 0.

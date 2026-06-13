@@ -477,20 +477,33 @@ function containStairCoreUpstream(
     // cornered stair (≥2 perimeter walls). Logging only; the TIGHTENING is enforced by
     // §STAIR-LANDING-SEAL (the residual claim seals the landing band so detection can't flood
     // the cell) + the tight keep-out == the shipped footprint (containStairCoreUpstream).
-    const cellArea = (x1 - x0) * (z1 - z0);                       // the keep-out AABB (stair cell)
+    const worldCellArea = (x1 - x0) * (z1 - z0);                  // the WORLD-AABB of the footprint
     // The tight oriented stair footprint area (flights+landings+width) = the convex span of
     // fpFinal's 4 corners along its own axes; the AABB over-covers a skewed run, so use the
     // edge lengths of the oriented rect (corner0→1 × corner1→2) as the true footprint area.
     const e01 = Math.hypot(fpFinal[1]!.x - fpFinal[0]!.x, fpFinal[1]!.z - fpFinal[0]!.z);
     const e12 = Math.hypot(fpFinal[2]!.x - fpFinal[1]!.x, fpFinal[2]!.z - fpFinal[1]!.z);
     const footprintArea = Math.max(1e-6, e01 * e12);
-    const cellToFootprint = cellArea / footprintArea;
+    // §STAIR-KEEPOUT-LAYOUT-TIGHT correctness — the OVERSIZED warning must judge the CARVED
+    // keep-out, which is the LAYOUT-frame AABB (`coreFootprintLayout`, the actual room keep-out
+    // the subdivider tiles around), NOT the world AABB. A rotated stair's WORLD AABB is inflated
+    // by the rotation alone (a 45° rect's AABB is ~2× the rect), so the old world-AABB ratio
+    // FALSE-ALARMED "1.97× OVERSIZED" on a stair whose carved cell is in fact tight. Report
+    // BOTH (world for reference) but gate the ⚠ on the layout-tight ratio. (founder §68.6 fix,
+    // 2026-06-13 — the keep-out was already tight; the diagnostic was misreading it.)
+    const fpLayout = toLayout(fpFinal);
+    const lx0 = Math.min(...fpLayout.map(c => c.x)), lz0 = Math.min(...fpLayout.map(c => c.z));
+    const lx1 = Math.max(...fpLayout.map(c => c.x)), lz1 = Math.max(...fpLayout.map(c => c.z));
+    const layoutCellArea = (lx1 - lx0) * (lz1 - lz0);            // the ACTUAL carved keep-out
+    const cellToFootprintLayout = layoutCellArea / footprintArea;
+    const cellToFootprintWorld = worldCellArea / footprintArea;
     const disposition = centralSpine ? 'central-spine (U, two banks)' : `cornered (${kind})`;
     console.log(
         `[house-layout] §DIAG-STAIR-FOOTPRINT-RATIO storey=0..${storeyCount - 1} `
-        + `stairCell=${cellArea.toFixed(1)}m² footprint=${footprintArea.toFixed(1)}m² `
-        + `cellToFootprint=${cellToFootprint.toFixed(2)}× disposition=${disposition}`
-        + `${cellToFootprint > 1.6 ? ' ⚠ OVERSIZED (stair should be a tight ~1.5 m landing, not a large room)' : ' ✓ tight'}`,
+        + `carvedCell=${layoutCellArea.toFixed(1)}m² footprint=${footprintArea.toFixed(1)}m² `
+        + `cellToFootprint=${cellToFootprintLayout.toFixed(2)}× (worldAABB=${worldCellArea.toFixed(1)}m²=${cellToFootprintWorld.toFixed(2)}×, rotation-inflated) `
+        + `disposition=${disposition}`
+        + `${cellToFootprintLayout > 1.6 ? ' ⚠ OVERSIZED (carved stair cell bigger than a tight ~1.5 m landing)' : ' ✓ tight (carved keep-out)'}`,
     );
 
     const containOffsetWorld = { x: solved.dx, z: solved.dz };
