@@ -231,7 +231,18 @@ export function projectPartitionEndpointsToShell<W extends { start: XYmm; end: X
     }
     const bb = polygonBBox(rectified);
     const edgeTolM = opts.edgeTolM ?? 0.06;
-    const maxMoveM = opts.maxMoveM ?? 3.0;
+    // §RECTIFY-PROJECT-CAP (2026-06-13) — the cast is AXIS-PERPENDICULAR (inward off a bbox
+    // edge), and on a strongly-sheared convex quad the PERPENDICULAR distance from a bbox-edge
+    // point to the real shell can far exceed the NEAREST-point gap the old 3.0 m default was
+    // sized for (measured: a 0.78-fill parallelogram needed a 4.75 m up-cast, which the 3.0 m
+    // cap REJECTED → the endpoint stayed stranded ~2.3 m off the shell → open seam → room merge,
+    // the founder's §RECTIFY defect, now reproduced by §DIAG-RECTIFY-PROJECT maxResidual). The
+    // cast already returns the NEAREST forward ring hit, so for a convex quad it can only land on
+    // the correct near edge however far — the cap is purely a degeneracy guard, so size it to the
+    // bbox (a legitimate move is bounded by the bbox extent). `rectifyConvexQuad` requires fill
+    // ≥ 0.5 so this never runs on a wild shell. Axis-aligned / non-rectified shells never reach
+    // here (byte-identical). An explicit opts.maxMoveM still overrides (tests).
+    const maxMoveM = opts.maxMoveM ?? Math.max(bb.x1 - bb.x0, bb.z1 - bb.z0);
     const realRing = realShellPolyM;
 
     /** Project one mm endpoint (if on a bbox edge) onto the real shell; returns the

@@ -90,6 +90,27 @@ describe('§RECTIFY-SHELL-PROJECT — projectPartitionEndpointsToShell', () => {
         expect(eM.x).toBeCloseTo(xMid, 6);
     });
 
+    it('§RECTIFY-PROJECT-CAP — closes a >3 m PERPENDICULAR gap the old 3.0 m cap rejected', () => {
+        // A strongly-sheared parallelogram (fill 0.75 → rectifies): bottom edge (0,0)-(12,0),
+        // top (4,8)-(16,8); the right edge (12,0)-(16,8) is the lower boundary for x∈[12,16].
+        // A vertical partition at x=14 tiled across the bbox has its BOTTOM end on the bbox
+        // bottom (z=0); the real shell's lower boundary there (the right edge) is at z=4 → the
+        // INWARD up-cast must travel 4 m. The old maxMoveM=3.0 REJECTED that (stranding the
+        // endpoint ~4 m off the shell → open seam → room merge, the founder's §RECTIFY defect);
+        // the bbox-sized cap accepts it. (Engine-frame coords — no rotation needed for the unit.)
+        const para: Pt[] = [{ x: 0, z: 0 }, { x: 12, z: 0 }, { x: 16, z: 8 }, { x: 4, z: 8 }];
+        const part: TestWall = { start: pmm(14, 0), end: pmm(14, 8), isExternal: false };
+        const [after] = projectPartitionEndpointsToShell([part], para) as TestWall[];
+        const sM: Pt = { x: after!.start.x / 1000, z: after!.start.y / 1000 };
+        // The bottom end now lands on the REAL shell (the right edge), having moved > 3 m.
+        expect(distToRing(sM, para)).toBeLessThan(0.02);
+        expect(sM.z).toBeGreaterThan(3.0);              // moved past the old cap (≈ 4 m)
+        expect(sM.x).toBeCloseTo(14, 6);                // vertical partition stays vertical
+        // The explicit opts.maxMoveM override still clamps (regression guard for the opt).
+        const [clamped] = projectPartitionEndpointsToShell([part], para, { maxMoveM: 3.0 }) as TestWall[];
+        expect(clamped!.start.y / 1000).toBeCloseTo(0, 6);   // 4 m > 3 m cap → NOT moved
+    });
+
     it('leaves a GENUINELY INTERIOR endpoint (metres from any bbox edge) untouched', () => {
         const ang = principalAxisAngle(freehandQuad);
         let cx = 0, cz = 0; for (const p of freehandQuad) { cx += p.x; cz += p.z; } cx /= 4; cz /= 4;
