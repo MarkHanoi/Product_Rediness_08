@@ -185,6 +185,81 @@ describe('A.21.D34(a) — stair core stays inside the rotated shell polygon', ()
     });
 });
 
+// ── (DIAGNOSTIC) does the ENGINE tile the real rotated/sheared shell? ──────────
+//
+// DISCRIMINATOR (2026-06-13): the founder's recurring "white space" on rotated/sheared
+// HOUSE plates has two competing root-causes that can ONLY be told apart by measuring
+// the ENGINE's geometric coverage of the REAL shell (no browser needed):
+//   (A) ENGINE geometry gap — `§RECTIFY-QUAD` tiles the bbox, leaving the real shell's
+//       corner triangles un-tiled  →  Σ room.area  <<  real shell area.
+//   (B) EXECUTION detection gap — the engine tiles the full shell, but the editor's
+//       room detection / weld merges them  →  Σ room.area  ≈  real shell area.
+// This block measures (Σ room.area) / (real shell polygon area) per storey. If the ratio
+// is high the white space is (B) execution-side (needs the browser); if it is low the
+// white space is (A) engine-side geometry (fixable + testable HERE).
+describe('DIAG — engine coverage of the real rotated / sheared shell polygon', () => {
+    const coverageByStorey = (res: ReturnType<typeof generateHouseLayout>) =>
+        res.perStoreyLayout.map((opt, i) => {
+            const tiled = opt.rooms.reduce((s, rm) => s + rm.area, 0);
+            const shellArea = polygonAreaM2(res.storeys[i]!.footprint);
+            return { tiled, shellArea, ratio: tiled / shellArea };
+        });
+
+    it('rotated RECTANGLE (22°, 130 m²) — principal-axis preserves coverage (NOT a rotation gap)', () => {
+        // MEASURED 2026-06-13: ground ≈ 0.934, UPPER ≈ 0.881. The control test below proves
+        // the upper-floor 12% gap is IDENTICAL axis-aligned (deg=0) → it is UNDER-PROGRAMMING
+        // (a sparse 2-bed programme can't fill 130 m²/storey; residual-fill caps out), NOT a
+        // rotation/§RECTIFY gap (root-cause A). This tripwire trips if rotation ITSELF starts
+        // dropping coverage materially below the under-programming floor.
+        const skew = rotatedRect(13, 10, 22);
+        const res = generateHouseLayout(mkShell(skew), PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 });
+        res.perStoreyLayout.forEach((opt, i) => {
+            const breakdown = opt.rooms.map(rm => `${rm.type}:${rm.area.toFixed(1)}`).join(' ');
+            const tiled = opt.rooms.reduce((s, rm) => s + rm.area, 0);
+            const nonStair = opt.rooms.filter(rm => rm.type !== 'stair').reduce((s, rm) => s + rm.area, 0);
+            const stairArea = tiled - nonStair;
+            const ratio = tiled / 130;
+            // eslint-disable-next-line no-console
+            console.log(`§DIAG-COVERAGE rotated-rect storey${i}: tiled=${tiled.toFixed(1)} (stair=${stairArea.toFixed(1)} rooms=${nonStair.toFixed(1)}) shell=130.0 ratio=${ratio.toFixed(3)} | ${breakdown}`);
+            expect(ratio, `rotated-rect storey${i} coverage ${ratio.toFixed(3)} below under-programming floor`).toBeGreaterThan(0.80);
+            expect(ratio, `rotated-rect storey${i} overflow ${ratio.toFixed(3)}`).toBeLessThan(1.15);
+        });
+    });
+
+    it('CONTROL: axis-aligned 130 m² same program — isolates rotation from under-programming', () => {
+        // IDENTICAL program + per-storey area as the rotated-rect case, but deg=0 (no
+        // rotation). If THIS also under-covers, the gap is under-programming (sparse 2-bed
+        // on a 65+65 m² house); if THIS covers ≥0.96 the gap is rotation-specific.
+        const axis: Pt[] = [{ x: 0, z: 0 }, { x: 13, z: 0 }, { x: 13, z: 10 }, { x: 0, z: 10 }];
+        const res = generateHouseLayout(mkShell(axis), PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 });
+        res.perStoreyLayout.forEach((opt, i) => {
+            const tiled = opt.rooms.reduce((s, rm) => s + rm.area, 0);
+            // eslint-disable-next-line no-console
+            console.log(`§DIAG-COVERAGE axis-control storey${i}: tiled=${tiled.toFixed(1)} shell=130.0 ratio=${(tiled / 130).toFixed(3)} | ${opt.rooms.map(rm => `${rm.type}:${rm.area.toFixed(1)}`).join(' ')}`);
+        });
+    });
+
+    it('sheared PARALLELOGRAM (140 m², 0.78 bbox-fill) — rooms OVERFLOW the real shell (§RECTIFY gap)', () => {
+        // base 14 × height 10 = 140 m²; sheared +4 m → bbox 18×10 = 180 m² (fill 0.78),
+        // exactly the ~0.75-fill regime the doc says diverges ~2.1 m at a corner. MEASURED
+        // 2026-06-13: the ground floor tiles to ratio ≈ 1.05 — the bbox-tiled rooms reach
+        // PAST the real sheared edges (root-cause C, §RECTIFY-QUAD: rooms emitted in the
+        // bbox frame poke beyond the diagonal shell). A ratio > 1.0 is the "walls/rooms
+        // beyond the façade" defect; this tripwire trips if the overflow worsens past 1.20.
+        const para: Pt[] = [{ x: 0, z: 0 }, { x: 14, z: 0 }, { x: 18, z: 10 }, { x: 4, z: 10 }];
+        const res = generateHouseLayout(mkShell(para), PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 });
+        for (const c of coverageByStorey(res)) {
+            // eslint-disable-next-line no-console
+            console.log(`§DIAG-COVERAGE parallelogram storey: tiled=${c.tiled.toFixed(1)} shell=${c.shellArea.toFixed(1)} ratio=${c.ratio.toFixed(3)}`);
+            // Sanity tripwire (not a hard quality gate): coverage stays in a sane band.
+            // Sheared ground overflows (~1.05 today); a regression past 1.20 / below 0.80
+            // means the §RECTIFY-QUAD bbox-vs-shell gap (root-cause C) materially worsened.
+            expect(c.ratio, `parallelogram coverage ${c.ratio.toFixed(3)} out of sane band`).toBeGreaterThan(0.80);
+            expect(c.ratio, `parallelogram overflow ${c.ratio.toFixed(3)} worsened past 1.20`).toBeLessThan(1.20);
+        }
+    });
+});
+
 // ── (b) windows stay within the shell wall span on a skewed plot ───────────────
 
 describe('A.21.D34(b) — shell windows lie within the shell wall span (skewed)', () => {
