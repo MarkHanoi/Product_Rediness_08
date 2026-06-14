@@ -37,6 +37,7 @@ import {
     CreateRoomBoundingLinesBatchCommand,
     CreateHandrailCommand,
     UpdateWallHeightCommand,
+    ReDetectRoomsCommand,
 } from '@pryzm/command-registry';
 import { facadeOrientationService } from '@pryzm/spatial-index';
 import { computeStairFootprintRect } from '@pryzm/geometry-stair';
@@ -1150,9 +1151,39 @@ export class HouseLayoutExecutor {
                         r.type === 'corridor' ? { ...r, name: 'Corridor' } : r,
                     ),
                 });
+                // §ROOM-REDETECT-BEFORE-NAME (founder 2026-06-14, decisive §DIAG) — force an
+                // AUTHORITATIVE room redetect for this storey IMMEDIATELY before naming it, so
+                // naming runs on the CLEAN detected room set rather than a STALE one. ROOT (proved
+                // by the prod §DIAG sequence): the build/openings batches arm a §G2 1 s redetect
+                // COOLDOWN that SUPPRESSES the auto redetect, so `nameDetectedRooms`'
+                // `already-present` fast-path named whatever was in the store NOW — a merged,
+                // duplicate-room-code set (`source=already-present detected_rooms=10`) — and the
+                // CLEAN redetect (`Detected 11 room(s)`) only landed AFTER naming (during floor
+                // creation) → the fresh rooms shipped unnamed "Room NN" + the stale merges kept
+                // their dual names ("Dining / Kitchen"). The walls were SOUND the whole time
+                // (`unresolvedLoopBreaks=0`, `gappy=0`) — it was a detect↔name RACE, not geometry.
+                // An EXPLICIT ReDetectRoomsCommand bypasses the §G2 auto-TIMER suppression (it is a
+                // direct command, not the RoomTopologyObserver's debounced timer), and runs
+                // synchronously so the store holds the clean set before naming reads it. A LATER
+                // redetect PRESERVES these names by centroid match (mergeWithExisting / §R-9), so
+                // this single pass is sufficient. The APARTMENT path is unaffected — its commit
+                // batch already redetects (skipRedetectRooms:false) before naming.
+                const elevationByLevel = new Map(result.storeys.map(s => [s.levelId, s.elevationM] as const));
                 const nameStorey = (levelId: string): void => {
                     const option = optionByLevel.get(levelId);
                     if (!option) { console.warn('[house-layout] no layout option to name storey', levelId); return; }
+                    try {
+                        const cmRe = getCommandManager();
+                        if (cmRe?.execute) {
+                            const elevationM = elevationByLevel.get(levelId) ?? 0;
+                            cmRe.execute(
+                                new ReDetectRoomsCommand(levelId, elevationM, floorToFloorM),
+                                { source: 'HOUSE_REDETECT_BEFORE_NAME' },
+                            );
+                        }
+                    } catch (e) {
+                        console.warn('[house-layout] §ROOM-REDETECT-BEFORE-NAME failed (non-fatal):', e);
+                    }
                     const isGround = levelId === groundLevelId;
                     nameDetectedRooms(
                         runtime,
