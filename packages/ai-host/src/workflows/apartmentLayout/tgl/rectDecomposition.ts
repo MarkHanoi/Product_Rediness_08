@@ -328,6 +328,57 @@ export function decomposeToRects(rawPoly: readonly Pt[], minCellM = 0.5): Rect[]
     return mergeHorizontally(rects);
 }
 
+/**
+ * §RESIDUAL-REAL-SHELL-INSCRIBE (founder white-space fix, 2026-06-14) — decompose a
+ * (convex) shell into axis-aligned rects that are STRICTLY INSCRIBED inside the real
+ * perimeter, WITHOUT the §RECTIFY-QUAD bbox replacement.
+ *
+ * WHY: `decomposeToRects` rectifies a sheared convex quad to its BBOX, which over-covers
+ * the real (sheared) plot — fine for the primary partition grid (whose perimeter endpoints
+ * are snapped back to the real ring by §RECTIFY-SHELL-PROJECT), but WRONG for the residual
+ * fill, whose minted cells have EXTERNAL edges that are NOT snapped, so a bbox-based cell
+ * pokes past the façade (the measured 1.31 overflow). This decompose instead keeps cells
+ * inside the true perimeter: for each x-band it takes the z-range that is inside the shell
+ * at BOTH band ends (the convex shell narrows linearly, so the band-end intersection is the
+ * tightest inscribed strip) → every emitted rect lies fully within the real shell. Used ONLY
+ * for the residual buildable on a rectified plate; the primary path is unchanged.
+ *
+ * Pure + deterministic. Designed for the convex-quad case (the only shell §RECTIFY-QUAD
+ * fires on); a non-convex ring still returns inscribed rects per even-odd band but the
+ * index-matched interval pairing assumes a single inside interval (true for a convex quad).
+ */
+export function decomposeToRectsInscribed(poly: readonly Pt[], minCellM = 0.5): Rect[] {
+    if (poly.length < 3) return [];
+    const xs = Array.from(new Set(poly.map(p => round6(p.x)))).sort((a, b) => a - b);
+    const edges: Array<readonly [Pt, Pt]> = [];
+    for (let i = 0; i < poly.length; i++) edges.push([poly[i]!, poly[(i + 1) % poly.length]!]);
+
+    // Inside z-intervals at a vertical line x (even-odd pairing of edge crossings).
+    const insideAt = (x: number): Array<[number, number]> => {
+        const zs: number[] = [];
+        for (const [a, b] of edges) { const z = edgeZAtX(a, b, x); if (z !== null) zs.push(z); }
+        zs.sort((a, b) => a - b);
+        const out: Array<[number, number]> = [];
+        for (let j = 0; j + 1 < zs.length; j += 2) out.push([zs[j]!, zs[j + 1]!]);
+        return out;
+    };
+
+    const rects: Rect[] = [];
+    for (let i = 0; i + 1 < xs.length; i++) {
+        const x0 = xs[i]!, x1 = xs[i + 1]!;
+        if (x1 - x0 < minCellM) continue;
+        const dx = (x1 - x0) * 1e-3;                 // sample just inside each band end
+        const za = insideAt(x0 + dx), zb = insideAt(x1 - dx);
+        const n = Math.min(za.length, zb.length);
+        for (let k = 0; k < n; k++) {
+            const z0 = Math.max(za[k]![0], zb[k]![0]);   // tightest lower over the band
+            const z1 = Math.min(za[k]![1], zb[k]![1]);   // tightest upper over the band
+            if (z1 - z0 >= minCellM) rects.push({ x0, z0, x1, z1 });
+        }
+    }
+    return mergeHorizontally(rects);
+}
+
 // ── §PRINCIPAL-AXIS (LAYOUT-QUALITY-DEEP, 2026-06-04) ────────────────────────
 //
 // The slab-sweep decomposition above is EXACT for axis-aligned rectilinear shells
