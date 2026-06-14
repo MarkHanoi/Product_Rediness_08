@@ -66,20 +66,47 @@ describe('archetypeForLighting', () => {
 });
 
 describe('lightRoom', () => {
-    it('places a ceiling fixture (FIRST) at the room centroid', () => {
-        // §MORE-LIGHTING (#11) — a living room also gets corner FLOOR lamps, so the
-        // result is no longer length 1; the CEILING fixture is still the first item
-        // and sits at the centroid.
-        const placed = lightRoom(baseInput());
-        const ceiling = placed.find(p => p.ceilingMounted)!;
-        expect(ceiling).toBeDefined();
-        expect(ceiling.origin.x).toBe(2.5);
-        expect(ceiling.origin.z).toBe(2);
+    it('places a ceiling fixture (FIRST) at the room centroid (SMALL room → single centred light)', () => {
+        // §CEILING-GRID (2026-06-14) — a small room (≤ ~1.5× the per-light area) keeps the
+        // single centred ceiling fixture (byte-identical to the pre-grid MVP). §MORE-LIGHTING
+        // (#11) — a living room also gets corner FLOOR lamps, so the result is not length 1;
+        // the CEILING fixture is still the first item and sits at the centroid.
+        const placed = lightRoom(baseInput({ areaM2: 12 }));
+        const ceiling = placed.filter(p => p.ceilingMounted);
+        expect(ceiling.length).toBe(1);                    // small room → one centred fixture
+        expect(ceiling[0]!.origin.x).toBe(2.5);
+        expect(ceiling[0]!.origin.z).toBe(2);
         // Default ceiling = level elevation (0) + 2.7 m.
-        expect(ceiling.origin.y).toBeCloseTo(2.7, 6);
-        expect(ceiling.roomId).toBe('r1');
+        expect(ceiling[0]!.origin.y).toBeCloseTo(2.7, 6);
+        expect(ceiling[0]!.roomId).toBe('r1');
         // The ceiling fixture is emitted first (first-fit ceiling pick).
         expect(placed[0]!.ceilingMounted).toBe(true);
+    });
+
+    it('§CEILING-GRID — a LARGE room gets MULTIPLE ceiling fixtures, all at ceiling Y inside the room', () => {
+        // A 40 m² room → ~3 downlights on a centred grid (proper illumination), vs the old
+        // single central fixture. Every fixture is ceiling-mounted, at ceiling Y, and the
+        // count scales with area (capped). A 12 m² room still gets exactly one (above).
+        const placed = lightRoom(baseInput({
+            polygon: [{ x: 0, z: 0 }, { x: 10, z: 0 }, { x: 10, z: 4 }, { x: 0, z: 4 }],
+            centroid: { x: 5, z: 2 }, areaM2: 40,
+        }));
+        const ceiling = placed.filter(p => p.ceilingMounted);
+        expect(ceiling.length).toBeGreaterThan(1);         // large room → a grid, not one light
+        expect(ceiling.length).toBeLessThanOrEqual(6);     // capped (CEIL_MAX_LIGHTS)
+        for (const c of ceiling) {
+            expect(c.origin.y).toBeCloseTo(2.7, 6);        // all at ceiling height
+            expect(c.origin.x).toBeGreaterThan(0);
+            expect(c.origin.x).toBeLessThan(10);           // inside the room x-span
+            expect(c.origin.z).toBeGreaterThan(0);
+            expect(c.origin.z).toBeLessThan(4);            // inside the room z-span
+        }
+        // Deterministic (ADR-0061) — identical input → identical fixtures.
+        const again = lightRoom(baseInput({
+            polygon: [{ x: 0, z: 0 }, { x: 10, z: 0 }, { x: 10, z: 4 }, { x: 0, z: 4 }],
+            centroid: { x: 5, z: 2 }, areaM2: 40,
+        }));
+        expect(again.filter(p => p.ceilingMounted).length).toBe(ceiling.length);
     });
 
     it('honours explicit ceilingY', () => {
@@ -205,7 +232,7 @@ describe('lightRoom', () => {
             const placed = lightRoom(baseInput({ occupancy: 'living-room', areaM2: 20 }));
             const ceiling = placed.filter(p => p.ceilingMounted);
             const floors  = placed.filter(p => FLOOR_KINDS.includes(p.kind));
-            expect(ceiling.length).toBe(1);                 // ambient ceiling fixture
+            expect(ceiling.length).toBeGreaterThanOrEqual(1); // §CEILING-GRID: ≥1 (20 m² → an area-scaled grid)
             expect(floors.length).toBeGreaterThanOrEqual(2); // ≥ 2 corner lamps at 20 m²
             // Floor lamps sit at floor level (levelElevation = 0) and are NOT ceiling.
             for (const f of floors) {
