@@ -133,6 +133,30 @@ plate the partition↔shell weld can still merge rooms (`§GROUND-ENGINE-PERIMET
 `WELD-FALLBACK` path and `WallJoinResolver` reports `§MULTI-CLUSTER … PASS-THROUGH` joins plus the
 occasional `§WJR-INVALID … self-cluster`). Both are documented with file:line in §8.4–§8.5.
 
+### House defect triage — founder-visible symptom → ONE root → confirming §DIAG → fix path (2026-06-14)
+
+A repeated finding from live prod runs: the modal/engine output is **clean** (every room correctly
+named + placed), but the **executed editor result diverges**, concentrated on the **upper floor**
+(generic "Room 01-NNN" + duplicate ids + a merged blob), with the entrance door, missing windows,
+and re-opened corners as side-effects. These are **not independent bugs** — they share ONE
+execution-side root: on a rotated/sheared plate the engine's tiled partitions + room polygons do
+**not** align with the executor's welded (ground) / minted (upper) shell within the 20 mm
+RoomDetection node grid, so the detection loop fails to close. Everything else cascades from that.
+
+| Founder-visible symptom | Confirmed root (one of two) | The §DIAG line that proves which | Fix path |
+|---|---|---|---|
+| Upper-floor rooms merge → generic "Room 01-NNN" + duplicate ids + big blob | **(C) rectify seam** *(sheared convex quad only)* OR **(W) weld/perimeter drift** *(rotated rectangle / >4-vertex / >120 mm weld)* | `§DIAG-RECTIFY-PROJECT rectifyFired=? maxResidual=?` — `true/0.000m ✓` ⇒ seam closed (v196) → it's (W); `false` ⇒ rectify N/A → it's (W); `true/>0.02m ⚠` ⇒ still (C) | (C) = §RECTIFY-PROJECT-CAP (shipped v196). (W) = ground-on-engine-perimeter (audit §5) + WallJoinResolver near-corner classification; needs `§DIAG-SEAL`/`§DIAG-PERIM-CORNER` + browser |
+| Main entrance door **not in the entrance room** | (W) — `wallBoundsRoom` finds no hall vertex within 0.2 m of the welded shell wall → `resolveEntranceDoor` falls back to the nearest wall | `§DIAG-ENTRANCE … boundsHall=⚠` (engine logic is correct — the geometry feeding it drifted) | Same (W) fix — once partitions+hall align to the real shell, `boundsHall=✓` follows. Engine `resolveEntranceDoor` needs NO change |
+| Exterior wall joins **not re-checked after windows/doors** (corners open) | (W) — post-openings `rebuildWalls(openingWallIds)` re-mitres only opening-host walls; perimeter corners that host no opening + rotated-shell drift aren't re-closed | `§DIAG-PERIM-CORNER-WHOLE … GAP=NNmm` | Whole-level re-resolve after `_finishOpenings` (risk: "ground walls go off" — needs browser to gate) |
+| Windows missing / mis-placed | (W) downstream — a window whose host shell wall drifted off the engine wall fails `matchShellHost` | `§DIAG-WIN-UNMATCHED` reason tally + `§DIAG-WINDOW-RULE` | Same (W) root |
+| Empty/white spaces upstairs | **(A) under-programming** — a sparse upper programme can't fill the plate (≈0.88 coverage, IDENTICAL axis-aligned ⇒ NOT rotation) | coverage discriminator (`skewedPlateGeometry §DIAG-COVERAGE`, control case) | Lift residual-fill cap / grow-to-plate — engine-side, gated by the coverage test (may be acceptable circulation margin) |
+| Stair lands mid-edge on a near-square plate → fracture | **(B)** — `containedNudged` pulls every corner candidate off its anchor (no contained corner on a rotated near-square shell) | `§DIAG-STAIR-RESERVE kind=?` + `§DIAG-STAIR-RULE` | Central-spine-on-rotated or fractured-plate subdivision (§8.5.4 step-2, backlogged, needs browser) |
+
+**The single unblocking datum** is `§DIAG-RECTIFY-PROJECT` from a real run: it splits the dominant
+upper-floor merge into (C) *already fixed by v196* vs (W) *the weld path that still needs work*.
+Until it's captured, a blind execution-layer edit risks regressing the green baseline (it has four
+times this session), so the merge/entrance/joins fixes are **data-gated, not yet attempted**.
+
 ---
 
 ## HOUSE ENGINE — COMPLETE ARCHITECTURE & ORCHESTRATION (master diagram)
