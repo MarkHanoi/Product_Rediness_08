@@ -962,13 +962,32 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
                     residualPlacements, buildableWorld, roomMeta, `${strategyKey(s)}-rc`, input.keepOutRects,
                 );
                 if (reclaim.claims.length > 0) {
-                    for (const m of reclaim.mints) typeByIdNet.set(m.id, m.type);
-                    const net2 = resolveRoomOverlaps(reclaim.placements, typeByIdNet);
+                    // §RESIDUAL-CELL-CLAMP — clamp the re-claim's NEW mints to the real shell on a
+                    // rectified plate (same as the primary pass), so the second-pass fill also stays
+                    // inside the façade. No-op on axis-aligned plates (shell === bbox).
+                    let rcMints = reclaim.mints;
+                    let rcPlacements = reclaim.placements;
+                    if (shellRectified) {
+                        const clampedRc = new Map<string, Rect>();
+                        const droppedRc = new Set<string>();
+                        for (const m of reclaim.mints) {
+                            const r = clampRectToConvexShell(m.rect, input.shellPolygon);
+                            if (r) clampedRc.set(m.id, r); else droppedRc.add(m.id);
+                        }
+                        rcMints = reclaim.mints
+                            .filter(m => !droppedRc.has(m.id))
+                            .map(m => ({ ...m, rect: clampedRc.get(m.id)!, targetAreaM2: rectArea(clampedRc.get(m.id)!) }));
+                        rcPlacements = reclaim.placements
+                            .filter(p => !droppedRc.has(p.roomId))
+                            .map(p => (clampedRc.has(p.roomId) ? { roomId: p.roomId, rect: clampedRc.get(p.roomId)! } : p));
+                    }
+                    for (const m of rcMints) typeByIdNet.set(m.id, m.type);
+                    const net2 = resolveRoomOverlaps(rcPlacements, typeByIdNet);
                     residualPlacements = net2.placements;
                     const drop2 = new Set(net2.dropped);
                     // The full mint set after re-claim = surviving original mints + surviving re-claim
                     // mints, minus anything the second net dropped.
-                    residualMints = [...residualMints, ...reclaim.mints].filter(m => !drop2.has(m.id));
+                    residualMints = [...residualMints, ...rcMints].filter(m => !drop2.has(m.id));
                     console.log(
                         `[D-TGL] §OVERLAP-RECLAIM cand ${strategyKey(s)} re-absorbed ${reclaim.claims.length} freed ` +
                         `fragment(s) after overlap clip (largestBlank ${reclaim.largestBlankBeforeM2.toFixed(1)}→${reclaim.largestBlankM2.toFixed(1)} m²)`,
