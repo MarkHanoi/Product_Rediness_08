@@ -14,7 +14,7 @@ import type { ApartmentProgram, RoomType, ScoringWeights } from '../types.js';
 import { decomposeToRects, clampRectToConvexShell, polygonBBox, rectArea, rectifyConvexQuad, subtractRectsFromRects, type Pt, type Rect } from './rectDecomposition.js';
 import { buildBubbleGraph, scaleProgramToShell, type BubbleGraph, type ProgramRoom, type AdjacencyEdge } from './bubbleGraph.js';
 import { subdivideWithReport, findCorridorStubToKeepOut, claimResidualPlacements, resolveRoomOverlaps, type DroppedRoom, type RoomPlacement } from './subdivide.js';
-import { subdividePolygon, subtractRectFromCell, cellBBoxRect } from './polySubdivide.js';
+import { subdividePolygon, subtractRectFromCell, cellBBoxRect, shouldUsePolygonConcaveRoute } from './polySubdivide.js';
 import { buildWallsAndDoors, type BoundarySeg } from './wallsAndDoors.js';
 import { snapRectsAwayFromWindows, type WindowSpan } from './windowAvoidance.js';
 import { buildSemanticGraph, type LayoutGraph } from './semanticGraph.js';
@@ -577,17 +577,28 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     const shellRectified =
         rectifiedPoly.length !== input.shellPolygon.length ||
         rectifiedPoly.some((p, i) => Math.abs(p.x - input.shellPolygon[i]!.x) > 1e-6 || Math.abs(p.z - input.shellPolygon[i]!.z) > 1e-6);
-    // §POLYGON-NATIVE-ROUTE (Phase 3, doc §13.4 step 2) — route ONLY the SHEARED CONVEX
-    // QUAD to the polygon-native subdivider. The condition is `shellRectified` (true iff
-    // `rectifyConvexQuad` would fire — a 4-vertex convex non-axis shell filling ≥ 0.5 of
-    // its bbox) AND no stair keep-out (the stair stays a subtracted hole on the legacy
-    // rect path through Phase 3, doc §13.6). On that route we tile the REAL quad with
-    // `subdividePolygon` (no bbox overflow) and SKIP `rectifyConvexQuad` + the residual-
-    // fill / §RESIDUAL-CELL-CLAMP scaffolding (the apartment path passes no keep-out, so
-    // that scaffolding never fires here anyway). Every OTHER shell — axis-aligned rect,
-    // rotated rect that rectifies to an axis rect, L/U/T/concave, stair-carved — takes the
-    // UNCHANGED rect path below, keeping rotated-rect + axis-control byte-identical.
-    const usePolygonRoute = shellRectified;
+    // §POLYGON-NATIVE-ROUTE (Phase 3 + Phase 4, doc §13.4 step 2/4) — route the SHEARED
+    // CONVEX QUAD (Phase 3, `shellRectified`) AND any genuinely CONCAVE shell (Phase 4 —
+    // a simple polygon with ≥1 reflex vertex: L/U/T or an arbitrary drawn boundary) to the
+    // polygon-native subdivider. On that route we tile the REAL polygon with
+    // `subdividePolygon` (no bbox overflow; the concave path splits at a reflex vertex first
+    // and distributes the WHOLE program across the sub-polygons) and SKIP `rectifyConvexQuad`
+    // + the residual-fill / §RESIDUAL-CELL-CLAMP scaffolding (the polygon tiles the plate
+    // COMPLETELY, so there is no bbox blank to claim).
+    //
+    // CRITICAL byte-identity / stair de-risk (doc §13.5/§13.6): an AXIS-ALIGNED rectangle and
+    // a ROTATED rectangle that rectifies to an axis rect are CONVEX ⇒ NOT concave ⇒ STILL take
+    // the unchanged rect path (byte-identical). The SHEARED CONVEX QUAD is convex ⇒ NOT concave
+    // ⇒ keeps the Phase-3 path. An AXIS-ALIGNED rectilinear L/U/T keeps the LEGACY rect path too
+    // (`shouldUsePolygonConcaveRoute` excludes it — `decomposeToRects` already tiles an axis
+    // L/U/T EXACTLY + completely via its notch-aware slab sweep, so it is byte-identical and its
+    // room centroids stay inside the real shape). ONLY a genuinely OFF-AXIS / sheared / arbitrary
+    // CONCAVE drawn boundary (which the rect path would stair-step into slivers) takes the new
+    // concave path. The house stair plates are convex rect / sheared quad (the keep-out is
+    // subtracted INSIDE this function to form the sub-rect frame on the RECT path — the SHELL
+    // itself is never concave), so the ~25 stair tests are untouched.
+    const shellConcave = shouldUsePolygonConcaveRoute(input.shellPolygon);
+    const usePolygonRoute = shellRectified || shellConcave;
     const subRes = subdivideWithReport(
         rectsT, bubble,
         {

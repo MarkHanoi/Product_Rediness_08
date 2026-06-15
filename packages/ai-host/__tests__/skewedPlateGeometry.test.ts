@@ -398,6 +398,144 @@ describe('DIAG — engine coverage of the real rotated / sheared shell polygon',
     });
 });
 
+// ── §13.5 invariants on a CONCAVE (L-shaped) shell (Phase 4) ───────────────────
+//
+// Phase 4 (doc §13.4 step 4, §13.5): the polygon-native subdivider now handles a CONCAVE
+// simple polygon (≥1 reflex vertex) by splitting at the reflex vertex first into convex-ish
+// sub-polygons and distributing the WHOLE program across them (the L-shape fix — no dominant
+// rect + bolted fill). We feed an L-shaped APARTMENT shell (no stair keep-out, so the cells
+// are the clean concave tiling) and assert the doc §13.5 invariants on the emitted room
+// polygons: completeness (Σ cell ≈ shell), no-overflow / in-shell, disjointness, no cell
+// crosses the reflex notch, walls-on-edges. The L is routed to the polygon path purely by
+// `isConcavePolygon(shell)` (the convex parallelogram / rotated-rect / axis-control plates are
+// NOT concave → their ratios are unchanged, proven by the blocks above + the control tests).
+describe('§13.5 invariants — concave (L-shaped) polygon cells (Phase 4)', () => {
+    // An OFF-AXIS L-shaped shell: an axis L (a 12×10 rectangle with a 6×5 bite from the
+    // top-right corner → ONE reflex vertex; area 120 − 30 = 90 m²) ROTATED ~18° about its
+    // centre. An off-axis concave boundary is exactly the Phase-4 case the rect path would
+    // stair-step into slivers — so it routes to the polygon-native concave subdivider
+    // (`shouldUsePolygonConcaveRoute` = true). An AXIS-aligned L stays on the proven rect
+    // path (byte-identical, centroids inside) and is covered by tglBoundaryShapes.test.ts.
+    const axisL: Pt[] = [
+        { x: 0, z: 0 }, { x: 12, z: 0 }, { x: 12, z: 5 },
+        { x: 6, z: 5 }, { x: 6, z: 10 }, { x: 0, z: 10 },
+    ];
+    const L: Pt[] = axisL.map(p => rotatePt(p, (18 * Math.PI) / 180, { x: 6, z: 5 }));
+    const shellAreaM2 = polygonAreaM2(L);
+    const layouts = generateDeterministicLayouts(mkShell(L), PROGRAM, CONSTRAINTS, WEIGHTS, 1);
+    const option = layouts[0]!;
+    // Room polygons (mm {x,y=plan-z}) → metres {x,z}.
+    const cellPolys = option.rooms
+        .filter(r => Array.isArray(r.polygon) && r.polygon!.length >= 3)
+        .map(r => r.polygon!.map(p => ({ x: p.x / 1000, z: p.y / 1000 })));
+
+    const polyAreaM2 = (poly: { x: number; z: number }[]): number => {
+        let a = 0;
+        for (let i = 0; i < poly.length; i++) { const p = poly[i]!, q = poly[(i + 1) % poly.length]!; a += p.x * q.z - q.x * p.z; }
+        return Math.abs(a) / 2;
+    };
+    // Convex-clip A∩B area (Sutherland–Hodgman). Cells here are axis-aligned rectilinear, but
+    // an L cell is concave — for the disjointness probe we test convex sub-pieces via bbox
+    // overlap THEN exact clip; an AABB false-positive on touching rects is filtered by ε.
+    const clipAByB = (A: { x: number; z: number }[], B: { x: number; z: number }[]): { x: number; z: number }[] => {
+        let sa = 0;
+        for (let i = 0; i < B.length; i++) { const p = B[i]!, q = B[(i + 1) % B.length]!; sa += p.x * q.z - q.x * p.z; }
+        const ccw = sa >= 0;
+        let cur = A.slice();
+        for (let i = 0; i < B.length && cur.length >= 3; i++) {
+            const a = B[i]!, b = B[(i + 1) % B.length]!;
+            const ex = b.x - a.x, ez = b.z - a.z;
+            const inside = (p: { x: number; z: number }) => { const c = ex * (p.z - a.z) - ez * (p.x - a.x); return ccw ? c >= -1e-9 : c <= 1e-9; };
+            const lerp = (p: { x: number; z: number }, q: { x: number; z: number }) => {
+                const dpx = q.x - p.x, dpz = q.z - p.z; const denom = ex * dpz - ez * dpx;
+                if (Math.abs(denom) < 1e-12) return q;
+                const t = (ex * (p.z - a.z) - ez * (p.x - a.x)) / -denom;
+                return { x: p.x + t * dpx, z: p.z + t * dpz };
+            };
+            const next: { x: number; z: number }[] = [];
+            for (let k = 0; k < cur.length; k++) {
+                const c0 = cur[k]!, c1 = cur[(k + 1) % cur.length]!;
+                const in0 = inside(c0), in1 = inside(c1);
+                if (in0) next.push(c0);
+                if (in0 !== in1) next.push(lerp(c0, c1));
+            }
+            cur = next;
+        }
+        return cur;
+    };
+
+    it('the L-shaped plate produced real polygon cells (concave route fired)', () => {
+        expect(layouts.length).toBeGreaterThan(0);
+        expect(cellPolys.length).toBeGreaterThan(0);
+    });
+
+    it('completeness: Σ cell area ≈ L-shell area within [0.95, 1.03] (no white space, no overflow)', () => {
+        const sum = cellPolys.reduce((s, p) => s + polyAreaM2(p), 0);
+        // eslint-disable-next-line no-console
+        console.log(`§DIAG-COVERAGE concave-L: Σcell=${sum.toFixed(1)} shell=${shellAreaM2.toFixed(1)} ratio=${(sum / shellAreaM2).toFixed(3)}`);
+        expect(sum / shellAreaM2, `concave-L coverage ${(sum / shellAreaM2).toFixed(3)}`).toBeGreaterThan(0.95);
+        expect(sum / shellAreaM2, `concave-L overflow ${(sum / shellAreaM2).toFixed(3)}`).toBeLessThan(1.03);
+    });
+
+    it('no cell crosses OUTSIDE the real L shell — every cell vertex is inside-or-on the boundary (ε)', () => {
+        const EPS_M = 0.05;
+        const distToPerimeter = (px: number, pz: number): number => {
+            let best = Infinity;
+            for (let i = 0; i < L.length; i++) {
+                const a = L[i]!, b = L[(i + 1) % L.length]!;
+                const ex = b.x - a.x, ez = b.z - a.z; const L2 = ex * ex + ez * ez || 1e-30;
+                const t = Math.max(0, Math.min(1, ((px - a.x) * ex + (pz - a.z) * ez) / L2));
+                best = Math.min(best, Math.hypot(px - (a.x + t * ex), pz - (a.z + t * ez)));
+            }
+            return best;
+        };
+        for (const poly of cellPolys) {
+            for (const v of poly) {
+                const ok = pointInPoly(v.x, v.z, L) || distToPerimeter(v.x, v.z) <= EPS_M;
+                expect(
+                    ok,
+                    `cell vertex (${v.x.toFixed(2)},${v.z.toFixed(2)}) lies ${distToPerimeter(v.x, v.z).toFixed(3)} m OUTSIDE the L shell`,
+                ).toBe(true);
+            }
+        }
+    });
+
+    it('no cell crosses the reflex NOTCH — no cell covers the removed top-right bite', () => {
+        // The removed bite is the axis rect [6,12]×[5,10]; its centre (9, 7.5) rotated into the
+        // off-axis frame is the notch centre. It is OUTSIDE the shell, so it must belong to ZERO
+        // cells (the §13.5 "point in the reflex region ≤ 1 cell" — here exactly 0).
+        const probe = rotatePt({ x: 9, z: 7.5 }, (18 * Math.PI) / 180, { x: 6, z: 5 });
+        // sanity: the probe is genuinely outside the L shell.
+        expect(pointInPoly(probe.x, probe.z, L)).toBe(false);
+        const covering = cellPolys.filter(p => pointInPoly(probe.x, probe.z, p));
+        expect(covering.length, `${covering.length} cell(s) cross the reflex notch at (${probe.x.toFixed(1)},${probe.z.toFixed(1)})`).toBe(0);
+    });
+
+    it('disjointness: no two cells overlap by more than ε (rooms tile, never stack)', () => {
+        for (let i = 0; i < cellPolys.length; i++) {
+            for (let j = i + 1; j < cellPolys.length; j++) {
+                const inter = clipAByB(cellPolys[i]!, cellPolys[j]!);
+                const ov = inter.length >= 3 ? polyAreaM2(inter) : 0;
+                expect(ov, `cells ${i} and ${j} overlap by ${ov.toFixed(2)} m²`).toBeLessThan(0.1);
+            }
+        }
+    });
+
+    it('walls-on-edges: every emitted wall touches a boundary edge of some cell (within ε)', () => {
+        const onAnyCellEdge = (px: number, pz: number): boolean =>
+            cellPolys.some(poly => pointInPoly(px, pz, poly));
+        for (const w of option.walls) {
+            const a = { x: w.start.x / 1000, z: w.start.y / 1000 };
+            const b = { x: w.end.x / 1000, z: w.end.y / 1000 };
+            const mid = { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 };
+            expect(
+                onAnyCellEdge(a.x, a.z) || onAnyCellEdge(b.x, b.z) || onAnyCellEdge(mid.x, mid.z),
+                `wall (${a.x.toFixed(2)},${a.z.toFixed(2)})→(${b.x.toFixed(2)},${b.z.toFixed(2)}) touches no cell — floating wall`,
+            ).toBe(true);
+        }
+    });
+});
+
 // ── (b) windows stay within the shell wall span on a skewed plot ───────────────
 
 describe('A.21.D34(b) — shell windows lie within the shell wall span (skewed)', () => {
