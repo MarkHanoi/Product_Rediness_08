@@ -20,6 +20,9 @@ export { TopologyEventBus, topologyEventBus, TopologyLayer, topologyLayer } from
 export * from './RoomTypes';
 export * from './RoomPolygonUtils';
 export * from './roomSnapshotUtils';
+// ADR-0069 (GR4) — graph-authoritative RoomData factory (engine spec → RoomData).
+export { roomDataFromGraphSpec } from './roomFromGraphSpec';
+export type { GraphRoomSpec, RoomFromSpecOpts } from './roomFromGraphSpec';
 
 // ── Wall junction resolution + planar topology (Phase D/E) ──────────────────
 // Sprint H P9 (2026-05-10): extracted from src/engine/subsystems/ai/
