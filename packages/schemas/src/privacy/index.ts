@@ -11,8 +11,11 @@
 //   - Consent             per-purpose consent record per §2.6
 //   - RetentionPolicy     per-tier retention config per §2.3
 //
+// A.30.b additions (per §2.2 + §2.5):
+//   - BreachIncident        breach lifecycle + 72-h SLA timeline per §2.5
+//   - StorageRoutingPolicy  per-tier region routing + encryption + downcasts per §2.2
+//
 // Deferred to later slices:
-//   - A.30.b L0 BreachIncident + StorageRoutingPolicy (per §2.2 + §2.5)
 //   - A.30.c L3 ConsentStore + RetentionScheduler
 //   - A.30.d server-side DSAR worker + privacy settings UI
 //
@@ -23,3 +26,4 @@ export * from './DsarRequest.js';
 export * from './Consent.js';
 export * from './RetentionPolicy.js';
 export * from './BreachIncident.js';
+export * from './StorageRoutingPolicy.js';
