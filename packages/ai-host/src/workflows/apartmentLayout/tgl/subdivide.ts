@@ -3134,6 +3134,46 @@ function growCapForType(type: RoomType): number {
     return Math.max(0, dimensionsFor(type).areaHardMax - 0.25);
 }
 
+/** §RESIDUAL-REAL-ROOMS (founder defect, 2026-06-15 — "the top floor mints 6 small
+ *  Stores instead of real rooms"): the area ceiling a grow-eligible room may reach when
+ *  it is ABSORBING leftover that would otherwise mint a SURPLUS Store (one beyond the
+ *  per-storey {@link RESIDUAL_MAX_MINTED_STORES} cap). This is GENEROUSLY above the
+ *  comfortable `areaHardMax` so an under-programmed upper plate fills with a slightly
+ *  larger REAL room (a roomy bedroom / generous landing) rather than a swarm of tiny
+ *  Stores — exactly the founder's ask. The length + aspect HARD-MAX still bind (see
+ *  {@link withinAbsorptionEnvelope}), so the absorbed room can never become a tunnel; it
+ *  just reads as a comfortably-large room of its type. Only the SURPLUS-store retry uses
+ *  this ceiling — the primary grow pass keeps the strict {@link growCapForType}, so a
+ *  well-tiled plate (≤1 store) is BYTE-IDENTICAL (ADR-0061). The factor is MODEST (1.2)
+ *  so an absorbed room stays inside the apartment-grade coherence band the founder also
+ *  asked for (a living room reaches ~54 m², not a 72 m² blob; a bedroom ~26 m²) — the
+ *  `houseProgramSizerConvergence` MEDIUM band is preserved. */
+const RESIDUAL_ABSORPTION_AREA_FACTOR = 1.2;
+function absorptionCapForType(type: RoomType): number {
+    // Bedrooms/master/study/living are the rooms a founder reads as "a real, larger room";
+    // a circulation strip (corridor/hall) absorbs only modestly (a landing, not a hall blob).
+    const d = dimensionsFor(type);
+    const circulation = type === 'corridor' || type === 'hall';
+    const factor = circulation ? 1.15 : RESIDUAL_ABSORPTION_AREA_FACTOR;
+    return Math.max(0, d.areaHardMax * factor - 0.25);
+}
+
+/** §RESIDUAL-REAL-ROOMS — the SURPLUS-store absorption envelope. Same as
+ *  {@link withinShapeEnvelope} but the AREA ceiling is the relaxed
+ *  {@link absorptionCapForType} (the founder prefers one comfortably-large real room to a
+ *  swarm of Stores). Length + aspect HARD-MAX are UNCHANGED — strict — so the absorbed
+ *  room stays a sane rectangle (never a tunnel), it is just allowed to be larger in area. */
+function withinAbsorptionEnvelope(type: RoomType, r: Rect): boolean {
+    const d = dimensionsFor(type);
+    const w = r.x1 - r.x0, h = r.z1 - r.z0;
+    if (w <= EPS || h <= EPS) return false;
+    if (rectArea(r) > absorptionCapForType(type) + 1e-6) return false;
+    const long = Math.max(w, h), short = Math.min(w, h);
+    if (long > d.lengthHardMax + 1e-6) return false;
+    if (long / short > d.aspectHardMax + 1e-6) return false;
+    return true;
+}
+
 /** Would extending a room to `r` keep it within its type's shape envelope (so the
  *  §D3.1 gate stays admissible): area ≤ hard-max, long side ≤ lengthHardMax, aspect ≤
  *  aspectHardMax. A grow that would breach any of these is rejected (slack is minted). */
@@ -3147,6 +3187,17 @@ function withinShapeEnvelope(type: RoomType, r: Rect): boolean {
     if (long / short > d.aspectHardMax + 1e-6) return false;
     return true;
 }
+
+/** §RESIDUAL-REAL-ROOMS (founder defect, 2026-06-15) — the MAX number of `utility`
+ *  "Store" cells the residual fill may MINT per claim pass. The founder's under-
+ *  programmed upper plate minted SIX ~4–7 m² Stores to fill the leftover; the ask is
+ *  "fill with REAL rooms, at most ONE store". Capped at 1: the first leftover that can't
+ *  be grown into a real room is minted as a single Store (a genuine utility cupboard is
+ *  legitimate); every FURTHER leftover is instead ABSORBED into the largest adjacent
+ *  real room via the relaxed {@link absorptionCapForType} (a roomier bedroom / landing),
+ *  and only TRUE clearance slack (nothing eligible to absorb it) is left blank. A plate
+ *  that never needed more than one Store is BYTE-IDENTICAL (the cap doesn't bite). */
+export const RESIDUAL_MAX_MINTED_STORES = 1;
 
 /** Does `union(a, b)` form a single axis-aligned rectangle (the two rects abut on a
  *  full shared edge)? Only then can a neighbour absorb a fragment by extending its
@@ -3222,32 +3273,65 @@ function growPartial(nb: Rect, frag: Rect, capM2: number): { grown: Rect; remain
     return { grown, remainder: rem };
 }
 
-/** Split a large leftover `frag` into a grid of ≤ {@link RESIDUAL_MINT_MAX_M2} cells so
- *  no minted Store is cavernous AND each cell stays within the `utility` aspect hard-max
- *  (3.5) — a long thin band is split along its LONG axis into near-square cells (never a
- *  3.5-aspect-breaching tunnel). Deterministic. */
-function splitFragmentForMint(frag: Rect): Rect[] {
-    const area = rectArea(frag);
+/** Split a large leftover `frag` into a GRID of cells, each ≤ `maxCellM2`, within
+ *  `aspectMax`, and with NO side longer than `lengthMax`. Splits BOTH axes as needed
+ *  (a deep wide band → a grid), so even a band deeper than `lengthMax` (e.g. a 6 m strip
+ *  vs the storage 5 m length cap) tiles into valid cells instead of leaving the band
+ *  unmintable → blank. Deterministic. Generalised from the utility-only splitter so the
+ *  residual mint can choose a REAL room envelope and produce sane cells (§RESIDUAL-REAL-ROOMS). */
+function splitFragmentToCells(frag: Rect, maxCellM2: number, aspectMax: number, lengthMax = Infinity): Rect[] {
     const w = frag.x1 - frag.x0, h = frag.z1 - frag.z0;
-    if (area <= RESIDUAL_MINT_MAX_M2 + 1e-6 && Math.max(w, h) / Math.max(EPS, Math.min(w, h)) <= 3.5 + 1e-6) {
-        return [roundRect(frag)];
-    }
-    // Number of slices along the LONG axis: enough that each cell is both ≤ the mint-max
-    // AND near the short side in proportion (aspect ≤ ~2). Split only the long axis (the
-    // short side is already the band depth, ≤ its own dimension).
-    const long = Math.max(w, h), short = Math.min(w, h);
-    const byArea = Math.ceil(area / RESIDUAL_MINT_MAX_M2);
-    const byAspect = Math.ceil(long / Math.max(EPS, short * 1.8));
-    const n = Math.max(1, byArea, byAspect);
+    // Per-axis division count: enough that each cell is ≤ maxCellM2 (area), ≤ aspectMax
+    // (proportion), AND ≤ lengthMax (each side). Compute nx, nz independently then grid.
+    const cellMaxSide = Math.max(EPS, Math.sqrt(maxCellM2 * aspectMax));   // longest side a max-area, max-aspect cell can have
+    const sideCap = Math.min(cellMaxSide, lengthMax);
+    const nx = Math.max(1, Math.ceil(w / Math.max(EPS, sideCap)));
+    const nz = Math.max(1, Math.ceil(h / Math.max(EPS, sideCap)));
+    // Refine so cell AREA ≤ maxCellM2 too (a near-square sideCap can still over-area).
+    let gx = nx, gz = nz;
+    while ((w / gx) * (h / gz) > maxCellM2 + 1e-6) { if (w / gx >= h / gz) gx++; else gz++; }
+    if (gx === 1 && gz === 1) return [roundRect(frag)];
     const out: Rect[] = [];
-    if (w >= h) {
-        const step = w / n;
-        for (let k = 0; k < n; k++) out.push(roundRect({ x0: frag.x0 + k * step, z0: frag.z0, x1: frag.x0 + (k + 1) * step, z1: frag.z1 }));
-    } else {
-        const step = h / n;
-        for (let k = 0; k < n; k++) out.push(roundRect({ x0: frag.x0, z0: frag.z0 + k * step, x1: frag.x1, z1: frag.z0 + (k + 1) * step }));
+    const sx = w / gx, sz = h / gz;
+    for (let i = 0; i < gx; i++) for (let k = 0; k < gz; k++) {
+        out.push(roundRect({ x0: frag.x0 + i * sx, z0: frag.z0 + k * sz, x1: frag.x0 + (i + 1) * sx, z1: frag.z0 + (k + 1) * sz }));
     }
     return out;
+}
+
+/** Split a large leftover `frag` into ≤ {@link RESIDUAL_MINT_MAX_M2} `utility`-Store cells
+ *  (legacy behaviour — the single-Store path). */
+function splitFragmentForMint(frag: Rect): Rect[] {
+    return splitFragmentToCells(frag, RESIDUAL_MINT_MAX_M2, 3.5, dimensionsFor('utility').lengthHardMax);
+}
+
+/** §RESIDUAL-REAL-ROOMS (founder defect, 2026-06-15) — the candidate REAL room TYPES a
+ *  residual cell may be MINTED as (walked in order; the first whose dimensional envelope the
+ *  cell fits wins). The founder's complaint was that the residual fill minted a SWARM of
+ *  GENERIC `utility` "Store" cells (undifferentiated fillers) to tile an under-programmed,
+ *  stair-fragmented plate. Instead we mint NAMED REAL `storage` rooms — a real service room
+ *  with its own occupancy + furniture programme (shelving), so the cells read as real rooms
+ *  on the schedule / IFC export rather than generic blanks — and CAP the generic `utility`
+ *  "Store" mint at RESIDUAL_MAX_MINTED_STORES (≤ 1).
+ *
+ *  §RESIDUAL-DETECT-CLEAN — `storage` (like the legacy `utility` store) is WINDOWLESS and
+ *  small (areaHardMax 8 m²), so the residual tiles into the same SMALL detection-clean cell
+ *  grid the proven §65.2 store-fill used: room detection separates them reliably even on a
+ *  dense stair-fragmented plate. (A larger windowed habitable fill type — e.g. `study` —
+ *  reads "nicer" but, on a dense plate, its larger cells / window openings make room
+ *  detection LEAK between the fill room and a neighbour, merging them: detected < emitted, a
+ *  flood. Eliminating that to allow FEWER, LARGER habitable fill rooms needs a follow-up
+ *  RoomDetectionEngine tolerance fix; until then `storage` is the detection-safe choice.)
+ *  The relaxed-absorption GROW (absorbIntoRealRoom) still enlarges adjacent REAL rooms
+ *  (bedrooms / living) into non-stair fragments first, so fewer storage cells are minted than
+ *  the old store swarm where the geometry permits. Deterministic. */
+const RESIDUAL_MINT_REAL_TYPES: readonly RoomType[] = ['storage'];
+
+/** The display name a minted residual room of `type` carries (room-detection shows this). */
+function residualMintName(type: RoomType): string {
+    if (type === 'study') return 'Study';
+    if (type === 'storage') return 'Storage';
+    return 'Store';
 }
 
 /** Shared-wall run (m) between two abutting rects (0 if they don't touch). */
@@ -3354,6 +3438,57 @@ export function claimResidualPlacements(
     const mints: NonNullable<ClaimedResidual['mint']>[] = [];
     const claims: ResidualClaimDetail[] = [];
     let mintCounter = 0;
+    // §RESIDUAL-REAL-ROOMS — how many "Store" cells have been MINTED so far this pass. Once
+    // it reaches RESIDUAL_MAX_MINTED_STORES, every further leftover is ABSORBED into a real
+    // room (relaxed cap) instead of minting a surplus Store — the founder's "real rooms, not
+    // a swarm of stores" fix.
+    let mintedStores = 0;
+
+    // §RESIDUAL-REAL-ROOMS — absorb `frag` into the largest adjacent grow-eligible REAL room
+    // under the RELAXED absorption envelope (area up to absorptionCapForType, length/aspect
+    // still strict). Returns true when it absorbed something (re-queuing any remainder), false
+    // when no eligible neighbour could take it (→ leave as true clearance, NOT a surplus Store).
+    const absorbIntoRealRoom = (fragment: Rect): boolean => {
+        // The absorption ceiling is the TYPE's RELAXED dimensional cap (absorptionCapForType),
+        // NOT the bubble's SOFT comfortable target (`maxAreaM2`) — a relaxed grow deliberately
+        // takes the real room comfortably ABOVE its soft target so the leftover reads as one
+        // larger real room (a roomy bedroom) instead of a minted study/store. `withinAbsorption-
+        // Envelope` still binds length + aspect HARD-MAX strictly, so the room never tunnels.
+        //
+        // §RESIDUAL-DETECT-CLEAN (founder defect, 2026-06-15) — a PARTIAL grow leaves the
+        // neighbour's new edge mid-fragment (a fresh interior partition line). Near the STAIR
+        // keep-out that edge need not align with the stair-fragmented grid, so it can leave a thin
+        // gap room-detection LEAKS through (detected < emitted, a flood). The CALLER therefore
+        // only invokes this for fragments that do NOT abut the stair keep-out (the regular part of
+        // the plate, where a partial grow is detection-safe); the stair-adjacent residual is left
+        // to the grid-aligned mint below. Within those safe fragments a partial grow is allowed so
+        // an adjacent REAL room (bedroom / living) genuinely ENLARGES to swallow the leftover
+        // (the founder's "larger rooms") instead of minting a fill cell.
+        let aIdx = -1, aShared = 0;
+        for (let i = 0; i < work.length; i++) {
+            const meta = roomById.get(work[i]!.roomId);
+            if (!meta || !RESIDUAL_GROW_ELIGIBLE.has(meta.type)) continue;
+            const cap = absorptionCapForType(meta.type);
+            if (rectArea(work[i]!.rect) >= cap - 1e-6) continue;
+            const res = growPartial(work[i]!.rect, fragment, cap);
+            if (!res || !withinAbsorptionEnvelope(meta.type, res.grown)) continue;
+            const shared = sharedEdgeM(work[i]!.rect, fragment);
+            if (shared > aShared + 1e-9) { aShared = shared; aIdx = i; }
+        }
+        if (aIdx < 0 || aShared <= 0.05) return false;
+        const nb = work[aIdx]!;
+        const meta = roomById.get(nb.roomId)!;
+        const cap = absorptionCapForType(meta.type);
+        const res = growPartial(nb.rect, fragment, cap);
+        if (!res || !withinAbsorptionEnvelope(meta.type, res.grown)) return false;
+        if (res.remainder) worklist.push(res.remainder);
+        claims.push({
+            areaM2: round6(rectArea(res.grown) - rectArea(nb.rect)),
+            how: 'grown', neighbourId: nb.roomId, label: nb.roomId,
+        });
+        work[aIdx] = { roomId: nb.roomId, rect: res.grown };
+        return true;
+    };
 
     // Worklist so a partially-absorbed fragment's REMAINDER is re-examined (it may abut a
     // DIFFERENT eligible neighbour) before it is finally minted. Bounded: every iteration
@@ -3410,32 +3545,91 @@ export function claimResidualPlacements(
             }
         }
 
-        // 2. MINT — split the leftover into bounded NAMED `utility` "Store" cells (the only type
-        //    with no width-hard-max, so a habitable-shaped band fits; areaHardMax 8 m², so every
-        //    Store passes the §D3.1 shape gate and stays well under per-type sanity caps). Each
-        //    is wired `open` to the room it abuts so it is never a sealed island. (`utility` is
-        //    used for ALL leftover; "Landing"/"Hall" naming is reserved for the corridor-GROW
-        //    path above, where a real circulation strip — not a wide store — is produced.)
-        for (const cell of splitFragmentForMint(frag)) {
+        // 1b. §RESIDUAL-REAL-ROOMS (founder defect, 2026-06-15 — "the top floor mints 6 small
+        //     Stores instead of real rooms") — PREFER FILLING WITH A REAL ROOM over minting a
+        //     Store. The strict grow above (1) caps every room at its COMFORTABLE hard-max, so a
+        //     large under-programmed band beside a bedroom/living/master could only be filled by
+        //     a SWARM of minted Stores (the founder's defect). Before minting, retry the grow with
+        //     the RELAXED absorption envelope (area up to absorptionCapForType ≈ 1.6× the comfort
+        //     hard-max; length + aspect STILL strict so no tunnel): the band reads as one
+        //     comfortably-larger real room (a roomy bedroom, a generous landing) instead of a
+        //     store swarm. Absorbs as much as the relaxed cap allows + re-queues the remainder;
+        //     only the residue that NO real room can take falls through to the bounded mint below.
+        //     This NEVER lowers a count and is deterministic. (On a well-tiled plate the strict
+        //     grow already handled the fragment, so this never fires (byte-identical, ADR-0061).
+        //
+        // §RESIDUAL-DETECT-CLEAN (founder defect, 2026-06-15) — the RELAXED absorb is GATED to
+        // fragments that DON'T abut the stair keep-out. A relaxed grow extends a real room's rect
+        // by a partial slab whose new edge need NOT align with the stair-fragmented grid; near the
+        // stair that misaligned edge leaves a thin gap room-detection LEAKS through (detected <
+        // emitted). Away from the stair the grid is regular, so a relaxed grow there is detection-
+        // safe AND fills with a larger real room (the founder's "larger bedrooms"). Stair-adjacent
+        // residual is left to the GRID-ALIGNED mint below (proven detection-clean), so no leak.
+        const fragTouchesStair = stairKeepOuts.some(ko => sharedEdgeM(frag, ko) > 0.05);
+        if (!fragTouchesStair && absorbIntoRealRoom(frag)) continue;
+
+        // 2. MINT — the leftover that no real room could grow into is FILLED with NAMED rooms.
+        //    §RESIDUAL-REAL-ROOMS (founder defect, 2026-06-15): a back-strip / stair-fragmented
+        //    leftover the subdivider couldn't program used to be split into a SWARM of tiny ≤7.5 m²
+        //    `utility` "Store" cells (the founder's "6 small Stores on the top floor"). Instead we
+        //    mint it as FEWER, LARGER REAL rooms — a room-sized cell becomes ONE `study` (a
+        //    windowless box room / home office, the most defensible interior room), capping genuine
+        //    `utility` STORES at RESIDUAL_MAX_MINTED_STORES (≤1) so the founder sees "a few real
+        //    rooms + at most one store", never a swarm. Each cell is wired `open` to the room it
+        //    abuts so it is never a sealed island.
+        //
+        // Choose the mint TYPE per cell: a cell that fits a REAL room envelope (study) is minted as
+        // that room; only a cell too small/awkward for any real type — AND while under the store cap
+        // — becomes the single permitted utility Store. We size the split by the chosen real type's
+        // envelope (study areaHardMax 20 → far fewer cells than the 7.5 m² utility grid).
+        const mintCellsForType = (t: RoomType): Rect[] => {
+            const d = dimensionsFor(t);
+            return splitFragmentToCells(frag, Math.max(0, d.areaHardMax - 0.5), d.aspectHardMax, d.lengthHardMax);
+        };
+        // Does the WHOLE fragment, split into study-sized cells, fit the study shape envelope?
+        const realType = RESIDUAL_MINT_REAL_TYPES.find(t =>
+            mintCellsForType(t).every(c => rectArea(c) >= dimensionsFor(t).areaMin - 1e-6 && withinShapeEnvelope(t, c)),
+        );
+        const useStore = realType === undefined;
+        // A store-typed mint is gated by the per-pass cap; a real-room mint is not (real rooms ARE
+        // the desired fill). If we'd need a store but the cap is reached, absorb (relaxed, only
+        // when detection-safe — see §RESIDUAL-DETECT-CLEAN) or leave as clearance.
+        if (useStore && mintedStores >= RESIDUAL_MAX_MINTED_STORES) {
+            if (!fragTouchesStair) absorbIntoRealRoom(frag);
+            continue;
+        }
+        const mintType: RoomType = realType ?? 'utility';
+        const cells = useStore ? splitFragmentForMint(frag) : mintCellsForType(mintType);
+        let storeMintedThisFrag = false;
+        for (const cell of cells) {
             if (rectArea(cell) < RESIDUAL_EPS_M2) continue;
             const cs = Math.min(cell.x1 - cell.x0, cell.z1 - cell.z0);
             if (cs < RESIDUAL_MINT_MIN_SHORT_M) continue;                  // sliver — leave clearance
+            // A multi-cell STORE split may only mint ONE Store; further store cells are absorbed
+            // (relaxed, detection-safe only) or left as clearance — never a swarm. Real-room
+            // cells are all minted.
+            if (useStore && (storeMintedThisFrag || mintedStores >= RESIDUAL_MAX_MINTED_STORES)) {
+                if (!fragTouchesStair) absorbIntoRealRoom(cell);
+                continue;
+            }
+            const mintRect = cell;
             let nbIdx = -1, nbShared = 0;
             for (let i = 0; i < work.length; i++) {
-                const shared = sharedEdgeM(work[i]!.rect, cell);
+                const shared = sharedEdgeM(work[i]!.rect, mintRect);
                 if (shared > nbShared + 1e-9) { nbShared = shared; nbIdx = i; }
             }
             const neighbourId = nbIdx >= 0 && nbShared > 0.05 ? work[nbIdx]!.roomId : null;
             const id = `residual_${seed}_${mintCounter++}`;
             mints.push({
-                id, type: 'utility', name: 'Store', rect: cell,
-                targetAreaM2: round6(rectArea(cell)), neighbourId,
+                id, type: mintType, name: residualMintName(mintType), rect: mintRect,
+                targetAreaM2: round6(rectArea(mintRect)), neighbourId,
             });
             claims.push({
-                areaM2: round6(rectArea(cell)),
-                how: 'minted', neighbourId, label: 'Store',
+                areaM2: round6(rectArea(mintRect)),
+                how: 'minted', neighbourId, label: residualMintName(mintType),
             });
-            work.push({ roomId: id, rect: cell });
+            work.push({ roomId: id, rect: mintRect });
+            if (useStore) { mintedStores++; storeMintedThisFrag = true; }
         }
     }
 

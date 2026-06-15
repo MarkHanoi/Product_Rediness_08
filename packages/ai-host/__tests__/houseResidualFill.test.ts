@@ -196,12 +196,21 @@ describe('§65.2 — the no-oversize / keep-out invariants hold while filling', 
 // strict no-op below the cavern gate → r.largestBlankM2 stayed ≈ the blank area).
 describe('§65.2-MODERATE — a moderate (15–30 m²) UPPER-floor blank is claimed, not shipped as "Room NN"', () => {
     // Model the founder's upper floor: a private level whose sparser programme under-fills the
-    // plate. An 11×6 m upper plate; a placed master (5×6 = 30 m², under its 35 m² hard-max, so
-    // it has a little grow headroom) on the left; the right 6×6 = 36 m² band is BLANK (a moderate
-    // blank, well below the 48 m² cavern gate, NOT touching any stair) and shares the master's
-    // FULL right wall. No stair keep-out is passed — exactly the path a non-stair moderate blank
-    // takes. The fill grows the master to its hard-max (≤ 35 — never oversize) and mints the
-    // remainder as named Store cells, so the moderate blank is gone (the founder fix).
+    // plate. An 11×6 m upper plate; a placed master (5×6 = 30 m²) on the left; the right 6×6 =
+    // 36 m² band is BLANK (a moderate blank, well below the 48 m² cavern gate, NOT touching any
+    // stair) and shares the master's FULL right wall. No stair keep-out is passed.
+    //
+    // §RESIDUAL-REAL-ROOMS (founder defect, 2026-06-15) — the fill POLICY CHANGED here. The
+    // founder's complaint was that the residual fill minted a SWARM of tiny `utility` "Store"
+    // cells (6×~4-7 m²) to tile an under-programmed plate instead of REAL rooms. The new policy:
+    //  • the master ABSORBS the abutting band up to its RELAXED absorption cap (the apartment-
+    //    grade coherence band, ~1.2× its comfortable hard-max — a roomier master, not a "Store"),
+    //  • the per-pass `utility` "Store" mint is capped at RESIDUAL_MAX_MINTED_STORES (≤ 1), and
+    //  • the remaining leftover is minted as NAMED REAL rooms ("Storage" — a real service room
+    //    with its own programme) rather than a generic "Store" swarm.
+    // So this test now asserts the NEW policy: the blank is fully claimed, the master grows
+    // within its RELAXED coherence band (never the old "master over-allocated" blob), and at most
+    // ONE `utility` "Store" is minted.
     const plateRect: Rect = { x0: 0, z0: 0, x1: 11, z1: 6 };
     const placements: RoomPlacement[] = [
         { roomId: 'master0', rect: { x0: 0, z0: 0, x1: 5, z1: 6 } },        // master 30 m² — placed
@@ -225,19 +234,22 @@ describe('§65.2-MODERATE — a moderate (15–30 m²) UPPER-floor blank is clai
             .toBeLessThanOrEqual(RESIDUAL_MODERATE_BLANK_M2);
     });
 
-    it('NO grown/minted room is oversize (no-oversize invariant preserved)', () => {
-        // Every grown room stays ≤ its type hard-max; every minted Store ≤ the utility hard-max.
-        const masterHardMax = dimensionsFor('master').areaHardMax;
-        const storeHardMax = dimensionsFor('utility').areaHardMax + 0.5;
+    it('the master grows within its RELAXED coherence band; ≤ 1 utility "Store" is minted (§RESIDUAL-REAL-ROOMS)', () => {
+        // The grown master stays within the apartment-grade coherence band (~1.2× its comfortable
+        // hard-max — a roomy master, NOT the old "master over-allocated" blob). The per-pass
+        // generic `utility` "Store" mint is capped at ≤ 1 (the founder's "at most one store"); the
+        // rest of the band is minted as REAL named rooms (e.g. "Storage").
+        const masterRelaxedCap = dimensionsFor('master').areaHardMax * 1.25;   // ≥ the engine's 1.2× cap, with slack
         const area = (q: Rect) => (q.x1 - q.x0) * (q.z1 - q.z0);
         for (const p of r.placements) {
             if (p.roomId === 'master0') {
-                expect(area(p.rect), 'grown master oversize').toBeLessThanOrEqual(masterHardMax + 1e-6);
+                expect(area(p.rect), 'grown master beyond its relaxed coherence band')
+                    .toBeLessThanOrEqual(masterRelaxedCap + 1e-6);
             }
         }
-        for (const m of r.mints) {
-            expect(area(m.rect), 'minted Store oversize').toBeLessThanOrEqual(storeHardMax);
-        }
+        const utilityStoreMints = r.mints.filter(m => m.type === 'utility');
+        expect(utilityStoreMints.length, 'more than one generic utility "Store" minted')
+            .toBeLessThanOrEqual(1);
     });
 
     it('the per-fragment §DIAG-FILL-RESIDUAL audit records area + grown-into vs minted-as', () => {
@@ -273,5 +285,67 @@ describe('§65.2-MODERATE — a moderate (15–30 m²) UPPER-floor blank is clai
             if (p.roomId === 'stair0') continue;
             expect(overlaps(p.rect, stairKO), `"${p.roomId}" crossed the stair keep-out`).toBe(false);
         }
+    });
+});
+
+// ──────────── §RESIDUAL-REAL-ROOMS — the "swarm of Stores" cure (founder 2026-06-15) ───────────
+//
+// The founder's production defect: a 3-bed/2-bath 2-storey house whose UPPER (first) floor is
+// large but UNDER-PROGRAMMED — after 2 bedrooms + a bath + a landing there is a lot of leftover
+// area, which the residual fill tiled with a SWARM of SIX small generic "Store" rooms (~4-7 m²)
+// instead of real, meaningful rooms. The fix (§RESIDUAL-REAL-ROOMS): cap the generic `utility`
+// "Store" mint at RESIDUAL_MAX_MINTED_STORES (≤ 1), GROW adjacent real rooms (relaxed coherence
+// band) to swallow non-stair leftover, and mint the remaining stair-fragmented residual as NAMED
+// REAL `storage` rooms (a real service room with its own programme) rather than a generic-blank
+// "Store" swarm. This locks the cure end-to-end on a representative under-programmed upper storey.
+describe('§RESIDUAL-REAL-ROOMS — an under-programmed upper storey fills with real rooms, ≤ 1 generic Store', () => {
+    const SMALL: ApartmentProgram = {
+        bedrooms: 3, bathrooms: 2, masterEnSuite: true,
+        openPlanKitchenDining: true, livingRoom: true, entranceHall: true,
+    };
+    // A LARGE 230 m² plate / 2 storeys → a large, under-programmed upper plate (the founder's repro).
+    const r = generateHouseLayout(plate(230, 16), SMALL, C, W, { storeyCount: 2 });
+
+    it('produces 2 storeys', () => {
+        expect(r.perStoreyLayout).toHaveLength(2);
+    });
+
+    it('NO storey mints more than ONE generic "Store" (the swarm is gone — founder cap)', () => {
+        for (const opt of r.perStoreyLayout) {
+            const stores = opt!.rooms.filter(rm => rm.name === 'Store').length;
+            expect(stores, `${stores} generic "Store" rooms — the founder's swarm`).toBeLessThanOrEqual(1);
+        }
+    });
+
+    it('the plate is filled with NAMED real rooms — coverage ≥ 0.90, no generic blank', () => {
+        for (const opt of r.perStoreyLayout) {
+            const tiled = opt!.rooms.reduce((s, rm) => s + rm.area, 0);
+            expect(tiled / 230, `coverage ${(tiled / 230).toFixed(3)} below 0.90`).toBeGreaterThanOrEqual(0.90);
+            // Every cell is a NAMED program/real room — never the generic detection-fallback "Room NN".
+            for (const room of opt!.rooms) {
+                expect(room.name, 'a cell has no name').toBeTruthy();
+                expect(/^room\s*\d/i.test(room.name), `generic blank name "${room.name}"`).toBe(false);
+            }
+        }
+    });
+
+    it('the residual fill of the upper plate uses REAL rooms (not a utility-Store swarm)', () => {
+        // The UPPER storey (index 1) is the under-programmed one. Its residual must be REAL named
+        // rooms (storage / grown habitable) with ≤ 1 generic "Store" — never the 6-store swarm.
+        const upper = r.perStoreyLayout[1]!;
+        const genericStores = upper.rooms.filter(rm => rm.name === 'Store').length;
+        const realFill = upper.rooms.filter(rm => rm.name === 'Storage' || rm.type === 'study').length;
+        expect(genericStores, 'upper storey still has a generic Store swarm').toBeLessThanOrEqual(1);
+        // The leftover IS claimed (the plate is not left blank): either grown into habitable rooms
+        // (high coverage, asserted above) or minted as named "Storage".
+        expect(realFill + genericStores, 'upper storey residual not filled with real rooms').toBeGreaterThan(0);
+    });
+
+    it('is deterministic (ADR-0061) — identical inputs → identical room areas', () => {
+        const b = generateHouseLayout(plate(230, 16), SMALL, C, W, { storeyCount: 2 });
+        const sig = (res: typeof r) => res.perStoreyLayout
+            .map(o => o!.rooms.map(rm => `${rm.type}:${rm.area.toFixed(3)}`).join(','))
+            .join(';');
+        expect(sig(r)).toEqual(sig(b));
     });
 });
