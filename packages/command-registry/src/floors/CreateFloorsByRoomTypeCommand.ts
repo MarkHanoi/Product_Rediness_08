@@ -31,12 +31,24 @@ import { buildPerRoomBoundaryElements, roomsOnLevel, roomsWithBoundary, type Per
 import { floorFinishFor } from './floorFinish';
 import { insetPolygonToInnerFaces } from '@pryzm/room-topology';
 
-/** occupancyType → finish category. #34: timber in living/bedroom, tile in kitchen/bathroom. */
+/** occupancyType → finish category. #34: timber in living/bedroom, tile in kitchen/bathroom.
+ *  §FLOOR-FINISH-COVERAGE (founder 2026-06-15, "floor finishes") — the sets key on the
+ *  room's OCCUPANCY string. Three common occupancies were missing → those rooms got NO
+ *  floor (the filter at `typed` drops null-category rooms), shipping a bare slab:
+ *    • `entrance-lobby` (the entrance HALL) and `corridor` — every generated house has
+ *      circulation that was left unfinished; mapped to TIMBER so the floor reads continuous
+ *      with the living/bedroom spaces it connects.
+ *    • `private-office` — the STUDY's actual occupancy (the rule is `occupancy:'private-office'`);
+ *      the set had the TYPE name `'study'`, which a detected room never carries, so studies
+ *      (and any study-typed residual fill) shipped floorless. Fixed by keying on the occupancy.
+ *  `stair` stays unmapped on purpose (its slab is the stairwell void, never a finish). */
 const TIMBER_TYPES = new Set([
     'living-room', 'bedroom', 'dining-room', 'hotel-bedroom', 'study',
+    'private-office', 'entrance-lobby', 'corridor',
 ]);
 const TILE_TYPES = new Set([
     'kitchen', 'kitchen-shared', 'bathroom', 'wc', 'accessible-wc', 'shower-room', 'utility-room',
+    'storage',
 ]);
 
 /** §FLOOR-INNER-FACE — minimal read-only view of a wall the inset resolver needs:
