@@ -358,9 +358,11 @@ export class KitchenCabinetEngine {
     // ── Upper cabinet row builder ─────────────────────────────────────────────
 
     /**
-     * Build a segmented countertop for one arm of the kitchen, omitting tops
-     * over fridge / washing-machine units and cutting a precise basin-sized
-     * opening above each sink unit.
+     * Build a segmented countertop for one arm of the kitchen. The slab runs
+     * CONTINUOUSLY over under-counter appliances (washing machine / dishwasher /
+     * under-counter oven), omits the top only over TALL / free-standing units
+     * (full-height fridges), and cuts a precise basin-sized opening above each
+     * sink unit.
      *
      * Local arm coords:
      *   u-axis  -> along the run of units (length of the arm)
@@ -391,14 +393,30 @@ export class KitchenCabinetEngine {
             alongAxis, alongStart, perpBack, perpFrontDir, ctTopY, ctH, mat,
         } = opts;
 
-        const CUTOUT_APPLIANCES = new Set([
-            'sink_inox', 'sink_dark',
+        // §KITCHEN-WORKTOP-OVER-UNDERCOUNTER (2026-06-15) — the worktop run must be
+        // CONTINUOUS over UNDER-COUNTER appliances (washing machine / dishwasher /
+        // under-counter oven / integrated fridge), which are counter-height units the
+        // worktop runs ACROSS the top of. Only TWO things interrupt the slab:
+        //   • a SINK  — a basin-sized rectangular opening is cut (the worktop still
+        //     runs all round it; it is not a gap in the run).
+        //   • a TALL / free-standing unit (the 1.78–1.85 m fridges here) — the worktop
+        //     is fully omitted above it because a full-height unit reaches the ceiling
+        //     zone and there is no counter to top.
+        // Washing machines were previously in this omit set, which BROKE the run with a
+        // worktop-less gap over the washer bay; they are under-counter (see
+        // `_addWashingMachine`, which sizes the body to `height - ctH` so it fits UNDER
+        // the worktop), so they now get a SOLID slab over them like a plain base unit.
+        const TALL_APPLIANCES = new Set([
             'fridge_compact_silver', 'fridge_compact_dark',
             'fridge_combi_silver',   'fridge_combi_dark',
             'fridge_side_silver',    'fridge_side_dark',
-            'washing_machine_dark',  'washing_machine_white',
         ]);
         const SINK_APPLIANCES = new Set(['sink_inox', 'sink_dark']);
+        // A unit interrupts the solid slab only when it is a sink (cut a basin hole) or
+        // a tall/free-standing appliance (omit the slab). Everything else — plain base
+        // units, hobs (hob cuts its own surface in but the slab stays), and under-counter
+        // appliances — gets a continuous slab over the top.
+        const CUTOUT_APPLIANCES = new Set([...TALL_APPLIANCES, ...SINK_APPLIANCES]);
 
         // Total perpendicular span (back of cabinet to front edge incl overhang)
         const vMax = cabinetDepth + frontOv;
@@ -470,7 +488,10 @@ export class KitchenCabinetEngine {
                         // Front strip (between basin and front edge incl overhang)
                         addSlab(basinUMin, basinUMax, basinVMax, vMax);
                     }
-                    // Fridges / washing machines: countertop fully omitted above.
+                    // Tall / free-standing units (the full-height fridges): countertop
+                    // fully omitted above (the `addSlab` ran up to this unit's left edge
+                    // and the next segment starts after it). Under-counter appliances are
+                    // NOT in CUTOUT_APPLIANCES, so the slab runs straight over them.
                 }
                 segStart = i + 1;
             }

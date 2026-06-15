@@ -46,17 +46,83 @@ export class SinkBuilder implements IFurnitureBuilder {
         const W = data.width || 0.60, L = data.length || 0.60, H = data.height || 0.90;
         const cab = this.materialService.getMaterial(bodyColorOf(data, 0xd9d9d9), 'standard') as THREE.MeshStandardMaterial;
         const steel = this.materialService.getMaterial(0xc4c8cc, 'standard') as THREE.MeshStandardMaterial;
-        // Base cabinet
+
+        // Base cabinet.
         const body = new THREE.Mesh(new THREE.BoxGeometry(W, H, L), cab);
         body.position.set(0, H / 2, 0);
         g.add(body);
-        // Recessed stainless basin set into the worktop
-        const basin = new THREE.Mesh(new THREE.BoxGeometry(W * 0.7, 0.06, L * 0.7), steel);
-        basin.position.set(0, H - 0.05, 0);
-        g.add(basin);
-        // Tap at the BACK of the basin (against the wall), arching forward
+
+        // §SINK-BASIN-RECESS (founder, 2026-06-15) — the standalone kitchen sink
+        // used to be a SOLID block with a flat steel slab on top (no bowl). Mirror
+        // the BathBuilder mechanism: an OPEN frame of four basin side walls around a
+        // hollow centre + a deck ring tiling the worktop around the opening + a well
+        // floor placed BELOW the rim. Deterministic, no CSG. The outer footprint
+        // (W × L × H) and placement are unchanged — only the top is hollowed.
+        const RIM_THK   = 0.012;             // worktop deck slab thickness
+        const WALL_THK  = 0.010;             // basin side-wall thickness
+        const BOWL_DEPTH = 0.18;             // ~180 mm bowl depth (below the rim)
+        const INSET     = 0.055;             // ~55 mm rim from the unit edge to the bowl
+        const rimTopY   = H;                 // worktop top sits at the cabinet top
+
+        // Inner bowl opening (the hollow). Inset from the unit footprint so a visible
+        // rim/deck surrounds the bowl on all sides.
+        const innerW = Math.max(0.20, W - 2 * INSET);
+        const innerL = Math.max(0.20, L - 2 * INSET);
+        const floorY = rimTopY - BOWL_DEPTH; // bowl floor height above the cabinet top minus depth
+
+        // Four basin side walls — a frame around an OPEN centre (the recess).
+        const wallH = BOWL_DEPTH;
+        const sideLongGeo = new THREE.BoxGeometry(innerW + 2 * WALL_THK, wallH, WALL_THK);
+        const frontWall = new THREE.Mesh(sideLongGeo, steel);
+        frontWall.position.set(0, floorY + wallH / 2,  innerL / 2 + WALL_THK / 2);
+        g.add(frontWall);
+        const backWall = new THREE.Mesh(sideLongGeo, steel);
+        backWall.position.set(0, floorY + wallH / 2, -innerL / 2 - WALL_THK / 2);
+        g.add(backWall);
+        const sideShortGeo = new THREE.BoxGeometry(WALL_THK, wallH, innerL + 2 * WALL_THK);
+        const leftWall = new THREE.Mesh(sideShortGeo, steel);
+        leftWall.position.set(-innerW / 2 - WALL_THK / 2, floorY + wallH / 2, 0);
+        g.add(leftWall);
+        const rightWall = new THREE.Mesh(sideShortGeo, steel);
+        rightWall.position.set( innerW / 2 + WALL_THK / 2, floorY + wallH / 2, 0);
+        g.add(rightWall);
+
+        // Worktop deck ring around the opening — four slabs that tile the frame
+        // between the unit footprint and the bowl opening, leaving the bowl clear.
+        const deckY = rimTopY - RIM_THK / 2;
+        const fbDepth = (L - innerL) / 2;    // front/back deck depth
+        const lrWidth = (W - innerW) / 2;    // left/right deck width
+        const deckFBGeo = new THREE.BoxGeometry(W, RIM_THK, fbDepth);
+        const deckFront = new THREE.Mesh(deckFBGeo, steel);
+        deckFront.position.set(0, deckY,  (innerL / 2 + L / 2) / 2);
+        g.add(deckFront);
+        const deckBack = new THREE.Mesh(deckFBGeo, steel);
+        deckBack.position.set(0, deckY, -(innerL / 2 + L / 2) / 2);
+        g.add(deckBack);
+        const deckLRGeo = new THREE.BoxGeometry(lrWidth, RIM_THK, innerL);
+        const deckLeft = new THREE.Mesh(deckLRGeo, steel);
+        deckLeft.position.set(-(innerW / 2 + W / 2) / 2, deckY, 0);
+        g.add(deckLeft);
+        const deckRight = new THREE.Mesh(deckLRGeo, steel);
+        deckRight.position.set( (innerW / 2 + W / 2) / 2, deckY, 0);
+        g.add(deckRight);
+
+        // Bowl floor — a thin slab at the BOTTOM of the recess (well below the rim).
+        const innerMat = this.materialService.getMaterial(0xa8aeb4, 'standard') as THREE.MeshStandardMaterial;
+        const floorGeo = new THREE.BoxGeometry(innerW, 0.012, innerL);
+        const wellFloor = new THREE.Mesh(floorGeo, innerMat);
+        wellFloor.position.set(0, floorY + 0.006, 0);
+        wellFloor.receiveShadow = true;
+        g.add(wellFloor);
+
+        // Chrome drain at the bowl-floor centre.
+        const drain = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.008, 14), steel);
+        drain.position.set(0, floorY + 0.012, 0);
+        g.add(drain);
+
+        // Tap at the BACK of the basin (against the wall), arching forward.
         const tap = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.25, 8), steel);
-        tap.position.set(0, H + 0.12, -L * 0.28);
+        tap.position.set(0, rimTopY + 0.12, -L * 0.28);
         g.add(tap);
         tagEdge30(g);
         return g;
