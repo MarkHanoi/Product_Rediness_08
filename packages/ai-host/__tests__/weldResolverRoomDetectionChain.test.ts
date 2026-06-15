@@ -25,7 +25,33 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { RoomDetectionEngine } from '@pryzm/room-topology';
 import { WallJoinResolver } from '@pryzm/geometry-wall';
 import type { WallData } from '@pryzm/geometry-wall';
-import { weldPartitionsToShell, type WeldWall } from '../src/workflows/houseLayout/weldPartitionsToShell.js';
+import { weldPartitionsToShell, type WeldWall, type XZ } from '../src/workflows/houseLayout/weldPartitionsToShell.js';
+
+// §UPPER-SHELL-WELD-COND (2026-06-15) — the open-seam predicate the executor's
+// `_countOpenSeams` uses to decide whether the bit-exact upper plate actually sealed.
+// This MIRRORS HouseLayoutExecutor._countOpenSeams exactly (perim ∪ partition-span,
+// 0.30 m corner-snap) so this suite can assert the conditional-weld decision headlessly.
+const SEAL_GRID_M = 0.30;
+function distToSeg(px: number, pz: number, a: XZ, b: XZ): number {
+    const dx = b.x - a.x, dz = b.z - a.z, len2 = dx * dx + dz * dz;
+    let t = len2 > 0 ? ((px - a.x) * dx + (pz - a.z) * dz) / len2 : 0;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(px - (a.x + t * dx), pz - (a.z + t * dz));
+}
+function countOpenSeams(parts: WeldWall[], shell: WeldWall[]): number {
+    type Ep = { id: string; x: number; z: number };
+    const eps: Ep[] = [];
+    for (const p of parts) { eps.push({ id: p.id, x: p.start.x, z: p.start.z }, { id: p.id, x: p.end.x, z: p.end.z }); }
+    let open = 0;
+    for (const ep of eps) {
+        let nearPerim = Infinity;
+        for (const sw of shell) { const d = distToSeg(ep.x, ep.z, sw.start, sw.end); if (d < nearPerim) nearPerim = d; }
+        let nearSpan = Infinity;
+        for (const o of parts) { if (o.id === ep.id) continue; const d = distToSeg(ep.x, ep.z, o.start, o.end); if (d < nearSpan) nearSpan = d; }
+        if (Math.min(nearPerim, nearSpan) > SEAL_GRID_M) open++;
+    }
+    return open;
+}
 
 // ── Production-chain helpers ──────────────────────────────────────────────────
 
@@ -319,5 +345,78 @@ describe('§WELD-RESOLVER-CHAIN — resolver must not re-open the welded seal', 
             weldedWalls.map(w => ({ ...w, baseLine: [{ ...w.baseLine[0] }, { ...w.baseLine[1] }] } as WallData)), snap,
         ))));
         expect(worst).toBeGreaterThanOrEqual(weldOnly);
+    });
+});
+
+// §UPPER-SHELL-WELD-COND — the conditional upper-floor weld decision (2026-06-15).
+//
+// The executor (HouseLayoutExecutor §UPPER-SHELL-WELD) used to SKIP the weld whenever
+// the upper footprint was an axis-aligned rectangle, ASSUMING the engine-emitted
+// partitions were already bit-exact on the minted perimeter. The founder-observed
+// defect: that assumption fails when the engine emits a partition >0.30 m short of the
+// shell (keystone/§PARTITION-REACH residual) — the open seam floods detection → the
+// upper rooms merge + the surplus fragments go unnamed (generic "Room 01-NNN").
+//
+// The fix VERIFIES the seal (`_countOpenSeams`, mirrored here as `countOpenSeams`) on
+// the bit-exact set; only when it finds an open seam does it fall back to the same weld
+// the ground uses. These tests assert the decision: short partition ⇒ openSeams>0 ⇒ weld
+// closes it (room count recovers); clean bit-exact ⇒ openSeams=0 ⇒ no weld, set unchanged.
+describe('§UPPER-SHELL-WELD-COND — conditional weld on the axis-aligned upper plate', () => {
+    // 10×8 axis-aligned rectangle subdivided into 4 rooms by a + of partitions at (5,4).
+    const shell: WeldWall[] = [
+        { id: 's0', start: { x: 0, z: 0 }, end: { x: 10, z: 0 } },
+        { id: 's1', start: { x: 10, z: 0 }, end: { x: 10, z: 8 } },
+        { id: 's2', start: { x: 10, z: 8 }, end: { x: 0, z: 8 } },
+        { id: 's3', start: { x: 0, z: 8 }, end: { x: 0, z: 0 } },
+    ];
+    const cleanParts = (): WeldWall[] => [
+        { id: 'pv', start: { x: 5, z: 0 }, end: { x: 5, z: 8 } },   // vertical spine, bit-exact on shell
+        { id: 'phl', start: { x: 0, z: 4 }, end: { x: 5, z: 4 } },  // left arm, on shell + junction
+        { id: 'phr', start: { x: 5, z: 4 }, end: { x: 10, z: 4 } }, // right arm, junction + shell
+    ];
+
+    it('CLEAN bit-exact plate: openSeams=0 → the conditional path leaves the set UNCHANGED (no weld)', () => {
+        const parts = cleanParts();
+        // The seal predicate the executor uses sees ZERO open seams …
+        expect(countOpenSeams(parts, shell)).toBe(0);
+        // … so the conditional path keeps the bit-exact set: a weld would be a no-op, but
+        // the executor never even runs it. Prove the geometry is already sealed (4 rooms).
+        const walls = [...shell.map(s => toWall(s)), ...parts.map(p => toWall(p))];
+        expect(detect(walls)).toBe(4);
+        // And the weld, if it HAD run, is a deterministic no-op (defence-in-depth).
+        const welded = weldPartitionsToShell(parts, shell);
+        expect(JSON.stringify(welded)).toBe(JSON.stringify(parts));
+    });
+
+    it('SHORT partition (open seam) on an axis-aligned plate: openSeams>0 → weld CLOSES the seam and the rooms seal', () => {
+        // The vertical spine ends 0.50 m short of the top shell (z=7.50, not 8) — a residual
+        // the §PARTITION-REACH reconnect did NOT bridge. It exceeds the detector's 0.30 m
+        // corner-snap (so the top-left/top-right rooms FLOOD together → merge on the bit-exact
+        // set) yet is within the weld's 0.60 m §SHELL-SNAP-WIDEN tol (so the weld CAN close
+        // it). Both horizontal arms are clean.
+        const parts: WeldWall[] = [
+            { id: 'pv', start: { x: 5, z: 0 }, end: { x: 5, z: 7.50 } },  // 0.50 m short of top shell → open seam
+            { id: 'phl', start: { x: 0, z: 4 }, end: { x: 5, z: 4 } },
+            { id: 'phr', start: { x: 5, z: 4 }, end: { x: 10, z: 4 } },
+        ];
+        // (1) The bit-exact set has an OPEN SEAM (>0.30 m) — this is EXACTLY the signal the
+        //     executor's `_countOpenSeams` returns, on which the conditional weld now fires
+        //     instead of trusting the (axis-aligned ⇒ assumed-sealed) bit-exact path.
+        const openBefore = countOpenSeams(parts, shell);
+        expect(openBefore).toBeGreaterThan(0);
+        // (2) Because openSeams>0, the conditional path runs the ground-proven weld …
+        const welded = weldPartitionsToShell(parts, shell);
+        // (3) … which closes the seam: NO open seams remain (the residual was within the
+        //     weld's 0.60 m §SHELL-SNAP-WIDEN tol). This is the decisive contract — the
+        //     conditional weld converts an open-seam upper plate into a sealed one.
+        expect(countOpenSeams(welded, shell)).toBe(0);
+        // (4) Detector room counts (informational — the editor-runtime seal is browser-validated;
+        //     RoomDetectionEngine carries its own T-junction rescue so its count is not asserted
+        //     here, but the welded set must never detect FEWER rooms than the bit-exact set).
+        const bitExactRooms = detect([...shell.map(s => toWall(s)), ...parts.map(p => toWall(p))]);
+        const weldedRooms = detect([...shell.map(s => toWall(s)), ...welded.map(p => toWall(p))]);
+        // eslint-disable-next-line no-console
+        console.log(`[§UPPER-SHELL-WELD-COND] openSeamsBefore=${openBefore} bitExactRooms=${bitExactRooms} weldedRooms=${weldedRooms}`);
+        expect(weldedRooms).toBeGreaterThanOrEqual(bitExactRooms);
     });
 });

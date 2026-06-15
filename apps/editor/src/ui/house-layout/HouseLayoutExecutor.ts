@@ -647,10 +647,38 @@ export class HouseLayoutExecutor {
                 // no-op), so the common case is byte-identical and the bit-exact path is
                 // untouched. Flag (default ON): `window.__pryzmHouseUpperShellWeld === false`
                 // forces the legacy (no-weld) upper path.
+                //
+                // §UPPER-SHELL-WELD-COND (2026-06-15, upper-floor sealing parity) — the
+                // FOUNDER-OBSERVED defect: a 2-storey house names the GROUND rooms cleanly
+                // but the UPPER floor shows generic `Room 01-NNN` + a merged room. Root
+                // cause: even on an AXIS-ALIGNED upper plate (which takes the bit-exact path
+                // and SKIPS the weld), the engine occasionally emits a partition endpoint
+                // >0.30 m short — the §PARTITION-REACH / keystone reconnect bridges MOST but
+                // not ALL of the residual — and that open seam floods detection → merge →
+                // surplus fragments left unnamed. The bit-exact ASSUMPTION ("axis-aligned ⇒
+                // already sealed") is therefore not always true. FIX: keep the fast bit-exact
+                // path as the DEFAULT for axis-aligned plates, but VERIFY the seal before
+                // trusting it — measure the open seams on the bit-exact set with
+                // `_countOpenSeams` (the SAME geometry §DIAG-SEAL logs + the detector traces),
+                // and ONLY IF it finds an open seam (>0.30 m), fall back to the ground-proven
+                // weld and re-measure. This adds the ground-floor safety net EXACTLY where the
+                // bit-exact path is currently failing, while leaving the (overwhelmingly
+                // common) genuinely-bit-exact case byte-identical — no weld runs when
+                // openSeams=0, so the fast path and its determinism are preserved. The
+                // non-axis-aligned (rotated/L/T/U) plate still ALWAYS welds (it never seals
+                // bit-exact). Conditional flag (default ON; set `=== false` to force the legacy
+                // skip-on-axis-aligned behaviour): `window.__pryzmHouseUpperWeldConditional`.
+                // §UPPER-SHELL-WELD-COND — track whether the upper weld actually RAN
+                // (the conditional path can now weld an axis-aligned plate too), so the
+                // §DIAG-SEAL `wld=` line reports the truth instead of re-deriving it.
+                let upperWeldRan = false;
                 if (!isGround && shellWalls.length >= 3) {
                     const upperWeldEnabled =
                         (window as unknown as { __pryzmHouseUpperShellWeld?: boolean })
                             .__pryzmHouseUpperShellWeld !== false;
+                    const conditionalEnabled =
+                        (window as unknown as { __pryzmHouseUpperWeldConditional?: boolean })
+                            .__pryzmHouseUpperWeldConditional !== false;
                     const axisAligned = this._footprintIsAxisAlignedRect(storey.footprint);
                     if (upperWeldEnabled && !axisAligned) {
                         console.log(
@@ -662,10 +690,38 @@ export class HouseLayoutExecutor {
                         // §PROJECT-NORTH — RIGID-TRANSFORM-LAST weld in the Project-North
                         // frame when the flag is ON + θ≠0; undefined ⇒ legacy weld.
                         set = this._weldGroundPartitions(set, shellWalls, weldFrame);
+                        upperWeldRan = true;
+                    } else if (upperWeldEnabled && conditionalEnabled) {
+                        // §UPPER-SHELL-WELD-COND — axis-aligned plate: VERIFY the bit-exact
+                        // seal before trusting it. Measure open seams on the current set; if
+                        // any partition endpoint is >0.30 m off both the shell and every other
+                        // partition span, the bit-exact assumption FAILED on this storey → run
+                        // the ground-proven weld as a safety net and re-measure.
+                        const openSeamsBefore = this._countOpenSeams(set.wallBatch.payload, shellWalls);
+                        if (openSeamsBefore > 0) {
+                            console.log(
+                                `[house-layout] §UPPER-SHELL-WELD-COND ${storey.levelId} axis-aligned but bit-exact `
+                                + `path left ${openSeamsBefore} OPEN-SEAM(s) (>0.30m) — falling back to the WELD safety `
+                                + 'net (the same seal the ground floor uses) so the upper rooms seal.',
+                            );
+                            set = this._weldGroundPartitions(set, shellWalls, weldFrame);
+                            upperWeldRan = true;
+                            const openSeamsAfter = this._countOpenSeams(set.wallBatch.payload, shellWalls);
+                            console.log(
+                                `[house-layout] §UPPER-SHELL-WELD-COND ${storey.levelId} post-weld openSeams=${openSeamsAfter} `
+                                + `(was ${openSeamsBefore}) — ${openSeamsAfter < openSeamsBefore ? 'weld CLOSED seam(s)' : 'weld did NOT reduce seams (residual exceeds 0.30m weld tolerance — engine-side)'}.`,
+                            );
+                        } else {
+                            console.log(
+                                `[house-layout] §UPPER-SHELL-WELD ${storey.levelId} took the BIT-EXACT path `
+                                + '(axis-aligned footprint + verified openSeams=0 — partitions already bit-exact on '
+                                + 'the perimeter) — no weld (engine-authored endpoints already on the ring).',
+                            );
+                        }
                     } else {
                         console.log(
                             `[house-layout] §UPPER-SHELL-WELD ${storey.levelId} took the BIT-EXACT path `
-                            + `(reason: ${upperWeldEnabled ? 'axis-aligned footprint — partitions already bit-exact on the perimeter' : 'upper-weld flag OFF'}) — `
+                            + `(reason: ${upperWeldEnabled ? 'conditional-weld flag OFF — legacy skip-on-axis-aligned' : 'upper-weld flag OFF'}) — `
                             + 'no weld (engine-authored endpoints already on the ring).',
                         );
                     }
@@ -754,7 +810,7 @@ export class HouseLayoutExecutor {
                     }
                     const weldRan = isGround
                         ? (shellWalls.length >= 3)   // ground weld decision logged above
-                        : (shellWalls.length >= 3 && !this._footprintIsAxisAlignedRect(storey.footprint));
+                        : upperWeldRan;              // §UPPER-SHELL-WELD-COND — actual decision (conditional incl.)
                     console.log(
                         `[house-layout] §DIAG-SEAL ${storey.levelId} parts=${sealPartitions.length} eps=${eps.length} ` +
                         `wld=${weldRan} maxSeal=${maxSeal.toFixed(3)}m openSeams(>${SEAL_GRID_M}m)=${openSeamCount} ` +
@@ -1347,6 +1403,70 @@ export class HouseLayoutExecutor {
             return Math.abs(polyArea - w * d) <= RECT_AREA_TOL * (w * d);
         } catch {
             return false;   // any failure → conservative: treat as non-axis-aligned → weld
+        }
+    }
+
+    /**
+     * §UPPER-SHELL-WELD-COND (2026-06-15) — count OPEN SEAMS on a storey's interior
+     * partitions, using the EXACT same geometry the §DIAG-SEAL forensic log measures
+     * (and that RoomDetectionEngine actually traces): for every partition endpoint,
+     * an endpoint seals only when it sits within the detector corner-snap (0.30 m) of
+     * the SHELL body OR a crossing partition's SPAN (the T-junction case). An endpoint
+     * whose min(perimeter, partition-span) distance exceeds 0.30 m is an OPEN SEAM →
+     * the detector floods across it → adjacent rooms merge.
+     *
+     * This is the PREDICATE behind the conditional upper-floor weld: on an axis-aligned
+     * plate the bit-exact path is ASSUMED to seal, but where the engine residual /
+     * keystone reconnect still leaves a partition end >0.30 m short, this returns >0 and
+     * the caller falls back to the (ground-proven) weld. Pure + deterministic; read-only.
+     * Returns 0 on any failure (conservative: do NOT trigger the fallback weld on a plate
+     * we cannot measure — the bit-exact path is the byte-identical default).
+     */
+    private _countOpenSeams(
+        wallBatchPayload: unknown,
+        shellWalls: readonly { id: string; start: { x: number; z: number }; end: { x: number; z: number } }[],
+    ): number {
+        try {
+            const walls = (wallBatchPayload as {
+                walls?: Array<{ id: string; baseLine?: Array<{ x: number; z: number }> }>;
+            }).walls;
+            if (!Array.isArray(walls) || walls.length === 0) return 0;
+
+            const distToSeg = (px: number, pz: number, a: { x: number; z: number }, b: { x: number; z: number }): number => {
+                const dx = b.x - a.x, dz = b.z - a.z, len2 = dx * dx + dz * dz;
+                let t = len2 > 0 ? ((px - a.x) * dx + (pz - a.z) * dz) / len2 : 0;
+                t = Math.max(0, Math.min(1, t));
+                return Math.hypot(px - (a.x + t * dx), pz - (a.z + t * dz));
+            };
+            type SealEp = { id: string; x: number; z: number };
+            const eps: SealEp[] = [];
+            const partSegs: Array<{ id: string; a: { x: number; z: number }; b: { x: number; z: number } }> = [];
+            for (const w of walls) {
+                const bl = w.baseLine;
+                if (!bl || bl.length < 2 || !bl[0] || !bl[1]) continue;
+                eps.push({ id: w.id, x: bl[0].x, z: bl[0].z });
+                eps.push({ id: w.id, x: bl[1].x, z: bl[1].z });
+                partSegs.push({ id: w.id, a: { x: bl[0].x, z: bl[0].z }, b: { x: bl[1].x, z: bl[1].z } });
+            }
+            const SEAL_GRID_M = 0.30;   // RoomDetectionEngine._snapNearbyCorners threshold
+            let openSeamCount = 0;
+            for (const ep of eps) {
+                let nearPerim = Infinity;
+                for (const sw of shellWalls) {
+                    const d = distToSeg(ep.x, ep.z, sw.start, sw.end);
+                    if (d < nearPerim) nearPerim = d;
+                }
+                let nearPartSpan = Infinity;
+                for (const ps of partSegs) {
+                    if (ps.id === ep.id) continue;   // not its own wall's span
+                    const d = distToSeg(ep.x, ep.z, ps.a, ps.b);
+                    if (d < nearPartSpan) nearPartSpan = d;
+                }
+                if (Math.min(nearPerim, nearPartSpan) > SEAL_GRID_M) openSeamCount++;
+            }
+            return openSeamCount;
+        } catch {
+            return 0;   // any failure → conservative: keep the bit-exact path
         }
     }
 
