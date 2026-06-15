@@ -12,7 +12,7 @@
 
 import type { BubbleGraph } from './bubbleGraph.js';
 import type { Pt } from './rectDecomposition.js';
-import type { RoomPlacement } from './subdivide.js';
+import { cellFromRect, cellAreaM2, type RoomPlacement } from './subdivide.js';
 import type { OpeningSpec, WallSeg } from './wallsAndDoors.js';
 import { ifcGuid } from './ifcGuid.js';
 
@@ -58,10 +58,6 @@ export interface SemanticGraphMeta {
     readonly levelName?: string;            // default 'Level'
 }
 
-const rectPolygon = (r: { x0: number; z0: number; x1: number; z1: number }): Pt[] =>
-    [{ x: r.x0, z: r.z0 }, { x: r.x1, z: r.z0 }, { x: r.x1, z: r.z1 }, { x: r.x0, z: r.z1 }];
-const rectArea = (r: { x0: number; z0: number; x1: number; z1: number }): number =>
-    Math.max(0, r.x1 - r.x0) * Math.max(0, r.z1 - r.z0);
 const pairKey = (a: string, b: string): string => (a < b ? `${a}|${b}` : `${b}|${a}`);
 
 /**
@@ -97,7 +93,13 @@ export function buildSemanticGraph(
         const r = roomById.get(p.roomId);
         const guid = ifcGuid(seed, 'Space', i, p.roomId);
         spaceGuid.set(p.roomId, guid);
-        const netArea = rectArea(p.rect);
+        // §POLYGON-NATIVE-SEAM (Phase 1, doc §13.4) — the Space polygon + net area now
+        // derive from the room CELL (a lifted rect today), not from `rectPolygon(p.rect)`
+        // / `rectArea(p.rect)` directly. `cellFromRect` uses the SAME vertex order and
+        // `cellAreaM2` returns EXACTLY `rectArea` for an axis-aligned cell, so this is
+        // byte-identical until Phase 3 mints genuine non-rect cells.
+        const cellPolygon = cellFromRect(p).polygon;
+        const netArea = cellAreaM2(cellPolygon);
         nodes.push({
             guid, kind: 'Space', sourceId: p.roomId,
             attrs: {
@@ -105,7 +107,7 @@ export function buildSemanticGraph(
                 netAreaM2: round6(netArea), targetAreaM2: r?.targetAreaM2 ?? 0,
                 isPrivate: r?.isPrivate ?? false, needsWindow: r?.needsWindow ?? false,
             },
-            geometry: { polygon: rectPolygon(p.rect) },
+            geometry: { polygon: cellPolygon },
             psets: { Pset_SpaceCommon: { NetFloorArea: round6(netArea), IsExternal: false, PubliclyAccessible: !(r?.isPrivate ?? false) } },
         });
         edges.push({ kind: 'CONTAINS', from: levelGuid, to: guid });

@@ -26,7 +26,7 @@
 
 import type { BubbleGraph, ProgramRoom } from './bubbleGraph.js';
 import type { RoomType } from '../types.js';
-import { rectArea, subtractRectsFromRects, mergeHorizontally, type Rect } from './rectDecomposition.js';
+import { rectArea, subtractRectsFromRects, mergeHorizontally, type Rect, type Pt } from './rectDecomposition.js';
 import { squarify } from './squarify.js';
 import { roomRule, preferenceBetween } from '../rules/programRules.js';
 import { dimensionsFor } from '../dimensions/roomDimensions.js';
@@ -35,6 +35,71 @@ import { dimensionsFor } from '../dimensions/roomDimensions.js';
 export interface RoomPlacement {
     readonly roomId: string;
     readonly rect: Rect;
+}
+
+/**
+ * §POLYGON-NATIVE-SEAM (Phase 1, doc §13.4) — a room's realised footprint as an
+ * arbitrary simple polygon. A strict superset of {@link RoomPlacement}: today every
+ * cell is a lifted rect (its polygon is exactly `rectPolygon(rect)`), so the rect path
+ * and the cell path produce byte-identical geometry. Phase 3+ will mint non-rect
+ * polygons here for sheared / concave plates. The polygon vertex order is the SAME as
+ * the legacy `rectPolygon` in `semanticGraph.ts` so areas/centroids are unchanged. */
+export interface RoomCell {
+    readonly roomId: string;
+    readonly polygon: readonly Pt[];
+}
+
+/**
+ * Rectangle → CCW-from-origin polygon, vertex order
+ * `[(x0,z0), (x1,z0), (x1,z1), (x0,z1)]` — IDENTICAL to the legacy `rectPolygon`
+ * helper in `semanticGraph.ts`, so a lifted cell's polygon/area/centroid match the
+ * pre-seam rect output bit-for-bit (doc §13.5 invariant 8). Single source of truth
+ * for the rect→polygon lift. */
+export function rectPolygon(r: Rect): Pt[] {
+    return [{ x: r.x0, z: r.z0 }, { x: r.x1, z: r.z0 }, { x: r.x1, z: r.z1 }, { x: r.x0, z: r.z1 }];
+}
+
+/**
+ * §POLYGON-NATIVE-SEAM (Phase 1) — lift a rect {@link RoomPlacement} to a
+ * {@link RoomCell} using the canonical {@link rectPolygon} order. Pure; no rounding
+ * (the rect coords are already `round6`-clean from `roundRect`). The cell is a strict
+ * superset of the placement, so downstream code that reads `polygon` gets the exact
+ * polygon the legacy `rectPolygon(p.rect)` produced. */
+export function cellFromRect(p: RoomPlacement): RoomCell {
+    return { roomId: p.roomId, polygon: rectPolygon(p.rect) };
+}
+
+/**
+ * §POLYGON-NATIVE-SEAM (Phase 1) — area (m²) of a cell polygon. For the lifted-rect
+ * case (every cell today) this returns EXACTLY `rectArea(rect)`: it is the product of
+ * the polygon's bbox extents, which for an axis-aligned rectangle equals `(x1−x0)·(z1−z0)`
+ * to the last bit — UNLIKE a raw shoelace accumulation, whose differing operation order
+ * drifts by ~1e-6 on some coordinates and would break the byte-identity gate. A genuine
+ * non-axis-aligned polygon (Phase 3+) falls back to the shoelace value. Pure. */
+export function cellAreaM2(poly: readonly Pt[]): number {
+    if (poly.length === 0) return 0;
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    let axisAligned = true;
+    for (let i = 0; i < poly.length; i++) {
+        const p = poly[i]!;
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+        if (p.z < minZ) minZ = p.z;
+        if (p.z > maxZ) maxZ = p.z;
+    }
+    // Axis-aligned iff every edge is horizontal or vertical.
+    for (let i = 0; i < poly.length && axisAligned; i++) {
+        const a = poly[i]!, b = poly[(i + 1) % poly.length]!;
+        if (Math.abs(a.x - b.x) > 1e-9 && Math.abs(a.z - b.z) > 1e-9) axisAligned = false;
+    }
+    if (axisAligned) return Math.max(0, maxX - minX) * Math.max(0, maxZ - minZ);
+    // General simple polygon — shoelace (Phase 3+ non-rect cells only).
+    let a = 0;
+    for (let i = 0; i < poly.length; i++) {
+        const p = poly[i]!, q = poly[(i + 1) % poly.length]!;
+        a += p.x * q.z - q.x * p.z;
+    }
+    return Math.abs(a) / 2;
 }
 
 /**

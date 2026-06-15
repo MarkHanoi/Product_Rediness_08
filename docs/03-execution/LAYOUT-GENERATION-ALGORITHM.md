@@ -237,3 +237,18 @@ change that flips the subdivision path selection without re-baselining + visual 
 | detected-room naming/matching | `apps/editor/src/ui/apartment-layout/nameDetectedRooms.ts`, `matchDetectedRooms.ts` |
 | execution-boundary diagnostics | `apps/editor/src/ui/house-layout/houseExecDiagnostics.ts` |
 | furniture / beds / kitchen / living rules | `packages/ai-host/src/workflows/furnishLayout/*`, `packages/geometry-furniture/src/builders/*` |
+
+---
+
+## OPEN ARCHITECTURE PROBLEM — polygon-native subdivision (any shape, not just rectangles)
+
+> Raised 2026-06-15. The recurring white-space / wrong-direction-wall defects all trace to **one
+> root**: the subdivider assumes the footprint is (or rectifies to) a **rectangle**, then bolts a
+> residual-fill patch onto the leftover. The real requirement is to **subdivide an arbitrary
+> polygon** (sheared / concave / L / drawn boundary / GIS parcel) program-driven, with walls on
+> real cell edges and the sliders re-tiling the *whole* plate.
+>
+> **The full, self-contained design + phased build + risk register is `§13` of
+> [`docs/04-reference/LAYOUT-GENERATION-ALGORITHM.md`](../04-reference/LAYOUT-GENERATION-ALGORITHM.md).**
+> Recommended approach: recursive polygon binary-split (program-tree-guided, principal-axis-biased).
+> Use that section for any external second opinion — it stands alone.

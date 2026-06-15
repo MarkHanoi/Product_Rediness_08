@@ -2620,3 +2620,169 @@ Systematic check of the shipped code against the documentation above. ✅ = conf
   by design, `HouseLayoutExecutor.ts:377`). For a house on a slope / with a split-level entrance this may be
   wrong, but there is no site-grade input feeding the generator today (consistent with §9's "context not
   wired"). Confirm single-entrance is the intended scope for Casa Unifamiliar v1.
+
+---
+
+## 13. THE POLYGON-NATIVE SUBDIVISION PROBLEM (OPEN — for external review)
+
+> **Status:** OPEN architectural problem · raised by the founder 2026-06-15 · this section is
+> **self-contained** so it can be read and reasoned about *without* the rest of this document
+> (intended for an outside second opinion). It supersedes the earlier "fill the leftover
+> L-leg" framing: the real requirement is **subdivide an arbitrary polygon**, not patch a
+> rectangle.
+
+### 13.1 The requirement (founder, verbatim intent)
+
+> *"The layout could be of any shape — it needs to adapt to any possible shape, not only a
+> rectangle."*
+
+The automatic floor-plan generator must take **any simple polygon** footprint — a rotated or
+sheared parcel, a concave/L/U/T plot, an arbitrary hand-drawn boundary, a GIS parcel — and
+partition it into **program-driven rooms** (target areas + adjacencies + a circulation
+corridor) such that:
+- there is **no white space** (cells cover the whole plate) and **no overflow** past the
+  façade;
+- interior partition **walls lie on real cell edges** and align to the plate (no crossing or
+  wrong-direction partitions);
+- changing the **program / sliders re-tiles the whole plate**, not just a dominant
+  sub-rectangle.
+
+This is also the unlock for the platform north-star ("site-first: draw any boundary → generate
+any typology"): a polygon-native subdivider is the missing primitive.
+
+### 13.2 Why today's engine cannot do this (the rectangle assumption)
+
+The engine is a **deterministic enumeration** (no RNG): for a shell + program it builds 8
+candidate layouts through a pure `P1→P9` pipeline and Pareto-ranks them. The data currency
+between stages is `RoomPlacement = { roomId, rect: Rect }` — an **axis-aligned rectangle**.
+The rectangle assumption is concentrated in three load-bearing places, all **upstream** of the
+geometry-emission layer (which is *already* polygon-native — it reads `geometry.polygon`):
+
+1. **The decomposition + subdivision math** (`tgl/rectDecomposition.ts` + `tgl/subdivide.ts`).
+   - `rectifyConvexQuad` replaces a sheared quad with its **bounding box**, tiles in the bbox
+     frame, then projects partition endpoints back to the real ring (`§RECTIFY-SHELL-PROJECT`).
+     This is the root of the **overflow** defect (sheared-parallelogram coverage ratio ≈ 1.05 —
+     cells poke past the real façade).
+   - `decomposeToRects` does a vertical slab sweep that **stair-steps** any slanted edge.
+   - `subdivideWithReport` carves the **dominant rectangle**, tiles the program there, and a
+     separate **residual-fill** pass (`enumerate.ts:claimResidualPlacements`, `§OVERLAP-RECLAIM`)
+     bolts rooms into the leftover leg. **Consequence the founder observed:** the sliders only
+     re-tile the dominant rectangle; the leftover-leg rooms are a post-hoc patch and never
+     program-driven. *This is the architectural ceiling.*
+
+2. **The wall sweep** (`tgl/wallsAndDoors.ts:buildWallsAndDoors`) — explodes each rect into 4
+   **axis-aligned faces** (vertical faces at constant x, horizontal at constant z) and resolves
+   shared walls by a per-coordinate sweep (`groupByCoord`/`runsForLine`). **This is the deepest
+   rectangle coupling** — `Face` is intrinsically axis-aligned.
+
+3. **The polygon synthesis** (`tgl/semanticGraph.ts:buildSemanticGraph`) — `rectPolygon(p.rect)`
+   is the *only* place a room's polygon is born, and `rectArea(p.rect)` its area. **One line.**
+
+Everything else — principal-axis rotation, `rectifyConvexQuad`, `clampRectToConvexShell`,
+the residual-fill, `§RECTIFY-SHELL-PROJECT` — is **compensation machinery** that exists *only
+because* the subdivider tiles a bbox instead of the real polygon. `emitGeometry.ts` and
+`runDeterministicLayout.ts:rotateOptionBack` already handle arbitrary polygons; they are not
+the problem.
+
+**So the fix is:** replace (1) with a polygon-native subdivider, generalize (2) to non-axis
+edges, change the one line in (3) — and the compensation machinery (rectify/clamp/residual)
+degrades to a rarely-firing safety net.
+
+### 13.3 Candidate algorithms (evaluated against THIS codebase)
+
+| Approach | Concave/sheared | Wall-aligned partitions | Deterministic | Corridor-spanning | Pipeline reuse | Verdict |
+|---|---|---|---|---|---|---|
+| **(a) Recursive polygon binary-split** — slice the polygon by a line (parallel to the principal axis / longest edge), clip both halves (Sutherland–Hodgman), recurse to match the program *tree*; reserve a corridor band as a first split | ✅ (clip handles concavity; split at the reflex vertex first) | ✅ cuts run parallel to real edges; only perimeter edges are diagonal | ✅ pure, ordered | ✅ corridor = a band split of the whole plate | **High** — reuses the program tree, the public/corridor/private zoning logic, and `emitGeometry` unchanged | **RECOMMENDED** |
+| (b) Squarified treemap on the polygon via half-plane clipping | ⚠ weak (aspect heuristics are rect-defined) | ⚠ ragged on shear | ✅ | ✗ no corridor concept | Medium | Rejected — aspect-ratio quality metric is meaningless on non-rect cells |
+| (c) Straight-skeleton / medial-axis partition | ✅ excellent | ✗ cells follow bisectors → **diagonal interior walls** (breaks wall-join + degeneracy gates) | ⚠ float-fragile | ✗ | Low | Rejected — diagonal partitions violate the wall stage |
+| (d) Seed-and-grow over a fine grid clipped to the polygon | ✅ | ✗ **stair-stepped borders** → wall explosion, fails the min-wall-length floor | ⚠ seed-order-dependent | ⚠ | Low | Rejected — jagged borders, too many short walls |
+
+**Recommendation: (a) recursive polygon binary-split, program-tree-guided, principal-axis-biased.**
+It reuses the existing zoning logic (the carve already splits a rect into *public | corridor |
+private* zones — generalize "split this rect" to "split this polygon along the principal
+axis"), keeps interior walls axis-parallel (so the wall-join and `isSimple` gates stay green),
+spans the corridor across the *whole* plate, handles concavity by splitting at the reflex
+vertex first, and **reduces to today's output on an axis-aligned rectangle** (a binary split at
+the same area-proportional coordinate = the current 2-zone split). New output type
+`RoomCell { roomId; polygon }` (a superset of `RoomPlacement`); the rect path keeps emitting
+rects and lifts to cells at the boundary, so the two coexist during migration.
+
+### 13.4 Phased build (each phase independently shippable + gated)
+
+The anchor gate is `packages/ai-host/__tests__/skewedPlateGeometry.test.ts` — a per-storey
+**coverage tripwire** `Σ(cell area)/(real shell area)`, today banded `[0.80, 1.20]`, tightened
+per phase. The ~25 stair tests + `houseResidualFill` are the no-regression set.
+
+1. **Phase 1 — data-model seam, zero behavior change.** Introduce `RoomCell` + `cellFromRect`
+   + a shoelace area; feed `semanticGraph` a polygon instead of `rectPolygon(p.rect)`. Every
+   cell is still a lifted rect ⇒ **byte-identical** output. Gate: full suite identical numbers.
+2. **Phase 2 — polygon-native wall sweep.** Generalize `buildWallsAndDoors` to a
+   **collinear-overlapping-edge matcher** (two cells share a wall where their edges are
+   collinear within ε and overlap), with an **axis-aligned-all-cells fast path** dispatching to
+   the existing sweep ⇒ still byte-identical on rect/L/U/T; the general path proven by new unit
+   tests (shared diagonal wall detected once, `isSimple`, no sub-min-length stubs).
+3. **Phase 3 — `subdividePolygon` for the convex sheared quad** (the parallelogram/Córdoba
+   case). Drop `rectifyConvexQuad` for these shells; tile the real quad. Gate: **parallelogram
+   coverage tightens to ≈ [0.97, 1.03]** (overflow fixed) while rotated-rect + axis-control
+   bands stay unchanged.
+4. **Phase 4 — concave polygons** (L/U/T + arbitrary drawn boundaries): reflex-vertex
+   splitting; stair keep-out becomes a polygon hole. Gate: concave coverage ∈ [0.97, 1.03] +
+   the full stair set.
+5. **Phase 5 — retire the residual-fill scaffolding** (`claimResidualPlacements`,
+   `§OVERLAP-RECLAIM`, `clampRectToConvexShell`) to a safety net; assert residual ≈ 0 on the
+   polygon path; confirm the slider re-tiles the *whole* plate.
+
+### 13.5 New invariants a polygon subdivider must satisfy (test surface)
+
+1. **Completeness:** Σ cell area = shell area within ε (no white space / no overflow).
+2. **Disjointness:** no two cells overlap by > ε.
+3. **Coverage:** ∪ cells ⊇ (shell − keep-out) within ε.
+4. **Area accuracy:** each cell within tolerance of its `targetAreaM2` (existing drop-report
+   semantics for infeasible rooms).
+5. **No cell crosses a concave notch:** a point at the reflex region belongs to ≤ 1 cell.
+6. **Walls on cell edges:** every emitted wall lies on a shared/boundary edge of some cell.
+7. **Wall-alignment:** count of non-axis interior walls ≈ 0 on principal-axis-rotated plates.
+8. **Byte-identity guard:** rect path and lift-to-cell path produce identical walls/doors/areas
+   on a rectangle (locks Phases 1–2).
+
+### 13.6 Risk register (what is most likely to regress)
+
+- **The ~25 stair tests** (the most intricate rect algebra: `§STAIR-OBSTACLE-CARVE`,
+  `tryStairSpanningCorridor`, `orientCorridorToKeepOut`, `clipRoomsOutOfKeepOut`). De-risk: keep
+  the **entire stair path on the rect special-case** through Phase 3; the polygon subdivider
+  handles only the habitable partition while the stair stays a subtracted hole. Generalize the
+  stair to a polygon hole only in Phase 4, behind the same convex-quad gate, with the stair
+  tests as the gate.
+- **Wall-join on non-axis edges** (short stubs that self-cluster; min-wall-length floor;
+  `isSimple`). De-risk: the collinear matcher reuses `repairSegments` + the min-length floor;
+  principal-axis rotation keeps interior walls axis-parallel so only perimeter edges are
+  diagonal (already handled by `extendWallsToShell`/`segmentOnPerimeter`).
+- **Byte-identity drift on the rotated rectangle** (an explicit test assertion). De-risk: a
+  rotated rectangle rectifies to an axis-aligned rectangle ⇒ rect path ⇒ axis-aligned wall fast
+  path = the literal existing code; the Phase-1/2 byte-identity guard locks it.
+- **Determinism / float fragility** in polygon clipping. De-risk: `round6` all coordinates;
+  fix iteration order from the existing `allocationOrder`/`adjacencySortForZone`; reuse the
+  `EPS`/`QUAD_EPS` constants.
+
+### 13.7 Critical files (for whoever implements or reviews)
+
+- `packages/ai-host/src/workflows/apartmentLayout/tgl/subdivide.ts` — new `subdividePolygon`
+  + `RoomCell`; port the carve/zoning helpers.
+- `packages/ai-host/src/workflows/apartmentLayout/tgl/wallsAndDoors.ts` — generalize
+  `buildWallsAndDoors` to the collinear-edge matcher with the axis-aligned fast path. *(Deepest
+  change.)*
+- `packages/ai-host/src/workflows/apartmentLayout/tgl/semanticGraph.ts` — room polygon/area
+  from a polygon, not `rectPolygon(p.rect)`. *(One line.)*
+- `packages/ai-host/src/workflows/apartmentLayout/tgl/enumerate.ts` — branch rect vs polygon
+  subdivider; retire `rectifyConvexQuad` / residual-fill scaffolding.
+- `packages/ai-host/src/workflows/apartmentLayout/tgl/rectDecomposition.ts` — polygon-minus-hole
+  for the keep-out; `rectifyConvexQuad`/`clampRectToConvexShell` become legacy safety nets.
+- Anchor test: `packages/ai-host/__tests__/skewedPlateGeometry.test.ts` — extend the coverage
+  tripwire bands per phase + add the §13.5 invariants.
+
+### 13.8 Two adjacent defects to fix alongside (observed 2026-06-15)
+
+- **Room repetition across floors** — the same room names appear on ground + first storey.
+- **Regression: the ground-floor plan shows the first-floor rooms projected** (a view /
+  level-range issue, likely surfaced by the v200 extra floor finishes or a plan-view underlay
+  setting — investigate independently of the subdivider work).
