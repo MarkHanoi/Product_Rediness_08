@@ -94,6 +94,36 @@ describe('§GROUND-WELD — weldPartitionsToShell unit', () => {
         const out = weldPartitionsToShell(parts, shell);
         expect(out).toHaveLength(0);
     });
+
+    // ── §WELD-NO-ROTATE (2026-06-15, founder "start correct, direction wrong") ─────
+    const unit = (w: WeldWall) => {
+        const dx = w.end.x - w.start.x, dz = w.end.z - w.start.z, L = Math.hypot(dx, dz);
+        return { x: dx / L, z: dz / L };
+    };
+    const dot = (a: WeldWall, b: WeldWall) => { const u = unit(a), v = unit(b); return u.x * v.x + u.z * v.z; };
+
+    it('does NOT rotate a partition when only ONE end snaps to a near-parallel shell (direction preserved)', () => {
+        // A SHORT partition running nearly PARALLEL to the bottom shell (z=0): its start
+        // sits 0.55 m above the shell (inside the 0.60 m snap → pulled to z=0), its end
+        // 0.62 m above (just OUTSIDE the snap → stays). Without the guard the start drops
+        // laterally while the end holds → the wall swings ~20° (the founder's spurious
+        // diagonal). The guard must restore the ORIGINAL heading.
+        const p: WeldWall = { id: 'rot', start: { x: 3, z: 0.55 }, end: { x: 4.5, z: 0.62 } };
+        const out = weldPartitionsToShell([p], shell);
+        expect(out).toHaveLength(1);
+        // Heading preserved within ~1° of the original drawn heading (dot ≥ 0.9998).
+        expect(dot(out[0]!, p)).toBeGreaterThan(0.9998);
+        // The end that moved LESS (the un-snapped end ≈ (4.5,0.62)) stays anchored.
+        expect(Math.hypot(out[0]!.end.x - 4.5, out[0]!.end.z - 0.62)).toBeLessThan(0.05);
+    });
+
+    it('leaves an axis-aligned partition byte-identical (guard is a no-op)', () => {
+        // Vertical partition, both ends exactly on the shell → no rotation, guard never fires.
+        const p: WeldWall = { id: 'ax', start: { x: 6, z: 0 }, end: { x: 6, z: 8 } };
+        const out = weldPartitionsToShell([p], shell);
+        expect(out[0]!.start).toEqual({ x: 6, z: 0 });
+        expect(out[0]!.end).toEqual({ x: 6, z: 8 });
+    });
 });
 
 describe('§GROUND-WELD — GROUND floor detects its full room set', () => {

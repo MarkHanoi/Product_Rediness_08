@@ -103,7 +103,10 @@ describe('formatDimensionalReport — pass / warning / error', () => {
 });
 
 describe('formatDimensionalReport — sections', () => {
-    it('always returns 5 sections in fixed order', () => {
+    it('returns all 8 G-class sections in fixed order', () => {
+        // A.37 wired G5 furniture-fit + G8 frontage + G10 kitchen-triangle into the
+        // aggregate report (opt-in; vacuous when not run) — the formatter surfaces all
+        // eight perValidator sections in the perValidator key order.
         const f = formatDimensionalReport(makeReport());
         expect(f.sections.map((s) => s.id)).toEqual([
             'roomShape',
@@ -111,6 +114,9 @@ describe('formatDimensionalReport — sections', () => {
             'roomDaylight',
             'corridorWidth',
             'entrySightline',
+            'roomFit',
+            'frontage',
+            'kitchenTriangle',
         ]);
     });
 

@@ -33,7 +33,11 @@ export interface FormattedSection {
         | 'roomHierarchy'
         | 'roomDaylight'
         | 'corridorWidth'
-        | 'entrySightline';
+        | 'entrySightline'
+        // A.37 — the three opt-in G-classes wired into the aggregate report.
+        | 'roomFit'
+        | 'frontage'
+        | 'kitchenTriangle';
     readonly displayName: string;
     readonly status: FormattedSeverity;
     readonly hardCount: number;
@@ -52,7 +56,7 @@ export interface FormattedFinding {
 export interface FormattedReport {
     readonly admissible: boolean;
     readonly overallSeverity: FormattedSeverity;
-    /** Per-section roll-ups (4 sections matching the 4 sub-validators). */
+    /** Per-section roll-ups — one per sub-validator (the full G1–G10 set). */
     readonly sections: readonly FormattedSection[];
     /** Per-room breakdown — only rooms with findings appear. */
     readonly rooms: readonly FormattedRoomRow[];
@@ -66,6 +70,9 @@ const SECTION_DISPLAY: Readonly<Record<FormattedSection['id'], string>> = {
     roomDaylight: 'Daylight (G8)',
     corridorWidth: 'Corridor comfort (L5)',
     entrySightline: 'Entry sightline (L5)',
+    roomFit: 'Furniture fit (G5)',
+    frontage: 'Frontage (G8)',
+    kitchenTriangle: 'Kitchen triangle (G10)',
 };
 
 function toFormattedFinding(f: ValidationFinding): FormattedFinding {

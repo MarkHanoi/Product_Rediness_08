@@ -104,6 +104,13 @@ const DEFAULT_PARTITION_WELD_M = 0.50;
 const DEFAULT_GRID_M = 0.001;
 const EPS = 1e-9;
 
+// §WELD-NO-ROTATE (2026-06-15) — a welded partition's heading may deviate from its
+// ORIGINAL drawn heading by at most ~8° before the direction-preservation guard
+// re-projects it onto its own axis. cos(8°) ≈ 0.9903. Below this dot product the
+// weld has ROTATED the wall (the founder's "start correct, direction wrong" spurious
+// diagonal) and the guard restores the heading.
+const DIRECTION_PRESERVE_DOT = 0.990;
+
 // §WJ-SKEW-4 guard thresholds (room-safety):
 //   USABLE-MIN — a fused partition must stay ≥ this long, well above the 0.05 m degeneracy
 //   floor (so a partial shortening is caught, not just a full collapse) and below a real
@@ -299,6 +306,54 @@ export function weldPartitionsToShell(
             } else {
                 welded[m] = { x: px, z: pz };
             }
+        }
+    }
+
+    // ── Pass 2.5: DIRECTION-PRESERVATION GUARD (§WELD-NO-ROTATE, 2026-06-15) ───────
+    // THE founder defect ("the START of the wall is correct but the DIRECTION goes
+    // wrong → walls carve rooms where we don't need them; a black diagonal spike in
+    // 3D"): Passes 1/1.5/2 move a partition's JOIN endpoint to an OFF-AXIS target —
+    // the perpendicular foot on a shell wall (Pass 1), another partition's span
+    // (Pass 1.5), or a cluster centroid (Pass 2). When ONE endpoint moves laterally
+    // while the OTHER stays put, the segment ROTATES about its fixed end → a
+    // mis-directed wall that diagonally crosses a room (the spike) and splits it into
+    // spurious "Room 01-NNN" cells. None of the existing guards check DIRECTION — only
+    // movement distance (§WJ-SKEW-4) and length (MIN_LEN).
+    //
+    // FIX (mirrors the resolver's own §CONSENSUS-ON-CENTRELINE invariant, but applied
+    // at emission): a weld may shorten / extend a partition ALONG ITS OWN AXIS, never
+    // rotate it. After the welds, if a partition's welded heading deviates from its
+    // ORIGINAL drawn heading beyond DIRECTION_PRESERVE_DOT, anchor the end that moved
+    // LESS and re-project the other end onto the line through the anchor along the
+    // ORIGINAL direction (signed length = projection of the welded chord). The start
+    // stays put, the heading is restored, only the length changes. `partitions` is
+    // never mutated, so its start/end ARE the original drawn endpoints. Axis-aligned
+    // plates don't rotate (foot/centroid lie on the axis) → dot ≈ 1 → no-op
+    // (byte-identical). Deterministic + pure.
+    for (let i = 0; i < partitions.length; i++) {
+        const a = welded[i * 2]!;       // welded start
+        const b = welded[i * 2 + 1]!;   // welded end
+        const oS = partitions[i]!.start, oE = partitions[i]!.end;   // ORIGINAL (un-welded)
+        const oLen = Math.hypot(oE.x - oS.x, oE.z - oS.z);
+        const wLen = Math.hypot(b.x - a.x, b.z - a.z);
+        if (oLen < EPS || wLen < EPS) continue;                     // degenerate → leave to Pass 3
+        // Original + welded unit headings (start→end).
+        const odx = (oE.x - oS.x) / oLen, odz = (oE.z - oS.z) / oLen;
+        const wdx = (b.x - a.x) / wLen, wdz = (b.z - a.z) / wLen;
+        const dot = odx * wdx + odz * wdz;
+        if (dot >= DIRECTION_PRESERVE_DOT) continue;                // heading preserved → nothing to do
+        // Rotated. Anchor the end that moved LESS from its original drawn position.
+        const moveA = Math.hypot(a.x - oS.x, a.z - oS.z);
+        const moveB = Math.hypot(b.x - oE.x, b.z - oE.z);
+        // Signed length of the welded chord projected onto the ORIGINAL heading.
+        const projLen = (b.x - a.x) * odx + (b.z - a.z) * odz;
+        const L = Math.max(MIN_LEN_M, Math.abs(projLen));           // keep it real; sign restored via odx/odz
+        if (moveA <= moveB) {
+            // Start anchored at its welded position; rebuild end along original heading.
+            welded[i * 2 + 1] = { x: snapToGrid(a.x + odx * L), z: snapToGrid(a.z + odz * L) };
+        } else {
+            // End anchored; rebuild start backwards along original heading.
+            welded[i * 2] = { x: snapToGrid(b.x - odx * L), z: snapToGrid(b.z - odz * L) };
         }
     }
 
