@@ -11,7 +11,7 @@
 // layouts — but every emitted graph is in the canonical {x,z} frame.
 
 import type { ApartmentProgram, RoomType, ScoringWeights } from '../types.js';
-import { decomposeToRects, decomposeToRectsInscribed, polygonBBox, rectArea, rectifyConvexQuad, subtractRectsFromRects, type Pt, type Rect } from './rectDecomposition.js';
+import { decomposeToRects, polygonBBox, rectArea, rectifyConvexQuad, subtractRectsFromRects, type Pt, type Rect } from './rectDecomposition.js';
 import { buildBubbleGraph, scaleProgramToShell, type BubbleGraph, type ProgramRoom, type AdjacencyEdge } from './bubbleGraph.js';
 import { subdivideWithReport, findCorridorStubToKeepOut, claimResidualPlacements, resolveRoomOverlaps, type DroppedRoom, type RoomPlacement } from './subdivide.js';
 import { buildWallsAndDoors, type BoundarySeg } from './wallsAndDoors.js';
@@ -862,21 +862,19 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     // the claim runs (the founder's case). Apartment never reaches here (no keep-out).
     let residualMints: readonly NonNullable<import('./subdivide.js').ClaimedResidual['mint']>[] = [];
     let residualPlacements: readonly RoomPlacement[] = placements;
-    if (input.keepOutRects && input.keepOutRects.length > 0 && placements.length > 0) {
+    // §RESIDUAL-RECTILINEAR-ONLY — the residual fill runs ONLY on a non-rectified (rectilinear
+    // rectangle / L / U / T) plate. On a RECTIFIED (sheared/rotated convex-quad) plate it is
+    // SUPPRESSED: v198 (§RESIDUAL-REAL-SHELL-INSCRIBE) enabled it there to fill the rotated-plate
+    // white space, but the fill cells — computed in a different frame than the bbox-tiled rooms —
+    // emitted crossing/wrong-direction partitions (the founder's circled junctions; broke the
+    // corridor + overlapped rooms + disrupted windows). Reverted 2026-06-15 to restore clean
+    // geometry; the rotated white space returns until the PROPER fill (cells that share edges with
+    // the existing room grid) lands. The full-plate fill is the goal — only the wall creation was
+    // wrong. (Rectilinear plates still fill normally — the §65.2 cases.)
+    if (input.keepOutRects && input.keepOutRects.length > 0 && placements.length > 0 && !shellRectified) {
         const stairExclusions: Rect[] = [...input.keepOutRects, ...(input.residualExcludeRects ?? [])];
-        // §RESIDUAL-REAL-SHELL-INSCRIBE (founder white-space fix, 2026-06-14) — fill the EMPTY
-        // stair-carved leg the founder sees as white space, INCLUDING on rotated/sheared plates
-        // (previously suppressed by `&& !shellRectified` because a bbox-based residual cell pokes
-        // past the sheared façade — the measured 1.31 overflow). On a RECTIFIED plate the residual
-        // buildable is now decomposed from the REAL (un-rectified) shell with INSCRIBED rects
-        // (`decomposeToRectsInscribed`), so every grown/minted cell lies strictly INSIDE the true
-        // perimeter — no overflow. On an axis-aligned / rectilinear plate `shellRectified` is false
-        // → the exact same `decomposeToRects` path as before → byte-identical (the §65.2 cases).
-        // Apartment passes no keep-out ⇒ never reaches here. Gated by the coverage test (must rise
-        // WITHOUT tripping the >1.20 overflow tripwire) + the seam tests.
         const buildableWorld = subtractRectsFromRects(
-            shellRectified ? decomposeToRectsInscribed(input.shellPolygon) : decomposeToRects(input.shellPolygon),
-            stairExclusions,
+            decomposeToRects(input.shellPolygon), stairExclusions,
         );
         // Per-room max-area cap (§AREA-FRACTIONS: maxAreaFrac × shellArea; ∞ when uncapped) so a
         // GROWN room can never exceed its own ceiling (no "master over-allocated" oversize).
