@@ -188,8 +188,54 @@ function _computeConsensusPoint(
 
     // ── Priority 2: average of centerline-centerline intersections ──────────────
     // Used for fresh Y/star junctions where no two endpoints are pre-joined.
+    //
+    // §CONSENSUS-NEAR-CLOUD (2026-06-15 — keystone trim-overshoot fix):
+    //   _intersect2D crosses the two walls' INFINITE centrelines. For a junction
+    //   where two arms are near-collinear (a Y whose two arms run almost straight
+    //   through, or any pair drawn at a shallow relative angle), their infinite
+    //   lines cross FAR from the actual meeting point — up to metres away. The old
+    //   code averaged ALL such crossings unfiltered, so ONE near-parallel pair
+    //   dragged the consensus well off the endpoint cloud. The §MULTI-CLUSTER
+    //   consumer then trims every member toward that distant consensus (raw, in the
+    //   PASS-THROUGH branch; via the on-centreline foot otherwise), retreating a
+    //   member's joining endpoint up to ~1 m back along its own axis. That dangling
+    //   end exceeds the RoomDetectionEngine reconnect reach → the room loop does not
+    //   close → rooms MERGE (and the displaced wall makes furniture appear to pass
+    //   through it). The endpoints themselves are by construction all within
+    //   `snapRadius` of one another (that is what clustered them), so the TRUE
+    //   meeting point is inside that cloud — a far crossing is a near-parallel
+    //   artefact, never the junction.
+    //
+    //   Fix: keep only intersections that lie within a bounded neighbourhood of the
+    //   endpoint-cloud centroid (keyed to the cloud's own radius, with a small floor
+    //   for tight clouds). A genuine star/Y — where the centrelines really do cross
+    //   at one point inside the cloud — keeps EVERY intersection (they all sit at the
+    //   crossing, well inside the bound), so the
+    //   averaged consensus is byte-identical to before. Only the off-cloud
+    //   near-parallel artefacts are discarded. If filtering leaves nothing (every
+    //   pair was near-parallel), fall through to the Priority-3 centroid, which sits
+    //   exactly in the cloud — the minimal, non-overshooting trim target.
     const wallIds = [...new Set(members.map(m => m.wallId))];
     const intersections: THREE.Vector3[] = [];
+
+    // Endpoint-cloud centroid + radius (used to reject far near-parallel crossings).
+    const cloudCentroid = new THREE.Vector3();
+    for (const m of members) cloudCentroid.add(_getPos(m, bl));
+    cloudCentroid.divideScalar(members.length);
+    let cloudRadius = 0;
+    for (const m of members) {
+        const p = _getPos(m, bl);
+        cloudRadius = Math.max(cloudRadius, Math.hypot(p.x - cloudCentroid.x, p.z - cloudCentroid.z));
+    }
+    // Bound: a true crossing of the cluster sits inside (or barely outside) the
+    // endpoint cloud — at most ~the cloud's own radius from its centroid, plus
+    // numerical slack. A near-parallel (shallow-angle) pair crosses FAR beyond that.
+    // We allow 2× the cloud radius plus a 0.30 m floor (so a sub-mm-tight star —
+    // cloudRadius≈0 — is never over-filtered, and a normal interior junction whose
+    // arms are a few cm apart keeps its true near-centroid crossings). This is keyed
+    // to the cloud's OWN extent, NOT the (zoom-dependent, possibly large) snapRadius,
+    // so a wide editor snapRadius cannot re-admit a distant near-parallel artefact.
+    const CONSENSUS_NEAR_CLOUD = Math.max(0.30, 2 * cloudRadius);
 
     for (let i = 0; i < wallIds.length; i++) {
         const [aS, aE] = bl.get(wallIds[i])!;
@@ -197,7 +243,11 @@ function _computeConsensusPoint(
         for (let j = i + 1; j < wallIds.length; j++) {
             const [bS, bE] = bl.get(wallIds[j])!;
             const ix = _intersect2D(aS, aE, bS, bE);
-            if (ix) intersections.push(ix);
+            if (!ix) continue;
+            // §CONSENSUS-NEAR-CLOUD: discard a crossing that lies well outside the
+            // endpoint cloud — the signature of a near-parallel (shallow-angle) pair.
+            if (Math.hypot(ix.x - cloudCentroid.x, ix.z - cloudCentroid.z) > CONSENSUS_NEAR_CLOUD) continue;
+            intersections.push(ix);
         }
     }
 
@@ -208,9 +258,9 @@ function _computeConsensusPoint(
     }
 
     // ── Priority 3: centroid of raw endpoint positions (last resort) ─────────────
-    const sum = new THREE.Vector3();
-    for (const m of members) sum.add(_getPos(m, bl));
-    return sum.divideScalar(members.length);
+    // Reached when no pair gave an in-cloud crossing (all pairs near-parallel). The
+    // centroid sits exactly inside the cloud, so the §MULTI-CLUSTER trim is minimal.
+    return cloudCentroid;
 }
 
 /** 2-D (XZ) infinite-line intersection. Returns null if lines are parallel. */
