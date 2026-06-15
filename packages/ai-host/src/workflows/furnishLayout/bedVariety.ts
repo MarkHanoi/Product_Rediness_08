@@ -132,11 +132,36 @@ const INTEGRATED_LAMP_FP: Footprint = {
 const LAMP: FurnitureKind = 'lamp';
 
 /**
+ * §BED-INTEGRATED-LAMP-SIDE (founder #7, 2026-06-15) — the LATERAL half-width of
+ * each integrated Japanese bed's bedside SURFACE (nightstand box / wing), mirroring
+ * the BedEngine geometry, so a reading lamp lands ON that surface — not inboard on
+ * the mattress.
+ *
+ * The BedEngine builds the deck centred on X=0 with deck width = the footprint `w`
+ * (PLINTH_W / DECK_W = cfg.width = fp.w). It then attaches the bedside surfaces
+ * OUTBOARD of the deck:
+ *   • platform → integrated NIGHTSTAND boxes, centre at  ±(deckW/2 + NS_W/2),
+ *     NS_W = 0.50  (BedEngine.buildPlatform).
+ *   • walnut   → bedside WINGS, centre at                ±(deckW/2 + WING_W/2),
+ *     WING_W = 0.40 (BedEngine.buildWalnut).
+ * The pre-fix lamp offset was `fp.w/2 − lampW/2` (≈ the deck edge) — so the lamps
+ * sat just inside the mattress, NOT on the outboard nightstand/wing (the founder:
+ * "the lamps are not placed according to this bed's side tables"). We offset to the
+ * SURFACE CENTRE instead, clamped so the lamp body stays within the surface span.
+ * The FLOAT bed builds its own lamps in the mesh → handled by the early-return.
+ */
+const INTEGRATED_BEDSIDE_HALF_WIDTH: Readonly<Record<string, number>> = {
+    japanese_platform_bed: 0.50,   // NS_W  (BedEngine.buildPlatform nightstand)
+    japanese_walnut_bed:   0.40,   // WING_W (BedEngine.buildWalnut bedside wing)
+};
+
+/**
  * §BED-4-TYPES — place the reading lamps for an integrated (Japanese) bed that
  * does NOT build its own lamps (platform / walnut). One lamp sits on each head
- * corner of the bed (at bedside-surface height), inheriting the bed yaw. The
- * FLOAT bed builds real lamps into its mesh, so it passes through here as a no-op
- * (its lamps are integrated). Pure + deterministic.
+ * corner of the bed, ON its integrated bedside surface (nightstand box / wing —
+ * which sit OUTBOARD of the deck width), inheriting the bed yaw. The FLOAT bed
+ * builds real lamps into its mesh, so it passes through here as a no-op (its lamps
+ * are integrated). Pure + deterministic.
  *
  * `placed` is the room's finished furniture; we read the bed pose from it.
  */
@@ -154,7 +179,11 @@ export function placeIntegratedBedLamps(
     // sit on the two head corners, just inside the bed width.
     const headX = bed.position.x - n.x * (fp.l / 2);
     const headZ = bed.position.z - n.z * (fp.l / 2);
-    const side = Math.max(0, fp.w / 2 - INTEGRATED_LAMP_FP.w / 2);
+    // §BED-INTEGRATED-LAMP-SIDE — the lamp rides the OUTBOARD bedside surface
+    // centred at deckEdge (fp.w/2) + half the surface width, NOT inboard on the
+    // mattress. Fall back to the deck edge for any unmapped variant.
+    const surfaceHalfW = INTEGRATED_BEDSIDE_HALF_WIDTH[bed.kind] ?? 0;
+    const side = fp.w / 2 + surfaceHalfW / 2;
     const lampY = bed.position.y + 0.30;   // sit on the integrated bedside surface
     const out: PlacedFurniture[] = [];
     for (const s of [side, -side]) {

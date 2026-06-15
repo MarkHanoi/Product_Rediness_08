@@ -483,22 +483,32 @@ export const CATEGORIES_A: readonly FurnitureCategoryDescriptor[] = [
             // through CreateFurnitureCommand and FurnitureFactory dispatches
             // to JapaneseBedBuilder → BedEngine.  Carousel thumbnails are
             // auto-rendered by FurnitureThumbnailService from the same builder.
+            // §BED-HEADBOARD-FLUSH (founder #7, 2026-06-15) — the manual-drop default
+            // dimensions MUST equal the canonical D-FLE footprints (ai-host
+            // furnishLayout/footprints.ts) so the mesh DECK length the BedEngine
+            // builds matches the stored footprint + the auto-furnish placement.
+            // The pre-fix platform default (length 2.35) drove PLINTH_L = 2.35 — a
+            // deck 0.15 m longer than the 2.20 footprint — so a wall-snapped platform
+            // bed left its headboard (a further 0.05 m behind the deck head) poking
+            // through the head wall. The float / walnut builders IGNORE cfg.length
+            // (DECK_L fixed 2.30) and cfg.width (DECK_W fixed 2.00 / 1.80), so their
+            // defaults are pinned to the built deck so the stored footprint is honest.
             {
                 type: 'japanese_platform_bed',
                 label: 'Platform Bed (Japanese)',
-                defaultDimensions: { width: 1.90, length: 2.35, height: 0.40, baseOffset: 0.0 },
+                defaultDimensions: { width: 2.00, length: 2.20, height: 0.45, baseOffset: 0.0 },
                 defaultMaterial: 'wood',
             },
             {
                 type: 'japanese_float_bed',
                 label: 'Float Bed (Japanese)',
-                defaultDimensions: { width: 2.4, length: 2.0, height: 0.4, baseOffset: 0.0 },
+                defaultDimensions: { width: 2.00, length: 2.30, height: 0.45, baseOffset: 0.0 },
                 defaultMaterial: 'wood',
             },
             {
                 type: 'japanese_walnut_bed',
                 label: 'Walnut Bed (Japanese)',
-                defaultDimensions: { width: 2.10, length: 2.60, height: 0.40, baseOffset: 0.0 },
+                defaultDimensions: { width: 1.80, length: 2.30, height: 0.50, baseOffset: 0.0 },
                 defaultMaterial: 'wood',
             },
             {
