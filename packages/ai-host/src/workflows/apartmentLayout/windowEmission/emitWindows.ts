@@ -394,6 +394,15 @@ function clearOffsetMm(
  *  reading as a deliberate rhythm rather than a ribbon of glass. */
 const WINDOW_STRIDE_GAP_MM = 1400;
 
+/** §WINDOW-HABITABLE-STRIDE — habitable rooms get WIDE glazing (living/dining/kitchen/
+ *  bedroom windows are ≥ 1500 mm). For those, use a SMALLER inter-window gap so a long
+ *  frontage earns its 2nd/3rd window sooner (the founder's "not enough windows"). Wet
+ *  rooms keep the wider {@link WINDOW_STRIDE_GAP_MM} (their 600 mm windows must stay
+ *  single on a 5 m wall). At 900 mm a 5 m living wall (2400 mm window) still yields ONE
+ *  (floor((5000−900)/(2400+900)) = 1), 10 m still yields 2; only the 6–9 m mid-range
+ *  gains a window — keeping every pinned count green while glazing long walls properly. */
+const WINDOW_STRIDE_GAP_HABITABLE_MM = 900;
+
 /**
  * How many `widthMm`-wide windows a wall of `wallLenMm` EARNS, capped at
  * `MAX_WINDOWS_PER_WALL`. A wall only earns its Nth window when it can host N
@@ -409,7 +418,11 @@ function windowCountForWall(wallLenMm: number, widthMm: number, maxPerWall = MAX
     // still keeps ONE centred window for every room type, per D5.c); the corner pier
     // only governs WHERE the windows sit (the end margins in `evenOffsetsMm`), not how
     // many a wall earns.
-    const n = Math.floor((wallLenMm - WINDOW_STRIDE_GAP_MM) / (widthMm + WINDOW_STRIDE_GAP_MM));
+    // §WINDOW-HABITABLE-STRIDE: wide habitable glazing (≥1500 mm) uses the smaller gap so
+    // long living/dining/kitchen/bedroom walls earn 2+ windows; narrow wet windows keep
+    // the wider gap (a 5 m wet wall stays single). gap>67 mm preserves 5 m→1 for all.
+    const gap = widthMm >= 1500 ? WINDOW_STRIDE_GAP_HABITABLE_MM : WINDOW_STRIDE_GAP_MM;
+    const n = Math.floor((wallLenMm - gap) / (widthMm + gap));
     return Math.max(1, Math.min(maxPerWall, n));
 }
 
