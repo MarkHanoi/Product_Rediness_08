@@ -3515,31 +3515,41 @@ export class CesiumViewport {
       // the SAME anchor the massing uses, so the real model lands exactly where the
       // pastel blocks did (and ON the tiles via the v50 clamp).
       //
-      // §A.21.D54 — PRECISE LOCATION + HEADING. The Forma massing places each scene
-      // point with `enu · (x, −z, up)` — i.e. the explicit mapping scene→ENU is
-      // (east = x, north = −z, up = y). For the real glTF model to coincide with the
-      // massing (founder: massing is correctly located, the real model is "slightly
-      // off"), Cesium's INTERNAL glTF axis conversion must produce the SAME mapping.
-      // Cesium's `Axis.Y_UP_TO_Z_UP` (the default for a Y-up glTF) is a +90° rotation
-      // about X → (x, y, z) ↦ (x, −z, y) = ENU(east = x, north = −z, up = y), which
-      // matches the massing EXACTLY. We now PIN `upAxis`/`forwardAxis` to those
-      // values explicitly (rather than relying on the implicit Cesium default, which
-      // the D49 agent flagged as unverified on non-square plates) so the heading is
-      // guaranteed true-north-aligned and the model never lands rotated/mirrored.
+      // §A.21.D54 / §GLOBE-HEADING-90 — PRECISE LOCATION + HEADING. The Forma massing
+      // places each scene point with `enu · (x, −z, up)` — i.e. the explicit mapping
+      // scene→ENU is (east = x, north = −z, up = y). For the real glTF model to
+      // coincide with the massing (founder: massing is correctly located, the real
+      // model is rotated + off-position), Cesium's INTERNAL glTF axis conversion must
+      // produce the SAME mapping.
+      //
+      // Cesium builds its axis-correction as
+      //   correction = (upAxis===Y ? Y_UP_TO_Z_UP) · (forwardAxis===Z ? Z_UP_TO_X_UP)
+      // (ModelUtility.getAxisCorrectionMatrix). The PREVIOUS `forwardAxis: Z` therefore
+      // applied the EXTRA Z_UP_TO_X_UP turn, giving scene→ENU = (east = z, north = x) —
+      // a +90° heading rotation about up vs the massing. That is exactly the founder's
+      // "rotated wrong + lands in the wrong place" defect (the rotation about the ENU
+      // origin throws every non-origin vertex off-position).
+      //
+      // The mapping we WANT is the massing's (east = x, north = −z, up = y), which is
+      // precisely `Y_UP_TO_Z_UP` ALONE: (x, y, z) ↦ (x, −z, y). We get that by using
+      // `upAxis: Y` and NOT triggering the forward turn — i.e. `forwardAxis: X` (only
+      // `forwardAxis === Z` adds Z_UP_TO_X_UP). Verified: scene+x→east, scene+z→south
+      // (north = −z), scene+y→up — identical to `toCartesian(x, z, up)`.
       const position = Cesium.Cartesian3.fromDegrees(input.originLon, input.originLat, baseHeight);
       const modelMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(position);
 
       // Same option shape as the established `loadBimGltf` path (Cesium depth-tests
       // scene primitives against the loaded 3D-Tiles natively → correct occlusion).
-      // §A.21.D54 — explicit Y-up / Z-forward (the THREE→glTF export convention) so
-      // the ENU heading matches the massing's `north = −z` placement, not a default.
+      // §GLOBE-HEADING-90 — upAxis=Y + forwardAxis=X = Y_UP_TO_Z_UP only, so the ENU
+      // mapping matches the massing's (east=x, north=−z, up=y) and the model is
+      // true-north-aligned (NOT the prior 90°-rotated forwardAxis=Z).
       const newModel = await Cesium.Model.fromGltfAsync({
         url: input.glbUrl,
         modelMatrix,
         scale: 1.0,
         allowPicking: true,
         upAxis: Cesium.Axis.Y,
-        forwardAxis: Cesium.Axis.Z,
+        forwardAxis: Cesium.Axis.X,
       });
 
       // A re-toggle may have torn the viewer down while the GLB parsed — bail.
@@ -3707,10 +3717,10 @@ export class CesiumViewport {
           : this.formaTerrainBaseHeight;
 
       // SAME single ENU anchor + axis convention as the massing (and the globe real
-      // model, §A.21.D54): scene→ENU is (east = x, north = −z, up = y); Cesium's
-      // Y-up→Z-up glTF conversion (pinned via upAxis=Y / forwardAxis=Z) yields the
-      // same mapping, so the model lands exactly where the massing did — upright,
-      // metres, true-north-aligned.
+      // model, §A.21.D54 / §GLOBE-HEADING-90): scene→ENU is (east = x, north = −z,
+      // up = y). Cesium's correction is Y_UP_TO_Z_UP·(forwardAxis===Z ? Z_UP_TO_X_UP);
+      // forwardAxis=X (NOT Z) gives Y_UP_TO_Z_UP alone = (x, y, z) ↦ (x, −z, y), the
+      // massing mapping exactly. forwardAxis=Z added a spurious +90° heading turn.
       const position = Cesium.Cartesian3.fromDegrees(input.originLon, input.originLat, baseHeight);
       const modelMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(position);
 
@@ -3720,7 +3730,7 @@ export class CesiumViewport {
         scale: 1.0,
         allowPicking: true,
         upAxis: Cesium.Axis.Y,
-        forwardAxis: Cesium.Axis.Z,
+        forwardAxis: Cesium.Axis.X,
         // Cast soft shadows onto the flat Forma ground (Forma shadowMap is on).
         shadows: Cesium.ShadowMode.ENABLED,
       });
@@ -4566,7 +4576,12 @@ export class CesiumViewport {
         url,
         modelMatrix,
         scale,
-        allowPicking: true
+        allowPicking: true,
+        // §GLOBE-HEADING-90 — pin the massing's axis convention (Y_UP_TO_Z_UP only)
+        // instead of Cesium's glTF default (which is forwardAxis=Z → a spurious +90°
+        // heading turn). upAxis=Y + forwardAxis=X = scene (x,y,z) ↦ ENU (x,−z,y).
+        upAxis: Cesium.Axis.Y,
+        forwardAxis: Cesium.Axis.X,
       });
 
       this.currentModel = newModel;
