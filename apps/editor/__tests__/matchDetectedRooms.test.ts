@@ -123,6 +123,41 @@ describe('matchDetectedRooms — §ROOM-NAME-BIJECTIVE', () => {
         expect(renames).toHaveLength(2);
     });
 
+    it('§ROOM-NAME-SLIVER-ABSORB — a SURPLUS sliver of one engine room inherits that room\'s name (no generic "Room NN")', () => {
+        // Founder v204 upper-floor bug: 10 detected cells vs an 8-room program — a
+        // bedroom got fractured into TWO faces by the redetect, so the second face had
+        // no UNUSED engine room left after the bijection and shipped as "Room 01-005".
+        // One engine room, TWO overlapping detected cells inside its polygon.
+        const engine: EngineRoom[] = [
+            { name: 'Bedroom 2', occupancy: 'bedroom', area: 14, cx: 5, cz: 5,
+              polygon: [{ x: 0, z: 0 }, { x: 10, z: 0 }, { x: 10, z: 10 }, { x: 0, z: 10 }] },
+        ];
+        const detected: DetectedRoomPoly[] = [
+            squareRoom('bed-main', 3, 5, 4),   // claims Bedroom 2 in Pass 1
+            squareRoom('bed-sliver', 7, 5, 3), // surplus face — inside the engine polygon
+        ];
+        const { renames, unmatched } = matchDetectedRooms(engine, detected);
+        const byId = new Map(renames.map(r => [r.roomId, r]));
+        expect(unmatched).toBe(0);                                  // NO generic "Room NN"
+        expect(byId.get('bed-main')!.name).toBe('Bedroom 2');
+        expect(byId.get('bed-sliver')!.name).toBe('Bedroom 2');     // sliver inherits identity
+        expect(byId.get('bed-sliver')!.occupancy).toBe('bedroom');
+    });
+
+    it('§ROOM-NAME-SLIVER-ABSORB — a true ORPHAN (overlaps nothing) stays unmatched (keeps generic label)', () => {
+        const engine: EngineRoom[] = [
+            { name: 'Bedroom 2', occupancy: 'bedroom', area: 14, cx: 5, cz: 5,
+              polygon: [{ x: 0, z: 0 }, { x: 10, z: 0 }, { x: 10, z: 10 }, { x: 0, z: 10 }] },
+        ];
+        const detected: DetectedRoomPoly[] = [
+            squareRoom('bed-main', 5, 5, 4),     // claims Bedroom 2
+            squareRoom('far-orphan', 50, 50, 2), // overlaps no engine room → stays generic
+        ];
+        const { renames, unmatched } = matchDetectedRooms(engine, detected);
+        expect(unmatched).toBe(1);
+        expect(renames.find(r => r.roomId === 'far-orphan')).toBeUndefined();
+    });
+
     it('is deterministic (same inputs → identical renames)', () => {
         const engine: EngineRoom[] = [
             { name: 'Stair', occupancy: 'stair', area: 5.6, cx: 6, cz: 8 },

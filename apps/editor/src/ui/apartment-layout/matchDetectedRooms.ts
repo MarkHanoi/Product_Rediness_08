@@ -90,9 +90,22 @@ function containmentScore(
  *     e.g. "Kitchen / Dining"); each claimed engine room is marked used.
  *   Pass 2 — §ROOM-NAME-NEAREST fallback: detected rooms with no direct hit are
  *     paired to the nearest STILL-UNUSED engine room in global nearest-first
- *     order. A detected cell with no unused engine room left stays UNNAMED (a
- *     genuine extra cell / fractured stair seam) — it never duplicates a name
- *     already assigned in Pass 1.
+ *     order (a strict bijection — each engine room names ≤1 detected cell, so the
+ *     duplicate-"Stair" guard holds).
+ *   Pass 3 — §ROOM-NAME-SLIVER-ABSORB (founder v204 upper-floor "Room NN" bug,
+ *     2026-06-14): any detected cell STILL unmatched after the bijection is a
+ *     SURPLUS detected cell — the editor redetect fractured ONE engine room into
+ *     more cells than the program has rooms (a sliver / fracture seam that is NOT
+ *     a stair void; stair cells are excluded upstream by `resolveStairRooms`
+ *     BEFORE this matcher runs, so a stair fragment never reaches here). Such a
+ *     sliver legitimately BELONGS to the engine room it overlaps, so it INHERITS
+ *     that room's name + occupancy rather than shipping the editor's generic
+ *     "Room NN" label. This pass is intentionally NON-bijective (an engine room
+ *     already claimed in Pass 1/2 may also name its own sliver) — that is exactly
+ *     right: a fractured room's two faces should both read e.g. "Bedroom 2", not
+ *     one "Bedroom 2" + one "Room 01-005". The duplicate-"Stair" guard is NOT
+ *     weakened because no `stair` cell ever reaches Pass 3. A sliver with no
+ *     overlapping/near engine room at all (a true orphan) still stays unmatched.
  *
  * @returns the renames to apply (one per matched detected room) AND the count of
  *   detected rooms left unmatched (→ the editor's "Room 00-00x" fallback label).
@@ -169,6 +182,44 @@ export function matchDetectedRooms(
         usedTgl.add(c.t);
         claimedRooms.add(c.p.id);
         pushRename(c.p.id, [c.t]);
+    }
+
+    // Pass 3 — §ROOM-NAME-SLIVER-ABSORB (founder v204, 2026-06-14). After the strict
+    // bijection above there may be SURPLUS detected cells (detected ≫ engine rooms):
+    // the editor redetect fractured ONE engine room into more faces than the program
+    // has rooms, so the leftover faces have no UNUSED engine room and stayed unnamed →
+    // the generic "Room 01-005" the founder saw on the upper floor. A leftover face is
+    // a SLIVER of a real engine room, so it inherits that room's identity (name +
+    // occupancy) instead of going generic. This pass is deliberately NON-bijective —
+    // an engine room already named in Pass 1/2 may also name its own sliver — so a
+    // fractured room reads consistently on every face. SAFE re: the duplicate-"Stair"
+    // guard: stair void cells are excluded UPSTREAM (resolveStairRooms) before this
+    // matcher is called, so no `stair`-typed cell ever reaches Pass 3. A leftover with
+    // NO overlapping AND no near engine room is a true orphan and still stays unmatched
+    // (it keeps the generic label rather than steal an unrelated name). Deterministic:
+    // score desc → distance asc → id tie-break (ADR-0061).
+    for (const p of unmatched) {
+        if (claimedRooms.has(p.id)) continue;
+        let best: { t: EngineRoom; score: number; d: number } | undefined;
+        for (const t of tgl) {
+            const score = containmentScore(t, p.poly, p.cx, p.cz);
+            const d = (t.cx - p.cx) * (t.cx - p.cx) + (t.cz - p.cz) * (t.cz - p.cz);
+            if (
+                !best ||
+                score > best.score ||
+                (score === best.score && d < best.d) ||
+                (score === best.score && d === best.d && t.name < best.t.name)
+            ) {
+                best = { t, score, d };
+            }
+        }
+        // Only absorb a sliver into an engine room it actually OVERLAPS (cross-
+        // containment score ≥ 1). A leftover that overlaps NOTHING is a true orphan —
+        // leaving it generic is safer than tagging it with a distant room's name.
+        if (best && best.score >= 1) {
+            claimedRooms.add(p.id);
+            pushRename(p.id, [best.t]);
+        }
     }
 
     // Count detected rooms with ≥3 vertices that ended up with no rename.
