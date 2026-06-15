@@ -2786,3 +2786,89 @@ per phase. The ~25 stair tests + `houseResidualFill` are the no-regression set.
 - **Regression: the ground-floor plan shows the first-floor rooms projected** (a view /
   level-range issue, likely surfaced by the v200 extra floor finishes or a plan-view underlay
   setting — investigate independently of the subdivider work).
+
+---
+
+## 14. THE APARTMENT-GRADE FILL PROBLEM — house storeys mint a swarm of small "Store" rooms (OPEN — for external review)
+
+> **Status:** OPEN · raised by the founder 2026-06-15 · **self-contained** (intended for an
+> outside second opinion, like §13). A partial fix shipped (`§RESIDUAL-REAL-ROOMS`) but it
+> only *renames* the symptom; the real cause is **structural** and is documented here in full.
+
+### 14.1 The requirement (founder, verbatim intent)
+
+> *"The apartment approach is perfect — there are no gaps, no matter the shape all the area is
+> filled, it looks more robust, more complete, more professional. We need this in the house."*
+
+The **apartment** generator produces gap-free, professional layouts: every square metre becomes
+a real room (`§DIAG-BUBBLE fillRatio ≈ 0.99–1.01`). The **house** generator does not — on a
+typical 2-storey, 3-bed plate the **upper floor renders ~6–9 small "Store" rooms** (≈4–7 m²)
+instead of a few properly-sized rooms. The goal: make each house storey fill like an apartment
+plate — real, appropriately-large rooms, at most one store.
+
+### 14.2 Why the apartment fills and the house doesn't (the core asymmetry)
+
+Both use the **same D-TGL engine**. The difference is entirely upstream of the tiling:
+
+1. **No stair fracture (apartment) vs. stair fracture (house).** The apartment is **one
+   unfractured plate**; its program is sized to fill it (`scaleProgramToShell`, ~`fillRatio 1.0`),
+   so squarify tiles the *whole* plate with real rooms. The **house** subtracts a **stair
+   keep-out** per storey; this fractures the plate into (a) a **dominant rectangle** where
+   squarify packs the entire program, and (b) a **leftover strip** beside the stair that the
+   program rooms cannot reach. The strip is then handed to the **residual fill**.
+2. **Under-programmed upper storey.** `houseProgramFloor.enrichStoreyProgramToPlate` →
+   `bubbleGraph.scaleProgramToShell('upper')` sizes the upper program (~45 m²/bed), but a
+   3-bed house puts only ~2 bedrooms + a bath upstairs — far less than a large upper plate — so
+   even before the stair strip, there is a large area deficit the program does not claim.
+3. **The residual fill mints a swarm.** `claimResidualPlacements`
+   (`tgl/subdivide.ts`, wired at `enumerate.ts`) splits the leftover via `splitFragmentForMint`
+   into cells each ≤ `RESIDUAL_MINT_MAX_M2` (~7.5 m²) with **no count cap** → the 6–9 small
+   "Store" cells.
+
+### 14.3 The wall the partial fix hit (the decisive finding)
+
+A residual-policy fix (`§RESIDUAL-REAL-ROOMS`, shipped partial) capped the generic store at ≤1
+and minted the leftover as named **"Storage"** rooms + tried to **grow adjacent real rooms** to
+absorb the leftover. Result: generic "Store" `8 → 0`, but the strip is now ~8–9 small
+**"Storage"** rooms — **the swarm renamed, not reduced**. Bedrooms did **not** enlarge, because
+the stair strip does not form a rectangular union with the program rooms, so the grow rarely
+fires.
+
+**Crucially, minting fewer/larger *habitable* fill rooms is blocked by room detection:** when
+the engine emits larger windowed habitable cells (`study`, etc.) to fill the strip, the editor's
+**`RoomDetectionEngine` MERGES them** (detected count < emitted count — a "flood"), which breaks
+the `housePartitionReachDetection` no-flood invariant. Confirmed by experiment: **small
+windowless cells (`storage`/`utility`) detect cleanly; larger windowed habitable cells do not.**
+So the residual policy *cannot* deliver apartment-grade fill on its own — it is forced to emit
+small windowless cells to survive detection.
+
+### 14.4 The real cure (structural — two independent parts)
+
+1. **Remove the stair fracture from the fill problem (circulation/stair handling).** The stair
+   keep-out should not leave an *unfillable* strip. Either (a) make the whole storey one
+   program-driven fill the way the apartment is — distribute the program across the entire plate
+   *including* the area beside the stair (this is the polygon-native subdivision + the
+   **circulation-from-access-graph** reform in §13 / the reviewer's #2 & #4: the stair becomes a
+   first-class circulation node, not a hole that orphans a strip) — or (b) size the upper
+   program to the *true* fillable area so real rooms claim the strip before any residual runs.
+2. **Fix the `RoomDetectionEngine` tolerance** so that **larger habitable fill rooms detect as
+   distinct rooms** (no merge/flood). The detection merge is **type/size-driven**, not a
+   fundamental limit — its tolerance needs to admit larger windowed cells without collapsing
+   adjacent rooms. Until this is fixed, the engine is *forced* to emit small windowless cells to
+   pass detection, which is why the fill looks like utility rooms.
+
+Both are needed: (1) so there is real program to place across the whole plate, and (2) so the
+placed rooms survive detection as real rooms. Neither is a residual-policy tweak.
+
+### 14.5 Critical files
+- `packages/ai-host/src/workflows/apartmentLayout/tgl/subdivide.ts` — `claimResidualPlacements`,
+  `splitFragmentForMint`/`splitFragmentToCells`, `RESIDUAL_MINT_MAX_M2`, `RESIDUAL_MAX_MINTED_STORES`,
+  `absorbIntoRealRoom` (the partial `§RESIDUAL-REAL-ROOMS` fix lives here).
+- `packages/ai-host/src/workflows/houseLayout/` — `houseProgramFloor.enrichStoreyProgramToPlate`,
+  the per-storey stair keep-out (`stairCore` + the keep-out subtraction in `enumerate.ts`).
+- `packages/ai-host/src/workflows/apartmentLayout/tgl/bubbleGraph.ts` — `scaleProgramToShell`
+  (why the apartment reaches `fillRatio ≈ 1.0` and the house upper storey doesn't).
+- **`RoomDetectionEngine`** (editor/domain-engine) — the type/size-driven merge tolerance that
+  blocks larger habitable fill cells; the `housePartitionReachDetection` no-flood invariant.
+- Reference: §13 (polygon-native subdivision) — the circulation-from-access-graph reform is the
+  shared cure for both the L-shape (§13) and this fill problem.
