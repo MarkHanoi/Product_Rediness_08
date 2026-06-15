@@ -11,7 +11,7 @@
 // layouts — but every emitted graph is in the canonical {x,z} frame.
 
 import type { ApartmentProgram, RoomType, ScoringWeights } from '../types.js';
-import { decomposeToRects, polygonBBox, rectArea, rectifyConvexQuad, subtractRectsFromRects, type Pt, type Rect } from './rectDecomposition.js';
+import { decomposeToRects, clampRectToConvexShell, polygonBBox, rectArea, rectifyConvexQuad, subtractRectsFromRects, type Pt, type Rect } from './rectDecomposition.js';
 import { buildBubbleGraph, scaleProgramToShell, type BubbleGraph, type ProgramRoom, type AdjacencyEdge } from './bubbleGraph.js';
 import { subdivideWithReport, findCorridorStubToKeepOut, claimResidualPlacements, resolveRoomOverlaps, type DroppedRoom, type RoomPlacement } from './subdivide.js';
 import { buildWallsAndDoors, type BoundarySeg } from './wallsAndDoors.js';
@@ -852,26 +852,19 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     // apartment passes none ⇒ no claim ⇒ byte-identical (ADR-0061). The stair keep-out is honoured
     // by construction (the buildable set has the stair subtracted + every stair placement is
     // occupied), so no grown/minted cell ever tiles across the stair (v149 keep-out invariant).
-    // §RESIDUAL-RECTILINEAR-ONLY — suppress the claim on a RECTIFIED (sheared/skewed convex
-    // quad) shell, exactly as the §ENTRANCE-HALL-ON-SHELL hall-slice is suppressed there: the
-    // residual rects are computed from the rectified (bbox) decomposition, so on a sheared ring
-    // a minted cell's outer edge can dangle a fraction off the projected perimeter → an open
-    // seam (the §RECTIFY-SHELL-PROJECT invariant only snaps bbox-EDGE endpoints). The founder's
-    // §65.2 blanks are RECTILINEAR-plate cases (rectangle / L / U / T — never rectified), where
-    // every minted edge lands exactly on the perimeter. Axis-aligned ⇒ `shellRectified` false ⇒
-    // the claim runs (the founder's case). Apartment never reaches here (no keep-out).
+    // §RESIDUAL-FILL — tile every leftover stair-carved leg with NAMED rooms (no white space).
+    // The residual buildable is the BBOX decomposition (`decomposeToRects`) so the fill cells'
+    // INTERIOR edges coincide with the existing bbox-tiled room edges → correct shared walls, no
+    // crossings. On a RECTIFIED (sheared/rotated) plate the bbox over-covers the real shell, so the
+    // fill cells' FAÇADE edges would overflow — fixed downstream by §RESIDUAL-CELL-CLAMP (clamp ONLY
+    // the cells' perimeter edges back to the real shell; interior edges are a no-op → alignment
+    // preserved). This is the PROPER fix for the v198 wall-direction bug: align in the bbox frame +
+    // clamp the perimeter, instead of v198's separate inscribed grid that misaligned with the rooms.
+    // Rectilinear plates (shellRectified false) clamp to themselves → byte-identical (§65.2 cases).
+    // Apartment passes no keep-out ⇒ never reaches here (ADR-0061).
     let residualMints: readonly NonNullable<import('./subdivide.js').ClaimedResidual['mint']>[] = [];
     let residualPlacements: readonly RoomPlacement[] = placements;
-    // §RESIDUAL-RECTILINEAR-ONLY — the residual fill runs ONLY on a non-rectified (rectilinear
-    // rectangle / L / U / T) plate. On a RECTIFIED (sheared/rotated convex-quad) plate it is
-    // SUPPRESSED: v198 (§RESIDUAL-REAL-SHELL-INSCRIBE) enabled it there to fill the rotated-plate
-    // white space, but the fill cells — computed in a different frame than the bbox-tiled rooms —
-    // emitted crossing/wrong-direction partitions (the founder's circled junctions; broke the
-    // corridor + overlapped rooms + disrupted windows). Reverted 2026-06-15 to restore clean
-    // geometry; the rotated white space returns until the PROPER fill (cells that share edges with
-    // the existing room grid) lands. The full-plate fill is the goal — only the wall creation was
-    // wrong. (Rectilinear plates still fill normally — the §65.2 cases.)
-    if (input.keepOutRects && input.keepOutRects.length > 0 && placements.length > 0 && !shellRectified) {
+    if (input.keepOutRects && input.keepOutRects.length > 0 && placements.length > 0) {
         const stairExclusions: Rect[] = [...input.keepOutRects, ...(input.residualExcludeRects ?? [])];
         const buildableWorld = subtractRectsFromRects(
             decomposeToRects(input.shellPolygon), stairExclusions,
@@ -895,8 +888,32 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         const claim = claimResidualPlacements(
             placements, buildableWorld, roomMeta, strategyKey(s), input.keepOutRects,
         );
-        residualMints = claim.mints;
-        residualPlacements = claim.placements;
+        // §RESIDUAL-CELL-CLAMP (2026-06-15) — on a RECTIFIED plate the minted fill cells were
+        // computed in the BBOX frame (interior edges aligned with the rooms), but their FAÇADE
+        // edges overflow the sheared shell. Clamp ONLY the MINTED cells (new, window-free) to the
+        // real shell: interior edges are a no-op (already inside), only the perimeter edge pulls in
+        // → no overflow, walls stay aligned. A cell clamped to nothing (a tiny perimeter sliver) is
+        // dropped (correctly left blank). GROWN rooms are NOT clamped — they may carry windows and
+        // their interior partition endpoints are already handled by §RECTIFY-SHELL-PROJECT. On an
+        // axis-aligned / rectilinear plate the shell === the bbox, so the clamp is a no-op →
+        // byte-identical (the §65.2 cases). The §ROOM-OVERLAP-NET below then runs on the result.
+        if (shellRectified) {
+            const clampedMint = new Map<string, Rect>();
+            const droppedMint = new Set<string>();
+            for (const m of claim.mints) {
+                const r = clampRectToConvexShell(m.rect, input.shellPolygon);
+                if (r) clampedMint.set(m.id, r); else droppedMint.add(m.id);
+            }
+            residualMints = claim.mints
+                .filter(m => !droppedMint.has(m.id))
+                .map(m => ({ ...m, rect: clampedMint.get(m.id)!, targetAreaM2: rectArea(clampedMint.get(m.id)!) }));
+            residualPlacements = claim.placements
+                .filter(p => !droppedMint.has(p.roomId))
+                .map(p => (clampedMint.has(p.roomId) ? { roomId: p.roomId, rect: clampedMint.get(p.roomId)! } : p));
+        } else {
+            residualMints = claim.mints;
+            residualPlacements = claim.placements;
+        }
         // §ROOM-OVERLAP-NET (founder defect §65.1, 2026-06-12) — the residual GROW/MINT extends and
         // mints rects WITHOUT a cross-placement overlap check (it only guarantees the union with its
         // chosen neighbour is rectangular + the cell is empty vs the ROOMLESS residual), so on a dense

@@ -328,6 +328,56 @@ export function decomposeToRects(rawPoly: readonly Pt[], minCellM = 0.5): Rect[]
     return mergeHorizontally(rects);
 }
 
+/** x of an edge at horizontal line z (mirror of edgeZAtX); null if z is outside the
+ *  edge's z-span or the edge is horizontal. */
+function edgeXAtZ(a: Pt, b: Pt, z: number): number | null {
+    const lo = Math.min(a.z, b.z), hi = Math.max(a.z, b.z);
+    if (z <= lo + EPS || z >= hi - EPS) return null;
+    const t = (z - a.z) / (b.z - a.z);
+    return a.x + t * (b.x - a.x);
+}
+
+/**
+ * §RESIDUAL-CELL-CLAMP (proper white-space fill, 2026-06-15) — clamp an axis-aligned cell
+ * rect so it lies fully INSIDE a convex shell polygon, moving ONLY the edges that currently
+ * fall on/outside the shell. INTERIOR edges (already inside — e.g. a fill cell's edge shared
+ * with an existing room) are a NO-OP (the clamp is `max`/`min` against a shell boundary that
+ * is further out, so the edge is unchanged) → the cell stays ALIGNED with the existing room
+ * grid (correct walls). Only the FAÇADE-facing edge (on/past the bbox boundary, overflowing
+ * the sheared shell) is pulled inward to the shell's innermost position over the cell's span
+ * (convex ⇒ the band-end extreme is the tightest), keeping the cell axis-aligned. This is the
+ * cure for the v198 wall-direction bug: fill cells are computed in the BBOX frame (so interior
+ * walls coincide with the rooms) and only their perimeter edge is clamped (so they don't poke
+ * past the façade). Returns the clamped rect, or null if it clamped away (a tiny perimeter
+ * sliver — correctly left blank). Pure + deterministic. Designed for a convex shell (the only
+ * one §RECTIFY-QUAD produces); axis-aligned rectilinear shells clamp to themselves (no-op).
+ */
+export function clampRectToConvexShell(rect: Rect, shellPoly: readonly Pt[]): Rect | null {
+    if (shellPoly.length < 3) return rect;
+    const edges: Array<readonly [Pt, Pt]> = [];
+    for (let i = 0; i < shellPoly.length; i++) edges.push([shellPoly[i]!, shellPoly[(i + 1) % shellPoly.length]!]);
+    const zRangeAtX = (x: number): [number, number] | null => {
+        const zs: number[] = [];
+        for (const [a, b] of edges) { const z = edgeZAtX(a, b, x); if (z !== null) zs.push(z); }
+        if (zs.length < 2) return null;
+        zs.sort((p, q) => p - q); return [zs[0]!, zs[zs.length - 1]!];
+    };
+    const xRangeAtZ = (z: number): [number, number] | null => {
+        const xs: number[] = [];
+        for (const [a, b] of edges) { const x = edgeXAtZ(a, b, z); if (x !== null) xs.push(x); }
+        if (xs.length < 2) return null;
+        xs.sort((p, q) => p - q); return [xs[0]!, xs[xs.length - 1]!];
+    };
+    const ex = (rect.x1 - rect.x0) * 1e-3, ez = (rect.z1 - rect.z0) * 1e-3;   // sample just inside
+    let { x0, z0, x1, z1 } = rect;
+    const zA = zRangeAtX(x0 + ex), zB = zRangeAtX(x1 - ex);
+    if (zA && zB) { z0 = Math.max(z0, zA[0], zB[0]); z1 = Math.min(z1, zA[1], zB[1]); }
+    const xA = xRangeAtZ(z0 + ez), xB = xRangeAtZ(z1 - ez);                    // use the clamped z-span
+    if (xA && xB) { x0 = Math.max(x0, xA[0], xB[0]); x1 = Math.min(x1, xA[1], xB[1]); }
+    if (x1 - x0 < 0.05 || z1 - z0 < 0.05) return null;                        // clamped away → drop
+    return { x0: round6(x0), z0: round6(z0), x1: round6(x1), z1: round6(z1) };
+}
+
 // ── §PRINCIPAL-AXIS (LAYOUT-QUALITY-DEEP, 2026-06-04) ────────────────────────
 //
 // The slab-sweep decomposition above is EXACT for axis-aligned rectilinear shells
