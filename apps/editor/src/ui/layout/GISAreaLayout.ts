@@ -411,11 +411,24 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     let btn2dRef: HTMLButtonElement | null = null;
     let btn3dRef: HTMLButtonElement | null = null;
 
+    // §GLOBE-FIDELITY (founder) — mirror the Forma view's [Real][Massing] toggle on
+    // the photoreal "3D globe" result view. 'real' (the default — matches today's
+    // behaviour where the globe overlays the full PRYZM model on the tiles) shows the
+    // authored building; 'massing' shows the abstract Forma massing blocks ON the
+    // tiles instead. The fidelity buttons live in the result-view bar and are shown
+    // ONLY while the "3D globe" mode is active (scoped exactly like the Forma toggle's
+    // own fidelity buttons are scoped to the Forma canvas).
+    let globeBuildingFidelity: 'massing' | 'real' = 'real';
+    let globeFidelityWrap: HTMLElement | null = null;
+    let refreshGlobeFidelityButtons: () => void = () => { /* bar not mounted yet */ };
+
     const removeResultToggle = (): void => {
         if (resultToggle?.parentElement) resultToggle.parentElement.removeChild(resultToggle);
         resultToggle = null;
         btn2dRef = null;
         btn3dRef = null;
+        globeFidelityWrap = null;
+        refreshGlobeFidelityButtons = () => { /* bar gone */ };
     };
 
     // Active-state styling for the toggle buttons (no <style> injection — inline,
@@ -428,6 +441,9 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     const refreshResultButtons = (): void => {
         styleResultBtn(btn2dRef, resultViewMode === '2D');
         styleResultBtn(btn3dRef, resultViewMode === '3D');
+        // §GLOBE-FIDELITY — the [Real][Massing] group is only meaningful on the
+        // photoreal "3D globe" view; hide it on the BIM dual-pane (2D) mode.
+        if (globeFidelityWrap) globeFidelityWrap.style.display = resultViewMode === '3D' ? 'flex' : 'none';
     };
 
     // O.7.2.b — land the generated result on the FIXED DUAL-PANE: LEFT = 3D
@@ -566,6 +582,55 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             mountFormaViewToggle('plan');
         });
         bar.appendChild(formaBtn);
+
+        // §GLOBE-FIDELITY — [ ◉ Real ] [ ▢ Massing ] for the photoreal "3D globe".
+        // Mirrors the Forma view's fidelity toggle (same labels, same #6600FF brand,
+        // same active-paint). Wrapped in a group that is shown ONLY while the 3D globe
+        // is the active result view (refreshResultButtons toggles its display) — the
+        // BIM dual-pane (2D) has no globe to switch. Defaults to 'real' (today's
+        // behaviour); 'massing' shows the abstract blocks on the tiles instead.
+        const fidelityWrap = document.createElement('span');
+        Object.assign(fidelityWrap.style, {
+            display: resultViewMode === '3D' ? 'flex' : 'none',
+            gap: '4px', alignItems: 'center', borderLeft: '1px solid #ece7fb',
+            paddingLeft: '4px', marginLeft: '2px',
+        } satisfies Partial<CSSStyleDeclaration>);
+        const mkGlobeFidelityBtn = (
+            fidelity: 'real' | 'massing',
+            label: string,
+            title: string,
+        ): HTMLButtonElement => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'pryzm-globe-fidelity-btn';
+            b.setAttribute('data-globe-fidelity', fidelity);
+            b.setAttribute('data-testid', `globe-fidelity-${fidelity}`);
+            b.textContent = label;
+            b.title = title;
+            Object.assign(b.style, {
+                appearance: 'none', border: 'none', cursor: 'pointer',
+                padding: '7px 12px', borderRadius: '7px', color: '#6600FF',
+                background: 'transparent', font: 'inherit',
+            } satisfies Partial<CSSStyleDeclaration>);
+            b.addEventListener('mouseenter', () => { if (globeBuildingFidelity !== fidelity) b.style.background = '#f4f0ff'; });
+            b.addEventListener('mouseleave', () => { refreshGlobeFidelityButtons(); });
+            b.addEventListener('click', () => { setGlobeBuildingFidelity(fidelity); });
+            return b;
+        };
+        const globeRealBtn = mkGlobeFidelityBtn('real', '◉ Real', 'Show the real PRYZM building on the globe (full elements: windows · doors · roof · furniture)');
+        const globeMassingBtn = mkGlobeFidelityBtn('massing', '▢ Massing', 'Show the abstract massing study (white/pastel volumes) on the globe tiles');
+        refreshGlobeFidelityButtons = (): void => {
+            for (const [b, f] of [[globeRealBtn, 'real'], [globeMassingBtn, 'massing']] as const) {
+                const on = globeBuildingFidelity === f;
+                b.style.background = on ? '#6600FF' : 'transparent';
+                b.style.color = on ? '#ffffff' : '#6600FF';
+            }
+        };
+        refreshGlobeFidelityButtons();
+        fidelityWrap.appendChild(globeRealBtn);
+        fidelityWrap.appendChild(globeMassingBtn);
+        bar.appendChild(fidelityWrap);
+        globeFidelityWrap = fidelityWrap;
 
         viewport.appendChild(bar);
         resultToggle = bar;
@@ -1369,6 +1434,15 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             });
             refreshFormaFloorSelector();
 
+            // §GLOBE-FIDELITY — when the user has chosen the abstract MASSING study on
+            // the globe, STOP here: the massing blocks rendered above ARE the result.
+            // Drop any previously-placed real model so the two don't double-render.
+            if (globeBuildingFidelity === 'massing') {
+                cesiumViewport.clearRealModelOnGlobe?.();
+                console.log('[gis][globe] §GLOBE-FIDELITY fidelity="massing" — showing massing blocks on the tiles (no real-model overlay).');
+                return;
+            }
+
             // STEP 2 — §A.21.D49: overlay the REAL, FULL-FIDELITY PRYZM model (the
             // live BIM THREE scene serialised to glTF — real walls with their CSG
             // openings, windows, doors, roof, slabs, in the app's real materials) on
@@ -1388,6 +1462,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // (the fallback) — this never throws.
     const placeRealModelOnGlobe = async (origin: { lat: number; lon: number }): Promise<void> => {
         try {
+            if (globeBuildingFidelity !== 'real') return; // §GLOBE-FIDELITY — massing study chosen.
             if (!cesiumViewport?.renderRealModelOnGlobe) {
                 console.warn('[gis][globe] renderRealModelOnGlobe unavailable (old build) — keeping massing.');
                 return;
@@ -1420,6 +1495,33 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             console.warn('[gis][globe] §A.21.D49 real-model overlay failed (keeping massing fallback):', err);
         }
     };
+
+    // §GLOBE-FIDELITY (founder) — flip the photoreal "3D globe" between the REAL
+    // authored building (the full PRYZM model overlaid on the tiles) and the abstract
+    // MASSING study (white/pastel volumes on the tiles). Mirrors the Forma view's
+    // setFormaBuildingFidelity: switching to 'massing' drops the real-model primitive
+    // and re-renders the massing blocks; switching to 'real' re-places the model. The
+    // re-render is in place — the camera never re-flies. No-op unless the 3D globe is
+    // the active result view.
+    const setGlobeBuildingFidelity = (fidelity: 'massing' | 'real'): void => {
+        if (fidelity !== 'massing' && fidelity !== 'real') {
+            console.warn(`[gis][globe] setGlobeBuildingFidelity: bad value ${String(fidelity)} — ignored.`);
+            return;
+        }
+        if (globeBuildingFidelity === fidelity) return;
+        globeBuildingFidelity = fidelity;
+        refreshGlobeFidelityButtons();
+        console.log(`[gis][globe] §GLOBE-FIDELITY building fidelity → ${fidelity}.`);
+        if (fidelity === 'massing') {
+            // Drop the real model so only the (about-to-be-re-rendered) massing shows.
+            cesiumViewport?.clearRealModelOnGlobe?.();
+        }
+        // Re-run the globe placement in place (no re-fly): renders the massing, then
+        // — when fidelity is 'real' — overlays the real model + hides the blocks.
+        // Only meaningful while the 3D globe is the active result view.
+        if (resultViewMode === '3D') placeBuildingOnGlobe();
+    };
+    window.pryzmSetGlobeBuildingFidelity = setGlobeBuildingFidelity;
 
     // ════════════════════════════════════════════════════════════════════════
     // FORMA.6 — REAL full-fidelity building on the FORMA flat-ground study view

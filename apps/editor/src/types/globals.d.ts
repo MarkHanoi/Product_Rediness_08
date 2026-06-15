@@ -250,6 +250,11 @@ declare global {
          *  model / 'massing' = abstract pastel volumes). Default 'real'. Registered
          *  by GISAreaLayout; re-exports + re-places on switch to 'real'. */
         pryzmSetFormaBuildingFidelity?: (fidelity: 'massing' | 'real') => void;
+        /** §GLOBE-FIDELITY — set the photoreal "3D globe" building fidelity ('real' =
+         *  full PRYZM model overlaid on the tiles / 'massing' = abstract massing blocks
+         *  on the tiles). Default 'real'. Registered by GISAreaLayout; drops/re-places
+         *  the real-model primitive + re-renders the massing in place (no re-fly). */
+        pryzmSetGlobeBuildingFidelity?: (fidelity: 'massing' | 'real') => void;
         /** §HELP — prints every pryzm…() console command for the apartment
          *  generation pipeline (apartment → ceiling → furnish → lighting). */
         pryzmShowApartmentHelp?: () => void;
