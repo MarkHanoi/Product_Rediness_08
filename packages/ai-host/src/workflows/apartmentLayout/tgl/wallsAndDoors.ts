@@ -132,6 +132,16 @@ export interface WallsAndDoorsOpts {
      *  inside the actual shell). When the wall ALREADY ends on the perimeter
      *  (rectilinear shell) the pass is a no-op. */
     readonly shellPolygon?: readonly Pt[];
+    /**
+     * §POLYGON-NATIVE (Phase 3, doc §13.4) — per-roomId REAL cell polygon override.
+     * The sheared-convex-quad route (`enumerate.ts`) tiles the real quad with
+     * `subdividePolygon`, producing non-rect cells; it passes them here so the wall
+     * sweep matches their REAL (diagonal-perimeter, axis-parallel-interior) edges via
+     * the §POLYGON-WALL-SWEEP collinear-edge matcher rather than each placement's bbox.
+     * A roomId absent from the map falls back to `cellFromRect(placement)` (the lifted
+     * rect). Absent entirely ⇒ every cell is a lifted rect ⇒ byte-identical to the
+     * legacy axis-aligned fast path (the rect path + every test without this option). */
+    readonly cellPolygonById?: ReadonlyMap<string, readonly Pt[]>;
 }
 
 const EPS = 1e-6;
@@ -932,7 +942,13 @@ export function buildWallsAndDoors(
     // UNCHANGED (byte-identical). Only when a cell has a non-axis edge (the Phase-2 unit
     // tests; Phase-3 production) does the general collinear-overlapping-edge matcher run
     // — emitting through the SAME emitWall core so the wall/door semantics match.
-    const cells = placements.map(p => cellFromRect(p));
+    // §POLYGON-NATIVE (Phase 3) — use the REAL cell polygon when supplied (the sheared-
+    // quad route), else lift the placement's rect (every other path → byte-identical).
+    const cellOverride = opts.cellPolygonById;
+    const cells = placements.map(p => {
+        const real = cellOverride?.get(p.roomId);
+        return real && real.length >= 3 ? { roomId: p.roomId, polygon: real } : cellFromRect(p);
+    });
     const allAxisAligned = cells.every(c => isAxisAlignedBox(c.polygon) !== null);
     if (allAxisAligned) {
         for (const { coord, faces } of groupByCoord(vFaces)) for (const run of runsForLine(faces)) emit('v', coord, run);

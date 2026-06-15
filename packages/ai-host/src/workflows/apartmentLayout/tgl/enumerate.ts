@@ -14,6 +14,7 @@ import type { ApartmentProgram, RoomType, ScoringWeights } from '../types.js';
 import { decomposeToRects, clampRectToConvexShell, polygonBBox, rectArea, rectifyConvexQuad, subtractRectsFromRects, type Pt, type Rect } from './rectDecomposition.js';
 import { buildBubbleGraph, scaleProgramToShell, type BubbleGraph, type ProgramRoom, type AdjacencyEdge } from './bubbleGraph.js';
 import { subdivideWithReport, findCorridorStubToKeepOut, claimResidualPlacements, resolveRoomOverlaps, type DroppedRoom, type RoomPlacement } from './subdivide.js';
+import { subdividePolygon, subtractRectFromCell, cellBBoxRect } from './polySubdivide.js';
 import { buildWallsAndDoors, type BoundarySeg } from './wallsAndDoors.js';
 import { snapRectsAwayFromWindows, type WindowSpan } from './windowAvoidance.js';
 import { buildSemanticGraph, type LayoutGraph } from './semanticGraph.js';
@@ -576,6 +577,17 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     const shellRectified =
         rectifiedPoly.length !== input.shellPolygon.length ||
         rectifiedPoly.some((p, i) => Math.abs(p.x - input.shellPolygon[i]!.x) > 1e-6 || Math.abs(p.z - input.shellPolygon[i]!.z) > 1e-6);
+    // §POLYGON-NATIVE-ROUTE (Phase 3, doc §13.4 step 2) — route ONLY the SHEARED CONVEX
+    // QUAD to the polygon-native subdivider. The condition is `shellRectified` (true iff
+    // `rectifyConvexQuad` would fire — a 4-vertex convex non-axis shell filling ≥ 0.5 of
+    // its bbox) AND no stair keep-out (the stair stays a subtracted hole on the legacy
+    // rect path through Phase 3, doc §13.6). On that route we tile the REAL quad with
+    // `subdividePolygon` (no bbox overflow) and SKIP `rectifyConvexQuad` + the residual-
+    // fill / §RESIDUAL-CELL-CLAMP scaffolding (the apartment path passes no keep-out, so
+    // that scaffolding never fires here anyway). Every OTHER shell — axis-aligned rect,
+    // rotated rect that rectifies to an axis rect, L/U/T/concave, stair-carved — takes the
+    // UNCHANGED rect path below, keeping rotated-rect + axis-control byte-identical.
+    const usePolygonRoute = shellRectified;
     const subRes = subdivideWithReport(
         rectsT, bubble,
         {
@@ -595,6 +607,56 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     // rooms and surface the structured shortfall (never a silent drop).
     const droppedRooms: readonly DroppedRoom[] = subRes.droppedRooms;
     let placements: RoomPlacement[] = placementsT.map(p => ({ roomId: p.roomId, rect: xfRect(p.rect, t.inv) }));
+
+    // §POLYGON-NATIVE-ROUTE (Phase 3, doc §13.4 step 2/3) — for the SHEARED CONVEX QUAD,
+    // tile the REAL quad with `subdividePolygon` and emit those cells (no bbox overflow),
+    // while the gates/ranking above keep scoring the EXISTING bbox-rect tiling (`placements`)
+    // — exactly the doc's "the rect path keeps emitting rects … the two coexist during
+    // migration", so the Pareto winner + every rect-consuming validator (shape / frontage /
+    // overlap) is UNCHANGED (the §FRONTAGE-RECTIFY-FRAME contract stays green). The condition
+    // is `shellRectified` (true iff `rectifyConvexQuad` would fire — a 4-vertex convex non-
+    // axis shell filling ≥ 0.5 of its bbox). The STAIR keep-out stays a SUBTRACTED hole on the
+    // rect path (doc §13.6): the polygon subdivider tiles the full quad and each habitable cell
+    // is then clipped clear of the keep-out (`subtractRectFromCell`); the `stair` room itself is
+    // emitted as a rect cell by the §STAIR-ROOM block below (it is absent from `polyCells`, so
+    // the emit override leaves it a lifted rect). Every OTHER shell — axis-aligned rect, rotated
+    // rect that rectifies to an axis rect, L/U/T/concave — never sets `cellPolyByIdWorld` ⇒ the
+    // cells default to lifted rects ⇒ byte-identical.
+    //
+    // The polygon cells are keyed by the SAME room ids the rect tiling uses (both iterate the
+    // same `bubble.rooms`), so the emit-time override maps 1:1 onto the placements.
+    let cellPolyByIdWorld: Map<string, readonly Pt[]> | undefined;
+    if (usePolygonRoute) {
+        // Tile the real quad in THIS strategy's frame (polyT). subdividePolygon rotates to
+        // its own principal-axis frame internally (interior cuts axis-parallel) and rotates
+        // the cells back to the polyT frame.
+        let polyCells = subdividePolygon(
+            polyT, bubble,
+            { ...(input.corridorWidthM !== undefined ? { corridorWidthM: input.corridorWidthM } : {}) },
+        );
+        // §13.6 — subtract the stair keep-out(s) (strategy frame, inflated) from every cell so
+        // no habitable cell tiles across the stair (which is emitted as its own rect cell). A
+        // cell fully consumed by a keep-out is dropped (its room then falls back to the rect
+        // cell). No keep-out ⇒ identity.
+        if (holesT.length > 0) {
+            polyCells = polyCells
+                .map(c => {
+                    let poly = c.polygon as Pt[];
+                    for (const h of holesT) poly = subtractRectFromCell(poly, h);
+                    return { roomId: c.roomId, polygon: poly };
+                })
+                .filter(c => c.polygon.length >= 3);
+        }
+        // Map each cell to WORLD (apply t.inv per vertex — mirror/axis-swap preserve interior-
+        // edge axis-alignment). This map drives BOTH the emitted Space polygon/area and the
+        // wall sweep; the EMIT placement set is assembled from it at the build site below.
+        cellPolyByIdWorld = new Map(polyCells.map(c => [c.roomId, c.polygon.map(t.inv)] as const));
+        console.log(
+            `[D-TGL] §POLYGON-NATIVE-ROUTE cand ${strategyKey(s)} sheared convex quad → ` +
+            `subdividePolygon emits ${polyCells.length} real cell(s) (gates score the ${placements.length}-room ` +
+            `rect tiling unchanged; real quad → no bbox overflow)`,
+        );
+    }
 
     // ── Window-aware partition snap (post-subdivide, WORLD frame) ─────────
     // For every interior partition coordinate that lands inside a shell-wall
@@ -864,7 +926,13 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     // Apartment passes no keep-out ⇒ never reaches here (ADR-0061).
     let residualMints: readonly NonNullable<import('./subdivide.js').ClaimedResidual['mint']>[] = [];
     let residualPlacements: readonly RoomPlacement[] = placements;
-    if (input.keepOutRects && input.keepOutRects.length > 0 && placements.length > 0) {
+    // §POLYGON-NATIVE (Phase 3) — SKIP the residual-fill / §RESIDUAL-CELL-CLAMP scaffolding on
+    // the routed sheared-quad path (doc §13.4 step 2 — "skip the residual-fill/clamp scaffolding
+    // for that shell"). The polygon subdivider tiles the REAL quad COMPLETELY, so there is no
+    // bbox blank to claim; running the bbox-frame residual claim here would only re-introduce
+    // overflowing utility mints. The emitted geometry comes from `emitPlacements` + the real
+    // cells. (`emitGraph === graph` since `residualMints` stays empty.)
+    if (!usePolygonRoute && input.keepOutRects && input.keepOutRects.length > 0 && placements.length > 0) {
         const stairExclusions: Rect[] = [...input.keepOutRects, ...(input.residualExcludeRects ?? [])];
         const buildableWorld = subtractRectsFromRects(
             decomposeToRects(input.shellPolygon), stairExclusions,
@@ -1130,7 +1198,22 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     const numRooms = Math.max(1, roomShapes.length);
     const shapeQuality = Math.max(0, Math.min(1, 1 - softPenaltySum / numRooms));
 
-    const { segments, openings, boundaries, compromises, unroutedToCirculationRoomIds } = buildWallsAndDoors(placements, bubble, {
+    // §POLYGON-NATIVE — assemble the EMIT placement set. For every non-routed path this is
+    // exactly `placements` (byte-identical). On the routed sheared-quad path it is the FULL
+    // polygon-cell set (so the real quad is tiled COMPLETELY — a room the rect path dropped is
+    // still emitted from its real cell, and there is no bbox blank for the residual fill to
+    // patch with an overflowing utility mint) PLUS any non-habitable extras the post-subdivide
+    // passes added to `placements` but the polygon cells don't carry (the `stair` room + any
+    // §STAIR-CIRC stub) — those keep their rect cell via the `cellFromRect` fallback. The gate
+    // `placements` (the rect tiling) drove every validator/ranking above and is untouched.
+    let emitPlacements: readonly RoomPlacement[] = placements;
+    if (cellPolyByIdWorld) {
+        const cellIds = cellPolyByIdWorld;
+        const polyAsPlacements: RoomPlacement[] = [...cellIds.entries()].map(([roomId, poly]) => ({ roomId, rect: cellBBoxRect(poly) }));
+        const extras = placements.filter(p => !cellIds.has(p.roomId));   // stair / stub — rect cells
+        emitPlacements = [...polyAsPlacements, ...extras];
+    }
+    const { segments, openings, boundaries, compromises, unroutedToCirculationRoomIds } = buildWallsAndDoors(emitPlacements, bubble, {
         ...(input.wallThicknessM !== undefined ? { wallThicknessM: input.wallThicknessM } : {}),
         ...(input.doorWidthM !== undefined ? { doorWidthM: input.doorWidthM } : {}),
         // §EXTEND-TO-PERIMETER — pass the WORLD-frame shell polygon so interior
@@ -1139,10 +1222,17 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         // `placements` are already in world frame (transformed back via t.inv),
         // so we use `input.shellPolygon` directly, not `polyT`.
         shellPolygon: input.shellPolygon,
+        // §POLYGON-NATIVE (Phase 3) — the REAL cells (WORLD frame) for the sheared-quad
+        // route, so the wall sweep matches the diagonal-perimeter / axis-parallel-interior
+        // edges. Undefined for every other path ⇒ byte-identical (cells = lifted rects).
+        ...(cellPolyByIdWorld ? { cellPolygonById: cellPolyByIdWorld } : {}),
     });
-    const graph = buildSemanticGraph(placements, segments, openings, bubble, {
+    const graph = buildSemanticGraph(emitPlacements, segments, openings, bubble, {
         levelId: input.levelId, seed: `${input.seed}|${strategyKey(s)}`, shellAreaM2: shellArea,
         ...(input.wallHeightM !== undefined ? { wallHeightM: input.wallHeightM } : {}),
+        // §POLYGON-NATIVE (Phase 3) — the REAL cell polygons drive each Space's polygon +
+        // netArea (no bbox overflow). Undefined for every other path ⇒ byte-identical.
+        ...(cellPolyByIdWorld ? { cellPolygonById: cellPolyByIdWorld } : {}),
     });
     // §T3.3 TOPOLOGY GATE — run Part B validators against the realised
     // openings + placements:
@@ -1434,10 +1524,16 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
             ...(input.wallThicknessM !== undefined ? { wallThicknessM: input.wallThicknessM } : {}),
             ...(input.doorWidthM !== undefined ? { doorWidthM: input.doorWidthM } : {}),
             shellPolygon: input.shellPolygon,
+            // §POLYGON-NATIVE (Phase 3) — keep the real cells on the residual-augmented emit
+            // graph too (the house keep-out path builds this second graph), else the sheared-
+            // quad rooms revert to their bbox here and the overflow returns. Undefined ⇒
+            // byte-identical (every non-routed path).
+            ...(cellPolyByIdWorld ? { cellPolygonById: cellPolyByIdWorld } : {}),
         });
         emitGraph = buildSemanticGraph(residualPlacements, emitWalls.segments, emitWalls.openings, emitBubble, {
             levelId: input.levelId, seed: `${input.seed}|${strategyKey(s)}`, shellAreaM2: shellArea,
             ...(input.wallHeightM !== undefined ? { wallHeightM: input.wallHeightM } : {}),
+            ...(cellPolyByIdWorld ? { cellPolygonById: cellPolyByIdWorld } : {}),
         });
     }
 

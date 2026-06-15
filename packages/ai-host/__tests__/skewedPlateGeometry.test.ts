@@ -239,24 +239,162 @@ describe('DIAG — engine coverage of the real rotated / sheared shell polygon',
         });
     });
 
-    it('sheared PARALLELOGRAM (140 m², 0.78 bbox-fill) — rooms OVERFLOW the real shell (§RECTIFY gap)', () => {
+    it('sheared PARALLELOGRAM (140 m², 0.78 bbox-fill) — Phase-3 polygon subdivide kills the overflow', () => {
         // base 14 × height 10 = 140 m²; sheared +4 m → bbox 18×10 = 180 m² (fill 0.78),
-        // exactly the ~0.75-fill regime the doc says diverges ~2.1 m at a corner. MEASURED
-        // 2026-06-13: the ground floor tiles to ratio ≈ 1.05 — the bbox-tiled rooms reach
-        // PAST the real sheared edges (root-cause C, §RECTIFY-QUAD: rooms emitted in the
-        // bbox frame poke beyond the diagonal shell). A ratio > 1.0 is the "walls/rooms
-        // beyond the façade" defect; this tripwire trips if the overflow worsens past 1.20.
+        // exactly the ~0.75-fill regime the doc says diverges ~2.1 m at a corner.
+        //
+        // PHASE 3 (doc §13.3/§13.4 step 3, §POLYGON-NATIVE-ROUTE): the sheared convex quad is
+        // routed to `subdividePolygon`, which tiles the REAL quad instead of its bounding box.
+        // The bbox-overflow is GONE: BEFORE Phase 3 the coverage ratio was 1.139 (bbox-tiled
+        // rooms poked ~2 m past the diagonal façade — root-cause C, §RECTIFY-QUAD). MEASURED
+        // AFTER Phase 3 (2026-06-15): ground ≈ 0.970, upper ≈ 0.915 — BOTH ≤ 1.0 (NO overflow)
+        // and far closer to 1.0 than 1.139. The upper sits a little under 1.0 because the stair
+        // keep-out is subtracted as a hole from the cells that straddle it (doc §13.6 — the
+        // stair stays a subtracted region through Phase 3) + its clearance margin; that is
+        // honest under-coverage (circulation slack around the stair), NOT overflow.
         const para: Pt[] = [{ x: 0, z: 0 }, { x: 14, z: 0 }, { x: 18, z: 10 }, { x: 4, z: 10 }];
         const res = generateHouseLayout(mkShell(para), PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 });
-        for (const c of coverageByStorey(res)) {
+        const storeys = coverageByStorey(res);
+        for (const c of storeys) {
             // eslint-disable-next-line no-console
             console.log(`§DIAG-COVERAGE parallelogram storey: tiled=${c.tiled.toFixed(1)} shell=${c.shellArea.toFixed(1)} ratio=${c.ratio.toFixed(3)}`);
-            // Sanity tripwire (not a hard quality gate): coverage stays in a sane band.
-            // Sheared ground overflows (~1.05 today); a regression past 1.20 / below 0.80
-            // means the §RECTIFY-QUAD bbox-vs-shell gap (root-cause C) materially worsened.
-            expect(c.ratio, `parallelogram coverage ${c.ratio.toFixed(3)} out of sane band`).toBeGreaterThan(0.80);
-            expect(c.ratio, `parallelogram overflow ${c.ratio.toFixed(3)} worsened past 1.20`).toBeLessThan(1.20);
+            // TIGHTENED band (Phase 3): measured 0.915 (upper) / 0.970 (ground). The overflow
+            // is fixed — every cell is now AT OR INSIDE the real façade, so the ceiling drops to
+            // ≤ 1.02 (was banded < 1.20 and measured 1.139). The floor is the upper-storey
+            // stair-clearance margin (0.915), well above the old 0.80 sanity floor; a regression
+            // below 0.90 would mean the polygon tiling started dropping real area.
+            expect(c.ratio, `parallelogram coverage ${c.ratio.toFixed(3)} below the Phase-3 floor`).toBeGreaterThan(0.90);
+            expect(c.ratio, `parallelogram overflow ${c.ratio.toFixed(3)} — Phase-3 should keep cells INSIDE the façade`).toBeLessThan(1.02);
         }
+        // The §RECTIFY overflow is fixed: NO storey exceeds 1.0 by more than a hairline (was
+        // 1.139), and the worst is MUCH closer to 1.0 than the old 1.139.
+        const worst = storeys.reduce((m, c) => Math.max(m, c.ratio), 0);
+        expect(worst, `worst parallelogram ratio ${worst.toFixed(3)} not closer to 1.0 than the old 1.139`).toBeLessThan(1.139 - 0.10);
+    });
+
+    // ── §13.5 invariants on the sheared-PARALLELOGRAM cells (Phase 3) ──────────────
+    //
+    // The polygon-native subdivider must satisfy the doc §13.5 invariants on the real quad:
+    // completeness (Σ cell ≈ shell), disjointness (no >ε overlap), in-shell (every cell vertex
+    // inside-or-on the real façade), and walls-on-edges. We assert them on the GROUND storey's
+    // emitted room polygons (in WORLD metres) of the sheared parallelogram.
+    describe('§13.5 invariants — sheared-parallelogram polygon cells', () => {
+        const para: Pt[] = [{ x: 0, z: 0 }, { x: 14, z: 0 }, { x: 18, z: 10 }, { x: 4, z: 10 }];
+        const res = generateHouseLayout(mkShell(para), PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 });
+        // Room polygons (world metres {x,z}) from the GROUND storey (index 0).
+        const ground = res.perStoreyLayout[0]!;
+        const shellPoly = res.storeys[0]!.footprint;
+        const cellPolys = ground.rooms
+            .filter(r => Array.isArray(r.polygon) && r.polygon!.length >= 3)
+            // option polygons are mm {x,y=plan-z}; convert to metres {x,z}.
+            .map(r => r.polygon!.map(p => ({ x: p.x / 1000, z: p.y / 1000 })));
+        const polyAreaM2 = (poly: { x: number; z: number }[]): number => {
+            let a = 0;
+            for (let i = 0; i < poly.length; i++) { const p = poly[i]!, q = poly[(i + 1) % poly.length]!; a += p.x * q.z - q.x * p.z; }
+            return Math.abs(a) / 2;
+        };
+        // EXACT convex-polygon intersection area (Sutherland–Hodgman A∩B, both convex) — an
+        // AABB probe false-positives on SHEARED cells (their bounding boxes overlap even when
+        // the cells are disjoint), so we clip A against B's edges and measure the result.
+        const clipAByB = (A: { x: number; z: number }[], B: { x: number; z: number }[]): { x: number; z: number }[] => {
+            let sa = 0;
+            for (let i = 0; i < B.length; i++) { const p = B[i]!, q = B[(i + 1) % B.length]!; sa += p.x * q.z - q.x * p.z; }
+            const ccw = sa >= 0;
+            let cur = A.slice();
+            for (let i = 0; i < B.length && cur.length >= 3; i++) {
+                const a = B[i]!, b = B[(i + 1) % B.length]!;
+                const ex = b.x - a.x, ez = b.z - a.z;
+                const inside = (p: { x: number; z: number }) => { const c = ex * (p.z - a.z) - ez * (p.x - a.x); return ccw ? c >= -1e-9 : c <= 1e-9; };
+                const lerp = (p: { x: number; z: number }, q: { x: number; z: number }) => {
+                    const dpx = q.x - p.x, dpz = q.z - p.z; const denom = ex * dpz - ez * dpx;
+                    if (Math.abs(denom) < 1e-12) return q;
+                    const t = (ex * (p.z - a.z) - ez * (p.x - a.x)) / -denom;
+                    return { x: p.x + t * dpx, z: p.z + t * dpz };
+                };
+                const next: { x: number; z: number }[] = [];
+                for (let k = 0; k < cur.length; k++) {
+                    const c0 = cur[k]!, c1 = cur[(k + 1) % cur.length]!;
+                    const in0 = inside(c0), in1 = inside(c1);
+                    if (in0) next.push(c0);
+                    if (in0 !== in1) next.push(lerp(c0, c1));
+                }
+                cur = next;
+            }
+            return cur;
+        };
+        const overlapAreaM2 = (A: { x: number; z: number }[], B: { x: number; z: number }[]): number => {
+            const inter = clipAByB(A, B);
+            return inter.length >= 3 ? polyAreaM2(inter) : 0;
+        };
+
+        it('there ARE non-rect (real-polygon) cells on the sheared plate (route fired)', () => {
+            expect(cellPolys.length).toBeGreaterThan(0);
+        });
+
+        it('completeness: Σ cell area ≈ shell area within the stair-clearance margin (no white space, no overflow)', () => {
+            const sum = cellPolys.reduce((s, p) => s + polyAreaM2(p), 0);
+            const shellA = polygonAreaM2(shellPoly);
+            // Σ cells ≤ shell (no overflow) and within the stair-keep-out margin below it.
+            expect(sum, `Σ cell area ${sum.toFixed(1)} overflows shell ${shellA.toFixed(1)}`).toBeLessThanOrEqual(shellA * 1.02);
+            expect(sum / shellA, `Σ cell area ratio ${(sum / shellA).toFixed(3)} below the stair-margin floor`).toBeGreaterThan(0.90);
+        });
+
+        it('no cell crosses OUTSIDE the real shell — every cell vertex is inside-or-on the façade (within ε)', () => {
+            // "inside-or-on within ε": inside the polygon OR within EPS_M of its boundary. EPS_M
+            // absorbs the float round-trip through the principal-axis rotation (engine frame →
+            // world emit). A vertex metres past the façade (the old §RECTIFY 1.139 overflow,
+            // ~2 m) fails this; the worst Phase-3 vertex is a sub-5 cm boundary graze.
+            const EPS_M = 0.05;
+            const distToPerimeter = (px: number, pz: number): number => {
+                let best = Infinity;
+                for (let i = 0; i < shellPoly.length; i++) {
+                    const a = shellPoly[i]!, b = shellPoly[(i + 1) % shellPoly.length]!;
+                    const ex = b.x - a.x, ez = b.z - a.z; const L2 = ex * ex + ez * ez || 1e-30;
+                    const t = Math.max(0, Math.min(1, ((px - a.x) * ex + (pz - a.z) * ez) / L2));
+                    best = Math.min(best, Math.hypot(px - (a.x + t * ex), pz - (a.z + t * ez)));
+                }
+                return best;
+            };
+            let worst = 0;
+            for (const poly of cellPolys) {
+                for (const v of poly) {
+                    const ok = pointInPoly(v.x, v.z, shellPoly) || distToPerimeter(v.x, v.z) <= EPS_M;
+                    if (!ok) worst = Math.max(worst, distToPerimeter(v.x, v.z));
+                    expect(
+                        ok,
+                        `cell vertex (${v.x.toFixed(2)},${v.z.toFixed(2)}) lies ${distToPerimeter(v.x, v.z).toFixed(3)} m OUTSIDE the real sheared shell (the §RECTIFY overflow)`,
+                    ).toBe(true);
+                }
+            }
+            expect(worst, `worst out-of-shell vertex distance ${worst.toFixed(3)} m`).toBeLessThanOrEqual(EPS_M);
+        });
+
+        it('disjointness: no two cells overlap by more than ε (rooms tile, never stack)', () => {
+            for (let i = 0; i < cellPolys.length; i++) {
+                for (let j = i + 1; j < cellPolys.length; j++) {
+                    const ov = overlapAreaM2(cellPolys[i]!, cellPolys[j]!);
+                    expect(ov, `cells ${i} and ${j} overlap by ${ov.toFixed(2)} m²`).toBeLessThan(0.05);
+                }
+            }
+        });
+
+        it('walls-on-edges: every emitted wall lies on a boundary edge of some cell (within ε)', () => {
+            // Every option wall endpoint must lie on (within ε of) some cell polygon edge — i.e.
+            // the wall is a real cell boundary, not a floating segment. Convert walls mm→m.
+            const onAnyCellEdge = (px: number, pz: number): boolean =>
+                cellPolys.some(poly => pointInPoly(px, pz, poly));   // pointInPoly is boundary-inclusive within 1 mm
+            for (const w of ground.walls) {
+                const a = { x: w.start.x / 1000, z: w.start.y / 1000 };
+                const b = { x: w.end.x / 1000, z: w.end.y / 1000 };
+                const mid = { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 };
+                // The wall midpoint must touch a cell (its own bounding room) — a wall floating
+                // in empty space (touching no cell) would be the "wall beyond the façade" defect.
+                expect(
+                    onAnyCellEdge(a.x, a.z) || onAnyCellEdge(b.x, b.z) || onAnyCellEdge(mid.x, mid.z),
+                    `wall (${a.x.toFixed(2)},${a.z.toFixed(2)})→(${b.x.toFixed(2)},${b.z.toFixed(2)}) touches no cell — floating wall`,
+                ).toBe(true);
+            }
+        });
     });
 });
 

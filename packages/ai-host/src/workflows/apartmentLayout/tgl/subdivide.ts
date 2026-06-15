@@ -505,7 +505,7 @@ function placeInRectReported(rect: Rect, rooms: readonly ProgramRoom[]): Subdivi
  * preserved (stable), so the P8 enumerate `rev` strategy still produces secondary
  * variety. Privacy is read from the rules database (SPEC-ARCHITECTURAL-PROGRAM-RULES).
  */
-function allocationOrder(rooms: readonly ProgramRoom[]): ProgramRoom[] {
+export function allocationOrder(rooms: readonly ProgramRoom[]): ProgramRoom[] {
     const living = rooms.find(r => r.type === 'living');
     const master = rooms.find(r => r.type === 'master');
     const hoisted = [living, master].filter((r): r is ProgramRoom => r !== undefined);

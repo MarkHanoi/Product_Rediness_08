@@ -56,6 +56,13 @@ export interface SemanticGraphMeta {
     readonly wallHeightM?: number;          // default 2.7
     readonly elevationM?: number;           // default 0
     readonly levelName?: string;            // default 'Level'
+    /**
+     * §POLYGON-NATIVE (Phase 3, doc §13.4) — per-roomId REAL cell polygon override. The
+     * sheared-convex-quad route passes the real (non-rect) `subdividePolygon` cells here
+     * so the Space node's `geometry.polygon` + `netAreaM2` are the REAL footprint (no
+     * bbox overflow), not `cellFromRect(p.rect)`. A roomId absent ⇒ the lifted rect.
+     * Absent entirely ⇒ every cell is a lifted rect ⇒ byte-identical (every other path). */
+    readonly cellPolygonById?: ReadonlyMap<string, readonly Pt[]>;
 }
 
 const pairKey = (a: string, b: string): string => (a < b ? `${a}|${b}` : `${b}|${a}`);
@@ -98,7 +105,10 @@ export function buildSemanticGraph(
         // / `rectArea(p.rect)` directly. `cellFromRect` uses the SAME vertex order and
         // `cellAreaM2` returns EXACTLY `rectArea` for an axis-aligned cell, so this is
         // byte-identical until Phase 3 mints genuine non-rect cells.
-        const cellPolygon = cellFromRect(p).polygon;
+        // §POLYGON-NATIVE (Phase 3) — the REAL cell polygon when supplied (sheared-quad
+        // route), else the lifted rect (byte-identical for every other path).
+        const realCell = meta.cellPolygonById?.get(p.roomId);
+        const cellPolygon = realCell && realCell.length >= 3 ? realCell : cellFromRect(p).polygon;
         const netArea = cellAreaM2(cellPolygon);
         nodes.push({
             guid, kind: 'Space', sourceId: p.roomId,
