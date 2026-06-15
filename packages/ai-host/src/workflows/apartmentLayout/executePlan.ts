@@ -504,6 +504,18 @@ export interface LayoutCommandSet {
      *  legacy `CreateRoomBoundingLineCommand` to materialise these — they have NO
      *  bus verb yet). Carries `{id, levelId, start:{x,z}, end:{x,z}}` in METRES. */
     readonly boundaryCommands: readonly LayoutCommand[];
+    /** ADR-0069 (GR4) — graph-authoritative ROOM creation. One `room.create` spec per
+     *  `option.rooms` entry that carries a polygon (≥3 verts), so the editor creates the
+     *  Room element DIRECTLY from the engine's graph instead of re-deriving it from
+     *  detection (the source of the apartment↔house divergence). Each payload carries
+     *  `{ levelId, polygon:[{x,z}…] (METRES, same frame as `wallBatch`), type (RoomType),
+     *  name, occupancyType (RoomOccupancyType) }`. The room's UUID id is minted by the
+     *  EXECUTOR when it builds `RoomData` (rooms are terminal — no command cross-references
+     *  them — so they need no pre-minted cross-ref id, unlike walls). A room whose
+     *  `option.rooms` entry lacks a usable polygon is SKIPPED with a `warnings` entry
+     *  (it falls back to detection). Empty for the legacy/AI path that populates no
+     *  room polygons → byte-identical (the executor simply finds nothing to create). */
+    readonly roomCommands: readonly LayoutCommand[];
     /** Minted wall ids, index-aligned with the plan's kept walls. */
     readonly wallIds: readonly string[];
     /** Minted door ids, index-aligned with `doorPlan`. */
@@ -768,6 +780,46 @@ export function buildLayoutCommands(
         });
     }
 
+    // ── ADR-0069 (GR4) — graph-authoritative ROOM creation specs ──────────────────
+    // Emit one `room.create` spec per engine room that carries a usable polygon, in the
+    // SAME world frame + units as `wallBatch` (toWorld = opts.planToWorldXZ). The editor
+    // builds a `RoomData` from each spec and dispatches `BatchCreateRoomsCommand` inside
+    // the same one-undo batch, so the SHIPPED rooms are exactly the engine's designed
+    // rooms — never re-segmented by detection. Pure: no id minted here (the room UUID is
+    // minted executor-side when constructing RoomData; rooms are terminal — no command
+    // references a room id, so there is nothing to pre-mint for cross-reference).
+    const toWorldRoom = opts.planToWorldXZ ?? defaultPlanToWorld;
+    const roomWarnings: string[] = [];
+    const roomCommands: LayoutCommand[] = [];
+    for (const r of (option.rooms ?? [])) {
+        const poly = r.polygon;
+        if (!poly || poly.length < 3) {
+            // A room with no/degenerate polygon cannot become a RoomData (schema needs
+            // ≥3 verts). Surface it (it falls back to detection) rather than drop silently.
+            roomWarnings.push(
+                `[buildLayoutCommands] room "${r.name}" (${r.type}) has no usable polygon ` +
+                `(${poly?.length ?? 0} verts) — skipped graph-room creation; falls back to detection.`,
+            );
+            continue;
+        }
+        roomCommands.push({
+            command: 'room.create',
+            payload: {
+                levelId: opts.levelId,
+                // World METRES, same frame as wallBatch — the house executor re-applies its
+                // weld/project-north transform to these alongside the walls (ADR-0069 GR3).
+                polygon: poly.map(p => toWorldRoom(p)),
+                type: r.type,
+                name: r.name,
+                // `option.rooms[*].occupancy` is already a RoomOccupancyType string
+                // (occupancyOf in emitGeometry); the executor validates + falls back to
+                // 'unclassified' when absent.
+                ...(r.occupancy ? { occupancyType: r.occupancy } : {}),
+                ...(typeof r.area === 'number' ? { areaM2: r.area } : {}),
+            },
+        });
+    }
+
     return {
         levelId: opts.levelId,
         wallBatch,
@@ -779,10 +831,11 @@ export function buildLayoutCommands(
         shellWindowBatch,
         shellWindowIds,
         boundaryCommands,
+        roomCommands,
         wallIds,
         doorIds,
         windowIds,
-        totalElementCount: plan.totalElementCount + shellWindowIds.length,
-        warnings: plan.warnings,
+        totalElementCount: plan.totalElementCount + shellWindowIds.length + roomCommands.length,
+        warnings: [...plan.warnings, ...roomWarnings],
     };
 }

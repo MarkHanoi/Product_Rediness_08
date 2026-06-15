@@ -92,6 +92,70 @@ describe('buildLayoutCommands (A6-wire)', () => {
         expect(set.doorBatch).toBeNull();
     });
 
+    // ADR-0069 (GR4) — graph-authoritative ROOM creation specs.
+    describe('roomCommands (ADR-0069 GR4 — rooms come from the engine graph)', () => {
+        const roomOption = (over: Partial<LayoutOption> = {}) => option({
+            doors: [],
+            rooms: [
+                {
+                    name: 'Bedroom 1', type: 'bedroom', area: 14, windowCount: 1,
+                    hasDirectAccess: true, adjacentTo: [], occupancy: 'bedroom',
+                    // plan mm, y→world z. A 4×3.5 m rectangle.
+                    polygon: [{ x: 0, y: 0 }, { x: 4000, y: 0 }, { x: 4000, y: 3500 }, { x: 0, y: 3500 }],
+                },
+                {
+                    name: 'Kitchen', type: 'kitchen', area: 12, windowCount: 1,
+                    hasDirectAccess: true, adjacentTo: [], occupancy: 'kitchen',
+                    polygon: [{ x: 4000, y: 0 }, { x: 7000, y: 0 }, { x: 7000, y: 4000 }, { x: 4000, y: 4000 }],
+                },
+            ],
+            ...over,
+        });
+
+        it('emits one room.create per room with a polygon, in METRES, with type/name/occupancyType', () => {
+            const set = buildLayoutCommands(roomOption(), OPTS, counterMinter());
+            expect(set.roomCommands).toHaveLength(2);
+            const p0 = set.roomCommands[0]!.payload as { levelId: string; polygon: Array<{ x: number; z: number }>; type: string; name: string; occupancyType?: string };
+            expect(set.roomCommands[0]!.command).toBe('room.create');
+            expect(p0.levelId).toBe('L0');
+            expect(p0.type).toBe('bedroom');
+            expect(p0.name).toBe('Bedroom 1');
+            expect(p0.occupancyType).toBe('bedroom');
+            expect(p0.polygon).toHaveLength(4);
+            // mm → m, plan-y → world-z.
+            expect(p0.polygon[1]!).toEqual({ x: 4, z: 0 });
+            expect(p0.polygon[2]!).toEqual({ x: 4, z: 3.5 });
+        });
+
+        it('skips a room with no/degenerate polygon and surfaces a warning', () => {
+            const set = buildLayoutCommands(roomOption({
+                rooms: [
+                    { name: 'Living', type: 'living', area: 20, windowCount: 1, hasDirectAccess: true, adjacentTo: [], occupancy: 'living-room' }, // no polygon
+                    { name: 'Sliver', type: 'bedroom', area: 1, windowCount: 0, hasDirectAccess: true, adjacentTo: [], polygon: [{ x: 0, y: 0 }, { x: 10, y: 0 }] }, // 2 verts
+                ],
+            }), OPTS, counterMinter());
+            expect(set.roomCommands).toHaveLength(0);
+            expect(set.warnings.some(w => /no usable polygon/.test(w) && /Living/.test(w))).toBe(true);
+            expect(set.warnings.some(w => /Sliver/.test(w))).toBe(true);
+        });
+
+        it('omits occupancyType when the room has none (executor falls back to unclassified)', () => {
+            const set = buildLayoutCommands(roomOption({
+                rooms: [{ name: 'R', type: 'bedroom', area: 12, windowCount: 1, hasDirectAccess: true, adjacentTo: [], polygon: [{ x: 0, y: 0 }, { x: 3000, y: 0 }, { x: 3000, y: 4000 }] }],
+            }), OPTS, counterMinter());
+            const p = set.roomCommands[0]!.payload as { occupancyType?: string };
+            expect(p.occupancyType).toBeUndefined();
+        });
+
+        it('totalElementCount includes created rooms; empty rooms → no room commands (byte-identical)', () => {
+            const withRooms = buildLayoutCommands(roomOption(), OPTS, counterMinter());
+            expect(withRooms.totalElementCount).toBe(2 + 2);   // 2 walls + 2 rooms (no doors)
+            const noRooms = buildLayoutCommands(option(), OPTS, counterMinter());
+            expect(noRooms.roomCommands).toHaveLength(0);
+            expect(noRooms.totalElementCount).toBe(3);          // unchanged: 2 walls + 1 door
+        });
+    });
+
     // T1.W-B wiring (2026-05-30) — emitted windows flow through to commands.
     describe('T1.W-B window dispatch (when LayoutOption carries windows[])', () => {
         const winOption = (over: Partial<LayoutOption> = {}) => option({
