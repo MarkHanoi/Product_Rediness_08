@@ -22,6 +22,7 @@
 import type { BubbleGraph } from './bubbleGraph.js';
 import type { Pt, Rect } from './rectDecomposition.js';
 import type { RoomPlacement } from './subdivide.js';
+import { cellFromRect } from './subdivide.js';
 import { doorAllowedBetween, ENSUITE_HOST_EXTRA_DOORS, isCirculation, isOpenPlanEligible, maxDoorsFor, minDoorWidthBetween, roomRule } from '../rules/programRules.js';
 
 export interface WallSeg {
@@ -170,6 +171,183 @@ function runsForLine(faces: readonly Face[]): Run[] {
     }
     return runs;
 }
+
+// ─── §POLYGON-WALL-SWEEP (Phase 2, doc §13.4 step 2) ─────────────────────────
+//
+// Generalises the wall sweep to non-axis-aligned cell edges WITHOUT changing the
+// current axis-aligned output. The legacy `vFaces`/`hFaces`/`groupByCoord`/
+// `runsForLine` sweep above is a FAST PATH that fires whenever every cell is an
+// axis-aligned box (which every PRODUCTION input is today — Phase-1 cells are all
+// lifted rects). When at least one cell carries a non-axis edge (only the new unit
+// tests do this in Phase 2), the GENERAL collinear-overlapping-edge matcher below
+// runs instead and produces the SAME Run/wall/door semantics:
+//   • two cells whose boundary edges are COLLINEAR within ε and OVERLAP along their
+//     shared line → ONE interior wall bounding both rooms (`boundsRoomIds` length 2);
+//   • an edge with no collinear-overlapping partner → a one-sided perimeter segment
+//     (`boundsRoomIds` length 1), classified by `segmentOnPerimeter` exactly as the
+//     fast path does.
+// The emission goes through the SAME `emitWall` core (id minting, zone test, shell
+// classification, sharedWallByPair), and the result feeds the SAME repairSegments /
+// min-length floor / door pipeline — door placement keys off `boundsRoomIds` + the
+// shared wall geometry, which is geometry-agnostic once the shared edge is known.
+
+const POLY_WALL_EPS = 1e-6;
+
+/** §POLYGON-WALL-SWEEP — true iff `poly` is (within `eps`) an axis-aligned box, and
+ *  if so return the equivalent {@link Rect}. A box is exactly 4 vertices whose edges
+ *  alternate horizontal / vertical with positive extent on both axes. The lifted-rect
+ *  cells every production input produces (via `cellFromRect`/`rectPolygon`, vertex
+ *  order `[(x0,z0),(x1,z0),(x1,z1),(x0,z1)]`) all pass → the caller takes the literal
+ *  legacy fast path → byte-identical output. A sheared / rotated quad has at least one
+ *  edge that is neither horizontal nor vertical → returns null → the general matcher
+ *  runs. Pure; metres. */
+export function isAxisAlignedBox(poly: readonly Pt[], eps = POLY_WALL_EPS): Rect | null {
+    if (poly.length !== 4) return null;
+    for (let i = 0; i < 4; i++) {
+        const a = poly[i]!, b = poly[(i + 1) % 4]!;
+        const dxAbs = Math.abs(a.x - b.x), dzAbs = Math.abs(a.z - b.z);
+        // Each edge must be purely horizontal (Δx>0, Δz≈0) or purely vertical
+        // (Δz>0, Δx≈0) — never diagonal, never degenerate.
+        const horizontal = dzAbs <= eps && dxAbs > eps;
+        const vertical = dxAbs <= eps && dzAbs > eps;
+        if (!horizontal && !vertical) return null;
+    }
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    for (const p of poly) {
+        if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
+        if (p.z < minZ) minZ = p.z; if (p.z > maxZ) maxZ = p.z;
+    }
+    if (maxX - minX <= eps || maxZ - minZ <= eps) return null;   // degenerate box
+    return { x0: minX, z0: minZ, x1: maxX, z1: maxZ };
+}
+
+/** A directed boundary edge of a cell polygon (room on the LEFT in CCW order). */
+interface CellEdge { readonly roomId: string; readonly a: Pt; readonly b: Pt }
+
+/** A shared-wall emission discovered by the general matcher: the wall segment
+ *  endpoints plus the room id(s) it bounds (1 = perimeter, 2 = interior). */
+interface MatchedWall { readonly a: Pt; readonly b: Pt; readonly ids: string[] }
+
+/** Signed twice-area of a polygon (shoelace); >0 ⇒ CCW in the {x→right, z→up} frame. */
+function signedArea2(poly: readonly Pt[]): number {
+    let s = 0;
+    for (let i = 0; i < poly.length; i++) {
+        const p = poly[i]!, q = poly[(i + 1) % poly.length]!;
+        s += p.x * q.z - q.x * p.z;
+    }
+    return s;
+}
+
+/**
+ * §POLYGON-WALL-SWEEP — the GENERAL collinear-overlapping-edge matcher.
+ *
+ * Enumerate every cell polygon's boundary edges, then find shared interior walls by
+ * COLLINEAR-OVERLAPPING-EDGE matching: two edges from DIFFERENT cells that lie on the
+ * same infinite line (within ε) and overlap along it → one interior wall over the
+ * overlap, bounding BOTH rooms. The non-overlapping remainders of each edge (and any
+ * edge with no collinear partner at all) are one-sided perimeter segments.
+ *
+ * For each maximal line (a cluster of collinear edges) we run a 1-D interval sweep
+ * over the line parameter `t` — the direct analogue of `runsForLine`: cut points are
+ * every edge endpoint's `t`; each elementary sub-interval is owned by whichever cell's
+ * edge covers its midpoint on each side (the edge's room is on its interior side). A
+ * sub-interval covered by two cells → interior wall (2 ids); by one → perimeter (1 id).
+ * Contiguous equal runs are merged. Result emissions are deterministic (lines sorted
+ * by geometry, runs in ascending t) and reuse the SAME emitWall core as the fast path.
+ *
+ * Pure; metres. `eps` governs collinearity + overlap; `lenFloor` drops zero/sub-ε runs
+ * (the real min-length floor is applied later by `repairSegments`, exactly as the fast
+ * path — this only avoids emitting degenerate cut slivers).
+ */
+function collinearSharedWalls(
+    cells: readonly { roomId: string; polygon: readonly Pt[] }[],
+    eps = POLY_WALL_EPS,
+): MatchedWall[] {
+    // 1. Collect every directed boundary edge with the room on its interior (LEFT) side.
+    //    Normalise each polygon to CCW so the room is consistently to the edge's left;
+    //    this matters only for naming, not for the geometry of the shared line.
+    const edges: CellEdge[] = [];
+    for (const c of cells) {
+        const poly = signedArea2(c.polygon) >= 0 ? c.polygon : [...c.polygon].slice().reverse();
+        for (let i = 0; i < poly.length; i++) {
+            const a = poly[i]!, b = poly[(i + 1) % poly.length]!;
+            if (Math.hypot(b.x - a.x, b.z - a.z) <= eps) continue;   // skip degenerate edge
+            edges.push({ roomId: c.roomId, a, b });
+        }
+    }
+
+    // 2. Cluster edges by their supporting LINE. A line is identified by a normalised
+    //    direction (canonical sign) + signed perpendicular offset, both rounded so
+    //    collinear-within-ε edges share a key. Deterministic (sorted keys).
+    const lineKey = (e: CellEdge): { key: string; nx: number; nz: number; ox: number; oz: number } => {
+        let dx = e.b.x - e.a.x, dz = e.b.z - e.a.z;
+        const L = Math.hypot(dx, dz) || 1;
+        dx /= L; dz /= L;
+        // Canonical direction sign so a→b and b→a map to the same line.
+        if (dx < -eps || (Math.abs(dx) <= eps && dz < 0)) { dx = -dx; dz = -dz; }
+        // Perpendicular distance of the line from the origin (signed).
+        const off = -dz * e.a.x + dx * e.a.z;   // normal (-dz, dx) · point
+        const q = (n: number): number => Math.round(n / (eps * 10)) * (eps * 10);
+        const ox = e.a.x, oz = e.a.z;            // a reference point on the line (for the frame)
+        return { key: `${q(dx)},${q(dz)},${q(off)}`, nx: dx, nz: dz, ox, oz };
+    };
+
+    interface LineGroup { dir: { x: number; z: number }; origin: Pt; members: CellEdge[] }
+    const groups = new Map<string, LineGroup>();
+    for (const e of edges) {
+        const { key, nx, nz, ox, oz } = lineKey(e);
+        let g = groups.get(key);
+        if (!g) { g = { dir: { x: nx, z: nz }, origin: { x: ox, z: oz }, members: [] }; groups.set(key, g); }
+        g.members.push(e);
+    }
+
+    const out: MatchedWall[] = [];
+    const sortedKeys = [...groups.keys()].sort();
+    for (const key of sortedKeys) {
+        const g = groups.get(key)!;
+        const { dir, origin } = g;
+        // Parameter t of a point projected onto the line through `origin` along `dir`.
+        const tOf = (p: Pt): number => (p.x - origin.x) * dir.x + (p.z - origin.z) * dir.z;
+        const ptAt = (t: number): Pt => ({ x: round6(origin.x + dir.x * t), z: round6(origin.z + dir.z * t) });
+
+        // Each member edge owns an interval [t0,t1] on the line and contributes its
+        // room. Many cells may overlap a given sub-interval (an interior wall: 2).
+        interface Span { readonly roomId: string; readonly t0: number; readonly t1: number }
+        const spans: Span[] = g.members.map(e => {
+            const ta = tOf(e.a), tb = tOf(e.b);
+            return { roomId: e.roomId, t0: Math.min(ta, tb), t1: Math.max(ta, tb) };
+        });
+        const cuts = Array.from(new Set(spans.flatMap(s => [round6(s.t0), round6(s.t1)]))).sort((a, b) => a - b);
+        const covers = (s: Span, m: number): boolean => s.t0 - eps <= m && m <= s.t1 + eps;
+
+        interface PRun { start: number; end: number; ids: string[] }
+        const runs: PRun[] = [];
+        for (let i = 0; i + 1 < cuts.length; i++) {
+            const lo = cuts[i]!, hi = cuts[i + 1]!;
+            if (hi - lo <= eps) continue;
+            const mid = (lo + hi) / 2;
+            // Distinct rooms whose edge covers this sub-interval, sorted (stable id order).
+            const ids = Array.from(new Set(spans.filter(s => covers(s, mid)).map(s => s.roomId))).sort();
+            if (ids.length === 0) continue;
+            const prev = runs[runs.length - 1];
+            if (prev && Math.abs(prev.end - lo) < eps && prev.ids.length === ids.length && prev.ids.every((x, k) => x === ids[k])) {
+                prev.end = hi;
+            } else {
+                runs.push({ start: lo, end: hi, ids });
+            }
+        }
+        for (const r of runs) {
+            // A boundary line can have ≥3 cells meeting (e.g. a T-junction sampled at
+            // one t); only ≤2 can SHARE a single wall. >2 is geometrically impossible
+            // for non-overlapping cells, but clamp defensively to the first two.
+            const ids = r.ids.slice(0, 2);
+            out.push({ a: ptAt(r.start), b: ptAt(r.end), ids });
+        }
+    }
+    return out;
+}
+
+export { isAxisAlignedBox as __isAxisAlignedBoxForTest, collinearSharedWalls as __collinearSharedWallsForTest };
 
 // ─── §EXTEND-TO-PERIMETER helpers (2026-05-27) ───────────────────────────────
 // For non-rectilinear shell polygons, the rect-decomposition uses axis-aligned
@@ -709,11 +887,11 @@ export function buildWallsAndDoors(
     // only; apartment / AI path leaves shellPolygon undefined → legacy heuristic).
     const shellPoly = opts.shellPolygon && opts.shellPolygon.length >= 3 ? opts.shellPolygon : null;
 
-    const emit = (axis: 'v' | 'h', coord: number, run: Run): void => {
-        const ids = [run.neg, run.pos].filter((x): x is string => x !== null);
-        const bounds = ids.length === 2 ? [...ids].sort() : ids;
-        const a: Pt = axis === 'v' ? { x: coord, z: run.start } : { x: run.start, z: coord };
-        const b: Pt = axis === 'v' ? { x: coord, z: run.end } : { x: run.end, z: coord };
+    // Core wall emission: given the segment endpoints + the (already-deduped, sorted)
+    // bounding room ids, classify it (open-plan boundary vs interior seal vs perimeter)
+    // and push it. Shared by BOTH the axis-aligned fast path (`emit`) and the general
+    // collinear-edge matcher (Phase 2) so the wall/door semantics are identical.
+    const emitWall = (a: Pt, b: Pt, bounds: string[]): void => {
         if (bounds.length === 2 && sameZone(bounds[0]!, bounds[1]!)) {
             // Intra-zone (open-plan) shared boundary: no wall, no door — but emit a
             // virtual RoomBoundingLine so the editor's RoomDetectionEngine still
@@ -740,8 +918,31 @@ export function buildWallsAndDoors(
         if (bounds.length === 2) sharedWallByPair.set(pairKey(bounds[0]!, bounds[1]!), seg);
     };
 
-    for (const { coord, faces } of groupByCoord(vFaces)) for (const run of runsForLine(faces)) emit('v', coord, run);
-    for (const { coord, faces } of groupByCoord(hFaces)) for (const run of runsForLine(faces)) emit('h', coord, run);
+    const emit = (axis: 'v' | 'h', coord: number, run: Run): void => {
+        const ids = [run.neg, run.pos].filter((x): x is string => x !== null);
+        const bounds = ids.length === 2 ? [...ids].sort() : ids;
+        const a: Pt = axis === 'v' ? { x: coord, z: run.start } : { x: run.start, z: coord };
+        const b: Pt = axis === 'v' ? { x: coord, z: run.end } : { x: run.end, z: coord };
+        emitWall(a, b, bounds);
+    };
+
+    // §POLYGON-WALL-SWEEP (Phase 2) — DISPATCH. Lift each placement to its cell polygon
+    // (`cellFromRect`); when EVERY cell is an axis-aligned box (every production input
+    // today — Phase-1 cells are all lifted rects) take the EXISTING vFaces/hFaces sweep
+    // UNCHANGED (byte-identical). Only when a cell has a non-axis edge (the Phase-2 unit
+    // tests; Phase-3 production) does the general collinear-overlapping-edge matcher run
+    // — emitting through the SAME emitWall core so the wall/door semantics match.
+    const cells = placements.map(p => cellFromRect(p));
+    const allAxisAligned = cells.every(c => isAxisAlignedBox(c.polygon) !== null);
+    if (allAxisAligned) {
+        for (const { coord, faces } of groupByCoord(vFaces)) for (const run of runsForLine(faces)) emit('v', coord, run);
+        for (const { coord, faces } of groupByCoord(hFaces)) for (const run of runsForLine(faces)) emit('h', coord, run);
+    } else {
+        for (const m of collinearSharedWalls(cells)) {
+            const bounds = m.ids.length === 2 ? [...m.ids].sort() : m.ids;
+            emitWall(m.a, m.b, bounds);
+        }
+    }
 
     // ── §DOOR-WALL-SURVIVES (A.21.D29 #8, 2026-06-12, house ensuite/bathroom sealed) ──
     // THE DEFECT: door `openings` are placed against the raw `segments` built above, but
