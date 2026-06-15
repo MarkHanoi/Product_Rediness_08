@@ -109,13 +109,24 @@ export class VanityTableBuilder implements IFurnitureBuilder {
         pull.position.set(0, drawY, L / 2 + 0.012);
         group.add(pull);
 
-        // Two slender legs on each long edge
+        // Four corner legs (one at each corner of the top), inset from the
+        // edges and reaching from the floor to the underside of the drawer —
+        // matching the canonical TableBuilder convention. The pre-fix builder
+        // made only TWO legs, both on the depth centre-line (z = 0), so the
+        // vanity rendered as two posts down the middle, not proper corner legs
+        // (founder: "legs not well defined"). Inset 0.04 m on width and 0.05 m
+        // on depth so every leg stays inside the footprint (z ∈ [−L/2, +L/2])
+        // and never protrudes behind the back face onto the wall.
         const legH = drawY - DRAW_H / 2;
         const legGeo = new THREE.CylinderGeometry(0.018, 0.022, legH, 10);
+        const legInsetW = W / 2 - 0.04;
+        const legInsetL = L / 2 - 0.05;
         for (const sx of [-1, 1]) {
-            const leg = new THREE.Mesh(legGeo, bodyMat);
-            leg.position.set(sx * (W / 2 - 0.04), legH / 2, 0);
-            group.add(leg);
+            for (const sz of [-1, 1]) {
+                const leg = new THREE.Mesh(legGeo, bodyMat);
+                leg.position.set(sx * legInsetW, legH / 2, sz * legInsetL);
+                group.add(leg);
+            }
         }
 
         // Integrated wall mirror above — baseOffset 0.85 m above the floor
