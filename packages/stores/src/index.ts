@@ -62,6 +62,20 @@ export { RoomStore } from './RoomStore.js';
 // retention scheduler can fire the §1.6 'consent-revoke' purge);
 // `purgeUser()` is the GDPR Art. 17 erasure path.
 export { ConsentStore } from './ConsentStore.js';
+// A.30.c (Phase A · Sprint 2) — L3 RetentionScheduler (pure decision core).
+// Holds the per-tier RetentionPolicy table (A.30.a L0) and decides WHICH
+// records are due for purge + WHY — by age (`createdAt + maxDays < now`, §1.10)
+// or by an early-purge trigger (§2.3). Pure + clock-free (`now` is passed in);
+// surfaces the §1.10 "missed three sweeps" Sev-2 signal as `overdueSweeps`. The
+// long-running worker that wakes on `sweepIntervalMinutes` + hard-deletes lives
+// at apps/retention-worker/ (A.30.d) — this is the testable brain it calls.
+export { RetentionScheduler } from './RetentionScheduler.js';
+export type {
+    RetentionRecord,
+    PurgeReason,
+    PurgeEntry,
+    PurgePlan,
+} from './RetentionScheduler.js';
 // A.30.d.1 (Phase A · Sprint 2) — consent.* command handlers per [C22 §4].
 // 3 pure handlers `(payload, store) → ConsentCommandResult<Event>`:
 // consent.grant (auto-supersedes prior versions) · consent.revoke
