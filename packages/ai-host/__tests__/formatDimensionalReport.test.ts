@@ -29,6 +29,10 @@ function makeReport(parts: Partial<DimensionalReport['perValidator']> = {}): Dim
         roomDaylight: parts.roomDaylight ?? emptyVal(),
         corridorWidth: parts.corridorWidth ?? emptyVal(),
         entrySightline: parts.entrySightline ?? emptyVal(),
+        // A.37 — the three newly-wired G-classes (opt-in; default vacuous).
+        roomFit: parts.roomFit ?? emptyVal(),
+        frontage: parts.frontage ?? emptyVal(),
+        kitchenTriangle: parts.kitchenTriangle ?? emptyVal(),
     };
     const hardFindings = [
         ...perValidator.roomShape.hardFindings,
@@ -36,6 +40,9 @@ function makeReport(parts: Partial<DimensionalReport['perValidator']> = {}): Dim
         ...perValidator.roomDaylight.hardFindings,
         ...perValidator.corridorWidth.hardFindings,
         ...perValidator.entrySightline.hardFindings,
+        ...perValidator.roomFit.hardFindings,
+        ...perValidator.frontage.hardFindings,
+        ...perValidator.kitchenTriangle.hardFindings,
     ];
     const softFindings = [
         ...perValidator.roomShape.softFindings,
@@ -43,6 +50,9 @@ function makeReport(parts: Partial<DimensionalReport['perValidator']> = {}): Dim
         ...perValidator.roomDaylight.softFindings,
         ...perValidator.corridorWidth.softFindings,
         ...perValidator.entrySightline.softFindings,
+        ...perValidator.roomFit.softFindings,
+        ...perValidator.frontage.softFindings,
+        ...perValidator.kitchenTriangle.softFindings,
     ];
     return {
         admissible: hardFindings.length === 0,

@@ -233,3 +233,72 @@ describe('validateAllDimensional — sightline gate wiring', () => {
         expect(report.perValidator.entrySightline.hardFindings.length).toBe(0);
     });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A.37 (cognition hardening) — G5 furniture-fit / G8 frontage / G10 kitchen
+// work-triangle, now wired into the combined report as opt-in sections.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('validateAllDimensional — newly-wired G-classes are vacuous by default', () => {
+    it('roomFit / frontage / kitchenTriangle vacuous-pass when not opted-in', () => {
+        const { rooms, windows } = soundApartment();
+        const report = validateAllDimensional({ rooms, windows });
+        for (const v of [report.perValidator.roomFit, report.perValidator.frontage, report.perValidator.kitchenTriangle]) {
+            expect(v.admissible).toBe(true);
+            expect(v.hardFindings.length).toBe(0);
+            expect(v.softFindings.length).toBe(0);
+        }
+        // Combined report unchanged vs the 5 original sub-validators.
+        expect(report.admissible).toBe(true);
+        expect(report.hardFindings.length).toBe(0);
+    });
+});
+
+describe('validateAllDimensional — G5 furniture-fit (includeRoomFit)', () => {
+    it('a too-small bedroom HARD-rejects when includeRoomFit=true', () => {
+        // A 2.0 × 2.0 = 4 m² master can't fit its required furniture program.
+        const rooms: RoomShape[] = [room('master', { x0: 0, z0: 0, x1: 2, z1: 2 }, 'm')];
+        const off = validateAllDimensional({ rooms, skipDaylight: true });
+        expect(off.perValidator.roomFit.admissible).toBe(true);          // not opted-in → vacuous
+
+        const on = validateAllDimensional({ rooms, skipDaylight: true, includeRoomFit: true });
+        expect(on.perValidator.roomFit.admissible).toBe(false);          // opted-in → G5 fires
+        expect(on.admissible).toBe(false);
+    });
+});
+
+describe('validateAllDimensional — G8 frontage (shellPolygon)', () => {
+    it('a fully-interior living room HARD-rejects when the shell polygon is supplied', () => {
+        // Shell 0..10 × 0..10; living sits in the dead centre, touching no edge.
+        const shellPolygon = [
+            { x: 0, z: 0 }, { x: 10, z: 0 }, { x: 10, z: 10 }, { x: 0, z: 10 },
+        ];
+        const rooms: RoomShape[] = [room('living', { x0: 3, z0: 3, x1: 7, z1: 7 }, 'l')];
+
+        const off = validateAllDimensional({ rooms, skipDaylight: true });
+        expect(off.perValidator.frontage.admissible).toBe(true);          // no polygon → skipped
+
+        const on = validateAllDimensional({ rooms, skipDaylight: true, shellPolygon });
+        expect(on.perValidator.frontage.admissible).toBe(false);          // interior living → G8 fires
+        expect(on.admissible).toBe(false);
+    });
+});
+
+describe('validateAllDimensional — G10 kitchen work-triangle (kitchenTriangles)', () => {
+    it('a degenerate triangle HARD-rejects when supplied', () => {
+        const { rooms, windows } = soundApartment();
+        // Sink/stove/fridge nearly coincident → sum well below SUM_MIN_HARD.
+        const kitchenTriangles = [{
+            kitchenId: 'k',
+            sink: { x: 0, z: 0 },
+            stove: { x: 0.1, z: 0 },
+            fridge: { x: 0, z: 0.1 },
+        }];
+        const off = validateAllDimensional({ rooms, windows });
+        expect(off.perValidator.kitchenTriangle.admissible).toBe(true);   // none supplied → skipped
+
+        const on = validateAllDimensional({ rooms, windows, kitchenTriangles });
+        expect(on.perValidator.kitchenTriangle.admissible).toBe(false);   // degenerate → G10 fires
+        expect(on.admissible).toBe(false);
+    });
+});
