@@ -109,6 +109,27 @@ describe('IfcMetaStore — persistence (.pryzm serialize ↔ hydrate)', () => {
         expect(() => store.hydrate({ version: 1, elements: { x: { pryzmElementId: '' } } })).toThrow();
         expect(() => store.hydrate({ version: 2, elements: {} })).toThrow();
     });
+
+    it('survives the real .pryzm JSON-string round-trip (serialize → JSON.stringify → JSON.parse → hydrate)', () => {
+        // ProjectSerializer embeds serialize() in the snapshot, which is then
+        // JSON.stringify'd to localStorage / Supabase and JSON.parse'd on load
+        // before ProjectLoader calls hydrate(). This pins that the full string
+        // cycle preserves every round-trip join key + pset/quantity value — i.e.
+        // no Map / undefined / non-JSON-safe value sneaks into the snapshot.
+        const a = new IfcMetaStore();
+        a.add(wall());
+        a.updateQuantity('wall_01', 'Qto_WallBaseQuantities', 'NetVolume', 2.4);
+        a.add(wall({ pryzmElementId: 'door_01', globalId: 'GDOOR', typeName: 'IFCDOOR', psets: {} }));
+
+        const roundTripped = JSON.parse(JSON.stringify(a.serialize()));
+
+        const b = new IfcMetaStore();
+        expect(b.hydrate(roundTripped)).toBe(2);
+        expect(b.getByGlobalId('0YvctVUKr0kugbFTf53O9L')?.pryzmElementId).toBe('wall_01');
+        expect(b.get('wall_01')!.psets.Pset_WallCommon.FireRating).toBe('60');
+        expect(b.get('wall_01')!.quantities?.Qto_WallBaseQuantities.NetVolume).toBe(2.4);
+        expect(b.getByGlobalId('GDOOR')?.typeName).toBe('IFCDOOR');
+    });
 });
 
 describe('IfcMetaStore — lifecycle (reset / subscribe / dispose)', () => {

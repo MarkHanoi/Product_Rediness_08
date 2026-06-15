@@ -1214,6 +1214,38 @@ export class ProjectLoader {
                 console.log('[ProjectLoader] VG Governance state restored from snapshot');
             }
 
+            // A.R.3 (Revit round-trip · S55) — restore per-element IFC/Revit metadata
+            // (GlobalId + psets + quantities) into the runtime IfcMetaStore so an
+            // imported IFC/Revit model keeps its round-trip join keys across reload.
+            // The store lives on the runtime (per-runtime instance, not a module
+            // singleton), reached via window.runtime — the same typed-cast pattern used
+            // for runtime.bus below (§U-B1).
+            //
+            // IMPORTANT — project-switch isolation: we ALWAYS touch the store on load,
+            // not only when the snapshot carries metadata. The dedicated C13 project-
+            // switch reset is not yet wired (tracker A.R.3 step 2 note), so a project
+            // WITHOUT ifcElementMeta must still CLEAR any metadata left by a previously
+            // open project — otherwise project A's GlobalIds would leak into an export
+            // of project B. hydrate() Zod-validates + clears-then-loads; reset() clears.
+            try {
+                const ifcMetaStore = (window as {
+                    runtime?: { ifcMetaStore?: { hydrate(s: unknown): number; reset(): void } };
+                }).runtime?.ifcMetaStore;
+                const ifcMeta = (snapshot as any).ifcElementMeta;
+                if (ifcMetaStore) {
+                    if (ifcMeta) {
+                        const n = ifcMetaStore.hydrate(ifcMeta);
+                        console.log(`[ProjectLoader] Restored ${n} IFC/Revit element meta record(s) from snapshot`);
+                    } else {
+                        ifcMetaStore.reset();   // clear any prior project's metadata
+                    }
+                } else if (ifcMeta) {
+                    console.warn('[ProjectLoader] ifcElementMeta present in snapshot but runtime.ifcMetaStore is unavailable — IFC/Revit metadata not restored');
+                }
+            } catch (e) {
+                console.error('[ProjectLoader] Failed to hydrate IFC/Revit element meta:', e);
+            }
+
             // Phase A: Restore Semantic Tag index from snapshot
             if ((snapshot as any).semanticTags) {
                 semanticIndex.deserialize((snapshot as any).semanticTags);

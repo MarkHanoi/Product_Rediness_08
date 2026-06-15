@@ -68,12 +68,23 @@ export function initPersistence(params: {
 }): PersistenceResult {
     const { world, bimManager, toolManager, unselectAll, stores } = params;
 
+    // A.R.3 (Revit round-trip · S55) — thread the runtime IfcMetaStore into the
+    // serializer so imported IFC/Revit element metadata (GlobalId + psets — the
+    // round-trip join keys) is captured in the `.pryzm` snapshot. The IfcMetaStore is
+    // a per-runtime instance (not a module singleton like the other element stores),
+    // so it is merged onto the bundle here rather than living on `stores` already. We
+    // never mutate the caller's object; when no runtime is supplied (pre-D.4 isolated
+    // tests) the bundle is passed through unchanged.
+    const serializeStores: ProjectStores = params.runtime?.ifcMetaStore
+        ? { ...stores, ifcMetaStore: stores.ifcMetaStore ?? params.runtime.ifcMetaStore }
+        : stores;
+
     // ── Save delegate ─────────────────────────────────────────────────────────
     // §06 §1 FIX: PlatformShell no longer imports ProjectSerializer/ProjectLoader.
     // Concrete adapters are created here (engine-layer) and injected via delegates.
     const saveDelegate: IProjectSaveDelegate = {
         serialize: (options) =>
-            ProjectSerializer.serialize(stores, bimManager, options) as unknown as IProjectSnapshot,
+            ProjectSerializer.serialize(serializeStores, bimManager, options) as unknown as IProjectSnapshot,
         stringify: (snapshot) =>
             ProjectSerializer.stringify(snapshot as any),
         parse: (text) =>

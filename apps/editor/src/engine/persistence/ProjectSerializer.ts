@@ -58,6 +58,11 @@ import { decisionRecordStore } from '@pryzm/core-app-model';
 // are written by S70 D8+ serialisers).
 import { SlabSystemTypeStore } from '@pryzm/geometry-slab';
 import { WallSystemTypeStore } from '@pryzm/geometry-wall';
+// A.R.3 (Revit round-trip · S55) — type-only ref to the L3 IfcMetaStore so the
+// snapshot can carry imported IFC/Revit element metadata (GlobalId + psets, the
+// round-trip join keys). The snapshot shape is the store's own serialize() output.
+import type { IfcMetaStore } from '@pryzm/stores';
+type IfcMetaSnapshot = ReturnType<IfcMetaStore['serialize']>;
 import { CeilingStore } from '@pryzm/core-app-model/stores';
 import { CeilingSystemTypeStore } from '@pryzm/core-app-model/stores';
 import { requirementStore } from '@pryzm/core-app-model';
@@ -345,6 +350,16 @@ export interface ProjectSnapshot {
             elementCount: number;
         }>;
     };
+    /**
+     * A.R.3 (Revit round-trip · S55) — per-element IFC/Revit metadata from the
+     * IfcMetaStore: each imported element's GlobalId, IFC type, psets + quantities,
+     * keyed by pryzmElementId. These are the round-trip join keys — without persisting
+     * them, an imported IFC/Revit model would lose its GlobalIds/psets on save/reload
+     * and re-export would mint fresh GlobalIds (breaking the Revit round-trip across
+     * sessions). Shape is the store's own `serialize()` output (Zod-validated on
+     * hydrate). Optional + omitted when the store is empty (backward compat).
+     */
+    ifcElementMeta?: IfcMetaSnapshot;
 }
 
 // ── THREE.js strippers ──────────────────────────────────────────────────────
@@ -653,6 +668,13 @@ export interface ProjectStores {
     floorStore?: import('@pryzm/core-app-model/stores').FloorStore;
     /** FloorSystemTypeStore — needed to persist custom floor assembly types. */
     floorSystemTypeStore?: import('@pryzm/core-app-model/stores').FloorSystemTypeStore;
+    /**
+     * A.R.3 (Revit round-trip · S55) — IfcMetaStore. Persists per-element IFC/Revit
+     * metadata (GlobalId + psets + quantities — the round-trip join keys) so an
+     * imported IFC/Revit model survives `.pryzm` save/reload. Optional for backward
+     * compat with bootstraps (and isolated tests) that don't wire the runtime store.
+     */
+    ifcMetaStore?: IfcMetaStore;
 }
 
 export class ProjectSerializer {
@@ -671,7 +693,7 @@ export class ProjectSerializer {
             beamStore, curtainWallStore, roofStore, plumbingStore,
             furnitureStore, handrailStore, openingStore, roomStore,
             slabSystemTypeStore, wallSystemTypeStore, ceilingStore, ceilingSystemTypeStore,
-            floorStore, floorSystemTypeStore,
+            floorStore, floorSystemTypeStore, ifcMetaStore,
         } = stores;
 
         const levels = wallStore.getLevels().map(l => ({ ...l }));
@@ -868,6 +890,15 @@ export class ProjectSerializer {
                 return snap.entries.length > 0
                     ? snap as ProjectSnapshot['obcAnnotationMap']
                     : undefined;
+            })(),
+
+            // A.R.3 (Revit round-trip · S55) — per-element IFC/Revit metadata. Emitted
+            // only when the IfcMetaStore is wired AND non-empty, so projects with no
+            // imported IFC/Revit content (the common case today) keep a byte-identical
+            // snapshot. The store's serialize() returns { version, elements }.
+            ifcElementMeta: (() => {
+                if (!ifcMetaStore || ifcMetaStore.size() === 0) return undefined;
+                return ifcMetaStore.serialize();
             })(),
         };
 
