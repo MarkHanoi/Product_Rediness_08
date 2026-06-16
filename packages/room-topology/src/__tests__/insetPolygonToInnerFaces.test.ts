@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { insetPolygonToInnerFaces, polygonAreaM2 } from '../RoomPolygonUtils';
+import { insetPolygonToInnerFaces, polygonAreaM2, isSimple } from '../RoomPolygonUtils';
 import type { RoomVertex } from '../RoomTypes';
 
 /**
@@ -171,5 +171,28 @@ describe('insetPolygonToInnerFaces', () => {
     }
     expect(polygonAreaM2(inner)).toBeLessThan(polygonAreaM2(rot));
     expect(polygonAreaM2(inner)).toBeGreaterThan(0);
+  });
+
+  // ── §FLOOR-INSET-SIMPLE (2026-06-16) — the output must NEVER self-intersect ──────
+  // A bevel fall-back on a near-collinear / heavily-subdivided ring (a rotated room
+  // with several door gaps — the founder's Kitchen floor) can cross adjacent offset
+  // edges into a BOW-TIE that keeps its winding sign and area-below-source, so it
+  // passes every prior guard and ships as a diagonal triangular WEDGE. The util now
+  // rejects a self-intersecting result → centreline fall-back. Invariant: for ANY
+  // input + insets the returned polygon is SIMPLE (a valid inset OR the simple input).
+  it('§FLOOR-INSET-SIMPLE: output is never self-intersecting (bow-tie → centreline)', () => {
+    const cases: { poly: RoomVertex[]; insets: number[] }[] = [
+      // Thin room: both long edges inset past each other → would fold.
+      { poly: [{ x: 0, z: 0 }, { x: 6, z: 0 }, { x: 6, z: 0.5 }, { x: 0, z: 0.5 }], insets: [0.4, 0.4, 0.4, 0.4] },
+      // Rotated rect with mixed large/zero insets (door gaps) — bevel-prone.
+      { poly: [{ x: 0, z: 0 }, { x: 5, z: 1.8 }, { x: 3.2, z: 6.8 }, { x: -1.8, z: 5 }], insets: [0.15, 0, 0.15, 0] },
+      // L-ish ring with a near-collinear vertex + door gaps.
+      { poly: [{ x: 0, z: 0 }, { x: 4, z: 0.02 }, { x: 8, z: 0 }, { x: 8, z: 3 }, { x: 0, z: 3 }], insets: [0.1, 0.1, 0, 0.1, 0.1] },
+    ];
+    for (const { poly, insets } of cases) {
+      const r = insetPolygonToInnerFaces(poly, insets);
+      expect(isSimple(r)).toBe(true);                 // never ships a bow-tie
+      expect(polygonAreaM2(r)).toBeGreaterThan(0);
+    }
   });
 });

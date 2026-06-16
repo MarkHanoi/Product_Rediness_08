@@ -370,6 +370,16 @@ export function insetPolygonToInnerFaces(
   if (srcCCW !== dstCCW) { onDiag?.('§DIAG-FLOOR-INSET winding inverted → centreline fall-back'); return polygon; }
   // Sanity: the inner face can never be LARGER than the centreline polygon.
   if (polygonAreaM2(sane) > polygonAreaM2(polygon) + 1e-6) { onDiag?.('§DIAG-FLOOR-INSET larger than source → centreline fall-back'); return polygon; }
+  // SELF-INTERSECTION guard (§FLOOR-INSET-SIMPLE, 2026-06-16) — a too-large /
+  // irregular inset (or a bevel fall-back on a near-collinear subdivided ring) can
+  // cross adjacent offset edges and produce a BOW-TIE that survives EVERY check
+  // above: its larger lobe keeps the winding sign, and its unsigned area stays
+  // below the source. A bow-tie renders as a diagonal triangular WEDGE across the
+  // room — the founder's recurring "one floor geometrically not working" (FL002/3).
+  // Reject it → centreline fall-back (always a simple ring from detection/graph).
+  // This is the missing guard: the consumer's v213 area-ratio check can't catch a
+  // ~50%-area bow-tie, but `isSimple` catches it definitively.
+  if (!isSimple(sane)) { onDiag?.('§DIAG-FLOOR-INSET self-intersecting (bow-tie) → centreline fall-back'); return polygon; }
   return sane;
 }
 
