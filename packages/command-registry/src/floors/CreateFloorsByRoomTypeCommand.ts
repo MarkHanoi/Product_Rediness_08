@@ -307,12 +307,32 @@ export class CreateFloorsByRoomTypeCommand implements Command {
                 this._diag.push(`[floor §DIAG] ${this._roomTag(room)} ${line}`);
             });
             const ok = inner !== ring; // util returns the SAME array ref on fail-safe
+            // §FLOOR-INSET-VALIDATE (2026-06-16) — the util can return a DIFFERENT array
+            // that is nonetheless DEGENERATE/self-intersecting (a bowtie or near-collapsed
+            // ring) on an odd / rotated room polygon; `inner !== ring` only catches its
+            // EXPLICIT same-ref fail-safe, not a bad-but-distinct result. A folded inner
+            // polygon renders as a triangular/diagonal floor (the founder's "one floor
+            // geometrically not working" — a wedge crossing the room). Guard on area: a
+            // wall-half-thickness inset (~0.1 m) trims only a few % of area, so a >50% drop
+            // (or a sign flip → ~0 area, or <3 verts) means the inset folded → fall back to
+            // the centreline polygon (always a valid simple ring from room detection/graph).
+            const polyArea = (p: ReadonlyArray<{ x: number; z: number }>): number => {
+                let a2 = 0;
+                for (let i = 0; i < p.length; i++) {
+                    const u = p[i], v = p[(i + 1) % p.length];
+                    a2 += u.x * v.z - v.x * u.z;
+                }
+                return Math.abs(a2) / 2;
+            };
+            const innerArea = polyArea(inner);
+            const baseArea = polyArea(centreline);
+            const insetSane = ok && inner.length >= 3 && baseArea > 0 && innerArea >= 0.5 * baseArea;
             const maxInset = insets.reduce((m, v) => Math.max(m, v), 0);
             this._diag.push(
-                `[floor §DIAG] ${this._roomTag(room)} boundary=${ok ? 'inner-face ✓' : 'centreline ⚠ (inset collapsed)'} ` +
+                `[floor §DIAG] ${this._roomTag(room)} boundary=${insetSane ? 'inner-face ✓' : (ok ? `centreline ⚠ (inset DEGENERATE: ${innerArea.toFixed(2)}m² vs base ${baseArea.toFixed(2)}m²)` : 'centreline ⚠ (inset collapsed)')} ` +
                 `edges=${matchedEdges}/${centreline.length} maxInset=${(maxInset * 1000).toFixed(0)}mm door-gaps=${doorGaps}`,
             );
-            return ok ? inner : centreline;
+            return insetSane ? inner : centreline;
         } catch (err) {
             this._diag.push(`[floor §DIAG] ${this._roomTag(room)} boundary=centreline ⚠ (error: ${String(err)})`);
             return centreline;
