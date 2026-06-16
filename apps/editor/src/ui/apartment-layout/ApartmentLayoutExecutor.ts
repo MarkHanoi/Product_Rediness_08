@@ -404,6 +404,10 @@ export class ApartmentLayoutExecutor {
                         if (useGraphRooms) {
                             try {
                                 cm.execute(new BatchCreateRoomsCommand(graphRooms));
+                                // ADR-0069 GR1 — mark the level graph-authoritative so the
+                                // RoomTopologyObserver never auto-redetects it (no double rooms).
+                                (window as unknown as { roomTopologyObserver?: { markGraphAuthoritative(l: string): void } })
+                                    .roomTopologyObserver?.markGraphAuthoritative(levelId);
                             } catch (e) {
                                 console.warn('[apartment-layout] graph-room batch failed (rooms fall back to detection):', e);
                             }

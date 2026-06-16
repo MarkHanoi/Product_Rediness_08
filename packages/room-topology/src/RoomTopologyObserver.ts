@@ -58,6 +58,27 @@ export class RoomTopologyObserver {
   private _firstScheduleAt = new Map<string, number>();
   private _resetCount = new Map<string, number>();
   private _postBatchCooldownUntil = 0;
+  // ── ADR-0069 (GR1/GR2) — graph-authoritative levels ─────────────────────────
+  // A level whose rooms were created DIRECTLY from the engine graph (the
+  // executors dispatch `BatchCreateRoomsCommand` from `option.rooms`). For such a
+  // level, AUTO-redetect MUST be suppressed: re-tracing the (possibly trimmed-
+  // loose) walls would `mergeWithExisting`-ADD the fragmented faces ALONGSIDE the
+  // graph rooms → DOUBLE rooms (the founder's "RBedroom002 / Room00-002" overlap).
+  // The graph is the source of room identity. GR2: a genuine MANUAL structural
+  // wall edit (`add`/`remove`, NOT a batched generation mutation, NOT a rebuild
+  // `update`) on the level CLEARS the flag → detection re-asserts from then on.
+  private _graphAuthoritativeLevels = new Set<string>();
+
+  /** ADR-0069 — mark a level graph-authoritative: its rooms come from the engine
+   *  graph, so the observer suppresses AUTO-redetect there (no fragmentation /
+   *  double rooms). Cleared by a manual structural wall edit (GR2) or reset. */
+  markGraphAuthoritative(levelId: string): void {
+    this._graphAuthoritativeLevels.add(levelId);
+  }
+  /** Surrender graph authority for a level (manual edit / explicit re-detect). */
+  clearGraphAuthoritative(levelId: string): void {
+    this._graphAuthoritativeLevels.delete(levelId);
+  }
   /** §WS-2.A (Plan §2.A) — when the WallJoinResolver is mid-flight, its per-
    *  neighbour `store.update()` storm fires `wall:update` events; each used to
    *  re-arm the 150 ms debounce and (after 12 resets) force-fire a redetect
@@ -108,6 +129,15 @@ export class RoomTopologyObserver {
         return;
       }
       if (event === 'add' || event === 'update' || event === 'remove') {
+        // ADR-0069 GR2 — a genuine MANUAL structural wall edit (add/remove of a
+        // wall, NOT a batched generation mutation and NOT a rebuild 'update')
+        // surrenders graph authority for this level, so detection re-asserts from
+        // now on (the graph was a generation-time seed, not a permanent lock).
+        if ((event === 'add' || event === 'remove') && !batchCoordinator.isBatching
+            && this._graphAuthoritativeLevels.has(wall.levelId)) {
+          this._graphAuthoritativeLevels.delete(wall.levelId);
+          console.debug(`[RoomTopologyObserver] graph authority surrendered (level=${wall.levelId}, manual ${event}) — ADR-0069 GR2`);
+        }
         this._scheduleRedetect(wall.levelId, DEBOUNCE_MS);
       }
     });
@@ -268,6 +298,12 @@ export class RoomTopologyObserver {
     // `paused` at the top so a paused observer accumulates nothing and never
     // force-fires; `ProjectLoader` runs one explicit post-load redetect.
     if (this.paused || this._disposed) {
+      return;
+    }
+    // ADR-0069 (GR1) — graph-authoritative level: the engine graph owns the rooms;
+    // never auto-redetect (it would ADD fragmented faces → double rooms).
+    if (this._graphAuthoritativeLevels.has(levelId)) {
+      console.debug(`[RoomTopologyObserver] suppressed (level=${levelId}, reason=graph-authoritative ADR-0069)`);
       return;
     }
     if (batchCoordinator.isBatching) {

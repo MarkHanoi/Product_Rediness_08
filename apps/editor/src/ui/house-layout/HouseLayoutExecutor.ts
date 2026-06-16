@@ -1271,6 +1271,10 @@ export class HouseLayoutExecutor {
                             if (graphRooms.length > 0) {
                                 try {
                                     cmRoom.execute(new BatchCreateRoomsCommand(graphRooms), { source: 'HOUSE_GRAPH_ROOMS' });
+                                    // ADR-0069 GR1 — mark this storey graph-authoritative so the
+                                    // RoomTopologyObserver never auto-redetects it (no double rooms).
+                                    (window as unknown as { roomTopologyObserver?: { markGraphAuthoritative(l: string): void } })
+                                        .roomTopologyObserver?.markGraphAuthoritative(levelId);
                                     const matched = graphRooms.length === namedOption.rooms.length;
                                     console.log(
                                         `[house-layout] §DIAG-GRAPH-VALIDATE ${levelId}: graph-rooms created=${graphRooms.length} / ` +
