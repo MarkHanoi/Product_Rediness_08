@@ -1106,6 +1106,14 @@ export class HouseLayoutExecutor {
             const graphRoomsEnabled = (window as unknown as { __pryzmGraphRooms?: boolean }).__pryzmGraphRooms !== false;
             const allStoreysGraph = graphRoomsEnabled && perStorey.length > 0
                 && perStorey.every(s => s.set.roomCommands.length > 0);
+            // §DIAG-GRAPH-GATE — grep-verifiable proof this build carries the v211 house
+            // fix, AND a runtime readout of the all-or-nothing gate: per-storey roomCommands
+            // counts + the resolved decision. If allStoreysGraph=false the house falls to
+            // legacy detection (expected only when a storey produced no room polygons).
+            console.log(
+                `[house-layout] §DIAG-GRAPH-GATE allStoreysGraph=${allStoreysGraph} graphRoomsEnabled=${graphRoomsEnabled} ` +
+                `storeys=[${perStorey.map(s => `${s.levelId}:${s.set.roomCommands.length}`).join(', ')}]`,
+            );
             if (allStoreysGraph) {
                 const obs = (window as unknown as { roomTopologyObserver?: { markGraphAuthoritative(l: string): void } }).roomTopologyObserver;
                 for (const s of perStorey) {
@@ -1300,6 +1308,26 @@ export class HouseLayoutExecutor {
                             }
                             if (graphRooms.length > 0) {
                                 try {
+                                    // ROBUST (§GRAPH-CLEAR-FIRST) — wipe any PRE-EXISTING rooms on
+                                    // this level before minting the graph rooms. A detection pass
+                                    // that slipped in earlier (ANY trigger — observer race, a sweep,
+                                    // the post-openings whole-level rebuild's committed event) leaves
+                                    // a generic "Room NN" set; without this clear it would survive
+                                    // ALONGSIDE the named graph rooms → the founder's 36-item double
+                                    // schedule. The graph is authoritative (GR1): detection output on
+                                    // a graph level is discarded. The level is already marked graph-
+                                    // authoritative (pre-mark, above), so no NEW detection re-adds.
+                                    try {
+                                        const roomStore = storeRegistry.getStoreForType('room') as unknown as { getByLevel?(l: string): ReadonlyArray<{ id: string }> } | undefined;
+                                        const stale = roomStore?.getByLevel?.(levelId) ?? [];
+                                        for (const r of stale) {
+                                            try { void runtime.bus.executeCommand('room.delete', { roomId: r.id }); }
+                                            catch { /* non-fatal — best-effort clear */ }
+                                        }
+                                        if (stale.length > 0) {
+                                            console.log(`[house-layout] §GRAPH-CLEAR-FIRST ${levelId}: cleared ${stale.length} pre-existing (detection) room(s) before graph rooms`);
+                                        }
+                                    } catch (e) { console.warn('[house-layout] §GRAPH-CLEAR-FIRST failed (non-fatal):', e); }
                                     cmRoom.execute(new BatchCreateRoomsCommand(graphRooms), { source: 'HOUSE_GRAPH_ROOMS' });
                                     // ADR-0069 GR1 — mark this storey graph-authoritative so the
                                     // RoomTopologyObserver never auto-redetects it (no double rooms).
