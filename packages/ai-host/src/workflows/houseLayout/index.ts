@@ -28,7 +28,7 @@ export {
 export type { ClampedDoorSpan, WallVerticalExtent } from './houseVertical.js';
 // §GROUND-WELD (A.21.D39) — weld ground interior partitions onto the pre-drawn shell
 // so the GROUND floor closes every room like the upper floors do.
-export { weldPartitionsToShell } from './weldPartitionsToShell.js';
+export { weldPartitionsToShell, clampPartitionsInsideShell } from './weldPartitionsToShell.js';
 export type { WeldWall, WeldOptions, XZ as WeldXZ } from './weldPartitionsToShell.js';
 // §PROJECT-NORTH (ADR-0070 Model B) — RIGID-TRANSFORM-LAST weld: de-rotate + rectify +
 // weld in the axis-aligned Project-North frame, then rotate the welded assembly to world.

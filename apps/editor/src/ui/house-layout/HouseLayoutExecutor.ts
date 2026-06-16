@@ -74,6 +74,7 @@ import {
     isDoorWithinWallSpan,
     wallExtentForLevel,
     weldPartitionsToShell,
+    clampPartitionsInsideShell,
     deriveProjectNorthFrame,
     projectNorthWeld,
     projectNorthWeldBoundary,
@@ -661,7 +662,7 @@ export class HouseLayoutExecutor {
                         // §PROJECT-NORTH — pass the frame so the weld runs RIGID-TRANSFORM-
                         // LAST (axis-aligned frame) when the flag is ON + θ≠0; undefined ⇒
                         // legacy world-frame weld (byte-identical).
-                        set = this._weldGroundPartitions(set, shellWalls, weldFrame);
+                        set = this._weldGroundPartitions(set, shellWalls, weldFrame, shell.perimeter);
                     }
                 }
 
@@ -1653,6 +1654,11 @@ export class HouseLayoutExecutor {
         // drag), then rotate the welded assembly back to world. Omitted ⇒ the legacy
         // world-frame weld (byte-identical to today). See SPEC-PROJECT-NORTH §3.
         frame?: ProjectNorthFrame,
+        // §SHELL-CONTAIN — the ORDERED shell perimeter ring (the drawn footprint polygon,
+        // world m). When supplied, partition endpoints left OUTSIDE the ring by the weld are
+        // clamped back onto the perimeter so no ground wall pokes past the shell. Omitted ⇒
+        // legacy behaviour (no containment clamp).
+        shellRing?: readonly { x: number; z: number }[],
     ): LayoutCommandSet {
         try {
             const payload = set.wallBatch.payload as {
@@ -1673,9 +1679,19 @@ export class HouseLayoutExecutor {
             // otherwise the legacy world-frame weld. `projectNorthWeld` with θ=0 is a
             // byte-identical pass-through to `weldPartitionsToShell`, so the only
             // behavioural difference is on a rotated plate with the flag ON.
-            const welded = (frame && frame.thetaRad !== 0)
+            const weldedRaw = (frame && frame.thetaRad !== 0)
                 ? projectNorthWeld(partitions, shell, frame).partitions
                 : weldPartitionsToShell(partitions, shell);
+            // §SHELL-CONTAIN (2026-06-16) — the weld snaps endpoints only WITHIN ~0.6 m of a
+            // shell wall; on a rotated plate a perimeter-terminating endpoint can sit ~0.9–1.2 m
+            // OUTSIDE the drawn shell (the §DIAG-ROOM-LOOP "EXCEEDS hostSnap" residual) and
+            // survive → it pokes past the perimeter in 3D ("walls going off the shell"). Clamp
+            // every still-outside endpoint back onto the shell ring. No-op on an axis-aligned
+            // plate (endpoints already on the ring); ids preserved; a wall that collapses is
+            // dropped by the existing degenerate-stub guard below.
+            const welded = (shellRing && shellRing.length >= 3)
+                ? clampPartitionsInsideShell(weldedRaw, shellRing)
+                : weldedRaw;
             const weldedById = new Map(welded.map(w => [w.id, w]));
 
             // §DIVIDER-RETAIN (ADR-0066 editor-seam, 2026-06-10) — the weld DROPS any partition it

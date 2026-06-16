@@ -285,6 +285,8 @@ export {
   wallExtentForLevel,
   // §GROUND-WELD (A.21.D39) — weld ground interior partitions onto the pre-drawn shell.
   weldPartitionsToShell,
+  // §SHELL-CONTAIN — clamp any partition endpoint outside the shell ring back onto the perimeter.
+  clampPartitionsInsideShell,
   // §PROJECT-NORTH (ADR-0070 Model B) — RIGID-TRANSFORM-LAST weld in the axis-aligned frame.
   deriveProjectNorthFrame,
   rectifyShellRing,

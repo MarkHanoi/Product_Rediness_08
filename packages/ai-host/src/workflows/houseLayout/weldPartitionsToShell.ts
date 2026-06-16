@@ -367,3 +367,74 @@ export function weldPartitionsToShell(
     }
     return out;
 }
+
+// ── §SHELL-CONTAIN (walls-off-shell, 2026-06-16) — clamp endpoints inside the shell ────
+
+/** Closest point on segment a→b to p (clamped to the segment), + the distance. */
+function nearestOnSeg(p: XZ, a: XZ, b: XZ): { pt: XZ; dist: number } {
+    const ex = b.x - a.x, ez = b.z - a.z;
+    const L2 = ex * ex + ez * ez;
+    if (L2 < EPS) return { pt: { x: a.x, z: a.z }, dist: Math.hypot(p.x - a.x, p.z - a.z) };
+    let t = ((p.x - a.x) * ex + (p.z - a.z) * ez) / L2;
+    t = t < 0 ? 0 : t > 1 ? 1 : t;
+    const pt = { x: a.x + t * ex, z: a.z + t * ez };
+    return { pt, dist: Math.hypot(p.x - pt.x, p.z - pt.z) };
+}
+
+/** True when p is INSIDE the shell ring OR within `tolM` of its boundary (so float/grid
+ *  dust and on-perimeter endpoints are NOT treated as outside). Ray-cast + edge-band. */
+function pointInsideRing(p: XZ, ring: readonly XZ[], tolM: number): boolean {
+    const n = ring.length;
+    for (let i = 0; i < n; i++) {
+        if (nearestOnSeg(p, ring[i]!, ring[(i + 1) % n]!).dist <= tolM) return true;   // on/near boundary
+    }
+    let inside = false;
+    for (let i = 0, j = n - 1; i < n; j = i++) {
+        const xi = ring[i]!.x, zi = ring[i]!.z, xj = ring[j]!.x, zj = ring[j]!.z;
+        const hit = ((zi > p.z) !== (zj > p.z)) &&
+            (p.x < (xj - xi) * (p.z - zi) / ((zj - zi) || 1e-30) + xi);
+        if (hit) inside = !inside;
+    }
+    return inside;
+}
+
+/** Nearest point on the shell ring boundary to p (across all edges). */
+function nearestOnRing(p: XZ, ring: readonly XZ[]): XZ {
+    let best: XZ = ring[0]!, bestD = Infinity;
+    const n = ring.length;
+    for (let i = 0; i < n; i++) {
+        const r = nearestOnSeg(p, ring[i]!, ring[(i + 1) % n]!);
+        if (r.dist < bestD) { bestD = r.dist; best = r.pt; }
+    }
+    return best;
+}
+
+/**
+ * §SHELL-CONTAIN (founder "walls going off the shell" + the queued shell-containment
+ * checker, 2026-06-16) — clamp any partition endpoint that lies OUTSIDE the shell ring
+ * back onto the perimeter, so no generated ground wall extends past the shell.
+ *
+ * `weldPartitionsToShell` snaps an endpoint onto a shell wall only WITHIN ~0.6 m of it; on
+ * a rotated plate the engine's principal-axis tiling can leave a perimeter-terminating
+ * endpoint ~0.9–1.2 m OUTSIDE the real (drawn) shell — beyond the weld's reach — so it
+ * survives and pokes out (the planes shooting past the perimeter in 3D, and the
+ * §DIAG-ROOM-LOOP "EXCEEDS hostSnap" dangling ends). This is the containment BACKSTOP,
+ * applied AFTER the weld: project every STRICTLY-OUTSIDE endpoint (beyond `tolM` outside
+ * the polygon) to the nearest point on the shell boundary. An endpoint inside, on, or
+ * within `tolM` outside the ring is untouched — so an axis-aligned plate (endpoints land
+ * exactly on the ring) is a byte-identical no-op. Ids preserved; only out-of-shell
+ * endpoints move. A wall both of whose endpoints clamp to (near) the same boundary point
+ * collapses below the editor's min length and is dropped by the caller (degenerate-stub
+ * guard) — never rendered as a spike. Pure + deterministic; O(partitions × ring edges).
+ *
+ * @param shellRing ORDERED shell perimeter ring (the drawn footprint polygon, world m).
+ */
+export function clampPartitionsInsideShell(
+    partitions: readonly WeldWall[],
+    shellRing: readonly XZ[],
+    tolM = 0.05,
+): WeldWall[] {
+    if (shellRing.length < 3) return partitions.map(p => ({ id: p.id, start: { ...p.start }, end: { ...p.end } }));
+    const clamp = (p: XZ): XZ => (pointInsideRing(p, shellRing, tolM) ? { x: p.x, z: p.z } : nearestOnRing(p, shellRing));
+    return partitions.map(w => ({ id: w.id, start: clamp(w.start), end: clamp(w.end) }));
+}
