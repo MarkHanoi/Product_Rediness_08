@@ -85,9 +85,22 @@ export interface ThumbnailOptions {
     readonly stairRectsMm?: ReadonlyArray<ReadonlyArray<{ readonly x: number; readonly y: number }>>;
 }
 
+/**
+ * §GRAPH-OVER-PLAN (2026-06-16) — the single PRYZM brand purple as a CSS hex
+ * string, for the pure (THREE-free, zero-runtime-import) SVG modules in this
+ * folder. This is the SAME value as `PREVIEW_COLOR.PRIMARY` / `PREVIEW_CSS.PRIMARY`
+ * (`#6600FF` === 0x6600ff, the unified preview/brand purple — Contract §41,
+ * memory: preview-color-unified-pryzm-purple), but those live in
+ * `core-app-model/preview/PreviewStyle.ts` which `import * as THREE` — forbidden
+ * outside renderer-three (P2) and would pull a runtime dep into these pure
+ * Node-testable string builders. So this folder reuses ONE local copy
+ * (exported, not re-declared per file): `doorColor` below and the graph overlay
+ * both reference `PRYZM_PURPLE` so the brand colour has a single source here. */
+export const PRYZM_PURPLE = '#6600FF' as const;
+
 const DEFAULTS = {
     width: 320, height: 240, padding: 12,
-    wallColor: '#0f172a', doorColor: '#6600FF', windowColor: '#0ea5e9',
+    wallColor: '#0f172a', doorColor: PRYZM_PURPLE, windowColor: '#0ea5e9',
     wallWidth: 2.5, background: 'none',
     showLabels: true, showDoors: true, showScaleBar: true,
 } as const;
@@ -158,35 +171,34 @@ function niceScaleMetres(targetM: number): number {
     return best;
 }
 
-/** Build the SVG plan thumbnail string for an option. Pure + deterministic. */
-export function buildLayoutThumbnailSvg(option: LayoutOption, opts: ThumbnailOptions = {}): string {
+/**
+ * §GRAPH-OVER-PLAN (2026-06-16) — the fitted plan→pixel transform for an option.
+ * Computes the EXACT same fit-to-bounds the thumbnail uses (perimeter ring →
+ * room polygons → wall endpoints, or an explicit `boundsMm`), Y flipped so north
+ * reads up. Exported so the graph OVERLAY (`buildPlanGraphOverlaySvg`) positions
+ * its nodes on the SAME coordinate frame as the plan beneath it — node centroids
+ * sit exactly on their rooms. `ok` is false when the option has no finite extent
+ * (caller draws nothing). Pure + deterministic — single source of truth for the
+ * transform (the thumbnail calls this too, so the two can never drift). */
+export interface PlanTransform {
+    readonly ok: boolean;
+    readonly scale: number;
+    readonly minX: number; readonly maxX: number;
+    readonly minY: number; readonly maxY: number;
+    /** mm plan-x → svg px. */
+    readonly mapX: (x: number) => number;
+    /** mm plan-y → svg px (Y flipped: north up). */
+    readonly mapY: (y: number) => number;
+}
+
+export function computePlanTransform(option: LayoutOption, opts: ThumbnailOptions = {}): PlanTransform {
     const W = opts.width ?? DEFAULTS.width;
     const H = opts.height ?? DEFAULTS.height;
     const pad = opts.padding ?? DEFAULTS.padding;
-    const wallColor = opts.wallColor ?? DEFAULTS.wallColor;
-    const doorColor = opts.doorColor ?? DEFAULTS.doorColor;
-    const windowColor = opts.windowColor ?? DEFAULTS.windowColor;
-    const wallW = opts.wallWidth ?? DEFAULTS.wallWidth;
-    const bg = opts.background ?? DEFAULTS.background;
-    const showLabels = opts.showLabels ?? DEFAULTS.showLabels;
-    const showDoors = opts.showDoors ?? DEFAULTS.showDoors;
-    const showScaleBar = opts.showScaleBar ?? DEFAULTS.showScaleBar;
-
-    const open = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="layout plan thumbnail">`;
-    const bgRect = bg !== 'none' ? `<rect x="0" y="0" width="${W}" height="${H}" fill="${bg}"/>` : '';
-    const close = '</svg>';
-
     const walls = option.walls ?? [];
     const rooms = option.rooms ?? [];
-    const doors = option.doors ?? [];
 
-    // Bounding box: prefer the union of room polygons (the EXACT shell), fall
-    // back to wall endpoints (back-compat for AI options without polygons).
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    // §SHARED-FLOOR-BOUNDS (2026-06-09) — when the caller supplies an explicit
-    // bounds (the shared building footprint), fit to THAT instead of the option's
-    // own rooms, so sibling storeys render at one consistent scale + extent. The
-    // mapX/mapY below stay identical; only the source of min/maxX/Y changes.
     if (opts.boundsMm
         && isFinite(opts.boundsMm.minX) && isFinite(opts.boundsMm.maxX)
         && isFinite(opts.boundsMm.minY) && isFinite(opts.boundsMm.maxY)
@@ -196,10 +208,6 @@ export function buildLayoutThumbnailSvg(option: LayoutOption, opts: ThumbnailOpt
         minY = opts.boundsMm.minY; maxY = opts.boundsMm.maxY;
     } else {
         let havePoly = false;
-        // §PREVIEW-PREDICTS-BUILD — when an explicit perimeter ring is supplied
-        // (the house footprint), it is the authoritative shell extent: fit to it
-        // FIRST so the complete ring is always inside the viewBox (the engine's
-        // partial external walls may be a strict sub-extent of the real footprint).
         if (opts.perimeterRingMm && opts.perimeterRingMm.length >= 3) {
             havePoly = true;
             for (const p of opts.perimeterRingMm) {
@@ -224,8 +232,10 @@ export function buildLayoutThumbnailSvg(option: LayoutOption, opts: ThumbnailOpt
             }
         }
     }
-    if (!isFinite(minX) || !isFinite(maxX)) return `${open}${bgRect}${close}`;
-
+    if (!isFinite(minX) || !isFinite(maxX)) {
+        const id = (n: number): number => n;
+        return { ok: false, scale: 0, minX: 0, maxX: 0, minY: 0, maxY: 0, mapX: id, mapY: id };
+    }
     const contentW = Math.max(maxX - minX, 1e-6);
     const contentH = Math.max(maxY - minY, 1e-6);
     const availW = Math.max(W - 2 * pad, 1);
@@ -235,9 +245,42 @@ export function buildLayoutThumbnailSvg(option: LayoutOption, opts: ThumbnailOpt
     const drawnH = contentH * scale;
     const offX = pad + (availW - drawnW) / 2;
     const offY = pad + (availH - drawnH) / 2;
+    return {
+        ok: true, scale, minX, maxX, minY, maxY,
+        mapX: (x: number): number => offX + (x - minX) * scale,
+        mapY: (y: number): number => offY + (maxY - y) * scale,
+    };
+}
 
-    const mapX = (x: number): number => offX + (x - minX) * scale;
-    const mapY = (y: number): number => offY + (maxY - y) * scale; // flip: north up
+/** Build the SVG plan thumbnail string for an option. Pure + deterministic. */
+export function buildLayoutThumbnailSvg(option: LayoutOption, opts: ThumbnailOptions = {}): string {
+    const W = opts.width ?? DEFAULTS.width;
+    const H = opts.height ?? DEFAULTS.height;
+    const pad = opts.padding ?? DEFAULTS.padding;
+    const wallColor = opts.wallColor ?? DEFAULTS.wallColor;
+    const doorColor = opts.doorColor ?? DEFAULTS.doorColor;
+    const windowColor = opts.windowColor ?? DEFAULTS.windowColor;
+    const wallW = opts.wallWidth ?? DEFAULTS.wallWidth;
+    const bg = opts.background ?? DEFAULTS.background;
+    const showLabels = opts.showLabels ?? DEFAULTS.showLabels;
+    const showDoors = opts.showDoors ?? DEFAULTS.showDoors;
+    const showScaleBar = opts.showScaleBar ?? DEFAULTS.showScaleBar;
+
+    const open = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="layout plan thumbnail">`;
+    const bgRect = bg !== 'none' ? `<rect x="0" y="0" width="${W}" height="${H}" fill="${bg}"/>` : '';
+    const close = '</svg>';
+
+    const walls = option.walls ?? [];
+    const rooms = option.rooms ?? [];
+    const doors = option.doors ?? [];
+
+    // Bounding box + fitted transform — §SHARED-FLOOR-BOUNDS / §PREVIEW-PREDICTS-BUILD
+    // logic now lives in the shared, exported `computePlanTransform` so the graph
+    // OVERLAY (§GRAPH-OVER-PLAN) maps node centroids on the IDENTICAL frame as the
+    // plan below them (single source of truth — the two can never drift).
+    const tf = computePlanTransform(option, opts);
+    if (!tf.ok) return `${open}${bgRect}${close}`;
+    const { scale, minX, maxX, minY, maxY, mapX, mapY } = tf;
 
     // §PREVIEW-SHELL-FIDELITY (2026-06-09, founder feedback) — clamp a mm plan
     // point to the fitted bounding box so NO opening mark (window/door) can be

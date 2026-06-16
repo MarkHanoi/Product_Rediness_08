@@ -17,7 +17,7 @@
 import type { ScoredLayoutOption, ApartmentProgram } from '@pryzm/ai-host';
 import { buildLayoutCardModel } from './layoutCardModel.js';
 import { buildLayoutThumbnailSvg, type PerimeterSpan } from './layoutThumbnail.js';
-import { buildLayoutBubbleGraphSvg } from './layoutBubbleGraph.js';
+import { buildPlanGraphOverlaySvg } from './layoutBubbleGraph.js';
 import {
     buildLayoutModalHtml,
     buildLayoutCardGridHtml,
@@ -81,9 +81,12 @@ export class ApartmentLayoutModal {
         const thumbOpts = { background: '#ffffff', ...this._spans };
         const cards = options.map((o, i) => buildLayoutCardModel(o, i));
         const thumbs = options.map(o => buildLayoutThumbnailSvg(o, thumbOpts));
-        // DEMO-2 — the Living Graph (bubble/adjacency diagram) per option. White
-        // background matches the thumbnail so the Plan/Graph swap is seamless.
-        const graphs = options.map(o => buildLayoutBubbleGraphSvg(o, { background: '#ffffff' }));
+        // §GRAPH-OVER-PLAN (2026-06-16) — the "Graph" view is now the living graph
+        // OVERLAID ON the plan (one combined surface: nodes on room centroids, edges
+        // tracing the connections over the real plan), not a separate bubble diagram.
+        // Same thumbOpts (white bg + shell/perimeter/span data) so the plan beneath
+        // the overlay matches the Plan view exactly.
+        const graphs = options.map(o => buildPlanGraphOverlaySvg(o, thumbOpts));
 
         const overlay = document.createElement('div');
         overlay.className = 'alm-overlay';
@@ -203,7 +206,8 @@ export class ApartmentLayoutModal {
         const thumbOpts = { background: '#ffffff', ...this._spans };
         const cards = options.map((o, i) => buildLayoutCardModel(o, i));
         const thumbs = options.map(o => buildLayoutThumbnailSvg(o, thumbOpts));
-        const graphs = options.map(o => buildLayoutBubbleGraphSvg(o, { background: '#ffffff' }));
+        // §GRAPH-OVER-PLAN — keep the refresh path in lock-step with show().
+        const graphs = options.map(o => buildPlanGraphOverlaySvg(o, thumbOpts));
         grid.innerHTML = buildLayoutCardGridHtml(cards, thumbs, graphs);
         // §MODAL-DYNAMIC part-3: refresh the legend too — toggling the program
         // (e.g. turning Living Room off) changes which occupancies are present.

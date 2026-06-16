@@ -18,7 +18,11 @@
 // deterministic ring fallback (AI-relay rooms carry neither). Always finite.
 
 import type { LayoutOption, LayoutRoom } from '@pryzm/ai-host';
-import { OCCUPANCY_FILL, DEFAULT_OCCUPANCY_FILL } from './layoutThumbnail.js';
+import {
+    OCCUPANCY_FILL, DEFAULT_OCCUPANCY_FILL, PRYZM_PURPLE,
+    buildLayoutThumbnailSvg, computePlanTransform,
+    type ThumbnailOptions,
+} from './layoutThumbnail.js';
 
 export interface BubbleGraphOptions {
     readonly width?: number;        // px, default 160
@@ -248,4 +252,135 @@ export function buildLayoutBubbleGraphSvg(
     }).join('');
 
     return `${open}${bgRect}${edgeEls.join('')}${nodeEls}${labelEls}${close}`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §GRAPH-OVER-PLAN (2026-06-16, founder) — the "living graph" OVERLAID ON the
+// plan thumbnail, so the plan + the connectivity graph are ONE combined surface
+// (replacing the separate side-by-side graph panel). The plan is drawn by the
+// shared `buildLayoutThumbnailSvg`; the overlay (edges + nodes + short labels)
+// is composited INTO the same SVG, mapped through the IDENTICAL
+// `computePlanTransform`, so every node sits on its room's polygon CENTROID and
+// every edge traces the door/adjacency connection across the real plan.
+//
+// Connections are derived from the SAME source the bubble graph uses —
+// `room.adjacentTo` (room NAMES) — symmetric-deduped (A↔B once). Brand: white +
+// #6600FF (`PRYZM_PURPLE`) only; nodes are purple-filled with a WHITE stroke so
+// they read over any coloured room fill, edges are thin + ~0.4 opacity. No RNG —
+// node positions are deterministic centroids. Pure → Node-testable.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface PlanGraphOverlayOptions extends ThumbnailOptions {
+    /** Node radius in px (white-stroked purple disc). Default 7. */
+    readonly nodeRadius?: number;
+    /** Edge opacity (0..1). Default 0.4. */
+    readonly edgeOpacity?: number;
+    /** Draw the short room-type label beside each node. Default true. */
+    readonly showGraphLabels?: boolean;
+    /** §LIVE-MODAL.D — make nodes clickable (data-room-name + alm-graph-node +
+     *  pointer-events:auto + role/tabindex) so the modal's delegated handler can
+     *  open the inline editor. Default false (inert picture). */
+    readonly interactiveNodes?: boolean;
+}
+
+/**
+ * Build the plan thumbnail with the connectivity graph overlaid on top, as ONE
+ * SVG string. `opts` are forwarded verbatim to `buildLayoutThumbnailSvg` (so the
+ * plan honours the same width/height/padding/bounds/perimeter/scale-bar options),
+ * and reused by `computePlanTransform` so the overlay shares the plan's exact
+ * coordinate frame. Pure + deterministic.
+ */
+export function buildPlanGraphOverlaySvg(
+    option: LayoutOption,
+    opts: PlanGraphOverlayOptions = {},
+): string {
+    const planSvg = buildLayoutThumbnailSvg(option, opts);
+    const nodeRadius = opts.nodeRadius ?? 7;
+    const edgeOpacity = opts.edgeOpacity ?? 0.4;
+    const showGraphLabels = opts.showGraphLabels ?? true;
+    const interactive = opts.interactiveNodes ?? false;
+
+    const tf = computePlanTransform(option, opts);
+    const rooms = (option.rooms ?? []).filter(
+        (r): r is LayoutRoom => !!r && typeof r.name === 'string' && r.name.length > 0,
+    );
+    // No transform or no named rooms → nothing to overlay; return the plain plan.
+    if (!tf.ok || rooms.length === 0) return planSvg;
+
+    // 1. Node centres in SVG px — each room's polygon/centroid mapped through the
+    //    plan transform. Rooms with neither centroid nor polygon are skipped (no
+    //    deterministic on-plan position — the plan has no geometry for them).
+    const centres = new Map<number, { x: number; y: number }>();
+    rooms.forEach((r, i) => {
+        const c = roomCentreMm(r);
+        if (!c) return;
+        centres.set(i, { x: tf.mapX(c.x), y: tf.mapY(c.y) });
+    });
+    if (centres.size === 0) return planSvg;
+
+    // 2. Edges — symmetric-dedupe over adjacentTo (name → index), drawn FIRST so
+    //    nodes paint on top. Purple, thin, semi-transparent; inert to clicks.
+    const idxByName = new Map<string, number>();
+    rooms.forEach((r, i) => idxByName.set(r.name, i));
+    const seen = new Set<string>();
+    const edgeEls: string[] = [];
+    rooms.forEach((r) => {
+        const adj = Array.isArray(r.adjacentTo) ? r.adjacentTo : [];
+        for (const other of adj) {
+            if (typeof other !== 'string' || other === r.name) continue;
+            const j = idxByName.get(other);
+            if (j === undefined) continue;
+            const i = idxByName.get(r.name)!;
+            const a = centres.get(i), b = centres.get(j);
+            if (!a || !b) continue;                         // a node has no plan position
+            const key = r.name < other ? `${r.name}|${other}` : `${other}|${r.name}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            edgeEls.push(
+                `<line x1="${f1(a.x)}" y1="${f1(a.y)}" x2="${f1(b.x)}" y2="${f1(b.y)}" ` +
+                `stroke="${PRYZM_PURPLE}" stroke-width="1.6" stroke-opacity="${edgeOpacity}" ` +
+                `stroke-linecap="round" pointer-events="none"/>`,
+            );
+        }
+    });
+
+    // 3. Nodes — purple disc with a WHITE stroke (reads over any room fill) + a
+    //    <title> tooltip. §LIVE-MODAL.D interactive nodes opt in to the editor hooks.
+    const nodeEls: string[] = [];
+    const labelEls: string[] = [];
+    rooms.forEach((r, i) => {
+        const c = centres.get(i);
+        if (!c) return;
+        const title = `<title>${esc(r.name)}${typeof r.area === 'number' && r.area > 0 ? ` — ${Math.round(r.area)} m²` : ''}</title>`;
+        const interactiveAttrs = interactive
+            ? ` data-room-name="${esc(r.name)}" class="alm-graph-node" role="button" tabindex="0" aria-label="Edit ${esc(r.name)}" pointer-events="auto" style="cursor:pointer"`
+            : ' pointer-events="none"';
+        nodeEls.push(
+            `<circle cx="${f1(c.x)}" cy="${f1(c.y)}" r="${f1(nodeRadius)}" ` +
+            `fill="${PRYZM_PURPLE}" stroke="#ffffff" stroke-width="2"${interactiveAttrs}>${title}</circle>`,
+        );
+        if (showGraphLabels) {
+            const label = esc(roomShort(r));
+            if (label) {
+                // Label sits just below the node; white halo (paint-order:stroke)
+                // keeps it legible over both light room fills and the purple edges.
+                labelEls.push(
+                    `<text x="${f1(c.x)}" y="${f1(c.y + nodeRadius + 9)}" text-anchor="middle" ` +
+                    `font-family="system-ui,-apple-system,sans-serif" font-size="8" font-weight="600" ` +
+                    `fill="${PRYZM_PURPLE}" stroke="#ffffff" stroke-width="2.4" paint-order="stroke" ` +
+                    `pointer-events="none">${label}</text>`,
+                );
+            }
+        }
+    });
+
+    // 4. Composite: inject the overlay group just BEFORE the plan's closing
+    //    </svg> so it paints ON TOP (higher z-order) in the SAME viewBox.
+    const overlay =
+        `<g class="alm-plan-graph-overlay" aria-label="room connectivity graph">` +
+        edgeEls.join('') + nodeEls.join('') + labelEls.join('') +
+        `</g>`;
+    const closeIdx = planSvg.lastIndexOf('</svg>');
+    if (closeIdx < 0) return planSvg + overlay;            // defensive — shouldn't happen
+    return planSvg.slice(0, closeIdx) + overlay + planSvg.slice(closeIdx);
 }

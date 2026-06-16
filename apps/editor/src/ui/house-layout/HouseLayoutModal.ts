@@ -28,8 +28,8 @@ import {
     collectStoreyOptions,
     type HouseProgramFormState,
 } from './houseModalHtml.js';
-import { buildLayoutThumbnailSvg } from '../apartment-layout/layoutThumbnail.js';
-import { buildLayoutBubbleGraphSvg } from '../apartment-layout/layoutBubbleGraph.js';
+import { buildLayoutThumbnailSvg, type ThumbnailOptions } from '../apartment-layout/layoutThumbnail.js';
+import { buildPlanGraphOverlaySvg } from '../apartment-layout/layoutBubbleGraph.js';
 import { buildOccupancyLegendHtml } from '../apartment-layout/layoutModalHtml.js';
 import { setRoomAreaOverride } from '../apartment-layout/activeRoomAreaOverrides.js';
 import { setRoomTypeOverride, ROOM_TYPE_VALUES } from '../apartment-layout/activeRoomTypeOverrides.js';
@@ -603,64 +603,67 @@ export class HouseLayoutModal {
         return options.map((o, i) => buildHouseCardModel(o, i));
     }
 
-    private _storeyThumbs(options: readonly ScoredHouseLayoutOption[]): string[][] {
-        const cards = this._cards(options);
-        return cards.map((card, ci) => {
-            const result = options[ci]?.result;
-            // §SHARED-FLOOR-BOUNDS (2026-06-09, founder feedback #1) — fit EVERY
-            // storey of this variant to ONE shared bounding box (the union of all
-            // storeys' room polygons / wall endpoints, in the same mm plan frame
-            // the thumbnail draws in). Storeys share an identical exterior shell
-            // footprint (StoreyPlate.footprint is "identical on every storey"), so
-            // a shared fit makes the Ground-floor and upper-floor thumbnails render
-            // at the SAME scale + extent — they no longer look like different-sized
-            // footprints just because an upper storey has fewer/smaller rooms.
-            // §PREVIEW-PREDICTS-BUILD — the real exterior footprint (world XZ
-            // metres → mm plan frame: x×1000, y=z×1000) the executor builds. It is
-            // identical on every storey (StoreyPlate.footprint), so any storey with
-            // a footprint yields the shared ring. This is the COMPLETE shell — the
-            // preview now draws THIS instead of the engine's partial/un-rectified
-            // `isExternal` walls (fixes the "holes / short perimeter" + "shifted
-            // middle" + apparent flip vs the build).
-            const footprintWorld = result?.storeys?.find(s => s.footprint && s.footprint.length >= 3)?.footprint;
-            const perimeterRingMm = footprintWorld
-                ? footprintWorld.map(p => ({ x: p.x * 1000, y: p.z * 1000 }))
-                : undefined;
-            const boundsMm = unionStoreyBoundsMm(card, perimeterRingMm);
-            // §LIVE-MODAL.C (R3) — "better visibility": render each storey plan at
-            // a HERO size (was the renderer default 320×240) so the single best
-            // card's plan is clearly legible.
-            return card.storeys.map(s => {
-                const stairRect = result ? stairRectMmForLevel(result, s.storeyIndex) : null;
-                // §PREVIEW-PREDICTS-BUILD #6 — the entrance door is resolved by the
-                // executor on the GROUND storey only; mirror that here so the preview
-                // shows the entrance on the hall-fronting shell wall.
-                const entranceSpan = (s.storeyIndex === 0 && footprintWorld)
-                    ? entranceSpanForGround(s.option, footprintWorld)
-                    : null;
-                const thumbOpts = {
-                    background: '#ffffff', width: 460, height: 320,
-                    ...(boundsMm ? { boundsMm } : {}),
-                    ...(perimeterRingMm ? { perimeterRingMm } : {}),
-                    ...(stairRect ? { stairRectsMm: [stairRect] } : {}),
-                    ...(entranceSpan ? { doorSpansWorld: [entranceSpan] } : {}),
-                } as const;
-                return buildLayoutThumbnailSvg(s.option, thumbOpts);
-            });
+    /** §GRAPH-OVER-PLAN — the per-storey thumbnail options (shared bounds +
+     *  perimeter ring + stair + entrance span), computed once so BOTH the plan
+     *  view (`_storeyThumbs`) and the graph-over-plan overlay (`_storeyGraphs`)
+     *  render the SAME plan beneath them. Returns one `ThumbnailOptions` per
+     *  storey for the given card/result. */
+    private _storeyThumbOpts(
+        card: HouseCardModel,
+        result: ScoredHouseLayoutOption['result'] | undefined,
+    ): ThumbnailOptions[] {
+        const footprintWorld = result?.storeys?.find(s => s.footprint && s.footprint.length >= 3)?.footprint;
+        const perimeterRingMm = footprintWorld
+            ? footprintWorld.map(p => ({ x: p.x * 1000, y: p.z * 1000 }))
+            : undefined;
+        const boundsMm = unionStoreyBoundsMm(card, perimeterRingMm);
+        return card.storeys.map(s => {
+            const stairRect = result ? stairRectMmForLevel(result, s.storeyIndex) : null;
+            const entranceSpan = (s.storeyIndex === 0 && footprintWorld)
+                ? entranceSpanForGround(s.option, footprintWorld)
+                : null;
+            return {
+                background: '#ffffff', width: 460, height: 320,
+                ...(boundsMm ? { boundsMm } : {}),
+                ...(perimeterRingMm ? { perimeterRingMm } : {}),
+                ...(stairRect ? { stairRectsMm: [stairRect] } : {}),
+                ...(entranceSpan ? { doorSpansWorld: [entranceSpan] } : {}),
+            } as ThumbnailOptions;
         });
     }
 
-    /** §LIVE-MODAL.B/D — per-storey living-graph SVGs, mirroring `_storeyThumbs`.
-     *  One `buildLayoutBubbleGraphSvg` per storey with `interactive:true` so the
-     *  nodes carry `data-room-name` + `.alm-graph-node` (clickable → the inline
-     *  area/type editor → the C52 override stash → debounced re-generate). Sized
-     *  to the same hero box as the plan. */
+    private _storeyThumbs(options: readonly ScoredHouseLayoutOption[]): string[][] {
+        const cards = this._cards(options);
+        return cards.map((card, ci) => {
+            // §SHARED-FLOOR-BOUNDS / §PREVIEW-PREDICTS-BUILD — the per-storey
+            // thumbnail options (shared bounds, complete footprint ring, stair
+            // keep-out, ground-floor entrance) are computed in `_storeyThumbOpts`
+            // and reused by the graph overlay so both views render the SAME plan.
+            // §LIVE-MODAL.C (R3) — HERO size (460×320) so the best card reads clearly.
+            const thumbOptsPerStorey = this._storeyThumbOpts(card, options[ci]?.result);
+            return card.storeys.map((s, si) =>
+                buildLayoutThumbnailSvg(s.option, thumbOptsPerStorey[si]!),
+            );
+        });
+    }
+
+    /** §LIVE-MODAL.B/D + §GRAPH-OVER-PLAN (2026-06-16) — per-storey graph-OVER-plan
+     *  SVGs, mirroring `_storeyThumbs`. The living graph is now OVERLAID ON the plan
+     *  (one combined surface: nodes on room centroids, edges tracing the
+     *  connections over the real plan) using the SAME per-storey thumbnail options
+     *  so the plan beneath the overlay matches the Plan view exactly.
+     *  `interactiveNodes:true` keeps the `data-room-name` + `.alm-graph-node` hooks
+     *  (clickable → the inline area/type editor → the C52 override stash). */
     private _storeyGraphs(options: readonly ScoredHouseLayoutOption[]): string[][] {
-        return this._cards(options).map(card =>
-            card.storeys.map(s => buildLayoutBubbleGraphSvg(s.option, {
-                background: '#ffffff', width: 460, height: 320, interactive: true,
-            })),
-        );
+        return this._cards(options).map((card, ci) => {
+            const thumbOptsPerStorey = this._storeyThumbOpts(card, options[ci]?.result);
+            return card.storeys.map((s, si) =>
+                buildPlanGraphOverlaySvg(s.option, {
+                    ...thumbOptsPerStorey[si]!,
+                    interactiveNodes: true,
+                }),
+            );
+        });
     }
 
     // ── §3PANE IT-4 Miro canvas (pan/zoom) ──────────────────────────────────────
