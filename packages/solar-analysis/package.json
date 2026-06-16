@@ -1,0 +1,22 @@
+{
+  "name": "@pryzm/solar-analysis",
+  "version": "0.1.0",
+  "description": "ADR-0074 (P1 L2 core) — pure, THREE-free solar sun-sampling + per-surface sun-hours ACCUMULATION math. Replicates the NOAA solar-position algorithm from core-app-model RealSunService (kept in sync; no THREE import) and generates deterministic SunSample sets, then accumulates per-surface sun-hours given an INJECTED occlusion oracle (the renderer-three GPU pass supplies the real one later; tests inject a mock). Zero I/O, no THREE, no DOM, no RNG, no Date.now — same inputs → identical output. The GPU shadow-map occlusion + heatmap render pass is a SEPARATE deferred slice in packages/renderer-three that consumes accumulateSunHours's isOccluded oracle and paints SunHoursResult.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}
