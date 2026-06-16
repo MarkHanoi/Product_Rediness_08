@@ -51,6 +51,38 @@ describe('RoofGeometryBuilder — concave pitched (§ROOF-CONCAVE-DECOMPOSE)', (
         expect(maxY(geo as any)).toBeCloseTo(0, 6);
     });
 
+    it('ROTATED L gable → still PITCHED (§ROOF-PRINCIPAL-FRAME, founder rotated-plot fix)', () => {
+        // Rotate the L by 26° about its centroid → a rectilinear shell that is NOT
+        // world-axis-aligned. Before the principal-frame fix this flat-degraded
+        // (maxY≈0); now it decomposes in its principal-axis frame → a real ridge.
+        const theta = (26 * Math.PI) / 180;
+        const cx = L_POLY.reduce((s, p) => s + p[0], 0) / L_POLY.length;
+        const cz = L_POLY.reduce((s, p) => s + p[1], 0) / L_POLY.length;
+        const c = Math.cos(theta), s = Math.sin(theta);
+        const rotated: [number, number][] = L_POLY.map(([x, z]) => {
+            const X = x - cx, Z = z - cz;
+            return [cx + X * c - Z * s, cz + X * s + Z * c];
+        });
+        const geo = RoofGeometryBuilder.generate(makeRoof(rotated, 'gable'));
+        expect(maxY(geo as any)).toBeGreaterThan(0.3); // pitched, not flat-degraded
+    });
+
+    it('ROTATED L is DETERMINISTIC (ADR-0061)', () => {
+        const theta = (26 * Math.PI) / 180;
+        const cx = L_POLY.reduce((s, p) => s + p[0], 0) / L_POLY.length;
+        const cz = L_POLY.reduce((s, p) => s + p[1], 0) / L_POLY.length;
+        const c = Math.cos(theta), s = Math.sin(theta);
+        const rotated: [number, number][] = L_POLY.map(([x, z]) => {
+            const X = x - cx, Z = z - cz;
+            return [cx + X * c - Z * s, cz + X * s + Z * c];
+        });
+        const a = RoofGeometryBuilder.generate(makeRoof(rotated, 'gable'));
+        const b = RoofGeometryBuilder.generate(makeRoof(rotated, 'gable'));
+        const pa = (a as any).getAttribute('position').array as Float32Array;
+        const pb = (b as any).getAttribute('position').array as Float32Array;
+        expect(Array.from(pa)).toEqual(Array.from(pb));
+    });
+
     it('is DETERMINISTIC — same L footprint → identical vertex buffer (ADR-0061)', () => {
         const a = RoofGeometryBuilder.generate(makeRoof(L_POLY, 'gable'));
         const b = RoofGeometryBuilder.generate(makeRoof(L_POLY, 'gable'));

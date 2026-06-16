@@ -1,7 +1,7 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import { RoofData, SlopeArrow } from './RoofTypes.js';
 import { gableRidge, isConvexPolygon } from './roofRidgeAxis.js';
-import { decomposeRectilinear, rectToPolygon, type Pt2 } from './roofDecompose.js';
+import { decomposeInPrincipalFrame, rotatePolyXZ, rectToPolygon, type Pt2 } from './roofDecompose.js';
 
 type Pt = [number, number]; // [x, z] in level-local space
 
@@ -157,17 +157,34 @@ export class RoofGeometryBuilder {
      * Deterministic — no Date / no Math.random (ADR-0061).
      */
     private static _buildConcavePitched(data: Readonly<RoofData>, poly: Pt[]): THREE.BufferGeometry | null {
-        const rects = decomposeRectilinear(poly as Pt2[]);
-        if (!rects || rects.length === 0) return null;
+        // §ROOF-PRINCIPAL-FRAME (founder "roof renders flat when the shape isn't a
+        // rectangle", 2026-06-16) — decompose in the WORLD frame first, else in the
+        // footprint's PRINCIPAL-AXIS frame. A rectilinear L/T/U ROTATED to a plot's
+        // principal axis (every edge at ~θ°) is NOT world-axis-rectilinear, so the
+        // old `decomposeRectilinear(poly)` returned null → flat-degrade (the founder's
+        // flat roof on the rotated house). Now we de-rotate the footprint by −θ so it
+        // becomes axis-aligned, build the per-wing gables in THAT frame, then rotate
+        // the finished mesh back by +θ about the same pivot → a true pitched roof over
+        // the rotated shell. Axis-aligned shells take angleRad=0 → byte-identical.
+        const decomp = decomposeInPrincipalFrame(poly as Pt2[]);
+        if (!decomp || decomp.rects.length === 0) return null;
+        const { rects, angleRad, cx, cz } = decomp;
 
         const slope     = data.slope    ?? 0.4;
         const overhang  = data.overhang ?? 0;
         const thickness = data.thickness;
 
-        // §DIAG-ROOF — report how many wings the footprint split into.
+        // Build the wings in the frame the rects live in: the world poly when
+        // angleRad===0, else the de-rotated (axis-aligned) footprint.
+        const framePoly: Pt[] = angleRad === 0
+            ? poly
+            : (rotatePolyXZ(poly as Pt2[], -angleRad, cx, cz) as Pt[]);
+
+        // §DIAG-ROOF — report wings + whether a principal-axis frame was used.
         console.log(
             `[geometry-roof] §DIAG-ROOF §ROOF-CONCAVE-DECOMPOSE footprint verts=${poly.length} ` +
             `requestedKind=${data.roofType} chosenKind=gable-per-wing parts=${rects.length} ` +
+            `frame=${angleRad === 0 ? 'world-axis' : `principal-axis(${(angleRad * 180 / Math.PI).toFixed(1)}°)`} ` +
             `(rectilinear decomposition → one gable per wing @ slope=${slope.toFixed(3)})`,
         );
 
@@ -176,10 +193,11 @@ export class RoofGeometryBuilder {
             // Expand each outer edge of this rect outward by the overhang. An edge is
             // "outer" iff a probe just outside it (along THIS rect's own span) is NOT
             // inside the footprint; an inner edge (abuts another wing) stays flush.
-            const eMinX = this._isOuterEdge(poly, r.minX, 'minX', r.minZ, r.maxZ) ? r.minX - overhang : r.minX;
-            const eMaxX = this._isOuterEdge(poly, r.maxX, 'maxX', r.minZ, r.maxZ) ? r.maxX + overhang : r.maxX;
-            const eMinZ = this._isOuterEdge(poly, r.minZ, 'minZ', r.minX, r.maxX) ? r.minZ - overhang : r.minZ;
-            const eMaxZ = this._isOuterEdge(poly, r.maxZ, 'maxZ', r.minX, r.maxX) ? r.maxZ + overhang : r.maxZ;
+            // Probed against framePoly (same frame as the rects).
+            const eMinX = this._isOuterEdge(framePoly, r.minX, 'minX', r.minZ, r.maxZ) ? r.minX - overhang : r.minX;
+            const eMaxX = this._isOuterEdge(framePoly, r.maxX, 'maxX', r.minZ, r.maxZ) ? r.maxX + overhang : r.maxX;
+            const eMinZ = this._isOuterEdge(framePoly, r.minZ, 'minZ', r.minX, r.maxX) ? r.minZ - overhang : r.minZ;
+            const eMaxZ = this._isOuterEdge(framePoly, r.maxZ, 'maxZ', r.minX, r.maxX) ? r.maxZ + overhang : r.maxZ;
 
             const eavePts = rectToPolygon({ minX: eMinX, maxX: eMaxX, minZ: eMinZ, maxZ: eMaxZ }) as Pt[];
 
@@ -193,8 +211,30 @@ export class RoofGeometryBuilder {
             );
         }
 
-        if (geometries.length === 1) return geometries[0]!;
-        return this._mergeGeometries(geometries);
+        const merged = geometries.length === 1 ? geometries[0]! : this._mergeGeometries(geometries);
+        // Rotate the built mesh back to the footprint's true orientation (no-op when
+        // angleRad===0). XZ-plane rotation about the footprint centroid; height (Y)
+        // unchanged so the eave/ridge planes are preserved.
+        if (angleRad !== 0) this._rotateGeometryXZ(merged, angleRad, cx, cz);
+        return merged;
+    }
+
+    /** Rotate a built roof geometry in the XZ plane about a pivot by `theta` rad
+     *  (Y unchanged), then recompute normals. Inverse of the −theta de-rotation
+     *  applied to the footprint, so the wings land back over the rotated shell. */
+    private static _rotateGeometryXZ(geo: THREE.BufferGeometry, theta: number, cx: number, cz: number): void {
+        const pos = geo.getAttribute('position') as THREE.BufferAttribute | undefined;
+        if (!pos) return;
+        const arr = pos.array as Float32Array;
+        const c = Math.cos(theta), s = Math.sin(theta);
+        for (let i = 0; i < arr.length; i += 3) {
+            const x = arr[i]! - cx;
+            const z = arr[i + 2]! - cz;
+            arr[i]     = cx + x * c - z * s;
+            arr[i + 2] = cz + x * s + z * c;
+        }
+        pos.needsUpdate = true;
+        geo.computeVertexNormals();
     }
 
     /**

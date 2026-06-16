@@ -162,14 +162,88 @@ export function decomposeRectilinear(
     return rects.length > 0 ? rects : null;
 }
 
+/** Centroid (vertex average) of a polygon. Deterministic. */
+function centroidOf(poly: ReadonlyArray<Pt2>): [number, number] {
+    let sx = 0, sz = 0;
+    for (const [x, z] of poly) { sx += x; sz += z; }
+    const n = poly.length || 1;
+    return [sx / n, sz / n];
+}
+
+/**
+ * Principal-axis angle (radians) of a footprint = the direction of its LONGEST
+ * edge, relative to world +X. For a rectilinear shell rotated to a plot's
+ * principal axis (the founder's rotated L/T/U plots) this is the rotation that,
+ * when undone, makes every edge axis-aligned again. Deterministic (no RNG).
+ */
+export function principalAxisAngle(poly: ReadonlyArray<Pt2>): number {
+    let maxLen = 0;
+    let ang = 0;
+    for (let i = 0; i < poly.length; i++) {
+        const a = poly[i]!;
+        const b = poly[(i + 1) % poly.length]!;
+        const dx = b[0] - a[0];
+        const dz = b[1] - a[1];
+        const len = Math.hypot(dx, dz);
+        if (len > maxLen) { maxLen = len; ang = Math.atan2(dz, dx); }
+    }
+    return ang;
+}
+
+/** Rotate a polygon's [x,z] verts about a pivot by `angle` rad (XZ plane). */
+export function rotatePolyXZ(
+    poly: ReadonlyArray<Pt2>, angle: number, cx: number, cz: number,
+): Pt2[] {
+    const c = Math.cos(angle), s = Math.sin(angle);
+    return poly.map(([x, z]): Pt2 => {
+        const X = x - cx, Z = z - cz;
+        return [cx + X * c - Z * s, cz + X * s + Z * c];
+    });
+}
+
+/**
+ * §ROOF-PRINCIPAL-FRAME (founder "roof renders flat when the shape isn't a
+ * rectangle", 2026-06-16) — decompose a footprint into axis-aligned rectangles,
+ * trying the WORLD frame first and then the footprint's PRINCIPAL-AXIS frame.
+ *
+ * `decomposeRectilinear` only recognises edges that are axis-aligned in WORLD
+ * X/Z, so a rectilinear L/T/U ROTATED to a plot's principal axis (every edge at
+ * ~θ°) fails it → the roof flat-degrades. Here, when the world frame fails, we
+ * de-rotate the footprint by −θ about its centroid (θ = longest-edge angle) so
+ * the rotated-rectilinear shell becomes axis-aligned, decompose THERE, and return
+ * the rects IN THAT DE-ROTATED FRAME together with `angleRad`/pivot so the caller
+ * can rotate the built gable mesh back by +θ. `angleRad === 0` ⇒ the world frame
+ * already worked (no rotation needed; byte-identical to the old path). Returns
+ * `null` only when the shell is non-rectilinear in BOTH frames (genuine flat).
+ * Deterministic (θ + centroid are pure functions of the footprint).
+ */
+export function decomposeInPrincipalFrame(
+    poly: ReadonlyArray<Pt2>, tol = 1e-3,
+): { rects: Rect2[]; angleRad: number; cx: number; cz: number } | null {
+    const [cx, cz] = centroidOf(poly);
+    const direct = decomposeRectilinear(poly, tol);
+    if (direct && direct.length > 0) return { rects: direct, angleRad: 0, cx, cz };
+
+    const theta = principalAxisAngle(poly);
+    // Longest edge already (near-)horizontal but world decompose failed ⇒ the
+    // shell is genuinely non-rectilinear (a diagonal edge somewhere) → flat.
+    if (Math.abs(theta) < 1e-4) return null;
+
+    const local = rotatePolyXZ(poly, -theta, cx, cz);
+    const rects = decomposeRectilinear(local, tol);
+    if (!rects || rects.length === 0) return null;
+    return { rects, angleRad: theta, cx, cz };
+}
+
 /**
  * Convenience: can this footprint be split into pitched-roof rectangles?
  * (true ⇒ the caller should keep gable/hip and route through the decompose
  * builder; false ⇒ flat-degrade.) A convex footprint is NOT decomposed here —
  * it already has a working single-ridge builder, so callers gate this on
- * "concave" first.
+ * "concave" first. §ROOF-PRINCIPAL-FRAME: also true for a rotated rectilinear
+ * shell (decomposable in its principal-axis frame), so the executor no longer
+ * flat-degrades a rotated L/T/U.
  */
 export function canDecomposeConcave(poly: ReadonlyArray<Pt2>, tol = 1e-3): boolean {
-    const rects = decomposeRectilinear(poly, tol);
-    return rects !== null && rects.length >= 1;
+    return decomposeInPrincipalFrame(poly, tol) !== null;
 }
