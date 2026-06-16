@@ -701,6 +701,86 @@ This contract (C21) is initially DRAFT; it ratchets to CANONICAL after:
 
 **(f) Discipline-specific derived quantities — should any be cached?** §1.10 says no (consumer derives). But heating-degree-days base 18°C is computed on every apartment-layout call; cheap to derive once and reuse. The pragmatic answer is to cache derived quantities on the dataset (already done in §2.6 `DegreeDayAggregates`) for STANDARD bases, and let consumers derive non-standard bases themselves. This matches the schema as written; the open question is whether to add more standard bases as the consumer set grows.
 
+> **Note (§10, 2026-06-16).** This §9 list previously had no entry for per-surface **solar exposure / sun-hours** analysis. That gap is now SCOPED — not deferred, not forked to a new contract — by the new §10 below, which governs it as a derived consumer of C21's solar substrate (per ADR-0074). The §9.b (CFD), §9.c (microclimate) and other deferrals are unaffected.
+
 ---
 
-*End — C21 Climate Ingestion (DRAFT, 2026-06-01).*
+## §10 — Solar Exposure & Sun-Hours Analysis
+
+> Added 2026-06-16 per [ADR-0074](../adrs/0074-gpu-solar-sun-hours-environmental-analysis.md). Sister derived-analysis section to [C54 In-Browser Wind CFD](./C54-IN-BROWSER-WIND-CFD.md) (ADR-0064) — both carve a per-surface environmental analysis out of a C21/C19 substrate rather than minting a fresh contract.
+
+Per-surface **solar exposure / sun-hours** — "how many hours does *this* roof facet / *this* façade panel actually see the sun across the analysis window, accounting for self-shadowing and neighbours" — and its irradiance-weighted sibling are a **DERIVED CONSUMER** of C21's solar substrate. They are governed HERE, as a normative section, NOT as a new contract. This mirrors how ADR-0064's wind-CFD invariants live in [C54](./C54-IN-BROWSER-WIND-CFD.md) (consuming C21's wind rose) rather than re-deciding C21, and it is the direct application of the §1.10 "consumer derives discipline-specific quantities" pattern: solar POSITION (§1.3) and irradiance MAGNITUDE (§2.2) already belong to C21, so per-surface exposure extends C21 rather than forking solar ownership.
+
+The numbered rules below are RFC 2119 normative and carry §10.N ids (usable in `TODO(C21.10.N)` annotations and `check-solar-*.ts` CI gate messages), continuing C21's §1.N invariant convention.
+
+### §10.1 — Ownership: derived consumer of the C21 solar substrate, governed here
+
+Per-surface sun-hours / solar exposure MUST be treated as a derived analysis OVER the C21 substrate, never as an independent data source. Its only legitimate inputs are:
+
+- the **sun direction** per time sample, from the C21 §3.3 `SolarPathReader` (today's `RealSunService` NOAA algorithm) — solar position is COMPUTED, never stored (reaffirming §1.3);
+- optionally, the **irradiance magnitude** from a non-`fallback-defaults` `ClimateDataset` (the §2.2 `EPWRecord.directNormalWm2` / `diffuseHorizontalWm2` / `globalHorizontalWm2` beam + diffuse fields);
+- the **building massing** (real roof + façade triangles) for occlusion;
+- the **latitude / orientation** from `ProjectLocation` resolved through [C12 Geospatial](./C12-GEOSPATIAL.md) (lat/lon → LTP-ENU scene frame) plus the Project-North → True-North rotation (per ADR-0070).
+
+A solar-exposure analysis MUST NOT introduce a parallel sun-position algorithm, a parallel climate source, or a parallel building model. It consumes the C21 reader + (optionally) the `ClimateStore` and the C12/C19 geometry READ-ONLY. There is no new owning contract; this section is the owner.
+
+**Rationale.** A second sun-position or irradiance source would diverge from the canonical `SolarPathReader` / `ClimateDataset` the rest of the platform analyses, exactly the divergence §1.1 (Site anchor) and C54 §1.5 (Site-derived domain) forbid for their substrates.
+
+### §10.2 — Solar position is COMPUTED per sample, never stored (reaffirms §1.3)
+
+Every sun direction the analysis integrates over MUST be produced at run time by the §3.3 `SolarPathReader.sample(lat, lon, dateTimeUtc)` for each `dateTimeUtc` in the requested window (a single day at N-minute steps, or a day-range / typical-day cadence). The analysis MUST NOT persist the sun-sample set — it is derived, deterministic, and cheap to recompute (§7.2 budget), exactly like a `SolarSample` (§1.3, §2.4). Below-horizon samples (altitude ≤ 0) contribute nothing and are dropped at generation.
+
+### §10.3 — Pure geometric sun-hours need NO external data
+
+PURE GEOMETRIC sun-hours — hours of direct-beam exposure — depend ONLY on sun geometry + occlusion. A sample contributes its time slice `Δt` to a surface point when and only when ALL of:
+
+1. the sun is **above the horizon** (`altitudeDeg > 0`), AND
+2. the surface is **sun-facing** (`dot(outwardNormal, sunDir) > 0`), AND
+3. the point is **not occluded** (`!isOccluded(point, sunDir)`).
+
+This metric requires NO `ClimateDataset` — only the §3.3 sun positions + an occlusion oracle. It is the ThatOpen-equivalent sun-HOURS readout and the analysis's baseline output; it ships and runs even on the `'fallback-defaults'` tier (§1.2) because it consumes no climate fields.
+
+### §10.4 — Irradiance-weighted exposure additionally consumes EPW irradiance
+
+IRRADIANCE-WEIGHTED exposure (absolute W·h/m², kWh/m²) additionally consumes the C21 §2.2 EPW irradiance fields (`directNormalWm2` + `diffuseHorizontalWm2`, with cosine-of-incidence and atmospheric attenuation). Therefore:
+
+- absolute-magnitude output MUST be gated on a non-`fallback-defaults` `ClimateDataset` (per §1.2). When the resolved tier is `'fallback-defaults'`, the pass MUST refuse to report absolute kWh/m² and degrade to **geometric sun-hours only** (§10.3), surfacing the §5.3 climate-quality gate;
+- absolute-magnitude output MUST be labelled with the climate-data tier it consumed (`'epw'` vs `'noaa-normals'`) so a consumer can read its quality (the §1.2 `source` discipline carried to the surface).
+
+### §10.5 — Results are DERIVED / transient — computed, never stored
+
+A sun-hours / exposure result (per-surface scalar field + AVG/MAX/MIN readout) is a DERIVED, transient projection of the substrate, in the same class as a `SolarSample` (§1.3). It MUST NOT be persisted into the `ClimateDataset` or any C21 store — re-running the analysis for a given `(site, window, step, mesh)` reproduces it (§10.7). The **heatmap is a visualisation projection, NOT source data**: it is an overlay material on the model, never a store mutation, mirroring the §3.3 `RealSunService` "projection-layer only, never mutates a store" contract and C21 §1.7 (climate data is read-only). If a downstream consumer (e.g. a per-room solar heat-gain rollup feeding the layout engine) needs the result, it consumes the transient analysis output and, per C54 §1.6, refines an EXISTING driver input rather than persisting a parallel datum.
+
+### §10.6 — Layering + P2: pure L2 core, ALL GPU in `renderer-three`
+
+The analysis is split across exactly two layers, and the boundary is binding:
+
+- **L2 pure core — [`@pryzm/solar-analysis`](../../../packages/solar-analysis/).** The sun-sample generation (`generateSunSamples`) + per-surface accumulation (`accumulateSunHours(surfaces, samples, isOccluded, opts)` with an INJECTED occlusion oracle `IsOccluded`) + the AVG/MAX/MIN reducer. This core MUST stay **THREE-free, DOM-free, I/O-free and deterministic** (no `Date.now`, no RNG — per its package contract): same inputs ⇒ byte-identical output. It is the ONLY place that reads `runtime.climate` (for irradiance, §10.4) and the §3.3 sun positions; it is unit-testable with a mock oracle.
+- **L1 GPU — [`packages/renderer-three/`](../../../packages/renderer-three/) ONLY (P2).** ALL GPU resources live here: the shadow-map / occlusion pass that supplies the real `isOccluded` oracle, the glass-transmittance-aware occluder (transparent glazing PARTIALLY occludes — a façade behind glass receives reduced, not zero, sun-hours), and the heatmap overlay material that paints `SunHoursResult` onto the real mesh. Per **P2** (single THREE owner) + [C04](./C04-RENDERING-AND-SCHEDULING.md), `import * as THREE` and every WebGPU/WebGL resource are allowed ONLY in `packages/renderer-three/`. `@pryzm/solar-analysis` is *invoked by* this pass for orchestration but owns no GPU resource.
+
+This is the same split C54 §1.8 enforces for the CFD solver (pure low-layer compute package + result rendered through `renderer-three`).
+
+### §10.7 — Determinism + honesty (BETA + fallback tiering)
+
+- **Determinism.** A run is reproducible per the tuple `(site lat/lon, date-range, sun-step, mesh, climate dataset version)` — re-running the same configuration yields the same per-surface field (GPU floating-point reduction order is the only permitted variance source, as in C54 §1.3). This lets a result be audited (the future C23 Provenance) and fed deterministically to the layout / AI engines.
+- **Honesty + fallback.** The GPU occlusion + heatmap pass is **BETA**. Following [ADR-0007](../adrs/0007-webgpu-webgl2-dual-mode.md) (WebGPU/WebGL2 dual-mode) and the C54 §1.1 / §1.2 honesty + graceful-fallback discipline: the WebGPU compute-accumulation path MUST detect device availability and degrade gracefully — a WebGL2 additive-render fallback, and below that a CPU path — never crashing the frame loop; every surface that presents a result MUST carry a visible **BETA** label, and an indicative geometric sun-hours figure MUST NOT be presented as a certified solar/energy analysis. Absolute irradiance MUST additionally carry its climate-data tier (§10.4). This is the C54 / ADR-0064 beta-honesty rule carried into C21 §10.
+
+### §10.8 — Read-only / overlay-only + an OTel span per run (P8)
+
+A solar-exposure run MUST NOT mutate any store (it is read-only over C21 + C12/C19 and writes only a transient overlay, per §10.5). Per **P8** (and §1.6), the L2 orchestration entry point MUST open an OpenTelemetry span `pryzm.climate.solarExposure` carrying attributes `{ siteRef?, latE2?, lonE2?, datasetVersion?, source?, sampleCount, surfaceCount, gpuBackend: 'webgpu' | 'webgl2' | 'cpu', durationMs }`, so a run is observable end-to-end alongside the other `pryzm.climate.*` spans (§1.6). The span name extends the §1.6 `pryzm.climate.<verb>` family; `check-otel-spans.ts` (§6.3) covers it.
+
+### §10.9 — Cross-references
+
+| Ref | Relationship |
+|---|---|
+| [ADR-0074](../adrs/0074-gpu-solar-sun-hours-environmental-analysis.md) | The decision record this section contract-izes (GPU sun-hours, real model geometry, heatmap). |
+| [ADR-0064](../adrs/0064-in-browser-wind-cfd-webgpu-lbm.md) / [C54](./C54-IN-BROWSER-WIND-CFD.md) | Sister env-sim: client-side WebGPU analysis over a C21/C19 substrate; source of the BETA-honesty + graceful-fallback + single-THREE-owner patterns reused here. |
+| [ADR-0007](../adrs/0007-webgpu-webgl2-dual-mode.md) | WebGPU/WebGL2 dual-mode — the rendering substrate + fallback tiering cited in §10.7. |
+| [ADR-0070](../adrs/0070-project-north-vs-true-north-authoring-frame.md) | Project-North → True-North rotation that aligns the model frame to the compass the sun is computed in (§10.1). |
+| [C12 Geospatial](./C12-GEOSPATIAL.md) | lat/lon → LTP-ENU scene frame + orientation (§10.1). |
+| [C04 Rendering & Scheduling](./C04-RENDERING-AND-SCHEDULING.md) | THREE / rAF ownership for the GPU pass (§10.6, P2). |
+| C21 §1.3, §2.2, §3.3, §1.10, §5.3 | The substrate this section derives from (computed solar position; EPW irradiance; `SolarPathReader`; consumer-derives pattern; climate-quality gate). |
+
+---
+
+*End — C21 Climate Ingestion (DRAFT, 2026-06-01; §10 Solar Exposure & Sun-Hours added 2026-06-16).*
