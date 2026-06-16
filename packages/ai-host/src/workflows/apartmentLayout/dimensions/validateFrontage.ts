@@ -19,7 +19,7 @@
 import { roomRule } from '../rules/programRules.js';
 import type { RoomType } from '../types.js';
 import type { DimensionalValidation, ValidationFinding } from './types.js';
-import type { Pt } from '../tgl/rectDecomposition.js';
+import type { Pt, Rect } from '../tgl/rectDecomposition.js';
 
 const EPS = 1e-4;       // 0.1 mm tolerance — rooms may sit on the perimeter to ±1e-4 m
 
@@ -36,6 +36,108 @@ export interface FrontageInput {
     readonly shellPolygon: readonly Pt[];
     /** All placed rooms in the candidate layout. */
     readonly rooms: readonly FrontageRoomInput[];
+    /**
+     * §FRONTAGE-TILING-FRAME (rotated non-quad frontage false-negative cure, 2026-06-16;
+     * ADR-0063 §8.7). OPTIONAL set of axis-aligned rects = the EXACT decomposition the rooms
+     * were tiled against (`decomposeToRects(shell)` in the SAME frame as `rect`). When supplied,
+     * frontage is tested against the OUTER BOUNDARY OF THIS RECT UNION instead of `shellPolygon`.
+     *
+     * WHY: on a freehand L/U/T drawn at an angle, the principal-axis de-rotation aligns the
+     * shell's DOMINANT edge family but leaves the individual edges slightly DIAGONAL; the rooms,
+     * however, were tiled onto the AXIS-ALIGNED stair-step grid `decomposeToRects` produced.
+     * `rectTouchesPerimeter` only matches axis-aligned shell edges, so every room reads INTERIOR
+     * against the diagonal shell → every frontage:'required' room false-fails (founder v107 218 m²
+     * rotated L-plate). `rectifyConvexQuad` cures only the CONVEX-QUAD case (it is the identity for
+     * > 4 vertices / concave). Testing against the rect-union boundary tests against the very grid
+     * the rooms occupy — the genuinely same-frame perimeter — so it cures L/U/T/concave too.
+     *
+     * BYTE-IDENTITY: absent ⇒ the `shellPolygon` path is untouched (every existing caller). For a
+     * CONVEX QUAD, `decomposeToRects` rectifies to a single bbox rect, so the rect-union boundary ≡
+     * the rectified bbox ring (same verdict as today's `rectifyConvexQuad`). For an axis-aligned
+     * rectangle / L / U / T (and the flat apartment plates), `decomposeToRects` reproduces the shell
+     * exactly, so the rect-union boundary ≡ the shell perimeter (same verdict as `shellPolygon`).
+     */
+    readonly perimeterRects?: readonly Rect[];
+}
+
+/** Is the point strictly inside ANY rect of the set (interior, not on an edge)? */
+function pointStrictlyInAnyRect(x: number, z: number, rects: readonly Rect[]): boolean {
+    for (const r of rects) {
+        if (x > r.x0 + EPS && x < r.x1 - EPS && z > r.z0 + EPS && z < r.z1 - EPS) return true;
+    }
+    return false;
+}
+
+/** Does the point lie ON an edge of ANY rect of the set (within EPS)? */
+function pointOnAnyRectEdge(x: number, z: number, rects: readonly Rect[]): boolean {
+    for (const r of rects) {
+        const onV = (Math.abs(x - r.x0) < EPS || Math.abs(x - r.x1) < EPS) && z > r.z0 - EPS && z < r.z1 + EPS;
+        const onH = (Math.abs(z - r.z0) < EPS || Math.abs(z - r.z1) < EPS) && x > r.x0 - EPS && x < r.x1 + EPS;
+        if (onV || onH) return true;
+    }
+    return false;
+}
+
+/**
+ * Test whether a room rect touches the OUTER BOUNDARY of a rect union (the
+ * §FRONTAGE-TILING-FRAME perimeter — the exact axis-aligned grid the rooms were tiled
+ * onto). A room edge is "on the perimeter" when its midpoint lies on a rect edge AND the
+ * point just OUTSIDE that edge is exterior to the whole union (not inside another rect) —
+ * so an INTERNAL shared edge between two abutting tiles never counts as frontage. Pure.
+ */
+export function rectTouchesRectSet(
+    rect: FrontageRoomInput['rect'],
+    rects: readonly Rect[],
+): boolean {
+    if (rects.length === 0) return false;
+    const mx = (rect.x0 + rect.x1) / 2, mz = (rect.z0 + rect.z1) / 2;
+    // Probe each room edge's midpoint, nudged a hair outward; "out" point exterior ⇒ boundary.
+    const out = 0.05;
+    const edges: ReadonlyArray<readonly [number, number, number, number]> = [
+        [mx, rect.z0, 0, -out],   // south
+        [mx, rect.z1, 0, +out],   // north
+        [rect.x0, mz, -out, 0],   // west
+        [rect.x1, mz, +out, 0],   // east
+    ];
+    for (const [px, pz, ox, oz] of edges) {
+        if (!pointOnAnyRectEdge(px, pz, rects)) continue;
+        if (!pointStrictlyInAnyRect(px + ox, pz + oz, rects)) return true;
+    }
+    return false;
+}
+
+/**
+ * Distance (metres) from a room rect to the nearest OUTER boundary of a rect union, in the
+ * §FRONTAGE-TILING-FRAME. Mirrors `rectDistToPerimeter` but against the rect-union boundary;
+ * 0 when the rect already touches it. Diagnostic only (§DIAG-FRONTAGE-DIST). Pure; no I/O.
+ */
+export function rectDistToRectSet(
+    rect: FrontageRoomInput['rect'],
+    rects: readonly Rect[],
+): number {
+    if (rects.length === 0) return Number.POSITIVE_INFINITY;
+    if (rectTouchesRectSet(rect, rects)) return 0;
+    // Otherwise measure to the nearest boundary edge whose span overlaps the rect, using the
+    // SAME convention as rectDistToPerimeter but only for boundary (not internal) rect edges.
+    let best = Number.POSITIVE_INFINITY;
+    const isBoundaryV = (x: number, zMid: number): boolean =>
+        !pointStrictlyInAnyRect(x + 0.05, zMid, rects) || !pointStrictlyInAnyRect(x - 0.05, zMid, rects);
+    const isBoundaryH = (z: number, xMid: number): boolean =>
+        !pointStrictlyInAnyRect(xMid, z + 0.05, rects) || !pointStrictlyInAnyRect(xMid, z - 0.05, rects);
+    for (const r of rects) {
+        // vertical edges of r
+        const zMid = (Math.max(rect.z0, r.z0) + Math.min(rect.z1, r.z1)) / 2;
+        if (rect.z1 > r.z0 + EPS && rect.z0 < r.z1 - EPS) {
+            if (isBoundaryV(r.x0, zMid)) best = Math.min(best, Math.abs(rect.x0 - r.x0), Math.abs(rect.x1 - r.x0));
+            if (isBoundaryV(r.x1, zMid)) best = Math.min(best, Math.abs(rect.x0 - r.x1), Math.abs(rect.x1 - r.x1));
+        }
+        const xMid = (Math.max(rect.x0, r.x0) + Math.min(rect.x1, r.x1)) / 2;
+        if (rect.x1 > r.x0 + EPS && rect.x0 < r.x1 - EPS) {
+            if (isBoundaryH(r.z0, xMid)) best = Math.min(best, Math.abs(rect.z0 - r.z0), Math.abs(rect.z1 - r.z0));
+            if (isBoundaryH(r.z1, xMid)) best = Math.min(best, Math.abs(rect.z0 - r.z1), Math.abs(rect.z1 - r.z1));
+        }
+    }
+    return best;
 }
 
 /**
@@ -136,10 +238,18 @@ export function validateFrontage(input: FrontageInput): DimensionalValidation {
     const hard: ValidationFinding[] = [];
     const soft: ValidationFinding[] = [];
 
+    // §FRONTAGE-TILING-FRAME — when the caller threads the rect decomposition the rooms
+    // were tiled against, test against THAT union's outer boundary (the genuinely same-frame
+    // perimeter); otherwise fall back to the shell-polygon edge-coincidence test (byte-identical
+    // for every existing caller — see `FrontageInput.perimeterRects`).
+    const useRectSet = input.perimeterRects !== undefined && input.perimeterRects.length > 0;
+
     for (const r of input.rooms) {
         const rule = roomRule(r.type);
         if (rule.frontage === 'none') continue;
-        const touches = rectTouchesPerimeter(r.rect, input.shellPolygon);
+        const touches = useRectSet
+            ? rectTouchesRectSet(r.rect, input.perimeterRects!)
+            : rectTouchesPerimeter(r.rect, input.shellPolygon);
         if (touches) continue;
         const label = r.name ?? r.roomId;
         if (rule.frontage === 'required') {

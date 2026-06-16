@@ -4,7 +4,12 @@ import { describe, expect, it } from 'vitest';
 import {
     validateFrontage, rectTouchesPerimeter, rectDistToPerimeter,
 } from '../src/workflows/apartmentLayout/dimensions/validateFrontage.js';
-import { rectifyConvexQuad } from '../src/workflows/apartmentLayout/tgl/rectDecomposition.js';
+import {
+    rectifyConvexQuad, decomposeToRects, principalAxisAngle, rotatePt, type Pt,
+} from '../src/workflows/apartmentLayout/tgl/rectDecomposition.js';
+import {
+    rectTouchesRectSet, rectDistToRectSet,
+} from '../src/workflows/apartmentLayout/dimensions/validateFrontage.js';
 import type { RoomType } from '../src/workflows/apartmentLayout/types.js';
 
 // 12×10 rectilinear shell for the tests.
@@ -227,5 +232,118 @@ describe('§FRONTAGE-RECTIFY-FRAME — rotated convex-quad frontage', () => {
         const viaRectified = validateFrontage({ shellPolygon: rectifyConvexQuad(SHELL), rooms: [room] });
         expect(viaRectified.admissible).toBe(viaRaw.admissible);
         expect(viaRectified.hardFindings).toEqual(viaRaw.hardFindings);
+    });
+});
+
+// §FRONTAGE-TILING-FRAME (rotated NON-QUAD frontage false-negative cure, 2026-06-16; ADR-0063
+// §8.7). The §FRONTAGE-RECTIFY-FRAME cure above handles only the CONVEX QUAD (rectifyConvexQuad
+// is the identity for > 4 vertices / concave). A freehand L / U / T drawn AT AN ANGLE is the
+// remaining false-fail: the engine's principal-axis de-rotation aligns the shell's DOMINANT edge
+// family but leaves each edge slightly DIAGONAL, while the rooms are tiled onto the AXIS-ALIGNED
+// stair-step grid `decomposeToRects` produces. `rectTouchesPerimeter` (axis-edges only) then reads
+// every room INTERIOR → every frontage:'required' room HARD-fails. CURE: thread the SAME
+// `decomposeToRects(shell)` set the rooms were tiled against and test against THAT union's outer
+// boundary (the genuinely same-frame perimeter).
+describe('§FRONTAGE-TILING-FRAME — rotated freehand L-shape frontage', () => {
+    // A FREEHAND L (vertices not exactly perpendicular — drawn on a GIS map), rotated ~20°.
+    const FREEHAND_L: Pt[] = [
+        { x: 0, z: 0 }, { x: 10.2, z: 0.3 }, { x: 9.9, z: 4.1 },
+        { x: 4.2, z: 3.9 }, { x: 3.8, z: 8.2 }, { x: -0.1, z: 7.9 },
+    ];
+    const rot = 0.35;   // world rotation applied before drawing — emulates an off-axis plot
+    const Lrot = FREEHAND_L.map((p) => rotatePt(p, rot, { x: 0, z: 0 }));
+    // The engine de-rotates by the principal-axis angle about the centroid (runDeterministicLayout
+    // §PRINCIPAL-AXIS) — replicate that to get `shellPolygon`, the exact frame enumerate.ts sees.
+    const angle = principalAxisAngle(Lrot);
+    const cx = Lrot.reduce((s, p) => s + p.x, 0) / Lrot.length;
+    const cz = Lrot.reduce((s, p) => s + p.z, 0) / Lrot.length;
+    const shell = Lrot.map((p) => rotatePt(p, -angle, { x: cx, z: cz }));
+    // The rooms are tiled against EXACTLY this decomposition (same frame).
+    const tiles = decomposeToRects(shell);
+
+    it('the de-rotated freehand L still has DIAGONAL edges (rectTouchesPerimeter cannot match)', () => {
+        expect(tiles.length).toBeGreaterThan(0);
+        const allAxis = shell.every((p, i) => {
+            const q = shell[(i + 1) % shell.length]!;
+            return Math.abs(p.x - q.x) < 1e-3 || Math.abs(p.z - q.z) < 1e-3;
+        });
+        expect(allAxis).toBe(false);   // every edge is slightly diagonal — the bug's substrate
+    });
+
+    // A living room tiled flush on the SOUTH edge of the first tile (a real perimeter room).
+    const t0 = tiles[0]!;
+    const livRect = { x0: t0.x0, z0: t0.z0, x1: Math.min(t0.x1, t0.x0 + 4), z1: Math.min(t0.z1, t0.z0 + 3) };
+
+    it('BUG repro: the perimeter room reads INTERIOR + HARD-fails against the raw diagonal shell', () => {
+        // This is the pre-fix call: shellPolygon only, no perimeterRects.
+        const result = validateFrontage({
+            shellPolygon: rectifyConvexQuad(shell),    // identity for an L (> 4 verts) → diagonal shell
+            rooms: [r('liv', 'living', livRect.x0, livRect.z0, livRect.x1, livRect.z1)],
+        });
+        expect(result.admissible).toBe(false);
+        expect(result.hardFindings).toHaveLength(1);
+        expect(result.hardFindings[0]!.metric).toBe('frontageRequired');
+    });
+
+    it('CURE: threading the tiling-frame rects makes the SAME perimeter room admissible', () => {
+        expect(rectTouchesRectSet(livRect, tiles)).toBe(true);
+        expect(rectDistToRectSet(livRect, tiles)).toBeCloseTo(0, 6);
+        const result = validateFrontage({
+            shellPolygon: rectifyConvexQuad(shell),
+            perimeterRects: tiles,
+            rooms: [r('liv', 'living', livRect.x0, livRect.z0, livRect.x1, livRect.z1)],
+        });
+        expect(result.admissible).toBe(true);
+        expect(result.hardFindings).toEqual([]);
+    });
+
+    it('a GENUINELY interior room still HARD-fails against the rect-union (no over-relaxation)', () => {
+        // Place a room in the interior of the largest tile, metres clear of every boundary edge.
+        const big = [...tiles].sort((a, b) => (b.x1 - b.x0) * (b.z1 - b.z0) - (a.x1 - a.x0) * (a.z1 - a.z0))[0]!;
+        const mx = (big.x0 + big.x1) / 2, mz = (big.z0 + big.z1) / 2;
+        // Only meaningful if the tile is big enough to host a clear-of-edge room.
+        if (big.x1 - big.x0 > 3 && big.z1 - big.z0 > 3) {
+            const interior = { x0: mx - 0.6, z0: mz - 0.6, x1: mx + 0.6, z1: mz + 0.6 };
+            expect(rectTouchesRectSet(interior, tiles)).toBe(false);
+            const result = validateFrontage({
+                shellPolygon: rectifyConvexQuad(shell),
+                perimeterRects: tiles,
+                rooms: [r('mas', 'master', interior.x0, interior.z0, interior.x1, interior.z1)],
+            });
+            expect(result.admissible).toBe(false);
+            expect(result.hardFindings[0]!.roomId).toBe('mas');
+        }
+    });
+
+    it('internal shared edge between two abutting tiles is NOT counted as frontage', () => {
+        // Two tiles sharing a vertical seam; a room flush ONLY on the shared seam is interior.
+        const A = { x0: 0, z0: 0, x1: 5, z1: 5 };
+        const B = { x0: 5, z0: 0, x1: 10, z1: 5 };
+        const pair = [A, B];
+        // Room flush on the shared seam x=5 but pulled off the outer boundary on every other side.
+        const onSeam = { x0: 3, z0: 1.5, x1: 5, z1: 3.5 };
+        // Its only edge-coincidence is the INTERNAL seam (x=5) — outward side is inside B → not frontage.
+        // (Its z0=1.5 / z1=3.5 / x0=3 are all clear of the outer boundary.)
+        expect(rectTouchesRectSet(onSeam, pair)).toBe(false);
+    });
+
+    it('axis-aligned L shell → decomposeToRects reproduces it → frontage byte-identical to shell test', () => {
+        // An axis-aligned (un-rotated) L: the rect-union boundary === the shell perimeter, so the
+        // rectSet path must give the SAME verdict as the shellPolygon path (no-regression identity).
+        const axisL: Pt[] = [
+            { x: 0, z: 0 }, { x: 10, z: 0 }, { x: 10, z: 4 },
+            { x: 4, z: 4 }, { x: 4, z: 8 }, { x: 0, z: 8 },
+        ];
+        const axisTiles = decomposeToRects(axisL);
+        // decomposeToRects(axisL) → [{0,0,4,8},{4,0,10,4}]; seam at x=4, z∈[0,4] is INTERNAL.
+        const rooms = [
+            r('liv', 'living', 0, 0, 3, 3),     // south + west façade — touches perimeter
+            r('mas', 'master', 5, 1, 9, 3),     // FULLY INTERIOR of the right tile (off every façade)
+        ];
+        const viaShell = validateFrontage({ shellPolygon: axisL, rooms });
+        const viaRectSet = validateFrontage({ shellPolygon: axisL, perimeterRects: axisTiles, rooms });
+        expect(viaRectSet.admissible).toBe(viaShell.admissible);
+        expect(viaRectSet.hardFindings.map((f) => f.roomId).sort())
+            .toEqual(viaShell.hardFindings.map((f) => f.roomId).sort());
     });
 });

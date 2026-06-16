@@ -23,7 +23,7 @@ import { computeObjectives, OBJECTIVE_AXES, measureCorridorInterior, measureCorr
 import { priorityMultiplier } from './envDrivers.js';
 import { validateAllRoomShapes, type RoomShape } from '../dimensions/validateRoomShape.js';
 import { validateRoomFit } from '../dimensions/validateRoomFit.js';
-import { validateFrontage, rectTouchesPerimeter, rectDistToPerimeter } from '../dimensions/validateFrontage.js';
+import { validateFrontage, rectTouchesPerimeter, rectDistToPerimeter, rectTouchesRectSet, rectDistToRectSet } from '../dimensions/validateFrontage.js';
 import { validateApartmentEnvelope } from '../dimensions/validateApartmentEnvelope.js';
 import type { DimensionalValidation } from '../dimensions/types.js';
 import { validateMandatoryAdjacencies, type DoorOpening } from '../topology/validateMandatoryAdjacencies.js';
@@ -1318,8 +1318,23 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     // and the apartment are BYTE-IDENTICAL (ADR-0061). Only the convex-quad path — which
     // is exactly the path that tiles to the bbox — now tests against the bbox it tiled to.
     const frontagePerimeter = rectifyConvexQuad(input.shellPolygon);
+    // §FRONTAGE-TILING-FRAME (rotated non-quad cure, 2026-06-16; ADR-0063 §8.7) — the
+    // §FRONTAGE-RECTIFY-FRAME bbox cure above only fires for a CONVEX QUAD (`rectifyConvexQuad`
+    // is the identity for > 4 vertices / concave), so a freehand L/U/T drawn AT AN ANGLE still
+    // false-fails: the principal-axis de-rotation aligns the dominant edge family but leaves the
+    // shell's individual edges slightly DIAGONAL, while the rooms were tiled onto the AXIS-ALIGNED
+    // stair-step grid `decomposeToRects` produces — so `rectTouchesPerimeter` (axis-edges only)
+    // reads every room INTERIOR. CURE: thread the SAME `decomposeToRects(input.shellPolygon)` set
+    // the rooms were tiled against; `validateFrontage` then tests against the OUTER BOUNDARY of
+    // that rect union — the genuinely same-frame perimeter. BYTE-IDENTICAL elsewhere: a convex
+    // quad decomposes to its rectified bbox (boundary ≡ the rectifyConvexQuad ring used above) and
+    // an axis-aligned rect / L / U / T (+ the flat apartment plates) decomposes back to the shell
+    // exactly (boundary ≡ shell perimeter). `placements` are in the `input.shellPolygon` frame
+    // (mapped back via `t.inv`, an axis-preserving mirror/swap), so the rects share that frame.
+    const frontageRects = decomposeToRects(input.shellPolygon);
     const frontage = validateFrontage({
         shellPolygon: frontagePerimeter,
+        perimeterRects: frontageRects,
         rooms: placements.map(p => {
             const r = bubble.rooms.find(br => br.id === p.roomId);
             return {
@@ -1343,7 +1358,12 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         ];
         const detail = failIds.map(id => {
             const rect = placementById.get(id);
-            const d = rect ? rectDistToPerimeter(rect, frontagePerimeter) : -1;
+            // §FRONTAGE-TILING-FRAME — measure against the SAME rect-union the gate uses, so the
+            // diagnostic distance matches the verdict; fall back to the polygon measure only when
+            // the decomposition is empty (degenerate shell).
+            const d = rect
+                ? (frontageRects.length > 0 ? rectDistToRectSet(rect, frontageRects) : rectDistToPerimeter(rect, frontagePerimeter))
+                : -1;
             return `${id}=${d < 0 ? '?' : `${d.toFixed(2)}m`}`;
         }).join(' ');
         console.log(
@@ -1364,9 +1384,12 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         });
         if (hallPlacements.length > 0) {
             const onPerimeter = hallPlacements.filter(p =>
-                // §FRONTAGE-RECTIFY-FRAME — test against the rectified frontage perimeter
-                // (the frame the rooms were tiled in), identical to validateFrontage above.
-                rectTouchesPerimeter(p.rect, frontagePerimeter),
+                // §FRONTAGE-TILING-FRAME — test against the SAME rect-union boundary the gate uses
+                // (the frame the rooms were tiled in), identical to validateFrontage above; fall
+                // back to the rectified-polygon edge test only on a degenerate (empty) decomposition.
+                frontageRects.length > 0
+                    ? rectTouchesRectSet(p.rect, frontageRects)
+                    : rectTouchesPerimeter(p.rect, frontagePerimeter),
             ).length;
             const allOn = onPerimeter === hallPlacements.length;
             console.log(
