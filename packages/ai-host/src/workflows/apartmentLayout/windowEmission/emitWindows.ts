@@ -192,6 +192,49 @@ function overlapsAny(off: number, widthMm: number, blocked: readonly BlockedSpan
     return blocked.some(b => off < b.hi && hi > b.lo);
 }
 
+// ── §WINDOW-CLEAR-WIDTH-CAP (founder full-house 2026-06-16) — cap to the CLEAR run ──
+//
+// The founder's recurring "window overruns / sits ON the corner": the climate (D6.3) +
+// STYLE (ST.5) width WIDENERS clamped the biased width to `bandLen − 2·WINDOW_CLEARANCE_MM`
+// (the bare 0.1 m no-touch gap) instead of `bandLen − 2·endSetbackMm` (the REAL masonry
+// corner pier, 0.5–1.2 m). A widened window that fills the band minus only the bare
+// clearance then could NOT keep the pier at each end — `clearOffsetMm`'s setback band went
+// empty and the placer fell back to a CENTRED offset that lands the window edge at the bare
+// 0.1 m clearance from the corner (the "window on the EDGE"). Worse, it ignored the door /
+// junction footprints already on the band, so a corner-adjacent opening could be straddled.
+//
+// This helper computes the LARGEST width that still leaves the corner pier at BOTH ends AND
+// fits a door/junction-clear gap — i.e. the segment's CLEAR length:
+//   clear = bandLen − 2·endSetback − (the band consumed by adjacent openings on the run).
+// It reuses `endSetbackMm` (the single corner-pier source) and the SAME `blocked` spans the
+// placer uses, so a biased window can never be sized past the corner or across an opening.
+// Pure + deterministic.
+
+/** The largest gap (mm) between the two corner piers of a band of `bandLenMm` that is CLEAR
+ *  of every `blocked` span — i.e. the longest sub-interval of `[setback, bandLen−setback]`
+ *  not overlapping a door / junction footprint. This is the segment's usable CLEAR length a
+ *  window may occupy near a corner. Returns 0 when no clear gap exists. Pure. */
+function bandClearWidthMm(bandLenMm: number, blocked: readonly BlockedSpan[]): number {
+    const setback = endSetbackMm(bandLenMm);
+    const lo = setback;
+    const hi = bandLenMm - setback;
+    if (hi <= lo) return 0;
+    // Walk the band between the piers; the largest run between consecutive blocked spans
+    // (clamped into [lo, hi]) is the clear width. Spans outside [lo, hi] are ignored.
+    const cuts = blocked
+        .filter(b => b.hi > lo && b.lo < hi)
+        .map(b => ({ lo: Math.max(lo, b.lo), hi: Math.min(hi, b.hi) }))
+        .sort((a, b) => a.lo - b.lo);
+    let cursor = lo;
+    let best = 0;
+    for (const c of cuts) {
+        if (c.lo > cursor) best = Math.max(best, c.lo - cursor);
+        cursor = Math.max(cursor, c.hi);
+    }
+    best = Math.max(best, hi - cursor);
+    return Math.max(0, best);
+}
+
 // ── §WINDOW-ROOM-PORTION (§57.8, founder 2026-06-11) ──────────────────────────
 //
 // A room that fronts a façade shares ONE long external (shell) wall with the
@@ -721,17 +764,47 @@ export function emitWindowsForRoom(
             const fit = orientationFit(outwardNormal(cand.w.start, cand.w.end, solar.roomCentroidMm), solar.sunDir);
             const factor = climateGlazingFactor(solar.latDeg, fit);
             if (factor !== 1 || styleBias !== 1) {
+                // Compose the biased width/height (spec × climate × style). The corner-pier
+                // CLEAR-run cap is applied UNIFORMLY by §WINDOW-CLEAR-WIDTH-CAP below (so the
+                // biased + unbiased paths share one corner-overrun guard); here we keep the
+                // pre-existing band ceiling as a coarse upper bound on the biased width.
                 const maxWidth = Math.max(spec.minWidthMm, bandLenMm - 2 * WINDOW_CLEARANCE_MM);
                 widthMm = Math.round(Math.max(spec.minWidthMm, Math.min(chosenWidthMm * factor * styleBias, maxWidth)));
                 heightMm = Math.round(spec.heightMm * factor * styleBias);
             }
         } else if (styleBias !== 1 && !lastResort) {
-            // ST.5 — STYLE bias with NO solar context. Apply the same band clamp the
-            // climate branch uses so the biased window still hosts within the room's
-            // portion of the façade (§WINDOW-SPAN-FIT — never overflows the host wall).
+            // ST.5 — STYLE bias with NO solar context. Same coarse band ceiling; the corner-
+            // pier CLEAR-run cap is applied uniformly by §WINDOW-CLEAR-WIDTH-CAP below.
             const maxWidth = Math.max(spec.minWidthMm, bandLenMm - 2 * WINDOW_CLEARANCE_MM);
             widthMm = Math.round(Math.max(spec.minWidthMm, Math.min(chosenWidthMm * styleBias, maxWidth)));
             heightMm = Math.round(spec.heightMm * styleBias);
+        }
+        // ── §WINDOW-CLEAR-WIDTH-CAP (founder full-house 2026-06-16) — universal corner cap ──
+        // The corner-overrun defect was NOT confined to the biased wideners: the UNBIASED
+        // spec width also overruns when it doesn't fit a band with its corner piers (e.g. a
+        // 1800 mm bedroom spec on a 2600 mm wall — the placer's centred fallback then lands
+        // the window only 100 mm from each corner, inside the 500 mm masonry pier). Cap EVERY
+        // non-last-resort window's width to the band's CLEAR run (between the corner piers and
+        // clear of any adjacent door/junction) so the pier is survivable by construction and a
+        // window can never be sized across a corner or an adjacent opening. The biased branches
+        // above already applied this cap (idempotent here); the default path is newly covered.
+        //
+        // FLOOR: never shrink below the room's intended FALLBACK width (`spec.minWidthMm`, or
+        // the requested width if already smaller). On a genuinely SHORT wall that can't host
+        // even the fallback width WITH the full pier (clearCap < fallback floor), the engine
+        // DELIBERATELY keeps the requested window and the placer centres it with a REDUCED pier
+        // (the pre-existing short-wall behaviour the fallback-variant + bathroom tests pin) —
+        // the §WINDOW-IN-BOUNDS-POSTCOND still guarantees it never exceeds [0, wallLen]. The cap
+        // therefore only binds when the band CAN afford a pier-respecting window ≥ the fallback
+        // floor: it then trims a too-wide width (the biased/over-spec corner overrun) down to
+        // the clear run. When the clear run is itself below the fallback floor, the cap is a
+        // no-op and the short-wall reduced-pier placement stands.
+        if (!lastResort) {
+            const fallbackFloorMm = Math.max(MIN_WINDOW_MM, Math.min(widthMm, spec.minWidthMm));
+            const clearCap = bandClearWidthMm(bandLenMm, blocked);
+            if (clearCap >= fallbackFloorMm && widthMm > clearCap) {
+                widthMm = Math.round(clearCap);
+            }
         }
         // ST.5 — §WINDOW-HEAD-FIT: a biased-UP window must still fit under the lintel.
         // Cap the head (sill + height) at MAX_WINDOW_HEAD_MM by trimming height; the

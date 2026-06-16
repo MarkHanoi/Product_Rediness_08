@@ -16,6 +16,7 @@ import {
     type PartitionJunction,
     type WindowableRoomType,
 } from '../src/workflows/apartmentLayout/windowEmission/types.js';
+import type { SolarBias } from '../src/workflows/apartmentLayout/windowEmission/solarOrientation.js';
 
 // A 5-metre-long horizontal wall starting at the origin.
 const wall = (lenMm: number, wallIndex: number): ExternalWallSegment => ({
@@ -797,6 +798,109 @@ describe('#4 — §WINDOW-IN-BOUNDS-POSTCOND: no window ever exceeds its host wa
             const ws = emitWindowsForRoom(t, [wide(9000)], `${t}`, doors, null, js);
             inBounds(ws, 9000, `${t} crowded`);
         }
+    });
+});
+
+// ── §WINDOW-CLEAR-WIDTH-CAP (founder full-house 2026-06-16) — corner-pier width cap ──
+//
+// The founder's recurring "a window overflows PAST a wall corner": a window placed near a
+// wall end extends beyond where the wall meets the next wall. Root cause — the emitted width
+// (spec, or climate/style-biased) was NOT capped to the segment's CLEAR length, so on a
+// medium wall the placer's centred fallback landed the window only the bare 100 mm clearance
+// from each corner (inside the 500 mm masonry pier), and an adjacent opening was not subtracted
+// from the usable run. The fix caps EVERY non-last-resort window's width to the band's CLEAR
+// run = bandLen − 2·cornerSetback − (band consumed by adjacent door/junction openings), down
+// to (but never below) the room-type's fallback floor.
+describe('§WINDOW-CLEAR-WIDTH-CAP — width is capped to the host segment clear length near corners', () => {
+    const wide = (lenMm: number, wallIndex = 0): ExternalWallSegment =>
+        ({ start: { x: 0, y: 0 }, end: { x: lenMm, y: 0 }, wallIndex });
+    const door = (startMm: number, widthMm: number): OccupiedSpan =>
+        ({ wallIndex: 0, startMm, endMm: startMm + widthMm });
+    // Corner setback mirrors endSetbackMm in emitWindows.ts.
+    const setbackOf = (wallLenMm: number): number => {
+        const scaled = Math.min(1200, Math.max(500, 0.10 * wallLenMm));
+        return Math.min(scaled, Math.max(0, (wallLenMm - 400) / 2));
+    };
+
+    it('(a) a spec width that would overrun a medium wall is capped to the clear run, keeping BOTH corner piers', () => {
+        // A 1800 mm bedroom spec on a 2600 mm wall CANNOT keep both 500 mm piers at 1800 mm
+        // (1800 + 2·500 = 2800 > 2600) → previously centred at offset 400 (100 mm from each
+        // corner, INSIDE the pier). The cap shrinks it to the clear run (2600 − 1000 = 1600)
+        // so it sits at the full pier and NEVER crosses a corner.
+        const ws = emitWindowsForRoom('bedroom', [wide(2600)], 'B');
+        expect(ws.length).toBe(1);
+        const w = ws[0]!;
+        const sb = setbackOf(2600);
+        expect(w.offsetMm, 'offset ≥ corner pier').toBeGreaterThanOrEqual(sb - 1e-3);
+        expect(w.offsetMm + w.widthMm, 'end ≤ wallLen − corner pier').toBeLessThanOrEqual(2600 - sb + 1e-3);
+        expect(w.widthMm, 'width capped to clear run').toBeLessThanOrEqual(2600 - 2 * sb + 1e-3);
+    });
+
+    it('(a) the climate/style WIDENED width is also capped to the clear run (full pier preserved)', () => {
+        const solar: SolarBias = { latDeg: 60, sunDir: { x: 0, y: 1 }, roomCentroidMm: { x: 1300, y: -100 } };
+        for (const [label, ws] of [
+            ['style', emitWindowsForRoom('bedroom', [wide(2600)], 'B', [], null, [], null, 1.4)],
+            ['climate', emitWindowsForRoom('bedroom', [wide(2600)], 'B', [], solar)],
+        ] as const) {
+            expect(ws.length, `${label} emits`).toBe(1);
+            const w = ws[0]!;
+            const sb = setbackOf(2600);
+            expect(w.offsetMm, `${label} offset ≥ pier`).toBeGreaterThanOrEqual(sb - 1e-3);
+            expect(w.offsetMm + w.widthMm, `${label} end ≤ wallLen − pier`).toBeLessThanOrEqual(2600 - sb + 1e-3);
+            expect(w.widthMm, `${label} width ≤ clear run`).toBeLessThanOrEqual(2600 - 2 * sb + 1e-3);
+        }
+    });
+
+    it('(a) the emitted span always lies within [cornerSetback, len − cornerSetback] across a length sweep', () => {
+        for (const t of ['living', 'dining', 'kitchen', 'master', 'bedroom', 'study'] as const) {
+            // Lengths chosen so the spec width can NOT keep both full piers (the cap binds).
+            for (const lenMm of [2600, 3000, 3600, 4200]) {
+                const ws = emitWindowsForRoom(t, [wide(lenMm)], `${t}`);
+                const sb = setbackOf(lenMm);
+                for (const w of ws) {
+                    // Only assert the pier when the clear run can host the fallback floor at it
+                    // (the cap's binding precondition); a wall too short legitimately reduces it.
+                    if (lenMm - 2 * sb >= WINDOW_SPECS[t].minWidthMm) {
+                        expect(w.offsetMm, `${t}@${lenMm} offset ≥ pier`).toBeGreaterThanOrEqual(sb - 1e-3);
+                        expect(w.offsetMm + w.widthMm, `${t}@${lenMm} end ≤ len − pier`)
+                            .toBeLessThanOrEqual(lenMm - sb + 1e-3);
+                    }
+                    // The HARD guarantee always holds: never past either wall end.
+                    expect(w.offsetMm).toBeGreaterThanOrEqual(-1e-3);
+                    expect(w.offsetMm + w.widthMm).toBeLessThanOrEqual(lenMm + 1e-3);
+                }
+            }
+        }
+    });
+
+    it('(b) a window never overlaps an adjacent door on the same segment, and stays clear of the corner', () => {
+        // 4 m wall, a door near the RIGHT end (2800..4000). The window must slide LEFT, stay
+        // clear of the door (padded by the 100 mm clearance) AND keep its corner pier.
+        const ws = emitWindowsForRoom('bedroom', [wide(4000)], 'B', [door(2800, 1200)]);
+        expect(ws.length).toBeGreaterThanOrEqual(1);
+        const sb = setbackOf(4000);
+        const doorLo = 2800, doorHi = 4000, CLEAR = 100;
+        for (const w of ws) {
+            const lo = w.offsetMm, hi = w.offsetMm + w.widthMm;
+            // Overlap (padded by the 100 mm window clearance) is forbidden.
+            const overlapsDoor = lo < doorHi + CLEAR && hi > doorLo - CLEAR;
+            expect(overlapsDoor, 'window must not overlap the door (incl. clearance)').toBe(false);
+            // Corner piers honoured + in-bounds.
+            expect(lo, 'offset ≥ pier').toBeGreaterThanOrEqual(sb - 1e-3);
+            expect(hi, 'end ≤ len − pier').toBeLessThanOrEqual(4000 - sb + 1e-3);
+        }
+    });
+
+    it('(c) a SHORT wall that cannot afford the full pier keeps the fallback width (pre-existing reduced-pier behaviour)', () => {
+        // bathroom spec 800 on a 1500 mm wall: the clear run (1500 − 1000 = 500) is below the
+        // fallback floor (600 → bathroom minWidthMm), so the cap is a NO-OP and the engine
+        // keeps the 800 mm window with a reduced pier — still strictly in-bounds of [0, len].
+        const ws = emitWindowsForRoom('bathroom', [wide(1500)], 'Ba');
+        expect(ws.length).toBe(1);
+        const w = ws[0]!;
+        expect(w.widthMm, 'short-wall fallback width unchanged').toBe(800);
+        expect(w.offsetMm).toBeGreaterThanOrEqual(-1e-3);
+        expect(w.offsetMm + w.widthMm).toBeLessThanOrEqual(1500 + 1e-3);
     });
 });
 
