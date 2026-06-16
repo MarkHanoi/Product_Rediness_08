@@ -2951,3 +2951,11 @@ loose-trim spikes, the `§PARTITION-SHELL-INNER-FACE REFUSED` stubs, the L-corne
 decoupled from room identity — a loose wall no longer merges/splits a room, it is just a wall to
 clean up. The circulation-from-access-graph reform (§13/§14) remains the longer-term north star above
 this layer.
+
+## 16. THE INTENT-FIRST NORTH-STAR (7-layer target engine + gap-leverage order)
+
+**Canonical home: [C53 §13](../02-decisions/contracts/C53-GENERATIVE-LAYOUT-ENGINE-ARCHITECTURE.md).** Governing ADR: [0067](../02-decisions/adrs/0067-graph-ir-intent-first-building-graph-bim3.md) (intent-first building graph); concretizations in flight: [0068 §FG7](../02-decisions/adrs/0068-five-graph-model-circulation-first-building-graph.md) (circulation-first) + [0069](../02-decisions/adrs/0069-graph-authoritative-room-identity-at-execution.md) (graph-authoritative rooms).
+
+Founder brief (2026-06-16): **a building IS a set of relationships; geometry is ONE realisation; the engine finds the best one — geometry is the LAST step, not the first.** The 7 layers (full text C53 §13.A): (1) the brief = a constraint-satisfaction spec, not sliders; (2) a first-class access graph validated for topological correctness BEFORE geometry — THIS is the circulation guarantee (bedroom-off-hall impossible because the graph forbids the edge; the stair is a node, the landing its directed successor); (3) a constraint-driven spatial grammar; (4) **polygon-native subdivision** (parcel IS the container, coverage 1.0 — see §13); (5) multi-objective optimisation over interdependent architectural dimensions, trade-offs surfaced as design decisions; (6) deterministic enumeration over ~50–200 strategies; (7) the architect navigates a design space by stating GRAPH constraints, geometry follows.
+
+**Gap-leverage order (binding, C53 §13.B):** (1) polygon-native subdivision (largest ceiling, §13); (2) graph-first room identity (§15/ADR-0069, in flight); (3) circulation from the access graph (ADR-0068 §FG7); (4) regulatory as HARD constraints; (5) site intelligence into the objective vector; (6) richer strategy space. Already world-class: deterministic enumeration, Pareto ranking, the program-rules DB, space-syntax metrics, §DIAG-*, byte-identity.

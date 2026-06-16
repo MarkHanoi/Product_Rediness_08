@@ -295,3 +295,86 @@ Parameter Matrix** optimisation · **Exceptional edge-condition resilience via r
 combining Forma's environment-awareness, Finch's graph-is-engine, and TestFit's deterministic geometry,
 without TestFit's brittleness on irregular parcels or ML's structural unreliability. See the strategy
 doc's Competitive Vector Matrix.
+
+## §13 — The intent-first north-star: a building IS a set of relationships (founder brief, 2026-06-16)
+
+**The fundamental shift this contract commits to: geometry-first → intent-first.** Every current
+system — PRYZM today, Hypar, Forma, Spacemaker — places rectangles then checks constraints and patches
+failures. The target engine inverts this: **it starts from design intent and derives geometry from it.
+Geometry is the LAST thing that happens, not the first.** A building is a set of relationships;
+geometry is one possible realisation of those relationships; the engine finds the best realisation.
+This §13 is the canonical statement of that target. ADR-0067 (Graph-IR / Intent-First Building Graph)
+is the governing ADR; ADR-0068 §FG7 (circulation-first) and ADR-0069 (graph-authoritative rooms) are
+the two concretizations already in flight; §13.B below is the binding gap-leverage order.
+
+### §13.A — The seven layers of the target engine
+
+1. **A rich, computable design brief** — not sliders but a *constraint-satisfaction specification*:
+   spatial requirements (types, areas, adjacencies, privacy gradient, acoustic separation, daylight),
+   regulatory constraints (Building Regs / Part M / fire-escape as HARD constraints), site constraints
+   (boundary, orientation, overshadowing, views, wind), client lifestyle, and typology rules. The
+   engine SOLVES the brief. (Ties to the O.12 typology brief schema + C50 typology pipeline.)
+2. **A first-class access graph (topology before geometry)** — built BEFORE any geometry: nodes =
+   rooms, edges = permitted connections, anti-edges = forbidden. Encodes the privacy gradient
+   (public→circulation→private; no private room reachable without crossing circulation), acoustic
+   buffering, visual connection (arrival sequence), plumbing clustering, daylight hierarchy. The graph
+   is **validated for topological correctness BEFORE geometry is attempted** — a graph that violates
+   privacy/circulation/acoustic rules is rejected at the graph level, never patched in geometry. THIS
+   is the circulation guarantee: a bedroom-off-the-hall is impossible because the graph forbids the
+   edge; a landing disconnected from the stair is impossible because the stair is a node and the
+   landing is its directed successor (ADR-0068 §FG7 INV-1/INV-2).
+3. **Constraint-driven spatial grammar** — production rules translating graph relationships into
+   geometric arrangements ("realise the corridor subgraph as a connected spine every private room
+   accesses within one step"), encoding real architectural knowledge (corridor length = Σ served-room
+   door widths + clearances; arrival compression→release; open-plan kitchen-dining; back-corner stair
+   with immediate landing; wet-room plumbing-wall clustering). Hundreds of rules, not objectives.
+4. **Polygon-native subdivision (not rectangle approximation)** — the parcel IS the container; every
+   room cell is a polygon clipped to the parcel boundary; coverage is 1.0 by construction; sliders
+   re-tile the WHOLE parcel. Recursive polygon binary-split along the principal axis at the
+   area-proportional position (the corridor is the first split — public|private; the stair is a
+   polygon cell placed where the access graph requires, NOT a keep-out rect). This is the prerequisite
+   for correct circulation on L/T/U/rotated parcels. (See the "OPEN ARCHITECTURE PROBLEM" §13 of
+   LAYOUT-GENERATION-ALGORITHM.md.)
+5. **Multi-objective optimisation with architectural intelligence** — optimise architecturally
+   meaningful, *interdependent* dimensions (spatial quality: daylight depth, proportion, view,
+   sequence; environmental: solar gain, cross-ventilation, thermal mass, overheating; functional:
+   circulation efficiency, furniture feasibility, kitchen triangle, fixture clearances; regulatory as
+   HARD; structural: vertical load paths, wet-stacks, party-wall alignment). Trade-offs surfaced to
+   the architect as explicit DESIGN decisions, not opaque score deltas.
+6. **Deterministic enumeration over a rich strategy space** — keep determinism (its right for a design
+   tool); grow the strategy space from 8 → ~50–200 (circulation archetypes: corridor-spine /
+   double-loaded / central-core / perimeter-gallery / open-plan; orientation; massing: compact /
+   elongated / L / courtyard; structure: masonry / steel / timber). Each candidate a PURE function of
+   brief + parcel (no iteration, no RNG); Pareto-rank; the architect picks genuinely different design
+   directions, not minor tiling variations.
+7. **The architect as design collaborator, not parameter setter** — the engine produces a *design
+   space* the architect navigates by stating CONSTRAINTS ("larger living room", "stair on the other
+   side", "kitchen faces the garden") — each a constraint on the GRAPH; geometry follows
+   automatically; the engine surfaces consequences. (Ties to C52 editable building graph + ADR-0061.)
+
+### §13.B — Gap-leverage order (PRYZM today → the north-star) — BINDING priority
+
+Already world-class in PRYZM: deterministic enumeration, Pareto dominance, the rich program-rules DB
+(privacy matrix, acoustic roles, frontage), space-syntax depth metrics, the §DIAG-* suite, byte-identity.
+The gaps, in leverage order:
+
+1. **Polygon-native subdivision (Layer 4)** — the single largest architectural ceiling; ~4–6 weeks.
+   Without it every non-rectangular parcel is an approximation.
+2. **Graph-first room identity (Layer 2 / ADR-0069)** — rooms exist before walls so invariants are
+   checkable at the graph level. **In flight** (v108–v215).
+3. **Circulation from the access graph (Layer 2-3 / ADR-0068 §FG7)** — corridor derived from graph
+   connectivity, stair a first-class graph node. Fixes the upper-floor circulation defects. ~3–4 weeks,
+   depends on #2.
+4. **Regulatory constraints as HARD constraints (Layer 1/5)** — the DB-NNN database feeds hard
+   rejection at strategy-generation time, not soft scoring at objective time.
+5. **Site intelligence (Layer 1/5)** — overshadowing / view corridors / wind feed the objective vector;
+   the Cesium/LTP-ENU/solar infra exists (C19) and must connect to the access graph (which room nodes
+   want which façades).
+6. **Richer strategy space (Layer 6)** — 50–200 strategies (circulation + structural archetypes); the
+   enumeration framework is already correct, it needs more strategies fed in.
+
+**One-line target:** the best engine knows what a building IS — human relationships made physical — and
+derives every geometric decision from that knowledge rather than placing geometry and checking
+relationships afterward. PRYZM already has the right architecture (ranking, rules, diagnostics,
+determinism); the gaps are the geometry layer (polygon subdivision) and the graph layer (circulation
+from access graph).
