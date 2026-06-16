@@ -115,3 +115,23 @@ export type { ObcRendererLike } from './accessors.js';
 // C27 INS-α-7 — IsolationAnimator (subscribes to FrameScheduler + IsolationStateStore).
 // DO NOT REMOVE — auto-fixer guard
 export * from './IsolationAnimator.js';
+
+// ── ADR-0074 P1b (C21 §10) — solar sun-hours analysis pass + heatmap overlay ──
+// Additive + ISOLATED: a CPU-raycast occlusion pass over the building's roof/slab
+// + wall meshes that paints a TOGGLEABLE per-vertex heatmap WITHOUT touching the
+// normal render path. The P2 home for the geometry side of the sun-hours feature;
+// reuses @pryzm/solar-analysis for the sun math + accumulation.
+export {
+  computeSunHoursOnModel,
+  clearSunHoursOverlay,
+  type ComputeSunHoursOptions,
+  type ComputeSunHoursOnModelResult,
+} from './solar/computeSunHoursOnModel.js';
+export {
+  DEFAULT_SUN_HOURS_RAMP,
+  sampleRamp,
+  sunHoursToColor,
+  type RgbF,
+  type RampStop,
+} from './solar/heatmapRamp.js';
+export { gridTriangle, type FaceGridOptions } from './solar/faceGrid.js';

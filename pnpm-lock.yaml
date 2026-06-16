@@ -1026,12 +1026,18 @@ importers:
       '@pryzm/renderer':
         specifier: workspace:*
         version: link:../../packages/renderer
+      '@pryzm/renderer-three':
+        specifier: workspace:*
+        version: link:../../packages/renderer-three
       '@pryzm/scene-committer':
         specifier: workspace:*
         version: link:../../packages/scene-committer
       '@pryzm/schemas':
         specifier: workspace:*
         version: link:../../packages/schemas
+      '@pryzm/solar-analysis':
+        specifier: workspace:*
+        version: link:../../packages/solar-analysis
       '@pryzm/stores':
         specifier: workspace:*
         version: link:../../packages/stores
@@ -2579,9 +2585,15 @@ importers:
 
   packages/renderer-three:
     dependencies:
+      '@pryzm/solar-analysis':
+        specifier: workspace:*
+        version: link:../solar-analysis
       three:
         specifier: ^0.183.2
         version: 0.183.2
+      three-mesh-bvh:
+        specifier: ^0.9.9
+        version: 0.9.9(three@0.183.2)
     devDependencies:
       '@types/three':
         specifier: ^0.183.1

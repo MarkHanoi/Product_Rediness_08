@@ -18,7 +18,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "three": "^0.183.2"
+    "@pryzm/solar-analysis": "workspace:*",
+    "three": "^0.183.2",
+    "three-mesh-bvh": "^0.9.9"
   },
   "devDependencies": {
     "@types/three": "^0.183.1",

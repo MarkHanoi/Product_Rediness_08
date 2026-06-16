@@ -10,6 +10,7 @@ import { installLightingLayoutTrigger } from '../lighting-layout/lightingLayoutT
 import { installCeilingLayoutTrigger } from '../ceiling-layout/ceilingLayoutTrigger';
 import { installFloorLayoutTrigger } from '../floor-layout/floorLayoutTrigger';
 import { installDaylightConsole } from '../daylight/daylightConsole';
+import { installSunHoursConsole } from '../daylight/sunHoursConsole';
 import { installPryzmTestFunctions } from '../../dev/installPryzmTestFunctions';
 import { createFloorPlanImportPanel } from '../ai/FloorPlanImportPanel';
 import { createDxfImportPanel } from '../import/DxfImportPanel';
@@ -241,6 +242,13 @@ export function mountAIArea(props: UIProps, runtime: PryzmRuntime | null): AIRes
     // and logs a §DIAG-DAYLIGHT table. NEVER mutates a store (a metric, not a
     // placement) — so it carries no runtime + no auto-fire chain.
     installDaylightConsole();
+
+    // ADR-0074 P1b (C21 §10) — register the read-only sun-hours console command
+    // `pryzmComputeSunHours()` (+ `pryzmClearSunHours()`). Runs the renderer-three
+    // CPU-raycast solar pass over the active level's roof/slab + wall meshes and
+    // paints a TOGGLEABLE heatmap. ADDITIVE + ISOLATED — never touches the normal
+    // render path; reuses @pryzm/solar-analysis for the sun math + accumulation.
+    installSunHoursConsole();
 
     // Phase B.31 (S73-WIRE) — thread the composed runtime so AIPanel can reach
     // typed slots (runtime.ai.streamCompletion / runtime.persistence.proposals)

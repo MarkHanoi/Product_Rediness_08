@@ -61,7 +61,9 @@
     "@pryzm/plugin-window": "workspace:*",
     "@pryzm/protocol": "workspace:*",
     "@pryzm/renderer": "workspace:*",
+    "@pryzm/renderer-three": "workspace:*",
     "@pryzm/scene-committer": "workspace:*",
+    "@pryzm/solar-analysis": "workspace:*",
     "@pryzm/stores": "workspace:*",
     "@pryzm/view-state": "workspace:*"
   },
