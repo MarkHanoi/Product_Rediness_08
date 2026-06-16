@@ -14,7 +14,11 @@
 
 import { batchCoordinator, storeRegistry, storeEventBus } from '@pryzm/core-app-model';
 import { createId } from '@pryzm/schemas';
-import { CreateWallOpeningsBatchCommand, CreateRoomBoundingLinesBatchCommand } from '@pryzm/command-registry';
+import { CreateWallOpeningsBatchCommand, CreateRoomBoundingLinesBatchCommand, BatchCreateRoomsCommand } from '@pryzm/command-registry';
+// ADR-0069 (GR1/GR4) — graph-authoritative room identity: build RoomData straight
+// from the engine's room polygons (set.roomCommands) instead of letting detection
+// re-derive (and fragment) them. The factory is schema-validated in room-topology.
+import { roomDataFromGraphSpec, type GraphRoomSpec, type RoomData } from '@pryzm/room-topology';
 import { facadeOrientationService } from '@pryzm/spatial-index';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { buildLayoutCommands } from '@pryzm/ai-host';
@@ -340,11 +344,35 @@ export class ApartmentLayoutExecutor {
             // auto-resolves the system-type, registers the element in the spatial graph).
             let shellWindowsMade = 0;
             const cm = (window as unknown as { commandManager?: { execute(c: unknown): void } }).commandManager;
+            // ── ADR-0069 (GR1/GR4) — graph-authoritative rooms ────────────────────────
+            // Build Room elements straight from the engine's room polygons
+            // (set.roomCommands) so the SHIPPED rooms ARE the designed rooms — detection
+            // never re-segments them. When any graph room is created, the batch sets
+            // skipRedetectRooms:true so detection does NOT auto-create/fragment rooms on
+            // this generation; manual wall edits later still redetect (GR2). Reversible:
+            // `window.__pryzmGraphRooms = false` restores the legacy detection-defines path.
+            const graphRoomsEnabled = (window as unknown as { __pryzmGraphRooms?: boolean }).__pryzmGraphRooms !== false;
+            const roomHeightM = typeof option.floorToCeilingMm === 'number' && option.floorToCeilingMm > 0
+                ? option.floorToCeilingMm / 1000 : 2.7;
+            const graphRooms: RoomData[] = [];
+            if (graphRoomsEnabled) {
+                let rn = 0;
+                for (const rc of set.roomCommands) {
+                    const spec = rc.payload as GraphRoomSpec;
+                    const rd = roomDataFromGraphSpec(
+                        { ...spec, levelId },
+                        { levelHeightM: roomHeightM, roomNumber: String(++rn).padStart(2, '0') },
+                    );
+                    if (rd) graphRooms.push(rd);
+                    else console.warn(`[apartment-layout] §DIAG-GRAPH-VALIDATE skipped room "${spec.name}" (unusable polygon → falls back to detection)`);
+                }
+            }
+            const useGraphRooms = graphRooms.length > 0;
             const openingItems = [
                 ...set.openingCommands.map(op => ({ kind: 'door' as const, p: op.payload as { wallId: string; opening: unknown } })),
                 ...set.shellWindowOpeningCommands.map(op => ({ kind: 'window' as const, p: op.payload as { wallId: string; opening: unknown } })),
             ];
-            const hasAnyCmd = openingItems.length > 0 || set.boundaryCommands.length > 0;
+            const hasAnyCmd = openingItems.length > 0 || set.boundaryCommands.length > 0 || useGraphRooms;
             if (cm && hasAnyCmd) {
                 try {
                     batchCoordinator.runBatch(() => {
@@ -372,10 +400,20 @@ export class ApartmentLayoutExecutor {
                                 console.warn('[apartment-layout] boundaries batch failed (skipped):', e);
                             }
                         }
+                        // ADR-0069 — graph-authoritative ROOMS (one batch → one room-store snapshot).
+                        if (useGraphRooms) {
+                            try {
+                                cm.execute(new BatchCreateRoomsCommand(graphRooms));
+                            } catch (e) {
+                                console.warn('[apartment-layout] graph-room batch failed (rooms fall back to detection):', e);
+                            }
+                        }
                     }, {
                         levelIds: [levelId],
-                        totalElementCount: set.openingCommands.length + set.shellWindowOpeningCommands.length + set.boundaryCommands.length,
-                        skipRedetectRooms: false,
+                        totalElementCount: set.openingCommands.length + set.shellWindowOpeningCommands.length + set.boundaryCommands.length + graphRooms.length,
+                        // ADR-0069 GR1 — when graph rooms are created, detection must NOT
+                        // auto-create/fragment on this generation (validation-only).
+                        skipRedetectRooms: useGraphRooms,
                     });
                 } catch (e) { console.warn('[apartment-layout] doors+boundaries+shellWindows batch failed (non-fatal):', e); }
 
@@ -419,7 +457,19 @@ export class ApartmentLayoutExecutor {
             }, 500);
 
             emitDone(doorsMade);
-            this._nameDetectedRooms(runtime, levelId, option);
+            // ADR-0069 — graph rooms already carry name + occupancyType (no detection
+            // naming round-trip). §DIAG-GRAPH-VALIDATE surfaces created-vs-designed; a
+            // mismatch means some rooms lacked polygons + fell back to detection naming.
+            if (useGraphRooms) {
+                const matched = graphRooms.length === option.rooms.length;
+                console.log(
+                    `[apartment-layout] §DIAG-GRAPH-VALIDATE graph-rooms created=${graphRooms.length} / ` +
+                    `option.rooms=${option.rooms.length}${matched ? ' ✓ (rooms are the engine design — detection validation-only)' : ' ⚠ (some rooms had no polygon → detection fallback for those)'}`,
+                );
+                if (!matched) this._nameDetectedRooms(runtime, levelId, option);   // name any detection-fallback rooms
+            } else {
+                this._nameDetectedRooms(runtime, levelId, option);
+            }
         };
 
         // OI-053g (perf): EVENT-DRIVEN readiness. The Phase-1 wall batch buffers its
