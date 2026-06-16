@@ -130,20 +130,64 @@ interface WallRecord {
 }
 
 /** T1.W-C parity — gather EXTERNAL shell walls on a level (world metres) so
- *  engine-emitted shell windows resolve to existing wall ids. */
-function gatherShellWalls(levelId: string): readonly { id: string; start: { x: number; z: number }; end: { x: number; z: number } }[] {
+ *  engine-emitted shell windows resolve to existing wall ids.
+ *
+ *  §SHELL-WALLS-GEOMETRIC (2026-06-16) — identify the shell GEOMETRICALLY against the
+ *  authoritative drawn footprint ring, NOT via `facadeOrientationService.isExterior`.
+ *  ROOT of the founder's "ground-floor walls have no openings for windows/doors": the
+ *  façade service classifies a wall as exterior by how many ROOMS bound it
+ *  (`isExterior = roomCount <= 1`), and at house-generation time the ground level has
+ *  ZERO (or stale) detected rooms — so `getFacades()` returns a map that does not even
+ *  CONTAIN the freshly-drawn shell walls. `facades.get(id)?.isExterior` is then
+ *  `undefined` for every shell wall → all were filtered out → `shellWalls = []` →
+ *  `buildLayoutCommands` emitted NO `shellWindowOpeningCommands` → the façade windows +
+ *  entrance door were never punched → the walls shipped SOLID. The fix is room- and
+ *  timing-independent: a wall is a shell wall iff BOTH its endpoints lie on the drawn
+ *  footprint ring (`shell.perimeter === wallsToPolygon(drawn shell baselines)`, so the
+ *  shell walls sit exactly on it; interior partitions sit well off it). The façade
+ *  filter remains the fallback only when no footprint is supplied. */
+function gatherShellWalls(
+    levelId: string,
+    footprint?: ReadonlyArray<{ x: number; z: number }>,
+): readonly { id: string; start: { x: number; z: number }; end: { x: number; z: number } }[] {
     const wallStore = storeRegistry.getStoreForType('wall') as unknown as { getAll?(): WallRecord[] } | undefined;
-    const all = wallStore?.getAll?.() ?? [];
-    const facades = facadeOrientationService.getFacades(levelId);
-    const out: { id: string; start: { x: number; z: number }; end: { x: number; z: number } }[] = [];
-    for (const w of all) {
-        if (w.levelId !== levelId) continue;
-        if (!facades.get(w.id)?.isExterior) continue;
-        const bl = w.baseLine;
-        if (!bl || bl.length < 2 || !bl[0] || !bl[1]) continue;
-        out.push({ id: w.id, start: { x: bl[0].x, z: bl[0].z }, end: { x: bl[1].x, z: bl[1].z } });
+    const all = (wallStore?.getAll?.() ?? []).filter(
+        w => w.levelId === levelId && w.baseLine && w.baseLine.length >= 2 && w.baseLine[0] && w.baseLine[1],
+    );
+    const toSeg = (w: WallRecord) => ({
+        id: w.id,
+        start: { x: w.baseLine![0]!.x, z: w.baseLine![0]!.z },
+        end: { x: w.baseLine![1]!.x, z: w.baseLine![1]!.z },
+    });
+
+    // Primary — geometric match to the drawn footprint ring (room-independent).
+    if (footprint && footprint.length >= 3) {
+        const distToRing = (p: { x: number; z: number }): number => {
+            let best = Infinity;
+            for (let i = 0; i < footprint.length; i++) {
+                const a = footprint[i]!, b = footprint[(i + 1) % footprint.length]!;
+                const dx = b.x - a.x, dz = b.z - a.z;
+                const len2 = dx * dx + dz * dz;
+                let t = len2 > 0 ? ((p.x - a.x) * dx + (p.z - a.z) * dz) / len2 : 0;
+                t = Math.max(0, Math.min(1, t));
+                best = Math.min(best, Math.hypot(p.x - (a.x + t * dx), p.z - (a.z + t * dz)));
+            }
+            return best;
+        };
+        // 0.30 m: generous vs miter/weld drift on a rotated drawn shell, yet far tighter
+        // than any interior partition's distance to the perimeter (partitions span the
+        // interior, so at least one endpoint is metres off the ring).
+        const RING_TOL_M = 0.30;
+        const onRing = all.filter(w => {
+            const s = toSeg(w);
+            return distToRing(s.start) <= RING_TOL_M && distToRing(s.end) <= RING_TOL_M;
+        });
+        if (onRing.length >= 3) return onRing.map(toSeg);
     }
-    return out;
+
+    // Fallback — façade-service isExterior (only when no footprint, or no ring match).
+    const facades = facadeOrientationService.getFacades(levelId);
+    return all.filter(w => facades.get(w.id)?.isExterior).map(toSeg);
 }
 
 /** Build a ShellAnalysis from the active level's EXTERIOR walls (mirrors the
@@ -473,7 +517,10 @@ export class HouseLayoutExecutor {
                     : this._buildPerimeterShell(storey, wallHeightM, i, result.storeys.length, DEFAULT_SLAB_THICKNESS_M);
                 if (perimeter) perimeterByLevel.set(storey.levelId, perimeter);
                 const shellWalls = isGround
-                    ? gatherShellWalls(storey.levelId)
+                    // §SHELL-WALLS-GEOMETRIC — pass the drawn footprint ring so the shell is
+                    // identified by geometry (room-independent), not the façade service that
+                    // returns nothing when the ground level has no detected rooms yet.
+                    ? gatherShellWalls(storey.levelId, shell.perimeter)
                     : (perimeter?.shellWalls ?? []);
                 // §DIAG-EXEC-WINDOWS support — record this storey's authoritative shell
                 // (perimeter) wall ids so the later §DIAG-EXEC-WINDOWS pass decides
