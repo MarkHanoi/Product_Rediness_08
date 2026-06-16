@@ -147,6 +147,23 @@ no parallel graph store. The existing typed engine edges (`tgl/edgeTypes.ts`) an
 matrix are the data sources the projections read — the five graphs do not invent new truth, they
 *disambiguate* the existing relations into separate, legible lenses.
 
+**FG7 — Circulation correctness is an INVARIANT on the tiling, not a post-hoc repair (founder brief, 2026-06-16).** Today circulation is *derived from geometry* (carve a corridor strip → tile rooms → hope detection infers connections) and patched after the fact by `§CIRCULATION-REROUTE` / `§STAIR-SPINE-TOUCH`. On a rotated or stair-fragmented plate the strip breaks, rooms isolate, the stair becomes an obstacle. The model must invert: **circulation is derived from the access graph; geometry serves it.** Three invariants that must always hold (a candidate violating any is *not* a valid tiling):
+
+- **INV-1 — every habitable room has exactly one door onto a circulation space** (`bedroom/master/bathroom → corridor`). This is `accessFrom` in `programRules.ts`, but it must be a *pre-condition on tiling*, checked on the geometric path, not the `§CIRCULATION-REROUTE` repair that runs after tiling.
+- **INV-2 — the stair is the circulation root on every upper floor.** The landing polygon must *share an edge* with the stair opening; every room's door-path traces back to that edge. A tiling whose landing doesn't touch the stair opening is invalid.
+- **INV-3 — the corridor spans the full depth of the private zone:** `corridor.length ≥ max(Σ served-room widths per side)`. The corridor length is determined by the room set it serves, not a fixed strip.
+
+**The graph-first sequence (S5 target):** build access graph → **CHECK path from every private room to the stair-top; reject the strategy if none** → derive corridor geometry from the graph (width 1.2 m min, length from served set) → place rooms with door-side facing the corridor → place the stair so its top opening shares the landing edge → emit walls → detect to *validate*, never to define (ADR-0069).
+
+**Staged roadmap (highest-leverage first; each independently shippable, each ai-host-suite-gated):**
+
+1. **Least-bad ordering by circulation correctness (the real lever — refines the founder's "item 1").** The `§TOPO-HARD-REJECT` gate *already* flags a sealed stair (`unroutedToCirculationRoomIds` ∋ stair → `failed.push('circulation')`, `enumerate.ts:386`). The defect is one level up: because the **bathroom is almost always sealed**, *every* candidate is hard-invalid, so selection falls to the least-bad tier (`enumerate.ts:1893`) which sorts by Pareto rank then **`weighted`** (`:1921-1923`) — and `circ` is a soft term, so a candidate that drops a bedroom+bathroom (`weighted 0.595`) outranks one that drops nothing AND connects the stair (`weighted 0.582`, `sharesStairWall=YES`, `stairsBridged=1/1`). **Fix:** in the `allHardInvalid` path, order the least-bad pool *lexicographically* — fewest sealed/unrouted-to-circulation rooms (and stair-connected) **before** the blended `weighted`. This makes the good candidates *that already exist in the pool* win, with zero new geometry. No-op when a hard-valid candidate exists.
+2. **Corridor↔stair contiguity** — `orientCorridorToKeepOut` (exists) must always run when `stairCarved`, so the carved corridor face reaches the stair keep-out (`§DIAG-STAIR-CIRC sharesStairWall` → YES).
+3. **Corridor-length invariant (INV-3)** — after carve, if `corridor.length < Σ served-room min-widths`, widen by stealing from the PUBLIC zone (never the private), else fail the strategy.
+4. **Stair as a first-class circulation graph node (full S5 reform)** — directed edge stair-top → landing; require a continuous graph path from every private room to that node *before* geometry emits.
+
+Items 1–2 are the highest leverage and ship before the full S5 reform; item 1 alone would have made the connected-stair candidates win on the founder's first-floor repros. Cross-refs: the door-rescue / stair-fragmentation diagnosis in the daily-use log; ADR-0069 (graph-authoritative rooms — the pre-condition that makes invariant-checking-before-emit possible).
+
 ## Consequences
 
 - **Positive — legibility for both the optimizer and the eye.** A single dense network becomes five
