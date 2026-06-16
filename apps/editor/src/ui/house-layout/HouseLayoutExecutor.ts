@@ -35,10 +35,15 @@ import {
     CreateRoofCommand,
     CreateWallOpeningsBatchCommand,
     CreateRoomBoundingLinesBatchCommand,
+    BatchCreateRoomsCommand,
     CreateHandrailCommand,
     UpdateWallHeightCommand,
     ReDetectRoomsCommand,
 } from '@pryzm/command-registry';
+// ADR-0069 (GR1/GR4) — graph-authoritative rooms for the house: create Room elements
+// straight from the engine's per-storey room polygons (set.roomCommands) instead of
+// letting detection re-derive (and fragment) them on the upper floors.
+import { roomDataFromGraphSpec, type GraphRoomSpec, type RoomData } from '@pryzm/room-topology';
 import { facadeOrientationService } from '@pryzm/spatial-index';
 import { computeStairFootprintRect } from '@pryzm/geometry-stair';
 import { isGableFriendly, isConvexPolygon, canDecomposeConcave } from '@pryzm/geometry-roof';
@@ -1188,6 +1193,10 @@ export class HouseLayoutExecutor {
                 // awaits that storey's `apartment.room-name-completed` event before
                 // furnishing it, so EVERY storey (ground included) is tagged first.
                 const optionByLevel = new Map(perStorey.map(s => [s.levelId, s.option] as const));
+                // ADR-0069 (GR1/GR4) — per-storey command set, so nameStorey can create
+                // Room elements straight from the engine's room polygons (set.roomCommands).
+                const setByLevel = new Map(perStorey.map(s => [s.levelId, s.set] as const));
+                const graphRoomsEnabled = (window as unknown as { __pryzmGraphRooms?: boolean }).__pryzmGraphRooms !== false;
                 // §UPPER-CIRCULATION-CORRIDOR (founder full-house test, 2026-06-12) —
                 // the stair arrives on an UPPER storey into the engine's `corridor`
                 // circulation space. The engine no longer mints a `hall`/"Entrance Hall"
@@ -1228,6 +1237,56 @@ export class HouseLayoutExecutor {
                 const nameStorey = (levelId: string): void => {
                     const option = optionByLevel.get(levelId);
                     if (!option) { console.warn('[house-layout] no layout option to name storey', levelId); return; }
+                    const isGround = levelId === groundLevelId;
+                    const namedOption = isGround ? option : relabelUpperCirculation(option);
+
+                    // ── ADR-0069 (GR1/GR4) — graph-authoritative rooms ────────────────────
+                    // Create the storey's Room elements DIRECTLY from the engine's room
+                    // polygons (set.roomCommands) so the SHIPPED rooms ARE the designed rooms.
+                    // This is THE house fix: the upper floor no longer fragments into "Room
+                    // NN" strips because detection no longer DEFINES the rooms (it had been
+                    // re-deriving them from trimmed-loose walls → unclosed loops → 12 cells
+                    // for a 5-room design). Rooms carry their own name+occupancy from the
+                    // (corridor-relabelled) option, so the ReDetect+rename round-trip is
+                    // skipped. Reversible: window.__pryzmGraphRooms=false → legacy detection.
+                    const set = setByLevel.get(levelId);
+                    if (graphRoomsEnabled && set && set.roomCommands.length > 0) {
+                        const cmRoom = getCommandManager();
+                        if (cmRoom?.execute) {
+                            // Names from the (corridor-relabelled) option, matched to the room
+                            // spec by name; the spec's own name is the engine default otherwise.
+                            const nameByEngineName = new Map(namedOption.rooms.map(r => [r.name, r.name] as const));
+                            const roomHeightM = floorToFloorM > 0 ? floorToFloorM : 2.7;
+                            const graphRooms: RoomData[] = [];
+                            let rn = 0;
+                            for (const rc of set.roomCommands) {
+                                const spec = rc.payload as GraphRoomSpec;
+                                const rd = roomDataFromGraphSpec(
+                                    { ...spec, levelId, name: nameByEngineName.get(spec.name) ?? spec.name },
+                                    { levelHeightM: roomHeightM, roomNumber: String(++rn).padStart(2, '0') },
+                                );
+                                if (rd) graphRooms.push(rd);
+                                else console.warn(`[house-layout] §DIAG-GRAPH-VALIDATE skipped room "${spec.name}" on ${levelId} (unusable polygon → detection fallback)`);
+                            }
+                            if (graphRooms.length > 0) {
+                                try {
+                                    cmRoom.execute(new BatchCreateRoomsCommand(graphRooms), { source: 'HOUSE_GRAPH_ROOMS' });
+                                    const matched = graphRooms.length === namedOption.rooms.length;
+                                    console.log(
+                                        `[house-layout] §DIAG-GRAPH-VALIDATE ${levelId}: graph-rooms created=${graphRooms.length} / ` +
+                                        `option.rooms=${namedOption.rooms.length}${matched ? ' ✓ (rooms are the engine design — detection no longer defines them)' : ' ⚠ (some rooms had no polygon → detection fallback for those)'}`,
+                                    );
+                                    return;   // rooms created + named from the graph — skip the detect+rename round-trip
+                                } catch (e) {
+                                    console.warn('[house-layout] graph-room batch failed on', levelId, '— falling back to detection:', e);
+                                }
+                            }
+                        }
+                    }
+
+                    // ── Legacy path (flag off, or no usable room polygons) ────────────────
+                    // §ROOM-REDETECT-BEFORE-NAME — authoritative redetect immediately before
+                    // naming so naming runs on the clean detected set (not a stale one).
                     try {
                         const cmRe = getCommandManager();
                         if (cmRe?.execute) {
@@ -1240,13 +1299,7 @@ export class HouseLayoutExecutor {
                     } catch (e) {
                         console.warn('[house-layout] §ROOM-REDETECT-BEFORE-NAME failed (non-fatal):', e);
                     }
-                    const isGround = levelId === groundLevelId;
-                    nameDetectedRooms(
-                        runtime,
-                        levelId,
-                        isGround ? option : relabelUpperCirculation(option),
-                        '[house-layout]',
-                    );
+                    nameDetectedRooms(runtime, levelId, namedOption, '[house-layout]');
                 };
                 // §A.21.i — fan the post-generation finish chain (name → floor →
                 // ceiling → furnish → light) out across EVERY storey level, in

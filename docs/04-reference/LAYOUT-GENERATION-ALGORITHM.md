@@ -2872,3 +2872,82 @@ placed rooms survive detection as real rooms. Neither is a residual-policy tweak
   blocks larger habitable fill cells; the `housePartitionReachDetection` no-flood invariant.
 - Reference: §13 (polygon-native subdivision) — the circulation-from-access-graph reform is the
   shared cure for both the L-shape (§13) and this fill problem.
+
+## 15. GRAPH-AUTHORITATIVE ROOM IDENTITY AT EXECUTION (ADR-0069 — the divergence cure, SHIPPING)
+
+This is the architectural answer to "why is the APARTMENT so much cleaner than the HOUSE — edges,
+joints, layout, everything?" and to the recurring upper-floor fragmentation (a 5-room design shipping
+as 12 detected "Room 01-NNN" strips + slivers). It is governed by **ADR-0069** (which sharpens
+ADR-0066 AG2) and the SPEC-ACCESS-GRAPH companion.
+
+### 15.1 The root: detection RE-DERIVED room identity from the built walls
+
+Both typologies share ONE engine (D-TGL → `option.rooms`, the clean polygons the modal PREVIEW
+draws). At execution they diverged at the **room-identity boundary**:
+
+- The engine designs a correct, typed room set (`option.rooms`: polygon + type + name + occupancy).
+- The editor then **threw those away** and re-derived rooms with `RoomDetectionEngine`, a planar
+  half-edge face tracer (`PlanarTopologyEngine.computeTopology`). A merge/fragment is an **unclosed
+  loop** — when the editor's `WallJoinResolver` trims a generated partition 0.3–1.2 m loose at a
+  multi-cluster (the prod log: `§MULTI-CLUSTER … pinned=0 trimmed=3/4/5`, `§PARTITION-SHELL-INNER-FACE
+  REFUSED`, `T-JOIN … skipping`), the partition endpoint is not node-coincident with its host → the
+  face walk skips the open divider → rooms merge, or the strip fractures into sliver faces.
+- The apartment *looked* fine only because its walls happen to close (single plate, no pre-drawn-shell
+  weld, no stair carve), so detection re-derived ~the designed set. The house's weld + perimeter-mint
+  + stair-carve leave loose ends → fragmentation. **There is NO detection-tolerance fix**: detection
+  has no size-merge lever, and widening the snap radii re-opens the `§STRICT-ROOMS` false-fusion
+  regression. The cure is necessarily UPSTREAM — *graph first*.
+
+### 15.2 The cure: the engine graph IS the room identity; detection becomes validation-only
+
+`option.rooms` is made the **authoritative** source of room elements at generation. The editor
+creates the Room elements DIRECTLY from the engine polygons; detection no longer DEFINES them.
+
+- **GR4 — `buildLayoutCommands` emits `roomCommands`** (`executePlan.ts`): one `room.create` spec per
+  `option.rooms` entry with a usable polygon — `{ levelId, polygon:[{x,z}] (world-m, SAME frame as
+  `wallBatch`), type, name, occupancyType }`. A room without a usable polygon is skipped with a
+  `warnings` entry (it falls back to detection). Additive + pure; empty rooms ⇒ byte-identical.
+- **`roomDataFromGraphSpec`** (`@pryzm/room-topology/roomFromGraphSpec.ts`): the schema-strict,
+  unit-tested factory that turns a spec into a valid `RoomData` (UUID id, CCW simple polygon repaired
+  or dropped, `detectionMethod:'ai-generated'`, `computeRoomMetrics`, occupancy validated → fallback
+  `'unclassified'`). It **defensively parses the result through the real `RoomDataAddSchema`** and
+  returns `null` (warns) on any failure — so an invalid room can NEVER reach the store / throw at
+  runtime. Mirrors `RoomDetectionEngine`'s own `RoomData` shape exactly.
+- **GR1 — both executors dispatch + detection validation-only.** `ApartmentLayoutExecutor` (Phase-2
+  `runBatch`) and `HouseLayoutExecutor` (`nameStorey`, per storey) dispatch
+  `BatchCreateRoomsCommand(graphRooms)` and set/keep `skipRedetectRooms:true` so detection does NOT
+  auto-create/fragment rooms on the generation; the rooms carry their own name + occupancy, so the
+  `nameDetectedRooms` detect↔name round-trip is SKIPPED. A `§DIAG-GRAPH-VALIDATE` line logs
+  created-vs-designed per level (`✓` when equal).
+- **GR2 — authority is a generation-time SEED, not a lock.** A later manual wall edit still fires its
+  own redetect; `mergeWithExisting` preserves the graph rooms by centroid match. Hand-drawn projects
+  (no graph) stay fully detection-authoritative — zero change.
+- **GR3 — coordinate frame.** Room polygons are emitted in the SAME frame as the dispatched walls
+  (one `buildLayoutCommands` `planToWorldXZ`). Empirically the engine frame ≈ the built-wall world
+  frame (the house GROUND detects ~the right rooms from the built walls, proving alignment), and the
+  `§PROJECT-NORTH` weld is rigid-transform-last (junction nudges, not a bulk shift, with
+  `§RECTIFY-SHELL-PROJECT` projecting endpoints back onto the real shell) — so no separate room-polygon
+  transform is required. The `§DIAG-GRAPH-VALIDATE` + the reversible `window.__pryzmGraphRooms` flag
+  surface / reverse any residual misalignment on a strongly-rotated plate.
+
+### 15.3 Staging + gates
+
+- **v108 — apartment slice** (`ApartmentLayoutExecutor`). House untouched (still detection) so it
+  cannot regress while the mechanism is verified on the simplest frame.
+- **v109 — house slice** (`HouseLayoutExecutor.nameStorey`). The upper floor now ships the engine's
+  room COUNT (5–6) instead of detection's fragmented 12; the ground keeps its (already-good) set,
+  now graph-authoritative + correctly named by construction.
+- Reversible everywhere via `window.__pryzmGraphRooms = false` (→ legacy detection). Gate:
+  `@pryzm/room-topology` 31/31 (incl. the `RoomDataAddSchema` round-trip), `@pryzm/ai-host` 2686,
+  editor typecheck 0 errors. The residual wall-JOINT defects (`§MULTI-CLUSTER` trims, the L-corner
+  notch) are now COSMETIC (walls), not room-identity — rooms no longer depend on the walls closing.
+
+### 15.4 What this does NOT fix (honest scope)
+
+Graph-authoritative rooms fix the room SET (no fragmentation, correct names/areas/occupancy by
+construction). They do NOT fix the wall GEOMETRY defects that still show in 3D: the `§MULTI-CLUSTER`
+loose-trim spikes, the `§PARTITION-SHELL-INNER-FACE REFUSED` stubs, the L-corner notch. Those are the
+`WallJoinResolver` / weld territory (§9.6, ADR-0055/§Y-JUNCTION-CONSENSUS/§WELD-NO-ROTATE) and are now
+decoupled from room identity — a loose wall no longer merges/splits a room, it is just a wall to
+clean up. The circulation-from-access-graph reform (§13/§14) remains the longer-term north star above
+this layer.
