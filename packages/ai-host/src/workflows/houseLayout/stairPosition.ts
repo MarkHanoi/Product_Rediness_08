@@ -522,6 +522,38 @@ function containedCentral(
  * Graceful fallback: a degenerate plate (no perimeter candidates fit) yields just
  * the central candidate, so the result equals the previous central behaviour.
  */
+/**
+ * §STAIR-MID-EDGE-PENALTY — is the shell polygon genuinely CONCAVE (has ≥1 reflex
+ * vertex)? A simple polygon is concave iff its boundary turns BOTH ways — the signed
+ * cross-product of consecutive edge vectors changes sign somewhere. A convex shape
+ * (axis-aligned rectangle OR a sheared/jittery parallelogram-quad — every D52/D59
+ * plate) turns ONE way at every vertex → all-same-sign → NOT concave. An L/T/U has a
+ * re-entrant (reflex) corner → mixed signs → concave. This is the property that lets
+ * the mid-edge penalty fire on a fragmenting L/T/U while leaving a sheared CONVEX quad
+ * (which also fails clean-corner containment) on the legacy wall-hug path. A small
+ * epsilon ignores collinear/jitter turns so micro-noise on a convex boundary never
+ * reads as concave. Pure + deterministic; absent/degenerate poly ⇒ NOT concave (the
+ * conservative legacy choice).
+ */
+export function isConcavePlate(poly?: readonly PlatePolyPt[]): boolean {
+    if (!poly || poly.length < 4) return false;   // <4 verts ⇒ triangle/rect ⇒ convex
+    const n = poly.length;
+    let sawPos = false, sawNeg = false;
+    for (let i = 0; i < n; i++) {
+        const a = poly[(i - 1 + n) % n]!, b = poly[i]!, c = poly[(i + 1) % n]!;
+        const cross = (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x);
+        // Normalise by edge lengths so the threshold is an angle, not an area —
+        // a long near-straight edge with float jitter stays below it.
+        const norm = Math.hypot(b.x - a.x, b.y - a.y) * Math.hypot(c.x - b.x, c.y - b.y);
+        if (norm < 1e-6) continue;                 // degenerate/duplicate vertex — skip
+        const turn = cross / norm;                 // ≈ sin(turn angle) ∈ [−1,1]
+        if (turn > 0.05) sawPos = true;            // ~2.9° — beyond jitter
+        else if (turn < -0.05) sawNeg = true;
+        if (sawPos && sawNeg) return true;          // turns both ways ⇒ a reflex vertex ⇒ concave
+    }
+    return false;
+}
+
 export function chooseStairCorePosition(
     plateW: number,
     plateH: number,
@@ -560,10 +592,24 @@ export function chooseStairCorePosition(
     // founder's "stair conflicts the layout / rooms merge"). The waste term alone can let
     // a flush-on-one-wall MID-EDGE beat a true CORNER (its single flush bonus). Add an
     // explicit fragmentation penalty so a genuine CORNER always wins when one exists.
-    // Sits ABOVE the aspect ordering (< PERIMETER_PREFERENCE so central is still last) so
-    // among perimeter candidates a clean corner beats a fragmenting mid-edge. Applied
-    // ONLY on the aspect path (house) → the legacy waste-only path is byte-identical.
-    const FRAGMENT_PENALTY = 0.5;       // MID-EDGE perimeter pays this; a CORNER pays 0
+    // Sits ABOVE the aspect ordering (< PERIMETER_PREFERENCE so central is still last among
+    // perimeter-bearing CONVEX plates) so among perimeter candidates a clean corner beats a
+    // fragmenting mid-edge. Applied ONLY on the aspect path (house) → the legacy waste-only
+    // path is byte-identical.
+    const FRAGMENT_PENALTY = 0.5;       // MID-EDGE perimeter pays this on a CONVEX plate; a CORNER pays 0
+    // §STAIR-MID-EDGE-PENALTY (founder 2026-06-16) — on a CONCAVE plate (L/T/U) where every
+    // clean-CORNER candidate failed shell-containment and was culled, the ONLY perimeter
+    // options are MID-EDGE — and a MID-EDGE stair on a concave plate is CATEGORICALLY broken:
+    // it fractures the plate into 3 bands with no dominant rect, so §STAIR-OBSTACLE-CARVE can't
+    // run a corridor spine and rooms seal from circulation (the founder's T-U repro:
+    // corridorReachM=0.00 on every strategy). Central at least lets the carve spine a corridor
+    // around it, so on a concave no-corner plate the MID-EDGE must rank BELOW central. This
+    // penalty (> PERIMETER_PREFERENCE 1.0) guarantees that. It fires ONLY when BOTH (a) the
+    // plate is genuinely CONCAVE (a reflex vertex — NOT a convex sheared/jittery quad, which
+    // is what isConcavePlate distinguishes via winding, so D52/D59 wall-hug is preserved) AND
+    // (b) no clean CORNER candidate exists. On a convex plate, or whenever a CORNER is offered,
+    // the legacy 0.5 applies and a perimeter candidate still wins → byte-identical to D52/D59.
+    const MID_EDGE_NO_CORNER_PENALTY = 2.0;
     const flushS = (g: number): number => (g <= 1 ? 1 : 0);
     const isCornerCarve = (c: { kind: StairCorePositionKind; x: number; y: number }): boolean => {
         if (c.kind === 'central') return false;
@@ -600,6 +646,11 @@ export function chooseStairCorePosition(
     // carve (tracked separately, §68.6); today it is a documented, conservative lean.
     const hasPerimeterCandidate = candidates.some(c => c.kind !== 'central');
     const preferCentralSpine = centralSpineViable && !hasPerimeterCandidate;
+    // §STAIR-MID-EDGE-PENALTY gating signals: a clean CORNER survives? + is the plate
+    // genuinely CONCAVE (reflex vertex — not a convex sheared/jittery quad)? The escalated
+    // mid-edge penalty fires ONLY when concave AND no corner (the marooned-stair case).
+    const hasCornerCandidate = candidates.some(c => c.kind !== 'central' && isCornerCarve(c));
+    const plateIsConcave = isConcavePlate(shellPoly);
     const cost = (c: { kind: StairCorePositionKind; x: number; y: number }): number => {
         const waste = stairCoreWaste(plateW, plateH, coreW, coreH, c.x, c.y);
         if (!aspect) return waste;
@@ -609,7 +660,13 @@ export function chooseStairCorePosition(
         const centralPenalty = c.kind === 'central'
             ? (preferCentralSpine ? 0 : PERIMETER_PREFERENCE)
             : 0;
-        const fragPenalty = (c.kind !== 'central' && !isCornerCarve(c)) ? FRAGMENT_PENALTY : 0;
+        // A MID-EDGE perimeter candidate pays the escalated no-corner penalty ONLY on a
+        // genuinely concave plate with no clean corner (so central wins on a fragmenting
+        // L/T/U); otherwise the legacy 0.5 (so a perimeter candidate still wins on a
+        // convex/sheared/jittery plate — D52/D59 preserved).
+        const fragPenalty = (c.kind !== 'central' && !isCornerCarve(c))
+            ? ((plateIsConcave && !hasCornerCandidate) ? MID_EDGE_NO_CORNER_PENALTY : FRAGMENT_PENALTY)
+            : 0;
         return waste + centralPenalty + fragPenalty - ASPECT_WEIGHT * aspectScore(c.kind, aspect);
     };
 

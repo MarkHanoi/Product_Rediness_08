@@ -10,6 +10,7 @@ import {
     chooseStairCorePosition,
     stairCoreWaste,
     aspectFromSunDir,
+    isConcavePlate,
     __candidatesForTest as candidates,
     __aspectScoreForTest as aspectScore,
 } from '../src/workflows/houseLayout/stairPosition.js';
@@ -742,5 +743,37 @@ describe('§STAIR-DEFAULT-BIAS — generateHouseLayout corners the stair with NO
         );
         expect(noSolar.stairs[0]!.rectMm).toEqual(north.stairs[0]!.rectMm);
         expect(noSolar.stairs[0]!.interiorSide).toBe(north.stairs[0]!.interiorSide);
+    });
+});
+
+// §STAIR-MID-EDGE-PENALTY (founder 2026-06-16) — the concavity classifier that gates the
+// "central beats a fragmenting mid-edge stair" penalty. It MUST read a convex sheared /
+// jittery quad as NOT concave (else it would regress the D52/D59 wall-hug invariant) and a
+// re-entrant L/T/U as concave (the founder's fragmenting-stair plate).
+describe('isConcavePlate — gates the §STAIR-MID-EDGE-PENALTY (concave-only)', () => {
+    it('an axis-aligned rectangle is NOT concave', () => {
+        expect(isConcavePlate([{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 8 }, { x: 0, y: 8 }])).toBe(false);
+    });
+    it('a SHEARED convex quad (the D59 plate) is NOT concave', () => {
+        // Parallelogram — every turn is the same way; no reflex vertex.
+        expect(isConcavePlate([{ x: 0, y: 0 }, { x: 10, y: 1.5 }, { x: 10.3, y: 8 }, { x: 0.3, y: 6.5 }])).toBe(false);
+    });
+    it('a JITTERY convex quad is NOT concave (micro-noise below the angle threshold)', () => {
+        expect(isConcavePlate([{ x: 0.01, y: 0 }, { x: 10, y: 0.02 }, { x: 9.98, y: 8 }, { x: 0, y: 7.99 }])).toBe(false);
+    });
+    it('an L-shape (one reflex vertex) IS concave', () => {
+        expect(isConcavePlate([
+            { x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 4 }, { x: 4, y: 4 }, { x: 4, y: 8 }, { x: 0, y: 8 },
+        ])).toBe(true);
+    });
+    it('a T/U-shape (≥2 reflex vertices) IS concave', () => {
+        expect(isConcavePlate([
+            { x: 0, y: 0 }, { x: 12, y: 0 }, { x: 12, y: 8 }, { x: 8, y: 8 },
+            { x: 8, y: 4 }, { x: 4, y: 4 }, { x: 4, y: 8 }, { x: 0, y: 8 },
+        ])).toBe(true);
+    });
+    it('absent / degenerate poly ⇒ NOT concave (conservative legacy choice)', () => {
+        expect(isConcavePlate(undefined)).toBe(false);
+        expect(isConcavePlate([{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }])).toBe(false); // triangle
     });
 });
