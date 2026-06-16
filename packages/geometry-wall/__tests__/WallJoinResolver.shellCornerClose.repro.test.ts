@@ -229,6 +229,47 @@ describe('REPRO — generated-house shell corner closure', () => {
         expect(baselineGap, `corner baseline gap after clamp=${(baselineGap * 1000).toFixed(2)}mm`).toBeLessThan(1e-3);
     });
 
+    it('§CLAMP-COSHARE-WELD ROTATED — same co-share corner at an arbitrary angle stays closed (rotation-invariant)', () => {
+        // The LIVE defect was a ROTATED L-house (v219 §FRONTAGE-TILING-FRAME — rotated
+        // L/T/U plates), not the axis-aligned repro above. The fix recomputes the
+        // partner miter as a bisector of the two wall axes at the clamped vertex, which
+        // should be rotation-invariant — prove it rather than assume it. Take the exact
+        // axis-aligned co-share scenario and rotate EVERY point by an arbitrary angle
+        // about the origin; the corner-closure invariant (baseline endpoints coincide)
+        // is itself rotation-invariant, so the same < 1µm threshold must hold.
+        const THETA = (37 * Math.PI) / 180;            // arbitrary non-axis angle
+        const cosT = Math.cos(THETA), sinT = Math.sin(THETA);
+        const rot = (p: [number, number]): [number, number] =>
+            [p[0] * cosT - p[1] * sinT, p[0] * sinT + p[1] * cosT];
+
+        const V: [number, number] = [2, 0.04];
+        const host  = mk(rot([-5, 0]), rot([5, 0]), 0.2, 1);
+        const wallA = mk(rot([2, 3]), rot(V), 0.2, 2);     // end == V (protruding + corner endpoint)
+        const wallB = mk(rot(V), rot([4.5, 2.5]), 0.2, 3); // start == V (the corner partner)
+        const res = WallJoinResolver.resolveLevel([host, wallA, wallB], { snapRadius: 0.5 });
+
+        const jA = res.get(wallA.id)!;
+        const jB = res.get(wallB.id)!;
+        expect(jA.invalid).toBeFalsy();
+        expect(jB.invalid).toBeFalsy();
+
+        const aEnd = jA.baseLine[1];
+        const bStart = jB.baseLine[0];
+
+        // 1) wallA's end no longer protrudes — its perpendicular distance to the host
+        //    CENTRELINE is ≈ half-thickness (0.099, the inner face), not the pre-clamp
+        //    0.04. Perp distance to a line is rotation-invariant.
+        const h0 = host.baseLine[0], h1 = host.baseLine[1];
+        const hx = h1.x - h0.x, hz = h1.z - h0.z;
+        const hlen = Math.hypot(hx, hz);
+        const perp = Math.abs(((aEnd.x - h0.x) * hz - (aEnd.z - h0.z) * hx) / hlen);
+        expect(perp, `wallA end perp-to-host=${perp.toFixed(4)} should be at inner face ~0.099`).toBeGreaterThan(0.09);
+
+        // 2) THE regression metric — corner baseline gap < 1µm after the clamp.
+        const baselineGap = Math.hypot(bStart.x - aEnd.x, bStart.z - aEnd.z);
+        expect(baselineGap, `rotated corner baseline gap after clamp=${(baselineGap * 1000).toFixed(2)}mm`).toBeLessThan(1e-3);
+    });
+
     it('ROTATED 45° shell + partition T-joining NEAR a corner (within snapRadius)', () => {
         // THE founder case: a partition whose T-contact on the shell lands NEAR a corner,
         // so the partition endpoint falls into the same snap cluster as the two shell
