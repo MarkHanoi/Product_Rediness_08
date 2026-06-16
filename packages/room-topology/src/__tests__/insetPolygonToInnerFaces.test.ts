@@ -195,4 +195,105 @@ describe('insetPolygonToInnerFaces', () => {
       expect(polygonAreaM2(r)).toBeGreaterThan(0);
     }
   });
+
+  // ── §FLOOR-INSET-COLLAPSE (2026-06-16) — door-gap bow-tie → INNER-FACE inset ────
+  // The live defect: a ROTATED room whose centreline boundary was subdivided at a
+  // DOOR GAP. `CreateFloorsByRoomTypeCommand._innerFacePolygon` splits a straight
+  // wall edge at the opening, inserting COLLINEAR intermediate vertices whose two
+  // adjacent edges are exactly collinear but carry DIFFERENT insets (wall
+  // half-thickness on the solid run, 0 across the door gap). On a rotated/irregular
+  // room the per-corner bevel fall-back at those inset-transition vertices folds the
+  // offset edges into a self-intersecting BOW-TIE, which §FLOOR-INSET-SIMPLE
+  // correctly rejects → the OVERSIZED CENTRELINE floor shipped (overlapping the
+  // neighbour under the partition). The live log was:
+  //   room "Kitchen" §DIAG-FLOOR-INSET self-intersecting (bow-tie) → centreline fall-back
+  //   room "Kitchen" boundary=centreline ⚠ (inset collapsed) edges=…/7 door-gaps=1
+  //
+  // These three rings are FAITHFUL synthetic reproductions of that shape, captured by
+  // a probe over rotated (20–45°) irregular rooms subdivided at one forward door gap
+  // (collinear inset-transition verts, exactly as the command builds). On the PRE-FIX
+  // util every one of these fell back to the centreline source (verified: the util
+  // returned the input polygon reference, area == source). The fix retries on a
+  // collinear-collapsed ring (collinear runs merged to one edge carrying the wall's
+  // MAX inset), so the floor now insets to the inner face (area STRICTLY < centreline).
+
+  // Live-like Kitchen: ~19 m² room, 5-corner irregular base, rotated ≈28.5°, ONE
+  // door gap on a wall (inset 0 between two half-thickness solid runs) → 7 ring edges.
+  const liveKitchenRing: RoomVertex[] = [
+    { x: 0, z: 0 },
+    { x: 5.8154, z: 2.9283 },
+    { x: 0.5833, z: 4.459 },
+    { x: 3.7579, z: 6.8688 },
+    { x: 2.9181, z: 6.413 },   // ── door run: this + next form the inset-0 gap
+    { x: 0.964, z: 5.3524 },
+    { x: -1.9304, z: 3.7815 },
+  ];
+  const liveKitchenInsets = [0.15, 0.15, 0.15, 0.15, 0, 0.15, 0.15];
+
+  it('§FLOOR-INSET-COLLAPSE: door-gap bow-tie on a rotated room INSETS (not centreline)', () => {
+    const centreArea = polygonAreaM2(liveKitchenRing);
+    let diag = '';
+    const inner = insetPolygonToInnerFaces(liveKitchenRing, liveKitchenInsets, (l) => { diag += l + '\n'; });
+
+    // The full-ring inset MUST have hit the bow-tie guard (proves we reproduce the
+    // defect path), and the collinear-collapse retry MUST have rescued it.
+    expect(diag).toMatch(/self-intersecting \(bow-tie\)/);
+    expect(diag).toMatch(/collinear-collapse retry succeeded/);
+
+    // The result is now a genuine INNER-FACE inset — NOT the centreline fall-back.
+    expect(inner).not.toBe(liveKitchenRing);          // not the same-ref fail-safe
+    expect(isSimple(inner)).toBe(true);               // simple ring, no wedge
+    const innerArea = polygonAreaM2(inner);
+    expect(innerArea).toBeGreaterThan(0);
+    expect(innerArea).toBeLessThan(centreArea);        // an inset shrinks the floor
+    // A ~0.15 m half-thickness inset trims only a modest slice — the floor must NOT
+    // collapse to a sliver (that would be a different, also-wrong, failure).
+    expect(innerArea).toBeGreaterThan(0.5 * centreArea);
+  });
+
+  it('§FLOOR-INSET-COLLAPSE: more rotated door-gap repros all inset below centreline', () => {
+    const repros: { ring: RoomVertex[]; insets: number[] }[] = [
+      {
+        // ≈44°, ~4.45 m², 0.10 m walls, one door gap (edge 3 inset 0).
+        ring: [
+          { x: 0, z: 0 }, { x: 3.1536, z: 3.3914 }, { x: 0.5721, z: 2.1749 },
+          { x: 1.3861, z: 3.1185 }, { x: 1.8163, z: 3.6171 }, { x: 2.4592, z: 4.3623 },
+          { x: -0.9761, z: 1.0441 },
+        ],
+        insets: [0.1, 0.1, 0.1, 0, 0.1, 0.1, 0.1],
+      },
+      {
+        // ≈20.6°, ~8.92 m², 0.15 m walls, one door gap (edge 3 inset 0).
+        ring: [
+          { x: 0, z: 0 }, { x: 4.6045, z: 1.9757 }, { x: 1.4432, z: 2.8619 },
+          { x: 2.3102, z: 3.352 }, { x: 2.6789, z: 3.5603 }, { x: 3.6195, z: 4.092 },
+          { x: -0.7614, z: 2.4458 },
+        ],
+        insets: [0.15, 0.15, 0.15, 0, 0.15, 0.15, 0.15],
+      },
+    ];
+    for (const { ring, insets } of repros) {
+      const centreArea = polygonAreaM2(ring);
+      let diag = '';
+      const inner = insetPolygonToInnerFaces(ring, insets, (l) => { diag += l + '\n'; });
+      // Defect path reproduced, then rescued by the collapse retry.
+      expect(diag).toMatch(/self-intersecting \(bow-tie\)/);
+      expect(inner).not.toBe(ring);                    // genuinely inset
+      expect(isSimple(inner)).toBe(true);
+      expect(polygonAreaM2(inner)).toBeLessThan(centreArea);
+      expect(polygonAreaM2(inner)).toBeGreaterThan(0);
+    }
+  });
+
+  it('§FLOOR-INSET-COLLAPSE: still falls back to centreline when no clean inset exists', () => {
+    // A genuinely fold-prone sliver (the 6 m × 0.5 m thin room with a 0.4 m inset):
+    // even after collinear collapse there is no simple smaller inset, so the util
+    // MUST keep the centreline ring (a floor is ALWAYS produced — never lost).
+    const thin: RoomVertex[] = [
+      { x: 0, z: 0 }, { x: 6, z: 0 }, { x: 6, z: 0.5 }, { x: 0, z: 0.5 },
+    ];
+    const r = insetPolygonToInnerFaces(thin, [0.4, 0.4, 0.4, 0.4]);
+    expect(r).toBe(thin);                              // centreline fail-safe ref
+    expect(isSimple(r)).toBe(true);
+  });
 });

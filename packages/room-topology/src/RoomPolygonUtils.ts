@@ -238,6 +238,132 @@ export function insetPolygonToInnerFaces(
   const n = polygon.length;
   if (n < 3) return polygon;
 
+  // ── §FLOOR-INSET-COLLAPSE (2026-06-16) ──────────────────────────────────────
+  // FIRST attempt the inset on the ring AS GIVEN. `_insetToInnerFacesOnce` returns
+  // a clean simple inset polygon, or `null` when any guard (spike / inversion /
+  // bow-tie / collapse) rejects it.
+  const direct = _insetToInnerFacesOnce(polygon, edgeInsets, onDiag);
+  if (direct) return direct;
+
+  // The given ring failed — usually a BOW-TIE on a ROTATED room whose boundary was
+  // subdivided at DOOR GAPS: `CreateFloorsByRoomTypeCommand._innerFacePolygon`
+  // splits a straight wall edge at each opening, inserting COLLINEAR intermediate
+  // vertices whose two adjacent edges are exactly collinear but carry DIFFERENT
+  // insets (wall half-thickness on the solid run, 0 across the door gap). The
+  // per-corner bevel fall-back at those collinear inset-transition vertices folds
+  // the offset edges into a self-intersecting wedge → §FLOOR-INSET-SIMPLE rejects
+  // it → the OVERSIZED centreline floor ships and overlaps the neighbour.
+  //
+  // RETRY on a COLLINEAR-COLLAPSED ring: merge each run of forward-collinear edges
+  // into ONE edge carrying the MAX inset of the run (the wall, never the 0 of the
+  // door gap). That removes the bow-tie SOURCE (the spurious collinear vertices)
+  // while preserving the true room corners and the true wall insets, so the ring
+  // insets cleanly to the inner face. Accept the retry ONLY if it is SIMPLE and
+  // STRICTLY SMALLER than the centreline source (an inset can never grow the floor);
+  // otherwise keep the centreline fall-back so a floor is always produced.
+  const collapsed = _collapseCollinearRing(polygon, edgeInsets);
+  if (collapsed && collapsed.ring.length >= 3 && collapsed.ring.length < n) {
+    const retry = _insetToInnerFacesOnce(collapsed.ring, collapsed.insets, onDiag);
+    if (retry && isSimple(retry)) {
+      const retryArea = polygonAreaM2(retry);
+      const srcArea = polygonAreaM2(polygon);
+      if (retryArea > 0.01 && retryArea < srcArea - 1e-6) {
+        onDiag?.(`§DIAG-FLOOR-INSET collinear-collapse retry succeeded (${n}→${collapsed.ring.length} edges, area ${retryArea.toFixed(2)}m² < source ${srcArea.toFixed(2)}m²) → inner-face inset`);
+        return retry;
+      }
+    }
+  }
+
+  // Neither the direct inset nor the collapsed retry produced a valid inner-face
+  // polygon — keep the simple centreline ring so a floor is ALWAYS produced.
+  return polygon;
+}
+
+/**
+ * §FLOOR-INSET-COLLAPSE — merge runs of FORWARD-collinear edges in a subdivided
+ * room ring into single edges, each carrying the MAX inset of the run.
+ *
+ * `_innerFacePolygon` subdivides a straight wall edge at every door opening,
+ * inserting collinear intermediate vertices (perpendicular deviation ≈ float-noise
+ * from the lerp) whose adjacent edges carry different insets (wall half-thickness
+ * vs 0 at the door gap). A vertex is "removable" when its perpendicular distance
+ * from the line through its two neighbours is < 1 mm AND it projects strictly
+ * BETWEEN them (a genuine on-edge subdivision point, never a real corner or a
+ * fold-back). Dropping it collapses the door-gap notch and removes the bow-tie
+ * source; the surviving edge insets to the wall face (max inset), so floors of
+ * adjacent rooms still abut UNDER the wall centreline (the door run is consumed by
+ * the larger neighbour-side run, which is acceptable — the visible seam is at the
+ * inner face, and the §FLOOR-INSET-SIMPLE guard still backstops any bad result).
+ *
+ * Returns `null` when no vertex is removable (nothing to collapse). Pure, O(n).
+ */
+function _collapseCollinearRing(
+  polygon: RoomVertex[],
+  edgeInsets: number[],
+): { ring: RoomVertex[]; insets: number[] } | null {
+  const n = polygon.length;
+  if (n < 3) return null;
+  const COLL_DIST = 1e-3; // 1 mm — a lerp-inserted on-edge vertex deviates ≈ 0.
+  const removable: boolean[] = new Array(n).fill(false);
+  for (let j = 0; j < n; j++) {
+    const a = polygon[(j - 1 + n) % n]!;
+    const b = polygon[j]!;
+    const c = polygon[(j + 1) % n]!;
+    const dx = c.x - a.x, dz = c.z - a.z;
+    const baseLen = Math.hypot(dx, dz);
+    if (baseLen < 1e-9) continue;
+    // Perpendicular distance of b from the line a→c.
+    const perp = Math.abs((b.x - a.x) * dz - (b.z - a.z) * dx) / baseLen;
+    // Projection parameter of b onto a→c (must lie strictly between the neighbours
+    // so a true corner / fold-back is never collapsed).
+    const proj = ((b.x - a.x) * dx + (b.z - a.z) * dz) / (baseLen * baseLen);
+    if (perp < COLL_DIST && proj > 1e-6 && proj < 1 - 1e-6) removable[j] = true;
+  }
+  if (!removable.some(Boolean)) return null;
+
+  // Start the walk at a KEPT vertex so each run merges into the edge leaving it.
+  let start = 0;
+  while (start < n && removable[start]) start++;
+  if (start >= n) return null; // degenerate (all collinear) — leave to the backstop.
+
+  const ring: RoomVertex[] = [];
+  const insets: number[] = [];
+  for (let k = 0; k < n; k++) {
+    const idx = (start + k) % n;
+    if (removable[idx]) continue;
+    ring.push({ x: polygon[idx]!.x, z: polygon[idx]!.z });
+    // The surviving edge leaving `idx` spans every removed (collinear) vertex up to
+    // the next kept vertex — its inset is the MAX over that run (the wall, not the
+    // door gap's 0).
+    let maxInset = Math.max(0, edgeInsets[idx] ?? 0);
+    let m = (idx + 1) % n;
+    let guard = 0;
+    while (removable[m] && guard < n) {
+      maxInset = Math.max(maxInset, edgeInsets[m] ?? 0);
+      m = (m + 1) % n;
+      guard++;
+    }
+    insets.push(maxInset);
+  }
+  if (ring.length < 3) return null;
+  return { ring, insets };
+}
+
+/**
+ * Core single-pass inner-face inset. Returns the mitered/bevelled inset polygon, or
+ * `null` if any robustness guard rejects it (spike / sanitise / near-zero / winding
+ * inversion / larger-than-source / self-intersecting bow-tie). The PUBLIC
+ * `insetPolygonToInnerFaces` wraps this with the §FLOOR-INSET-COLLAPSE retry and the
+ * centreline fail-safe. Pure, O(n²) (the `isSimple` guard dominates).
+ */
+function _insetToInnerFacesOnce(
+  polygon: RoomVertex[],
+  edgeInsets: number[],
+  onDiag?: (line: string) => void,
+): RoomVertex[] | null {
+  const n = polygon.length;
+  if (n < 3) return null;
+
   // Offset each edge-line inward by its inset. Represent each offset line by a
   // point on it (the offset midpoint anchor) plus its direction (unchanged).
   interface Line { px: number; pz: number; dx: number; dz: number; }
@@ -354,32 +480,32 @@ export function insetPolygonToInnerFaces(
     const src = polygon[i]!;
     if (!Number.isFinite(o.x) || !Number.isFinite(o.z) || Math.hypot(o.x - src.x, o.z - src.z) > maxMiterDist + 1e-6) {
       onDiag?.(`§DIAG-FLOOR-INSET per-vertex sanity rejected vertex ${i} (${Math.hypot(o.x - src.x, o.z - src.z).toFixed(1)}m from source) → centreline fall-back`);
-      return polygon;
+      return null;
     }
   }
 
   const sane = sanitisePolygon(out);
-  if (!sane) { onDiag?.('§DIAG-FLOOR-INSET sanitise failed → centreline fall-back'); return polygon; } // fail-safe — never lose the floor
-  if (polygonAreaM2(sane) < 0.01) { onDiag?.('§DIAG-FLOOR-INSET near-zero area → centreline fall-back'); return polygon; }
+  if (!sane) { onDiag?.('§DIAG-FLOOR-INSET sanitise failed → centreline fall-back'); return null; } // fail-safe — never lose the floor
+  if (polygonAreaM2(sane) < 0.01) { onDiag?.('§DIAG-FLOOR-INSET near-zero area → centreline fall-back'); return null; }
   // Inversion guard — a too-large inset crosses the offset edges past each other
   // and FLIPS the winding (the "polygon" turns inside-out, often with a larger
   // unsigned area, so the area check above misses it). If the signed-area sign no
   // longer matches the input, the inset has collapsed → fall back to the original.
   const srcCCW = computeSignedArea(polygon) >= 0;
   const dstCCW = computeSignedArea(sane) >= 0;
-  if (srcCCW !== dstCCW) { onDiag?.('§DIAG-FLOOR-INSET winding inverted → centreline fall-back'); return polygon; }
+  if (srcCCW !== dstCCW) { onDiag?.('§DIAG-FLOOR-INSET winding inverted → centreline fall-back'); return null; }
   // Sanity: the inner face can never be LARGER than the centreline polygon.
-  if (polygonAreaM2(sane) > polygonAreaM2(polygon) + 1e-6) { onDiag?.('§DIAG-FLOOR-INSET larger than source → centreline fall-back'); return polygon; }
+  if (polygonAreaM2(sane) > polygonAreaM2(polygon) + 1e-6) { onDiag?.('§DIAG-FLOOR-INSET larger than source → centreline fall-back'); return null; }
   // SELF-INTERSECTION guard (§FLOOR-INSET-SIMPLE, 2026-06-16) — a too-large /
   // irregular inset (or a bevel fall-back on a near-collinear subdivided ring) can
   // cross adjacent offset edges and produce a BOW-TIE that survives EVERY check
   // above: its larger lobe keeps the winding sign, and its unsigned area stays
   // below the source. A bow-tie renders as a diagonal triangular WEDGE across the
   // room — the founder's recurring "one floor geometrically not working" (FL002/3).
-  // Reject it → centreline fall-back (always a simple ring from detection/graph).
-  // This is the missing guard: the consumer's v213 area-ratio check can't catch a
-  // ~50%-area bow-tie, but `isSimple` catches it definitively.
-  if (!isSimple(sane)) { onDiag?.('§DIAG-FLOOR-INSET self-intersecting (bow-tie) → centreline fall-back'); return polygon; }
+  // Reject it → §FLOOR-INSET-COLLAPSE retry / centreline fall-back (always a simple
+  // ring from detection/graph). This is the missing guard: the consumer's v213
+  // area-ratio check can't catch a ~50%-area bow-tie, but `isSimple` catches it.
+  if (!isSimple(sane)) { onDiag?.('§DIAG-FLOOR-INSET self-intersecting (bow-tie) → centreline fall-back'); return null; }
   return sane;
 }
 
