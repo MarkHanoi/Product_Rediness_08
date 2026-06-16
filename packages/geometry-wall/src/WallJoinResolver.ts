@@ -208,9 +208,23 @@ export class WallJoinResolver {
 
         // ── Existing pair-wise corner + T-join logic ───────────────────────────
         // Pass the set of pre-handled endpoint keys so _detect skips them.
+        //
+        // §CLAMP-COSHARE-WELD (2026-06-16) — record every corner partnership as we
+        // resolve it: endpoint key `wallId:side` → the partner endpoint it is
+        // mitred against. A bisector miter trims each wall's CENTRELINE endpoint to
+        // its OWN miter intersection, so the two baseline endpoints are NOT
+        // coincident after the corner (only the cap planes meet). That means the
+        // later inner-face clamp cannot rediscover the partnership by endpoint
+        // proximity — it must be told. The map is the authoritative record.
+        const cornerPartner = new Map<string, Ep>();
         for (const join of this._detect(walls, bl, handledEndpointKeys, thresholds)) {
-            if (join.kind === 'corner') this._applyCorner(join, bl, blAtDetect, byId, result, thresholds);
-            else                        this._applyT(join, bl, byId, result, thresholds);
+            if (join.kind === 'corner') {
+                this._applyCorner(join, bl, blAtDetect, byId, result, thresholds);
+                cornerPartner.set(`${join.epA.wallId}:${join.epA.side}`, join.epB);
+                cornerPartner.set(`${join.epB.wallId}:${join.epB.side}`, join.epA);
+            } else {
+                this._applyT(join, bl, byId, result, thresholds);
+            }
         }
 
         // ── §PARTITION-SHELL-INNER-FACE (founder invariant, 2026-06-10) ─────────
@@ -231,7 +245,7 @@ export class WallJoinResolver {
         // L-corner miters are untouched (both walls are long → neither is the
         // "much-shorter partition", see _clampEndToShellInnerFace). §SHELL-ANCHOR-
         // PRESERVE is respected: the HOST (shell) is never moved.
-        this._clampPartitionEndsToShellInnerFace(walls, bl, byId, result, thresholds);
+        this._clampPartitionEndsToShellInnerFace(walls, bl, byId, result, thresholds, cornerPartner);
 
         return result;
     }
@@ -254,11 +268,12 @@ export class WallJoinResolver {
      * (comparable length) and genuine interior crossings.
      */
     private static _clampPartitionEndsToShellInnerFace(
-        walls:      WallData[],
-        bl:         Map<string, [THREE.Vector3, THREE.Vector3]>,
-        byId:       Map<string, WallData>,
-        result:     Map<string, JoinData>,
-        thresholds: JoinThresholds,
+        walls:         WallData[],
+        bl:            Map<string, [THREE.Vector3, THREE.Vector3]>,
+        byId:          Map<string, WallData>,
+        result:        Map<string, JoinData>,
+        thresholds:    JoinThresholds,
+        cornerPartner: Map<string, Ep>,
     ): void {
         const SNAP = thresholds.snapRadius;
         for (const w of walls) {
@@ -267,20 +282,21 @@ export class WallJoinResolver {
             const cur = bl.get(w.id);
             if (!cur) continue;
             for (const side of ['start', 'end'] as Side[]) {
-                this._clampEndToShellInnerFace(w, side, walls, bl, byId, result, SNAP, thresholds.minWallLength);
+                this._clampEndToShellInnerFace(w, side, walls, bl, byId, result, SNAP, thresholds.minWallLength, cornerPartner);
             }
         }
     }
 
     private static _clampEndToShellInnerFace(
-        wall:       WallData,
-        side:       Side,
-        walls:      WallData[],
-        bl:         Map<string, [THREE.Vector3, THREE.Vector3]>,
-        _byId:      Map<string, WallData>,
-        result:     Map<string, JoinData>,
-        snap:       number,
-        minLen:     number,
+        wall:          WallData,
+        side:          Side,
+        walls:         WallData[],
+        bl:            Map<string, [THREE.Vector3, THREE.Vector3]>,
+        _byId:         Map<string, WallData>,
+        result:        Map<string, JoinData>,
+        snap:          number,
+        minLen:        number,
+        cornerPartner: Map<string, Ep>,
     ): void {
         const cur = bl.get(wall.id);
         if (!cur) return;
@@ -388,6 +404,27 @@ export class WallJoinResolver {
             return;
         }
 
+        // ── §CLAMP-COSHARE-WELD (2026-06-16) — keep a corner-join partner welded ──
+        // This endpoint may ALSO be a corner-join vertex: the earlier pair-wise
+        // corner pass (resolveLevel ~L211, BEFORE this inner-face clamp ~L240)
+        // mitred it against a partner wall. A bisector miter trims each wall's
+        // CENTRELINE endpoint to its OWN miter intersection, so the two baseline
+        // endpoints are generally NOT coincident — the partnership cannot be
+        // rediscovered by endpoint proximity here, so it was recorded in
+        // `cornerPartner` at corner-resolve time. If this endpoint is a corner
+        // vertex, moving only THIS wall laterally to the host inner face would tear
+        // the corner open by the clamp distance (the founder's "open corner + spike
+        // past the façade": the moved wall mis-terminates while its partner's cap
+        // plane no longer meets it).
+        //
+        // The fix is coordination, NOT tolerance: re-weld the partner by moving its
+        // shared-corner endpoint to the SAME clamped vertex and recompute its miter
+        // so the two cap planes meet there again. Pure read of `bl`; only the
+        // partner's own corner endpoint moves, never the host (§SHELL-ANCHOR-
+        // PRESERVE — the partner is captured up-front so a clamp on the partner is
+        // disjoint from this one).
+        const partner = cornerPartner.get(`${wall.id}:${side}`);
+
         const newBL: [THREE.Vector3, THREE.Vector3] =
             side === 'start' ? [newJoin, we.clone()] : [ws.clone(), newJoin];
         bl.set(wall.id, newBL);
@@ -398,6 +435,52 @@ export class WallJoinResolver {
         if (side === 'start') adj.startMN = miter;
         else                  adj.endMN   = miter;
         result.set(wall.id, adj);
+
+        // §CLAMP-COSHARE-WELD — propagate the move to the corner partner so the
+        // shared vertex stays welded. The partner must be a DIFFERENT wall, not the
+        // host, and not already flagged invalid. Guard: never collapse the partner
+        // below minLen (a refused weld leaves the corner exactly as the corner pass
+        // resolved it — strictly no worse than the pre-fix behaviour). The partner's
+        // miter is recomputed as the bisector of (its own axis, this wall's axis) at
+        // the new vertex so both cap planes meet; if the bisector degenerates
+        // (anti-parallel), fall back to a square cap (null MN) which is watertight.
+        if (partner && partner.wallId !== host.id) {
+            const pAdjExisting = result.get(partner.wallId);
+            const pbl = bl.get(partner.wallId);
+            if (!pAdjExisting?.invalid && pbl) {
+                const pFree = partner.side === 'start' ? pbl[1] : pbl[0];
+                const pNewLen = pFree.distanceTo(newJoin);
+                if (pNewLen >= minLen) {
+                    const pNewBL: [THREE.Vector3, THREE.Vector3] =
+                        partner.side === 'start' ? [newJoin.clone(), pbl[1].clone()] : [pbl[0].clone(), newJoin.clone()];
+                    bl.set(partner.wallId, pNewBL);
+                    const pAdj: JoinData = pAdjExisting ?? { baseLine: pNewBL, startMN: null, endMN: null };
+                    pAdj.baseLine = pNewBL;
+                    // Recompute the partner's miter normal to bisect the new corner.
+                    const thisDir = new THREE.Vector3().subVectors(freePt, newJoin).normalize();   // this wall's axis, free→vertex
+                    const pDir    = new THREE.Vector3().subVectors(pFree, newJoin).normalize();     // partner axis, free→vertex
+                    const bisect  = new THREE.Vector3().addVectors(thisDir, pDir);
+                    let pMN: { nx: number; nz: number } | null = null;
+                    if (bisect.lengthSq() >= 1e-12) {
+                        // Miter plane normal is perpendicular to the bisector in XZ.
+                        bisect.normalize();
+                        pMN = { nx: -bisect.z, nz: bisect.x };
+                    }
+                    if (partner.side === 'start') pAdj.startMN = pMN;
+                    else                          pAdj.endMN   = pMN;
+                    result.set(partner.wallId, pAdj);
+                    console.log(
+                        `[WallJoinResolver] §CLAMP-COSHARE-WELD re-welded corner partner ${partner.wallId}(${partner.side}) ` +
+                        `to clamped vertex of ${wall.id}(${side}) — corner kept closed.`,
+                    );
+                } else {
+                    console.warn(
+                        `[WallJoinResolver] §CLAMP-COSHARE-WELD partner ${partner.wallId}(${partner.side}) weld refused ` +
+                        `(pNewLen=${pNewLen.toFixed(4)} < MIN=${minLen}) — corner left as resolved.`,
+                    );
+                }
+            }
+        }
 
         // §DIAG-WALL-JOIN — partition→shell T-join inner-face clamp (always-on).
         // landed=innerFace ✓ once the clamp has run (the endpoint now sits exactly

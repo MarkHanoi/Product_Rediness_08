@@ -182,6 +182,53 @@ describe('REPRO — generated-house shell corner closure', () => {
         expect(gap, `welded-gap corner gap=${gap.toFixed(2)}mm`).toBeLessThan(2.0);
     });
 
+    it('§CLAMP-COSHARE-WELD — corner-shared endpoint that ALSO protrudes into a host: clamp must keep the corner closed', () => {
+        // Reproduces the live rotated-L-house defect (telemetry §DIAG-WALL-JOIN
+        // PARTITION→SHELL …(end) … clamp=+123.3mm + §DIAG-PERIM-CORNER-WHOLE GAP=124mm):
+        // an endpoint V is simultaneously
+        //   (a) a CORNER-join vertex shared by two short walls (wallA.end ↔ wallB.start), and
+        //   (b) PROTRUDING into a long "through" host wall's body (past its inner face
+        //       toward the outer façade), so the final inner-face clamp pulls it back.
+        // Pre-fix: the clamp moved ONLY wallA's endpoint to the host inner face, tearing
+        // the wallA↔wallB corner open by the clamp distance (the visible spike past the
+        // façade). The fix re-welds wallB's coincident endpoint to the same target.
+        //
+        // Geometry (axis-aligned for clarity):
+        //   host  : long horizontal wall along z = 0, from x=-5 to x=+5 (thickness 0.2 →
+        //           inner face on the +z room side at z = +0.10).
+        //   The shared corner vertex V sits at (2, +0.04) — INSIDE the host body, on the
+        //   centreline side of the inner face (z < 0.10) → it protrudes and must clamp out
+        //   to the inner face (z = +0.099).
+        //   wallA : runs from a free end at (2, 3) DOWN to V — its end protrudes into host.
+        //   wallB : runs from V diagonally inward to a free end at (4.5, 2.5) — its start
+        //           shares V (the L-corner partner). It heads into the room (+z), so it is
+        //           a genuine corner partner, NOT a second wall lying on the host.
+        const host = mk([-5, 0], [5, 0], 0.2, 1);
+        const V: [number, number] = [2, 0.04];
+        const wallA = mk([2, 3], V, 0.2, 2);       // end == V (the protruding + corner endpoint)
+        const wallB = mk(V, [4.5, 2.5], 0.2, 3);   // start == V (the corner partner, heads inward)
+        const res = WallJoinResolver.resolveLevel([host, wallA, wallB], { snapRadius: 0.5 });
+
+        const jA = res.get(wallA.id)!;
+        const jB = res.get(wallB.id)!;
+        expect(jA.invalid).toBeFalsy();
+        expect(jB.invalid).toBeFalsy();
+
+        // 1) wallA's end must no longer protrude — it landed on the host inner face (z≈+0.099).
+        const aEnd = jA.baseLine[1];
+        expect(aEnd.z, `wallA end z=${aEnd.z.toFixed(4)} should be at host inner face (~+0.099)`).toBeGreaterThan(0.09);
+
+        // 2) THE REGRESSION — exactly the live §DIAG-PERIM-CORNER-WHOLE metric: the GAP
+        //    between the two corner walls' RESOLVED baseline joining endpoints. Pre-fix
+        //    the clamp moved ONLY wallA's endpoint (+59 mm here) and left wallB's at the
+        //    old mitred vertex → baseline gap ≈ the clamp distance (the open corner +
+        //    spike). The §CLAMP-COSHARE-WELD fix moves wallB's endpoint to the SAME
+        //    clamped vertex → gap ≈ 0.
+        const bStart = jB.baseLine[0];
+        const baselineGap = Math.hypot(bStart.x - aEnd.x, bStart.z - aEnd.z);
+        expect(baselineGap, `corner baseline gap after clamp=${(baselineGap * 1000).toFixed(2)}mm`).toBeLessThan(1e-3);
+    });
+
     it('ROTATED 45° shell + partition T-joining NEAR a corner (within snapRadius)', () => {
         // THE founder case: a partition whose T-contact on the shell lands NEAR a corner,
         // so the partition endpoint falls into the same snap cluster as the two shell
