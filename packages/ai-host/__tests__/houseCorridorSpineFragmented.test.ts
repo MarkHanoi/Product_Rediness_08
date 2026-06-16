@@ -10,10 +10,12 @@
 // corridor-adjacent → land-locked → SEALED. No tiling makes one corridor adjacent to the
 // entrance AND every private room (the §52.6 dominant-carve-drops vs generic-seals dilemma).
 //
-// THIS TEST is the EXECUTABLE CONTRACT for ADR-0072 P3c (the L/T corridor spine). It is
-// expected RED until P3c lands: it reproduces the two-comparable-arm fracture and asserts
-// the engine seals/strands NO habitable room and that every private/service room shares a
-// ≥ door-width wall with the corridor. Mirrors the tglNoSealedRoom.test.ts harness.
+// THIS TEST is the EXECUTABLE CONTRACT for ADR-0072 P3c (corridor spine on a fragmented plate).
+// It reproduces the two-comparable-band fracture and asserts the engine seals/strands NO
+// habitable room and that every private/service room shares a ≥ door-width wall with the
+// corridor. GREEN since P3c-a (§52.6) — `coalesceFullEdgeRects` re-joins the collinear stair
+// bands into one rect (149 m², dominantFrac 0.80) so the dominant carve spines the whole
+// programme (0 drops, 0 seals). Mirrors the tglNoSealedRoom.test.ts harness.
 
 import { describe, expect, it } from 'vitest';
 import { buildWallsAndDoors } from '../src/workflows/apartmentLayout/tgl/wallsAndDoors.js';
@@ -47,11 +49,6 @@ function layoutFragmented(rects: readonly Rect[], keepOut: readonly Rect[], prog
     return { graph, sub, wd, typeById, placedById };
 }
 
-// NOTE on `it.fails`: these two cases are the EXECUTABLE CONTRACT for the not-yet-built
-// ADR-0072 P3c L/T corridor spine. They currently REPRODUCE the §52.6 seal, so they are
-// marked `it.fails` — vitest treats them as PASSING while the assertion throws (keeps CI
-// green) and will FAIL the moment P3c makes them pass, prompting the implementer to flip
-// `it.fails` → `it` and lock the invariant in. DO NOT delete; this is the gate for P3c.
 describe('§52.6 / ADR-0072 — corridor spine links every room on a stair-fragmented L-plate', () => {
     // Two comparable arms (78 / 71 m²) + three stair-clearance slivers → dominantFrac≈0.42,
     // matching the live §DIAG-RECTS. A corner stair keep-out sits in the small-rect corner.
@@ -64,7 +61,7 @@ describe('§52.6 / ADR-0072 — corridor spine links every room on a stair-fragm
     ];
     const KEEPOUT: Rect[] = [{ x0: 14, z0: 9.5, x1: 16, z1: 12.3 }];   // ~stair core
 
-    it.fails('seals/strands NO habitable room (reproduces the live land-locked bedroom)', () => {
+    it('seals/strands NO habitable room (reproduces the live land-locked bedroom)', () => {
         const { wd, typeById } = layoutFragmented(ARMS, KEEPOUT, GROUND);
         const sealed = wd.sealedRoomIds.filter(id => (typeById.get(id) ?? '') !== 'stair');
         const unrouted = wd.unroutedToCirculationRoomIds.filter(id => (typeById.get(id) ?? '') !== 'stair');
@@ -72,7 +69,7 @@ describe('§52.6 / ADR-0072 — corridor spine links every room on a stair-fragm
         expect(unrouted, `unrouted: ${unrouted.map(id => `${id}(${typeById.get(id)})`)}`).toHaveLength(0);
     });
 
-    it.fails('every private/service room shares a ≥ door-width wall with the corridor (the spine invariant)', () => {
+    it('every private/service room shares a ≥ door-width wall with the corridor (the spine invariant)', () => {
         const { graph, placedById } = layoutFragmented(ARMS, KEEPOUT, GROUND);
         const corridor = graph.rooms.find(r => r.type === 'corridor');
         expect(corridor, 'a corridor was minted').toBeDefined();

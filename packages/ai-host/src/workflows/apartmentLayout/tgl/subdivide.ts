@@ -2338,6 +2338,47 @@ export function trimCorridorToLastDoor(
  * §L4-δ-1b — by default the output is run through `snapAxisLines` so room-rect
  * edges within 50 mm of each other are snapped to the shared mean.
  */
+/**
+ * §52.6 P3c-a (ADR-0072) — coalesce sub-rects that share a FULL edge into their bounding
+ * rectangle. A stair keep-out carve fractures the buildable plate into collinear BANDS
+ * (e.g. the rectilinear decomposition splits one contiguous arm into two stacked rects that
+ * together form a rectangle); the dominant-rect corridor carve then runs on ONE band only
+ * and orphans the rooms allocated to the others → the §52.6 land-lock (bathroom.accessFrom =
+ * ['corridor'] only, no chain rescues it). Re-joining full-edge-adjacent bands first hands the
+ * carve a single large rect that can spine the WHOLE programme.
+ *
+ * Merges two rects ONLY when they are edge-adjacent AND have identical extent on the
+ * perpendicular axis — i.e. their union is EXACTLY the bounding rectangle, so it never covers
+ * empty space or a keep-out notch (a band split off BY a keep-out does not share a full edge
+ * with its neighbour, so it is left alone). Greedy to a fixpoint. Pure + deterministic; a
+ * decomposition with no mergeable bands returns an equivalent set (no behaviour change).
+ */
+function coalesceFullEdgeRects(rects: readonly Rect[]): Rect[] {
+    const out: Rect[] = rects.map(r => ({ ...r }));
+    for (let pass = true; pass;) {
+        pass = false;
+        search:
+        for (let i = 0; i < out.length; i++) {
+            for (let j = i + 1; j < out.length; j++) {
+                const a = out[i]!, b = out[j]!;
+                const sameZ = Math.abs(a.z0 - b.z0) < EPS && Math.abs(a.z1 - b.z1) < EPS;
+                const sameX = Math.abs(a.x0 - b.x0) < EPS && Math.abs(a.x1 - b.x1) < EPS;
+                const adjX = Math.abs(a.x1 - b.x0) < EPS || Math.abs(b.x1 - a.x0) < EPS;
+                const adjZ = Math.abs(a.z1 - b.z0) < EPS || Math.abs(b.z1 - a.z0) < EPS;
+                if (sameZ && adjX) {            // side-by-side, same z-span → one wide rect
+                    out[i] = { x0: Math.min(a.x0, b.x0), z0: a.z0, x1: Math.max(a.x1, b.x1), z1: a.z1 };
+                    out.splice(j, 1); pass = true; break search;
+                }
+                if (sameX && adjZ) {            // stacked, same x-span → one tall rect
+                    out[i] = { x0: a.x0, z0: Math.min(a.z0, b.z0), x1: a.x1, z1: Math.max(a.z1, b.z1) };
+                    out.splice(j, 1); pass = true; break search;
+                }
+            }
+        }
+    }
+    return out;
+}
+
 export function subdivideWithReport(
     rects: readonly Rect[],
     graph: BubbleGraph,
@@ -2525,8 +2566,13 @@ export function subdivideWithReport(
     // not habitable space. Only fires when the carve actually succeeds; otherwise we
     // fall through to the unchanged generic multi-rect path (no regression).
     if (options.stairCarved && valid.length >= 2) {
-        const totalArea = valid.reduce((s, r) => s + rectArea(r), 0);
-        const dominant = valid[0]!;            // valid is sorted byAreaDesc
+        // §52.6 P3c-a (ADR-0072) — re-join collinear stair-fragment BANDS into their bounding
+        // rectangles so the dominant rect is the WHOLE contiguous arm, not one band of it.
+        // Without this the carve spines one band and orphans the rooms in the others (the
+        // §52.6 land-lock). No-op when the decomposition has no full-edge-adjacent bands.
+        const frag = coalesceFullEdgeRects(valid).sort(byAreaDesc);
+        const totalArea = frag.reduce((s, r) => s + rectArea(r), 0);
+        const dominant = frag[0]!;             // frag is sorted byAreaDesc
         // "Dominant" = holds the clear majority of the buildable area. Below this the
         // plate is genuinely split (e.g. a mid-edge stair leaving two comparable
         // wings) and the generic per-rect path is the right tool.
@@ -2553,7 +2599,7 @@ export function subdivideWithReport(
         // apartment byte-identical.
         const DOMINANT_FRACTION = 0.40;
         const dominantFrac = rectArea(dominant) / Math.max(EPS, totalArea);
-        console.log(`[D-TGL subdivide] §DIAG-RECTS stairCarved=true rects=${valid.length} areas=[${valid.map(r => rectArea(r).toFixed(1)).join(', ')}] total=${totalArea.toFixed(1)} dominantFrac=${dominantFrac.toFixed(2)} rooms=${graph.rooms.length} gate=${DOMINANT_FRACTION}`);
+        console.log(`[D-TGL subdivide] §DIAG-RECTS stairCarved=true rects=${frag.length} areas=[${frag.map(r => rectArea(r).toFixed(1)).join(', ')}] total=${totalArea.toFixed(1)} dominantFrac=${dominantFrac.toFixed(2)} rooms=${graph.rooms.length} gate=${DOMINANT_FRACTION}`);
         // §DIAG-BRANCH (Part 8, 2026-06-09) — deterministic branch line for the next prod
         // run: WHICH path the stair-carved plate took. `path=carve` ⇒ the dominant gate
         // fired → the corridor spine runs in the dominant rect (the founder's fix); the
@@ -2584,7 +2630,7 @@ export function subdivideWithReport(
                 // (byte-identical). The original code ran packMultiRect and picked
                 // `genericDrops < carvedDrops`; with carvedDrops=0 that is always false, so
                 // the carve always wins — we short-circuit to the identical result.
-                const generic = packMultiRect(valid, graph);
+                const generic = packMultiRect(frag, graph);
                 const genericDrops = generic.droppedRooms.length;
                 console.log(`[D-TGL subdivide] §DIAG-BRANCH dominant-carve eligible: carveDrops=0 genericDrops=${genericDrops} → picked carve`);
                 return finalise(carved);
@@ -2601,13 +2647,13 @@ export function subdivideWithReport(
             // never need the corridor) into the other fragments — so EVERY habitable room
             // reaches the corridor WITHOUT dropping one. Only fires with 0 drops + a real
             // corridor; otherwise null ⇒ we keep the original behaviour below (no regression).
-            const spanning = tryStairSpanningCorridor(valid, graph, corridorWidthM);
+            const spanning = tryStairSpanningCorridor(frag, graph, corridorWidthM);
             if (spanning !== null) {
                 console.log(`[D-TGL subdivide] §DIAG-BRANCH whole-programme carve ${carved === null ? 'infeasible' : `would drop ${carved.droppedRooms.map(d => d.type).join(',')}`} → §STAIR-SPANNING-CORRIDOR rescued (0 drops, every dependent abuts the corridor)`);
                 return finalise(spanning);
             }
             if (carved !== null) {
-                const generic = packMultiRect(valid, graph);
+                const generic = packMultiRect(frag, graph);
                 const carvedDrops = carved.droppedRooms.length;
                 const genericDrops = generic.droppedRooms.length;
                 const pick = genericDrops < carvedDrops ? 'generic' : 'carve';
@@ -2628,7 +2674,7 @@ export function subdivideWithReport(
         // spanning corridor FIRST: carve the circulation-dependent cluster in the LARGEST
         // band and relocate the public rooms to the others. Only fires with 0 drops + a real
         // corridor; otherwise null ⇒ the unchanged generic pack below (no regression).
-        const spanning = tryStairSpanningCorridor(valid, graph, corridorWidthM);
+        const spanning = tryStairSpanningCorridor(frag, graph, corridorWidthM);
         if (spanning !== null) {
             console.log(`[D-TGL subdivide] §STAIR-SPANNING-CORRIDOR fired on the sub-dominant (generic) path (dominantFrac < gate) — every dependent abuts the corridor, 0 drops`);
             return finalise(spanning);
