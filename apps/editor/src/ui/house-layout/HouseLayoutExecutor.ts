@@ -1085,7 +1085,34 @@ export class HouseLayoutExecutor {
             // can read rooms on every storey. Run as a detached async continuation
             // so execute() still returns promptly (the toast/result aren't blocked).
             // ──────────────────────────────────────────────────────────────────────
-            void this._finishOpenings(perStorey, entranceDoor).then(async () => {
+            //
+            // ── ADR-0069 GR1 (house) — graph-authoritative rooms is an ALL-OR-NOTHING
+            // decision for the multi-storey build, because the _finishOpenings batch's
+            // room redetect is all-levels-or-none (BatchOptions.skipRedetectRooms is a
+            // SINGLE flag for the whole batch — it cannot skip per-level). When EVERY
+            // storey carries graph room polygons (set.roomCommands) we (a) skip that
+            // batch's redetect so detection never auto-creates the generic "Room NN"
+            // set, and (b) pre-mark every storey graph-authoritative so the deferred
+            // §OPENING-VOID-WHOLE-LEVEL wall rebuild's observer-driven redetect is also
+            // suppressed — then nameStorey creates the NAMED graph rooms with nothing to
+            // double against. THIS is the founder's "modal preview is right but the build
+            // has generic / duplicated room labels" defect: detection used to run in
+            // _finishOpenings (skipRedetectRooms:false) and mint "Room NN" rooms BEFORE
+            // the post-gen graph rooms were added on top → the two sets coexisted. If ANY
+            // storey lacks room polygons we keep the legacy detect-defines path for the
+            // WHOLE house (no graph rooms minted → no detect/graph doubles either way).
+            // Mirrors the apartment executor's single-batch `skipRedetectRooms: useGraphRooms`.
+            // Reversible: window.__pryzmGraphRooms === false forces legacy detection.
+            const graphRoomsEnabled = (window as unknown as { __pryzmGraphRooms?: boolean }).__pryzmGraphRooms !== false;
+            const allStoreysGraph = graphRoomsEnabled && perStorey.length > 0
+                && perStorey.every(s => s.set.roomCommands.length > 0);
+            if (allStoreysGraph) {
+                const obs = (window as unknown as { roomTopologyObserver?: { markGraphAuthoritative(l: string): void } }).roomTopologyObserver;
+                for (const s of perStorey) {
+                    try { obs?.markGraphAuthoritative(s.levelId); } catch { /* non-fatal — nameStorey re-marks */ }
+                }
+            }
+            void this._finishOpenings(perStorey, entranceDoor, allStoreysGraph).then(async () => {
                 // §DIAG-LEVELS (2026-06-08) — the founder reported "elements that should
                 // belong to level 1 are on the ground floor" + "no rooms on the upper
                 // floor". Three candidate roots are indistinguishable without a runtime
@@ -1196,7 +1223,10 @@ export class HouseLayoutExecutor {
                 // ADR-0069 (GR1/GR4) — per-storey command set, so nameStorey can create
                 // Room elements straight from the engine's room polygons (set.roomCommands).
                 const setByLevel = new Map(perStorey.map(s => [s.levelId, s.set] as const));
-                const graphRoomsEnabled = (window as unknown as { __pryzmGraphRooms?: boolean }).__pryzmGraphRooms !== false;
+                // ADR-0069 GR1 — `allStoreysGraph` (computed before _finishOpenings, above)
+                // is the single all-or-nothing gate: the batch's redetect was already
+                // skipped + every storey pre-marked graph-authoritative for it, so here we
+                // ONLY create the named graph rooms (no detection set to double against).
                 // §UPPER-CIRCULATION-CORRIDOR (founder full-house test, 2026-06-12) —
                 // the stair arrives on an UPPER storey into the engine's `corridor`
                 // circulation space. The engine no longer mints a `hall`/"Entrance Hall"
@@ -1250,7 +1280,7 @@ export class HouseLayoutExecutor {
                     // (corridor-relabelled) option, so the ReDetect+rename round-trip is
                     // skipped. Reversible: window.__pryzmGraphRooms=false → legacy detection.
                     const set = setByLevel.get(levelId);
-                    if (graphRoomsEnabled && set && set.roomCommands.length > 0) {
+                    if (allStoreysGraph && set && set.roomCommands.length > 0) {
                         const cmRoom = getCommandManager();
                         if (cmRoom?.execute) {
                             // Names from the (corridor-relabelled) option, matched to the room
@@ -2437,14 +2467,21 @@ export class HouseLayoutExecutor {
      * (mirrors ApartmentLayoutExecutor._finishLayout). One coalesced batch with
      * the FINAL room redetect across all storey levels.
      *
-     * Returns a Promise that resolves once the finalizing batch (which carries
-     * `skipRedetectRooms: false` → the room redetect across all storeys) has run,
-     * so the caller can sequence the per-storey post-gen finish chain AFTER rooms
-     * exist. Always resolves (never rejects) — finish is best-effort.
+     * Returns a Promise that resolves once the finalizing batch has run, so the
+     * caller can sequence the per-storey post-gen finish chain AFTER rooms exist.
+     * Always resolves (never rejects) — finish is best-effort.
+     *
+     * `skipRedetectRoomsForGraph` (ADR-0069 GR1): when TRUE (every storey is
+     * graph-authoritative) the batch carries `skipRedetectRooms: true` so detection
+     * does NOT auto-create the generic "Room NN" set — the post-gen chain's nameStorey
+     * mints the NAMED graph rooms instead (no doubles). When FALSE (legacy path) the
+     * batch carries `skipRedetectRooms: false` → the room redetect across all storeys
+     * defines the rooms, exactly as before.
      */
     private _finishOpenings(
         perStorey: ReadonlyArray<{ levelId: string; set: LayoutCommandSet; option: ScoredLayoutOption }>,
         entranceDoor?: EntranceDoorDispatch | null,
+        skipRedetectRoomsForGraph: boolean = false,
     ): Promise<void> {
         // All host walls the openings need, across all storeys.
         //
@@ -2570,7 +2607,7 @@ export class HouseLayoutExecutor {
                                     console.log('[house-layout] §A.21.D29 main entrance door created on shell wall', entranceDoor.shellWallId);
                                 } catch (e) { console.warn('[house-layout] §A.21.D29 entrance door batch failed (non-fatal):', e); }
                             }
-                        }, { levelIds: allLevelIds, totalElementCount: totalItems, skipRedetectRooms: false });
+                        }, { levelIds: allLevelIds, totalElementCount: totalItems, skipRedetectRooms: skipRedetectRoomsForGraph });
                     } catch (e) { console.warn('[house-layout] openings+boundaries batch failed (non-fatal):', e); }
                     console.log('[house-layout] openings + boundaries dispatched —', totalItems, 'item(s) across', perStorey.length, 'storey(s)');
 
@@ -2636,15 +2673,19 @@ export class HouseLayoutExecutor {
                         }, 250);
                     }
                 } finally {
-                    // Give the room redetect (kicked by the batch above) a brief
-                    // settle window before the post-gen chain starts reading rooms.
+                    // Give the batch a brief settle window before the post-gen chain
+                    // starts. Legacy path: lets the room redetect (kicked by the batch
+                    // above) land first. Graph path (skipRedetectRoomsForGraph): no
+                    // redetect runs — nameStorey mints the rooms — but the deferred
+                    // §OPENING-VOID-WHOLE-LEVEL rebuild (250 ms) still needs to clear.
                     setTimeout(resolve, 400);
                 }
             };
 
             // No openings to host → still run go() so the finalizing batch fires
-            // the room redetect across all storeys (walls were created with
-            // skipRedetectRooms:true), then the post-gen chain can read rooms.
+            // (legacy path: the room redetect across all storeys, since walls were
+            // created with skipRedetectRooms:true; graph path: just the boundary lines
+            // + chain hand-off), then the post-gen chain can read/mint rooms.
             if (neededWallIds.size === 0) { go(); return; }
             // Poll the wall store (~150 ms) until the host walls land, then dispatch;
             // force after ~6 s so we never hang. Mirrors the apartment executor.

@@ -406,6 +406,21 @@ export class RoomTopologyObserver {
       console.debug(`[RoomTopologyObserver] _executeRedetect suppressed (paused, level=${levelId})`);
       return;
     }
+    // ADR-0069 (GR1) — the graph-authoritative guard must live at the EXECUTION
+    // chokepoint, not only in `_scheduleRedetect`. Two observer paths reach here
+    // WITHOUT passing through the scheduler: the `bim-wall-mutation-committed`
+    // soft-coalesce timer (_onWallMutationCommitted) and the forced-fire branch.
+    // The house generator's post-openings §OPENING-VOID-WHOLE-LEVEL whole-level
+    // rebuild emits a committed event → that path would auto-redetect a graph-
+    // authoritative level and re-create the fragmented "Room NN" faces ALONGSIDE
+    // the engine's named graph rooms (the founder's duplicated/generic labels).
+    // An EXPLICIT redetect (commandManager.execute(new ReDetectRoomsCommand)) is
+    // unaffected — it bypasses the observer entirely. GR2 surrender (manual wall
+    // add/remove) clears the flag first, so manual edits still re-detect normally.
+    if (this._graphAuthoritativeLevels.has(levelId)) {
+      console.debug(`[RoomTopologyObserver] _executeRedetect suppressed (level=${levelId}, reason=graph-authoritative ADR-0069 GR1)`);
+      return;
+    }
     try {
       if (this._disposed) return;
       const level = this.bimManager.getLevelById(levelId);

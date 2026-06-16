@@ -55,6 +55,14 @@ The shared ai-host `buildLayoutCommands` returns a new `roomCommands` list of ro
 - **Walls still matter:** this does not abandon wall closure — walls render and are validated; it only stops *detection* from being the definition of room identity. The graph-first circulation reform (ADR-0068) continues above this.
 - **Cost / staging:** (1) `roomCommands` in `buildLayoutCommands` + the shared dispatch; (2) detection→validation-only flag per generated level; (3) GR3 frame-shared room-polygon projection + ground clip. Staged behind the apartment byte-identity gate.
 
+## Implementation notes (2026-06-16) — house GR4 compliance + GR1 chokepoint
+
+Two corrections after the founder's build still showed generic/duplicated `Room NN` labels despite v108–v110 being live (verified deployed: live `main` bundle contains `HOUSE_GRAPH_ROOMS` + `markGraphAuthoritative`):
+
+1. **House GR4 was only half-applied.** Unlike the apartment executor (which creates `roomCommands` *and* sets `skipRedetectRooms: useGraphRooms` in **one** batch), the house dispatched graph rooms in a **later** post-gen batch (`nameStorey`) while its `_finishOpenings` batch still ran `skipRedetectRooms: false`. So detection minted the generic `Room NN` set **before** the named graph rooms were added → the two sets coexisted (doubles / mixed labels). **Fix:** graph-authoritative is now an **all-or-nothing** decision for the multi-storey house (the finish batch's redetect is a single all-levels flag, not per-level): if *every* storey carries `roomCommands`, the house pre-marks all storeys authoritative, passes `skipRedetectRooms: true` into `_finishOpenings`, and `nameStorey` mints the named rooms; if *any* storey lacks polygons, the whole house falls to legacy detection (no graph rooms → no doubles either way).
+
+2. **GR1 suppression moved to the execution chokepoint.** v110 guarded only `RoomTopologyObserver._scheduleRedetect`. But the house's post-openings `§OPENING-VOID-WHOLE-LEVEL` whole-level wall rebuild emits `bim-wall-mutation-committed`, whose soft-coalesce timer calls `_executeRedetect` **directly** (bypassing the scheduler). The graph-authoritative check now also sits at the top of `_executeRedetect`, so **every** observer-driven auto-redetect honours GR1. Explicit `commandManager.execute(new ReDetectRoomsCommand)` (manual/legacy) bypasses the observer and is unaffected; GR2 surrender (manual wall add/remove) still clears the flag first. Regression: `observerGraphAuthoritative.test.ts` (4 cases).
+
 ## Alternatives considered
 
 - **Keep ADR-0066 AG2 (detection authoritative, reconcile names).** Rejected: name reconciliation can't fix a wrong room *count*; the founder's fragmentation is a count/segmentation failure, not a naming one.
