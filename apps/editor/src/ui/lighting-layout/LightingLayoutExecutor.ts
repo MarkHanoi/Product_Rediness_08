@@ -139,7 +139,7 @@ export class LightingLayoutExecutor {
                                 console.warn('[lighting-layout] lighting.create failed:', e));
                         }
                     }
-                }, { levelIds: [level.id], totalElementCount: set.commands.length, skipRedetectRooms: true });
+                }, { levelIds: [level.id], totalElementCount: set.commands.length, skipRedetectRooms: true, skipPbrUpgrade: true });  // §POSTGEN-PERF: finish batch adds no walls + PBR-ready meshes → skip the wasted full-scene PBR render
             } catch (e) {
                 console.warn('[lighting-layout] runBatch threw:', e);
                 toast('Lighting auto-place failed — see console.', 'error');

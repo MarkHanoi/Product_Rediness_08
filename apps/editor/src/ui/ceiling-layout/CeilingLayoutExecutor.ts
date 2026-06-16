@@ -137,7 +137,7 @@ export class CeilingLayoutExecutor {
                                 console.warn('[ceiling-layout] ceiling.batch.create failed:', e));
                         }
                     }
-                }, { levelIds: [level.id], totalElementCount: set.totalElementCount, skipRedetectRooms: true });
+                }, { levelIds: [level.id], totalElementCount: set.totalElementCount, skipRedetectRooms: true, skipPbrUpgrade: true });  // §POSTGEN-PERF: finish batch adds no walls + PBR-ready meshes → skip the wasted full-scene PBR render
             } catch (e) {
                 console.warn('[ceiling-layout] runBatch threw:', e);
                 toast('Ceiling auto-place failed — see console.', 'error');

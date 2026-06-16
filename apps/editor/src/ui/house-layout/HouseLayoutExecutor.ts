@@ -1390,6 +1390,16 @@ export class HouseLayoutExecutor {
                                         `[house-layout] §DIAG-GRAPH-VALIDATE ${levelId}: graph-rooms created=${graphRooms.length} / ` +
                                         `option.rooms=${namedOption.rooms.length}${matched ? ' ✓ (rooms are the engine design — detection no longer defines them)' : ' ⚠ (some rooms had no polygon → detection fallback for those)'}`,
                                     );
+                                    // §POSTGEN-PERF (2026-06-16) — the graph-rooms path creates + names rooms
+                                    // SYNCHRONOUSLY here, so signal the orchestrator's naming gate NOW. Without this
+                                    // the default (graph) path never emits `apartment.room-name-completed` (only the
+                                    // legacy `nameDetectedRooms` path does), so `runHousePostGenChain` burns the full
+                                    // ROOM_NAME_TIMEOUT_MS (3.5 s) dead-wait per storey. Mirrors nameDetectedRooms.ts:89.
+                                    try {
+                                        runtime.events.emit('apartment.room-name-completed', {
+                                            levelId, source: 'graph-rooms', elapsedMs: 0, detectedRooms: graphRooms.length,
+                                        });
+                                    } catch { /* event-bus failure must never break the executor */ }
                                     return;   // rooms created + named from the graph — skip the detect+rename round-trip
                                 } catch (e) {
                                     console.warn('[house-layout] graph-room batch failed on', levelId, '— falling back to detection:', e);

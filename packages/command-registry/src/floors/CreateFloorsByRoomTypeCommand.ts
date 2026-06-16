@@ -163,6 +163,9 @@ export class CreateFloorsByRoomTypeCommand implements Command {
                 levelIds: [this.levelId],
                 totalElementCount: roomsOnLevel(context, this.levelId).length,
                 skipRedetectRooms: true,
+                // §POSTGEN-PERF (2026-06-16) — floors are room-bounded slabs with PBR-ready
+                // materials; the per-batch full-scene PBR/PSO render (~1s) is wasted here.
+                skipPbrUpgrade: true,
             });
         } else {
             run();
