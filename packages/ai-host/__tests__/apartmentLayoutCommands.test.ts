@@ -199,20 +199,21 @@ describe('buildLayoutCommands (A6-wire)', () => {
             expect(windows[0]!.systemTypeId).toBe('wt-timber-casement');
         });
 
-        it('per-room window system-type — bathroom → wt-upvc-casement (privacy)', () => {
+        // §WINDOWS-ALWAYS-TIMBER (founder 2026-06-16) — every window frame is timber.
+        it('per-room window system-type — bathroom → wt-timber-casement (timber frame, obscure glazing in spec)', () => {
             const set = buildLayoutCommands(winOption({
                 windows: [{ wallRef: 1, offset: 500, width: 600, height: 600, sillHeight: 1700, roomType: 'bathroom' }],
             }), OPTS, counterMinter());
             const windows = (set.windowBatch!.payload as { windows: Array<{ systemTypeId?: string }> }).windows;
-            expect(windows[0]!.systemTypeId).toBe('wt-upvc-casement');
+            expect(windows[0]!.systemTypeId).toBe('wt-timber-casement');
         });
 
-        it('per-room window system-type — kitchen → wt-upvc-tilt-turn', () => {
+        it('per-room window system-type — kitchen → wt-timber-casement (timber frame)', () => {
             const set = buildLayoutCommands(winOption({
                 windows: [{ wallRef: 1, offset: 500, width: 1200, height: 1200, sillHeight: 1000, roomType: 'kitchen' }],
             }), OPTS, counterMinter());
             const windows = (set.windowBatch!.payload as { windows: Array<{ systemTypeId?: string }> }).windows;
-            expect(windows[0]!.systemTypeId).toBe('wt-upvc-tilt-turn');
+            expect(windows[0]!.systemTypeId).toBe('wt-timber-casement');
         });
 
         it('no windows in the option → windowBatch is null + windowOpeningCommands is empty', () => {
@@ -324,12 +325,12 @@ describe('buildLayoutCommands (A6-wire)', () => {
             expect(set.totalElementCount).toBe(expected);
         });
 
-        it('per-room finish — bathroom shell window → wt-upvc-casement (privacy)', () => {
+        it('per-room finish — bathroom shell window → wt-timber-casement (timber frame, obscure glazing in spec)', () => {
             const set = buildLayoutCommands(winOption({
                 windows: [{ wallRef: 0, offset: 1000, width: 600, height: 600, sillHeight: 1700, roomType: 'bathroom' }],
             }), baseOpts, counterMinter());
             const windows = (set.shellWindowBatch!.payload as { windows: Array<{ systemTypeId?: string }> }).windows;
-            expect(windows[0]!.systemTypeId).toBe('wt-upvc-casement');
+            expect(windows[0]!.systemTypeId).toBe('wt-timber-casement');
         });
     });
 
@@ -471,7 +472,7 @@ describe('buildLayoutCommands (A6-wire)', () => {
             ],
         });
 
-        it('living↔kitchen door is glazed; bathroom door is privacy; bathroom window privacy uPVC; kitchen window tilt-turn', () => {
+        it('living↔kitchen door is glazed; bathroom door is privacy; all windows are timber (§WINDOWS-ALWAYS-TIMBER)', () => {
             const set = buildLayoutCommands(houseOption(), OPTS, counterMinter());
             // Doors (opening = live field):
             const doorOpenings = set.openingCommands.map(
@@ -479,12 +480,13 @@ describe('buildLayoutCommands (A6-wire)', () => {
             );
             expect(doorOpenings).toContain('dt-glazed-timber');   // living↔kitchen (glazed door)
             expect(doorOpenings).toContain('dt-white-primed');    // corridor↔bathroom (privacy)
-            // Windows (opening = live field):
+            // Windows (opening = live field) — every frame is timber (founder 2026-06-16);
+            // wet-room obscure glazing + kitchen ventilation are specs, not a uPVC frame.
             const winOpenings = set.windowOpeningCommands.map(
                 op => (op.payload as { opening: { systemTypeId?: string } }).opening.systemTypeId,
             );
-            expect(winOpenings).toContain('wt-upvc-casement');    // bathroom (privacy / obscure-class)
-            expect(winOpenings).toContain('wt-upvc-tilt-turn');   // kitchen (ventilation)
+            expect(winOpenings.length).toBeGreaterThan(0);
+            expect(winOpenings.every(t => t === 'wt-timber-casement')).toBe(true);
         });
     });
 });

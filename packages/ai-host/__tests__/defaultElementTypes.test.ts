@@ -13,7 +13,6 @@ import {
     defaultWindowReason,
     DEFAULT_DOOR_TYPE_ID,
     DEFAULT_WINDOW_TYPE_ID,
-    LIVING_PATIO_WINDOW_TYPE_ID,
     ENTRANCE_DOOR_TYPE_ID,
 } from '../src/workflows/apartmentLayout/resolvers/defaultElementTypes.js';
 
@@ -104,14 +103,17 @@ describe('defaultWindowSystemTypeId (T1.D)', () => {
         expect(DEFAULT_WINDOW_TYPE_ID).toBe('wt-timber-casement');
     });
 
-    it('bathroom + ensuite + wc → uPVC casement (privacy)', () => {
-        expect(defaultWindowSystemTypeId('bathroom')).toBe('wt-upvc-casement');
-        expect(defaultWindowSystemTypeId('ensuite')).toBe('wt-upvc-casement');
-        expect(defaultWindowSystemTypeId('wc')).toBe('wt-upvc-casement');
+    // §WINDOWS-ALWAYS-TIMBER (founder 2026-06-16) — every window frame is timber.
+    // Wet-room obscure GLAZING is preserved as a spec, but the FRAME is timber casement
+    // (the catalogue has no timber uPVC-grade variant).
+    it('bathroom + ensuite + wc → timber casement (obscure glazing in spec)', () => {
+        expect(defaultWindowSystemTypeId('bathroom')).toBe('wt-timber-casement');
+        expect(defaultWindowSystemTypeId('ensuite')).toBe('wt-timber-casement');
+        expect(defaultWindowSystemTypeId('wc')).toBe('wt-timber-casement');
     });
 
-    it('kitchen → uPVC tilt-turn (over-sink vent)', () => {
-        expect(defaultWindowSystemTypeId('kitchen')).toBe('wt-upvc-tilt-turn');
+    it('kitchen → timber casement (over-sink ventilation in spec, not a uPVC frame)', () => {
+        expect(defaultWindowSystemTypeId('kitchen')).toBe('wt-timber-casement');
     });
 
     it('dining + bedroom + master + study → timber-casement (heritage default)', () => {
@@ -120,19 +122,16 @@ describe('defaultWindowSystemTypeId (T1.D)', () => {
         }
     });
 
-    // §LIVING-PATIO-TYPE (founder 2026-06-11) — living is a full-height glazed
-    // sliding / patio door (v159 dims), so its TYPE is the glazed-wall product,
-    // NOT a small casement.
-    it('living → glazed sliding / patio door product (not a casement)', () => {
-        expect(defaultWindowSystemTypeId('living')).toBe(LIVING_PATIO_WINDOW_TYPE_ID);
-        expect(defaultWindowSystemTypeId('living')).toBe('wt-aluminium-triple-glazed');
-        expect(defaultWindowSystemTypeId('living')).not.toBe('wt-timber-casement');
-        expect(defaultWindowReason('living')).toMatch(/sliding|patio/);
+    // §WINDOWS-ALWAYS-TIMBER — living keeps its full-height PATIO sizing (a separate
+    // geometry spec) but the FRAME is timber, like every other window.
+    it('living → timber frame (full-height glazed; patio sizing kept as a separate spec)', () => {
+        expect(defaultWindowSystemTypeId('living')).toBe('wt-timber-casement');
+        expect(defaultWindowReason('living')).toMatch(/timber/);
     });
 
-    it('corridor + hall → single-pane', () => {
-        expect(defaultWindowSystemTypeId('corridor')).toBe('wt-single-pane');
-        expect(defaultWindowSystemTypeId('hall')).toBe('wt-single-pane');
+    it('corridor + hall → timber casement', () => {
+        expect(defaultWindowSystemTypeId('corridor')).toBe('wt-timber-casement');
+        expect(defaultWindowSystemTypeId('hall')).toBe('wt-timber-casement');
     });
 
     it('unmapped room type falls back to the editor default (timber casement)', () => {

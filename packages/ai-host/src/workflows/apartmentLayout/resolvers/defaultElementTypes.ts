@@ -163,37 +163,41 @@ const WINDOW_DEFAULTS_BY_TYPE: Readonly<Partial<Record<RoomType, {
     readonly windowTypeId: string;
     readonly reason: string;
 }>>> = {
-    // Wet rooms — uPVC casement: privacy-friendly, easy clean, condensation-
-    // tolerant. Closest fit in today's catalogue (no dedicated obscure-glazed
-    // variant yet — that's a future catalogue extension).
-    bathroom: { windowTypeId: 'wt-upvc-casement', reason: 'wet-room privacy (uPVC, obscure glazing in spec)' },
-    ensuite:  { windowTypeId: 'wt-upvc-casement', reason: 'wet-room privacy (uPVC, obscure glazing in spec)' },
-    wc:       { windowTypeId: 'wt-upvc-casement', reason: 'wet-room privacy (uPVC, obscure glazing in spec)' },
-    utility:  { windowTypeId: 'wt-upvc-casement', reason: 'utility uPVC (durable, low-maintenance)' },
+    // §WINDOWS-ALWAYS-TIMBER (founder 2026-06-16: "always windows should be timber").
+    // Every window's FRAME is timber — the residential material the founder wants
+    // throughout. The catalogue carries only two timber products (wt-timber-casement,
+    // wt-timber-double-hung) — no timber tilt-turn / sliding / uPVC-grade variant — so
+    // every room resolves to `wt-timber-casement` (the versatile timber default). The
+    // per-room INTENT that used to pick a non-timber frame is preserved as a separate
+    // spec, NOT a frame material: wet-room obscure GLAZING, kitchen over-sink
+    // VENTILATION, and the living full-height PATIO sizing are glazing/operation/size
+    // properties layered on the timber frame, not a reason to ship uPVC/aluminium.
+    // (When the catalogue gains timber tilt-turn / sliding-patio products, re-map those
+    // two rooms to them; the frame stays timber regardless.)
+    bathroom: { windowTypeId: 'wt-timber-casement', reason: 'wet-room timber casement (obscure glazing in spec)' },
+    ensuite:  { windowTypeId: 'wt-timber-casement', reason: 'wet-room timber casement (obscure glazing in spec)' },
+    wc:       { windowTypeId: 'wt-timber-casement', reason: 'wet-room timber casement (obscure glazing in spec)' },
+    utility:  { windowTypeId: 'wt-timber-casement', reason: 'utility timber casement (durable timber frame)' },
 
-    // Kitchen — uPVC tilt-turn for over-sink ventilation without sash hardware
-    // obstructing the worktop.
-    kitchen:  { windowTypeId: 'wt-upvc-tilt-turn', reason: 'kitchen tilt-turn (over-sink ventilation)' },
+    // Kitchen — timber casement (over-sink ventilation is an operation/glazing spec;
+    // no timber tilt-turn product in the catalogue yet → timber casement).
+    kitchen:  { windowTypeId: 'wt-timber-casement', reason: 'kitchen timber casement (over-sink ventilation in spec)' },
 
-    // §LIVING-PATIO-TYPE — living = full-height glazed SLIDING / PATIO door
-    // (v159 sized it as one — sill 10 mm, ~2.19 m tall, a glazed wall). Tag the
-    // TYPE to match the geometry: the slim-frame full-glass aluminium product,
-    // the catalogue's closest glazed-wall / patio-door reading. NOT a small
-    // casement (which is what it used to resolve to, against patio-door dims).
-    living:   { windowTypeId: LIVING_PATIO_WINDOW_TYPE_ID, reason: 'living full-height glazed sliding / patio door' },
+    // §LIVING-PATIO-TYPE — living = full-height glazed PATIO sizing (v159: sill 10 mm,
+    // ~2.19 m tall, a glazed wall). The SIZE/geometry stays a glazed wall; the FRAME is
+    // timber per the founder directive (no timber sliding-patio product yet → the timber
+    // casement type carries the full-height glazed unit on its patio dims).
+    living:   { windowTypeId: 'wt-timber-casement', reason: 'living full-height glazed timber (patio sizing in spec)' },
 
-    // Dining + bedrooms + study — heritage timber casement is the residential
-    // default. Same finish as the editor's default — only listed here for the
-    // modal-badge reason text.
+    // Dining + bedrooms + study — heritage timber casement, the residential default.
     dining:   { windowTypeId: 'wt-timber-casement', reason: 'dining timber casement' },
     bedroom:  { windowTypeId: 'wt-timber-casement', reason: 'bedroom timber casement' },
     master:   { windowTypeId: 'wt-timber-casement', reason: 'master timber casement' },
     study:    { windowTypeId: 'wt-timber-casement', reason: 'study timber casement' },
 
-    // Hall + corridor — single-pane utilitarian (rarely on a façade, but
-    // covered for completeness).
-    hall:     { windowTypeId: 'wt-single-pane', reason: 'hall single-pane (utilitarian)' },
-    corridor: { windowTypeId: 'wt-single-pane', reason: 'corridor single-pane (utilitarian)' },
+    // Hall + corridor — timber casement (timber frame throughout; rarely on a façade).
+    hall:     { windowTypeId: 'wt-timber-casement', reason: 'hall timber casement' },
+    corridor: { windowTypeId: 'wt-timber-casement', reason: 'corridor timber casement' },
 };
 
 /**
