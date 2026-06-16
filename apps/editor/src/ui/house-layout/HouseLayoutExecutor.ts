@@ -742,7 +742,10 @@ export class HouseLayoutExecutor {
                         );
                         // §PROJECT-NORTH — RIGID-TRANSFORM-LAST weld in the Project-North
                         // frame when the flag is ON + θ≠0; undefined ⇒ legacy weld.
-                        set = this._weldGroundPartitions(set, shellWalls, weldFrame);
+                        // §SHELL-CONTAIN — pass the storey footprint ring so upper partitions
+                        // left OUTSIDE the perimeter by the rotated-plate residual are clamped
+                        // back onto the shell (same containment as the ground floor).
+                        set = this._weldGroundPartitions(set, shellWalls, weldFrame, storey.footprint);
                         upperWeldRan = true;
                     } else if (upperWeldEnabled && conditionalEnabled) {
                         // §UPPER-SHELL-WELD-COND — axis-aligned plate: VERIFY the bit-exact
@@ -757,7 +760,8 @@ export class HouseLayoutExecutor {
                                 + `path left ${openSeamsBefore} OPEN-SEAM(s) (>0.30m) — falling back to the WELD safety `
                                 + 'net (the same seal the ground floor uses) so the upper rooms seal.',
                             );
-                            set = this._weldGroundPartitions(set, shellWalls, weldFrame);
+                            // §SHELL-CONTAIN — clamp upper partitions to the footprint ring too.
+                            set = this._weldGroundPartitions(set, shellWalls, weldFrame, storey.footprint);
                             upperWeldRan = true;
                             const openSeamsAfter = this._countOpenSeams(set.wallBatch.payload, shellWalls);
                             console.log(
