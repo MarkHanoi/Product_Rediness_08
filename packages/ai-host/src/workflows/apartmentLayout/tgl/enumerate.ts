@@ -44,7 +44,15 @@ import { dimensionsFor } from '../dimensions/roomDimensions.js';
  *  unreachable from the entrance through the door + open-threshold access graph —
  *  computed angle-independently (graph BFS, no axis-aligned bbox heuristic). */
 export type HardFailedRule =
-    | 'window' | 'circulation' | 'privacy' | 'overlap' | 'minarea' | 'mandatory' | 'reach';
+    | 'window' | 'circulation' | 'privacy' | 'overlap' | 'minarea' | 'mandatory' | 'reach'
+    // §CORRIDOR-STAIR-CONTIGUITY (founder spec, 2026-06-17) — on a stair-carved (house)
+    // plate the corridor must SHARE A WALL (≥ a door's width) with the stair keep-out, so
+    // the stair dooring onto circulation rather than being served through a habitable room.
+    // The signal (corridorReachM / sharesStairWall) was computed + logged but never GATED;
+    // this rule turns sharesStairWall=NO into a hard de-rank so the 8-strategy enumeration
+    // floats a contiguous-corridor strategy to the top tier WHEN ONE EXISTS. When none does,
+    // the §TOPO-HARD-REJECT-ALL least-bad fallback still ships (house never goes empty).
+    | 'corridor-stair';
 
 /** §DIAG-MIN-AREA-GATE (tracker §68.1) — the habitable room types whose own
  *  `areaMin` is enforced as a HARD floor. A room of one of these types emitted below
@@ -352,6 +360,52 @@ export function unreachableHabitableRoomIds(args: {
  *                     (Area(R_i ∩ R_j) > ε). `hasRoomOverlap` is the precomputed
  *                     `validateNoRoomOverlap(...).ok === false` signal.
  */
+// §CORRIDOR-STAIR-CONTIGUITY — the minimum shared corridor↔stair wall run (m) that can host
+// a door. Mirrors the subdivider's STAIR_DOOR_MIN_M (0.9 m); kept local so this gate carries
+// no new cross-module import. Below this the stair cannot door onto the corridor.
+const STAIR_DOOR_MIN_M = 0.9;
+// Abutment tolerance (m) for the shared-wall test — two rect edges are "the same wall" within
+// this band. Matches the subdivider's ALIGNMENT_SNAP_EPS_M (0.05 m) so the gate's reach metric
+// agrees with §DIAG-STAIR-CIRC's `corridorReachM`.
+const STAIR_ABUT_EPS_M = 0.05;
+
+/** Length (m) of the shared axis-aligned edge between two rects — 0 when they don't abut, or
+ *  abut only at a corner. The pure-rect mirror of the subdivider's `sharedWallLengthM`: the wall
+ *  run `wallsAndDoors` would host a stair↔corridor door on. */
+function sharedWallRunM(a: Rect, b: Rect): number {
+    const vAbut = Math.abs(a.x1 - b.x0) < STAIR_ABUT_EPS_M || Math.abs(b.x1 - a.x0) < STAIR_ABUT_EPS_M;
+    if (vAbut) {
+        const zOv = Math.min(a.z1, b.z1) - Math.max(a.z0, b.z0);
+        if (zOv > STAIR_ABUT_EPS_M) return zOv;
+    }
+    const hAbut = Math.abs(a.z1 - b.z0) < STAIR_ABUT_EPS_M || Math.abs(b.z1 - a.z0) < STAIR_ABUT_EPS_M;
+    if (hAbut) {
+        const xOv = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0);
+        if (xOv > STAIR_ABUT_EPS_M) return xOv;
+    }
+    return 0;
+}
+
+/**
+ * §CORRIDOR-STAIR-CONTIGUITY — true when this is a STAIR-CARVED (house) plate whose corridor
+ * fails to share a door-width wall (≥ STAIR_DOOR_MIN_M) with ANY stair keep-out. Returns false
+ * (no gate) when there are no keep-outs (apartment path), no corridor placement, or the corridor
+ * does reach a stair. Pure + deterministic; the enumeration-side mirror of subdivide's
+ * §DIAG-STAIR-CIRC reach measurement.
+ */
+export function corridorStairGapFor(
+    placements: readonly RoomPlacement[],
+    corridorId: string | null | undefined,
+    keepOutRects: readonly Rect[] | undefined,
+): boolean {
+    if (!keepOutRects || keepOutRects.length === 0) return false;   // apartment path — no gate
+    if (!corridorId) return false;                                  // no corridor → other rules own it
+    const corr = placements.find(p => p.roomId === corridorId);
+    if (!corr) return false;                                        // corridor dropped → circulation rule owns it
+    const reachM = keepOutRects.reduce((best, ko) => Math.max(best, sharedWallRunM(corr.rect, ko)), 0);
+    return reachM < STAIR_DOOR_MIN_M - EPS;
+}
+
 function evaluateHardTopology(args: {
     readonly bubble: BubbleGraph;
     readonly frontageHardRoomIds: readonly string[];
@@ -366,8 +420,14 @@ function evaluateHardTopology(args: {
      *  reach from the entrance (the SEALED set). Non-empty ⇒ Rule R fails. Computed
      *  angle-independently by `unreachableHabitableRoomIds`. */
     readonly unreachableHabitableRoomIds: readonly string[];
+    /** §CORRIDOR-STAIR-CONTIGUITY — true ⇒ this is a stair-carved (house) plate whose
+     *  corridor does NOT share a door-width wall with any stair keep-out (the
+     *  `sharesStairWall=NO` / `corridorReachM<0.9` case). Always false on the apartment
+     *  path (no keep-out) and when the plate has no corridor, so Rule SC is house-only and
+     *  never fires where it cannot apply. */
+    readonly corridorStairGap: boolean;
 }): readonly HardFailedRule[] {
-    const { bubble, frontageHardRoomIds, unroutedToCirculationRoomIds, doorOpenings, hasRoomOverlap, hasUnderMinArea, hasMissingMandatory, unreachableHabitableRoomIds } = args;
+    const { bubble, frontageHardRoomIds, unroutedToCirculationRoomIds, doorOpenings, hasRoomOverlap, hasUnderMinArea, hasMissingMandatory, unreachableHabitableRoomIds, corridorStairGap } = args;
     const typeById = new Map<string, string>();
     for (const r of bubble.rooms) typeById.set(r.id, r.type);
 
@@ -449,6 +509,19 @@ function evaluateHardTopology(args: {
     // by `enumerateLayouts` (empty result + reason), like the §ENVELOPE-DIAGNOSTIC.
     if (hasMissingMandatory) {
         failed.push('mandatory');
+    }
+
+    // Rule SC — §CORRIDOR-STAIR-CONTIGUITY (founder spec, 2026-06-17). On a stair-carved
+    // (house) plate whose corridor fails to reach the stair keep-out with a door's run, the
+    // stair is served through a habitable room (the founder's "stair served through Bedroom 3"
+    // + the first-floor circulation defect). The reach signal was computed + logged
+    // (§DIAG-STAIR-CIRC) but never gated; this makes `sharesStairWall=NO` a hard de-rank so a
+    // strategy whose corridor DOES reach the stair outranks one whose doesn't. `corridorStairGap`
+    // is false on the apartment path + on a plate with no corridor, so this is house-only and a
+    // no-op everywhere it cannot apply. When ALL strategies have the gap, the §TOPO-HARD-REJECT-ALL
+    // least-bad fallback still ships — house generation never goes empty.
+    if (corridorStairGap) {
+        failed.push('corridor-stair');
     }
 
     return failed;
@@ -1472,6 +1545,10 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     // land-locked room / SEALED-unreachable habitable room / private-room-off-hall /
     // overlap / sub-min / missing-mandatory). Reuses the already-computed frontage hard
     // findings + unrouted signal + realised doors + the angle-independent reach set.
+    // §CORRIDOR-STAIR-CONTIGUITY — house-only gate signal (false on apartments / no-corridor /
+    // corridor-reaches-stair). `placements` are the realised room rects, `bubble.corridorId` the
+    // spine, `input.keepOutRects` the stair footprint(s) — the same data §DIAG-STAIR-CIRC measures.
+    const corridorStairGap = corridorStairGapFor(placements, bubble.corridorId, input.keepOutRects);
     const hardFailedRules = evaluateHardTopology({
         bubble,
         frontageHardRoomIds: frontage.hardFindings.map(f => f.roomId),
@@ -1481,11 +1558,13 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         hasUnderMinArea,
         hasMissingMandatory,
         unreachableHabitableRoomIds: unreachableHabitable,
+        corridorStairGap,
     });
     const hardValid = hardFailedRules.length === 0;
     // §DIAG-TOPO-GATE — per-candidate hard-gate decision line (logging only).
     console.log(
         `[D-TGL] §DIAG-TOPO-GATE strategy=${strategyKey(s)} hardValid=${hardValid} ` +
+        `corridorStairGap=${corridorStairGap ? 'YES' : 'no'} ` +
         `failed=[${hardFailedRules.join(',') || 'none'}]`,
     );
     // §DIAG-MIN-AREA-GATE (tracker §68.1) — per-candidate min-area decision line: the
