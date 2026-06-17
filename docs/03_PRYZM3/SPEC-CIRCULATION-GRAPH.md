@@ -86,3 +86,32 @@ Any failure ⇒ hardValid=false ⇒ REJECT, try next enumeration.
 ### FF-R1 remaining: the polygon L-corridor (next workstream, EXECUTE-READY)
 **Why blocked:** the founder's own test (`stairPosition.test.ts §STAIR-DEFAULT-BIAS`) asserts a **corner** stair for 2-storey (protects the GF hall-hinge). A corner stair (2.0×2.8 m, deeper than a 1.2 m corridor) makes any straight rect corridor on the stair wall **poke into an adjacent room** (GATE 0), and a central double-loaded spine sits too far to touch it. Empirically: mid-edge stair breaks 6 GF tests (reverted); 1:1-rect placement model can't express an L room.
 **The fix:** emit the corridor as an **L-polygon** (thin spine + landing bump at the stair) via the EXISTING `cellPolygonById` channel — `wallsAndDoors` (line ~947 `cellOverride`) + `semanticGraph` (line ~110) already consume it; only the rect path is exercised today. Steps: (1) in the upper-floor no-public carve, build the double-loaded spine on the FULL plate bbox (fits all rooms, every room abuts — FF-R3/R4) + a perpendicular landing leg through the empty band to the stair; (2) emit the corridor placement rect = spine, plus a `cellPolygonById[corridor] = spine∪leg` L-polygon; (3) verify `evaluateCorridorPurity` / `corridorStairGapFor` read the polygon (they currently use the rect — may need the union bbox or polygon-aware shared-wall); (4) self-validate (0 drops, no stair overlap, corridor↔stair ≥0.9, ensuite off corridor) → return null to fall back (strictly non-regressing). Needs in-browser validation (geometry reshape).
+
+---
+## Founder feature requests (2026-06-17) — circulation completeness
+
+These are the architecturally-sound answers to "a private room ends up served through
+another room (e.g. bedroom→dining) because the corridor can't reach it."
+
+### FR-1 — SUITE FALLBACK (master/en-suite in corridor-unreachable regions)
+When the corridor cannot reach a private region (a far arm of a fragmented/L plate), DON'T
+ship a corridor-dependent bedroom served through a public room. Instead allocate a
+**self-contained suite** there: a `master` (+ optional `ensuite`) — the en-suite is accessed
+ONLY from the master (FF-R5), and the master takes the corridor/hall door it can get. One or
+MORE en-suite bedrooms may be placed this way. Net: every private room is either (a) on the
+corridor, or (b) a self-contained suite — never "bedroom reachable only through the dining room".
+Touch points: bubbleGraph allocation (mark the unreachable-region private room as `master`+`ensuite`)
++ enumerate reachability (a suite is valid even off-corridor).
+
+### FR-2 — L / T / U CORRIDOR (Phase 4 generalised)
+Generalise the Phase-2 L-corridor: thread the corridor polygon through the dominant **and**
+secondary (and tertiary) fragments as an L / T / U so every private room in every arm abuts it.
+This is the rect-free way to serve a multi-arm plate from one corridor. Builds on the
+Phase-1 `cellPolygonById` channel + Phase-3 polygon-aware gates already shipped.
+
+### FR-3 — ENTRANCE-HALL FRONT DOOR ON THE PERIMETER (always)
+The entrance hall's MAIN (and on the GF, effectively only mandatory) door is the FRONT DOOR,
+and it MUST land on an EXTERIOR/perimeter wall of the hall (GF-R1: hall.perimeterAdjacent).
+Today `§DIAG-ENTRANCE-PERIMETER boundsShellWall=YES` says it CAN, but the realised front door
+often isn't placed on the perimeter. Enforce: the hall always gets a front door hosted on its
+shell-perimeter wall (door router / executor), not an interior wall.
