@@ -3321,11 +3321,25 @@ function tryStairSpanningCorridor(
         }
         const cutAtVMax = onMax >= onMin;
 
+        // §SPAN-HALL-HINGE (founder §CIRCULATION-GRAPH GF-R7, 2026-06-17) — when the spine sub-
+        // programme carries a HALL plus a PINNED public room (e.g. a large `living` that only fits
+        // the deep dominant band, so it could not be relocated to a shallower fragment), the plain
+        // §SPAN-SPINE-CARVE combs that public room directly off the corridor → publicOnCorridor (the
+        // founder's "living on the corridor" defect). Carve the spine with the HALL-HINGE instead so
+        // the public room borders the HALL, never the corridor. The hall-hinge self-validates
+        // (sound() → null when it can't produce a connected plan) so this only ever ADDS a sound
+        // candidate and otherwise falls through to the existing carves (strictly non-regressing).
+        const spineHasHall = spineRooms.some(r => r.type === 'hall');
+        const spineHasPublic = spineRooms.some(r => r.type !== 'hall' && roomRule(r.type).privacy === 'public');
+        const hingeSpine = (spineHasHall && spineHasPublic)
+            ? trySingleRectCarve(spine, spineGraph, corridorWidthM, true, true)
+            : null;
         // Carve the spine band with §SPAN-SPINE-CARVE (corridor along the band's LONG axis —
         // the only carve that fits a shallow full-span band; we are here only because EVERY
         // fragment is shallower than the standard carve's 5.2 m gate, per §SPAN-SHALLOW-ONLY).
         // Fall back to the standard single-rect carve defensively (e.g. a near-5.2 m band).
-        const spineRes = trySpineBandCarve(spine, spineGraph, corridorWidthM, cutAtVMax)
+        const spineRes = (hingeSpine && hingeSpine.droppedRooms.length === 0 ? hingeSpine : null)
+            ?? trySpineBandCarve(spine, spineGraph, corridorWidthM, cutAtVMax)
             // §ENTRANCE-HALL-ON-SHELL suppressed (last arg true) — a shallow spine-band
             // fallback is a degenerate fragment; the hall-slice's full-depth column is for the
             // normal public-zone carve, not a sliver band.
