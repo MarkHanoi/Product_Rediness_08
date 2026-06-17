@@ -451,6 +451,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // (same gating as the fidelity group), so it is visible BY DEFAULT once the globe
     // view is entered.
     let globeZoomBtn: HTMLButtonElement | null = null;
+    // §FLY-TOUR (founder, 2026-06-17) — "▶ Fly tour" cinematic flythrough button,
+    // mounted next to "Zoom to Site" on the 3D-globe result bar. Enabled only once
+    // a building is placed (hasFormaMassingPlaced); disabled while a tour runs.
+    let globeTourBtn: HTMLButtonElement | null = null;
 
     const removeResultToggle = (): void => {
         if (resultToggle?.parentElement) resultToggle.parentElement.removeChild(resultToggle);
@@ -459,6 +463,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         btn3dRef = null;
         globeFidelityWrap = null;
         globeZoomBtn = null;
+        globeTourBtn = null;
         refreshGlobeFidelityButtons = () => { /* bar gone */ };
     };
 
@@ -478,6 +483,15 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // §GLOBE-ZOOM-DEFAULT — "Zoom to Site" is only meaningful on the 3D globe
         // (it reframes the Cesium camera to the placed building); hide on the 2D pane.
         if (globeZoomBtn) globeZoomBtn.style.display = resultViewMode === '3D' ? 'inline-block' : 'none';
+        // §FLY-TOUR — same gating as Zoom to Site; also disabled (greyed) until a
+        // building is placed, since the tour orbits the placed massing centroid.
+        if (globeTourBtn) {
+            globeTourBtn.style.display = resultViewMode === '3D' ? 'inline-block' : 'none';
+            const canTour = cesiumViewport?.hasFormaMassingPlaced?.() ?? false;
+            globeTourBtn.disabled = !canTour;
+            globeTourBtn.style.opacity = canTour ? '1' : '0.45';
+            globeTourBtn.style.cursor = canTour ? 'pointer' : 'not-allowed';
+        }
     };
 
     // O.7.2.b — land the generated result on the FIXED DUAL-PANE: LEFT = 3D
@@ -688,6 +702,39 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         zoomToSiteBtn.addEventListener('click', () => { void reframeSiteIn3D(); });
         bar.appendChild(zoomToSiteBtn);
         globeZoomBtn = zoomToSiteBtn;
+
+        // §FLY-TOUR (founder, 2026-06-17) — "▶ Fly tour" cinematic flythrough.
+        // Runs CesiumViewport.flyTour() (overview → approach → close-up → pull-back
+        // around the placed building). Brand-styled (white + #6600FF, no black);
+        // disabled until a building is placed + while a tour is mid-flight.
+        const tourBtn = document.createElement('button');
+        tourBtn.type = 'button';
+        tourBtn.className = 'pryzm-globe-tour-btn';
+        tourBtn.setAttribute('data-testid', 'globe-fly-tour');
+        tourBtn.title = 'Fly tour — cinematic flythrough around the placed building';
+        tourBtn.textContent = '▶ Fly tour';
+        Object.assign(tourBtn.style, {
+            appearance: 'none', border: 'none', cursor: 'pointer',
+            padding: '7px 12px', borderRadius: '7px', color: '#6600FF',
+            background: 'transparent', font: 'inherit', borderLeft: '1px solid #ece7fb',
+            display: resultViewMode === '3D' ? 'inline-block' : 'none',
+        } satisfies Partial<CSSStyleDeclaration>);
+        tourBtn.addEventListener('mouseenter', () => { if (!tourBtn.disabled) tourBtn.style.background = '#f4f0ff'; });
+        tourBtn.addEventListener('mouseleave', () => { tourBtn.style.background = 'transparent'; });
+        tourBtn.addEventListener('click', () => {
+            if (tourBtn.disabled) return;
+            const vp = cesiumViewport;
+            if (!vp?.flyTour || !(vp.hasFormaMassingPlaced?.() ?? false)) {
+                console.warn('[gis][forma] Fly tour: no building placed — ignored.');
+                return;
+            }
+            if (vp.isFlyTourRunning?.()) return; // re-entrancy guard (viewport also guards)
+            console.log('[gis][forma] Fly tour: launching cinematic flythrough.');
+            void Promise.resolve(vp.flyTour()).finally(() => { refreshResultButtons(); });
+            refreshResultButtons();
+        });
+        bar.appendChild(tourBtn);
+        globeTourBtn = tourBtn;
 
         viewport.appendChild(bar);
         resultToggle = bar;

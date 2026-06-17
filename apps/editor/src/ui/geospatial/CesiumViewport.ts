@@ -75,7 +75,20 @@ Cesium.Ion.defaultAccessToken = _cesiumToken ?? '';
  */
 const SITE_FRAME_HEIGHT_M = 600;
 const SITE_FRAME_PITCH_DEG = -80;
-const SITE_FLY_DURATION_S = 1.5;
+
+/**
+ * §SITE-CINEMATIC-ARRIVAL (founder, 2026-06-17) — the OPPOSITE of the quick
+ * snap-zoom. On an interactive location change the camera should establish like
+ * a film shot: start FAR/high above the target, then SLOWLY descend with an
+ * easing curve to the precise plot. Two-stage:
+ *   (a) jump to a high vantage straight above the target (instant — this is the
+ *       "establishing" altitude the slow descent starts from), then
+ *   (b) flyTo down to the normal site framing over SITE_ARRIVAL_FLY_DURATION_S
+ *       with a decelerating ease so it glides to a stop on the plot.
+ */
+const SITE_ARRIVAL_FLY_DURATION_S = 5;
+/** Establishing-shot altitude (m) the slow descent begins from. */
+const SITE_ARRIVAL_HIGH_ALT_M = 9000;
 
 /**
  * GIS-CESIUM-ZRAISE — z-index the Cesium container is raised to while GIS is
@@ -316,6 +329,9 @@ export class CesiumViewport {
   private formaMassingOrigin:
     | { lat: number; lon: number; centroidEast: number; centroidNorth: number; areaM2: number }
     | null = null;
+  /** §FLY-TOUR — re-entrancy guard so a second click can't start a tour while one
+   *  is mid-flight (the chained flyTo promises would fight over the camera). */
+  private _flyTourRunning = false;
 
   // ---- §A.21.D24 — multi-floor massing: storey bands + visibility filter ----
   /** The storey bands of the last-rendered massing (ground-up). Published so the
@@ -956,7 +972,20 @@ export class CesiumViewport {
     if (opts.instant) {
       this.viewer.camera.setView({ destination, orientation });
     } else {
-      this.viewer.camera.flyTo({ destination, orientation, duration: SITE_FLY_DURATION_S });
+      // §SITE-CINEMATIC-ARRIVAL — slow two-stage establishing descent. (a) Jump
+      // high straight above the target so the slow flyTo starts from altitude
+      // (a "snap from where the camera was" would race across the globe first);
+      // then (b) glide down to the framing destination with a decelerating ease.
+      this.viewer.camera.setView({
+        destination: Cesium.Cartesian3.fromDegrees(lon, lat, SITE_ARRIVAL_HIGH_ALT_M),
+        orientation: { heading: 0, pitch: Cesium.Math.toRadians(-90), roll: 0 },
+      });
+      this.viewer.camera.flyTo({
+        destination,
+        orientation,
+        duration: SITE_ARRIVAL_FLY_DURATION_S,
+        easingFunction: Cesium.EasingFunction.QUADRATIC_IN_OUT,
+      });
     }
     this.viewer.scene.requestRender();
   }
@@ -2832,6 +2861,108 @@ export class CesiumViewport {
    */
   public flyToFormaPlan(): void {
     this.flyToFormaSite({ headingDeg: FORMA_PLAN_HEADING_DEG, pitchDeg: FORMA_PLAN_PITCH_DEG });
+  }
+
+  /** §FLY-TOUR — whether a cinematic fly-through is currently running (the GIS
+   *  toolbar disables the "▶ Fly tour" button while true). */
+  public isFlyTourRunning(): boolean {
+    return this._flyTourRunning;
+  }
+
+  /**
+   * §FLY-TOUR — cinematic flythrough around the placed building. A chained
+   * `camera.flyTo` sequence: far top-down overview → oblique approach → low
+   * oblique close-up (slight circle) → pull back up to the standard Forma
+   * framing. Each leg eases (CUBIC_IN_OUT) for film-like accel/decel and the
+   * legs are chained via the per-flyTo `complete` promise so they never overlap.
+   *
+   * Robust + re-entrant-safe: no-op (resolves immediately) when no building is
+   * placed or a tour is already running; never throws. Window-level framing
+   * (diving to specific openings) is a deferred follow-up — this pass circles
+   * the building centroid.
+   *
+   * @returns a promise that resolves when the tour finishes (or is skipped).
+   */
+  public async flyTour(): Promise<void> {
+    const viewer = this.viewer;
+    const o = this.formaMassingOrigin;
+    if (!viewer || !o) {
+      console.warn('[CesiumViewport][forma] flyTour: no massing placed yet — ignored.');
+      return;
+    }
+    if (this._flyTourRunning) {
+      console.log('[CesiumViewport][forma] flyTour: already running — ignored.');
+      return;
+    }
+    this._flyTourRunning = true;
+    console.log('[CesiumViewport][forma] flyTour: starting cinematic flythrough.');
+    try {
+      // Re-derive the building centroid (same ENU anchor as placement/flyToFormaSite).
+      const originCartesian = Cesium.Cartesian3.fromDegrees(o.lon, o.lat, 0);
+      const enu = Cesium.Transforms.eastNorthUpToFixedFrame(originCartesian);
+      const centroidCartesian = Cesium.Matrix4.multiplyByPoint(
+        enu,
+        new Cesium.Cartesian3(o.centroidEast, o.centroidNorth, 0),
+        new Cesium.Cartesian3()
+      );
+      const carto = Cesium.Cartographic.fromCartesian(centroidCartesian);
+      const lon = carto.longitude;
+      const lat = carto.latitude;
+      const span = Math.sqrt(Math.max(1, o.areaM2)); // ~plot edge length (m)
+
+      const ease = Cesium.EasingFunction.CUBIC_IN_OUT;
+      // Promise-wrap a single flyTo leg via its `complete` callback.
+      const leg = (opts: {
+        alt: number;
+        headingDeg: number;
+        pitchDeg: number;
+        duration: number;
+      }): Promise<void> =>
+        new Promise<void>((resolve) => {
+          viewer.camera.flyTo({
+            destination: Cesium.Cartesian3.fromRadians(lon, lat, opts.alt),
+            orientation: {
+              heading: Cesium.Math.toRadians(opts.headingDeg),
+              pitch: Cesium.Math.toRadians(opts.pitchDeg),
+              roll: 0,
+            },
+            duration: opts.duration,
+            easingFunction: ease,
+            complete: () => resolve(),
+            cancel: () => resolve(),
+          });
+          viewer.scene.requestRender();
+        });
+
+      // 1) Far overview — high, near top-down.
+      await leg({
+        alt: Cesium.Math.clamp(span * 12, 600, 6000),
+        headingDeg: 0,
+        pitchDeg: -85,
+        duration: 3.5,
+      });
+      // 2) Approach — closer, oblique NW.
+      await leg({
+        alt: Cesium.Math.clamp(span * 4, 200, 1500),
+        headingDeg: 315,
+        pitchDeg: -45,
+        duration: 3.5,
+      });
+      // 3) Dive — low oblique close-up, swung round to the opposite side (circle).
+      await leg({
+        alt: Cesium.Math.clamp(span * 0.9, 30, 120),
+        headingDeg: 135,
+        pitchDeg: -18,
+        duration: 4,
+      });
+      // 4) Pull back up to the standard Forma framing.
+      this.flyToFormaSite();
+      console.log('[CesiumViewport][forma] flyTour: complete.');
+    } catch (e) {
+      console.warn('[CesiumViewport][forma] flyTour failed:', e);
+    } finally {
+      this._flyTourRunning = false;
+    }
   }
 
   /**
