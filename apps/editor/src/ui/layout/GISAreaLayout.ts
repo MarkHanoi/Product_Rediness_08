@@ -444,6 +444,13 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     let globeBuildingFidelity: 'massing' | 'real' = 'real';
     let globeFidelityWrap: HTMLElement | null = null;
     let refreshGlobeFidelityButtons: () => void = () => { /* bar not mounted yet */ };
+    // §GLOBE-ZOOM-DEFAULT (founder, 2026-06-17) — the "Zoom to Site" affordance used
+    // to live ONLY on the Forma toggle bar (mounted exclusively by "Site 3D (Forma)"),
+    // so on the photoreal "3D globe" path the user had no way to reframe to the house.
+    // We mount it in the RESULT bar too, shown whenever the 3D-globe mode is active
+    // (same gating as the fidelity group), so it is visible BY DEFAULT once the globe
+    // view is entered.
+    let globeZoomBtn: HTMLButtonElement | null = null;
 
     const removeResultToggle = (): void => {
         if (resultToggle?.parentElement) resultToggle.parentElement.removeChild(resultToggle);
@@ -451,6 +458,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         btn2dRef = null;
         btn3dRef = null;
         globeFidelityWrap = null;
+        globeZoomBtn = null;
         refreshGlobeFidelityButtons = () => { /* bar gone */ };
     };
 
@@ -467,6 +475,9 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // §GLOBE-FIDELITY — the [Real][Massing] group is only meaningful on the
         // photoreal "3D globe" view; hide it on the BIM dual-pane (2D) mode.
         if (globeFidelityWrap) globeFidelityWrap.style.display = resultViewMode === '3D' ? 'flex' : 'none';
+        // §GLOBE-ZOOM-DEFAULT — "Zoom to Site" is only meaningful on the 3D globe
+        // (it reframes the Cesium camera to the placed building); hide on the 2D pane.
+        if (globeZoomBtn) globeZoomBtn.style.display = resultViewMode === '3D' ? 'inline-block' : 'none';
     };
 
     // O.7.2.b — land the generated result on the FIXED DUAL-PANE: LEFT = 3D
@@ -654,6 +665,29 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         fidelityWrap.appendChild(globeMassingBtn);
         bar.appendChild(fidelityWrap);
         globeFidelityWrap = fidelityWrap;
+
+        // §GLOBE-ZOOM-DEFAULT — "Zoom to Site" on the 3D-globe result bar. Reframes
+        // the Cesium camera to the PLACED BUILDING (flyToFormaSite via reframeSiteIn3D)
+        // — the same building-anchored framing the Forma toggle's Zoom button uses.
+        // Shown only while the 3D globe is the active result view (refreshResultButtons
+        // toggles display). Brand-styled (white + #6600FF, no black) like the rest.
+        const zoomToSiteBtn = document.createElement('button');
+        zoomToSiteBtn.type = 'button';
+        zoomToSiteBtn.className = 'pryzm-globe-zoom-btn';
+        zoomToSiteBtn.setAttribute('data-testid', 'globe-zoom-to-site');
+        zoomToSiteBtn.title = 'Zoom to site — reframe the camera to the placed building on the globe';
+        zoomToSiteBtn.textContent = '⤢ Zoom to Site';
+        Object.assign(zoomToSiteBtn.style, {
+            appearance: 'none', border: 'none', cursor: 'pointer',
+            padding: '7px 12px', borderRadius: '7px', color: '#6600FF',
+            background: 'transparent', font: 'inherit', borderLeft: '1px solid #ece7fb',
+            display: resultViewMode === '3D' ? 'inline-block' : 'none',
+        } satisfies Partial<CSSStyleDeclaration>);
+        zoomToSiteBtn.addEventListener('mouseenter', () => { zoomToSiteBtn.style.background = '#f4f0ff'; });
+        zoomToSiteBtn.addEventListener('mouseleave', () => { zoomToSiteBtn.style.background = 'transparent'; });
+        zoomToSiteBtn.addEventListener('click', () => { void reframeSiteIn3D(); });
+        bar.appendChild(zoomToSiteBtn);
+        globeZoomBtn = zoomToSiteBtn;
 
         viewport.appendChild(bar);
         resultToggle = bar;

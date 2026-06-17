@@ -111,8 +111,26 @@ export async function exportFragmentsToGLB(scene: THREE.Scene): Promise<string> 
   exportRoot.updateMatrixWorld(true);
 
   // ------------------------------------------------------------
-  // ✅ Anchor model base to Y = 0 (safe transform)
+  // ✅ Anchor the GROUND-FLOOR PLANE (scene Y = 0) to GLB-local Y = 0
   // ------------------------------------------------------------
+  // §GLOBE-GROUND-FLOAT (founder, 2026-06-17) — the building sat "slightly too
+  // high" on the photoreal globe. ROOT CAUSE: this used to anchor the LOWEST
+  // exported vertex (`boundingBox.min.y`, e.g. -1.75 m) to Y = 0 by doing
+  // `position.y -= minY`. When ANY element dips below the ground-floor plane
+  // (slab/floor thickness below z = 0, a footing, a below-grade stair landing),
+  // `minY` is NEGATIVE, so subtracting it LIFTS the whole model by |minY| — the
+  // ground floor ends up |minY| ABOVE the sampled tile surface (the "slight
+  // float"). CesiumViewport.renderRealModelOnGlobe seats the GLB origin exactly on
+  // the clamped tile height (`formaTerrainBaseHeight`), so whatever maps to
+  // GLB-local Y = 0 lands ON the ground.
+  //
+  // The BIM scene is authored with the GROUND FLOOR at scene Y = 0 (wall baseLine
+  // y = level elevation, ground = 0). So the correct anchor is the FLOOR PLANE
+  // (Y = 0), NOT the lowest vertex — below-floor geometry should stay below the
+  // surface, not push the floor up. We therefore only DROP a model that floats
+  // entirely above Y = 0 (minY > 0 → lower it onto the ground) and NEVER lift a
+  // model whose geometry extends below the floor plane (minY <= 0 → leave Y = 0 at
+  // the floor, below-grade parts go below the tile surface as they should).
   const boundingBox = new THREE.Box3().setFromObject(exportRoot);
 
   if (!boundingBox.isEmpty()) {
@@ -120,10 +138,16 @@ export async function exportFragmentsToGLB(scene: THREE.Scene): Promise<string> 
 
     console.log("📦 Bounding box minY:", minY);
 
-    exportRoot.position.y -= minY;
+    // Only lower a fully-above-ground model onto the floor plane; never lift one
+    // that has below-floor geometry (that lift is exactly the "slight float").
+    const anchorDrop = Math.max(0, minY);
+    exportRoot.position.y -= anchorDrop;
     exportRoot.updateMatrixWorld(true);
 
-    console.log("🏗 Model anchored to BASE (Y = 0).");
+    console.log(
+      `🏗 Model anchored to ground-floor plane (Y = 0); applied drop ${anchorDrop.toFixed(3)} m ` +
+        `(below-floor geometry kept below ground).`,
+    );
   } else {
     console.warn("⚠ Bounding box is empty. Skipping base anchoring.");
   }
