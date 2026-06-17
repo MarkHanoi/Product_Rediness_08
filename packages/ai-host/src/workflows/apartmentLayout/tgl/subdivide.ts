@@ -75,7 +75,14 @@ export function cellFromRect(p: RoomPlacement): RoomCell {
  * the polygon's bbox extents, which for an axis-aligned rectangle equals `(x1−x0)·(z1−z0)`
  * to the last bit — UNLIKE a raw shoelace accumulation, whose differing operation order
  * drifts by ~1e-6 on some coordinates and would break the byte-identity gate. A genuine
- * non-axis-aligned polygon (Phase 3+) falls back to the shoelace value. Pure. */
+ * non-axis-aligned polygon (Phase 3+) falls back to the shoelace value. Pure.
+ *
+ * §POLYGON-CORRIDOR-LEG (2026-06-17) — the bbox-extent fast path is taken ONLY for a 4-vertex
+ * polygon (a true axis-aligned RECTANGLE: bbox area == filled area to the last bit, which is the
+ * byte-identity guarantee the lifted-rect path needs). An axis-aligned polygon with MORE than 4
+ * vertices may be CONCAVE — e.g. the L-shaped corridor cell `legUnionLRing` emits — whose bbox
+ * OVERSTATES its filled area; those fall through to the shoelace, which is exact for any simple
+ * polygon. The 4-vertex rect path is unchanged, so every lifted-rect cell is still byte-identical. */
 export function cellAreaM2(poly: readonly Pt[]): number {
     if (poly.length === 0) return 0;
     let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
@@ -92,8 +99,10 @@ export function cellAreaM2(poly: readonly Pt[]): number {
         const a = poly[i]!, b = poly[(i + 1) % poly.length]!;
         if (Math.abs(a.x - b.x) > 1e-9 && Math.abs(a.z - b.z) > 1e-9) axisAligned = false;
     }
-    if (axisAligned) return Math.max(0, maxX - minX) * Math.max(0, maxZ - minZ);
-    // General simple polygon — shoelace (Phase 3+ non-rect cells only).
+    // ONLY a 4-vertex axis-aligned polygon is guaranteed CONVEX (a rectangle) ⇒ bbox == filled area.
+    // A concave axis-aligned L (≥6 vtx, the corridor-leg cell) must use the shoelace, which is exact.
+    if (axisAligned && poly.length === 4) return Math.max(0, maxX - minX) * Math.max(0, maxZ - minZ);
+    // General simple polygon — shoelace (Phase 3+ non-rect cells + the L-shaped corridor leg).
     let a = 0;
     for (let i = 0; i < poly.length; i++) {
         const p = poly[i]!, q = poly[(i + 1) % poly.length]!;
@@ -2377,6 +2386,129 @@ export function findCorridorStubToKeepOut(
 }
 
 /**
+ * §POLYGON-CORRIDOR-LEG (founder §CIRCULATION-GRAPH polygon-native rework PART 4 / FF-R1, 2026-06-17)
+ * — union two AXIS-ALIGNED rects that share (or abut along) one edge into a single CCW L-shaped ring.
+ *
+ * `spine` is the corridor's rect; `leg` is the narrow empty channel found by
+ * {@link findCorridorStubToKeepOut} running PERPENDICULAR from one corridor edge to the stair keep-out.
+ * The two rects abut along the spine edge the leg grows from, so their union is a (possibly degenerate)
+ * L / T-free hexagon. We classify by which side of the spine the leg sits on (+x / −x / +z / −z) and
+ * emit the 6-vertex boundary in CCW order (same winding as {@link rectPolygon}). When the leg lane
+ * spans the FULL spine edge (so the union is itself a rectangle) we still emit a valid 6-pt ring (two
+ * vertices are collinear) — `wallsAndDoors` and `cellAreaM2` both tolerate a collinear vertex, and the
+ * polygon area then equals the rect union exactly.
+ *
+ * Pure + deterministic. Coordinates are `round6`-clean (both inputs come from `roundRect`).
+ * Returns null when the leg does not actually abut the spine (defensive — never ships a self-
+ * intersecting ring; the caller then leaves the corridor a plain rect).
+ */
+export function legUnionLRing(spine: Rect, leg: Rect): readonly Pt[] | null {
+    const A = roundRect(spine), L = roundRect(leg);
+    // Degenerate leg ⇒ nothing to union (return the spine ring so the caller is a no-op upstream).
+    if (L.x1 - L.x0 < EPS || L.z1 - L.z0 < EPS) return rectPolygon(A);
+
+    // +x: leg grows from the spine's RIGHT (x1) edge.  Its z-span lies WITHIN the spine's z-span; the
+    // leg may attach anywhere along that edge, so the union is a general (up-to-8-vtx) rectilinear ring.
+    // CCW: bottom edge → up the right edge to the leg's low z → out & around the leg → back to the
+    // right edge at the leg's high z → up to the top-right → top edge. Collinear vertices (leg flush to
+    // a spine corner) are kept — `cellAreaM2` / `wallsAndDoors` tolerate them and the area is exact.
+    if (Math.abs(L.x0 - A.x1) < ALIGNMENT_SNAP_EPS_M && L.z0 >= A.z0 - EPS && L.z1 <= A.z1 + EPS) {
+        return [
+            { x: A.x0, z: A.z0 }, { x: A.x1, z: A.z0 },
+            { x: A.x1, z: L.z0 }, { x: L.x1, z: L.z0 }, { x: L.x1, z: L.z1 }, { x: A.x1, z: L.z1 },
+            { x: A.x1, z: A.z1 }, { x: A.x0, z: A.z1 },
+        ];
+    }
+    // −x: leg grows from the spine's LEFT (x0) edge.  CCW: bottom → right → top → down the left edge
+    // to the leg's high z → out & around the leg → back to the left edge at the leg's low z → close.
+    if (Math.abs(L.x1 - A.x0) < ALIGNMENT_SNAP_EPS_M && L.z0 >= A.z0 - EPS && L.z1 <= A.z1 + EPS) {
+        return [
+            { x: A.x0, z: A.z0 }, { x: A.x1, z: A.z0 }, { x: A.x1, z: A.z1 }, { x: A.x0, z: A.z1 },
+            { x: A.x0, z: L.z1 }, { x: L.x0, z: L.z1 }, { x: L.x0, z: L.z0 }, { x: A.x0, z: L.z0 },
+        ];
+    }
+    // +z: leg grows from the spine's TOP (z1) edge.  Its x-span lies WITHIN the spine's x-span.  CCW:
+    // bottom → right → up to the top-right → along the top edge to the leg's high x → up & around the
+    // leg → back to the top edge at the leg's low x → along the top to the top-left → close.
+    if (Math.abs(L.z0 - A.z1) < ALIGNMENT_SNAP_EPS_M && L.x0 >= A.x0 - EPS && L.x1 <= A.x1 + EPS) {
+        return [
+            { x: A.x0, z: A.z0 }, { x: A.x1, z: A.z0 }, { x: A.x1, z: A.z1 },
+            { x: L.x1, z: A.z1 }, { x: L.x1, z: L.z1 }, { x: L.x0, z: L.z1 }, { x: L.x0, z: A.z1 },
+            { x: A.x0, z: A.z1 },
+        ];
+    }
+    // −z: leg grows from the spine's BOTTOM (z0) edge.  CCW: along the bottom edge to the leg's low x →
+    // down & around the leg → back to the bottom edge at the leg's high x → along the bottom to the
+    // bottom-right → up the right → top → close.
+    if (Math.abs(L.z1 - A.z0) < ALIGNMENT_SNAP_EPS_M && L.x0 >= A.x0 - EPS && L.x1 <= A.x1 + EPS) {
+        return [
+            { x: A.x0, z: A.z0 }, { x: L.x0, z: A.z0 }, { x: L.x0, z: L.z0 }, { x: L.x1, z: L.z0 },
+            { x: L.x1, z: A.z0 }, { x: A.x1, z: A.z0 }, { x: A.x1, z: A.z1 }, { x: A.x0, z: A.z1 },
+        ];
+    }
+    return null;   // leg does not cleanly abut the spine on any axis — defensive bail
+}
+
+/**
+ * §POLYGON-CORRIDOR-LEG (founder §CIRCULATION-GRAPH polygon-native rework PART 4 / FF-R1, 2026-06-17)
+ * — the FINAL post-pass of `subdivideWithReport`'s stair-keep-out branch: when the corridor's RECT does
+ * NOT share a door-width (≥0.9 m) wall with the stair keep-out, emit the corridor as an L-POLYGON whose
+ * narrow leg threads EMPTY SPACE to reach the keep-out, so `wallsAndDoors` can host the stair↔corridor
+ * door and the stair never ships SEALED (the founder's "stair sealed" defect, §DIAG-STAIR-CIRC
+ * `corridorReachM=0.00 sharesStairWall=NO`).
+ *
+ * The leg is found by reusing {@link findCorridorStubToKeepOut} (the existing §STUB-EMPTY-ONLY
+ * empty-channel router — it returns the leg RECT or null, and is already self-validating: an
+ * unreachable keep-out yields null). The leg ∪ corridor-spine is then lifted to a single CCW ring by
+ * {@link legUnionLRing}. The corridor's `placements` RECT is left untouched (the spine), so the area /
+ * min-short-side / overlap gates are evaluated on the rect exactly as before — only `cellPolygonById`
+ * gains the corridor → L-ring entry, which enumerate folds into the world cell map the wall sweep reads.
+ *
+ * SELF-VALIDATING / no-regression: returns the result UNCHANGED (and emits nothing) when there is no
+ * keep-out, no corridor placement, the corridor already reaches the stair, no empty leg can reach it, or
+ * the union does not form a clean ring. Pure + deterministic — no keep-out ⇒ byte-identical (the
+ * apartment + every keep-out-free plate never reaches this pass).
+ */
+function emitPolygonCorridorLeg(
+    result: SubdivideResult,
+    corridorId: string | null,
+    keepOuts: readonly Rect[],
+    typeById: ReadonlyMap<string, RoomType>,
+    corridorWidthM: number,
+): SubdivideResult {
+    if (!corridorId || keepOuts.length === 0) return result;
+    const corrP = result.placements.find(p => p.roomId === corridorId);
+    if (!corrP) return result;
+
+    // §3 — already shares ≥0.9 m wall with SOME keep-out? Nothing to do (no override; byte-identical).
+    const reachM = keepOuts.reduce((b, ko) => Math.max(b, sharedWallLengthM(corrP.rect, ko)), 0);
+    if (reachM >= STAIR_DOOR_MIN_M - EPS) return result;
+
+    // §4 — find the narrow empty leg from the corridor face to the keep-out near edge. The buildable
+    // extent is the placements bbox UNIONED with the keep-out rects (the empty stair-clearance band is
+    // roomless, so the bare placements bbox under-states it where the leg must reach). Deterministic.
+    const bb = placementsBBox(result.placements);
+    const shellBB: Rect = {
+        x0: keepOuts.reduce((m, ko) => Math.min(m, ko.x0), bb.x0),
+        z0: keepOuts.reduce((m, ko) => Math.min(m, ko.z0), bb.z0),
+        x1: keepOuts.reduce((m, ko) => Math.max(m, ko.x1), bb.x1),
+        z1: keepOuts.reduce((m, ko) => Math.max(m, ko.z1), bb.z1),
+    };
+    const leg = findCorridorStubToKeepOut(result.placements, corridorId, keepOuts, typeById, corridorWidthM, shellBB);
+    if (leg === null) return result;   // §5 — no empty leg reaches the keep-out → emit NOTHING.
+
+    const ring = legUnionLRing(corrP.rect, leg);
+    if (ring === null) return result;  // defensive — leg did not cleanly abut the spine.
+
+    // §6 — set the corridor's cell polygon (spine ∪ leg). The spine RECT stays in `placements`.
+    const legReachM = keepOuts.reduce((b, ko) => Math.max(b, sharedWallLengthM(leg, ko)), 0);
+    console.log(`[D-TGL subdivide] §POLYGON-CORRIDOR-LEG corridor=${corridorId} reachM=${legReachM.toFixed(2)}`);
+    const merged = new Map<string, readonly Pt[]>(result.cellPolygonById ?? []);
+    merged.set(corridorId, ring);
+    return { ...result, cellPolygonById: merged };
+}
+
+/**
  * §CORRIDOR-PHYSIOGNOMY (A.21.D46, 2026-06-08) — reshape the corridor placement
  * into a NARROW STRIP whenever it came out wider than its rule's `maxShortSideM`.
  * The multi-rect / squarify paths can hand the corridor a NEAR-SQUARE cell (a fat
@@ -2888,7 +3020,7 @@ export function subdivideWithReport(
             shortSideM: 0,
             minShortSideM: floorFor(typeByRoomIdNet.get(id) ?? ('corridor' as RoomType)),
         }));
-        return {
+        const baseResult: SubdivideResult = {
             placements: net.placements,
             droppedRooms: [...res.droppedRooms, ...netDropReports],
             // §POLYGON-CARVE (phase 1) — pass the carve's non-rect cell polygons through the overlap
@@ -2896,6 +3028,21 @@ export function subdivideWithReport(
             // polygon corridor keeps it clear of rooms by construction). Absent ⇒ omitted.
             ...(res.cellPolygonById ? { cellPolygonById: res.cellPolygonById } : {}),
         };
+        // §POLYGON-CORRIDOR-LEG (PART 4 / FF-R1, 2026-06-17) — FINAL post-pass: when a stair keep-out
+        // exists and the corridor's RECT still does not reach it with a door-width wall, emit the
+        // corridor as an L-POLYGON whose narrow leg threads EMPTY SPACE to the stair, so wallsAndDoors
+        // can host the stair↔corridor door (no SEALED stair). Self-validating + gated: no keep-out, no
+        // corridor, an already-reaching corridor, or no empty leg ⇒ the result is returned UNCHANGED
+        // (byte-identical — the corridor stays a plain rect; no regression). The corridor's RECT in
+        // `placements` is untouched (the spine), so the area / min / overlap gates are unchanged.
+        if (keepOutRects.length === 0) return baseResult;
+        return emitPolygonCorridorLeg(
+            baseResult,
+            graph.corridorId,
+            keepOutRects,
+            typeByRoomIdNet,
+            corridorWidthM ?? CORRIDOR_STRIP_WIDTH_M,
+        );
     };
 
     // §SINGLE-RECT-CARVE — single-rect shell with corridor + private rooms.

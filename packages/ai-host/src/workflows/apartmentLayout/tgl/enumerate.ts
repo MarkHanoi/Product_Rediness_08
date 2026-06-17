@@ -13,7 +13,7 @@
 import type { ApartmentProgram, RoomType, ScoringWeights } from '../types.js';
 import { decomposeToRects, clampRectToConvexShell, polygonBBox, rectArea, rectifyConvexQuad, subtractRectsFromRects, type Pt, type Rect } from './rectDecomposition.js';
 import { buildBubbleGraph, scaleProgramToShell, type BubbleGraph, type ProgramRoom, type AdjacencyEdge } from './bubbleGraph.js';
-import { subdivideWithReport, findCorridorStubToKeepOut, claimResidualPlacements, resolveRoomOverlaps, type DroppedRoom, type RoomPlacement } from './subdivide.js';
+import { subdivideWithReport, findCorridorStubToKeepOut, claimResidualPlacements, resolveRoomOverlaps, rectPolygon, type DroppedRoom, type RoomPlacement } from './subdivide.js';
 import { subdividePolygon, subtractRectFromCell, cellBBoxRect, shouldUsePolygonConcaveRoute } from './polySubdivide.js';
 import { buildWallsAndDoors, type BoundarySeg } from './wallsAndDoors.js';
 import { snapRectsAwayFromWindows, type WindowSpan } from './windowAvoidance.js';
@@ -395,6 +395,71 @@ function sharedWallRunM(a: Rect, b: Rect): number {
     return 0;
 }
 
+/** §POLYGON-NATIVE-SEAM (Phase 3, founder §CIRCULATION-GRAPH rework, 2026-06-17) — the polygon
+ *  analogue of {@link sharedWallRunM}. A `RoomPlacement | Rect | readonly Pt[]` is lifted to its
+ *  boundary ring (rect → `rectPolygon`; a `RoomCell`-style polygon is used as-is). When BOTH
+ *  inputs are axis-aligned rects the result equals `sharedWallRunM` to the bit (same abut/overlap
+ *  math, just expressed via edge segments), so the rect path is byte-identical; a NON-rectangular
+ *  cell (e.g. an L-shaped corridor) is measured against its real edges instead of its bbox.
+ *  Pure + deterministic; metres. Tolerance mirrors the subdivider's STAIR_ABUT_EPS_M (0.05 m). */
+function toRing(x: readonly Pt[] | Rect): readonly Pt[] {
+    if (Array.isArray(x)) return x as readonly Pt[];
+    return rectPolygon(x as Rect);
+}
+
+function sharedWallRunPolyM(aIn: readonly Pt[] | Rect, bIn: readonly Pt[] | Rect): number {
+    const eps = STAIR_ABUT_EPS_M;
+    const ringA = toRing(aIn);
+    const ringB = toRing(bIn);
+    if (ringA.length < 2 || ringB.length < 2) return 0;
+
+    // Enumerate boundary edges of each ring (closing edge included).
+    interface Edge { readonly p: Pt; readonly q: Pt }
+    const edgesOf = (poly: readonly Pt[]): Edge[] => {
+        const out: Edge[] = [];
+        for (let i = 0; i < poly.length; i++) {
+            const p = poly[i]!, q = poly[(i + 1) % poly.length]!;
+            if (Math.hypot(q.x - p.x, q.z - p.z) <= eps) continue;   // skip degenerate edge
+            out.push({ p, q });
+        }
+        return out;
+    };
+    const edgesA = edgesOf(ringA);
+    const edgesB = edgesOf(ringB);
+
+    // Total length of collinear-overlapping segments between an A-edge and a B-edge. Two edges
+    // lie on the same infinite line (within eps) and overlap along it ⇒ that overlap is a shared
+    // wall run. Summed over every (A,B) edge pair; non-overlapping cells produce ≤2 collinear
+    // pairs, so double-counting is not a practical concern for the corridor↔room measures here.
+    let total = 0;
+    for (const ea of edgesA) {
+        let dx = ea.q.x - ea.p.x, dz = ea.q.z - ea.p.z;
+        const La = Math.hypot(dx, dz) || 1;
+        dx /= La; dz /= La;
+        const nx = -dz, nz = dx;                      // unit normal to edge A
+        const offA = nx * ea.p.x + nz * ea.p.z;       // signed perp offset of A's line
+        const tA0 = 0, tA1 = (ea.q.x - ea.p.x) * dx + (ea.q.z - ea.p.z) * dz;
+        for (const eb of edgesB) {
+            let ex = eb.q.x - eb.p.x, ez = eb.q.z - eb.p.z;
+            const Lb = Math.hypot(ex, ez) || 1;
+            ex /= Lb; ez /= Lb;
+            // Parallel? (cross of unit dirs ≈ 0)
+            if (Math.abs(dx * ez - dz * ex) > eps) continue;
+            // Same infinite line? (B's endpoints sit on A's line within eps)
+            const offBp = nx * eb.p.x + nz * eb.p.z;
+            const offBq = nx * eb.q.x + nz * eb.q.z;
+            if (Math.abs(offBp - offA) > eps || Math.abs(offBq - offA) > eps) continue;
+            // Project B's endpoints onto A's direction (origin = ea.p) and overlap with [tA0,tA1].
+            const tBp = (eb.p.x - ea.p.x) * dx + (eb.p.z - ea.p.z) * dz;
+            const tBq = (eb.q.x - ea.p.x) * dx + (eb.q.z - ea.p.z) * dz;
+            const bLo = Math.min(tBp, tBq), bHi = Math.max(tBp, tBq);
+            const ov = Math.min(tA1, bHi) - Math.max(tA0, bLo);
+            if (ov > eps) total += ov;
+        }
+    }
+    return total;
+}
+
 /**
  * §CORRIDOR-STAIR-CONTIGUITY — true when this is a STAIR-CARVED (house) plate whose corridor
  * fails to share a door-width wall (≥ STAIR_DOOR_MIN_M) with ANY stair keep-out. Returns false
@@ -406,12 +471,20 @@ export function corridorStairGapFor(
     placements: readonly RoomPlacement[],
     corridorId: string | null | undefined,
     keepOutRects: readonly Rect[] | undefined,
+    cellPolygonById?: ReadonlyMap<string, readonly Pt[]>,
 ): boolean {
     if (!keepOutRects || keepOutRects.length === 0) return false;   // apartment path — no gate
     if (!corridorId) return false;                                  // no corridor → other rules own it
     const corr = placements.find(p => p.roomId === corridorId);
     if (!corr) return false;                                        // corridor dropped → circulation rule owns it
-    const reachM = keepOutRects.reduce((best, ko) => Math.max(best, sharedWallRunM(corr.rect, ko)), 0);
+    // §POLYGON-NATIVE-SEAM (Phase 3) — when the corridor has a non-rect cell polygon, measure the
+    // shared stair wall against the POLYGON's edges (e.g. the L-leg that reaches the stair).
+    // ABSENT polygon ⇒ rect path, byte-identical. Keep-outs are rects (no polygon) — fine.
+    const corrPoly = cellPolygonById?.get(corridorId);
+    const reachM = keepOutRects.reduce(
+        (best, ko) => Math.max(best, corrPoly ? sharedWallRunPolyM(corrPoly, ko) : sharedWallRunM(corr.rect, ko)),
+        0,
+    );
     return reachM < STAIR_DOOR_MIN_M - EPS;
 }
 
@@ -469,19 +542,28 @@ export function evaluateCorridorPurity(
     placements: readonly RoomPlacement[],
     rooms: readonly { readonly id: string; readonly type: string }[],
     corridorId: string | null | undefined,
+    cellPolygonById?: ReadonlyMap<string, readonly Pt[]>,
 ): CorridorPurity {
     const none: CorridorPurity = { ensuiteOnCorridor: false, publicOnCorridor: false, corridorBlob: false };
     if (!corridorId) return none;
     const corr = placements.find(p => p.roomId === corridorId);
     if (!corr) return none;
     const typeById = new Map(rooms.map(r => [r.id, r.type]));
+    // §POLYGON-NATIVE-SEAM (Phase 3) — measure the corridor↔room shared wall against each room's
+    // real cell polygon when present (the corridor's L-leg / a neighbour's concave edge), falling
+    // back to the lifted rect. ABSENT polygon for BOTH ⇒ rect path, byte-identical to today.
+    const corrPoly = cellPolygonById?.get(corridorId);
     let ensuiteOnCorridor = false;
     let publicOnCorridor = false;
     for (const p of placements) {
         if (p.roomId === corridorId) continue;
         const t = typeById.get(p.roomId);
         if (!t) continue;
-        if (sharedWallRunM(corr.rect, p.rect) < STAIR_DOOR_MIN_M - EPS) continue;   // not a door-width wall
+        const pPoly = cellPolygonById?.get(p.roomId);
+        const runM = (corrPoly || pPoly)
+            ? sharedWallRunPolyM(corrPoly ?? corr.rect, pPoly ?? p.rect)
+            : sharedWallRunM(corr.rect, p.rect);
+        if (runM < STAIR_DOOR_MIN_M - EPS) continue;   // not a door-width wall
         if (t === 'ensuite') ensuiteOnCorridor = true;
         else if (CORRIDOR_PUBLIC_TYPES.has(t)) publicOnCorridor = true;
     }
@@ -1694,13 +1776,15 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     const housePath = !!(input.keepOutRects && input.keepOutRects.length > 0);
     const isGroundFloor = housePath && bubble.entryId != null;     // entrance hall ⇒ ground floor
     const corridorStairGap = housePath && !isGroundFloor
-        && corridorStairGapFor(placements, bubble.corridorId, input.keepOutRects);
+        && corridorStairGapFor(placements, bubble.corridorId, input.keepOutRects, cellPolyByIdWorld);
     const corridorHallGap = isGroundFloor
         && corridorHallGapFor(placements, bubble.corridorId, bubble.entryId);
     // §CORRIDOR-PURITY — house-path only (apartments byte-identical): en-suite must be master-only,
-    // no public room off the corridor, corridor is a spine not a blob.
+    // no public room off the corridor, corridor is a spine not a blob. §POLYGON-NATIVE-SEAM (Phase 3):
+    // pass the per-room cell polygons so the corridor's L-leg / a neighbour's concave edge is measured
+    // against its real boundary; absent ⇒ rect path (no fixture sets it today, so byte-identical).
     const corridorPurity = housePath
-        ? evaluateCorridorPurity(placements, bubble.rooms, bubble.corridorId)
+        ? evaluateCorridorPurity(placements, bubble.rooms, bubble.corridorId, cellPolyByIdWorld)
         : { ensuiteOnCorridor: false, publicOnCorridor: false, corridorBlob: false };
     const hardFailedRules = evaluateHardTopology({
         bubble,
