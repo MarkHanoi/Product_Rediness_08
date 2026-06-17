@@ -83,7 +83,18 @@ Any failure ⇒ hardValid=false ⇒ REJECT, try next enumeration.
 - **FF-R5 en-suite off corridor:** SHIPPED (`5baafcd7`) — `tryCarveEnsuiteFromMaster` takes the corridor rect, carves the en-suite on the master face away from it.
 - **PART 6 stub gap-cap:** SHIPPED (`c55d0823`) — upper-floor `findCorridorStubToKeepOut` capped at 0.5 m gap; ground floor uncapped.
 
-### FF-R1 remaining: the polygon L-corridor (next workstream, EXECUTE-READY)
+### FF-R1: the polygon L/T/U corridor — SHIPPED (Phase 1-4, 2026-06-17)
+**Status: LIVE on main.** Phase 1 (`cellPolygonById` channel through subdivide→finalise→enumerate
+`cellPolyByIdWorld`), Phase 2 (`emitPolygonCorridorLeg` — L-leg through empty space to the stair,
+`§POLYGON-CORRIDOR-LEG`), Phase 3 (polygon-aware gates — `sharedWallRunPolyM` + `corridorStairGapFor`
+read the corridor polygon, `§POLYGON-NATIVE-SEAM`), and Phase 4 (`§POLYGON-CORRIDOR-ARM` — threads
+both arms so far-arm rooms abut, L→T/U) are all integrated; `wallsAndDoors` + `semanticGraph` consume
+the polygon. Also shipped 2026-06-17: §PERIMETER-PN-RECTIFY (ADR-0073 — the perimeter shell is now
+minted in the same Project-North frame the partitions weld to, closing the post-openings L-corner seam
++ the window-offset drift) and §ROOF-SIT-ON-WALL-HEAD (flat roof lifted by its thickness off the wall
+head). Remaining circulation work: FR-1 suite-fallback (below).
+
+### (historical) FF-R1 design notes — the polygon L-corridor
 **Why blocked:** the founder's own test (`stairPosition.test.ts §STAIR-DEFAULT-BIAS`) asserts a **corner** stair for 2-storey (protects the GF hall-hinge). A corner stair (2.0×2.8 m, deeper than a 1.2 m corridor) makes any straight rect corridor on the stair wall **poke into an adjacent room** (GATE 0), and a central double-loaded spine sits too far to touch it. Empirically: mid-edge stair breaks 6 GF tests (reverted); 1:1-rect placement model can't express an L room.
 **The fix:** emit the corridor as an **L-polygon** (thin spine + landing bump at the stair) via the EXISTING `cellPolygonById` channel — `wallsAndDoors` (line ~947 `cellOverride`) + `semanticGraph` (line ~110) already consume it; only the rect path is exercised today. Steps: (1) in the upper-floor no-public carve, build the double-loaded spine on the FULL plate bbox (fits all rooms, every room abuts — FF-R3/R4) + a perpendicular landing leg through the empty band to the stair; (2) emit the corridor placement rect = spine, plus a `cellPolygonById[corridor] = spine∪leg` L-polygon; (3) verify `evaluateCorridorPurity` / `corridorStairGapFor` read the polygon (they currently use the rect — may need the union bbox or polygon-aware shared-wall); (4) self-validate (0 drops, no stair overlap, corridor↔stair ≥0.9, ensuite off corridor) → return null to fall back (strictly non-regressing). Needs in-browser validation (geometry reshape).
 
@@ -100,8 +111,33 @@ ship a corridor-dependent bedroom served through a public room. Instead allocate
 ONLY from the master (FF-R5), and the master takes the corridor/hall door it can get. One or
 MORE en-suite bedrooms may be placed this way. Net: every private room is either (a) on the
 corridor, or (b) a self-contained suite — never "bedroom reachable only through the dining room".
-Touch points: bubbleGraph allocation (mark the unreachable-region private room as `master`+`ensuite`)
-+ enumerate reachability (a suite is valid even off-corridor).
+
+**Code-grounded analysis (2026-06-17) — the obvious recipe is UNSOUND; here is the real shape.**
+The intuitive fix ("re-type the unreachable bedroom → master so it can take a door") does NOT
+work: `bedroom.accessFrom = ['corridor','living','dining']` ALREADY permits a living/dining door
+(`programRules.ts:528`), and the door router's pass-i already attempts a private→public door,
+with the over-cap pass relaxing the cap for any *permitted* pair (`wallsAndDoors.ts:1433-1457`).
+A sealed bedroom logs `NO DOOR` because it is **geometrically landlocked** — no ≥0.9 m wall to
+corridor, living, OR dining — not because of a permission/type cap. Re-typing to `master`
+(`accessFrom` superset, `programRules.ts:486`) grants no new door, so it cannot reach an isolated
+region. FR-1's true levers are therefore:
+  1. **Geometry (already shipped):** extend circulation into the far region so its room abuts a
+     reachable wall — this is exactly Phase-4 `§POLYGON-CORRIDOR-ARM`. When the arm reaches, the
+     bedroom is served normally (no suite needed). The residual FR-1 case is ONLY a region the
+     arm cannot reach AND that abuts a reachable PUBLIC room.
+  2. **Scoring reclassification (the residual, RISKY):** in that residual case a master-suite
+     doored off the living area is *architecturally acceptable*, whereas a plain
+     bedroom-served-only-through-living is a *circulation compromise*. So FR-1's value is to
+     RECLASSIFY the room's type so the corridor-quality / public-on-corridor gates treat it as
+     acceptable and the candidate can WIN. This is inherently **per-candidate** (the retype must
+     happen after subdivide proves the region unreachable, before scoring) — the precise pattern
+     the reverted sealed-rescue showed perturbs the scorer + regresses the area-cap
+     (see memory `house-doors-stair-fragmentation-root`). It MUST be done post-selection (rescue
+     the WINNER only) or behind a gate that provably never changes a currently-passing candidate,
+     and validated against the full 2749 + browser. NOT a quick edit — a focused, test-gated task.
+Touch points (when undertaken): a POST-SELECTION suite rescue on the chosen winner (retype its
+landlocked-but-public-abutting bedroom → master+ensuite, place the master's public door, mark the
+ensuite solid-except-master) — NOT a per-candidate enumerate retype.
 
 ### FR-2 — L / T / U CORRIDOR (Phase 4 generalised)
 Generalise the Phase-2 L-corridor: thread the corridor polygon through the dominant **and**
