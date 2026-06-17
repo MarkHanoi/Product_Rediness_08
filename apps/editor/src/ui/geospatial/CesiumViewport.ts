@@ -1396,6 +1396,13 @@ export class CesiumViewport {
         this.contextBuildingsAbort?.abort();
         this.clearContextBuildings();
         this.contextBuildingsAt = null;
+        // FORMA-CTX road-leak fix (2026-06-17) — the OSM road centre-lines are a FORMA-only
+        // context overlay; on the photoreal globe the 3D tiles already show the real roads, so
+        // the grey Forma lines must be cleared too (they were leaking onto the tiles as floating
+        // white ways — the founder's "overlapping layer present in 3D tiles"). Mirrors the
+        // context-buildings suppression directly above; idempotent.
+        this.contextRoadsAbort?.abort();
+        this.clearContextRoads();
       } else {
         const loc = this.readSiteLocation();
         if (loc) void this.loadContextBuildings(loc.lat, loc.lon, true);
@@ -1926,7 +1933,20 @@ export class CesiumViewport {
         // the BIM-view mitred corners). The per-wall boxes are kept ONLY as the
         // fallback when the ring can't be reconstructed (non-closed / degenerate
         // wall set) — never throw, never render nothing.
-        const ring = this.reconstructPerimeterRing(band.walls);
+        // §A.21.D-SHELL-RING — derive THIS storey's perimeter ring, most-reliable
+        // source first:
+        //   1. Reconstruct the exterior ring from the band's shell walls (mitred
+        //      single polygon — preferred, matches the wall mass exactly).
+        //   2. FALLBACK: the storey's FLOOR-PLATE (slab) outer ring. A generated
+        //      house ALWAYS authors a floor slab per storey whose outer ring IS the
+        //      shell footprint; using it as the extrusion outline gives the SAME
+        //      clean single-polygon silhouette when the wall-loop trace can't close
+        //      (e.g. interior partitions teed at perimeter nodes defeat the
+        //      containment trace → the old "perimeter ring unavailable" log).
+        // Only when BOTH are unavailable do we drop to per-wall boxes.
+        const wallRing = this.reconstructPerimeterRing(band.walls);
+        const ring = wallRing ?? this.slabRingForBand(input.slabs ?? [], band.baseElevation);
+        const ringSource = wallRing ? 'wall-loop' : 'floor-slab';
         if (ring && ring.length >= 3) {
           try {
             const positions = ring.map((p) => toCartesian(p.x, p.z, bandBottom));
@@ -1948,14 +1968,15 @@ export class CesiumViewport {
             });
             this.formaMassingEntities.push(ent);
             silhouetteTargets.push(ent);
-            console.log(`[CesiumViewport][forma] storey ${bi}: shell extruded as a single ${ring.length}-vertex perimeter prism (no corner gaps).`);
+            console.log(`[CesiumViewport][forma] storey ${bi}: shell extruded as a single ${ring.length}-vertex perimeter prism (no corner gaps; ring from ${ringSource}).`);
           } catch (e) {
             console.warn(`[CesiumViewport][forma] storey ${bi} perimeter prism failed — per-wall fallback:`, e);
             this.extrudeWallsAsBoxes(band.walls, bandBottom, baseHeight + band.baseElevation, bi, viewer, toCartesian, bandFill, massOutline, silhouetteTargets, closeBandBottom);
           }
         } else {
-          // Ring not reconstructable (open / degenerate shell) → per-wall boxes.
-          console.log(`[CesiumViewport][forma] storey ${bi}: perimeter ring unavailable — falling back to per-wall boxes.`);
+          // Neither the wall-loop trace NOR a floor-slab ring was usable (open /
+          // degenerate shell AND no matching slab plate) → per-wall boxes.
+          console.log(`[CesiumViewport][forma] storey ${bi}: perimeter ring unavailable (no wall-loop, no floor-slab) — falling back to per-wall boxes.`);
           this.extrudeWallsAsBoxes(band.walls, bandBottom, baseHeight + band.baseElevation, bi, viewer, toCartesian, bandFill, massOutline, silhouetteTargets, closeBandBottom);
         }
       }
@@ -2628,9 +2649,32 @@ export class CesiumViewport {
     }
 
     const provider = viewer.terrainProvider as Cesium.TerrainProvider | undefined;
-    if (!provider) {
-      // No provider at all → flat base 0 (already placed). Record so we don't
-      // retry every event for the same centroid.
+    if (!provider || !this.terrainProviderHasElevationData(provider)) {
+      // §A.21.D-TERRAIN-GUARD — ROOT CAUSE of "terrain clamp degraded
+      // (sampleTerrainMostDetailed rejected — TypeError: Cannot read properties of
+      // undefined (reading 'computeMaximumLevelAtPosition'))". The keyless / no-token
+      // build NEVER attaches a real terrain provider, so `viewer.terrainProvider` is
+      // Cesium's default EllipsoidTerrainProvider. That provider is TRUTHY (so the old
+      // `if (!provider)` guard passed it through) but has NO `availability` — and
+      // `Cesium.sampleTerrainMostDetailed` dereferences
+      // `provider.availability.computeMaximumLevelAtPosition(...)` internally, throwing
+      // the TypeError above on EVERY Forma placement. The flat ellipsoid surface IS
+      // height 0, so base 0 is already the correct flat-ground seat — there is nothing
+      // to sample. We therefore SKIP the call entirely (no throw, no per-render
+      // TypeError) when the provider carries no real elevation data, recording the
+      // sample point so we don't re-attempt for the same centroid. If a real terrain
+      // provider is attached later (a CesiumTerrainProvider with `availability`), this
+      // guard passes and the sample runs as before. NOTE: we deliberately do NOT
+      // create/await a world-terrain provider here — the project ships no Cesium ion
+      // terrain asset, and pulling one in would add a new ion-token dependency; on the
+      // keyless path flat base 0 is the intended, correct ground.
+      if (!provider) {
+        // No provider at all → flat base 0 (already placed).
+      } else {
+        this.warnTerrainOnce(
+          'no real terrain provider attached (keyless ellipsoid ground) — clamping to flat base 0',
+        );
+      }
       this.formaTerrainSampledAt = { lat: sampleLat, lon: sampleLon };
       return;
     }
@@ -2673,6 +2717,32 @@ export class CesiumViewport {
     // already supply the context (our extrusions would duplicate them).
     if (!(input.keepPhotoreal && this.photorealTilesActive)) {
       void this.loadContextBuildings(input.originLat, input.originLon, true);
+    }
+  }
+
+  /**
+   * §A.21.D-TERRAIN-GUARD — TRUE only when `provider` is a REAL terrain provider
+   * that can be sampled for elevation. `Cesium.sampleTerrainMostDetailed` reaches
+   * into `provider.availability` (it calls `availability.computeMaximumLevelAtPosition`
+   * to pick the LOD to request); the default `EllipsoidTerrainProvider` — the keyless
+   * build's `viewer.terrainProvider` — has `availability === undefined`, so sampling
+   * it throws `Cannot read properties of undefined (reading 'computeMaximumLevelAtPosition')`.
+   * We feature-detect by:
+   *   • rejecting an explicit `EllipsoidTerrainProvider` instance (flat ground, no data), and
+   *   • requiring `provider.availability` to be present (a CesiumTerrainProvider / world
+   *     terrain exposes it once ready).
+   * Both checks are defensive (wrapped) so a Cesium-build quirk can never blank the view.
+   */
+  private terrainProviderHasElevationData(provider: Cesium.TerrainProvider): boolean {
+    try {
+      // The flat ellipsoid surface has no elevation data to sample.
+      if (provider instanceof Cesium.EllipsoidTerrainProvider) return false;
+      // sampleTerrainMostDetailed needs availability to pick the LOD; without it
+      // the call throws the computeMaximumLevelAtPosition TypeError.
+      const availability = (provider as unknown as { availability?: unknown }).availability;
+      return availability != null;
+    } catch {
+      return false;
     }
   }
 
@@ -4026,6 +4096,37 @@ export class CesiumViewport {
     } catch (e) {
       console.warn(`[CesiumViewport][forma] storey ${bandIndex} per-wall extrusion failed:`, e);
     }
+  }
+
+  /**
+   * §A.21.D-SHELL-RING — pick the FLOOR-PLATE (slab) outer ring that best matches a
+   * storey band's base elevation, used as the perimeter-ring FALLBACK when the
+   * wall-loop reconstruction can't close (the source of the old "perimeter ring
+   * unavailable — falling back to per-wall boxes" log + the loose per-wall look).
+   *
+   * A generated house authors one floor slab per storey whose OUTER ring IS the
+   * shell footprint, so extruding that ring gives the SAME clean single-polygon
+   * silhouette as a reconstructed wall loop. We match by elevation: a slab's
+   * `topElevation` is the storey's floor plane, so the slab nearest the band's
+   * `baseElevation` is that storey's plate. Returns the ring (≥3 pts) or null when
+   * there are no usable slabs (→ caller drops to per-wall boxes).
+   */
+  private slabRingForBand(
+    slabs: ReadonlyArray<{ ring: ReadonlyArray<{ x: number; z: number }>; topElevation: number }>,
+    bandBaseElevation: number,
+  ): Array<{ x: number; z: number }> | null {
+    let best: ReadonlyArray<{ x: number; z: number }> | null = null;
+    let bestD = Infinity;
+    for (const s of slabs) {
+      if (!s.ring || s.ring.length < 3) continue;
+      const d = Math.abs((s.topElevation ?? 0) - bandBaseElevation);
+      if (d < bestD) { bestD = d; best = s.ring; }
+    }
+    // Only accept a slab that plausibly belongs to THIS storey (its plate sits at
+    // ~floor level): within one storey height (≈ 4 m) of the band base. A slab far
+    // above/below is a different floor and would give the wrong footprint.
+    if (!best || bestD > 4) return null;
+    return best.map((p) => ({ x: p.x, z: p.z }));
   }
 
   /**
