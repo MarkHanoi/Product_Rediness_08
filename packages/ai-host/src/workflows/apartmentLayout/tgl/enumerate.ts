@@ -2064,6 +2064,24 @@ export function enumerateLayouts(input: EnumerateInput): TglCandidate[] {
         console.log(`[D-TGL] §DIAG-WINNER objectives: ${axes}`);
     }
 
+    // §DIAG-CORRIDOR-STAIR-SUMMARY (founder spec, 2026-06-17) — the single storey-level line
+    // that answers "is the §CORRIDOR-STAIR-CONTIGUITY gate sufficient, or does the orientation
+    // need work?". Counts how many of the strategies produced a corridor that REACHES the stair
+    // (no 'corridor-stair' hard failure) and whether the SELECTED winner is one of them. House
+    // path only (a stair keep-out exists). When selected=YES the gate already fixed circulation;
+    // when contiguous=0/N (no strategy reached the stair) the gate can't help — the orientation /
+    // §STAIR-SPINE-TOUCH must PRODUCE a reaching corridor. Pure logging; no behaviour change.
+    if (best && input.keepOutRects && input.keepOutRects.length > 0) {
+        const contiguous = candidates.filter(c => !c.hardFailedRules.includes('corridor-stair')).length;
+        const bestContiguous = !best.hardFailedRules.includes('corridor-stair');
+        console.log(
+            `[D-TGL] §DIAG-CORRIDOR-STAIR-SUMMARY contiguous=${contiguous}/${candidates.length} ` +
+            `strategies reached the stair; selected=${bestContiguous ? 'YES' : 'NO'} ` +
+            `(selected=NO with contiguous=0 ⇒ NO strategy produced a stair-reaching corridor → ` +
+            `orientation/§STAIR-SPINE-TOUCH must bridge, the gate alone cannot)`,
+        );
+    }
+
     if (best && !best.circulationRouted) {
         console.warn(
             '[apartment-layout] §CIRCULATION-REROUTE: a habitable room is reachable ' +
