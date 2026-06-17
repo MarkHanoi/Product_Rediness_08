@@ -579,7 +579,15 @@ export class FormaSiteAnalysisControls {
         card.appendChild(stats);
 
         if (this.climateNote) {
-            this.climateNote.textContent = `Source ${ds.source}.`;
+            // §CLIMATE-ESTIMATED-BADGE (founder 2026-06-17) — the 'fallback-defaults'
+            // tier is a GENERIC regional climate-zone template (the bundled offline
+            // normals that land instantly with no network), not measured data. Tag it
+            // as estimated so the user knows it's plausible-but-generic until live
+            // Open-Meteo/PVGIS upgrades it in the background; the 'epw'/'noaa-normals'
+            // tiers show the real source name.
+            this.climateNote.textContent = ds.source === 'fallback-defaults'
+                ? 'Estimated — regional default (live data loading…).'
+                : `Source ${ds.source}.`;
         }
     }
 
@@ -745,15 +753,21 @@ export class FormaSiteAnalysisControls {
         wrap.replaceChildren();
         const ds = this.resolveDataset();
         if (!ds) {
-            if (this.windNote) this.windNote.textContent = 'No wind data — set a site + load climate.';
+            // §CLIMATE-ESTIMATED-BADGE — a dataset is ingested asynchronously (bundled
+            // normals land within a tick of mount); read this transient as "loading",
+            // not a hard "no data" failure, so the panel never latches on an alarming
+            // empty state during the brief async window.
+            if (this.windNote) this.windNote.textContent = 'Wind data loading… (set a site location if the map is empty).';
             wrap.appendChild(this.windRoseSvg([], 0));
             return;
         }
         const chart = windRoseBars(ds.windRose);
         wrap.appendChild(this.windRoseSvg(chart.bars, chart.maxFrequency));
         if (this.windNote) {
+            // Tag the bundled 'fallback-defaults' tier as estimated (regional default).
+            const estPrefix = ds.source === 'fallback-defaults' ? 'Estimated · ' : '';
             this.windNote.textContent = chart.maxFrequency > 0
-                ? `Mean ${chart.meanSpeedMps.toFixed(1)} m/s · gust ${chart.p99SpeedMps.toFixed(1)} m/s. Bars point FROM prevailing.`
+                ? `${estPrefix}Mean ${chart.meanSpeedMps.toFixed(1)} m/s · gust ${chart.p99SpeedMps.toFixed(1)} m/s. Bars point FROM prevailing.`
                 : 'Wind-rose aggregate empty — needs an EPW with hourly wind.';
         }
     }

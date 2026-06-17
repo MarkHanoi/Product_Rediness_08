@@ -2583,11 +2583,24 @@ export class HouseLayoutExecutor {
             //          = topStorey.elevationM + floorToFloorM = topStorey.elevationM +
             //          wallHeightM, since wallHeightM === floorToFloorM), baseOffset = 0
             //          → worldY = roofLevel.elevation + 0 = topStorey.elevationM + wallHeightM.
-            // Both resolve to the SAME world Y = the top storey's wall head → the roof
-            // does NOT move vertically; only its owning level (and hence plan view)
-            // changes. We still compute the expected cap elevation for the log so a
-            // regression is visible. `autoBaseOffset:false` keeps it deterministic.
-            const roofBaseOffset = 0;
+            // Both resolve to the SAME reference world Y = the top storey's wall head.
+            //
+            // §ROOF-SIT-ON-WALL-HEAD (founder 2026-06-17 "the roof is clashing with the
+            // walls of the upper floor … sit the base of the slab on top of the top of
+            // the walls"). The flat slab geometry extrudes DOWNWARD from its origin —
+            // RoofGeometryBuilder._buildExtrudedPolygon puts the TOP face at y=0 and the
+            // BOTTOM face at y=−thickness. So at baseOffset 0 the slab occupies
+            // [wallHead−thickness, wallHead] and its bottom 0.25 m bites INTO the top of
+            // the storey's walls — exactly the clash the founder sees. FIX: lift the slab
+            // by exactly its thickness so the slab BOTTOM rests ON the wall head and the
+            // whole slab sits cleanly ABOVE the walls ([wallHead, wallHead+thickness]).
+            // (Was `= 0`, which embedded the slab in the wall heads.)
+            // ONLY FLAT roofs need this: a flat slab extrudes downward, so it bites into
+            // the walls. A PITCHED roof (gable/hip) rises from its EAVE at y=0 upward, so
+            // its eave must stay ON the wall head (baseOffset 0) — lifting it would open a
+            // gap between the wall top and the eave. `autoBaseOffset:false` keeps it
+            // deterministic.
+            const roofBaseOffset = effectiveKind === 'flat' ? DEFAULT_ROOF_THICKNESS_M : 0;
             const expectedRoofElevM = typeof roof.baseElevationM === 'number'
                 ? roof.baseElevationM
                 : topStorey.elevationM + wallHeightM;
@@ -2607,7 +2620,7 @@ export class HouseLayoutExecutor {
                 thickness: DEFAULT_ROOF_THICKNESS_M,
             }), { source: 'HOUSE_PIPELINE_ROOF' });
             console.log('[house-layout] §ROOF-LEVEL roof created on dedicated roof level', roofLevelId,
-                `(${effectiveKind}${effectiveKind !== roof.kind ? ` ←gable-fallback` : ''}, ~${pitchDeg.toFixed(0)}°, eave ${(DEFAULT_ROOF_OVERHANG_M * 1000).toFixed(0)}mm, baseOffset ${roofBaseOffset}m → roof caps @ ${expectedRoofElevM.toFixed(2)}m = top wall head, world-Y unchanged)`);
+                `(${effectiveKind}${effectiveKind !== roof.kind ? ` ←gable-fallback` : ''}, ~${pitchDeg.toFixed(0)}°, eave ${(DEFAULT_ROOF_OVERHANG_M * 1000).toFixed(0)}mm, baseOffset ${roofBaseOffset.toFixed(2)}m → slab BOTTOM rests on the wall head @ ${expectedRoofElevM.toFixed(2)}m, slab body sits ABOVE the walls [${expectedRoofElevM.toFixed(2)}, ${(expectedRoofElevM + DEFAULT_ROOF_THICKNESS_M).toFixed(2)}]m — §ROOF-SIT-ON-WALL-HEAD)`);
             // §DIAG-ROOF (founder L-shape verification, 2026-06-10) — ALWAYS-ON. Shows
             // the roof FOOTPRINT vertex count + convexity + requested-vs-chosen kind so
             // the next run proves which branch fired. A concave RECTILINEAR footprint
