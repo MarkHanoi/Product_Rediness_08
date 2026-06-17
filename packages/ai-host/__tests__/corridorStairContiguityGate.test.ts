@@ -3,7 +3,7 @@
 // Pure predicate test: house-only, no-op on apartments / no-corridor / corridor-reaches-stair.
 
 import { describe, expect, it } from 'vitest';
-import { corridorStairGapFor } from '../src/workflows/apartmentLayout/tgl/enumerate.js';
+import { corridorStairGapFor, corridorHallGapFor } from '../src/workflows/apartmentLayout/tgl/enumerate.js';
 import type { RoomPlacement } from '../src/workflows/apartmentLayout/tgl/subdivide.js';
 import type { Rect } from '../src/workflows/apartmentLayout/tgl/rectDecomposition.js';
 
@@ -60,5 +60,45 @@ describe('§CORRIDOR-STAIR-CONTIGUITY — corridorStairGapFor', () => {
         const placements = [place('corr', 0, 0, 6, 1.2)];
         const keepOuts = [rect(6, 5, 8, 7), rect(6, 0, 8, 1.2)];   // 2nd shares the full wall
         expect(corridorStairGapFor(placements, 'corr', keepOuts)).toBe(false);
+    });
+});
+
+describe('§GF-CORRIDOR-HALL-CONTIGUITY — corridorHallGapFor (ground floor)', () => {
+    it('no entrance hall (entryId null) ⇒ NO gate (upper floor / stair gate owns it)', () => {
+        const placements = [place('corr', 0, 0, 6, 1.2)];
+        expect(corridorHallGapFor(placements, 'corr', null)).toBe(false);
+        expect(corridorHallGapFor(placements, 'corr', undefined)).toBe(false);
+    });
+
+    it('no corridor id ⇒ NO gate', () => {
+        const placements = [place('hall', 0, 0, 3, 3)];
+        expect(corridorHallGapFor(placements, null, 'hall')).toBe(false);
+    });
+
+    it('corridor or hall placement missing ⇒ NO gate', () => {
+        expect(corridorHallGapFor([place('hall', 0, 0, 3, 3)], 'corr', 'hall')).toBe(false);   // corridor dropped
+        expect(corridorHallGapFor([place('corr', 0, 0, 6, 1.2)], 'corr', 'hall')).toBe(false); // hall dropped
+    });
+
+    it('corridor SHARES a door-width wall with the hall ⇒ NO gate', () => {
+        // corridor right edge x=6 abuts hall left edge x=6, z-overlap [0,1.2] = 1.2 m ≥ 0.9.
+        const placements = [place('corr', 0, 0, 6, 1.2), place('hall', 6, 0, 9, 3)];
+        expect(corridorHallGapFor(placements, 'corr', 'hall')).toBe(false);
+    });
+
+    it('corridor FAR from the hall ⇒ GATE fires (the GF-C4 defect: corridor not attached to hall)', () => {
+        // corridor top-left, hall bottom-right — no shared edge (images 3-6 failure).
+        const placements = [place('corr', 0, 8, 6, 9.2), place('hall', 8, 0, 11, 3)];
+        expect(corridorHallGapFor(placements, 'corr', 'hall')).toBe(true);
+    });
+
+    it('corridor touches the hall only at a CORNER ⇒ GATE fires', () => {
+        const placements = [place('corr', 0, 0, 6, 1.2), place('hall', 6, 1.2, 9, 4)];
+        expect(corridorHallGapFor(placements, 'corr', 'hall')).toBe(true);
+    });
+
+    it('shared run below the door minimum (0.6 m) ⇒ GATE fires', () => {
+        const placements = [place('corr', 0, 0, 6, 1.2), place('hall', 6, 0.6, 9, 2)];   // overlap 0.6 m
+        expect(corridorHallGapFor(placements, 'corr', 'hall')).toBe(true);
     });
 });

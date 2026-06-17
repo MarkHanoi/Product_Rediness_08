@@ -52,7 +52,12 @@ export type HardFailedRule =
     // this rule turns sharesStairWall=NO into a hard de-rank so the 8-strategy enumeration
     // floats a contiguous-corridor strategy to the top tier WHEN ONE EXISTS. When none does,
     // the §TOPO-HARD-REJECT-ALL least-bad fallback still ships (house never goes empty).
-    | 'corridor-stair';
+    | 'corridor-stair'
+    // §GF-CORRIDOR-HALL-CONTIGUITY (founder ground-floor spec, 2026-06-17) — the GROUND-FLOOR
+    // twin: the GF corridor must reach the ENTRANCE HALL (the GF arrival hub), not the stair.
+    // Fires only on a house ground floor (entrance hall present); the stair gate is suppressed
+    // there so the two are mutually exclusive per storey.
+    | 'corridor-hall';
 
 /** §DIAG-MIN-AREA-GATE (tracker §68.1) — the habitable room types whose own
  *  `areaMin` is enforced as a HARD floor. A room of one of these types emitted below
@@ -406,6 +411,30 @@ export function corridorStairGapFor(
     return reachM < STAIR_DOOR_MIN_M - EPS;
 }
 
+/**
+ * §GF-CORRIDOR-HALL-CONTIGUITY (founder ground-floor spec, 2026-06-17) — the GROUND-FLOOR
+ * twin of `corridorStairGapFor`. On a house ground floor the arrival hub is the ENTRANCE HALL,
+ * not the stair landing: the corridor is a short PRIVATE branch that must share a door-width
+ * wall (≥ STAIR_DOOR_MIN_M) with the entrance hall (GF-C3/GF-C4), NOT with the stair. (The hall
+ * reaches the stair on its own — GF-C2a.) Returns true when a corridor exists but fails to reach
+ * the hall. False when there is no entrance hall (upper floor / no-hall plate → the stair gate
+ * owns it), no corridor, or the hall placement is missing. Pure + deterministic.
+ */
+export function corridorHallGapFor(
+    placements: readonly RoomPlacement[],
+    corridorId: string | null | undefined,
+    entryId: string | null | undefined,
+): boolean {
+    if (!entryId) return false;                                     // no entrance hall → not a GF gate
+    if (!corridorId) return false;                                  // no corridor → other rules own it
+    const corr = placements.find(p => p.roomId === corridorId);
+    if (!corr) return false;                                        // corridor dropped → circulation rule owns it
+    const hall = placements.find(p => p.roomId === entryId);
+    if (!hall) return false;                                        // hall dropped → other rules own it
+    const reachM = sharedWallRunM(corr.rect, hall.rect);
+    return reachM < STAIR_DOOR_MIN_M - EPS;
+}
+
 function evaluateHardTopology(args: {
     readonly bubble: BubbleGraph;
     readonly frontageHardRoomIds: readonly string[];
@@ -426,8 +455,13 @@ function evaluateHardTopology(args: {
      *  path (no keep-out) and when the plate has no corridor, so Rule SC is house-only and
      *  never fires where it cannot apply. */
     readonly corridorStairGap: boolean;
+    /** §GF-CORRIDOR-HALL-CONTIGUITY — true ⇒ house GROUND floor whose corridor does NOT share a
+     *  door-width wall with the entrance hall. Mutually exclusive with `corridorStairGap` (a storey
+     *  with an entrance hall uses the hall gate; one without uses the stair gate). False on apartments
+     *  / upper floors / no-corridor / no-hall plates. */
+    readonly corridorHallGap: boolean;
 }): readonly HardFailedRule[] {
-    const { bubble, frontageHardRoomIds, unroutedToCirculationRoomIds, doorOpenings, hasRoomOverlap, hasUnderMinArea, hasMissingMandatory, unreachableHabitableRoomIds, corridorStairGap } = args;
+    const { bubble, frontageHardRoomIds, unroutedToCirculationRoomIds, doorOpenings, hasRoomOverlap, hasUnderMinArea, hasMissingMandatory, unreachableHabitableRoomIds, corridorStairGap, corridorHallGap } = args;
     const typeById = new Map<string, string>();
     for (const r of bubble.rooms) typeById.set(r.id, r.type);
 
@@ -522,6 +556,16 @@ function evaluateHardTopology(args: {
     // least-bad fallback still ships — house generation never goes empty.
     if (corridorStairGap) {
         failed.push('corridor-stair');
+    }
+
+    // Rule HC — §GF-CORRIDOR-HALL-CONTIGUITY (founder ground-floor spec, 2026-06-17). On a
+    // house GROUND floor the corridor is a private branch off the ENTRANCE HALL, so it must
+    // reach the hall (not the stair). `corridorHallGap` is the ground-floor twin of
+    // `corridorStairGap` and the two are mutually exclusive per storey (hall present ⇒ hall
+    // gate, hall absent ⇒ stair gate). Same least-bad safety net: when every strategy has the
+    // gap the §TOPO-HARD-REJECT-ALL fallback still ships the storey.
+    if (corridorHallGap) {
+        failed.push('corridor-hall');
     }
 
     return failed;
@@ -1545,10 +1589,18 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     // land-locked room / SEALED-unreachable habitable room / private-room-off-hall /
     // overlap / sub-min / missing-mandatory). Reuses the already-computed frontage hard
     // findings + unrouted signal + realised doors + the angle-independent reach set.
-    // §CORRIDOR-STAIR-CONTIGUITY — house-only gate signal (false on apartments / no-corridor /
-    // corridor-reaches-stair). `placements` are the realised room rects, `bubble.corridorId` the
-    // spine, `input.keepOutRects` the stair footprint(s) — the same data §DIAG-STAIR-CIRC measures.
-    const corridorStairGap = corridorStairGapFor(placements, bubble.corridorId, input.keepOutRects);
+    // §CORRIDOR-STAIR/HALL-CONTIGUITY — FLOOR-AWARE corridor-contiguity gate. The corridor's
+    // arrival hub differs by storey: a house GROUND floor has an ENTRANCE HALL (`bubble.entryId`),
+    // so the corridor must reach the HALL (GF-C4); a house UPPER floor has no hall, so it must
+    // reach the STAIR. Apartments (no keep-out) get neither gate → byte-identical. The two house
+    // gates are mutually exclusive per storey: entrance hall present ⇒ HALL gate (stair gate
+    // suppressed); absent ⇒ STAIR gate.
+    const housePath = !!(input.keepOutRects && input.keepOutRects.length > 0);
+    const isGroundFloor = housePath && bubble.entryId != null;     // entrance hall ⇒ ground floor
+    const corridorStairGap = housePath && !isGroundFloor
+        && corridorStairGapFor(placements, bubble.corridorId, input.keepOutRects);
+    const corridorHallGap = isGroundFloor
+        && corridorHallGapFor(placements, bubble.corridorId, bubble.entryId);
     const hardFailedRules = evaluateHardTopology({
         bubble,
         frontageHardRoomIds: frontage.hardFindings.map(f => f.roomId),
@@ -1559,12 +1611,14 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         hasMissingMandatory,
         unreachableHabitableRoomIds: unreachableHabitable,
         corridorStairGap,
+        corridorHallGap,
     });
     const hardValid = hardFailedRules.length === 0;
     // §DIAG-TOPO-GATE — per-candidate hard-gate decision line (logging only).
     console.log(
         `[D-TGL] §DIAG-TOPO-GATE strategy=${strategyKey(s)} hardValid=${hardValid} ` +
-        `corridorStairGap=${corridorStairGap ? 'YES' : 'no'} ` +
+        `floor=${housePath ? (isGroundFloor ? 'ground' : 'upper') : 'apartment'} ` +
+        `corridorStairGap=${corridorStairGap ? 'YES' : 'no'} corridorHallGap=${corridorHallGap ? 'YES' : 'no'} ` +
         `failed=[${hardFailedRules.join(',') || 'none'}]`,
     );
     // §DIAG-MIN-AREA-GATE (tracker §68.1) — per-candidate min-area decision line: the
@@ -2072,13 +2126,21 @@ export function enumerateLayouts(input: EnumerateInput): TglCandidate[] {
     // when contiguous=0/N (no strategy reached the stair) the gate can't help — the orientation /
     // §STAIR-SPINE-TOUCH must PRODUCE a reaching corridor. Pure logging; no behaviour change.
     if (best && input.keepOutRects && input.keepOutRects.length > 0) {
-        const contiguous = candidates.filter(c => !c.hardFailedRules.includes('corridor-stair')).length;
-        const bestContiguous = !best.hardFailedRules.includes('corridor-stair');
+        // Floor-aware: the ground floor gates on corridor→HALL ('corridor-hall'), the upper floor
+        // on corridor→STAIR ('corridor-stair'). A strategy is "contiguous" when it carries neither.
+        // `bubble` is buildCandidate-local; at this scope the storey's floor is read from the
+        // program's entrance-hall flag (true ⇒ ground, the only storey that mints an entrance hall).
+        const groundFloor = input.program.entranceHall === true;
+        const gateRule: HardFailedRule = groundFloor ? 'corridor-hall' : 'corridor-stair';
+        const anchor = groundFloor ? 'entrance hall' : 'stair';
+        const contiguous = candidates.filter(c => !c.hardFailedRules.includes(gateRule)).length;
+        const bestContiguous = !best.hardFailedRules.includes(gateRule);
         console.log(
-            `[D-TGL] §DIAG-CORRIDOR-STAIR-SUMMARY contiguous=${contiguous}/${candidates.length} ` +
-            `strategies reached the stair; selected=${bestContiguous ? 'YES' : 'NO'} ` +
-            `(selected=NO with contiguous=0 ⇒ NO strategy produced a stair-reaching corridor → ` +
-            `orientation/§STAIR-SPINE-TOUCH must bridge, the gate alone cannot)`,
+            `[D-TGL] §DIAG-CORRIDOR-CONTIGUITY-SUMMARY floor=${groundFloor ? 'ground' : 'upper'} ` +
+            `contiguous=${contiguous}/${candidates.length} strategies reached the ${anchor}; ` +
+            `selected=${bestContiguous ? 'YES' : 'NO'} ` +
+            `(selected=NO with contiguous=0 ⇒ NO strategy produced a ${anchor}-reaching corridor → ` +
+            `the carve/orientation must place the corridor against the ${anchor}, the gate alone cannot)`,
         );
     }
 
