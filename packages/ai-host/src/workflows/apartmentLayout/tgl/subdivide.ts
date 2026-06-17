@@ -2509,6 +2509,264 @@ function emitPolygonCorridorLeg(
 }
 
 /**
+ * §POLYGON-CORRIDOR-ARM (founder §CIRCULATION-GRAPH polygon-native rework PART 4 / FF-R1, 2026-06-17)
+ * — the longest shared axis-aligned WALL run (m) between an arbitrary simple polygon's edges and a
+ * rect's edges. The corridor cell is a POLYGON (the `legUnionLRing` / multi-leg ring), so the rect-vs-
+ * rect {@link sharedWallLengthM} cannot answer "does this private room abut the corridor". This walks
+ * every polygon edge and measures its collinear-and-touching overlap with each of the rect's four
+ * edges (the same ALIGNMENT_SNAP_EPS_M / EPS tolerances `sharedWallLengthM` uses), returning the MAX.
+ * For a rectangle polygon this returns EXACTLY `sharedWallLengthM(polyBBoxRect, rect)`. Pure. */
+export function polyRectSharedWallM(poly: readonly Pt[], rect: Rect): number {
+    let best = 0;
+    const rEdges: ReadonlyArray<readonly [Pt, Pt]> = [
+        [{ x: rect.x0, z: rect.z0 }, { x: rect.x1, z: rect.z0 }],   // bottom (z = z0)
+        [{ x: rect.x1, z: rect.z0 }, { x: rect.x1, z: rect.z1 }],   // right  (x = x1)
+        [{ x: rect.x1, z: rect.z1 }, { x: rect.x0, z: rect.z1 }],   // top    (z = z1)
+        [{ x: rect.x0, z: rect.z1 }, { x: rect.x0, z: rect.z0 }],   // left   (x = x0)
+    ];
+    for (let i = 0; i < poly.length; i++) {
+        const a = poly[i]!, b = poly[(i + 1) % poly.length]!;
+        const pVert = Math.abs(a.x - b.x) < EPS;   // polygon edge is vertical (constant x)
+        const pHorz = Math.abs(a.z - b.z) < EPS;   // polygon edge is horizontal (constant z)
+        if (!pVert && !pHorz) continue;            // non-axis-aligned edge — no axis-aligned shared wall
+        for (const [c, d] of rEdges) {
+            const rVert = Math.abs(c.x - d.x) < EPS;
+            const rHorz = Math.abs(c.z - d.z) < EPS;
+            if (pVert && rVert && Math.abs(a.x - c.x) < ALIGNMENT_SNAP_EPS_M) {
+                // both vertical, (near-)collinear in x → overlap along z
+                const lo = Math.max(Math.min(a.z, b.z), Math.min(c.z, d.z));
+                const hi = Math.min(Math.max(a.z, b.z), Math.max(c.z, d.z));
+                if (hi - lo > best) best = hi - lo;
+            } else if (pHorz && rHorz && Math.abs(a.z - c.z) < ALIGNMENT_SNAP_EPS_M) {
+                // both horizontal, (near-)collinear in z → overlap along x
+                const lo = Math.max(Math.min(a.x, b.x), Math.min(c.x, d.x));
+                const hi = Math.min(Math.max(a.x, b.x), Math.min(c.x, d.x));
+                if (hi - lo > best) best = hi - lo;
+            }
+        }
+    }
+    return best > ALIGNMENT_SNAP_EPS_M ? best : 0;
+}
+
+/**
+ * §POLYGON-CORRIDOR-ARM (PART 4 / FF-R1, 2026-06-17) — trace the union BOUNDARY of a set of axis-
+ * aligned rects (the corridor spine + its legs) into a SINGLE CCW simple rectilinear polygon, so a
+ * spine-with-MULTIPLE-legs (an L with 2 legs = a T / U / +) lifts to one valid ring.
+ *
+ * `legUnionLRing` only composes spine + ONE leg; a T/U needs a general union. The rects are collected
+ * onto a uniform coordinate grid (every distinct rect edge becomes a grid line), each grid cell is
+ * tagged FILLED iff its centre lies inside some rect, and the outer boundary of the filled region is
+ * walked counter-clockwise. Collinear vertices are collapsed so the ring is minimal. The rects MUST
+ * form a single CONNECTED region whose union is simply-connected (no hole) — the spine + legs always
+ * do (each leg abuts the spine) — otherwise the trace returns null (defensive; caller skips the union).
+ *
+ * Pure + deterministic. Coordinates stay `round6`-clean (inputs come from `roundRect`). */
+export function rectUnionRing(rects: readonly Rect[]): readonly Pt[] | null {
+    if (rects.length === 0) return null;
+    if (rects.length === 1) return rectPolygon(roundRect(rects[0]!));
+
+    // Coordinate grids: every distinct rect edge → a grid line (deterministic ascending order).
+    const xsSet = new Set<number>(), zsSet = new Set<number>();
+    for (const r of rects) { xsSet.add(round6(r.x0)); xsSet.add(round6(r.x1)); zsSet.add(round6(r.z0)); zsSet.add(round6(r.z1)); }
+    const xs = [...xsSet].sort((a, b) => a - b);
+    const zs = [...zsSet].sort((a, b) => a - b);
+    const nx = xs.length - 1, nz = zs.length - 1;
+    if (nx < 1 || nz < 1) return null;
+
+    // FILLED[zi][xi] — true iff the cell centre lies inside some rect.
+    const filled: boolean[][] = [];
+    for (let zi = 0; zi < nz; zi++) {
+        filled[zi] = [];
+        const cz = (zs[zi]! + zs[zi + 1]!) / 2;
+        for (let xi = 0; xi < nx; xi++) {
+            const cx = (xs[xi]! + xs[xi + 1]!) / 2;
+            let inside = false;
+            for (const r of rects) {
+                if (cx > r.x0 + EPS && cx < r.x1 - EPS && cz > r.z0 + EPS && cz < r.z1 - EPS) { inside = true; break; }
+            }
+            filled[zi]![xi] = inside;
+        }
+    }
+
+    // cell(zi,xi): false for out-of-range (so the region's complement is the unbounded exterior).
+    const cell = (zi: number, xi: number): boolean =>
+        zi >= 0 && zi < nz && xi >= 0 && xi < nx && filled[zi]![xi] === true;
+
+    // Find the lowest-then-leftmost filled cell; start at its bottom-left grid corner and walk the
+    // boundary keeping FILLED on the LEFT (→ CCW outer ring). Move along grid lines between corners.
+    let startXi = -1, startZi = -1;
+    outer: for (let zi = 0; zi < nz; zi++) for (let xi = 0; xi < nx; xi++) if (filled[zi]![xi]) { startZi = zi; startXi = xi; break outer; }
+    if (startXi < 0) return null;
+
+    // Boundary walk on the corner lattice (xs × zs). State: current corner (cxi,czi) + direction.
+    // Directions: 0 = +x, 1 = +z, 2 = -x, 3 = -z. Start heading +x along the bottom edge of the
+    // start cell, with the filled start cell above-left → filled stays on the left for CCW.
+    const cornerX = (xi: number) => xs[xi]!;
+    const cornerZ = (zi: number) => zs[zi]!;
+    const start = { xi: startXi, zi: startZi };
+    let cxi = start.xi, czi = start.zi;   // bottom-left corner of the start cell
+    let dir = 0;                          // +x
+    const ringIdx: Array<{ xi: number; zi: number }> = [];
+    const MAX_STEPS = 4 * (nx + 1) * (nz + 1) + 8;   // generous cap; bails (null) if exceeded
+    let steps = 0;
+    do {
+        ringIdx.push({ xi: cxi, zi: czi });
+        // At corner (cxi,czi) we just arrived heading `dir`. Decide the next direction by the
+        // fill of the two cells flanking the EDGE we'd traverse, preferring a LEFT turn (CCW)
+        // then straight then right, so we hug the outer boundary keeping fill on the left.
+        // Cells around corner (cxi,czi): below-left (czi-1,cxi-1), below-right (czi-1,cxi),
+        // above-left (czi,cxi-1), above-right (czi,cxi).
+        const aboveLeft = cell(czi, cxi - 1), aboveRight = cell(czi, cxi);
+        const belowLeft = cell(czi - 1, cxi - 1), belowRight = cell(czi - 1, cxi);
+        // Candidate moves (in CCW turn-preference order relative to incoming dir): left, straight, right.
+        // For each direction, it's a valid boundary edge iff exactly one flanking cell is filled (the
+        // one that keeps fill on the LEFT of travel).
+        const canGo = (d: number): boolean => {
+            switch (d) {
+                case 0: return aboveRight && !belowRight;   // +x (east):  left=N=aboveRight filled,  right=S=belowRight empty
+                case 1: return aboveLeft && !aboveRight;    // +z (north):  left=W=aboveLeft filled,   right=E=aboveRight empty
+                case 2: return belowLeft && !aboveLeft;     // -x (west):   left=S=belowLeft filled,   right=N=aboveLeft empty
+                case 3: return belowRight && !belowLeft;    // -z (south):  left=E=belowRight filled,   right=W=belowLeft empty
+                default: return false;
+            }
+        };
+        const left = (dir + 1) % 4, straight = dir, right = (dir + 3) % 4;
+        let nd = -1;
+        for (const d of [left, straight, right]) { if (canGo(d)) { nd = d; break; } }
+        if (nd < 0) return null;   // dead end — region not simply-connected as expected (defensive)
+        dir = nd;
+        if (dir === 0) cxi += 1; else if (dir === 2) cxi -= 1; else if (dir === 1) czi += 1; else czi -= 1;
+        if (cxi < 0 || cxi > nx || czi < 0 || czi > nz) return null;   // ran off lattice (defensive)
+        if (++steps > MAX_STEPS) return null;
+        // Terminate on RETURN TO THE START CORNER. The start is the bottom-then-left-most filled
+        // cell's bottom-left corner — a unique CONVEX vertex of the outer ring, so the CCW walk
+        // revisits it exactly once, at closure (the incoming direction there may be any of the four,
+        // so we must NOT also gate on `dir`).
+    } while (!(cxi === start.xi && czi === start.zi));
+
+    // Collapse collinear corners → minimal ring; map lattice indices → world coords.
+    const raw: Pt[] = ringIdx.map(c => ({ x: cornerX(c.xi), z: cornerZ(c.zi) }));
+    const ring: Pt[] = [];
+    for (let i = 0; i < raw.length; i++) {
+        const prev = raw[(i - 1 + raw.length) % raw.length]!, cur = raw[i]!, next = raw[(i + 1) % raw.length]!;
+        const coll = (Math.abs(prev.x - cur.x) < EPS && Math.abs(cur.x - next.x) < EPS) ||
+                     (Math.abs(prev.z - cur.z) < EPS && Math.abs(cur.z - next.z) < EPS);
+        if (!coll) ring.push({ x: round6(cur.x), z: round6(cur.z) });
+    }
+    if (ring.length < 4) return null;   // not a real polygon (defensive)
+
+    // §UNION-CONNECTED — the walk traces ONLY the boundary of the component containing the start cell.
+    // If the input rects are NOT a single connected region (or the union has a hole), the traced ring's
+    // area is LESS than the total filled-cell area; bail null so the caller never ships a polygon that
+    // omits part of the union. For the spine + abutting legs (the only production caller) the area
+    // matches exactly, so this is a strict identity there. Areas come from the same grid → exact.
+    let totalFilledArea = 0;
+    for (let zi = 0; zi < nz; zi++) for (let xi = 0; xi < nx; xi++) {
+        if (filled[zi]![xi]) totalFilledArea += (xs[xi + 1]! - xs[xi]!) * (zs[zi + 1]! - zs[zi]!);
+    }
+    if (cellAreaM2(ring) < totalFilledArea - 1e-6) return null;   // ring omits part of the union
+    return ring;
+}
+
+/**
+ * §POLYGON-CORRIDOR-ARM (founder §CIRCULATION-GRAPH polygon-native rework PART 4 / FF-R1, 2026-06-17)
+ * — extend the corridor's cell POLYGON into a SECOND (third, …) arm so EVERY private room abuts it.
+ *
+ * THE DEFECT (Phase 4 fixes): on a fragmented plate the corridor threads only ONE arm, so a private
+ * room (bedroom / bathroom / master) in the OTHER arm is not on the corridor — it ships "served
+ * through" a public room (`§DIAG-ADJACENCY r5(bedroom)→dining✓` instead of →corridor;
+ * `unroutedToCirculation=[r5]`; the gate fails `circulation`; on the upper floor far-arm bedrooms
+ * SEAL). This pass turns the corridor's L (one leg) into a T / U / + (multiple legs).
+ *
+ * For every PRIVATE / SERVICE room (privacy 'private'/'service', plus 'bedroom'/'bathroom'/'master',
+ * EXCLUDING the master-served 'ensuite') whose RECT does NOT already share a ≥0.9 m wall with the
+ * corridor POLYGON, it tries to grow an additional corridor LEG (width = corridor short side) through
+ * EMPTY space from the corridor spine to that room's nearest edge — reusing {@link findCorridorStubToKeepOut}
+ * with the TARGET ROOM's rect as the keep-out to route toward (its §STUB-EMPTY-ONLY discipline rejects
+ * any lane crossing a habitable room, and stops the leg at the room's near edge so it never overlaps).
+ * Every successful leg is UNIONED (with the spine + the stair-leg) into a single CCW ring by
+ * {@link rectUnionRing}, so the corridor's `cellPolygonById` entry becomes the multi-arm ring the wall
+ * sweep reads. The corridor's `placements` RECT is UNTOUCHED (the area / min / overlap gates unchanged).
+ *
+ * SELF-VALIDATING / NON-REGRESSING: every leg is OPTIONAL — a room unreachable through empty space is
+ * left (no-op for that room). A leg never overlaps a habitable room (§STUB-EMPTY-ONLY). When NO arm is
+ * reachable the result is returned UNCHANGED (so the pass is byte-identical to the Phase 2 output, and
+ * — absent a keep-out — to the whole pre-rework path). When a leg's union fails to form a clean ring
+ * that leg is skipped (never a corrupted polygon). Pure + deterministic. */
+function emitPolygonCorridorArm(
+    result: SubdivideResult,
+    corridorId: string | null,
+    keepOuts: readonly Rect[],
+    typeById: ReadonlyMap<string, RoomType>,
+    corridorWidthM: number,
+): SubdivideResult {
+    if (!corridorId || keepOuts.length === 0) return result;
+    const corrP = result.placements.find(p => p.roomId === corridorId);
+    if (!corrP) return result;
+    const spine = corrP.rect;
+
+    // The corridor cell polygon as it stands after §POLYGON-CORRIDOR-LEG (spine, or spine ∪ stair-leg).
+    const baseRing = result.cellPolygonById?.get(corridorId) ?? rectPolygon(spine);
+
+    // §1 — the unreached private rooms: privacy private/service (plus bedroom/bathroom/master),
+    // EXCLUDING the corridor/stair and the master-served ensuite, whose RECT does not already share a
+    // door-width wall with the corridor polygon. Deterministic order (placements order).
+    const isArmTarget = (id: string): boolean => {
+        if (id === corridorId) return false;
+        const t = typeById.get(id);
+        if (t === undefined) return false;
+        if (t === 'stair' || t === 'corridor' || t === 'hall' || t === 'ensuite') return false;
+        const priv = roomRule(t).privacy;
+        return priv === 'private' || priv === 'service' || t === 'bedroom' || t === 'bathroom' || t === 'master';
+    };
+    const buildBB = placementsBBox(result.placements);
+    const shellBB: Rect = {
+        x0: keepOuts.reduce((m, ko) => Math.min(m, ko.x0), buildBB.x0),
+        z0: keepOuts.reduce((m, ko) => Math.min(m, ko.z0), buildBB.z0),
+        x1: keepOuts.reduce((m, ko) => Math.max(m, ko.x1), buildBB.x1),
+        z1: keepOuts.reduce((m, ko) => Math.max(m, ko.z1), buildBB.z1),
+    };
+
+    // §2 — grow a leg toward each unreached target. We route through EMPTY space using
+    // findCorridorStubToKeepOut with the TARGET ROOM as the single keep-out (it stops the leg at the
+    // room's near edge, so it shares a wall WITHOUT overlapping). Each leg abuts the spine, so the
+    // union of the spine + all legs is one connected, simply-connected rectilinear region.
+    const legs: Rect[] = [];
+    let reached = 0;
+    let workingRing = baseRing;
+    for (const p of result.placements) {
+        if (!isArmTarget(p.roomId)) continue;
+        if (polyRectSharedWallM(workingRing, p.rect) >= STAIR_DOOR_MIN_M - EPS) continue;   // already on corridor
+        // Route the leg through empty space toward this room (room rect = the keep-out to reach).
+        // §STUB-EMPTY-ONLY rejects any lane crossing a habitable room → the leg is safe by construction.
+        const leg = findCorridorStubToKeepOut(result.placements, corridorId, [p.rect], typeById, corridorWidthM, shellBB);
+        if (leg === null) continue;
+        // §STAIR-KEEPOUT-CLEAR — the empty-channel router exempts the `stair` ROOM (correct, for the
+        // stair-leg), so an arm-leg could legally cross the stair KEEP-OUT. The corridor polygon must
+        // never overlap the stair core (the §65.1 invariant the houseLayout keep-out test enforces on
+        // the cell polygon's bbox). Reject any leg that intersects a keep-out by more than a hairline.
+        if (keepOuts.some(ko => overlapAreaM2(leg, ko) > EPS)) continue;
+        // Compose spine + every accepted leg so far + this leg into ONE clean ring; only ACCEPT this
+        // leg if the union is a valid ring AND the target now shares ≥0.9 m with it (else skip — no
+        // corrupted polygon, no false positive).
+        const candidateLegs = [...legs, leg];
+        const ring = rectUnionRing([spine, ...candidateLegs]);
+        if (ring === null) continue;
+        if (polyRectSharedWallM(ring, p.rect) < STAIR_DOOR_MIN_M - EPS) continue;
+        legs.push(leg);
+        workingRing = ring;
+        reached += 1;
+    }
+
+    if (reached === 0) return result;   // nothing reachable → byte-identical (no arm added).
+
+    console.log(`[D-TGL subdivide] §POLYGON-CORRIDOR-ARM corridor=${corridorId} reachedRooms=${reached}`);
+    const merged = new Map<string, readonly Pt[]>(result.cellPolygonById ?? []);
+    merged.set(corridorId, workingRing);
+    return { ...result, cellPolygonById: merged };
+}
+
+/**
  * §CORRIDOR-PHYSIOGNOMY (A.21.D46, 2026-06-08) — reshape the corridor placement
  * into a NARROW STRIP whenever it came out wider than its rule's `maxShortSideM`.
  * The multi-rect / squarify paths can hand the corridor a NEAR-SQUARE cell (a fat
@@ -3036,8 +3294,21 @@ export function subdivideWithReport(
         // (byte-identical — the corridor stays a plain rect; no regression). The corridor's RECT in
         // `placements` is untouched (the spine), so the area / min / overlap gates are unchanged.
         if (keepOutRects.length === 0) return baseResult;
-        return emitPolygonCorridorLeg(
+        const withLeg = emitPolygonCorridorLeg(
             baseResult,
+            graph.corridorId,
+            keepOutRects,
+            typeByRoomIdNet,
+            corridorWidthM ?? CORRIDOR_STRIP_WIDTH_M,
+        );
+        // §POLYGON-CORRIDOR-ARM (PART 4 / FF-R1, 2026-06-17) — extend the corridor polygon into a
+        // SECOND (third, …) arm so every PRIVATE room abuts it (L → T / U): on a fragmented plate the
+        // §POLYGON-CORRIDOR-LEG threads only ONE arm, leaving far-arm bedrooms served-through-a-public-
+        // room (gate `circulation` fail; upper-floor seal). Self-validating + gated: no keep-out, no
+        // corridor, every private room already on the corridor, or no empty leg reachable ⇒ UNCHANGED
+        // (byte-identical to the §POLYGON-CORRIDOR-LEG output). The corridor's RECT is untouched.
+        return emitPolygonCorridorArm(
+            withLeg,
             graph.corridorId,
             keepOutRects,
             typeByRoomIdNet,
