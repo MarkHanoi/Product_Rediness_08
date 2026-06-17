@@ -1327,16 +1327,38 @@ export function buildWallsAndDoors(
     };
     diagPass('bubble');
 
-    // Shared-wall candidates, ranked: circulation-touching first, then longer walls,
-    // then stable id (deterministic).
+    // §CORRIDOR-FIRST (founder GF/FF "corridor serves zero rooms", 2026-06-17) — a room adjacent
+    // to BOTH the corridor and the entrance hall previously broke the door-host tie by WALL LENGTH,
+    // so a private room doored onto whichever circulation wall was longer — often the hall, leaving
+    // the 9 m² corridor serving nobody (the founder's GF defect). Refine the preference so a
+    // PRIVATE/SERVICE room prefers the CORRIDOR over the hall, while a PUBLIC room still prefers the
+    // HALL (we must never route public traffic onto the private spine — §CORRIDOR-PUBLIC would
+    // reject that candidate). Pairs with no circulation side keep pref 0 (unchanged). The corridor
+    // IS the private spine on every plan, so this is architecturally correct on apartments too.
+    // Order (high→low): private→corridor (4), public→hall (3), private→hall (2),
+    // public/circ→corridor + circ↔circ (1), no circulation (0).
+    const circPref = (a: string, b: string): number => {
+        const ta = typeOf.get(a) ?? '', tb = typeOf.get(b) ?? '';
+        const aCirc = isCirculation(ta), bCirc = isCirculation(tb);
+        if (!aCirc && !bCirc) return 0;                          // no circulation side → unchanged
+        const circType = aCirc ? ta : tb;                        // the circulation room's type
+        const otherType = aCirc ? tb : ta;                       // the room being served
+        const isCorridor = roomRule(circType).type === 'corridor';
+        const p = roomRule(otherType).privacy;
+        if (p === 'private' || p === 'service') return isCorridor ? 4 : 2;   // private: corridor ≫ hall
+        if (isCirculation(otherType)) return 1;                  // circulation↔circulation (hall↔corridor)
+        return isCorridor ? 1 : 3;                               // public: hall (3) ≫ corridor (1)
+    };
+
+    // Shared-wall candidates, ranked: §CORRIDOR-FIRST preference (private→corridor first), then
+    // longer walls, then stable id (deterministic).
     const shared = segments
         // §DOOR-WALL-SURVIVES (A.21.D29 #8) — only walls that survive the final repair
         // are real door hosts; a dropped wall can never carry a built door.
         .filter(s => s.boundsRoomIds.length === 2 && survivingWallIds.has(s.id))
         .map(s => {
             const [a, b] = s.boundsRoomIds as readonly [string, string];
-            const touchesCirc = isCirculation(typeOf.get(a) ?? '') || isCirculation(typeOf.get(b) ?? '') ? 1 : 0;
-            return { seg: s, a, b, pref: touchesCirc, len: Math.hypot(s.b.x - s.a.x, s.b.z - s.a.z) };
+            return { seg: s, a, b, pref: circPref(a, b), len: Math.hypot(s.b.x - s.a.x, s.b.z - s.a.z) };
         })
         .sort((p, q) => q.pref - p.pref || q.len - p.len || (p.seg.id < q.seg.id ? -1 : 1));
 
