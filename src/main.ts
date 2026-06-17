@@ -39,6 +39,28 @@ import { warmEngineModule } from '@app/engine/engineWarmup';
 //     to `apps/editor/src/main.ts`; only `?pryzm1=1` lands here.
 // The banner painter is dynamically imported so this file gains zero
 // new bytes on the cold-boot critical path until the flag fires.
+// §STALE-CHUNK-RELOAD (founder 2026-06-17 "the analysis buttons don't work, not to
+// speak of the overlay"). ROOT CAUSE seen in the field logs: a long-lived session
+// runs an OLD app shell whose lazy `import()`s reference OLD chunk hashes; after a
+// redeploy the server drops those hashes and returns 504 "Stale asset (chunk hash not
+// on server)" → `Failed to fetch dynamically imported module`. EVERY lazy feature then
+// silently fails (real-model overlay, Forma analysis controls, ensureSiteClimate, …).
+// Vite fires `vite:preloadError` on exactly this. Self-heal: reload ONCE to pull the
+// fresh shell (guarded by a sessionStorage flag so a genuinely-broken chunk can't loop).
+window.addEventListener('vite:preloadError', (event) => {
+    const KEY = 'pryzm:chunk-reload-at';
+    const last = Number(sessionStorage.getItem(KEY) ?? '0');
+    // Only auto-reload if we haven't already done so in the last 20 s (loop guard).
+    if (Date.now() - last > 20_000) {
+        event.preventDefault();   // swallow the throw so the app doesn't hard-crash first
+        sessionStorage.setItem(KEY, String(Date.now()));
+        console.warn('[stale-chunk] a lazy chunk 404/504\'d (deploy-skew) — reloading once to pull the fresh app shell.');
+        location.reload();
+    } else {
+        console.error('[stale-chunk] lazy chunk still failing after a reload — NOT looping; surfacing the error.', (event as unknown as { payload?: unknown }).payload);
+    }
+});
+
 const __pryzm1SunsetOptIn =
     new URLSearchParams(location.search).get('pryzm1') === '1';
 if (__pryzm1SunsetOptIn) {

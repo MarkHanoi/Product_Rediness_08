@@ -1921,15 +1921,23 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             viewport.style.position = 'relative';
         }
         if (formaToggle?.parentElement) formaToggle.parentElement.removeChild(formaToggle);
+        // §FORMA-TOGGLE-EXCLUSIVE (founder 2026-06-17 "two lines of buttons, same values
+        // — fix the mess"). The Forma view toggle carries its OWN [2D Map][Plan][3D][Real]
+        // [Massing][Zoom to Site] controls that DUPLICATE the result toggle's. Mounting it
+        // BELOW the still-visible result bar stacked two rows of overlapping buttons. The
+        // Forma toggle now REPLACES the result bar: hide the result bar while Forma is up
+        // (restored in removeFormaViewToggle) + a "‹ Views" button below returns to it.
+        if (resultToggle) resultToggle.style.display = 'none';
 
         const bar = document.createElement('div');
         bar.className = 'pryzm-forma-view-toggle';
         bar.setAttribute('data-testid', 'forma-view-toggle');
         Object.assign(bar.style, {
             // §A.10.h (founder) — CENTRED over the 3D view + width-adaptive (left:50%
-            // + translateX(-50%)); stacked just under the result bar. Was left:12px,
-            // clipped behind the left icon rail.
-            position: 'absolute', top: '108px', left: '50%', transform: 'translateX(-50%)',
+            // + translateX(-50%)). §FORMA-TOGGLE-EXCLUSIVE — sits at the result bar's slot
+            // (top:64px) now that the result bar is hidden while Forma is up (was 108px,
+            // stacked under it → the founder's duplicate two-row toolbar).
+            position: 'absolute', top: '64px', left: '50%', transform: 'translateX(-50%)',
             zIndex: '31', display: 'flex', gap: '4px', padding: '4px',
             background: '#ffffff', borderRadius: '10px',
             boxShadow: '0 4px 18px rgba(20,10,60,0.18)', border: '1px solid #ece7fb',
@@ -1957,6 +1965,24 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // FORMA-PLAN-OBLIQUE — 3-way group: [ 2D Map ] [ Plan ] [ 3D ]. "2D Map"
         // is the MapLibre exit (boundary drawing); "Plan" + "3D" are the Cesium-
         // Forma canvas at different pitches (plan-oblique vs NW oblique).
+        // §FORMA-TOGGLE-EXCLUSIVE — "‹ Views" returns to the result toggle bar (which the
+        // Forma toggle replaced) so the founder is never trapped without the top-level
+        // 2D / 3D-globe / Site-3D switch. Restores the result bar via removeFormaViewToggle.
+        const backBtn = document.createElement('button');
+        backBtn.type = 'button';
+        backBtn.className = 'pryzm-forma-view-btn';
+        backBtn.textContent = '‹ Views';
+        backBtn.title = 'Back to the view switch (2D · 3D globe · Site 3D)';
+        Object.assign(backBtn.style, {
+            appearance: 'none', border: 'none', cursor: 'pointer',
+            padding: '7px 12px', borderRadius: '7px', color: '#6600FF',
+            background: 'transparent', font: 'inherit', borderRight: '1px solid #ece7fb',
+        } satisfies Partial<CSSStyleDeclaration>);
+        backBtn.addEventListener('mouseenter', () => { backBtn.style.background = '#f4f0ff'; });
+        backBtn.addEventListener('mouseleave', () => { backBtn.style.background = 'transparent'; });
+        backBtn.addEventListener('click', () => { removeFormaViewToggle(); });
+        bar.appendChild(backBtn);
+
         formaMap2dBtn = mkBtn('map2d', '▦ 2D Map', 'Drop to the 2D draw map (MapLibre) to draw or edit the boundary');
         formaPlanBtn = mkBtn('plan', '◳ Plan', 'Forma plan-oblique — near-top-down shadowed massing (the Forma signature look)');
         formaThreeBtn = mkBtn('3d', '◉ 3D', 'Forma 3D — NW oblique massing study (depth view)');
@@ -2094,6 +2120,8 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         disposeFormaAnalysis(); // FORMA.5 — tear down analysis chrome with the toggle.
         if (formaToggle?.parentElement) formaToggle.parentElement.removeChild(formaToggle);
         formaToggle = null;
+        // §FORMA-TOGGLE-EXCLUSIVE — restore the result toggle bar the Forma toggle hid.
+        if (resultToggle) resultToggle.style.display = '';
         formaMap2dBtn = null;
         formaPlanBtn = null;
         formaThreeBtn = null;
