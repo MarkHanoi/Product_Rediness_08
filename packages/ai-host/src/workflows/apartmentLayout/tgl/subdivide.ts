@@ -743,6 +743,64 @@ function tryCarveSingleLoadedCorridor(
     };
 }
 
+/**
+ * §STAIR-FACE-AXIS (founder upper-floor fix, 2026-06-17) — keep-out-AWARE single-loaded carve.
+ * `tryCarveSingleLoadedCorridor` picks the corridor orientation from the shell long axis and puts
+ * the strip on the LOW edge; the `orientCorridorToKeepOut` post-pass can flip the SIDE but cannot
+ * ROTATE the axis — so when the stair keep-out abuts a wall PERPENDICULAR to the chosen strip, the
+ * corridor never reaches it (`contiguous=0/8`, then a synthetic stub bridges). This variant lays the
+ * corridor strip DIRECTLY on the shell edge the stair keep-out abuts: the corridor's far face becomes
+ * coincident with the keep-out's near face, so the corridor SHARES A WALL with the stair (a real
+ * landing) and the private rooms comb off it toward the opposite side. Pure; returns null when the
+ * keep-out doesn't clearly abut one edge or the private zone would be too shallow.
+ */
+function tryCarveSingleLoadedCorridorToKeepOut(
+    shell: Rect,
+    keepOut: Rect,
+    corridorWidthM: number = CORRIDOR_STRIP_WIDTH_M,
+): SingleLoadedCarve | null {
+    const W = shell.x1 - shell.x0;
+    const H = shell.z1 - shell.z0;
+    const MIN_ZONE_DEPTH = 2.0;
+    const cw = corridorWidthM;
+    // Which shell edge does the keep-out abut? Use the ABSOLUTE distance from the keep-out's centre
+    // to each edge LINE — robust whether the keep-out sits inside, on, or just OUTSIDE the shell
+    // (the stair is subtracted from the shell, so it commonly abuts an edge from outside).
+    const kcx = (keepOut.x0 + keepOut.x1) / 2;
+    const kcz = (keepOut.z0 + keepOut.z1) / 2;
+    const dRight = Math.abs(shell.x1 - kcx), dLeft = Math.abs(kcx - shell.x0);
+    const dTop = Math.abs(shell.z1 - kcz), dBottom = Math.abs(kcz - shell.z0);
+    const minD = Math.min(dRight, dLeft, dTop, dBottom);
+    // Lay the corridor strip on the nearest edge; need cw + a usable private zone on the far side.
+    let corridorRect: Rect;
+    let orientation: 'horizontal' | 'vertical';
+    if (minD === dRight) {           // stair on the RIGHT wall → vertical strip flush to x1
+        if (W < cw + MIN_ZONE_DEPTH - EPS) return null;
+        corridorRect = { x0: shell.x1 - cw, z0: shell.z0, x1: shell.x1, z1: shell.z1 };
+        orientation = 'vertical';
+    } else if (minD === dLeft) {     // stair on the LEFT wall → vertical strip flush to x0
+        if (W < cw + MIN_ZONE_DEPTH - EPS) return null;
+        corridorRect = { x0: shell.x0, z0: shell.z0, x1: shell.x0 + cw, z1: shell.z1 };
+        orientation = 'vertical';
+    } else if (minD === dTop) {      // stair on the BACK (high-z) wall → horizontal strip flush to z1
+        if (H < cw + MIN_ZONE_DEPTH - EPS) return null;
+        corridorRect = { x0: shell.x0, z0: shell.z1 - cw, x1: shell.x1, z1: shell.z1 };
+        orientation = 'horizontal';
+    } else {                         // stair on the FRONT (low-z) wall → horizontal strip flush to z0
+        if (H < cw + MIN_ZONE_DEPTH - EPS) return null;
+        corridorRect = { x0: shell.x0, z0: shell.z0, x1: shell.x1, z1: shell.z0 + cw };
+        orientation = 'horizontal';
+    }
+    const privateRect: Rect = orientation === 'vertical'
+        ? (corridorRect.x0 <= shell.x0 + EPS
+            ? { x0: corridorRect.x1, z0: shell.z0, x1: shell.x1, z1: shell.z1 }   // corridor on left → private right
+            : { x0: shell.x0, z0: shell.z0, x1: corridorRect.x0, z1: shell.z1 })  // corridor on right → private left
+        : (corridorRect.z0 <= shell.z0 + EPS
+            ? { x0: shell.x0, z0: corridorRect.z1, x1: shell.x1, z1: shell.z1 }   // corridor on bottom → private top
+            : { x0: shell.x0, z0: shell.z0, x1: shell.x1, z1: corridorRect.z0 }); // corridor on top → private bottom
+    return { corridorRect, privateRect, orientation };
+}
+
 // ── §EVERY-ROOM-ACCESS-COMB (A.21.D61, 2026-06-09) ────────────────────────────
 //
 // THE accessibility keystone (founder rule: "EVERY room … connected by doors …
@@ -1273,6 +1331,11 @@ function trySingleRectCarve(
     // §ENTRANCE-HALL-ON-SHELL (tracker §57.4) — when the shell was RECTIFIED (sheared quad),
     // suppress the hall-slice (see SubdivideOptions.shellRectified). Default false ⇒ slice runs.
     shellRectified: boolean = false,
+    // §STAIR-FACE-AXIS (founder upper-floor fix, 2026-06-17) — the stair keep-out in the SAME frame
+    // as `shell`, so the §NO-PUBLIC single-loaded carve can lay the corridor on the stair's edge
+    // (the corridor reaches the stair by construction). Undefined ⇒ unchanged (apartment + every
+    // keep-out-free path is byte-identical).
+    keepOut?: Rect,
 ): SubdivideResult | null {
     const corridor = graph.rooms.find(r => r.type === 'corridor');
     const master   = graph.rooms.find(r => r.type === 'master');
@@ -1337,7 +1400,7 @@ function trySingleRectCarve(
         // through to the double-loaded carve when single-loaded is infeasible (no regression).
         if (preferSingleLoaded) {
             const single = tryNoPublicSingleLoadedCarve(
-                shell, corridor, privateRooms, master, ensuite, ensuiteCarveArea, corridorWidthM,
+                shell, corridor, privateRooms, master, ensuite, ensuiteCarveArea, corridorWidthM, keepOut,
             );
             if (single) return single;
         }
@@ -1629,8 +1692,14 @@ function tryNoPublicSingleLoadedCarve(
     ensuite: ProgramRoom | undefined,
     ensuiteCarveArea: number,
     corridorWidthM?: number,
+    // §STAIR-FACE-AXIS (founder upper-floor fix) — the stair keep-out (shell frame). When present,
+    // lay the corridor strip on the keep-out's edge so it SHARES A WALL with the stair (the corridor
+    // reaches the stair by construction, not via a synthetic stub). Falls through to the shell-axis
+    // carve when absent or infeasible.
+    keepOut?: Rect,
 ): SubdivideResult | null {
-    const carve = tryCarveSingleLoadedCorridor(shell, corridorWidthM);
+    const keepOutCarve = keepOut ? tryCarveSingleLoadedCorridorToKeepOut(shell, keepOut, corridorWidthM) : null;
+    const carve = keepOutCarve ?? tryCarveSingleLoadedCorridor(shell, corridorWidthM);
     if (!carve) return null;
 
     const orderedPrivate = adjacencySortForZone(allocationOrder(privateRooms));
@@ -1674,7 +1743,8 @@ function tryNoPublicSingleLoadedCarve(
     console.log(
         `[D-TGL subdivide] §NO-SEAL-SINGLE-LOAD APPLIED single-loaded corridor: ` +
         `corridor=${corridor.id} private=[${orderedPrivate.map(r => r.id).join(',')}] ` +
-        `orientation=${carve.orientation} (every private room abuts the corridor)`,
+        `orientation=${carve.orientation} face=${keepOutCarve ? 'STAIR-EDGE (§STAIR-FACE-AXIS — corridor laid on the stair wall)' : 'shell-axis'} ` +
+        `(every private room abuts the corridor)`,
     );
     return { placements: out, droppedRooms };
 }
@@ -2833,7 +2903,13 @@ export function subdivideWithReport(
             // §STAIR-CIRC-FACE — when a stair keep-out is supplied, prefer the single-loaded
             // (one-face) corridor so the §STAIR-CIRC-FACE reflection in `finalise` can bring it
             // to the keep-out edge (a centred double-loaded strip can't reach an edge keep-out).
-            const carved = trySingleRectCarve(dominant, graph, corridorWidthM, keepOutRects.length > 0, shellRectified);
+            // §STAIR-FACE-AXIS — the stair keep-out (largest, same frame as `dominant`) so the
+            // §NO-PUBLIC single-loaded carve can lay the corridor on the stair's edge → the corridor
+            // reaches the stair by construction (no synthetic stub on a perpendicular-stair upper floor).
+            const stairKeepOut = keepOutRects.length > 0
+                ? keepOutRects.reduce((a, b) => (rectArea(b) > rectArea(a) ? b : a))
+                : undefined;
+            const carved = trySingleRectCarve(dominant, graph, corridorWidthM, keepOutRects.length > 0, shellRectified, stairKeepOut);
             // §STAIR-CARVE-NO-DROP (2026-06-08) — the dominant-rect carve gives every
             // room a corridor spine (the founder's central-blob fix), but squeezing the
             // WHOLE programme into the dominant rect (which is smaller than the full
