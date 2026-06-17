@@ -3,7 +3,7 @@
 // Pure predicate test: house-only, no-op on apartments / no-corridor / corridor-reaches-stair.
 
 import { describe, expect, it } from 'vitest';
-import { corridorStairGapFor, corridorHallGapFor } from '../src/workflows/apartmentLayout/tgl/enumerate.js';
+import { corridorStairGapFor, corridorHallGapFor, evaluateCorridorPurity } from '../src/workflows/apartmentLayout/tgl/enumerate.js';
 import type { RoomPlacement } from '../src/workflows/apartmentLayout/tgl/subdivide.js';
 import type { Rect } from '../src/workflows/apartmentLayout/tgl/rectDecomposition.js';
 
@@ -100,5 +100,51 @@ describe('§GF-CORRIDOR-HALL-CONTIGUITY — corridorHallGapFor (ground floor)', 
     it('shared run below the door minimum (0.6 m) ⇒ GATE fires', () => {
         const placements = [place('corr', 0, 0, 6, 1.2), place('hall', 6, 0.6, 9, 2)];   // overlap 0.6 m
         expect(corridorHallGapFor(placements, 'corr', 'hall')).toBe(true);
+    });
+});
+
+describe('§CORRIDOR-PURITY — evaluateCorridorPurity', () => {
+    // A clean spine corridor 0..8 × 1.2 (aspect 6.7:1).
+    const SPINE = place('corr', 0, 0, 8, 1.2);
+    const room = (id: string, x0: number, z0: number, x1: number, z1: number) => place(id, x0, z0, x1, z1);
+    const types = (entries: Array<[string, string]>) => entries.map(([id, type]) => ({ id, type }));
+
+    it('no corridor id ⇒ all-false', () => {
+        const r = evaluateCorridorPurity([SPINE], types([['corr', 'corridor']]), null);
+        expect(r).toEqual({ ensuiteOnCorridor: false, publicOnCorridor: false, corridorBlob: false });
+    });
+
+    it('clean spine with only bedrooms off it ⇒ all-false', () => {
+        const placements = [SPINE, room('b1', 0, 1.2, 4, 5), room('b2', 4, 1.2, 8, 5)];
+        const r = evaluateCorridorPurity(placements, types([['corr', 'corridor'], ['b1', 'bedroom'], ['b2', 'bedroom']]), 'corr');
+        expect(r).toEqual({ ensuiteOnCorridor: false, publicOnCorridor: false, corridorBlob: false });
+    });
+
+    it('en-suite sharing a corridor wall ⇒ ensuiteOnCorridor (FF-P1 privacy breach)', () => {
+        const placements = [SPINE, room('es', 0, 1.2, 3, 4)];   // shares 3 m of the corridor's top edge
+        const r = evaluateCorridorPurity(placements, types([['corr', 'corridor'], ['es', 'ensuite']]), 'corr');
+        expect(r.ensuiteOnCorridor).toBe(true);
+    });
+
+    it('living/kitchen/dining sharing a corridor wall ⇒ publicOnCorridor (GF-C5)', () => {
+        const living = [SPINE, room('lv', 0, 1.2, 5, 5)];
+        expect(evaluateCorridorPurity(living, types([['corr', 'corridor'], ['lv', 'living']]), 'corr').publicOnCorridor).toBe(true);
+        const kitchen = [SPINE, room('kt', 0, 1.2, 5, 5)];
+        expect(evaluateCorridorPurity(kitchen, types([['corr', 'corridor'], ['kt', 'kitchen']]), 'corr').publicOnCorridor).toBe(true);
+    });
+
+    it('a public room touching only at a CORNER (no door-width run) ⇒ NOT flagged', () => {
+        const placements = [SPINE, room('lv', 8, 1.2, 12, 5)];   // corner-touch at (8,1.2)
+        expect(evaluateCorridorPurity(placements, types([['corr', 'corridor'], ['lv', 'living']]), 'corr').publicOnCorridor).toBe(false);
+    });
+
+    it('a near-square corridor ⇒ corridorBlob (the 9 m² stub-beside-the-stair)', () => {
+        const blob = place('corr', 0, 0, 3, 3);   // aspect 1:1
+        expect(evaluateCorridorPurity([blob], types([['corr', 'corridor']]), 'corr').corridorBlob).toBe(true);
+    });
+
+    it('exactly 2:1 corridor ⇒ NOT a blob (meets the spine floor)', () => {
+        const ok = place('corr', 0, 0, 2.4, 1.2);   // aspect 2:1
+        expect(evaluateCorridorPurity([ok], types([['corr', 'corridor']]), 'corr').corridorBlob).toBe(false);
     });
 });

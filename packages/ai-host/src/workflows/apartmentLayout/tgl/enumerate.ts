@@ -57,7 +57,11 @@ export type HardFailedRule =
     // twin: the GF corridor must reach the ENTRANCE HALL (the GF arrival hub), not the stair.
     // Fires only on a house ground floor (entrance hall present); the stair gate is suppressed
     // there so the two are mutually exclusive per storey.
-    | 'corridor-hall';
+    | 'corridor-hall'
+    // §CORRIDOR-PURITY (founder full circulation spec, 2026-06-17) — the corridor is a PRIVATE
+    // spine: an en-suite must be master-only (never corridor-accessible), no public room may
+    // hang off the corridor, and the corridor must be spine-shaped (not a blob). House path only.
+    | 'ensuite-corridor' | 'corridor-public' | 'corridor-blob';
 
 /** §DIAG-MIN-AREA-GATE (tracker §68.1) — the habitable room types whose own
  *  `areaMin` is enforced as a HARD floor. A room of one of these types emitted below
@@ -435,6 +439,60 @@ export function corridorHallGapFor(
     return reachM < STAIR_DOOR_MIN_M - EPS;
 }
 
+// §CORRIDOR-PURITY (founder full circulation spec, 2026-06-17) — public room types that must
+// NEVER share a corridor wall (the corridor is a PRIVATE branch; public rooms hang off the
+// entrance hall / each other). Mirror of enumerate's PUBLIC_MANDATORY set.
+const CORRIDOR_PUBLIC_TYPES: ReadonlySet<string> = new Set<string>(['living', 'kitchen', 'dining']);
+// A corridor is a SPINE, not a cell: its long:short ratio must be ≥ this or it's a "blob"
+// (the founder's 9 m² stub-beside-the-stair). The HARD floor from the spec's reject list.
+const CORRIDOR_MIN_ASPECT = 2.0;
+
+export interface CorridorPurity {
+    /** FF-P1 — an en-suite shares a door-width wall with the corridor (privacy breach: an
+     *  en-suite is master-only, must never be corridor-accessible). */
+    readonly ensuiteOnCorridor: boolean;
+    /** GF-C5 — a public room (living/kitchen/dining) shares a door-width wall with the corridor
+     *  (the corridor must not carry public circulation — that is the entrance hall's job). */
+    readonly publicOnCorridor: boolean;
+    /** The corridor's long:short ratio is below CORRIDOR_MIN_ASPECT — it's a blob, not a spine. */
+    readonly corridorBlob: boolean;
+}
+
+/**
+ * §CORRIDOR-PURITY — the founder's corridor-as-private-spine invariants, as pure rect checks:
+ * no en-suite or public room may share a door-width (≥ STAIR_DOOR_MIN_M) wall with the corridor,
+ * and the corridor must be spine-shaped (aspect ≥ CORRIDOR_MIN_ASPECT). Returns all-false when
+ * there is no corridor or its placement is missing. Pure + deterministic. Caller gates this to
+ * the HOUSE path so apartments stay byte-identical.
+ */
+export function evaluateCorridorPurity(
+    placements: readonly RoomPlacement[],
+    rooms: readonly { readonly id: string; readonly type: string }[],
+    corridorId: string | null | undefined,
+): CorridorPurity {
+    const none: CorridorPurity = { ensuiteOnCorridor: false, publicOnCorridor: false, corridorBlob: false };
+    if (!corridorId) return none;
+    const corr = placements.find(p => p.roomId === corridorId);
+    if (!corr) return none;
+    const typeById = new Map(rooms.map(r => [r.id, r.type]));
+    let ensuiteOnCorridor = false;
+    let publicOnCorridor = false;
+    for (const p of placements) {
+        if (p.roomId === corridorId) continue;
+        const t = typeById.get(p.roomId);
+        if (!t) continue;
+        if (sharedWallRunM(corr.rect, p.rect) < STAIR_DOOR_MIN_M - EPS) continue;   // not a door-width wall
+        if (t === 'ensuite') ensuiteOnCorridor = true;
+        else if (CORRIDOR_PUBLIC_TYPES.has(t)) publicOnCorridor = true;
+    }
+    const w = corr.rect.x1 - corr.rect.x0;
+    const h = corr.rect.z1 - corr.rect.z0;
+    const lo = Math.min(w, h);
+    const hi = Math.max(w, h);
+    const corridorBlob = lo > EPS ? (hi / lo) < CORRIDOR_MIN_ASPECT - EPS : false;
+    return { ensuiteOnCorridor, publicOnCorridor, corridorBlob };
+}
+
 function evaluateHardTopology(args: {
     readonly bubble: BubbleGraph;
     readonly frontageHardRoomIds: readonly string[];
@@ -460,8 +518,11 @@ function evaluateHardTopology(args: {
      *  with an entrance hall uses the hall gate; one without uses the stair gate). False on apartments
      *  / upper floors / no-corridor / no-hall plates. */
     readonly corridorHallGap: boolean;
+    /** §CORRIDOR-PURITY — the corridor-as-private-spine findings (en-suite-on-corridor /
+     *  public-on-corridor / blob-shaped). All-false on the apartment path (caller gates it). */
+    readonly corridorPurity: CorridorPurity;
 }): readonly HardFailedRule[] {
-    const { bubble, frontageHardRoomIds, unroutedToCirculationRoomIds, doorOpenings, hasRoomOverlap, hasUnderMinArea, hasMissingMandatory, unreachableHabitableRoomIds, corridorStairGap, corridorHallGap } = args;
+    const { bubble, frontageHardRoomIds, unroutedToCirculationRoomIds, doorOpenings, hasRoomOverlap, hasUnderMinArea, hasMissingMandatory, unreachableHabitableRoomIds, corridorStairGap, corridorHallGap, corridorPurity } = args;
     const typeById = new Map<string, string>();
     for (const r of bubble.rooms) typeById.set(r.id, r.type);
 
@@ -566,6 +627,20 @@ function evaluateHardTopology(args: {
     // gap the §TOPO-HARD-REJECT-ALL fallback still ships the storey.
     if (corridorHallGap) {
         failed.push('corridor-hall');
+    }
+
+    // Rule PUR — §CORRIDOR-PURITY (founder full circulation spec, 2026-06-17). The corridor is a
+    // PRIVATE spine: an en-suite must be master-only (FF-P1), no public room may hang off the
+    // corridor (GF-C5), and the corridor must be spine-shaped not a blob. All-false on apartments
+    // (caller gates it to the house path). Same least-bad safety net as the other corridor rules.
+    if (corridorPurity.ensuiteOnCorridor) {
+        failed.push('ensuite-corridor');
+    }
+    if (corridorPurity.publicOnCorridor) {
+        failed.push('corridor-public');
+    }
+    if (corridorPurity.corridorBlob) {
+        failed.push('corridor-blob');
     }
 
     return failed;
@@ -1601,6 +1676,11 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         && corridorStairGapFor(placements, bubble.corridorId, input.keepOutRects);
     const corridorHallGap = isGroundFloor
         && corridorHallGapFor(placements, bubble.corridorId, bubble.entryId);
+    // §CORRIDOR-PURITY — house-path only (apartments byte-identical): en-suite must be master-only,
+    // no public room off the corridor, corridor is a spine not a blob.
+    const corridorPurity = housePath
+        ? evaluateCorridorPurity(placements, bubble.rooms, bubble.corridorId)
+        : { ensuiteOnCorridor: false, publicOnCorridor: false, corridorBlob: false };
     const hardFailedRules = evaluateHardTopology({
         bubble,
         frontageHardRoomIds: frontage.hardFindings.map(f => f.roomId),
@@ -1612,6 +1692,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         unreachableHabitableRoomIds: unreachableHabitable,
         corridorStairGap,
         corridorHallGap,
+        corridorPurity,
     });
     const hardValid = hardFailedRules.length === 0;
     // §DIAG-TOPO-GATE — per-candidate hard-gate decision line (logging only).
@@ -1619,6 +1700,9 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         `[D-TGL] §DIAG-TOPO-GATE strategy=${strategyKey(s)} hardValid=${hardValid} ` +
         `floor=${housePath ? (isGroundFloor ? 'ground' : 'upper') : 'apartment'} ` +
         `corridorStairGap=${corridorStairGap ? 'YES' : 'no'} corridorHallGap=${corridorHallGap ? 'YES' : 'no'} ` +
+        `ensuiteOnCorr=${corridorPurity.ensuiteOnCorridor ? 'YES' : 'no'} ` +
+        `publicOnCorr=${corridorPurity.publicOnCorridor ? 'YES' : 'no'} ` +
+        `corrBlob=${corridorPurity.corridorBlob ? 'YES' : 'no'} ` +
         `failed=[${hardFailedRules.join(',') || 'none'}]`,
     );
     // §DIAG-MIN-AREA-GATE (tracker §68.1) — per-candidate min-area decision line: the
