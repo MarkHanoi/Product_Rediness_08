@@ -232,6 +232,12 @@ export interface BubbleGraphOpts {
      *  is suppressed, so the house allocation is byte-identical to its pre-fix baseline
      *  (ADR-0061). Absent ⇒ true (byte-identical apartment behaviour). */
     readonly envelopeFitGrowth?: boolean;
+    /** §ABSORBER-FILL (founder 2026-06-17 redesign) — when set, mint extra NON-bedroom
+     *  "absorber" rooms (studies / a family room) so an over-capacity shell fills with
+     *  MORE real rooms instead of ballooning existing ones (the founder's cavern 53 m²
+     *  living / 31 m² bathroom). The requested bedroom COUNT stays authoritative — absorbers
+     *  are never bedrooms. Default false ⇒ byte-identical; the house path opts in. */
+    readonly absorberFill?: boolean;
 }
 
 export function buildBubbleGraph(
@@ -315,6 +321,35 @@ export function buildBubbleGraph(
         if (ei >= 0) rooms[ei] = { ...rooms[ei]!, ensuiteHostId: bedIds[0] };
     }
     for (let i = 0; i < baths; i++) push('bathroom', baths > 1 ? `Bathroom ${i + 1}` : 'Bathroom', true);
+
+    // §ABSORBER-FILL (founder 2026-06-17 redesign) — on an over-capacity shell the carve
+    // tiles the WHOLE plate and dumps the unallocated excess onto existing rooms (a 53 m²
+    // living, a 31 m² bathroom — the founder's "cavern"). Mint REAL absorber rooms
+    // (studies / a family room) so the plate divides into MORE usable rooms instead, while
+    // the bedroom COUNT stays authoritative (absorbers are NEVER bedrooms). Aim for ~1 room
+    // per ABSORBER_ROOM_AVG_M2 and add studies up to ABSORBER_MAX to reach it. Studies are
+    // corridor-served + habitable (roomRule), so they tile + window like any habitable room
+    // and never seal. Gated on opts.absorberFill ⇒ apartments are byte-identical (ADR-0061).
+    const absorberIds: string[] = [];
+    if (opts?.absorberFill) {
+        const ABSORBER_ROOM_AVG_M2 = 22;   // ~1 room per 22 m² of plate
+        const ABSORBER_MAX = 3;            // never invent more than 3 filler rooms
+        const ABSORBER_NAMES = ['Study', 'Family Room', 'Home Office'];
+        const targetRooms = Math.floor(availableAreaM2 / ABSORBER_ROOM_AVG_M2);
+        const want = Math.max(0, Math.min(ABSORBER_MAX, targetRooms - rooms.length));
+        for (let i = 0; i < want; i++) {
+            // Avoid a name clash with a program-requested study.
+            const name = (i === 0 && studyId) ? 'Study 2' : (ABSORBER_NAMES[i] ?? `Study ${i + 1}`);
+            absorberIds.push(push('study', name, false));
+        }
+        if (absorberIds.length > 0) {
+            console.log(
+                `[D-TGL] §ABSORBER-FILL minted ${absorberIds.length} absorber room(s) ` +
+                `(available=${availableAreaM2.toFixed(0)}m², rooms ${rooms.length - absorberIds.length}→${rooms.length}) ` +
+                `to fill the over-capacity shell without ballooning a room; bedroom count unchanged.`,
+            );
+        }
+    }
 
     // §ROOM-TYPES-BY-NAME (A.26.4, ADR-0061 / C52) — per-INSTANCE TYPE override
     // (sibling of roomAreasByName). RE-TYPE a minted room by its display name —
@@ -486,6 +521,7 @@ export function buildBubbleGraph(
     // 'corridor', so the door is permitted. No-op when the flag is off (null id).
     link(spine, studyId, 'door');
     link(spine, utilityId, 'door');
+    for (const aid of absorberIds) link(spine, aid, 'door');   // §ABSORBER-FILL — corridor-served like the study
     for (const bid of bedIds) link(spine, bid, 'door');
     link(bedIds[0] ?? null, ensuiteId, 'door');     // master ↔ ensuite
     for (const r of withAreas) if (r.type === 'bathroom') link(spine, r.id, 'door');
