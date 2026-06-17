@@ -1054,6 +1054,196 @@ function placePublicWithHallOnShell(
 /** Single-rect carve flow: returns the placements (corridor + public + private,
  *  with ensuite carved from master) + the structured drop report. Returns null
  *  when the carve can't fit (caller falls back to the whole-shell squarify). */
+/**
+ * §HALL-HINGE-CARVE (founder GF spec, 2026-06-17) — the GROUND-FLOOR corridor architecture.
+ * The 3-zone `[public | corridor | private]` carve makes the corridor a full-width strip, so
+ * a public room (living/kitchen/dining) ALWAYS abuts it (`publicOnCorridor` → least-bad). The
+ * opposite (corridor on the private side) SEALS the corridor (it loses its only permitted link
+ * to the entry — `hall.accessFrom=['living','corridor']`). The sound architecture is HALL-AS-
+ * HINGE: split the shell `[ public-zone(living/kitchen/dining) | private-WING ]`, then carve the
+ * WING with the SAME 3-zone machinery using the HALL as the wing's "public" band →
+ * `[ hall | corridor-strip | private ]`. Result: the public zone borders the HALL (hall.accessFrom
+ * ⊇ living ✓); the corridor borders hall + private only — NEVER a public room (✓ no publicOnCorridor);
+ * the corridor keeps its hall link (✓ not sealed). Returns null (→ fall through to the 3-zone carve)
+ * when it can't run. Caller gates to the HOUSE keep-out path so apartments stay byte-identical.
+ */
+function tryHallHingeCarve(
+    shell: Rect,
+    hall: ProgramRoom,
+    publicNonHall: readonly ProgramRoom[],
+    privateRooms: readonly ProgramRoom[],
+    corridor: ProgramRoom,
+    master: ProgramRoom | undefined,
+    ensuite: ProgramRoom | undefined,
+    ensuiteCarveArea: number,
+    corridorWidthM?: number,
+): SubdivideResult | null {
+    const W = shell.x1 - shell.x0;
+    const H = shell.z1 - shell.z0;
+    const splitAxis: 'x' | 'z' = W >= H ? 'x' : 'z';        // split off the public zone along the LONG axis
+    const along = splitAxis === 'x' ? W : H;
+    const MIN_ZONE = 2.0;
+    const publicArea = publicNonHall.reduce((s, r) => s + r.targetAreaM2, 0);
+    const privateArea = privateRooms.reduce((s, r) => s + r.targetAreaM2, 0);
+    const wingArea = hall.targetAreaM2 + corridor.targetAreaM2 + privateArea;
+    const denom = Math.max(EPS, publicArea + wingArea);
+    let pubAlong = along * (publicArea / denom);
+    pubAlong = Math.min(Math.max(pubAlong, MIN_ZONE), along - MIN_ZONE);
+    if (along < 2 * MIN_ZONE - EPS) return null;            // too small to split into two usable zones
+
+    // public zone on the LOW side, wing on the HIGH side of the split axis.
+    const publicZone: Rect = splitAxis === 'x'
+        ? { x0: shell.x0, z0: shell.z0, x1: shell.x0 + pubAlong, z1: shell.z1 }
+        : { x0: shell.x0, z0: shell.z0, x1: shell.x1, z1: shell.z0 + pubAlong };
+    const wing: Rect = splitAxis === 'x'
+        ? { x0: shell.x0 + pubAlong, z0: shell.z0, x1: shell.x1, z1: shell.z1 }
+        : { x0: shell.x0, z0: shell.z0 + pubAlong, x1: shell.x1, z1: shell.z1 };
+
+    // Carve the WING as 3 bands stacked along the SPLIT axis from the public-facing edge inward:
+    // [ hall | corridor | private ]. The hall band's DEPTH is sized to its TARGET area over the
+    // wing's cross extent (NOT tryCarveCorridor's MIN_ZONE_DEPTH-clamped band, which on a wide
+    // wing balloons the hall to ≥2 m × wing-width). So the hall stays correctly sized + shaped,
+    // borders the public zone (across the split) AND the corridor; the corridor borders hall +
+    // private only; private rooms comb off the corridor. Bands span the wing's CROSS dimension.
+    const cw = corridorWidthM ?? CORRIDOR_STRIP_WIDTH_M;
+    const wingAlong = splitAxis === 'x' ? wing.x1 - wing.x0 : wing.z1 - wing.z0;   // depth along the split axis
+    const wingCross = splitAxis === 'x' ? wing.z1 - wing.z0 : wing.x1 - wing.x0;   // band length (full wing cross)
+    let hallDepth = hall.targetAreaM2 / Math.max(EPS, wingCross);
+    hallDepth = Math.max(hallDepth, roomRule('hall').minShortSideM);              // never thinner than a hall
+    if (wingAlong - hallDepth - cw < MIN_ZONE - EPS) return null;                  // private band too shallow
+    const crossAxis: 'x' | 'z' = splitAxis === 'x' ? 'z' : 'x';                   // private rooms comb along the cross axis
+    const hallRect: Rect = splitAxis === 'x'
+        ? { x0: wing.x0, z0: wing.z0, x1: wing.x0 + hallDepth, z1: wing.z1 }
+        : { x0: wing.x0, z0: wing.z0, x1: wing.x1, z1: wing.z0 + hallDepth };
+    const corridorRect: Rect = splitAxis === 'x'
+        ? { x0: wing.x0 + hallDepth, z0: wing.z0, x1: wing.x0 + hallDepth + cw, z1: wing.z1 }
+        : { x0: wing.x0, z0: wing.z0 + hallDepth, x1: wing.x1, z1: wing.z0 + hallDepth + cw };
+    const privateRect: Rect = splitAxis === 'x'
+        ? { x0: wing.x0 + hallDepth + cw, z0: wing.z0, x1: wing.x1, z1: wing.z1 }
+        : { x0: wing.x0, z0: wing.z0 + hallDepth + cw, x1: wing.x1, z1: wing.z1 };
+
+    const out: RoomPlacement[] = [];
+    const droppedRooms: DroppedRoom[] = [];
+
+    // Public (non-hall) rooms squarified into the public zone — they touch the hall, never the corridor.
+    const pub = placeInRectReported(publicZone, adjacencySortForZone(allocationOrder(publicNonHall)));
+    out.push(...pub.placements);
+    droppedRooms.push(...pub.droppedRooms);
+
+    // Hall fills its band (the hinge: borders public zone + corridor).
+    const hallPub = placeInRectReported(hallRect, [hall]);
+    out.push(...hallPub.placements);
+    droppedRooms.push(...hallPub.droppedRooms);
+
+    // Corridor IS the wing strip.
+    out.push({ roomId: corridor.id, rect: roundRect(corridorRect) });
+
+    // Private rooms combed off the corridor face (every private room a corridor wall).
+    const combFaceAxis: 'x' | 'z' = crossAxis;
+    const orderedPrivate = adjacencySortForZone(allocationOrder(privateRooms));
+    const combMinAlong = (master && ensuite)
+        ? (r: ProgramRoom): number => (r.id === master.id
+            ? roomRule('master').minShortSideM + roomRule('ensuite').minShortSideM
+            : 0)
+        : undefined;
+    const comb = sliceZoneAlongFace(privateRect, orderedPrivate, combFaceAxis, combMinAlong);
+    const priv = comb ?? placeInRectReported(privateRect, orderedPrivate);
+    const privatePlacements = [...priv.placements];
+    droppedRooms.push(...priv.droppedRooms);
+
+    // Carve ensuite from master (same as the 3-zone path).
+    if (master && ensuite && ensuiteCarveArea > 0) {
+        const mi = privatePlacements.findIndex(p => p.roomId === master.id);
+        if (mi >= 0) {
+            const ec = tryCarveEnsuiteFromMaster(privatePlacements[mi]!.rect, ensuiteCarveArea);
+            if (ec) {
+                privatePlacements[mi] = { roomId: master.id, rect: roundRect(ec.master) };
+                privatePlacements.push({ roomId: ensuite.id, rect: roundRect(ec.ensuite) });
+            } else {
+                droppedRooms.push({ roomId: ensuite.id, type: ensuite.type, shortSideM: 0, minShortSideM: floorFor(ensuite.type) });
+            }
+        }
+    }
+    out.push(...privatePlacements);
+
+    // §HALL-HINGE-SOUND — return the hinge layout ONLY when it is provably circulation-sound,
+    // else null → fall through to the 3-zone carve (so the hinge is STRICTLY non-regressing: it
+    // applies only where it produces a connected plan, never where it would seal a room). The
+    // required permitted links (mirrors `wallsAndDoors`): corridor↔hall (≥ door), every private
+    // room (≠ ensuite) ↔ corridor (≥ door), ensuite↔master (≥ door), living↔hall (≥ door — the
+    // ONLY permitted public→hall link), and every public-non-hall room reachable from living via
+    // shared walls (open-plan/doors). A room dropped here that the 3-zone keeps would also be
+    // caught by the §STAIR-CARVE-NO-DROP comparison upstream — but failing sound first is cleaner.
+    const rectOf = new Map(out.map(p => [p.roomId, p.rect]));
+    const door = (a: string, b: string): boolean => {
+        const ra = rectOf.get(a), rb = rectOf.get(b);
+        return !!ra && !!rb && sharedWallLengthM(ra, rb) >= STAIR_DOOR_MIN_M - EPS;
+    };
+    const touch = (a: string, b: string): boolean => {
+        const ra = rectOf.get(a), rb = rectOf.get(b);
+        return !!ra && !!rb && rectsShareWall(ra, rb);
+    };
+    const livingRoom = publicNonHall.find(r => r.type === 'living');
+    const sound = (): boolean => {
+        if (!door(corridor.id, hall.id)) return false;                         // corridor must reach the hall
+        // OUTPUT check (founder Fix 1) — the corridor must NOT abut ANY public room. By construction
+        // the hall band sits between the public zone and the corridor, but verify the realised
+        // geometry so a squarify edge-case that wraps a public room onto the corridor falls through
+        // to the 3-zone instead of shipping the publicOnCorridor contamination.
+        for (const r of publicNonHall) {
+            if (door(r.id, corridor.id)) return false;                         // ≥ door-width public↔corridor wall → reject
+        }
+        for (const r of privateRooms) {                                        // every private room doors onto the corridor
+            if (ensuite && r.id === ensuite.id) continue;
+            if (!door(r.id, corridor.id)) return false;
+        }
+        if (master && ensuite && !door(ensuite.id, master.id)) return false;   // ensuite is master-only
+        // The public cluster reaches the entry ONLY via living→hall (hall.accessFrom=['living','corridor']).
+        if (publicNonHall.length > 0) {
+            if (!livingRoom || !door(livingRoom.id, hall.id)) return false;
+            const reach = new Set<string>([livingRoom.id]);
+            for (let changed = true; changed;) {
+                changed = false;
+                for (const r of publicNonHall) {
+                    if (reach.has(r.id)) continue;
+                    if ([...reach].some(id => touch(r.id, id))) { reach.add(r.id); changed = true; }
+                }
+            }
+            if (publicNonHall.some(r => !reach.has(r.id))) return false;        // a public room can't reach living → sealed
+        }
+        // DIMENSIONAL soundness — reusing tryCarveCorridor for the wing gives the hall a full-width
+        // MIN_ZONE_DEPTH band (and the squarified public zone can over-grow living), ballooning a
+        // room past its §AREA-FRACTIONS target (the house dimensional tests cap hall/living). Reject
+        // when ANY room exceeds 1.2× its bubble target so the hinge falls through to the 3-zone's
+        // well-tested allocation there — strictly non-regressing. (ensuite carved from master has no
+        // own target here → skipped; master's hoisted target already covers it.)
+        const targetById = new Map<string, number>(
+            [hall, corridor, ...publicNonHall, ...privateRooms].map(r => [r.id, r.targetAreaM2]),
+        );
+        for (const p of out) {
+            const t = targetById.get(p.roomId);
+            if (t === undefined) continue;
+            const area = (p.rect.x1 - p.rect.x0) * (p.rect.z1 - p.rect.z0);
+            // No room may balloon past 1.15× its bubble target — the squarified public zone can
+            // over-concentrate excess into the biggest room (a "cavern"). Reject → fall through to
+            // the 3-zone's more even fill. Target-relative (the bubble target is sized to the full
+            // plate, so this is NOT distorted by the dominant-rect carve shell).
+            if (area > t * 1.15 + EPS) return false;
+        }
+        return true;
+    };
+    if (!sound()) {
+        console.log('[D-TGL subdivide] §HALL-HINGE-CARVE infeasible (would seal/strand a room) — falling through to the 3-zone carve.');
+        return null;
+    }
+
+    console.log(
+        `[D-TGL subdivide] §HALL-HINGE-CARVE applied: [public(${publicNonHall.length}) | hall | corridor | private(${privateRooms.length})] ` +
+        `(public rooms border the hall, NOT the corridor — publicOnCorridor avoided by construction)`,
+    );
+    return { placements: out, droppedRooms };
+}
+
 function trySingleRectCarve(
     shell: Rect,
     graph: BubbleGraph,
@@ -1099,6 +1289,22 @@ function trySingleRectCarve(
         const masterIdx = privateRooms.findIndex(r => r.id === master.id);
         if (masterIdx >= 0) {
             privateRooms[masterIdx] = { ...master, targetAreaM2: master.targetAreaM2 + ensuite.targetAreaM2 };
+        }
+    }
+
+    // §HALL-HINGE-CARVE (founder GF spec, 2026-06-17) — the GROUND FLOOR (a hall + non-hall
+    // public rooms + private rooms) zones the HALL between the public zone and the corridor so
+    // no public room abuts the corridor while the corridor keeps its hall link. Gated to the
+    // HOUSE keep-out path (`preferSingleLoaded`) so apartments + the upper §NO-PUBLIC storeys
+    // are byte-identical. Falls through to the 3-zone carve when it can't run (no regression).
+    if (preferSingleLoaded) {
+        const hall = publicRooms.find(r => r.type === 'hall');
+        const publicNonHall = publicRooms.filter(r => r.type !== 'hall');
+        if (hall && publicNonHall.length > 0 && privateRooms.length > 0) {
+            const hinge = tryHallHingeCarve(
+                shell, hall, publicNonHall, privateRooms, corridor, master, ensuite, ensuiteCarveArea, corridorWidthM,
+            );
+            if (hinge) return hinge;
         }
     }
 
