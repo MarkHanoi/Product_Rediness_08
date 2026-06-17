@@ -125,6 +125,24 @@ describe('buildPlanGraphOverlaySvg (§GRAPH-OVER-PLAN)', () => {
         expect(overlay).not.toMatch(/#000\b|#000000|"black"/i);
     });
 
+    it('§GRAPH-GREY-BASE: desaturates the plan BENEATH the overlay (saturate=0) without greying the standalone plan', () => {
+        const opts = { width: 320, height: 240 } as const;
+        const overlaySvg = buildPlanGraphOverlaySvg(twoRoomOpt(), opts);
+        // The plan body is wrapped in a desaturating group driven by an feColorMatrix saturate=0 filter.
+        expect(overlaySvg).toMatch(/<filter id="almPlanGrey-[a-z0-9]+"/);
+        expect(overlaySvg).toContain('<feColorMatrix type="saturate" values="0"/>');
+        expect(overlaySvg).toMatch(/<g class="alm-plan-grey-base" filter="url\(#almPlanGrey-[a-z0-9]+\)" opacity="0\.62">/);
+        // The grey filter is applied to the plan body, BEFORE the overlay group.
+        expect(overlaySvg.indexOf('alm-plan-grey-base')).toBeLessThan(overlaySvg.indexOf('alm-plan-graph-overlay'));
+        // The overlay (violet graph) is OUTSIDE the grey group → keeps full colour.
+        const overlay = overlaySvg.slice(overlaySvg.indexOf('alm-plan-graph-overlay'));
+        expect(overlay).not.toContain('alm-plan-grey-base');
+        // The standalone coloured plan panel is NOT greyed (no grey filter at all).
+        const planSvg = buildLayoutThumbnailSvg(twoRoomOpt(), opts);
+        expect(planSvg).not.toContain('alm-plan-grey-base');
+        expect(planSvg).not.toContain('feColorMatrix');
+    });
+
     it('interactiveNodes:true stamps data-room-name + alm-graph-node + role/tabindex', () => {
         const svg = buildPlanGraphOverlaySvg(twoRoomOpt(), { interactiveNodes: true });
         expect(svg).toContain('class="alm-graph-node"');

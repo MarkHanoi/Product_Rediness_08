@@ -458,14 +458,38 @@ export function buildPlanGraphOverlaySvg(
         }
     });
 
-    // 7. Composite: inject the overlay group (defs + edges + halos + nodes +
-    //    labels) just BEFORE the plan's closing </svg> so it paints ON TOP in the
-    //    SAME viewBox.
+    // §GRAPH-GREY-BASE (2026-06-17, founder) — in the GRAPH view the underlying
+    // plan must read as a soft GREY base so the violet graph (nodes + edges) pops.
+    // The standalone coloured plan panel (`buildLayoutThumbnailSvg` called direct)
+    // is untouched; ONLY the plan-under-graph is desaturated, here, by wrapping the
+    // plan's existing content in a `<g>` carrying an `feColorMatrix saturate(0)`
+    // filter + a slight opacity. The room-fill HEX attributes stay in the markup
+    // (so legend/centroid asserts are stable) — the filter only DESATURATES them at
+    // paint time; wall outlines stay dark (legible) because grey is already neutral.
+    // Pure SVG (no CSS dependency) → still deterministic + Node-testable.
+    const greyId = `almPlanGrey-${uid}`;
+    const greyDefs =
+        `<defs><filter id="${greyId}" color-interpolation-filters="sRGB">` +
+        `<feColorMatrix type="saturate" values="0"/>` +
+        `</filter></defs>`;
+
+    // 7. Composite: desaturate the plan body, then inject the overlay group
+    //    (defs + edges + halos + nodes + labels) just BEFORE the plan's closing
+    //    </svg> so it paints ON TOP, in full colour, in the SAME viewBox.
     const overlay =
         `<g class="alm-plan-graph-overlay" aria-label="room connectivity graph">` +
         defs + edgeEls.join('') + haloEls.join('') + nodeEls.join('') + labelEls.join('') +
         `</g>`;
     const closeIdx = planSvg.lastIndexOf('</svg>');
     if (closeIdx < 0) return planSvg + overlay;            // defensive — shouldn't happen
-    return planSvg.slice(0, closeIdx) + overlay + planSvg.slice(closeIdx);
+    // Find the end of the plan's opening <svg ...> tag so we can wrap everything
+    // between it and </svg> in the desaturating group.
+    const openEnd = planSvg.indexOf('>');
+    if (openEnd < 0 || openEnd >= closeIdx) {              // defensive — malformed plan
+        return planSvg.slice(0, closeIdx) + overlay + planSvg.slice(closeIdx);
+    }
+    const head = planSvg.slice(0, openEnd + 1);
+    const body = planSvg.slice(openEnd + 1, closeIdx);
+    const greyOpen = `<g class="alm-plan-grey-base" filter="url(#${greyId})" opacity="0.62">`;
+    return head + greyDefs + greyOpen + body + `</g>` + overlay + planSvg.slice(closeIdx);
 }
