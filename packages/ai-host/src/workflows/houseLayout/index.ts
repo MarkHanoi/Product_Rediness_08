@@ -30,6 +30,13 @@ export type { ClampedDoorSpan, WallVerticalExtent } from './houseVertical.js';
 // so the GROUND floor closes every room like the upper floors do.
 export { weldPartitionsToShell, clampPartitionsInsideShell } from './weldPartitionsToShell.js';
 export type { WeldWall, WeldOptions, XZ as WeldXZ } from './weldPartitionsToShell.js';
+// §CONTAIN-CHECK (2026-06-16) — PURE diagnostics: report partition endpoints off the shell
+// + windows overflowing a corner. Observability counterpart to the clamp/cap FIXERS.
+export { checkShellContainment, checkWindowCornerOverflow } from './containmentChecks.js';
+export type {
+    ContainWall, ShellViolation, ShellContainmentReport,
+    CheckWindow, HostSegment, WindowOverflowViolation, WindowOverflowReport,
+} from './containmentChecks.js';
 // §PROJECT-NORTH (ADR-0070 Model B) — RIGID-TRANSFORM-LAST weld: de-rotate + rectify +
 // weld in the axis-aligned Project-North frame, then rotate the welded assembly to world.
 export {

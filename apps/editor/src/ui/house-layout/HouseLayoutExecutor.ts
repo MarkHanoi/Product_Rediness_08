@@ -75,6 +75,7 @@ import {
     wallExtentForLevel,
     weldPartitionsToShell,
     clampPartitionsInsideShell,
+    checkShellContainment,
     deriveProjectNorthFrame,
     projectNorthWeld,
     projectNorthWeldBoundary,
@@ -1703,9 +1704,24 @@ export class HouseLayoutExecutor {
             // every still-outside endpoint back onto the shell ring. No-op on an axis-aligned
             // plate (endpoints already on the ring); ids preserved; a wall that collapses is
             // dropped by the existing degenerate-stub guard below.
+            // §DIAG-CONTAIN (2026-06-16, the queued "checker so we avoid walls going off the
+            // shell") — REPORT off-shell partition endpoints BEFORE the clamp repairs them, and
+            // confirm the clamp closed them after. Pure observability; never alters geometry.
             const welded = (shellRing && shellRing.length >= 3)
                 ? clampPartitionsInsideShell(weldedRaw, shellRing)
                 : weldedRaw;
+            if (shellRing && shellRing.length >= 3) {
+                const before = checkShellContainment(weldedRaw, shellRing);
+                if (before.count > 0) {
+                    const after = checkShellContainment(welded, shellRing);
+                    console.warn(
+                        `[house] §DIAG-CONTAIN levelId=${payload.levelId} off-shell endpoints=${before.count} ` +
+                        `worst=${before.maxOvershootM.toFixed(3)}m → after-clamp=${after.count}` +
+                        (after.count > 0 ? ` worst=${after.maxOvershootM.toFixed(3)}m (RESIDUAL)` : ' (CLEARED)') +
+                        ` ids=[${before.violations.map(v => `${v.id}:${v.end}+${v.overshootM.toFixed(2)}`).join(', ')}]`,
+                    );
+                }
+            }
             const weldedById = new Map(welded.map(w => [w.id, w]));
 
             // §DIVIDER-RETAIN (ADR-0066 editor-seam, 2026-06-10) — the weld DROPS any partition it

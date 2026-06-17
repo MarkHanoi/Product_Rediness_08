@@ -287,6 +287,9 @@ export {
   weldPartitionsToShell,
   // §SHELL-CONTAIN — clamp any partition endpoint outside the shell ring back onto the perimeter.
   clampPartitionsInsideShell,
+  // §CONTAIN-CHECK — PURE diagnostics: report off-shell partition endpoints + window-corner overflow.
+  checkShellContainment,
+  checkWindowCornerOverflow,
   // §PROJECT-NORTH (ADR-0070 Model B) — RIGID-TRANSFORM-LAST weld in the axis-aligned frame.
   deriveProjectNorthFrame,
   rectifyShellRing,
