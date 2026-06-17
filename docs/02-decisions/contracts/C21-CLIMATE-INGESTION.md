@@ -769,6 +769,21 @@ This is the same split C54 §1.8 enforces for the CFD solver (pure low-layer com
 
 A solar-exposure run MUST NOT mutate any store (it is read-only over C21 + C12/C19 and writes only a transient overlay, per §10.5). Per **P8** (and §1.6), the L2 orchestration entry point MUST open an OpenTelemetry span `pryzm.climate.solarExposure` carrying attributes `{ siteRef?, latE2?, lonE2?, datasetVersion?, source?, sampleCount, surfaceCount, gpuBackend: 'webgpu' | 'webgl2' | 'cpu', durationMs }`, so a run is observable end-to-end alongside the other `pryzm.climate.*` spans (§1.6). The span name extends the §1.6 `pryzm.climate.<verb>` family; `check-otel-spans.ts` (§6.3) covers it.
 
+### §10.10 — Solar HEAT GAIN: per-room thermal rollup ("real heat")
+
+> Added 2026-06-17. The founder asked for **real HEAT** (not just real sun POSITION / sun-HOURS): "how much solar thermal load actually enters *this room*." §10.3 gives geometric sun-hours; §10.4 gives per-surface irradiance (W/m²). This section governs the next derived quantity — **solar heat GAIN per room** (W / kWh of solar thermal energy entering the conditioned space) — as a further derived consumer, not a new contract or store.
+
+Per-room **solar heat gain** MUST be treated as a DERIVED rollup over the §10.4 irradiance-weighted exposure and the room's glazing inventory, never an independent datum. It is the §1.10 "consumer derives discipline-specific quantities" pattern applied one step beyond §10.4: surface irradiance (W/m²) → glazing-transmitted gain (W) → per-room load (W, kWh over the window).
+
+- **§10.10.1 — Quantity + formula (normative shape, not tuned constants).** For a room `R`, the solar heat gain over the analysis window is
+  `Q_solar(R) = Σ_g [ I_inc(g) · A_g · SHGC_g ] · Δt  (+ optional opaque-envelope term)`,
+  summed over each glazing element `g` hosted in `R`'s exterior walls, where `I_inc(g)` is the §10.4 cosine-of-incidence irradiance on `g`'s host surface (with the §10.6 glass-transmittance-aware occlusion), `A_g` is the glazed area, and `SHGC_g` is the element's solar-heat-gain coefficient (a glazing MATERIAL property, read from the element/material catalogue — NOT a climate field). The opaque-envelope conduction-driven term (sol-air temperature) is OPTIONAL and, if added, MUST be clearly separable so the glazing-transmitted gain — the dominant, defensible term — can be reported alone.
+- **§10.10.2 — Inputs + tiering.** The gain's ONLY legitimate inputs are: (a) §10.4 surface irradiance (which carries the §1.2 climate tier), (b) the room's glazing geometry + per-element SHGC (from the model, NOT C21), and (c) the §10.1 sun/frame substrate. Absolute-magnitude gain (W / kWh) MUST therefore inherit §10.4's tier gate: on a `'fallback-defaults'` climate tier it MUST refuse absolute kWh and degrade to a **relative** gain index (per-room ratio of geometric sun-hours × glazed area), surfacing the §5.3 climate-quality gate. SHGC MUST default to a documented conservative value when a glazing element carries none, and that defaulting MUST be visible (not silent).
+- **§10.10.3 — Derived / transient / overlay-only (reaffirms §10.5).** A per-room heat-gain result is transient: computed, never persisted into the `ClimateDataset` or a parallel store. When it feeds a consumer (the layout / comfort / acoustic-vs-solar zoning engines, or a future thermal-comfort score), it MUST, per C54 §1.6, refine an EXISTING driver input (e.g. the room's environmental score / `ObjectiveVector` solar axis) rather than mint a stored datum. The per-room readout is a visualisation projection (a room-tint / schedule column), never source data.
+- **§10.10.4 — Layering, BETA, honesty, span.** The rollup is pure arithmetic over §10.4 output × glazing inventory and MUST live in the **L2 pure core** (`@pryzm/solar-analysis`, THREE-free + deterministic, §10.6) — it owns no GPU resource. It inherits §10.7's **BETA** + graceful-fallback discipline (an indicative gain is never presented as a certified energy/HVAC sizing figure) and §10.8's read-only + OTel rule: the run extends the `pryzm.climate.solarExposure` span with `{ roomCount, glazingCount, gainMode: 'absolute-kwh' | 'relative-index' }` rather than opening a parallel span.
+
+Implementation is the next step (a `accumulateRoomHeatGain(surfaces, rooms, glazing, irradianceResult, opts)` reducer in `@pryzm/solar-analysis`, unit-tested with a mock irradiance result + glazing fixture); this section is the governing contract it must satisfy.
+
 ### §10.9 — Cross-references
 
 | Ref | Relationship |
@@ -780,7 +795,8 @@ A solar-exposure run MUST NOT mutate any store (it is read-only over C21 + C12/C
 | [C12 Geospatial](./C12-GEOSPATIAL.md) | lat/lon → LTP-ENU scene frame + orientation (§10.1). |
 | [C04 Rendering & Scheduling](./C04-RENDERING-AND-SCHEDULING.md) | THREE / rAF ownership for the GPU pass (§10.6, P2). |
 | C21 §1.3, §2.2, §3.3, §1.10, §5.3 | The substrate this section derives from (computed solar position; EPW irradiance; `SolarPathReader`; consumer-derives pattern; climate-quality gate). |
+| Glazing / material catalogue + element store | §10.10 per-room heat gain reads per-element SHGC + glazed area from the MODEL (a material property), NOT from C21 — keeping climate ownership clean (§10.10.2). |
 
 ---
 
-*End — C21 Climate Ingestion (DRAFT, 2026-06-01; §10 Solar Exposure & Sun-Hours added 2026-06-16).*
+*End — C21 Climate Ingestion (DRAFT, 2026-06-01; §10 Solar Exposure & Sun-Hours added 2026-06-16; §10.10 Solar Heat Gain / "real heat" added 2026-06-17).*
