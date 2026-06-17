@@ -135,3 +135,22 @@ export {
   type RampStop,
 } from './solar/heatmapRamp.js';
 export { gridTriangle, type FaceGridOptions } from './solar/faceGrid.js';
+// Pure UI-shared solar helpers (THREE-free): season presets, day-of-year + HH:MM
+// labels for the solar control panel, and the exterior/glazing filter predicates.
+export {
+  SEASON_DAY_OF_YEAR,
+  SEASON_LABEL,
+  seasonToDayOfYear,
+  clampDayOfYear,
+  dayOfYearLabel,
+  clampTimeMinutes,
+  timeMinutesLabel,
+  type SeasonPreset,
+} from './solar/solarPresets.js';
+export {
+  isExteriorFace,
+  isGlazingSurface,
+  EXTERIOR_PROBE_EPS,
+  UPWARD_NORMAL_Y,
+  type GlazingDescriptor,
+} from './solar/solarSurfaceFilter.js';

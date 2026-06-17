@@ -33,6 +33,18 @@ export interface SunHoursConsoleOptions {
     sampleSpacing?: number;
     /** Apply the heatmap overlay. Default true. */
     paint?: boolean;
+    /** Explicit site latitude override (decimal degrees). Default: resolved site / 51.5. */
+    latDeg?: number;
+    /** Explicit site longitude override (decimal degrees). Default: resolved site / -0.12. */
+    lngDeg?: number;
+    /** OPT-IN: drop interior faces before accumulation (panel default ON). */
+    exteriorOnly?: boolean;
+    /** OPT-IN: exclude glazing/glass from occluder + surfaces (panel default ON). */
+    excludeGlass?: boolean;
+    /** Time-of-day filter: minutes past midnight (0..1439). Whole day when unset. */
+    centerTimeMinutes?: number;
+    /** Half-window (minutes) around centerTimeMinutes. Default 60. */
+    timeWindowMinutes?: number;
 }
 
 // Northern-hemisphere convention solstice/equinox day-of-year (matches
@@ -72,6 +84,12 @@ function resolveSiteLatLng(): { lat: number; lng: number; source: 'site' | 'defa
     return { lat: 51.5, lng: -0.12, source: 'default' };
 }
 
+/** Resolve the default site latitude/longitude for the panel's initial slider
+ *  value (decimal degrees). Falls back to the UK-ish default when no site pin. */
+export function resolveDefaultSiteLatLng(): { lat: number; lng: number; source: 'site' | 'default' } {
+    return resolveSiteLatLng();
+}
+
 /**
  * Run the read-only sun-hours pass on the active level + log a §DIAG-SUN-HOURS
  * table, applying the heatmap overlay. Returns the result (or null when there's no
@@ -90,7 +108,10 @@ export function computeSunHoursForActiveLevel(
         console.warn('[sun-hours] §DIAG-SUN-HOURS scene not ready — no live THREE.Scene found on window.');
         return null;
     }
-    const { lat, lng, source } = resolveSiteLatLng();
+    const resolved = resolveSiteLatLng();
+    const lat = opts.latDeg != null && Number.isFinite(opts.latDeg) ? opts.latDeg : resolved.lat;
+    const lng = opts.lngDeg != null && Number.isFinite(opts.lngDeg) ? opts.lngDeg : resolved.lng;
+    const source = opts.latDeg != null ? 'override' : resolved.source;
     const dayOfYear = opts.season ? SEASON_DOY[opts.season] : opts.dayOfYear;
 
     let res: ComputeSunHoursOnModelResult | null;
@@ -102,6 +123,10 @@ export function computeSunHoursForActiveLevel(
             ...(opts.stepMinutes != null ? { stepMinutes: opts.stepMinutes } : {}),
             ...(opts.sampleSpacing != null ? { sampleSpacing: opts.sampleSpacing } : {}),
             ...(opts.paint != null ? { paint: opts.paint } : {}),
+            ...(opts.exteriorOnly != null ? { exteriorOnly: opts.exteriorOnly } : {}),
+            ...(opts.excludeGlass != null ? { excludeGlass: opts.excludeGlass } : {}),
+            ...(opts.centerTimeMinutes != null ? { centerTimeMinutes: opts.centerTimeMinutes } : {}),
+            ...(opts.timeWindowMinutes != null ? { timeWindowMinutes: opts.timeWindowMinutes } : {}),
         });
     } catch (e) {
         console.error('[sun-hours] §DIAG-SUN-HOURS pass threw:', e);

@@ -39,6 +39,12 @@ import {
     sunHoursToColor,
     type RampStop,
 } from './heatmapRamp.js';
+import {
+    isExteriorFace,
+    isGlazingSurface,
+    EXTERIOR_PROBE_EPS,
+} from './solarSurfaceFilter.js';
+import { clampTimeMinutes } from './solarPresets.js';
 
 // One-time install of three-mesh-bvh accelerated raycast onto Three's prototype
 // (idempotent — @pryzm/picking installs the same; re-install is a harmless no-op).
@@ -71,6 +77,30 @@ export interface ComputeSunHoursOptions {
     readonly ramp?: ReadonlyArray<RampStop>;
     /** Apply the heatmap overlay to the meshes. Default true. */
     readonly paint?: boolean;
+    /**
+     * OPT-IN (default false → console path byte-identical). When true, drop interior
+     * faces (whose outward normal probes immediately hit the building's own geometry)
+     * before accumulation, so the AVG/MIN reflect only exterior-facing surfaces.
+     * See solarSurfaceFilter.isExteriorFace for the heuristic.
+     */
+    readonly exteriorOnly?: boolean;
+    /**
+     * OPT-IN (default false → console path byte-identical). When true, glazing/glass
+     * meshes (window glass, curtain-wall glass, transparent materials) are excluded
+     * from BOTH the occluder BVH and the sampled surfaces — glass shouldn't cast a
+     * hard solid shadow nor be heat-mapped as opaque. See isGlazingSurface.
+     */
+    readonly excludeGlass?: boolean;
+    /**
+     * Optional time-of-day filter, minutes past midnight (0..1439). When set, only
+     * sun samples within `timeWindowMinutes` of this instant are integrated (a
+     * "sun at HH:MM ± window" pass for the panel's time slider). Default: undefined
+     * → integrate the whole daylight day (console path unchanged).
+     */
+    readonly centerTimeMinutes?: number;
+    /** Half-window (minutes) around `centerTimeMinutes`. Default 60. Ignored unless
+     *  `centerTimeMinutes` is set. */
+    readonly timeWindowMinutes?: number;
 }
 
 export interface ComputeSunHoursOnModelResult {
@@ -92,7 +122,24 @@ interface MeshSurface {
     readonly surface: SolarSurface;
 }
 
-function gatherSolarMeshes(scene: THREE.Object3D, levelId: string): THREE.Mesh[] {
+/** THREE-free glazing test for a mesh: its elementType token OR a transparent,
+ *  low-opacity single material. Used by the excludeGlass option. */
+function meshIsGlazing(mesh: THREE.Mesh): boolean {
+    const et = (mesh.userData as { elementType?: string }).elementType;
+    const mat = mesh.material;
+    const single = Array.isArray(mat) ? undefined : (mat as THREE.Material | undefined);
+    return isGlazingSurface({
+        elementType: et,
+        transparent: single?.transparent,
+        opacity: single?.opacity,
+    });
+}
+
+function gatherSolarMeshes(
+    scene: THREE.Object3D,
+    levelId: string,
+    excludeGlass: boolean,
+): THREE.Mesh[] {
     const out: THREE.Mesh[] = [];
     scene.traverse((obj) => {
         if (!(obj instanceof THREE.Mesh)) return;
@@ -100,6 +147,7 @@ function gatherSolarMeshes(scene: THREE.Object3D, levelId: string): THREE.Mesh[]
         if (!ud.elementType || !SOLAR_ELEMENT_TYPES.has(ud.elementType)) return;
         if (ud.levelId !== undefined && ud.levelId !== levelId) return;
         if (!obj.geometry || !(obj.geometry as THREE.BufferGeometry).attributes?.position) return;
+        if (excludeGlass && meshIsGlazing(obj)) return;
         // Skip effectively-hidden meshes.
         let cur: THREE.Object3D | null = obj;
         let visible = true;
@@ -252,13 +300,14 @@ export function computeSunHoursOnModel(
     levelId: string,
     opts: ComputeSunHoursOptions,
 ): ComputeSunHoursOnModelResult | null {
-    const meshes = gatherSolarMeshes(scene, levelId);
+    const excludeGlass = opts.excludeGlass === true;
+    const meshes = gatherSolarMeshes(scene, levelId, excludeGlass);
     if (meshes.length === 0) return null;
 
     const spacing = opts.sampleSpacing && opts.sampleSpacing > 0 ? opts.sampleSpacing : 0.75;
 
     // Derive per-mesh surfaces.
-    const meshSurfaces: MeshSurface[] = [];
+    let meshSurfaces: MeshSurface[] = [];
     for (let i = 0; i < meshes.length; i++) {
         const mesh = meshes[i]!;
         const id = (mesh.userData['elementId'] as string | undefined)
@@ -270,7 +319,32 @@ export function computeSunHoursOnModel(
     if (meshSurfaces.length === 0) return null;
 
     // Build the occluder BVH from ALL gathered meshes (so a wall can shade a roof).
+    // (When excludeGlass is set, glass meshes were already dropped from `meshes`, so
+    //  they neither cast shadow here nor appear as sampled surfaces above.)
     const bvh = buildOccluderBvh(meshes);
+
+    // OPT-IN exterior-only filter: drop surfaces whose outward normal probes
+    // immediately hit the building's own geometry (i.e. they face into an enclosed
+    // space). Roof/slab tops (upward normal) are always kept. See isExteriorFace.
+    if (opts.exteriorOnly === true && bvh) {
+        const probeRay = new THREE.Ray();
+        const probeDir = new THREE.Vector3();
+        meshSurfaces = meshSurfaces.filter((m) => {
+            const n = m.surface.normal;
+            // Upward-facing surfaces (roofs/slab tops) are exterior by construction.
+            if (n.y >= 0.5) return true;
+            const p0 = m.surface.samplePoints[0];
+            if (!p0) return true;
+            probeRay.origin.set(p0.x, p0.y, p0.z);
+            probeDir.set(n.x, n.y, n.z).normalize();
+            probeRay.direction.copy(probeDir);
+            // Probe OUTWARD a short distance; a near self-hit ⇒ interior face.
+            const hit = bvh.raycastFirst(probeRay, THREE.DoubleSide, 1e-3, EXTERIOR_PROBE_EPS * 2);
+            const dist = hit ? (hit.distance as number) : null;
+            return isExteriorFace(n.y, dist);
+        });
+        if (meshSurfaces.length === 0) return null;
+    }
 
     // Sun samples for the site, single day, daylight-only, fixed cadence.
     const now = new Date();
@@ -278,13 +352,22 @@ export function computeSunHoursOnModel(
         ?? Math.floor((Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
             - Date.UTC(now.getUTCFullYear(), 0, 1)) / 86_400_000) + 1;
     const stepMinutes = opts.stepMinutes && opts.stepMinutes > 0 ? opts.stepMinutes : 15;
-    const samples: SunSample[] = generateSunSamples({
+    let samples: SunSample[] = generateSunSamples({
         latDeg: opts.latDeg,
         lngDeg: opts.lngDeg ?? 0,
         dayOfYear,
         stepMinutes,
         daylightOnly: true,
     });
+
+    // Optional time-of-day window (panel's HH:MM slider): keep only samples within
+    // `timeWindowMinutes` of `centerTimeMinutes`. Default-undefined ⇒ whole day.
+    if (opts.centerTimeMinutes != null && Number.isFinite(opts.centerTimeMinutes)) {
+        const center = clampTimeMinutes(opts.centerTimeMinutes);
+        const half = opts.timeWindowMinutes != null && opts.timeWindowMinutes > 0
+            ? opts.timeWindowMinutes : 60;
+        samples = samples.filter((s) => Math.abs(s.timeMinutes - center) <= half);
+    }
 
     // Occlusion oracle: BVH raycast from the (already-nudged) point toward the sun.
     // A hit before "infinity" ⇒ blocked. A tiny near-skip guards residual self-hit.

@@ -11,6 +11,7 @@ import { installCeilingLayoutTrigger } from '../ceiling-layout/ceilingLayoutTrig
 import { installFloorLayoutTrigger } from '../floor-layout/floorLayoutTrigger';
 import { installDaylightConsole } from '../daylight/daylightConsole';
 import { installSunHoursConsole } from '../daylight/sunHoursConsole';
+import { installSolarPanelConsole } from '../daylight/SolarSunHoursPanel';
 import { installPryzmTestFunctions } from '../../dev/installPryzmTestFunctions';
 import { createFloorPlanImportPanel } from '../ai/FloorPlanImportPanel';
 import { createDxfImportPanel } from '../import/DxfImportPanel';
@@ -249,6 +250,12 @@ export function mountAIArea(props: UIProps, runtime: PryzmRuntime | null): AIRes
     // paints a TOGGLEABLE heatmap. ADDITIVE + ISOLATED — never touches the normal
     // render path; reuses @pryzm/solar-analysis for the sun math + accumulation.
     installSunHoursConsole();
+
+    // ADR-0074 P1b (C21 §10) — register the Solar — Sun Hours visual control panel
+    // opener `pryzmOpenSolarPanel()`. The panel drives the SAME compute seam above;
+    // it is the on-screen UI (time/day sliders, season presets, lat, exterior/glass
+    // toggles, AVG/MAX/MIN chips, ramp legend) closing the ThatOpen-demo gap.
+    installSolarPanelConsole();
 
     // Phase B.31 (S73-WIRE) — thread the composed runtime so AIPanel can reach
     // typed slots (runtime.ai.streamCompletion / runtime.persistence.proposals)
