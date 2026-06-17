@@ -861,6 +861,21 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         );
     }
 
+    // §POLYGON-CARVE (phase 1 plumbing, 2026-06-17) — a RECT carve may ALSO emit non-rectangular
+    // cells (e.g. an L-shaped corridor that threads a fragmented plate to reach the stair). Those
+    // arrive in the subdivide STRATEGY frame; transform them to WORLD (t.inv) and fold them into the
+    // cell-polygon map that wallsAndDoors + semanticGraph already consume. Dormant until a carve sets
+    // `subRes.cellPolygonById` ⇒ byte-identical to the pre-rework path.
+    if (subRes.cellPolygonById && subRes.cellPolygonById.size > 0) {
+        const merged = new Map<string, readonly Pt[]>(cellPolyByIdWorld ?? []);
+        for (const [id, poly] of subRes.cellPolygonById) merged.set(id, poly.map(t.inv));
+        cellPolyByIdWorld = merged;
+        console.log(
+            `[D-TGL] §POLYGON-CARVE cand ${strategyKey(s)} folded ${subRes.cellPolygonById.size} carve-emitted ` +
+            `cell polygon(s) into the world cell map (L-corridor / non-rect room geometry)`,
+        );
+    }
+
     // ── Window-aware partition snap (post-subdivide, WORLD frame) ─────────
     // For every interior partition coordinate that lands inside a shell-wall
     // window span, nudge it to the nearest clearance edge so the partition

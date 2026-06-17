@@ -124,6 +124,15 @@ export interface SubdivideResult {
     /** Rooms that could not be placed at their min short side (empty in the
      *  common case). Deterministic — in drop order (lowest priority first). */
     readonly droppedRooms: readonly DroppedRoom[];
+    /** §POLYGON-CARVE (founder §CIRCULATION-GRAPH polygon-native rework, phase 1, 2026-06-17) —
+     *  OPTIONAL per-room non-rectangular cell polygons (plate-local frame, same as `placements`).
+     *  A carve that needs a room to be NON-rectangular — e.g. an L-shaped corridor that threads a
+     *  fragmented plate to reach the stair AND serve rooms in two arms — supplies the room's real
+     *  polygon here while still emitting a representative rect in `placements` (so the area/min/
+     *  overlap gates keep working). Absent ⇒ every cell is its lifted rect (byte-identical to the
+     *  pre-rework path). enumerate folds this into `cellPolygonById`, which wallsAndDoors +
+     *  semanticGraph already consume for the wall sweep + room geometry. */
+    readonly cellPolygonById?: ReadonlyMap<string, readonly Pt[]>;
 }
 
 /**
@@ -2882,6 +2891,10 @@ export function subdivideWithReport(
         return {
             placements: net.placements,
             droppedRooms: [...res.droppedRooms, ...netDropReports],
+            // §POLYGON-CARVE (phase 1) — pass the carve's non-rect cell polygons through the overlap
+            // net unchanged (the net clips only OVERLAPPING habitable rects; a carve that emits a
+            // polygon corridor keeps it clear of rooms by construction). Absent ⇒ omitted.
+            ...(res.cellPolygonById ? { cellPolygonById: res.cellPolygonById } : {}),
         };
     };
 
