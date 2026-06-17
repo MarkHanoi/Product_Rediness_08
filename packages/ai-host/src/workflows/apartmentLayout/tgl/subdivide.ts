@@ -907,6 +907,12 @@ function sliceZoneAlongFace(
 function tryCarveEnsuiteFromMaster(
     masterRect: Rect,
     ensuiteAreaM2: number,
+    // §FF-R5 (founder §CIRCULATION-GRAPH PART 4) — the corridor rect, when supplied. The ensuite
+    // is then carved on the master face AWAY from the corridor so it shares a wall ONLY with the
+    // master (never a door-width corridor wall → no `ensuiteOnCorridor` topology violation). Absent
+    // ⇒ BYTE-IDENTICAL to the legacy high-side carve (the apartment single-storey path, which has
+    // no FF corridor, is unchanged).
+    avoidRect?: Rect,
 ): { master: Rect; ensuite: Rect } | null {
     const W = masterRect.x1 - masterRect.x0;
     const H = masterRect.z1 - masterRect.z0;
@@ -926,43 +932,72 @@ function tryCarveEnsuiteFromMaster(
         return cut;
     };
 
-    // Try cutting across the LONGER axis first (gives a wider master cross-section).
-    if (W >= H) {
-        const cutW = tryCut(W, H);
-        if (cutW !== null) {
-            const split = masterRect.x1 - cutW;
+    // Build the {master, ensuite} carve for a given axis + side. `axis='x'` cuts across W (ensuite a
+    // vertical strip); `axis='z'` cuts across H (ensuite a horizontal strip). `side='high'` puts the
+    // ensuite at the max-coordinate end (the legacy position), `side='low'` at the min-coordinate end.
+    const buildX = (side: 'low' | 'high'): { master: Rect; ensuite: Rect } | null => {
+        const cut = tryCut(W, H);
+        if (cut === null) return null;
+        if (side === 'high') {
+            const split = masterRect.x1 - cut;
             return {
                 master:  { x0: masterRect.x0, z0: masterRect.z0, x1: split,         z1: masterRect.z1 },
                 ensuite: { x0: split,         z0: masterRect.z0, x1: masterRect.x1, z1: masterRect.z1 },
             };
         }
-        const cutH = tryCut(H, W);
-        if (cutH !== null) {
-            const split = masterRect.z1 - cutH;
+        const split = masterRect.x0 + cut;
+        return {
+            master:  { x0: split,         z0: masterRect.z0, x1: masterRect.x1, z1: masterRect.z1 },
+            ensuite: { x0: masterRect.x0, z0: masterRect.z0, x1: split,         z1: masterRect.z1 },
+        };
+    };
+    const buildZ = (side: 'low' | 'high'): { master: Rect; ensuite: Rect } | null => {
+        const cut = tryCut(H, W);
+        if (cut === null) return null;
+        if (side === 'high') {
+            const split = masterRect.z1 - cut;
             return {
                 master:  { x0: masterRect.x0, z0: masterRect.z0, x1: masterRect.x1, z1: split          },
                 ensuite: { x0: masterRect.x0, z0: split,         x1: masterRect.x1, z1: masterRect.z1 },
             };
         }
-    } else {
-        const cutH = tryCut(H, W);
-        if (cutH !== null) {
-            const split = masterRect.z1 - cutH;
-            return {
-                master:  { x0: masterRect.x0, z0: masterRect.z0, x1: masterRect.x1, z1: split          },
-                ensuite: { x0: masterRect.x0, z0: split,         x1: masterRect.x1, z1: masterRect.z1 },
-            };
-        }
-        const cutW = tryCut(W, H);
-        if (cutW !== null) {
-            const split = masterRect.x1 - cutW;
-            return {
-                master:  { x0: masterRect.x0, z0: masterRect.z0, x1: split,         z1: masterRect.z1 },
-                ensuite: { x0: split,         z0: masterRect.z0, x1: masterRect.x1, z1: masterRect.z1 },
-            };
-        }
+        const split = masterRect.z0 + cut;
+        return {
+            master:  { x0: masterRect.x0, z0: split,         x1: masterRect.x1, z1: masterRect.z1 },
+            ensuite: { x0: masterRect.x0, z0: masterRect.z0, x1: masterRect.x1, z1: split          },
+        };
+    };
+
+    // §FF-R5 corridor-aware placement. Find which master edge the corridor abuts (needs a real
+    // door-width shared run there), then carve the ensuite PERPENDICULAR to that edge on the FAR
+    // side, so the ensuite never inherits a door-width corridor wall. Falls back to the legacy
+    // carve when there is no corridor adjacency OR the corridor-avoiding cut is infeasible — a
+    // placed ensuite (even if it then de-ranks) always beats a DROPPED room.
+    if (avoidRect) {
+        const TOUCH_MM = 50;       // edges within 50 mm count as abutting
+        const DOOR_MM = 900;       // a door-width shared run = genuine adjacency
+        const runMM = (axis: 'x' | 'z'): number => {
+            const lo = Math.max(axis === 'x' ? masterRect.x0 : masterRect.z0, axis === 'x' ? avoidRect.x0 : avoidRect.z0);
+            const hi = Math.min(axis === 'x' ? masterRect.x1 : masterRect.z1, axis === 'x' ? avoidRect.x1 : avoidRect.z1);
+            return Math.max(0, hi - lo);
+        };
+        const onLeft  = Math.abs(avoidRect.x1 - masterRect.x0) <= TOUCH_MM && runMM('z') >= DOOR_MM;
+        const onRight = Math.abs(avoidRect.x0 - masterRect.x1) <= TOUCH_MM && runMM('z') >= DOOR_MM;
+        const onFront = Math.abs(avoidRect.z1 - masterRect.z0) <= TOUCH_MM && runMM('x') >= DOOR_MM;
+        const onBack  = Math.abs(avoidRect.z0 - masterRect.z1) <= TOUCH_MM && runMM('x') >= DOOR_MM;
+        let preferred: { master: Rect; ensuite: Rect } | null = null;
+        if (onLeft)       preferred = buildX('high');   // corridor on left  → ensuite to the right
+        else if (onRight) preferred = buildX('low');    // corridor on right → ensuite to the left
+        else if (onFront) preferred = buildZ('high');   // corridor in front → ensuite to the back
+        else if (onBack)  preferred = buildZ('low');    // corridor behind   → ensuite to the front
+        if (preferred) return preferred;
+        // else: no corridor adjacency, or the avoiding cut didn't fit → legacy carve (no regression).
     }
-    return null;
+
+    // Legacy carve (BYTE-IDENTICAL to the pre-FF-R5 behaviour): cut across the LONGER axis first
+    // (wider master cross-section), ensuite on the high side.
+    if (W >= H) return buildX('high') ?? buildZ('high');
+    return buildZ('high') ?? buildX('high');
 }
 
 /**
@@ -1223,7 +1258,7 @@ function tryHallHingeCarve(
     if (master && ensuite && ensuiteCarveArea > 0) {
         const mi = privatePlacements.findIndex(p => p.roomId === master.id);
         if (mi >= 0) {
-            const ec = tryCarveEnsuiteFromMaster(privatePlacements[mi]!.rect, ensuiteCarveArea);
+            const ec = tryCarveEnsuiteFromMaster(privatePlacements[mi]!.rect, ensuiteCarveArea, corridorRect);
             if (ec) {
                 privatePlacements[mi] = { roomId: master.id, rect: roundRect(ec.master) };
                 privatePlacements.push({ roomId: ensuite.id, rect: roundRect(ec.ensuite) });
@@ -1513,7 +1548,7 @@ function trySingleRectCarve(
         const masterIdx = privatePlacements.findIndex(p => p.roomId === master.id);
         if (masterIdx >= 0) {
             const masterP = privatePlacements[masterIdx]!;
-            const ec = tryCarveEnsuiteFromMaster(masterP.rect, ensuiteCarveArea);
+            const ec = tryCarveEnsuiteFromMaster(masterP.rect, ensuiteCarveArea, carve.corridorRect);
             if (ec) {
                 privatePlacements[masterIdx] = { roomId: master.id, rect: roundRect(ec.master) };
                 privatePlacements.push({ roomId: ensuite.id, rect: roundRect(ec.ensuite) });
@@ -1643,7 +1678,7 @@ function tryNoPublicDoubleLoadedCarve(
         const masterIdx = privatePlacements.findIndex(p => p.roomId === master.id);
         if (masterIdx >= 0) {
             const masterP = privatePlacements[masterIdx]!;
-            const ec = tryCarveEnsuiteFromMaster(masterP.rect, ensuiteCarveArea);
+            const ec = tryCarveEnsuiteFromMaster(masterP.rect, ensuiteCarveArea, carve.corridorRect);
             if (ec) {
                 privatePlacements[masterIdx] = { roomId: master.id, rect: roundRect(ec.master) };
                 privatePlacements.push({ roomId: ensuite.id, rect: roundRect(ec.ensuite) });
@@ -1727,7 +1762,7 @@ function tryNoPublicSingleLoadedCarve(
         const masterIdx = privatePlacements.findIndex(p => p.roomId === master.id);
         if (masterIdx >= 0) {
             const masterP = privatePlacements[masterIdx]!;
-            const ec = tryCarveEnsuiteFromMaster(masterP.rect, ensuiteCarveArea);
+            const ec = tryCarveEnsuiteFromMaster(masterP.rect, ensuiteCarveArea, carve.corridorRect);
             if (ec) {
                 privatePlacements[masterIdx] = { roomId: master.id, rect: roundRect(ec.master) };
                 privatePlacements.push({ roomId: ensuite.id, rect: roundRect(ec.ensuite) });

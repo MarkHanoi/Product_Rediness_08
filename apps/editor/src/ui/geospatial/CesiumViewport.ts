@@ -186,6 +186,18 @@ const FORMA_FLY_ALT_K = 3.2;
 const FORMA_FLY_ALT_MIN_M = 80;
 const FORMA_FLY_ALT_MAX_M = 4000;
 
+/**
+ * §FLY-TOUR-GROUND-CLEARANCE (founder bug, 2026-06-17) — Forma framing/tour
+ * altitudes are computed in metres ABOVE THE SITE GROUND, but a camera
+ * `destination` height is absolute WGS84-ellipsoid height. When the site sits on
+ * non-zero terrain (city ground far above the ellipsoid, or tile-clamped
+ * `formaTerrainBaseHeight`) and `globe.depthTestAgainstTerrain = true` (Forma
+ * mode, set ~line 1087), an absolute height below ground puts the camera
+ * UNDERGROUND → fully black globe. Every fly destination must therefore be
+ * seated on `formaTerrainBaseHeight` and kept at least this many metres clear of
+ * the ground so the camera never dives beneath the surface mid-tour. */
+const FORMA_FLY_MIN_GROUND_CLEARANCE_M = 25;
+
 /** Silhouette edge width in px (§2 — 1.5px). */
 const FORMA_SILHOUETTE_WIDTH = 1.5;
 /** Ambient-occlusion intensity (§2 — ≈ 2.5). */
@@ -2829,7 +2841,11 @@ export class CesiumViewport {
         FORMA_FLY_ALT_MIN_M,
         FORMA_FLY_ALT_MAX_M
       );
-      const destination = Cesium.Cartesian3.fromRadians(carto.longitude, carto.latitude, alt);
+      // §FLY-TOUR-GROUND-CLEARANCE — `alt` is height above ground; seat it on the
+      // (tile-clamped) site ground so the camera never frames from underground
+      // (black globe) when the site sits on non-zero terrain.
+      const absAlt = this.formaTerrainBaseHeight + Math.max(alt, FORMA_FLY_MIN_GROUND_CLEARANCE_M);
+      const destination = Cesium.Cartesian3.fromRadians(carto.longitude, carto.latitude, absAlt);
       viewer.camera.flyTo({
         destination,
         orientation: {
@@ -2842,7 +2858,8 @@ export class CesiumViewport {
       viewer.scene.requestRender();
       console.log(
         `[CesiumViewport][forma] oblique flyTo: heading ${headingDeg}°, ` +
-          `pitch ${pitchDeg}°, alt ${Math.round(alt)} m.`
+          `pitch ${pitchDeg}°, alt ${Math.round(alt)} m above ground ` +
+          `(abs ${Math.round(absAlt)} m, base ${Math.round(this.formaTerrainBaseHeight)} m).`
       );
     } catch (e) {
       console.warn('[CesiumViewport][forma] flyToFormaSite failed:', e);
@@ -2909,6 +2926,10 @@ export class CesiumViewport {
       const lon = carto.longitude;
       const lat = carto.latitude;
       const span = Math.sqrt(Math.max(1, o.areaM2)); // ~plot edge length (m)
+      // §FLY-TOUR-GROUND-CLEARANCE — `opts.alt` is height ABOVE GROUND; seat it on
+      // the (tile-clamped) site ground and never let the camera dip below the
+      // minimum clearance, or with depthTestAgainstTerrain on we'd go black.
+      const groundBase = this.formaTerrainBaseHeight;
 
       const ease = Cesium.EasingFunction.CUBIC_IN_OUT;
       // Promise-wrap a single flyTo leg via its `complete` callback.
@@ -2919,8 +2940,9 @@ export class CesiumViewport {
         duration: number;
       }): Promise<void> =>
         new Promise<void>((resolve) => {
+          const absAlt = groundBase + Math.max(opts.alt, FORMA_FLY_MIN_GROUND_CLEARANCE_M);
           viewer.camera.flyTo({
-            destination: Cesium.Cartesian3.fromRadians(lon, lat, opts.alt),
+            destination: Cesium.Cartesian3.fromRadians(lon, lat, absAlt),
             orientation: {
               heading: Cesium.Math.toRadians(opts.headingDeg),
               pitch: Cesium.Math.toRadians(opts.pitchDeg),
