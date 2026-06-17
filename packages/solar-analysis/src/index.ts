@@ -45,3 +45,14 @@ export {
     accumulateSunHours,
     type AccumulateOptions,
 } from './sunHours.js';
+
+// ── Per-room solar heat gain ("real heat", C21 §10.10) ───────────────────────
+export {
+    accumulateRoomHeatGain,
+    DEFAULT_SHGC,
+    type RoomGlazingElement,
+    type RoomGlazing,
+    type RoomHeatGain,
+    type RoomHeatGainResult,
+    type RoomHeatGainOptions,
+} from './roomHeatGain.js';
