@@ -2,6 +2,12 @@
 // Pure SVG builder tests (node env, no DOM): the connectivity graph (nodes on room
 // centroids + adjacency edges) is composited into the SAME SVG as the plan, on the
 // IDENTICAL coordinate transform, in PRYZM brand purple (#6600FF) + white.
+//
+// NEXT-GEN VISUAL (2026-06-17): nodes are radial-gradient violet discs whose
+// RADIUS SCALES WITH DEGREE, with a soft halo + thin white inner ring; edges are
+// thin smooth #6600FF (~0.55 opacity, thicker for hub↔hub); labels only on hubs.
+// <defs> are uniquely id'd per overlay. Tests assert the gradient id / degree
+// sizing / purple stroke — never blue.
 
 import { describe, expect, it } from 'vitest';
 import { buildPlanGraphOverlaySvg } from '../src/ui/apartment-layout/layoutBubbleGraph.js';
@@ -51,13 +57,17 @@ describe('buildPlanGraphOverlaySvg (§GRAPH-OVER-PLAN)', () => {
         expect(svg.indexOf('alm-plan-graph-overlay')).toBeGreaterThan(svg.indexOf('fill="#bfdbfe"'));
     });
 
-    it('draws one purple node per named room ON its polygon centroid (same transform as the plan)', () => {
+    it('draws one radial-gradient violet node per named room ON its polygon centroid (same transform as the plan)', () => {
         const opts = { width: 320, height: 240 } as const;
         const svg = buildPlanGraphOverlaySvg(twoRoomOpt(), opts);
         const tf = computePlanTransform(twoRoomOpt(), opts);
-        // Two purple-filled, white-stroked node circles.
-        const nodes = svg.match(/<circle [^>]*fill="#6600FF" stroke="#ffffff"/g) ?? [];
+        // Two radial-gradient-filled, white-inner-ring node circles.
+        const nodes = svg.match(/<circle [^>]*fill="url\(#almNodeGrad-[a-z0-9]+\)" stroke="#ffffff"/g) ?? [];
         expect(nodes.length).toBe(2);
+        // The radial node gradient is defined (uniquely id'd) and runs #7C3AED→#6600FF.
+        expect(svg).toMatch(/<radialGradient id="almNodeGrad-[a-z0-9]+"/);
+        expect(svg).toContain('stop-color="#7C3AED"');
+        expect(svg).toContain(`stop-color="${PRYZM_PURPLE}"`);
         // Living Room centroid (2500, 2000) mm → svg px under the plan transform.
         const cx = tf.mapX(2500), cy = tf.mapY(2000);
         const cxStr = (Math.round(cx * 10) / 10).toString();
@@ -65,10 +75,44 @@ describe('buildPlanGraphOverlaySvg (§GRAPH-OVER-PLAN)', () => {
         expect(svg).toContain(`cx="${cxStr}" cy="${cyStr}"`);
     });
 
+    it('scales node radius by DEGREE — a hub (more connections) is larger than a leaf', () => {
+        // Star: Corridor connects to 3 rooms; each leaf connects only to Corridor.
+        const star = twoRoomOpt({
+            rooms: [
+                { name: 'Corridor', type: 'corridor', area: 6, windowCount: 0, hasDirectAccess: true,
+                  adjacentTo: ['A', 'B', 'C'],
+                  polygon: [{ x: 4000, y: 0 }, { x: 6000, y: 0 }, { x: 6000, y: 4000 }, { x: 4000, y: 4000 }],
+                  occupancy: 'corridor' },
+                { name: 'A', type: 'bedroom', area: 12, windowCount: 1, hasDirectAccess: true,
+                  adjacentTo: ['Corridor'],
+                  polygon: [{ x: 0, y: 0 }, { x: 4000, y: 0 }, { x: 4000, y: 2000 }, { x: 0, y: 2000 }],
+                  occupancy: 'bedroom' },
+                { name: 'B', type: 'bedroom', area: 12, windowCount: 1, hasDirectAccess: true,
+                  adjacentTo: ['Corridor'],
+                  polygon: [{ x: 0, y: 2000 }, { x: 4000, y: 2000 }, { x: 4000, y: 4000 }, { x: 0, y: 4000 }],
+                  occupancy: 'bedroom' },
+                { name: 'C', type: 'kitchen', area: 10, windowCount: 1, hasDirectAccess: true,
+                  adjacentTo: ['Corridor'],
+                  polygon: [{ x: 6000, y: 0 }, { x: 9000, y: 0 }, { x: 9000, y: 4000 }, { x: 6000, y: 4000 }],
+                  occupancy: 'kitchen' },
+            ] as never,
+        });
+        const svg = buildPlanGraphOverlaySvg(star, { width: 320, height: 240 });
+        // Collect every NODE radius (gradient-filled circles only — excludes halos).
+        const radii = [...svg.matchAll(/<circle [^>]*r="([\d.]+)"[^>]*fill="url\(#almNodeGrad-[a-z0-9]+\)"/g)]
+            .map((m) => parseFloat(m[1]!));
+        expect(radii.length).toBe(4);
+        // The degree-3 hub must be strictly larger than every degree-1 leaf.
+        const maxR = Math.max(...radii);
+        const others = radii.filter((r) => r !== maxR);
+        expect(others.length).toBeGreaterThanOrEqual(1);
+        expect(maxR).toBeGreaterThan(Math.max(...others));
+    });
+
     it('draws one purple semi-transparent edge per (deduped) adjacency', () => {
         const svg = buildPlanGraphOverlaySvg(twoRoomOpt(), { width: 320, height: 240 });
-        // Living↔Kitchen is symmetric → exactly ONE overlay edge line.
-        const edges = svg.match(/<line [^>]*stroke="#6600FF" stroke-width="1.6" stroke-opacity="0.4"/g) ?? [];
+        // Living↔Kitchen is symmetric → exactly ONE overlay edge line, thin + violet.
+        const edges = svg.match(/<line [^>]*stroke="#6600FF" stroke-width="1.5" stroke-opacity="0.55"/g) ?? [];
         expect(edges.length).toBe(1);
     });
 
@@ -121,8 +165,8 @@ describe('buildPlanGraphOverlaySvg (§GRAPH-OVER-PLAN)', () => {
                 occupancy: 'living-room',
             }] as never,
         }), { width: 320, height: 240 });
-        // One node, zero overlay edges.
-        expect((svg.match(/<circle [^>]*fill="#6600FF"/g) ?? []).length).toBe(1);
-        expect((svg.match(/stroke="#6600FF" stroke-width="1.6"/g) ?? []).length).toBe(0);
+        // One node disc (gradient-filled), zero overlay edges.
+        expect((svg.match(/<circle [^>]*fill="url\(#almNodeGrad-[a-z0-9]+\)"/g) ?? []).length).toBe(1);
+        expect((svg.match(/<line [^>]*stroke="#6600FF"/g) ?? []).length).toBe(0);
     });
 });

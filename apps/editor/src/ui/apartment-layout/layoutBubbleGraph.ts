@@ -264,23 +264,49 @@ export function buildLayoutBubbleGraphSvg(
 // every edge traces the door/adjacency connection across the real plan.
 //
 // Connections are derived from the SAME source the bubble graph uses —
-// `room.adjacentTo` (room NAMES) — symmetric-deduped (A↔B once). Brand: white +
-// #6600FF (`PRYZM_PURPLE`) only; nodes are purple-filled with a WHITE stroke so
-// they read over any coloured room fill, edges are thin + ~0.4 opacity. No RNG —
-// node positions are deterministic centroids. Pure → Node-testable.
+// `room.adjacentTo` (room NAMES) — symmetric-deduped (A↔B once). NEXT-GEN VISUAL:
+// nodes are radial-gradient violet discs (#7C3AED→#6600FF) whose RADIUS SCALES
+// WITH DEGREE (hub rooms like the corridor/hall are bigger), each with a soft
+// violet halo glow + a thin white inner ring; edges are thin smooth #6600FF lines
+// (~0.55 opacity, thicker/gradient for hub↔hub) drawn BEHIND the nodes; labels
+// are minimal — a small dim pill only for hub nodes. Brand: white + #6600FF /
+// #8B5CF6 only, NO blue, NO black. All <defs> are uniquely id'd (FNV hash of the
+// option) so many overlays on one page never clash. No RNG — node positions are
+// deterministic centroids. Pure → Node-testable.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface PlanGraphOverlayOptions extends ThumbnailOptions {
-    /** Node radius in px (white-stroked purple disc). Default 7. */
+    /** Base node radius in px BEFORE degree-scaling (the radius of a degree-0
+     *  node). Hub nodes grow from here as `base + k·degree`. Default 5. */
     readonly nodeRadius?: number;
-    /** Edge opacity (0..1). Default 0.4. */
+    /** Edge opacity (0..1) for a baseline (non-hub) edge. Hub↔hub edges are
+     *  drawn slightly more opaque. Default 0.55. */
     readonly edgeOpacity?: number;
-    /** Draw the short room-type label beside each node. Default true. */
+    /** Draw the short room-type label — only for the larger HUB nodes — as a
+     *  small dim pill. Default true. */
     readonly showGraphLabels?: boolean;
     /** §LIVE-MODAL.D — make nodes clickable (data-room-name + alm-graph-node +
      *  pointer-events:auto + role/tabindex) so the modal's delegated handler can
      *  open the inline editor. Default false (inert picture). */
     readonly interactiveNodes?: boolean;
+}
+
+/** Tiny deterministic FNV-1a hash → short base36 suffix, so every overlay's
+ *  `<defs>` ids are UNIQUE on a page with many thumbnails (gradients/filters
+ *  must not collide). Derived from option content → stable across re-renders. */
+function overlayUid(option: LayoutOption): string {
+    let h = 0x811c9dc5;
+    const feed = (s: string): void => {
+        for (let i = 0; i < s.length; i++) {
+            h ^= s.charCodeAt(i);
+            h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+        }
+    };
+    feed(option.summary ?? '');
+    for (const r of option.rooms ?? []) {
+        if (r && typeof r.name === 'string') feed(r.name);
+    }
+    return (h >>> 0).toString(36);
 }
 
 /**
@@ -295,8 +321,8 @@ export function buildPlanGraphOverlaySvg(
     opts: PlanGraphOverlayOptions = {},
 ): string {
     const planSvg = buildLayoutThumbnailSvg(option, opts);
-    const nodeRadius = opts.nodeRadius ?? 7;
-    const edgeOpacity = opts.edgeOpacity ?? 0.4;
+    const baseRadius = opts.nodeRadius ?? 5;
+    const edgeOpacity = opts.edgeOpacity ?? 0.55;
     const showGraphLabels = opts.showGraphLabels ?? true;
     const interactive = opts.interactiveNodes ?? false;
 
@@ -318,12 +344,14 @@ export function buildPlanGraphOverlaySvg(
     });
     if (centres.size === 0) return planSvg;
 
-    // 2. Edges — symmetric-dedupe over adjacentTo (name → index), drawn FIRST so
-    //    nodes paint on top. Purple, thin, semi-transparent; inert to clicks.
+    // 2. Edges — symmetric-dedupe over adjacentTo (name → index). Collected first
+    //    so we can compute each node's DEGREE (how many connections it has) —
+    //    degree drives node size + hub detection. Drawn BEHIND the nodes.
     const idxByName = new Map<string, number>();
     rooms.forEach((r, i) => idxByName.set(r.name, i));
+    const degree = new Map<number, number>();           // node index → connection count
+    const edges: Array<{ i: number; j: number }> = [];
     const seen = new Set<string>();
-    const edgeEls: string[] = [];
     rooms.forEach((r) => {
         const adj = Array.isArray(r.adjacentTo) ? r.adjacentTo : [];
         for (const other of adj) {
@@ -336,49 +364,106 @@ export function buildPlanGraphOverlaySvg(
             const key = r.name < other ? `${r.name}|${other}` : `${other}|${r.name}`;
             if (seen.has(key)) continue;
             seen.add(key);
-            edgeEls.push(
-                `<line x1="${f1(a.x)}" y1="${f1(a.y)}" x2="${f1(b.x)}" y2="${f1(b.y)}" ` +
-                `stroke="${PRYZM_PURPLE}" stroke-width="1.6" stroke-opacity="${edgeOpacity}" ` +
-                `stroke-linecap="round" pointer-events="none"/>`,
-            );
+            edges.push({ i, j });
+            degree.set(i, (degree.get(i) ?? 0) + 1);
+            degree.set(j, (degree.get(j) ?? 0) + 1);
         }
     });
 
-    // 3. Nodes — purple disc with a WHITE stroke (reads over any room fill) + a
-    //    <title> tooltip. §LIVE-MODAL.D interactive nodes opt in to the editor hooks.
+    // Degree-driven sizing: r = base + k·degree, clamped. A node is a "hub" when
+    // its degree is at/above the connectivity median (the corridor/hall etc.).
+    const DEG_K = 2.2;                                   // px of radius per connection
+    const RADIUS_MAX = baseRadius + 14;
+    const nodeRadius = (i: number): number =>
+        Math.min(RADIUS_MAX, baseRadius + DEG_K * (degree.get(i) ?? 0));
+    const maxDeg = Math.max(0, ...Array.from(degree.values()));
+    const hubThreshold = Math.max(2, Math.ceil(maxDeg * 0.6));
+    const isHub = (i: number): boolean => (degree.get(i) ?? 0) >= hubThreshold;
+
+    // Unique <defs> ids (gradients/filters) so many overlays on one page never
+    // collide. `uid` is deterministic from option content.
+    const uid = overlayUid(option);
+    const gradId = `almNodeGrad-${uid}`;
+    const haloId = `almHalo-${uid}`;
+    const edgeGradId = `almEdgeGrad-${uid}`;
+
+    // Radial node gradient (#7C3AED → #6600FF), a soft outer-glow blur filter for
+    // the halo, and a faint along-edge violet gradient. All brand purple + white.
+    const defs =
+        `<defs>` +
+        `<radialGradient id="${gradId}" cx="0.5" cy="0.42" r="0.65">` +
+        `<stop offset="0%" stop-color="#7C3AED"/>` +
+        `<stop offset="100%" stop-color="${PRYZM_PURPLE}"/>` +
+        `</radialGradient>` +
+        `<linearGradient id="${edgeGradId}" x1="0" y1="0" x2="1" y2="0">` +
+        `<stop offset="0%" stop-color="#8B5CF6"/>` +
+        `<stop offset="100%" stop-color="${PRYZM_PURPLE}"/>` +
+        `</linearGradient>` +
+        `<filter id="${haloId}" x="-60%" y="-60%" width="220%" height="220%">` +
+        `<feGaussianBlur stdDeviation="2.4"/>` +
+        `</filter>` +
+        `</defs>`;
+
+    // 3. Edges — thin smooth violet lines BEHIND the nodes; hub↔hub edges read a
+    //    touch thicker + more opaque, with a faint along-edge gradient.
+    const edgeEls: string[] = edges.map(({ i, j }) => {
+        const a = centres.get(i)!, b = centres.get(j)!;
+        const hub = isHub(i) && isHub(j);
+        const w = hub ? 2.2 : 1.5;
+        const op = hub ? Math.min(1, edgeOpacity + 0.2) : edgeOpacity;
+        const stroke = hub ? `url(#${edgeGradId})` : PRYZM_PURPLE;
+        return (
+            `<line x1="${f1(a.x)}" y1="${f1(a.y)}" x2="${f1(b.x)}" y2="${f1(b.y)}" ` +
+            `stroke="${stroke}" stroke-width="${w}" stroke-opacity="${op}" ` +
+            `stroke-linecap="round" pointer-events="none"/>`
+        );
+    });
+
+    // 4. Halos — soft violet outer glow under each node so the dots "pop" on the
+    //    plan. Painted between the edges and the crisp node discs.
+    const haloEls: string[] = [];
+    // 5. Nodes — radial-gradient disc + a thin WHITE inner ring for separation.
+    //    Degree-scaled radius. §LIVE-MODAL.D interactive nodes opt in to editor hooks.
     const nodeEls: string[] = [];
     const labelEls: string[] = [];
     rooms.forEach((r, i) => {
         const c = centres.get(i);
         if (!c) return;
+        const rad = nodeRadius(i);
+        haloEls.push(
+            `<circle cx="${f1(c.x)}" cy="${f1(c.y)}" r="${f1(rad + 2.5)}" ` +
+            `fill="#8B5CF6" fill-opacity="0.45" filter="url(#${haloId})" pointer-events="none"/>`,
+        );
         const title = `<title>${esc(r.name)}${typeof r.area === 'number' && r.area > 0 ? ` — ${Math.round(r.area)} m²` : ''}</title>`;
         const interactiveAttrs = interactive
             ? ` data-room-name="${esc(r.name)}" class="alm-graph-node" role="button" tabindex="0" aria-label="Edit ${esc(r.name)}" pointer-events="auto" style="cursor:pointer"`
             : ' pointer-events="none"';
         nodeEls.push(
-            `<circle cx="${f1(c.x)}" cy="${f1(c.y)}" r="${f1(nodeRadius)}" ` +
-            `fill="${PRYZM_PURPLE}" stroke="#ffffff" stroke-width="2"${interactiveAttrs}>${title}</circle>`,
+            `<circle cx="${f1(c.x)}" cy="${f1(c.y)}" r="${f1(rad)}" ` +
+            `fill="url(#${gradId})" stroke="#ffffff" stroke-width="1.4" stroke-opacity="0.95"${interactiveAttrs}>${title}</circle>`,
         );
-        if (showGraphLabels) {
+        // 6. Labels — reduce clutter: a small dim violet pill ONLY for hub nodes
+        //    (the room name already shows on the plan cell). White halo keeps it
+        //    legible over the purple edges + light room fills.
+        if (showGraphLabels && isHub(i)) {
             const label = esc(roomShort(r));
             if (label) {
-                // Label sits just below the node; white halo (paint-order:stroke)
-                // keeps it legible over both light room fills and the purple edges.
                 labelEls.push(
-                    `<text x="${f1(c.x)}" y="${f1(c.y + nodeRadius + 9)}" text-anchor="middle" ` +
+                    `<text x="${f1(c.x)}" y="${f1(c.y + rad + 9)}" text-anchor="middle" ` +
                     `font-family="system-ui,-apple-system,sans-serif" font-size="8" font-weight="600" ` +
-                    `fill="${PRYZM_PURPLE}" stroke="#ffffff" stroke-width="2.4" paint-order="stroke" ` +
-                    `pointer-events="none">${label}</text>`,
+                    `fill="${PRYZM_PURPLE}" fill-opacity="0.85" stroke="#ffffff" stroke-width="2.4" ` +
+                    `paint-order="stroke" pointer-events="none">${label}</text>`,
                 );
             }
         }
     });
 
-    // 4. Composite: inject the overlay group just BEFORE the plan's closing
-    //    </svg> so it paints ON TOP (higher z-order) in the SAME viewBox.
+    // 7. Composite: inject the overlay group (defs + edges + halos + nodes +
+    //    labels) just BEFORE the plan's closing </svg> so it paints ON TOP in the
+    //    SAME viewBox.
     const overlay =
         `<g class="alm-plan-graph-overlay" aria-label="room connectivity graph">` +
-        edgeEls.join('') + nodeEls.join('') + labelEls.join('') +
+        defs + edgeEls.join('') + haloEls.join('') + nodeEls.join('') + labelEls.join('') +
         `</g>`;
     const closeIdx = planSvg.lastIndexOf('</svg>');
     if (closeIdx < 0) return planSvg + overlay;            // defensive — shouldn't happen
