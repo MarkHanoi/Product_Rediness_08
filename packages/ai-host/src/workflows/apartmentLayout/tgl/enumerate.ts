@@ -1063,9 +1063,15 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
                         const typeByRoomId = new Map(bubble.rooms.map(r => [r.id, r.type]));
                         let stubbed = 0;
                         unbridged.forEach((sp, k) => {
+                            // §STUB-GAP-CAP (founder §CIRCULATION-GRAPH PART 6) — UPPER floors
+                            // (no entrance hall) cap the stub at 0.5 m: a longer gap means the corridor
+                            // was laid on the wrong axis (§STAIR-FACE-AXIS should reach the stair edge),
+                            // so suppress the long spur and let a naturally-reaching strategy win. The
+                            // GROUND floor (entryId set) keeps the uncapped dense-plate stub.
+                            const stubMaxGapM = bubble.entryId != null ? undefined : 0.5;
                             const stubRect = findCorridorStubToKeepOut(
                                 placements, circId, [sp.rect], typeByRoomId,
-                                input.corridorWidthM ?? 1.2, shellBBWorld,
+                                input.corridorWidthM ?? 1.2, shellBBWorld, stubMaxGapM,
                             );
                             if (!stubRect) return;
                             const stubId = `corridorStub_${sp.roomId}_${k}`;

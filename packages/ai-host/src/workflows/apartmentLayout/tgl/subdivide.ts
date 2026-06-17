@@ -2240,6 +2240,13 @@ export function findCorridorStubToKeepOut(
     typeById: ReadonlyMap<string, RoomType>,
     corridorWidthM: number,
     shellBB?: Rect,
+    // §STUB-GAP-CAP (founder §CIRCULATION-GRAPH PART 6, 2026-06-17) — the MAX corridor→stair gap (m)
+    // a stub may bridge. The upper floor passes a small cap (≈0.5 m): a LARGE gap means the corridor
+    // was laid on the WRONG axis (§STAIR-FACE-AXIS should have brought it to the stair edge), so a
+    // long ugly cross-plate stub is suppressed → the candidate stays circulation-de-ranked and a
+    // better-axis strategy wins, instead of shipping a long synthetic spur. Undefined (the ground
+    // floor's dense-plate fallback) ⇒ no cap (byte-identical — the GF stub legitimately spans a band).
+    maxGapM?: number,
 ): Rect | null {
     if (!corridorId || keepOuts.length === 0 || placements.length === 0) return null;
     const corrIdx = placements.findIndex(p => p.roomId === corridorId);
@@ -2285,6 +2292,9 @@ export function findCorridorStubToKeepOut(
         const koNear  = axis === 'z' ? (dir > 0 ? ko.z1   : ko.z0)   : (dir > 0 ? ko.x1   : ko.x0);
         const t0 = clampT(Math.min(corrFar, koNear)), t1 = clampT(Math.max(corrFar, koNear));
         if (t1 - t0 < EPS) return null;
+        // §STUB-GAP-CAP (PART 6) — a stub bridging a gap larger than the cap signals a wrong-axis
+        // corridor; suppress it so a naturally-reaching strategy wins instead of a long synthetic spur.
+        if (maxGapM !== undefined && t1 - t0 > maxGapM + EPS) return null;
         // The lane axis (perpendicular). The lane must overlap the keep-out's perp span by ≥ W
         // and align (flush) to a crossed-room edge. Perp span of the keep-out (clamped to the shell):
         const clampL = axis === 'z' ? clampX : clampZ;
