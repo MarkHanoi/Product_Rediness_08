@@ -274,6 +274,13 @@ export function enrichStoreyProgramToPlate(
             // A ground floor reads as a home with a dining zone; default open-plan
             // on so the kitchen has a dining companion rather than the kitchen blob
             // stretching to fill the plate.
+            // §RESPECT-OPENPLAN-TOGGLE (founder 2026-06-17 "I unchecked open-plan but it
+            // stays open") — DEFERRED: honouring the unchecked box needs a TRI-STATE
+            // (explicit-false vs unset) because the boolean default `false` here is
+            // indistinguishable from a user uncheck, so `?? true` broke the empty-brief
+            // ground-public-set guarantee (houseProgramFloor.test.ts:238). Needs an
+            // optional `openPlanKitchenDining?: boolean` through the brief schema +
+            // modal, then respect only an explicitly-stated false. Tracked, not forced.
             openPlanKitchenDining: true,
             // §DIAG-MERGE-DIVIDER (tracker §57.3, 2026-06-11) — the open-plan merge on a
             // HOUSE ground floor is the literal KITCHEN + DINING (one kitchen-diner). The
