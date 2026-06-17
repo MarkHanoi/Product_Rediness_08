@@ -373,6 +373,29 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         if (!cesiumViewport) return;
         const viewer = cesiumViewport.getViewer?.();
         if (!viewer) return;
+        // §GLOBE-CAMERA-FOLLOWS-BUILDING (2026-06-17) — PRIMARY framing path. The
+        // building was just placed by placeBuildingOnGlobe() → renderBuildingOnGlobe,
+        // which seats `formaMassingOrigin` (the centroid of the ACTUAL placed massing
+        // in the LTP-ENU scene frame) even on the photoreal globe (it runs before the
+        // frameCentroid:false guard). flyToFormaSite() frames the camera to THAT
+        // building centroid — so the view follows the building to its correct
+        // geocoded location. This fixes the founder's "building in the WRONG location
+        // / camera looks at the wrong place": the old path below read getSiteOrigin()
+        // (siteModelStore.getSite()?.location), a DIFFERENT and often-empty source
+        // than the getFormaOrigin() (LTP scene-frame) that actually anchors the
+        // building — when empty it logged "no Site location yet — leaving camera
+        // as-is", stranding the camera at a stale view while the building sat correctly
+        // elsewhere. flyToFormaSite() is public, Cesium-only, and no-ops cleanly when
+        // no massing has been placed (then we fall through to the Site-location flyTo).
+        if (typeof cesiumViewport.flyToFormaSite === 'function' && cesiumViewport.hasFormaMassingPlaced?.()) {
+            try {
+                cesiumViewport.flyToFormaSite();
+                console.log('[gis] reframeSiteIn3D: framed camera to the placed building (formaMassingOrigin).');
+                return;
+            } catch (err) {
+                console.warn('[gis] reframeSiteIn3D: building-anchored flyTo failed, falling back to Site location:', err);
+            }
+        }
         const o = getSiteOrigin();
         if (!o) {
             console.log('[gis] reframeSiteIn3D: no Site location yet — leaving camera as-is.');
