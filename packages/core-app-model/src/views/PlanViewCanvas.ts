@@ -1287,8 +1287,14 @@ export class PlanViewCanvas {
 
     setSize(w: number, h: number): void {
         if (this._disposed) return;
-        this._cssW = Math.max(0, Math.round(w));
-        this._cssH = Math.max(0, Math.round(h));
+        // §ZERO-SIZE-CANVAS-GUARD (founder 2026-06-17 "GL_INVALID_FRAMEBUFFER_OPERATION:
+        // Attachment has zero size" flood on split/plan-view activation). A canvas with
+        // width=0 or height=0 allocates a 0×0 backing buffer; anything that later reads it
+        // as a texture/framebuffer attachment is "incomplete". Clamp to ≥1 — a 1×1 buffer
+        // is harmless (the render is still gated on the real pane size upstream) and never
+        // 0×0. (Was Math.max(0, …).)
+        this._cssW = Math.max(1, Math.round(w));
+        this._cssH = Math.max(1, Math.round(h));
         const dpr = Math.min(window.devicePixelRatio, MAX_PLAN_VIEW_CANVAS_DPR);
         const pw = Math.round(this._cssW * dpr);
         const ph = Math.round(this._cssH * dpr);
