@@ -30,6 +30,10 @@
 import type { RoomPhysicsResult, PhysicsOverlayMode } from '@pryzm/physics-host';
 import { setPhysicsOverlayMode } from '@pryzm/physics-host';
 import { physicsEngine } from '@pryzm/physics-host';
+// ADR-0074 P1b (C21 §10) — the Solar — Sun Hours visual control panel. Surfaced as a
+// discoverable button here (DataWorkbench › Physics, where daylight/thermal analysis lives)
+// instead of console-only `pryzmOpenSolarPanel()`. Editor-UI import → no THREE (P2 holds).
+import { openSolarSunHoursPanel } from '../daylight/SolarSunHoursPanel';
 
 // ── Badge helpers ─────────────────────────────────────────────────────────────
 
@@ -187,6 +191,27 @@ export class PhysicsPanel {
             }
         });
         toolbar.appendChild(computeBtn);
+
+        // ☀ Sun Hours — open the Solar — Sun Hours control panel (ADR-0074 P1b, C21 §10).
+        // PRYZM brand #6600FF (white panel, purple accent). The panel runs the CPU-raycast
+        // sun-hours pass + heatmap; this is its discoverable UI entry point (was console-only).
+        const sunBtn = document.createElement('button');
+        sunBtn.textContent = '☀ Sun Hours';
+        sunBtn.className = 'dw-rail-btn';
+        sunBtn.title = 'Open the Solar — Sun Hours control panel (sun-hours heatmap on roofs & façades)';
+        sunBtn.style.cssText = [
+            'padding:3px 10px;border-radius:4px;border:1px solid #6600FF;',
+            'background:#6600FF14;color:#6600FF;font-size:11px;cursor:pointer;font-weight:600;',
+            'margin-left:8px;',
+        ].join('');
+        sunBtn.addEventListener('click', () => {
+            try {
+                openSolarSunHoursPanel();
+            } catch (e) {
+                console.warn('[PhysicsPanel] Solar Sun-Hours panel failed to open:', e);
+            }
+        });
+        toolbar.appendChild(sunBtn);
 
         // CSV Export
         const csvBtn = document.createElement('button');
