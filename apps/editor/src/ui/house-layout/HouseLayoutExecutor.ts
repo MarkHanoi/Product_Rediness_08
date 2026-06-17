@@ -77,6 +77,7 @@ import {
     clampPartitionsInsideShell,
     checkShellContainment,
     deriveProjectNorthFrame,
+    rectifyShellRing,
     projectNorthWeld,
     projectNorthWeldBoundary,
     solveStairContainmentWorld,
@@ -2429,6 +2430,47 @@ export class HouseLayoutExecutor {
             if (Math.hypot(first.x - last.x, first.z - last.z) < 0.05) ring.pop();
         }
         if (ring.length < 3) return null;
+
+        // §PERIMETER-PN-RECTIFY (ADR-0073) — on a ROTATED plate the interior partitions
+        // are welded in the Project-North (rectified) frame: `projectNorthWeld`
+        // de-rotates the shell, RECTIFIES it, welds the partitions onto the rectified
+        // ring, re-rotates — but only the welded PARTITIONS are kept; the rectified
+        // shell it returns is DISCARDED. So the COMMITTED perimeter (this raw footprint
+        // ring) and the welded partition endpoints DON'T coincide by the principal-axis
+        // residual. That residual defeats `WallJoinResolver` §SHELL-ANCHOR-PRESERVE
+        // (`_bodyAnchorOf` can't find the endpoint on a perimeter body) → the corner
+        // falls to a square (null-miter) consensus cap. It renders flush while the shell
+        // is one solid body, but opens a visible vertical SEAM the moment a door/window
+        // rebuilds the wall as segments (the founder's "L-joint breaks after the doors
+        // and windows are created"), AND a window offset measured along the engine wall
+        // lands off the realised wall. FIX: mint the perimeter in the SAME frame the
+        // partitions weld to — rectify the ring in Project-North so committed perimeter
+        // == welded endpoints (re-rectify in the weld is then idempotent → coincidence
+        // preserved). θ=0 (axis-aligned, |θ|<~0.57°) ⇒ frame.thetaRad===0 ⇒ skipped
+        // (byte-identical). Gated on the SAME `__pryzmProjectNorth` flag as the weld.
+        const projectNorthEnabled =
+            (window as unknown as { __pryzmProjectNorth?: boolean }).__pryzmProjectNorth !== false;
+        const pnFrame = projectNorthEnabled ? deriveProjectNorthFrame(poly) : undefined;
+        if (pnFrame && pnFrame.thetaRad !== 0) {
+            const { thetaRad, pivot } = pnFrame;
+            // 2D CCW rotate about pivot — bit-identical to ai-host `rotatePt`; kept local
+            // so we don't widen the L2 ai-host export surface for one call site.
+            const rot = (p: { x: number; z: number }, ang: number) => {
+                const c = Math.cos(ang), s = Math.sin(ang);
+                const dx = p.x - pivot.x, dz = p.z - pivot.z;
+                return { x: pivot.x + dx * c - dz * s, z: pivot.z + dx * s + dz * c };
+            };
+            const ringRect = rectifyShellRing(ring.map(p => rot(p, -thetaRad))).map(p => rot(p, thetaRad));
+            if (ringRect.length >= 3) {
+                ring.length = 0;
+                for (const p of ringRect) ring.push({ x: p.x, z: p.z });
+                console.log(
+                    `[house-layout] §PERIMETER-PN-RECTIFY ${storey.levelId} rectified perimeter in Project-North `
+                    + `(θ=${(thetaRad * 180 / Math.PI).toFixed(1)}°) so the committed shell coincides with the `
+                    + `welded partition frame (ADR-0073 — closes the post-openings L-corner seam + window drift).`,
+                );
+            }
+        }
 
         const walls: Array<Record<string, unknown>> = [];
         const shellWalls: Array<{ id: string; start: { x: number; z: number }; end: { x: number; z: number } }> = [];
