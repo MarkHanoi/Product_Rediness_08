@@ -1313,6 +1313,22 @@ export function buildWallsAndDoors(
         const wall = sharedWallByPair.get(pairKey(e.a, e.b));
         if (wall && addDoor(wall, e.a, e.b)) cUnion(e.a, e.b);
     }
+    // §OPEN-WELD-FALLBACK-DOOR (founder audit, 2026-06-17) — a bubble `via:'open'` edge whose rooms
+    // did NOT weld into one open zone (`sameZone` false — e.g. hall↔living: the hall is NOT open-plan-
+    // eligible, so the union at the top of this function never merged them) gets NEITHER a weld NOR a
+    // door from the pass above → the intended threshold becomes a SOLID WALL and the room is SEALED
+    // apart (the founder's "you can't reach the living room / kitchen / dining from the hall" defect).
+    // Realise the intended connection as a real DOOR when the two rooms share a wall AND the pair is
+    // permitted. A welded `open` pair (kitchen↔dining) is skipped (it is a real open zone, no door);
+    // a non-adjacent `open` pair has no shared wall so nothing is placed (the carve must seat them
+    // adjacent — that genuine seal is now correctly surfaced by §OPEN-WELD-ADJACENCY, not masked).
+    for (const e of graph.edges) {
+        if (e.via !== 'open') continue;
+        if (sameZone(e.a, e.b)) continue;                   // realised as an open zone ⇒ no door needed
+        if (!permitted(e.a, e.b)) continue;                 // never realise a forbidden pair
+        const wall = sharedWallByPair.get(pairKey(e.a, e.b));
+        if (wall && addDoor(wall, e.a, e.b)) cUnion(e.a, e.b);
+    }
     // §DIAG-DOORS — per-pass door tally (logging only; no behaviour change). Each
     // pass logs the cumulative door count so a single paste shows which PASS placed
     // how many doors (bubble vs primary/permitted reconcile vs over-cap vs reroute).
