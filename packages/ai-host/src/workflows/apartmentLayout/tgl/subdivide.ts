@@ -1089,7 +1089,10 @@ function tryHallHingeCarve(
     const denom = Math.max(EPS, publicArea + wingArea);
     let pubAlong = along * (publicArea / denom);
     pubAlong = Math.min(Math.max(pubAlong, MIN_ZONE), along - MIN_ZONE);
-    if (along < 2 * MIN_ZONE - EPS) return null;            // too small to split into two usable zones
+    if (along < 2 * MIN_ZONE - EPS) {                       // too small to split into two usable zones
+        console.log(`[D-TGL subdivide] §HALL-HINGE-CARVE infeasible: shell too small to split (along=${along.toFixed(1)}m < ${(2 * MIN_ZONE).toFixed(1)}m) — falling through to 3-zone.`);
+        return null;
+    }
 
     // public zone on the LOW side, wing on the HIGH side of the split axis.
     const publicZone: Rect = splitAxis === 'x'
@@ -1110,7 +1113,14 @@ function tryHallHingeCarve(
     const wingCross = splitAxis === 'x' ? wing.z1 - wing.z0 : wing.x1 - wing.x0;   // band length (full wing cross)
     let hallDepth = hall.targetAreaM2 / Math.max(EPS, wingCross);
     hallDepth = Math.max(hallDepth, roomRule('hall').minShortSideM);              // never thinner than a hall
-    if (wingAlong - hallDepth - cw < MIN_ZONE - EPS) return null;                  // private band too shallow
+    if (wingAlong - hallDepth - cw < MIN_ZONE - EPS) {                             // private band too shallow
+        console.log(
+            `[D-TGL subdivide] §HALL-HINGE-CARVE infeasible: private band too shallow ` +
+            `(wingAlong=${wingAlong.toFixed(1)}m − hall=${hallDepth.toFixed(1)} − corridor=${cw.toFixed(1)} = ${(wingAlong - hallDepth - cw).toFixed(1)}m < ${MIN_ZONE}m) ` +
+            `— the dominant rect is too small for the programme; falling through to 3-zone.`,
+        );
+        return null;
+    }
     const crossAxis: 'x' | 'z' = splitAxis === 'x' ? 'z' : 'x';                   // private rooms comb along the cross axis
     const hallRect: Rect = splitAxis === 'x'
         ? { x0: wing.x0, z0: wing.z0, x1: wing.x0 + hallDepth, z1: wing.z1 }
@@ -1175,6 +1185,7 @@ function tryHallHingeCarve(
     // shared walls (open-plan/doors). A room dropped here that the 3-zone keeps would also be
     // caught by the §STAIR-CARVE-NO-DROP comparison upstream — but failing sound first is cleaner.
     const rectOf = new Map(out.map(p => [p.roomId, p.rect]));
+    const typeById = new Map<string, string>([hall, corridor, ...publicNonHall, ...privateRooms].map(r => [r.id, r.type]));
     const door = (a: string, b: string): boolean => {
         const ra = rectOf.get(a), rb = rectOf.get(b);
         return !!ra && !!rb && sharedWallLengthM(ra, rb) >= STAIR_DOOR_MIN_M - EPS;
@@ -1184,23 +1195,23 @@ function tryHallHingeCarve(
         return !!ra && !!rb && rectsShareWall(ra, rb);
     };
     const livingRoom = publicNonHall.find(r => r.type === 'living');
-    const sound = (): boolean => {
-        if (!door(corridor.id, hall.id)) return false;                         // corridor must reach the hall
+    const sound = (): string | null => {                                       // null ⇒ sound; string ⇒ the failing check
+        if (!door(corridor.id, hall.id)) return 'corridor↔hall not a door-width wall';
         // OUTPUT check (founder Fix 1) — the corridor must NOT abut ANY public room. By construction
         // the hall band sits between the public zone and the corridor, but verify the realised
         // geometry so a squarify edge-case that wraps a public room onto the corridor falls through
         // to the 3-zone instead of shipping the publicOnCorridor contamination.
         for (const r of publicNonHall) {
-            if (door(r.id, corridor.id)) return false;                         // ≥ door-width public↔corridor wall → reject
+            if (door(r.id, corridor.id)) return `public room ${r.type} abuts the corridor`;
         }
         for (const r of privateRooms) {                                        // every private room doors onto the corridor
             if (ensuite && r.id === ensuite.id) continue;
-            if (!door(r.id, corridor.id)) return false;
+            if (!door(r.id, corridor.id)) return `private room ${r.type} not on the corridor (sealed/dropped)`;
         }
-        if (master && ensuite && !door(ensuite.id, master.id)) return false;   // ensuite is master-only
+        if (master && ensuite && !door(ensuite.id, master.id)) return 'ensuite not on master';
         // The public cluster reaches the entry ONLY via living→hall (hall.accessFrom=['living','corridor']).
         if (publicNonHall.length > 0) {
-            if (!livingRoom || !door(livingRoom.id, hall.id)) return false;
+            if (!livingRoom || !door(livingRoom.id, hall.id)) return 'living↔hall not a door-width wall';
             const reach = new Set<string>([livingRoom.id]);
             for (let changed = true; changed;) {
                 changed = false;
@@ -1209,7 +1220,8 @@ function tryHallHingeCarve(
                     if ([...reach].some(id => touch(r.id, id))) { reach.add(r.id); changed = true; }
                 }
             }
-            if (publicNonHall.some(r => !reach.has(r.id))) return false;        // a public room can't reach living → sealed
+            const stranded = publicNonHall.find(r => !reach.has(r.id));
+            if (stranded) return `public room ${stranded.type} can't reach living`;
         }
         // DIMENSIONAL soundness — reusing tryCarveCorridor for the wing gives the hall a full-width
         // MIN_ZONE_DEPTH band (and the squarified public zone can over-grow living), ballooning a
@@ -1228,12 +1240,14 @@ function tryHallHingeCarve(
             // over-concentrate excess into the biggest room (a "cavern"). Reject → fall through to
             // the 3-zone's more even fill. Target-relative (the bubble target is sized to the full
             // plate, so this is NOT distorted by the dominant-rect carve shell).
-            if (area > t * 1.15 + EPS) return false;
+            const ty = typeById.get(p.roomId) ?? '?';
+            if (area > t * 1.15 + EPS) return `${ty} ${area.toFixed(1)}m² > 1.15× target ${t.toFixed(1)}m² (cavern)`;
         }
-        return true;
+        return null;
     };
-    if (!sound()) {
-        console.log('[D-TGL subdivide] §HALL-HINGE-CARVE infeasible (would seal/strand a room) — falling through to the 3-zone carve.');
+    const unsoundReason = sound();
+    if (unsoundReason) {
+        console.log(`[D-TGL subdivide] §HALL-HINGE-CARVE infeasible: ${unsoundReason} — falling through to the 3-zone carve.`);
         return null;
     }
 
