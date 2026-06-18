@@ -28,8 +28,7 @@ import { findCorridorStubToKeepOut, type RoomPlacement } from '../src/workflows/
 import { enumerateLayouts } from '../src/workflows/apartmentLayout/tgl/enumerate.js';
 import { polygonBBox, type Pt, type Rect } from '../src/workflows/apartmentLayout/tgl/rectDecomposition.js';
 import { validateHouseStorey } from '../src/workflows/houseLayout/houseEnvelope.js';
-import type { RoomType } from '../src/workflows/apartmentLayout/tgl/bubbleGraph.js';
-import type { ApartmentProgram, ScoringWeights } from '../src/workflows/apartmentLayout/types.js';
+import type { ApartmentProgram, RoomType, ScoringWeights } from '../src/workflows/apartmentLayout/types.js';
 
 // ── point-in-polygon (boundary counts as inside, EPS tolerance) ──────────────
 function pointInsidePoly(p: Pt, poly: readonly Pt[], eps = 1e-4): boolean {
