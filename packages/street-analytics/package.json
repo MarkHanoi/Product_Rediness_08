@@ -1,0 +1,22 @@
+{
+  "name": "@pryzm/street-analytics",
+  "version": "0.1.0",
+  "description": "PRYZM-STREET-MICROCLIMATE-PIPELINE (P1 L2 core) — pure, THREE/Cesium/DOM-free street-level microclimate math: a shared ground-plane StreetGrid + per-cell WIND comfort (Lawson LDC shelter heuristic), HEAT-island UHI delta, and POPULATION density (OSM floor-count proxy). Deterministic (no I/O, no RNG, no Date.now — the analysis date is an input). The Cesium/THREE renderers consume these colour-per-cell results.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}
