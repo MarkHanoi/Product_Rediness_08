@@ -298,8 +298,46 @@ export function insetPolygonToInnerFaces(
     }
   }
 
-  // Neither the direct inset, the collapsed retry, nor the uniform inset produced a valid
-  // inner-face polygon — keep the simple centreline ring so a floor is ALWAYS produced.
+  // §FLOOR-INSET-CENTROID-SHRINK (founder 2026-06-18 "floor finishes still not fitting the
+  // inner face") — LAST resort before the centreline overshoot. On a rotated room with door-gap
+  // subdivided vertices, EVERY edge-based inset can bow-tie (the §DIAG "self-intersecting" /
+  // "winding inverted" → centreline). Returning the CENTRELINE ring makes the floor extend to
+  // the wall CENTRE → it pokes UNDER the partition and OVERLAPS the neighbour (the founder's
+  // "floor goes off"). A uniform similarity-scale toward the centroid CANNOT self-intersect
+  // (a star-shaped/convex ring stays simple), so it always yields a floor strictly INSIDE the
+  // wall face — an approximate inner face, never an overlap. Better a slightly-conservative
+  // floor that sits inside the room than one bleeding under the wall. Accept only if simple +
+  // strictly smaller than the centreline source (an inset never grows the floor).
+  // Gate to a PLAUSIBLE wall half-thickness (≤ 0.30 m). A larger requested inset means the
+  // room genuinely cannot be inset (a too-large inset that would collapse/invert the room, or
+  // a degenerate thin sliver) → keep the centreline fall-back (the original ring) so those
+  // cases are unchanged. Only the real bow-tie case (a normal room, wall inset ≈ 0.05–0.10 m,
+  // that bow-tied on a rotated corner) is rescued by the shrink.
+  const shrinkInset = edgeInsets.reduce((m, v) => (v > m ? v : m), 0);
+  if (shrinkInset > 1e-6 && shrinkInset <= 0.30) {
+    let cx = 0, cz = 0;
+    for (const v of polygon) { cx += v.x; cz += v.z; }
+    cx /= n; cz /= n;
+    let meanR = 0;
+    for (const v of polygon) meanR += Math.hypot(v.x - cx, v.z - cz);
+    meanR /= n;
+    const f = meanR > 1e-6 ? Math.min(0.45, shrinkInset / meanR) : 0;
+    if (f > 1e-6) {
+      const shrunk = polygon.map(v => ({ ...v, x: cx + (v.x - cx) * (1 - f), z: cz + (v.z - cz) * (1 - f) }));
+      if (isSimple(shrunk)) {
+        const sa = polygonAreaM2(shrunk);
+        const srcArea = polygonAreaM2(polygon);
+        if (sa > 0.01 && sa < srcArea - 1e-6) {
+          onDiag?.(`§DIAG-FLOOR-INSET centroid-shrink fall-back (f=${f.toFixed(3)}, area ${sa.toFixed(2)}m² < source ${srcArea.toFixed(2)}m²) → floor inside the wall face (approx, no overlap)`);
+          return shrunk;
+        }
+      }
+    }
+  }
+
+  // Neither the direct inset, the collapsed retry, the uniform inset, nor the centroid shrink
+  // produced a valid inner-face polygon — keep the simple centreline ring so a floor is ALWAYS
+  // produced (last-resort; the shrink above covers the rotated-room bow-tie case).
   return polygon;
 }
 
