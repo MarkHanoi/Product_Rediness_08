@@ -2958,6 +2958,10 @@ export class HouseLayoutExecutor {
                                             return { x: a.x + (b.x - a.x) / len * dist, z: a.z + (b.z - a.z) / len * dist };
                                         };
                                         let opChecked = 0, opDoorDrift = 0, opWinDrift = 0, opMaxMm = 0, opSumMm = 0;
+                                        // §DIAG-PARITY-OPENINGS dimensions — the §DOOR-LIVE-CLAMP can SHRINK a door's
+                                        // width to fit a resolver-trimmed wall, so the built width can differ from the
+                                        // previewed width. Track it separately (position drift ≠ size change).
+                                        let opWidthChanged = 0, opWidthMaxMm = 0;
                                         const mapped: Array<{ wallId: string; openingData: unknown }> = [];
                                         for (const it of openingItems) {
                                             const rebased = rebaseOpening(it.p.wallId, it.p.opening);
@@ -2976,16 +2980,24 @@ export class HouseLayoutExecutor {
                                                     const dMm = Math.hypot(previewC.x - builtC.x, previewC.z - builtC.z) * 1000;
                                                     opChecked++; opSumMm += dMm; if (dMm > opMaxMm) opMaxMm = dMm;
                                                     if (dMm > OPENING_TOL_MM) { if (orig.type === 'door') opDoorDrift++; else opWinDrift++; }
+                                                    // DIMENSION: previewed width vs built width (the §DOOR-LIVE-CLAMP delta).
+                                                    const builtW = typeof built.width === 'number' ? built.width : orig.width;
+                                                    const wMm = Math.abs(orig.width - builtW) * 1000;
+                                                    if (wMm > opWidthMaxMm) opWidthMaxMm = wMm;
+                                                    if (wMm > OPENING_TOL_MM) opWidthChanged++;
                                                 }
                                             }
                                         }
                                         if (opChecked > 0) {
                                             const lvl = s.levelId === perStorey[0]?.levelId ? 'Ground(L0)' : s.levelId;
                                             const drift = opDoorDrift + opWinDrift;
-                                            const verdict = drift === 0
-                                                ? '✓ openings on the previewed location'
-                                                : `⚠ ${opDoorDrift} door(s) + ${opWinDrift} window(s) drifted >${OPENING_TOL_MM}mm off the preview`;
-                                            console.log(`[house-layout] §DIAG-PARITY-OPENINGS ${lvl}: openings=${opChecked} drifted=${drift} max=${Math.round(opMaxMm)}mm mean=${Math.round(opSumMm / opChecked)}mm ${verdict}`);
+                                            const posOk = drift === 0;
+                                            const dimOk = opWidthChanged === 0;
+                                            const verdict = posOk && dimOk
+                                                ? '✓ openings on the previewed location + size'
+                                                : `⚠ ${posOk ? 'position ✓' : `${opDoorDrift} door(s)+${opWinDrift} window(s) moved >${OPENING_TOL_MM}mm`}` +
+                                                  ` · ${dimOk ? 'size ✓' : `${opWidthChanged} resized >${OPENING_TOL_MM}mm (door-clamp)`}`;
+                                            console.log(`[house-layout] §DIAG-PARITY-OPENINGS ${lvl}: openings=${opChecked} posDrift=${drift} posMax=${Math.round(opMaxMm)}mm posMean=${Math.round(opSumMm / opChecked)}mm widthChanged=${opWidthChanged} widthMax=${Math.round(opWidthMaxMm)}mm ${verdict}`);
                                         }
                                         if (mapped.length > 0) {
                                             cm.execute!(new CreateWallOpeningsBatchCommand(mapped));
