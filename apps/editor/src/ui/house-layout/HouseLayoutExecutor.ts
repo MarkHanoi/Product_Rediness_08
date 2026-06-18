@@ -2945,11 +2945,47 @@ export class HouseLayoutExecutor {
                                 };
                                 if (openingItems.length > 0) {
                                     try {
+                                        // §DIAG-PARITY-OPENINGS (PREVIEW↔EXECUTION PARITY, 2026-06-18) — measure how far
+                                        // each built door/window CENTRE lands from where the modal PREVIEW drew it. The
+                                        // preview centre = (engine offset + width/2) along the SNAPSHOT (pre-resolve =
+                                        // option) baseline; the built centre = (rebased+clamped offset + width/2) along the
+                                        // LIVE (post-miter) baseline. §OPENING-REBASE should make these coincide (~0mm); a
+                                        // large delta is a window/door that drifted off the preview. Logging-only; the
+                                        // founder's "match precise window + door location from the preview" measure.
+                                        const OPENING_TOL_MM = 20;
+                                        const ptAlong = (a: { x: number; z: number }, b: { x: number; z: number }, dist: number): { x: number; z: number } => {
+                                            const len = Math.hypot(b.x - a.x, b.z - a.z) || 1e-9;
+                                            return { x: a.x + (b.x - a.x) / len * dist, z: a.z + (b.z - a.z) / len * dist };
+                                        };
+                                        let opChecked = 0, opDoorDrift = 0, opWinDrift = 0, opMaxMm = 0, opSumMm = 0;
                                         const mapped: Array<{ wallId: string; openingData: unknown }> = [];
                                         for (const it of openingItems) {
                                             const rebased = rebaseOpening(it.p.wallId, it.p.opening);
                                             const od = liveDoorOpening(it.p.wallId, rebased);
-                                            if (od !== null) mapped.push({ wallId: it.p.wallId, openingData: od });
+                                            if (od !== null) {
+                                                mapped.push({ wallId: it.p.wallId, openingData: od });
+                                                // parity: preview centre (snapshot + engine offset) vs built centre (live + final offset)
+                                                const orig = it.p.opening as { type?: string; offset?: number; width?: number };
+                                                const built = od as { type?: string; offset?: number; width?: number };
+                                                const snapSeg = snap?.get(it.p.wallId);
+                                                const liveBl = (wallStore?.getById?.(it.p.wallId) as { baseLine?: ReadonlyArray<{ x: number; z: number }> } | undefined)?.baseLine;
+                                                if (snapSeg && liveBl && liveBl.length >= 2 && liveBl[0] && liveBl[1]
+                                                    && typeof orig.offset === 'number' && typeof orig.width === 'number' && typeof built.offset === 'number') {
+                                                    const previewC = ptAlong(snapSeg.start, snapSeg.end, orig.offset + orig.width / 2);
+                                                    const builtC = ptAlong(liveBl[0], liveBl[1], built.offset + orig.width / 2);
+                                                    const dMm = Math.hypot(previewC.x - builtC.x, previewC.z - builtC.z) * 1000;
+                                                    opChecked++; opSumMm += dMm; if (dMm > opMaxMm) opMaxMm = dMm;
+                                                    if (dMm > OPENING_TOL_MM) { if (orig.type === 'door') opDoorDrift++; else opWinDrift++; }
+                                                }
+                                            }
+                                        }
+                                        if (opChecked > 0) {
+                                            const lvl = s.levelId === perStorey[0]?.levelId ? 'Ground(L0)' : s.levelId;
+                                            const drift = opDoorDrift + opWinDrift;
+                                            const verdict = drift === 0
+                                                ? '✓ openings on the previewed location'
+                                                : `⚠ ${opDoorDrift} door(s) + ${opWinDrift} window(s) drifted >${OPENING_TOL_MM}mm off the preview`;
+                                            console.log(`[house-layout] §DIAG-PARITY-OPENINGS ${lvl}: openings=${opChecked} drifted=${drift} max=${Math.round(opMaxMm)}mm mean=${Math.round(opSumMm / opChecked)}mm ${verdict}`);
                                         }
                                         if (mapped.length > 0) {
                                             cm.execute!(new CreateWallOpeningsBatchCommand(mapped));
