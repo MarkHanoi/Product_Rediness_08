@@ -1358,23 +1358,44 @@ export class HouseLayoutExecutor {
                     const liveBaseById = new Map<string, ReadonlyArray<{ x: number; z: number }>>();
                     for (const w of live) if (w.baseLine && w.baseLine.length >= 2) liveBaseById.set(w.id, w.baseLine);
                     const PARITY_TOL_MM = 20;   // the RoomDetection node grid — a drift > this can re-open a room loop
-                    const dispM = (a: { x: number; z: number }, b: { x: number; z: number }): number => Math.hypot(a.x - b.x, a.z - b.z);
+                    // LATERAL shift = perpendicular distance from the OPTION endpoints to the LIVE
+                    // wall's infinite centreline. This is the USER-VISIBLE "wall moved sideways" —
+                    // the true preview-vs-build divergence (and the cause of the wall-vs-floor-finish
+                    // misalignment: the floor is graph-authoritative at the OPTION position, so a wall
+                    // welded sideways no longer meets its floor edge). A wall only mitered SHORTER at a
+                    // junction stays on the same line (lateral ~0); only a weld that moved the wall
+                    // BODY sideways shows here. END-TRIM (along-axis endpoint movement = the expected
+                    // miter/consensus) is reported separately so it never inflates the verdict.
+                    const perpToLine = (p: { x: number; z: number }, a: { x: number; z: number }, ux: number, uz: number): number =>
+                        Math.abs((p.x - a.x) * uz - (p.z - a.z) * ux);
                     const parityLines = levelIds.map((lvl, i) => {
                         const optMap = optionBaselinesByLevel.get(lvl);
                         if (!optMap || optMap.size === 0) return null;
-                        let checked = 0, moved = 0, maxMm = 0, sumMm = 0;
+                        let checked = 0, shifted = 0, latMaxMm = 0, latSumMm = 0, trimMaxMm = 0;
                         for (const [id, ob] of optMap) {
                             const lb = liveBaseById.get(id);
                             if (!lb || ob.length < 2 || lb.length < 2) continue;   // welded-away / collinear-merged — counted by §DIAG-LEVELS
-                            const same = Math.max(dispM(ob[0]!, lb[0]!), dispM(ob[1]!, lb[1]!));
-                            const swap = Math.max(dispM(ob[0]!, lb[1]!), dispM(ob[1]!, lb[0]!));
-                            const dMm = Math.min(same, swap) * 1000;
-                            checked++; sumMm += dMm; if (dMm > maxMm) maxMm = dMm; if (dMm > PARITY_TOL_MM) moved++;
+                            const lvx = lb[1]!.x - lb[0]!.x, lvz = lb[1]!.z - lb[0]!.z;
+                            const llen = Math.hypot(lvx, lvz) || 1e-9;
+                            const ux = lvx / llen, uz = lvz / llen;
+                            // lateral = how far the previewed wall sits OFF the built wall's line.
+                            const latMm = Math.max(perpToLine(ob[0]!, lb[0]!, ux, uz), perpToLine(ob[1]!, lb[0]!, ux, uz)) * 1000;
+                            // end-trim = max endpoint displacement (total), order-robust; the part of it
+                            // that is NOT lateral is the legitimate along-axis miter.
+                            const same = Math.max(Math.hypot(ob[0]!.x - lb[0]!.x, ob[0]!.z - lb[0]!.z), Math.hypot(ob[1]!.x - lb[1]!.x, ob[1]!.z - lb[1]!.z));
+                            const swap = Math.max(Math.hypot(ob[0]!.x - lb[1]!.x, ob[0]!.z - lb[1]!.z), Math.hypot(ob[1]!.x - lb[0]!.x, ob[1]!.z - lb[0]!.z));
+                            const trimMm = Math.min(same, swap) * 1000;
+                            checked++; latSumMm += latMm;
+                            if (latMm > latMaxMm) latMaxMm = latMm;
+                            if (trimMm > trimMaxMm) trimMaxMm = trimMm;
+                            if (latMm > PARITY_TOL_MM) shifted++;
                         }
                         if (checked === 0) return null;
                         const label = i === 0 ? 'Ground(L0)' : `Level ${i.toString().padStart(2, '0')}`;
-                        const verdict = moved === 0 ? '✓ built == previewed' : `⚠ ${moved} wall(s) drifted >${PARITY_TOL_MM}mm (weld/miter divergence)`;
-                        return `  ${label}: walls=${checked} drifted=${moved} max=${Math.round(maxMm)}mm mean=${Math.round(sumMm / checked)}mm ${verdict}`;
+                        const verdict = shifted === 0
+                            ? '✓ built == previewed (walls on the previewed line; any end-trim is expected miter)'
+                            : `⚠ ${shifted} wall(s) SHIFTED sideways >${PARITY_TOL_MM}mm off the previewed line (weld moved the wall body → wall/floor misalign)`;
+                        return `  ${label}: walls=${checked} shifted=${shifted} latMax=${Math.round(latMaxMm)}mm latMean=${Math.round(latSumMm / checked)}mm endTrimMax=${Math.round(trimMaxMm)}mm ${verdict}`;
                     }).filter((l): l is string => l !== null);
                     if (parityLines.length > 0) {
                         console.log('[house-layout] §DIAG-PARITY option(preview)↔built wall-centreline divergence:\n' + parityLines.join('\n'));
