@@ -540,7 +540,20 @@ export function buildBubbleGraph(
         for (const pair of adjPairs) {
             const ra = byName.get(pair[0]);
             const rb = byName.get(pair[1]);
-            if (!ra || !rb || ra.id === rb.id) continue;
+            if (!ra || !rb) {
+                // §ROOM-ADJACENCY-NAME-MISS — the user connected two nodes in the graph but
+                // a name didn't resolve to a ProgramRoom (the graph node's data-room-name
+                // diverged from the engine room name — e.g. a suffixed "Corridor 9 m²"). Surface
+                // it LOUDLY so "I connected a room to the corridor but nothing changed" is
+                // diagnosable instead of a silent no-op.
+                console.log(
+                    `[D-TGL] §ROOM-ADJACENCY-NAME-MISS unresolved pair [${pair[0]}↔${pair[1]}] ` +
+                    `(${ra ? '' : `'${pair[0]}' `}${rb ? '' : `'${pair[1]}' `}not a program room) — ` +
+                    `known=[${withAreas.map(r => r.name).join(', ')}]`,
+                );
+                continue;
+            }
+            if (ra.id === rb.id) continue;
             if (linked(ra.id, rb.id)) continue;
             if (!doorAllowedBetween(ra.type, rb.type)) {
                 console.log(`[D-TGL] §ROOM-ADJACENCY skipped ${ra.name}↔${rb.name} — not a permitted pair`);

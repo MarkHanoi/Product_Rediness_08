@@ -187,6 +187,24 @@ describe('§54 — living-graph node inspector (INFORMATION · DEPENDENCIES · A
         expect(html).toContain('hlm-insp-circ--on');
     });
 
+    it('CIRCULATION = ON for the corridor itself (it IS the spine, not served-through)', () => {
+        // Founder bug: a corridor whose neighbours are all habitable rooms (none of type
+        // corridor/hall) must NOT read "Not on circulation (served through …)".
+        const html = buildNodeInspectorHtml(storey[0], storey); // Corridor
+        expect(html).toContain('On circulation ✓');
+        expect(html).toContain('(the spine)');
+        expect(html).toContain('hlm-insp-circ--on');
+        expect(html).not.toContain('Not on circulation');
+    });
+
+    it('CIRCULATION = ON for a stair (vertical circulation), even with no adjacent corridor', () => {
+        const stair: LayoutRoom = { name: 'Stair', type: 'stair', area: 9, adjacentTo: ['Living Room'] } as LayoutRoom;
+        const html = buildNodeInspectorHtml(stair, [stair]);
+        expect(html).toContain('On circulation ✓');
+        expect(html).toContain('(connects floors)');
+        expect(html).not.toContain('Not on circulation');
+    });
+
     it('CIRCULATION = OFF when served only through a non-circulation room', () => {
         const html = buildNodeInspectorHtml(storey[3], storey); // Store → Bedroom 1 (not circulation)
         expect(html).toContain('Not on circulation ✗');

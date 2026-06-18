@@ -651,13 +651,23 @@ export function buildNodeInspectorHtml(
         ? adjacent.map(n => `<span class="hlm-insp-chip">${escHtml(n)}</span>`).join('')
         : '<span class="hlm-insp-empty">No connected rooms</span>';
 
-    // CIRCULATION — the first adjacent room whose type is a corridor/hall.
+    // CIRCULATION — a room's circulation status.
+    //   A corridor/hall IS the spine; a stair IS vertical circulation. Such a room is
+    //   intrinsically on-circulation regardless of who it abuts (founder: "the corridor
+    //   is not on circulation — that should never be the case"). For everyone else, look
+    //   for an adjacent corridor/hall to route through.
+    const selfType = String(room.type ?? '');
+    const selfIsSpine = CIRCULATION_TYPES.has(selfType);
     const circVia = adjacent.find(n => CIRCULATION_TYPES.has(typeByName.get(n) ?? ''));
-    const circulationHtml = circVia
-        ? `<span class="hlm-insp-circ hlm-insp-circ--on">On circulation ✓ <small>(via ${escHtml(circVia)})</small></span>`
-        : adjacent.length > 0
-            ? `<span class="hlm-insp-circ hlm-insp-circ--off">Not on circulation ✗ <small>(served through ${escHtml(adjacent[0]!)})</small></span>`
-            : `<span class="hlm-insp-circ hlm-insp-circ--off">Not on circulation ✗ <small>(sealed)</small></span>`;
+    const circulationHtml = selfIsSpine
+        ? `<span class="hlm-insp-circ hlm-insp-circ--on">On circulation ✓ <small>(${selfType === 'hall' ? 'entry hall' : 'the spine'})</small></span>`
+        : circVia
+            ? `<span class="hlm-insp-circ hlm-insp-circ--on">On circulation ✓ <small>(via ${escHtml(circVia)})</small></span>`
+            : selfType === 'stair'
+                ? `<span class="hlm-insp-circ hlm-insp-circ--on">On circulation ✓ <small>(connects floors)</small></span>`
+                : adjacent.length > 0
+                    ? `<span class="hlm-insp-circ hlm-insp-circ--off">Not on circulation ✗ <small>(served through ${escHtml(adjacent[0]!)})</small></span>`
+                    : `<span class="hlm-insp-circ hlm-insp-circ--off">Not on circulation ✗ <small>(sealed)</small></span>`;
 
     const role = roomDependencyRole(String(room.type ?? ''));
 
