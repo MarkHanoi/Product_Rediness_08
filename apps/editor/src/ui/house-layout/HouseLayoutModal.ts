@@ -660,6 +660,15 @@ export class HouseLayoutModal {
         // the request was bounded), so the size control never looks like it "did
         // nothing" — it distinguishes a real change from a clamp.
         this._reconcileAreaReadouts(options);
+        // §MODAL-PER-STOREY-REAL (founder 2026-06-18, "this data should be real — based
+        // on what we have currently on the plan view") — the whole-house pass above only
+        // touches the un-prefixed `area_t_*` readouts. Each per-level tab also has its own
+        // `s{i}.area_t_*` size readouts + Bedrooms/Bathrooms inputs that otherwise read a
+        // generic "auto". Populate those from THIS storey's actual generated rooms so the
+        // panel mirrors the plan: per-type size readouts and the real bed/bath counts as
+        // input placeholders (an explicit override still wins — the placeholder only shows
+        // when the field is blank, so override semantics are untouched).
+        this._reconcilePerStoreyReadouts(options);
         this._setHint('');
         this.setBusy(false);
     }
@@ -710,6 +719,67 @@ export class HouseLayoutModal {
                 ? `${eff} m² (${produced < requested ? 'max' : 'min'} for this plot)`
                 : `${eff} m²`;
         });
+    }
+
+    /**
+     * §MODAL-PER-STOREY-REAL — populate each per-level tab's controls from the rooms
+     * the engine ACTUALLY produced on THAT storey of the best option:
+     *   • `s{i}.area_t_<type>` size readouts → the largest produced area of that type
+     *     on storey `i` (the whole-house pass uses the cross-storey max, which is wrong
+     *     per level — a 31 m² ground bedroom and a 19 m² upper bedroom must read
+     *     differently on their own tabs).
+     *   • `s{i}.bedrooms` / `s{i}.bathrooms` PLACEHOLDERS → the real per-storey count
+     *     (bedrooms = bedroom + master; baths = bathroom + wc). Placeholder only — the
+     *     field's VALUE (an explicit override) is never written, so override semantics
+     *     and the §GROUND-COUNT-AUTHORITATIVE path are untouched: a blank field still
+     *     means "auto", it now just shows the current plan's count instead of "auto".
+     * Pure DOM write; no program mutation, no regen. No-op when closed / no option.
+     */
+    private _reconcilePerStoreyReadouts(options: readonly ScoredHouseLayoutOption[]): void {
+        if (!this._el) return;
+        const best = options[0]?.result;
+        if (!best) return;
+        const storeys = best.perStoreyLayout ?? [];
+        for (let i = 0; i < storeys.length; i++) {
+            const rooms = storeys[i]?.rooms ?? [];
+            // Largest produced area per room type, and bed/bath counts, on THIS storey.
+            const byType = new Map<string, number>();
+            let beds = 0, baths = 0;
+            for (const r of rooms) {
+                const type = String(r.type ?? '').toLowerCase();
+                if (!type) continue;
+                const area = (typeof r.area === 'number' && Number.isFinite(r.area)) ? r.area : 0;
+                if (area > (byType.get(type) ?? 0)) byType.set(type, area);
+                if (type === 'bedroom' || type === 'master') beds++;
+                else if (type === 'bathroom' || type === 'wc') baths++;
+            }
+            // Real bed/bath counts as placeholders (blank value = auto still wins).
+            const bedInput = this._el.querySelector(`input[name="s${i}.bedrooms"]`) as HTMLInputElement | null;
+            if (bedInput) bedInput.placeholder = beds > 0 ? String(beds) : 'auto';
+            const bathInput = this._el.querySelector(`input[name="s${i}.bathrooms"]`) as HTMLInputElement | null;
+            if (bathInput) bathInput.placeholder = baths > 0 ? String(baths) : 'auto';
+            // Per-storey size readouts — same clamp logic as the whole-house pass, but
+            // scoped to this storey's produced areas.
+            const prefix = `s${i}.area_t_`;
+            const outs = this._el.querySelectorAll(`output[data-readout-for^="${prefix}"]`);
+            outs.forEach(out => {
+                const key = out.getAttribute('data-readout-for') ?? '';
+                const type = key.slice(prefix.length).toLowerCase();
+                const slider = this._el?.querySelector(`input[name="${key}"]`) as HTMLInputElement | null;
+                const requested = slider ? Number(slider.value) : 0;
+                const produced = byType.get(type) ?? 0;
+                if (!(requested > 0)) {
+                    out.textContent = produced > 0 ? `${Math.round(produced)} m² (auto)` : 'auto';
+                    return;
+                }
+                if (produced <= 0) { out.textContent = `${requested} m²`; return; }
+                const eff = Math.round(produced);
+                const clamped = Math.abs(produced - requested) > 0.5;
+                out.textContent = clamped
+                    ? `${eff} m² (${produced < requested ? 'max' : 'min'} for this plot)`
+                    : `${eff} m²`;
+            });
+        }
     }
 
     /**
