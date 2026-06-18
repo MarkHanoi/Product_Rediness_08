@@ -9,7 +9,7 @@
 // (the `kitchenLayout` / `wardrobeLayout` brief fields); default 'auto'.
 
 import { archetypeFor } from './archetypes.js';
-import { placeRoom, placeRoomMulti } from './placeSolver.js';
+import { placeRoom, placeRoomMulti, doorObstacles } from './placeSolver.js';
 import { planKitchen, planKitchenRun, normaliseKitchenLayout, type KitchenLayout } from './kitchenLayout.js';
 import { planWardrobe, normaliseWardrobeLayout, type WardrobeLayout } from './wardrobeLayout.js';
 import { placeBedsideLamps } from './bedsideLamps.js';
@@ -88,7 +88,7 @@ export function furnishRoom(input: FurnishRoomInput, options: FurnishOptions = {
         //     nightstands (placeIntegratedBedLamps; no separate tables to ride).
         //   • float bed               → NO extra lamps (the bed mesh has them).
         const lamps = bedType && bedHasIntegratedBedside(bedType)
-            ? placeIntegratedBedLamps(input, withWardrobe)
+            ? placeIntegratedBedLamps(input, withWardrobe, doorObstacles(input))
             : placeBedsideLamps(input, withWardrobe);
         return [...withWardrobe, ...lamps];
     }

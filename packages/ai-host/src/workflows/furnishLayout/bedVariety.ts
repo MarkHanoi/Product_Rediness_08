@@ -29,7 +29,7 @@
 //     already carries them) → never doubled.
 
 import type { FurnitureArchetype, FurnitureItemSpec, FurnishRoomInput, PlacedFurniture, Footprint, FurnitureKind } from './types.js';
-import { pointInPolygon } from './collision.js';
+import { pointInPolygon, footprintCorners, quadOverlapsAny, type Quad } from './collision.js';
 
 /** The four parametric bed types the editor's bed picker exposes. */
 export type BedType = 'bed' | 'japanese_platform_bed' | 'japanese_float_bed' | 'japanese_walnut_bed';
@@ -168,6 +168,11 @@ const INTEGRATED_BEDSIDE_HALF_WIDTH: Readonly<Record<string, number>> = {
  */
 export function placeIntegratedBedLamps(
     input: FurnishRoomInput, placed: readonly PlacedFurniture[],
+    // §FURNITURE-LAMP-DOOR (2026-06-18) — the door swing keep-outs. Integrated lamps run
+    // AFTER the main place pass and bypass the obstacle set, so a lamp could land in a
+    // door's swing; drop one whose footprint overlaps a door keep-out. Default [] ⇒
+    // byte-identical (no door clears when none supplied).
+    doorQuads: readonly Quad[] = [],
 ): PlacedFurniture[] {
     const bed = placed.find((p) => bedHasIntegratedBedside(p.kind as BedType));
     if (!bed) return [];
@@ -214,6 +219,13 @@ export function placeIntegratedBedLamps(
         const obz = lz + d.z * Math.sign(s) * LAMP_HALF;
         if (!pointInPolygon({ x: lx, z: lz }, input.polygon)) continue;
         if (!pointInPolygon({ x: obx, z: obz }, input.polygon)) continue;
+        // §FURNITURE-LAMP-DOOR — drop a lamp that lands in a door's swing keep-out (the
+        // integrated-lamp pass bypasses the main obstacle set). Low-frequency (the bed is
+        // anchored opposite the door) but real in an L-room.
+        if (doorQuads.length > 0
+            && quadOverlapsAny(footprintCorners(lx, lz, INTEGRATED_LAMP_FP.w, INTEGRATED_LAMP_FP.l, bed.rotationY), doorQuads)) {
+            continue;
+        }
         out.push({
             kind: LAMP,
             position: { x: lx, y: lampY, z: lz },

@@ -121,7 +121,7 @@ const isWallHostedSide = (k: PlacedFurniture['kind']): boolean => WALL_HOSTED_SI
  * room. Deterministic — pure geometry. The rug ('under') stays exempt by design;
  * every FLOOR placement path tests against this set.
  */
-function doorObstacles(input: FurnishRoomInput): Quad[] {
+export function doorObstacles(input: FurnishRoomInput): Quad[] {
     return input.doors.map(d => {
         // §DOOR-KEEP-CLEAR (founder #5, 2026-06-12) — the keep-clear in front of a
         // door: the door WIDTH (the leaf swings within its own width to one side)
