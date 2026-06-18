@@ -104,6 +104,15 @@ const CESIUM_Z = 15;
  * This is the analysis-canvas palette, deliberately distinct from PRYZM chrome
  * (white + #6600FF). Single source of truth for the Cesium Forma render mode.
  */
+/** §GLOBE-FIRST-FRAME-COLOUR (founder 2026-06-18 "cesium originally shows black") —
+ *  the globe baseColor + scene background shown BEFORE imagery tiles stream in.
+ *  Cesium's default (and the prior photoreal path) was PURE BLACK, so the GIS view
+ *  opened black for the seconds before tiles loaded. §GLOBE-FIRST-FRAME-BASE only
+ *  re-frames the CAMERA (a delayed repair); it never set the colour. Brand rule:
+ *  white + #6600FF, NO pure black — a soft lavender-white reads as an intentional
+ *  loading map, not a blank/error frame. */
+const GLOBE_LOADING_COLOUR = '#EDECF5';
+
 const FORMA_PALETTE = {
   /** Flat warm-grey massing ground (§2 Ground & water). */
   ground: '#D9D5CE',
@@ -758,7 +767,13 @@ export class CesiumViewport {
         if (scene.skyAtmosphere) {
           scene.skyAtmosphere.show = true;
         }
-        console.log('[CesiumViewport] Scene quality: sun lighting + atmosphere enabled.');
+        // §GLOBE-FIRST-FRAME-COLOUR — paint the globe base + scene background a
+        // brand-safe loading colour so the FIRST visible frame is never pure black
+        // while imagery tiles are still streaming. Tiles overwrite the base once
+        // loaded; Forma mode overrides both with its palette.
+        globe.baseColor = Cesium.Color.fromCssColorString(GLOBE_LOADING_COLOUR);
+        scene.backgroundColor = Cesium.Color.fromCssColorString(GLOBE_LOADING_COLOUR);
+        console.log('[CesiumViewport] Scene quality: sun lighting + atmosphere enabled; base colour ' + GLOBE_LOADING_COLOUR + ' (no black flash).');
       } catch (e) {
         console.warn('[CesiumViewport] Scene quality config failed:', e);
       }
@@ -1401,7 +1416,9 @@ export class CesiumViewport {
         }
       }
       globe.show = !tilesetShown;
-      globe.baseColor = Cesium.Color.fromCssColorString('#000000');
+      // §GLOBE-FIRST-FRAME-COLOUR — brand-safe base instead of pure black so a
+      // photoreal restore before tiles re-stream doesn't flash black.
+      globe.baseColor = Cesium.Color.fromCssColorString(GLOBE_LOADING_COLOUR);
       // Restore the photoreal scene-quality settings (mirror mount :209-217).
       globe.enableLighting = true;
       globe.dynamicAtmosphereLighting = true;
@@ -1417,7 +1434,8 @@ export class CesiumViewport {
       if (scene.sun) scene.sun.show = true;
       if (scene.moon) scene.moon.show = true;
       // Photoreal default has fog off in this viewport already; leave it off.
-      scene.backgroundColor = Cesium.Color.BLACK;
+      // §GLOBE-FIRST-FRAME-COLOUR — brand-safe background, not pure black.
+      scene.backgroundColor = Cesium.Color.fromCssColorString(GLOBE_LOADING_COLOUR);
     } catch (e) {
       console.warn('[CesiumViewport][forma] restore sky failed:', e);
     }
