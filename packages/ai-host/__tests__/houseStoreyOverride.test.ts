@@ -209,4 +209,23 @@ describe('generateHouseLayoutOptions — per-storey override threads to the resu
         const b = generateHouseLayoutOptions(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2, perStoreyOverrides: overrides }, 3);
         expect(JSON.stringify(a)).toEqual(JSON.stringify(b));
     });
+
+    // §GROUND-COUNT-AUTHORITATIVE (founder 2026-06-18) — a GROUND-tab bedroom override
+    // must change the ground layout. The bug: the multi-storey ground-fill pass
+    // (`fillGroundPlate`) recomputed + clamped the ground bedroom count, silently
+    // discarding the explicit Ground-tab count (the founder's "First floor responds,
+    // Ground floor does not"). The fix threads `bedroomsExplicit` into the fill so the
+    // stated ground count is authoritative.
+    it('a GROUND-storey bedroom override CHANGES the produced layout (the founder ground bug)', () => {
+        const baseline = generateHouseLayoutOptions(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 }, 3);
+        const overrides: PerStoreyProgramOverride[] = [];
+        overrides[0] = { bedrooms: 2 };   // Ground tab → 2 bedrooms
+        const withGround = generateHouseLayoutOptions(
+            SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2, perStoreyOverrides: overrides }, 3,
+        );
+        expect(withGround.length).toBeGreaterThan(0);
+        // PRE-FIX this was byte-identical to the baseline (the ground override was lost
+        // in fillGroundPlate's clamp). POST-FIX the ground layout differs.
+        expect(JSON.stringify(withGround)).not.toEqual(JSON.stringify(baseline));
+    });
 });

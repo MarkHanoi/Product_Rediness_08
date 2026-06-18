@@ -81,7 +81,37 @@ function bathroomsForBedrooms(bedrooms: number): number {
  *
  * Pure; returns a NEW program.
  */
-function fillGroundPlate(program: ApartmentProgram, plateAreaM2: number): ApartmentProgram {
+function fillGroundPlate(
+    program: ApartmentProgram,
+    plateAreaM2: number,
+    bedroomsExplicit = false,
+): ApartmentProgram {
+    // §GROUND-COUNT-AUTHORITATIVE (founder 2026-06-18) — the user EXPLICITLY set this
+    // ground storey's bedroom count via a per-level tab. That count is AUTHORITATIVE:
+    // keep the STATED bedroom + bathroom counts (still guaranteeing the ground public
+    // SET — living/kitchen/dining/hall — for the partitions room detection needs), and
+    // DO NOT re-derive + clamp the count to the guest cap below. The §HOUSE-MAX-CAP in
+    // the orchestrator still bounds the subdivision budget so the rooms stay sensibly
+    // sized. Auto grounds (flag false) fall through to the legacy plate-derived fill,
+    // which is byte-identical to today.
+    if (bedroomsExplicit) {
+        const beds = Math.max(0, Math.floor(program.bedrooms));
+        const baths = Math.max(0, Math.floor(program.bathrooms));
+        // A large ground still legitimately reads as a home with a study/utility — keep
+        // that PUBLIC-set growth (it never moves the stated bedroom count) so an explicit
+        // small bedroom count on a big plate still gets real partitions, not a stretched
+        // blob. These only ever OR-in (never turn a user-stated flag off).
+        const addStudy = plateAreaM2 >= 200;
+        const addUtility = plateAreaM2 >= 240;
+        return {
+            ...program,
+            bedrooms: beds,
+            bathrooms: baths,
+            masterEnSuite: false,   // the master/en-suite stays upstairs
+            includeStudy: program.includeStudy === true || addStudy,
+            includeUtility: program.includeUtility === true || addUtility,
+        };
+    }
     // The number of bedrooms the captured brief ALREADY placed on the ground (via
     // `allocateProgramToStoreys`, which keeps ≤1 guest bedroom downstairs for a
     // normal multi-bedroom house). We only ADD ground bedrooms beyond this when the
@@ -208,6 +238,19 @@ export interface EnrichStoreyOptions {
      * `growBedrooms` (the stronger fill) wins.
      */
     readonly growGroundRooms?: boolean;
+    /**
+     * §GROUND-COUNT-AUTHORITATIVE (founder 2026-06-18) — set true when the user
+     * EXPLICITLY set this GROUND storey's bedroom count via a per-level tab override.
+     * The ground-fill pass (`fillGroundPlate`) normally RE-DERIVES the ground bedroom
+     * count from the plate and CLAMPS it to the low guest-bedroom cap; that silently
+     * discarded an explicit ground override (the founder's "Ground tab = 2 bedrooms
+     * but the engine keeps 1"). When this is set, the stated bedroom (and bathroom)
+     * count is AUTHORITATIVE: `fillGroundPlate` honours it verbatim instead of
+     * re-deriving + clamping. Absent / false ⇒ the auto plate-fill behaviour is
+     * BYTE-IDENTICAL to today (the gate). Mirrors the upper-floor `growBedrooms`
+     * disable for §PER-STOREY-COUNT-AUTHORITATIVE.
+     */
+    readonly bedroomsExplicit?: boolean;
 }
 
 /**
@@ -332,7 +375,13 @@ export function enrichStoreyProgramToPlate(
     //     deterministic — see fillGroundPlate (the frozen bubble graph has no study
     //     flag, so a guest bedroom + bath are the only fill levers without forking it).
     if (role === 'ground' && opts.growGroundRooms && !opts.growBedrooms) {
-        return logEnrichAfter(fillGroundPlate(enriched, plateAreaM2), 'fillGroundPlate');
+        // §GROUND-COUNT-AUTHORITATIVE — when the user EXPLICITLY set the ground bedroom
+        // count, pass it through so fillGroundPlate honours the stated count instead of
+        // re-deriving + clamping it to the guest cap. Absent ⇒ byte-identical fill.
+        return logEnrichAfter(
+            fillGroundPlate(enriched, plateAreaM2, opts.bedroomsExplicit === true),
+            'fillGroundPlate',
+        );
     }
 
     // 2. §PLATE-ROLE (M-B, ADR-0063 H1, 2026-06-09) — grow bedrooms (+ proportional

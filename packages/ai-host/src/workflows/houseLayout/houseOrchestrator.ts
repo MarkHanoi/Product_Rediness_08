@@ -800,8 +800,19 @@ function enumeratePerStorey(
         // partitions. Distinct from growBedrooms (the heavy private-level fill); only
         // the multi-storey ground uses this lever.
         const growGroundRooms = sp.role === 'ground' && storeyCount > 1;
+        // §GROUND-COUNT-AUTHORITATIVE (founder 2026-06-18) — the ground-fill lever
+        // (`fillGroundPlate`) RECOMPUTES the ground bedroom/bath count from the plate
+        // (clamped to the low guest cap), which silently DISCARDED an EXPLICIT per-level
+        // ground override (the founder's "Ground tab set to 2 bedrooms but the engine
+        // keeps 1"). When the user EXPLICITLY set this ground storey's bedroom count via
+        // a per-level tab, that count is AUTHORITATIVE: thread the flag so fillGroundPlate
+        // honours the stated count instead of re-deriving + clamping it. Mirrors the
+        // upper-floor §PER-STOREY-COUNT-AUTHORITATIVE (which disables growBedrooms). Auto
+        // (no-override) grounds keep `bedroomsExplicit` undefined ⇒ the fill path is
+        // BYTE-IDENTICAL to today (the gate that protects the apartment + house tests).
         const storeyProgram = enrichStoreyProgramToPlate(
-            sp.program, usableAreaM2, sp.role, { growBedrooms, growGroundRooms },
+            sp.program, usableAreaM2, sp.role,
+            { growBedrooms, growGroundRooms, bedroomsExplicit: sp.bedroomsExplicit === true },
         );
 
         // §HOUSE-MAX-CAP — the ground floor's rich programme is accepted at its TRUE

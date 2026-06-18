@@ -288,3 +288,60 @@ describe('enrichStoreyProgramToPlate — pure unit', () => {
         expect(JSON.stringify(a)).toEqual(JSON.stringify(b));
     });
 });
+
+// §GROUND-COUNT-AUTHORITATIVE (founder 2026-06-18) — an EXPLICIT per-level GROUND
+// bedroom count must be RESPECTED on the multi-storey ground floor. The bug: the
+// ground-fill pass (`fillGroundPlate`) re-derived the bedroom count from the plate and
+// CLAMPED it to the low guest cap, so a Ground tab set to 2 bedrooms still shipped 1
+// (the founder's log: requestedBeds=1 chosenBeds=1 / §DIAG-ALLOC storey[0] bedrooms=1).
+// The fix gates on a new `bedroomsExplicit` flag (mirrors the upper-floor
+// §PER-STOREY-COUNT-AUTHORITATIVE): when set, fillGroundPlate keeps the stated count.
+describe('§GROUND-COUNT-AUTHORITATIVE — explicit ground bedroom count is respected', () => {
+    // A ground storey program as allocateProgramToStoreys emits it for a multi-storey
+    // house: ground-public set + the explicit per-level bedroom count.
+    const GROUND_2BED: ApartmentProgram = {
+        bedrooms: 2, bathrooms: 1, masterEnSuite: false,
+        openPlanKitchenDining: true, livingRoom: true, entranceHall: true,
+    };
+
+    it('honours an explicit 2-bedroom ground count (NOT clamped down to the guest cap)', () => {
+        // WITHOUT the flag the legacy fill clamps the count to the guest cap (≤1 on a
+        // normal plate) — the founder bug.
+        const auto = enrichStoreyProgramToPlate(GROUND_2BED, 165, 'ground', { growGroundRooms: true });
+        expect(auto.bedrooms).toBeLessThan(2);   // proves the bug exists on the auto path
+
+        // WITH the flag the explicit count survives verbatim.
+        const explicit = enrichStoreyProgramToPlate(
+            GROUND_2BED, 165, 'ground', { growGroundRooms: true, bedroomsExplicit: true },
+        );
+        expect(explicit.bedrooms).toBe(2);
+        // The ground public SET is still guaranteed (so the floor reads as a house).
+        expect(explicit.livingRoom).toBe(true);
+        expect(explicit.entranceHall).toBe(true);
+        expect(explicit.includeKitchen).not.toBe(false);
+        // The master/en-suite still stays upstairs.
+        expect(explicit.masterEnSuite).toBe(false);
+    });
+
+    it('honours an explicit ground bathroom count', () => {
+        const prog: ApartmentProgram = { ...GROUND_2BED, bathrooms: 2 };
+        const explicit = enrichStoreyProgramToPlate(
+            prog, 165, 'ground', { growGroundRooms: true, bedroomsExplicit: true },
+        );
+        expect(explicit.bathrooms).toBe(2);
+    });
+
+    it('the auto (no-flag) ground fill is BYTE-IDENTICAL to today (the gate)', () => {
+        const before = enrichStoreyProgramToPlate(GROUND_2BED, 165, 'ground', { growGroundRooms: true });
+        const after = enrichStoreyProgramToPlate(
+            GROUND_2BED, 165, 'ground', { growGroundRooms: true, bedroomsExplicit: false },
+        );
+        expect(JSON.stringify(after)).toEqual(JSON.stringify(before));
+    });
+
+    it('is deterministic with the explicit flag', () => {
+        const a = enrichStoreyProgramToPlate(GROUND_2BED, 165, 'ground', { growGroundRooms: true, bedroomsExplicit: true });
+        const b = enrichStoreyProgramToPlate(GROUND_2BED, 165, 'ground', { growGroundRooms: true, bedroomsExplicit: true });
+        expect(JSON.stringify(a)).toEqual(JSON.stringify(b));
+    });
+});
