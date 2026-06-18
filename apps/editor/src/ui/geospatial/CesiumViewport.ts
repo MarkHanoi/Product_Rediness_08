@@ -2711,11 +2711,25 @@ export class CesiumViewport {
     // Re-place at the tile-surface base. `_skipTerrainClamp` prevents re-entry;
     // `frameCentroid:false` so the re-place never re-flies the camera.
     this.renderFormaMassing({ ...input, frameCentroid: false, _skipTerrainClamp: true });
-    // §GLOBE-FIRST-FRAME-BASE — the base just changed (e.g. 0 → 381.9 m). If the
-    // initial framing flew against the stale base (which would have put the camera
-    // underground / black), re-fly ONCE now that the building is seated on the real
-    // tile ground so the first activation lands looking at the building.
-    this.reframeAfterBaseSettle();
+    // §GLOBE-FIRST-FRAME-BASE-ROBUST (founder 2026-06-18 "open 3D globe shows underground; must
+    // click zoom-to-site — need it from the first moment"). The base just changed MATERIALLY (we
+    // are past the base-unchanged guard above; e.g. 0 → 381.9 m), so the initial frame — which flew
+    // at the stale base 0 — parked the camera ~300 m UNDER the real terrain (the underground/black
+    // view). The one-shot `reframeAfterBaseSettle()` arm can be silently cleared by an intervening
+    // mode-reset, leaving the camera underground until a manual Zoom-to-Site. So when THIS placement
+    // was a FRAMING one, re-fly UNCONDITIONALLY at the now-correct base — independent of the arm —
+    // so the FIRST globe open lands on the building with no click needed.
+    if (input.frameCentroid) {
+      this.formaReframeOnBaseSettle = null; // consume any pending arm; we re-fly directly here
+      if (input.framePreset === 'plan') this.flyToFormaPlan();
+      else this.flyToFormaSite();
+      console.log(
+        `[CesiumViewport][forma] §GLOBE-FIRST-FRAME-BASE-ROBUST re-framed on first open at ` +
+          `resolved base ${this.formaTerrainBaseHeight.toFixed(1)} m (no zoom-to-site needed).`,
+      );
+    } else {
+      this.reframeAfterBaseSettle();
+    }
   }
 
   /**
