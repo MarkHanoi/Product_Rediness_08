@@ -1156,6 +1156,59 @@ export class HouseLayoutExecutor {
                 + [...perimeterByLevel.values()].reduce((n, p) => n + p.payload.walls.length, 0);
             const allLevelIds = perStorey.map(s => s.levelId);
 
+            // §AI-CORNER-WELD (founder 2026-06-18 "walls join perfectly via UI but not AI; check
+            // the plate angle") — the founder PROVED (a non-90° UI test still joins perfectly) that
+            // the differentiator is NOT the angle but ENDPOINT SHARING: a UI polyline reuses the
+            // SAME corner point (`startPoint = path.end`), so two walls at a corner are bit-identical
+            // and close at any angle. AI walls compute each corner INDEPENDENTLY from its room
+            // rectangle, so two walls meeting at a corner get two near-but-not-identical points; the
+            // WallJoinResolver snaps the centrelines (jointGap reads 0.0mm) but the masked input gap
+            // can still notch the mesh. Mirror the UI: snap every cluster of near-coincident wall
+            // endpoints — perimeter + partitions TOGETHER, per level — to ONE shared point so AI
+            // corners are exactly-shared like a hand-drawn polyline. Gated TIGHT (30mm): it only
+            // fuses endpoints that are obviously the same corner (distinct corners are ≥ a room-min
+            // ~1 m apart), and the max move (≤ ~tol) stays under the §DIAG-PARITY 20mm threshold, so
+            // wall/floor parity is preserved. Default no-op when nothing is near-coincident.
+            const WELD_CORNER_TOL_M = 0.03;
+            const weldSharedCorners = (walls: ReadonlyArray<{ baseLine?: ReadonlyArray<{ x: number; z: number }> }>): number => {
+                const refs: Array<{ x: number; z: number; pt: { x: number; z: number } }> = [];
+                for (const w of walls) {
+                    const bl = w.baseLine;
+                    if (!bl || bl.length < 2 || !bl[0] || !bl[1]) continue;
+                    refs.push({ x: bl[0].x, z: bl[0].z, pt: bl[0] as { x: number; z: number } });
+                    refs.push({ x: bl[1].x, z: bl[1].z, pt: bl[1] as { x: number; z: number } });
+                }
+                const n = refs.length;
+                const parent = Array.from({ length: n }, (_, i) => i);
+                const find = (i: number): number => { while (parent[i] !== i) { parent[i] = parent[parent[i]!]!; i = parent[i]!; } return i; };
+                const tol2 = WELD_CORNER_TOL_M * WELD_CORNER_TOL_M;
+                for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+                    const dx = refs[i]!.x - refs[j]!.x, dz = refs[i]!.z - refs[j]!.z;
+                    if (dx * dx + dz * dz <= tol2) { const ri = find(i), rj = find(j); if (ri !== rj) parent[ri] = rj; }
+                }
+                const sums = new Map<number, { x: number; z: number; c: number }>();
+                for (let i = 0; i < n; i++) { const r = find(i); const s = sums.get(r) ?? { x: 0, z: 0, c: 0 }; s.x += refs[i]!.x; s.z += refs[i]!.z; s.c++; sums.set(r, s); }
+                let snapped = 0;
+                for (let i = 0; i < n; i++) {
+                    const s = sums.get(find(i))!;
+                    if (s.c < 2) continue;                       // singleton — no shared corner
+                    const cx = s.x / s.c, cz = s.z / s.c, p = refs[i]!.pt;
+                    if (Math.abs(p.x - cx) > 1e-9 || Math.abs(p.z - cz) > 1e-9) { p.x = cx; p.z = cz; snapped++; }
+                }
+                return snapped;
+            };
+            for (const s of perStorey) {
+                const perim = perimeterByLevel.get(s.levelId)?.payload.walls ?? [];
+                const part = (s.set.wallBatch.payload as { walls?: ReadonlyArray<{ baseLine?: ReadonlyArray<{ x: number; z: number }> }> }).walls ?? [];
+                const snapped = weldSharedCorners([...perim, ...part]);
+                if (snapped > 0) {
+                    console.log(
+                        `[house-layout] §AI-CORNER-WELD ${s.levelId}: snapped ${snapped} endpoint(s) to shared corners ` +
+                        `(perimeter+partitions, tol=${Math.round(WELD_CORNER_TOL_M * 1000)}mm) — AI walls now share corners like a UI polyline`,
+                    );
+                }
+            }
+
             batchCoordinator.runBatch(() => {
                 // 0. §PERIMETER-SHELL — explicit footprint perimeter for every UPPER
                 //    storey (the ground shell already exists). Dispatched FIRST so the
