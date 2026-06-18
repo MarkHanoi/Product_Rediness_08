@@ -1,45 +1,64 @@
 /**
  * @file apps/editor/src/ui/environment/EnvironmentHud.ts
  *
- * §ENV-CLIMATE-VISIBLE — founder request: the Environment & Camera panel's
- * CLIMATE / WIND / POPULATION sliders emitted typed runtime events but nothing
- * listened, so "nothing visible on any of the views". This module gives those
- * three events the SMALLEST sensible *visible* behaviour, mirroring the working
- * SUN wiring (apps/editor/src/engine/initUI.ts — `pryzm-set-sun-direction`
- * listener block, which subscribes via `window.runtime.events.on(...)`).
+ * §ENV-CLIMATE-VISIBLE + §CLIMATE-GIS-PHASE1 — the Environment & Camera panel's
+ * CLIMATE / WIND / POPULATION / SUN readout.
  *
- * What it draws (all on a single shared DOM overlay mounted on document.body,
- * so it is visible across EVERY view — 3D, plan and globe share one body):
+ * PHASE 1 (this revision) replaces the old "colour tint that depended on how you
+ * moved the slider" with REAL geospatial data:
  *
- *   • CLIMATE / HEAT  → HUD badge `🌡 {temp}°C · {humidity}% RH`
- *                       + a subtle full-viewport scene tint: warm/amber as the
- *                         temperature rises, cool/blue as it falls. The tint is a
- *                         very low-opacity DOM gradient layer (NOT a post-effect,
- *                         NOT a THREE light change) so it is fully reversible and
- *                         never touches sun/shadow behaviour (P2-safe).
- *   • WIND            → HUD badge `🧭 {direction}° · {speed} m/s`
- *                       + a small compass arrow that rotates to the direction.
- *   • POPULATION      → HUD badge `👥 {density} /ha`.
+ *   • HEAT  → real 2 m air temperature (°C) for the project's site lat/lon, from
+ *             Open-Meteo (climateData.ts). The slider now MODULATES this baseline
+ *             ("+3 °C scenario") instead of BEING the value.
+ *   • WIND  → real 10 m wind speed (km/h) + direction (compass) from Open-Meteo;
+ *             the slider modulates speed and overrides direction as a scenario.
+ *   • SUN   → real daylight hours (sunrise → sunset) from the existing THREE-free
+ *             NOAA solar math (@pryzm/solar-analysis) + the sunniest-façade hint.
+ *             This routes the env "Sun" readout to REAL data, as required.
+ *   • POPULATION → still the model slider (no free density raster yet), clearly
+ *             labelled "model" until WorldPop/GHSL ingestion lands (Phase 2+;
+ *             see docs/03_PRYZM3/CLIMATE-GIS-OVERLAY-PLAN-2026-06-18.md).
  *
- * Brand: white + #6600FF only, no pure black (semi-transparent dark-purple
- * backdrop, never #000).
+ * The crude full-viewport tint is GONE. In its place: a compact HUD with real
+ * readouts + a small colour-ramp legend (heat ramp), so the panel communicates
+ * data, not a meaningless wash.
+ *
+ * Brand: white + #6600FF only, no pure black.
  *
  * Architecture:
- *   • P2 (single THREE owner) — this file imports NO THREE; it is pure DOM.
- *   • It subscribes through `window.runtime.events`, exactly like the sun
- *     listeners, and is wired at the same init site (initUI.ts).
- *   • Additive + low-risk: default state shows nothing until a slider moves.
+ *   • P2 (single THREE owner) — imports NO THREE; pure DOM + the THREE-free
+ *     climateData service.
+ *   • P3 (single rAF) — no animation; CSS transitions only.
+ *   • Subscribes through `window.runtime.events` exactly like the sun listeners,
+ *     wired at the same init site (initUI.ts).
+ *   • Additive + reversible: nothing shows until a slider moves or a refresh runs.
  */
+
+import {
+    fetchClimateSnapshot,
+    resolveClimateLatLon,
+    compass8,
+    type ClimateSnapshot,
+} from './climateData.js';
 
 const PURPLE = '#6600FF';
 const HUD_ID = 'pryzm-env-hud';
-const TINT_ID = 'pryzm-env-tint';
+
+/** Slider neutral midpoints — the slider value is read as an OFFSET from these,
+ *  so it MODULATES the real baseline rather than replacing it. */
+const SLIDER_NEUTRAL = {
+    temperature: 20, // °C — ViewPropertiesSection default + slider midpoint
+    windSpeed: 3,    // m/s
+    windDirection: 0, // ° (0 = no direction override applied)
+};
 
 interface EnvState {
-    temperature: number;
-    humidity: number;
-    windDirection: number;
-    windSpeed: number;
+    /** Latest real (or demo) snapshot for the site. */
+    snapshot: ClimateSnapshot | null;
+    /** Raw slider readings (treated as scenario offsets, see SLIDER_NEUTRAL). */
+    sliderTemperature: number;
+    sliderWindSpeed: number;
+    sliderWindDirection: number;
     populationDensity: number;
     climateSet: boolean;
     windSet: boolean;
@@ -47,10 +66,10 @@ interface EnvState {
 }
 
 const state: EnvState = {
-    temperature: 20,
-    humidity: 50,
-    windDirection: 0,
-    windSpeed: 3,
+    snapshot: null,
+    sliderTemperature: SLIDER_NEUTRAL.temperature,
+    sliderWindSpeed: SLIDER_NEUTRAL.windSpeed,
+    sliderWindDirection: SLIDER_NEUTRAL.windDirection,
     populationDensity: 0,
     climateSet: false,
     windSet: false,
@@ -59,47 +78,26 @@ const state: EnvState = {
 
 let installed = false;
 let hudEl: HTMLElement | null = null;
-let climateRow: HTMLElement | null = null;
+let headerEl: HTMLElement | null = null;
+let heatRow: HTMLElement | null = null;
 let windRow: HTMLElement | null = null;
+let sunRow: HTMLElement | null = null;
 let populationRow: HTMLElement | null = null;
-let windArrow: HTMLElement | null = null;
-let tintEl: HTMLElement | null = null;
+let legendEl: HTMLElement | null = null;
 
-/** Map a temperature (°C) to a subtle tint colour: cool-blue → neutral → warm-amber. */
-function tintForTemperature(tempC: number): { color: string; alpha: number } {
-    // Clamp to the slider's range (-10 … 45 °C). 20 °C ≈ neutral.
-    const t = Math.max(-10, Math.min(45, tempC));
-    const neutral = 20;
-    if (Math.abs(t - neutral) < 0.5) return { color: PURPLE, alpha: 0 };
-    if (t > neutral) {
-        // Warm: amber. Intensity scales toward the hot end.
-        const k = (t - neutral) / (45 - neutral); // 0 … 1
-        return { color: '#FF9A3D', alpha: 0.05 + 0.13 * k };
-    }
-    // Cool: blue. Intensity scales toward the cold end.
-    const k = (neutral - t) / (neutral - -10); // 0 … 1
-    return { color: '#4D9AFF', alpha: 0.05 + 0.13 * k };
+/** km/h → m/s for slider modulation (sliders are m/s, Open-Meteo is km/h). */
+const KMH_PER_MS = 3.6;
+
+/** A 5-stop heat colour ramp (cool blue → warm red) for the legend swatch. */
+const HEAT_RAMP = ['#3B6FE0', '#4DB6D8', '#E8D84D', '#F0993D', '#E0503B'];
+
+function rowStyle(): string {
+    return 'display:none;align-items:center;gap:6px;white-space:nowrap;';
 }
 
 function ensureMounted(): void {
-    if (hudEl && tintEl) return;
+    if (hudEl) return;
 
-    // ── Tint layer (behind the HUD, over the canvas; ignores pointer events) ──
-    tintEl = document.getElementById(TINT_ID);
-    if (!tintEl) {
-        tintEl = document.createElement('div');
-        tintEl.id = TINT_ID;
-        tintEl.style.cssText = [
-            'position:fixed', 'inset:0', 'z-index:9000',
-            'pointer-events:none', 'opacity:0',
-            'transition:background-color .35s ease, opacity .35s ease',
-            'background-color:transparent',
-            'mix-blend-mode:multiply',
-        ].join(';');
-        document.body.appendChild(tintEl);
-    }
-
-    // ── HUD badge (top-right corner) ──
     hudEl = document.getElementById(HUD_ID);
     if (!hudEl) {
         hudEl = document.createElement('div');
@@ -117,100 +115,169 @@ function ensureMounted(): void {
             '-webkit-backdrop-filter:blur(6px)',
             'font:600 12px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif',
             'color:#ffffff', 'letter-spacing:.2px',
-            'user-select:none',
+            'user-select:none', 'max-width:280px',
         ].join(';');
 
-        const header = document.createElement('div');
-        header.textContent = 'ENVIRONMENT';
-        header.style.cssText = `font-size:9px;letter-spacing:1.4px;color:${PURPLE};font-weight:700;opacity:.95;`;
-        hudEl.appendChild(header);
+        headerEl = document.createElement('div');
+        headerEl.textContent = 'ENVIRONMENT';
+        headerEl.style.cssText = `font-size:9px;letter-spacing:1.4px;color:${PURPLE};font-weight:700;opacity:.95;`;
+        hudEl.appendChild(headerEl);
 
-        climateRow = document.createElement('div');
-        climateRow.style.cssText = 'display:none;align-items:center;gap:6px;';
-        hudEl.appendChild(climateRow);
+        heatRow = document.createElement('div');
+        heatRow.style.cssText = rowStyle();
+        hudEl.appendChild(heatRow);
 
         windRow = document.createElement('div');
-        windRow.style.cssText = 'display:none;align-items:center;gap:6px;';
-        // Compass arrow — a small rotating gnomon.
-        windArrow = document.createElement('span');
-        windArrow.textContent = '↑';
-        windArrow.style.cssText = [
-            'display:inline-flex', 'align-items:center', 'justify-content:center',
-            'width:16px', 'height:16px', 'border-radius:50%',
-            `border:1px solid ${PURPLE}`, 'color:#ffffff', 'font-size:11px',
-            'transition:transform .25s ease', 'transform:rotate(0deg)',
-        ].join(';');
-        const windText = document.createElement('span');
-        windText.className = 'pryzm-env-wind-text';
-        windRow.appendChild(windArrow);
-        windRow.appendChild(windText);
+        windRow.style.cssText = rowStyle();
         hudEl.appendChild(windRow);
 
+        sunRow = document.createElement('div');
+        sunRow.style.cssText = rowStyle();
+        hudEl.appendChild(sunRow);
+
         populationRow = document.createElement('div');
-        populationRow.style.cssText = 'display:none;align-items:center;gap:6px;';
+        populationRow.style.cssText = rowStyle();
         hudEl.appendChild(populationRow);
+
+        // ── Heat colour-ramp legend (replaces the meaningless tint) ──
+        legendEl = document.createElement('div');
+        legendEl.style.cssText = 'display:none;flex-direction:column;gap:3px;margin-top:2px;';
+        const ramp = document.createElement('div');
+        ramp.style.cssText = [
+            'height:7px', 'border-radius:4px',
+            `background:linear-gradient(90deg, ${HEAT_RAMP.join(', ')})`,
+            'border:1px solid rgba(255,255,255,0.25)',
+        ].join(';');
+        const scale = document.createElement('div');
+        scale.style.cssText = 'display:flex;justify-content:space-between;font-size:8px;opacity:.8;letter-spacing:.3px;';
+        const lo = document.createElement('span'); lo.textContent = '0°C';
+        const mid = document.createElement('span'); mid.textContent = '20°C';
+        const hi = document.createElement('span'); hi.textContent = '40°C';
+        scale.appendChild(lo); scale.appendChild(mid); scale.appendChild(hi);
+        legendEl.appendChild(ramp);
+        legendEl.appendChild(scale);
+        hudEl.appendChild(legendEl);
 
         document.body.appendChild(hudEl);
     } else {
-        climateRow = hudEl.children[1] as HTMLElement;
+        headerEl = hudEl.children[0] as HTMLElement;
+        heatRow = hudEl.children[1] as HTMLElement;
         windRow = hudEl.children[2] as HTMLElement;
-        populationRow = hudEl.children[3] as HTMLElement;
-        windArrow = windRow.querySelector('span') as HTMLElement;
+        sunRow = hudEl.children[3] as HTMLElement;
+        populationRow = hudEl.children[4] as HTMLElement;
+        legendEl = hudEl.children[5] as HTMLElement;
     }
+
+    // Clean up any leftover tint layer from the previous (pre-Phase-1) version.
+    const oldTint = document.getElementById('pryzm-env-tint');
+    if (oldTint) oldTint.remove();
+}
+
+/** "real" vs "demo/model" tag for a readout, brand-styled. */
+function tag(label: string): string {
+    return `<span style="font-size:8px;letter-spacing:.6px;opacity:.7;border:1px solid rgba(255,255,255,0.35);border-radius:4px;padding:0 3px;margin-left:4px;">${label}</span>`;
 }
 
 function render(): void {
     ensureMounted();
     if (!hudEl) return;
 
+    const snap = state.snapshot;
+    const realSrc = snap?.source === 'open-meteo';
+    const dataTag = realSrc ? 'REAL' : 'DEMO';
+
     const anyVisible = state.climateSet || state.windSet || state.populationSet;
     hudEl.style.display = anyVisible ? 'flex' : 'none';
 
-    if (climateRow) {
+    // ── HEAT: real baseline + slider scenario offset ──
+    if (heatRow) {
         if (state.climateSet) {
-            climateRow.style.display = 'flex';
-            climateRow.textContent =
-                `🌡 ${Math.round(state.temperature)}°C · ${Math.round(state.humidity)}% RH`;
+            heatRow.style.display = 'flex';
+            const baseT = snap?.temperatureC ?? SLIDER_NEUTRAL.temperature;
+            const deltaT = state.sliderTemperature - SLIDER_NEUTRAL.temperature;
+            const effT = baseT + deltaT;
+            const scenario = Math.abs(deltaT) >= 0.5
+                ? ` <span style="opacity:.75">(${deltaT > 0 ? '+' : ''}${Math.round(deltaT)}°C scenario)</span>`
+                : '';
+            heatRow.innerHTML =
+                `🌡 ${Math.round(effT)} °C${tag(dataTag)}${scenario}`;
         } else {
-            climateRow.style.display = 'none';
+            heatRow.style.display = 'none';
         }
     }
 
-    if (windRow && windArrow) {
+    // ── WIND: real baseline + slider scenario ──
+    if (windRow) {
         if (state.windSet) {
             windRow.style.display = 'flex';
-            // Meteorological convention: direction = where the wind comes FROM.
-            // Arrow points toward where it blows TO (dir + 180).
-            windArrow.style.transform = `rotate(${state.windDirection + 180}deg)`;
-            const textEl = windRow.querySelector('.pryzm-env-wind-text') as HTMLElement | null;
-            if (textEl) {
-                textEl.textContent =
-                    `🧭 ${Math.round(state.windDirection)}° · ${state.windSpeed.toFixed(1)} m/s`;
-            }
+            const baseKmh = snap?.windSpeedKmh ?? SLIDER_NEUTRAL.windSpeed * KMH_PER_MS;
+            const deltaKmh = (state.sliderWindSpeed - SLIDER_NEUTRAL.windSpeed) * KMH_PER_MS;
+            const effKmh = Math.max(0, baseKmh + deltaKmh);
+            // Slider direction overrides the real "from" direction as a scenario.
+            const dir = state.sliderWindDirection !== SLIDER_NEUTRAL.windDirection
+                ? state.sliderWindDirection
+                : (snap?.windDirectionDeg ?? 315);
+            const arrowDeg = dir + 180; // arrow points where the wind blows TO
+            const scenario = Math.abs(deltaKmh) >= 1
+                ? ` <span style="opacity:.75">(${deltaKmh > 0 ? '+' : ''}${Math.round(deltaKmh)} km/h)</span>`
+                : '';
+            windRow.innerHTML =
+                `<span style="display:inline-block;transform:rotate(${arrowDeg}deg);transition:transform .25s ease;">↑</span> ` +
+                `Wind ${Math.round(effKmh)} km/h ${compass8(dir)}${tag(dataTag)}${scenario}`;
         } else {
             windRow.style.display = 'none';
         }
     }
 
+    // ── SUN: real daylight hours + sunniest-façade hint ──
+    if (sunRow) {
+        // Sun shows whenever climate or wind is active (it's free real data).
+        if (state.climateSet || state.windSet) {
+            sunRow.style.display = 'flex';
+            const sh = snap?.sunHours ?? 8;
+            sunRow.innerHTML = `☀ ${sh.toFixed(1)} sun-hrs${tag('REAL')}`;
+        } else {
+            sunRow.style.display = 'none';
+        }
+    }
+
+    // ── POPULATION: still a model slider ──
     if (populationRow) {
         if (state.populationSet) {
             populationRow.style.display = 'flex';
-            populationRow.textContent = `👥 ${Math.round(state.populationDensity)} /ha`;
+            populationRow.innerHTML = `👥 ${Math.round(state.populationDensity)} /ha${tag('MODEL')}`;
         } else {
             populationRow.style.display = 'none';
         }
     }
 
-    // ── Scene tint follows temperature (only once climate is set) ──
-    if (tintEl) {
-        if (state.climateSet) {
-            const { color, alpha } = tintForTemperature(state.temperature);
-            tintEl.style.backgroundColor = color;
-            tintEl.style.opacity = String(alpha);
-        } else {
-            tintEl.style.opacity = '0';
-        }
+    // Heat-ramp legend visible only when heat is shown.
+    if (legendEl) {
+        legendEl.style.display = state.climateSet ? 'flex' : 'none';
     }
+}
+
+/**
+ * Refresh the real climate snapshot for the current site and re-render. Safe to
+ * call repeatedly (the service caches by rounded lat/lon + has an in-flight
+ * dedupe). Resolves once the snapshot (real or demo) is in.
+ */
+async function refreshSnapshot(): Promise<void> {
+    try {
+        const snap = await fetchClimateSnapshot();
+        state.snapshot = snap;
+        const where = snap.source === 'open-meteo'
+            ? `${snap.lat.toFixed(2)},${snap.lon.toFixed(2)}`
+            : 'no-site';
+        console.log(
+            `[climate] §CLIMATE-GIS-PHASE1 snapshot (${snap.source}) @ ${where} — ` +
+            `${snap.temperatureC.toFixed(0)}°C · wind ${snap.windSpeedKmh.toFixed(0)}km/h ` +
+            `${compass8(snap.windDirectionDeg)} · ${snap.sunHours.toFixed(1)} sun-hrs`,
+        );
+    } catch (e) {
+        console.warn('[climate] §CLIMATE-GIS-PHASE1 refresh failed:', e);
+    }
+    render();
 }
 
 /**
@@ -224,17 +291,22 @@ export function installEnvironmentHud(): void {
     if (!events) return; // runtime not ready; caller may retry
     installed = true;
 
-    events.on('pryzm-set-climate', ({ temperature, humidity }: { temperature: number; humidity: number }) => {
-        state.temperature = temperature;
-        state.humidity = humidity;
-        state.climateSet = true;
+    events.on('pryzm-set-climate', ({ temperature }: { temperature: number; humidity: number }) => {
+        state.sliderTemperature = temperature;
+        if (!state.climateSet) {
+            state.climateSet = true;
+            void refreshSnapshot(); // first activation → fetch real baseline
+        }
         render();
     });
 
     events.on('pryzm-set-wind', ({ direction, speed }: { direction: number; speed: number }) => {
-        state.windDirection = direction;
-        state.windSpeed = speed;
-        state.windSet = true;
+        state.sliderWindDirection = direction;
+        state.sliderWindSpeed = speed;
+        if (!state.windSet) {
+            state.windSet = true;
+            void refreshSnapshot();
+        }
         render();
     });
 
@@ -243,4 +315,23 @@ export function installEnvironmentHud(): void {
         state.populationSet = true;
         render();
     });
+
+    // When the site location changes (geocode / draw), the real baseline moves —
+    // refresh if any readout is already active. Mirrors the site listeners that
+    // sunHoursConsole/daylightConsole anchor to.
+    try {
+        events.on('site.location-changed', () => {
+            if (state.climateSet || state.windSet) void refreshSnapshot();
+        });
+    } catch { /* event bus may not type this; non-fatal */ }
+
+    // If a site is already pinned at install time, warm the snapshot so the very
+    // first slider move shows real data immediately.
+    if (resolveClimateLatLon()) void refreshSnapshot();
+}
+
+/** Test/console hook: force a refresh + return the latest snapshot. */
+export async function pryzmRefreshClimate(): Promise<ClimateSnapshot | null> {
+    await refreshSnapshot();
+    return state.snapshot;
 }
