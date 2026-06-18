@@ -470,12 +470,30 @@ function placeBeside(spec: FurnitureItemSpec, leader: Placement, input: FurnishR
     }
 
     if (isBedKind(L.kind)) {
-        // flank the bed head (at the wall) with up to `count` bedside tables
+        // §FURNITURE-BED-SIZE-AWARE (founder, 2026-06-18) — flank the bed head with
+        // up to `count` bedside tables, anchored to the bed's REAL footprint edge.
+        // `L.footprint.w` is THIS bed's actual deck width — the same value emitted to
+        // the geometry (single source of truth in buildFurnishCommands → BedBuilder),
+        // so the table sits at `bedEdge + GAP + tableHalf`: it scales with bed size
+        // automatically (a king/super-king pushes the tables outward; a small double
+        // keeps them tight) and NEVER overlaps the mattress (the offset starts OUTSIDE
+        // the bed half-width by construction). NO hardcoded small-bed distance.
         const wallPt = add({ x: L.position.x, z: L.position.z }, n, -L.footprint.l / 2);
         const headCtr = add(wallPt, n, fp.l / 2 + GAP);
-        const side = L.footprint.w / 2 + fp.w / 2 + GAP;
+        const side = L.footprint.w / 2 + fp.w / 2 + GAP;   // bed edge + gap + table half
         const slots = [side, -side].slice(0, count);
-        for (const s of slots) tryPush(add(headCtr, d, s), L.rotationY);
+        for (const s of slots) {
+            // Primary: flush beside the bed head. If that slot is blocked (out of
+            // room / clashes another obstacle — e.g. an over-wide bed crowding a side
+            // wall), RELOCATE the table outward along the head wall in SLIDE_STEP
+            // increments rather than overlapping or dropping it. Stops at the first
+            // collision-free slot; if none fits, the table is genuinely dropped.
+            const before = out.length;
+            for (let extra = 0; extra <= 4 * SLIDE_STEP + 1e-6; extra += SLIDE_STEP) {
+                tryPush(add(headCtr, d, s + Math.sign(s) * extra), L.rotationY);
+                if (out.length > before) break;   // placed this table → next slot
+            }
+        }
     } else if (leader.cornerAnchored) {
         // §67.3 — coffee table centred in the L's INNER POCKET (diagonally out
         // from the inside-back corner along the opening bisector), aligned to the

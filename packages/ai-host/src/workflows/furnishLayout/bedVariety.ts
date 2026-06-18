@@ -29,6 +29,7 @@
 //     already carries them) → never doubled.
 
 import type { FurnitureArchetype, FurnitureItemSpec, FurnishRoomInput, PlacedFurniture, Footprint, FurnitureKind } from './types.js';
+import { pointInPolygon } from './collision.js';
 
 /** The four parametric bed types the editor's bed picker exposes. */
 export type BedType = 'bed' | 'japanese_platform_bed' | 'japanese_float_bed' | 'japanese_walnut_bed';
@@ -183,13 +184,31 @@ export function placeIntegratedBedLamps(
     // centred at deckEdge (fp.w/2) + half the surface width, NOT inboard on the
     // mattress. Fall back to the deck edge for any unmapped variant.
     const surfaceHalfW = INTEGRATED_BEDSIDE_HALF_WIDTH[bed.kind] ?? 0;
+    // §FURNITURE-BED-SIZE-AWARE (founder, 2026-06-18) — the lamp rides the OUTBOARD
+    // bedside surface, anchored to the bed's REAL footprint edge (fp.w/2) + half the
+    // surface width. Because `fp.w` is this bed's actual deck width (the same value
+    // emitted to the geometry — single source of truth in buildFurnishCommands), the
+    // lamp scales with bed size automatically: a king/super-king pushes the lamps
+    // wider, a small bed keeps them tight. NO hardcoded distance assuming a small bed.
     const side = fp.w / 2 + surfaceHalfW / 2;
     const lampY = bed.position.y + 0.30;   // sit on the integrated bedside surface
     const out: PlacedFurniture[] = [];
     for (const s of [side, -side]) {
+        const lx = headX + d.x * s, lz = headZ + d.z * s;
+        // §FURNITURE-BED-SIZE-AWARE OVERLAP GUARD — for a LARGER (king/super-king)
+        // bed crowding a SIDE wall, the outboard lamp position can land OUTSIDE the
+        // room (the founder's "flanking piece floats away / overlaps"). Drop such a
+        // lamp rather than place it through a wall. We test the lamp's CENTRE (not its
+        // footprint) against the polygon: the lamp is a surface-mounted decor item
+        // riding the bed's integrated nightstand AT the head wall, so its tiny
+        // footprint legitimately grazes that head wall — only its centre escaping the
+        // room means it's genuinely off-plate. A normal-width bed in a normal room
+        // always passes → small beds unchanged; only an over-wide bed on a cramped
+        // side loses that one lamp.
+        if (!pointInPolygon({ x: lx, z: lz }, input.polygon)) continue;
         out.push({
             kind: LAMP,
-            position: { x: headX + d.x * s, y: lampY, z: headZ + d.z * s },
+            position: { x: lx, y: lampY, z: lz },
             rotationY: bed.rotationY,
             footprint: INTEGRATED_LAMP_FP,
             hostedSpaceId: input.roomId,
