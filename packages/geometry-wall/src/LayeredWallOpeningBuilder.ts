@@ -132,12 +132,22 @@ function buildContinuousLayerGeometry(
     const endMnDotDir   = endMN   ? (endMN.nx   * direction.x + endMN.nz   * direction.z) : 0;
     const endMnDotOut   = endMN   ? (endMN.nx   * outward.x   + endMN.nz   * outward.z)   : 0;
 
+    // §MITER-T-CLAMP (twin of MiterPrismBuilder, founder 2026-06-18 "walls go off
+    // extruding really a lot") — when the miter normal is near-parallel to the wall
+    // (MnDotDir → 0, a degenerate/very-acute corner) the projection `(MnDotOut·z)/MnDotDir`
+    // blows up to hundreds of metres, slicing the opening-wall cap off into empty space.
+    // A real building miter projects well under a metre past the wall end; clamp the
+    // projection so a degenerate corner square-caps instead of running away. Legitimate
+    // mitres (small offset) are byte-identical.
+    const MITER_PROJ_MAX_M = 1.0;
+    const clampProj = (off: number): number =>
+        off > MITER_PROJ_MAX_M ? MITER_PROJ_MAX_M : (off < -MITER_PROJ_MAX_M ? -MITER_PROJ_MAX_M : off);
     const pushVertex = (x: number, y: number, z: number): number => {
         let effectiveX = x;
         if (startMN && x < 1e-5 && Math.abs(startMnDotDir) > 1e-4) {
-            effectiveX = -(startMnDotOut * z) / startMnDotDir;
+            effectiveX = clampProj(-(startMnDotOut * z) / startMnDotDir);
         } else if (endMN && Math.abs(x - wallLength) < 1e-5 && Math.abs(endMnDotDir) > 1e-4) {
-            effectiveX = wallLength - (endMnDotOut * z) / endMnDotDir;
+            effectiveX = wallLength + clampProj(-(endMnDotOut * z) / endMnDotDir);
         }
         const horizontal = direction.clone().multiplyScalar(effectiveX).add(outward.clone().multiplyScalar(z));
         positions.push(horizontal.x, wallBaseOffset + y, horizontal.z);

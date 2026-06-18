@@ -274,8 +274,32 @@ export function insetPolygonToInnerFaces(
     }
   }
 
-  // Neither the direct inset nor the collapsed retry produced a valid inner-face
-  // polygon — keep the simple centreline ring so a floor is ALWAYS produced.
+  // §FLOOR-INSET-UNIFORM (founder 2026-06-18 "floor finish should ALWAYS fit the inner
+  // wall face but sometimes goes off") — THIRD fall-back before the centreline overshoot.
+  // The per-edge retry can STILL bow-tie when a door-gap edge keeps its 0 inset and folds.
+  // The floor must sit inside the inner wall face on EVERY edge — a door OPENING must not
+  // grow the floor out to the wall centreline (that's the overshoot the founder sees). So
+  // inset EVERY edge of the corner ring UNIFORMLY by the dominant wall half-thickness: this
+  // removes the door-gap-0 bow-tie source and yields the correct inner-face boundary. Accept
+  // ONLY if simple + STRICTLY SMALLER than the centreline source (an inset never grows the
+  // floor); otherwise keep the centreline ring so a floor is always produced.
+  const cornerRing = (collapsed && collapsed.ring.length >= 3) ? collapsed.ring : polygon;
+  const wallInset = edgeInsets.reduce((m, v) => (v > m ? v : m), 0);
+  if (wallInset > 1e-6 && cornerRing.length >= 3) {
+    const uniformInsets = cornerRing.map(() => wallInset);
+    const retry2 = _insetToInnerFacesOnce(cornerRing, uniformInsets, onDiag);
+    if (retry2 && isSimple(retry2)) {
+      const a2 = polygonAreaM2(retry2);
+      const srcArea = polygonAreaM2(polygon);
+      if (a2 > 0.01 && a2 < srcArea - 1e-6) {
+        onDiag?.(`§DIAG-FLOOR-INSET uniform fall-back succeeded (inset ${wallInset.toFixed(3)}m all edges, area ${a2.toFixed(2)}m² < source ${srcArea.toFixed(2)}m²) → inner-face`);
+        return retry2;
+      }
+    }
+  }
+
+  // Neither the direct inset, the collapsed retry, nor the uniform inset produced a valid
+  // inner-face polygon — keep the simple centreline ring so a floor is ALWAYS produced.
   return polygon;
 }
 

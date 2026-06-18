@@ -79,7 +79,19 @@ export function buildMiterPrism(
 
         const dx = miterPlaneOrigin.x - base[0];
         const dz = miterPlaneOrigin.z - base[2];
-        const t = (mn.nx * dx + mn.nz * dz) / mnDotDir;
+        let t = (mn.nx * dx + mn.nz * dz) / mnDotDir;
+
+        // §MITER-T-CLAMP (founder 2026-06-18 "some walls go off extruding really a lot").
+        // `t ≈ 1/sin(θ)` — when the miter normal is near-parallel to the wall direction (a
+        // very-acute/degenerate corner, or a degenerate consensus square-cap whose MN is
+        // bad), the denominator → 0 and the cap vertex slides METRES past the wall end (the
+        // white stub poking into empty space). A REAL miter projects at most a few wall
+        // thicknesses, so clamp the projection distance: a degenerate corner now square-caps
+        // (≈ the wall end) instead of extruding off-screen. Legitimate mitres (small t) are
+        // byte-identical — this only catches the runaway.
+        const tMax = 4 * halfT + 0.05;
+        if (t > tMax) t = tMax;
+        else if (t < -tMax) t = -tMax;
 
         return [base[0] + t * dir.x, base[1], base[2] + t * dir.z];
     }
