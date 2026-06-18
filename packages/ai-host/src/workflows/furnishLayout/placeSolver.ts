@@ -136,9 +136,12 @@ function doorObstacles(input: FurnishRoomInput): Quad[] {
         // NOTE (regression guard): the keep-clear is kept at the door WIDTH, NOT
         // widened past the jambs — a wider rect perturbs the SHARED placeRoom
         // obstacle set and shifts the living-room corner-sofa / TV-faces-sofa pose
-        // (founder #12) and the wardrobe-run sizing. The width-only keep-clear plus
-        // the all-paths obstacle test is what actually prevents door blocking; the
-        // founderV189 §5 test pins this across room types + sizes.
+        // (founder #12) and SHRINKS the wardrobe run (empirically confirmed 2026-06-18:
+        // a +0.6m widening caps the big-bedroom wardrobe to the small-room length). The
+        // width-only keep-clear plus the all-paths obstacle test is what prevents door
+        // blocking; the founderV189 §5 test pins this across room types + sizes. A precise
+        // asymmetric swing SECTOR (only the hinge side) would cover the fan without the
+        // wardrobe regression, but the door payload carries no hinge side → not available.
         const c = add(d.center, d.normal, 0.45);
         return footprintCorners(c.x, c.z, d.width, 0.9, yawFromNormal(d.normal));
     });
