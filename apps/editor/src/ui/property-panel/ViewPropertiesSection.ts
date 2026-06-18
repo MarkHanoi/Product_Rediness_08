@@ -6,6 +6,9 @@
  *
  * Sections:
  *   - Sun Settings      (azimuth, elevation, intensity)
+ *   - Climate / Heat    (temperature, humidity)        §ENV-PANEL-CLIMATE
+ *   - Wind              (direction, speed)              §ENV-PANEL-CLIMATE
+ *   - Population Density (density)                      §ENV-PANEL-CLIMATE
  *   - Shadows           (enabled toggle)
  *   - Post-processing   (AO toggle, bloom toggle, exposure)
  *
@@ -13,6 +16,9 @@
  *   'pryzm-set-sun-direction'  → { x, y, z }   (Three.js normalised vector)
  *   'pryzm-set-sun-intensity'  → { intensity }  (0 – 2 scale)
  *   'pryzm-toggle-shadows'     → void (toggles current shadow state)
+ *   'pryzm-set-climate'        → { temperature, humidity }  (°C, %)  §ENV-PANEL-CLIMATE
+ *   'pryzm-set-wind'           → { direction, speed }  (°, m/s)      §ENV-PANEL-CLIMATE
+ *   'pryzm-set-population-density' → { density }  (persons/ha)       §ENV-PANEL-CLIMATE
  *
  * Contract compliance:
  *   §05 §3  — CSS prefix vp- registered in viewerPanels.ts VIEW_PROPERTIES_SECTION_STYLES
@@ -35,12 +41,24 @@ export class ViewPropertiesSection {
     private _bloomEnabled   = false;
     private _exposure       = 1.0;
 
+    // §ENV-PANEL-CLIMATE — founder request: heat / wind / population density for ALL views.
+    // Optional/defaulted environment fields; existing views are unaffected because every
+    // value carries a sensible default and only emits on user interaction.
+    private _temperature      = 20;  // °C
+    private _humidity         = 50;  // %
+    private _windDirection    = 0;   // ° (0 = North)
+    private _windSpeed        = 3;   // m/s
+    private _populationDensity = 0;  // persons / ha
+
     build(): HTMLElement {
         const root = document.createElement('div');
         root.className = 'vp-root';
-        root.appendChild(this._buildSection('SUN SETTINGS',    true,  this._buildSunSettings()));
-        root.appendChild(this._buildSection('SHADOWS',         true,  this._buildShadowSettings()));
-        root.appendChild(this._buildSection('POST-PROCESSING', false, this._buildPostProcessing()));
+        root.appendChild(this._buildSection('SUN SETTINGS',        true,  this._buildSunSettings()));
+        root.appendChild(this._buildSection('CLIMATE / HEAT',      false, this._buildClimateSettings()));
+        root.appendChild(this._buildSection('WIND',                false, this._buildWindSettings()));
+        root.appendChild(this._buildSection('POPULATION DENSITY',  false, this._buildPopulationSettings()));
+        root.appendChild(this._buildSection('SHADOWS',             true,  this._buildShadowSettings()));
+        root.appendChild(this._buildSection('POST-PROCESSING',     false, this._buildPostProcessing()));
         return root;
     }
 
@@ -82,6 +100,53 @@ export class ViewPropertiesSection {
             (v) => {
                 this._intensity = v;
                 window.runtime?.events?.emit('pryzm-set-sun-intensity', { intensity: v }); // F.events.14
+            },
+        ));
+
+        return wrap;
+    }
+
+    // ─── §ENV-PANEL-CLIMATE — Climate / Heat ─────────────────────────────────
+    private _buildClimateSettings(): HTMLElement {
+        const wrap = document.createElement('div');
+
+        wrap.appendChild(this._buildSliderRow(
+            'Temperature', this._temperature, -10, 45, 1, '°C',
+            (v) => { this._temperature = v; this._applyClimate(); },
+        ));
+        wrap.appendChild(this._buildSliderRow(
+            'Humidity', this._humidity, 0, 100, 1, '%',
+            (v) => { this._humidity = v; this._applyClimate(); },
+        ));
+
+        return wrap;
+    }
+
+    // ─── §ENV-PANEL-CLIMATE — Wind ───────────────────────────────────────────
+    private _buildWindSettings(): HTMLElement {
+        const wrap = document.createElement('div');
+
+        wrap.appendChild(this._buildSliderRow(
+            'Direction', this._windDirection, 0, 360, 1, '°',
+            (v) => { this._windDirection = v; this._applyWind(); },
+        ));
+        wrap.appendChild(this._buildSliderRow(
+            'Speed', this._windSpeed, 0, 30, 0.5, ' m/s',
+            (v) => { this._windSpeed = v; this._applyWind(); },
+        ));
+
+        return wrap;
+    }
+
+    // ─── §ENV-PANEL-CLIMATE — Population Density ──────────────────────────────
+    private _buildPopulationSettings(): HTMLElement {
+        const wrap = document.createElement('div');
+
+        wrap.appendChild(this._buildSliderRow(
+            'Density', this._populationDensity, 0, 100, 1, '/ha',
+            (v) => {
+                this._populationDensity = v;
+                window.runtime?.events?.emit('pryzm-set-population-density', { density: v }); // F.events.14
             },
         ));
 
@@ -202,5 +267,20 @@ export class ViewPropertiesSection {
         const y =  Math.sin(elRad);
         const z =  Math.cos(azRad) * Math.cos(elRad);
         window.runtime?.events?.emit('pryzm-set-sun-direction', { x, y, z }); // F.events.14
+    }
+
+    // ─── §ENV-PANEL-CLIMATE — environment helpers ────────────────────────────
+    private _applyClimate(): void {
+        window.runtime?.events?.emit('pryzm-set-climate', { // F.events.14
+            temperature: this._temperature,
+            humidity:    this._humidity,
+        });
+    }
+
+    private _applyWind(): void {
+        window.runtime?.events?.emit('pryzm-set-wind', { // F.events.14
+            direction: this._windDirection,
+            speed:     this._windSpeed,
+        });
     }
 }

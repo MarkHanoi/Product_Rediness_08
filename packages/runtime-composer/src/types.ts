@@ -1532,6 +1532,21 @@ export interface RuntimeEvents {
    *  Replaces the TASK-15 `pryzm-set-exposure` CustomEvent.  F.events.14 */
   'pryzm-set-exposure': { readonly exposure: number };
 
+  /** §ENV-PANEL-CLIMATE — founder request: heat for ALL views.
+   *  Emitted by ViewPropertiesSection when the Temperature/Humidity sliders
+   *  change. `temperature` in °C, `humidity` in %. */
+  'pryzm-set-climate': { readonly temperature: number; readonly humidity: number };
+
+  /** §ENV-PANEL-CLIMATE — founder request: wind for ALL views.
+   *  Emitted by ViewPropertiesSection when the Wind Direction/Speed sliders
+   *  change. `direction` in ° (0 = North), `speed` in m/s. */
+  'pryzm-set-wind': { readonly direction: number; readonly speed: number };
+
+  /** §ENV-PANEL-CLIMATE — founder request: population density for ALL views.
+   *  Emitted by ViewPropertiesSection when the Density slider changes.
+   *  `density` in persons/ha. */
+  'pryzm-set-population-density': { readonly density: number };
+
   /** Emitted by triggerConsequencePreview() when a destructive-tool hover fires.
    *  `action` is the SpeculativeAction (typed unknown to avoid pkg→app coupling).
    *  `mouseX`/`mouseY` are client-space cursor coordinates.
