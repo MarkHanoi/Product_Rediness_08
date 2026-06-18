@@ -81,13 +81,25 @@ const WEIGHT_SLIDERS: ReadonlyArray<{ key: keyof ScoringWeights; label: string }
  * engine default (auto). This is the founder's "increase/decrease the size of each
  * room" control as a discoverable stepper row (the per-INSTANCE graph-node editor
  * — §LIVE-MODAL.D — remains for fine-grained per-room overrides). */
+// §PANEL-ALLROOMS (founder 2026-06-18) — a size row for EVERY room type a house can
+// contain, not just the core 6. `storeyAreaInputsHtml` renders the full set; the
+// §MODAL-PER-STOREY-REAL reconcile then HIDES the rows whose room type is absent on
+// that storey, so each tab shows sliders for exactly the rooms it actually has (the
+// founder's Study + Entrance Hall arrows). `stair` is omitted — it is a fixed-size
+// circulation element, not a free-area room the user sizes.
 const AREA_FIELDS: ReadonlyArray<{ type: RoomType; label: string; max: number }> = [
-    { type: 'living',   label: 'Living',  max: 60 },
-    { type: 'kitchen',  label: 'Kitchen', max: 30 },
-    { type: 'dining',   label: 'Dining',  max: 28 },
-    { type: 'bedroom',  label: 'Bedroom', max: 30 },
-    { type: 'master',   label: 'Master',  max: 40 },
-    { type: 'bathroom', label: 'Bath',    max: 15 },
+    { type: 'living',   label: 'Living',   max: 60 },
+    { type: 'kitchen',  label: 'Kitchen',  max: 30 },
+    { type: 'dining',   label: 'Dining',   max: 28 },
+    { type: 'bedroom',  label: 'Bedroom',  max: 30 },
+    { type: 'master',   label: 'Master',   max: 40 },
+    { type: 'bathroom', label: 'Bath',     max: 15 },
+    { type: 'ensuite',  label: 'En-suite', max: 12 },
+    { type: 'wc',       label: 'WC',       max: 6 },
+    { type: 'study',    label: 'Study',    max: 30 },
+    { type: 'utility',  label: 'Utility',  max: 12 },
+    { type: 'hall',     label: 'Hall',     max: 25 },
+    { type: 'corridor', label: 'Corridor', max: 22 },
 ];
 
 // §REMOVE-GLOBAL-SIZE (founder 2026-06-18) — the whole-house `areaInputsHtml` builder was
