@@ -26,7 +26,7 @@
 
 import type { BubbleGraph, ProgramRoom } from './bubbleGraph.js';
 import type { RoomType } from '../types.js';
-import { rectArea, subtractRectsFromRects, mergeHorizontally, type Rect, type Pt } from './rectDecomposition.js';
+import { rectArea, subtractRectsFromRects, mergeHorizontally, clampRectToConvexShell, type Rect, type Pt } from './rectDecomposition.js';
 import { squarify } from './squarify.js';
 import { roomRule, preferenceBetween } from '../rules/programRules.js';
 import { dimensionsFor } from '../dimensions/roomDimensions.js';
@@ -2264,6 +2264,59 @@ function orientCorridorToKeepOut(
  * Pure + deterministic. `shellBB` is the true shell bbox (the empty band beside a keep-out is
  * roomless, so the placements bbox under-states it); absent ⇒ the placements bbox (conservative).
  */
+/**
+ * §STAIR-STUB-IN-PERIMETER (founder out-of-boundary screenshot, 2026-06-18) — is an axis-aligned
+ * rect FULLY inside a simple shell polygon? The bbox clamp in {@link findCorridorStubToKeepOut}
+ * keeps the stub inside the shell's BOUNDING BOX, but on a ROTATED / SHEARED / L-shaped / stepped
+ * footprint the bbox over-covers the real shell, so a bbox-clamped stub can still poke past a
+ * slanted or re-entrant perimeter edge (the founder's "Stair Corridor poking out of the bottom-
+ * right" defect). This is the polygon-true guard: a rect is inside iff (a) all four corners are
+ * inside-or-on the polygon AND (b) no polygon edge crosses the rect interior (catches a re-entrant
+ * notch that bites into the rect without any corner falling outside). Tolerant by EPS so a stub
+ * flush to a perimeter edge (the legitimate apartment/rectilinear case) is NOT rejected.
+ */
+function rectInsidePolygon(rect: Rect, poly: readonly Pt[]): boolean {
+    if (poly.length < 3) return true;                 // no real polygon constraint → accept (bbox path)
+    const inside = (x: number, z: number): boolean => {
+        // Ray-cast; treat on-boundary (within EPS of any edge) as inside.
+        for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+            const a = poly[i]!, b = poly[j]!;
+            // on-edge test
+            const dx = b.x - a.x, dz = b.z - a.z;
+            const t = (dx * dx + dz * dz) > 1e-12
+                ? ((x - a.x) * dx + (z - a.z) * dz) / (dx * dx + dz * dz) : -1;
+            if (t >= -1e-6 && t <= 1 + 1e-6) {
+                const px = a.x + t * dx, pz = a.z + t * dz;
+                if (Math.hypot(x - px, z - pz) <= EPS) return true;
+            }
+        }
+        let win = false;
+        for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+            const a = poly[i]!, b = poly[j]!;
+            const intersect = ((a.z > z) !== (b.z > z)) &&
+                (x < (b.x - a.x) * (z - a.z) / ((b.z - a.z) || 1e-30) + a.x);
+            if (intersect) win = !win;
+        }
+        return win;
+    };
+    // (a) all four corners inside-or-on (sample a hair inside so a corner flush to a slanted edge
+    // — which the ray-cast may classify either way — is judged by its true interior side).
+    const ix = (rect.x1 - rect.x0) * 1e-4, iz = (rect.z1 - rect.z0) * 1e-4;
+    const corners: Array<[number, number]> = [
+        [rect.x0 + ix, rect.z0 + iz], [rect.x1 - ix, rect.z0 + iz],
+        [rect.x1 - ix, rect.z1 - iz], [rect.x0 + ix, rect.z1 - iz],
+    ];
+    for (const [cx, cz] of corners) if (!inside(cx, cz)) return false;
+    // (b) no polygon VERTEX sits strictly inside the rect (a re-entrant notch tip biting in with
+    // no rect corner outside). Cheap + sufficient for the simple shells the engine produces.
+    for (const v of poly) {
+        if (v.x > rect.x0 + EPS && v.x < rect.x1 - EPS && v.z > rect.z0 + EPS && v.z < rect.z1 - EPS) {
+            return false;
+        }
+    }
+    return true;
+}
+
 export function findCorridorStubToKeepOut(
     placements: readonly RoomPlacement[],
     corridorId: string | null,
@@ -2278,6 +2331,17 @@ export function findCorridorStubToKeepOut(
     // better-axis strategy wins, instead of shipping a long synthetic spur. Undefined (the ground
     // floor's dense-plate fallback) ⇒ no cap (byte-identical — the GF stub legitimately spans a band).
     maxGapM?: number,
+    // §STAIR-STUB-IN-PERIMETER (founder out-of-boundary screenshot, 2026-06-18) — the REAL shell
+    // polygon (world frame). The bbox clamp above only keeps the stub inside the shell's bounding
+    // BOX; on a rotated / sheared / L-shaped / stepped footprint the bbox over-covers the real
+    // shell, so a bbox-clamped stub strip can still poke PAST a slanted or re-entrant perimeter
+    // edge (the founder's "Stair Corridor poking out of the bottom-right" defect). When supplied,
+    // the chosen stub is clamped to (convex shells) and then re-verified strictly INSIDE the
+    // polygon; a stub that cannot reach the keep-out while staying inside is REJECTED (better no
+    // stub than an out-of-bounds one — the stair then serves through a room, the existing
+    // fallback). Absent ⇒ unchanged (bbox-only) behaviour → byte-identical for every caller that
+    // passes no polygon (every non-house path; ADR-0061).
+    shellPolygon?: readonly Pt[],
 ): Rect | null {
     if (!corridorId || keepOuts.length === 0 || placements.length === 0) return null;
     const corrIdx = placements.findIndex(p => p.roomId === corridorId);
@@ -2353,9 +2417,27 @@ export function findCorridorStubToKeepOut(
             const lo = Math.max(laneLo, koLo);
             const hi = Math.min(lo + W, koHi);
             if (hi - lo < STAIR_DOOR_MIN_M - EPS) continue;
-            const stubRect: Rect = axis === 'z'
+            let stubRect: Rect = axis === 'z'
                 ? roundRect({ x0: lo, z0: t0, x1: hi, z1: t1 })
                 : roundRect({ x0: t0, z0: lo, x1: t1, z1: hi });
+
+            // §STAIR-STUB-IN-PERIMETER (founder out-of-boundary screenshot, 2026-06-18) — the
+            // bbox clamp above only keeps the stub inside the shell's bounding BOX. On a rotated /
+            // sheared / L-shaped / stepped footprint the bbox over-covers the real shell, so this
+            // strip can still poke PAST a slanted or re-entrant perimeter edge. Pull the strip back
+            // INSIDE the real polygon (convex shells: clamp the perimeter edge inward; concave/
+            // re-entrant: the verify below rejects an out-of-bounds strip outright). A stub that no
+            // longer reaches the keep-out after clamping is dropped here — better NO stub than an
+            // out-of-bounds one (the stair then serves through a room, the existing fallback). When
+            // no polygon was supplied (every non-house caller) this whole block is skipped → the
+            // function is byte-identical (ADR-0061).
+            if (shellPolygon && shellPolygon.length >= 3) {
+                const clamped = clampRectToConvexShell(stubRect, shellPolygon);
+                if (!clamped) continue;                        // clamped away entirely → no stub here
+                stubRect = clamped;
+                if (stubRect.x1 - stubRect.x0 < EPS || stubRect.z1 - stubRect.z0 < EPS) continue;
+                if (!rectInsidePolygon(stubRect, shellPolygon)) continue;   // still out of bounds → reject
+            }
 
             // §STUB-EMPTY-ONLY — the stub may run ONLY through space NOT occupied by a habitable
             // room (the carved keep-out clearance slivers + genuinely-empty bands beside the

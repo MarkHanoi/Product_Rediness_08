@@ -1204,6 +1204,11 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
                             const stubRect = findCorridorStubToKeepOut(
                                 placements, circId, [sp.rect], typeByRoomId,
                                 input.corridorWidthM ?? 1.2, shellBBWorld, stubMaxGapM,
+                                // §STAIR-STUB-IN-PERIMETER (founder out-of-boundary screenshot,
+                                // 2026-06-18) — clip the stub to the REAL shell polygon, not just
+                                // its bbox, so a rotated / sheared / L-shaped / stepped footprint
+                                // never emits a "Stair Corridor" strip poking outside the perimeter.
+                                input.shellPolygon,
                             );
                             if (!stubRect) return;
                             const stubId = `corridorStub_${sp.roomId}_${k}`;
