@@ -284,43 +284,29 @@ export function buildPerStoreyTabsHtml(
 
 export function buildHouseProgramEditFormHtml(state: HouseProgramFormState): string {
     const storeys = Math.max(1, Math.min(3, Math.round(state.storeyCount)));
-    // §MODAL-FILL (2026-06-10) — the bedroom range tops out at 8 (the engine's
-    // MAX_BEDROOMS_HOUSE_STOREY) so the seeded plate-filling count is representable
-    // and the user can dial a generous whole-house programme up to what the plate
-    // actually holds (was capped at 5, which silently truncated a large plate's
-    // resolved count).
-    const bedrooms = Math.max(0, Math.min(8, Math.round(state.program.bedrooms)));
-    const bathrooms = Math.max(1, Math.min(4, Math.round(state.program.bathrooms)));
-    const chk = (b: boolean): string => b ? ' checked' : '';
-    const includeKitchen = state.program.includeKitchen !== false;
     return (
         '<form class="alm-program hlm-program" autocomplete="off" data-role="program">' +
+        // §REMOVE-GLOBAL-PROGRAM (founder 2026-06-18, "the preview tool panel — we don't
+        // need the top part since we have it in the per-floor interface") — the GLOBAL
+        // whole-house Bedrooms/Bathrooms NUMBER inputs and the four GLOBAL room booleans
+        // (Living room / Kitchen / Open-plan kitchen+dining / Master en-suite) were REMOVED:
+        // they are fully duplicated PER STOREY inside the per-level tabs below, which are now
+        // the single source of truth. Only the FLOORS input survives at the top (it drives the
+        // tab count). The whole-house `ApartmentProgram` (bedrooms/bathrooms/booleans) is now
+        // DERIVED from the per-level tab overrides by `parseHouseProgramFormState`: counts =
+        // SUM of the explicit per-level counts (an auto level contributes nothing to the seed —
+        // the engine's `enrichStoreyProgramToPlate` fills it to the plate); each boolean = ON
+        // when ANY level sets it on; and an all-auto form falls back to the same sensible
+        // whole-house default the engine used before this change (so a user who never opens a
+        // tab gets the byte-identical house). A 1-STOREY house renders no tabs, so it always
+        // uses that implicit fallback (1 bed / 1 bath / living + kitchen on).
         '<div class="alm-program-row">' +
         `<label class="alm-program-num"><span>Floors</span>` +
         `<input type="number" name="storeys" min="1" max="3" step="1" value="${storeys}"></label>` +
-        `<label class="alm-program-num"><span>Bedrooms</span>` +
-        `<input type="number" name="bedrooms" min="0" max="8" step="1" value="${bedrooms}"></label>` +
-        `<label class="alm-program-num"><span>Bathrooms</span>` +
-        `<input type="number" name="bathrooms" min="1" max="4" step="1" value="${bathrooms}"></label>` +
         '</div>' +
-        '<div class="alm-program-row alm-program-checks">' +
-        `<label class="alm-program-chk"><input type="checkbox" name="livingRoom"${chk(state.program.livingRoom)}> Living room</label>` +
-        `<label class="alm-program-chk"><input type="checkbox" name="includeKitchen"${chk(includeKitchen)}> Kitchen</label>` +
-        `<label class="alm-program-chk"><input type="checkbox" name="openPlanKitchenDining"${chk(state.program.openPlanKitchenDining)}> Open-plan kitchen + dining</label>` +
-        `<label class="alm-program-chk"><input type="checkbox" name="masterEnSuite"${chk(state.program.masterEnSuite)}> Master en-suite</label>` +
-        '</div>' +
-        // §REMOVE-GLOBAL-SIZE (founder 2026-06-18, "I love the new slider per floor plan —
-        // remove the old one") — the GLOBAL whole-house per-room SIZE sliders
-        // (`areaInputsHtml`) were removed: they are now duplicated PER STOREY inside the
-        // per-level tabs below, and the duplicate confused the user. The whole-house
-        // Bedrooms/Bathrooms NUMBER inputs are KEPT (above) as the whole-house TOTAL seed —
-        // they (a) drive the auto-split the per-level tabs default to (a user who never
-        // opens a tab still gets a sensible whole-house program), (b) are the ONLY count
-        // control on a 1-storey house (which renders no tabs), and (c) feed the §MODAL-FILL
-        // plate-fill seed. Per-room SIZE is now exclusively a per-level control.
         // §PER-STOREY-PROGRAM — the tabbed per-level block (one tab per storey). Only
-        // rendered for multi-storey houses; each control defaults to "auto" so an
-        // untouched form is byte-identical to the whole-house controls above.
+        // rendered for multi-storey houses; each control defaults to "auto". The per-level
+        // tabs are now the ONLY place bed/bath counts + the room booleans are set.
         buildPerStoreyTabsHtml(storeys, state.perStoreyPrograms ?? []) +
         '<div class="alm-program-row alm-program-sliders">' +
         weightSlidersHtml(state.weights) +

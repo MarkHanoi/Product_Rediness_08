@@ -72,10 +72,6 @@ export function parseHouseProgramFormState(fields: readonly HouseFormField[]): H
         const v = Number(f.value);
         return Number.isFinite(v) ? v : def;
     };
-    const boolByName = (name: string, def = false): boolean => {
-        const f = byName.get(name);
-        return f ? !!f.checked : def;
-    };
     const weightByName = (key: keyof ScoringWeights, def: number): number => {
         const f = byName.get(`weight_${key}`);
         if (!f) return def;
@@ -83,36 +79,7 @@ export function parseHouseProgramFormState(fields: readonly HouseFormField[]): H
         if (!Number.isFinite(v)) return def;
         return Math.max(0, Math.min(1, v / 100));
     };
-    // §MODAL-PROGRAM-EDIT — collect every GLOBAL `area_t_<RoomType>` control that carries a
-    // positive number into a `roomAreas` per-type override map (this is the size-slider
-    // value → engine target hook). Blank/zero/non-finite ⇒ omitted (engine default).
-    // §REMOVE-GLOBAL-SIZE (founder 2026-06-18) — the GLOBAL per-room size sliders were
-    // removed from the form (now per-storey only). This loop therefore finds none and
-    // yields an empty `roomAreas` (the whole-house program reverts to auto sizing — exactly
-    // the intent). The per-storey `s{i}.area_t_*` controls are namespaced with the `s{i}.`
-    // prefix, so they are NOT caught here (they go to `parsePerStoreyOverrides`).
-    const roomAreas: Record<string, number> = {};
-    for (const f of fields) {
-        const name = f?.name || '';
-        if (!name.startsWith('area_t_')) continue;
-        const v = Number(f.value);
-        if (Number.isFinite(v) && v > 0) roomAreas[name.slice('area_t_'.length)] = v;
-    }
 
-    const program: ApartmentProgram = {
-        bedrooms: Math.max(0, Math.min(8, Math.round(numByName('bedrooms', 1)))),
-        bathrooms: Math.max(1, Math.min(4, Math.round(numByName('bathrooms', 1)))),
-        masterEnSuite: boolByName('masterEnSuite'),
-        openPlanKitchenDining: boolByName('openPlanKitchenDining'),
-        livingRoom: boolByName('livingRoom'),
-        // §MODAL-PROGRAM-EDIT — Kitchen toggle (defaults on; the engine treats
-        // absent/true as "include a kitchen", false as "no kitchen").
-        includeKitchen: boolByName('includeKitchen', true),
-        entranceHall: false,
-        ...(Object.keys(roomAreas).length > 0
-            ? { roomAreas: roomAreas as ApartmentProgram['roomAreas'] }
-            : {}),
-    };
     const weights: ScoringWeights = {
         naturalLight: weightByName('naturalLight', 0.5),
         privacy: weightByName('privacy', 0.5),
@@ -126,11 +93,87 @@ export function parseHouseProgramFormState(fields: readonly HouseFormField[]): H
     // untouched form yields an all-undefined array, which the engine treats as "no
     // overrides" → byte-identical baseline). Pure — Node-testable.
     const perStoreyPrograms = parsePerStoreyOverrides(fields, storeyCount);
+    // §REMOVE-GLOBAL-PROGRAM (founder 2026-06-18) — the whole-house `ApartmentProgram` is
+    // now DERIVED from the per-level tabs (the global Bedrooms/Bathrooms inputs + the four
+    // global room booleans were removed). See `deriveWholeHouseProgram` for the exact rule.
+    const program = deriveWholeHouseProgram(perStoreyPrograms, storeyCount);
     return {
         storeyCount,
         program,
         weights,
         ...(perStoreyPrograms.some(o => o !== undefined) ? { perStoreyPrograms } : {}),
+    };
+}
+
+/**
+ * §REMOVE-GLOBAL-PROGRAM (founder 2026-06-18, "the preview tool panel — we don't need
+ * the top part since we have it in the per-floor interface") — derive the whole-house
+ * `ApartmentProgram` from the per-level tab overrides, now that the GLOBAL Bedrooms /
+ * Bathrooms inputs and the four global room booleans have been removed from the form.
+ * The per-level tabs are the SINGLE SOURCE OF TRUTH; this collapses them into the
+ * whole-house seed the engine's auto-split (`allocateProgramToStoreys`) consumes.
+ *
+ * Derivation rule:
+ *   • bedrooms / bathrooms = the SUM of the EXPLICIT per-level counts. A level left on
+ *     "auto" (no explicit count) contributes 0 to the SEED — the engine's
+ *     `enrichStoreyProgramToPlate` fills that storey to its plate independently, so the
+ *     seed only needs to carry the user's EXPLICIT intent. When NO level sets a count at
+ *     all, fall back to a sensible whole-house default scaled by storey count (so a user
+ *     who never opens a tab still gets the byte-identical auto house the engine built
+ *     before this change).
+ *   • each boolean (livingRoom / includeKitchen / openPlanKitchenDining / masterEnSuite)
+ *     = ON when ANY level sets it ON. When NO level sets a given boolean either way, use
+ *     the engine's prior whole-house DEFAULT for that flag (living + kitchen + en-suite +
+ *     open-plan KD all ON — matching the old `DEFAULT_PROGRAM` seed) so the no-tab house
+ *     is unchanged.
+ *
+ * 1-STOREY fallback: a single-storey house renders NO tabs (`buildPerStoreyTabsHtml`
+ * returns ''), so `perStoreyPrograms` is all-undefined and this returns the implicit
+ * ground-level default (1 bed / 1 bath / living + kitchen on). Pure — Node-testable.
+ */
+export function deriveWholeHouseProgram(
+    perStoreyPrograms: ReadonlyArray<PerStoreyProgramOverride | undefined>,
+    storeyCount: number,
+): ApartmentProgram {
+    const n = Math.max(1, Math.min(3, Math.round(storeyCount)));
+    const set = perStoreyPrograms.slice(0, n).filter((o): o is PerStoreyProgramOverride => o != null);
+
+    // ── Counts: SUM the explicit per-level counts. A level on "auto" adds nothing. ──
+    let bedSum = 0, bathSum = 0;
+    let anyBed = false, anyBath = false;
+    for (const o of set) {
+        if (typeof o.bedrooms === 'number' && Number.isFinite(o.bedrooms)) { bedSum += Math.max(0, Math.round(o.bedrooms)); anyBed = true; }
+        if (typeof o.bathrooms === 'number' && Number.isFinite(o.bathrooms)) { bathSum += Math.max(0, Math.round(o.bathrooms)); anyBath = true; }
+    }
+    // No-tab / all-auto fallback — the same sensible whole-house default the engine used
+    // before the global inputs were removed: ground bed/bath + ~2 bed & 1 bath per upper
+    // storey, so the auto-split produces a real multi-bed house on a multi-storey plate.
+    const defaultBeds = n <= 1 ? 1 : 1 + 2 * (n - 1);
+    const defaultBaths = n <= 1 ? 1 : 1 + (n - 1);
+    const bedrooms = Math.max(0, Math.min(8, anyBed ? bedSum : defaultBeds));
+    const bathrooms = Math.max(1, Math.min(4, anyBath ? Math.max(1, bathSum) : defaultBaths));
+
+    // ── Booleans: ON when ANY level sets it on; else the engine's prior default. ──
+    const anyOn = (key: 'livingRoom' | 'includeKitchen' | 'openPlanKitchenDining' | 'masterEnSuite'): boolean =>
+        set.some(o => o[key] === true);
+    const noneSet = (key: 'livingRoom' | 'includeKitchen' | 'openPlanKitchenDining' | 'masterEnSuite'): boolean =>
+        set.every(o => o[key] === undefined);
+    // Default ON for every flag (matches the removed `DEFAULT_PROGRAM` seed: living +
+    // kitchen + open-plan KD + master en-suite) so the untouched house is unchanged.
+    const flag = (key: 'livingRoom' | 'includeKitchen' | 'openPlanKitchenDining' | 'masterEnSuite'): boolean =>
+        noneSet(key) ? true : anyOn(key);
+
+    return {
+        bedrooms,
+        bathrooms,
+        masterEnSuite: flag('masterEnSuite'),
+        openPlanKitchenDining: flag('openPlanKitchenDining'),
+        livingRoom: flag('livingRoom'),
+        // Kitchen: ON unless every level explicitly turns it off (the engine treats
+        // absent/true as "include a kitchen").
+        includeKitchen: flag('includeKitchen'),
+        // The ground hall is forced on by the engine (§HALL-SINGLETON) — seed false.
+        entranceHall: false,
     };
 }
 

@@ -219,70 +219,79 @@ describe('§54 — living-graph node inspector (INFORMATION · DEPENDENCIES · A
 });
 
 // §MODAL-SIZE-OVERRIDE-THREADED (2026-06-11, founder house-modal size bug) — proves
-// the per-RoomType size SLIDER (`area_t_<type>`) is parsed into
-// `program.roomAreas[<type>]`, which the controller passes straight to the engine
-// (HouseLayoutController._computeVariants → generateHouseLayoutOptions, whose bubble
-// graph reads `roomAreas[r.type]` as the room target). This is the exact thread the
-// "kitchen size doesn't adapt" bug lives on. The parse is exercised through the PURE
-// `parseHouseProgramFormState` (DOM-free) over the fields the form HTML emits, so the
-// slider-name ↔ reader contract can't silently drift. The ENGINE half (does a bigger
-// `roomAreas[kitchen]` build a bigger kitchen, modulo the §AREA-FRACTIONS clamp) is
-// covered by the ai-host suite (packages/ai-host/__tests__/houseLayout.test.ts) and is
-// not re-run here (importing the engine barrel needs a DOM env this `node` suite lacks).
-describe('§MODAL-SIZE-OVERRIDE-THREADED — area_t_<type> slider → program.roomAreas[<type>]', () => {
-    // The form-emitted control set: the area sliders the HTML builder renders, plus the
-    // count fields. Mirrors what `form.elements` yields (name + string value + checked).
+// the per-RoomType size SLIDER is parsed into the engine's per-room target. After
+// §REMOVE-GLOBAL-PROGRAM (founder 2026-06-18) the per-room size slider lives ONLY
+// inside the per-level tabs (`s{i}.area_t_<type>`) and lands on
+// `perStoreyPrograms[i].roomAreas[<type>]` (threaded to `HouseLayoutOptions.perStoreyOverrides`,
+// merged over the storey program; the bubble graph reads it as the room target). The parse
+// is exercised through the PURE `parseHouseProgramFormState` (DOM-free) over the namespaced
+// fields the tab HTML emits, so the slider-name ↔ reader contract can't silently drift. The
+// ENGINE half is covered by the ai-host suite and not re-run here.
+describe('§MODAL-SIZE-OVERRIDE-THREADED — s{i}.area_t_<type> slider → perStoreyPrograms[i].roomAreas[<type>]', () => {
+    // The form-emitted control set: a 2-storey form's per-level size sliders. Mirrors what
+    // `form.elements` yields (name + string value + checked). NO global bedrooms/bathrooms
+    // or boolean controls — they were removed (§REMOVE-GLOBAL-PROGRAM).
     const fields = [
         { name: 'storeys', value: '2' },
-        { name: 'bedrooms', value: '3' },
-        { name: 'bathrooms', value: '2' },
-        { name: 'livingRoom', value: 'on', checked: true },
-        { name: 'includeKitchen', value: 'on', checked: true },
-        { name: 'area_t_kitchen', value: '24' },   // the user dragged the Kitchen slider
-        { name: 'area_t_living', value: '0' },      // untouched → auto
-        { name: 'area_t_bedroom', value: '0' },     // untouched → auto
+        { name: 's0.bedrooms', value: '1' },        // ground: 1 bed
+        { name: 's0.bathrooms', value: '1' },       // ground: 1 bath
+        { name: 's1.bedrooms', value: '2' },        // first: 2 beds
+        { name: 's1.bathrooms', value: '1' },       // first: 1 bath
+        { name: 's0.area_t_kitchen', value: '24' }, // the user dragged the ground Kitchen slider
+        { name: 's0.area_t_living', value: '0' },   // untouched → auto
+        { name: 's1.area_t_bedroom', value: '0' },  // untouched → auto
         { name: 'weight_naturalLight', value: '50' },
     ];
 
-    it('a positive Kitchen slider value lands on program.roomAreas.kitchen', () => {
+    it('a positive per-storey Kitchen slider lands on perStoreyPrograms[0].roomAreas.kitchen', () => {
         const state = parseHouseProgramFormState(fields);
-        // The override the engine reads as the kitchen target — the bug = this is dropped.
-        expect(state.program.roomAreas).toBeTruthy();
-        expect(state.program.roomAreas!.kitchen).toBe(24);
+        expect(state.perStoreyPrograms).toBeTruthy();
+        expect(state.perStoreyPrograms![0]!.roomAreas).toBeTruthy();
+        expect(state.perStoreyPrograms![0]!.roomAreas!.kitchen).toBe(24);
         // Untouched (value 0) sliders are OMITTED → that type stays "auto".
-        expect(state.program.roomAreas!.living).toBeUndefined();
-        expect(state.program.roomAreas!.bedroom).toBeUndefined();
-        // Counts + storeys are threaded too.
+        expect(state.perStoreyPrograms![0]!.roomAreas!.living).toBeUndefined();
+        // §REMOVE-GLOBAL-PROGRAM — the whole-house program is DERIVED from the per-level
+        // tabs: bedrooms = SUM of explicit per-level counts (1 + 2), bathrooms = 1 + 1.
         expect(state.storeyCount).toBe(2);
         expect(state.program.bedrooms).toBe(3);
         expect(state.program.bathrooms).toBe(2);
     });
 
-    it('all-zero area sliders ⇒ no roomAreas field (byte-identical baseline)', () => {
-        const zeroed = fields.map(f => (f.name.startsWith('area_t_') ? { ...f, value: '0' } : f));
+    it('all-auto per-storey area sliders ⇒ no roomAreas field on that storey (byte-identical baseline)', () => {
+        const zeroed = fields.map(f => (f.name.includes('.area_t_') ? { ...f, value: '0' } : f));
         const state = parseHouseProgramFormState(zeroed);
-        expect(state.program.roomAreas).toBeUndefined();
+        for (const ov of state.perStoreyPrograms ?? []) {
+            expect(ov?.roomAreas).toBeUndefined();
+        }
     });
 
-    it('§REMOVE-GLOBAL-SIZE: the form HTML NO LONGER emits a GLOBAL area_t_<type> size slider', () => {
-        // The global whole-house per-room size sliders were removed (founder 2026-06-18 —
-        // "I love the new slider per floor plan, remove the old one"); per-room size is now
-        // exclusively a PER-STOREY control. A 1-storey form (no tabs) therefore carries no
-        // size slider at all — only the count/boolean/weight controls remain.
+    it('§REMOVE-GLOBAL-PROGRAM: the form HTML NO LONGER emits global bedrooms/bathrooms or room booleans', () => {
+        // The global whole-house Bedrooms/Bathrooms number inputs + the four global room
+        // booleans were removed (founder 2026-06-18 — "we don't need the top part since we
+        // have it in the per-floor interface"). Only the FLOORS input survives at the top.
         const html = buildHouseProgramEditFormHtml({
-            storeyCount: 1,
+            storeyCount: 2,
             program: {
-                bedrooms: 1, bathrooms: 1, masterEnSuite: false,
+                bedrooms: 3, bathrooms: 2, masterEnSuite: false,
                 openPlanKitchenDining: false, livingRoom: true, includeKitchen: true, entranceHall: false,
-                roomAreas: { kitchen: 18 },
             } as ApartmentProgram,
             weights: { naturalLight: 0.5, privacy: 0.5, kitchenWorkflow: 0.5, corridorEfficiency: 0.5 },
         });
-        // No GLOBAL `area_t_*` slider (top-level name, never namespaced).
+        // No GLOBAL count inputs (top-level names, never namespaced).
+        expect(html).not.toContain('name="bedrooms"');
+        expect(html).not.toContain('name="bathrooms"');
+        // No GLOBAL room booleans.
+        expect(html).not.toContain('name="livingRoom"');
+        expect(html).not.toContain('name="includeKitchen"');
+        expect(html).not.toContain('name="openPlanKitchenDining"');
+        expect(html).not.toContain('name="masterEnSuite"');
+        // No GLOBAL `area_t_*` slider either (removed earlier).
         expect(html).not.toContain('name="area_t_kitchen"');
-        // The whole-house COUNT seed inputs ARE kept (they drive the per-level auto-split).
-        expect(html).toContain('name="bedrooms"');
-        expect(html).toContain('name="bathrooms"');
+        // The FLOORS input is kept (it drives the tab count).
+        expect(html).toContain('name="storeys"');
+        // Per-level bed/bath controls ARE present (the new single source of truth).
+        expect(html).toContain('name="s0.bedrooms"');
+        expect(html).toContain('name="s1.bathrooms"');
     });
 
     it('§PER-STOREY-SIZE: a multi-storey form emits per-storey s{i}.area_t_<type> size sliders + ↔ Corridor toggles', () => {
@@ -297,9 +306,64 @@ describe('§MODAL-SIZE-OVERRIDE-THREADED — area_t_<type> slider → program.ro
         // Per-storey size sliders live inside the tabs (namespaced).
         expect(html).toContain('name="s0.area_t_kitchen"');
         expect(html).toContain('name="s1.area_t_bedroom"');
+        // Per-storey bed/bath + booleans (the per-floor single source of truth).
+        expect(html).toContain('name="s0.bedrooms"');
+        expect(html).toContain('name="s0.livingRoom"');
         // §FORCE-CORRIDOR-DIRECT — per-storey "↔ Corridor" toggles are present.
         expect(html).toContain('name="s0.corridor_bedroom"');
         expect(html).toContain('name="s1.corridor_bathroom"');
+    });
+});
+
+// §REMOVE-GLOBAL-PROGRAM (founder 2026-06-18) — the whole-house ApartmentProgram is now
+// DERIVED from the per-level tabs. Counts = SUM of explicit per-level counts (auto level
+// adds nothing — the engine fills it to the plate); each boolean = ON when ANY level sets
+// it on; an all-auto / 1-storey form falls back to the engine's prior whole-house default.
+describe('§REMOVE-GLOBAL-PROGRAM — whole-house program derived from per-level tabs', () => {
+    it('1-storey (no tabs) falls back to the implicit ground default (1 bed / 1 bath / living + kitchen on)', () => {
+        const state = parseHouseProgramFormState([{ name: 'storeys', value: '1' }]);
+        expect(state.program.bedrooms).toBe(1);
+        expect(state.program.bathrooms).toBe(1);
+        expect(state.program.livingRoom).toBe(true);
+        expect(state.program.includeKitchen).toBe(true);
+        // No per-storey override on a tab-less 1-storey form.
+        expect(state.perStoreyPrograms).toBeUndefined();
+    });
+
+    it('all-auto multi-storey form falls back to the scaled whole-house default (no regression for a user who never opens a tab)', () => {
+        // 3 storeys, NOTHING overridden → the engine's prior default seed: 1 + 2×(n−1) beds.
+        const state = parseHouseProgramFormState([{ name: 'storeys', value: '3' }]);
+        expect(state.program.bedrooms).toBe(5);   // 1 + 2*2
+        expect(state.program.bathrooms).toBe(3);  // clamp(1 + (3−1)) = 3
+        // All booleans default ON (matches the removed DEFAULT_PROGRAM seed).
+        expect(state.program.livingRoom).toBe(true);
+        expect(state.program.includeKitchen).toBe(true);
+        expect(state.program.masterEnSuite).toBe(true);
+        expect(state.program.openPlanKitchenDining).toBe(true);
+    });
+
+    it('explicit per-level counts SUM into the whole-house total; auto level adds 0', () => {
+        const state = parseHouseProgramFormState([
+            { name: 'storeys', value: '3' },
+            { name: 's0.bedrooms', value: '1' }, // ground explicit
+            { name: 's1.bedrooms', value: '2' }, // first explicit
+            // s2 (second) left on auto → contributes 0 to the seed
+            { name: 's0.bathrooms', value: '1' },
+        ]);
+        expect(state.program.bedrooms).toBe(3);  // 1 + 2 + 0(auto)
+        expect(state.program.bathrooms).toBe(1); // 1 + auto + auto
+    });
+
+    it('a boolean turned ON on ANY level makes the whole-house flag ON; OFF on all turns it off', () => {
+        const onState = parseHouseProgramFormState([
+            { name: 'storeys', value: '2' },
+            { name: 's1.masterEnSuite', value: 'on' },  // first floor forces en-suite on
+            { name: 's0.livingRoom', value: 'off' },    // ground forces living off
+            { name: 's1.livingRoom', value: 'off' },    // first forces living off
+        ]);
+        expect(onState.program.masterEnSuite).toBe(true);
+        // Living is explicitly OFF on every level that set it → whole-house off.
+        expect(onState.program.livingRoom).toBe(false);
     });
 });
 
@@ -311,8 +375,6 @@ describe('§MODAL-SIZE-OVERRIDE-THREADED — area_t_<type> slider → program.ro
 describe('§FORCE-CORRIDOR-DIRECT — s{i}.corridor_<type> toggle → perStoreyPrograms[i].corridorDirectRoomTypes', () => {
     const base = [
         { name: 'storeys', value: '2' },
-        { name: 'bedrooms', value: '3' },
-        { name: 'bathrooms', value: '2' },
         { name: 's0.corridor_living', value: 'on', checked: true },   // ground: living on the spine
         { name: 's1.corridor_bedroom', value: 'on', checked: true },  // first: bedroom on the spine
         { name: 's1.corridor_bathroom', value: 'on', checked: false },// unchecked → NOT listed
