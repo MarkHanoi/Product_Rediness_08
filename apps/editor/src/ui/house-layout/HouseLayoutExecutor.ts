@@ -62,6 +62,7 @@ import {
     type ScoredLayoutOption,
     type ApartmentProgram,
     type ApartmentConstraints,
+    type PerStoreyProgramOverride,
     type ScoringWeights,
     type IdPrefix,
     type LayoutExecuteOptions,
@@ -316,6 +317,12 @@ export interface HouseExecuteInput {
     readonly variantIndex?: number;
     /** A.21.k — number of variants the modal offered (see `variantIndex`). */
     readonly variantCount?: number;
+    /** §PER-STOREY-PROGRAM (founder 2026-06-18) — the per-level tab overrides the modal
+     *  used for the preview. The executor MUST pass the SAME overrides into
+     *  `generateHouseLayoutOptions` so the re-enumerated variant at `variantIndex` is the
+     *  exact house the user previewed. Absent / all-undefined ⇒ the whole-house auto split
+     *  (byte-identical baseline). */
+    readonly perStoreyPrograms?: ReadonlyArray<PerStoreyProgramOverride | undefined>;
 }
 
 export class HouseLayoutExecutor {
@@ -429,6 +436,9 @@ export class HouseLayoutExecutor {
                 levelIdForStorey: (i: number) => levelIds[i] ?? `storey-${i}`,
                 roofKind,
                 ...(typeof siteLatitudeDeg === 'number' ? { solar: { latDeg: siteLatitudeDeg } } : {}),
+                // §PER-STOREY-PROGRAM — the SAME per-level overrides the preview used, so
+                // the re-enumerated variant at `variantIndex` is the previewed house.
+                ...(input.perStoreyPrograms ? { perStoreyOverrides: input.perStoreyPrograms } : {}),
             };
             let result: HouseLayoutResult;
             if (typeof input.variantIndex === 'number' && input.variantIndex >= 0) {

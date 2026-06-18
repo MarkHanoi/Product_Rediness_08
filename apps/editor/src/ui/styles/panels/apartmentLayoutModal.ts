@@ -308,6 +308,32 @@ export const APARTMENT_LAYOUT_MODAL_STYLES = `
 .alm-view-btn:hover { background: #f1f5f9; color: #334155; }
 .alm-view-btn[aria-pressed="true"] { background: #6600FF; color: #ffffff; }
 
+/* §PER-STOREY-PROGRAM (founder 2026-06-18) — the tabbed per-level program block in the
+ * tools rail: a tab strip (one tab per storey, reusing .alm-view-toggle) + one tab body
+ * each. Brand white + #6600FF, no pure black. Each control defaults to "auto". */
+.hlm-storey-tabs {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 8px; margin: 2px 0;
+  border: 1px solid #e9deff; border-radius: 10px; background: #faf7ff;
+}
+.hlm-storey-tabs-label { font-size: 11px; font-weight: 700; color: #6600FF; }
+.hlm-storey-tabs-label small { font-weight: 500; color: #6b5a8a; }
+.hlm-storey-tabstrip { margin-bottom: 0; align-self: stretch; }
+.hlm-storey-tab-btn { flex: 1 1 0; text-align: center; }
+.hlm-storey-tab-btn--active { background: #6600FF; color: #ffffff; }
+.hlm-storey-tab { display: flex; flex-direction: column; gap: 8px; }
+.hlm-storey-tab[hidden] { display: none; }
+.hlm-storey-bools {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 10px;
+}
+.hlm-storey-ctl { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: #334155; }
+.hlm-storey-ctl span { font-weight: 600; }
+.hlm-storey-bool select {
+  font: inherit; font-size: 11px; padding: 2px 4px;
+  border: 1px solid #d8c9f5; border-radius: 6px; background: #ffffff; color: #334155; cursor: pointer;
+}
+.hlm-storey-bool select:focus-visible { outline: 2px solid #6600FF; outline-offset: -1px; border-color: #6600FF; }
+
 /* View swap: default = plan visible, graph hidden. .alm-card--graph inverts. The
  * revealed view keeps .alm-thumb's flex centering so the SVG stays centred. */
 .alm-view--graph { display: none; }

@@ -17,7 +17,7 @@
 // `generateHouseLayoutOptions(...)` and refreshes the cards IN PLACE (the modal
 // stays open). `setBusy(true)` shows a "Regenerating…" hint during the call.
 
-import type { ScoredHouseLayoutOption, ApartmentProgram, ScoringWeights, ScoredLayoutOption, LayoutRoom } from '@pryzm/ai-host';
+import type { ScoredHouseLayoutOption, ApartmentProgram, PerStoreyProgramOverride, ScoringWeights, ScoredLayoutOption, LayoutRoom } from '@pryzm/ai-host';
 import { buildHouseCardModel, type HouseCardModel } from './houseCardModel.js';
 import type { PerimeterSpan } from '../apartment-layout/layoutThumbnail.js';
 import {
@@ -25,6 +25,7 @@ import {
     buildHousePanesHtml,
     buildHouseResultHtml,
     buildNodeInspectorHtml,
+    buildPerStoreyTabsHtml,
     collectStoreyOptions,
     type HouseProgramFormState,
 } from './houseModalHtml.js';
@@ -113,11 +114,74 @@ export function parseHouseProgramFormState(fields: readonly HouseFormField[]): H
         kitchenWorkflow: weightByName('kitchenWorkflow', 0.5),
         corridorEfficiency: weightByName('corridorEfficiency', 0.5),
     };
+    const storeyCount = Math.max(1, Math.min(3, Math.round(numByName('storeys', 1))));
+    // §PER-STOREY-PROGRAM — collect the namespaced `s{i}.*` per-level tab fields into a
+    // sparse `PerStoreyProgramOverride[]`. A blank number / "Auto" select / 0 slider ⇒
+    // NO override for that field; a storey with NO set field gets `undefined` (so an
+    // untouched form yields an all-undefined array, which the engine treats as "no
+    // overrides" → byte-identical baseline). Pure — Node-testable.
+    const perStoreyPrograms = parsePerStoreyOverrides(fields, storeyCount);
     return {
-        storeyCount: Math.max(1, Math.min(3, Math.round(numByName('storeys', 1)))),
+        storeyCount,
         program,
         weights,
+        ...(perStoreyPrograms.some(o => o !== undefined) ? { perStoreyPrograms } : {}),
     };
+}
+
+/**
+ * §PER-STOREY-PROGRAM — PURE parser for the namespaced per-level tab controls
+ * (`s{i}.bedrooms` / `s{i}.bathrooms` / `s{i}.<bool>` tri-state / `s{i}.area_t_<type>`)
+ * into a sparse `PerStoreyProgramOverride[]` indexed by storeyIndex. The "auto" default
+ * is the absence of a value: a blank number input, a tri-state select left on "" (Auto),
+ * and a 0-value size slider all produce NO field on that storey's override. A storey
+ * whose override ends up empty is left `undefined`, so an untouched form yields an
+ * all-undefined array ⇒ the engine's whole-house auto split is used unchanged
+ * (byte-identical). Node-testable (no DOM).
+ */
+export function parsePerStoreyOverrides(
+    fields: readonly HouseFormField[],
+    storeyCount: number,
+): Array<PerStoreyProgramOverride | undefined> {
+    const n = Math.max(1, Math.min(3, Math.round(storeyCount)));
+    const byName = new Map<string, HouseFormField>();
+    for (const f of fields) if (f && f.name) byName.set(f.name, f);
+    const out: Array<PerStoreyProgramOverride | undefined> = [];
+    for (let i = 0; i < n; i++) {
+        const ov: { -readonly [K in keyof PerStoreyProgramOverride]: PerStoreyProgramOverride[K] } = {};
+        // Counts — a blank/non-finite value ⇒ no override (auto).
+        const numField = (key: 'bedrooms' | 'bathrooms', max: number): void => {
+            const f = byName.get(`s${i}.${key}`);
+            if (!f || f.value === '' || f.value == null) return;
+            const v = Number(f.value);
+            if (Number.isFinite(v)) ov[key] = Math.max(0, Math.min(max, Math.round(v)));
+        };
+        numField('bedrooms', 8);
+        numField('bathrooms', 4);
+        // Tri-state booleans — "" (Auto) ⇒ no override; "on"/"off" ⇒ explicit true/false.
+        const boolField = (key: 'livingRoom' | 'includeKitchen' | 'openPlanKitchenDining' | 'masterEnSuite'): void => {
+            const f = byName.get(`s${i}.${key}`);
+            const v = f?.value ?? '';
+            if (v === 'on') ov[key] = true;
+            else if (v === 'off') ov[key] = false;
+        };
+        boolField('livingRoom');
+        boolField('includeKitchen');
+        boolField('openPlanKitchenDining');
+        boolField('masterEnSuite');
+        // Per-room size sliders — `s{i}.area_t_<type>` > 0 ⇒ override; 0/blank ⇒ auto.
+        const roomAreas: Record<string, number> = {};
+        const prefix = `s${i}.area_t_`;
+        for (const f of fields) {
+            const name = f?.name || '';
+            if (!name.startsWith(prefix)) continue;
+            const v = Number(f.value);
+            if (Number.isFinite(v) && v > 0) roomAreas[name.slice(prefix.length)] = v;
+        }
+        if (Object.keys(roomAreas).length > 0) ov.roomAreas = roomAreas as PerStoreyProgramOverride['roomAreas'];
+        out.push(Object.keys(ov).length > 0 ? ov : undefined);
+    }
+    return out;
 }
 
 export interface HouseLayoutModalCallbacks {
@@ -367,6 +431,30 @@ export class HouseLayoutModal {
             // Backdrop click (outside the panel) → cancel.
             if (target === overlay) { this.dismiss(); cb.onCancel(); return; }
             if (target.closest('.alm-cancel')) { this.dismiss(); cb.onCancel(); return; }
+            // §PER-STOREY-PROGRAM — per-level tab switch. PURE UI (no regenerate):
+            // show the clicked storey's tab body, hide the others, move the active
+            // state. Handled BEFORE the Plan/Graph toggle (both use `.alm-view-btn`)
+            // and stopPropagation so it never falls through to "Use this layout".
+            const tabBtn = target.closest('[data-action="storey-tab"]') as HTMLElement | null;
+            if (tabBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                const idx = Number(tabBtn.getAttribute('data-storey-tab-index'));
+                const block = tabBtn.closest('[data-role="per-storey"]') as HTMLElement | null;
+                if (block && Number.isInteger(idx)) {
+                    block.querySelectorAll('[data-storey-tab-index]').forEach(b => {
+                        const on = Number(b.getAttribute('data-storey-tab-index')) === idx;
+                        b.classList.toggle('hlm-storey-tab-btn--active', on);
+                        b.setAttribute('aria-selected', on ? 'true' : 'false');
+                    });
+                    block.querySelectorAll('[data-storey-tab]').forEach(body => {
+                        const on = Number(body.getAttribute('data-storey-tab')) === idx;
+                        body.classList.toggle('hlm-storey-tab--active', on);
+                        if (on) body.removeAttribute('hidden'); else body.setAttribute('hidden', '');
+                    });
+                }
+                return;
+            }
             // §LIVE-MODAL.B — per-storey Plan/Graph toggle. Scoped to the storey
             // row + stopPropagation so it never falls through to "Use this layout".
             const viewBtn = target.closest('.alm-view-btn') as HTMLElement | null;
@@ -442,6 +530,11 @@ export class HouseLayoutModal {
                         const out = form.querySelector(`output[data-readout-for="${t.name}"]`);
                         if (out) out.textContent = Number(t.value) > 0 ? `${t.value} m²` : 'auto';
                     }
+                    // §PER-STOREY-PROGRAM — changing the Floors count adds/removes per-level
+                    // tabs. The form lives in the static tools rail (refresh() never rebuilds
+                    // it), so re-render the tab block here, preserving any overrides still in
+                    // range. Other edits leave the block alone (the tab inputs persist).
+                    if (t && t.name === 'storeys') this._syncPerStoreyTabs(form);
                     this._scheduleProgramChange(form);
                 };
                 form.addEventListener('input', handler);
@@ -1032,6 +1125,43 @@ export class HouseLayoutModal {
      *  weights. §MODAL-PROGRAM-EDIT — the `area_t_<type>` inputs are collected into
      *  `program.roomAreas` (the C52 per-RoomType size hook); a blank input clears
      *  that type's override. */
+    /** §PER-STOREY-PROGRAM — re-render the per-level tab block to match the current
+     *  Floors count, preserving the overrides still in range (read from the live form
+     *  before the rebuild). 1-storey ⇒ no tab block (the builder returns ''). Replaces
+     *  `[data-role="per-storey"]` in place; if the block was absent (was 1-storey) it
+     *  is inserted just before the design-sliders row. No regenerate (the caller's
+     *  debounced `_scheduleProgramChange` follows). */
+    private _syncPerStoreyTabs(form: HTMLFormElement): void {
+        const fields: HouseFormField[] = Array.from(form.elements).map(el => {
+            const input = el as HTMLInputElement;
+            return { name: input.name || '', value: input.value ?? '', checked: !!input.checked };
+        });
+        const storeyCount = Math.max(1, Math.min(3, Math.round(Number(
+            fields.find(f => f.name === 'storeys')?.value ?? 1) || 1)));
+        // Preserve the currently-entered overrides that are still in range.
+        const overrides = parsePerStoreyOverrides(fields, storeyCount);
+        const html = buildPerStoreyTabsHtml(storeyCount, overrides);
+        const existing = form.querySelector('[data-role="per-storey"]');
+        if (existing) {
+            if (html) {
+                const tmp = document.createElement('div');
+                tmp.innerHTML = html;
+                const next = tmp.firstElementChild;
+                if (next) existing.replaceWith(next);
+            } else {
+                existing.remove(); // dropped to a single storey — no per-level tabs
+            }
+            return;
+        }
+        if (!html) return;
+        // No block yet (was 1-storey) — insert before the design-sliders row.
+        const sliders = form.querySelector('.alm-program-sliders');
+        const tmp = document.createElement('div');
+        tmp.innerHTML = html;
+        const next = tmp.firstElementChild;
+        if (next && sliders) form.insertBefore(next, sliders);
+    }
+
     private _readFormState(form: HTMLFormElement): HouseProgramFormState {
         // Reduce the live form controls to the DOM-free `HouseFormField[]` contract,
         // then delegate to the PURE `parseHouseProgramFormState` (Node-testable). The

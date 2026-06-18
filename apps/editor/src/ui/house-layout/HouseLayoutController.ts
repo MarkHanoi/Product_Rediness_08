@@ -26,6 +26,7 @@ import {
     analyseShell,
     type ApartmentProgram,
     type ApartmentConstraints,
+    type PerStoreyProgramOverride,
     type ScoringWeights,
     type ShellAnalysis,
     type ShellWallInput,
@@ -136,6 +137,10 @@ export class HouseLayoutController {
         storeyCount: number;
         program: ApartmentProgram;
         weights: ScoringWeights;
+        // §PER-STOREY-PROGRAM — the per-level tab overrides, threaded into every live
+        // regenerate AND the build. Undefined / all-undefined ⇒ the whole-house auto
+        // split (byte-identical baseline).
+        perStoreyPrograms?: ReadonlyArray<PerStoreyProgramOverride | undefined>;
     } | null = null;
 
     /** §DIAG-PREVIEW (founder 2026-06-11: "the ground floor plan modifies but never the
@@ -274,6 +279,9 @@ export class HouseLayoutController {
         // synchronously (not via the async apartment trigger). EMPTY stashes ⇒
         // program unchanged ⇒ byte-identical baseline (C52 invariant I2).
         const mergedProgram = this._mergeOverrides(program);
+        // §PER-STOREY-PROGRAM — thread the cached per-level tab overrides into the engine.
+        // Absent / all-undefined ⇒ the engine skips the merge (byte-identical baseline).
+        const perStoreyOverrides = r.perStoreyPrograms;
         return generateHouseLayoutOptions(
             r.shell, mergedProgram, r.constraints, weights,
             {
@@ -282,6 +290,7 @@ export class HouseLayoutController {
                 baseElevationM: r.baseElevationM,
                 roofKind: r.roofKind,
                 ...(typeof r.siteLatitudeDeg === 'number' ? { solar: { latDeg: r.siteLatitudeDeg } } : {}),
+                ...(perStoreyOverrides ? { perStoreyOverrides } : {}),
             },
             HOUSE_OPTION_COUNT,
         );
@@ -445,6 +454,10 @@ export class HouseLayoutController {
             r.storeyCount = state.storeyCount;
             r.program = state.program;
             r.weights = state.weights;
+            // §PER-STOREY-PROGRAM — cache the per-level tab overrides so the preview AND
+            // a later `Use this layout` build the EDITED per-storey programme. Undefined
+            // when the form has no override (byte-identical baseline).
+            r.perStoreyPrograms = state.perStoreyPrograms;
             const variants = this._computeVariants(state.storeyCount, state.program, state.weights);
             console.log('[house-layout] controller: regenerated', variants.length, 'variant(s) for', state.storeyCount, 'storey(s) — refreshing modal with the single best');
             // §DIAG-PREVIEW — loud per-storey instrumentation of the REGENERATED best variant
@@ -568,6 +581,10 @@ export class HouseLayoutController {
                 roofKind: r.roofKind,
                 variantIndex: index,
                 variantCount: HOUSE_OPTION_COUNT,
+                // §PER-STOREY-PROGRAM — build the EDITED per-storey programme: the executor
+                // re-enumerates the SAME deterministic set with these overrides so the
+                // built house matches the previewed one.
+                ...(r.perStoreyPrograms ? { perStoreyPrograms: r.perStoreyPrograms } : {}),
             },
             // §LIVE-MODAL.D — build the EDITED variant: the executor re-enumerates
             // the SAME deterministic set with this program, so it must carry the

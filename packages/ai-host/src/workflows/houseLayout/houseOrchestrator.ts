@@ -27,7 +27,7 @@ import { allocateProgramToStoreys } from './storeyAllocation.js';
 import { enrichStoreyProgramToPlate } from './houseProgramFloor.js';
 import { roofBaseElevationM, roofBaseOffsetM } from './houseVertical.js';
 import type {
-    HouseLayoutResult, Pt, RoofDescriptor, RoofKind, ScoredHouseLayoutOption, SlabVoid, StairCore, StairFlightPlan, StoreyPlate,
+    HouseLayoutResult, PerStoreyProgramOverride, Pt, RoofDescriptor, RoofKind, ScoredHouseLayoutOption, SlabVoid, StairCore, StairFlightPlan, StoreyPlate,
 } from './types.js';
 
 const DEFAULT_FLOOR_TO_FLOOR_M = 3.0;
@@ -100,6 +100,11 @@ export interface HouseLayoutOptions {
      *  straight into the per-storey D-TGL call (no behaviour change when absent). */
     readonly solar?: { readonly latDeg: number; readonly weight?: number };
     readonly roofKind?: RoofKind;
+    /** §PER-STOREY-PROGRAM (founder 2026-06-18) — OPTIONAL per-storey program overrides,
+     *  indexed by `storeyIndex`, that the modal's per-level tabs emit. Threaded straight
+     *  into `allocateProgramToStoreys` (the one place storey programs are built). ABSENT
+     *  / all-undefined ⇒ the allocation is byte-identical to today (ADR-0061 I2). */
+    readonly perStoreyOverrides?: ReadonlyArray<PerStoreyProgramOverride | undefined>;
 }
 
 function clampStoreyCount(n: number): number {
@@ -553,8 +558,10 @@ function enumeratePerStorey(
         ? footprint
         : footprint.map(p => rotatePt(p, -principalAxisRad, pivot));
 
-    // (a) split the brief across storeys.
-    const storeyPrograms = allocateProgramToStoreys(program, storeyCount);
+    // (a) split the brief across storeys. §PER-STOREY-PROGRAM — thread the modal's
+    // per-level tab overrides (indexed by storeyIndex) so a per-storey bed/bath/room
+    // choice wins over the auto-split. Absent ⇒ byte-identical auto allocation.
+    const storeyPrograms = allocateProgramToStoreys(program, storeyCount, opts.perStoreyOverrides);
 
     // (b) reserve the shared stair core (mm) + choose its shape (I/L/U). Only
     // meaningful for ≥2 storeys. `totalRisers` (from the floor-to-floor gap) drives

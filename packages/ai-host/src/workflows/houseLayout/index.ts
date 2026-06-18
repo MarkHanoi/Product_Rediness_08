@@ -66,6 +66,7 @@ export type { DocSetInput, DocLevelInput, DocRoomInput, DocViewKind, DocViewSpec
 export type {
     HouseLayoutResult,
     ScoredHouseLayoutOption,
+    PerStoreyProgramOverride,
     StoreyProgram,
     StoreyPlate,
     StoreyRole,

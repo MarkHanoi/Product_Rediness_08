@@ -19,7 +19,7 @@
 //  - 1 storey → pass-through (the input program is the single plate).
 
 import type { ApartmentProgram } from '../apartmentLayout/types.js';
-import type { StoreyProgram, StoreyRole } from './types.js';
+import type { PerStoreyProgramOverride, StoreyProgram, StoreyRole } from './types.js';
 import {
     verticalStackAcousticScore, type StoreyAcousticProfile,
 } from '../apartmentLayout/tgl/envDrivers.js';
@@ -40,12 +40,31 @@ function clampStoreyCount(n: number): number {
  * bedroom downstairs when there are ≥2 bedrooms (a guest/accessible room); the
  * remaining bedrooms go upstairs. The master en-suite follows the master, which
  * is upstairs by default. Bathrooms: one WC stays on the ground; the rest go up.
+ *
+ * §PER-STOREY-PROGRAM (founder 2026-06-18) — the OPTIONAL `perStoreyOverrides`
+ * (indexed by `storeyIndex`) lets the modal's per-level tabs OVERRIDE the auto-split
+ * per storey. When an override exists for a storey, each PRESENT field WINS over the
+ * auto-allocated `StoreyProgram.program` (the user's explicit choice) while ABSENT
+ * fields keep the auto value. The whole list ABSENT / every entry undefined ⇒
+ * BYTE-IDENTICAL to today (the merge is skipped entirely) — the new path is gated on
+ * the PRESENCE of an explicit override (ADR-0061 invariant I2). The hall stays
+ * ground-only by construction: the override has NO `entranceHall` field and
+ * `assertHallSingleton` runs AFTER the merge, so no per-storey toggle can mint a
+ * second hall or strip the ground one (§HALL-SINGLETON / §LANDING-NOT-HALL). Kitchen
+ * et al. ARE overridable per storey (§A.21.x-KITCHEN: the ground-only default holds
+ * only while the field is absent).
  */
 export function allocateProgramToStoreys(
     program: ApartmentProgram,
     storeyCount: number,
+    perStoreyOverrides?: ReadonlyArray<PerStoreyProgramOverride | undefined>,
 ): StoreyProgram[] {
     const storeys = clampStoreyCount(storeyCount);
+    // §PER-STOREY-PROGRAM — only engage the override path when ≥1 entry actually carries
+    // a set field; otherwise this is the legacy single-arg call and every emitted program
+    // is byte-identical (the gate that protects the 2749 ai-host tests).
+    const hasOverrides = !!perStoreyOverrides
+        && perStoreyOverrides.some(o => o != null && Object.keys(o).length > 0);
 
     // §DIAG-ALLOC — log the BRIEF → per-storey program split (logging only; no
     // behaviour change). One line for the whole-house brief, one per emitted storey.
@@ -77,6 +96,7 @@ export function allocateProgramToStoreys(
         const out: StoreyProgram[] = [
             { storeyIndex: 0, role: 'ground', program: { ...program, entranceHall: true } },
         ];
+        if (hasOverrides) applyPerStoreyOverrides(out, perStoreyOverrides!);
         assertHallSingleton(out);
         out.forEach(logAllocStorey);
         return out;
@@ -172,9 +192,63 @@ export function allocateProgramToStoreys(
         });
     }
 
+    // §PER-STOREY-PROGRAM — MERGE the modal's per-level tab overrides over the
+    // auto-allocated stack BEFORE the hall-singleton correction. Each present field
+    // wins; absent fields keep the auto value. Skipped entirely when no override
+    // carries a set field (byte-identical baseline).
+    if (hasOverrides) applyPerStoreyOverrides(out, perStoreyOverrides!);
+
     assertHallSingleton(out);
     out.forEach(logAllocStorey);
     return out;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §PER-STOREY-PROGRAM (founder 2026-06-18) — MERGE the modal's per-level tab
+// overrides over the auto-allocated stack, IN PLACE (the emitted programs are
+// freshly-built `{...}` copies, never the caller's brief). For each storey index that
+// has an override entry, every PRESENT field overwrites the auto-allocated program
+// field; ABSENT fields are untouched. The override has NO `entranceHall` field, so the
+// §HALL-SINGLETON / §LANDING-NOT-HALL invariant is preserved by construction — the
+// downstream `assertHallSingleton` pass still force-corrects the hall to ground-only.
+// `includeKitchen` IS overridable (an upper storey can opt a kitchen in explicitly per
+// the founder's "decide what we want in each level"); when the field is ABSENT the
+// §A.21.x-KITCHEN ground-only default is unchanged. Pure; deterministic; no I/O beyond
+// the diagnostic line (matches the other override passes).
+// ─────────────────────────────────────────────────────────────────────────────
+function applyPerStoreyOverrides(
+    out: StoreyProgram[],
+    overrides: ReadonlyArray<PerStoreyProgramOverride | undefined>,
+): void {
+    for (let i = 0; i < out.length; i++) {
+        const ov = overrides[out[i]!.storeyIndex];
+        if (!ov || Object.keys(ov).length === 0) continue;
+        const base = out[i]!.program;
+        const merged: ApartmentProgram = { ...base };
+        // Counts — clamp to ≥0 integers (same normalisation the auto-split applies).
+        if (typeof ov.bedrooms === 'number' && Number.isFinite(ov.bedrooms)) {
+            merged.bedrooms = Math.max(0, Math.floor(ov.bedrooms));
+        }
+        if (typeof ov.bathrooms === 'number' && Number.isFinite(ov.bathrooms)) {
+            merged.bathrooms = Math.max(0, Math.floor(ov.bathrooms));
+        }
+        // Booleans — a present field wins (the user's explicit per-level choice).
+        if (typeof ov.livingRoom === 'boolean') merged.livingRoom = ov.livingRoom;
+        if (typeof ov.includeKitchen === 'boolean') merged.includeKitchen = ov.includeKitchen;
+        if (typeof ov.openPlanKitchenDining === 'boolean') merged.openPlanKitchenDining = ov.openPlanKitchenDining;
+        if (typeof ov.masterEnSuite === 'boolean') merged.masterEnSuite = ov.masterEnSuite;
+        // Per-RoomType areas — per-storey entries win over the whole-house roomAreas.
+        if (ov.roomAreas && Object.keys(ov.roomAreas).length > 0) {
+            merged.roomAreas = { ...(base.roomAreas ?? {}), ...ov.roomAreas };
+        }
+        out[i] = { ...out[i]!, program: merged };
+        console.log(
+            `[D-TGL] §PER-STOREY-PROGRAM storey[${out[i]!.storeyIndex}] override applied: ` +
+            `bed=${merged.bedrooms} bath=${merged.bathrooms} ` +
+            `kitchen=${merged.includeKitchen !== false} living=${merged.livingRoom === true} ` +
+            `openPlanKD=${merged.openPlanKitchenDining === true} ensuite=${merged.masterEnSuite === true}`,
+        );
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

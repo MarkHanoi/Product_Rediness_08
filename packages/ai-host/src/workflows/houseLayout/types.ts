@@ -10,10 +10,43 @@
 // metres for elevations (matching `ShellAnalysis` perimeter + level elevations).
 
 import type { Pt } from '../apartmentLayout/tgl/rectDecomposition.js';
-import type { ApartmentProgram, ScoredLayoutOption } from '../apartmentLayout/types.js';
+import type { ApartmentProgram, RoomType, ScoredLayoutOption } from '../apartmentLayout/types.js';
 import type { StairCorePositionKind } from './stairPosition.js';
 
 export type { Pt };
+
+/**
+ * §PER-STOREY-PROGRAM (founder 2026-06-18, "a slider per level of bathrooms and
+ * bedroom and all the rooms / with boolean — to decide what we want in each level —
+ * but dynamic") — a PARTIAL per-storey override that the modal's per-level tabs emit,
+ * indexed by `storeyIndex`. Each field is OPTIONAL; an ABSENT field ⇒ that storey keeps
+ * the whole-house AUTO split's value for it (the engine's current `allocateProgramToStoreys`
+ * behaviour). A PRESENT field WINS over the auto-allocated `StoreyProgram.program` for
+ * that storey. With NO override (or an all-undefined entry) the allocation is
+ * BYTE-IDENTICAL to today (ADR-0061 invariant I2) — the whole feature is gated on the
+ * PRESENCE of an explicit override entry.
+ *
+ * INVARIANT INTERACTION (documented at the merge site in `storeyAllocation.ts`):
+ *  - §HALL-SINGLETON / §LANDING-NOT-HALL — the override does NOT expose `entranceHall`;
+ *    the hall stays GROUND-only, force-corrected by `assertHallSingleton` AFTER the merge,
+ *    so no per-storey toggle can mint a second hall or strip the ground one.
+ *  - §A.21.x-KITCHEN — `includeKitchen` is overridable PER STOREY (the founder's "decide
+ *    what we want in each level"), so an upper storey CAN opt a kitchen IN explicitly; but
+ *    when the field is ABSENT the ground-only auto policy is unchanged (upper = no kitchen).
+ *    `openPlanKitchenDining`/`livingRoom` follow the same explicit-overrides-auto rule.
+ */
+export interface PerStoreyProgramOverride {
+    readonly bedrooms?: number;
+    readonly bathrooms?: number;
+    readonly livingRoom?: boolean;
+    readonly includeKitchen?: boolean;
+    readonly openPlanKitchenDining?: boolean;
+    readonly masterEnSuite?: boolean;
+    /** Per-RoomType absolute area override (m²) for THIS storey, merged over the
+     *  whole-house `program.roomAreas` (per-storey entries win). Same semantics +
+     *  architectural-minimum clamp as `ApartmentProgram.roomAreas`. */
+    readonly roomAreas?: Partial<Record<RoomType, number>>;
+}
 
 /** The vertical role of a storey in the stack. `roof` is a synthetic top cap
  *  (no habitable program) carried for completeness; the habitable storeys are

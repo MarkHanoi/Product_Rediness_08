@@ -18,7 +18,7 @@
 // builder — `buildLayoutThumbnailSvg`).
 
 import type { HouseCardModel } from './houseCardModel.js';
-import type { ApartmentProgram, ScoringWeights, LayoutOption, LayoutRoom, RoomType } from '@pryzm/ai-host';
+import type { ApartmentProgram, PerStoreyProgramOverride, ScoringWeights, LayoutOption, LayoutRoom, RoomType } from '@pryzm/ai-host';
 import { buildOccupancyLegendHtml } from '../apartment-layout/layoutModalHtml.js';
 
 /** Local pure HTML escape (recognised by the xss-guards gate as a safe guard). */
@@ -54,6 +54,12 @@ export interface HouseProgramFormState {
     readonly storeyCount: number;
     readonly program: ApartmentProgram;
     readonly weights: ScoringWeights;
+    /** §PER-STOREY-PROGRAM (founder 2026-06-18) — the per-level tab overrides, indexed
+     *  by storeyIndex. An entry is present only when ≥1 of that storey's controls was
+     *  taken off "auto"; an all-undefined / absent array ⇒ the whole-house auto split is
+     *  used unchanged (the byte-identical default). Threaded straight into
+     *  `HouseLayoutOptions.perStoreyOverrides`. */
+    readonly perStoreyPrograms?: ReadonlyArray<PerStoreyProgramOverride | undefined>;
 }
 
 /** Design-slider rows mapped to ScoringWeights axes. Slider value is 0–100 in
@@ -115,6 +121,129 @@ function weightSlidersHtml(weights: ScoringWeights): string {
     }).join('');
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// §PER-STOREY-PROGRAM (founder 2026-06-18, "a slider per level of bathrooms and
+// bedroom and all the rooms / with boolean — to decide what we want in each level —
+// but dynamic"). Founder chose PER-LEVEL TABS, FULL CONTROLS: one tab per storey
+// (Ground / First / Second…, driven by the Floors count), each tab showing that
+// storey's OWN bed + bath counts, the four room booleans, and the per-room size
+// sliders. Every control DEFAULTS to "auto" (a blank number / an unchecked tri-state
+// box ⇒ NO override for that field ⇒ the engine's whole-house auto-split fills it),
+// so with NOTHING overridden the behaviour is byte-identical to today.
+//
+// The control `name`s are NAMESPACED per storey so the form reader can collect them
+// by prefix into `perStoreyPrograms[storeyIndex]`:
+//   s{i}.bedrooms / s{i}.bathrooms              — number inputs (blank ⇒ auto)
+//   s{i}.livingRoom / s{i}.includeKitchen /
+//   s{i}.openPlanKitchenDining / s{i}.masterEnSuite — TRI-STATE selects (auto/on/off)
+//   s{i}.area_t_<RoomType>                       — per-room size sliders (0 ⇒ auto)
+// Booleans are TRI-STATE (auto/yes/no) rather than checkboxes so "leave it to the
+// engine" is distinguishable from "force it off" — the founder's "decide what we want
+// in each level" needs an explicit off as well as an explicit on. Switching tabs is
+// PURE UI (no regenerate); editing a control regenerates (the §MODAL-DYNAMIC debounce).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Human storey label (Ground / First / Second / Level N). */
+function storeyLabel(i: number): string {
+    if (i === 0) return 'Ground';
+    if (i === 1) return 'First';
+    if (i === 2) return 'Second';
+    return `Level ${i}`;
+}
+
+/** A tri-state boolean select (auto / yes / no) for a per-storey room boolean. The
+ *  empty value is "auto" (no override → the engine's whole-house default for that
+ *  storey). `cur` is the current override value (undefined ⇒ auto). */
+function triStateSelect(name: string, label: string, cur: boolean | undefined): string {
+    const sel = (v: '' | 'on' | 'off'): string => {
+        const isAuto = cur === undefined && v === '';
+        const isOn = cur === true && v === 'on';
+        const isOff = cur === false && v === 'off';
+        return (isAuto || isOn || isOff) ? ' selected' : '';
+    };
+    return (
+        `<label class="hlm-storey-ctl hlm-storey-bool"><span>${escHtml(label)}</span>` +
+        `<select name="${escHtml(name)}" data-storey-bool>` +
+        `<option value=""${sel('')}>Auto</option>` +
+        `<option value="on"${sel('on')}>Yes</option>` +
+        `<option value="off"${sel('off')}>No</option>` +
+        `</select></label>`
+    );
+}
+
+/** Per-storey per-RoomType size sliders (same hook as the whole-house `areaInputsHtml`,
+ *  but namespaced `s{i}.area_t_<type>`). 0 ⇒ auto. `areas` is the storey override's
+ *  current `roomAreas`. */
+function storeyAreaInputsHtml(storeyIndex: number, areas: Partial<Record<RoomType, number>> | undefined): string {
+    const overrides = areas ?? {};
+    return AREA_FIELDS.map(f => {
+        const cur = (overrides as Record<string, number>)[f.type];
+        const num = (typeof cur === 'number' && Number.isFinite(cur) && cur > 0) ? cur : 0;
+        const readout = num > 0 ? `${num} m²` : 'auto';
+        const nm = `s${storeyIndex}.area_t_${f.type}`;
+        return (
+            `<label class="alm-program-size"><span class="alm-program-size-label">${escHtml(f.label)}</span>` +
+            `<input type="range" name="${escHtml(nm)}" min="0" max="${f.max}" step="0.5" value="${num}" data-area-slider>` +
+            `<output class="alm-program-size-val" data-readout-for="${escHtml(nm)}">${escHtml(readout)}</output></label>`
+        );
+    }).join('');
+}
+
+/** One storey's tab BODY — its bed/bath number inputs, the four tri-state booleans,
+ *  and the per-room size sliders. A blank number / "Auto" select / 0 slider ⇒ no
+ *  override for that field. `active` toggles `hlm-storey-tab--active`. */
+function storeyTabBodyHtml(storeyIndex: number, ov: PerStoreyProgramOverride | undefined, active: boolean): string {
+    const o = ov ?? {};
+    const numVal = (v: number | undefined): string =>
+        (typeof v === 'number' && Number.isFinite(v) && v >= 0) ? String(Math.round(v)) : '';
+    return (
+        `<div class="hlm-storey-tab${active ? ' hlm-storey-tab--active' : ''}" data-storey-tab="${storeyIndex}" role="tabpanel"${active ? '' : ' hidden'}>` +
+        '<div class="alm-program-row">' +
+        `<label class="alm-program-num"><span>Bedrooms</span>` +
+        `<input type="number" name="s${storeyIndex}.bedrooms" min="0" max="8" step="1" placeholder="auto" value="${numVal(o.bedrooms)}"></label>` +
+        `<label class="alm-program-num"><span>Bathrooms</span>` +
+        `<input type="number" name="s${storeyIndex}.bathrooms" min="0" max="4" step="1" placeholder="auto" value="${numVal(o.bathrooms)}"></label>` +
+        '</div>' +
+        '<div class="alm-program-row hlm-storey-bools">' +
+        triStateSelect(`s${storeyIndex}.livingRoom`, 'Living', o.livingRoom) +
+        triStateSelect(`s${storeyIndex}.includeKitchen`, 'Kitchen', o.includeKitchen) +
+        triStateSelect(`s${storeyIndex}.openPlanKitchenDining`, 'Open KD', o.openPlanKitchenDining) +
+        triStateSelect(`s${storeyIndex}.masterEnSuite`, 'En-suite', o.masterEnSuite) +
+        '</div>' +
+        '<div class="alm-program-row alm-program-areas">' +
+        storeyAreaInputsHtml(storeyIndex, o.roomAreas) +
+        '</div>' +
+        '</div>'
+    );
+}
+
+/** §PER-STOREY-PROGRAM — the full tabbed per-level block: a tab STRIP (one tab per
+ *  storey, mirroring `.alm-view-toggle`) + one tab BODY per storey. Rendered only for
+ *  multi-storey houses (a 1-storey house is fully described by the whole-house
+ *  controls above; a single redundant tab adds noise). `storeyCount` drives how many
+ *  tabs appear; `perStoreyPrograms[i]` seeds each storey's current overrides. */
+export function buildPerStoreyTabsHtml(
+    storeyCount: number,
+    perStoreyPrograms: ReadonlyArray<PerStoreyProgramOverride | undefined> = [],
+): string {
+    const n = Math.max(1, Math.min(3, Math.round(storeyCount)));
+    if (n <= 1) return '';
+    const tabs = Array.from({ length: n }, (_, i) =>
+        `<button type="button" class="alm-view-btn hlm-storey-tab-btn${i === 0 ? ' hlm-storey-tab-btn--active' : ''}" ` +
+        `data-action="storey-tab" data-storey-tab-index="${i}" role="tab" aria-selected="${i === 0 ? 'true' : 'false'}">${escHtml(storeyLabel(i))}</button>`,
+    ).join('');
+    const bodies = Array.from({ length: n }, (_, i) =>
+        storeyTabBodyHtml(i, perStoreyPrograms[i], i === 0),
+    ).join('');
+    return (
+        '<div class="hlm-storey-tabs" data-role="per-storey">' +
+        '<div class="hlm-storey-tabs-label">Per-level rooms <small>— auto = whole-house split</small></div>' +
+        `<div class="alm-view-toggle hlm-storey-tabstrip" role="tablist" aria-label="Per-level program">${tabs}</div>` +
+        `<div class="hlm-storey-tab-bodies">${bodies}</div>` +
+        '</div>'
+    );
+}
+
 export function buildHouseProgramEditFormHtml(state: HouseProgramFormState): string {
     const storeys = Math.max(1, Math.min(3, Math.round(state.storeyCount)));
     // §MODAL-FILL (2026-06-10) — the bedroom range tops out at 8 (the engine's
@@ -147,6 +276,10 @@ export function buildHouseProgramEditFormHtml(state: HouseProgramFormState): str
         '<div class="alm-program-row alm-program-areas">' +
         areaInputsHtml(state.program) +
         '</div>' +
+        // §PER-STOREY-PROGRAM — the tabbed per-level block (one tab per storey). Only
+        // rendered for multi-storey houses; each control defaults to "auto" so an
+        // untouched form is byte-identical to the whole-house controls above.
+        buildPerStoreyTabsHtml(storeys, state.perStoreyPrograms ?? []) +
         '<div class="alm-program-row alm-program-sliders">' +
         weightSlidersHtml(state.weights) +
         '</div>' +

@@ -321,6 +321,7 @@ export type {
   HouseLayoutOptions,
   HouseLayoutResult,
   ScoredHouseLayoutOption,
+  PerStoreyProgramOverride,
   StoreyProgram,
   StoreyPlate,
   StoreyRole,
