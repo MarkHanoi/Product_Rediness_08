@@ -1931,6 +1931,7 @@ export class HouseLayoutExecutor {
             // phantom-wall hazard (WallJoinResolver degenerate-wall bug). On a clean axis-aligned
             // plate nothing collapses, so this is a byte-identical no-op there.
             const DIVIDER_MIN_LEN_M = 0.5;   // a real interior divider; above the 0.05 m floor, below a corridor strip
+            const WELD_LATERAL_REVERT_M = 0.10;   // §WELD-NO-LATERAL-SHIFT — a body-shift this far off the previewed line is misalignment, not a snap
             const origLenById = new Map<string, number>();
             for (const w of inWalls) {
                 const bl = w.baseLine;
@@ -1988,6 +1989,7 @@ export class HouseLayoutExecutor {
             const retainedDividers: string[] = [];
             const skippedSpurious: string[] = [];
             const weldCollapsedReverted: string[] = [];
+            const weldLateralReverted: string[] = [];
             const retainedSegs: Seg[] = [];
             const newWalls = inWalls
                 .filter(w => {
@@ -2025,6 +2027,26 @@ export class HouseLayoutExecutor {
                             weldCollapsedReverted.push(w.id);
                             return w;   // un-welded, at the OPTION/preview position
                         }
+                        // §WELD-NO-LATERAL-SHIFT (PARITY, ADR-0075 PC4, 2026-06-18) — the weld can
+                        // TRANSLATE a wall's BODY sideways (not merely trim its ends) to chase a
+                        // neighbour, landing the welded centreline 100s of mm off the previewed line
+                        // (the §DIAG-PARITY upper-floor `shifted=3 latMax=237mm`: the floor is built to
+                        // the previewed line, so the wall reads mis-aligned against it). A legitimate
+                        // shell-snap only moves endpoints ALONG the axis (miter) — it never shifts the
+                        // MIDPOINT laterally. So when the welded midpoint sits beyond the revert
+                        // tolerance off the OPTION centreline, keep the previewed baseline (which the
+                        // graph-authoritative floor aligns to). Gated high enough that normal end-snap
+                        // is byte-identical — ground (latMean 0) stays untouched.
+                        const ob0 = w.baseLine[0]!, ob1 = w.baseLine[1]!;
+                        if (origLen > 1e-6) {
+                            const odx = (ob1.x - ob0.x) / origLen, odz = (ob1.z - ob0.z) / origLen;
+                            const wmx = (ww.start.x + ww.end.x) / 2, wmz = (ww.start.z + ww.end.z) / 2;
+                            const lateral = Math.abs((wmx - ob0.x) * odz - (wmz - ob0.z) * odx);
+                            if (lateral > WELD_LATERAL_REVERT_M) {
+                                weldLateralReverted.push(w.id);
+                                return w;   // un-welded, on the previewed line — floor aligns
+                            }
+                        }
                         return { ...w, baseLine: [{ x: ww.start.x, y, z: ww.start.z }, { x: ww.end.x, y, z: ww.end.z }] };
                     }
                     // Weld collapsed this divider — retain its ORIGINAL (un-welded) baseline.
@@ -2042,6 +2064,14 @@ export class HouseLayoutExecutor {
                     'ground partition(s) to their OPTION (preview) baseline — the weld would have crushed them to a stub',
                     '(kills the §DIAG-PARITY 4m-shift / diagonal-X wall; the wall already reaches the shell via §RECTIFY-SHELL-PROJECT):',
                     weldCollapsedReverted.join(', '),
+                );
+            }
+            if (weldLateralReverted.length > 0) {
+                console.warn(
+                    '[house-layout] §WELD-NO-LATERAL-SHIFT reverted', weldLateralReverted.length,
+                    `partition(s) to their OPTION (preview) baseline — the weld shifted the wall body >${Math.round(WELD_LATERAL_REVERT_M * 1000)}mm sideways off the previewed line`,
+                    '(kills the §DIAG-PARITY upper-floor latMax shift; the floor is built to the previewed line so the wall now aligns):',
+                    weldLateralReverted.join(', '),
                 );
             }
             if (skippedSpurious.length > 0) {
