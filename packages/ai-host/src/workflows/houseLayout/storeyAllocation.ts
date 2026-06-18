@@ -226,8 +226,13 @@ function applyPerStoreyOverrides(
         const base = out[i]!.program;
         const merged: ApartmentProgram = { ...base };
         // Counts — clamp to ≥0 integers (same normalisation the auto-split applies).
+        // §PER-STOREY-COUNT-AUTHORITATIVE — an EXPLICIT bedroom count must be RESPECTED, not
+        // grown to fill the plate (the founder's "I said 2 bedrooms but it keeps 3"); flag it
+        // so the orchestrator disables this storey's plate-fill growBedrooms.
+        let bedroomsExplicit = false;
         if (typeof ov.bedrooms === 'number' && Number.isFinite(ov.bedrooms)) {
             merged.bedrooms = Math.max(0, Math.floor(ov.bedrooms));
+            bedroomsExplicit = true;
         }
         if (typeof ov.bathrooms === 'number' && Number.isFinite(ov.bathrooms)) {
             merged.bathrooms = Math.max(0, Math.floor(ov.bathrooms));
@@ -247,7 +252,7 @@ function applyPerStoreyOverrides(
         if (ov.corridorDirectRoomTypes && ov.corridorDirectRoomTypes.length > 0) {
             merged.corridorDirectRoomTypes = [...ov.corridorDirectRoomTypes];
         }
-        out[i] = { ...out[i]!, program: merged };
+        out[i] = { ...out[i]!, program: merged, ...(bedroomsExplicit ? { bedroomsExplicit: true } : {}) };
         console.log(
             `[D-TGL] §PER-STOREY-PROGRAM storey[${out[i]!.storeyIndex}] override applied: ` +
             `bed=${merged.bedrooms} bath=${merged.bathrooms} ` +

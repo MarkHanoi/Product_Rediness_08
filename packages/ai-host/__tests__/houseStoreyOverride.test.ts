@@ -73,6 +73,25 @@ describe('allocateProgramToStoreys — per-storey override merge', () => {
         expect(JSON.stringify(out[0])).toEqual(JSON.stringify(baseline[0]));
     });
 
+    // §PER-STOREY-COUNT-AUTHORITATIVE — an EXPLICIT per-level bedroom count flags the storey
+    // so the orchestrator's plate-fill grow is disabled (founder: "I said 2 bedrooms but it
+    // keeps 3"). The flag rides ONLY when bedrooms is the overridden field.
+    it('sets bedroomsExplicit when (and only when) bedrooms is overridden', () => {
+        const obeds: PerStoreyProgramOverride[] = [];
+        obeds[1] = { bedrooms: 2 };
+        const withBeds = allocateProgramToStoreys(PROGRAM, 2, obeds);
+        expect(withBeds[1]!.program.bedrooms).toBe(2);
+        expect(withBeds[1]!.bedroomsExplicit).toBe(true);
+        // storey 0 has no override → flag absent (default plate-fill behaviour preserved).
+        expect(withBeds[0]!.bedroomsExplicit).toBeUndefined();
+
+        // A bathrooms/boolean-only override does NOT set the bedroom flag.
+        const obath: PerStoreyProgramOverride[] = [];
+        obath[1] = { bathrooms: 2, includeKitchen: true };
+        const noBeds = allocateProgramToStoreys(PROGRAM, 2, obath);
+        expect(noBeds[1]!.bedroomsExplicit).toBeUndefined();
+    });
+
     it('per-level booleans win — an upper storey CAN opt a kitchen/living IN explicitly', () => {
         const overrides: PerStoreyProgramOverride[] = [];
         overrides[1] = { includeKitchen: true, livingRoom: true, openPlanKitchenDining: true };

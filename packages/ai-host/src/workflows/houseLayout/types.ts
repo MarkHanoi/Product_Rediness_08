@@ -72,6 +72,14 @@ export interface StoreyProgram {
     readonly role: StoreyRole;
     /** The single-plate program this storey hands to `generateDeterministicLayouts`. */
     readonly program: ApartmentProgram;
+    /**
+     * §PER-STOREY-COUNT-AUTHORITATIVE (founder 2026-06-18, "I said 2 bedrooms but it keeps 3")
+     * — set true when the user EXPLICITLY set this storey's bedroom count via a per-level
+     * override (`applyPerStoreyOverrides`). The orchestrator then DISABLES the plate-fill
+     * `growBedrooms` for this storey so the explicit count is RESPECTED, not grown to fill the
+     * plate. Absent / false ⇒ the auto-split count + the normal plate-fill grow (byte-identical).
+     */
+    readonly bedroomsExplicit?: boolean;
 }
 
 /**

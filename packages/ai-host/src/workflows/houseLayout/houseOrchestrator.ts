@@ -786,7 +786,10 @@ function enumeratePerStorey(
         // growBedrooms: an UPPER storey is the private level → grow bedrooms to fill
         // it. A SINGLE-storey house carries the whole programme on the ground plate
         // → the ground floor DOES grow bedrooms to fill.
-        const growBedrooms = sp.role === 'upper' || storeyCount <= 1;
+        // §PER-STOREY-COUNT-AUTHORITATIVE — when the user EXPLICITLY set this storey's bedroom
+        // count via a per-level override, RESPECT it: do NOT grow bedrooms to fill the plate
+        // (the founder's "I said 2 bedrooms but it keeps 3"). Auto storeys keep the plate-fill.
+        const growBedrooms = (sp.role === 'upper' || storeyCount <= 1) && sp.bedroomsExplicit !== true;
         // §HOUSE-GROUND-FILL (A.21.D28 #4): the GROUND floor of a MULTI-storey house
         // is NOT the private level (bedrooms live upstairs), so it must NOT grow the
         // full bedroom count — but the OLD behaviour left it with only the sparse
