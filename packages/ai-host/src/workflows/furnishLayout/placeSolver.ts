@@ -180,7 +180,9 @@ function placeAgainstWall(
 ): Placement | null {
     const fp = footprintOf(kind);
     const yaw = yawFromNormal(wall.inwardNormal);
-    const base = add(wallMid(wall), wall.inwardNormal, fp.l / 2 + GAP);
+    // §FURNITURE-WALL-FACE — the room polygon edge is the wall CENTRELINE; offset by
+    // thickness/2 so the back of the piece lands on the INNER FACE, not inside the wall.
+    const base = add(wallMid(wall), wall.inwardNormal, fp.l / 2 + (wall.thickness ?? 0) / 2 + GAP);
     const dir = wallDir(wall);
     const maxSlide = Math.max(0, wall.length / 2 - fp.w / 2);
     const offsets: number[] = [0];
@@ -218,8 +220,10 @@ function placeBedAgainstWall(
     const n = wall.inwardNormal;
     // Deck centre so the headboard BACK (deck back − overhang) sits at GAP off wall:
     //   headboardBack = deckCentre − n·(fp.l/2 + overhang) = wallMid + n·GAP
-    //   ⇒ deckCentre   = wallMid + n·(fp.l/2 + overhang + GAP)
-    const base = add(wallMid(wall), n, fp.l / 2 + overhang + GAP);
+    //   ⇒ deckCentre   = wallMid + n·(fp.l/2 + overhang + thickness/2 + GAP)
+    // §FURNITURE-WALL-FACE — +thickness/2: the room edge is the CENTRELINE, so the
+    // headboard back must clear the inner FACE (was penetrating 30–130mm into the wall).
+    const base = add(wallMid(wall), n, fp.l / 2 + overhang + (wall.thickness ?? 0) / 2 + GAP);
     // A rear-extended quad spanning deck + headboard (length fp.l + overhang), whose
     // centre is shifted back toward the wall by overhang/2 — used ONLY for the
     // in-room check so the headboard is proven inside the polygon.
@@ -928,7 +932,8 @@ function placeMediaOppositeSofa(
     const t0 = (seat.x - wall.a.x) * dir.x + (seat.z - wall.a.z) * dir.z;
     const tClamped = Math.max(fp.w / 2 + GAP, Math.min(t0, wall.length - fp.w / 2 - GAP));
     const baseOnWall = add(wall.a, dir, tClamped);
-    const base = add(baseOnWall, wall.inwardNormal, fp.l / 2 + GAP);
+    // §FURNITURE-WALL-FACE — +thickness/2 so the TV unit back sits on the inner face.
+    const base = add(baseOnWall, wall.inwardNormal, fp.l / 2 + (wall.thickness ?? 0) / 2 + GAP);
     // Slide outward from the sofa-axis centre, nearest first, so the unit stays as
     // centred on the sofa as obstacles allow ("as front as possible").
     const maxSlide = Math.max(0, wall.length / 2 - fp.w / 2);

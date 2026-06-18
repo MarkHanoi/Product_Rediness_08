@@ -205,7 +205,15 @@ export function placeIntegratedBedLamps(
         // room means it's genuinely off-plate. A normal-width bed in a normal room
         // always passes → small beds unchanged; only an over-wide bed on a cramped
         // side loses that one lamp.
+        // §FURNITURE-LAMP-SIDEWALL (2026-06-18) — also test the OUTBOARD edge (toward the
+        // nearer SIDE wall, along the bed-width axis d): the centre-only test let a wide-bed
+        // lamp poke a side wall while its centre stayed inside. Head-wall grazing is along
+        // the NORMAL (not d), so it stays allowed → small/normal beds unchanged.
+        const LAMP_HALF = 0.13;
+        const obx = lx + d.x * Math.sign(s) * LAMP_HALF;
+        const obz = lz + d.z * Math.sign(s) * LAMP_HALF;
         if (!pointInPolygon({ x: lx, z: lz }, input.polygon)) continue;
+        if (!pointInPolygon({ x: obx, z: obz }, input.polygon)) continue;
         out.push({
             kind: LAMP,
             position: { x: lx, y: lampY, z: lz },

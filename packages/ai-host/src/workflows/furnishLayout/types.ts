@@ -203,6 +203,12 @@ export interface RoomWallSeg {
     readonly inwardNormal: Pt;  // unit, into the room
     readonly length: number;
     readonly isExterior: boolean;
+    /** §FURNITURE-WALL-FACE — the wall's full thickness (m), when the segment was
+     *  matched to a real wall. The room polygon `a`/`b` are wall CENTRELINES, so a
+     *  wall-anchored piece must sit `thickness/2` off the centreline to land on the
+     *  INNER FACE (not inside the wall body). Undefined for unmatched sub-zone edges
+     *  → callers treat it as 0 (byte-identical to the pre-fix centreline placement). */
+    readonly thickness?: number;
 }
 
 /** Everything the solver needs about one room (world XZ, metres). */

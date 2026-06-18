@@ -282,7 +282,9 @@ export class FurnishLayoutExecutor {
 
                     const w = matchWallToEdge(a, b, allWalls, 0.2);
                     const isExterior = w ? (facades?.get(w.id)?.isExterior ?? false) : false;
-                    wallSegs.push({ a, b, inwardNormal, length: len, isExterior });
+                    // §FURNITURE-WALL-FACE — carry the matched wall's thickness so wall-anchored
+                    // furniture lands on the inner FACE, not the centreline (a/b are centrelines).
+                    wallSegs.push({ a, b, inwardNormal, length: len, isExterior, thickness: w?.thickness });
 
                     if (w) {
                         for (const op of w.openings ?? []) {
