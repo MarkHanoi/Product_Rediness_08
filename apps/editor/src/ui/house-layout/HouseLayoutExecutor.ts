@@ -1170,13 +1170,35 @@ export class HouseLayoutExecutor {
             // ~1 m apart), and the max move (≤ ~tol) stays under the §DIAG-PARITY 20mm threshold, so
             // wall/floor parity is preserved. Default no-op when nothing is near-coincident.
             const WELD_CORNER_TOL_M = 0.03;
-            const weldSharedCorners = (walls: ReadonlyArray<{ baseLine?: ReadonlyArray<{ x: number; z: number }> }>): number => {
-                const refs: Array<{ x: number; z: number; pt: { x: number; z: number } }> = [];
+            // §GROUND-PERIMETER-OVERSHOOT (founder 2026-06-18, ground exterior corners
+            // overshoot while the upper floor is clean) — the corner weld may snap an
+            // endpoint to a cluster CENTROID that sits PAST the wall's true end ALONG ITS
+            // OWN AXIS, i.e. it LENGTHENS the wall beyond its original endpoint. When that
+            // welded endpoint then T-attaches onto a shell corner, the WallJoinResolver
+            // square-caps it and the wall body pokes a thin diagonal sliver past the
+            // mitre (the founder's overshoot). The asymmetry: the GROUND perimeter is the
+            // pre-drawn shell (absent from this weld set), so the weld only moves GROUND
+            // PARTITION endpoints — and an over-extended partition end is what lands on
+            // the exterior corner and overshoots; the UPPER perimeter IS in the weld set
+            // and its corners are already coincident, so the centroid sits AT the corner
+            // and nothing extends (upper stays byte-identical). FIX: clamp the along-axis
+            // component of every snap so an endpoint is never pushed BEYOND its original
+            // position along the wall's own direction — snapping TOWARD a shared corner
+            // (lateral correction + shortening) is preserved (that is the §AI-CORNER-WELD
+            // win), only the corner-extending component is removed. `extClamped` counts
+            // the snaps whose extension component was clamped (the overshoot guard firing).
+            const weldSharedCorners = (
+                walls: ReadonlyArray<{ baseLine?: ReadonlyArray<{ x: number; z: number }> }>,
+                stats?: { extClamped: number; maxExtClampM: number },
+            ): number => {
+                // Each ref carries the endpoint being welded AND its wall's FAR endpoint,
+                // so the snap can be decomposed along the wall's own axis for the clamp.
+                const refs: Array<{ x: number; z: number; pt: { x: number; z: number }; fx: number; fz: number }> = [];
                 for (const w of walls) {
                     const bl = w.baseLine;
                     if (!bl || bl.length < 2 || !bl[0] || !bl[1]) continue;
-                    refs.push({ x: bl[0].x, z: bl[0].z, pt: bl[0] as { x: number; z: number } });
-                    refs.push({ x: bl[1].x, z: bl[1].z, pt: bl[1] as { x: number; z: number } });
+                    refs.push({ x: bl[0].x, z: bl[0].z, pt: bl[0] as { x: number; z: number }, fx: bl[1].x, fz: bl[1].z });
+                    refs.push({ x: bl[1].x, z: bl[1].z, pt: bl[1] as { x: number; z: number }, fx: bl[0].x, fz: bl[0].z });
                 }
                 const n = refs.length;
                 const parent = Array.from({ length: n }, (_, i) => i);
@@ -1192,19 +1214,51 @@ export class HouseLayoutExecutor {
                 for (let i = 0; i < n; i++) {
                     const s = sums.get(find(i))!;
                     if (s.c < 2) continue;                       // singleton — no shared corner
-                    const cx = s.x / s.c, cz = s.z / s.c, p = refs[i]!.pt;
-                    if (Math.abs(p.x - cx) > 1e-9 || Math.abs(p.z - cz) > 1e-9) { p.x = cx; p.z = cz; snapped++; }
+                    const r = refs[i]!, p = r.pt;
+                    let tx = s.x / s.c, tz = s.z / s.c;          // candidate snap target (centroid)
+                    // §GROUND-PERIMETER-OVERSHOOT clamp — never EXTEND the wall past its
+                    // original end. `u` is the wall axis pointing FROM the far endpoint
+                    // TOWARD this endpoint; a positive along-axis component of the move
+                    // would push the endpoint further out along that direction = overshoot.
+                    const ax = r.x - r.fx, az = r.z - r.fz;
+                    const aLen = Math.hypot(ax, az);
+                    if (aLen > 1e-9) {
+                        const ux = ax / aLen, uz = az / aLen;
+                        const mvx = tx - r.x, mvz = tz - r.z;     // raw move (toward centroid)
+                        const along = mvx * ux + mvz * uz;        // >0 ⇒ extends the wall past its end
+                        if (along > 0) {
+                            // Remove ONLY the extending component; keep the lateral
+                            // correction (true corner snap) and any shortening.
+                            tx -= along * ux; tz -= along * uz;
+                            if (stats) { stats.extClamped++; if (along > stats.maxExtClampM) stats.maxExtClampM = along; }
+                        }
+                    }
+                    if (Math.abs(p.x - tx) > 1e-9 || Math.abs(p.z - tz) > 1e-9) { p.x = tx; p.z = tz; snapped++; }
                 }
                 return snapped;
             };
             for (const s of perStorey) {
                 const perim = perimeterByLevel.get(s.levelId)?.payload.walls ?? [];
                 const part = (s.set.wallBatch.payload as { walls?: ReadonlyArray<{ baseLine?: ReadonlyArray<{ x: number; z: number }> }> }).walls ?? [];
-                const snapped = weldSharedCorners([...perim, ...part]);
+                const stats = { extClamped: 0, maxExtClampM: 0 };
+                const snapped = weldSharedCorners([...perim, ...part], stats);
                 if (snapped > 0) {
                     console.log(
                         `[house-layout] §AI-CORNER-WELD ${s.levelId}: snapped ${snapped} endpoint(s) to shared corners ` +
                         `(perimeter+partitions, tol=${Math.round(WELD_CORNER_TOL_M * 1000)}mm) — AI walls now share corners like a UI polyline`,
+                    );
+                }
+                // §DIAG-PERIM-OVERSHOOT (founder 2026-06-18) — report how often the weld
+                // would have EXTENDED a wall past its own end (the ground exterior
+                // overshoot) and by how much, before the clamp removed it. extClamped>0
+                // ⇒ the overshoot guard fired on this storey; 0 ⇒ no corner-extending snap
+                // (the upper-floor / axis-aligned case stays byte-identical). The founder's
+                // next capture confirms the fix when the ground exterior corner is clean.
+                if (stats.extClamped > 0) {
+                    console.log(
+                        `[house-layout] §DIAG-PERIM-OVERSHOOT ${s.levelId}: clamped ${stats.extClamped} corner-EXTENDING snap(s) ` +
+                        `(max along-axis overshoot ${(stats.maxExtClampM * 1000).toFixed(1)}mm) — endpoints snapped TOWARD the shared ` +
+                        'corner but never PAST it, so the exterior wall body no longer pokes a diagonal sliver past the mitre.',
                     );
                 }
             }
