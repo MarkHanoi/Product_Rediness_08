@@ -516,6 +516,28 @@ export class CesiumViewport {
     return this.isReady && this.viewer != null;
   }
 
+  /**
+   * §GLOBE-CRASH-GUARD — TRUE only when the Cesium viewer is present AND not
+   * destroyed. `dispose()` nulls `this.viewer` AFTER calling `viewer.destroy()`,
+   * and Cesium fires `cancel` on in-flight `camera.flyTo`s + can emit `moveEnd`
+   * DURING `destroy()` — at which point `this.viewer` is still non-null but the
+   * underlying scene/camera is already torn down, so touching `camera`/`scene`
+   * throws. Deferred callbacks (setTimeout retries, rAF resize, flyTo
+   * complete/cancel, async base-settle clamps that resume after an `await`) must
+   * gate on this, NOT a bare `this.viewer` null-check, so a quick open→close (or
+   * a settle resolving on a torn-down viewer) degrades to a no-op instead of
+   * crashing the viewport. Wrapped so even a Cesium-internal throw in
+   * `isDestroyed()` is treated as "not live". */
+  private isViewerLive(): boolean {
+    const v = this.viewer;
+    if (!v) return false;
+    try {
+      return !v.isDestroyed();
+    } catch {
+      return false;
+    }
+  }
+
   public async mount(): Promise<void> {
     if (this.viewer) {
       console.warn("CesiumViewer already exists — skipping mount.");
@@ -896,14 +918,16 @@ export class CesiumViewport {
 
       // Force resize after layout stabilizes
       setTimeout(() => {
-        if (!this.viewer) return;
-        this.viewer.resize();
-        this.viewer.scene.requestRender();
+        // §GLOBE-CRASH-GUARD — a quick open→close can dispose the viewer before this
+        // 100ms timer fires; gate on isViewerLive() so resize never hits a dead viewer.
+        if (!this.isViewerLive()) return;
+        this.viewer!.resize();
+        this.viewer!.scene.requestRender();
 
         console.log(
           "Canvas size:",
-          this.viewer.canvas.clientWidth,
-          this.viewer.canvas.clientHeight
+          this.viewer!.canvas.clientWidth,
+          this.viewer!.canvas.clientHeight
         );
       }, 100);
 
@@ -918,19 +942,26 @@ export class CesiumViewport {
 
       // Debug listener + §A.21.D-GLOBE pan-driven context-building refresh.
       this.viewer.camera.moveEnd.addEventListener(() => {
-        if (!this.viewer) return;
-        const carto = this.viewer.camera.positionCartographic;
+        // §GLOBE-CRASH-GUARD — `destroy()` can emit a final `moveEnd` while the
+        // viewer is non-null but its camera is already torn down; reading
+        // `positionCartographic` then throws. Gate on isViewerLive() + wrap.
+        if (!this.isViewerLive()) return;
+        try {
+          const carto = this.viewer!.camera.positionCartographic;
 
-        console.log("CesiumViewport RUNTIME VERIFICATION:");
-        console.log("LAT:", Cesium.Math.toDegrees(carto.latitude));
-        console.log("LON:", Cesium.Math.toDegrees(carto.longitude));
-        console.log("HEIGHT:", carto.height);
+          console.log("CesiumViewport RUNTIME VERIFICATION:");
+          console.log("LAT:", Cesium.Math.toDegrees(carto.latitude));
+          console.log("LON:", Cesium.Math.toDegrees(carto.longitude));
+          console.log("HEIGHT:", carto.height);
 
-        this.maybeRefreshContextOnPan(
-          Cesium.Math.toDegrees(carto.latitude),
-          Cesium.Math.toDegrees(carto.longitude),
-          carto.height,
-        );
+          this.maybeRefreshContextOnPan(
+            Cesium.Math.toDegrees(carto.latitude),
+            Cesium.Math.toDegrees(carto.longitude),
+            carto.height,
+          );
+        } catch (e) {
+          console.warn('[CesiumViewport] moveEnd handler skipped (viewer tearing down):', e);
+        }
       });
 
       console.log("CesiumViewport: Viewer ready with Google Photorealistic 3D Tiles");
@@ -1037,7 +1068,13 @@ export class CesiumViewport {
    *   otherwise (an interactive location change) glide with a ~1.5 s `flyTo`.
    */
   private frameSiteLocation(lat: number, lon: number, opts: { instant?: boolean } = {}): void {
-    if (!this.viewer) return;
+    // §GLOBE-CRASH-GUARD — this runs from the deferred `site.location-changed`
+    // subscription too, which can land after the viewport is disposed; gate on
+    // isViewerLive() (not a bare null-check) so a settle on a torn-down viewer
+    // no-ops instead of touching a destroyed camera.
+    if (!this.isViewerLive()) return;
+    const viewer = this.viewer;
+    if (!viewer) return; // isViewerLive() already proved this, kept for TS narrowing.
     const destination = Cesium.Cartesian3.fromDegrees(lon, lat, SITE_FRAME_HEIGHT_M);
     const orientation = {
       heading: 0,
@@ -1045,7 +1082,7 @@ export class CesiumViewport {
       roll: 0,
     };
     if (opts.instant) {
-      this.viewer.camera.setView({ destination, orientation });
+      viewer.camera.setView({ destination, orientation });
     } else {
       // §SITE-CINEMATIC-ARRIVAL — slow two-stage establishing descent. (a) Jump
       // high straight above the target so the slow flyTo starts from altitude
@@ -1059,22 +1096,32 @@ export class CesiumViewport {
       // `performInitialReframe` think the user had taken control and SUPPRESS the
       // one corrective re-frame, stranding the camera at the stale (underground)
       // base. Cleared on complete/cancel, exactly as `flyToFormaSite` does.
-      this.viewer.camera.setView({
+      viewer.camera.setView({
         destination: Cesium.Cartesian3.fromDegrees(lon, lat, SITE_ARRIVAL_HIGH_ALT_M),
         orientation: { heading: 0, pitch: Cesium.Math.toRadians(-90), roll: 0 },
       });
       this.formaProgrammaticFlyInFlight = true;
       const clearArrivalFlag = (): void => { this.formaProgrammaticFlyInFlight = false; };
-      this.viewer.camera.flyTo({
-        destination,
-        orientation,
-        duration: SITE_ARRIVAL_FLY_DURATION_S,
-        easingFunction: Cesium.EasingFunction.QUADRATIC_IN_OUT,
-        complete: clearArrivalFlag,
-        cancel: clearArrivalFlag,
-      });
+      // §GLOBE-CRASH-GUARD — compose with §GLOBE-FRAME-NO-JUMP-2: if `flyTo` throws
+      // synchronously the `complete`/`cancel` callbacks never run, so the in-flight
+      // flag would stick `true` forever (the moveStart listener would then never
+      // latch `formaUserMovedCamera`). Clear it on a synchronous throw so the flag
+      // is released on EVERY exit path.
+      try {
+        viewer.camera.flyTo({
+          destination,
+          orientation,
+          duration: SITE_ARRIVAL_FLY_DURATION_S,
+          easingFunction: Cesium.EasingFunction.QUADRATIC_IN_OUT,
+          complete: clearArrivalFlag,
+          cancel: clearArrivalFlag,
+        });
+      } catch (e) {
+        clearArrivalFlag();
+        console.warn('[CesiumViewport] site-arrival flyTo failed; flag cleared:', e);
+      }
     }
-    this.viewer.scene.requestRender();
+    viewer.scene.requestRender();
   }
 
   /**
@@ -2725,7 +2772,8 @@ export class CesiumViewport {
     }
 
     // A newer placement started after us — let it own the clamp; bail.
-    if (myToken !== this.formaTerrainToken || !this.viewer) return;
+    // §GLOBE-CRASH-GUARD — also bail if the viewer was disposed during the await.
+    if (myToken !== this.formaTerrainToken || !this.isViewerLive()) return;
 
     if (sampledHeight === null) {
       // Tiles not yet loaded at this LOD (common right after the toggle). Retry a
@@ -2734,7 +2782,8 @@ export class CesiumViewport {
       // already a correct flat-ground seat).
       if (retriesLeft > 0) {
         this.warnTerrainOnce('photoreal tile height was null (tiles still streaming) — retrying.');
-        setTimeout(() => { void this.clampToPhotorealTilesThenReplace(input, retriesLeft - 1); }, 1200);
+        // §GLOBE-CRASH-GUARD — skip the retry if the viewport was disposed in the meantime.
+        setTimeout(() => { if (this.isViewerLive()) void this.clampToPhotorealTilesThenReplace(input, retriesLeft - 1); }, 1200);
       } else {
         // §GLOBE-FIRST-FRAME-BASE — retries exhausted (tiles never streamed a height
         // at this LOD). The building stays at the flat base 0 it was placed + framed
@@ -2886,7 +2935,8 @@ export class CesiumViewport {
     }
 
     // A newer placement started after us — let it own the clamp; bail.
-    if (myToken !== this.formaTerrainToken || !this.viewer) return;
+    // §GLOBE-CRASH-GUARD — also bail if the viewer was disposed during the await.
+    if (myToken !== this.formaTerrainToken || !this.isViewerLive()) return;
 
     this.formaTerrainSampledAt = { lat: sampleLat, lon: sampleLon };
 
@@ -3103,6 +3153,11 @@ export class CesiumViewport {
           `(abs ${Math.round(absAlt)} m, base ${Math.round(this.formaTerrainBaseHeight)} m).`
       );
     } catch (e) {
+      // §GLOBE-CRASH-GUARD — if flyTo (or the centroid math) threw synchronously
+      // after we set the in-flight flag, its complete/cancel callbacks never ran;
+      // clear the flag here so it cannot stick `true` and freeze the moveStart
+      // user-control latch. Composes with §GLOBE-FRAME-NO-JUMP.
+      this.formaProgrammaticFlyInFlight = false;
       console.warn('[CesiumViewport][forma] flyToFormaSite failed:', e);
     }
   }
@@ -4851,10 +4906,12 @@ export class CesiumViewport {
     // One more after layout flushes — the container often gets its real size a
     // frame after display flips from none → block.
     requestAnimationFrame(() => {
-      if (!this.viewer) return;
+      // §GLOBE-CRASH-GUARD — the viewport can be disposed between this rAF being
+      // scheduled and firing; gate on isViewerLive() (destroyed-but-non-null safe).
+      if (!this.isViewerLive()) return;
       try {
-        this.viewer.resize();
-        this.viewer.scene.requestRender();
+        this.viewer!.resize();
+        this.viewer!.scene.requestRender();
       } catch { /* viewer torn down mid-frame */ }
     });
   }
