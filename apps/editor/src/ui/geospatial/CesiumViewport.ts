@@ -914,8 +914,15 @@ export class CesiumViewport {
           this.currentModel = model;
           console.log("✅ BIM model selected");
 
-          // Attach gizmo
-          if (this.gizmo) {
+          // §CESIUM-GIZMO-OFF (founder 2026-06-18 "remove the purple/green lines — they
+          // align with the model origin"). The transform gizmo draws RED(X)/GREEN(Y)/
+          // BLUE(Z) axis arrows at the model origin on selection — those are the long
+          // coloured lines crossing the Cesium scene. The yellow silhouette below already
+          // gives selection feedback, so the gizmo is OFF by default (no clutter on the
+          // clean globe/Forma view). Re-enable via `window.__pryzmCesiumGizmo = true` when
+          // a move-on-globe affordance is wanted.
+          const gizmoOn = (globalThis as unknown as { __pryzmCesiumGizmo?: boolean }).__pryzmCesiumGizmo === true;
+          if (this.gizmo && gizmoOn) {
             this.gizmo.attach(model);
           }
 
