@@ -597,6 +597,20 @@ export function chooseStairCorePosition(
     // fragmenting mid-edge. Applied ONLY on the aspect path (house) → the legacy waste-only
     // path is byte-identical.
     const FRAGMENT_PENALTY = 0.5;       // MID-EDGE perimeter pays this on a CONVEX plate; a CORNER pays 0
+    // §STAIR-CORNER-NUDGE-TOL (founder white-space, 2026-06-18) — a clean back-CORNER
+    // candidate (left/right anchored flush to a side wall AND the rear wall) is NUDGED
+    // INWARD by `containedNudged` on a ROTATED / SHEARED / jittery shell so its whole
+    // core stays inside the real (rotated) polygon — typically 25–150 mm off the bbox
+    // edge (the D52/D59 containment band). The 1 mm flush test below then MIS-READ that
+    // genuinely-hugging corner as a MID-EDGE → it paid FRAGMENT_PENALTY (or, on a
+    // concave plate, lost to central via MID_EDGE_NO_CORNER_PENALTY) → the stair went
+    // CENTRAL → the plate fragmented into a no-dominant-rect generic tiling → the
+    // founder's WHITE-SPACE / sealed-room gaps. A corner hugging a wall within the SAME
+    // band the containment nudge uses is STILL a corner. On an axis-aligned plate the
+    // corner sits at exactly 0 (within any tolerance) ⇒ byte-identical. The mid-edge
+    // `back` candidate is X-centred (cx ≫ 150 mm from a side wall on any non-degenerate
+    // plate) so it never spuriously promotes to a corner.
+    const CORNER_FLUSH_TOL_MM = SHELL_JITTER_MM;   // 150 mm — the containment offer band
     // §STAIR-MID-EDGE-PENALTY (founder 2026-06-16) — on a CONCAVE plate (L/T/U) where every
     // clean-CORNER candidate failed shell-containment and was culled, the ONLY perimeter
     // options are MID-EDGE — and a MID-EDGE stair on a concave plate is CATEGORICALLY broken:
@@ -610,7 +624,7 @@ export function chooseStairCorePosition(
     // (b) no clean CORNER candidate exists. On a convex plate, or whenever a CORNER is offered,
     // the legacy 0.5 applies and a perimeter candidate still wins → byte-identical to D52/D59.
     const MID_EDGE_NO_CORNER_PENALTY = 2.0;
-    const flushS = (g: number): number => (g <= 1 ? 1 : 0);
+    const flushS = (g: number): number => (g <= CORNER_FLUSH_TOL_MM ? 1 : 0);
     const isCornerCarve = (c: { kind: StairCorePositionKind; x: number; y: number }): boolean => {
         if (c.kind === 'central') return false;
         const flushSide = flushS(c.x) + flushS(plateW - (c.x + coreW));   // a left/right wall
@@ -689,7 +703,7 @@ export function chooseStairCorePosition(
     // classification predicts plate fragmentation: a CORNER carve keeps one
     // dominant rectangle (good); a CENTRAL/MID-EDGE carve fractures the plate
     // (the founder's merged-room blob). flushSides counts walls the core abuts.
-    const flushOf = (g: number): number => (g <= 1 ? 1 : 0);
+    const flushOf = (g: number): number => (g <= CORNER_FLUSH_TOL_MM ? 1 : 0);   // §STAIR-CORNER-NUDGE-TOL — match isCornerCarve
     const classify = (c: { kind: StairCorePositionKind; x: number; y: number }): string => {
         if (c.kind === 'central') return 'CENTRAL';
         const flushX = flushOf(c.x) + flushOf(plateW - (c.x + coreW));
