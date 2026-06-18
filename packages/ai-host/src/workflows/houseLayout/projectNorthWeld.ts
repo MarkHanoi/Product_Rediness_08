@@ -125,6 +125,69 @@ export function rectifyShellRing(ring: ReadonlyArray<XZ>, snapTolM = 0.50): XZ[]
     return out;
 }
 
+// §ONE-FRAME-MINT (PREVIEW↔EXECUTION PARITY, ADR-0073 §Decision-2 / ADR-0075 PC4,
+// 2026-06-18) — the closing half of the rectify defect (spike §5.1 candidate 2).
+//
+// THE DEFECT: step (2) rectifies the de-rotated DRAWN shell (snap near-axis edges to an
+// EXACT axis, up to 0.50 m/edge) and step (3) welds partitions onto that RECTIFIED shell.
+// But the AUTHORITATIVE perimeter the executor BUILDS + hosts is the un-rectified DRAWN
+// shell (`shellWallsWorld` is discarded at the call site). So a partition endpoint that
+// welded onto the rectified edge lands, after re-rotation, ~0.50 m off the DRAWN edge — and
+// the re-rotation lever arm amplifies that into the founder's ~1.5 m ground PIVOT off the
+// previewed line (§DIAG-PARITY ground latMax=1504mm, upper latMax=0). The seam still CLOSES
+// (partition meets rectified shell) but against a perimeter that is never built.
+//
+// THE FIX (parametric transfer, keeps the drawn shell authoritative): after the weld, take
+// every partition endpoint that landed ON a RECTIFIED shell edge, read its fraction t along
+// that edge, and relocate it to the SAME fraction t on the corresponding DRAWN shell edge.
+// Rectified edge i ↔ drawn edge i (1:1 — `rectifyShellRing` preserves vertex order and
+// `ringToWalls` preserves edge order). Net: the partition end now meets the DRAWN perimeter
+// (what is built + previewed) at the same place, so it no longer pivots; the in-frame weld
+// TOPOLOGY (which edge each end terminates on, and at what fraction) is preserved, so room
+// detection still closes every seam. Only endpoints WITHIN `onEdgeTolM` of a rectified edge
+// are transferred — a genuinely interior endpoint (metres from any shell edge) is untouched.
+//
+// On an axis-aligned plate this is unreachable (θ=0 short-circuits); when reached, a clean
+// rectangle rectifies to ≈ no-op (rectified edge ≈ drawn edge) ⇒ the transfer moves nothing.
+// Pure + deterministic.
+function rebaseEndpointsToDrawnShell(
+    welded: ReadonlyArray<WeldWall>,
+    rectifiedRing: ReadonlyArray<XZ>,
+    drawnRing: ReadonlyArray<XZ>,
+    onEdgeTolM = 0.05,
+): WeldWall[] {
+    const n = rectifiedRing.length;
+    if (n < 3 || drawnRing.length !== n) {
+        return welded.map(w => ({ id: w.id, start: { ...w.start }, end: { ...w.end } }));
+    }
+    // For a point p, find the rectified edge it lies ON (perp ≤ onEdgeTolM and the foot is
+    // strictly inside the span), then return the SAME-fraction point on the drawn edge. If no
+    // rectified edge owns p (interior endpoint, or a corner shared by two edges), return p
+    // unchanged — corners already coincide between rectified + drawn rings within the rectify
+    // tolerance, and an interior endpoint must not be dragged to the shell.
+    const transfer = (p: XZ): XZ => {
+        let bestPerp = onEdgeTolM;
+        let bestT = -1, bestEdge = -1;
+        for (let i = 0; i < n; i++) {
+            const a = rectifiedRing[i]!, b = rectifiedRing[(i + 1) % n]!;
+            const dx = b.x - a.x, dz = b.z - a.z;
+            const len2 = dx * dx + dz * dz;
+            if (len2 < 1e-12) continue;
+            let t = ((p.x - a.x) * dx + (p.z - a.z) * dz) / len2;
+            // Require the foot strictly inside the span — corners (t≈0/1) are shared by two
+            // edges and are left to coincide naturally (avoids ambiguous double-ownership).
+            if (t <= 1e-6 || t >= 1 - 1e-6) continue;
+            const fx = a.x + t * dx, fz = a.z + t * dz;
+            const perp = Math.hypot(p.x - fx, p.z - fz);
+            if (perp < bestPerp) { bestPerp = perp; bestT = t; bestEdge = i; }
+        }
+        if (bestEdge < 0) return { x: p.x, z: p.z };
+        const da = drawnRing[bestEdge]!, db = drawnRing[(bestEdge + 1) % n]!;
+        return { x: da.x + bestT * (db.x - da.x), z: da.z + bestT * (db.z - da.z) };
+    };
+    return welded.map(w => ({ id: w.id, start: transfer(w.start), end: transfer(w.end) }));
+}
+
 /** Closed ring (world m) → one WeldWall per edge (axis-aligned id ordering preserved). */
 function ringToWalls(ring: ReadonlyArray<XZ>, ids?: ReadonlyArray<string>): WeldWall[] {
     const out: WeldWall[] = [];
@@ -167,6 +230,12 @@ export function projectNorthWeld(
      *  frame, where the snap runs strictly ALONG an axis (no §WJ-SKEW diagonal drag)
      *  so the same tolerance closes the seam SAFELY. Pass an override only to probe. */
     tightWeld?: { shellSnapTolM?: number; partitionWeldTolM?: number },
+    // §ONE-FRAME-MINT — when true, welded partition endpoints that landed on a RECTIFIED
+    // shell edge are transferred parametrically onto the corresponding DRAWN shell edge, so
+    // the partition meets the perimeter the executor actually BUILDS (the un-rectified drawn
+    // shell) → no ground pivot off the previewed line. Default OFF ⇒ byte-identical to the
+    // prior behaviour (rectified-shell weld); the executor opts in for the ground plate.
+    opts?: { rebaseToDrawnShell?: boolean },
 ): ProjectNorthWeldResult {
     const { thetaRad, pivot } = frame;
 
@@ -209,10 +278,20 @@ export function projectNorthWeld(
             : {},
     );
 
+    // (3.5) §ONE-FRAME-MINT — transfer welded partition endpoints from the RECTIFIED shell
+    //       onto the DRAWN shell (same fraction along the corresponding edge) so the partition
+    //       meets the perimeter the executor BUILDS, not the discarded rectified one. Done in
+    //       PN frame BEFORE the re-rotate so the rigid +θ then carries it onto the drawn WORLD
+    //       ring. Gated (default off) ⇒ no change to existing callers; the executor opts in for
+    //       the ground plate. NOTE: drawn ring = `shellRingPN` (de-rotated DRAWN, NOT rectified).
+    const weldedPNFinal = opts?.rebaseToDrawnShell
+        ? rebaseEndpointsToDrawnShell(weldedPN, rectifiedPN, shellRingPN)
+        : weldedPN;
+
     // (4) Rotate the welded assembly (partitions + rectified shell) back to WORLD by
     //     +θ about the SAME pivot — ONE rigid transform. Coincidence preserved.
     const reRot = (p: XZ): XZ => rotatePt(p, thetaRad, pivot);
-    const partitions: WeldWall[] = weldedPN.map(w => ({ id: w.id, start: reRot(w.start), end: reRot(w.end) }));
+    const partitions: WeldWall[] = weldedPNFinal.map(w => ({ id: w.id, start: reRot(w.start), end: reRot(w.end) }));
     const rectifiedWorld = rectifiedPN.map(reRot);
     const shellWallsWorldOut = shellWallsPN.map(w => ({ id: w.id, start: reRot(w.start), end: reRot(w.end) }));
 
@@ -234,13 +313,16 @@ export function projectNorthWeldBoundary(
     shellWallsWorld: ReadonlyArray<WeldWall>,
     frame: ProjectNorthFrame,
     shellSnapTolM?: number,
+    // §ONE-FRAME-MINT — transfer the welded boundary ends onto the DRAWN shell too, so an
+    // open-plan splitter meets the built perimeter the same as the partitions. Default off.
+    rebaseToDrawnShell?: boolean,
 ): WeldWall | null {
     // A lone boundary: shell-snap only, no self-weld (partitionWeldTolM: 0) — matches
     // the legacy `_weldGroundPartitions` boundary handling.
     const res = projectNorthWeld([boundaryWorld], shellWallsWorld, frame, {
         ...(shellSnapTolM !== undefined ? { shellSnapTolM } : {}),
         partitionWeldTolM: 0,
-    });
+    }, rebaseToDrawnShell ? { rebaseToDrawnShell: true } : undefined);
     return res.partitions[0] ?? null;
 }
 

@@ -400,6 +400,128 @@ describe('§PROJECT-NORTH: RIGID-TRANSFORM-LAST weld dissolves the rotated-plate
     });
 });
 
+// ── §ONE-FRAME-MINT — welded partitions meet the DRAWN shell, not the rectified one ──
+//
+// THE DEFECT (spike §4.1/§5.1, founder symptom): `projectNorthWeld` welds partitions onto
+// the RECTIFIED de-rotated shell, but the executor BUILDS the un-rectified DRAWN shell as the
+// perimeter — so on a rotated plate the partition end lands ~0.50 m off the drawn edge and the
+// re-rotation lever arm pivots it ~1.5 m off the previewed line. THE FIX: `rebaseToDrawnShell`
+// transfers the welded endpoint onto the SAME fraction of the corresponding DRAWN edge → the
+// partition meets the perimeter that is actually built → lateral drift to the drawn shell ≈ 0.
+describe('§ONE-FRAME-MINT: rebaseToDrawnShell lands welded ends on the DRAWN perimeter', () => {
+    type Pt2 = { x: number; z: number };
+    const ringWalls = (poly: readonly Pt2[]): WeldWall[] => {
+        const out: WeldWall[] = [];
+        for (let i = 0; i < poly.length; i++) {
+            const a = poly[i]!, b = poly[(i + 1) % poly.length]!;
+            out.push({ id: `shell-${i}`, start: { x: a.x, z: a.z }, end: { x: b.x, z: b.z } });
+        }
+        return out;
+    };
+    // Perpendicular distance of a point to the infinite line through a drawn shell edge.
+    const distToDrawnEdges = (p: Pt2, ring: readonly Pt2[]): number => {
+        let best = Infinity;
+        for (let i = 0; i < ring.length; i++) {
+            const a = ring[i]!, b = ring[(i + 1) % ring.length]!;
+            const dx = b.x - a.x, dz = b.z - a.z;
+            const len2 = dx * dx + dz * dz;
+            if (len2 < 1e-12) continue;
+            let t = ((p.x - a.x) * dx + (p.z - a.z) * dz) / len2;
+            t = Math.max(0, Math.min(1, t));
+            best = Math.min(best, Math.hypot(p.x - (a.x + t * dx), p.z - (a.z + t * dz)));
+        }
+        return best;
+    };
+
+    // A ~13×10 quad whose RIGHT edge is genuinely TILTED off-axis: bottom-right at x=13.00,
+    // top-right at x=12.40 (a 0.60 m near-axis drift over the edge's run — the real drawn-shell
+    // model mismatch). De-rotating the world ring gives back exactly this quad; `rectifyShellRing`
+    // snaps that dominantly-vertical edge to the EXACT axis x = mean(13.00,12.40) = 12.70 — so the
+    // rectified right edge sits up to 0.30 m from the drawn right edge. A partition terminating on
+    // that edge is where the pivot is born. (Top/bottom/left edges are exactly axis-aligned, so
+    // only the right edge moves under rectify — an isolated, deterministic probe.)
+    const PIV = { x: 6.5, z: 5 };
+    const rot = (p: Pt2): Pt2 => rotatePt(p, (30 * Math.PI) / 180, PIV);
+    // Right edge drifts 0.50 m over its run (bottom x=13.25, top x=12.75) — the MAX near-axis
+    // drift `rectifyShellRing` still snaps (dx 0.50 ≤ snapTol 0.50). Rectified right edge ⇒ the
+    // exact axis x = mean(13.25,12.75) = 13.00.
+    const RB = 13.25, RT = 12.75, RECT_X = (RB + RT) / 2;   // 13.00
+    const drawnLocal: Pt2[] = [
+        { x: 0, z: 0 }, { x: RB, z: 0 }, { x: RT, z: 10 }, { x: 0, z: 10 },
+    ];
+    const drawnWorld = drawnLocal.map(rot);
+    const shell = ringWalls(drawnWorld);
+    const frame = deriveProjectNorthFrame(drawnWorld);
+    // A horizontal partition (local z=1) from the LEFT edge to the drawn RIGHT edge. At z=1 the
+    // drawn right edge sits at x = 13.20, while the RECTIFIED right edge is the constant axis
+    // x = 13.00 — so the weld (which snaps onto the rectified edge) lands the end ~0.20 m off the
+    // DRAWN edge. The rebase transfers it back ONTO the drawn edge.
+    const Z = 1;
+    const drawnRightXatZ = RB + (RT - RB) * (Z / 10);   // 13.20
+    const partLocal: [Pt2, Pt2] = [{ x: 0, z: Z }, { x: drawnRightXatZ, z: Z }];
+    const partWorld: WeldWall = { id: 'p0', start: rot(partLocal[0]), end: rot(partLocal[1]) };
+    void RECT_X;
+
+    it('genuinely rotated plate (θ≠0)', () => {
+        expect(frame.thetaRad).not.toBe(0);
+    });
+
+    it('WITHOUT rebase the welded end drifts OFF the drawn edge (the pivot defect)', () => {
+        const out = projectNorthWeld([partWorld], shell, frame).partitions;
+        expect(out.length).toBe(1);
+        // The end welded onto the RECTIFIED right edge (x=13.00 local) → re-rotated it sits
+        // ~0.20 m off the DRAWN right edge (x=13.20 at z=1). This is the source of the pivot.
+        const worstOffDrawn = Math.max(
+            distToDrawnEdges(out[0]!.start, drawnWorld),
+            distToDrawnEdges(out[0]!.end, drawnWorld),
+        );
+        expect(worstOffDrawn).toBeGreaterThan(0.10);
+    });
+
+    it('WITH rebase the welded end lands ON the drawn edge (≈0 — the fix)', () => {
+        const out = projectNorthWeld([partWorld], shell, frame, undefined, { rebaseToDrawnShell: true }).partitions;
+        expect(out.length).toBe(1);
+        const worstOffDrawn = Math.max(
+            distToDrawnEdges(out[0]!.start, drawnWorld),
+            distToDrawnEdges(out[0]!.end, drawnWorld),
+        );
+        // Now both ends sit on the DRAWN perimeter (within float/grid dust) → no pivot.
+        expect(worstOffDrawn).toBeLessThan(0.02);
+        // Length is preserved (the transfer slides the end ALONG the wall onto the drawn edge;
+        // it must not crush or balloon the partition).
+        const len = Math.hypot(out[0]!.end.x - out[0]!.start.x, out[0]!.end.z - out[0]!.start.z);
+        expect(len).toBeGreaterThan(12.0);
+    });
+
+    it('is a NO-OP on a clean axis-aligned drawn rectangle (rectify ≈ no-op)', () => {
+        const cleanLocal: Pt2[] = [{ x: 0, z: 0 }, { x: 13, z: 0 }, { x: 13, z: 10 }, { x: 0, z: 10 }];
+        const cleanWorld = cleanLocal.map(rot);
+        const cleanShell = ringWalls(cleanWorld);
+        const cleanFrame = deriveProjectNorthFrame(cleanWorld);
+        const cleanPart: WeldWall = { id: 'p0', start: rot({ x: 0, z: 5 }), end: rot({ x: 13, z: 5 }) };
+        const withRebase = projectNorthWeld([cleanPart], cleanShell, cleanFrame, undefined, { rebaseToDrawnShell: true }).partitions;
+        const without = projectNorthWeld([cleanPart], cleanShell, cleanFrame).partitions;
+        // The drawn ring IS the rectified ring (already axis-aligned) ⇒ the transfer moves
+        // nothing ⇒ rebase-on === rebase-off (within float dust).
+        expect(withRebase.length).toBe(without.length);
+        for (let i = 0; i < withRebase.length; i++) {
+            expect(Math.hypot(withRebase[i]!.start.x - without[i]!.start.x, withRebase[i]!.start.z - without[i]!.start.z)).toBeLessThan(1e-6);
+            expect(Math.hypot(withRebase[i]!.end.x - without[i]!.end.x, withRebase[i]!.end.z - without[i]!.end.z)).toBeLessThan(1e-6);
+        }
+    });
+
+    it('θ=0 (axis-aligned plate) short-circuits ⇒ rebase flag is unreachable / byte-identical', () => {
+        const axisLocal: Pt2[] = [{ x: 0, z: 0 }, { x: 13, z: 0 }, { x: 13, z: 10 }, { x: 0, z: 10 }];
+        const axisShell = ringWalls(axisLocal);
+        const axisFrame = deriveProjectNorthFrame(axisLocal);
+        expect(axisFrame.thetaRad).toBe(0);
+        const axisPart: WeldWall = { id: 'p0', start: { x: 0, z: 5 }, end: { x: 13, z: 5 } };
+        const viaPN = projectNorthWeld([axisPart], axisShell, axisFrame, undefined, { rebaseToDrawnShell: true }).partitions;
+        const direct = weldPartitionsToShell([axisPart], axisShell);
+        expect(JSON.stringify(viaPN)).toEqual(JSON.stringify(direct));
+    });
+});
+
 // ── rectifyShellRing — the load-bearing §3.3 step (clean axis-aligned rectilinear) ──
 describe('§PROJECT-NORTH rectifyShellRing: a near-axis ring snaps to EXACT axis', () => {
     it('snaps a slightly-drifted rectangle to perfectly axis-aligned corners', () => {

@@ -1996,8 +1996,29 @@ export class HouseLayoutExecutor {
             // otherwise the legacy world-frame weld. `projectNorthWeld` with θ=0 is a
             // byte-identical pass-through to `weldPartitionsToShell`, so the only
             // behavioural difference is on a rotated plate with the flag ON.
+            //
+            // §ONE-FRAME-MINT (PREVIEW↔EXECUTION PARITY, ADR-0073 §Decision-2, 2026-06-18) —
+            // THE source fix for the founder's ground PIVOT off the previewed line (§DIAG-PARITY
+            // ground latMax=1504mm, upper=0). ROOT: the PROJECT-NORTH weld welds partitions onto
+            // the RECTIFIED de-rotated shell, but the AUTHORITATIVE perimeter the executor BUILDS
+            // is the un-rectified DRAWN shell (`shellWallsWorld` is discarded here, line ~2000) —
+            // two frames → the re-rotation lever arm amplifies the ≤0.50 m rectify into ~1.5 m of
+            // pivot at a long partition's far end. The `rebaseToDrawnShell` opt-in transfers every
+            // welded endpoint that landed on a RECTIFIED shell edge onto the SAME fraction of the
+            // corresponding DRAWN shell edge — so the partition meets the PERIMETER THAT IS BUILT,
+            // not the discarded rectified one → the pivot disappears and partitions land on the
+            // previewed centreline (§DIAG-PARITY ground latMax → ≈0). The in-frame weld topology
+            // (which edge each end terminates on) is preserved so room-detection seam closure is
+            // unaffected. θ=0 (axis-aligned + the upper floor) short-circuits before reaching this,
+            // and a clean rectangle rectifies to ≈ no-op, so this is a no-op on already-aligned
+            // plates + the upper floor — composing with §GROUND-WALL-FRAME / §WELD-NO-LATERAL-SHIFT
+            // (those revert the pivot to the preview line; this stops the pivot at the source so the
+            // partition also physically MEETS the drawn perimeter, closing the §DIAG-PERIM-CORNER
+            // gap a bare revert leaves). Flag (default ON): `window.__pryzmHouseOneFrameMint`.
+            const oneFrameMintEnabled =
+                (window as unknown as { __pryzmHouseOneFrameMint?: boolean }).__pryzmHouseOneFrameMint !== false;
             const weldedRaw = (frame && frame.thetaRad !== 0)
-                ? projectNorthWeld(partitions, shell, frame).partitions
+                ? projectNorthWeld(partitions, shell, frame, undefined, oneFrameMintEnabled ? { rebaseToDrawnShell: true } : undefined).partitions
                 : weldPartitionsToShell(partitions, shell);
             // §SHELL-CONTAIN (2026-06-16) — the weld snaps endpoints only WITHIN ~0.6 m of a
             // shell wall; on a rotated plate a perimeter-terminating endpoint can sit ~0.9–1.2 m
@@ -2237,8 +2258,10 @@ export class HouseLayoutExecutor {
                 const p = bc.payload as { id: string; levelId: string; start: { x: number; z: number }; end: { x: number; z: number } };
                 const boundaryWall: WeldWall = { id: p.id, start: { x: p.start.x, z: p.start.z }, end: { x: p.end.x, z: p.end.z } };
                 // §PROJECT-NORTH — weld the boundary in the same frame as the partitions.
+                // §ONE-FRAME-MINT — and (when enabled) transfer its ends onto the DRAWN shell
+                // too, so an open-plan splitter meets the built perimeter like the partitions.
                 if (frame && frame.thetaRad !== 0) {
-                    const wb = projectNorthWeldBoundary(boundaryWall, shell, frame);
+                    const wb = projectNorthWeldBoundary(boundaryWall, shell, frame, undefined, oneFrameMintEnabled);
                     if (!wb) return bc;
                     return { ...bc, payload: { ...p, start: { x: wb.start.x, z: wb.start.z }, end: { x: wb.end.x, z: wb.end.z } } };
                 }
