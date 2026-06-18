@@ -74,6 +74,31 @@ const DEFAULT_SNAP = 0.001;
 const DEFAULT_T_EPS = 0.001;
 const PARALLEL_DET = 1e-9;
 
+// §WALL-BODY-INNER-FACE (residual of §ONE-FRAME-MINT, 2026-06-18) — a partition END that
+// terminates on a THICKER passthrough wall's BODY (the partition→shell T-junction) must
+// stop at that host's INNER (room-side) face, NEVER spike a triangular tongue to the host
+// CENTRELINE. The ring sweep already lands the partition's two side corners (`endLeft` /
+// `endRight`) on the host INNER face, but it ALSO writes a PIVOT vertex at `j.point` (the
+// host centreline) — and the footprint assembler inserts that pivot BETWEEN the two inner-
+// face corners, extruding a solid tongue from the inner face down to the centreline that
+// pokes `hostHalfThickness` (~50–100 mm) INTO/THROUGH the shell (the founder's "wall
+// extruding wrong / spike in 3D"; the legacy WallJoinResolver inner-face clamp at
+// WallJoinResolver.ts:_clampEndToShellInnerFace already removes it on the LEGACY build path,
+// but the default-ON V2 pipeline builds from the un-clamped pre-trim baseline and never saw
+// that clamp). FIX: when a real-endpoint wall meets a passthrough that is MATERIALLY THICKER,
+// SUPPRESS that end's centreline pivot so its footprint is a clean rectangle ending on the
+// inner-face corners — bit-identical to the legacy clamp result. Equal-thickness interior
+// T/X junctions (the Pascal edge-coincidence case the existing tests pin) are UNAFFECTED:
+// they have no materially-thicker passthrough, so the pivot is still written. Gated default-ON
+// with an escape hatch; pure + deterministic.
+function partitionInnerFaceV2Enabled(): boolean {
+    return (globalThis as { __pryzmWallPartitionInnerFaceV2?: boolean }).__pryzmWallPartitionInnerFaceV2 !== false;
+}
+// A passthrough must be at least this many times thicker than the abutting partition for the
+// inner-face suppression to fire — a genuine shell (≥2× a typical partition) clears it while
+// near-equal interior walls (the edge-coincidence case) do not.
+const PASSTHROUGH_THICKER_RATIO = 1.5;
+
 // ─── Geometry helpers ─────────────────────────────────────────────────────────
 
 function sub(a: Pt2, b: Pt2): Pt2 { return { x: a.x - b.x, z: a.z - b.z }; }
@@ -251,6 +276,19 @@ function applyRingSweep(j: JunctionDraft, walls: readonly WallInput[], miters: W
         if (cur[key] === undefined) miters[wallIdx] = { ...cur, [key]: p };
     };
 
+    // §WALL-BODY-INNER-FACE — the thickest passthrough at THIS junction. A real-endpoint
+    // wall materially thinner than it is a partition butting a shell BODY: suppress its
+    // centreline pivot so its footprint ends on the inner-face corners (no tongue spike).
+    let maxPassthroughHalfT = 0;
+    if (partitionInnerFaceV2Enabled()) {
+        for (const wi of j.passthroughWalls) {
+            const ht = walls[wi]!.thickness * 0.5;
+            if (ht > maxPassthroughHalfT) maxPassthroughHalfT = ht;
+        }
+    }
+    const suppressInnerFacePivot = (thickness: number): boolean =>
+        maxPassthroughHalfT > 0 && (thickness * 0.5) * PASSTHROUGH_THICKER_RATIO <= maxPassthroughHalfT;
+
     // Sweep each adjacent pair (wrap-around): curr's LEFT meets next's RIGHT.
     for (let i = 0; i < n; i++) {
         const curr = entries[i]!;
@@ -272,9 +310,11 @@ function applyRingSweep(j: JunctionDraft, walls: readonly WallInput[], miters: W
         if (!curr.isPassthrough) setCorner(curr.wallIdx, curr.isStart, 'Left',  corner);
         if (!next.isPassthrough) setCorner(next.wallIdx, next.isStart, 'Right', corner);
         // Pivot vertex at the junction centre. Each real-endpoint wall pivots on
-        // it; pivots are deduplicated (first writer wins).
-        if (!curr.isPassthrough) setPivot(curr.wallIdx, curr.isStart, j.point);
-        if (!next.isPassthrough) setPivot(next.wallIdx, next.isStart, j.point);
+        // it; pivots are deduplicated (first writer wins). §WALL-BODY-INNER-FACE — a
+        // partition meeting a materially-thicker passthrough (shell) BODY does NOT get
+        // the centreline pivot, so its footprint ends on the inner-face corners.
+        if (!curr.isPassthrough && !suppressInnerFacePivot(curr.thickness)) setPivot(curr.wallIdx, curr.isStart, j.point);
+        if (!next.isPassthrough && !suppressInnerFacePivot(next.thickness)) setPivot(next.wallIdx, next.isStart, j.point);
     }
 }
 

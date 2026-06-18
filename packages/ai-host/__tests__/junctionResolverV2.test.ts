@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import {
     resolveJunctions, type WallInput, type Pt2, __internal,
 } from '../../geometry-wall/src/JunctionResolverV2.js';
+import { buildWallFootprint } from '../../geometry-wall/src/WallFootprint2D.js';
 
 const close = (a: number, b: number, eps = 1e-6): boolean => Math.abs(a - b) < eps;
 const closePt = (p: Pt2, q: Pt2, eps = 1e-6): boolean => close(p.x, q.x, eps) && close(p.z, q.z, eps);
@@ -131,6 +132,75 @@ describe('JunctionResolverV2 — T-junction (3 walls, passthrough trick)', () =>
         expect(a.endLeft).toBeUndefined();
         expect(a.startPivot).toBeUndefined();
         expect(a.endPivot).toBeUndefined();
+    });
+});
+
+// ─── §WALL-BODY-INNER-FACE — partition into a THICKER shell body ──────────────
+// Residual of §ONE-FRAME-MINT (2026-06-18): the default-ON V2 pipeline builds the
+// partition body from the un-clamped pre-trim baseline (the partition end welded ON
+// the shell CENTRELINE). The ring sweep used to write a centreline PIVOT for the
+// partition end → the footprint assembler extruded a solid tongue from the shell's
+// INNER face down to its CENTRELINE, ~hostHalfThickness deep into/through the shell
+// (the founder's "wall extruding wrong / 3D spike"). The fix SUPPRESSES that
+// centreline pivot when the passthrough is materially thicker, so the partition
+// footprint ends cleanly on the inner-face corners — bit-identical to the legacy
+// WallJoinResolver inner-face clamp. Equal-thickness interior T/X junctions still get
+// the pivot (proven by the T-junction suite above).
+describe('JunctionResolverV2 — §WALL-BODY-INNER-FACE (partition → thicker shell)', () => {
+    const TS = 0.20;   // shell thickness (200 mm) — passthrough
+    const TP = 0.10;   // partition thickness (100 mm) — abutting
+    // Shell S along x at z=0 (inner/room face at z=+0.10). Partition P runs in +z and
+    // its joining end is welded to the shell CENTRELINE (z=0).
+    const walls: WallInput[] = [
+        { id: 'S', start: { x: -3, z: 0 }, end: { x: 3, z: 0 }, thickness: TS },
+        { id: 'P', start: { x: 0, z: 3 }, end: { x: 0, z: 0 }, thickness: TP },
+    ];
+
+    it('SUPPRESSES the partition end pivot (no centreline tongue) when the host is thicker', () => {
+        const r = resolveJunctions(walls);
+        const p = r.find(m => m.id === 'P')!;
+        // The partition END (z=0) is the joining end. Its corners land on the shell
+        // INNER face (z=+halfT_shell = +0.10), but the centreline pivot is gone.
+        expect(p.endLeft).toBeDefined();
+        expect(p.endRight).toBeDefined();
+        expect(p.endPivot).toBeUndefined();              // ← the fix: no centreline pivot
+        expect(p.endLeft!.z).toBeCloseTo(TS / 2);        // both corners on the inner face
+        expect(p.endRight!.z).toBeCloseTo(TS / 2);
+    });
+
+    it('the partition footprint ends ON the inner face (zero overhang past it)', () => {
+        const r = resolveJunctions(walls);
+        const p = r.find(m => m.id === 'P')!;
+        const fp = buildWallFootprint(walls[1]!, p);
+        const minZ = Math.min(...fp.polygon.map(pt => pt.z));
+        // Inner face is at z=+0.10; without the fix minZ would be 0 (centreline) →
+        // 100 mm overhang. With the fix minZ === inner face → 0 mm overhang.
+        expect(minZ).toBeCloseTo(TS / 2);
+    });
+
+    it('equal-thickness partitions are UNAFFECTED (pivot retained, Pascal edge-coincidence)', () => {
+        const equal: WallInput[] = [
+            { id: 'S', start: { x: -3, z: 0 }, end: { x: 3, z: 0 }, thickness: TP },
+            { id: 'P', start: { x: 0, z: 3 }, end: { x: 0, z: 0 }, thickness: TP },
+        ];
+        const r = resolveJunctions(equal);
+        const p = r.find(m => m.id === 'P')!;
+        expect(p.endPivot).toBeDefined();                // equal thickness → pivot stays
+        expect(closePt(p.endPivot!, { x: 0, z: 0 })).toBe(true);
+    });
+
+    it('escape hatch __pryzmWallPartitionInnerFaceV2=false restores the legacy pivot', () => {
+        const g = globalThis as { __pryzmWallPartitionInnerFaceV2?: boolean };
+        const prev = g.__pryzmWallPartitionInnerFaceV2;
+        g.__pryzmWallPartitionInnerFaceV2 = false;
+        try {
+            const r = resolveJunctions(walls);
+            const p = r.find(m => m.id === 'P')!;
+            expect(p.endPivot).toBeDefined();            // flag off → old behaviour (pivot present)
+        } finally {
+            if (prev === undefined) delete g.__pryzmWallPartitionInnerFaceV2;
+            else g.__pryzmWallPartitionInnerFaceV2 = prev;
+        }
     });
 });
 
