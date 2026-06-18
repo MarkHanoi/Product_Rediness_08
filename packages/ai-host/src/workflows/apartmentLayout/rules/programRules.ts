@@ -501,8 +501,13 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
             // F1.12 — Bedroom dressing.
             { kind: 'dresser',       sizeW: 1200, sizeD: 500,  clearFoot: 800, clearSide: 0,   placementRule: 'longest_wall',  excludeDoorSwing: true,  excludeWindowWall: true,  required: false },
             { kind: 'vanity_table',  sizeW: 900,  sizeD: 450,  clearFoot: 850, clearSide: 100, placementRule: 'window_wall',   excludeDoorSwing: true,  excludeWindowWall: false, required: false },
-            // F1.10 — Wall mirror above the bed (paired with bed group).
-            { kind: 'wall_mirror',   sizeW: 500,  sizeD: 40,   clearFoot: 0,   clearSide: 0,   placementRule: 'beside_group',  excludeDoorSwing: false, excludeWindowWall: false, required: false, group: 'bed' },
+            // §OVERBED-WALL-TAPESTRY (founder, 2026-06-18) — woven decorative
+            // textile wall-hanging above the bed (paired with the bed group),
+            // replacing the F1.10 wall_mirror in THIS over-bed slot. The founder
+            // praised the over-bed POSITION, so placementRule/group are unchanged;
+            // only the kind (and material — fabric, not mirror) swaps. The window-
+            // wall (group: 'curtains') wall_mirror below stays a mirror.
+            { kind: 'wall_tapestry', sizeW: 800,  sizeD: 40,   clearFoot: 0,   clearSide: 0,   placementRule: 'beside_group',  excludeDoorSwing: false, excludeWindowWall: false, required: false, group: 'bed' },
             // F1.11 — Curtain rod on the master bedroom window wall.
             // §bedroom-mirror (2026-06-11) — curtain PANEL swapped for a wall_mirror
             // (reflective mirror material) per the founder's bedroom request. The

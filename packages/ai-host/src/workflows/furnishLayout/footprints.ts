@@ -151,6 +151,12 @@ const FP: Readonly<Record<FurnitureKind, Footprint>> = {
     //   wall_mirror: 0.5 × 0.04 × 0.8 m, baseOffset 1.20 m.
     wall_art:         { w: 0.60, l: 0.04, h: 0.90, baseOffset: 1.20, clearFront: 0.00, clearSides: 0.00 },
     wall_mirror:      { w: 0.50, l: 0.04, h: 0.80, baseOffset: 1.20, clearFront: 0.00, clearSides: 0.00 },
+    // §OVERBED-WALL-TAPESTRY (founder, 2026-06-18) — woven textile wall-hanging
+    // that replaces the over-bed wall_mirror. Same thin wall-mounted panel family
+    // (l ≈ 0.04 m, no floor footprint) at the SAME eye/over-bed mount height
+    // (baseOffset 1.20 m) so the praised over-bed POSITION is unchanged; a touch
+    // wider + taller than the mirror so it reads as a decorative hanging.
+    wall_tapestry:    { w: 0.80, l: 0.04, h: 1.00, baseOffset: 1.20, clearFront: 0.00, clearSides: 0.00 },
     // F1.13 (2026-05-30) — Lounge chair semantic alias (Barcelona silhouette).
     //   0.85 m × 0.85 m × 0.95 m, generous footprint typical of a lounge chair.
     lounge_chair:     { w: 0.85, l: 0.85, h: 0.95, baseOffset: 0, clearFront: 0.20, clearSides: 0.10 },

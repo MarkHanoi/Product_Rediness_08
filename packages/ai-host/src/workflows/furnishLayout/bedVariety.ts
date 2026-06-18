@@ -95,7 +95,7 @@ export function integratedBedKind(roomId: string): IntegratedBedKind {
  *   • plain `bed`       → unchanged (separate bedside tables + lamps downstream).
  *   • Japanese variant  → swap the `bed` item's kind for the variant AND DROP the
  *     separate `bedside_table` items (the bed builds its own nightstands/wings).
- *     The wall_mirror that paired to the bed via the 'bed' group is kept.
+ *     The over-bed wall_tapestry that paired to the bed via the 'bed' group is kept.
  *
  * Pure: returns a NEW items array (does not mutate the shared archetype data).
  */

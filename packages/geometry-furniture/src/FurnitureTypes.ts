@@ -148,6 +148,13 @@ export type FurnitureType =
     // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §4.2.10) ─────────
     | 'wall_art'
     | 'wall_mirror'
+    // ── §OVERBED-WALL-TAPESTRY (founder, 2026-06-18) — woven decorative
+    // textile wall-hanging. The bedroom over-bed slot uses this in place of
+    // the wall_mirror: a multi-colour geometric tapestry (navy / rust /
+    // cream / ochre / olive / charcoal blocks) with a fringed bottom hem,
+    // hung on a slim horizontal wood rail. Same thin wall-mounted slab
+    // geometry family as wall_art / wall_mirror; routes to WallTapestryBuilder.
+    | 'wall_tapestry'
     // ── F1.13 (2026-05-30) — Lounge chair semantic alias. Routes to the
     // existing Barcelona-black builder under the hood (matches the same
     // chunky leather + chrome lounge silhouette); admitted as its own

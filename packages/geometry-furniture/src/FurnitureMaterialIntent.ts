@@ -229,6 +229,7 @@ export const FURNITURE_TYPE_TO_MATERIAL_INTENT: Readonly<Record<FurnitureType, F
     // ── Decor ─────────────────────────────────────────────────────────
     'wall_art':                     'fabric-soft',     // canvas reads soft
     'wall_mirror':                  'glass-translucent',
+    'wall_tapestry':                'fabric-soft',     // §OVERBED-WALL-TAPESTRY — woven textile reads soft
     'chimney':                      'ceramic-clean',   // stone / brick / tile
 
     // ── Lighting (free-standing only — pendants/ceiling live in geometry-lighting) ──

@@ -73,6 +73,11 @@ export type FurnitureKind =
     // F1.10 (2026-05-30) — wall decor (cross-room personalisation).
     // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §F1.10)
     | 'wall_art' | 'wall_mirror'
+    // §OVERBED-WALL-TAPESTRY (founder, 2026-06-18) — woven decorative textile
+    // wall-hanging. The bedroom over-bed slot emits this in place of wall_mirror:
+    // a multi-colour geometric tapestry on a slim wood rail with a fringed hem.
+    // Same thin wall-mounted slab family; routes to WallTapestryBuilder.
+    | 'wall_tapestry'
     // F1.13 (2026-05-30) — lounge_chair semantic alias.
     // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §F1.13)
     | 'lounge_chair'

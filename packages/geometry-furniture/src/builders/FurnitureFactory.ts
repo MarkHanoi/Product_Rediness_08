@@ -63,7 +63,7 @@ import {
     VanityUnitBuilder, BathroomMirrorBuilder, TowelRailBuilder,
 } from './BathroomVanityBuilder';
 import { BuffetBuilder, SideboardBuilder } from './DiningStorageBuilder';
-import { WallArtBuilder, WallMirrorBuilder } from './WallDecorBuilder';
+import { WallArtBuilder, WallMirrorBuilder, WallTapestryBuilder } from './WallDecorBuilder';
 import { PantryCabinetBuilder } from './PantryCabinetBuilder';
 import { DresserBuilder, VanityTableBuilder } from './BedroomDressingBuilder';
 import { CurtainRodBuilder, CurtainPanelBuilder } from './CurtainBuilder';
@@ -133,6 +133,8 @@ export class FurnitureFactory {
             // F1.10 (2026-05-30) — Wall decor (art + mirror).
             case 'wall_art':           return new WallArtBuilder(materialService);
             case 'wall_mirror':        return new WallMirrorBuilder(materialService);
+            // §OVERBED-WALL-TAPESTRY (2026-06-18) — woven textile wall-hanging.
+            case 'wall_tapestry':      return new WallTapestryBuilder(materialService);
 
             // F1.14 (2026-05-30) — Pantry cabinet (kitchen storage).
             case 'pantry_cabinet':     return new PantryCabinetBuilder(materialService);

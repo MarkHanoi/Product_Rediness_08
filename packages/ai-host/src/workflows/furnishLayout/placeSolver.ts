@@ -79,6 +79,10 @@ const isSofaKind = (k: PlacedFurniture['kind']): boolean => SOFA_KINDS.has(k);
  *  the right eye / mount height. */
 const WALL_HOSTED_BESIDE = new Set<PlacedFurniture['kind']>([
     'bathroom_mirror', 'wc_mirror', 'wall_mirror', 'wall_art', 'tv', 'towel_rail',
+    // §OVERBED-WALL-TAPESTRY (2026-06-18) — the over-bed textile hanging mounts
+    // exactly like the wall_mirror it replaces: pinned to the bed wall ABOVE the
+    // bed at its baseOffset (eye/over-bed height), so the praised position holds.
+    'wall_tapestry',
 ]);
 const isWallHostedBeside = (k: PlacedFurniture['kind']): boolean => WALL_HOSTED_BESIDE.has(k);
 

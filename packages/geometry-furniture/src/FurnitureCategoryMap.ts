@@ -133,6 +133,7 @@ export const FURNITURE_TYPE_TO_CATEGORY: Readonly<Record<FurnitureType, Furnitur
     'chimney':              'decor',
     'wall_art':             'decor', // F1.10 — wall-mounted framed art panel
     'wall_mirror':          'decor', // F1.10 — wall-mounted decorative mirror
+    'wall_tapestry':        'decor', // §OVERBED-WALL-TAPESTRY — woven textile wall-hanging
     'plant_01':             'decor',
     'plant_02':             'decor',
     'plant_03':             'decor',

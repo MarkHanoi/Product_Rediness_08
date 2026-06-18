@@ -33,9 +33,14 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
             // `anchor: 'beside'`).
             { kind: 'dresser',      anchor: 'wall-longest', facing: 'to-wall',   required: false, group: 'dressing', excludeWindowWall: true, excludeDoorSwing: true },
             { kind: 'vanity_table', anchor: 'wall-window',  facing: 'to-wall',   required: false, group: 'dressing', excludeDoorSwing: true },
-            // F1.10 (2026-05-30) — Wall mirror above the bed wall (paired
-            // with the bed group — the mirror reads as a headboard accent).
-            { kind: 'wall_mirror', anchor: 'beside', facing: 'into-room', required: false, group: 'bed' },
+            // §OVERBED-WALL-TAPESTRY (founder, 2026-06-18) — woven decorative
+            // textile wall-hanging above the bed wall (paired with the bed group —
+            // it reads as a headboard accent). Replaces the F1.10 wall_mirror in
+            // THIS over-bed slot only; the founder praised the mirror's POSITION,
+            // so the anchor/group/facing are unchanged — only the kind swaps to a
+            // tapestry (warm multi-colour woven look — WallTapestryBuilder). The
+            // window-wall (group: 'curtains') wall_mirror below is untouched.
+            { kind: 'wall_tapestry', anchor: 'beside', facing: 'into-room', required: false, group: 'bed' },
             // F1.11 (2026-05-30) — Curtain rod on the window wall (S7 precursor).
             // §bedroom-mirror (2026-06-11) — the founder asked for the bedroom's
             // curtain PANEL to be swapped for a MIRROR. The two flanking

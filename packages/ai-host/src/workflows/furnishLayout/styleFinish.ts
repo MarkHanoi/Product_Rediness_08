@@ -173,6 +173,12 @@ const UPHOLSTERED = new Set<string>([
 // a fabric finish in a soft accent colour, distinct from upholstery.
 const SOFT_KINDS = new Set<string>([
     'rug',
+    // §OVERBED-WALL-TAPESTRY (founder, 2026-06-18) — the woven over-bed textile
+    // wall-hanging reads the 'soft' palette slot → a FABRIC finish (not the
+    // 'mirror' reflective material the wall_mirror it replaces used). The warm
+    // multi-colour woven look itself is rendered by WallTapestryBuilder; this
+    // routing just carries the honest textile material on the emitted element.
+    'wall_tapestry',
 ]);
 
 const TABLE_KINDS = new Set<string>([

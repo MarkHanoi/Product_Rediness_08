@@ -29,15 +29,22 @@ describe('F1.10 — wall_art + wall_mirror on the ai-host side', () => {
         expect(art!.excludeWindowWall).toBe(true);
     });
 
-    it('bedroom archetype lists wall_mirror in the bed group', () => {
+    it('bedroom archetype lists the over-bed decoration in the bed group', () => {
+        // §OVERBED-WALL-TAPESTRY — the bed-group over-bed slot is now a tapestry
+        // (the founder kept the position but wanted a woven textile, not a mirror).
         const arch = archetypeFor('bedroom')!;
-        const m = arch.items.find(i => i.kind === 'wall_mirror');
+        const m = arch.items.find(i => i.kind === 'wall_tapestry');
         expect(m).toBeDefined();
         expect(m!.group).toBe('bed');
+        // The OLD wall_mirror still appears in the bedroom — but only on the
+        // window wall (the 'curtains' group), never over the bed.
+        const bedMirror = arch.items.find(i => i.kind === 'wall_mirror' && i.group === 'bed');
+        expect(bedMirror).toBeUndefined();
     });
 
     it('programRules.living + programRules.master mirror the additions', () => {
         expect(ROOM_RULES.living.optionalFurniture).toContain('wall_art');
+        // wall_mirror is still an optional master piece (window-wall slot).
         expect(ROOM_RULES.master.optionalFurniture).toContain('wall_mirror');
     });
 });
