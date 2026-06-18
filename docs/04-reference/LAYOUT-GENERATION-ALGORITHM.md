@@ -2959,3 +2959,119 @@ this layer.
 Founder brief (2026-06-16): **a building IS a set of relationships; geometry is ONE realisation; the engine finds the best one — geometry is the LAST step, not the first.** The 7 layers (full text C53 §13.A): (1) the brief = a constraint-satisfaction spec, not sliders; (2) a first-class access graph validated for topological correctness BEFORE geometry — THIS is the circulation guarantee (bedroom-off-hall impossible because the graph forbids the edge; the stair is a node, the landing its directed successor); (3) a constraint-driven spatial grammar; (4) **polygon-native subdivision** (parcel IS the container, coverage 1.0 — see §13); (5) multi-objective optimisation over interdependent architectural dimensions, trade-offs surfaced as design decisions; (6) deterministic enumeration over ~50–200 strategies; (7) the architect navigates a design space by stating GRAPH constraints, geometry follows.
 
 **Gap-leverage order (binding, C53 §13.B):** (1) polygon-native subdivision (largest ceiling, §13); (2) graph-first room identity (§15/ADR-0069, in flight); (3) circulation from the access graph (ADR-0068 §FG7); (4) regulatory as HARD constraints; (5) site intelligence into the objective vector; (6) richer strategy space. Already world-class: deterministic enumeration, Pareto ranking, the program-rules DB, space-syntax metrics, §DIAG-*, byte-identity.
+
+---
+
+## 17. THE PREVIEW→EXECUTION PIPELINE + PARITY CONTRACT (the map for "why regressions keep appearing")
+
+> **Status:** authoritative · governed by **ADR-0075** (Preview↔Execution Parity Contract) ·
+> **read this if you are confused about why a layout looks perfect in the modal but wrong in 3D.**
+> This is the single most useful section for understanding the regression *class* (not one bug).
+> Every claim is file:line-grounded (verified 2026-06-18 by two readers over the live code).
+
+### 17.1 The root meta-problem: ONE engine option, TWO geometry realizations
+
+The pure engine emits **one** deterministic `LayoutOption` (rooms + walls + openings). It is then
+realized **twice, independently** — and that duplication is the fault line every regression lives on:
+
+| | **PREVIEW** (modal cards) | **EXECUTION** (built scene) |
+|---|---|---|
+| Source | the **raw** engine `option` | the **same** `option` **+ transforms** |
+| Walls | drawn as-is (clean polygons) | weld -> miter/trim -> inner-face clamp -> §COLLINEAR-MERGE -> perimeter mint / drawn-shell |
+| Rooms | `option.rooms` polygons | `option.rooms` (ADR-0069 graph-authoritative — **now matches**) |
+| Floors | not shown | inset to inner-face (bow-tie -> centreline fall-back) |
+| Openings | on the engine wall | **re-based** onto the live mitred wall (`§OPENING-REBASE`) |
+
+**The preview shows the engine's intent; execution shows that intent *after* a pile of
+geometry-mutating editor transforms the preview never applies.** So a defect is invisible until
+you build — and every "regression" is a newly-exposed gap between these two realizations. That is
+why it feels blind: historically there was no contract saying **built == previewed**, and no
+measurement of the gap.
+
+### 17.2 The PREVIEW path is a FAITHFUL render (proven)
+
+`buildLayoutThumbnailSvg` (`apps/editor/src/ui/apartment-layout/layoutThumbnail.ts:256`) draws the
+option **raw — zero editor-side weld/miter/inset/detection**:
+
+- Room polygons from `option.rooms[].polygon` 1:1 (`:302-310`); labels from `room.name` + `room.area` (`:315-329`).
+- Interior walls from `option.walls[!isExternal].{start,end}` as bare strokes (`:367-369`) — **no miter at corners**.
+- Doors/windows from `option.doors[]`/`option.windows[]`, width clamped to the host span only (`:386-387`, a fidelity *safeguard*, not a recompute).
+- Shell ring from the **executor's own** `StoreyPlate.footprint` passed as `perimeterRingMm` (`HouseLayoutModal._storeyThumbOpts:616`), and the stair void from the engine's `stairRectsMm` keep-out (`:621`) — so even the shell + stair the preview shows are **bit-identical to the build's**.
+
+Call chain: `HouseLayoutController.request:152` -> `_computeVariants:277` (pure `generateHouseLayoutOptions`) -> `HouseLayoutModal` cards -> `buildLayoutThumbnailSvg`. `§MODAL-DYNAMIC` edits re-run the engine **synchronously** (`_regenerate:441` -> `refresh:469`, no async). **Verdict: the preview = the engine's exact intent. Any preview-vs-build difference is created 100% by the executor.**
+
+### 17.3 The EXECUTION transform chain (the divergence surface)
+
+`HouseLayoutExecutor.execute` re-generates against real ids, then per storey: ground = drawn shell
+(`skipExteriorWalls`) + weld; upper = `_buildPerimeterShell` minted + conditional weld ->
+`buildLayoutCommands` -> ONE `runBatch` (perimeters -> §WALL-SLAB-CONTINUITY -> partitions -> slabs ->
+stairs -> roof) -> `_finishOpenings` (deferred openings + entrance door + final redetect) -> post-gen
+floor/ceiling/furnish/light. Every transform that can make BUILT != PREVIEWED:
+
+| # | Transform | File:line | What it moves | Max divergence |
+|---|---|---|---|---|
+| A | `§GROUND-WELD` shell-snap | `weldPartitionsToShell.ts:188` | partition endpoint perp onto shell | **<=0.60 m** |
+| B | `§WELD-FALLBACK` cluster | `weldPartitionsToShell.ts:249` | endpoint to union-find centroid | <=0.50 m (guarded) |
+| C | `§WELD-NO-ROTATE` | `weldPartitionsToShell.ts:312` | restores axis if weld rotated >~8 deg | direction guard |
+| D | `§UPPER-SHELL-WELD` | `HouseLayoutExecutor.ts:814` | upper partition to minted perimeter | <=0.60 m |
+| E | `WallJoinResolver` miter/trim | `WallJoinResolver.ts:146` | endpoints to bisector / square-cap | <=wall-thickness |
+| F | `§PARTITION-SHELL-INNER-FACE` | `WallJoinResolver.ts:256` | partition end to shell inner face | <=half-thickness (~50 mm) |
+| G | `§COLLINEAR-MERGE` | `executePlan.ts:193` | fuse collinear segs; remap door offset | topology + offset shift |
+| H | `§OPENING-REBASE` (defect 2) | `HouseLayoutExecutor.ts:223` | opening offset re-projected post-trim | **<1 mm** (the cure) |
+| I | `§CLAMP-INSIDE-SHELL` | `weldPartitionsToShell.ts:432` | outside endpoint to ring | <=1.2 m (rotated worst) |
+| J | `§PROJECT-NORTH` frame | `HouseLayoutExecutor.ts:657` | weld in de-rotated frame | 0 on axis-aligned; tighter seams rotated |
+| K | `§FLOOR-INNER-FACE` inset | `RoomPolygonUtils.ts:233` | floor polygon from centreline inset | shrink half-thickness/edge (bow-tie -> centreline) |
+| L | ADR-0069 graph-rooms | `HouseLayoutExecutor.ts:1438` | rooms from `option.rooms` (not re-detected) | **0** (cured) |
+
+The divergence is mostly **intentional** — it corrects for a real input difference (the ground reuses
+a hand-drawn, mitred, height-raised shell; rotated plates leave principal-axis residuals; floors must
+not overlap under a partition). The preview *cannot* show it because it uses placeholder ids and runs
+no resolver. **The problem was never that the transforms exist — it is that they were unmeasured,
+sometimes unbounded, and sometimes fired on the clean path.**
+
+### 17.4 The regression taxonomy (every fix this session maps to ONE)
+
+- **A — execution-only transforms not previewed** (the big class): weld drift, miter/trim, inner-face clamp, floor inset, opening re-base -> **defects 2+3**, **floor bow-ties**, the **L-corner gap**.
+- **B — execution re-derivation of identity**: detection re-deriving rooms -> **structurally cured by ADR-0069** (§15, row L). *Floors still derive from inset geometry — the remaining B.*
+- **C — ungated experimental engine features**: the polygon-corridor that doubled walls -> `§POLYGON-CORRIDOR-REACH-GATE` (gated OFF).
+- **D — diagnostic miscounts that erode trust**: the false `§DIAG-LEVELS EXTRA-N` -> `§DIAG-LEVELS-GROUND-SHELL` (the ground drawn shell is now counted).
+
+### 17.5 The cure — the PARITY CONTRACT (ADR-0075)
+
+Make divergence **impossible by construction**, not patched after the fact. Four pillars:
+
+1. **`§DIAG-PARITY` — measured every run.** The executor snapshots each wall's OPTION centreline
+   (world frame, straight off `buildLayoutCommands`, *before* any transform = what the preview drew)
+   keyed by id, and post-commit (next to `§DIAG-LEVELS`) compares it to the LIVE committed centreline,
+   logging per level `walls / drifted>20mm / max / mean` + `built == previewed` or `N drifted`.
+   20 mm = the `RoomDetection` node grid. **This is the number that ends "invisible until built."**
+2. **The merge rule (PC2).** No change that adds/widens an executor geometry transform ships without
+   **(a)** a *preview reflection* (apply the same transform in the thumbnail -> WYSIWYG) **or**
+   **(b)** a *no-op proof* (a parity test that it is byte-identical to the option on the
+   apartment/axis-aligned baseline, + `§DIAG-PARITY ~0 mm` there). "Validated by screenshot" is not mergeable.
+3. **Contained + declared divergence (PC3).** Intentional divergence is allowed only when it is
+   **bounded** (documents its max — the §17.3 table), **gated** so it is a no-op on the clean path,
+   and **declared** in `§DIAG-PARITY`. Unbounded / clean-path / undeclared = defect.
+4. **Drive parity to 0 upstream (PC4).** Shrink the transform chain the way ADR-0069 shrank it for
+   rooms: ground-on-engine-perimeter (weld -> safety net, §8.4.5), **graph-authoritative floors**
+   (inset from the option polygon, not a re-detected centreline), and keep experimental engine
+   features flag-gated OFF until parity-proven. End state: `§DIAG-PARITY` clean on every plate.
+
+### 17.6 How to read `§DIAG-PARITY` (triage)
+
+```
+[house-layout] §DIAG-PARITY option(preview)<->built wall-centreline divergence:
+  Ground(L0): walls=17 drifted=0  max=2mm   mean=0mm  built == previewed
+  Level 01:   walls=28 drifted=3  max=180mm mean=24mm  3 wall(s) drifted >20mm (weld/miter divergence)
+```
+
+- `built == previewed` (max ~<=20 mm) means the executor realized the option faithfully; if the 3D still
+  looks wrong, the bug is in the **engine option** (the preview is wrong too), not the executor.
+- `N drifted` with a large `max` means a weld/miter transform moved walls off the preview on that level;
+  cross-reference the §17.3 table (a rotated upper plate -> rows D/E/F) and `§PROJECT-NORTH`.
+- The pairing is order-robust (it tries both endpoint orientations) so a `§COLLINEAR-MERGE` re-order
+  does not false-positive; a welded-away / merged wall simply is not counted (it shows in `§DIAG-LEVELS`).
+
+**The contract in one line:** the modal preview is the engine's intent; `§DIAG-PARITY` proves the build
+equals it; ADR-0075 PC2 forbids any new transform that breaks the proof. That is the map that replaces
+"moving blind."
