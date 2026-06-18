@@ -192,6 +192,60 @@ function gatherShellWalls(
     return all.filter(w => facades.get(w.id)?.isExterior).map(toSeg);
 }
 
+/** A captured baseline segment in world metres (the geometry the ENGINE measured
+ *  opening offsets against — the PRE-resolve baseline). */
+type SnapshotSeg = { start: { x: number; z: number }; end: { x: number; z: number } };
+
+/**
+ * §OPENING-REBASE (Defect 2, audit 2026-06-18 §2a) — re-base an engine opening
+ * offset (measured along the PRE-trim snapshot baseline) onto the LIVE (post-trim)
+ * wall baseline so the realised void lands where the modal preview shows it.
+ *
+ * The engine measured `offset` as metres-from-`snapshot.start` along the snapshot
+ * segment. `WallJoinResolver.resolveLevel` then mitres/trims the shell, moving
+ * `baseLine[0]` (and shortening the span), so the SAME offset, measured from the
+ * MOVED live start, displaces the opening by the trim delta — and that drift grows
+ * with each mitred corner upstream of the opening.
+ *
+ * Fix: world-project the opening CENTRE off the snapshot segment (centre, not edge,
+ * so a width that overruns the live span still recentres correctly), then re-project
+ * that world point onto the CURRENT live baseline → `offset = centreParam − width/2`.
+ *
+ * Returns the re-based offset (metres-from-live-start) clamped to ≥0, or `null` when
+ * geometry is unusable (degenerate snapshot/live segment) so the caller falls back to
+ * the engine offset unchanged. This is a NO-OP when snapshot ≈ live (apartment path,
+ * engine-authored shell that the resolver leaves bit-exact) — the projected world
+ * point round-trips to the same offset within float epsilon.
+ *
+ * Alignment-preserving: it re-projects against the existing live wall read; it does
+ * NOT re-derive any baseline (ADR-0073-safe).
+ */
+function rebaseOpeningOffset(
+    snapshot: SnapshotSeg | undefined,
+    live: ReadonlyArray<{ x: number; z: number }>,
+    engineOffsetM: number,
+    widthM: number,
+): number | null {
+    if (!snapshot) return null;
+    if (!live || live.length < 2 || !live[0] || !live[1]) return null;
+    const s0 = snapshot.start, s1 = snapshot.end;
+    const sdx = s1.x - s0.x, sdz = s1.z - s0.z;
+    const sLen = Math.hypot(sdx, sdz);
+    const l0 = live[0]!, l1 = live[1]!;
+    const ldx = l1.x - l0.x, ldz = l1.z - l0.z;
+    const lLen = Math.hypot(ldx, ldz);
+    if (sLen < 1e-6 || lLen < 1e-6) return null;
+    // World position of the opening CENTRE along the snapshot segment.
+    const centreM = engineOffsetM + widthM / 2;
+    const t = centreM / sLen;
+    const cx = s0.x + t * sdx, cz = s0.z + t * sdz;
+    // Project that world centre onto the LIVE baseline → metres-from-live-start.
+    const lux = ldx / lLen, luz = ldz / lLen;
+    const centreParamLive = (cx - l0.x) * lux + (cz - l0.z) * luz;
+    const offset = centreParamLive - widthM / 2;
+    return offset > 0 ? offset : 0;
+}
+
 /** Build a ShellAnalysis from the active level's EXTERIOR walls (mirrors the
  *  apartment shellReader — entrance = first door's host wall, window counts +
  *  SL-3 orientation per face). The house orchestrator reads `shell.perimeter`
@@ -506,7 +560,16 @@ export class HouseLayoutExecutor {
             let entranceDoor: EntranceDoorDispatch | null = null;
 
             // Pre-build the per-storey command sets (pure, no mutation yet).
-            const perStorey: Array<{ levelId: string; set: LayoutCommandSet; option: ScoredLayoutOption }> = [];
+            // §OPENING-REBASE (Defect 2) — each entry also carries the PRE-resolve
+            // baseline of every host wall (the geometry the engine measured opening
+            // offsets against), keyed by wall id, so `_finishOpenings` can re-base each
+            // offset onto the post-trim live baseline (realised ≡ preview).
+            const perStorey: Array<{
+                levelId: string;
+                set: LayoutCommandSet;
+                option: ScoredLayoutOption;
+                snapshotBaselines: Map<string, SnapshotSeg>;
+            }> = [];
             for (let i = 0; i < result.storeys.length; i++) {
                 const storey = result.storeys[i]!;
                 const option = result.perStoreyLayout[i];
@@ -785,7 +848,31 @@ export class HouseLayoutExecutor {
                     }
                 }
 
-                perStorey.push({ levelId: storey.levelId, set, option });
+                // §OPENING-REBASE (Defect 2) — snapshot the PRE-resolve baseline of every
+                // host wall the engine measured offsets against. Interior/partition hosts:
+                // the (possibly welded) `wallBatch` baseline — the SAME segment the engine
+                // sized openings on (bit-exact at command-build time, before the wall batch's
+                // WallJoinResolver.resolveLevel mitres/trims it). Shell hosts: the drawn-shell
+                // `shellWalls` snapshot. Both are world metres in the same frame as the live
+                // baseline `_finishOpenings` reads back, so the re-base is a pure re-projection.
+                const snapshotBaselines = new Map<string, SnapshotSeg>();
+                const batchWalls = (set.wallBatch.payload as { walls?: Array<{ id?: string; baseLine?: ReadonlyArray<{ x: number; z: number }> }> }).walls ?? [];
+                for (const w of batchWalls) {
+                    const bl = w.baseLine;
+                    if (w.id && bl && bl.length >= 2 && bl[0] && bl[1]) {
+                        snapshotBaselines.set(w.id, { start: { x: bl[0].x, z: bl[0].z }, end: { x: bl[1].x, z: bl[1].z } });
+                    }
+                }
+                for (const sw of shellWalls) {
+                    // Shell snapshot only when the engine didn't also mint an interior wall
+                    // under the same id (it never does — shell ids pre-exist), so this never
+                    // overwrites a partition snapshot.
+                    if (!snapshotBaselines.has(sw.id)) {
+                        snapshotBaselines.set(sw.id, { start: { x: sw.start.x, z: sw.start.z }, end: { x: sw.end.x, z: sw.end.z } });
+                    }
+                }
+
+                perStorey.push({ levelId: storey.levelId, set, option, snapshotBaselines });
 
                 // ── §DIAG-SEAL (2026-06-09, founder room-merge forensics) ─────────────
                 // The decisive instrumentation: AFTER the weld decision, for EVERY
@@ -2623,7 +2710,7 @@ export class HouseLayoutExecutor {
      * defines the rooms, exactly as before.
      */
     private _finishOpenings(
-        perStorey: ReadonlyArray<{ levelId: string; set: LayoutCommandSet; option: ScoredLayoutOption }>,
+        perStorey: ReadonlyArray<{ levelId: string; set: LayoutCommandSet; option: ScoredLayoutOption; snapshotBaselines?: Map<string, SnapshotSeg> }>,
         entranceDoor?: EntranceDoorDispatch | null,
         skipRedetectRoomsForGraph: boolean = false,
     ): Promise<void> {
@@ -2676,6 +2763,27 @@ export class HouseLayoutExecutor {
                                     ...set.windowOpeningCommands.map(op => ({ p: op.payload as { wallId: string; opening: unknown } })),
                                     ...set.shellWindowOpeningCommands.map(op => ({ p: op.payload as { wallId: string; opening: unknown } })),
                                 ];
+                                // §OPENING-REBASE (Defect 2, audit 2026-06-18 §2a) — the engine
+                                // measured every opening's `offset` along the host wall's PRE-resolve
+                                // baseline (the snapshot captured at command-build time). The earlier
+                                // wall.batch.create then ran WallJoinResolver.resolveLevel, which mitres
+                                // /trims the shell so `baseLine[0]` SHIFTS — so the same offset measured
+                                // from the MOVED live start displaces the void by the trim delta (drift
+                                // grows with each mitred corner). Re-anchor each offset onto the LIVE
+                                // baseline: world-project the opening centre off the snapshot segment,
+                                // then re-project onto the current baseline. Applies to BOTH doors AND
+                                // windows (windows were pass-through). NO-OP when snapshot ≈ live (the
+                                // apartment path / untrimmed shell) — the round-trip is identity.
+                                const snap = s.snapshotBaselines;
+                                const rebaseOpening = (wallId: string, opening: unknown): unknown => {
+                                    const o = opening as { type?: string; offset?: number; width?: number };
+                                    if (typeof o.offset !== 'number' || typeof o.width !== 'number') return opening;
+                                    const w = wallStore?.getById?.(wallId) as { baseLine?: ReadonlyArray<{ x: number; z: number }> } | undefined;
+                                    const live = w?.baseLine;
+                                    if (!live) return opening;                                       // wall not found → leave as-is
+                                    const rebased = rebaseOpeningOffset(snap?.get(wallId), live, o.offset, o.width);
+                                    return rebased === null ? opening : { ...o, offset: rebased };
+                                };
                                 // §DOOR-LIVE-CLAMP (2026-06-08, CRITICAL accessibility) — the
                                 // WallJoinResolver (run by the earlier wall.batch.create) can TRIM a
                                 // host wall AFTER the engine sized the door for the untrimmed length.
@@ -2683,8 +2791,9 @@ export class HouseLayoutExecutor {
                                 // the guard the entrance door already has (§DOOR-IN-WALL-SPAN, ~line 403)
                                 // — so a trimmed wall yields a FITTED door instead of an "extends beyond
                                 // wall length" SKIP that seals the room (the bathroom-no-door defect:
-                                // "all rooms must be accessible"). Windows pass through unchanged (a
-                                // window overrun is cosmetic; a door overrun makes a room inaccessible).
+                                // "all rooms must be accessible"). Runs AFTER §OPENING-REBASE so the
+                                // span check sees the re-anchored offset. A window that still overruns
+                                // after re-basing is cosmetic and passes through.
                                 const liveDoorOpening = (wallId: string, opening: unknown): unknown | null => {
                                     const o = opening as { type?: string; offset?: number; width?: number };
                                     if (o.type !== 'door' || typeof o.offset !== 'number' || typeof o.width !== 'number') return opening;
@@ -2704,7 +2813,8 @@ export class HouseLayoutExecutor {
                                     try {
                                         const mapped: Array<{ wallId: string; openingData: unknown }> = [];
                                         for (const it of openingItems) {
-                                            const od = liveDoorOpening(it.p.wallId, it.p.opening);
+                                            const rebased = rebaseOpening(it.p.wallId, it.p.opening);
+                                            const od = liveDoorOpening(it.p.wallId, rebased);
                                             if (od !== null) mapped.push({ wallId: it.p.wallId, openingData: od });
                                         }
                                         if (mapped.length > 0) {
@@ -2732,12 +2842,24 @@ export class HouseLayoutExecutor {
                                 try {
                                     const openingId = createId('opening');
                                     const doorId = createId('door');
+                                    // §OPENING-REBASE (Defect 2) — the entrance door was sized
+                                    // against the PRE-resolve shell-wall length (§DOOR-IN-WALL-SPAN
+                                    // above); re-anchor its offset onto the post-trim live baseline
+                                    // too, so it lands where the preview shows it. The entrance is
+                                    // ALWAYS on the ground storey (perStorey[0]), whose snapshot map
+                                    // holds the ground shell-wall snapshot. NO-OP if untrimmed.
+                                    const groundSnap = perStorey[0]?.snapshotBaselines;
+                                    const liveEntrance = (wallStore?.getById?.(entranceDoor.shellWallId) as { baseLine?: ReadonlyArray<{ x: number; z: number }> } | undefined)?.baseLine;
+                                    const rebasedEntranceOffset = liveEntrance
+                                        ? rebaseOpeningOffset(groundSnap?.get(entranceDoor.shellWallId), liveEntrance, entranceDoor.offsetM, entranceDoor.widthM)
+                                        : null;
+                                    const entranceOffset = rebasedEntranceOffset === null ? entranceDoor.offsetM : rebasedEntranceOffset;
                                     cm.execute!(new CreateWallOpeningsBatchCommand([{
                                         wallId: entranceDoor.shellWallId,
                                         openingData: {
                                             id: openingId,
                                             type: 'door',
-                                            offset: entranceDoor.offsetM,
+                                            offset: entranceOffset,
                                             width: entranceDoor.widthM,
                                             height: entranceDoor.heightM,
                                             sillHeight: 0,

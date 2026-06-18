@@ -182,6 +182,60 @@ describe('REPRO — generated-house shell corner closure', () => {
         expect(gap, `welded-gap corner gap=${gap.toFixed(2)}mm`).toBeLessThan(2.0);
     });
 
+    it('§NEAR-CORNER-L-PERP — gappy shell corner + partition T-attaching NEAR the wall END (no mid-span attacher)', () => {
+        // Defect 3 (audit §3a): the partition that swept the corner into the cluster
+        // T-attaches WITHIN `endMargin` of a shell wall's END (not its mid-span body),
+        // so the original `hasTAttacher` mid-span test reads FALSE → both shell ends
+        // previously fell to §CONSENSUS square-cap → caps don't share a plane → GAP.
+        // The broadened discriminator must recover this perpendicular 3-member shell-L
+        // via the perp-pair path (|dot|<0.34, ≤1 other arm, both long).
+        const { walls, corners } = buildShell(0, 0, 8, 6, 45, 0.2);
+        const gapDir = new THREE.Vector3(1, 0, 0.3).normalize();
+        const w0 = walls[0], w1 = walls[1];
+        (w0 as any).baseLine[1] = { x: corners[1][0] - gapDir.x * 0.015, y: 0, z: corners[1][1] - gapDir.z * 0.015 };
+        (w1 as any).baseLine[0] = { x: corners[1][0] + gapDir.x * 0.015, y: 0, z: corners[1][1] + gapDir.z * 0.015 };
+        // Partition contacts wall[0] only ~0.06 m from corner[1] (inside endMargin≈0.1 m),
+        // so it reads as an END-attacher, NOT a mid-span T → the old gate failed here.
+        const dir01 = new THREE.Vector3(corners[1][0] - corners[0][0], 0, corners[1][1] - corners[0][1]).normalize();
+        const contact: [number, number] = [corners[1][0] - dir01.x * 0.06, corners[1][1] - dir01.z * 0.06];
+        const inward = new THREE.Vector3(-corners[1][0], 0, -corners[1][1]).normalize();
+        const partFar: [number, number] = [contact[0] + inward.x * 3, contact[1] + inward.z * 3];
+        const part = mk(partFar, contact, 0.2, 99);
+        const allWalls = [...walls, part];
+        const res = WallJoinResolver.resolveLevel(allWalls, { snapRadius: 1.2 });
+
+        const a = walls[0], b = walls[1];
+        const ja = res.get(a.id)!, jb = res.get(b.id)!;
+        expect(ja.invalid).toBeFalsy();
+        expect(jb.invalid).toBeFalsy();
+        const gap = cornerGapMm(ja, 'end', a.thickness, jb, 'start', b.thickness);
+        expect(gap, `end-attach corner gap=${gap.toFixed(2)}mm`).toBeLessThan(2.0);
+    });
+
+    it('§NEAR-CORNER-L-PERP regression — a 4-way "+" junction (perpendicular pairs) is NOT recovered as an L', () => {
+        // CRITICAL guard: a '+' exposes perpendicular near-coincident pairs (|dot|≈0) but
+        // is NOT an L-corner — it has ≥2 other arms, so the ≤1-other-arm count gate must
+        // keep it on the consensus path (recovering it would mis-mitre the cross).
+        const t = 0.2;
+        // Four arms meeting at the origin, ends slightly scattered (>1 mm, <cluster).
+        const arms: WallData[] = [
+            mk([-3, 0.00], [-0.01, 0.005], t, 1),   // west, end near origin
+            mk([3, 0.00], [0.01, -0.005], t, 2),    // east, end near origin
+            mk([0.005, -3], [0.00, -0.01], t, 3),   // south, end near origin
+            mk([-0.005, 3], [0.00, 0.01], t, 4),    // north, end near origin
+        ];
+        const res = WallJoinResolver.resolveLevel(arms, { snapRadius: 1.0 });
+        // All four must remain valid; none should be invalid/NaN from a wrong miter.
+        for (const w of arms) expect(res.get(w.id)!.invalid).toBeFalsy();
+        // The cross stays on the consensus trim (no recovered L log) — assert at least
+        // one arm carries NO miter normal that would only come from a bisector corner.
+        // (Structural sanity: a '+' should not produce a 2-wall bisector corner.)
+        const withMN = arms.filter(w => { const j = res.get(w.id)!; return (j as any).startMN || (j as any).endMN; });
+        // A genuine recovered L would mitre exactly the 2 pair walls; a '+' must not
+        // single out a perpendicular PAIR — so we don't expect a clean 2-wall miter set.
+        expect(withMN.length).not.toBe(2);
+    });
+
     it('ROTATED 45° shell + partition T-joining NEAR a corner (within snapRadius)', () => {
         // THE founder case: a partition whose T-contact on the shell lands NEAR a corner,
         // so the partition endpoint falls into the same snap cluster as the two shell

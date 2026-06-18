@@ -836,17 +836,55 @@ export class WallJoinResolver {
                             break;
                         }
                     }
-                    if (wellSeparated && hasTAttacher) {
+                    // §NEAR-CORNER-L-PERP (Defect 3, audit 2026-06-18 §3a) — BROADEN the
+                    // discriminator. The `hasTAttacher` mid-span test FAILS for the founder's
+                    // gappy shell L when the partition that swept the corner into this cluster
+                    // was DROPPED by the weld (sub-floor collapse) OR T-attaches near a wall END
+                    // (inside `endMargin`) rather than the mid-span body → `hasTAttacher=false` →
+                    // both shell ends fall to §CONSENSUS square-cap → caps don't share a plane →
+                    // the GAP=2271mm corner. RECOVER it via the UNAMBIGUOUS shell-L signature: a
+                    // near-coincident, strongly-PERPENDICULAR pair of two LONG walls in a SMALL
+                    // cluster (≤1 OTHER arm). Critical guards to never mis-fire on a 4-way '+',
+                    // a Y, or a star (which also expose perpendicular pairs but are NOT L-corners):
+                    //   • STRICT perpendicular gate (|dot| < 0.34 ≈ >70°): a pure 120° Y has
+                    //     |dot|=0.5 → excluded; a '+' has |dot|≈0 → would pass the angle test, so…
+                    //   • ≤1 distinct OTHER (non-pair, non-self-cluster) wall in the cluster: an
+                    //     L-corner is 2 walls + at most 1 partition; a '+'/Y/star has ≥2 other
+                    //     arms → excluded by the count.
+                    //   • both pair walls already pass NEAR_CORNER_MIN_LEN (0.30 m) above → "long".
+                    // Pure-Y/star and '+' consensus paths stay byte-identical (excluded here); only
+                    // the genuine 2-(or-3-)wall perpendicular shell corner is added.
+                    //
+                    // NOTE on `wellSeparated`: this OR-branch deliberately does NOT require it.
+                    // The exact failing input is a partition attaching WITHIN ~endMargin of the
+                    // corner (so it is close, NOT well-separated); demanding separation would
+                    // re-discard the case. The '+'/Y/star false positives are instead excluded
+                    // by the two structural guards below (count ≤1 and the strict perp gate),
+                    // which do not depend on separation. The T-attacher path above keeps its own
+                    // `wellSeparated` requirement unchanged (byte-identical for that signature).
+                    let perpShellL = false;
+                    if (!hasTAttacher && bestDot < 0.34) {
+                        const otherWallIds = new Set<string>();
+                        for (const ep of endpoints) {
+                            if (ep.wallId === pp.idA || ep.wallId === pp.idB) continue;
+                            if (_selfClusterWallIds.has(ep.wallId)) continue;
+                            otherWallIds.add(ep.wallId);
+                        }
+                        if (otherWallIds.size <= 1) perpShellL = true;
+                    }
+                    if ((wellSeparated && hasTAttacher) || perpShellL) {
                         console.log(
                             `[WallJoinResolver] §NEAR-CORNER-L recovered an un-pinned L-corner in cluster ` +
                             `@(${consensusPoint.x.toFixed(3)},${consensusPoint.z.toFixed(3)}): ` +
                             `${pp.idA}(${pp.sideA}) ↔ ${pp.idB}(${pp.sideB}) ` +
-                            `gap=${(bestDist * 1000).toFixed(0)}mm |dot|=${bestDot.toFixed(3)} — ` +
+                            `gap=${(bestDist * 1000).toFixed(0)}mm |dot|=${bestDot.toFixed(3)} ` +
+                            `via=${hasTAttacher ? 'T-attacher' : 'perp-pair'} — ` +
                             `deferred to pair-wise bisector miter (NOT square-capped) so the corner closes.`,
                         );
                     } else {
-                        // No T-attacher → this is a pure Y/star, not a shell corner.
-                        // Discard the recovered pair so the consensus-trim path runs unchanged.
+                        // Neither a mid-span T-attacher NOR an unambiguous perpendicular shell-L
+                        // pair (pure Y/star, or a '+'/multi-arm junction) → discard the recovered
+                        // pair so the consensus-trim path runs unchanged (no §CONSENSUS regression).
                         primaryPair = null;
                     }
                 }
