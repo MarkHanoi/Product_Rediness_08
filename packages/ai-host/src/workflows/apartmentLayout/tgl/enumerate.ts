@@ -136,6 +136,10 @@ export interface EnumerateInput {
      *  (neutral 1.0). > 1 grows living/bedroom areas. Threaded into
      *  `buildBubbleGraph`. Absent ⇒ neutral 1.0. */
     readonly spaceGenerosity?: number;
+    /** §FORCE-CORRIDOR-DIRECT (founder 2026-06-18) — room TYPES that MUST get a direct
+     *  corridor door (the per-level "↔ Corridor" toggle). Threaded straight into
+     *  `buildWallsAndDoors`. Absent / empty ⇒ the engine decides ⇒ byte-identical. */
+    readonly forceCorridorDirectRoomTypes?: readonly RoomType[];
 }
 
 export interface TglCandidate {
@@ -1532,6 +1536,10 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         // route, so the wall sweep matches the diagonal-perimeter / axis-parallel-interior
         // edges. Undefined for every other path ⇒ byte-identical (cells = lifted rects).
         ...(cellPolyByIdWorld ? { cellPolygonById: cellPolyByIdWorld } : {}),
+        // §FORCE-CORRIDOR-DIRECT — the per-level "↔ Corridor" room types. Absent/empty ⇒
+        // the door pipeline is byte-identical.
+        ...(input.forceCorridorDirectRoomTypes && input.forceCorridorDirectRoomTypes.length > 0
+            ? { forceCorridorDirectRoomTypes: input.forceCorridorDirectRoomTypes } : {}),
     });
     const graph = buildSemanticGraph(emitPlacements, segments, openings, bubble, {
         levelId: input.levelId, seed: `${input.seed}|${strategyKey(s)}`, shellAreaM2: shellArea,
@@ -1885,6 +1893,10 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
             // quad rooms revert to their bbox here and the overflow returns. Undefined ⇒
             // byte-identical (every non-routed path).
             ...(cellPolyByIdWorld ? { cellPolygonById: cellPolyByIdWorld } : {}),
+            // §FORCE-CORRIDOR-DIRECT — honour the per-level "↔ Corridor" toggles on the
+            // residual-augmented emit graph too. Absent/empty ⇒ byte-identical.
+            ...(input.forceCorridorDirectRoomTypes && input.forceCorridorDirectRoomTypes.length > 0
+                ? { forceCorridorDirectRoomTypes: input.forceCorridorDirectRoomTypes } : {}),
         });
         emitGraph = buildSemanticGraph(residualPlacements, emitWalls.segments, emitWalls.openings, emitBubble, {
             levelId: input.levelId, seed: `${input.seed}|${strategyKey(s)}`, shellAreaM2: shellArea,

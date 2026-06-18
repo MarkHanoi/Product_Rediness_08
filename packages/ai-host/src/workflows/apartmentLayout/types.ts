@@ -253,6 +253,18 @@ export interface ApartmentProgram {
      *  the override can never breach the permission matrix. A pair already linked is a
      *  no-op. Omitted / empty ⇒ no extra edge ⇒ byte-identical baseline (ADR-0061 I2). */
     roomAdjacencyByName?: ReadonlyArray<readonly [string, string]>;
+    /** §FORCE-CORRIDOR-DIRECT (founder 2026-06-18, "the user should be able to select
+     *  which rooms in each level connect directly with the corridor via door — the
+     *  shortest path possible"): the per-level "↔ Corridor" toggles. A `RoomType` listed
+     *  here REQUESTS that EVERY room of that type on this plate gets a DIRECT door onto the
+     *  circulation spine (corridor preferred, else hall), placed BEFORE the generic
+     *  reconcile on the room↔corridor shared wall with the LONGEST run nearest the room's
+     *  centroid (the shortest-path door). Honoured by `buildWallsAndDoors` ONLY when the
+     *  pair is PERMITTED (`doorAllowedBetween`) and the host room is under its door cap — a
+     *  forced door that would breach a hard rule is SKIPPED (logged `§DIAG-CORRIDOR-FORCE
+     *  skipped`), never realised illegally. Omitted / empty ⇒ engine decides (today's
+     *  behaviour) ⇒ byte-identical baseline (ADR-0061 invariant I2). */
+    corridorDirectRoomTypes?: readonly RoomType[];
 }
 
 export interface ScoringWeights {

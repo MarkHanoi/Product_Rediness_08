@@ -240,6 +240,11 @@ export function generateDeterministicLayouts(
         ...(tuning?.adjacencyStrictness !== undefined ? { adjacencyStrictness: tuning.adjacencyStrictness } : {}),
         ...(tuning?.corridorWidthM !== undefined ? { corridorWidthM: tuning.corridorWidthM } : {}),
         ...(tuning?.spaceGenerosity !== undefined ? { spaceGenerosity: tuning.spaceGenerosity } : {}),
+        // §FORCE-CORRIDOR-DIRECT (founder 2026-06-18) — carry the per-level "↔ Corridor"
+        // room types straight off the (per-storey) program into the door pipeline. Absent /
+        // empty ⇒ the engine decides ⇒ byte-identical baseline (ADR-0061 invariant I2).
+        ...(program.corridorDirectRoomTypes && program.corridorDirectRoomTypes.length > 0
+            ? { forceCorridorDirectRoomTypes: program.corridorDirectRoomTypes } : {}),
     });
 
     return candidates.map((c, idx) => {

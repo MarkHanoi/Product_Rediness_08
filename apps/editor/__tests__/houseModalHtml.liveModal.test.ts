@@ -264,7 +264,11 @@ describe('§MODAL-SIZE-OVERRIDE-THREADED — area_t_<type> slider → program.ro
         expect(state.program.roomAreas).toBeUndefined();
     });
 
-    it('the form HTML emits an area_t_kitchen slider seeded from program.roomAreas (round-trip)', () => {
+    it('§REMOVE-GLOBAL-SIZE: the form HTML NO LONGER emits a GLOBAL area_t_<type> size slider', () => {
+        // The global whole-house per-room size sliders were removed (founder 2026-06-18 —
+        // "I love the new slider per floor plan, remove the old one"); per-room size is now
+        // exclusively a PER-STOREY control. A 1-storey form (no tabs) therefore carries no
+        // size slider at all — only the count/boolean/weight controls remain.
         const html = buildHouseProgramEditFormHtml({
             storeyCount: 1,
             program: {
@@ -274,10 +278,62 @@ describe('§MODAL-SIZE-OVERRIDE-THREADED — area_t_<type> slider → program.ro
             } as ApartmentProgram,
             weights: { naturalLight: 0.5, privacy: 0.5, kitchenWorkflow: 0.5, corridorEfficiency: 0.5 },
         });
-        // The slider exists with the reader's expected name and is seeded with the override
-        // (so re-opening the modal mirrors the last requested size, and the reader round-trips).
-        expect(html).toContain('name="area_t_kitchen"');
-        expect(html).toContain('value="18"');
-        expect(html).toContain('data-readout-for="area_t_kitchen"');
+        // No GLOBAL `area_t_*` slider (top-level name, never namespaced).
+        expect(html).not.toContain('name="area_t_kitchen"');
+        // The whole-house COUNT seed inputs ARE kept (they drive the per-level auto-split).
+        expect(html).toContain('name="bedrooms"');
+        expect(html).toContain('name="bathrooms"');
+    });
+
+    it('§PER-STOREY-SIZE: a multi-storey form emits per-storey s{i}.area_t_<type> size sliders + ↔ Corridor toggles', () => {
+        const html = buildHouseProgramEditFormHtml({
+            storeyCount: 2,
+            program: {
+                bedrooms: 3, bathrooms: 2, masterEnSuite: true,
+                openPlanKitchenDining: false, livingRoom: true, includeKitchen: true, entranceHall: false,
+            } as ApartmentProgram,
+            weights: { naturalLight: 0.5, privacy: 0.5, kitchenWorkflow: 0.5, corridorEfficiency: 0.5 },
+        });
+        // Per-storey size sliders live inside the tabs (namespaced).
+        expect(html).toContain('name="s0.area_t_kitchen"');
+        expect(html).toContain('name="s1.area_t_bedroom"');
+        // §FORCE-CORRIDOR-DIRECT — per-storey "↔ Corridor" toggles are present.
+        expect(html).toContain('name="s0.corridor_bedroom"');
+        expect(html).toContain('name="s1.corridor_bathroom"');
+    });
+});
+
+// §FORCE-CORRIDOR-DIRECT (founder 2026-06-18) — the per-level "↔ Corridor" room toggles
+// (`s{i}.corridor_<type>`) parse into `perStoreyPrograms[i].corridorDirectRoomTypes`, which
+// the controller threads to the engine (HouseLayoutOptions.perStoreyOverrides). An unchecked
+// toggle ⇒ NOT listed ⇒ engine decides (byte-identical). Exercised through the PURE
+// `parseHouseProgramFormState` over the namespaced fields the tab HTML emits.
+describe('§FORCE-CORRIDOR-DIRECT — s{i}.corridor_<type> toggle → perStoreyPrograms[i].corridorDirectRoomTypes', () => {
+    const base = [
+        { name: 'storeys', value: '2' },
+        { name: 'bedrooms', value: '3' },
+        { name: 'bathrooms', value: '2' },
+        { name: 's0.corridor_living', value: 'on', checked: true },   // ground: living on the spine
+        { name: 's1.corridor_bedroom', value: 'on', checked: true },  // first: bedroom on the spine
+        { name: 's1.corridor_bathroom', value: 'on', checked: false },// unchecked → NOT listed
+    ];
+
+    it('checked toggles land in the storey override; unchecked are omitted', () => {
+        const state = parseHouseProgramFormState(base);
+        expect(state.perStoreyPrograms).toBeTruthy();
+        expect(state.perStoreyPrograms![0]!.corridorDirectRoomTypes).toEqual(['living']);
+        expect(state.perStoreyPrograms![1]!.corridorDirectRoomTypes).toEqual(['bedroom']);
+        // The unchecked bathroom toggle is NOT in the list.
+        expect(state.perStoreyPrograms![1]!.corridorDirectRoomTypes).not.toContain('bathroom');
+    });
+
+    it('NO corridor toggle checked ⇒ no corridorDirectRoomTypes field (byte-identical baseline)', () => {
+        const none = base.map(f => (f.name.includes('.corridor_') ? { ...f, value: '', checked: false } : f));
+        const state = parseHouseProgramFormState(none);
+        // No storey carries a corridor override → either no perStoreyPrograms at all, or the
+        // entries have no corridorDirectRoomTypes field.
+        for (const ov of state.perStoreyPrograms ?? []) {
+            expect(ov?.corridorDirectRoomTypes).toBeUndefined();
+        }
     });
 });

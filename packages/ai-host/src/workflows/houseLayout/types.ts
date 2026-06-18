@@ -46,6 +46,12 @@ export interface PerStoreyProgramOverride {
      *  whole-house `program.roomAreas` (per-storey entries win). Same semantics +
      *  architectural-minimum clamp as `ApartmentProgram.roomAreas`. */
     readonly roomAreas?: Partial<Record<RoomType, number>>;
+    /** §FORCE-CORRIDOR-DIRECT (founder 2026-06-18, per-level "↔ Corridor" toggles) — the
+     *  room TYPES on THIS storey the user requested a DIRECT corridor door for. Merged
+     *  onto the storey program's `corridorDirectRoomTypes` (which `buildWallsAndDoors`
+     *  honours). Absent / empty ⇒ the engine decides (today's behaviour) ⇒ byte-identical
+     *  (ADR-0061 invariant I2). */
+    readonly corridorDirectRoomTypes?: readonly RoomType[];
 }
 
 /** The vertical role of a storey in the stack. `roof` is a synthetic top cap

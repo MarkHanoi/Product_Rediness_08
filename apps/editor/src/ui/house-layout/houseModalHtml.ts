@@ -90,24 +90,10 @@ const AREA_FIELDS: ReadonlyArray<{ type: RoomType; label: string; max: number }>
     { type: 'bathroom', label: 'Bath',    max: 15 },
 ];
 
-/** §3PANE IT-2 (SPEC §5.2) — per-RoomType size as a SLIDER (the founder's "increase
- *  size of room with a slider"). value 0 ⇒ auto (engine default); >0 ⇒
- *  `roomAreas[<type>]` (the C52 hook, clamped to the type minimum). Same
- *  `name="area_t_<type>"` so the form reader is unchanged; a live `<output>` shows the
- *  m² (or "auto"), updated by the modal's form-input listener. */
-function areaInputsHtml(program: ApartmentProgram): string {
-    const overrides = program.roomAreas ?? {};
-    return AREA_FIELDS.map(f => {
-        const cur = (overrides as Record<string, number>)[f.type];
-        const num = (typeof cur === 'number' && Number.isFinite(cur) && cur > 0) ? cur : 0;
-        const readout = num > 0 ? `${num} m²` : 'auto';
-        return (
-            `<label class="alm-program-size"><span class="alm-program-size-label">${escHtml(f.label)}</span>` +
-            `<input type="range" name="area_t_${escHtml(f.type)}" min="0" max="${f.max}" step="0.5" value="${num}" data-area-slider>` +
-            `<output class="alm-program-size-val" data-readout-for="area_t_${escHtml(f.type)}">${escHtml(readout)}</output></label>`
-        );
-    }).join('');
-}
+// §REMOVE-GLOBAL-SIZE (founder 2026-06-18) — the whole-house `areaInputsHtml` builder was
+// removed: the global per-room SIZE row it rendered is now fully duplicated PER STOREY by
+// `storeyAreaInputsHtml` inside the per-level tabs. `AREA_FIELDS` (the row schema) is kept —
+// the per-storey builder reuses it.
 
 function weightSlidersHtml(weights: ScoringWeights): string {
     return WEIGHT_SLIDERS.map(s => {
@@ -189,9 +175,59 @@ function storeyAreaInputsHtml(storeyIndex: number, areas: Partial<Record<RoomTyp
     }).join('');
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// §FORCE-CORRIDOR-DIRECT (founder 2026-06-18, "we should have the corridor (the spine)
+// and the user should be able to select which rooms in each level connect directly with
+// the corridor via door — the shortest path possible") — a per-storey list of room TYPES
+// each with a "↔ Corridor" checkbox. CHECKED ⇒ that room type is added to the storey's
+// `corridorDirectRoomTypes` override, which the engine honours by FORCING a direct corridor
+// door on the shortest-path shared wall (BEFORE the generic reconcile). UNCHECKED (default)
+// ⇒ the engine decides (today's behaviour). The control `name` is namespaced
+// `s{i}.corridor_<RoomType>` so the form reader collects it per storey by prefix. Mirrors
+// the design-canvas convention: it is a HINT to the engine, never a hard geometry edit —
+// a checked room whose corridor door would breach a rule is silently skipped by the engine
+// (the door pipeline's §DIAG-CORRIDOR-FORCE permission/cap gate).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** The room TYPES a storey can request a direct corridor door for (the "↔ Corridor"
+ *  toggles). Circulation types (corridor/hall/stair) are excluded — they ARE the spine
+ *  or are not user-facing rooms. */
+const CORRIDOR_TOGGLE_FIELDS: ReadonlyArray<{ type: RoomType; label: string }> = [
+    { type: 'living',   label: 'Living' },
+    { type: 'kitchen',  label: 'Kitchen' },
+    { type: 'dining',   label: 'Dining' },
+    { type: 'bedroom',  label: 'Bedroom' },
+    { type: 'master',   label: 'Master' },
+    { type: 'bathroom', label: 'Bath' },
+    { type: 'ensuite',  label: 'En-suite' },
+    { type: 'study',    label: 'Study' },
+];
+
+/** Per-storey "↔ Corridor" toggle row — one checkbox per room TYPE. Checked when the
+ *  storey override already lists that type in `corridorDirectRoomTypes`. Namespaced
+ *  `s{i}.corridor_<type>`. */
+function storeyCorridorTogglesHtml(storeyIndex: number, forced: readonly RoomType[] | undefined): string {
+    const set = new Set(forced ?? []);
+    const items = CORRIDOR_TOGGLE_FIELDS.map(f => {
+        const nm = `s${storeyIndex}.corridor_${f.type}`;
+        const checked = set.has(f.type) ? ' checked' : '';
+        return (
+            `<label class="alm-program-chk hlm-corridor-chk">` +
+            `<input type="checkbox" name="${escHtml(nm)}" data-corridor-toggle${checked}> ${escHtml(f.label)}</label>`
+        );
+    }).join('');
+    return (
+        '<div class="hlm-corridor-toggles">' +
+        '<div class="hlm-corridor-label">Direct corridor door <small>— check a room to put it on the spine</small></div>' +
+        `<div class="alm-program-row alm-program-checks hlm-corridor-row">${items}</div>` +
+        '</div>'
+    );
+}
+
 /** One storey's tab BODY — its bed/bath number inputs, the four tri-state booleans,
- *  and the per-room size sliders. A blank number / "Auto" select / 0 slider ⇒ no
- *  override for that field. `active` toggles `hlm-storey-tab--active`. */
+ *  the per-room size sliders, and the per-room "↔ Corridor" toggles. A blank number /
+ *  "Auto" select / 0 slider / unchecked toggle ⇒ no override for that field. `active`
+ *  toggles `hlm-storey-tab--active`. */
 function storeyTabBodyHtml(storeyIndex: number, ov: PerStoreyProgramOverride | undefined, active: boolean): string {
     const o = ov ?? {};
     const numVal = (v: number | undefined): string =>
@@ -213,6 +249,8 @@ function storeyTabBodyHtml(storeyIndex: number, ov: PerStoreyProgramOverride | u
         '<div class="alm-program-row alm-program-areas">' +
         storeyAreaInputsHtml(storeyIndex, o.roomAreas) +
         '</div>' +
+        // §FORCE-CORRIDOR-DIRECT — the per-room "↔ Corridor" toggles for this storey.
+        storeyCorridorTogglesHtml(storeyIndex, o.corridorDirectRoomTypes) +
         '</div>'
     );
 }
@@ -271,11 +309,15 @@ export function buildHouseProgramEditFormHtml(state: HouseProgramFormState): str
         `<label class="alm-program-chk"><input type="checkbox" name="openPlanKitchenDining"${chk(state.program.openPlanKitchenDining)}> Open-plan kitchen + dining</label>` +
         `<label class="alm-program-chk"><input type="checkbox" name="masterEnSuite"${chk(state.program.masterEnSuite)}> Master en-suite</label>` +
         '</div>' +
-        // §MODAL-PROGRAM-EDIT — per-room-type size (m²) row. Blank = auto. This is
-        // the founder's "increase / decrease the space of each room" control.
-        '<div class="alm-program-row alm-program-areas">' +
-        areaInputsHtml(state.program) +
-        '</div>' +
+        // §REMOVE-GLOBAL-SIZE (founder 2026-06-18, "I love the new slider per floor plan —
+        // remove the old one") — the GLOBAL whole-house per-room SIZE sliders
+        // (`areaInputsHtml`) were removed: they are now duplicated PER STOREY inside the
+        // per-level tabs below, and the duplicate confused the user. The whole-house
+        // Bedrooms/Bathrooms NUMBER inputs are KEPT (above) as the whole-house TOTAL seed —
+        // they (a) drive the auto-split the per-level tabs default to (a user who never
+        // opens a tab still gets a sensible whole-house program), (b) are the ONLY count
+        // control on a 1-storey house (which renders no tabs), and (c) feed the §MODAL-FILL
+        // plate-fill seed. Per-room SIZE is now exclusively a per-level control.
         // §PER-STOREY-PROGRAM — the tabbed per-level block (one tab per storey). Only
         // rendered for multi-storey houses; each control defaults to "auto" so an
         // untouched form is byte-identical to the whole-house controls above.

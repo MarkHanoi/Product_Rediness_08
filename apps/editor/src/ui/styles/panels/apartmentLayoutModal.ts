@@ -334,6 +334,21 @@ export const APARTMENT_LAYOUT_MODAL_STYLES = `
 }
 .hlm-storey-bool select:focus-visible { outline: 2px solid #6600FF; outline-offset: -1px; border-color: #6600FF; }
 
+/* §FORCE-CORRIDOR-DIRECT (founder 2026-06-18) — the per-storey "↔ Corridor" toggle row:
+ * a labelled grid of room checkboxes. Checking one forces that room a direct corridor
+ * door (engine §FORCE-CORRIDOR-DIRECT). Brand white + #6600FF, no pure black. */
+.hlm-corridor-toggles {
+  display: flex; flex-direction: column; gap: 4px;
+  padding-top: 6px; border-top: 1px dashed #e9deff;
+}
+.hlm-corridor-label { font-size: 11px; font-weight: 700; color: #6600FF; }
+.hlm-corridor-label small { font-weight: 500; color: #6b5a8a; }
+.hlm-corridor-row {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 10px;
+}
+.hlm-corridor-chk { font-size: 11px; color: #334155; display: flex; align-items: center; gap: 4px; }
+.hlm-corridor-chk input { accent-color: #6600FF; cursor: pointer; }
+
 /* View swap: default = plan visible, graph hidden. .alm-card--graph inverts. The
  * revealed view keeps .alm-thumb's flex centering so the SVG stays centred. */
 .alm-view--graph { display: none; }

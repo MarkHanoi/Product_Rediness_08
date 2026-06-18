@@ -241,6 +241,12 @@ function applyPerStoreyOverrides(
         if (ov.roomAreas && Object.keys(ov.roomAreas).length > 0) {
             merged.roomAreas = { ...(base.roomAreas ?? {}), ...ov.roomAreas };
         }
+        // §FORCE-CORRIDOR-DIRECT — the per-level "↔ Corridor" room TYPES win on this storey
+        // (the whole-house program never seeds this — it is a per-level control). Absent ⇒
+        // the storey keeps the auto behaviour (no forced corridor door) → byte-identical.
+        if (ov.corridorDirectRoomTypes && ov.corridorDirectRoomTypes.length > 0) {
+            merged.corridorDirectRoomTypes = [...ov.corridorDirectRoomTypes];
+        }
         out[i] = { ...out[i]!, program: merged };
         console.log(
             `[D-TGL] §PER-STOREY-PROGRAM storey[${out[i]!.storeyIndex}] override applied: ` +

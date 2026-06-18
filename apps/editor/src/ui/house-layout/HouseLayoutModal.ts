@@ -83,9 +83,14 @@ export function parseHouseProgramFormState(fields: readonly HouseFormField[]): H
         if (!Number.isFinite(v)) return def;
         return Math.max(0, Math.min(1, v / 100));
     };
-    // §MODAL-PROGRAM-EDIT — collect every `area_t_<RoomType>` control that carries a
+    // §MODAL-PROGRAM-EDIT — collect every GLOBAL `area_t_<RoomType>` control that carries a
     // positive number into a `roomAreas` per-type override map (this is the size-slider
     // value → engine target hook). Blank/zero/non-finite ⇒ omitted (engine default).
+    // §REMOVE-GLOBAL-SIZE (founder 2026-06-18) — the GLOBAL per-room size sliders were
+    // removed from the form (now per-storey only). This loop therefore finds none and
+    // yields an empty `roomAreas` (the whole-house program reverts to auto sizing — exactly
+    // the intent). The per-storey `s{i}.area_t_*` controls are namespaced with the `s{i}.`
+    // prefix, so they are NOT caught here (they go to `parsePerStoreyOverrides`).
     const roomAreas: Record<string, number> = {};
     for (const f of fields) {
         const name = f?.name || '';
@@ -179,6 +184,21 @@ export function parsePerStoreyOverrides(
             if (Number.isFinite(v) && v > 0) roomAreas[name.slice(prefix.length)] = v;
         }
         if (Object.keys(roomAreas).length > 0) ov.roomAreas = roomAreas as PerStoreyProgramOverride['roomAreas'];
+        // §FORCE-CORRIDOR-DIRECT — collect the CHECKED `s{i}.corridor_<type>` toggles into
+        // `corridorDirectRoomTypes`. An unchecked / absent toggle ⇒ NOT listed ⇒ the engine
+        // decides (today's behaviour). Deterministic order: the field order in the form.
+        const corridorPrefix = `s${i}.corridor_`;
+        const corridorTypes: string[] = [];
+        for (const f of fields) {
+            const name = f?.name || '';
+            if (!name.startsWith(corridorPrefix)) continue;
+            if (!f.checked) continue;
+            const type = name.slice(corridorPrefix.length);
+            if (ROOM_TYPE_VALUES.includes(type as (typeof ROOM_TYPE_VALUES)[number])) corridorTypes.push(type);
+        }
+        if (corridorTypes.length > 0) {
+            ov.corridorDirectRoomTypes = corridorTypes as PerStoreyProgramOverride['corridorDirectRoomTypes'];
+        }
         out.push(Object.keys(ov).length > 0 ? ov : undefined);
     }
     return out;

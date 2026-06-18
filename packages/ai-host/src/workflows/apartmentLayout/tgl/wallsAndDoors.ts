@@ -142,6 +142,20 @@ export interface WallsAndDoorsOpts {
      * rect). Absent entirely ⇒ every cell is a lifted rect ⇒ byte-identical to the
      * legacy axis-aligned fast path (the rect path + every test without this option). */
     readonly cellPolygonById?: ReadonlyMap<string, readonly Pt[]>;
+    /**
+     * §FORCE-CORRIDOR-DIRECT (founder 2026-06-18, the per-level "↔ Corridor" toggle —
+     * "the user should be able to select which rooms in each level connect directly with
+     * the corridor via door — the shortest path possible"). Room TYPES whose every
+     * instance MUST get a DIRECT door onto the circulation spine, placed BEFORE the
+     * generic reconcile so the forced room wins its corridor wall's budget. For each such
+     * room the pass picks the room↔circulation shared wall with the LONGEST run, breaking
+     * ties toward the wall NEAREST the room's centroid (the shortest-path door). The door
+     * is placed ONLY when the pair is PERMITTED (`doorAllowedBetween`) and the host room is
+     * under its door cap; a forced door that would breach a hard rule is SKIPPED and logged
+     * `§DIAG-CORRIDOR-FORCE skipped`. A corridor host is preferred over a hall host. Absent
+     * / empty ⇒ NO forced pass runs ⇒ byte-identical to the engine-decides baseline
+     * (ADR-0061 invariant I2 — the whole pass is gated on a non-empty set). */
+    readonly forceCorridorDirectRoomTypes?: readonly string[];
 }
 
 const EPS = 1e-6;
@@ -1377,6 +1391,92 @@ export function buildWallsAndDoors(
             return { seg: s, a, b, pref: circPref(a, b), len: Math.hypot(s.b.x - s.a.x, s.b.z - s.a.z) };
         })
         .sort((p, q) => q.pref - p.pref || q.len - p.len || (p.seg.id < q.seg.id ? -1 : 1));
+
+    // (1a-forced) §FORCE-CORRIDOR-DIRECT (founder 2026-06-18, per-level "↔ Corridor"
+    // toggle) — for each room whose TYPE the caller listed in `forceCorridorDirectRoomTypes`,
+    // FORCE a direct door onto the circulation spine (corridor preferred over hall) BEFORE
+    // any generic reconcile, so the forced room wins its corridor wall's budget. The door
+    // lands on the room↔circulation shared wall with the LONGEST run, ties broken toward the
+    // wall NEAREST the room's CENTROID (the shortest-path door — the wall the room most
+    // directly faces). HARD-RESPECTS the program rules: only a PERMITTED pair under the host's
+    // door cap is placed; a forced door that would breach either is SKIPPED + logged
+    // `§DIAG-CORRIDOR-FORCE skipped`. Gated on a non-empty set ⇒ absent ⇒ this whole block is
+    // skipped ⇒ byte-identical (the apartment + every house with no toggle).
+    const forcedTypes = opts.forceCorridorDirectRoomTypes && opts.forceCorridorDirectRoomTypes.length > 0
+        ? new Set(opts.forceCorridorDirectRoomTypes.map(t => roomRule(t).type))
+        : null;
+    if (forcedTypes) {
+        // Room centroid (metres) from its placement rect, for the shortest-path tie-break.
+        const centroidById = new Map<string, Pt>();
+        for (const { roomId, rect } of placements) {
+            centroidById.set(roomId, { x: (rect.x0 + rect.x1) / 2, z: (rect.z0 + rect.z1) / 2 });
+        }
+        const wallMidDistToCentroid = (seg: WallSeg, c: Pt | undefined): number => {
+            if (!c) return Infinity;
+            const mx = (seg.a.x + seg.b.x) / 2, mz = (seg.a.z + seg.b.z) / 2;
+            return Math.hypot(mx - c.x, mz - c.z);
+        };
+        // Process target rooms in stable id order (deterministic).
+        const forcedTargets = graph.rooms
+            .filter(r => forcedTypes.has(roomRule(r.type).type) && !isCirculation(r.type))
+            .map(r => r.id)
+            .sort();
+        for (const id of forcedTargets) {
+            const c = centroidById.get(id);
+            // Circulation-adjacent shared walls for this room. Corridor host wins over hall
+            // (pref 1/0); then LONGEST run; then NEAREST the room centroid; then stable id.
+            const candidates = shared
+                .filter(w => {
+                    const other = w.a === id ? w.b : w.b === id ? w.a : null;
+                    return other !== null && isCirculation(typeOf.get(other) ?? '');
+                })
+                .map(w => {
+                    const other = w.a === id ? w.b : w.a;
+                    return { w, corridorPref: roomRule(typeOf.get(other) ?? '').type === 'corridor' ? 1 : 0 };
+                })
+                .sort((p, q) =>
+                    q.corridorPref - p.corridorPref
+                    || q.w.len - p.w.len
+                    || wallMidDistToCentroid(p.w.seg, c) - wallMidDistToCentroid(q.w.seg, c)
+                    || (p.w.seg.id < q.w.seg.id ? -1 : 1));
+            if (candidates.length === 0) {
+                console.log(`[D-TGL] §DIAG-CORRIDOR-FORCE skipped ${id}(${typeOf.get(id) ?? '?'}) (no circulation-adjacent wall)`);
+                continue;
+            }
+            // Already corridor-served by a bubble/open door? Then nothing to force.
+            const alreadyServed = openings.some(o => {
+                if (o.type !== 'door') return false;
+                const [a, b] = o.betweenRoomIds as readonly [string, string?];
+                if (!b) return false;
+                if (a === id) return isCirculation(typeOf.get(b) ?? '');
+                if (b === id) return isCirculation(typeOf.get(a) ?? '');
+                return false;
+            });
+            if (alreadyServed) continue;
+            let placed = false;
+            for (const { w } of candidates) {
+                if (!permitted(w.a, w.b)) {
+                    console.log(`[D-TGL] §DIAG-CORRIDOR-FORCE skipped ${id}(${typeOf.get(id) ?? '?'}) (forbidden pair with ${typeOf.get(w.a === id ? w.b : w.a) ?? '?'})`);
+                    continue;
+                }
+                if (!underCap(w.a) || !underCap(w.b)) {
+                    console.log(`[D-TGL] §DIAG-CORRIDOR-FORCE skipped ${id}(${typeOf.get(id) ?? '?'}) (door cap reached)`);
+                    continue;
+                }
+                if (wallHasDoor.has(w.seg.id)) continue;            // a sibling already took this wall
+                if (addDoor(w.seg, w.a, w.b)) {
+                    cUnion(w.a, w.b);
+                    placed = true;
+                    console.log(`[D-TGL] §DIAG-CORRIDOR-FORCE placed ${id}(${typeOf.get(id) ?? '?'}) → corridor door on ${w.seg.id} (len=${w.len.toFixed(2)}m)`);
+                    break;
+                }
+            }
+            if (!placed) {
+                console.log(`[D-TGL] §DIAG-CORRIDOR-FORCE skipped ${id}(${typeOf.get(id) ?? '?'}) (no host wall could fit a legal door)`);
+            }
+        }
+        diagPass('corridor-force');
+    }
 
     // (1b) §STAIR-DOOR-LANDING (A.21.D29 #5, 2026-06-12, founder "stair→corridor door
     // inaccurate") — the STAIR is a vertical-circulation core reached FROM the corridor /
