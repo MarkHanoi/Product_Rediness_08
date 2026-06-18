@@ -395,6 +395,27 @@ export class CesiumViewport {
    *  settles the real base, so the first activation lands looking at the building.
    *  Carries the preset so the re-frame matches the original (oblique vs plan). */
   private formaReframeOnBaseSettle: 'oblique' | 'plan' | null = null;
+  /** §GLOBE-FRAME-NO-JUMP — TRUE once the initial "open already framed on the
+   *  building" re-fly has fired for the current placement run. The async tile/terrain
+   *  clamp can settle the base height MORE THAN ONCE (photoreal tiles stream in
+   *  progressively, each re-place can re-sample a slightly different surface height),
+   *  and the old §GLOBE-FIRST-FRAME-BASE-ROBUST block re-flew UNCONDITIONALLY on every
+   *  such settle → the camera was yanked back to the site repeatedly (the founder's
+   *  "jumps off / flies away" regression). This latch makes the corrective re-frame
+   *  fire AT MOST ONCE per framing placement. Re-armed by a fresh `frameCentroid` open
+   *  in `renderFormaMassing`. */
+  private formaInitialReframeFired = false;
+  /** §GLOBE-FRAME-NO-JUMP — TRUE once the USER has driven the camera themselves (a
+   *  drag/zoom that did NOT originate from one of our own programmatic `flyTo`s).
+   *  Once the user has taken control we must NEVER re-fly them back to the site on a
+   *  late base-settle — that would override their view. Distinguished from our own
+   *  flights via `formaProgrammaticFlyInFlight`. Reset on each fresh framing open. */
+  private formaUserMovedCamera = false;
+  /** §GLOBE-FRAME-NO-JUMP — TRUE while one of our own `flyToFormaSite/Plan` flights
+   *  is in progress, so the `moveStart`/`moveEnd` camera listeners can tell our
+   *  programmatic motion apart from genuine user input (only the latter sets
+   *  `formaUserMovedCamera`). */
+  private formaProgrammaticFlyInFlight = false;
 
   // ---- FORMA.5 — sun-driven light + time/season scrubber state ----
   /** The datetime the Forma directional light is currently solved for. Drives
@@ -886,6 +907,15 @@ export class CesiumViewport {
         );
       }, 100);
 
+      // §GLOBE-FRAME-NO-JUMP — record genuine USER camera control so a late
+      // base-settle never re-flies (yanks) the user back to the site. A move that
+      // begins while one of OUR programmatic flyTos is in flight
+      // (`formaProgrammaticFlyInFlight`) is ours, not the user's, so it does NOT
+      // count. Once a real user drag/zoom starts, latch `formaUserMovedCamera`.
+      this.viewer.camera.moveStart.addEventListener(() => {
+        if (!this.formaProgrammaticFlyInFlight) this.formaUserMovedCamera = true;
+      });
+
       // Debug listener + §A.21.D-GLOBE pan-driven context-building refresh.
       this.viewer.camera.moveEnd.addEventListener(() => {
         if (!this.viewer) return;
@@ -1152,6 +1182,10 @@ export class CesiumViewport {
     // §GLOBE-FIRST-FRAME-BASE — drop any pending one-shot re-frame across the mode
     // switch; the next placement re-arms it if it frames against an unresolved base.
     this.formaReframeOnBaseSettle = null;
+    // §GLOBE-FRAME-NO-JUMP — the next framing open re-arms these (in renderFormaMassing);
+    // clearing here keeps a half-finished prior run from leaking its latch across the switch.
+    this.formaInitialReframeFired = false;
+    this.formaUserMovedCamera = false;
 
     // --- Hide the photogrammetry / 3D tilesets while in Forma mode (§2). ---
     try {
@@ -2480,6 +2514,14 @@ export class CesiumViewport {
 
     if (input.frameCentroid) {
       const preset = input.framePreset === 'plan' ? 'plan' : 'oblique';
+      // §GLOBE-FRAME-NO-JUMP — a fresh framing open (NOT a `_skipTerrainClamp`
+      // re-place, which carries `frameCentroid:false` and never reaches here): RE-ARM
+      // the per-open guards so the one corrective re-frame is allowed to fire again,
+      // and a stale "user moved" / "already fired" latch from a prior open can't
+      // suppress (or, worse, a prior open's view can't be re-flown). The async clamp
+      // below settles the real base and fires `performInitialReframe` AT MOST ONCE.
+      this.formaInitialReframeFired = false;
+      this.formaUserMovedCamera = false;
       if (preset === 'plan') this.flyToFormaPlan();
       else this.flyToFormaSite();
       // §GLOBE-FIRST-FRAME-BASE — this framing used the CURRENT base, which on the
@@ -2711,21 +2753,22 @@ export class CesiumViewport {
     // Re-place at the tile-surface base. `_skipTerrainClamp` prevents re-entry;
     // `frameCentroid:false` so the re-place never re-flies the camera.
     this.renderFormaMassing({ ...input, frameCentroid: false, _skipTerrainClamp: true });
-    // §GLOBE-FIRST-FRAME-BASE-ROBUST (founder 2026-06-18 "open 3D globe shows underground; must
-    // click zoom-to-site — need it from the first moment"). The base just changed MATERIALLY (we
-    // are past the base-unchanged guard above; e.g. 0 → 381.9 m), so the initial frame — which flew
-    // at the stale base 0 — parked the camera ~300 m UNDER the real terrain (the underground/black
-    // view). The one-shot `reframeAfterBaseSettle()` arm can be silently cleared by an intervening
-    // mode-reset, leaving the camera underground until a manual Zoom-to-Site. So when THIS placement
-    // was a FRAMING one, re-fly UNCONDITIONALLY at the now-correct base — independent of the arm —
-    // so the FIRST globe open lands on the building with no click needed.
+    // §GLOBE-FRAME-NO-JUMP (supersedes §GLOBE-FIRST-FRAME-BASE-ROBUST). The base just
+    // changed MATERIALLY (we are past the base-unchanged guard above; e.g. 0 → 381.9 m),
+    // so the initial frame — which flew at the stale base 0 — parked the camera under
+    // the real terrain (the underground/black view). We STILL re-frame so the FIRST
+    // globe open lands on the building with no Zoom-to-Site click; BUT the previous
+    // version re-flew UNCONDITIONALLY on every base settle, and photoreal tiles stream
+    // in progressively (the base can settle more than once), so it re-fired and YANKED
+    // the camera — or fired after the user had already moved (founder: "jumps off /
+    // flies away"). Route through `performInitialReframe`, which fires AT MOST ONCE per
+    // open and never after the user has taken control. Consume any pending arm first so
+    // a later `reframeAfterBaseSettle()` can't double-fire.
     if (input.frameCentroid) {
-      this.formaReframeOnBaseSettle = null; // consume any pending arm; we re-fly directly here
-      if (input.framePreset === 'plan') this.flyToFormaPlan();
-      else this.flyToFormaSite();
-      console.log(
-        `[CesiumViewport][forma] §GLOBE-FIRST-FRAME-BASE-ROBUST re-framed on first open at ` +
-          `resolved base ${this.formaTerrainBaseHeight.toFixed(1)} m (no zoom-to-site needed).`,
+      this.formaReframeOnBaseSettle = null; // we own the re-frame here
+      this.performInitialReframe(
+        input.framePreset === 'plan' ? 'plan' : 'oblique',
+        'photoreal-tile clamp',
       );
     } else {
       this.reframeAfterBaseSettle();
@@ -2936,11 +2979,45 @@ export class CesiumViewport {
   private reframeAfterBaseSettle(): void {
     const preset = this.formaReframeOnBaseSettle;
     if (!preset) return;
-    this.formaReframeOnBaseSettle = null;
+    this.formaReframeOnBaseSettle = null; // consume the arm regardless of outcome
+    this.performInitialReframe(preset, 'base-settle arm');
+  }
+
+  /**
+   * §GLOBE-FRAME-NO-JUMP — the SINGLE funnel for the corrective "open already framed
+   * on the building" re-fly that the async tile/terrain base-settle triggers. The
+   * base can settle MORE THAN ONCE (photoreal tiles stream progressively; each
+   * re-place may re-sample a slightly different surface height), so the old code that
+   * re-flew on every settle yanked the camera repeatedly (founder: "jumps off / flies
+   * away"). This funnel enforces the three invariants:
+   *   1. FIRE AT MOST ONCE per framing placement (`formaInitialReframeFired` latch).
+   *   2. NEVER re-fly after the user has taken camera control (`formaUserMovedCamera`).
+   *   3. NEVER fly to an invalid (null / NaN) target — `flyToFormaSite` rejects those.
+   * Shared by BOTH tile sources (Forma terrain clamp via `reframeAfterBaseSettle`, and
+   * Google photoreal tiles via `clampToPhotorealTilesThenReplace`).
+   */
+  private performInitialReframe(preset: 'oblique' | 'plan', reason: string): void {
     if (!this.formaMassingOrigin) return;
+    if (this.formaInitialReframeFired) {
+      // The base settled again (tiles streamed a new height); the first frame already
+      // landed — do NOT yank the camera a second time.
+      return;
+    }
+    if (this.formaUserMovedCamera) {
+      // The user has already moved the camera; honouring the late settle would
+      // override their view. Latch as fired so a later settle is also suppressed.
+      this.formaInitialReframeFired = true;
+      console.log(
+        '[CesiumViewport][forma] §GLOBE-FRAME-NO-JUMP — base settled but the user ' +
+          'already moved the camera; suppressing the corrective re-frame.',
+      );
+      return;
+    }
+    this.formaInitialReframeFired = true;
     console.log(
-      `[CesiumViewport][forma] §GLOBE-FIRST-FRAME-BASE — terrain base settled to ` +
-        `${this.formaTerrainBaseHeight.toFixed(1)} m after the initial frame; re-framing (${preset}).`,
+      `[CesiumViewport][forma] §GLOBE-FRAME-NO-JUMP — terrain base settled to ` +
+        `${this.formaTerrainBaseHeight.toFixed(1)} m after the initial frame; re-framing once ` +
+        `(${preset}, via ${reason}).`,
     );
     if (preset === 'plan') this.flyToFormaPlan();
     else this.flyToFormaSite();
@@ -2951,6 +3028,21 @@ export class CesiumViewport {
     const o = this.formaMassingOrigin;
     if (!viewer || !o) {
       console.warn('[CesiumViewport][forma] flyToFormaSite: no massing placed yet — ignored.');
+      return;
+    }
+    // §GLOBE-FRAME-NO-JUMP — never fly to an invalid frame target. A NaN/non-finite
+    // lat/lon/centroid (e.g. a placement that failed to resolve a footprint) would
+    // send the camera "off" to nowhere — the founder's "jumps off / flies away".
+    if (
+      !Number.isFinite(o.lat) || !Number.isFinite(o.lon) ||
+      !Number.isFinite(o.centroidEast) || !Number.isFinite(o.centroidNorth) ||
+      !Number.isFinite(o.areaM2)
+    ) {
+      console.warn(
+        '[CesiumViewport][forma] flyToFormaSite: invalid frame target ' +
+          `(lat=${o.lat}, lon=${o.lon}, east=${o.centroidEast}, north=${o.centroidNorth}, ` +
+          `area=${o.areaM2}) — ignored.`,
+      );
       return;
     }
     const headingDeg = orientationOverride?.headingDeg ?? FORMA_FLY_HEADING_DEG;
@@ -2975,6 +3067,12 @@ export class CesiumViewport {
       // (black globe) when the site sits on non-zero terrain.
       const absAlt = this.formaTerrainBaseHeight + Math.max(alt, FORMA_FLY_MIN_GROUND_CLEARANCE_M);
       const destination = Cesium.Cartesian3.fromRadians(carto.longitude, carto.latitude, absAlt);
+      // §GLOBE-FRAME-NO-JUMP — mark this flight as OURS so the moveStart listener
+      // doesn't mis-read the resulting camera motion as a user taking control.
+      // Cleared on complete/cancel (and defensively, the moveStart guard only
+      // latches when this is false).
+      this.formaProgrammaticFlyInFlight = true;
+      const clearFlyFlag = (): void => { this.formaProgrammaticFlyInFlight = false; };
       viewer.camera.flyTo({
         destination,
         orientation: {
@@ -2983,6 +3081,8 @@ export class CesiumViewport {
           roll: 0,
         },
         duration: FORMA_FLY_DURATION_S,
+        complete: clearFlyFlag,
+        cancel: clearFlyFlag,
       });
       viewer.scene.requestRender();
       console.log(
@@ -4822,6 +4922,10 @@ export class CesiumViewport {
     this.formaTerrainToken++;
     // §GLOBE-FIRST-FRAME-BASE — clear any pending one-shot re-frame on dispose.
     this.formaReframeOnBaseSettle = null;
+    // §GLOBE-FRAME-NO-JUMP — reset the per-open framing guards for a re-mounted viewport.
+    this.formaInitialReframeFired = false;
+    this.formaUserMovedCamera = false;
+    this.formaProgrammaticFlyInFlight = false;
     // FORMA.5 — drop sun observers so the scrubber UI doesn't leak across mounts.
     this.formaSunListeners.clear();
     this.formaSunLast = null;
