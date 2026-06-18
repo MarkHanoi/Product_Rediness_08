@@ -208,6 +208,19 @@ export interface SubdivideOptions {
      * lands EXACTLY on the perimeter, so suppressing it on rectified quads loses nothing.
      * Absent / false ⇒ the hall-slice runs (the common axis-aligned case). */
     readonly shellRectified?: boolean;
+    /**
+     * §POLYGON-CORRIDOR-REACH-GATE (regression-stabilise, 2026-06-18) — opt-in
+     * (default FALSE). When true, the §POLYGON-CORRIDOR-LEG / §POLYGON-CORRIDOR-ARM
+     * post-passes may union the corridor into an L/T/U polygon that threads empty
+     * space to the stair / far-arm rooms. Those non-rect cells route through the
+     * polygon wall sweep and were observed to emit OVERLAPPING / duplicate interior
+     * walls where the corridor polygon shares an edge with an adjacent room rect
+     * (the founder's "interior walls overlapping — way cleaner before" regression).
+     * Until the polygon sweep de-dupes shared corridor↔room edges, the reach passes
+     * are gated OFF so the corridor stays a clean RECT (the proven pre-2026-06-17
+     * path) and the wall sweep keeps its axis-aligned fast path. Absent / false ⇒
+     * byte-identical to the rect corridor. */
+    readonly polygonCorridorReach?: boolean;
 }
 
 /** Axis-line snap tolerance (m). Matches the EPS_M used by the SCORING
@@ -3293,7 +3306,11 @@ export function subdivideWithReport(
         // corridor, an already-reaching corridor, or no empty leg ⇒ the result is returned UNCHANGED
         // (byte-identical — the corridor stays a plain rect; no regression). The corridor's RECT in
         // `placements` is untouched (the spine), so the area / min / overlap gates are unchanged.
-        if (keepOutRects.length === 0) return baseResult;
+        // §POLYGON-CORRIDOR-REACH-GATE (2026-06-18) — the L/T/U corridor reach is opt-in
+        // (default OFF) until the polygon wall sweep de-dupes corridor↔room shared edges;
+        // see SubdivideOptions.polygonCorridorReach. Off ⇒ clean rect corridor (no
+        // overlapping interior walls), byte-identical to the proven pre-rework path.
+        if (keepOutRects.length === 0 || options.polygonCorridorReach !== true) return baseResult;
         const withLeg = emitPolygonCorridorLeg(
             baseResult,
             graph.corridorId,
