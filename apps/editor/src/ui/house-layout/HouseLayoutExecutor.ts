@@ -549,6 +549,17 @@ export class HouseLayoutExecutor {
             // resolve to them (no read-back). Result: a CLOSED perimeter on EVERY
             // storey, guaranteed by construction — independent of room coverage.
             const perimeterByLevel = new Map<string, PerimeterShell>();
+            // §DIAG-LEVELS-GROUND-SHELL (2026-06-18) — the GROUND storey reuses the
+            // PRE-EXISTING drawn shell (skipExteriorWalls), so its perimeter is NEVER
+            // minted → it is absent from `perimeterByLevel` and was therefore omitted
+            // from the §DIAG-LEVELS "intended" count below. The drawn shell walls ARE in
+            // the live store, so ground always read `live > intended` by exactly the shell
+            // wall count → a spurious "⚠ EXTRA N" (the founder's "walls extruding wrong"
+            // false alarm — they are the CORRECT drawn perimeter, not duplicates). Record
+            // the ground's pre-existing shell count so "intended" includes it. Upper
+            // storeys mint their perimeter (counted via perimeterByLevel) → not recorded
+            // here, so they are never double-counted.
+            const preexistingShellByLevel = new Map<string, number>();
 
             // §A.21.D29 #3 — the GROUND-floor main-entrance door. A generated house
             // (unlike the apartment, where the user hand-places the front door before
@@ -592,6 +603,9 @@ export class HouseLayoutExecutor {
                 // shell-vs-partition from the EXECUTOR's own shell set (robust), not the
                 // façade service (which mis-marked real shell walls → false positives).
                 if (shellWalls.length > 0) recordShellWalls(storey.levelId, shellWalls.map(w => w.id));
+                // §DIAG-LEVELS-GROUND-SHELL — only the GROUND reuses a pre-existing
+                // (un-minted) drawn shell; record its count for the intended tally.
+                if (isGround && shellWalls.length > 0) preexistingShellByLevel.set(storey.levelId, shellWalls.length);
                 // §DIAG-PARTY-WALL (PW.1, 2026-06-09) — blind/party façades for this
                 // storey's shell walls. The engine suppresses windows + the entrance
                 // door there. Default ⇒ empty ⇒ byte-identical (neighbour DETECTION is
@@ -1280,6 +1294,9 @@ export class HouseLayoutExecutor {
                     const intendedByLevel = new Map<string, number>();
                     for (const s of perStorey) intendedByLevel.set(s.levelId, (intendedByLevel.get(s.levelId) ?? 0) + s.set.wallIds.length);
                     for (const [lvl, p] of perimeterByLevel) intendedByLevel.set(lvl, (intendedByLevel.get(lvl) ?? 0) + p.payload.walls.length);
+                    // §DIAG-LEVELS-GROUND-SHELL — add the ground's PRE-EXISTING drawn shell
+                    // (un-minted perimeter) so "intended" matches "live" (no false EXTRA N).
+                    for (const [lvl, n] of preexistingShellByLevel) intendedByLevel.set(lvl, (intendedByLevel.get(lvl) ?? 0) + n);
                     const lines = levelIds.map((lvl, i) => {
                         const label = i === 0 ? 'Ground(L0)' : `Level ${i.toString().padStart(2, '0')}`;
                         const got = liveByLevel.get(lvl) ?? 0;
