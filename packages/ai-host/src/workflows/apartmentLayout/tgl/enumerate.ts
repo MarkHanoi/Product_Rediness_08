@@ -2099,6 +2099,33 @@ function assignParetoRanks(cands: TglCandidate[]): TglCandidate[] {
 }
 
 /**
+ * §CIRCULATION-COMPLIANCE (founder, 2026-06-18) — HARD reach tiebreaker used inside the
+ * least-bad fallback. When EVERY enumerated strategy is hard-invalid, the winner pool is
+ * selected over ALL candidates by `connected` / `circulationRouted` only — and NEITHER of
+ * those forbids SEALING a habitable bedroom. `circulationRouted` is the WRONG signal here:
+ * a room can be circulation-routed (it has SOME door) yet still be unreachable from the
+ * entrance across a disconnected access sub-graph — which is exactly the founder's
+ * "Bedroom 1 — Not on circulation ✗ (served through Dining / through Bedroom 2)" defect.
+ * The strictly-stronger Rule R (`hardFailedRules ∋ 'reach'`, the angle-independent
+ * `unreachableHabitableRoomIds` BFS) is the correct predicate, so among the least-bad
+ * candidates we prefer the ones that SEAL NO habitable room — a bedroom that reaches the
+ * circulation spine without crossing another habitable room ALWAYS beats one that doesn't,
+ * independent of the weighted score.
+ *
+ * Pure + deterministic. Returns the reach-clean subset ONLY when it is a NON-EMPTY proper
+ * subset (it never empties the pool, and is a no-op when every / no candidate seals a
+ * room). Because a HARD-VALID candidate can NEVER fail 'reach', the pool passed in on the
+ * common (compliant) path — `selectTier(hardValidCands)` — has zero reach failures, so this
+ * is a no-op there: already-compliant layouts stay byte-identical (ADR-0061). It only bites
+ * in the all-hard-invalid §TOPO-HARD-REJECT-ALL fallback where reach-sealed and reach-clean
+ * candidates coexist.
+ */
+export function preferReachComplete(pool: readonly TglCandidate[]): readonly TglCandidate[] {
+    const reachClean = pool.filter(c => !c.hardFailedRules.includes('reach'));
+    return reachClean.length > 0 && reachClean.length < pool.length ? reachClean : pool;
+}
+
+/**
  * Enumerate candidate layouts and return the best `count`, Pareto-ranked then
  * weighted-sorted. Deterministic: same input ⇒ identical output (graphs + GUIDs).
  */
@@ -2297,6 +2324,31 @@ export function enumerateLayouts(input: EnumerateInput): TglCandidate[] {
             'The shell + program forces an architectural compromise — shipping the LEAST-BAD ' +
             'layout (never an empty result). Surface the failing rule(s) to the user.',
         );
+    }
+
+    // §CIRCULATION-COMPLIANCE (founder, 2026-06-18) — HARD reach tiebreaker inside the
+    // least-bad fallback. When EVERY strategy is hard-invalid the pool is selected over
+    // ALL candidates by connected / circulationRouted only — neither of which forbids
+    // SEALING a habitable bedroom (Rule R, `hardFailedRules ∋ 'reach'`). That let a
+    // candidate where "Bedroom 1 is served through Dining / through Bedroom 2" (the
+    // founder's repeatable production defect) outrank a sibling where every bedroom DOES
+    // reach the circulation spine. `preferReachComplete` narrows to the reach-clean
+    // candidates BEFORE the soft weighted comparison (see its doc for why this is a no-op
+    // on the common, already-compliant path → byte-identical, ADR-0061).
+    {
+        const reachClean = preferReachComplete(pool);
+        if (reachClean.length < pool.length) {
+            const sealedAcross = Array.from(
+                new Set(pool.filter(c => c.hardFailedRules.includes('reach')).map(c => c.strategy)),
+            ).join(',');
+            console.warn(
+                `[apartment-layout] §CIRCULATION-COMPLIANCE: preferring the ${reachClean.length}/${pool.length} ` +
+                `least-bad candidate(s) that leave NO habitable room sealed over the ${pool.length - reachClean.length} ` +
+                `that strand a bedroom behind another habitable room (sealed strategies: [${sealedAcross}]). ` +
+                'A bedroom must reach the circulation spine without passing through another habitable room.',
+            );
+            pool = reachClean as TglCandidate[];
+        }
     }
 
     // §FEASIBILITY-ALLOC (A.21.D5) — within the chosen tier, prefer the
