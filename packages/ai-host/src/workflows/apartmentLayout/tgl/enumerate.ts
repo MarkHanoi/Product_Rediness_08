@@ -1136,6 +1136,52 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
                         `stairsBridgedToCorridor=${bridged}/${stairPlacements.length}`,
                     );
 
+                    // §STAIR-ROOM-GROW-TO-CORRIDOR (founder 2026-06-18) — the INVERSE of
+                    // §STAIR-SPINE-TOUCH: when the corridor could NOT grow to reach a stair (the
+                    // white space sits on the STAIR's side, not the corridor's), GROW THE STAIR
+                    // ROOM toward the corridor through EMPTY cells until they share a door-width
+                    // wall. The stair CORE stays put; only its enclosing landing expands into
+                    // UNASSIGNED space (never a habitable room — `interiorOverlaps` guards it), so
+                    // it redistributes NO room area (off the area-cap landmine) and mints the
+                    // shared wall the door pipeline (`stairEdges` → circId) needs. Founder: "the
+                    // stair stays located, the scope of its room increases until it touches a
+                    // room". Gated default-ON. Runs BEFORE §STAIR-CIRC-STUB so a grown stair needs
+                    // no stub.
+                    if ((globalThis as { window?: { __pryzmStairRoomGrow?: boolean } }).window?.__pryzmStairRoomGrow !== false
+                        && unbridged.length > 0) {
+                        const stillUnbridged: RoomPlacement[] = [];
+                        let grownToCorridor = 0;
+                        for (const sp of unbridged) {
+                            const stairCands: Rect[] = [
+                                { ...sp.rect, x1: Math.max(sp.rect.x1, cor.x0) },   // grow +x to corridor's left
+                                { ...sp.rect, x0: Math.min(sp.rect.x0, cor.x1) },   // grow −x to corridor's right
+                                { ...sp.rect, z1: Math.max(sp.rect.z1, cor.z0) },   // grow +z to corridor's near
+                                { ...sp.rect, z0: Math.min(sp.rect.z0, cor.z1) },   // grow −z to corridor's far
+                            ];
+                            let grew = false;
+                            for (const cand of stairCands) {
+                                if (cand.x1 - cand.x0 < 1e-3 || cand.z1 - cand.z0 < 1e-3) continue;
+                                if (interiorOverlaps(cand)) continue;          // empty-space only
+                                if (!sharesWall(cand, cor)) continue;
+                                const pIdx = placements.findIndex(p => p.roomId === sp.roomId);
+                                if (pIdx >= 0) placements[pIdx] = { roomId: sp.roomId, rect: cand };
+                                const spIdx = stairPlacements.findIndex(x => x.roomId === sp.roomId);
+                                if (spIdx >= 0) stairPlacements[spIdx] = { roomId: sp.roomId, rect: cand };
+                                bridged++; grownToCorridor++; grew = true;
+                                break;
+                            }
+                            if (!grew) stillUnbridged.push(sp);
+                        }
+                        if (grownToCorridor > 0) {
+                            console.log(
+                                `[D-TGL] §STAIR-ROOM-GROW-TO-CORRIDOR cand ${strategyKey(s)} corridor=${circId} ` +
+                                `grewStairToCorridor=${grownToCorridor}/${unbridged.length}`,
+                            );
+                            unbridged.length = 0;
+                            unbridged.push(...stillUnbridged);
+                        }
+                    }
+
                     // §STAIR-CIRC-STUB (founder defect §65.3, 2026-06-11) — the FRAGMENTED-DENSE
                     // fallback: on a dense GROUND plate the corridor is a full-width strip on one
                     // z-band and the stair sits on the OPPOSITE z-edge with the private comb in
