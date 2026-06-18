@@ -89,14 +89,17 @@ Any failure ⇒ hardValid=false ⇒ REJECT, try next enumeration.
 `§POLYGON-CORRIDOR-LEG`), Phase 3 (polygon-aware gates — `sharedWallRunPolyM` + `corridorStairGapFor`
 read the corridor polygon, `§POLYGON-NATIVE-SEAM`), and Phase 4 (`§POLYGON-CORRIDOR-ARM` — threads
 both arms so far-arm rooms abut, L→T/U) are all integrated; `wallsAndDoors` + `semanticGraph` consume
-the polygon. Also shipped 2026-06-17: §PERIMETER-PN-RECTIFY (ADR-0073 — the perimeter shell is now
-minted in the same Project-North frame the partitions weld to, closing the post-openings L-corner seam
-+ the window-offset drift) and §ROOF-SIT-ON-WALL-HEAD (flat roof lifted by its thickness off the wall
-head). Remaining circulation work: FR-1 suite-fallback (below).
+the polygon. Also shipped 2026-06-18: §ROOF-SIT-ON-WALL-HEAD (flat roof lifted by its thickness off
+the wall head, so it no longer clashes with the upper-floor walls).
 
-### (historical) FF-R1 design notes — the polygon L-corridor
-**Why blocked:** the founder's own test (`stairPosition.test.ts §STAIR-DEFAULT-BIAS`) asserts a **corner** stair for 2-storey (protects the GF hall-hinge). A corner stair (2.0×2.8 m, deeper than a 1.2 m corridor) makes any straight rect corridor on the stair wall **poke into an adjacent room** (GATE 0), and a central double-loaded spine sits too far to touch it. Empirically: mid-edge stair breaks 6 GF tests (reverted); 1:1-rect placement model can't express an L room.
-**The fix:** emit the corridor as an **L-polygon** (thin spine + landing bump at the stair) via the EXISTING `cellPolygonById` channel — `wallsAndDoors` (line ~947 `cellOverride`) + `semanticGraph` (line ~110) already consume it; only the rect path is exercised today. Steps: (1) in the upper-floor no-public carve, build the double-loaded spine on the FULL plate bbox (fits all rooms, every room abuts — FF-R3/R4) + a perpendicular landing leg through the empty band to the stair; (2) emit the corridor placement rect = spine, plus a `cellPolygonById[corridor] = spine∪leg` L-polygon; (3) verify `evaluateCorridorPurity` / `corridorStairGapFor` read the polygon (they currently use the rect — may need the union bbox or polygon-aware shared-wall); (4) self-validate (0 drops, no stair overlap, corridor↔stair ≥0.9, ensuite off corridor) → return null to fall back (strictly non-regressing). Needs in-browser validation (geometry reshape).
+**§PERIMETER-PN-RECTIFY — ATTEMPTED THEN REVERTED.** Minting the upper perimeter in the partitions'
+Project-North frame closed the post-openings L-corner seam in theory, but it moved the upper shell off
+the (un-rectified) GROUND shell → the storeys stopped stacking ("wall exterior edges not good"). It is
+NOT on main. The L-corner-gap-after-openings and the window/door placement-drift are instead handled
+ALIGNMENT-PRESERVINGLY in the execution engine — see `EXECUTION-ENGINE-RENDER-DEFECTS-AUDIT.md`
+(defect 2 = re-base the opening offset against the live mitred wall; defect 3 = broaden the
+§NEAR-CORNER-L recovery so a `bothMitred` corner actually closes). Remaining circulation work: FR-1
+suite-fallback (below).
 
 ---
 ## Founder feature requests (2026-06-17) — circulation completeness
@@ -139,11 +142,12 @@ Touch points (when undertaken): a POST-SELECTION suite rescue on the chosen winn
 landlocked-but-public-abutting bedroom → master+ensuite, place the master's public door, mark the
 ensuite solid-except-master) — NOT a per-candidate enumerate retype.
 
-### FR-2 — L / T / U CORRIDOR (Phase 4 generalised)
-Generalise the Phase-2 L-corridor: thread the corridor polygon through the dominant **and**
-secondary (and tertiary) fragments as an L / T / U so every private room in every arm abuts it.
-This is the rect-free way to serve a multi-arm plate from one corridor. Builds on the
-Phase-1 `cellPolygonById` channel + Phase-3 polygon-aware gates already shipped.
+### FR-2 — L / T / U CORRIDOR — SHIPPED (= Phase 4)
+This IS Phase 4 `§POLYGON-CORRIDOR-ARM` (live on main): the corridor polygon is threaded through the
+dominant **and** secondary (and tertiary) fragments as an L / T / U so every private room in every arm
+abuts it — the rect-free way to serve a multi-arm plate from one corridor, on the Phase-1
+`cellPolygonById` channel + Phase-3 polygon-aware gates. Residual edge cases (a region NO arm can
+reach) fall to FR-1.
 
 ### FR-3 — ENTRANCE-HALL FRONT DOOR ON THE PERIMETER (always)
 The entrance hall's MAIN (and on the GF, effectively only mandatory) door is the FRONT DOOR,
