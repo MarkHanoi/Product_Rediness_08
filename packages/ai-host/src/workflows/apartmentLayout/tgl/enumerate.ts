@@ -1157,8 +1157,39 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
                         if (t) preStubShapes.push({ id: p.roomId, type: t, rect: p.rect });
                     }
                     const OVERSIZE_METRICS = new Set(['areaHardMax', 'widthHardMax', 'lengthHardMax', 'aspectHardMax']);
-                    const preStubBlob = validateAllRoomShapes(preStubShapes).hardFindings
-                        .some(f => OVERSIZE_METRICS.has(f.metric));
+                    // §STUB-BLOB-PRIVATE-ONLY (founder GF stair-circulation fix, 2026-06-18) — the
+                    // §STUB-ONLY-RESCUE-CLEAN guard was written to skip the stub on a genuinely
+                    // MIS-SIZED candidate whose PRIVATE room ballooned (the §PLATE-ROLE example: a
+                    // bedroom at 85 m² / a bathroom at 27 m²) — such a candidate ships circulation-
+                    // FAILED and must not be rescued into a wrongful Pareto win. On a
+                    // GENEROUS GUEST-BEDROOM GROUND plate (e.g. 188 m², 1 guest bedroom + open-plan
+                    // living/kitchen/dining/hall) the PUBLIC + hall rooms are LEGITIMATELY large
+                    // (living/kitchen/dining/hall over their apartment areaHardMax), so keying the blob
+                    // test on EVERY room type wrongly suppressed the stub on the BEST clean hall-hinge
+                    // candidate (live §DIAG: z-* candidates `unbridged=1 preStubBlob=true`
+                    // blobFindings=[living,kitchen,hall:areaHardMax] → the stair shipped SEALED →
+                    // `failed=[circulation]`, EVERY strategy). There is NO well-filled circulation-valid
+                    // alternative there, so relaxing the test to PRIVATE-room oversize only (a public
+                    // cavern is not a blob) rescues the stair without perturbing any ranking.
+                    //
+                    // SCOPE (regression-safe): the relaxation fires ONLY on the entrance-hall GROUND
+                    // storey with a SINGLE private bedroom-class room (`isGroundFloor && bedroomCount<=1`
+                    // — the founder's exact guest-bedroom case). A DENSER multi-bedroom plate keeps the
+                    // ORIGINAL all-room blob test, so the stub never flips that plate's well-filled
+                    // §65.2 residual-fill winner toward a worse-tiled stubbed candidate (the
+                    // houseResidualFill / houseStairKeepoutTight 230 m² 6-bed guard). House-only
+                    // (apartment passes no keep-out ⇒ this block is unreachable ⇒ byte-identical,
+                    // ADR-0061); the upper storey (no entrance hall) is byte-identical too.
+                    const blobTypeById = new Map(preStubShapes.map(sp => [sp.id, sp.type]));
+                    const isPrivateBlobRoom = (id: string): boolean => isPrivate(blobTypeById.get(id) ?? '');
+                    const isBedroomClass = (t: string): boolean => t === 'bedroom' || t === 'master';
+                    const bedroomCount = bubble.rooms.filter(r => isBedroomClass(r.type)).length;
+                    const guestBedroomGround = bubble.entryId != null && bedroomCount <= 1;
+                    const allBlobFindings = validateAllRoomShapes(preStubShapes).hardFindings
+                        .filter(f => OVERSIZE_METRICS.has(f.metric));
+                    const preStubBlob = guestBedroomGround
+                        ? allBlobFindings.some(f => isPrivateBlobRoom(f.roomId))   // public cavern is OK on a guest-bed ground
+                        : allBlobFindings.length > 0;                              // dense/upper plate: original broad guard
                     if (unbridged.length > 0 && !preStubOverlap && !preStubBlob) {
                         const shellBBWorld = polygonBBox(input.shellPolygon);
                         const typeByRoomId = new Map(bubble.rooms.map(r => [r.id, r.type]));
