@@ -101,6 +101,11 @@ export interface EnumerateInput {
      *  judged by its FULL programme, not bedroom count alone — WITHOUT forking the
      *  engine. Absent ⇒ byte-identical apartment behaviour. */
     readonly envelopeValidator?: (args: { program: ApartmentProgram; grossAreaM2: number }) => DimensionalValidation;
+    /** §GROUND-COUNT-CONSTRAINT (founder 2026-06-18) — the bedroom count was EXPLICITLY
+     *  pinned for this storey (per-level `bedroomsExplicit`). Suppresses the plate-density
+     *  bedroom round-up in `buildBubbleGraph` so an explicit Ground bedrooms=1 ships
+     *  EXACTLY 1. Absent/false ⇒ byte-identical (round-up stays on for AUTO storeys). */
+    readonly lockBedroomCount?: boolean;
     /** §STAIR-KEEPOUT (A.21.D21) — OPTIONAL axis-aligned keep-out rectangles in
      *  the engine's plan frame (metres) — the vertical stair core(s) a multi-storey
      *  house reserves. Subtracted from the decomposed shell BEFORE subdivide so no
@@ -836,14 +841,16 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     // relied on it as a no-op 130-rule floor) — only the new growth is suppressed, so the
     // house is byte-identical (ADR-0061). Apartment: no validator ⇒ growth ON ⇒ bug cured.
     const envelopeFitGrowth = !input.envelopeValidator;
+    // §GROUND-COUNT-CONSTRAINT — forward the explicit-count lock. The opts object is now
+    // always built; with lockBedroomCount=false + envelopeFitGrowth=true + no
+    // spaceGenerosity it resolves identically to the prior `undefined` (byte-identical).
     const base = buildBubbleGraph(
         input.program, shellArea, input.shellPolygon,
-        (input.spaceGenerosity !== undefined || !envelopeFitGrowth)
-            ? {
-                ...(input.spaceGenerosity !== undefined ? { spaceGenerosity: input.spaceGenerosity } : {}),
-                envelopeFitGrowth,
-            }
-            : undefined,
+        {
+            ...(input.spaceGenerosity !== undefined ? { spaceGenerosity: input.spaceGenerosity } : {}),
+            envelopeFitGrowth,
+            lockBedroomCount: input.lockBedroomCount ?? false,
+        },
     );
     let bubble: BubbleGraph = s.order === 'rev' ? { ...base, rooms: [...base.rooms].reverse() } : base;
 

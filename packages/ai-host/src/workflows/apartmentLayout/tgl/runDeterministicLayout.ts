@@ -137,6 +137,11 @@ export function generateDeterministicLayouts(
     // identical, ADR-0061).
     keepOutRectsLayout?: ReadonlyArray<{ x0: number; z0: number; x1: number; z1: number }>,
     residualExcludeRectsLayout?: ReadonlyArray<{ x0: number; z0: number; x1: number; z1: number }>,
+    // §GROUND-COUNT-CONSTRAINT (founder 2026-06-18) — the storey's bedroom count was
+    // EXPLICITLY pinned (per-level override). Suppresses the plate-density bedroom
+    // round-up so an explicit Ground bedrooms=1 ships EXACTLY 1. Absent ⇒ byte-identical
+    // (apartment + AUTO storeys keep the round-up).
+    lockBedroomCount?: boolean,
 ): ScoredLayoutOption[] {
     const perimeter = shell.perimeter as Pt[];
     if (!perimeter || perimeter.length < 3) return [];
@@ -227,6 +232,7 @@ export function generateDeterministicLayouts(
         ...(winSpans && winSpans.length > 0 ? { windowSpansWorld: winSpans } : {}),
         ...(doorSpans && doorSpans.length > 0 ? { doorSpansWorld: doorSpans } : {}),
         ...(envelopeValidator ? { envelopeValidator } : {}),
+        ...(lockBedroomCount ? { lockBedroomCount: true } : {}),
         ...(keepOutEngine && keepOutEngine.length > 0 ? { keepOutRects: keepOutEngine } : {}),
         ...(residualExcludeEngine && residualExcludeEngine.length > 0 ? { residualExcludeRects: residualExcludeEngine } : {}),
         // §ENV-E2-SOLAR (E.2) — thread the site latitude so the engine biases

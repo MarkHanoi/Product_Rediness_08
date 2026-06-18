@@ -246,6 +246,29 @@ describe('M-B §PLATE-ROLE — a HOUSE on a large plate sizes rooms coherently',
     });
 });
 
+describe('§GROUND-COUNT-CONSTRAINT — an explicit per-level bedroom count is honoured (no density round-up)', () => {
+    it('explicit Ground bedrooms=1 ships EXACTLY 1 bedroom on a plate big enough to tempt a 2nd', () => {
+        // 400 m² / 2 storeys → ~200 m² ground; round(200/130)=2 would have minted a 2nd
+        // ground bedroom (the founder defect). The lock holds the explicit count at 1.
+        const r = generateHouseLayout(plate(400, 20), FULL, C, W, {
+            storeyCount: 2,
+            perStoreyOverrides: [{ bedrooms: 1 }, undefined],
+        });
+        const ground = r.perStoreyLayout[0]!;
+        const groundBeds = ground.rooms.filter(rm => rm.type === 'bedroom' || rm.type === 'master');
+        expect(groundBeds.length, `ground beds = [${groundBeds.map(b => b.type).join(',')}]`).toBe(1);
+    });
+
+    it('AUTO ground (no override) is byte-identical — the upper density still packs ≥4 beds', () => {
+        // The landmine guard: with NO explicit count the round-up stays ON, so the private
+        // upper level still fills with several bedrooms (the houseProgramSizerConvergence intent).
+        const r = generateHouseLayout(plate(500, 20), FULL, C, W, { storeyCount: 2 });
+        const upper = r.perStoreyLayout[1]!;
+        const upperBeds = upper.rooms.filter(rm => rm.type === 'bedroom' || rm.type === 'master');
+        expect(upperBeds.length).toBeGreaterThanOrEqual(4);
+    });
+});
+
 describe('M-B — the well-behaved small house is unchanged', () => {
     it('a normal 165 m² 2-storey 3-bed house keeps a sensible room set on every storey', () => {
         const r = generateHouseLayout(plate(165, 15), FULL, C, W, { storeyCount: 2 });

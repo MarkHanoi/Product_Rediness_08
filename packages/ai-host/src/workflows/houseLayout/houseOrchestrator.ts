@@ -893,6 +893,11 @@ function enumeratePerStorey(
             // that bloated the stair on a skewed plate). Axis-aligned plate ⇒ identical values.
             keepOutRectsLayout,
             residualExcludeRectsLayout,
+            // §GROUND-COUNT-CONSTRAINT (founder 2026-06-18) — when this storey's bedroom
+            // count was EXPLICITLY pinned per-level, lock it through the subdivider's
+            // plate-density round-up so an explicit Ground bedrooms=1 ships EXACTLY 1
+            // (was bumped to round(plateArea/130) ≥ 2). AUTO storeys leave it false.
+            sp.bedroomsExplicit === true,
         );
         perStorey.push({ storeyIndex: i, options });
     }

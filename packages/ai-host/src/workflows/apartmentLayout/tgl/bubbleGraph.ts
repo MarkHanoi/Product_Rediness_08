@@ -160,6 +160,13 @@ export function scaleProgramToShell(
     // §3.1 envelope), so this flag only matters for the house's internal 'single'
     // re-scale of a storey programme inside `buildBubbleGraph`.
     envelopeFitGrowth = true,
+    // §GROUND-COUNT-CONSTRAINT (founder 2026-06-18) — when the bedroom count was
+    // EXPLICITLY pinned per-level (bedroomsExplicit), do NOT grow it to the plate's
+    // density floor: a user who asks for 1 ground bedroom must get EXACTLY 1, even on a
+    // plate big enough that round(area/130) ≥ 2. Defaults FALSE → apartment + every AUTO
+    // storey are byte-identical (the density round-up + envelope growth stay on, so the
+    // upper-density / no-blob packing in houseProgramSizerConvergence is untouched).
+    lockBedroomCount = false,
 ): ApartmentProgram {
     // An EXPLICIT studio request (bedrooms === 0 AND bathrooms === 0) stays a
     // studio — auto-scale never invents rooms the caller deliberately omitted.
@@ -169,7 +176,12 @@ export function scaleProgramToShell(
     // storey packs denser (45 m²/bed) and allows more rooms so each stays in-band.
     const areaPerBedroom = plateRole === 'single' ? UNIT_AREA_PER_BEDROOM : HOUSE_AREA_PER_BEDROOM;
     const maxBedrooms = plateRole === 'single' ? MAX_BEDROOMS_SINGLE : MAX_BEDROOMS_HOUSE_STOREY;
-    let targetBedrooms = Math.min(maxBedrooms, Math.max(program.bedrooms, Math.round(shellAreaM2 / areaPerBedroom)));
+    // §GROUND-COUNT-CONSTRAINT — an explicitly-pinned count is the bedroom floor AND
+    // ceiling; otherwise the plate density rounds the count up (the default behaviour).
+    const bedFloor = lockBedroomCount
+        ? program.bedrooms
+        : Math.max(program.bedrooms, Math.round(shellAreaM2 / areaPerBedroom));
+    let targetBedrooms = Math.min(maxBedrooms, bedFloor);
 
     // §ENVELOPE-FIT-GROWTH (founder bug #1, 2026-06-10) — the #1 recurring residential
     // defect: an OVER-CAPACITY shell (much larger than the program's max area) inflated
@@ -190,7 +202,7 @@ export function scaleProgramToShell(
     // result is the FLOOR (`Math.max` below never lowers it), so an in-band / small shell
     // is BYTE-IDENTICAL (90 m², 120 m² → 2-bed unchanged; the founder's regression guard).
     // Pure + deterministic (table lookup, no RNG) per ADR-0061.
-    if (plateRole === 'single' && envelopeFitGrowth) {
+    if (plateRole === 'single' && envelopeFitGrowth && !lockBedroomCount) {
         while (
             targetBedrooms < maxBedrooms &&
             shellAreaM2 > apartmentDimensionsFor(targetBedrooms).grossMax + 1e-6
@@ -238,6 +250,12 @@ export interface BubbleGraphOpts {
      *  living / 31 m² bathroom). The requested bedroom COUNT stays authoritative — absorbers
      *  are never bedrooms. Default false ⇒ byte-identical; the house path opts in. */
     readonly absorberFill?: boolean;
+    /** §GROUND-COUNT-CONSTRAINT (founder 2026-06-18) — the bedroom count was EXPLICITLY
+     *  pinned (per-level `bedroomsExplicit`); suppress the plate-density round-up so an
+     *  explicit Ground bedrooms=1 ships EXACTLY 1 even on a big plate. Residual area then
+     *  flows to the public rooms / `absorberFill` studies, never a new bedroom. Default
+     *  false ⇒ apartment + AUTO storeys byte-identical (round-up stays on). */
+    readonly lockBedroomCount?: boolean;
 }
 
 export function buildBubbleGraph(
@@ -253,6 +271,7 @@ export function buildBubbleGraph(
     // sub-programme isn't re-inflated to the apartment envelope.
     const program = scaleProgramToShell(
         rawProgram, availableAreaM2, 'single', opts?.envelopeFitGrowth ?? true,
+        opts?.lockBedroomCount ?? false,
     );
     // A.25.3 — `space` slider: a >1 multiplier grows habitable rooms. Clamped to a
     // sane band so the area arithmetic stays stable. Neutral (1.0) is identity.
