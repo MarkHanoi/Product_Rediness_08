@@ -165,7 +165,24 @@ function rebaseEndpointsToDrawnShell(
     // rectified edge owns p (interior endpoint, or a corner shared by two edges), return p
     // unchanged — corners already coincide between rectified + drawn rings within the rectify
     // tolerance, and an interior endpoint must not be dragged to the shell.
+    const CORNER_EPS_M = 0.30;   // §PERIM-CORNER-SNAP — covers the full rectify corner delta (≤0.5m/edge)
     const transfer = (p: XZ): XZ => {
+        // §PERIM-CORNER-SNAP (founder 2026-06-18) — a welded partition end that TERMINATES
+        // AT a perimeter corner is skipped by the strict-interior edge test below (t≈0/1).
+        // On a tilted edge the rectified corner ≠ the drawn corner (rectify moves the vertex
+        // ≤0.5m), so such an end would land off the BUILT perimeter (= the DRAWN shell) → the
+        // open exterior-corner gap (§DIAG-PERIM-CORNER-WHOLE, ~134mm). Snap it to the nearest
+        // DRAWN corner vertex (within ε) FIRST — the perimeter stays exactly on the drawn/
+        // previewed line (NO parity break); only the partition END moves, onto the previewed
+        // corner it should meet. Mid-edge ends (metres from any vertex) fall through to the
+        // unchanged edge-fraction transfer. Must precede the edge loop: the loop can otherwise
+        // slide a corner end to a wrong fraction on the drawn edge (measured 192mm vs 0mm).
+        let bestV = -1, bestVD = CORNER_EPS_M;
+        for (let i = 0; i < n; i++) {
+            const d = Math.hypot(p.x - drawnRing[i]!.x, p.z - drawnRing[i]!.z);
+            if (d < bestVD) { bestVD = d; bestV = i; }
+        }
+        if (bestV >= 0) return { x: drawnRing[bestV]!.x, z: drawnRing[bestV]!.z };
         let bestPerp = onEdgeTolM;
         let bestT = -1, bestEdge = -1;
         for (let i = 0; i < n; i++) {

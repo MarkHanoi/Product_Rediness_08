@@ -520,6 +520,29 @@ describe('§ONE-FRAME-MINT: rebaseToDrawnShell lands welded ends on the DRAWN pe
         const direct = weldPartitionsToShell([axisPart], axisShell);
         expect(JSON.stringify(viaPN)).toEqual(JSON.stringify(direct));
     });
+
+    it('§PERIM-CORNER-SNAP: a partition TERMINATING AT a shell corner lands on the DRAWN corner vertex', () => {
+        // Vertical partition ENDING at the top-right DRAWN corner (drawnLocal[2] = {RT,10}).
+        // The weld snaps that end onto the RECTIFIED right edge (axis x=13.00) whose top vertex
+        // sits ~0.25 m off the drawn corner (x=12.75); the rebase's strict-interior edge test
+        // SKIPS a corner end, so WITHOUT the corner-snap it stays off the BUILT (drawn) perimeter
+        // → the open exterior-corner gap (§DIAG-PERIM-CORNER-WHOLE). The corner-snap pulls it
+        // onto the drawn corner vertex the perimeter wall actually terminates at — 134mm → 0.
+        const cornerPart: WeldWall = { id: 'pc', start: rot({ x: RT, z: 7 }), end: rot({ x: RT, z: 10 }) };
+        const distToNearestDrawnCorner = (p: { x: number; z: number }): number =>
+            Math.min(...drawnWorld.map(v => Math.hypot(p.x - v.x, p.z - v.z)));
+        const without = projectNorthWeld([cornerPart], shell, frame).partitions[0]!;
+        const withSnap = projectNorthWeld([cornerPart], shell, frame, undefined, { rebaseToDrawnShell: true }).partitions[0]!;
+        // WITHOUT the corner-snap the corner-terminating end sits ~69mm off the drawn corner
+        // (the open-corner gap; matches the spike's measured rebase-OFF baseline)…
+        expect(distToNearestDrawnCorner(without.end)).toBeGreaterThan(0.05);
+        // …WITH the corner-snap it lands exactly on the drawn corner vertex (0mm).
+        expect(distToNearestDrawnCorner(withSnap.end)).toBeLessThan(0.02);
+        expect(distToNearestDrawnCorner(withSnap.end)).toBeLessThan(distToNearestDrawnCorner(without.end));
+        // The interior start end is NOT corner-snapped — it stays on the drawn right EDGE
+        // (no false-snap of a non-corner end).
+        expect(distToNearestDrawnCorner(withSnap.start)).toBeGreaterThan(0.30);
+    });
 });
 
 // ── rectifyShellRing — the load-bearing §3.3 step (clean axis-aligned rectilinear) ──
