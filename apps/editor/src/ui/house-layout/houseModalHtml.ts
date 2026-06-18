@@ -600,6 +600,15 @@ function roomTypeLabel(type: string): string {
  *  of these on its storey. */
 const CIRCULATION_TYPES: ReadonlySet<string> = new Set(['corridor', 'hall']);
 
+/** Public circulation spaces a STAIR may legitimately open onto. A stair is
+ *  "on circulation" only if it has a DOOR onto one of these — "connects floors"
+ *  is the stair's dependency, NOT proof it is reachable (founder: a stair not
+ *  reached from a public space is red/non-compliant). Mirrors `STAIR_ACCESS`
+ *  in `layoutBubbleGraph.ts` so the inspector panel and the red-node flag agree. */
+const STAIR_ACCESS_TYPES: ReadonlySet<string> = new Set([
+    'corridor', 'hall', 'living', 'dining', 'kitchen',
+]);
+
 /** Program ROLE one-liner, derived ONLY from the room type (no ai-host rules).
  *  Public/entry zone vs private (off-the-corridor) vs service/circulation. */
 function roomDependencyRole(type: string): string {
@@ -667,15 +676,33 @@ export function buildNodeInspectorHtml(
         ? room.doorAdjacentTo.filter((n): n is string => typeof n === 'string' && n.length > 0 && n !== room.name)
         : adjacent;
     const circVia = doorAdj.find(n => CIRCULATION_TYPES.has(typeByName.get(n) ?? ''));
-    const circulationHtml = selfIsSpine
-        ? `<span class="hlm-insp-circ hlm-insp-circ--on">On circulation ✓ <small>(${selfType === 'hall' ? 'entry hall' : 'the spine'})</small></span>`
-        : circVia
-            ? `<span class="hlm-insp-circ hlm-insp-circ--on">On circulation ✓ <small>(door to ${escHtml(circVia)})</small></span>`
-            : selfType === 'stair'
-                ? `<span class="hlm-insp-circ hlm-insp-circ--on">On circulation ✓ <small>(connects floors)</small></span>`
-                : doorAdj.length > 0
-                    ? `<span class="hlm-insp-circ hlm-insp-circ--off">Not on circulation ✗ <small>(door only into ${escHtml(doorAdj[0]!)})</small></span>`
-                    : `<span class="hlm-insp-circ hlm-insp-circ--off">Not on circulation ✗ <small>(no door — sealed)</small></span>`;
+    let circulationHtml: string;
+    if (selfIsSpine) {
+        circulationHtml = `<span class="hlm-insp-circ hlm-insp-circ--on">On circulation ✓ <small>(${selfType === 'hall' ? 'entry hall' : 'the spine'})</small></span>`;
+    } else if (selfType === 'stair') {
+        // §STAIR-PUBLIC-FLOW — a stair is on-circulation ONLY if it has a DOOR onto a
+        // public circulation space (corridor/hall/living/dining/kitchen). "Connects
+        // floors" is a dependency, not reachability — a stair with no public door is
+        // non-compliant (red), and the panel must say so + WHERE a door is needed.
+        const stairVia = doorAdj.find(n => STAIR_ACCESS_TYPES.has(typeByName.get(n) ?? ''));
+        if (stairVia) {
+            circulationHtml = `<span class="hlm-insp-circ hlm-insp-circ--on">On circulation ✓ <small>(door to ${escHtml(stairVia)})</small></span>`;
+        } else {
+            // Surface the public spaces the stair COULD open onto (its wall neighbours
+            // of an access type) so the panel explains why it's red and where to fix it.
+            const candidates = adjacent.filter(n => STAIR_ACCESS_TYPES.has(typeByName.get(n) ?? ''));
+            const hint = candidates.length > 0
+                ? `needs a door to ${escHtml(candidates.slice(0, 3).join(', '))}`
+                : 'needs a door to a public space (corridor / living / dining / kitchen)';
+            circulationHtml = `<span class="hlm-insp-circ hlm-insp-circ--off">Not on circulation ✗ <small>(${hint})</small></span>`;
+        }
+    } else if (circVia) {
+        circulationHtml = `<span class="hlm-insp-circ hlm-insp-circ--on">On circulation ✓ <small>(door to ${escHtml(circVia)})</small></span>`;
+    } else if (doorAdj.length > 0) {
+        circulationHtml = `<span class="hlm-insp-circ hlm-insp-circ--off">Not on circulation ✗ <small>(door only into ${escHtml(doorAdj[0]!)})</small></span>`;
+    } else {
+        circulationHtml = `<span class="hlm-insp-circ hlm-insp-circ--off">Not on circulation ✗ <small>(no door — sealed)</small></span>`;
+    }
 
     const role = roomDependencyRole(String(room.type ?? ''));
 

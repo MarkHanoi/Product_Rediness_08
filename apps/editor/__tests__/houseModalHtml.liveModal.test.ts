@@ -183,7 +183,7 @@ describe('§54 — living-graph node inspector (INFORMATION · DEPENDENCIES · A
     it('CIRCULATION = ON when adjacent to a corridor/hall (shows the via-room)', () => {
         const html = buildNodeInspectorHtml(storey[1], storey); // Bedroom 1 → Corridor
         expect(html).toContain('On circulation ✓');
-        expect(html).toContain('(via Corridor)');
+        expect(html).toContain('door to Corridor');
         expect(html).toContain('hlm-insp-circ--on');
     });
 
@@ -197,18 +197,32 @@ describe('§54 — living-graph node inspector (INFORMATION · DEPENDENCIES · A
         expect(html).not.toContain('Not on circulation');
     });
 
-    it('CIRCULATION = ON for a stair (vertical circulation), even with no adjacent corridor', () => {
-        const stair: LayoutRoom = { name: 'Stair', type: 'stair', area: 9, adjacentTo: ['Living Room'] } as LayoutRoom;
-        const html = buildNodeInspectorHtml(stair, [stair]);
+    it('§STAIR-PUBLIC-FLOW: stair is ON only with a DOOR onto a public space', () => {
+        // A stair with a DOOR to a public circulation space (living/dining/kitchen/
+        // corridor/hall) is compliant; "connects floors" alone is NOT enough.
+        const living: LayoutRoom = { name: 'Living Room', type: 'living', area: 30, adjacentTo: ['Stair'] } as LayoutRoom;
+        const stair: LayoutRoom = { name: 'Stair', type: 'stair', area: 9, adjacentTo: ['Living Room'], doorAdjacentTo: ['Living Room'] } as LayoutRoom;
+        const html = buildNodeInspectorHtml(stair, [stair, living]);
         expect(html).toContain('On circulation ✓');
-        expect(html).toContain('(connects floors)');
+        expect(html).toContain('door to Living Room');
         expect(html).not.toContain('Not on circulation');
+    });
+
+    it('§STAIR-PUBLIC-FLOW: stair WALL-adjacent to a public space but with NO door is RED', () => {
+        // Founder: a stair that connects floors but is not reached from any public
+        // space is non-compliant — the panel must say so + name where a door is needed.
+        const kitchen: LayoutRoom = { name: 'Kitchen', type: 'kitchen', area: 12, adjacentTo: ['Stair'] } as LayoutRoom;
+        const stair: LayoutRoom = { name: 'Stair', type: 'stair', area: 9, adjacentTo: ['Kitchen'], doorAdjacentTo: [] } as LayoutRoom;
+        const html = buildNodeInspectorHtml(stair, [stair, kitchen]);
+        expect(html).toContain('Not on circulation ✗');
+        expect(html).toContain('needs a door to Kitchen');
+        expect(html).toContain('hlm-insp-circ--off');
     });
 
     it('CIRCULATION = OFF when served only through a non-circulation room', () => {
         const html = buildNodeInspectorHtml(storey[3], storey); // Store → Bedroom 1 (not circulation)
         expect(html).toContain('Not on circulation ✗');
-        expect(html).toContain('served through Bedroom 1');
+        expect(html).toContain('door only into Bedroom 1');
         expect(html).toContain('hlm-insp-circ--off');
     });
 
@@ -221,7 +235,7 @@ describe('§54 — living-graph node inspector (INFORMATION · DEPENDENCIES · A
         const sealed: LayoutRoom = { name: 'Vault', type: 'utility', area: 2, adjacentTo: [] } as LayoutRoom;
         const html = buildNodeInspectorHtml(sealed, [sealed]);
         expect(html).toContain('No connected rooms');
-        expect(html).toContain('(sealed)');
+        expect(html).toContain('no door — sealed');
     });
 
     it('missing room → empty string (modal falls back to the bare editor)', () => {
