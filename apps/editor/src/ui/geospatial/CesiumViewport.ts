@@ -375,6 +375,17 @@ export class CesiumViewport {
   /** Monotonic token serialising overlapping async terrain samples — only the
    *  latest placement's clamp is allowed to commit (newer placement wins). */
   private formaTerrainToken = 0;
+  /** §GLOBE-FIRST-FRAME-BASE — the initial camera framing (`frameCentroid:true`)
+   *  fires SYNCHRONOUSLY in `renderFormaMassing`, BEFORE the async terrain/tile
+   *  height sample has resolved, so it frames at the stale `formaTerrainBaseHeight`
+   *  (0 m on the very first activation). When the site sits on non-zero terrain
+   *  (e.g. base ≈ 382 m) that frames the camera ~382 m BELOW the building → the
+   *  globe opens BLACK / underground (a second activation then works because the
+   *  base is already resolved). This flag records that an initial framing happened
+   *  against an unresolved base; the async clamp re-issues the SAME framing once it
+   *  settles the real base, so the first activation lands looking at the building.
+   *  Carries the preset so the re-frame matches the original (oblique vs plan). */
+  private formaReframeOnBaseSettle: 'oblique' | 'plan' | null = null;
 
   // ---- FORMA.5 — sun-driven light + time/season scrubber state ----
   /** The datetime the Forma directional light is currently solved for. Drives
@@ -1123,6 +1134,9 @@ export class CesiumViewport {
     // entry (restorePhotorealMode → renderBuildingOnGlobe → clampToPhotorealTiles).
     this.formaTerrainBaseHeight = 0;
     this.formaTerrainSampledAt = null;
+    // §GLOBE-FIRST-FRAME-BASE — drop any pending one-shot re-frame across the mode
+    // switch; the next placement re-arms it if it frames against an unresolved base.
+    this.formaReframeOnBaseSettle = null;
 
     // --- Hide the photogrammetry / 3D tilesets while in Forma mode (§2). ---
     try {
@@ -2447,8 +2461,16 @@ export class CesiumViewport {
     this.formaMassingOrigin = { lat: originLat, lon: originLon, centroidEast, centroidNorth, areaM2 };
 
     if (input.frameCentroid) {
-      if (input.framePreset === 'plan') this.flyToFormaPlan();
+      const preset = input.framePreset === 'plan' ? 'plan' : 'oblique';
+      if (preset === 'plan') this.flyToFormaPlan();
       else this.flyToFormaSite();
+      // §GLOBE-FIRST-FRAME-BASE — this framing used the CURRENT base, which on the
+      // first activation is still 0 (the async terrain/tile sample below hasn't run
+      // yet). Arm a one-shot re-frame so that when the clamp settles a DIFFERENT
+      // base, the camera re-flies once with the correct ground height instead of
+      // staying parked underground. Only arm when an async clamp will actually run
+      // (a re-place pass passes `_skipTerrainClamp` and must never re-fly).
+      this.formaReframeOnBaseSettle = input._skipTerrainClamp ? null : preset;
     }
 
     // A.21.D24 — re-draw any active 3D climate overlays so the sun-path/wind/heat
@@ -2649,6 +2671,11 @@ export class CesiumViewport {
     // Re-place at the tile-surface base. `_skipTerrainClamp` prevents re-entry;
     // `frameCentroid:false` so the re-place never re-flies the camera.
     this.renderFormaMassing({ ...input, frameCentroid: false, _skipTerrainClamp: true });
+    // §GLOBE-FIRST-FRAME-BASE — the base just changed (e.g. 0 → 381.9 m). If the
+    // initial framing flew against the stale base (which would have put the camera
+    // underground / black), re-fly ONCE now that the building is seated on the real
+    // tile ground so the first activation lands looking at the building.
+    this.reframeAfterBaseSettle();
   }
 
   /**
@@ -2759,6 +2786,10 @@ export class CesiumViewport {
     // Re-place at the new base. `_skipTerrainClamp` prevents an infinite loop;
     // `frameCentroid:false` so the re-place never re-flies the camera (task #2).
     this.renderFormaMassing({ ...input, frameCentroid: false, _skipTerrainClamp: true });
+    // §GLOBE-FIRST-FRAME-BASE — same one-shot re-frame as the photoreal path: if
+    // the initial framing used the stale (pre-sample) base, re-fly once now that
+    // the terrain base is resolved so the first activation isn't framed underground.
+    this.reframeAfterBaseSettle();
     // MAP-DATA-OVERTURE — the base height changed, so re-seat the context
     // buildings on the new ground too (force, since the centre is unchanged).
     // §A.21.D-GLOBE3 — but NOT on the photoreal "3D globe" where the loaded tiles
@@ -2822,6 +2853,31 @@ export class CesiumViewport {
    */
   public hasFormaMassingPlaced(): boolean {
     return this.formaMassingOrigin != null;
+  }
+
+  /**
+   * §GLOBE-FIRST-FRAME-BASE — one-shot camera re-frame fired by the terrain/tile
+   * clamp once it settles a NEW `formaTerrainBaseHeight`. The initial framing in
+   * `renderFormaMassing` ran synchronously, before the async height sample, so on
+   * the FIRST activation it framed the camera against base 0 while the building
+   * ends up seated on the real terrain (e.g. base ≈ 382 m) → the camera is left
+   * ~382 m underground → the globe opens black. We re-issue the SAME framing (the
+   * recorded oblique/plan preset) now that the base — and therefore the absolute
+   * camera altitude in `flyToFormaSite` — is correct. Disarmed after one fire so
+   * later moves/clamps never re-fly (they keep `frameCentroid:false` semantics).
+   * No-op when nothing armed it (re-place passes, or a base that didn't change).
+   */
+  private reframeAfterBaseSettle(): void {
+    const preset = this.formaReframeOnBaseSettle;
+    if (!preset) return;
+    this.formaReframeOnBaseSettle = null;
+    if (!this.formaMassingOrigin) return;
+    console.log(
+      `[CesiumViewport][forma] §GLOBE-FIRST-FRAME-BASE — terrain base settled to ` +
+        `${this.formaTerrainBaseHeight.toFixed(1)} m after the initial frame; re-framing (${preset}).`,
+    );
+    if (preset === 'plan') this.flyToFormaPlan();
+    else this.flyToFormaSite();
   }
 
   public flyToFormaSite(orientationOverride?: { headingDeg: number; pitchDeg: number }): void {
@@ -4698,6 +4754,8 @@ export class CesiumViewport {
     this.formaTerrainBaseHeight = 0;
     this.formaTerrainSampledAt = null;
     this.formaTerrainToken++;
+    // §GLOBE-FIRST-FRAME-BASE — clear any pending one-shot re-frame on dispose.
+    this.formaReframeOnBaseSettle = null;
     // FORMA.5 — drop sun observers so the scrubber UI doesn't leak across mounts.
     this.formaSunListeners.clear();
     this.formaSunLast = null;
