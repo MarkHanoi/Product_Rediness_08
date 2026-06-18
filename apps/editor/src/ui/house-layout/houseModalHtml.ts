@@ -658,16 +658,24 @@ export function buildNodeInspectorHtml(
     //   for an adjacent corridor/hall to route through.
     const selfType = String(room.type ?? '');
     const selfIsSpine = CIRCULATION_TYPES.has(selfType);
-    const circVia = adjacent.find(n => CIRCULATION_TYPES.has(typeByName.get(n) ?? ''));
+    // §DOOR-GRAPH — circulation follows the DOOR graph (real access), not wall-adjacency:
+    // a room is only "on circulation" if it has an actual DOOR onto a corridor/hall
+    // (founder: "just because it's adjacent … there needs to be a door, otherwise it's not
+    // compliant"). Fall back to wall-adjacency only when the engine build predates
+    // `doorAdjacentTo` (older results), so nothing regresses pre-deploy.
+    const doorAdj = Array.isArray(room.doorAdjacentTo)
+        ? room.doorAdjacentTo.filter((n): n is string => typeof n === 'string' && n.length > 0 && n !== room.name)
+        : adjacent;
+    const circVia = doorAdj.find(n => CIRCULATION_TYPES.has(typeByName.get(n) ?? ''));
     const circulationHtml = selfIsSpine
         ? `<span class="hlm-insp-circ hlm-insp-circ--on">On circulation ✓ <small>(${selfType === 'hall' ? 'entry hall' : 'the spine'})</small></span>`
         : circVia
-            ? `<span class="hlm-insp-circ hlm-insp-circ--on">On circulation ✓ <small>(via ${escHtml(circVia)})</small></span>`
+            ? `<span class="hlm-insp-circ hlm-insp-circ--on">On circulation ✓ <small>(door to ${escHtml(circVia)})</small></span>`
             : selfType === 'stair'
                 ? `<span class="hlm-insp-circ hlm-insp-circ--on">On circulation ✓ <small>(connects floors)</small></span>`
-                : adjacent.length > 0
-                    ? `<span class="hlm-insp-circ hlm-insp-circ--off">Not on circulation ✗ <small>(served through ${escHtml(adjacent[0]!)})</small></span>`
-                    : `<span class="hlm-insp-circ hlm-insp-circ--off">Not on circulation ✗ <small>(sealed)</small></span>`;
+                : doorAdj.length > 0
+                    ? `<span class="hlm-insp-circ hlm-insp-circ--off">Not on circulation ✗ <small>(door only into ${escHtml(doorAdj[0]!)})</small></span>`
+                    : `<span class="hlm-insp-circ hlm-insp-circ--off">Not on circulation ✗ <small>(no door — sealed)</small></span>`;
 
     const role = roomDependencyRole(String(room.type ?? ''));
 

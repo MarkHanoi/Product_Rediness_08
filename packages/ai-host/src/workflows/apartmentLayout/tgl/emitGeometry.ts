@@ -126,6 +126,9 @@ export function emitGeometry(graph: LayoutGraph, opts?: EmitGeometryOpts): Emitt
             windowCount: willGetWindow ? 1 : 0,
             hasDirectAccess: (permeable.get(n.guid)?.size ?? 0) > 0,
             adjacentTo: [...(neighbours.get(n.guid) ?? [])].map(g => nameByGuid.get(g) ?? g).sort(),
+            // §DOOR-GRAPH — the DOOR-connected neighbours (permeable boundaries), so the
+            // editor's circulation-compliance check follows real access, not wall-sharing.
+            doorAdjacentTo: [...(permeable.get(n.guid) ?? [])].map(g => nameByGuid.get(g) ?? g).sort(),
             centroid: { x: mm(cx), y: mm(cz) },
             ...(polygonMm.length >= 3 ? { polygon: polygonMm } : {}),
             occupancy: occupancyOf(spaceType),

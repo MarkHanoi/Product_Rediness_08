@@ -38,6 +38,12 @@ export interface LayoutRoom {
     hasDirectAccess: boolean;
     /** Names of rooms this one is adjacent to (shares a wall / a door). */
     adjacentTo: string[];
+    /** Names of rooms this one is connected to by an ACTUAL DOOR / opening (a
+     *  permeable boundary) — the real ACCESS graph, as opposed to `adjacentTo`
+     *  which also counts mere wall-sharing. Circulation compliance must follow
+     *  THIS: sharing a wall with the corridor is not the same as a door onto it.
+     *  Optional for back-compat (older results / hand-built rooms omit it). */
+    doorAdjacentTo?: string[];
     /** Footprint centroid (plan mm) — lets the build match this room to the
      *  detected room and apply its semantic name/type. */
     centroid?: Vec2mm;

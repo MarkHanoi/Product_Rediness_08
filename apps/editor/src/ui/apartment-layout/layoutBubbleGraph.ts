@@ -437,14 +437,25 @@ export function buildPlanGraphOverlaySvg(
     // master (architecturally allowed) do NOT false-positive red.
     const CIRC_NEIGHBOUR = new Set(['corridor', 'hall']);
     const RED_IF_LANDLOCKED = new Set(['bedroom', 'master', 'bathroom', 'wc']);
+    const typeByName = new Map(rooms.map(r => [r.name, String(r.type ?? '').toLowerCase()]));
+    // Wall-adjacency fallback (only used when the engine build predates `doorAdjacentTo`).
     const neighbourTypes: Array<Set<string>> = rooms.map(() => new Set<string>());
     edges.forEach(({ i, j }) => {
         neighbourTypes[i]?.add(String(rooms[j]?.type ?? '').toLowerCase());
         neighbourTypes[j]?.add(String(rooms[i]?.type ?? '').toLowerCase());
     });
     const isNonCompliant = (i: number): boolean => {
-        const t = String(rooms[i]?.type ?? '').toLowerCase();
+        const r = rooms[i];
+        const t = String(r?.type ?? '').toLowerCase();
         if (!RED_IF_LANDLOCKED.has(t)) return false;
+        // §DOOR-GRAPH — follow the DOOR graph (real access), NOT wall-adjacency: a private
+        // room is on circulation only if it has an actual DOOR onto a corridor/hall
+        // (founder: "just because it's adjacent … needs a door, otherwise not compliant").
+        const doorNbrs = Array.isArray(r?.doorAdjacentTo) ? r!.doorAdjacentTo : null;
+        if (doorNbrs) {
+            for (const n of doorNbrs) if (CIRC_NEIGHBOUR.has(typeByName.get(n) ?? '')) return false;
+            return true; // private room with no DOOR to corridor/hall → not on circulation
+        }
         for (const nt of neighbourTypes[i] ?? []) if (CIRC_NEIGHBOUR.has(nt)) return false;
         return true; // a private room with no corridor/hall neighbour → not on circulation
     };
