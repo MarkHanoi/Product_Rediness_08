@@ -140,6 +140,13 @@ export interface EnumerateInput {
      *  corridor door (the per-level "↔ Corridor" toggle). Threaded straight into
      *  `buildWallsAndDoors`. Absent / empty ⇒ the engine decides ⇒ byte-identical. */
     readonly forceCorridorDirectRoomTypes?: readonly RoomType[];
+    /** §WETROOM-PUBLIC-DOOR (founder 2026-06-18) — on the GROUND floor of a house an
+     *  otherwise-SEALED bathroom may open onto the nearest reachable PUBLIC space
+     *  (hall → living → dining priority), a NET-ADD last-resort fallback. Threaded
+     *  straight into `buildWallsAndDoors`. Absent / false ⇒ the pass is skipped ⇒
+     *  byte-identical (apartment + every upper storey). The house orchestrator sets it
+     *  true ONLY for the GROUND storey. */
+    readonly groundFloorWetRoomPublicFallback?: boolean;
 }
 
 export interface TglCandidate {
@@ -1576,6 +1583,10 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         // the door pipeline is byte-identical.
         ...(input.forceCorridorDirectRoomTypes && input.forceCorridorDirectRoomTypes.length > 0
             ? { forceCorridorDirectRoomTypes: input.forceCorridorDirectRoomTypes } : {}),
+        // §WETROOM-PUBLIC-DOOR — ground-floor sealed-bathroom-onto-public fallback.
+        // Absent / false ⇒ the pass is skipped ⇒ byte-identical.
+        ...(input.groundFloorWetRoomPublicFallback === true
+            ? { groundFloorWetRoomPublicFallback: true } : {}),
     });
     const graph = buildSemanticGraph(emitPlacements, segments, openings, bubble, {
         levelId: input.levelId, seed: `${input.seed}|${strategyKey(s)}`, shellAreaM2: shellArea,
@@ -1933,6 +1944,11 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
             // residual-augmented emit graph too. Absent/empty ⇒ byte-identical.
             ...(input.forceCorridorDirectRoomTypes && input.forceCorridorDirectRoomTypes.length > 0
                 ? { forceCorridorDirectRoomTypes: input.forceCorridorDirectRoomTypes } : {}),
+            // §WETROOM-PUBLIC-DOOR — honour the ground-floor sealed-bathroom fallback on the
+            // residual-augmented emit graph too (the house keep-out path builds THIS graph).
+            // Absent / false ⇒ byte-identical.
+            ...(input.groundFloorWetRoomPublicFallback === true
+                ? { groundFloorWetRoomPublicFallback: true } : {}),
         });
         emitGraph = buildSemanticGraph(residualPlacements, emitWalls.segments, emitWalls.openings, emitBubble, {
             levelId: input.levelId, seed: `${input.seed}|${strategyKey(s)}`, shellAreaM2: shellArea,

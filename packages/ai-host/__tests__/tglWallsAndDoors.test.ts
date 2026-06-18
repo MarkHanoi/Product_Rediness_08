@@ -574,6 +574,149 @@ describe('§CIRCULATION-REROUTE — every habitable room opens onto the spine', 
     });
 });
 
+// ─── §WETROOM-PUBLIC-DOOR (founder 2026-06-18) ────────────────────────────────
+// On the GROUND floor of a HOUSE, a bathroom that every standard pass left
+// genuinely SEALED (the apartment §BATH-CORRIDOR-ONLY rule leaves it door-less
+// whenever the corridor doesn't reach it) may, as a NET-ADD last resort, open
+// onto the nearest reachable PUBLIC space in the priority hall → living → dining.
+// Gated on `opts.groundFloorWetRoomPublicFallback`: absent/false ⇒ the pass is
+// skipped (byte-identical apartment + upper-storey baseline).
+describe('§WETROOM-PUBLIC-DOOR — a sealed ground-floor bathroom opens onto a public space', () => {
+    const rm = (id: string, type: RoomType, area = 20): ProgramRoom =>
+        ({ id, type, name: id, targetAreaM2: area, isPrivate: false, needsWindow: false });
+    const partnersOf = (
+        openings: ReadonlyArray<{ type: string; betweenRoomIds: readonly [string, string?] }>,
+        id: string,
+    ): string[] => openings
+        .filter(o => o.type === 'door' && o.betweenRoomIds.includes(id))
+        .map(o => (o.betweenRoomIds[0] === id ? o.betweenRoomIds[1]! : o.betweenRoomIds[0]))
+        .sort();
+
+    // A house-ground arrangement where the bathroom touches ONLY public rooms (hall +
+    // living) — never a corridor — so the apartment rules leave it sealed:
+    //   hall    : x∈[0,4],  z∈[0,4]
+    //   living  : x∈[4,9],  z∈[0,4]
+    //   bathroom: x∈[0,4],  z∈[4,7]   (touches hall above; living is diagonal — no wall)
+    const buildSealedBath = () => {
+        const hall: RoomPlacement = { roomId: 'h', rect: { x0: 0, z0: 0, x1: 4, z1: 4 } };
+        const living: RoomPlacement = { roomId: 'lv', rect: { x0: 4, z0: 0, x1: 9, z1: 4 } };
+        const bath: RoomPlacement = { roomId: 'ba', rect: { x0: 0, z0: 4, x1: 4, z1: 7 } };
+        const rooms: ProgramRoom[] = [
+            rm('h', 'hall', 16), rm('lv', 'living', 20), rm('ba', 'bathroom', 12),
+        ];
+        // The hall opens onto the living (its only legal public connection); NO
+        // edge touches the bathroom (the corridor that would normally serve it is absent).
+        const g: BubbleGraph = {
+            rooms,
+            edges: [{ a: 'h', b: 'lv', via: 'door' }],
+            corridorId: null, entryId: 'h',
+        };
+        return { placements: [hall, living, bath], g };
+    };
+
+    it('WITHOUT the flag, the sealed bathroom stays SEALED (apartment §BATH-CORRIDOR-ONLY — byte-identical baseline)', () => {
+        const { placements, g } = buildSealedBath();
+        const { openings, sealedRoomIds } = buildWallsAndDoors(placements, g);
+        // No door touches the bathroom — the apartment rule keeps it corridor-only.
+        expect(partnersOf(openings, 'ba')).toEqual([]);
+        expect(sealedRoomIds).toContain('ba');
+    });
+
+    it('WITH the flag, the sealed bathroom gets a NET-ADD door onto the HALL (founder priority hall ≫ living)', () => {
+        const { placements, g } = buildSealedBath();
+        const { openings, sealedRoomIds } = buildWallsAndDoors(placements, g, {
+            groundFloorWetRoomPublicFallback: true,
+        });
+        // The bathroom is no longer sealed — it doors onto the hall (its only shared
+        // public wall here, and the top founder priority).
+        expect(partnersOf(openings, 'ba')).toEqual(['h']);
+        expect(sealedRoomIds).not.toContain('ba');
+        // NET-ADD invariant: the pre-existing hall↔living door is untouched.
+        expect(openings.some(o => {
+            const s = new Set(o.betweenRoomIds);
+            return s.has('h') && s.has('lv');
+        })).toBe(true);
+    });
+
+    it('priority order: a bathroom adjacent to BOTH hall and living doors onto the HALL', () => {
+        // bathroom shares a wall with the hall (left) AND the living (right):
+        //   hall    : x∈[0,4],  z∈[0,4]
+        //   bathroom: x∈[4,8],  z∈[0,4]   (touches hall on the left, living on the right)
+        //   living  : x∈[8,13], z∈[0,4]
+        const hall: RoomPlacement = { roomId: 'h', rect: { x0: 0, z0: 0, x1: 4, z1: 4 } };
+        const bath: RoomPlacement = { roomId: 'ba', rect: { x0: 4, z0: 0, x1: 8, z1: 4 } };
+        const living: RoomPlacement = { roomId: 'lv', rect: { x0: 8, z0: 0, x1: 13, z1: 4 } };
+        const rooms: ProgramRoom[] = [
+            rm('h', 'hall', 16), rm('ba', 'bathroom', 16), rm('lv', 'living', 20),
+        ];
+        const g: BubbleGraph = {
+            rooms, edges: [{ a: 'h', b: 'lv', via: 'door' }], corridorId: null, entryId: 'h',
+        };
+        const { openings } = buildWallsAndDoors([hall, bath, living], g, {
+            groundFloorWetRoomPublicFallback: true,
+        });
+        // hall (priority 0) wins over living (priority 1) — the bathroom doors onto the hall.
+        expect(partnersOf(openings, 'ba')).toEqual(['h']);
+    });
+
+    it('living fallback: a bathroom adjacent ONLY to the living doors onto the living', () => {
+        //   living  : x∈[0,5], z∈[0,4]
+        //   bathroom: x∈[5,9], z∈[0,4]   (touches ONLY the living)
+        const living: RoomPlacement = { roomId: 'lv', rect: { x0: 0, z0: 0, x1: 5, z1: 4 } };
+        const bath: RoomPlacement = { roomId: 'ba', rect: { x0: 5, z0: 0, x1: 9, z1: 4 } };
+        const rooms: ProgramRoom[] = [rm('lv', 'living', 20), rm('ba', 'bathroom', 16)];
+        const g: BubbleGraph = { rooms, edges: [], corridorId: null, entryId: 'lv' };
+        const { openings } = buildWallsAndDoors([living, bath], g, {
+            groundFloorWetRoomPublicFallback: true,
+        });
+        expect(partnersOf(openings, 'ba')).toEqual(['lv']);
+    });
+
+    it('does NOT touch a bathroom that already has its corridor door (fires only on a genuinely sealed wet room)', () => {
+        // corridor | bathroom | hall in a row: the bathroom already gets its
+        // standard corridor door, so the fallback must NOT add a second door.
+        const corridor: RoomPlacement = { roomId: 'cor', rect: { x0: 0, z0: 0, x1: 4, z1: 4 } };
+        const bath: RoomPlacement = { roomId: 'ba', rect: { x0: 4, z0: 0, x1: 8, z1: 4 } };
+        const hall: RoomPlacement = { roomId: 'h', rect: { x0: 8, z0: 0, x1: 12, z1: 4 } };
+        const rooms: ProgramRoom[] = [
+            rm('cor', 'corridor', 16), rm('ba', 'bathroom', 16), rm('h', 'hall', 16),
+        ];
+        const g: BubbleGraph = {
+            rooms, edges: [{ a: 'cor', b: 'ba', via: 'door' }], corridorId: 'cor', entryId: 'cor',
+        };
+        const withFlag = buildWallsAndDoors([corridor, bath, hall], g, {
+            groundFloorWetRoomPublicFallback: true,
+        });
+        const without = buildWallsAndDoors([corridor, bath, hall], g);
+        // The bathroom keeps exactly its single corridor door, flag or not — the
+        // fallback only fires on a door-less bathroom, so the output is identical.
+        expect(partnersOf(withFlag.openings, 'ba')).toEqual(['cor']);
+        expect(JSON.stringify(withFlag.openings)).toEqual(JSON.stringify(without.openings));
+    });
+
+    it('stays sealed (no illegal door) when the only neighbour is private — fallback is public-only', () => {
+        //   bedroom : x∈[0,5], z∈[0,4]
+        //   bathroom: x∈[5,9], z∈[0,4]   (touches ONLY a bedroom — never a public room)
+        const bed: RoomPlacement = { roomId: 'bd', rect: { x0: 0, z0: 0, x1: 5, z1: 4 } };
+        const bath: RoomPlacement = { roomId: 'ba', rect: { x0: 5, z0: 0, x1: 9, z1: 4 } };
+        const rooms: ProgramRoom[] = [rm('bd', 'bedroom', 20), rm('ba', 'bathroom', 16)];
+        const g: BubbleGraph = { rooms, edges: [], corridorId: null, entryId: 'bd' };
+        const { openings, sealedRoomIds } = buildWallsAndDoors([bed, bath], g, {
+            groundFloorWetRoomPublicFallback: true,
+        });
+        // No bathroom↔bedroom door (that's the en-suite anti-pattern) — it stays sealed.
+        expect(partnersOf(openings, 'ba')).toEqual([]);
+        expect(sealedRoomIds).toContain('ba');
+    });
+
+    it('is deterministic with the flag set', () => {
+        const { placements, g } = buildSealedBath();
+        const a = buildWallsAndDoors(placements, g, { groundFloorWetRoomPublicFallback: true });
+        const b = buildWallsAndDoors(placements, g, { groundFloorWetRoomPublicFallback: true });
+        expect(JSON.stringify(a)).toEqual(JSON.stringify(b));
+    });
+});
+
 // ─── §EXTEND-TO-PERIMETER regression tests (2026-05-27) ───────────────────────
 // For non-rectilinear (slanted) shells, the engine's axis-aligned rect
 // decomposition emits interior wall endpoints at the bounding-box edges, NOT

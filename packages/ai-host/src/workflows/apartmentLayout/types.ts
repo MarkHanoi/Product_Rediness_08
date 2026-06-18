@@ -271,6 +271,14 @@ export interface ApartmentProgram {
      *  skipped`), never realised illegally. Omitted / empty ⇒ engine decides (today's
      *  behaviour) ⇒ byte-identical baseline (ADR-0061 invariant I2). */
     corridorDirectRoomTypes?: readonly RoomType[];
+    /** §WETROOM-PUBLIC-DOOR (founder 2026-06-18, "the ground-floor bathroom ships SEALED"):
+     *  when true, a GROUND-floor bathroom that every standard door pass left genuinely
+     *  SEALED may, as a NET-ADD last resort, open onto the nearest reachable PUBLIC space
+     *  (hall → living → dining priority). Threaded straight into `buildWallsAndDoors`. The
+     *  house orchestrator sets this true ONLY for the GROUND storey program; the apartment
+     *  and every upper storey leave it undefined ⇒ the fallback pass is skipped ⇒
+     *  byte-identical baseline (ADR-0061 invariant I2). */
+    groundFloorWetRoomPublicFallback?: boolean;
 }
 
 export interface ScoringWeights {

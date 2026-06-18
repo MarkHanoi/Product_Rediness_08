@@ -810,10 +810,21 @@ function enumeratePerStorey(
         // upper-floor §PER-STOREY-COUNT-AUTHORITATIVE (which disables growBedrooms). Auto
         // (no-override) grounds keep `bedroomsExplicit` undefined ⇒ the fill path is
         // BYTE-IDENTICAL to today (the gate that protects the apartment + house tests).
-        const storeyProgram = enrichStoreyProgramToPlate(
+        const enrichedProgram = enrichStoreyProgramToPlate(
             sp.program, usableAreaM2, sp.role,
             { growBedrooms, growGroundRooms, bedroomsExplicit: sp.bedroomsExplicit === true },
         );
+        // §WETROOM-PUBLIC-DOOR (founder 2026-06-18, "the ground-floor bathroom ships SEALED")
+        // — on the GROUND storey ONLY, authorise the NET-ADD fallback that opens an
+        // otherwise-SEALED bathroom onto the nearest reachable PUBLIC space (hall → living →
+        // dining). The flag is GROUND-only here, so upper storeys + the apartment (which never
+        // runs the house orchestrator) leave it undefined ⇒ the door pipeline is byte-identical
+        // (ADR-0061 invariant I2). The wallsAndDoors pass itself fires ONLY for a bathroom that
+        // every standard pass left genuinely door-less, so a well-behaved ground floor whose
+        // bathroom already got its corridor door is also byte-identical.
+        const storeyProgram: ApartmentProgram = sp.role === 'ground'
+            ? { ...enrichedProgram, groundFloorWetRoomPublicFallback: true }
+            : enrichedProgram;
 
         // §HOUSE-MAX-CAP — the ground floor's rich programme is accepted at its TRUE
         // size, but a SPARSE upper storey (e.g. one bedroom on the full plate of a

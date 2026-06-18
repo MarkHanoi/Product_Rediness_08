@@ -245,6 +245,12 @@ export function generateDeterministicLayouts(
         // empty ⇒ the engine decides ⇒ byte-identical baseline (ADR-0061 invariant I2).
         ...(program.corridorDirectRoomTypes && program.corridorDirectRoomTypes.length > 0
             ? { forceCorridorDirectRoomTypes: program.corridorDirectRoomTypes } : {}),
+        // §WETROOM-PUBLIC-DOOR (founder 2026-06-18) — carry the per-storey ground-floor
+        // sealed-bathroom-onto-public fallback flag straight off the (per-storey) program
+        // into the door pipeline. The house orchestrator sets it true ONLY for the GROUND
+        // storey; absent / false ⇒ the fallback pass is skipped ⇒ byte-identical baseline.
+        ...(program.groundFloorWetRoomPublicFallback === true
+            ? { groundFloorWetRoomPublicFallback: true } : {}),
     });
 
     return candidates.map((c, idx) => {

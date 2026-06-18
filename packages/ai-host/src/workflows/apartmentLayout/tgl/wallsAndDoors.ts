@@ -156,6 +156,27 @@ export interface WallsAndDoorsOpts {
      * / empty ⇒ NO forced pass runs ⇒ byte-identical to the engine-decides baseline
      * (ADR-0061 invariant I2 — the whole pass is gated on a non-empty set). */
     readonly forceCorridorDirectRoomTypes?: readonly string[];
+    /**
+     * §WETROOM-PUBLIC-DOOR (founder 2026-06-18, "the ground-floor bathroom ships
+     * SEALED") — on the GROUND floor of a house a wet room (bathroom) that would
+     * OTHERWISE ship with ZERO doors may, as a LAST-RESORT fallback, open onto the
+     * nearest reachable PUBLIC space in the founder-priority order hall → living →
+     * dining. The architectural rationale (founder-authorised RULE CHANGE): a
+     * downstairs bathroom is a guest/cloakroom WC reached off the entrance hall /
+     * living zone; the apartment §BATH-CORRIDOR-ONLY rule (corridor-only) leaves it
+     * sealed whenever the corridor doesn't reach it (or is itself sealed). This is a
+     * NET-ADD ONLY relaxation: it fires ONLY for a wet room that every standard pass
+     * (bubble / reconcile / circulation-reroute / multihop) left genuinely SEALED,
+     * and it NEVER removes or moves an existing door. The relaxation is LOCAL to this
+     * pass (the type-level `doorAllowedBetween` matrix is untouched), so the per-pass
+     * `permissionViolations` diagnostic correctly counts the fallback door as a
+     * deliberate, founder-authorised exception (logged §DIAG-WETROOM-PUBLIC).
+     *
+     * Gated: absent / false ⇒ the whole pass is skipped ⇒ byte-identical to the
+     * apartment + every upper-storey baseline (ADR-0061 invariant I2). The house
+     * orchestrator sets it true ONLY for the GROUND storey.
+     */
+    readonly groundFloorWetRoomPublicFallback?: boolean;
 }
 
 const EPS = 1e-6;
@@ -1737,6 +1758,82 @@ export function buildWallsAndDoors(
         }
     }
     diagPass('multihop-reroute');
+
+    // (2d) §WETROOM-PUBLIC-DOOR (founder 2026-06-18, "the ground-floor bathroom ships
+    // SEALED — it is wall-adjacent to the Entrance Hall AND the Living Room, both public,
+    // yet has NO door"). LAST-RESORT, NET-ADD fallback, GROUND-floor only, gated on
+    // `opts.groundFloorWetRoomPublicFallback`. The apartment §BATH-CORRIDOR-ONLY rule
+    // (`bathroom.accessFrom = ['corridor']`) is correct for a flat, but on a HOUSE ground
+    // floor a downstairs bathroom is a guest/cloakroom reached off the entrance hall /
+    // living zone — so when the corridor doesn't reach it (or is itself sealed) every
+    // standard pass above leaves it with ZERO doors. The founder explicitly authorised
+    // opening such an otherwise-SEALED wet room onto the nearest reachable PUBLIC space in
+    // the priority order hall → living → dining.
+    //
+    // STRICTLY conservative:
+    //   • fires ONLY for a `bathroom` that, after ALL standard passes, has ZERO built
+    //     doors (genuinely sealed). A bathroom that already got its corridor door is
+    //     UNTOUCHED, so the well-behaved house is byte-identical.
+    //   • NET-ADD only — `addDoor` never removes/moves a door; an existing door's
+    //     position is unchanged (§DIAG-PARITY-OPENINGS posDrift stays 0).
+    //   • the relaxation is LOCAL (bypasses `permitted` for this one fallback pair only);
+    //     the type-level matrix is untouched, so apartments / upper floors are unaffected.
+    //   • priority: hall first (the clean lobby), then living, then dining; within a
+    //     priority tier the LONGEST shared wall wins (most likely to host a clear door),
+    //     ties broken by stable id (deterministic).
+    if (opts.groundFloorWetRoomPublicFallback === true) {
+        // Recompute door coverage from the openings placed so far (every standard pass).
+        const hasAnyDoor = (id: string): boolean =>
+            openings.some(o => {
+                if (o.type !== 'door') return false;
+                const [a, b] = o.betweenRoomIds as readonly [string, string?];
+                return a === id || b === id;
+            });
+        // Founder priority order for the public fallback target.
+        const PUBLIC_FALLBACK_PRIORITY: Record<string, number> = { hall: 0, living: 1, dining: 2 };
+        const sealedWetRooms = graph.rooms
+            .filter(r => roomRule(r.type).type === 'bathroom' && !hasAnyDoor(r.id))
+            .map(r => r.id)
+            .sort();
+        for (const id of sealedWetRooms) {
+            // Shared walls to a public hall / living / dining room, ranked by the founder
+            // priority (hall ≫ living ≫ dining), then LONGEST wall, then stable id.
+            const candidates = shared
+                .map(w => {
+                    const other = w.a === id ? w.b : w.b === id ? w.a : null;
+                    if (other === null) return null;
+                    const otherType = roomRule(typeOf.get(other) ?? '').type;
+                    const prio = PUBLIC_FALLBACK_PRIORITY[otherType];
+                    if (prio === undefined) return null;             // not a hall/living/dining wall
+                    return { w, otherType, prio };
+                })
+                .filter((c): c is { w: typeof shared[number]; otherType: string; prio: number } => c !== null)
+                .sort((p, q) => p.prio - q.prio || q.w.len - p.w.len || (p.w.seg.id < q.w.seg.id ? -1 : 1));
+            if (candidates.length === 0) {
+                console.log(`[D-TGL] §DIAG-WETROOM-PUBLIC skipped ${id}(bathroom) (no hall/living/dining-adjacent wall — stays sealed)`);
+                continue;
+            }
+            let placed = false;
+            for (const { w, otherType } of candidates) {
+                if (wallHasDoor.has(w.seg.id)) continue;             // a sibling already took this wall
+                // LOCAL fallback relaxation: bathroom↔public is NOT in `permitted`, so we
+                // bypass it here ON PURPOSE (founder-authorised). `addDoor` still enforces
+                // the wall-survives + min-door-width geometry floors, so a sub-minimum wall
+                // is skipped and the next priority/length candidate is tried.
+                if (addDoor(w.seg, w.a, w.b)) {
+                    cUnion(w.a, w.b);
+                    compromises++;
+                    placed = true;
+                    console.log(`[D-TGL] §DIAG-WETROOM-PUBLIC placed ${id}(bathroom) → ${otherType} door on ${w.seg.id} (len=${w.len.toFixed(2)}m)`);
+                    break;
+                }
+            }
+            if (!placed) {
+                console.log(`[D-TGL] §DIAG-WETROOM-PUBLIC skipped ${id}(bathroom) (no host wall could fit a door — stays sealed)`);
+            }
+        }
+        diagPass('wetroom-public');
+    }
 
     // §CIRCULATION-REROUTE diagnostic — private/service rooms STILL without a
     // DIRECT circulation door after the re-route passes: genuinely land-locked
