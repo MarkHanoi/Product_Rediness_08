@@ -95,11 +95,34 @@ export function validateFurnishedRoom(
         }
     }
 
-    // 2. Pairwise non-overlap (oriented — matches the solver's collision test).
+    // 2. Pairwise non-overlap (oriented — matches the solver's collision test),
+    //    HEIGHT-AWARE (§FURNISH-OVERLAP-3D, 2026-06-18). Two items only truly
+    //    CLASH when their vertical bands [baseOffset, baseOffset+h] overlap AND
+    //    neither is a flat floor UNDERLAY (a rug, placed UNDER furniture) nor a
+    //    single WALL-MOUNTED accessory (a mirror / art / rail / rod hung ABOVE or
+    //    beside floor furniture). The old test was 2D-only, so it reported a
+    //    rug-under-a-bed and a wall-mirror-above-a-bed as "OVERLAPS" — the
+    //    founder's furniture-clash NOISE (24 warnings, mostly legitimate stacks).
+    //    Height-awareness only ever REMOVES a warning the 2D test would emit, so
+    //    a genuine in-plane clash (dresser into bed) still warns. Warnings-only:
+    //    this changes diagnostics, never placement.
+    const MOUNT_BASE_M = 0.40;   // baseOffset ≥ this ⇒ wall-mounted (mirror 1.20, rod 2.40)
+    const UNDERLAY_H_M = 0.05;   // h ≤ this on the floor ⇒ a flat underlay (rug 0.02)
+    const isUnderlay = (p: PlacedFurniture): boolean => p.footprint.baseOffset < EPS && p.footprint.h <= UNDERLAY_H_M;
+    const isMounted = (p: PlacedFurniture): boolean => p.footprint.baseOffset >= MOUNT_BASE_M;
+    const bandsOverlap = (a: PlacedFurniture, b: PlacedFurniture): boolean => {
+        const aLo = a.footprint.baseOffset, aHi = aLo + a.footprint.h;
+        const bLo = b.footprint.baseOffset, bHi = bLo + b.footprint.h;
+        return aHi > bLo + EPS && bHi > aLo + EPS;
+    };
     for (let i = 0; i < quads.length; i++) {
         for (let j = i + 1; j < quads.length; j++) {
+            const a = placed[i]!, b = placed[j]!;
+            if (!bandsOverlap(a, b)) continue;                  // height-separated (mirror above bed)
+            if (isUnderlay(a) !== isUnderlay(b)) continue;      // exactly one is a flat underlay (rug under bed)
+            if (isMounted(a) !== isMounted(b)) continue;        // exactly one is wall-mounted (mirror by wardrobe)
             if (quadsOverlap(quads[i]!, quads[j]!)) {
-                warnings.push(`${placed[i]!.kind}[${i}] OVERLAPS ${placed[j]!.kind}[${j}]`);
+                warnings.push(`${a.kind}[${i}] OVERLAPS ${b.kind}[${j}]`);
             }
         }
     }

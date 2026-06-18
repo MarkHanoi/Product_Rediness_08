@@ -71,6 +71,36 @@ describe('validateFurnishedRoom', () => {
         expect(r.warnings.some(w => w.includes('OVERLAPS'))).toBe(true);
     });
 
+    it('§FURNISH-OVERLAP-3D: a rug UNDER a bed is NOT a clash (height-aware)', () => {
+        // rug baseOffset 0 / h 0.02 sits flat under the bed (h 0.50) — same XZ
+        // footprint, but the rug underlaps. The old 2D-only test warned falsely.
+        const room = rectRoom(6, 5);
+        const bed = place('bed', 3, 2.5, 0);
+        const rug = place('rug', 3, 2.5, 0);
+        const r = validateFurnishedRoom(room, [bed, rug]);
+        expect(r.warnings.filter(w => w.includes('OVERLAPS'))).toEqual([]);
+    });
+
+    it('§FURNISH-OVERLAP-3D: a wall_mirror above a bed is NOT a clash (band-separated)', () => {
+        // wall_mirror baseOffset 1.20 / h 0.80 → band [1.20, 2.00]; bed band
+        // [0, 0.50] — no vertical overlap, so a shared XZ footprint never clashes.
+        const room = rectRoom(6, 5);
+        const bed = place('bed', 3, 2.5, 0);
+        const mirror = place('wall_mirror', 3, 2.5, 0);
+        const r = validateFurnishedRoom(room, [bed, mirror]);
+        expect(r.warnings.filter(w => w.includes('OVERLAPS'))).toEqual([]);
+    });
+
+    it('§FURNISH-OVERLAP-3D: two FLOOR items at the same spot still clash', () => {
+        // Regression guard — height-awareness must not silence a real in-plane
+        // clash: bed (band [0,0.50]) + dresser (band [0,0.85]) co-located warn.
+        const room = rectRoom(6, 5);
+        const bed = place('bed', 3, 2.5, 0);
+        const dresser = place('dresser', 3, 2.5, 0);
+        const r = validateFurnishedRoom(room, [bed, dresser]);
+        expect(r.warnings.some(w => w.includes('OVERLAPS'))).toBe(true);
+    });
+
     it('an item whose centre is outside the polygon warns', () => {
         const room = rectRoom(4, 3);
         // Lamp at (5, 1.5) — outside the 4 × 3 room.
