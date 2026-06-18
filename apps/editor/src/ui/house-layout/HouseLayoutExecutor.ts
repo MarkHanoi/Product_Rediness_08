@@ -2140,15 +2140,38 @@ export class HouseLayoutExecutor {
                         // (the §DIAG-PARITY upper-floor `shifted=3 latMax=237mm`: the floor is built to
                         // the previewed line, so the wall reads mis-aligned against it). A legitimate
                         // shell-snap only moves endpoints ALONG the axis (miter) — it never shifts the
-                        // MIDPOINT laterally. So when the welded midpoint sits beyond the revert
-                        // tolerance off the OPTION centreline, keep the previewed baseline (which the
-                        // graph-authoritative floor aligns to). Gated high enough that normal end-snap
-                        // is byte-identical — ground (latMean 0) stays untouched.
+                        // wall BODY laterally. When the welded wall sits beyond the revert tolerance off
+                        // the OPTION centreline, keep the previewed baseline (which the graph-authoritative
+                        // floor aligns to). Gated high enough that normal end-snap is byte-identical —
+                        // ground (latMean 0) stays untouched.
+                        //
+                        // §GROUND-WALL-FRAME (PREVIEW↔EXECUTION PARITY, 2026-06-18) — THE root cause of
+                        // the founder's 1.5 m GROUND lateral shift (§DIAG-PARITY ground `latMax=1504mm`,
+                        // §DIAG-PERIM-CORNER-WHOLE `GAP=1517mm`) that this guard FAILED to catch while
+                        // the upper floor read 0. ROOT: on a non-axis-aligned ground plate the
+                        // PROJECT-NORTH weld RECTIFIES the de-rotated DRAWN shell (snap near-axis edges to
+                        // EXACT axis, up to 0.50 m per edge — `rectifyShellRing`) and welds the partitions
+                        // onto that RECTIFIED shell, then rotates back; but the AUTHORITATIVE perimeter is
+                        // the un-rectified DRAWN shell (the rectified `shellWallsWorld` is discarded). The
+                        // re-rotation lever arm amplifies the 0.50 m rectify to ~1.5 m at a long
+                        // partition's perimeter end — so the welded wall PIVOTS off the previewed line. The
+                        // upper floor never hits this because its perimeter is the clean `storey.footprint`
+                        // ring (rectify ≈ no-op) → partitions + perimeter already share ONE frame.
+                        // WHY THE OLD GUARD MISSED IT: it measured ONLY the welded MIDPOINT's perpendicular
+                        // distance to the OPTION line. A wall PIVOTED about (near) its centre keeps its
+                        // midpoint ON the line (lateral ≈ 0) while both ENDPOINTS swing ±1.5 m off it — so a
+                        // gross rotation slipped straight through the midpoint test. FIX: measure lateral as
+                        // the MAX perpendicular distance of BOTH welded ENDPOINTS to the OPTION centreline
+                        // — the SAME metric §DIAG-PARITY reports — so body translation AND rotation/pivot are
+                        // both caught and reverted to the previewed (graph-authoritative) baseline. A
+                        // legitimate end-snap moves endpoints only ALONG the axis (perp ≈ 0 at both ends), so
+                        // the clean ground / upper cases stay byte-identical.
                         const ob0 = w.baseLine[0]!, ob1 = w.baseLine[1]!;
                         if (origLen > 1e-6) {
                             const odx = (ob1.x - ob0.x) / origLen, odz = (ob1.z - ob0.z) / origLen;
-                            const wmx = (ww.start.x + ww.end.x) / 2, wmz = (ww.start.z + ww.end.z) / 2;
-                            const lateral = Math.abs((wmx - ob0.x) * odz - (wmz - ob0.z) * odx);
+                            // Perpendicular distance of a welded endpoint to the OPTION centreline.
+                            const perp = (px: number, pz: number): number => Math.abs((px - ob0.x) * odz - (pz - ob0.z) * odx);
+                            const lateral = Math.max(perp(ww.start.x, ww.start.z), perp(ww.end.x, ww.end.z));
                             if (lateral > WELD_LATERAL_REVERT_M) {
                                 weldLateralReverted.push(w.id);
                                 return w;   // un-welded, on the previewed line — floor aligns
