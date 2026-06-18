@@ -2624,6 +2624,9 @@ export class CesiumViewport {
     }).sampleHeightMostDetailed;
     if (typeof sampleFn !== 'function') {
       this.warnTerrainOnce('scene.sampleHeightMostDetailed unavailable — building stays at base 0 on the globe.');
+      // §GLOBE-FIRST-FRAME-BASE — no sampling API → base stays at the flat 0 we
+      // framed at; disarm the one-shot so it never fires stale later.
+      this.reframeAfterBaseSettle();
       return;
     }
 
@@ -2642,6 +2645,10 @@ export class CesiumViewport {
       }
     } catch (e) {
       this.warnTerrainOnce('scene.sampleHeightMostDetailed rejected — building stays at base 0 on the globe: ' + String(e));
+      // §GLOBE-FIRST-FRAME-BASE — sampling failed; base stays at the flat 0 we framed
+      // at (already correct). Disarm the one-shot, but ONLY if no newer placement has
+      // taken ownership (a newer token owns its own re-frame arm).
+      if (myToken === this.formaTerrainToken) this.reframeAfterBaseSettle();
       return;
     }
 
@@ -2656,12 +2663,27 @@ export class CesiumViewport {
       if (retriesLeft > 0) {
         this.warnTerrainOnce('photoreal tile height was null (tiles still streaming) — retrying.');
         setTimeout(() => { void this.clampToPhotorealTilesThenReplace(input, retriesLeft - 1); }, 1200);
+      } else {
+        // §GLOBE-FIRST-FRAME-BASE — retries exhausted (tiles never streamed a height
+        // at this LOD). The building stays at the flat base 0 it was placed + framed
+        // at, so the initial frame is already correct — DISARM the one-shot so a stale
+        // re-frame can't fire on a later, unrelated clamp.
+        this.reframeAfterBaseSettle();
       }
       return;
     }
 
     this.formaTerrainSampledAt = { lat: sampleLat, lon: sampleLon };
-    if (Math.abs(sampledHeight - this.formaTerrainBaseHeight) < 1e-3) return; // already seated
+    if (Math.abs(sampledHeight - this.formaTerrainBaseHeight) < 1e-3) {
+      // §GLOBE-FIRST-FRAME-BASE — the resolved base equals the base we framed at
+      // (e.g. a sea-level / flat site where the initial frame at base 0 was already
+      // correct). No re-place is needed, but the one-shot must DISARM here so it
+      // never leaks to a later location change's clamp. reframeAfterBaseSettle is a
+      // no-op when nothing armed it and a (harmless) re-fly at the correct base when
+      // the initial frame ran against this same base.
+      this.reframeAfterBaseSettle();
+      return; // already seated
+    }
 
     this.formaTerrainBaseHeight = sampledHeight;
     console.log(
@@ -2720,6 +2742,9 @@ export class CesiumViewport {
     // already clamped. ~1e-6° ≈ 0.1 m, well under terrain LOD resolution.
     const prev = this.formaTerrainSampledAt;
     if (prev && Math.abs(prev.lat - sampleLat) < 1e-6 && Math.abs(prev.lon - sampleLon) < 1e-6) {
+      // §GLOBE-FIRST-FRAME-BASE — centroid already clamped (base unchanged); the
+      // initial frame is correct as-is. Disarm the one-shot so it can't leak.
+      this.reframeAfterBaseSettle();
       return;
     }
 
@@ -2751,6 +2776,10 @@ export class CesiumViewport {
         );
       }
       this.formaTerrainSampledAt = { lat: sampleLat, lon: sampleLon };
+      // §GLOBE-FIRST-FRAME-BASE — keyless / ellipsoid ground stays at flat base 0,
+      // which is exactly what the initial frame used → it's already correct. Disarm
+      // the one-shot so it never fires stale on a subsequent location change.
+      this.reframeAfterBaseSettle();
       return;
     }
 
@@ -2776,7 +2805,12 @@ export class CesiumViewport {
 
     // If the height is effectively unchanged from what we already placed at,
     // there is nothing to re-place (e.g. flat ellipsoid provider → 0 → 0).
-    if (Math.abs(sampledHeight - this.formaTerrainBaseHeight) < 1e-3) return;
+    if (Math.abs(sampledHeight - this.formaTerrainBaseHeight) < 1e-3) {
+      // §GLOBE-FIRST-FRAME-BASE — base resolved to the same value the initial frame
+      // used → already correct; disarm the one-shot so it can't leak.
+      this.reframeAfterBaseSettle();
+      return;
+    }
 
     this.formaTerrainBaseHeight = sampledHeight;
     console.log(
