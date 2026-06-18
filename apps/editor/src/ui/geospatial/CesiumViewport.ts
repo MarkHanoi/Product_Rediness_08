@@ -1051,15 +1051,27 @@ export class CesiumViewport {
       // high straight above the target so the slow flyTo starts from altitude
       // (a "snap from where the camera was" would race across the globe first);
       // then (b) glide down to the framing destination with a decelerating ease.
+      // §GLOBE-FRAME-NO-JUMP-2 — this cinematic arrival is OUR programmatic motion
+      // (a geocode/location-change flight), NOT the user grabbing the camera. Mark
+      // it in-flight so the `moveStart` listener does NOT mis-latch
+      // `formaUserMovedCamera` — otherwise a location-change flight that is still
+      // gliding when the async photoreal/terrain base-settle resolves would make
+      // `performInitialReframe` think the user had taken control and SUPPRESS the
+      // one corrective re-frame, stranding the camera at the stale (underground)
+      // base. Cleared on complete/cancel, exactly as `flyToFormaSite` does.
       this.viewer.camera.setView({
         destination: Cesium.Cartesian3.fromDegrees(lon, lat, SITE_ARRIVAL_HIGH_ALT_M),
         orientation: { heading: 0, pitch: Cesium.Math.toRadians(-90), roll: 0 },
       });
+      this.formaProgrammaticFlyInFlight = true;
+      const clearArrivalFlag = (): void => { this.formaProgrammaticFlyInFlight = false; };
       this.viewer.camera.flyTo({
         destination,
         orientation,
         duration: SITE_ARRIVAL_FLY_DURATION_S,
         easingFunction: Cesium.EasingFunction.QUADRATIC_IN_OUT,
+        complete: clearArrivalFlag,
+        cancel: clearArrivalFlag,
       });
     }
     this.viewer.scene.requestRender();
