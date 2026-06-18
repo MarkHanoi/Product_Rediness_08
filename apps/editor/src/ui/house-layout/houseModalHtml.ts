@@ -243,7 +243,7 @@ function storeyTabBodyHtml(storeyIndex: number, ov: PerStoreyProgramOverride | u
         '<div class="alm-program-row hlm-storey-bools">' +
         triStateSelect(`s${storeyIndex}.livingRoom`, 'Living', o.livingRoom) +
         triStateSelect(`s${storeyIndex}.includeKitchen`, 'Kitchen', o.includeKitchen) +
-        triStateSelect(`s${storeyIndex}.openPlanKitchenDining`, 'Open KD', o.openPlanKitchenDining) +
+        triStateSelect(`s${storeyIndex}.openPlanKitchenDining`, 'Kitchen+Dining', o.openPlanKitchenDining) +
         triStateSelect(`s${storeyIndex}.masterEnSuite`, 'En-suite', o.masterEnSuite) +
         '</div>' +
         '<div class="alm-program-row alm-program-areas">' +

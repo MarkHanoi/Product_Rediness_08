@@ -426,21 +426,45 @@ export function buildPlanGraphOverlaySvg(
     //    Degree-scaled radius. §LIVE-MODAL.D interactive nodes opt in to editor hooks.
     const nodeEls: string[] = [];
     const labelEls: string[] = [];
+    // §GRAPH-COMPLIANCE-RED (founder 2026-06-18, "this bedroom doesn't have direct
+    // access to corridor — is not compliant — the node should be red") — paint a
+    // PRIVATE room that is NOT on circulation as a RED node, so a hard rule violation
+    // the inspector reports as "Not on circulation ✗" is visible at a glance on the
+    // graph itself. A room is on-circulation iff it IS a corridor/hall/stair OR abuts a
+    // corridor/hall (same predicate the node inspector uses). Restricted to the private
+    // rooms that MUST reach circulation directly — bedroom/master/bathroom/wc — so an
+    // open-plan public cluster (living↔kitchen↔dining) and an en-suite reached via its
+    // master (architecturally allowed) do NOT false-positive red.
+    const CIRC_NEIGHBOUR = new Set(['corridor', 'hall']);
+    const RED_IF_LANDLOCKED = new Set(['bedroom', 'master', 'bathroom', 'wc']);
+    const neighbourTypes: Array<Set<string>> = rooms.map(() => new Set<string>());
+    edges.forEach(({ i, j }) => {
+        neighbourTypes[i]?.add(String(rooms[j]?.type ?? '').toLowerCase());
+        neighbourTypes[j]?.add(String(rooms[i]?.type ?? '').toLowerCase());
+    });
+    const isNonCompliant = (i: number): boolean => {
+        const t = String(rooms[i]?.type ?? '').toLowerCase();
+        if (!RED_IF_LANDLOCKED.has(t)) return false;
+        for (const nt of neighbourTypes[i] ?? []) if (CIRC_NEIGHBOUR.has(nt)) return false;
+        return true; // a private room with no corridor/hall neighbour → not on circulation
+    };
+    const RED = '#E5484D';
     rooms.forEach((r, i) => {
         const c = centres.get(i);
         if (!c) return;
         const rad = nodeRadius(i);
+        const bad = isNonCompliant(i);
         haloEls.push(
             `<circle cx="${f1(c.x)}" cy="${f1(c.y)}" r="${f1(rad + 2.5)}" ` +
-            `fill="#8B5CF6" fill-opacity="0.45" filter="url(#${haloId})" pointer-events="none"/>`,
+            `fill="${bad ? RED : '#8B5CF6'}" fill-opacity="${bad ? 0.55 : 0.45}" filter="url(#${haloId})" pointer-events="none"/>`,
         );
-        const title = `<title>${esc(r.name)}${typeof r.area === 'number' && r.area > 0 ? ` — ${Math.round(r.area)} m²` : ''}</title>`;
+        const title = `<title>${esc(r.name)}${typeof r.area === 'number' && r.area > 0 ? ` — ${Math.round(r.area)} m²` : ''}${bad ? ' — ⚠ not on circulation' : ''}</title>`;
         const interactiveAttrs = interactive
-            ? ` data-room-name="${esc(r.name)}" class="alm-graph-node" role="button" tabindex="0" aria-label="Edit ${esc(r.name)}" pointer-events="auto" style="cursor:pointer"`
-            : ' pointer-events="none"';
+            ? ` data-room-name="${esc(r.name)}" class="alm-graph-node${bad ? ' alm-graph-node--noncompliant' : ''}" role="button" tabindex="0" aria-label="Edit ${esc(r.name)}${bad ? ' (not on circulation)' : ''}" pointer-events="auto" style="cursor:pointer"`
+            : ` class="${bad ? 'alm-graph-node--noncompliant' : ''}" pointer-events="none"`;
         nodeEls.push(
             `<circle cx="${f1(c.x)}" cy="${f1(c.y)}" r="${f1(rad)}" ` +
-            `fill="url(#${gradId})" stroke="#ffffff" stroke-width="1.4" stroke-opacity="0.95"${interactiveAttrs}>${title}</circle>`,
+            `fill="${bad ? RED : `url(#${gradId})`}" stroke="#ffffff" stroke-width="1.4" stroke-opacity="0.95"${interactiveAttrs}>${title}</circle>`,
         );
         // 6. Labels — reduce clutter: a small dim violet pill ONLY for hub nodes
         //    (the room name already shows on the plan cell). White halo keeps it

@@ -768,6 +768,14 @@ export class HouseLayoutModal {
                 const slider = this._el?.querySelector(`input[name="${key}"]`) as HTMLInputElement | null;
                 const requested = slider ? Number(slider.value) : 0;
                 const produced = byType.get(type) ?? 0;
+                // §MODAL-PER-STOREY-REAL — HIDE the size slider for a room type that
+                // does NOT exist on this storey (no produced area AND no override): the
+                // founder's "no living/kitchen on the first floor — accurate". The size
+                // controls now mirror the plan per level. Forcing the room back (via the
+                // Living/Kitchen/Open-KD tri-state select on this tab) makes the next
+                // regen produce it → produced>0 → the slider re-appears.
+                const row = slider?.closest('.alm-program-size') as HTMLElement | null;
+                if (row) row.style.display = (produced > 0 || requested > 0) ? '' : 'none';
                 if (!(requested > 0)) {
                     out.textContent = produced > 0 ? `${Math.round(produced)} m² (auto)` : 'auto';
                     return;
