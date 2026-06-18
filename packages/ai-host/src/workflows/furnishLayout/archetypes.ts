@@ -86,6 +86,12 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
             { kind: 'bookshelf_glass', anchor: 'wall-longest', facing: 'to-wall', required: false, excludeWindowWall: true, excludeDoorSwing: true },
             // F1.10 (2026-05-30) — Wall art above the sofa (paired group).
             { kind: 'wall_art', anchor: 'beside', facing: 'into-room', required: false, group: 'sofa', excludeWindowWall: true },
+            // §DECOR-WALLS (founder 2026-06-18) — a woven textile wall-hanging over the
+            // sofa (the founder's living-room refs). Same wall-hosted 'beside' path as the
+            // bedroom tapestry; per-room pattern+size variety from §DECOR-VARIETY. Optional
+            // + excludeWindowWall so it never blocks daylight or competes for the same span
+            // as the wall_art (the placer relocates/skips whichever doesn't fit).
+            { kind: 'wall_tapestry', anchor: 'beside', facing: 'into-room', required: false, group: 'sofa', excludeWindowWall: true },
             // F1.11 (2026-05-30) — Curtains on the living-room window wall.
             { kind: 'curtain_rod',   anchor: 'wall-window', facing: 'to-wall', required: false, group: 'curtains' },
             { kind: 'curtain_panel', anchor: 'beside',      facing: 'to-wall', required: false, group: 'curtains', count: 2 },
@@ -141,6 +147,10 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
             // table via the 'under' anchor). Collision-EXEMPT — it underlaps the
             // table + chairs (the classic "anchor the dining zone" rug).
             { kind: 'rug', anchor: 'under', facing: 'into-room', required: false, group: 'dining' },
+            // §DECOR-WALLS (founder 2026-06-18) — a woven textile wall-hanging as a dining
+            // feature wall (per-room pattern+size variety from §DECOR-VARIETY). Wall-hosted
+            // 'beside' path; optional + excludeWindowWall.
+            { kind: 'wall_tapestry', anchor: 'beside', facing: 'into-room', required: false, group: 'dining', excludeWindowWall: true },
             // F1.9 (2026-05-30) — Dining-room storage. Sideboard preferred
             // over buffet (lower profile reads better against the dining
             // table's silhouette). Both anchor on the longest free wall.
