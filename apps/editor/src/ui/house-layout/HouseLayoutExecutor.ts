@@ -560,6 +560,15 @@ export class HouseLayoutExecutor {
             // storeys mint their perimeter (counted via perimeterByLevel) → not recorded
             // here, so they are never double-counted.
             const preexistingShellByLevel = new Map<string, number>();
+            // §DIAG-PARITY (PREVIEW↔EXECUTION PARITY CONTRACT, 2026-06-18) — snapshot each
+            // wall's OPTION centreline (world frame, captured straight off buildLayoutCommands,
+            // BEFORE the weld + WallJoinResolver miter/trim run) keyed by its real wall id. This
+            // is EXACTLY the geometry the modal PREVIEW drew. The post-commit §DIAG-PARITY pass
+            // (next to §DIAG-LEVELS) compares it to the LIVE committed centreline so the
+            // executor's geometry-mutating transforms (weld drift, miter/trim) are MEASURED each
+            // run instead of discovered in a screenshot — the "built == previewed" parity
+            // measure. See LAYOUT-GENERATION-ALGORITHM.md §17 + ADR-0075. Logging-only.
+            const optionBaselinesByLevel = new Map<string, Map<string, ReadonlyArray<{ x: number; z: number }>>>();
 
             // §A.21.D29 #3 — the GROUND-floor main-entrance door. A generated house
             // (unlike the apartment, where the user hand-places the front door before
@@ -624,6 +633,22 @@ export class HouseLayoutExecutor {
                     ...(blindFacadeWallIds.size > 0 ? { blindFacadeWallIds } : {}),
                 };
                 let set = buildLayoutCommands(option, opts, (p: IdPrefix) => createId(p));
+
+                // §DIAG-PARITY — capture the OPTION wall centrelines (world frame) NOW, before the
+                // weld + commit-time WallJoinResolver miter run, so the post-commit parity pass can
+                // measure how far each transform moved a wall from what the preview drew.
+                {
+                    const optW = (set.wallBatch?.payload as { walls?: ReadonlyArray<{ id?: string; baseLine?: ReadonlyArray<{ x: number; z: number }> }> } | undefined)?.walls;
+                    if (Array.isArray(optW)) {
+                        const m = new Map<string, ReadonlyArray<{ x: number; z: number }>>();
+                        for (const w of optW) {
+                            if (w?.id && Array.isArray(w.baseLine) && w.baseLine.length >= 2) {
+                                m.set(w.id, w.baseLine.map((p: { x: number; z: number }) => ({ x: p.x, z: p.z })));
+                            }
+                        }
+                        if (m.size > 0) optionBaselinesByLevel.set(storey.levelId, m);
+                    }
+                }
 
                 // §DIAG-SEAL-DROP (ADR-0066 editor-seam, 2026-06-10) — capture the PRE-weld
                 // interior-partition id set so §DIAG-SEAL (below) can report DIVIDERS the weld
@@ -1309,6 +1334,41 @@ export class HouseLayoutExecutor {
                     const orphan = [...liveByLevel.entries()].filter(([lvl]) => !known.has(lvl));
                     console.log('[house-layout] §DIAG-LEVELS wall distribution (authoritative legacy store) vs intended:\n' + lines.join('\n'));
                     if (orphan.length > 0) console.warn('[house-layout] §DIAG-LEVELS ⚠ walls on UNKNOWN levels (not this house):', orphan.map(([l, n]) => `${l}=${n}`).join(', '));
+
+                    // §DIAG-PARITY (PREVIEW↔EXECUTION PARITY CONTRACT, 2026-06-18) — the
+                    // "built == previewed" measure. For every wall, compare its OPTION centreline
+                    // (captured straight off buildLayoutCommands, BEFORE weld + WallJoinResolver —
+                    // exactly what the modal PREVIEW drew) to its LIVE committed centreline (AFTER
+                    // weld + miter/trim + inner-face clamp). The displacement IS the executor's
+                    // geometry divergence (weld ≤0.60m, miter ≤wall-thickness, clamp ≤half-thickness
+                    // — see LAYOUT-GENERATION-ALGORITHM.md §17 divergence table). Logging-only:
+                    // measures divergence EVERY run so it is never first discovered in a screenshot.
+                    // A clean axis-aligned build reads ~0mm (built == previewed by construction);
+                    // a rotated-plate weld reads the real drift. Endpoint pairing is order-robust.
+                    const liveBaseById = new Map<string, ReadonlyArray<{ x: number; z: number }>>();
+                    for (const w of live) if (w.baseLine && w.baseLine.length >= 2) liveBaseById.set(w.id, w.baseLine);
+                    const PARITY_TOL_MM = 20;   // the RoomDetection node grid — a drift > this can re-open a room loop
+                    const dispM = (a: { x: number; z: number }, b: { x: number; z: number }): number => Math.hypot(a.x - b.x, a.z - b.z);
+                    const parityLines = levelIds.map((lvl, i) => {
+                        const optMap = optionBaselinesByLevel.get(lvl);
+                        if (!optMap || optMap.size === 0) return null;
+                        let checked = 0, moved = 0, maxMm = 0, sumMm = 0;
+                        for (const [id, ob] of optMap) {
+                            const lb = liveBaseById.get(id);
+                            if (!lb || ob.length < 2 || lb.length < 2) continue;   // welded-away / collinear-merged — counted by §DIAG-LEVELS
+                            const same = Math.max(dispM(ob[0]!, lb[0]!), dispM(ob[1]!, lb[1]!));
+                            const swap = Math.max(dispM(ob[0]!, lb[1]!), dispM(ob[1]!, lb[0]!));
+                            const dMm = Math.min(same, swap) * 1000;
+                            checked++; sumMm += dMm; if (dMm > maxMm) maxMm = dMm; if (dMm > PARITY_TOL_MM) moved++;
+                        }
+                        if (checked === 0) return null;
+                        const label = i === 0 ? 'Ground(L0)' : `Level ${i.toString().padStart(2, '0')}`;
+                        const verdict = moved === 0 ? '✓ built == previewed' : `⚠ ${moved} wall(s) drifted >${PARITY_TOL_MM}mm (weld/miter divergence)`;
+                        return `  ${label}: walls=${checked} drifted=${moved} max=${Math.round(maxMm)}mm mean=${Math.round(sumMm / checked)}mm ${verdict}`;
+                    }).filter((l): l is string => l !== null);
+                    if (parityLines.length > 0) {
+                        console.log('[house-layout] §DIAG-PARITY option(preview)↔built wall-centreline divergence:\n' + parityLines.join('\n'));
+                    }
                 } catch (e) { console.warn('[house-layout] §DIAG-LEVELS failed (non-fatal):', e); }
 
                 // §FLR-VIEWS (2026-06-08) — auto-create one "Floor Plans" ViewDefinition
