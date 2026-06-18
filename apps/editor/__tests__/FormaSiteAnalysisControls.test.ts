@@ -78,7 +78,9 @@ describe('FormaSiteAnalysisControls — wind rose repaint round-trip', () => {
         const controls = new FormaSiteAnalysisControls(makeViewport(), makeRuntime(climate, siteStore), host);
         controls.mount();
 
-        expect(host.textContent).toContain('No wind data');
+        // §CLIMATE-ESTIMATED-BADGE — the empty state reads "Wind data loading…" (a
+        // transient, not a hard failure) while the async ingest settles.
+        expect(host.textContent).toContain('Wind data loading');
         expect(windRoseHasBars(host)).toBe(false);
         controls.dispose();
     });

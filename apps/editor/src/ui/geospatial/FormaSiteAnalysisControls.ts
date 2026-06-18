@@ -696,6 +696,13 @@ export class FormaSiteAnalysisControls {
         const mkToggle = (
             label: string,
             apply: ((on: boolean) => void) | undefined,
+            /** §CLIMATE-OVERLAY-DATA-WIRING — wind/heat need a ClimateDataset
+             *  pushed to the viewport BEFORE they can draw. When true, toggling
+             *  ON first guarantees the dataset (auto-create Site + bundled ingest
+             *  if missing) and pushes whatever is already resolved, so the layer
+             *  never starves on first paint; the store-subscription repaint then
+             *  feeds it the moment a fresh ingest lands. */
+            needsClimate = false,
         ): void => {
             const b = document.createElement('button');
             b.type = 'button';
@@ -717,6 +724,25 @@ export class FormaSiteAnalysisControls {
                 b.addEventListener('click', () => {
                     on = !on;
                     paint();
+                    // §CLIMATE-OVERLAY-DATA-WIRING — before lighting the wind/heat
+                    // layer, make sure the viewport actually has the dataset. This
+                    // is the narrow gap that left them blank ("NO DATASET"): the
+                    // dataset is pushed only by renderWindRose→syncOverlayDataset,
+                    // which may not have fired (or resolveDataset() was null on the
+                    // mount tick). ensureClimateIfMissing() creates the Site +
+                    // ingests the bundled regional default if absent; syncOverlayDataset()
+                    // pushes any already-resolved dataset NOW so the layer draws on
+                    // the same click. If the ingest is still in flight the
+                    // climateStore.subscribe() repaint feeds it within a tick.
+                    if (on && needsClimate) {
+                        // If we have NO dataset yet, clear the once-per-mount guard so
+                        // ensureClimateIfMissing actually re-attempts the Site-create +
+                        // bundled ingest (the guard may have latched on a mount tick
+                        // where no location/Site was resolvable yet).
+                        if (!this.resolveDataset()) this.climateEnsureRequested = false;
+                        try { this.ensureClimateIfMissing(); } catch { /* ignore */ }
+                        this.syncOverlayDataset();
+                    }
                     try { apply!(on); } catch (e) { console.warn('[forma-analysis] overlay toggle failed:', e); }
                 });
             } else {
@@ -727,8 +753,8 @@ export class FormaSiteAnalysisControls {
         };
 
         mkToggle('☀ Sun path', this.viewport.setSunPathOverlay?.bind(this.viewport));
-        mkToggle('🌬 Wind', this.viewport.setWindOverlay?.bind(this.viewport));
-        mkToggle('🌡 Heat', this.viewport.setHeatOverlay?.bind(this.viewport));
+        mkToggle('🌬 Wind', this.viewport.setWindOverlay?.bind(this.viewport), true);
+        mkToggle('🌡 Heat', this.viewport.setHeatOverlay?.bind(this.viewport), true);
 
         block.appendChild(row);
         block.appendChild(this.smallNote(
