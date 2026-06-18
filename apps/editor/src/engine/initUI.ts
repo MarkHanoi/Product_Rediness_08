@@ -20,6 +20,7 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
+import { installEnvironmentHud } from '../ui/environment/EnvironmentHud';
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import * as OBC from '@thatopen/components';
 import * as OBCF from '@thatopen/components-front';
@@ -2663,6 +2664,15 @@ export async function initUI(p: UIParams): Promise<void> {
         } catch { /* ignore */ }
         updateIfManualMode();
     });
+
+    // §ENV-CLIMATE-VISIBLE — founder request: CLIMATE / WIND / POPULATION sliders
+    // emitted typed runtime events but nothing listened ("nothing visible on any
+    // view"). installEnvironmentHud() subscribes to those three events through the
+    // same `window.runtime.events` bus the sun listeners above use, and renders a
+    // shared brand-styled HUD (+ subtle DOM scene-tint) on document.body so it is
+    // visible across 3D, plan and globe. Pure DOM — no THREE touched here (P2-safe),
+    // additive and reversible (nothing shows until a slider moves).
+    installEnvironmentHud();
 
     // ── createMainLayout + DOM mount ──────────────────────────────────────────
     // Phase B.2 (S73-WIRE): `runtime` is the second positional arg (default null).
