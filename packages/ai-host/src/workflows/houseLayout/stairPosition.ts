@@ -624,6 +624,31 @@ export function chooseStairCorePosition(
     // (b) no clean CORNER candidate exists. On a convex plate, or whenever a CORNER is offered,
     // the legacy 0.5 applies and a perimeter candidate still wins → byte-identical to D52/D59.
     const MID_EDGE_NO_CORNER_PENALTY = 2.0;
+    // §STAIR-IN-SHELL-POLYGON (founder white-space / "stair pokes the shell", 2026-06-18) —
+    // a perimeter candidate survives culling when its core rect is contained within the LOOSE
+    // (≤150 mm) offer band, but a LOOSELY-contained candidate (proud of the real rotated/L/T/U
+    // wall by up to 150 mm) ships a body whose WORLD-AABB keep-out pokes OUTSIDE the shell
+    // (`§DIAG-STAIR-RULE keepOutInShell=3/4`). That poke fragments the buildable plate → the
+    // corridor leg can't reach the stair (`corridorReachM=0.00`) → a public room/the hall ends
+    // up with NO corridor door. A candidate whose rect is TIGHTLY contained (every sample within
+    // the genuine draw-jitter band — i.e. genuinely INSIDE the rotated shell, keepOut 4/4) keeps
+    // the plate WHOLE by construction. So among the surviving candidates we PREFER a tightly-
+    // contained one over a merely-loosely-contained one, even at slightly higher waste. The
+    // penalty (> FRAGMENT_PENALTY so it is decisive BETWEEN perimeter candidates; <
+    // PERIMETER_PREFERENCE so a loosely-contained perimeter candidate still beats a fragmenting
+    // central when NO tight option exists) flips a 3/4 winner to a 4/4 one only on a genuinely
+    // rotated/concave plate. GATED: it rides the aspect path only (the `if (!aspect)` legacy
+    // path is byte-identical), needs the shell polygon (absent ⇒ no penalty, every candidate
+    // "tight"), and on an axis-aligned plate every corner candidate sits AT the wall (offset 0)
+    // ⇒ tightly contained ⇒ penalty 0 ⇒ byte-identical. Composes with §STAIR-MID-EDGE-PENALTY
+    // (concave no-corner → central) and §STAIR-CORNER-NUDGE-TOL (a nudged corner is still a
+    // corner): this only re-orders the SURVIVORS, it never resurrects a culled candidate.
+    const LOOSE_CONTAIN_PENALTY = 0.6;
+    const tightlyContained = (c: { kind: StairCorePositionKind; x: number; y: number }): boolean => {
+        if (c.kind === 'central') return true;                     // central isn't a wall-flush poke
+        if (!shellPoly || shellPoly.length < 3) return true;       // no polygon → nothing to poke (legacy)
+        return rectInsidePoly(c.x, c.y, coreW, coreH, shellPoly, SHELL_TIGHT_JITTER_MM);
+    };
     const flushS = (g: number): number => (g <= CORNER_FLUSH_TOL_MM ? 1 : 0);
     const isCornerCarve = (c: { kind: StairCorePositionKind; x: number; y: number }): boolean => {
         if (c.kind === 'central') return false;
@@ -681,7 +706,15 @@ export function chooseStairCorePosition(
         const fragPenalty = (c.kind !== 'central' && !isCornerCarve(c))
             ? ((plateIsConcave && !hasCornerCandidate) ? MID_EDGE_NO_CORNER_PENALTY : FRAGMENT_PENALTY)
             : 0;
-        return waste + centralPenalty + fragPenalty - ASPECT_WEIGHT * aspectScore(c.kind, aspect);
+        // §STAIR-IN-SHELL-POLYGON — a perimeter candidate only LOOSELY contained (its rect
+        // pokes proud of the real rotated/concave wall, keep-out 3/4) pays this so a tightly-
+        // contained sibling (keep-out 4/4 → plate stays whole → corridor reaches the stair)
+        // wins. Zero on an axis-aligned plate (every corner candidate is exactly flush →
+        // tight) and zero for central → gated, no regression off the rotated/L/T/U case.
+        const loosePenalty = (c.kind !== 'central' && !tightlyContained(c))
+            ? LOOSE_CONTAIN_PENALTY
+            : 0;
+        return waste + centralPenalty + fragPenalty + loosePenalty - ASPECT_WEIGHT * aspectScore(c.kind, aspect);
     };
 
     let best = candidates[0]!;

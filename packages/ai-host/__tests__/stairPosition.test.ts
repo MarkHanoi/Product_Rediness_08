@@ -551,6 +551,108 @@ function shearedPlate(wM: number, dM: number, shearM: number): {
     };
 }
 
+// ───────────────── §STAIR-IN-SHELL-POLYGON (founder, 2026-06-18) ──────────────
+//
+// On a ROTATED rectangle the candidate culling's LOOSE (≤150 mm) offer band lets a
+// perimeter candidate that is PROUD of the real (rotated) wall survive — classified a
+// CORNER by the 150 mm flush test, but its shipped body's WORLD-AABB keep-out pokes
+// OUTSIDE the shell (`§DIAG-STAIR-RULE kind=… pos=CORNER keepOutInShell=3/4`). That poke
+// fragments the buildable plate → `§DIAG-STAIR-CIRC corridorReachM=0.00` → the hall/a
+// public room ends up with NO corridor door. The SELECTION now PREFERS a TIGHTLY-contained
+// candidate (every sample within the genuine draw-jitter band ⇒ keep-out 4/4 ⇒ the plate
+// stays whole) over a merely-loosely-contained one, even at slightly higher waste — among
+// VALID placements the existing waste/aspect/fragment objective is unchanged (the
+// tiebreaker). Gated: the aspect path only; an axis-aligned plate keeps every corner at the
+// wall (tight) ⇒ byte-identical.
+
+/** Rotate an axis-aligned `wM×dM` rectangle by `deg` about its centroid and express it
+ *  in the plate-local mm frame (bbox-min origin, plan-Z → y) the candidate scorer sees.
+ *  This is exactly the polygon `reserveStairCoreShaped` derives via `plateLocalPolyMm`
+ *  on a rotated shell (the principal-axis layout frame). */
+function rotRectPlateLocal(wM: number, dM: number, deg: number): {
+    poly: { x: number; y: number }[]; plateW: number; plateH: number;
+} {
+    const R = [{ x: 0, z: 0 }, { x: wM, z: 0 }, { x: wM, z: dM }, { x: 0, z: dM }];
+    const cx = wM / 2, cz = dM / 2, A = (deg * Math.PI) / 180, c = Math.cos(A), s = Math.sin(A);
+    const r = R.map(p => ({ x: cx + (p.x - cx) * c - (p.z - cz) * s, z: cz + (p.x - cx) * s + (p.z - cz) * c }));
+    let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
+    for (const p of r) { x0 = Math.min(x0, p.x); z0 = Math.min(z0, p.z); x1 = Math.max(x1, p.x); z1 = Math.max(z1, p.z); }
+    return {
+        poly: r.map(p => ({ x: (p.x - x0) * 1000, y: (p.z - z0) * 1000 })),
+        plateW: (x1 - x0) * 1000, plateH: (z1 - z0) * 1000,
+    };
+}
+
+describe('§STAIR-IN-SHELL-POLYGON — selection prefers a 4/4 in-shell stair over a 3/4 poke', () => {
+    const coreW = 2000, coreH = 2800;
+    const NORTH = { sunDir: { x: 0, y: 1 } } as const;
+    // Largest outward overrun (mm) of a position's 4 corners past the polygon — 0 ⇒ all
+    // four corners inside (the keep-out won't poke ⇒ `keepOutInShell` 4/4).
+    const overrun = (pos: { x: number; y: number }, poly: { x: number; y: number }[]): number =>
+        coreMaxOverrunMm(pos, coreW, coreH, poly);
+
+    it('on a rotated rectangle the chosen core never pokes OUTWARD past the shell (4/4 by construction)', () => {
+        // Sweep rotated rectangles across the band where a bbox-flush "corner" candidate is
+        // proud of the rotated wall. EVERY chosen position must keep all four corners inside
+        // (overrun ≈ 0) — i.e. the keep-out is 4/4, the plate stays whole.
+        let worst = 0;
+        for (const [wM, dM] of [[12, 10], [14, 11], [13, 9], [16, 9]] as [number, number][]) {
+            for (const deg of [3, 6, 9, 12, 15, 18, 21, 24]) {
+                const { poly, plateW, plateH } = rotRectPlateLocal(wM, dM, deg);
+                const pos = chooseStairCorePosition(plateW, plateH, coreW, coreH, poly, NORTH);
+                worst = Math.max(worst, overrun(pos, poly));
+            }
+        }
+        // A corner on a steep slant can read a few mm past the perpendicular band the engine
+        // tests against (same allowance as the D59 sweep). The point is no DECIMETRE poke.
+        expect(worst).toBeLessThanOrEqual(40);
+    });
+
+    it('repro 12×10 @ 6°: rejects the LOOSE corner that pokes 3/4, picks a 4/4-contained core', () => {
+        // OLD selection (no in-shell term) picked `right` here — its keep-out poked the
+        // rotated shell (3/4). NEW selection picks a fully-contained core (4/4). Assert the
+        // chosen core does NOT poke (overrun ≈ 0) — the keepOutInShell=3/4 defect is gone.
+        const { poly, plateW, plateH } = rotRectPlateLocal(12, 10, 6);
+        const pos = chooseStairCorePosition(plateW, plateH, coreW, coreH, poly, NORTH);
+        expect(overrun(pos, poly)).toBeLessThanOrEqual(40);
+    });
+
+    it('repro 12×10 @ 9°: rejects the LOOSE mid-edge that pokes 3/4, picks a 4/4-contained core', () => {
+        const { poly, plateW, plateH } = rotRectPlateLocal(12, 10, 9);
+        const pos = chooseStairCorePosition(plateW, plateH, coreW, coreH, poly, NORTH);
+        expect(overrun(pos, poly)).toBeLessThanOrEqual(40);
+    });
+
+    it('is deterministic on the rotated repro (no RNG)', () => {
+        const { poly, plateW, plateH } = rotRectPlateLocal(12, 10, 6);
+        const a = chooseStairCorePosition(plateW, plateH, coreW, coreH, poly, NORTH);
+        const b = chooseStairCorePosition(plateW, plateH, coreW, coreH, poly, NORTH);
+        expect(JSON.stringify(a)).toEqual(JSON.stringify(b));
+    });
+
+    it('GATED — an axis-aligned plate is byte-identical with vs without the shell polygon', () => {
+        // On a perfect rectangle every corner candidate sits AT the wall (tight) ⇒ the
+        // in-shell penalty is 0 for all ⇒ the choice matches the no-polygon path exactly.
+        const plateW = 12000, plateH = 10000;
+        const rectPoly = [
+            { x: 0, y: 0 }, { x: plateW, y: 0 }, { x: plateW, y: plateH }, { x: 0, y: plateH },
+        ];
+        const withPoly = chooseStairCorePosition(plateW, plateH, coreW, coreH, rectPoly, NORTH);
+        const noPoly = chooseStairCorePosition(plateW, plateH, coreW, coreH, undefined, NORTH);
+        expect(withPoly.x).toBe(noPoly.x);
+        expect(withPoly.y).toBe(noPoly.y);
+        expect(withPoly.kind).toBe(noPoly.kind);
+    });
+
+    it('GATED — the legacy NO-aspect path is unaffected (the in-shell term rides the aspect path only)', () => {
+        const { poly, plateW, plateH } = rotRectPlateLocal(12, 10, 6);
+        // No aspect bias → `cost` returns pure waste before the in-shell term is reached.
+        const a = chooseStairCorePosition(plateW, plateH, coreW, coreH, poly);
+        const b = chooseStairCorePosition(plateW, plateH, coreW, coreH, poly);
+        expect(JSON.stringify(a)).toEqual(JSON.stringify(b));
+    });
+});
+
 describe('A.21.D59 — flush perimeter stair core never extends OUTWARD past the shell', () => {
     const coreW = 2000, coreH = 2800;
     // The engine guarantees the core is contained within the TIGHT jitter band
