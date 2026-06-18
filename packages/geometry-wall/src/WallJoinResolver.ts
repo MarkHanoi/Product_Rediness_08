@@ -920,6 +920,11 @@ export class WallJoinResolver {
             // Pure Y/star junctions (no collinear pair) keep the existing behaviour.
             const COLLINEAR_DOT = 0.985; // cos(~10°)
             let clusterHasPassThrough = false;
+            // §MULTI-CLUSTER-PARTITION-TRIM (2026-06-18) — remember the collinear
+            // through-line direction so an ANGLED partition arm in this cluster (not
+            // collinear with it) can be square-capped to the junction consensus rather
+            // than deferred to a nearby shell face (the over-run bug).
+            let passThroughDir: THREE.Vector3 | null = null;
             for (let i = 0; i < endpoints.length && !clusterHasPassThrough; i++) {
                 const epI = endpoints[i];
                 if (_selfClusterWallIds.has(epI.wallId)) continue;
@@ -937,6 +942,7 @@ export class WallJoinResolver {
                     const dirJ = this._wallDirAtJoin(wJ, epJ.side, jS, jE, consensusPoint);
                     if (Math.abs(dirI.dot(dirJ)) >= COLLINEAR_DOT) {
                         clusterHasPassThrough = true;
+                        passThroughDir = dirI.clone();
                         break;
                     }
                 }
@@ -1033,6 +1039,64 @@ export class WallJoinResolver {
                 if (handledKeys.has(epKey)) continue;
 
                 const [ws, we] = bl.get(ep.wallId)!;
+
+                // ── §MULTI-CLUSTER-PARTITION-TRIM (2026-06-18) ──────────────────────
+                // In a PASS-THROUGH cluster, an ANGLED partition arm whose off-end
+                // happens to lie near a perimeter (shell) wall body is caught by
+                // §SHELL-ANCHOR-PRESERVE below and deferred to the pair-wise T-join,
+                // which trims it onto the SHELL FACE — 145–431 mm OFF the junction
+                // consensus → the partition OVER-RUNS past the corner and the room loop
+                // fails to close (§DIAG-ROOM-LOOP BREAK … EXCEEDS hostSnap). The collinear
+                // through-pair already defines the junction line, so a real angled T/X
+                // arm MUST trim to consensus, not to a nearby shell face. Intercept it
+                // here (BEFORE the shell-anchor deferral) and square-cap to consensus —
+                // the same write as §PASS-THROUGH-FLUSH. Excluded: the through-pair / any
+                // continuing collinear wall (angle test — keeps genuine pass-through and
+                // collinear shell walls on their line), endpoints already on consensus
+                // (>1mm no-op → clean clusters byte-identical), and arms beyond a junction
+                // snap tol. Gated default-ON. Pure read of the working baselines.
+                if (
+                    clusterHasPassThrough && passThroughDir &&
+                    (globalThis as any).window?.__pryzmMultiClusterPartitionTrim !== false
+                ) {
+                    const wArm = _byId.get(ep.wallId);
+                    if (wArm) {
+                        const armDir = this._wallDirAtJoin(wArm, ep.side, ws, we, consensusPoint);
+                        const armPos = this._getEpPos(ep, bl);
+                        const dConsArm = Math.hypot(armPos.x - consensusPoint.x, armPos.z - consensusPoint.z);
+                        const isCollinearArm = Math.abs(armDir.dot(passThroughDir)) >= COLLINEAR_DOT;
+                        const snapTolArm = Math.min(thresholds.snapRadius, 0.5);
+                        if (!isCollinearArm && dConsArm > 1e-3 && dConsArm <= snapTolArm) {
+                            const trimPtMC = consensusPoint.clone();
+                            trimPtMC.y = ep.side === 'start' ? ws.y : we.y;   // preserve floor Y
+                            const newBLMC: [THREE.Vector3, THREE.Vector3] =
+                                ep.side === 'start' ? [trimPtMC, we.clone()] : [ws.clone(), trimPtMC];
+                            if (newBLMC[0].distanceTo(newBLMC[1]) < thresholds.minWallLength) {
+                                this._flagInvalidIfDegenerate(
+                                    ep.wallId, bl, result, thresholds.minWallLength, 'partition-trim-collapse',
+                                );
+                                handledKeys.add(epKey);
+                                continue;
+                            }
+                            bl.set(ep.wallId, newBLMC);
+                            const adjMC: JoinData = result.get(ep.wallId) ?? {
+                                baseLine: newBLMC, startMN: null, endMN: null,
+                            };
+                            adjMC.baseLine = newBLMC;
+                            if (ep.side === 'start') adjMC.startMN = null;
+                            else                     adjMC.endMN   = null;
+                            result.set(ep.wallId, adjMC);
+                            handledKeys.add(epKey);
+                            _cntTrimmed++;
+                            console.log(
+                                `[WallJoinResolver] §MULTI-CLUSTER-PARTITION-TRIM wall=${ep.wallId}(${ep.side}) ` +
+                                `angled arm ${dConsArm.toFixed(3)}m off junction → square-cap to consensus ` +
+                                `(${trimPtMC.x.toFixed(3)},${trimPtMC.z.toFixed(3)})`
+                            );
+                            continue;
+                        }
+                    }
+                }
 
                 // ── §SHELL-ANCHOR-PRESERVE (2026-06-09, THE founder room-merge fix) ──
                 // This endpoint may have been welded ONTO the BODY of a perimeter
