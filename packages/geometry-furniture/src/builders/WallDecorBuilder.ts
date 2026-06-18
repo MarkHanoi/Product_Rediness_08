@@ -85,7 +85,20 @@ export class WallTapestryBuilder implements IFurnitureBuilder {
     constructor(private materialService: MaterialService) {}
     build(data: FurnitureData): THREE.Group {
         const group = new THREE.Group();
-        const W = data.width, L = data.length, H = data.height;
+        // §DECOR-VARIETY (founder 2026-06-18) — deterministic per-room pattern + size
+        // variation so every room's hanging is not the same block grid. Seed from the
+        // hanging's WORLD POSITION (stable across regenerations for a given layout;
+        // different rooms → different position → different pattern + size). Pure: no
+        // per-call randomness, so command snapshots round-trip byte-identically.
+        const seed = Math.abs(
+            Math.round((data.position?.x ?? 0) * 7.31) +
+            Math.round((data.position?.z ?? 0) * 13.77) * 31 +
+            Math.round((data.position?.y ?? 0) * 3.13),
+        );
+        const PATTERNS = 3;
+        const variant = seed % PATTERNS;
+        const sizeF = 0.85 + ((seed >> 2) % 7) * 0.05; // 0.85 … 1.15 per room
+        const W = data.width * sizeF, L = data.length, H = data.height * sizeF;
         // A.21.D15 — FLOOR-RELATIVE (the wall-mount baseOffset is applied once on
         // the group root by FurnitureFragmentBuilder; BASE is the in-group floor).
         const BASE = 0;
@@ -108,23 +121,47 @@ export class WallTapestryBuilder implements IFurnitureBuilder {
         const fieldTop = BASE + H - RAIL_H;
         const fieldBottom = BASE + FRINGE_H;
         const fieldH = Math.max(0.01, fieldTop - fieldBottom);
-        const COLS = 4, ROWS = 5;
-        const cellW = W / COLS;
-        const cellH = fieldH / ROWS;
         // Matte, low-metalness fabric finish per palette colour.
         const fabricMats = TAPESTRY_PALETTE.map(c => new THREE.MeshStandardMaterial({
             color: c, roughness: 0.95, metalness: 0.0,
         }));
-        for (let r = 0; r < ROWS; r++) {
-            for (let cIdx = 0; cIdx < COLS; cIdx++) {
-                // Deterministic woven pattern: diagonal stagger through the palette.
-                const mat = fabricMats[(r * COLS + cIdx + r) % TAPESTRY_PALETTE.length];
-                const blockGeo = new THREE.BoxGeometry(cellW * 0.98, cellH * 0.98, L);
-                const block = new THREE.Mesh(blockGeo, mat);
-                const cx = -W / 2 + cellW * (cIdx + 0.5);
-                const cy = fieldBottom + cellH * (r + 0.5);
-                block.position.set(cx, cy, L / 2);
-                group.add(block);
+        const palAt = (i: number) => fabricMats[((Math.round(i) % fabricMats.length) + fabricMats.length) % fabricMats.length]!;
+        const addBlock = (cx: number, cy: number, w: number, h: number, mat: THREE.Material) => {
+            const block = new THREE.Mesh(new THREE.BoxGeometry(w, h, L), mat);
+            block.position.set(cx, cy, L / 2);
+            group.add(block);
+        };
+        // §DECOR-VARIETY — three deterministic woven patterns, chosen per room by seed.
+        if (variant === 1) {
+            // Pattern B — HORIZONTAL BANDS (ref: cream/black/red weave): 4–6 full-width
+            // colour bands of equal height, seeded colour order.
+            const BANDS = 4 + (seed % 3); // 4..6
+            const bh = fieldH / BANDS;
+            for (let b = 0; b < BANDS; b++) {
+                addBlock(0, fieldBottom + bh * (b + 0.5), W * 0.99, bh * 0.98, palAt(seed + b * 2));
+            }
+        } else if (variant === 2) {
+            // Pattern C — KILIM CHEVRON (finer geometric grid; colours form chevrons via
+            // a diamond index so it reads distinct from the plain stagger).
+            const COLS = 6, ROWS = 7;
+            const cellW = W / COLS, cellH = fieldH / ROWS;
+            for (let r = 0; r < ROWS; r++) {
+                for (let cIdx = 0; cIdx < COLS; cIdx++) {
+                    const mat = palAt(seed + Math.abs(cIdx - (r % COLS)) + r);
+                    addBlock(-W / 2 + cellW * (cIdx + 0.5), fieldBottom + cellH * (r + 0.5),
+                        cellW * 0.98, cellH * 0.98, mat);
+                }
+            }
+        } else {
+            // Pattern A — the original 4×5 diagonal-stagger block grid (byte-identical
+            // colour formula to the pre-§DECOR-VARIETY tapestry).
+            const COLS = 4, ROWS = 5;
+            const cellW = W / COLS, cellH = fieldH / ROWS;
+            for (let r = 0; r < ROWS; r++) {
+                for (let cIdx = 0; cIdx < COLS; cIdx++) {
+                    addBlock(-W / 2 + cellW * (cIdx + 0.5), fieldBottom + cellH * (r + 0.5),
+                        cellW * 0.98, cellH * 0.98, palAt(r * COLS + cIdx + r));
+                }
             }
         }
 
