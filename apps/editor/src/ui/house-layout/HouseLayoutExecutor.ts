@@ -1987,6 +1987,7 @@ export class HouseLayoutExecutor {
             const keptIds = new Set<string>();
             const retainedDividers: string[] = [];
             const skippedSpurious: string[] = [];
+            const weldCollapsedReverted: string[] = [];
             const retainedSegs: Seg[] = [];
             const newWalls = inWalls
                 .filter(w => {
@@ -2007,6 +2008,23 @@ export class HouseLayoutExecutor {
                     const ww = weldedById.get(w.id);
                     const y = w.baseLine[0]!.y ?? 0;
                     if (ww) {
+                        // §WELD-NO-COLLAPSE (PREVIEW↔EXECUTION PARITY, ADR-0075 PC4, 2026-06-18) — on a
+                        // rotated GROUND plate the weld can CRUSH a real partition to a stub (the
+                        // §DIAG-PARITY latMax≈4m / latMean 644mm catastrophe: §DOOR-LIVE-CLAMP
+                        // liveLen=0.10m, the diagonal-"X" wall across a bedroom). When the weld
+                        // shortened a genuine wall to a FRACTION of its OPTION length, keep the
+                        // ORIGINAL (preview) baseline instead — it already reaches the shell via
+                        // §RECTIFY-SHELL-PROJECT and aligns with the graph-authoritative floor, so a
+                        // PREVIEWED wall beats a DESTROYED one (provably no-worse). Gated to
+                        // CATASTROPHE: a legitimate shell-snap only trims the ends a little (≤~0.6 m),
+                        // so a real wall stays well above the fraction floor → byte-identical there.
+                        // The metric proves it: ground latMean should drop toward the upper's ~27 mm.
+                        const weldedLen = Math.hypot(ww.end.x - ww.start.x, ww.end.z - ww.start.z);
+                        const origLen = origLenById.get(w.id) ?? weldedLen;
+                        if (origLen > 0.5 && weldedLen < Math.max(0.30, origLen * 0.5)) {
+                            weldCollapsedReverted.push(w.id);
+                            return w;   // un-welded, at the OPTION/preview position
+                        }
                         return { ...w, baseLine: [{ x: ww.start.x, y, z: ww.start.z }, { x: ww.end.x, y, z: ww.end.z }] };
                     }
                     // Weld collapsed this divider — retain its ORIGINAL (un-welded) baseline.
@@ -2017,6 +2035,14 @@ export class HouseLayoutExecutor {
             const droppedCount = inWalls.length - newWalls.length;
             if (droppedCount > 0) {
                 console.warn('[house-layout] §GROUND-WELD dropped', droppedCount, 'degenerate ground partition(s) after welding to shell');
+            }
+            if (weldCollapsedReverted.length > 0) {
+                console.warn(
+                    '[house-layout] §WELD-NO-COLLAPSE reverted', weldCollapsedReverted.length,
+                    'ground partition(s) to their OPTION (preview) baseline — the weld would have crushed them to a stub',
+                    '(kills the §DIAG-PARITY 4m-shift / diagonal-X wall; the wall already reaches the shell via §RECTIFY-SHELL-PROJECT):',
+                    weldCollapsedReverted.join(', '),
+                );
             }
             if (skippedSpurious.length > 0) {
                 console.warn(
