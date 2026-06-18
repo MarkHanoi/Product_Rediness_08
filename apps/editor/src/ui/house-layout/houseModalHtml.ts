@@ -630,6 +630,35 @@ function roomDependencyRole(type: string): string {
     }
 }
 
+/** §CIRC-REACH — names of the rooms REACHABLE from the storey entrance over the
+ *  DOOR graph (BFS). The entrance is the hall (ground) or, on a floor with no hall,
+ *  the stair (you arrive from below). Returns `null` when there is no full door graph
+ *  (pre-deploy build) or no entrance root — callers then skip the isolation check so
+ *  nothing false-positives. Circulation is a GLOBAL property: a corridor/stair that
+ *  cannot be reached from the front door is isolated, not a real spine (founder). */
+function computeEntranceReach(storeyRooms: readonly LayoutRoom[]): Set<string> | null {
+    if (storeyRooms.length === 0) return null;
+    if (!storeyRooms.every(r => Array.isArray(r.doorAdjacentTo))) return null;
+    const idxByName = new Map(storeyRooms.map((r, i) => [r.name, i] as const));
+    const adj: number[][] = storeyRooms.map(() => []);
+    storeyRooms.forEach((r, i) => {
+        for (const n of (r.doorAdjacentTo ?? [])) {
+            const j = idxByName.get(n);
+            if (j != null && j !== i) { adj[i]!.push(j); adj[j]!.push(i); }
+        }
+    });
+    let root = storeyRooms.findIndex(r => String(r.type ?? '').toLowerCase() === 'hall');
+    if (root < 0) root = storeyRooms.findIndex(r => String(r.type ?? '').toLowerCase() === 'stair');
+    if (root < 0) return null;
+    const seen = new Set<number>([root]);
+    const queue = [root];
+    while (queue.length) {
+        const cur = queue.shift()!;
+        for (const nb of adj[cur] ?? []) if (!seen.has(nb)) { seen.add(nb); queue.push(nb); }
+    }
+    return new Set([...seen].map(i => storeyRooms[i]!.name));
+}
+
 /**
  * §54 — pure builder for the living-graph node INSPECTOR card. `room` is the
  * clicked room's `LayoutRoom`; `storeyRooms` is that storey's full `LayoutRoom[]`
@@ -676,9 +705,23 @@ export function buildNodeInspectorHtml(
         ? room.doorAdjacentTo.filter((n): n is string => typeof n === 'string' && n.length > 0 && n !== room.name)
         : adjacent;
     const circVia = doorAdj.find(n => CIRCULATION_TYPES.has(typeByName.get(n) ?? ''));
+    // §CIRC-REACH — is this room reachable from the storey entrance over the door graph?
+    // An isolated corridor/stair island is NOT a real spine (founder: "the corridor is the
+    // spine but it's isolated — it needs to connect to the entrance hall, else how do you
+    // access it?"). `null` reach = pre-deploy/no-root → skip (no false-positives). The
+    // entrance root (hall on ground, stair on upper) is itself always reachable, so an
+    // upper-floor stair-as-root is never "isolated" — it falls to its public-door check.
+    const reachNames = computeEntranceReach(storeyRooms);
+    const isIsolated = reachNames != null && !reachNames.has(room.name);
     let circulationHtml: string;
-    if (selfIsSpine) {
-        circulationHtml = `<span class="hlm-insp-circ hlm-insp-circ--on">On circulation ✓ <small>(${selfType === 'hall' ? 'entry hall' : 'the spine'})</small></span>`;
+    if (selfType === 'hall') {
+        // The entrance hall IS the root of circulation — always on-circulation.
+        circulationHtml = `<span class="hlm-insp-circ hlm-insp-circ--on">On circulation ✓ <small>(entry hall)</small></span>`;
+    } else if (isIsolated) {
+        // Cut off from the entrance — supersedes "I am a corridor, so I'm the spine ✓".
+        circulationHtml = `<span class="hlm-insp-circ hlm-insp-circ--off">Not on circulation ✗ <small>(isolated from the entrance)</small></span>`;
+    } else if (selfIsSpine) {
+        circulationHtml = `<span class="hlm-insp-circ hlm-insp-circ--on">On circulation ✓ <small>(the spine)</small></span>`;
     } else if (selfType === 'stair') {
         // §STAIR-PUBLIC-FLOW — a stair is on-circulation ONLY if it has a DOOR onto a
         // public circulation space (corridor/hall/living/dining/kitchen). "Connects

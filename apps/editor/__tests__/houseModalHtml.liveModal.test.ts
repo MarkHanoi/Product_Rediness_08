@@ -219,6 +219,31 @@ describe('§54 — living-graph node inspector (INFORMATION · DEPENDENCIES · A
         expect(html).toContain('hlm-insp-circ--off');
     });
 
+    it('§CIRC-REACH: a corridor reachable from the entrance hall is the spine ✓', () => {
+        // hall —door— corridor: the corridor is reachable from the entrance → real spine.
+        const hall: LayoutRoom = { name: 'Entrance Hall', type: 'hall', area: 12, adjacentTo: ['Corridor'], doorAdjacentTo: ['Corridor'] } as LayoutRoom;
+        const corr: LayoutRoom = { name: 'Corridor', type: 'corridor', area: 9, adjacentTo: ['Entrance Hall'], doorAdjacentTo: ['Entrance Hall'] } as LayoutRoom;
+        const html = buildNodeInspectorHtml(corr, [hall, corr]);
+        expect(html).toContain('On circulation ✓');
+        expect(html).toContain('the spine');
+        expect(html).not.toContain('Not on circulation');
+    });
+
+    it('§CIRC-REACH: an isolated corridor+stair island (no door back to the hall) is RED', () => {
+        // hall is the entrance root; corridor⇄stair form an island whose only doors are to
+        // each other → unreachable from the hall → the corridor is NOT a real spine.
+        const hall: LayoutRoom = { name: 'Entrance Hall', type: 'hall', area: 12, adjacentTo: ['Living Room'], doorAdjacentTo: ['Living Room'] } as LayoutRoom;
+        const living: LayoutRoom = { name: 'Living Room', type: 'living', area: 30, adjacentTo: ['Entrance Hall'], doorAdjacentTo: ['Entrance Hall'] } as LayoutRoom;
+        const corr: LayoutRoom = { name: 'Corridor', type: 'corridor', area: 9, adjacentTo: ['Stair'], doorAdjacentTo: ['Stair'] } as LayoutRoom;
+        const stair: LayoutRoom = { name: 'Stair', type: 'stair', area: 9, adjacentTo: ['Corridor'], doorAdjacentTo: ['Corridor'] } as LayoutRoom;
+        const storeyR = [hall, living, corr, stair];
+        const corrHtml = buildNodeInspectorHtml(corr, storeyR);
+        expect(corrHtml).toContain('Not on circulation ✗');
+        expect(corrHtml).toContain('isolated from the entrance');
+        // And the entrance hall itself stays compliant (it IS the root).
+        expect(buildNodeInspectorHtml(hall, storeyR)).toContain('On circulation ✓');
+    });
+
     it('CIRCULATION = OFF when served only through a non-circulation room', () => {
         const html = buildNodeInspectorHtml(storey[3], storey); // Store → Bedroom 1 (not circulation)
         expect(html).toContain('Not on circulation ✗');

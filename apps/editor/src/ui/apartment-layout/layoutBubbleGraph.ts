@@ -448,9 +448,49 @@ export function buildPlanGraphOverlaySvg(
         neighbourTypes[i]?.add(String(rooms[j]?.type ?? '').toLowerCase());
         neighbourTypes[j]?.add(String(rooms[i]?.type ?? '').toLowerCase());
     });
+    // §CIRC-REACH (founder 2026-06-18, "the corridor is the spine — but it's isolated;
+    // it needs to be directly or indirectly connected to the entrance hall, otherwise how
+    // do you access it?") — circulation is a GLOBAL property, not a per-type label. BFS
+    // from the storey ENTRANCE over the DOOR graph; any room cut off from the entrance —
+    // INCLUDING the corridor/stair spine itself — is non-compliant however valid its local
+    // doors are. The entrance is the hall (ground) or, on an upper floor that has no hall,
+    // the stair (you arrive from the floor below). Only runs when EVERY room carries a
+    // `doorAdjacentTo` (post-deploy engine) so pre-deploy builds never false-positive.
+    const reachIdxByName = new Map(rooms.map((r, i) => [r.name, i] as const));
+    const hasFullDoorGraph = rooms.length > 0 && rooms.every(r => Array.isArray(r.doorAdjacentTo));
+    const reachableFromEntrance = new Set<number>();
+    if (hasFullDoorGraph) {
+        // Undirected door adjacency (be robust if `doorAdjacentTo` is only one-sided).
+        const doorAdj: number[][] = rooms.map(() => []);
+        rooms.forEach((r, i) => {
+            for (const n of (r.doorAdjacentTo ?? [])) {
+                const j = reachIdxByName.get(n);
+                if (j != null && j !== i) { doorAdj[i]!.push(j); doorAdj[j]!.push(i); }
+            }
+        });
+        let root = rooms.findIndex(r => String(r.type ?? '').toLowerCase() === 'hall');
+        if (root < 0) root = rooms.findIndex(r => String(r.type ?? '').toLowerCase() === 'stair');
+        if (root >= 0) {
+            const queue = [root];
+            reachableFromEntrance.add(root);
+            while (queue.length) {
+                const cur = queue.shift()!;
+                for (const nb of doorAdj[cur] ?? []) {
+                    if (!reachableFromEntrance.has(nb)) { reachableFromEntrance.add(nb); queue.push(nb); }
+                }
+            }
+        }
+    }
+    // True only when we have a real door graph AND established an entrance root: a room
+    // outside the entrance-reachable set is an isolated island (e.g. an unreachable spine).
+    const entranceUnreachable = (i: number): boolean =>
+        hasFullDoorGraph && reachableFromEntrance.size > 0 && !reachableFromEntrance.has(i);
     const isNonCompliant = (i: number): boolean => {
         const r = rooms[i];
         const t = String(r?.type ?? '').toLowerCase();
+        // §CIRC-REACH — cut off from the entrance over the door graph → red, including the
+        // corridor/stair spine (supersedes the local "I am a corridor, so I'm the spine ✓").
+        if (entranceUnreachable(i)) return true;
         const doorNbrs = Array.isArray(r?.doorAdjacentTo) ? r!.doorAdjacentTo : null;
         // §PUBLIC-FLOW — a STAIR with NO door onto the public circulation is flagged red
         // (founder: "the stair needs to be accessed by living/dining or corridor; public
