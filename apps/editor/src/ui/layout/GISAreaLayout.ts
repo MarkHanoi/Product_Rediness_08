@@ -154,6 +154,20 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             return;
         }
 
+        // §CESIUM-GIZMO-DETACH (founder 2026-06-19) — the BIM TransformControls gizmo's
+        // stock three.js "helper" axis lines (scaled ~1e6, recolored to PRYZM violet in
+        // initTransformControllers: X→#6600FF, Z→#7B3FF2) are the near-infinite
+        // green/purple lines at the building corner that composite through into the
+        // Cesium view when a wall is selected. Detach the gizmo on GIS entry so no helper
+        // lines are live; it reattaches on reselect back in the BIM view (real geometry +
+        // in-editor snapping untouched). Carrier-independent: kills the lines whether or
+        // not the BIM canvas is fully hidden.
+        const detachBimGizmoForGis = () => {
+            try {
+                (globalThis as unknown as { transformControls?: { detach?: () => void } }).transformControls?.detach?.();
+            } catch { /* noop */ }
+        };
+
         if (active) {
             console.log("GIS: Activating geospatial view...");
             viewport.style.position = 'relative';
@@ -186,6 +200,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                         // relied on the container being visible by default — now we
                         // must explicitly show it (raises z-index above the BIM
                         // WebGPU overlay + hides the BIM canvases + resizes).
+                        detachBimGizmoForGis();
                         cesiumViewport.setVisible(true);
                         console.log("GIS: Cesium viewer mounted successfully");
                         const viewer = cesiumViewport.getViewer();
@@ -261,6 +276,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 // A.8.a — re-show the geocode search box overlay with the GIS view.
                 if (geocodeBox) geocodeBox.element.style.display = '';
                 if (cesiumViewport) {
+                    detachBimGizmoForGis();
                     cesiumViewport.setVisible(true);
 
                     // 🔄 SYNC UPDATE (Only After Placement Exists)
