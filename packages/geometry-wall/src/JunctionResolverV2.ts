@@ -301,6 +301,29 @@ function applyRingSweep(j: JunctionDraft, walls: readonly WallInput[], miters: W
         const leftAnchorCurr  = add(j.point, scale(leftPerp(curr.direction),  +halfTc));
         const rightAnchorNext = add(j.point, scale(leftPerp(next.direction),  -halfTn));
 
+        // §V2-NEAR-PARALLEL-CAP (founder 2026-06-19) — skip the corner for a NEAR-parallel
+        // pair (a collinear pass-through, or a shallow off-axis kink on a tilted plate).
+        // `intersectLines` only rejects EXACTLY parallel (det < 1e-9); for a near-parallel
+        // pair the two offset edge lines barely cross, so their intersection (the footprint
+        // corner) shoots METRES out → the polygon spikes (the 239m/1275m V2 bodies
+        // §V2-SPIKE-GUARD catches on the SECOND pass → legacy fallback → the founder's mixed-
+        // pipeline miter gap on the outer walls). For such a pair the correct join IS a
+        // square cap (the wall passes ~straight through), so skip the corner exactly like
+        // the `corner === null` branch below. CRUCIAL: this tests the ANGLE between the wall
+        // directions, NOT the corner distance — so EVERY genuine corner keeps its miter,
+        // even an acute ~6° one (sin 6° ≈ 0.10 > 0.05). The earlier distance-threshold clamp
+        // tripped at ~13° and wrongly square-capped acute corners (the flat-corner regression
+        // the founder reported); the angle test is the precise near-parallel condition.
+        {
+            const _cl = Math.hypot(curr.direction.x, curr.direction.z) || 1;
+            const _nl = Math.hypot(next.direction.x, next.direction.z) || 1;
+            const _sinAngle = Math.abs(
+                (curr.direction.x / _cl) * (next.direction.z / _nl) -
+                (curr.direction.z / _cl) * (next.direction.x / _nl),
+            );
+            if (_sinAngle < 0.05) continue;   // ≈ < 3° between walls → square cap (pass-through), no spike
+        }
+
         const corner = intersectLines(leftAnchorCurr, curr.direction, rightAnchorNext, next.direction);
         if (corner === null) continue;        // parallel — fall back to perpendicular cap (no corner attached)
 

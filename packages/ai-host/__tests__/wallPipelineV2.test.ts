@@ -176,6 +176,42 @@ describe('WallPipelineV2 — buildWallV2GeometryOneShot', () => {
     });
 });
 
+// ─── §V2-NEAR-PARALLEL-CAP ──────────────────────────────────────────────────────
+
+describe('WallPipelineV2 — §V2-NEAR-PARALLEL-CAP (skip near-parallel, keep real corners)', () => {
+    const bboxDiag = (w: LevelWallSpec, all: LevelWallSpec[]): number => {
+        const { geometry } = buildWallV2GeometryOneShot(w, all, { height: HEIGHT });
+        const bb = geometry.boundingBox!;
+        return Math.hypot(bb.max.x - bb.min.x, bb.max.z - bb.min.z);
+    };
+    const baseLen = (w: LevelWallSpec): number => Math.hypot(w.endXZ.x - w.startXZ.x, w.endXZ.z - w.startXZ.z);
+
+    it('a near-parallel pair (≈2° kink) does NOT spike the V2 body (square-capped, no fallback)', () => {
+        const KINK: LevelWallSpec[] = [
+            { id: 'A', startXZ: { x: 0, z: 0 }, endXZ: { x: 5,  z: 0 },    thickness: T },
+            { id: 'B', startXZ: { x: 5, z: 0 }, endXZ: { x: 10, z: 0.17 }, thickness: T }, // ~2°
+        ];
+        for (const w of KINK) expect(bboxDiag(w, KINK)).toBeLessThanOrEqual(baseLen(w) + T + 1.0);
+    });
+
+    it('the clean 90° L corner still builds bounded (real corner kept)', () => {
+        for (const w of L_WALLS) expect(bboxDiag(w, L_WALLS)).toBeLessThanOrEqual(baseLen(w) + T + 1.0);
+    });
+
+    it('the ANGLE threshold skips ≈2° but KEEPS ≈6°/25°/90° — acute corners stay mitred (flat-corner regression guard)', () => {
+        const sinBetween = (a1: number, a2: number): number => {
+            const d1 = { x: Math.cos(a1), z: Math.sin(a1) }, d2 = { x: Math.cos(a2), z: Math.sin(a2) };
+            return Math.abs(d1.x * d2.z - d1.z * d2.x);
+        };
+        const deg = (d: number) => (d * Math.PI) / 180;
+        const SKIP = 0.05;                                   // the §V2-NEAR-PARALLEL-CAP threshold
+        expect(sinBetween(0, deg(2))).toBeLessThan(SKIP);    // 2° near-parallel → square cap
+        expect(sinBetween(0, deg(6))).toBeGreaterThan(SKIP); // 6° → kept (miter)
+        expect(sinBetween(0, deg(25))).toBeGreaterThan(SKIP);// 25° acute → kept (NOT flattened — the regression)
+        expect(sinBetween(0, deg(90))).toBeGreaterThan(SKIP);// 90° → kept
+    });
+});
+
 // ─── Determinism ──────────────────────────────────────────────────────────────
 
 describe('WallPipelineV2 — determinism', () => {
