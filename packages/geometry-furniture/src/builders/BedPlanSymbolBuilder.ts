@@ -167,18 +167,21 @@ export class BedPlanSymbolBuilder {
                 };
             }
             case 'japanese_walnut_bed': {
-                // BedEngine.buildWalnut: hard-coded queen 1.60×2.10 mattress,
-                // 0.25 deck overhang on every side → deck 2.10 × 2.60;
-                // bedside wings 0.40 × 0.55 at head end.
-                const frameW = 2.10;
-                const frameL = 2.60;
+                // §BED-HEADBOARD-FLUSH (2026-06-12) — BedEngine.buildWalnut: hard-coded
+                // queen 1.60×2.10 mattress, 0.10 deck overhang every side → deck
+                // 1.80 × 2.30; bedside wings 0.40 × 0.55 at head end; headboard 0.05
+                // thick spanning deck + wings. (The old 2.10×2.60 / 0.25-overhang
+                // metrics here were stale — they drew a 2.90×2.66 m plan symbol whose
+                // head edge poked into the wall; this matches the true mesh.)
+                const frameW = 1.80;
+                const frameL = 2.30;
                 return {
                     frameW, frameL,
-                    mattInsetX: 0.25, mattInsetHead: 0.25, mattInsetFoot: 0.25,
+                    mattInsetX: 0.10, mattInsetHead: 0.10, mattInsetFoot: 0.10,
                     nightstandW: 0, nightstandD: 0,
                     wingW: 0.40, wingL: 0.55,
-                    headboardW: frameW + 2 * 0.40,
-                    headboardT: 0.06,
+                    headboardW: frameW + 2 * 0.40,   // 2.60
+                    headboardT: 0.05,
                 };
             }
             case 'japanese_float_bed': {

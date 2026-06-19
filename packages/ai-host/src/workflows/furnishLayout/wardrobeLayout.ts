@@ -29,6 +29,32 @@ const GAP = 0.02;
 const add = (a: Pt, b: Pt, s = 1): Pt => ({ x: a.x + b.x * s, z: a.z + b.z * s });
 const WARDROBE: FurnitureKind = 'wardrobe';
 
+/** Side / rear overhang (m) each integrated bed kind extends past its DECK footprint
+ *  (mirrors BedEngine wings / nightstands + headboard). 0 for non-bed + plain beds.
+ *  Kept in lock-step with §BED-OCCUPIED-FOOTPRINT in placeSolver.ts. */
+const BED_SIDE_OVERHANG: Readonly<Record<string, number>> = {
+    japanese_platform_bed: 0.50, japanese_float_bed: 0.45, japanese_walnut_bed: 0.40,
+};
+const BED_REAR_OVERHANG: Readonly<Record<string, number>> = {
+    japanese_platform_bed: 0.05, japanese_float_bed: 0.05, japanese_walnut_bed: 0.05,
+};
+/** §BED-OCCUPIED-FOOTPRINT — obstacle quad for a placed item: the FULL occupied box
+ *  (deck + wings + headboard) for an integrated bed, the plain footprint quad for
+ *  everything else (plain bed + non-bed → byte-identical, so the wardrobe's available
+ *  wall is unchanged when no integrated bed is present — avoids the wardrobe landmine). */
+function bedOccupiedObstacle(p: PlacedFurniture): Quad {
+    const side = BED_SIDE_OVERHANG[p.kind] ?? 0;
+    const rear = BED_REAR_OVERHANG[p.kind] ?? 0;
+    if (side === 0 && rear === 0) {
+        return footprintCorners(p.position.x, p.position.z, p.footprint.w, p.footprint.l, p.rotationY);
+    }
+    const n: Pt = { x: Math.sin(p.rotationY), z: Math.cos(p.rotationY) };
+    return footprintCorners(
+        p.position.x - n.x * (rear / 2), p.position.z - n.z * (rear / 2),
+        p.footprint.w + 2 * side, p.footprint.l + rear, p.rotationY,
+    );
+}
+
 /** Normalise an arbitrary brief value to a WardrobeLayout (default 'auto'). */
 export function normaliseWardrobeLayout(v: unknown): WardrobeLayout {
     return v === 'I' || v === 'L' || v === 'U' ? v : 'auto';
@@ -142,7 +168,7 @@ export function planWardrobe(
     // Seed obstacles with every existing item EXCEPT the wardrobe we're replacing.
     const obstacles: Quad[] = existing
         .filter(p => p.kind !== WARDROBE)
-        .map(p => footprintCorners(p.position.x, p.position.z, p.footprint.w, p.footprint.l, p.rotationY));
+        .map(bedOccupiedObstacle);   // §BED-OCCUPIED-FOOTPRINT — avoid the integrated bed's wings, not just its deck
     // Door swing.
     for (const d of input.doors) {
         obstacles.push(footprintCorners(

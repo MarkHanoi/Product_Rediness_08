@@ -61,6 +61,47 @@ const BED_REAR_OVERHANG: Readonly<Record<string, number>> = {
 };
 const bedRearOverhang = (k: PlacedFurniture['kind']): number => BED_REAR_OVERHANG[k] ?? 0;
 
+/**
+ * §BED-OCCUPIED-FOOTPRINT (founder, 2026-06-19) — the integrated Japanese beds build
+ * bedside WINGS / NIGHTSTANDS that overhang the DECK footprint LATERALLY (and the
+ * headboard a hair behind the head). The deck `footprint` (fp.w × fp.l) is the
+ * sleeping deck + the value emitted to the geometry + the lamp/bedside anchor — it
+ * MUST stay UNCHANGED (widening it mis-anchors the integrated lamps AND caps the
+ * wardrobe run — the documented landmine). But the OBSTACLE the dresser / wardrobe /
+ * rug must avoid is the FULL occupied box (deck + wings + headboard). These constants
+ * mirror BedEngine exactly:
+ *   walnut  : WING_W 0.40 each side (deck 1.80 → 2.60 wide) + HB 0.05 behind head.
+ *   platform: NS_W   0.50 each side (deck 2.00 → 3.00 wide) + HB 0.05.
+ *   float   : WING_W 0.45 each side (deck 2.00 → 2.90 wide) + HB 0.05.
+ * The plain `bed` (+ nordic / solid_wood rail beds) overhang 0 → byte-identical.
+ */
+const BED_SIDE_OVERHANG: Readonly<Record<string, number>> = {
+    bed: 0,
+    japanese_platform_bed: 0.50,   // BedEngine.buildPlatform NS_W
+    japanese_float_bed:    0.45,   // BedEngine.buildFloat   WING_W
+    japanese_walnut_bed:   0.40,   // BedEngine.buildWalnut  WING_W
+    nordic_bed: 0,
+    solid_wood_bed: 0,
+};
+const bedSideOverhang = (k: PlacedFurniture['kind']): number => BED_SIDE_OVERHANG[k] ?? 0;
+
+/** §BED-OCCUPIED-FOOTPRINT — the full occupied obstacle quad for a placed bed:
+ *  deck width + 2×side-overhang (wings), deck length + rear headboard overhang,
+ *  shifted back toward the head by `rear/2` so the box spans head→foot. For a bed
+ *  with 0 overhang (plain bed) this equals the plain deck quad (byte-identical). */
+function bedOccupiedQuad(item: PlacedFurniture): Quad {
+    const fp = item.footprint;
+    const side = bedSideOverhang(item.kind);
+    const rear = bedRearOverhang(item.kind);
+    if (side === 0 && rear === 0) {
+        return footprintCorners(item.position.x, item.position.z, fp.w, fp.l, item.rotationY);
+    }
+    const n: Pt = { x: Math.sin(item.rotationY), z: Math.cos(item.rotationY) };  // inward (toward foot)
+    const cx = item.position.x - n.x * (rear / 2);
+    const cz = item.position.z - n.z * (rear / 2);
+    return footprintCorners(cx, cz, fp.w + 2 * side, fp.l + rear, item.rotationY);
+}
+
 /** §67.3 — every sofa-like kind (straight `sofa` + the L-shape `corner_sofa`) so
  *  the coffee table sits in front and the rug centres in front identically. */
 const SOFA_KINDS = new Set<PlacedFurniture['kind']>(['sofa', 'corner_sofa']);
@@ -590,6 +631,18 @@ function placeUnder(
         const shift = L.footprint.l / 2 + 0.35;   // ~coffee-table gap
         cx += n.x * shift;
         cz += n.z * shift;
+    } else if (isBedKind(L.kind) && bedSideOverhang(L.kind) > 0) {
+        // §RUG-AT-FOOT (founder, 2026-06-19) — an integrated Japanese bed has a deep
+        // deck + bedside wings, so a rug centred under it is HIDDEN. Shift the rug
+        // toward the FOOT (into the room along the bed's inward normal) so it reads in
+        // FRONT of the bed, visible at the feet. The plain `bed` (overhang 0) is
+        // EXCLUDED → its rug stays centred (byte-identical; pins softFurnishings test).
+        // Shift = half the deck length so the rug centre lands at the foot edge and
+        // its body clears the mattress while still tucking under the foot.
+        const shift = L.footprint.l / 2;
+        cx += n.x * shift;
+        cz += n.z * shift;
+        targetL = Math.max(fpBase.l, 1.6);   // a foot-zone rug, not a full bed-length runner
     }
 
     // Clamp inside the polygon: shrink the rug (keeping its centre + aspect) until
@@ -1080,6 +1133,10 @@ function applyArchetype(
             if (cornerAnchored) p.cornerAnchored = true;
             added.push(p);
             if (cornerAnchored) for (const q of cornerSofaLegQuads(p.item)) obstacles.push(q);
+            // §BED-OCCUPIED-FOOTPRINT — a bed reserves its FULL occupied box (deck +
+            // wings + headboard) so the dresser / vanity / later wall items avoid the
+            // integrated bed's wings, not just its narrower deck. Plain bed → same quad.
+            else if (isBedKind(p.item.kind)) obstacles.push(bedOccupiedQuad(p.item));
             else obstacles.push(p.quad);
             // §FURNITURE-SPEC clearFront: reserve the working/knee-clearance
             // zone in front of items that have NO group members (sofa→coffee
