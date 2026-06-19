@@ -28,20 +28,21 @@ import { buildWallExtrusion, type ExtrudeOpts } from './WallPolygonExtruder';
 // ─── Feature flag ─────────────────────────────────────────────────────────────
 
 /**
- * Pascal-style wall pipeline switch. **DEFAULT OFF as of 2026-06-19 (founder).**
- * Was default-ON (2026-05-27) but on TILTED / non-orthogonal house plates the V2
- * footprint resolver intermittently produces degenerate corners that spike the body
- * (§V2-SPIKE-GUARD: 239m/1275m bodies) → those walls fall back to the legacy
- * `MiterPrismBuilder` while their neighbours stay V2 → a MIXED-pipeline corner that
- * doesn't meet (the founder's "outer-wall miter sometimes works, mostly not"). The
- * legacy MiterPrism path is §MITER-T-CLAMP'd and reports clean closed=✓ / gappy=0
- * corners, so running EVERY wall through it gives CONSISTENT mitres (no V2/legacy
- * seam). V2 is therefore now OPT-IN: set `window.__pryzmWallPipelineV2 = true` to
- * re-enable it (e.g. once the footprint-corner degeneracy is fixed at the source).
- * Reads `globalThis` so it works in browser + Node (the latter for tests).
+ * Pascal-style wall pipeline switch. **DEFAULT ON (restored 2026-06-19 — founder).**
+ * History: ON since 2026-05-27 (the "wall issue solved!!!!" state, with the
+ * §V2-SPIKE-GUARD falling spiking walls back to legacy). Briefly flipped OFF
+ * (22ad6a87) to chase a "mitre-flat-after-pipeline" report — but running EVERY
+ * wall through the legacy `MiterPrismBuilder` made the 3-WALL (T/X) JOINS WORSE:
+ * legacy over-extends at complex junctions into degenerate dark slivers (founder:
+ * "black shapes appearing in joins, often 3 wall joins, got worse"). V2 builds
+ * edge-coincident corners BY CONSTRUCTION, so it doesn't spike at those joins;
+ * the §V2-SPIKE-GUARD still covers the rare tilted-plate footprint degeneracy by
+ * falling that single wall back to legacy. So default-ON is the lesser evil and
+ * the founder-confirmed-good baseline. Set `window.__pryzmWallPipelineV2 = false`
+ * to force the all-legacy path. Reads `globalThis` (browser + Node for tests).
  */
 export function isWallPipelineV2Enabled(): boolean {
-    return (globalThis as { __pryzmWallPipelineV2?: boolean }).__pryzmWallPipelineV2 === true;
+    return (globalThis as { __pryzmWallPipelineV2?: boolean }).__pryzmWallPipelineV2 !== false;
 }
 
 // ─── Per-level miter cache ────────────────────────────────────────────────────

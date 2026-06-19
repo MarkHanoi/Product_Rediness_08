@@ -37,19 +37,17 @@ describe('WallPipelineV2 — feature flag', () => {
     beforeEach(() => { delete g.__pryzmWallPipelineV2; });
     afterEach(()  => { delete g.__pryzmWallPipelineV2; });
 
-    it('returns FALSE by default (2026-06-19 — V2 is now opt-in; legacy MiterPrism is the reliable path)', () => {
-        expect(isWallPipelineV2Enabled()).toBe(false);
+    it('returns TRUE by default (restored 2026-06-19 — all-legacy regressed 3-wall joins; V2 is the founder-confirmed baseline)', () => {
+        expect(isWallPipelineV2Enabled()).toBe(true);
     });
 
-    it('returns true ONLY when globalThis.__pryzmWallPipelineV2 === true (literal-true opt-in)', () => {
-        g.__pryzmWallPipelineV2 = true;
-        expect(isWallPipelineV2Enabled()).toBe(true);
-        (g as any).__pryzmWallPipelineV2 = 1;        // truthy but not strictly `true`
-        expect(isWallPipelineV2Enabled()).toBe(false);
-        (g as any).__pryzmWallPipelineV2 = null;
-        expect(isWallPipelineV2Enabled()).toBe(false);
+    it('returns false ONLY when globalThis.__pryzmWallPipelineV2 === false (explicit all-legacy opt-out)', () => {
         g.__pryzmWallPipelineV2 = false;
         expect(isWallPipelineV2Enabled()).toBe(false);
+        g.__pryzmWallPipelineV2 = true;
+        expect(isWallPipelineV2Enabled()).toBe(true);
+        (g as any).__pryzmWallPipelineV2 = undefined;
+        expect(isWallPipelineV2Enabled()).toBe(true);
     });
 });
 

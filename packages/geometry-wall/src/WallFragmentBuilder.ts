@@ -2864,7 +2864,7 @@ export class WallFragmentBuilder {
         );
 
         // §STEP4: Read miter normals from joinData parameter — no cache.
-        const geometry = buildMiterPrism(
+        let geometry = buildMiterPrism(
             worldStart,
             worldEnd,
             worldStart,            // centerlineStart = worldStart (straight wall, no layer offset)
@@ -2875,6 +2875,39 @@ export class WallFragmentBuilder {
             joinData?.startMN ?? null,
             joinData?.endMN   ?? null,
         );
+
+        // §LEGACY-SPIKE-GUARD (founder 2026-06-19) — a runaway miter normal at a
+        // complex T/X (3-wall) junction can push the MiterPrism end into a
+        // multi-metre dark SLIVER (the founder's "black shapes appearing in joins,
+        // often 3 wall joins, got worse"). Validate the body bbox exactly as
+        // §V2-SPIKE-GUARD does; if the mitred prism grossly overshoots the wall's
+        // own footprint, the join MN is degenerate — rebuild with PERPENDICULAR
+        // ends (no miter) so the wall renders as a clean box. A square corner is
+        // imperfect but it does NOT spike and leaves NO gap (the body still spans
+        // the full baseLine; the discarded geometry was only the over-extension).
+        {
+            geometry.computeBoundingBox();
+            const _bb = geometry.boundingBox;
+            const _baseLen = Math.hypot(worldEnd.x - worldStart.x, worldEnd.z - worldStart.z);
+            const _maxExtent = _baseLen + wall.thickness + 1.0;   // generous; real mitred body ≤ len + ~2·thk
+            const _finiteBB = !!_bb
+                && Number.isFinite(_bb.min.x) && Number.isFinite(_bb.max.x)
+                && Number.isFinite(_bb.min.z) && Number.isFinite(_bb.max.z);
+            const _xzDiag = _finiteBB ? Math.hypot(_bb!.max.x - _bb!.min.x, _bb!.max.z - _bb!.min.z) : Infinity;
+            if (!_finiteBB || _xzDiag > _maxExtent) {
+                (geometry as unknown as { dispose?: () => void }).dispose?.();
+                geometry = buildMiterPrism(
+                    worldStart, worldEnd, worldStart, worldEnd,
+                    wall.thickness / 2, wall.height, wall.baseOffset ?? 0,
+                    null, null,   // perpendicular ends — cannot spike
+                );
+                // eslint-disable-next-line no-console
+                console.warn(
+                    `[WallFragmentBuilder] §LEGACY-SPIKE-GUARD wall ${wall.id}: mitred body XZ-diag=${_xzDiag.toFixed(2)}m ` +
+                    `≫ max ${_maxExtent.toFixed(2)}m (baseLen=${_baseLen.toFixed(2)}m) — runaway miter, rebuilt with perpendicular ends`,
+                );
+            }
+        }
 
         const mesh = new THREE.Mesh(geometry, material);
         mesh.userData = {
