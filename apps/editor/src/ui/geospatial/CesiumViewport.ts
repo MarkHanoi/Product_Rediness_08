@@ -1,5 +1,7 @@
 import * as Cesium from "cesium";
-import { TransformGizmo, GizmoMode } from "./TransformGizmo";
+// §CESIUM-GIZMO-REMOVED (founder 2026-06-19) — the move-on-globe transform gizmo
+// (the green/purple origin axis lines the founder repeatedly asked to remove) is
+// gone entirely; nothing constructs it, so the axes can never reappear in real mode.
 // MAP-DATA-OVERTURE — keyless OSM/Overture context-building loader (bbox → GeoJSON
 // footprints + heights). Used to surround the proposed massing with real buildings
 // that cast shadows (Forma/Archistar-style context). Same data path as the 2D map.
@@ -301,8 +303,6 @@ export class CesiumViewport {
    *  clamp can RE-SEAT it (cheap modelMatrix update, no GLB reload) once
    *  `formaTerrainBaseHeight` settles. */
   private realModelOnFormaOrigin: { lat: number; lon: number } | null = null;
-
-  private gizmo: TransformGizmo | null = null;
   /** Disposer for the `site.location-changed` runtime subscription (cleaned up
    *  in dispose() so it does not leak across project switches). */
   private locationSub: (() => void) | null = null;
@@ -866,15 +866,9 @@ export class CesiumViewport {
       // Setup selection handler
       this.setupSelectionHandler();
 
-      // Setup Gizmo
-      this.gizmo = new TransformGizmo(this.viewer);
-
-      // Keyboard listener for gizmo modes
-      window.addEventListener('keydown', (e) => {
-        if (!this.gizmo) return;
-        if (e.key === 't') this.gizmo.setMode(GizmoMode.TRANSLATE);
-        if (e.key === 'r') this.gizmo.setMode(GizmoMode.ROTATE);
-      });
+      // §CESIUM-GIZMO-REMOVED — no transform gizmo (no origin axis lines), and no
+      // t/r keyboard listener that would have rendered them. Selection feedback is
+      // the yellow silhouette below.
 
       // ----------------------------
       // 📍 Camera framing — follow the SITE location, not a hard-coded default
@@ -1001,17 +995,10 @@ export class CesiumViewport {
           this.currentModel = model;
           console.log("✅ BIM model selected");
 
-          // §CESIUM-GIZMO-OFF (founder 2026-06-18 "remove the purple/green lines — they
-          // align with the model origin"). The transform gizmo draws RED(X)/GREEN(Y)/
-          // BLUE(Z) axis arrows at the model origin on selection — those are the long
-          // coloured lines crossing the Cesium scene. The yellow silhouette below already
-          // gives selection feedback, so the gizmo is OFF by default (no clutter on the
-          // clean globe/Forma view). Re-enable via `window.__pryzmCesiumGizmo = true` when
-          // a move-on-globe affordance is wanted.
-          const gizmoOn = (globalThis as unknown as { __pryzmCesiumGizmo?: boolean }).__pryzmCesiumGizmo === true;
-          if (this.gizmo && gizmoOn) {
-            this.gizmo.attach(model);
-          }
+          // §CESIUM-GIZMO-REMOVED (founder 2026-06-19) — the transform gizmo that drew
+          // RED(X)/GREEN(Y)/BLUE(Z) origin axis lines on selection (the green/purple
+          // lines at the building corner) is gone. The yellow silhouette below is the
+          // selection feedback; no axes are ever attached.
 
           // Use silhouette for persistent visual feedback
           model.silhouetteColor = Cesium.Color.YELLOW;
@@ -1023,9 +1010,6 @@ export class CesiumViewport {
         // Clicked away - deselect
         if (this.currentModel) {
           this.currentModel.silhouetteSize = 0;
-          if (this.gizmo) {
-            this.gizmo.attach(null);
-          }
         }
 
         // Optional: still allow tile feature selection

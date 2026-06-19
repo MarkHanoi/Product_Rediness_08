@@ -20,6 +20,7 @@
     "migrate": "node --env-file-if-exists=.env scripts/migrate/migrate.mjs",
     "check:isolation": "node scripts/check/check-project-isolation.mjs && node scripts/check/check-storage-isolation.mjs",
     "check:commandmanager": "node scripts/check/ci-check-no-commandmanager.mjs",
+    "check:cesium-gizmo": "node scripts/check/check-no-cesium-gizmo.mjs",
     "check:a11y-contrast": "node scripts/check/check-a11y-token-contrast.mjs",
     "check:app-shell-csp": "node scripts/check/check-app-shell-csp.mjs",
     "scan": "node scripts/scan/scan-logs.js",

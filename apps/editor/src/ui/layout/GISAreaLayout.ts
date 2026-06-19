@@ -11,7 +11,8 @@ export interface GISCallbacks {
     flyToCremornePoint: () => Promise<void>;
     placeBimOnEarth: () => Promise<void>;
     activateView: (mode: '3D' | 'Top' | 'Front' | 'Back' | 'Left' | 'Right') => Promise<void>;
-    /** Delegate to cesiumViewport.gizmo.setMode(mode) when GIS is active. */
+    /** §CESIUM-GIZMO-REMOVED — retained as a no-op (the move-on-globe gizmo + its
+     *  origin axis lines were removed); kept so the GIS API shape is stable. */
     gizmoMode: (mode: string) => void;
     /** A.8.c — start the site-boundary polygon-draw tool (no-op until GIS mounted). */
     startBoundaryDraw: () => void;
@@ -359,9 +360,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         }
     };
 
-    const gizmoMode = (mode: string) => {
-        if (cesiumViewport?.gizmo) cesiumViewport.gizmo.setMode(mode);
-    };
+    // §CESIUM-GIZMO-REMOVED (2026-06-19) — the move-on-globe transform gizmo (the
+    // green/purple origin axis lines) was removed from the Cesium viewer; this stays
+    // as a no-op so the GIS API shape is unchanged for any caller.
+    const gizmoMode = (_mode: string) => { /* gizmo removed — no-op */ };
 
     // O.7.2 — re-frame the Cesium camera to the authored Site plot. Used by the
     // post-generate 3D toggle: when the user opts into the 3D globe AFTER generate,
