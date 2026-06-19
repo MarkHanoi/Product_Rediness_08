@@ -15,6 +15,18 @@ export class LampBuilder implements IFurnitureBuilder {
         const group = new THREE.Group();
         const height = data.height || 1.6;
 
+        // §LAMP-BEDSIDE-TABLE-LOOK (founder 2026-06-19) — a small bedside `lamp`
+        // (≤0.6 m tall) renders as a glowing TABLE lamp that matches the Japanese
+        // float bed's built-in bedside lamps (which the founder praised — "the
+        // lights render great"): a slim dark base + stem under an EMISSIVE cream
+        // conical shade + a warm point light. Larger lamps (the 1.5 m floor /
+        // corner standard lamp) keep the tripod build below. This makes EVERY
+        // bedside lamp — platform, walnut, and the plain `bed`'s nightstands —
+        // look like the float bed's, as requested.
+        if (height <= 0.6) {
+            return this.buildBedsideTableLamp(group, height);
+        }
+
         // §LAMP-FIT-FOOTPRINT (founder 2026-06-19) — the builder used to ignore
         // `width` and always draw a full floor-lamp shade (0.25 m radius = 0.5 m
         // wide) + 0.3 spread, so the small BEDSIDE lamp (0.25 m footprint, 0.45 m
@@ -68,6 +80,61 @@ export class LampBuilder implements IFurnitureBuilder {
         const pole = new THREE.Mesh(poleGeo, woodMat);
         pole.position.set(0, height - shadeHeight - 0.1 * fixScale, 0);
         group.add(pole);
+
+        return group;
+    }
+
+    /**
+     * §LAMP-BEDSIDE-TABLE-LOOK — the glowing bedside TABLE lamp, mirroring the
+     * Japanese float bed's built-in lamp (BedEngine: emissive cream conical shade
+     * 0xffd9a0 + dark base/stem 0x222222 + a warm point light). All dims scale
+     * with `height` so it always sits proportionally on the nightstand.
+     */
+    private buildBedsideTableLamp(group: THREE.Group, height: number): THREE.Group {
+        const baseMat = this.materialService.getMaterial(0x222222, 'standard') as THREE.MeshStandardMaterial;
+        // Emissive cream shade — the "glow". Double-sided so the lit inside reads
+        // through the open-ended cone, matching the float-bed lamp.
+        const shadeMat = new THREE.MeshStandardMaterial({
+            color:             0xfff2d6,
+            emissive:          0xffd9a0,
+            emissiveIntensity: 1.4,
+            roughness:         0.6,
+            side:              THREE.DoubleSide,
+        });
+
+        const baseH  = 0.10 * height;
+        const stemH  = 0.42 * height;
+        const shadeH = 0.48 * height;                 // base + stem + shade = height
+        const baseR  = 0.16 * height;
+        const stemR  = 0.03 * height;
+        const shadeRBot = 0.34 * height;
+        const shadeRTop = 0.22 * height;
+
+        // 1. Weighted base.
+        const base = new THREE.Mesh(new THREE.CylinderGeometry(baseR * 0.85, baseR, baseH, 20), baseMat);
+        base.position.set(0, baseH / 2, 0);
+        group.add(base);
+
+        // 2. Slim stem.
+        const stem = new THREE.Mesh(new THREE.CylinderGeometry(stemR, stemR, stemH, 12), baseMat);
+        stem.position.set(0, baseH + stemH / 2, 0);
+        group.add(stem);
+
+        // 3. Emissive conical shade (open-ended, like the float-bed lamp).
+        const shade = new THREE.Mesh(
+            new THREE.CylinderGeometry(shadeRTop, shadeRBot, shadeH, 24, 1, true),
+            shadeMat,
+        );
+        shade.position.set(0, baseH + stemH + shadeH / 2, 0);
+        group.add(shade);
+
+        // 4. Warm point light at the bulb — the actual glow spill onto the wall.
+        //    Modest intensity + short range so a roomful of bedside lamps stays
+        //    cheap (the float bed uses the same trick).
+        const light = new THREE.PointLight(0xffd9a0, 0.5, 2.4, 2);
+        light.position.set(0, baseH + stemH + shadeH * 0.4, 0);
+        light.userData.role = 'lamp_light';
+        group.add(light);
 
         return group;
     }
