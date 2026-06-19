@@ -809,7 +809,61 @@ export class WallRebuildCoordinator {
                         || Math.abs(_newBL[1].x - _sourceBL[1].x) > _EPS
                         || Math.abs(_newBL[1].y - _sourceBL[1].y) > _EPS
                         || Math.abs(_newBL[1].z - _sourceBL[1].z) > _EPS;
-                    if (_bMoved) {
+
+                    // §POST-RESOLVE-PRESERVE (founder 2026-06-19) — this is the
+                    // §A.21.D28 POST-OPENINGS whole-level re-resolve. The store ALREADY
+                    // holds the correctly-welded baseline from the initial build; the
+                    // job here is only to re-cut opening voids. But re-running
+                    // resolveLevel with a zoom-dependent snapRadius can DESTROY a wall
+                    // that was welded fine: it reclassifies a partition↔shell contact
+                    // as a CORNER join, so a partition whose start is BOTH clamped to
+                    // the shell inner face (+99mm) AND corner-joined collapses to a
+                    // ~0.10m stub → §RESOLVED-STUB-SWEEP flags it invalid → the builder
+                    // SKIPS it → the partition VANISHES + a ~1.6m corner gap opens; or a
+                    // shell wall's body is pivoted >20mm laterally off the previewed line
+                    // (§DIAG-PARITY/§PARITY-GATE). The weld-time §WELD-NO-LATERAL-SHIFT
+                    // guard cannot see this — it runs pre-commit. So HERE, if the
+                    // re-resolve's result is DESTRUCTIVE vs the committed (welded)
+                    // baseline of a PREVIOUSLY-VALID wall — it would collapse it into the
+                    // degenerate band, invalidate it, or pivot it laterally past tol —
+                    // we KEEP the committed baseline and build the wall VALID (clearing
+                    // any stub-sweep invalid flag). Along-axis miter/trim of any size is
+                    // still allowed (real corners still close); only the destructive
+                    // re-trim is reverted. Byte-identical no-op on axis-clean plates /
+                    // Level-01 (lateral≈0, no collapse). Does NOT move openings (the
+                    // void cut still runs); does NOT touch area-cap math.
+                    const _preserveOn = (globalThis as unknown as { __pryzmPostResolvePreserve?: boolean }).__pryzmPostResolvePreserve !== false;
+                    const _STUB_LEN = 0.15;          // = DEGENERATE_STUB_LENGTH
+                    const _LATERAL_TOL = 0.02;       // = PARITY_TOL_MM (20mm); never widen
+                    let _preserve = false;
+                    if (_preserveOn && _sourceBL && _bMoved) {
+                        const _dst = (a: { x: number; z: number }, b: { x: number; z: number }) => Math.hypot(b.x - a.x, b.z - a.z);
+                        const _preLen = _dst(_sourceBL[0], _sourceBL[1]);
+                        const _newLen = _dst(_newBL[0], _newBL[1]);
+                        let _lateral = 0;
+                        const _L = _preLen || 1e-9;
+                        const _ux = (_sourceBL[1].x - _sourceBL[0].x) / _L;
+                        const _uz = (_sourceBL[1].z - _sourceBL[0].z) / _L;
+                        const _perp = (p: { x: number; z: number }) => Math.abs((p.x - _sourceBL[0].x) * _uz - (p.z - _sourceBL[0].z) * _ux);
+                        _lateral = Math.max(_perp(_newBL[0]), _perp(_newBL[1]));
+                        const _wasValid = _preLen >= _STUB_LEN;
+                        const _adjInvalid = (adjustment as unknown as { invalid?: boolean }).invalid === true;
+                        if (_wasValid && (_adjInvalid || _newLen < _STUB_LEN || _lateral > _LATERAL_TOL)) {
+                            _preserve = true;
+                            // Make the JoinData internally consistent with the preserved
+                            // (committed) baseline and clear the stub-sweep skip flag so
+                            // the builder renders the wall on its line.
+                            _adjBL[0].set(_sourceBL[0].x, _sourceBL[0].y, _sourceBL[0].z);
+                            _adjBL[1].set(_sourceBL[1].x, _sourceBL[1].y, _sourceBL[1].z);
+                            const _adjMut = adjustment as unknown as { invalid?: boolean; invalidReason?: string };
+                            if (_adjMut.invalid) { _adjMut.invalid = false; _adjMut.invalidReason = undefined; }
+                            const _why = _adjInvalid || _newLen < _STUB_LEN ? `collapse (newLen=${_newLen.toFixed(3)}m)` : `lateral pivot (${(_lateral * 1000).toFixed(0)}mm)`;
+                            // eslint-disable-next-line no-console
+                            console.warn(`[WallRebuildCoordinator] §POST-RESOLVE-PRESERVE kept committed baseline for ${wallId} — post-openings re-resolve would ${_why}`);
+                        }
+                    }
+
+                    if (_bMoved && !_preserve) {
                         store.update(wallId, { baseLine: _newBL, ...(_sourceBaseLineToStore ? { _sourceBaseLine: _sourceBaseLineToStore } : {}) } as any);
                     }
                     const updated = store.getById(wallId);
