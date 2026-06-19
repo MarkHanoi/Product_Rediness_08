@@ -304,6 +304,24 @@ function applyRingSweep(j: JunctionDraft, walls: readonly WallInput[], miters: W
         const corner = intersectLines(leftAnchorCurr, curr.direction, rightAnchorNext, next.direction);
         if (corner === null) continue;        // parallel — fall back to perpendicular cap (no corner attached)
 
+        // §V2-MITER-CORNER-CLAMP (founder 2026-06-19) — mirror of the legacy
+        // §MITER-T-CLAMP (MiterPrismBuilder.ts:84-94). The corner distance from the
+        // junction scales as ≈ halfT / sin(θ); a NEAR-parallel pair (a shallow /
+        // off-axis perimeter kink on a tilted plate) makes it shoot METRES out → the
+        // V2 footprint polygon spikes (the 125m body §V2-SPIKE-GUARD catches, after
+        // which the legacy fallback's trimmed+mitred end no longer met the neighbour's
+        // un-trimmed V2 corner — the founder's perimeter miter gap). `intersectLines`
+        // only rejects EXACTLY parallel (det < 1e-9); a real miter projects at most a
+        // few thicknesses, so if the corner overshoots that, treat the pair as
+        // effectively parallel and skip the corner (square-cap this end, exactly like
+        // the `corner === null` branch above). The wall then builds via V2 cleanly and
+        // never falls back. Clean L/T/X corners are far inside the bound (a 90° L →
+        // corner dist = halfT ≈ 0.05-0.1m; an acute ~30° corner ≈ 3.9·halfT) — only the
+        // genuinely near-parallel runaway is clamped.
+        const _cornerDist = Math.hypot(corner.x - j.point.x, corner.z - j.point.z);
+        const _maxCornerDist = 4 * Math.max(halfTc, halfTn) + 0.05;
+        if (_cornerDist > _maxCornerDist) continue;   // near-parallel runaway → square cap this pair
+
         // Attach the corner. Passthrough walls' own footprint isn't modified — we
         // skip writing into them. Real endpoints get the corner on the side facing
         // the adjacent wall.
