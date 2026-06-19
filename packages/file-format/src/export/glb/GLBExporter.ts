@@ -90,6 +90,17 @@ export async function exportFragmentsToGLB(scene: THREE.Scene): Promise<string> 
     // or just temporarily remove it if it's too complex
     const clone = cloneWithBakedWorldTransform(element);
 
+    // §GLB-STRIP-LIGHTS (founder 2026-06-19, Cesium crash) — remove any THREE
+    // lights (e.g. emissive furniture lamps' PointLights) before export. They
+    // serialise as KHR_lights_punctual nodes; a sceneful of them crashed the
+    // Cesium "Real" globe on open. Cesium lights the model with its own sun/IBL,
+    // so the THREE lights are dead weight in the GLB — drop them defensively.
+    const _lights: THREE.Object3D[] = [];
+    clone.traverse((child) => {
+      if ((child as unknown as { isLight?: boolean }).isLight) _lights.push(child);
+    });
+    for (const l of _lights) l.parent?.remove(l);
+
     // Ensure the clone doesn't carry over circular references in userData
     clone.traverse((child) => {
       if (child.userData) {

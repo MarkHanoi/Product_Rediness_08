@@ -120,21 +120,18 @@ export class LampBuilder implements IFurnitureBuilder {
         stem.position.set(0, baseH + stemH / 2, 0);
         group.add(stem);
 
-        // 3. Emissive conical shade (open-ended, like the float-bed lamp).
+        // 3. Emissive conical shade (open-ended, like the float-bed lamp). The
+        //    emissive material IS the glow — no real THREE.PointLight is added.
+        //    §LAMP-NO-POINTLIGHT (founder 2026-06-19, Cesium crash): a point light
+        //    per bedside lamp (2+ per bedroom) flooded the Cesium "Real" GLB export
+        //    with KHR_lights_punctual nodes and crashed the globe on open. The
+        //    emissive shade gives the same glowing-lamp look and exports cleanly.
         const shade = new THREE.Mesh(
             new THREE.CylinderGeometry(shadeRTop, shadeRBot, shadeH, 24, 1, true),
             shadeMat,
         );
         shade.position.set(0, baseH + stemH + shadeH / 2, 0);
         group.add(shade);
-
-        // 4. Warm point light at the bulb — the actual glow spill onto the wall.
-        //    Modest intensity + short range so a roomful of bedside lamps stays
-        //    cheap (the float bed uses the same trick).
-        const light = new THREE.PointLight(0xffd9a0, 0.5, 2.4, 2);
-        light.position.set(0, baseH + stemH + shadeH * 0.4, 0);
-        light.userData.role = 'lamp_light';
-        group.add(light);
 
         return group;
     }
