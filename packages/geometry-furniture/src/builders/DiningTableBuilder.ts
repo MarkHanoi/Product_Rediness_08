@@ -29,22 +29,31 @@ export class DiningTableBuilder implements IFurnitureBuilder {
         const topThk = 0.05;
         const topY = height - topThk / 2;
 
-        // ── 1. Stadium / boat-shaped top: central plank + two rounded end caps ──
-        const capR = Math.min(width / 2, length * 0.32);   // rounded-end radius
-        const midLen = Math.max(0.01, length - capR * 2);
-        const topMid = new THREE.Mesh(new THREE.BoxGeometry(width, topThk, midLen), tableMat);
-        topMid.position.set(0, topY, 0);
-        group.add(topMid);
-        for (const sign of [-1, 1]) {
-            const cap = new THREE.Mesh(new THREE.CylinderGeometry(capR, capR, topThk, 48, 1, false, 0, Math.PI), tableMat);
-            // half-disc cap rounding each end (axis up, flat in XZ)
-            cap.position.set(0, topY, sign * (midLen / 2));
-            cap.rotation.y = sign > 0 ? 0 : Math.PI;
-            // widen the cap to the full table width if the radius is smaller than half-width
-            const sx = (width / 2) / capR;
-            cap.scale.set(sx, 1, 1);
-            group.add(cap);
-        }
+        // ── 1. Rounded (boat/stadium) timber top — ONE SOLID extruded mesh ──────────
+        // The old build was a central BoxGeometry + two half-cylinder end caps; the
+        // box↔cap seam left a visible GAP down the middle of the top (the founder's
+        // "dining table missing some areas"). A single rounded-rectangle ExtrudeGeometry
+        // can't seam — it's one continuous surface — and keeps the warm boat-shaped
+        // outline. Built in the local XZ plane (top up), centred on the table origin.
+        const hw = width / 2, hl = length / 2;
+        const rEnd = Math.max(0.04, Math.min(hw, length * 0.28));   // corner/end radius
+        const shape = new THREE.Shape();
+        shape.moveTo(-hw + rEnd, -hl);
+        shape.lineTo(hw - rEnd, -hl);
+        shape.quadraticCurveTo(hw, -hl, hw, -hl + rEnd);
+        shape.lineTo(hw, hl - rEnd);
+        shape.quadraticCurveTo(hw, hl, hw - rEnd, hl);
+        shape.lineTo(-hw + rEnd, hl);
+        shape.quadraticCurveTo(-hw, hl, -hw, hl - rEnd);
+        shape.lineTo(-hw, -hl + rEnd);
+        shape.quadraticCurveTo(-hw, -hl, -hw + rEnd, -hl);
+        const topGeo = new THREE.ExtrudeGeometry(shape, { depth: topThk, bevelEnabled: false, curveSegments: 24 });
+        topGeo.rotateX(-Math.PI / 2);                 // shape's XY plane → world XZ (top horizontal)
+        // After the rotate the slab spans Y∈[0, topThk]; centre it on topY so its top
+        // face sits at `height` (= topY + topThk/2), matching the old box top.
+        topGeo.translate(0, topY - topThk / 2, 0);
+        const topMesh = new THREE.Mesh(topGeo, tableMat);
+        group.add(topMesh);
 
         // ── 2. SLAT grooves — thin recessed lines running lengthwise (the plank look) ──
         const SLATS = 6;
