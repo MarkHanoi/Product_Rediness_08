@@ -2801,23 +2801,54 @@ export class WallFragmentBuilder {
             // Pascal-style, the wall body extends to the actual junction (no trim).
             worldGeom.translate(-wall.baseLine[0].x, 0, -wall.baseLine[0].z);
 
-            const meshV2 = new THREE.Mesh(worldGeom, material);
-            meshV2.userData = {
-                id: wall.id,
-                materialId: wall.materialId,
-                materialColor: wall.materialColor,
-                role: 'geometry',
-                selectable: false,
-                pipelineV2: true,    // diagnostic — DevTools can filter `userData.pipelineV2`.
-            };
-            return {
-                id: crypto.randomUUID(),
-                wallId: wall.id,
-                mesh: meshV2 as any,
-                type: 'wall-body',
-                parentId: wall.id,
-                levelId: wall.levelId,
-            };
+            // §V2-SPIKE-GUARD (founder 2026-06-19) — validate the V2 footprint/extruder
+            // output before trusting it. A degenerate miter corner from JunctionResolverV2
+            // or a stale/huge `_sourceBaseLine` can make the footprint polygon zig-zag into
+            // a multi-metre SPIKE — the founder's plain joined wall whose body bbox spanned
+            // 125m while its centreline was a clean 3.5m (caught by §DIAG-MESH-SPIKE:
+            // openings=0 layered=false). A real wall body never exceeds its own footprint
+            // (baseLine length + thickness) plus a small miter. If V2's geometry grossly
+            // overshoots that — or is non-finite — DISCARD it and fall through to the legacy
+            // §MITER-T-CLAMP'd MiterPrism path below, which is safe by construction (the
+            // join is valid — §DIAG-WALL-JOIN closed=✓ — so the legacy miter renders a clean
+            // wall; we only lose V2's edge-coincident-corner nicety on this one wall).
+            worldGeom.computeBoundingBox();
+            const _bb = worldGeom.boundingBox;
+            const _baseLen = Math.hypot(
+                wall.baseLine[1].x - wall.baseLine[0].x,
+                wall.baseLine[1].z - wall.baseLine[0].z,
+            );
+            const _maxExtent = _baseLen + wall.thickness + 1.0;   // generous; real body ≤ len + thk + small miter
+            const _finiteBB = !!_bb
+                && Number.isFinite(_bb.min.x) && Number.isFinite(_bb.max.x)
+                && Number.isFinite(_bb.min.z) && Number.isFinite(_bb.max.z);
+            const _xzDiag = _finiteBB ? Math.hypot(_bb!.max.x - _bb!.min.x, _bb!.max.z - _bb!.min.z) : Infinity;
+            if (_finiteBB && _xzDiag <= _maxExtent) {
+                const meshV2 = new THREE.Mesh(worldGeom, material);
+                meshV2.userData = {
+                    id: wall.id,
+                    materialId: wall.materialId,
+                    materialColor: wall.materialColor,
+                    role: 'geometry',
+                    selectable: false,
+                    pipelineV2: true,    // diagnostic — DevTools can filter `userData.pipelineV2`.
+                };
+                return {
+                    id: crypto.randomUUID(),
+                    wallId: wall.id,
+                    mesh: meshV2 as any,
+                    type: 'wall-body',
+                    parentId: wall.id,
+                    levelId: wall.levelId,
+                };
+            }
+            // V2 produced a degenerate / spiked polygon — drop it and use the legacy path.
+            (worldGeom as unknown as { dispose?: () => void }).dispose?.();
+            // eslint-disable-next-line no-console
+            console.warn(
+                `[WallFragmentBuilder] §V2-SPIKE-GUARD wall ${wall.id}: V2 body XZ-diag=${_xzDiag.toFixed(2)}m ` +
+                `≫ max ${_maxExtent.toFixed(2)}m (baseLen=${_baseLen.toFixed(2)}m) — falling back to legacy MiterPrism`,
+            );
         }
         // ────────────────────────────────────────────────────────────────────────
 
