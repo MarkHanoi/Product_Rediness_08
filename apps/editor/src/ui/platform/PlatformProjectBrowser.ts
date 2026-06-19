@@ -485,9 +485,17 @@ export class PlatformProjectBrowser {
                 else window.runtime?.events?.emit('pryzm-import-pdf', {}); // F.events.13 (fallback)
                 break;
             }
-            case 'import-dxf':
-                window.runtime?.events?.emit('import-dxf', {});
+            case 'import-dxf': {
+                // §IMPORT-DXF-DIRECT (founder 2026-06-19) — same null-at-mount race as
+                // Import PDF: the hub emits `import-dxf` and only a fragile
+                // runtime.events.on('import-dxf') listener catches it, which may never
+                // have registered. Call the globally-exposed toggle directly (set at
+                // AIAreaLayout mount), falling back to the event path.
+                const toggle = (window as { toggleDxfPanel?: () => void }).toggleDxfPanel;
+                if (typeof toggle === 'function') toggle();
+                else window.runtime?.events?.emit('import-dxf', {}); // fallback
                 break;
+            }
             case 'import-revit-guided':
                 window.runtime?.events?.emit('import-revit-guided', {});
                 break;
