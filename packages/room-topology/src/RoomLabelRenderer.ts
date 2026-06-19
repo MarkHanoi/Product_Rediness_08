@@ -18,7 +18,9 @@ import { BimManager } from '@pryzm/core-app-model';
 const DPR      = 2;
 const LABEL_W  = 256 * DPR;
 const LABEL_H  = 80  * DPR;
-const SCALE    = 0.012 / DPR;
+// §ROOM-LABEL-SMALLER (founder 2026-06-19) — 50% smaller than the original
+// (0.012 → 0.006): LABEL_W*SCALE = 512*0.003 = 1.536m wide (was 3.072m).
+const SCALE    = 0.006 / DPR;
 // Float the label clearly ABOVE the floor finish. The sprite is ~0.96m tall (half ≈
 // 0.48m); at the old 0.08m its lower half sank BELOW the floor and got occluded (the
 // area line clipped). Lift it so the whole card reads, a little above the floor.
@@ -115,31 +117,15 @@ export class RoomLabelRenderer {
 
         ctx.clearRect(0, 0, W, H);
 
-        // Soft elevation shadow — the cheap "premium" lift, tinted purple (not black).
-        ctx.save();
-        ctx.shadowColor   = 'rgba(102,0,255,0.18)';
-        ctx.shadowBlur    = 8;
-        ctx.shadowOffsetY = 2;
-        ctx.fillStyle = '#ffffff';
-        this._roundRect(ctx, cardX, cardY, cardW, cardH, rx);
-        ctx.fill();
-        ctx.restore();
-
-        // Hairline purple-tinted border.
-        ctx.strokeStyle = 'rgba(102,0,255,0.28)';
+        // §ROOM-LABEL-TRANSPARENT (founder 2026-06-19) — no card fill, no shadow, no
+        // accent bar: just a thin rounded PRYZM-purple hairline border around the
+        // transparent text, so the label floats unobtrusively over the model.
+        ctx.strokeStyle = 'rgba(102,0,255,0.40)';
         ctx.lineWidth   = 1.25;
         this._roundRect(ctx, cardX, cardY, cardW, cardH, rx);
         ctx.stroke();
 
-        // Purple left-accent bar (clipped to the rounded card) — the depth/brand cue.
-        ctx.save();
-        this._roundRect(ctx, cardX, cardY, cardW, cardH, rx);
-        ctx.clip();
-        ctx.fillStyle = PRYZM_PURPLE;
-        ctx.fillRect(cardX, cardY, 6, cardH);
-        ctx.restore();
-
-        const textLeft = cardX + 18;         // clears the accent bar
+        const textLeft = cardX + 14;         // small inset (no accent bar now)
 
         // Room name — prominent, brand dark-violet (no black).
         const name = room.name || 'Room';
