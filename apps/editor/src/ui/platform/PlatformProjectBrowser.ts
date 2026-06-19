@@ -470,9 +470,21 @@ export class PlatformProjectBrowser {
             case 'export-glb':
                 window.runtime?.events?.emit('pryzm-export-glb', {}); // F.events.15
                 break;
-            case 'import-pdf':
-                window.runtime?.events?.emit('pryzm-import-pdf', {}); // F.events.13
+            case 'import-pdf': {
+                // §IMPORT-PDF-DIRECT (founder 2026-06-19, "Import PDF/Image doesn't even
+                // get triggered") — the click used to ONLY emit `pryzm-import-pdf` and
+                // rely on a runtime.events listener (NavigationAreaLayout) that may never
+                // have registered if window.runtime was null at editor-mount (the same
+                // null-at-mount race that broke the lighting cascade). Call the globally-
+                // exposed toggle DIRECTLY — it's set at AIAreaLayout mount and is reliably
+                // present by the time the hub menu is clicked. Fall back to the event path
+                // only if the global isn't there. (Calling exactly ONE path avoids a
+                // double-toggle that would open-then-close the panel.)
+                const toggle = (window as { toggleFloorPlanPanel?: () => void }).toggleFloorPlanPanel;
+                if (typeof toggle === 'function') toggle();
+                else window.runtime?.events?.emit('pryzm-import-pdf', {}); // F.events.13 (fallback)
                 break;
+            }
             case 'import-dxf':
                 window.runtime?.events?.emit('import-dxf', {});
                 break;
