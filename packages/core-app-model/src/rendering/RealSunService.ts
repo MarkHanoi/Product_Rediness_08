@@ -403,9 +403,14 @@ export class RealSunService {
         this._sunLight.castShadow = isAboveHorizon;
 
         // Invalidate cached shadow map so it regenerates at new angle.
+        // §SHADOW-DISPOSE-DEFER (founder 2026-06-19) — defer the GPU dispose past the
+        // current frame's submit (null now so THREE regenerates) so we never destroy a
+        // ShadowDepthTexture the command buffer still references → "used in a submit"
+        // device-loss cascade / render stall.
         if (this._sunLight.shadow.map) {
-            this._sunLight.shadow.map.dispose();
+            const _oldMap = this._sunLight.shadow.map;
             (this._sunLight.shadow as any).map = null;
+            setTimeout(() => { try { _oldMap.dispose(); } catch { /* already gone */ } }, 0);
         }
 
         this._lastPosition = { altitude, azimuth, isAboveHorizon, color, intensity };

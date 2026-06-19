@@ -136,10 +136,18 @@ export class ShadowQualityUpgrader {
                     (obj.shadow as any).radius = cfg.radius;
                 }
 
-                // Invalidate shadow map so it is regenerated at new resolution
+                // Invalidate shadow map so it is regenerated at new resolution.
+                // §SHADOW-DISPOSE-DEFER (founder 2026-06-19) — null the map NOW so THREE
+                // regenerates it, but DEFER the GPU dispose past the current frame's
+                // submit. Disposing synchronously while a command buffer still references
+                // the texture triggers "Destroyed texture [ShadowDepthTexture] used in a
+                // submit" → device-loss cascade → the render stalls and project-OPEN HANGS
+                // (the founder's "opening models gets stuck"). This fires during load when
+                // PascalSceneLighting flags shadows on dozens of meshes.
                 if (obj.shadow.map) {
-                    obj.shadow.map.dispose();
+                    const _oldMap = obj.shadow.map;
                     (obj.shadow as any).map = null;
+                    setTimeout(() => { try { _oldMap.dispose(); } catch { /* already gone */ } }, 0);
                 }
             }
         });
