@@ -931,6 +931,41 @@ export class WallRebuildCoordinator {
                             builder.buildWall(updated, adjustment, resolveOpeningRenderMap(updated, store), worldY);
                             builder.recordBuiltVersion(wallId, updated, adjustment, slabOff);
                             _rebuiltWallIds.add(wallId);
+
+                            // §DIAG-MESH-SPIKE (founder 2026-06-19) — PATH-AGNOSTIC extrusion-
+                            // spike auto-detector. A wall's CENTRELINE can be clean (parity
+                            // ≤47mm, joins closed=✓ — so §DIAG-WALL-SPIKE and §DIAG-PARITY stay
+                            // quiet) while its BUILT BODY extrudes a vertex metres past the
+                            // baseline — a bad mitre on a wall WITH openings (the no-opening
+                            // MiterPrismBuilder is already §MITER-T-CLAMP'd; the opening build
+                            // paths are not). Measure the built group's world XZ bbox diagonal vs
+                            // the baseline length: a clean wall ≈ len; a spike blows it up. Fires
+                            // for ANY wall so it auto-names the culprit (no manual trace). Filter
+                            // the console by §DIAG-MESH-SPIKE.
+                            try {
+                                const __grp = (builder as unknown as { getWallMesh?: (id: string) => THREE.Object3D | undefined }).getWallMesh?.(wallId);
+                                if (__grp) {
+                                    const __box = new THREE.Box3().setFromObject(__grp);
+                                    if (Number.isFinite(__box.min.x) && Number.isFinite(__box.max.x)) {
+                                        const __bl2 = updated.baseLine;
+                                        const __len2 = Math.hypot(__bl2[1].x - __bl2[0].x, __bl2[1].z - __bl2[0].z);
+                                        const __thk2 = (updated as unknown as { thickness?: number }).thickness ?? 0.2;
+                                        const __diag = Math.hypot(__box.max.x - __box.min.x, __box.max.z - __box.min.z);
+                                        const __expect = __len2 + __thk2;
+                                        if (__diag > __expect + 1.0) {   // mesh overshoots its own footprint by >1m = extrusion spike
+                                            // eslint-disable-next-line no-console
+                                            console.warn(
+                                                `[WallRebuildCoordinator] §DIAG-MESH-SPIKE ${wallId} t=${__thk2.toFixed(3)} ` +
+                                                `baselineLen=${__len2.toFixed(3)}m BUILT-MESH-XZ-DIAG=${__diag.toFixed(3)}m ` +
+                                                `(expected ≈${__expect.toFixed(3)}m → overshoots by ${(__diag - __expect).toFixed(3)}m) ` +
+                                                `openings=${updated.openings?.length ?? 0} layered=${!!(updated as unknown as { layers?: unknown[] }).layers?.length} ` +
+                                                `bbox=(${__box.min.x.toFixed(2)},${__box.min.z.toFixed(2)})→(${__box.max.x.toFixed(2)},${__box.max.z.toFixed(2)}) — centreline OK, EXTRUSION spike`,
+                                            );
+                                        }
+                                    }
+                                }
+                            } catch { /* noop — diagnostic only */ }
+
                             // §DIAG-WALL-TRACE — the ACTUAL baseline the body was built
                             // from (store.getById after the preserve decision). For a
                             // traced wall: if this builtLen is short but you SEE a spike,
