@@ -135,10 +135,18 @@ import { CreateHandrailCommand } from '@pryzm/command-registry';
 import { UpdateHandrailCommand } from '@pryzm/command-registry';
 import { DeleteHandrailCommand } from '@pryzm/command-registry';
 
-// ── Furniture / Plumbing commands ──────────────────────────────────────────────
+// ── Furniture / Plumbing / Lighting commands ───────────────────────────────────
+// §ELEMENT-REPLAY-AUDIT (founder 2026-06-19) — placed elements must keep their id and
+// survive move/rotate/delete across collaboration catch-up. With the dispatcher's
+// §REMOTE-EXEC-FALLBACK, a registry factory alone makes a family replayable.
 import { CreateFurnitureCommand } from '@pryzm/command-registry';
 import { UpdateFurnitureParametersCommand } from '@pryzm/command-registry';
 import { CreatePlumbingFixtureCommand } from '@pryzm/command-registry';
+import { UpdatePlumbingParametersCommand } from '@pryzm/command-registry';
+import { CreateLightingCommand } from '@pryzm/command-registry';
+import { UpdateLightingParametersCommand } from '@pryzm/command-registry';
+import { MoveLightingCommand } from '@pryzm/command-registry';
+import { MoveStairCommand } from '@pryzm/command-registry';
 
 // ── Room Bounding Line commands ────────────────────────────────────────────────
 import { CreateRoomBoundingLineCommand } from '@pryzm/command-registry';
@@ -296,6 +304,15 @@ const REGISTRY = new Map<string, CommandFactory>([
     // gaps fixed above). UpdateFurnitureParametersCommand takes a single payload obj.
     ['UPDATE_FURNITURE_PARAMETERS', (s) => new UpdateFurnitureParametersCommand(s.payload as any)],
     ['CREATE_PLUMBING_FIXTURE', (s) => new CreatePlumbingFixtureCommand(s.payload as any)],
+    // §ELEMENT-REPLAY-AUDIT — same revert-on-catch-up gap as furniture for the OTHER
+    // placed elements the user moves/rotates. With §REMOTE-EXEC-FALLBACK these factories
+    // make plumbing fixtures, lighting and stairs survive collaboration replay. (Per-
+    // element DELETE goes through the generic DELETE_ELEMENT factory above.)
+    ['UPDATE_PLUMBING_PARAMETERS', (s) => new UpdatePlumbingParametersCommand(s.payload as any)],
+    ['CREATE_LIGHTING', (s) => new CreateLightingCommand(s.payload as any)],
+    ['UPDATE_LIGHTING_PARAMETERS', (s) => new UpdateLightingParametersCommand(s.payload as any)],
+    ['MOVE_LIGHTING', (s) => new MoveLightingCommand(s.payload as any)],
+    ['MOVE_STAIR', (s) => new MoveStairCommand(s.payload as any)],
 
     // ── Room Bounding Lines ───────────────────────────────────────────────────
     ['CREATE_ROOM_BOUNDING_LINE', (s) => new CreateRoomBoundingLineCommand(s.payload as any)],

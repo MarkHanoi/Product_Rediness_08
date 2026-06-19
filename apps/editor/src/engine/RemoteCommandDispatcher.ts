@@ -48,10 +48,13 @@ export interface SuppressBroadcastRef {
 export class RemoteCommandDispatcher {
     private readonly suppressRef: SuppressBroadcastRef;
 
+    private readonly commandManager: CommandManager;
+
     constructor(
-        _commandManager: CommandManager,      // F-1.4: bus-authoritative; field removed (OI-023 tracks remaining families)
+        commandManager: CommandManager,
         suppressBroadcastRef: SuppressBroadcastRef,
     ) {
+        this.commandManager = commandManager;
         this.suppressRef = suppressBroadcastRef;
     }
 
@@ -100,14 +103,27 @@ export class RemoteCommandDispatcher {
                     busPayload,
                     { source: 'REMOTE' },
                 ).catch(() => {
-                    // Family not yet in bus registry — authoritative path below.
+                    // §REMOTE-EXEC-FALLBACK (founder 2026-06-19) — this family has no
+                    // CommandType-keyed bus handler, so the bus dispatch rejected. The
+                    // OLD code (F-1.4) silently dropped it here ("~221 families no-op on
+                    // remote replay"), so any element whose move/rotate/delete command
+                    // lacked a bus handler REVERTED on every catch-up (the founder's
+                    // "sofa rotates back to origin"). Since we ALREADY hold the typed
+                    // command reconstructed by CommandRegistry, execute it directly
+                    // through the authoritative command path — contract-compliant
+                    // (§01 §2.1 store mutations only through commands) and gives undo/redo.
+                    // suppressRef stays true for the whole replay so this never re-broadcasts.
+                    try {
+                        this.suppressRef.value = true;
+                        this.commandManager.execute(command);
+                    } catch (e) {
+                        console.warn('[RemoteCommandDispatcher] §REMOTE-EXEC-FALLBACK failed:', serialized.type, e);
+                    } finally {
+                        this.suppressRef.value = false;
+                    }
                 });
             }
-            // F-1.4 (doc-36 §4.3 closed): bus.dispatch() is now the sole authoritative
-            // remote-replay path.  commandManager.execute() removed.
-            // OI-023 tracks ~221 command families still needing bus handlers; those
-            // families are silently no-ops on remote replay until their handlers land.
-            console.log('[RemoteCommandDispatcher] Applied remote command via bus:', serialized.type);
+            console.log('[RemoteCommandDispatcher] Applied remote command:', serialized.type);
             return 'applied';
         } catch (err) {
             console.error('[RemoteCommandDispatcher] Unexpected error applying:', serialized.type, err);
