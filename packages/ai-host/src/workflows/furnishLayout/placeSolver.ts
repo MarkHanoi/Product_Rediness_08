@@ -1027,7 +1027,13 @@ function roomTiltYaw(walls: readonly RoomWallSeg[]): number {
     const w = longestWall(walls);
     if (!w) return 0;
     const d = wallDir(w);
-    const a = Math.atan2(d.z, d.x);                 // longest-wall direction angle
+    // §DINING-ROTATE-SIGN (founder 2026-06-19) — match the solver's footprintCorners
+    // convention: local +x (the item's width/long axis) maps to world (cos yaw, −sin
+    // yaw) (collision.ts:73-78). For the table's long axis to lie PARALLEL to the
+    // longest-wall direction d=(d.x,d.z) the angle must be atan2(−d.z, d.x), NOT
+    // atan2(d.z, d.x) — the un-negated form mirrors the tilt, leaving the table 2×
+    // the room angle CROOKED to the walls (the founder's "not rotated with the walls").
+    const a = Math.atan2(-d.z, d.x);                // longest-wall direction (footprint +x convention)
     const q = Math.PI / 2;
     return a - Math.round(a / q) * q;               // tilt from axis-aligned ∈ [−45°,45°]
 }
