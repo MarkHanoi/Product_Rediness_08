@@ -154,10 +154,25 @@ export function registerTransformDragHandler(deps: DragHandlerDeps): void {
                     const prevY = pos?.y ?? 0;
                     const dx = obj.position.x - prevX;
                     const dz = obj.position.z - prevZ;
-                    if (Math.abs(dx) > 1e-6 || Math.abs(dz) > 1e-6) {
+                    // §FURNITURE-DRAG-ROTATION (founder 2026-06-19) — also read and COMMIT the
+                    // gizmo's rotation. The old code gated the commit on a POSITION delta and
+                    // sent only `position`, so a ROTATE-only drag never committed (rotation lost
+                    // on rebuild + the plan view never re-projected) and a move-after-rotate
+                    // committed position with the STALE store rotation → the mesh snapped back to
+                    // origin. THREE stores Euler as {x,y,z} or {_x,_y,_z}; read defensively.
+                    const prevRot = item.rotation as { x?: number; y?: number; z?: number; _x?: number; _y?: number; _z?: number } | undefined;
+                    const prevRx = prevRot?.x ?? prevRot?._x ?? 0;
+                    const prevRy = prevRot?.y ?? prevRot?._y ?? 0;
+                    const prevRz = prevRot?.z ?? prevRot?._z ?? 0;
+                    const moved   = Math.abs(dx) > 1e-6 || Math.abs(dz) > 1e-6;
+                    const rotated = Math.abs(obj.rotation.x - prevRx) > 1e-4
+                                 || Math.abs(obj.rotation.y - prevRy) > 1e-4
+                                 || Math.abs(obj.rotation.z - prevRz) > 1e-4;
+                    if (moved || rotated) {
                         window.runtime?.bus?.executeCommand('furniture.updateParameters', {
                             id,
                             position: { x: prevX + dx, y: prevY, z: prevZ + dz },
+                            rotation: { x: obj.rotation.x, y: obj.rotation.y, z: obj.rotation.z, order: obj.rotation.order },
                         })?.catch((e: unknown) => console.error('[TransformDrag] furniture.updateParameters failed:', e));
                         const captured = obj;
                         const sched = getFrameScheduler();
