@@ -19,14 +19,12 @@ export class DiningTableBuilder implements IFurnitureBuilder {
         const group = new THREE.Group();
         const { width, length, height } = data;
 
-        // Warm light-oak timber (founder refs); cushions in soft warm cream.
+        // Warm light-oak timber (founder refs). Chairs are separate elements (see below).
         const woodColor = data.color ? parseInt(data.color.replace('#', '0x')) : 0xc09a6b;  // warmer light oak (founder ref)
         const woodDark  = 0x9c7b4f;  // slat grooves / leg shadow tone (deeper warm oak)
-        const cushion   = 0xe7ddc8;  // warm cream cushion
         const tableMat   = this.materialService.getMaterial(woodColor, 'standard') as THREE.MeshStandardMaterial;
         const grooveMat  = this.materialService.getMaterial(woodDark, 'standard') as THREE.MeshStandardMaterial;
         const legMat     = this.materialService.getMaterial(woodColor, 'standard') as THREE.MeshStandardMaterial;
-        const cushionMat = this.materialService.getMaterial(cushion, 'standard') as THREE.MeshStandardMaterial;
 
         const topThk = 0.05;
         const topY = height - topThk / 2;
@@ -76,102 +74,12 @@ export class DiningTableBuilder implements IFurnitureBuilder {
         stretcher.position.set(0, legH * 0.28, 0);
         group.add(stretcher);
 
-        // ── 4. Wood-frame armchairs with cushions, all the way around ──
-        const chairClear = 0.32;     // gap between table edge and chair
-        const chairW = 0.52;
-        const chairPad = 0.12;
-        // Long sides
-        const perSide = Math.max(1, Math.floor(length / (chairW + chairPad)));
-        const sideSpacing = length / (perSide + 1);
-        for (let i = 1; i <= perSide; i++) {
-            const z = -length / 2 + i * sideSpacing;
-            const left = this.buildChair(legMat, cushionMat);
-            left.position.set(-width / 2 - chairClear, 0, z);
-            left.rotation.y = Math.PI / 2;
-            group.add(left);
-            const right = this.buildChair(legMat, cushionMat);
-            right.position.set(width / 2 + chairClear, 0, z);
-            right.rotation.y = -Math.PI / 2;
-            group.add(right);
-        }
-        // End chairs (one at each short end) when the table is wide enough
-        if (width >= 0.9) {
-            const head = this.buildChair(legMat, cushionMat);
-            head.position.set(0, 0, length / 2 + chairClear);
-            head.rotation.y = Math.PI;
-            group.add(head);
-            const foot = this.buildChair(legMat, cushionMat);
-            foot.position.set(0, 0, -length / 2 - chairClear);
-            group.add(foot);
-        }
-
+        // §DINING-CHAIRS-ARE-ELEMENTS (founder 2026-06-19) — the dining_table builds
+        // ONLY the table. Chairs are SEPARATE `dining_chair` furniture elements placed
+        // by the furnish engine (dining-room archetype, count:4) and rendered by
+        // ChairBuilder — so they are individually selectable and NOT doubled with
+        // builder-drawn chairs (the "doubled chairs within the geometry" the founder
+        // saw: the table builder's chairs overlapping the engine's separate chairs).
         return group;
-    }
-
-    /** A detailed wood-frame dining armchair: tapered legs, a wood seat frame with a
-     *  thick cream cushion, two back posts with a curved back cushion, and armrests. */
-    private buildChair(woodMat: THREE.Material, cushionMat: THREE.Material): THREE.Group {
-        const g = new THREE.Group();
-        const seatH = 0.46, seatW = 0.48, seatD = 0.48;
-
-        // Tapered legs (square section).
-        const legGeo = new THREE.CylinderGeometry(0.022, 0.016, seatH, 4);
-        legGeo.rotateY(Math.PI / 4);
-        const lo = seatW / 2 - 0.05;
-        for (const [x, z] of [[lo, lo], [-lo, lo], [lo, -lo], [-lo, -lo]] as const) {
-            const leg = new THREE.Mesh(legGeo, woodMat);
-            leg.position.set(x, seatH / 2, z);
-            g.add(leg);
-        }
-        // Front + side stretcher rails between the legs — the solid armchair-frame look.
-        const frontRail = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, lo * 2, 10), woodMat);
-        frontRail.rotateZ(Math.PI / 2);
-        frontRail.position.set(0, seatH * 0.38, lo);
-        g.add(frontRail);
-        for (const sx of [-1, 1]) {
-            const sideRail = new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.013, lo * 2, 10), woodMat);
-            sideRail.rotateX(Math.PI / 2);
-            sideRail.position.set(sx * lo, seatH * 0.34, 0);
-            g.add(sideRail);
-        }
-
-        // Wood seat frame (thin) + thick cream cushion on top.
-        const frame = new THREE.Mesh(new THREE.BoxGeometry(seatW, 0.04, seatD), woodMat);
-        frame.position.set(0, seatH, 0);
-        g.add(frame);
-        const cush = new THREE.Mesh(new THREE.BoxGeometry(seatW * 0.92, 0.07, seatD * 0.92), cushionMat);
-        cush.position.set(0, seatH + 0.055, 0);
-        g.add(cush);
-
-        // Two back posts + a top rail (wood frame), with a curved cream back cushion.
-        const postGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.5, 12);
-        const backZ = -seatD / 2 + 0.03;
-        for (const x of [-seatW / 2 + 0.04, seatW / 2 - 0.04]) {
-            const post = new THREE.Mesh(postGeo, woodMat);
-            post.position.set(x, seatH + 0.27, backZ);
-            post.rotation.x = -0.08;
-            g.add(post);
-        }
-        const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, seatW, 14), woodMat);
-        rail.rotateZ(Math.PI / 2);
-        rail.position.set(0, seatH + 0.5, backZ - 0.02);
-        g.add(rail);
-        const backCush = new THREE.Mesh(new THREE.BoxGeometry(seatW * 0.8, 0.3, 0.06), cushionMat);
-        backCush.position.set(0, seatH + 0.3, backZ + 0.02);
-        backCush.rotation.x = -0.08;
-        g.add(backCush);
-
-        // Armrests: a horizontal wood bar each side + a front support post.
-        for (const sign of [-1, 1]) {
-            const armX = sign * (seatW / 2 - 0.01);
-            const arm = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.03, seatD * 0.72), woodMat);
-            arm.position.set(armX, seatH + 0.20, -0.02);
-            g.add(arm);
-            const front = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.2, 6), woodMat);
-            front.position.set(armX, seatH + 0.10, seatD / 2 - 0.08);
-            g.add(front);
-        }
-
-        return g;
     }
 }
