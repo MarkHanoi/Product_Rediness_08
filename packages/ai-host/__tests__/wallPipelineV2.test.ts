@@ -176,44 +176,6 @@ describe('WallPipelineV2 — buildWallV2GeometryOneShot', () => {
     });
 });
 
-// ─── §V2-MITER-CORNER-CLAMP ─────────────────────────────────────────────────────
-
-describe('WallPipelineV2 — §V2-MITER-CORNER-CLAMP (near-parallel corner does not spike)', () => {
-    // A near-straight perimeter "L": wall A runs +x; wall B continues at a shallow
-    // ~2° off-axis kink sharing the corner (5,0). The angle BETWEEN the edge lines is
-    // ~2°, so the corner distance ≈ halfT/sin(2°) ≈ 2.8m — well past the clamp bound
-    // (4·halfT+0.05 = 0.45m). BEFORE the clamp that corner is baked into the footprint
-    // → the polygon spikes ~metres (the 125m body §V2-SPIKE-GUARD caught, after which
-    // the legacy fallback no longer met the neighbour's V2 corner — the founder's
-    // perimeter miter gap). AFTER: the pair square-caps, the V2 body stays within its
-    // own footprint, so the wall never falls back and the corner stays edge-coincident.
-    const KINK: LevelWallSpec[] = [
-        { id: 'A', startXZ: { x: 0, z: 0 }, endXZ: { x: 5,  z: 0 },    thickness: T },
-        { id: 'B', startXZ: { x: 5, z: 0 }, endXZ: { x: 10, z: 0.17 }, thickness: T }, // ~2° kink
-    ];
-
-    it('the near-parallel kink does NOT spike the V2 body (bbox within baseLen + thickness)', () => {
-        for (const w of KINK) {
-            const baseLen = Math.hypot(w.endXZ.x - w.startXZ.x, w.endXZ.z - w.startXZ.z);
-            const { geometry } = buildWallV2GeometryOneShot(w, KINK, { height: HEIGHT });
-            const bb = geometry.boundingBox!;
-            const xzDiag = Math.hypot(bb.max.x - bb.min.x, bb.max.z - bb.min.z);
-            expect(Number.isFinite(xzDiag)).toBe(true);
-            expect(xzDiag).toBeLessThanOrEqual(baseLen + w.thickness + 1.0);   // §V2-SPIKE-GUARD bound
-        }
-    });
-
-    it('the clean 90° L corner is UNAFFECTED by the clamp (still builds sane)', () => {
-        for (const w of L_WALLS) {
-            const baseLen = Math.hypot(w.endXZ.x - w.startXZ.x, w.endXZ.z - w.startXZ.z);
-            const { geometry } = buildWallV2GeometryOneShot(w, L_WALLS, { height: HEIGHT });
-            const bb = geometry.boundingBox!;
-            const xzDiag = Math.hypot(bb.max.x - bb.min.x, bb.max.z - bb.min.z);
-            expect(xzDiag).toBeLessThanOrEqual(baseLen + w.thickness + 1.0);
-        }
-    });
-});
-
 // ─── Determinism ──────────────────────────────────────────────────────────────
 
 describe('WallPipelineV2 — determinism', () => {

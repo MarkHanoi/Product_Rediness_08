@@ -941,7 +941,11 @@ export class WallRebuildCoordinator {
                             // paths are not). Measure the built group's world XZ bbox diagonal vs
                             // the baseline length: a clean wall ≈ len; a spike blows it up. Fires
                             // for ANY wall so it auto-names the culprit (no manual trace). Filter
-                            // the console by §DIAG-MESH-SPIKE.
+                            // the console by §DIAG-MESH-SPIKE. OPT-IN (default OFF): calling
+                            // getWallMesh during a rebuild logs "No fragments found" for not-yet-
+                            // built walls — noisy. It found the spike; re-enable for future ones
+                            // via `window.__pryzmDiagMeshSpike = true`.
+                            if ((globalThis as unknown as { __pryzmDiagMeshSpike?: boolean }).__pryzmDiagMeshSpike === true)
                             try {
                                 const __grp = (builder as unknown as { getWallMesh?: (id: string) => THREE.Object3D | undefined }).getWallMesh?.(wallId);
                                 if (__grp) {
