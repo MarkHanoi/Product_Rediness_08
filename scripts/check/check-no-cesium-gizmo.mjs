@@ -29,7 +29,14 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const ROOT = resolve(__dirname, '..', '..');
 const SCAN_DIR = resolve(ROOT, 'apps', 'editor', 'src', 'ui');
 // Forbidden patterns (extended regex). A re-add must trip at least one.
-const PATTERN = 'new TransformGizmo\\(|\\.gizmo\\.attach\\(|\\.gizmo\\.setMode\\(';
+// Covers the deleted TransformGizmo AND any future origin-axis indicator drawn
+// directly — a coloured Cesium axis polyline or a THREE axis/arrow helper bridged
+// into the Cesium scene (the "green + purple perpendicular lines at the building
+// corner"). All confirmed zero-match in the current tree, so this is pure insurance.
+const PATTERN = 'new TransformGizmo\\(|\\.gizmo\\.attach\\(|\\.gizmo\\.setMode\\('
+    + '|Cesium\\.Color\\.(GREEN|MAGENTA|PURPLE)'
+    + '|new THREE\\.(AxesHelper|ArrowHelper)\\('
+    + '|new Cesium\\.DebugModelMatrixPrimitive\\(';
 
 const BANNER = '-'.repeat(66);
 console.log('\n' + BANNER);
