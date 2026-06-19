@@ -10,10 +10,17 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { RoomData } from './RoomTypes';
 import { BimManager } from '@pryzm/core-app-model';
 
-const LABEL_W  = 256;
-const LABEL_H  = 80;
-const SCALE    = 0.012;
+// §ROOM-LABEL-RESTYLE (founder 2026-06-19) — 2× supersample for crisp text at
+// distance. DPR multiplies the canvas BITMAP only; SCALE is divided by DPR so the
+// sprite's world footprint (and Y_OFFSET, billboarding, distance scaling) stay
+// byte-for-byte identical to the old look: LABEL_W*SCALE = 512*0.006 = 3.072 =
+// the old 256*0.012. Brand: white + PRYZM purple #6600FF, no black.
+const DPR      = 2;
+const LABEL_W  = 256 * DPR;
+const LABEL_H  = 80  * DPR;
+const SCALE    = 0.012 / DPR;
 const Y_OFFSET = 0.08;
+const PRYZM_PURPLE = '#6600FF';
 
 export class RoomLabelRenderer {
     private readonly _sprites: Map<string, THREE.Sprite> = new Map();
@@ -94,36 +101,63 @@ export class RoomLabelRenderer {
         canvas.width  = LABEL_W;
         canvas.height = LABEL_H;
         const ctx = canvas.getContext('2d')!;
+        // §ROOM-LABEL-RESTYLE — draw in LOGICAL 256×80 units; the bitmap is DPR× bigger.
+        ctx.scale(DPR, DPR);
+        const W = LABEL_W / DPR;             // 256
+        const H = LABEL_H / DPR;             // 80
+        const rx = 12;
+        const inset = 5;                     // leave room for the drop shadow
+        const cardX = inset, cardY = inset;
+        const cardW = W - inset * 2, cardH = H - inset * 2;
 
-        const rx = 10;
-        ctx.clearRect(0, 0, LABEL_W, LABEL_H);
-        ctx.fillStyle = 'rgba(255,255,255,0.85)';
-        this._roundRect(ctx, 2, 2, LABEL_W - 4, LABEL_H - 4, rx);
+        ctx.clearRect(0, 0, W, H);
+
+        // Soft elevation shadow — the cheap "premium" lift, tinted purple (not black).
+        ctx.save();
+        ctx.shadowColor   = 'rgba(102,0,255,0.18)';
+        ctx.shadowBlur    = 8;
+        ctx.shadowOffsetY = 2;
+        ctx.fillStyle = '#ffffff';
+        this._roundRect(ctx, cardX, cardY, cardW, cardH, rx);
         ctx.fill();
+        ctx.restore();
 
-        ctx.strokeStyle = 'rgba(80,80,80,0.5)';
-        ctx.lineWidth   = 2;
-        this._roundRect(ctx, 2, 2, LABEL_W - 4, LABEL_H - 4, rx);
+        // Hairline purple-tinted border.
+        ctx.strokeStyle = 'rgba(102,0,255,0.28)';
+        ctx.lineWidth   = 1.25;
+        this._roundRect(ctx, cardX, cardY, cardW, cardH, rx);
         ctx.stroke();
 
-        const name = room.name || 'Room';
-        ctx.fillStyle   = '#1a1a2e';
-        ctx.font        = 'bold 22px system-ui, sans-serif';
-        ctx.textAlign   = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(this._truncate(name, 22), LABEL_W / 2, LABEL_H * 0.34);
+        // Purple left-accent bar (clipped to the rounded card) — the depth/brand cue.
+        ctx.save();
+        this._roundRect(ctx, cardX, cardY, cardW, cardH, rx);
+        ctx.clip();
+        ctx.fillStyle = PRYZM_PURPLE;
+        ctx.fillRect(cardX, cardY, 6, cardH);
+        ctx.restore();
 
-        // §ROOM-LABEL-EDIT (2026-05-22) — show the room NUMBER (when set) alongside
-        // the area, so the double-click-editable number is visible on the label.
+        const textLeft = cardX + 18;         // clears the accent bar
+
+        // Room name — prominent, brand dark-violet (no black).
+        const name = room.name || 'Room';
+        ctx.fillStyle    = '#2A0A66';
+        ctx.font         = '600 23px system-ui, -apple-system, "Segoe UI", sans-serif';
+        ctx.textAlign    = 'left';
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText(this._truncate(name, 20), textLeft, H * 0.46);
+
+        // §ROOM-LABEL-EDIT (2026-05-22) — show the room NUMBER (when set) alongside the
+        // area; quieter muted purple-grey secondary line for a clean type hierarchy.
         const area    = room.computed?.area ?? 0;
         const number  = (room.roomNumber ?? '').trim();
         const areaStr = `${area.toFixed(1)} m²`;
-        const subtitle = number ? `${this._truncate(number, 14)}  ·  ${areaStr}` : areaStr;
-        ctx.fillStyle = '#555';
-        ctx.font      = '18px system-ui, sans-serif';
-        ctx.fillText(subtitle, LABEL_W / 2, LABEL_H * 0.68);
+        const subtitle = number ? `${this._truncate(number, 12)}   ${areaStr}` : areaStr;
+        ctx.fillStyle = '#8A7BA8';
+        ctx.font      = '500 15px system-ui, -apple-system, "Segoe UI", sans-serif';
+        ctx.fillText(subtitle, textLeft, H * 0.72);
 
         const texture  = new THREE.CanvasTexture(canvas);
+        texture.anisotropy = 4;              // crisper at glancing angles, no-cost
         const material = new THREE.SpriteMaterial({
             map: texture,
             transparent: true,
