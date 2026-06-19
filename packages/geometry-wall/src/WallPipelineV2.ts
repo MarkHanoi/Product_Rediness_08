@@ -28,14 +28,20 @@ import { buildWallExtrusion, type ExtrudeOpts } from './WallPolygonExtruder';
 // ─── Feature flag ─────────────────────────────────────────────────────────────
 
 /**
- * Pascal-style wall pipeline switch. **DEFAULT ON as of 2026-05-27.** The
- * legacy `MiterPrismBuilder` path is retained as an emergency opt-out — set
- * `window.__pryzmWallPipelineV2 = false` to fall back. Returns ON unless that
- * literal-false escape hatch is set. Reads `globalThis` so it works in browser
- * + Node (the latter for tests).
+ * Pascal-style wall pipeline switch. **DEFAULT OFF as of 2026-06-19 (founder).**
+ * Was default-ON (2026-05-27) but on TILTED / non-orthogonal house plates the V2
+ * footprint resolver intermittently produces degenerate corners that spike the body
+ * (§V2-SPIKE-GUARD: 239m/1275m bodies) → those walls fall back to the legacy
+ * `MiterPrismBuilder` while their neighbours stay V2 → a MIXED-pipeline corner that
+ * doesn't meet (the founder's "outer-wall miter sometimes works, mostly not"). The
+ * legacy MiterPrism path is §MITER-T-CLAMP'd and reports clean closed=✓ / gappy=0
+ * corners, so running EVERY wall through it gives CONSISTENT mitres (no V2/legacy
+ * seam). V2 is therefore now OPT-IN: set `window.__pryzmWallPipelineV2 = true` to
+ * re-enable it (e.g. once the footprint-corner degeneracy is fixed at the source).
+ * Reads `globalThis` so it works in browser + Node (the latter for tests).
  */
 export function isWallPipelineV2Enabled(): boolean {
-    return (globalThis as { __pryzmWallPipelineV2?: boolean }).__pryzmWallPipelineV2 !== false;
+    return (globalThis as { __pryzmWallPipelineV2?: boolean }).__pryzmWallPipelineV2 === true;
 }
 
 // ─── Per-level miter cache ────────────────────────────────────────────────────
