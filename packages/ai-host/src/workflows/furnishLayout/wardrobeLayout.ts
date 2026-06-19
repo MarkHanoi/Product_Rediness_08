@@ -169,11 +169,13 @@ export function planWardrobe(
     const obstacles: Quad[] = existing
         .filter(p => p.kind !== WARDROBE)
         .map(bedOccupiedObstacle);   // §BED-OCCUPIED-FOOTPRINT — avoid the integrated bed's wings, not just its deck
-    // Door swing.
+    // Door swing — §DOOR-SWING-DEPTH (mirrors placeSolver.doorObstacles): depth =
+    // max(width, 0.9) so a wide door's full leaf swing is kept clear; width unchanged.
     for (const d of input.doors) {
+        const swingR = Math.max(d.width, 0.9);
         obstacles.push(footprintCorners(
-            d.center.x + d.normal.x * 0.45, d.center.z + d.normal.z * 0.45,
-            d.width, 0.9, yawFromNormal(d.normal),
+            d.center.x + d.normal.x * (swingR / 2), d.center.z + d.normal.z * (swingR / 2),
+            d.width, swingR, yawFromNormal(d.normal),
         ));
     }
 

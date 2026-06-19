@@ -183,8 +183,19 @@ export function doorObstacles(input: FurnishRoomInput): Quad[] {
         // blocking; the founderV189 §5 test pins this across room types + sizes. A precise
         // asymmetric swing SECTOR (only the hinge side) would cover the fan without the
         // wardrobe regression, but the door payload carries no hinge side → not available.
-        const c = add(d.center, d.normal, 0.45);
-        return footprintCorners(c.x, c.z, d.width, 0.9, yawFromNormal(d.normal));
+        //
+        // §DOOR-SWING-DEPTH (founder 2026-06-19) — the leaf reach = the LEAF LENGTH
+        // ≈ the door WIDTH, so a WIDE door (1.0–1.2 m) sweeps DEEPER than the old fixed
+        // 0.9 m, leaving furniture inside the far arc (the founder's "furniture in front
+        // of the door"). The swept quarter-disc — for EITHER hinge jamb — lies inside a
+        // (width × swingR) box centred on the door, so deepen the keep-out to
+        // swingR = max(width, 0.9). WIDTH stays door-width (jamb-to-jamb), so this never
+        // widens laterally into an adjacent wall's wardrobe run (the documented +0.6m
+        // landmine) — only the inward depth grows, and only for doors wider than 0.9 m.
+        // A 0.9 m door is byte-identical (swingR = 0.9), so the founderV189 §5 pin holds.
+        const swingR = Math.max(d.width, 0.9);
+        const c = add(d.center, d.normal, swingR / 2);
+        return footprintCorners(c.x, c.z, d.width, swingR, yawFromNormal(d.normal));
     });
 }
 

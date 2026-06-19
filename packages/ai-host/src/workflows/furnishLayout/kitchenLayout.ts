@@ -394,8 +394,9 @@ function sharedCornerIsB(wall: RoomWallSeg, ref: RoomWallSeg): boolean {
 /** Door swing / keep-clear obstacle quads (mirrors placeSolver.doorObstacles). */
 function doorObstacles(input: FurnishRoomInput): Quad[] {
     return input.doors.map(d => {
-        const c = add(d.center, d.normal, 0.45);
-        return footprintCorners(c.x, c.z, d.width, 0.9, yawFromNormal(d.normal));
+        const swingR = Math.max(d.width, 0.9);   // §DOOR-SWING-DEPTH (mirrors placeSolver.doorObstacles)
+        const c = add(d.center, d.normal, swingR / 2);
+        return footprintCorners(c.x, c.z, d.width, swingR, yawFromNormal(d.normal));
     });
 }
 
