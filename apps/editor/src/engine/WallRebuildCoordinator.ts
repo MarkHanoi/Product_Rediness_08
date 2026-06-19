@@ -832,9 +832,21 @@ export class WallRebuildCoordinator {
                     // re-trim is reverted. Byte-identical no-op on axis-clean plates /
                     // Level-01 (lateral≈0, no collapse). Does NOT move openings (the
                     // void cut still runs); does NOT touch area-cap math.
+                    // §POST-RESOLVE-OVEREXTEND (founder 2026-06-19, 2nd facet) — the
+                    // re-resolve can ALSO over-EXTEND a wall ALONG its axis: at a
+                    // partition↔outer-wall join, a near-parallel/ill-conditioned miter
+                    // intersection lands far away (and the "T-JOIN trim exceeds safety
+                    // bound, skipping" path leaves the end there), so a 2.3m wall's body
+                    // shoots out into a multi-metre diagonal SPIKE past the shell — while
+                    // the store/panel may still read the short length. A real miter only
+                    // extends a wall by ~half its thickness; an extension beyond
+                    // EXTEND_TOL is never a legitimate join. Treat it as destructive and
+                    // keep the committed baseline (outer wall stays put — the founder's
+                    // "outer walls should be priority").
                     const _preserveOn = (globalThis as unknown as { __pryzmPostResolvePreserve?: boolean }).__pryzmPostResolvePreserve !== false;
                     const _STUB_LEN = 0.15;          // = DEGENERATE_STUB_LENGTH
                     const _LATERAL_TOL = 0.02;       // = PARITY_TOL_MM (20mm); never widen
+                    const _EXTEND_TOL = 0.50;        // a real corner miter extends a wall by < half its thickness; 0.5m = spike
                     let _preserve = false;
                     if (_preserveOn && _sourceBL && _bMoved) {
                         const _dst = (a: { x: number; z: number }, b: { x: number; z: number }) => Math.hypot(b.x - a.x, b.z - a.z);
@@ -847,8 +859,9 @@ export class WallRebuildCoordinator {
                         const _perp = (p: { x: number; z: number }) => Math.abs((p.x - _sourceBL[0].x) * _uz - (p.z - _sourceBL[0].z) * _ux);
                         _lateral = Math.max(_perp(_newBL[0]), _perp(_newBL[1]));
                         const _wasValid = _preLen >= _STUB_LEN;
+                        const _overExtended = _newLen > _preLen + _EXTEND_TOL;   // §POST-RESOLVE-OVEREXTEND
                         const _adjInvalid = (adjustment as unknown as { invalid?: boolean }).invalid === true;
-                        if (_wasValid && (_adjInvalid || _newLen < _STUB_LEN || _lateral > _LATERAL_TOL)) {
+                        if (_wasValid && (_adjInvalid || _newLen < _STUB_LEN || _lateral > _LATERAL_TOL || _overExtended)) {
                             _preserve = true;
                             // Make the JoinData internally consistent with the preserved
                             // (committed) baseline and clear the stub-sweep skip flag so
@@ -857,7 +870,11 @@ export class WallRebuildCoordinator {
                             _adjBL[1].set(_sourceBL[1].x, _sourceBL[1].y, _sourceBL[1].z);
                             const _adjMut = adjustment as unknown as { invalid?: boolean; invalidReason?: string };
                             if (_adjMut.invalid) { _adjMut.invalid = false; _adjMut.invalidReason = undefined; }
-                            const _why = _adjInvalid || _newLen < _STUB_LEN ? `collapse (newLen=${_newLen.toFixed(3)}m)` : `lateral pivot (${(_lateral * 1000).toFixed(0)}mm)`;
+                            const _why = _adjInvalid || _newLen < _STUB_LEN
+                                ? `collapse (newLen=${_newLen.toFixed(3)}m)`
+                                : _overExtended
+                                    ? `over-extend spike (preLen=${_preLen.toFixed(3)}m → newLen=${_newLen.toFixed(3)}m)`
+                                    : `lateral pivot (${(_lateral * 1000).toFixed(0)}mm)`;
                             // eslint-disable-next-line no-console
                             console.warn(`[WallRebuildCoordinator] §POST-RESOLVE-PRESERVE kept committed baseline for ${wallId} — post-openings re-resolve would ${_why}`);
                         }

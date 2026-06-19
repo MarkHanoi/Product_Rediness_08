@@ -24,6 +24,7 @@ type Pt = { x: number; y?: number; z: number };
 
 const STUB_LEN = 0.15;      // = DEGENERATE_STUB_LENGTH
 const LATERAL_TOL = 0.02;   // = PARITY_TOL_MM (20mm)
+const EXTEND_TOL = 0.50;    // a real miter extends a wall by < half its thickness; 0.5m = spike
 
 const dist = (a: Pt, b: Pt): number => Math.hypot(b.x - a.x, b.z - a.z);
 
@@ -43,7 +44,8 @@ function shouldPreserve(src: [Pt, Pt], resolved: [Pt, Pt], adjInvalid: boolean):
     const wasValid = preLen >= STUB_LEN;
     if (!wasValid) return false;                       // a stub before → not ours to defend
     const newLen = dist(resolved[0], resolved[1]);
-    return adjInvalid || newLen < STUB_LEN || lateralShift(src, resolved) > LATERAL_TOL;
+    const overExtended = newLen > preLen + EXTEND_TOL;
+    return adjInvalid || newLen < STUB_LEN || lateralShift(src, resolved) > LATERAL_TOL || overExtended;
 }
 
 describe('§POST-RESOLVE-PRESERVE', () => {
@@ -64,6 +66,16 @@ describe('§POST-RESOLVE-PRESERVE', () => {
         const pivoted: [Pt, Pt] = [{ x: 0, y: 0, z: 0 }, { x: 4.12, y: 0, z: 0.162 }];
         expect(lateralShift(src, pivoted) * 1000).toBeCloseTo(162, 0);
         expect(shouldPreserve(src, pivoted, false)).toBe(true);
+    });
+
+    it('PRESERVES a wall the re-resolve OVER-EXTENDS into a diagonal spike (WA004: 2.286m → multi-metre)', () => {
+        const wa004src: [Pt, Pt] = [{ x: 19.568, y: 0, z: -1.945 }, { x: 17.675, y: 0, z: -0.663 }]; // 2.286m
+        // ill-conditioned miter shoots the end ~10m out ALONG the wall axis (point on the
+        // source line extended: src[0] + 10·unit, so lateral≈0 — the hole my guard had).
+        const spike: [Pt, Pt] = [{ x: 19.568, y: 0, z: -1.945 }, { x: 11.288, y: 0, z: 3.663 }];
+        expect(lateralShift(wa004src, spike)).toBeLessThan(LATERAL_TOL);   // along-axis, NOT lateral
+        expect(dist(spike[0], spike[1])).toBeGreaterThan(8);
+        expect(shouldPreserve(wa004src, spike, false)).toBe(true);
     });
 
     it('PERMITS a pure along-axis miter/trim of any length (endTrimMax=468mm) — no-op', () => {
