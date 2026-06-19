@@ -57,18 +57,24 @@ export async function handleAnalyse(
     const btn = document.getElementById('fp-analyse-btn') as HTMLButtonElement | null;
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Analysing…'; }
 
-    setStatus('Phase F1: Pre-processing image for line detection…');
-    const preprocessed = await detectLineSegmentsFromBase64(
-        state.pdfConversion.base64,
-        'image/jpeg',
-    );
-    if (preprocessed.hasUsableData) {
-        setStatus(`Phase F1 complete: ${preprocessed.segments.length} segments detected — activating guided AI mode…`);
-    } else {
-        setStatus(`Phase F1: insufficient segments (${preprocessed.segments.length}) — using standard AI detection…`);
-    }
-
+    // §FP-ANALYSE-GUARD (founder 2026-06-19, "import pdf/image doesn't work") — the
+    // pre-processing step used to run OUTSIDE the try, so if line-detection threw,
+    // handleAnalyse rejected before the finally and the button stayed stuck on
+    // "⏳ Analysing…" forever with no error. The whole risky section (pre-process +
+    // AI relay call) is now inside ONE try/finally so it ALWAYS recovers the button
+    // and surfaces a clear message.
     try {
+        setStatus('Phase F1: Pre-processing image for line detection…');
+        const preprocessed = await detectLineSegmentsFromBase64(
+            state.pdfConversion.base64,
+            'image/jpeg',
+        );
+        if (preprocessed.hasUsableData) {
+            setStatus(`Phase F1 complete: ${preprocessed.segments.length} segments detected — activating guided AI mode…`);
+        } else {
+            setStatus(`Phase F1: insufficient segments (${preprocessed.segments.length}) — using standard AI detection…`);
+        }
+
         const analysis = await FloorPlanAIFactory.analyse(
             {
                 base64Image:      state.pdfConversion.base64,
@@ -96,7 +102,18 @@ export async function handleAnalyse(
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.error('[FloorPlanImportPanel] Analysis error:', err);
-        setStatus(`Error: ${msg}`, true);
+        // §FP-ANALYSE-GUARD — distinguish an unreachable/unconfigured AI relay from a
+        // genuine analysis error so the user knows it's a SERVER config issue, not
+        // their PDF. The relay surfaces 401/403/network/"fetch" failures here.
+        const m = msg.toLowerCase();
+        const relayDown = m.includes('401') || m.includes('403') || m.includes('unauthor')
+            || m.includes('failed to fetch') || m.includes('networkerror') || m.includes('relay')
+            || m.includes('not configured') || m.includes('cf_worker') || m.includes('anthropic');
+        if (relayDown) {
+            setStatus('AI service unavailable — the floor-plan analysis runs on the server AI relay, which isn’t reachable/configured on this deploy. Ask the admin to set CF_WORKER_URL (or ANTHROPIC_API_KEY).', true);
+        } else {
+            setStatus(`Error: ${msg}`, true);
+        }
     } finally {
         state.isAnalysing = false;
         if (btn) { btn.disabled = false; btn.textContent = '🔍 Analyse Floor Plan'; }
