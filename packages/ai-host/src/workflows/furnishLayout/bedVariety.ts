@@ -158,6 +158,16 @@ const INTEGRATED_BEDSIDE_HALF_WIDTH: Readonly<Record<string, number>> = {
     japanese_walnut_bed:   0.40,   // WING_W (BedEngine.buildWalnut bedside wing)
 };
 
+/** §BED-LAMP-CENTRE-DEPTH (founder 2026-06-19) — the DEPTH (head→foot) of each
+ *  integrated bedside surface. BedEngine seats the surface with its BACK face on
+ *  the head line and its CENTRE depth/2 FORWARD (nightstand at headZ + NS_D/2,
+ *  wing at headZ + WING_L/2). The lamp must ride the surface CENTRE, not the back
+ *  edge, so it is pushed forward by depth/2. Matches BedEngine exactly. */
+const INTEGRATED_BEDSIDE_DEPTH: Readonly<Record<string, number>> = {
+    japanese_platform_bed: 0.50,   // NS_D   (BedEngine.buildPlatform nightstand)
+    japanese_walnut_bed:   0.55,   // WING_L (BedEngine.buildWalnut bedside wing)
+};
+
 /**
  * §BED-4-TYPES — place the reading lamps for an integrated (Japanese) bed that
  * does NOT build its own lamps (platform / walnut). One lamp sits on each head
@@ -185,8 +195,14 @@ export function placeIntegratedBedLamps(
     const fp = bed.footprint;
     // Head end = back of the bed (against the wall): centre − n·(l/2). The lamps
     // sit on the two head corners, just inside the bed width.
-    const headX = bed.position.x - n.x * (fp.l / 2);
-    const headZ = bed.position.z - n.z * (fp.l / 2);
+    // §BED-LAMP-CENTRE-DEPTH — push forward by half the integrated surface depth so
+    // the lamp lands on the nightstand/wing CENTRE (the surface's back face is on the
+    // head line; its centre is depth/2 toward the room), not the back edge against
+    // the headboard (the founder's "just no centered" on the Japanese bed).
+    const surfaceDepth = INTEGRATED_BEDSIDE_DEPTH[bed.kind] ?? 0;
+    const depthFwd = surfaceDepth / 2;
+    const headX = bed.position.x - n.x * (fp.l / 2) + n.x * depthFwd;
+    const headZ = bed.position.z - n.z * (fp.l / 2) + n.z * depthFwd;
     // §BED-INTEGRATED-LAMP-SIDE — the lamp rides the OUTBOARD bedside surface
     // centred at deckEdge (fp.w/2) + half the surface width, NOT inboard on the
     // mattress. Fall back to the deck edge for any unmapped variant.
