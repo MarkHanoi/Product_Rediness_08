@@ -100,6 +100,17 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
             // conversation seat without disturbing the sofa-coffee axis.
             { kind: 'lounge_chair', anchor: 'corner', facing: 'into-room', required: false },
             { kind: 'lamp', anchor: 'corner', facing: 'into-room', required: false },   // lighting
+            // §LIVING-SECOND-SEAT (founder 2026-06-19) — a SECOND conversation area
+            // for LARGE living rooms (≥26 m²): another sofa anchored on a free wall,
+            // a small unit (lounge chair) + coffee table beside it, and its own rug,
+            // all grouped 'sofa2' so they cluster as a distinct seating zone away
+            // from the primary sofa. minAreaM2-gated → normal rooms are unchanged.
+            // The sofa (a non-beside item) sets the 'sofa2' leader the beside/under
+            // items follow; excludeDoorSwing keeps it off the entry path.
+            { kind: 'sofa',         anchor: 'wall-longest', facing: 'into-room', required: false, group: 'sofa2', excludeDoorSwing: true, minAreaM2: 26 },
+            { kind: 'lounge_chair', anchor: 'beside',       facing: 'into-room', required: false, group: 'sofa2', minAreaM2: 26 },
+            { kind: 'coffee_table', anchor: 'beside',       facing: 'into-room', required: false, group: 'sofa2', minAreaM2: 26 },
+            { kind: 'rug',          anchor: 'under',        facing: 'into-room', required: false, group: 'sofa2', minAreaM2: 26 },
         ],
     },
     'kitchen': {

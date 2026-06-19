@@ -171,6 +171,11 @@ export interface FurnitureItemSpec {
      *  wall, falling back through the rest if no other wall fits. The door's
      *  swing-area keep-clear rect still applies to every item. */
     readonly excludeDoorSwing?: boolean;
+    /** §LIVING-SECOND-SEAT (founder 2026-06-19) — per-item room-area gate. When
+     *  set, the item is SKIPPED unless the room's area ≥ this value. Lets an
+     *  archetype carry "only for a large room" items (e.g. a second sofa cluster)
+     *  without forking the archetype. Undefined ⇒ always eligible (unchanged). */
+    readonly minAreaM2?: number;
 }
 
 export interface FurnitureArchetype {

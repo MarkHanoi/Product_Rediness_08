@@ -18,7 +18,7 @@ describe('F1.3 — tv + tv_unit (S1 media wall) on the ai-host side', () => {
         expect(tv.l).toBeLessThan(0.15);             // thin panel
         expect(tv.w).toBeGreaterThan(1.0);
         expect(tv.h).toBeGreaterThan(0.5);
-        expect(tv.h).toBeLessThan(1.0);
+        expect(tv.h).toBeLessThan(1.3);   // §TV-50-LARGER: a big cinema panel (1.20 m); was <1.0
     });
 
     it('tv_unit footprint is low + wide + on the floor', () => {

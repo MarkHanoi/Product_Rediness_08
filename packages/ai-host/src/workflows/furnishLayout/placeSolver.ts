@@ -1064,6 +1064,10 @@ function applyArchetype(
     // with the room (0 for an axis-aligned room → no change to existing behaviour).
     const centerYaw = roomTiltYaw(input.walls);
     for (const spec of archetype.items) {
+        // §LIVING-SECOND-SEAT — per-item room-area gate: skip "large-room-only"
+        // items (e.g. the second sofa cluster) when the room is too small. Items
+        // without minAreaM2 are unaffected → existing layouts byte-identical.
+        if (spec.minAreaM2 !== undefined && input.areaM2 < spec.minAreaM2) continue;
         if (spec.anchor === 'beside') {
             const leader = spec.group ? leaders.get(spec.group) : undefined;
             if (!leader) continue;       // leader couldn't place → drop the dependents

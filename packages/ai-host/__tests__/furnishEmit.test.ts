@@ -48,12 +48,12 @@ describe('buildFurnishCommands (D-FLE F8)', () => {
         const items = furnishRoom(rectRoom('living-room', 5, 4, 3.0));
         const set = buildFurnishCommands(items, 'L1', 3.0, (() => { let n = 0; return () => `f-${n++}`; })());
         // F1.3 / F1.10 / F1.11 (2026-05-30): the living-room archetype
-        // now includes wall-mounted items (tv 1.20 m, wall_art 1.20 m,
-        // curtain_rod 2.40 m). Emitted baseOffset is
+        // now includes wall-mounted items (tv 1.05 m §TV-50-LARGER, wall_art
+        // 1.20 m, curtain_rod 2.40 m). Emitted baseOffset is
         // `position.y - levelElevation`; floor items resolve to 0, wall
         // items to their footprint baseOffset. Pin each case.
         const WALL_ITEMS: Readonly<Record<string, number>> = {
-            tv: 1.20,
+            tv: 1.05,
             wall_art: 1.20,
             wall_mirror: 1.20,
             bathroom_mirror: 1.10,

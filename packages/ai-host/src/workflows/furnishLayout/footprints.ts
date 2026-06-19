@@ -116,15 +116,18 @@ const FP: Readonly<Record<FurnitureKind, Footprint>> = {
     //   solver may pack two side-by-side along a long wall.
     bookshelf:        { w: 0.80, l: 0.35, h: 1.80, baseOffset: 0, clearFront: 0.60, clearSides: 0.00 },
     bookshelf_glass:  { w: 0.80, l: 0.35, h: 1.80, baseOffset: 0, clearFront: 0.60, clearSides: 0.00 },
-    // F1.3 (2026-05-30) — Media wall.
-    //   tv: 1.40 m wide × 0.08 m deep × 0.80 m tall. Wall-mounted —
-    //       baseOffset 1.2 m so the panel hangs at eye level. No floor
-    //       clearance (the unit below sits beneath the panel).
-    //   tv_unit: 1.60 m wide × 0.40 m deep × 0.50 m tall. Sits on the
-    //       floor under the TV. 0.60 m front clearance so the sofa
-    //       doesn't crowd the front of the unit.
-    tv:               { w: 1.40, l: 0.08, h: 0.80, baseOffset: 1.20, clearFront: 0.00, clearSides: 0.00 },
-    tv_unit:          { w: 1.60, l: 0.40, h: 0.50, baseOffset: 0,    clearFront: 0.60, clearSides: 0.00 },
+    // F1.3 (2026-05-30) — Media wall. §TV-50-LARGER (founder 2026-06-19): both the
+    // panel and the console are ~50% larger (a big cinema TV + matching console).
+    //   tv: 2.10 m wide × 0.08 m deep × 1.20 m tall. Wall-mounted — baseOffset
+    //       lowered to 1.00 m so the bigger panel's centre stays at seated eye
+    //       level (top ≈ 2.20 m, clears a 2.7 m ceiling). The media item is
+    //       window/door-safe (tv_unit excludeWindowWall+excludeDoorSwing; the TV
+    //       yields to the unit's wall), and required:false so it skips a wall it
+    //       can't fit rather than clashing.
+    //   tv_unit: 2.40 m wide × 0.40 m deep × 0.65 m tall. Sits under the TV. 0.60 m
+    //       front clearance so the sofa doesn't crowd the front of the unit.
+    tv:               { w: 2.10, l: 0.08, h: 1.20, baseOffset: 1.05, clearFront: 0.00, clearSides: 0.00 },
+    tv_unit:          { w: 2.40, l: 0.40, h: 0.65, baseOffset: 0,    clearFront: 0.60, clearSides: 0.00 },
     // F1.4 (2026-05-30) — Entry storage. All anchored on hall walls; the
     // shoe cabinet + console need step-back clearance; the coat rack +
     // entry bench take floor-only space.
