@@ -233,6 +233,39 @@ export class WallJoinResolver {
         // PRESERVE is respected: the HOST (shell) is never moved.
         this._clampPartitionEndsToShellInnerFace(walls, bl, byId, result, thresholds);
 
+        // ── §RESOLVED-STUB-SWEEP (founder 2026-06-19) ───────────────────────────
+        // FINAL net for the degenerate dead-band. A wall can be collapsed into
+        // `[minWallLength, DEGENERATE_STUB_LENGTH)` = [0.05, 0.15) m by the SUM of
+        // several individually-legal trims — e.g. RBZ9: a corner crossing on its
+        // start + a SUCCESSFUL shell inner-face clamp (+99 mm) + a multi-cluster
+        // consensus on its end → a ~0.10 m residual that every pass reports
+        // `closed=✓ invalid=false`. The per-pass guards refuse only a trim that
+        // would land BELOW minWallLength (0.05); §WJR-INVALID's 0.15 m guard fires
+        // ONLY on the shell-clamp-REFUSED branch (which a SUCCESSFUL clamp skips);
+        // and the mesh backstop is < 1e-3 m. So a 0.10 m stub sails through every
+        // guard and the builder extrudes it into the down-spike the founder saw.
+        //
+        // This sweep judges the FINAL resolved length — after every legitimate trim
+        // has had its chance — and flags such a stub `invalid` so WallFragmentBuilder
+        // skips it ("wrong-but-skipped beats a 0.1 m spike"). It only ADDS a flag:
+        // it never moves an endpoint and never widens a tolerance, so it composes
+        // with all four shell/clamp passes and is parity-safe. It is scoped to walls
+        // the resolver ACTUALLY ADJUSTED (`result.has`) — an unadjusted wall keeps
+        // its upstream-validated source length untouched (a legitimate short jog the
+        // user drew is not the resolver's to refuse). NB: do NOT raise the per-pass
+        // minWallLength to 0.15 as a shortcut — that would refuse legitimate
+        // 0.05–0.15 m corner trims; only the FULLY-COLLAPSED final result is skipped.
+        for (const w of walls) {
+            const adj = result.get(w.id);
+            if (!adj || adj.invalid) continue;            // unadjusted ⇒ keep source; already-flagged ⇒ keep first reason
+            const cur = bl.get(w.id);
+            if (!cur) continue;
+            const len = cur[0].distanceTo(cur[1]);
+            if (len >= thresholds.minWallLength && len < DEGENERATE_STUB_LENGTH) {
+                this._flagInvalid(w.id, bl, result, `§RESOLVED-STUB-SWEEP collapsed to ${len.toFixed(3)}m`);
+            }
+        }
+
         return result;
     }
 

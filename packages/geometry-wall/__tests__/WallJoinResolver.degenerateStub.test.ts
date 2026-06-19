@@ -146,4 +146,61 @@ describe('WallJoinResolver — §PARTITION-SHELL-DEGENERATE-STUB', () => {
         expect(joinZ).toBeGreaterThan(0.05);
         expect(joinZ).toBeLessThan(0.15);
     });
+
+    // ── §RESOLVED-STUB-SWEEP (founder 2026-06-19) ───────────────────────────────
+    // The down-spike defect: a wall collapsed into the [0.05, 0.15) m dead band by
+    // the SUM of several individually-legal trims (a corner crossing + a SUCCESSFUL
+    // shell clamp + a cluster consensus) shipped `closed=✓ invalid=false` because
+    // every per-pass guard only refuses a trim landing BELOW 0.05 m, the 0.15 m
+    // §WJR-INVALID guard fires only on the clamp-REFUSED branch, and the mesh
+    // backstop is < 1e-3 m. The post-resolve sweep judges the FINAL length and
+    // flags such a stub so the builder skips it. (Verified in isolation by the
+    // investigation probe: a same-thickness L-corner sourced at 0.10 m resolved
+    // closed=✓ invalid=false BEFORE this fix.)
+
+    it('(e) §RESOLVED-STUB-SWEEP — a same-thickness L-corner that leaves a ~0.10 m arm in the [0.05,0.15) dead band is flagged invalid', () => {
+        // Long horizontal arm + a SHORT (0.10 m) perpendicular arm meeting at its
+        // END (a clean L-corner, NOT a body-T → the inner-face clamp does not fire).
+        // The bisector corner sets both joining ends to the centreline crossing
+        // (3,0) — which the arms already share — so the short arm stays 0.10 m: a
+        // degenerate stub no per-pass guard catches.
+        const longArm  = makeWall([0, 0], [3, 0], 0.1);
+        const shortArm = makeWall([3, 0], [3, 0.1], 0.1);
+
+        const result = WallJoinResolver.resolveLevel([longArm, shortArm]) as any;
+        const adj = result.get(shortArm.id);
+        expect(adj).toBeDefined();
+        // THE FIX: the 0.10 m residual is flagged invalid so WallFragmentBuilder
+        // skips it (no extruded down-spike). Before the sweep this was invalid=false.
+        expect(adj.invalid).toBe(true);
+        expect(adj.invalidReason).toContain('RESOLVED-STUB-SWEEP');
+
+        // The long arm renders normally — never flagged.
+        const longAdj = result.get(longArm.id);
+        if (longAdj) expect(longAdj.invalid).toBeFalsy();
+    });
+
+    it('(f) §PARITY-GATE — on a ROTATED plate NO wall ships a final length in (1e-3, 0.15) m unless flagged invalid', () => {
+        // The (e) L-corner rotated 30° about the origin — proves the sweep is
+        // frame-agnostic (the real defect was on a rotated Project-North plate).
+        //   longArm  (0,0)→(3,0)     ⇒ (0,0)→(2.598076, 1.5)
+        //   shortArm (3,0)→(3,0.1)   ⇒ (2.598076,1.5)→(2.548076, 1.586603)
+        const longArm  = makeWall([0, 0], [2.598076, 1.5], 0.1);
+        const shortArm = makeWall([2.598076, 1.5], [2.548076, 1.586603], 0.1);
+
+        const result = WallJoinResolver.resolveLevel([longArm, shortArm]) as any;
+
+        // The invariant: every resolved wall is either clearly degenerate (< 1e-3,
+        // caught by the mesh backstop), clearly usable (>= 0.15 m), or explicitly
+        // flagged invalid. NOTHING ships rendered in the un-guarded dead band.
+        for (const [, adj] of result) {
+            const [s, e] = adj.baseLine;
+            const len = s.distanceTo(e);
+            const ok = len < 1e-3 || len >= 0.15 || adj.invalid === true;
+            expect(ok).toBe(true);
+        }
+        // And specifically the 0.10 m arm is the one flagged.
+        const shortAdj = result.get(shortArm.id);
+        expect(shortAdj.invalid).toBe(true);
+    });
 });
