@@ -24,7 +24,7 @@ const LAMP: FurnitureKind = 'lamp';
  *  lamp was rendering at full floor-lamp scale and dwarfing the nightstand; the
  *  builder now scales its shade/spread to this width (ref 0.35 → ~50% here). */
 const BEDSIDE_LAMP_FP: Footprint = {
-    w: 0.18, l: 0.18, h: 0.24, baseOffset: 0, clearFront: 0, clearSides: 0,
+    w: 0.15, l: 0.15, h: 0.22, baseOffset: 0, clearFront: 0, clearSides: 0,
 };
 
 /**
