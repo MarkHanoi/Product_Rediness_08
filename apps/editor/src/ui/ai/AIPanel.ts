@@ -189,7 +189,7 @@ const COMMAND_TREE: SuggestionNode[] = [
                 // the active level. Auto-fires after "Apply ceilings" (which
                 // itself auto-fires after the apartment generator).
                 label: 'Furnish all rooms (AI)',
-                hint: 'auto-place furniture per occupancy archetype',
+                hint: 'auto-place furniture + lighting (ceiling + floor lamps) per room',
                 // A.21.D28 #7 — ask the user to furnish the ACTIVE floor (default)
                 // or ALL floors. With a single level the prompt is skipped.
                 action: () => { triggerFurnishWithPrompt(); },

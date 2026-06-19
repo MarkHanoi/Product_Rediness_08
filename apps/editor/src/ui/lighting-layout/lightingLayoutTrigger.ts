@@ -80,6 +80,17 @@ export function installLightingLayoutTrigger(runtime: PryzmRuntime | null): void
         });
         events.on?.('furnish.layout-executed', () => {
             if (isHouseFanoutActive()) return;
+            // §FURNISH-ALWAYS-LIGHTS (founder 2026-06-19) — every furnish RUN lights
+            // once. The dedup `state.fired` was only reset on a preceding `ceiling.
+            // layout-executed`; a DIRECT "Furnish all rooms (AI)" click (no ceiling
+            // event first) therefore re-fired lighting only the FIRST time — on the
+            // second+ click `state.fired` was stuck true and lighting silently no-op'd
+            // ("clicking furnish doesn't trigger anything"). Reset the dedup + cancel any
+            // armed fallback here so furnish ALWAYS lights (ceiling fixtures + the
+            // §MORE-LIGHTING floor lamps). fireLighting re-sets `fired`, so the fallback
+            // timer still can't double-fire within a run.
+            if (state.timer !== null) { clearTimeout(state.timer); state.timer = null; }
+            state.fired = false;
             fireLighting('furnish-event');
         });
         console.log('[lighting-layout] auto-fire on furnish.layout-executed: wired (§CHAIN-TIMEOUT fallback: ' + FALLBACK_MS + ' ms).');
