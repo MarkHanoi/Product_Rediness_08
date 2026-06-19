@@ -36,14 +36,48 @@ export function triggerLightingLayout(runtimeArg?: PryzmRuntime | null): void {
     }
 }
 
+/** Guard so the furnish→lighting cascade is wired EXACTLY once across the
+ *  session, even if install is called more than once or the deferred retry and
+ *  a later explicit install race (a double subscription would double-light). */
+let _cascadeWired = false;
+
 /** Install the DevTools console command + auto-fire AFTER 'furnish.layout-
  *  executed'. Idempotent. */
 export function installLightingLayoutTrigger(runtime: PryzmRuntime | null): void {
     if (typeof window !== 'undefined') {
-        window.pryzmLightAllRooms = () => triggerLightingLayout(runtime);
+        window.pryzmLightAllRooms = () => triggerLightingLayout(runtime ?? (window.runtime as unknown as PryzmRuntime | undefined) ?? null);
         console.log('[lighting-layout] console command ready — run pryzmLightAllRooms() to auto-light all rooms.');
     }
-    if (runtime) {
+    // §LIGHT-WIRE-DEFER (founder 2026-06-19) — mountAIArea can run BEFORE the
+    // runtime is composed (createMainLayout defaults runtime to null), in which
+    // case the original `if (runtime)` wiring was SKIPPED and the furnish→lighting
+    // cascade was never subscribed → clicking "Furnish all rooms (AI)" placed
+    // furniture but NEVER lit (house-gen still lit because runHousePostGenChain
+    // drives lighting directly per storey, masking the bug). Resolve the runtime
+    // from the arg OR window.runtime, and if neither is ready yet, retry on a
+    // short interval until it appears so the cascade is reliably wired once.
+    const tryWire = (): boolean => {
+        const rt = (runtime ?? (typeof window !== 'undefined' ? (window.runtime as unknown as PryzmRuntime | undefined) : undefined)) ?? null;
+        if (!rt) return false;
+        wireLightingCascade(rt);
+        return true;
+    };
+    if (!tryWire() && typeof window !== 'undefined') {
+        let attempts = 0;
+        const iv = setInterval(() => {
+            attempts++;
+            if (tryWire() || attempts > 40) clearInterval(iv);   // ≤10 s of 250 ms polls
+        }, 250);
+    }
+}
+
+/** Wire the furnish→lighting (and ceiling-fallback) cascade. Subscribes EXACTLY
+ *  once via `_cascadeWired`. Extracted so the deferred retry above can call it
+ *  the moment a runtime becomes available. */
+function wireLightingCascade(runtime: PryzmRuntime): void {
+    if (_cascadeWired) return;
+    _cascadeWired = true;
+    {
         _executor.attach(runtime);
         // §CHAIN-TIMEOUT (2026-05-29) — auto-fire-chain reliability.
         // Mirrors the same shape as furnishLayoutTrigger: arm a fallback
