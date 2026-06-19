@@ -10,6 +10,7 @@ import {
     type ContextBuildingCollection,
 } from "./contextBuildings";
 import { fetchContextRoads, type ContextRoadCollection } from "./contextRoads";
+import { fetchContextWater, type ContextWaterCollection } from "./contextWater";
 // PW.2 (§DIAG-PARTY-WALL) — capture neighbour footprints for the layout pipeline
 // (party/blind-wall detection in resolveBlindFacades). Editor-side store, no engine dep.
 import { setNeighbourFootprints } from "../site/neighbourFootprintStore";
@@ -152,6 +153,9 @@ const FORMA_PALETTE = {
   stair: '#B9B3A8',
   /** FORMA-CTX §22.2 — thin grey road centre-lines (Forma/Archistar look). */
   road: '#8A8A8A',
+  /** FORMA-CTX-WATER (founder 2026-06-19) — soft blue lakes/rivers, matching the
+   *  2D map's water tone so the site reads with its real water context. */
+  water: '#AEC9DB',
 } as const;
 
 /**
@@ -458,6 +462,9 @@ export class CesiumViewport {
   /** FORMA-CTX §22.2 — OSM road centre-line polylines (visual-only context). */
   private contextRoadEntities: Cesium.Entity[] = [];
   private contextRoadsAbort: AbortController | null = null;
+  /** FORMA-CTX-WATER — OSM water polygons + waterway polylines (visual-only). */
+  private contextWaterEntities: Cesium.Entity[] = [];
+  private contextWaterAbort: AbortController | null = null;
   /** Abort handle for an in-flight context-building fetch (cancelled on a newer
    *  load / dispose so a stale response can't repaint the wrong site). */
   private contextBuildingsAbort: AbortController | null = null;
@@ -1560,6 +1567,8 @@ export class CesiumViewport {
         // context-buildings suppression directly above; idempotent.
         this.contextRoadsAbort?.abort();
         this.clearContextRoads();
+        this.contextWaterAbort?.abort();
+        this.clearContextWater();
       } else {
         const loc = this.readSiteLocation();
         if (loc) void this.loadContextBuildings(loc.lat, loc.lon, true);
@@ -2636,6 +2645,7 @@ export class CesiumViewport {
       } else {
         void this.loadContextBuildings(originLat, originLon);
         void this.loadContextRoads(originLat, originLon);   // FORMA-CTX §22.2
+        void this.loadContextWater(originLat, originLon);   // FORMA-CTX-WATER
       }
     }
 
@@ -3563,6 +3573,102 @@ export class CesiumViewport {
       try { viewer.entities.remove(ent); } catch { /* gone */ }
     }
     this.contextRoadEntities = [];
+  }
+
+  /**
+   * FORMA-CTX-WATER (founder 2026-06-19) — fetch OSM water bodies + waterways
+   * for the site and draw them as flat blue polygons / polylines on the Forma
+   * flat-ground study, mirroring loadContextRoads' ENU bridge. Visual-only: NO
+   * layout/model impact. Never throws (fetch degrades to a quiet no-op).
+   */
+  public async loadContextWater(lat: number, lon: number, force = false): Promise<void> {
+    const viewer = this.viewer;
+    if (!viewer) return;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) return;
+    if (!force && this.contextWaterEntities.length > 0 && this.contextBuildingsAt &&
+        Math.abs(this.contextBuildingsAt.lat - lat) < 1e-6 &&
+        Math.abs(this.contextBuildingsAt.lon - lon) < 1e-6) return;
+
+    this.contextWaterAbort?.abort();
+    this.contextWaterAbort = new AbortController();
+    const signal = this.contextWaterAbort.signal;
+
+    let collection: ContextWaterCollection;
+    try { collection = await fetchContextWater(lat, lon, signal); }
+    catch { return; }
+    if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
+
+    this.clearContextWater();
+    if (collection.areas.length === 0 && collection.ways.length === 0) return;
+
+    const enu = Cesium.Transforms.eastNorthUpToFixedFrame(
+      Cesium.Cartesian3.fromDegrees(lon, lat, 0),
+    );
+    const invEnu = Cesium.Matrix4.inverse(enu, new Cesium.Matrix4());
+    // Sit water just BELOW the road hair-line but still above the ground plane so
+    // roads draw over it and it never z-fights the flat ground.
+    const base = this.formaTerrainBaseHeight + 0.03;
+    const waterFill = Cesium.Color.fromCssColorString(FORMA_PALETTE.water).withAlpha(0.85);
+    const waterLine = Cesium.Color.fromCssColorString(FORMA_PALETTE.water).withAlpha(0.95);
+
+    let placed = 0;
+    // Filled lake/pond/reservoir polygons.
+    for (const area of collection.areas) {
+      try {
+        const positions = area.ring.map(([flon, flat]) => {
+          const fc = Cesium.Cartesian3.fromDegrees(flon, flat, 0);
+          const off = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
+          return this.enuToCartesian(enu, off.x, off.y, base);
+        });
+        if (positions.length < 4) continue;
+        const ent = viewer.entities.add({
+          name: 'pryzm-forma-context-water',
+          polygon: {
+            hierarchy: new Cesium.PolygonHierarchy(positions),
+            height: base,
+            material: waterFill,
+            outline: false,
+          },
+        });
+        this.contextWaterEntities.push(ent);
+        placed++;
+      } catch { /* skip one malformed area */ }
+    }
+    // River/stream/canal centre-lines.
+    for (const way of collection.ways) {
+      try {
+        const positions = way.coords.map(([flon, flat]) => {
+          const fc = Cesium.Cartesian3.fromDegrees(flon, flat, 0);
+          const off = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
+          return this.enuToCartesian(enu, off.x, off.y, base);
+        });
+        if (positions.length < 2) continue;
+        const ent = viewer.entities.add({
+          name: 'pryzm-forma-context-waterway',
+          polyline: {
+            positions,
+            width: 3,
+            clampToGround: false,
+            arcType: Cesium.ArcType.NONE,
+            material: waterLine,
+            depthFailMaterial: new Cesium.ColorMaterialProperty(waterLine),
+          },
+        });
+        this.contextWaterEntities.push(ent);
+        placed++;
+      } catch { /* skip one malformed waterway */ }
+    }
+    viewer.scene.requestRender();
+    console.log(`[CesiumViewport][forma] FORMA-CTX-WATER rendered: ${placed} water feature(s).`);
+  }
+
+  /** FORMA-CTX-WATER — remove all water polygons/polylines (idempotent). */
+  public clearContextWater(): void {
+    const viewer = this.viewer;
+    if (viewer) for (const ent of this.contextWaterEntities) {
+      try { viewer.entities.remove(ent); } catch { /* gone */ }
+    }
+    this.contextWaterEntities = [];
   }
 
   /** Log the "context buildings unavailable / degraded" message at most once. */
