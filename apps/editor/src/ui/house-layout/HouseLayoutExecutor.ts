@@ -1475,6 +1475,10 @@ export class HouseLayoutExecutor {
                     // miter/consensus) is reported separately so it never inflates the verdict.
                     const perpToLine = (p: { x: number; z: number }, a: { x: number; z: number }, ux: number, uz: number): number =>
                         Math.abs((p.x - a.x) * uz - (p.z - a.z) * ux);
+                    // §PARITY-GATE — accumulate the cross-level shift so a regression becomes a
+                    // LOUD, structured error (not a quiet log) the moment a built wall drifts off
+                    // the previewed line. Surfaced after the per-level log below.
+                    let gateShifted = 0, gateWorstMm = 0;
                     const parityLines = levelIds.map((lvl, i) => {
                         const optMap = optionBaselinesByLevel.get(lvl);
                         if (!optMap || optMap.size === 0) return null;
@@ -1497,6 +1501,8 @@ export class HouseLayoutExecutor {
                             if (trimMm > trimMaxMm) trimMaxMm = trimMm;
                             if (latMm > PARITY_TOL_MM) shifted++;
                         }
+                        gateShifted += shifted;
+                        if (latMaxMm > gateWorstMm) gateWorstMm = latMaxMm;
                         if (checked === 0) return null;
                         const label = i === 0 ? 'Ground(L0)' : `Level ${i.toString().padStart(2, '0')}`;
                         const verdict = shifted === 0
@@ -1506,6 +1512,25 @@ export class HouseLayoutExecutor {
                     }).filter((l): l is string => l !== null);
                     if (parityLines.length > 0) {
                         console.log('[house-layout] §DIAG-PARITY option(preview)↔built wall-centreline divergence:\n' + parityLines.join('\n'));
+                    }
+                    // §PARITY-GATE (PREVIEW↔EXECUTION PARITY CONTRACT enforcement, 2026-06-19) —
+                    // promote the parity measure from a quiet WARNING to a GATE: any wall built
+                    // >PARITY_TOL_MM off the previewed line is a contract REGRESSION (wall/floor-
+                    // finish misalignment + a re-openable room loop), so surface it as a LOUD,
+                    // structured `console.error` CI/telemetry/dev-console can't miss — never first
+                    // discovered in a screenshot again. Production-SAFE: error-only, NEVER throws,
+                    // so a residual edge case can't break house generation. The CI-level hard gate
+                    // is the unit fixture (groundWallFrameParity.test.ts + houseLayoutInvariants
+                    // §ONE-FRAME-MINT/§PERIM-CORNER-SNAP). The fix for a trip is the reconciliation
+                    // transform — NEVER widen PARITY_TOL_MM.
+                    if (gateShifted > 0) {
+                        console.error(
+                            `[house-layout] §PARITY-GATE FAILED — ${gateShifted} wall(s) built ` +
+                            `>${PARITY_TOL_MM}mm off the previewed line (worst ${Math.round(gateWorstMm)}mm). ` +
+                            `Built != previewed → wall/floor-finish misalignment, a REGRESSION of the ` +
+                            `preview↔execution parity contract. Fix the reconciliation transform ` +
+                            `(SPIKE-TRUE-NORTH-PROJECT-NORTH-ROTATION-AUDIT-2026-06-18.md); do NOT widen the tolerance.`,
+                        );
                     }
                 } catch (e) { console.warn('[house-layout] §DIAG-LEVELS failed (non-fatal):', e); }
 
