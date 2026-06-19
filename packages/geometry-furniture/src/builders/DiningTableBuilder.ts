@@ -20,8 +20,8 @@ export class DiningTableBuilder implements IFurnitureBuilder {
         const { width, length, height } = data;
 
         // Warm light-oak timber (founder refs); cushions in soft warm cream.
-        const woodColor = data.color ? parseInt(data.color.replace('#', '0x')) : 0xc8a878;
-        const woodDark  = 0xab8c5c;  // slat grooves / leg shadow tone
+        const woodColor = data.color ? parseInt(data.color.replace('#', '0x')) : 0xc09a6b;  // warmer light oak (founder ref)
+        const woodDark  = 0x9c7b4f;  // slat grooves / leg shadow tone (deeper warm oak)
         const cushion   = 0xe7ddc8;  // warm cream cushion
         const tableMat   = this.materialService.getMaterial(woodColor, 'standard') as THREE.MeshStandardMaterial;
         const grooveMat  = this.materialService.getMaterial(woodDark, 'standard') as THREE.MeshStandardMaterial;
@@ -38,7 +38,7 @@ export class DiningTableBuilder implements IFurnitureBuilder {
         topMid.position.set(0, topY, 0);
         group.add(topMid);
         for (const sign of [-1, 1]) {
-            const cap = new THREE.Mesh(new THREE.CylinderGeometry(capR, capR, topThk, 28, 1, false, 0, Math.PI), tableMat);
+            const cap = new THREE.Mesh(new THREE.CylinderGeometry(capR, capR, topThk, 48, 1, false, 0, Math.PI), tableMat);
             // half-disc cap rounding each end (axis up, flat in XZ)
             cap.position.set(0, topY, sign * (midLen / 2));
             cap.rotation.y = sign > 0 ? 0 : Math.PI;
@@ -49,10 +49,10 @@ export class DiningTableBuilder implements IFurnitureBuilder {
         }
 
         // ── 2. SLAT grooves — thin recessed lines running lengthwise (the plank look) ──
-        const SLATS = 4;
+        const SLATS = 6;
         for (let s = 1; s <= SLATS; s++) {
             const gx = -width / 2 + (width / (SLATS + 1)) * s;
-            const groove = new THREE.Mesh(new THREE.BoxGeometry(0.008, topThk * 0.5, length * 0.86), grooveMat);
+            const groove = new THREE.Mesh(new THREE.BoxGeometry(0.012, topThk * 0.5, length * 0.86), grooveMat);
             groove.position.set(gx, topY + topThk * 0.26, 0);
             group.add(groove);
         }
@@ -123,6 +123,17 @@ export class DiningTableBuilder implements IFurnitureBuilder {
             leg.position.set(x, seatH / 2, z);
             g.add(leg);
         }
+        // Front + side stretcher rails between the legs — the solid armchair-frame look.
+        const frontRail = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, lo * 2, 10), woodMat);
+        frontRail.rotateZ(Math.PI / 2);
+        frontRail.position.set(0, seatH * 0.38, lo);
+        g.add(frontRail);
+        for (const sx of [-1, 1]) {
+            const sideRail = new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.013, lo * 2, 10), woodMat);
+            sideRail.rotateX(Math.PI / 2);
+            sideRail.position.set(sx * lo, seatH * 0.34, 0);
+            g.add(sideRail);
+        }
 
         // Wood seat frame (thin) + thick cream cushion on top.
         const frame = new THREE.Mesh(new THREE.BoxGeometry(seatW, 0.04, seatD), woodMat);
@@ -133,7 +144,7 @@ export class DiningTableBuilder implements IFurnitureBuilder {
         g.add(cush);
 
         // Two back posts + a top rail (wood frame), with a curved cream back cushion.
-        const postGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.5, 6);
+        const postGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.5, 12);
         const backZ = -seatD / 2 + 0.03;
         for (const x of [-seatW / 2 + 0.04, seatW / 2 - 0.04]) {
             const post = new THREE.Mesh(postGeo, woodMat);
@@ -141,7 +152,7 @@ export class DiningTableBuilder implements IFurnitureBuilder {
             post.rotation.x = -0.08;
             g.add(post);
         }
-        const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, seatW, 8), woodMat);
+        const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, seatW, 14), woodMat);
         rail.rotateZ(Math.PI / 2);
         rail.position.set(0, seatH + 0.5, backZ - 0.02);
         g.add(rail);
