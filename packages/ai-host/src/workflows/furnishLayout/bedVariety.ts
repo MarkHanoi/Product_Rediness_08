@@ -125,9 +125,11 @@ export function integratedSetUsesInlineLamps(set: BedSet): boolean {
 }
 
 /** A compact bedside-lamp footprint — identical to bedsideLamps.ts so the two
- *  lamp sources are visually consistent (the consistency check). */
+ *  lamp sources are visually consistent (the consistency check). §LAMP-FIT-FOOTPRINT
+ *  (founder 2026-06-19): halved 0.25/0.45 → 0.18/0.24 so the bedside lamp no longer
+ *  renders at full floor-lamp scale and dwarfs the nightstand. */
 const INTEGRATED_LAMP_FP: Footprint = {
-    w: 0.25, l: 0.25, h: 0.45, baseOffset: 0, clearFront: 0, clearSides: 0,
+    w: 0.18, l: 0.18, h: 0.24, baseOffset: 0, clearFront: 0, clearSides: 0,
 };
 
 const LAMP: FurnitureKind = 'lamp';

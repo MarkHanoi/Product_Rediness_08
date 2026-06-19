@@ -14,7 +14,16 @@ export class LampBuilder implements IFurnitureBuilder {
     build(data: FurnitureData): THREE.Group {
         const group = new THREE.Group();
         const height = data.height || 1.6;
-        
+
+        // §LAMP-FIT-FOOTPRINT (founder 2026-06-19) — the builder used to ignore
+        // `width` and always draw a full floor-lamp shade (0.25 m radius = 0.5 m
+        // wide) + 0.3 spread, so the small BEDSIDE lamp (0.25 m footprint, 0.45 m
+        // tall) rendered at full floor-lamp scale and dwarfed the nightstand. Scale
+        // every fixture by the footprint width against the standard floor lamp
+        // (w = 0.35 m → fixScale 1.0, so real floor lamps are unchanged); a 0.18 m
+        // bedside footprint then renders at ~half size, as requested.
+        const fixScale = (data.width && data.width > 0 ? data.width : 0.35) / 0.35;
+
         const woodColor = 0x8b4513;
         const shadeColor = 0xf5f5dc; // Beige/Cream
 
@@ -22,11 +31,11 @@ export class LampBuilder implements IFurnitureBuilder {
         const shadeMat = this.materialService.getMaterial(shadeColor, 'standard');
 
         // 1. Tripod Legs (Crossed look)
-        const legRadius = 0.015;
+        const legRadius = 0.015 * fixScale;
         const legHeight = height * 0.75;
         const legGeo = new THREE.CylinderGeometry(legRadius, legRadius, legHeight, 8);
-        
-        const spread = 0.3;
+
+        const spread = 0.3 * fixScale;
         const angle = Math.PI * 2 / 3;
         
         for (let i = 0; i < 3; i++) {
@@ -47,17 +56,17 @@ export class LampBuilder implements IFurnitureBuilder {
         }
 
         // 2. Shade
-        const shadeRadius = 0.25;
-        const shadeHeight = 0.4;
+        const shadeRadius = 0.25 * fixScale;
+        const shadeHeight = 0.4 * fixScale;
         const shadeGeo = new THREE.CylinderGeometry(shadeRadius, shadeRadius, shadeHeight, 32);
         const shade = new THREE.Mesh(shadeGeo, shadeMat);
         shade.position.set(0, height - shadeHeight / 2, 0);
         group.add(shade);
 
         // 3. Central Pole (Top part connecting legs to shade)
-        const poleGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.2, 8);
+        const poleGeo = new THREE.CylinderGeometry(0.01 * fixScale, 0.01 * fixScale, 0.2 * fixScale, 8);
         const pole = new THREE.Mesh(poleGeo, woodMat);
-        pole.position.set(0, height - shadeHeight - 0.1, 0);
+        pole.position.set(0, height - shadeHeight - 0.1 * fixScale, 0);
         group.add(pole);
 
         return group;

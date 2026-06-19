@@ -18,10 +18,13 @@ import type { FurnishRoomInput, PlacedFurniture, Footprint, FurnitureKind } from
 const LAMP: FurnitureKind = 'lamp';
 
 /** A compact table-lamp footprint (distinct from the floor `lamp` in the
- *  footprint catalogue, which is a 1.5 m corner standard lamp). 0.25 m square,
- *  0.45 m tall — a bedside reading lamp. No clearances: it sits on the table. */
+ *  footprint catalogue, which is a 1.5 m corner standard lamp). 0.18 m square,
+ *  0.24 m tall — a small bedside reading lamp. No clearances: it sits on the
+ *  table. §LAMP-FIT-FOOTPRINT (founder 2026-06-19): halved from 0.25/0.45 — the
+ *  lamp was rendering at full floor-lamp scale and dwarfing the nightstand; the
+ *  builder now scales its shade/spread to this width (ref 0.35 → ~50% here). */
 const BEDSIDE_LAMP_FP: Footprint = {
-    w: 0.25, l: 0.25, h: 0.45, baseOffset: 0, clearFront: 0, clearSides: 0,
+    w: 0.18, l: 0.18, h: 0.24, baseOffset: 0, clearFront: 0, clearSides: 0,
 };
 
 /**
