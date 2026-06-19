@@ -264,11 +264,19 @@ describe('lightRoom', () => {
             expect(placed.filter(p => FLOOR_KINDS.includes(p.kind)).length).toBe(0);
         });
 
-        it('service rooms (kitchen / bathroom / corridor) get NO floor lamps', () => {
-            for (const occ of ['kitchen', 'bathroom', 'corridor', 'utility-room']) {
+        it('service rooms (bathroom / corridor / utility) get NO floor lamps', () => {
+            for (const occ of ['bathroom', 'corridor', 'utility-room']) {
                 const placed = lightRoom(baseInput({ occupancy: occ, areaM2: 18 }));
                 expect(placed.filter(p => FLOOR_KINDS.includes(p.kind)).length,
                     `${occ} should get no floor lamp`).toBe(0);
+            }
+        });
+
+        it('§FLOOR-LAMPS-MORE-ROOMS — a larger kitchen / hall / study gets a floor lamp (founder 2026-06-19)', () => {
+            for (const occ of ['kitchen', 'entrance-lobby', 'private-office']) {
+                const placed = lightRoom(baseInput({ occupancy: occ, areaM2: 18 }));
+                expect(placed.filter(p => FLOOR_KINDS.includes(p.kind)).length,
+                    `${occ} should get a floor lamp`).toBeGreaterThanOrEqual(1);
             }
         });
 

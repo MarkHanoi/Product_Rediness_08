@@ -45,6 +45,9 @@ export const LIGHTING_ARCHETYPES: Readonly<Record<LightableOccupancy, LightingAr
         { kind: 'pendant_cluster',      minAreaM2: 12 },
         { kind: 'linear_led',           minAreaM2: 8 },
         { kind: 'downlight',            minAreaM2: 0 },
+        // §FLOOR-LAMPS-MORE-ROOMS (founder 2026-06-19) — an accent floor lamp in a
+        // corner of a LARGER kitchen (the engine seats it clear of the run/counters).
+        { kind: 'floor_wood_post',      minAreaM2: 14, mount: 'floor' },
     ]),
 
     // Private / bedroom — softer pendant.
@@ -82,10 +85,14 @@ export const LIGHTING_ARCHETYPES: Readonly<Record<LightableOccupancy, LightingAr
     'entrance-lobby': A('entrance-lobby', [
         { kind: 'pendant_pebble',       minAreaM2: 6 },
         { kind: 'downlight',            minAreaM2: 0 },
+        // §FLOOR-LAMPS-MORE-ROOMS — a welcoming floor lamp in the hall corner.
+        { kind: 'floor_tripod_black',   minAreaM2: 5, mount: 'floor' },
     ]),
     'private-office': A('private-office', [
         { kind: 'pendant',              minAreaM2: 12 },
         { kind: 'downlight',            minAreaM2: 0 },
+        // §FLOOR-LAMPS-MORE-ROOMS — an arc reading lamp in the study corner.
+        { kind: 'floor_arc_brass',      minAreaM2: 7, mount: 'floor' },
     ]),
 };
 
