@@ -19,7 +19,10 @@ const DPR      = 2;
 const LABEL_W  = 256 * DPR;
 const LABEL_H  = 80  * DPR;
 const SCALE    = 0.012 / DPR;
-const Y_OFFSET = 0.08;
+// Float the label clearly ABOVE the floor finish. The sprite is ~0.96m tall (half ≈
+// 0.48m); at the old 0.08m its lower half sank BELOW the floor and got occluded (the
+// area line clipped). Lift it so the whole card reads, a little above the floor.
+const Y_OFFSET = 0.9;
 const PRYZM_PURPLE = '#6600FF';
 
 export class RoomLabelRenderer {
@@ -140,7 +143,7 @@ export class RoomLabelRenderer {
 
         // Room name — prominent, brand dark-violet (no black).
         const name = room.name || 'Room';
-        ctx.fillStyle    = '#2A0A66';
+        ctx.fillStyle    = PRYZM_PURPLE;     // §ROOM-LABEL-RESTYLE — room name in PRYZM purple #6600FF
         ctx.font         = '600 23px system-ui, -apple-system, "Segoe UI", sans-serif';
         ctx.textAlign    = 'left';
         ctx.textBaseline = 'alphabetic';

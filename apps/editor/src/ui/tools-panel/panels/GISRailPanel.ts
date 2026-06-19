@@ -90,7 +90,7 @@ export class GISRailPanel {
         // view was unreachable — pryzmShowFormaView was defined but never called.
         root.appendChild(this._buildDivider());
         root.appendChild(this._buildActionBtn(
-            '◉', 'Site 3D (Forma)',
+            '◉', '3D Site',
             'Open the Cesium "massing study" — white extruded buildings on your real-world plot, landing on the Forma Plan-oblique, with a 2D Map / Plan / 3D toggle',
             () => {
                 console.log('[GISRailPanel] Open Site 3D (Forma) massing view (Plan-oblique default)');

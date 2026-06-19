@@ -634,7 +634,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         formaBtn.className = 'pryzm-result-toggle-btn';
         formaBtn.setAttribute('data-result-mode', 'forma');
         formaBtn.setAttribute('data-testid', 'gis-result-forma');
-        formaBtn.textContent = '◉ Site 3D (Forma)';
+        formaBtn.textContent = '◉ 3D Site';
         formaBtn.title = 'Open the Cesium massing study — white extruded buildings on your real-world plot';
         Object.assign(formaBtn.style, {
             appearance: 'none', border: 'none', cursor: 'pointer',
