@@ -37,11 +37,16 @@ export class BathBuilder implements IFurnitureBuilder {
         //   • realistic proportions (~1.7 × 0.75 × 0.55 m).
         // Still a clean parametric mesh: a frame of strips around an open well +
         // chamfer posts + an apron skirt. No CSG, deterministic.
-        const WALL_THK = 0.05;               // ceramic wall thickness
+        // §BATH-SLIM-WALLS (founder 2026-06-19) — "bath walls need to be thinner —
+        // too wide": the 0.14 m basin inset gave a 14 cm-wide ceramic deck all round
+        // (looked like a thick chunky rim) and the 0.05 m walls read heavy. Slim the
+        // rim to ~8 cm and the walls to ~3.5 cm — realistic bath proportions, and a
+        // wider basin as a bonus.
+        const WALL_THK = 0.035;              // ceramic wall thickness (was 0.05)
         const RIM_DROP = 0.015;              // rim top is 15 mm below the outer top
         const FLOOR_Y = 0.14;                // well floor height above the unit base (deep recess)
-        const BASIN_INSET = 0.14;            // inner basin inset INWARD from the outer shell
-        const CHAMFER = 0.06;                // rounded-corner post radius
+        const BASIN_INSET = 0.08;            // inner basin inset INWARD from the outer shell (was 0.14)
+        const CHAMFER = 0.05;                // rounded-corner post radius (was 0.06)
 
         // ── Materials (white enamelled ceramic) ───────────────────────────
         // Shared / cached → clone so the per-instance tweaks below don't leak.

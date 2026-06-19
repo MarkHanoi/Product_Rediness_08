@@ -76,8 +76,12 @@ export class CurtainPanelBuilder implements IFurnitureBuilder {
         const H = data.height;
         const BASE = data.baseOffset ?? 0;
 
-        // Soft neutral fabric — cream-grey blend.
-        const fabricColor = data.color ? parseInt(data.color.replace('#', '0x')) : 0xeae2cf;
+        // §CURTAIN-DECOR-COLOUR (founder 2026-06-19) — "the curtain itself should be
+        // another colour, sort of a decorative touch". The old cream-grey (0xeae2cf)
+        // blended into the cream walls/floor. Default to a muted teal-blue drape — a
+        // classic decorative curtain tone that contrasts the warm shell without
+        // clashing with the timber furniture. Per-element `data.color` still overrides.
+        const fabricColor = data.color ? parseInt(data.color.replace('#', '0x')) : 0x5b7184;
         const fabricMat = new THREE.MeshStandardMaterial({
             color: fabricColor,
             roughness: 0.95,
