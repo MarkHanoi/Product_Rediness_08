@@ -880,6 +880,45 @@ export class WallRebuildCoordinator {
                         }
                     }
 
+                    // §DIAG-WALL-SPIKE (founder 2026-06-19) — surface EVERY wall the
+                    // rebuild's resolveLevel moves significantly, with the before/after
+                    // baselines + the §POST-RESOLVE-PRESERVE decision, so a single
+                    // console filter pinpoints a malforming wall. Filter the console by
+                    //   §DIAG-WALL-SPIKE        → only the walls that moved a lot
+                    //   §POST-RESOLVE-PRESERVE  → only the ones the guard reverted
+                    // For a laser trace of ONE wall set `window.__pryzmTraceWall='<id>'`
+                    // (or a substring) → §DIAG-WALL-TRACE logs it every flush regardless
+                    // of threshold. Reading: dLen ≫ 0 = over-extend spike; dLen ≪ 0 =
+                    // collapse; lateral ≫ 0 = pivot. preserve=true ⇒ guard kept the
+                    // committed (short/correct) baseline → body should build clean; if
+                    // you still see a spike with preserve=true the mesh is STALE (no
+                    // rebuild fired), with preserve=false the guard MISSED it (tell me
+                    // the numbers). Cheap: only fires on a real move or the traced id.
+                    if (_sourceBL) {
+                        const __dst = (a: { x: number; z: number }, b: { x: number; z: number }) => Math.hypot(b.x - a.x, b.z - a.z);
+                        const __preLen = __dst(_sourceBL[0], _sourceBL[1]);
+                        const __newLen = __dst(_newBL[0], _newBL[1]);
+                        const __L = __preLen || 1e-9;
+                        const __ux = (_sourceBL[1].x - _sourceBL[0].x) / __L, __uz = (_sourceBL[1].z - _sourceBL[0].z) / __L;
+                        const __perp = (p: { x: number; z: number }) => Math.abs((p.x - _sourceBL[0].x) * __uz - (p.z - _sourceBL[0].z) * __ux);
+                        const __lat = Math.max(__perp(_newBL[0]), __perp(_newBL[1]));
+                        const __dLen = __newLen - __preLen;
+                        const __traceId = (globalThis as unknown as { __pryzmTraceWall?: string }).__pryzmTraceWall;
+                        const __traced = !!__traceId && wallId.includes(__traceId);
+                        if (__traced || Math.abs(__dLen) > 0.30 || __lat > 0.05) {
+                            const __tag = __traced ? '§DIAG-WALL-TRACE' : '§DIAG-WALL-SPIKE';
+                            const __thk = (_preTrimWall as unknown as { thickness?: number } | undefined)?.thickness ?? 0;
+                            // eslint-disable-next-line no-console
+                            console.warn(
+                                `[WallRebuildCoordinator] ${__tag} ${wallId} t=${__thk.toFixed(3)} ` +
+                                `srcLen=${__preLen.toFixed(3)}m newLen=${__newLen.toFixed(3)}m dLen=${__dLen >= 0 ? '+' : ''}${__dLen.toFixed(3)}m ` +
+                                `lateral=${(__lat * 1000).toFixed(0)}mm preserve=${_preserve} bMoved=${_bMoved} invalid=${(adjustment as unknown as { invalid?: boolean }).invalid === true} ` +
+                                `src=(${_sourceBL[0].x.toFixed(3)},${_sourceBL[0].z.toFixed(3)})→(${_sourceBL[1].x.toFixed(3)},${_sourceBL[1].z.toFixed(3)}) ` +
+                                `new=(${_newBL[0].x.toFixed(3)},${_newBL[0].z.toFixed(3)})→(${_newBL[1].x.toFixed(3)},${_newBL[1].z.toFixed(3)})`,
+                            );
+                        }
+                    }
+
                     if (_bMoved && !_preserve) {
                         store.update(wallId, { baseLine: _newBL, ...(_sourceBaseLineToStore ? { _sourceBaseLine: _sourceBaseLineToStore } : {}) } as any);
                     }
@@ -892,6 +931,19 @@ export class WallRebuildCoordinator {
                             builder.buildWall(updated, adjustment, resolveOpeningRenderMap(updated, store), worldY);
                             builder.recordBuiltVersion(wallId, updated, adjustment, slabOff);
                             _rebuiltWallIds.add(wallId);
+                            // §DIAG-WALL-TRACE — the ACTUAL baseline the body was built
+                            // from (store.getById after the preserve decision). For a
+                            // traced wall: if this builtLen is short but you SEE a spike,
+                            // the spiked mesh is stale (an earlier flush built it long and
+                            // nothing rebuilt it); if builtLen is long, this flush built
+                            // the spike. Pinpoints store-vs-mesh divergence.
+                            const __traceId2 = (globalThis as unknown as { __pryzmTraceWall?: string }).__pryzmTraceWall;
+                            if (__traceId2 && wallId.includes(__traceId2)) {
+                                const __bl = updated.baseLine;
+                                const __builtLen = Math.hypot(__bl[1].x - __bl[0].x, __bl[1].z - __bl[0].z);
+                                // eslint-disable-next-line no-console
+                                console.warn(`[WallRebuildCoordinator] §DIAG-WALL-TRACE ${wallId} BUILT body from baseLine len=${__builtLen.toFixed(3)}m at (${__bl[0].x.toFixed(3)},${__bl[0].z.toFixed(3)})→(${__bl[1].x.toFixed(3)},${__bl[1].z.toFixed(3)}) worldY=${worldY.toFixed(3)}`);
+                            }
                         } catch (err) {
                             console.error(`[WallRebuildCoordinator] §WALL-AUDIT-2026-C1: buildWall failed for wall "${wallId}" — continuing.`, err);
                         }
