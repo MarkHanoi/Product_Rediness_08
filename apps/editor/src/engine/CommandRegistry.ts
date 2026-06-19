@@ -137,6 +137,7 @@ import { DeleteHandrailCommand } from '@pryzm/command-registry';
 
 // ── Furniture / Plumbing commands ──────────────────────────────────────────────
 import { CreateFurnitureCommand } from '@pryzm/command-registry';
+import { UpdateFurnitureParametersCommand } from '@pryzm/command-registry';
 import { CreatePlumbingFixtureCommand } from '@pryzm/command-registry';
 
 // ── Room Bounding Line commands ────────────────────────────────────────────────
@@ -286,6 +287,14 @@ const REGISTRY = new Map<string, CommandFactory>([
 
     // ── Furniture / Plumbing ──────────────────────────────────────────────────
     ['CREATE_FURNITURE', (s) => new CreateFurnitureCommand(s.payload as any)],
+    // §FURNITURE-UPDATE-REPLAY (founder 2026-06-19) — furniture MOVE/ROTATE/resize
+    // dispatch UPDATE_FURNITURE_PARAMETERS, which had NO registry factory → on every
+    // collaboration catch-up/reconnect (frequent on Fly: socket transport-close →
+    // replay) the command was skipped ("No factory") so the furniture reverted to its
+    // CREATE_FURNITURE state — the founder's "sofa rotates back to origin after I move
+    // it". Reconstruct it so it is replayable (mirrors the slab/column/beam audit
+    // gaps fixed above). UpdateFurnitureParametersCommand takes a single payload obj.
+    ['UPDATE_FURNITURE_PARAMETERS', (s) => new UpdateFurnitureParametersCommand(s.payload as any)],
     ['CREATE_PLUMBING_FIXTURE', (s) => new CreatePlumbingFixtureCommand(s.payload as any)],
 
     // ── Room Bounding Lines ───────────────────────────────────────────────────

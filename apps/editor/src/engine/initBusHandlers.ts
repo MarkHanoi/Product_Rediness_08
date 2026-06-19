@@ -202,6 +202,21 @@ export function initBusHandlers(
                 _cmExec(new UpdateFurnitureParametersCommand({ id, ...rest }));
             },
         },
+        {
+            // §FURNITURE-UPDATE-REPLAY (founder 2026-06-19) — RemoteCommandDispatcher
+            // dispatches the COMMAND TYPE ('UPDATE_FURNITURE_PARAMETERS') as the bus key
+            // on collaboration catch-up/replay, but the authoring handler above is keyed
+            // 'furniture.updateParameters'. Without a handler under the CommandType key the
+            // replayed move/rotate no-ops and the furniture reverts to its created pose
+            // ("sofa rotates back to origin after I move it"). Same fn, CommandType key.
+            type: 'UPDATE_FURNITURE_PARAMETERS',
+            stores: [] as const,
+            validate: (cmd) => (!cmd.id ? 'id is required' : null),
+            fn: (cmd) => {
+                const { id, ...rest } = cmd;
+                _cmExec(new UpdateFurnitureParametersCommand({ id, ...rest }));
+            },
+        },
 
         // ── §R4-FIX: element.updateParameters — PropertyPanel.onApply() bridge ──
         // PropertyPanel fires this command via window.runtime.bus.executeCommand()
