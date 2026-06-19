@@ -736,6 +736,43 @@ function sinkUnitIndexUnderWindow(
     return clampInt(cell, 0, numUnits - 1, 0);
 }
 
+/** §KITCHEN-NO-CORNER-APPLIANCE (founder 2026-06-19) — the main-run corner cells of an
+ *  L/U run that must NOT carry an appliance (sink/hob/fridge): main[0] (where the LEFT
+ *  arm joins at X=0) and main[numMain-1] (where the RIGHT arm joins). Corners are dead
+ *  space / blind cabinets — a sink or hob in a corner is unusable. Pure. */
+function mainCornerCells(numMain: number, hasLeft: boolean, hasRight: boolean): Set<number> {
+    const s = new Set<number>();
+    if (hasLeft && numMain >= 1) s.add(0);
+    if (hasRight && numMain >= 1) s.add(numMain - 1);
+    return s;
+}
+
+/** Nudge `cell` to the nearest NON-corner main cell (walking outward). Returns the
+ *  input unchanged when the run is too short to avoid a corner (degenerate ≤2-cell run
+ *  → last-resort allow). Pure. */
+function nudgeOffCorner(cell: number, numMain: number, corners: ReadonlySet<number>): number {
+    if (!corners.has(cell)) return cell;
+    for (let r = 1; r < numMain; r++) {
+        if (cell - r >= 0 && !corners.has(cell - r)) return cell - r;
+        if (cell + r < numMain && !corners.has(cell + r)) return cell + r;
+    }
+    return cell;
+}
+
+/** §KITCHEN-FRIDGE-OFF-WINDOW (founder 2026-06-19) — true when main-run cell `i` sits
+ *  under a window on the spine wall, so a TALL appliance (fridge) there would BLOCK it.
+ *  Reuses windowOnWall's projection frame (same as the sink-under-window cell). Pure. */
+function mainCellUnderWindow(
+    spine: RoomWallSeg, input: FurnishRoomInput, i: number, unitW: number, mainLen: number,
+): boolean {
+    const win = windowOnWall(spine, input);
+    if (!win) return false;
+    const d = wallDir(spine);
+    const wt = (win.center.x - spine.a.x) * d.x + (win.center.z - spine.a.z) * d.z;
+    const ct = (spine.length - mainLen) / 2 + i * unitW + unitW / 2;
+    return Math.abs(ct - wt) <= (unitW + win.width) / 2;
+}
+
 /**
  * Build the parametric kitchen RUN as a single PlacedFurniture carrying a
  * resolved KitchenCabinetConfigLike. Mirrors `planKitchen`'s shape choice + the
@@ -830,14 +867,21 @@ function planKitchenRunSingle(
     // one (the founder's "window over the sink"), else the start cell. The main run
     // is centred on the spine midpoint with unit 0 at the lay-origin end; the cell
     // whose centre is nearest the window-centre projection carries the sink.
-    const sinkCell = sinkUnitIndexUnderWindow(spine, input, numMain, KITCHEN_UNIT_W, mainLen);
+    // §KITCHEN-NO-CORNER-APPLIANCE — the sink sits under the window (when present) but
+    // NEVER in the inside corner; nudge a corner cell to the nearest straight one.
+    const cornerCells = mainCornerCells(numMain, numLeft >= 1, numRight >= 1);
+    const sinkCell = nudgeOffCorner(
+        sinkUnitIndexUnderWindow(spine, input, numMain, KITCHEN_UNIT_W, mainLen),
+        numMain, cornerCells,
+    );
     setAppliance(main, sinkCell, 'sink_inox');
-    // Hob two cells along from the sink (≈1.2 m → NKBA leg), clamped on-run and away
-    // from the sink cell so they never collide.
-    const hobCell = numMain >= 3
+    // Hob two cells along from the sink (≈1.2 m → NKBA leg), clamped on-run, away from
+    // the sink cell, and OFF a corner (no hob in a corner).
+    let hobCell = numMain >= 3
         ? clampInt(sinkCell + 2, 0, numMain - 1, sinkCell)
         : (numMain >= 2 ? (sinkCell === numMain - 1 ? sinkCell - 1 : numMain - 1) : sinkCell);
-    if (numMain >= 2 && hobCell !== sinkCell) setAppliance(main, hobCell, 'hob');
+    hobCell = nudgeOffCorner(hobCell, numMain, cornerCells);
+    if (numMain >= 2 && hobCell !== sinkCell && !cornerCells.has(hobCell)) setAppliance(main, hobCell, 'hob');
     if (opts.washingMachine && numMain >= 4) {
         const wmCell = [0, 1, numMain - 1, numMain - 2].find(i => i !== sinkCell && i !== hobCell);
         if (wmCell !== undefined) setAppliance(main, wmCell, 'washing_machine_white');
@@ -848,14 +892,24 @@ function planKitchenRunSingle(
     const right: KUnit[] = [];
     for (let i = 0; i < numRight; i++) right.push({ index: i, arm: 'right', front: 'door' });
 
-    // Fridge: prefer the first secondary arm one cell off the corner; else a free
-    // main-run cell (far end, then walking inward) that isn't the sink/hob/wm cell.
-    if (numLeft >= 1) {
-        setAppliance(left, Math.min(1, numLeft - 1), 'fridge_combi_silver');
+    // §KITCHEN-FRIDGE-OFF-WINDOW + §KITCHEN-NO-CORNER-APPLIANCE — the FRIDGE (tall) must
+    // NOT block a window and must NOT sit in the inside corner. Prefer a secondary arm
+    // ONE cell off the corner (arm index 1, not the corner index 0); else a main-run
+    // cell that is free, NOT a corner, and NOT under the spine window. Graceful fallback
+    // on a tiny galley: relax the window constraint before the corner, then either.
+    if (numLeft >= 2) {
+        setAppliance(left, 1, 'fridge_combi_silver');          // left[0] is the corner → use left[1]
+    } else if (numRight >= 2) {
+        setAppliance(right, 1, 'fridge_combi_silver');
     } else {
         const used = new Set(main.filter(u => u.appliance).map(u => u.index));
+        const free = (i: number): boolean => !used.has(i) && !cornerCells.has(i);
         let fridgeCell = -1;
-        for (let i = numMain - 1; i >= 0; i--) { if (!used.has(i)) { fridgeCell = i; break; } }
+        for (let i = numMain - 1; i >= 0; i--) {               // off-corner AND off-window
+            if (free(i) && !mainCellUnderWindow(spine, input, i, KITCHEN_UNIT_W, mainLen)) { fridgeCell = i; break; }
+        }
+        if (fridgeCell < 0) for (let i = numMain - 1; i >= 0; i--) { if (free(i)) { fridgeCell = i; break; } }   // off-corner, allow window
+        if (fridgeCell < 0) for (let i = numMain - 1; i >= 0; i--) { if (!used.has(i)) { fridgeCell = i; break; } } // last resort
         if (fridgeCell >= 0) setAppliance(main, fridgeCell, 'fridge_combi_silver');
     }
 
