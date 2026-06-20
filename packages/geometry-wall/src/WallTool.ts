@@ -1678,7 +1678,12 @@ export class WallTool {
         // bus handlers schedule geometry directly (Phase E.5.x P3+).
         const runtime = this.callbacks.runtime;
         if (runtime && runtime.bus.registry.has('wall.create')) {
-            console.log(`[WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level ${finalLevelId}${curve ? ' (curved)' : ''}`);
+            // §DIAG-WALL-TYPE (founder 2026-06-19) — surface the selected wall system type at
+            // create time so a "selected Interior Partition but got a standard wall" report can
+            // be pinpointed: if this logs systemTypeId=none, the PreDraw modal's setSystemTypeId
+            // never reached THIS WallTool instance (instance/timing mismatch); if it logs the id,
+            // the gap is downstream in CreateWallCommand's type→thickness resolution.
+            console.log(`[WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level ${finalLevelId}${curve ? ' (curved)' : ''} — systemTypeId=${this.selectedSystemTypeId ?? 'none'} thickness=${(payload as { thickness?: number }).thickness}`);
             try {
                 // §FIX-WALL-SCHEMA-ID (2026-05-15): wallId is now createId('wall') = wall_<ULID>,
                 // matching the ^wall_[0-9A-HJKMNP-TV-Z]{26}$ regex.  No hex-encode hack needed.
