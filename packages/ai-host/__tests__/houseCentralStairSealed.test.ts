@@ -85,3 +85,32 @@ describe('§HOUSE-CENTRAL-STAIR-SEALED — the ground storey must not ship a sea
         expect(sealed, `sealed rooms: ${sealed.join(', ')}`).toHaveLength(0);
     });
 });
+
+// ── TRACKED KNOWN DEFECT (2026-06-20 sweep) — NOT YET FIXED ─────────────────────
+// The 70-320 m² dimension sweep found plates where the carve seats a habitable /
+// service room in a pocket whose every neighbour is an ILLEGAL door-host (always
+// incl. the `stair` keep-out, plus a bathroom / duplicate service room) → no legal
+// host wall → the room ships SEALED. ONE root, same class as the live hall report.
+// The correct fix is a POST-SELECTION circulation rescue (a per-candidate rescue
+// perturbs buildWallsAndDoors — both scorer AND builder — → area-cap regression on
+// revert). These are `.skip` so they track the defect without failing CI; flip to
+// `it` when the rescue lands. See HOUSE-CIRCULATION-SEALED-ROOMS-2026-06-20.md.
+describe.skip('§HOUSE-SEALED-POCKET — known carve seals (flip to it() when the rescue lands)', () => {
+    const SEALERS: ReadonlyArray<readonly [number, number, string]> = [
+        [11, 7, 'Bathroom (over-grown ~16.9 m²) stranded on Stair+Storage'],
+        [12, 7, 'Bedroom 1 stranded on Bathroom+Stair'],
+        [17, 12.5, 'Storage (1 of 3) stranded on Dining+Storage'],
+    ];
+    for (const [w, d, why] of SEALERS) {
+        it(`${w}×${d} m ships no sealed room — ${why}`, () => {
+            const shell: ShellAnalysis = {
+                netAreaM2: +(w * d).toFixed(1), widthM: w, depthM: d,
+                perimeter: [{ x: 0, z: 0 }, { x: w, z: 0 }, { x: w, z: d }, { x: 0, z: d }], faces: [],
+            };
+            const r = generateHouseLayout(shell, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 });
+            const g = r.perStoreyLayout[0]!;
+            const sealed = sealedRooms(g.rooms as any);
+            expect(sealed, `sealed rooms: ${sealed.join(', ')}`).toHaveLength(0);
+        });
+    }
+});

@@ -48,9 +48,39 @@ corridor) + a `circulation` compromise — **not** a sealed hall. So the field t
 **Consequence for the fix:** there is **no failing unit test** proving the carve-engine defect
 at this brief, so the candidate carve fixes below stay **un-implemented** (the subsystem's 5×
 revert history makes a blind change net-negative). The reproduction test is retained as a
-**GREEN standing regression guard** (it pins "this brief ships a connected hall"). To resume the
-fix, capture the **exact live plate dims + the central-stair variant** that seals, add them as a
-RED case, then proceed.
+**GREEN standing regression guard** (it pins "this brief ships a connected hall").
+
+### Dimension sweep (2026-06-20) — the seal IS reproducible, just on OTHER plates
+
+A 70–320 m² plate sweep (`_houseSealSweep.tmp`, since deleted) found the founder's *exact*
+symptom (hall `doorAdjacentTo` EMPTY) does **not** occur anywhere — but **genuinely sealed
+rooms** (empty `doorAdjacentTo` AND `hasDirectAccess=false`) occur on many plates. Root, from
+the detail dumps:
+
+| plate | sealed room | adjacent only to |
+|-------|-------------|------------------|
+| 11 × 7 (77 m²) | Bathroom (**over-grown to 16.9 m²**) | Stair, Storage |
+| 12 × 7 (84 m²) | Bedroom 1 | Bathroom, Stair |
+| 17 × 12.5 (213 m²) | Storage (1 of 3) | Dining, Storage |
+| many 110–320 m² | Storage / Utility | Stair + one wet/service room |
+
+**ONE root:** the carve seats a habitable/service room in a pocket whose every neighbour is an
+**illegal door-host** — the set ALWAYS includes the `stair` keep-out (never a door host), plus a
+bathroom (privacy-blocked for a bedroom) or a duplicate service room. With no legal host wall the
+bubble-pass `addDoor` cannot place a door → the room ships sealed. The §FEASIBILITY over-grow
+(bathroom → 16.9 m²) is an aggravator: the ballooned room displaces others into stair-locked
+pockets. This is the **same** defect class as the live hall report, surfacing on whichever room
+the carve happens to strand.
+
+**The correct fix is known and POST-SELECTION** (per the revert history: a per-candidate rescue
+perturbs `buildWallsAndDoors`, which is both scorer AND builder, → area-cap regression). After
+the layout is chosen, a rescue pass must: for any habitable room with no realised door, either
+(a) re-seat/extend one shared wall onto a legal door-host (corridor/hall/living), or (b) report
+it as an explicit `droppedRooms`/conflict rather than ship it silently sealed. This needs the
+FULL `house*.test.ts` suite green + browser verification before deploy.
+
+The sealed plates are captured as `it.skip` tracked-defect cases in
+`houseCentralStairSealed.test.ts` so they're visible in the suite without failing CI.
 
 ## Root-cause chain (NOT a one-liner)
 
