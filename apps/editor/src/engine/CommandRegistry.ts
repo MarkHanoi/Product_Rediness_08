@@ -166,6 +166,17 @@ import { ChangeStairShapeCommand } from '@pryzm/command-registry';
 import { UpdateStairFlightsCommand } from '@pryzm/command-registry';
 import { UpdateElementMarkCommand } from '@pryzm/command-registry';
 import { DeleteStairCommand } from '@pryzm/command-registry';
+// §ELEMENT-REPLAY-AUDIT Phase 1 cluster 2 (2026-06-20) — curtain-grid edits, multi-
+// wall baseline cascade, grid pin/system, floor layers, room boundary. All had a
+// command-registry class + serialize() but no factory → unreplayable.
+import { AddCurtainGridLineCommand } from '@pryzm/command-registry';
+import { RemoveCurtainGridLineCommand } from '@pryzm/command-registry';
+import { UpdateAllCurtainWallsCommand } from '@pryzm/command-registry';
+import { CascadeWallBaselineCommand } from '@pryzm/command-registry';
+import { TogglePinGridCommand } from '@pryzm/command-registry';
+import { CreateGridSystemCommand } from '@pryzm/command-registry';
+import { UpdateFloorLayersCommand } from '@pryzm/command-registry';
+import { UpdateRoomBoundaryCommand } from '@pryzm/command-registry';
 
 // ── Room Bounding Line commands ────────────────────────────────────────────────
 import { CreateRoomBoundingLineCommand } from '@pryzm/command-registry';
@@ -364,6 +375,27 @@ const REGISTRY = new Map<string, CommandFactory>([
     ['CHANGE_STAIR_SHAPE', (s) => new ChangeStairShapeCommand(s.payload as any)],
     ['UPDATE_STAIR_FLIGHTS', (s) => new UpdateStairFlightsCommand(s.payload as any)],
     ['DELETE_STAIR', (s) => new DeleteStairCommand(s.payload as any)],
+
+    // ── §ELEMENT-REPLAY-AUDIT Phase 1 cluster 2 (2026-06-20) ──────────────────────
+    // Curtain-grid edits — payload = this.payload, ctor takes that payload.
+    ['ADD_CURTAIN_GRID_LINE', (s) => new AddCurtainGridLineCommand(s.payload as any)],
+    ['REMOVE_CURTAIN_GRID_LINE', (s) => new RemoveCurtainGridLineCommand(s.payload as any)],
+    // UpdateAllCurtainWallsCommand(properties) — serialize emits { properties }.
+    ['UPDATE_ALL_CURTAIN_WALLS', (s) => new UpdateAllCurtainWallsCommand((s.payload as any).properties)],
+    // CascadeWallBaselineCommand(input{cause,entries}) — forward-replay is exact; note
+    // serialize drops per-entry prevBaseLine so undo-after-replay can't restore the old
+    // baseline (pre-existing; forward apply on a remote peer is what replay needs).
+    ['CASCADE_WALL_BASELINE', (s) => new CascadeWallBaselineCommand(s.payload as any)],
+    // Grid pin/system + floor layers — payload round-trips 1:1 into each ctor.
+    ['TOGGLE_PIN_GRID', (s) => new TogglePinGridCommand(s.payload as any)],
+    ['CREATE_GRID_SYSTEM', (s) => new CreateGridSystemCommand(s.payload as any)],
+    ['UPDATE_FLOOR_LAYERS', (s) => new UpdateFloorLayersCommand(s.payload as any)],
+    // UpdateRoomBoundaryCommand(roomId, newBoundary, newBoundingWallIds?) — 3-arg ctor.
+    ['UPDATE_ROOM_BOUNDARY', (s) => new UpdateRoomBoundaryCommand(
+        (s.payload as any).roomId,
+        (s.payload as any).newBoundary,
+        (s.payload as any).newBoundingWallIds,
+    )],
 ]);
 
 // ─────────────────────────────────────────────────────────────────────────────
