@@ -297,7 +297,6 @@ export class PlumbingTool {
 
     private onPointerMove(e: PointerEvent) {
         const PRYZM_PURPLE = 0x8B5CF6;
-        const INVALID_RED  = 0xff0000;
 
         const point = this.getWorldPoint(e);
         if (point && this.previewMesh) {
@@ -336,7 +335,12 @@ export class PlumbingTool {
                         this.previewMesh.position.add(offset);
                         this.setPreviewColor(PRYZM_PURPLE);
                     } else {
-                        this.setPreviewColor(INVALID_RED);
+                        // §PLUMBING-NO-WALL-FALLBACK (founder 2026-06-20: "I cant create
+                        // toilets") — no wall within SNAP_RANGE is STILL a valid free
+                        // placement (purple), not an invalid one. The fixture faces the
+                        // default direction; it can be rotated after placement.
+                        this.previewMesh.rotation.set(0, 0, 0);
+                        this.setPreviewColor(PRYZM_PURPLE);
                     }
                 }
             }
@@ -405,9 +409,15 @@ export class PlumbingTool {
                 this.isDrawing = false;
             }
         } else {
+            // §PLUMBING-NO-WALL-FALLBACK (founder 2026-06-20: "I cant create toilets") —
+            // toilet/sink/shower previously REQUIRED a wall within SNAP_RANGE (1.5 m); a
+            // click in open space (or a project whose walls aren't on the active level, or
+            // before any walls exist) found no wall and SILENTLY created nothing. Now: snap
+            // the back to the wall when one is in range, else place freely at the click
+            // point with the preview's rotation. Toilets are creatable anywhere.
             const wallResult = this.getNearestWall(point);
-            if (wallResult && this.previewMesh) {
-                const offset = wallResult.normal.clone().multiplyScalar(0.02);
+            if (this.previewMesh) {
+                const offset = wallResult ? wallResult.normal.clone().multiplyScalar(0.02) : new THREE.Vector3();
                 const finalPos = point.clone().add(offset);
                 const slabPoint = this.getSlabPoint(e);
                 if (slabPoint) finalPos.y = Math.max(slabPoint.y, finalPos.y);
