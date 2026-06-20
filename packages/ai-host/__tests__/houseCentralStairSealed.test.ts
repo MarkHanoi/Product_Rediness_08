@@ -20,6 +20,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { generateHouseLayout } from '../src/workflows/houseLayout/index.js';
+import { validateAreaMax } from '../src/workflows/apartmentLayout/validators/dimensional/areaMax.js';
 import type { ShellAnalysis } from '../src/workflows/apartmentLayout/shellAnalysis.js';
 import type { ApartmentConstraints, ApartmentProgram, ScoringWeights } from '../src/workflows/apartmentLayout/types.js';
 
@@ -113,4 +114,25 @@ describe.skip('§HOUSE-SEALED-POCKET — known carve seals (flip to it() when th
             expect(sealed, `sealed rooms: ${sealed.join(', ')}`).toHaveLength(0);
         });
     }
+});
+
+// ── TRACKED KNOWN DEFECT (2026-06-20) — the area OVER-GROW that LEVERS the seals ──
+// The §FEASIBILITY plate-fill grows a room past its G-1 programmatic area-max on a
+// small/over-constrained plate (e.g. the 11×7 ground BATHROOM balloons to ~16.9 m²,
+// max 15) — displacing other rooms into the stair-locked pockets that then seal.
+// This reuses the EXISTING pure validator (`validateAreaMax`) over the realised
+// house rooms — no engine change. `.skip` until the post-selection area-cap lands.
+describe.skip('§HOUSE-AREA-OVERGROW — generated ground rooms must satisfy G-1 area-max', () => {
+    it('the 11×7 ground storey has no room above its programmatic area maximum', () => {
+        const shell: ShellAnalysis = {
+            netAreaM2: 77, widthM: 11, depthM: 7,
+            perimeter: [{ x: 0, z: 0 }, { x: 11, z: 0 }, { x: 11, z: 7 }, { x: 0, z: 7 }], faces: [],
+        };
+        const r = generateHouseLayout(shell, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 });
+        const g = r.perStoreyLayout[0]!;
+        const violations = validateAreaMax(
+            (g.rooms as any[]).map((rm) => ({ id: rm.name, type: rm.type, areaM2: rm.area })),
+        );
+        expect(violations.map((v) => `${v.roomType}=${v.observed.toFixed(1)}>${v.maximum}`)).toEqual([]);
+    });
 });
