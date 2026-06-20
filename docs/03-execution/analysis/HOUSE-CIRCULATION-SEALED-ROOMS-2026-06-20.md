@@ -16,11 +16,41 @@ with the **entry hall, dining, and a bedroom sealed (no door)**. Live §DIAG:
 
 `generateHouseLayout(SHELL, PROGRAM, …, { storeyCount: 2 })` with the founder's brief —
 `bedrooms:2, bathrooms:1, masterEnSuite:false, openPlanKitchenDining:true, livingRoom:true,
-entranceHall:true` on a ~175 m² plate — triggers `§TOPO-HARD-REJECT-ALL`. A WIP reproduction
-test lives at `packages/ai-host/__tests__/houseCentralStairSealed.test.ts` (assertions still
-need to target a real result field — `perStoreyLayout[0]` did not expose `hardValid`/
-`circulationRouted` as expected; needs follow-up to read door connectivity from the rooms/
-openings directly).
+entranceHall:true` on a ~175 m² plate — triggers `§TOPO-HARD-REJECT-ALL`. The reproduction
+test lives at `packages/ai-host/__tests__/houseCentralStairSealed.test.ts`.
+
+### ⚠ INVESTIGATION OUTCOME (2026-06-20) — the seal does NOT reproduce on the current engine
+
+Driving the real entry point at the reported brief + dims (**17.491 × 13.416 m, net 175 m²**)
+ships a **fully-connected ground storey** — it does NOT reproduce the live seal:
+
+```
+§DIAG-ADJACENCY r0(hall) → corridor✓          ← hall IS connected (live report: "NO DOOR ✗")
+§REPRO realised doors:
+  Entrance Hall – Corridor Door (hall↔corridor) w=1000
+  Corridor – Bedroom 1 Door (corridor↔bedroom) w=900
+  Living Room – Bathroom Door (living↔bathroom) w=900
+  Living Room – Kitchen Door  (living↔kitchen)  w=1100
+  Living Room – Dining Door   (living↔dining)   w=1100
+```
+
+Every habitable room has a realised door; only the `stair` keep-out is door-less (correct).
+`hardValid=false` still fires, but on the **`corridor-public`** rule (a public room fronts the
+corridor) + a `circulation` compromise — **not** a sealed hall. So the field truth is:
+
+- The `LayoutOption.rooms[].doorAdjacentTo` field is the **D-TGL graph permeability**
+  (`emitGeometry.ts:131`), which the live §DIAG-ADJACENCY / §DIAG-DOORS seal also reads — and
+  here it reports the hall connected.
+- The live `r0(hall) → NO DOOR ✗` was therefore **plate/seed-specific** (most likely the
+  central-stair fragmentation at *other* exact dims — this reproduction picked a `left`-cornered
+  U-stair, not the live `central` one), and is **NOT reproducible at this brief**.
+
+**Consequence for the fix:** there is **no failing unit test** proving the carve-engine defect
+at this brief, so the candidate carve fixes below stay **un-implemented** (the subsystem's 5×
+revert history makes a blind change net-negative). The reproduction test is retained as a
+**GREEN standing regression guard** (it pins "this brief ships a connected hall"). To resume the
+fix, capture the **exact live plate dims + the central-stair variant** that seals, add them as a
+RED case, then proceed.
 
 ## Root-cause chain (NOT a one-liner)
 
