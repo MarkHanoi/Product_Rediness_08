@@ -21,6 +21,7 @@ Every element MUST satisfy all of these. The audit checks each as a column.
 | **S6 — View-coherent** | A mutation marks dependent views dirty → plan/section re-project so the 2D symbol matches 3D. | "Rotate in 3D, plan doesn't update." | C04; DOC-1.x |
 | **S7 — Persisted** | Serialised into the project snapshot + restored byte-faithfully on open. | (Blocked at the platform level by the volatile-DB issue — see §5.) | C03; ADR-0075 |
 | **S8 — Contract-clean** | Builder/command/store obey the layer + P1–P8 principles (THREE only in renderer-three, ≥1 OTel span per exported fn, etc.). | CI-enforced. | CLAUDE.md §8 principles |
+| **S9 — Edit-surface honest** | The contextual edit toolbar (on selection) exposes ONLY the operations valid for the element's semantic nature, and every exposed op actually commits (round-trips). | "Edit modes are not all the same per element" — and a button that doesn't commit is a lie. | `ElementCapabilities.canDo()`; SELECTION-TOOLBAR-TOOLS plan |
 
 ---
 
@@ -62,6 +63,29 @@ Legend: ✅ done/verified-in-code · 🟡 partial / needs browser confirm · ❌
 
 ---
 
+## 2b. S9 — Edit-operation surface (the contextual edit toolbar)
+
+When an element is selected, `ContextualEditBar` (apps/editor/src/ui/ContextualEditBar.ts) shows a row of edit buttons. They are NOT uniform — `_refreshButtonVisibility()` (line 468) gates each button via `canDo(elementType, opId)` from `ElementCapabilities` (packages/input-host/src/operations/ElementCapabilities.ts), the single source of truth.
+
+**Capability groups (post-fix):**
+- `LINEAR_OPS` (wall, curtain-wall, beam, slab, floor, ceiling) = join, cut, mirror, copy, move, align, scale, offset, reference-edit.
+- `AREA_OPS` (roof) = mirror, copy, move, align, scale.
+- `POINT_OPS` (door, window, plumbing) = mirror, copy, move.
+- `RAIL_OPS` (railing, stair, handrail) = mirror, copy, move, offset, reference-edit.
+- `column` = mirror, copy, move, **rotate**, align, scale.
+- `furniture` = mirror, copy, move, **rotate**, align.
+- `floor_plan_underlay` = move, **rotate** (3-point reference), scale.
+
+**Finding (FIXED `fb5e4f59`):** `rotate` and `delete` had **no `operationId`**, so they bypassed `canDo` and were shown **for every element**. Rotate therefore appeared on line/area/baseline elements (wall/beam/slab/roof/curtain-wall) where rotation isn't in the data model and the gizmo commit silently ignores it (`registerTransformDragHandler` only persists rotation for furniture/column). It was a button that did nothing. Now `rotate` is a real `OperationId` gated to the elements that actually rotate-and-commit; `delete` stays universal (correct — everything is deletable).
+
+**Open S9 follow-ups:**
+- **plumbing / lighting** are point-rotatable in principle but are NOT wired into `registerTransformDragHandler`, so they get neither move nor rotate commit from the gizmo. Decide: wire them in (then grant `rotate`), or confirm they're parameter/host-edited only.
+- **scale on linear walls/beams** (in `LINEAR_OPS`) — is "scale a wall" a real operation, or should walls drop `scale`? Semantic review pending.
+- **join/cut on slab/floor/ceiling** (they use `LINEAR_OPS`, not `AREA_OPS`) — intentional for poly-boundary editing, but verify each actually executes.
+- Per-element verification that EACH shown op commits (round-trips) — needs the durable DB (S7 gate).
+
+The master table's **S9 column** is added below; ✅ = capability set reviewed and the shown ops confirmed valid-and-committing in code.
+
 ## 3. Implementation plan (phased, fix one-by-one)
 
 **Phase 0 — DONE this session.** §REMOTE-EXEC-FALLBACK keystone + furniture/column/plumbing/lighting/stair replay + furniture/column gizmo rotation + wall-type diagnostic. Commits `7c7491e3` `497f9d54` `5572555d` `0dc4be05` `dcb047ca`.
@@ -90,6 +114,7 @@ Legend: ✅ done/verified-in-code · 🟡 partial / needs browser confirm · ❌
 | 3 | view-sync verify across 18 elements | ~1–2 days (needs DB) | ⬜ |
 | 4 | wall-type-on-create fix | ~0.5 day (needs DB) | ⬜ |
 | 5 | contract/principles pass | ~2 days | ⬜ |
+| 6 (S9) | edit-surface (contextual toolbar) per-element honesty | ~1 day | 🟡 rotate-gating done (`fb5e4f59`); remaining: plumbing/lighting drag decision, scale-on-wall review, verify each shown op commits (needs DB). |
 
 ---
 
