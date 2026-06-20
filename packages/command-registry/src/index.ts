@@ -147,6 +147,7 @@ export * from './plans/StairShapeAdvisor';
 // ─── Plumbing ─────────────────────────────────────────────────────────────
 export * from './plumbing/CreatePlumbingFixtureCommand';
 export * from './plumbing/UpdatePlumbingParametersCommand';
+export * from './plumbing/MovePlumbingCommand';
 
 // ─── Project ──────────────────────────────────────────────────────────────
 export * from './project/ClearProjectCommand';

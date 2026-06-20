@@ -150,6 +150,7 @@ import { CreateFurnitureCommand } from '@pryzm/command-registry';
 import { UpdateFurnitureParametersCommand } from '@pryzm/command-registry';
 import { CreatePlumbingFixtureCommand } from '@pryzm/command-registry';
 import { UpdatePlumbingParametersCommand } from '@pryzm/command-registry';
+import { MovePlumbingCommand } from '@pryzm/command-registry';
 import { CreateLightingCommand } from '@pryzm/command-registry';
 import { UpdateLightingParametersCommand } from '@pryzm/command-registry';
 import { MoveLightingCommand } from '@pryzm/command-registry';
@@ -349,6 +350,9 @@ const REGISTRY = new Map<string, CommandFactory>([
     // make plumbing fixtures, lighting and stairs survive collaboration replay. (Per-
     // element DELETE goes through the generic DELETE_ELEMENT factory above.)
     ['UPDATE_PLUMBING_PARAMETERS', (s) => new UpdatePlumbingParametersCommand(s.payload as any)],
+    // §ELEMENT-SEMANTIC-AUDIT S4 (2026-06-20) — new MovePlumbingCommand makes plumbing
+    // fixtures gizmo-movable AND replay-survive. serialize emits { id, to }.
+    ['MOVE_PLUMBING', (s) => new MovePlumbingCommand(s.payload as any)],
     ['CREATE_LIGHTING', (s) => new CreateLightingCommand(s.payload as any)],
     ['UPDATE_LIGHTING_PARAMETERS', (s) => new UpdateLightingParametersCommand(s.payload as any)],
     ['MOVE_LIGHTING', (s) => new MoveLightingCommand(s.payload as any)],
