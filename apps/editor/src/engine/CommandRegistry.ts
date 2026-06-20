@@ -110,8 +110,14 @@ import { DuplicateFloorPlanCommand } from '@pryzm/command-registry';
 // ── Floor / Ceiling commands ───────────────────────────────────────────────────
 import { CreateFloorCommand } from '@pryzm/command-registry';
 import { UpdateFloorCommand } from '@pryzm/command-registry';
+import { RemoveFloorCommand } from '@pryzm/command-registry';
 import { CreateCeilingCommand } from '@pryzm/command-registry';
 import { UpdateCeilingCommand } from '@pryzm/command-registry';
+import { RemoveCeilingCommand } from '@pryzm/command-registry';
+
+// ── Grid commands ──────────────────────────────────────────────────────────────
+import { UpdateGridCommand } from '@pryzm/command-registry';
+import { RemoveGridCommand } from '@pryzm/command-registry';
 
 // ── Curtain wall commands ──────────────────────────────────────────────────────
 import { CreateCurtainWallCommand } from '@pryzm/command-registry';
@@ -120,6 +126,7 @@ import { UpdateCurtainWallCommand } from '@pryzm/command-registry';
 // ── Roof commands ──────────────────────────────────────────────────────────────
 import { CreateRoofCommand } from '@pryzm/command-registry';
 import { UpdateRoofCommand } from '@pryzm/command-registry';
+import { DeleteRoofCommand } from '@pryzm/command-registry';
 
 // ── Stair commands ─────────────────────────────────────────────────────────────
 import { CreateStairCommand } from '@pryzm/command-registry';
@@ -260,6 +267,14 @@ const REGISTRY = new Map<string, CommandFactory>([
     ['UPDATE_FLOOR', (s) => new UpdateFloorCommand(s.payload as any)],
     ['CREATE_CEILING', (s) => new CreateCeilingCommand(s.payload as any)],
     ['UPDATE_CEILING', (s) => new UpdateCeilingCommand(s.payload as any)],
+    // §ELEMENT-REPLAY-AUDIT Phase 1 — floor/ceiling REMOVE were unreplayable.
+    ['REMOVE_FLOOR', (s) => new RemoveFloorCommand(s.payload as any)],
+    ['REMOVE_CEILING', (s) => new RemoveCeilingCommand(s.payload.ceilingId as string)],
+
+    // ── Grids ─────────────────────────────────────────────────────────────────
+    // §ELEMENT-REPLAY-AUDIT Phase 1 — grid update/remove were unreplayable.
+    ['UPDATE_GRID', (s) => new UpdateGridCommand(s.payload as any)],
+    ['REMOVE_GRID', (s) => new RemoveGridCommand(s.payload as any)],
 
     // ── Curtain Walls ─────────────────────────────────────────────────────────
     ['CREATE_CURTAIN_WALL', (s) => new CreateCurtainWallCommand(s.payload as any)],
@@ -272,6 +287,8 @@ const REGISTRY = new Map<string, CommandFactory>([
         return new CreateRoofCommand(roofId as string, rest as any);
     }],
     ['UPDATE_ROOF', (s) => new UpdateRoofCommand(s.payload.roofId, s.payload.updates)],
+    // §ELEMENT-REPLAY-AUDIT Phase 1 — DELETE was unreplayable for these element types.
+    ['DELETE_ROOF', (s) => new DeleteRoofCommand(s.payload.roofId as string)],
 
     // ── Stairs ────────────────────────────────────────────────────────────────
     ['CREATE_STAIR', (s) => new CreateStairCommand(s.payload as any)],
