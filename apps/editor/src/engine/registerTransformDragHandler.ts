@@ -187,6 +187,44 @@ export function registerTransformDragHandler(deps: DragHandlerDeps): void {
                 }
             }
 
+            // ── Plumbing fixture ────────────────────────────────────────────
+            // §ELEMENT-SEMANTIC-AUDIT S4 (2026-06-20): plumbing fixtures had no drag
+            // commit (and, before MovePlumbingCommand, no command to commit to). The
+            // fragment builder tags the mesh elementType='PlumbingFixture' → lowercases
+            // to 'plumbingfixture'; accept the bare 'plumbing' alias too. Position-
+            // anchored + delta-based, exactly like furniture, so it is anchor-safe.
+            // NOTE: this commit only fires if the gizmo actually attaches to the fixture
+            // on selection — pending in-browser confirmation (harmless no-op if it does
+            // not). MovePlumbingCommand also translates a bath's start/end by the delta.
+            if ((elemType === 'plumbingfixture' || elemType === 'plumbing') && obj.userData?.id) {
+                const ps = window.plumbingStore; // TODO(TASK-08)
+                const id = obj.userData.id as string;
+                const fixture = ps?.get?.(id) ?? (ps as any)?.getById?.(id);
+                if (fixture?.position) {
+                    const prevX = fixture.position.x ?? 0;
+                    const prevY = fixture.position.y ?? 0;
+                    const prevZ = fixture.position.z ?? 0;
+                    const dx = obj.position.x - prevX;
+                    const dz = obj.position.z - prevZ;
+                    if (Math.abs(dx) > 1e-6 || Math.abs(dz) > 1e-6) {
+                        // y is level-locked (LevelPlaneConstraint) — keep the fixture's own y.
+                        window.runtime?.bus?.executeCommand('plumbing.move', {
+                            id,
+                            to: { x: prevX + dx, y: prevY, z: prevZ + dz },
+                        })?.catch((e: unknown) => console.error('[TransformDrag] plumbing.move failed:', e));
+                        const captured = obj;
+                        const sched = getFrameScheduler();
+                        sched.scheduleOnce('drag-plumbing-rehighlight-1', () => {
+                            sched.scheduleOnce('drag-plumbing-rehighlight-2', () => {
+                                if (selectionManager.selectedObject === captured) {
+                                    selectionManager.applyHighlight(captured);
+                                }
+                            });
+                        });
+                    }
+                }
+            }
+
             // ── Column ──────────────────────────────────────────────────────
             // OI-039: Previously fell through silently — store was never updated.
             if (elemType === 'column' && obj.userData?.id) {

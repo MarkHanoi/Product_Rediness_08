@@ -6,6 +6,7 @@ import {
   UpdateFloorCommand,
   UpdateCeilingCommand,
   UpdateFurnitureParametersCommand,
+  MovePlumbingCommand,
   SetDoorOffsetCommand,
   SetWindowOffsetCommand,
   UpdateRoomBoundaryCommand,
@@ -216,6 +217,16 @@ export function initBusHandlers(
                 const { id, ...rest } = cmd;
                 _cmExec(new UpdateFurnitureParametersCommand({ id, ...rest }));
             },
+        },
+        {
+            // §ELEMENT-SEMANTIC-AUDIT S4 (2026-06-20) — plumbing gizmo-move authoring
+            // bridge. registerTransformDragHandler dispatches 'plumbing.move' { id, to }
+            // on drag-end; this routes it through commandManager (MovePlumbingCommand) so
+            // the move is undoable and store-backed. Mirrors furniture.updateParameters.
+            type: 'plumbing.move',
+            stores: [] as const,
+            validate: (cmd) => (!cmd.id ? 'id is required' : (!cmd.to ? 'to is required' : null)),
+            fn: (cmd) => { _cmExec(new MovePlumbingCommand({ id: cmd.id, to: cmd.to })); },
         },
 
         // ── §R4-FIX: element.updateParameters — PropertyPanel.onApply() bridge ──
