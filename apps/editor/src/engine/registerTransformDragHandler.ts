@@ -200,10 +200,17 @@ export function registerTransformDragHandler(deps: DragHandlerDeps): void {
                     const prevY = pos?.y ?? 0;
                     const dx = obj.position.x - prevX;
                     const dz = obj.position.z - prevZ;
-                    if (Math.abs(dx) > 1e-6 || Math.abs(dz) > 1e-6) {
+                    // §COLUMN-DRAG-ROTATION (founder 2026-06-19) — commit the gizmo's Y-rotation
+                    // too (ColumnData.rotation is RADIANS, applied directly as root.rotation.y).
+                    // The old code only sent position, so a rotate-only drag was lost on rebuild
+                    // and the plan never re-projected (same gap as furniture §FURNITURE-DRAG-ROTATION).
+                    const prevRy = (typeof col.rotation === 'number' ? col.rotation : 0);
+                    const moved   = Math.abs(dx) > 1e-6 || Math.abs(dz) > 1e-6;
+                    const rotated = Math.abs(obj.rotation.y - prevRy) > 1e-4;
+                    if (moved || rotated) {
                         window.runtime?.bus?.executeCommand('column.update', {
                             id,
-                            updates: { position: { x: prevX + dx, y: prevY, z: prevZ + dz } },
+                            updates: { position: { x: prevX + dx, y: prevY, z: prevZ + dz }, rotation: obj.rotation.y },
                         })?.catch((e: unknown) => console.error('[TransformDrag] column.update failed:', e));
                         const captured = obj;
                         const sched = getFrameScheduler();
