@@ -135,9 +135,32 @@ export class CreateWallHandler
     // a systemTypeId is set") makes the stored state correct for EVERY view. Safe +
     // idempotent for 3D (it would re-resolve the identical value).
     let resolvedThickness = cmd.thickness;
-    if (cmd.systemTypeId !== undefined && this.systemTypeStore !== undefined) {
-      const total = this.systemTypeStore.get(cmd.systemTypeId)?.totalThickness;
-      if (typeof total === 'number' && total > 0) resolvedThickness = total;
+    if (cmd.systemTypeId !== undefined) {
+      // §DIAG-WALL-TYPE-RESOLVE (founder 2026-06-20) — root-cause instrumentation for
+      // "selected Interior Partition but got a standard wall". The wall is stored WITH
+      // its systemTypeId (below), but its THICKNESS is only resolved here when a
+      // populated systemTypeStore is wired into this handler. engineLauncher.ts calls
+      // `registerWallHandlers(_bus)` with NO systemTypeStore → this resolution is
+      // skipped → plan view renders the DEFAULT thickness (the bug). These warns make
+      // the exact missing link self-evident on the next browser test WITHOUT changing
+      // behaviour (the real fix — wiring a populated WallSystemTypeStore whose ids match
+      // the PreDraw selector's catalogue — must be browser-verified, not shipped blind:
+      // a wrong/empty store would make canExecute reject EVERY typed wall).
+      if (this.systemTypeStore === undefined) {
+        console.warn(
+          `[CreateWallHandler] systemTypeId='${cmd.systemTypeId}' set but NO systemTypeStore wired ` +
+          `→ thickness NOT resolved (wall stored with type id, rendered at default thickness). ` +
+          `Fix: pass a populated WallSystemTypeStore to registerWallHandlers() in engineLauncher.`,
+        );
+      } else {
+        const total = this.systemTypeStore.get(cmd.systemTypeId)?.totalThickness;
+        if (typeof total === 'number' && total > 0) resolvedThickness = total;
+        else console.warn(
+          `[CreateWallHandler] systemTypeId='${cmd.systemTypeId}' not found in the wired ` +
+          `systemTypeStore (or totalThickness ≤ 0) → id-namespace mismatch between the PreDraw ` +
+          `selector catalogue and the handler catalogue. Thickness left at default.`,
+        );
+      }
     }
 
     // 1) Mint id (or accept the caller's deterministic id for tests).
