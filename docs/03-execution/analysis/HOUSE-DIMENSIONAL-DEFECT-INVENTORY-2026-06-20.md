@@ -47,12 +47,42 @@ one room. This is the signature of a fill pass that distributes residual area **
 per-room G-1 maxima** — the room caps exist as a validator (`validators/dimensional/areaMax.ts`)
 but are not consulted by the subdivision/fill that produces the geometry.
 
+## Exact root — TWO sources (turn-key pinpoint)
+
+1. **`tgl/bubbleGraph.ts:467-469`** — the area-target ceiling is a **fraction of the plate**, not
+   the absolute G-1 cap:
+   ```ts
+   const ceil = rule.maxAreaFrac !== undefined ? rule.maxAreaFrac * availableAreaM2 : Infinity;
+   const targetAreaM2 = Math.min(Math.max(raw, floor), Math.max(ceil, floor));
+   ```
+   `maxAreaFrac × availableAreaM2` scales WITH the plate, so on a 200 m² plate a 0.12 corridor
+   fraction → a 24 m² ceiling. The absolute architectural max (`limitsFor(type).areaMaxM2`:
+   corridor 8, hall 10, bathroom 15, bedroom 25) lives in a **different module**
+   (`validators/dimensional/limits.ts`) the allocator never imports. A `Math.min(ceil, absMaxM2)`
+   here is the smallest possible fix for source 1.
+2. **squarify (downstream in `subdivide.ts`)** — per the `§CORRIDOR-PHYSIOGNOMY` comment at
+   `bubbleGraph.ts:478-481`, *"squarify rescales every target to fill the shell."* So even a
+   correctly-capped target is re-grown to consume the plate. A real fix must ALSO leave the surplus
+   unallocated (or redistribute to habitable headroom) at the squarify stage, not just cap the target.
+
+## Nuance — not every over-grow is a defect (read before "fixing" the corridor number)
+
+The **corridor** count (340 plates) is the softest: `reshapeCorridorStrip` narrows the corridor to a
+~1.2 m strip downstream, so a long house legitimately has a long corridor (1.2 m × 18 m = 21.6 m²)
+that is geometrically a proper circulation strip even though its AREA exceeds the 8 m² G-1 cap. The
+G-1 "8 m² ⇒ it's a hall" rule is an apartment heuristic that is arguably too strict for a long house
+corridor. **The clear, unambiguous real defects are hall / bathroom / bedroom** — compact rooms with
+no strip-reshape that genuinely should not balloon (a 32 m² bathroom or 32.7 m² entry hall is wrong
+by any standard). Prioritise those; treat the corridor cap as a separate, debatable policy call.
+
 ## Recommended priority (for when browser verification is available)
 
-1. **Cap residual-fill at per-room G-1 maxima** (corridor 8, hall 10, bathroom 15, bedroom 25…),
-   redistributing the surplus to habitable rooms with headroom (living 60, kitchen 40, dining 30)
-   or leaving genuinely-unprogrammed area as a courtyard/second room. This is the **single
-   highest-leverage** change — it targets 93 % of plates AND removes the seal lever.
+1. **Cap residual-fill at per-room G-1 maxima for the COMPACT rooms first** — hall 10, bathroom 15,
+   bedroom 25 (the clear defects); hold the corridor cap as a separate policy decision (see Nuance).
+   Apply at BOTH sources: `Math.min(ceil, absMaxM2)` in `bubbleGraph.ts:467-469` AND a surplus-leave
+   /redistribute at the squarify stage in `subdivide.ts`, sending the freed area to habitable rooms
+   with headroom (living 60, kitchen 40, dining 30) or an explicit second room/courtyard. This is the
+   **single highest-leverage** change — it targets the bulk of the 93 % AND removes the seal lever.
    ⚠ This is the area-allocation subsystem (the documented "area-cap regression" class) — it MUST
    run the full `house*.test.ts` suite green + be browser-verified before deploy.
 2. The seal post-selection rescue (already documented) becomes a smaller residual once (1) lands.
