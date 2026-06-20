@@ -217,6 +217,10 @@ export class ContextualEditBar {
             },
             {
                 id:          'rotate',
+                operationId: 'rotate',   // §EDIT-MODE-ROTATE — now capability-gated (canDo),
+                                         // so Rotate only shows on elements that actually rotate
+                                         // (furniture/column/underlay), not line/area elements where
+                                         // the gizmo rotation never committed.
                 icon:        'material-symbols:rotate-90-degrees-cw',
                 title:       'Rotate',
                 shortcut:    'R',

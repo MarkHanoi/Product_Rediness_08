@@ -21,6 +21,7 @@ export type OperationId =
     | 'mirror'
     | 'copy'
     | 'move'
+    | 'rotate'
     | 'align'
     | 'scale'
     | 'offset'
@@ -67,8 +68,14 @@ const CAPABILITIES = new Map<string, Set<OperationId>>([
     ['stair',           RAIL_OPS],
     ['stairs',          RAIL_OPS],
 
-    // Point/structural — mirror, copy, move, scale only
-    ['column',          new Set<OperationId>(['mirror', 'copy', 'move', 'align', 'scale'])],
+    // Point/structural — mirror, copy, move, scale + rotate. §EDIT-MODE-ROTATE
+    // (founder 2026-06-19): 'rotate' is gated here, NOT shown universally — it only
+    // belongs on elements whose data model carries a euler rotation AND whose gizmo
+    // commit persists it (column.rotation is radians, committed in registerTransformDrag-
+    // Handler §COLUMN-DRAG-ROTATION). Line/area/baseline elements (wall/beam/slab/roof…)
+    // have no rotation to commit, so the rotate button is now hidden for them instead
+    // of moving the gizmo with no effect.
+    ['column',          new Set<OperationId>(['mirror', 'copy', 'move', 'rotate', 'align', 'scale'])],
 
     // Area — no join/cut/offset
     ['roof',            AREA_OPS],
@@ -76,7 +83,11 @@ const CAPABILITIES = new Map<string, Set<OperationId>>([
     // Hosted — point operations only (no scale; they are resized via parameters)
     ['door',            POINT_OPS],
     ['window',          POINT_OPS],
-    ['furniture',       new Set<OperationId>(['mirror', 'copy', 'move', 'align'])],
+    // Furniture rotates (sofa/kitchen/etc.) — gizmo commit persists rotation
+    // (§FURNITURE-DRAG-ROTATION). plumbing/lighting do NOT get rotate yet: they are
+    // not wired into the transform-drag handler, so a rotate would not commit — add
+    // 'rotate' here only once their drag-commit lands (tracked in the audit doc).
+    ['furniture',       new Set<OperationId>(['mirror', 'copy', 'move', 'rotate', 'align'])],
 
     // Plumbing — point
     ['plumbing',        POINT_OPS],
@@ -84,8 +95,9 @@ const CAPABILITIES = new Map<string, Set<OperationId>>([
     // Handrail — rail set
     ['handrail',        RAIL_OPS],
 
-    // PDF / image underlay — move (drag on plan view) + reference scale
-    ['floor_plan_underlay', new Set<OperationId>(['move', 'scale'])],
+    // PDF / image underlay — move (drag on plan view) + reference scale + reference
+    // rotate (the 3-point Revit-style rotate handled specially in ContextualEditBar).
+    ['floor_plan_underlay', new Set<OperationId>(['move', 'rotate', 'scale'])],
 ]);
 
 // ── Public API ───────────────────────────────────────────────────────────────
