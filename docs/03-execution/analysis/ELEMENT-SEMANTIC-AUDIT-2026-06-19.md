@@ -49,11 +49,11 @@ Legend: ✅ done/verified-in-code · 🟡 partial / needs browser confirm · ❌
 | **Slab** | ✅ | ✅ | ✅ (full slab factory set) | N/A | ✅ | ✅ | ⬜ | Registry well-covered (slab audit W1). Verify gizmo move. |
 | **Beam** | ✅ | ✅ | ✅ | N/A (2-point) | ✅ | ⬜ | ⬜ | Move = translate both endpoints. Rotation = endpoint move. Verify. |
 | **Curtain wall** | ✅ | ✅ | ✅ | N/A (baseline) | ✅ | ⬜ | ⬜ | Move = baseLine translate. Verify. |
-| **Roof** | ✅ | ✅ | 🟡 (CREATE/UPDATE yes; **DELETE_ROOF no factory**) | N/A | 🟡 | ⬜ | ⬜ | Add DELETE_ROOF factory (or confirm DELETE_ELEMENT covers it). |
-| **Floor (finish)** | ✅ | ✅ | 🟡 (CREATE/UPDATE yes; **REMOVE_FLOOR, UPDATE_FLOOR_BOUNDARY/LAYERS no factory**) | N/A | 🟡 | ⬜ | ⬜ | Add the missing factories. |
-| **Ceiling** | ✅ | ✅ | 🟡 (CREATE/UPDATE yes; **REMOVE_CEILING, UPDATE_CEILING_BOUNDARY/LAYERS no factory**) | N/A | 🟡 | ⬜ | ⬜ | Add the missing factories. |
-| **Handrail** | ✅ | ✅ | 🟡 (CREATE/UPDATE/DELETE yes; **MOVE_HANDRAIL no factory/class**) | ❌ | 🟡 | ⬜ | ⬜ | In transform handler (line ~418) — audit rotation + MOVE_HANDRAIL. |
-| **Grid** | ✅ | ✅ | ❌ (**CREATE_GRID / UPDATE_GRID / REMOVE_GRID no factory**) | N/A | 🟡 | ⬜ | ⬜ | Add factories. |
+| **Roof** | ✅ | ✅ | ✅ (DELETE_ROOF added `1db3b0b4`) | N/A | 🟡 | ⬜ | ⬜ | Phase 1 done. |
+| **Floor (finish)** | ✅ | ✅ | 🟡 (REMOVE_FLOOR added `1db3b0b4`; **UPDATE_FLOOR_BOUNDARY/LAYERS still no factory**) | N/A | 🟡 | ⬜ | ⬜ | Boundary/layers factories remain. |
+| **Ceiling** | ✅ | ✅ | 🟡 (REMOVE_CEILING added `1db3b0b4`; **UPDATE_CEILING_BOUNDARY/LAYERS still no factory**) | N/A | 🟡 | ⬜ | ⬜ | Boundary/layers factories remain. |
+| **Handrail** | ✅ | ✅ | 🟡 (CREATE/UPDATE/DELETE yes; MOVE_HANDRAIL has no command-registry class) | ❌ | 🟡 | ⬜ | ⬜ | In transform handler (line ~418) — audit rotation; MOVE_HANDRAIL is not a class. |
+| **Grid** | ✅ | ✅ | 🟡 (UPDATE_GRID + REMOVE_GRID added `1db3b0b4`; CREATE_GRID has no command-registry class) | N/A | 🟡 | ⬜ | ⬜ | Phase 1 partial. |
 | **Room** | ✅ | ✅ | ✅ (CREATE/DELETE/UPDATE/RENAME/SET_OCCUPANCY) | N/A | ✅ | ✅ | ⬜ | Well-covered. Verify UPDATE_ROOM_BOUNDARY/FINISHES factories. |
 | **Annotation** | ✅ | ✅ | 🟡 (**CREATE/UPDATE/DELETE_ANNOTATION no CommandRegistry factory**; UPDATE_ANNOTATION has a bus handler) | N/A | 🟡 | ⬜ | ⬜ | Add registry factories so annotations replay. |
 
@@ -85,7 +85,7 @@ Legend: ✅ done/verified-in-code · 🟡 partial / needs browser confirm · ❌
 | Phase | Scope | Est. | Status |
 |---|---|---|---|
 | 0 | Keystone + 5 elements' replay/rotation + diagnostic | — | ✅ shipped |
-| 1 | ~21 registry-factory gaps | ~1 day | ⬜ |
+| 1 | ~21 registry-factory gaps | ~1 day | 🟡 5 of ~21 done (`1db3b0b4`: DELETE_ROOF, REMOVE_FLOOR, REMOVE_CEILING, UPDATE_GRID, REMOVE_GRID). Remaining: floor/ceiling boundary+layers, room boundary+finishes, UPDATE_WALL_PROPERTIES, UPDATE_*_PARAMETER. |
 | 2 | handrail rotation + plumbing/lighting drag decision | ~0.5 day | ⬜ |
 | 3 | view-sync verify across 18 elements | ~1–2 days (needs DB) | ⬜ |
 | 4 | wall-type-on-create fix | ~0.5 day (needs DB) | ⬜ |
