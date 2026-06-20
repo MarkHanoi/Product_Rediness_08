@@ -43,6 +43,7 @@ import '../ui/inspect/AuditStack';
 import '../ui/data/DataCommandCenter';
 import { registerWallPerfBench } from './WallPerfBench';
 import { registerWallHandlers } from '@pryzm/plugin-wall';
+import type { WallSystemTypeStore as PluginWallSystemTypeStore } from '@pryzm/plugin-wall';
 import { registerRoomHandlers } from '@pryzm/plugin-rooms';
 import { registerSlabHandlers } from '@pryzm/plugin-slab';
 import { registerCurtainWallHandlers } from '@pryzm/plugin-curtain-wall';
@@ -408,7 +409,29 @@ export async function bootstrap(
                 return Reflect.get(target, prop, receiver);
             },
         });
-        try { registerWallHandlers(_bus); console.log('[EngineBootstrap] F-1.3: wall handlers registered.'); }
+        try {
+            // §WALL-TYPE-WIRE (founder 2026-06-20) — ROOT-CAUSE FIX for "selected Interior
+            // Partition but got a standard wall". registerWallHandlers was called with NO
+            // systemTypeStore, so CreateWallHandler stored the chosen systemTypeId but NEVER
+            // resolved the wall's thickness from the type → plan view rendered the default
+            // (placeholder) thickness. Wire a thin adapter over the SAME store the PreDraw
+            // selector + 3D builder read (window.wallSystemTypeStore, the geometry-wall store
+            // exposing .getById().totalThickness) so plan thickness now matches the type.
+            //
+            // has() is kept PERMISSIVE on purpose: a faithful has() would activate the dormant
+            // "unknown systemTypeId → reject at canExecute" path across ALL wall create handlers
+            // — including wall.batch.create used by the apartment generator (which already had
+            // to omit systemTypeId:'partition' to avoid rejection). Resolution via get() is
+            // best-effort and falls back to the caller's default on a miss, so an unknown/stale
+            // id can never reject a wall. The §DIAG-WALL-TYPE-RESOLVE warns in CreateWallHandler
+            // surface any id-namespace mismatch on a miss.
+            const wallSystemTypeAdapter = {
+                has: () => true,
+                get: (id: string) => window.wallSystemTypeStore?.getById?.(id),
+            } as unknown as PluginWallSystemTypeStore;
+            registerWallHandlers(_bus, { systemTypeStore: wallSystemTypeAdapter });
+            console.log('[EngineBootstrap] F-1.3: wall handlers registered (§WALL-TYPE-WIRE: systemTypeStore adapter wired).');
+        }
         catch (e: any) { console.error('[EngineBootstrap] F-1.3: registerWallHandlers failed (non-fatal):', e?.message ?? e); }
         try { registerRoomHandlers(_bus); console.log('[EngineBootstrap] F-1.3: room handlers registered.'); }
         catch (e: any) { console.error('[EngineBootstrap] F-1.3: registerRoomHandlers failed (non-fatal):', e?.message ?? e); }

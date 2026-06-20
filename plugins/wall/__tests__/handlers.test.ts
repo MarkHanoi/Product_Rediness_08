@@ -291,6 +291,37 @@ describe('wall.create — systemTypeId catalogue validation (S07 cleanup)', () =
     });
     expect(env.store.get(id)?.systemTypeId).toBe('wt-not-in-catalogue');
   });
+
+  // §WALL-TYPE-WIRE (founder 2026-06-20) — proves the bug + the fix mechanism.
+  it('resolves the stored thickness from the wired catalogue type, overriding the placeholder', async () => {
+    const sysTypes = new WallSystemTypeStore(); // self-seeds built-ins; wt-monolithic = 0.1 m
+    env = buildEnv({ systemTypeStore: sysTypes });
+    const id = createId('wall');
+    await env.bus.executeCommand('wall.create', {
+      id,
+      levelId: 'lvl_test',
+      thickness: 0.5,               // placeholder default that MUST be overridden by the type
+      systemTypeId: 'wt-monolithic',
+    });
+    // The fix: with a store wired, thickness is resolved to the type's totalThickness (0.1),
+    // not left at the caller's 0.5 placeholder → plan view now matches the chosen type.
+    expect(env.store.get(id)?.thickness).toBe(0.1);
+  });
+
+  it('leaves placeholder thickness UNRESOLVED when no catalogue is wired (the pre-fix bug)', async () => {
+    env = buildEnv(); // mirrors engineLauncher BEFORE §WALL-TYPE-WIRE
+    const id = createId('wall');
+    await env.bus.executeCommand('wall.create', {
+      id,
+      levelId: 'lvl_test',
+      thickness: 0.5,
+      systemTypeId: 'wt-monolithic',
+    });
+    // Reproduces "selected Interior Partition but got a standard wall": systemTypeId is
+    // stored but thickness stays at the placeholder because no store was wired to resolve it.
+    expect(env.store.get(id)?.thickness).toBe(0.5);
+    expect(env.store.get(id)?.systemTypeId).toBe('wt-monolithic');
+  });
 });
 
 describe('EventRecord shape', () => {
