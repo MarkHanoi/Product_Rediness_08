@@ -41,12 +41,12 @@ Legend: ✅ done/verified-in-code · 🟡 partial / needs browser confirm · ❌
 |---|---|---|---|---|---|---|---|---|
 | **Furniture** | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ⬜ | UPDATE replay added `7c7491e3`; gizmo rotation commit `5572555d`. View-sync should now follow store update — confirm in browser. |
 | **Column** | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ⬜ | Replay factory present; gizmo rotation commit `0dc4be05` (rotation is radians). |
-| **Plumbing** | ✅ | ✅ | ✅ | ❌ | 🟡 | ⬜ | ⬜ | UPDATE_PLUMBING_PARAMETERS factory added `497f9d54`. **NOT in the transform-drag handler** → not gizmo-movable/rotatable. Decide: wire it, or is it wall/fixture-hosted only? |
-| **Lighting** | ✅ | ✅ | ✅ | ❌ | 🟡 | ⬜ | ⬜ | CREATE/UPDATE/MOVE_LIGHTING factories added `497f9d54`. **NOT in transform-drag handler** → same gap as plumbing. |
-| **Stair** | ✅ | ✅ | ✅ | N/A | 🟡 | ⬜ | ⬜ | MOVE_STAIR factory added `497f9d54`. Rotation is anchor/direction-based (move path handles it), not euler. |
+| **Plumbing** | ✅ | ✅ | ✅ | ❌ | 🟡 | ⬜ | ⬜ | UPDATE_PLUMBING_PARAMETERS factory `497f9d54`. **2026-06-20 finding: there is NO MovePlumbingCommand and UpdatePlumbingParametersPayload has no position/rotation fields** — plumbing CANNOT be gizmo-moved without a new Move command. Wiring deferred until that command exists (not a one-liner). |
+| **Lighting** | ✅ | ✅ | ✅ | ❌ | 🟡 | ⬜ | ⬜ | CREATE/UPDATE/MOVE_LIGHTING factories `497f9d54`. **2026-06-20 finding: MoveLightingCommand is position-only (no rotation), and there are TWO lighting stores** — command-registry `window.lightingStore` (LightingData.position; builds the mesh tagged `elementType='Lighting'`) vs the plugin `lighting` store (`origin`, served by bus `lighting.move`). Gizmo wiring must target the command-registry store via a NEW bus bridge (not the existing `lighting.move`). Deferred to a browser-verifiable session — interactive, two-store ambiguity, can't confirm without DB. |
+| **Stair** | ✅ | ✅ | ✅ | N/A | 🟡 | ⬜ | ⬜ | MOVE_STAIR factory `497f9d54`; **CHANGE_STAIR_SHAPE / UPDATE_STAIR_FLIGHTS / DELETE_STAIR factories added 2026-06-20** (+ lossless `levelHeight` serialize fix on reshape). Rotation is anchor/direction-based (move path handles it), not euler. |
 | **Wall** | ✅ | ✅ | ✅ | N/A (baseline) | ✅ | ✅ | ⬜ | **Type-on-create bug OPEN** — selected Interior-Partition still builds standard. Chain is correct in code; diagnostic `dcb047ca` will pinpoint (`systemTypeId=none` ⇒ instance mismatch; id present ⇒ thickness-resolution gap). |
 | **Door** | ✅ | ✅ | ✅ (MOVE_DOOR + UPDATE_DOOR_*) | N/A (hosted) | ✅ | ✅ | ⬜ | Hosted in wall; move = offset. Looks complete — verify. |
-| **Window** | ✅ | ✅ | ✅ (MOVE_WINDOW + UPDATE_WINDOW_*) | N/A (hosted) | ✅ | ✅ | ⬜ | As door. Verify. |
+| **Window** | ✅ | ✅ | ✅ (MOVE_WINDOW + UPDATE_WINDOW_* + CENTER_WINDOW_IN_WALL `2026-06-20`) | N/A (hosted) | ✅ | ✅ | ⬜ | As door. Verify. |
 | **Slab** | ✅ | ✅ | ✅ (full slab factory set) | N/A | ✅ | ✅ | ⬜ | Registry well-covered (slab audit W1). Verify gizmo move. |
 | **Beam** | ✅ | ✅ | ✅ | N/A (2-point) | ✅ | ⬜ | ⬜ | Move = translate both endpoints. Rotation = endpoint move. Verify. |
 | **Curtain wall** | ✅ | ✅ | ✅ | N/A (baseline) | ✅ | ⬜ | ⬜ | Move = baseLine translate. Verify. |
@@ -109,8 +109,8 @@ The master table's **S9 column** is added below; ✅ = capability set reviewed a
 | Phase | Scope | Est. | Status |
 |---|---|---|---|
 | 0 | Keystone + 5 elements' replay/rotation + diagnostic | — | ✅ shipped |
-| 1 | ~21 registry-factory gaps | ~1 day | 🟡 5 of ~21 done (`1db3b0b4`: DELETE_ROOF, REMOVE_FLOOR, REMOVE_CEILING, UPDATE_GRID, REMOVE_GRID). Remaining: floor/ceiling boundary+layers, room boundary+finishes, UPDATE_WALL_PROPERTIES, UPDATE_*_PARAMETER. |
-| 2 | handrail rotation + plumbing/lighting drag decision | ~0.5 day | ⬜ |
+| 1 | registry-factory gaps | ~1 day | 🟡 **11 done.** `1db3b0b4`: DELETE_ROOF, REMOVE_FLOOR, REMOVE_CEILING, UPDATE_GRID, REMOVE_GRID. **2026-06-20:** UPDATE_ELEMENT_PARAMETER (generic PropertyPanel apply — ALL types), UPDATE_ELEMENT_MARK, CENTER_WINDOW_IN_WALL, CHANGE_STAIR_SHAPE (+ lossless `levelHeight` serialize fix), UPDATE_STAIR_FLIGHTS, DELETE_STAIR. **Remaining enum gaps are deliberately NOT factory-able:** UPDATE_WALL_PROPERTIES / MOVE_HANDRAIL / REMOVE_OPENING / ASSIGN_ELEMENT_TO_LEVEL have **no command-registry class** (served by PRYZM3 plugin bus handlers, not the registry); CLEAR_PROJECT / IMPORT_PROJECT / LOAD_PROJECT_SNAPSHOT are project-lifecycle (not element replay); CREATE_*_ON_ALL_SLABS / CREATE_GRID_SYSTEM / CREATE_DOORS_BETWEEN_ADJACENT_ROOMS are batch fan-out (the per-element children replay, not the batch); VALIDATE_* / GENERATE_STAIR_GEOMETRY are compute-only. **Real follow-up gap:** the curtain-grid edit family (ADD/REMOVE_CURTAIN_GRID_LINE, REPLACE_CURTAIN_PANEL_TYPE/WITH_DOOR, UPDATE_ALL_CURTAIN_WALLS) + Annotation + floor/ceiling boundary+layers + room boundary+finishes factories. |
+| 2 | handrail rotation + plumbing/lighting drag wiring | ~0.5 day | 🟡 **Investigated 2026-06-20 — blocked, not skipped.** Plumbing needs a NEW MovePlumbingCommand (no position field today); lighting needs a NEW bus bridge to the command-registry `window.lightingStore` (existing `lighting.move` hits the OTHER store) + has no rotation command. Both deferred to a browser-verifiable session. |
 | 3 | view-sync verify across 18 elements | ~1–2 days (needs DB) | ⬜ |
 | 4 | wall-type-on-create fix | ~0.5 day (needs DB) | ⬜ |
 | 5 | contract/principles pass | ~2 days | ⬜ |

@@ -149,7 +149,10 @@ export class ChangeStairShapeCommand implements Command {
     serialize(): SerializedCommand {
         return {
             type: this.type,
-            payload: { stairId: this.stairId, newShape: this.newShape },
+            // §ELEMENT-REPLAY-AUDIT (2026-06-20) — include levelHeight so a replayed
+            // reshape reconstructs at the authored height instead of silently falling
+            // back to the peer's riser×count estimate (the ctor reads input.levelHeight).
+            payload: { stairId: this.stairId, newShape: this.newShape, levelHeight: this.levelHeight },
             targetIds: this.targetIds,
             timestamp: this.timestamp,
             version: 1

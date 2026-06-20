@@ -154,6 +154,18 @@ import { CreateLightingCommand } from '@pryzm/command-registry';
 import { UpdateLightingParametersCommand } from '@pryzm/command-registry';
 import { MoveLightingCommand } from '@pryzm/command-registry';
 import { MoveStairCommand } from '@pryzm/command-registry';
+// §ELEMENT-REPLAY-AUDIT Phase 1 (2026-06-20) — per-element EDIT commands that were
+// serialized on collaboration catch-up but had NO factory → reconstructed as null
+// ("No factory") and silently dropped, so the edit reverted on every remote peer /
+// reconnect (same class of bug as §FURNITURE-UPDATE-REPLAY). These are the highest-
+// value gaps: the generic property-panel apply (ALL element types), window centring,
+// stair reshape/flights/delete, and element mark/annotation edits.
+import { UpdateElementParameterCommand } from '@pryzm/command-registry';
+import { CenterWindowInWallCommand } from '@pryzm/command-registry';
+import { ChangeStairShapeCommand } from '@pryzm/command-registry';
+import { UpdateStairFlightsCommand } from '@pryzm/command-registry';
+import { UpdateElementMarkCommand } from '@pryzm/command-registry';
+import { DeleteStairCommand } from '@pryzm/command-registry';
 
 // ── Room Bounding Line commands ────────────────────────────────────────────────
 import { CreateRoomBoundingLineCommand } from '@pryzm/command-registry';
@@ -338,6 +350,20 @@ const REGISTRY = new Map<string, CommandFactory>([
         s.payload.elementId,
         s.payload.patch,
     )],
+
+    // ── §ELEMENT-REPLAY-AUDIT Phase 1 (2026-06-20): per-element EDIT commands ──────
+    // UpdateElementParameterCommand is the generic PropertyPanel "Apply Changes" path
+    // for EVERY element type (routes per-elementType internally) — its replay gap meant
+    // ANY parametric edit reverted on a remote peer. serialize() emits payload = input.
+    ['UPDATE_ELEMENT_PARAMETER', (s) => new UpdateElementParameterCommand(s.payload as any)],
+    // UpdateElementMarkCommand — element mark/annotation (tag) edits; payload = input.
+    ['UPDATE_ELEMENT_MARK', (s) => new UpdateElementMarkCommand(s.payload as any)],
+    // CenterWindowInWallCommand(windowId: string) — serialize emits { windowId }.
+    ['CENTER_WINDOW_IN_WALL', (s) => new CenterWindowInWallCommand(s.payload.windowId as string)],
+    // Stair edits — serialize payloads round-trip 1:1 into each Input.
+    ['CHANGE_STAIR_SHAPE', (s) => new ChangeStairShapeCommand(s.payload as any)],
+    ['UPDATE_STAIR_FLIGHTS', (s) => new UpdateStairFlightsCommand(s.payload as any)],
+    ['DELETE_STAIR', (s) => new DeleteStairCommand(s.payload as any)],
 ]);
 
 // ─────────────────────────────────────────────────────────────────────────────
