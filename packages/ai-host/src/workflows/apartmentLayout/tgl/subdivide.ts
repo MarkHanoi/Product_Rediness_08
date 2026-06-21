@@ -1612,7 +1612,7 @@ function trySingleRectCarve(
             if (single) return single;
         }
         return tryNoPublicDoubleLoadedCarve(
-            shell, corridor, privateRooms, master, ensuite, ensuiteCarveArea, corridorWidthM,
+            shell, corridor, privateRooms, master, ensuite, ensuiteCarveArea, corridorWidthM, keepOut,
         );
     }
 
@@ -1766,6 +1766,10 @@ function tryNoPublicDoubleLoadedCarve(
     ensuite: ProgramRoom | undefined,
     ensuiteCarveArea: number,
     corridorWidthM?: number,
+    // §LU-CORRIDOR-COMPETE (2026-06-21) — the stair keep-out (if any). When the straight
+    // double-loaded corridor does NOT reach it (stair would ship isolated), a stair-anchored
+    // L corridor that DOES reach it is preferred.
+    keepOut?: Rect,
 ): SubdivideResult | null {
     const carve = tryCarveDoubleLoadedCorridor(shell, corridorWidthM);
     // §NO-SEAL-SINGLE-LOAD (tracker §55) — the SHORT axis can't host the strip + TWO
@@ -1862,6 +1866,40 @@ function tryNoPublicDoubleLoadedCarve(
             `(sideA=${combA ? 'ok' : 'FAIL'} sideB=${combB ? 'ok' : 'FAIL'}) — fell back to squarify`,
         );
         return null;
+    }
+
+    // §LU-CORRIDOR-COMPETE — both straight combs succeeded, but if the straight corridor does NOT
+    // share a door-width wall with the stair keep-out, the stair ships ISOLATED (the founder's live
+    // "stair not connected on the upper floor" defect). Try a STAIR-ANCHORED L corridor (Step 2
+    // orients a leg to the stair); if it places every room AND its ring reaches the keep-out, PREFER
+    // it. Bounded: fires only when keepOut exists AND the straight corridor misses it AND the L
+    // reaches it → plates where the straight corridor already reaches the stair are byte-identical
+    // (ADR-0061 I2). Skipped when an ensuite must be carved from the master (the L lays plain slices;
+    // the master→ensuite carve is the straight path's job).
+    if (keepOut && (!ensuite || ensuiteCarveArea <= EPS)) {
+        const DOOR_W = 0.8;
+        const straightReachesStair = polyRectSharedWallM(rectPolygon(roundRect(carve.corridorRect)), keepOut) >= DOOR_W;
+        if (!straightReachesStair) {
+            const anchor: Pt = { x: (keepOut.x0 + keepOut.x1) / 2, z: (keepOut.z0 + keepOut.z1) / 2 };
+            const lc = planLCorridorComb(
+                shell, orderedPrivate, corridorWidthM ?? CORRIDOR_STRIP_WIDTH_M, combMinAlong, corridor.id, anchor,
+            );
+            if (lc && lc.corridorPlacement && lc.cellPolygonById) {
+                const lRing = lc.cellPolygonById.get(corridor.id) ?? [];
+                if (polyRectSharedWallM(lRing, keepOut) >= DOOR_W) {
+                    console.log(
+                        `[D-TGL subdivide] §LU-CORRIDOR-COMPETE L-corridor PREFERRED — straight corridor ` +
+                        `misses the stair keep-out; the stair-anchored L reaches it: corridor=${corridor.id} ` +
+                        `rooms=${lc.placements.length}`,
+                    );
+                    return {
+                        placements: [lc.corridorPlacement, ...lc.placements],
+                        droppedRooms: [],
+                        cellPolygonById: lc.cellPolygonById,
+                    };
+                }
+            }
+        }
     }
 
     const out: RoomPlacement[] = [];
