@@ -287,8 +287,8 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
             { kind: 'coffee_table',     sizeW: 1100, sizeD: 600, clearFoot: 300, clearSide: 100, placementRule: 'beside_group',   excludeDoorSwing: true,  excludeWindowWall: false, required: false, group: 'sofa' },
             // F1.3 — Media wall: TV unit on the wall opposite the sofa;
             // wall-mounted TV pairs with it via the 'media' group.
-            { kind: 'tv_unit',          sizeW: 1600, sizeD: 400, clearFoot: 600, clearSide: 0,   placementRule: 'opposite_door',  excludeDoorSwing: true,  excludeWindowWall: true,  required: false, group: 'media' },
-            { kind: 'tv',               sizeW: 1400, sizeD: 80,  clearFoot: 0,   clearSide: 0,   placementRule: 'beside_group',   excludeDoorSwing: false, excludeWindowWall: true,  required: false, group: 'media' },
+            { kind: 'tv_unit',          sizeW: 2400, sizeD: 400, clearFoot: 600, clearSide: 0,   placementRule: 'opposite_door',  excludeDoorSwing: true,  excludeWindowWall: true,  required: false, group: 'media' },
+            { kind: 'tv',               sizeW: 2100, sizeD: 80,  clearFoot: 0,   clearSide: 0,   placementRule: 'beside_group',   excludeDoorSwing: false, excludeWindowWall: true,  required: false, group: 'media' },
             // F1.2 — Glass-front bookshelf for living-room storage.
             { kind: 'bookshelf_glass',  sizeW: 800,  sizeD: 350, clearFoot: 600, clearSide: 0,   placementRule: 'longest_wall',   excludeDoorSwing: true,  excludeWindowWall: true,  required: false },
             // F1.10 — Wall art above the sofa (paired group).
