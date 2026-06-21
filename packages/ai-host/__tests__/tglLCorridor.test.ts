@@ -90,6 +90,22 @@ describe('§LU-CORRIDOR — planLCorridorComb', () => {
         expect(planLCorridorComb(ZONE, [bedroom()], CW)).toBeNull();
     });
 
+    it('Step 2 — orients the L so a corridor leg reaches the stair anchor (any corner)', () => {
+        // For each of the 4 zone corners, the chosen L must put a corridor leg adjacent to
+        // the stair (within the corridor width) — §STAIR-SPINE-TOUCH by construction.
+        const corners: Array<[number, number]> = [[0.3, 0.3], [6.7, 0.3], [0.3, 8.7], [6.7, 8.7]];
+        for (const [sx, sz] of corners) {
+            const res = planLCorridorComb(ZONE, [bedroom(), bedroom(), bedroom(), bedroom()], CW, undefined, undefined, { x: sx, z: sz })!;
+            expect(res, `L-comb should succeed for stair @(${sx},${sz})`).not.toBeNull();
+            const near = res.legs.some(l => {
+                const dx = Math.max(l.x0 - sx, 0, sx - l.x1);
+                const dz = Math.max(l.z0 - sz, 0, sz - l.z1);
+                return Math.hypot(dx, dz) <= CW + 0.1;
+            });
+            expect(near, `a corridor leg must reach the stair @(${sx},${sz}); legs=${JSON.stringify(res.legs)}`).toBe(true);
+        }
+    });
+
     it('is deterministic — identical inputs give an identical placement set', () => {
         _seq = 1000;
         const a = planLCorridorComb(ZONE, [bedroom(), bedroom(), bedroom(), bedroom()], CW)!;

@@ -960,6 +960,12 @@ export function planLCorridorComb(
     // into a carve result as a COMPLETE corridor+rooms output (the §EVERY-ROOM-ACCESS-COMB
     // wiring). Absent ⇒ rooms-only result (backward-compatible).
     corridorId?: string,
+    // §LU-CORRIDOR Step 2 (2026-06-21, SPEC-0074 Fix C) — when the stair keep-out centroid is
+    // supplied, the L is re-oriented (one of 4 reflections) so a corridor leg runs along the
+    // zone edge NEAREST the stair → the L ring shares a wall with the stair keep-out →
+    // §STAIR-SPINE-TOUCH stairsBridgedToCorridor=1/1. Absent ⇒ the canonical (top+left) L
+    // (byte-identical to before — the existing tests pass no anchor).
+    stairAnchor?: Pt,
 ): {
     placements: RoomPlacement[];
     corridorRing: readonly Pt[];
@@ -975,6 +981,9 @@ export function planLCorridorComb(
 
     const minAlong = (r: ProgramRoom): number => Math.max(floorFor(r.type), minAlongFor?.(r) ?? 0);
 
+    // The canonical (top+left) L from the first feasible split; orientation + corridor
+    // emission happen AFTER the loop so the stair-reflection applies uniformly.
+    let chosen: { roomPlacements: RoomPlacement[]; legA: Rect; legB: Rect } | null = null;
     // Try each contiguous split rooms[0..k) → band A (off leg A) / rooms[k..n) → band B (off leg B).
     // Rooms arrive in allocation order; the first feasible split wins (deterministic).
     for (let k = 1; k < rooms.length; k++) {
@@ -1000,31 +1009,65 @@ export function planLCorridorComb(
         const resB = sliceZoneAlongFace(bandB, groupB, 'z', minAlongFor);
         if (!resA || !resB || resA.droppedRooms.length > 0 || resB.droppedRooms.length > 0) continue;
 
-        const ring = rectUnionRing([roundRect(legA), roundRect(legB)]);
-        if (!ring) continue;
-
-        // §LU-CORRIDOR Step 1 — optional corridor emission (representative rect = bbox of
-        // the two legs; the gates run on this rect, the real L geometry is the ring).
-        let corridorPlacement: RoomPlacement | undefined;
-        let cellPolygonById: ReadonlyMap<string, readonly Pt[]> | undefined;
-        if (corridorId !== undefined) {
-            const bbox: Rect = roundRect({
-                x0: Math.min(legA.x0, legB.x0), z0: Math.min(legA.z0, legB.z0),
-                x1: Math.max(legA.x1, legB.x1), z1: Math.max(legA.z1, legB.z1),
-            });
-            corridorPlacement = { roomId: corridorId, rect: bbox };
-            cellPolygonById = new Map<string, readonly Pt[]>([[corridorId, ring]]);
-        }
-
-        return {
-            placements: [...resA.placements, ...resB.placements],
-            corridorRing: ring,
-            legs: [roundRect(legA), roundRect(legB)],
-            ...(corridorPlacement ? { corridorPlacement } : {}),
-            ...(cellPolygonById ? { cellPolygonById } : {}),
+        if (!rectUnionRing([roundRect(legA), roundRect(legB)])) continue;   // ring must form
+        chosen = {
+            roomPlacements: [...resA.placements, ...resB.placements],
+            legA: roundRect(legA),
+            legB: roundRect(legB),
         };
+        break;                                                              // first feasible split wins
     }
-    return null;
+    if (!chosen) return null;
+
+    // §LU-CORRIDOR Step 2 — reflect the canonical L about the zone mid-lines (4 orientations)
+    // and pick the one whose corridor leg sits NEAREST the stair anchor, so a leg shares the
+    // stair wall. No anchor ⇒ canonical (fx=fz=false) → byte-identical.
+    const midX = zone.x0 + zone.x1, midZ = zone.z0 + zone.z1;
+    const reflRect = (r: Rect, fx: boolean, fz: boolean): Rect => roundRect({
+        x0: fx ? midX - r.x1 : r.x0, x1: fx ? midX - r.x0 : r.x1,
+        z0: fz ? midZ - r.z1 : r.z0, z1: fz ? midZ - r.z0 : r.z1,
+    });
+    const distToRect = (p: Pt, r: Rect): number => {
+        const dx = Math.max(r.x0 - p.x, 0, p.x - r.x1);
+        const dz = Math.max(r.z0 - p.z, 0, p.z - r.z1);
+        return Math.hypot(dx, dz);
+    };
+    const orientations: ReadonlyArray<readonly [boolean, boolean]> = stairAnchor
+        ? [[false, false], [true, false], [false, true], [true, true]]
+        : [[false, false]];
+    let best = { fx: false, fz: false, d: Infinity };
+    for (const [fx, fz] of orientations) {
+        const lA = reflRect(chosen.legA, fx, fz), lB = reflRect(chosen.legB, fx, fz);
+        const d = stairAnchor ? Math.min(distToRect(stairAnchor, lA), distToRect(stairAnchor, lB)) : 0;
+        if (d < best.d) best = { fx, fz, d };
+    }
+
+    const legA = reflRect(chosen.legA, best.fx, best.fz);
+    const legB = reflRect(chosen.legB, best.fx, best.fz);
+    const placements = chosen.roomPlacements.map(p => ({ roomId: p.roomId, rect: reflRect(p.rect, best.fx, best.fz) }));
+    const ring = rectUnionRing([legA, legB]);
+    if (!ring) return null;
+
+    // §LU-CORRIDOR Step 1 — optional corridor emission (representative rect = bbox of the two
+    // legs; the gates run on this rect, the real L geometry is the ring).
+    let corridorPlacement: RoomPlacement | undefined;
+    let cellPolygonById: ReadonlyMap<string, readonly Pt[]> | undefined;
+    if (corridorId !== undefined) {
+        const bbox: Rect = roundRect({
+            x0: Math.min(legA.x0, legB.x0), z0: Math.min(legA.z0, legB.z0),
+            x1: Math.max(legA.x1, legB.x1), z1: Math.max(legA.z1, legB.z1),
+        });
+        corridorPlacement = { roomId: corridorId, rect: bbox };
+        cellPolygonById = new Map<string, readonly Pt[]>([[corridorId, ring]]);
+    }
+
+    return {
+        placements,
+        corridorRing: ring,
+        legs: [legA, legB],
+        ...(corridorPlacement ? { corridorPlacement } : {}),
+        ...(cellPolygonById ? { cellPolygonById } : {}),
+    };
 }
 
 /** Carve the ensuite out of the master's squarified rect along its LONGER
