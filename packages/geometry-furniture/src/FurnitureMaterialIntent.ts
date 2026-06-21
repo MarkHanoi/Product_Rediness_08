@@ -111,6 +111,8 @@ export const FURNITURE_TYPE_TO_MATERIAL_INTENT: Readonly<Record<FurnitureType, F
     'sofa_1seat':                   'fabric-soft',
     'sofa_2seat':                   'fabric-soft',
     'sofa_3seat':                   'fabric-soft',
+    'armchair':                     'fabric-soft',   // §LIVING-SOCIAL-ZONE — upholstered accent chair
+    'sofa_unit':                    'fabric-soft',   // §LIVING-SOCIAL-ZONE — modular sofa section
     'barcelona_sofa_1seat':         'fabric-soft',
     'barcelona_sofa_2seat':         'fabric-soft',
     'barcelona_sofa_3seat':         'fabric-soft',
@@ -203,6 +205,7 @@ export const FURNITURE_TYPE_TO_MATERIAL_INTENT: Readonly<Record<FurnitureType, F
     // ── Beds + Bedroom ────────────────────────────────────────────────
     'bed':                          'timber-warm',
     'bedside_table':                'timber-warm',
+    'side_table':                   'timber-warm',   // §LIVING-SOCIAL-ZONE — small accent table
     'dresser':                      'timber-warm',
 
     // ── Storage ───────────────────────────────────────────────────────
@@ -231,6 +234,7 @@ export const FURNITURE_TYPE_TO_MATERIAL_INTENT: Readonly<Record<FurnitureType, F
     'wall_mirror':                  'glass-translucent',
     'wall_tapestry':                'fabric-soft',     // §OVERBED-WALL-TAPESTRY — woven textile reads soft
     'chimney':                      'ceramic-clean',   // stone / brick / tile
+    'fireplace':                    'ceramic-clean',   // §LIVING-SOCIAL-ZONE — glass-faced hearth (stone/steel body)
 
     // ── Lighting (free-standing only — pendants/ceiling live in geometry-lighting) ──
     'lamp':                         'metal-warm',      // generic floor / table lamp

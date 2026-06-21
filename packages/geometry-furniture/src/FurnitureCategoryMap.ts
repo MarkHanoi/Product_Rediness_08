@@ -40,6 +40,8 @@ export const FURNITURE_TYPE_TO_CATEGORY: Readonly<Record<FurnitureType, Furnitur
     'sofa_1seat':           'sofas',
     'sofa_2seat':           'sofas',
     'sofa_3seat':           'sofas',
+    'armchair':             'sofas',  // §LIVING-SOCIAL-ZONE — single upholstered accent chair
+    'sofa_unit':            'sofas',  // §LIVING-SOCIAL-ZONE — modular sofa section
 
     // ── Chairs ────────────────────────────────────────────────────────────────
     'chair':                'chairs',
@@ -70,6 +72,7 @@ export const FURNITURE_TYPE_TO_CATEGORY: Readonly<Record<FurnitureType, Furnitur
     'bedside_table':        'tables',
     'desk':                 'tables', // F1.1 — study workstation surface
     'console_table':        'tables', // F1.4 — narrow tall entry console
+    'side_table':           'tables', // §LIVING-SOCIAL-ZONE — small accent table beside seating
     'table_marble_cone':    'tables',
     'table_glass_wood_cylinder': 'tables',
     'table_wood_double_conic': 'tables',
@@ -131,6 +134,7 @@ export const FURNITURE_TYPE_TO_CATEGORY: Readonly<Record<FurnitureType, Furnitur
 
     // ── Decor ─────────────────────────────────────────────────────────────────
     'chimney':              'decor',
+    'fireplace':            'decor',  // §LIVING-SOCIAL-ZONE — glass-faced hearth / wood-burner
     'wall_art':             'decor', // F1.10 — wall-mounted framed art panel
     'wall_mirror':          'decor', // F1.10 — wall-mounted decorative mirror
     'wall_tapestry':        'decor', // §OVERBED-WALL-TAPESTRY — woven textile wall-hanging

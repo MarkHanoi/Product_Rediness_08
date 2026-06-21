@@ -101,6 +101,9 @@ export class FurnitureFactory {
             case 'solid_wood_bed':        return new JapaneseBedBuilder('solid_wood', materialService);
 
             case 'bedside_table':      return new BedsideTableBuilder(materialService);
+            // §LIVING-SOCIAL-ZONE (2026-06-21) — side table beside living-room seating; a small
+            // accent table, same family as the bedside table (sized by footprint).
+            case 'side_table':         return new BedsideTableBuilder(materialService);
 
             // F1.1 (2026-05-30) — Desk + desk chair (study workstation).
             case 'desk':               return new DeskBuilder(materialService);
@@ -194,6 +197,10 @@ export class FurnitureFactory {
             case 'sofa_1seat':         return new WhiteSofaBuilder(materialService);
             case 'sofa_2seat':         return new WhiteSofaBuilder(materialService);
             case 'sofa_3seat':         return new WhiteSofaBuilder(materialService);
+            // §LIVING-SOCIAL-ZONE (2026-06-21) — armchair + modular sofa unit read as upholstered
+            // seating; both route to the white-sofa builder, sized by the FurnitureData footprint.
+            case 'armchair':           return new WhiteSofaBuilder(materialService);
+            case 'sofa_unit':          return new WhiteSofaBuilder(materialService);
 
             case 'coffee_table':       return new CoffeeTableBuilder(materialService);
             case 'shower_glass_panel': return new ShowerGlassPanelBuilder(materialService);
@@ -210,6 +217,9 @@ export class FurnitureFactory {
             case 'entrance_table':     return new EntranceTableBuilder(materialService);
             case 'toilet_radiator':    return new ToiletRadiatorBuilder(materialService);
             case 'chimney':            return new ChimneyBuilder();
+            // §LIVING-SOCIAL-ZONE (2026-06-21) — living-room fireplace: a glass-faced hearth /
+            // wood-burner. Routes to the chimney builder (rounded body + glass face), sized by footprint.
+            case 'fireplace':          return new ChimneyBuilder();
 
             // ── Soft Furnishings (parametric) ───────────────────────────────────
             case 'parametric_chevron_carpet':   return new ChevronCarpetBuilder(materialService);

@@ -82,6 +82,15 @@ export type FurnitureType =
     | 'sofa_1seat'
     | 'sofa_2seat'
     | 'sofa_3seat'
+    // §LIVING-SOCIAL-ZONE (founder, 2026-06-21) — living/family social-zone furniture.
+    //   armchair  — single upholstered accent chair (routes to WhiteSofaBuilder, 1-seat scale).
+    //   sofa_unit — modular sofa section (routes to WhiteSofaBuilder, sized by footprint).
+    //   side_table — small accent table beside seating (routes to BedsideTableBuilder).
+    //   fireplace — glass-faced hearth / wood-burner (routes to ChimneyBuilder).
+    | 'armchair'
+    | 'sofa_unit'
+    | 'side_table'
+    | 'fireplace'
     | 'coffee_table'
     | 'wardrobe'
     | 'wardrobe_glass_door'

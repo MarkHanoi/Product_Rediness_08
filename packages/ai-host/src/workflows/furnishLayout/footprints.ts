@@ -190,6 +190,17 @@ const FP: Readonly<Record<FurnitureKind, Footprint>> = {
     // zone; clearSides 0.10. Mirrors the geometry-furniture CornerSofaBuilder
     // (width = main run, length = side run).
     corner_sofa:      { w: 2.60, l: 2.00, h: 0.85, baseOffset: 0, clearFront: 0.45, clearSides: 0.10 },
+    // §LIVING-SOCIAL-ZONE (founder, 2026-06-21) — living/family social-zone furniture.
+    //   armchair: single accent chair 0.90 × 0.85 m, 0.45 m front (foot/leg room), 0.10 sides.
+    //   sofa_unit: modular sofa section 1.00 × 0.95 m (one bay; the planner tiles several into a run);
+    //     0.45 m front walkway, 0.05 sides so units butt flush along the run.
+    //   side_table: small accent table 0.50 × 0.50 m beside the seating; minimal clearance.
+    //   fireplace: floor-standing glass-faced hearth 1.20 × 0.45 m against a wall; 0.80 m hearth
+    //     clearance in front (fire safety / no furniture in the radiant zone), 0.20 sides.
+    armchair:         { w: 0.90, l: 0.85, h: 0.80, baseOffset: 0, clearFront: 0.45, clearSides: 0.10 },
+    sofa_unit:        { w: 1.00, l: 0.95, h: 0.80, baseOffset: 0, clearFront: 0.45, clearSides: 0.05 },
+    side_table:       { w: 0.50, l: 0.50, h: 0.55, baseOffset: 0, clearFront: 0.10, clearSides: 0.05 },
+    fireplace:        { w: 1.20, l: 0.45, h: 0.60, baseOffset: 0, clearFront: 0.80, clearSides: 0.20 },
     // §67.2 (2026-06-11) — bed variety. The integrated set's variant beds. Sized
     // to the BedFactory presets (nordic 1.80 × 2.20, solid_wood 1.75 × 2.20) with
     // the plain `bed`'s circulation clearances (0.80 foot, 0.60 sides). The

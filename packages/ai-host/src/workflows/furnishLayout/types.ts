@@ -100,6 +100,11 @@ export type FurnitureKind =
     // picks this (instead of the straight `sofa`) when the room is large enough
     // to seat an L in a corner. Routes to CornerSofaBuilder.
     | 'corner_sofa'
+    // §LIVING-SOCIAL-ZONE (founder, 2026-06-21) — living/family social-zone furniture, added so the
+    // livingSocialPlanner can compose multi-zone lounges. armchair = single accent chair;
+    // sofa_unit = modular sofa section; side_table = small table beside seating; fireplace = hearth.
+    // Render via existing builders (WhiteSofa / BedsideTable / Chimney) — see FurnitureFactory.
+    | 'armchair' | 'sofa_unit' | 'side_table' | 'fireplace'
     // §67.2 (2026-06-11) — bed variety. The integrated bedroom set uses a
     // BedFactory variant bed (these route to JapaneseBedBuilder in the
     // geometry catalogue) instead of the plain `bed`. The choice is per-room
