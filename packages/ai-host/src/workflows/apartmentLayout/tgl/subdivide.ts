@@ -1373,12 +1373,31 @@ function tryHallHingeCarve(
     // wing balloons the hall to ≥2 m × wing-width). So the hall stays correctly sized + shaped,
     // borders the public zone (across the split) AND the corridor; the corridor borders hall +
     // private only; private rooms comb off the corridor. Bands span the wing's CROSS dimension.
-    const cw = corridorWidthM ?? CORRIDOR_STRIP_WIDTH_M;
+    let cw = corridorWidthM ?? CORRIDOR_STRIP_WIDTH_M;
     const wingAlong = splitAxis === 'x' ? wing.x1 - wing.x0 : wing.z1 - wing.z0;   // depth along the split axis
     const wingCross = splitAxis === 'x' ? wing.z1 - wing.z0 : wing.x1 - wing.x0;   // band length (full wing cross)
     let hallDepth = hall.targetAreaM2 / Math.max(EPS, wingCross);
     hallDepth = Math.max(hallDepth, roomRule('hall').minShortSideM);              // never thinner than a hall
-    if (wingAlong - hallDepth - cw < MIN_ZONE - EPS) {                             // private band too shallow
+    // §HALL-HINGE-CORRIDOR-FIT (2026-06-21) — when the private band falls short ONLY because the
+    // fixed corridor strip is eating the wing, NARROW the corridor toward its minimum walkable
+    // width instead of abandoning the hall-hinge carve. Abandoning it falls through to squarify,
+    // which BURIES the private rooms behind the public zone (the bedroom then doors onto the
+    // dining room, not circulation — the §DIAG-TOPO-GATE circulation/privacy failure the founder
+    // keeps hitting). A 1.0–1.2 m corridor is equally walkable; trading 0.0–0.2 m of corridor for
+    // a corridor-combed bedroom is strictly better. SAFE: when the band already passes with the
+    // full strip, cw ≤ maxCwForBand so cw is untouched (existing carves stay byte-identical); this
+    // only recovers the marginal cases that used to bail.
+    const corridorMinW = roomRule('corridor').minShortSideM;                       // never narrower than a walkable corridor
+    const maxCwForBand = wingAlong - hallDepth - MIN_ZONE;                         // widest corridor that still leaves a usable private band
+    if (cw > maxCwForBand && maxCwForBand >= corridorMinW - EPS) {
+        const narrowed = Math.max(corridorMinW, maxCwForBand);
+        console.log(
+            `[D-TGL subdivide] §HALL-HINGE-CORRIDOR-FIT narrowing corridor ${cw.toFixed(2)}→${narrowed.toFixed(2)}m ` +
+            `to keep the private band ≥ ${MIN_ZONE}m (recovers the hall-hinge carve instead of squarify-burying the private rooms).`,
+        );
+        cw = narrowed;
+    }
+    if (wingAlong - hallDepth - cw < MIN_ZONE - EPS) {                             // private band too shallow even at min corridor
         console.log(
             `[D-TGL subdivide] §HALL-HINGE-CARVE infeasible: private band too shallow ` +
             `(wingAlong=${wingAlong.toFixed(1)}m − hall=${hallDepth.toFixed(1)} − corridor=${cw.toFixed(1)} = ${(wingAlong - hallDepth - cw).toFixed(1)}m < ${MIN_ZONE}m) ` +
