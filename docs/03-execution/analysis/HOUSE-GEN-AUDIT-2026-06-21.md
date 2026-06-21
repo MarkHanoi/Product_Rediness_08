@@ -44,12 +44,26 @@ collapse. Result: the stub's end overlaps the corner instead of mitering — the
 lines in the zoom — and the perimeter corner is left 100 mm open. `T-JOIN … skipping` is the same
 junction failing the trim safety bound.
 
-**Fix direction (HIGH-RISK subsystem — needs full wall suite + browser):** when the re-resolve
-predicts a collapse to < ~150 mm, the wall is degenerate at this junction — it should be **flagged
-invalid and excluded from the mesh + the room-boundary polygon** (the [[walljoinresolver-multi-cluster-bug]]
-recommendation), NOT preserved as a rendered stub. Better still, prevent the carve from minting a
-< min-wall-length partition arm at a cluster (upstream). Do NOT blind-edit `WallJoinResolver` /
-`WallRebuildCoordinator` — this is the documented high-revert subsystem.
+**Precise root (traced 2026-06-21) — it is NOT the resolver.** `packages/geometry-wall/WallJoinResolver`
+already handles this correctly: `§RESOLVED-STUB-SWEEP` + the `§PARITY-GATE` invariant (test (f) in
+`WallJoinResolver.degenerateStub.test.ts`) guarantee no wall ships rendered in the `[1e-3, 0.15)` m
+dead band unless flagged `invalid`. The 0.099 m collapse WOULD be flagged invalid by the resolver.
+
+The spike comes from the EDITOR override `§POST-RESOLVE-PRESERVE` (`WallRebuildCoordinator.ts:813-874`,
+a founder-2026-06-19 fix). When the **post-openings re-resolve** would collapse a *previously-valid*
+wall, it **preserves the pre-resolve baseline AND clears the invalid flag** (`_adjMut.invalid = false`,
+line 872) so the wall stays rendered. Trade-off: the wall keeps its OLD (un-trimmed) end, not the
+re-resolved mitered corner → the non-mitered overshoot + the 100 mm open corner. The deeper root is
+that the post-openings re-resolve *diverges* from the initial resolve (openings are mid-wall and
+shouldn't move endpoints) — `§POST-RESOLVE-PRESERVE` is a guard against that divergence destroying a
+valid wall; it trades a clean miter for keeping the wall.
+
+**Why this is browser-gated, not a blind edit:** dropping the preserve (let the wall collapse +
+invalidate) removes the spike BUT may re-open the room (the wall it preserved is load-bearing for the
+room boundary) — exactly the regression `§POST-RESOLVE-PRESERVE` was added to prevent. The sound fix
+targets the *re-resolve divergence* (so the post-openings resolve reproduces the initial miter instead
+of collapsing) — an editor render-coordination change whose room-sealing + rebuild-stability effects
+MUST be visually verified. Do NOT blind-edit `WallRebuildCoordinator`.
 
 ## ② Bathroom room dropped — SAME root
 
@@ -118,10 +132,10 @@ Pre-existing perf class, not part of this audit's geometry focus.
 
 | # | defect | root | risk to fix | verifiable now? |
 |---|--------|------|-------------|-----------------|
-| ① | non-mitered join / spike | degenerate <150 mm partition stub preserved | HIGH (WallJoinResolver) | partial (pure degeneracy guard testable) |
+| ① | non-mitered join / spike | editor `§POST-RESOLVE-PRESERVE` keeps a valid wall un-trimmed when the post-openings re-resolve diverges (resolver itself is correct) | HIGH (editor render coord; room-sealing + rebuild stability) | NO — browser-gated |
 | ② | bathroom dropped | ① corrupts polygon | fixed by ① | — |
 | ③ | floor bow-ties | ① corrupts polygon | fixed by ① (graceful today) | — |
-| ⑤ | door↔furniture clash | furnish ignores swing arcs | LOW-MED (additive pre-filter) | YES (pure swing-keepout helper) |
+| ⑤ | door↔furniture clash | keep-clear EXISTS (`doorObstacles`); only precision gap, blocked on hinge-side payload | MED (schema + 2 sites) | core done; wiring needs hinge data + browser |
 
 **Recommendation:** ① is the keystone but lives in the high-revert wall-join subsystem — audit-only
 here, fix in a dedicated browser-verified pass. ⑤ is the best low-risk win: a pure door-swing
