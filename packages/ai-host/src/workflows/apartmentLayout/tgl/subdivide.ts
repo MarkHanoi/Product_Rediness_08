@@ -1832,6 +1832,31 @@ function tryNoPublicDoubleLoadedCarve(
             );
             return single;
         }
+        // §LU-CORRIDOR (Step 3, SPEC-0074 Fix A) — before bailing to the whole-shell squarify
+        // (which buries back-row rooms behind the front row → SEALED), try an L-CORRIDOR: lay
+        // the private rooms along TWO PERPENDICULAR corridor legs so they all fit AND every room
+        // keeps a corridor-adjacent wall. Fires ONLY here, after BOTH the double- AND single-
+        // loaded straight combs failed → on every plate the straight carve already handled, this
+        // is unreached (byte-identical, ADR-0061 I2). Skipped when an ensuite must be carved from
+        // the master (the L-comb places rooms as plain slices; the master→ensuite carve is the
+        // straight path's job) — that case keeps the existing squarify fallback (no regression).
+        if (!ensuite || ensuiteCarveArea <= EPS) {
+            const lComb = planLCorridorComb(
+                shell, orderedPrivate, corridorWidthM ?? CORRIDOR_STRIP_WIDTH_M, combMinAlong, corridor.id,
+            );
+            if (lComb && lComb.corridorPlacement) {
+                console.log(
+                    `[D-TGL subdivide] §LU-CORRIDOR APPLIED L-corridor (straight comb infeasible): ` +
+                    `corridor=${corridor.id} rooms=${lComb.placements.length} legs=${lComb.legs.length} ` +
+                    `(every private room abuts the L corridor)`,
+                );
+                return {
+                    placements: [lComb.corridorPlacement, ...lComb.placements],
+                    droppedRooms: [],
+                    cellPolygonById: lComb.cellPolygonById,
+                };
+            }
+        }
         console.log(
             `[D-TGL subdivide] §NO-PUBLIC-CARVE comb infeasible ` +
             `(sideA=${combA ? 'ok' : 'FAIL'} sideB=${combB ? 'ok' : 'FAIL'}) — fell back to squarify`,
