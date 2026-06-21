@@ -81,3 +81,38 @@ subdivide stage**, not a patch — so it must be built in isolation and proven a
 
 Reordering the work this way means we stop shipping Almanzora-specific patches and instead move ONE
 global number — the sound-rate — with each isolated, test-first step.
+
+## 6. Progress + the locked doctrine (2026-06-21, end of session)
+
+**Built + proven (isolated, pushed):**
+- P0 `circulationRobustnessSweep` — area-first baseline = **53%** fully sound (window=25 > circ=11 > reach=5).
+- P1 `deriveCorridorSpine` (8 tests), P2 `packRoomsAlongSpine` (7 tests, I1+I2 by construction +
+  proportional residual fill), P3 `subdivideViaSpine` adapter + head-to-head: **spine-first = 100%
+  (36/36) I1+I2-sound, 0 drops** on the same set the area-first engine scores 53% on. The core works.
+
+**Doctrine DECISION (founder, locked):** *"Hall for public, spine for private."* The central derived
+corridor serves the **private wing only** (bedrooms / baths / ensuite); **public rooms (living /
+kitchen / dining) cluster off the entrance HALL**, not the corridor. Consequence for the rebuild:
+- **Upper / all-private storeys:** the whole floor IS the private wing → spine-first applies directly
+  (every bedroom + the stair off one central corridor — the founder's first-floor vision). **Wire
+  this first.**
+- **Ground / mixed storeys:** split `[public zone + hall | private wing]` FIRST (the hall-hinge
+  split), then run the spine-first packer **inside the private wing only**; the hall connects the
+  public zone to the corridor (living↔hall guaranteed). This makes the fragile hall-hinge robust by
+  delegating the private side to the proven spine packer.
+
+**P4 remaining work (precise — the next session's scope), before the flag is browser-meaningful:**
+1. **Emit the leg as corridor GEOMETRY.** P2 currently returns only the straight run rect as the
+   corridor; the stair-reaching leg lives in the SpinePath but isn't emitted. P2 must return the
+   corridor as run + leg (an L cell via `cellPolygonById`, like `planLCorridorComb`) so the stair is
+   geometrically connected, not just notionally.
+2. **Ensuite carve.** Spine-first bands every room off the corridor; an ensuite must instead carve
+   from its master (ensuite↔master, never corridor) or the `ensuiteOnCorr` gate hard-fails. Add an
+   ensuite-from-master step after packing (reuse `tryCarveEnsuiteFromMaster`).
+3. **Shell polygon, not bbox.** `subdivideViaSpine` packs into the bbox; for skewed/rectified shells
+   the bands over-claim outside the polygon. Clip bands to the real shell (P3 residual).
+4. **Flag-wire** `SubdivideOptions.spineFirst` → early-return in `subdivideWithReport` for the
+   no-public case (default off = byte-identical); editor reads `window.__pryzmSpineFirst` at the
+   house-generate call site so the founder can toggle + browser-verify.
+5. **Re-measure** with the full enumerate-based sweep (through all gates), drive the 53% up; flip the
+   default once it clears a high bar + browser-verified.
