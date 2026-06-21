@@ -953,7 +953,20 @@ export function planLCorridorComb(
     rooms: readonly ProgramRoom[],
     corridorWidthM: number,
     minAlongFor?: (room: ProgramRoom) => number,
-): { placements: RoomPlacement[]; corridorRing: readonly Pt[]; legs: readonly [Rect, Rect] } | null {
+    // §LU-CORRIDOR Step 1 (2026-06-21) — when a `corridorId` is supplied the L-comb also
+    // emits the corridor itself: a representative axis-aligned `corridorPlacement` (the bbox
+    // of the two legs, for the area/min/overlap gates) PLUS the real L ring in
+    // `cellPolygonById` (what wallsAndDoors + semanticGraph read). This lets the L-comb slot
+    // into a carve result as a COMPLETE corridor+rooms output (the §EVERY-ROOM-ACCESS-COMB
+    // wiring). Absent ⇒ rooms-only result (backward-compatible).
+    corridorId?: string,
+): {
+    placements: RoomPlacement[];
+    corridorRing: readonly Pt[];
+    legs: readonly [Rect, Rect];
+    corridorPlacement?: RoomPlacement;
+    cellPolygonById?: ReadonlyMap<string, readonly Pt[]>;
+} | null {
     const cw = corridorWidthM;
     if (rooms.length < 2 || cw <= EPS) return null;          // an L only helps for ≥2 rooms
     const zoneW = zone.x1 - zone.x0;
@@ -990,10 +1003,25 @@ export function planLCorridorComb(
         const ring = rectUnionRing([roundRect(legA), roundRect(legB)]);
         if (!ring) continue;
 
+        // §LU-CORRIDOR Step 1 — optional corridor emission (representative rect = bbox of
+        // the two legs; the gates run on this rect, the real L geometry is the ring).
+        let corridorPlacement: RoomPlacement | undefined;
+        let cellPolygonById: ReadonlyMap<string, readonly Pt[]> | undefined;
+        if (corridorId !== undefined) {
+            const bbox: Rect = roundRect({
+                x0: Math.min(legA.x0, legB.x0), z0: Math.min(legA.z0, legB.z0),
+                x1: Math.max(legA.x1, legB.x1), z1: Math.max(legA.z1, legB.z1),
+            });
+            corridorPlacement = { roomId: corridorId, rect: bbox };
+            cellPolygonById = new Map<string, readonly Pt[]>([[corridorId, ring]]);
+        }
+
         return {
             placements: [...resA.placements, ...resB.placements],
             corridorRing: ring,
             legs: [roundRect(legA), roundRect(legB)],
+            ...(corridorPlacement ? { corridorPlacement } : {}),
+            ...(cellPolygonById ? { cellPolygonById } : {}),
         };
     }
     return null;

@@ -60,6 +60,28 @@ describe('§LU-CORRIDOR — planLCorridorComb', () => {
         expect(res.legs).toHaveLength(2);
     });
 
+    it('Step 1 — emits the corridor (representative rect + L ring) when a corridorId is given', () => {
+        const rooms = [bedroom(), bedroom(), bedroom(), bedroom()];
+        const res = planLCorridorComb(ZONE, rooms, CW, undefined, 'corr')!;
+        // rooms-only placements are unchanged (corridor is separate)
+        expect(res.placements.map(p => p.roomId).sort()).toEqual(rooms.map(r => r.id).sort());
+        // the corridor is emitted separately, with the L ring in cellPolygonById
+        expect(res.corridorPlacement?.roomId).toBe('corr');
+        expect(res.cellPolygonById?.get('corr')).toEqual(res.corridorRing);
+        // the representative rect's bbox encloses both legs
+        const bb = res.corridorPlacement!.rect;
+        for (const leg of res.legs) {
+            expect(bb.x0).toBeLessThanOrEqual(leg.x0 + 1e-6);
+            expect(bb.x1).toBeGreaterThanOrEqual(leg.x1 - 1e-6);
+        }
+    });
+
+    it('Step 1 — omitting corridorId keeps the rooms-only result (backward-compatible)', () => {
+        const res = planLCorridorComb(ZONE, [bedroom(), bedroom(), bedroom(), bedroom()], CW)!;
+        expect(res.corridorPlacement).toBeUndefined();
+        expect(res.cellPolygonById).toBeUndefined();
+    });
+
     it('returns null (→ caller squarify fallback) when the zone is too small for an L', () => {
         expect(planLCorridorComb({ x0: 0, z0: 0, x1: 2.5, z1: 2.5 }, [bedroom(), bedroom()], CW)).toBeNull();
     });
