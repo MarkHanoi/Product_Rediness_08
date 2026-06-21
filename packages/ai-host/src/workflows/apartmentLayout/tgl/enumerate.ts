@@ -95,6 +95,11 @@ export interface EnumerateInput {
     /** Minimum clearance (metres) between a partition coord line and any
      *  window-span boundary. Defaults to 0.1 m. */
     readonly windowClearanceM?: number;
+    /** §SPINE-FIRST P4 (2026-06-21) — opt-in. When true, an all-private (upper) storey is
+     *  subdivided circulation-FIRST (derive corridor spine → pack rooms off it) instead of the
+     *  area-first carve. Threaded to SubdivideOptions.spineFirst. The house orchestrator sets it
+     *  from `window.__pryzmSpineFirst` for opt-in browser testing. Default off ⇒ byte-identical. */
+    readonly spineFirst?: boolean;
     /** A.21.h — OPTIONAL injected gross-area envelope validator. Defaults to the
      *  apartment §D3.5 gate (`validateApartmentEnvelope`, keyed on bedroom count).
      *  The house orchestrator injects `validateHouseStorey` so a house plate is
@@ -900,6 +905,9 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
             // §STAIR-CIRC-FACE — pass the inflated keep-out(s) so the subdivider orients the
             // corridor/landing to share a wall with the stair (founder defect 2026-06-11).
             ...(holesT.length > 0 ? { keepOutRects: holesT } : {}),
+            // §SPINE-FIRST P4 — opt-in passthrough (the house orchestrator sets it from
+            // window.__pryzmSpineFirst). Default off ⇒ byte-identical legacy carve.
+            ...(input.spineFirst ? { spineFirst: true } : {}),
         },
     );
     const placementsT = subRes.placements;
