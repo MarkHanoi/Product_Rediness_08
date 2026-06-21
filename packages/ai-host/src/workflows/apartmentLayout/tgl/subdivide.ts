@@ -929,6 +929,76 @@ function sliceZoneAlongFace(
     return { placements, droppedRooms: [] };
 }
 
+/**
+ * §LU-CORRIDOR (founder 2026-06-21 — "circulation must be first-class … allow sound L and U
+ * corridors") — when a single STRAIGHT comb ({@link sliceZoneAlongFace}) cannot fit every private
+ * room on ONE corridor run (the upper-floor 4-bed case: `floorSum > along`), lay the rooms along an
+ * **L of TWO perpendicular corridor legs** so EVERY room keeps a corridor-adjacent wall. The corridor
+ * becomes the L ring (for `cellPolygonById`); each room is a straight slice off whichever leg it hangs
+ * from — so this composes the EXISTING `sliceZoneAlongFace` (twice) + `rectUnionRing` (the ring), no
+ * new slice/polygon maths. Returns `null` when no feasible 2-leg split exists → caller falls back to
+ * squarify EXACTLY as today (byte-identical on every plate that doesn't take this branch, ADR-0061 I2).
+ *
+ * Tiling (zone `[x0,x1]×[z0,z1]`, corridor width `cw`):
+ * ```
+ *   band A  z∈[z1−dA, z1]            full width, sliced along x   (rooms abut leg A's top edge)
+ *   leg  A  z∈[z1−dA−cw, z1−dA]      full width                   (horizontal corridor)
+ *   leg  B  x∈[x0, x0+cw]            z∈[z0, z1−dA−cw]             (vertical corridor, joins leg A)
+ *   band B  x∈[x0+cw, x1]           z∈[z0, z1−dA−cw], sliced z    (rooms abut leg B's right edge)
+ * ```
+ * The four tile the zone exactly with no overlap; `legA ∪ legB` is a simple L ring.
+ */
+export function planLCorridorComb(
+    zone: Rect,
+    rooms: readonly ProgramRoom[],
+    corridorWidthM: number,
+    minAlongFor?: (room: ProgramRoom) => number,
+): { placements: RoomPlacement[]; corridorRing: readonly Pt[]; legs: readonly [Rect, Rect] } | null {
+    const cw = corridorWidthM;
+    if (rooms.length < 2 || cw <= EPS) return null;          // an L only helps for ≥2 rooms
+    const zoneW = zone.x1 - zone.x0;
+    const zoneD = zone.z1 - zone.z0;
+    if (zoneW <= cw + ABSOLUTE_MIN_SHORT_SIDE_M || zoneD <= cw + ABSOLUTE_MIN_SHORT_SIDE_M) return null;
+
+    const minAlong = (r: ProgramRoom): number => Math.max(floorFor(r.type), minAlongFor?.(r) ?? 0);
+
+    // Try each contiguous split rooms[0..k) → band A (off leg A) / rooms[k..n) → band B (off leg B).
+    // Rooms arrive in allocation order; the first feasible split wins (deterministic).
+    for (let k = 1; k < rooms.length; k++) {
+        const groupA = rooms.slice(0, k);
+        const groupB = rooms.slice(k);
+        const floorSumB = groupB.reduce((s, r) => s + minAlong(r), 0);
+        const maxFloorA = groupA.reduce((m, r) => Math.max(m, floorFor(r.type)), 0);
+
+        // band B run (along z) = zoneD − dA − cw ≥ floorSumB ⇒ dA ≤ zoneD − cw − floorSumB.
+        // band A depth dA must clear band A's floors (≥ maxFloorA) and the comb-depth gate.
+        const dAHi = Math.min(MAX_COMB_DEPTH_M, zoneD - cw - floorSumB);
+        const dALo = maxFloorA;
+        if (dALo > dAHi + EPS) continue;                     // no feasible band-A depth for this split
+        const dA = dALo;                                     // give band B the longest run (deterministic)
+
+        const legAz0 = zone.z1 - dA - cw;
+        const bandA: Rect = { x0: zone.x0,      z0: zone.z1 - dA, x1: zone.x1,      z1: zone.z1 };
+        const legA:  Rect = { x0: zone.x0,      z0: legAz0,       x1: zone.x1,      z1: zone.z1 - dA };
+        const legB:  Rect = { x0: zone.x0,      z0: zone.z0,      x1: zone.x0 + cw, z1: legAz0 };
+        const bandB: Rect = { x0: zone.x0 + cw, z0: zone.z0,      x1: zone.x1,      z1: legAz0 };
+
+        const resA = sliceZoneAlongFace(bandA, groupA, 'x', minAlongFor);
+        const resB = sliceZoneAlongFace(bandB, groupB, 'z', minAlongFor);
+        if (!resA || !resB || resA.droppedRooms.length > 0 || resB.droppedRooms.length > 0) continue;
+
+        const ring = rectUnionRing([roundRect(legA), roundRect(legB)]);
+        if (!ring) continue;
+
+        return {
+            placements: [...resA.placements, ...resB.placements],
+            corridorRing: ring,
+            legs: [roundRect(legA), roundRect(legB)],
+        };
+    }
+    return null;
+}
+
 /** Carve the ensuite out of the master's squarified rect along its LONGER
  *  axis so the master + ensuite share an interior wall (the only access to
  *  the ensuite, per programRules.ensuite.accessFrom = ['master']). Returns
@@ -2633,9 +2703,13 @@ export function polyRectSharedWallM(poly: readonly Pt[], rect: Rect): number {
                 const hi = Math.min(Math.max(a.z, b.z), Math.max(c.z, d.z));
                 if (hi - lo > best) best = hi - lo;
             } else if (pHorz && rHorz && Math.abs(a.z - c.z) < ALIGNMENT_SNAP_EPS_M) {
-                // both horizontal, (near-)collinear in z → overlap along x
+                // both horizontal, (near-)collinear in z → overlap along x.
+                // §HORZ-SHARED-WALL-FIX (2026-06-21) — `hi` previously used Math.min(c.x,d.x)
+                // (a copy-paste typo; the vertical branch above correctly uses Math.max), so a
+                // room abutting a corridor on a HORIZONTAL edge always measured ~0 shared wall →
+                // no door → sealed. Mirror the vertical branch: hi = min(max(a),max(c)).
                 const lo = Math.max(Math.min(a.x, b.x), Math.min(c.x, d.x));
-                const hi = Math.min(Math.max(a.x, b.x), Math.min(c.x, d.x));
+                const hi = Math.min(Math.max(a.x, b.x), Math.max(c.x, d.x));
                 if (hi - lo > best) best = hi - lo;
             }
         }
