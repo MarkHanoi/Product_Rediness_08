@@ -95,6 +95,45 @@ console filter box, type `D-TGL` and copy what shows after clicking Generate.** 
 the boot spam and gives exactly the ~40 generation lines I need to target the corridor-extension +
 stair-bridge fix precisely instead of guessing on the 5×-revert subsystem.
 
+## REAL generation logs (founder, D-TGL filter) — the precise ground-floor root
+
+Brief: 2 storeys, 2 bed, 1 bath → ground gets 1 bed + 1 bath + kitchen/living/hall; stair winner
+`kind=right pos=CORNER`. `§DIAG-RECTS` = one dominant rect (102.6 m², 56%) + slivers
+[45.7, 23.8, 6.7, 4.5]. `fillRatio=0.97`.
+
+**The central spine comes from `tryHallHingeCarve` (`[public | hall | corridor | private]`). It
+NEVER succeeds on this ground floor** — its `sound()` gate (subdivide.ts §HALL-HINGE-SOUND ~L1482)
+bails on two distinct checks across the 8 strategies:
+1. **`living↔hall not a door-width wall`** (L1498) — the public zone is squarified as one block on
+   the low side of the split; whichever public room lands against the hall band is arbitrary, and
+   `living` (the ONLY rule-permitted public→hall link, `hall.accessFrom=['living','corridor']`)
+   often isn't the one touching the hall. → bail.
+2. **`private room bedroom not on the corridor (sealed/dropped)`** (L1493) — my §HALL-HINGE-CORRIDOR-
+   FIT DID fire (`narrowing corridor 1.20→1.11m`) and recovered the band, but the private band is
+   still too tight to comb BOTH bedroom + bathroom onto the corridor (`§EVERY-ROOM-ACCESS-COMB fell
+   back to squarify … floors/depth too tight`). → bail.
+
+When the hall-hinge bails → 3-zone carve → the winner ships `r5(bedroom)→living✓` (bedroom doored
+onto the living room, NOT circulation) + `r3(dining)` SEALED → `§DIAG-TOPO-GATE failed=[circulation,
+privacy]`. The stair IS connected on the winner (`stair→corridor✓`) — so the stair-bridge works on
+the ground floor; the defect is purely the hall-hinge failing.
+
+**Deeper root — over-enrichment.** `§DIAG-ENRICH` grows the ground floor (living → **53 m²**, adds a
+24 m² dining) to `fillRatio=0.97`. The plate is too PACKED for the clean 4-band spine to fit every
+room at its minimum. A less-greedy ground enrichment (cap living nearer its 14 m² floor + corridor
+out of the fill budget) would give the hall-hinge the slack to succeed — likely the lowest-risk lever.
+
+### The two candidate fixes (both engine-side, test-first, browser-gated)
+- **(A) living-against-hall:** in `tryHallHingeCarve`, RESERVE the hall-adjacent edge of the public
+  zone for `living` before squarifying the rest, so check #1 passes by construction. Bounded to the
+  hall-hinge path. Medium risk (changes public-zone geometry).
+- **(B) ground de-enrichment:** cap `§DIAG-ENRICH` ground growth (living ≤ ~1.4× floor; keep the
+  corridor area out of `targetFillM2`) so the band has depth for the comb → check #2 passes. Lower
+  blast radius, but touches the enrichment sizer (storeyAllocation / bubble target).
+Both need a reproduction test of THIS packed-ground plate + the full house suite green before relying
+on them. (A) directly forces the spine; (B) makes room for it. Recommend trying **(B) first** — it's
+the smaller, more localised change and addresses the shared root of BOTH hall-hinge failures.
+
 ## What shipped this session (real, proven)
 - `§HALL-HINGE-CORRIDOR-FIT` (commit `32a28af5`) — recovers the ground-floor hall-hinge carve on a
   marginally-shallow private wing by narrowing the corridor toward 1.0 m, so the bedroom combs off the
