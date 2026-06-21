@@ -26,6 +26,7 @@
 import { WallDimensionInput } from '@pryzm/geometry-wall';
 import { createId } from '@pryzm/schemas';
 import { isStrongSnap, type PlanToolHandler, type PlanToolDrawContext, type WorldPoint } from './PlanToolHandler';
+import { computeSetOutDimensions, type SetOutSegment } from './setOutDimensions';
 // §P2.1 (IMPL-PLAN-2026-05-17): CreateWallCommand + window.commandManager bridge (P4.4).
 // Wall creation is now bus-only; no @pryzm/command-registry import needed here.
 
@@ -33,6 +34,11 @@ const WALL_DEFAULT_HEIGHT    = 2.7;
 const WALL_DEFAULT_THICKNESS = 0.2;
 const ARC_SEGMENTS           = 16;
 const DEG                    = Math.PI / 180;
+// §WALL-SETOUT (founder 2026-06-21) — set-out dimension colour. Reuses the existing
+// in-progress length-label blue (#1e40af). Per C18 §2.4 a set-out dimension is a
+// functional MEASUREMENT, not a creation ghost, so it is OUT of the unified-purple
+// preview rule (§41) — but we still source ONE colour rather than invent a new hex.
+const SETOUT_BLUE = '#1e40af';
 
 function _getMode(): string {
     return window.wallModePicker?.getActiveMode?.() ?? 'linear';
@@ -162,7 +168,15 @@ export class WallPlanToolHandler implements PlanToolHandler {
             if (locked) resolved = locked;
         }
         this._wallCursorPoint = resolved;
-        if (this._wallFirstPoint) this._drawWallPreview();
+        if (this._wallFirstPoint) {
+            this._drawWallPreview();
+        } else {
+            // §WALL-SETOUT — BEFORE the first click, show the set-out distances from the
+            // hovered start point to the surrounding walls (the founder's core ask: an
+            // internal partition's start has no reference to existing walls). Mirrors the
+            // during-drawing overlay ownership (clears + redraws, snap markers coexist).
+            this._drawSetOutPreviewOnly(resolved);
+        }
     }
 
     onClick(pt: WorldPoint): void {
@@ -533,6 +547,87 @@ export class WallPlanToolHandler implements PlanToolHandler {
         }
 
         ctx.restore();
+
+        // §WALL-SETOUT — set-out dims from the MOVING end to the surrounding walls,
+        // alongside the wall's own length label. Drawn after the wall band restore;
+        // _drawSetOutDimensions does its own save/restore and does NOT clear.
+        if (this._wallCursorPoint) this._drawSetOutDimensions(this._wallCursorPoint);
+    }
+
+    /** §WALL-SETOUT — the active level's existing wall baselines as 2D segments
+     *  (plan XZ, metres) for the pure set-out computation. Same access pattern as
+     *  SlabPlanToolHandler (`window.wallStore.getAll()` + `baseLine`). */
+    private _collectLevelWallSegments(): SetOutSegment[] {
+        const levelId = this._ctx?.viewDef.spatial?.levelId;
+        const walls: Array<{ levelId?: string; baseLine?: Array<{ x: number; z: number }> }> =
+            (window.wallStore as { getAll?: () => unknown[] } | undefined)?.getAll?.() as never ?? [];
+        const segs: SetOutSegment[] = [];
+        for (const w of walls) {
+            if (levelId && w.levelId && w.levelId !== levelId) continue;   // this level only
+            const bl = w.baseLine;
+            if (!bl || bl.length < 2) continue;
+            segs.push({ a: { x: bl[0].x, z: bl[0].z }, b: { x: bl[1].x, z: bl[1].z } });
+        }
+        return segs;
+    }
+
+    /** §WALL-SETOUT — draw blue set-out dimension(s) from `point` to the nearest
+     *  surrounding walls. Assumes the overlay transform is already the dpr transform;
+     *  does its OWN save/restore and does NOT clear (callers own the clear). */
+    private _drawSetOutDimensions(point: WorldPoint): void {
+        const c = this._ctx;
+        if (!c) return;
+        const { ctx, planCanvas } = c;
+        const dims = computeSetOutDimensions(
+            { x: point.worldX, z: point.worldZ },
+            this._collectLevelWallSegments(),
+        );
+        if (dims.length === 0) return;
+
+        ctx.save();
+        for (const d of dims) {
+            const from = planCanvas.worldToScreen(d.from.x, d.from.z);
+            const to   = planCanvas.worldToScreen(d.to.x,   d.to.z);
+
+            ctx.strokeStyle = SETOUT_BLUE;
+            ctx.lineWidth   = 1;
+            ctx.setLineDash([4, 3]);
+            ctx.beginPath();
+            ctx.moveTo(from.sx, from.sy);
+            ctx.lineTo(to.sx, to.sy);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // small end ticks at the wall foot
+            ctx.beginPath();
+            ctx.arc(to.sx, to.sy, 2.5, 0, Math.PI * 2);
+            ctx.fillStyle = SETOUT_BLUE;
+            ctx.fill();
+
+            const mx = (from.sx + to.sx) / 2;
+            const my = (from.sy + to.sy) / 2;
+            const label = `${d.distanceMm} mm`;
+            ctx.font = '10px sans-serif';
+            const tw = ctx.measureText(label).width;
+            ctx.fillStyle = 'rgba(255,255,255,0.92)';
+            ctx.fillRect(mx - tw / 2 - 3, my - 8, tw + 6, 14);
+            ctx.fillStyle = SETOUT_BLUE;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(label, mx, my);
+        }
+        ctx.restore();
+    }
+
+    /** §WALL-SETOUT — before the first click: clear the overlay + draw only the
+     *  set-out dims for the hovered start point. */
+    private _drawSetOutPreviewOnly(point: WorldPoint): void {
+        const c = this._ctx;
+        if (!c) return;
+        const { ctx, overlayCanvas, dpr } = c;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, overlayCanvas.width / dpr, overlayCanvas.height / dpr);
+        this._drawSetOutDimensions(point);
     }
 
     private _getSelectedWallThickness(): number {
