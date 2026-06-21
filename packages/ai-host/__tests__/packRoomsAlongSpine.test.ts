@@ -102,6 +102,27 @@ describe('§SPINE-FIRST P2 — packRoomsAlongSpine invariants', () => {
         for (const p of res.rooms) if (needWin.has(p.roomId)) expect(touchesFacade(p.rect, shell)).toBe(true);
     });
 
+    it('emits the stair LEG as a corridor cell that reaches the keep-out (the stair connects)', () => {
+        // 18×12 plate, run horizontal at z=6. Stair top-right corner → a leg rises to it. The corridor
+        // cells must include a leg rect that shares a door-width wall with the stair keep-out.
+        const shell = rectPoly(18, 12);
+        const stair: Rect = { x0: 15, z0: 9.5, x1: 18, z1: 12 };
+        const spine = deriveCorridorSpine(shell, { stairKeepOut: stair })!;
+        expect(spine.segments.length).toBe(2);
+        const res = packRoomsAlongSpine(bbox(18, 12), spine, ROOMS)!;
+        expect(res.corridorCells.length).toBe(2);            // run + leg
+        const leg = res.corridorCells[1]!;
+        // the leg cell abuts the stair's near (z0) edge with a door-width overlap.
+        expect(sharedWallM(leg, stair)).toBeGreaterThanOrEqual(DOOR);
+    });
+
+    it('no-stair case: corridorCells is just the run', () => {
+        const spine = deriveCorridorSpine(rectPoly(W, D))!;
+        const res = packRoomsAlongSpine(bbox(W, D), spine, ROOMS)!;
+        expect(res.corridorCells.length).toBe(1);
+        expect(res.corridorCells[0]).toEqual(res.corridor);
+    });
+
     it('is deterministic (two runs identical)', () => {
         const spine = deriveCorridorSpine(rectPoly(W, D))!;
         const a = packRoomsAlongSpine(bbox(W, D), spine, ROOMS);

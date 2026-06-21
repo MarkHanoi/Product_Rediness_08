@@ -22,11 +22,30 @@ export interface SpineRoom {
 export interface PackedRoom { readonly roomId: string; readonly rect: Rect }
 
 export interface SpinePackResult {
+    /** The primary run rect (the straight corridor strip). */
     readonly corridor: Rect;
+    /** ALL corridor cells = the run + any stair legs (each a rect of the corridor width). Their
+     *  union is the realised corridor footprint (an L/T when a leg reaches an edge stair). */
+    readonly corridorCells: readonly Rect[];
     readonly rooms: readonly PackedRoom[];
     readonly dropped: readonly string[];
     /** Diagnostic: which side ('A' high / 'B' low) each room landed on. */
     readonly side: Readonly<Record<string, 'A' | 'B'>>;
+}
+
+/** Build the corridor cells (run rect + a rect per leg segment of the spine). */
+function corridorCellsOf(run: Rect, spine: SpinePath): Rect[] {
+    const cells: Rect[] = [run];
+    const half = spine.widthM / 2;
+    for (let i = 1; i < spine.segments.length; i++) {
+        const s = spine.segments[i]!;
+        if (Math.abs(s.a.x - s.b.x) < EPS) {                 // vertical leg
+            cells.push({ x0: s.a.x - half, x1: s.a.x + half, z0: Math.min(s.a.z, s.b.z), z1: Math.max(s.a.z, s.b.z) });
+        } else {                                              // horizontal leg
+            cells.push({ z0: s.a.z - half, z1: s.a.z + half, x0: Math.min(s.a.x, s.b.x), x1: Math.max(s.a.x, s.b.x) });
+        }
+    }
+    return cells;
 }
 
 const EPS = 1e-6;
@@ -116,7 +135,7 @@ export function packRoomsAlongSpine(
         const side: Record<string, 'A' | 'B'> = {};
         for (const r of cohortA) side[r.id] = 'A';
         for (const r of cohortB) side[r.id] = 'B';
-        return { corridor, rooms: [...a.placements, ...b.placements], dropped: [...a.dropped, ...b.dropped], side };
+        return { corridor, corridorCells: corridorCellsOf(corridor, spine), rooms: [...a.placements, ...b.placements], dropped: [...a.dropped, ...b.dropped], side };
     }
 
     // primaryAxis 'z' — run vertical; bands left/right.
@@ -131,5 +150,5 @@ export function packRoomsAlongSpine(
     const side: Record<string, 'A' | 'B'> = {};
     for (const r of cohortA) side[r.id] = 'A';
     for (const r of cohortB) side[r.id] = 'B';
-    return { corridor, rooms: [...a.placements, ...b.placements], dropped: [...a.dropped, ...b.dropped], side };
+    return { corridor, corridorCells: corridorCellsOf(corridor, spine), rooms: [...a.placements, ...b.placements], dropped: [...a.dropped, ...b.dropped], side };
 }
