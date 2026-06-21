@@ -44,20 +44,41 @@ function balanceTwo(rooms: readonly SpineRoom[]): readonly [SpineRoom[], SpineRo
 }
 
 /** Comb a cohort along the band's LONG axis; each room spans the FULL band depth (touches the spine
- *  edge AND the outer/façade edge). Returns placements + ids that didn't fit. */
+ *  edge AND the outer/façade edge) and takes a share of the band length PROPORTIONAL to its target
+ *  area, so the cohort exactly TILES the residual band (no drops — the corridor strip has already
+ *  been removed, so rooms fill what remains, like squarify fills a zone). A room is only reported
+ *  dropped when the band is so short it can't host the cohort above the per-room minimum. */
 function combBand(
     band: Rect, axis: 'x' | 'z', cohort: readonly SpineRoom[],
 ): { placements: PackedRoom[]; dropped: string[] } {
     const placements: PackedRoom[] = [];
     const dropped: string[] = [];
+    if (cohort.length === 0) return { placements, dropped };
     const along0 = axis === 'x' ? band.x0 : band.z0;
     const along1 = axis === 'x' ? band.x1 : band.z1;
-    const depth = axis === 'x' ? band.z1 - band.z0 : band.x1 - band.x0;
+    const bandLen = along1 - along0;
+    // Drop the lowest-priority (smallest-target) rooms until the rest can each clear their minimum.
+    const ordered = [...cohort].sort((a, b) => b.targetAreaM2 - a.targetAreaM2 || a.id.localeCompare(b.id));
+    let kept = ordered;
+    while (kept.length > 0 && kept.reduce((s, r) => s + r.minShortSideM, 0) > bandLen + EPS) {
+        dropped.push(kept[kept.length - 1]!.id);
+        kept = kept.slice(0, -1);
+    }
+    if (kept.length === 0) return { placements, dropped };
+    // Proportional fill: each kept room's along-extent = bandLen × target / Σtarget, but never below
+    // its minimum (clamp, then renormalise the slack so the band still tiles exactly).
+    const totalTarget = kept.reduce((s, r) => s + Math.max(EPS, r.targetAreaM2), 0);
+    let widths = kept.map(r => bandLen * Math.max(EPS, r.targetAreaM2) / totalTarget);
+    widths = widths.map((w, i) => Math.max(w, kept[i]!.minShortSideM));
+    const sumW = widths.reduce((s, w) => s + w, 0);
+    widths = widths.map(w => w * bandLen / sumW);                 // renormalise back to exactly bandLen
+    // Preserve the input order for determinism of placement positions.
+    const orderById = new Map(cohort.map((r, i) => [r.id, i]));
+    const seq = kept.map((r, i) => ({ r, w: widths[i]! }))
+        .sort((p, q) => (orderById.get(p.r.id) ?? 0) - (orderById.get(q.r.id) ?? 0));
     let cursor = along0;
-    for (const r of cohort) {
-        const want = Math.max(r.minShortSideM, r.targetAreaM2 / Math.max(EPS, depth));
-        if (cursor + want > along1 + EPS) { dropped.push(r.id); continue; }
-        const a = cursor, b = cursor + want;
+    for (const { r, w } of seq) {
+        const a = cursor, b = Math.min(cursor + w, along1);
         placements.push({
             roomId: r.id,
             rect: axis === 'x'
