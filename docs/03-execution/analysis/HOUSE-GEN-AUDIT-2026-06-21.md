@@ -81,15 +81,30 @@ gracefully — no crash — but the upstream polygon is the real fix.
 12 room-compliance errors flagged (overlay disabled so not tinted). Likely the same boundary-quality
 + the dimensional over-grow already inventoried (see HOUSE-DIMENSIONAL-DEFECT-INVENTORY-2026-06-20).
 
-## ⑤ Doors clashing with furniture — SEPARATE gap (no log; from screenshots)
+## ⑤ Doors clashing with furniture — keep-clear EXISTS; the gap is precision
 
-The kitchen/dining table + chairs sit inside a door's swing; the furnish engine places furniture
-against the room polygon but does **not** subtract the **door swing arcs** (or a door-leaf clearance
-zone) from the placeable area. There is no `§DIAG` for it because the furnish + door engines don't
-cross-check. **Fix direction:** before furnishing, build a keep-out set = each door's swing sector
-(centre = hinge, radius = leaf width, ±90°) and exclude furniture footprints that intersect it.
-This is a pure geometry pre-filter (unit-testable) feeding the existing furnish placement — a
-good low-risk core + additive wiring, mirroring the §WALL-SETOUT split.
+**Correction after reading the furnish engine:** the keep-clear is NOT missing. `placeSolver.doorObstacles`
+(§DOOR-KEEP-CLEAR + §DOOR-SWING-DEPTH) builds a `width × swingR` quad in front of every door
+(`swingR = max(door.width, 0.9)`) and EVERY floor-placement path tests it via `quadOverlapsAny`;
+`kitchenLayout.ts:395` mirrors the same for the kitchen run (and excludes door walls). So furniture
+is already kept out of a door's keep-clear box across paths.
+
+Why the founder still sees a clash — the box is a deliberate CONSERVATIVE compromise, per the code
+comment: *"A precise asymmetric swing SECTOR (only the hinge side) would cover the fan without the
+wardrobe regression, but the door payload carries no hinge side → not available."* The width-only
+box can't be widened (a +0.6 m widen regresses the bedroom wardrobe run — documented landmine), so
+on some geometry a chair/table corner clips the swing FAN just outside the box. The live clash needs
+a specific browser repro (which door + which piece) to pin whether it's (a) the box under-covering a
+particular swing, (b) a door `normal` pointing into the wrong room so the box lands off-room, or
+(c) an open-threshold piece in the adjacent room.
+
+**Where my `doorSwingKeepout.ts` fits (repositioned):** it is NOT a fix for an unhandled gap — it is
+the **precise swing-SECTOR the existing comment wishes for**. It supersedes the conservative box
+WITHOUT the wardrobe regression, but ONLY once the door payload carries the **hinge side** (which jamb
++ swing direction). That payload thread (generators → `LayoutDoor`/furnish `FurnishRoomInput.doors`)
+is the prerequisite; with it, `rectIntersectsSwing` replaces the `width × swingR` box in BOTH
+`doorObstacles` sites. Until then the helper stays an un-wired, unit-tested staged upgrade — wiring
+it naively would just duplicate the existing box. **Do NOT wire it without the hinge-side data.**
 
 ## ⑥ Perf (minor, noted not actioned)
 
@@ -112,14 +127,19 @@ Pre-existing perf class, not part of this audit's geometry focus.
 here, fix in a dedicated browser-verified pass. ⑤ is the best low-risk win: a pure door-swing
 keep-out helper (unit-tested now) + an additive furnish pre-filter, same pattern as §WALL-SETOUT.
 
-## Fix landed (foundation) — ⑤ pure door-swing keep-out core
+## Staged upgrade (NOT yet wired) — ⑤ precise door-swing SECTOR core
 
 `packages/ai-host/src/workflows/furnishLayout/doorSwingKeepout.ts` — pure L2 geometry:
 `makeSwingSector` (hinge + latch dir + leaf width → quarter-disc sector), `pointInSwing`,
-`rectIntersectsSwing` (conservative: corner-in-sector ∪ hinge-in-rect ∪ sampled-leaf-tips-in-rect),
-and `rejectFurnitureClashingDoors(items, swings)` (order-preserving filter). 9/9 unit tests, no
-browser. Soundness: pure, zero imports, no THREE/DOM/IO; no span (matches the package's pure-helper
-precedent — `validators/dimensional/*`; P8 boundary is the AiPlane). **Remaining (browser-verified
-follow-up):** wire it into the furnish placement pass — build the per-door `SwingSector[]` from the
-level's doors (hinge + leaf width + open side) and pre-filter candidate footprints before commit.
-Additive + read-through; worst case it over-excludes a doorway zone, never blocks furnishing.
+`rectIntersectsSwing` (corner-in-sector ∪ hinge-in-rect ∪ sampled-leaf-tips-in-rect),
+`rejectFurnitureClashingDoors`. 9/9 unit tests, pure, zero imports, no span (matches the package's
+pure-helper precedent; P8 boundary = AiPlane).
+
+⚠ **This is the precise-SECTOR replacement for the existing conservative `doorObstacles` box, NOT a
+new keep-out.** It is intentionally **un-wired**: the engine already keeps furniture out of a
+`width × swingR` box on every path (§⑤ above). The sector only adds value once the door payload
+carries the **hinge side** — then it covers the swing fan precisely AND avoids the documented +0.6 m
+wardrobe-run regression that blocks simply widening the box. Wiring it before the hinge-side thread
+would only duplicate the box. The honest fix sequence: (1) thread hinge side into `LayoutDoor` →
+`FurnishRoomInput.doors`; (2) swap the box for `rectIntersectsSwing` in BOTH `doorObstacles` sites;
+(3) browser-verify no wardrobe/sofa regression. Tracked, not shipped.
