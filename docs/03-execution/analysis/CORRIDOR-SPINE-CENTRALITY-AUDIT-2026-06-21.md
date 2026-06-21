@@ -65,6 +65,36 @@ the existing carves.
 5. **The end-state:** ADR-0073 HAG — derive the corridor SPINE from the footprint's long axis FIRST,
    pack rooms into the residual, so centrality is by construction (not a carve-selection side effect).
 
+## PR #521 update — clearer images, sharper per-defect diagnosis
+
+The first floor now shows a **central horizontal double-loaded corridor (20 m²)** — centrality
+LARGELY WORKS here (progress vs the edge-corridor case). Master is 26 m² (Bedroom 1 is the 34 m²
+outlier), so master-over-allocation is NOT the cause this run. Two precise gaps remain, same root:
+
+1. **Bedroom 3 (bottom-left, 29 m²) not on the corridor.** It tiles BEHIND Bedroom 2 — a depth-2
+   room. The bottom-side comb placed Bedroom 2 + Bedroom 1 along the corridor, but Bedroom 3 is a
+   second row further from the spine → no corridor wall → sealed/served-through.
+2. **Stair (top-right) not on the corridor.** The Master Bedroom sits BETWEEN the corridor's right
+   end and the stair, so the spine stops short of the stair core. §STAIR-ROOM-GROW-TO-CORRIDOR /
+   §STAIR-SPINE-TOUCH did not bridge it here.
+
+**Common root:** the spine serves the MIDDLE rooms but does not EXTEND into the far corners
+(bottom-left Bedroom 3, top-right stair). The corridor is too SHORT for the plate. This is precisely
+the ADR-0073 HAG fix: derive the spine to span the footprint's long axis end-to-end so every room —
+including the corner rooms and the stair — borders it by construction.
+
+**Ground floor:** the corridor is the 9 m² stub in the top-right by the stair (the corner-corridor).
+The founder's red line marks the intended spine: a horizontal corridor across the mid-height linking
+entrance-hall → bedroom → bathroom → stair, separating the public top row (kitchen/living) from the
+private bottom row. Same "corridor must span the plate" fix.
+
+### The ONE unblocker (asked twice — here's the low-friction way)
+The pasted consoles are the boot/GIS sequence; the generation `[D-TGL] §DIAG-*` lines (which pin
+WHICH carve fired + whether the stair-bridge passes ran) are truncated off the top. **In the browser
+console filter box, type `D-TGL` and copy what shows after clicking Generate.** That filters out all
+the boot spam and gives exactly the ~40 generation lines I need to target the corridor-extension +
+stair-bridge fix precisely instead of guessing on the 5×-revert subsystem.
+
 ## What shipped this session (real, proven)
 - `§HALL-HINGE-CORRIDOR-FIT` (commit `32a28af5`) — recovers the ground-floor hall-hinge carve on a
   marginally-shallow private wing by narrowing the corridor toward 1.0 m, so the bedroom combs off the
