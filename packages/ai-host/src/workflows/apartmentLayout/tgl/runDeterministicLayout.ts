@@ -142,6 +142,10 @@ export function generateDeterministicLayouts(
     // round-up so an explicit Ground bedrooms=1 ships EXACTLY 1. Absent ⇒ byte-identical
     // (apartment + AUTO storeys keep the round-up).
     lockBedroomCount?: boolean,
+    // §SPINE-FIRST P4 (2026-06-21) — OPTIONAL opt-in. When true, an all-private (upper) storey is
+    // subdivided circulation-FIRST (derive corridor spine → pack rooms off it). Threaded to
+    // EnumerateInput.spineFirst → SubdivideOptions.spineFirst. Absent ⇒ byte-identical legacy carve.
+    spineFirst?: boolean,
 ): ScoredLayoutOption[] {
     const perimeter = shell.perimeter as Pt[];
     if (!perimeter || perimeter.length < 3) return [];
@@ -233,6 +237,7 @@ export function generateDeterministicLayouts(
         ...(doorSpans && doorSpans.length > 0 ? { doorSpansWorld: doorSpans } : {}),
         ...(envelopeValidator ? { envelopeValidator } : {}),
         ...(lockBedroomCount ? { lockBedroomCount: true } : {}),
+        ...(spineFirst ? { spineFirst: true } : {}),   // §SPINE-FIRST P4 (opt-in; off ⇒ byte-identical)
         ...(keepOutEngine && keepOutEngine.length > 0 ? { keepOutRects: keepOutEngine } : {}),
         ...(residualExcludeEngine && residualExcludeEngine.length > 0 ? { residualExcludeRects: residualExcludeEngine } : {}),
         // §ENV-E2-SOLAR (E.2) — thread the site latitude so the engine biases

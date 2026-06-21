@@ -51,6 +51,14 @@ import {
 /** How many whole-house variants the modal offers. */
 const HOUSE_OPTION_COUNT = 3;
 
+/** §SPINE-FIRST P4 — read the opt-in test toggle. Set `window.__pryzmSpineFirst = true` in the
+ *  console to render the circulation-first (spine) carve on all-private upper storeys, then
+ *  re-generate. Unset/false ⇒ byte-identical legacy carve. (Typed cast, not `as any` — P4-clean.) */
+function spineFirstEnabled(): boolean {
+    return typeof window !== 'undefined' &&
+        (window as unknown as { __pryzmSpineFirst?: boolean }).__pryzmSpineFirst === true;
+}
+
 /** Everything `requestHouseLayout` needs to compute + build a house. The shell is
  *  read from the live wall store (the controller analyses it itself, mirroring the
  *  executor); the caller supplies the program/constraints/weights + storey count. */
@@ -291,6 +299,10 @@ export class HouseLayoutController {
                 roofKind: r.roofKind,
                 ...(typeof r.siteLatitudeDeg === 'number' ? { solar: { latDeg: r.siteLatitudeDeg } } : {}),
                 ...(perStoreyOverrides ? { perStoreyOverrides } : {}),
+                // §SPINE-FIRST P4 (2026-06-21) — opt-in toggle for testing the circulation-first
+                // carve on all-private (upper) storeys: in the browser console run
+                // `window.__pryzmSpineFirst = true` then re-generate. Off / unset ⇒ byte-identical.
+                ...(spineFirstEnabled() ? { spineFirst: true } : {}),
             },
             HOUSE_OPTION_COUNT,
         );

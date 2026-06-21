@@ -105,6 +105,11 @@ export interface HouseLayoutOptions {
      *  into `allocateProgramToStoreys` (the one place storey programs are built). ABSENT
      *  / all-undefined ⇒ the allocation is byte-identical to today (ADR-0061 I2). */
     readonly perStoreyOverrides?: ReadonlyArray<PerStoreyProgramOverride | undefined>;
+    /** §SPINE-FIRST P4 (2026-06-21) — OPTIONAL opt-in (the controller reads it from
+     *  `window.__pryzmSpineFirst`). When true, all-private (upper) storeys are subdivided
+     *  circulation-FIRST (derive corridor spine → pack rooms off it); the ground floor (public
+     *  rooms) self-gates back to the legacy carve. Absent/false ⇒ byte-identical. */
+    readonly spineFirst?: boolean;
 }
 
 function clampStoreyCount(n: number): number {
@@ -898,6 +903,10 @@ function enumeratePerStorey(
             // plate-density round-up so an explicit Ground bedrooms=1 ships EXACTLY 1
             // (was bumped to round(plateArea/130) ≥ 2). AUTO storeys leave it false.
             sp.bedroomsExplicit === true,
+            // §SPINE-FIRST P4 — opt-in (from window.__pryzmSpineFirst via the controller). The engine
+            // self-gates to all-private (upper) storeys; the ground floor (public rooms) falls through
+            // to the legacy carve. Absent/false ⇒ byte-identical.
+            opts.spineFirst === true,
         );
         perStorey.push({ storeyIndex: i, options });
     }
