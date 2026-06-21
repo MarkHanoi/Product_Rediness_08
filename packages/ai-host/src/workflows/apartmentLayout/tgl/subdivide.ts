@@ -143,6 +143,9 @@ export interface SubdivideResult {
      *  pre-rework path). enumerate folds this into `cellPolygonById`, which wallsAndDoors +
      *  semanticGraph already consume for the wall sweep + room geometry. */
     readonly cellPolygonById?: ReadonlyMap<string, readonly Pt[]>;
+    /** §SPINE-FIRST P4/P6 — true when this result came from the circulation-first spine path (so
+     *  enumerate skips the §POLYGON-NATIVE-ROUTE re-tiling and renders THESE shell-clamped cells). */
+    readonly spineFirstApplied?: boolean;
 }
 
 /**
@@ -233,6 +236,13 @@ export interface SubdivideOptions {
      * present, degenerate shell, or a drop), so it is strictly additive. The browser sets this from
      * `window.__pryzmSpineFirst` at the house-generate call site for opt-in testing. */
     readonly spineFirst?: boolean;
+    /**
+     * §SPINE-FIRST P6 (skew-clip, 2026-06-21) — the REAL shell polygon in THIS strategy's frame
+     * (the same `polyT` enumerate tiles). When `spineFirst` produces a layout, its axis-aligned bands
+     * are CLAMPED to this polygon (`clampRectToConvexShell`) so the cells follow a sheared/convex
+     * façade instead of overflowing the bbox — making spine-first render-correct on the skewed
+     * GIS-boundary plates the founder draws. Absent ⇒ no clamp (axis-aligned plate = bbox = shell). */
+    readonly shellPolygon?: readonly Pt[];
 }
 
 /** Axis-line snap tolerance (m). Matches the EPS_M used by the SCORING
@@ -3482,28 +3492,40 @@ export function subdivideWithReport(
         !graph.rooms.some(r => roomRule(r.type).privacy === 'public')) {
         const bx0 = Math.min(...valid.map(r => r.x0)), bz0 = Math.min(...valid.map(r => r.z0));
         const bx1 = Math.max(...valid.map(r => r.x1)), bz1 = Math.max(...valid.map(r => r.z1));
-        const shellPoly: Pt[] = [
+        const bboxPoly: Pt[] = [
             { x: bx0, z: bz0 }, { x: bx1, z: bz0 }, { x: bx1, z: bz1 }, { x: bx0, z: bz1 },
         ];
-        const spineRes = subdivideViaSpine(shellPoly, graph, {
+        // Derive the spine on the REAL shell polygon when supplied (skewed plate), else its bbox.
+        const shellForSpine = options.shellPolygon && options.shellPolygon.length >= 3 ? options.shellPolygon : bboxPoly;
+        const spineRes = subdivideViaSpine(shellForSpine, graph, {
             stairKeepOut: keepOutRects[0], corridorWidthM,
         });
         if (spineRes && spineRes.dropped.length === 0) {
+            // §SPINE-FIRST P6 skew-clip — clamp each axis-aligned spine cell to the real shell so the
+            // outer (façade) edge follows a sheared/convex wall instead of overflowing the bbox.
+            // Interior walls (room↔room, room↔corridor) stay axis-aligned (clamp only pulls perimeter
+            // edges in). Falls back to the unclamped rect if a clamp degenerates (never drops a room).
+            const clampPoly = options.shellPolygon && options.shellPolygon.length >= 3 ? options.shellPolygon : undefined;
+            const clampRect = (rc: Rect): Rect => {
+                if (!clampPoly) return roundRect(rc);
+                const c = clampRectToConvexShell(roundRect(rc), clampPoly);
+                return c ? roundRect(c) : roundRect(rc);
+            };
             const placements: RoomPlacement[] = [
-                { roomId: graph.corridorId, rect: roundRect(spineRes.corridor) },
-                ...spineRes.rooms.map(p => ({ roomId: p.roomId, rect: roundRect(p.rect) })),
+                { roomId: graph.corridorId, rect: clampRect(spineRes.corridor) },
+                ...spineRes.rooms.map(p => ({ roomId: p.roomId, rect: clampRect(p.rect) })),
             ];
             const cellPolygonById = new Map<string, readonly Pt[]>();
             if (spineRes.corridorCells.length > 1) {
-                const ring = rectUnionRing(spineRes.corridorCells.map(roundRect));
+                const ring = rectUnionRing(spineRes.corridorCells.map(clampRect));
                 if (ring) cellPolygonById.set(graph.corridorId, ring);   // L/T corridor (run + stair leg)
             }
             console.log(
                 `[D-TGL subdivide] §SPINE-FIRST applied (upper/no-public): corridor + ${spineRes.rooms.length} ` +
-                `rooms off the derived spine; corridorCells=${spineRes.corridorCells.length} ` +
+                `rooms off the derived spine; corridorCells=${spineRes.corridorCells.length} clamped=${clampPoly ? 'yes' : 'no'} ` +
                 `(every private room + the stair on the central corridor by construction)`,
             );
-            return { placements, droppedRooms: [], cellPolygonById: cellPolygonById.size ? cellPolygonById : undefined };
+            return { placements, droppedRooms: [], cellPolygonById: cellPolygonById.size ? cellPolygonById : undefined, spineFirstApplied: true };
         }
         console.log('[D-TGL subdivide] §SPINE-FIRST skipped (infeasible on this plate) — legacy carve.');
     }

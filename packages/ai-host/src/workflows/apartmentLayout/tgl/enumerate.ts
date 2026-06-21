@@ -907,7 +907,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
             ...(holesT.length > 0 ? { keepOutRects: holesT } : {}),
             // §SPINE-FIRST P4 — opt-in passthrough (the house orchestrator sets it from
             // window.__pryzmSpineFirst). Default off ⇒ byte-identical legacy carve.
-            ...(input.spineFirst ? { spineFirst: true } : {}),
+            ...(input.spineFirst ? { spineFirst: true, shellPolygon: polyT } : {}),   // P6: real polygon for skew-clip
         },
     );
     const placementsT = subRes.placements;
@@ -937,7 +937,12 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     // The polygon cells are keyed by the SAME room ids the rect tiling uses (both iterate the
     // same `bubble.rooms`), so the emit-time override maps 1:1 onto the placements.
     let cellPolyByIdWorld: Map<string, readonly Pt[]> | undefined;
-    if (usePolygonRoute) {
+    // §SPINE-FIRST P6 — when subdivide took the spine-first path it ALREADY clamped its cells to the
+    // real shell polygon (`shellPolygon: polyT`), so the §POLYGON-NATIVE-ROUTE re-tiling (which would
+    // DISCARD the spine layout and re-subdivide the quad area-first) MUST be skipped — otherwise the
+    // founder's skewed plates would never see spine-first. The spine corridor's L/T ring already rides
+    // on `subRes.cellPolygonById`, folded in below exactly like the polygon route's cells.
+    if (usePolygonRoute && !subRes.spineFirstApplied) {
         // Tile the real quad in THIS strategy's frame (polyT). subdividePolygon rotates to
         // its own principal-axis frame internally (interior cuts axis-parallel) and rotates
         // the cells back to the polyT frame.
