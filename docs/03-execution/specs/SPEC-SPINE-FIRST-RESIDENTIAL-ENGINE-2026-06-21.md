@@ -157,10 +157,22 @@ residential.
 - **P0–P4 ✅ DONE** — the yardstick + the pure spine core (derive → pack → adapter), proven 100% vs
   53%, flag-wired end-to-end (default off = byte-identical), browser-toggle live (`window.__pryzm
   SpineFirst`). Upper/all-private storeys already get the central spine.
-- **P5 — MIXED-floor split (the ground floor).** `splitPublicPrivateWing`: [public+hall | private
-  wing] + living-on-hall reservation, then run the spine packer in the wing. Investigate the one house
-  test that regressed on the earlier living-on-hall attempt (do NOT blind-revert) — decide rebaseline
-  vs adjust. This is the ground-floor fix.
+- **P5 — MIXED-floor split (the ground floor).** Two roots, found by investigating the regression
+  (houseResidualFill §65.2 "no cavern blob", cap 48 m²):
+  - **P5a — living OVER-ALLOCATION (the deeper root, do FIRST).** The bubble graph area-weights living
+    to **54.5 m² on a 191 m² ground plate** (§AREA-FRACTIONS / fillGroundPlate enrichment). That alone
+    makes ANY clean public-zone cell cavernous and leaves zero slack for the hall-hinge — it is why the
+    bedrooms get doored onto living. Cap the ground living nearer a real living-room size (~36–42 m²)
+    in the area model so the public zone has slack. This is a bubble-graph/enrichment change (global) —
+    do it test-first, watch the §65.2 + §AREA-FRACTIONS tests, and it improves the LEGACY path today
+    (flag off) too.
+  - **P5b — living-on-hall as a CORNER reservation.** The earlier full-cross living strip is inherently
+    cavernous on a wide public zone (living min-depth 3.2 m × 16 m cross = 51 m² > the 48 m² cap), so it
+    shipped a cavern and regressed §65.2. The correct primitive is a CORNER reservation: living occupies
+    a target-sized rect in the hall-adjacent corner (partial cross-width, ≥ door-width shared with the
+    hall), kitchen/dining fill the L-shaped remainder. Needs P5a first so living is small enough to
+    corner cleanly. Then `living↔hall` holds and the hall-hinge stops bailing.
+  Together P5a+P5b give the ground floor the `[public off hall | private wing on spine]` plan.
 - **P6 — skew clip.** Clip the spine bands to the real shell polygon (reuse the engine's
   `§POLYGON-NATIVE-ROUTE` projection) so spine-first renders cleanly on the skewed GIS-boundary plates
   the founder actually draws (today the P2 core packs into the bbox → edge overhang on a sheared quad).

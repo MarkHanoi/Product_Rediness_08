@@ -1432,6 +1432,10 @@ function tryHallHingeCarve(
     const droppedRooms: DroppedRoom[] = [];
 
     // Public (non-hall) rooms squarified into the public zone — they touch the hall, never the corridor.
+    // §HALL-HINGE-LIVING-ON-HALL DEFERRED to P5 (SPEC-SPINE-FIRST §2.3): a full-cross living strip is
+    // inherently cavernous on a wide public zone (living min-depth × wide-cross > the 48 m² no-cavern
+    // cap), so the correct fix is a CORNER reservation (partial-cross, target-sized, ≥door-width on the
+    // hall) + living de-allocation. Until then the plain squarify runs (today's behaviour).
     const pub = placeInRectReported(publicZone, adjacencySortForZone(allocationOrder(publicNonHall)));
     out.push(...pub.placements);
     droppedRooms.push(...pub.droppedRooms);
