@@ -111,3 +111,15 @@ Pre-existing perf class, not part of this audit's geometry focus.
 **Recommendation:** ① is the keystone but lives in the high-revert wall-join subsystem — audit-only
 here, fix in a dedicated browser-verified pass. ⑤ is the best low-risk win: a pure door-swing
 keep-out helper (unit-tested now) + an additive furnish pre-filter, same pattern as §WALL-SETOUT.
+
+## Fix landed (foundation) — ⑤ pure door-swing keep-out core
+
+`packages/ai-host/src/workflows/furnishLayout/doorSwingKeepout.ts` — pure L2 geometry:
+`makeSwingSector` (hinge + latch dir + leaf width → quarter-disc sector), `pointInSwing`,
+`rectIntersectsSwing` (conservative: corner-in-sector ∪ hinge-in-rect ∪ sampled-leaf-tips-in-rect),
+and `rejectFurnitureClashingDoors(items, swings)` (order-preserving filter). 9/9 unit tests, no
+browser. Soundness: pure, zero imports, no THREE/DOM/IO; no span (matches the package's pure-helper
+precedent — `validators/dimensional/*`; P8 boundary is the AiPlane). **Remaining (browser-verified
+follow-up):** wire it into the furnish placement pass — build the per-door `SwingSector[]` from the
+level's doors (hinge + leaf width + open side) and pre-filter candidate footprints before commit.
+Additive + read-through; worst case it over-excludes a doorway zone, never blocks furnishing.
