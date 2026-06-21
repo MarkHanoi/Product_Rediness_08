@@ -30,6 +30,7 @@ import { rectArea, subtractRectsFromRects, mergeHorizontally, clampRectToConvexS
 import { squarify } from './squarify.js';
 import { roomRule, preferenceBetween } from '../rules/programRules.js';
 import { dimensionsFor } from '../dimensions/roomDimensions.js';
+import { subdivideViaSpine } from './subdivideViaSpine.js';   // §SPINE-FIRST P4 (flag-gated)
 
 /** A room's realised footprint inside the shell. */
 export interface RoomPlacement {
@@ -221,6 +222,17 @@ export interface SubdivideOptions {
      * path) and the wall sweep keeps its axis-aligned fast path. Absent / false ⇒
      * byte-identical to the rect corridor. */
     readonly polygonCorridorReach?: boolean;
+    /**
+     * §SPINE-FIRST P4 (ADR-0073 HAG, founder "must work for ANY layout", 2026-06-21) — opt-in
+     * (default FALSE = byte-identical). When true AND the storey has NO public rooms (an upper /
+     * all-private floor, per the locked "hall for public, spine for private" doctrine), the carve is
+     * REPLACED by the circulation-FIRST path: derive the corridor spine from the footprint
+     * (`deriveCorridorSpine`) and pack the private rooms off it (`packRoomsAlongSpine`) so every room
+     * AND the stair sit on a central corridor BY CONSTRUCTION. Proven 100% I1+I2-sound vs the area-
+     * first 53% on the robustness sweep. Falls through to the legacy carve on any miss (public rooms
+     * present, degenerate shell, or a drop), so it is strictly additive. The browser sets this from
+     * `window.__pryzmSpineFirst` at the house-generate call site for opt-in testing. */
+    readonly spineFirst?: boolean;
 }
 
 /** Axis-line snap tolerance (m). Matches the EPS_M used by the SCORING
@@ -3455,6 +3467,42 @@ export function subdivideWithReport(
     const shellRectified = options.shellRectified === true;
     const valid = rects.filter(r => rectArea(r) > EPS).sort(byAreaDesc);
     if (valid.length === 0 || graph.rooms.length === 0) return { placements: [], droppedRooms: [] };
+
+    // §SPINE-FIRST P4 (flag-gated, default off) — for an all-private (upper) storey, REPLACE the
+    // area-first carve with the circulation-first path: derive the corridor spine from the shell +
+    // pack the private rooms off it so every room AND the stair sit on a central corridor by
+    // construction. Gated on options.spineFirst AND no public rooms ("hall for public, spine for
+    // private" doctrine — the ground floor keeps the hall-hinge). Any miss (public present / no
+    // corridor / a drop / no ring) falls through to the legacy carve → strictly additive (ADR-0061).
+    if (options.spineFirst && graph.corridorId &&
+        !graph.rooms.some(r => roomRule(r.type).privacy === 'public')) {
+        const bx0 = Math.min(...valid.map(r => r.x0)), bz0 = Math.min(...valid.map(r => r.z0));
+        const bx1 = Math.max(...valid.map(r => r.x1)), bz1 = Math.max(...valid.map(r => r.z1));
+        const shellPoly: Pt[] = [
+            { x: bx0, z: bz0 }, { x: bx1, z: bz0 }, { x: bx1, z: bz1 }, { x: bx0, z: bz1 },
+        ];
+        const spineRes = subdivideViaSpine(shellPoly, graph, {
+            stairKeepOut: keepOutRects[0], corridorWidthM,
+        });
+        if (spineRes && spineRes.dropped.length === 0) {
+            const placements: RoomPlacement[] = [
+                { roomId: graph.corridorId, rect: roundRect(spineRes.corridor) },
+                ...spineRes.rooms.map(p => ({ roomId: p.roomId, rect: roundRect(p.rect) })),
+            ];
+            const cellPolygonById = new Map<string, readonly Pt[]>();
+            if (spineRes.corridorCells.length > 1) {
+                const ring = rectUnionRing(spineRes.corridorCells.map(roundRect));
+                if (ring) cellPolygonById.set(graph.corridorId, ring);   // L/T corridor (run + stair leg)
+            }
+            console.log(
+                `[D-TGL subdivide] §SPINE-FIRST applied (upper/no-public): corridor + ${spineRes.rooms.length} ` +
+                `rooms off the derived spine; corridorCells=${spineRes.corridorCells.length} ` +
+                `(every private room + the stair on the central corridor by construction)`,
+            );
+            return { placements, droppedRooms: [], cellPolygonById: cellPolygonById.size ? cellPolygonById : undefined };
+        }
+        console.log('[D-TGL subdivide] §SPINE-FIRST skipped (infeasible on this plate) — legacy carve.');
+    }
 
     const finalise = (res: SubdivideResult): SubdivideResult => {
         // §CORRIDOR-PHYSIOGNOMY (A.21.D46, 2026-06-08, re-done with the sealing fix)
