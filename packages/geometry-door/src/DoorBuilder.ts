@@ -430,6 +430,15 @@ export class DoorBuilder {
         const typeIsGlazed = !!sysType && opacityFactor >= 1 &&
             (sysType.glazingOpacity < 1 || glassSegments.length > 0);
 
+        // §ENTRANCE-LEAF-VERTICAL (founder 2026-06-22) — the modern entrance type
+        // (marked by its fixed glazed `sidelight`) now ships a SOLID full-height
+        // timber leaf with NO glass: its glass lives only on the sidelight. Render
+        // that leaf as VERTICAL timber battens (the photographed front-door look),
+        // not the horizontal slats used for glazed-leaf panel rows. Only applies
+        // when the type is NOT glazed (no leaf glass) and no VG override forces solid.
+        const wantsVerticalSlatLeaf = !!sysType && !typeIsGlazed && opacityFactor >= 1 &&
+            !!sysType.sidelight && door.doorType !== 'double';
+
         // ── Frame ──────────────────────────────────────────────────────────
         // Left post
         addBox(group, frameMat, ft, h, fd, -(w / 2 - ft / 2), 0, 0);
@@ -572,6 +581,19 @@ export class DoorBuilder {
                             sTop -= slatH + gap;
                         }
                     }
+                }
+            } else if (wantsVerticalSlatLeaf) {
+                // §ENTRANCE-LEAF-VERTICAL — solid full-height timber leaf rendered as a
+                // stack of VERTICAL battens (purely visual sub-division). NO glass mesh
+                // is emitted for the leaf — only the sidelight (below) gets glazing.
+                const battenCount = Math.max(1, Math.round(singleLeafW / 0.12));
+                const gap = 0.006;
+                const battenW = (singleLeafW - gap * (battenCount - 1)) / battenCount;
+                let bLeft = singleLeafX - singleLeafW / 2;   // left edge of the leaf in local X
+                for (let b = 0; b < battenCount; b++) {
+                    const bCX = bLeft + battenW / 2;
+                    addBox(group, leafMat, battenW, innerH, leafThickness, bCX, leafCY, 0, 'doorLeaf');
+                    bLeft += battenW + gap;
                 }
             } else {
                 // Non-glazed type (or VG override) — one opaque leaf, original behaviour.

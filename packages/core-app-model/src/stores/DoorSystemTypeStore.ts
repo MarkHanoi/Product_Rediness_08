@@ -173,14 +173,14 @@ const BUILT_IN_TYPES: DoorSystemType[] = [
         'Modern Timber Entrance (Glazed Sidelight)',
         'glazed',
         { name: 'Wide Timber Frame', materialColor: '#7a5230', description: 'Wide warm-walnut timber entrance frame' },
-        { name: 'Slatted Timber Leaf', materialColor: '#8a5e34', description: 'Horizontal-slat warm timber entrance leaf' },
-        0.25,
-        'High-end residential front door — wide warm-timber frame, horizontal-slat leaf, long vertical bar handle, and a fixed glazed sidelight beside the leaf.',
+        { name: 'Slatted Timber Leaf', materialColor: '#8a5e34', description: 'Full-height vertical-slat warm timber entrance leaf' },
+        1.0,
+        'High-end residential front door — wide warm-timber frame, a SOLID full-height vertical-slat timber leaf (no glass in the leaf), a long vertical bar handle, and a fixed glazed sidelight beside the leaf.',
         [
-            // Three-quarter glazed modern leaf: a tall clear-glass vision column
-            // running the full leaf height beside the horizontal-slatted timber panels.
-            { type: 'glass', heightRatio: 0.7, columnRatios: [0.45, 0.55] },
-            { type: 'panel', heightRatio: 0.3, columnRatios: [1] },
+            // Founder 2026-06-22: the entrance LEAF is now a single SOLID full-height
+            // timber panel (rendered as VERTICAL slats by DoorBuilder) — NO glass in the
+            // leaf. The glazing lives ONLY on the fixed sidelight beside it.
+            { type: 'panel', heightRatio: 1.0, columnRatios: [1] },
         ],
         ['glazed', 'entrance', 'front-door', 'timber', 'modern', 'sidelight', 'residential'],
         'DOOR',
