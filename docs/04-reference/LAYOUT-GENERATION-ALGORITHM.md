@@ -3186,3 +3186,103 @@ remaining work is to make the stair's **enclosing** cell (landing) a first-class
 (a) swallows the adjacent unnamed pocket and (b) is part of the corridor spine — folded into the §18.2
 carve (the spine's stair leg terminates IN the landing, landing == widened spine end), not a separate
 bolt-on. This is the founder's "the stair should be one single room that opens to the corridor."
+
+## 19. THE SPINE ENGINE — IMPLEMENTED STATE & THE WINDOWS-vs-CIRCULATION TRAP (2026-06-22, honest)
+
+This section documents **what §18 became in code** and — critically — **the root reason the founder
+still sees a straight, isolated corridor most of the time**, traced from the live build `B89Y-ai_`
+ground-floor log + the on-screen result. Read this before touching the spine engine again.
+
+### 19.1 What is actually shipped (the §18 design, as code)
+
+The L/T/U spine is **built and wired**, default-on for the house, across three commits this session
+(on top of P7 spine-first-for-upper, `9e2eb665`):
+
+- **`e99cb036` §CIRCULATION-FIRST** — `enumerate.ts`: the spine-tree is a **competing candidate**.
+  `buildCandidate(input, shellArea, s, forceTree)` — when `input.spineFirst` is on (the house path),
+  EVERY one of the 8 strategies is enumerated **twice**: once legacy/rect-spine, once `+tree` (the
+  multi-leg `packRoomsAlongSpineTree`). 8 → **16 candidates**; a distinct `+tree` strategy key keeps
+  their minted GUIDs/seeds disjoint. The Pareto gates then pick the better.
+- **`9b2e27eb` §CIRCULATION-FIRST P2** — `subdivide.ts`: the §SPINE-TREE branch now **ships WITH
+  drops** (the old `dropped.length === 0` gate discarded the whole tree on a single surplus-room drop,
+  so the tree lost on every real over-capacity plate). The geometric guard is now **stair-overlap
+  only** (`treeBad = overlapsKeepOut`) — under-min-area is no longer a rejection (circulation > size,
+  founder directive). `enumerate.ts` also gained a `roomOverlapsKeepOut` per-candidate signal + a
+  **house-only circulation-first tiebreaker** over the already geometry/viability-protected pool
+  (prefer fewest `circulation|reach|corridor-stair|corridor-hall` failures), applied as a **pool
+  narrowing** (NOT at the `eligible` stage — see 19.5 for why that's load-bearing).
+- **`8ac3e60a` §STAIR-ON-RUN** — `deriveCorridorSpine.ts`: `offsetRunAlongsideStair` — when the
+  centred run would straddle the stair, the run is offset to hug the stair's near edge so the corridor
+  **routes alongside the stair, never through it** (the prior `Corridor↔Stair` overlap corrupted the
+  corridor cell → the door pipeline placed ZERO doors). Corner/edge stair → run stays centred
+  (byte-identical).
+
+**This machinery works.** On the `B89Y-ai_` ground plate the `x-fwd-mir+tree` candidate produced a
+genuine spine: `§DIAG-ADJACENCY r5(corridor) → hall✓, study✓, bedroom✓, bedroom✓, bathroom✓`,
+`directAccess=4/5`, `§DIAG-CIRCULATION-REACH allHabitableReachable=YES reachable=6/6`. The L-corridor
+connecting every room **does get built**.
+
+### 19.2 The decisive root — WHY the good candidate is not what you see on screen
+
+The connected-corridor candidate (`x-fwd-mir+tree`) **also logged `failed=[window, circulation]`,
+`frontageFail=[r1,r0,r2,r6,r7]` (5 rooms — living, kitchen, both bedrooms, hall), `daylightReach=0.57`,
+`daylight=0.05`.** To thread one corridor to every room it ran a **central, double-loaded** spine and
+**buried 5 rooms off the façade** → windowless → the `window` HARD gate sinks it.
+
+Meanwhile the window-KEEPING legacy candidate `x-fwd-mir` scored the **highest weighted (0.632)** but
+its corridor only reached `directAccess=3/5` (others `1/5`, isolated). **Every candidate is
+`hardValid=false`**, so the engine ships the least-bad by weighted score → the daylight-keeping legacy
+→ the **straight, isolated corridor** the founder sees.
+
+**The trap, in one sentence:** on a compact plate (here ~14×14 m, 9 rooms) a central double-loaded
+corridor cannot satisfy BOTH *"every room touches the corridor"* AND *"every room touches the façade"*
+— the tree solves circulation by sacrificing daylight; the legacy keeps daylight by sacrificing
+circulation; the engine has **no candidate that satisfies both**, oscillates, and ships the daylight
+side. Every prior fix this session improved corridor *connectivity* — but connectivity via a central
+spine is exactly what buries the rooms, so the window gate keeps rejecting it. **The binding
+constraint was daylight, not connectivity.**
+
+### 19.3 The sound architecture (the real cure — NOT yet built)
+
+The corridor must be **SINGLE-LOADED and PERIPHERAL**, not a central double-loaded spine: it runs
+against the **core/stair side**, and **every served room sits between the corridor and the exterior
+wall** — so each room gets BOTH a corridor wall (circulation) AND a façade (window). That is how a real
+house with this brief is drawn. The intent already exists on the legacy path
+(`§NO-SEAL-SINGLE-LOAD` / `§EVERY-ROOM-ACCESS-COMB`), but `packRoomsAlongSpineTree` currently packs
+rooms on **BOTH sides** of the run (double-loaded) via `balanceTwo` / the `cohorts` A/B split — which is
+what buries the inner band. The fix is a **single-loaded mode** in `packRoomsAlongSpineTree`: on a
+compact plate, place ALL rooms on the façade side of the corridor (corridor hugging the interior/core
+edge), so circulation and daylight are both satisfied by construction.
+
+Secondary, already-known follow-ups (lower priority than the single-loaded cure):
+- **ensuite-corridor** (`[ensuite-corridor]` on upper-tree winners) — the ensuite is LPT-banded off the
+  corridor instead of carved behind its `ensuiteHostId` master. Fix: exclude ensuites from band
+  packing, carve each from a corner of its master's cell.
+- **stair still SEALED on some tree candidates** — `§STAIR-SPINE-TOUCH stairsBridgedToCorridor=0/1` +
+  `§DIAG-STAIR-CIRC … SEALED` even when the run is alongside; the stair↔corridor door is not always
+  placed on the polygon-cell path.
+
+### 19.4 Selection-machinery facts worth preserving (so the next pass doesn't relearn them)
+
+- **Circulation-first CANNOT run at the `eligible` stage.** Doing so (filtering to fewest-circ before
+  the viable/hard-valid pool) BREAKS the houseLayout stair-core invariant test, because the carved
+  `keepOutRects` the engine sees is **offset from the SHIPPED stair** (`res.stairs[0].rectMm`, computed
+  later in the orchestrator) — so a room-over-the-shipped-stair is **undetectable inside enumerate**
+  (`roomOverlapsKeepOut` reads 0 even when the test sees the overlap). Circulation-first must therefore
+  be a **pool tiebreaker** strictly WITHIN the proven viable/hard-valid set, never an eligibility
+  filter. (Confirmed twice this session — it cost two cycles.)
+- The **window hard-gate** (`windowMandatoryFor`: living/kitchen/master/bedroom interior = hard fail)
+  is what rejects the buried-room tree. It is correct; the cure is to stop burying rooms (single-
+  loaded), NOT to relax the window gate.
+- All probes produce a **CORNER stair** (`§DIAG-STAIR winner … pos=CORNER`); the founder's CENTRAL-stair
+  plate could not be reproduced without their exact GIS boundary, so §STAIR-ON-RUN is unit-tested but
+  not visually confirmed on their plate. (The `B89Y-ai_` log's winner is also `right CORNER`, so the
+  isolated-corridor result there is the windows-vs-circulation trap, NOT a stair-placement fault.)
+
+### 19.5 Status line (honest)
+
+The spine engine **can** build the L/U corridor (proven in the candidate logs); it is **not selected**
+because a central double-loaded corridor that reaches every room buries rooms off the façade, which the
+window gate correctly rejects. **No L/U corridor with windows has shipped yet.** The next move is the
+**single-loaded `packRoomsAlongSpineTree`** of 19.3 — to be done test-first, gated, and browser-
+validated, NOT bolted onto a context-heavy session (this is the most-reverted code in the engine).
