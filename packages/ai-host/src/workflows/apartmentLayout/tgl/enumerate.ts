@@ -15,6 +15,7 @@ import { decomposeToRects, clampRectToConvexShell, polygonBBox, rectArea, rectif
 import { buildBubbleGraph, scaleProgramToShell, type BubbleGraph, type ProgramRoom, type AdjacencyEdge } from './bubbleGraph.js';
 import { subdivideWithReport, findCorridorStubToKeepOut, claimResidualPlacements, resolveRoomOverlaps, rectPolygon, type DroppedRoom, type RoomPlacement } from './subdivide.js';
 import { subdividePolygon, subtractRectFromCell, cellBBoxRect, shouldUsePolygonConcaveRoute } from './polySubdivide.js';
+import { growStairCellsToCorridor } from './corridorReach.js';
 import { buildWallsAndDoors, type BoundarySeg } from './wallsAndDoors.js';
 import { snapRectsAwayFromWindows, type WindowSpan } from './windowAvoidance.js';
 import { buildSemanticGraph, type LayoutGraph } from './semanticGraph.js';
@@ -1306,6 +1307,48 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
                         console.log(
                             `[D-TGL] §STAIR-CIRC-STUB cand ${strategyKey(s)} routed ${stubbed}/${unbridged.length} ` +
                             `empty-space corridor stub(s) to otherwise-landlocked stair(s) (§65.3)`,
+                        );
+                    }
+                }
+
+                // §CORRIDOR-REACH P1 (founder 2026-06-22; gated default-OFF via window.__pryzmCorridorReach)
+                // — on the POLYGON route (sheared plate) every rect-frame stair-bridge above is DISCARDED
+                // because the emitted corridor is the polygon CELL (cellPolyByIdWorld), which the rect grow
+                // never touched → the stair ships SEALED. Grow each stair's enclosing cell to the corridor
+                // POLYGON cell through EMPTY space so the stair joins the spine (the founder's "the stair's
+                // enclosing space grows until it touches the corridor"). Opt-in until the walls are browser-
+                // validated (the corridor↔stair shared-edge wall sweep); apartment passes no keep-out ⇒
+                // unreachable ⇒ byte-identical (ADR-0061).
+                if ((globalThis as { window?: { __pryzmCorridorReach?: boolean } }).window?.__pryzmCorridorReach === true
+                    && circId && stairPlacements.length > 0) {
+                    const corridorCell = cellPolyByIdWorld?.get(circId)
+                        ?? rectPolygon(placements.find(p => p.roomId === circId)?.rect ?? { x0: 0, z0: 0, x1: 0, z1: 0 });
+                    const stairRectMap = new Map(stairPlacements.map(sp => [sp.roomId, sp.rect] as const));
+                    const stairIds = new Set(stairRectMap.keys());
+                    const obstacleCells = placements
+                        .filter(p => p.roomId !== circId && !stairIds.has(p.roomId))
+                        .map(p => cellPolyByIdWorld?.get(p.roomId) ?? rectPolygon(p.rect));
+                    const grown = growStairCellsToCorridor({
+                        corridorCell,
+                        stairRects: stairRectMap,
+                        obstacleCells,
+                        shellBBox: polygonBBox(input.shellPolygon),
+                    });
+                    let reached = 0;
+                    for (const [id, gr] of grown) {
+                        const orig = stairRectMap.get(id)!;
+                        if (gr.x0 === orig.x0 && gr.z0 === orig.z0 && gr.x1 === orig.x1 && gr.z1 === orig.z1) continue;
+                        const pIdx = placements.findIndex(p => p.roomId === id);
+                        if (pIdx >= 0) placements[pIdx] = { roomId: id, rect: gr };
+                        const spIdx = stairPlacements.findIndex(p => p.roomId === id);
+                        if (spIdx >= 0) stairPlacements[spIdx] = { roomId: id, rect: gr };
+                        if (cellPolyByIdWorld) cellPolyByIdWorld.set(id, rectPolygon(gr));
+                        reached++;
+                    }
+                    if (reached > 0) {
+                        console.log(
+                            `[D-TGL] §CORRIDOR-REACH cand ${strategyKey(s)} grew ${reached}/${stairPlacements.length} ` +
+                            `stair cell(s) to the corridor polygon (spine connects the stair)`,
                         );
                     }
                 }
