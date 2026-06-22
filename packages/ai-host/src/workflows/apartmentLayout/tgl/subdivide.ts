@@ -243,6 +243,14 @@ export interface SubdivideOptions {
      * façade instead of overflowing the bbox — making spine-first render-correct on the skewed
      * GIS-boundary plates the founder draws. Absent ⇒ no clamp (axis-aligned plate = bbox = shell). */
     readonly shellPolygon?: readonly Pt[];
+    /**
+     * §18 slice 4 (L/T/U corridor spine, 2026-06-22) — opt-in (default false). When true AND spineFirst,
+     * the §SPINE-TREE path runs FIRST (before the rect-gated spine-first + legacy carve): it packs rooms
+     * off EVERY corridor segment (run + legs) via `packRoomsAlongSpineTree`, clips room cells to the real
+     * shell (sheared GIS quads OK — no rect gate), and zones PUBLIC/PRIVATE across the run on a mixed
+     * (ground) floor. The browser sets it from `window.__pryzmSpineTree` (via enumerate). Any miss (no
+     * corridor / a drop) falls through to the existing paths ⇒ strictly additive (ADR-0061). */
+    readonly spineTree?: boolean;
 }
 
 /** Axis-line snap tolerance (m). Matches the EPS_M used by the SCORING
@@ -3516,6 +3524,47 @@ export function subdivideWithReport(
     // polygon-native carve (subdividePolygon) the ground floor proves correct. In this principal-axis
     // frame a rotated rectangle passes; a GIS trapezoid/parallelogram does not. Any miss (public
     // present / non-rect shell / no corridor / a drop / no ring) → legacy carve (ADR-0061 additive).
+    // §18 slice 4 — §SPINE-TREE: the multi-leg, polygon-native, public/private-zoned spine. Runs FIRST
+    // (opt-in via options.spineTree) on ANY shell with a corridor — no rectangle gate, no no-public gate
+    // — because the tree pack clips cells to the real shell and zones public/private across the run. Any
+    // miss (no corridor / a drop) falls through to the rect spine-first + legacy carve. Strictly additive.
+    if (options.spineFirst && options.spineTree && graph.corridorId) {
+        const bx0 = Math.min(...valid.map(r => r.x0)), bz0 = Math.min(...valid.map(r => r.z0));
+        const bx1 = Math.max(...valid.map(r => r.x1)), bz1 = Math.max(...valid.map(r => r.z1));
+        const bboxPoly: Pt[] = [
+            { x: bx0, z: bz0 }, { x: bx1, z: bz0 }, { x: bx1, z: bz1 }, { x: bx0, z: bz1 },
+        ];
+        const shellForSpine = options.shellPolygon && options.shellPolygon.length >= 3 ? options.shellPolygon : bboxPoly;
+        const treeRes = subdivideViaSpine(shellForSpine, graph, {
+            stairKeepOut: keepOutRects[0], corridorWidthM, spineTree: true,
+        });
+        if (treeRes && treeRes.dropped.length === 0) {
+            const clampPoly = options.shellPolygon && options.shellPolygon.length >= 3 ? options.shellPolygon : undefined;
+            const clampRect = (rc: Rect): Rect => {
+                if (!clampPoly) return roundRect(rc);
+                const c = clampRectToConvexShell(roundRect(rc), clampPoly);
+                return c ? roundRect(c) : roundRect(rc);
+            };
+            const placements: RoomPlacement[] = [
+                { roomId: graph.corridorId, rect: clampRect(treeRes.corridor) },
+                ...treeRes.rooms.map(p => ({ roomId: p.roomId, rect: clampRect(p.rect) })),
+            ];
+            const cellPolygonById = new Map<string, readonly Pt[]>();
+            // Room cell polygons (already clipped to the real shell by the tree pack, slice 3).
+            if (treeRes.cellPolygonById) for (const [id, poly] of treeRes.cellPolygonById) cellPolygonById.set(id, poly);
+            // Corridor L/T/U ring: clamp each corridor cell + union (same as the rect spine-first path).
+            const ring = rectUnionRing(treeRes.corridorCells.map(clampRect));
+            if (ring) cellPolygonById.set(graph.corridorId, ring);
+            console.log(
+                `[D-TGL subdivide] §SPINE-TREE applied: corridor + ${treeRes.rooms.length} rooms off the ` +
+                `MULTI-LEG spine (every room on the corridor by construction; cells clipped to the real shell; ` +
+                `corridorCells=${treeRes.corridorCells.length})`,
+            );
+            return { placements, droppedRooms: [], ...(cellPolygonById.size ? { cellPolygonById } : {}), spineFirstApplied: true };
+        }
+        console.log('[D-TGL subdivide] §SPINE-TREE skipped (no corridor / a drop) — falling through to spine-first/legacy.');
+    }
+
     const spineShellPoly = options.shellPolygon;
     const spineShellIsRect = !spineShellPoly || spineShellPoly.length < 3
         ? true                                          // absent ⇒ the bbox is used ⇒ a rectangle
@@ -3558,7 +3607,7 @@ export function subdivideWithReport(
                 `rooms off the derived spine; corridorCells=${spineRes.corridorCells.length} clamped=${clampPoly ? 'yes(no-op)' : 'no'} ` +
                 `(every private room + the stair on the central corridor by construction)`,
             );
-            return { placements, droppedRooms: [], cellPolygonById: cellPolygonById.size ? cellPolygonById : undefined, spineFirstApplied: true };
+            return { placements, droppedRooms: [], ...(cellPolygonById.size ? { cellPolygonById } : {}), spineFirstApplied: true };
         }
         console.log('[D-TGL subdivide] §SPINE-FIRST skipped (infeasible on this plate) — legacy carve.');
     }

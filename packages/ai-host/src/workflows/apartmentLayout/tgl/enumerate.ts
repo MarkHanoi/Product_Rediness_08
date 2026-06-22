@@ -909,6 +909,12 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
             // §SPINE-FIRST P4 — opt-in passthrough (the house orchestrator sets it from
             // window.__pryzmSpineFirst). Default off ⇒ byte-identical legacy carve.
             ...(input.spineFirst ? { spineFirst: true, shellPolygon: polyT } : {}),   // P6: real polygon for skew-clip
+            // §18 slice 4 — §SPINE-TREE opt-in (browser console: window.__pryzmSpineTree = true). The
+            // multi-leg, polygon-native, public/private-zoned spine; runs only when spineFirst is also on.
+            // Default OFF ⇒ byte-identical. Read here (like §CORRIDOR-REACH) so no orchestrator plumbing.
+            ...(input.spineFirst
+                && (globalThis as { window?: { __pryzmSpineTree?: boolean } }).window?.__pryzmSpineTree === true
+                ? { spineTree: true, shellPolygon: polyT } : {}),
         },
     );
     const placementsT = subRes.placements;

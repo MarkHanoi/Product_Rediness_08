@@ -8,7 +8,7 @@
 // loaded case); skewed-residual clipping + L/T legs land in a later slice.
 
 import { deriveCorridorSpine } from './deriveCorridorSpine.js';
-import { packRoomsAlongSpine, type SpineRoom, type SpinePackResult } from './packRoomsAlongSpine.js';
+import { packRoomsAlongSpine, packRoomsAlongSpineTree, type SpineRoom, type SpinePackResult } from './packRoomsAlongSpine.js';
 import { roomRule } from '../rules/programRules.js';
 import type { BubbleGraph } from './bubbleGraph.js';
 import type { Pt, Rect } from './rectDecomposition.js';
@@ -27,6 +27,11 @@ export interface SubdivideViaSpineOptions {
     readonly stairKeepOut?: Rect;
     /** Corridor width (m). Default 1.2. */
     readonly corridorWidthM?: number;
+    /** §18 slice 4 — use the multi-leg, polygon-native tree pack (`packRoomsAlongSpineTree`) instead of
+     *  the straight-run pack: rooms comb off ALL spine segments (run + legs), cells clip to the REAL
+     *  shell (so sheared GIS quads are fine), and on a MIXED floor PUBLIC/PRIVATE zone to opposite sides
+     *  of the run. Default false ⇒ the proven straight-run pack (byte-identical). */
+    readonly spineTree?: boolean;
 }
 
 /**
@@ -41,21 +46,38 @@ export function subdivideViaSpine(
     opts: SubdivideViaSpineOptions = {},
 ): SpinePackResult | null {
     const corridorId = graph.corridorId;
-    const spineRooms: SpineRoom[] = graph.rooms
-        .filter(r => r.id !== corridorId)
-        .map(r => ({
-            id: r.id,
-            targetAreaM2: r.targetAreaM2,
-            needsWindow: r.needsWindow,
-            minShortSideM: roomRule(r.type).minShortSideM,
-        }));
+    const nonCorridor = graph.rooms.filter(r => r.id !== corridorId);
+    const toSpineRoom = (r: typeof nonCorridor[number]): SpineRoom => ({
+        id: r.id,
+        targetAreaM2: r.targetAreaM2,
+        needsWindow: r.needsWindow,
+        minShortSideM: roomRule(r.type).minShortSideM,
+    });
+    const spineRooms: SpineRoom[] = nonCorridor.map(toSpineRoom);
     if (spineRooms.length === 0) return null;
 
     const spine = deriveCorridorSpine(shellPolygon, {
-        stairKeepOut: opts.stairKeepOut,
+        ...(opts.stairKeepOut ? { stairKeepOut: opts.stairKeepOut } : {}),
         widthM: opts.corridorWidthM ?? 1.2,
     });
     if (!spine) return null;
+
+    // §18 slice 4 — the multi-leg, polygon-native tree pack: rooms comb off ALL spine segments, cells
+    // clip to the REAL shell, and PUBLIC (+ hall/circulation) zone to one side of the run, PRIVATE to
+    // the other (the corridor between social + sleeping). An all-private (upper) floor has no public
+    // rooms ⇒ cohorts undefined ⇒ area-balanced both sides.
+    if (opts.spineTree) {
+        const publicSide = nonCorridor.filter(r => roomRule(r.type).privacy !== 'private');
+        const privateSide = nonCorridor.filter(r => roomRule(r.type).privacy === 'private');
+        const cohorts: readonly [readonly SpineRoom[], readonly SpineRoom[]] | undefined =
+            publicSide.length > 0 && privateSide.length > 0
+                ? [publicSide.map(toSpineRoom), privateSide.map(toSpineRoom)]
+                : undefined;
+        return packRoomsAlongSpineTree(bboxOf(shellPolygon), spine, spineRooms, {
+            shellPolygon,
+            ...(cohorts ? { cohorts } : {}),
+        });
+    }
 
     return packRoomsAlongSpine(bboxOf(shellPolygon), spine, spineRooms);
 }
