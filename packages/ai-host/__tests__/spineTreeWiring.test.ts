@@ -48,6 +48,28 @@ describe('§18 slice 4 — §SPINE-TREE wiring', () => {
         expect(lines.some(l => l.includes('§SPINE-TREE applied')), 'spine-tree must run').toBe(true);
     });
 
+    it('§18 slice 5a — tree ON NEVER ships a room↔stair overlap (the regression guard)', () => {
+        setTree(true);
+        const out = enumerateLayouts(input({ seed: 'tree-nooverlap' }));
+        expect(out.length).toBeGreaterThan(0);
+        // The regression logged `§DIAG-ROOM-OVERLAP … [Dining↔Stair area=6.7m²]`. With the keep-out
+        // subtracted from the bands + the strictly-additive guard, NO room-overlap line may name the stair.
+        const stairOverlap = lines.some(l => l.includes('§DIAG-ROOM-OVERLAP') && l.includes('Stair'));
+        expect(stairOverlap, 'no room may overlap the stair keep-out').toBe(false);
+    });
+
+    it('§18 slice 5a — tree ON never ships an under-min-area habitable room on the winner', () => {
+        setTree(true);
+        const out = enumerateLayouts(input({ seed: 'tree-minarea' }));
+        expect(out.length).toBeGreaterThan(0);
+        // The winner must not be a min-area-rejected layout when the tree applied (the guard falls
+        // through to legacy rather than shipping squished rooms). underMin on the winner ⇒ regression.
+        const winnerLine = lines.filter(l => l.includes('§DIAG-MIN-AREA-GATE')).pop() ?? '';
+        // Either the tree was rejected (fell through) or it applied with underMin=0; never applied+underMin>0.
+        const treeApplied = lines.some(l => l.includes('§SPINE-TREE applied'));
+        if (treeApplied) expect(winnerLine.includes('underMin=0') || winnerLine === '').toBe(true);
+    });
+
     it('toggle ON: deterministic', () => {
         setTree(true);
         const a = enumerateLayouts(input({ seed: 'tree-det' }));

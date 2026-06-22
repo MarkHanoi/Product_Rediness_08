@@ -3549,20 +3549,44 @@ export function subdivideWithReport(
                 { roomId: graph.corridorId, rect: clampRect(treeRes.corridor) },
                 ...treeRes.rooms.map(p => ({ roomId: p.roomId, rect: clampRect(p.rect) })),
             ];
-            const cellPolygonById = new Map<string, readonly Pt[]>();
-            // Room cell polygons (already clipped to the real shell by the tree pack, slice 3).
-            if (treeRes.cellPolygonById) for (const [id, poly] of treeRes.cellPolygonById) cellPolygonById.set(id, poly);
-            // Corridor L/T/U ring: clamp each corridor cell + union (same as the rect spine-first path).
-            const ring = rectUnionRing(treeRes.corridorCells.map(clampRect));
-            if (ring) cellPolygonById.set(graph.corridorId, ring);
-            console.log(
-                `[D-TGL subdivide] §SPINE-TREE applied: corridor + ${treeRes.rooms.length} rooms off the ` +
-                `MULTI-LEG spine (every room on the corridor by construction; cells clipped to the real shell; ` +
-                `corridorCells=${treeRes.corridorCells.length})`,
-            );
-            return { placements, droppedRooms: [], ...(cellPolygonById.size ? { cellPolygonById } : {}), spineFirstApplied: true };
+            // §18 slice 5a — STRICTLY-ADDITIVE GUARD: apply the tree result ONLY when it is clean —
+            // NO room overlaps the stair keep-out, and NO room is below its type's min area. On ANY
+            // violation FALL THROUGH to the rect spine-first / legacy carve (never ship a worse-than-
+            // legacy layout). This is the guard whose absence caused the room↔stair-overlap regression.
+            const typeByRoomId = new Map(graph.rooms.map(r => [r.id, r.type]));
+            const overlapsKeepOut = (rc: Rect): boolean =>
+                keepOutRects.some(ko => {
+                    const ox = Math.min(rc.x1, ko.x1) - Math.max(rc.x0, ko.x0);
+                    const oz = Math.min(rc.z1, ko.z1) - Math.max(rc.z0, ko.z0);
+                    return ox > 0.05 && oz > 0.05;   // > a hairline ⇒ a real room-over-stair overlap
+                });
+            const underMinArea = (id: string, rc: Rect): boolean => {
+                const t = typeByRoomId.get(id);
+                if (t === undefined) return false;
+                return rectArea(rc) < roomRule(t).minAreaM2 - 0.01;
+            };
+            const treeBad = placements.some(p =>
+                p.roomId !== graph.corridorId && (overlapsKeepOut(p.rect) || underMinArea(p.roomId, p.rect)));
+            if (treeBad) {
+                console.log('[D-TGL subdivide] §SPINE-TREE rejected (room↔stair overlap or under-min-area) — falling through to spine-first/legacy.');
+            } else {
+                const cellPolygonById = new Map<string, readonly Pt[]>();
+                // Room cell polygons (already clipped to the real shell by the tree pack, slice 3).
+                if (treeRes.cellPolygonById) for (const [id, poly] of treeRes.cellPolygonById) cellPolygonById.set(id, poly);
+                // Corridor L/T/U ring: clamp each corridor cell + union (same as the rect spine-first path).
+                const ring = rectUnionRing(treeRes.corridorCells.map(clampRect));
+                if (ring) cellPolygonById.set(graph.corridorId, ring);
+                console.log(
+                    `[D-TGL subdivide] §SPINE-TREE applied: corridor + ${treeRes.rooms.length} rooms off the ` +
+                    `MULTI-LEG spine (every room on the corridor; cells clipped to the real shell; no stair overlap; ` +
+                    `corridorCells=${treeRes.corridorCells.length})`,
+                );
+                return { placements, droppedRooms: [], ...(cellPolygonById.size ? { cellPolygonById } : {}), spineFirstApplied: true };
+            }
         }
-        console.log('[D-TGL subdivide] §SPINE-TREE skipped (no corridor / a drop) — falling through to spine-first/legacy.');
+        if (!treeRes || treeRes.dropped.length > 0) {
+            console.log('[D-TGL subdivide] §SPINE-TREE skipped (no corridor / a drop) — falling through to spine-first/legacy.');
+        }
     }
 
     const spineShellPoly = options.shellPolygon;

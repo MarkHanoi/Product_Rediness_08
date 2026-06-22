@@ -75,6 +75,7 @@ export function subdivideViaSpine(
                 : undefined;
         return packRoomsAlongSpineTree(bboxOf(shellPolygon), spine, spineRooms, {
             shellPolygon,
+            ...(opts.stairKeepOut ? { keepOut: opts.stairKeepOut } : {}),
             ...(cohorts ? { cohorts } : {}),
         });
     }

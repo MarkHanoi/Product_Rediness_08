@@ -190,6 +190,10 @@ export interface PackTreeOptions {
      *  room cell is clipped to it (`cellPolygonById`) so the pack is polygon-native: no bbox overflow,
      *  façade edges follow the slant, interior/corridor-shared edges unchanged. Absent ⇒ rect cells. */
     readonly shellPolygon?: readonly Pt[];
+    /** §18 slice 5a — the stair keep-out rect. SUBTRACTED from the room bands (alongside the corridor
+     *  cells) so NO room ever tiles over the stair (the P5/regression defect: rooms overlapping the
+     *  stair). Absent ⇒ no keep-out (apartment / no-stair plate). */
+    readonly keepOut?: Rect;
 }
 
 export function packRoomsAlongSpineTree(
@@ -207,8 +211,10 @@ export function packRoomsAlongSpineTree(
         : { x0: run.a.x - half, z0: shellBbox.z0, x1: run.a.x + half, z1: shellBbox.z1 };
     const corridorCells = corridorCellsOf(corridor, spine);
 
-    // Residual bands = shell bbox − every corridor strip; each abuts a corridor cell by construction.
-    const bands = subtractRectsFromRects([shellBbox], corridorCells)
+    // Residual bands = shell bbox − every corridor strip − the stair keep-out; each abuts a corridor
+    // cell by construction, and NO band covers the stair (so no room ever tiles over it — §18 slice 5a).
+    const obstacles = opts.keepOut ? [...corridorCells, opts.keepOut] : corridorCells;
+    const bands = subtractRectsFromRects([shellBbox], obstacles)
         .filter(r => rectArea(r) > EPS)
         .sort((p, q) => rectArea(q) - rectArea(p) || p.x0 - q.x0 || p.z0 - q.z0);
     if (bands.length === 0) return null;
