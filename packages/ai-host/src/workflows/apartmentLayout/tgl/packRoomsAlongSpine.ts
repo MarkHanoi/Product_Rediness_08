@@ -168,10 +168,20 @@ export function packRoomsAlongSpine(
  * §18 slice 3 (today the caller still gates to a rectangular shell, P8). Returns null on a degenerate
  * spine / no residual band.
  */
+export interface PackTreeOptions {
+    /** §18 slice 2 — PRE-SPLIT cohorts [sideA, sideB]. When given, sideA packs into the bands on ONE
+     *  side of the primary run and sideB into the bands on the OTHER — so a MIXED (ground) floor puts
+     *  PUBLIC on one side and PRIVATE on the other (the corridor sits between the social + sleeping
+     *  zones). Absent ⇒ all rooms balanced across every band (the all-private upper floor). Falls back
+     *  to unzoned if either side has no band (never forces a drop). */
+    readonly cohorts?: readonly [readonly SpineRoom[], readonly SpineRoom[]];
+}
+
 export function packRoomsAlongSpineTree(
     shellBbox: Rect,
     spine: SpinePath,
     rooms: readonly SpineRoom[],
+    opts: PackTreeOptions = {},
 ): SpinePackResult | null {
     const run = spine.segments[0];
     if (!run) return null;
@@ -202,28 +212,52 @@ export function packRoomsAlongSpineTree(
         return (band.x1 - band.x0) >= (band.z1 - band.z0) ? 'x' : 'z';
     };
 
-    // Distribute rooms across bands: LPT — largest target → the band with the most remaining area.
-    // Deterministic (target desc, id tiebreak; band ties by index). Guarantees every room assigned.
-    const remaining = bands.map(b => rectArea(b));
-    const cohorts: SpineRoom[][] = bands.map(() => []);
-    const ordered = [...rooms].sort((p, q) => q.targetAreaM2 - p.targetAreaM2 || p.id.localeCompare(q.id));
-    for (const r of ordered) {
-        let best = 0;
-        for (let i = 1; i < bands.length; i++) if (remaining[i]! > remaining[best]!) best = i;
-        cohorts[best]!.push(r);
-        remaining[best]! -= Math.max(EPS, r.targetAreaM2);
+    // Comb a room set across a band set: LPT assign (largest target → emptiest band; deterministic),
+    // then comb each band along its corridor-shared edge. A room set with no band drops (reported).
+    const packInto = (bandSet: readonly Rect[], roomSet: readonly SpineRoom[]): { placements: PackedRoom[]; dropped: string[] } => {
+        const placements: PackedRoom[] = [];
+        const dropped: string[] = [];
+        if (roomSet.length === 0) return { placements, dropped };
+        if (bandSet.length === 0) return { placements, dropped: roomSet.map(r => r.id) };
+        const remaining = bandSet.map(b => rectArea(b));
+        const cohorts: SpineRoom[][] = bandSet.map(() => []);
+        for (const r of [...roomSet].sort((p, q) => q.targetAreaM2 - p.targetAreaM2 || p.id.localeCompare(q.id))) {
+            let best = 0;
+            for (let i = 1; i < bandSet.length; i++) if (remaining[i]! > remaining[best]!) best = i;
+            cohorts[best]!.push(r);
+            remaining[best]! -= Math.max(EPS, r.targetAreaM2);
+        }
+        bandSet.forEach((band, i) => {
+            const ordered = cohorts[i]!.slice().sort((p, q) => roomSet.indexOf(p) - roomSet.indexOf(q));
+            const res = combBand(band, combAxisFor(band), ordered);
+            placements.push(...res.placements);
+            dropped.push(...res.dropped);
+        });
+        return { placements, dropped };
+    };
+
+    const side: Record<string, 'A' | 'B'> = {};
+    // Which side of the primary run a band sits on (A = high side of the run's perpendicular axis).
+    const sideOf = (band: Rect): 'A' | 'B' => spine.primaryAxis === 'x'
+        ? ((band.z0 + band.z1) / 2 > run.a.z ? 'A' : 'B')
+        : ((band.x0 + band.x1) / 2 > run.a.x ? 'A' : 'B');
+
+    // §18 slice 2 — public/private zoning: cohort[0] → side-A bands, cohort[1] → side-B bands.
+    if (opts.cohorts) {
+        const bandsA = bands.filter(b => sideOf(b) === 'A');
+        const bandsB = bands.filter(b => sideOf(b) === 'B');
+        if (bandsA.length > 0 && bandsB.length > 0) {
+            const a = packInto(bandsA, opts.cohorts[0]);
+            const b = packInto(bandsB, opts.cohorts[1]);
+            for (const r of opts.cohorts[0]) side[r.id] = 'A';
+            for (const r of opts.cohorts[1]) side[r.id] = 'B';
+            return { corridor, corridorCells, rooms: [...a.placements, ...b.placements], dropped: [...a.dropped, ...b.dropped], side };
+        }
+        // One side has no band ⇒ fall through to the unzoned pack (never force a drop for zoning).
     }
 
-    const placements: PackedRoom[] = [];
-    const dropped: string[] = [];
-    const side: Record<string, 'A' | 'B'> = {};
-    bands.forEach((band, i) => {
-        // Preserve input order WITHIN the band for deterministic slice positions.
-        const cohort = cohorts[i]!.slice().sort((p, q) => rooms.indexOf(p) - rooms.indexOf(q));
-        const res = combBand(band, combAxisFor(band), cohort);
-        placements.push(...res.placements);
-        dropped.push(...res.dropped);
-        for (const r of cohort) side[r.id] = i % 2 === 0 ? 'A' : 'B';
-    });
-    return { corridor, corridorCells, rooms: placements, dropped, side };
+    const all = packInto(bands, rooms);
+    // Diagnostic side label = which side of the run each placed room landed on (from its own rect).
+    for (const p of all.placements) side[p.roomId] = sideOf(p.rect);
+    return { corridor, corridorCells, rooms: all.placements, dropped: all.dropped, side };
 }

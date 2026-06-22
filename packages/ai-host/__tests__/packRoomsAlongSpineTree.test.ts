@@ -75,6 +75,33 @@ describe('§SPINE-TREE — packRoomsAlongSpineTree (multi-leg room pack)', () =>
         expect(someRoomOnLeg, 'at least one room must comb off the leg').toBe(true);
     });
 
+    it('§18 slice 2 — cohorts zone PUBLIC to one side of the run and PRIVATE to the other', () => {
+        const pub: SpineRoom[] = [
+            { id: 'living', targetAreaM2: 24, needsWindow: true, minShortSideM: 3.2 },
+            { id: 'kitchen', targetAreaM2: 14, needsWindow: true, minShortSideM: 1.8 },
+        ];
+        const priv: SpineRoom[] = [
+            { id: 'bed1', targetAreaM2: 16, needsWindow: true, minShortSideM: 2.6 },
+            { id: 'bath', targetAreaM2: 6, needsWindow: false, minShortSideM: 1.8 },
+        ];
+        // straight run so each side is a single clean band (z>5 vs z<5).
+        const straight: SpinePath = { segments: [L_SPINE.segments[0]!], widthM: 1.2, primaryAxis: 'x' };
+        const res = packRoomsAlongSpineTree(SHELL, straight, [...pub, ...priv], { cohorts: [pub, priv] })!;
+        expect(res.dropped).toEqual([]);
+        const z = (id: string): number => {
+            const r = res.rooms.find(p => p.roomId === id)!.rect;
+            return (r.z0 + r.z1) / 2;
+        };
+        // Public cohort all on one side of z=5; private cohort all on the other; the two sides differ.
+        const pubAbove = z('living') > 5;
+        for (const id of ['living', 'kitchen']) expect(z(id) > 5).toBe(pubAbove);
+        for (const id of ['bed1', 'bath']) expect(z(id) > 5).toBe(!pubAbove);
+        // every room still corridor-adjacent
+        for (const room of res.rooms) {
+            expect(Math.max(...res.corridorCells.map(c => sharedWallM(room.rect, c)))).toBeGreaterThanOrEqual(DOOR_W);
+        }
+    });
+
     it('is deterministic', () => {
         const a = packRoomsAlongSpineTree(SHELL, L_SPINE, ROOMS);
         const b = packRoomsAlongSpineTree(SHELL, L_SPINE, ROOMS);
