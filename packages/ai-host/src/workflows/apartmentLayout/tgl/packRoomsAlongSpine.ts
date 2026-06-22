@@ -77,13 +77,27 @@ function balanceTwo(rooms: readonly SpineRoom[]): readonly [SpineRoom[], SpineRo
     return [A, B];
 }
 
+/** §HABITABLE-NOT-CORRIDOR (§19.3 / §20.1, founder "a study cannot have the shape of a corridor") —
+ *  the max long:short ratio a HABITABLE combed cell may have before it reads as a corridor. A room
+ *  longer than this relative to its short side is widened/merged-out rather than emitted as a thin
+ *  sliver. Only enforced in single-loaded mode (where the aspect is meaningful — the band depth is
+ *  the room depth); the legacy double-loaded path is unaffected (default `combBandAspectCap`
+ *  undefined ⇒ no cap ⇒ byte-identical). */
+const HABITABLE_MAX_ASPECT = 3.0;
+
 /** Comb a cohort along the band's LONG axis; each room spans the FULL band depth (touches the spine
  *  edge AND the outer/façade edge) and takes a share of the band length PROPORTIONAL to its target
  *  area, so the cohort exactly TILES the residual band (no drops — the corridor strip has already
  *  been removed, so rooms fill what remains, like squarify fills a zone). A room is only reported
- *  dropped when the band is so short it can't host the cohort above the per-room minimum. */
+ *  dropped when the band is so short it can't host the cohort above the per-room minimum.
+ *
+ *  When `aspectCap` is given (single-loaded mode), a habitable room slice whose along-extent would
+ *  fall below bandDepth/aspectCap is widened — and rooms are dropped (lowest priority first, never a
+ *  silent under-min sliver) until every kept slice both clears its `minShortSideM` AND respects the
+ *  aspect cap. The band tiles exactly across the KEPT rooms. */
 function combBand(
     band: Rect, axis: 'x' | 'z', cohort: readonly SpineRoom[],
+    aspectCap?: number,
 ): { placements: PackedRoom[]; dropped: string[] } {
     const placements: PackedRoom[] = [];
     const dropped: string[] = [];
@@ -91,19 +105,27 @@ function combBand(
     const along0 = axis === 'x' ? band.x0 : band.z0;
     const along1 = axis === 'x' ? band.x1 : band.z1;
     const bandLen = along1 - along0;
-    // Drop the lowest-priority (smallest-target) rooms until the rest can each clear their minimum.
+    // The band's DEPTH (perpendicular to the comb axis) = each slice's long-ish span to the façade.
+    const bandDepth = axis === 'x' ? (band.z1 - band.z0) : (band.x1 - band.x0);
+    // §HABITABLE-NOT-CORRIDOR — a slice's along-extent must be ≥ this so its long:short ratio against
+    // the band depth never exceeds the cap (the deeper edge is the band depth, so the floor is
+    // depth/cap; a shallow band has no floor). Undefined cap ⇒ 0 floor (byte-identical legacy path).
+    const aspectFloor = aspectCap !== undefined && bandDepth > EPS ? bandDepth / aspectCap : 0;
+    /** Each kept room needs at least max(its min short side, the aspect floor) of band length. */
+    const slotFloor = (r: SpineRoom): number => Math.max(r.minShortSideM, aspectFloor);
+    // Drop the lowest-priority (smallest-target) rooms until the rest can each clear their slot floor.
     const ordered = [...cohort].sort((a, b) => b.targetAreaM2 - a.targetAreaM2 || a.id.localeCompare(b.id));
     let kept = ordered;
-    while (kept.length > 0 && kept.reduce((s, r) => s + r.minShortSideM, 0) > bandLen + EPS) {
+    while (kept.length > 0 && kept.reduce((s, r) => s + slotFloor(r), 0) > bandLen + EPS) {
         dropped.push(kept[kept.length - 1]!.id);
         kept = kept.slice(0, -1);
     }
     if (kept.length === 0) return { placements, dropped };
     // Proportional fill: each kept room's along-extent = bandLen × target / Σtarget, but never below
-    // its minimum (clamp, then renormalise the slack so the band still tiles exactly).
+    // its slot floor (clamp, then renormalise the slack so the band still tiles exactly).
     const totalTarget = kept.reduce((s, r) => s + Math.max(EPS, r.targetAreaM2), 0);
     let widths = kept.map(r => bandLen * Math.max(EPS, r.targetAreaM2) / totalTarget);
-    widths = widths.map((w, i) => Math.max(w, kept[i]!.minShortSideM));
+    widths = widths.map((w, i) => Math.max(w, slotFloor(kept[i]!)));
     const sumW = widths.reduce((s, w) => s + w, 0);
     widths = widths.map(w => w * bandLen / sumW);                 // renormalise back to exactly bandLen
     // Preserve the input order for determinism of placement positions.
@@ -194,6 +216,13 @@ export interface PackTreeOptions {
      *  cells) so NO room ever tiles over the stair (the P5/regression defect: rooms overlapping the
      *  stair). Absent ⇒ no keep-out (apartment / no-stair plate). */
     readonly keepOut?: Rect;
+    /** §SINGLE-LOAD-PERIPHERAL (§19.3 / §20.1, default OFF — gated by window.__pryzmSpineTree upstream)
+     *  — on a COMPACT plate, run the corridor AGAINST the core/stair edge and pack ALL rooms in ONE
+     *  band between the corridor and the FAR façade, so every room gets BOTH a corridor wall
+     *  (circulation) AND an exterior façade (window). This is the escape from the windows-vs-
+     *  circulation trap (§19.2) that the double-loaded balanceTwo/cohort pack falls into. Absent /
+     *  false ⇒ the double-loaded pack (byte-identical). */
+    readonly singleLoaded?: boolean;
 }
 
 export function packRoomsAlongSpineTree(
@@ -205,6 +234,14 @@ export function packRoomsAlongSpineTree(
     const run = spine.segments[0];
     if (!run) return null;
     const half = spine.widthM / 2;
+
+    // §SINGLE-LOAD-PERIPHERAL (§19.3 / §20.1) — run the corridor AGAINST the core/stair edge and pack
+    // ALL rooms in ONE band between the corridor and the FAR façade. Handled by a dedicated builder
+    // (its own corridor strip + single band), so the double-loaded path below stays byte-identical.
+    if (opts.singleLoaded) {
+        return packSingleLoaded(shellBbox, spine, rooms, opts);
+    }
+
     // The primary run as a full-width corridor strip (same as packRoomsAlongSpine's corridor rect).
     const corridor: Rect = spine.primaryAxis === 'x'
         ? { x0: shellBbox.x0, z0: run.a.z - half, x1: shellBbox.x1, z1: run.a.z + half }
@@ -295,4 +332,167 @@ export function packRoomsAlongSpineTree(
     // Diagnostic side label = which side of the run each placed room landed on (from its own rect).
     for (const p of all.placements) side[p.roomId] = sideOf(p.rect);
     return finish(all.placements, all.dropped);
+}
+
+/**
+ * §SINGLE-LOAD-PERIPHERAL (§19.3 / §20.1) — pack ALL rooms into ONE band against the FAR façade, with
+ * the corridor hugging the CORE/STAIR edge. Each room therefore spans corridor-edge → façade-edge ⇒
+ * touches BOTH the corridor (circulation) AND the exterior (window) BY CONSTRUCTION — the geometric
+ * escape from the windows-vs-circulation trap (§19.2). A perpendicular leg bridges the corridor to an
+ * off-run stair (the corridor reaches the stair keep-out by construction). PURE + deterministic.
+ *
+ * The "core side" (the side the corridor hugs) is the side of the centred run NEAREST the stair when a
+ * keep-out is given (so the stair shares the corridor edge), else the LOW side (deterministic default).
+ * Falls back (drops, never a silent under-min sliver) when the single band cannot seat every room at
+ * its min short side AND aspect cap; the caller (§SPINE-TREE in subdivide) then falls through to legacy.
+ */
+function packSingleLoaded(
+    shellBbox: Rect,
+    spine: SpinePath,
+    rooms: readonly SpineRoom[],
+    opts: PackTreeOptions,
+): SpinePackResult | null {
+    const width = spine.widthM;
+    const ko = opts.keepOut;
+
+    // The corridor is a full-length strip hugging the CORE side. On the x-axis run it is horizontal
+    // (z-thick); on the z-axis run it is vertical (x-thick). The far band fills the rest to the façade.
+    let corridor: Rect;
+    let band: Rect;
+    let combAxis: 'x' | 'z';
+
+    if (spine.primaryAxis === 'x') {
+        // Core side = the z-side nearest the stair (else the low side, z0).
+        const stairCz = ko ? (ko.z0 + ko.z1) / 2 : shellBbox.z0;
+        const midZ = (shellBbox.z0 + shellBbox.z1) / 2;
+        const coreLow = stairCz <= midZ;   // stair toward z0 ⇒ corridor hugs z0
+        // The corridor/band split line. When the stair is deeper than the corridor width on the core
+        // side, push the split to the stair's FAR edge so the corridor and the band share ONE clean
+        // line (no gap where the stair intrudes past the strip → every room reaches the corridor edge).
+        const splitZ = coreLow
+            ? Math.max(shellBbox.z0 + width, ko ? ko.z1 : shellBbox.z0 + width)
+            : Math.min(shellBbox.z1 - width, ko ? ko.z0 : shellBbox.z1 - width);
+        corridor = coreLow
+            ? { x0: shellBbox.x0, z0: shellBbox.z0, x1: shellBbox.x1, z1: splitZ }
+            : { x0: shellBbox.x0, z0: splitZ, x1: shellBbox.x1, z1: shellBbox.z1 };
+        band = coreLow
+            ? { x0: shellBbox.x0, z0: splitZ, x1: shellBbox.x1, z1: shellBbox.z1 }
+            : { x0: shellBbox.x0, z0: shellBbox.z0, x1: shellBbox.x1, z1: splitZ };
+        combAxis = 'x';
+    } else {
+        const stairCx = ko ? (ko.x0 + ko.x1) / 2 : shellBbox.x0;
+        const midX = (shellBbox.x0 + shellBbox.x1) / 2;
+        const coreLow = stairCx <= midX;
+        const splitX = coreLow
+            ? Math.max(shellBbox.x0 + width, ko ? ko.x1 : shellBbox.x0 + width)
+            : Math.min(shellBbox.x1 - width, ko ? ko.x0 : shellBbox.x1 - width);
+        corridor = coreLow
+            ? { x0: shellBbox.x0, z0: shellBbox.z0, x1: splitX, z1: shellBbox.z1 }
+            : { x0: splitX, z0: shellBbox.z0, x1: shellBbox.x1, z1: shellBbox.z1 };
+        band = coreLow
+            ? { x0: splitX, z0: shellBbox.z0, x1: shellBbox.x1, z1: shellBbox.z1 }
+            : { x0: shellBbox.x0, z0: shellBbox.z0, x1: splitX, z1: shellBbox.z1 };
+        combAxis = 'z';
+    }
+    if (band.x1 - band.x0 < EPS || band.z1 - band.z0 < EPS) return null;
+
+    // §STAIR-ON-RUN — the stair keep-out may lie ON the core edge (overlapping the corridor strip) OR
+    // be a separate corner. SUBTRACT it from the corridor strip so the corridor routes ALONGSIDE the
+    // stair (never through it); the remaining corridor pieces share a wall with the stair BY
+    // CONSTRUCTION (the cut edge). Then SUBTRACT it from the room band too (no room tiles over it).
+    let corridorCells: Rect[];
+    if (ko) {
+        corridorCells = subtractRectsFromRects([corridor], [ko])
+            .filter(r => rectArea(r) > EPS)
+            .sort((p, q) => rectArea(q) - rectArea(p) || p.x0 - q.x0 || p.z0 - q.z0);
+        if (corridorCells.length === 0) return null;
+        // If after the cut NO corridor piece shares a ≥door-width wall with the stair, add a bridge leg
+        // (a corner stair offset from the core edge). Else the cut edge already bridges.
+        const bridged = corridorCells.some(c => sharedWallMRect(c, ko) >= DOOR_W);
+        if (!bridged) {
+            const leg = bridgeLegToStair(corridorCells[0]!, ko, width, combAxis);
+            if (leg) corridorCells.push(leg);
+        }
+        // Trim the band clear of the stair AND any bridge leg; keep the LARGEST remaining run-span as
+        // the single room band (deterministic) so no room ever tiles over the stair or the leg.
+        const bridgeLeg = corridorCells.find(c => c !== corridor && c.x0 !== corridor.x0);
+        const bandObstacles = bridgeLeg ? [ko, bridgeLeg] : [ko];
+        const remaining = subtractRectsFromRects([band], bandObstacles).filter(r => rectArea(r) > EPS);
+        remaining.sort((p, q) => rectArea(q) - rectArea(p) || p.x0 - q.x0 || p.z0 - q.z0);
+        if (remaining.length === 0) return null;
+        band = remaining[0]!;
+        // §CIRCULATION-BY-CONSTRUCTION — restrict the band to the run-span that has corridor frontage
+        // (the union extent of the corridor cells along the run axis), so EVERY placed room abuts the
+        // corridor. The sub-region behind the stair (no corridor frontage) is left unused rather than
+        // seating a room reachable only through the stair (a sealed room — the founder defect).
+        if (combAxis === 'x') {
+            const cLo = Math.min(...corridorCells.map(c => c.x0));
+            const cHi = Math.max(...corridorCells.map(c => c.x1));
+            band = { ...band, x0: Math.max(band.x0, cLo), x1: Math.min(band.x1, cHi) };
+        } else {
+            const cLo = Math.min(...corridorCells.map(c => c.z0));
+            const cHi = Math.max(...corridorCells.map(c => c.z1));
+            band = { ...band, z0: Math.max(band.z0, cLo), z1: Math.min(band.z1, cHi) };
+        }
+        if (band.x1 - band.x0 < EPS || band.z1 - band.z0 < EPS) return null;
+    } else {
+        corridorCells = [corridor];
+    }
+
+    // §HABITABLE-NOT-CORRIDOR (depth guard) — in single-loaded the band DEPTH is each room's short
+    // side. A room whose `minShortSideM` exceeds the band depth can never be seated above its minimum
+    // here, so DROP it (reported — never a silent under-min sliver); the caller falls through to legacy.
+    const bandDepth = combAxis === 'x' ? (band.z1 - band.z0) : (band.x1 - band.x0);
+    const ordered = [...rooms].sort((a, b) => b.targetAreaM2 - a.targetAreaM2 || a.id.localeCompare(b.id));
+    const tooDeep = ordered.filter(r => r.minShortSideM > bandDepth + 0.01);
+    const fits = ordered.filter(r => r.minShortSideM <= bandDepth + 0.01);
+    if (fits.length === 0) return null;   // nothing fits the band depth ⇒ single-loaded infeasible
+    // Pack the fitting rooms into the single band, combing along the run axis, with the aspect cap so
+    // no habitable slice reads as a corridor (widen/drop, never a thin sliver).
+    const combed = combBand(band, combAxis, fits, HABITABLE_MAX_ASPECT);
+    const placements = combed.placements;
+    const dropped = [...tooDeep.map(r => r.id), ...combed.dropped];
+
+    const side: Record<string, 'A' | 'B'> = {};
+    for (const p of placements) side[p.roomId] = 'A';   // single-loaded ⇒ every room on one side
+
+    let cellPolygonById: Map<string, readonly Pt[]> | undefined;
+    if (opts.shellPolygon && opts.shellPolygon.length >= 3) {
+        cellPolygonById = new Map();
+        for (const p of placements) {
+            const clipped = clipToConvexShell(rectRing(p.rect), opts.shellPolygon);
+            cellPolygonById.set(p.roomId, clipped.length >= 3 ? clipped : rectRing(p.rect));
+        }
+    }
+    return { corridor, corridorCells, rooms: placements, dropped, side, ...(cellPolygonById ? { cellPolygonById } : {}) };
+}
+
+/** Straight shared-wall length (m) between two abutting rects (0 if not edge-abutting). */
+function sharedWallMRect(a: Rect, b: Rect): number {
+    const vAbut = Math.abs(a.x1 - b.x0) < SNAP || Math.abs(b.x1 - a.x0) < SNAP;
+    const zOv = Math.min(a.z1, b.z1) - Math.max(a.z0, b.z0);
+    const hAbut = Math.abs(a.z1 - b.z0) < SNAP || Math.abs(b.z1 - a.z0) < SNAP;
+    const xOv = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0);
+    return Math.max(vAbut && zOv > 0 ? zOv : 0, hAbut && xOv > 0 ? xOv : 0);
+}
+
+/** Build a corridor-width perpendicular leg from the run strip to the stair's near edge so the
+ *  corridor bridges the stair. `combAxis` is the run direction; the leg runs perpendicular to it. */
+function bridgeLegToStair(corridor: Rect, stair: Rect, width: number, combAxis: 'x' | 'z'): Rect | null {
+    const half = width / 2;
+    if (combAxis === 'x') {
+        // Run is horizontal; the leg is vertical, at the stair's x-centre, from the corridor to the stair.
+        const cx = Math.min(Math.max((stair.x0 + stair.x1) / 2, corridor.x0 + half), corridor.x1 - half);
+        const corrCz = (corridor.z0 + corridor.z1) / 2;
+        const stairNearZ = (stair.z0 + stair.z1) / 2 > corrCz ? stair.z0 : stair.z1;
+        const z0 = Math.min(corrCz, stairNearZ), z1 = Math.max(corrCz, stairNearZ);
+        if (z1 - z0 < EPS) return null;
+        return { x0: cx - half, x1: cx + half, z0, z1 };
+    }
+    const cz = Math.min(Math.max((stair.z0 + stair.z1) / 2, corridor.z0 + half), corridor.z1 - half);
+    const corrCx = (corridor.x0 + corridor.x1) / 2;
+    const stairNearX = (stair.x0 + stair.x1) / 2 > corrCx ? stair.x0 : stair.x1;
+    const x0 = Math.min(corrCx, stairNearX), x1 = Math.max(corrCx, stairNearX);
+    if (x1 - x0 < EPS) return null;
+    return { z0: cz - half, z1: cz + half, x0, x1 };
 }

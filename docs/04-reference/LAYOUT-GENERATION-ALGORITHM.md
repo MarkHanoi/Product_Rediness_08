@@ -3282,10 +3282,32 @@ Secondary, already-known follow-ups (lower priority than the single-loaded cure)
 ### 19.5 Status line (honest)
 
 The spine engine **can** build the L/U corridor (proven in the candidate logs); it is **not selected**
-because a central double-loaded corridor that reaches every room buries rooms off the façade, which the
-window gate correctly rejects. **No L/U corridor with windows has shipped yet.** The next move is the
-**single-loaded `packRoomsAlongSpineTree`** of 19.3 — to be done test-first, gated, and browser-
-validated, NOT bolted onto a context-heavy session (this is the most-reverted code in the engine).
+on the legacy double-loaded path because a central double-loaded corridor that reaches every room
+buries rooms off the façade, which the window gate correctly rejects.
+
+**§SINGLE-LOAD-PERIPHERAL is now BUILT (2026-06-22, test-first, gated default-OFF, NOT yet browser-
+validated).** The cure of 19.3 is implemented as a `singleLoaded` mode in `packRoomsAlongSpineTree`
+(`packRoomsAlongSpine.ts:packSingleLoaded`): on a COMPACT (non-fragmented, edge-stair) plate the
+corridor hugs the core/stair edge and ALL rooms sit in ONE band against the far façade, so each room
+spans corridor-edge → façade-edge ⇒ touches BOTH (windows + circulation by construction). The §STAIR-
+ON-RUN cut routes the corridor ALONGSIDE the stair (the corridor cells share a ≥0.9 m wall with the
+keep-out by construction); the room band is restricted to the run-span that has corridor frontage so
+no room seats behind the stair (no sealed room). The §HABITABLE-NOT-CORRIDOR aspect rule (max 3:1
+long:short + a band-depth guard) is enforced in the single-loaded comb so a study/bedroom is never a
+thin sliver — it widens/drops (never a silent under-min cell), falling through to the double-loaded
+multi-leg tree → legacy on infeasibility.
+
+Wiring: `subdivideViaSpine({singleLoaded})` → `subdivide.ts` §SPINE-TREE branch tries SINGLE-LOADED
+FIRST when the stair touches a shell edge (`wantSingleLoaded`), then the multi-leg double-loaded tree,
+then the legacy carve — each behind the SAME strictly-additive guard (no stair overlap, no under-min,
+no drop). All gated on `window.__pryzmSpineTree === true` (default OFF ⇒ byte-identical, asserted).
+`§DIAG-SPINE-SINGLELOAD mode=… rooms=… band=one|multi corridorCells=… stairBridged=…` makes a prod
+run debuggable. Selection: the single-loaded candidate, being hard-valid (windows + circulation), is
+picked by the EXISTING ranker (hard-valid pool → `preferReachComplete` pool tiebreaker → weighted) —
+NO change at the `eligible` stage (the §19.4 landmine; the houseLayout stair-core invariant still
+passes). **Still pending: browser validation on the founder's exact GIS plate before default-ON, and
+the §UPPER-RING-CORRIDOR pattern (20.2) for genuinely square plates (single-loaded skips those — the
+band depth is too deep — and falls through to multi-leg today).**
 
 ## 20. THE TYPOLOGY PLAYBOOK — circulation patterns keyed to PLATE SHAPE (founder doctrine, 2026-06-22)
 

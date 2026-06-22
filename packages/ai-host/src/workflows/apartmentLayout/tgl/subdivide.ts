@@ -31,6 +31,7 @@ import { squarify } from './squarify.js';
 import { roomRule, preferenceBetween } from '../rules/programRules.js';
 import { dimensionsFor } from '../dimensions/roomDimensions.js';
 import { subdivideViaSpine } from './subdivideViaSpine.js';   // §SPINE-FIRST P4 (flag-gated)
+import type { SpinePackResult } from './packRoomsAlongSpine.js';   // §SINGLE-LOAD-PERIPHERAL guard typing
 
 /** A room's realised footprint inside the shell. */
 export interface RoomPlacement {
@@ -3704,58 +3705,99 @@ export function subdivideWithReport(
             { x: bx0, z: bz0 }, { x: bx1, z: bz0 }, { x: bx1, z: bz1 }, { x: bx0, z: bz1 },
         ];
         const shellForSpine = options.shellPolygon && options.shellPolygon.length >= 3 ? options.shellPolygon : bboxPoly;
-        const treeRes = subdivideViaSpine(shellForSpine, graph, {
-            stairKeepOut: keepOutRects[0], corridorWidthM, spineTree: true,
-        });
-        if (treeRes && treeRes.dropped.length === 0) {
-            const clampPoly = options.shellPolygon && options.shellPolygon.length >= 3 ? options.shellPolygon : undefined;
-            const clampRect = (rc: Rect): Rect => {
-                if (!clampPoly) return roundRect(rc);
-                const c = clampRectToConvexShell(roundRect(rc), clampPoly);
-                return c ? roundRect(c) : roundRect(rc);
-            };
+        const clampPoly = options.shellPolygon && options.shellPolygon.length >= 3 ? options.shellPolygon : undefined;
+        const clampRect = (rc: Rect): Rect => {
+            if (!clampPoly) return roundRect(rc);
+            const c = clampRectToConvexShell(roundRect(rc), clampPoly);
+            return c ? roundRect(c) : roundRect(rc);
+        };
+        const typeByRoomId = new Map(graph.rooms.map(r => [r.id, r.type]));
+        const overlapsKeepOut = (rc: Rect): boolean =>
+            keepOutRects.some(ko => {
+                const ox = Math.min(rc.x1, ko.x1) - Math.max(rc.x0, ko.x0);
+                const oz = Math.min(rc.z1, ko.z1) - Math.max(rc.z0, ko.z0);
+                return ox > 0.05 && oz > 0.05;   // > a hairline ⇒ a real room-over-stair overlap
+            });
+        const underMinArea = (id: string, rc: Rect): boolean => {
+            const t = typeByRoomId.get(id);
+            if (t === undefined) return false;
+            return rectArea(rc) < roomRule(t).minAreaM2 - 0.01;
+        };
+        // §SINGLE-LOAD-PERIPHERAL (§19.3 / §20.1) — on a COMPACT (non-fragmented) plate the corridor
+        // hugs the core/stair edge and ALL rooms sit in ONE band against the far façade, so every room
+        // gets BOTH a corridor wall (circulation) AND a façade (window). A plate is "fragmented" when
+        // the stair keep-out sits INTERIOR (away from every shell edge) and splits the plate — there
+        // the multi-leg double-loaded tree is the right pattern (§20.1). Gated to the spine-tree path.
+        const stairKo = keepOutRects[0];
+        const stairTouchesEdge = stairKo
+            ? (Math.abs(stairKo.x0 - bx0) < 0.2 || Math.abs(stairKo.x1 - bx1) < 0.2 ||
+               Math.abs(stairKo.z0 - bz0) < 0.2 || Math.abs(stairKo.z1 - bz1) < 0.2)
+            : true;   // no stair ⇒ trivially non-fragmented
+        const wantSingleLoaded = stairTouchesEdge;
+
+        // §18 slice 5a — STRICTLY-ADDITIVE GUARD: apply a tree result ONLY when it is clean — NO room
+        // overlaps the stair keep-out, NO room is below its type's min area, and NO room was dropped.
+        // On ANY violation the candidate is rejected (return null) and we fall through to the next
+        // attempt (single-loaded → double-loaded → rect spine-first → legacy). Never worse than legacy.
+        const tryTreeRes = (treeRes: SpinePackResult | null, label: string): SubdivideResult | null => {
+            if (!treeRes || treeRes.dropped.length > 0) {
+                console.log(`[D-TGL subdivide] §SPINE-TREE ${label} skipped (no corridor / a drop) — falling through.`);
+                return null;
+            }
             const placements: RoomPlacement[] = [
-                { roomId: graph.corridorId, rect: clampRect(treeRes.corridor) },
+                { roomId: graph.corridorId!, rect: clampRect(treeRes.corridor) },
                 ...treeRes.rooms.map(p => ({ roomId: p.roomId, rect: clampRect(p.rect) })),
             ];
-            // §18 slice 5a — STRICTLY-ADDITIVE GUARD: apply the tree result ONLY when it is clean —
-            // NO room overlaps the stair keep-out, and NO room is below its type's min area. On ANY
-            // violation FALL THROUGH to the rect spine-first / legacy carve (never ship a worse-than-
-            // legacy layout). This is the guard whose absence caused the room↔stair-overlap regression.
-            const typeByRoomId = new Map(graph.rooms.map(r => [r.id, r.type]));
-            const overlapsKeepOut = (rc: Rect): boolean =>
-                keepOutRects.some(ko => {
-                    const ox = Math.min(rc.x1, ko.x1) - Math.max(rc.x0, ko.x0);
-                    const oz = Math.min(rc.z1, ko.z1) - Math.max(rc.z0, ko.z0);
-                    return ox > 0.05 && oz > 0.05;   // > a hairline ⇒ a real room-over-stair overlap
-                });
-            const underMinArea = (id: string, rc: Rect): boolean => {
-                const t = typeByRoomId.get(id);
-                if (t === undefined) return false;
-                return rectArea(rc) < roomRule(t).minAreaM2 - 0.01;
-            };
             const treeBad = placements.some(p =>
                 p.roomId !== graph.corridorId && (overlapsKeepOut(p.rect) || underMinArea(p.roomId, p.rect)));
             if (treeBad) {
-                console.log('[D-TGL subdivide] §SPINE-TREE rejected (room↔stair overlap or under-min-area) — falling through to spine-first/legacy.');
-            } else {
-                const cellPolygonById = new Map<string, readonly Pt[]>();
-                // Room cell polygons (already clipped to the real shell by the tree pack, slice 3).
-                if (treeRes.cellPolygonById) for (const [id, poly] of treeRes.cellPolygonById) cellPolygonById.set(id, poly);
-                // Corridor L/T/U ring: clamp each corridor cell + union (same as the rect spine-first path).
-                const ring = rectUnionRing(treeRes.corridorCells.map(clampRect));
-                if (ring) cellPolygonById.set(graph.corridorId, ring);
-                console.log(
-                    `[D-TGL subdivide] §SPINE-TREE applied: corridor + ${treeRes.rooms.length} rooms off the ` +
-                    `MULTI-LEG spine (every room on the corridor; cells clipped to the real shell; no stair overlap; ` +
-                    `corridorCells=${treeRes.corridorCells.length})`,
-                );
-                return { placements, droppedRooms: [], ...(cellPolygonById.size ? { cellPolygonById } : {}), spineFirstApplied: true };
+                console.log(`[D-TGL subdivide] §SPINE-TREE ${label} rejected (room↔stair overlap or under-min-area) — falling through.`);
+                return null;
             }
+            const cellPolygonById = new Map<string, readonly Pt[]>();
+            if (treeRes.cellPolygonById) for (const [id, poly] of treeRes.cellPolygonById) cellPolygonById.set(id, poly);
+            const ring = rectUnionRing(treeRes.corridorCells.map(clampRect));
+            if (ring) cellPolygonById.set(graph.corridorId!, ring);
+            // §DIAG-SPINE-SINGLELOAD — one debuggable line: mode, rooms-one-band, corridor-edge, stair y/n.
+            const stairBridged = stairKo
+                ? treeRes.corridorCells.some(c => {
+                    const a = { x0: c.x0, z0: c.z0, x1: c.x1, z1: c.z1 };
+                    const vAbut = Math.abs(a.x1 - stairKo.x0) < 0.05 || Math.abs(stairKo.x1 - a.x0) < 0.05;
+                    const zOv = Math.min(a.z1, stairKo.z1) - Math.max(a.z0, stairKo.z0);
+                    const hAbut = Math.abs(a.z1 - stairKo.z0) < 0.05 || Math.abs(stairKo.z1 - a.z0) < 0.05;
+                    const xOv = Math.min(a.x1, stairKo.x1) - Math.max(a.x0, stairKo.x0);
+                    return (vAbut && zOv >= 0.9) || (hAbut && xOv >= 0.9);
+                })
+                : false;
+            console.log(
+                `[D-TGL subdivide] §DIAG-SPINE-SINGLELOAD mode=${label} rooms=${treeRes.rooms.length} ` +
+                `band=${label === 'single-loaded' ? 'one' : 'multi'} corridorCells=${treeRes.corridorCells.length} ` +
+                `stairBridged=${stairKo ? (stairBridged ? 'YES' : 'no') : 'n/a'}`,
+            );
+            console.log(
+                `[D-TGL subdivide] §SPINE-TREE applied (${label}): corridor + ${treeRes.rooms.length} rooms off the ` +
+                `${label === 'single-loaded' ? 'SINGLE-LOADED peripheral' : 'MULTI-LEG'} spine (every room on the corridor; ` +
+                `cells clipped to the real shell; no stair overlap; corridorCells=${treeRes.corridorCells.length})`,
+            );
+            return { placements, droppedRooms: [], ...(cellPolygonById.size ? { cellPolygonById } : {}), spineFirstApplied: true };
+        };
+
+        // Attempt 1 — SINGLE-LOADED peripheral on a compact plate (the §19.3 cure). On any miss fall
+        // through to the double-loaded multi-leg tree (Attempt 2), then the legacy paths below.
+        const spineOpts = {
+            ...(keepOutRects[0] ? { stairKeepOut: keepOutRects[0] } : {}),
+            ...(corridorWidthM !== undefined ? { corridorWidthM } : {}),
+            spineTree: true as const,
+        };
+        if (wantSingleLoaded) {
+            const sl = subdivideViaSpine(shellForSpine, graph, { ...spineOpts, singleLoaded: true });
+            const shipped = tryTreeRes(sl, 'single-loaded');
+            if (shipped) return shipped;
         }
-        if (!treeRes || treeRes.dropped.length > 0) {
-            console.log('[D-TGL subdivide] §SPINE-TREE skipped (no corridor / a drop) — falling through to spine-first/legacy.');
-        }
+        // Attempt 2 — the double-loaded multi-leg tree (fragmented plates, or single-loaded infeasible).
+        const treeRes = subdivideViaSpine(shellForSpine, graph, spineOpts);
+        const shipped2 = tryTreeRes(treeRes, 'multi-leg');
+        if (shipped2) return shipped2;
     }
 
     const spineShellPoly = options.shellPolygon;

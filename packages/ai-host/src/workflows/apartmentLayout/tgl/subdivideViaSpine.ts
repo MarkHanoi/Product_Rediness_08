@@ -32,6 +32,12 @@ export interface SubdivideViaSpineOptions {
      *  shell (so sheared GIS quads are fine), and on a MIXED floor PUBLIC/PRIVATE zone to opposite sides
      *  of the run. Default false ⇒ the proven straight-run pack (byte-identical). */
     readonly spineTree?: boolean;
+    /** §SINGLE-LOAD-PERIPHERAL (§19.3 / §20.1) — on a COMPACT (non-fragmented) plate, force the tree
+     *  pack into SINGLE-LOADED mode: the corridor hugs the core/stair edge and ALL rooms sit in ONE
+     *  band against the far façade, so each room gets BOTH a corridor wall AND a façade (the escape
+     *  from the windows-vs-circulation trap). Only meaningful with `spineTree`. Default false ⇒ the
+     *  double-loaded multi-leg pack (byte-identical). The caller gates this to non-fragmented plates. */
+    readonly singleLoaded?: boolean;
 }
 
 /**
@@ -73,6 +79,16 @@ export function subdivideViaSpine(
             publicSide.length > 0 && privateSide.length > 0
                 ? [publicSide.map(toSpineRoom), privateSide.map(toSpineRoom)]
                 : undefined;
+        // §SINGLE-LOAD-PERIPHERAL — single-loaded mode ignores cohorts (all rooms in ONE band, so
+        // there is no public/private SIDE split to zone — the corridor hugs the core edge). The
+        // public/private zoning is preserved on the double-loaded path (cohorts passed only there).
+        if (opts.singleLoaded) {
+            return packRoomsAlongSpineTree(bboxOf(shellPolygon), spine, spineRooms, {
+                shellPolygon,
+                ...(opts.stairKeepOut ? { keepOut: opts.stairKeepOut } : {}),
+                singleLoaded: true,
+            });
+        }
         return packRoomsAlongSpineTree(bboxOf(shellPolygon), spine, spineRooms, {
             shellPolygon,
             ...(opts.stairKeepOut ? { keepOut: opts.stairKeepOut } : {}),
