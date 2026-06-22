@@ -62,6 +62,20 @@ function spineFirstEnabled(): boolean {
     return (window as unknown as { __pryzmSpineFirst?: boolean }).__pryzmSpineFirst !== false;
 }
 
+/** §SPINE-TREE + §HOTEL-SUITES DEFAULT-ON (founder flip 2026-06-22). The pure engine peeks
+ *  `window.__pryzmSpineTree` / `__pryzmHotelSuites` DIRECTLY (=== true) at generate time, so we
+ *  flip them on by defaulting those globals to `true` here — the single-loaded corridor + the
+ *  hotel-style ensuite suites become the default for every house. Escape hatch (A/B): set
+ *  `window.__pryzmSpineTree = false` / `window.__pryzmHotelSuites = false` in the console.
+ *  P4-clean (narrow cast, not `as any`); only sets when UNDEFINED so an explicit false sticks.
+ *  Engine code + its 2942 tests are untouched (they run with window undefined ⇒ unchanged). */
+function enableSpineTreeAndSuiteDefaults(): void {
+    if (typeof window === 'undefined') return;
+    const w = window as unknown as { __pryzmSpineTree?: boolean; __pryzmHotelSuites?: boolean };
+    if (w.__pryzmSpineTree === undefined) w.__pryzmSpineTree = true;
+    if (w.__pryzmHotelSuites === undefined) w.__pryzmHotelSuites = true;
+}
+
 /** Everything `requestHouseLayout` needs to compute + build a house. The shell is
  *  read from the live wall store (the controller analyses it itself, mirroring the
  *  executor); the caller supplies the program/constraints/weights + storey count. */
@@ -281,6 +295,10 @@ export class HouseLayoutController {
     ): ScoredHouseLayoutOption[] {
         const r = this._regen;
         if (!r) return [];
+        // §SPINE-TREE + §HOTEL-SUITES default-ON — flip the window globals the engine peeks
+        // BEFORE the pure generate runs (preview), so the modal shows the single-loaded corridor
+        // + ensuite suites. The same window persists to the build, so the executed house matches.
+        enableSpineTreeAndSuiteDefaults();
         // §LIVE-MODAL.D (R4 graph) — merge the C52 per-room AREA/TYPE override
         // stashes (the SAME stashes the apartment Living Graph + `gatherLayoutPayload`
         // use) into the program's `roomAreasByName` / `roomTypesByName` BEFORE the

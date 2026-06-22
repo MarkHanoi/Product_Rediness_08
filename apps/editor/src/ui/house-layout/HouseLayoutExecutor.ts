@@ -343,6 +343,15 @@ export class HouseLayoutExecutor {
             runtime.events?.emit('pryzm:toast', { message, severity });
         };
         try {
+            // §SPINE-TREE + §HOTEL-SUITES default-ON (founder flip 2026-06-22) — the pure engine
+            // peeks these window globals directly (=== true); default them on so a DIRECT console
+            // build (bypassing the modal/controller) matches the previewed single-loaded corridor +
+            // ensuite suites. Only sets when UNDEFINED (explicit false sticks). P4-clean narrow cast.
+            if (typeof window !== 'undefined') {
+                const w = window as unknown as { __pryzmSpineTree?: boolean; __pryzmHotelSuites?: boolean };
+                if (w.__pryzmSpineTree === undefined) w.__pryzmSpineTree = true;
+                if (w.__pryzmHotelSuites === undefined) w.__pryzmHotelSuites = true;
+            }
             const storeyCount = Math.max(1, Math.floor(input.storeyCount || 1));
             const floorToFloorM = input.floorToFloorM && input.floorToFloorM > 0 ? input.floorToFloorM : DEFAULT_FLOOR_TO_FLOOR_M;
             const roofKind = input.roofKind ?? 'gable';
