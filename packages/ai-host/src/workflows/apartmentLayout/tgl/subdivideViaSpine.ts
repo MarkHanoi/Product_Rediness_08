@@ -41,14 +41,14 @@ export function subdivideViaSpine(
     opts: SubdivideViaSpineOptions = {},
 ): SpinePackResult | null {
     const corridorId = graph.corridorId;
-    const spineRooms: SpineRoom[] = graph.rooms
-        .filter(r => r.id !== corridorId)
-        .map(r => ({
-            id: r.id,
-            targetAreaM2: r.targetAreaM2,
-            needsWindow: r.needsWindow,
-            minShortSideM: roomRule(r.type).minShortSideM,
-        }));
+    const nonCorridor = graph.rooms.filter(r => r.id !== corridorId);
+    const toSpineRoom = (r: typeof nonCorridor[number]): SpineRoom => ({
+        id: r.id,
+        targetAreaM2: r.targetAreaM2,
+        needsWindow: r.needsWindow,
+        minShortSideM: roomRule(r.type).minShortSideM,
+    });
+    const spineRooms: SpineRoom[] = nonCorridor.map(toSpineRoom);
     if (spineRooms.length === 0) return null;
 
     const spine = deriveCorridorSpine(shellPolygon, {
@@ -57,5 +57,18 @@ export function subdivideViaSpine(
     });
     if (!spine) return null;
 
-    return packRoomsAlongSpine(bboxOf(shellPolygon), spine, spineRooms);
+    // §SPINE-FIRST P5 — on a MIXED (ground) floor, split PUBLIC (+ the hall/entry, a circulation
+    // room) onto ONE band and PRIVATE onto the other, so the corridor sits BETWEEN the social and
+    // sleeping zones (the founder's vision) and public rooms front the corridor + the hall by
+    // construction. An all-private (upper) floor has no public rooms ⇒ cohorts undefined ⇒ the
+    // area-balanced double-loaded pack (unchanged). The hall rides the public side so the front door
+    // lands on a public-zone façade wall.
+    const publicSide = nonCorridor.filter(r => roomRule(r.type).privacy !== 'private');   // public + hall/circulation
+    const privateSide = nonCorridor.filter(r => roomRule(r.type).privacy === 'private');
+    const cohorts: readonly [readonly SpineRoom[], readonly SpineRoom[]] | undefined =
+        publicSide.length > 0 && privateSide.length > 0
+            ? [publicSide.map(toSpineRoom), privateSide.map(toSpineRoom)]
+            : undefined;
+
+    return packRoomsAlongSpine(bboxOf(shellPolygon), spine, spineRooms, cohorts ? { cohorts } : {});
 }
