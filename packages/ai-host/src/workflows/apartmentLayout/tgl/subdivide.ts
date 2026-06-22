@@ -3538,7 +3538,16 @@ export function subdivideWithReport(
         const treeRes = subdivideViaSpine(shellForSpine, graph, {
             stairKeepOut: keepOutRects[0], corridorWidthM, spineTree: true,
         });
-        if (treeRes && treeRes.dropped.length === 0) {
+        // §CIRCULATION-FIRST (founder 2026-06-22) — ship the L/T/U-corridor tree EVEN WHEN IT DROPS A
+        // ROOM. The old gate (`dropped.length === 0`) discarded the WHOLE tree on a single drop, which on
+        // a real over-capacity / stair-fragmented upper plate (where the band-comb always sheds a surplus
+        // room) made the tree LOSE to the legacy carve on EVERY storey — the layout never got its leg to
+        // the stair (the founder's "why does the L-corridor never reach the stair?"). That ranked
+        // keep-every-room ABOVE circulation, the exact inversion the founder rejected. Now the tree ships
+        // with its drops carried in `droppedRooms` (reported, never silent) and COMPETES; the enumerate
+        // mandatory-gate still rejects a tree that drops a REQUESTED kitchen/living/bedroom (so a surplus
+        // drop is fine but a mandatory drop loses), and §CIRCULATION-FIRST then prefers the connected tree.
+        if (treeRes) {
             const clampPoly = options.shellPolygon && options.shellPolygon.length >= 3 ? options.shellPolygon : undefined;
             const clampRect = (rc: Rect): Rect => {
                 if (!clampPoly) return roundRect(rc);
@@ -3574,16 +3583,23 @@ export function subdivideWithReport(
                 // Corridor L/T/U ring: clamp each corridor cell + union (same as the rect spine-first path).
                 const ring = rectUnionRing(treeRes.corridorCells.map(clampRect));
                 if (ring) cellPolygonById.set(graph.corridorId, ring);
+                // §CIRCULATION-FIRST — carry the tree's drops (surplus rooms the band-comb shed) as a
+                // structured DroppedRoom report (NOT silent), exactly like the legacy carve. The enumerate
+                // mandatory gate then judges whether a dropped room was REQUESTED (loses) or surplus (fine).
+                const typeOf = new Map(graph.rooms.map(r => [r.id, r.type]));
+                const treeDropped: DroppedRoom[] = treeRes.dropped.map(id => {
+                    const t = (typeOf.get(id) ?? 'utility') as RoomType;
+                    return { roomId: id, type: t, shortSideM: 0, minShortSideM: roomRule(t).minShortSideM };
+                });
                 console.log(
                     `[D-TGL subdivide] §SPINE-TREE applied: corridor + ${treeRes.rooms.length} rooms off the ` +
                     `MULTI-LEG spine (every room on the corridor; cells clipped to the real shell; no stair overlap; ` +
-                    `corridorCells=${treeRes.corridorCells.length})`,
+                    `corridorCells=${treeRes.corridorCells.length}; dropped=${treeDropped.length ? treeDropped.map(d => d.type).join(',') : 'none'})`,
                 );
-                return { placements, droppedRooms: [], ...(cellPolygonById.size ? { cellPolygonById } : {}), spineFirstApplied: true };
+                return { placements, droppedRooms: treeDropped, ...(cellPolygonById.size ? { cellPolygonById } : {}), spineFirstApplied: true };
             }
-        }
-        if (!treeRes || treeRes.dropped.length > 0) {
-            console.log('[D-TGL subdivide] §SPINE-TREE skipped (no corridor / a drop) — falling through to spine-first/legacy.');
+        } else {
+            console.log('[D-TGL subdivide] §SPINE-TREE skipped (no corridor / degenerate spine) — falling through to spine-first/legacy.');
         }
     }
 

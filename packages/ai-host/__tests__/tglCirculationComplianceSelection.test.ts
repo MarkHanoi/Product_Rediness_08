@@ -65,6 +65,7 @@ const cand = (
         circulationRouted: true,
         underMinAreaRooms: [],
         missingMandatoryTypes: [],
+        roomOverlapsKeepOut: false,
         droppedRooms: [],
         roomOverlaps: [],
         boundaries: [],

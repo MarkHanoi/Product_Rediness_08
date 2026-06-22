@@ -240,6 +240,15 @@ export interface TglCandidate {
     readonly underMinAreaRooms: readonly { readonly roomId: string; readonly type: RoomType; readonly areaM2: number; readonly areaMinM2: number }[];
     readonly missingMandatoryTypes: readonly RoomType[];
     /**
+     * §STAIR-CORE-GEOMETRY (founder 2026-06-22) — true when a NON-stair EMITTED room overlaps a stair
+     * keep-out by more than the carve margin (a real room-over-the-stair-core defect). Computed on the
+     * residual-FILLED rects (the §DIAG-STAIR-OVERLAP diagnostic only checks pre-emit placements, so a
+     * residual-fill that GROWS a room into the core slips past it). The selection's GEOMETRY floor
+     * excludes such a candidate so circulation-first ranking can NEVER elevate a room-over-stair layout
+     * (the founder's hard rule). False on the apartment path (no keep-out) ⇒ byte-identical.
+     */
+    readonly roomOverlapsKeepOut: boolean;
+    /**
      * §FEASIBILITY-ALLOC (A.21.D5, 2026-06-06) — requested rooms that could NOT
      * be placed at their per-type minimum short side in this strategy, even
      * after the subdivider's area-rebalance retry. Empty in the common case.
@@ -2082,12 +2091,27 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy, f
         });
     }
 
+    // §STAIR-CORE-GEOMETRY (founder 2026-06-22) — does any NON-stair EMITTED room overlap a stair
+    // keep-out by more than the 0.05 m carve margin? Checked on the RESIDUAL-FILLED rects (a residual
+    // claim can grow a room into the core after the pre-emit §DIAG-STAIR-OVERLAP check). The 0.10 m
+    // threshold is twice the carve margin, so a legitimately abutting room (which overlaps the inflated
+    // keep-out by exactly the 0.05 m margin) is NOT flagged — only a real room-over-core (metres) is.
+    const keepOuts = input.keepOutRects ?? [];
+    const roomOverlapsKeepOut = keepOuts.length > 0 && residualPlacements.some(p => {
+        if (p.roomId.startsWith('stair')) return false;   // the stair room legitimately sits on the core
+        return keepOuts.some(ko => {
+            const ox = Math.min(p.rect.x1, ko.x1) - Math.max(p.rect.x0, ko.x0);
+            const oz = Math.min(p.rect.z1, ko.z1) - Math.max(p.rect.z0, ko.z0);
+            return ox > 0.10 && oz > 0.10;
+        });
+    });
+
     return {
         strategy: sk, graph: emitGraph, objectives,
         weighted, rank: 0,
         compromises, connected: metrics.connected, shapeAdmissible, topologyAdmissible,
         circulationRouted, hardValid, hardFailedRules, droppedRooms, roomOverlaps, boundaries,
-        underMinAreaRooms, missingMandatoryTypes,
+        underMinAreaRooms, missingMandatoryTypes, roomOverlapsKeepOut,
     };
 }
 
@@ -2504,16 +2528,21 @@ export function enumerateLayouts(input: EnumerateInput): TglCandidate[] {
         }
     }
 
-    // §CIRCULATION-FIRST (founder 2026-06-22) — circulation is the MOST critical axis ("rooms size
-    // is less important at the moment"), so among the already geometry- + viability-protected
-    // least-bad pool, prefer the candidate(s) with the FEWEST circulation hard-failures (rooms
-    // sealed / served-through, corridor↔stair / corridor↔hall gaps). This is STRICTLY a narrowing
-    // over the EXISTING pool, so it can never elevate a geometry-broken candidate the proven tier
-    // machinery rejected (the §STAIR-KEEPOUT invariant stays green) — it only sharpens the final
-    // pick toward the fully-circulated layout, exactly where the competing §SPINE-TREE candidate
-    // beats the served-through legacy carve. House-only (apartment circulation rides the tiers, so
-    // its pool is byte-identical). Sits ABOVE §FEASIBILITY-ALLOC so circulation outranks room drops.
+    // §CIRCULATION-FIRST (founder 2026-06-22) — circulation is the MOST critical axis ("rooms size is
+    // less important at the moment"), so among the already geometry- + viability-protected least-bad
+    // pool, prefer the candidate(s) with the FEWEST circulation hard-failures (rooms sealed / served-
+    // through, corridor↔stair / corridor↔hall gaps). This is STRICTLY a narrowing over the EXISTING
+    // pool (the proven viable/hard-valid/tier machinery that already protects the §STAIR-KEEPOUT
+    // invariant — the carved keep-out is offset from the shipped stair, so it canNOT be re-checked
+    // here; staying within the pool is what keeps it green), so it can never elevate a candidate the
+    // tier machinery rejected. It only sharpens the final pick toward the fully-circulated layout —
+    // exactly where the competing §SPINE-TREE candidate (which reaches the stair) beats the served-
+    // through legacy carve. House-only (apartment circulation rides the tiers ⇒ byte-identical). As a
+    // belt-and-braces geometry guard it also drops any pooled candidate flagged roomOverlapsKeepOut
+    // when a non-flagged one exists. Sits ABOVE §FEASIBILITY-ALLOC so circulation outranks room drops.
     if (isHousePath) {
+        const noCore = pool.filter(c => !c.roomOverlapsKeepOut);
+        if (noCore.length > 0 && noCore.length < pool.length) pool = noCore;
         const circFails = (c: TglCandidate): number =>
             c.hardFailedRules.filter(r =>
                 r === 'circulation' || r === 'reach' || r === 'corridor-stair' || r === 'corridor-hall').length;
