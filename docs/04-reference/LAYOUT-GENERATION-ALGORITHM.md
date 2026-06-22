@@ -3075,3 +3075,79 @@ Make divergence **impossible by construction**, not patched after the fact. Four
 **The contract in one line:** the modal preview is the engine's intent; `§DIAG-PARITY` proves the build
 equals it; ADR-0075 PC2 forbids any new transform that breaks the proof. That is the map that replaces
 "moving blind."
+
+## 18. THE L/T/U CORRIDOR SPINE (the conclusive circulation fix — DESIGN LOCKED 2026-06-22)
+
+**Founder principle (the spine doctrine):** *"Circulation is the spine. Without circulation, spaces
+cannot be connected."* Concretely:
+- **Ground floor:** the entrance **hall** connects to the **corridor** (or, failing that, to a **public**
+  space — NEVER dead-end at a bathroom). The corridor connects the **stair** + every **private** room
+  (bedroom / study / bathroom). Public rooms (living / kitchen / dining) may interconnect, but at least
+  one must also touch the corridor or hall.
+- **First floor & above:** the **stair** connects to the **corridor**, and **every** room connects to the
+  corridor — EXCEPT en-suite and closet (served off their parent). The corridor may be **I / L / T / U**.
+
+### 18.1 Why straight corridors cannot satisfy this (conclusive evidence, build `Gh-cdQ2W`)
+
+On a stair-fragmented plate (`§DIAG-RECTS dominantFrac=0.42 areas=[86.3,70.6,32.1,10.6,6.1]`):
+- `§EVERY-ROOM-ACCESS-COMB fell back to squarify (comb infeasible)` → the straight-corridor carve can't
+  fit; `§DIAG-BRANCH … picked generic (DROPPED bedroom,bathroom)` → it falls to `packMultiRect`, which
+  tiles each fragment **independently with no corridor spanning between fragments**.
+- `§DIAG-CORRIDOR-FORCE skipped r6/r7(bedroom) (no circulation-adjacent wall)` → the rooms have **no wall
+  touching the corridor at all** (geometry, not door priority). `§FORCE-CORRIDOR-DIRECT` (the door-side
+  fix, §FORCE-CORRIDOR-DIRECT in storeyAllocation) correctly connects rooms that DO have a corridor wall
+  and **diagnoses** the ones that don't via these `skipped` lines.
+- The entrance hall's only door is to the bathroom (`r0(hall) → bathroom`, placed by the wet-room
+  fallback) → circulation dead-ends at the bathroom.
+- Plate is full (`fillRatio=1.00`) → there is **no empty space** to bolt a corridor leg onto after the
+  fact (so the gated `emitPolygonCorridorArm` / `corridorReach.ts` empty-space router cannot help here).
+
+**Therefore the corridor must be carved AS an L/T/U spine DURING subdivision**, stealing band area from
+the tiling to thread every fragment — not bolted on afterward.
+
+### 18.2 The sound design — corridor-as-Steiner-spine, carved first
+
+Two independent parts (both required):
+
+**(A) Derive the corridor TOPOLOGY from the access graph (not a pre-placed strip).**
+Build the spine as the minimal rectilinear tree that connects: entrance/hall → stair → every room that
+needs circulation (all private; the hall; ≥1 public). On a fragmented/L plate this tree is naturally an
+L/T/U. Reuse `deriveCorridorSpine` (already shape-general) as the seed; generalise it from "one straight
+run" to "a tree with ≤3 legs" whose joints sit at the fragment boundaries / the stair keep-out.
+
+**(B) Carve the spine into the real polygon, then pack rooms off BOTH/ALL arms.**
+Generalise `packRoomsAlongSpine` (today: one straight run, rectangular bbox bands, no public/private
+zoning) to: (1) clip its bands to the **real shell polygon** (polygon-native, no bbox overflow — the P8
+lesson); (2) accept a **multi-leg** spine and comb rooms off each leg; (3) zone public vs private per the
+§18 principle. Every room shares a spine wall **by construction** → `directAccess` = N/N, no served-through,
+stair on the spine, hall on the spine.
+
+This SUPERSEDES the two-stage conflict (rect carve solves circulation, then the polygon route discards it
+— see §13). The spine engine becomes THE path for fragmented/sheared plates; the legacy carve remains for
+clean axis-aligned rectangles where it's already correct + proven.
+
+### 18.3 Existing building blocks (what to reuse, not rebuild)
+
+- `deriveCorridorSpine.ts` — shape-general spine seed (straight run today; extend to a tree).
+- `packRoomsAlongSpine.ts` / `subdivideViaSpine.ts` — the pack; generalise to polygon bands + multi-leg +
+  public/private zoning. (Today gated to axis-aligned rectangles by `isAxisAlignedRect4` — §SPINE-FIRST P8.)
+- `emitPolygonCorridorArm` / `emitPolygonCorridorLeg` (subdivide.ts) + `corridorReach.ts`
+  (`growStairCellsToCorridor`) — the empty-space L/T/U leg routers. Useful where empty space EXISTS; not
+  sufficient at fillRatio=1.0 (must carve, not bolt on).
+- `§FORCE-CORRIDOR-DIRECT` (wallsAndDoors `forceCorridorDirectRoomTypes`, wired in storeyAllocation) — the
+  door-side guarantee + the per-room geometry diagnostic. KEEP — it's the door half of the contract.
+- `clipToConvexShell` (polySubdivide, now exported via the P8 work path) — polygon∩shell for the bands.
+
+### 18.4 New invariants / gates to add
+- **HARD:** every habitable room (except en-suite/closet) shares a ≥ door-width wall with a circulation
+  cell (corridor/hall). Surfaces today as `§DIAG-CORRIDOR-QUALITY directAccess=N/N servedThrough=0`.
+- **HARD:** the entrance hall doors onto the corridor OR a public room (never only a bathroom).
+- **HARD:** the stair shares a corridor/hall wall (no SEALED stair).
+- Gate the new spine engine behind a window toggle (default off) until browser-validated, then flip on
+  (the P8 / force-corridor-direct staging pattern).
+
+### 18.5 Execution note
+This is the most-reverted code in the engine (the L-spanning carve, 4× reverted — see the white-space
+root-cause history). Implement in a FRESH focused context, test-first (pure `deriveCorridorSpine` tree +
+`packRoomsAlongSpine` multi-leg geometry tests), gated, with the founder browser-validating each slice
+before default-on. Do NOT bolt onto a context-heavy session — that is exactly how revert #5 happens.
