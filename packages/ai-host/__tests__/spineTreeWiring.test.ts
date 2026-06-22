@@ -34,9 +34,16 @@ describe('§18 slice 4 — §SPINE-TREE wiring', () => {
         keepOutRects: [STAIR], spineFirst: true, ...over,
     });
 
-    it('default (toggle absent): does NOT run §SPINE-TREE', () => {
+    it('default (toggle absent): §SPINE-TREE runs (DEFAULT-ON) on the sheared quad WITH public rooms', () => {
         setTree(undefined);
         const out = enumerateLayouts(input());
+        expect(out.length).toBeGreaterThan(0);
+        expect(lines.some(l => l.includes('§SPINE-TREE applied')), 'spine-tree is default-on').toBe(true);
+    });
+
+    it('toggle === false: DISABLES §SPINE-TREE (the escape hatch)', () => {
+        setTree(false);
+        const out = enumerateLayouts(input({ seed: 'tree-off' }));
         expect(out.length).toBeGreaterThan(0);
         expect(lines.some(l => l.includes('§SPINE-TREE applied'))).toBe(false);
     });
