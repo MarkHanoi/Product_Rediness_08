@@ -796,15 +796,24 @@ function evaluateHardTopology(args: {
     }
 
     // Rule PUR — §CORRIDOR-PURITY (founder full circulation spec, 2026-06-17). The corridor is a
-    // PRIVATE spine: an en-suite must be master-only (FF-P1), no public room may hang off the
-    // corridor (GF-C5), and the corridor must be spine-shaped not a blob. All-false on apartments
-    // (caller gates it to the house path). Same least-bad safety net as the other corridor rules.
+    // PRIVATE spine: an en-suite must be master-only (FF-P1) and the corridor must be spine-shaped
+    // not a blob. All-false on apartments (caller gates it to the house path). Same least-bad
+    // safety net as the other corridor rules.
     if (corridorPurity.ensuiteOnCorridor) {
         failed.push('ensuite-corridor');
     }
-    if (corridorPurity.publicOnCorridor) {
-        failed.push('corridor-public');
-    }
+    // §CORRIDOR-PUBLIC-DEMOTE (founder doctrine §18 + audit of build P91z-xKo, 2026-06-22) — a
+    // public room (living/kitchen/dining) sharing a wall with the corridor is NO LONGER a hard
+    // reject. The founder's §18 rule is "public rooms may interconnect, but at least one must also
+    // touch the corridor OR hall" — i.e. public-on-corridor is ALLOWED, not forbidden. The old
+    // GF-C5 hard gate (corridor = strictly-private spine) was STRICTER than the doctrine and was
+    // rejecting otherwise-perfect candidates: on the square-plate test the only fully-connected
+    // layout (z-rev-mir: directAccess=5/5, servedThrough=0, every habitable reachable, stair
+    // doored onto circulation) failed ONLY `corridor-public`, so the engine shipped a worse
+    // candidate that also failed `window`. `publicOnCorridor` stays COMPUTED + logged in
+    // §DIAG-CORRIDOR-QUALITY / §DIAG-TOPO-GATE (a soft signal, surfaced not gated); the genuine
+    // anti-pattern — the corridor MERGING with public space into one undifferentiated room — is
+    // still hard-caught by `corridor-blob` below. Pure selection change (no geometry emission).
     if (corridorPurity.corridorBlob) {
         failed.push('corridor-blob');
     }
