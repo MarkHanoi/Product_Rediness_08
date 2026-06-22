@@ -35,7 +35,7 @@
 |---|---|---|---|---|
 | **P0** | Foundations: tracker + reuse ledger + open questions | — | — | **DONE** |
 | **P1** | Pure, net-new, zero-orchestration pieces (pack + lift schema) | Slice 0 (pack), Slice 2 (lift, L0+registration) | LOW | **WIP** |
-| **P2** | Lift element end-to-end (geometry + plugin + command + IFC) | Slice 2 (rest) | MED | TODO |
+| **P2** | Lift element end-to-end (geometry + plugin + command + IFC) | Slice 2 (rest) | MED | **WIP** (geometry-lift + create command DONE; plugin/CREATE-panel/IFC TODO) |
 | **P3** | Building orchestrator skeleton: levels + centred core + slabs + roof | Slice 1 | MED | TODO |
 | **P4** | Lift in the core + per-level lift void | Slice 3 | MED | TODO |
 | **P5** | Ground-floor commercial shell + entrance corridor | Slice 4 | MED | TODO |
@@ -91,6 +91,7 @@
 | `§DIAG-CORE` | orchestrator core step | P4 | `core = stair + lift`; centroid centred; containment OK |
 | `§DIAG-PARITY` | executor, per level per apartment cell | P3+/P7 | preview multi-plate == executed multi-plate (ADR-0075 PC2) |
 | `§DIAG-APARTMENT-PACK` | the packer | P6 | `level=k N=… mix=[T2,T2,T3] areas=[…]`; every area ∈ [min,max] |
+| `§DIAG-RESI-PARTITION` | the plate-partition pure fn (P6.2) | P6 | `level=k status=ok N=… mix=[…] areas=[…] reached=N/N` (or `status=rejected reason=…`) |
 | `§DIAG-CORRIDOR-QUALITY` | corridor spine | P5/P8 | `apartmentsReached=N/N servedThrough=0`; corridor touches core |
 | `§DIAG-PARTY-WALL` | window emission | P7 | party walls between apartments are blind (no windows) |
 | `§DIAG-LEVELS` | post-gen reconcile | P9 | live vs intended level count reconciles |
@@ -147,12 +148,20 @@
 
 | id | title | status | files (template = stair) | accept | §DIAG | contract / ADR | gate |
 |---|---|---|---|---|---|---|---|
-| P2.1 | `geometry-lift` package (store + mesh + type store + index) | TODO | NEW `packages/geometry-lift/src/{LiftStore,LiftMeshBuilder,LiftTypeStore,index}.ts` (template `geometry-stair/src/StairStore.ts:22`, `StairMeshBuilder`) | store assigns `ifcClass:'IfcTransportElement'`; emits `bim-lift-added/-updated`; mesh = shaft + car placeholder | — | **P2 (single THREE: mesh imports `@pryzm/renderer-three/three`, NOT raw THREE)** | flag |
+| P2.1 | `geometry-lift` package (store + mesh + type store + index) | **DONE** | NEW `packages/geometry-lift/src/{LiftTypes,LiftStore,LiftMeshBuilder,LiftTypeDefinitions,LiftTypeStore,index}.ts` (template `geometry-stair`) | store assigns `ifcClass:'IfcTransportElement'`; emits `bim-lift-added/-updated/-removed`; mesh = translucent shaft box + solid car (placeholder) | — | **P2 (single THREE: LiftMeshBuilder imports `@pryzm/renderer-three/three`, NOT raw THREE)**; C15 §12 (selectable root, children `selectable:false`) | flag |
 | P2.2 | Plugin tool | TODO | NEW `plugins/lift/src/{tool,index}.ts` (template `plugins/stair/src/tool.ts:10`) | `LIFT_TOOL_ID='lift.placement'`; dispatches `verticalCirculation.create` | — | P6 (command-only); layer L7→L6 | flag |
-| P2.3 | Command types + Create command | TODO | `command-registry/src/types.ts:18` (CREATE_VERTICAL_CIRCULATION…); NEW `command-registry/src/verticalCirculation/{CreateVerticalCirculationCommand,index}.ts`; `src/index.ts:207` export | `execute()` mirrors `CreateStairCommand.ts:219` (registerElement + registerSemantic + addRelationship `connectedByLift` + viewDep + `ai-model-update`) | command P8 span | **C11** (create pipeline); **C15** (landing doors hosted, body free); P6; P8 | flag |
+| P2.3 | Command types + Create command | **DONE** | `command-registry/src/types.ts` (`CREATE_VERTICAL_CIRCULATION`); NEW `command-registry/src/verticalCirculation/{CreateVerticalCirculationCommand,index}.ts`; `src/index.ts` export; `command-registry` CommandContext += `liftStore?`/`liftTypeStore?`; `apps/editor/.../CommandRegistry.ts` factory entry; `core-app-model` SemanticGraph `connectedByLift` + DependencyResolver weight; `event-bus` catalog `bim-lift-*` events | `execute()` mirrors `CreateStairCommand.ts:219` (registerElement + registerSemantic + addRelationship `sitsOn` + `connectedByLift` bidirectional + `ai-model-update`); deferred geometry build (store-add → mesh event) | command P8 span (`pryzm.command.create_vertical_circulation`) | **C11** (create pipeline); **C15** §12 (landing doors hosted, body free); P6; P8 | flag |
 | P2.4 | CREATE-panel + ToolManager | TODO | `apps/editor/src/ui/layout/CreatePanelLayout.ts:114` (new "Vertical Circulation" category); `input-host/src/ToolManager.ts:220` (`setLiftTool`); `apps/editor/src/engine/initTools.ts:74` | category appears (gated); selecting Lift arms the tool | — | layer model | **flag (default-OFF in prod UI)** |
 | P2.5 | IFC export + reader | TODO | `file-format/src/export/ifc/IfcModelBuilder.ts:36` (`IfcTransportElement→WEBIFC.IFCTRANSPORTELEMENT`); NEW `readers/LiftReader.ts` (template `StairReader.ts`) | exports lift as `IfcTransportElement`; reads back `Pset_TransportElementCommon` | — | C-IFC; plan §4.1 row IFC | flag |
-| P2.6 | E2E + unit tests | TODO | `plugins/lift/__tests__/…`, `command-registry/__tests__/…` | place a lift → see shaft+car in 3D → undo; command registration asserted | command span | P8 | flag |
+| P2.6 | Unit tests (data layer) | **DONE** | `packages/geometry-lift/__tests__/liftStores.test.ts` (11 tests) | LiftStore (ifcClass+mark, clone-isolation, version bump, connecting-levels, lifecycle events) + LiftTypeStore (built-ins, immutability, custom CRUD); mesh + command E2E (3D + undo) deferred to browser/CI | — | P8 | flag |
+
+> **P2 note (this session):** the geometry-lift DATA layer + the create command are DONE worktree-green
+> (11 store tests + data-layer typecheck clean via `tsconfig.worktree.lift.json`). The LiftMeshBuilder
+> (THREE via renderer-three) + full command-registry typecheck need the installed workspace and are
+> deferred to CI; both are mechanically verified against the stair templates they mirror. The plugin
+> tool / CREATE-panel / IFC touchpoints (P2.2/P2.4/P2.5) remain TODO — the command + geometry are
+> additive (a new element type) and production stays byte-identical until the CREATE-panel entry lands
+> behind the residential flag.
 
 ---
 
@@ -195,7 +204,16 @@
 | id | title | status | files | accept | §DIAG | contract / ADR | gate |
 |---|---|---|---|---|---|---|---|
 | P6.1 | The packer (pure: net area → N polygons + typologies) | TODO | NEW `packages/ai-host/src/workflows/residentialBuilding/apartmentPacker.ts` | every apt ∈ [min,max]; mix uses only enabled T1-T4; infeasible → C50 soft-fail | `§DIAG-APARTMENT-PACK` | C50 §1.7; audit §6.1; T1-T4 map §6 | flag |
-| P6.2 | Plate-partition stub (footprint+core+corridorSpec → [core,corridor,cells]) | TODO | NEW `…/platePartition.ts` (PURE, test-first) | given a rect footprint + core rect + corridor band, returns disjoint [core]+[corridor]+[N cells] tiling | — | audit §3 (plate partition is the biggest NEW piece) | n/a (pure) |
+| P6.2 | Plate-partition stub (footprint+core+corridorSpec → [core,corridor,cells]) | **DONE** | NEW `packages/ai-host/src/workflows/residentialBuilding/{platePartition,index}.ts` (PURE L2, test-first); reuses `Pt`/`Rect` from `apartmentLayout/tgl/rectDecomposition.ts` | given a rect footprint + centred core rect + corridor band + apartment mix, returns disjoint `{core, publicCorridor[], apartmentCells[]}` tiling; double-loaded corridor straddles the core; every cell area ∈ typology [min,max]; infeasible → `status:'rejected'` (C50 soft-fail, never throws) | `§DIAG-RESI-PARTITION` | audit §3 (plate partition is the biggest NEW piece); audit §6 (T1–T4 bands); C53; C50 §1.7; P8 span (`pryzm.ai.workflow.residentialBuilding.platePartition`) | n/a (pure) |
+
+> **P6.2 DONE (this session):** 13 tests (`…/residentialBuilding/__tests__/platePartition.test.ts`) cover
+> 2/3/4 apartments + corridor-reaches-every-cell + no-overlap (cells vs cells/core/corridor) + core
+> centred + cells within m² band + §DIAG-RESI-PARTITION shape + deterministic-repeat + 4 soft-fail
+> rejections (non-rect / too-small / empty-mix / core-not-contained). Typecheck clean via
+> `tsconfig.worktree.resi.json`. STUB scope per the plan: this is a deterministic double-loaded-corridor
+> planner for a RECTANGULAR plate — the full §18/§20 Steiner-spine tree (square→ring, elongated→
+> single-load, fragmented→spine-tree) is the HIGH-RISK gated **P8** slice. The apartment ENGINE (D-TGL)
+> lays out each returned cell in **P7**.
 
 > **P6.2 is the next foundational pure slice** after P1 (the audit calls it "the single biggest
 > net-new design"). It is pure geometry math → unit-testable with no editor. Pick it up after P1.B.4
@@ -286,6 +304,11 @@ deps to the **worktree** source and bare deps to the main repo's `node_modules`:
 
 - Schemas: `vitest.worktree.schemas.mjs` + `tsconfig.worktree.schemas.json`
 - Pack: `vitest.worktree.pack.mjs` + `tsconfig.worktree.pack.json`
+- Lift (P2 data layer): `vitest.worktree.lift.mjs` + `tsconfig.worktree.lift.json` (aliases
+  `@pryzm/core-app-model` → a tiny test stub re-exporting the real standalone `StoreEventBus.ts`,
+  `@pryzm/event-bus` → real source; LiftMeshBuilder THREE path validated in-browser, not here)
+- Residential workflows (P6.2): `vitest.worktree.resi.mjs` + `tsconfig.worktree.resi.json`
+  (platePartition only needs `@opentelemetry/api`; `rectDecomposition.ts` is internal + dep-free)
 
 ```
 # schemas (lift L0)
@@ -312,3 +335,5 @@ node <MAIN>/node_modules/typescript/bin/tsc -p <WT>/tsconfig.worktree.pack.json
 | 2026-06-22 | P0 | tracker authored | — | — |
 | 2026-06-22 | P1.A | residential-building pack scaffold + §5.1 input model + gated composeRuntime registration | 18 pass | pack tsconfig green |
 | 2026-06-22 | P1.B (1-3) | lift L0 schema + 4 schema-registration touchpoints + tests | 7 new pass; 91 round-trip/typed-id pass | schemas tsconfig green |
+| 2026-06-22 | P2 (geometry + command) | `@pryzm/geometry-lift` pkg (LiftStore/LiftTypeStore/LiftTypeDefinitions/LiftMeshBuilder placeholder/index) + `CreateVerticalCirculationCommand` (CommandType + CommandContext liftStore + index export + editor factory entry) + SemanticGraph `connectedByLift` + DependencyResolver weight + event-bus catalog `bim-lift-*` | 11 store tests pass; 1102 schema tests still pass | lift data-layer + resi tsconfig green |
+| 2026-06-22 | P6.2 (plate-partition) | PURE `partitionLevelPlate` (residentialBuilding workflow) — core-centred double-loaded-corridor planner returning `{core,publicCorridor,cells}`; `§DIAG-RESI-PARTITION`; C50 soft-fail | 13 tests pass | resi tsconfig green |

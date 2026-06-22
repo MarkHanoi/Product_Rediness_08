@@ -61,6 +61,12 @@ export interface EventCatalog {
   'bim-lighting-placed':      { id: string; fixtureType?: string };
   'bim-lighting-removed':     { id: string };
   'bim-lighting-updated':     { id: string };
+  // ── Vertical circulation (lift) — residential-building multi-family §4 (P2) ──
+  'bim-lift-added':           { id: string };
+  'bim-lift-removed':         { id: string };
+  'bim-lift-updated':         { id: string };
+  'bim-lift-type-added':      { id: string };
+  'bim-lift-type-removed':    { id: string };
   'bim-model-changed':        Record<string, never>;
   'bim-model-healed':         Record<string, never>;
   'bim-opening-added':        { id: string };
