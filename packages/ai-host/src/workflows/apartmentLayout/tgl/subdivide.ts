@@ -3549,26 +3549,24 @@ export function subdivideWithReport(
                 { roomId: graph.corridorId, rect: clampRect(treeRes.corridor) },
                 ...treeRes.rooms.map(p => ({ roomId: p.roomId, rect: clampRect(p.rect) })),
             ];
-            // §18 slice 5a — STRICTLY-ADDITIVE GUARD: apply the tree result ONLY when it is clean —
-            // NO room overlaps the stair keep-out, and NO room is below its type's min area. On ANY
-            // violation FALL THROUGH to the rect spine-first / legacy carve (never ship a worse-than-
-            // legacy layout). This is the guard whose absence caused the room↔stair-overlap regression.
-            const typeByRoomId = new Map(graph.rooms.map(r => [r.id, r.type]));
+            // §18 slice 5a + §CIRCULATION-FIRST (founder 2026-06-22) — GEOMETRIC guard ONLY: apply the
+            // tree result unless a room is drawn ACROSS the stair keep-out (the §65.1 geometric defect).
+            // Under-min-area (a SMALL room) is NO LONGER a rejection — the founder ranks circulation
+            // ABOVE room size ("rooms size is less important at the moment"), so a fully-circulated tree
+            // with a small room must SHIP and compete (the enumerate circulation-first selection prefers
+            // it over a big-roomed legacy carve that seals a room). Out-of-boundary is already impossible
+            // (the tree pack clips every cell to the real shell). On a stair-overlap FALL THROUGH to the
+            // rect spine-first / legacy carve — never ship the room↔stair-overlap regression.
             const overlapsKeepOut = (rc: Rect): boolean =>
                 keepOutRects.some(ko => {
                     const ox = Math.min(rc.x1, ko.x1) - Math.max(rc.x0, ko.x0);
                     const oz = Math.min(rc.z1, ko.z1) - Math.max(rc.z0, ko.z0);
                     return ox > 0.05 && oz > 0.05;   // > a hairline ⇒ a real room-over-stair overlap
                 });
-            const underMinArea = (id: string, rc: Rect): boolean => {
-                const t = typeByRoomId.get(id);
-                if (t === undefined) return false;
-                return rectArea(rc) < roomRule(t).minAreaM2 - 0.01;
-            };
             const treeBad = placements.some(p =>
-                p.roomId !== graph.corridorId && (overlapsKeepOut(p.rect) || underMinArea(p.roomId, p.rect)));
+                p.roomId !== graph.corridorId && overlapsKeepOut(p.rect));
             if (treeBad) {
-                console.log('[D-TGL subdivide] §SPINE-TREE rejected (room↔stair overlap or under-min-area) — falling through to spine-first/legacy.');
+                console.log('[D-TGL subdivide] §SPINE-TREE rejected (room↔stair overlap) — falling through to spine-first/legacy.');
             } else {
                 const cellPolygonById = new Map<string, readonly Pt[]>();
                 // Room cell polygons (already clipped to the real shell by the tree pack, slice 3).
