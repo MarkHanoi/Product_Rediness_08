@@ -909,12 +909,11 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
             // §SPINE-FIRST P4 — opt-in passthrough (the house orchestrator sets it from
             // window.__pryzmSpineFirst). Default off ⇒ byte-identical legacy carve.
             ...(input.spineFirst ? { spineFirst: true, shellPolygon: polyT } : {}),   // P6: real polygon for skew-clip
-            // §18 slice 4 — §SPINE-TREE: the multi-leg, polygon-native, public/private-zoned corridor
-            // spine. DEFAULT-ON when spineFirst is on (P7 pattern: only `window.__pryzmSpineTree=false`
-            // disables it). Runs the tree carve FIRST; on any miss (no corridor / a drop) it falls
-            // through to the existing spine-first/legacy paths ⇒ never worse than the prior engine.
+            // §18 slice 4 — §SPINE-TREE opt-in (browser console: window.__pryzmSpineTree = true). The
+            // multi-leg, polygon-native, public/private-zoned spine; runs only when spineFirst is also on.
+            // Default OFF ⇒ byte-identical. Read here (like §CORRIDOR-REACH) so no orchestrator plumbing.
             ...(input.spineFirst
-                && (globalThis as { window?: { __pryzmSpineTree?: boolean } }).window?.__pryzmSpineTree !== false
+                && (globalThis as { window?: { __pryzmSpineTree?: boolean } }).window?.__pryzmSpineTree === true
                 ? { spineTree: true, shellPolygon: polyT } : {}),
         },
     );

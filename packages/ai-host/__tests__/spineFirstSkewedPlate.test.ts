@@ -53,18 +53,8 @@ function everyHabitableReachable(c: ReturnType<typeof enumerateLayouts>[number])
 describe('§SPINE-FIRST P8 — spine-first is gated to a rectangular shell', () => {
     let lines: string[];
     let spy: ReturnType<typeof vi.spyOn>;
-    // §18 — DISABLE the default-on §SPINE-TREE so these tests exercise the LEGACY rect-gated
-    // spine-first path in isolation (§SPINE-TREE would otherwise pre-empt it on every shell).
-    beforeEach(() => {
-        lines = [];
-        (globalThis as { window?: { __pryzmSpineTree?: boolean } }).window = { __pryzmSpineTree: false };
-        spy = vi.spyOn(console, 'log').mockImplementation((...a: unknown[]) => { lines.push(a.join(' ')); });
-    });
-    afterEach(() => {
-        spy.mockRestore();
-        const g = globalThis as { window?: { __pryzmSpineTree?: boolean } };
-        if (g.window) delete g.window.__pryzmSpineTree;
-    });
+    beforeEach(() => { lines = []; spy = vi.spyOn(console, 'log').mockImplementation((...a: unknown[]) => { lines.push(a.join(' ')); }); });
+    afterEach(() => { spy.mockRestore(); });
 
     const input = (over: Partial<EnumerateInput> = {}): EnumerateInput => ({
         shellPolygon: SKEWED, program: UPPER, levelId: 'L1', seed: 'p8', weights: WEIGHTS, count: 3, ...over,
