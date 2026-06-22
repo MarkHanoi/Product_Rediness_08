@@ -3461,6 +3461,29 @@ function coalesceFullEdgeRects(rects: readonly Rect[]): Rect[] {
     return out;
 }
 
+/**
+ * §SPINE-FIRST P8 (2026-06-22) — true iff `poly` is (within `eps`) a 4-vertex AXIS-ALIGNED
+ * rectangle. Spine-first packs rooms into bands derived from the shell's BBOX; those bands only
+ * coincide with the real perimeter on a rectangle. In THIS principal-axis layout frame a rotated
+ * rectangle IS axis-aligned (its rotation was removed upstream), so it passes; a genuinely SHEARED
+ * convex quad / trapezoid / concave shell (GIS boundary) keeps diagonal edges → returns false. The
+ * spine path must NOT run on the latter — its bbox bands overflow the slanted façade ("rooms out of
+ * the boundary") and the per-cell clamp only leaves white slivers — those shells take the polygon-
+ * native carve (subdividePolygon) the ground floor already proves correct. Mirrors the pure logic of
+ * `wallsAndDoors.isAxisAlignedBox` but inlined to avoid the subdivide↔wallsAndDoors import cycle.
+ */
+function isAxisAlignedRect4(poly: readonly Pt[], eps = 1e-3): boolean {
+    if (poly.length !== 4) return false;
+    for (let i = 0; i < 4; i++) {
+        const a = poly[i]!, b = poly[(i + 1) % 4]!;
+        const dx = Math.abs(a.x - b.x), dz = Math.abs(a.z - b.z);
+        const horizontal = dz <= eps && dx > eps;
+        const vertical = dx <= eps && dz > eps;
+        if (!horizontal && !vertical) return false;
+    }
+    return true;
+}
+
 export function subdivideWithReport(
     rects: readonly Rect[],
     graph: BubbleGraph,
@@ -3482,13 +3505,22 @@ export function subdivideWithReport(
     const valid = rects.filter(r => rectArea(r) > EPS).sort(byAreaDesc);
     if (valid.length === 0 || graph.rooms.length === 0) return { placements: [], droppedRooms: [] };
 
-    // §SPINE-FIRST P4 (flag-gated, default off) — for an all-private (upper) storey, REPLACE the
-    // area-first carve with the circulation-first path: derive the corridor spine from the shell +
-    // pack the private rooms off it so every room AND the stair sit on a central corridor by
-    // construction. Gated on options.spineFirst AND no public rooms ("hall for public, spine for
-    // private" doctrine — the ground floor keeps the hall-hinge). Any miss (public present / no
-    // corridor / a drop / no ring) falls through to the legacy carve → strictly additive (ADR-0061).
-    if (options.spineFirst && graph.corridorId &&
+    // §SPINE-FIRST P4 (flag-gated) / P8 (2026-06-22 rectangular-shell gate) — for an all-private
+    // (upper) storey, REPLACE the area-first carve with the circulation-first path: derive the
+    // corridor spine from the shell + pack the private rooms off it so every room AND the stair sit
+    // on a central corridor by construction. Gated on options.spineFirst AND no public rooms ("hall
+    // for public, spine for private" doctrine — the ground floor keeps the hall-hinge) AND a
+    // RECTANGULAR shell. The rectangle gate (P8) is the fix for the founder's "rooms out of the
+    // boundary" on the upper floor: spine-first tiles BBOX bands, which only fit a rectangle; a
+    // sheared/convex/concave shell would overflow the slanted façade, so it MUST fall through to the
+    // polygon-native carve (subdividePolygon) the ground floor proves correct. In this principal-axis
+    // frame a rotated rectangle passes; a GIS trapezoid/parallelogram does not. Any miss (public
+    // present / non-rect shell / no corridor / a drop / no ring) → legacy carve (ADR-0061 additive).
+    const spineShellPoly = options.shellPolygon;
+    const spineShellIsRect = !spineShellPoly || spineShellPoly.length < 3
+        ? true                                          // absent ⇒ the bbox is used ⇒ a rectangle
+        : isAxisAlignedRect4(spineShellPoly);
+    if (options.spineFirst && graph.corridorId && spineShellIsRect &&
         !graph.rooms.some(r => roomRule(r.type).privacy === 'public')) {
         const bx0 = Math.min(...valid.map(r => r.x0)), bz0 = Math.min(...valid.map(r => r.z0));
         const bx1 = Math.max(...valid.map(r => r.x1)), bz1 = Math.max(...valid.map(r => r.z1));
@@ -3501,10 +3533,11 @@ export function subdivideWithReport(
             stairKeepOut: keepOutRects[0], corridorWidthM,
         });
         if (spineRes && spineRes.dropped.length === 0) {
-            // §SPINE-FIRST P6 skew-clip — clamp each axis-aligned spine cell to the real shell so the
-            // outer (façade) edge follows a sheared/convex wall instead of overflowing the bbox.
-            // Interior walls (room↔room, room↔corridor) stay axis-aligned (clamp only pulls perimeter
-            // edges in). Falls back to the unclamped rect if a clamp degenerates (never drops a room).
+            // §SPINE-FIRST P6/P8 — with the P8 rectangular-shell gate above, the shell is an axis-
+            // aligned rectangle, so this clamp is a NO-OP (each cell clamps to itself); it is kept
+            // only as a defensive guard. (P6's skew-clip ambition — running spine-first on sheared
+            // shells via this clamp — is retired: the clamp left white slivers + overflowed on null,
+            // so sheared shells now take the polygon-native carve instead. See isAxisAlignedRect4.)
             const clampPoly = options.shellPolygon && options.shellPolygon.length >= 3 ? options.shellPolygon : undefined;
             const clampRect = (rc: Rect): Rect => {
                 if (!clampPoly) return roundRect(rc);
@@ -3521,8 +3554,8 @@ export function subdivideWithReport(
                 if (ring) cellPolygonById.set(graph.corridorId, ring);   // L/T corridor (run + stair leg)
             }
             console.log(
-                `[D-TGL subdivide] §SPINE-FIRST applied (upper/no-public): corridor + ${spineRes.rooms.length} ` +
-                `rooms off the derived spine; corridorCells=${spineRes.corridorCells.length} clamped=${clampPoly ? 'yes' : 'no'} ` +
+                `[D-TGL subdivide] §SPINE-FIRST applied (all-private, RECTANGULAR shell): corridor + ${spineRes.rooms.length} ` +
+                `rooms off the derived spine; corridorCells=${spineRes.corridorCells.length} clamped=${clampPoly ? 'yes(no-op)' : 'no'} ` +
                 `(every private room + the stair on the central corridor by construction)`,
             );
             return { placements, droppedRooms: [], cellPolygonById: cellPolygonById.size ? cellPolygonById : undefined, spineFirstApplied: true };
