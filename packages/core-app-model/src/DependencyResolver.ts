@@ -74,6 +74,7 @@ const RELATIONSHIP_PRIORITY: Record<RelationshipType, number> = {
     levelOf:          4,  // level changed → building may need refresh
     servesZone:       4,  // zone changed → served rooms may need refresh
     connectedByStair: 4,  // stair changed → connected floors may need refresh
+    connectedByLift:  4,  // lift changed → connected floors may need refresh (residential-building §4)
 
     // ── G-1 temporal / causal / performance / lifecycle / intent ──────────────
     // These relationship families do not drive geometric/spatial cascade rebuilds.

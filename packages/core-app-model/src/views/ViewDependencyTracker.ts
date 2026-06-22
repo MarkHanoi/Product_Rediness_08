@@ -40,6 +40,9 @@ import { unifiedFrameLoop } from '../rendering/UnifiedFrameLoop';
 const GEOMETRY_ELEMENT_TYPES = new Set([
     'wall', 'slab', 'column', 'beam', 'curtainwall', 'curtain-panel',
     'window', 'door', 'roof', 'stair', 'stair-landing', 'stair-railing',
+    // Residential-building §4: lift carries 3D geometry → re-project plan/section
+    // on change, exactly like the stair.
+    'verticalCirculation',
     'opening', 'ceiling', 'floor', 'handrail', 'furniture', 'plumbing',
 ]);
 

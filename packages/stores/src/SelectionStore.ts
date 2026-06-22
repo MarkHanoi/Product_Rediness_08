@@ -33,6 +33,8 @@ export type SelectionKind =
   | 'column'
   | 'beam'
   | 'stair'
+  // Residential-building §4: the lift (vertical-circulation) is selectable like the stair.
+  | 'verticalCirculation'
   | 'handrail'
   | 'ceiling'
   | 'room'

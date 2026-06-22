@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "baseUrl": ".",
+    "types": ["node"],
+    "typeRoots": [
+      "c:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/node_modules/@types"
+    ],
+    "paths": {
+      "@opentelemetry/api": [
+        "c:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/node_modules/.pnpm/@opentelemetry+api@1.9.1/node_modules/@opentelemetry/api/build/src/index.d.ts"
+      ]
+    }
+  },
+  "include": [
+    "packages/ai-host/src/workflows/residentialBuilding/**/*",
+    "packages/ai-host/src/workflows/apartmentLayout/tgl/rectDecomposition.ts"
+  ]
+}

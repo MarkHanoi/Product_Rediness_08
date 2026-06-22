@@ -215,6 +215,9 @@ export * from './stair/UpdateStairFlightsCommand';
 export * from './stair/UpdateStairParametersCommand';
 export * from './stair/ValidateStairCommand';
 
+// ─── Vertical circulation (lift) — residential-building multi-family §4 (P2) ─
+export * from './verticalCirculation/CreateVerticalCirculationCommand';
+
 // ─── Templates ────────────────────────────────────────────────────────────
 export * from './templates/AssignTemplateToNodeCommand';
 export * from './templates/ClearPropertyDerivedCommand';
