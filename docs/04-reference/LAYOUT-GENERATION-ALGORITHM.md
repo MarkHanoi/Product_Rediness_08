@@ -3151,3 +3151,38 @@ This is the most-reverted code in the engine (the L-spanning carve, 4× reverted
 root-cause history). Implement in a FRESH focused context, test-first (pure `deriveCorridorSpine` tree +
 `packRoomsAlongSpine` multi-leg geometry tests), gated, with the founder browser-validating each slice
 before default-on. Do NOT bolt onto a context-heavy session — that is exactly how revert #5 happens.
+
+### 18.6 Evidence refinements (build `Gh-cdQ2W`, WITH §FORCE-CORRIDOR-DIRECT live)
+
+Three findings from the latest logs sharpen the plan (none change the §18.2 design; they ADD a
+selection/gate axis + confirm the stair-landing requirement):
+
+**(1) The scorer ships a worse-connected candidate over a better-connected one.** On one ground plate
+the SAME enumeration produced both:
+- `x-fwd-mir` (SELECTED winner): `dropped=[bedroom]`, `hall → bathroom` (entrance dead-ends at the
+  bathroom), `§DIAG-CORRIDOR-QUALITY directAccess` poor, `failed=[window,corridor-public]`.
+- `z-rev-mir` / `z-fwd-mir` (NOT selected): `directAccess=3/3 servedThrough=0 access=1.00`,
+  `allHabitableReachable=YES`, stair connected (`§STAIR-ROOM-GROW-TO-CORRIDOR grewStairToCorridor=1/1`
+  and `§STAIR-CIRC-STUB routed 1/1`) — but `dropped=[bedroom,bathroom]` (2).
+The Pareto rank weights drop-count above circulation quality, so it picks the disconnected-but-fuller
+plan. **No straight-corridor strategy both keeps every room AND connects them** on a fragmented plate —
+which is exactly why §18 (L/T/U) is required: it makes a zero-drop, fully-connected candidate EXIST. In
+addition, add these as **HARD topo-gates** (not soft objective penalties) so the engine can never ship
+the `x-fwd-mir` class even as least-bad:
+- entrance **hall** must door onto a **corridor or a public room** — a hall whose only door is a
+  bathroom/bedroom (private/wet) is a HARD fail (today `hall → bathroom` passes).
+- every **habitable** room must have **direct** circulation access (no served-through) — promote
+  `§DIAG-CORRIDOR-QUALITY servedThrough>0` from ⚠ to a HARD fail once the L/T/U carve can satisfy it.
+
+**(2) The stair-connect machinery already works — just not on the selected strategy.**
+`§STAIR-ROOM-GROW-TO-CORRIDOR` and `§STAIR-CIRC-STUB` reliably connect the stair on the z-* strategies.
+The L/T/U carve + the gates in (1) make the engine SELECT a strategy where the stair is connected, so
+these existing mechanisms deliver instead of being stranded on a rejected candidate.
+
+**(3) The stair is a small keep-out inside an unnamed white pocket (founder, recurring).** It must be
+ONE room — the stair **landing** cell absorbs its surrounding white pocket and that single cell doors
+onto the corridor. `§STAIR-ROOM-GROW-TO-CORRIDOR` already grows the stair cell toward the corridor; the
+remaining work is to make the stair's **enclosing** cell (landing) a first-class circulation room that
+(a) swallows the adjacent unnamed pocket and (b) is part of the corridor spine — folded into the §18.2
+carve (the spine's stair leg terminates IN the landing, landing == widened spine end), not a separate
+bolt-on. This is the founder's "the stair should be one single room that opens to the corridor."
