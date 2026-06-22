@@ -85,6 +85,23 @@ export interface BubbleGraph {
 // rules database (rules/programRules.ts) — never duplicated here.
 const cap = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 
+// §SUITE-WITHIN-PARENT (founder "hotel-style" suites, LAYOUT-GENERATION-ALGORITHM §20.3) —
+// read the NEW default-OFF window toggle the SAME way `enumerate.ts` reads
+// `__pryzmSpineTree` (a global `window` peek, no orchestrator plumbing, pure-safe via the
+// `globalThis` cast — no DOM/IO). Default (absent / false) ⇒ the suite program mint + the
+// multi-ensuite carve never run ⇒ production is BYTE-IDENTICAL (ADR-0061). The founder
+// toggles `window.__pryzmHotelSuites = true` in the browser console to A/B test.
+const hotelSuitesEnabled = (): boolean =>
+    (globalThis as { window?: { __pryzmHotelSuites?: boolean } }).window?.__pryzmHotelSuites === true;
+
+// §SUITE-WITHIN-PARENT — the house-UPPER-storey signal. The upper storey program (set by
+// `houseProgramFloor.ts` role 'upper' + `storeyAllocation.ts`) has NO kitchen, NO living,
+// NO entrance hall — bedrooms + baths only. The apartment 'single' path always has a living
+// room / hall, and the house ground floor has a kitchen + living, so this gate is house-upper
+// ONLY: apartments + ground floors are never touched (the most-reverted-area safety rail).
+const isHouseUpperProgram = (p: ApartmentProgram): boolean =>
+    p.includeKitchen === false && p.livingRoom === false && p.entranceHall === false;
+
 /**
  * Scale the program up to match the shell area. The user explicitly required this:
  * "the number of bedrooms and bathrooms should depend on the net area within the
@@ -319,7 +336,16 @@ export function buildBubbleGraph(
     const utilityId = program.includeUtility === true ? push('utility', 'Utility', false) : null;
 
     const beds = Math.max(0, Math.floor(program.bedrooms));
-    const baths = Math.max(0, Math.floor(program.bathrooms));
+    // §SUITE-WITHIN-PARENT — gate: ON only when the window toggle is set AND this is a
+    // house UPPER storey. Apartments + ground floors NEVER take this branch.
+    const suiteMode = hotelSuitesEnabled() && isHouseUpperProgram(program);
+    // In suite mode the standalone shared-bathroom count drops in favour of per-bedroom
+    // ensuites: every bedroom becomes a SUITE (its own ensuite), so we keep at MOST one
+    // shared bath when the bedroom count is odd (the founder rule), else zero. Off the
+    // suite path the requested bathroom count is unchanged (byte-identical).
+    const baths = suiteMode
+        ? (beds % 2 === 1 ? Math.min(1, Math.max(0, Math.floor(program.bathrooms))) : 0)
+        : Math.max(0, Math.floor(program.bathrooms));
     const corridorId = beds + baths > 0 ? push('corridor', 'Corridor', false) : null;
 
     const bedIds: string[] = [];
@@ -327,19 +353,45 @@ export function buildBubbleGraph(
         const isMaster = i === 0 && program.masterEnSuite;
         bedIds.push(push(isMaster ? 'master' : 'bedroom', isMaster ? 'Master Bedroom' : `Bedroom ${i + (program.masterEnSuite ? 0 : 1)}`, true));
     }
-    const ensuiteId = program.masterEnSuite && beds > 0 ? push('ensuite', 'En-suite', true) : null;
-    // §BEDROOM-ENSUITE-2DOOR (founder rule, 2026-06-10) — PAIR the ensuite to the
-    // bedroom that hosts it (today always bed[0] = the master, but the per-instance
-    // pairing generalises to any host bedroom). Stamping `ensuiteHostId` is what lets
-    // wallsAndDoors permit the ensuite↔host door + grant the host its extra door slot
-    // WITHOUT a global rule change (so no OTHER bedroom can door onto an ensuite). The
-    // master host is byte-identical (its type rule already permits both); the field is
-    // additive metadata only. The ensuite room is rebuilt with the host id in place.
-    if (ensuiteId && bedIds[0]) {
+    // §SUITE-WITHIN-PARENT — mint the ensuite(s). OFF (legacy): exactly ONE ensuite, paired
+    // to bed[0] (the master), iff masterEnSuite — BYTE-IDENTICAL. ON (suite mode): one ensuite
+    // PER bedroom, each `ensuiteHostId`-paired to its OWN host bedroom (the SAME per-instance
+    // field the master already uses) so wallsAndDoors permits each host↔ensuite door + the
+    // host's extra door slot WITHOUT a global rule change — and no ensuite ever doors onto the
+    // corridor. The ensuite name carries its host's number so the modal reads "En-suite 2" etc.
+    const ensuiteHosts: string[] = suiteMode
+        ? bedIds.slice()                                          // every bedroom is a suite
+        : (program.masterEnSuite && beds > 0 && bedIds[0] ? [bedIds[0]] : []);
+    let suiteEnsuiteCount = 0;
+    for (let hi = 0; hi < ensuiteHosts.length; hi++) {
+        const hostId = ensuiteHosts[hi]!;
+        // En-suite naming: the single (master) ensuite keeps the legacy name "En-suite" so
+        // the OFF path is byte-identical; suite-mode ensuites are numbered after the host.
+        const name = ensuiteHosts.length === 1 ? 'En-suite' : `En-suite ${hi + 1}`;
+        const ensuiteId = push('ensuite', name, true);
+        // §BEDROOM-ENSUITE-2DOOR (founder rule, 2026-06-10) — PAIR the ensuite to its host
+        // bedroom. Stamping `ensuiteHostId` is what lets wallsAndDoors permit the ensuite↔host
+        // door + grant the host its extra (ensuite) door slot WITHOUT a global rule change. The
+        // master host is byte-identical (its type rule already permits both); the field is
+        // additive metadata only. The ensuite room is rebuilt with the host id in place.
         const ei = rooms.findIndex(r => r.id === ensuiteId);
-        if (ei >= 0) rooms[ei] = { ...rooms[ei]!, ensuiteHostId: bedIds[0] };
+        if (ei >= 0) rooms[ei] = { ...rooms[ei]!, ensuiteHostId: hostId };
+        suiteEnsuiteCount += 1;
     }
     for (let i = 0; i < baths; i++) push('bathroom', baths > 1 ? `Bathroom ${i + 1}` : 'Bathroom', true);
+
+    // §DIAG-SUITE — one line per storey so a prod run is debuggable: how many suites were
+    // minted (bedroom→ensuite pairs) and how the shared-bath count moved. Logging only; no
+    // behaviour change. Emitted only when the suite gate is ON (OFF ⇒ byte-identical, no log).
+    if (suiteMode) {
+        console.log(
+            `[D-TGL] §DIAG-SUITE mint: suiteMode=ON beds=${beds} suites=${suiteEnsuiteCount} ` +
+            `ensuitesMinted=${suiteEnsuiteCount} sharedBaths=${baths} ` +
+            `(requestedBaths=${Math.max(0, Math.floor(program.bathrooms))}) ` +
+            `— each bedroom is a suite (own ensuite, door from the bedroom, never the corridor); ` +
+            `shared baths reduced.`,
+        );
+    }
 
     // §ABSORBER-FILL (founder 2026-06-17 redesign) — on an over-capacity shell the carve
     // tiles the WHOLE plate and dumps the unallocated excess onto existing rooms (a 53 m²
@@ -542,7 +594,14 @@ export function buildBubbleGraph(
     link(spine, utilityId, 'door');
     for (const aid of absorberIds) link(spine, aid, 'door');   // §ABSORBER-FILL — corridor-served like the study
     for (const bid of bedIds) link(spine, bid, 'door');
-    link(bedIds[0] ?? null, ensuiteId, 'door');     // master ↔ ensuite
+    // §SUITE-WITHIN-PARENT / §BEDROOM-ENSUITE-2DOOR — each ensuite doors ONLY onto its paired
+    // host bedroom (the `ensuiteHostId` stamp), NEVER the corridor. OFF path: a single ensuite
+    // paired to bed[0] (the master) ⇒ this is the legacy `master ↔ ensuite` edge, byte-identical.
+    // ON path: one such edge per suite. (`withAreas` mirrors `rooms` in order/ids, so reading the
+    // host id back here is sound.)
+    for (const r of withAreas) {
+        if (r.type === 'ensuite' && r.ensuiteHostId) link(r.ensuiteHostId, r.id, 'door');
+    }
     for (const r of withAreas) if (r.type === 'bathroom') link(spine, r.id, 'door');
 
     // §ROOM-ADJACENCY (SPEC-DYNAMIC-PROGRAM-CANVAS §5.6, C52 E3) — desired-adjacency

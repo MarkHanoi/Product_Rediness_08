@@ -1203,6 +1203,209 @@ function tryCarveEnsuiteFromMaster(
 }
 
 /**
+ * §SUITE-WITHIN-PARENT (founder "hotel-style" suites, LAYOUT-GENERATION-ALGORITHM §20.3) —
+ * a (host bedroom → ensuite) pair. The OFF / apartment path has exactly ONE suite (the
+ * master + its en-suite); the gated house-UPPER suite program mints one PER bedroom. Built
+ * in `trySingleRectCarve` from the `ensuiteHostId` stamps the bubble graph already sets.
+ */
+interface Suite {
+    /** The host bedroom/master room id this ensuite is carved out of. */
+    readonly hostId: string;
+    /** The ensuite ProgramRoom (its `targetAreaM2` is the carve area). */
+    readonly ensuite: ProgramRoom;
+}
+
+/**
+ * §SUITE-WITHIN-PARENT — carve an ensuite from a CORNER of its host's placed rect on the host
+ * face AWAY from the corridor, so the ensuite shares a wall ONLY with its host (the host↔ensuite
+ * door) and NEVER a door-width corridor wall (no `ensuiteOnCorridor` purity violation). Both
+ * stay RECTANGLES (the rect-based gates are unaffected — doctrine §20.3). This is the corrected
+ * (metres-unit) corridor-avoiding carve used by the GATED suite path ONLY; the legacy
+ * `tryCarveEnsuiteFromMaster` (whose `avoidRect` mm/m mismatch makes its avoidance a no-op) is
+ * kept verbatim on the OFF path for byte-identity. Returns null when the host is too small to
+ * seat both rooms at their minima on EVERY corridor-avoiding option (the caller falls back). The
+ * cut axis is chosen perpendicular to the corridor-facing edge when one is detected; otherwise it
+ * cuts across the LONGER axis (matching the legacy preference) but always picks the side that
+ * minimises the ensuite's contact with the corridor. Pure + deterministic.
+ */
+function carveEnsuiteCornerAwayFromCorridor(
+    hostRect: Rect,
+    ensuiteAreaM2: number,
+    corridorRect: Rect,
+): { master: Rect; ensuite: Rect } | null {
+    const W = hostRect.x1 - hostRect.x0;
+    const H = hostRect.z1 - hostRect.z0;
+    const ensMin = roomRule('ensuite').minShortSideM;
+    const bedMin = roomRule('bedroom').minShortSideM;   // generic host floor (master ≥ bedroom)
+
+    // tryCut across `longDim` keeping `shortDim` as the shared span.
+    const tryCut = (longDim: number, shortDim: number): number | null => {
+        if (shortDim < ensMin - EPS) return null;
+        const cut = Math.max(ensMin, ensuiteAreaM2 / shortDim);
+        if (longDim - cut < bedMin - EPS) return null;
+        return cut;
+    };
+    const buildX = (side: 'low' | 'high'): { master: Rect; ensuite: Rect } | null => {
+        const cut = tryCut(W, H);
+        if (cut === null) return null;
+        if (side === 'high') {
+            const split = hostRect.x1 - cut;
+            return {
+                master:  { x0: hostRect.x0, z0: hostRect.z0, x1: split,       z1: hostRect.z1 },
+                ensuite: { x0: split,       z0: hostRect.z0, x1: hostRect.x1, z1: hostRect.z1 },
+            };
+        }
+        const split = hostRect.x0 + cut;
+        return {
+            master:  { x0: split,       z0: hostRect.z0, x1: hostRect.x1, z1: hostRect.z1 },
+            ensuite: { x0: hostRect.x0, z0: hostRect.z0, x1: split,       z1: hostRect.z1 },
+        };
+    };
+    const buildZ = (side: 'low' | 'high'): { master: Rect; ensuite: Rect } | null => {
+        const cut = tryCut(H, W);
+        if (cut === null) return null;
+        if (side === 'high') {
+            const split = hostRect.z1 - cut;
+            return {
+                master:  { x0: hostRect.x0, z0: hostRect.z0, x1: hostRect.x1, z1: split       },
+                ensuite: { x0: hostRect.x0, z0: split,       x1: hostRect.x1, z1: hostRect.z1 },
+            };
+        }
+        const split = hostRect.z0 + cut;
+        return {
+            master:  { x0: hostRect.x0, z0: split,       x1: hostRect.x1, z1: hostRect.z1 },
+            ensuite: { x0: hostRect.x0, z0: hostRect.z0, x1: hostRect.x1, z1: split       },
+        };
+    };
+
+    // Detect which host edge the corridor abuts (metres units, ≥ a door-width run = 0.8 m).
+    const TOUCH = 0.05, DOOR = 0.8;
+    const xOverlap = Math.max(0, Math.min(hostRect.x1, corridorRect.x1) - Math.max(hostRect.x0, corridorRect.x0));
+    const zOverlap = Math.max(0, Math.min(hostRect.z1, corridorRect.z1) - Math.max(hostRect.z0, corridorRect.z0));
+    const onLeft  = Math.abs(corridorRect.x1 - hostRect.x0) <= TOUCH && zOverlap >= DOOR;
+    const onRight = Math.abs(corridorRect.x0 - hostRect.x1) <= TOUCH && zOverlap >= DOOR;
+    const onFront = Math.abs(corridorRect.z1 - hostRect.z0) <= TOUCH && xOverlap >= DOOR;
+    const onBack  = Math.abs(corridorRect.z0 - hostRect.z1) <= TOUCH && xOverlap >= DOOR;
+
+    // The corridor shares the host's FULL span along the edge it abuts. To keep the ensuite
+    // OFF the corridor, cut PERPENDICULAR to that edge and place the ensuite on the FAR band:
+    //   • corridor on BACK (host z1) ⇒ ensuite a z-band at the FRONT (z near z0) — buildZ('low').
+    //   • corridor on FRONT (host z0) ⇒ ensuite a z-band at the BACK  — buildZ('high').
+    //   • corridor on RIGHT (host x1) ⇒ ensuite an x-band on the LEFT — buildX('low').
+    //   • corridor on LEFT  (host x0) ⇒ ensuite an x-band on the RIGHT — buildX('high').
+    // The host keeps the WHOLE corridor edge (its corridor door + window); the ensuite sits in
+    // the far corner (interior / shell walls only). Falls back to the other side if the chosen
+    // side doesn't fit, then to the cross-axis carve (still a corner of the host).
+    if (onBack)  return buildZ('low')  ?? buildZ('high') ?? buildX('high') ?? buildX('low');
+    if (onFront) return buildZ('high') ?? buildZ('low')  ?? buildX('high') ?? buildX('low');
+    if (onRight) return buildX('low')  ?? buildX('high') ?? buildZ('high') ?? buildZ('low');
+    if (onLeft)  return buildX('high') ?? buildX('low')  ?? buildZ('high') ?? buildZ('low');
+    // No corridor adjacency detected (host buried, or a sliver corridor run): keep the legacy
+    // longer-axis preference, ensuite on the high side (a corner of the host).
+    if (W >= H) return buildX('high') ?? buildZ('high');
+    return buildZ('high') ?? buildX('high');
+}
+
+/**
+ * §SUITE-WITHIN-PARENT — carve EVERY suite's ensuite out of a CORNER of its host bedroom's
+ * placed slice, AFTER the private rooms have been combed/squarified. GENERALISES the single
+ * master→ensuite carve to N (host → ensuite) pairs:
+ *   • Each carve reuses `tryCarveEnsuiteFromMaster(hostRect, area, corridorRect)`, which puts
+ *     the ensuite on the host face AWAY from the corridor → the ensuite shares a wall ONLY
+ *     with its host (the host↔ensuite door), never a corridor wall (no `ensuiteOnCorridor`),
+ *     and both stay RECTANGLES so the rect-based gates are unaffected (doctrine §20.3).
+ *   • FALL-BACK (per suite, never silent): when a host slice is too small to seat both the
+ *     bedroom AND the ensuite at their minima, the host is LEFT WHOLE (no carve) and the
+ *     ensuite is reported via `droppedRooms` — the engine then bands it normally / de-ranks
+ *     it, exactly as the single-master carve already does. No suite is silently dropped.
+ * Mutates `privatePlacements` (replaces each carved host + appends its ensuite) and pushes any
+ * fall-backs onto `droppedRooms`. Pure + deterministic (ADR-0061). Returns the count carved.
+ */
+function carveSuiteEnsuites(
+    privatePlacements: RoomPlacement[],
+    suites: readonly Suite[],
+    corridorRect: Rect,
+    droppedRooms: DroppedRoom[],
+    masterId?: string,
+): { carved: number; fellBack: number } {
+    let carved = 0, fellBack = 0;
+    // §SUITE-WITHIN-PARENT — suite mode iff the (gated) program minted MORE than the lone
+    // master suite OR an ensuite hosted by a NON-master bedroom. OFF / apartment: exactly one
+    // suite hosted by the master ⇒ suiteMode=false ⇒ the legacy `tryCarveEnsuiteFromMaster` runs
+    // verbatim ⇒ BYTE-IDENTICAL. ON ⇒ the corrected (metres-unit) corridor-avoiding corner carve.
+    const suiteMode = suites.length > 1 || suites.some(s => s.hostId !== masterId);
+    for (const suite of suites) {
+        const area = suite.ensuite.targetAreaM2;
+        if (area <= EPS) continue;
+        const hostIdx = privatePlacements.findIndex(p => p.roomId === suite.hostId);
+        if (hostIdx < 0) {
+            // Host itself wasn't placed (dropped upstream) — the ensuite cannot host; report it.
+            droppedRooms.push({
+                roomId: suite.ensuite.id, type: suite.ensuite.type,
+                shortSideM: 0, minShortSideM: floorFor(suite.ensuite.type),
+            });
+            fellBack += 1;
+            continue;
+        }
+        const hostP = privatePlacements[hostIdx]!;
+        const ec = suiteMode
+            ? carveEnsuiteCornerAwayFromCorridor(hostP.rect, area, corridorRect)
+            : tryCarveEnsuiteFromMaster(hostP.rect, area, corridorRect);
+        if (ec) {
+            privatePlacements[hostIdx] = { roomId: suite.hostId, rect: roundRect(ec.master) };
+            privatePlacements.push({ roomId: suite.ensuite.id, rect: roundRect(ec.ensuite) });
+            carved += 1;
+        } else {
+            // §SUITE-FALLBACK — host too tight: leave the bedroom WHOLE (no carve), report the
+            // ensuite so it is NOT silently dropped (it then bands normally / de-ranks).
+            droppedRooms.push({
+                roomId: suite.ensuite.id, type: suite.ensuite.type,
+                shortSideM: 0, minShortSideM: floorFor(suite.ensuite.type),
+            });
+            fellBack += 1;
+        }
+    }
+    if (suites.length > 0) {
+        console.log(
+            `[D-TGL subdivide] §DIAG-SUITE carve: suites=${suites.length} carved=${carved} ` +
+            `fellBack=${fellBack} (each carved ensuite = a corner of its host, door host↔ensuite, ` +
+            `never the corridor; fall-backs left the host whole + reported the ensuite).`,
+        );
+    }
+    return { carved, fellBack };
+}
+
+/**
+ * §SUITE-WITHIN-PARENT — the `combMinAlong` callback for `sliceZoneAlongFace`: a suite HOST's
+ * combed slice must be ≥ hostMin + ensuiteMin along the corridor face so the ensuite carve
+ * leaves the host above its own minShortSide. GENERALISES the legacy master-only widen to all
+ * suite hosts. BYTE-IDENTITY: the legacy code returned a callback ONLY when `master && ensuite`
+ * (widening just the master to masterMin + ensuiteMin, else 0). With exactly one suite hosted by
+ * the master this returns the SAME callback (the master widened, every other room 0); with NO
+ * suite it returns `undefined` (no widen) exactly as before. Pure + deterministic.
+ */
+function suiteCombMinAlong(
+    suites: readonly Suite[],
+    master: ProgramRoom | undefined,
+    ensuite: ProgramRoom | undefined,
+): ((r: ProgramRoom) => number) | undefined {
+    if (suites.length === 0) {
+        // Legacy: only the master-with-ensuite path widened. Preserve it verbatim.
+        if (!(master && ensuite)) return undefined;
+        const widen = roomRule('master').minShortSideM + roomRule('ensuite').minShortSideM;
+        return (r: ProgramRoom): number => (r.id === master.id ? widen : 0);
+    }
+    // Suite mode: widen each host by hostMin + ensuiteMin.
+    const ensMin = roomRule('ensuite').minShortSideM;
+    const need = new Map<string, number>();
+    for (const s of suites) {
+        const hostType = s.hostId === master?.id ? 'master' : 'bedroom';
+        need.set(s.hostId, roomRule(hostType).minShortSideM + ensMin);
+    }
+    return (r: ProgramRoom): number => need.get(r.id) ?? 0;
+}
+
+/**
  * §MASTER-SURPLUS (2026-06-08, F3) — ensure the master's effective (post-ensuite-carve)
  * area exceeds every non-master bedroom by ≥ `MIN_MASTER_SURPLUS_M2`. Deterministic and
  * NO-DROP: it transfers area TARGET from the LARGEST non-master bedroom (the binding
@@ -1372,6 +1575,9 @@ function tryHallHingeCarve(
     ensuite: ProgramRoom | undefined,
     ensuiteCarveArea: number,
     corridorWidthM?: number,
+    // §SUITE-WITHIN-PARENT — the (host → ensuite) suites to carve from the combed private slices.
+    // OFF / apartment: the single master suite ⇒ identical to the legacy master→ensuite carve.
+    suites: readonly Suite[] = [],
 ): SubdivideResult | null {
     const W = shell.x1 - shell.x0;
     const H = shell.z1 - shell.z0;
@@ -1479,19 +1685,9 @@ function tryHallHingeCarve(
     const privatePlacements = [...priv.placements];
     droppedRooms.push(...priv.droppedRooms);
 
-    // Carve ensuite from master (same as the 3-zone path).
-    if (master && ensuite && ensuiteCarveArea > 0) {
-        const mi = privatePlacements.findIndex(p => p.roomId === master.id);
-        if (mi >= 0) {
-            const ec = tryCarveEnsuiteFromMaster(privatePlacements[mi]!.rect, ensuiteCarveArea, corridorRect);
-            if (ec) {
-                privatePlacements[mi] = { roomId: master.id, rect: roundRect(ec.master) };
-                privatePlacements.push({ roomId: ensuite.id, rect: roundRect(ec.ensuite) });
-            } else {
-                droppedRooms.push({ roomId: ensuite.id, type: ensuite.type, shortSideM: 0, minShortSideM: floorFor(ensuite.type) });
-            }
-        }
-    }
+    // §SUITE-WITHIN-PARENT — carve every suite's ensuite from its host (same as the 3-zone
+    // path). OFF / apartment: the single master suite ⇒ byte-identical master→ensuite carve.
+    carveSuiteEnsuites(privatePlacements, suites, corridorRect, droppedRooms, master?.id);
     out.push(...privatePlacements);
 
     // §HALL-HINGE-SOUND — return the hinge layout ONLY when it is provably circulation-sound,
@@ -1601,13 +1797,30 @@ function trySingleRectCarve(
     const master   = graph.rooms.find(r => r.type === 'master');
     const ensuite  = graph.rooms.find(r => r.type === 'ensuite');
 
-    // Bucket rooms by privacy class (excluding the corridor + ensuite, which
-    // are handled specially below).
+    // §SUITE-WITHIN-PARENT (doctrine §20.3) — collect EVERY (host → ensuite) suite from the
+    // `ensuiteHostId` stamps the bubble graph set. OFF / apartment: exactly ONE suite (the
+    // master + its ensuite) ⇒ this is identical to the legacy single-ensuite handling below
+    // (BYTE-IDENTICAL). ON (gated house-upper): one suite PER bedroom — each is hoisted onto
+    // its host + excluded from band packing here, then carved from its host's corner after the
+    // comb. An ensuite WITHOUT a resolved host stays a normal room (legacy fallback).
+    const suites: Suite[] = [];
+    for (const r of graph.rooms) {
+        if (r.type !== 'ensuite') continue;
+        if (!r.ensuiteHostId) continue;
+        if (!graph.rooms.some(h => h.id === r.ensuiteHostId)) continue;   // host must exist
+        suites.push({ hostId: r.ensuiteHostId, ensuite: r });
+    }
+    const suiteEnsuiteIds = new Set(suites.map(s => s.ensuite.id));
+
+    // Bucket rooms by privacy class (excluding the corridor + EVERY suite ensuite, which are
+    // carved from their hosts below — never band-packed). A lone legacy `ensuite` with no host
+    // stamp is also excluded (back-compat with the pre-suite single-ensuite handling).
     const publicRooms: ProgramRoom[] = [];
     const privateRooms: ProgramRoom[] = [];
     for (const r of graph.rooms) {
         if (corridor && r.id === corridor.id) continue;
-        if (ensuite && r.id === ensuite.id) continue;
+        if (suiteEnsuiteIds.has(r.id)) continue;
+        if (ensuite && r.id === ensuite.id && suites.length === 0) continue;   // legacy host-less ensuite
         const p = roomRule(r.type).privacy;
         if (p === 'public' || p === 'circulation') publicRooms.push(r);
         else privateRooms.push(r);
@@ -1616,17 +1829,22 @@ function trySingleRectCarve(
     // the existing whole-shell squarify.
     if (!corridor || privateRooms.length === 0) return null;
 
-    // Hoist ensuite's target area onto master so squarify gives master the
-    // combined footprint — we'll slice the ensuite out of it after. (Done BEFORE
-    // the §NO-PUBLIC-CARVE branch so the double-loaded path inherits the same
-    // ensuite-from-master carve.)
+    // Hoist each suite ensuite's target area onto its HOST so squarify/comb gives the host the
+    // COMBINED footprint — we slice the ensuite out of it after. (Done BEFORE the §NO-PUBLIC-CARVE
+    // branch so the double-loaded path inherits the same host→ensuite carve.) For the OFF /
+    // apartment single-suite case this hoists exactly the master's ensuite area onto the master,
+    // identical to the legacy code (BYTE-IDENTICAL). `ensuiteCarveArea` is retained as the MASTER
+    // suite's area (the existing `combMinAlong` / §MASTER-SURPLUS logic keys off the master only).
     let ensuiteCarveArea = 0;
-    if (master && ensuite) {
-        ensuiteCarveArea = ensuite.targetAreaM2;
-        const masterIdx = privateRooms.findIndex(r => r.id === master.id);
-        if (masterIdx >= 0) {
-            privateRooms[masterIdx] = { ...master, targetAreaM2: master.targetAreaM2 + ensuite.targetAreaM2 };
+    for (const suite of suites) {
+        const hostIdx = privateRooms.findIndex(r => r.id === suite.hostId);
+        if (hostIdx >= 0) {
+            privateRooms[hostIdx] = {
+                ...privateRooms[hostIdx]!,
+                targetAreaM2: privateRooms[hostIdx]!.targetAreaM2 + suite.ensuite.targetAreaM2,
+            };
         }
+        if (master && suite.hostId === master.id) ensuiteCarveArea = suite.ensuite.targetAreaM2;
     }
 
     // §HALL-HINGE-CARVE (founder GF spec, 2026-06-17) — the GROUND FLOOR (a hall + non-hall
@@ -1639,7 +1857,7 @@ function trySingleRectCarve(
         const publicNonHall = publicRooms.filter(r => r.type !== 'hall');
         if (hall && publicNonHall.length > 0 && privateRooms.length > 0) {
             const hinge = tryHallHingeCarve(
-                shell, hall, publicNonHall, privateRooms, corridor, master, ensuite, ensuiteCarveArea, corridorWidthM,
+                shell, hall, publicNonHall, privateRooms, corridor, master, ensuite, ensuiteCarveArea, corridorWidthM, suites,
             );
             if (hinge) return hinge;
         }
@@ -1660,12 +1878,12 @@ function trySingleRectCarve(
         // through to the double-loaded carve when single-loaded is infeasible (no regression).
         if (preferSingleLoaded) {
             const single = tryNoPublicSingleLoadedCarve(
-                shell, corridor, privateRooms, master, ensuite, ensuiteCarveArea, corridorWidthM, keepOut,
+                shell, corridor, privateRooms, master, ensuite, ensuiteCarveArea, corridorWidthM, keepOut, suites,
             );
             if (single) return single;
         }
         return tryNoPublicDoubleLoadedCarve(
-            shell, corridor, privateRooms, master, ensuite, ensuiteCarveArea, corridorWidthM, keepOut,
+            shell, corridor, privateRooms, master, ensuite, ensuiteCarveArea, corridorWidthM, keepOut, suites,
         );
     }
 
@@ -1768,30 +1986,9 @@ function trySingleRectCarve(
     const privatePlacements = [...priv.placements];
     droppedRooms.push(...priv.droppedRooms);
 
-    // Carve ensuite from master's squarified rect.
-    if (master && ensuite && ensuiteCarveArea > 0) {
-        const masterIdx = privatePlacements.findIndex(p => p.roomId === master.id);
-        if (masterIdx >= 0) {
-            const masterP = privatePlacements[masterIdx]!;
-            const ec = tryCarveEnsuiteFromMaster(masterP.rect, ensuiteCarveArea, carve.corridorRect);
-            if (ec) {
-                privatePlacements[masterIdx] = { roomId: master.id, rect: roundRect(ec.master) };
-                privatePlacements.push({ roomId: ensuite.id, rect: roundRect(ec.ensuite) });
-            } else {
-                console.warn(
-                    `[D-TGL subdivide] §ENSUITE-FROM-MASTER: master rect too tight to carve ` +
-                    `ensuite (${ensuiteCarveArea.toFixed(2)} m²) — ensuite left unplaced ` +
-                    `(reported via droppedRooms — NOT silent).`,
-                );
-                droppedRooms.push({
-                    roomId: ensuite.id,
-                    type: ensuite.type,
-                    shortSideM: 0,
-                    minShortSideM: floorFor(ensuite.type),
-                });
-            }
-        }
-    }
+    // §SUITE-WITHIN-PARENT — carve every suite's ensuite from its host's squarified slice. OFF /
+    // apartment: exactly the master suite ⇒ identical to the legacy single master→ensuite carve.
+    carveSuiteEnsuites(privatePlacements, suites, carve.corridorRect, droppedRooms, master?.id);
     out.push(...privatePlacements);
     return { placements: out, droppedRooms };
 }
@@ -1823,6 +2020,9 @@ function tryNoPublicDoubleLoadedCarve(
     // double-loaded corridor does NOT reach it (stair would ship isolated), a stair-anchored
     // L corridor that DOES reach it is preferred.
     keepOut?: Rect,
+    // §SUITE-WITHIN-PARENT — the (host → ensuite) suites to carve. OFF / apartment: the single
+    // master suite ⇒ byte-identical. ON (house upper): one per bedroom.
+    suites: readonly Suite[] = [],
 ): SubdivideResult | null {
     const carve = tryCarveDoubleLoadedCorridor(shell, corridorWidthM);
     // §NO-SEAL-SINGLE-LOAD (tracker §55) — the SHORT axis can't host the strip + TWO
@@ -1859,11 +2059,10 @@ function tryNoPublicDoubleLoadedCarve(
     // Comb each side off its corridor face. The corridor runs along the SAME axis
     // for both sides; 'horizontal' strip ⇒ comb slices along 'x', 'vertical' ⇒ 'z'.
     const combFaceAxis: 'x' | 'z' = carve.orientation === 'horizontal' ? 'x' : 'z';
-    const combMinAlong = (master && ensuite)
-        ? (r: ProgramRoom): number => (r.id === master.id
-            ? roomRule('master').minShortSideM + roomRule('ensuite').minShortSideM
-            : 0)
-        : undefined;
+    // §SUITE-WITHIN-PARENT — EVERY suite HOST (not just the master) needs hostMin + ensuiteMin
+    // of along-face width so its ensuite carve leaves the host above its own minShortSide. OFF /
+    // apartment: the single suite is the master ⇒ identical to the legacy master-only widen.
+    const combMinAlong = suiteCombMinAlong(suites, master, ensuite);
     const combA = sliceZoneAlongFace(carve.sideARect, sideA, combFaceAxis, combMinAlong);
     const combB = sideB.length > 0
         ? sliceZoneAlongFace(carve.sideBRect, sideB, combFaceAxis, combMinAlong)
@@ -1879,7 +2078,7 @@ function tryNoPublicDoubleLoadedCarve(
     // on the same per-room floors), so this is strictly an improvement.
     if (!combA || !combB) {
         const single = tryNoPublicSingleLoadedCarve(
-            shell, corridor, privateRooms, master, ensuite, ensuiteCarveArea, corridorWidthM,
+            shell, corridor, privateRooms, master, ensuite, ensuiteCarveArea, corridorWidthM, undefined, suites,
         );
         if (single) {
             console.log(
@@ -1897,7 +2096,9 @@ function tryNoPublicDoubleLoadedCarve(
         // is unreached (byte-identical, ADR-0061 I2). Skipped when an ensuite must be carved from
         // the master (the L-comb places rooms as plain slices; the master→ensuite carve is the
         // straight path's job) — that case keeps the existing squarify fallback (no regression).
-        if (!ensuite || ensuiteCarveArea <= EPS) {
+        // §SUITE-WITHIN-PARENT — also skip the L-comb when ANY suite must be carved (plain slices
+        // can't host a corner ensuite); the straight carve owns the suite carve.
+        if (suites.length === 0 && (!ensuite || ensuiteCarveArea <= EPS)) {
             const lComb = planLCorridorComb(
                 shell, orderedPrivate, corridorWidthM ?? CORRIDOR_STRIP_WIDTH_M, combMinAlong, corridor.id,
             );
@@ -1929,7 +2130,7 @@ function tryNoPublicDoubleLoadedCarve(
     // reaches it → plates where the straight corridor already reaches the stair are byte-identical
     // (ADR-0061 I2). Skipped when an ensuite must be carved from the master (the L lays plain slices;
     // the master→ensuite carve is the straight path's job).
-    if (keepOut && (!ensuite || ensuiteCarveArea <= EPS)) {
+    if (keepOut && suites.length === 0 && (!ensuite || ensuiteCarveArea <= EPS)) {
         const DOOR_W = 0.8;
         const straightReachesStair = polyRectSharedWallM(rectPolygon(roundRect(carve.corridorRect)), keepOut) >= DOOR_W;
         if (!straightReachesStair) {
@@ -1961,28 +2162,9 @@ function tryNoPublicDoubleLoadedCarve(
     const privatePlacements = [...combA.placements, ...combB.placements];
     droppedRooms.push(...combA.droppedRooms, ...combB.droppedRooms);
 
-    // Carve the ensuite out of the master's combed slice (master-only access).
-    if (master && ensuite && ensuiteCarveArea > 0) {
-        const masterIdx = privatePlacements.findIndex(p => p.roomId === master.id);
-        if (masterIdx >= 0) {
-            const masterP = privatePlacements[masterIdx]!;
-            const ec = tryCarveEnsuiteFromMaster(masterP.rect, ensuiteCarveArea, carve.corridorRect);
-            if (ec) {
-                privatePlacements[masterIdx] = { roomId: master.id, rect: roundRect(ec.master) };
-                privatePlacements.push({ roomId: ensuite.id, rect: roundRect(ec.ensuite) });
-            } else {
-                console.warn(
-                    `[D-TGL subdivide] §NO-PUBLIC-CARVE §ENSUITE-FROM-MASTER: master slice too ` +
-                    `tight to carve ensuite (${ensuiteCarveArea.toFixed(2)} m²) — ensuite left ` +
-                    `unplaced (reported via droppedRooms — NOT silent).`,
-                );
-                droppedRooms.push({
-                    roomId: ensuite.id, type: ensuite.type,
-                    shortSideM: 0, minShortSideM: floorFor(ensuite.type),
-                });
-            }
-        }
-    }
+    // §SUITE-WITHIN-PARENT — carve every suite's ensuite out of its host's combed slice
+    // (host-only access). OFF / apartment: the single master suite ⇒ byte-identical.
+    carveSuiteEnsuites(privatePlacements, suites, carve.corridorRect, droppedRooms, master?.id);
     out.push(...privatePlacements);
     console.log(
         `[D-TGL subdivide] §NO-PUBLIC-CARVE APPLIED double-loaded corridor: ` +
@@ -2020,6 +2202,9 @@ function tryNoPublicSingleLoadedCarve(
     // reaches the stair by construction, not via a synthetic stub). Falls through to the shell-axis
     // carve when absent or infeasible.
     keepOut?: Rect,
+    // §SUITE-WITHIN-PARENT — the (host → ensuite) suites to carve. OFF / apartment: the single
+    // master suite ⇒ byte-identical. ON (house upper): one per bedroom.
+    suites: readonly Suite[] = [],
 ): SubdivideResult | null {
     const keepOutCarve = keepOut ? tryCarveSingleLoadedCorridorToKeepOut(shell, keepOut, corridorWidthM) : null;
     const carve = keepOutCarve ?? tryCarveSingleLoadedCorridor(shell, corridorWidthM);
@@ -2031,11 +2216,9 @@ function tryNoPublicSingleLoadedCarve(
     // double-loaded path. The master carrying an ensuite needs masterMin+ensuiteMin of
     // along-face width so the ensuite carve leaves the master above its own floor.
     const combFaceAxis: 'x' | 'z' = carve.orientation === 'horizontal' ? 'x' : 'z';
-    const combMinAlong = (master && ensuite)
-        ? (r: ProgramRoom): number => (r.id === master.id
-            ? roomRule('master').minShortSideM + roomRule('ensuite').minShortSideM
-            : 0)
-        : undefined;
+    // §SUITE-WITHIN-PARENT — widen EVERY suite host (not just the master). OFF / apartment: the
+    // single master suite ⇒ identical to the legacy master-only widen.
+    const combMinAlong = suiteCombMinAlong(suites, master, ensuite);
     const comb = sliceZoneAlongFace(carve.privateRect, orderedPrivate, combFaceAxis, combMinAlong);
     if (!comb) return null;                               // one-face comb still infeasible → squarify
 
@@ -2045,23 +2228,9 @@ function tryNoPublicSingleLoadedCarve(
     const privatePlacements = [...comb.placements];
     droppedRooms.push(...comb.droppedRooms);
 
-    // Carve the ensuite out of the master's combed slice (master-only access).
-    if (master && ensuite && ensuiteCarveArea > 0) {
-        const masterIdx = privatePlacements.findIndex(p => p.roomId === master.id);
-        if (masterIdx >= 0) {
-            const masterP = privatePlacements[masterIdx]!;
-            const ec = tryCarveEnsuiteFromMaster(masterP.rect, ensuiteCarveArea, carve.corridorRect);
-            if (ec) {
-                privatePlacements[masterIdx] = { roomId: master.id, rect: roundRect(ec.master) };
-                privatePlacements.push({ roomId: ensuite.id, rect: roundRect(ec.ensuite) });
-            } else {
-                droppedRooms.push({
-                    roomId: ensuite.id, type: ensuite.type,
-                    shortSideM: 0, minShortSideM: floorFor(ensuite.type),
-                });
-            }
-        }
-    }
+    // §SUITE-WITHIN-PARENT — carve every suite's ensuite out of its host's combed slice
+    // (host-only access). OFF / apartment: the single master suite ⇒ byte-identical.
+    carveSuiteEnsuites(privatePlacements, suites, carve.corridorRect, droppedRooms, master?.id);
     out.push(...privatePlacements);
     console.log(
         `[D-TGL subdivide] §NO-SEAL-SINGLE-LOAD APPLIED single-loaded corridor: ` +
