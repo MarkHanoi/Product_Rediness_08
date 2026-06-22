@@ -434,7 +434,8 @@ describe('buildLayoutCommands (A6-wire)', () => {
             // room-pair space must be one of the DoorSystemTypeStore built-ins.
             const KNOWN_DOOR_IDS = new Set([
                 'dt-solid-timber', 'dt-white-primed', 'dt-glazed-timber',
-                'dt-glazed-aluminium', 'dt-fire-rated-60', 'dt-fire-rated-30',
+                'dt-glazed-aluminium', 'dt-modern-entrance-glazed',
+                'dt-fire-rated-60', 'dt-fire-rated-30',
                 'dt-steel-industrial', 'dt-aluminium-commercial',
             ]);
             const types = ['master', 'bedroom', 'living', 'kitchen', 'dining', 'bathroom',

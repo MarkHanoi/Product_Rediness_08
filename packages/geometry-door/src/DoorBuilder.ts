@@ -45,6 +45,34 @@ function makeMat(color: string, roughness = 0.5, metalness = 0, transparent = fa
     });
 }
 
+/**
+ * §DOOR-GLAZING-2026 — create a transparent GLASS material.
+ *
+ * Closes the long-standing glazing gap: until now glazed door types only
+ * tinted the (opaque) leaf colour and the glass never read as glass. This
+ * builds a genuinely transparent, low-opacity, glass-tinted material so a
+ * door system-type with `glazingOpacity < 1` / `type:'glass'` segments
+ * renders see-through.
+ *
+ * @param glazingOpacity — the TYPE's glazingOpacity (0 = clear, 1 = opaque).
+ *   Clamped to a visible-but-transparent floor (~0.18) so clear glass still
+ *   catches a highlight rather than vanishing entirely.
+ */
+function makeGlassMat(glazingOpacity: number): THREE.MeshStandardMaterial {
+    const opacity = Math.max(0.18, Math.min(1, glazingOpacity));
+    return new THREE.MeshStandardMaterial({
+        color: '#bcd2d6',       // cool, faintly-green glass tint
+        roughness: 0.05,
+        metalness: 0.0,
+        transparent: true,
+        opacity,
+        depthWrite: false,      // standard glass: don't occlude what's behind
+        polygonOffset: true,
+        polygonOffsetFactor: -1,
+        polygonOffsetUnits: -1,
+    });
+}
+
 /** Pending build task: the latest door data + previous snapshot for diff. */
 interface DoorBuildTask {
     door: DoorOpening;
@@ -116,7 +144,10 @@ export class DoorBuilder {
     private static readonly _PROPERTY_ONLY_FIELDS: ReadonlySet<keyof DoorOpening> = new Set<keyof DoorOpening>([
         'frameColor', 'leafColor',
         'fireRating', 'accessibilityType', 'mark', 'finishMaterial',
-        'frameFinish', 'leafFinish', 'systemTypeId',
+        'frameFinish', 'leafFinish',
+        // §DOOR-GLAZING-2026 — `systemTypeId` is NO LONGER property-only: the type
+        // now drives geometry (glazing / glass segments / sidelight), so a type
+        // change must trigger a full mesh rebuild, not just a colour patch.
     ]);
 
     /** §WALL-DEEP-2026 B1 — diff classifier. Mirrors WindowBuilder. */
@@ -386,6 +417,19 @@ export class DoorBuilder {
         const leafMat  = makeMat(leafColor,  0.5, 0, transparent, opacity);
         mats.push(frameMat, leafMat);
 
+        // §DOOR-GLAZING-2026 — resolve the door's system TYPE (when set + known)
+        // so the builder can honour its `glazingOpacity`, `defaultSegments`
+        // (glass vs panel rows) and optional `sidelight`. Absent / unknown type
+        // → undefined → every existing opaque door behaves exactly as before.
+        const sysType = door.systemTypeId
+            ? doorSystemTypeStore.getById(door.systemTypeId)
+            : undefined;
+        // A type is "glazed" when it declares partial glazing OR carries explicit
+        // glass segment rows. A VG opacity override forces solid (selection/ghost).
+        const glassSegments = (sysType?.defaultSegments ?? []).filter(s => s.type === 'glass');
+        const typeIsGlazed = !!sysType && opacityFactor >= 1 &&
+            (sysType.glazingOpacity < 1 || glassSegments.length > 0);
+
         // ── Frame ──────────────────────────────────────────────────────────
         // Left post
         addBox(group, frameMat, ft, h, fd, -(w / 2 - ft / 2), 0, 0);
@@ -412,6 +456,25 @@ export class DoorBuilder {
              0,
              h / 2 - 0.25,
         ];
+
+        // §DOOR-GLAZING-2026 — fixed glazed SIDELIGHT (a property of the TYPE).
+        // Splits the inner opening into [leaf | slim mullion | glazed sidelight].
+        // Only the single-leaf path supports a sidelight; a double door keeps its
+        // own meeting-mullion layout. Absent type / sidelight → no change.
+        const sidelightSpec = (door.doorType !== 'double') ? sysType?.sidelight : undefined;
+        const slMullionW = sidelightSpec ? 0.05 : 0;
+        // widthRatio is a fraction of the LEAF width; bound the sidelight so it can
+        // never starve the leaf below half the inner opening.
+        const slWidth = sidelightSpec
+            ? Math.min(innerW * 0.45, innerW * Math.max(0, sidelightSpec.widthRatio) / (1 + Math.max(0, sidelightSpec.widthRatio)))
+            : 0;
+        // Leaf occupies the remaining inner width, shifted to the LEFT of the
+        // sidelight (sidelight sits on the RIGHT of the opening). Inner opening
+        // spans X ∈ [-innerW/2, +innerW/2]; layout L→R is [leaf | mullion | sidelight].
+        const singleLeafW = innerW - slWidth - slMullionW;
+        const singleLeafX = sidelightSpec ? -innerW / 2 + singleLeafW / 2 : 0;
+        const slMullionX  = -innerW / 2 + singleLeafW + slMullionW / 2;
+        const slCenterX   = -innerW / 2 + singleLeafW + slMullionW + slWidth / 2;
 
         if (door.doorType === 'double') {
             // DW-11 FIX: double door — two half-width leaves meeting at center with a
@@ -455,13 +518,84 @@ export class DoorBuilder {
                 addBox(group, handleMat, 0.015, 0.10, 0.015, rightHandleX - 0.06, localY + 0.035, leafFront + 0.025, 'doorHandle');
             }
         } else {
-            // Single door — one full-width leaf
-            addBox(group, leafMat, innerW, innerH, leafThickness, 0, -ft / 2, 0, 'doorLeaf');
+            // Single door — one leaf (shifted off-centre when a sidelight is present).
+            // §DOOR-GLAZING-2026 — when the resolved system type is glazed, build the
+            // glass rows as a TRANSPARENT mesh (real see-through glazing) and the panel
+            // rows as the opaque (slatted) timber leaf, instead of one opaque slab.
+            const leafCY = -ft / 2;     // leaf vertical centre (head bar at top)
+            if (typeIsGlazed) {
+                const glassMat = makeGlassMat(sysType!.glazingOpacity);
+                mats.push(glassMat);
+                const rows = sysType!.defaultSegments ?? [];
+                const totalRatio = rows.reduce((acc, r) => acc + r.heightRatio, 0) || 1;
+                // Rows run TOP → BOTTOM (first segment = top of leaf, matching the
+                // DoorSystemType convention used elsewhere).
+                let cursorTop = innerH / 2;     // top edge in leaf-local Y (relative to leafCY)
+                for (const row of rows) {
+                    const rowH = innerH * (row.heightRatio / totalRatio);
+                    const rowCY = leafCY + cursorTop - rowH / 2;
+                    cursorTop -= rowH;
+                    if (row.type === 'glass') {
+                        // Optional column division: glass columns separated by slim
+                        // timber glazing bars (mullions) for the slatted-modern read.
+                        const cols = row.columnRatios && row.columnRatios.length > 0 ? row.columnRatios : [1];
+                        const colTotal = cols.reduce((a, c) => a + c, 0) || 1;
+                        const barW = cols.length > 1 ? 0.03 : 0;
+                        const glassSpan = singleLeafW - barW * (cols.length - 1);
+                        let cursorL = -singleLeafW / 2;
+                        cols.forEach((c, i) => {
+                            const colW = glassSpan * (c / colTotal);
+                            const colCX = singleLeafX + cursorL + colW / 2;
+                            // Glass pane — thinner than the leaf so the timber reads as a frame around it.
+                            addBox(group, glassMat, colW, rowH, leafThickness * 0.5, colCX, rowCY, 0, 'doorGlazing');
+                            cursorL += colW;
+                            if (i < cols.length - 1) {
+                                const barCX = singleLeafX + cursorL + barW / 2;
+                                addBox(group, leafMat, barW, rowH, leafThickness, barCX, rowCY, 0, 'doorLeaf');
+                                cursorL += barW;
+                            }
+                        });
+                        // Slim timber surround framing this glazed row (top + bottom rails).
+                        const railH = Math.min(0.06, rowH * 0.12);
+                        addBox(group, leafMat, singleLeafW, railH, leafThickness, singleLeafX, rowCY + rowH / 2 - railH / 2, 0, 'doorLeaf');
+                        addBox(group, leafMat, singleLeafW, railH, leafThickness, singleLeafX, rowCY - rowH / 2 + railH / 2, 0, 'doorLeaf');
+                    } else {
+                        // Opaque panel row — render as a stack of horizontal slats for the
+                        // modern slatted-timber leaf reading (purely visual sub-division).
+                        const slatCount = Math.max(1, Math.round(rowH / 0.18));
+                        const gap = 0.008;
+                        const slatH = (rowH - gap * (slatCount - 1)) / slatCount;
+                        let sTop = rowCY + rowH / 2;
+                        for (let s = 0; s < slatCount; s++) {
+                            const sCY = sTop - slatH / 2;
+                            addBox(group, leafMat, singleLeafW, slatH, leafThickness, singleLeafX, sCY, 0, 'doorLeaf');
+                            sTop -= slatH + gap;
+                        }
+                    }
+                }
+            } else {
+                // Non-glazed type (or VG override) — one opaque leaf, original behaviour.
+                addBox(group, leafMat, singleLeafW, innerH, leafThickness, singleLeafX, leafCY, 0, 'doorLeaf');
+            }
 
-            // Hinges on the configured side
+            // §DOOR-GLAZING-2026 — fixed glazed sidelight + its slim mullion.
+            if (sidelightSpec) {
+                const slGlassMat = makeGlassMat(sidelightSpec.glazingOpacity);
+                mats.push(slGlassMat);
+                // Slim vertical mullion between leaf and sidelight (full depth, structural).
+                addBox(group, frameMat, slMullionW, innerH, fd, slMullionX, leafCY, 0);
+                // Fixed glazed pane (thin, transparent) within a slim timber surround.
+                addBox(group, slGlassMat, slWidth, innerH, leafThickness * 0.5, slCenterX, leafCY, 0, 'doorGlazing');
+                const surround = 0.04;
+                // Sidelight surround: top + bottom rails (sides are the mullion + frame post).
+                addBox(group, frameMat, slWidth, surround, fd, slCenterX, leafCY + innerH / 2 - surround / 2, 0);
+                addBox(group, frameMat, slWidth, surround, fd, slCenterX, leafCY - innerH / 2 + surround / 2, 0);
+            }
+
+            // Hinges on the configured side (hinge against the leaf's outer post).
             const hingeX = door.hingesSide === 'left'
-                ? -(w / 2 - ft / 2)
-                :  (w / 2 - ft / 2);
+                ? singleLeafX - singleLeafW / 2 + 0.015
+                : singleLeafX + singleLeafW / 2 - 0.015;
             for (const hy of hingeY) {
                 addBox(group, _hingeMat, 0.03, 0.12, fd + 0.008, hingeX, hy, 0);
             }
@@ -473,14 +607,26 @@ export class DoorBuilder {
 
                 // Convert handleHeight (distance from sill) to group-local Y
                 const localY = door.handleHeight - h / 2;
-                const handleX = door.handleSide === 'right'
-                    ?  (w / 2 - ft - 0.06)
-                    : -(w / 2 - ft - 0.06);
+                // Handle sits near the leaf edge OPPOSITE the hinge.
+                const handleEdgeX = door.handleSide === 'right'
+                    ?  (singleLeafX + singleLeafW / 2 - 0.06)
+                    :  (singleLeafX - singleLeafW / 2 + 0.06);
 
-                // Backplate
-                addBox(group, handleMat, 0.04, 0.15, 0.01, handleX, localY, leafFront + 0.005, 'doorHandle');
-                // Grip (lever, roughly horizontal)
-                addBox(group, handleMat, 0.015, 0.10, 0.015, handleX - 0.06, localY + 0.035, leafFront + 0.025, 'doorHandle');
+                // §DOOR-GLAZING-2026 — the modern entrance type carries a LONG VERTICAL
+                // BAR handle (a tall pull, the high-end front-door reading) rather than a
+                // short lever. Detected via the sidelight marker (entrance-grade type).
+                if (sysType?.sidelight) {
+                    const barLen = Math.min(innerH * 0.55, 1.2);
+                    // Vertical bar, standing proud of the leaf face on two stand-offs.
+                    addBox(group, handleMat, 0.03, barLen, 0.03, handleEdgeX, leafCY, leafFront + 0.05, 'doorHandle');
+                    addBox(group, handleMat, 0.02, 0.02, 0.05, handleEdgeX, leafCY + barLen / 2 - 0.04, leafFront + 0.025, 'doorHandle');
+                    addBox(group, handleMat, 0.02, 0.02, 0.05, handleEdgeX, leafCY - barLen / 2 + 0.04, leafFront + 0.025, 'doorHandle');
+                } else {
+                    // Backplate
+                    addBox(group, handleMat, 0.04, 0.15, 0.01, handleEdgeX, localY, leafFront + 0.005, 'doorHandle');
+                    // Grip (lever, roughly horizontal)
+                    addBox(group, handleMat, 0.015, 0.10, 0.015, handleEdgeX - 0.06, localY + 0.035, leafFront + 0.025, 'doorHandle');
+                }
             }
         }
 

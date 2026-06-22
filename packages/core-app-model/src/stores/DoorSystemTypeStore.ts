@@ -50,6 +50,15 @@ export interface DoorSystemType {
         heightRatio: number;
         columnRatios?: number[];
     }>;
+    /**
+     * Optional fixed glazed SIDELIGHT panel beside the door leaf — a property of
+     * the TYPE (not of the door instance), consumed at geometry-build time.
+     * Absent on every existing type, so all current doors are unchanged.
+     *   • widthRatio    — sidelight width as a fraction of the door's leaf width
+     *                     (e.g. 0.35 = a panel ~1/3 the leaf width beside the leaf).
+     *   • glazingOpacity — 0 = clear glass, 1 = opaque (mirrors the leaf field).
+     */
+    sidelight?: { widthRatio: number; glazingOpacity: number };
     tags?: string[];
     ifcTypeName?: string;
     metadata: { createdAt: number; modifiedAt: number; createdBy: string; version: number };
@@ -82,6 +91,7 @@ function makeBuiltIn(
     defaultSegments?: DoorSystemType['defaultSegments'],
     tags?: string[],
     ifcTypeName?: string,
+    sidelight?: DoorSystemType['sidelight'],
 ): DoorSystemType {
     return Object.freeze({
         id, name, description, category,
@@ -92,6 +102,7 @@ function makeBuiltIn(
         defaultSegments: defaultSegments
             ? Object.freeze(defaultSegments.map(s => Object.freeze({ ...s })))
             : undefined,
+        sidelight: sidelight ? Object.freeze({ ...sidelight }) : undefined,
         tags,
         ifcTypeName,
         metadata: Object.freeze(makeMeta()),
@@ -156,6 +167,25 @@ const BUILT_IN_TYPES: DoorSystemType[] = [
         ],
         ['glazed', 'aluminium', 'commercial', 'full-light'],
         'DOOR'
+    ),
+    makeBuiltIn(
+        'dt-modern-entrance-glazed',
+        'Modern Timber Entrance (Glazed Sidelight)',
+        'glazed',
+        { name: 'Wide Timber Frame', materialColor: '#7a5230', description: 'Wide warm-walnut timber entrance frame' },
+        { name: 'Slatted Timber Leaf', materialColor: '#8a5e34', description: 'Horizontal-slat warm timber entrance leaf' },
+        0.25,
+        'High-end residential front door — wide warm-timber frame, horizontal-slat leaf, long vertical bar handle, and a fixed glazed sidelight beside the leaf.',
+        [
+            // Three-quarter glazed modern leaf: a tall clear-glass vision column
+            // running the full leaf height beside the horizontal-slatted timber panels.
+            { type: 'glass', heightRatio: 0.7, columnRatios: [0.45, 0.55] },
+            { type: 'panel', heightRatio: 0.3, columnRatios: [1] },
+        ],
+        ['glazed', 'entrance', 'front-door', 'timber', 'modern', 'sidelight', 'residential'],
+        'DOOR',
+        // Fixed glazed sidelight beside the leaf — ~38% of the leaf width, clear glass.
+        { widthRatio: 0.38, glazingOpacity: 0.25 },
     ),
     makeBuiltIn(
         'dt-fire-rated-60',

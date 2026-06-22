@@ -81,7 +81,7 @@ describe('defaultDoorSystemTypeId (T1.D)', () => {
 describe('defaultEntranceDoorSystemTypeId (§ENTRANCE-DOOR-TYPE)', () => {
     it('front / main entrance → dedicated external entrance leaf', () => {
         expect(defaultEntranceDoorSystemTypeId()).toBe(ENTRANCE_DOOR_TYPE_ID);
-        expect(defaultEntranceDoorSystemTypeId()).toBe('dt-solid-timber');
+        expect(defaultEntranceDoorSystemTypeId()).toBe('dt-modern-entrance-glazed');
     });
 
     it('entrance reason text says external / entrance', () => {
@@ -91,7 +91,8 @@ describe('defaultEntranceDoorSystemTypeId (§ENTRANCE-DOOR-TYPE)', () => {
     it('entrance id is a real door catalogue id', () => {
         const KNOWN_DOOR_IDS = new Set([
             'dt-solid-timber', 'dt-white-primed', 'dt-glazed-timber',
-            'dt-glazed-aluminium', 'dt-fire-rated-60', 'dt-fire-rated-30',
+            'dt-glazed-aluminium', 'dt-modern-entrance-glazed',
+            'dt-fire-rated-60', 'dt-fire-rated-30',
             'dt-steel-industrial', 'dt-aluminium-commercial',
         ]);
         expect(KNOWN_DOOR_IDS.has(defaultEntranceDoorSystemTypeId())).toBe(true);
@@ -160,7 +161,8 @@ describe('default-id catalogue alignment (T1.D)', () => {
     // canonical mirror.
     const KNOWN_DOOR_IDS = new Set([
         'dt-solid-timber', 'dt-white-primed', 'dt-glazed-timber',
-        'dt-glazed-aluminium', 'dt-fire-rated-60', 'dt-fire-rated-30',
+        'dt-glazed-aluminium', 'dt-modern-entrance-glazed',
+        'dt-fire-rated-60', 'dt-fire-rated-30',
         'dt-steel-industrial', 'dt-aluminium-commercial',
     ]);
     const KNOWN_WINDOW_IDS = new Set([

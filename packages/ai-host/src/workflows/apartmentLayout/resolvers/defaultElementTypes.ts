@@ -57,18 +57,18 @@ export const DEFAULT_WINDOW_TYPE_ID = 'wt-timber-casement';
 export const LIVING_PATIO_WINDOW_TYPE_ID = 'wt-aluminium-triple-glazed';
 
 /**
- * §ENTRANCE-DOOR-TYPE (founder 2026-06-11) — the product id for the apartment's
- * FRONT / main entrance door (hall/corridor ↔ building exterior).
+ * §ENTRANCE-DOOR-TYPE (founder 2026-06-11; modern-entrance 2026-06-22) — the
+ * product id for the apartment's FRONT / main entrance door
+ * (hall/corridor ↔ building exterior).
  *
- * The door catalogue (geometry-door/DoorSystemTypeStore.ts) has no dedicated
- * "external entrance door" leaf, so we tag the entrance with the heaviest,
- * most secure RESIDENTIAL leaf it carries: `dt-solid-timber` — a solid
- * hardwood door, the correct external entry reading for a dwelling (the
- * commercial `dt-aluminium-commercial` shopfront leaf is wrong for a home).
- * Distinct, documented constant so the entrance never silently inherits a
- * thin interior leaf, and so a future `dt-external-entrance` product has one
- * place to repoint. */
-export const ENTRANCE_DOOR_TYPE_ID = 'dt-solid-timber';
+ * The door catalogue (geometry-door/DoorSystemTypeStore.ts) now carries a
+ * dedicated high-end residential entrance leaf — `dt-modern-entrance-glazed`:
+ * a wide warm-timber frame, a horizontal-slat leaf, a long vertical bar
+ * handle, and a fixed GLAZED SIDELIGHT beside the leaf (the correct premium
+ * front-door reading for a dwelling). Generated houses get this modern glazed
+ * entrance automatically. Single place to repoint should a future
+ * `dt-external-entrance` product land. */
+export const ENTRANCE_DOOR_TYPE_ID = 'dt-modern-entrance-glazed';
 
 // ── Door resolver ──────────────────────────────────────────────────────────
 
@@ -148,7 +148,7 @@ export function defaultEntranceDoorSystemTypeId(): string {
 
 /** Companion to `defaultEntranceDoorSystemTypeId` — human-readable reason. */
 export function defaultEntranceDoorReason(): string {
-    return 'main external entrance (solid hardwood entry leaf)';
+    return 'main external entrance (modern glazed timber leaf + sidelight)';
 }
 
 // ── Window resolver ────────────────────────────────────────────────────────
