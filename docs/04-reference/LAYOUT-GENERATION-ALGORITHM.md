@@ -3286,3 +3286,96 @@ because a central double-loaded corridor that reaches every room buries rooms of
 window gate correctly rejects. **No L/U corridor with windows has shipped yet.** The next move is the
 **single-loaded `packRoomsAlongSpineTree`** of 19.3 — to be done test-first, gated, and browser-
 validated, NOT bolted onto a context-heavy session (this is the most-reverted code in the engine).
+
+## 20. THE TYPOLOGY PLAYBOOK — circulation patterns keyed to PLATE SHAPE (founder doctrine, 2026-06-22)
+
+> **Status:** doctrine LOCKED · founder-supplied 2026-06-22 ("I want the engine to learn from examples
+> and from failures") · this is the **prior** layer (§16 cognition stack, layer 7 "typology priors")
+> that tells the spine engine *which* circulation pattern to TARGET for a given plate, so the engine
+> stops oscillating into the windows-vs-circulation trap (§19.2). Each pattern below is a NAMED
+> use-case the engine should be able to PRODUCE and PREFER; the implementation hooks are cited so the
+> fresh-context spine pass (§18.5/§19.5) builds against these rules rather than rediscovering them.
+
+**The unifying principle (why all three patterns exist):** the trap (§19.2) is that *every habitable
+room must touch BOTH the corridor (circulation) AND the façade (window)*. A pattern is **correct** iff
+its geometry makes both true **by construction**. There is no single corridor shape that does this on
+every plate — the RIGHT shape depends on the plate's proportion. So the engine picks the pattern by
+plate shape, then the spine pack realises it.
+
+### 20.1 The decision table (plate shape → circulation pattern)
+
+| Plate shape (upper / private storey) | Circulation pattern | Stair | Why both window + corridor hold |
+|---|---|---|---|
+| **Elongated rectangle** (aspect ≳ 1.6) | **§SINGLE-LOAD-PERIPHERAL** — corridor hugs the core/stair long edge; ALL rooms in ONE band between the corridor and the far façade | end/back corner (§STAIR-WORST-ASPECT) | each room spans corridor-edge → façade-edge ⇒ touches both (§19.3) |
+| **Square / near-square** (aspect ≲ 1.6) | **§UPPER-RING-CORRIDOR** (msg 2) — stair on the MIDDLE of one façade (ideally NORTH / worst light); a CENTRAL corridor runs inward from the stair; rooms RING the perimeter around it | mid-façade, north-biased (§STAIR-WORST-ASPECT) | rooms are on the perimeter ring ⇒ every room touches the façade; the central corridor touches every room's inner edge ⇒ circulation |
+| **Fragmented** (stair keep-out splits the plate) | **§SPINE-TREE** — L/T/U corridor that threads each fragment (§18) | the fragmenting core | each leg is single-loaded against its fragment's façade |
+
+**Cross-cutting reducer — §SUITE-WITHIN-PARENT (msg 1), applies to ALL patterns:** a bedroom with an
+en-suite and/or closet is **better distribution, NOT fewer rooms**. The en-suite + closet are served
+**within** the parent (door onto the bedroom, never the corridor), so they are **NOT counted among the
+corridor-facing rooms**. This *shrinks the set of rooms competing for corridor+façade frontage*, which
+is what makes the single-load and ring patterns FIT on a compact plate. "Fewer rooms needing corridor
+access, but fully connected within — easier to manage" (founder, verbatim intent).
+
+### 20.2 §UPPER-RING-CORRIDOR — the square-plate pattern (NEW, msg 2)
+
+The founder's square/rectangular-upper rule, stated precisely so the engine can produce it:
+
+1. **Stair: middle of one façade, north-biased.** Not a corner — the MID-point of one exterior edge,
+   chosen on the **worst-aspect** (least daylight, default North) façade so the stair spends the
+   poorest frontage and the good light goes to habitable rooms. This is the existing
+   **§STAIR-WORST-ASPECT** rule (`houseLayout/stairPosition.ts`) with a **mid-edge** candidate added
+   alongside the back-corner candidate, *gated to square plates* (on an elongated plate a mid-edge
+   stair fractures the plate — §8.2.1 — so the corner stays the default there; the mid-edge candidate
+   is OFFERED only when `aspect ≲ 1.6` AND the plate is not stair-fragmented).
+2. **Corridor: central, fed from the stair.** The corridor runs inward from the stair landing and
+   distributes to every room. On a square plate it is a short central spine (or a small T/loop), NOT a
+   long single run.
+3. **Rooms: ring the perimeter around the corridor.** Every habitable room sits on the perimeter ⇒
+   every room has a façade ⇒ the window gate passes; every room's inner edge abuts the central corridor
+   ⇒ circulation passes. This is the geometric escape from §19.2 for compact plates.
+
+**Implementation hook:** `deriveCorridorSpine` (§SPINE-FIRST P1) already derives a centred run; the new
+work is (a) the **mid-façade stair candidate** in `stairPosition.ts` (square-gated), and (b) a
+**ring/perimeter pack mode** in `packRoomsAlongSpineTree` (`packRoomsAlongSpine.ts`) that places rooms
+as a perimeter ring rather than two balanced bands — sibling to the §SINGLE-LOAD-PERIPHERAL mode of
+§19.3. Both gated (default OFF) + test-first + browser-validated before default-on, per §18.5.
+
+### 20.3 §SUITE-WITHIN-PARENT — the suite reducer (NEW, msg 1)
+
+The data already exists: `bubbleGraph.ts` stamps **`ensuiteHostId`** on the en-suite room (line ~340),
+pairing it to its host bedroom/master. The defect (§19.3 "ensuite-corridor"): the spine pack currently
+**bands the en-suite off the corridor** like any other room, so (a) it wastes a corridor+façade slot
+and (b) it reads as a privacy breach (en-suite touching the corridor).
+
+**The rule:** a room with a `hostId` (en-suite, and a future `closet`) is **excluded from band
+packing** and instead **carved from a façade-side split of its host's cell** — the host keeps the
+corridor edge (corridor frontage + its own window), the served room takes the façade-side depth (its
+own window via the façade) and shares the depth-split wall with the host (the only door: host↔served).
+Both stay rectangles (no L-host) so the rect-based gates are unaffected. Fall back to normal banding
+(no drop, no regression) when the host band is too shallow to seat both at their minimum depth.
+
+**Implementation hook:** thread a `suites: Map<hostId, served[]>` into `packRoomsAlongSpineTree`; in
+`subdivideViaSpine` build it from `ensuiteHostId`, inflate the host's `targetAreaM2` by Σserved, and
+omit the served rooms from `spineRooms`; split the host's placed rect before `finish()` (so the served
+cell is clipped into `cellPolygonById` too). Gated to the spine-tree path (default OFF).
+
+### 20.4 How this trains the engine (examples → rules → gates)
+
+Per the founder's "learn from examples and from failures", each observed failure is promoted to a
+**named pattern + a gate**, never a one-off patch:
+
+- **Failure observed:** square upper plate, central double-loaded corridor → 5 rooms buried off the
+  façade → window hard-fail → engine ships the isolated-corridor legacy (§19.2). **Rule learned:**
+  §UPPER-RING-CORRIDOR (20.2) — the correct pattern for that plate class. **Gate:** the engine should
+  PREFER a candidate realising the plate's playbook pattern; add a soft objective / hard gate that a
+  square upper plate whose rooms don't all touch the façade is dispreferred (once the ring pack can
+  satisfy it — promote to hard, like the §18.6 (1) hall/served-through gates).
+- **Failure observed:** en-suite banded off the corridor (privacy + wasted frontage). **Rule learned:**
+  §SUITE-WITHIN-PARENT (20.3). **Gate:** the existing `ensuiteOnCorridor` purity signal
+  (`enumerate.ts` corridor-purity) already FLAGS it — the carve makes it pass by construction.
+
+These join the existing learned-from-failure rules already in the engine: §STAIR-DEFAULT-BIAS (central
+stair fractured the plate → always corner-bias), §RECTIFY-PROJECT-CAP (sheared seam merged rooms →
+project endpoints to the real shell), §FORCE-CORRIDOR-DIRECT (served-through bedroom → direct-access
+diagnostic + door). The playbook (20.1) is the index of which pattern each plate class should produce.

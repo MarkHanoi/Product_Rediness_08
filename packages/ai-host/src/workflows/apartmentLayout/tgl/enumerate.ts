@@ -62,7 +62,14 @@ export type HardFailedRule =
     // §CORRIDOR-PURITY (founder full circulation spec, 2026-06-17) — the corridor is a PRIVATE
     // spine: an en-suite must be master-only (never corridor-accessible), no public room may
     // hang off the corridor, and the corridor must be spine-shaped (not a blob). House path only.
-    | 'ensuite-corridor' | 'corridor-public' | 'corridor-blob';
+    | 'ensuite-corridor' | 'corridor-public' | 'corridor-blob'
+    // §CIRCULATION-HARD-GATE A3 (founder §SUITE-WITHIN-PARENT, 2026-06-22) — every PRIVATE room
+    // EXCEPT an en-suite/closet (served WITHIN its parent) must have a DIRECT emitted door onto a
+    // circulation room (corridor/hall/stair). A bedroom served THROUGH another habitable room
+    // (the inspector's "Bedroom 1 — served through Dining / Bedroom 2") is a hard failure. Reads
+    // the realised door set (not shared-wall adjacency); house path only. When EVERY strategy
+    // strands a room the §TOPO-HARD-REJECT-ALL least-bad fallback still ships (house never empty).
+    | 'served-through';
 
 /** §DIAG-MIN-AREA-GATE (tracker §68.1) — the habitable room types whose own
  *  `areaMin` is enforced as a HARD floor. A room of one of these types emitted below
@@ -368,6 +375,56 @@ export function unreachableHabitableRoomIds(args: {
     });
 }
 
+/** §CIRCULATION-HARD-GATE A3 / §SUITE-WITHIN-PARENT (founder spec, 2026-06-22) — the EXEMPT room
+ *  types: rooms served WITHIN their parent (an en-suite off its master; a future closet/storage
+ *  paired to a bedroom). These do NOT need a direct corridor/hall door — the founder's "fewer
+ *  rooms needing corridor access but connected within, easier to manage". Every OTHER private
+ *  room must reach circulation directly. (No `closet`/`storage` RoomType exists today; listed so
+ *  the gate is correct the moment one is added.) */
+const SERVED_WITHIN_PARENT_TYPES: ReadonlySet<RoomType> = new Set<RoomType>(['ensuite']);
+
+/**
+ * §CIRCULATION-HARD-GATE A3 (founder §SUITE-WITHIN-PARENT, 2026-06-22) — the PRIVATE rooms that
+ * are "served through" another room: they have NO DIRECT emitted door onto a circulation room
+ * (corridor / hall / stair), and they are NOT exempt (`SERVED_WITHIN_PARENT_TYPES`). This is the
+ * founder's hard rule that "every habitable room except en-suite/closet must have a direct door
+ * onto the corridor (or hall on the ground floor) — no served-through exceptions for anything
+ * else" (the inspector defect "Bedroom 1 — served through Dining / Bedroom 2").
+ *
+ * EMITTED-DOOR based: it reads the realised `doorOpenings` (type 'door'), NOT shared-wall
+ * adjacency — "checked on the actual emitted door set, not adjacency" (founder). Angle-independent
+ * (pure graph over room ids — no coordinates), pure + deterministic, sorted output. Exported ONLY
+ * for the test-first §CIRCULATION-HARD-GATE unit tests (a pure predicate, no P8 span — consistent
+ * with `unreachableHabitableRoomIds`, ADR-0061). The CALLER scopes it to the house path.
+ */
+export function servedThroughPrivateRoomIds(args: {
+    readonly bubble: BubbleGraph;
+    readonly doorOpenings: readonly DoorOpening[];
+}): readonly string[] {
+    const { bubble, doorOpenings } = args;
+    const typeById = new Map<string, RoomType>();
+    for (const r of bubble.rooms) typeById.set(r.id, r.type);
+    const isCirc = (t: RoomType | undefined): boolean =>
+        t !== undefined && roomRule(t).privacy === 'circulation';   // corridor / hall / stair
+
+    // The rooms that MUST reach circulation directly: every PRIVATE room not served within a parent.
+    const gated = bubble.rooms.filter(
+        r => isPrivate(r.type) && !SERVED_WITHIN_PARENT_TYPES.has(r.type),
+    );
+    if (gated.length === 0) return [];
+
+    // Which gated rooms have a DIRECT door to a circulation room (read off the emitted door set).
+    const directToCirc = new Set<string>();
+    for (const o of doorOpenings) {
+        if (o.type !== 'door') continue;
+        const [a, b] = o.betweenRoomIds as readonly [string, string?];
+        if (!a || !b) continue;
+        if (isCirc(typeById.get(a))) directToCirc.add(b);
+        if (isCirc(typeById.get(b))) directToCirc.add(a);
+    }
+    return gated.filter(r => !directToCirc.has(r.id)).map(r => r.id).sort();
+}
+
 /**
  * §TOPO-HARD-REJECT (Stage 5) — the founder's HARD topology gate predicate.
  *
@@ -625,8 +682,13 @@ function evaluateHardTopology(args: {
     /** §CORRIDOR-PURITY — the corridor-as-private-spine findings (en-suite-on-corridor /
      *  public-on-corridor / blob-shaped). All-false on the apartment path (caller gates it). */
     readonly corridorPurity: CorridorPurity;
+    /** §CIRCULATION-HARD-GATE A3 (founder §SUITE-WITHIN-PARENT) — the PRIVATE rooms (excluding an
+     *  en-suite/closet served within its parent) with NO direct emitted door onto circulation
+     *  (the "served-through" set, from `servedThroughPrivateRoomIds`). Empty on the apartment path
+     *  (caller passes [] off the house path) ⇒ byte-identical. Non-empty ⇒ Rule 'served-through'. */
+    readonly servedThroughRoomIds: readonly string[];
 }): readonly HardFailedRule[] {
-    const { bubble, frontageHardRoomIds, unroutedToCirculationRoomIds, doorOpenings, hasRoomOverlap, hasUnderMinArea, hasMissingMandatory, unreachableHabitableRoomIds, corridorStairGap, corridorHallGap, corridorPurity } = args;
+    const { bubble, frontageHardRoomIds, unroutedToCirculationRoomIds, doorOpenings, hasRoomOverlap, hasUnderMinArea, hasMissingMandatory, unreachableHabitableRoomIds, corridorStairGap, corridorHallGap, corridorPurity, servedThroughRoomIds } = args;
     const typeById = new Map<string, string>();
     for (const r of bubble.rooms) typeById.set(r.id, r.type);
 
@@ -745,6 +807,17 @@ function evaluateHardTopology(args: {
     }
     if (corridorPurity.corridorBlob) {
         failed.push('corridor-blob');
+    }
+
+    // Rule ST — §CIRCULATION-HARD-GATE A3 (founder §SUITE-WITHIN-PARENT, 2026-06-22). A private
+    // room (not an en-suite/closet served within its parent) with NO direct emitted door onto a
+    // circulation room is "served through" another room — the inspector's "Bedroom 1 — served
+    // through Dining / Bedroom 2". The founder's rule promotes this from the soft §DIAG-CORRIDOR-
+    // QUALITY `servedThrough` diagnostic to a HARD reject. House-path only (caller passes [] off
+    // the house path) so the apartment / rectilinear baseline is byte-identical; same least-bad
+    // safety net as the other corridor rules (every-strategy-strands ⇒ §TOPO-HARD-REJECT-ALL ships).
+    if (servedThroughRoomIds.length > 0) {
+        failed.push('served-through');
     }
 
     return failed;
@@ -1956,6 +2029,12 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     const corridorPurity = housePath
         ? evaluateCorridorPurity(placements, bubble.rooms, bubble.corridorId, cellPolyByIdWorld)
         : { ensuiteOnCorridor: false, publicOnCorridor: false, corridorBlob: false };
+    // §CIRCULATION-HARD-GATE A3 (founder §SUITE-WITHIN-PARENT) — the private rooms served THROUGH
+    // another room (no direct emitted corridor/hall/stair door), excluding an en-suite/closet
+    // served within its parent. House-path only ⇒ apartment baseline byte-identical.
+    const servedThroughRoomIds = housePath
+        ? servedThroughPrivateRoomIds({ bubble, doorOpenings })
+        : [];
     const hardFailedRules = evaluateHardTopology({
         bubble,
         frontageHardRoomIds: frontage.hardFindings.map(f => f.roomId),
@@ -1968,6 +2047,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         corridorStairGap,
         corridorHallGap,
         corridorPurity,
+        servedThroughRoomIds,
     });
     const hardValid = hardFailedRules.length === 0;
     // §DIAG-TOPO-GATE — per-candidate hard-gate decision line (logging only).
