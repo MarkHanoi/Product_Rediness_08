@@ -93,6 +93,26 @@ describe('§SPINE-FIRST P1 — deriveCorridorSpine', () => {
         expect(s.segments.length).toBe(1);
     });
 
+    it('§STAIR-ON-RUN — a CENTRAL stair straddling the run: the run offsets ALONGSIDE it (never through)', () => {
+        // 16×12 plate, the centred run would sit at z=6. A central stair straddles that line
+        // (z 5..7). The run must shift to hug the stair's edge so the corridor cell never overlaps
+        // the keep-out (the §DIAG-ROOM-OVERLAP Corridor↔Stair defect that zeroed the door pipeline).
+        const shell = rect(16, 12);
+        const stair: Rect = { x0: 7, z0: 5, x1: 9, z1: 7 };
+        const s = deriveCorridorSpine(shell, { stairKeepOut: stair })!;
+        const run = s.segments[0]!;
+        const half = s.widthM / 2;
+        const stripLo = run.a.z - half, stripHi = run.a.z + half;
+        const overlap = Math.min(stripHi, stair.z1) - Math.max(stripLo, stair.z0);
+        expect(overlap, `run strip [${stripLo},${stripHi}] must NOT overlap stair z[5,7]`).toBeLessThanOrEqual(0.001);
+        // …yet still ABUT the stair (within a hair) so the stair can door onto the corridor.
+        const gap = Math.min(Math.abs(stripHi - stair.z0), Math.abs(stair.z1 - stripLo));
+        expect(gap, 'run must hug the stair edge (shared wall → door)').toBeLessThanOrEqual(0.01);
+        // run endpoints still inside the shell.
+        expect(inPoly(run.a, shell)).toBe(true);
+        expect(inPoly(run.b, shell)).toBe(true);
+    });
+
     it('is deterministic (two runs identical)', () => {
         const shell = rect(13, 9);
         const stair: Rect = { x0: 11, z0: 7, x1: 13, z1: 9 };
