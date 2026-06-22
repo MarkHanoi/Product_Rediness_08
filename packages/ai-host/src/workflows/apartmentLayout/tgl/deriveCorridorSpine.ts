@@ -78,41 +78,6 @@ function verticalChord(poly: readonly Pt[], xc: number): readonly [number, numbe
     return [Math.min(...zs), Math.max(...zs)];
 }
 
-/** The stair's [lo,hi] extent on the run's PERPENDICULAR axis (z for an x-run), or null. */
-function stairBandZ(stair?: Rect): readonly [number, number] | null {
-    return stair ? [stair.z0, stair.z1] : null;
-}
-function stairBandX(stair?: Rect): readonly [number, number] | null {
-    return stair ? [stair.x0, stair.x1] : null;
-}
-
-/**
- * §STAIR-ON-RUN — offset a run centre-line so the run passes ALONGSIDE the stair, not through it.
- * `c` is the centred coordinate on the run's perpendicular axis; `lo..hi` is the shell bbox extent
- * on that axis; `band` is the stair's [lo,hi] on the same axis. When the centred run strip
- * [c±half] straddles the stair band, the run is shifted to hug the stair's near edge (so the
- * corridor abuts the stair → a door, never an overlap). The side with more remaining shell depth
- * is chosen so the opposite band still holds rooms. If the stair spans the whole depth (no clear
- * side) the centred value is kept (degenerate — caller falls back). Pure + deterministic.
- */
-function offsetRunAlongsideStair(
-    c: number, widthM: number, lo: number, hi: number, band: readonly [number, number] | null,
-): number {
-    if (!band) return c;
-    const half = widthM / 2;
-    const [bLo, bHi] = band;
-    // Already clear of the stair (corner/edge stair) ⇒ keep the centred run.
-    if (c + half <= bLo + EPS || c - half >= bHi - EPS) return c;
-    const below = bLo - half;            // run's far edge lands on the stair's lo edge (run below)
-    const above = bHi + half;            // run's near edge lands on the stair's hi edge (run above)
-    const belowFits = below - half >= lo - EPS;
-    const aboveFits = above + half <= hi + EPS;
-    if (belowFits && aboveFits) return (bLo - lo) >= (hi - bHi) ? below : above;
-    if (belowFits) return below;
-    if (aboveFits) return above;
-    return c;                            // stair spans the full depth — cannot clear
-}
-
 /**
  * Derive the corridor spine for a (convex) shell polygon. The primary run lies along the shell's
  * LONG axis, centred on the short axis; a perpendicular leg is added to reach an edge stair keep-out
@@ -137,12 +102,7 @@ export function deriveCorridorSpine(
     const segments: SpineSegment[] = [];
 
     if (primaryAxis === 'x') {
-        // §STAIR-ON-RUN — the stair is a NODE on the spine: the run must pass ALONGSIDE it
-        // (abutting → door), NEVER through it. A run centred on the shell midline that straddles
-        // a (central) stair is offset to hug the stair's near edge, so the corridor cell never
-        // overlaps the keep-out (the §DIAG-ROOM-OVERLAP Corridor↔Stair defect that corrupted the
-        // corridor → zero doors). A corner/edge stair (clear of the midline) leaves zc unchanged.
-        const zc = offsetRunAlongsideStair((bb.z0 + bb.z1) / 2, widthM, bb.z0, bb.z1, stairBandZ(opts.stairKeepOut));
+        const zc = (bb.z0 + bb.z1) / 2;
         const chord = horizontalChord(shell, zc);
         if (!chord) return null;
         let [xL, xR] = chord;
@@ -151,7 +111,7 @@ export function deriveCorridorSpine(
         segments.push({ a: { x: xL, z: zc }, b: { x: xR, z: zc } });
         addStairLegX(segments, shell, zc, xL, xR, widthM, opts.stairKeepOut);
     } else {
-        const xc = offsetRunAlongsideStair((bb.x0 + bb.x1) / 2, widthM, bb.x0, bb.x1, stairBandX(opts.stairKeepOut));
+        const xc = (bb.x0 + bb.x1) / 2;
         const chord = verticalChord(shell, xc);
         if (!chord) return null;
         let [zL, zR] = chord;

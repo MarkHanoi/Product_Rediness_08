@@ -1,14 +1,6 @@
-// §SPINE-TREE COMPETING-CANDIDATE wiring (2026-06-22). The multi-leg, polygon-native, public/private-
-// zoned corridor spine is now enumerated as a COMPETING CANDIDATE of EVERY strategy whenever spine-first
-// is active (the house path) — the SAME Pareto gates then pick the better of {legacy carve, tree}. This
-// replaced the old window.__pryzmSpineTree faith-flip: it is provably non-regressive (a tree that seals a
-// room loses on reach/circulation; a tree that connects every room beats the served-through carve) AND
-// it surfaces by default, so the founder sees the circulation-first layout without setting any toggle.
-//
-// Two invariants are tested here:
-//   1. spineFirst ON ⇒ the tree COMPETES by default (a §SPINE-TREE applied/rejected line appears) and the
-//      shipped winner NEVER draws a room across the stair keep-out (the slice-5a geometric guard).
-//   2. spineFirst OFF (apartment path) ⇒ no tree candidate, byte-identical.
+// §18 slice 4 — the §SPINE-TREE wiring (window.__pryzmSpineTree). Default OFF ⇒ no §SPINE-TREE, the
+// engine is byte-identical. ON ⇒ the multi-leg polygon-native spine runs on a SHEARED quad WITH public
+// rooms (no rect/no-public gate), connecting every habitable room to the corridor.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { enumerateLayouts, type EnumerateInput } from '../src/workflows/apartmentLayout/tgl/enumerate.js';
@@ -31,7 +23,7 @@ const setTree = (v: boolean | undefined): void => {
     g.window = { ...(g.window ?? {}), __pryzmSpineTree: v };
 };
 
-describe('§SPINE-TREE competing-candidate wiring', () => {
+describe('§18 slice 4 — §SPINE-TREE wiring', () => {
     let lines: string[];
     let spy: ReturnType<typeof vi.spyOn>;
     beforeEach(() => { lines = []; spy = vi.spyOn(console, 'log').mockImplementation((...a: unknown[]) => { lines.push(a.join(' ')); }); });
@@ -42,42 +34,44 @@ describe('§SPINE-TREE competing-candidate wiring', () => {
         keepOutRects: [STAIR], spineFirst: true, ...over,
     });
 
-    it('spineFirst ON (no toggle): §SPINE-TREE COMPETES by default on the sheared+mixed plate', () => {
-        setTree(undefined);                                   // NO window toggle — the competing candidate drives it
-        const out = enumerateLayouts(input({ seed: 'tree-default' }));
+    it('default (toggle absent): does NOT run §SPINE-TREE', () => {
+        setTree(undefined);
+        const out = enumerateLayouts(input());
         expect(out.length).toBeGreaterThan(0);
-        // The tree variant of at least one strategy must have RUN (applied or geometrically rejected) —
-        // i.e. it is now part of the pool the gates choose from, without any console toggle.
-        const treeRan = lines.some(l => l.includes('§SPINE-TREE applied') || l.includes('§SPINE-TREE rejected'));
-        expect(treeRan, 'the tree must compete by default when spineFirst is on').toBe(true);
+        expect(lines.some(l => l.includes('§SPINE-TREE applied'))).toBe(false);
     });
 
-    it('spineFirst OFF (apartment path): NO tree candidate is enumerated (byte-identical)', () => {
-        setTree(undefined);
-        const out = enumerateLayouts(input({ spineFirst: false, seed: 'no-spine' }));
+    it('toggle ON: §SPINE-TREE runs on the sheared quad WITH public rooms (no rect/no-public gate)', () => {
+        setTree(true);
+        const out = enumerateLayouts(input({ seed: 'tree-on' }));
         expect(out.length).toBeGreaterThan(0);
-        expect(lines.some(l => l.includes('§SPINE-TREE'))).toBe(false);
+        expect(lines.some(l => l.includes('§SPINE-TREE applied')), 'spine-tree must run').toBe(true);
     });
 
-    it('the shipped winner NEVER draws a room across the stair keep-out (slice-5a geometric guard)', () => {
-        setTree(undefined);
+    it('§18 slice 5a — tree ON NEVER ships a room↔stair overlap (the regression guard)', () => {
+        setTree(true);
         const out = enumerateLayouts(input({ seed: 'tree-nooverlap' }));
         expect(out.length).toBeGreaterThan(0);
-        // No room-overlap diagnostic on the winner may name the stair (the §65.1 defect the founder hit).
+        // The regression logged `§DIAG-ROOM-OVERLAP … [Dining↔Stair area=6.7m²]`. With the keep-out
+        // subtracted from the bands + the strictly-additive guard, NO room-overlap line may name the stair.
         const stairOverlap = lines.some(l => l.includes('§DIAG-ROOM-OVERLAP') && l.includes('Stair'));
         expect(stairOverlap, 'no room may overlap the stair keep-out').toBe(false);
     });
 
-    it('the console escape hatch (window.__pryzmSpineTree = true) still forces the tree on', () => {
+    it('§18 slice 5a — tree ON never ships an under-min-area habitable room on the winner', () => {
         setTree(true);
-        const out = enumerateLayouts(input({ seed: 'tree-on' }));
+        const out = enumerateLayouts(input({ seed: 'tree-minarea' }));
         expect(out.length).toBeGreaterThan(0);
-        const treeRan = lines.some(l => l.includes('§SPINE-TREE applied') || l.includes('§SPINE-TREE rejected'));
-        expect(treeRan, 'the explicit toggle must still engage the tree').toBe(true);
+        // The winner must not be a min-area-rejected layout when the tree applied (the guard falls
+        // through to legacy rather than shipping squished rooms). underMin on the winner ⇒ regression.
+        const winnerLine = lines.filter(l => l.includes('§DIAG-MIN-AREA-GATE')).pop() ?? '';
+        // Either the tree was rejected (fell through) or it applied with underMin=0; never applied+underMin>0.
+        const treeApplied = lines.some(l => l.includes('§SPINE-TREE applied'));
+        if (treeApplied) expect(winnerLine.includes('underMin=0') || winnerLine === '').toBe(true);
     });
 
-    it('deterministic: same input ⇒ identical output', () => {
-        setTree(undefined);
+    it('toggle ON: deterministic', () => {
+        setTree(true);
         const a = enumerateLayouts(input({ seed: 'tree-det' }));
         const b = enumerateLayouts(input({ seed: 'tree-det' }));
         expect(JSON.stringify(a)).toEqual(JSON.stringify(b));

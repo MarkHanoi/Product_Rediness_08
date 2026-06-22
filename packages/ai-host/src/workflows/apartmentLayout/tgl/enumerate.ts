@@ -240,15 +240,6 @@ export interface TglCandidate {
     readonly underMinAreaRooms: readonly { readonly roomId: string; readonly type: RoomType; readonly areaM2: number; readonly areaMinM2: number }[];
     readonly missingMandatoryTypes: readonly RoomType[];
     /**
-     * §STAIR-CORE-GEOMETRY (founder 2026-06-22) — true when a NON-stair EMITTED room overlaps a stair
-     * keep-out by more than the carve margin (a real room-over-the-stair-core defect). Computed on the
-     * residual-FILLED rects (the §DIAG-STAIR-OVERLAP diagnostic only checks pre-emit placements, so a
-     * residual-fill that GROWS a room into the core slips past it). The selection's GEOMETRY floor
-     * excludes such a candidate so circulation-first ranking can NEVER elevate a room-over-stair layout
-     * (the founder's hard rule). False on the apartment path (no keep-out) ⇒ byte-identical.
-     */
-    readonly roomOverlapsKeepOut: boolean;
-    /**
      * §FEASIBILITY-ALLOC (A.21.D5, 2026-06-06) — requested rooms that could NOT
      * be placed at their per-type minimum short side in this strategy, even
      * after the subdivider's area-rebalance retry. Empty in the common case.
@@ -801,13 +792,7 @@ const xfRect = (r: Rect, f: (p: Pt) => Pt): Rect => {
 };
 
 /** Build one candidate layout for a strategy. Returns null if it can't be placed. */
-function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy, forceTree = false): TglCandidate | null {
-    // §SPINE-TREE COMPETING-CANDIDATE (2026-06-22) — `forceTree` enumerates the multi-leg
-    // corridor-spine VARIANT of this strategy so it competes in the SAME Pareto pool as the
-    // legacy carve (the gates pick the better — provably non-regressive). The variant carries a
-    // DISTINCT strategy key (`+tree`) so its seed mints distinct GUIDs (no twin collision) and
-    // its §DIAG lines read separately. Off ⇒ the legacy/rect-spine candidate, byte-identical.
-    const sk = `${strategyKey(s)}${forceTree ? '+tree' : ''}`;
+function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): TglCandidate | null {
     const bb = polygonBBox(input.shellPolygon);
     const t = makeTransform(bb, s);
     const polyT = input.shellPolygon.map(t.fwd);
@@ -924,15 +909,11 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy, f
             // §SPINE-FIRST P4 — opt-in passthrough (the house orchestrator sets it from
             // window.__pryzmSpineFirst). Default off ⇒ byte-identical legacy carve.
             ...(input.spineFirst ? { spineFirst: true, shellPolygon: polyT } : {}),   // P6: real polygon for skew-clip
-            // §SPINE-TREE — the multi-leg, polygon-native, public/private-zoned corridor spine; runs
-            // only when spineFirst is also on. Engaged either as a COMPETING CANDIDATE (`forceTree`,
-            // the default path — enumerateLayouts builds a tree variant of every strategy and the
-            // Pareto gates pick the better) OR via the legacy A/B console escape hatch
-            // (window.__pryzmSpineTree = true). On the legacy (non-forceTree) candidate it is OFF, so
-            // that candidate is the byte-identical legacy/rect-spine carve it competes against.
+            // §18 slice 4 — §SPINE-TREE opt-in (browser console: window.__pryzmSpineTree = true). The
+            // multi-leg, polygon-native, public/private-zoned spine; runs only when spineFirst is also on.
+            // Default OFF ⇒ byte-identical. Read here (like §CORRIDOR-REACH) so no orchestrator plumbing.
             ...(input.spineFirst
-                && (forceTree
-                    || (globalThis as { window?: { __pryzmSpineTree?: boolean } }).window?.__pryzmSpineTree === true)
+                && (globalThis as { window?: { __pryzmSpineTree?: boolean } }).window?.__pryzmSpineTree === true
                 ? { spineTree: true, shellPolygon: polyT } : {}),
         },
     );
@@ -994,7 +975,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy, f
         // wall sweep; the EMIT placement set is assembled from it at the build site below.
         cellPolyByIdWorld = new Map(polyCells.map(c => [c.roomId, c.polygon.map(t.inv)] as const));
         console.log(
-            `[D-TGL] §POLYGON-NATIVE-ROUTE cand ${sk} sheared convex quad → ` +
+            `[D-TGL] §POLYGON-NATIVE-ROUTE cand ${strategyKey(s)} sheared convex quad → ` +
             `subdividePolygon emits ${polyCells.length} real cell(s) (gates score the ${placements.length}-room ` +
             `rect tiling unchanged; real quad → no bbox overflow)`,
         );
@@ -1010,7 +991,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy, f
         for (const [id, poly] of subRes.cellPolygonById) merged.set(id, poly.map(t.inv));
         cellPolyByIdWorld = merged;
         console.log(
-            `[D-TGL] §POLYGON-CARVE cand ${sk} folded ${subRes.cellPolygonById.size} carve-emitted ` +
+            `[D-TGL] §POLYGON-CARVE cand ${strategyKey(s)} folded ${subRes.cellPolygonById.size} carve-emitted ` +
             `cell polygon(s) into the world cell map (L-corridor / non-rect room geometry)`,
         );
     }
@@ -1171,7 +1152,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy, f
                         if (!grew) unbridged.push(sp);
                     }
                     console.log(
-                        `[D-TGL] §STAIR-SPINE-TOUCH cand ${sk} corridor=${circId} ` +
+                        `[D-TGL] §STAIR-SPINE-TOUCH cand ${strategyKey(s)} corridor=${circId} ` +
                         `stairsBridgedToCorridor=${bridged}/${stairPlacements.length}`,
                     );
 
@@ -1213,7 +1194,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy, f
                         }
                         if (grownToCorridor > 0) {
                             console.log(
-                                `[D-TGL] §STAIR-ROOM-GROW-TO-CORRIDOR cand ${sk} corridor=${circId} ` +
+                                `[D-TGL] §STAIR-ROOM-GROW-TO-CORRIDOR cand ${strategyKey(s)} corridor=${circId} ` +
                                 `grewStairToCorridor=${grownToCorridor}/${unbridged.length}`,
                             );
                             unbridged.length = 0;
@@ -1330,7 +1311,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy, f
                             stubbed++;
                         });
                         console.log(
-                            `[D-TGL] §STAIR-CIRC-STUB cand ${sk} routed ${stubbed}/${unbridged.length} ` +
+                            `[D-TGL] §STAIR-CIRC-STUB cand ${strategyKey(s)} routed ${stubbed}/${unbridged.length} ` +
                             `empty-space corridor stub(s) to otherwise-landlocked stair(s) (§65.3)`,
                         );
                     }
@@ -1372,7 +1353,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy, f
                     }
                     if (reached > 0) {
                         console.log(
-                            `[D-TGL] §CORRIDOR-REACH cand ${sk} grew ${reached}/${stairPlacements.length} ` +
+                            `[D-TGL] §CORRIDOR-REACH cand ${strategyKey(s)} grew ${reached}/${stairPlacements.length} ` +
                             `stair cell(s) to the corridor polygon (spine connects the stair)`,
                         );
                     }
@@ -1380,7 +1361,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy, f
             }
 
             console.log(
-                `[D-TGL] §STAIR-ROOM cand ${sk} emitted ${stairRooms.length} stair room(s) ` +
+                `[D-TGL] §STAIR-ROOM cand ${strategyKey(s)} emitted ${stairRooms.length} stair room(s) ` +
                 `at keep-out connected=${circId ? `→${circId}` : 'NONE'}`,
             );
         }
@@ -1441,7 +1422,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy, f
         // residualExcludeRects (the reserved cell) are NOT stair adjacency keys — only the
         // SHIPPED keep-out is the wall a landing-band shares — so we pass `input.keepOutRects`.
         const claim = claimResidualPlacements(
-            placements, buildableWorld, roomMeta, sk, input.keepOutRects,
+            placements, buildableWorld, roomMeta, strategyKey(s), input.keepOutRects,
         );
         // §RESIDUAL-CELL-CLAMP (2026-06-15) — on a RECTIFIED plate the minted fill cells were
         // computed in the BBOX frame (interior edges aligned with the rooms), but their FAÇADE
@@ -1486,7 +1467,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy, f
             const net = resolveRoomOverlaps(residualPlacements, typeByIdNet);
             if (net.resolved.length > 0 || net.dropped.length > 0) {
                 console.warn(
-                    `[D-TGL] §DIAG-OVERLAP cand ${sk} EMIT-net resolved ${net.resolved.length} ` +
+                    `[D-TGL] §DIAG-OVERLAP cand ${strategyKey(s)} EMIT-net resolved ${net.resolved.length} ` +
                     `room-room overlap(s) after residual fill — dropped=[${net.dropped.join(',') || 'none'}] ` +
                     `worstResidualM2=${net.worstResidualM2.toFixed(4)} (the residual grow/mint left an overlap; net clipped it)`,
                 );
@@ -1514,7 +1495,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy, f
             // re-claim + one net). Apartment never reaches the claim ⇒ untouched (ADR-0061).
             if (net.resolved.length > 0 || net.dropped.length > 0) {
                 const reclaim = claimResidualPlacements(
-                    residualPlacements, buildableWorld, roomMeta, `${sk}-rc`, input.keepOutRects,
+                    residualPlacements, buildableWorld, roomMeta, `${strategyKey(s)}-rc`, input.keepOutRects,
                 );
                 if (reclaim.claims.length > 0) {
                     // §RESIDUAL-CELL-CLAMP — clamp the re-claim's NEW mints to the real shell on a
@@ -1544,7 +1525,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy, f
                     // mints, minus anything the second net dropped.
                     residualMints = [...residualMints, ...rcMints].filter(m => !drop2.has(m.id));
                     console.log(
-                        `[D-TGL] §OVERLAP-RECLAIM cand ${sk} re-absorbed ${reclaim.claims.length} freed ` +
+                        `[D-TGL] §OVERLAP-RECLAIM cand ${strategyKey(s)} re-absorbed ${reclaim.claims.length} freed ` +
                         `fragment(s) after overlap clip (largestBlank ${reclaim.largestBlankBeforeM2.toFixed(1)}→${reclaim.largestBlankM2.toFixed(1)} m²)`,
                     );
                 }
@@ -1552,7 +1533,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy, f
         }
         const grownCount = claim.claims.filter(c => c.how === 'grown').length;
         console.log(
-            `[D-TGL] §DIAG-FILL-RESIDUAL cand ${sk} ` +
+            `[D-TGL] §DIAG-FILL-RESIDUAL cand ${strategyKey(s)} ` +
             `largestBlankBefore=${claim.largestBlankBeforeM2.toFixed(1)} totalBlankBefore=${claim.totalBlankBeforeM2.toFixed(1)} ` +
             `→ claimed ${claim.claims.length} fragment(s) (${grownCount} grown, ${claim.mints.length} minted) ` +
             `largestBlankAfter=${claim.largestBlankM2.toFixed(1)} totalBlankAfter=${claim.totalBlankM2.toFixed(1)} ` +
@@ -1723,7 +1704,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy, f
             ? { groundFloorWetRoomPublicFallback: true } : {}),
     });
     const graph = buildSemanticGraph(emitPlacements, segments, openings, bubble, {
-        levelId: input.levelId, seed: `${input.seed}|${sk}`, shellAreaM2: shellArea,
+        levelId: input.levelId, seed: `${input.seed}|${strategyKey(s)}`, shellAreaM2: shellArea,
         ...(input.wallHeightM !== undefined ? { wallHeightM: input.wallHeightM } : {}),
         // §POLYGON-NATIVE (Phase 3) — the REAL cell polygons drive each Space's polygon +
         // netArea (no bbox overflow). Undefined for every other path ⇒ byte-identical.
@@ -1764,7 +1745,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy, f
             .map(o => `${o.nameA}↔${o.nameB} area=${o.areaM2.toFixed(1)}m²`)
             .join(', ');
         console.log(
-            `[D-TGL] §DIAG-ROOM-OVERLAP cand ${sk} ` +
+            `[D-TGL] §DIAG-ROOM-OVERLAP cand ${strategyKey(s)} ` +
             `pairsChecked=${overlapResult.pairsChecked} overlaps=${roomOverlaps.length}` +
             `${detail ? ` [${detail}]` : ''}`,
         );
@@ -1851,7 +1832,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy, f
             return `${id}=${d < 0 ? '?' : `${d.toFixed(2)}m`}`;
         }).join(' ');
         console.log(
-            `[D-TGL] §DIAG-FRONTAGE-DIST cand ${sk} ` +
+            `[D-TGL] §DIAG-FRONTAGE-DIST cand ${strategyKey(s)} ` +
             `rectified=${frontagePerimeter.length !== input.shellPolygon.length || frontagePerimeter.some((p, i) => Math.abs(p.x - input.shellPolygon[i]!.x) > 1e-6 || Math.abs(p.z - input.shellPolygon[i]!.z) > 1e-6)} ` +
             `[${detail}]`,
         );
@@ -1877,7 +1858,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy, f
             ).length;
             const allOn = onPerimeter === hallPlacements.length;
             console.log(
-                `[D-TGL] §DIAG-HALL-PERIMETER cand ${sk} ` +
+                `[D-TGL] §DIAG-HALL-PERIMETER cand ${strategyKey(s)} ` +
                 `halls=${hallPlacements.length} perimeterAdjacent=${onPerimeter} ` +
                 `${allOn ? '✓' : '⚠'}`,
             );
@@ -1923,7 +1904,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy, f
             .map(id => `${id}(${typeById.get(id) ?? '?'})`)
             .join(',') || 'none';
         console.log(
-            `[D-TGL] §DIAG-CIRCULATION-REACH cand ${sk} ` +
+            `[D-TGL] §DIAG-CIRCULATION-REACH cand ${strategyKey(s)} ` +
             `entry=${bubble.entryId ?? 'none'} ` +
             `allHabitableReachable=${unreachableHabitable.length === 0 ? 'YES' : 'NO'} ` +
             `reachable=${habitable.length - unreachableHabitable.length}/${habitable.length} ` +
@@ -1942,7 +1923,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy, f
         const ci = measureCorridorInterior(graph);
         const ca = measureCorridorAccess(graph);
         console.log(
-            `[D-TGL] §DIAG-CORRIDOR-QUALITY cand ${sk} ` +
+            `[D-TGL] §DIAG-CORRIDOR-QUALITY cand ${strategyKey(s)} ` +
             `perimeterAbut=${ci.corridorExtWallLenM.toFixed(2)}m/${ci.corridorWallLenM.toFixed(2)}m ` +
             `interior=${ci.score.toFixed(2)} ` +
             `directAccess=${ca.directAccess}/${ca.privateRooms} servedThrough=${ca.servedThrough} ` +
@@ -1991,7 +1972,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy, f
     const hardValid = hardFailedRules.length === 0;
     // §DIAG-TOPO-GATE — per-candidate hard-gate decision line (logging only).
     console.log(
-        `[D-TGL] §DIAG-TOPO-GATE strategy=${sk} hardValid=${hardValid} ` +
+        `[D-TGL] §DIAG-TOPO-GATE strategy=${strategyKey(s)} hardValid=${hardValid} ` +
         `floor=${housePath ? (isGroundFloor ? 'ground' : 'upper') : 'apartment'} ` +
         `corridorStairGap=${corridorStairGap ? 'YES' : 'no'} corridorHallGap=${corridorHallGap ? 'YES' : 'no'} ` +
         `ensuiteOnCorr=${corridorPurity.ensuiteOnCorridor ? 'YES' : 'no'} ` +
@@ -2007,7 +1988,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy, f
             .map(r => `${r.roomId}(${r.type})=${r.areaM2.toFixed(1)}<${r.areaMinM2}`)
             .join(' ');
         console.log(
-            `[D-TGL] §DIAG-MIN-AREA-GATE cand ${sk} ` +
+            `[D-TGL] §DIAG-MIN-AREA-GATE cand ${strategyKey(s)} ` +
             `underMin=${underMinAreaRooms.length}${detail ? ` [${detail}]` : ''} ` +
             `rejected=${hasUnderMinArea ? 'YES' : 'no'}`,
         );
@@ -2020,7 +2001,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy, f
             .map(([t, n]) => `${n}×${t}`).join(',') || 'none';
         const missing = missingMandatoryTypes.join(',') || 'none';
         console.log(
-            `[D-TGL] §DIAG-MANDATORY-GATE cand ${sk} ` +
+            `[D-TGL] §DIAG-MANDATORY-GATE cand ${strategyKey(s)} ` +
             `requested=[${requested}] missing=[${missing}] ` +
             `rejected=${hasMissingMandatory ? 'YES' : 'no'}`,
         );
@@ -2035,7 +2016,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy, f
     const frontageFailIds = frontage.hardFindings.map(f => f.roomId).join(',') || 'none';
     const weighted = weightedSum(objectives, input.weights);
     console.log(
-        `[D-TGL] §DIAG-ENUM cand ${sk} weighted=${weighted.toFixed(3)} ` +
+        `[D-TGL] §DIAG-ENUM cand ${strategyKey(s)} weighted=${weighted.toFixed(3)} ` +
         `connected=${metrics.connected} shapeOK=${shapeAdmissible} topoOK=${topologyAdmissible} ` +
         `circRouted=${circulationRouted} compromises=${compromises} ` +
         `dropped=[${droppedTypes}] frontageFail=[${frontageFailIds}] ` +
@@ -2085,33 +2066,18 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy, f
                 ? { groundFloorWetRoomPublicFallback: true } : {}),
         });
         emitGraph = buildSemanticGraph(residualPlacements, emitWalls.segments, emitWalls.openings, emitBubble, {
-            levelId: input.levelId, seed: `${input.seed}|${sk}`, shellAreaM2: shellArea,
+            levelId: input.levelId, seed: `${input.seed}|${strategyKey(s)}`, shellAreaM2: shellArea,
             ...(input.wallHeightM !== undefined ? { wallHeightM: input.wallHeightM } : {}),
             ...(cellPolyByIdWorld ? { cellPolygonById: cellPolyByIdWorld } : {}),
         });
     }
 
-    // §STAIR-CORE-GEOMETRY (founder 2026-06-22) — does any NON-stair EMITTED room overlap a stair
-    // keep-out by more than the 0.05 m carve margin? Checked on the RESIDUAL-FILLED rects (a residual
-    // claim can grow a room into the core after the pre-emit §DIAG-STAIR-OVERLAP check). The 0.10 m
-    // threshold is twice the carve margin, so a legitimately abutting room (which overlaps the inflated
-    // keep-out by exactly the 0.05 m margin) is NOT flagged — only a real room-over-core (metres) is.
-    const keepOuts = input.keepOutRects ?? [];
-    const roomOverlapsKeepOut = keepOuts.length > 0 && residualPlacements.some(p => {
-        if (p.roomId.startsWith('stair')) return false;   // the stair room legitimately sits on the core
-        return keepOuts.some(ko => {
-            const ox = Math.min(p.rect.x1, ko.x1) - Math.max(p.rect.x0, ko.x0);
-            const oz = Math.min(p.rect.z1, ko.z1) - Math.max(p.rect.z0, ko.z0);
-            return ox > 0.10 && oz > 0.10;
-        });
-    });
-
     return {
-        strategy: sk, graph: emitGraph, objectives,
+        strategy: strategyKey(s), graph: emitGraph, objectives,
         weighted, rank: 0,
         compromises, connected: metrics.connected, shapeAdmissible, topologyAdmissible,
         circulationRouted, hardValid, hardFailedRules, droppedRooms, roomOverlaps, boundaries,
-        underMinAreaRooms, missingMandatoryTypes, roomOverlapsKeepOut,
+        underMinAreaRooms, missingMandatoryTypes,
     };
 }
 
@@ -2339,18 +2305,6 @@ export function enumerateLayouts(input: EnumerateInput): TglCandidate[] {
     for (const s of STRATEGIES) {
         const c = buildCandidate(input, shellArea, s);
         if (c) candidates.push(c);
-        // §SPINE-TREE COMPETING-CANDIDATE (2026-06-22) — when spine-first is active (the house path),
-        // ALSO enumerate the multi-leg corridor-spine variant of this strategy and let the SAME Pareto
-        // gates choose. This is the SOUND replacement for the old window.__pryzmSpineTree faith-flip:
-        // a tree that would seal a habitable room loses to the legacy carve on reach/circulation
-        // (preferReachComplete + the circulation objectives), while a tree that connects EVERY room to
-        // the corridor beats the served-through legacy carve — so the engine can never regress yet now
-        // ships the circulation-first layout whenever it is genuinely better. Apartment path
-        // (spineFirst absent) adds no tree candidate ⇒ byte-identical.
-        if (input.spineFirst) {
-            const treeC = buildCandidate(input, shellArea, s, true);
-            if (treeC) candidates.push(treeC);
-        }
     }
     if (candidates.length === 0) return [];
 
@@ -2525,38 +2479,6 @@ export function enumerateLayouts(input: EnumerateInput): TglCandidate[] {
                 'A bedroom must reach the circulation spine without passing through another habitable room.',
             );
             pool = reachClean as TglCandidate[];
-        }
-    }
-
-    // §CIRCULATION-FIRST (founder 2026-06-22) — circulation is the MOST critical axis ("rooms size is
-    // less important at the moment"), so among the already geometry- + viability-protected least-bad
-    // pool, prefer the candidate(s) with the FEWEST circulation hard-failures (rooms sealed / served-
-    // through, corridor↔stair / corridor↔hall gaps). This is STRICTLY a narrowing over the EXISTING
-    // pool (the proven viable/hard-valid/tier machinery that already protects the §STAIR-KEEPOUT
-    // invariant — the carved keep-out is offset from the shipped stair, so it canNOT be re-checked
-    // here; staying within the pool is what keeps it green), so it can never elevate a candidate the
-    // tier machinery rejected. It only sharpens the final pick toward the fully-circulated layout —
-    // exactly where the competing §SPINE-TREE candidate (which reaches the stair) beats the served-
-    // through legacy carve. House-only (apartment circulation rides the tiers ⇒ byte-identical). As a
-    // belt-and-braces geometry guard it also drops any pooled candidate flagged roomOverlapsKeepOut
-    // when a non-flagged one exists. Sits ABOVE §FEASIBILITY-ALLOC so circulation outranks room drops.
-    if (isHousePath) {
-        const noCore = pool.filter(c => !c.roomOverlapsKeepOut);
-        if (noCore.length > 0 && noCore.length < pool.length) pool = noCore;
-        const circFails = (c: TglCandidate): number =>
-            c.hardFailedRules.filter(r =>
-                r === 'circulation' || r === 'reach' || r === 'corridor-stair' || r === 'corridor-hall').length;
-        const minCirc = pool.reduce((m, c) => Math.min(m, circFails(c)), Infinity);
-        if (Number.isFinite(minCirc)) {
-            const circBest = pool.filter(c => circFails(c) === minCirc);
-            if (circBest.length > 0 && circBest.length < pool.length) {
-                console.log(
-                    `[D-TGL] §CIRCULATION-FIRST narrowed the least-bad pool ${pool.length}→${circBest.length} ` +
-                    `to the candidate(s) with the fewest circulation failures (minCircFails=${minCirc}); ` +
-                    `circulation ranked ABOVE room size + room drops.`,
-                );
-                pool = circBest;
-            }
         }
     }
 
