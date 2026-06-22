@@ -16,6 +16,7 @@
   },
   "include": [
     "packages/ai-host/src/workflows/residentialBuilding/**/*",
-    "packages/ai-host/src/workflows/apartmentLayout/tgl/rectDecomposition.ts"
+    "packages/ai-host/src/workflows/apartmentLayout/tgl/rectDecomposition.ts",
+    "packages/ai-host/src/workflows/apartmentLayout/types.ts"
   ]
 }
