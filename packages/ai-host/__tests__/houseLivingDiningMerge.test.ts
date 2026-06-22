@@ -131,14 +131,6 @@ describe('§DIAG-MERGE-DIVIDER — house GROUND floor: no compound Living/Dining
 
     // The open-plan cluster the program intentionally merges (kitchen-diner).
     const OPEN_PLAN: ReadonlySet<RoomType> = new Set<RoomType>(['kitchen', 'dining']);
-    // §STAIR-CORRIDOR-OPEN (founder "yes or yes", 2026-06-18) — a STAIR opening onto the
-    // corridor/hall as a WIDE DOORLESS THRESHOLD (an open passage, like the open-plan KD seam) is
-    // now ALSO a legitimately wall-less pair: the founder wants the stair to open to circulation as
-    // open space whenever the shared wall is wide enough. So a stair↔(corridor/hall) pair sharing an
-    // open bound is INTENDED, not a Living/Dining-style merge defect.
-    const CIRC: ReadonlySet<RoomType> = new Set<RoomType>(['corridor', 'hall']);
-    const stairCircOpen = (a: RoomType, b: RoomType): boolean =>
-        (a === 'stair' && CIRC.has(b)) || (b === 'stair' && CIRC.has(a));
 
     it('emits a real divider between every NON-open-plan adjacent room pair (Living/Bathroom/Corridor stay distinct)', () => {
         const rooms = ground.rooms
@@ -151,12 +143,9 @@ describe('§DIAG-MERGE-DIVIDER — house GROUND floor: no compound Living/Dining
                 const a = rooms[i]!, b = rooms[j]!;
                 const edge = sharedEdge(a.bb, b.bb);
                 if (!edge) continue;
-                // Legitimately wall-less pairs: the intentional kitchen+dining merge, OR a stair
-                // opening onto the corridor/hall as a founder-intended wide open passage
-                // (§STAIR-CORRIDOR-OPEN). Everything else MUST be divided.
+                // The ONLY legitimately wall-less pair is the intentional kitchen+dining merge.
                 const intentionalOpenPlan = OPEN_PLAN.has(a.type) && OPEN_PLAN.has(b.type);
                 if (intentionalOpenPlan) continue;
-                if (stairCircOpen(a.type, b.type)) continue;
                 if (!dividerCovers(ground.walls, edge)) {
                     merges.push(`${a.name}[${a.type}]↔${b.name}[${b.type}] (edge ${edge.axis}@${edge.at.toFixed(2)} len ${edge.len.toFixed(2)}m)`);
                 }

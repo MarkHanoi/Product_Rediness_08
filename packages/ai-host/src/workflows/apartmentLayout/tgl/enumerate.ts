@@ -1904,15 +1904,9 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     // no public room off the corridor, corridor is a spine not a blob. §POLYGON-NATIVE-SEAM (Phase 3):
     // pass the per-room cell polygons so the corridor's L-leg / a neighbour's concave edge is measured
     // against its real boundary; absent ⇒ rect path (no fixture sets it today, so byte-identical).
-    const corridorPurityRaw = housePath
+    const corridorPurity = housePath
         ? evaluateCorridorPurity(placements, bubble.rooms, bubble.corridorId, cellPolyByIdWorld)
         : { ensuiteOnCorridor: false, publicOnCorridor: false, corridorBlob: false };
-    // §SPINE-FIRST P5 — on a spine-first floor the public rooms INTENTIONALLY front the central
-    // corridor (the founder's "corridor between the public and private spaces"), so the corridor-
-    // public hard rule does not apply. Every other path is unchanged.
-    const corridorPurity = subRes.spineFirstApplied
-        ? { ...corridorPurityRaw, publicOnCorridor: false }
-        : corridorPurityRaw;
     const hardFailedRules = evaluateHardTopology({
         bubble,
         frontageHardRoomIds: frontage.hardFindings.map(f => f.roomId),

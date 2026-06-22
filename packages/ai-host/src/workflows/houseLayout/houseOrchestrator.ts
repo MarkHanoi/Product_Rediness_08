@@ -105,13 +105,10 @@ export interface HouseLayoutOptions {
      *  into `allocateProgramToStoreys` (the one place storey programs are built). ABSENT
      *  / all-undefined ⇒ the allocation is byte-identical to today (ADR-0061 I2). */
     readonly perStoreyOverrides?: ReadonlyArray<PerStoreyProgramOverride | undefined>;
-    /** §SPINE-FIRST P4/P5/P7 — DEFAULT-ON (the controller reads `window.__pryzmSpineFirst`, only
-     *  `=== false` disables it). When true EVERY storey is subdivided circulation-FIRST (derive
-     *  corridor spine → pack rooms off it). P5 (2026-06-22) extends this to the GROUND floor:
-     *  subdivideViaSpine splits PUBLIC (+ hall) onto one band and PRIVATE onto the other so the
-     *  corridor sits BETWEEN the social and sleeping zones. An all-private (upper) storey has no
-     *  public rooms ⇒ the area-balanced double-loaded pack. Any miss (no corridor / a drop / no
-     *  ring) falls through to the legacy carve. Absent/false ⇒ byte-identical. */
+    /** §SPINE-FIRST P4 (2026-06-21) — OPTIONAL opt-in (the controller reads it from
+     *  `window.__pryzmSpineFirst`). When true, all-private (upper) storeys are subdivided
+     *  circulation-FIRST (derive corridor spine → pack rooms off it); the ground floor (public
+     *  rooms) self-gates back to the legacy carve. Absent/false ⇒ byte-identical. */
     readonly spineFirst?: boolean;
 }
 
@@ -906,10 +903,9 @@ function enumeratePerStorey(
             // plate-density round-up so an explicit Ground bedrooms=1 ships EXACTLY 1
             // (was bumped to round(plateArea/130) ≥ 2). AUTO storeys leave it false.
             sp.bedroomsExplicit === true,
-            // §SPINE-FIRST P4/P5/P7 — DEFAULT-ON (from window.__pryzmSpineFirst via the controller,
-            // only `=== false` disables). Applies to EVERY storey: upper storeys area-balance the
-            // private rooms off the spine; the ground floor (P5) splits public/private across it.
-            // Any infeasible plate falls through to the legacy carve. Absent/false ⇒ byte-identical.
+            // §SPINE-FIRST P4 — opt-in (from window.__pryzmSpineFirst via the controller). The engine
+            // self-gates to all-private (upper) storeys; the ground floor (public rooms) falls through
+            // to the legacy carve. Absent/false ⇒ byte-identical.
             opts.spineFirst === true,
         );
         perStorey.push({ storeyIndex: i, options });

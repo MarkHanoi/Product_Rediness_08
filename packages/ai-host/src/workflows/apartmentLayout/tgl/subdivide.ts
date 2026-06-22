@@ -3482,14 +3482,14 @@ export function subdivideWithReport(
     const valid = rects.filter(r => rectArea(r) > EPS).sort(byAreaDesc);
     if (valid.length === 0 || graph.rooms.length === 0) return { placements: [], droppedRooms: [] };
 
-    // §SPINE-FIRST P4/P5 — REPLACE the area-first carve with the circulation-first path: derive the
-    // corridor spine from the shell + pack the rooms off it so every room AND the stair sit on a
-    // central corridor by construction. P5 (founder 2026-06-22): now runs on the GROUND floor too —
-    // subdivideViaSpine puts PUBLIC (+ hall) on one band and PRIVATE on the other, so the corridor
-    // sits BETWEEN the social and sleeping zones (the founder's vision: the corridor drives the
-    // connection to the stair + bedrooms FROM the public spaces). Any miss (no corridor / a drop /
-    // no ring) falls through to the legacy carve → strictly additive (ADR-0061).
-    if (options.spineFirst && graph.corridorId) {
+    // §SPINE-FIRST P4 (flag-gated, default off) — for an all-private (upper) storey, REPLACE the
+    // area-first carve with the circulation-first path: derive the corridor spine from the shell +
+    // pack the private rooms off it so every room AND the stair sit on a central corridor by
+    // construction. Gated on options.spineFirst AND no public rooms ("hall for public, spine for
+    // private" doctrine — the ground floor keeps the hall-hinge). Any miss (public present / no
+    // corridor / a drop / no ring) falls through to the legacy carve → strictly additive (ADR-0061).
+    if (options.spineFirst && graph.corridorId &&
+        !graph.rooms.some(r => roomRule(r.type).privacy === 'public')) {
         const bx0 = Math.min(...valid.map(r => r.x0)), bz0 = Math.min(...valid.map(r => r.z0));
         const bx1 = Math.max(...valid.map(r => r.x1)), bz1 = Math.max(...valid.map(r => r.z1));
         const bboxPoly: Pt[] = [

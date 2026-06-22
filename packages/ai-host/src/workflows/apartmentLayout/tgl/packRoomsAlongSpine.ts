@@ -114,31 +114,21 @@ function combBand(
  * Rectangular-shell core (P2). Returns null when the spine is not a straight primary run on a usable
  * shell (caller falls back to the legacy carve / P3 handles the residual cases).
  */
-export interface PackOptions {
-    /** §SPINE-FIRST P5 — PRE-SPLIT cohorts [bandA, bandB]. When given, used INSTEAD of the area-
-     *  balance split — so a MIXED (ground) floor can put PUBLIC rooms on one side of the spine and
-     *  PRIVATE on the other (the founder's "corridor between the public and private spaces"). Absent
-     *  ⇒ area-balanced (the all-private upper floor). */
-    readonly cohorts?: readonly [readonly SpineRoom[], readonly SpineRoom[]];
-}
-
 export function packRoomsAlongSpine(
     shellBbox: Rect,
     spine: SpinePath,
     rooms: readonly SpineRoom[],
-    opts: PackOptions = {},
 ): SpinePackResult | null {
     const run = spine.segments[0];
     if (!run) return null;
     const half = spine.widthM / 2;
-    const split = (): readonly [readonly SpineRoom[], readonly SpineRoom[]] => opts.cohorts ?? balanceTwo(rooms);
 
     if (spine.primaryAxis === 'x') {
         const zc = run.a.z;
         const bandA: Rect = { x0: shellBbox.x0, z0: zc + half, x1: shellBbox.x1, z1: shellBbox.z1 };  // high side (façade z1)
         const bandB: Rect = { x0: shellBbox.x0, z0: shellBbox.z0, x1: shellBbox.x1, z1: zc - half };  // low side (façade z0)
         if (bandA.z1 - bandA.z0 < EPS || bandB.z1 - bandB.z0 < EPS) return null;
-        const [cohortA, cohortB] = split();
+        const [cohortA, cohortB] = balanceTwo(rooms);
         const a = combBand(bandA, 'x', cohortA);
         const b = combBand(bandB, 'x', cohortB);
         const corridor: Rect = { x0: shellBbox.x0, z0: zc - half, x1: shellBbox.x1, z1: zc + half };
@@ -153,7 +143,7 @@ export function packRoomsAlongSpine(
     const bandA: Rect = { x0: xc + half, z0: shellBbox.z0, x1: shellBbox.x1, z1: shellBbox.z1 };       // right (façade x1)
     const bandB: Rect = { x0: shellBbox.x0, z0: shellBbox.z0, x1: xc - half, z1: shellBbox.z1 };       // left (façade x0)
     if (bandA.x1 - bandA.x0 < EPS || bandB.x1 - bandB.x0 < EPS) return null;
-    const [cohortA, cohortB] = split();
+    const [cohortA, cohortB] = balanceTwo(rooms);
     const a = combBand(bandA, 'z', cohortA);
     const b = combBand(bandB, 'z', cohortB);
     const corridor: Rect = { x0: xc - half, z0: shellBbox.z0, x1: xc + half, z1: shellBbox.z1 };
