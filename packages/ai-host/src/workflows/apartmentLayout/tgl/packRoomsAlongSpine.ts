@@ -10,7 +10,11 @@
 // skewed-shell residuals are P3. Consumes a SpinePath from deriveCorridorSpine (P1).
 
 import type { Rect } from './rectDecomposition.js';
+import { rectArea, subtractRectsFromRects } from './rectDecomposition.js';
 import type { SpinePath } from './deriveCorridorSpine.js';
+
+const DOOR_W = 0.8;
+const SNAP = 0.05;
 
 export interface SpineRoom {
     readonly id: string;
@@ -151,4 +155,75 @@ export function packRoomsAlongSpine(
     for (const r of cohortA) side[r.id] = 'A';
     for (const r of cohortB) side[r.id] = 'B';
     return { corridor, corridorCells: corridorCellsOf(corridor, spine), rooms: [...a.placements, ...b.placements], dropped: [...a.dropped, ...b.dropped], side };
+}
+
+/**
+ * §SPINE-TREE (§18 slice 1) — pack rooms off EVERY corridor segment (the straight primary run AND
+ * its legs), not just `segments[0]`, so an L/T/U corridor connects rooms in the fragments a straight
+ * run never reaches (the founder's fragmented-plate defect). The shell bbox MINUS the corridor cells
+ * (`subtractRectsFromRects`) is the set of residual BANDS, each abutting a corridor cell BY
+ * CONSTRUCTION; rooms are distributed across the bands (greedy largest-target → emptiest band, LPT)
+ * and combed along each band's corridor-shared edge so every placed room shares a corridor wall (I1)
+ * and spans to the façade (I2). Rect-based + pure; clipping the bands to the REAL sheared shell is
+ * §18 slice 3 (today the caller still gates to a rectangular shell, P8). Returns null on a degenerate
+ * spine / no residual band.
+ */
+export function packRoomsAlongSpineTree(
+    shellBbox: Rect,
+    spine: SpinePath,
+    rooms: readonly SpineRoom[],
+): SpinePackResult | null {
+    const run = spine.segments[0];
+    if (!run) return null;
+    const half = spine.widthM / 2;
+    // The primary run as a full-width corridor strip (same as packRoomsAlongSpine's corridor rect).
+    const corridor: Rect = spine.primaryAxis === 'x'
+        ? { x0: shellBbox.x0, z0: run.a.z - half, x1: shellBbox.x1, z1: run.a.z + half }
+        : { x0: run.a.x - half, z0: shellBbox.z0, x1: run.a.x + half, z1: shellBbox.z1 };
+    const corridorCells = corridorCellsOf(corridor, spine);
+
+    // Residual bands = shell bbox − every corridor strip; each abuts a corridor cell by construction.
+    const bands = subtractRectsFromRects([shellBbox], corridorCells)
+        .filter(r => rectArea(r) > EPS)
+        .sort((p, q) => rectArea(q) - rectArea(p) || p.x0 - q.x0 || p.z0 - q.z0);
+    if (bands.length === 0) return null;
+
+    // The axis to comb a band along = the direction of its SHARED edge with a corridor cell, so each
+    // slice spans the band depth and TOUCHES the corridor. Horizontal shared edge (band above/below a
+    // cell) ⇒ comb along x; vertical shared edge (band beside a cell) ⇒ comb along z. Fallback: the
+    // band's longer axis.
+    const combAxisFor = (band: Rect): 'x' | 'z' => {
+        for (const c of corridorCells) {
+            const xOv = Math.min(band.x1, c.x1) - Math.max(band.x0, c.x0);
+            const zOv = Math.min(band.z1, c.z1) - Math.max(band.z0, c.z0);
+            if (xOv > DOOR_W && (Math.abs(band.z1 - c.z0) < SNAP || Math.abs(band.z0 - c.z1) < SNAP)) return 'x';
+            if (zOv > DOOR_W && (Math.abs(band.x1 - c.x0) < SNAP || Math.abs(band.x0 - c.x1) < SNAP)) return 'z';
+        }
+        return (band.x1 - band.x0) >= (band.z1 - band.z0) ? 'x' : 'z';
+    };
+
+    // Distribute rooms across bands: LPT — largest target → the band with the most remaining area.
+    // Deterministic (target desc, id tiebreak; band ties by index). Guarantees every room assigned.
+    const remaining = bands.map(b => rectArea(b));
+    const cohorts: SpineRoom[][] = bands.map(() => []);
+    const ordered = [...rooms].sort((p, q) => q.targetAreaM2 - p.targetAreaM2 || p.id.localeCompare(q.id));
+    for (const r of ordered) {
+        let best = 0;
+        for (let i = 1; i < bands.length; i++) if (remaining[i]! > remaining[best]!) best = i;
+        cohorts[best]!.push(r);
+        remaining[best]! -= Math.max(EPS, r.targetAreaM2);
+    }
+
+    const placements: PackedRoom[] = [];
+    const dropped: string[] = [];
+    const side: Record<string, 'A' | 'B'> = {};
+    bands.forEach((band, i) => {
+        // Preserve input order WITHIN the band for deterministic slice positions.
+        const cohort = cohorts[i]!.slice().sort((p, q) => rooms.indexOf(p) - rooms.indexOf(q));
+        const res = combBand(band, combAxisFor(band), cohort);
+        placements.push(...res.placements);
+        dropped.push(...res.dropped);
+        for (const r of cohort) side[r.id] = i % 2 === 0 ? 'A' : 'B';
+    });
+    return { corridor, corridorCells, rooms: placements, dropped, side };
 }
