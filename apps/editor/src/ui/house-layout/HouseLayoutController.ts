@@ -51,12 +51,15 @@ import {
 /** How many whole-house variants the modal offers. */
 const HOUSE_OPTION_COUNT = 3;
 
-/** §SPINE-FIRST P4 — read the opt-in test toggle. Set `window.__pryzmSpineFirst = true` in the
- *  console to render the circulation-first (spine) carve on all-private upper storeys, then
- *  re-generate. Unset/false ⇒ byte-identical legacy carve. (Typed cast, not `as any` — P4-clean.) */
+/** §SPINE-FIRST P4/P7 — the circulation-first (spine) carve is now the DEFAULT for all-private upper
+ *  storeys (the corridor IS the central spine; every bedroom + the stair door off it by construction —
+ *  proven 100% circulation-sound vs the area-first 53%). The engine self-gates: only no-public
+ *  storeys take the spine path; the ground floor + apartments are unchanged. Escape hatch: set
+ *  `window.__pryzmSpineFirst = false` in the console to force the legacy carve for A/B comparison.
+ *  (Typed cast, not `as any` — P4-clean.) */
 function spineFirstEnabled(): boolean {
-    return typeof window !== 'undefined' &&
-        (window as unknown as { __pryzmSpineFirst?: boolean }).__pryzmSpineFirst === true;
+    if (typeof window === 'undefined') return true;
+    return (window as unknown as { __pryzmSpineFirst?: boolean }).__pryzmSpineFirst !== false;
 }
 
 /** Everything `requestHouseLayout` needs to compute + build a house. The shell is

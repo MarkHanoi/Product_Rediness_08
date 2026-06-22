@@ -439,6 +439,11 @@ export class HouseLayoutExecutor {
                 // §PER-STOREY-PROGRAM — the SAME per-level overrides the preview used, so
                 // the re-enumerated variant at `variantIndex` is the previewed house.
                 ...(input.perStoreyPrograms ? { perStoreyOverrides: input.perStoreyPrograms } : {}),
+                // §SPINE-FIRST P7 — match the preview: spine-first is the default for upper storeys
+                // (escape hatch `window.__pryzmSpineFirst = false`). MUST equal the controller's
+                // `spineFirstEnabled()` so the BUILT house is the previewed one.
+                spineFirst: typeof window === 'undefined' ||
+                    (window as unknown as { __pryzmSpineFirst?: boolean }).__pryzmSpineFirst !== false,
             };
             let result: HouseLayoutResult;
             if (typeof input.variantIndex === 'number' && input.variantIndex >= 0) {
