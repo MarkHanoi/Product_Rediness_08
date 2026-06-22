@@ -578,8 +578,8 @@ function tileConcave(
 
 /** Clip a polygon to the inside of a CONVEX shell ring (exact intersection via successive
  *  half-plane clips, one per shell edge). Determines each edge's inward side from the shell's
- *  winding. Pure. */
-function clipToConvexShell(poly: readonly Pt[], shell: readonly Pt[]): Pt[] {
+ *  winding. Pure. Exported for §18 (spine-tree polygon-native pack). */
+export function clipToConvexShell(poly: readonly Pt[], shell: readonly Pt[]): Pt[] {
     if (shell.length < 3) return poly.slice();
     // CCW shell ⇒ interior is to the LEFT of each directed edge (cross ≥ 0).
     const ccw = signedArea2(shell) >= 0;

@@ -102,6 +102,33 @@ describe('§SPINE-TREE — packRoomsAlongSpineTree (multi-leg room pack)', () =>
         }
     });
 
+    it('§18 slice 3 — polygon-native: room cells are clipped INSIDE a sheared shell (no bbox overflow)', () => {
+        // A convex quad (sheared) strictly inside the 0..12 × 0..10 bbox the bands are built from.
+        const SHEARED = [{ x: 0, z: 1 }, { x: 12, z: 0 }, { x: 12, z: 9 }, { x: 0, z: 10 }];
+        const straight: SpinePath = { segments: [L_SPINE.segments[0]!], widthM: 1.2, primaryAxis: 'x' };
+        const res = packRoomsAlongSpineTree(SHELL, straight, ROOMS, { shellPolygon: SHEARED })!;
+        expect(res.cellPolygonById).toBeDefined();
+        expect(res.cellPolygonById!.size).toBe(ROOMS.length);
+        // CCW point-in-convex test: every cell vertex lies inside-or-on the sheared shell.
+        const inside = (p: { x: number; z: number }): boolean => {
+            for (let i = 0; i < SHEARED.length; i++) {
+                const a = SHEARED[i]!, b = SHEARED[(i + 1) % SHEARED.length]!;
+                const cross = (b.x - a.x) * (p.z - a.z) - (b.z - a.z) * (p.x - a.x);
+                if (cross < -1e-6) return false;
+            }
+            return true;
+        };
+        for (const [id, poly] of res.cellPolygonById!) {
+            expect(poly.length, `${id} clipped away`).toBeGreaterThanOrEqual(3);
+            for (const v of poly) expect(inside(v), `${id} vertex (${v.x},${v.z}) outside the sheared shell`).toBe(true);
+        }
+    });
+
+    it('§18 slice 3 — absent shellPolygon ⇒ no cellPolygonById (rect cells, byte-identical)', () => {
+        const res = packRoomsAlongSpineTree(SHELL, L_SPINE, ROOMS)!;
+        expect(res.cellPolygonById).toBeUndefined();
+    });
+
     it('is deterministic', () => {
         const a = packRoomsAlongSpineTree(SHELL, L_SPINE, ROOMS);
         const b = packRoomsAlongSpineTree(SHELL, L_SPINE, ROOMS);

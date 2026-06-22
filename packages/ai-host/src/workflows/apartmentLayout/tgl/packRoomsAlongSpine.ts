@@ -9,12 +9,18 @@
 // (double-loaded corridor) on a RECTANGULAR shell — the highest-value common case. Legs (L/T) and
 // skewed-shell residuals are P3. Consumes a SpinePath from deriveCorridorSpine (P1).
 
-import type { Rect } from './rectDecomposition.js';
+import type { Pt, Rect } from './rectDecomposition.js';
 import { rectArea, subtractRectsFromRects } from './rectDecomposition.js';
+import { clipToConvexShell } from './polySubdivide.js';
 import type { SpinePath } from './deriveCorridorSpine.js';
 
 const DOOR_W = 0.8;
 const SNAP = 0.05;
+
+/** A rect's CCW boundary ring (matches the cell vertex order used across tgl). */
+function rectRing(r: Rect): Pt[] {
+    return [{ x: r.x0, z: r.z0 }, { x: r.x1, z: r.z0 }, { x: r.x1, z: r.z1 }, { x: r.x0, z: r.z1 }];
+}
 
 export interface SpineRoom {
     readonly id: string;
@@ -35,6 +41,11 @@ export interface SpinePackResult {
     readonly dropped: readonly string[];
     /** Diagnostic: which side ('A' high / 'B' low) each room landed on. */
     readonly side: Readonly<Record<string, 'A' | 'B'>>;
+    /** §18 slice 3 — per-room cell POLYGON clipped to the real shell (only when opts.shellPolygon is
+     *  given). The room `rect` stays the bbox-frame rect (gates/scoring); these polygons drive emission
+     *  on a sheared shell (façade edges follow the slant, interior edges unchanged ⇒ adjacency kept).
+     *  Absent ⇒ the caller lifts each rect to a cell (rectangular shell, byte-identical). */
+    readonly cellPolygonById?: ReadonlyMap<string, readonly Pt[]>;
 }
 
 /** Build the corridor cells (run rect + a rect per leg segment of the spine). */
@@ -175,6 +186,10 @@ export interface PackTreeOptions {
      *  zones). Absent ⇒ all rooms balanced across every band (the all-private upper floor). Falls back
      *  to unzoned if either side has no band (never forces a drop). */
     readonly cohorts?: readonly [readonly SpineRoom[], readonly SpineRoom[]];
+    /** §18 slice 3 — the REAL shell polygon (convex; e.g. a sheared GIS quad). When given, each packed
+     *  room cell is clipped to it (`cellPolygonById`) so the pack is polygon-native: no bbox overflow,
+     *  façade edges follow the slant, interior/corridor-shared edges unchanged. Absent ⇒ rect cells. */
+    readonly shellPolygon?: readonly Pt[];
 }
 
 export function packRoomsAlongSpineTree(
@@ -242,6 +257,20 @@ export function packRoomsAlongSpineTree(
         ? ((band.z0 + band.z1) / 2 > run.a.z ? 'A' : 'B')
         : ((band.x0 + band.x1) / 2 > run.a.x ? 'A' : 'B');
 
+    // §18 slice 3 — assemble the result; when a real shell polygon is given, clip every room cell to
+    // it (polygon-native: façade edges follow the slant, interior/corridor-shared edges unchanged).
+    const finish = (placements: PackedRoom[], dropped: string[]): SpinePackResult => {
+        let cellPolygonById: Map<string, readonly Pt[]> | undefined;
+        if (opts.shellPolygon && opts.shellPolygon.length >= 3) {
+            cellPolygonById = new Map();
+            for (const p of placements) {
+                const clipped = clipToConvexShell(rectRing(p.rect), opts.shellPolygon);
+                cellPolygonById.set(p.roomId, clipped.length >= 3 ? clipped : rectRing(p.rect));
+            }
+        }
+        return { corridor, corridorCells, rooms: placements, dropped, side, ...(cellPolygonById ? { cellPolygonById } : {}) };
+    };
+
     // §18 slice 2 — public/private zoning: cohort[0] → side-A bands, cohort[1] → side-B bands.
     if (opts.cohorts) {
         const bandsA = bands.filter(b => sideOf(b) === 'A');
@@ -251,7 +280,7 @@ export function packRoomsAlongSpineTree(
             const b = packInto(bandsB, opts.cohorts[1]);
             for (const r of opts.cohorts[0]) side[r.id] = 'A';
             for (const r of opts.cohorts[1]) side[r.id] = 'B';
-            return { corridor, corridorCells, rooms: [...a.placements, ...b.placements], dropped: [...a.dropped, ...b.dropped], side };
+            return finish([...a.placements, ...b.placements], [...a.dropped, ...b.dropped]);
         }
         // One side has no band ⇒ fall through to the unzoned pack (never force a drop for zoning).
     }
@@ -259,5 +288,5 @@ export function packRoomsAlongSpineTree(
     const all = packInto(bands, rooms);
     // Diagnostic side label = which side of the run each placed room landed on (from its own rect).
     for (const p of all.placements) side[p.roomId] = sideOf(p.rect);
-    return { corridor, corridorCells, rooms: all.placements, dropped: all.dropped, side };
+    return finish(all.placements, all.dropped);
 }
