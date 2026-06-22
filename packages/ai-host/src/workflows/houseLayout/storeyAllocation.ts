@@ -18,11 +18,24 @@
 //    room counts; the stair core is a non-room obstacle, not a program room).
 //  - 1 storey → pass-through (the input program is the single plate).
 
-import type { ApartmentProgram } from '../apartmentLayout/types.js';
+import type { ApartmentProgram, RoomType } from '../apartmentLayout/types.js';
 import type { PerStoreyProgramOverride, StoreyProgram, StoreyRole } from './types.js';
 import {
     verticalStackAcousticScore, type StoreyAcousticProfile,
 } from '../apartmentLayout/tgl/envDrivers.js';
+
+// §FORCE-CORRIDOR-DIRECT defaults (founder 2026-06-22, "circulation is the spine — without
+// circulation spaces cannot be connected"). The corridor DIRECTLY serves these room types: the door
+// pipeline (§FORCE-CORRIDOR-DIRECT in wallsAndDoors) forces a door onto the corridor for each, when a
+// corridor-adjacent wall exists (otherwise it logs §DIAG-CORRIDOR-FORCE skipped — never invents a
+// wall). This overrides the union-find reconcile's "already connected via a habitable room" skip,
+// which was leaving private rooms served-THROUGH the living room (founder's directAccess=1/5 defect).
+// EN-SUITE + CLOSET are EXCLUDED (served off the master). GROUND forces the PRIVATE rooms (public
+// spaces interconnect AND reach the hall/corridor via the hall-hinge); UPPER forces EVERY habitable
+// room (the founder's "first floor and above: ALL rooms connect to the corridor, except en-suite/
+// closet"). Safe + additive: only ADDS a corridor door where one geometrically fits.
+const GROUND_CORRIDOR_DIRECT: readonly RoomType[] = ['bedroom', 'study', 'bathroom'];
+const UPPER_CORRIDOR_DIRECT: readonly RoomType[] = ['bedroom', 'master', 'study', 'bathroom'];
 
 /** Clamp storey count to a sane single-family-house range (≥1). */
 function clampStoreyCount(n: number): number {
@@ -155,6 +168,8 @@ export function allocateProgramToStoreys(
             // entrance hall (the house's single entry). Forced ON regardless of the
             // brief flag so a brief that omits it never yields a hall-less house.
             entranceHall: true,
+            // §FORCE-CORRIDOR-DIRECT — the corridor directly serves the ground private rooms.
+            corridorDirectRoomTypes: GROUND_CORRIDOR_DIRECT,
             ...(program.roomAreas ? { roomAreas: program.roomAreas } : {}),
             ...(program.roomAreasByName ? { roomAreasByName: program.roomAreasByName } : {}),
         },
@@ -186,6 +201,9 @@ export function allocateProgramToStoreys(
                 // `enrichStoreyProgramToPlate`'s upper room-set floor), named "Landing" on
                 // upper storeys by the executor's naming pass.
                 entranceHall: false,
+                // §FORCE-CORRIDOR-DIRECT — first floor and above: EVERY habitable room (except
+                // en-suite/closet) connects DIRECTLY to the corridor spine (the founder's rule).
+                corridorDirectRoomTypes: UPPER_CORRIDOR_DIRECT,
                 ...(program.roomAreas ? { roomAreas: program.roomAreas } : {}),
                 ...(program.roomAreasByName ? { roomAreasByName: program.roomAreasByName } : {}),
             },

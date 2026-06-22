@@ -61,6 +61,20 @@ describe('allocateProgramToStoreys', () => {
         expect(upper.program.livingRoom).toBe(false);
     });
 
+    it('§FORCE-CORRIDOR-DIRECT: every storey programmes its corridor-direct room types (circulation is the spine)', () => {
+        const out = allocateProgramToStoreys(PROGRAM, 3);
+        // GROUND forces the PRIVATE rooms onto the corridor (public spaces interconnect + reach the hall).
+        expect(out[0]!.role).toBe('ground');
+        expect(out[0]!.program.corridorDirectRoomTypes).toEqual(['bedroom', 'study', 'bathroom']);
+        // UPPER storeys force EVERY habitable room (except en-suite/closet) onto the corridor.
+        for (const up of out.slice(1)) {
+            expect(up.role).toBe('upper');
+            expect(up.program.corridorDirectRoomTypes).toEqual(['bedroom', 'master', 'study', 'bathroom']);
+            // en-suite must NOT be forced to the corridor (it is served off the master).
+            expect(up.program.corridorDirectRoomTypes).not.toContain('ensuite');
+        }
+    });
+
     it('§LANDING-NOT-HALL (G14): the GROUND keeps its entrance hall; UPPER storeys get NONE', () => {
         const out = allocateProgramToStoreys(PROGRAM, 3);
         // Ground (entrance level) carries the brief's entrance hall.
