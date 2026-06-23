@@ -1627,6 +1627,131 @@ function enforceSuiteCarve(
 }
 
 /**
+ * §EN-SUITE-CARVE-IN-BOUNDS (founder P0 contract violation, 2026-06-23 — SPINE-TREE PATH) — the
+ * spine-tree return ships its OWN already-carved placements + clipped cell polygons (it bypasses
+ * the legacy `finalise`/`enforceSuiteCarve` net). This is the SPINE-equivalent in-bounds drop:
+ * for every (host → ensuite) suite, test the en-suite's EMITTED geometry — its clipped cell
+ * polygon when present (the authoritative geometry the OOB gate + wall sweep read), else its rect —
+ * against the REAL shell polygon. If the en-suite escapes the shell, DROP it (report via
+ * `droppedRooms`) and RESTORE its host WHOLE (re-merge the en-suite's footprint back into the host
+ * when the union is a clean rect; else leave the host's carved rect — still in-shell), so NO band is
+ * ever emitted past the boundary on the rotated/sheared plate. The host's cell polygon is likewise
+ * restored to its pre-carve footprint (the union ring) so its geometry fills the reclaimed area.
+ *
+ * No shell (length < 3) ⇒ identity. No suite (no `ensuiteHostId` in the graph) ⇒ identity. So the
+ * apartment + non-hotel-suite paths are BYTE-IDENTICAL (ADR-0061). Pure + deterministic.
+ */
+function dropSuitesOutOfShell(
+    placements: readonly RoomPlacement[],
+    cellPolygonById: Map<string, readonly Pt[]>,
+    graph: BubbleGraph,
+    shellPolygon: readonly Pt[] | undefined,
+): { placements: RoomPlacement[]; dropped: DroppedRoom[]; cellPolygonById: Map<string, readonly Pt[]> } {
+    const outPolys = new Map(cellPolygonById);
+    const byId = new Map<string, RoomPlacement>(placements.map(p => [p.roomId, { ...p }]));
+    const dropped: DroppedRoom[] = [];
+    if (!shellPolygon || shellPolygon.length < 3) {
+        return { placements: [...byId.values()], dropped, cellPolygonById: outPolys };
+    }
+    // The (host → ensuite) suites stamped on the bubble graph. Empty ⇒ no-op (apartment / no-suite).
+    const suites: { hostId: string; ens: ProgramRoom }[] = [];
+    for (const r of graph.rooms) {
+        if (r.type !== 'ensuite' || !r.ensuiteHostId) continue;
+        if (!graph.rooms.some(h => h.id === r.ensuiteHostId)) continue;
+        suites.push({ hostId: r.ensuiteHostId, ens: r });
+    }
+    if (suites.length === 0) {
+        return { placements: [...byId.values()], dropped, cellPolygonById: outPolys };
+    }
+    let droppedCount = 0;
+    for (const { hostId, ens } of suites) {
+        const ensP = byId.get(ens.id);
+        if (!ensP) continue;                                  // already absent (dropped upstream)
+        // The en-suite's EMITTED geometry: its clipped cell polygon when present, else its rect.
+        const ensRing = outPolys.get(ens.id) ?? rectPolygon(ensP.rect);
+        const hostP = byId.get(hostId);
+        const hostRing = hostP ? (outPolys.get(hostId) ?? rectPolygon(hostP.rect)) : undefined;
+        // In-shell iff BOTH the en-suite AND the host it leaves behind are strictly inside the shell.
+        const ensInside = polygonInsideShell(ensRing, shellPolygon);
+        const hostInside = !hostRing || polygonInsideShell(hostRing, shellPolygon);
+        if (ensInside && hostInside) continue;                // clean — keep the carved suite
+        // OUT OF BOUNDS — drop the en-suite, restore the host whole.
+        byId.delete(ens.id);
+        outPolys.delete(ens.id);
+        dropped.push({ roomId: ens.id, type: ens.type, shortSideM: 0, minShortSideM: floorFor(ens.type) });
+        droppedCount += 1;
+        if (hostP) {
+            // Re-merge the en-suite footprint into the host when the union is a clean rect (the corner
+            // carve always abuts the host on a full edge), so the host reclaims the area it donated.
+            const u: Rect = {
+                x0: Math.min(hostP.rect.x0, ensP.rect.x0), z0: Math.min(hostP.rect.z0, ensP.rect.z0),
+                x1: Math.max(hostP.rect.x1, ensP.rect.x1), z1: Math.max(hostP.rect.z1, ensP.rect.z1),
+            };
+            const unionIsRect = Math.abs(rectArea(u) - (rectArea(hostP.rect) + rectArea(ensP.rect))) < 1e-3;
+            const restored = unionIsRect ? roundRect(u) : roundRect(hostP.rect);
+            // Only adopt the merged rect when it too is in-shell; else keep the (in-shell) carved host rect.
+            const restoredInShell = polygonInsideShell(rectPolygon(restored), shellPolygon);
+            const finalRect = restoredInShell ? restored : roundRect(hostP.rect);
+            byId.set(hostId, { roomId: hostId, rect: finalRect });
+            if (outPolys.has(hostId)) outPolys.set(hostId, rectPolygon(finalRect));
+        }
+    }
+    if (droppedCount > 0) {
+        console.log(
+            `[D-TGL subdivide] §EN-SUITE-CARVE-IN-BOUNDS (spine-tree) dropped ${droppedCount} out-of-shell ` +
+            `en-suite(s); host(s) restored whole — NO band emitted past the shared shell boundary.`,
+        );
+    }
+    return { placements: [...byId.values()], dropped, cellPolygonById: outPolys };
+}
+
+/**
+ * §EN-SUITE-CARVE-IN-BOUNDS — is a polygon ring strictly inside the shell? Every vertex AND every
+ * edge-midpoint must be inside-or-on the shell (the same sampling `roomsOutOfShellRoomIds` uses, so
+ * the engine-side drop matches the OOB gate's verdict). Tolerant by `EPS` so a vertex flush to a
+ * slanted shell edge is NOT a false reject. Pure.
+ */
+function polygonInsideShell(ring: readonly Pt[], shell: readonly Pt[]): boolean {
+    if (shell.length < 3) return true;
+    if (ring.length < 2) return true;
+    let cx = 0, cz = 0;
+    for (const v of ring) { cx += v.x; cz += v.z; }
+    cx /= ring.length; cz /= ring.length;
+    const nudge = (px: number, pz: number): [number, number] => [px + (cx - px) * 1e-4, pz + (cz - pz) * 1e-4];
+    for (let i = 0; i < ring.length; i++) {
+        const a = ring[i]!, b = ring[(i + 1) % ring.length]!;
+        const [vx, vz] = nudge(a.x, a.z);
+        if (!ptInShellLocal(vx, vz, shell)) return false;
+        const [mx, mz] = nudge((a.x + b.x) / 2, (a.z + b.z) / 2);
+        if (!ptInShellLocal(mx, mz, shell)) return false;
+    }
+    return true;
+}
+
+/** §EN-SUITE-CARVE-IN-BOUNDS — point-in-shell with an on-edge tolerance (mirrors enumerate's
+ *  `ptInShell`; duplicated here as a small pure helper so subdivide stays self-contained). */
+function ptInShellLocal(x: number, z: number, poly: readonly Pt[]): boolean {
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const a = poly[i]!, b = poly[j]!;
+        const dx = b.x - a.x, dz = b.z - a.z;
+        const len2 = dx * dx + dz * dz;
+        const t = len2 > 1e-12 ? ((x - a.x) * dx + (z - a.z) * dz) / len2 : -1;
+        if (t >= -1e-6 && t <= 1 + 1e-6) {
+            const px = a.x + t * dx, pz = a.z + t * dz;
+            if (Math.hypot(x - px, z - pz) <= EPS) return true;
+        }
+    }
+    let win = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const a = poly[i]!, b = poly[j]!;
+        const intersect = ((a.z > z) !== (b.z > z)) &&
+            (x < (b.x - a.x) * (z - a.z) / ((b.z - a.z) || 1e-30) + a.x);
+        if (intersect) win = !win;
+    }
+    return win;
+}
+
+/**
  * §SUITE-WITHIN-PARENT — the `combMinAlong` callback for `sliceZoneAlongFace`: a suite HOST's
  * combed slice must be ≥ hostMin + ensuiteMin along the corridor face so the ensuite carve
  * leaves the host above its own minShortSide. GENERALISES the legacy master-only widen to all
@@ -4038,7 +4163,25 @@ export function subdivideWithReport(
                 `${label === 'single-loaded' ? 'SINGLE-LOADED peripheral' : 'MULTI-LEG'} spine (every room on the corridor; ` +
                 `cells clipped to the real shell; no stair overlap; corridorCells=${treeRes.corridorCells.length})`,
             );
-            return { placements, droppedRooms: [], ...(cellPolygonById.size ? { cellPolygonById } : {}), spineFirstApplied: true };
+            // §EN-SUITE-CARVE-IN-BOUNDS (founder P0 contract violation, 2026-06-23 — SPINE-TREE PATH) —
+            // the spine-tree return BYPASSES `finalise()` (and therefore the `enforceSuiteCarve`
+            // in-bounds net that the legacy carve runs). On a ROTATED / SHEARED shell `carveSpineSuites`
+            // carves each en-suite out of the host BAND's bbox rect; on a slanted façade that rect (and
+            // the en-suite corner cut from it) can poke PAST the boundary, and the polygon clip in
+            // `carveSpineSuites` falls back to the unclamped ring on a degenerate clip → the en-suite
+            // BANDS outside the shared shell (the founder's "En-suite 1/2/3/4 below the ground-floor
+            // boundary" defect, identical perimeter required). Run the SAME suite in-bounds drop here:
+            // any en-suite whose EMITTED cell (clipped polygon, else rect) escapes the shell is DROPPED
+            // (reported) and its host restored whole — NEVER a band past the boundary. No shell / no
+            // suite ⇒ no-op (byte-identical: the apartment + non-suite paths carry no `ensuiteHostId`).
+            const shellForSuiteBounds = options.shellPolygonForBounds ?? options.shellPolygon;
+            const bounded = dropSuitesOutOfShell(placements, cellPolygonById, graph, shellForSuiteBounds);
+            return {
+                placements: bounded.placements,
+                droppedRooms: bounded.dropped,
+                ...(bounded.cellPolygonById.size ? { cellPolygonById: bounded.cellPolygonById } : {}),
+                spineFirstApplied: true,
+            };
         };
 
         // Attempt 1 — SINGLE-LOADED peripheral on a compact plate (the §19.3 cure). On any miss fall
@@ -4130,7 +4273,18 @@ export function subdivideWithReport(
                     `droppedOutOfShell=${droppedSpine.length} ` +
                     `(every private room + the stair on the central corridor by construction; out-of-shell cells dropped, never banded past the boundary)`,
                 );
-                return { placements, droppedRooms: droppedSpine, ...(cellPolygonById.size ? { cellPolygonById } : {}), spineFirstApplied: true };
+                // §EN-SUITE-CARVE-IN-BOUNDS (spine-first rect path) — this branch is gated to an axis-
+                // aligned RECTANGULAR shell (shell == bbox), so an en-suite can't overflow; the suite net
+                // is a strict no-op here (byte-identical) and is applied only for uniform safety with the
+                // sheared spine-tree path above.
+                const shellForSuiteBounds = options.shellPolygonForBounds ?? options.shellPolygon;
+                const bounded = dropSuitesOutOfShell(placements, cellPolygonById, graph, shellForSuiteBounds);
+                return {
+                    placements: bounded.placements,
+                    droppedRooms: [...droppedSpine, ...bounded.dropped],
+                    ...(bounded.cellPolygonById.size ? { cellPolygonById: bounded.cellPolygonById } : {}),
+                    spineFirstApplied: true,
+                };
             }
         }
         console.log('[D-TGL subdivide] §SPINE-FIRST skipped (infeasible on this plate) — legacy carve.');

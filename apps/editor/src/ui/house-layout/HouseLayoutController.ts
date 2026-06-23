@@ -62,18 +62,28 @@ function spineFirstEnabled(): boolean {
     return (window as unknown as { __pryzmSpineFirst?: boolean }).__pryzmSpineFirst !== false;
 }
 
-/** §SPINE-TREE + §HOTEL-SUITES DEFAULT-ON (founder flip 2026-06-22). The pure engine peeks
- *  `window.__pryzmSpineTree` / `__pryzmHotelSuites` DIRECTLY (=== true) at generate time, so we
- *  flip them on by defaulting those globals to `true` here — the single-loaded corridor + the
- *  hotel-style ensuite suites become the default for every house. Escape hatch (A/B): set
- *  `window.__pryzmSpineTree = false` / `window.__pryzmHotelSuites = false` in the console.
- *  P4-clean (narrow cast, not `as any`); only sets when UNDEFINED so an explicit false sticks.
- *  Engine code + its 2942 tests are untouched (they run with window undefined ⇒ unchanged). */
+/** §SPINE-TREE DEFAULT-ON (founder flip 2026-06-22) + §HOTEL-SUITES DEFAULT-OFF (founder
+ *  revert 2026-06-23). The pure engine peeks `window.__pryzmSpineTree` / `__pryzmHotelSuites`
+ *  DIRECTLY (=== true) at generate time.
+ *
+ *  §HOTEL-SUITES-DEFAULT-OFF (founder defect, 2026-06-23): the 2026-06-22 flip turned hotel-style
+ *  suites ON for EVERY house. On a normal 2-bed brief that minted ONE en-suite PER (grown) bedroom
+ *  — the founder saw "Master 8 m² + 3 bedrooms + FOUR En-suites + a 73 m² corridor", and on a
+ *  ROTATED plate the extra en-suites BANDED PAST the shared shell (the absolutely-forbidden
+ *  out-of-bounds defect). Hotel-suites is the engine's most-reverted area; it is NOT what a plain
+ *  "2 bed 1 bath house" wants. So we revert it to DEFAULT-OFF — the upper floor is now a normal
+ *  bedrooms + bath set (no per-bedroom en-suite explosion). The founder can opt IN per-session with
+ *  `window.__pryzmHotelSuites = true` in the console. The single-loaded corridor (§SPINE-TREE) is a
+ *  GOOD circulation pattern and is NOT the defect, so it STAYS default-on.
+ *
+ *  P4-clean (narrow cast, not `as any`); only sets the spine-tree default when UNDEFINED so an
+ *  explicit false sticks. Engine code + its tests are untouched (they run with window undefined). */
 function enableSpineTreeAndSuiteDefaults(): void {
     if (typeof window === 'undefined') return;
     const w = window as unknown as { __pryzmSpineTree?: boolean; __pryzmHotelSuites?: boolean };
     if (w.__pryzmSpineTree === undefined) w.__pryzmSpineTree = true;
-    if (w.__pryzmHotelSuites === undefined) w.__pryzmHotelSuites = true;
+    // §HOTEL-SUITES-DEFAULT-OFF — do NOT default-enable hotel suites. Left undefined ⇒ the engine's
+    // `=== true` peek is false ⇒ suite mode OFF (a clean bedrooms+bath upper floor). Opt-in only.
 }
 
 /** Everything `requestHouseLayout` needs to compute + build a house. The shell is

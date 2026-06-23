@@ -343,14 +343,16 @@ export class HouseLayoutExecutor {
             runtime.events?.emit('pryzm:toast', { message, severity });
         };
         try {
-            // §SPINE-TREE + §HOTEL-SUITES default-ON (founder flip 2026-06-22) — the pure engine
-            // peeks these window globals directly (=== true); default them on so a DIRECT console
-            // build (bypassing the modal/controller) matches the previewed single-loaded corridor +
-            // ensuite suites. Only sets when UNDEFINED (explicit false sticks). P4-clean narrow cast.
+            // §SPINE-TREE default-ON (founder flip 2026-06-22) + §HOTEL-SUITES DEFAULT-OFF (founder
+            // revert 2026-06-23) — the pure engine peeks these window globals directly (=== true).
+            // Default the single-loaded corridor ON so a DIRECT console build matches the previewed
+            // circulation. Do NOT default-enable hotel suites: on a plain 2-bed brief they minted one
+            // en-suite PER grown bedroom (the founder's "Master 8 m² + 4 En-suites + 73 m² corridor",
+            // with en-suites BANDING PAST the shell on a rotated plate). Hotel-suites is opt-in only
+            // (`window.__pryzmHotelSuites = true`). Only sets when UNDEFINED. P4-clean narrow cast.
             if (typeof window !== 'undefined') {
                 const w = window as unknown as { __pryzmSpineTree?: boolean; __pryzmHotelSuites?: boolean };
                 if (w.__pryzmSpineTree === undefined) w.__pryzmSpineTree = true;
-                if (w.__pryzmHotelSuites === undefined) w.__pryzmHotelSuites = true;
             }
             const storeyCount = Math.max(1, Math.floor(input.storeyCount || 1));
             const floorToFloorM = input.floorToFloorM && input.floorToFloorM > 0 ? input.floorToFloorM : DEFAULT_FLOOR_TO_FLOOR_M;
