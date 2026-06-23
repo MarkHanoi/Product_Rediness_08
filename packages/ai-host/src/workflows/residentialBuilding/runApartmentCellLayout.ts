@@ -225,10 +225,21 @@ export function scaleCellProgram(pinned: ApartmentProgram, cellAreaM2: number): 
     // count's grossMax keeps the pinned count (the engine's own envelope-fit growth
     // may then grow it, but never beyond the pin's bedrooms here — we don't request more
     // than the typology asks). A cell below every band's grossMin lands at studio (0).
+    // §RESI-PROGRAM-SLACK (founder "over-programmed / 0 apartments", 2026-06-23) — require the
+    // cell to exceed the band's grossMin by a CIRCULATION + WALL margin before keeping a bedroom
+    // count. A cell sized at EXACTLY grossMin lays the dwelling out at ~100% fill (fillRatio ≈ 1.01),
+    // leaving NO room for the comb corridor + partition walls, so the engine drops a mandatory room
+    // and HARD-rejects (the founder's "T3 no layout — over-programmed", every cell rejected). The
+    // dwelling's habitable gross + its circulation + wall thickness needs ~12% headroom, so we accept
+    // a bedroom count only when the cell clears grossMin × SLACK; otherwise we step down (an 85 m²
+    // cell whose 3-bed grossMin is 85 becomes a comfortable 2-bed that actually lays out). Studio
+    // floor is unchanged. Pure + deterministic.
+    const SLACK = 1.12;
     let beds = pinnedBeds;
     for (let b = pinnedBeds; b >= 0; b--) {
         const d = apartmentDimensionsFor(b);
-        if (cellAreaM2 >= d.grossMin - 1e-6) { beds = b; break; }
+        const needM2 = b === 0 ? d.grossMin : d.grossMin * SLACK;   // studio keeps its bare floor
+        if (cellAreaM2 >= needM2 - 1e-6) { beds = b; break; }
         beds = 0; // smaller than even the studio min — clamp to studio, engine soft-fails if truly degenerate
     }
     // A studio (0-bed) request must keep bathrooms ≥ 1 so the program still has a wet
