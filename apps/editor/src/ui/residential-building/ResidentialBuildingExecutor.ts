@@ -780,6 +780,12 @@ export class ResidentialBuildingExecutor {
                             sillHeight: 0,
                             elementId: createId('door'),
                             doorType: 'double',    // wide double-leaf — the building's front door
+                            // §RESI-ENTRANCE-GLASS (founder 2026-06-23) — the main entrance is a
+                            // GLAZED residential front door (warm-timber frame + fixed glazed
+                            // sidelight), not the default Solid Timber. Stamps the built-in
+                            // residential glazed entrance type; the door committer resolves its
+                            // frame/leaf/glazing finish from DoorSystemTypeStore.
+                            systemTypeId: 'dt-modern-entrance-glazed',
                         },
                     }]));
                 }, { levelIds: [levelId], totalElementCount: 1, skipRedetectRooms: true });
