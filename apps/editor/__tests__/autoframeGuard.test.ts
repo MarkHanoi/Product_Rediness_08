@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import {
     isDrawToolActive,
     shouldSuppressAutoFrameWhileDrawing,
-} from '../autoframeGuard';
+} from '../src/engine/views/autoframeGuard';
 
 describe('autoframeGuard — §AUTOFRAME-NO-HIJACK-WHILE-DRAWING', () => {
     describe('isDrawToolActive (pure)', () => {
