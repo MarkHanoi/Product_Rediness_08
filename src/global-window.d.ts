@@ -79,7 +79,6 @@ declare global {
     openingStore?: any;
     beamStore?: any;
     stairStore?: any;
-    liftStore?: any;
     columnStore?: any;
     gridStore?: any;
     ifcModelStore?: any;

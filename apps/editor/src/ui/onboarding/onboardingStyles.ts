@@ -744,6 +744,28 @@ export const ONBOARDING_STYLES = `
   accent-color: #6600ff;
   cursor: pointer;
 }
+/* §RESI-LIVE-SLIDERS — the live layout preview pane (apartment count + mix, updated as you drag). */
+.os-onboarding-overlay .os-resi-preview {
+  margin-top: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid rgba(102, 0, 255, 0.18);
+  border-radius: 0.5rem;
+  background: rgba(102, 0, 255, 0.05);
+  min-height: 2.4rem;
+}
+.os-onboarding-overlay .os-resi-preview-head {
+  font-size: 0.85rem;
+  color: rgba(20, 10, 40, 0.85);
+}
+.os-onboarding-overlay .os-resi-preview-head strong { color: #6600ff; font-variant-numeric: tabular-nums; }
+.os-onboarding-overlay .os-resi-preview-mix {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: rgba(20, 10, 40, 0.6);
+  margin-top: 0.2rem;
+}
+.os-onboarding-overlay .os-resi-preview-warn { font-size: 0.75rem; color: #b91c1c; margin-top: 0.2rem; }
+.os-onboarding-overlay .os-resi-preview-hint { font-size: 0.8rem; color: rgba(20, 10, 40, 0.5); }
 .os-onboarding-overlay .os-typo-chips {
   display: flex;
   flex-wrap: wrap;

@@ -65,6 +65,8 @@ import { geocodeAddress } from '../site/geocodeAddress.js';
 import { generateApartmentFromBoundary } from '../apartment-layout/apartmentFromBoundary.js';
 import { generateHouseFromBoundary, type FootprintPoint } from '../house-layout/houseFromBoundary.js';
 import { generateResidentialFromBoundary } from '../residential-building/residentialFromBoundary.js';
+import { buildResidentialCardModel } from '../residential-building/residentialCardModel.js';
+import { orchestrateResidentialBuilding } from '@pryzm/ai-host';
 import { makeDraggable } from '../makeDraggable.js';
 import { makeResizable } from '../makeResizable.js';
 
@@ -930,6 +932,65 @@ class OnboardingStepController {
         form.appendChild(actions);
 
         body.appendChild(form);
+
+        // §RESI-LIVE-SLIDERS (2/2) — LIVE LAYOUT PREVIEW. On every slider / typology / floor change,
+        // debounce-run the PURE orchestrator on the drawn footprint and show the resulting apartment
+        // COUNT + typology MIX + net area, so the founder sees the layout FOLLOW the sliders in real
+        // time. Display-only — NO scene mutation (mirrors the controller's P3/P6 preview rule); the real
+        // build still happens on submit. The orchestrator is pure + fast (ms), so a 180 ms debounce keeps
+        // dragging smooth. Core/corridor use the controller's defaults (6×4 m core, 1.5 m corridor) so the
+        // live count MATCHES the committed build.
+        const preview = document.createElement('div');
+        preview.className = 'os-resi-preview';
+        preview.setAttribute('data-testid', 'onboarding-resi-preview');
+        body.appendChild(preview);
+
+        const numV = (v: string, d: number): number => { const n = Number(v); return Number.isFinite(n) ? n : d; };
+        const renderLivePreview = (): void => {
+            const footprint = this.readParcelFootprint();
+            if (!footprint) { preview.innerHTML = `<span class="os-resi-preview-hint">Draw a plot to preview the layout.</span>`; return; }
+            let minM2 = numV(minInput.value, seedMin);
+            let maxM2 = numV(maxInput.value, seedMax);
+            if (maxM2 < minM2) { const t = minM2; minM2 = maxM2; maxM2 = t; }
+            const floors = Math.max(1, Math.min(20, Math.round(numV(floorsInput.value, seedFloors))));
+            if (!(typoState.T1 || typoState.T2 || typoState.T3 || typoState.T4)) {
+                preview.innerHTML = `<span class="os-resi-preview-hint">Pick at least one apartment type to preview.</span>`; return;
+            }
+            try {
+                const result = orchestrateResidentialBuilding({
+                    footprint,
+                    upperLevels: floors,
+                    coreWidthM: 6, coreDepthM: 4, corridorWidthM: 1.5,
+                    minApartmentAreaM2: minM2,
+                    maxApartmentAreaM2: maxM2,
+                    typologies: { T1: typoState.T1, T2: typoState.T2, T3: typoState.T3, T4: typoState.T4 },
+                });
+                if (result.status !== 'ok') {
+                    preview.innerHTML = `<span class="os-resi-preview-hint">No layout fits at this size — try a larger size band or fewer floors.</span>`; return;
+                }
+                const card = buildResidentialCardModel(result);
+                const mix = new Map<string, number>();
+                for (const f of card.floors) for (const a of f.apartments) if (a.status === 'ok') mix.set(a.typology, (mix.get(a.typology) ?? 0) + 1);
+                const mixStr = [...mix.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([t, n]) => `${t}×${n}`).join(' · ') || '—';
+                preview.innerHTML =
+                    `<div class="os-resi-preview-head"><strong>${card.totalApartments}</strong> apartment(s) · ` +
+                    `<strong>${Math.round(card.totalNetAreaM2)}</strong> m² net · ${card.upperLevels} residential floor(s)</div>` +
+                    `<div class="os-resi-preview-mix">${mixStr}</div>` +
+                    (card.totalRejected > 0 ? `<div class="os-resi-preview-warn">${card.totalRejected} unit(s) couldn't fit at this size</div>` : ``);
+            } catch (err) {
+                preview.innerHTML = `<span class="os-resi-preview-hint">Live preview unavailable.</span>`;
+                console.warn('[onboarding-step] residential live preview threw (non-fatal):', err);
+            }
+        };
+        let previewTimer: ReturnType<typeof setTimeout> | undefined;
+        const scheduleLivePreview = (): void => {
+            if (previewTimer) clearTimeout(previewTimer);
+            previewTimer = setTimeout(renderLivePreview, 180);
+        };
+        this.addCleanup(() => { if (previewTimer) clearTimeout(previewTimer); });
+        for (const el of [minInput, maxInput, floorsInput]) el.addEventListener('input', scheduleLivePreview);
+        chips.querySelectorAll('button').forEach((b) => b.addEventListener('click', scheduleLivePreview));
+        renderLivePreview();   // initial paint from the seeded values
 
         const onSubmit = (e: Event): void => {
             e.preventDefault();

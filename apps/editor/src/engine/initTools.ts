@@ -164,9 +164,6 @@ export interface ToolsParams {
     stairTypeStore: any;
     stairLandingStore: any;
     stairRailingStore: any;
-    liftStore?: any;
-    liftTypeStore?: any;
-    liftMeshBuilder?: any;
     gridStore: any;
     curtainWallStoreInstance: any;
     curtainPanelStoreInstance: any;
@@ -229,7 +226,6 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
         runtime,
         wallStore, slabStore, columnStoreInstance, beamStore,
         stairStore, stairTypeStore, stairLandingStore, stairRailingStore,
-        liftStore, liftTypeStore,
         gridStore, curtainWallStoreInstance, curtainPanelStoreInstance,
         roofStore, plumbingStore, furnitureStore, handrailStore, openingStore,
         wallSystemTypeStore, slabSystemTypeStore, ceilingStore, floorStore, roomStore,
@@ -485,7 +481,7 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
         projectContext,
         stores: {
             wallStore, slabStore, columnStore: columnStoreInstance, gridStore,
-            stairStore, liftStore, liftTypeStore, beamStore,
+            stairStore, beamStore,
             curtainWallStore: curtainWallStoreInstance,
             curtainPanelStore: curtainPanelStoreInstance,
             roofStore, plumbingStore, furnitureStore, handrailStore, openingStore,
@@ -785,7 +781,7 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
         projectContext,
         stores: {
             wallStore: wallTool.getWallStore(), slabStore, columnStore, gridStore,
-            stairStore, liftStore, liftTypeStore, beamStore,
+            stairStore, beamStore,
             curtainWallStore: window.curtainWallStore || {}, // TODO(TASK-08)
             curtainPanelStore: window.curtainPanelStore, // TODO(TASK-08)
             roofStore, plumbingStore, furnitureStore, handrailStore, openingStore,

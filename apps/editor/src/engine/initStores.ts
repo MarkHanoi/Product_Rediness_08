@@ -51,14 +51,6 @@ export interface AllStores {
      * publishes on the standard window + storeEventBus channels.
      */
     stairTypeStore?:   unknown;
-    /**
-     * Residential-building multi-family — vertical-circulation (lift) stores.
-     * Registered under the canonical 'verticalCirculation' type key so the
-     * CreateVerticalCirculationCommand + selection + deletion resolve the lift.
-     * Optional — bootstraps that don't supply them simply skip the lines.
-     */
-    liftStore?:        unknown;
-    liftTypeStore?:    unknown;
     curtainWallStore:  unknown;
     curtainPanelStore: unknown;
     doorStore:         unknown;
@@ -101,11 +93,6 @@ export function registerAllStores(stores: AllStores): void {
     // StoreRegistry.getStoreForType('stair-type').  Optional — older
     // bootstraps that don't supply the instance simply skip this line.
     if (stores.stairTypeStore) r('stair-type', stores.stairTypeStore);
-    // Residential-building multi-family — register the lift store under its
-    // canonical element-type key so the CreateVerticalCirculationCommand,
-    // selection + generic deletion resolve it (mirror of the stair lines).
-    if (stores.liftStore) r('verticalCirculation', stores.liftStore);
-    if (stores.liftTypeStore) r('lift-type', stores.liftTypeStore);
     r('curtainwall',   stores.curtainWallStore);
     r('curtain-panel', stores.curtainPanelStore);
     r('door',          stores.doorStore);
