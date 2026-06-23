@@ -229,6 +229,13 @@ export class ProjectBrowserPanel {
         root.className = 'phub-container';
 
         const dispatch = (action: string) => {
+            // §HUB-DISPATCH (2026-06-23) — definitive console signal for the founder.
+            // If §HUB-CLICK logs but this does not, the click listener never reached
+            // dispatch; if this logs runtimeEvents=false, the emit is hitting a null
+            // bus (window.runtime not yet assigned) and the action will be lost.
+            console.log(
+                `[ProjectHub] §HUB-DISPATCH emitted=${action} runtimeEvents=${!!window.runtime?.events}`,
+            );
             // §BACK-TO-PROJECT (2026-05-23) — navigation actions are emitted DIRECTLY on
             // the platform-lifetime window bus, not only via pryzm-hub-action →
             // PlatformProjectBrowser.handleHubMenuAction. The relay depends on the
@@ -295,7 +302,11 @@ export class ProjectBrowserPanel {
                 <span class="phub-item-label">${label}</span>
                 ${badge ? `<span class="phub-item-badge">${badge}</span>` : ''}
             `;
-            btn.addEventListener('click', (e) => { e.stopPropagation(); dispatch(action); });
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                console.log(`[ProjectHub] §HUB-CLICK action=${action}`); // proves the leaf click listener fired
+                dispatch(action);
+            });
             return btn;
         };
 

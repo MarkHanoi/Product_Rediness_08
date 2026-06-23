@@ -24,6 +24,7 @@
 import { apiFetch } from '@pryzm/core-app-model';
 import { workspaceController, WorkspaceMode } from '../WorkspaceController';
 import { UiPreferences } from '../UiPreferences';
+import { onRuntimeEvent } from '../../engine/runtimeEventBridge'; // §HUB-SUBSCRIBE-DEFER
 import type { ShellCtx } from './PlatformShellTypes';
 import type { PlatformSaveController } from './PlatformSaveController';
 import type { PlatformVersionController } from './PlatformVersionController';
@@ -142,8 +143,26 @@ export class PlatformProjectBrowser {
         // Projects" and "Sign out" always respond even when the mode-switcher
         // DOM node is absent (e.g. when the toolbar is hidden).
         // C06 §1 compliant — no cross-layer imports; event bus only.
-        window.runtime?.events?.on('pryzm-hub-action', (p: { action: string }) => { // F.events.15
-            if (p.action) this.handleHubMenuAction(p.action);
+        //
+        // §HUB-SUBSCRIBE-DEFER (2026-06-23) — THE SHARED ROOT CAUSE of "the whole
+        // PROJECT HUB → Export & Print menu does nothing". This subscription is
+        // the SINGLE point every left-rail hub action funnels through: the rail
+        // panel's dispatch() emits `pryzm-hub-action` and ONLY this listener turns
+        // that into handleHubMenuAction(...). PlatformProjectBrowser is constructed
+        // inside the EARLY PlatformShell (src/main.ts bootPlatform, at landing time)
+        // — that runs BEFORE the engine boots and BEFORE engineLauncher.bootstrap()
+        // assigns `window.runtime` (line ~126). So a plain
+        // `window.runtime?.events?.on(...)` here silently no-opped against
+        // `undefined` and was NEVER registered → every Export&Print item (and
+        // Back-to-Projects, Sign-out, etc.) emitted onto a bus nobody listened on.
+        // This is the exact null-at-mount race; it kills ALL items at once, which
+        // matches "none work, including Export IFC/GLB". Use the deferred bridge so
+        // the subscription QUEUES if runtime is null and drains via
+        // flushRuntimeEventListeners() once the engine boots.
+        onRuntimeEvent('pryzm-hub-action', (payload: unknown) => { // F.events.15
+            const action = (payload as { action?: string } | undefined)?.action;
+            console.log(`[ProjectHub] §HUB-HANDLE received action=${action ?? '(none)'} → handleHubMenuAction`);
+            if (action) this.handleHubMenuAction(action);
         });
 
         const switcher = this.toolbarInner.querySelector('#plat-mode-switcher');
