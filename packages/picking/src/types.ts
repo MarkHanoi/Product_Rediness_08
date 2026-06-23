@@ -136,6 +136,15 @@ export interface GpuPickRenderer {
   ): void;
   /** Allocate / reallocate a render target.  Tests return a fake. */
   createRenderTarget(width: number, height: number): THREE.WebGLRenderTarget;
+  /**
+   * §SELECT-PICK-RESOLUTION — the GPU's max single-texture dimension
+   * (`gl.getParameter(MAX_TEXTURE_SIZE)`, surfaced by THREE as
+   * `renderer.capabilities.maxTextureSize`).  Used as the ONLY hard cap on the
+   * auto-sized pick render target: the target is sized to the full device-pixel
+   * viewport (`viewport × dpr`) and clamped to this, NOT to an arbitrary fixed
+   * cap.  Optional so fakes/headless callers can omit it (the strategy falls
+   * back to a conservative 4096 default, the WebGL2 guaranteed minimum). */
+  readonly maxTextureSize?: number;
 }
 
 export interface PickContext {

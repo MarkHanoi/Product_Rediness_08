@@ -260,6 +260,8 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 return {
                     get width()  { return r.domElement.width;  },
                     get height() { return r.domElement.height; },
+                    // §SELECT-PICK-RESOLUTION — GPU max texture dimension (see SelectionManager).
+                    get maxTextureSize() { return (r as any).capabilities?.maxTextureSize ?? 4096; },
                     renderToTarget: (scene: THREE.Scene, camera: THREE.Camera, target: THREE.WebGLRenderTarget, mat: THREE.Material | null) => {
                         const prev = r.getRenderTarget(); const prevMat = (r as any).overrideMaterial;
                         r.setRenderTarget(target); (r as any).overrideMaterial = mat;

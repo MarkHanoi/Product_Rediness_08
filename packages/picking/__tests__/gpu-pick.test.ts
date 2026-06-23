@@ -2,7 +2,11 @@
 
 import { describe, expect, it } from 'vitest';
 import * as THREE from '@pryzm/renderer-three/three';
-import { GpuPickStrategy } from '../src/gpu-pick.js';
+import {
+  GpuPickStrategy,
+  computePickTargetSize,
+  chooseNearestThinSlot,
+} from '../src/gpu-pick.js';
 import {
   encodeIndexToRGBA,
   type ElementRegistry,
@@ -475,5 +479,134 @@ describe('GpuPickStrategy depth readback (Task 2.4 / R10 / C04 §3)', () => {
     };
     const result = strategy.pick({ x: 50, y: 50 }, ctx);
     expect(result).toBeNull(); // null from pickInternal, not a crash
+  });
+});
+
+// ---------------------------------------------------------------------------
+// §SELECT-PICK-RESOLUTION — pure target-size computation
+// (viewport×dpr, clamped to GPU maxTextureSize; NOT a fixed 1280)
+// ---------------------------------------------------------------------------
+
+describe('computePickTargetSize (§SELECT-PICK-RESOLUTION)', () => {
+  it('sizes the pick target to the FULL viewport at dpr=1 (1:1, not the old 1280 cap)', () => {
+    // The founder's exact case: 1910-wide viewport that the old code clamped to
+    // 1280 (0.67×). With maxTextureSize=8192 it must now be the full viewport.
+    const { width, height } = computePickTargetSize(1910, 915, 1, 8192);
+    expect(width).toBe(1910);
+    expect(height).toBe(915);
+    // pick:rendered = target / (viewport × dpr) must be >= 1.0
+    expect(width / (1910 * 1)).toBeGreaterThanOrEqual(1.0);
+  });
+
+  it('multiplies by devicePixelRatio so HiDPI is still >= 1:1 with the rendered image', () => {
+    const { width, height } = computePickTargetSize(1000, 800, 2, 8192);
+    expect(width).toBe(2000);
+    expect(height).toBe(1600);
+  });
+
+  it('clamps to GPU maxTextureSize on extreme 4K/retina, preserving aspect ratio', () => {
+    // 3840×2160 @ dpr 2 → 7680×4320 ideal, but GPU max is 4096.
+    const { width, height } = computePickTargetSize(3840, 2160, 2, 4096);
+    expect(Math.max(width, height)).toBeLessThanOrEqual(4096);
+    expect(width).toBe(4096); // longer axis pinned to the cap
+    // Aspect ratio preserved within rounding (3840/2160 = 16:9).
+    expect(height / width).toBeCloseTo(2160 / 3840, 2);
+  });
+
+  it('never under-samples below CSS resolution even when dpr is reported < 1', () => {
+    const { width } = computePickTargetSize(1000, 500, 0.5, 8192);
+    expect(width).toBeGreaterThanOrEqual(1000);
+  });
+
+  it('is deterministic and never returns a zero dimension', () => {
+    const a = computePickTargetSize(1, 1, 1, 1);
+    const b = computePickTargetSize(1, 1, 1, 1);
+    expect(a).toEqual(b);
+    expect(a.width).toBeGreaterThanOrEqual(1);
+    expect(a.height).toBeGreaterThanOrEqual(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// §SELECT-THIN-WINS — pure nearest / thin-element disambiguation ring scan
+// ---------------------------------------------------------------------------
+
+/**
+ * Build an RGBA id-buffer for a (bw × bh) window. `fill(px, py)` returns a slot
+ * index (0 = background); the byte buffer is encoded via encodeIndexToRGBA.
+ */
+function makeIdBuffer(
+  bw: number,
+  bh: number,
+  fill: (px: number, py: number) => number,
+): Uint8Array {
+  const buf = new Uint8Array(bw * bh * 4);
+  for (let py = 0; py < bh; py++) {
+    for (let px = 0; px < bw; px++) {
+      const [r, g, b, a] = encodeIndexToRGBA(fill(px, py));
+      const i = (py * bw + px) * 4;
+      buf[i] = r; buf[i + 1] = g; buf[i + 2] = b; buf[i + 3] = a;
+    }
+  }
+  return buf;
+}
+
+describe('chooseNearestThinSlot (§SELECT-THIN-WINS)', () => {
+  // Window is a 5×5 neighbourhood whose top-left target pixel is (0,0);
+  // cursor at the centre (2,2).
+  const BW = 5, BH = 5, X0 = 0, Y0 = 0, CX = 2, CY = 2;
+
+  it('returns the centre slot unchanged for a confident direct hit (whole window one slot)', () => {
+    const buf = makeIdBuffer(BW, BH, () => 7);
+    const { slot } = chooseNearestThinSlot(buf, BW, BH, X0, Y0, CX, CY, 7);
+    expect(slot).toBe(7);
+  });
+
+  it('snaps to the nearest non-background slot when the centre is background', () => {
+    // A thin vertical column (slot 9) one column LEFT of the cursor; rest empty.
+    const buf = makeIdBuffer(BW, BH, (px) => (px === 1 ? 9 : 0));
+    const { slot } = chooseNearestThinSlot(buf, BW, BH, X0, Y0, CX, CY, 0);
+    expect(slot).toBe(9);
+  });
+
+  it('THIN column in front beats the WALL behind when the cursor just misses the column', () => {
+    // Cursor centre lands on the wall (slot 1, fills the window) EXCEPT a 1px
+    // wide column (slot 2 — the front column) sitting one pixel left of centre.
+    // The column footprint (5px) << wall footprint (20px) and it is within the
+    // tie distance, so the thinner front element must win.
+    const wall = 1, column = 2;
+    const buf = makeIdBuffer(BW, BH, (px) => (px === 1 ? column : wall));
+    const { slot } = chooseNearestThinSlot(buf, BW, BH, X0, Y0, CX, CY, wall);
+    expect(slot).toBe(column);
+  });
+
+  it('does NOT steal a confident centre hit for a thin element far away in the ring', () => {
+    // Cursor on the wall (slot 1) everywhere except a thin column (slot 2) far at
+    // the window edge (px=0, 2px from cursor edge but beyond TIE on the far side
+    // via a gap). Here the column touches px=0 only on the top row → distance > tie.
+    const wall = 1, column = 2;
+    const buf = makeIdBuffer(BW, BH, (px, py) => (px === 0 && py === 0 ? column : wall));
+    const { slot } = chooseNearestThinSlot(buf, BW, BH, X0, Y0, CX, CY, wall);
+    // The far corner column is outside the tie radius → the confident wall hit stays.
+    expect(slot).toBe(wall);
+  });
+
+  it('returns background (0) for an entirely empty window', () => {
+    const buf = makeIdBuffer(BW, BH, () => 0);
+    const { slot } = chooseNearestThinSlot(buf, BW, BH, X0, Y0, CX, CY, 0);
+    expect(slot).toBe(0);
+  });
+
+  it('is deterministic on equal distance + equal footprint (lower slot id wins)', () => {
+    // Two single-pixel slots equidistant from the cursor (one left, one right).
+    const buf = makeIdBuffer(BW, BH, (px, py) => {
+      if (py === CY && px === CX - 1) return 5;
+      if (py === CY && px === CX + 1) return 3;
+      return 0;
+    });
+    const a = chooseNearestThinSlot(buf, BW, BH, X0, Y0, CX, CY, 0);
+    const b = chooseNearestThinSlot(buf, BW, BH, X0, Y0, CX, CY, 0);
+    expect(a.slot).toBe(b.slot);
+    expect(a.slot).toBe(3); // lower id wins the deterministic tie-break
   });
 });
