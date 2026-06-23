@@ -98,17 +98,7 @@ describe('§AUTOFRAME-NO-HIJACK-WHILE-DRAWING — plan-view fit-on-first-draw', 
     });
 });
 
-// ── Regression sentinel: core-app-model has no self-firing plan-camera fit ───────────
-describe('§AUTOFRAME-NO-HIJACK-WHILE-DRAWING — core-app-model fit is pure (documented)', () => {
-    it('fitToDrawing is an imperative setter on PlanViewCanvas, never self-invoked', async () => {
-        // Importing the module must not, by side effect, schedule or run any fit.
-        // (PlanViewCanvas.fitToDrawing only mutates camera state when CALLED — verified
-        // by source inspection: zero internal call sites in packages/core-app-model.)
-        const mod = await import('@pryzm/core-app-model');
-        // The class is exported; fitToDrawing exists on its prototype as a plain method.
-        // We don't construct it (needs a real 2D canvas), but assert the export shape so a
-        // refactor that removes/renames the method — or replaces it with an auto-firing
-        // subscriber — surfaces here.
-        expect(typeof mod).toBe('object');
-    });
-});
+// NOTE: the prior "core-app-model fit is pure" sentinel (a heavy dynamic import asserting
+// only `typeof mod === 'object'`) was removed — it added no behavioral coverage and was
+// slow/brittle under happy-dom. The investigation result it documented is captured in the
+// file header comment above; the behavioral guard is locked by the suite above.

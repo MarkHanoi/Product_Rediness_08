@@ -98,7 +98,7 @@ function mkWall(bl: BL, thickness: number): WallData {
         thickness,
         baseOffset: 0,
         openings: [],
-        metadata: { createdAt: 1 },
+        metadata: { createdAt: 1, modifiedAt: 1, createdBy: 'test', version: 1 },
     } as unknown as WallData;
 }
 
