@@ -73,6 +73,7 @@ import { ColumnTool } from '@pryzm/geometry-column';
 import { BeamTool } from '@pryzm/input-host';
 import { StairTool } from '@pryzm/geometry-stair';
 import { StairPath3DToolHandler } from './views/plantools/StairPath3DToolHandler';
+import { shouldSuppressAutoFrameWhileDrawing } from './views/autoframeGuard';
 import { singleVolumeWallProducer } from './singleVolumeWallProducer';
 import { OpeningTool } from '@pryzm/input-host';
 import { AnnotationManager, obcAnnotationAdapter } from '@pryzm/plugin-annotations';
@@ -1880,6 +1881,15 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             // updated before zoomToAll() reads scene bounds (same 300ms posture
             // as the §13-CAM split-view path).
             setTimeout(() => {
+                // §AUTOFRAME-NO-HIJACK-WHILE-DRAWING (2026-06-23) — if a draw tool
+                // is still active when this deferred frame lands, the user is mid-draw
+                // (first element appearing, scene 0→1). Drawing must never move the
+                // camera; suppress. Explicit zoom-to-fit + project-open framing are
+                // unaffected (they do not pass through this handler).
+                if (shouldSuppressAutoFrameWhileDrawing()) {
+                    console.log('[initTools] §3D-FRAME-ON-VIEW-SWITCH: suppressed — a draw tool is active (no camera hijack while drawing).');
+                    return;
+                }
                 try {
                     zoomToAll();
                     console.log('[initTools] §3D-FRAME-ON-VIEW-SWITCH: framed 3D camera on first 3D-view activation.');
