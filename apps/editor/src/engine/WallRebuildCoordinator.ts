@@ -946,7 +946,7 @@ export class WallRebuildCoordinator {
                                     ? `over-extend spike (preLen=${_preLen.toFixed(3)}m → newLen=${_newLen.toFixed(3)}m)`
                                     : `lateral pivot (${(_lateral * 1000).toFixed(0)}mm)`;
                             // eslint-disable-next-line no-console
-                            console.warn(`[WallRebuildCoordinator] §POST-RESOLVE-PRESERVE kept committed baseline for ${wallId} — post-openings re-resolve would ${_why}`);
+                            console.warn(`[WallRebuildCoordinator] §POST-RESOLVE-PRESERVE held ${wallId} STABLE — caught a post-openings ${_why} and re-anchored to source (rendered + persisted geometry unchanged; the rejected re-resolve is NOT applied)`);
                         }
                     }
 
@@ -975,7 +975,13 @@ export class WallRebuildCoordinator {
                         const __dLen = __newLen - __preLen;
                         const __traceId = (globalThis as unknown as { __pryzmTraceWall?: string }).__pryzmTraceWall;
                         const __traced = !!__traceId && wallId.includes(__traceId);
-                        if (__traced || Math.abs(__dLen) > 0.30 || __lat > 0.05) {
+                        // §DIAG-WALL-SPIKE fires ONLY when the guard did NOT preserve (a
+                        // genuinely concerning move that WILL be applied) or on an explicit
+                        // trace. A preserved wall is held stable and already reported by the
+                        // calm §POST-RESOLVE-PRESERVE line above — emitting SPIKE for it too is
+                        // a false alarm (the `new`/`lateral` numbers describe the REJECTED
+                        // re-resolve, not the rendered geometry), so it is suppressed here.
+                        if (__traced || ((Math.abs(__dLen) > 0.30 || __lat > 0.05) && !_preserve)) {
                             const __tag = __traced ? '§DIAG-WALL-TRACE' : '§DIAG-WALL-SPIKE';
                             const __thk = (_preTrimWall as unknown as { thickness?: number } | undefined)?.thickness ?? 0;
                             // eslint-disable-next-line no-console

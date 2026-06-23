@@ -1815,7 +1815,7 @@ export function buildWallsAndDoors(
                     if (prio === undefined) return null;             // not a corridor/living/dining wall (hall excluded)
                     return { w, otherType, prio };
                 })
-                .filter((c): c is { w: typeof shared[number]; otherType: string; prio: number } => c !== null)
+                .filter((c): c is NonNullable<typeof c> => c !== null)
                 .sort((p, q) => p.prio - q.prio || q.w.len - p.w.len || (p.w.seg.id < q.w.seg.id ? -1 : 1));
             if (candidates.length === 0) {
                 console.log(`[D-TGL] §DIAG-WETROOM-PUBLIC skipped ${id}(bathroom) (no corridor/living/dining-adjacent wall — hall excluded — stays sealed)`);
