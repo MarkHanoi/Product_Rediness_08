@@ -346,22 +346,36 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
         if (depth <= MIN_ROW_DEPTH - EPS) return;
         const minWidthByAspect = depth * MIN_CELL_ASPECT;
         for (const run of runsFor(cellZ0, cellZ1)) {
-            let x = run.x0;
-            while (cursor < apartments.length) {
+            if (cursor >= apartments.length) break;
+            const runWidth = round4(run.x1 - run.x0);
+            const ref = apartments[cursor];
+            if (!ref) break;
+            const wMin = Math.max(ref.minAreaM2 / depth, minWidthByAspect);
+            const wMax = Math.max(ref.maxAreaM2 / depth, wMin);
+            if (runWidth < wMin - EPS) continue;   // run too narrow for even one min-width cell — skip it
+            // §RESI-PACKROW-EVEN (founder "fill the plate", 2026-06-23) — divide the WHOLE run into
+            // EQUAL-width cells instead of greedily slicing one mid-width cell and BREAKING on the
+            // sub-wMin remainder. The old greedy break left ~7m empty on every core-split row (the core
+            // splits each row into two ~16m runs; one ~8.9m cell fit, the 7.1m residual was < wMin so the
+            // loop bailed) → those leftovers merged into the ~390m² central "Room 01-002" void. Even
+            // division leaves NO remainder, so a 16m run hosts 2 cells (not 1) and the plate fills.
+            // nCells is bounded so each equal cell stays engine-feasible: ≥ wMin (never sub-min slivers)
+            // and, where the run allows, ≤ wMax; within that band we pick the count closest to the
+            // demand's ideal mid-width. Deterministic (no RNG) → ADR-0061 stable output.
+            const midWidth = Math.min(Math.max((ref.minAreaM2 + ref.maxAreaM2) / 2 / depth, wMin), wMax);
+            const maxCellsByMin = Math.max(1, Math.floor(runWidth / wMin + EPS));   // most cells keeping w ≥ wMin
+            const minCellsByMax = Math.max(1, Math.ceil(runWidth / wMax - EPS));    // fewest cells keeping w ≤ wMax
+            const idealCells = Math.max(1, Math.round(runWidth / midWidth));
+            const nCells = Math.min(maxCellsByMin, Math.max(minCellsByMax, idealCells));
+            const w = round4(runWidth / nCells);
+            for (let k = 0; k < nCells && cursor < apartments.length; k++) {
                 const demand = apartments[cursor];
                 if (!demand) break;
-                const midArea = (demand.minAreaM2 + demand.maxAreaM2) / 2;
-                let w = midArea / depth;
-                const remaining = run.x1 - x;
-                const wMin = Math.max(demand.minAreaM2 / depth, minWidthByAspect);
-                const wMax = demand.maxAreaM2 / depth;
-                if (remaining < wMin - EPS) break; // run can't host this demand at min width
-                w = Math.min(Math.max(w, wMin), Math.max(wMax, wMin), remaining);
-                const area = w * depth;
-                if (area < demand.minAreaM2 - 1e-3) break; // can't satisfy min in this run
-                const rect = normRect({ x0: x, z0: round4(cellZ0), x1: round4(x + w), z1: round4(cellZ1) });
+                const x0 = round4(run.x0 + k * w);
+                // The last cell snaps to the run's true end so float drift never leaves a hairline gap.
+                const x1 = k === nCells - 1 ? round4(run.x1) : round4(run.x0 + (k + 1) * w);
+                const rect = normRect({ x0, z0: round4(cellZ0), x1, z1: round4(cellZ1) });
                 placements.push({ typology: demand.typology, rect, areaM2: round4(rectArea(rect)), doorEdge });
-                x = round4(x + w);
                 cursor++;
             }
         }
