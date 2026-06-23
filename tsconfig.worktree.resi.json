@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "baseUrl": ".",
+    "types": ["node"],
+    "typeRoots": [
+      "c:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/node_modules/@types"
+    ],
+    "paths": {
+      "@opentelemetry/api": [
+        "c:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/node_modules/.pnpm/@opentelemetry+api@1.9.1/node_modules/@opentelemetry/api/build/src/index.d.ts"
+      ]
+    }
+  },
+  "comment": "Include ONLY the residentialBuilding sources + tests; tsc follows the import graph and typechecks the transitive D-TGL engine (apartmentLayout/tgl/** + emit/score/rules/windowEmission + furnishLayout/style/StyleRegistry) WITHOUT pulling the unrelated AI-relay/executor files that depend on the ai-host root types.",
+  "knownEngineErrorsComment": "Typecheck against this config reports 9 PRE-EXISTING type-predicate errors in apartmentLayout/tgl/wallsAndDoors.ts (line ~1818, the §WETROOM-PUBLIC-DOOR otherType:string-vs-RoomType narrowing) introduced by the HOUSE commits 78675729 / c7cfcc64 — NOT by P7. That file is a FROZEN tgl/* engine module the parallel agent owns (P7 only CALLS the engine, never edits tgl/*), and tsc cannot skip a type-checked import, so they cannot be suppressed here without editing the forbidden file. The engine still COMPILES + RUNS at runtime (all 48 residential tests pass). On merge this throwaway config is deleted and the @pryzm/ai-host package's own build (which tolerates the engine today) takes over. The residentialBuilding/* P7 sources themselves type-check 100% CLEAN.",
+  "include": [
+    "packages/ai-host/src/workflows/residentialBuilding/**/*"
+  ]
+}

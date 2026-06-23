@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "baseUrl": ".",
+    "paths": {
+      "ulid": ["c:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/node_modules/.pnpm/ulid@2.4.0/node_modules/ulid/dist/index.d.ts"],
+      "@opentelemetry/api": ["c:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/node_modules/.pnpm/@opentelemetry+api@1.9.1/node_modules/@opentelemetry/api/build/src/index.d.ts"],
+      "@pryzm/schemas": ["packages/schemas/src/index.ts"],
+      "@pryzm/typology-pipeline": ["packages/typology-pipeline/src/index.ts"]
+    }
+  },
+  "include": [
+    "packages/typology-pack-residential-building/src/**/*",
+    "packages/typology-pack-residential-building/__tests__/**/*"
+  ]
+}

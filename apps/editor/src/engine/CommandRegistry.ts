@@ -130,6 +130,8 @@ import { DeleteRoofCommand } from '@pryzm/command-registry';
 
 // ── Stair commands ─────────────────────────────────────────────────────────────
 import { CreateStairCommand } from '@pryzm/command-registry';
+// Residential-building multi-family §4 (P2) — vertical-circulation (lift) create.
+import { CreateVerticalCirculationCommand } from '@pryzm/command-registry';
 import { UpdateStairParametersCommand } from '@pryzm/command-registry';
 
 // ── Beam commands ──────────────────────────────────────────────────────────────
@@ -317,6 +319,9 @@ const REGISTRY = new Map<string, CommandFactory>([
     // ── Stairs ────────────────────────────────────────────────────────────────
     ['CREATE_STAIR', (s) => new CreateStairCommand(s.payload as any)],
     ['UPDATE_STAIR_PARAMETERS', (s) => new UpdateStairParametersCommand(s.payload as any)],
+
+    // ── Vertical circulation (lift) — residential-building multi-family §4 (P2) ──
+    ['CREATE_VERTICAL_CIRCULATION', (s) => new CreateVerticalCirculationCommand(s.payload as any)],
 
     // ── Beams ─────────────────────────────────────────────────────────────────
     // CreateBeamCommand uses non-standard serialize format: { type, id, input, ... }

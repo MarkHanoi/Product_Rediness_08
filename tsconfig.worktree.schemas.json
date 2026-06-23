@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "baseUrl": ".",
+    "paths": {
+      "ulid": ["c:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/node_modules/.pnpm/ulid@2.4.0/node_modules/ulid/dist/index.d.ts"]
+    }
+  },
+  "include": ["packages/schemas/src/**/*"]
+}
