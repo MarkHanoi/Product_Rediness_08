@@ -8,6 +8,7 @@ export { Grid } from './Grid.js';
 export { Column } from './Column.js';
 export { Beam } from './Beam.js';
 export { Stair } from './Stair.js';
+export { VerticalCirculation, LiftKind } from './VerticalCirculation.js';
 export { Handrail } from './Handrail.js';
 export { Ceiling } from './Ceiling.js';
 export { Room } from './Room.js';

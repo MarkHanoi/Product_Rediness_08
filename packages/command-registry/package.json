@@ -15,6 +15,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
     "@pryzm/event-bus": "workspace:*",
     "@pryzm/core-app-model": "workspace:*",
     "@pryzm/geometry-wall": "workspace:*",
@@ -26,6 +27,7 @@
     "@pryzm/room-topology": "workspace:*",
     "@pryzm/geometry-roof": "workspace:*",
     "@pryzm/geometry-stair": "workspace:*",
+    "@pryzm/geometry-lift": "workspace:*",
     "@pryzm/geometry-furniture": "workspace:*",
     "@pryzm/geometry-lighting": "workspace:*",
     "@pryzm/geometry-plumbing": "workspace:*",

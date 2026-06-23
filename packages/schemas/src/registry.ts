@@ -9,6 +9,7 @@ import { Grid } from './elements/Grid.js';
 import { Column } from './elements/Column.js';
 import { Beam } from './elements/Beam.js';
 import { Stair } from './elements/Stair.js';
+import { VerticalCirculation } from './elements/VerticalCirculation.js';
 import { Handrail } from './elements/Handrail.js';
 import { Ceiling } from './elements/Ceiling.js';
 import { Room } from './elements/Room.js';
@@ -24,7 +25,7 @@ import { Lighting } from './elements/Lighting.js';
 import { Plumbing } from './elements/Plumbing.js';
 
 /**
- * The 23 element schemas, addressable by element-type discriminator.
+ * The element schemas, addressable by element-type discriminator.
  * Used by the round-trip test, the protocol barrel, and any code that needs
  * to dispatch on element type.
  */
@@ -39,6 +40,7 @@ export const SCHEMA_REGISTRY = {
   column: Column,
   beam: Beam,
   stair: Stair,
+  verticalCirculation: VerticalCirculation,
   handrail: Handrail,
   ceiling: Ceiling,
   room: Room,

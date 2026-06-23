@@ -23,6 +23,8 @@ export enum CommandType {
     MOVE_STAIR = 'MOVE_STAIR',
     UPDATE_STAIR_FLIGHTS = 'UPDATE_STAIR_FLIGHTS',
     CHANGE_STAIR_SHAPE = 'CHANGE_STAIR_SHAPE',
+    // ── Vertical circulation (lift) — residential-building multi-family §4 (P2) ──
+    CREATE_VERTICAL_CIRCULATION = 'CREATE_VERTICAL_CIRCULATION',
     REGISTER_ELEMENT = 'REGISTER_ELEMENT',
     CREATE_BEAM = 'CREATE_BEAM',
     UPDATE_BEAM = 'UPDATE_BEAM',
@@ -395,6 +397,11 @@ export interface CommandContext {
         stairTypeStore?: import('@pryzm/geometry-stair').StairTypeStore;
         stairLandingStore?: import('@pryzm/geometry-stair').StairLandingStore;
         stairRailingStore?: import('@pryzm/geometry-stair').StairRailingStore;
+        // ── Vertical circulation (lift) — residential-building multi-family §4 (P2) ──
+        // Optional so all existing commands + CommandContext consumers compile
+        // unchanged; CreateVerticalCirculationCommand resolves it lazily.
+        liftStore?: import('@pryzm/geometry-lift').LiftStore;
+        liftTypeStore?: import('@pryzm/geometry-lift').LiftTypeStore;
         // ── Data Platform stores (Phase DP) ──────────────────────────────────
         // Optional so all existing commands compile without change.
         hierarchyStore?: import('@pryzm/core-app-model').HierarchyStore;
