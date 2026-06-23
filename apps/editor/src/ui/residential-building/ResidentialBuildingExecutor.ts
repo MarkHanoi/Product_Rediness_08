@@ -51,6 +51,7 @@ import {
     type LayoutCommandSet,
 } from '@pryzm/ai-host';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
+import { triggerFloorLayout } from '../floor-layout/floorLayoutTrigger.js';
 import { nameDetectedRooms } from '../apartment-layout/nameDetectedRooms.js';
 import { resolveEntranceOnShell, entranceOffsetOnWall } from './groundFloorPlacement.js';
 
@@ -829,6 +830,12 @@ export class ResidentialBuildingExecutor {
                     try { nameDetectedRooms(runtime, b.levelId, b.option, '[resi-building]'); } catch { /* non-fatal */ }
                 }
             }
+            // §RESI-FLOOR-FINISH (founder "add floor finishes … public vs private vs wet", 2026-06-23)
+            // — once the rooms land, lay a per-room floor finish on EVERY built level (timber in
+            // living/bed/corridor, porcelain tile in kitchen/bath/wc), exactly like the house. The
+            // shared trigger reads each room's occupancyType; we set the level active then fire it per
+            // level, staggered so the just-committed graph rooms / redetect have settled in the store.
+            this._finishFloorsPerLevel(runtime, levelIds);
             const ready = wallsReady();
             console.log(
                 `[resi-building] apartments finished — openings + rooms committed ` +
@@ -866,6 +873,22 @@ export class ResidentialBuildingExecutor {
             `${builds.length} apartment(s), budget=${budgetTicks} ticks (~${Math.round((budgetTicks * 150) / 1000)}s fallback)`,
         );
         tick(budgetTicks);
+    }
+
+    /** §RESI-FLOOR-FINISH — lay the per-room floor finish on each built level. Sets the level
+     *  active (the shared trigger resolves rooms via the active level → `projectContext.activeLevelId`)
+     *  then fires `triggerFloorLayout`, staggered per level so each level's rooms have settled.
+     *  Best-effort: a miss on one level logs + skips. */
+    private _finishFloorsPerLevel(runtime: PryzmRuntime, levelIds: readonly string[]): void {
+        const pc = (window as unknown as { projectContext?: { activeLevelId?: string | null } }).projectContext;
+        levelIds.forEach((lid, i) => {
+            setTimeout(() => {
+                try {
+                    if (pc) pc.activeLevelId = lid;
+                    triggerFloorLayout(runtime);
+                } catch (e) { console.warn('[resi-building] floor-finish failed on', lid, '(non-fatal):', e); }
+            }, 500 + i * 250);
+        });
     }
 
     /** Create one apartment's doors + windows + boundaries + graph rooms inside the
