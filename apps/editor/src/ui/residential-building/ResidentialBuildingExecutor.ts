@@ -42,6 +42,7 @@ import {
     buildLayoutCommands,
     type ResidentialBuildingOk,
     type ResidentialRigidTransform,
+    type GroundFloorDescriptor,
     type PlacedApartment,
     type ScoredLayoutOption,
     type IdPrefix,
@@ -50,6 +51,7 @@ import {
 } from '@pryzm/ai-host';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
 import { nameDetectedRooms } from '../apartment-layout/nameDetectedRooms.js';
+import { resolveEntranceOnShell, entranceOffsetOnWall } from './groundFloorPlacement.js';
 
 const _tracer = trace.getTracer('@pryzm/editor', '0.1.0');
 
@@ -165,6 +167,10 @@ export class ResidentialBuildingExecutor {
         const slabPolys: Array<{ levelId: string; poly: ReadonlyArray<{ x: number; z: number }> }> = [];
         const cellPerimeterPayloads: Array<{ walls: ReadonlyArray<Record<string, unknown>>; levelId: string }> = [];
         const corridorBoundaryItems: Array<{ id: string; levelId: string; start: { x: number; z: number }; end: { x: number; z: number } }> = [];
+        // §RESI-GROUND-FLOOR — capture the GROUND shell payload (its pre-minted wall ids host
+        // the main entrance door) + the ground level id for the deferred entrance pass.
+        let groundLevelId: string | undefined;
+        let groundShellPayload: { walls: ReadonlyArray<Record<string, unknown>>; levelId: string } | undefined;
 
         let placedCount = 0, rejectedCount = 0;
 
@@ -189,8 +195,19 @@ export class ResidentialBuildingExecutor {
 
             // Building shell perimeter (one wall per footprint edge) + slab on EVERY floor.
             // `lvl.footprint` is already WORLD (the drawn parcel) → no transform here.
-            shellPayloads.push(this._buildShellPerimeter(levelId, lvl.footprint, floorToFloorM));
+            const shellPayload = this._buildShellPerimeter(levelId, lvl.footprint, floorToFloorM);
+            shellPayloads.push(shellPayload);
             slabPolys.push({ levelId, poly: lvl.footprint });
+
+            // §RESI-GROUND-FLOOR — remember the ground shell (level 0) so the deferred pass can
+            // host the main entrance door on the right façade wall once the shell walls land.
+            if (lvl.levelIndex === 0) {
+                groundLevelId = levelId;
+                groundShellPayload = shellPayload;
+                // The lobby band is a ground-floor public corridor → room-bounding lines, same
+                // as the upper-floor corridor (LOCAL frame, rotated to world by `xf`).
+                this._collectCorridorBoundaries(corridorBoundaryItems, levelId, result.groundFloor.lobby, xf);
+            }
 
             if (!perLevel) continue;
 
@@ -285,6 +302,13 @@ export class ResidentialBuildingExecutor {
         // ── Deferred openings + doors + windows + rooms per apartment, once the host
         // walls have landed (the bus is async — openings READ the committed store).
         void this._finishApartments(runtime, apartmentBuilds);
+
+        // §RESI-GROUND-FLOOR — deferred MAIN ENTRANCE door on the ground shell. Like the
+        // apartment openings, the shell wall.batch.create is async (the bus READs the
+        // committed store), so we host the door once the ground shell walls have landed.
+        if (groundLevelId && groundShellPayload) {
+            this._buildEntranceDoor(groundLevelId, groundShellPayload, result.groundFloor, xf);
+        }
 
         // NOTE: no custom completion event is emitted — `RuntimeEvents` is a typed map
         // (no catch-all index) and registering a new key lives in runtime-composer
@@ -477,6 +501,16 @@ export class ResidentialBuildingExecutor {
         const topLevelId = levelIdByIndex.get(topIndex);
         if (baseLevelId && topLevelId && baseLevelId !== topLevelId) {
             const liftOrigin = this._rotate({ x: liftCx, z: liftCz }, xf);
+            // §RESI-LIFT-ROTATE (2026-06-23) — THE LIFT-RENDER FIX. The LiftMeshBuilder draws an
+            // AXIS-ALIGNED BoxGeometry(shaftWidth, h, shaftDepth) and orients the whole group by
+            // `group.rotation.y = lift.rotation`. The executor previously OMITTED `rotation`
+            // (default 0), so on a TILTED parcel the lift shaft stayed axis-aligned while the
+            // rotated core / shell turned by θ — the shaft poked outside the core and read as
+            // "missing / invisible". Pass the SAME orientation the stair run uses: align the
+            // shaft's LOCAL +Z (depth axis) to the rotated run direction `runDir`. THREE maps
+            // local +Z (0,0,1) → world (sin φ, 0, cos φ), so φ = atan2(runDir.x, runDir.z).
+            // θ = 0 ⇒ runDir = {0,1} ⇒ φ = 0 ⇒ byte-identical to the axis-aligned behaviour.
+            const liftRotationY = Math.atan2(runDir.x, runDir.z);
             try {
                 cm.execute?.(new CreateVerticalCirculationCommand({
                     id: createId('verticalCirculation'),
@@ -484,6 +518,7 @@ export class ResidentialBuildingExecutor {
                     topLevelId,
                     kind: 'passenger',
                     origin: { x: liftOrigin.x, y: baseElevationM, z: liftOrigin.z },
+                    rotation: liftRotationY,
                     shaftWidth: Math.min(2.0, Math.max(1.6, coreW / 2 - 0.2)),
                     shaftDepth: Math.min(2.4, Math.max(1.6, coreD - 0.2)),
                 }), { source: 'RESI_PIPELINE_LIFT' });
@@ -651,6 +686,66 @@ export class ResidentialBuildingExecutor {
                 } catch (e) { console.warn('[resi-building] graph-room batch failed for', levelId, e); }
             }
         }
+    }
+
+    /**
+     * §RESI-GROUND-FLOOR — host the MAIN ENTRANCE door on the ground shell. Deferred so the
+     * shell wall.batch.create (async via the bus) has landed in the store. Resolves which
+     * shell wall the entrance sits on (the wall nearest the world entrance point), computes
+     * the offset along it, and punches ONE wide `door` opening via CreateWallOpeningsBatchCommand
+     * (P6 — command-only). Wide double-leaf entrance (no dedicated 'entrance' door type exists;
+     * Door.doorType is 'single'|'double'). Never throws — a miss logs + skips.
+     */
+    private _buildEntranceDoor(
+        levelId: string,
+        shell: { walls: ReadonlyArray<Record<string, unknown>>; levelId: string },
+        gf: GroundFloorDescriptor,
+        xf: ResidentialRigidTransform,
+    ): void {
+        const cm = getCommandManager();
+        if (!cm?.execute) { console.warn('[resi-building] commandManager unavailable — entrance skipped'); return; }
+        // The entrance centre is LOCAL → rotate to the WORLD parcel (same transform as the shell
+        // is implicitly in — the shell is WORLD already; the entrance point came LOCAL).
+        const worldCenter = this._rotate({ x: gf.entranceCenter.x, z: gf.entranceCenter.z }, xf);
+
+        const shellWallIds = shell.walls
+            .map(w => (typeof w.id === 'string' ? w.id : undefined))
+            .filter((id): id is string => !!id);
+        const wallStore = storeRegistry.getStoreForType('wall') as unknown as { getById?: (id: string) => unknown } | undefined;
+        const shellReady = (): boolean =>
+            !wallStore?.getById ? true : shellWallIds.every(id => wallStore.getById!(id) != null);
+
+        // Wait (poll, ≤6 s) for the ground shell walls to land, then punch the entrance.
+        const tryPunch = (n: number): void => {
+            if (!shellReady() && n > 0) { setTimeout(() => tryPunch(n - 1), 150); return; }
+            const hit = resolveEntranceOnShell(shell.walls, worldCenter);
+            if (!hit) { console.warn('[resi-building] entrance — no shell wall resolved (skipped)'); return; }
+            const { offset, width } = entranceOffsetOnWall(hit, gf.entranceWidthM);
+            try {
+                batchCoordinator.runBatch(() => {
+                    cm.execute?.(new CreateWallOpeningsBatchCommand([{
+                        wallId: hit.wallId,
+                        openingData: {
+                            id: createId('opening'),
+                            type: 'door',
+                            offset,
+                            width,
+                            height: 2.4,           // a tall, generous lobby entrance
+                            sillHeight: 0,
+                            elementId: createId('door'),
+                            doorType: 'double',    // wide double-leaf — the building's front door
+                        },
+                    }]));
+                }, { levelIds: [levelId], totalElementCount: 1, skipRedetectRooms: true });
+                // Flush the host wall mesh so the opening shows (mirror of the apartment pass).
+                setTimeout(() => {
+                    try { window.__wallRebuildControl?.rebuildWalls?.([hit.wallId]); }
+                    catch (e) { console.warn('[resi-building] entrance rebuildWalls failed (non-fatal):', e); }
+                }, 250);
+                console.log(`[resi-building] main entrance — ${width.toFixed(2)}m door on shell wall ${hit.wallId} @ offset ${offset.toFixed(2)}m`);
+            } catch (e) { console.warn('[resi-building] entrance door batch failed (non-fatal):', e); }
+        };
+        tryPunch(40);
     }
 
     /** §RESI-RIGID-TRANSFORM — rotate a LOCAL (principal-axis) XZ point onto the WORLD parcel
