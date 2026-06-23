@@ -101,6 +101,23 @@ describe('§RESI-RIGID-TRANSFORM — residential building accepts a ROTATED parc
         expect(r.status).not.toBe('rejected');
     });
 
+    it('(a2) ACCEPTS an IRREGULAR hand-drawn quad (founder case — not a perfect rectangle)', () => {
+        // A real boundary drawn on the map is a convex quad whose corners do NOT land exactly
+        // on the bbox after de-rotation (sides ~unequal). Pre-fix this was rejected by the
+        // DUPLICATE platePartition `isRectangle()` stub ("footprint must be an axis-aligned
+        // rectangle (stub)") even after the orchestrator de-rotated it. The §RESI-APPROX-RECT
+        // fix accepts any substantially-rectangular footprint (bbox fill ≥ 0.8).
+        const base = rotatedRectParcel(30, 18, THETA, CENTRE);
+        const nudges = [{ x: -0.6, z: -0.4 }, { x: 0.5, z: -0.6 }, { x: 0.6, z: 0.5 }, { x: -0.4, z: 0.5 }];
+        const irregular = base.map((p, i) => ({ x: p.x + nudges[i]!.x, z: p.z + nudges[i]!.z }));
+        const r = orchestrateResidentialBuilding(rotatedInput({ footprint: irregular }));
+        expect(r.status).not.toBe('rejected');
+        if (r.status !== 'ok') return;
+        let placed = 0;
+        for (const lvl of r.perLevelApartments.slice(1)) placed += lvl.apartments.length;
+        expect(placed).toBeGreaterThanOrEqual(1);
+    });
+
     it('(b) places apartments on every upper level + carries the rigid transform', () => {
         const r = orchestrateResidentialBuilding(rotatedInput({ upperLevels: 3 }));
         expect(r.status).toBe('ok');

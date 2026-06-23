@@ -136,6 +136,16 @@ function isRectangle(poly: readonly Pt[], bb: Rect): boolean {
     return rectWidth(bb) > EPS && rectDepth(bb) > EPS;
 }
 
+/** Shoelace area (abs, m²) of a closed polygon. */
+function polygonArea(poly: readonly Pt[]): number {
+    let a = 0;
+    for (let i = 0, n = poly.length; i < n; i++) {
+        const p = poly[i], q = poly[(i + 1) % n];
+        a += p.x * q.z - q.x * p.z;
+    }
+    return Math.abs(a) / 2;
+}
+
 const round4 = (n: number): number => Math.round(n * 1e4) / 1e4;
 function normRect(r: Rect): Rect {
     return { x0: round4(r.x0), z0: round4(r.z0), x1: round4(r.x1), z1: round4(r.z1) };
@@ -187,8 +197,21 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
     const { levelIndex, footprint, core, corridor, apartments } = input;
 
     const bb = bbox(footprint);
-    if (!isRectangle(footprint, bb)) {
-        return reject(levelIndex, 'footprint must be an axis-aligned rectangle (stub)');
+    // §RESI-APPROX-RECT (founder 2026-06-23): the orchestrator de-rotates the parcel into this
+    // axis-aligned LOCAL frame, but a hand-drawn boundary is an IRREGULAR quad — its de-rotated
+    // vertices do NOT land exactly on the bbox corners, so the old strict isRectangle() check
+    // rejected EVERY real drawn parcel ("footprint must be an axis-aligned rectangle (stub)").
+    // Accept any footprint that substantially fills its bbox (a convex ~rectangle) and use the
+    // bbox as the building plate; only reject a genuinely non-rectangular polygon (e.g. an
+    // L-shape, fill < 0.8) or a degenerate zero-area one. A perfect rectangle ⇒ fill ≈ 1.0 ⇒
+    // byte-identical to before (isRectangle would also have passed).
+    const bbArea = rectWidth(bb) * rectDepth(bb);
+    if (footprint.length < 3 || bbArea <= EPS) {
+        return reject(levelIndex, 'footprint is degenerate (zero-area plate)');
+    }
+    const bboxFill = polygonArea(footprint) / bbArea;
+    if (!isRectangle(footprint, bb) && bboxFill < 0.8) {
+        return reject(levelIndex, `footprint must be roughly rectangular (bbox fill ${bboxFill.toFixed(2)} < 0.80)`);
     }
     if (corridor.widthM <= 0) {
         return reject(levelIndex, 'corridor width must be positive');
