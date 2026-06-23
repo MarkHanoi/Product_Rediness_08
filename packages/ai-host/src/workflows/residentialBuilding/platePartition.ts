@@ -96,6 +96,26 @@ const EPS = 1e-6;
 /** Door clear width (m) — an apartment is "reached" when it shares ≥ this with the corridor. */
 const DOOR_WIDTH_M = 0.8;
 
+// §RESI-CELL-FEASIBLE (Task C) — the per-cell D-TGL engine soft-fails a cell that is
+// too DEEP / too SKINNY (the P7 finding: full-band ~8.3 m cells lay out; deep ~20 m
+// full-band cells of a large plate don't). On a founder-sized ~38×43 m plate the
+// front/back bands are ~20 m deep, so a full-band-deep apartment is a ~4 m × 20 m
+// sliver (aspect ~5:1) that the engine rejects. We make cells ENGINE-FEASIBLE by
+// CAPPING the apartment depth: an apartment hangs its door on the corridor edge and
+// extends at most MAX_APARTMENT_DEPTH_M toward the façade (the deeper part of a very
+// deep band is simply left un-tiled — wasted area, never a correctness bug). We also
+// keep the cell from going too SKINNY by flooring its width relative to its depth
+// (MIN_CELL_ASPECT) so a high-area band still produces square-ish, layout-able cells.
+/** Max apartment depth (m) toward the façade. Held at ~9 m — the proven-feasible
+ *  band from the P7 test (a ~9.7 m × 8.3 m / ~80 m² cell lays out reliably). Capping
+ *  here keeps a deep-plate cell square-ish (≈ as wide as deep at the typology mid-area)
+ *  rather than the sliver a full ~20 m band would force. The deeper residual of a very
+ *  deep band is left un-tiled (wasted area, never a correctness bug). */
+const MAX_APARTMENT_DEPTH_M = 9;
+/** Min cell width as a fraction of its depth — below this the cell is a sliver the
+ *  engine rejects. 0.6 ⇒ a 9 m-deep cell is ≥ 5.4 m wide (aspect ≤ ~1.7:1). */
+const MIN_CELL_ASPECT = 0.6;
+
 function bbox(poly: readonly Pt[]): Rect {
     let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
     for (const p of poly) {
@@ -234,27 +254,39 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
     }
 
     function packBand(band: Rect, doorEdge: 'z0' | 'z1'): boolean {
-        const depth = rectDepth(band);
-        if (depth <= EPS) return cursor >= apartments.length; // nothing to do here
+        const bandDepth = rectDepth(band);
+        if (bandDepth <= EPS) return cursor >= apartments.length; // nothing to do here
+        // §RESI-CELL-FEASIBLE — cap the apartment depth so a deep plate doesn't force
+        // sliver cells the per-cell engine rejects. The apartment anchors on the
+        // corridor (door) edge and extends `depth` toward the façade; the far residual
+        // of a very deep band is left un-tiled (wasted area, not a correctness bug).
+        const depth = Math.min(bandDepth, MAX_APARTMENT_DEPTH_M);
+        // The cell's z-interval, anchored at the corridor edge: front band's corridor
+        // edge is z1 (so the cell sits at [z1−depth, z1]); back band's is z0 ([z0, z0+depth]).
+        const cellZ0 = doorEdge === 'z1' ? round4(band.z1 - depth) : band.z0;
+        const cellZ1 = doorEdge === 'z1' ? band.z1 : round4(band.z0 + depth);
+        // §RESI-CELL-FEASIBLE — floor the width so the cell never goes too skinny for
+        // the engine; an apartment that can't reach this min width in the remaining run
+        // is simply not placed there (the orchestrator's prefix-trim drops the tail).
+        const minWidthByAspect = depth * MIN_CELL_ASPECT;
         for (const run of runsFor(band)) {
             let x = run.x0;
             while (cursor < apartments.length) {
                 const demand = apartments[cursor];
                 if (!demand) break;
-                // Target the band so each apartment fills the full band depth; width
-                // is chosen to hit the MIDPOINT of the typology band, clamped to the
-                // remaining run + to keep the area within [min,max].
+                // Width is chosen to hit the MIDPOINT of the typology band over the
+                // (capped) cell depth, clamped to the remaining run + the band area.
                 const midArea = (demand.minAreaM2 + demand.maxAreaM2) / 2;
                 let w = midArea / depth;
                 const remaining = run.x1 - x;
-                if (remaining < demand.minAreaM2 / depth - EPS) break; // run exhausted for this demand
-                // Clamp width so area stays in band AND fits the run.
-                const wMin = demand.minAreaM2 / depth;
+                const wMin = Math.max(demand.minAreaM2 / depth, minWidthByAspect);
                 const wMax = demand.maxAreaM2 / depth;
-                w = Math.min(Math.max(w, wMin), wMax, remaining);
+                if (remaining < wMin - EPS) break; // run can't host this demand at min width
+                // Clamp width so area stays in band, respects the aspect floor, AND fits the run.
+                w = Math.min(Math.max(w, wMin), Math.max(wMax, wMin), remaining);
                 const area = w * depth;
                 if (area < demand.minAreaM2 - 1e-3) break; // can't satisfy min in this run
-                const rect = normRect({ x0: x, z0: band.z0, x1: x + w, z1: band.z1 });
+                const rect = normRect({ x0: x, z0: cellZ0, x1: x + w, z1: cellZ1 });
                 placements.push({ typology: demand.typology, rect, areaM2: round4(rectArea(rect)), doorEdge });
                 x = round4(x + w);
                 cursor++;
