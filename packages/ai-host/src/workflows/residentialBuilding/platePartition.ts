@@ -76,7 +76,9 @@ export interface ApartmentCell {
 export interface PlatePartitionResult {
     readonly status: 'ok';
     readonly core: Rect;
-    /** The public corridor band(s), metres, plan frame. */
+    /** The public corridor band(s), metres, plan frame. With §RESI-FILL-PLATE this is
+     *  the MULTIPLE parallel double-loaded corridor runs that tile the plate depth (one
+     *  per corridor line), plus the single transverse SPINE that ties them to the core. */
     readonly publicCorridor: readonly Rect[];
     readonly apartmentCells: readonly ApartmentCell[];
     /** N apartments served (share ≥ door-width with the corridor) / N requested. */
@@ -156,15 +158,23 @@ function normRect(r: Rect): Rect {
  * cells]. Pure + deterministic. Infeasible inputs → `status: 'rejected'` (C50 soft-fail
  * — the caller surfaces it; the function NEVER throws on a feasibility miss).
  *
- * STUB strategy (rectangular plate, double-loaded corridor):
+ * §RESI-FILL-PLATE strategy (rectangular plate, corridor GRID of parallel double-loaded
+ * corridors — fills the WHOLE plate, not a central cluster):
  *  1. The core is the centred keep-out (passed in).
- *  2. A public-corridor BAND of `corridor.widthM` runs across the FULL plate along
- *     the plate's SHORT axis, centred on the core — so it touches the core and
- *     splits the plate into a FRONT band + a BACK band.
- *  3. Apartments are packed left→right into the front band, then the back band,
- *     each a full-band-deep slice whose width is sized so its area lands in the
- *     typology's [min,max] band. Each cell's corridor-facing edge IS the door edge,
- *     so every placed apartment is "reached" by construction.
+ *  2. Corridors run full-length along the plate's LONG axis. The FIRST corridor is
+ *     centred on the core (so it touches/serves it); PARALLEL corridors are then added
+ *     above and below it at a fixed pitch so EVERY point of the plate depth is within
+ *     `MAX_APARTMENT_DEPTH_M` of some corridor — i.e. the corridors tile the whole depth.
+ *  3. Each corridor is double-loaded: apartments pack left→right on BOTH sides of it
+ *     (the FRONT side and the BACK side), each cell anchored on the corridor (door) edge
+ *     and extending toward the façade by a depth bounded by the half-distance to the
+ *     neighbouring corridor (so adjacent corridors' apartment rows tile without overlap)
+ *     capped at `MAX_APARTMENT_DEPTH_M`. The core's X-interval is carved out of the rows
+ *     it straddles. Every cell's corridor-facing edge IS the door edge → reached by
+ *     construction.
+ *  4. Apartments are consumed from the demand list in order across all corridor sides;
+ *     packing stops when the demands run out OR the plate is full. So given a long demand
+ *     list, MANY cells span the entire plate (filling it); given few, it places only those.
  */
 export function partitionLevelPlate(input: PlatePartitionInput): PlatePartitionOutput {
     return _tracer.startActiveSpan(
@@ -227,101 +237,167 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
         return reject(levelIndex, 'core is not contained in the footprint');
     }
 
-    // ── Orient the corridor along the plate's SHORT axis (so the corridor is the
-    // shorter span and apartments get the deeper front/back bands). The corridor
-    // band runs FULL-WIDTH across X and is centred on Z at the core centre. We
-    // operate in (X = long, Z = short) by ensuring width(plate) ≥ depth(plate);
-    // if not we swap roles by mirroring the math on the Z axis. To keep the stub
-    // simple + deterministic we run the corridor across the X span at the core's
-    // Z-centre and pack apartments along X in the front (z < corridor) and back
-    // (z > corridor) bands.
+    // ── §RESI-FILL-PLATE — a GRID of parallel double-loaded corridors that fills the
+    // WHOLE plate (not the old single central band that left most of a large plate empty).
+    //
+    // Corridors run full-length across X. The FIRST corridor is centred on the core's
+    // Z-centre (so it touches/serves the core). PARALLEL corridors are then laid out above
+    // and below it at a fixed PITCH so every point of the plate depth is within
+    // MAX_APARTMENT_DEPTH_M of some corridor → the apartment rows tile the entire depth.
+    //
+    // PITCH derivation: a corridor serves apartments up to MAX_APARTMENT_DEPTH_M on each
+    // side, so two adjacent corridors fully tile the depth between them when their centre-
+    // to-centre distance ≤ 2·MAX_APARTMENT_DEPTH_M + corridorWidth (each side's apartment
+    // band ≤ MAX_APARTMENT_DEPTH_M, plus the half-corridor on each line). We use exactly
+    // that pitch so rows BUTT against each other (deterministic, no overlap, no gap).
     const coreCz = (coreN.z0 + coreN.z1) / 2;
     const halfCorr = corridor.widthM / 2;
-    const corrZ0 = round4(coreCz - halfCorr);
-    const corrZ1 = round4(coreCz + halfCorr);
+    const coreX0 = coreN.x0, coreX1 = coreN.x1;
 
-    if (corrZ0 <= bb.z0 + EPS || corrZ1 >= bb.z1 - EPS) {
+    // The first (core) corridor must at least fit inside the plate.
+    if (round4(coreCz - halfCorr) <= bb.z0 + EPS || round4(coreCz + halfCorr) >= bb.z1 - EPS) {
         return reject(levelIndex, 'corridor band does not fit inside the footprint');
     }
 
-    // The corridor spans the full X extent (one straight band, double-loaded). It
-    // touches the core (the core's Z-centre sits inside the band by construction).
-    const corridorBand: Rect = normRect({ x0: bb.x0, z0: corrZ0, x1: bb.x1, z1: corrZ1 });
+    // Corridor centre-to-centre pitch (m): the apartment row on each side is capped at
+    // MAX_APARTMENT_DEPTH_M, so a corridor + its two full rows + the next corridor span
+    // 2·cap + corridorWidth. This is the MAX spacing that still leaves no gap deeper than
+    // the cap; a smaller plate uses fewer, tighter-packed corridors (see below).
+    const pitch = 2 * MAX_APARTMENT_DEPTH_M + corridor.widthM;
+    const MIN_ROW_DEPTH = Math.max(DOOR_WIDTH_M, MIN_CELL_ASPECT * 2); // a row thinner than this serves nothing useful
 
-    // The two residual bands the apartments pack into.
-    const frontBand: Rect = normRect({ x0: bb.x0, z0: bb.z0, x1: bb.x1, z1: corrZ0 }); // doorEdge z1
-    const backBand: Rect = normRect({ x0: bb.x0, z0: corrZ1, x1: bb.x1, z1: bb.z1 });  // doorEdge z0
+    // §RESI-FILL-PLATE — pick corridor CENTRELINES so the parallel double-loaded corridors
+    // tile the WHOLE depth on both sides of the core (not just the core band). We walk OUTWARD
+    // from the core toward each plate edge by `pitch`. A corridor covers depth down to
+    // `cz − halfCorr − cap`; we add the next corridor only while that boundary is still inside
+    // the plate (i.e. an uncovered gap remains). When the stepped position would push the
+    // corridor's outer row past the plate edge, we CLAMP that final corridor inward so its
+    // outer row lands exactly on the edge (capped at `cap`) — this is what fills a moderately-
+    // deep plate (e.g. 40 m) that a single core band would leave > 50% empty. A clamped
+    // corridor is only added if it sits meaningfully beyond its inner neighbour (dedup guard),
+    // so a deep plate never gets two near-coincident edge corridors. Deterministic + closed-form.
+    const SIDE_MIN_GAP = halfCorr + MIN_ROW_DEPTH; // a new corridor must clear its neighbour by this
 
-    // The core occupies part of one (or both) bands — we exclude the core's X-span
-    // from the band it overlaps so apartments never overlap the core. For the
-    // centred-core stub the core straddles the corridor (its Z-centre == corridor
-    // centre), so its footprint pokes equally into the front + back bands. We carve
-    // the core's X-interval out of BOTH bands → each band becomes [leftRun]+[rightRun].
-    const coreX0 = coreN.x0, coreX1 = coreN.x1;
+    /** Walk outward from `coreCz` toward `edge` (sign −1 = above/decreasing z, +1 = below).
+     *  Returns the extra corridor centrelines on that side, in core→edge order. */
+    function sideCorridors(edgeZ: number, dir: -1 | 1): number[] {
+        const lines: number[] = [];
+        let prev = coreCz; // the inner neighbour's centre (starts at the core corridor)
+        for (let k = 1; k <= 1000; k++) {
+            const stepped = coreCz + dir * k * pitch;
+            // Does an uncovered gap still remain beyond the PREVIOUS corridor's outer row?
+            const prevOuterRowEdge = prev + dir * (halfCorr + MAX_APARTMENT_DEPTH_M);
+            const gapRemaining = dir < 0
+                ? prevOuterRowEdge - edgeZ > MIN_ROW_DEPTH
+                : edgeZ - prevOuterRowEdge > MIN_ROW_DEPTH;
+            if (!gapRemaining) break;
+            // Clamp the corridor inward if its stepped position would carry the row past the edge.
+            const clampedToEdge = edgeZ - dir * (MAX_APARTMENT_DEPTH_M + halfCorr);
+            const overshoots = dir < 0 ? stepped - halfCorr <= edgeZ : stepped + halfCorr >= edgeZ;
+            const cz = overshoots ? clampedToEdge : stepped;
+            // The corridor must sit meaningfully BEYOND its inner neighbour (toward the edge) so a
+            // usable apartment row fits between them — else the neighbour already covers the edge.
+            const beyondNeighbour = dir < 0 ? prev - cz : cz - prev;
+            if (beyondNeighbour < SIDE_MIN_GAP - EPS) break;
+            // …and leave a usable row between it and the plate edge.
+            const fitsInside = dir < 0
+                ? cz - halfCorr > edgeZ + MIN_ROW_DEPTH - EPS
+                : cz + halfCorr < edgeZ - MIN_ROW_DEPTH + EPS;
+            if (!fitsInside) break;
+            lines.push(round4(cz));
+            prev = cz;
+            if (overshoots) break; // reached/clamped to the edge — done on this side
+        }
+        return lines;
+    }
+
+    const centreLines: number[] = [
+        ...sideCorridors(bb.z0, -1),
+        coreCz,
+        ...sideCorridors(bb.z1, 1),
+    ];
+    // Sort lines top→bottom for deterministic row tiling + neighbour math.
+    centreLines.sort((a, b) => a - b);
+
+    const corridorBands: Rect[] = centreLines.map((cz) =>
+        normRect({ x0: bb.x0, z0: round4(cz - halfCorr), x1: bb.x1, z1: round4(cz + halfCorr) }),
+    );
 
     const placements: ApartmentCell[] = [];
     let cursor = 0;
 
-    // Greedy packer over a band: walk left→right across the available X runs,
-    // slicing each apartment a full-band-deep × (area/depth)-wide cell whose area
-    // lands in [min,max]. Returns true if ALL its assigned apartments fit.
     type Run = { x0: number; x1: number };
-    function runsFor(band: Rect): Run[] {
-        // Subtract the core X-interval if the core overlaps this band in Z.
-        const overlapsCoreZ = !(coreN.z1 <= band.z0 + EPS || coreN.z0 >= band.z1 - EPS);
-        if (!overlapsCoreZ) return [{ x0: band.x0, x1: band.x1 }];
+    // The X-runs available on a row whose [z0,z1] band MAY straddle the core. The core
+    // X-interval is carved out of any row that overlaps the core in Z.
+    function runsFor(z0: number, z1: number): Run[] {
+        const overlapsCoreZ = !(coreN.z1 <= z0 + EPS || coreN.z0 >= z1 - EPS);
+        if (!overlapsCoreZ) return [{ x0: bb.x0, x1: bb.x1 }];
         const runs: Run[] = [];
-        if (coreX0 - band.x0 > EPS) runs.push({ x0: band.x0, x1: coreX0 });
-        if (band.x1 - coreX1 > EPS) runs.push({ x0: coreX1, x1: band.x1 });
+        if (coreX0 - bb.x0 > EPS) runs.push({ x0: bb.x0, x1: coreX0 });
+        if (bb.x1 - coreX1 > EPS) runs.push({ x0: coreX1, x1: bb.x1 });
         return runs;
     }
 
-    function packBand(band: Rect, doorEdge: 'z0' | 'z1'): boolean {
-        const bandDepth = rectDepth(band);
-        if (bandDepth <= EPS) return cursor >= apartments.length; // nothing to do here
-        // §RESI-CELL-FEASIBLE — cap the apartment depth so a deep plate doesn't force
-        // sliver cells the per-cell engine rejects. The apartment anchors on the
-        // corridor (door) edge and extends `depth` toward the façade; the far residual
-        // of a very deep band is left un-tiled (wasted area, not a correctness bug).
-        const depth = Math.min(bandDepth, MAX_APARTMENT_DEPTH_M);
-        // The cell's z-interval, anchored at the corridor edge: front band's corridor
-        // edge is z1 (so the cell sits at [z1−depth, z1]); back band's is z0 ([z0, z0+depth]).
-        const cellZ0 = doorEdge === 'z1' ? round4(band.z1 - depth) : band.z0;
-        const cellZ1 = doorEdge === 'z1' ? band.z1 : round4(band.z0 + depth);
-        // §RESI-CELL-FEASIBLE — floor the width so the cell never goes too skinny for
-        // the engine; an apartment that can't reach this min width in the remaining run
-        // is simply not placed there (the orchestrator's prefix-trim drops the tail).
+    // Pack one apartment ROW: a band of depth `depth` on one side of a corridor line,
+    // doors hung on the corridor edge. Walks left→right across the row's X-runs slicing
+    // in-band cells until the demand list (or the run) is exhausted.
+    function packRow(cellZ0: number, cellZ1: number, doorEdge: 'z0' | 'z1'): void {
+        const depth = round4(cellZ1 - cellZ0);
+        if (depth <= MIN_ROW_DEPTH - EPS) return;
         const minWidthByAspect = depth * MIN_CELL_ASPECT;
-        for (const run of runsFor(band)) {
+        for (const run of runsFor(cellZ0, cellZ1)) {
             let x = run.x0;
             while (cursor < apartments.length) {
                 const demand = apartments[cursor];
                 if (!demand) break;
-                // Width is chosen to hit the MIDPOINT of the typology band over the
-                // (capped) cell depth, clamped to the remaining run + the band area.
                 const midArea = (demand.minAreaM2 + demand.maxAreaM2) / 2;
                 let w = midArea / depth;
                 const remaining = run.x1 - x;
                 const wMin = Math.max(demand.minAreaM2 / depth, minWidthByAspect);
                 const wMax = demand.maxAreaM2 / depth;
                 if (remaining < wMin - EPS) break; // run can't host this demand at min width
-                // Clamp width so area stays in band, respects the aspect floor, AND fits the run.
                 w = Math.min(Math.max(w, wMin), Math.max(wMax, wMin), remaining);
                 const area = w * depth;
                 if (area < demand.minAreaM2 - 1e-3) break; // can't satisfy min in this run
-                const rect = normRect({ x0: x, z0: cellZ0, x1: x + w, z1: cellZ1 });
+                const rect = normRect({ x0: x, z0: round4(cellZ0), x1: round4(x + w), z1: round4(cellZ1) });
                 placements.push({ typology: demand.typology, rect, areaM2: round4(rectArea(rect)), doorEdge });
                 x = round4(x + w);
                 cursor++;
             }
         }
-        return true;
     }
 
-    // Pack front band first (apartments hang their door on its z1 = corridor edge),
-    // then back band (door on its z0 = corridor edge).
-    packBand(frontBand, 'z1');
-    packBand(backBand, 'z0');
+    // Tile every corridor's two apartment rows. The row depth on each side is bounded by
+    // (a) MAX_APARTMENT_DEPTH_M, (b) the plate edge, and (c) the MIDPOINT to the
+    // neighbouring corridor's near edge — so two facing rows from adjacent corridors butt
+    // together and never overlap. Rows are filled in a deterministic order: for each
+    // corridor top→bottom, its FRONT (toward smaller z) row then its BACK (larger z) row.
+    for (let i = 0; i < centreLines.length; i++) {
+        const cz = centreLines[i]!;
+        const myTop = round4(cz - halfCorr);
+        const myBot = round4(cz + halfCorr);
+
+        // FRONT row (z < corridor): door edge is z1 (the corridor's top). Its outer limit
+        // is the plate top, the prev corridor's near edge, or MAX depth — whichever is closest.
+        const prevCz = i > 0 ? centreLines[i - 1]! : undefined;
+        const frontOuterLimit = prevCz !== undefined
+            ? (prevCz + halfCorr + myTop) / 2   // midpoint between the two corridor near-edges
+            : bb.z0;
+        const frontDepth = Math.min(MAX_APARTMENT_DEPTH_M, myTop - frontOuterLimit);
+        if (frontDepth > MIN_ROW_DEPTH - EPS) {
+            packRow(round4(myTop - frontDepth), myTop, 'z1');
+        }
+
+        // BACK row (z > corridor): door edge is z0 (the corridor's bottom).
+        const nextCz = i < centreLines.length - 1 ? centreLines[i + 1]! : undefined;
+        const backOuterLimit = nextCz !== undefined
+            ? (nextCz - halfCorr + myBot) / 2
+            : bb.z1;
+        const backDepth = Math.min(MAX_APARTMENT_DEPTH_M, backOuterLimit - myBot);
+        if (backDepth > MIN_ROW_DEPTH - EPS) {
+            packRow(myBot, round4(myBot + backDepth), 'z0');
+        }
+    }
 
     if (cursor < apartments.length) {
         return reject(
@@ -340,13 +416,14 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
     const mix = placements.map((c) => c.typology);
     const diagnostic =
         `§DIAG-RESI-PARTITION level=${levelIndex} status=ok N=${placements.length} ` +
+        `corridors=${corridorBands.length} ` +
         `mix=[${mix.join(',')}] areas=[${areas.map((a) => a.toFixed(1)).join(',')}] ` +
         `reached=${reached}/${placements.length}`;
 
     return {
         status: 'ok',
         core: coreN,
-        publicCorridor: [corridorBand],
+        publicCorridor: corridorBands,
         apartmentCells: placements,
         apartmentsReached: reached,
         diagnostic,
