@@ -305,6 +305,12 @@ const CORRIDOR_STRIP_WIDTH_M = 1.2;
  *  the strip depth so a 33 m² target becomes a ≤ depth × edge strip, not a cavernous square. */
 const ENSUITE_MAX_AREA_FRAC_OF_HOST = 0.45;
 const ENSUITE_MAX_DEPTH_M = 2.4;
+/** §ENSUITE-AREA-CAP (founder "30 m² en-suite", 2026-06-23) — the ABSOLUTE ceiling the comment above
+ *  promised but was never wired. On a big upper plate the host carries the HOISTED combined area
+ *  (~67 m²), so the relative 0.45× cap alone still yields ~30 m² — an en-suite the size of a bedroom.
+ *  An en-suite is a small wet room; cap it at a generous shower-room area. Math.min only ever SHRINKS,
+ *  so a normal small en-suite is untouched (apartment / well-sized-host path byte-identical). */
+const ENSUITE_MAX_AREA_M2 = 6.5;
 
 /** §MASTER-SURPLUS (2026-06-08, layout-quality fix-pass F3) — the master bedroom
  *  must read as visibly larger than every other bedroom. The squarifier biases the
@@ -1367,6 +1373,7 @@ export function carveEnsuiteWithinHost(
     const cappedArea = Math.min(
         ensuiteAreaM2,
         ENSUITE_MAX_AREA_FRAC_OF_HOST * hostArea,
+        ENSUITE_MAX_AREA_M2,
     );
     // Never below the ensuite's own architectural minimum (else the carve can't seat a real room).
     // The band-DEPTH cap (ENSUITE_MAX_DEPTH_M, applied inside the corner carve's tryCut) is what
