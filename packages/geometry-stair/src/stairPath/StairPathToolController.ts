@@ -655,6 +655,7 @@ export class StairPathToolController {
         const cmd = new CreateStairCommand(input);
         // [E.5.x] Bus telemetry — fire-and-forget; legacy commandManager drives state during migration.
         if (window.runtime?.bus) { window.runtime.bus.executeCommand('stair.create', {}).catch(() => {}); }
+        console.log('[Stair] §STAIR-CREATE dispatched — CreateStairCommand, points=', this._model.count);
         this._config.commandManager.execute(cmd);
 
         this._config.onComplete?.(input);

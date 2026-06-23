@@ -99,6 +99,83 @@ const STORAGE_VERSIONS_PREFIX = 'bim-project-';
 const VERSIONS_SUFFIX = '-versions';
 const MAX_VERSIONS_STORED = 20;
 
+/** True for the QuotaExceededError thrown by localStorage.setItem when full. */
+function _isQuotaError(err: unknown): boolean {
+    // Firefox uses code 1014 ('NS_ERROR_DOM_QUOTA_REACHED'); Chrome/Safari use
+    // 22 / name 'QuotaExceededError'. Match on both name and code defensively.
+    const e = err as { name?: string; code?: number } | null;
+    return !!e && (
+        e.name === 'QuotaExceededError' ||
+        e.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+        e.code === 22 || e.code === 1014
+    );
+}
+
+/**
+ * §PROJECT-INDEX-EVICT (2026-06-22) — enumerate `bim-project-<id>-versions` keys
+ * sorted oldest-first by the project index's `updatedAt`. Shared by both the
+ * version-store and project-index quota recovery paths. `excludeId` keeps the
+ * project currently being saved from evicting its own history.
+ */
+function _versionKeysOldestFirst(excludeId: string | null): string[] {
+    const out: { key: string; updatedAt: number }[] = [];
+    let indexMap: Map<string, number> | null = null;
+    try {
+        const raw = localStorage.getItem(STORAGE_INDEX_KEY);
+        if (raw) {
+            const arr = JSON.parse(raw) as ProjectMeta[];
+            indexMap = new Map(arr.map(m => [m.id, m.updatedAt ?? 0]));
+        }
+    } catch { /* ignore — fall through to updatedAt=0 for all */ }
+    for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k) continue;
+        if (!k.startsWith(STORAGE_VERSIONS_PREFIX)) continue;
+        if (!k.endsWith(VERSIONS_SUFFIX)) continue;
+        const id = k.slice(STORAGE_VERSIONS_PREFIX.length, -VERSIONS_SUFFIX.length);
+        if (excludeId !== null && id === excludeId) continue;
+        out.push({ key: k, updatedAt: indexMap?.get(id) ?? 0 });
+    }
+    out.sort((a, b) => a.updatedAt - b.updatedAt);
+    return out.map(e => e.key);
+}
+
+/**
+ * §PROJECT-INDEX-EVICT — write `value` to `key`, and on QuotaExceededError evict
+ * the version stores of OTHER projects (oldest `updatedAt` first) and retry until
+ * the write succeeds or there is nothing left to evict. `excludeId` is the
+ * project being saved (its own history is never evicted). Returns true on a
+ * successful write. NEVER throws — quota is a soft failure for callers.
+ */
+function _setItemWithEviction(key: string, value: string, excludeId: string | null): boolean {
+    try {
+        localStorage.setItem(key, value);
+        return true;
+    } catch (err) {
+        if (!_isQuotaError(err)) {
+            console.warn('[ProjectRepository] setItem failed (non-quota):', err);
+            return false;
+        }
+    }
+    const evictKeys = _versionKeysOldestFirst(excludeId);
+    let evicted = 0;
+    for (const k of evictKeys) {
+        try { localStorage.removeItem(k); evicted++; } catch { /* ignore */ }
+        try {
+            localStorage.setItem(key, value);
+            console.warn(
+                `[ProjectRepository] §PROJECT-INDEX-EVICT — freed space by dropping ${evicted} ` +
+                `stale project version store(s) to persist "${key}".`,
+            );
+            return true;
+        } catch (err) {
+            if (!_isQuotaError(err)) { console.warn('[ProjectRepository] setItem retry failed (non-quota):', err); return false; }
+            // still over quota — drop the next-oldest store and retry
+        }
+    }
+    return false;
+}
+
 /** Warn when estimated version payload exceeds this threshold (bytes). */
 const QUOTA_WARN_BYTES = 4 * 1024 * 1024; // 4 MB
 
@@ -227,10 +304,12 @@ export class LocalProjectRepository implements IProjectRepository {
         } else {
             index.push(stamped);
         }
-        try {
-            localStorage.setItem(STORAGE_INDEX_KEY, JSON.stringify(index));
-        } catch {
-            console.warn('[ProjectRepository] localStorage quota exceeded — project index not saved');
+        // §PROJECT-INDEX-EVICT — quota-safe write: on QuotaExceededError, evict the
+        // oldest OTHER projects' version stores and retry, so the index (the project
+        // list itself) is never silently dropped on a full localStorage. The project
+        // being saved is excluded from eviction so its own history survives.
+        if (!_setItemWithEviction(STORAGE_INDEX_KEY, JSON.stringify(index), meta.id)) {
+            console.warn('[ProjectRepository] localStorage quota exceeded — project index not saved (eviction exhausted)');
         }
     }
 
@@ -366,10 +445,10 @@ export class LocalVersionRepository implements IVersionRepository {
         } else {
             index.push(meta);
         }
-        try {
-            localStorage.setItem(STORAGE_INDEX_KEY, JSON.stringify(index));
-        } catch {
-            console.warn('[VersionRepository] Quota exceeded — project meta index not updated');
+        // §PROJECT-INDEX-EVICT — quota-safe: evict OTHER projects' version stores
+        // (excluding this one) and retry rather than silently dropping the index.
+        if (!_setItemWithEviction(STORAGE_INDEX_KEY, JSON.stringify(index), projectId)) {
+            console.warn('[VersionRepository] Quota exceeded — project meta index not updated (eviction exhausted)');
         }
     }
 

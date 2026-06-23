@@ -53,6 +53,8 @@ export class StairPath3DToolHandler {
     private _onPointerMove: ((e: PointerEvent) => void) | null = null;
     private _onDblClick:    ((e: MouseEvent) => void) | null = null;
     private _onContextMenu: ((e: MouseEvent) => void) | null = null;
+    /** Camera-controls enabled-state captured at activate() so we can restore it. */
+    private _restoreControls: (() => void) | null = null;
 
     constructor(private _deps: StairPath3DDeps) {}
 
@@ -115,6 +117,27 @@ export class StairPath3DToolHandler {
         });
         this._ctrl.activate();
 
+        // §STAIR-CLICK-FIX (2026-06-22) — the 3D sketch handler binds its own DOM
+        // listeners directly on the THREE canvas (it bypasses ToolManager, which
+        // is what normally disables camera-controls for the element tools). With
+        // camera-controls still live, a press-drag-release on the canvas is eaten
+        // by the orbit gesture and our place-point click never produces a stair —
+        // the exact "tool activates but clicking does nothing" symptom. Disable
+        // camera-controls for the lifetime of the sketch and restore on deactivate.
+        try {
+            const controls = (world as unknown as {
+                camera?: { controls?: { enabled?: boolean } };
+            }).camera?.controls;
+            if (controls && typeof controls.enabled === 'boolean') {
+                const prev = controls.enabled;
+                controls.enabled = false;
+                this._restoreControls = () => { try { controls.enabled = prev; } catch { /* ignore */ } };
+                console.log('[Stair] §STAIR-CONTROLS-OFF camera-controls disabled while sketching');
+            }
+        } catch (err) {
+            console.warn('[Stair] could not toggle camera-controls (non-fatal):', err);
+        }
+
         this._bindPointerEvents(camera, canvas, groundY);
 
         // Parity with the plan handler — expose the public API global so the
@@ -127,14 +150,18 @@ export class StairPath3DToolHandler {
 
     deactivate(): void {
         if (this._canvas) {
-            if (this._onPointerDown) this._canvas.removeEventListener('pointerdown', this._onPointerDown);
+            // Removal options MUST match the capture flag used at add time.
+            if (this._onPointerDown) this._canvas.removeEventListener('pointerdown', this._onPointerDown, { capture: true } as EventListenerOptions);
             if (this._onPointerMove) this._canvas.removeEventListener('pointermove', this._onPointerMove);
-            if (this._onDblClick)    this._canvas.removeEventListener('dblclick',    this._onDblClick);
-            if (this._onContextMenu) this._canvas.removeEventListener('contextmenu', this._onContextMenu);
+            if (this._onDblClick)    this._canvas.removeEventListener('dblclick',    this._onDblClick,    { capture: true } as EventListenerOptions);
+            if (this._onContextMenu) this._canvas.removeEventListener('contextmenu', this._onContextMenu, { capture: true } as EventListenerOptions);
         }
         this._onPointerDown = this._onPointerMove = null;
         this._onDblClick = this._onContextMenu = null;
         this._canvas = null;
+
+        // §STAIR-CLICK-FIX — restore camera-controls to its pre-sketch state.
+        if (this._restoreControls) { this._restoreControls(); this._restoreControls = null; }
 
         if (this._ctrl) {
             this._ctrl.deactivate();
@@ -169,22 +196,37 @@ export class StairPath3DToolHandler {
         };
         this._onPointerDown = (e: PointerEvent) => {
             if (e.button === 2) return;          // right-click handled by contextmenu
+            // §STAIR-CLICK-FIX — claim the gesture in the CAPTURE phase before
+            // camera-controls / SelectionManager can treat it as an orbit/select,
+            // mirroring MarqueeSelectionTool. Without this the place-point press
+            // was consumed by the camera and no stair point was ever set.
+            e.preventDefault();
+            e.stopPropagation();
             const p = toWorld(e);
-            if (p) this._ctrl?.feedClick(p.x, p.z);
+            console.log('[Stair] §STAIR-CLICK at', p ? `(${p.x.toFixed(2)}, ${p.z.toFixed(2)})` : 'NO-HIT (ground raycast missed)', 'state=', this._ctrl?.state ?? 'null');
+            if (!p) return;
+            this._ctrl?.feedClick(p.x, p.z);
+            console.log('[Stair] §STAIR-POINT-SET state=', this._ctrl?.state ?? 'null');
         };
         this._onDblClick = (e: MouseEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
             const p = toWorld(e);
+            console.log('[Stair] §STAIR-CREATE dispatched (double-click finish) at', p ? `(${p.x.toFixed(2)}, ${p.z.toFixed(2)})` : 'NO-HIT');
             if (p) this._ctrl?.feedDoubleClick(p.x, p.z);
         };
         this._onContextMenu = (e: MouseEvent) => {
             e.preventDefault();
+            e.stopPropagation();
             this._ctrl?.feedRightClick();
         };
 
-        canvas.addEventListener('pointermove', this._onPointerMove);
-        canvas.addEventListener('pointerdown', this._onPointerDown);
-        canvas.addEventListener('dblclick',    this._onDblClick);
-        canvas.addEventListener('contextmenu', this._onContextMenu);
+        // CAPTURE phase + passive:false so preventDefault() actually suppresses
+        // the camera orbit gesture (camera-controls binds in the bubble phase).
+        canvas.addEventListener('pointermove', this._onPointerMove, { passive: false });
+        canvas.addEventListener('pointerdown', this._onPointerDown, { capture: true, passive: false });
+        canvas.addEventListener('dblclick',    this._onDblClick,    { capture: true });
+        canvas.addEventListener('contextmenu', this._onContextMenu, { capture: true });
     }
 
     private _getPublicApi() {
