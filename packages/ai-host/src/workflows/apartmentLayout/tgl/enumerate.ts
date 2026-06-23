@@ -89,7 +89,15 @@ export type HardFailedRule =
     // shared, oversized, or attached to a non-bedroom is hard-invalid, so a candidate whose ensuites
     // are all clean 1:1 suites outranks it. Computed from the realised RECTS + door set; house path
     // only (the caller passes [] off the apartment path) ⇒ apartment baseline byte-identical.
-    | 'ensuite-not-1to1';
+    | 'ensuite-not-1to1'
+    // §ROOM-OUT-OF-BOUNDS (founder P0 contract violation, 2026-06-23) — ANY placed room (en-suite, stair,
+    // corridor, bedroom — EVERY emitted cell) not FULLY contained within the shell polygon. Rooms outside
+    // the site boundary are STRICTLY PROHIBITED by contract. The regression: `enforceSuiteCarve` emitted an
+    // en-suite as a band PAST the shell when it couldn't fit inside its host, and NO hard gate caught it.
+    // This is the safety net: it fires on EVERY storey + EVERY room type (no house/apartment gating —
+    // out-of-bounds is never acceptable), so an in-bounds layout ALWAYS outranks an out-of-bounds one when
+    // one exists (the `preferInBoundsCandidates` narrowing in the least-bad fallback makes it strict).
+    | 'room-out-of-bounds';
 
 /** §DIAG-MIN-AREA-GATE (tracker §68.1) — the habitable room types whose own
  *  `areaMin` is enforced as a HARD floor. A room of one of these types emitted below
@@ -443,6 +451,83 @@ export function servedThroughPrivateRoomIds(args: {
         if (isCirc(typeById.get(b))) directToCirc.add(a);
     }
     return gated.filter(r => !directToCirc.has(r.id)).map(r => r.id).sort();
+}
+
+/** §ROOM-OUT-OF-BOUNDS (founder P0 contract violation, 2026-06-23) — is a point inside-or-on a
+ *  simple polygon? Ray-cast with an on-boundary tolerance (a point within `epsM` of any edge is
+ *  treated as INSIDE, so a room rect flush to the shell wall is NOT flagged). Pure + deterministic;
+ *  metres, plan frame. Mirrors `rectInsidePolygon`'s `inside()` in subdivide.ts (kept local here so
+ *  the gate is self-contained at the enumerate layer; identical winding/ray-cast semantics). */
+function ptInShell(x: number, z: number, poly: readonly Pt[], epsM: number): boolean {
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const a = poly[i]!, b = poly[j]!;
+        const dx = b.x - a.x, dz = b.z - a.z;
+        const len2 = dx * dx + dz * dz;
+        const t = len2 > 1e-12 ? ((x - a.x) * dx + (z - a.z) * dz) / len2 : -1;
+        if (t >= -1e-6 && t <= 1 + 1e-6) {
+            const px = a.x + t * dx, pz = a.z + t * dz;
+            if (Math.hypot(x - px, z - pz) <= epsM) return true;   // on a shell edge (flush) → inside
+        }
+    }
+    let win = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const a = poly[i]!, b = poly[j]!;
+        const intersect = ((a.z > z) !== (b.z > z)) &&
+            (x < (b.x - a.x) * (z - a.z) / ((b.z - a.z) || 1e-30) + a.x);
+        if (intersect) win = !win;
+    }
+    return win;
+}
+
+/**
+ * §ROOM-OUT-OF-BOUNDS (founder P0 contract violation, 2026-06-23) — the HARD safety net. Rooms
+ * OUTSIDE the site boundary (the shell polygon) are STRICTLY PROHIBITED by contract. The regression
+ * was the `enforceSuiteCarve` en-suite work emitting an en-suite as a band PAST the shell when it
+ * could not fit inside its host bedroom — and NO hard gate caught it (the diagnostics covered
+ * window / circulation / served-through / ensuite-1to1 but never out-of-bounds). This predicate is
+ * that gate: it returns the ids of EVERY placed room (en-suite, stair, corridor, bedroom — every
+ * emitted cell) that is NOT fully contained within the shell polygon, with a tiny `epsM` tolerance
+ * (default 0.02 m = 2 cm) for float / weld slack.
+ *
+ * A room is OUT-OF-BOUNDS iff ANY vertex of its boundary ring (the real cell polygon when
+ * `cellPolygonById` carries one, else the placement rect's ring) — sampled a hair INTO the room so a
+ * vertex flush to a slanted shell edge is judged by its true interior side — falls outside the shell,
+ * OR an edge MIDPOINT does (catches a room straddling a re-entrant notch with no vertex outside).
+ * Applies to EVERY storey and EVERY room type (no house/apartment gating — out-of-bounds is never
+ * acceptable). Pure + deterministic (ADR-0061), exported for the §ROOM-OUT-OF-BOUNDS unit tests;
+ * sorted output; no P8 span (consistent with the sibling pure predicates).
+ */
+export function roomsOutOfShellRoomIds(args: {
+    readonly placements: readonly RoomPlacement[];
+    readonly shellPolygon: readonly Pt[];
+    readonly cellPolygonById?: ReadonlyMap<string, readonly Pt[]>;
+    /** Containment tolerance (m). A room vertex within this distance of the shell counts as inside. */
+    readonly epsilonM?: number;
+}): readonly string[] {
+    const { placements, shellPolygon, cellPolygonById } = args;
+    if (shellPolygon.length < 3) return [];          // no real boundary constraint → nothing to enforce
+    const epsM = args.epsilonM ?? 0.02;              // 2 cm float / weld slack
+    const out: string[] = [];
+    for (const p of placements) {
+        const ring = cellPolygonById?.get(p.roomId) ?? rectPolygon(p.rect);
+        if (ring.length < 2) continue;
+        // Centroid of the ring — sample each test point a hair toward it so a vertex/midpoint flush to
+        // a slanted shell edge (which the ray-cast can classify either way) is judged by its interior side.
+        let cx = 0, cz = 0;
+        for (const v of ring) { cx += v.x; cz += v.z; }
+        cx /= ring.length; cz /= ring.length;
+        const nudge = (px: number, pz: number): [number, number] => [px + (cx - px) * 1e-4, pz + (cz - pz) * 1e-4];
+        let bad = false;
+        for (let i = 0; i < ring.length && !bad; i++) {
+            const a = ring[i]!, b = ring[(i + 1) % ring.length]!;
+            const [vx, vz] = nudge(a.x, a.z);
+            if (!ptInShell(vx, vz, shellPolygon, epsM)) { bad = true; break; }
+            const [mx, mz] = nudge((a.x + b.x) / 2, (a.z + b.z) / 2);
+            if (!ptInShell(mx, mz, shellPolygon, epsM)) { bad = true; break; }
+        }
+        if (bad) out.push(p.roomId);
+    }
+    return out.sort();
 }
 
 /**
@@ -824,8 +909,12 @@ function evaluateHardTopology(args: {
      *  (isolated / non-bedroom host / shared host / oversized / wrong door). Empty on the apartment
      *  path (caller passes []) ⇒ byte-identical. Non-empty ⇒ Rule 'ensuite-not-1to1'. */
     readonly ensuiteNot1to1Ids: readonly string[];
+    /** §ROOM-OUT-OF-BOUNDS (founder P0 contract violation) — the PLACED rooms NOT fully contained within
+     *  the shell polygon (any room type, any storey). Non-empty ⇒ Rule 'room-out-of-bounds'. Computed
+     *  on EVERY path (not gated to house) — out-of-bounds is never acceptable. */
+    readonly outOfBoundsRoomIds: readonly string[];
 }): readonly HardFailedRule[] {
-    const { bubble, frontageHardRoomIds, unroutedToCirculationRoomIds, doorOpenings, hasRoomOverlap, hasUnderMinArea, hasMissingMandatory, unreachableHabitableRoomIds, corridorStairGap, corridorHallGap, corridorPurity, servedThroughRoomIds, hallWetRoomOnly, ensuiteNot1to1Ids } = args;
+    const { bubble, frontageHardRoomIds, unroutedToCirculationRoomIds, doorOpenings, hasRoomOverlap, hasUnderMinArea, hasMissingMandatory, unreachableHabitableRoomIds, corridorStairGap, corridorHallGap, corridorPurity, servedThroughRoomIds, hallWetRoomOnly, ensuiteNot1to1Ids, outOfBoundsRoomIds } = args;
     const typeById = new Map<string, string>();
     for (const r of bubble.rooms) typeById.set(r.id, r.type);
 
@@ -992,6 +1081,18 @@ function evaluateHardTopology(args: {
         failed.push('ensuite-not-1to1');
     }
 
+    // Rule OOB — §ROOM-OUT-OF-BOUNDS (founder P0 contract violation, 2026-06-23). ANY placed room not
+    // FULLY contained within the shell polygon is a HARD failure. This is the non-negotiable safety net:
+    // rooms outside the site boundary are STRICTLY PROHIBITED by contract, and before this NO gate caught
+    // them (the §AREA-CAP / suite-carve work could band an en-suite PAST the shell). Computed on EVERY
+    // path (no house gating) so it covers en-suites, stair rooms, corridors and bedrooms on EVERY storey.
+    // When a candidate breaks ONLY this rule it is still de-ranked below an in-bounds sibling; when EVERY
+    // candidate is out-of-bounds the §TOPO-HARD-REJECT-ALL least-bad fallback still ships, but
+    // `preferInBoundsCandidates` floats any in-bounds candidate strictly above the out-of-bounds ones.
+    if (outOfBoundsRoomIds.length > 0) {
+        failed.push('room-out-of-bounds');
+    }
+
     return failed;
 }
 
@@ -1148,6 +1249,16 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
             stairCarved,
             shellRectified,
             ...(input.corridorWidthM !== undefined ? { corridorWidthM: input.corridorWidthM } : {}),
+            // §EN-SUITE-CARVE-IN-BOUNDS (founder P0 contract violation, 2026-06-23) — pass the shell BOUNDING
+            // BOX in THIS strategy's frame so `enforceSuiteCarve` verifies each carved en-suite stays inside
+            // the boundary and DROPS (reports) rather than bands one PAST the shell. The carve operates on
+            // the bbox-frame rect tiling (`placements`), so the BBOX is the correct reference frame: on the
+            // founder's axis-aligned / keep-out house plate the bbox === the shell, so a band carved past the
+            // south wall is caught exactly; on a sheared/rectified plate the rect tiling deliberately fills
+            // the bbox (§POLYGON-NATIVE), so the bbox avoids falsely dropping a valid carved ensuite (the
+            // polygon-true net is the §ROOM-OUT-OF-BOUNDS gate, which uses the REAL cells). Read outside the
+            // spine-first gates ⇒ no legacy behaviour change except the new in-bounds drop.
+            shellPolygonForBounds: rectPolygon(polygonBBox(polyT)),
             // §STAIR-CIRC-FACE — pass the inflated keep-out(s) so the subdivider orients the
             // corridor/landing to share a wall with the stair (founder defect 2026-06-11).
             ...(holesT.length > 0 ? { keepOutRects: holesT } : {}),
@@ -2242,6 +2353,30 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         // Hard-invalid ONLY when the hall reaches a wet/private room but NO corridor-or-public room.
         return hasWetOrPrivate && !hasCorridorOrPublic;
     })();
+    // §ROOM-OUT-OF-BOUNDS (founder P0 contract violation, 2026-06-23) — the HARD safety net. EVERY emitted
+    // room (en-suite / stair / corridor / bedroom — every cell) MUST be fully contained within the shell
+    // polygon. Gated against `emitPlacements` (the ACTUAL emitted set: real cell polygons on the polygon
+    // route, rect cells elsewhere) in the PLAN frame, against the plan-frame `input.shellPolygon` — one
+    // consistent frame. The real cell polygons (`cellPolyByIdWorld`, also plan frame) are used when present
+    // so a sheared/L-cell is judged on its true boundary, not its bbox. Computed on EVERY path (NOT gated to
+    // the house) — out-of-bounds is never acceptable on any storey or layout type.
+    //
+    // §POLYGON-NATIVE coexistence: on a RECTIFIED (sheared) plate the rect-frame `placements` deliberately
+    // OVERFLOW the sheared façade (the doc's "the rect path keeps emitting rects … the two coexist") while
+    // `cellPolyByIdWorld` carries the REAL in-shell cells; the EMITTED geometry is the cells. So on that path
+    // a room WITHOUT a real cell (a stair/stub rect that legitimately exceeds the sheared bbox edge) is
+    // EXCLUDED from the gate — judging its bbox against the sheared shell would falsely flag the whole skewed
+    // candidate and break the §POLYGON-NATIVE contract. On every NON-rectified path (the founder's house
+    // case — axis-aligned rect / keep-out plates) every room is gated by its real cell-or-rect. A 2 cm
+    // epsilon absorbs float / weld slack so a room flush to the shell wall is NOT flagged.
+    const oobPlacements = (cellPolyByIdWorld && shellRectified)
+        ? emitPlacements.filter(p => cellPolyByIdWorld.has(p.roomId))   // skewed path: gate only real cells
+        : emitPlacements;
+    const outOfBoundsRoomIds = roomsOutOfShellRoomIds({
+        placements: oobPlacements,
+        shellPolygon: input.shellPolygon,
+        ...(cellPolyByIdWorld ? { cellPolygonById: cellPolyByIdWorld } : {}),
+    });
     const hardFailedRules = evaluateHardTopology({
         bubble,
         frontageHardRoomIds: frontage.hardFindings.map(f => f.roomId),
@@ -2257,6 +2392,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         servedThroughRoomIds,
         hallWetRoomOnly,
         ensuiteNot1to1Ids,
+        outOfBoundsRoomIds,
     });
     const hardValid = hardFailedRules.length === 0;
     // §DIAG-TOPO-GATE — per-candidate hard-gate decision line (logging only).
@@ -2269,6 +2405,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         `corrBlob=${corridorPurity.corridorBlob ? 'YES' : 'no'} ` +
         `corrPerimeter=${corridorPurity.corridorOnPerimeter ? 'YES' : 'no'} ` +
         `ensuite1to1=${ensuiteNot1to1Ids.length === 0 ? 'OK' : `BAD[${ensuiteNot1to1Ids.join(',')}]`} ` +
+        `roomOutOfBounds=${outOfBoundsRoomIds.length === 0 ? 'NO' : `YES[${outOfBoundsRoomIds.join(',')}]`} ` +
         `failed=[${hardFailedRules.join(',') || 'none'}]`,
     );
     // §DIAG-MIN-AREA-GATE (tracker §68.1) — per-candidate min-area decision line: the
@@ -2548,6 +2685,23 @@ export function preferReachComplete(pool: readonly TglCandidate[]): readonly Tgl
 }
 
 /**
+ * §ROOM-OUT-OF-BOUNDS (founder P0 contract violation, 2026-06-23) — the HARD in-bounds tiebreaker
+ * inside the least-bad fallback. A room OUTSIDE the site boundary is STRICTLY PROHIBITED by contract,
+ * so among the least-bad candidates an IN-BOUNDS layout (no `room-out-of-bounds` rule) must ALWAYS
+ * outrank one that pokes a room past the shell — independent of every soft score. This narrows the
+ * pool to the in-bounds candidates ONLY when that subset is a NON-EMPTY proper subset (it never
+ * empties the pool — when EVERY candidate is out-of-bounds the engine still ships least-bad). Because
+ * a HARD-VALID candidate can never carry `room-out-of-bounds`, the common compliant pool
+ * (`selectTier(hardValidCands)`) has zero out-of-bounds candidates → no-op → byte-identical
+ * (ADR-0061). It only bites in the all-hard-invalid §TOPO-HARD-REJECT-ALL fallback where in-bounds and
+ * out-of-bounds candidates coexist. Pure + deterministic.
+ */
+export function preferInBoundsCandidates(pool: readonly TglCandidate[]): readonly TglCandidate[] {
+    const inBounds = pool.filter(c => !c.hardFailedRules.includes('room-out-of-bounds'));
+    return inBounds.length > 0 && inBounds.length < pool.length ? inBounds : pool;
+}
+
+/**
  * Enumerate candidate layouts and return the best `count`, Pareto-ranked then
  * weighted-sorted. Deterministic: same input ⇒ identical output (graphs + GUIDs).
  */
@@ -2746,6 +2900,28 @@ export function enumerateLayouts(input: EnumerateInput): TglCandidate[] {
             'The shell + program forces an architectural compromise — shipping the LEAST-BAD ' +
             'layout (never an empty result). Surface the failing rule(s) to the user.',
         );
+    }
+
+    // §ROOM-OUT-OF-BOUNDS (founder P0 contract violation, 2026-06-23) — the HIGHEST-priority HARD
+    // tiebreaker inside the least-bad fallback. A room OUTSIDE the site boundary is STRICTLY PROHIBITED
+    // by contract, so among the least-bad candidates an IN-BOUNDS layout ALWAYS outranks one that pokes a
+    // room past the shell — ranked BEFORE the reach tiebreaker (a sealed-but-in-bounds layout is a lesser
+    // violation than an out-of-bounds one). No-op on the common compliant pool (hard-valid candidates can
+    // never be out-of-bounds) ⇒ byte-identical; only narrows in the all-hard-invalid fallback.
+    {
+        const inBounds = preferInBoundsCandidates(pool);
+        if (inBounds.length < pool.length) {
+            const oobAcross = Array.from(
+                new Set(pool.filter(c => c.hardFailedRules.includes('room-out-of-bounds')).map(c => c.strategy)),
+            ).join(',');
+            console.warn(
+                `[apartment-layout] §ROOM-OUT-OF-BOUNDS: preferring the ${inBounds.length}/${pool.length} ` +
+                `least-bad candidate(s) with EVERY room inside the shell over the ${pool.length - inBounds.length} ` +
+                `that emit a room PAST the site boundary (out-of-bounds strategies: [${oobAcross}]). ` +
+                'Rooms outside the shell polygon are strictly prohibited by contract.',
+            );
+            pool = inBounds as TglCandidate[];
+        }
     }
 
     // §CIRCULATION-COMPLIANCE (founder, 2026-06-18) — HARD reach tiebreaker inside the

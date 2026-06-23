@@ -252,6 +252,15 @@ export interface SubdivideOptions {
      * (ground) floor. The browser sets it from `window.__pryzmSpineTree` (via enumerate). Any miss (no
      * corridor / a drop) falls through to the existing paths ⇒ strictly additive (ADR-0061). */
     readonly spineTree?: boolean;
+    /**
+     * §EN-SUITE-CARVE-IN-BOUNDS (founder P0 contract violation, 2026-06-23) — the REAL shell polygon in
+     * THIS (strategy) frame (the same `polyT` enumerate tiles), passed on EVERY path (not just spineFirst).
+     * Used SOLELY by `enforceSuiteCarve` to verify each carved en-suite stays strictly INSIDE the shell;
+     * a carve that would push an en-suite PAST the boundary DROPS it (reported) and leaves the host whole —
+     * never bands it outside the shell. Distinct from `shellPolygon` (the spine-first clamp polygon) so it
+     * is read OUTSIDE the spine-first gates and can be supplied without enabling spine-first. Absent ⇒ the
+     * in-host split is already host-bounded ⇒ byte-identical. */
+    readonly shellPolygonForBounds?: readonly Pt[];
 }
 
 /** Axis-line snap tolerance (m). Matches the EPS_M used by the SCORING
@@ -1501,6 +1510,13 @@ function carveSuiteEnsuites(
 function enforceSuiteCarve(
     placements: readonly RoomPlacement[],
     graph: BubbleGraph,
+    // §EN-SUITE-CARVE-IN-BOUNDS (founder P0 contract violation, 2026-06-23) — the REAL shell polygon
+    // in THIS (strategy) frame (the same `polyT` enumerate tiles). When supplied, EVERY carved ensuite
+    // (and the host it leaves behind) is verified strictly INSIDE the shell; a carve that would push the
+    // ensuite PAST the boundary is REJECTED and the ensuite is DROPPED (reported), the host left WHOLE —
+    // NEVER a band emitted outside the shell. Absent ⇒ unchanged (the in-host split is already bounded by
+    // the host rect, so a host that is itself in-shell yields an in-shell ensuite) → byte-identical.
+    shellPolygon?: readonly Pt[],
 ): { placements: readonly RoomPlacement[]; dropped: DroppedRoom[] } {
     // Collect the (host → ensuite) suites from the bubble graph's `ensuiteHostId` stamps.
     const suites: Suite[] = [];
@@ -1565,6 +1581,24 @@ function enforceSuiteCarve(
         const ec = carveEnsuiteWithinHost(combined, suite.ensuite.targetAreaM2, corridorRect ?? { x0: -1e6, z0: -1e6, x1: -1e6 + 1, z1: -1e6 + 1 });
         if (!ec) {
             // Host too tight to seat both rooms → drop the ensuite (reported), leave the host WHOLE.
+            if (ensP) byId.delete(ensId);
+            dropped.push({ roomId: ensId, type: suite.ensuite.type, shortSideM: 0, minShortSideM: floorFor(suite.ensuite.type) });
+            droppedCount += 1;
+            continue;
+        }
+        // §EN-SUITE-CARVE-IN-BOUNDS (founder P0 contract violation, 2026-06-23) — the carve splits the
+        // host's COMBINED footprint into two sub-rects, so a carve is in-bounds iff that combined rect is.
+        // The combined rect is the host's PLACED rect (already in-shell) UNLESS the bbox-merge above pulled
+        // in a stray ensuite cell that itself pokes past the shell — that is the ONLY way the merge can
+        // extend `combined` beyond the boundary. When a shell is supplied, VERIFY both carved rects are
+        // strictly inside it; if either escapes, DROP the ensuite (reported) and leave the host WHOLE —
+        // NEVER emit a band outside the shell. (No shell ⇒ skip the check ⇒ byte-identical legacy path.)
+        if (shellPolygon && shellPolygon.length >= 3
+            && (!rectInsidePolygon(roundRect(ec.master), shellPolygon)
+                || !rectInsidePolygon(roundRect(ec.ensuite), shellPolygon))) {
+            // The merge pulled the carve out of bounds → drop the ensuite, restore the host's ORIGINAL
+            // in-shell rect (never the out-of-bounds combined remainder).
+            byId.set(suite.hostId, { roomId: suite.hostId, rect: roundRect(hostP.rect) });
             if (ensP) byId.delete(ensId);
             dropped.push({ roomId: ensId, type: suite.ensuite.type, shortSideM: 0, minShortSideM: floorFor(suite.ensuite.type) });
             droppedCount += 1;
@@ -4062,7 +4096,10 @@ export function subdivideWithReport(
         // squarify-fallback's standalone-cell ensuite) into the host, or drop it. Idempotent + suite-
         // mode-gated ⇒ the carve / spine / apartment paths are byte-identical. Runs FIRST so the
         // carved rect flows through the snap / overlap-net passes like any other room.
-        const suiteNet = enforceSuiteCarve(resIn.placements, graph);
+        // §EN-SUITE-CARVE-IN-BOUNDS — pass the strategy-frame shell so the suite net verifies every carved
+        // ensuite stays inside the boundary and DROPS (reports) rather than bands one PAST the shell. Absent
+        // (no shellPolygon option) ⇒ the in-host split is already host-bounded ⇒ byte-identical.
+        const suiteNet = enforceSuiteCarve(resIn.placements, graph, options.shellPolygonForBounds ?? options.shellPolygon);
         const res: SubdivideResult = suiteNet.dropped.length > 0 || suiteNet.placements !== resIn.placements
             ? { ...resIn, placements: suiteNet.placements, droppedRooms: [...resIn.droppedRooms, ...suiteNet.dropped] }
             : resIn;
