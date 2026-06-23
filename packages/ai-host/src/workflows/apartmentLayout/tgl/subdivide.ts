@@ -1484,6 +1484,108 @@ function carveSuiteEnsuites(
 }
 
 /**
+ * §ENSUITE-NEVER-FREESTANDING (founder defect CFstdjE9 #1, 2026-06-23) — the UNIVERSAL suite-carve
+ * NET. The carve / spine paths already carve each ensuite into its host's corner, but the SQUARIFY
+ * FALLBACK paths (`packMultiRect` / `placeInRectReported`) lay the ensuite as a STANDALONE treemap
+ * cell — the founder's "four detached En-suites stacked in a column" bug. This net runs on the
+ * FINAL placements (so EVERY path is covered) and, for each (host → ensuite) suite whose ensuite is
+ * NOT a clean corner of its host, RE-CARVES the ensuite out of the host's PLACED rect via
+ * `carveEnsuiteWithinHost`; an ensuite whose host can't seat both rooms is DROPPED (reported via
+ * `droppedRooms`) — NEVER emitted free-standing.
+ *
+ * IDEMPOTENT: an ensuite that is ALREADY a clean corner of its host (shares ≥ a door-width wall with
+ * the host, sits inside the host's combined footprint, area ≤ host) is left UNTOUCHED, so the carve /
+ * spine paths are byte-identical. SUITE-MODE-GATED (more than the lone master suite, OR a non-master
+ * host) so the apartment / single-master path is byte-identical too. Pure + deterministic (ADR-0061).
+ */
+function enforceSuiteCarve(
+    placements: readonly RoomPlacement[],
+    graph: BubbleGraph,
+): { placements: readonly RoomPlacement[]; dropped: DroppedRoom[] } {
+    // Collect the (host → ensuite) suites from the bubble graph's `ensuiteHostId` stamps.
+    const suites: Suite[] = [];
+    for (const r of graph.rooms) {
+        if (r.type !== 'ensuite' || !r.ensuiteHostId) continue;
+        if (!graph.rooms.some(h => h.id === r.ensuiteHostId)) continue;
+        suites.push({ hostId: r.ensuiteHostId, ensuite: r });
+    }
+    // No-op early returns hand back the ORIGINAL reference so the caller can detect "unchanged" and
+    // keep the non-suite / apartment path byte-identical.
+    if (suites.length === 0) return { placements, dropped: [] };
+    const master = graph.rooms.find(r => r.type === 'master');
+    // SUITE-MODE gate — mirror `carveSuiteEnsuites`: the lone master suite hosted by the master is the
+    // apartment / single-master case → leave it to the existing carve (byte-identical). Only the gated
+    // house-upper hotel-suite program (more than one suite, or a non-master host) takes this net.
+    const suiteMode = suites.length > 1 || suites.some(s => s.hostId !== master?.id);
+    if (!suiteMode) return { placements, dropped: [] };
+
+    const corridor = graph.rooms.find(r => r.type === 'corridor');
+    const byId = new Map<string, RoomPlacement>(placements.map(p => [p.roomId, { ...p }]));
+    const corridorRect = corridor ? byId.get(corridor.id)?.rect : undefined;
+    const dropped: DroppedRoom[] = [];
+    let recarved = 0, alreadyClean = 0, droppedCount = 0;
+
+    for (const suite of suites) {
+        const ensId = suite.ensuite.id;
+        const hostP = byId.get(suite.hostId);
+        const ensP = byId.get(ensId);
+        if (!hostP) {
+            // Host itself wasn't placed → the ensuite cannot host; drop it (never freestanding).
+            if (ensP) byId.delete(ensId);
+            dropped.push({ roomId: ensId, type: suite.ensuite.type, shortSideM: 0, minShortSideM: floorFor(suite.ensuite.type) });
+            droppedCount += 1;
+            continue;
+        }
+        // CLEAN-SUITE test — the ensuite is already a corner of its host iff it shares ≥ a door-width
+        // wall with the host AND is the subordinate room (area ≤ host). When clean, leave it untouched
+        // (the carve / spine paths). The squarify fallback's standalone ensuite fails this (it sits in
+        // a far treemap cell sharing no host wall) → it is re-carved below.
+        const ensArea = ensP ? rectArea(ensP.rect) : Infinity;
+        const isClean = !!ensP
+            && sharedWallLengthM(ensP.rect, hostP.rect) >= STAIR_DOOR_MIN_M - EPS
+            && ensArea <= rectArea(hostP.rect) + EPS;
+        if (isClean) { alreadyClean += 1; continue; }
+
+        // RE-CARVE — the ensuite is detached / oversized / missing. Build the host's COMBINED footprint
+        // (host placed rect + the standalone ensuite cell IF it abuts the host, so the host reclaims its
+        // area; else just the host rect) and split it into host + ensuite. The combined rect is the host
+        // rect alone unless the stray ensuite cell extends it on a shared edge — keeping the carve inside
+        // already-claimed floor so it never collides with a third room.
+        let combined = hostP.rect;
+        if (ensP && sharedWallLengthM(ensP.rect, hostP.rect) > EPS) {
+            // The stray ensuite abuts the host — merge their bbox ONLY when the union is still a rect
+            // (a shared FULL edge), so the carve stays rectangular. Otherwise carve the host rect alone.
+            const u: Rect = {
+                x0: Math.min(hostP.rect.x0, ensP.rect.x0), z0: Math.min(hostP.rect.z0, ensP.rect.z0),
+                x1: Math.max(hostP.rect.x1, ensP.rect.x1), z1: Math.max(hostP.rect.z1, ensP.rect.z1),
+            };
+            const unionIsRect = Math.abs(rectArea(u) - (rectArea(hostP.rect) + rectArea(ensP.rect))) < 1e-3;
+            if (unionIsRect) combined = u;
+        }
+        const ec = carveEnsuiteWithinHost(combined, suite.ensuite.targetAreaM2, corridorRect ?? { x0: -1e6, z0: -1e6, x1: -1e6 + 1, z1: -1e6 + 1 });
+        if (!ec) {
+            // Host too tight to seat both rooms → drop the ensuite (reported), leave the host WHOLE.
+            if (ensP) byId.delete(ensId);
+            dropped.push({ roomId: ensId, type: suite.ensuite.type, shortSideM: 0, minShortSideM: floorFor(suite.ensuite.type) });
+            droppedCount += 1;
+            continue;
+        }
+        byId.set(suite.hostId, { roomId: suite.hostId, rect: roundRect(ec.master) });
+        byId.set(ensId, { roomId: ensId, rect: roundRect(ec.ensuite) });
+        recarved += 1;
+    }
+    console.log(
+        `[D-TGL subdivide] §ENSUITE-NEVER-FREESTANDING net: suites=${suites.length} alreadyClean=${alreadyClean} ` +
+        `reCarved=${recarved} dropped=${droppedCount} (any ensuite not a clean corner of its host was re-carved ` +
+        `into the host or dropped — NEVER shipped free-standing).`,
+    );
+    // Nothing was re-carved or dropped (every suite was already clean) ⇒ hand back the ORIGINAL
+    // reference so the caller treats it as unchanged (carve / spine paths stay byte-identical).
+    if (recarved === 0 && droppedCount === 0) return { placements, dropped: [] };
+    return { placements: [...byId.values()], dropped };
+}
+
+/**
  * §SUITE-WITHIN-PARENT — the `combMinAlong` callback for `sliceZoneAlongFace`: a suite HOST's
  * combed slice must be ≥ hostMin + ensuiteMin along the corridor face so the ensuite carve
  * leaves the host above its own minShortSide. GENERALISES the legacy master-only widen to all
@@ -3954,7 +4056,16 @@ export function subdivideWithReport(
         console.log('[D-TGL subdivide] §SPINE-FIRST skipped (infeasible on this plate) — legacy carve.');
     }
 
-    const finalise = (res: SubdivideResult): SubdivideResult => {
+    const finalise = (resIn: SubdivideResult): SubdivideResult => {
+        // §ENSUITE-NEVER-FREESTANDING (founder defect CFstdjE9 #1, 2026-06-23) — UNIVERSAL suite net:
+        // before any reshape, re-carve every ensuite that is NOT a clean corner of its host (the
+        // squarify-fallback's standalone-cell ensuite) into the host, or drop it. Idempotent + suite-
+        // mode-gated ⇒ the carve / spine / apartment paths are byte-identical. Runs FIRST so the
+        // carved rect flows through the snap / overlap-net passes like any other room.
+        const suiteNet = enforceSuiteCarve(resIn.placements, graph);
+        const res: SubdivideResult = suiteNet.dropped.length > 0 || suiteNet.placements !== resIn.placements
+            ? { ...resIn, placements: suiteNet.placements, droppedRooms: [...resIn.droppedRooms, ...suiteNet.dropped] }
+            : resIn;
         // §CORRIDOR-PHYSIOGNOMY (A.21.D46, 2026-06-08, re-done with the sealing fix)
         // — narrow a fat (near-square, squarified) corridor cell into a strip BEFORE
         // the alignment snap. No-op when the carve already produced a strip (short

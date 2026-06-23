@@ -123,6 +123,34 @@ describe('§STAIR-ROOM-FILL-POCKET — fillPocket option', () => {
         expect((grown.x1 - grown.x0) * (grown.z1 - grown.z0)).toBeGreaterThan(2 * 1);
     });
 
+    it('fillPocket ON: absorbs an L-CORNER pocket (the founder ground-floor stair, 2026-06-23)', () => {
+        // The founder geometry: the stair sits in a CORNER with an untracked pocket BESIDE it (between
+        // the stair and the EAST shell wall) that a room does NOT fully fence off — the room only
+        // occupies the bottom band, so the empty space wraps the stair's corner. The stair room must
+        // absorb the maximal EMPTY rectangle (the corner pocket), not leave the white sliver beside it.
+        const SHELL3: Rect = { x0: 0, z0: 0, x1: 10, z1: 6 };
+        const corridor = rectPolygon({ x0: 0, z0: 4, x1: 1, z1: 6 });   // left-top corridor strip
+        const stair: Rect = { x0: 1, z0: 4, x1: 3, z1: 6 };             // top, abutting the corridor at x=1
+        // A room occupies the BOTTOM band only (does NOT reach the top), so the top-right is an EMPTY
+        // corner pocket the stair must absorb (between the stair and the east shell wall).
+        const room = rectPolygon({ x0: 1, z0: 0, x1: 5, z1: 4 });
+        const out = growStairCellsToCorridor({
+            corridorCell: corridor, stairRects: new Map([['s', stair]]), obstacleCells: [room],
+            shellBBox: SHELL3, fillPocket: true,
+        });
+        const grown = out.get('s')!;
+        // The stair grew EAST to the shell wall (x=10) — the corner pocket beside it is absorbed, not
+        // left as untracked white space.
+        expect(grown.x1).toBeCloseTo(10, 4);
+        // It grew to the TOP shell (z=6) and stayed off the room (z stays ≥ 4 over the room's x-range).
+        expect(grown.z1).toBeCloseTo(6, 4);
+        // Never eats the room or the corridor (the hard invariant).
+        expect(rectPolyOverlapArea(grown, room)).toBeLessThanOrEqual(1e-3);
+        expect(rectPolyOverlapArea(grown, corridor)).toBeLessThanOrEqual(1e-3);
+        // The absorbed pocket is materially bigger than the original 2×2 stair landing.
+        expect((grown.x1 - grown.x0) * (grown.z1 - grown.z0)).toBeGreaterThan(2 * 2 + 1e-3);
+    });
+
     it('fillPocket ON: two stairs never grow into each other', () => {
         const s0: Rect = { x0: 6, z0: 2.5, x1: 7, z1: 3.5 };
         const s1: Rect = { x0: 8.5, z0: 2.5, x1: 9.5, z1: 3.5 };

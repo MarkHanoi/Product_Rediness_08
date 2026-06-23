@@ -73,18 +73,40 @@ describe('§ENSUITE-1TO1 — the realised spine layout produces only clean suite
             .map(e => ({ type: 'door', betweenRoomIds: [e.ensuiteHostId!, e.id] } as DoorOpening));
     };
 
+    // Shared-wall run (m) between two rects — 0 when they only touch at a corner / are disjoint.
+    const sharedRun = (a: Rect, b: Rect): number => {
+        const vAbut = Math.abs(a.x1 - b.x0) < 0.05 || Math.abs(b.x1 - a.x0) < 0.05;
+        if (vAbut) { const zo = Math.min(a.z1, b.z1) - Math.max(a.z0, b.z0); if (zo > 0.05) return zo; }
+        const hAbut = Math.abs(a.z1 - b.z0) < 0.05 || Math.abs(b.z1 - a.z0) < 0.05;
+        if (hAbut) { const xo = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0); if (xo > 0.05) return xo; }
+        return 0;
+    };
+
     const assertCleanSuites = (shellRect: Rect): void => {
         setHotelSuites(true);
         const g = buildBubbleGraph(UPPER_PROGRAM, rectArea(shellRect));
         const shell = rectOf(shellRect);
+        let ran = 0;
         for (const mode of [{ spineTree: true }, { spineTree: true, singleLoaded: true }]) {
             const res = subdivideViaSpine(shell, g, mode);
             if (!res) continue;
+            ran += 1;
+            const rectByRoom = new Map(res.rooms.map(p => [p.roomId, p.rect]));
             const placements = res.rooms.map(p => ({ roomId: p.roomId, rect: p.rect }));
             const doors = buildSpineDoors(g);
             const bad = ensuiteNot1to1RoomIds({ bubble: g, placements, doorOpenings: doors });
             expect(bad, `[${JSON.stringify(mode)}] ensuites violating 1:1: ${bad.join(',')}`).toEqual([]);
+            // ZERO free-standing ensuites: every PLACED ensuite shares a real wall with its host bedroom.
+            for (const e of g.rooms.filter(r => r.type === 'ensuite')) {
+                const er = rectByRoom.get(e.id);
+                if (!er) continue;                                    // dropped is acceptable (reported)
+                const hr = e.ensuiteHostId ? rectByRoom.get(e.ensuiteHostId) : undefined;
+                expect(hr, `[${JSON.stringify(mode)}] ensuite ${e.id} host not placed`).toBeTruthy();
+                expect(sharedRun(er, hr!), `[${JSON.stringify(mode)}] ensuite ${e.id} free-standing (no host wall)`)
+                    .toBeGreaterThanOrEqual(0.9 - 1e-6);
+            }
         }
+        expect(ran, 'no spine mode produced a layout').toBeGreaterThan(0);
     };
 
     it('compact plate', () => assertCleanSuites({ x0: 0, z0: 0, x1: 16, z1: 12 }));
@@ -176,8 +198,83 @@ describe('§ENSUITE-1TO1 — the hard-gate predicate catches every breach', () =
             { roomId: 'bed2', rect: { x0: 6, z0: 0, x1: 11, z1: 4 } },
             { roomId: 'corr', rect: { x0: 0, z0: 4, x1: 11, z1: 5 } },
         ];
-        const bad = ensuiteNot1to1RoomIds({ bubble: sharedGraph, placements, doorOpenings: [] });
+        // Both name bed1 as host AND each carries its own host↔ens door → shared host fails both.
+        const doors: DoorOpening[] = [
+            { type: 'door', betweenRoomIds: ['bed1', 'ens1'] } as DoorOpening,
+            { type: 'door', betweenRoomIds: ['bed1', 'ens2'] } as DoorOpening,
+        ];
+        const bad = ensuiteNot1to1RoomIds({ bubble: sharedGraph, placements, doorOpenings: doors });
         expect(bad).toContain('ens1');
         expect(bad).toContain('ens2');
+    });
+
+    // §DOOR-EXCLUSIVITY — the rewritten gate's keystone (founder defect CFstdjE9 #1): a DETACHED-but-
+    // ADJACENT ensuite (the four stacked free-standing En-suites) that shares a wall with a bedroom but
+    // has NO exclusive host door used to PASS the old adjacency gate. It must now FAIL (sealed = 0 doors).
+    it('flags a DETACHED-but-ADJACENT ensuite with NO host door (the founder column bug)', () => {
+        const placements = [
+            { roomId: 'bed1', rect: { x0: 0, z0: 0, x1: 3.5, z1: 4 } },
+            // The ensuite is ADJACENT (shares the x=3.5 wall over a full door run) yet has NO door at all
+            // → sealed → it is NOT a real 1:1 suite. The OLD adjacency gate passed this; door-exclusivity fails it.
+            { roomId: 'ens1', rect: { x0: 3.5, z0: 0, x1: 5, z1: 4 } },
+            { roomId: 'bed2', rect: { x0: 6, z0: 0, x1: 11, z1: 4 } },
+            { roomId: 'corr', rect: { x0: 5, z0: 0, x1: 6, z1: 4 } },
+        ];
+        expect(ensuiteNot1to1RoomIds({ bubble: graph, placements, doorOpenings: [] })).toContain('ens1');
+    });
+
+    it('flags a MULTI-DOORED ensuite (host door PLUS a second door)', () => {
+        const placements = [
+            { roomId: 'bed1', rect: { x0: 0, z0: 0, x1: 3.5, z1: 4 } },
+            { roomId: 'ens1', rect: { x0: 3.5, z0: 0, x1: 5, z1: 4 } },
+            { roomId: 'bed2', rect: { x0: 6, z0: 0, x1: 11, z1: 4 } },
+            { roomId: 'corr', rect: { x0: 5, z0: 0, x1: 6, z1: 4 } },
+        ];
+        // One door to its host bed1 (good) BUT a SECOND door to the corridor → not exclusive → FAIL.
+        const doors: DoorOpening[] = [
+            { type: 'door', betweenRoomIds: ['bed1', 'ens1'] } as DoorOpening,
+            { type: 'door', betweenRoomIds: ['ens1', 'corr'] } as DoorOpening,
+        ];
+        expect(ensuiteNot1to1RoomIds({ bubble: graph, placements, doorOpenings: doors })).toContain('ens1');
+    });
+
+    // FAIL-BEFORE / PASS-AFTER on ONE shared geometry: the SAME stacked-detached column FAILS, and the
+    // SAME column once given exclusive host↔ensuite doors (the carve outcome) PASSES.
+    it('FAILS the synthetic detached column and PASSES the carved one', () => {
+        const colGraph: BubbleGraph = {
+            rooms: [
+                { id: 'bedA', type: 'master', name: 'Master', targetAreaM2: 16, isPrivate: true, needsWindow: true },
+                { id: 'bedB', type: 'bedroom', name: 'Bed B', targetAreaM2: 14, isPrivate: true, needsWindow: true },
+                { id: 'ensA', type: 'ensuite', name: 'En-suite 1', targetAreaM2: 4, isPrivate: true, needsWindow: false, ensuiteHostId: 'bedA' },
+                { id: 'ensB', type: 'ensuite', name: 'En-suite 2', targetAreaM2: 4, isPrivate: true, needsWindow: false, ensuiteHostId: 'bedB' },
+                { id: 'corr', type: 'corridor', name: 'Corridor', targetAreaM2: 4, isPrivate: false, needsWindow: false },
+            ],
+            edges: [], corridorId: 'corr', entryId: null,
+        };
+        // DETACHED COLUMN: two ensuites stacked in a free-standing column, neither doored to its host.
+        const detached = [
+            { roomId: 'bedA', rect: { x0: 0, z0: 0, x1: 4, z1: 4 } },
+            { roomId: 'bedB', rect: { x0: 0, z0: 4, x1: 4, z1: 8 } },
+            { roomId: 'ensA', rect: { x0: 8, z0: 0, x1: 10, z1: 2 } },   // free-standing column…
+            { roomId: 'ensB', rect: { x0: 8, z0: 2, x1: 10, z1: 4 } },   // …stacked
+            { roomId: 'corr', rect: { x0: 4, z0: 0, x1: 5, z1: 8 } },
+        ];
+        const badBefore = ensuiteNot1to1RoomIds({ bubble: colGraph, placements: detached, doorOpenings: [] });
+        expect(badBefore).toContain('ensA');
+        expect(badBefore).toContain('ensB');
+
+        // CARVED: each ensuite is a corner of its host with EXACTLY one host↔ensuite door.
+        const carved = [
+            { roomId: 'bedA', rect: { x0: 0, z0: 0, x1: 4, z1: 2.5 } },
+            { roomId: 'ensA', rect: { x0: 0, z0: 2.5, x1: 4, z1: 4 } },   // corner of bedA (shares x-run at z=2.5)
+            { roomId: 'bedB', rect: { x0: 0, z0: 4, x1: 4, z1: 6.5 } },
+            { roomId: 'ensB', rect: { x0: 0, z0: 6.5, x1: 4, z1: 8 } },   // corner of bedB
+            { roomId: 'corr', rect: { x0: 4, z0: 0, x1: 5, z1: 8 } },
+        ];
+        const doors: DoorOpening[] = [
+            { type: 'door', betweenRoomIds: ['bedA', 'ensA'] } as DoorOpening,
+            { type: 'door', betweenRoomIds: ['bedB', 'ensB'] } as DoorOpening,
+        ];
+        expect(ensuiteNot1to1RoomIds({ bubble: colGraph, placements: carved, doorOpenings: doors })).toEqual([]);
     });
 });
