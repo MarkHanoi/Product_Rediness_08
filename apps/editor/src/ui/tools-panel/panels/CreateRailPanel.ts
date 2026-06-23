@@ -34,6 +34,7 @@ import { handrailTypeStore } from '@pryzm/core-app-model/stores';
 import * as PryzmIcons from '../../icons/PryzmIcons';
 import { FurnitureSidePanel } from '../../furniture-carousel/FurnitureSidePanel';
 import { buildLightingPanel } from './CreateRailPanelLighting';
+import { shortcutForTool, formatTooltip } from './creationToolShortcuts';
 
 interface DisciplineTool {
     label:    string;
@@ -330,11 +331,12 @@ export class CreateRailPanel {
                 ? 'da-icon-cell da-icon-cell--disabled'
                 : 'da-icon-cell';
             cell.type  = 'button';
-            // Native tooltip — first line is the tool name, second line is the
-            // keyboard shortcut hint (when one is registered for this tool).
-            cell.title = tool.shortcut
-                ? `${tool.label}\nShortcut: ${tool.shortcut}`
-                : tool.label;
+            // §CREATE-SHORTCUT-SSOT — hover tooltip is "Name (Shortcut)", e.g.
+            // "Wall (Alt+W)". The shortcut is read from the SAME `tool.shortcut`
+            // field the key handler fires on (stamped from creationToolShortcuts),
+            // so the label and the live binding can never disagree. A tool with
+            // no shortcut shows just its name (no empty brackets).
+            cell.title = formatTooltip(tool.label, tool.shortcut);
 
             if (!isDisabled) {
                 cell.addEventListener('click', () => {
@@ -357,7 +359,9 @@ export class CreateRailPanel {
 
             const lbl = document.createElement('span');
             lbl.className   = 'da-icon-cell-label';
-            lbl.textContent = tool.label;
+            // §CREATE-SHORTCUT-SSOT — the floating hover label shows the same
+            // "Name (Shortcut)" text as the native tooltip (single source).
+            lbl.textContent = formatTooltip(tool.label, tool.shortcut);
 
             cell.appendChild(iconEl);
             cell.appendChild(lbl);
@@ -561,7 +565,7 @@ export class CreateRailPanel {
     private _buildSections(): DisciplineSection[] {
         const { service, toolManager } = this._props;
 
-        return [
+        const sections: DisciplineSection[] = [
             // ── ARCHITECTURE ──────────────────────────────────────────────
             {
                 id:    'architecture',
@@ -1118,5 +1122,17 @@ export class CreateRailPanel {
                 ],
             },
         ];
+
+        // §CREATE-SHORTCUT-SSOT — stamp every tool's shortcut from the single
+        // canonical map (creationToolShortcuts.ts) so the key handler and the
+        // hover tooltip can never drift, and so a tool missing from the map is
+        // caught by the completeness unit test. The map is authoritative: it
+        // overrides any inline `shortcut` left on a tool above.
+        for (const section of sections) {
+            for (const tool of section.tools) {
+                tool.shortcut = shortcutForTool(tool.label);
+            }
+        }
+        return sections;
     }
 }
