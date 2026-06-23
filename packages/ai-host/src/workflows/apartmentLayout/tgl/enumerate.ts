@@ -1249,16 +1249,28 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
             stairCarved,
             shellRectified,
             ...(input.corridorWidthM !== undefined ? { corridorWidthM: input.corridorWidthM } : {}),
-            // §EN-SUITE-CARVE-IN-BOUNDS (founder P0 contract violation, 2026-06-23) — pass the shell BOUNDING
-            // BOX in THIS strategy's frame so `enforceSuiteCarve` verifies each carved en-suite stays inside
-            // the boundary and DROPS (reports) rather than bands one PAST the shell. The carve operates on
-            // the bbox-frame rect tiling (`placements`), so the BBOX is the correct reference frame: on the
-            // founder's axis-aligned / keep-out house plate the bbox === the shell, so a band carved past the
-            // south wall is caught exactly; on a sheared/rectified plate the rect tiling deliberately fills
-            // the bbox (§POLYGON-NATIVE), so the bbox avoids falsely dropping a valid carved ensuite (the
-            // polygon-true net is the §ROOM-OUT-OF-BOUNDS gate, which uses the REAL cells). Read outside the
-            // spine-first gates ⇒ no legacy behaviour change except the new in-bounds drop.
-            shellPolygonForBounds: rectPolygon(polygonBBox(polyT)),
+            // §EN-SUITE-CARVE-IN-BOUNDS (founder P0 contract violation, 2026-06-23; ROTATED-PLATE FIX
+            // 2026-06-23) — pass the REAL shell polygon in THIS strategy's frame (`polyT`, the same polygon
+            // enumerate tiles) so `enforceSuiteCarve` verifies each carved en-suite against the TRUE boundary
+            // and DROPS (reports) rather than bands one PAST the shell.
+            //
+            // WHY `polyT`, NOT its BBOX (the bug that shipped en-suites outside a ROTATED shell): the prior
+            // code passed `rectPolygon(polygonBBox(polyT))` to "avoid falsely dropping a valid carved ensuite"
+            // on a sheared plate. But on a ROTATED multi-suite plate the bbox OVER-COVERS the sheared façade,
+            // so a host bedroom rect that overflows the slanted south wall — and the en-suite carved from it —
+            // BOTH fit inside the bbox ⇒ the bbox check PASSED ⇒ the en-suite shipped as a BAND past the shell
+            // (the founder's defect). The polygon route only emits a real cell for the FIRST en-suite
+            // (`bucketRooms` finds one); the OTHER hotel-suite en-suites ship as rect EXTRAS whose rects
+            // overflow the sheared façade — exactly the band. Testing the carve against the REAL `polyT`
+            // DROPS those out-of-shell carves at the source (the host left whole), so no band is ever emitted.
+            //
+            // Byte-identity on the founder's PRIMARY case: an axis-aligned rectangle and a rotated rect that
+            // rectifies to an axis rect have `polyT` axis-aligned ⇒ `polyT === bbox(polyT)` ⇒ identical check.
+            // On a genuinely sheared quad, dropping an en-suite's RECT here does NOT lose its polygon cell (the
+            // drop edits only the rect placement; `subdividePolygon` still reads `bubble.rooms` and carves the
+            // first en-suite a real in-shell cell) — so a legitimately carvable suite still ships from its cell,
+            // while the unbacked extra-rect en-suites that would band outside are correctly dropped.
+            shellPolygonForBounds: polyT,
             // §STAIR-CIRC-FACE — pass the inflated keep-out(s) so the subdivider orients the
             // corridor/landing to share a wall with the stair (founder defect 2026-06-11).
             ...(holesT.length > 0 ? { keepOutRects: holesT } : {}),
@@ -2353,27 +2365,29 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         // Hard-invalid ONLY when the hall reaches a wet/private room but NO corridor-or-public room.
         return hasWetOrPrivate && !hasCorridorOrPublic;
     })();
-    // §ROOM-OUT-OF-BOUNDS (founder P0 contract violation, 2026-06-23) — the HARD safety net. EVERY emitted
-    // room (en-suite / stair / corridor / bedroom — every cell) MUST be fully contained within the shell
-    // polygon. Gated against `emitPlacements` (the ACTUAL emitted set: real cell polygons on the polygon
-    // route, rect cells elsewhere) in the PLAN frame, against the plan-frame `input.shellPolygon` — one
-    // consistent frame. The real cell polygons (`cellPolyByIdWorld`, also plan frame) are used when present
-    // so a sheared/L-cell is judged on its true boundary, not its bbox. Computed on EVERY path (NOT gated to
-    // the house) — out-of-bounds is never acceptable on any storey or layout type.
+    // §ROOM-OUT-OF-BOUNDS (founder P0 contract violation, 2026-06-23; ROTATED-PLATE HARDENING 2026-06-23) —
+    // the HARD safety net. EVERY emitted room (en-suite / stair / corridor / bedroom — every cell) MUST be
+    // fully contained within the shell polygon. Gated against `emitPlacements` (the ACTUAL emitted set: real
+    // cell polygons on the polygon route, rect cells elsewhere) in the PLAN frame, against the plan-frame
+    // `input.shellPolygon` — ONE consistent frame. Each room is tested by its REAL emitted geometry: the
+    // cell polygon (`cellPolyByIdWorld`, also plan frame) when present, else its emitted rect. Computed on
+    // EVERY path (NOT gated to the house) — out-of-bounds is never acceptable on any storey or layout type.
     //
-    // §POLYGON-NATIVE coexistence: on a RECTIFIED (sheared) plate the rect-frame `placements` deliberately
-    // OVERFLOW the sheared façade (the doc's "the rect path keeps emitting rects … the two coexist") while
-    // `cellPolyByIdWorld` carries the REAL in-shell cells; the EMITTED geometry is the cells. So on that path
-    // a room WITHOUT a real cell (a stair/stub rect that legitimately exceeds the sheared bbox edge) is
-    // EXCLUDED from the gate — judging its bbox against the sheared shell would falsely flag the whole skewed
-    // candidate and break the §POLYGON-NATIVE contract. On every NON-rectified path (the founder's house
-    // case — axis-aligned rect / keep-out plates) every room is gated by its real cell-or-rect. A 2 cm
-    // epsilon absorbs float / weld slack so a room flush to the shell wall is NOT flagged.
-    const oobPlacements = (cellPolyByIdWorld && shellRectified)
-        ? emitPlacements.filter(p => cellPolyByIdWorld.has(p.roomId))   // skewed path: gate only real cells
-        : emitPlacements;
+    // §ROTATED-PLATE HOLE CLOSED: the prior code EXCLUDED rooms WITHOUT a real cell whenever the plate was
+    // rectified (`cellPolyByIdWorld && shellRectified`), reasoning that the rect-frame `placements` overflow
+    // the sheared façade and would false-flag. That was the bug — it skipped the EXACT en-suites the founder
+    // saw banded past the south wall of a ROTATED shell (an en-suite emitted as a rect EXTRA has no cell, so
+    // the exclusion let it through). The fix: gate the ACTUAL EMITTED set (`emitPlacements`) with the real
+    // cell polygons. The rect-frame `placements` that the polygon route SUPERSEDES never reach here —
+    // `emitPlacements` already replaces them with the in-shell `polyAsPlacements`; only genuinely emitted
+    // geometry is tested. A room emitted as a rect that pokes past the REAL shell IS out-of-bounds by
+    // contract (a stair/stub past the perimeter is the violation, not an exemption) — the stub rects are
+    // already clipped to `input.shellPolygon` upstream (§STAIR-STUB-IN-PERIMETER), so a legitimate stub
+    // stays in-shell and is not flagged. A 2 cm epsilon absorbs float / weld slack so a room flush to the
+    // shell wall is NOT flagged, and the per-vertex centroid-nudge in `ptInShell` judges a vertex flush to a
+    // slanted (rotated) shell edge by its true interior side ⇒ rotation creates no false negative.
     const outOfBoundsRoomIds = roomsOutOfShellRoomIds({
-        placements: oobPlacements,
+        placements: emitPlacements,
         shellPolygon: input.shellPolygon,
         ...(cellPolyByIdWorld ? { cellPolygonById: cellPolyByIdWorld } : {}),
     });
