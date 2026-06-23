@@ -201,6 +201,13 @@ export class ResidentialBuildingExecutor {
             // `lvl.footprint` is already WORLD (the drawn parcel) → no transform here.
             const shellPayload = this._buildShellPerimeter(levelId, lvl.footprint, floorToFloorM);
             shellPayloads.push(shellPayload);
+            // §RESI-NO-DOUBLE-WALL — the building shell walls in the {id,start,end} form the apartment
+            // engine's window resolver expects. Façade windows now resolve onto these (the cells skip their
+            // coincident façade walls), so a window sits on the real shell wall, not a duplicate cell wall.
+            const buildingShellWalls = shellPayload.walls.map((w) => {
+                const bl = (w as { baseLine: ReadonlyArray<{ x: number; z: number }> }).baseLine;
+                return { id: (w as { id: string }).id, start: { x: bl[0]!.x, z: bl[0]!.z }, end: { x: bl[1]!.x, z: bl[1]!.z } };
+            });
             slabPolys.push({ levelId, poly: lvl.footprint });
 
             // §RESI-GROUND-FLOOR — remember the ground shell (level 0) so the deferred pass can
@@ -235,7 +242,10 @@ export class ResidentialBuildingExecutor {
                     // The cell perimeter is emitted explicitly above → skip the engine's
                     // external walls so we never duplicate (coincident) the shell.
                     skipExteriorWalls: true,
-                    shellWalls: perimeter.shellWalls,
+                    // §RESI-NO-DOUBLE-WALL — host façade windows on the BUILDING shell walls (the cell no
+                    // longer emits its coincident façade walls); the cell's remaining interior walls follow
+                    // so any interior-edge resolution still works.
+                    shellWalls: [...buildingShellWalls, ...perimeter.shellWalls],
                     // §RESI-RIGID-TRANSFORM — map the engine's LOCAL plan-mm geometry onto the
                     // WORLD parcel (the SAME transform the cell perimeter + shellWalls used), so
                     // the apartment interior aligns to the rotated boundary, not axis-aligned.
@@ -374,7 +384,22 @@ export class ResidentialBuildingExecutor {
         ];
         const walls: Array<Record<string, unknown>> = [];
         const shellWalls: Array<{ id: string; start: { x: number; z: number }; end: { x: number; z: number } }> = [];
+        // §RESI-NO-DOUBLE-WALL (founder "double walls" + "windows on the shell", 2026-06-23) — SKIP the
+        // cell's FAÇADE (exterior boundary) walls: the building SHELL wall already sits on that edge and
+        // now hosts the façade windows (the build loop passes the building shell walls to the window
+        // resolver). Emitting the cell wall too produced a thin wall coincident with the thick shell wall
+        // — the founder's double wall. We KEEP the interior walls (party walls between cells) + the
+        // corridor-facing wall that carries the entry door. The door edge is NEVER skipped so the entry
+        // door always has a host. `facadeEdges` are the true exterior edges (the rest are blind party walls).
+        const EDGE_BY_INDEX = ['z0', 'x1', 'z1', 'x0'] as const;
+        const facade: ReadonlySet<string> = apt.facadeEdges instanceof Set
+            ? (apt.facadeEdges as ReadonlySet<string>)
+            : new Set<string>(apt.facadeEdges ?? []);
+        let doorWallId: string | undefined;
         for (let i = 0; i < corners.length; i++) {
+            const edge = EDGE_BY_INDEX[i]!;
+            // The building shell hosts the façade edge + its windows → don't duplicate it with a cell wall.
+            if (facade.has(edge) && edge !== apt.cell.doorEdge) continue;
             const a = corners[i]!;
             const b = corners[(i + 1) % corners.length]!;
             const id = createId('wall');
@@ -386,22 +411,16 @@ export class ResidentialBuildingExecutor {
                 thickness: CELL_WALL_THICKNESS_M,
             });
             shellWalls.push({ id, start: { x: a.x, z: a.z }, end: { x: b.x, z: b.z } });
+            if (edge === apt.cell.doorEdge) doorWallId = id;
         }
-        // §RESI-APT-ENTRY (founder 2026-06-23) — the apartment FRONT DOOR onto the public
-        // corridor. The cell's `doorEdge` (set by the partition) is the corridor-facing edge;
-        // the perimeter walls are emitted in fixed order [z0, x1, z1, x0], so map the edge to its
-        // wall + centre a single-leaf door on it (the wall length is rotation-invariant, so it
-        // equals the LOCAL cell width/depth). Pre-fix the apartment was a SEALED 4-wall box with
-        // no way in from the corridor — the founder's "the apartments dont have main apartment
-        // door to the corridor". Punched in the deferred openings pass once this wall lands.
-        const edgeIndex: Record<'z0' | 'x1' | 'z1' | 'x0', number> = { z0: 0, x1: 1, z1: 2, x0: 3 };
-        const idx = edgeIndex[apt.cell.doorEdge];
+        // §RESI-APT-ENTRY — the apartment FRONT DOOR onto the public corridor, hosted on the
+        // corridor-facing (door) edge, which is always emitted above (never a façade edge).
         const edgeLenM = (apt.cell.doorEdge === 'z0' || apt.cell.doorEdge === 'z1')
             ? r.x1 - r.x0
             : r.z1 - r.z0;
         const doorWidth = Math.min(0.9, Math.max(0.7, edgeLenM - 0.4));
         const entryDoor = {
-            wallId: shellWalls[idx]!.id,
+            wallId: doorWallId ?? shellWalls[0]?.id ?? createId('wall'),
             offset: Math.max(0, (edgeLenM - doorWidth) / 2),
             width: doorWidth,
         };
