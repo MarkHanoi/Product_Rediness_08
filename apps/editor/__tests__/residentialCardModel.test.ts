@@ -46,6 +46,7 @@ function okResult(over: Partial<ResidentialBuildingOk> = {}): ResidentialBuildin
     return {
         status: 'ok',
         core: { x0: 7, z0: 6, x1: 13, z1: 10 },
+        transform: { thetaRad: 0, pivot: { x: 0, z: 0 } },
         levels: [
             { levelIndex: 0, role: 'ground', elevationM: 0, floorToFloorM: 3, footprint: [], commercialGroundFloor: true },
             { levelIndex: 1, role: 'upper', elevationM: 3, floorToFloorM: 3, footprint: [] },

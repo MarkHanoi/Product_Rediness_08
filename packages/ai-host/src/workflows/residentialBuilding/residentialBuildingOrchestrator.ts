@@ -39,7 +39,7 @@
 
 import { trace } from '@opentelemetry/api';
 import type { Pt, Rect } from '../apartmentLayout/tgl/rectDecomposition.js';
-import { rectArea, rectWidth, rectDepth } from '../apartmentLayout/tgl/rectDecomposition.js';
+import { rectArea, rectWidth, rectDepth, principalAxisAngle, rotatePt } from '../apartmentLayout/tgl/rectDecomposition.js';
 import type { ApartmentProgram } from '../apartmentLayout/types.js';
 import {
     packApartments,
@@ -75,9 +75,13 @@ const MIN_ENGINE_FEASIBLE_AREA_M2 = 72;
 export type LevelRole = 'ground' | 'upper';
 
 export interface ResidentialBuildingOrchestratorInput {
-    /** The building footprint polygon (metres, plan frame). The stub requires an
-     *  axis-aligned rectangle (the executor rectifies skewed plates upstream, like the
-     *  house engine's principal-axis rotation). */
+    /** The building footprint polygon (metres, WORLD plan frame). May be a ROTATED
+     *  (off-axis) parcel drawn on the map — the orchestrator derives the principal-axis
+     *  oriented bounding box, runs the whole partition/packer/per-cell engine in that
+     *  axis-aligned LOCAL frame, and carries a rigid transform back to WORLD on the
+     *  result (`transform`). Mirrors the HOUSE engine's §PRINCIPAL-AXIS rotation
+     *  (`houseOrchestrator.ts:555` + Project-North rectify). Only a degenerate/too-small
+     *  plate is rejected. */
     readonly footprint: readonly Pt[];
     /** Number of UPPER residential levels (1..20). Ground is always level 0. */
     readonly upperLevels: number;
@@ -101,7 +105,9 @@ export interface ResidentialBuildingOrchestratorInput {
     readonly solar?: { readonly latDeg: number; readonly weight?: number };
 }
 
-/** One level in the stack. `footprint` is identical on every level (walls stack). */
+/** One level in the stack. `footprint` is the WORLD drawn parcel polygon, identical on
+ *  every level (walls stack). Unlike the core/cells/corridor (LOCAL frame), the level
+ *  footprint is ALREADY world — the executor builds the shell on it directly. */
 export interface BuildingLevel {
     readonly levelIndex: number;
     readonly role: LevelRole;
@@ -142,12 +148,35 @@ export interface PerLevelApartments {
     readonly publicCorridor: readonly Rect[];
 }
 
+/**
+ * §RESI-RIGID-TRANSFORM (2026-06-23) — the rigid transform that maps the orchestrator's
+ * axis-aligned LOCAL (principal-axis) geometry back onto the real WORLD parcel. Mirrors
+ * the house's `{ principalAxisRad, pivot }` (`houseOrchestrator.ts`). The orchestrator
+ * derived the parcel's oriented bounding box (centre `pivot`, angle `thetaRad`), de-rotated
+ * the footprint into the axis-aligned local frame, and ran the WHOLE partition/packer/
+ * per-cell D-TGL engine there UNCHANGED. So `core`, every `cell.rect`, every
+ * `publicCorridor` band, and every per-cell `layout` (walls/doors/windows, plan-mm) are in
+ * that LOCAL frame. The executor maps a local point `p` to world by
+ * `rotatePt(p, thetaRad, pivot)`. `thetaRad === 0` ⇒ identity (an axis-aligned parcel ⇒
+ * byte-identical to the pre-transform behaviour). `levels[].footprint` is the EXCEPTION —
+ * it is already the WORLD drawn footprint (the shell is built directly on the parcel).
+ */
+export interface ResidentialRigidTransform {
+    /** local→world rotation (rad, CCW, plan {x,z}) about `pivot`. 0 ⇒ identity. */
+    readonly thetaRad: number;
+    /** The pivot the rotation turns about (WORLD metres) — the parcel centroid. */
+    readonly pivot: { readonly x: number; readonly z: number };
+}
+
 export interface ResidentialBuildingOk {
     readonly status: 'ok';
     readonly levels: readonly BuildingLevel[];
-    /** The shared centred core rect (same XZ on every level), metres, plan frame. */
+    /** The shared centred core rect (same XZ on every level), metres, LOCAL frame —
+     *  apply `transform` to land it on the world parcel. */
     readonly core: Rect;
     readonly perLevelApartments: readonly PerLevelApartments[];
+    /** §RESI-RIGID-TRANSFORM — maps LOCAL (principal-axis) geometry → WORLD parcel. */
+    readonly transform: ResidentialRigidTransform;
     readonly diagnostic: string;
 }
 
@@ -170,14 +199,37 @@ function bbox(poly: readonly Pt[]): Rect {
     return { x0, z0, x1, z1 };
 }
 
-function isAxisAlignedRect(poly: readonly Pt[], bb: Rect): boolean {
-    if (poly.length < 4) return false;
-    for (const p of poly) {
-        const onX = Math.abs(p.x - bb.x0) < 1e-4 || Math.abs(p.x - bb.x1) < 1e-4;
-        const onZ = Math.abs(p.z - bb.z0) < 1e-4 || Math.abs(p.z - bb.z1) < 1e-4;
-        if (!onX || !onZ) return false;
-    }
-    return rectWidth(bb) > 1e-6 && rectDepth(bb) > 1e-6;
+/** A near-axis-aligned plate (|θ| < ~0.6°) collapses to θ = 0 so it stays byte-identical to
+ *  the pre-transform behaviour. Mirrors the house's `Math.abs(rawAngle) >= 0.01` threshold
+ *  (`houseOrchestrator.ts:556`) + `deriveProjectNorthFrame`. */
+const PRINCIPAL_AXIS_MIN_RAD = 0.01;
+
+/**
+ * §RESI-RIGID-TRANSFORM — derive the parcel's ORIENTED bounding box (the principal-axis
+ * frame) from the drawn WORLD footprint: the dominant-edge angle `thetaRad`, the centroid
+ * `pivot`, and the LOCAL axis-aligned footprint that results from de-rotating the parcel by
+ * `−thetaRad` about the pivot. EXACTLY mirrors the house engine (`houseOrchestrator.ts:555`):
+ * the OBB is the AABB of the de-rotated polygon, so a ROTATED rectangle de-rotates to a clean
+ * axis-aligned rectangle of side W×D and the whole downstream engine runs as if axis-aligned.
+ * θ = 0 ⇒ the footprint passes through unrotated (identity). Pure + deterministic.
+ */
+function deriveLocalFrame(footprintWorld: readonly Pt[]): {
+    thetaRad: number;
+    pivot: { x: number; z: number };
+    footprintLayout: Pt[];
+} {
+    const raw = principalAxisAngle(footprintWorld);
+    const thetaRad = Math.abs(raw) >= PRINCIPAL_AXIS_MIN_RAD ? raw : 0;
+    let cx = 0, cz = 0;
+    for (const p of footprintWorld) { cx += p.x; cz += p.z; }
+    const n = footprintWorld.length || 1;
+    const pivot = { x: cx / n, z: cz / n };
+    // De-rotate the parcel into the axis-aligned LOCAL (principal-axis) frame by −θ about
+    // the pivot. θ = 0 ⇒ identity (the footprint is already axis-aligned).
+    const footprintLayout = thetaRad === 0
+        ? footprintWorld.map(p => ({ x: p.x, z: p.z }))
+        : footprintWorld.map(p => rotatePt(p, -thetaRad, pivot));
+    return { thetaRad, pivot, footprintLayout };
 }
 
 function reject(reason: string): ResidentialBuildingRejected {
@@ -267,7 +319,7 @@ function facadeEdgesFor(cell: ApartmentCell, plateBB: Rect): CellEdge[] {
 
 function _orchestrate(input: ResidentialBuildingOrchestratorInput): ResidentialBuildingResult {
     const {
-        footprint, upperLevels, coreWidthM, coreDepthM, corridorWidthM,
+        footprint: footprintWorld, upperLevels, coreWidthM, coreDepthM, corridorWidthM,
         minApartmentAreaM2, maxApartmentAreaM2, typologies,
     } = input;
 
@@ -280,14 +332,34 @@ function _orchestrate(input: ResidentialBuildingOrchestratorInput): ResidentialB
     if (!(corridorWidthM >= MIN_CORRIDOR_WIDTH_M)) {
         return reject(`corridor width must be ≥ ${MIN_CORRIDOR_WIDTH_M} m`);
     }
-
-    const bb = bbox(footprint);
-    if (!isAxisAlignedRect(footprint, bb)) {
-        return reject('footprint must be an axis-aligned rectangle (stub)');
+    if (footprintWorld.length < 3) {
+        return reject('footprint needs ≥3 distinct corners');
     }
+
+    // ── §RESI-RIGID-TRANSFORM (replaces the axis-aligned-rectangle STUB) — accept a ROTATED
+    // (or any) parcel by deriving its principal-axis ORIENTED bounding box, then run the
+    // whole partition/packer/per-cell engine in the axis-aligned LOCAL frame and carry the
+    // rigid transform back to WORLD on the result. Mirrors the HOUSE engine
+    // (`houseOrchestrator.ts:555` §PRINCIPAL-AXIS). `bb` (the local AABB) IS the oriented box
+    // of the world parcel: a rotated W×D rectangle de-rotates to a clean axis-aligned W×D
+    // rect, so every downstream geometry op (core / partition / packer / per-cell D-TGL) runs
+    // EXACTLY as it did on an axis-aligned plate — no engine code changes.
+    const { thetaRad, pivot, footprintLayout } = deriveLocalFrame(footprintWorld);
+    const transform: ResidentialRigidTransform = { thetaRad, pivot };
+
+    // The footprint expressed in the axis-aligned LOCAL frame. All core/partition/packer math
+    // below uses THIS frame; only `levels[].footprint` (the shell) keeps the WORLD parcel.
+    const footprint = footprintLayout;
+    const bb = bbox(footprint);
 
     const plateW = rectWidth(bb);
     const plateD = rectDepth(bb);
+    // §RESI-DEGENERATE-REJECT — a genuinely degenerate / too-thin plate (after de-rotation)
+    // is the ONLY plate-shape reject now (the old "must be axis-aligned rectangle" stub is
+    // gone). A plate too small to even hold the core is also rejected with a clear reason.
+    if (!(plateW > 1e-3) || !(plateD > 1e-3)) {
+        return reject('footprint is degenerate (zero width/depth after orienting)');
+    }
     if (coreWidthM >= plateW || coreDepthM >= plateD) {
         return reject('core does not fit inside the footprint');
     }
@@ -320,7 +392,9 @@ function _orchestrate(input: ResidentialBuildingOrchestratorInput): ResidentialB
             // marker for the P5 curtain-wall slice.
             levels.push({
                 levelIndex, role, elevationM, floorToFloorM,
-                footprint, commercialGroundFloor: true,
+                // §RESI-RIGID-TRANSFORM — the level footprint is the WORLD parcel (the shell
+                // is built on it directly); only the core/cells/corridor are LOCAL-frame.
+                footprint: footprintWorld, commercialGroundFloor: true,
             });
             perLevelApartments.push({ levelIndex, role, apartments: [], publicCorridor: [] });
             continue;
@@ -475,7 +549,7 @@ function _orchestrate(input: ResidentialBuildingOrchestratorInput): ResidentialB
             return apt;
         });
 
-        levels.push({ levelIndex, role, elevationM, floorToFloorM, footprint });
+        levels.push({ levelIndex, role, elevationM, floorToFloorM, footprint: footprintWorld });
         perLevelApartments.push({
             levelIndex, role, apartments, publicCorridor: partition.publicCorridor,
         });
@@ -485,6 +559,7 @@ function _orchestrate(input: ResidentialBuildingOrchestratorInput): ResidentialB
     const diagnostic =
         `§DIAG-RESI-ORCHESTRATE levels=${levels.length} ` +
         `coreCentre=(${round4(fcx)},${round4(fcz)}) ` +
+        `rot=${round4(thetaRad)}rad pivot=(${round4(pivot.x)},${round4(pivot.z)}) ` +
         `apartmentsPerLevel=[${apartmentsPerLevel.join(',')}]`;
 
     return {
@@ -492,6 +567,7 @@ function _orchestrate(input: ResidentialBuildingOrchestratorInput): ResidentialB
         levels,
         core,
         perLevelApartments,
+        transform,
         diagnostic,
     };
 }

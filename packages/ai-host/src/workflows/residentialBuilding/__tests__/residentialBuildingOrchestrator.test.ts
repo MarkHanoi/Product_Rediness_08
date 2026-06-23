@@ -139,7 +139,10 @@ describe('residentialBuildingOrchestrator — P3', () => {
         }
     });
 
-    it('soft-fails when the footprint is not an axis-aligned rectangle (stub limit)', () => {
+    it('ACCEPTS a rotated/skewed parcel (§RESI-RIGID-TRANSFORM — the old axis-aligned stub is gone)', () => {
+        // A clearly off-axis quad (the founder draws the parcel at an angle on the map).
+        // Pre-fix this returned `rejected` ("footprint must be an axis-aligned rectangle (stub)");
+        // now the orchestrator derives the oriented box + runs axis-aligned in the local frame.
         const skew: Pt[] = [
             { x: 0, z: 0 },
             { x: 30, z: 2 },
@@ -147,6 +150,22 @@ describe('residentialBuildingOrchestrator — P3', () => {
             { x: 0, z: 16 },
         ];
         const r = orchestrateResidentialBuilding(input({ footprint: skew }));
+        expect(r.status).not.toBe('rejected');
+        if (r.status === 'ok') {
+            // The transform is carried back for the executor to re-rotate emitted geometry.
+            expect(r.transform).toBeTruthy();
+            expect(typeof r.transform.thetaRad).toBe('number');
+        }
+    });
+
+    it('still soft-fails a DEGENERATE plate (zero area) with a clear reason', () => {
+        const collinear: Pt[] = [
+            { x: 0, z: 0 },
+            { x: 30, z: 0 },
+            { x: 30, z: 0 },
+            { x: 0, z: 0 },
+        ];
+        const r = orchestrateResidentialBuilding(input({ footprint: collinear }));
         expect(r.status).toBe('rejected');
     });
 });

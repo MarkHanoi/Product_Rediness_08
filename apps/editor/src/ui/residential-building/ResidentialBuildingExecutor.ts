@@ -41,6 +41,7 @@ import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import {
     buildLayoutCommands,
     type ResidentialBuildingOk,
+    type ResidentialRigidTransform,
     type PlacedApartment,
     type ScoredLayoutOption,
     type IdPrefix,
@@ -167,20 +168,35 @@ export class ResidentialBuildingExecutor {
 
         let placedCount = 0, rejectedCount = 0;
 
+        // §RESI-RIGID-TRANSFORM (2026-06-23) — the orchestrator ran the WHOLE partition/
+        // packer/per-cell engine in the parcel's axis-aligned LOCAL (principal-axis) frame and
+        // carries the rigid map back to the WORLD parcel here. The core / every apartment
+        // cell.rect / every public-corridor band / every per-cell layout are LOCAL — we rotate
+        // each emitted coordinate by `transform.thetaRad` about `transform.pivot` so the built
+        // building sits ON the drawn (rotated) boundary. `levels[].footprint` is the EXCEPTION
+        // (already WORLD), so the shell + slab below need NO transform. θ=0 (an axis-aligned
+        // parcel) ⇒ `_rotate` is identity ⇒ byte-identical to the pre-transform behaviour.
+        // Mirrors HouseLayoutExecutor._rotateXZ + the engine's principalAxisRad/pivot.
+        const xf: ResidentialRigidTransform = result.transform;
+        // plan(mm, LOCAL) → world(m, PARCEL): mm→m, then the rigid local→world rotation.
+        const planToWorldXZ = (p: { x: number; y: number }): { x: number; z: number } =>
+            this._rotate({ x: p.x / 1000, z: p.y / 1000 }, xf);
+
         for (let i = 0; i < result.levels.length; i++) {
             const lvl = result.levels[i]!;
             const levelId = levelIdByIndex.get(lvl.levelIndex)!;
             const perLevel = result.perLevelApartments[i];
 
             // Building shell perimeter (one wall per footprint edge) + slab on EVERY floor.
+            // `lvl.footprint` is already WORLD (the drawn parcel) → no transform here.
             shellPayloads.push(this._buildShellPerimeter(levelId, lvl.footprint, floorToFloorM));
             slabPolys.push({ levelId, poly: lvl.footprint });
 
             if (!perLevel) continue;
 
-            // Public-corridor band(s) → room-bounding lines so detection reads them.
+            // Public-corridor band(s) → room-bounding lines so detection reads them. LOCAL → world.
             for (const band of perLevel.publicCorridor) {
-                this._collectCorridorBoundaries(corridorBoundaryItems, levelId, band);
+                this._collectCorridorBoundaries(corridorBoundaryItems, levelId, band, xf);
             }
 
             // Upper-floor apartments.
@@ -188,7 +204,8 @@ export class ResidentialBuildingExecutor {
                 if (apt.status !== 'ok' || !apt.layout) { rejectedCount++; continue; }
                 placedCount++;
                 // Apartment cell perimeter (4 walls, pre-minted) so façade windows resolve.
-                const perimeter = this._buildCellPerimeter(levelId, apt, floorToFloorM);
+                // Built from the LOCAL cell.rect, rotated to world by the rigid transform.
+                const perimeter = this._buildCellPerimeter(levelId, apt, floorToFloorM, xf);
                 cellPerimeterPayloads.push(perimeter.payload);
                 const opts: LayoutExecuteOptions = {
                     levelId,
@@ -198,6 +215,10 @@ export class ResidentialBuildingExecutor {
                     // external walls so we never duplicate (coincident) the shell.
                     skipExteriorWalls: true,
                     shellWalls: perimeter.shellWalls,
+                    // §RESI-RIGID-TRANSFORM — map the engine's LOCAL plan-mm geometry onto the
+                    // WORLD parcel (the SAME transform the cell perimeter + shellWalls used), so
+                    // the apartment interior aligns to the rotated boundary, not axis-aligned.
+                    planToWorldXZ,
                 };
                 try {
                     const set = buildLayoutCommands(apt.layout, opts, (p: IdPrefix) => createId(p));
@@ -238,7 +259,7 @@ export class ResidentialBuildingExecutor {
                 this._createSlab(cm, s.levelId, s.poly);
             }
             // 4. Central core — a stair per adjacent level pair + ONE lift ground→top.
-            const coreResult = this._createCore(cm, result, levelIdByIndex, floorToFloorM, baseElevationM);
+            const coreResult = this._createCore(cm, result, levelIdByIndex, floorToFloorM, baseElevationM, xf);
             stairCount = coreResult.stairs;
             liftCount = coreResult.lifts;
         }, {
@@ -301,18 +322,23 @@ export class ResidentialBuildingExecutor {
     }
 
     /** Apartment cell perimeter: 4 walls around the cell rect, pre-minted ids,
-     *  returned with the matching ShellWall records so façade windows resolve. */
+     *  returned with the matching ShellWall records so façade windows resolve.
+     *  §RESI-RIGID-TRANSFORM — the cell.rect is in the LOCAL (principal-axis) frame;
+     *  every corner is rotated to the WORLD parcel by the rigid transform so the
+     *  perimeter (and the shellWalls the engine's façade windows resolve against,
+     *  which are also transformed via `planToWorldXZ`) all live in one world frame. */
     private _buildCellPerimeter(
         levelId: string,
         apt: PlacedApartment,
         wallHeightM: number,
+        xf: ResidentialRigidTransform,
     ): { payload: { walls: ReadonlyArray<Record<string, unknown>>; levelId: string }; shellWalls: ReadonlyArray<{ id: string; start: { x: number; z: number }; end: { x: number; z: number } }> } {
         const r = apt.cell.rect;
         const corners = [
-            { x: r.x0, z: r.z0 },
-            { x: r.x1, z: r.z0 },
-            { x: r.x1, z: r.z1 },
-            { x: r.x0, z: r.z1 },
+            this._rotate({ x: r.x0, z: r.z0 }, xf),
+            this._rotate({ x: r.x1, z: r.z0 }, xf),
+            this._rotate({ x: r.x1, z: r.z1 }, xf),
+            this._rotate({ x: r.x0, z: r.z1 }, xf),
         ];
         const walls: Array<Record<string, unknown>> = [];
         const shellWalls: Array<{ id: string; start: { x: number; z: number }; end: { x: number; z: number } }> = [];
@@ -395,8 +421,9 @@ export class ResidentialBuildingExecutor {
         levelIdByIndex: Map<number, string>,
         floorToFloorM: number,
         baseElevationM: number,
+        xf: ResidentialRigidTransform,
     ): { stairs: number; lifts: number } {
-        const core = result.core;
+        const core = result.core;   // LOCAL (principal-axis) frame.
         const coreW = core.x1 - core.x0;
         const coreD = core.z1 - core.z0;
         // Split the core: LEFT half = stair, RIGHT half = lift shaft.
@@ -405,6 +432,9 @@ export class ResidentialBuildingExecutor {
         const liftCx = core.x0 + coreW * 0.75;
         const liftCz = (core.z0 + core.z1) / 2;
         const cz0 = core.z0;
+        // §RESI-RIGID-TRANSFORM — the stair RUN is along LOCAL +Z; rotate the run direction
+        // to the WORLD parcel so the stair aligns with the rotated core (θ=0 ⇒ {x:0,z:1}).
+        const runDir = this._rotateDir({ x: 0, z: 1 }, xf);
 
         // Risers sized to the gap, clamped to the architectural band.
         let totalRisers = Math.max(2, Math.round(floorToFloorM / STAIR_RISER_TARGET_M));
@@ -420,8 +450,10 @@ export class ResidentialBuildingExecutor {
             const toLevelId = levelIdByIndex.get(idx + 1);
             if (!fromLevelId || !toLevelId) continue;
             const startY = baseElevationM + idx * floorToFloorM;
-            // Stair runs along +Z, centred in the stair half-cell, starting at its near edge.
-            const startPosition = { x: stairCellX0 + stairCellW / 2, y: startY, z: cz0 + 0.1 };
+            // Stair runs along +Z, centred in the stair half-cell, starting at its near edge —
+            // computed in the LOCAL frame, then rotated to the WORLD parcel.
+            const startLocal = this._rotate({ x: stairCellX0 + stairCellW / 2, z: cz0 + 0.1 }, xf);
+            const startPosition = { x: startLocal.x, y: startY, z: startLocal.z };
             try {
                 cm.execute?.(new CreateStairCommand({
                     id: createId('stair'),
@@ -432,25 +464,26 @@ export class ResidentialBuildingExecutor {
                     treadDepth: STAIR_TREAD_M,
                     width: Math.min(STAIR_WIDTH_M, Math.max(0.9, stairCellW - 0.1)),
                     startPosition,
-                    flights: [{ direction: { x: 0, y: 0, z: 1 }, riserCount: totalRisers }],
+                    flights: [{ direction: { x: runDir.x, y: 0, z: runDir.z }, riserCount: totalRisers }],
                     accessibilityType: 'standard',
                 }), { source: 'RESI_PIPELINE_STAIR' });
                 stairs++;
             } catch (e) { console.warn('[resi-building] stair create failed (skipped):', e); }
         }
 
-        // ONE lift from ground → top (the vertical-circulation element).
+        // ONE lift from ground → top (the vertical-circulation element). LOCAL → world origin.
         let lifts = 0;
         const baseLevelId = levelIdByIndex.get(0);
         const topLevelId = levelIdByIndex.get(topIndex);
         if (baseLevelId && topLevelId && baseLevelId !== topLevelId) {
+            const liftOrigin = this._rotate({ x: liftCx, z: liftCz }, xf);
             try {
                 cm.execute?.(new CreateVerticalCirculationCommand({
                     id: createId('verticalCirculation'),
                     baseLevelId,
                     topLevelId,
                     kind: 'passenger',
-                    origin: { x: liftCx, y: baseElevationM, z: liftCz },
+                    origin: { x: liftOrigin.x, y: baseElevationM, z: liftOrigin.z },
                     shaftWidth: Math.min(2.0, Math.max(1.6, coreW / 2 - 0.2)),
                     shaftDepth: Math.min(2.4, Math.max(1.6, coreD - 0.2)),
                 }), { source: 'RESI_PIPELINE_LIFT' });
@@ -463,17 +496,19 @@ export class ResidentialBuildingExecutor {
     }
 
     /** Add the 4 edges of a corridor band as room-bounding lines so detection reads
-     *  the corridor as its own space. */
+     *  the corridor as its own space. §RESI-RIGID-TRANSFORM — the band is LOCAL-frame;
+     *  rotate each corner to the WORLD parcel so the corridor sits inside the rotated shell. */
     private _collectCorridorBoundaries(
         out: Array<{ id: string; levelId: string; start: { x: number; z: number }; end: { x: number; z: number } }>,
         levelId: string,
         band: { x0: number; z0: number; x1: number; z1: number },
+        xf: ResidentialRigidTransform,
     ): void {
         const c = [
-            { x: band.x0, z: band.z0 },
-            { x: band.x1, z: band.z0 },
-            { x: band.x1, z: band.z1 },
-            { x: band.x0, z: band.z1 },
+            this._rotate({ x: band.x0, z: band.z0 }, xf),
+            this._rotate({ x: band.x1, z: band.z0 }, xf),
+            this._rotate({ x: band.x1, z: band.z1 }, xf),
+            this._rotate({ x: band.x0, z: band.z1 }, xf),
         ];
         for (let i = 0; i < c.length; i++) {
             // Room-bounding-line ids use the legacy `rbl_` string form (NOT createId —
@@ -616,5 +651,24 @@ export class ResidentialBuildingExecutor {
                 } catch (e) { console.warn('[resi-building] graph-room batch failed for', levelId, e); }
             }
         }
+    }
+
+    /** §RESI-RIGID-TRANSFORM — rotate a LOCAL (principal-axis) XZ point onto the WORLD parcel
+     *  by `xf.thetaRad` about `xf.pivot`. Matches the engine's `rotatePt` /
+     *  HouseLayoutExecutor._rotateXZ (x' = px + dx·c − dz·s, z' = pz + dx·s + dz·c).
+     *  θ = 0 ⇒ identity (an axis-aligned parcel ⇒ no movement). Pure. */
+    private _rotate(p: { x: number; z: number }, xf: ResidentialRigidTransform): { x: number; z: number } {
+        if (!xf.thetaRad) return { x: p.x, z: p.z };
+        const c = Math.cos(xf.thetaRad), s = Math.sin(xf.thetaRad);
+        const dx = p.x - xf.pivot.x, dz = p.z - xf.pivot.z;
+        return { x: xf.pivot.x + dx * c - dz * s, z: xf.pivot.z + dx * s + dz * c };
+    }
+
+    /** §RESI-RIGID-TRANSFORM — rotate a DIRECTION's XZ by `xf.thetaRad` about the origin (no
+     *  pivot — a direction has no position). θ = 0 ⇒ identity. Pure. */
+    private _rotateDir(d: { x: number; z: number }, xf: ResidentialRigidTransform): { x: number; z: number } {
+        if (!xf.thetaRad) return { x: d.x, z: d.z };
+        const c = Math.cos(xf.thetaRad), s = Math.sin(xf.thetaRad);
+        return { x: d.x * c - d.z * s, z: d.x * s + d.z * c };
     }
 }
