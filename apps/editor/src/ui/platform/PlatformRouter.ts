@@ -560,6 +560,14 @@ export class PlatformRouter {
         // a registered Pack id; "residential — let me choose" / commercial / mixed /
         // other return undefined so the RAC asks (showing the typology chips).
         const v = projectType.trim().toLowerCase();
+        // §RESI-MULTIFAMILY — the multi-family residential building is a wired
+        // GENERATOR BRANCH (residentialFromBoundary → ResidentialBuildingController),
+        // NOT a typology-registry Pack. It is therefore seeded directly (it must NOT
+        // be gated on `registryHas`, which only knows the apartment/house Packs); the
+        // brief→project→site→generate spine + the OnboardingStepController switch point
+        // route it to the residential generator. The building-type SELECTION is the
+        // opt-in (no console flag for this path).
+        if (v === 'residential-multifamily') return 'residential-multifamily';
         let candidate: string | undefined;
         if (v === 'apartment') candidate = 'apartment';
         else if (v === 'casa-unifamiliar' || v === 'house' || v === 'casa') candidate = 'casa-unifamiliar';

@@ -709,6 +709,45 @@ export const ONBOARDING_STYLES = `
   flex: 1 1 auto;
 }
 
+/* ── §RESI-MULTIFAMILY (Task 2) residential program panel ─────────────────────── */
+.os-onboarding-overlay .os-resi-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin-top: 0.4rem;
+}
+.os-onboarding-overlay .os-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.os-onboarding-overlay .os-field-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(20, 10, 40, 0.7);
+}
+.os-onboarding-overlay .os-typo-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.os-onboarding-overlay .os-typo-chip {
+  border: 1px solid rgba(102, 0, 255, 0.3);
+  background: #fff;
+  color: #4a3a6a;
+  border-radius: 999px;
+  padding: 0.32rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.os-onboarding-overlay .os-typo-chip:hover { border-color: #6600ff; }
+.os-onboarding-overlay .os-typo-chip--on {
+  background: #6600ff;
+  border-color: #6600ff;
+  color: #fff;
+}
+
 /* ── DRAG + RESIZE chrome (shared with makeDraggable / makeResizable) ───────────
    The helpers toggle .vg-panel--dragging / .vg-panel--resizing. Suppress text
    selection while interacting; show the grip in the bottom-right corner. */

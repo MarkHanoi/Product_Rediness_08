@@ -64,6 +64,7 @@ import { resolveSiteContext, ensureSite, dispatchSiteLocation } from '../site/si
 import { geocodeAddress } from '../site/geocodeAddress.js';
 import { generateApartmentFromBoundary } from '../apartment-layout/apartmentFromBoundary.js';
 import { generateHouseFromBoundary, type FootprintPoint } from '../house-layout/houseFromBoundary.js';
+import { generateResidentialFromBoundary } from '../residential-building/residentialFromBoundary.js';
 import { makeDraggable } from '../makeDraggable.js';
 import { makeResizable } from '../makeResizable.js';
 
@@ -129,8 +130,10 @@ class OnboardingStepController {
     private readonly seedAddress: string;
     /** Typology from the brief — drives the O.7.1 confirm-step copy/label. */
     private readonly typologyId: string;
-    /** O.12.c — structured brief metadata, forwarded to the generate call. */
-    private readonly briefMetadata: Record<string, unknown>;
+    /** O.12.c — structured brief metadata, forwarded to the generate call. §RESI-MULTIFAMILY
+     *  (Task 2): the residential program step MUTATES this with the user's level/area/typology
+     *  choices before generate, so it is not readonly. */
+    private briefMetadata: Record<string, unknown>;
 
     private overlay: HTMLElement | null = null;
     private bodyEl: HTMLElement | null = null;
@@ -163,6 +166,7 @@ class OnboardingStepController {
             case 'apartment': return 'apartment';
             case 'casa-unifamiliar': return 'house';   // §A.6.c — friendly noun
             case 'house': return 'house';
+            case 'residential-multifamily': return 'residential building'; // §RESI-MULTIFAMILY
             case 'office': return 'office';
             default: return this.typologyId || 'design';
         }
@@ -704,6 +708,18 @@ class OnboardingStepController {
         // Non-blocking + keep the boundary visible, then opt into the confirm layout.
         this.setDrawingPresentation(true);
         this.overlay?.classList.add('os-onboarding-overlay--confirm');
+
+        // §RESI-MULTIFAMILY (Task 2, 2026-06-23) — the multi-family residential building
+        // needs EXPLICIT inputs the founder spec mandates (number of levels, min/max
+        // apartment surface, which T1–T4 typologies). Instead of the generic one-line
+        // confirm we render a compact PROGRAM panel here (prefilled with the founder
+        // defaults: 5 floors, 60–100 m², T2+T3) so the flow still runs on a click-through
+        // but the user can change every value before the preview/build reflects it.
+        if (this.typologyId === 'residential-multifamily') {
+            this.renderResidentialProgramStep(source);
+            return;
+        }
+
         const body = this.clearBody();
 
         const typology = this.typologyLabel();
@@ -748,6 +764,172 @@ class OnboardingStepController {
         });
         notNow.addEventListener('click', () => {
             console.log('[onboarding-step] confirm → NOT NOW — disposing overlay, leaving boundary/site intact (no generate).');
+            this.toast('Saved your plot — generate any time from the AI panel.', 'info');
+            this.dispose();
+        });
+    }
+
+    /**
+     * §RESI-MULTIFAMILY (Task 2) — the residential-building PROGRAM step (the founder
+     * spec's explicit inputs). Replaces the generic confirm for the
+     * `residential-multifamily` typology: the user sets NUMBER OF LEVELS (1–20), MIN +
+     * MAX apartment surface (m²) and which TYPOLOGIES are wanted (T1–T4), then Generate.
+     *
+     * Prefilled with the founder defaults (5 floors, 60–100 m², T2 + T3) so a click-
+     * through still runs; whatever the user changes is written into `this.briefMetadata`
+     * (the SAME field ids `residentialRequestFromBrief` reads: floors / minApartmentAreaM2
+     * / maxApartmentAreaM2 / T1..T4) BEFORE the generate, so the orchestrator + preview +
+     * build all honour the inputs. Validated minimally (clamps + min ≤ max + ≥1 typology).
+     */
+    private renderResidentialProgramStep(source: 'drawn' | 'default-plot'): void {
+        if (this.disposed) return;
+        const body = this.clearBody();
+        console.log(`[onboarding-step] residential program step (source="${source}").`);
+
+        // Seed from any captured brief value, else the founder defaults.
+        const num = (v: unknown, dflt: number): number => {
+            const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN;
+            return Number.isFinite(n) && n > 0 ? n : dflt;
+        };
+        const md = this.briefMetadata;
+        const seedFloors = Math.max(1, Math.min(20, Math.round(num(md['floors'] ?? md['levels'] ?? md['upperLevels'], 5))));
+        const seedMin = num(md['minApartmentAreaM2'] ?? md['minAreaM2'], 60);
+        const seedMax = num(md['maxApartmentAreaM2'] ?? md['maxAreaM2'], 100);
+        const seedT = (k: string, dflt: boolean): boolean => {
+            const raw = md[k];
+            if (typeof raw === 'boolean') return raw;
+            if (typeof raw === 'string') { const s = raw.trim().toLowerCase(); if (s === 'true' || s === 'yes' || s === '1') return true; if (s === 'false' || s === 'no' || s === '0') return false; }
+            return dflt;
+        };
+
+        const title = document.createElement('p');
+        title.className = 'os-prompt';
+        title.textContent = 'Set up your residential building';
+        title.setAttribute('data-testid', 'onboarding-resi-title');
+        body.appendChild(title);
+
+        const hint = document.createElement('p');
+        hint.className = 'os-hint';
+        hint.textContent = source === 'drawn'
+            ? 'Choose how many floors, the apartment size band, and which apartment types to mix into the plot you drew.'
+            : 'Choose how many floors, the apartment size band, and which apartment types to mix.';
+        body.appendChild(hint);
+
+        const form = document.createElement('form');
+        form.className = 'os-resi-form';
+
+        // Helper to build a labelled number input row.
+        const numberField = (label: string, testId: string, value: number, min: number, max: number, step: number): HTMLInputElement => {
+            const row = document.createElement('label');
+            row.className = 'os-field';
+            const cap = document.createElement('span');
+            cap.className = 'os-field-label';
+            cap.textContent = label;
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.className = 'os-input';
+            input.setAttribute('data-testid', testId);
+            input.value = String(value);
+            input.min = String(min); input.max = String(max); input.step = String(step);
+            row.appendChild(cap); row.appendChild(input);
+            form.appendChild(row);
+            return input;
+        };
+
+        const floorsInput = numberField('Number of levels (1–20)', 'onboarding-resi-floors', seedFloors, 1, 20, 1);
+        const minInput = numberField('Min apartment surface (m²)', 'onboarding-resi-min', seedMin, 20, 400, 5);
+        const maxInput = numberField('Max apartment surface (m²)', 'onboarding-resi-max', seedMax, 20, 400, 5);
+
+        // Typology toggle chips (T1–T4).
+        const typoWrap = document.createElement('div');
+        typoWrap.className = 'os-field';
+        const typoLabel = document.createElement('span');
+        typoLabel.className = 'os-field-label';
+        typoLabel.textContent = 'Apartment types (pick one or more)';
+        typoWrap.appendChild(typoLabel);
+        const chips = document.createElement('div');
+        chips.className = 'os-typo-chips';
+        const typoDefs: Array<{ key: 'T1' | 'T2' | 'T3' | 'T4'; label: string; on: boolean }> = [
+            { key: 'T1', label: 'T1 · studio/1-bed', on: seedT('T1', false) },
+            { key: 'T2', label: 'T2 · 2-bed', on: seedT('T2', true) },
+            { key: 'T3', label: 'T3 · 3-bed', on: seedT('T3', true) },
+            { key: 'T4', label: 'T4 · 4-bed', on: seedT('T4', false) },
+        ];
+        const typoState: Record<'T1' | 'T2' | 'T3' | 'T4', boolean> = { T1: typoDefs[0]!.on, T2: typoDefs[1]!.on, T3: typoDefs[2]!.on, T4: typoDefs[3]!.on };
+        for (const def of typoDefs) {
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'os-typo-chip' + (def.on ? ' os-typo-chip--on' : '');
+            chip.setAttribute('data-testid', `onboarding-resi-${def.key.toLowerCase()}`);
+            chip.setAttribute('aria-pressed', String(def.on));
+            chip.textContent = def.label;
+            chip.addEventListener('click', () => {
+                typoState[def.key] = !typoState[def.key];
+                chip.classList.toggle('os-typo-chip--on', typoState[def.key]);
+                chip.setAttribute('aria-pressed', String(typoState[def.key]));
+            });
+            chips.appendChild(chip);
+        }
+        typoWrap.appendChild(chips);
+        form.appendChild(typoWrap);
+
+        const status = document.createElement('p');
+        status.className = 'os-status';
+        status.setAttribute('data-testid', 'onboarding-resi-status');
+        status.hidden = true;
+        form.appendChild(status);
+
+        const actions = document.createElement('div');
+        actions.className = 'os-confirm-actions';
+        const generate = document.createElement('button');
+        generate.type = 'submit';
+        generate.className = 'os-btn os-btn--primary';
+        generate.setAttribute('data-testid', 'onboarding-resi-generate');
+        generate.textContent = 'Generate residential building';
+        const notNow = document.createElement('button');
+        notNow.type = 'button';
+        notNow.className = 'os-btn os-btn--ghost';
+        notNow.setAttribute('data-testid', 'onboarding-resi-notnow');
+        notNow.textContent = `Not now — I'll design it myself`;
+        actions.appendChild(generate);
+        actions.appendChild(notNow);
+        form.appendChild(actions);
+
+        body.appendChild(form);
+
+        const onSubmit = (e: Event): void => {
+            e.preventDefault();
+            const floors = Math.max(1, Math.min(20, Math.round(num(floorsInput.value, seedFloors))));
+            let minM2 = num(minInput.value, seedMin);
+            let maxM2 = num(maxInput.value, seedMax);
+            if (maxM2 < minM2) { const t = minM2; minM2 = maxM2; maxM2 = t; }
+            const anyTypo = typoState.T1 || typoState.T2 || typoState.T3 || typoState.T4;
+            if (!anyTypo) {
+                status.hidden = false;
+                status.textContent = 'Pick at least one apartment type (T1–T4).';
+                return;
+            }
+            // Write the user's choices into the brief metadata the residential generator
+            // reads (residentialRequestFromBrief). Floors is the UPPER-level count there
+            // (1..20). The orchestrator adds the ground floor on top.
+            this.briefMetadata = {
+                ...this.briefMetadata,
+                floors,
+                minApartmentAreaM2: minM2,
+                maxApartmentAreaM2: maxM2,
+                T1: typoState.T1, T2: typoState.T2, T3: typoState.T3, T4: typoState.T4,
+            };
+            console.log('[onboarding-step] residential program confirmed', {
+                floors, minApartmentAreaM2: minM2, maxApartmentAreaM2: maxM2, typologies: { ...typoState },
+            });
+            this.overlay?.classList.remove('os-onboarding-overlay--confirm');
+            void this.generateAndFinish();
+        };
+        form.addEventListener('submit', onSubmit);
+        this.addCleanup(() => form.removeEventListener('submit', onSubmit));
+
+        notNow.addEventListener('click', () => {
+            console.log('[onboarding-step] residential program → NOT NOW — disposing overlay, leaving boundary/site intact.');
             this.toast('Saved your plot — generate any time from the AI panel.', 'info');
             this.dispose();
         });
@@ -865,6 +1047,15 @@ class OnboardingStepController {
             // byte-for-byte. ADDITIVE — the apartment branch is unchanged.
             if (this.typologyId === 'casa-unifamiliar') {
                 await this.generateHouse();
+            } else if (this.typologyId === 'residential-multifamily') {
+                // §RESI-MULTIFAMILY — the multi-family residential building. Reads
+                // the SAME authored parcel boundary, derives the residential program
+                // (floors + per-apartment min/max m² + T1–T4 mix) from the captured
+                // brief, runs the orchestrator on that footprint, and opens the
+                // residential PREVIEW MODAL → Build. The building-type SELECTION is
+                // the opt-in (no console flag on this path). ADDITIVE — neither the
+                // apartment nor the house branch is touched.
+                await generateResidentialFromBoundary(this.runtime, this.briefMetadata);
             } else {
                 // O.12.c — forward the STRUCTURED brief so the user's captured
                 // bedroom/bathroom/option choices drive the generated layout.

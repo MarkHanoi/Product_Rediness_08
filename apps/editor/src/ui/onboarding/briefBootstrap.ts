@@ -168,7 +168,13 @@ async function handleBriefReady(
     // multi-storey HOUSE generator (`generateHouseFromBoundary`, levels + per-storey
     // rooms + stair + roof, A.21.j). Other typologies still bail gracefully until
     // their Pack wires a generator into the SAME brief→project→site→generate spine.
-    const GENERATOR_READY_TYPOLOGIES = new Set(['apartment', 'casa-unifamiliar']);
+    // §RESI-MULTIFAMILY — the multi-family residential building joins the wired set:
+    // it flows through the SAME guided step flow (location → draw-or-skip → confirm →
+    // generate); the TYPOLOGY SWITCH in `OnboardingStepController.generateAndFinish`
+    // routes `residential-multifamily` to the residential generator (which reads the
+    // drawn parcel boundary, runs the orchestrator, and opens the residential preview
+    // modal → Build), exactly the way `apartment`/`casa-unifamiliar` route.
+    const GENERATOR_READY_TYPOLOGIES = new Set(['apartment', 'casa-unifamiliar', 'residential-multifamily']);
     if (!GENERATOR_READY_TYPOLOGIES.has(brief.typologyId)) {
         console.log(
             `[onboarding-bootstrap] typology "${brief.typologyId}" is not yet auto-wired ` +
@@ -178,6 +184,8 @@ async function handleBriefReady(
         return;
     }
     const isHouse = brief.typologyId === 'casa-unifamiliar';
+    const isResidentialBuilding = brief.typologyId === 'residential-multifamily';
+    const typologyNoun = isResidentialBuilding ? 'residential building' : isHouse ? 'house' : 'apartment';
 
     if (typeof deps.createAndOpenProject !== 'function') {
         console.warn('[onboarding-bootstrap] no createAndOpenProject dep — cannot create a project; bailing.');
@@ -197,7 +205,7 @@ async function handleBriefReady(
     // `pryzm-project-loaded` listener BEFORE issuing the create+open so we never
     // miss the event (it can fire synchronously-ish for the empty-new-project
     // path — PlatformShell fires `pryzm-project-loaded(empty:true)` immediately).
-    toast(`Setting up your first ${isHouse ? 'house' : 'apartment'}…`, 'info');
+    toast(`Setting up your first ${typologyNoun}…`, 'info');
 
     const md = brief.metadata ?? {};
     const address = typeof md.address === 'string' ? md.address : undefined;
