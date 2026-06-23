@@ -323,19 +323,35 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
         normRect({ x0: bb.x0, z0: round4(cz - halfCorr), x1: bb.x1, z1: round4(cz + halfCorr) }),
     );
 
+    // §RESI-CORE-SPINE (founder "the corridors are isolated from the core", 2026-06-23) — the
+    // horizontal corridor bands above never link to each other or to the core, so a resident
+    // leaving the stair/lift cannot reach the corridors that serve the apartments. Add a NARROW
+    // VERTICAL corridor SPINE at the core's X-centre, spanning the full plate depth, that crosses
+    // (and so CONNECTS) every horizontal band + the core into ONE circulation network. The spine is
+    // corridor-width and always sits INSIDE the core's X-span, so the channel is continuous (core-
+    // width where the core sits, spine-width elsewhere). It is emitted as the column MINUS the core
+    // rect → up to two segments (above + below the core); each crosses every horizontal band's Z.
+    const coreCx = (coreX0 + coreX1) / 2;
+    const spineX0 = round4(coreCx - halfCorr);
+    const spineX1 = round4(coreCx + halfCorr);
+    if (coreN.z0 - bb.z0 > EPS) corridorBands.push(normRect({ x0: spineX0, z0: bb.z0, x1: spineX1, z1: coreN.z0 }));
+    if (bb.z1 - coreN.z1 > EPS) corridorBands.push(normRect({ x0: spineX0, z0: coreN.z1, x1: spineX1, z1: bb.z1 }));
+
     const placements: ApartmentCell[] = [];
     let cursor = 0;
 
     type Run = { x0: number; x1: number };
-    // The X-runs available on a row whose [z0,z1] band MAY straddle the core. The core
-    // X-interval is carved out of any row that overlaps the core in Z.
+    // The X-runs available on a row. A channel is carved from EVERY row at the core's X so the
+    // vertical SPINE corridor runs uninterrupted and links every horizontal band to the core: the
+    // FULL core width on rows that straddle the core in Z, else the NARROW spine strip.
     function runsFor(z0: number, z1: number): Run[] {
         const overlapsCoreZ = !(coreN.z1 <= z0 + EPS || coreN.z0 >= z1 - EPS);
-        if (!overlapsCoreZ) return [{ x0: bb.x0, x1: bb.x1 }];
+        const cutX0 = overlapsCoreZ ? coreX0 : spineX0;
+        const cutX1 = overlapsCoreZ ? coreX1 : spineX1;
         const runs: Run[] = [];
-        if (coreX0 - bb.x0 > EPS) runs.push({ x0: bb.x0, x1: coreX0 });
-        if (bb.x1 - coreX1 > EPS) runs.push({ x0: coreX1, x1: bb.x1 });
-        return runs;
+        if (cutX0 - bb.x0 > EPS) runs.push({ x0: bb.x0, x1: cutX0 });
+        if (bb.x1 - cutX1 > EPS) runs.push({ x0: cutX1, x1: bb.x1 });
+        return runs.length > 0 ? runs : [{ x0: bb.x0, x1: bb.x1 }];
     }
 
     // Pack one apartment ROW: a band of depth `depth` on one side of a corridor line,

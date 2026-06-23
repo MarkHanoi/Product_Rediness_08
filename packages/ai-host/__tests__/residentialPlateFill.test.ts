@@ -105,16 +105,20 @@ describe('§RESI-FILL-PLATE — apartments fill the plate, not a central cluster
         });
     }
 
-    it('the corridor system is a GRID of parallel runs on a deep plate (not one band)', () => {
+    it('the corridor system is a GRID of parallel runs + a connecting core spine', () => {
         const res = expectOk(partitionLevelPlate(largeInput(137, 137)));
-        // A 137 m-deep plate needs several parallel corridors to cover the depth at the
-        // ~9 m apartment-depth cap → far more than one band.
-        expect(res.publicCorridor.length).toBeGreaterThanOrEqual(3);
-        // Each corridor spans the full plate width (X) — a straight full-length run.
-        for (const corr of res.publicCorridor) {
+        // The HORIZONTAL bands span the full plate width (X) — straight full-length runs; a
+        // 137 m-deep plate needs several to cover the depth at the ~9 m apartment-depth cap.
+        const horizontal = res.publicCorridor.filter(c => c.x0 < 1e-3 && Math.abs(c.x1 - 137) < 1e-3);
+        expect(horizontal.length).toBeGreaterThanOrEqual(3);
+        for (const corr of horizontal) {
             expect(corr.x0).toBeCloseTo(0, 3);
             expect(corr.x1).toBeCloseTo(137, 3);
         }
+        // §RESI-CORE-SPINE — a NARROW vertical spine (taller than wide) connects the horizontal
+        // bands + the core into ONE network, so no corridor is isolated from the stair/lift.
+        const spine = res.publicCorridor.filter(c => (c.x1 - c.x0) < (c.z1 - c.z0));
+        expect(spine.length).toBeGreaterThanOrEqual(1);
     });
 
     it('no two placed cells overlap, and no cell overlaps the core or any corridor', () => {
@@ -149,8 +153,10 @@ describe('§RESI-FILL-PLATE — apartments fill the plate, not a central cluster
         // A 30×16 plate has depth < 2·pitch → just the core corridor; apartments still pack.
         const res = expectOk(partitionLevelPlate(largeInput(30, 16, { apartments: manyDemands(40) })));
         expect(res.apartmentCells.length).toBeGreaterThanOrEqual(4);
-        // Only one corridor fits in a 16 m-deep plate.
-        expect(res.publicCorridor.length).toBe(1);
+        // Only one HORIZONTAL band fits in a 16 m-deep plate (plus the §RESI-CORE-SPINE segments
+        // that connect it to the core — those are narrow verticals, not full-width bands).
+        const horizontal = res.publicCorridor.filter(c => c.x0 < 1e-3 && Math.abs(c.x1 - 30) < 1e-3);
+        expect(horizontal.length).toBe(1);
     });
 
     it('a genuinely TINY plate still rejects (does not mask a real capacity miss)', () => {
