@@ -1,0 +1,166 @@
+// Residential building (multi-family) — pure card view-model for the
+// "Choose a residential building" preview modal (P3.3). The SIBLING of the
+// house's `houseCardModel.ts`, but a residential building has ONE variant with
+// N FLOORS (ground = core + commercial shell; upper = core + corridor + packed
+// apartments), so the card model is a per-FLOOR breakdown rather than the house's
+// per-storey variant grid.
+//
+// PURE: no DOM, no THREE. The only ai-host imports are TYPE-ONLY (erased at
+// compile time), so this unit-tests in plain Node (the apps/editor vitest env).
+
+import type {
+    ResidentialBuildingOk,
+    PerLevelApartments,
+    PlacedApartment,
+    BuildingLevel,
+} from '@pryzm/ai-host';
+
+const round1 = (n: number): number => Math.round(n * 10) / 10;
+const clampPct = (n: number): number => Math.max(0, Math.min(100, Math.round(n)));
+
+/** Friendly floor label from a 0-based level index. 0 → "Ground floor",
+ *  1 → "First floor", … (architectural ordinals). Falls back to "Floor N". */
+export function floorLabel(levelIndex: number): string {
+    if (levelIndex <= 0) return 'Ground floor';
+    const ordinals = ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth', 'Tenth'];
+    const name = ordinals[levelIndex - 1];
+    return name ? `${name} floor` : `Floor ${levelIndex}`;
+}
+
+/** One apartment's per-card summary (drives the per-apartment plan thumbnail +
+ *  the rejected hatch). */
+export interface ApartmentCardSummary {
+    readonly index: number;
+    readonly typology: string;          // 'T1'..'T4'
+    readonly status: 'ok' | 'rejected';
+    readonly rejectReason?: string;
+    /** The placed apartment (carries `layout` + `cell`) — used by the renderer to
+     *  draw the per-apartment plan thumbnail or the hatched rejection box. */
+    readonly apt: PlacedApartment;
+    readonly targetAreaM2: number;      // rounded to 0.1
+    readonly roomCount: number;
+    readonly windowCount: number;
+    /** Per-apartment layout score 0-100 (0 for a rejected cell). */
+    readonly score: number;
+    /** Short room-type roll-up, e.g. "2 bed · 1 bath · kitchen". */
+    readonly roomSummary: string;
+}
+
+/** One floor's per-card summary. */
+export interface FloorCardSummary {
+    readonly levelIndex: number;
+    readonly label: string;
+    readonly role: 'ground' | 'upper';
+    readonly commercialGroundFloor: boolean;
+    readonly apartments: readonly ApartmentCardSummary[];
+    readonly placedCount: number;        // apartments with status === 'ok'
+    readonly rejectedCount: number;
+}
+
+/** The whole-building card view-model — the single preview card. */
+export interface ResidentialCardModel {
+    readonly title: string;
+    readonly floorCount: number;
+    readonly upperLevels: number;
+    /** Total apartments across all upper floors (placed only). */
+    readonly totalApartments: number;
+    readonly totalRejected: number;
+    /** Net residential area built (m², placed apartments only). */
+    readonly totalNetAreaM2: number;
+    /** Centred-core size as "W×D m" for the totals readout. */
+    readonly coreSize: string;
+    readonly floors: readonly FloorCardSummary[];
+}
+
+/** Count rooms by a coarse type bucket so a summary reads like a brief. */
+function roomSummaryLine(apt: PlacedApartment): string {
+    const rooms = apt.layout?.rooms ?? [];
+    let bed = 0, bath = 0;
+    let kitchen = false, living = false;
+    for (const r of rooms) {
+        const t = (r.type || '').toLowerCase();
+        const occ = ((r as { occupancy?: string }).occupancy || '').toLowerCase();
+        if (t.includes('bed') || occ.includes('bed')) bed++;
+        else if (t.includes('bath') || t.includes('wc') || occ.includes('bath')) bath++;
+        else if (t.includes('kitchen') || occ.includes('kitchen')) kitchen = true;
+        else if (t.includes('living') || occ.includes('living')) living = true;
+    }
+    const parts: string[] = [];
+    if (bed > 0) parts.push(`${bed} bed`);
+    if (bath > 0) parts.push(`${bath} bath`);
+    if (kitchen) parts.push('kitchen');
+    if (living) parts.push('living');
+    return parts.length > 0 ? parts.join(' · ') : `${rooms.length} rooms`;
+}
+
+function buildApartmentSummary(apt: PlacedApartment, index: number): ApartmentCardSummary {
+    const rooms = apt.layout?.rooms ?? [];
+    const windows = apt.layout?.windows?.length ?? 0;
+    const score = apt.status === 'ok'
+        ? clampPct(apt.layout?.score?.overall ?? 0)
+        : 0;
+    return {
+        index,
+        typology: apt.typology,
+        status: apt.status,
+        ...(apt.rejectReason ? { rejectReason: apt.rejectReason } : {}),
+        apt,
+        targetAreaM2: round1(apt.targetAreaM2),
+        roomCount: rooms.length,
+        windowCount: windows,
+        score,
+        roomSummary: apt.status === 'ok' ? roomSummaryLine(apt) : 'no layout — over-programmed',
+    };
+}
+
+function buildFloorSummary(level: BuildingLevel, perLevel: PerLevelApartments): FloorCardSummary {
+    const apartments = perLevel.apartments.map((a, i) => buildApartmentSummary(a, i));
+    const placedCount = apartments.filter(a => a.status === 'ok').length;
+    const rejectedCount = apartments.length - placedCount;
+    return {
+        levelIndex: level.levelIndex,
+        label: floorLabel(level.levelIndex),
+        role: level.role,
+        commercialGroundFloor: level.commercialGroundFloor === true,
+        apartments,
+        placedCount,
+        rejectedCount,
+    };
+}
+
+/**
+ * Build the single whole-building card view-model from the orchestrator's OK
+ * result. Pure. `levels` and `perLevelApartments` are STRICTLY index-aligned by
+ * the orchestrator (one `perLevelApartments[i]` per `levels[i]`), so we zip them
+ * positionally.
+ */
+export function buildResidentialCardModel(result: ResidentialBuildingOk): ResidentialCardModel {
+    const floors: FloorCardSummary[] = [];
+    let totalApartments = 0;
+    let totalRejected = 0;
+    let totalNetAreaM2 = 0;
+    for (let i = 0; i < result.levels.length; i++) {
+        const level = result.levels[i]!;
+        const perLevel = result.perLevelApartments[i] ?? { levelIndex: level.levelIndex, role: level.role, apartments: [], publicCorridor: [] };
+        const floor = buildFloorSummary(level, perLevel);
+        floors.push(floor);
+        for (const a of floor.apartments) {
+            if (a.status === 'ok') { totalApartments++; totalNetAreaM2 += a.targetAreaM2; }
+            else totalRejected++;
+        }
+    }
+    const coreW = round1(result.core.x1 - result.core.x0);
+    const coreD = round1(result.core.z1 - result.core.z0);
+    // upperLevels = total floors minus the single ground floor.
+    const upperLevels = Math.max(0, result.levels.length - 1);
+    return {
+        title: 'Residential building',
+        floorCount: result.levels.length,
+        upperLevels,
+        totalApartments,
+        totalRejected,
+        totalNetAreaM2: round1(totalNetAreaM2),
+        coreSize: `${coreW}×${coreD} m`,
+        floors,
+    };
+}

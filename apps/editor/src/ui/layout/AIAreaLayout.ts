@@ -4,6 +4,7 @@ import { createAIPanel } from '../ai/AIPanel';
 import { createAICreatePanel } from '../ai/AICreatePanel';
 import { installApartmentLayoutConsoleTrigger } from '../apartment-layout/apartmentLayoutTrigger';
 import { installHouseLayoutConsoleTrigger } from '../house-layout/houseLayoutTrigger';
+import { installResidentialBuildingConsoleTrigger } from '../residential-building/residentialBuildingTrigger';
 import { installDesignParamsConsoleTrigger } from '../apartment-layout/DesignParamsPanel';
 import { installFurnishLayoutTrigger } from '../furnish-layout/furnishLayoutTrigger';
 import { installLightingLayoutTrigger } from '../lighting-layout/lightingLayoutTrigger';
@@ -200,6 +201,13 @@ export function mountAIArea(props: UIProps, runtime: PryzmRuntime | null): AIRes
     // that mints storeys + fans out per-storey rooms + a stair + a stairwell void
     // + a roof. Does NOT touch the apartment single-plate path.
     installHouseLayoutConsoleTrigger(runtime ?? null);
+    // P3.3 — Residential building (multi-family) generator. ADDITIVE + GATED:
+    // registers `pryzmGenerateResidentialBuilding(opts)` but the feature stays OFF
+    // until `globalThis.__PRYZM_RESIDENTIAL_BUILDING__ = true` is set, so it cannot
+    // affect existing house/apartment users. Builds a centred core (stair + lift =
+    // the vertical-circulation element) + per-floor public corridor + packed
+    // apartments, all through the command bus in one undo.
+    installResidentialBuildingConsoleTrigger(runtime ?? null);
     // A.25.1 — Living Design Parameters: register `pryzmToggleDesignParams()` so
     // the parameter-sliders panel can be opened from anywhere. Its sliders feed
     // the D-TGL scorer weights (via the activeDesignParams stash) and debounce a
