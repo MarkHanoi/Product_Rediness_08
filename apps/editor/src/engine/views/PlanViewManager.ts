@@ -17,6 +17,7 @@ import {
 } from '@pryzm/core-app-model';
 import { PlanViewInteraction } from './PlanViewInteraction';
 import { planViewToolOverlay } from './PlanViewToolOverlay';
+import { shouldSuppressAutoFrameWhileDrawing } from './autoframeGuard';
 import { viewIntentInstanceStore } from '@pryzm/core-app-model/presentation';
 import { visibilityIntentStore } from '@pryzm/core-app-model/presentation';
 import { OverridePanel } from '@app/ui/OverridePanel';
@@ -624,10 +625,25 @@ export class PlanViewManager implements IPlanViewManager {
 
         const drawing = viewTechnicalDrawingCache.get(viewDef.id);
         if (drawing && !this._hasFitDrawing) {
-            this._planCanvas.fitToDrawing(viewDef, w, h);
-            this._frustumH = this._planCanvas.getFrustumH();
-            this._camTarget.copy(this._planCanvas.getCamTarget());
-            this._hasFitDrawing = true;
+            // §AUTOFRAME-NO-HIJACK-WHILE-DRAWING (2026-06-23) — `_hasFitDrawing` is
+            // reset to false whenever a projection COMPLETES (see _ensureProjection
+            // callbacks), so the very first wall the user draws in the plan view
+            // (scene 0 → 1 elements) lands here and `fitToDrawing` yanks the camera
+            // to the new geometry — exactly the "plan-view auto-zoom on first draw"
+            // the founder reported. Drawing must never move the camera. When a draw
+            // tool is active, SKIP the auto-fit AND mark the fit handled so it does
+            // not immediately re-fire the instant the tool deactivates. Project-open
+            // and view-entry framing are unaffected: no draw tool is active then, so
+            // the predicate is false and the fit runs normally.
+            if (shouldSuppressAutoFrameWhileDrawing()) {
+                this._hasFitDrawing = true;
+                console.log('[PlanViewManager] §AUTOFRAME-NO-HIJACK-WHILE-DRAWING: suppressed plan-view fit-to-drawing — a draw tool is active (no camera hijack while drawing).');
+            } else {
+                this._planCanvas.fitToDrawing(viewDef, w, h);
+                this._frustumH = this._planCanvas.getFrustumH();
+                this._camTarget.copy(this._planCanvas.getCamTarget());
+                this._hasFitDrawing = true;
+            }
         }
 
         this._syncCanvasState();

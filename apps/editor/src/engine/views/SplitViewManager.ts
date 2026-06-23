@@ -1164,9 +1164,23 @@ export class SplitViewManager implements ISplitViewManager {
         const viewDef = viewDefinitionStore.get(this._planViewId);
         if (!viewDef) return;
         if (viewTechnicalDrawingCache.get(this._planViewId) && !this._hasFitProjectedDrawing) {
-            this._planCanvas.fitToDrawing(viewDef, w, h);
-            this._adoptPlanCanvasState();
-            this._hasFitProjectedDrawing = true;
+            // §AUTOFRAME-NO-HIJACK-WHILE-DRAWING (2026-06-23) — `_hasFitProjectedDrawing`
+            // is reset to false on every `svp:drawing-refreshed` (a projection refresh
+            // after a geometry change), so the first wall the user draws in the split
+            // plan pane lands here and `fitToDrawing` yanks the camera to it — the same
+            // "plan-view auto-zoom on first draw" residual guarded in PlanViewManager.
+            // Drawing must never move the camera: when a draw tool is active, skip the
+            // fit AND mark it handled so it does not re-fire the instant the tool ends.
+            // Split-view entry / project-open framing run with no draw tool active, so
+            // the predicate is false there and fitting proceeds normally.
+            if (shouldSuppressAutoFrameWhileDrawing()) {
+                this._hasFitProjectedDrawing = true;
+                console.log('[SplitViewManager] §AUTOFRAME-NO-HIJACK-WHILE-DRAWING: suppressed split plan-view fit-to-drawing — a draw tool is active.');
+            } else {
+                this._planCanvas.fitToDrawing(viewDef, w, h);
+                this._adoptPlanCanvasState();
+                this._hasFitProjectedDrawing = true;
+            }
         }
         // Phase 2 G5 — forward `activeLinkedViewId` so section/elevation marks
         // referencing the standalone PlanViewManager's currently open view
