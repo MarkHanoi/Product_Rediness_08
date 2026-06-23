@@ -1,0 +1,125 @@
+// residentialCardModel — pure card view-model tests (P3.3).
+
+import { describe, expect, it } from 'vitest';
+import {
+    buildResidentialCardModel,
+    floorLabel,
+} from '../src/ui/residential-building/residentialCardModel.js';
+import type {
+    ResidentialBuildingOk,
+    PlacedApartment,
+    ScoredLayoutOption,
+} from '@pryzm/ai-host';
+
+function layout(over: Partial<ScoredLayoutOption> = {}): ScoredLayoutOption {
+    return {
+        summary: 'cell',
+        corridorWidthMin: 900,
+        walls: [],
+        doors: [],
+        rooms: [
+            { name: 'Bedroom 1', type: 'bedroom', area: 12, windowCount: 1, hasDirectAccess: true, adjacentTo: [] },
+            { name: 'Bathroom', type: 'bathroom', area: 4, windowCount: 0, hasDirectAccess: true, adjacentTo: [] },
+            { name: 'Kitchen', type: 'kitchen', area: 8, windowCount: 1, hasDirectAccess: true, adjacentTo: [] },
+        ],
+        windows: [{ wallRef: 0, offset: 100, width: 1000, height: 1200, sillHeight: 900 }],
+        score: { overall: 77.4, breakdown: { naturalLight: 0.8, privacy: 0.7, kitchenWorkflow: 0.9, corridorEfficiency: 0.6 } },
+        ...over,
+    };
+}
+
+function placed(over: Partial<PlacedApartment> = {}): PlacedApartment {
+    return {
+        typology: 'T2',
+        targetAreaM2: 55.23,
+        program: { bedrooms: 2, bathrooms: 1, masterEnSuite: false, openPlanKitchenDining: true, livingRoom: true, entranceHall: false },
+        cell: { rect: { x0: 0, z0: 0, x1: 8, z1: 7 }, doorEdge: 'z0' } as PlacedApartment['cell'],
+        status: 'ok',
+        layout: layout(),
+        facadeEdges: ['x0', 'z1'],
+        blindEdges: ['x1'],
+        ...over,
+    };
+}
+
+function okResult(over: Partial<ResidentialBuildingOk> = {}): ResidentialBuildingOk {
+    return {
+        status: 'ok',
+        core: { x0: 7, z0: 6, x1: 13, z1: 10 },
+        levels: [
+            { levelIndex: 0, role: 'ground', elevationM: 0, floorToFloorM: 3, footprint: [], commercialGroundFloor: true },
+            { levelIndex: 1, role: 'upper', elevationM: 3, floorToFloorM: 3, footprint: [] },
+        ],
+        perLevelApartments: [
+            { levelIndex: 0, role: 'ground', apartments: [], publicCorridor: [] },
+            {
+                levelIndex: 1, role: 'upper',
+                apartments: [
+                    placed(),
+                    placed({ typology: 'T3', status: 'rejected', rejectReason: 'over-programmed', layout: undefined as unknown as ScoredLayoutOption }),
+                ],
+                publicCorridor: [{ x0: 0, z0: 7, x1: 20, z1: 8.5 }],
+            },
+        ],
+        diagnostic: 'test',
+        ...over,
+    };
+}
+
+describe('floorLabel', () => {
+    it('maps 0→Ground, 1→First, 2→Second', () => {
+        expect(floorLabel(0)).toBe('Ground floor');
+        expect(floorLabel(1)).toBe('First floor');
+        expect(floorLabel(2)).toBe('Second floor');
+    });
+    it('falls back to "Floor N" past the ordinal table', () => {
+        expect(floorLabel(15)).toBe('Floor 15');
+    });
+});
+
+describe('buildResidentialCardModel', () => {
+    it('produces one floor card per level (positional zip)', () => {
+        const m = buildResidentialCardModel(okResult());
+        expect(m.floorCount).toBe(2);
+        expect(m.floors).toHaveLength(2);
+        expect(m.floors[0]!.role).toBe('ground');
+        expect(m.floors[0]!.commercialGroundFloor).toBe(true);
+        expect(m.floors[1]!.role).toBe('upper');
+    });
+
+    it('counts placed vs rejected apartments + sums net area (placed only)', () => {
+        const m = buildResidentialCardModel(okResult());
+        expect(m.totalApartments).toBe(1);   // one OK
+        expect(m.totalRejected).toBe(1);     // one rejected
+        expect(m.totalNetAreaM2).toBe(55.2); // rounded targetAreaM2 of the placed apt
+        expect(m.upperLevels).toBe(1);
+    });
+
+    it('marks the rejected apartment + carries its reason', () => {
+        const m = buildResidentialCardModel(okResult());
+        const upper = m.floors[1]!;
+        expect(upper.placedCount).toBe(1);
+        expect(upper.rejectedCount).toBe(1);
+        const rej = upper.apartments.find(a => a.status === 'rejected')!;
+        expect(rej.rejectReason).toBe('over-programmed');
+        expect(rej.score).toBe(0);
+        expect(rej.roomSummary).toContain('over-programmed');
+    });
+
+    it('summarises a placed apartment (rooms, windows, score, brief line)', () => {
+        const m = buildResidentialCardModel(okResult());
+        const ok = m.floors[1]!.apartments.find(a => a.status === 'ok')!;
+        expect(ok.typology).toBe('T2');
+        expect(ok.roomCount).toBe(3);
+        expect(ok.windowCount).toBe(1);
+        expect(ok.score).toBe(77);                 // clampPct(77.4)
+        expect(ok.roomSummary).toContain('1 bed');
+        expect(ok.roomSummary).toContain('1 bath');
+        expect(ok.roomSummary).toContain('kitchen');
+    });
+
+    it('formats the core size as W×D m', () => {
+        const m = buildResidentialCardModel(okResult());
+        expect(m.coreSize).toBe('6×4 m');
+    });
+});

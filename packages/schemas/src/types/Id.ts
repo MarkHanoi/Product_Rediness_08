@@ -23,6 +23,8 @@ export type GridId        = Id<'grid'>;
 export type ColumnId      = Id<'column'>;
 export type BeamId        = Id<'beam'>;
 export type StairId       = Id<'stair'>;
+/** Residential-building (multi-family) §4 — the lift / elevator element. */
+export type VerticalCirculationId = Id<'verticalCirculation'>;
 export type HandrailId    = Id<'handrail'>;
 export type CeilingId     = Id<'ceiling'>;
 export type RoomId        = Id<'room'>;
@@ -67,6 +69,7 @@ export type ElementType =
   | 'column'
   | 'beam'
   | 'stair'
+  | 'verticalCirculation'
   | 'handrail'
   | 'ceiling'
   | 'room'
@@ -87,7 +90,7 @@ export type ElementType =
 /** All branded IDs the protocol surface exposes. */
 export type AnyElementId =
   | WallId | SlabId | DoorId | WindowId | RoofId | CurtainWallId
-  | GridId | ColumnId | BeamId | StairId | HandrailId | CeilingId
+  | GridId | ColumnId | BeamId | StairId | VerticalCirculationId | HandrailId | CeilingId
   | RoomId | FurnitureId | AnnotationId | DimensionId | SheetId
   | ScheduleId | ViewId | ProjectId
   | StructuralId | LightingId | PlumbingId
@@ -105,6 +108,7 @@ export type IdFor<T extends ElementType> =
   T extends 'column'      ? ColumnId      :
   T extends 'beam'        ? BeamId        :
   T extends 'stair'       ? StairId       :
+  T extends 'verticalCirculation' ? VerticalCirculationId :
   T extends 'handrail'    ? HandrailId    :
   T extends 'ceiling'     ? CeilingId     :
   T extends 'room'        ? RoomId        :

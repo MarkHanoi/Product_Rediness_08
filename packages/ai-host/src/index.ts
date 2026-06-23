@@ -347,6 +347,41 @@ export type {
   DocSheetPlan,
 } from './workflows/houseLayout/index.js';
 
+// ── Residential building (multi-family) — public surface ─────────────────────
+// The L2 pure orchestrator for the multi-family typology (centred core + per-level
+// public corridor + packed apartments, each laid out via the frozen D-TGL engine).
+// Consumed by the editor's residential-building executor (apps/editor/src/ui/
+// residential-building/) which builds the core (stair + lift), corridors + each
+// apartment's walls/doors/windows via the command bus. ADDITIVE re-export mirroring
+// the houseLayout barrel above (the editor cannot import an un-exported symbol).
+export {
+  orchestrateResidentialBuilding,
+  packApartments,
+  partitionLevelPlate,
+  runApartmentCellLayout,
+  shellFromCell,
+  RESI_APARTMENT_CONSTRAINTS,
+  RESI_SCORING_WEIGHTS,
+  RESI_LAYOUT_COUNT,
+} from './workflows/residentialBuilding/index.js';
+export type {
+  ResidentialBuildingOrchestratorInput,
+  ResidentialBuildingResult,
+  ResidentialBuildingOk,
+  ResidentialBuildingRejected,
+  BuildingLevel,
+  PlacedApartment,
+  PerLevelApartments,
+  LevelRole,
+  PlannedApartment,
+  Typology as ResidentialTypology,
+  ApartmentDemand,
+  ApartmentCell,
+  CellEdge,
+  ApartmentCellLayoutInput,
+  ApartmentCellLayoutResult,
+} from './workflows/residentialBuilding/index.js';
+
 // ── D-FLE Furniture Layout Engine — public surface ───────────────────────────
 // The deterministic per-room furniture layout engine (SPEC-FURNITURE-LAYOUT-ENGINE).
 // Pure: zero THREE, zero DOM. Consumed by the editor's furnish trigger

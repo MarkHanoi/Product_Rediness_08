@@ -56,6 +56,7 @@ export type RelationshipType =
     | 'levelOf'           // level → building
     | 'servesZone'        // HVAC zone → room (future)
     | 'connectedByStair'  // floor → floor via stair
+    | 'connectedByLift'   // floor → floor via lift (residential-building §4, additive peer of connectedByStair)
     // ── Temporal (Phase G) ─────────────────────────────────────────────────
     | 'precededBy'        // new element ← old element it replaced
     | 'supersedes'        // new element → old element (inverse of precededBy)

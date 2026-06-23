@@ -1,0 +1,26 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "baseUrl": ".",
+    "types": ["node"],
+    "typeRoots": [
+      "c:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/node_modules/@types"
+    ],
+    "paths": {
+      "@opentelemetry/api": [
+        "c:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/node_modules/.pnpm/@opentelemetry+api@1.9.1/node_modules/@opentelemetry/api/build/src/index.d.ts"
+      ],
+      "@pryzm/core-app-model": ["packages/geometry-lift/__tests__/_stubs/coreAppModel.ts"],
+      "@pryzm/event-bus": ["packages/event-bus/src/index.ts"]
+    }
+  },
+  "include": [
+    "packages/geometry-lift/src/LiftTypes.ts",
+    "packages/geometry-lift/src/LiftTypeDefinitions.ts",
+    "packages/geometry-lift/src/LiftTypeStore.ts",
+    "packages/geometry-lift/src/LiftStore.ts",
+    "packages/geometry-lift/__tests__/**/*"
+  ]
+}

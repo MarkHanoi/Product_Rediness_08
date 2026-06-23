@@ -15,7 +15,10 @@ import type * as THREE from '@pryzm/renderer-three/three';
  * elementRegistry.registerSemantic(type.id, 'slabSystemType') so the registry
  * provides a single authoritative ID→store routing table for all PRYZM data.
  */
-export type StoreType = 'wall' | 'slab' | 'ceiling' | 'floor' | 'column' | 'beam' | 'stair' | 'stair-landing' | 'stair-railing' | 'curtainwall' | 'curtain-panel' | 'window' | 'door' | 'level' | 'grid' | 'roof' | 'room' | 'furniture' | 'handrail' | 'plumbing' | 'opening' | 'annotation' | 'slabSystemType' | 'ceilingSystemType' | 'floorSystemType';
+// Residential-building (multi-family) §4: `verticalCirculation` (lift) is a peer
+// element category to `stair` — added to the routing union (additive, no behaviour
+// change). See docs/03-execution/plans/RESIDENTIAL-BUILDING-IMPLEMENTATION-TRACKER.md P1.B.4.
+export type StoreType = 'wall' | 'slab' | 'ceiling' | 'floor' | 'column' | 'beam' | 'stair' | 'verticalCirculation' | 'stair-landing' | 'stair-railing' | 'curtainwall' | 'curtain-panel' | 'window' | 'door' | 'level' | 'grid' | 'roof' | 'room' | 'furniture' | 'handrail' | 'plumbing' | 'opening' | 'annotation' | 'slabSystemType' | 'ceilingSystemType' | 'floorSystemType';
 
 export class ElementRegistry {
     private static instance: ElementRegistry;

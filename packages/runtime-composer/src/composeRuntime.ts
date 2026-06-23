@@ -83,6 +83,10 @@ import {
 import { buildApartmentTypologyPack } from '@pryzm/typology-pack-apartment';
 // A.21.a — Casa Unifamiliar (single-family house) pack: the SECOND typology.
 import { buildCasaUnifamiliarTypologyPack } from '@pryzm/typology-pack-casa-unifamiliar';
+// Residential-building (multi-family) — Slice 0 / Tracker P1.A: the THIRD typology.
+// GATED default-OFF until the orchestrator slices are browser-validated (see the
+// registration site below). Plan: RESIDENTIAL-BUILDING-MULTI-FAMILY-AUDIT-AND-PLAN.md.
+import { buildResidentialBuildingTypologyPack } from '@pryzm/typology-pack-residential-building';
 
 import { EventBus } from './EventBus.js';
 import { wireCommandEventBridge } from './CommandEventBridge.js';
@@ -976,6 +980,26 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
         '[runtime-composer] casa-unifamiliar typology pack registration skipped:',
         err,
       );
+    }
+    // Residential-building (multi-family) — Slice 0 / Tracker P1.A. The THIRD
+    // typology. GATED default-OFF: the pack only registers (and only then appears
+    // in the TypologyPicker + RAC) when the founder opts in by setting the global
+    // flag `globalThis.__PRYZM_RESIDENTIAL_BUILDING__ = true` BEFORE composeRuntime.
+    // This keeps production byte-identical until the orchestrator slices are
+    // browser-validated (per the task's gating rule + ADR-0075 PC2). Read via a
+    // narrow typed lookup on globalThis (NOT `(window as any)`, so P4-clean).
+    const residentialBuildingGateOn =
+      (globalThis as { __PRYZM_RESIDENTIAL_BUILDING__?: boolean })
+        .__PRYZM_RESIDENTIAL_BUILDING__ === true;
+    if (residentialBuildingGateOn) {
+      try {
+        typologyRegistry.register(buildResidentialBuildingTypologyPack());
+      } catch (err) {
+        console.warn(
+          '[runtime-composer] residential-building typology pack registration skipped:',
+          err,
+        );
+      }
     }
 
     // ── 4. Persistence + sync + undoStack ─────────────────────────────────
