@@ -170,6 +170,9 @@ export class ResidentialBuildingExecutor {
         const shellPayloads: Array<{ walls: ReadonlyArray<Record<string, unknown>>; levelId: string }> = [];
         const slabPolys: Array<{ levelId: string; poly: ReadonlyArray<{ x: number; z: number }> }> = [];
         const cellPerimeterPayloads: Array<{ walls: ReadonlyArray<Record<string, unknown>>; levelId: string }> = [];
+        // §RESI-CORE-WALLS (founder "a core with proper core walls + the lift inside", 2026-06-23) —
+        // RC perimeter walls enclosing the central core (stair + lift) on every floor, with a doorway.
+        const corePerimeterPayloads: Array<{ walls: ReadonlyArray<Record<string, unknown>>; levelId: string }> = [];
         const corridorBoundaryItems: Array<{ id: string; levelId: string; start: { x: number; z: number }; end: { x: number; z: number } }> = [];
         // §RESI-GROUND-FLOOR — capture the GROUND shell payload (its pre-minted wall ids host
         // the main entrance door) + the ground level id for the deferred entrance pass.
@@ -209,6 +212,11 @@ export class ResidentialBuildingExecutor {
                 return { id: (w as { id: string }).id, start: { x: bl[0]!.x, z: bl[0]!.z }, end: { x: bl[1]!.x, z: bl[1]!.z } };
             });
             slabPolys.push({ levelId, poly: lvl.footprint });
+            // §RESI-CORE-WALLS — enclose the central core (stair+lift) with RC walls + a
+            // fire-door gap toward the spine corridor, on EVERY floor (LOCAL → world via xf).
+            if (result.core) {
+                corePerimeterPayloads.push(this._buildCorePerimeter(levelId, result.core, floorToFloorM, xf));
+            }
 
             // §RESI-GROUND-FLOOR — remember the ground shell (level 0) so the deferred pass can
             // host the main entrance door on the right façade wall once the shell walls land.
@@ -271,6 +279,10 @@ export class ResidentialBuildingExecutor {
             for (const payload of shellPayloads) {
                 this._dispatchWallBatch(runtime, payload, 'shell');
             }
+            // 0b. Core enclosure (RC) walls per floor — the stair+lift room with fire-door gaps.
+            for (const payload of corePerimeterPayloads) {
+                this._dispatchWallBatch(runtime, payload, 'core-perimeter');
+            }
             // 1. Apartment cell perimeters (host walls for the façade windows).
             for (const payload of cellPerimeterPayloads) {
                 this._dispatchWallBatch(runtime, payload, 'cell-perimeter');
@@ -295,7 +307,7 @@ export class ResidentialBuildingExecutor {
             liftCount = coreResult.lifts;
         }, {
             levelIds: allLevelIds,
-            totalElementCount: shellPayloads.length * 4 + cellPerimeterPayloads.length * 4 + apartmentBuilds.length + slabPolys.length + result.levels.length,
+            totalElementCount: shellPayloads.length * 4 + corePerimeterPayloads.length * 4 + cellPerimeterPayloads.length * 4 + apartmentBuilds.length + slabPolys.length + result.levels.length,
             // Detection runs in the deferred openings pass (the boundaries that carve
             // the apartments + corridor land there), so skip the structural redetect.
             skipRedetectRooms: true,
@@ -427,6 +439,54 @@ export class ResidentialBuildingExecutor {
         return { payload: { walls, levelId }, shellWalls, entryDoor };
     }
 
+    /** §RESI-CORE-WALLS (founder "a core with proper core walls + the lift inside", 2026-06-23) —
+     *  enclose the central core (stair + lift) with reinforced-concrete perimeter walls on a
+     *  floor, leaving a centred fire-door gap on each spine-facing edge (z0 + z1) so the public
+     *  corridor connects INTO the core. `core` is the LOCAL (principal-axis) rect (metres);
+     *  every corner is rotated to the WORLD parcel by `xf`, exactly like the cell perimeter,
+     *  so the core sits on the rotated boundary (θ=0 ⇒ identity). */
+    private _buildCorePerimeter(
+        levelId: string,
+        core: { x0: number; x1: number; z0: number; z1: number },
+        wallHeightM: number,
+        xf: ResidentialRigidTransform,
+    ): { walls: ReadonlyArray<Record<string, unknown>>; levelId: string } {
+        const GAP_M = 1.1;            // centred fire-door opening width
+        const walls: Array<Record<string, unknown>> = [];
+        const pushSeg = (a: { x: number; z: number }, b: { x: number; z: number }): void => {
+            if (Math.hypot(b.x - a.x, b.z - a.z) < 0.05) return;
+            const wa = this._rotate(a, xf);
+            const wb = this._rotate(b, xf);
+            walls.push({
+                id: createId('wall'),
+                levelId,
+                baseLine: [{ x: wa.x, y: 0, z: wa.z }, { x: wb.x, y: 0, z: wb.z }],
+                height: wallHeightM,
+                thickness: SHELL_WALL_THICKNESS_M,   // RC thick wall, same gauge as the shell.
+            });
+        };
+        // One LOCAL edge a→b. `doorway` ⇒ split with a centred gap (if long enough to host one).
+        const edge = (a: { x: number; z: number }, b: { x: number; z: number }, doorway: boolean): void => {
+            const len = Math.hypot(b.x - a.x, b.z - a.z);
+            if (!doorway || len <= GAP_M + 0.6) { pushSeg(a, b); return; }
+            const ux = (b.x - a.x) / len, uz = (b.z - a.z) / len;
+            const half = GAP_M / 2, midT = len / 2;
+            const p1 = { x: a.x + ux * (midT - half), z: a.z + uz * (midT - half) };
+            const p2 = { x: a.x + ux * (midT + half), z: a.z + uz * (midT + half) };
+            pushSeg(a, p1);
+            pushSeg(p2, b);
+        };
+        const c0 = { x: core.x0, z: core.z0 };
+        const c1 = { x: core.x1, z: core.z0 };
+        const c2 = { x: core.x1, z: core.z1 };
+        const c3 = { x: core.x0, z: core.z1 };
+        edge(c0, c1, true);    // z0 edge — fire door toward the lower spine corridor.
+        edge(c1, c2, false);   // x1 edge — solid RC.
+        edge(c2, c3, true);    // z1 edge — fire door toward the upper spine corridor.
+        edge(c3, c0, false);   // x0 edge — solid RC.
+        return { walls, levelId };
+    }
+
     /** Drop near-duplicate consecutive vertices + the wrap duplicate so every edge
      *  is a genuine corner (mirrors HouseLayoutExecutor._buildPerimeterShell). */
     private _cleanRing(poly: ReadonlyArray<{ x: number; z: number }>): { x: number; z: number }[] {
@@ -540,32 +600,35 @@ export class ResidentialBuildingExecutor {
             } catch (e) { console.warn('[resi-building] stair create failed (skipped):', e); }
         }
 
-        // ONE lift from ground → top (the vertical-circulation element). LOCAL → world origin.
+        // §RESI-LIFT-EVERY-FLOOR (founder "I can see the lift — but we need it on every floor",
+        // 2026-06-23) — emit ONE lift cab per ADJACENT level pair, mirroring the stair loop above,
+        // so the shaft is visible on EVERY floor instead of a single cab. Each segment is one
+        // floor-to-floor tall and stacks at the same core origin.
+        // §RESI-LIFT-ROTATE (2026-06-23) — the LiftMeshBuilder draws an AXIS-ALIGNED
+        // BoxGeometry(shaftWidth, h, shaftDepth) and orients the whole group by
+        // `group.rotation.y = lift.rotation`. On a TILTED parcel an unrotated shaft pokes outside
+        // the rotated core and reads as "missing"; align the shaft's LOCAL +Z (depth axis) to the
+        // rotated run direction `runDir` (THREE: local +Z → world (sin φ, 0, cos φ), φ =
+        // atan2(runDir.x, runDir.z)). θ = 0 ⇒ runDir = {0,1} ⇒ φ = 0 ⇒ axis-aligned behaviour.
         let lifts = 0;
-        const baseLevelId = levelIdByIndex.get(0);
-        const topLevelId = levelIdByIndex.get(topIndex);
-        if (baseLevelId && topLevelId && baseLevelId !== topLevelId) {
-            const liftOrigin = this._rotate({ x: liftCx, z: liftCz }, xf);
-            // §RESI-LIFT-ROTATE (2026-06-23) — THE LIFT-RENDER FIX. The LiftMeshBuilder draws an
-            // AXIS-ALIGNED BoxGeometry(shaftWidth, h, shaftDepth) and orients the whole group by
-            // `group.rotation.y = lift.rotation`. The executor previously OMITTED `rotation`
-            // (default 0), so on a TILTED parcel the lift shaft stayed axis-aligned while the
-            // rotated core / shell turned by θ — the shaft poked outside the core and read as
-            // "missing / invisible". Pass the SAME orientation the stair run uses: align the
-            // shaft's LOCAL +Z (depth axis) to the rotated run direction `runDir`. THREE maps
-            // local +Z (0,0,1) → world (sin φ, 0, cos φ), so φ = atan2(runDir.x, runDir.z).
-            // θ = 0 ⇒ runDir = {0,1} ⇒ φ = 0 ⇒ byte-identical to the axis-aligned behaviour.
-            const liftRotationY = Math.atan2(runDir.x, runDir.z);
+        const liftOrigin = this._rotate({ x: liftCx, z: liftCz }, xf);
+        const liftRotationY = Math.atan2(runDir.x, runDir.z);
+        const shaftWidth = Math.min(2.0, Math.max(1.6, coreW / 2 - 0.2));
+        const shaftDepth = Math.min(2.4, Math.max(1.6, coreD - 0.2));
+        for (let idx = 0; idx < topIndex; idx++) {
+            const fromLevelId = levelIdByIndex.get(idx);
+            const toLevelId = levelIdByIndex.get(idx + 1);
+            if (!fromLevelId || !toLevelId) continue;
             try {
                 cm.execute?.(new CreateVerticalCirculationCommand({
                     id: createId('verticalCirculation'),
-                    baseLevelId,
-                    topLevelId,
+                    baseLevelId: fromLevelId,
+                    topLevelId: toLevelId,
                     kind: 'passenger',
-                    origin: { x: liftOrigin.x, y: baseElevationM, z: liftOrigin.z },
+                    origin: { x: liftOrigin.x, y: baseElevationM + idx * floorToFloorM, z: liftOrigin.z },
                     rotation: liftRotationY,
-                    shaftWidth: Math.min(2.0, Math.max(1.6, coreW / 2 - 0.2)),
-                    shaftDepth: Math.min(2.4, Math.max(1.6, coreD - 0.2)),
+                    shaftWidth,
+                    shaftDepth,
                 }), { source: 'RESI_PIPELINE_LIFT' });
                 lifts++;
             } catch (e) { console.warn('[resi-building] lift create failed (skipped):', e); }
