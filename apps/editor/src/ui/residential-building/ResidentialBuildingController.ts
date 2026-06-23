@@ -79,10 +79,13 @@ export interface ResidentialBuildingRequestResult {
 
 /**
  * Read the active level's drawn shell into a closed footprint polygon (metres,
- * plan XZ). Mirrors how the house flow reads its footprint from the wall store —
- * here we use the union AABB of the shell-wall endpoints as the building plate (the
- * orchestrator stub requires an axis-aligned rectangle). Returns null when there
- * are < 3 walls on the level.
+ * plan XZ). Mirrors how the house flow reads its footprint from the wall store.
+ * NOTE: this convenience reader returns the union AABB of the shell-wall endpoints
+ * (an axis-aligned rectangle). The orchestrator now accepts ANY (incl. rotated)
+ * polygon via §RESI-RIGID-TRANSFORM, so the founder's ROTATED parcel flows through
+ * the `footprint` request field (the from-boundary path passes the real drawn
+ * polygon); this AABB reader is only the no-explicit-footprint fallback. Returns
+ * null when there are < 3 walls on the level.
  */
 export function readActiveFootprint(levelId: string): ReadonlyArray<{ x: number; z: number }> | null {
     const wallStore = storeRegistry.getStoreForType('wall') as unknown as { getAll?(): WallRecord[] } | undefined;

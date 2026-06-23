@@ -369,6 +369,7 @@ export type {
   ResidentialBuildingResult,
   ResidentialBuildingOk,
   ResidentialBuildingRejected,
+  ResidentialRigidTransform,
   BuildingLevel,
   PlacedApartment,
   PerLevelApartments,
