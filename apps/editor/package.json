@@ -33,6 +33,7 @@
     "@pryzm/entitlements": "workspace:*",
     "@pryzm/frame-scheduler": "workspace:*",
     "@pryzm/geometry-kernel": "workspace:*",
+    "@pryzm/geometry-lift": "workspace:*",
     "@pryzm/geospatial": "workspace:*",
     "@pryzm/keyboard-registry": "workspace:*",
     "@pryzm/schemas": "workspace:*",

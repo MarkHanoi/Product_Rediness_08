@@ -951,6 +951,9 @@ importers:
       '@pryzm/geometry-kernel':
         specifier: workspace:*
         version: link:../../packages/geometry-kernel
+      '@pryzm/geometry-lift':
+        specifier: workspace:*
+        version: link:../../packages/geometry-lift
       '@pryzm/geospatial':
         specifier: workspace:*
         version: link:../../packages/geospatial
