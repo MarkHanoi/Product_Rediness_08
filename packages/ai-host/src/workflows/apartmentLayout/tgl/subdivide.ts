@@ -4066,26 +4066,56 @@ export function subdivideWithReport(
             // shells via this clamp — is retired: the clamp left white slivers + overflowed on null,
             // so sheared shells now take the polygon-native carve instead. See isAxisAlignedRect4.)
             const clampPoly = options.shellPolygon && options.shellPolygon.length >= 3 ? options.shellPolygon : undefined;
-            const clampRect = (rc: Rect): Rect => {
+            // §SPINE-FIRST P8b (founder "upper floors out of the boundary", 2026-06-23) — clamp each
+            // spine cell to the REAL shell and return null when a cell clamps AWAY (lands ENTIRELY
+            // outside the boundary). The prior `clampRect` fell back to the UNCLAMPED rect on null,
+            // which SHIPPED a room PAST the shell — the exact upper-floor out-of-boundary defect. We
+            // now DROP an out-of-shell room (report it) and NEVER emit it, in line with the codebase
+            // doctrine ("drop, never band past the boundary"). On the P8 rectangular-shell gate above
+            // the shell == bbox, so packRoomsAlongSpine's cells are inside by construction and NONE
+            // ever clamp to null ⇒ every cell clamps to itself ⇒ BYTE-IDENTICAL (ADR-0061). Only the
+            // pathological fully-outside cell is now dropped instead of shipped out-of-bounds.
+            const clampOrNull = (rc: Rect): Rect | null => {
                 if (!clampPoly) return roundRect(rc);
                 const c = clampRectToConvexShell(roundRect(rc), clampPoly);
-                return c ? roundRect(c) : roundRect(rc);
+                return c ? roundRect(c) : null;
             };
-            const placements: RoomPlacement[] = [
-                { roomId: graph.corridorId, rect: clampRect(spineRes.corridor) },
-                ...spineRes.rooms.map(p => ({ roomId: p.roomId, rect: clampRect(p.rect) })),
-            ];
-            const cellPolygonById = new Map<string, readonly Pt[]>();
-            if (spineRes.corridorCells.length > 1) {
-                const ring = rectUnionRing(spineRes.corridorCells.map(clampRect));
-                if (ring) cellPolygonById.set(graph.corridorId, ring);   // L/T corridor (run + stair leg)
+            const corridorClamped = clampOrNull(spineRes.corridor);
+            if (!corridorClamped) {
+                // The corridor itself fell outside the shell — the whole spine layout is unusable.
+                // Fall through to the legacy carve rather than ship an out-of-bounds circulation spine.
+                console.warn(
+                    '[D-TGL subdivide] §SPINE-FIRST corridor clamped AWAY (outside the shell) — falling through to the legacy carve.',
+                );
+            } else {
+                const typeByRoomId = new Map(graph.rooms.map(r => [r.id, r.type]));
+                const droppedSpine: DroppedRoom[] = [];
+                const placements: RoomPlacement[] = [{ roomId: graph.corridorId, rect: corridorClamped }];
+                for (const p of spineRes.rooms) {
+                    const rc = clampOrNull(p.rect);
+                    if (!rc) {
+                        const t = typeByRoomId.get(p.roomId) ?? ('bedroom' as RoomType);
+                        droppedSpine.push({ roomId: p.roomId, type: t, shortSideM: 0, minShortSideM: floorFor(t) });
+                        continue;   // out-of-shell cell — DROP it, never ship it past the boundary
+                    }
+                    placements.push({ roomId: p.roomId, rect: rc });
+                }
+                const cellPolygonById = new Map<string, readonly Pt[]>();
+                if (spineRes.corridorCells.length > 1) {
+                    const cells = spineRes.corridorCells
+                        .map(clampOrNull)
+                        .filter((r): r is Rect => r !== null);
+                    const ring = cells.length > 0 ? rectUnionRing(cells) : null;
+                    if (ring) cellPolygonById.set(graph.corridorId, ring);   // L/T corridor (run + stair leg)
+                }
+                console.log(
+                    `[D-TGL subdivide] §SPINE-FIRST applied (all-private, RECTANGULAR shell): corridor + ${placements.length - 1} ` +
+                    `rooms off the derived spine; corridorCells=${spineRes.corridorCells.length} clamped=${clampPoly ? 'yes' : 'no'} ` +
+                    `droppedOutOfShell=${droppedSpine.length} ` +
+                    `(every private room + the stair on the central corridor by construction; out-of-shell cells dropped, never banded past the boundary)`,
+                );
+                return { placements, droppedRooms: droppedSpine, ...(cellPolygonById.size ? { cellPolygonById } : {}), spineFirstApplied: true };
             }
-            console.log(
-                `[D-TGL subdivide] §SPINE-FIRST applied (all-private, RECTANGULAR shell): corridor + ${spineRes.rooms.length} ` +
-                `rooms off the derived spine; corridorCells=${spineRes.corridorCells.length} clamped=${clampPoly ? 'yes(no-op)' : 'no'} ` +
-                `(every private room + the stair on the central corridor by construction)`,
-            );
-            return { placements, droppedRooms: [], ...(cellPolygonById.size ? { cellPolygonById } : {}), spineFirstApplied: true };
         }
         console.log('[D-TGL subdivide] §SPINE-FIRST skipped (infeasible on this plate) — legacy carve.');
     }
