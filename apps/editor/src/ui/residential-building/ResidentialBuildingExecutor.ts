@@ -648,7 +648,12 @@ export class ResidentialBuildingExecutor {
                     try { nameDetectedRooms(runtime, b.levelId, b.option, '[resi-building]'); } catch { /* non-fatal */ }
                 }
             }
-            console.log('[resi-building] apartments finished — openings + rooms committed');
+            const ready = wallsReady();
+            console.log(
+                `[resi-building] apartments finished — openings + rooms committed ` +
+                `(builds=${builds.length} hostWalls=${neededWallIds.size} wallsReady=${ready}` +
+                `${ready ? '' : ' — ⚠ TIMED OUT before all host walls landed; some apartments may be unenclosed (raise §RESI-FINISH-BUDGET)'})`,
+            );
         };
 
         try {
@@ -665,7 +670,21 @@ export class ResidentialBuildingExecutor {
             if (wallsReady() || n <= 0) { go(); return; }
             poll = setTimeout(() => tick(n - 1), 150);
         };
-        tick(40);
+        // §RESI-FINISH-BUDGET (founder "residential never fills", 2026-06-23) — the wall-ready poll
+        // budget MUST scale with the build size. A large plate emits hundreds of apartments → thousands
+        // of async wall dispatches that take far longer than the old fixed 6 s (40 × 150 ms) to all land
+        // in the store, so the gate TIMED OUT and committed openings/rooms against host walls that had
+        // not arrived → only a handful of apartments enclosed and the rest shipped as one ~630 m² void.
+        // Scale the FALLBACK budget to the needed host-wall count (~1 tick per 4 walls, 150 ms each),
+        // floored at the original 40 (small plates byte-identical) and capped at 400 ticks (~60 s) so a
+        // pathological plate can't hang the UI. The subscribe + poll still fire go() the INSTANT
+        // wallsReady() is true, so a fast plate finishes early and is unaffected.
+        const budgetTicks = Math.min(400, Math.max(40, Math.ceil(neededWallIds.size / 4)));
+        console.log(
+            `[resi-building] §RESI-FINISH-BUDGET waiting on ${neededWallIds.size} host wall(s) across ` +
+            `${builds.length} apartment(s), budget=${budgetTicks} ticks (~${Math.round((budgetTicks * 150) / 1000)}s fallback)`,
+        );
+        tick(budgetTicks);
     }
 
     /** Create one apartment's doors + windows + boundaries + graph rooms inside the
