@@ -323,93 +323,62 @@ export function mountSiteBoundaryMap2D(
     toggle.appendChild(satBtn);
     overlay.appendChild(toggle);
 
-    // ── §RECT-BOUNDARY — Rectangle / Polygon draw-mode toggle (top-left) ────────
-    // Default = Rectangle (founder "for now"): click two opposite corners → an
-    // axis-aligned rectangle boundary, the clean shape the residential/house/
-    // apartment generators expect. Polygon = the legacy vertex-by-vertex draw.
-    // Same on-brand white + #6600FF segmented control as the basemap toggle.
-    const modeToggle = document.createElement('div');
-    modeToggle.className = 'pryzm-gis-drawmode-toggle';
-    Object.assign(modeToggle.style, {
+    // ── §BND-MODE-STRIP — boundary-draw MODE toolbar (mirrors WallDrawingHUD) ────
+    // The founder's spec: present the boundary draw modes as a floating wall-style
+    // pill strip — `MODE: [R Rectangle] [L Linear] [O Orthogonal] [C Curved] · ESC`
+    // — with single-key shortcuts, exactly like the wall-creation HUD. We REUSE the
+    // global `.wdh-*` CSS (drawingHuds.ts, injected via AppTheme) so the pill shape,
+    // active-state violet (#6600FF), keyboard badge, and ESC hint match 1:1 — no new
+    // styling. Each pill maps to the EXISTING boundary-draw plumbing:
+    //   R Rectangle  → drawMode='rectangle' (§RECT-BOUNDARY two-corner; the default
+    //                  + most-finished mode the residential/house generators expect)
+    //   L Linear     → drawMode='polygon', orthoEnabled=false (free polyline)
+    //   O Orthogonal → drawMode='polygon', orthoEnabled=true  (A.21.D60 90°-lock)
+    //   C Curved     → no spline/arc boundary geometry exists yet → graceful
+    //                  fallback to Linear polygon + a toast (pill still shown, marked).
+    // The bar is `position:absolute` inside the overlay (the overlay is the editor
+    // #container, also absolute) so it floats at the top-centre of the draw surface.
+    type BoundaryDrawMode = 'rectangle' | 'linear' | 'orthogonal' | 'curved';
+    const modeBar = document.createElement('div');
+    modeBar.className = 'wdh-bar';
+    modeBar.setAttribute('data-bnd-mode-bar', '1');
+    // Override the global `.wdh-bar` fixed positioning so the strip is anchored to
+    // THIS overlay (which may not cover the full window), not the viewport.
+    Object.assign(modeBar.style, {
         position: 'absolute',
-        top: '52px',
-        left: '12px',
+        top: '12px',
         zIndex: '21',
-        display: 'flex',
-        gap: '0',
-        borderRadius: '8px',
-        overflow: 'hidden',
-        border: `1px solid ${VIOLET}`,
-        background: 'rgba(255,255,255,0.92)',
-        boxShadow: '0 2px 10px rgba(60,52,40,0.18)',
-        font: '12px/1 system-ui, sans-serif',
     } satisfies Partial<CSSStyleDeclaration>);
 
-    function makeModeBtn(label: string, mode: 'rectangle' | 'polygon'): HTMLButtonElement {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.textContent = label;
-        b.dataset['drawmode'] = mode;
-        b.setAttribute('aria-label', `${label} boundary draw mode`);
-        Object.assign(b.style, {
-            border: 'none',
-            padding: '7px 12px',
-            cursor: 'pointer',
-            background: 'transparent',
-            color: '#2a2438',
-            font: 'inherit',
-            fontWeight: '600',
-        } satisfies Partial<CSSStyleDeclaration>);
-        return b;
+    const modeLbl = document.createElement('span');
+    modeLbl.className = 'wdh-mode-lbl';
+    modeLbl.textContent = 'Mode:';
+    modeBar.appendChild(modeLbl);
+
+    const MODE_DEFS: ReadonlyArray<{ key: string; label: string; mode: BoundaryDrawMode }> = [
+        { key: 'R', label: 'Rectangle',  mode: 'rectangle'  },
+        { key: 'L', label: 'Linear',     mode: 'linear'     },
+        { key: 'O', label: 'Orthogonal', mode: 'orthogonal' },
+        { key: 'C', label: 'Curved',     mode: 'curved'     },
+    ];
+    const modeBtns = new Map<BoundaryDrawMode, HTMLButtonElement>();
+    for (const d of MODE_DEFS) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'wdh-btn';
+        btn.dataset['bndmode'] = d.mode;
+        btn.innerHTML = `<span class="wdh-key">${d.key}</span><span class="wdh-lbl">${d.label}</span>`;
+        btn.title = `Switch to ${d.label} draw mode (${d.key})`;
+        btn.addEventListener('click', () => setDrawMode(d.mode));
+        modeBar.appendChild(btn);
+        modeBtns.set(d.mode, btn);
     }
-    const rectModeBtn = makeModeBtn('▭ Rectangle', 'rectangle');
-    const polyModeBtn = makeModeBtn('⬡ Polygon', 'polygon');
-    modeToggle.appendChild(rectModeBtn);
-    modeToggle.appendChild(polyModeBtn);
-    overlay.appendChild(modeToggle);
 
-    // ── A.21.D60 — "⟂ Orthogonal to previous edge" toggle (bottom-centre HUD) ────
-    // Compact brand white + #6600FF checkbox shown ONLY while drawing (removed on
-    // commit/cancel via freezeDraw/dispose). Default ON. Toggling flips `orthoEnabled`
-    // and recomputes the live snap so the rubber-band preview updates immediately.
-    const orthoHud = document.createElement('label');
-    orthoHud.className = 'pryzm-gis-ortho-toggle';
-    Object.assign(orthoHud.style, {
-        position: 'absolute',
-        bottom: '16px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        zIndex: '21',
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '8px',
-        background: 'rgba(255,255,255,0.94)',
-        border: `1px solid ${VIOLET}`,
-        borderRadius: '20px',
-        padding: '7px 14px',
-        font: '600 12px/1 system-ui, sans-serif',
-        color: '#2a2438',
-        cursor: 'pointer',
-        boxShadow: '0 2px 10px rgba(60,52,40,0.18)',
-        userSelect: 'none',
-    } satisfies Partial<CSSStyleDeclaration>);
-    const orthoBox = document.createElement('input');
-    orthoBox.type = 'checkbox';
-    orthoBox.checked = true;   // §BND-90-DEFAULT-ON (founder 2026-06-08): orthogonal-to-previous is the DEFAULT — non-rectangular plots are the root of stair fragmentation + room drops. First edge is still free; uncheck to draw a non-rectilinear plot.
-    orthoBox.setAttribute('aria-label', 'Lock new edges orthogonal to the previous edge');
-    Object.assign(orthoBox.style, {
-        width: '15px',
-        height: '15px',
-        accentColor: VIOLET,
-        cursor: 'pointer',
-        margin: '0',
-    } satisfies Partial<CSSStyleDeclaration>);
-    const orthoText = document.createElement('span');
-    // U+27C2 PERPENDICULAR — the right-angle affordance the founder asked for.
-    orthoText.textContent = '⟂ Lock 90° to previous edge';
-    orthoHud.appendChild(orthoBox);
-    orthoHud.appendChild(orthoText);
-    overlay.appendChild(orthoHud);
+    const escHint = document.createElement('span');
+    escHint.className = 'wdh-esc';
+    escHint.textContent = 'ESC to cancel';
+    modeBar.appendChild(escHint);
+    overlay.appendChild(modeBar);
 
     // A.8.c.f.4 — active basemap. Default = the Hektar cream vector look; the corner
     // toggle swaps to keyless ESRI satellite raster to fill OSM coverage gaps.
@@ -435,9 +404,15 @@ export function mountSiteBoundaryMap2D(
 
     // ── State ─────────────────────────────────────────────────────────────────
     const vertices: LatLon[] = [];
-    // §RECT-BOUNDARY — draw mode. Rectangle is the DEFAULT (founder "for now"): the
-    // first click records corner A, the second commits an axis-aligned rectangle.
-    // Polygon = the legacy vertex-by-vertex draw (Enter / dbl-click to close).
+    // §BND-MODE-STRIP — the user-facing draw mode (4 pills). Rectangle is the DEFAULT
+    // (founder "for now" + most-finished): first click records corner A, the second
+    // commits an axis-aligned rectangle. `linear`/`orthogonal`/`curved` are all the
+    // legacy vertex-by-vertex polygon draw (Enter / dbl-click to close), differing
+    // only in the 90°-lock + the curved fallback note (see setDrawMode).
+    let uiMode: BoundaryDrawMode = 'rectangle';
+    // §RECT-BOUNDARY — the INTERNAL geometry mode the draw handlers branch on. Only
+    // two shapes exist: a two-corner axis-aligned rectangle, or a vertex-by-vertex
+    // polygon. The four UI pills collapse onto these two (+ the ortho flag below).
     let drawMode: 'rectangle' | 'polygon' = 'rectangle';
     // §RECT-BOUNDARY — the first clicked corner in rectangle mode (null = awaiting
     // the first click). The live rubber-band rectangle previews from here to the
@@ -998,6 +973,9 @@ export function mountSiteBoundaryMap2D(
 
     const keyListener = (ev: KeyboardEvent): void => {
         if (disposed || committed) return;
+        // Ignore shortcuts while typing in a field (e.g. the geocode box).
+        const t = ev.target as HTMLElement | null;
+        if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
         if (ev.key === 'Enter') {
             ev.preventDefault();
             // §RECT-BOUNDARY — Enter is a polygon-only close. Rectangle commits on the
@@ -1007,6 +985,17 @@ export function mountSiteBoundaryMap2D(
         } else if (ev.key === 'Escape') {
             ev.preventDefault();
             cancel();
+            return;
+        }
+        // §BND-MODE-STRIP — single-key mode shortcuts (R/L/O/C), mirroring the wall
+        // HUD. Plain keys only (no modifier) so they don't clash with browser combos.
+        if (ev.altKey || ev.ctrlKey || ev.metaKey) return;
+        const mode: BoundaryDrawMode | undefined = {
+            r: 'rectangle', l: 'linear', o: 'orthogonal', c: 'curved',
+        }[ev.key.toLowerCase()] as BoundaryDrawMode | undefined;
+        if (mode) {
+            ev.preventDefault();
+            setDrawMode(mode);
         }
     };
 
@@ -1048,50 +1037,67 @@ export function mountSiteBoundaryMap2D(
     mapBtn.addEventListener('click', () => swapBasemap('map'));
     satBtn.addEventListener('click', () => swapBasemap('satellite'));
 
-    // A.21.D60 — toggle the relative right-angle lock. Recompute the live snap from
-    // the LAST cursor position so the rubber-band preview + indicator update at once
-    // (without waiting for the next pointermove). Guarded — never throws.
-    orthoBox.addEventListener('change', () => {
-        if (disposed || committed) return;
-        orthoEnabled = orthoBox.checked;
-        console.log(`[gis] map2d: orthogonal-to-previous-edge lock ${orthoEnabled ? 'ON' : 'OFF'}`);
-        // Re-resolve at the current cursor (if known) so turning it off frees the
-        // preview immediately and turning it on snaps it immediately.
-        if (!cursorLL) return;
-        try {
-            const pt = map.project([cursorLL.lon, cursorLL.lat]);
-            const next = resolveSnap(pt) ?? resolveOrthoSnapTarget(pt);
-            snapTarget = next;
-            cursorLL = next ? { lat: next.lat, lon: next.lon } : cursorLL;
-            refreshSnapIndicator();
-            refreshDimLabels();
-        } catch { /* style may be swapping — ignore */ }
-    });
-
-    // ── §RECT-BOUNDARY — draw-mode toggle (Rectangle / Polygon) ────────────────
-    /** Paint the active draw-mode segment violet, the inactive white. */
-    function paintModeToggle(): void {
-        for (const b of [rectModeBtn, polyModeBtn]) {
-            const active = b.dataset['drawmode'] === drawMode;
-            b.style.background = active ? VIOLET : 'transparent';
-            b.style.color = active ? '#ffffff' : '#2a2438';
-            b.setAttribute('aria-pressed', String(active));
+    // ── §BND-MODE-STRIP — boundary-draw mode strip (Rectangle/Linear/Ortho/Curved) ─
+    /** Highlight the active mode pill (the `.wdh-btn--active` violet state). */
+    function paintModeStrip(): void {
+        for (const [mode, btn] of modeBtns) {
+            const active = mode === uiMode;
+            btn.classList.toggle('wdh-btn--active', active);
+            btn.setAttribute('aria-pressed', String(active));
         }
     }
-    /** Update the instruction chip + ortho HUD visibility for the active mode. */
+    /** Update the instruction chip text for the active UI mode. */
     function refreshModeChrome(): void {
-        chip.textContent =
-            drawMode === 'rectangle'
-                ? 'Click two opposite corners · Esc to cancel'
-                : 'Click each corner · double-click or Enter to close · Esc to cancel';
-        // The ⟂ ortho lock is a polygon-only affordance (rectangle is axis-aligned by
-        // construction). Hide it in rectangle mode.
-        orthoHud.style.display = drawMode === 'rectangle' ? 'none' : '';
+        switch (uiMode) {
+            case 'rectangle':
+                chip.textContent = 'Click two opposite corners · Esc to cancel';
+                break;
+            case 'linear':
+                chip.textContent = 'Click each corner (free angles) · double-click or Enter to close · Esc to cancel';
+                break;
+            case 'orthogonal':
+                chip.textContent = '⟂ 90°-locked · click each corner · double-click or Enter to close · Esc to cancel';
+                break;
+            case 'curved':
+                // §BND-MODE-STRIP — no curved/arc boundary geometry yet → falls back to
+                // a straight polyline; tell the user so the result isn't a surprise.
+                chip.textContent = 'Curved not available yet — drawing straight segments · double-click or Enter to close · Esc';
+                break;
+        }
     }
-    /** Switch draw mode, resetting any in-progress draw so the modes don't bleed. */
-    function setDrawMode(next: 'rectangle' | 'polygon'): void {
-        if (disposed || committed || next === drawMode) return;
-        drawMode = next;
+    /**
+     * Switch the user-facing draw mode (one of the four pills) and resolve it onto
+     * the two internal geometry modes (+ the ortho flag), resetting any in-progress
+     * draw so the modes don't bleed.
+     *   rectangle  → geometry 'rectangle'
+     *   linear     → geometry 'polygon', orthoEnabled=false
+     *   orthogonal → geometry 'polygon', orthoEnabled=true
+     *   curved     → geometry 'polygon' (straight fallback) + one-time toast; no
+     *                spline/arc boundary builder exists yet (reported as missing).
+     */
+    function setDrawMode(next: BoundaryDrawMode): void {
+        if (disposed || committed || next === uiMode) return;
+        uiMode = next;
+        switch (next) {
+            case 'rectangle':
+                drawMode = 'rectangle';
+                break;
+            case 'linear':
+                drawMode = 'polygon';
+                orthoEnabled = false;
+                break;
+            case 'orthogonal':
+                drawMode = 'polygon';
+                orthoEnabled = true;
+                break;
+            case 'curved':
+                // Graceful fallback: behave as a free polyline until a spline/arc
+                // boundary builder lands. The downstream contract is unchanged.
+                drawMode = 'polygon';
+                orthoEnabled = false;
+                toast('Curved boundaries aren’t available yet — drawing straight segments.', 'info');
+                break;
+        }
         // Reset the in-progress draw (clears corner A / partial polygon).
         rectCornerA = null;
         vertices.length = 0;
@@ -1100,14 +1106,13 @@ export function mountSiteBoundaryMap2D(
         try { refreshRing(); } catch { /* style may be swapping */ }
         try { refreshSnapIndicator(); } catch { /* ignore */ }
         try { refreshDimLabels(); } catch { /* ignore */ }
-        paintModeToggle();
+        paintModeStrip();
         refreshModeChrome();
-        console.log(`[gis] map2d: draw mode → ${next}`);
+        console.log(`[gis] map2d: draw mode → ${next} (geometry=${drawMode}, ortho=${orthoEnabled})`);
     }
-    rectModeBtn.addEventListener('click', () => setDrawMode('rectangle'));
-    polyModeBtn.addEventListener('click', () => setDrawMode('polygon'));
-    // Initial paint — Rectangle is the default (founder "for now").
-    paintModeToggle();
+    // Initial paint — Rectangle is the default (founder "for now"); the strip's key
+    // shortcuts (R/L/O/C) are handled by the overlay key listener (keyListener).
+    paintModeStrip();
     refreshModeChrome();
 
     // ── Commit / cancel ───────────────────────────────────────────────────────
@@ -1147,8 +1152,8 @@ export function mountSiteBoundaryMap2D(
         // user isn't tempted to keep drawing/cancelling.
         chip.style.display = 'none';
         closeBtn.style.display = 'none';
-        // A.21.D60 — the ortho toggle is a draw-only affordance; remove it on commit.
-        orthoHud.style.display = 'none';
+        // §BND-MODE-STRIP — the mode toolbar is a draw-only affordance; remove it on commit.
+        modeBar.style.display = 'none';
         console.log('[gis] map2d: boundary committed — draw frozen, cream map + boundary kept alive (dispose deferred to generate-time).');
     }
 

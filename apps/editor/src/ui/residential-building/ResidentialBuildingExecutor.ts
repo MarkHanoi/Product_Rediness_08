@@ -93,6 +93,10 @@ interface ApartmentBuild {
     readonly levelId: string;
     readonly set: LayoutCommandSet;
     readonly option: ScoredLayoutOption;
+    /** §RESI-APT-ENTRY — the main APARTMENT FRONT DOOR from the public corridor: which
+     *  cell-perimeter wall (the corridor-facing `doorEdge`) hosts it + the centred offset
+     *  and clear width. Deferred-punched once the perimeter wall lands, like the windows. */
+    readonly entryDoor?: { readonly wallId: string; readonly offset: number; readonly width: number };
 }
 
 export class ResidentialBuildingExecutor {
@@ -239,7 +243,7 @@ export class ResidentialBuildingExecutor {
                 };
                 try {
                     const set = buildLayoutCommands(apt.layout, opts, (p: IdPrefix) => createId(p));
-                    apartmentBuilds.push({ levelId, set, option: apt.layout });
+                    apartmentBuilds.push({ levelId, set, option: apt.layout, entryDoor: perimeter.entryDoor });
                 } catch (e) {
                     console.warn('[resi-building] buildLayoutCommands failed for an apartment (skipped):', e);
                 }
@@ -356,7 +360,11 @@ export class ResidentialBuildingExecutor {
         apt: PlacedApartment,
         wallHeightM: number,
         xf: ResidentialRigidTransform,
-    ): { payload: { walls: ReadonlyArray<Record<string, unknown>>; levelId: string }; shellWalls: ReadonlyArray<{ id: string; start: { x: number; z: number }; end: { x: number; z: number } }> } {
+    ): {
+        payload: { walls: ReadonlyArray<Record<string, unknown>>; levelId: string };
+        shellWalls: ReadonlyArray<{ id: string; start: { x: number; z: number }; end: { x: number; z: number } }>;
+        entryDoor: { wallId: string; offset: number; width: number };
+    } {
         const r = apt.cell.rect;
         const corners = [
             this._rotate({ x: r.x0, z: r.z0 }, xf),
@@ -379,7 +387,25 @@ export class ResidentialBuildingExecutor {
             });
             shellWalls.push({ id, start: { x: a.x, z: a.z }, end: { x: b.x, z: b.z } });
         }
-        return { payload: { walls, levelId }, shellWalls };
+        // §RESI-APT-ENTRY (founder 2026-06-23) — the apartment FRONT DOOR onto the public
+        // corridor. The cell's `doorEdge` (set by the partition) is the corridor-facing edge;
+        // the perimeter walls are emitted in fixed order [z0, x1, z1, x0], so map the edge to its
+        // wall + centre a single-leaf door on it (the wall length is rotation-invariant, so it
+        // equals the LOCAL cell width/depth). Pre-fix the apartment was a SEALED 4-wall box with
+        // no way in from the corridor — the founder's "the apartments dont have main apartment
+        // door to the corridor". Punched in the deferred openings pass once this wall lands.
+        const edgeIndex: Record<'z0' | 'x1' | 'z1' | 'x0', number> = { z0: 0, x1: 1, z1: 2, x0: 3 };
+        const idx = edgeIndex[apt.cell.doorEdge];
+        const edgeLenM = (apt.cell.doorEdge === 'z0' || apt.cell.doorEdge === 'z1')
+            ? r.x1 - r.x0
+            : r.z1 - r.z0;
+        const doorWidth = Math.min(0.9, Math.max(0.7, edgeLenM - 0.4));
+        const entryDoor = {
+            wallId: shellWalls[idx]!.id,
+            offset: Math.max(0, (edgeLenM - doorWidth) / 2),
+            width: doorWidth,
+        };
+        return { payload: { walls, levelId }, shellWalls, entryDoor };
     }
 
     /** Drop near-duplicate consecutive vertices + the wrap duplicate so every edge
@@ -570,6 +596,8 @@ export class ResidentialBuildingExecutor {
         for (const b of builds) {
             for (const op of b.set.openingCommands) neededWallIds.add((op.payload as { wallId: string }).wallId);
             for (const op of b.set.shellWindowOpeningCommands) neededWallIds.add((op.payload as { wallId: string }).wallId);
+            // §RESI-APT-ENTRY — the front-door host (a cell-perimeter wall) must land too.
+            if (b.entryDoor) neededWallIds.add(b.entryDoor.wallId);
         }
         const wallStore = storeRegistry.getStoreForType('wall') as unknown as { getById?: (id: string) => unknown } | undefined;
         const wallsReady = (): boolean =>
@@ -652,11 +680,29 @@ export class ResidentialBuildingExecutor {
             ...set.openingCommands.map(op => ({ p: op.payload as { wallId: string; opening: unknown } })),
             ...set.shellWindowOpeningCommands.map(op => ({ p: op.payload as { wallId: string; opening: unknown } })),
         ];
-        if (openingItems.length > 0) {
+        // §RESI-APT-ENTRY — the apartment FRONT DOOR onto the public corridor, centred on the
+        // cell's corridor-facing perimeter wall. Single-leaf, standard height. Without this the
+        // apartment is a sealed box (no way in from the corridor).
+        const entryItems = b.entryDoor
+            ? [{
+                wallId: b.entryDoor.wallId,
+                opening: {
+                    id: createId('opening'),
+                    type: 'door',
+                    offset: b.entryDoor.offset,
+                    width: b.entryDoor.width,
+                    height: 2.1,
+                    sillHeight: 0,
+                    elementId: createId('door'),
+                    doorType: 'single',
+                },
+            }]
+            : [];
+        const allOpenings = [...openingItems.map(it => ({ wallId: it.p.wallId, openingData: it.p.opening })),
+            ...entryItems.map(it => ({ wallId: it.wallId, openingData: it.opening }))];
+        if (allOpenings.length > 0) {
             try {
-                cm.execute?.(new CreateWallOpeningsBatchCommand(
-                    openingItems.map(it => ({ wallId: it.p.wallId, openingData: it.p.opening })),
-                ));
+                cm.execute?.(new CreateWallOpeningsBatchCommand(allOpenings));
             } catch (e) { console.warn('[resi-building] openings batch failed for', levelId, e); }
         }
         // Room-bounding lines (open-plan splitters within the apartment).

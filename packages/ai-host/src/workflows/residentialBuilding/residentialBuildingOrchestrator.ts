@@ -544,7 +544,24 @@ function _orchestrate(input: ResidentialBuildingOrchestratorInput): ResidentialB
         // packer proposes more than the runs can hold, we DETERMINISTICALLY trim the demand
         // list to the largest accepted PREFIX (drop the tail — the partition packs in
         // order). First K (packed.length → 1) the partition accepts wins. ZERO → soft-fail.
-        const allDemands = packed.apartments.map(demandFor);
+        // §RESI-FILL-DEMAND (founder 2026-06-23) — THE "fill the plate" fix. The partition
+        // packs apartments left→right across each corridor row, consuming this demand list in
+        // order and STOPPING when the list is exhausted (cursor) OR the row is full. Pre-fix we
+        // supplied only the packer's N (≈4) demands, so each deep row placed ~2 wide cells and
+        // the rest of the row width — often a WHOLE side of the plate — sat EMPTY (the founder's
+        // "still a lot of empty space"). The partition is geometrically authoritative (it caps to
+        // true capacity and never over-places), so SUPPLYING the typology mix REPEATED to the
+        // plate's gross capacity lets the rows fill across their full width; the partition returns
+        // however many actually fit. We pair each PLACED cell back to a plan by `i % N` below
+        // (same typology ⇒ same program ⇒ reusing a plan for another same-typology cell is sound).
+        const baseDemands = packed.apartments.map(demandFor);
+        const minDemandArea = Math.max(20, Math.min(...baseDemands.map((d) => d.minAreaM2)));
+        // Gross plate area ÷ smallest cell area over-counts (ignores core/corridors) — but
+        // over-supply is harmless (the partition caps), so a generous estimate only lets it FILL.
+        const capacityCells = Math.ceil((plateW * plateD) / minDemandArea) + baseDemands.length;
+        const reps = Math.max(1, Math.ceil(capacityCells / baseDemands.length));
+        const allDemands: ApartmentDemand[] = [];
+        for (let r = 0; r < reps; r++) allDemands.push(...baseDemands);
         // §RESI-PARTITION-BBOX-PLATE (large-plate zero-apartments fix, 2026-06-23) — hand the
         // partition the AXIS-ALIGNED BBOX RECTANGLE of the local footprint, NOT the (possibly
         // irregular) de-rotated parcel polygon. THE BUG: the orchestrator already commits to
@@ -608,7 +625,11 @@ function _orchestrate(input: ResidentialBuildingOrchestratorInput): ResidentialB
         }
         const plateBB = bb;   // the footprint bbox bounds every cell's façade test.
         const apartments: PlacedApartment[] = placed.map((cell: ApartmentCell, i: number) => {
-            const plan = packed.apartments[i]!; // index-aligned with the demands fed in
+            // §RESI-FILL-DEMAND — the partition may now place MORE cells than the packer's N
+            // (the mix was repeated to fill the plate). Cells beyond N reuse an earlier same-
+            // typology plan (cycled): the partition packs the repeated demand list in order, so
+            // cell[i]'s typology === baseDemands[i % N].typology === packed.apartments[i % N].
+            const plan = packed.apartments[i % packed.apartments.length]!;
 
             // §DIAG-PARTY-WALL — true exterior façade edges (the rest are blind party walls).
             const facadeEdges = facadeEdgesFor(cell, plateBB);

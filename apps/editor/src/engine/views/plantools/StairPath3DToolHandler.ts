@@ -55,6 +55,8 @@ export class StairPath3DToolHandler {
     private _onContextMenu: ((e: MouseEvent) => void) | null = null;
     /** Camera-controls enabled-state captured at activate() so we can restore it. */
     private _restoreControls: (() => void) | null = null;
+    /** SelectionManager enabled-state captured at activate() so we can restore it. */
+    private _restoreSelection: (() => void) | null = null;
 
     constructor(private _deps: StairPath3DDeps) {}
 
@@ -138,6 +140,31 @@ export class StairPath3DToolHandler {
             console.warn('[Stair] could not toggle camera-controls (non-fatal):', err);
         }
 
+        // §STAIR-CLICK-FIX-2 (2026-06-23) — disabling camera-controls (above)
+        // stops the ORBIT gesture from eating the press, but the SelectionManager
+        // binds a *bubble-phase* `click` listener on this same canvas
+        // (SelectionManager.ts) and `click` is a SEPARATE synthetic event — the
+        // capture-phase pointerdown `stopPropagation()` below does NOT suppress it
+        // (SelectionManager itself documents this). Because the 3D stair handler is
+        // invoked DIRECTLY by BimService and BYPASSES ToolManager, the
+        // `selectionManager.setEnabled(false)` that ToolManager.activateTool() runs
+        // for every other element tool never fires here — so each place-point click
+        // also raycasts + selects an element, surfacing the contextual edit bar and
+        // making it look like "the click did nothing / no start point was set".
+        // Mirror ToolManager: disable selection for the lifetime of the sketch and
+        // restore it on deactivate (same capture/restore shape as _restoreControls).
+        try {
+            const sm = window.selectionManager;
+            if (sm && typeof sm.setEnabled === 'function') {
+                const prevEnabled = sm.enabled !== false;   // default-on if unset
+                sm.setEnabled(false);
+                this._restoreSelection = () => { try { sm.setEnabled(prevEnabled); } catch { /* ignore */ } };
+                console.log('[Stair] §STAIR-SELECTION-OFF SelectionManager disabled while sketching');
+            }
+        } catch (err) {
+            console.warn('[Stair] could not toggle SelectionManager (non-fatal):', err);
+        }
+
         this._bindPointerEvents(camera, canvas, groundY);
 
         // Parity with the plan handler — expose the public API global so the
@@ -162,6 +189,8 @@ export class StairPath3DToolHandler {
 
         // §STAIR-CLICK-FIX — restore camera-controls to its pre-sketch state.
         if (this._restoreControls) { this._restoreControls(); this._restoreControls = null; }
+        // §STAIR-CLICK-FIX-2 — restore SelectionManager to its pre-sketch state.
+        if (this._restoreSelection) { this._restoreSelection(); this._restoreSelection = null; }
 
         if (this._ctrl) {
             this._ctrl.deactivate();
