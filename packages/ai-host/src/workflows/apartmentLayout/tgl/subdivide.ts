@@ -3949,6 +3949,15 @@ export function subdivideWithReport(
         ];
         const shellForSpine = options.shellPolygon && options.shellPolygon.length >= 3 ? options.shellPolygon : bboxPoly;
         const clampPoly = options.shellPolygon && options.shellPolygon.length >= 3 ? options.shellPolygon : undefined;
+        // NOTE (§SPINE-TREE / leak audit 2026-06-23): this clamp falls back to the UNCLAMPED rect on a
+        // null (cell fully outside a sheared shell). That is INTENTIONALLY tolerated here (unlike the
+        // rect-gated P8b branch): the spine-TREE path carries shell-CLIPPED polygons in
+        // `treeRes.cellPolygonById`, and BOTH the geometry emit and the `roomsOutOfShellRoomIds` OOB gate
+        // read that clipped polygon AUTHORITATIVELY over the rect — so the emitted wall/floor never leaves
+        // the boundary even when this proxy rect overflows. Rejecting on null would defeat the whole
+        // sheared-shell purpose of this path (it would drop valid clipped-polygon layouts). The unclamped
+        // rect only feeds rect-based secondary math (area cap / overlap nets) — a latent desync, not a
+        // visible out-of-bounds wall. Default-OFF (window.__pryzmSpineTree). Left as-is by design.
         const clampRect = (rc: Rect): Rect => {
             if (!clampPoly) return roundRect(rc);
             const c = clampRectToConvexShell(roundRect(rc), clampPoly);
