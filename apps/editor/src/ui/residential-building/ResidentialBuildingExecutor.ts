@@ -171,8 +171,12 @@ export class ResidentialBuildingExecutor {
         const slabPolys: Array<{ levelId: string; poly: ReadonlyArray<{ x: number; z: number }> }> = [];
         const cellPerimeterPayloads: Array<{ walls: ReadonlyArray<Record<string, unknown>>; levelId: string }> = [];
         // §RESI-CORE-WALLS (founder "a core with proper core walls + the lift inside", 2026-06-23) —
-        // RC perimeter walls enclosing the central core (stair + lift) on every floor, with a doorway.
+        // RC perimeter walls enclosing the central core (stair + lift) on every floor, with two doors.
         const corePerimeterPayloads: Array<{ walls: ReadonlyArray<Record<string, unknown>>; levelId: string }> = [];
+        // §RESI-CORE-DOORS (founder "instead of two gaps it should have two doors", 2026-06-23) —
+        // the core walls are now SOLID; the two spine-facing edges get a real (fire-rated) door,
+        // punched in a deferred pass once the core walls land in the store.
+        const coreDoorSpecs: Array<{ wallId: string; offset: number; width: number; levelId: string }> = [];
         const corridorBoundaryItems: Array<{ id: string; levelId: string; start: { x: number; z: number }; end: { x: number; z: number } }> = [];
         // §RESI-GROUND-FLOOR — capture the GROUND shell payload (its pre-minted wall ids host
         // the main entrance door) + the ground level id for the deferred entrance pass.
@@ -212,10 +216,13 @@ export class ResidentialBuildingExecutor {
                 return { id: (w as { id: string }).id, start: { x: bl[0]!.x, z: bl[0]!.z }, end: { x: bl[1]!.x, z: bl[1]!.z } };
             });
             slabPolys.push({ levelId, poly: lvl.footprint });
-            // §RESI-CORE-WALLS — enclose the central core (stair+lift) with RC walls + a
-            // fire-door gap toward the spine corridor, on EVERY floor (LOCAL → world via xf).
+            // §RESI-CORE-WALLS — enclose the central core (stair+lift) with SOLID RC walls on EVERY
+            // floor (LOCAL → world via xf); the two spine-facing edges carry a real door (punched
+            // deferred via coreDoorSpecs once the walls land).
             if (result.core) {
-                corePerimeterPayloads.push(this._buildCorePerimeter(levelId, result.core, floorToFloorM, xf));
+                const cp = this._buildCorePerimeter(levelId, result.core, floorToFloorM, xf);
+                corePerimeterPayloads.push(cp.payload);
+                coreDoorSpecs.push(...cp.doors);
             }
 
             // §RESI-GROUND-FLOOR — remember the ground shell (level 0) so the deferred pass can
@@ -335,6 +342,8 @@ export class ResidentialBuildingExecutor {
         if (groundLevelId && groundShellPayload) {
             this._buildEntranceDoor(groundLevelId, groundShellPayload, result.groundFloor, xf);
         }
+        // §RESI-CORE-DOORS — punch the two fire doors per level on the core walls (deferred).
+        this._finishCoreDoors(coreDoorSpecs);
 
         // NOTE: no custom completion event is emitted — `RuntimeEvents` is a typed map
         // (no catch-all index) and registering a new key lives in runtime-composer
@@ -441,50 +450,95 @@ export class ResidentialBuildingExecutor {
 
     /** §RESI-CORE-WALLS (founder "a core with proper core walls + the lift inside", 2026-06-23) —
      *  enclose the central core (stair + lift) with reinforced-concrete perimeter walls on a
-     *  floor, leaving a centred fire-door gap on each spine-facing edge (z0 + z1) so the public
-     *  corridor connects INTO the core. `core` is the LOCAL (principal-axis) rect (metres);
-     *  every corner is rotated to the WORLD parcel by `xf`, exactly like the cell perimeter,
-     *  so the core sits on the rotated boundary (θ=0 ⇒ identity). */
+     *  floor. §RESI-CORE-DOORS (founder "instead of two gaps it should have two doors") — the
+     *  walls are SOLID (no gaps); the two spine-facing edges (z0 + z1) each return a centred
+     *  fire-door spec so the deferred pass punches a real door once the wall lands. `core` is the
+     *  LOCAL (principal-axis) rect (metres); every corner is rotated to the WORLD parcel by `xf`,
+     *  exactly like the cell perimeter, so the core sits on the rotated boundary (θ=0 ⇒ identity). */
     private _buildCorePerimeter(
         levelId: string,
         core: { x0: number; x1: number; z0: number; z1: number },
         wallHeightM: number,
         xf: ResidentialRigidTransform,
-    ): { walls: ReadonlyArray<Record<string, unknown>>; levelId: string } {
-        const GAP_M = 1.1;            // centred fire-door opening width
+    ): {
+        payload: { walls: ReadonlyArray<Record<string, unknown>>; levelId: string };
+        doors: Array<{ wallId: string; offset: number; width: number; levelId: string }>;
+    } {
+        const DOOR_W = 1.0;          // fire-door clear width
         const walls: Array<Record<string, unknown>> = [];
-        const pushSeg = (a: { x: number; z: number }, b: { x: number; z: number }): void => {
-            if (Math.hypot(b.x - a.x, b.z - a.z) < 0.05) return;
+        const doors: Array<{ wallId: string; offset: number; width: number; levelId: string }> = [];
+        // One SOLID LOCAL edge a→b. `door` ⇒ also record a centred door spec on it (hosted later).
+        const seg = (a: { x: number; z: number }, b: { x: number; z: number }, door: boolean): void => {
             const wa = this._rotate(a, xf);
             const wb = this._rotate(b, xf);
+            if (Math.hypot(wb.x - wa.x, wb.z - wa.z) < 0.05) return;
+            const id = createId('wall');
             walls.push({
-                id: createId('wall'),
+                id,
                 levelId,
                 baseLine: [{ x: wa.x, y: 0, z: wa.z }, { x: wb.x, y: 0, z: wb.z }],
                 height: wallHeightM,
                 thickness: SHELL_WALL_THICKNESS_M,   // RC thick wall, same gauge as the shell.
             });
-        };
-        // One LOCAL edge a→b. `doorway` ⇒ split with a centred gap (if long enough to host one).
-        const edge = (a: { x: number; z: number }, b: { x: number; z: number }, doorway: boolean): void => {
-            const len = Math.hypot(b.x - a.x, b.z - a.z);
-            if (!doorway || len <= GAP_M + 0.6) { pushSeg(a, b); return; }
-            const ux = (b.x - a.x) / len, uz = (b.z - a.z) / len;
-            const half = GAP_M / 2, midT = len / 2;
-            const p1 = { x: a.x + ux * (midT - half), z: a.z + uz * (midT - half) };
-            const p2 = { x: a.x + ux * (midT + half), z: a.z + uz * (midT + half) };
-            pushSeg(a, p1);
-            pushSeg(p2, b);
+            if (door) {
+                const len = Math.hypot(b.x - a.x, b.z - a.z);   // rigid xf ⇒ LOCAL length == world length
+                const w = Math.min(DOOR_W, Math.max(0.8, len - 0.4));
+                doors.push({ wallId: id, offset: Math.max(0, (len - w) / 2), width: w, levelId });
+            }
         };
         const c0 = { x: core.x0, z: core.z0 };
         const c1 = { x: core.x1, z: core.z0 };
         const c2 = { x: core.x1, z: core.z1 };
         const c3 = { x: core.x0, z: core.z1 };
-        edge(c0, c1, true);    // z0 edge — fire door toward the lower spine corridor.
-        edge(c1, c2, false);   // x1 edge — solid RC.
-        edge(c2, c3, true);    // z1 edge — fire door toward the upper spine corridor.
-        edge(c3, c0, false);   // x0 edge — solid RC.
-        return { walls, levelId };
+        seg(c0, c1, true);    // z0 edge — fire door toward the lower spine corridor.
+        seg(c1, c2, false);   // x1 edge — solid RC.
+        seg(c2, c3, true);    // z1 edge — fire door toward the upper spine corridor.
+        seg(c3, c0, false);   // x0 edge — solid RC.
+        return { payload: { walls, levelId }, doors };
+    }
+
+    /** §RESI-CORE-DOORS — punch the two fire doors per level on the (already committed) core
+     *  walls. Deferred + polled exactly like the main entrance: the core wall.batch.create is
+     *  async via the bus, so we wait (≤6 s) for every host wall to land in the store, then punch
+     *  all door openings in ONE batch + flush the host meshes. Never throws. */
+    private _finishCoreDoors(
+        specs: ReadonlyArray<{ wallId: string; offset: number; width: number; levelId: string }>,
+    ): void {
+        if (specs.length === 0) return;
+        const cm = getCommandManager();
+        if (!cm?.execute) { console.warn('[resi-building] commandManager unavailable — core doors skipped'); return; }
+        const wallIds = specs.map(s => s.wallId);
+        const wallStore = storeRegistry.getStoreForType('wall') as unknown as { getById?: (id: string) => unknown } | undefined;
+        const ready = (): boolean => !wallStore?.getById ? true : wallIds.every(id => wallStore.getById!(id) != null);
+        const levelIds = [...new Set(specs.map(s => s.levelId))];
+        const tryPunch = (n: number): void => {
+            if (!ready() && n > 0) { setTimeout(() => tryPunch(n - 1), 150); return; }
+            try {
+                batchCoordinator.runBatch(() => {
+                    cm.execute?.(new CreateWallOpeningsBatchCommand(specs.map(s => ({
+                        wallId: s.wallId,
+                        openingData: {
+                            id: createId('opening'),
+                            type: 'door',
+                            offset: s.offset,
+                            width: s.width,
+                            height: 2.1,
+                            sillHeight: 0,
+                            elementId: createId('door'),
+                            doorType: 'single',
+                            // §RESI-CORE-DOORS — solid (fire-rated) stair/lift-core door.
+                            systemTypeId: 'dt-solid-timber',
+                        },
+                    }))));
+                }, { levelIds, totalElementCount: specs.length, skipRedetectRooms: true });
+                setTimeout(() => {
+                    try { window.__wallRebuildControl?.rebuildWalls?.(wallIds); }
+                    catch (e) { console.warn('[resi-building] core-door rebuildWalls failed (non-fatal):', e); }
+                }, 250);
+                console.log(`[resi-building] core fire doors — ${specs.length} punched on ${levelIds.length} level(s)`);
+            } catch (e) { console.warn('[resi-building] core doors batch failed (non-fatal):', e); }
+        };
+        tryPunch(40);
     }
 
     /** Drop near-duplicate consecutive vertices + the wrap duplicate so every edge
@@ -615,10 +669,16 @@ export class ResidentialBuildingExecutor {
         const liftRotationY = Math.atan2(runDir.x, runDir.z);
         const shaftWidth = Math.min(2.0, Math.max(1.6, coreW / 2 - 0.2));
         const shaftDepth = Math.min(2.4, Math.max(1.6, coreD - 0.2));
-        for (let idx = 0; idx < topIndex; idx++) {
+        // §RESI-LIFT-TOP-CAB (founder "the lift is not present on the top floor", 2026-06-23) — the
+        // mesh height = |topEl − baseEl| (LiftMeshBuilder.resolveSpan), so a cab needs a level ABOVE
+        // its base. The TOP floor has none → it was skipped. Loop INCLUSIVE to the top index: lower
+        // floors span to the level above (one storey); the top floor passes base===top, which makes
+        // resolveSpan fall back to a one-storey cab anchored at origin.y (= the top floor elevation)
+        // → a visible lift cab in the top-floor volume too.
+        for (let idx = 0; idx <= topIndex; idx++) {
             const fromLevelId = levelIdByIndex.get(idx);
-            const toLevelId = levelIdByIndex.get(idx + 1);
-            if (!fromLevelId || !toLevelId) continue;
+            if (!fromLevelId) continue;
+            const toLevelId = levelIdByIndex.get(idx + 1) ?? fromLevelId;
             try {
                 cm.execute?.(new CreateVerticalCirculationCommand({
                     id: createId('verticalCirculation'),
