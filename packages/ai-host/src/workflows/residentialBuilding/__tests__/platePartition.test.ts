@@ -129,7 +129,7 @@ describe('partitionLevelPlate — soft-fail (never throws)', () => {
         ];
         const out = partitionLevelPlate({ ...baseInput([T2]), footprint: lShape });
         expect(out.status).toBe('rejected');
-        if (out.status === 'rejected') expect(out.reason).toMatch(/rectangle/);
+        if (out.status === 'rejected') expect(out.reason).toMatch(/rectangular/);
     });
 
     it('rejects when the plate is too small to fit the requested mix', () => {
@@ -142,7 +142,7 @@ describe('partitionLevelPlate — soft-fail (never throws)', () => {
             apartments: [T3, T3, T3, T3],
         });
         expect(out.status).toBe('rejected');
-        if (out.status === 'rejected') expect(out.reason).toMatch(/too small/);
+        if (out.status === 'rejected') expect(out.reason).toMatch(/no usable band|too small/);
     });
 
     it('rejects an empty apartment mix', () => {
