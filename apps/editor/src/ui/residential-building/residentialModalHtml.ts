@@ -15,6 +15,8 @@
 // Plus a building-totals header.
 
 import type { ResidentialCardModel, FloorCardSummary, ApartmentCardSummary } from './residentialCardModel.js';
+import { buildOccupancyLegendHtml } from '../apartment-layout/layoutModalHtml.js';
+import type { LayoutOption } from '@pryzm/ai-host';
 
 /** Minimal HTML-escape for any interpolated text. */
 function esc(s: string): string {
@@ -75,10 +77,31 @@ function buildFloorCardHtml(floor: FloorCardSummary, thumbs: readonly string[]):
       </section>`;
 }
 
+/** Flatten every placed apartment's chosen layout across all floors into one
+ *  `LayoutOption[]` so the SHARED `buildOccupancyLegendHtml` (the same helper the
+ *  HOUSE + apartment modals use) can render ONE room-type colour legend keyed to the
+ *  SAME `OCCUPANCY_FILL` source the per-apartment thumbnails are painted from — no
+ *  colour drift. Pure. */
+export function collectApartmentLayouts(card: ResidentialCardModel): LayoutOption[] {
+    const out: LayoutOption[] = [];
+    for (const floor of card.floors) {
+        for (const a of floor.apartments) {
+            if (a.status === 'ok' && a.apt.layout) out.push(a.apt.layout);
+        }
+    }
+    return out;
+}
+
 /**
  * Build the modal's inner HTML. `floorThumbs[i]` is the array of per-apartment
  * thumbnail SVG strings for `card.floors[i]` (index-aligned with that floor's
  * `apartments`). Pure.
+ *
+ * Built on the HOUSE preview's approach: the apartment `alm-*` brand shell, a
+ * per-floor strip (the house's per-storey card idiom, re-cast as a multi-family
+ * per-floor card), occupancy-coloured plan thumbnails, a shared room-type colour
+ * LEGEND (the house modal's founder feedback #2, reused here), a building-totals
+ * header and a Build / Cancel footer.
  */
 export function buildResidentialModalHtml(
     card: ResidentialCardModel,
@@ -92,12 +115,18 @@ export function buildResidentialModalHtml(
     const floorsHtml = card.floors
         .map((f, i) => buildFloorCardHtml(f, floorThumbs[i] ?? []))
         .join('');
+    // Reuse the SHARED occupancy legend (house feedback #2) so the residential
+    // preview reads like the house preview the founder knows. Empty when no placed
+    // apartment carries occupancy-tagged rooms (then no legend row).
+    const legendInner = buildOccupancyLegendHtml(collectApartmentLayouts(card));
+    const legend = legendInner ? `<div class="alm-legend rb-legend" data-role="legend">${legendInner}</div>` : '';
     return `
       <div class="alm-panel" role="dialog" aria-label="Choose a residential building">
         <div class="alm-header">
           ${esc(card.title)}
           <small>${totals}</small>
         </div>
+        ${legend}
         <div class="alm-grid rb-grid" data-role="rb-floors">
           ${floorsHtml}
         </div>
@@ -138,4 +167,10 @@ export const RESIDENTIAL_MODAL_STYLES = `
   opacity: 0.7;
 }
 .rb-apt-reject { color: #b91c1c; font-size: 11px; }
+/* §RESI-MODAL-LEGEND (Task 3) — the shared room-type colour legend (house parity).
+   The .alm-legend-* swatch/label rules ship with the apartment modal CSS; these
+   rb-scoped rules guarantee a clean inline row even if those aren't present. */
+.rb-legend { display: flex; flex-wrap: wrap; gap: 8px 14px; padding: 6px 2px 12px; }
+.rb-legend .alm-legend-item { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: #475569; }
+.rb-legend .alm-legend-swatch { width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(15,23,42,0.12); }
 `;
