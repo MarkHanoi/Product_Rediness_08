@@ -164,6 +164,17 @@ export class PlatformProjectBrowser {
             console.log(`[ProjectHub] §HUB-HANDLE received action=${action ?? '(none)'} → handleHubMenuAction`);
             if (action) this.handleHubMenuAction(action);
         });
+        // §HUB-RELAY-WIRED (2026-06-23) — prove in the console that the SINGLE
+        // pryzm-hub-action relay was wired. If runtime is already live (e.g. a
+        // re-open / test harness), it registered immediately; otherwise it is
+        // QUEUED and drains via flushRuntimeEventListeners() once the engine boots.
+        // If the founder clicks an Export & Print item and sees §HUB-DISPATCH +
+        // §HUB-HANDLE but no effect, the relay IS live and the issue is downstream
+        // (the service listener) — not this subscription.
+        console.log(
+            `[ProjectHub] §HUB-RELAY-WIRED pryzm-hub-action relay registered ` +
+            `(runtime ${window.runtime?.events ? 'LIVE — immediate' : 'NULL — queued for flush'})`,
+        );
 
         const switcher = this.toolbarInner.querySelector('#plat-mode-switcher');
         if (!switcher) return;
@@ -458,6 +469,38 @@ export class PlatformProjectBrowser {
         this.hubMenuEl?.classList.remove('plat-hub-btn--open');
     }
 
+    /**
+     * §HUB-SERVICE (2026-06-23) — log whether the target service for `action`
+     * is reachable RIGHT NOW (at click time). For emit-based actions the target
+     * is a runtime-bus listener, so the prerequisite is a live `runtime.events`;
+     * for the two direct-call actions it is the `window.toggle*Panel` global set
+     * at AIAreaLayout mount. Prints `→ invoked <name>` when the prerequisite is
+     * present, `→ MISSING <name>` when it is not.
+     */
+    private _logHubService(action: string): void {
+        const tag = '[ProjectHub] §HUB-SERVICE';
+        const hasBus = !!window.runtime?.events;
+        const w = window as { toggleFloorPlanPanel?: () => void; toggleDxfPanel?: () => void };
+
+        // action → [serviceName, reachable]
+        const probe: Record<string, [string, boolean]> = {
+            'export-ifc':          ['runtime.events→pryzm-export-ifc (NavigationAreaLayout→BimService.exportIfc)', hasBus],
+            'export-glb':          ['runtime.events→pryzm-export-glb (NavigationAreaLayout→exportFragmentsToGLB)', hasBus],
+            'import-ifc':          ['runtime.events→import-ifc (initUI file-picker)', hasBus],
+            'import-revit-guided': ['runtime.events→import-revit-guided (initUI RevitWizard)', hasBus],
+            'import-rhino':        ['runtime.events→import-rhino (initUI Rhino picker)', hasBus],
+            'import-manager':      ['runtime.events→pryzm-import-manager-toggle (initUI ImportManagerPanel)', hasBus],
+            'import-pdf':          ['window.toggleFloorPlanPanel', typeof w.toggleFloorPlanPanel === 'function'],
+            'import-dxf':          ['window.toggleDxfPanel', typeof w.toggleDxfPanel === 'function'],
+            'print':               ['window.print', typeof window.print === 'function'],
+        };
+
+        const entry = probe[action];
+        if (!entry) return; // non-export/import actions (save, history, portfolio, …) handled in-class
+        const [name, reachable] = entry;
+        console.log(`${tag} action=${action} → ${reachable ? 'invoked' : 'MISSING'} ${name}`);
+    }
+
     handleHubMenuAction(action: string): void {
         // §HUB-ACTION (DAILY-USE 2026-05-22): observability for the hub menu.
         // The architect reported the buttons "have no effect" with "nothing in
@@ -470,6 +513,17 @@ export class PlatformProjectBrowser {
             `[PlatformProjectBrowser] §HUB-ACTION action=${action} ` +
             `runtimeEvents=${!!window.runtime?.events}`,
         );
+
+        // §HUB-SERVICE (2026-06-23) — per-action reachability probe. Every hub
+        // action funnels through here, so this single log pinpoints — on ONE
+        // click — exactly which actions can reach a live service and which hit a
+        // null bus / undefined global. `invoked`/`MISSING` is decided here for the
+        // emit-based actions (the runtime bus must exist for the emit to be heard)
+        // and the direct-global actions (toggleFloorPlanPanel / toggleDxfPanel);
+        // the export listeners log their own §HUB-SERVICE line when they actually
+        // run (NavigationAreaLayout). This makes a dead action self-identifying.
+        this._logHubService(action);
+
         switch (action) {
             case 'back-hub':
                 window.runtime?.events?.emit('pryzm-go-hub', {}); window.dispatchEvent(new Event('pryzm-go-hub')); // F.events.12 + §33-NAV-FIX (PlatformRouter listens on the platform-lifetime window bus)
