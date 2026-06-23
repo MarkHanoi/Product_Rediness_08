@@ -40,7 +40,7 @@
 | **P4** | Lift in the core + per-level lift void | Slice 3 | MED | TODO |
 | **P5** | Ground-floor commercial shell + entrance corridor | Slice 4 | MED | TODO |
 | **P6** | Per-level apartment packing (count + typology mix) | Slice 5 | MED | **WIP** (P6.1 packer DONE + P6.2 plate-partition DONE; corridor-spine P8 still gated) |
-| **P7** | Run D-TGL per apartment cell (rooms + windows + doors) | Slice 7 | MED | TODO |
+| **P7** | Run D-TGL per apartment cell (rooms + windows + doors) | Slice 7 | MED | **DONE** (per-cell `runApartmentCellLayout` wraps the FROZEN engine; blind party-wall window suppression; orchestrator wires it per placed cell; soft-fail per cell; 48 resi tests green) |
 | **P8** | **THE CORRIDOR SPINE** (reach every apartment door) — ISOLATED, GATED | Slice 6 | **HIGH** | TODO |
 | **P9** | Post-gen finish + IFC round-trip + preview modal | Slices 8 + 11 | MED | TODO |
 | **P10** | SPEC + parity hardening + risk closeout | Slice 9 | LOW | TODO |
@@ -93,7 +93,8 @@
 | `§DIAG-APARTMENT-PACK` | the packer | P6 | `level=k N=… mix=[T2,T2,T3] areas=[…]`; every area ∈ [min,max] |
 | `§DIAG-RESI-PARTITION` | the plate-partition pure fn (P6.2) | P6 | `level=k status=ok N=… mix=[…] areas=[…] reached=N/N` (or `status=rejected reason=…`) |
 | `§DIAG-CORRIDOR-QUALITY` | corridor spine | P5/P8 | `apartmentsReached=N/N servedThrough=0`; corridor touches core |
-| `§DIAG-PARTY-WALL` | window emission | P7 | party walls between apartments are blind (no windows) |
+| `§DIAG-RESI-APARTMENT` | the per-cell D-TGL run (P7) | P7 | `level=k apt=i typology=Tn status=… rooms=… windows=… blindEdges=[…]` per placed apartment |
+| `§DIAG-PARTY-WALL` | window emission / P7 blind-edge suppression | P7 | party walls between apartments (+ corridor/core) are blind (no windows) — enforced in `runApartmentCellLayout` |
 | `§DIAG-LEVELS` | post-gen reconcile | P9 | live vs intended level count reconciles |
 
 ---
@@ -221,12 +222,27 @@
 
 ---
 
-## PHASE 7 — Run D-TGL per apartment cell — plan Slice 7  ·  TODO
+## PHASE 7 — Run D-TGL per apartment cell — plan Slice 7  ·  **DONE**
 
 | id | title | status | files | accept | §DIAG | contract / ADR | gate |
 |---|---|---|---|---|---|---|---|
-| P7.1 | Per-cell `generateDeterministicLayouts` (unchanged engine) | TODO | `runDeterministicLayout.ts:88` (called once per cell); `buildLayoutCommands:460` per cell | each apt is a fully-subdivided T1-T4 dwelling; engine apartment tests pass per cell | `§DIAG-PARITY` per level | HE.0 FROZEN; C11 | flag |
-| P7.2 | Windows + main door per cell; blind party walls | TODO | `emitWindows.ts`; `shellWallMatch.ts`; `_finishOpenings` | windows on façade; main door to corridor; party walls blind | `§DIAG-PARTY-WALL` | plan §3.6/§8 R5-R7 | flag |
+| P7.1 | Per-cell `generateDeterministicLayouts` (unchanged engine) | **DONE** | NEW `packages/ai-host/src/workflows/residentialBuilding/runApartmentCellLayout.ts` (PURE L2; `runApartmentCellLayout` builds a `ShellAnalysis` from the cell rect via `shellFromCell` → calls the FROZEN `runDeterministicLayout.ts:88` with residential default constraints/weights, no keep-out (clean plate), optional solar → keeps best option #0); orchestrator wires it per placed cell (`residentialBuildingOrchestrator.ts`, fills `PlacedApartment.layout`/`status`) | each apt is a fully-subdivided T1-T4 dwelling; cell soft-fails (no layout) when too small/over-programmed for the engine's topology gate, the rest still build | (per-cell) `§DIAG-RESI-APARTMENT` | HE.0 FROZEN (engine NOT modified — P7 only CALLS it); C11; C50 §1.7 soft-fail; P8 span (`pryzm.ai.workflow.residentialBuilding.runApartmentCellLayout`) | flag |
+| P7.2 | Windows + main door per cell; blind party walls | **DONE** | `runApartmentCellLayout.ts` `suppressBlindWindows` (post-engine filter of `option.windows`); orchestrator `facadeEdgesFor` (cell edge is a façade iff on the footprint boundary AND not the corridor `doorEdge`; all other edges blind) | windows on TRUE façade edges only; NONE on edges shared with a neighbour / the corridor / the core; main door = the cell's corridor `doorEdge` (from P6.2) | `§DIAG-RESI-APARTMENT level=k apt=i typology=Tn rooms=… windows=… blindEdges=…` | plan §3.6/§8 R5-R7; audit §7 / §DIAG-PARTY-WALL; ADR-0061 (additive) | flag |
+
+> **P7 DONE (this session):** 16 tests across the two resi files (8 new `runApartmentCellLayout.test.ts` —
+> shellFromCell, non-empty layout, blind-party-wall enforcement, more-façade ⇒ ≥-windows monotonicity,
+> landlocked-cell, deterministic-repeat, degenerate + sliver soft-fail; 4 new orchestrator P7 cases —
+> every-apt-laid-out, blind-party-wall end-to-end, deterministic-with-layouts, per-cell soft-fail mix +
+> diagnostic survival). Whole resi suite **48 pass**. **Blind party walls (audit §7):** the engine emits
+> windows on the cell perimeter (it treats the whole shell as exterior); we suppress, POST-ENGINE, every
+> window whose host EXTERNAL wall lies on a blind cell edge — the pure-orchestrator analogue of the
+> executor-side `resolveAllShellWindows` `blindFacadeWallIds` suppression (shellWallMatch.ts), applied on
+> the `LayoutOption` directly because the orchestrator has no shell-wall ids yet. The centred core
+> straddles the corridor, so the footprint-boundary test alone correctly excludes the corridor/core/
+> neighbour party walls. **Engine feasibility:** the engine's topology gate is strict — a tight/over-
+> programmed cell (e.g. a 3-bed master on ~100 m² at a deep-narrow band proportion) returns [] and
+> soft-fails that cell; roomy cells (verified ~80 m² 2-bed = 6 options/cell) lay out. The orchestrator
+> never throws and never fails the whole building on a per-cell miss.
 
 ---
 
@@ -307,8 +323,13 @@ deps to the **worktree** source and bare deps to the main repo's `node_modules`:
 - Lift (P2 data layer): `vitest.worktree.lift.mjs` + `tsconfig.worktree.lift.json` (aliases
   `@pryzm/core-app-model` → a tiny test stub re-exporting the real standalone `StoreEventBus.ts`,
   `@pryzm/event-bus` → real source; LiftMeshBuilder THREE path validated in-browser, not here)
-- Residential workflows (P6.2): `vitest.worktree.resi.mjs` + `tsconfig.worktree.resi.json`
-  (platePartition only needs `@opentelemetry/api`; `rectDecomposition.ts` is internal + dep-free)
+- Residential workflows (P6.2 + P7): `vitest.worktree.resi.mjs` + `tsconfig.worktree.resi.json`.
+  P7 pulls the FULL FROZEN D-TGL engine (`runDeterministicLayout` → 45 `apartmentLayout/**`
+  files + `furnishLayout/style/StyleRegistry.ts`); that transitive graph has ZERO external deps
+  beyond `@opentelemetry/api` (already aliased), so vitest runs it as-is and tsc follows the
+  import graph from the `residentialBuilding/**` include. NOTE: tsc reports 9 pre-existing
+  type-predicate errors in the FROZEN `tgl/wallsAndDoors.ts` (house commits 78675729/c7cfcc64,
+  not P7) — the residentialBuilding/* sources themselves type-check clean.
 
 ```
 # schemas (lift L0)
@@ -339,3 +360,4 @@ node <MAIN>/node_modules/typescript/bin/tsc -p <WT>/tsconfig.worktree.pack.json
 | 2026-06-22 | P6.2 (plate-partition) | PURE `partitionLevelPlate` (residentialBuilding workflow) — core-centred double-loaded-corridor planner returning `{core,publicCorridor,cells}`; `§DIAG-RESI-PARTITION`; C50 soft-fail | 13 tests pass | resi tsconfig green |
 | 2026-06-22 | P6.1 (packer) | PURE `packApartments` (`apartmentPacker.ts`) — net area + {min,max,typologies} → `{typology,targetAreaM2,program}[]`; T1→1bed…T4→4bed (`typologyBedrooms`); effective-band = user∩typology; deterministic finite enumeration (largest-N first); `§DIAG-APARTMENT-PACK`; C50 soft-fail | 13 tests pass | resi tsconfig green |
 | 2026-06-22 | P3.2 (orchestrator skeleton) | PURE `orchestrateResidentialBuilding` (`residentialBuildingOrchestrator.ts`) — storey loop (ground + 1..20 upper); CENTRED core (R-CENTRE) identical XZ every level; ground = commercial stub NO apts; upper = packer→partition; per-cell D-TGL P7 seam (`cell` present, `rooms` absent); `§DIAG-RESI-ORCHESTRATE`; C50 soft-fail. Divergence from house worst-aspect-corner documented in-file (P3.1 wires `'centre'` into `chooseStairCorePosition` later). | 10 tests pass (36 resi total) | resi tsconfig green |
+| 2026-06-23 | P7 (D-TGL per cell) | NEW PURE `runApartmentCellLayout` (`runApartmentCellLayout.ts`) — builds `ShellAnalysis` from the cell rect (`shellFromCell`) → calls the FROZEN `generateDeterministicLayouts` (residential default constraints/weights, no keep-out, optional solar) → keeps best option #0; `suppressBlindWindows` filters windows off blind (non-façade) cell edges. Orchestrator wires it per placed cell (`facadeEdgesFor` = footprint-boundary edge AND not the corridor doorEdge), fills `PlacedApartment.layout`/`status`/`facadeEdges`/`blindEdges`, emits `§DIAG-RESI-APARTMENT`; per-cell C50 soft-fail (never throws/fails the whole building). tgl/* NOT modified (P7 only calls the engine). Widened `tsconfig.worktree.resi.json` include (tsc follows the import graph). | 48 resi tests pass (12 new: 8 cell-layout + 4 orchestrator P7) | resi sources type-check CLEAN; 9 PRE-EXISTING `tgl/wallsAndDoors.ts` engine errors (house commits 78675729/c7cfcc64, NOT P7) surface now the full engine is compiled — documented in the tsconfig, file is frozen |

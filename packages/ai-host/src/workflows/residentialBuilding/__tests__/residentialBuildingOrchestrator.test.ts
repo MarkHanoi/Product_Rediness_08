@@ -116,18 +116,6 @@ describe('residentialBuildingOrchestrator — P3', () => {
         expect(r.diagnostic).toContain('apartmentsPerLevel=[');
     });
 
-    it('leaves a D-TGL seam per apartment cell (P7 stub — not yet wired)', () => {
-        const r = orchestrateResidentialBuilding(input());
-        expect(r.status).toBe('ok');
-        if (r.status !== 'ok') return;
-        // Each upper apartment exposes a `cell` (the plate-partition rect) but NO rooms
-        // yet — the per-cell D-TGL run is P7. The seam is the presence of cell + program
-        // with rooms undefined.
-        const apt = r.perLevelApartments[1]!.apartments[0]!;
-        expect(apt.cell).toBeTruthy();
-        expect((apt as { rooms?: unknown }).rooms).toBeUndefined();
-    });
-
     it('is deterministic — same input twice → identical output', () => {
         const a = orchestrateResidentialBuilding(input({ upperLevels: 5 }));
         const b = orchestrateResidentialBuilding(input({ upperLevels: 5 }));
@@ -160,5 +148,130 @@ describe('residentialBuildingOrchestrator — P3', () => {
         ];
         const r = orchestrateResidentialBuilding(input({ footprint: skew }));
         expect(r.status).toBe('rejected');
+    });
+});
+
+// ── Tracker P7 — run D-TGL per apartment cell (rooms + windows + blind party walls) ──
+describe('residentialBuildingOrchestrator — P7 (D-TGL per cell)', () => {
+    // A plate tuned so the partition produces ROOMY (engine-feasible) cells: a 30×18 plate
+    // with a small core + 1.5 m corridor leaves ~8.3 m-deep front/back bands; an 80–110 m²
+    // T2-only band makes each cell ~9.7 m wide × 8.3 m deep (~80 m²) → the engine routes the
+    // 2-bed plate (verified: 6 options/cell). A 3-bed (T3) or a tighter band soft-fails per
+    // cell — the soft-fail test below covers that path.
+    function p7input(over: Partial<ResidentialBuildingOrchestratorInput> = {}): ResidentialBuildingOrchestratorInput {
+        return input({
+            footprint: rectPoly(30, 18),
+            coreWidthM: 5,
+            coreDepthM: 4,
+            corridorWidthM: 1.5,
+            minApartmentAreaM2: 80,
+            maxApartmentAreaM2: 110,
+            typologies: { T1: false, T2: true, T3: false, T4: false },
+            ...over,
+        });
+    }
+
+    it('every upper apartment gets a non-empty D-TGL layout (rooms > 0)', () => {
+        const r = orchestrateResidentialBuilding(p7input({ upperLevels: 2 }));
+        expect(r.status).toBe('ok');
+        if (r.status !== 'ok') return;
+        const upper = r.perLevelApartments.slice(1);
+        let laidOut = 0;
+        for (const lvl of upper) {
+            expect(lvl.apartments.length).toBeGreaterThanOrEqual(1);
+            for (const a of lvl.apartments) {
+                expect(a.status).toBe('ok');
+                expect(a.layout).toBeTruthy();
+                expect(a.layout!.rooms.length).toBeGreaterThan(0);
+                laidOut++;
+            }
+        }
+        expect(laidOut).toBeGreaterThanOrEqual(2);
+    });
+
+    it('blind party walls — an apartment hosts windows only on its façade edges', () => {
+        const r = orchestrateResidentialBuilding(p7input({ upperLevels: 1 }));
+        expect(r.status).toBe('ok');
+        if (r.status !== 'ok') return;
+        const upper = r.perLevelApartments[1]!;
+        const MM_TO_M = 1e-3;
+        const TOL = 0.05;
+        const edgeOf = (
+            w: { start: { x: number; y: number }; end: { x: number; y: number } },
+            rect: { x0: number; z0: number; x1: number; z1: number },
+        ): string | null => {
+            const ax = w.start.x * MM_TO_M, az = w.start.y * MM_TO_M;
+            const bx = w.end.x * MM_TO_M, bz = w.end.y * MM_TO_M;
+            const dx = Math.abs(bx - ax), dz = Math.abs(bz - az);
+            if (dz > dx) {
+                const x = (ax + bx) / 2;
+                if (Math.abs(x - rect.x0) <= TOL) return 'x0';
+                if (Math.abs(x - rect.x1) <= TOL) return 'x1';
+                return null;
+            }
+            const z = (az + bz) / 2;
+            if (Math.abs(z - rect.z0) <= TOL) return 'z0';
+            if (Math.abs(z - rect.z1) <= TOL) return 'z1';
+            return null;
+        };
+        for (const a of upper.apartments) {
+            if (a.status !== 'ok' || !a.layout) continue;
+            const facade = new Set(a.facadeEdges);
+            // The doorEdge (corridor side) must be blind, never a façade.
+            expect(facade.has(a.cell.doorEdge as never)).toBe(false);
+            for (const win of a.layout.windows ?? []) {
+                const host = a.layout.walls[win.wallRef];
+                if (!host || host.isExternal !== true) continue;
+                const edge = edgeOf(host, a.cell.rect);
+                // Every external-hosted window resolvable to a cell edge is on a façade —
+                // never on a blind edge (a neighbour/corridor/core party wall).
+                if (edge !== null) expect(facade.has(edge as never)).toBe(true);
+            }
+        }
+    });
+
+    it('is deterministic with layouts wired — same input twice → identical output', () => {
+        const a = orchestrateResidentialBuilding(p7input({ upperLevels: 2 }));
+        const b = orchestrateResidentialBuilding(p7input({ upperLevels: 2 }));
+        expect(JSON.stringify(a)).toBe(JSON.stringify(b));
+    });
+
+    it('soft-fails PER CELL (some apartments laid out, the rest rejected) — never throws', () => {
+        // A band so tight every cell is too small for the engine's topology gate: the
+        // apartments are PLACED (the partition packs them) but each cell soft-fails D-TGL.
+        // The orchestrator must still return ok with the apartments present (status flags),
+        // never throwing and never failing the whole building.
+        const r = orchestrateResidentialBuilding(
+            input({ upperLevels: 1, minApartmentAreaM2: 40, maxApartmentAreaM2: 55, typologies: { T1: true, T2: false, T3: false, T4: false } }),
+        );
+        expect(r.status).toBe('ok');
+        if (r.status !== 'ok') return;
+        const apts = r.perLevelApartments[1]!.apartments;
+        expect(apts.length).toBeGreaterThanOrEqual(1);
+        // Every apartment carries a status; a rejected one has no layout but the building stands.
+        for (const a of apts) {
+            expect(['ok', 'rejected']).toContain(a.status);
+            if (a.status === 'rejected') {
+                expect(a.layout).toBeUndefined();
+                expect(a.rejectReason).toBeTruthy();
+            }
+        }
+    });
+
+    it('the orchestrate diagnostic + per-cell status survive the P7 wiring', () => {
+        const r = orchestrateResidentialBuilding(p7input({ upperLevels: 3 }));
+        expect(r.status).toBe('ok');
+        if (r.status !== 'ok') return;
+        expect(r.diagnostic).toContain('§DIAG-RESI-ORCHESTRATE');
+        // Every placed apartment carries a P7 status + façade/blind edge sets.
+        for (const lvl of r.perLevelApartments.slice(1)) {
+            for (const a of lvl.apartments) {
+                expect(['ok', 'rejected']).toContain(a.status);
+                expect(Array.isArray(a.facadeEdges)).toBe(true);
+                expect(Array.isArray(a.blindEdges)).toBe(true);
+                // façade + blind partition the 4 edges with no overlap.
+                expect(a.facadeEdges.length + a.blindEdges.length).toBe(4);
+            }
+        }
     });
 });

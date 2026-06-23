@@ -51,6 +51,12 @@ import {
     type ApartmentDemand,
     type ApartmentCell,
 } from './platePartition.js';
+import {
+    runApartmentCellLayout,
+    type CellEdge,
+    type ApartmentCellLayoutResult,
+} from './runApartmentCellLayout.js';
+import type { ScoredLayoutOption } from '../apartmentLayout/types.js';
 
 const _tracer = trace.getTracer('@pryzm/ai-host', '0.1.0');
 
@@ -83,6 +89,9 @@ export interface ResidentialBuildingOrchestratorInput {
     readonly floorToFloorM?: number;
     /** Base elevation of the ground floor (m). Defaults to 0. */
     readonly baseElevationM?: number;
+    /** OPTIONAL site latitude (decimal degrees) → climate-driven per-cell window
+     *  orientation (D-TGL P7). Absent ⇒ pure-length window placement. */
+    readonly solar?: { readonly latDeg: number; readonly weight?: number };
 }
 
 /** One level in the stack. `footprint` is identical on every level (walls stack). */
@@ -96,15 +105,26 @@ export interface BuildingLevel {
     readonly commercialGroundFloor?: boolean;
 }
 
-/** One apartment placed on an upper level. The `rooms` seam is filled by P7 (D-TGL). */
+/** One apartment placed on an upper level. P7 fills `layout` (the per-cell D-TGL run). */
 export interface PlacedApartment {
     readonly typology: Typology;
     readonly targetAreaM2: number;
     readonly program: ApartmentProgram;
     /** The plate-partition cell rect this apartment occupies. */
     readonly cell: ApartmentCell;
-    // NOTE (P7 seam): `rooms?` is intentionally absent — the per-cell D-TGL run that
-    // subdivides this cell into rooms is the next slice (tracker P7). Do not wire here.
+    // ── P7 (D-TGL per cell) ──────────────────────────────────────────────────────────
+    /** The chosen (best) D-TGL `LayoutOption` for this cell — rooms + windows + doors.
+     *  Absent ONLY when `status === 'rejected'` (the cell soft-failed the engine, C50 §1.7);
+     *  the building still ships with the OTHER apartments laid out. */
+    readonly layout?: ScoredLayoutOption;
+    /** P7 per-cell status. `'ok'` ⇒ `layout` present; `'rejected'` ⇒ no layout (soft-fail). */
+    readonly status: 'ok' | 'rejected';
+    /** Soft-fail reason when `status === 'rejected'`. */
+    readonly rejectReason?: string;
+    /** The TRUE EXTERIOR FAÇADE edges of `cell.rect` (the rest are blind party walls). */
+    readonly facadeEdges: readonly CellEdge[];
+    /** The BLIND party-wall edges of `cell.rect` (no windows hosted on these). */
+    readonly blindEdges: readonly CellEdge[];
 }
 
 export interface PerLevelApartments {
@@ -203,6 +223,39 @@ function demandFor(a: PlannedApartment): ApartmentDemand {
         minAreaM2: Math.max(1, a.targetAreaM2 - tol),
         maxAreaM2: a.targetAreaM2 + tol,
     };
+}
+
+/** Edge-coincidence tolerance (m) — a cell edge is on the footprint boundary when its
+ *  constant coordinate is within this of the plate bbox edge. The partition rounds rects
+ *  to 4 dp, so a tight tolerance is enough. */
+const FACADE_TOL_M = 1e-3;
+
+/**
+ * §DIAG-PARTY-WALL (audit §7) — the TRUE EXTERIOR FAÇADE edges of an apartment cell.
+ *
+ * A cell edge is a façade (window-eligible) iff it lies on the BUILDING FOOTPRINT boundary
+ * (`plateBB`) AND it is NOT the cell's corridor-facing door edge. Every OTHER edge is BLIND:
+ *  - the `doorEdge` faces the public corridor (a party wall to circulation);
+ *  - an interior edge (not on the footprint boundary) is shared with a neighbouring
+ *    apartment or straddles the core (a party wall to a neighbour / the core).
+ *
+ * The centred core straddles the corridor, so it never abuts an apartment's exterior edge —
+ * the boundary test alone correctly excludes the corridor/core/neighbour party walls. Pure.
+ */
+function facadeEdgesFor(cell: ApartmentCell, plateBB: Rect): CellEdge[] {
+    const r = cell.rect;
+    const edges: CellEdge[] = [];
+    const onBoundary: Record<CellEdge, boolean> = {
+        x0: Math.abs(r.x0 - plateBB.x0) <= FACADE_TOL_M,
+        x1: Math.abs(r.x1 - plateBB.x1) <= FACADE_TOL_M,
+        z0: Math.abs(r.z0 - plateBB.z0) <= FACADE_TOL_M,
+        z1: Math.abs(r.z1 - plateBB.z1) <= FACADE_TOL_M,
+    };
+    for (const e of ['x0', 'x1', 'z0', 'z1'] as const) {
+        if (e === cell.doorEdge) continue;       // corridor side → blind by construction
+        if (onBoundary[e]) edges.push(e);        // on the plate perimeter → true façade
+    }
+    return edges;
 }
 
 function _orchestrate(input: ResidentialBuildingOrchestratorInput): ResidentialBuildingResult {
@@ -334,15 +387,58 @@ function _orchestrate(input: ResidentialBuildingOrchestratorInput): ResidentialB
         if (placed.length === 0) {
             return reject(`level ${levelIndex} placed zero apartments (net area too small for the core/corridor split)`);
         }
+        const plateBB = bb;   // the footprint bbox bounds every cell's façade test.
         const apartments: PlacedApartment[] = placed.map((cell: ApartmentCell, i: number) => {
             const plan = packed.apartments[i]!; // index-aligned with the demands fed in
-            return {
-                typology: plan.typology,
-                targetAreaM2: round4(rectArea(cell.rect)),
+
+            // §DIAG-PARTY-WALL — true exterior façade edges (the rest are blind party walls).
+            const facadeEdges = facadeEdgesFor(cell, plateBB);
+            const facadeSet = new Set<CellEdge>(facadeEdges);
+            const blindEdges = (['x0', 'x1', 'z0', 'z1'] as const).filter((e) => !facadeSet.has(e));
+
+            // P7 — run the FROZEN D-TGL engine on this clean apartment cell (rooms + windows
+            // + doors). Windows are suppressed on blind party-wall edges. Soft-fails per cell.
+            const cellResult: ApartmentCellLayoutResult = runApartmentCellLayout({
+                cell: cell.rect,
                 program: plan.program,
-                cell,
-                // P7 seam: NO `rooms` yet — D-TGL runs per cell in the next slice.
-            };
+                facadeEdges,
+                ...(input.solar ? { solar: input.solar } : {}),
+            });
+
+            const apt: PlacedApartment =
+                cellResult.status === 'ok'
+                    ? {
+                          typology: plan.typology,
+                          targetAreaM2: round4(rectArea(cell.rect)),
+                          program: plan.program,
+                          cell,
+                          status: 'ok',
+                          layout: cellResult.layout,
+                          facadeEdges,
+                          blindEdges,
+                      }
+                    : {
+                          typology: plan.typology,
+                          targetAreaM2: round4(rectArea(cell.rect)),
+                          program: plan.program,
+                          cell,
+                          status: 'rejected',
+                          rejectReason: cellResult.reason,
+                          facadeEdges,
+                          blindEdges,
+                      };
+
+            // §DIAG-RESI-APARTMENT level=k apt=i typology=Tn rooms=… windows=… blindEdges=…
+            const rooms = cellResult.status === 'ok' ? cellResult.roomCount : 0;
+            const windows = cellResult.status === 'ok' ? cellResult.windowCount : 0;
+            console.log(
+                `[resi-building] §DIAG-RESI-APARTMENT level=${levelIndex} apt=${i} ` +
+                `typology=${plan.typology} status=${cellResult.status} rooms=${rooms} ` +
+                `windows=${windows} blindEdges=[${blindEdges.join(',')}]` +
+                (cellResult.status === 'rejected' ? ` reason="${cellResult.reason}"` : ''),
+            );
+
+            return apt;
         });
 
         levels.push({ levelIndex, role, elevationM, floorToFloorM, footprint });
