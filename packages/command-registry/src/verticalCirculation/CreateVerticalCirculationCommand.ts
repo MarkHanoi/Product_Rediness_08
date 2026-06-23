@@ -199,7 +199,7 @@ export class CreateVerticalCirculationCommand implements Command {
             levelId: baseLevelId,
             baseLevelId,
             topLevelId: this.input.topLevelId,
-            kind: this.input.kind ?? defaults?.kind ?? 'passenger',
+            kind: this.input.kind ?? 'passenger',
             origin: { x: this.input.origin.x, y: this.input.origin.y, z: this.input.origin.z },
             rotation: this.input.rotation ?? 0,
             shaftWidth: this.resolveShaftWidth(ctx),

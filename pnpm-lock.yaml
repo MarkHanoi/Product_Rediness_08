@@ -1458,6 +1458,9 @@ importers:
 
   packages/command-registry:
     dependencies:
+      '@opentelemetry/api':
+        specifier: ^1.9.0
+        version: 1.9.1
       '@pryzm/ai-host':
         specifier: workspace:*
         version: link:../ai-host
@@ -1479,6 +1482,9 @@ importers:
       '@pryzm/geometry-furniture':
         specifier: workspace:*
         version: link:../geometry-furniture
+      '@pryzm/geometry-lift':
+        specifier: workspace:*
+        version: link:../geometry-lift
       '@pryzm/geometry-lighting':
         specifier: workspace:*
         version: link:../geometry-lighting
@@ -2012,6 +2018,18 @@ importers:
       vitest:
         specifier: ^2.1.9
         version: 2.1.9(@types/node@24.12.2)(happy-dom@15.11.7)(jsdom@25.0.1)
+
+  packages/geometry-lift:
+    dependencies:
+      '@pryzm/core-app-model':
+        specifier: workspace:*
+        version: link:../core-app-model
+      '@pryzm/event-bus':
+        specifier: workspace:*
+        version: link:../event-bus
+      '@pryzm/renderer-three':
+        specifier: workspace:*
+        version: link:../renderer-three
 
   packages/geometry-lighting:
     dependencies:
@@ -2692,6 +2710,9 @@ importers:
       '@pryzm/typology-pack-casa-unifamiliar':
         specifier: workspace:*
         version: link:../typology-pack-casa-unifamiliar
+      '@pryzm/typology-pack-residential-building':
+        specifier: workspace:*
+        version: link:../typology-pack-residential-building
       '@pryzm/typology-pipeline':
         specifier: workspace:*
         version: link:../typology-pipeline
@@ -2973,6 +2994,22 @@ importers:
         version: 2.1.9(@types/node@24.12.2)(happy-dom@15.11.7)(jsdom@25.0.1)
 
   packages/typology-pack-casa-unifamiliar:
+    dependencies:
+      '@pryzm/schemas':
+        specifier: workspace:*
+        version: link:../schemas
+      '@pryzm/typology-pipeline':
+        specifier: workspace:*
+        version: link:../typology-pipeline
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@24.12.2)(happy-dom@15.11.7)(jsdom@25.0.1)
+
+  packages/typology-pack-residential-building:
     dependencies:
       '@pryzm/schemas':
         specifier: workspace:*
