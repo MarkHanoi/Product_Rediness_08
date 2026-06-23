@@ -31,6 +31,7 @@ import {
     AddLevelCommand,
     CreateStairCommand,
     CreateSlabCommand,
+    CreateRoofCommand,
     CreateVerticalCirculationCommand,
     CreateWallOpeningsBatchCommand,
     CreateRoomBoundingLinesBatchCommand,
@@ -308,6 +309,11 @@ export class ResidentialBuildingExecutor {
             for (const s of slabPolys) {
                 this._createSlab(cm, s.levelId, s.poly);
             }
+            // 3b. §RESI-ROOF (founder "we need a top level with the roof", 2026-06-23) — a flat
+            // roof capping the building on the top level's wall head.
+            const topLvl = result.levels[result.levels.length - 1];
+            const topLvlId = topLvl ? levelIdByIndex.get(topLvl.levelIndex) : undefined;
+            if (topLvl && topLvlId) this._createRoof(cm, topLvl.footprint, topLvlId, floorToFloorM);
             // 4. Central core — a stair per adjacent level pair + ONE lift ground→top.
             const coreResult = this._createCore(cm, result, levelIdByIndex, floorToFloorM, baseElevationM, xf);
             stairCount = coreResult.stairs;
@@ -591,6 +597,39 @@ export class ResidentialBuildingExecutor {
                 polygon: poly.map(p => ({ x: p.x, y: p.z })),
             }), { source: 'RESI_PIPELINE_SLAB' });
         } catch (e) { console.warn('[resi-building] slab create failed (skipped):', e); }
+    }
+
+    /** §RESI-ROOF — a flat roof over the building's top level. Mirrors HouseLayoutExecutor
+     *  ._createRoof: `footprint` is WORLD-XZ; the RoofFootprint contract is CENTROID-LOCAL
+     *  `polygon` + world `centroid`. A FLAT slab extrudes DOWN from its origin, so we lift it
+     *  by (floorToFloor + thickness) above the top level's FLOOR so the slab bottom rests on
+     *  the top-storey wall head (= top floor elevation + floorToFloor) and sits cleanly above. */
+    private _createRoof(
+        cm: CommandManagerLike,
+        topFootprint: ReadonlyArray<{ x: number; z: number }>,
+        topLevelId: string,
+        floorToFloorM: number,
+    ): void {
+        try {
+            const poly = this._cleanRing(topFootprint);
+            if (poly.length < 3) return;
+            let cx = 0, cz = 0;
+            for (const p of poly) { cx += p.x; cz += p.z; }
+            cx /= poly.length; cz /= poly.length;
+            const polygon: [number, number][] = poly.map(p => [p.x - cx, p.z - cz] as [number, number]);
+            const THICK = 0.25;
+            cm.execute?.(new CreateRoofCommand(createId('roof'), {
+                levelId: topLevelId,
+                footprint: { polygon, centroid: [cx, cz] },
+                roofType: 'flat',
+                overhang: 0,
+                // worldY(origin) = topLevel.elevation + baseOffset; we want the slab origin at the
+                // wall head + thickness (flat slab extrudes down → bottom lands on the wall head).
+                baseOffset: floorToFloorM + THICK,
+                thickness: THICK,
+                autoBaseOffset: false,
+            }), { source: 'RESI_PIPELINE_ROOF' });
+        } catch (e) { console.warn('[resi-building] roof create failed (skipped):', e); }
     }
 
     /**
