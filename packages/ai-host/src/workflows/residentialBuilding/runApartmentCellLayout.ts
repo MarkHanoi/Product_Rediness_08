@@ -36,6 +36,7 @@
 
 import { trace } from '@opentelemetry/api';
 import { generateDeterministicLayouts } from '../apartmentLayout/tgl/runDeterministicLayout.js';
+import { apartmentDimensionsFor } from '../apartmentLayout/dimensions/roomDimensions.js';
 import type { ShellAnalysis } from '../apartmentLayout/shellAnalysis.js';
 import type {
     ApartmentConstraints,
@@ -193,6 +194,68 @@ function suppressBlindWindows(
     return { option: { ...option, windows: kept }, suppressed };
 }
 
+// §RESI-CELL-PROGRAM-SCALE (Task 1, 2026-06-23) — THE per-cell rejection ROOT CAUSE +
+// CURE. The packer PINS a maximal typology program (T3 ⇒ 3-bed + ensuite + kitchen +
+// dining + living + hall = 7 rooms) and the orchestrator handed it VERBATIM to the
+// engine. But the partition places cells whose ACTUAL area lands well below the
+// typology's grossMin (the founder's T2/T3 cells came out ~55-90 m²). The engine's
+// §D3.5 envelope gate (`validateApartmentEnvelope`) then HARD-rejects: a 3-bed needs
+// grossMin 85 m², a 2-bed grossMin 60 m² — a 70 m² T3 cell fails the gate, returns []
+// → "D-TGL produced no layout for this cell". Even when the envelope passes, a 7-room
+// program crammed into a tight cell drops every mandatory room and rejects.
+//
+// THE CURE (mirrors the house's `scaleProgramToShell` "fewer rooms for a small cell"):
+// scale the bedroom COUNT DOWN to what the cell area can hold per the §3.1 envelope
+// table, capped at the typology's pinned count. A T3 cell that came out at 70 m² is
+// laid out as a 2-bed (70 m² is in the 2-bed [60,120] band) instead of a rejected
+// 3-bed; a 50 m² cell becomes a 1-bed (in the 1-bed [42,80] band); a tiny cell becomes
+// a studio. The bathroom/en-suite follow the engine's own derivation so the scaled
+// program is consistent with what the engine would itself build. Pure + deterministic.
+/** The apartment dimension table covers studio(0)..4-bed; we never scale above 4. */
+const MAX_SCALE_BEDROOMS = 4;
+/** Scale a pinned typology program DOWN to fit a cell of `cellAreaM2` per the §3.1
+ *  envelope table. Returns a program whose bedroom count is the LARGEST b ≤ the
+ *  pinned count whose envelope band [grossMin,grossMax] admits the cell area (so the
+ *  engine's §D3.5 gate passes). Falls back to the smallest count whose grossMin ≤ the
+ *  cell (a studio for a tiny cell). Never RAISES the count above the typology pin. */
+export function scaleCellProgram(pinned: ApartmentProgram, cellAreaM2: number): ApartmentProgram {
+    const pinnedBeds = Math.max(0, Math.min(MAX_SCALE_BEDROOMS, Math.floor(pinned.bedrooms)));
+    // Walk DOWN from the pinned count; accept the first b whose envelope admits the
+    // cell area (cell ≥ grossMin AND cell ≤ grossMax). A cell larger than the pinned
+    // count's grossMax keeps the pinned count (the engine's own envelope-fit growth
+    // may then grow it, but never beyond the pin's bedrooms here — we don't request more
+    // than the typology asks). A cell below every band's grossMin lands at studio (0).
+    let beds = pinnedBeds;
+    for (let b = pinnedBeds; b >= 0; b--) {
+        const d = apartmentDimensionsFor(b);
+        if (cellAreaM2 >= d.grossMin - 1e-6) { beds = b; break; }
+        beds = 0; // smaller than even the studio min — clamp to studio, engine soft-fails if truly degenerate
+    }
+    // A studio (0-bed) request must keep bathrooms ≥ 1 so the program still has a wet
+    // room; an n-bed follows the engine's bathrooms = clamp(1..3, floor(beds/2)) rule.
+    const bathrooms = Math.min(3, Math.max(1, Math.floor(beds / 2)));
+    // §RESI-LEAN-PROGRAM — an apartment cell is a TIGHT plate (an apartment is denser
+    // than a whole-storey house: per-storey it carries the FULL dwelling in one cell).
+    // A SEPARATE dining room + entrance hall push a small/medium cell over the engine's
+    // real room-count budget so the mandatory-gate drops a bedroom and rejects. We:
+    //   • fold dining into the KITCHEN (openPlanKitchenDining:false ⇒ one kitchen-diner,
+    //     the correct apartment idiom — never a standalone dining room), and
+    //   • drop the entrance hall below the 2-bed target band (a compact flat enters
+    //     straight into its living/circulation; a generous ≥3-bed keeps the hall).
+    // This makes a 64-80 m² 2-bed lay out where the full 8-room program rejected, while
+    // a generous cell still reads as a proper multi-room apartment.
+    const leanHall = beds >= 3 && cellAreaM2 >= 90;
+    return {
+        ...pinned,
+        bedrooms: beds,
+        bathrooms,
+        masterEnSuite: beds >= 3 ? pinned.masterEnSuite : false,
+        openPlanKitchenDining: false,
+        entranceHall: leanHall,
+        ...(beds === 0 ? { includeKitchen: true } : {}),
+    };
+}
+
 /** Build a `ShellAnalysis` from an axis-aligned cell rect (world metres). The engine reads
  *  `perimeter` (the 4 cell corners) + `netAreaM2`; `faces` is empty (the engine derives
  *  window faces from the perimeter itself — the apartment generator's analyseShell faces are
@@ -245,7 +308,7 @@ export function runApartmentCellLayout(input: ApartmentCellLayoutInput): Apartme
 }
 
 function _run(input: ApartmentCellLayoutInput): ApartmentCellLayoutResult {
-    const { cell, program } = input;
+    const { cell, program: pinnedProgram } = input;
     const facade: ReadonlySet<CellEdge> =
         input.facadeEdges instanceof Set ? input.facadeEdges : new Set(input.facadeEdges ?? []);
     const blindEdges = ALL_EDGES.filter((e) => !facade.has(e));
@@ -254,6 +317,12 @@ function _run(input: ApartmentCellLayoutInput): ApartmentCellLayoutResult {
     if (shell.widthM <= 0 || shell.depthM <= 0 || shell.netAreaM2 <= 0) {
         return { status: 'rejected', reason: 'cell is degenerate (zero width/depth)' };
     }
+
+    // §RESI-CELL-PROGRAM-SCALE — scale the PINNED typology program DOWN to fit the cell's
+    // actual area per the §3.1 envelope table, so the engine's §D3.5 envelope gate admits
+    // the cell instead of hard-rejecting a too-rich program (the per-cell rejection root
+    // cause). A T3 cell that lands at 70 m² lays out as a 2-bed; a tiny cell as a studio.
+    const program = scaleCellProgram(pinnedProgram, shell.netAreaM2);
 
     const constraints = input.constraints ?? RESI_APARTMENT_CONSTRAINTS;
     const weights = input.weights ?? RESI_SCORING_WEIGHTS;

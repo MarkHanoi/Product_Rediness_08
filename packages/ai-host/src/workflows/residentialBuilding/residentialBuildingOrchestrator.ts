@@ -47,6 +47,7 @@ import {
 } from './apartmentPacker.js';
 import {
     partitionLevelPlate,
+    MAX_APARTMENT_DEPTH_M,
     type Typology,
     type ApartmentDemand,
     type ApartmentCell,
@@ -64,6 +65,12 @@ const DEFAULT_FLOOR_TO_FLOOR_M = 3.0;
 const DEFAULT_BASE_ELEVATION_M = 0;
 /** Door clear width (m) — the corridor must be ≥ this; reused by the partition. */
 const MIN_CORRIDOR_WIDTH_M = 0.8;
+/** §RESI-ENGINE-FEASIBLE-MIN — the per-apartment net-area floor the packer targets so
+ *  cells come out COMFORTABLY layout-able by the per-cell D-TGL engine (a lean 2-bed
+ *  lays out reliably at ≥ ~72 m²; below that the squarify carve soft-fails). Bounded by
+ *  the user's MAX so a deliberately-small request still runs (cells then scale to
+ *  studios / 1-beds). */
+const MIN_ENGINE_FEASIBLE_AREA_M2 = 72;
 
 export type LevelRole = 'ground' | 'upper';
 
@@ -335,12 +342,39 @@ function _orchestrate(input: ResidentialBuildingOrchestratorInput): ResidentialB
         // The core straddles the corridor (centred), so its X-interval is carved out of
         // BOTH bands; the placeable X span per band is plate width − core width.
         const placeableXSpan = Math.max(0, plateW - coreWidthM);
-        const netAreaM2 = round4((frontDepth + backDepth) * placeableXSpan);
+        // §RESI-PACKER-CAPACITY-MATCH (Task 1, 2026-06-23) — the partition CAPS each
+        // apartment's depth at MAX_APARTMENT_DEPTH_M (§RESI-CELL-FEASIBLE) and leaves any
+        // deeper band residual UN-tiled. The packer's net-area estimate must use the SAME
+        // CAPPED depth, else it over-counts capacity (a ~20 m-deep band looks like ~20 m of
+        // usable apartment when only ~9 m is). Pre-fix, the founder plate's bands (~20 m
+        // each) made the packer propose N=22 tiny apartments for a plate that physically
+        // holds ~8 — the orchestrator then prefix-trimmed AND the partition clamped the few
+        // it placed into 22-28 m² slivers (below every typology's grossMin → every cell
+        // rejected). Capping the depth here aligns the packer's N with the partition's real
+        // capacity, so the cells come out at the typology target size + lay out.
+        const usableDepth = Math.min(frontDepth, MAX_APARTMENT_DEPTH_M) + Math.min(backDepth, MAX_APARTMENT_DEPTH_M);
+        const netAreaM2 = round4(usableDepth * placeableXSpan);
+
+        // §RESI-ENGINE-FEASIBLE-MIN (Task 1, 2026-06-23) — the per-cell D-TGL engine needs
+        // a cell COMFORTABLY above the bare envelope grossMin before a real multi-room
+        // apartment lays out (a full 2-bed needs ~72 m², not the 60 m² envelope floor — the
+        // dining + hall + corridor push the room budget up; see §RESI-LEAN-PROGRAM which
+        // trims those, but the cell still needs headroom for the squarify carve). If we let
+        // the packer size cells down to the bare user/envelope min it produces ~64 m² cells
+        // that the engine still soft-fails. So FLOOR the per-apartment min the packer targets
+        // at MIN_ENGINE_FEASIBLE_AREA_M2 — bounded by the user's MAX so we never exceed the
+        // requested band. The result is FEWER, LARGER, engine-feasible cells. When the user
+        // MAX is below the floor (a deliberately tiny-apartment request) we keep their min so
+        // the packer still runs (those cells lay out as studios / 1-beds via scaleCellProgram).
+        const packerMin = Math.min(
+            Math.max(minApartmentAreaM2, MIN_ENGINE_FEASIBLE_AREA_M2),
+            maxApartmentAreaM2,
+        );
 
         const packed = packApartments({
             levelIndex,
             netAreaM2,
-            minApartmentAreaM2,
+            minApartmentAreaM2: packerMin,
             maxApartmentAreaM2,
             typologies,
         });

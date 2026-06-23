@@ -102,15 +102,20 @@ describe('§RESI-FRAME — apartment walls are emitted in the building WORLD fra
         expect(r.status).toBe('ok');
         if (r.status !== 'ok') return;
 
-        // Find a laid-out apartment whose cell starts well away from (0,0); its walls'
-        // min endpoint must be near the cell origin, NOT near (0,0).
+        // Find a laid-out apartment whose cell starts well away from x=0; its walls'
+        // min X endpoint must be near the cell's OWN x0, NOT near 0 (which is what a
+        // cell-local frame would produce). The X assertion below only discriminates on
+        // a cell that is genuinely X-OFFSET, so we require `cell.x0 >= 2` (a cell offset
+        // only in Z legitimately has x0 ≈ 0 — the corridor band spans the full X and the
+        // packer fills X-runs from x=0, so the centred core's right-hand run yields the
+        // X-offset cells this assertion needs).
         let assertedOffset = false;
         for (const lvl of r.perLevelApartments) {
             if (lvl.role !== 'upper') continue;
             for (const apt of lvl.apartments) {
                 if (apt.status !== 'ok' || !apt.layout) continue;
                 const cell = apt.cell.rect;
-                if (cell.x0 < 2 && cell.z0 < 2) continue; // skip cells near origin
+                if (cell.x0 < 2) continue; // need an X-offset cell for the X assertion
                 // The smallest wall x among this cell's walls should be ≈ cell.x0,
                 // not ≈ 0 (which is what a cell-local frame would produce).
                 let minWallXm = Infinity;

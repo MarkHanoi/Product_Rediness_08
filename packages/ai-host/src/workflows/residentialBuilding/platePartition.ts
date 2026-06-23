@@ -111,7 +111,7 @@ const DOOR_WIDTH_M = 0.8;
  *  here keeps a deep-plate cell square-ish (≈ as wide as deep at the typology mid-area)
  *  rather than the sliver a full ~20 m band would force. The deeper residual of a very
  *  deep band is left un-tiled (wasted area, never a correctness bug). */
-const MAX_APARTMENT_DEPTH_M = 9;
+export const MAX_APARTMENT_DEPTH_M = 9;
 /** Min cell width as a fraction of its depth — below this the cell is a sliver the
  *  engine rejects. 0.6 ⇒ a 9 m-deep cell is ≥ 5.4 m wide (aspect ≤ ~1.7:1). */
 const MIN_CELL_ASPECT = 0.6;
