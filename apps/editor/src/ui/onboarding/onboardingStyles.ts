@@ -753,6 +753,20 @@ export const ONBOARDING_STYLES = `
   background: rgba(102, 0, 255, 0.05);
   min-height: 2.4rem;
 }
+.os-onboarding-overlay .os-resi-preview-plan {
+  margin: -0.1rem 0 0.5rem;
+  padding: 0.4rem;
+  background: #ffffff;
+  border: 1px solid rgba(102, 0, 255, 0.14);
+  border-radius: 0.4rem;
+}
+.os-onboarding-overlay .os-resi-preview-plan svg { width: 100%; height: auto; }
+.os-onboarding-overlay .os-resi-preview-caption {
+  font-size: 0.72rem;
+  color: rgba(20, 10, 40, 0.5);
+  margin: -0.3rem 0 0.45rem;
+  text-align: center;
+}
 .os-onboarding-overlay .os-resi-preview-head {
   font-size: 0.85rem;
   color: rgba(20, 10, 40, 0.85);

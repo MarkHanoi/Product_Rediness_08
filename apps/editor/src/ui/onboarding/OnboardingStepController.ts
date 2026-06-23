@@ -66,6 +66,7 @@ import { generateApartmentFromBoundary } from '../apartment-layout/apartmentFrom
 import { generateHouseFromBoundary, type FootprintPoint } from '../house-layout/houseFromBoundary.js';
 import { generateResidentialFromBoundary } from '../residential-building/residentialFromBoundary.js';
 import { buildResidentialCardModel } from '../residential-building/residentialCardModel.js';
+import { buildResidentialPlanSvg } from '../residential-building/residentialPlanThumbnail.js';
 import { orchestrateResidentialBuilding } from '@pryzm/ai-host';
 import { makeDraggable } from '../makeDraggable.js';
 import { makeResizable } from '../makeResizable.js';
@@ -972,7 +973,12 @@ class OnboardingStepController {
                 const mix = new Map<string, number>();
                 for (const f of card.floors) for (const a of f.apartments) if (a.status === 'ok') mix.set(a.typology, (mix.get(a.typology) ?? 0) + 1);
                 const mixStr = [...mix.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([t, n]) => `${t}×${n}`).join(' · ') || '—';
+                // §RESI-LIVE-PLAN (founder 2026-06-23) — draw the ACTUAL floor plan, not just the
+                // count/mix. The orchestrator is pure + ms-fast, so the slider redraws the plan live.
+                const plan = buildResidentialPlanSvg(result, { targetPx: 300 });
                 preview.innerHTML =
+                    (plan.svg ? `<div class="os-resi-preview-plan">${plan.svg}</div>` +
+                        `<div class="os-resi-preview-caption">${plan.levelLabel} · representative floor</div>` : ``) +
                     `<div class="os-resi-preview-head"><strong>${card.totalApartments}</strong> apartment(s) · ` +
                     `<strong>${Math.round(card.totalNetAreaM2)}</strong> m² net · ${card.upperLevels} residential floor(s)</div>` +
                     `<div class="os-resi-preview-mix">${mixStr}</div>` +
