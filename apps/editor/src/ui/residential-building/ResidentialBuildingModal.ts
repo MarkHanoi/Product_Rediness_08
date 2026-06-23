@@ -15,6 +15,10 @@
 import type { ResidentialBuildingOk, PlacedApartment } from '@pryzm/ai-host';
 import { buildResidentialCardModel, type ResidentialCardModel } from './residentialCardModel.js';
 import { buildResidentialModalHtml, RESIDENTIAL_MODAL_STYLES } from './residentialModalHtml.js';
+import {
+    type FriendlyResidentialError,
+    buildResidentialErrorModalHtml,
+} from './residentialError.js';
 import { buildLayoutThumbnailSvg, type ThumbnailOptions } from '../apartment-layout/layoutThumbnail.js';
 
 export interface ResidentialBuildingModalCallbacks {
@@ -22,6 +26,13 @@ export interface ResidentialBuildingModalCallbacks {
     readonly onBuild: () => void;
     /** User cancelled (Cancel / overlay click / Escape). */
     readonly onCancel: () => void;
+}
+
+export interface ResidentialErrorModalCallbacks {
+    /** User dismissed the error (OK / overlay click / Escape). */
+    readonly onDismiss: () => void;
+    /** OPTIONAL — user pressed "Adjust inputs" (shown only when wired). */
+    readonly onAdjust?: () => void;
 }
 
 const STYLE_ID = 'pryzm-residential-modal-styles';
@@ -64,6 +75,39 @@ export class ResidentialBuildingModal {
             '[resi-building] modal mounted to <body> —',
             card.floorCount, 'floor(s),', card.totalApartments, 'apartment(s),',
             card.totalRejected, 'rejected; overlay z-index', getComputedStyle(overlay).zIndex || '(unstyled — alm- CSS missing?)',
+        );
+    }
+
+    /** Render an ERROR / rejection state in the SAME brand shell (white + #6600FF
+     *  with the established `.alm-notice--rejected` error token). Replaces any open
+     *  instance. The user gets a clear title, the friendly reason + actionable
+     *  guidance, and a single OK dismiss (plus an optional "Adjust inputs"). */
+    showError(err: FriendlyResidentialError, cb: ResidentialErrorModalCallbacks): void {
+        this.dismiss();
+        this._ensureStyles();
+
+        const overlay = document.createElement('div');
+        overlay.className = 'alm-overlay';
+        overlay.innerHTML = buildResidentialErrorModalHtml(err, { withAdjust: typeof cb.onAdjust === 'function' });
+
+        overlay.addEventListener('click', (e: MouseEvent) => {
+            const target = e.target as HTMLElement | null;
+            if (!target) return;
+            if (target === overlay) { this.dismiss(); cb.onDismiss(); return; }
+            if (target.closest('[data-action="adjust"]')) { this.dismiss(); cb.onAdjust?.(); return; }
+            if (target.closest('[data-action="dismiss-error"]')) { this.dismiss(); cb.onDismiss(); return; }
+        });
+
+        this._escHandler = (e: KeyboardEvent): void => {
+            if (e.key === 'Escape') { this.dismiss(); cb.onDismiss(); }
+        };
+        window.addEventListener('keydown', this._escHandler, { capture: true });
+
+        document.body.appendChild(overlay);
+        this._el = overlay;
+        console.log(
+            '[resi-building] error modal mounted to <body> — kind', err.kind,
+            '· overlay z-index', getComputedStyle(overlay).zIndex || '(unstyled — alm- CSS missing?)',
         );
     }
 

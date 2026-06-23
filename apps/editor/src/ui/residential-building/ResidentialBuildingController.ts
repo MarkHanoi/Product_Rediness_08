@@ -30,6 +30,7 @@ import { storeRegistry } from '@pryzm/core-app-model';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
 import { ResidentialBuildingModal } from './ResidentialBuildingModal.js';
 import { ResidentialBuildingExecutor } from './ResidentialBuildingExecutor.js';
+import { friendlyResidentialError, polygonAreaM2 } from './residentialError.js';
 
 const _tracer = trace.getTracer('@pryzm/editor', '0.1.0');
 
@@ -202,23 +203,20 @@ export class ResidentialBuildingController {
 
         const baseElevationM = ground.elevation ?? 0;
         const input = buildOrchestratorInput(req, footprint, baseElevationM);
+        const areaM2 = polygonAreaM2(footprint);
 
         let result: ResidentialBuildingResult;
         try {
             result = orchestrateResidentialBuilding(input);
         } catch (err) {
             console.error('[resi-building] orchestrator threw:', err);
-            toast(`Residential building generation failed: ${String(err)}`, 'error');
+            this._showReject(String(err), areaM2);
             return { ok: false, reason: String(err) };
         }
 
         if (result.status === 'rejected') {
             console.warn('[resi-building] controller: rejected —', result.reason);
-            toast(
-                `Cannot fit a residential building on this plot: ${result.reason}. ` +
-                'Try a larger plate, more floors, smaller apartments, or a smaller core/corridor.',
-                'error',
-            );
+            this._showReject(result.reason, areaM2);
             return { ok: false, reason: result.reason };
         }
 
@@ -234,6 +232,17 @@ export class ResidentialBuildingController {
             onCancel: () => { console.log('[resi-building] controller: modal cancelled (no scene mutation)'); this._pending = null; },
         });
         return { ok: true, apartmentCount };
+    }
+
+    /** Surface a reject/soft-fail as a clear, palette-compliant ERROR MODAL (the
+     *  brand `alm-*` shell + the established error token) instead of a transient
+     *  toast: title + friendly reason + actionable guidance, with the user's actual
+     *  plot area woven in when known. P3/P6: no scene mutation — display only. */
+    private _showReject(reason: string | undefined, areaM2?: number): void {
+        const err = friendlyResidentialError(reason, areaM2);
+        this.modal.showError(err, {
+            onDismiss: () => { console.log('[resi-building] controller: error modal dismissed —', err.kind); },
+        });
     }
 
     private _build(): void {
