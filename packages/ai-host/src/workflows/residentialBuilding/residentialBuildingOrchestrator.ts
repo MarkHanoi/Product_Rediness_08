@@ -465,11 +465,36 @@ function _orchestrate(input: ResidentialBuildingOrchestratorInput): ResidentialB
         // list to the largest accepted PREFIX (drop the tail — the partition packs in
         // order). First K (packed.length → 1) the partition accepts wins. ZERO → soft-fail.
         const allDemands = packed.apartments.map(demandFor);
+        // §RESI-PARTITION-BBOX-PLATE (large-plate zero-apartments fix, 2026-06-23) — hand the
+        // partition the AXIS-ALIGNED BBOX RECTANGLE of the local footprint, NOT the (possibly
+        // irregular) de-rotated parcel polygon. THE BUG: the orchestrator already commits to
+        // `bb = bbox(footprint)` for EVERY downstream geometry op (core, corridor band, front/
+        // back bands, netArea). It then passed the raw polygon to `partitionLevelPlate`, which
+        // re-derives the SAME bbox for its geometry but ALSO runs a `bboxFill ≥ 0.80` gate on
+        // the polygon. A real hand-drawn parcel (the founder's ~137×137 m / ~18,764 m² site) is
+        // a slightly-irregular quad whose de-rotated corners don't land on the bbox corners → its
+        // fill can dip below 0.80 → the partition HARD-rejects ("footprint must be roughly
+        // rectangular") for EVERY k in the trim loop below → the loop exhausts → the orchestrator
+        // reported the misleading `partition placed zero apartments (core/corridor leave no usable
+        // band runs)`. Because the partition's geometry is bbox-only, feeding it the bbox rect is
+        // byte-identical for a clean/rotated rectangle (fill = 1.0 ⇒ gate trivially passes) and
+        // simply removes the spurious-reject failure mode on a large irregular plate. The cells
+        // tile the same bbox the orchestrator already uses, so the rigid-transform containment is
+        // unchanged. NOTE: this also means the partition's own polygon-fill gate is now only
+        // reachable via its public API, not this orchestration path (intended — the orchestrator
+        // is authoritative on plate shape and has already accepted the parcel upstream).
+        const platePoly: Pt[] = [
+            { x: bb.x0, z: bb.z0 },
+            { x: bb.x1, z: bb.z0 },
+            { x: bb.x1, z: bb.z1 },
+            { x: bb.x0, z: bb.z1 },
+        ];
         let partition: ReturnType<typeof partitionLevelPlate> | null = null;
+        let lastRejectReason = '';
         for (let k = allDemands.length; k >= 1; k--) {
             const attempt = partitionLevelPlate({
                 levelIndex,
-                footprint,
+                footprint: platePoly,
                 core,
                 corridor: { widthM: corridorWidthM },
                 apartments: allDemands.slice(0, k),
@@ -478,9 +503,15 @@ function _orchestrate(input: ResidentialBuildingOrchestratorInput): ResidentialB
                 partition = attempt;
                 break;
             }
+            lastRejectReason = attempt.reason;
         }
         if (!partition || partition.status !== 'ok') {
-            return reject(`level ${levelIndex} partition placed zero apartments (core/corridor leave no usable band runs)`);
+            // Surface the partition's REAL reason (no longer swallowed behind a fixed string), so
+            // a genuine capacity miss on a too-small plate is diagnosable instead of misleading.
+            return reject(
+                `level ${levelIndex} partition placed zero apartments` +
+                (lastRejectReason ? ` (${lastRejectReason})` : ' (core/corridor leave no usable band runs)'),
+            );
         }
 
         // Pair each PLACED cell back to its planned apartment, index-aligned: the
