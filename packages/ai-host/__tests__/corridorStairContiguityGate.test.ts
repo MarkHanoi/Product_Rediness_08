@@ -111,13 +111,13 @@ describe('§CORRIDOR-PURITY — evaluateCorridorPurity', () => {
 
     it('no corridor id ⇒ all-false', () => {
         const r = evaluateCorridorPurity([SPINE], types([['corr', 'corridor']]), null);
-        expect(r).toEqual({ ensuiteOnCorridor: false, publicOnCorridor: false, corridorBlob: false });
+        expect(r).toEqual({ ensuiteOnCorridor: false, publicOnCorridor: false, corridorBlob: false, corridorOnPerimeter: false });
     });
 
     it('clean spine with only bedrooms off it ⇒ all-false', () => {
         const placements = [SPINE, room('b1', 0, 1.2, 4, 5), room('b2', 4, 1.2, 8, 5)];
         const r = evaluateCorridorPurity(placements, types([['corr', 'corridor'], ['b1', 'bedroom'], ['b2', 'bedroom']]), 'corr');
-        expect(r).toEqual({ ensuiteOnCorridor: false, publicOnCorridor: false, corridorBlob: false });
+        expect(r).toEqual({ ensuiteOnCorridor: false, publicOnCorridor: false, corridorBlob: false, corridorOnPerimeter: false });
     });
 
     it('en-suite sharing a corridor wall ⇒ ensuiteOnCorridor (FF-P1 privacy breach)', () => {

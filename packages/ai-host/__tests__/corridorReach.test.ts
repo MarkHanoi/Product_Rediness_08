@@ -83,3 +83,66 @@ describe('§CORRIDOR-REACH P1 — growStairCellsToCorridor', () => {
         expect(rectPolyOverlapArea({ x0: 5, z0: 5, x1: 6, z1: 6 }, poly)).toBeCloseTo(0, 5);  // disjoint
     });
 });
+
+// §STAIR-ROOM-FILL-POCKET (founder "green arrow", 2026-06-23) — the stair room must absorb ALL the
+// adjacent empty pocket so it borders its neighbours cleanly, NOT just grow toward the corridor.
+describe('§STAIR-ROOM-FILL-POCKET — fillPocket option', () => {
+    const SHELL2: Rect = { x0: 0, z0: 0, x1: 10, z1: 6 };
+    const CORR2 = rectPolygon({ x0: 0, z0: 2.5, x1: 6, z1: 3.5 });   // corridor on the left half
+
+    it('default OFF: behaviour is byte-identical (no pocket fill)', () => {
+        const stair: Rect = { x0: 6, z0: 2.5, x1: 7, z1: 3.5 };   // already abutting the corridor at x=6
+        const out = growStairCellsToCorridor({
+            corridorCell: CORR2, stairRects: new Map([['s', stair]]), obstacleCells: [], shellBBox: SHELL2,
+        });
+        expect(out.get('s')).toEqual(stair);   // unchanged without fillPocket
+    });
+
+    it('fillPocket ON: the stair absorbs the empty space around it without clipping a room', () => {
+        // Stair small in a big empty plate, with ONE habitable room in the corner. The stair must
+        // grow to fill all the empty pocket up to the corridor + the room + the shell edges.
+        const stair: Rect = { x0: 6, z0: 2.5, x1: 7, z1: 3.5 };
+        const room = rectPolygon({ x0: 8, z0: 0, x1: 10, z1: 6 });   // a room hugging the right edge
+        const out = growStairCellsToCorridor({
+            corridorCell: CORR2, stairRects: new Map([['s', stair]]), obstacleCells: [room],
+            shellBBox: SHELL2, fillPocket: true,
+        });
+        const grown = out.get('s')!;
+        // Grew up to the room's left face (x=8), not into it.
+        expect(grown.x1).toBeCloseTo(8, 4);
+        // Grew to the shell top + bottom (z 0..6) — the whole empty vertical pocket.
+        expect(grown.z0).toBeCloseTo(0, 4);
+        expect(grown.z1).toBeCloseTo(6, 4);
+        // Left edge stays on the corridor (x=6) — it does not eat the corridor.
+        expect(grown.x0).toBeCloseTo(6, 4);
+        // Never overlaps the room (the hard invariant).
+        expect(rectPolyOverlapArea(grown, room)).toBeLessThanOrEqual(1e-3);
+        // Never overlaps the corridor.
+        expect(rectPolyOverlapArea(grown, CORR2)).toBeLessThanOrEqual(1e-3);
+        // It is now much larger than the original sliver (the pocket is absorbed).
+        expect((grown.x1 - grown.x0) * (grown.z1 - grown.z0)).toBeGreaterThan(2 * 1);
+    });
+
+    it('fillPocket ON: two stairs never grow into each other', () => {
+        const s0: Rect = { x0: 6, z0: 2.5, x1: 7, z1: 3.5 };
+        const s1: Rect = { x0: 8.5, z0: 2.5, x1: 9.5, z1: 3.5 };
+        const out = growStairCellsToCorridor({
+            corridorCell: CORR2, stairRects: new Map([['s0', s0], ['s1', s1]]), obstacleCells: [],
+            shellBBox: SHELL2, fillPocket: true,
+        });
+        const g0 = out.get('s0')!, g1 = out.get('s1')!;
+        const ov = Math.max(0, Math.min(g0.x1, g1.x1) - Math.max(g0.x0, g1.x0))
+            * Math.max(0, Math.min(g0.z1, g1.z1) - Math.max(g0.z0, g1.z0));
+        expect(ov).toBeLessThanOrEqual(1e-3);
+    });
+
+    it('fillPocket is deterministic', () => {
+        const stair: Rect = { x0: 6, z0: 2.5, x1: 7, z1: 3.5 };
+        const room = rectPolygon({ x0: 8, z0: 0, x1: 10, z1: 6 });
+        const mk = () => growStairCellsToCorridor({
+            corridorCell: CORR2, stairRects: new Map([['s', stair]]), obstacleCells: [room],
+            shellBBox: SHELL2, fillPocket: true,
+        });
+        expect([...mk()]).toEqual([...mk()]);
+    });
+});

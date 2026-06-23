@@ -63,6 +63,12 @@ export type HardFailedRule =
     // spine: an en-suite must be master-only (never corridor-accessible), no public room may
     // hang off the corridor, and the corridor must be spine-shaped (not a blob). House path only.
     | 'ensuite-corridor' | 'corridor-public' | 'corridor-blob'
+    // §INTERIOR-CORRIDOR (founder defect CFstdjE9 #3, 2026-06-23) — the corridor must be an INTERIOR
+    // spine, not tucked against an exterior façade or in a corner (where it steals window-frontage
+    // from habitable rooms). A corridor whose LONG run abuts the shell perimeter for a meaningful
+    // length is hard-invalid, so a candidate with a central interior corridor outranks it. House path
+    // only (caller gates it via the shell bbox + housePath) ⇒ apartment baseline byte-identical.
+    | 'corridor-perimeter'
     // §CIRCULATION-HARD-GATE A3 (founder §SUITE-WITHIN-PARENT, 2026-06-22) — every PRIVATE room
     // EXCEPT an en-suite/closet (served WITHIN its parent) must have a DIRECT emitted door onto a
     // circulation room (corridor/hall/stair). A bedroom served THROUGH another habitable room
@@ -75,7 +81,15 @@ export type HardFailedRule =
     // include a bathroom / private room but NOT a corridor-or-public (living/kitchen/dining) room is
     // hard-invalid, so a candidate where the hall reaches circulation / a public room outranks it.
     // House ground-floor only (caller gates on a hall being present); apartments byte-identical.
-    | 'hall-wetroom-only';
+    | 'hall-wetroom-only'
+    // §ENSUITE-1TO1 (founder defect CFstdjE9 #1, 2026-06-23) — an en-suite must attach to EXACTLY ONE
+    // bedroom: (a) ALWAYS to a bedroom/master (never a corridor/hall/public room or another ensuite),
+    // (b) to exactly ONE such bedroom (never shared by two — that re-introduces the through-bedroom
+    // anti-pattern), and (c) sized BELOW its host (≤ host area). A placed ensuite that is isolated,
+    // shared, oversized, or attached to a non-bedroom is hard-invalid, so a candidate whose ensuites
+    // are all clean 1:1 suites outranks it. Computed from the realised RECTS + door set; house path
+    // only (the caller passes [] off the apartment path) ⇒ apartment baseline byte-identical.
+    | 'ensuite-not-1to1';
 
 /** §DIAG-MIN-AREA-GATE (tracker §68.1) — the habitable room types whose own
  *  `areaMin` is enforced as a HARD floor. A room of one of these types emitted below
@@ -432,6 +446,76 @@ export function servedThroughPrivateRoomIds(args: {
 }
 
 /**
+ * §ENSUITE-1TO1 (founder defect CFstdjE9 #1, 2026-06-23) — the PLACED en-suites that violate the
+ * 1:1 suite rule. An en-suite must attach to EXACTLY ONE bedroom: (a) ALWAYS to a bedroom/master
+ * (never a corridor/hall/public room or another ensuite), (b) to exactly ONE such bedroom (never
+ * shared by two), and (c) be sized BELOW its host (≤ host floor area). Reads the realised RECTS
+ * (shared-wall adjacency for attachment + areas for the size cap) AND the emitted door set (an
+ * ensuite door to anything other than its host is a breach). Returns the offending ensuite ids,
+ * sorted. House path only (the caller passes [] off the apartment path) ⇒ apartment byte-identical.
+ *
+ * Pure + deterministic (ADR-0061), exported for the §CIRCULATION-CORRECTNESS unit tests; no P8 span
+ * (consistent with the sibling pure predicates `servedThroughPrivateRoomIds`/`unreachable…`).
+ */
+export function ensuiteNot1to1RoomIds(args: {
+    readonly bubble: BubbleGraph;
+    readonly placements: readonly RoomPlacement[];
+    readonly doorOpenings: readonly DoorOpening[];
+    readonly cellPolygonById?: ReadonlyMap<string, readonly Pt[]>;
+}): readonly string[] {
+    const { bubble, placements, doorOpenings, cellPolygonById } = args;
+    const typeById = new Map<string, RoomType>(bubble.rooms.map(r => [r.id, r.type]));
+    const rectById = new Map<string, Rect>(placements.map(p => [p.roomId, p.rect]));
+    const isBedroom = (t: RoomType | undefined): boolean => t === 'bedroom' || t === 'master';
+    const wallRun = (a: string, b: string): number => {
+        const ra = rectById.get(a), rb = rectById.get(b);
+        if (!ra || !rb) return 0;
+        const pa = cellPolygonById?.get(a), pb = cellPolygonById?.get(b);
+        return (pa || pb) ? sharedWallRunPolyM(pa ?? ra, pb ?? rb) : sharedWallRunM(ra, rb);
+    };
+    const areaOf = (id: string): number => {
+        const r = rectById.get(id);
+        return r ? (r.x1 - r.x0) * (r.z1 - r.z0) : 0;
+    };
+
+    const ensuites = bubble.rooms.filter(r => r.type === 'ensuite');
+    if (ensuites.length === 0) return [];
+
+    // (b) shared-host detection — two ensuites naming the SAME host both fail.
+    const hostCount = new Map<string, number>();
+    for (const e of ensuites) {
+        if (e.ensuiteHostId) hostCount.set(e.ensuiteHostId, (hostCount.get(e.ensuiteHostId) ?? 0) + 1);
+    }
+
+    const bad = new Set<string>();
+    for (const e of ensuites) {
+        if (!rectById.has(e.id)) continue;            // DROPPED ensuites are acceptable — not placed.
+        const host = e.ensuiteHostId;
+        // (a) host must be a placed bedroom/master that the ensuite is ATTACHED to (≥ a door's run).
+        if (!host || !isBedroom(typeById.get(host)) || !rectById.has(host)) { bad.add(e.id); continue; }
+        if (wallRun(e.id, host) < STAIR_DOOR_MIN_M - EPS) { bad.add(e.id); continue; }
+        // (b) the host must not be shared by another ensuite.
+        if ((hostCount.get(host) ?? 0) > 1) { bad.add(e.id); continue; }
+        // (c) oversized — an ensuite must be the subordinate room (≤ its host's area).
+        if (areaOf(e.id) > areaOf(host) + EPS) { bad.add(e.id); continue; }
+    }
+    // (a, door view) — an ensuite whose realised door reaches ANYTHING other than its host bedroom is
+    // a breach (e.g. doored onto a corridor / second bedroom). Catches a wrong-door even when the
+    // adjacency tests above pass.
+    for (const o of doorOpenings) {
+        if (o.type !== 'door') continue;
+        const [a, b] = o.betweenRoomIds as readonly [string, string?];
+        if (!a || !b) continue;
+        const ea = typeById.get(a) === 'ensuite' ? a : typeById.get(b) === 'ensuite' ? b : null;
+        if (!ea) continue;
+        const other = ea === a ? b : a;
+        const e = bubble.rooms.find(r => r.id === ea);
+        if (e && e.ensuiteHostId !== other) bad.add(ea);
+    }
+    return [...bad].sort();
+}
+
+/**
  * §TOPO-HARD-REJECT (Stage 5) — the founder's HARD topology gate predicate.
  *
  * Returns which of the three architectural rules a candidate violates (empty ⇒
@@ -614,6 +698,12 @@ export interface CorridorPurity {
     readonly publicOnCorridor: boolean;
     /** The corridor's long:short ratio is below CORRIDOR_MIN_ASPECT — it's a blob, not a spine. */
     readonly corridorBlob: boolean;
+    /** §INTERIOR-CORRIDOR (founder defect CFstdjE9 #3, 2026-06-23) — the corridor must be an INTERIOR
+     *  spine, not tucked against an exterior façade or in a corner. True when the corridor's LONG edge
+     *  abuts the shell perimeter for a meaningful run (stealing window-frontage from habitable rooms).
+     *  A single-loaded corridor hugging the interior core/stair edge does NOT trip this (no façade
+     *  frontage). False when no shell bbox is supplied (caller gates it) ⇒ byte-identical. */
+    readonly corridorOnPerimeter: boolean;
 }
 
 /**
@@ -628,8 +718,9 @@ export function evaluateCorridorPurity(
     rooms: readonly { readonly id: string; readonly type: string }[],
     corridorId: string | null | undefined,
     cellPolygonById?: ReadonlyMap<string, readonly Pt[]>,
+    shellBBox?: Rect,
 ): CorridorPurity {
-    const none: CorridorPurity = { ensuiteOnCorridor: false, publicOnCorridor: false, corridorBlob: false };
+    const none: CorridorPurity = { ensuiteOnCorridor: false, publicOnCorridor: false, corridorBlob: false, corridorOnPerimeter: false };
     if (!corridorId) return none;
     const corr = placements.find(p => p.roomId === corridorId);
     if (!corr) return none;
@@ -657,7 +748,24 @@ export function evaluateCorridorPurity(
     const lo = Math.min(w, h);
     const hi = Math.max(w, h);
     const corridorBlob = lo > EPS ? (hi / lo) < CORRIDOR_MIN_ASPECT - EPS : false;
-    return { ensuiteOnCorridor, publicOnCorridor, corridorBlob };
+    // §INTERIOR-CORRIDOR — the corridor's LONG edge abuts the shell perimeter for a meaningful run.
+    // Measured on the corridor's bbox edges vs the shell bbox (the perimeter): a corridor whose long
+    // run lies on a façade has its long-axis edge coincident with a shell edge. A single-loaded
+    // corridor hugging the INTERIOR core/stair edge sits off the façade, so this stays false there.
+    // Threshold = half the long extent (so a mere corner kiss does not trip it; only a genuine
+    // façade-aligned run does). Only the LONG-axis edges count — a corridor end touching a wall is fine.
+    let corridorOnPerimeter = false;
+    if (shellBBox) {
+        const longAxisIsX = w >= h;
+        const longRun = longAxisIsX ? w : h;
+        const onPerim = (edge: number, lim: number): boolean => Math.abs(edge - lim) < STAIR_ABUT_EPS_M;
+        // The two long edges run along the long axis at the cross-axis extremes.
+        const longEdgeOnShell = longAxisIsX
+            ? (onPerim(corr.rect.z0, shellBBox.z0) || onPerim(corr.rect.z1, shellBBox.z1))
+            : (onPerim(corr.rect.x0, shellBBox.x0) || onPerim(corr.rect.x1, shellBBox.x1));
+        corridorOnPerimeter = longEdgeOnShell && longRun >= 0.5 * (longAxisIsX ? (shellBBox.x1 - shellBBox.x0) : (shellBBox.z1 - shellBBox.z0));
+    }
+    return { ensuiteOnCorridor, publicOnCorridor, corridorBlob, corridorOnPerimeter };
 }
 
 function evaluateHardTopology(args: {
@@ -697,8 +805,12 @@ function evaluateHardTopology(args: {
      *  realised doors include a bathroom/private room but NO corridor-or-public (living/kitchen/
      *  dining) room. False on apartments / no-hall plates (caller gates it) ⇒ byte-identical. */
     readonly hallWetRoomOnly: boolean;
+    /** §ENSUITE-1TO1 (founder defect CFstdjE9 #1) — the PLACED en-suites that break the 1:1 suite rule
+     *  (isolated / non-bedroom host / shared host / oversized / wrong door). Empty on the apartment
+     *  path (caller passes []) ⇒ byte-identical. Non-empty ⇒ Rule 'ensuite-not-1to1'. */
+    readonly ensuiteNot1to1Ids: readonly string[];
 }): readonly HardFailedRule[] {
-    const { bubble, frontageHardRoomIds, unroutedToCirculationRoomIds, doorOpenings, hasRoomOverlap, hasUnderMinArea, hasMissingMandatory, unreachableHabitableRoomIds, corridorStairGap, corridorHallGap, corridorPurity, servedThroughRoomIds, hallWetRoomOnly } = args;
+    const { bubble, frontageHardRoomIds, unroutedToCirculationRoomIds, doorOpenings, hasRoomOverlap, hasUnderMinArea, hasMissingMandatory, unreachableHabitableRoomIds, corridorStairGap, corridorHallGap, corridorPurity, servedThroughRoomIds, hallWetRoomOnly, ensuiteNot1to1Ids } = args;
     const typeById = new Map<string, string>();
     for (const r of bubble.rooms) typeById.set(r.id, r.type);
 
@@ -828,6 +940,14 @@ function evaluateHardTopology(args: {
         failed.push('corridor-blob');
     }
 
+    // Rule IC — §INTERIOR-CORRIDOR (founder defect CFstdjE9 #3, 2026-06-23). The corridor must be an
+    // INTERIOR spine; one whose long run lies on a façade/corner steals window-frontage and reads as
+    // a tucked-away passage. House-path only (caller gates via the shell bbox) ⇒ apartment byte-
+    // identical; same least-bad safety net as the other corridor rules.
+    if (corridorPurity.corridorOnPerimeter) {
+        failed.push('corridor-perimeter');
+    }
+
     // Rule ST — §CIRCULATION-HARD-GATE A3 (founder §SUITE-WITHIN-PARENT, 2026-06-22). A private
     // room (not an en-suite/closet served within its parent) with NO direct emitted door onto a
     // circulation room is "served through" another room — the inspector's "Bedroom 1 — served
@@ -846,6 +966,15 @@ function evaluateHardTopology(args: {
     // outranks it. Computed at the call site from the realised door set (house ground-floor only).
     if (hallWetRoomOnly) {
         failed.push('hall-wetroom-only');
+    }
+
+    // Rule E1 — §ENSUITE-1TO1 (founder defect CFstdjE9 #1, 2026-06-23). An en-suite must be a clean
+    // 1:1 suite: attached to EXACTLY ONE bedroom, never a corridor/public/hall/another ensuite, sized
+    // below its host. A placed ensuite that is isolated, shared, oversized, or wrong-doored is hard-
+    // invalid, so a candidate whose ensuites are all clean suites outranks it. House-path only (caller
+    // passes [] off the apartment path) ⇒ apartment baseline byte-identical; same least-bad safety net.
+    if (ensuiteNot1to1Ids.length > 0) {
+        failed.push('ensuite-not-1to1');
     }
 
     return failed;
@@ -1440,6 +1569,11 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
                         stairRects: stairRectMap,
                         obstacleCells,
                         shellBBox: polygonBBox(input.shellPolygon),
+                        // §STAIR-ROOM-FILL-POCKET (founder "green arrow", 2026-06-23) — after reaching the
+                        // corridor, the stair room absorbs ALL adjacent EMPTY space so it borders its
+                        // neighbours cleanly (no untracked white pocket). Never clips a room / the corridor
+                        // / another stair, never leaves the shell. Same opt-in gate as the corridor reach.
+                        fillPocket: true,
                     });
                     let reached = 0;
                     for (const [id, gr] of grown) {
@@ -2055,13 +2189,20 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     // pass the per-room cell polygons so the corridor's L-leg / a neighbour's concave edge is measured
     // against its real boundary; absent ⇒ rect path (no fixture sets it today, so byte-identical).
     const corridorPurity = housePath
-        ? evaluateCorridorPurity(placements, bubble.rooms, bubble.corridorId, cellPolyByIdWorld)
-        : { ensuiteOnCorridor: false, publicOnCorridor: false, corridorBlob: false };
+        ? evaluateCorridorPurity(placements, bubble.rooms, bubble.corridorId, cellPolyByIdWorld, polygonBBox(input.shellPolygon))
+        : { ensuiteOnCorridor: false, publicOnCorridor: false, corridorBlob: false, corridorOnPerimeter: false };
     // §CIRCULATION-HARD-GATE A3 (founder §SUITE-WITHIN-PARENT) — the private rooms served THROUGH
     // another room (no direct emitted corridor/hall/stair door), excluding an en-suite/closet
     // served within its parent. House-path only ⇒ apartment baseline byte-identical.
     const servedThroughRoomIds = housePath
         ? servedThroughPrivateRoomIds({ bubble, doorOpenings })
+        : [];
+    // §ENSUITE-1TO1 (founder defect CFstdjE9 #1) — the placed en-suites that break the 1:1 suite rule
+    // (isolated / non-bedroom host / shared host / oversized / wrong door). House-path only ⇒ apartment
+    // baseline byte-identical (the apartment's lone master en-suite is a clean suite, but we gate it off
+    // the house path anyway to keep the apartment selection byte-identical).
+    const ensuiteNot1to1Ids = housePath
+        ? ensuiteNot1to1RoomIds({ bubble, placements, doorOpenings, ...(cellPolyByIdWorld ? { cellPolygonById: cellPolyByIdWorld } : {}) })
         : [];
     // §HALL-NOT-WETROOM-ONLY (founder rule, 2026-06-22) — the GROUND-floor entrance hall must NOT
     // be served SOLELY by a bathroom/private room: at least one of its realised doors must reach a
@@ -2100,6 +2241,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         corridorPurity,
         servedThroughRoomIds,
         hallWetRoomOnly,
+        ensuiteNot1to1Ids,
     });
     const hardValid = hardFailedRules.length === 0;
     // §DIAG-TOPO-GATE — per-candidate hard-gate decision line (logging only).
@@ -2110,6 +2252,8 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         `ensuiteOnCorr=${corridorPurity.ensuiteOnCorridor ? 'YES' : 'no'} ` +
         `publicOnCorr=${corridorPurity.publicOnCorridor ? 'YES' : 'no'} ` +
         `corrBlob=${corridorPurity.corridorBlob ? 'YES' : 'no'} ` +
+        `corrPerimeter=${corridorPurity.corridorOnPerimeter ? 'YES' : 'no'} ` +
+        `ensuite1to1=${ensuiteNot1to1Ids.length === 0 ? 'OK' : `BAD[${ensuiteNot1to1Ids.join(',')}]`} ` +
         `failed=[${hardFailedRules.join(',') || 'none'}]`,
     );
     // §DIAG-MIN-AREA-GATE (tracker §68.1) — per-candidate min-area decision line: the
