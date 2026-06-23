@@ -519,6 +519,51 @@ export class WallRebuildCoordinator {
         return adj;
     }
 
+    // §POST-RESOLVE-PRESERVE constants (mirror the standalone replica in
+    // apps/editor/__tests__/postResolvePreserveGuard.test.ts).
+    private static readonly _PRESERVE_STUB_LEN = 0.15;   // = DEGENERATE_STUB_LENGTH
+    private static readonly _PRESERVE_LATERAL_TOL = 0.02; // = PARITY_TOL_MM (20mm); never widen
+    private static readonly _PRESERVE_EXTEND_TOL = 0.50;  // a real corner miter extends a wall by < half its thickness; 0.5m = spike
+
+    /**
+     * §POST-RESOLVE-PRESERVE-ANCHOR — pure decision used by `_flush` (and exercised
+     * directly by the reload-stability regression test). Given the wall's committed
+     * store baseline (`sourceBL`), its TRUE anchor (`trueSourceBL` = `_sourceBaseLine`
+     * when present, else `sourceBL`), the resolver's freshly-computed baseline
+     * (`newBL`), and whether the resolver flagged the wall invalid, decide whether the
+     * re-resolve result is DESTRUCTIVE and must be reverted. When it returns
+     * `preserve: true`, the caller MUST commit `anchorBL` to the store as BOTH
+     * `baseLine` and `_sourceBaseLine` so the rendered geometry, the persisted record,
+     * and the next resolve all anchor to the same fixed line — making reload
+     * idempotent (no lateral drift accumulating across opens).
+     */
+    static decidePreservedBaseline(
+        sourceBL: WallBaseline | undefined,
+        trueSourceBL: WallBaseline | undefined,
+        newBL: WallBaseline,
+        adjInvalid: boolean,
+    ): { preserve: boolean; anchorBL: WallBaseline | null } {
+        if (!sourceBL) return { preserve: false, anchorBL: null };
+        const dst = (a: { x: number; z: number }, b: { x: number; z: number }) => Math.hypot(b.x - a.x, b.z - a.z);
+        const preLen = dst(sourceBL[0], sourceBL[1]);
+        const newLen = dst(newBL[0], newBL[1]);
+        const L = preLen || 1e-9;
+        const ux = (sourceBL[1].x - sourceBL[0].x) / L;
+        const uz = (sourceBL[1].z - sourceBL[0].z) / L;
+        const perp = (p: { x: number; z: number }) => Math.abs((p.x - sourceBL[0].x) * uz - (p.z - sourceBL[0].z) * ux);
+        const lateral = Math.max(perp(newBL[0]), perp(newBL[1]));
+        const wasValid = preLen >= WallRebuildCoordinator._PRESERVE_STUB_LEN;
+        const overExtended = newLen > preLen + WallRebuildCoordinator._PRESERVE_EXTEND_TOL;
+        const destructive = adjInvalid
+            || newLen < WallRebuildCoordinator._PRESERVE_STUB_LEN
+            || lateral > WallRebuildCoordinator._PRESERVE_LATERAL_TOL
+            || overExtended;
+        if (wasValid && destructive) {
+            return { preserve: true, anchorBL: trueSourceBL ?? sourceBL };
+        }
+        return { preserve: false, anchorBL: null };
+    }
+
     /**
      * ADR-057 P1 (OI-053h) — single-wall openings-only rebuild branch.
      *
@@ -790,6 +835,23 @@ export class WallRebuildCoordinator {
                     const _sourceBL: WallBaseline | undefined = _preTrimWall
                         ? [{ x: _preTrimWall.baseLine[0].x, y: _preTrimWall.baseLine[0].y, z: _preTrimWall.baseLine[0].z }, { x: _preTrimWall.baseLine[1].x, y: _preTrimWall.baseLine[1].y, z: _preTrimWall.baseLine[1].z }]
                         : undefined;
+                    // §POST-RESOLVE-PRESERVE-ANCHOR (founder 2026-06-23) — the
+                    // AUTHORITATIVE baseline to defend/restore is the wall's TRUE source:
+                    // `_sourceBaseLine` (the user-drawn / persisted original) when present,
+                    // else `baseLine`. This is the SAME anchor `WallJoinResolver.resolveLevel`
+                    // seeds from (§SOURCE-BL-FIX). Previously preserve compared/reverted to
+                    // `_preTrimWall.baseLine`, which may itself already be a TRIMMED value
+                    // written by an earlier non-preserve flush — so the "committed baseline"
+                    // preserve kept drifted a little further every reload (and, because a
+                    // preserve flush skips store.update, `_sourceBaseLine` was never stamped,
+                    // so the save fell back to the trimmed `baseLine` → the disk record
+                    // walked). Anchoring to the true source makes preserve idempotent across
+                    // reloads. When `_sourceBaseLine` is absent it equals `_sourceBL` exactly,
+                    // so this is a byte-identical no-op on the already-stable paths.
+                    const _trueSrcRaw = (_preTrimWall as unknown as { _sourceBaseLine?: WallBaseline } | undefined)?._sourceBaseLine;
+                    const _trueSourceBL: WallBaseline | undefined = _trueSrcRaw
+                        ? [{ x: _trueSrcRaw[0].x, y: _trueSrcRaw[0].y, z: _trueSrcRaw[0].z }, { x: _trueSrcRaw[1].x, y: _trueSrcRaw[1].y, z: _trueSrcRaw[1].z }]
+                        : _sourceBL;
                     const _sourceBaseLineToStore = _preTrimWall?._sourceBaseLine ?? _sourceBL;
                     // §WS-2.E (plan §2.E, 2026-05-29): skip the store.update +
                     // version bump when the resolver's "new" baseline is
@@ -844,33 +906,41 @@ export class WallRebuildCoordinator {
                     // keep the committed baseline (outer wall stays put — the founder's
                     // "outer walls should be priority").
                     const _preserveOn = (globalThis as unknown as { __pryzmPostResolvePreserve?: boolean }).__pryzmPostResolvePreserve !== false;
-                    const _STUB_LEN = 0.15;          // = DEGENERATE_STUB_LENGTH
-                    const _LATERAL_TOL = 0.02;       // = PARITY_TOL_MM (20mm); never widen
-                    const _EXTEND_TOL = 0.50;        // a real corner miter extends a wall by < half its thickness; 0.5m = spike
                     let _preserve = false;
+                    // §POST-RESOLVE-PRESERVE-ANCHOR — when preserve fires, this is the
+                    // stable baseline we COMMIT (store + render), not just the joinData copy.
+                    let _preserveAnchorBL: WallBaseline | undefined;
                     if (_preserveOn && _sourceBL && _bMoved) {
-                        const _dst = (a: { x: number; z: number }, b: { x: number; z: number }) => Math.hypot(b.x - a.x, b.z - a.z);
-                        const _preLen = _dst(_sourceBL[0], _sourceBL[1]);
-                        const _newLen = _dst(_newBL[0], _newBL[1]);
-                        let _lateral = 0;
-                        const _L = _preLen || 1e-9;
-                        const _ux = (_sourceBL[1].x - _sourceBL[0].x) / _L;
-                        const _uz = (_sourceBL[1].z - _sourceBL[0].z) / _L;
-                        const _perp = (p: { x: number; z: number }) => Math.abs((p.x - _sourceBL[0].x) * _uz - (p.z - _sourceBL[0].z) * _ux);
-                        _lateral = Math.max(_perp(_newBL[0]), _perp(_newBL[1]));
-                        const _wasValid = _preLen >= _STUB_LEN;
-                        const _overExtended = _newLen > _preLen + _EXTEND_TOL;   // §POST-RESOLVE-OVEREXTEND
                         const _adjInvalid = (adjustment as unknown as { invalid?: boolean }).invalid === true;
-                        if (_wasValid && (_adjInvalid || _newLen < _STUB_LEN || _lateral > _LATERAL_TOL || _overExtended)) {
+                        const _decision = WallRebuildCoordinator.decidePreservedBaseline(_sourceBL, _trueSourceBL, _newBL, _adjInvalid);
+                        if (_decision.preserve && _decision.anchorBL) {
                             _preserve = true;
+                            // The baseline we keep is the wall's TRUE source (the persisted /
+                            // user-drawn anchor the resolver itself seeds from), not the
+                            // possibly-already-trimmed store `baseLine`. This is what makes
+                            // reload idempotent: every flush restores to the same fixed
+                            // anchor instead of re-defending whatever the last flush left.
+                            _preserveAnchorBL = _decision.anchorBL;
                             // Make the JoinData internally consistent with the preserved
-                            // (committed) baseline and clear the stub-sweep skip flag so
-                            // the builder renders the wall on its line.
-                            _adjBL[0].set(_sourceBL[0].x, _sourceBL[0].y, _sourceBL[0].z);
-                            _adjBL[1].set(_sourceBL[1].x, _sourceBL[1].y, _sourceBL[1].z);
+                            // (anchor) baseline and clear the stub-sweep skip flag so the
+                            // builder renders the wall on its line. NOTE: buildWall reads the
+                            // CENTRELINE from `wall.baseLine` (store), NOT joinData.baseLine —
+                            // so the store write-back below (gated by `_preserve`) is what
+                            // actually fixes the rendered + persisted geometry; this keeps the
+                            // joinData consistent for _prevJoinMap / diagnostics.
+                            _adjBL[0].set(_preserveAnchorBL[0].x, _preserveAnchorBL[0].y, _preserveAnchorBL[0].z);
+                            _adjBL[1].set(_preserveAnchorBL[1].x, _preserveAnchorBL[1].y, _preserveAnchorBL[1].z);
                             const _adjMut = adjustment as unknown as { invalid?: boolean; invalidReason?: string };
                             if (_adjMut.invalid) { _adjMut.invalid = false; _adjMut.invalidReason = undefined; }
-                            const _why = _adjInvalid || _newLen < _STUB_LEN
+                            const _dst = (a: { x: number; z: number }, b: { x: number; z: number }) => Math.hypot(b.x - a.x, b.z - a.z);
+                            const _preLen = _dst(_sourceBL[0], _sourceBL[1]);
+                            const _newLen = _dst(_newBL[0], _newBL[1]);
+                            const _Lw = _preLen || 1e-9;
+                            const _uxw = (_sourceBL[1].x - _sourceBL[0].x) / _Lw, _uzw = (_sourceBL[1].z - _sourceBL[0].z) / _Lw;
+                            const _perpw = (p: { x: number; z: number }) => Math.abs((p.x - _sourceBL[0].x) * _uzw - (p.z - _sourceBL[0].z) * _uxw);
+                            const _lateral = Math.max(_perpw(_newBL[0]), _perpw(_newBL[1]));
+                            const _overExtended = _newLen > _preLen + WallRebuildCoordinator._PRESERVE_EXTEND_TOL;
+                            const _why = _adjInvalid || _newLen < WallRebuildCoordinator._PRESERVE_STUB_LEN
                                 ? `collapse (newLen=${_newLen.toFixed(3)}m)`
                                 : _overExtended
                                     ? `over-extend spike (preLen=${_preLen.toFixed(3)}m → newLen=${_newLen.toFixed(3)}m)`
@@ -921,6 +991,28 @@ export class WallRebuildCoordinator {
 
                     if (_bMoved && !_preserve) {
                         store.update(wallId, { baseLine: _newBL, ...(_sourceBaseLineToStore ? { _sourceBaseLine: _sourceBaseLineToStore } : {}) } as any);
+                    } else if (_preserve && _preserveAnchorBL) {
+                        // §POST-RESOLVE-PRESERVE-ANCHOR — buildWall reads the centreline from
+                        // `wall.baseLine` (the store), so simply SKIPPING store.update kept
+                        // whatever was already in the store — which could be a value an
+                        // earlier non-preserve flush had already trimmed, and left the wall
+                        // WITHOUT a `_sourceBaseLine` (so the next save persisted the trimmed
+                        // line → drift on every reload). Here we COMMIT the stable anchor as
+                        // BOTH `baseLine` (what gets rendered) AND `_sourceBaseLine` (the
+                        // resolver seed + what gets saved), so:
+                        //   • the rendered wall sits on the original line (no pivot),
+                        //   • the save writes the original line (no disk walk),
+                        //   • the next resolve seeds from the same fixed anchor (idempotent).
+                        // No-op write when the store already holds the anchor (the §WS-2.E
+                        // sub-µm skip still applies inside store.update for unchanged values).
+                        // Guarded: a write must never be worse than the old skip-on-preserve
+                        // behaviour, so any store rejection (e.g. an opening-bearing reversal
+                        // guard) degrades to leaving the store untouched.
+                        try {
+                            store.update(wallId, { baseLine: _preserveAnchorBL, _sourceBaseLine: _preserveAnchorBL } as any);
+                        } catch (err) {
+                            console.warn(`[WallRebuildCoordinator] §POST-RESOLVE-PRESERVE anchor write-back skipped for ${wallId} (non-fatal):`, err);
+                        }
                     }
                     const updated = store.getById(wallId);
                     if (updated) {
