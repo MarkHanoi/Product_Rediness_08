@@ -4409,13 +4409,37 @@ export function subdivideWithReport(
             // is what fixes the central-stair merged blob). This preserves the vertical
             // programme (master + en-suite stay placed) without abandoning the spine.
             if (carved !== null && carved.droppedRooms.length === 0) {
-                // The whole-programme carve fits with ZERO drops — keep it exactly as before
-                // (byte-identical). The original code ran packMultiRect and picked
-                // `genericDrops < carvedDrops`; with carvedDrops=0 that is always false, so
-                // the carve always wins — we short-circuit to the identical result.
-                const generic = packMultiRect(frag, graph);
-                const genericDrops = generic.droppedRooms.length;
-                console.log(`[D-TGL subdivide] §DIAG-BRANCH dominant-carve eligible: carveDrops=0 genericDrops=${genericDrops} → picked carve`);
+                // §STAIR-SEALED-DEPENDENT (founder "bedroom sealed, reachable 3/4", 2026-06-23) — a
+                // ZERO-DROP carve can still leave a circulation-DEPENDENT room (private/service) PLACED
+                // BUT SEALED: it sits in a non-corridor sub-rect, so it is not dropped (the old
+                // short-circuit accepted it) yet shares NO door-width wall with the corridor →
+                // §EVERY-ROOM-ACCESS fails (the bedroom that can't be reached). On a MID-EDGE/central
+                // stair this is exactly the defect: the dominant carve fits all 7 rooms but the bedroom
+                // never abuts the spine. BEFORE accepting, if any dependent room is off the corridor,
+                // try the §STAIR-SPANNING-CORRIDOR rescue (which connects every dependent with 0 drops)
+                // and prefer it ONLY when it connects strictly MORE dependents. When the carve already
+                // has every dependent on the corridor (the common case — corner stair) `carvedSealed`
+                // is 0, the block is skipped, and the returned result is BYTE-IDENTICAL (ADR-0061).
+                const privacyById = new Map(graph.rooms.map(r => [r.id, roomRule(r.type).privacy]));
+                const dependentsOffCorridor = (res: SubdivideResult): number => {
+                    const c = res.placements.find(p => p.roomId === graph.corridorId);
+                    if (!c) return Number.POSITIVE_INFINITY;
+                    return res.placements.filter(p => {
+                        const pr = privacyById.get(p.roomId);
+                        return (pr === 'private' || pr === 'service')
+                            && sharedWallLengthM(p.rect, c.rect) < STAIR_DOOR_MIN_M - EPS;
+                    }).length;
+                };
+                const carvedSealed = graph.corridorId ? dependentsOffCorridor(carved) : 0;
+                if (carvedSealed > 0) {
+                    const spanning = tryStairSpanningCorridor(frag, graph, corridorWidthM);
+                    if (spanning !== null && spanning.droppedRooms.length === 0
+                        && dependentsOffCorridor(spanning) < carvedSealed) {
+                        console.log(`[D-TGL subdivide] §STAIR-SEALED-DEPENDENT dominant-carve left ${carvedSealed} private/service room(s) OFF the corridor → §STAIR-SPANNING-CORRIDOR rescued (0 drops, more dependents on the spine)`);
+                        return finalise(spanning);
+                    }
+                }
+                console.log(`[D-TGL subdivide] §DIAG-BRANCH dominant-carve eligible: carveDrops=0 sealedDependents=${carvedSealed} → picked carve`);
                 return finalise(carved);
             }
             // §STAIR-SPANNING-CORRIDOR (tracker §52.3 / §52.6, 2026-06-11) — the
