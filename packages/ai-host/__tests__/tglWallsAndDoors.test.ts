@@ -622,15 +622,20 @@ describe('§WETROOM-PUBLIC-DOOR — a sealed ground-floor bathroom opens onto a 
         expect(sealedRoomIds).toContain('ba');
     });
 
-    it('WITH the flag, the sealed bathroom gets a NET-ADD door onto the HALL (founder priority hall ≫ living)', () => {
+    it('§HALL-NOT-WETROOM-ONLY: a bathroom adjacent ONLY to the HALL stays SEALED (never doored off the entrance hall)', () => {
+        // FOUNDER RULE (2026-06-22): "the only door from the hall to the rest of the layout
+        // cannot be to a bathroom." A wet room must NEVER be served off the entrance hall, so a
+        // bathroom whose only public-adjacent room is the hall is NOT opened onto it (stays sealed)
+        // — the hall is DELIBERATELY excluded from the wet-room fallback targets.
         const { placements, g } = buildSealedBath();
         const { openings, sealedRoomIds } = buildWallsAndDoors(placements, g, {
             groundFloorWetRoomPublicFallback: true,
         });
-        // The bathroom is no longer sealed — it doors onto the hall (its only shared
-        // public wall here, and the top founder priority).
-        expect(partnersOf(openings, 'ba')).toEqual(['h']);
-        expect(sealedRoomIds).not.toContain('ba');
+        // The bathroom must NOT door onto the hall …
+        expect(partnersOf(openings, 'ba')).not.toContain('h');
+        // … and with no corridor/living/dining-adjacent wall here it stays sealed (not forced onto the hall).
+        expect(partnersOf(openings, 'ba')).toEqual([]);
+        expect(sealedRoomIds).toContain('ba');
         // NET-ADD invariant: the pre-existing hall↔living door is untouched.
         expect(openings.some(o => {
             const s = new Set(o.betweenRoomIds);
@@ -638,7 +643,7 @@ describe('§WETROOM-PUBLIC-DOOR — a sealed ground-floor bathroom opens onto a 
         })).toBe(true);
     });
 
-    it('priority order: a bathroom adjacent to BOTH hall and living doors onto the HALL', () => {
+    it('§HALL-NOT-WETROOM-ONLY: a bathroom adjacent to BOTH hall and living doors onto the LIVING, never the hall', () => {
         // bathroom shares a wall with the hall (left) AND the living (right):
         //   hall    : x∈[0,4],  z∈[0,4]
         //   bathroom: x∈[4,8],  z∈[0,4]   (touches hall on the left, living on the right)
@@ -655,8 +660,9 @@ describe('§WETROOM-PUBLIC-DOOR — a sealed ground-floor bathroom opens onto a 
         const { openings } = buildWallsAndDoors([hall, bath, living], g, {
             groundFloorWetRoomPublicFallback: true,
         });
-        // hall (priority 0) wins over living (priority 1) — the bathroom doors onto the hall.
-        expect(partnersOf(openings, 'ba')).toEqual(['h']);
+        // The wet room is routed to the LIVING room — the hall is never a wet-room host (founder rule).
+        expect(partnersOf(openings, 'ba')).toEqual(['lv']);
+        expect(partnersOf(openings, 'ba')).not.toContain('h');
     });
 
     it('living fallback: a bathroom adjacent ONLY to the living doors onto the living', () => {

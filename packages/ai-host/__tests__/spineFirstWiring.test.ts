@@ -58,9 +58,23 @@ describe('§SPINE-FIRST P4 — subdivideWithReport({spineFirst:true}) on an uppe
         expect(corrP).toBeDefined();
         // corridor cells = the run rect (+ a leg, folded into cellPolygonById). For the wall check use
         // the run rect; rooms comb off it by construction.
-        const rooms = sub.placements.filter(p => p.roomId !== corridorId);
+        // §SUITE-HOST-ADJACENCY (founder rule, 2026-06-22) — an EN-SUITE must door to its HOST
+        // bedroom, NOT the corridor (it is carved into a corner of its host), so it is correctly NOT
+        // corridor-adjacent. Exempt ensuites from the every-room-on-the-corridor invariant; every
+        // OTHER private room (bedroom/master/bath) must still share a door-width corridor wall.
+        const ensuiteIds = new Set(graph.rooms.filter(r => r.type === 'ensuite').map(r => r.id));
+        const rooms = sub.placements.filter(p => p.roomId !== corridorId && !ensuiteIds.has(p.roomId));
         const offCorridor = rooms.filter(p => sharedWithCorridor(p.rect, [corrP.rect]) < DOOR);
-        expect(offCorridor.map(p => p.roomId), 'every private room shares a door-width corridor wall').toEqual([]);
+        expect(offCorridor.map(p => p.roomId), 'every non-ensuite private room shares a door-width corridor wall').toEqual([]);
+        // Each ensuite shares a wall with its host bedroom (host-adjacency by construction).
+        const byId = new Map(sub.placements.map(p => [p.roomId, p.rect]));
+        for (const e of graph.rooms.filter(r => r.type === 'ensuite')) {
+            const er = byId.get(e.id);
+            if (!er) continue;
+            const hostRect = byId.get(e.ensuiteHostId!);
+            expect(hostRect, `ensuite ${e.id} host placed`).toBeDefined();
+            expect(sharedWallM(er, hostRect!), `ensuite ${e.id} shares a wall with its host`).toBeGreaterThanOrEqual(DOOR);
+        }
         expect(sub.droppedRooms).toEqual([]);
     });
 

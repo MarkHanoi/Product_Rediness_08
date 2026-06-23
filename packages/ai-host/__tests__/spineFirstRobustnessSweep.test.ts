@@ -51,10 +51,24 @@ describe('§SPINE-FIRST P3 — subdivideViaSpine robustness vs the area-first 53
             try {
                 const graph = buildBubbleGraph(prog, area, poly, { envelopeFitGrowth: false });
                 const winMap = new Map(graph.rooms.map(r => [r.id, r.needsWindow]));
+                // §SUITE-HOST-ADJACENCY (founder rule, 2026-06-22) — an en-suite is carved into a
+                // CORNER of its host bedroom and doors to the HOST, never the corridor, so it is
+                // legitimately NOT corridor-adjacent. Exempt ensuites from the I1 corridor-wall
+                // invariant; they instead share a wall with their host (asserted in the unit test).
+                const ensuiteHostMap = new Map(graph.rooms.filter(r => r.type === 'ensuite').map(r => [r.id, r.ensuiteHostId]));
                 res = subdivideViaSpine(poly, graph);
                 if (!res) continue;
                 produced++;
-                const i1ok = res.rooms.every(p => sharedWallM(p.rect, res!.corridor) >= DOOR);
+                const rectById = new Map(res.rooms.map(p => [p.roomId, p.rect]));
+                const i1ok = res.rooms.every(p => {
+                    if (ensuiteHostMap.has(p.roomId)) {
+                        // An ensuite must share a wall with its host (host-adjacency), not the corridor.
+                        const host = ensuiteHostMap.get(p.roomId);
+                        const hr = host ? rectById.get(host) : undefined;
+                        return !!hr && sharedWallM(p.rect, hr) >= DOOR;
+                    }
+                    return sharedWallM(p.rect, res!.corridor) >= DOOR;
+                });
                 const i2ok = res.rooms.every(p => !winMap.get(p.roomId) || touchesFacade(p.rect, shell));
                 const noDrop = res.dropped.length === 0;
                 if (!i1ok) i1Fail++;

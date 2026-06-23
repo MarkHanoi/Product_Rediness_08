@@ -1308,6 +1308,80 @@ function carveEnsuiteCornerAwayFromCorridor(
 }
 
 /**
+ * §SUITE-HOST-ADJACENCY (founder rule, 2026-06-22) — "an en-suite ALWAYS needs to be connected
+ * to its master/bedroom". Carve the ensuite from a CORNER of its host's combined footprint with
+ * a HARD adjacency GUARANTEE: the ensuite ALWAYS shares the cut wall with its host (by
+ * construction — a split of one rect into two abutting rects). It NEVER bands the ensuite as a
+ * separate room. The two-tier policy:
+ *   1. PREFERRED — the corridor-avoiding corner carve (`carveEnsuiteCornerAwayFromCorridor`), so
+ *      the ensuite shares a wall ONLY with the host (no `ensuiteOnCorridor` purity violation).
+ *   2. GUARANTEED FALLBACK — when the preferred carve can't fit the ideal minima (the host band
+ *      is too shallow — the case that previously DROPPED the ensuite → it re-banded DETACHED in
+ *      a separate row), split the host's combined rect along whichever axis yields the largest
+ *      host remainder, seating the ensuite at its OWN minShortSide depth. The host may dip toward
+ *      a relaxed floor (it still keeps the LARGER part) and the ensuite may end up corridor-side,
+ *      but it is ATTACHED to its host with a real (≥ a door's-width) shared wall — the founder's
+ *      hard requirement. A door-pipeline pass can re-route a corridor-touch later; a DETACHED
+ *      ensuite cannot be rescued at all.
+ * Returns null ONLY when the host rect genuinely cannot seat a minimal ensuite + a minimal host
+ * (the combined short side < 2·ensuiteMin-ish): the caller then DROPS the ensuite (reports it),
+ * never ships it detached. Pure + deterministic (ADR-0061). Metres, world XZ.
+ */
+export function carveEnsuiteWithinHost(
+    hostRect: Rect,
+    ensuiteAreaM2: number,
+    corridorRect: Rect,
+): { master: Rect; ensuite: Rect } | null {
+    // Tier 1 — the ideal corridor-avoiding corner carve.
+    const ideal = carveEnsuiteCornerAwayFromCorridor(hostRect, ensuiteAreaM2, corridorRect);
+    if (ideal) return ideal;
+
+    // Tier 2 — GUARANTEED-adjacency fallback. Split the combined rect so the ensuite sits at its
+    // own minShortSide depth on the SHORTER plan span (the host keeps the larger, window-facing
+    // part) and BOTH rooms clear an absolute floor. The split line is a shared wall by
+    // construction, so the ensuite can never detach.
+    const W = hostRect.x1 - hostRect.x0;
+    const H = hostRect.z1 - hostRect.z0;
+    const ensMin = roomRule('ensuite').minShortSideM;
+    // Relaxed host floor: the ensuite minShortSide is the binding host floor in the fallback
+    // (we already failed the preferred bedroom-min carve). Never let the host go below the
+    // ensuite floor — that would make the "host" the smaller room.
+    const hostFloor = ensMin;
+
+    // tryCut across `longDim`, keeping `shortDim` as the shared span. The ensuite depth is the
+    // max of its minShortSide and the depth needed to hit its target area on the shared span,
+    // but never more than leaves the host its own floor.
+    const tryCut = (longDim: number, shortDim: number): number | null => {
+        if (shortDim < ensMin - EPS) return null;                  // shared span too narrow for an ensuite
+        if (longDim < hostFloor + ensMin - EPS) return null;       // can't seat host + ensuite at all
+        const want = Math.max(ensMin, ensuiteAreaM2 / shortDim);
+        const cut = Math.min(want, longDim - hostFloor);           // never starve the host below its floor
+        if (cut < ensMin - EPS) return null;
+        return cut;
+    };
+    const buildX = (): { master: Rect; ensuite: Rect } | null => {
+        const cut = tryCut(W, H);
+        if (cut === null) return null;
+        const split = hostRect.x1 - cut;                           // ensuite on the high-x corner
+        return {
+            master:  { x0: hostRect.x0, z0: hostRect.z0, x1: split,         z1: hostRect.z1 },
+            ensuite: { x0: split,       z0: hostRect.z0, x1: hostRect.x1,   z1: hostRect.z1 },
+        };
+    };
+    const buildZ = (): { master: Rect; ensuite: Rect } | null => {
+        const cut = tryCut(H, W);
+        if (cut === null) return null;
+        const split = hostRect.z1 - cut;                           // ensuite on the high-z corner
+        return {
+            master:  { x0: hostRect.x0, z0: hostRect.z0, x1: hostRect.x1, z1: split         },
+            ensuite: { x0: hostRect.x0, z0: split,       x1: hostRect.x1, z1: hostRect.z1   },
+        };
+    };
+    // Cut across the LONGER axis first (leaves the host the wider, more usable remainder).
+    return W >= H ? (buildX() ?? buildZ()) : (buildZ() ?? buildX());
+}
+
+/**
  * §SUITE-WITHIN-PARENT — carve EVERY suite's ensuite out of a CORNER of its host bedroom's
  * placed slice, AFTER the private rooms have been combed/squarified. GENERALISES the single
  * master→ensuite carve to N (host → ensuite) pairs:
@@ -1350,7 +1424,9 @@ function carveSuiteEnsuites(
         }
         const hostP = privatePlacements[hostIdx]!;
         const ec = suiteMode
-            ? carveEnsuiteCornerAwayFromCorridor(hostP.rect, area, corridorRect)
+            // §SUITE-HOST-ADJACENCY — guaranteed host-adjacency carve (ideal corridor-avoiding
+            // corner, else a guaranteed corner split). NEVER bands the ensuite detached.
+            ? carveEnsuiteWithinHost(hostP.rect, area, corridorRect)
             : tryCarveEnsuiteFromMaster(hostP.rect, area, corridorRect);
         if (ec) {
             privatePlacements[hostIdx] = { roomId: suite.hostId, rect: roundRect(ec.master) };

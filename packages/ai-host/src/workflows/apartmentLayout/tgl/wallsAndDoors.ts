@@ -1767,8 +1767,15 @@ export function buildWallsAndDoors(
     // floor a downstairs bathroom is a guest/cloakroom reached off the entrance hall /
     // living zone — so when the corridor doesn't reach it (or is itself sealed) every
     // standard pass above leaves it with ZERO doors. The founder explicitly authorised
-    // opening such an otherwise-SEALED wet room onto the nearest reachable PUBLIC space in
-    // the priority order hall → living → dining.
+    // opening such an otherwise-SEALED wet room onto the nearest reachable space in the
+    // priority order corridor → living → dining.
+    //
+    // §HALL-NOT-WETROOM-ONLY (founder rule, 2026-06-22) — "the only door from the hall to
+    // the rest of the layout cannot be to a bathroom". A wet room must NOT be served off the
+    // ENTRANCE HALL: doing so can make the hall's only connection a bathroom (the founder's
+    // ground-floor defect). So the `hall` is REMOVED from the wet-room fallback targets — the
+    // bathroom is routed to the corridor or a non-hall public room (living/dining) instead.
+    // The hall keeps its own door to the corridor / a public room via the standard passes.
     //
     // STRICTLY conservative:
     //   • fires ONLY for a `bathroom` that, after ALL standard passes, has ZERO built
@@ -1778,9 +1785,9 @@ export function buildWallsAndDoors(
     //     position is unchanged (§DIAG-PARITY-OPENINGS posDrift stays 0).
     //   • the relaxation is LOCAL (bypasses `permitted` for this one fallback pair only);
     //     the type-level matrix is untouched, so apartments / upper floors are unaffected.
-    //   • priority: hall first (the clean lobby), then living, then dining; within a
-    //     priority tier the LONGEST shared wall wins (most likely to host a clear door),
-    //     ties broken by stable id (deterministic).
+    //   • priority: corridor first (the proper circulation host), then living, then dining;
+    //     NEVER the hall. Within a priority tier the LONGEST shared wall wins (most likely to
+    //     host a clear door), ties broken by stable id (deterministic).
     if (opts.groundFloorWetRoomPublicFallback === true) {
         // Recompute door coverage from the openings placed so far (every standard pass).
         const hasAnyDoor = (id: string): boolean =>
@@ -1789,28 +1796,29 @@ export function buildWallsAndDoors(
                 const [a, b] = o.betweenRoomIds as readonly [string, string?];
                 return a === id || b === id;
             });
-        // Founder priority order for the public fallback target.
-        const PUBLIC_FALLBACK_PRIORITY: Record<string, number> = { hall: 0, living: 1, dining: 2 };
+        // Founder priority order for the public fallback target. §HALL-NOT-WETROOM-ONLY — the
+        // `hall` is DELIBERATELY ABSENT: a wet room may never be served off the entrance hall.
+        const PUBLIC_FALLBACK_PRIORITY: Record<string, number> = { corridor: 0, living: 1, dining: 2 };
         const sealedWetRooms = graph.rooms
             .filter(r => roomRule(r.type).type === 'bathroom' && !hasAnyDoor(r.id))
             .map(r => r.id)
             .sort();
         for (const id of sealedWetRooms) {
-            // Shared walls to a public hall / living / dining room, ranked by the founder
-            // priority (hall ≫ living ≫ dining), then LONGEST wall, then stable id.
+            // Shared walls to a corridor / living / dining room, ranked by the founder
+            // priority (corridor ≫ living ≫ dining — NEVER the hall), then LONGEST wall, then id.
             const candidates = shared
                 .map(w => {
                     const other = w.a === id ? w.b : w.b === id ? w.a : null;
                     if (other === null) return null;
                     const otherType = roomRule(typeOf.get(other) ?? '').type;
                     const prio = PUBLIC_FALLBACK_PRIORITY[otherType];
-                    if (prio === undefined) return null;             // not a hall/living/dining wall
+                    if (prio === undefined) return null;             // not a corridor/living/dining wall (hall excluded)
                     return { w, otherType, prio };
                 })
                 .filter((c): c is { w: typeof shared[number]; otherType: string; prio: number } => c !== null)
                 .sort((p, q) => p.prio - q.prio || q.w.len - p.w.len || (p.w.seg.id < q.w.seg.id ? -1 : 1));
             if (candidates.length === 0) {
-                console.log(`[D-TGL] §DIAG-WETROOM-PUBLIC skipped ${id}(bathroom) (no hall/living/dining-adjacent wall — stays sealed)`);
+                console.log(`[D-TGL] §DIAG-WETROOM-PUBLIC skipped ${id}(bathroom) (no corridor/living/dining-adjacent wall — hall excluded — stays sealed)`);
                 continue;
             }
             let placed = false;

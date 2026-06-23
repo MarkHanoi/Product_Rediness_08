@@ -69,7 +69,13 @@ export type HardFailedRule =
     // (the inspector's "Bedroom 1 — served through Dining / Bedroom 2") is a hard failure. Reads
     // the realised door set (not shared-wall adjacency); house path only. When EVERY strategy
     // strands a room the §TOPO-HARD-REJECT-ALL least-bad fallback still ships (house never empty).
-    | 'served-through';
+    | 'served-through'
+    // §HALL-NOT-WETROOM-ONLY (founder rule, 2026-06-22) — "the only door from the hall to the rest
+    // of the layout cannot be to a bathroom". A GROUND-floor entrance hall whose realised doors
+    // include a bathroom / private room but NOT a corridor-or-public (living/kitchen/dining) room is
+    // hard-invalid, so a candidate where the hall reaches circulation / a public room outranks it.
+    // House ground-floor only (caller gates on a hall being present); apartments byte-identical.
+    | 'hall-wetroom-only';
 
 /** §DIAG-MIN-AREA-GATE (tracker §68.1) — the habitable room types whose own
  *  `areaMin` is enforced as a HARD floor. A room of one of these types emitted below
@@ -687,8 +693,12 @@ function evaluateHardTopology(args: {
      *  (the "served-through" set, from `servedThroughPrivateRoomIds`). Empty on the apartment path
      *  (caller passes [] off the house path) ⇒ byte-identical. Non-empty ⇒ Rule 'served-through'. */
     readonly servedThroughRoomIds: readonly string[];
+    /** §HALL-NOT-WETROOM-ONLY (founder rule, 2026-06-22) — true ⇒ a GROUND-floor entrance hall's
+     *  realised doors include a bathroom/private room but NO corridor-or-public (living/kitchen/
+     *  dining) room. False on apartments / no-hall plates (caller gates it) ⇒ byte-identical. */
+    readonly hallWetRoomOnly: boolean;
 }): readonly HardFailedRule[] {
-    const { bubble, frontageHardRoomIds, unroutedToCirculationRoomIds, doorOpenings, hasRoomOverlap, hasUnderMinArea, hasMissingMandatory, unreachableHabitableRoomIds, corridorStairGap, corridorHallGap, corridorPurity, servedThroughRoomIds } = args;
+    const { bubble, frontageHardRoomIds, unroutedToCirculationRoomIds, doorOpenings, hasRoomOverlap, hasUnderMinArea, hasMissingMandatory, unreachableHabitableRoomIds, corridorStairGap, corridorHallGap, corridorPurity, servedThroughRoomIds, hallWetRoomOnly } = args;
     const typeById = new Map<string, string>();
     for (const r of bubble.rooms) typeById.set(r.id, r.type);
 
@@ -827,6 +837,15 @@ function evaluateHardTopology(args: {
     // safety net as the other corridor rules (every-strategy-strands ⇒ §TOPO-HARD-REJECT-ALL ships).
     if (servedThroughRoomIds.length > 0) {
         failed.push('served-through');
+    }
+
+    // Rule HW — §HALL-NOT-WETROOM-ONLY (founder rule, 2026-06-22). "The only door from the hall to
+    // the rest of the layout cannot be to a bathroom." A ground-floor entrance hall whose realised
+    // doors reach a bathroom/private room but NOT a corridor-or-public room is a hard failure, so a
+    // candidate where the hall doors onto circulation / a public room (the proper arrival hub)
+    // outranks it. Computed at the call site from the realised door set (house ground-floor only).
+    if (hallWetRoomOnly) {
+        failed.push('hall-wetroom-only');
     }
 
     return failed;
@@ -2044,6 +2063,29 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     const servedThroughRoomIds = housePath
         ? servedThroughPrivateRoomIds({ bubble, doorOpenings })
         : [];
+    // §HALL-NOT-WETROOM-ONLY (founder rule, 2026-06-22) — the GROUND-floor entrance hall must NOT
+    // be served SOLELY by a bathroom/private room: at least one of its realised doors must reach a
+    // corridor-or-public (living/kitchen/dining) room. Reads the emitted door set (the same set the
+    // `privacy` rule uses). House ground-floor only (a hall is present) ⇒ apartment byte-identical.
+    const hallWetRoomOnly = ((): boolean => {
+        if (!isGroundFloor) return false;                 // house ground floor only (entrance hall present)
+        const hall = bubble.rooms.find(r => roomRule(r.type).type === 'hall');
+        if (!hall) return false;
+        const typeById = new Map(bubble.rooms.map(r => [r.id, r.type]));
+        let hasWetOrPrivate = false, hasCorridorOrPublic = false;
+        for (const o of doorOpenings) {
+            if (o.type !== 'door') continue;
+            const [a, b] = o.betweenRoomIds as readonly [string, string?];
+            if (!a || !b) continue;
+            const other = a === hall.id ? b : b === hall.id ? a : null;
+            if (other === null) continue;
+            const t = roomRule(typeById.get(other) ?? '').type;
+            if (t === 'corridor' || t === 'stair' || roomRule(t).privacy === 'public') hasCorridorOrPublic = true;
+            else if (t === 'bathroom' || t === 'ensuite' || t === 'wc' || isPrivate(t)) hasWetOrPrivate = true;
+        }
+        // Hard-invalid ONLY when the hall reaches a wet/private room but NO corridor-or-public room.
+        return hasWetOrPrivate && !hasCorridorOrPublic;
+    })();
     const hardFailedRules = evaluateHardTopology({
         bubble,
         frontageHardRoomIds: frontage.hardFindings.map(f => f.roomId),
@@ -2057,6 +2099,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         corridorHallGap,
         corridorPurity,
         servedThroughRoomIds,
+        hallWetRoomOnly,
     });
     const hardValid = hardFailedRules.length === 0;
     // §DIAG-TOPO-GATE — per-candidate hard-gate decision line (logging only).
