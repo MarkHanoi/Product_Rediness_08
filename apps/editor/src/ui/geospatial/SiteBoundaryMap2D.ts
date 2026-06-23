@@ -66,6 +66,8 @@ import { fetchContextBuildings } from './contextBuildings.js';
 import { setNeighbourFootprints } from '../site/neighbourFootprintStore.js';
 // A.21.D60 — pure relative-right-angle (orthogonal-to-previous-edge) draw aid.
 import { resolveOrthoSnap } from './orthoSnap.js';
+// §RECT-BOUNDARY — pure two-corner → axis-aligned CCW rectangle corner builder.
+import { rectCornersFromOpposite } from './rectBoundary.js';
 
 /** §BND-90-DEFAULT-ON — forgiving lock band (deg) for freehand map drawing (was the
  *  8° ORTHO_SNAP_TOLERANCE_DEG, too tight to hit by hand now the lock is default-on). */
@@ -234,9 +236,11 @@ export function mountSiteBoundaryMap2D(
     } satisfies Partial<CSSStyleDeclaration>);
     overlay.appendChild(mapEl);
 
-    // Instruction chip.
+    // Instruction chip. Text is mode-dependent (see refreshChip below): the
+    // §RECT-BOUNDARY rectangle mode shows "Click two opposite corners"; the legacy
+    // polygon mode keeps the vertex-by-vertex instruction.
     const chip = document.createElement('div');
-    chip.textContent = 'Click each corner · double-click or Enter to close · Esc to cancel';
+    chip.textContent = 'Click two opposite corners · Esc to cancel';
     Object.assign(chip.style, {
         position: 'absolute',
         top: '12px',
@@ -319,6 +323,51 @@ export function mountSiteBoundaryMap2D(
     toggle.appendChild(satBtn);
     overlay.appendChild(toggle);
 
+    // ── §RECT-BOUNDARY — Rectangle / Polygon draw-mode toggle (top-left) ────────
+    // Default = Rectangle (founder "for now"): click two opposite corners → an
+    // axis-aligned rectangle boundary, the clean shape the residential/house/
+    // apartment generators expect. Polygon = the legacy vertex-by-vertex draw.
+    // Same on-brand white + #6600FF segmented control as the basemap toggle.
+    const modeToggle = document.createElement('div');
+    modeToggle.className = 'pryzm-gis-drawmode-toggle';
+    Object.assign(modeToggle.style, {
+        position: 'absolute',
+        top: '52px',
+        left: '12px',
+        zIndex: '21',
+        display: 'flex',
+        gap: '0',
+        borderRadius: '8px',
+        overflow: 'hidden',
+        border: `1px solid ${VIOLET}`,
+        background: 'rgba(255,255,255,0.92)',
+        boxShadow: '0 2px 10px rgba(60,52,40,0.18)',
+        font: '12px/1 system-ui, sans-serif',
+    } satisfies Partial<CSSStyleDeclaration>);
+
+    function makeModeBtn(label: string, mode: 'rectangle' | 'polygon'): HTMLButtonElement {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = label;
+        b.dataset['drawmode'] = mode;
+        b.setAttribute('aria-label', `${label} boundary draw mode`);
+        Object.assign(b.style, {
+            border: 'none',
+            padding: '7px 12px',
+            cursor: 'pointer',
+            background: 'transparent',
+            color: '#2a2438',
+            font: 'inherit',
+            fontWeight: '600',
+        } satisfies Partial<CSSStyleDeclaration>);
+        return b;
+    }
+    const rectModeBtn = makeModeBtn('▭ Rectangle', 'rectangle');
+    const polyModeBtn = makeModeBtn('⬡ Polygon', 'polygon');
+    modeToggle.appendChild(rectModeBtn);
+    modeToggle.appendChild(polyModeBtn);
+    overlay.appendChild(modeToggle);
+
     // ── A.21.D60 — "⟂ Orthogonal to previous edge" toggle (bottom-centre HUD) ────
     // Compact brand white + #6600FF checkbox shown ONLY while drawing (removed on
     // commit/cancel via freezeDraw/dispose). Default ON. Toggling flips `orthoEnabled`
@@ -386,6 +435,14 @@ export function mountSiteBoundaryMap2D(
 
     // ── State ─────────────────────────────────────────────────────────────────
     const vertices: LatLon[] = [];
+    // §RECT-BOUNDARY — draw mode. Rectangle is the DEFAULT (founder "for now"): the
+    // first click records corner A, the second commits an axis-aligned rectangle.
+    // Polygon = the legacy vertex-by-vertex draw (Enter / dbl-click to close).
+    let drawMode: 'rectangle' | 'polygon' = 'rectangle';
+    // §RECT-BOUNDARY — the first clicked corner in rectangle mode (null = awaiting
+    // the first click). The live rubber-band rectangle previews from here to the
+    // cursor; the second click commits.
+    let rectCornerA: LatLon | null = null;
     let draggingIdx: number | null = null;
     let disposed = false;
     // O.7.2.b — set true by commit(). The map + boundary stay rendered, but draw
@@ -739,8 +796,10 @@ export function mountSiteBoundaryMap2D(
         if (bestCorner) return { lon: bestCorner.lon, lat: bestCorner.lat, kind: 'corner' };
         if (bestEdge) return { lon: bestEdge.lon, lat: bestEdge.lat, kind: 'edge' };
 
-        // Fallback — close-the-loop snap to our own first vertex.
-        if (vertices.length >= 3) {
+        // Fallback — close-the-loop snap to our own first vertex (polygon mode only;
+        // in rectangle mode `vertices` holds the 4 live preview corners, so this
+        // would wrongly snap corner B back onto corner A).
+        if (drawMode === 'polygon' && vertices.length >= 3) {
             const first = vertices[0]!;
             const fp = map.project([first.lon, first.lat]);
             if (pxDist2(pt.x, pt.y, fp.x, fp.y) <= thr2) {
@@ -788,6 +847,24 @@ export function mountSiteBoundaryMap2D(
     }
 
     // ── Draw interactions ─────────────────────────────────────────────────────
+
+    /**
+     * §RECT-BOUNDARY — build the live 4-corner axis-aligned rectangle from corner A
+     * to the given second corner and write it into `vertices` (reusing the polygon
+     * render path: fill + line + handles). Returns false when the two corners are
+     * degenerate (same lat OR lon → zero area), leaving `vertices` as just [A].
+     */
+    function setRectVertices(a: LatLon, b: LatLon): boolean {
+        const corners = rectCornersFromOpposite(a, b);
+        vertices.length = 0;
+        if (!corners) {
+            vertices.push({ lat: a.lat, lon: a.lon });
+            return false;
+        }
+        vertices.push(...corners);
+        return true;
+    }
+
     function onClick(e: MapMouseEvent): void {
         if (disposed || committed) return;
         // Ignore the click that ends a vertex-drag.
@@ -796,6 +873,37 @@ export function mountSiteBoundaryMap2D(
         const snap = snapTarget;
         const lat = snap ? snap.lat : e.lngLat.lat;
         const lon = snap ? snap.lon : e.lngLat.lng;
+
+        // §RECT-BOUNDARY — rectangle mode: first click = corner A; second = corner B
+        // → IMMEDIATE commit of the axis-aligned rectangle.
+        if (drawMode === 'rectangle') {
+            if (!rectCornerA) {
+                rectCornerA = { lat, lon };
+                vertices.length = 0;
+                vertices.push({ lat, lon }); // show a handle at corner A
+                snapTarget = null;
+                refreshSnapIndicator();
+                refreshRing();
+                console.log(`[gis] map2d rect corner A @ ${lat.toFixed(6)}, ${lon.toFixed(6)}`);
+                return;
+            }
+            const ok = setRectVertices(rectCornerA, { lat, lon });
+            snapTarget = null;
+            refreshSnapIndicator();
+            refreshRing();
+            if (!ok) {
+                console.warn('[gis] map2d rect: degenerate second corner (zero-area) — pick a corner with both lat and lon offset');
+                toast('Pick the OPPOSITE corner (not on the same line).', 'error');
+                return;
+            }
+            console.log(
+                `[gis] map2d rect corner B @ ${lat.toFixed(6)}, ${lon.toFixed(6)} → 4-corner axis-aligned rectangle, committing`,
+            );
+            commit();
+            return;
+        }
+
+        // Polygon mode (legacy): each click adds a vertex.
         vertices.push({ lat, lon });
         // Clear the snap so it doesn't linger over the just-placed vertex.
         snapTarget = null;
@@ -809,6 +917,9 @@ export function mountSiteBoundaryMap2D(
 
     function onDblClick(e: MapMouseEvent): void {
         if (disposed || committed) return;
+        // §RECT-BOUNDARY — rectangle mode commits on the second single click; the
+        // close-the-loop double-click is a polygon-only affordance.
+        if (drawMode === 'rectangle') { e.preventDefault(); return; }
         e.preventDefault();
         // The dblclick fires after two single clicks already added two vertices;
         // they are the intended last corner (duplicated) — drop one before commit.
@@ -840,12 +951,26 @@ export function mountSiteBoundaryMap2D(
         // A.21.D60 — the building corner/edge/loop snap takes PRIORITY; only when it
         // finds nothing do we fall back to the relative right-angle (ortho) lock, so
         // the user can still land exactly on a real corner when one is in range.
-        const next = resolveSnap(e.point) ?? resolveOrthoSnapTarget(e.point);
+        // §RECT-BOUNDARY — rectangle mode is axis-aligned by construction, so the
+        // relative-right-angle (ortho) snap doesn't apply (and would make the live
+        // rect jitter, since it'd read the preview rect's own edges). Keep the
+        // building corner/edge snap so corner B can land on a real footprint corner.
+        const next =
+            drawMode === 'rectangle'
+                ? resolveSnap(e.point)
+                : (resolveSnap(e.point) ?? resolveOrthoSnapTarget(e.point));
         // A.21.D9 — track the cursor (snapped position when a snap is active, else
         // the raw lngLat) so the live in-progress edge label follows the pointer.
         cursorLL = next
             ? { lat: next.lat, lon: next.lon }
             : { lat: e.lngLat.lat, lon: e.lngLat.lng };
+        // §RECT-BOUNDARY — live rubber-band rectangle: once corner A is placed,
+        // preview the axis-aligned rectangle from A to the cursor via the SAME
+        // fill/line/vertex render path the committed boundary uses.
+        if (drawMode === 'rectangle' && rectCornerA) {
+            setRectVertices(rectCornerA, cursorLL);
+            refreshRing();
+        }
         refreshDimLabels();
         const changed =
             (next === null) !== (snapTarget === null) ||
@@ -875,6 +1000,9 @@ export function mountSiteBoundaryMap2D(
         if (disposed || committed) return;
         if (ev.key === 'Enter') {
             ev.preventDefault();
+            // §RECT-BOUNDARY — Enter is a polygon-only close. Rectangle commits on the
+            // second click; a stray Enter must not commit the live preview rect.
+            if (drawMode === 'rectangle') return;
             commit();
         } else if (ev.key === 'Escape') {
             ev.preventDefault();
@@ -939,6 +1067,48 @@ export function mountSiteBoundaryMap2D(
             refreshDimLabels();
         } catch { /* style may be swapping — ignore */ }
     });
+
+    // ── §RECT-BOUNDARY — draw-mode toggle (Rectangle / Polygon) ────────────────
+    /** Paint the active draw-mode segment violet, the inactive white. */
+    function paintModeToggle(): void {
+        for (const b of [rectModeBtn, polyModeBtn]) {
+            const active = b.dataset['drawmode'] === drawMode;
+            b.style.background = active ? VIOLET : 'transparent';
+            b.style.color = active ? '#ffffff' : '#2a2438';
+            b.setAttribute('aria-pressed', String(active));
+        }
+    }
+    /** Update the instruction chip + ortho HUD visibility for the active mode. */
+    function refreshModeChrome(): void {
+        chip.textContent =
+            drawMode === 'rectangle'
+                ? 'Click two opposite corners · Esc to cancel'
+                : 'Click each corner · double-click or Enter to close · Esc to cancel';
+        // The ⟂ ortho lock is a polygon-only affordance (rectangle is axis-aligned by
+        // construction). Hide it in rectangle mode.
+        orthoHud.style.display = drawMode === 'rectangle' ? 'none' : '';
+    }
+    /** Switch draw mode, resetting any in-progress draw so the modes don't bleed. */
+    function setDrawMode(next: 'rectangle' | 'polygon'): void {
+        if (disposed || committed || next === drawMode) return;
+        drawMode = next;
+        // Reset the in-progress draw (clears corner A / partial polygon).
+        rectCornerA = null;
+        vertices.length = 0;
+        snapTarget = null;
+        cursorLL = null;
+        try { refreshRing(); } catch { /* style may be swapping */ }
+        try { refreshSnapIndicator(); } catch { /* ignore */ }
+        try { refreshDimLabels(); } catch { /* ignore */ }
+        paintModeToggle();
+        refreshModeChrome();
+        console.log(`[gis] map2d: draw mode → ${next}`);
+    }
+    rectModeBtn.addEventListener('click', () => setDrawMode('rectangle'));
+    polyModeBtn.addEventListener('click', () => setDrawMode('polygon'));
+    // Initial paint — Rectangle is the default (founder "for now").
+    paintModeToggle();
+    refreshModeChrome();
 
     // ── Commit / cancel ───────────────────────────────────────────────────────
 
