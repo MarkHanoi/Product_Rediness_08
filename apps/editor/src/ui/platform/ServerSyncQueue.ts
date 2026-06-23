@@ -39,6 +39,26 @@ function backoffMs(attemptIndex: number): number {
 const QUEUE_STORAGE_KEY = 'pryzm-sync-queue';
 const MAX_QUEUE_ITEMS = 50;
 
+/**
+ * §SYNC-QUEUE-QUOTA (2026-06-23) — soft byte budget for the persisted queue.
+ *
+ * Each QueueItem carries a FULL VersionRecord.snapshot (the entire serialised
+ * BIM scene — every wall/slab/element). A single real project snapshot is
+ * easily hundreds of KB to several MB. localStorage is ~5 MB *total* and is
+ * shared with the actual project data (`bim-project-*`, `bim-projects-index`).
+ * Serialising up to 50 full snapshots therefore blows the quota → setItem
+ * throws QuotaExceededError → the old catch silently dropped the ENTIRE queue
+ * → any not-yet-synced autosaves were lost on reload.
+ *
+ * We cap the persisted payload at ~1.5 MB and keep the NEWEST items that fit,
+ * dropping oldest first. The newest queued version is always the most valuable
+ * (it supersedes older snapshots of the same project), so trimming oldest is
+ * the data-safe choice. In-memory `this.queue` is untouched — only what we
+ * write to localStorage is trimmed, so the live session still retries every
+ * item; the trim only bounds what survives a reload.
+ */
+const PERSIST_BYTE_BUDGET = 1_500_000;
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface QueueItem {
@@ -46,6 +66,43 @@ interface QueueItem {
     projectId: string;
     attemptCount: number;
     nextAttemptAt: number;
+}
+
+interface SerialisableQueueItem {
+    version: VersionRecord;
+    projectId: string;
+    attemptCount: number;
+    nextAttemptAt: number;
+}
+
+/**
+ * §SYNC-QUEUE-QUOTA — pure helper: given the queue items (oldest→newest) and a
+ * byte budget, return the JSON string for the LARGEST newest-first suffix whose
+ * UTF-16 byte estimate fits the budget, plus how many oldest items were dropped.
+ *
+ * Returns `null` when even a single (the newest) item exceeds the budget — the
+ * caller then logs and skips the write rather than throwing. Exported for unit
+ * testing; has no DOM / localStorage dependency.
+ */
+export function buildPersistedQueuePayload(
+    items: ReadonlyArray<SerialisableQueueItem>,
+    byteBudget: number = PERSIST_BYTE_BUDGET,
+): { json: string; dropped: number } | null {
+    if (items.length === 0) return { json: '[]', dropped: 0 };
+
+    // Keep the newest items (end of the array); drop oldest (front) until it fits.
+    let start = 0;
+    while (start < items.length) {
+        const slice = items.slice(start);
+        const json = JSON.stringify(slice);
+        // UTF-16 string length × 2 ≈ stored byte size (localStorage stores UTF-16).
+        if (json.length * 2 <= byteBudget) {
+            return { json, dropped: start };
+        }
+        start++;
+    }
+    // Even the single newest item is over budget.
+    return null;
 }
 
 export interface ServerSyncQueueOptions {
@@ -434,19 +491,77 @@ export class ServerSyncQueue {
 
     private persistQueue(): void {
         if (this.queue.length === 0) {
-            try { localStorage.removeItem(QUEUE_STORAGE_KEY); } catch { }
+            try { localStorage.removeItem(QUEUE_STORAGE_KEY); } catch { /* localStorage unavailable */ }
             return;
         }
-        try {
-            const serialisable = this.queue.map(item => ({
-                version: item.version,
-                projectId: item.projectId,
-                attemptCount: item.attemptCount,
-                nextAttemptAt: item.nextAttemptAt,
-            }));
-            localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(serialisable));
-        } catch {
-            console.warn('[ServerSyncQueue] Could not persist queue to localStorage');
+
+        const serialisable: SerialisableQueueItem[] = this.queue.map(item => ({
+            version: item.version,
+            projectId: item.projectId,
+            attemptCount: item.attemptCount,
+            nextAttemptAt: item.nextAttemptAt,
+        }));
+
+        // §SYNC-QUEUE-QUOTA — trim to the byte budget BEFORE the write so the
+        // serialised payload is bounded. Then write with a quota-aware retry: if
+        // the environment's real quota is still exceeded (other localStorage
+        // consumers, smaller browser limit), drop the oldest surviving item and
+        // retry, so we always persist the NEWEST autosaves rather than losing the
+        // whole queue. This is the data-safety fix: a reload now recovers the most
+        // recent queued versions instead of an all-or-nothing drop.
+        const built = buildPersistedQueuePayload(serialisable);
+        if (built === null) {
+            console.warn(
+                '[ServerSyncQueue] Newest queued version exceeds the persist byte budget ' +
+                `(~${PERSIST_BYTE_BUDGET} bytes) — cannot persist it to localStorage. ` +
+                'It stays in memory and will retry this session, but will NOT survive a reload.',
+            );
+            return;
+        }
+        if (built.dropped > 0) {
+            console.warn(
+                `[ServerSyncQueue] Persist budget reached — keeping the ${serialisable.length - built.dropped} ` +
+                `newest queued version(s), dropping ${built.dropped} oldest from the PERSISTED copy ` +
+                '(still retried in memory this session).',
+            );
+        }
+
+        // candidate = the items we will actually try to write (newest suffix).
+        let candidate = serialisable.slice(built.dropped);
+        let json = built.json;
+        // Retry loop: at most one write per surviving item.
+        for (;;) {
+            try {
+                localStorage.setItem(QUEUE_STORAGE_KEY, json);
+                return;
+            } catch (err) {
+                const name = (err as { name?: string } | null)?.name ?? '';
+                const isQuota =
+                    name === 'QuotaExceededError' ||
+                    name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+                    // Some engines report quota as code 22 with no useful name.
+                    (err as { code?: number } | null)?.code === 22;
+                if (isQuota && candidate.length > 1) {
+                    // Drop the oldest surviving item and retry with the rest.
+                    candidate = candidate.slice(1);
+                    json = JSON.stringify(candidate);
+                    console.warn(
+                        `[ServerSyncQueue] localStorage quota exceeded — dropping oldest persisted item, ` +
+                        `retrying with ${candidate.length} item(s).`,
+                    );
+                    continue;
+                }
+                // Non-quota error, or we are down to a single item that still
+                // won't fit. Log the REAL reason and fail safe (in-memory queue
+                // is intact; this session still retries the network sync).
+                console.warn(
+                    '[ServerSyncQueue] Could not persist queue to localStorage ' +
+                    `(${name || 'unknown error'}) — in-memory queue preserved, server retries continue. ` +
+                    'Queued autosaves may not survive a reload.',
+                    err,
+                );
+                return;
+            }
         }
     }
 
