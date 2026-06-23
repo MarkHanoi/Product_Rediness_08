@@ -107,7 +107,11 @@ export interface EventCatalog {
   'bim-stair-removed':        { id: string };
   'bim-stair-type-added':     { id: string };
   'bim-stair-type-removed':   { id: string };
-  'bim-stair-updated':        { id: string };
+  // §STAIR-LIVE-PREVIEW-3D — an optional inline `stair` object lets the
+  // path-tool live-preview (and the transform-drag runtime.events channel)
+  // stream a full stair the builder can render WITHOUT a store entry (the
+  // reserved `stair-path-preview` id is intentionally not stored).
+  'bim-stair-updated':        { id: string; stair?: unknown };
   'bim-store-mutated':        Record<string, never>;
   'bim-subscriber-error':     { message: string; source?: string; error?: string; event?: string; columnId?: string; slabId?: string; wallId?: string; beamId?: string };
   'bim-tool-changed':         { tool: string | null };

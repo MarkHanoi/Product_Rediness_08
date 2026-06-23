@@ -100,6 +100,14 @@ export class StairPath3DToolHandler {
             },
         };
 
+        // §STAIR-ACTIVATE-GUARD (2026-06-23) — controller construction,
+        // _ctrl.activate() and _bindPointerEvents() all run AFTER we disable
+        // camera-controls (§STAIR-CLICK-FIX) and SelectionManager
+        // (§STAIR-CLICK-FIX-2). If any of them throws, deactivate() would never
+        // run and both stay permanently off → the whole viewport goes dead
+        // (no orbit, no selection). Wrap the setup so a throw always restores
+        // controls + selection via deactivate().
+        try {
         this._ctrl = new StairPathToolController({
             container:          document.body,
             coordinateCanvas:   canvas,             // overlay aligns to the 3D viewport
@@ -173,6 +181,12 @@ export class StairPath3DToolHandler {
         window.runtime?.events?.emit('stair-path-tool:activated', {});
         console.log(`[StairPath3DToolHandler] activated in 3D (shape=${shape ?? 'free'}, groundY=${groundY})`);
         return true;
+        } catch (e) {
+            // §STAIR-ACTIVATE-GUARD — restore camera-controls + selection.
+            console.warn('[stair] activate failed', e);
+            this.deactivate();
+            return false;
+        }
     }
 
     deactivate(): void {

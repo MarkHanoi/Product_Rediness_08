@@ -256,7 +256,14 @@ export class StairPathAdapter {
             },
         };
 
-        _bus.emit('bim-stair-updated', { id: previewStair.id }); // F.events.18
+        // §STAIR-LIVE-PREVIEW-3D — emit the FULL preview stair object so the
+        // StairMeshBuilder handler's inline branch (resolveStair → payload.stair)
+        // fires. The preview id is NOT in the StairStore, so a bare `{ id }`
+        // payload resolves to undefined and no ghost mesh is ever built — the
+        // user saw only the thin 2D overlay line while dragging. Sending the
+        // object lets the builder render the blue translucent preview ghost
+        // (it keys isPreview on the `stair-path-preview` id).
+        _bus.emit('bim-stair-updated', { id: previewStair.id, stair: previewStair }); // F.events.18
     }
 
     /**

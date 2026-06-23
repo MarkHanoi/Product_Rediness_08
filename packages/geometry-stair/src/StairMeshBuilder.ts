@@ -64,13 +64,20 @@ export class StairMeshBuilder {
             if (payload?.stair) return payload.stair as StairData;
             return payload?.id ? this.stairStore?.get(payload.id) : undefined;
         };
+        // §STAIR-LIVE-PREVIEW-3D — the path-tool adapter (StairPathAdapter
+        // .dispatchLivePreview) streams an inline preview stair under the
+        // reserved id `stair-path-preview` (it is intentionally NOT in the
+        // store). Render any such stair as a PREVIEW so the builder uses the
+        // blue translucent material + skips plan symbols / selectability,
+        // matching the older StairCreationController preview path.
+        const PREVIEW_STAIR_ID = 'stair-path-preview';
         const onAdded = (e: Event) => {
             const stair = resolveStair((e as CustomEvent).detail);
-            if (stair) this.updateStair(stair, false);
+            if (stair) this.updateStair(stair, stair.id === PREVIEW_STAIR_ID);
         };
         const onUpdated = (e: Event) => {
             const stair = resolveStair((e as CustomEvent).detail);
-            if (stair) this.updateStair(stair, false);
+            if (stair) this.updateStair(stair, stair.id === PREVIEW_STAIR_ID);
         };
         const onRemoved = (e: Event) => {
             const detail = (e as CustomEvent).detail;
@@ -81,7 +88,7 @@ export class StairMeshBuilder {
         window.addEventListener('bim-stair-updated', onUpdated);
         const _unsubStairUpdated = (window as any).runtime?.events?.on('bim-stair-updated', (payload: { id?: string; stair?: unknown }) => { // F.events.15
             const stair = resolveStair(payload);
-            if (stair) this.updateStair(stair, false);
+            if (stair) this.updateStair(stair, stair.id === PREVIEW_STAIR_ID);
         });
         window.addEventListener('bim-stair-removed', onRemoved);
         this._disposers.push(
