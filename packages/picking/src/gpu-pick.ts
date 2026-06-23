@@ -154,8 +154,16 @@ export class GpuPickStrategy implements PickStrategy {
    */
   private static readonly SCREEN_SEARCH_RADIUS_PX = 8;
 
-  /** Upper bound on either auto-sized target axis (memory + render-cost guard). */
-  private static readonly MAX_AUTO_DIM = 1280;
+  /**
+   * §SELECT-PICK-RESOLUTION — fallback hard cap on either auto-sized target axis,
+   * used ONLY when the renderer doesn't report `maxTextureSize`.  4096 is the
+   * WebGL2 guaranteed-minimum MAX_TEXTURE_SIZE, so it is always safe to allocate.
+   * The PRODUCTION cap is the GPU's real `maxTextureSize` (typically 8192–16384),
+   * passed in via ctx.renderer.maxTextureSize — NOT this constant, and NOT the
+   * old fixed 1280 that downscaled a 1910-wide viewport to 0.67× and made thin
+   * elements (columns, railings) unhittable.
+   */
+  private static readonly FALLBACK_MAX_DIM = 4096;
 
   private readonly pickScene = new THREE.Scene();
   private readonly entries = new Map<ElementId, PickEntry>();
@@ -622,40 +630,42 @@ export class GpuPickStrategy implements PickStrategy {
   }
 
   /**
-   * §SELECT-3D-FORGIVING — when auto-sizing, match the pick render target to the
-   * live viewport (capped to MAX_AUTO_DIM, aspect-preserving) so the pick is 1:1
-   * with the rendered image.  The previous fixed 256² target downscaled a
-   * 1920-wide viewport by ~7.5×, so thin elements (railings, edge-on walls, slim
-   * furniture) produced no pixels and were unhittable.  Recreates the (id + depth)
-   * targets when the size changes, disposing the old ones first.  No-op for
-   * fixed-size callers (unit tests) so their exact-pixel expectations hold.
+   * §SELECT-PICK-RESOLUTION — when auto-sizing, match the pick render target to
+   * the FULL device-pixel viewport (viewport × dpr) via computePickTargetSize,
+   * clamped only to the GPU's real maxTextureSize, so the id-buffer is >= 1:1
+   * with the rendered image.  The previous fixed 1280 cap downscaled a 1910-wide
+   * viewport to ~0.67×, so thin elements (columns, railings, edge-on walls) lost
+   * their pixels in the id-buffer and the pick fell through to the larger element
+   * behind them.  Recreates the (id + depth) targets when the size changes,
+   * disposing the old ones first.  No-op for fixed-size callers (unit tests) so
+   * their exact-pixel expectations hold.
    */
   private _syncTargetSize(ctx: PickContext): void {
     if (!this._autoSize) return;
     const vw = ctx.viewportWidth;
     const vh = ctx.viewportHeight;
     if (!(vw > 0) || !(vh > 0)) return;
-    const scale = Math.min(1, GpuPickStrategy.MAX_AUTO_DIM / Math.max(vw, vh));
-    const tw = Math.max(1, Math.round(vw * scale));
-    const th = Math.max(1, Math.round(vh * scale));
-    if (tw === this.targetWidth && th === this.targetHeight && this.renderTarget !== null) return;
-    // §SELECT-PICK-RESOLUTION diagnostic — print the EFFECTIVE pick resolution
-    // exactly once per size change (the guard above throttles it to first-pick +
-    // each viewport resize). The rendered image is `viewport × devicePixelRatio`,
-    // so `pick:rendered < 1` means the pick under-samples what the user sees and
-    // thin elements (railings, edge-on walls) are hard to hit. Two causes are
-    // visible here without guessing: (1) MAX_AUTO_DIM cap clamps wide viewports;
-    // (2) we size to CSS px, ignoring dpr, so HiDPI is sub-1:1 even below the cap.
-    // The fix (raise cap and/or dpr-scale) trades hover render cost, so it is
-    // gated on this number rather than applied blindly.
+    // §SELECT-PICK-RESOLUTION — size the pick target to the FULL device-pixel
+    // viewport (viewport × dpr) so the id-buffer is ≥ 1:1 with what the user
+    // sees, clamped ONLY to the GPU's real max texture size (or a safe 4096
+    // fallback when unreported).  This replaces the old fixed 1280 cap +
+    // dpr-blind sizing that rendered thin elements at 0.67× and dropped them
+    // from the id-buffer entirely.
     const dpr = (globalThis as { devicePixelRatio?: number }).devicePixelRatio ?? 1;
+    const maxTex = ctx.renderer?.maxTextureSize ?? GpuPickStrategy.FALLBACK_MAX_DIM;
+    const { width: tw, height: th } = computePickTargetSize(vw, vh, dpr, maxTex);
+    if (tw === this.targetWidth && th === this.targetHeight && this.renderTarget !== null) return;
+    // Diagnostic — print the EFFECTIVE pick resolution exactly once per size
+    // change (the guard above throttles it to first-pick + each viewport
+    // resize).  `pick:rendered >= 1` now is the goal: the pick samples at least
+    // as densely as the rendered image, so thin elements survive in the buffer.
     const pickToRendered = tw / Math.max(1, vw * dpr);
     console.log(
       `[GpuPick] §SELECT-PICK-RESOLUTION target=${tw}x${th} viewport=${vw}x${vh} ` +
-      `dpr=${dpr} cap=${GpuPickStrategy.MAX_AUTO_DIM} pick:rendered=${pickToRendered.toFixed(2)}` +
+      `dpr=${dpr} maxTex=${maxTex} pick:rendered=${pickToRendered.toFixed(2)}` +
       (pickToRendered < 0.999
-        ? ' (SUB-1:1 — thin elements under-sample; raise cap and/or dpr-scale if picks feel imprecise)'
-        : ' (>=1:1)'),
+        ? ' (SUB-1:1 — clamped to GPU maxTextureSize; thin elements may still under-sample on extreme HiDPI/4K)'
+        : ' (>=1:1 — pick matches rendered density; thin elements preserved)'),
     );
     // Size changed (first pick, or viewport resize) — drop old targets so the
     // ensure*Target helpers recreate them at the new resolution.  Optional
@@ -669,11 +679,24 @@ export class GpuPickStrategy implements PickStrategy {
   }
 
   /**
-   * §SELECT-3D-FORGIVING — read the slot at the centre pixel; if it is background
-   * (0) and a search radius is given, scan the (2r+1)² neighbourhood and return
-   * the non-background slot NEAREST the cursor.  Returns the winning slot plus the
-   * target-space pixel it came from (so the depth pass samples the right place).
-   * The centre-first fast path means a direct hit is identical to the old 1×1 read.
+   * §SELECT-3D-FORGIVING + §SELECT-THIN-WINS — read the slot under the cursor with
+   * thin-element disambiguation.
+   *
+   * Fast path: a direct centre hit with radius 0 (fixed-size callers / tests) is
+   * the old exact 1×1 read.
+   *
+   * Auto-sized path (radius > 0): read the whole (2r+1)² neighbourhood ONCE and
+   * delegate the choice to the pure `chooseNearestThinSlot`.  Unlike the old
+   * "only scan when centre is background" rule, we now scan even on a centre hit
+   * so a THIN element (a column) whose footprint is tiny but lies right at the
+   * cursor BEATS the large element (the wall) the centre pixel happened to land
+   * on — mirroring the 2D plan picker's "nearest small element wins" intent.
+   * The id-buffer already resolves front/back occlusion (the frontmost surface
+   * wins each pixel via depthTest), so a smaller pixel footprint near the cursor
+   * is the reliable signal for "the nearer/thinner element the user aimed at".
+   *
+   * Returns the winning slot plus the target-space pixel it came from (so the
+   * depth pass samples the right place).
    */
   private _readNearestSlot(
     renderer: GpuPickRenderer,
@@ -690,7 +713,7 @@ export class GpuPickStrategy implements PickStrategy {
       this.pixelBuffer[2] ?? 0,
       this.pixelBuffer[3] ?? 0,
     );
-    if (centreSlot !== 0 || radius <= 0) {
+    if (radius <= 0) {
       return { slot: centreSlot, winX: cx, winY: cy };
     }
 
@@ -700,32 +723,13 @@ export class GpuPickStrategy implements PickStrategy {
     const y1 = Math.min(this.targetHeight - 1, cy + radius);
     const bw = x1 - x0 + 1;
     const bh = y1 - y0 + 1;
-    if (bw <= 0 || bh <= 0) return { slot: 0, winX: cx, winY: cy };
+    if (bw <= 0 || bh <= 0) {
+      return { slot: centreSlot, winX: cx, winY: cy };
+    }
 
     const buf = new Uint8Array(bw * bh * 4);
     renderer.readPixels(rt, x0, y0, bw, bh, buf);
-
-    let bestSlot = 0;
-    let bestDistSq = Infinity;
-    let bestX = cx;
-    let bestY = cy;
-    for (let py = 0; py < bh; py++) {
-      for (let px = 0; px < bw; px++) {
-        const i = (py * bw + px) * 4;
-        const s = decodeRGBAToIndex(buf[i] ?? 0, buf[i + 1] ?? 0, buf[i + 2] ?? 0, buf[i + 3] ?? 0);
-        if (s === 0) continue;
-        const ax = x0 + px;
-        const ay = y0 + py;
-        const dsq = (ax - cx) * (ax - cx) + (ay - cy) * (ay - cy);
-        if (dsq < bestDistSq) {
-          bestDistSq = dsq;
-          bestSlot = s;
-          bestX = ax;
-          bestY = ay;
-        }
-      }
-    }
-    return { slot: bestSlot, winX: bestX, winY: bestY };
+    return chooseNearestThinSlot(buf, bw, bh, x0, y0, cx, cy, centreSlot);
   }
 
   private syncPickScene(registry: ElementRegistry): void {
@@ -1047,6 +1051,166 @@ function refreshInstancedPickClone(
 // Original helpers
 // ---------------------------------------------------------------------------
 
+
+/**
+ * §SELECT-PICK-RESOLUTION — PURE target-size computation (no THREE, no DOM).
+ *
+ * Sizes the GPU pick render target to the full device-pixel viewport
+ * (`viewport × dpr`) so the id-buffer samples at least as densely as the
+ * rendered image — thin elements (columns, railings, edge-on walls) keep their
+ * pixels in the buffer instead of collapsing to <1px and vanishing.
+ *
+ * The ONLY hard cap is `maxTextureSize` (the GPU's real `MAX_TEXTURE_SIZE`),
+ * NOT a fixed 1280.  When the *device-pixel* dimensions exceed the cap (extreme
+ * 4K/retina canvases), both axes are scaled down together so the aspect ratio
+ * is preserved and neither axis exceeds the GPU limit.
+ *
+ * Deterministic: identical inputs → identical output.  Exported for unit tests.
+ *
+ * @param viewportW  CSS-pixel viewport width  (> 0).
+ * @param viewportH  CSS-pixel viewport height (> 0).
+ * @param dpr        devicePixelRatio (>= 1 in practice; clamped to >= 1 here).
+ * @param maxTexSize GPU max single-texture dimension (clamped to >= 1).
+ */
+export function computePickTargetSize(
+  viewportW: number,
+  viewportH: number,
+  dpr: number,
+  maxTexSize: number,
+): { width: number; height: number } {
+  const vw = Math.max(1, viewportW);
+  const vh = Math.max(1, viewportH);
+  const ratio = Math.max(1, dpr); // never under-sample below CSS resolution
+  const cap = Math.max(1, Math.floor(maxTexSize));
+
+  // Ideal: full device-pixel resolution.
+  let w = vw * ratio;
+  let h = vh * ratio;
+
+  // Clamp to the GPU max, preserving aspect ratio (scale the LONGER axis to fit).
+  const longest = Math.max(w, h);
+  if (longest > cap) {
+    const scale = cap / longest;
+    w *= scale;
+    h *= scale;
+  }
+
+  return {
+    width: Math.max(1, Math.min(cap, Math.round(w))),
+    height: Math.max(1, Math.min(cap, Math.round(h))),
+  };
+}
+
+/**
+ * §SELECT-THIN-WINS — PURE id-buffer disambiguation (no THREE, no DOM).
+ *
+ * Given an RGBA id-buffer covering a (bw × bh) neighbourhood whose top-left is at
+ * target pixel (x0, y0), and the cursor at target pixel (cx, cy), choose the slot
+ * the user most likely aimed at:
+ *
+ *   1. For every non-background slot in the window, record its NEAREST pixel to
+ *      the cursor and its FOOTPRINT (pixel count inside the window).
+ *   2. The winner is the slot whose nearest pixel is closest to the cursor; on a
+ *      near-tie (within `TIE_PX` of each other) the THINNER slot (smaller
+ *      footprint) wins — that is the column in front of the wall.
+ *   3. If the cursor's centre pixel is itself a hit, it only loses to a slot that
+ *      is BOTH strictly thinner AND no farther than `TIE_PX` from the cursor;
+ *      otherwise the centre hit is kept (a confident direct click is respected).
+ *
+ * Deterministic: a stable tie-break on (distance, footprint, slot id) guarantees
+ * identical inputs → identical output.  Exported for unit tests.
+ *
+ * @param buf        RGBA bytes, length >= bw*bh*4 (row-major, y down within window).
+ * @param bw, bh     Window dimensions in pixels.
+ * @param x0, y0     Target-space pixel of the window's top-left (buf[0]).
+ * @param cx, cy     Target-space cursor pixel.
+ * @param centreSlot Decoded slot at (cx, cy) (0 = background); passed so we don't
+ *                   re-read it and so a confident direct hit is honoured.
+ */
+export function chooseNearestThinSlot(
+  buf: Uint8Array,
+  bw: number,
+  bh: number,
+  x0: number,
+  y0: number,
+  cx: number,
+  cy: number,
+  centreSlot: number,
+): { slot: number; winX: number; winY: number } {
+  // Pixels at which a near-tie in distance is decided by thinness instead.
+  const TIE_PX = 2;
+  const TIE_SQ = TIE_PX * TIE_PX;
+
+  interface SlotStat {
+    nearestDistSq: number;
+    nearestX: number;
+    nearestY: number;
+    footprint: number;
+  }
+  const stats = new Map<number, SlotStat>();
+
+  for (let py = 0; py < bh; py++) {
+    for (let px = 0; px < bw; px++) {
+      const i = (py * bw + px) * 4;
+      const s = decodeRGBAToIndex(buf[i] ?? 0, buf[i + 1] ?? 0, buf[i + 2] ?? 0, buf[i + 3] ?? 0);
+      if (s === 0) continue;
+      const ax = x0 + px;
+      const ay = y0 + py;
+      const dsq = (ax - cx) * (ax - cx) + (ay - cy) * (ay - cy);
+      const existing = stats.get(s);
+      if (existing === undefined) {
+        stats.set(s, { nearestDistSq: dsq, nearestX: ax, nearestY: ay, footprint: 1 });
+      } else {
+        existing.footprint += 1;
+        if (dsq < existing.nearestDistSq) {
+          existing.nearestDistSq = dsq;
+          existing.nearestX = ax;
+          existing.nearestY = ay;
+        }
+      }
+    }
+  }
+
+  if (stats.size === 0) return { slot: 0, winX: cx, winY: cy };
+
+  // Pick the best slot: nearest pixel first; on a near-tie, thinner footprint;
+  // final deterministic tie-break on slot id (lower wins).
+  let best: { slot: number } & SlotStat | null = null;
+  for (const [slot, st] of stats) {
+    if (best === null) {
+      best = { slot, ...st };
+      continue;
+    }
+    const dDiff = st.nearestDistSq - best.nearestDistSq;
+    let better: boolean;
+    if (Math.abs(dDiff) <= TIE_SQ) {
+      // Near-tie in distance → thinner wins; then lower slot id.
+      better =
+        st.footprint < best.footprint ||
+        (st.footprint === best.footprint && slot < best.slot);
+    } else {
+      better = dDiff < 0; // strictly nearer
+    }
+    if (better) best = { slot, ...st };
+  }
+
+  // Honour a confident direct centre hit: it only loses to a slot that is BOTH
+  // strictly thinner AND within the tie distance of the cursor (a thin element
+  // straddling the click).  Otherwise keep the centre hit.
+  if (centreSlot !== 0 && best !== null && best.slot !== centreSlot) {
+    const centreStat = stats.get(centreSlot);
+    const thinnerAndClose =
+      best.nearestDistSq <= TIE_SQ &&
+      (centreStat === undefined || best.footprint < centreStat.footprint);
+    if (!thinnerAndClose) {
+      return { slot: centreSlot, winX: cx, winY: cy };
+    }
+  }
+
+  return best === null
+    ? { slot: 0, winX: cx, winY: cy }
+    : { slot: best.slot, winX: best.nearestX, winY: best.nearestY };
+}
 
 function unprojectScreenToWorld(point: Point2D, ctx: PickContext): { x: number; y: number; z: number } {
   // NDC: [-1, 1] both axes; +Y up.  Screen +Y is down.

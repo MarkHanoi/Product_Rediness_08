@@ -426,6 +426,15 @@ export class SelectionManager implements ISelectionManager {
             // causing a scale error equal to devicePixelRatio on HiDPI screens.
             get width()  { return renderer.domElement.clientWidth;  },
             get height() { return renderer.domElement.clientHeight; },
+            // §SELECT-PICK-RESOLUTION — GPU max single-texture dimension. Lets
+            // GpuPickStrategy size the id-buffer to the FULL device-pixel
+            // viewport (viewport × dpr), clamped only to this real hardware
+            // limit — not the old fixed 1280 that downscaled wide viewports to
+            // ~0.67× and made thin elements (columns, railings) unhittable.
+            get maxTextureSize() {
+                return (renderer as { capabilities?: { maxTextureSize?: number } })
+                    .capabilities?.maxTextureSize ?? 4096;
+            },
             renderToTarget(
                 scene: THREE.Scene,
                 camera: THREE.Camera,
