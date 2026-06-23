@@ -47,6 +47,8 @@ import { selectionBus } from '@pryzm/core-app-model';
 import { frameObject } from '@pryzm/core-app-model';
 // Contract 17 Phase 2 — SVP element creation parity
 import { svpPlanToolOverlay } from './SvpPlanToolOverlay';
+// §AUTOFRAME-NO-HIJACK-WHILE-DRAWING — suppress deferred auto-frame mid-draw
+import { shouldSuppressAutoFrameWhileDrawing } from './autoframeGuard';
 import { PlanViewInteraction } from './PlanViewInteraction';
 import { buildViewHeaderToolbar, type ViewHeaderButtonsHandle } from '@app/ui/views/ViewHeaderButtons';
 import { escHtml } from '@pryzm/ui-base';
@@ -281,6 +283,15 @@ export class SplitViewManager implements ISplitViewManager {
         // the plan pane, 2D Map, or Site-3D paths.
         setTimeout(() => {
             if (!this._active) return; // toggled back off before the frame landed
+            // §AUTOFRAME-NO-HIJACK-WHILE-DRAWING (2026-06-23) — if a draw tool is
+            // active when this deferred frame lands, the user is mid-draw (e.g.
+            // placing their first wall, scene 0→1). Auto-framing here would yank
+            // their plan view to the new element. Suppress; explicit zoom-to-fit
+            // and project-open framing are unaffected (they don't pass through here).
+            if (shouldSuppressAutoFrameWhileDrawing()) {
+                console.log('[SplitViewManager] §VIEW-AUTOFRAME: suppressed — a draw tool is active (no camera hijack while drawing).');
+                return;
+            }
             try {
                 window.runtime?.bus?.executeCommand('zoom-fit', {});
                 console.log('[SplitViewManager] §VIEW-AUTOFRAME: framed main 3D viewport on split-view entry.');

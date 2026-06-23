@@ -108,26 +108,37 @@ export function mountNavigationArea(
     }, runtime ?? null);
 
     // ── Export event bridge ───────────────────────────────────────────────────
-    window.runtime?.events?.on('pryzm-export-ifc', async () => { // F.events.15
+    // §HUB-EXPORT-BRIDGE-RUNTIME (2026-06-23) — these PROJECT HUB → "Export &
+    // Print" listeners were registered on `window.runtime` only. When the editor
+    // mounted before the boot path assigned `window.runtime` (the documented
+    // null-at-mount race that also broke Import PDF/DXF and the lighting cascade),
+    // every `window.runtime?.events?.on(...)` silently no-opped, so "Export IFC",
+    // "Export GLB" and the import bridges below were dead — the menu emitted the
+    // event onto a bus nothing was listening on. Bind to the runtime THREADED into
+    // this mount (guaranteed live when present) and fall back to `window.runtime`
+    // for the legacy boot path. This is the registration-side root fix; the
+    // dispatch side (handleHubMenuAction) is unchanged.
+    const bridgeEvents = (runtime ?? window.runtime)?.events ?? null;
+    bridgeEvents?.on('pryzm-export-ifc', async () => { // F.events.15
         try {
             const scope = await showExportScopeModal();
             if (scope) (service as any).exportIfc?.({ exportScope: scope });
         } catch (e) { console.warn('[Export] IFC export error', e); }
     });
-    window.runtime?.events?.on('pryzm-export-glb', () => { // F.events.15
+    bridgeEvents?.on('pryzm-export-glb', () => { // F.events.15
         try { (service as any).exportGlb?.(); } catch (e) { console.warn('[Export] GLB export error', e); }
     });
-    window.runtime?.events?.on('pryzm-import-pdf', () => { // F.events.13
+    bridgeEvents?.on('pryzm-import-pdf', () => { // F.events.13
         ai.toggleFloorPlanPanel();
     });
     window.addEventListener('pryzm-import-ifc', () => {
         try { (service as any).importIfc?.(); } catch (e) { console.warn('[Import] IFC import error', e); }
     });
     window.addEventListener('pryzm-import-dxf', () => { ai.toggleDxfPanel(); });
-    window.runtime?.events?.on('import-dxf', () => { ai.toggleDxfPanel(); });
+    bridgeEvents?.on('import-dxf', () => { ai.toggleDxfPanel(); });
 
     // §31 Phase 2 — Restore DXF overlays from project snapshot
-    window.runtime?.events?.on('pryzm-dxf-restore-overlays', async (p: { overlays: readonly unknown[] }) => { // F.events.13
+    bridgeEvents?.on('pryzm-dxf-restore-overlays', async (p: { overlays: readonly unknown[] }) => { // F.events.13
         const overlays = p.overlays as any[];
         if (!overlays.length) return;
         try {
