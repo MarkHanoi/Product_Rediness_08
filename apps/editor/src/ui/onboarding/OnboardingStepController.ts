@@ -64,6 +64,7 @@ import { resolveSiteContext, ensureSite, dispatchSiteLocation } from '../site/si
 import { geocodeAddress } from '../site/geocodeAddress.js';
 import { generateApartmentFromBoundary } from '../apartment-layout/apartmentFromBoundary.js';
 import { generateHouseFromBoundary, type FootprintPoint } from '../house-layout/houseFromBoundary.js';
+import { generateResidentialFromBoundary } from '../residential-building/residentialFromBoundary.js';
 import { makeDraggable } from '../makeDraggable.js';
 import { makeResizable } from '../makeResizable.js';
 
@@ -163,6 +164,7 @@ class OnboardingStepController {
             case 'apartment': return 'apartment';
             case 'casa-unifamiliar': return 'house';   // §A.6.c — friendly noun
             case 'house': return 'house';
+            case 'residential-multifamily': return 'residential building'; // §RESI-MULTIFAMILY
             case 'office': return 'office';
             default: return this.typologyId || 'design';
         }
@@ -865,6 +867,15 @@ class OnboardingStepController {
             // byte-for-byte. ADDITIVE — the apartment branch is unchanged.
             if (this.typologyId === 'casa-unifamiliar') {
                 await this.generateHouse();
+            } else if (this.typologyId === 'residential-multifamily') {
+                // §RESI-MULTIFAMILY — the multi-family residential building. Reads
+                // the SAME authored parcel boundary, derives the residential program
+                // (floors + per-apartment min/max m² + T1–T4 mix) from the captured
+                // brief, runs the orchestrator on that footprint, and opens the
+                // residential PREVIEW MODAL → Build. The building-type SELECTION is
+                // the opt-in (no console flag on this path). ADDITIVE — neither the
+                // apartment nor the house branch is touched.
+                await generateResidentialFromBoundary(this.runtime, this.briefMetadata);
             } else {
                 // O.12.c — forward the STRUCTURED brief so the user's captured
                 // bedroom/bathroom/option choices drive the generated layout.
