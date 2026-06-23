@@ -399,10 +399,15 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
         }
     }
 
-    if (cursor < apartments.length) {
+    // §RESI-FILL-PLATE: place as MANY apartments as fit and return them — do NOT reject just
+    // because the demand list exceeds the plate's capacity (the plate filling to capacity with a
+    // surplus demand list is success, not failure; the orchestrator's "fill the plate" path
+    // intentionally supplies more demand than a single band could hold). Reject ONLY when the
+    // core/corridor grid leaves NO usable band run at all (a genuinely too-small plate).
+    if (placements.length === 0) {
         return reject(
             levelIndex,
-            `plate too small: placed ${cursor}/${apartments.length} apartments in the residual bands`,
+            `core/corridor leave no usable band runs (placed 0/${apartments.length})`,
         );
     }
 
