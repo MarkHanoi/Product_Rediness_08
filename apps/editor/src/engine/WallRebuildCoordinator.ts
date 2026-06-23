@@ -1014,10 +1014,27 @@ export class WallRebuildCoordinator {
                         // Guarded: a write must never be worse than the old skip-on-preserve
                         // behaviour, so any store rejection (e.g. an opening-bearing reversal
                         // guard) degrades to leaving the store untouched.
-                        try {
-                            store.update(wallId, { baseLine: _preserveAnchorBL, _sourceBaseLine: _preserveAnchorBL } as any);
-                        } catch (err) {
-                            console.warn(`[WallRebuildCoordinator] §POST-RESOLVE-PRESERVE anchor write-back skipped for ${wallId} (non-fatal):`, err);
+                        // §PRESERVE-IDEMPOTENT (founder 2026-06-23 — project-open HANG fix):
+                        // the preserve branch fires on EVERY flush (the resolver keeps wanting
+                        // to pivot the held wall), so an UNCONDITIONAL store.update writes +
+                        // emits a mutation every flush → the buffered StoreEventBus re-schedules
+                        // a flush after _joinsResolving clears → infinite re-flush loop → the
+                        // project never finishes loading ("Loading Auto-save…" forever). Write
+                        // ONLY when the store does not already hold the anchor (baseLine AND the
+                        // _sourceBaseLine stamp); once anchored, skip → no emit → the loop
+                        // terminates. The first flush still commits the stable anchor exactly once.
+                        const _cur = store.getById(wallId) as unknown as { baseLine?: ReadonlyArray<{ x: number; z: number }>; _sourceBaseLine?: ReadonlyArray<{ x: number; z: number }> } | undefined;
+                        const _eq = (p?: { x: number; z: number }, q?: { x: number; z: number }) =>
+                            !!p && !!q && Math.abs(p.x - q.x) < 1e-4 && Math.abs(p.z - q.z) < 1e-4;
+                        const _alreadyAnchored = !!_cur?._sourceBaseLine
+                            && _eq(_cur.baseLine?.[0], _preserveAnchorBL[0]) && _eq(_cur.baseLine?.[1], _preserveAnchorBL[1])
+                            && _eq(_cur._sourceBaseLine?.[0], _preserveAnchorBL[0]) && _eq(_cur._sourceBaseLine?.[1], _preserveAnchorBL[1]);
+                        if (!_alreadyAnchored) {
+                            try {
+                                store.update(wallId, { baseLine: _preserveAnchorBL, _sourceBaseLine: _preserveAnchorBL } as any);
+                            } catch (err) {
+                                console.warn(`[WallRebuildCoordinator] §POST-RESOLVE-PRESERVE anchor write-back skipped for ${wallId} (non-fatal):`, err);
+                            }
                         }
                     }
                     const updated = store.getById(wallId);
