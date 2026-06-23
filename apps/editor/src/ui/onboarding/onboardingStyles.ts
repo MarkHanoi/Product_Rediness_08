@@ -726,6 +726,24 @@ export const ONBOARDING_STYLES = `
   font-weight: 600;
   color: rgba(20, 10, 40, 0.7);
 }
+/* §RESI-LIVE-SLIDERS — slider row: label on the left, the live value on the right. */
+.os-onboarding-overlay .os-field-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.os-onboarding-overlay .os-field-value {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #6600ff;
+  font-variant-numeric: tabular-nums;
+}
+.os-onboarding-overlay .os-slider {
+  width: 100%;
+  accent-color: #6600ff;
+  cursor: pointer;
+}
 .os-onboarding-overlay .os-typo-chips {
   display: flex;
   flex-wrap: wrap;

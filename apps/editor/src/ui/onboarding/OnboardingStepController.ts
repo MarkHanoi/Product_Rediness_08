@@ -836,9 +836,43 @@ class OnboardingStepController {
             return input;
         };
 
+        // §RESI-LIVE-SLIDERS (founder 2026-06-23) — slider-driven setup: drag the apartment size
+        // band and the value updates LIVE next to its label. The apartment SIZE drives the resulting
+        // apartment count + typology fit, so sliders give the founder the live "change the sqm and the
+        // layout follows" feel. (A debounced live LAYOUT preview re-running the pure orchestrator on
+        // input is the next slice; this lands the slider UX + live value first.) The data-testids +
+        // `.value` semantics are unchanged from the number inputs, so the generate handler + any tests
+        // read them identically.
+        const sliderField = (label: string, testId: string, value: number, min: number, max: number, step: number, unit: string): HTMLInputElement => {
+            const row = document.createElement('label');
+            row.className = 'os-field os-field--slider';
+            const head = document.createElement('span');
+            head.className = 'os-field-head';
+            const cap = document.createElement('span');
+            cap.className = 'os-field-label';
+            cap.textContent = label;
+            const val = document.createElement('span');
+            val.className = 'os-field-value';
+            val.setAttribute('data-testid', `${testId}-value`);
+            val.textContent = `${value}${unit}`;
+            head.appendChild(cap);
+            head.appendChild(val);
+            const input = document.createElement('input');
+            input.type = 'range';
+            input.className = 'os-input os-slider';
+            input.setAttribute('data-testid', testId);
+            input.value = String(value);
+            input.min = String(min); input.max = String(max); input.step = String(step);
+            // Live value readout as the user drags. (The debounced layout re-generate hooks here too.)
+            input.addEventListener('input', () => { val.textContent = `${input.value}${unit}`; });
+            row.appendChild(head); row.appendChild(input);
+            form.appendChild(row);
+            return input;
+        };
+
         const floorsInput = numberField('Number of levels (1–20)', 'onboarding-resi-floors', seedFloors, 1, 20, 1);
-        const minInput = numberField('Min apartment surface (m²)', 'onboarding-resi-min', seedMin, 20, 400, 5);
-        const maxInput = numberField('Max apartment surface (m²)', 'onboarding-resi-max', seedMax, 20, 400, 5);
+        const minInput = sliderField('Min apartment surface', 'onboarding-resi-min', seedMin, 20, 400, 5, ' m²');
+        const maxInput = sliderField('Max apartment surface', 'onboarding-resi-max', seedMax, 20, 400, 5, ' m²');
 
         // Typology toggle chips (T1–T4).
         const typoWrap = document.createElement('div');
