@@ -447,12 +447,25 @@ export function servedThroughPrivateRoomIds(args: {
 
 /**
  * §ENSUITE-1TO1 (founder defect CFstdjE9 #1, 2026-06-23) — the PLACED en-suites that violate the
- * 1:1 suite rule. An en-suite must attach to EXACTLY ONE bedroom: (a) ALWAYS to a bedroom/master
- * (never a corridor/hall/public room or another ensuite), (b) to exactly ONE such bedroom (never
- * shared by two), and (c) be sized BELOW its host (≤ host floor area). Reads the realised RECTS
- * (shared-wall adjacency for attachment + areas for the size cap) AND the emitted door set (an
- * ensuite door to anything other than its host is a breach). Returns the offending ensuite ids,
- * sorted. House path only (the caller passes [] off the apartment path) ⇒ apartment byte-identical.
+ * 1:1 DOOR-EXCLUSIVITY suite rule. Rewritten 2026-06-23 from an ADJACENCY test (which a DETACHED-
+ * but-adjacent stacked ensuite slipped through — the founder's "four free-standing En-suites"
+ * defect) to a DOOR-EXCLUSIVITY test:
+ *
+ *   An en-suite is VALID iff
+ *     (1) it has EXACTLY ONE door (a sealed OR multi-doored ensuite ⇒ FAIL),
+ *     (2) that single door connects to a BEDROOM/MASTER,
+ *     (3) that bedroom is the en-suite's DECLARED host (`ensuiteHostId`),
+ *     (4) that host is NOT the host of another en-suite (no shared host), AND
+ *     (5) the en-suite is the SUBORDINATE room (area ≤ host area).
+ *   ANY breach (sealed / multi-doored / doored to a non-bedroom or a non-host bedroom / shared
+ *   host / oversized / host unidentifiable) ⇒ the en-suite id is returned (gate FAILS).
+ *
+ * This makes the stacked-DETACHED candidate HARD-INVALID — a detached ensuite is either sealed
+ * (no door) or doored onto the corridor/another room, both of which now FAIL — so a CLEAN carved
+ * candidate (one host↔ensuite door) is ranked above it and wins. Reads the emitted door set
+ * (the door-exclusivity decision) + the realised rects (the area cap only). `cellPolygonById` is
+ * accepted for API parity (the area cap reads rects directly); House path only ⇒ apartment
+ * byte-identical (the caller passes [] off the apartment path).
  *
  * Pure + deterministic (ADR-0061), exported for the §CIRCULATION-CORRECTNESS unit tests; no P8 span
  * (consistent with the sibling pure predicates `servedThroughPrivateRoomIds`/`unreachable…`).
@@ -463,16 +476,10 @@ export function ensuiteNot1to1RoomIds(args: {
     readonly doorOpenings: readonly DoorOpening[];
     readonly cellPolygonById?: ReadonlyMap<string, readonly Pt[]>;
 }): readonly string[] {
-    const { bubble, placements, doorOpenings, cellPolygonById } = args;
+    const { bubble, placements, doorOpenings } = args;
     const typeById = new Map<string, RoomType>(bubble.rooms.map(r => [r.id, r.type]));
     const rectById = new Map<string, Rect>(placements.map(p => [p.roomId, p.rect]));
     const isBedroom = (t: RoomType | undefined): boolean => t === 'bedroom' || t === 'master';
-    const wallRun = (a: string, b: string): number => {
-        const ra = rectById.get(a), rb = rectById.get(b);
-        if (!ra || !rb) return 0;
-        const pa = cellPolygonById?.get(a), pb = cellPolygonById?.get(b);
-        return (pa || pb) ? sharedWallRunPolyM(pa ?? ra, pb ?? rb) : sharedWallRunM(ra, rb);
-    };
     const areaOf = (id: string): number => {
         const r = rectById.get(id);
         return r ? (r.x1 - r.x0) * (r.z1 - r.z0) : 0;
@@ -480,37 +487,45 @@ export function ensuiteNot1to1RoomIds(args: {
 
     const ensuites = bubble.rooms.filter(r => r.type === 'ensuite');
     if (ensuites.length === 0) return [];
+    const ensuiteIds = new Set(ensuites.map(e => e.id));
 
-    // (b) shared-host detection — two ensuites naming the SAME host both fail.
+    // (4) shared-host detection — two ensuites naming the SAME host both fail.
     const hostCount = new Map<string, number>();
     for (const e of ensuites) {
         if (e.ensuiteHostId) hostCount.set(e.ensuiteHostId, (hostCount.get(e.ensuiteHostId) ?? 0) + 1);
     }
 
-    const bad = new Set<string>();
-    for (const e of ensuites) {
-        if (!rectById.has(e.id)) continue;            // DROPPED ensuites are acceptable — not placed.
-        const host = e.ensuiteHostId;
-        // (a) host must be a placed bedroom/master that the ensuite is ATTACHED to (≥ a door's run).
-        if (!host || !isBedroom(typeById.get(host)) || !rectById.has(host)) { bad.add(e.id); continue; }
-        if (wallRun(e.id, host) < STAIR_DOOR_MIN_M - EPS) { bad.add(e.id); continue; }
-        // (b) the host must not be shared by another ensuite.
-        if ((hostCount.get(host) ?? 0) > 1) { bad.add(e.id); continue; }
-        // (c) oversized — an ensuite must be the subordinate room (≤ its host's area).
-        if (areaOf(e.id) > areaOf(host) + EPS) { bad.add(e.id); continue; }
-    }
-    // (a, door view) — an ensuite whose realised door reaches ANYTHING other than its host bedroom is
-    // a breach (e.g. doored onto a corridor / second bedroom). Catches a wrong-door even when the
-    // adjacency tests above pass.
+    // Door view — collect, per ensuite, the rooms its emitted doors reach. The exclusivity rule is
+    // decided entirely from this set (exactly one door, to the host bedroom).
+    const doorTargets = new Map<string, string[]>();
+    const pushTarget = (ens: string, other: string): void => {
+        const cur = doorTargets.get(ens);
+        if (cur) cur.push(other); else doorTargets.set(ens, [other]);
+    };
     for (const o of doorOpenings) {
         if (o.type !== 'door') continue;
         const [a, b] = o.betweenRoomIds as readonly [string, string?];
         if (!a || !b) continue;
-        const ea = typeById.get(a) === 'ensuite' ? a : typeById.get(b) === 'ensuite' ? b : null;
-        if (!ea) continue;
-        const other = ea === a ? b : a;
-        const e = bubble.rooms.find(r => r.id === ea);
-        if (e && e.ensuiteHostId !== other) bad.add(ea);
+        if (ensuiteIds.has(a)) pushTarget(a, b);
+        if (ensuiteIds.has(b)) pushTarget(b, a);
+    }
+
+    const bad = new Set<string>();
+    for (const e of ensuites) {
+        if (!rectById.has(e.id)) continue;            // DROPPED ensuites are acceptable — not placed.
+        const targets = doorTargets.get(e.id) ?? [];
+        // (1) DOOR-EXCLUSIVITY — exactly one door. Sealed (0) or multi-doored (>1) ⇒ FAIL.
+        if (targets.length !== 1) { bad.add(e.id); continue; }
+        const other = targets[0]!;
+        // (2) the door must reach a bedroom/master.
+        if (!isBedroom(typeById.get(other))) { bad.add(e.id); continue; }
+        // (3) that bedroom must be the en-suite's DECLARED host.
+        const host = e.ensuiteHostId;
+        if (!host || host !== other || !rectById.has(host)) { bad.add(e.id); continue; }
+        // (4) the host must not be shared by another ensuite (no two ensuites door to the same host).
+        if ((hostCount.get(host) ?? 0) > 1) { bad.add(e.id); continue; }
+        // (5) oversized — an en-suite must be the subordinate room (≤ its host's area).
+        if (areaOf(e.id) > areaOf(host) + EPS) { bad.add(e.id); continue; }
     }
     return [...bad].sort();
 }
