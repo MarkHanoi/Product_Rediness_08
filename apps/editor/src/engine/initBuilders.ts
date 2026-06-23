@@ -100,6 +100,13 @@ import {
     StairLevelCleanupHandler,
 } from '@pryzm/geometry-stair';
 
+// ── Lift / vertical-circulation subsystem ──────────────────────────────────
+import {
+    LiftStore,
+    LiftMeshBuilder,
+    LiftTypeStore,
+} from '@pryzm/geometry-lift';
+
 // ── Beam subsystem ─────────────────────────────────────────────────────────
 import { BeamStore }                from '@pryzm/core-app-model/stores';
 import { BeamFragmentBuilder }      from '@pryzm/geometry-beam';
@@ -199,6 +206,8 @@ export interface BuilderRegistry {
     stairTypeStore:     StairTypeStore;
     stairLandingStore:  StairLandingStore;
     stairRailingStore:  StairRailingStore;
+    liftStore:          LiftStore;
+    liftTypeStore:      LiftTypeStore;
     gridStore:          GridStore;
 
     // ── Type-stores (module-level singletons — re-exported for commandContext) ─
@@ -222,6 +231,7 @@ export interface BuilderRegistry {
     lightingBuilder:          LightingFragmentBuilder;
     handrailBuilder:          HandrailFragmentBuilder;
     stairMeshBuilder:         StairMeshBuilder;
+    liftMeshBuilder:          LiftMeshBuilder;
     stairLandingBuilder:      StairLandingBuilder;
     stairRailingBuilder:      StairRailingBuilder;
     beamBuilder:              BeamFragmentBuilder;
@@ -813,6 +823,20 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
 
     console.log('[initBuilders] Stair subsystem initialised');
 
+    // ── Lift / vertical-circulation subsystem ──────────────────────────────────
+    // Peer of the stair subsystem (mirror of the StairStore/StairMeshBuilder wiring
+    // above). The CreateVerticalCirculationCommand reads ctx.stores.liftStore; the
+    // LiftMeshBuilder is driven by the `bim-lift-added/-updated/-removed` events the
+    // LiftStore emits. Residential-building multi-family core renders the lift here.
+    const liftStore = new LiftStore(projectContext);
+    window.liftStore = liftStore; // TODO(TASK-08)
+
+    const liftMeshBuilder = new LiftMeshBuilder(liftStore, scene);
+
+    const liftTypeStore = new LiftTypeStore();
+
+    console.log('[initBuilders] Lift subsystem initialised');
+
     // ── Beam subsystem ────────────────────────────────────────────────────────
     const beamStore = new BeamStore(projectContext);
     window.beamStore = beamStore; // TODO(TASK-08)
@@ -913,6 +937,8 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
         stairTypeStore,
         stairLandingStore,
         stairRailingStore,
+        liftStore,
+        liftTypeStore,
         gridStore,
 
         // Type stores (singletons)
@@ -936,6 +962,7 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
         lightingBuilder,
         handrailBuilder,
         stairMeshBuilder,
+        liftMeshBuilder,
         stairLandingBuilder,
         roomBoundingLineBuilder,
         stairRailingBuilder,
