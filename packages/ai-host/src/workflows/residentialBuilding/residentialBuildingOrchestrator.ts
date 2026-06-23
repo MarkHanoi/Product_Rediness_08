@@ -493,7 +493,20 @@ function _orchestrate(input: ResidentialBuildingOrchestratorInput): ResidentialB
         // it placed into 22-28 m² slivers (below every typology's grossMin → every cell
         // rejected). Capping the depth here aligns the packer's N with the partition's real
         // capacity, so the cells come out at the typology target size + lay out.
-        const usableDepth = Math.min(frontDepth, MAX_APARTMENT_DEPTH_M) + Math.min(backDepth, MAX_APARTMENT_DEPTH_M);
+        // §RESI-FILL-PLATE-SUPPLY (founder 2026-06-23) — the partition now lays a GRID of
+        // parallel double-loaded corridors tiling the WHOLE plate depth (not just the single
+        // core band) and places as many apartments as fit (it no longer rejects on surplus
+        // demand). So the packer must be SUPPLIED with demand for the FULL-PLATE capacity — else
+        // it under-supplies and the spine fills only a couple of rows near the core (the founder's
+        // "apartments cluster, plate empty"). Each corridor pitch (2·cap + corridorWidth) yields
+        // 2·cap of apartment depth, so the apartment fraction of the plate depth is 2·cap / pitch.
+        // The partition stays geometrically authoritative (caps to true capacity), so a generous
+        // estimate only lets it FILL — it never over-places. (frontDepth/backDepth retained for
+        // the corridor-fit reasoning above.)
+        void frontDepth; void backDepth;
+        const plateDepth = Math.max(0, bb.z1 - bb.z0);
+        const pitch = 2 * MAX_APARTMENT_DEPTH_M + corridorWidthM;
+        const usableDepth = plateDepth * (2 * MAX_APARTMENT_DEPTH_M) / pitch;
         const netAreaM2 = round4(usableDepth * placeableXSpan);
 
         // §RESI-ENGINE-FEASIBLE-MIN (Task 1, 2026-06-23) — the per-cell D-TGL engine needs
