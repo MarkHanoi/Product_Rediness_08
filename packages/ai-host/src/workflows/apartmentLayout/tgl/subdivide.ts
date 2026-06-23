@@ -285,6 +285,18 @@ const ABSOLUTE_MIN_SHORT_SIDE_M = 0.9;  // sanity floor: a room narrower than th
  *  (corridor.minShortSideM = 1.0 m; UK HQI recommends 1.2 m). */
 const CORRIDOR_STRIP_WIDTH_M = 1.2;
 
+/** §ENSUITE-AREA-CAP (founder defect CFstdjE9 #1d, 2026-06-23) — an en-suite is a SMALL wet room
+ *  subordinate to its host bedroom. The weighted-share allocator has NO maxAreaFrac for ensuite in
+ *  the rules DB, so on a large plate it balloons (the build shipped a 33 m² en-suite). Because both
+ *  rooms stay RECTANGLES (doctrine §20.3) the ensuite carve is a BAND spanning the host's shared
+ *  edge, so the cap is enforced as a band-DEPTH cap (a shallow wet strip) + a relative area cap (≤
+ *  0.45× the host's combined footprint, so the host always stays the larger, dominant room). These
+ *  only ever SHRINK the ensuite (Math.min in `carveEnsuiteWithinHost`) — a small target is
+ *  untouched, so the apartment / well-sized-host path is byte-identical. ENSUITE_MAX_DEPTH_M caps
+ *  the strip depth so a 33 m² target becomes a ≤ depth × edge strip, not a cavernous square. */
+const ENSUITE_MAX_AREA_FRAC_OF_HOST = 0.45;
+const ENSUITE_MAX_DEPTH_M = 2.4;
+
 /** §MASTER-SURPLUS (2026-06-08, layout-quality fix-pass F3) — the master bedroom
  *  must read as visibly larger than every other bedroom. The squarifier biases the
  *  master via its 1.3 areaWeight, but the §AREA-FRACTIONS clamps (master ≤ 20 %,
@@ -1239,10 +1251,13 @@ function carveEnsuiteCornerAwayFromCorridor(
     const ensMin = roomRule('ensuite').minShortSideM;
     const bedMin = roomRule('bedroom').minShortSideM;   // generic host floor (master ≥ bedroom)
 
-    // tryCut across `longDim` keeping `shortDim` as the shared span.
+    // tryCut across `longDim` keeping `shortDim` as the shared span. §ENSUITE-AREA-CAP — clamp the
+    // band DEPTH to ENSUITE_MAX_DEPTH_M so a (capped-but-still-large) target can't make a cavernous
+    // ensuite strip; the host keeps the freed depth. Never below ensMin (a real wet room).
     const tryCut = (longDim: number, shortDim: number): number | null => {
         if (shortDim < ensMin - EPS) return null;
-        const cut = Math.max(ensMin, ensuiteAreaM2 / shortDim);
+        let cut = Math.max(ensMin, ensuiteAreaM2 / shortDim);
+        cut = Math.min(cut, Math.max(ensMin, ENSUITE_MAX_DEPTH_M));
         if (longDim - cut < bedMin - EPS) return null;
         return cut;
     };
@@ -1332,8 +1347,24 @@ export function carveEnsuiteWithinHost(
     ensuiteAreaM2: number,
     corridorRect: Rect,
 ): { master: Rect; ensuite: Rect } | null {
+    // §ENSUITE-AREA-CAP (founder defect CFstdjE9 #1d, 2026-06-23) — the weighted-share allocator
+    // gives the ensuite (areaWeight 0.4, NO maxAreaFrac in the rules DB) an absurd share on a big
+    // plate (the build shipped a 33 m² en-suite). An en-suite is a SMALL wet room subordinate to its
+    // host bedroom; CAP its carve area to BOTH a relative fraction of the host's combined footprint
+    // (≤ 0.45×, so the host always stays the larger, dominant room) AND an absolute ceiling
+    // (ENSUITE_MAX_AREA_M2 ≈ a generous 6.5 m² shower-room). The cap only ever SHRINKS the ensuite
+    // (Math.min) — a small target is untouched, so the apartment / well-sized-host path is unchanged.
+    const hostArea = Math.max(EPS, (hostRect.x1 - hostRect.x0) * (hostRect.z1 - hostRect.z0));
+    const cappedArea = Math.min(
+        ensuiteAreaM2,
+        ENSUITE_MAX_AREA_FRAC_OF_HOST * hostArea,
+    );
+    // Never below the ensuite's own architectural minimum (else the carve can't seat a real room).
+    // The band-DEPTH cap (ENSUITE_MAX_DEPTH_M, applied inside the corner carve's tryCut) is what
+    // keeps a still-large relative area from becoming a cavernous square.
+    const area = Math.max(cappedArea, roomRule('ensuite').minAreaM2);
     // Tier 1 — the ideal corridor-avoiding corner carve.
-    const ideal = carveEnsuiteCornerAwayFromCorridor(hostRect, ensuiteAreaM2, corridorRect);
+    const ideal = carveEnsuiteCornerAwayFromCorridor(hostRect, area, corridorRect);
     if (ideal) return ideal;
 
     // Tier 2 — GUARANTEED-adjacency fallback. Split the combined rect so the ensuite sits at its
@@ -1354,7 +1385,7 @@ export function carveEnsuiteWithinHost(
     const tryCut = (longDim: number, shortDim: number): number | null => {
         if (shortDim < ensMin - EPS) return null;                  // shared span too narrow for an ensuite
         if (longDim < hostFloor + ensMin - EPS) return null;       // can't seat host + ensuite at all
-        const want = Math.max(ensMin, ensuiteAreaM2 / shortDim);
+        const want = Math.min(Math.max(ensMin, area / shortDim), Math.max(ensMin, ENSUITE_MAX_DEPTH_M));  // §ENSUITE-AREA-CAP — capped area + depth
         const cut = Math.min(want, longDim - hostFloor);           // never starve the host below its floor
         if (cut < ensMin - EPS) return null;
         return cut;
