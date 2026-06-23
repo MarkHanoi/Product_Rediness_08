@@ -16,6 +16,7 @@
 
 import type { ResidentialCardModel, FloorCardSummary, ApartmentCardSummary } from './residentialCardModel.js';
 import { buildOccupancyLegendHtml } from '../apartment-layout/layoutModalHtml.js';
+import { buildResidentialPartialNoticeHtml } from './residentialError.js';
 import type { LayoutOption } from '@pryzm/ai-host';
 
 /** Minimal HTML-escape for any interpolated text. */
@@ -120,6 +121,11 @@ export function buildResidentialModalHtml(
     // apartment carries occupancy-tagged rooms (then no legend row).
     const legendInner = buildOccupancyLegendHtml(collectApartmentLayouts(card));
     const legend = legendInner ? `<div class="alm-legend rb-legend" data-role="legend">${legendInner}</div>` : '';
+    // PARTIAL success — building generated but some apartments were rejected
+    // (over-programmed). Non-blocking informative banner (purple, NOT error red);
+    // the preview/Build remain. Empty when nothing was rejected.
+    const partialInner = buildResidentialPartialNoticeHtml(card.totalRejected, card.totalApartments + card.totalRejected);
+    const partial = partialInner ? `<div class="alm-notice-region rb-partial-region" data-role="rb-partial">${partialInner}</div>` : '';
     return `
       <div class="alm-panel" role="dialog" aria-label="Choose a residential building">
         <div class="alm-header">
@@ -127,6 +133,7 @@ export function buildResidentialModalHtml(
           <small>${totals}</small>
         </div>
         ${legend}
+        ${partial}
         <div class="alm-grid rb-grid" data-role="rb-floors">
           ${floorsHtml}
         </div>
@@ -173,4 +180,14 @@ export const RESIDENTIAL_MODAL_STYLES = `
 .rb-legend { display: flex; flex-wrap: wrap; gap: 8px 14px; padding: 6px 2px 12px; }
 .rb-legend .alm-legend-item { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: #475569; }
 .rb-legend .alm-legend-swatch { width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(15,23,42,0.12); }
+/* Partial-success banner region inside the preview (informative, non-blocking). */
+.rb-partial-region:not(:empty) { padding: 0 20px; }
+.rb-partial-region .rb-partial-notice { margin: 12px 0 0; }
+/* Error / rejection modal — the .alm-panel chrome is full-viewport (90vh) for the
+   thumbnail grid; an error has only a short message, so the error panel sizes to
+   its content (compact, centred) while keeping the brand white + #6600FF shell and
+   the established .alm-notice--rejected error token (#e11d48 / #9f1239 / #fff4f4). */
+.rb-error-panel { width: min(560px, 92vw); height: auto; max-height: 90vh; }
+.rb-error-region { padding: 16px 20px; }
+.rb-error-region .rb-error-notice { margin: 0; }
 `;
