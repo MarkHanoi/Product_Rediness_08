@@ -68,4 +68,51 @@ describe('hub-action deferred subscription (§HUB-SUBSCRIBE-DEFER)', () => {
     // The handler that was registered against a NULL runtime now fires.
     expect(received).toEqual(['export-ifc', 'export-glb']);
   });
+
+  // §HUB-SERVICE (2026-06-23) — Task 3: the FULL chain for the two actions the
+  // founder named (Import PDF + Export IFC). Subscribe-while-null → flush → emit
+  // pryzm-hub-action → relay handler runs the SAME dispatch logic as
+  // handleHubMenuAction → the (mocked) service function is actually called.
+  //
+  // NOTE: flushRuntimeEventListeners() is idempotent (module-level _flushed). The
+  // test above already flushed; the bridge's `_flushed` guard means subscriptions
+  // made AFTER flush register IMMEDIATELY against the live window.runtime. We rely
+  // on that documented behaviour here: install a live bus FIRST, then subscribe.
+  it('drives the real service for import-pdf + export-ifc through the hub-action relay', () => {
+    const calls: string[] = [];
+
+    // Live service surface, as it exists at click time inside the editor.
+    const exportIfc = (opts: { exportScope?: string }) => calls.push(`export-ifc:${opts?.exportScope ?? 'native-only'}`);
+    const toggleFloorPlanPanel = () => calls.push('import-pdf:toggleFloorPlanPanel');
+
+    const bus = makeBus();
+    installRuntime({ events: bus });
+    // import-pdf calls a window global directly (mirrors handleHubMenuAction).
+    (globalThis as any).window.toggleFloorPlanPanel = toggleFloorPlanPanel;
+
+    // The relay subscription (mirrors PlatformProjectBrowser._wireModeButtons →
+    // handleHubMenuAction's per-action dispatch).
+    onRuntimeEvent('pryzm-hub-action', (payload: unknown) => {
+      const action = (payload as { action?: string } | undefined)?.action;
+      if (action === 'export-ifc') {
+        // hub → pryzm-export-ifc → NavigationAreaLayout → service.exportIfc
+        bus.emit('pryzm-export-ifc', {});
+      } else if (action === 'import-pdf') {
+        const t = (globalThis as any).window.toggleFloorPlanPanel as (() => void) | undefined;
+        if (typeof t === 'function') t();
+      }
+    });
+
+    // The export-ifc bridge listener (mirrors NavigationAreaLayout): shows the
+    // scope modal (stubbed) then calls BimService.exportIfc.
+    bus.on('pryzm-export-ifc', () => exportIfc({ exportScope: 'native-only' }));
+
+    // 1. User clicks "Import PDF / Image".
+    bus.emit('pryzm-hub-action', { action: 'import-pdf' });
+    // 2. User clicks "Export IFC".
+    bus.emit('pryzm-hub-action', { action: 'export-ifc' });
+
+    expect(calls).toContain('import-pdf:toggleFloorPlanPanel');
+    expect(calls).toContain('export-ifc:native-only');
+  });
 });

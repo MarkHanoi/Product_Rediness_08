@@ -3,6 +3,7 @@ import { ProjectBrowserPanel } from '../ViewBrowser/ProjectBrowserPanel';
 import { LeftNavRail }         from '../LeftNavRail';
 import { ViewCube } from '../ViewCube';
 import { showExportScopeModal } from '@pryzm/file-format';
+import { apiFetch } from '@pryzm/core-app-model'; // §HUB-SERVICE-GLB — real GLB export auth gate
 import { restoreDxfOverlay } from '../import/DxfImportPanel';
 import type { UIProps } from '../Layout';
 import type { BimService } from '@app/engine/BimService';
@@ -122,11 +123,51 @@ export function mountNavigationArea(
     bridgeEvents?.on('pryzm-export-ifc', async () => { // F.events.15
         try {
             const scope = await showExportScopeModal();
-            if (scope) (service as any).exportIfc?.({ exportScope: scope });
+            if (scope) {
+                if (typeof (service as any).exportIfc === 'function') {
+                    console.log('[ProjectHub] §HUB-SERVICE action=export-ifc → invoked BimService.exportIfc');
+                    (service as any).exportIfc({ exportScope: scope });
+                } else {
+                    console.warn('[ProjectHub] §HUB-SERVICE action=export-ifc → MISSING BimService.exportIfc');
+                }
+            }
         } catch (e) { console.warn('[Export] IFC export error', e); }
     });
-    bridgeEvents?.on('pryzm-export-glb', () => { // F.events.15
-        try { (service as any).exportGlb?.(); } catch (e) { console.warn('[Export] GLB export error', e); }
+    bridgeEvents?.on('pryzm-export-glb', async () => { // F.events.15
+        // §HUB-SERVICE-GLB (2026-06-23) — BimService has NO exportGlb method, so the
+        // old `(service as any).exportGlb?.()` was a permanent silent no-op: optional-
+        // chaining a missing member just returns undefined. That is exactly why
+        // "Export GLB" did nothing from the hub. Do the real export inline, mirroring
+        // ExportRailPanel._exportGlb() (server auth gate → exportFragmentsToGLB).
+        try {
+            try {
+                const authRes = await apiFetch('/api/export/authorize?type=glb');
+                if (authRes.status === 403) {
+                    const body = await authRes.json().catch(() => ({}));
+                    console.warn('[Export] §HUB-SERVICE action=export-glb → server denied:', (body as any).reason ?? 'plan not authorized');
+                    bridgeEvents?.emit('pryzm-upgrade-required', { feature: 'GLB_EXPORT', reason: (body as any).reason, plan: (body as any).plan });
+                    return;
+                }
+                if (!authRes.ok && import.meta.env.PROD) {
+                    console.warn('[Export] §HUB-SERVICE action=export-glb → auth error in PROD, blocked.');
+                    return;
+                }
+            } catch (err) {
+                if (import.meta.env.PROD) {
+                    console.warn('[Export] §HUB-SERVICE action=export-glb → auth unreachable in PROD, blocked:', err);
+                    return;
+                }
+                console.warn('[Export] auth unreachable (dev), proceeding:', err);
+            }
+            const { exportFragmentsToGLB } = await import('@pryzm/file-format');
+            const bimManager = window.bimManager; // TODO(D.4): legacy bimManager — replace with runtime.scene.renderer
+            if (bimManager?.scene) {
+                console.log('[ProjectHub] §HUB-SERVICE action=export-glb → invoked exportFragmentsToGLB');
+                exportFragmentsToGLB(bimManager.scene);
+            } else {
+                console.warn('[ProjectHub] §HUB-SERVICE action=export-glb → MISSING bimManager.scene');
+            }
+        } catch (e) { console.warn('[Export] GLB export error', e); }
     });
     bridgeEvents?.on('pryzm-import-pdf', () => { // F.events.13
         ai.toggleFloorPlanPanel();
