@@ -356,6 +356,7 @@ export type {
 // the houseLayout barrel above (the editor cannot import an un-exported symbol).
 export {
   orchestrateResidentialBuilding,
+  computeGroundFloor,
   packApartments,
   partitionLevelPlate,
   runApartmentCellLayout,
@@ -370,6 +371,8 @@ export type {
   ResidentialBuildingOk,
   ResidentialBuildingRejected,
   ResidentialRigidTransform,
+  GroundFloorDescriptor,
+  FootprintEdge,
   BuildingLevel,
   PlacedApartment,
   PerLevelApartments,

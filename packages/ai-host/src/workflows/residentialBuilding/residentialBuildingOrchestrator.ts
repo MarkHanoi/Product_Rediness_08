@@ -168,6 +168,31 @@ export interface ResidentialRigidTransform {
     readonly pivot: { readonly x: number; readonly z: number };
 }
 
+/** Which axis-aligned (LOCAL-frame) footprint edge a façade element sits on. */
+export type FootprintEdge = 'x0' | 'x1' | 'z0' | 'z1';
+
+/**
+ * §RESI-GROUND-FLOOR (2026-06-23) — the ground floor descriptor. The ground level is
+ * "core + commercial shell, NO apartments", but it must still be a REAL, walkable space:
+ * a MAIN ENTRANCE on the street façade leading into a LOBBY band that reaches the core
+ * (so the path entrance → lobby → stair/lift exists). All geometry is in the orchestrator's
+ * axis-aligned LOCAL (principal-axis) frame — the executor applies `transform` to land it on
+ * the WORLD parcel, exactly like the core / cells / corridor. Pure + deterministic.
+ */
+export interface GroundFloorDescriptor {
+    /** The lobby / public-corridor band on the ground floor (LOCAL frame, metres). It runs
+     *  from the chosen street façade to the core so the entrance connects to circulation. */
+    readonly lobby: Rect;
+    /** The street-façade edge the main entrance door is hosted on (the footprint edge
+     *  NEAREST the core along the lobby's run direction). */
+    readonly entranceEdge: FootprintEdge;
+    /** The entrance door CENTRE on that façade (LOCAL frame, metres) — the executor resolves
+     *  the offset along the matching shell wall + punches the opening here. */
+    readonly entranceCenter: { readonly x: number; readonly z: number };
+    /** Clear width of the main entrance opening (metres). */
+    readonly entranceWidthM: number;
+}
+
 export interface ResidentialBuildingOk {
     readonly status: 'ok';
     readonly levels: readonly BuildingLevel[];
@@ -175,6 +200,9 @@ export interface ResidentialBuildingOk {
      *  apply `transform` to land it on the world parcel. */
     readonly core: Rect;
     readonly perLevelApartments: readonly PerLevelApartments[];
+    /** §RESI-GROUND-FLOOR — the ground floor's entrance + lobby (LOCAL frame). The core
+     *  itself is `core` (built ground→top); this carries the entrance door + lobby band. */
+    readonly groundFloor: GroundFloorDescriptor;
     /** §RESI-RIGID-TRANSFORM — maps LOCAL (principal-axis) geometry → WORLD parcel. */
     readonly transform: ResidentialRigidTransform;
     readonly diagnostic: string;
@@ -315,6 +343,45 @@ function facadeEdgesFor(cell: ApartmentCell, plateBB: Rect): CellEdge[] {
         if (onBoundary[e]) edges.push(e);        // on the plate perimeter → true façade
     }
     return edges;
+}
+
+/**
+ * §RESI-GROUND-FLOOR — compute the ground floor's entrance + lobby (LOCAL frame). PURE.
+ *
+ * The lobby is a corridor band, `corridorWidthM` wide, centred on the core's X-centre,
+ * running along +Z/−Z from the core to the NEAREST footprint edge (z0 or z1) — that edge is
+ * the "street" façade the main entrance is hosted on. The entrance door is centred on the
+ * lobby's X span at that façade. We pick the SHORTER run (the closer façade) so the lobby is
+ * short and the walk entrance → core is direct. The lobby spans from the chosen façade to the
+ * core's far edge (so it abuts the core and detection reads one continuous public space).
+ *
+ * All output is LOCAL (principal-axis) frame — the executor rotates it onto the WORLD parcel
+ * via the rigid transform, exactly like the upper-floor corridor.
+ */
+export function computeGroundFloor(
+    plateBB: Rect,
+    core: Rect,
+    corridorWidthM: number,
+): GroundFloorDescriptor {
+    const coreCx = (core.x0 + core.x1) / 2;
+    const halfW = corridorWidthM / 2;
+    // Distance from the core to each of the two Z-façades; the entrance goes on the nearer one.
+    const distToZ0 = core.z0 - plateBB.z0;   // gap in front of the core (toward z0)
+    const distToZ1 = plateBB.z1 - core.z1;   // gap behind the core (toward z1)
+    const useZ0 = distToZ0 <= distToZ1;
+    const entranceEdge: FootprintEdge = useZ0 ? 'z0' : 'z1';
+    // Lobby band: full span from the chosen façade to the core's near edge, so the
+    // entrance opens into a band that reaches the stair/lift.
+    const lobby: Rect = useZ0
+        ? { x0: round4(coreCx - halfW), x1: round4(coreCx + halfW), z0: round4(plateBB.z0), z1: round4(core.z0) }
+        : { x0: round4(coreCx - halfW), x1: round4(coreCx + halfW), z0: round4(core.z1), z1: round4(plateBB.z1) };
+    const entranceCenter = {
+        x: round4(coreCx),
+        z: round4(useZ0 ? plateBB.z0 : plateBB.z1),
+    };
+    // A wide (double-leaf) entrance, but never wider than the lobby band it opens into.
+    const entranceWidthM = round4(Math.min(1.8, Math.max(1.2, corridorWidthM - 0.1)));
+    return { lobby, entranceEdge, entranceCenter, entranceWidthM };
 }
 
 function _orchestrate(input: ResidentialBuildingOrchestratorInput): ResidentialBuildingResult {
@@ -593,11 +660,17 @@ function _orchestrate(input: ResidentialBuildingOrchestratorInput): ResidentialB
         `rot=${round4(thetaRad)}rad pivot=(${round4(pivot.x)},${round4(pivot.z)}) ` +
         `apartmentsPerLevel=[${apartmentsPerLevel.join(',')}]`;
 
+    // §RESI-GROUND-FLOOR — the ground floor's entrance + lobby (LOCAL frame). The core is
+    // already built ground→top via `core`; this carries the front door + the lobby band that
+    // links it to circulation. Same LOCAL frame as the core → executor rotates it to world.
+    const groundFloor = computeGroundFloor(bb, core, corridorWidthM);
+
     return {
         status: 'ok',
         levels,
         core,
         perLevelApartments,
+        groundFloor,
         transform,
         diagnostic,
     };

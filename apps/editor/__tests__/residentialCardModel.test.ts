@@ -62,6 +62,12 @@ function okResult(over: Partial<ResidentialBuildingOk> = {}): ResidentialBuildin
                 publicCorridor: [{ x0: 0, z0: 7, x1: 20, z1: 8.5 }],
             },
         ],
+        groundFloor: {
+            lobby: { x0: 9, x1: 11, z0: 0, z1: 6 },
+            entranceEdge: 'z0',
+            entranceCenter: { x: 10, z: 0 },
+            entranceWidthM: 1.8,
+        },
         diagnostic: 'test',
         ...over,
     };
