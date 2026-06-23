@@ -198,7 +198,19 @@ export function initPersistence(params: {
                 let totalSignal = 0;
                 for (let i = 0; i < data.length; i++) totalSignal += data[i];
                 if (totalSignal === 0) {
-                    console.warn('[captureThumbnail] Captured blank/transparent frame — skipping (WebGL buffer may have been cleared)');
+                    // §THUMB-BLANK-REUSE (2026-06-23) — a blank read is NON-FATAL.
+                    // In WebGPU mode (pryzmCanvas) the canvas's current texture can be
+                    // presented/recycled by the rAF-driven swapchain before this
+                    // synchronous drawImage reads it, so the read lands on an empty
+                    // surface even though the on-screen frame is correct (this is the
+                    // WebGPU analogue of the old "WebGL buffer cleared" race; a real
+                    // timing fix needs renderer-three to render-to-readable-target,
+                    // which is out of scope here). Returning null is the SAFE outcome:
+                    // the save path keeps the last good thumbnail
+                    // (`capturedThumb ?? existingMeta?.thumbnail`) rather than
+                    // overwriting it with a blank tile, and the next save (or the
+                    // post-load capture) re-captures once a frame is readable.
+                    console.warn('[captureThumbnail] Read a blank/transparent frame — keeping the last good thumbnail (non-fatal; WebGPU swapchain texture not readable this turn)');
                     return null;
                 }
 
