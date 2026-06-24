@@ -88,6 +88,69 @@ describe('§STAIR-LANDING-SEAL — a blank band abutting the stair is sealed eve
     });
 });
 
+// ─────────── 1b — §HOUSE-STAIR-ROOM-MERGE (founder defect A, 2026-06-24) ────────
+//
+// A SMALL function-less sliver beside the stair must be CONCATENATED into the stair room
+// (one clean space), NOT minted as a separate useless "Landing"/"Store" — while a LARGE
+// band still falls through to a separate seal so the stair never floods (§68.6 tight).
+
+describe('§HOUSE-STAIR-ROOM-MERGE — a small stair-adjacent sliver merges INTO the stair room', () => {
+    // Plate 10×6 m. A 3×3 (9 m²) stair keep-out in the corner; a bedroom fills the top.
+    // A SMALL 3.0 m² sliver (x 3..4, z 0..3, 1.0 m wide) abuts the stair's x=3 wall and forms a clean
+    // rectangular union with it → it should be ABSORBED into the stair, not minted separately.
+    const stairKO: Rect = { x0: 0, z0: 0, x1: 3, z1: 3 };
+    const placements: RoomPlacement[] = [
+        { roomId: 'stair0', rect: { x0: 0, z0: 0, x1: 3, z1: 3 } },        // the stair owns the keep-out
+        { roomId: 'bed1', rect: { x0: 0, z0: 3, x1: 10, z1: 6 } },          // top band — placed
+        { roomId: 'bed2', rect: { x0: 4, z0: 0, x1: 10, z1: 3 } },          // right band — placed
+        // the gap x 3..4, z 0..3 (3.0 m², 1.0 m wide) is BLANK and flush to the stair's x=3 wall.
+    ];
+    const buildable: Rect[] = [{ x0: 0, z0: 0, x1: 10, z1: 6 }];
+    const roomMeta = new Map<string, { type: RoomType; maxAreaM2: number }>([
+        ['stair0', { type: 'stair', maxAreaM2: Number.POSITIVE_INFINITY }],
+        ['bed1', { type: 'bedroom', maxAreaM2: 22 }],
+        ['bed2', { type: 'bedroom', maxAreaM2: 22 }],
+    ]);
+
+    it('the small sliver is absorbed into the stair (no separate function-less mint) + stair stays tight', () => {
+        const before = (placements.find(p => p.roomId === 'stair0')!.rect);
+        const beforeArea = (before.x1 - before.x0) * (before.z1 - before.z0);   // 9 m²
+        const r = claimResidualPlacements(placements, buildable, roomMeta, 'seed', [stairKO]);
+        const stairAfter = r.placements.find(p => p.roomId === 'stair0')!.rect;
+        const afterArea = (stairAfter.x1 - stairAfter.x0) * (stairAfter.z1 - stairAfter.z0);
+        // The stair GREW by ~3.0 m² (absorbed the sliver) — the merge fired.
+        expect(afterArea).toBeGreaterThan(beforeArea + 1.0);
+        // NO separate residual room was minted for the sliver (it merged, not seal-as-a-new-room).
+        expect(r.mints.length).toBe(0);
+        // The stair-adjacent blank is gone.
+        expect(r.largestBlankM2).toBeLessThan(2.0);
+        // §68.6 GUARD — the stair stays a tight core (small sliver absorbed, never a flood).
+        expect(afterArea).toBeLessThanOrEqual(16.0);
+    });
+
+    it('a LARGE stair-adjacent band does NOT flood the stair — it falls through to a separate seal', () => {
+        // Same plate but the WHOLE bottom-right (x 4..10, z 0..3 = 18 m²) is blank and flush to the
+        // stair. Absorbing it would make a 30 m² stair (§68.6 oversized flood) — so the merge MUST
+        // decline (delta > 3 m²) and the band is sealed as a separate room (the legacy path).
+        const ps: RoomPlacement[] = [
+            { roomId: 'stair0', rect: { x0: 0, z0: 0, x1: 4, z1: 3 } },
+            { roomId: 'bed1', rect: { x0: 0, z0: 3, x1: 10, z1: 6 } },
+        ];
+        const meta = new Map<string, { type: RoomType; maxAreaM2: number }>([
+            ['stair0', { type: 'stair', maxAreaM2: Number.POSITIVE_INFINITY }],
+            ['bed1', { type: 'bedroom', maxAreaM2: 22 }],
+        ]);
+        const r = claimResidualPlacements(ps, buildable, meta, 'seed', [stairKO]);
+        const stairAfter = r.placements.find(p => p.roomId === 'stair0')!.rect;
+        const afterArea = (stairAfter.x1 - stairAfter.x0) * (stairAfter.z1 - stairAfter.z0);
+        // The stair did NOT flood — it stayed a tight core (≤ 16 m²); the band was sealed elsewhere.
+        expect(afterArea).toBeLessThanOrEqual(16.0);
+        // The band was claimed (no large blank left) by the legacy grow/mint, not the stair merge.
+        expect(r.largestBlankM2).toBeLessThan(2.0);
+        expect(r.mints.length + (r.placements.length - ps.length)).toBeGreaterThan(0);
+    });
+});
+
 // ───────────────────── 2 — the END-TO-END tightness invariant ─────────────────
 
 const PROGRAM: ApartmentProgram = {
