@@ -35,6 +35,79 @@ export function cloneWithBakedWorldTransform(element: THREE.Object3D): THREE.Obj
 }
 
 /**
+ * §GLOBE-REAL-GRID-SUPPRESS (founder 2026-06-24) — element types that are
+ * non-building ANNOTATION / DATUM / GRID overlays, NOT real geometry. They live
+ * in the BIM THREE scene (LevelVisualizer's per-floor coloured datum lines + the
+ * X/Z axis lines that cross at the scene origin == the building corner; structural
+ * grid lines), and every one carries a `userData.elementType`, so the BIM→GLB
+ * bridge below used to BAKE them into the "Real" model that Cesium places on the
+ * 3D globe / 3D Site view — they streaked across the terrain. The MASSING study
+ * never serialises the scene, so it was correctly clean; matching that, we now
+ * strip these overlays from the exported GLB so REAL mode is clean too. (lowercased
+ * for a case-insensitive match against the various casings used across stores.)
+ */
+export const NON_BUILDING_EXPORT_ELEMENT_TYPES = new Set<string>([
+  'levelline',   // LevelVisualizer datum lines + level-head bubbles (the coloured per-floor lines + corner axes)
+  'grid',        // structural grid lines / grid bubbles
+  'gridline',
+  'axis',        // any origin/axis helper line
+  'datum',
+]);
+
+/**
+ * §GLOBE-REAL-GRID-SUPPRESS — true when an object is a non-building datum/grid/
+ * axis overlay that must NOT be baked into the exported (Real) GLB.
+ */
+export function isNonBuildingExportOverlay(object: THREE.Object3D): boolean {
+  const et = object.userData?.elementType;
+  if (!et) return false;
+  return NON_BUILDING_EXPORT_ELEMENT_TYPES.has(String(et).toLowerCase());
+}
+
+/**
+ * §GLOBE-REAL-GRID-SUPPRESS — select the ROOT BIM elements to bake into the GLB.
+ *
+ * An object is exported when it carries a `userData.elementType`, has no
+ * elementType-bearing ancestor (root-only, avoids duplication), AND is not a
+ * datum/grid/axis overlay. Extracted as a pure helper so the selection rules
+ * (including the overlay-suppression filter) are unit-testable WITHOUT the
+ * DOM-bound GLTFExporter/Blob.
+ */
+export function selectElementsForExport(scene: THREE.Object3D): THREE.Object3D[] {
+  const elementsToExport: THREE.Object3D[] = [];
+  let skippedOverlays = 0;
+
+  scene.traverse((object) => {
+    if (!(object.userData && object.userData.elementType)) return;
+
+    // Never bake datum/grid/axis overlay lines into the Real GLB. Each overlay
+    // line/sprite carries the elementType itself, so per-object filtering catches
+    // the whole set (the LevelVisualizer datum-group parent has no elementType).
+    if (isNonBuildingExportOverlay(object)) {
+      skippedOverlays++;
+      return;
+    }
+
+    let hasElementAncestor = false;
+    let parent = object.parent;
+    while (parent) {
+      if (parent.userData && parent.userData.elementType) {
+        hasElementAncestor = true;
+        break;
+      }
+      parent = parent.parent;
+    }
+
+    if (!hasElementAncestor) elementsToExport.push(object);
+  });
+
+  if (skippedOverlays > 0) {
+    console.log(`🧹 §GLOBE-REAL-GRID-SUPPRESS — skipped ${skippedOverlays} datum/grid/axis overlay object(s) (not baked into the Real GLB).`);
+  }
+  return elementsToExport;
+}
+
+/**
  * Exports fragments from a Three.js scene to a GLB binary format
  * Preserves hierarchy and lets Cesium handle world placement.
  * Model base is anchored to Y = 0.
@@ -48,30 +121,11 @@ export async function exportFragmentsToGLB(scene: THREE.Scene): Promise<string> 
   // Ensure matrices are current
   scene.updateMatrixWorld(true);
 
-  const elementsToExport: THREE.Object3D[] = [];
-
   // ------------------------------------------------------------
-  // ✅ Only export ROOT BIM elements (avoid duplication)
+  // ✅ Only export ROOT BIM elements (avoid duplication) — and §GLOBE-REAL-GRID-
+  //    SUPPRESS: never bake datum/grid/axis overlay lines into the Real GLB.
   // ------------------------------------------------------------
-  scene.traverse((object) => {
-    if (object.userData && object.userData.elementType) {
-
-      let hasElementAncestor = false;
-      let parent = object.parent;
-
-      while (parent) {
-        if (parent.userData && parent.userData.elementType) {
-          hasElementAncestor = true;
-          break;
-        }
-        parent = parent.parent;
-      }
-
-      if (!hasElementAncestor) {
-        elementsToExport.push(object);
-      }
-    }
-  });
+  const elementsToExport = selectElementsForExport(scene);
 
   console.log(`📊 Found ${elementsToExport.length} root elements to export.`);
 
