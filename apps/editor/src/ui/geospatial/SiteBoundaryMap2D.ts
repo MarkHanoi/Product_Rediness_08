@@ -243,7 +243,10 @@ export function mountSiteBoundaryMap2D(
     chip.textContent = 'Click two opposite corners · Esc to cancel';
     Object.assign(chip.style, {
         position: 'absolute',
-        top: '12px',
+        // §DRAW-TOOLBAR-OFFSET (2026-06-24) — top bumped 12px → 92px so this
+        // centred instruction pill clears BOTH the Author/Inspect/Data mode-tab
+        // row (top:6px) and the boundary mode strip below it (now at top:52px).
+        top: '92px',
         left: '50%',
         transform: 'translateX(-50%)',
         zIndex: '21',
@@ -344,9 +347,12 @@ export function mountSiteBoundaryMap2D(
     modeBar.setAttribute('data-bnd-mode-bar', '1');
     // Override the global `.wdh-bar` fixed positioning so the strip is anchored to
     // THIS overlay (which may not cover the full window), not the viewport.
+    // §DRAW-TOOLBAR-OFFSET (2026-06-24) — top bumped 12px → 52px so this
+    // top-centre strip clears the Author/Inspect/Data mode-tab row (the
+    // `.wmb-toplevel-wrapper` at top:6px, ~34px tall) instead of overlapping it.
     Object.assign(modeBar.style, {
         position: 'absolute',
-        top: '12px',
+        top: '52px',
         zIndex: '21',
     } satisfies Partial<CSSStyleDeclaration>);
 

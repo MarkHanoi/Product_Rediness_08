@@ -33,6 +33,13 @@ import { AuditBucket }       from './buckets/AuditBucket';
 import { ValidateBucket }    from './buckets/ValidateBucket';
 import { LifecycleBucket }   from './buckets/LifecycleBucket';
 import { PIPRenderer }       from './PIPRenderer';
+// §INSPECT-DATA-TAB-WIRE (2026-06-24) — DataCommandCenter is a module-load
+// singleton (see file tail) constructed BEFORE composeRuntime() runs, so a raw
+// `window.runtime?.events?.on(...)` in _bindEvents() silently no-ops (runtime is
+// null at construction). Use the deferred bridge so the Data-tab show/hide and
+// delta listeners are queued and applied at flushRuntimeEventListeners(), exactly
+// as DiagnosticMaterialManager already does. (null-at-mount runtime-event race.)
+import { onRuntimeEvent } from '../../engine/runtimeEventBridge';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -426,22 +433,24 @@ export class DataCommandCenter {
 
   private _bindEvents(): void {
     // F.events.6 — pryzm-workspace-mode / pryzm-delta-updated migrated to runtime.events typed bus.
-    // Uses window.runtime (globals.d.ts) so on() returns () => void (not Disposable).
-    this._unsubModeHandler = window.runtime?.events?.on('pryzm-workspace-mode', (payload: unknown) => {
+    // §INSPECT-DATA-TAB-WIRE (2026-06-24) — bridged via onRuntimeEvent() so the
+    // subscription survives construction at module-load (runtime null). Returns
+    // a () => void unsubscribe, same shape as the previous direct on() call.
+    this._unsubModeHandler = onRuntimeEvent('pryzm-workspace-mode', (payload: unknown) => {
       const mode = (payload as { mode?: string })?.mode;
       if (mode === 'data') {
         this._show();
       } else {
         this._hide();
       }
-    }) ?? null;
+    });
 
-    this._unsubDeltaHandler = window.runtime?.events?.on('pryzm-delta-updated', () => {
+    this._unsubDeltaHandler = onRuntimeEvent('pryzm-delta-updated', () => {
       if (this._el.style.display === 'none') return;
       this._populateTree();
       this._audit.refresh();
       this._validate.refresh();
-    }) ?? null;
+    });
   }
 
   private _show(): void {

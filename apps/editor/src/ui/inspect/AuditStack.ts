@@ -56,6 +56,15 @@ import {
 
 import type { DeltaCategory } from '@pryzm/core-app-model';
 
+// §INSPECT-DATA-TAB-WIRE (2026-06-24) — AuditStack is a module-load singleton
+// (`export const auditStack = new AuditStack()` at file tail) constructed BEFORE
+// composeRuntime() runs. A raw `this.runtime?.events?.on(...)` / `window.runtime
+// ?.events?.on(...)` in _bindEvents() therefore silently no-ops (runtime null at
+// construction), so the Inspect-tab show/hide listener never attached. Route
+// every runtime-event subscription through the deferred bridge so they queue and
+// apply at flushRuntimeEventListeners() — same pattern as DiagnosticMaterialManager.
+import { onRuntimeEvent } from '../../engine/runtimeEventBridge';
+
 // ── AuditStack class ──────────────────────────────────────────────────────────
 
 export class AuditStack {
@@ -248,7 +257,9 @@ export class AuditStack {
 
   private _bindEvents(): void {
     // F.events.6 — pryzm-workspace-mode migrated to runtime.events typed bus.
-    this.runtime?.events?.on('pryzm-workspace-mode', (payload: unknown) => {
+    // §INSPECT-DATA-TAB-WIRE (2026-06-24) — bridged via onRuntimeEvent() so the
+    // Inspect-tab show/hide subscription survives module-load construction.
+    onRuntimeEvent('pryzm-workspace-mode', (payload: unknown) => {
       const mode = (payload as { mode?: string })?.mode;
       if (mode === 'inspect') {
         this._show();
@@ -258,11 +269,12 @@ export class AuditStack {
     });
 
     // F.events.6 — pryzm-delta-updated migrated to runtime.events typed bus.
-    this.runtime?.events?.on('pryzm-delta-updated', () => {
+    onRuntimeEvent('pryzm-delta-updated', () => {
       if (this._el.classList.contains('aud-stack--visible')) this.refresh();
     });
 
-    this.runtime?.events?.on('pryzm-audit-room-select', ({ roomId, source }) => { // F.events.12
+    onRuntimeEvent('pryzm-audit-room-select', (payload: unknown) => { // F.events.12
+      const { roomId, source } = (payload as { roomId?: string; source?: string }) ?? {};
       if (roomId && source !== 'audit-stack') {
         this._selectedRoomId = roomId;
         this._renderProjectTree();
@@ -271,7 +283,7 @@ export class AuditStack {
     });
 
     // F.events.16 — bim-selection-changed migrated to runtime.events typed bus.
-    window.runtime?.events?.on('bim-selection-changed', (payload: unknown) => {
+    onRuntimeEvent('bim-selection-changed', (payload: unknown) => {
       const obj  = (payload as { object?: { userData?: { id?: string; type?: string } } | null })?.object;
       const id   = obj?.userData?.id ?? null;
       if (!id || !this._el.classList.contains('aud-stack--visible')) return;
@@ -297,7 +309,7 @@ export class AuditStack {
     window.addEventListener('bim-room-updated',     refreshAll);
     window.addEventListener('bim-room-removed',     refreshAll);
     window.addEventListener('level-changed',        refreshAll);
-    window.runtime?.events?.on('model-updated', () => refreshAll()); // F.events.8
+    onRuntimeEvent('model-updated', () => refreshAll()); // F.events.8
   }
 
   // ── Show / Hide ────────────────────────────────────────────────────────────
