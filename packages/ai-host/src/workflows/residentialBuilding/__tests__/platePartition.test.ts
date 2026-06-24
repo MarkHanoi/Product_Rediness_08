@@ -248,6 +248,51 @@ describe('partitionLevelPlate — §RESI-T3-FIT (3-bed cells appear)', () => {
     });
 });
 
+describe('partitionLevelPlate — §RESI-T3-FIT-REGRESSION-FIX (no over-wide cells, mixed demand)', () => {
+    const T1: ApartmentDemand = { typology: 'T1', minAreaM2: 40, maxAreaM2: 55 };
+
+    /** A ~30 m square plate whose centred 6 m core leaves ~14 m-wide runs at the ~9 m depth cap —
+     *  exactly the founder geometry where the old even-division minted ONE 14.3 m-wide cell per run
+     *  that the engine then rejected (0 apartments). */
+    function squareInput(apartments: ApartmentDemand[]): PlatePartitionInput {
+        return {
+            levelIndex: 5,
+            footprint: rectPoly(30, 30),
+            core: centredCore(30, 30, 6, 5),
+            corridor: { widthM: 1.5 },
+            apartments,
+        };
+    }
+
+    /** Engine-feasible MAX cell width at a row depth — mirrors `engineMaxCellWidth` in the partition
+     *  (`min(13, depth + 4)`). A T1/T2 cell wider than this rejects in the frozen D-TGL engine. */
+    const engineMax = (depthM: number) => Math.min(13, depthM + 4);
+
+    it('a T1+T2+T3 mixed demand never emits a non-keep cell wider than the engine can lay out', () => {
+        const mix = Array.from({ length: 27 }, (_, i) => [T1, T2, T3][i % 3]!);
+        const res = expectOk(partitionLevelPlate(squareInput(mix)));
+        expect(res.apartmentCells.length).toBeGreaterThanOrEqual(1);
+        for (const c of res.apartmentCells) {
+            const w = c.rect.x1 - c.rect.x0;
+            const d = c.rect.z1 - c.rect.z0;
+            // T3 (keep band) may legitimately be wider (the engine lays out a 3-bed wider); a
+            // non-keep T1/T2 cell must never exceed the generic engine width edge for its depth.
+            if (c.typology === 'T1' || c.typology === 'T2') {
+                expect(w).toBeLessThanOrEqual(engineMax(d) + 1e-3);
+            }
+        }
+    });
+
+    it('a T2-only demand on the founder square plate places ≥1 engine-feasible cell (was 0)', () => {
+        const res = expectOk(partitionLevelPlate(squareInput(Array.from({ length: 27 }, () => T2))));
+        expect(res.apartmentCells.length).toBeGreaterThanOrEqual(1);
+        for (const c of res.apartmentCells) {
+            const d = c.rect.z1 - c.rect.z0;
+            expect(c.rect.x1 - c.rect.x0).toBeLessThanOrEqual(engineMax(d) + 1e-3);
+        }
+    });
+});
+
 describe('partitionLevelPlate — soft-fail (never throws)', () => {
     it('rejects a non-rectangular footprint', () => {
         const lShape: Pt[] = [

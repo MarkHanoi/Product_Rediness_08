@@ -309,6 +309,61 @@ describe('residentialBuildingOrchestrator — P7 (D-TGL per cell)', () => {
         expect(apts.every((a) => a.status === 'ok')).toBe(true);
     });
 
+    it('§RESI-T3-FIT-REGRESSION-FIX — a T1+T2+T3 mix on a founder-sized plate still LAYS OUT ≥1 apartment', () => {
+        // Regression (founder 2026-06-24: "20 units couldn't fit at this size — 0 apartments"). On a
+        // ~30 m square plate the centred core splits each corridor row into ~14 m-wide runs; the old
+        // even-division forced ONE ~14.3 m-wide cell per run, which the frozen D-TGL engine rejects at
+        // the 9 m depth cap (feasible width tops out ~13.25 m) → EVERY cell soft-failed → 0 apartments.
+        // Adding T1 (studio/1-bed) to the mix was the founder's trigger. The width-feasibility cap +
+        // greedy-slice fallback must guarantee ≥1 LAID-OUT apartment for the full mix.
+        for (const band of [[50, 100], [55, 100], [60, 100], [60, 105]] as Array<[number, number]>) {
+            const r = orchestrateResidentialBuilding(
+                input({
+                    footprint: rectPoly(30, 30),
+                    upperLevels: 1,
+                    coreWidthM: 6,
+                    coreDepthM: 5,
+                    corridorWidthM: 1.5,
+                    minApartmentAreaM2: band[0],
+                    maxApartmentAreaM2: band[1],
+                    typologies: { T1: true, T2: true, T3: true, T4: false },
+                }),
+            );
+            expect(r.status).toBe('ok');
+            if (r.status !== 'ok') continue;
+            const apts = r.perLevelApartments[1]!.apartments;
+            const laidOut = apts.filter((a) => a.status === 'ok');
+            // The regression was 0 laid-out apartments; the guarantee is ≥1.
+            expect(laidOut.length).toBeGreaterThanOrEqual(1);
+            // Every laid-out cell has rooms (a real apartment, not an empty shell).
+            for (const a of laidOut) expect(a.layout!.rooms.length).toBeGreaterThan(0);
+        }
+    });
+
+    it('§RESI-T3-FIT-REGRESSION-FIX — adding T1 to the mix never REDUCES the laid-out count to 0', () => {
+        // The core guarantee: for any plate where T2+T3 places apartments, T1+T2+T3 must too.
+        const laidOutCount = (typologies: ResidentialBuildingOrchestratorInput['typologies'], s: number): number => {
+            const r = orchestrateResidentialBuilding(
+                input({
+                    footprint: rectPoly(s, s),
+                    upperLevels: 1,
+                    coreWidthM: 6,
+                    coreDepthM: 5,
+                    corridorWidthM: 1.5,
+                    minApartmentAreaM2: 60,
+                    maxApartmentAreaM2: 100,
+                    typologies,
+                }),
+            );
+            return r.status === 'ok' ? r.perLevelApartments[1]!.apartments.filter((a) => a.status === 'ok').length : -1;
+        };
+        for (const s of [28, 30, 32, 34, 36, 40, 45, 50]) {
+            const t23 = laidOutCount({ T1: false, T2: true, T3: true, T4: false }, s);
+            const t123 = laidOutCount({ T1: true, T2: true, T3: true, T4: false }, s);
+            if (t23 > 0) expect(t123).toBeGreaterThanOrEqual(1);
+        }
+    });
+
     it('the orchestrate diagnostic + per-cell status survive the P7 wiring', () => {
         const r = orchestrateResidentialBuilding(p7input({ upperLevels: 3 }));
         expect(r.status).toBe('ok');
