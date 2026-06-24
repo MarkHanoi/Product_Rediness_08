@@ -320,6 +320,11 @@ export interface RuntimeEvents {
     readonly thickness?: number;
     readonly baseOffset?: number;
     readonly systemTypeId?: string;
+    // §RESI-FACADE-COLOUR-PERSIST (2026-06-24): per-wall opaque finish colour (hex `#rrggbb`),
+    // forwarded by CommandEventBridge so the initTools legacy-store mirror can carry it to the
+    // mesh-building WallStore. Without this the residential façade colour (and any batch-created
+    // wall's Color Override) was dropped between the Immer store and the legacy render store.
+    readonly materialColor?: string;
   };
 
   // ── A25: Remaining-family typed domain events (C11 §5.2) ─────────────────

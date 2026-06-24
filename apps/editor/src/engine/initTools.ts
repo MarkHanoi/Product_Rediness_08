@@ -938,6 +938,13 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                         thickness: ev.thickness ?? 0.2,
                         ...(ev.baseOffset   !== undefined ? { baseOffset:   ev.baseOffset }   : {}),
                         ...(ev.systemTypeId !== undefined ? { systemTypeId: ev.systemTypeId } : {}),
+                        // §RESI-FACADE-COLOUR-PERSIST (2026-06-24) — carry the per-wall finish
+                        // colour into the mesh-building legacy store. ROOT CAUSE of the dropped
+                        // residential façade colour: the Immer store (CreateWallBatchHandler) kept
+                        // materialColor, but this legacy mirror — which drives WallRebuildCoordinator
+                        // (the 3D mesh) AND the property panel — never copied it, so batch-created
+                        // walls rendered the default grey and the panel showed the #888888 fallback.
+                        ...(ev.materialColor !== undefined ? { materialColor: ev.materialColor } : {}),
                     } as any);
                     console.log('[initTools] §P2.1: wall mirrored to legacy store', ev.wallId);
                 } catch (err) {
