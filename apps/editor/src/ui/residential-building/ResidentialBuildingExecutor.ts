@@ -477,7 +477,10 @@ export class ResidentialBuildingExecutor {
                 // Split the entrance edge into curtain | solid door-bay | curtain.
                 const len = Math.hypot(b.x - a.x, b.z - a.z);
                 const nx = (b.x - a.x) / len, nz = (b.z - a.z) / len;
-                const t = Math.max(0, Math.min(len, (worldEntranceCenter.x - a.x) * nx + (worldEntranceCenter.z - a.z) * nz));
+                // §RESI-DOOR-CENTRE (founder 2026-06-24: "center the door on the wall outside") —
+                // centre the solid door bay on the façade MIDPOINT (not the orchestrator's off-centre
+                // entrance point), so the entrance reads centred on the front elevation.
+                const t = len / 2;
                 const s0 = Math.max(0, t - ENTRANCE_BAY_HALF_M);
                 const s1 = Math.min(len, t + ENTRANCE_BAY_HALF_M);
                 const at = (s: number): { x: number; z: number } => ({ x: a.x + nx * s, z: a.z + nz * s });
@@ -1093,7 +1096,9 @@ export class ResidentialBuildingExecutor {
             if (!shellReady() && n > 0) { setTimeout(() => tryPunch(n - 1), 150); return; }
             const hit = resolveEntranceOnShell(shell.walls, worldCenter);
             if (!hit) { console.warn('[resi-building] entrance — no shell wall resolved (skipped)'); return; }
-            const { offset, width } = entranceOffsetOnWall(hit, gf.entranceWidthM);
+            const { width } = entranceOffsetOnWall(hit, gf.entranceWidthM);
+            // §RESI-DOOR-CENTRE — centre the door on its (bay) host wall so it sits mid-façade.
+            const offset = Math.max(0, (hit.wallLengthM - width) / 2);
             try {
                 batchCoordinator.runBatch(() => {
                     cm.execute?.(new CreateWallOpeningsBatchCommand([{
