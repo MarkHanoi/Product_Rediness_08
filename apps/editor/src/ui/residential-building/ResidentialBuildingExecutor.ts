@@ -338,8 +338,10 @@ export class ResidentialBuildingExecutor {
             // deferred via coreDoorSpecs once the walls land).
             if (result.core) {
                 const cp = this._buildCorePerimeter(levelId, result.core, floorToFloorM, xf);
-                // §RESI-FACADE-COLOUR — paint the opaque RC core walls the finish colour.
-                this._paintWalls(cp.payload, facadeColor);
+                // §RESI-FACADE-COLOUR-PERSIST (founder 2026-06-24: "exterior face of the perimeter
+                // walls — NOT interior partitions") — the core enclosure is an INTERIOR room (the
+                // lift/stair shaft), so it keeps its default material; only the building shell takes
+                // the façade colour.
                 corePerimeterPayloads.push(cp.payload);
                 coreDoorSpecs.push(...cp.doors);
             }
@@ -368,8 +370,9 @@ export class ResidentialBuildingExecutor {
                 // Apartment cell perimeter (4 walls, pre-minted) so façade windows resolve.
                 // Built from the LOCAL cell.rect, rotated to world by the rigid transform.
                 const perimeter = this._buildCellPerimeter(levelId, apt, floorToFloorM, xf);
-                // §RESI-FACADE-COLOUR — paint the cell-perimeter (party/corridor-facing) walls.
-                this._paintWalls(perimeter.payload, facadeColor);
+                // §RESI-FACADE-COLOUR-PERSIST (founder 2026-06-24: "NOT interior partitions") — the
+                // cell perimeter is party/corridor-facing INTERIOR wall, so it keeps its default
+                // material; only the exterior building shell carries the façade colour.
                 cellPerimeterPayloads.push(perimeter.payload);
                 const opts: LayoutExecuteOptions = {
                     levelId,
@@ -462,14 +465,23 @@ export class ResidentialBuildingExecutor {
             // 3b. §RESI-ROOF (founder "we need a top level with the roof", 2026-06-23) — a flat
             // roof capping the building on the top level's wall head.
             const topLvl = result.levels[result.levels.length - 1];
-            // §RESI-FACADE-COLOUR — the flat roof takes the finish colour too (Notting-Hill pastel).
-            if (topLvl) this._createRoof(cm, topLvl.footprint, roofLevelId, facadeColor);
+            // §RESI-FACADE-COLOUR-PERSIST (founder 2026-06-24: "the colour got applied to the roof
+            // floor — which is NOT what I wanted") — the roof keeps its DEFAULT material; the façade
+            // colour lands ONLY on the exterior shell walls.
+            if (topLvl) this._createRoof(cm, topLvl.footprint, roofLevelId);
             // 3c. §RESI-ROOF-GARDEN — turn the flat roof into a walkable amenity deck: a perimeter
             // glass guard ringing the footprint + a handful of EXISTING furniture amenities, all on
             // the roof level. The deck IS the flat roof slab (no slab change). Core is the keep-out.
             if (roofGarden && topLvl) {
                 this._createRoofGuardrail(cm, topLvl.footprint, roofLevelId);
                 if (result.core) this._furnishRoofDeck(cm, topLvl.footprint, result.core, roofLevelId, xf);
+            }
+            // §RESI-CORE-PENTHOUSE-CAP (founder 2026-06-24) — the rooftop core overrun (stair/lift
+            // headhouse) is enclosed by walls + a door on the roof level but was OPEN-TOPPED. Cap it
+            // with a small flat roof over the CORE footprint (default material, NOT the façade
+            // colour). Built whenever the roof-level core enclosure is (= roofGarden && core).
+            if (roofGarden && result.core) {
+                this._createCoreRoofCap(cm, result.core, roofLevelId, floorToFloorM, xf);
             }
             // 4. Central core — a stair per adjacent level pair + ONE lift ground→top.
             //    §RESI-ROOF-GARDEN — when ON, the core climbs ONE flight higher to the roof level.
@@ -617,6 +629,15 @@ export class ResidentialBuildingExecutor {
         const WIN_SILL_M = 0.01;
         const WIN_HEAD_M = 3.5;
         const WIN_SIDE_MARGIN_M = 0.3;     // leave a stub of solid wall either side of the glass
+        // §RESI-GROUND-WINDOW-RHYTHM (founder 2026-06-24: "MULTIPLE windows — TALL — width MAX 2 m
+        // — spaces between 0.5–1 m — many of them — luxe commercial facades"). Replace the single
+        // big window per edge with a REPEATING SERIES of tall panes: each pane ≤ WIN_PANE_MAX_M
+        // (aim ~1.6–2.0 m), separated by a WIN_GAP_M pier (0.5–1.0 m), even cadence across the run.
+        const WIN_PANE_MAX_M = 2.0;        // a single glazed pane never exceeds 2 m wide
+        const WIN_PANE_TARGET_M = 1.8;     // preferred pane width before fit-to-run rebalancing
+        const WIN_GAP_MIN_M = 0.5;         // minimum pier between panes
+        const WIN_GAP_MAX_M = 1.0;         // maximum pier between panes
+        const WIN_GAP_TARGET_M = 0.7;      // preferred pier width before fit-to-run rebalancing
         // §RESI-GROUND-SLAB-COVER (founder 2026-06-24: "on ground→first floor we see the slab; the
         // walls should rise to the slab level on the ground floor"). The first-floor slab sits on the
         // ground-storey head; a curtain/wall only floor-to-floor tall leaves the slab EDGE exposed
@@ -634,16 +655,58 @@ export class ResidentialBuildingExecutor {
                 height: groundWallH, thickness: SHELL_WALL_THICKNESS_M,
             });
             if (windowed) {
-                const winW = len - 2 * WIN_SIDE_MARGIN_M;
+                // §RESI-GROUND-WINDOW-RHYTHM — a REPEATING SERIES of tall panes (≤2 m) with even
+                // 0.5–1.0 m piers between, leaving a solid stub at each end. Head clamped under the
+                // wall head (≥0.1 m lintel). Tall: sill 0.01 m → head 3.5 m (clamped).
+                const head = Math.min(WIN_HEAD_M, groundWallH - 0.1);
+                const winH = Math.max(0.6, head - WIN_SILL_M);
+                const usable = len - 2 * WIN_SIDE_MARGIN_M;     // run available for panes + piers
+                // Even cadence: count = floor((usable + gap) / (pane + gap)) using target sizes.
+                let count = Math.floor((usable + WIN_GAP_TARGET_M) / (WIN_PANE_TARGET_M + WIN_GAP_TARGET_M));
+                if (usable >= 0.6 && count >= 2) {
+                    // Recompute pane width so panes + piers fill the run FLUSH (luxe even cadence),
+                    // holding the target pier and solving for the pane: usable = N·pane + (N-1)·gap.
+                    let gap = WIN_GAP_TARGET_M;
+                    let paneW = (usable - (count - 1) * gap) / count;
+                    // Pane too wide (> 2 m) ⇒ widen the piers (toward the 1.0 m cap) to soak the slack
+                    // while clamping the pane to ≤ 2 m; recompute the gap to keep the run flush.
+                    if (paneW > WIN_PANE_MAX_M) {
+                        paneW = WIN_PANE_MAX_M;
+                        gap = (usable - count * paneW) / (count - 1);
+                    }
+                    // Keep the pier inside [0.5, 1.0]; if clamping changes it, re-solve the pane so the
+                    // row still fills flush (pane absorbs the residue; it stays ≤ 2 m by construction).
+                    if (gap < WIN_GAP_MIN_M || gap > WIN_GAP_MAX_M) {
+                        gap = Math.min(WIN_GAP_MAX_M, Math.max(WIN_GAP_MIN_M, gap));
+                        paneW = (usable - (count - 1) * gap) / count;
+                    }
+                    if (paneW >= 0.6 && paneW <= WIN_PANE_MAX_M + 1e-6) {
+                        // Lay the series out from the start stub: pane, gap, pane, gap, …
+                        let cursor = WIN_SIDE_MARGIN_M;
+                        for (let k = 0; k < count; k++) {
+                            commercialWindows.push({
+                                wallId: id,
+                                offset: cursor,
+                                width: paneW,
+                                sillHeight: WIN_SILL_M,
+                                height: winH,
+                                levelId,
+                            });
+                            cursor += paneW + gap;
+                        }
+                        return id;
+                    }
+                }
+                // Fallback (edge too short for ≥2 panes): a single centred pane, ≤ 2 m wide, with the
+                // solid end stubs preserved (the historical behaviour, clamped to the 2 m pane cap).
+                const winW = Math.min(WIN_PANE_MAX_M, usable);
                 if (winW >= 0.6) {
-                    // Head clamped under the wall head (leave ≥0.1 m of lintel).
-                    const head = Math.min(WIN_HEAD_M, groundWallH - 0.1);
                     commercialWindows.push({
                         wallId: id,
                         offset: (len - winW) / 2,
                         width: winW,
                         sillHeight: WIN_SILL_M,
-                        height: Math.max(0.6, head - WIN_SILL_M),
+                        height: winH,
                         levelId,
                     });
                 }
@@ -1018,6 +1081,55 @@ export class ResidentialBuildingExecutor {
         } catch (e) { console.warn('[resi-building] roof create failed (skipped):', e); }
     }
 
+    /** §RESI-CORE-PENTHOUSE-CAP (founder 2026-06-24: "the rooftop core room has no roof — it's
+     *  open-topped"). When the core enclosure is extended onto the ROOF level (the stair/lift
+     *  overrun headhouse), its top is open. This caps it with a small flat roof over the CORE
+     *  footprint (NOT the building footprint) on the roof level, sitting on the core wall heads.
+     *  Mirrors `_createRoof`'s flat-slab geometry: a flat slab extrudes DOWN from its origin, so
+     *  `baseOffset = thickness` lifts the slab so its bottom rests on the core wall head. Default
+     *  material (NOT the façade colour). `core` is the LOCAL `{x0,x1,z0,z1}` rect, rotated to world
+     *  by `xf` (the same transform the core walls used). Guards a degenerate/missing core rect. */
+    private _createCoreRoofCap(
+        cm: CommandManagerLike,
+        core: { x0: number; x1: number; z0: number; z1: number },
+        roofLevelId: string,
+        wallHeightM: number,
+        xf: ResidentialRigidTransform,
+    ): void {
+        try {
+            const w = Math.abs(core.x1 - core.x0), d = Math.abs(core.z1 - core.z0);
+            if (!(w > 0.2) || !(d > 0.2)) return;   // degenerate core rect — nothing to cap
+            // The four LOCAL core corners → world (same rotation the core walls used).
+            const corners = [
+                this._rotate({ x: core.x0, z: core.z0 }, xf),
+                this._rotate({ x: core.x1, z: core.z0 }, xf),
+                this._rotate({ x: core.x1, z: core.z1 }, xf),
+                this._rotate({ x: core.x0, z: core.z1 }, xf),
+            ];
+            const poly = this._cleanRing(corners);
+            if (poly.length < 3) return;
+            let cx = 0, cz = 0;
+            for (const p of poly) { cx += p.x; cz += p.z; }
+            cx /= poly.length; cz /= poly.length;
+            const polygon: [number, number][] = poly.map(p => [p.x - cx, p.z - cz] as [number, number]);
+            const THICK = 0.25;
+            cm.execute?.(new CreateRoofCommand(createId('roof'), {
+                levelId: roofLevelId,
+                footprint: { polygon, centroid: [cx, cz] },
+                roofType: 'flat',
+                overhang: 0,
+                // The roof LEVEL datum is the top-storey wall head; the core OVERRUN walls rise one
+                // floor (wallHeightM) above it. A flat slab extrudes DOWN from its origin (=
+                // roofLevel.elevation + baseOffset), so baseOffset = wallHeightM + THICK lifts the
+                // cap so its BOTTOM rests exactly on the core overrun wall heads, capping the room.
+                baseOffset: wallHeightM + THICK,
+                thickness: THICK,
+                autoBaseOffset: false,
+                // Default material — the penthouse cap is NOT the façade colour.
+            }), { source: 'RESI_PIPELINE_CORE_ROOF_CAP' });
+        } catch (e) { console.warn('[resi-building] core roof-cap create failed (skipped):', e); }
+    }
+
     /** §RESI-ROOF-GARDEN (2026-06-24) — ring the roof footprint with a 1.1 m glass guard so the
      *  flat roof reads as a walkable amenity deck. `footprint` is WORLD-XZ (no transform). Each
      *  edge becomes one CreateHandrailCommand (fillType:'glass' ⇒ IFC GUARDRAIL), copying the
@@ -1308,33 +1420,58 @@ export class ResidentialBuildingExecutor {
         // §RESI-CORE-CIRCULATION (R-CORE-2/6, founder 2026-06-24) — a shared LOBBY band at the core's
         // z0 (corridor) edge that the fire door opens into; BOTH the stair and the lift are set BACK
         // behind it so neither blocks the approach. Stair = LEFT half, lift = RIGHT half.
-        const halfRunDepth = Math.floor(totalRisers / 2) * STAIR_TREAD_M;   // U-stair folded run depth
-        const lobbyDepth = Math.max(0.8, Math.min(1.4, coreD - halfRunDepth - 0.3));
-        const shaftDepth = Math.min(2.4, Math.max(1.6, coreD - lobbyDepth - 0.2));
         const liftCx = core.x0 + coreW * 0.75;
-        const liftCz = cz0 + lobbyDepth + shaftDepth / 2;   // lift FRONT (door) sits on the lobby line
         const shaftWidth = Math.min(2.0, Math.max(1.6, coreW / 2 - 0.2));
 
-        // §RESI-CORE-STAIR-CLASH (founder 2026-06-24: "the core wall clips the stair") — the RC core
-        // perimeter wall is CENTRED on the rect edge (thickness SHELL_WALL_THICKNESS_M), so the LEFT
-        // wall's INNER face is at core.x0 + SHELL_WALL_THICKNESS_M/2. The U-stair occupies a LATERAL
-        // x-band: run 1 is centred at `stairCenterX`; run 2 is offset −stairWidth (perpDir); each run
-        // is ±stairWidth/2 wide. So the footprint spans [stairCenterX − 1.5·w, stairCenterX + 0.5·w]
-        // (total 2·w). Previously stairCenterX = core.x0 + coreW/4 with w≈1.0 put the leftmost run
-        // edge exactly on core.x0 → INTO the left wall. Fix: compute a CLEARED x-band between the left
-        // core wall inner face and the lift's left edge, clamp the stair width to half that band, and
-        // anchor the footprint's leftmost edge at the band's left so the stair never touches the wall.
+        // §RESI-CORE-STAIR-CLASH (founder 2026-06-24: "the core wall clips the stair" + "the upper
+        // flight pokes PAST the core wall") — guarantee the ENTIRE U-stair footprint (both flights +
+        // the half-landing + side clearance) lives INSIDE the core walls' inner face on every level.
+        // The RC core wall is CENTRED on the rect edge (thickness SHELL_WALL_THICKNESS_M), so the
+        // INNER faces are inset by SHELL_WALL_THICKNESS_M/2 from each rect edge.
         const STAIR_CORE_CLEARANCE_M = 0.05;
-        const xBandLeft = core.x0 + SHELL_WALL_THICKNESS_M / 2 + STAIR_CORE_CLEARANCE_M;
+        const innerHalfT = SHELL_WALL_THICKNESS_M / 2;
+        // ── LATERAL (x) fit. The U-stair occupies a LATERAL x-band: run 1 is centred at
+        // `stairCenterX`; run 2 is offset −stairWidth; each run is ±stairWidth/2 wide. So the
+        // footprint spans [stairCenterX − 1.5·w, stairCenterX + 0.5·w] (total 2·w). The cleared band
+        // runs from the LEFT core wall inner face to the lift's left edge.
+        const xBandLeft = core.x0 + innerHalfT + STAIR_CORE_CLEARANCE_M;
         const xBandRight = (liftCx - shaftWidth / 2) - STAIR_CORE_CLEARANCE_M;   // clear of the lift too
         const xBand = Math.max(0, xBandRight - xBandLeft);
-        // Footprint lateral span = 2·stairWidth must fit the band ⇒ stairWidth ≤ band/2. Also keep the
-        // architectural floor (≥0.9 m) — if the band is too tight the max() wins and the stair is
-        // narrower than ideal but still inside the band (a small overhang is preferable to a wall clip,
-        // and a 6 m core comfortably yields ≥0.9 m here).
-        const stairWidth = Math.max(0.9, Math.min(STAIR_WIDTH_M, xBand / 2));
+        // STRICT lateral clamp: footprint lateral span = 2·stairWidth must fit the band ⇒
+        // stairWidth ≤ band/2. NO architectural-floor max() that could EXCEED band/2 — a floor that
+        // overrides the band is exactly what let the upper flight poke past the wall. The result is
+        // capped at the ideal STAIR_WIDTH_M; a 6 m core yields ≈1.6 m (comfortable). Tiny cores get a
+        // narrow-but-enclosed stair, never a wall-piercing one.
+        const stairWidth = Math.max(0.6, Math.min(STAIR_WIDTH_M, xBand / 2));
         // Run-1 centre x: anchor the footprint's leftmost edge (stairCenterX − 1.5·w) at xBandLeft.
         const stairCenterX = xBandLeft + 1.5 * stairWidth;
+
+        // ── DEPTH (z) fit. The U-stair runs +Z from the bottom landing (at cz0 + lobbyDepth) for the
+        // half-run, plus one tread for the half-landing. The FAR edge must clear the z1 core wall
+        // inner face. If the half-run overflows the available depth, DROP risers (raising the riser
+        // height within the architectural max) until the folded run fits — so no flight crosses z1.
+        const zInnerDepth = coreD - 2 * innerHalfT - 2 * STAIR_CORE_CLEARANCE_M;   // usable inner depth
+        // Reserve a minimum lobby (run-in landing) at z0; the rest is for the half-run + half-landing.
+        const MIN_LOBBY_M = 0.8;
+        const reduceRisersToFitDepth = (): void => {
+            // halfRun + 1 tread (the half-landing) + MIN_LOBBY_M must fit zInnerDepth.
+            let guard = 40;
+            while (guard-- > 0) {
+                const half = Math.floor(totalRisers / 2);
+                const folded = half * STAIR_TREAD_M + STAIR_TREAD_M;   // half-run + half-landing tread
+                if (folded + MIN_LOBBY_M <= zInnerDepth || totalRisers <= 2) break;
+                // Too deep — remove a riser (each drop raises riserHeight; stop if it breaches the max).
+                if (riserHeight >= STAIR_RISER_MAX_M) break;
+                totalRisers--;
+                riserHeight = floorToFloorM / totalRisers;
+            }
+        };
+        reduceRisersToFitDepth();
+        const halfRunDepth = Math.floor(totalRisers / 2) * STAIR_TREAD_M;   // U-stair folded run depth
+        // Lobby fills whatever depth is left in front of the folded run, clamped to a sensible band.
+        const lobbyDepth = Math.max(MIN_LOBBY_M, Math.min(1.4, zInnerDepth - halfRunDepth - STAIR_TREAD_M));
+        const shaftDepth = Math.min(2.4, Math.max(1.6, coreD - lobbyDepth - 0.2));
+        const liftCz = cz0 + lobbyDepth + shaftDepth / 2;   // lift FRONT (door) sits on the lobby line
 
         // §RESI-ROOF-GARDEN — the top INDEX the circulation reaches. Normally the top apartment
         // floor (levels.length − 1); when the roof deck is ON, the roof level (registered at index

@@ -86,6 +86,7 @@ export function wireCommandEventBridge(
             thickness?: number;
             baseOffset?: number;
             systemTypeId?: string;
+            materialColor?: string;
           };
           events.emit('wall.created', {
             commandId:    record.id,
@@ -98,6 +99,9 @@ export function wireCommandEventBridge(
             thickness:    p.thickness,
             baseOffset:   p.baseOffset,
             systemTypeId: p.systemTypeId,
+            // §RESI-FACADE-COLOUR-PERSIST (2026-06-24) — forward the per-wall finish colour so
+            // the legacy-store mirror renders it (the field was dropped here before).
+            materialColor: p.materialColor,
           });
           break;
         }
@@ -117,6 +121,7 @@ export function wireCommandEventBridge(
               thickness?: number;
               baseOffset?: number;
               systemTypeId?: string;
+              materialColor?: string;
             }>;
             levelId?: string;
           };
@@ -134,6 +139,9 @@ export function wireCommandEventBridge(
               thickness:    w.thickness,
               baseOffset:   w.baseOffset,
               systemTypeId: w.systemTypeId,
+              // §RESI-FACADE-COLOUR-PERSIST (2026-06-24) — carry the per-wall finish colour
+              // through the batch fan-out (was dropped → façade walls rendered default grey).
+              materialColor: w.materialColor,
             });
           }
           break;

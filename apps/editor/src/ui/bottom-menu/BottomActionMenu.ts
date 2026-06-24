@@ -885,6 +885,15 @@ export class BottomActionMenu {
     private _applySceneVisibilityFilters(): void {
         const scene = this._getScene();
         if (!scene) return;
+        // §FLOOR-ISOLATE-ROOMTAG (2026-06-24) — room-NAME labels are THREE.Sprites
+        // carrying only `userData.roomId` + `userData.type='room-label'` (no
+        // `id`/`levelId`/`storeyName`), so `_isBimObject` rejected them and the
+        // active-level / solo isolation traverse below SKIPPED them entirely —
+        // every storey's room tags stayed visible on the isolated floor. Stamp
+        // `userData.levelId` from the room store FIRST (same pre-pass the level
+        // explode/stack path uses) so labels enter the SAME per-level bucket the
+        // walls/floors use and hide/restore with their storey. Pure visual tag.
+        this._stampAnnotationLevelTags(scene);
         const activeLevelId = this._getActiveLevelId();
         scene.traverse((obj: any) => {
             if (!this._isBimObject(obj)) return;
