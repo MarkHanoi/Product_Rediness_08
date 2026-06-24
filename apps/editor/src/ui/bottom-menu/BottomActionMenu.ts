@@ -86,6 +86,10 @@ export class BottomActionMenu {
     private _pendingTimer: ReturnType<typeof setTimeout> | null = null;
     private readonly _slabModePicker = new SlabModePicker();
     private readonly _originalVisibility = new Map<THREE.Object3D, boolean>();
+    // §WALL-CUTAWAY-XRAY (2026-06-24) — original wall materials captured when the
+    // Wall-Cutaway (x-ray) toggle turns ON, so OFF restores them exactly. Keyed by
+    // the wall Mesh; value is the pre-xray material (or array), never cloned/lost.
+    private readonly _xrayOriginalMaterials = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
     private readonly _levelOriginalY = new Map<THREE.Object3D, number>();
     // A.21.D33(b): animation target Y per level root, held in a side Map instead of
     // mutating root.userData — some level roots have a frozen/non-extensible userData
@@ -334,20 +338,113 @@ export class BottomActionMenu {
         this._render();
     }
 
+    /**
+     * §WALL-CUTAWAY-XRAY (2026-06-24) — "Wall Cutaway" now means X-RAY (walls go
+     * semi-transparent so you can see INTO rooms), NOT a section/clip.
+     *
+     * ROOT CAUSE of the old behaviour: this handler used to call
+     * `_applyWallCutawayClipping()`, which set a 1.2m clipping PLANE on every
+     * material — slicing the wall tops off (a section cut), never making them
+     * see-through. The founder expected x-ray transparency. The codebase already
+     * has an x-ray recipe (DiagnosticMaterialManager._applyXray: transparent
+     * MeshPhong @ low opacity, depthWrite:false), but that lives inside the
+     * Inspect-mode (F2) lens stack with its own overlay group / DeltaMap context;
+     * wiring this lightweight toolbar toggle into it would be heavy and fragile.
+     * Instead we apply the same material recipe locally and capture/restore the
+     * originals exactly like the level filter captures `_originalVisibility`.
+     *
+     * The separate "Wall Low Height" button keeps the clipping path (it is a
+     * genuine cut-down). Cutaway and Low-Height are mutually exclusive because
+     * both share `_wallCutMode`; toggling cutaway ON from a 'down' state clears
+     * the clip first so the two never fight.
+     */
     private _toggleWallCutaway(): void {
-        const prevMode = this._wallCutMode;
-        this._wallCutMode = this._wallCutMode === 'cutaway' ? 'up' : 'cutaway';
-        this._applyWallCutawayClipping();
-        this._applySceneVisibilityFilters();
-        // §DIAG-CUTAWAY-RESTORE — toggling BACK to full height must re-cut every
-        // wall's door/window voids (see _restoreWallOpeningsAfterCutaway).
-        if (prevMode !== 'up' && this._wallCutMode === 'up') this._restoreWallOpeningsAfterCutaway(prevMode);
+        const turningOn = this._wallCutMode !== 'cutaway';
+        // If switching in from Low-Height (clipping) mode, drop the clip plane first.
+        if (turningOn && this._wallCutMode === 'down') {
+            this._wallCutMode = 'up';
+            this._applyWallCutawayClipping();
+            this._restoreWallOpeningsAfterCutaway('down');
+        }
+        this._wallCutMode = turningOn ? 'cutaway' : 'up';
+        this._applyWallCutawayXray(turningOn);
         this.runtime?.events?.emit('bam:wall-cut-mode-changed', { mode: this._wallCutMode }); // F.events.14
         this._render();
     }
 
+    /**
+     * §WALL-CUTAWAY-XRAY — make every wall mesh semi-transparent (ON) or restore
+     * its captured original material (OFF). Pure projection-layer material swap:
+     * no store writes, no commands, no clipping.
+     *
+     * ON:  clone the live material, force `transparent=true`, `opacity≈0.28`,
+     *      `depthWrite=false` (so you can see through overlapping walls), and
+     *      `side=DoubleSide` (interior faces read through the x-ray). The original
+     *      is stashed in `_xrayOriginalMaterials` before the swap.
+     * OFF: re-assign each captured original and clear the map. Idempotent — safe
+     *      to call when nothing was captured (no-op).
+     */
+    private _applyWallCutawayXray(enable: boolean): void {
+        const scene = this._getScene();
+        if (!scene) return;
+
+        if (!enable) {
+            for (const [mesh, original] of this._xrayOriginalMaterials) {
+                mesh.material = original;
+            }
+            this._xrayOriginalMaterials.clear();
+            this._invalidateSelectionCache();
+            return;
+        }
+
+        const XRAY_OPACITY = 0.28;
+        scene.traverse((obj: any) => {
+            if (!(obj instanceof THREE.Mesh)) return;
+            if (!this._isWallMeshOrDescendant(obj)) return;
+            if (this._xrayOriginalMaterials.has(obj)) return; // already x-rayed
+
+            const apply = (mat: THREE.Material): THREE.Material => {
+                // Skip shader materials (grid etc. never reach here, but be safe).
+                if (mat instanceof THREE.ShaderMaterial) return mat;
+                const clone = mat.clone();
+                (clone as any).transparent = true;
+                (clone as any).opacity = XRAY_OPACITY;
+                (clone as any).depthWrite = false;
+                (clone as any).side = THREE.DoubleSide;
+                clone.needsUpdate = true;
+                return clone;
+            };
+
+            this._xrayOriginalMaterials.set(obj, obj.material);
+            obj.material = Array.isArray(obj.material)
+                ? obj.material.map((m: THREE.Material) => apply(m))
+                : apply(obj.material as THREE.Material);
+        });
+        this._invalidateSelectionCache();
+    }
+
+    /**
+     * §WALL-CUTAWAY-XRAY — true when this mesh is a wall body, OR a descendant of a
+     * wall Group (wall fragment meshes carry no `elementType`; it lives on the
+     * parent Group). Walks the ancestor chain, mirroring DiagnosticMaterialManager.
+     */
+    private _isWallMeshOrDescendant(obj: THREE.Object3D): boolean {
+        let cur: THREE.Object3D | null = obj;
+        while (cur) {
+            const ud = (cur as any).userData;
+            if (ud?.isHelper || ud?.isPreview || ud?.role === 'edges') return false;
+            if (this._isWallObject(cur)) return true;
+            cur = cur.parent;
+        }
+        return false;
+    }
+
     private _toggleWallLowHeight(): void {
         const prevMode = this._wallCutMode;
+        // §WALL-CUTAWAY-XRAY — Low-Height (clipping) and Cutaway (x-ray) share
+        // `_wallCutMode` and are mutually exclusive; if x-ray was on, restore the
+        // opaque wall materials before clipping so the two never stack.
+        if (prevMode === 'cutaway') this._applyWallCutawayXray(false);
         this._wallCutMode = this._wallCutMode === 'down' ? 'up' : 'down';
         this._applyWallCutawayClipping();
         this._applySceneVisibilityFilters();
@@ -428,10 +525,10 @@ export class BottomActionMenu {
     }
 
     /**
-     * Applies or removes a global renderer clipping plane to simulate BIM cutaway mode.
-     * Cutaway: clips everything above the standard BIM section cut height (1.2m).
-     * Low:     clips everything above 0.6m so only very low wall stubs are shown.
-     * Up:      removes all clipping planes (full wall height).
+     * Applies or removes a global renderer clipping plane for the Wall Low-Height
+     * mode ('down'). 'up' removes all clipping planes (full wall height). NOTE:
+     * since §WALL-CUTAWAY-XRAY, the 'cutaway' mode is x-ray transparency and no
+     * longer routes through here — it has no clip height.
      *
      * Works with both WebGL and WebGPU renderers via material-level clipping planes.
      * Sets renderer.localClippingEnabled = true so material clipping planes are respected.
@@ -440,9 +537,9 @@ export class BottomActionMenu {
         const renderer = window.world?.renderer?.three; // TODO(D.4): replace with runtime.scene.world (EngineBootstrap split) — Phase D.4
         const scene = this._getScene();
         const CUT_HEIGHTS: Record<string, number | null> = {
-            cutaway: 1.2,
             down:    0.6,
             up:      null,
+            cutaway: null, // §WALL-CUTAWAY-XRAY — x-ray mode does not clip
         };
         const cutHeight = CUT_HEIGHTS[this._wallCutMode] ?? null;
 
@@ -585,12 +682,15 @@ export class BottomActionMenu {
         }
         this._visibleElementIds.clear();
         this._levelMode = 'stacked';
-        const _wasCut = this._wallCutMode !== 'up';
+        const _prevCutMode = this._wallCutMode;
         this._wallCutMode = 'up';
+        // §WALL-CUTAWAY-XRAY — restore wall transparency if cutaway (x-ray) was on.
+        this._applyWallCutawayXray(false);
         this._applyWallCutawayClipping();
-        // §DIAG-CUTAWAY-RESTORE — a reset FROM a cut/low state must also re-cut
-        // every wall's openings, same as the explicit toggle-back.
-        if (_wasCut) this._restoreWallOpeningsAfterCutaway('cutaway');
+        // §DIAG-CUTAWAY-RESTORE — a reset FROM the Low-Height (clipping) state must
+        // re-cut every wall's openings, same as the explicit toggle-back. Cutaway
+        // is now x-ray and never carved openings, so it needs no opening re-cut.
+        if (_prevCutMode === 'down') this._restoreWallOpeningsAfterCutaway('down');
         this._restoreLevelTransforms();
         for (const [obj, visible] of this._originalVisibility) obj.visible = visible;
         this._originalVisibility.clear();
@@ -866,20 +966,11 @@ export class BottomActionMenu {
 
     private _wallVisibleInMode(obj: any): boolean {
         if (!this._isWallObject(obj)) return true;
-        if (this._wallCutMode === 'up') return true;
-        if (this._wallCutMode === 'down') return false;
-        const front = String(obj.userData?.frontSide ?? '').toLowerCase();
-        const back = String(obj.userData?.backSide ?? '').toLowerCase();
-        if (front === 'interior' && back === 'interior') return false;
-        const camera = window.world?.camera?.three as THREE.Camera | undefined; // TODO(D.4): replace with runtime.scene.world (EngineBootstrap split) — Phase D.4
-        if (!camera) return true;
-        const cameraDir = new THREE.Vector3();
-        camera.getWorldDirection(cameraDir);
-        const wallDir = new THREE.Vector3();
-        obj.getWorldDirection?.(wallDir);
-        if (wallDir.lengthSq() === 0) return true;
-        if (wallDir.dot(cameraDir) < 0) return !(front === 'exterior' && back !== 'exterior');
-        return !(back === 'exterior' && front !== 'exterior');
+        // §WALL-CUTAWAY-XRAY — 'cutaway' is now an x-ray transparency effect (see
+        // _applyWallCutawayXray): walls stay VISIBLE, just see-through, so the
+        // active-level filter must NOT hide them. 'up' = full opaque walls (no
+        // hide). Only 'down' (Wall Low-Height clipping) hides the wall body.
+        return this._wallCutMode !== 'down';
     }
 
     private _applySceneVisibilityFilters(): void {
