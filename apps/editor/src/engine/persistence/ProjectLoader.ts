@@ -1569,10 +1569,23 @@ export class ProjectLoader {
             //    storeEventBus.endBatch() above so all CREATE events have been
             //    delivered to builders, but BEFORE topologyObserver.resume()
             //    so the room re-detection scans final wall geometry.
+            // §WALL-JOIN-LOAD-SKIP (2026-06-24) — project-open HANG fix. The persisted
+            // wall geometry is ALREADY join-resolved (ProjectSerializer saves the trimmed
+            // baseline verbatim), so re-running the whole-level WallJoinResolver.resolveLevel
+            // pass on the critical load thread is redundant and blocks for large residential
+            // buildings (hundreds–thousands of walls × 5–6 floors → "Loading Auto-save…"
+            // forever). Setting this flag for the duration of this single resumeAndFlush()
+            // routes the coordinator to its RESTORE path: build every wall from its persisted
+            // baseline (O(walls), no resolve) + defer ONE whole-level resolve per level off
+            // the critical path to refine the mitered corner caps. The flag is set ONLY here
+            // and cleared immediately after, so live-edit flushes are unaffected.
             try {
+                (globalThis as unknown as { __pryzmWallRestoreFlush?: boolean }).__pryzmWallRestoreFlush = true;
                 wallRebuildControl?.resumeAndFlush?.();
             } catch (e) {
                 console.warn('[ProjectLoader] __wallRebuildControl.resumeAndFlush() failed', e);
+            } finally {
+                (globalThis as unknown as { __pryzmWallRestoreFlush?: boolean }).__pryzmWallRestoreFlush = false;
             }
             __phase('wall_rebuild_flush'); // WallJoinResolver + buildWall coalesced pass
             // ── End §LOAD-RAF-PAUSE flush ────────────────────────────────────

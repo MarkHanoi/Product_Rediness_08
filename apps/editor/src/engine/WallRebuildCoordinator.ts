@@ -212,8 +212,128 @@ export class WallRebuildCoordinator {
     private _resumeAndFlush(): void {
         this._wallRebuildPaused = false;
         if (this._wallRafHandle !== null) { this._wallRafHandle(); this._wallRafHandle = null; }
-        if (this._pendingWallEvents.size > 0) {
-            try { this._flush(); } catch (err) { console.error('[WallRebuildCoordinator] end-of-load flush failed', err); }
+        if (this._pendingWallEvents.size === 0) return;
+        // §WALL-JOIN-LOAD-SKIP (2026-06-24) — project-open HANG fix. When the
+        // ProjectLoader sets `window.__pryzmWallRestoreFlush = true` for the duration of a
+        // restore-from-snapshot, the persisted wall geometry is ALREADY join-resolved (the
+        // store `baseLine` is the trimmed/welded line the last resolve produced, persisted
+        // verbatim by ProjectSerializer §WALL-JOIN-SAVE-FIX). Re-running the whole-level
+        // `WallJoinResolver.resolveLevel` / `_clampPartitionEndsToShellInnerFace` pass on
+        // EVERY level on the critical load thread is the confirmed hang root for large
+        // residential buildings (hundreds–thousands of walls × 5–6 floors blocks the main
+        // thread → "Loading Auto-save…" forever); the §POST-RESOLVE-PRESERVE guard already
+        // reports that re-resolve as REDUNDANT ("rendered + persisted geometry unchanged;
+        // the rejected re-resolve is NOT applied"). So on restore we BUILD every queued
+        // wall body directly from its persisted baseline (O(walls), no resolve), then defer
+        // ONE whole-level resolve per level OFF the critical path (a later frame) to refine
+        // the mitered end-caps — the project is interactive immediately, joints settle a
+        // frame or two later. The live-EDIT path (flag unset) is byte-identical to before.
+        const _restoreFlag = (globalThis as unknown as { __pryzmWallRestoreFlush?: boolean }).__pryzmWallRestoreFlush === true;
+        if (_restoreFlag) {
+            try { this._flushRestore(); } catch (err) { console.error('[WallRebuildCoordinator] §WALL-JOIN-LOAD-SKIP restore flush failed — falling back to full flush', err); this._flush(); }
+            return;
+        }
+        try { this._flush(); } catch (err) { console.error('[WallRebuildCoordinator] end-of-load flush failed', err); }
+    }
+
+    /**
+     * §WALL-JOIN-LOAD-SKIP (2026-06-24) — RESTORE-mode flush. Builds every queued wall
+     * body from its PERSISTED (already-resolved) baseline WITHOUT running the whole-level
+     * `WallJoinResolver.resolveLevel` / `_clampPartitionEndsToShellInnerFace` pass — that
+     * pass is the project-open hang root and is redundant on restore (the persisted
+     * baseline is the resolved geometry). It then schedules ONE deferred whole-level
+     * resolve per affected level (via the existing `_rebuildWalls` whole-level path) on a
+     * later frame, OFF the critical load thread, so the mitered end-caps are refined
+     * exactly as a live edit would produce them — but the project is interactive first.
+     *
+     * Visual parity: a wall built with `joinData = null` renders on its own (persisted,
+     * already-trimmed) centreline with square end caps — the corner miters appear once the
+     * deferred resolve lands. For the common case the trimmed baselines already meet at the
+     * junction so any residual cap difference is sub-frame and corrected by the deferred
+     * pass. This NEVER touches the live-edit `_flush` path.
+     */
+    private _flushRestore(): void {
+        this._wallRafHandle = null;
+        const batch = new Map(this._pendingWallEvents);
+        this._pendingWallEvents.clear();
+        if (batch.size === 0) return;
+
+        const builder = this._wallTool.getFragmentBuilder();
+        const store   = this._wallTool.getWallStore();
+
+        const affectedLevelIds = new Set<string>();
+        let built = 0;
+        this._joinsResolving = true;
+        try {
+            for (const [wallId, { event }] of batch) {
+                if (event === 'remove') {
+                    builder.removeWall(wallId);
+                    try { window.__planSymbolCache?.invalidate(wallId); } catch { /* noop */ }
+                    continue;
+                }
+                const fresh = store.getById(wallId);
+                if (!fresh) continue;
+                affectedLevelIds.add(fresh.levelId);
+                const slabOff = resolveSlabBaseOffsetForWall(fresh, this._slabStore);
+                const lvl     = this._bimManager.getLevelById(fresh.levelId);
+                const worldY  = (lvl?.elevation ?? 0) + slabOff + (fresh.baseOffset ?? 0);
+                try {
+                    // joinData = null → build on the persisted (resolved) baseline. The
+                    // deferred whole-level resolve below refines the mitered caps.
+                    builder.buildWall(fresh, null, resolveOpeningRenderMap(fresh, store), worldY);
+                    builder.recordBuiltVersion(wallId, fresh, null, slabOff);
+                    this._doorBuilder.rebuildForWall(wallId);
+                    this._windowBuilder.rebuildForWall(wallId);
+                    built++;
+                } catch (err) {
+                    console.error(`[WallRebuildCoordinator] §WALL-JOIN-LOAD-SKIP: restore buildWall failed for "${wallId}" — continuing.`, err);
+                }
+            }
+        } finally {
+            this._joinsResolving = false;
+        }
+
+        console.log(
+            `[WallRebuildCoordinator] §WALL-JOIN-LOAD-SKIP — restored ${built} wall(s) across ` +
+            `${affectedLevelIds.size} level(s) from persisted baselines (NO load-time resolveLevel); ` +
+            `deferring one whole-level resolve per level off the critical path.`,
+        );
+
+        // Commit barrier — identical to the whole-level path so room-redetect / OTel /
+        // plan-cache consumers behave the same.
+        try {
+            window.runtime?.events?.emit('bim-wall-mutation-committed', {
+                levelIds: Array.from(affectedLevelIds),
+                sourceCommandId: undefined,
+            });
+        } catch (err) {
+            console.warn('[WallRebuildCoordinator] §WALL-JOIN-LOAD-SKIP: failed to dispatch bim-wall-mutation-committed', err);
+        }
+
+        // Defer the authoritative whole-level resolve OFF the critical load thread. We
+        // re-queue every restored wall per level as a plain `update` (no prevState ⇒
+        // whole-level rebuild) and run `_flush` from a later frame slot. This produces the
+        // exact mitered geometry a live edit would, but only after the project is already
+        // interactive — so the load itself never blocks on the resolver. Spread across
+        // levels via one scheduleOnce per level keeps any single frame's resolve bounded.
+        const restoredByLevel = new Map<string, string[]>();
+        for (const [wallId, { event }] of batch) {
+            if (event === 'remove') continue;
+            const w = store.getById(wallId);
+            if (!w) continue;
+            (restoredByLevel.get(w.levelId) ?? restoredByLevel.set(w.levelId, []).get(w.levelId)!).push(wallId);
+        }
+        let _delay = 0;
+        for (const [levelId, ids] of restoredByLevel) {
+            const _ids = ids.slice();
+            getFrameScheduler().scheduleOnce(
+                `wall-join-load-skip-deferred-resolve-${levelId}-${_delay++}`,
+                () => {
+                    try { this._rebuildWalls(_ids); }
+                    catch (err) { console.warn(`[WallRebuildCoordinator] §WALL-JOIN-LOAD-SKIP deferred resolve for level ${levelId} failed (non-fatal):`, err); }
+                },
+                'post-render',
+            );
         }
     }
 
@@ -945,6 +1065,11 @@ export class WallRebuildCoordinator {
                                 : _overExtended
                                     ? `over-extend spike (preLen=${_preLen.toFixed(3)}m → newLen=${_newLen.toFixed(3)}m)`
                                     : `lateral pivot (${(_lateral * 1000).toFixed(0)}mm)`;
+                            // §WALL-JOIN-LOAD-SKIP (2026-06-24) — gate behind the wall-join
+                            // debug flag. This fires per-preserved-wall on every flush
+                            // (including the deferred post-load resolves), flooding the
+                            // console for large buildings; opt-in only.
+                            if ((globalThis as unknown as { __PRYZM_WALL_JOIN_DEBUG?: boolean }).__PRYZM_WALL_JOIN_DEBUG === true)
                             // eslint-disable-next-line no-console
                             console.warn(`[WallRebuildCoordinator] §POST-RESOLVE-PRESERVE held ${wallId} STABLE — caught a post-openings ${_why} and re-anchored to source (rendered + persisted geometry unchanged; the rejected re-resolve is NOT applied)`);
                         }
