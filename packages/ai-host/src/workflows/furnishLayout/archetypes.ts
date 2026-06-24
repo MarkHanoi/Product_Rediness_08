@@ -222,6 +222,34 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
             { kind: 'wc_mirror',       anchor: 'beside',             facing: 'into-room', required: false, group: 'wc-basin' },
         ],
     },
+    // §FURNISH-WC-PAN (2026-06-24) — EN-SUITE archetype. The apartment / house
+    // generators stamp a master en-suite as `occupancyType: 'ensuite'` (see
+    // roomDimensions.ensuite — a tighter envelope than the shared bathroom).
+    // Until now there was NO 'ensuite' archetype, so archetypeFor('ensuite')
+    // returned null and the en-suite shipped EMPTY: no toilet, no basin, no
+    // shower. This is the compact wet-room — it mirrors the 'bathroom' wet
+    // fixtures but uses the cloakroom-scale wc_washbasin (the full vanity_unit
+    // does not fit a typical ~4 m² en-suite) and drops the optional drop-in bath.
+    //
+    // §FURNITURE-SPEC: the TOILET (toilet_radiator slot) is required and anchors
+    // 'wall-longest' with excludeDoorSwing — so it lands against a wall, NOT on
+    // the door wall, and the solver's clearFront (0.60 m, from footprints.ts)
+    // reserves knee clearance in front of it. The shower corner-anchors and the
+    // solver places it AFTER the toilet so it avoids the toilet's clear-front.
+    // Placement is fully deterministic (the solver carries no RNG — fixed
+    // candidate order, ties broken by lower x then z).
+    'ensuite': {
+        occupancy: 'ensuite', minAreaM2: 2.2,
+        items: [
+            // Toilet pan — required, against a wall, off the door, clear in front.
+            { kind: 'toilet_radiator', anchor: 'wall-longest',       facing: 'into-room', required: true,  excludeDoorSwing: true },
+            // Shower enclosure — required, tucked into a corner away from the door.
+            { kind: 'shower_glass_panel', anchor: 'corner',          facing: 'into-room', required: true },
+            // Compact wall-hung basin opposite the door (faced on entry) + mirror.
+            { kind: 'wc_washbasin',    anchor: 'wall-opposite-door', facing: 'into-room', required: true,  group: 'ensuite-basin', excludeDoorSwing: true },
+            { kind: 'wc_mirror',       anchor: 'beside',             facing: 'into-room', required: false, group: 'ensuite-basin' },
+        ],
+    },
     'entrance-lobby': {
         occupancy: 'entrance-lobby', minAreaM2: 3,
         // F4.2 / S2 (2026-06-01) — the entrance-lobby hosts the Entry Storage

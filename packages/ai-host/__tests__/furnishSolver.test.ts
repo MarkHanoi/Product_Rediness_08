@@ -242,6 +242,52 @@ describe('furnishRoom (D-FLE F5/F7)', () => {
             expect(toilet!.position.z).toBeGreaterThan(1.0);
         });
 
+        // §FURNISH-WC-PAN (2026-06-24) — a master EN-SUITE (occupancyType
+        // 'ensuite') previously had NO archetype → furnishRoom returned [] →
+        // the en-suite shipped with no toilet, no basin, no shower. The new
+        // 'ensuite' archetype furnishes it as a compact wet room.
+        it('ensuite gets a toilet, a basin and a shower (was previously EMPTY)', () => {
+            const room = rectRoom('ensuite', 2.6, 2.2);          // ~5.7 m² en-suite (fits the full wet trio)
+            const items = furnishRoom(room);
+            expect(items.length).toBeGreaterThan(0);
+            expect(items.some(i => i.kind === 'toilet_radiator')).toBe(true);   // the WC pan slot
+            expect(items.some(i => i.kind === 'wc_washbasin')).toBe(true);
+            expect(items.some(i => i.kind === 'shower_glass_panel')).toBe(true);
+            assertSane(items, room.polygon as Pt[]);
+        });
+
+        // A TIGHT en-suite (no room for a shower after the toilet + basin claim
+        // walls) must STILL ship the required toilet — the WC pan is the point.
+        it('a tight ensuite still gets its toilet (against a wall, off the door)', () => {
+            const room = rectRoom('ensuite', 2.4, 1.8);          // ~4.3 m² — shower may not fit
+            const items = furnishRoom(room);
+            const toilet = items.find(i => i.kind === 'toilet_radiator');
+            expect(toilet).toBeDefined();
+            // Door is on the bottom wall (z = 0). excludeDoorSwing pushes the
+            // toilet onto a non-door wall — its centre must clear the door zone.
+            expect(toilet!.position.z).toBeGreaterThan(0.5);
+        });
+
+        it('ensuite toilet is clear of the shower (no overlap)', () => {
+            const room = rectRoom('ensuite', 2.6, 2.2);
+            const items = furnishRoom(room);
+            const toilet = items.find(i => i.kind === 'toilet_radiator');
+            const shower = items.find(i => i.kind === 'shower_glass_panel');
+            expect(toilet).toBeDefined();
+            expect(shower).toBeDefined();
+            expect(rectsOverlap(rectOf(toilet!), rectOf(shower!))).toBe(false);
+        });
+
+        // Determinism: the solver carries no RNG; two runs of the SAME input
+        // produce byte-identical placements (§FURNISH-WC-PAN — no Math.random).
+        it('ensuite placement is deterministic across repeated runs', () => {
+            const room = rectRoom('ensuite', 2.6, 2.2);
+            const a = furnishRoom(room);
+            const b = furnishRoom(room);
+            expect(b.map(i => `${i.kind}@${i.position.x},${i.position.z},${i.rotationY}`))
+                .toEqual(a.map(i => `${i.kind}@${i.position.x},${i.position.z},${i.rotationY}`));
+        });
+
         // A.21.D20 — the kitchen run (base units + appliances) must NOT sit on
         // the door wall (a counter slid past the door is unusable + the swing
         // fouls the working zone). A door-wall module faces +z (yaw ≈ 0) AND

@@ -122,10 +122,16 @@ export type FurnitureKind =
 /** Editor RoomOccupancyType values this engine furnishes (subset).
  *  F3.5 (2026-05-30): + 'wc' for the cloakroom-toilet archetype (uses the
  *  F1.7 wc_washbasin + wc_mirror primitives — the compact alternative to
- *  the bathroom vanity trio). */
+ *  the bathroom vanity trio).
+ *  §FURNISH-WC-PAN (2026-06-24): + 'ensuite'. The apartment / house generators
+ *  stamp a master en-suite as `occupancyType: 'ensuite'` (a first-class room
+ *  type, distinct from the shared 'bathroom'). The furnish engine previously had
+ *  NO ensuite archetype, so `archetypeFor('ensuite')` returned null and ensuites
+ *  shipped EMPTY — no toilet, no basin, no shower. The new ensuite archetype is
+ *  the compact wet-room variant (toilet + wc_washbasin + shower). */
 export type FurnishableOccupancy =
     | 'bedroom' | 'living-room' | 'kitchen' | 'dining-room' | 'bathroom'
-    | 'wc'
+    | 'wc' | 'ensuite'
     | 'entrance-lobby' | 'corridor' | 'private-office' | 'utility-room';
 
 export interface Pt { readonly x: number; readonly z: number }
