@@ -50,6 +50,7 @@ import { svpPlanToolOverlay } from './SvpPlanToolOverlay';
 // §AUTOFRAME-NO-HIJACK-WHILE-DRAWING — suppress deferred auto-frame mid-draw
 import { shouldSuppressAutoFrameWhileDrawing } from './autoframeGuard';
 import { PlanViewInteraction } from './PlanViewInteraction';
+import { repopulateViewSelectPreservingSelection } from './viewSelectRepopulate';
 import { buildViewHeaderToolbar, type ViewHeaderButtonsHandle } from '@app/ui/views/ViewHeaderButtons';
 import { escHtml } from '@pryzm/ui-base';
 import { triggerWindowResize } from '../triggerWindowResize'; // F.events.16
@@ -748,6 +749,33 @@ export class SplitViewManager implements ISplitViewManager {
         window.addEventListener('vd:view-updated', viewUpdatedHandler);
         this._selectionUnlisteners.push(
             () => window.removeEventListener('vd:view-updated', viewUpdatedHandler)
+        );
+
+        // §DOC-VIEWS-IN-DROPDOWN (2026-06-24) — repopulate the view-type dropdown
+        // when ViewDefinitions are created/deleted/loaded while the split view is
+        // open. Previously the SVP only listened for `vd:view-updated` (edits to
+        // the active view), so batch-created documentation views (per-level plans,
+        // building elevations) NEVER appeared in this dropdown — it kept showing the
+        // stale "Floor Plans: Ground Floor / Elevations: (none created)" list until
+        // the pane was re-opened. `_buildViewSelectOptions` reads the store live, so
+        // re-running it surfaces every new view under its category. We preserve the
+        // current selection across the rebuild so the displayed pane does not jump.
+        const viewListChangedHandler = (): void => {
+            const sel = this._viewSelect;
+            if (!sel) return;
+            repopulateViewSelectPreservingSelection(
+                sel,
+                (s) => this._buildViewSelectOptions(s),
+                this._planViewId,
+            );
+        };
+        window.addEventListener('vd:view-created', viewListChangedHandler);
+        window.addEventListener('vd:view-deleted', viewListChangedHandler);
+        window.addEventListener('vd:store-loaded', viewListChangedHandler);
+        this._selectionUnlisteners.push(
+            () => window.removeEventListener('vd:view-created', viewListChangedHandler),
+            () => window.removeEventListener('vd:view-deleted', viewListChangedHandler),
+            () => window.removeEventListener('vd:store-loaded', viewListChangedHandler),
         );
 
         // Doc 07 Phase 4 — IFC re-projection.  When IFCProjectionStore finishes
