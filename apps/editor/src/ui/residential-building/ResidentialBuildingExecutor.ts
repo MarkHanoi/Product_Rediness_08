@@ -80,6 +80,11 @@ function getCommandManager(): CommandManagerLike | undefined {
 export interface ResidentialExecuteInput {
     /** Floor-to-floor height (m). Default 3.0. */
     readonly floorToFloorM?: number;
+    /** §RESI-FINISH-COLOUR (founder 2026-06-24: "the user should decide the finish colour … initially
+     *  all white"). Optional building finish overrides; absent ⇒ the all-white default (curtain
+     *  mullions white-metallic + clear glazing). The modal colour picker threads these through. */
+    readonly curtainMullionColor?: string;
+    readonly curtainGlazingColor?: string;
 }
 
 export interface ResidentialExecuteResult {
@@ -334,7 +339,11 @@ export class ResidentialBuildingExecutor {
                     // §RESI-WHITE-FINISH (founder 2026-06-24: "initially all white — curtain
                     // mullions white metallic"). Default the shopfront to white-metallic mullions +
                     // clear glazing; a per-build colour picker in the modal is the next step.
-                    cm.execute?.(new CreateCurtainWallCommand({ ...cw, mullionColor: '#e8eaed', glazingColor: '#dfe9f0' }), { source: 'RESI_PIPELINE_CURTAINWALL' });
+                    cm.execute?.(new CreateCurtainWallCommand({
+                        ...cw,
+                        mullionColor: input?.curtainMullionColor ?? '#e8eaed',   // white metallic default
+                        glazingColor: input?.curtainGlazingColor ?? '#dfe9f0',   // clear glazing default
+                    }), { source: 'RESI_PIPELINE_CURTAINWALL' });
                 } catch (e) { console.warn('[resi-building] curtain wall create failed (skipped):', e); }
             }
             // 0d. §RESI-GROUND-CORRIDOR — interior corridor walls linking the entrance to the core.
