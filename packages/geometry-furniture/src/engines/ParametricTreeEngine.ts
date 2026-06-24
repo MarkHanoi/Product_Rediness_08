@@ -29,6 +29,8 @@ import {
     TreeSpeciesId,
     TREE_SPECIES_TABLE,
 } from '../TreeTypes';
+// §TREE-HIFI 2026-06-24 — Spacemaker/Forma-style cross-billboard canopy.
+import { buildCrossBillboardCanopy } from './foliageCards';
 
 // ── Shared material cache (per species + role) ───────────────────────────
 
@@ -115,18 +117,60 @@ export class ParametricTreeEngine {
 
     /**
      * Build a tapered cylinder trunk from y=0 to y=top with radii
-     * (radiusBase, radiusBase * 0.7).
+     * (radiusBase, radiusBase * 0.65), plus a flared root collar at the base
+     * and 2–3 deterministic upward branch stubs near the crown so the trunk
+     * reads as a real tree rather than a plain stick.  §TREE-HIFI 2026-06-24.
+     *
+     * Returns a small Group (trunk + collar + stubs) — all sharing one
+     * bark-toned material so it stays at 1 draw call.
      */
-    private _buildTrunk(def: TreeSpeciesDef, top: number): THREE.Mesh {
+    private _buildTrunk(def: TreeSpeciesDef, top: number): THREE.Group {
+        const grp   = new THREE.Group();
         const baseR = def.trunkRadius;
         const topR  = baseR * 0.65;
-        const geo   = new THREE.CylinderGeometry(topR, baseR, top, 10);
-        const mat   = _mat(`trunk:${def.id}`, def.trunkColor, { roughness: 0.85, metalness: 0.0 });
-        const m     = new THREE.Mesh(geo, mat);
+        const mat   = _mat(`trunk:${def.id}`, def.trunkColor, { roughness: 0.9, metalness: 0.0 });
+
+        // Main tapered shaft.
+        const geo = new THREE.CylinderGeometry(topR, baseR, top, 10);
+        const m   = new THREE.Mesh(geo, mat);
         m.position.y = top / 2;
         m.castShadow = true;
         m.userData.elementType = 'TreeTrunk';
-        return m;
+        grp.add(m);
+
+        // Flared root collar — a short wider cone at the ground line so the
+        // trunk visually "grows out" of the soil instead of being a cut pipe.
+        const collar = new THREE.Mesh(
+            new THREE.ConeGeometry(baseR * 1.5, baseR * 2.0, 10, 1, true),
+            mat,
+        );
+        collar.position.y = baseR * 0.9;
+        collar.castShadow = true;
+        collar.userData.elementType = 'TreeTrunk';
+        grp.add(collar);
+
+        // 2–3 short branch stubs angling up-and-out near the top of the trunk,
+        // deterministically placed from the species seed.
+        const rng = _makePRNG(_seedFromString(def.id + ':stubs'));
+        const stubs = 2 + Math.floor(rng() * 2);
+        for (let i = 0; i < stubs; i++) {
+            const a    = (i / stubs) * Math.PI * 2 + rng() * 0.6;
+            const len  = top * (0.18 + rng() * 0.12);
+            const sGeo = new THREE.CylinderGeometry(topR * 0.35, topR * 0.6, len, 6);
+            const sm   = new THREE.Mesh(sGeo, mat);
+            const tilt = Math.PI / 4 + rng() * 0.3;
+            sm.position.set(
+                Math.cos(a) * topR * 0.8,
+                top * (0.72 + rng() * 0.12) + Math.sin(tilt) * len * 0.4,
+                Math.sin(a) * topR * 0.8,
+            );
+            sm.rotation.set(Math.sin(a) * tilt, 0, -Math.cos(a) * tilt);
+            sm.castShadow = true;
+            sm.userData.elementType = 'TreeBranch';
+            grp.add(sm);
+        }
+
+        return grp;
     }
 
     /**
@@ -162,6 +206,26 @@ export class ParametricTreeEngine {
         return grp;
     }
 
+    /**
+     * §TREE-HIFI 2026-06-24 — build a cross-billboard canopy for `def` using a
+     * deterministic per-species PRNG so the result is identical between
+     * sessions (save/load parity).  Thin wrapper over `buildCrossBillboardCanopy`.
+     */
+    private _canopy(
+        def:        TreeSpeciesDef,
+        crownR:     number,
+        centerY:    number,
+        squashY:    number = 0.9,
+        cards:      number = 5,
+        innerShell: boolean = true,
+    ): THREE.Group {
+        const rng = _makePRNG(_seedFromString(def.id + ':canopy'));
+        return buildCrossBillboardCanopy({
+            crownR, centerY, foliageHex: def.foliageColor,
+            squashY, cards, rng, innerShell,
+        });
+    }
+
     // ── Archetype builders ────────────────────────────────────────────────
 
     private _buildRoundDense(def: TreeSpeciesDef): THREE.Group {
@@ -170,8 +234,8 @@ export class ParametricTreeEngine {
         const canopyH = def.height - trunkH;
         g.add(this._buildTrunk(def, trunkH + canopyH * 0.3));
         const cy      = trunkH + canopyH * 0.55;
-        const count   = Math.round(28 * (def.density ?? 1));
-        g.add(this._scatterFoliageClusters(def, count, def.crownRadius, cy, def.crownRadius * 0.32, 0.85));
+        // §TREE-HIFI — dense broadleaf: 6 crossed alpha cards + inner shell.
+        g.add(this._canopy(def, def.crownRadius, cy, 0.92, 6));
         return g;
     }
 
@@ -181,35 +245,25 @@ export class ParametricTreeEngine {
         const canopyH = def.height - trunkH;
         g.add(this._buildTrunk(def, trunkH + canopyH * 0.4));
         const cy      = trunkH + canopyH * 0.55;
-        const count   = Math.round(14 * (def.density ?? 1));
-        g.add(this._scatterFoliageClusters(def, count, def.crownRadius, cy, def.crownRadius * 0.28, 0.85));
+        // §TREE-HIFI — open/airy crown: fewer cards, no solid shell so light
+        // reads through the canopy.
+        g.add(this._canopy(def, def.crownRadius, cy, 0.9, 4, /* innerShell */ false));
         if (def.accentColor) {
             const acc = _mat(`foliageAccent:${def.id}`, def.accentColor, { roughness: 0.85, metalness: 0.0 });
-            g.add(this._scatterFoliageClusters(def, Math.round(count * 0.35), def.crownRadius * 1.05, cy, def.crownRadius * 0.20, 0.85, acc));
+            const cnt = Math.round(8 * (def.density ?? 1));
+            g.add(this._scatterFoliageClusters(def, cnt, def.crownRadius * 1.05, cy, def.crownRadius * 0.18, 0.85, acc));
         }
         return g;
     }
 
     private _buildRoundDotted(def: TreeSpeciesDef): THREE.Group {
-        // Smooth round canopy: build via a sphere + small dotted clusters.
+        // §TREE-HIFI — smooth round canopy via crossed cards (fuller card count).
         const g       = new THREE.Group();
         const trunkH  = def.height * 0.40;
         const canopyH = def.height - trunkH;
         g.add(this._buildTrunk(def, trunkH + canopyH * 0.3));
-
         const cy = trunkH + canopyH * 0.55;
-        const sphereGeo = new THREE.SphereGeometry(def.crownRadius * 0.92, 18, 14);
-        const sphereMat = _mat(`foliageBlob:${def.id}`, def.foliageColor, { roughness: 0.85, flatShading: true });
-        const sphere    = new THREE.Mesh(sphereGeo, sphereMat);
-        sphere.position.y = cy;
-        sphere.scale.set(1, 0.92, 1);
-        sphere.castShadow = true;
-        sphere.userData.elementType = 'TreeFoliageBlob';
-        g.add(sphere);
-
-        // Surface dot detail
-        const count = Math.round(20 * (def.density ?? 1));
-        g.add(this._scatterFoliageClusters(def, count, def.crownRadius * 0.95, cy, def.crownRadius * 0.16, 0.9));
+        g.add(this._canopy(def, def.crownRadius, cy, 0.92, 6));
         return g;
     }
 
@@ -270,9 +324,8 @@ export class ParametricTreeEngine {
             g.add(m);
         }
 
-        // Foliage clusters on branch tips
-        const count = Math.round(22 * (def.density ?? 1));
-        g.add(this._scatterFoliageClusters(def, count, def.crownRadius, cy + canopyH * 0.3, def.crownRadius * 0.30, 0.85));
+        // §TREE-HIFI — canopy cards riding above the visible branch structure.
+        g.add(this._canopy(def, def.crownRadius, cy + canopyH * 0.3, 0.9, 5));
         return g;
     }
 
@@ -408,16 +461,10 @@ export class ParametricTreeEngine {
         const canopyH = def.height - trunkH;
         g.add(this._buildTrunk(def, trunkH));
 
-        // Main rounded canopy
+        // §TREE-HIFI — main rounded canopy as crossed cards (flattened).
         const cy = trunkH + canopyH * 0.55;
-        const blobGeo = new THREE.SphereGeometry(def.crownRadius * 0.85, 18, 14);
+        g.add(this._canopy(def, def.crownRadius * 0.92, cy, 0.7, 5));
         const blobMat = _mat(`foliage:${def.id}`, def.foliageColor, { roughness: 0.85 });
-        const blob = new THREE.Mesh(blobGeo, blobMat);
-        blob.position.y = cy;
-        blob.scale.set(1, 0.7, 1);
-        blob.castShadow = true;
-        blob.userData.elementType = 'TreeFoliageBlob';
-        g.add(blob);
 
         // Drooping streamer clusters around the perimeter
         const rng = _makePRNG(_seedFromString(def.id + ':drape'));
@@ -443,50 +490,45 @@ export class ParametricTreeEngine {
         const canopyH = def.height - trunkH;
         g.add(this._buildTrunk(def, trunkH));
 
-        const cy    = trunkH + canopyH * 0.55;
-        const count = Math.round(22 * (def.density ?? 1));
-        g.add(this._scatterFoliageClusters(def, count, def.crownRadius, cy, def.crownRadius * 0.32, 0.85));
+        const cy = trunkH + canopyH * 0.55;
+        // §TREE-HIFI — green canopy cards, then sprinkle colour-flecked flowers
+        // (kept as small clusters so the bloom colour pops against the cards).
+        g.add(this._canopy(def, def.crownRadius, cy, 0.9, 5));
 
-        // Flower flecks
         if (def.accentColor) {
             const flowerMat = _mat(`flower:${def.id}`, def.accentColor, { roughness: 0.65 });
-            g.add(this._scatterFoliageClusters(def, Math.round(count * 0.6), def.crownRadius * 1.05, cy, def.crownRadius * 0.18, 0.9, flowerMat));
+            const cnt = Math.round(16 * (def.density ?? 1));
+            g.add(this._scatterFoliageClusters(def, cnt, def.crownRadius * 1.02, cy, def.crownRadius * 0.16, 0.9, flowerMat));
         }
         return g;
     }
 
     private _buildMultiLobed(def: TreeSpeciesDef): THREE.Group {
-        // Multi-blob organic canopy: 3–4 overlapping foliage spheres at
-        // different heights and offsets within the crown radius.
+        // §TREE-HIFI — multi-lobed organic canopy: 3 offset cross-billboard
+        // sub-canopies at different heights so the silhouette reads as several
+        // overlapping foliage masses (cherry-tree character).
         const g       = new THREE.Group();
         const trunkH  = def.height * 0.35;
         const canopyH = def.height - trunkH;
         g.add(this._buildTrunk(def, trunkH));
 
-        const baseMat = _mat(`foliage:${def.id}`, def.foliageColor, { roughness: 0.85 });
-        const accent  = def.accentColor
-            ? _mat(`foliageAccent:${def.id}`, def.accentColor, { roughness: 0.85 })
-            : baseMat;
         const cy = trunkH + canopyH * 0.55;
-        const lobes: Array<[number, number, number, number, THREE.Material]> = [
-            [-def.crownRadius * 0.45, cy - canopyH * 0.10,  def.crownRadius * 0.10, def.crownRadius * 0.55, baseMat],
-            [ def.crownRadius * 0.45, cy + canopyH * 0.10, -def.crownRadius * 0.10, def.crownRadius * 0.55, baseMat],
-            [ 0,                       cy + canopyH * 0.30,  def.crownRadius * 0.30, def.crownRadius * 0.50, accent],
-            [ 0,                       cy - canopyH * 0.05, -def.crownRadius * 0.30, def.crownRadius * 0.45, baseMat],
+        const lobes: Array<[number, number, number]> = [
+            [-def.crownRadius * 0.40, cy - canopyH * 0.08, def.crownRadius * 0.62],
+            [ def.crownRadius * 0.40, cy + canopyH * 0.10, def.crownRadius * 0.62],
+            [ 0,                       cy + canopyH * 0.28, def.crownRadius * 0.58],
         ];
-        for (const [x, y, z, r, m] of lobes) {
-            const geo = new THREE.SphereGeometry(r, 14, 10);
-            const sp  = new THREE.Mesh(geo, m);
-            sp.position.set(x, y, z);
-            sp.scale.set(1, 0.85, 1);
-            sp.castShadow = true;
-            sp.userData.elementType = 'TreeFoliageBlob';
-            g.add(sp);
+        let li = 0;
+        for (const [x, y, r] of lobes) {
+            const rng = _makePRNG(_seedFromString(def.id + ':lobe' + li++));
+            const lobe = buildCrossBillboardCanopy({
+                crownR: r, centerY: y, foliageHex: def.foliageColor,
+                squashY: 0.85, cards: 4, rng, innerShell: true,
+            });
+            lobe.position.x = x;
+            lobe.position.z = (li % 2 === 0 ? 1 : -1) * def.crownRadius * 0.18;
+            g.add(lobe);
         }
-
-        // Sprinkle small clusters across the surface for texture
-        const count = Math.round(12 * (def.density ?? 1));
-        g.add(this._scatterFoliageClusters(def, count, def.crownRadius * 0.9, cy, def.crownRadius * 0.18, 0.9));
         return g;
     }
 
