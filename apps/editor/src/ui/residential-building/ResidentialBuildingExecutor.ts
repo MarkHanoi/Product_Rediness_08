@@ -26,6 +26,7 @@
 
 import { trace } from '@opentelemetry/api';
 import { batchCoordinator, storeRegistry, storeEventBus } from '@pryzm/core-app-model';
+import type { FloorPattern } from '@pryzm/core-app-model';
 import { createId } from '@pryzm/schemas';
 import {
     AddLevelCommand,
@@ -39,8 +40,10 @@ import {
     BatchCreateRoomsCommand,
     CreateHandrailCommand,
     CreateFurnitureCommand,
+    CreateFloorCommand,
+    UpdateRoomFinishesCommand,
 } from '@pryzm/command-registry';
-import { roomDataFromGraphSpec, type GraphRoomSpec, type RoomData } from '@pryzm/room-topology';
+import { roomDataFromGraphSpec, type GraphRoomSpec, type RoomData, type RoomFinishes } from '@pryzm/room-topology';
 import type { FurnitureType, FurnitureMaterial } from '@pryzm/geometry-furniture';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import {
@@ -56,6 +59,7 @@ import {
 } from '@pryzm/ai-host';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
 import { triggerFloorLayout } from '../floor-layout/floorLayoutTrigger.js';
+import { triggerCeilingLayout } from '../ceiling-layout/ceilingLayoutTrigger.js';
 import { nameDetectedRooms } from '../apartment-layout/nameDetectedRooms.js';
 import { resolveEntranceOnShell, type EntranceHostHit } from './groundFloorPlacement.js';
 
@@ -531,6 +535,13 @@ export class ResidentialBuildingExecutor {
         // shell wall.batch.create is async via the bus).
         this._finishGroundCommercialWindows(groundCommercialWindowSpecs);
 
+        // §RESI-PUBLIC-FLOOR-FINISH (founder 2026-06-24: "finishes EVERYWHERE — the public/shared
+        // floors are bare grey slab") — lay floor finishes over the PUBLIC areas the per-room finish
+        // (§RESI-FLOOR-FINISH) never touches: the ground commercial floor, every level's public
+        // corridor band(s), and the per-level core lobby. Room-independent (no detection needed), so
+        // dispatch directly. Deferred a beat so the structural slabs have settled in the store.
+        this._finishPublicFloors(cm, result, levelIdByIndex, xf);
+
         // NOTE: no custom completion event is emitted — `RuntimeEvents` is a typed map
         // (no catch-all index) and registering a new key lives in runtime-composer
         // (out of this slice's scope). The toast + the returned result carry the
@@ -628,16 +639,18 @@ export class ResidentialBuildingExecutor {
         // head 3.5 m). Head is clamped just under the wall head so the opening never breaches it.
         const WIN_SILL_M = 0.01;
         const WIN_HEAD_M = 3.5;
-        const WIN_SIDE_MARGIN_M = 0.3;     // leave a stub of solid wall either side of the glass
-        // §RESI-GROUND-WINDOW-RHYTHM (founder 2026-06-24: "MULTIPLE windows — TALL — width MAX 2 m
-        // — spaces between 0.5–1 m — many of them — luxe commercial facades"). Replace the single
-        // big window per edge with a REPEATING SERIES of tall panes: each pane ≤ WIN_PANE_MAX_M
-        // (aim ~1.6–2.0 m), separated by a WIN_GAP_M pier (0.5–1.0 m), even cadence across the run.
-        const WIN_PANE_MAX_M = 2.0;        // a single glazed pane never exceeds 2 m wide
-        const WIN_PANE_TARGET_M = 1.8;     // preferred pane width before fit-to-run rebalancing
-        const WIN_GAP_MIN_M = 0.5;         // minimum pier between panes
-        const WIN_GAP_MAX_M = 1.0;         // maximum pier between panes
-        const WIN_GAP_TARGET_M = 0.7;      // preferred pier width before fit-to-run rebalancing
+        // §RESI-GROUND-WINDOW-EVEN-DIVIDE (founder 2026-06-24 EXACT spec: "cornerMargin reserved at
+        // BOTH ends; usable = wallLength − 2·cornerMargin; consistent windowWidth building-wide;
+        // spacing = (usable − count·windowWidth)/(count−1); first window at cornerMargin, last ENDS at
+        // exactly segLen − cornerMargin → never protrudes past the corner"). The window WIDTH is a
+        // building-wide CONSTANT (same on every façade); only the COUNT + the equal inter-window
+        // spacing vary per segment. All distances are ALONG the wall's local baseLine axis (the
+        // CreateWallOpening `offset` is an along-wall distance), so a ROTATED plot behaves identically
+        // to an axis-aligned one — no world X/Z is used here.
+        const WIN_PANE_W_M = 1.8;          // CONSTANT glazed-pane width, building-wide (≤ 2 m)
+        const WIN_GAP_TARGET_M = 0.7;      // preferred inter-window spacing (sets the per-segment count)
+        const WIN_GAP_MIN_M = 0.4;         // a count is only accepted if its spacing clears this floor
+        const WIN_EDGE_MARGIN_M = 0.45;    // CONSTANT corner setback reserved at BOTH ends (the cornerMargin)
         // §RESI-GROUND-SLAB-COVER (founder 2026-06-24: "on ground→first floor we see the slab; the
         // walls should rise to the slab level on the ground floor"). The first-floor slab sits on the
         // ground-storey head; a curtain/wall only floor-to-floor tall leaves the slab EDGE exposed
@@ -655,75 +668,59 @@ export class ResidentialBuildingExecutor {
                 height: groundWallH, thickness: SHELL_WALL_THICKNESS_M,
             });
             if (windowed) {
-                // §RESI-GROUND-WINDOW-CENTER (founder 2026-06-24: "the panes must read WELL-CENTERED
-                // and balanced — no pane jammed against the corner pier") — a REPEATING SERIES of tall
-                // panes (≤2 m) with UNIFORM piers between, the whole pattern MIRROR-SYMMETRIC about the
-                // segment midpoint: EQUAL solid stub at BOTH ends. Head clamped under the wall head
-                // (≥0.1 m lintel). Tall: sill 0.01 m → head 3.5 m (clamped).
+                // §RESI-GROUND-WINDOW-EVEN-DIVIDE — the founder's EXACT placement (all distances ALONG
+                // the wall's local baseLine axis; `len` is the wall length, `offset` is along-wall):
+                //   cornerMargin (both ends) → usable = len − 2·cornerMargin
+                //   constant windowWidth (building-wide) → pick the count
+                //   spacing = (usable − count·windowWidth) / (count − 1)   [equal gaps, count ≥ 2]
+                //   first offset = cornerMargin; next = prev + windowWidth + spacing
+                //   ⇒ the last window ENDS at exactly len − cornerMargin (never past the corner).
+                // Tall: sill 0.01 m → head 3.5 m (clamped under the wall head, ≥0.1 m lintel).
                 const head = Math.min(WIN_HEAD_M, groundWallH - 0.1);
                 const winH = Math.max(0.6, head - WIN_SILL_M);
-                // End stub: at least WIN_SIDE_MARGIN_M, with a bit more at a real building corner so a
-                // pane never crowds the corner pier. The actual stub the panes get is the SYMMETRIC
-                // `startStub` computed below (≥ this floor), so both ends are always equal.
-                const CORNER_STUB_M = Math.max(WIN_SIDE_MARGIN_M, 0.45);
-                // Size the pane BLOCK against a minimum corner stub; centre the block ⇒ the leftover
-                // splits equally into the two end stubs (mirror symmetry by construction).
-                const usable = len - 2 * CORNER_STUB_M;          // run available for panes + piers
-                // Even cadence: count = floor((usable + gap) / (pane + gap)) using target sizes.
-                let count = Math.floor((usable + WIN_GAP_TARGET_M) / (WIN_PANE_TARGET_M + WIN_GAP_TARGET_M));
-                if (usable >= 0.6 && count >= 2) {
-                    // Hold a UNIFORM pier; solve the pane so the panes+piers BLOCK fits `usable` exactly,
-                    // then re-centre the block in the FULL segment so both end stubs are equal.
-                    let gap = WIN_GAP_TARGET_M;
-                    let paneW = (usable - (count - 1) * gap) / count;
-                    // Pane too wide (> 2 m) ⇒ widen the uniform pier (toward the 1.0 m cap) to soak the
-                    // slack while clamping the pane to ≤ 2 m.
-                    if (paneW > WIN_PANE_MAX_M) {
-                        paneW = WIN_PANE_MAX_M;
-                        gap = (usable - count * paneW) / (count - 1);
+                const usable = len - 2 * WIN_EDGE_MARGIN_M;
+                // Choose the window COUNT that lands the inter-window spacing nearest the target gap,
+                // i.e. count ≈ usable / (windowWidth + targetGap), then clamp so the constant-width
+                // windows actually fit (count·windowWidth ≤ usable) and the resulting spacing ≥ the
+                // minimum (a too-tight count is reduced; never squeeze a narrow odd pane).
+                const fitCount = Math.floor((usable + WIN_GAP_TARGET_M) / (WIN_PANE_W_M + WIN_GAP_TARGET_M));
+                let count = fitCount;
+                // Ensure the constant-width windows fit the usable run with ≥0 spacing.
+                while (count >= 2 && count * WIN_PANE_W_M > usable + 1e-6) count--;
+                // With count ≥ 2, enforce the minimum spacing; drop count if the gaps would be too tight.
+                while (count >= 2 && (usable - count * WIN_PANE_W_M) / (count - 1) < WIN_GAP_MIN_M) count--;
+                if (count >= 2) {
+                    // EXACT even-divide: equal cornerMargin both ends, equal spacing between windows,
+                    // first at cornerMargin, last ending at len − cornerMargin.
+                    const spacing = (usable - count * WIN_PANE_W_M) / (count - 1);
+                    let cursor = WIN_EDGE_MARGIN_M;
+                    for (let k = 0; k < count; k++) {
+                        // Clamp [offset, offset+width] ⊆ [cornerMargin, len − cornerMargin] (belt-and-braces;
+                        // the math already lands inside — this guards FP drift so nothing overruns a corner).
+                        const offset = Math.min(Math.max(WIN_EDGE_MARGIN_M, cursor), len - WIN_EDGE_MARGIN_M - WIN_PANE_W_M);
+                        commercialWindows.push({
+                            wallId: id,
+                            offset,
+                            width: WIN_PANE_W_M,
+                            sillHeight: WIN_SILL_M,
+                            height: winH,
+                            levelId,
+                        });
+                        cursor += WIN_PANE_W_M + spacing;
                     }
-                    // Keep the uniform pier inside [0.5, 1.0]; if clamping changes it, re-solve the pane
-                    // (pane absorbs the residue; it stays ≤ 2 m by construction). The pier stays UNIFORM
-                    // across the whole run — only the (equal) end stubs differ from it.
-                    if (gap < WIN_GAP_MIN_M || gap > WIN_GAP_MAX_M) {
-                        gap = Math.min(WIN_GAP_MAX_M, Math.max(WIN_GAP_MIN_M, gap));
-                        paneW = (usable - (count - 1) * gap) / count;
-                    }
-                    if (paneW >= 0.6 && paneW <= WIN_PANE_MAX_M + 1e-6) {
-                        // The panes+piers block width, re-centred in the FULL segment length ⇒ the
-                        // start stub = end stub = (len − block) / 2. This is the symmetric centring:
-                        // the pattern mirrors about len/2, piers are uniform, both stubs are equal and
-                        // ≥ CORNER_STUB_M (because block ≤ usable = len − 2·CORNER_STUB_M).
-                        const block = count * paneW + (count - 1) * gap;
-                        const startStub = (len - block) / 2;
-                        let cursor = startStub;
-                        for (let k = 0; k < count; k++) {
-                            commercialWindows.push({
-                                wallId: id,
-                                offset: cursor,
-                                width: paneW,
-                                sillHeight: WIN_SILL_M,
-                                height: winH,
-                                levelId,
-                            });
-                            cursor += paneW + gap;
-                        }
-                        return id;
-                    }
-                }
-                // Fallback (segment too short for ≥2 panes): a single CENTRED pane, ≤ 2 m wide, with
-                // equal solid end stubs (offset = (len − winW)/2 ⇒ symmetric about the midpoint).
-                const winW = Math.min(WIN_PANE_MAX_M, len - 2 * CORNER_STUB_M, len - 2 * WIN_SIDE_MARGIN_M);
-                if (winW >= 0.6) {
+                } else if (usable >= WIN_PANE_W_M) {
+                    // Exactly one window fits → CENTRE it (offset = (len − windowWidth)/2).
                     commercialWindows.push({
                         wallId: id,
-                        offset: (len - winW) / 2,
-                        width: winW,
+                        offset: (len - WIN_PANE_W_M) / 2,
+                        width: WIN_PANE_W_M,
                         sillHeight: WIN_SILL_M,
                         height: winH,
                         levelId,
                     });
                 }
+                // else: usable can't fit even ONE full-width window + margins (a short door-bay flanking
+                // run) → leave SOLID. Never an odd squeezed pane, never an overflow past the corner.
             }
             return id;
         };
@@ -1437,55 +1434,79 @@ export class ResidentialBuildingExecutor {
         const liftCx = core.x0 + coreW * 0.75;
         const shaftWidth = Math.min(2.0, Math.max(1.6, coreW / 2 - 0.2));
 
-        // §RESI-CORE-STAIR-CLASH (founder 2026-06-24: "the core wall clips the stair" + "the upper
-        // flight pokes PAST the core wall") — guarantee the ENTIRE U-stair footprint (both flights +
-        // the half-landing + side clearance) lives INSIDE the core walls' inner face on every level.
-        // The RC core wall is CENTRED on the rect edge (thickness SHELL_WALL_THICKNESS_M), so the
-        // INNER faces are inset by SHELL_WALL_THICKNESS_M/2 from each rect edge.
-        const STAIR_CORE_CLEARANCE_M = 0.05;
+        // §RESI-CORE-STAIR-FIT (founder 2026-06-24: "the stair flight STILL extends PAST the core wall
+        // into the adjacent room") — HARD-GUARANTEE the ENTIRE U-stair footprint (BOTH half-flights +
+        // the half-turn landing, in BOTH axes) lives INSIDE the core walls' inner rect minus a margin.
+        // The earlier strict-width + reduce-risers pass was NOT enough: the half-turn LANDING was
+        // 2·stairWidth deep (a half-turn landing only needs ~stairWidth) AND the depth check ignored
+        // the landing entirely, so the run-direction footprint (flight-1 run + landing) overflowed the
+        // ~4 m core. The RC core wall is CENTRED on the rect edge (thickness SHELL_WALL_THICKNESS_M),
+        // so the inner faces inset by SHELL_WALL_THICKNESS_M/2; we keep a further clearance all round.
+        const STAIR_CORE_CLEARANCE_M = 0.1;
         const innerHalfT = SHELL_WALL_THICKNESS_M / 2;
-        // ── LATERAL (x) fit. The U-stair occupies a LATERAL x-band: run 1 is centred at
-        // `stairCenterX`; run 2 is offset −stairWidth; each run is ±stairWidth/2 wide. So the
-        // footprint spans [stairCenterX − 1.5·w, stairCenterX + 0.5·w] (total 2·w). The cleared band
-        // runs from the LEFT core wall inner face to the lift's left edge.
-        const xBandLeft = core.x0 + innerHalfT + STAIR_CORE_CLEARANCE_M;
-        const xBandRight = (liftCx - shaftWidth / 2) - STAIR_CORE_CLEARANCE_M;   // clear of the lift too
-        const xBand = Math.max(0, xBandRight - xBandLeft);
-        // STRICT lateral clamp: footprint lateral span = 2·stairWidth must fit the band ⇒
-        // stairWidth ≤ band/2. NO architectural-floor max() that could EXCEED band/2 — a floor that
-        // overrides the band is exactly what let the upper flight poke past the wall. The result is
-        // capped at the ideal STAIR_WIDTH_M; a 6 m core yields ≈1.6 m (comfortable). Tiny cores get a
-        // narrow-but-enclosed stair, never a wall-piercing one.
-        const stairWidth = Math.max(0.6, Math.min(STAIR_WIDTH_M, xBand / 2));
-        // Run-1 centre x: anchor the footprint's leftmost edge (stairCenterX − 1.5·w) at xBandLeft.
-        const stairCenterX = xBandLeft + 1.5 * stairWidth;
+        // The core INNER rect (LOCAL), the absolute keep-inside box for the whole stair body.
+        const innerX0 = core.x0 + innerHalfT + STAIR_CORE_CLEARANCE_M;
+        const innerX1 = core.x1 - innerHalfT - STAIR_CORE_CLEARANCE_M;
+        const innerZ0 = cz0 + innerHalfT + STAIR_CORE_CLEARANCE_M;
+        const innerZ1 = core.z1 - innerHalfT - STAIR_CORE_CLEARANCE_M;
+        const xInnerDepth = Math.max(0, innerX1 - innerX0);
+        const zInnerDepth = Math.max(0, innerZ1 - innerZ0);
 
-        // ── DEPTH (z) fit. The U-stair runs +Z from the bottom landing (at cz0 + lobbyDepth) for the
-        // half-run, plus one tread for the half-landing. The FAR edge must clear the z1 core wall
-        // inner face. If the half-run overflows the available depth, DROP risers (raising the riser
-        // height within the architectural max) until the folded run fits — so no flight crosses z1.
-        const zInnerDepth = coreD - 2 * innerHalfT - 2 * STAIR_CORE_CLEARANCE_M;   // usable inner depth
-        // Reserve a minimum lobby (run-in landing) at z0; the rest is for the half-run + half-landing.
-        const MIN_LOBBY_M = 0.8;
-        const reduceRisersToFitDepth = (): void => {
-            // halfRun + 1 tread (the half-landing) + MIN_LOBBY_M must fit zInnerDepth.
-            let guard = 40;
+        // ── LATERAL (x) fit. A U-stair is TWO flights side-by-side ⇒ lateral footprint = 2·stairWidth.
+        // It must fit the band from the LEFT inner face to the lift's left edge (clear of the lift too).
+        const xBandRight = Math.min(innerX1, (liftCx - shaftWidth / 2) - STAIR_CORE_CLEARANCE_M);
+        const xBand = Math.max(0, xBandRight - innerX0);
+        // stairWidth ≤ band/2 (so 2·stairWidth ≤ band). Capped at the ideal; floored low so a tight
+        // core still gets an enclosed (if narrow) stair, never a wall-piercing one.
+        const stairWidth = Math.max(0.6, Math.min(STAIR_WIDTH_M, xBand / 2));
+        // Run-1 centre x: anchor the footprint's leftmost edge (stairCenterX − 1.5·w) at the inner face.
+        const stairCenterX = innerX0 + 1.5 * stairWidth;
+
+        // ── DEPTH (z) fit — the heart of the fix. The U body's run-direction depth is
+        // flight-1-run + landing-depth (flight 2 runs BACK within that same Z band). We:
+        //   • split the risers so flight 1 is the LONGER half (before = ceil(N/2)) ⇒ flight 2 (after)
+        //     runs back WITHIN flight 1's Z span (after ≤ before+1) — never past z0;
+        //   • use a SQUARE half-turn landing (depth = stairWidth, not 2·stairWidth);
+        //   • DROP risers (within the code max riser height) until flight-1-run + landing ≤ zInnerDepth;
+        //   • then HARD-ASSERT the resulting body fits, shrinking the landing as the last lever.
+        const STAIR_LANDING_DEPTH_M = stairWidth;     // square half-turn landing (was 2·stairWidth — the bug)
+        const beforeOf = (n: number): number => Math.ceil(n / 2);
+        const stairBodyDepth = (n: number, landing: number): number => beforeOf(n) * STAIR_TREAD_M + landing;
+        // Reduce risers (raising riserHeight up to the max) until the body fits the inner depth.
+        {
+            let guard = 60;
             while (guard-- > 0) {
-                const half = Math.floor(totalRisers / 2);
-                const folded = half * STAIR_TREAD_M + STAIR_TREAD_M;   // half-run + half-landing tread
-                if (folded + MIN_LOBBY_M <= zInnerDepth || totalRisers <= 2) break;
-                // Too deep — remove a riser (each drop raises riserHeight; stop if it breaches the max).
-                if (riserHeight >= STAIR_RISER_MAX_M) break;
+                if (stairBodyDepth(totalRisers, STAIR_LANDING_DEPTH_M) <= zInnerDepth || totalRisers <= 3) break;
+                if (riserHeight >= STAIR_RISER_MAX_M) break;   // can't shorten further within code limits
                 totalRisers--;
                 riserHeight = floorToFloorM / totalRisers;
             }
-        };
-        reduceRisersToFitDepth();
-        const halfRunDepth = Math.floor(totalRisers / 2) * STAIR_TREAD_M;   // U-stair folded run depth
-        // Lobby fills whatever depth is left in front of the folded run, clamped to a sensible band.
-        const lobbyDepth = Math.max(MIN_LOBBY_M, Math.min(1.4, zInnerDepth - halfRunDepth - STAIR_TREAD_M));
-        const shaftDepth = Math.min(2.4, Math.max(1.6, coreD - lobbyDepth - 0.2));
-        const liftCz = cz0 + lobbyDepth + shaftDepth / 2;   // lift FRONT (door) sits on the lobby line
+        }
+        const beforeRisers = beforeOf(totalRisers);
+        const afterRisers = totalRisers - beforeRisers;
+        const flight1Run = beforeRisers * STAIR_TREAD_M;
+        // HARD landing clamp — if the body still overflows (very shallow core), shrink the landing to
+        // the residual depth (floored at a usable 0.6 m) so the body NEVER crosses the z1 inner face.
+        const landingDepth = Math.max(0.6, Math.min(STAIR_LANDING_DEPTH_M, zInnerDepth - flight1Run));
+        const stairDepth = flight1Run + landingDepth;     // the U body's full run-direction depth
+        // Seat the stair at the z0 inner face; any depth slack becomes the lobby in FRONT (the fire
+        // door's run-in). lobbyDepth ≥ 0 — when the body fills the core the stair starts at z0 inner.
+        const lobbyDepth = Math.max(0, Math.min(1.4, zInnerDepth - stairDepth));
+        const stairStartZ = innerZ0 + lobbyDepth;
+        // §RESI-CORE-STAIR-FIT — final assertion the body fits the inner rect in BOTH axes; warn (and
+        // the geometry is already clamped to fit) if a pathologically small core can't contain it.
+        const widthFits = 2 * stairWidth <= xInnerDepth + 1e-6;
+        const depthFits = stairStartZ + stairDepth <= innerZ1 + 1e-6;
+        if (!widthFits || !depthFits) {
+            console.warn(
+                `[resi-building] §RESI-CORE-STAIR-FIT ⚠ core too small to fully contain the stair ` +
+                `(coreW=${coreW.toFixed(2)} coreD=${coreD.toFixed(2)} 2w=${(2 * stairWidth).toFixed(2)}/${xInnerDepth.toFixed(2)} ` +
+                `depth=${stairDepth.toFixed(2)}/${(innerZ1 - stairStartZ).toFixed(2)}) — geometry clamped to the inner rect.`,
+            );
+        }
+        // Lift sits BEHIND the lobby line, in the RIGHT half. Its depth fits the remaining inner depth.
+        const shaftDepth = Math.min(2.4, Math.max(1.2, Math.min(zInnerDepth, coreD - lobbyDepth - 0.2)));
+        const liftCz = innerZ0 + lobbyDepth + shaftDepth / 2;   // lift FRONT (door) on the lobby line
 
         // §RESI-ROOF-GARDEN — the top INDEX the circulation reaches. Normally the top apartment
         // floor (levels.length − 1); when the roof deck is ON, the roof level (registered at index
@@ -1499,28 +1520,23 @@ export class ResidentialBuildingExecutor {
             const toLevelId = levelIdByIndex.get(idx + 1);
             if (!fromLevelId || !toLevelId) continue;
             const startY = baseElevationM + idx * floorToFloorM;
-            // §RESI-CORE-CIRCULATION — the stair starts BACK from z0 by the shared lobby depth, so a
-            // clear run-in landing sits between the z0 fire door and the bottom tread (the U-stair's
-            // run-OUT folds back into that same lobby). Stair runs +Z; run 1 is centred at the
-            // CLEARED `stairCenterX` (§RESI-CORE-STAIR-CLASH) so the U-footprint never touches the
-            // left core wall or the lift.
-            const startLocal = this._rotate({ x: stairCenterX, z: cz0 + lobbyDepth }, xf);
+            // §RESI-CORE-STAIR-FIT — the stair seats at `stairStartZ` (z0 inner face + any lobby
+            // slack); run 1 is centred at `stairCenterX` (anchored at the left inner face) so the
+            // whole U body sits inside the core inner rect on BOTH axes (asserted above). Stair runs
+            // +Z (flight 1 = the LONGER half), folds across a square half-turn landing, and flight 2
+            // runs BACK within flight 1's Z band — so no flight/landing crosses any core wall.
+            const startLocal = this._rotate({ x: stairCenterX, z: stairStartZ }, xf);
             const startPosition = { x: startLocal.x, y: startY, z: startLocal.z };
-            // §RESI-CORE-USTAIR (founder 2026-06-24: "the stair clashes with the core — the stair can
-            // be in U to take less space"). A straight 17-riser run (~4.25 m) overran the 4 m-deep
-            // core. Fold it into a U — two half-flights + a half-landing — so it fits the core
-            // footprint. Geometry mirrors the canonical StairCommandPlan U-shape (§7.1): run 2 is the
-            // reverse of run 1, offset one stair-width laterally, starting halfRun+tread along + up
-            // half the rise. `stairWidth` is the cleared lateral band width (hoisted above).
             const dir = { x: runDir.x, y: 0, z: runDir.z };
             const reverseDir = { x: -runDir.x, y: 0, z: -runDir.z };
             const perpDir = { x: -runDir.z, y: 0, z: runDir.x };
-            const half = Math.floor(totalRisers / 2);
-            const halfRun = half * STAIR_TREAD_M;
+            // Flight 2 starts at the landing's FAR edge (flight1Run + landingDepth along +Z), offset
+            // one stair-width across (perpDir), up the flight-1 rise. It then runs −Z back over the
+            // SAME Z band, so the U's run-direction depth = flight1Run + landingDepth = stairDepth.
             const secondStart = {
-                x: startPosition.x + dir.x * (halfRun + STAIR_TREAD_M) + perpDir.x * stairWidth,
-                y: startPosition.y + half * riserHeight,
-                z: startPosition.z + dir.z * (halfRun + STAIR_TREAD_M) + perpDir.z * stairWidth,
+                x: startPosition.x + dir.x * (flight1Run + landingDepth) + perpDir.x * stairWidth,
+                y: startPosition.y + beforeRisers * riserHeight,
+                z: startPosition.z + dir.z * (flight1Run + landingDepth) + perpDir.z * stairWidth,
             };
             try {
                 cm.execute?.(new CreateStairCommand({
@@ -1533,10 +1549,10 @@ export class ResidentialBuildingExecutor {
                     width: stairWidth,
                     startPosition,
                     flights: [
-                        { direction: dir, riserCount: half },
-                        { direction: reverseDir, riserCount: totalRisers - half, startOverride: secondStart },
+                        { direction: dir, riserCount: beforeRisers },
+                        { direction: reverseDir, riserCount: afterRisers, startOverride: secondStart },
                     ],
-                    landings: [{ depth: 2 * stairWidth }],
+                    landings: [{ depth: landingDepth }],
                     accessibilityType: 'standard',
                 }), { source: 'RESI_PIPELINE_STAIR' });
                 stairs++;
@@ -1740,6 +1756,166 @@ export class ResidentialBuildingExecutor {
         });
     }
 
+    /** §RESI-WALL-CEILING-FINISH (founder 2026-06-24: "WALL FINISH + CEILING FINISH are all '—' —
+     *  every room must have a sound, fully-scheduled set of finishes") — author a complete
+     *  `room.finishes` (floor + WALLS + ceiling, each with a schedule `materialName`) on EVERY
+     *  detected room on every built level. The room schedule (via RoomFinishResolver) now falls back
+     *  to `room.finishes.{floor,walls,ceiling}.materialName` when no layered element finish exists, so
+     *  setting it here makes the Floor / Wall / Ceiling Finish columns ALL populate. Defaults by
+     *  occupancy: WALLS = painted-plaster matt emulsion everywhere ("if it is paint, but paint");
+     *  CEILING = painted plasterboard (moisture-resistant in wet rooms); FLOOR keyed to the room kind
+     *  (the floor element pass also sets it, this is the schedule-side guarantee). Deferred per level
+     *  so the rooms have settled. Best-effort: a miss on one room/level logs + skips. */
+    private _scheduleRoomFinishes(runtime: PryzmRuntime, levelIds: readonly string[]): void {
+        const cm = getCommandManager();
+        if (!cm?.execute) return;
+        // Wet rooms take a moisture-resistant ceiling + a wipeable wall finish; everything else gets
+        // the habitable-room defaults. `materialColor` keeps the renderer/IFC happy + the schema valid.
+        const WET = new Set(['bathroom', 'kitchen', 'utility-room', 'wc', 'shower-room', 'en-suite']);
+        const finishFor = (occ: string): RoomFinishes => {
+            const wet = WET.has(occ);
+            const wall = wet
+                ? { materialName: 'Paint - Wipeable Matt (Wet Area)', materialColor: '#eef0ef' }
+                : { materialName: 'Paint - Matt Emulsion', materialColor: '#f2efe9' };
+            const ceiling = wet
+                ? { materialName: 'Moisture-Resistant Plasterboard, Painted', materialColor: '#f5f6f5' }
+                : { materialName: 'Painted Plasterboard', materialColor: '#f5f5f0' };
+            const floor =
+                occ === 'bathroom' || occ === 'wc' || occ === 'shower-room' || occ === 'en-suite'
+                    ? { materialName: 'Porcelain Tile (Wet)', materialColor: '#d8d4cc' }
+                    : occ === 'kitchen' || occ === 'utility-room'
+                    ? { materialName: 'Porcelain Tile', materialColor: '#d9d2c6' }
+                    : occ === 'living-room' || occ === 'dining-room' || occ === 'kitchen'
+                    ? { materialName: 'Engineered Oak', materialColor: '#caa472' }
+                    : { materialName: 'Engineered Oak', materialColor: '#caa472' };
+            return { floor, walls: wall, ceiling };
+        };
+        const roomStore = storeRegistry.getStoreForType('room') as unknown as
+            { getAll?(): Array<{ id: string; levelId: string; occupancyType?: string }> } | undefined;
+        const levelSet = new Set(levelIds);
+        // Defer past the floor-finish stagger so room detection + naming have fully settled.
+        setTimeout(() => {
+            try {
+                const rooms = (roomStore?.getAll?.() ?? []).filter(r => levelSet.has(r.levelId));
+                if (rooms.length === 0) { console.log('[resi-building] §RESI-WALL-CEILING-FINISH — no rooms to schedule-finish'); return; }
+                let n = 0;
+                batchCoordinator.runBatch(() => {
+                    for (const r of rooms) {
+                        try {
+                            cm.execute?.(new UpdateRoomFinishesCommand(r.id, finishFor(r.occupancyType ?? '')), { source: 'RESI_PIPELINE_ROOM_FINISH' });
+                            n++;
+                        } catch (e) { console.warn('[resi-building] room-finish failed for', r.id, '(non-fatal):', e); }
+                    }
+                }, { levelIds: [...levelSet], totalElementCount: rooms.length, skipRedetectRooms: true });
+                console.log(`[resi-building] §RESI-WALL-CEILING-FINISH — authored finishes (floor+wall+ceiling) on ${n} room(s)`);
+            } catch (e) { console.warn('[resi-building] room-finish pass failed (non-fatal):', e); }
+        }, 1400);
+    }
+
+    /** §RESI-WALL-CEILING-FINISH — create a CEILING in every detected room on every level (the D-CE
+     *  ceiling engine auto-fires only on `apartment.layout-executed`, which the residential pipeline
+     *  does NOT emit, so ceilings would otherwise never be built). Mirrors `_finishFloorsPerLevel`:
+     *  set the level active, then fire the shared ceiling trigger per level, staggered so each level's
+     *  rooms have settled. Best-effort. */
+    private _ceilRoomsPerLevel(runtime: PryzmRuntime, levelIds: readonly string[]): void {
+        const pc = (window as unknown as { projectContext?: { activeLevelId?: string | null } }).projectContext;
+        levelIds.forEach((lid, i) => {
+            setTimeout(() => {
+                try {
+                    if (pc) pc.activeLevelId = lid;
+                    triggerCeilingLayout(runtime);
+                } catch (e) { console.warn('[resi-building] ceiling pass failed on', lid, '(non-fatal):', e); }
+            }, 900 + i * 250);
+        });
+    }
+
+    /** §RESI-PUBLIC-FLOOR-FINISH (founder 2026-06-24) — lay a thin applied floor FINISH over the
+     *  PUBLIC/shared areas that the per-room finish (§RESI-FLOOR-FINISH, which only finishes detected
+     *  apartment ROOMS) never covers, so no public floor ships as bare grey slab:
+     *    • GROUND commercial floor — the whole ground footprint (the core area reads commercial; a
+     *      separate ground core-lobby is intentionally NOT laid to avoid overlapping/Z-fighting a
+     *      second thin finish on the same plate — a simple polygon can't carry a core hole).
+     *    • PUBLIC CORRIDOR band(s) on each residential level (the lobby/circulation strip).
+     *    • CORE LOBBY on each residential level (the core interior circulation floor).
+     *  Distinct tones so each public area reads as finished. `CreateFloorCommand` lays a thin finish
+     *  seated on the slab top over an arbitrary polygon on a level — room-independent (no detection),
+     *  so we dispatch directly. Deferred a beat so the structural slabs have settled. Degenerate
+     *  polygons (< 3 distinct corners or near-zero area) are guarded + skipped. Never throws. */
+    private _finishPublicFloors(
+        cm: CommandManagerLike,
+        result: ResidentialBuildingOk,
+        levelIdByIndex: Map<number, string>,
+        xf: ResidentialRigidTransform,
+    ): void {
+        // Distinct public-area finish tones + patterns + schedule names (Notting-Hill-neutral palette)
+        // so each public area reads as a FINISHED floor (not raw slab) AND the room schedule's Floor
+        // Finish column reads the materialName.
+        const COMMERCIAL = { color: '#b8b4ad', pattern: 'tile-600x600' as const, name: 'Porcelain Tile 600×600 (Commercial)' };
+        const CORRIDOR = { color: '#c9c2b6', pattern: 'seamless' as const, name: 'Stone-Effect Vinyl (Corridor)' };
+        const CORE_LOBBY = { color: '#bcae8f', pattern: 'terrazzo' as const, name: 'Terrazzo (Lift Lobby)' };
+
+        // Lay ONE thin finish over a WORLD-XZ polygon on a level. Guards degenerate rings + area.
+        const layFinish = (levelId: string, worldPoly: ReadonlyArray<{ x: number; z: number }>, finish: { color: string; pattern: FloorPattern; name: string }, label: string): boolean => {
+            const ring = this._cleanRing(worldPoly);
+            if (ring.length < 3) return false;
+            // Shoelace area guard — skip a near-zero (sliver) finish.
+            let area2 = 0;
+            for (let i = 0; i < ring.length; i++) {
+                const a = ring[i]!, b = ring[(i + 1) % ring.length]!;
+                area2 += a.x * b.z - b.x * a.z;
+            }
+            if (Math.abs(area2) / 2 < 0.25) return false;   // < 0.25 m² ⇒ not a real floor
+            try {
+                cm.execute?.(new CreateFloorCommand({
+                    floorId: createId('floor'),
+                    ifcGuid: createId('floor'),
+                    polygon: ring.map(p => ({ x: p.x, z: p.z })),
+                    levelId,
+                    label,
+                    // Bare thin applied finish seated on the slab top (default thickness/baseOffset),
+                    // tinted + patterned + NAMED so the room schedule's Floor Finish column reads it.
+                    finishSpec: { finishColor: finish.color, finishPattern: finish.pattern, materialName: finish.name, exposedScreed: false },
+                }), { source: 'RESI_PIPELINE_PUBLIC_FLOOR' });
+                return true;
+            } catch (e) { console.warn('[resi-building] public floor-finish failed on', levelId, label, '(non-fatal):', e); return false; }
+        };
+
+        // Rotate a LOCAL rect's 4 corners → WORLD (same transform the core/corridor walls used).
+        const rectToWorld = (r: { x0: number; z0: number; x1: number; z1: number }): Array<{ x: number; z: number }> => [
+            this._rotate({ x: r.x0, z: r.z0 }, xf),
+            this._rotate({ x: r.x1, z: r.z0 }, xf),
+            this._rotate({ x: r.x1, z: r.z1 }, xf),
+            this._rotate({ x: r.x0, z: r.z1 }, xf),
+        ];
+
+        let laid = 0;
+        // Defer a beat so the structural slabs (and the bus dispatches) have settled.
+        setTimeout(() => {
+            try {
+                batchCoordinator.runBatch(() => {
+                    for (let i = 0; i < result.levels.length; i++) {
+                        const lvl = result.levels[i]!;
+                        const levelId = levelIdByIndex.get(lvl.levelIndex);
+                        if (!levelId) continue;
+                        if (lvl.levelIndex === 0) {
+                            // GROUND commercial floor — the whole (WORLD) footprint.
+                            if (layFinish(levelId, lvl.footprint, COMMERCIAL, 'Commercial floor')) laid++;
+                        } else {
+                            // PUBLIC CORRIDOR band(s) for this residential level (LOCAL → world).
+                            const perLevel = result.perLevelApartments[i];
+                            for (const band of perLevel?.publicCorridor ?? []) {
+                                if (layFinish(levelId, rectToWorld(band), CORRIDOR, 'Corridor floor')) laid++;
+                            }
+                            // CORE LOBBY — the core interior circulation floor (LOCAL → world).
+                            if (result.core && layFinish(levelId, rectToWorld(result.core), CORE_LOBBY, 'Core lobby floor')) laid++;
+                        }
+                    }
+                }, { levelIds: [...new Set(levelIdByIndex.values())], totalElementCount: result.levels.length, skipRedetectRooms: true });
+                console.log(`[resi-building] §RESI-PUBLIC-FLOOR-FINISH — laid ${laid} public floor finish(es)`);
+            } catch (e) { console.warn('[resi-building] public floor-finish batch failed (non-fatal):', e); }
+        }, 700);
+    }
+
     /** Create one apartment's doors + windows + boundaries + graph rooms inside the
      *  (already-open) batch. Mirrors the apartment executor's per-level fan-out.
      *  `useGraphRooms` is the batch-wide decision (so a level marked
@@ -1854,18 +2030,36 @@ export class ResidentialBuildingExecutor {
                 hostWallId = hit.wallId;
                 hostLenM = hit.wallLengthM;
             }
-            const hit: EntranceHostHit = { wallId: hostWallId, wallLengthM: hostLenM, centerAlongM: hostLenM / 2 };
-            // §RESI-DOOR-CENTRE-FIX (founder 2026-06-24: "the entrance door is not centred on its wall
-            // portion") — derive BOTH the width and the offset DIRECTLY from the host (bay) wall
-            // midpoint, NOT from the orchestrator's off-centre entrance point. The bay wall's baseLine
-            // runs at(s0)→at(s1) and the bay is centred on the entrance-edge midpoint, so centring the
-            // door on the bay wall (offset = (bayLen − width)/2) puts its centre dead on the front
-            // elevation midpoint = the corridor `from` = the core fire-door axis (one centred spine).
-            const ENTRANCE_JAMB_M = 0.4;            // symmetric solid jamb either side of the leaf
-            // Cap the leaf to the bay with equal jambs, then floor it so a tiny bay still yields a leaf.
-            const width = Math.max(0.6, Math.min(gf.entranceWidthM, hit.wallLengthM - 2 * ENTRANCE_JAMB_M));
-            // Dead-centre on the bay wall ⇒ equal jambs left↔right ⇒ door centre = bay midpoint.
-            const offset = Math.max(0, (hit.wallLengthM - width) / 2);
+            // §RESI-DOOR-CENTRE-FIX-2 (founder 2026-06-24: "the entrance door is STILL hard against the
+            // LEFT edge of its wall — likely the SAME rotated-plot / wrong-anchor bug as the windows").
+            // Read the door host's ACTUAL length from its committed baseLine in the store (NOT the
+            // pre-computed `doorBay.wallLengthM`, which could go stale / mismatch). The opening `offset`
+            // is a distance ALONG the wall's local baseLine axis, so this works identically on a ROTATED
+            // façade — no world X/Z is used. Then centre the door on THAT real length:
+            //   usableLength = wallLength − 2·margin ; doorPosition = margin + (usableLength − width)/2
+            //   = (wallLength − width)/2 ⇒ equal margins, door frame ⊆ [margin, wallLength − margin].
+            const storedLen = ((): number => {
+                const w = wallStore?.getById?.(hostWallId) as { baseLine?: ReadonlyArray<{ x: number; z: number }> } | undefined;
+                const bl = w?.baseLine;
+                if (bl && bl.length >= 2) {
+                    const a = bl[0]!, b = bl[1]!;
+                    const l = Math.hypot(b.x - a.x, b.z - a.z);
+                    if (Number.isFinite(l) && l > 0.05) return l;
+                }
+                return hostLenM;   // fallback to the pre-computed bay length if the store read missed
+            })();
+            const ENTRANCE_MARGIN_M = 0.4;          // equal solid jamb reserved at BOTH wall ends
+            // Cap the leaf so it fits inside both margins, floored so a tiny bay still yields a leaf.
+            const width = Math.max(0.6, Math.min(gf.entranceWidthM, storedLen - 2 * ENTRANCE_MARGIN_M));
+            // Dead-centre on the REAL host wall ⇒ equal margins left↔right ⇒ door centre = wall midpoint.
+            let offset = Math.max(0, (storedLen - width) / 2);
+            // Hard clamp + assert: [offset, offset+width] ⊆ [margin, storedLen − margin], centred.
+            offset = Math.min(Math.max(ENTRANCE_MARGIN_M, offset), Math.max(0, storedLen - ENTRANCE_MARGIN_M - width));
+            const centreErr = Math.abs(offset - (storedLen - width) / 2);
+            if (centreErr > 0.02) {
+                console.warn(`[resi-building] §RESI-DOOR-CENTRE-FIX-2 ⚠ entrance not centred (offset=${offset.toFixed(2)} expected=${((storedLen - width) / 2).toFixed(2)} len=${storedLen.toFixed(2)})`);
+            }
+            const hit: EntranceHostHit = { wallId: hostWallId, wallLengthM: storedLen, centerAlongM: storedLen / 2 };
             try {
                 batchCoordinator.runBatch(() => {
                     cm.execute?.(new CreateWallOpeningsBatchCommand([{
