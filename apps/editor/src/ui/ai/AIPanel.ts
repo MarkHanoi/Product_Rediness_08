@@ -49,7 +49,7 @@ import { openFamilyPlatformTestModal } from '../dev/familyPlatformTestModal';
 import { openValidateLayoutTestModal } from '../dev/validateLayoutTestModal';
 // DOC-AUTO — the "Documentation" AI command: auto-generate the documentation set
 // (per-level plans + cropped room plans now; building elevations + set-out + PDF queued).
-import { generateDocumentationSet } from '../documentation/generateDocumentationSet';
+import { generateDocumentationSet, generateFloorPlansPerLevel, generateBuildingElevations } from '../documentation/generateDocumentationSet';
 // C27 INS-α-5 — dev surface for the Master Tree (single tree component
 // per C27 §1.2).  Opens a modal that mounts the live ModelTreeComponent +
 // shows the InspectSelection payload on each click.
@@ -385,8 +385,31 @@ const COMMAND_TREE: SuggestionNode[] = [
                     else { (window as unknown as { runtime?: { events?: { emit(k: string, p: unknown): void } } }).runtime?.events?.emit('pryzm:toast', { message: 'Runtime not ready.', severity: 'error' }); }
                 },
             },
-            { label: 'Floor plan per level',    query: 'create a floor plan view for every level', autoSend: true },
-            { label: 'Building elevations',     query: 'create the four building elevations',      autoSend: true },
+            {
+                // §DOC-AI-COMMAND-WIRE (2026-06-24) — was an autoSend NL query QueryEngine
+                // has no pattern for ("I'm not sure how to help with that yet."). Now a direct
+                // action (C17 CB-8 style), mirroring "Generate documentation set" → real bus verb.
+                label: 'Floor plan per level',
+                hint: 'one plan view per level',
+                scopeBadge: 'batch',
+                action: () => {
+                    const rt = (window as unknown as { runtime?: unknown }).runtime;
+                    if (rt) { generateFloorPlansPerLevel(rt as Parameters<typeof generateFloorPlansPerLevel>[0]); }
+                    else { (window as unknown as { runtime?: { events?: { emit(k: string, p: unknown): void } } }).runtime?.events?.emit('pryzm:toast', { message: 'Runtime not ready.', severity: 'error' }); }
+                },
+            },
+            {
+                // §DOC-AI-COMMAND-WIRE (2026-06-24) — see above; now creates the 4 N/S/E/W
+                // exterior elevation views via view.createDefinition (viewType 'elevation').
+                label: 'Building elevations',
+                hint: 'four exterior N/S/E/W elevations',
+                scopeBadge: 'batch',
+                action: () => {
+                    const rt = (window as unknown as { runtime?: unknown }).runtime;
+                    if (rt) { generateBuildingElevations(rt as Parameters<typeof generateBuildingElevations>[0]); }
+                    else { (window as unknown as { runtime?: { events?: { emit(k: string, p: unknown): void } } }).runtime?.events?.emit('pryzm:toast', { message: 'Runtime not ready.', severity: 'error' }); }
+                },
+            },
             { label: 'Export sheets to PDF',    query: 'export all sheets to pdf',                 autoSend: true },
             { label: 'Ask about documentation…', prefill: 'documentation ' },
         ],

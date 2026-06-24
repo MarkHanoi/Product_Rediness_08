@@ -1288,6 +1288,142 @@ export class ResidentialBuildingExecutor {
             } catch (e) { console.warn('[resi-building] roof amenity skipped:', e); }
         };
 
+        // §RESI-ROOF-AMENITY-DECK (founder 2026-06-24) — the deck is a LUXURY AMENITY TERRACE laid out
+        // in non-overlapping ZONES within the footprint, clear of the core penthouse, all ON the slab.
+        // Deterministic (no RNG; index-varied). Real placeable FurnitureType values only (audited).
+        // Helpers:
+        //  • deck rectangle (WORLD-AABB) → split into 4 quadrants around the core; each amenity zone
+        //    takes a quadrant the core does NOT occupy, so zones never overlap each other or the core;
+        //  • POOL has no asset → built from floor finishes (coping + water-blue surface), P2-safe;
+        //  • UMBRELLA has no asset AND CreateSlabCommand forces y=0 (can't float a canopy) → omitted,
+        //    reported as a follow-up rather than built as a broken flat-on-deck slab.
+        const fxs = ring.map(p => p.x), fzs = ring.map(p => p.z);
+        const minX = Math.min(...fxs), maxX = Math.max(...fxs);
+        const minZ = Math.min(...fzs), maxZ = Math.max(...fzs);
+        const deckCx = (minX + maxX) / 2, deckCz = (minZ + maxZ) / 2;
+        const MARGIN = 1.4;                       // keep amenities off the parapet/guard
+        // A free-rectangle test: the candidate zone centre must be on the deck, clear of the core,
+        // and clear of the parapet margin (a conservative point test at the zone centre + corners).
+        const onDeckClear = (x: number, z: number, halfW: number, halfL: number): boolean => {
+            if (x - halfW < minX + MARGIN || x + halfW > maxX - MARGIN) return false;
+            if (z - halfL < minZ + MARGIN || z + halfL > maxZ - MARGIN) return false;
+            // Reject if the zone AABB intersects the (padded) core AABB.
+            if (x + halfW > coreMinX && x - halfW < coreMaxX && z + halfL > coreMinZ && z - halfL < coreMaxZ) return false;
+            return true;
+        };
+        // The four quadrant centres (offset from deck centre toward each corner), ranked so the LARGEST
+        // open quadrant (farthest from the core) hosts the pool. Deterministic order.
+        const quadOffX = (maxX - minX) / 4, quadOffZ = (maxZ - minZ) / 4;
+        const quadrants = [
+            { x: deckCx - quadOffX, z: deckCz - quadOffZ },
+            { x: deckCx + quadOffX, z: deckCz - quadOffZ },
+            { x: deckCx + quadOffX, z: deckCz + quadOffZ },
+            { x: deckCx - quadOffX, z: deckCz + quadOffZ },
+        ].map(q => ({ ...q, coreDist: Math.hypot(q.x - coreCx, q.z - coreCz) }))
+            .sort((a, b) => b.coreDist - a.coreDist);   // farthest-from-core first
+
+        // A thin coloured floor FINISH over a polygon on the roof level (CreateFloorCommand — P2-safe,
+        // honours finishColor + a baseOffset to stack layers; the green deck, the pool coping + water).
+        const rectPoly = (cx: number, cz: number, hw: number, hl: number): Array<{ x: number; z: number }> => [
+            { x: cx - hw, z: cz - hl }, { x: cx + hw, z: cz - hl }, { x: cx + hw, z: cz + hl }, { x: cx - hw, z: cz + hl },
+        ];
+        const layRoofFinish = (poly: ReadonlyArray<{ x: number; z: number }>, color: string, name: string, baseOff: number): void => {
+            if (poly.length < 3) return;
+            try {
+                cm.execute?.(new CreateFloorCommand({
+                    floorId: createId('floor'), ifcGuid: createId('floor'),
+                    polygon: poly.map(p => ({ x: p.x, z: p.z })),
+                    levelId: roofLevelId, label: name,
+                    baseOffset: baseOff,                 // stack each layer just above the one below
+                    finishSpec: { finishColor: color, finishPattern: 'none', materialName: name, exposedScreed: false },
+                }), { source: 'RESI_PIPELINE_ROOF_AMENITY' });
+            } catch (e) { console.warn('[resi-building] roof finish skipped:', name, e); }
+        };
+
+        // ── GREEN DECK — a grass-green garden FINISH over the whole roof footprint, so the terrace
+        // reads as a planted amenity deck, not bare slab. Seated on the deck top; the pool/coping
+        // stack just above it, so the water reads on top of the lawn.
+        layRoofFinish(ring, '#6f9e4a', 'Roof Garden Lawn', ROOF_DECK_THICKNESS_M);
+        placed++;
+
+        // ── A. POOL — a recessed water basin built from floor finishes (no pool asset exists). A light
+        // COPING rectangle (stone surround) with a water-blue WATER rectangle inset on top. ~4×8 m, in
+        // the largest open quadrant. Floor finishes are P2-safe (CreateFloorCommand, no raw THREE).
+        const poolHalfW = 2.0, poolHalfL = 4.0;     // 4 × 8 m basin
+        const poolQuad = quadrants.find(q => onDeckClear(q.x, q.z, poolHalfW + 0.6, poolHalfL + 0.6)) ?? quadrants[0]!;
+        const poolCx = poolQuad.x, poolCz = poolQuad.z;
+        if (onDeckClear(poolCx, poolCz, poolHalfW + 0.6, poolHalfL + 0.6)) {
+            // Coping (stone surround) slightly larger, stacked just ABOVE the green lawn; water inset
+            // just above the coping (small baseOffset steps avoid Z-fighting the lawn beneath).
+            layRoofFinish(rectPoly(poolCx, poolCz, poolHalfW + 0.5, poolHalfL + 0.5), '#cfd3d6', 'Pool Coping (Stone)', ROOF_DECK_THICKNESS_M + 0.02);
+            layRoofFinish(rectPoly(poolCx, poolCz, poolHalfW, poolHalfL), '#3fa3d6', 'Pool Water', ROOF_DECK_THICKNESS_M + 0.04);
+            placed++;
+            // ── B. SUNBATHING — a row of sun-loungers (closest real asset: lounge_chair, sized low/wide
+            // as a sunbed) along the long side of the pool, facing the water. Deterministic stagger.
+            // (No umbrella/parasol asset exists, and CreateSlabCommand forces y=0 so a slab mast+canopy
+            // can't float — a literal umbrella is reported as a follow-up rather than built broken.)
+            const sideX = poolCx + (poolCx <= deckCx ? -(poolHalfW + 1.4) : (poolHalfW + 1.4));
+            const faceY = poolCx <= deckCx ? Math.PI / 2 : -Math.PI / 2;   // face toward the pool
+            for (let k = 0; k < 3; k++) {
+                const lz = poolCz - poolHalfL * 0.6 + k * (poolHalfL * 0.6);
+                if (onDeckClear(sideX, lz, 0.5, 1.0)) place('lounge_chair', sideX, lz, 0.8, 2.0, 0.5, 'fabric', faceY);
+            }
+        }
+
+        // ── C. BAR — a counter (kitchen_island, the closest counter asset) + 3 stools (chair), in the
+        // next open quadrant. Stools line the counter front facing the deck.
+        const barQuad = quadrants.find(q => q !== poolQuad && onDeckClear(q.x, q.z, 1.6, 1.2)) ?? quadrants[1]!;
+        if (onDeckClear(barQuad.x, barQuad.z, 1.6, 1.2)) {
+            place('kitchen_island', barQuad.x, barQuad.z, 2.4, 0.8, 1.05, 'wood', 0);
+            for (let k = 0; k < 3; k++) place('chair', barQuad.x - 0.8 + k * 0.8, barQuad.z + 0.9, 0.45, 0.45, 1.0, 'metal', Math.PI);
+            placed++;
+        }
+
+        // ── D. DINING — an outdoor table + 4 chairs cluster, in the next open quadrant.
+        const dineQuad = quadrants.find(q => q !== poolQuad && q !== barQuad && onDeckClear(q.x, q.z, 1.4, 1.4)) ?? quadrants[2]!;
+        if (onDeckClear(dineQuad.x, dineQuad.z, 1.4, 1.4)) {
+            place('dining_table', dineQuad.x, dineQuad.z, 1.6, 0.9, 0.75, 'wood', 0);
+            const dc: Array<[number, number, number]> = [[-1.0, 0, Math.PI / 2], [1.0, 0, -Math.PI / 2], [0, -0.8, 0], [0, 0.8, Math.PI]];
+            for (const [dx2, dz2, ry] of dc) place('dining_chair', dineQuad.x + dx2, dineQuad.z + dz2, 0.45, 0.5, 0.9, 'wood', ry);
+            placed++;
+        }
+
+        // ── E. LOUNGE — a sofa + 2 armchairs around a coffee table, in the last open quadrant.
+        const loungeQuad = quadrants.find(q => q !== poolQuad && q !== barQuad && q !== dineQuad && onDeckClear(q.x, q.z, 1.6, 1.6)) ?? quadrants[3]!;
+        if (onDeckClear(loungeQuad.x, loungeQuad.z, 1.6, 1.6)) {
+            place('coffee_table', loungeQuad.x, loungeQuad.z, 1.0, 0.6, 0.4, 'wood', 0);
+            place('sofa_2seat', loungeQuad.x, loungeQuad.z - 1.1, 1.8, 0.8, 0.8, 'fabric', 0);
+            place('armchair', loungeQuad.x - 1.2, loungeQuad.z + 0.3, 0.8, 0.8, 0.8, 'fabric', Math.PI / 2);
+            place('armchair', loungeQuad.x + 1.2, loungeQuad.z + 0.3, 0.8, 0.8, 0.8, 'fabric', -Math.PI / 2);
+            placed++;
+        }
+
+        // ── F. GARDEN / TREES — a few realistic hi-fi trees (shortest species) as deck focal points,
+        // pulled well inside the parapet so the crown clears the guard. Founder explicitly wants TREES
+        // this round; the engine sizes them from the species table (height arg ignored), so we use the
+        // SHORTEST species (arbol_t_15 ≈ 6 m, arbol_t_02/_19 ≈ 7 m) and place only a few, in corners
+        // away from the seating zones. Trees are NOT height-capped by `place`'s clamp (the engine
+        // controls their height), so they are emitted via a dedicated tree call below.
+        const TREE_SPECIES: FurnitureType[] = ['arbol_t_15', 'arbol_t_19', 'arbol_t_02'];
+        const treeInset = 3.2;                  // well inside the parapet so the crown clears the guard
+        const treeSpots = [
+            { x: minX + treeInset, z: minZ + treeInset },
+            { x: maxX - treeInset, z: minZ + treeInset },
+            { x: maxX - treeInset, z: maxZ - treeInset },
+            { x: minX + treeInset, z: maxZ - treeInset },
+        ];
+        let tk = 0;
+        for (const s of treeSpots) {
+            if (!onDeckClear(s.x, s.z, 1.0, 1.0)) continue;
+            // A tree near a furnished quadrant centre would clash → only place where the local area is open.
+            const nearZone = [poolQuad, barQuad, dineQuad, loungeQuad].some(q => Math.hypot(q.x - s.x, q.z - s.z) < 3.0);
+            if (nearZone) continue;
+            this._roofTree(cm, TREE_SPECIES[tk % TREE_SPECIES.length]!, s.x, s.z, roofLevelId);
+            tk++;
+            if (tk >= 2) break;                 // keep it tidy — max 2 trees so the deck doesn't read as a forest
+        }
+        placed += tk;
+
         // ── 1. PLANTER EDGE — a deterministic row of potted plants stepped along each footprint edge,
         // pulled INWARD off the guard by `edgeInset`, cycling 3 small planter species for variety. A
         // green band hugging the parapet (founder: "line planters along the perimeter").
@@ -1315,32 +1451,32 @@ export class ResidentialBuildingExecutor {
             }
         }
 
-        // ── 2. SEATING CLUSTER — anchored just OUTSIDE the core's z0 (lobby/door) face, on the deck
-        // side, so it reads as the social hub by the roof access without blocking the door. Two benches
-        // flank a coffee table; a clear path stays open between the core door and the cluster.
-        // Anchor: step from the core centre out along +world-Z of the run direction (deck side away
-        // from the building centre is approximated by stepping toward the footprint AABB centre).
-        const fxs = ring.map(p => p.x), fzs = ring.map(p => p.z);
-        const deckCx = (Math.min(...fxs) + Math.max(...fxs)) / 2;
-        const deckCz = (Math.min(...fzs) + Math.max(...fzs)) / 2;
-        // Direction from the core toward the deck centre (so the cluster sits in open deck, not the core).
-        let dx = deckCx - coreCx, dz = deckCz - coreCz;
-        const dlen = Math.hypot(dx, dz) || 1;
-        dx /= dlen; dz /= dlen;
-        const clusterGap = Math.max(coreMaxX - coreMinX, coreMaxZ - coreMinZ) / 2 + 2.4;   // clear of core
-        const cxAnchor = coreCx + dx * clusterGap;
-        const czAnchor = coreCz + dz * clusterGap;
-        const rotY = Math.atan2(dx, dz);                  // benches face the table along the deck axis
-        // perpendicular (bench offset axis)
-        const perpX = -dz, perpZ = dx;
-        place('coffee_table', cxAnchor, czAnchor, 1.0, 0.6, 0.4, 'wood', rotY);
-        place('entry_bench', cxAnchor + perpX * 1.1, czAnchor + perpZ * 1.1, 1.5, 0.5, 0.45, 'wood', rotY);
-        place('entry_bench', cxAnchor - perpX * 1.1, czAnchor - perpZ * 1.1, 1.5, 0.5, 0.45, 'wood', rotY + Math.PI);
-        // A pair of lounge chairs at the far end of the cluster (still grouped, not scattered).
-        place('lounge_chair', cxAnchor + dx * 2.2 + perpX * 0.7, czAnchor + dz * 2.2 + perpZ * 0.7, 0.7, 0.8, 0.8, 'fabric', rotY + Math.PI);
-        place('lounge_chair', cxAnchor + dx * 2.2 - perpX * 0.7, czAnchor + dz * 2.2 - perpZ * 0.7, 0.7, 0.8, 0.8, 'fabric', rotY + Math.PI);
+        console.log(`[resi-building] §RESI-ROOF-AMENITY-DECK terrace — ${placed} zone(s)/item(s): pool + sunbathing + bar + dining + lounge + garden (deterministic)`);
+    }
 
-        console.log(`[resi-building] §RESI-ROOF-GARDEN terrace — ${placed} item(s) (planter edge + seating cluster, no trees, deterministic)`);
+    /** §RESI-ROOF-AMENITY-DECK — emit ONE hi-fi (cross-billboard) tree on the roof deck. Separate from
+     *  `place` because the parametric tree engine sizes the tree from the species table (the `height`
+     *  arg is ignored), so the ROOF_AMENITY_MAX_H clamp must NOT apply — we instead pick a SHORT
+     *  species upstream. `position.y` is forced to the roof level elevation in execute(); baseOffset =
+     *  deck thickness seats the trunk on the slab top. */
+    private _roofTree(
+        cm: CommandManagerLike,
+        species: FurnitureType,
+        x: number, z: number,
+        roofLevelId: string,
+    ): void {
+        try {
+            cm.execute?.(new CreateFurnitureCommand({
+                id: createId('furniture'),
+                furnitureType: species,
+                position: { x, y: 0, z },
+                rotation: { x: 0, y: 0, z: 0 },
+                levelId: roofLevelId,
+                baseOffset: ROOF_DECK_THICKNESS_M,
+                width: 3.0, length: 3.0, height: 6.0,   // engine uses the species table; these are hints
+                material: 'wood',
+            }), { source: 'RESI_PIPELINE_ROOF_AMENITY' });
+        } catch (e) { console.warn('[resi-building] roof tree skipped:', e); }
     }
 
     /** §RESI-BALCONY (2026-06-24, balcony spike D.4) — for each UPPER-floor apartment, drop ONE
