@@ -192,6 +192,21 @@ export class ResidentialBuildingExecutor {
 
         const floorToFloorM = input?.floorToFloorM && input.floorToFloorM > 0 ? input.floorToFloorM : DEFAULT_FLOOR_TO_FLOOR_M;
         const baseElevationM = ground.elevation ?? 0;
+        // §RESI-GROUND-HEIGHT-4500 (founder 2026-06-24: "the ground commercial floor must be taller —
+        // 4.5 m floor-to-floor — and EVERYTHING above shifts up so nothing overlaps"). The GROUND
+        // storey (index 0) is a tall ~4.5 m commercial floor; every UPPER residential storey keeps the
+        // normal `floorToFloorM`. These two helpers are the SINGLE SOURCE for per-level storey height
+        // and the cascaded elevation — every elevation / wall-height / stair-rise below derives from
+        // them (NOT the orchestrator's uniform `lvl.elevationM`, which assumed one height for all).
+        const GROUND_FTF_M = Math.max(4.5, floorToFloorM);
+        // Storey height of level `index` (the gap from this floor up to the next).
+        const ftfAt = (index: number): number => (index === 0 ? GROUND_FTF_M : floorToFloorM);
+        // World elevation (floor level) of level `index` = base + ground storey (if above ground) +
+        // each intervening UPPER storey. So level 1 sits at base + 4.5, level 2 at base + 4.5 + ftf, …
+        const elevationAt = (index: number): number =>
+            baseElevationM + (index <= 0 ? 0 : GROUND_FTF_M + (index - 1) * floorToFloorM);
+        // The top of the whole stack (the roof level floor) = elevation of level N.
+        const roofElevationCascadeM = elevationAt(result.levels.length);
         // §RESI-ROOF-GARDEN (2026-06-24) — the optional roof amenity deck (default OFF).
         const roofGarden = input?.roofGarden === true;
         // §RESI-BALCONIES (2026-06-24) — projecting balconies, default ON (absent ⇒ true).
@@ -212,7 +227,9 @@ export class ResidentialBuildingExecutor {
             if (lvl.levelIndex === 0) continue;
             const levelId = `L-resi-${Date.now()}-${lvl.levelIndex}-${Math.random().toString(36).slice(2, 8)}`;
             const name = `Level ${lvl.levelIndex.toString().padStart(2, '0')}`;
-            const res = cm.execute(new AddLevelCommand({ levelId, name, elevation: lvl.elevationM, height: floorToFloorM }), { source: 'RESI_PIPELINE_LEVEL' });
+            // §RESI-GROUND-HEIGHT-4500 — cascaded elevation + this storey's own height (the ground's
+            // 4.5 m shifts every upper level up), NOT the orchestrator's uniform `lvl.elevationM`.
+            const res = cm.execute(new AddLevelCommand({ levelId, name, elevation: elevationAt(lvl.levelIndex), height: ftfAt(lvl.levelIndex) }), { source: 'RESI_PIPELINE_LEVEL' });
             if (!res?.success) {
                 console.warn('[resi-building] AddLevelCommand failed for', levelId, '— aborting');
                 toast('Could not create building levels. See console.', 'error');
@@ -226,7 +243,9 @@ export class ResidentialBuildingExecutor {
         // its own level / plan ABOVE the apartments, not embedded in the top apartment floor.
         const roofLevelId = `L-resi-${Date.now()}-roof-${Math.random().toString(36).slice(2, 8)}`;
         {
-            const roofElevationM = baseElevationM + result.levels.length * floorToFloorM;
+            // §RESI-GROUND-HEIGHT-4500 — the roof level sits on the top storey's wall head, via the
+            // cascade (= base + ground 4.5 m + (N−1)·ftf), so it shifts up with the taller ground.
+            const roofElevationM = roofElevationCascadeM;
             const res = cm.execute(new AddLevelCommand({ levelId: roofLevelId, name: 'Roof', elevation: roofElevationM, height: floorToFloorM }), { source: 'RESI_PIPELINE_LEVEL' });
             if (!res?.success) console.warn('[resi-building] roof-level AddLevelCommand failed — roof may sit on the top floor');
         }
@@ -297,6 +316,10 @@ export class ResidentialBuildingExecutor {
             const lvl = result.levels[i]!;
             const levelId = levelIdByIndex.get(lvl.levelIndex)!;
             const perLevel = result.perLevelApartments[i];
+            // §RESI-GROUND-HEIGHT-4500 — this storey's own height (4.5 m on the ground, ftf above) +
+            // its cascaded floor elevation; every wall height / apartment base below uses these.
+            const levelFtf = ftfAt(lvl.levelIndex);
+            const levelElevation = elevationAt(lvl.levelIndex);
 
             // Building shell perimeter (one wall per footprint edge) + slab on EVERY floor.
             // `lvl.footprint` is already WORLD (the drawn parcel) → no transform here.
@@ -306,7 +329,7 @@ export class ResidentialBuildingExecutor {
             let shellPayload: { walls: ReadonlyArray<Record<string, unknown>>; levelId: string };
             if (lvl.levelIndex === 0) {
                 const wec = this._rotate({ x: result.groundFloor.entranceCenter.x, z: result.groundFloor.entranceCenter.z }, xf);
-                const g = this._buildGroundShell(levelId, lvl.footprint, floorToFloorM, wec, groundCurtain);
+                const g = this._buildGroundShell(levelId, lvl.footprint, levelFtf, wec, groundCurtain);
                 shellPayload = g.shellPayload;
                 // §RESI-DOOR-CENTRE-SPINE — remember the door-bay wall for the centred entrance pass.
                 groundDoorBay = g.doorBay;
@@ -321,10 +344,10 @@ export class ResidentialBuildingExecutor {
                     const core = result.core;
                     const fireDoor = this._rotate({ x: (core.x0 + core.x1) / 2, z: core.z0 }, xf);
                     const corridorW = Math.max(2.0, 2 * ENTRANCE_BAY_HALF_M);   // ≥2 m, bay-wide
-                    groundCorridorPayload = this._buildGroundCorridor(levelId, g.doorCenter, fireDoor, corridorW, floorToFloorM);
+                    groundCorridorPayload = this._buildGroundCorridor(levelId, g.doorCenter, fireDoor, corridorW, levelFtf);
                 }
             } else {
-                shellPayload = this._buildShellPerimeter(levelId, lvl.footprint, floorToFloorM);
+                shellPayload = this._buildShellPerimeter(levelId, lvl.footprint, levelFtf);
             }
             // §RESI-FACADE-COLOUR — paint the opaque shell walls (ground solid bay + upper façade).
             this._paintWalls(shellPayload, facadeColor);
@@ -341,7 +364,7 @@ export class ResidentialBuildingExecutor {
             // floor (LOCAL → world via xf); the two spine-facing edges carry a real door (punched
             // deferred via coreDoorSpecs once the walls land).
             if (result.core) {
-                const cp = this._buildCorePerimeter(levelId, result.core, floorToFloorM, xf);
+                const cp = this._buildCorePerimeter(levelId, result.core, levelFtf, xf);
                 // §RESI-FACADE-COLOUR-PERSIST (founder 2026-06-24: "exterior face of the perimeter
                 // walls — NOT interior partitions") — the core enclosure is an INTERIOR room (the
                 // lift/stair shaft), so it keeps its default material; only the building shell takes
@@ -373,15 +396,17 @@ export class ResidentialBuildingExecutor {
                 placedCount++;
                 // Apartment cell perimeter (4 walls, pre-minted) so façade windows resolve.
                 // Built from the LOCAL cell.rect, rotated to world by the rigid transform.
-                const perimeter = this._buildCellPerimeter(levelId, apt, floorToFloorM, xf);
+                const perimeter = this._buildCellPerimeter(levelId, apt, levelFtf, xf);
                 // §RESI-FACADE-COLOUR-PERSIST (founder 2026-06-24: "NOT interior partitions") — the
                 // cell perimeter is party/corridor-facing INTERIOR wall, so it keeps its default
                 // material; only the exterior building shell carries the façade colour.
                 cellPerimeterPayloads.push(perimeter.payload);
                 const opts: LayoutExecuteOptions = {
                     levelId,
-                    baseElevationM: lvl.elevationM,
-                    wallHeightM: floorToFloorM,
+                    // §RESI-GROUND-HEIGHT-4500 — the apartment sits at its CASCADED floor elevation +
+                    // this storey's height, NOT the orchestrator's uniform `lvl.elevationM`/ftf.
+                    baseElevationM: levelElevation,
+                    wallHeightM: levelFtf,
                     // The cell perimeter is emitted explicitly above → skip the engine's
                     // external walls so we never duplicate (coincident) the shell.
                     skipExteriorWalls: true,
@@ -489,7 +514,10 @@ export class ResidentialBuildingExecutor {
             }
             // 4. Central core — a stair per adjacent level pair + ONE lift ground→top.
             //    §RESI-ROOF-GARDEN — when ON, the core climbs ONE flight higher to the roof level.
-            const coreResult = this._createCore(cm, result, levelIdByIndex, floorToFloorM, baseElevationM, xf, roofGarden);
+            //    §RESI-GROUND-HEIGHT-4500 — pass the cascade so the GROUND→1 flight spans the tall
+            //    4.5 m rise (more risers, re-fitted by the switchback) and every floor sits at its
+            //    cascaded elevation, not a uniform idx·ftf.
+            const coreResult = this._createCore(cm, result, levelIdByIndex, floorToFloorM, baseElevationM, xf, roofGarden, ftfAt, elevationAt);
             stairCount = coreResult.stairs;
             liftCount = coreResult.lifts;
             // 5. §RESI-BALCONY — projecting cantilever balconies off the upper-floor apartments'
@@ -1596,20 +1624,32 @@ export class ResidentialBuildingExecutor {
         baseElevationM: number,
         xf: ResidentialRigidTransform,
         roofGarden = false,
+        // §RESI-GROUND-HEIGHT-4500 — per-level storey height + cascaded elevation. Default to a
+        // uniform `floorToFloorM` stack (byte-identical to the pre-cascade behaviour) when omitted.
+        ftfAt: (index: number) => number = () => floorToFloorM,
+        elevationAt: (index: number) => number = (i) => baseElevationM + i * floorToFloorM,
     ): { stairs: number; lifts: number } {
         const core = result.core;   // LOCAL (principal-axis) frame.
         const coreW = core.x1 - core.x0;
         const coreD = core.z1 - core.z0;
         const cz0 = core.z0;
+        // §RESI-GROUND-HEIGHT-4500 — the stair must FIT the TALLEST storey it serves (the 4.5 m
+        // ground), so the switchback depth/width re-fit + riser-count is sized against the MAX ftf;
+        // each flight then uses its own from-level rise. The lift cab height per segment also varies.
+        let maxFtf = floorToFloorM;
+        for (let idx = 0; idx <= result.levels.length; idx++) maxFtf = Math.max(maxFtf, ftfAt(idx));
         // §RESI-RIGID-TRANSFORM — the stair RUN is along LOCAL +Z; rotate the run direction
         // to the WORLD parcel so the stair aligns with the rotated core (θ=0 ⇒ {x:0,z:1}).
         const runDir = this._rotateDir({ x: 0, z: 1 }, xf);
 
-        // Risers sized to the gap, clamped to the architectural band.
-        let totalRisers = Math.max(2, Math.round(floorToFloorM / STAIR_RISER_TARGET_M));
-        let riserHeight = floorToFloorM / totalRisers;
-        while (riserHeight > STAIR_RISER_MAX_M && totalRisers < 40) { totalRisers++; riserHeight = floorToFloorM / totalRisers; }
-        while (riserHeight < STAIR_RISER_MIN_M && totalRisers > 2) { totalRisers--; riserHeight = floorToFloorM / totalRisers; }
+        // §RESI-GROUND-HEIGHT-4500 — size the SWITCHBACK FOOTPRINT against the TALLEST storey it
+        // serves (`maxFtf`, i.e. the 4.5 m ground), so the depth-fit reserves enough run for the
+        // worst-case rise; a shorter storey simply uses fewer risers in the SAME footprint. Risers
+        // sized to that gap, clamped to the architectural band.
+        let totalRisers = Math.max(2, Math.round(maxFtf / STAIR_RISER_TARGET_M));
+        let riserHeight = maxFtf / totalRisers;
+        while (riserHeight > STAIR_RISER_MAX_M && totalRisers < 40) { totalRisers++; riserHeight = maxFtf / totalRisers; }
+        while (riserHeight < STAIR_RISER_MIN_M && totalRisers > 2) { totalRisers--; riserHeight = maxFtf / totalRisers; }
 
         // §RESI-CORE-CIRCULATION (R-CORE-2/6, founder 2026-06-24) — a shared LOBBY band at the core's
         // z0 (corridor) edge that the fire door opens into; BOTH the stair and the lift are set BACK
@@ -1655,16 +1695,27 @@ export class ResidentialBuildingExecutor {
         const STAIR_LANDING_DEPTH_M = stairWidth;     // square half-turn landing (was 2·stairWidth — the bug)
         const beforeOf = (n: number): number => Math.ceil(n / 2);
         const stairBodyDepth = (n: number, landing: number): number => beforeOf(n) * STAIR_TREAD_M + landing;
-        // Reduce risers (raising riserHeight up to the max) until the body fits the inner depth.
+        // §RESI-GROUND-HEIGHT-4500 — re-fit the switchback to the TALLEST rise (the 4.5 m ground): drop
+        // risers until the half-run + min landing fits the inner depth. The architectural riser MAX is
+        // the FIRST lever; if the tall rise still won't fit at that max (a deep flight in a shallow
+        // core), allow a slightly STEEPER fallback riser (≤ STAIR_RISER_ABS_MAX_M) so the stair RE-FITS
+        // inside the core rather than poking past the wall — a steeper-than-ideal but fully-contained
+        // stair beats a wall-piercing one. Geometry-fit takes precedence; the per-flight loop keeps
+        // shorter (upper) flights at the ideal riser.
+        const STAIR_RISER_ABS_MAX_M = 0.21;           // hard fit fallback (just above the 0.19 ideal)
+        const MIN_LANDING_M = 0.6;
         {
             let guard = 60;
             while (guard-- > 0) {
-                if (stairBodyDepth(totalRisers, STAIR_LANDING_DEPTH_M) <= zInnerDepth || totalRisers <= 3) break;
-                if (riserHeight >= STAIR_RISER_MAX_M) break;   // can't shorten further within code limits
+                if (stairBodyDepth(totalRisers, MIN_LANDING_M) <= zInnerDepth || totalRisers <= 3) break;
+                if (maxFtf / (totalRisers - 1) > STAIR_RISER_ABS_MAX_M) break;   // even the fallback can't shorten more
                 totalRisers--;
-                riserHeight = floorToFloorM / totalRisers;
+                riserHeight = maxFtf / totalRisers;
             }
         }
+        // §RESI-GROUND-HEIGHT-4500 — the depth-fitted MAX riser count + tread the footprint can hold.
+        // A flight's per-floor riser count is derived from this (capped here) so it always fits.
+        const maxRisersInFootprint = totalRisers;
         const beforeRisers = beforeOf(totalRisers);
         const afterRisers = totalRisers - beforeRisers;
         const flight1Run = beforeRisers * STAIR_TREAD_M;
@@ -1702,24 +1753,39 @@ export class ResidentialBuildingExecutor {
             const fromLevelId = levelIdByIndex.get(idx);
             const toLevelId = levelIdByIndex.get(idx + 1);
             if (!fromLevelId || !toLevelId) continue;
-            const startY = baseElevationM + idx * floorToFloorM;
+            // §RESI-GROUND-HEIGHT-4500 — this flight's rise = the gap between the two CASCADED floor
+            // elevations (the GROUND→1 flight spans the tall 4.5 m; uppers span ftf). Derive THIS
+            // flight's riser count from its own rise, CAPPED at `maxRisersInFootprint` so the (taller)
+            // footprint still contains it; riser height = rise / risers (kept in the architectural
+            // band by construction since the footprint was fit against the tallest storey).
+            const startY = elevationAt(idx);
+            const flightRise = elevationAt(idx + 1) - startY;
+            let fRisers = Math.max(2, Math.min(maxRisersInFootprint, Math.round(flightRise / STAIR_RISER_TARGET_M)));
+            // Nudge within the cap so the per-riser height clears the MIN (a short flight at the cap
+            // would be too shallow); never exceed the footprint cap.
+            while (fRisers > 2 && flightRise / fRisers < STAIR_RISER_MIN_M) fRisers--;
+            const fRiserH = flightRise / fRisers;
+            const fBefore = Math.ceil(fRisers / 2);
+            const fAfter = fRisers - fBefore;
+            const fFlight1Run = fBefore * STAIR_TREAD_M;
             // §RESI-CORE-STAIR-FIT — the stair seats at `stairStartZ` (z0 inner face + any lobby
             // slack); run 1 is centred at `stairCenterX` (anchored at the left inner face) so the
             // whole U body sits inside the core inner rect on BOTH axes (asserted above). Stair runs
             // +Z (flight 1 = the LONGER half), folds across a square half-turn landing, and flight 2
-            // runs BACK within flight 1's Z band — so no flight/landing crosses any core wall.
+            // runs BACK within flight 1's Z band — so no flight/landing crosses any core wall. (fBefore
+            // ≤ beforeRisers ≤ the footprint-fitted max, so this flight's run ≤ flight1Run ⇒ fits.)
             const startLocal = this._rotate({ x: stairCenterX, z: stairStartZ }, xf);
             const startPosition = { x: startLocal.x, y: startY, z: startLocal.z };
             const dir = { x: runDir.x, y: 0, z: runDir.z };
             const reverseDir = { x: -runDir.x, y: 0, z: -runDir.z };
             const perpDir = { x: -runDir.z, y: 0, z: runDir.x };
-            // Flight 2 starts at the landing's FAR edge (flight1Run + landingDepth along +Z), offset
+            // Flight 2 starts at the landing's FAR edge (fFlight1Run + landingDepth along +Z), offset
             // one stair-width across (perpDir), up the flight-1 rise. It then runs −Z back over the
-            // SAME Z band, so the U's run-direction depth = flight1Run + landingDepth = stairDepth.
+            // SAME Z band, so the U's run-direction depth = fFlight1Run + landingDepth ≤ stairDepth.
             const secondStart = {
-                x: startPosition.x + dir.x * (flight1Run + landingDepth) + perpDir.x * stairWidth,
-                y: startPosition.y + beforeRisers * riserHeight,
-                z: startPosition.z + dir.z * (flight1Run + landingDepth) + perpDir.z * stairWidth,
+                x: startPosition.x + dir.x * (fFlight1Run + landingDepth) + perpDir.x * stairWidth,
+                y: startPosition.y + fBefore * fRiserH,
+                z: startPosition.z + dir.z * (fFlight1Run + landingDepth) + perpDir.z * stairWidth,
             };
             try {
                 cm.execute?.(new CreateStairCommand({
@@ -1727,13 +1793,13 @@ export class ResidentialBuildingExecutor {
                     baseLevelId: fromLevelId,
                     topLevelId: toLevelId,
                     shape: 'U',
-                    riserHeight,
+                    riserHeight: fRiserH,
                     treadDepth: STAIR_TREAD_M,
                     width: stairWidth,
                     startPosition,
                     flights: [
-                        { direction: dir, riserCount: beforeRisers },
-                        { direction: reverseDir, riserCount: afterRisers, startOverride: secondStart },
+                        { direction: dir, riserCount: fBefore },
+                        { direction: reverseDir, riserCount: fAfter, startOverride: secondStart },
                     ],
                     landings: [{ depth: landingDepth }],
                     accessibilityType: 'standard',
@@ -1773,7 +1839,9 @@ export class ResidentialBuildingExecutor {
                     baseLevelId: fromLevelId,
                     topLevelId: toLevelId,
                     kind: 'passenger',
-                    origin: { x: liftOrigin.x, y: baseElevationM + idx * floorToFloorM, z: liftOrigin.z },
+                    // §RESI-GROUND-HEIGHT-4500 — cab base at the CASCADED floor elevation (so the
+                    // ground cab is the tall 4.5 m one); the cab span = next−this elevation.
+                    origin: { x: liftOrigin.x, y: elevationAt(idx), z: liftOrigin.z },
                     rotation: liftRotationY,
                     shaftWidth,
                     shaftDepth,
