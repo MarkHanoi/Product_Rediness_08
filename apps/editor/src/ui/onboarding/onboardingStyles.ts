@@ -747,44 +747,72 @@ export const ONBOARDING_STYLES = `
   accent-color: #6600ff;
   cursor: pointer;
 }
-/* §RESI-LIVE-SLIDERS — the live layout preview pane (apartment count + mix, updated as you drag). */
+/* §RESI-PREVIEW-PRODUCTION (founder 2026-06-24) — the live floor-plan preview pane.
+   Brand white + #6600FF, NO black: a card with a faint purple frame, the architectural
+   plan on a white sheet, a clear summary line, and a CALM purple over-program note. */
 .os-onboarding-overlay .os-resi-preview {
   margin-top: 0.5rem;
-  padding: 0.6rem 0.75rem;
+  padding: 0.7rem 0.8rem 0.75rem;
   border: 1px solid rgba(102, 0, 255, 0.18);
-  border-radius: 0.5rem;
-  background: rgba(102, 0, 255, 0.05);
+  border-radius: 0.6rem;
+  background: linear-gradient(180deg, #ffffff 0%, rgba(102, 0, 255, 0.04) 100%);
   min-height: 2.4rem;
 }
 .os-onboarding-overlay .os-resi-preview-plan {
-  margin: -0.1rem 0 0.5rem;
-  padding: 0.4rem;
+  margin: 0 0 0.5rem;
+  padding: 0.5rem;
   background: #ffffff;
   border: 1px solid rgba(102, 0, 255, 0.14);
-  border-radius: 0.4rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 4px rgba(102, 0, 255, 0.06);
+  display: flex;
+  justify-content: center;
 }
 /* §RESI-PREVIEW-SMALLER (founder 2026-06-24) — cap the plan thumbnail so the whole setup
    modal (4 option groups + colour swatches + preview) fits without the top being clipped. */
-.os-onboarding-overlay .os-resi-preview-plan svg { width: 100%; height: auto; max-height: 150px; }
+.os-onboarding-overlay .os-resi-preview-plan svg {
+  width: 100%; height: auto; max-height: 190px; display: block;
+  shape-rendering: geometricPrecision;
+}
 .os-onboarding-overlay .os-resi-preview-caption {
-  font-size: 0.72rem;
-  color: rgba(20, 10, 40, 0.5);
-  margin: -0.3rem 0 0.45rem;
+  display: flex; align-items: center; justify-content: center; gap: 0.35rem;
+  font-size: 0.72rem; font-weight: 600;
+  color: #6600ff;
+  margin: -0.2rem 0 0.5rem;
   text-align: center;
 }
+.os-onboarding-overlay .os-resi-preview-caption::before {
+  content: ""; width: 0.45rem; height: 0.45rem; border-radius: 999px;
+  background: #6600ff; flex: 0 0 auto;
+}
 .os-onboarding-overlay .os-resi-preview-head {
-  font-size: 0.85rem;
-  color: rgba(20, 10, 40, 0.85);
+  font-size: 0.86rem; font-weight: 500;
+  color: #2a1a52;
 }
-.os-onboarding-overlay .os-resi-preview-head strong { color: #6600ff; font-variant-numeric: tabular-nums; }
+.os-onboarding-overlay .os-resi-preview-head strong { color: #6600ff; font-weight: 700; font-variant-numeric: tabular-nums; }
 .os-onboarding-overlay .os-resi-preview-mix {
-  font-size: 0.78rem;
+  display: inline-block;
+  font-size: 0.74rem;
   font-weight: 600;
-  color: rgba(20, 10, 40, 0.6);
-  margin-top: 0.2rem;
+  color: #6b5f8c;
+  margin-top: 0.3rem;
+  padding: 0.12rem 0.45rem;
+  background: rgba(102, 0, 255, 0.07);
+  border-radius: 999px;
 }
-.os-onboarding-overlay .os-resi-preview-warn { font-size: 0.75rem; color: #b91c1c; margin-top: 0.2rem; }
-.os-onboarding-overlay .os-resi-preview-hint { font-size: 0.8rem; color: rgba(20, 10, 40, 0.5); }
+/* Over-program note — calm, helpful, brand purple (NOT alarming red). */
+.os-onboarding-overlay .os-resi-preview-warn {
+  display: flex; align-items: center; gap: 0.3rem;
+  font-size: 0.74rem; color: #6b5f8c; margin-top: 0.35rem;
+}
+.os-onboarding-overlay .os-resi-preview-warn::before {
+  content: "i"; flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 0.9rem; height: 0.9rem; border-radius: 999px;
+  font-size: 0.62rem; font-weight: 700; font-style: normal;
+  color: #fff; background: #6600ff;
+}
+.os-onboarding-overlay .os-resi-preview-hint { font-size: 0.8rem; color: rgba(42, 26, 82, 0.55); }
 .os-onboarding-overlay .os-typo-chips {
   display: flex;
   flex-wrap: wrap;

@@ -14,7 +14,7 @@
 
 import type { ResidentialBuildingOk, PlacedApartment } from '@pryzm/ai-host';
 import { buildResidentialCardModel, type ResidentialCardModel } from './residentialCardModel.js';
-import { buildResidentialModalHtml, RESIDENTIAL_MODAL_STYLES } from './residentialModalHtml.js';
+import { buildResidentialModalHtml, RESIDENTIAL_MODAL_STYLES, groupApartmentTypes } from './residentialModalHtml.js';
 import {
     type FriendlyResidentialError,
     buildResidentialErrorModalHtml,
@@ -50,11 +50,14 @@ export class ResidentialBuildingModal {
         this._ensureStyles();
 
         const card = buildResidentialCardModel(result);
-        const floorThumbs = this._floorThumbs(card);
+        // §RESI-PREVIEW-DEDUPE-TYPES — render ONE thumbnail per DISTINCT apartment type
+        // (group representative), not one per instance: a building of 20 identical T2s
+        // shows a single T2 plan card with a "×20" count, not 20 copies.
+        const typeThumbs = this._typeThumbs(card);
 
         const overlay = document.createElement('div');
         overlay.className = 'alm-overlay';
-        overlay.innerHTML = buildResidentialModalHtml(card, floorThumbs);
+        overlay.innerHTML = buildResidentialModalHtml(card, typeThumbs);
 
         overlay.addEventListener('click', (e: MouseEvent) => {
             const target = e.target as HTMLElement | null;
@@ -129,12 +132,14 @@ export class ResidentialBuildingModal {
         document.head.appendChild(style);
     }
 
-    /** Per-floor → per-apartment thumbnail SVG strings. A rejected apartment gets
-     *  '' (the HTML builder draws the hatched box instead). Each placed apartment's
-     *  thumbnail fits to its OWN cell bounds (the cell is the apartment's plate). */
-    private _floorThumbs(card: ResidentialCardModel): string[][] {
-        return card.floors.map(floor =>
-            floor.apartments.map(a => (a.status === 'ok' ? this._apartmentThumb(a.apt) : '')),
+    /** Per-DISTINCT-TYPE thumbnail SVG strings — index-aligned with
+     *  `groupApartmentTypes(card)`. A rejected-type group gets '' (the HTML builder
+     *  draws the hatched box instead). The representative apartment's thumbnail fits to
+     *  its OWN cell bounds (the cell is the apartment's plate). One render per type,
+     *  not per instance. */
+    private _typeThumbs(card: ResidentialCardModel): string[] {
+        return groupApartmentTypes(card).map(g =>
+            g.status === 'ok' ? this._apartmentThumb(g.rep.apt) : '',
         );
     }
 
