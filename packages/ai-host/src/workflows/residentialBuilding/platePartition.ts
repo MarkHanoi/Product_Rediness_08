@@ -123,6 +123,20 @@ const DOOR_WIDTH_M = 0.8;
  *  rather than the sliver a full ~20 m band would force. The deeper residual of a very
  *  deep band is left un-tiled (wasted area, never a correctness bug). */
 export const MAX_APARTMENT_DEPTH_M = 9;
+// §RESI-CORNER-UNITS-ALWAYS (founder 2026-06-24: "there must always be apartments at the building
+// corners, facing the façade") — the OUTERMOST apartment row (the band between a corridor and the
+// PLATE EDGE) must reach the façade so its corner cells touch BOTH the corridor (door) AND the plate
+// edge (corner + windows). The standard 9 m depth cap leaves a thin façade strip un-tiled when the
+// edge sits > 9 m from the corridor (e.g. a 22 m plate: corridor→edge ≈ 10.3 m → a 1.3 m gap at the
+// façade → the corner cell stops short of the edge). The frozen D-TGL engine lays out a SQUARE-ish
+// cell well past 9 m (verified feasible to ~12 m for 2/3-bed at widths 5–16 m), so the outer row is
+// allowed to span the FULL corridor→edge distance up to this DEEPER cap — the cell then touches the
+// façade (corner) and the corridor (reach). Inner rows keep the 9 m cap (a deep plate's interior
+// stays square-ish). Beyond this cap the outer row keeps 9 m (a very deep plate's corner is far from
+// any corridor anyway — not a corner-unit case).
+/** Max depth (m) for the OUTERMOST (plate-edge-touching) apartment row, so its corner cells reach the
+ *  façade while still fronting the corridor. Held at the engine's proven deeper-cell limit (~12 m). */
+const MAX_OUTER_BAND_DEPTH_M = 12;
 /** Min cell width as a fraction of its depth — below this the cell is a sliver the
  *  engine rejects. 0.6 ⇒ a 9 m-deep cell is ≥ 5.4 m wide (aspect ≤ ~1.7:1). */
 const MIN_CELL_ASPECT = 0.6;
@@ -367,10 +381,18 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
                 ? prevOuterRowEdge - edgeZ > MIN_ROW_DEPTH
                 : edgeZ - prevOuterRowEdge > MIN_ROW_DEPTH;
             if (!gapRemaining) break;
-            // Clamp the corridor inward if its stepped position would carry the row past the edge.
+            // Clamp the corridor inward if its stepped position would carry the row past the edge OR
+            // leave a façade strip too THIN to host a corner apartment. §RESI-CORNER-UNITS-ALWAYS: the
+            // outermost corridor must sit a FULL apartment depth from the plate edge so a real (dual-
+            // aspect) corner unit fits between it and the façade — a stepped corridor that lands only a
+            // metre or two from the edge (e.g. a 44 m plate: pitch puts it ~1.8 m from the edge) leaves
+            // the corner un-buildable. We clamp such a corridor to exactly MAX_APARTMENT_DEPTH_M + half-
+            // corridor from the edge, so a 9 m-deep façade apartment (reaching corner ↔ corridor) fits.
             const clampedToEdge = edgeZ - dir * (MAX_APARTMENT_DEPTH_M + halfCorr);
-            const overshoots = dir < 0 ? stepped - halfCorr <= edgeZ : stepped + halfCorr >= edgeZ;
-            const cz = overshoots ? clampedToEdge : stepped;
+            const facadeGap = dir < 0 ? (stepped - halfCorr) - edgeZ : edgeZ - (stepped + halfCorr);
+            const tooThinFacade = facadeGap < MAX_APARTMENT_DEPTH_M - EPS;
+            const cz = tooThinFacade ? clampedToEdge : stepped;
+            const overshoots = tooThinFacade;
             // The corridor must sit meaningfully BEYOND its inner neighbour (toward the edge) so a
             // usable apartment row fits between them — else the neighbour already covers the edge.
             const beyondNeighbour = dir < 0 ? prev - cz : cz - prev;
@@ -512,16 +534,35 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
                 nCells = Math.min(maxCellsByMin, Math.max(loCells, idealCells));
             }
             const w = sliceWidth ?? round4(runWidth / nCells);
+            // §RESI-CORNER-UNITS-ALWAYS (founder 2026-06-24: "there must always be apartments at the
+            // building corners") — when a greedy slice leaves a remainder, the un-built strip used to
+            // land at the run's HIGH-x END. For the run that abuts the plate's RIGHT edge (run.x1 ≈
+            // bb.x1) that end IS the building corner, so the corner came out EMPTY (no apartment). We
+            // ANCHOR the packing to whichever run end sits on the plate boundary: a run touching the
+            // right edge packs FLUSH-RIGHT (the remainder slides to the interior, the corner gets a
+            // cell); a run touching the left edge packs flush-left (already the corner there). An
+            // interior run (between core and a corridor, touching no plate edge) keeps the flush-left
+            // behaviour. Even division has no remainder, so this is a no-op there (byte-identical).
+            const packedWidth = nCells * w;
+            const remainder = round4(runWidth - packedWidth);
+            const touchesRight = Math.abs(run.x1 - bb.x1) <= 1e-3;
+            const touchesLeft = Math.abs(run.x0 - bb.x0) <= 1e-3;
+            // Slide the whole packed block to the boundary end so a plate-edge run fills its corner.
+            // Prefer the right edge when a run somehow touches both (a full-width edge run): the left
+            // corner is then covered by the FIRST cell starting at run.x0 anyway (block spans the run).
+            const startX = (touchesRight && !touchesLeft && remainder > EPS)
+                ? round4(run.x0 + remainder)   // flush-right: leave the remainder on the interior side
+                : run.x0;                       // flush-left (default): corner is the run's low-x end
             for (let k = 0; k < nCells && cursor < apartments.length; k++) {
                 const demand = apartments[cursor];
                 if (!demand) break;
-                const x0 = round4(run.x0 + k * w);
-                // Even division: the last cell snaps to the run's true end so float drift never leaves a
-                // hairline gap. Greedy slice (sliceWidth set): every cell is exactly wMax-wide and the
-                // sub-min remainder beyond the last slice is intentionally LEFT unbuilt (a thin strip).
-                const x1 = (sliceWidth === undefined && k === nCells - 1)
-                    ? round4(run.x1)
-                    : round4(run.x0 + (k + 1) * w);
+                const x0 = round4(startX + k * w);
+                // The block's FINAL cell snaps to the boundary end so float drift never leaves a hairline
+                // gap at the plate edge: flush-right ⇒ snap to run.x1 (= bb.x1, the corner); flush-left
+                // even-division ⇒ snap to run.x1; flush-left greedy ⇒ exact wMax slice (remainder interior).
+                const isLast = k === nCells - 1;
+                const snapToRunEnd = isLast && (startX > run.x0 + EPS || sliceWidth === undefined);
+                const x1 = snapToRunEnd ? round4(run.x1) : round4(startX + (k + 1) * w);
                 const rect = normRect({ x0, z0: round4(cellZ0), x1, z1: round4(cellZ1) });
                 placements.push({ typology: demand.typology, rect, areaM2: round4(rectArea(rect)), doorEdge });
                 cursor++;
@@ -550,6 +591,14 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
     const STRIP_W_LEFT = round4(spineX0 - coreX0);   // [coreX0, spineX0] left inner strip width
     const STRIP_W_RIGHT = round4(coreX1 - spineX1);  // [spineX1, coreX1] right inner strip width
     function packInnerStrips(rowZ0: number, rowZ1: number, doorEdge: 'z0' | 'z1'): void {
+        // §RESI-CORNER-UNITS-ALWAYS guard — packInnerStrips ADDS the inner strips ONLY for a row that
+        // OVERLAPS the core in Z (where `runsFor` carves the FULL core width, leaving the strips for
+        // this pass). A row entirely OUTSIDE the core's Z-band already has its inner strips filled by
+        // `packRow` (which then carves only the narrow SPINE), so packing them again here double-tiles
+        // the strip → overlap. (The corner/outer-band deepening introduced fully-out-of-core façade
+        // rows that re-exposed this.) So skip when the row does not overlap the core in Z.
+        const rowOverlapsCoreZ = !(coreN.z1 <= rowZ0 + EPS || coreN.z0 >= rowZ1 - EPS);
+        if (!rowOverlapsCoreZ) return;
         // The part of the row OUTSIDE the core in Z (where the spine — not the core — bounds the
         // strip). With doorEdge z1 (front row, z < corridor) the out-of-core part is below coreN.z0;
         // with z0 (back row) it is above coreN.z1.
@@ -592,7 +641,11 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
         const frontOuterLimit = prevCz !== undefined
             ? (prevCz + halfCorr + myTop) / 2   // midpoint between the two corridor near-edges
             : bb.z0;
-        const frontDepth = Math.min(MAX_APARTMENT_DEPTH_M, myTop - frontOuterLimit);
+        // §RESI-CORNER-UNITS-ALWAYS — the OUTERMOST front row (no prev corridor ⇒ it abuts the plate
+        // edge) is allowed the DEEPER cap so it spans corridor→façade and its corner cells reach the
+        // edge; an interior front row keeps the standard cap.
+        const frontCap = prevCz === undefined ? MAX_OUTER_BAND_DEPTH_M : MAX_APARTMENT_DEPTH_M;
+        const frontDepth = Math.min(frontCap, myTop - frontOuterLimit);
         if (frontDepth > MIN_ROW_DEPTH - EPS) {
             const frontZ0 = round4(myTop - frontDepth);
             packRow(frontZ0, myTop, 'z1');
@@ -605,7 +658,8 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
         const backOuterLimit = nextCz !== undefined
             ? (nextCz - halfCorr + myBot) / 2
             : bb.z1;
-        const backDepth = Math.min(MAX_APARTMENT_DEPTH_M, backOuterLimit - myBot);
+        const backCap = nextCz === undefined ? MAX_OUTER_BAND_DEPTH_M : MAX_APARTMENT_DEPTH_M;
+        const backDepth = Math.min(backCap, backOuterLimit - myBot);
         if (backDepth > MIN_ROW_DEPTH - EPS) {
             const backZ1 = round4(myBot + backDepth);
             packRow(myBot, backZ1, 'z0');

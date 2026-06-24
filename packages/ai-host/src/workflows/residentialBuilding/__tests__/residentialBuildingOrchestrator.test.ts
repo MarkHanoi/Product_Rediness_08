@@ -411,7 +411,7 @@ describe('residentialBuildingOrchestrator — P7 (D-TGL per cell)', () => {
             const t123 = laidOutCount({ T1: true, T2: true, T3: true, T4: false }, s);
             if (t23 > 0) expect(t123).toBeGreaterThanOrEqual(1);
         }
-    });
+    }, 60_000);   // 16 full orchestrations × the heavy per-cell engine — needs a realistic budget.
 
     it('§RESI-T3-FIT-REGRESSION-FIX — the demo case (core 6×4, corridor 1.5, T2 / T1+T2 @ 55–110, ~30 m plate) lays out apartments with all mandatory rooms reachable', () => {
         // Demo blocker (founder 2026-06-24: "16 of 16 couldn't fit — over-programmed"). The reported
@@ -456,7 +456,54 @@ describe('residentialBuildingOrchestrator — P7 (D-TGL per cell)', () => {
                 }
             }
         }
-    });
+    }, 60_000);
+
+    it('§RESI-CORNER-UNITS-ALWAYS — a LAID-OUT dual-aspect apartment sits at every building corner', () => {
+        // Founder 2026-06-24: "apartments must ALWAYS be in the corners — max daylight, max windows;
+        // dual-aspect (two perpendicular façade faces)." The partition anchors corner units to the
+        // plate edges and deepens the outermost band so a corner cell reaches BOTH the façade corner
+        // and the corridor. Assert, end-to-end, that each of the 4 corners has a LAID-OUT apartment
+        // whose façade-edge set spans an x-edge AND a z-edge (dual-aspect, windows on two sides).
+        for (const s of [24, 30, 34, 40, 44]) {
+            const r = orchestrateResidentialBuilding(
+                input({
+                    footprint: rectPoly(s, s),
+                    upperLevels: 1,
+                    coreWidthM: 6,
+                    coreDepthM: 4,
+                    corridorWidthM: 1.5,
+                    minApartmentAreaM2: 60,
+                    maxApartmentAreaM2: 100,
+                    typologies: { T1: false, T2: true, T3: false, T4: false },
+                }),
+            );
+            expect(r.status).toBe('ok');
+            if (r.status !== 'ok') continue;
+            const apts = r.perLevelApartments[1]!.apartments;
+            const tol = 0.25;
+            const cornerHit = { x0z0: false, x1z0: false, x0z1: false, x1z1: false };
+            for (const a of apts) {
+                if (a.status !== 'ok') continue;
+                const c = a.cell.rect;
+                const onX0 = Math.abs(c.x0) < tol, onX1 = Math.abs(c.x1 - s) < tol;
+                const onZ0 = Math.abs(c.z0) < tol, onZ1 = Math.abs(c.z1 - s) < tol;
+                if (!((onX0 || onX1) && (onZ0 || onZ1))) continue;     // not a corner cell
+                // DUAL-ASPECT: façade edges include one x-face AND one z-face (windows on two sides).
+                const fac = new Set(a.facadeEdges);
+                const hasX = fac.has('x0') || fac.has('x1');
+                const hasZ = fac.has('z0') || fac.has('z1');
+                if (!(hasX && hasZ)) continue;
+                if (onX0 && onZ0) cornerHit.x0z0 = true;
+                if (onX1 && onZ0) cornerHit.x1z0 = true;
+                if (onX0 && onZ1) cornerHit.x0z1 = true;
+                if (onX1 && onZ1) cornerHit.x1z1 = true;
+            }
+            expect(cornerHit.x0z0).toBe(true);
+            expect(cornerHit.x1z0).toBe(true);
+            expect(cornerHit.x0z1).toBe(true);
+            expect(cornerHit.x1z1).toBe(true);
+        }
+    }, 60_000);
 
     it('the orchestrate diagnostic + per-cell status survive the P7 wiring', () => {
         const r = orchestrateResidentialBuilding(p7input({ upperLevels: 3 }));

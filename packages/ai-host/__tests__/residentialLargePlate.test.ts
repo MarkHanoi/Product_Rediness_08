@@ -71,6 +71,11 @@ function upperCount(input: ResidentialBuildingOrchestratorInput): { total: numbe
 }
 
 describe('§RESI-PARTITION-BBOX-PLATE — a LARGE plate places MANY apartments (not zero)', () => {
+    // §RESI-LARGE-PLATE-REGRESSION (2026-06-24) — a ~137×137 m plate now places MANY (~200+) real
+    // apartments, each laid out by the heavy per-cell D-TGL engine, so a single orchestration takes
+    // several seconds — well over vitest's 5 s default. The yield + determinism are CORRECT (verified
+    // ≥10 and byte-identical); the failures were purely the default timeout. Give the big-plate tests
+    // a realistic budget. (Not a logic change — the partition/engine output is unchanged.)
     it('a ~137×137 m T2/T3 plate is NOT rejected and places ≥10 apartments', () => {
         const r = orchestrateResidentialBuilding(largeInput());
         expect(r.status).toBe('ok');
@@ -79,9 +84,9 @@ describe('§RESI-PARTITION-BBOX-PLATE — a LARGE plate places MANY apartments (
         expect(upper).toBeTruthy();
         if (!upper) return;
         expect(upper.apartments.length).toBeGreaterThanOrEqual(10);
-    });
+    }, 60_000);
 
-    it('an IRREGULAR (hand-drawn) ~137×137 m quad — the founder shape — also places ≥10', () => {
+    it('an IRREGULAR (hand-drawn) ~137×137 m quad — the founder shape — also places ≥10', { timeout: 60_000 }, () => {
         // Pre-fix this is the exact reproduction: the de-rotated quad's bbox-fill dips below
         // 0.80 → the partition rejected for every k → zero apartments.
         // nudge = 20 m drops the bbox-fill to ~0.73 (< the partition's 0.80 gate) — the exact
@@ -97,7 +102,7 @@ describe('§RESI-PARTITION-BBOX-PLATE — a LARGE plate places MANY apartments (
         expect(upper.apartments.length).toBeGreaterThanOrEqual(10);
     });
 
-    it('an ~80×80 m T2/T3 plate places a strong majority (≥8)', () => {
+    it('an ~80×80 m T2/T3 plate places a strong majority (≥8)', { timeout: 60_000 }, () => {
         const { total, status } = upperCount(largeInput({ footprint: plate(80, 80) }));
         expect(status).toBe('ok');
         expect(total).toBeGreaterThanOrEqual(8);
@@ -118,7 +123,7 @@ describe('§RESI-PARTITION-BBOX-PLATE — a LARGE plate places MANY apartments (
         expect(r.status).toBe('rejected');
     });
 
-    it('is deterministic on the large plate — same input twice → identical output', () => {
+    it('is deterministic on the large plate — same input twice → identical output', { timeout: 60_000 }, () => {
         const a = orchestrateResidentialBuilding(largeInput({ upperLevels: 2 }));
         const b = orchestrateResidentialBuilding(largeInput({ upperLevels: 2 }));
         expect(JSON.stringify(a)).toBe(JSON.stringify(b));
