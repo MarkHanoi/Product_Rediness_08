@@ -26,6 +26,7 @@
 import { VersionRecord } from './PlatformShellTypes';
 import { deflateSync, inflateSync, strToU8, strFromU8 } from 'fflate';
 import { getCurrentUserId } from '@pryzm/core-app-model';
+import { getThumbnailCacheStore } from './ThumbnailCacheStore';
 
 /**
  * Gap 8 — Snapshot compression utilities.
@@ -109,6 +110,107 @@ function _isQuotaError(err: unknown): boolean {
         e.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
         e.code === 22 || e.code === 1014
     );
+}
+
+/**
+ * §HUB-THUMBNAIL-STORAGE (2026-06-24) — keep heavy thumbnail BYTES out of the
+ * localStorage project index. Thumbnails (~5–500 KB WebP data URLs) used to be
+ * stored inline in each `ProjectMeta.thumbnail`, bloating the single
+ * `bim-projects-index` blob past the ~5 MB localStorage budget with ~50 projects
+ * — the index then failed to persist (the eviction loop can only drop OTHER
+ * projects' version stores, never the index's own thumbnail payload, so it ran
+ * "exhausted"). Thumbnail bytes now live in IndexedDB (ThumbnailCacheStore);
+ * the index carries only lightweight metadata.
+ *
+ * On WRITE: route any inline thumbnail to the IDB cache, then strip it from the
+ * meta that goes into the index. The IDB write is fire-and-forget and never
+ * throws, so a full-disk thumbnail failure cannot cascade into "project index
+ * not saved".
+ *
+ * On READ: rehydrate `thumbnail` from the IDB cache's synchronous in-memory
+ * mirror so every existing caller (project-hub cards, etc.) transparently sees
+ * the preview. A cold mirror simply yields no thumbnail and the hub falls back
+ * to the server URL / placeholder until `warmThumbnailCache()` runs.
+ */
+
+/**
+ * Route a meta's thumbnail to the IDB cache (fire-and-forget, never throws) and
+ * return a copy with the thumbnail field removed. Used for the SPECIFIC meta
+ * being saved — it both persists the bytes and strips them.
+ */
+function _routeThumbnailToIdb(meta: ProjectMeta): ProjectMeta {
+    if (!meta.thumbnail) return meta;
+    try { getThumbnailCacheStore().put(meta.id, meta.thumbnail); } catch { /* non-fatal */ }
+    return _stripThumbnailForIndex(meta);
+}
+
+/**
+ * Strip the thumbnail field for serialization WITHOUT re-routing to IDB. Applied
+ * to EVERY index entry right before `JSON.stringify` so a thumbnail rehydrated
+ * on read never gets written back inline (re-bloating the index). The entry's
+ * bytes are already in IDB — only the strip is needed here.
+ */
+function _stripThumbnailForIndex(meta: ProjectMeta): ProjectMeta {
+    if (!meta.thumbnail) return meta;
+    const { thumbnail: _drop, ...rest } = meta;
+    void _drop;
+    return rest;
+}
+
+/**
+ * §HUB-THUMBNAIL-STORAGE — serialize the index for writing, stripping every
+ * entry's thumbnail. `listAllProjectsUnfiltered` rehydrates thumbnails on READ,
+ * so the in-memory `index` array carries inline thumbnails for OTHER projects
+ * (and the saved one was already routed to IDB by `_routeThumbnailToIdb`); this
+ * funnel guarantees NONE of those bytes are written back into the localStorage
+ * index — the whole point of the relocation. Strip-only (no re-routing) keeps a
+ * 50-project save O(1) IDB-writes instead of O(N²).
+ */
+function _serializeIndex(index: ProjectMeta[]): string {
+    return JSON.stringify(index.map(_stripThumbnailForIndex));
+}
+
+/** Rehydrate `thumbnail` on a meta read back from the index, from the IDB mirror. */
+function _rehydrateThumbnail(meta: ProjectMeta): ProjectMeta {
+    if (meta.thumbnail) return meta; // legacy inline value (pre-migration) — keep it
+    let cached: string | undefined;
+    try { cached = getThumbnailCacheStore().getSync(meta.id); } catch { /* non-fatal */ }
+    return cached ? { ...meta, thumbnail: cached } : meta;
+}
+
+/**
+ * Warm the thumbnail cache's synchronous mirror from IndexedDB so subsequent
+ * synchronous reads (`listProjects`) surface previews. Call once on hub mount.
+ * Resolves immediately if already warm / IDB unavailable. Never throws.
+ *
+ * Also performs a one-time MIGRATION: any legacy inline thumbnails still sitting
+ * in the localStorage index (written before §HUB-THUMBNAIL-STORAGE) are pushed
+ * to IDB and stripped out of the index, immediately reclaiming the bloat that
+ * caused the quota spam — without waiting for each project to be re-saved.
+ */
+export async function warmThumbnailCache(): Promise<void> {
+    try { await getThumbnailCacheStore().warm(); } catch { /* non-fatal */ }
+    try {
+        const raw = localStorage.getItem(STORAGE_INDEX_KEY);
+        if (!raw) return;
+        const arr = JSON.parse(raw) as ProjectMeta[];
+        const hasInline = arr.some(m => typeof m.thumbnail === 'string' && m.thumbnail.length > 0);
+        if (!hasInline) return;
+        // Route every legacy inline thumbnail to IDB, THEN strip them from the index.
+        const lean = JSON.stringify(arr.map(_routeThumbnailToIdb));
+        try {
+            localStorage.setItem(STORAGE_INDEX_KEY, lean);
+            console.log('[ProjectRepository] §HUB-THUMBNAIL-STORAGE — migrated inline thumbnails out of the localStorage index into IndexedDB.');
+        } catch {
+            // Index is too full to even rewrite the leaner version in place — drop
+            // it and write the lean blob, which is strictly smaller and must fit.
+            try {
+                localStorage.removeItem(STORAGE_INDEX_KEY);
+                localStorage.setItem(STORAGE_INDEX_KEY, lean);
+                console.log('[ProjectRepository] §HUB-THUMBNAIL-STORAGE — migrated inline thumbnails (after clearing the bloated index first).');
+            } catch { /* extremely full — next per-project save will retry via eviction */ }
+        }
+    } catch { /* non-fatal — migration retried on next save */ }
 }
 
 /**
@@ -264,7 +366,10 @@ export class LocalProjectRepository implements IProjectRepository {
     listAllProjectsUnfiltered(): ProjectMeta[] {
         try {
             const raw = localStorage.getItem(STORAGE_INDEX_KEY);
-            return raw ? (JSON.parse(raw) as ProjectMeta[]) : [];
+            if (!raw) return [];
+            // §HUB-THUMBNAIL-STORAGE — rehydrate thumbnails from the IDB mirror so
+            // callers see previews; the index itself stores only metadata.
+            return (JSON.parse(raw) as ProjectMeta[]).map(_rehydrateThumbnail);
         } catch {
             return [];
         }
@@ -298,7 +403,10 @@ export class LocalProjectRepository implements IProjectRepository {
         // Tag the row with the current ownerId when the meta arrives without
         // one — closes the legacy gap that left rows un-attributable.
         const ownerId = meta.ownerId ?? getCurrentUserId() ?? undefined;
-        const stamped: ProjectMeta = { ...meta, ownerId };
+        // §HUB-THUMBNAIL-STORAGE — route THIS meta's thumbnail to IDB (never throws)
+        // and strip it; `_serializeIndex` then strips any rehydrated thumbnails on
+        // the OTHER entries so nothing heavy reaches the localStorage index blob.
+        const stamped: ProjectMeta = _routeThumbnailToIdb({ ...meta, ownerId });
         if (existing >= 0) {
             index[existing] = stamped;
         } else {
@@ -308,7 +416,9 @@ export class LocalProjectRepository implements IProjectRepository {
         // oldest OTHER projects' version stores and retry, so the index (the project
         // list itself) is never silently dropped on a full localStorage. The project
         // being saved is excluded from eviction so its own history survives.
-        if (!_setItemWithEviction(STORAGE_INDEX_KEY, JSON.stringify(index), meta.id)) {
+        // §HUB-THUMBNAIL-STORAGE — `_serializeIndex` routes EVERY entry's thumbnail
+        // bytes to IDB and strips them, so the index blob holds only light metadata.
+        if (!_setItemWithEviction(STORAGE_INDEX_KEY, _serializeIndex(index), meta.id)) {
             console.warn('[ProjectRepository] localStorage quota exceeded — project index not saved (eviction exhausted)');
         }
     }
@@ -318,8 +428,11 @@ export class LocalProjectRepository implements IProjectRepository {
         // (Contract 45 §7.2).
         const index = this.listAllProjectsUnfiltered().filter(p => p.id !== id);
         try {
-            localStorage.setItem(STORAGE_INDEX_KEY, JSON.stringify(index));
+            // §HUB-THUMBNAIL-STORAGE — keep thumbnail bytes out of the index blob.
+            localStorage.setItem(STORAGE_INDEX_KEY, _serializeIndex(index));
             localStorage.removeItem(`${STORAGE_VERSIONS_PREFIX}${id}-versions`);
+            // §HUB-THUMBNAIL-STORAGE — drop the IDB thumbnail too so it can't leak.
+            try { getThumbnailCacheStore().delete(id); } catch { /* non-fatal */ }
         } catch {
             console.warn('[ProjectRepository] localStorage quota exceeded — project not deleted');
         }
@@ -439,15 +552,20 @@ export class LocalVersionRepository implements IVersionRepository {
 
         // Contract 45 §7.2 — read full index so other-user rows aren't dropped.
         const index = projectRepository.listAllProjectsUnfiltered();
+        // §HUB-THUMBNAIL-STORAGE — route this meta's thumbnail to IDB + strip it.
+        const routedMeta = _routeThumbnailToIdb(meta);
         const metaIdx = index.findIndex(p => p.id === projectId);
         if (metaIdx >= 0) {
-            index[metaIdx] = meta;
+            index[metaIdx] = routedMeta;
         } else {
-            index.push(meta);
+            index.push(routedMeta);
         }
         // §PROJECT-INDEX-EVICT — quota-safe: evict OTHER projects' version stores
         // (excluding this one) and retry rather than silently dropping the index.
-        if (!_setItemWithEviction(STORAGE_INDEX_KEY, JSON.stringify(index), projectId)) {
+        // §HUB-THUMBNAIL-STORAGE — `_serializeIndex` routes thumbnail bytes to IDB
+        // and strips them so the index stays lightweight (and the thumbnail write
+        // can never block this version+meta save).
+        if (!_setItemWithEviction(STORAGE_INDEX_KEY, _serializeIndex(index), projectId)) {
             console.warn('[VersionRepository] Quota exceeded — project meta index not updated (eviction exhausted)');
         }
     }
