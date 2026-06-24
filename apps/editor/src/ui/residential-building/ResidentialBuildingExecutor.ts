@@ -839,9 +839,15 @@ export class ResidentialBuildingExecutor {
             const toLevelId = levelIdByIndex.get(idx + 1);
             if (!fromLevelId || !toLevelId) continue;
             const startY = baseElevationM + idx * floorToFloorM;
-            // Stair runs along +Z, centred in the stair half-cell, starting at its near edge —
-            // computed in the LOCAL frame, then rotated to the WORLD parcel.
-            const startLocal = this._rotate({ x: stairCellX0 + stairCellW / 2, z: cz0 + 0.1 }, xf);
+            // §RESI-CORE-CIRCULATION (founder 2026-06-24: "the stair entrance has a wall in front —
+            // circulation is blocked; the stair needs a built-in access path"). Set the stair BACK
+            // from the core's z0 wall by an APPROACH-LANDING depth so a clear run-in landing sits
+            // between the z0 fire door and the bottom tread — and the U-stair's run-OUT (which folds
+            // back to the z0 side) lands in that SAME lobby. Stair runs +Z, centred in the stair
+            // half-cell; LOCAL → WORLD via xf. Landing is clamped so the folded run still clears z1.
+            const halfRunDepth = Math.floor(totalRisers / 2) * STAIR_TREAD_M;
+            const STAIR_LANDING_DEPTH_M = Math.max(0.3, Math.min(1.2, coreD - halfRunDepth - 0.3));
+            const startLocal = this._rotate({ x: stairCellX0 + stairCellW / 2, z: cz0 + STAIR_LANDING_DEPTH_M }, xf);
             const startPosition = { x: startLocal.x, y: startY, z: startLocal.z };
             // §RESI-CORE-USTAIR (founder 2026-06-24: "the stair clashes with the core — the stair can
             // be in U to take less space"). A straight 17-riser run (~4.25 m) overran the 4 m-deep
