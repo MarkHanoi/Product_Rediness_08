@@ -449,24 +449,38 @@ export class ResidentialBuildingExecutor {
         }
         const walls: Array<Record<string, unknown>> = [];
         const curtainWalls: Array<{ id: string; start: { x: number; z: number }; end: { x: number; z: number }; height: number; levelId: string }> = [];
+        // §RESI-GROUND-DOOR-BAY (founder 2026-06-24: "the curtain wall could also be on the face
+        // where the door is, just until the corridor boundary") — the entrance face is now MOSTLY
+        // glazed too: only a narrow SOLID door bay (centred on the entrance, ~corridor-wide) hosts
+        // the main door; the rest of that edge is curtain wall, like the other façades.
+        const ENTRANCE_BAY_HALF_M = 1.6;   // half-width of the solid entrance bay (door + frame)
+        const MIN_CURTAIN_M = 0.4;         // skip a curtain stub shorter than this
+        const pushWall = (pa: { x: number; z: number }, pb: { x: number; z: number }): void => {
+            walls.push({
+                id: createId('wall'), levelId,
+                baseLine: [{ x: pa.x, y: 0, z: pa.z }, { x: pb.x, y: 0, z: pb.z }],
+                height: wallHeightM, thickness: SHELL_WALL_THICKNESS_M,
+            });
+        };
+        const pushCurtain = (pa: { x: number; z: number }, pb: { x: number; z: number }): void => {
+            if (Math.hypot(pb.x - pa.x, pb.z - pa.z) < MIN_CURTAIN_M) return;
+            curtainWalls.push({ id: createId('curtainwall'), start: { x: pa.x, z: pa.z }, end: { x: pb.x, z: pb.z }, height: wallHeightM, levelId });
+        };
         for (let i = 0; i < ring.length; i++) {
             const a = ring[i]!, b = ring[(i + 1) % ring.length]!;
             if (i === entranceEdge) {
-                walls.push({
-                    id: createId('wall'),
-                    levelId,
-                    baseLine: [{ x: a.x, y: 0, z: a.z }, { x: b.x, y: 0, z: b.z }],
-                    height: wallHeightM,
-                    thickness: SHELL_WALL_THICKNESS_M,
-                });
+                // Split the entrance edge into curtain | solid door-bay | curtain.
+                const len = Math.hypot(b.x - a.x, b.z - a.z);
+                const nx = (b.x - a.x) / len, nz = (b.z - a.z) / len;
+                const t = Math.max(0, Math.min(len, (worldEntranceCenter.x - a.x) * nx + (worldEntranceCenter.z - a.z) * nz));
+                const s0 = Math.max(0, t - ENTRANCE_BAY_HALF_M);
+                const s1 = Math.min(len, t + ENTRANCE_BAY_HALF_M);
+                const at = (s: number): { x: number; z: number } => ({ x: a.x + nx * s, z: a.z + nz * s });
+                pushCurtain(a, at(s0));            // glazed before the bay
+                pushWall(at(s0), at(s1));          // solid door bay (hosts the main entrance door)
+                pushCurtain(at(s1), b);            // glazed after the bay
             } else {
-                curtainWalls.push({
-                    id: createId('curtainwall'),
-                    start: { x: a.x, z: a.z },
-                    end: { x: b.x, z: b.z },
-                    height: wallHeightM,
-                    levelId,
-                });
+                pushCurtain(a, b);
             }
         }
         return { shellPayload: { walls, levelId }, curtainWalls };
