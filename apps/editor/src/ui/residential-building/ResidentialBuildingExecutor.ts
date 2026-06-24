@@ -1135,16 +1135,25 @@ export class ResidentialBuildingExecutor {
         } catch (e) { console.warn(`[resi-building] ${command} (${tag}) threw on`, payload.levelId, e); }
     }
 
-    /** §RESI-EXTERIOR-WALL-MITER (founder 2026-06-24) — run the corner-join / MITRE pass on the
-     *  committed shell / perimeter / core walls so perpendicular walls join with a clean bisector
-     *  mitre instead of square caps (the visible vertical corner seam). Consecutive perimeter edges
-     *  already SHARE the exact corner endpoint by construction (one wall per footprint edge), so the
-     *  only thing missing is RUNNING the resolver: `__wallRebuildControl.rebuildWalls(ids)` forces
-     *  WallRebuildCoordinator._flush → WallJoinResolver.resolveLevel for the affected level(s), which
-     *  trims the shared endpoints to the centreline intersection + cuts both end caps by the shared
-     *  mitre plane. The bus `wall.batch.create` is async, so we POLL (≤ ~9 s) for every host wall to
-     *  land in the store first, then fire ONE rebuild over all ids (the coordinator groups by level).
-     *  Identical mechanism to HouseLayoutExecutor / ApartmentLayoutExecutor. Never throws. */
+    /** §RESI-EXTERIOR-WALL-MITER-FIX2 (founder 2026-06-24: the generated build STILL shows square-cap
+     *  corner seams; manually creating any element on a level then mitres ALL that level's corners) —
+     *  run the corner-join / MITRE pass on the committed shell / perimeter / core walls. Consecutive
+     *  perimeter edges already SHARE the exact corner endpoint by construction, so the only thing
+     *  missing is RUNNING the resolver: `__wallRebuildControl.rebuildWalls(ids)` re-queues each wall
+     *  as an `update` (no prevState) → `WallRebuildCoordinator._flush` → `WallJoinResolver.resolveLevel`
+     *  per level — the EXACT path a manual window create exercises.
+     *
+     *  ROOT CAUSE the v1 call didn't land (investigation): a `wall.batch.create` opens the
+     *  §BATCH-BUS-DISCARD window (`__wallRebuildControl.discardAndSuppress`), which DROPS wall-rebuild
+     *  signals for the whole batch drain. The v1 fire-on-a-fixed-timeout raced that window and was
+     *  silently discarded (a manual edit works only BECAUSE it happens later, with no discard window).
+     *  Fix: (1) wait for every host wall to land in the store, then (2) fire INSIDE
+     *  `batchCoordinator.onNextSettle` BUT deferred one macrotask (`setTimeout 0`) so it runs AFTER the
+     *  batch's onComplete has called `__wallRebuildControl.restore()` (which closes the discard window
+     *  — the settle listeners fire a few lines BEFORE restore in the SAME onComplete, so a macrotask
+     *  hop clears it). (3) Re-fire a couple more times on a short delay so any LATER deferred batch
+     *  (openings / finishes) that re-opens then closes the discard window can't leave the corners
+     *  square. Each rebuildWalls deliberately ignores discard/pause and runs the whole-level resolve. */
     private _mitreShellCorners(
         payloads: ReadonlyArray<{ walls: ReadonlyArray<Record<string, unknown>>; levelId: string }>,
     ): void {
@@ -1156,15 +1165,34 @@ export class ResidentialBuildingExecutor {
         if (ids.length === 0) return;
         const wallStore = storeRegistry.getStoreForType('wall') as unknown as { getById?: (id: string) => unknown } | undefined;
         const ready = (): boolean => !wallStore?.getById ? true : ids.every(id => wallStore.getById!(id) != null);
+
+        // Fire ONE whole-level resolve over all ids, AFTER the current batch's discard window has
+        // closed. `onNextSettle` fires once the batch is settled; the `setTimeout(0)` then hops past
+        // the rest of that synchronous onComplete (incl. `restore()`), so the rebuild is no longer
+        // dropped. A small retry chain re-applies after any later openings/finish batch settles too.
+        const fireAfterSettle = (retriesLeft: number): void => {
+            batchCoordinator.onNextSettle(() => {
+                setTimeout(() => {
+                    try {
+                        window.__wallRebuildControl?.rebuildWalls?.(ids);
+                        console.log(`[resi-building] §RESI-EXTERIOR-WALL-MITER-FIX2 — corner-join pass on ${ids.length} wall(s) (post-settle, discard window closed)`);
+                    } catch (e) { console.warn('[resi-building] §RESI-EXTERIOR-WALL-MITER-FIX2 rebuildWalls failed (non-fatal):', e); }
+                    // Re-fire later so a subsequent deferred batch (openings/finishes) that re-squares
+                    // via its own discard cycle gets re-mitred. Each pass is idempotent (resolveLevel
+                    // on already-mitred walls is a no-op-equivalent re-resolve).
+                    if (retriesLeft > 0) setTimeout(() => fireAfterSettle(retriesLeft - 1), 1500);
+                }, 0);
+            });
+        };
+
         // Budget scales with wall count (large buildings dispatch more async creates), floored at 40
         // ticks (~6 s, small builds byte-identical) and capped at 60 (~9 s) so it can't hang the UI.
         const budget = Math.min(60, Math.max(40, Math.ceil(ids.length / 8)));
         const tryMitre = (n: number): void => {
             if (!ready() && n > 0) { setTimeout(() => tryMitre(n - 1), 150); return; }
-            try {
-                window.__wallRebuildControl?.rebuildWalls?.(ids);
-                console.log(`[resi-building] §RESI-EXTERIOR-WALL-MITER — corner-join pass on ${ids.length} shell/perimeter/core wall(s)`);
-            } catch (e) { console.warn('[resi-building] §RESI-EXTERIOR-WALL-MITER rebuildWalls failed (non-fatal):', e); }
+            // Walls have landed (or the budget ran out) → schedule the settle-gated, post-restore
+            // resolve, with 3 re-fires to outlast the openings + finish + entrance/window batches.
+            fireAfterSettle(3);
         };
         tryMitre(budget);
     }
