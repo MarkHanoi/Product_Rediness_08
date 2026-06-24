@@ -437,15 +437,23 @@ export class WallJoinResolver {
         // on the room-side face); the BEFORE classification tells whether it was on
         // the centreline (⚠) or had protruded past the inner face toward the outer
         // façade (⚠) — both are the founder's defect, now corrected.
-        const beforeCls =
-            curLateral <= -hostHalfT + 1e-3 ? 'protrudes⚠'
-            : Math.abs(curLateral) <= 1e-3   ? 'centreline⚠'
-            : 'insideBody⚠';
-        console.log(
-            `[WallJoinResolver] §DIAG-WALL-JOIN PARTITION→SHELL ${wall.id}(${side}) host=${host.id} ` +
-            `before=${beforeCls} (lateral=${(curLateral * 1000).toFixed(1)}mm of innerFace=${(hostHalfT * 1000).toFixed(1)}mm) ` +
-            `clamp=+${((targetLateral - curLateral) * 1000).toFixed(1)}mm landed=innerFace✓`,
-        );
+        // §WALL-JOIN-LOAD-SKIP (2026-06-24) — this per-join log fires once per
+        // partition→shell T-join inside resolveLevel. For a residential building
+        // (hundreds of partitions × 5–6 floors) the whole-level resolve emits thousands
+        // of console writes, which on its own measurably slows the resolve and drowns the
+        // load console. Gate it behind `window.__PRYZM_WALL_JOIN_DEBUG` (default OFF) so
+        // it is opt-in for debugging and silent in production / on load.
+        if ((globalThis as unknown as { __PRYZM_WALL_JOIN_DEBUG?: boolean }).__PRYZM_WALL_JOIN_DEBUG === true) {
+            const beforeCls =
+                curLateral <= -hostHalfT + 1e-3 ? 'protrudes⚠'
+                : Math.abs(curLateral) <= 1e-3   ? 'centreline⚠'
+                : 'insideBody⚠';
+            console.log(
+                `[WallJoinResolver] §DIAG-WALL-JOIN PARTITION→SHELL ${wall.id}(${side}) host=${host.id} ` +
+                `before=${beforeCls} (lateral=${(curLateral * 1000).toFixed(1)}mm of innerFace=${(hostHalfT * 1000).toFixed(1)}mm) ` +
+                `clamp=+${((targetLateral - curLateral) * 1000).toFixed(1)}mm landed=innerFace✓`,
+            );
+        }
         // Touch `along` use to avoid an unused-var lint if the helper is trimmed later.
         void along;
     }
@@ -1961,13 +1969,18 @@ export class WallJoinResolver {
             // by construction. The clean-butt + NaN/length guards above prove the trim is
             // finite + non-collapsing; if they refused, this line is not reached (an early
             // return already logged the refusal). So reaching here ⇒ the L closed cleanly.
-            const _angDegDT = (this._angleFromDirs(dirA, dirB) * 180) / Math.PI;
-            const _clsDT = _angDegDT < 10 ? 'COLLINEAR' : _angDegDT >= 60 ? 'L' : 'SHALLOW-L';
-            console.log(
-                `[WallJoinResolver] §DIAG-WALL-JOIN CORNER ${epA.wallId}(${epA.side}) ↔ ${epB.wallId}(${epB.side}) ` +
-                `class=${_clsDT} angle=${_angDegDT.toFixed(1)}° mitre=diffThk-butt+fill(tDom=${dominantT.toFixed(3)} tSub=${subordinateT.toFixed(3)}) ` +
-                `closed=${_clsDT !== 'COLLINEAR' ? '✓' : '⚠ NOT-CLEAN'}`,
-            );
+            // §WALL-JOIN-LOAD-SKIP (2026-06-24) — gate behind __PRYZM_WALL_JOIN_DEBUG
+            // (default OFF); fires once per corner-join inside resolveLevel → floods on
+            // large buildings.
+            if ((globalThis as unknown as { __PRYZM_WALL_JOIN_DEBUG?: boolean }).__PRYZM_WALL_JOIN_DEBUG === true) {
+                const _angDegDT = (this._angleFromDirs(dirA, dirB) * 180) / Math.PI;
+                const _clsDT = _angDegDT < 10 ? 'COLLINEAR' : _angDegDT >= 60 ? 'L' : 'SHALLOW-L';
+                console.log(
+                    `[WallJoinResolver] §DIAG-WALL-JOIN CORNER ${epA.wallId}(${epA.side}) ↔ ${epB.wallId}(${epB.side}) ` +
+                    `class=${_clsDT} angle=${_angDegDT.toFixed(1)}° mitre=diffThk-butt+fill(tDom=${dominantT.toFixed(3)} tSub=${subordinateT.toFixed(3)}) ` +
+                    `closed=${_clsDT !== 'COLLINEAR' ? '✓' : '⚠ NOT-CLEAN'}`,
+                );
+            }
             return;
         }
 
@@ -2035,6 +2048,12 @@ export class WallJoinResolver {
         // Classification by the inter-wall angle: L (perpendicular-ish corner, ~30..150°),
         // SHALLOW-L (acute/obtuse but still a corner), or COLLINEAR (near-straight → not
         // an L — would be a pass-through, normally handled by the cluster pass).
+        // §WALL-JOIN-LOAD-SKIP (2026-06-24) — this per-corner diagnostic block (compute
+        // + log) fires once per corner-join inside resolveLevel. On a residential
+        // building it emits thousands of console writes and (per the PERF-FIX note below)
+        // cost ~50–150 ms per load. Gate the whole block behind __PRYZM_WALL_JOIN_DEBUG
+        // (default OFF) — opt-in for debugging, silent in production / on load.
+        if ((globalThis as unknown as { __PRYZM_WALL_JOIN_DEBUG?: boolean }).__PRYZM_WALL_JOIN_DEBUG === true) {
         const _jointGapM = newA[epA.side === 'start' ? 0 : 1]
             .distanceTo(newB[epB.side === 'start' ? 0 : 1]);
         const _angRad = this._angleFromDirs(dirA, dirB);   // ∈ [0, π/2] (uses |dot|)
@@ -2069,6 +2088,7 @@ export class WallJoinResolver {
                 `bisectorOk=${_bisectorOk} — ${_cls === 'COLLINEAR' ? 'near-collinear (expected a pass-through, not an L)' : 'centreline gap/overrun or degenerate bisector'}`,
             );
         }
+        } // §WALL-JOIN-LOAD-SKIP — end __PRYZM_WALL_JOIN_DEBUG gate
 
         // PERF-FIX (Apr 2026): Gate noisy per-corner debug logs behind opt-in flag.
         // Each project load resolves dozens of corners; logging here cost ~50–150 ms
