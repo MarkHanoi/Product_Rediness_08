@@ -32,6 +32,7 @@ import {
     CreateStairCommand,
     CreateSlabCommand,
     CreateRoofCommand,
+    CreateCurtainWallCommand,
     CreateVerticalCirculationCommand,
     CreateWallOpeningsBatchCommand,
     CreateRoomBoundingLinesBatchCommand,
@@ -179,6 +180,10 @@ export class ResidentialBuildingExecutor {
         // the core walls are now SOLID; the two spine-facing edges get a real (fire-rated) door,
         // punched in a deferred pass once the core walls land in the store.
         const coreDoorSpecs: Array<{ wallId: string; offset: number; width: number; levelId: string }> = [];
+        // §RESI-GROUND-CURTAIN (founder "ground floor should have curtain panels for commercial",
+        // 2026-06-24) — the GROUND façade is a glazed commercial shopfront (curtain walls on every
+        // façade edge except the solid entrance bay), dispatched in the structural batch.
+        const groundCurtainPayloads: Array<{ id: string; start: { x: number; z: number }; end: { x: number; z: number }; height: number; levelId: string }> = [];
         const corridorBoundaryItems: Array<{ id: string; levelId: string; start: { x: number; z: number }; end: { x: number; z: number } }> = [];
         // §RESI-GROUND-FLOOR — capture the GROUND shell payload (its pre-minted wall ids host
         // the main entrance door) + the ground level id for the deferred entrance pass.
@@ -208,7 +213,18 @@ export class ResidentialBuildingExecutor {
 
             // Building shell perimeter (one wall per footprint edge) + slab on EVERY floor.
             // `lvl.footprint` is already WORLD (the drawn parcel) → no transform here.
-            const shellPayload = this._buildShellPerimeter(levelId, lvl.footprint, floorToFloorM);
+            // §RESI-GROUND-CURTAIN — the GROUND floor is a glazed commercial shopfront: curtain
+            // walls on every façade edge except a solid entrance bay (which still hosts the main
+            // door). Upper floors keep the solid perimeter shell that hosts their façade windows.
+            let shellPayload: { walls: ReadonlyArray<Record<string, unknown>>; levelId: string };
+            if (lvl.levelIndex === 0) {
+                const wec = this._rotate({ x: result.groundFloor.entranceCenter.x, z: result.groundFloor.entranceCenter.z }, xf);
+                const g = this._buildGroundShell(levelId, lvl.footprint, floorToFloorM, wec);
+                shellPayload = g.shellPayload;
+                for (const cw of g.curtainWalls) groundCurtainPayloads.push(cw);
+            } else {
+                shellPayload = this._buildShellPerimeter(levelId, lvl.footprint, floorToFloorM);
+            }
             shellPayloads.push(shellPayload);
             // §RESI-NO-DOUBLE-WALL — the building shell walls in the {id,start,end} form the apartment
             // engine's window resolver expects. Façade windows now resolve onto these (the cells skip their
@@ -292,6 +308,12 @@ export class ResidentialBuildingExecutor {
             for (const payload of corePerimeterPayloads) {
                 this._dispatchWallBatch(runtime, payload, 'core-perimeter');
             }
+            // 0c. §RESI-GROUND-CURTAIN — commercial glazed shopfront on the ground façade (legacy
+            // cm.execute path, like the slab/stair; the id is pre-minted per the curtain contract).
+            for (const cw of groundCurtainPayloads) {
+                try { cm.execute?.(new CreateCurtainWallCommand(cw), { source: 'RESI_PIPELINE_CURTAINWALL' }); }
+                catch (e) { console.warn('[resi-building] curtain wall create failed (skipped):', e); }
+            }
             // 1. Apartment cell perimeters (host walls for the façade windows).
             for (const payload of cellPerimeterPayloads) {
                 this._dispatchWallBatch(runtime, payload, 'cell-perimeter');
@@ -321,7 +343,7 @@ export class ResidentialBuildingExecutor {
             liftCount = coreResult.lifts;
         }, {
             levelIds: allLevelIds,
-            totalElementCount: shellPayloads.length * 4 + corePerimeterPayloads.length * 4 + cellPerimeterPayloads.length * 4 + apartmentBuilds.length + slabPolys.length + result.levels.length,
+            totalElementCount: shellPayloads.length * 4 + corePerimeterPayloads.length * 4 + cellPerimeterPayloads.length * 4 + groundCurtainPayloads.length + apartmentBuilds.length + slabPolys.length + result.levels.length,
             // Detection runs in the deferred openings pass (the boundaries that carve
             // the apartments + corridor land there), so skip the structural redetect.
             skipRedetectRooms: true,
@@ -385,6 +407,56 @@ export class ResidentialBuildingExecutor {
             });
         }
         return { walls, levelId };
+    }
+
+    /** §RESI-GROUND-CURTAIN — the ground floor as a commercial glazed shopfront: a curtain wall
+     *  along every façade edge EXCEPT the one nearest the entrance (kept as a solid bay so the main
+     *  entrance door still has a host + the glazed front reads with a frame). `footprint` is WORLD;
+     *  curtain walls + the solid bay all live in that one world frame. Degenerate ring ⇒ falls back
+     *  to the normal solid shell. */
+    private _buildGroundShell(
+        levelId: string,
+        footprint: ReadonlyArray<{ x: number; z: number }>,
+        wallHeightM: number,
+        worldEntranceCenter: { x: number; z: number },
+    ): {
+        shellPayload: { walls: ReadonlyArray<Record<string, unknown>>; levelId: string };
+        curtainWalls: Array<{ id: string; start: { x: number; z: number }; end: { x: number; z: number }; height: number; levelId: string }>;
+    } {
+        const ring = this._cleanRing(footprint);
+        if (ring.length < 3) {
+            return { shellPayload: this._buildShellPerimeter(levelId, footprint, wallHeightM), curtainWalls: [] };
+        }
+        // The entrance edge = the façade edge whose midpoint is nearest the world entrance centre.
+        let entranceEdge = 0, best = Infinity;
+        for (let i = 0; i < ring.length; i++) {
+            const a = ring[i]!, b = ring[(i + 1) % ring.length]!;
+            const d = Math.hypot((a.x + b.x) / 2 - worldEntranceCenter.x, (a.z + b.z) / 2 - worldEntranceCenter.z);
+            if (d < best) { best = d; entranceEdge = i; }
+        }
+        const walls: Array<Record<string, unknown>> = [];
+        const curtainWalls: Array<{ id: string; start: { x: number; z: number }; end: { x: number; z: number }; height: number; levelId: string }> = [];
+        for (let i = 0; i < ring.length; i++) {
+            const a = ring[i]!, b = ring[(i + 1) % ring.length]!;
+            if (i === entranceEdge) {
+                walls.push({
+                    id: createId('wall'),
+                    levelId,
+                    baseLine: [{ x: a.x, y: 0, z: a.z }, { x: b.x, y: 0, z: b.z }],
+                    height: wallHeightM,
+                    thickness: SHELL_WALL_THICKNESS_M,
+                });
+            } else {
+                curtainWalls.push({
+                    id: createId('curtainwall'),
+                    start: { x: a.x, z: a.z },
+                    end: { x: b.x, z: b.z },
+                    height: wallHeightM,
+                    levelId,
+                });
+            }
+        }
+        return { shellPayload: { walls, levelId }, curtainWalls };
     }
 
     /** Apartment cell perimeter: 4 walls around the cell rect, pre-minted ids,
