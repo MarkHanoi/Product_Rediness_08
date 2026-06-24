@@ -455,16 +455,21 @@ export class ResidentialBuildingExecutor {
         // the main door; the rest of that edge is curtain wall, like the other façades.
         const ENTRANCE_BAY_HALF_M = 1.6;   // half-width of the solid entrance bay (door + frame)
         const MIN_CURTAIN_M = 0.4;         // skip a curtain stub shorter than this
+        // §RESI-GROUND-SLAB-COVER (founder 2026-06-24: "on ground→first floor we see the slab; the
+        // walls should rise to the slab level on the ground floor"). The first-floor slab sits on the
+        // ground-storey head; a curtain/wall only floor-to-floor tall leaves the slab EDGE exposed
+        // (the black band). Raise the ground shopfront by the slab thickness so it wraps that edge.
+        const groundWallH = wallHeightM + DEFAULT_SLAB_THICKNESS_M;
         const pushWall = (pa: { x: number; z: number }, pb: { x: number; z: number }): void => {
             walls.push({
                 id: createId('wall'), levelId,
                 baseLine: [{ x: pa.x, y: 0, z: pa.z }, { x: pb.x, y: 0, z: pb.z }],
-                height: wallHeightM, thickness: SHELL_WALL_THICKNESS_M,
+                height: groundWallH, thickness: SHELL_WALL_THICKNESS_M,
             });
         };
         const pushCurtain = (pa: { x: number; z: number }, pb: { x: number; z: number }): void => {
             if (Math.hypot(pb.x - pa.x, pb.z - pa.z) < MIN_CURTAIN_M) return;
-            curtainWalls.push({ id: createId('curtainwall'), start: { x: pa.x, z: pa.z }, end: { x: pb.x, z: pb.z }, height: wallHeightM, levelId });
+            curtainWalls.push({ id: createId('curtainwall'), start: { x: pa.x, z: pa.z }, end: { x: pb.x, z: pb.z }, height: groundWallH, levelId });
         };
         for (let i = 0; i < ring.length; i++) {
             const a = ring[i]!, b = ring[(i + 1) % ring.length]!;
