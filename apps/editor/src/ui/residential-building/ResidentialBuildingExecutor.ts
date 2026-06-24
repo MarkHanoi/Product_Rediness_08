@@ -1767,9 +1767,13 @@ export class ResidentialBuildingExecutor {
         // It must fit the band from the LEFT inner face to the lift's left edge (clear of the lift too).
         const xBandRight = Math.min(innerX1, (liftCx - shaftWidth / 2) - STAIR_CORE_CLEARANCE_M);
         const xBand = Math.max(0, xBandRight - innerX0);
-        // stairWidth ≤ band/2 (so 2·stairWidth ≤ band). Capped at the ideal; floored low so a tight
-        // core still gets an enclosed (if narrow) stair, never a wall-piercing one.
-        const stairWidth = Math.max(0.6, Math.min(STAIR_WIDTH_M, xBand / 2));
+        // §RESI-CORE-STAIR-ALWAYS (founder 2026-06-24: "the core stair is MISSING entirely") — the
+        // width MUST be ≥ the CreateStairCommand MIN_WIDTH (0.9 m) or `canExecute` BLOCKS and the
+        // stair is silently never created. So FLOOR at 0.9 (not 0.6): a tight/scaled core gets a
+        // 0.9 m stair that may overhang the band slightly — a present, valid stair beats a rejected
+        // (missing) one. Capped at the ideal STAIR_WIDTH_M; prefers band/2 when that is ≥ 0.9.
+        const STAIR_MIN_WIDTH_M = 0.9;   // == STAIR_CONSTRAINTS.MIN_WIDTH (command rejects below this)
+        const stairWidth = Math.max(STAIR_MIN_WIDTH_M, Math.min(STAIR_WIDTH_M, xBand / 2));
         // Run-1 centre x: anchor the footprint's leftmost edge (stairCenterX − 1.5·w) at the inner face.
         const stairCenterX = innerX0 + 1.5 * stairWidth;
 
@@ -1783,27 +1787,32 @@ export class ResidentialBuildingExecutor {
         const STAIR_LANDING_DEPTH_M = stairWidth;     // square half-turn landing (was 2·stairWidth — the bug)
         const beforeOf = (n: number): number => Math.ceil(n / 2);
         const stairBodyDepth = (n: number, landing: number): number => beforeOf(n) * STAIR_TREAD_M + landing;
-        // §RESI-GROUND-HEIGHT-4500 — re-fit the switchback to the TALLEST rise (the 4.5 m ground): drop
-        // risers until the half-run + min landing fits the inner depth. The architectural riser MAX is
-        // the FIRST lever; if the tall rise still won't fit at that max (a deep flight in a shallow
-        // core), allow a slightly STEEPER fallback riser (≤ STAIR_RISER_ABS_MAX_M) so the stair RE-FITS
-        // inside the core rather than poking past the wall — a steeper-than-ideal but fully-contained
-        // stair beats a wall-piercing one. Geometry-fit takes precedence; the per-flight loop keeps
-        // shorter (upper) flights at the ideal riser.
-        const STAIR_RISER_ABS_MAX_M = 0.21;           // hard fit fallback (just above the 0.19 ideal)
+        // §RESI-GROUND-HEIGHT-4500 / §RESI-CORE-STAIR-ALWAYS — re-fit the switchback to the TALLEST
+        // rise (the 4.5 m ground): drop risers (raising riser height) until the half-run + min landing
+        // fits the inner depth — BUT the riser height is NEVER allowed above the command's MAX
+        // (STAIR_RISER_MAX_M = 0.19). A riser > 0.19 makes `CreateStairCommand.canExecute` BLOCK and
+        // the stair is silently never created (the original missing-stair bug). So the depth-fit stops
+        // BEFORE the next drop would exceed 0.19; if the body still overflows at that point, the stair
+        // is allowed to OVERHANG the core depth slightly (the per-flight loop keeps every riser ≤ 0.19
+        // so the command always accepts it). A present, valid, slightly-overhanging stair always beats
+        // a rejected/missing one — that is the hard guarantee.
         const MIN_LANDING_M = 0.6;
         {
             let guard = 60;
             while (guard-- > 0) {
                 if (stairBodyDepth(totalRisers, MIN_LANDING_M) <= zInnerDepth || totalRisers <= 3) break;
-                if (maxFtf / (totalRisers - 1) > STAIR_RISER_ABS_MAX_M) break;   // even the fallback can't shorten more
+                // The NEXT drop would raise the riser past the command MAX → STOP (a >0.19 riser is
+                // rejected). The body may then overhang; that is acceptable, a missing stair is not.
+                if (maxFtf / (totalRisers - 1) > STAIR_RISER_MAX_M) break;
                 totalRisers--;
                 riserHeight = maxFtf / totalRisers;
             }
         }
-        // §RESI-GROUND-HEIGHT-4500 — the depth-fitted MAX riser count + tread the footprint can hold.
-        // A flight's per-floor riser count is derived from this (capped here) so it always fits.
-        const maxRisersInFootprint = totalRisers;
+        // §RESI-GROUND-HEIGHT-4500 — the depth-fitted riser count the footprint PREFERS to hold. The
+        // per-flight loop derives each floor's count from its own rise and only uses this as a soft
+        // preference — it will RAISE the count above this when needed to keep the riser ≤ 0.19 (so the
+        // command never rejects), accepting a small footprint overhang rather than skipping the stair.
+        const preferredRisersInFootprint = totalRisers;
         const beforeRisers = beforeOf(totalRisers);
         const afterRisers = totalRisers - beforeRisers;
         const flight1Run = beforeRisers * STAIR_TREAD_M;
@@ -1836,22 +1845,40 @@ export class ResidentialBuildingExecutor {
         // roof cab. Off-by-one here puts the roof flight one storey wrong (spike risk E2).
         const topIndex = roofGarden ? result.levels.length : result.levels.length - 1;
         let stairs = 0;
+        // §RESI-CORE-STAIR-ALWAYS — count the EXPECTED inter-level pairs so we can assert below that a
+        // stair was created for EVERY one (regression guard: a missing stair = a silent canExecute block).
+        let expectedStairPairs = 0;
         // A stair between each adjacent level pair (ground→1, 1→2, …).
         for (let idx = 0; idx < topIndex; idx++) {
             const fromLevelId = levelIdByIndex.get(idx);
             const toLevelId = levelIdByIndex.get(idx + 1);
             if (!fromLevelId || !toLevelId) continue;
+            expectedStairPairs++;
             // §RESI-GROUND-HEIGHT-4500 — this flight's rise = the gap between the two CASCADED floor
-            // elevations (the GROUND→1 flight spans the tall 4.5 m; uppers span ftf). Derive THIS
-            // flight's riser count from its own rise, CAPPED at `maxRisersInFootprint` so the (taller)
-            // footprint still contains it; riser height = rise / risers (kept in the architectural
-            // band by construction since the footprint was fit against the tallest storey).
+            // elevations (the GROUND→1 flight spans the tall 4.5 m; uppers span ftf).
             const startY = elevationAt(idx);
             const flightRise = elevationAt(idx + 1) - startY;
-            let fRisers = Math.max(2, Math.min(maxRisersInFootprint, Math.round(flightRise / STAIR_RISER_TARGET_M)));
-            // Nudge within the cap so the per-riser height clears the MIN (a short flight at the cap
-            // would be too shallow); never exceed the footprint cap.
-            while (fRisers > 2 && flightRise / fRisers < STAIR_RISER_MIN_M) fRisers--;
+            // §RESI-CORE-STAIR-ALWAYS — derive THIS flight's riser count so the riser height is ALWAYS
+            // inside the command's valid band [0.15, 0.19] (else CreateStairCommand BLOCKS → missing
+            // stair). The MINIMUM count to keep riser ≤ 0.19 is ceil(rise / 0.19); the MAXIMUM to keep
+            // riser ≥ 0.15 is floor(rise / 0.15). Start from the footprint's preferred count, then
+            // clamp into [minForMax, maxForMin] so the riser is valid by construction.
+            // ceil(rise/0.19) ≤ count ≤ floor(rise/0.15) ⇒ rise/count ∈ [0.15, 0.19] EXACTLY (so the
+            // stair tops out at the real level gap AND the riser is command-valid). Prefer the
+            // footprint's count, clamped into that valid window; the window is always non-empty for any
+            // real storey rise (e.g. 4.5 m ⇒ 24..30 risers; 3.0 m ⇒ 16..20).
+            const minRisersForMaxHeight = Math.max(2, Math.ceil(flightRise / STAIR_RISER_MAX_M));
+            const maxRisersForMinHeight = Math.max(minRisersForMaxHeight, Math.floor(flightRise / STAIR_RISER_MIN_M));
+            // Target-derived count, but prefer the footprint's count when that is ALSO valid (keeps the
+            // body as contained as the depth allows); then clamp into the command-valid window so the
+            // riser height is in [0.15, 0.19] by construction — VALIDITY wins over containment.
+            let fRisers = Math.round(flightRise / STAIR_RISER_TARGET_M);
+            if (preferredRisersInFootprint >= minRisersForMaxHeight && preferredRisersInFootprint <= maxRisersForMinHeight) {
+                fRisers = Math.min(fRisers, preferredRisersInFootprint);   // prefer the contained count
+            }
+            if (fRisers < minRisersForMaxHeight) fRisers = minRisersForMaxHeight;
+            if (fRisers > maxRisersForMinHeight) fRisers = maxRisersForMinHeight;
+            // The riser height is in [0.15, 0.19] by construction; total = fRisers·fRiserH = flightRise.
             const fRiserH = flightRise / fRisers;
             const fBefore = Math.ceil(fRisers / 2);
             const fAfter = fRisers - fBefore;
@@ -1876,7 +1903,12 @@ export class ResidentialBuildingExecutor {
                 z: startPosition.z + dir.z * (fFlight1Run + landingDepth) + perpDir.z * stairWidth,
             };
             try {
-                cm.execute?.(new CreateStairCommand({
+                // §RESI-CORE-STAIR-ALWAYS — capture the result: `CreateStairCommand.canExecute` returns
+                // `{ success: false }` (it does NOT throw) when a blocking constraint trips (riser >0.19,
+                // width <0.9, tread <0.25, …) → the stair is silently not created. The geometry above is
+                // now built so every constraint passes; we still HARD-CHECK the result and log loudly so
+                // any residual reject surfaces instead of vanishing.
+                const res = cm.execute?.(new CreateStairCommand({
                     id: createId('stair'),
                     baseLevelId: fromLevelId,
                     topLevelId: toLevelId,
@@ -1892,6 +1924,14 @@ export class ResidentialBuildingExecutor {
                     landings: [{ depth: landingDepth }],
                     accessibilityType: 'standard',
                 }), { source: 'RESI_PIPELINE_STAIR' });
+                if (res && res.success === false) {
+                    console.error(
+                        `[resi-building] §RESI-CORE-STAIR-ALWAYS ⚠ stair ${idx}→${idx + 1} REJECTED by CreateStairCommand ` +
+                        `(rise=${flightRise.toFixed(2)} risers=${fRisers} riserH=${fRiserH.toFixed(3)} width=${stairWidth.toFixed(2)} tread=${STAIR_TREAD_M}) — ` +
+                        `reason=${(res.info ?? []).join('; ') || 'unknown'}`,
+                    );
+                    continue;   // not created → don't count it or record a void for a non-existent stair
+                }
                 stairs++;
                 // §RESI-STAIR-VOID-IN-FINISH (2026-06-24) — CreateStairCommand auto-punched the SLAB
                 // void from `computeStairFootprintRect(input)`; recompute the SAME world-XZ rect from
@@ -1913,6 +1953,19 @@ export class ResidentialBuildingExecutor {
                     if (vr && vr.length >= 3) recordStairVoid(toLevelId, vr);
                 } catch (e) { console.warn('[resi-building] §RESI-STAIR-VOID-IN-FINISH void record failed (skipped):', e); }
             } catch (e) { console.warn('[resi-building] stair create failed (skipped):', e); }
+        }
+
+        // §RESI-CORE-STAIR-ALWAYS — regression assertion: a stair MUST connect EVERY inter-level pair
+        // (ground→1 … top→roof). If this trips, a CreateStairCommand reject slipped through (the exact
+        // missing-stair bug) — log loudly so it's caught in dev/console instead of shipping a building
+        // with no stair. The geometry above guarantees command-valid inputs, so this should hold.
+        if (stairs !== expectedStairPairs) {
+            console.error(
+                `[resi-building] §RESI-CORE-STAIR-ALWAYS ✗ REGRESSION: created ${stairs}/${expectedStairPairs} inter-level stair(s) ` +
+                `(coreW=${coreW.toFixed(2)} coreD=${coreD.toFixed(2)} maxFtf=${maxFtf.toFixed(2)} stairWidth=${stairWidth.toFixed(2)}) — a core stair is MISSING.`,
+            );
+        } else {
+            console.log(`[resi-building] §RESI-CORE-STAIR-ALWAYS ✓ ${stairs}/${expectedStairPairs} inter-level stairs created.`);
         }
 
         // §RESI-LIFT-EVERY-FLOOR (founder "I can see the lift — but we need it on every floor",
