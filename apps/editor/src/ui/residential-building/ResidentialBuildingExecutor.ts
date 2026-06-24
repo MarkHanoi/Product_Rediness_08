@@ -57,7 +57,7 @@ import {
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
 import { triggerFloorLayout } from '../floor-layout/floorLayoutTrigger.js';
 import { nameDetectedRooms } from '../apartment-layout/nameDetectedRooms.js';
-import { resolveEntranceOnShell, entranceOffsetOnWall, type EntranceHostHit } from './groundFloorPlacement.js';
+import { resolveEntranceOnShell, type EntranceHostHit } from './groundFloorPlacement.js';
 
 const _tracer = trace.getTracer('@pryzm/editor', '0.1.0');
 
@@ -1855,9 +1855,16 @@ export class ResidentialBuildingExecutor {
                 hostLenM = hit.wallLengthM;
             }
             const hit: EntranceHostHit = { wallId: hostWallId, wallLengthM: hostLenM, centerAlongM: hostLenM / 2 };
-            const { width } = entranceOffsetOnWall(hit, gf.entranceWidthM);
-            // §RESI-DOOR-CENTRE — centre the door on its (bay) host wall so it sits mid-façade, on the
-            // corridor axis (host-wall midpoint = corridor `from` = core fire door target).
+            // §RESI-DOOR-CENTRE-FIX (founder 2026-06-24: "the entrance door is not centred on its wall
+            // portion") — derive BOTH the width and the offset DIRECTLY from the host (bay) wall
+            // midpoint, NOT from the orchestrator's off-centre entrance point. The bay wall's baseLine
+            // runs at(s0)→at(s1) and the bay is centred on the entrance-edge midpoint, so centring the
+            // door on the bay wall (offset = (bayLen − width)/2) puts its centre dead on the front
+            // elevation midpoint = the corridor `from` = the core fire-door axis (one centred spine).
+            const ENTRANCE_JAMB_M = 0.4;            // symmetric solid jamb either side of the leaf
+            // Cap the leaf to the bay with equal jambs, then floor it so a tiny bay still yields a leaf.
+            const width = Math.max(0.6, Math.min(gf.entranceWidthM, hit.wallLengthM - 2 * ENTRANCE_JAMB_M));
+            // Dead-centre on the bay wall ⇒ equal jambs left↔right ⇒ door centre = bay midpoint.
             const offset = Math.max(0, (hit.wallLengthM - width) / 2);
             try {
                 batchCoordinator.runBatch(() => {
