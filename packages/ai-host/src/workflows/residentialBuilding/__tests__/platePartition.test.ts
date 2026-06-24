@@ -168,26 +168,27 @@ describe('partitionLevelPlate — §RESI-FILL-MIDEDGE (fill beside the core)', (
         };
     }
 
-    it('places apartment cells in the mid-edge regions beside the core (x<coreX0 / x>coreX1 at the core Z-band)', () => {
+    it('FILLS the mid-edge regions beside the core (no empty "blue box" strip) — §RESI-FILL-MIDEDGE', () => {
+        // §RESI-FILL-MIDEDGE's invariant is that the core-WIDTH strip [coreX0,coreX1] OUTSIDE the
+        // core's own Z-band is not left as an empty void beside the core. Originally this strip was
+        // filled by dedicated x-door "inner-strip" cells; with §RESI-CORNER-UNITS-ALWAYS the deeper
+        // façade rows now front a horizontal corridor directly, so the SAME strip is filled by ordinary
+        // z-door cells (the spine-carved run spans it). Either way the region must NOT be empty — assert
+        // COVERAGE (the real intent) rather than the specific cell mechanism.
         const manyT2 = Array.from({ length: 60 }, () => T2);
         const res = expectOk(partitionLevelPlate(wideCoreInput(manyT2)));
         const core = res.core;
-        // The mid-edge INNER-STRIP cells sit in the core-WIDTH strip [coreX0,coreX1] at a Z OUTSIDE
-        // the core's own Z-band — exactly the strip reserved (empty) before this fix — and reach
-        // circulation via the vertical SPINE, so their door is hung on an x-edge (not a z-edge).
-        const innerStrip = res.apartmentCells.filter((c) => {
-            const r = c.rect;
-            const intoStrip = r.x0 >= core.x0 - 0.01 && r.x1 <= core.x1 + 0.01; // wholly inside the core-width strip
-            const outsideCoreZ = r.z1 <= core.z0 + 0.01 || r.z0 >= core.z1 - 0.01;
-            return intoStrip && outsideCoreZ && (c.doorEdge === 'x0' || c.doorEdge === 'x1');
-        });
-        expect(innerStrip.length).toBeGreaterThanOrEqual(1);
-        // Every such cell genuinely centred in a mid-edge region (x < coreX0 or x > coreX1 at core Z).
-        for (const c of innerStrip) {
-            const cx = (c.rect.x0 + c.rect.x1) / 2;
-            const cz = (c.rect.z0 + c.rect.z1) / 2;
-            expect(cx < core.x0 || cx > core.x1).toBe(false);   // strip is BETWEEN coreX0..coreX1
-            expect(cz < core.z0 || cz > core.z1).toBe(true);    // …at a Z outside the core band
+        const inAny = (px: number, pz: number): boolean => {
+            const hit = (r: Rect) => px >= r.x0 - 1e-3 && px <= r.x1 + 1e-3 && pz >= r.z0 - 1e-3 && pz <= r.z1 + 1e-3;
+            return res.apartmentCells.some((c) => hit(c.rect)) || res.publicCorridor.some(hit);
+        };
+        // Sample the inner-strip region (core-width, at Z outside the core band) — every sample must
+        // be covered by an apartment cell or a corridor (no empty void).
+        for (const px of [core.x0 + 1, (core.x0 + core.x1) / 2, core.x1 - 1]) {
+            for (const pz of [3, 7, 38]) {     // Z values outside the core's own band
+                if (pz >= core.z0 && pz <= core.z1) continue;
+                expect(inAny(px, pz)).toBe(true);
+            }
         }
     });
 
@@ -291,6 +292,48 @@ describe('partitionLevelPlate — §RESI-T3-FIT-REGRESSION-FIX (no over-wide cel
             expect(c.rect.x1 - c.rect.x0).toBeLessThanOrEqual(engineMax(d) + 1e-3);
         }
     });
+});
+
+describe('partitionLevelPlate — §RESI-CORNER-UNITS-ALWAYS (dual-aspect corner units at every corner)', () => {
+    /** A corner cell touches TWO perpendicular plate edges (dual-aspect). */
+    function cornerKey(r: Rect, w: number, d: number, tol = 0.25): string | null {
+        const onX0 = Math.abs(r.x0 - 0) < tol, onX1 = Math.abs(r.x1 - w) < tol;
+        const onZ0 = Math.abs(r.z0 - 0) < tol, onZ1 = Math.abs(r.z1 - d) < tol;
+        if ((onX0 || onX1) && (onZ0 || onZ1)) return `${onX0 ? 'x0' : 'x1'}${onZ0 ? 'z0' : 'z1'}`;
+        return null;
+    }
+
+    for (const [w, d] of [[24, 24], [30, 30], [34, 28], [40, 40], [44, 44]] as Array<[number, number]>) {
+        it(`a ${w}×${d} m plate places a DUAL-ASPECT apartment at ALL FOUR corners`, () => {
+            const apts = Array.from({ length: 80 }, () => T2);
+            const res = expectOk(partitionLevelPlate({
+                levelIndex: 1,
+                footprint: rectPoly(w, d),
+                core: centredCore(w, d, 6, 4),
+                corridor: { widthM: 1.5 },
+                apartments: apts,
+            }));
+            const corners = new Set<string>();
+            for (const c of res.apartmentCells) {
+                const k = cornerKey(c.rect, w, d);
+                if (k) corners.add(k);
+            }
+            // (a) a unit exists at EACH of the 4 corners…
+            expect(corners.has('x0z0')).toBe(true);
+            expect(corners.has('x1z0')).toBe(true);
+            expect(corners.has('x0z1')).toBe(true);
+            expect(corners.has('x1z1')).toBe(true);
+            // (b) …and each corner cell touches two PERPENDICULAR plate edges (verified by cornerKey
+            // itself requiring one x-edge AND one z-edge). Spot-check the actual rects.
+            for (const c of res.apartmentCells) {
+                const k = cornerKey(c.rect, w, d);
+                if (!k) continue;
+                const onX = Math.abs(c.rect.x0) < 0.25 || Math.abs(c.rect.x1 - w) < 0.25;
+                const onZ = Math.abs(c.rect.z0) < 0.25 || Math.abs(c.rect.z1 - d) < 0.25;
+                expect(onX && onZ).toBe(true);   // dual-aspect: an x façade AND a z façade
+            }
+        });
+    }
 });
 
 describe('partitionLevelPlate — soft-fail (never throws)', () => {
