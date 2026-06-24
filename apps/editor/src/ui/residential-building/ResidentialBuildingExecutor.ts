@@ -57,10 +57,16 @@ import {
     type LayoutExecuteOptions,
     type LayoutCommandSet,
 } from '@pryzm/ai-host';
+import { computeStairFootprintRect } from '@pryzm/geometry-stair';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
 import { triggerFloorLayout } from '../floor-layout/floorLayoutTrigger.js';
 import { triggerCeilingLayout } from '../ceiling-layout/ceilingLayoutTrigger.js';
 import { nameDetectedRooms } from '../apartment-layout/nameDetectedRooms.js';
+// §RESI-STAIR-VOID-IN-FINISH (2026-06-24) — the shared stairwell-void registry the floor/ceiling
+// finish passes read (getStairVoidsForLevel) to CUT the finish over the open stairwell. Mirrors
+// the house: record the stair's footprint on its UPPER (host) level so the finish never re-covers
+// the slab void you can see through.
+import { resetStairVoids, recordStairVoid } from '../house-layout/houseStairVoids.js';
 import { resolveEntranceOnShell, type EntranceHostHit } from './groundFloorPlacement.js';
 
 const _tracer = trace.getTracer('@pryzm/editor', '0.1.0');
@@ -542,6 +548,22 @@ export class ResidentialBuildingExecutor {
                 console.log(`[resi-building] corridor bounding lines — ${corridorBoundaryItems.length}`);
             } catch (e) { console.warn('[resi-building] corridor bounding-lines batch failed (skipped):', e); }
         }
+
+        // §RESI-EXTERIOR-WALL-MITER (founder 2026-06-24: "the exterior wall corners show a vertical
+        // SEAM where two perpendicular shell walls meet — they're not mitred"). The shell/perimeter/
+        // core walls are built as one wall per footprint edge, and consecutive edges ALREADY share the
+        // EXACT corner endpoint (ring[i+1] is edge i's end + edge i+1's start) — but landing them in
+        // the store does NOT run the corner-join pass, so they meet with SQUARE caps (the seam). The
+        // house/apartment generators fix this by calling `__wallRebuildControl.rebuildWalls(ids)` after
+        // their walls commit, which forces WallRebuildCoordinator._flush → WallJoinResolver.resolveLevel
+        // → the bisector MITRE on every shared corner. Do the SAME here for the ground shell + every
+        // storey's shell perimeter + the core (+ the ground corridor), once they've landed.
+        this._mitreShellCorners([
+            ...shellPayloads,
+            ...corePerimeterPayloads,
+            ...cellPerimeterPayloads,
+            ...(groundCorridorPayload ? [groundCorridorPayload] : []),
+        ]);
 
         toast(`Built building — ${placedCount} apartment(s), ${stairCount} stair(s), ${liftCount} lift(s).`, 'success');
 
@@ -1107,6 +1129,40 @@ export class ResidentialBuildingExecutor {
                 (r as Promise<unknown>).catch((e: unknown) => console.warn(`[resi-building] ${command} (${tag}) failed on`, payload.levelId, e));
             }
         } catch (e) { console.warn(`[resi-building] ${command} (${tag}) threw on`, payload.levelId, e); }
+    }
+
+    /** §RESI-EXTERIOR-WALL-MITER (founder 2026-06-24) — run the corner-join / MITRE pass on the
+     *  committed shell / perimeter / core walls so perpendicular walls join with a clean bisector
+     *  mitre instead of square caps (the visible vertical corner seam). Consecutive perimeter edges
+     *  already SHARE the exact corner endpoint by construction (one wall per footprint edge), so the
+     *  only thing missing is RUNNING the resolver: `__wallRebuildControl.rebuildWalls(ids)` forces
+     *  WallRebuildCoordinator._flush → WallJoinResolver.resolveLevel for the affected level(s), which
+     *  trims the shared endpoints to the centreline intersection + cuts both end caps by the shared
+     *  mitre plane. The bus `wall.batch.create` is async, so we POLL (≤ ~9 s) for every host wall to
+     *  land in the store first, then fire ONE rebuild over all ids (the coordinator groups by level).
+     *  Identical mechanism to HouseLayoutExecutor / ApartmentLayoutExecutor. Never throws. */
+    private _mitreShellCorners(
+        payloads: ReadonlyArray<{ walls: ReadonlyArray<Record<string, unknown>>; levelId: string }>,
+    ): void {
+        const ids: string[] = [];
+        for (const p of payloads) for (const w of p.walls) {
+            const id = (w as { id?: unknown }).id;
+            if (typeof id === 'string' && id.length > 0) ids.push(id);
+        }
+        if (ids.length === 0) return;
+        const wallStore = storeRegistry.getStoreForType('wall') as unknown as { getById?: (id: string) => unknown } | undefined;
+        const ready = (): boolean => !wallStore?.getById ? true : ids.every(id => wallStore.getById!(id) != null);
+        // Budget scales with wall count (large buildings dispatch more async creates), floored at 40
+        // ticks (~6 s, small builds byte-identical) and capped at 60 (~9 s) so it can't hang the UI.
+        const budget = Math.min(60, Math.max(40, Math.ceil(ids.length / 8)));
+        const tryMitre = (n: number): void => {
+            if (!ready() && n > 0) { setTimeout(() => tryMitre(n - 1), 150); return; }
+            try {
+                window.__wallRebuildControl?.rebuildWalls?.(ids);
+                console.log(`[resi-building] §RESI-EXTERIOR-WALL-MITER — corner-join pass on ${ids.length} shell/perimeter/core wall(s)`);
+            } catch (e) { console.warn('[resi-building] §RESI-EXTERIOR-WALL-MITER rebuildWalls failed (non-fatal):', e); }
+        };
+        tryMitre(budget);
     }
 
     /** Structural slab over a floor footprint (SlabTool convention: polygon carries
@@ -2161,6 +2217,60 @@ export class ResidentialBuildingExecutor {
             this._rotate({ x: r.x0, z: r.z1 }, xf),
         ];
 
+        // §RESI-CORRIDOR-FINISH-SPAN / §RESI-CORRIDOR-FINISH-CONTINUOUS (founder 2026-06-24: the
+        // corridor finish must be exactly the distance BETWEEN the apartment rows AND one CONTINUOUS
+        // band along the WHOLE circulation route — connecting through the core lobby, no broken
+        // strips). So we clip ONLY the ACROSS dimension (the corridor WIDTH = the gap between the two
+        // facing apartment rows' inner/door-edge faces) and keep the ALONG dimension = the FULL band
+        // length, so consecutive corridor runs + the transverse spine + the core lobby overlap into
+        // ONE connected surface (no gaps along the route). When the across-gap can't be resolved (no
+        // flanking apartment), the raw band stands. Returns the width-tightened, full-length band.
+        const tightCorridorRect = (
+            band: { x0: number; z0: number; x1: number; z1: number },
+            cells: ReadonlyArray<{ rect: { x0: number; z0: number; x1: number; z1: number } }>,
+        ): { x0: number; z0: number; x1: number; z1: number } | null => {
+            const bx0 = Math.min(band.x0, band.x1), bx1 = Math.max(band.x0, band.x1);
+            const bz0 = Math.min(band.z0, band.z1), bz1 = Math.max(band.z0, band.z1);
+            const runAlongX = (bx1 - bx0) >= (bz1 - bz0);   // long axis
+            const TOUCH = 0.35;   // a cell flanks the band if its inner edge is within this of the band face
+            // Tighten the WIDTH to the gap between the flanking rows' inner faces; keep the FULL length.
+            let acrossLo = Infinity, acrossHi = -Infinity, flanked = 0;
+            for (const c of cells) {
+                const r = c.rect;
+                const rx0 = Math.min(r.x0, r.x1), rx1 = Math.max(r.x0, r.x1);
+                const rz0 = Math.min(r.z0, r.z1), rz1 = Math.max(r.z0, r.z1);
+                if (runAlongX) {
+                    if (rx1 <= bx0 + 0.05 || rx0 >= bx1 - 0.05) continue;   // must overlap the band along X
+                    const below = Math.abs(rz1 - bz0) <= TOUCH;   // cell's far(z1) face meets band's near(z0)
+                    const above = Math.abs(rz0 - bz1) <= TOUCH;   // cell's near(z0) face meets band's far(z1)
+                    if (!below && !above) continue;
+                    acrossLo = Math.min(acrossLo, below ? rz1 : bz0);
+                    acrossHi = Math.max(acrossHi, above ? rz0 : bz1);
+                    flanked++;
+                } else {
+                    if (rz1 <= bz0 + 0.05 || rz0 >= bz1 - 0.05) continue;
+                    const left = Math.abs(rx1 - bx0) <= TOUCH;
+                    const right = Math.abs(rx0 - bx1) <= TOUCH;
+                    if (!left && !right) continue;
+                    acrossLo = Math.min(acrossLo, left ? rx1 : bx0);
+                    acrossHi = Math.max(acrossHi, right ? rx0 : bx1);
+                    flanked++;
+                }
+            }
+            if (flanked === 0) return null;   // no apartment flanks this run (e.g. spine) → raw band
+            // Across span clamped to the band (never wider than the planned corridor); full length kept.
+            if (runAlongX) {
+                const z0 = Math.max(bz0, Math.min(acrossLo, bz1));
+                const z1 = Math.min(bz1, Math.max(acrossHi, bz0));
+                if (!(z1 > z0)) return { x0: bx0, z0: bz0, x1: bx1, z1: bz1 };
+                return { x0: bx0, z0, x1: bx1, z1 };
+            }
+            const x0 = Math.max(bx0, Math.min(acrossLo, bx1));
+            const x1 = Math.min(bx1, Math.max(acrossHi, bx0));
+            if (!(x1 > x0)) return { x0: bx0, z0: bz0, x1: bx1, z1: bz1 };
+            return { x0, z0: bz0, x1, z1: bz1 };
+        };
+
         let laid = 0;
         // Defer a beat so the structural slabs (and the bus dispatches) have settled.
         setTimeout(() => {
@@ -2174,10 +2284,18 @@ export class ResidentialBuildingExecutor {
                             // GROUND commercial floor — the whole (WORLD) footprint.
                             if (layFinish(levelId, lvl.footprint, COMMERCIAL, 'Commercial floor')) laid++;
                         } else {
-                            // PUBLIC CORRIDOR band(s) for this residential level (LOCAL → world).
+                            // §RESI-CORRIDOR-FINISH-SPAN — the PUBLIC CORRIDOR finish must span exactly
+                            // the band BETWEEN the apartment rows. Clip the orchestrator's corridor band
+                            // to the tight rect actually flanked by THIS level's placed apartment cells
+                            // (no overlap onto the apartments, no gap); fall back to the raw band if no
+                            // apartment flanks it (e.g. a transverse spine to the core).
                             const perLevel = result.perLevelApartments[i];
+                            const cells = (perLevel?.apartments ?? [])
+                                .filter(a => a.status === 'ok')
+                                .map(a => ({ rect: a.cell.rect }));
                             for (const band of perLevel?.publicCorridor ?? []) {
-                                if (layFinish(levelId, rectToWorld(band), CORRIDOR, 'Corridor floor')) laid++;
+                                const tight = cells.length > 0 ? tightCorridorRect(band, cells) : null;
+                                if (layFinish(levelId, rectToWorld(tight ?? band), CORRIDOR, 'Corridor floor')) laid++;
                             }
                             // CORE LOBBY — the core interior circulation floor (LOCAL → world).
                             if (result.core && layFinish(levelId, rectToWorld(result.core), CORE_LOBBY, 'Core lobby floor')) laid++;
