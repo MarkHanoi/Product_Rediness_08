@@ -73,6 +73,15 @@ export interface ResidentialBuildingRequest {
      *  to the executor (`ResidentialExecuteInput.roofGarden`); the deck is executor-emitted so the
      *  pure orchestrator/preview are unchanged for this slice. */
     readonly roofGarden?: boolean;
+    /** §RESI-BALCONIES (2026-06-24) — emit projecting balconies. Default ON (absent ⇒ ON). Threaded
+     *  to the executor; the balcony pass is gated on it. */
+    readonly balconies?: boolean;
+    /** §RESI-FACADE-COLOUR (2026-06-24) — building finish colour (hex `#rrggbb`). Painted on the
+     *  opaque shell / core / cell walls + roof by the executor; glazing keeps its defaults. */
+    readonly facadeColor?: string;
+    /** §RESI-GROUND-COMMERCIAL-CURTAIN (2026-06-24) — ground shopfront style. Default false ⇒ solid
+     *  shell + big commercial windows; true ⇒ the curtain-wall shopfront. */
+    readonly groundCommercialCurtain?: boolean;
 }
 
 export interface ResidentialBuildingRequestResult {
@@ -166,7 +175,15 @@ export function countPlacedApartments(result: ResidentialBuildingOk): number {
 export class ResidentialBuildingController {
     private readonly modal = new ResidentialBuildingModal();
     private readonly executor = new ResidentialBuildingExecutor();
-    private _pending: { runtime: PryzmRuntime; result: ResidentialBuildingOk; floorToFloorM: number; roofGarden: boolean } | null = null;
+    private _pending: {
+        runtime: PryzmRuntime;
+        result: ResidentialBuildingOk;
+        floorToFloorM: number;
+        roofGarden: boolean;
+        balconies: boolean;
+        facadeColor?: string;
+        groundCommercialCurtain: boolean;
+    } | null = null;
 
     /**
      * Compute the building for the active shell + open the modal. On Build, build
@@ -230,7 +247,17 @@ export class ResidentialBuildingController {
             `${apartmentCount} apartment(s) placed — opening modal. ${result.diagnostic}`,
         );
 
-        this._pending = { runtime, result, floorToFloorM: input.floorToFloorM ?? DEFAULT_FLOOR_TO_FLOOR_M, roofGarden: req.roofGarden === true };
+        this._pending = {
+            runtime,
+            result,
+            floorToFloorM: input.floorToFloorM ?? DEFAULT_FLOOR_TO_FLOOR_M,
+            roofGarden: req.roofGarden === true,
+            // §RESI-BALCONIES — default ON (absent ⇒ true).
+            balconies: req.balconies !== false,
+            ...(typeof req.facadeColor === 'string' ? { facadeColor: req.facadeColor } : {}),
+            // §RESI-GROUND-COMMERCIAL-CURTAIN — default false (solid shell + big windows).
+            groundCommercialCurtain: req.groundCommercialCurtain === true,
+        };
         this.modal.show(result, {
             onBuild: () => this._build(),
             onCancel: () => { console.log('[resi-building] controller: modal cancelled (no scene mutation)'); this._pending = null; },
@@ -254,7 +281,13 @@ export class ResidentialBuildingController {
         if (!p) return;
         console.log('[resi-building] controller: Build pressed → executor');
         p.runtime.events?.emit('pryzm:toast', { message: 'Building residential building…', severity: 'info' });
-        void this.executor.execute(p.runtime, p.result, { floorToFloorM: p.floorToFloorM, roofGarden: p.roofGarden });
+        void this.executor.execute(p.runtime, p.result, {
+            floorToFloorM: p.floorToFloorM,
+            roofGarden: p.roofGarden,
+            balconies: p.balconies,
+            ...(p.facadeColor ? { facadeColor: p.facadeColor } : {}),
+            groundCommercialCurtain: p.groundCommercialCurtain,
+        });
         this._pending = null;
     }
 }

@@ -37,6 +37,13 @@ export interface ResidentialBuildingConsoleOptions {
     readonly footprint?: ReadonlyArray<{ x: number; z: number }>;
     /** §RESI-ROOF-GARDEN (2026-06-24) — OPTIONAL roof amenity deck. Default OFF. */
     readonly roofGarden?: boolean;
+    /** §RESI-BALCONIES (2026-06-24) — projecting balconies. Default ON (absent ⇒ ON). */
+    readonly balconies?: boolean;
+    /** §RESI-FACADE-COLOUR (2026-06-24) — building finish colour (hex `#rrggbb`). Default white. */
+    readonly facadeColor?: string;
+    /** §RESI-GROUND-COMMERCIAL-CURTAIN (2026-06-24) — ground shopfront style. Default false ⇒ solid
+     *  shell + big commercial windows; true ⇒ the curtain-wall shopfront. */
+    readonly groundCommercialCurtain?: boolean;
 }
 
 declare global {
@@ -65,6 +72,10 @@ function toRequest(opts?: ResidentialBuildingConsoleOptions): ResidentialBuildin
         ...(typeof opts?.siteLatitudeDeg === 'number' ? { siteLatitudeDeg: opts.siteLatitudeDeg } : {}),
         ...(opts?.footprint && opts.footprint.length >= 3 ? { footprint: opts.footprint } : {}),
         ...(opts?.roofGarden === true ? { roofGarden: true } : {}),
+        // §RESI-BALCONIES — default ON; only thread the flag when explicitly turned off.
+        ...(opts?.balconies === false ? { balconies: false } : {}),
+        ...(typeof opts?.facadeColor === 'string' ? { facadeColor: opts.facadeColor } : {}),
+        ...(opts?.groundCommercialCurtain === true ? { groundCommercialCurtain: true } : {}),
     };
 }
 
