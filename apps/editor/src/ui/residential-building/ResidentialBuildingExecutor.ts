@@ -194,6 +194,8 @@ export class ResidentialBuildingExecutor {
         // 2026-06-24) — the GROUND façade is a glazed commercial shopfront (curtain walls on every
         // façade edge except the solid entrance bay), dispatched in the structural batch.
         const groundCurtainPayloads: Array<{ id: string; start: { x: number; z: number }; end: { x: number; z: number }; height: number; levelId: string }> = [];
+        // §RESI-GROUND-CORRIDOR — interior corridor walls linking the ground entrance to the core.
+        let groundCorridorPayload: { walls: ReadonlyArray<Record<string, unknown>>; levelId: string } | undefined;
         const corridorBoundaryItems: Array<{ id: string; levelId: string; start: { x: number; z: number }; end: { x: number; z: number } }> = [];
         // §RESI-GROUND-FLOOR — capture the GROUND shell payload (its pre-minted wall ids host
         // the main entrance door) + the ground level id for the deferred entrance pass.
@@ -232,6 +234,13 @@ export class ResidentialBuildingExecutor {
                 const g = this._buildGroundShell(levelId, lvl.footprint, floorToFloorM, wec);
                 shellPayload = g.shellPayload;
                 for (const cw of g.curtainWalls) groundCurtainPayloads.push(cw);
+                // §RESI-GROUND-CORRIDOR — run an interior corridor from the entrance door to the core.
+                if (g.doorCenter && result.core) {
+                    const core = result.core;
+                    const coreCenter = this._rotate({ x: (core.x0 + core.x1) / 2, z: (core.z0 + core.z1) / 2 }, xf);
+                    const coreHalf = Math.max(core.x1 - core.x0, core.z1 - core.z0) / 2;
+                    groundCorridorPayload = this._buildGroundCorridor(levelId, g.doorCenter, coreCenter, coreHalf, floorToFloorM);
+                }
             } else {
                 shellPayload = this._buildShellPerimeter(levelId, lvl.footprint, floorToFloorM);
             }
@@ -327,6 +336,10 @@ export class ResidentialBuildingExecutor {
                     // clear glazing; a per-build colour picker in the modal is the next step.
                     cm.execute?.(new CreateCurtainWallCommand({ ...cw, mullionColor: '#e8eaed', glazingColor: '#dfe9f0' }), { source: 'RESI_PIPELINE_CURTAINWALL' });
                 } catch (e) { console.warn('[resi-building] curtain wall create failed (skipped):', e); }
+            }
+            // 0d. §RESI-GROUND-CORRIDOR — interior corridor walls linking the entrance to the core.
+            if (groundCorridorPayload && groundCorridorPayload.walls.length > 0) {
+                this._dispatchWallBatch(runtime, groundCorridorPayload, 'ground-corridor');
             }
             // 1. Apartment cell perimeters (host walls for the façade windows).
             for (const payload of cellPerimeterPayloads) {
@@ -435,6 +448,9 @@ export class ResidentialBuildingExecutor {
     ): {
         shellPayload: { walls: ReadonlyArray<Record<string, unknown>>; levelId: string };
         curtainWalls: Array<{ id: string; start: { x: number; z: number }; end: { x: number; z: number }; height: number; levelId: string }>;
+        /** World-XZ centre of the entrance door (the bay/façade midpoint) — the executor runs the
+         *  ground-floor interior corridor from here to the core (§RESI-GROUND-CORRIDOR). */
+        doorCenter?: { x: number; z: number };
     } {
         const ring = this._cleanRing(footprint);
         if (ring.length < 3) {
@@ -449,6 +465,7 @@ export class ResidentialBuildingExecutor {
         }
         const walls: Array<Record<string, unknown>> = [];
         const curtainWalls: Array<{ id: string; start: { x: number; z: number }; end: { x: number; z: number }; height: number; levelId: string }> = [];
+        let doorCenter: { x: number; z: number } | undefined;
         // §RESI-GROUND-DOOR-BAY (founder 2026-06-24: "the curtain wall could also be on the face
         // where the door is, just until the corridor boundary") — the entrance face is now MOSTLY
         // glazed too: only a narrow SOLID door bay (centred on the entrance, ~corridor-wide) hosts
@@ -484,6 +501,7 @@ export class ResidentialBuildingExecutor {
                 const s0 = Math.max(0, t - ENTRANCE_BAY_HALF_M);
                 const s1 = Math.min(len, t + ENTRANCE_BAY_HALF_M);
                 const at = (s: number): { x: number; z: number } => ({ x: a.x + nx * s, z: a.z + nz * s });
+                doorCenter = at(t);                // door centre = façade midpoint (corridor start)
                 pushCurtain(a, at(s0));            // glazed before the bay
                 pushWall(at(s0), at(s1));          // solid door bay (hosts the main entrance door)
                 pushCurtain(at(s1), b);            // glazed after the bay
@@ -491,7 +509,39 @@ export class ResidentialBuildingExecutor {
                 pushCurtain(a, b);
             }
         }
-        return { shellPayload: { walls, levelId }, curtainWalls };
+        return { shellPayload: { walls, levelId }, curtainWalls, ...(doorCenter ? { doorCenter } : {}) };
+    }
+
+    /** §RESI-GROUND-CORRIDOR (founder 2026-06-24: "on the ground floor we should have a corridor
+     *  connecting the entrance door with the core") — two parallel interior partition walls forming
+     *  a ~1.4 m corridor from the entrance door (`from`) toward the core (`to`), stopping at the core
+     *  perimeter (`coreHalfM` short of the core centre) so it meets the core's fire door. World frame. */
+    private _buildGroundCorridor(
+        levelId: string,
+        from: { x: number; z: number },
+        to: { x: number; z: number },
+        coreHalfM: number,
+        wallHeightM: number,
+    ): { walls: ReadonlyArray<Record<string, unknown>>; levelId: string } {
+        const dx = to.x - from.x, dz = to.z - from.z;
+        const len = Math.hypot(dx, dz);
+        const walls: Array<Record<string, unknown>> = [];
+        if (len < coreHalfM + 1.0) return { walls, levelId };   // too close to lay a useful corridor
+        const nx = dx / len, nz = dz / len;        // entrance → core
+        const px = -nz, pz = nx;                   // perpendicular (corridor half-width axis)
+        const HALF = 0.7;                          // 1.4 m clear corridor
+        const stop = len - coreHalfM;              // stop at the core perimeter, not its centre
+        const end = { x: from.x + nx * stop, z: from.z + nz * stop };
+        const seg = (a: { x: number; z: number }, b: { x: number; z: number }): void => {
+            walls.push({
+                id: createId('wall'), levelId,
+                baseLine: [{ x: a.x, y: 0, z: a.z }, { x: b.x, y: 0, z: b.z }],
+                height: wallHeightM, thickness: CELL_WALL_THICKNESS_M,
+            });
+        };
+        seg({ x: from.x + px * HALF, z: from.z + pz * HALF }, { x: end.x + px * HALF, z: end.z + pz * HALF });
+        seg({ x: from.x - px * HALF, z: from.z - pz * HALF }, { x: end.x - px * HALF, z: end.z - pz * HALF });
+        return { walls, levelId };
     }
 
     /** Apartment cell perimeter: 4 walls around the cell rect, pre-minted ids,
