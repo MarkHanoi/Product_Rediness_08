@@ -72,6 +72,63 @@ const MIN_CORRIDOR_WIDTH_M = 0.8;
  *  studios / 1-beds). */
 const MIN_ENGINE_FEASIBLE_AREA_M2 = 72;
 
+// §RESI-SMALL-PLATE-CORE-SCALE (founder 2026-06-24: "a ~352 m² plot rejects as too small") — the
+// generator assumed a FIXED ~6×4 m core + 1.5 m corridor on every plate. On a small (~350 m²,
+// ~19 m square) plot the centred 6 m core eats the middle, leaving only ~6.5 m-wide apartment runs
+// either side — too narrow to host even a min-area apartment at the band depth → the partition
+// returns "no usable band runs" → the orchestrator rejects ("too small"). The plot CAN hold a small
+// point-block once the core is shrunk to a functional stair+lift minimum. So we SCALE THE CORE DOWN
+// on a small plate: the effective core is the requested size, but never so large that it leaves a
+// side-run narrower than `MIN_SIDE_RUN_M` (so an apartment fits beside it) and never below the
+// functional `MIN_CORE_DIM_M` (a real stair + lift still fits). A LARGE plate (where `plate − 2·run`
+// already exceeds the requested core) keeps the requested core EXACTLY — byte-identical to before.
+/** Functional minimum core plan dimension (m) — a single scissor stair + a small lift still fit. */
+const MIN_CORE_DIM_M = 2.6;
+/** Minimum apartment run width (m) the core must leave on each side along X so a min-area apartment
+ *  fits beside the core at the band depth (a ~66 m² cell at an ~8.5 m band is ~7.8 m wide). */
+const MIN_SIDE_RUN_M = 8.5;
+/** Minimum apartment band DEPTH (m) the core must leave front+back so a layout-able apartment fits
+ *  toward each façade — mirrors the per-cell engine's ~7.5 m comb-feasibility floor. */
+const MIN_BAND_DEPTH_M = 7.5;
+
+/**
+ * §RESI-SMALL-PLATE-CORE-SCALE — the EFFECTIVE core plan size for a plate. Scales the requested core
+ * DOWN (never up) just enough that the apartment runs beside it (along X) stay ≥ `MIN_SIDE_RUN_M` and
+ * the bands in front/behind it (along Z) stay ≥ `MIN_BAND_DEPTH_M`, floored at `MIN_CORE_DIM_M`. On a
+ * plate large enough for the requested core this is the identity (returns the requested dims). Pure.
+ */
+function effectiveCoreSize(
+    plateW: number,
+    plateD: number,
+    coreWidthM: number,
+    coreDepthM: number,
+): { coreWidthM: number; coreDepthM: number } {
+    const wByRuns = plateW - 2 * MIN_SIDE_RUN_M;          // max core width that still leaves usable side-runs
+    const dByBands = plateD - 2 * MIN_BAND_DEPTH_M;       // max core depth that still leaves usable bands
+    const w = Math.max(MIN_CORE_DIM_M, Math.min(coreWidthM, wByRuns));
+    const d = Math.max(MIN_CORE_DIM_M, Math.min(coreDepthM, dByBands));
+    return { coreWidthM: round4(w), coreDepthM: round4(d) };
+}
+
+// §RESI-SMALL-PLATE-CORE-SCALE — the plate's shorter side (m) below which we also begin shrinking the
+// public corridor. Above it the requested corridor is kept EXACTLY (large plates unchanged). Below it
+// the depth the fixed 1.5 m corridor consumes is the marginal blocker: on a ~19 m plate the core +
+// corridor leave bands too SHALLOW for the per-cell engine's comb (≈ 7.5 m). Shrinking the corridor
+// recovers that depth so a genuine ~350 m² point-block builds (still ≥ the door-clear minimum).
+const SMALL_PLATE_SIDE_M = 22;
+
+/**
+ * §RESI-SMALL-PLATE-CORE-SCALE — the EFFECTIVE corridor width (m). On a plate whose shorter side is
+ * below `SMALL_PLATE_SIDE_M` the corridor is scaled DOWN linearly (recovering apartment-band depth),
+ * floored at `MIN_CORRIDOR_WIDTH_M` (still a door-clear public way). A larger plate keeps the
+ * requested width EXACTLY (identity). Never widens. Pure + deterministic.
+ */
+function effectiveCorridorWidth(plateShortSideM: number, corridorWidthM: number): number {
+    if (plateShortSideM >= SMALL_PLATE_SIDE_M) return corridorWidthM;
+    const scaled = corridorWidthM * (plateShortSideM / SMALL_PLATE_SIDE_M);
+    return round4(Math.min(corridorWidthM, Math.max(MIN_CORRIDOR_WIDTH_M, scaled)));
+}
+
 export type LevelRole = 'ground' | 'upper';
 
 export interface ResidentialBuildingOrchestratorInput {
@@ -386,17 +443,18 @@ export function computeGroundFloor(
 
 function _orchestrate(input: ResidentialBuildingOrchestratorInput): ResidentialBuildingResult {
     const {
-        footprint: footprintWorld, upperLevels, coreWidthM, coreDepthM, corridorWidthM,
+        footprint: footprintWorld, upperLevels,
+        coreWidthM: reqCoreWidthM, coreDepthM: reqCoreDepthM, corridorWidthM: reqCorridorWidthM,
         minApartmentAreaM2, maxApartmentAreaM2, typologies,
     } = input;
 
     if (!Number.isInteger(upperLevels) || upperLevels < 1 || upperLevels > 20) {
         return reject('upperLevels must be an integer in 1..20');
     }
-    if (!(coreWidthM > 0) || !(coreDepthM > 0)) {
+    if (!(reqCoreWidthM > 0) || !(reqCoreDepthM > 0)) {
         return reject('core dimensions must be positive');
     }
-    if (!(corridorWidthM >= MIN_CORRIDOR_WIDTH_M)) {
+    if (!(reqCorridorWidthM >= MIN_CORRIDOR_WIDTH_M)) {
         return reject(`corridor width must be ≥ ${MIN_CORRIDOR_WIDTH_M} m`);
     }
     if (footprintWorld.length < 3) {
@@ -427,9 +485,17 @@ function _orchestrate(input: ResidentialBuildingOrchestratorInput): ResidentialB
     if (!(plateW > 1e-3) || !(plateD > 1e-3)) {
         return reject('footprint is degenerate (zero width/depth after orienting)');
     }
+    // §RESI-SMALL-PLATE-CORE-SCALE — scale the requested core DOWN on a small plate so the apartment
+    // runs/bands beside it stay usable (see `effectiveCoreSize`). A large plate keeps the requested
+    // core EXACTLY (identity). The containment check below uses the EFFECTIVE core, so a small plate
+    // that the fixed 6×4 core would have made "too small" now builds a smaller point-block instead.
+    const { coreWidthM, coreDepthM } = effectiveCoreSize(plateW, plateD, reqCoreWidthM, reqCoreDepthM);
     if (coreWidthM >= plateW || coreDepthM >= plateD) {
         return reject('core does not fit inside the footprint');
     }
+    // §RESI-SMALL-PLATE-CORE-SCALE — also shrink the public corridor on a small plate to recover the
+    // apartment-band depth the fixed 1.5 m corridor would otherwise consume (identity on a large plate).
+    const corridorWidthM = effectiveCorridorWidth(Math.min(plateW, plateD), reqCorridorWidthM);
 
     // ── R-CENTRE: place the core centred on the footprint centroid, identical XZ on
     // every level. This is the residential divergence from the house's worst-aspect

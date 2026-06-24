@@ -139,6 +139,55 @@ describe('residentialBuildingOrchestrator — P3', () => {
         }
     });
 
+    it('§RESI-SMALL-PLATE-CORE-SCALE — a ~360 m² plot now BUILDS (was a "too small / no usable band" reject)', () => {
+        // Founder 2026-06-24: a small plot hard-rejected because the FIXED 6×4 m core + 1.5 m corridor
+        // left no usable apartment band. Scaling the core (and corridor) DOWN on a small plate lets a
+        // genuine point-block build. Baseline min was ~484 m² (a 22 m square); this is now ~361 m².
+        const r = orchestrateResidentialBuilding(
+            input({
+                footprint: rectPoly(19, 19), // 361 m²
+                upperLevels: 1,
+                coreWidthM: 6,
+                coreDepthM: 4,
+                corridorWidthM: 1.5,
+                minApartmentAreaM2: 55,
+                maxApartmentAreaM2: 110,
+                typologies: { T1: true, T2: true, T3: false, T4: false },
+            }),
+        );
+        expect(r.status).toBe('ok');
+        if (r.status !== 'ok') return;
+        const apts = r.perLevelApartments[1]!.apartments;
+        const laidOut = apts.filter((a) => a.status === 'ok');
+        expect(laidOut.length).toBeGreaterThanOrEqual(1);
+        for (const a of laidOut) expect(a.layout!.rooms.length).toBeGreaterThan(0);
+        // The core was scaled DOWN below the requested 6×4 (it would not otherwise fit a band).
+        expect(r.core.x1 - r.core.x0).toBeLessThan(6);
+    });
+
+    it('§RESI-SMALL-PLATE-CORE-SCALE — a LARGE plate keeps the requested core + corridor EXACTLY (identity)', () => {
+        const r = orchestrateResidentialBuilding(
+            input({
+                footprint: rectPoly(40, 40),
+                upperLevels: 1,
+                coreWidthM: 6,
+                coreDepthM: 4,
+                corridorWidthM: 1.5,
+                minApartmentAreaM2: 55,
+                maxApartmentAreaM2: 110,
+                typologies: { T1: false, T2: true, T3: false, T4: false },
+            }),
+        );
+        expect(r.status).toBe('ok');
+        if (r.status !== 'ok') return;
+        // Requested core kept exactly (no down-scaling on a plate that comfortably holds it).
+        expect(r.core.x1 - r.core.x0).toBeCloseTo(6, 3);
+        expect(r.core.z1 - r.core.z0).toBeCloseTo(4, 3);
+        // Requested corridor kept exactly (1.5 m wide).
+        const corr = r.perLevelApartments[1]!.publicCorridor[0]!;
+        expect(corr.z1 - corr.z0).toBeCloseTo(1.5, 3);
+    });
+
     it('ACCEPTS a rotated/skewed parcel (§RESI-RIGID-TRANSFORM — the old axis-aligned stub is gone)', () => {
         // A clearly off-axis quad (the founder draws the parcel at an angle on the map).
         // Pre-fix this returned `rejected` ("footprint must be an axis-aligned rectangle (stub)");
@@ -361,6 +410,51 @@ describe('residentialBuildingOrchestrator — P7 (D-TGL per cell)', () => {
             const t23 = laidOutCount({ T1: false, T2: true, T3: true, T4: false }, s);
             const t123 = laidOutCount({ T1: true, T2: true, T3: true, T4: false }, s);
             if (t23 > 0) expect(t123).toBeGreaterThanOrEqual(1);
+        }
+    });
+
+    it('§RESI-T3-FIT-REGRESSION-FIX — the demo case (core 6×4, corridor 1.5, T2 / T1+T2 @ 55–110, ~30 m plate) lays out apartments with all mandatory rooms reachable', () => {
+        // Demo blocker (founder 2026-06-24: "16 of 16 couldn't fit — over-programmed"). The reported
+        // failure was a corner cell whose corridor couldn't reach every room → mandatory-gate rejected
+        // the whole cell. ROOT (verified by the engine-feasibility sweep): the per-cell D-TGL engine
+        // cannot route a comb corridor through a cell SHALLOWER than ~7.5 m OR with an aspect-extreme
+        // (over-wide / over-deep) shape — both regimes are now bounded by §RESI-T3-FIT-REGRESSION-FIX
+        // (depth capped at MAX_APARTMENT_DEPTH_M = 9, width capped at engineMaxCellWidth). With those
+        // bounds the orchestrator never hands the engine a comb-infeasible real-program cell, so every
+        // placed apartment lays out with its full mandatory room set (and the engine only returns a
+        // layout when those rooms are CIRCULATION-REACHABLE — reachability is guaranteed by construction).
+        for (const t1 of [false, true]) {
+            for (const s of [28, 30, 32, 34, 36, 38]) {
+                const r = orchestrateResidentialBuilding(
+                    input({
+                        footprint: rectPoly(s, s),
+                        upperLevels: 1,
+                        coreWidthM: 6,
+                        coreDepthM: 4,
+                        corridorWidthM: 1.5,
+                        minApartmentAreaM2: 55,
+                        maxApartmentAreaM2: 110,
+                        typologies: { T1: t1, T2: true, T3: false, T4: false },
+                    }),
+                );
+                expect(r.status).toBe('ok');
+                if (r.status !== 'ok') continue;
+                const apts = r.perLevelApartments[1]!.apartments;
+                // The "real" partition cells (≥ 50 m²) — the thin clamped-edge leftovers (< 50 m²,
+                // un-demanded slivers) are not the apartments the founder sees and may soft-fail.
+                const realCells = apts.filter((a) => a.targetAreaM2 >= 50);
+                expect(realCells.length).toBeGreaterThanOrEqual(1);
+                // EVERY real cell lays out (the demo bug was 0/16 laying out).
+                for (const a of realCells) {
+                    expect(a.status).toBe('ok');
+                    const rooms = a.layout!.rooms;
+                    const types = rooms.map((rm) => rm.type);
+                    // The 2-bed mandatory set is present (the mandatory-gate passed ⇒ all reachable).
+                    expect(types.some((t) => t === 'kitchen' || t.includes('kitchen'))).toBe(true);
+                    expect(types).toContain('living');
+                    expect(types.filter((t) => t === 'bedroom' || t === 'master').length).toBeGreaterThanOrEqual(1);
+                }
+            }
         }
     });
 
