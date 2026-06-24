@@ -22,7 +22,7 @@
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import { injectAppTheme } from '../styles/AppTheme';
 import { PlatformUser, signOut } from './AuthModal';
-import { projectRepository, ProjectMeta } from './ProjectRepository';
+import { projectRepository, ProjectMeta, warmThumbnailCache } from './ProjectRepository';
 import { EntitlementStore } from '@pryzm/core-app-model';
 import { getPlanDisplayName, PLAN_LIMITS } from '@pryzm/core-app-model';
 import { ProjectMemberPanel, ProjectMember } from './ProjectMemberPanel';
@@ -82,8 +82,17 @@ export class ProjectHub {
         injectAppTheme();
         this.el = this.build();
         this.root.appendChild(this.el);
-        // Sync projects from server on every hub load (fills localStorage across sessions).
-        this.syncFromServer();
+        // §HUB-THUMBNAIL-STORAGE (2026-06-24) — warm the IndexedDB thumbnail mirror
+        // (and migrate any legacy inline thumbnails out of the localStorage index)
+        // BEFORE the first server sync, then re-render so previews appear. Thumbnail
+        // bytes no longer live in the project index, so the synchronous card render
+        // reads them from this mirror; warming populates it once per session.
+        warmThumbnailCache()
+            .then(() => { this.refreshGrid(); })
+            .catch(() => { /* non-fatal — server thumbnailUrl / placeholder still render */ })
+            // Sync projects from server AFTER the warm so the reconcile pass sees the
+            // migrated (lean) index. Sync also fills localStorage across sessions.
+            .finally(() => { this.syncFromServer(); });
     }
 
     // ── Build ─────────────────────────────────────────────────────────────────
