@@ -185,7 +185,13 @@ export class CreateVerticalCirculationCommand implements Command {
 
         // §03-SEMANTIC-MODEL — register so AI queries, selection + generic
         // deletion resolve the lift by type.
-        elementRegistry.registerSemantic(liftId, 'verticalCirculation');
+        // §RESI-LIFT-DUP-ID (founder 2026-06-24: FATAL "ID … already exists in ElementRegistry"
+        // during collab replayCatchUp / reload froze the project). The lift ids ARE unique per cab,
+        // but COLLAB REPLAY / REDO re-executes the create with the same (already-registered) id, and
+        // the throwing `registerSemantic` made that FATAL. Use the idempotent variant — purpose-built
+        // for exactly this redo/reload path (its own docstring calls it "the single most common
+        // crash") — so a re-register is a harmless no-op instead of a load-breaking throw.
+        elementRegistry.registerSemanticOrReplace(liftId, 'verticalCirculation');
 
         // Resolve type defaults → caller overrides (mirror of stair merge order).
         const defaults = this.input.typeId && ctx.stores.liftTypeStore

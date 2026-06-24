@@ -2160,18 +2160,35 @@ export class ResidentialBuildingExecutor {
     private _ceilRoomsPerLevel(runtime: PryzmRuntime, levelIds: readonly string[]): void {
         const pc = (window as unknown as { projectContext?: { activeLevelId?: string | null } }).projectContext;
         const roomStore = storeRegistry.getStoreForType('room') as unknown as
-            { getAll?(): Array<{ levelId: string }> } | undefined;
-        const roomCountOn = (lid: string): number => (roomStore?.getAll?.() ?? []).filter(r => r.levelId === lid).length;
-        // Per level, WAIT for that level's room count to stabilise (detection settled) before firing
-        // the ceiling trigger — large plates land rooms on a size-scaled budget, so a fixed delay races.
+            { getAll?(): Array<{ levelId: string; boundary?: { polygon?: ReadonlyArray<unknown> } }> } | undefined;
+        // §RESI-CEILING-INVALID-POLYGON (founder 2026-06-24: "~120 ceilings fail Invalid polygon on
+        // reload, frozen project") — a room can EXIST in the store before its boundary polygon has
+        // been computed (count > 0 but polygon has 0–2 vertices). Firing the ceiling trigger then
+        // builds ceilings over those EMPTY polygons → degenerate ceilings persist into the save →
+        // fail `Polygon must have ≥3 vertices` on load. So gate on VALID rooms only: a room counts as
+        // ready ONLY when its boundary polygon has ≥3 vertices. We wait until the VALID-room count
+        // stabilises before firing, and never fire while any room on the level still lacks a polygon.
+        const validRoomsOn = (lid: string): number =>
+            (roomStore?.getAll?.() ?? []).filter(r => r.levelId === lid && (r.boundary?.polygon?.length ?? 0) >= 3).length;
+        const anyDegenerateOn = (lid: string): boolean =>
+            (roomStore?.getAll?.() ?? []).some(r => r.levelId === lid && (r.boundary?.polygon?.length ?? 0) > 0 && (r.boundary?.polygon?.length ?? 0) < 3);
+        // Per level, WAIT for that level's VALID room count to stabilise (detection settled + every
+        // room has a real polygon) before firing — large plates land rooms on a size-scaled budget.
         levelIds.forEach((lid) => {
             let prev = -1, stable = 0;
             const fire = (n: number): void => {
-                const c = roomCountOn(lid);
-                if (c > 0 && c === prev) stable++; else stable = 0;
+                const c = validRoomsOn(lid);
+                // Stable only when the valid count holds AND no room is still mid-detection (no polygon).
+                if (c > 0 && c === prev && !anyDegenerateOn(lid)) stable++; else stable = 0;
                 prev = c;
                 if (!(stable >= 2 || n <= 0)) { setTimeout(() => fire(n - 1), 300); return; }
-                if (c === 0) return;   // no rooms on this level (e.g. a bare core-only level) → nothing to ceil
+                if (c === 0) return;   // no VALID rooms on this level (e.g. a bare core-only level) → nothing to ceil
+                // Budget exhausted but rooms still degenerate ⇒ DO NOT ceil (a degenerate ceiling would
+                // break the save). Better to ship un-ceiled than to freeze the project on reload.
+                if (n <= 0 && anyDegenerateOn(lid)) {
+                    console.warn('[resi-building] §RESI-CEILING-INVALID-POLYGON — rooms on', lid, 'still lack polygons after the budget; skipping ceilings to avoid a broken save.');
+                    return;
+                }
                 try {
                     if (pc) pc.activeLevelId = lid;
                     triggerCeilingLayout(runtime);
