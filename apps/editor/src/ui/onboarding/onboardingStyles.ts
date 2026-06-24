@@ -801,6 +801,20 @@ export const ONBOARDING_STYLES = `
   border-color: #6600ff;
   color: #fff;
 }
+/* §RESI-PREVIEW-OPTIONS — façade colour swatches (pastel palette). */
+.os-onboarding-overlay .os-swatch {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  border: 2px solid rgba(102, 0, 255, 0.25);
+  padding: 0;
+  cursor: pointer;
+}
+.os-onboarding-overlay .os-swatch:hover { border-color: #6600ff; }
+.os-onboarding-overlay .os-swatch--on {
+  border-color: #6600ff;
+  box-shadow: 0 0 0 2px rgba(102, 0, 255, 0.35);
+}
 
 /* ── DRAG + RESIZE chrome (shared with makeDraggable / makeResizable) ───────────
    The helpers toggle .vg-panel--dragging / .vg-panel--resizing. Suppress text

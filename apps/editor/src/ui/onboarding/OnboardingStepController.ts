@@ -910,6 +910,86 @@ class OnboardingStepController {
         typoWrap.appendChild(chips);
         form.appendChild(typoWrap);
 
+        // §RESI-PREVIEW-OPTIONS (founder 2026-06-24) — roof / ground-floor commercial / façade
+        // colour / balconies. Default: flat roof, big commercial windows, white façade, balconies on.
+        let roofGardenOn = false;
+        let commercialCurtain = false;          // false ⇒ big commercial windows (the default)
+        let balconiesOn = true;
+        let facadeColor = '#f4f1ec';            // Notting-Hill pastel palette, default warm white
+        const singleSelect = (
+            labelText: string,
+            opts: Array<{ key: string; label: string; on: boolean }>,
+            onPick: (key: string) => void,
+        ): void => {
+            const wrap = document.createElement('div');
+            wrap.className = 'os-field';
+            const lbl = document.createElement('span');
+            lbl.className = 'os-field-label';
+            lbl.textContent = labelText;
+            wrap.appendChild(lbl);
+            const row = document.createElement('div');
+            row.className = 'os-typo-chips';
+            for (const o of opts) {
+                const chip = document.createElement('button');
+                chip.type = 'button';
+                chip.className = 'os-typo-chip' + (o.on ? ' os-typo-chip--on' : '');
+                chip.textContent = o.label;
+                chip.setAttribute('aria-pressed', String(o.on));
+                chip.addEventListener('click', () => {
+                    row.querySelectorAll('button').forEach((b) => { b.classList.remove('os-typo-chip--on'); b.setAttribute('aria-pressed', 'false'); });
+                    chip.classList.add('os-typo-chip--on');
+                    chip.setAttribute('aria-pressed', 'true');
+                    onPick(o.key);
+                });
+                row.appendChild(chip);
+            }
+            wrap.appendChild(row);
+            form.appendChild(wrap);
+        };
+        singleSelect('Roof', [
+            { key: 'flat', label: 'Flat roof', on: true },
+            { key: 'garden', label: 'Roof garden', on: false },
+        ], (k) => { roofGardenOn = k === 'garden'; });
+        singleSelect('Ground floor', [
+            { key: 'windows', label: 'Commercial windows', on: true },
+            { key: 'curtain', label: 'Curtain wall', on: false },
+        ], (k) => { commercialCurtain = k === 'curtain'; });
+        singleSelect('Balconies', [
+            { key: 'yes', label: 'Yes', on: true },
+            { key: 'no', label: 'No', on: false },
+        ], (k) => { balconiesOn = k === 'yes'; });
+        // Façade colour — Notting-Hill pastel swatches (default warm white).
+        const colourWrap = document.createElement('div');
+        colourWrap.className = 'os-field';
+        const colourLbl = document.createElement('span');
+        colourLbl.className = 'os-field-label';
+        colourLbl.textContent = 'Façade colour';
+        colourWrap.appendChild(colourLbl);
+        const swatchRow = document.createElement('div');
+        swatchRow.className = 'os-typo-chips';
+        const PASTELS: Array<{ name: string; hex: string }> = [
+            { name: 'White', hex: '#f4f1ec' }, { name: 'Yellow', hex: '#f3dca0' },
+            { name: 'Pink', hex: '#e9b7b0' }, { name: 'Red', hex: '#c97b6e' },
+            { name: 'Blue', hex: '#a9c2d4' }, { name: 'Green', hex: '#aec7a8' },
+            { name: 'Grey', hex: '#cfcdc8' },
+        ];
+        for (const p of PASTELS) {
+            const sw = document.createElement('button');
+            sw.type = 'button';
+            sw.className = 'os-swatch' + (p.hex === facadeColor ? ' os-swatch--on' : '');
+            sw.style.background = p.hex;
+            sw.title = p.name;
+            sw.setAttribute('aria-label', p.name);
+            sw.addEventListener('click', () => {
+                swatchRow.querySelectorAll('button').forEach((b) => b.classList.remove('os-swatch--on'));
+                sw.classList.add('os-swatch--on');
+                facadeColor = p.hex;
+            });
+            swatchRow.appendChild(sw);
+        }
+        colourWrap.appendChild(swatchRow);
+        form.appendChild(colourWrap);
+
         const status = document.createElement('p');
         status.className = 'os-status';
         status.setAttribute('data-testid', 'onboarding-resi-status');
@@ -1019,6 +1099,11 @@ class OnboardingStepController {
                 minApartmentAreaM2: minM2,
                 maxApartmentAreaM2: maxM2,
                 T1: typoState.T1, T2: typoState.T2, T3: typoState.T3, T4: typoState.T4,
+                // §RESI-PREVIEW-OPTIONS — roof / ground-floor / balconies / façade colour.
+                roofGarden: roofGardenOn,
+                groundCommercialCurtain: commercialCurtain,
+                balconies: balconiesOn,
+                facadeColor,
             };
             console.log('[onboarding-step] residential program confirmed', {
                 floors, minApartmentAreaM2: minM2, maxApartmentAreaM2: maxM2, typologies: { ...typoState },

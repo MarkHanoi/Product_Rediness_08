@@ -103,6 +103,8 @@ export function residentialRequestFromBrief(
         : { T1: false, T2: true, T3: true, T4: false };
 
     const siteLatitudeDeg = readNumber(md, 'siteLatitudeDeg', 'latDeg', 'lat');
+    // §RESI-PREVIEW-OPTIONS — the modal's roof-garden toggle (default OFF).
+    const roofGarden = readBool(md, 'roofGarden') === true;
 
     return {
         upperLevels,
@@ -110,6 +112,7 @@ export function residentialRequestFromBrief(
         maxApartmentAreaM2,
         typologies,
         ...(typeof siteLatitudeDeg === 'number' ? { siteLatitudeDeg } : {}),
+        ...(roofGarden ? { roofGarden: true } : {}),
         footprint,
     };
 }
