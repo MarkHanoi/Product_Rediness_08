@@ -2075,6 +2075,12 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         // Absent / false ⇒ the pass is skipped ⇒ byte-identical.
         ...(input.groundFloorWetRoomPublicFallback === true
             ? { groundFloorWetRoomPublicFallback: true } : {}),
+        // §HOUSE-STAIR-DOOR-ACCESS (founder defect B, 2026-06-24) — the stair keep-out rect(s) (engine
+        // emit frame, same as `placements`), so §STAIR-DOOR-LANDING anchors the stair door on the
+        // run-in (bottom-of-flight) edge → it opens into the clear approach landing, not onto a tread.
+        // Absent (apartment / no keep-out) ⇒ the pass keeps the legacy longest-wall pick (ADR-0061).
+        ...(input.keepOutRects && input.keepOutRects.length > 0
+            ? { stairKeepOutRects: input.keepOutRects } : {}),
     });
     const graph = buildSemanticGraph(emitPlacements, segments, openings, bubble, {
         levelId: input.levelId, seed: `${input.seed}|${strategyKey(s)}`, shellAreaM2: shellArea,

@@ -5154,6 +5154,18 @@ export const RESIDUAL_MODERATE_BLANK_M2 = 3.0;
  *  tunnel). Below this the fragment is left as clearance (never a 0.3 m × 8 m sliver). */
 const RESIDUAL_MINT_MIN_SHORT_M = 1.0;
 
+/** §HOUSE-STAIR-ROOM-MERGE (founder defect A, 2026-06-24) — the TIGHT ceiling on absorbing a
+ *  stair-adjacent residual sliver INTO the stair room. Only a GENUINELY SMALL function-less sliver
+ *  is concatenated (the founder's ask): the ABSORBED area must be ≤ {@link STAIR_MERGE_MAX_ABSORB_M2}
+ *  and the MERGED stair must stay ≤ {@link STAIR_MERGE_HARD_MAX_M2} absolute. A larger band that
+ *  would flood the stair into an oversized room falls THROUGH to the legacy seal-as-a-separate-room
+ *  path, keeping the §68.6 "stair stays a tight core ≤ 1.65× its reserved core, ≤ 16 m²" invariant
+ *  (houseStairTight + houseStairKeepoutTight) green ON EVERY FRAME — the absorbed-delta cap is
+ *  frame-independent (it does NOT key off the rotation-inflated world-AABB keep-out, which would let
+ *  a skewed plate's stair grow past the reserved-core ratio). */
+const STAIR_MERGE_MAX_ABSORB_M2 = 3.0;
+const STAIR_MERGE_HARD_MAX_M2 = 16.0;
+
 /** A grown room may never exceed its type's own dimensional HARD-MAX (less a hair, so
  *  the §D3.1 shape gate stays admissible). This is the architectural ceiling per room
  *  type (living 45, bedroom 22, master 35, study 20, dining 28, corridor 12, hall 10
@@ -5537,6 +5549,49 @@ export function claimResidualPlacements(
         if (rectArea(frag) < RESIDUAL_EPS_M2) continue;
         const shortSide = Math.min(frag.x1 - frag.x0, frag.z1 - frag.z0);
         if (shortSide < RESIDUAL_MINT_MIN_SHORT_M) continue;   // clearance sliver — leave blank
+
+        // §HOUSE-STAIR-ROOM-MERGE (founder defect A, 2026-06-24 — "a small leftover room sits
+        // beside the stair room with no function; CONCATENATE it into the stair room"). When a
+        // residual band ABUTS the stair keep-out AND it forms a RECTANGULAR UNION with the `stair`
+        // ROOM placement (a full shared edge → the merged rect stays a clean rectangle), GROW THE
+        // STAIR ROOM to swallow it INSTEAD of minting a separate function-less "Landing"/"Store"
+        // (the legacy §STAIR-LANDING-SEAL mint that PRODUCED the founder's useless sliver). The stair
+        // core stays put (the keep-out is unchanged); only the stair's enclosing landing rect expands
+        // into the EMPTY sliver, so the stair reads as ONE clean space and the door pipeline still
+        // seals it tight. This runs on the residual-claim placements ONLY (the emitted geometry,
+        // DELIBERATELY excluded from every SCORING / Pareto computation — see enumerate
+        // §DIAG-FILL-RESIDUAL), so it can NEVER perturb candidate selection (off the documented
+        // 5×-revert area-cap landmine).
+        //
+        // §68.6-TIGHT GUARD (CRITICAL — keep houseStairTight.test green): the merge is CAPPED so the
+        // stair never grows past a TIGHT core (the §68.6 "stair ≤ 1.65× its reserved core, ≤ 16 m²"
+        // invariant the founder ALSO requires). A small function-less sliver is absorbed (defect A);
+        // a LARGE band that would flood the stair into an oversized room falls THROUGH to the legacy
+        // grow/mint (so it is sealed as a separate room, not a 30 m² stair). House-only: the apartment
+        // passes no keep-out ⇒ `stairKeepOuts` empty ⇒ this block is unreachable ⇒ byte-identical
+        // (ADR-0061).
+        if (stairKeepOuts.length > 0 && touchesStair(frag)) {
+            let mergedStair = false;
+            for (let i = 0; i < work.length; i++) {
+                if ((roomById.get(work[i]!.roomId)?.type ?? '') !== 'stair') continue;
+                const merged = unionIsRect(work[i]!.rect, frag);   // null unless a clean full-edge union
+                if (!merged) continue;
+                // The tight ceiling: only a SMALL sliver (absorbed delta ≤ STAIR_MERGE_MAX_ABSORB_M2)
+                // is merged, and the result must stay ≤ STAIR_MERGE_HARD_MAX_M2 — anything larger
+                // falls through to the legacy mint so the stair never floods into an oversized room.
+                const absorbedM2 = rectArea(merged) - rectArea(work[i]!.rect);
+                if (absorbedM2 > STAIR_MERGE_MAX_ABSORB_M2 + 1e-6) continue;     // not a small sliver → leave to mint
+                if (rectArea(merged) > STAIR_MERGE_HARD_MAX_M2 + 1e-6) continue; // would flood the stair → leave to mint
+                claims.push({
+                    areaM2: round6(rectArea(merged) - rectArea(work[i]!.rect)),
+                    how: 'grown', neighbourId: work[i]!.roomId, label: work[i]!.roomId,
+                });
+                work[i] = { roomId: work[i]!.roomId, rect: merged };
+                mergedStair = true;
+                break;
+            }
+            if (mergedStair) continue;   // band absorbed into the stair room; no separate mint
+        }
 
         // The grow-eligible placed room sharing the LONGEST FULL (rectangular-union) wall with
         // this fragment, with headroom under its HARD-MAX cap, where the grown rect STILL fits

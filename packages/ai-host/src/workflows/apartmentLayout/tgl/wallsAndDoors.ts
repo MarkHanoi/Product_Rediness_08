@@ -177,6 +177,19 @@ export interface WallsAndDoorsOpts {
      * orchestrator sets it true ONLY for the GROUND storey.
      */
     readonly groundFloorWetRoomPublicFallback?: boolean;
+    /**
+     * §HOUSE-STAIR-DOOR-ACCESS (founder defect B, 2026-06-24 — "the door to the stair room is
+     * placed RIGHT AGAINST the flight; it must open into clear ACCESS space — the bottom run-in
+     * landing — like the residential CORE §RESI-CORE-CIRCULATION"). The stair keep-out rect(s) (the
+     * stair core footprint, engine emit frame). When present the §STAIR-DOOR-LANDING pass PREFERS the
+     * stair↔circulation wall that lies on the stair's RUN-IN edge (the bottom-of-flight approach: the
+     * SHORT edge at the low end of the keep-out's LONG axis — the flight runs +along the long axis
+     * from its near corner, mirroring `computeStairWorldFootprint`), so the door opens into the clear
+     * run-in landing rather than onto a tread or the side of the flight. It is a PURE DOOR-ANCHOR
+     * preference: it only re-orders the candidate stair↔circulation walls (a length tie-break), never
+     * moves a room / changes geometry / touches scoring (off the area-cap landmine). Absent / empty ⇒
+     * the legacy longest-wall pick ⇒ byte-identical (apartment passes no keep-out, ADR-0061). */
+    readonly stairKeepOutRects?: ReadonlyArray<{ x0: number; z0: number; x1: number; z1: number }>;
 }
 
 const EPS = 1e-6;
@@ -1509,17 +1522,50 @@ export function buildWallsAndDoors(
     // the stair door HERE, deterministically on its best wall, before any generic pass, is
     // what makes it land accurately. Only fires for a `stair` room (apartment has none →
     // byte-identical). `addDoor` centres the door via findClearOffset (corner + junction
-    // clear); we simply pick the longest permitted stair↔circulation wall.
+    // clear).
+    //
+    // §HOUSE-STAIR-DOOR-ACCESS (founder defect B, 2026-06-24 — "the door is placed RIGHT AGAINST
+    // the flight; it must open into the clear ACCESS / run-in landing, like §RESI-CORE-CIRCULATION").
+    // When the caller supplies the stair keep-out rect(s), PREFER the stair↔circulation wall that
+    // lies on the stair's RUN-IN edge (the bottom-of-flight approach) over the merely-longest wall:
+    // a side wall (parallel to the flight) drops you onto a tread mid-flight, whereas the run-in edge
+    // wall opens into the clear landing the founder wants. The run-in edge is the SHORT edge at the
+    // LOW end of the keep-out's LONG axis (the flight runs +along that axis from its near corner —
+    // mirroring `computeStairWorldFootprint`'s `runAlongZ ? z0 : x0` start). This is a PURE door-anchor
+    // re-order (a tie-break ABOVE length); it never moves a room / changes geometry / touches scoring.
+    const stairKO = opts.stairKeepOutRects && opts.stairKeepOutRects.length > 0 ? opts.stairKeepOutRects : null;
+    // The fraction of a wall segment that must lie on the run-in edge for it to count as the approach
+    // face (a near-coincident, overlapping wall). Returns 1 when on the run-in edge, else 0.
+    const onRunInEdge = (seg: WallSeg): number => {
+        if (!stairKO) return 0;
+        const mx = (seg.a.x + seg.b.x) / 2, mz = (seg.a.z + seg.b.z) / 2;
+        const horizontal = Math.abs(seg.b.z - seg.a.z) < Math.abs(seg.b.x - seg.a.x);   // wall runs along x
+        for (const ko of stairKO) {
+            const w = ko.x1 - ko.x0, h = ko.z1 - ko.z0;
+            const runAlongZ = h >= w;                       // flight runs +Z (long axis Z) ⇒ run-in = z0 edge
+            if (runAlongZ) {
+                // run-in is the z0 (min-Z) edge: a HORIZONTAL wall coincident with z=z0, spanning x within the KO.
+                if (horizontal && Math.abs(mz - ko.z0) < 0.06 && mx > ko.x0 - 0.06 && mx < ko.x1 + 0.06) return 1;
+            } else {
+                // run-in is the x0 (min-X) edge: a VERTICAL wall coincident with x=x0, spanning z within the KO.
+                if (!horizontal && Math.abs(mx - ko.x0) < 0.06 && mz > ko.z0 - 0.06 && mz < ko.z1 + 0.06) return 1;
+            }
+        }
+        return 0;
+    };
     for (const r of graph.rooms) {
         if (r.type !== 'stair') continue;
         const stairId = r.id;
-        // Longest permitted stair↔(corridor/hall) shared wall, deterministic (length, then id).
+        // Run-in-edge first (defect B), then longest, then stable id — deterministic.
         const stairWalls = shared
             .filter(c => {
                 const other = c.a === stairId ? c.b : c.b === stairId ? c.a : null;
                 return other !== null && isCirculation(typeOf.get(other) ?? '') && permitted(c.a, c.b);
             })
-            .sort((p, q) => q.len - p.len || (p.seg.id < q.seg.id ? -1 : 1));
+            .sort((p, q) =>
+                onRunInEdge(q.seg) - onRunInEdge(p.seg)   // §HOUSE-STAIR-DOOR-ACCESS: run-in edge wins
+                || q.len - p.len
+                || (p.seg.id < q.seg.id ? -1 : 1));
         for (const c of stairWalls) {
             if (cFind(c.a) === cFind(c.b)) break;   // stair already door-linked to circulation
             if (addDoor(c.seg, c.a, c.b)) { cUnion(c.a, c.b); break; }
