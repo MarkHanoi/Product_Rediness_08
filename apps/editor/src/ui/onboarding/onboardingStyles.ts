@@ -518,8 +518,11 @@ export const ONBOARDING_STYLES = `
   white-space: nowrap;
 }
 .os-onboarding-overlay .os-body {
-  /* Content-sized: no flex-grow, no min-height; scroll only past the cap. */
+  /* §RESI-MODAL-SCROLL (founder 2026-06-24: "top info not accessible") — in a flex column the
+     body must be allowed to SHRINK below its content size (min-height:0) so it scrolls INTERNALLY
+     instead of overflowing the overlay (which clips it via overflow:hidden, hiding the top rows). */
   flex: 0 1 auto;
+  min-height: 0;
   overflow-y: auto;
   padding: 0.8rem 0.85rem 0.9rem;
   display: flex;
