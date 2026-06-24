@@ -663,9 +663,13 @@ export class ResidentialBuildingExecutor {
         const c1 = { x: core.x1, z: core.z0 };
         const c2 = { x: core.x1, z: core.z1 };
         const c3 = { x: core.x0, z: core.z1 };
-        seg(c0, c1, true);    // z0 edge — fire door toward the lower spine corridor.
+        // §RESI-CORE-CIRCULATION R-CORE-7 (2026-06-24) — ONE fire door, on the z0 LOBBY edge only.
+        // The stair sets back from z0 (its run climbs +Z toward z1), so a z1 door would open against
+        // the BACK of the stair run (the blocked "wall in front" the founder reported). z0 is the
+        // lobby/approach side the corridor connects to → the single sound access door goes there.
+        seg(c0, c1, true);    // z0 edge — fire door into the lobby (stair run-in + lift, corridor side).
         seg(c1, c2, false);   // x1 edge — solid RC.
-        seg(c2, c3, true);    // z1 edge — fire door toward the upper spine corridor.
+        seg(c2, c3, false);   // z1 edge — SOLID (backs the top of the stair run; no door).
         seg(c3, c0, false);   // x0 edge — solid RC.
         return { payload: { walls, levelId }, doors };
     }
