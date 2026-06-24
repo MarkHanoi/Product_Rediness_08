@@ -784,17 +784,38 @@ export class ResidentialBuildingExecutor {
             // computed in the LOCAL frame, then rotated to the WORLD parcel.
             const startLocal = this._rotate({ x: stairCellX0 + stairCellW / 2, z: cz0 + 0.1 }, xf);
             const startPosition = { x: startLocal.x, y: startY, z: startLocal.z };
+            // §RESI-CORE-USTAIR (founder 2026-06-24: "the stair clashes with the core — the stair can
+            // be in U to take less space"). A straight 17-riser run (~4.25 m) overran the 4 m-deep
+            // core. Fold it into a U — two half-flights + a half-landing — so it fits the core
+            // footprint. Geometry mirrors the canonical StairCommandPlan U-shape (§7.1): run 2 is the
+            // reverse of run 1, offset one stair-width laterally, starting halfRun+tread along + up
+            // half the rise. Width is capped at half the stair cell so both runs sit side-by-side.
+            const stairWidth = Math.min(STAIR_WIDTH_M, Math.max(0.9, stairCellW / 2 - 0.1));
+            const dir = { x: runDir.x, y: 0, z: runDir.z };
+            const reverseDir = { x: -runDir.x, y: 0, z: -runDir.z };
+            const perpDir = { x: -runDir.z, y: 0, z: runDir.x };
+            const half = Math.floor(totalRisers / 2);
+            const halfRun = half * STAIR_TREAD_M;
+            const secondStart = {
+                x: startPosition.x + dir.x * (halfRun + STAIR_TREAD_M) + perpDir.x * stairWidth,
+                y: startPosition.y + half * riserHeight,
+                z: startPosition.z + dir.z * (halfRun + STAIR_TREAD_M) + perpDir.z * stairWidth,
+            };
             try {
                 cm.execute?.(new CreateStairCommand({
                     id: createId('stair'),
                     baseLevelId: fromLevelId,
                     topLevelId: toLevelId,
-                    shape: 'I',
+                    shape: 'U',
                     riserHeight,
                     treadDepth: STAIR_TREAD_M,
-                    width: Math.min(STAIR_WIDTH_M, Math.max(0.9, stairCellW - 0.1)),
+                    width: stairWidth,
                     startPosition,
-                    flights: [{ direction: { x: runDir.x, y: 0, z: runDir.z }, riserCount: totalRisers }],
+                    flights: [
+                        { direction: dir, riserCount: half },
+                        { direction: reverseDir, riserCount: totalRisers - half, startOverride: secondStart },
+                    ],
+                    landings: [{ depth: 2 * stairWidth }],
                     accessibilityType: 'standard',
                 }), { source: 'RESI_PIPELINE_STAIR' });
                 stairs++;
