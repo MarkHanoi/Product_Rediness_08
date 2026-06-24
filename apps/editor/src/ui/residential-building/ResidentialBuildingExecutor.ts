@@ -655,34 +655,48 @@ export class ResidentialBuildingExecutor {
                 height: groundWallH, thickness: SHELL_WALL_THICKNESS_M,
             });
             if (windowed) {
-                // §RESI-GROUND-WINDOW-RHYTHM — a REPEATING SERIES of tall panes (≤2 m) with even
-                // 0.5–1.0 m piers between, leaving a solid stub at each end. Head clamped under the
-                // wall head (≥0.1 m lintel). Tall: sill 0.01 m → head 3.5 m (clamped).
+                // §RESI-GROUND-WINDOW-CENTER (founder 2026-06-24: "the panes must read WELL-CENTERED
+                // and balanced — no pane jammed against the corner pier") — a REPEATING SERIES of tall
+                // panes (≤2 m) with UNIFORM piers between, the whole pattern MIRROR-SYMMETRIC about the
+                // segment midpoint: EQUAL solid stub at BOTH ends. Head clamped under the wall head
+                // (≥0.1 m lintel). Tall: sill 0.01 m → head 3.5 m (clamped).
                 const head = Math.min(WIN_HEAD_M, groundWallH - 0.1);
                 const winH = Math.max(0.6, head - WIN_SILL_M);
-                const usable = len - 2 * WIN_SIDE_MARGIN_M;     // run available for panes + piers
+                // End stub: at least WIN_SIDE_MARGIN_M, with a bit more at a real building corner so a
+                // pane never crowds the corner pier. The actual stub the panes get is the SYMMETRIC
+                // `startStub` computed below (≥ this floor), so both ends are always equal.
+                const CORNER_STUB_M = Math.max(WIN_SIDE_MARGIN_M, 0.45);
+                // Size the pane BLOCK against a minimum corner stub; centre the block ⇒ the leftover
+                // splits equally into the two end stubs (mirror symmetry by construction).
+                const usable = len - 2 * CORNER_STUB_M;          // run available for panes + piers
                 // Even cadence: count = floor((usable + gap) / (pane + gap)) using target sizes.
                 let count = Math.floor((usable + WIN_GAP_TARGET_M) / (WIN_PANE_TARGET_M + WIN_GAP_TARGET_M));
                 if (usable >= 0.6 && count >= 2) {
-                    // Recompute pane width so panes + piers fill the run FLUSH (luxe even cadence),
-                    // holding the target pier and solving for the pane: usable = N·pane + (N-1)·gap.
+                    // Hold a UNIFORM pier; solve the pane so the panes+piers BLOCK fits `usable` exactly,
+                    // then re-centre the block in the FULL segment so both end stubs are equal.
                     let gap = WIN_GAP_TARGET_M;
                     let paneW = (usable - (count - 1) * gap) / count;
-                    // Pane too wide (> 2 m) ⇒ widen the piers (toward the 1.0 m cap) to soak the slack
-                    // while clamping the pane to ≤ 2 m; recompute the gap to keep the run flush.
+                    // Pane too wide (> 2 m) ⇒ widen the uniform pier (toward the 1.0 m cap) to soak the
+                    // slack while clamping the pane to ≤ 2 m.
                     if (paneW > WIN_PANE_MAX_M) {
                         paneW = WIN_PANE_MAX_M;
                         gap = (usable - count * paneW) / (count - 1);
                     }
-                    // Keep the pier inside [0.5, 1.0]; if clamping changes it, re-solve the pane so the
-                    // row still fills flush (pane absorbs the residue; it stays ≤ 2 m by construction).
+                    // Keep the uniform pier inside [0.5, 1.0]; if clamping changes it, re-solve the pane
+                    // (pane absorbs the residue; it stays ≤ 2 m by construction). The pier stays UNIFORM
+                    // across the whole run — only the (equal) end stubs differ from it.
                     if (gap < WIN_GAP_MIN_M || gap > WIN_GAP_MAX_M) {
                         gap = Math.min(WIN_GAP_MAX_M, Math.max(WIN_GAP_MIN_M, gap));
                         paneW = (usable - (count - 1) * gap) / count;
                     }
                     if (paneW >= 0.6 && paneW <= WIN_PANE_MAX_M + 1e-6) {
-                        // Lay the series out from the start stub: pane, gap, pane, gap, …
-                        let cursor = WIN_SIDE_MARGIN_M;
+                        // The panes+piers block width, re-centred in the FULL segment length ⇒ the
+                        // start stub = end stub = (len − block) / 2. This is the symmetric centring:
+                        // the pattern mirrors about len/2, piers are uniform, both stubs are equal and
+                        // ≥ CORNER_STUB_M (because block ≤ usable = len − 2·CORNER_STUB_M).
+                        const block = count * paneW + (count - 1) * gap;
+                        const startStub = (len - block) / 2;
+                        let cursor = startStub;
                         for (let k = 0; k < count; k++) {
                             commercialWindows.push({
                                 wallId: id,
@@ -697,9 +711,9 @@ export class ResidentialBuildingExecutor {
                         return id;
                     }
                 }
-                // Fallback (edge too short for ≥2 panes): a single centred pane, ≤ 2 m wide, with the
-                // solid end stubs preserved (the historical behaviour, clamped to the 2 m pane cap).
-                const winW = Math.min(WIN_PANE_MAX_M, usable);
+                // Fallback (segment too short for ≥2 panes): a single CENTRED pane, ≤ 2 m wide, with
+                // equal solid end stubs (offset = (len − winW)/2 ⇒ symmetric about the midpoint).
+                const winW = Math.min(WIN_PANE_MAX_M, len - 2 * CORNER_STUB_M, len - 2 * WIN_SIDE_MARGIN_M);
                 if (winW >= 0.6) {
                     commercialWindows.push({
                         wallId: id,
