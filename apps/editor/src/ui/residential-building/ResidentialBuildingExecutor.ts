@@ -37,8 +37,11 @@ import {
     CreateWallOpeningsBatchCommand,
     CreateRoomBoundingLinesBatchCommand,
     BatchCreateRoomsCommand,
+    CreateHandrailCommand,
+    CreateFurnitureCommand,
 } from '@pryzm/command-registry';
 import { roomDataFromGraphSpec, type GraphRoomSpec, type RoomData } from '@pryzm/room-topology';
+import type { FurnitureType, FurnitureMaterial } from '@pryzm/geometry-furniture';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import {
     buildLayoutCommands,
@@ -72,6 +75,18 @@ const STAIR_WIDTH_M = 1.0;
  *  solid portion of the façade"). */
 const ENTRANCE_BAY_HALF_M = 1.6;
 
+// §RESI-BALCONY (2026-06-24) — projecting cantilever balcony tuning (balcony spike D.2).
+const BALCONY_DEPTH_M = 1.4;             // cantilever depth off the façade (rule minShortSideM)
+const BALCONY_MIN_WIDTH_M = 2.5;         // min façade frontage to drop a balcony
+const BALCONY_SLAB_THICKNESS_M = 0.2;    // DEFAULT_SLAB_THICKNESS_M — cantilever floor
+const BALCONY_GUARD_HEIGHT_M = 1.1;      // glass guard height (canExecute band 0.3–2.5)
+const BALCONY_SIDE_INSET_M = 0.05;       // pull side edges off the wall ends to clear the shell
+
+// §RESI-ROOF-GARDEN (2026-06-24) — roof amenity-deck tuning (roof-garden spike slice 1).
+const ROOF_GUARD_HEIGHT_M = 1.1;         // perimeter glass guard height
+const ROOF_GUARD_THICKNESS_M = 0.05;     // guard post/profile thickness
+const ROOF_DECK_THICKNESS_M = 0.25;      // matches _createRoof THICK — slab top above level datum
+
 /** A minimal command-manager handle — the legacy synchronous execute path the
  *  apartment / house executors use. */
 interface CommandManagerLike {
@@ -89,6 +104,12 @@ export interface ResidentialExecuteInput {
      *  mullions white-metallic + clear glazing). The modal colour picker threads these through. */
     readonly curtainMullionColor?: string;
     readonly curtainGlazingColor?: string;
+    /** §RESI-ROOF-GARDEN (founder 2026-06-24) — OPTIONAL roof amenity deck. Default OFF. When ON:
+     *  the core stair + lift extend ONE level higher to the existing roof level (roof access
+     *  headhouse + door), the flat roof slab is ringed with a glass guard, and a deterministic
+     *  handful of EXISTING furniture amenities (benches, tables, planters, trees) lands on the deck.
+     *  Pool / BBQ are a Slice-2 follow-up (they need NEW FurnitureTypes — deferred). */
+    readonly roofGarden?: boolean;
 }
 
 export interface ResidentialExecuteResult {
@@ -154,6 +175,8 @@ export class ResidentialBuildingExecutor {
 
         const floorToFloorM = input?.floorToFloorM && input.floorToFloorM > 0 ? input.floorToFloorM : DEFAULT_FLOOR_TO_FLOOR_M;
         const baseElevationM = ground.elevation ?? 0;
+        // §RESI-ROOF-GARDEN (2026-06-24) — the optional roof amenity deck (default OFF).
+        const roofGarden = input?.roofGarden === true;
 
         // ── (a) Mint editor levels 1…N above the ground (ground reuses the active
         // level). We own the ids and map orchestrator levelIndex → editor levelId.
@@ -181,6 +204,10 @@ export class ResidentialBuildingExecutor {
             const res = cm.execute(new AddLevelCommand({ levelId: roofLevelId, name: 'Roof', elevation: roofElevationM, height: floorToFloorM }), { source: 'RESI_PIPELINE_LEVEL' });
             if (!res?.success) console.warn('[resi-building] roof-level AddLevelCommand failed — roof may sit on the top floor');
         }
+        // §RESI-ROOF-GARDEN — when the deck is ON, register the roof level at index N (= levels.length)
+        // so the core stair + lift loops in _createCore extend ONE flight higher and the stair/lift
+        // ARRIVE on the roof level (real roof access), exactly like every other indexed circulation hop.
+        if (roofGarden) levelIdByIndex.set(result.levels.length, roofLevelId);
         const levelIds = [...levelIdByIndex.values()];
         console.log('[resi-building] minted levels', levelIds);
 
@@ -188,6 +215,10 @@ export class ResidentialBuildingExecutor {
         // apartment cell is a clean plate: emit its 4-wall perimeter (pre-minted) +
         // run the apartment engine's PURE buildLayoutCommands for the interior.
         const apartmentBuilds: ApartmentBuild[] = [];
+        // §RESI-BALCONY (2026-06-24) — the UPPER-floor apartments + their level, for the post-pass
+        // that cantilevers a balcony off each living/longest façade edge. Ground (curtain shopfront)
+        // has no apartments and the roof is amenity deck, so this only ever holds upper apartments.
+        const balconyCandidates: Array<{ levelId: string; apt: PlacedApartment }> = [];
         // Per (floor) the building shell perimeter walls + slab polygon + corridor lines.
         const shellPayloads: Array<{ walls: ReadonlyArray<Record<string, unknown>>; levelId: string }> = [];
         const slabPolys: Array<{ levelId: string; poly: ReadonlyArray<{ x: number; z: number }> }> = [];
@@ -317,10 +348,22 @@ export class ResidentialBuildingExecutor {
                 try {
                     const set = buildLayoutCommands(apt.layout, opts, (p: IdPrefix) => createId(p));
                     apartmentBuilds.push({ levelId, set, option: apt.layout, entryDoor: perimeter.entryDoor });
+                    // §RESI-BALCONY — this is an UPPER-floor apartment (only upper levels carry
+                    // apartments); remember it for the projecting-balcony post-pass.
+                    balconyCandidates.push({ levelId, apt });
                 } catch (e) {
                     console.warn('[resi-building] buildLayoutCommands failed for an apartment (skipped):', e);
                 }
             }
+        }
+
+        // §RESI-ROOF-GARDEN — the roof "headhouse": enclose the core on the ROOF level too (RC
+        // walls + the same z0 fire door) so the extended stair/lift arrive in an enclosed core with
+        // a real door onto the deck, not an open shaft. Built the same way as every storey's core.
+        if (roofGarden && result.core) {
+            const cp = this._buildCorePerimeter(roofLevelId, result.core, floorToFloorM, xf);
+            corePerimeterPayloads.push(cp.payload);
+            coreDoorSpecs.push(...cp.doors);
         }
 
         console.log(`[resi-building] prepared — ${placedCount} apartment(s), ${rejectedCount} rejected, ${shellPayloads.length} shell ring(s)`);
@@ -378,10 +421,22 @@ export class ResidentialBuildingExecutor {
             // roof capping the building on the top level's wall head.
             const topLvl = result.levels[result.levels.length - 1];
             if (topLvl) this._createRoof(cm, topLvl.footprint, roofLevelId);
+            // 3c. §RESI-ROOF-GARDEN — turn the flat roof into a walkable amenity deck: a perimeter
+            // glass guard ringing the footprint + a handful of EXISTING furniture amenities, all on
+            // the roof level. The deck IS the flat roof slab (no slab change). Core is the keep-out.
+            if (roofGarden && topLvl) {
+                this._createRoofGuardrail(cm, topLvl.footprint, roofLevelId);
+                if (result.core) this._furnishRoofDeck(cm, topLvl.footprint, result.core, roofLevelId, xf);
+            }
             // 4. Central core — a stair per adjacent level pair + ONE lift ground→top.
-            const coreResult = this._createCore(cm, result, levelIdByIndex, floorToFloorM, baseElevationM, xf);
+            //    §RESI-ROOF-GARDEN — when ON, the core climbs ONE flight higher to the roof level.
+            const coreResult = this._createCore(cm, result, levelIdByIndex, floorToFloorM, baseElevationM, xf, roofGarden);
             stairCount = coreResult.stairs;
             liftCount = coreResult.lifts;
+            // 5. §RESI-BALCONY — projecting cantilever balconies off the upper-floor apartments'
+            //    façade (slab + 3-edge glass guard). Upper floors only; clear of the ground curtain
+            //    shopfront + the roof deck (those levels are never in `balconyCandidates`).
+            this._createBalconies(cm, balconyCandidates, xf);
         }, {
             levelIds: allLevelIds,
             totalElementCount: shellPayloads.length * 4 + corePerimeterPayloads.length * 4 + cellPerimeterPayloads.length * 4 + groundCurtainPayloads.length + apartmentBuilds.length + slabPolys.length + result.levels.length,
@@ -807,6 +862,222 @@ export class ResidentialBuildingExecutor {
         } catch (e) { console.warn('[resi-building] roof create failed (skipped):', e); }
     }
 
+    /** §RESI-ROOF-GARDEN (2026-06-24) — ring the roof footprint with a 1.1 m glass guard so the
+     *  flat roof reads as a walkable amenity deck. `footprint` is WORLD-XZ (no transform). Each
+     *  edge becomes one CreateHandrailCommand (fillType:'glass' ⇒ IFC GUARDRAIL), copying the
+     *  house void-guard call shape. Roof access is via the interior core headhouse (a door punched
+     *  on the core's z0 edge), so no perimeter edge gap is needed — ring every edge. The guard
+     *  sits on the roof level datum (baseOffset 0); the deck slab top is ~0.25 m above it, so the
+     *  guard rises from roughly the deck surface (spike risk E1 — acceptable for slice 1). */
+    private _createRoofGuardrail(
+        cm: CommandManagerLike,
+        footprint: ReadonlyArray<{ x: number; z: number }>,
+        roofLevelId: string,
+    ): void {
+        const ring = this._cleanRing(footprint);
+        if (ring.length < 3) return;
+        let railed = 0;
+        for (let i = 0; i < ring.length; i++) {
+            const a = ring[i]!;
+            const b = ring[(i + 1) % ring.length]!;
+            if (Math.hypot(b.x - a.x, b.z - a.z) < 0.1) continue;   // canExecute floor (≥0.1 m)
+            try {
+                cm.execute?.(new CreateHandrailCommand({
+                    id: createId('handrail'),
+                    start: { x: a.x, z: a.z },
+                    end: { x: b.x, z: b.z },
+                    height: ROOF_GUARD_HEIGHT_M,
+                    thickness: ROOF_GUARD_THICKNESS_M,
+                    levelId: roofLevelId,
+                    baseOffset: ROOF_DECK_THICKNESS_M,   // raise to the deck slab top (~0.25 m up)
+                    fillType: 'glass',
+                    railProfile: 'rectangular',
+                }), { source: 'RESI_PIPELINE_ROOF_GARDEN' });
+                railed++;
+            } catch (e) { console.warn('[resi-building] roof guard edge skipped:', e); }
+        }
+        console.log(`[resi-building] §RESI-ROOF-GARDEN perimeter guard — ${railed} edge(s) railed on roof level`);
+    }
+
+    /** §RESI-ROOF-GARDEN (2026-06-24) — place a deterministic handful of EXISTING furniture
+     *  amenities (benches, tables, planters, trees) on the deck via CreateFurnitureCommand, clear
+     *  of the central CORE keep-out. `footprint` is WORLD-XZ; `core` is the LOCAL (principal-axis)
+     *  rect, rotated to world by `xf` (spike risk E4 — frame mismatch puts items in the core). The
+     *  command forces position.y = roofLevel.elevation (spike risk E1); we pass baseOffset = deck
+     *  thickness so items rest ON the slab top, not the level datum. Pool / BBQ are deferred to
+     *  Slice 2 (they need NEW FurnitureTypes). */
+    private _furnishRoofDeck(
+        cm: CommandManagerLike,
+        footprint: ReadonlyArray<{ x: number; z: number }>,
+        core: { x0: number; x1: number; z0: number; z1: number },
+        roofLevelId: string,
+        xf: ResidentialRigidTransform,
+    ): void {
+        const ring = this._cleanRing(footprint);
+        if (ring.length < 3) return;
+        // Deck AABB (WORLD) — a robust placement region for the axis-aligned amenity grid.
+        const xs = ring.map(p => p.x), zs = ring.map(p => p.z);
+        const minX = Math.min(...xs), maxX = Math.max(...xs);
+        const minZ = Math.min(...zs), maxZ = Math.max(...zs);
+        // The CORE keep-out in WORLD: rotate the LOCAL rect corners, take their AABB (a slightly
+        // conservative box on a tilted parcel — keeps amenities safely clear of the headhouse).
+        const cc = [
+            this._rotate({ x: core.x0, z: core.z0 }, xf),
+            this._rotate({ x: core.x1, z: core.z0 }, xf),
+            this._rotate({ x: core.x1, z: core.z1 }, xf),
+            this._rotate({ x: core.x0, z: core.z1 }, xf),
+        ];
+        const coreMinX = Math.min(...cc.map(p => p.x)) - 0.6;
+        const coreMaxX = Math.max(...cc.map(p => p.x)) + 0.6;
+        const coreMinZ = Math.min(...cc.map(p => p.z)) - 0.6;
+        const coreMaxZ = Math.max(...cc.map(p => p.z)) + 0.6;
+        const inCore = (x: number, z: number): boolean =>
+            x >= coreMinX && x <= coreMaxX && z >= coreMinZ && z <= coreMaxZ;
+        const inset = 1.2;   // keep amenities off the guard / parapet
+        // A deterministic amenity menu drawn from EXISTING FurnitureTypes (spike A.3 table).
+        type Item = { type: FurnitureType; w: number; l: number; h: number; material: FurnitureMaterial };
+        const MENU: Item[] = [
+            { type: 'entry_bench', w: 1.4, l: 0.5, h: 0.45, material: 'wood' },     // bench
+            { type: 'coffee_table', w: 0.9, l: 0.6, h: 0.4, material: 'wood' },     // table
+            { type: 'lounge_chair', w: 0.7, l: 0.9, h: 0.8, material: 'fabric' },   // outdoor seat
+            { type: 'plant_01', w: 0.5, l: 0.5, h: 0.9, material: 'wood' },         // planter
+            { type: 'arbol_t_01', w: 1.2, l: 1.2, h: 3.0, material: 'wood' },       // tree
+        ];
+        // Walk a coarse grid inside the deck (minus the core), cycling the menu — a recognizable,
+        // deterministic scatter without an optimiser (slice 1). World-XZ; no transform (footprint
+        // is world). Cap the count so a huge plate doesn't flood the deck.
+        const step = 3.5;
+        let placed = 0, k = 0;
+        const MAX_ITEMS = 24;
+        for (let z = minZ + inset; z <= maxZ - inset && placed < MAX_ITEMS; z += step) {
+            for (let x = minX + inset; x <= maxX - inset && placed < MAX_ITEMS; x += step) {
+                if (inCore(x, z)) continue;
+                const item = MENU[k % MENU.length]!;
+                k++;
+                try {
+                    cm.execute?.(new CreateFurnitureCommand({
+                        id: createId('furniture'),
+                        furnitureType: item.type,
+                        position: { x, y: 0, z },               // y forced to level.elevation in execute()
+                        rotation: { x: 0, y: 0, z: 0 },
+                        levelId: roofLevelId,
+                        baseOffset: ROOF_DECK_THICKNESS_M,      // sit on the deck slab top, not the datum
+                        width: item.w,
+                        length: item.l,
+                        height: item.h,
+                        material: item.material,
+                    }), { source: 'RESI_PIPELINE_ROOF_GARDEN' });
+                    placed++;
+                } catch (e) { console.warn('[resi-building] roof amenity skipped:', e); }
+            }
+        }
+        console.log(`[resi-building] §RESI-ROOF-GARDEN amenities — ${placed} item(s) placed on the deck`);
+    }
+
+    /** §RESI-BALCONY (2026-06-24, balcony spike D.4) — for each UPPER-floor apartment, drop ONE
+     *  projecting cantilever balcony off its LONGEST exterior façade edge (the living room fronts
+     *  the longest façade by construction): a cantilever SLAB (~1.4 m deep, 0.2 m thick) + a 3-edge
+     *  glass guard (the outer U; the wall-facing edge stays open as the access). The apartment's
+     *  existing façade window/door on that edge is the access (no new door minted — slice 1). The
+     *  cell.rect is LOCAL (metres); both balcony corners are rotated to the WORLD parcel by `xf`,
+     *  exactly like the cell perimeter. The outward normal points AWAY from the cell centre (spike
+     *  risk: a backwards normal puts the balcony inside the building). GROUND (curtain shopfront)
+     *  and ROOF levels are excluded by the caller — upper apartment floors only. Never throws. */
+    private _createBalconies(
+        cm: CommandManagerLike,
+        builds: ReadonlyArray<{ levelId: string; apt: PlacedApartment }>,
+        xf: ResidentialRigidTransform,
+    ): void {
+        if (builds.length === 0) return;
+        const EDGE_CORNERS: Record<string, [{ x: 'x0' | 'x1'; z: 'z0' | 'z1' }, { x: 'x0' | 'x1'; z: 'z0' | 'z1' }]> = {
+            z0: [{ x: 'x0', z: 'z0' }, { x: 'x1', z: 'z0' }],
+            x1: [{ x: 'x1', z: 'z0' }, { x: 'x1', z: 'z1' }],
+            z1: [{ x: 'x1', z: 'z1' }, { x: 'x0', z: 'z1' }],
+            x0: [{ x: 'x0', z: 'z1' }, { x: 'x0', z: 'z0' }],
+        };
+        let slabs = 0, guards = 0;
+        for (const { levelId, apt } of builds) {
+            const r = apt.cell.rect;
+            const cx = (r.x0 + r.x1) / 2, cz = (r.z0 + r.z1) / 2;   // cell centre (LOCAL)
+            const facade: ReadonlyArray<string> = apt.facadeEdges instanceof Set
+                ? [...(apt.facadeEdges as ReadonlySet<string>)]
+                : (apt.facadeEdges ?? []);
+            // Pick the LONGEST façade edge that is NOT the corridor door edge (the living room
+            // fronts the longest façade) and is long enough to host a real balcony.
+            let bestEdge: string | undefined; let bestLen = 0;
+            for (const e of facade) {
+                if (e === apt.cell.doorEdge) continue;
+                const corners = EDGE_CORNERS[e];
+                if (!corners) continue;
+                const a = { x: r[corners[0].x], z: r[corners[0].z] };
+                const b = { x: r[corners[1].x], z: r[corners[1].z] };
+                const len = Math.hypot(b.x - a.x, b.z - a.z);
+                if (len > bestLen) { bestLen = len; bestEdge = e; }
+            }
+            if (!bestEdge || bestLen < BALCONY_MIN_WIDTH_M) continue;
+            const corners = EDGE_CORNERS[bestEdge]!;
+            const ea = { x: r[corners[0].x], z: r[corners[0].z] };   // LOCAL edge endpoints
+            const eb = { x: r[corners[1].x], z: r[corners[1].z] };
+            // Outward normal (LOCAL): perpendicular to the edge, chosen to point AWAY from the
+            // cell centre (otherwise the balcony lands INSIDE the apartment — spike risk).
+            const dx = eb.x - ea.x, dz = eb.z - ea.z;
+            const len = Math.hypot(dx, dz) || 1;
+            let nx = -dz / len, nz = dx / len;                       // one perpendicular
+            const mx = (ea.x + eb.x) / 2, mz = (ea.z + eb.z) / 2;    // edge midpoint
+            if ((mx - cx) * nx + (mz - cz) * nz < 0) { nx = -nx; nz = -nz; }   // flip outward
+            // Inset the side edges a touch off the wall ends so the balcony clears the shell wall
+            // returns / party walls. The four LOCAL corners of the cantilever rectangle.
+            const ux = dx / len, uz = dz / len;
+            const ia = { x: ea.x + ux * BALCONY_SIDE_INSET_M, z: ea.z + uz * BALCONY_SIDE_INSET_M };
+            const ib = { x: eb.x - ux * BALCONY_SIDE_INSET_M, z: eb.z - uz * BALCONY_SIDE_INSET_M };
+            const oa = { x: ia.x + nx * BALCONY_DEPTH_M, z: ia.z + nz * BALCONY_DEPTH_M };
+            const ob = { x: ib.x + nx * BALCONY_DEPTH_M, z: ib.z + nz * BALCONY_DEPTH_M };
+            // LOCAL → WORLD (rigid xf, same as every other cell consumer). Polygon CCW-ish:
+            // inner-a → inner-b → outer-b → outer-a.
+            const wia = this._rotate(ia, xf), wib = this._rotate(ib, xf);
+            const woa = this._rotate(oa, xf), wob = this._rotate(ob, xf);
+            // Cantilever slab — polygon footprint (world-XZ as {x, y:z}), thin floor.
+            try {
+                const poly = [wia, wib, wob, woa];
+                const pxs = poly.map(p => p.x), pzs = poly.map(p => p.z);
+                cm.execute?.(new CreateSlabCommand({
+                    id: createId('slab'),
+                    ifcGuid: createId('slab'),
+                    width: Math.max(Math.max(...pxs) - Math.min(...pxs), 0.1),
+                    depth: Math.max(Math.max(...pzs) - Math.min(...pzs), 0.1),
+                    thickness: BALCONY_SLAB_THICKNESS_M,
+                    position: { x: 0, y: 0, z: 0 },
+                    levelId,
+                    polygon: poly.map(p => ({ x: p.x, y: p.z })),
+                }), { source: 'RESI_PIPELINE_BALCONY' });
+                slabs++;
+            } catch (e) { console.warn('[resi-building] balcony slab skipped:', e); }
+            // 3-edge glass guard (the outer U): inner-a→outer-a, outer-a→outer-b, outer-b→inner-b.
+            // The wall-facing edge (inner-a→inner-b) stays OPEN as the access from the room.
+            const guardEdges: Array<[{ x: number; z: number }, { x: number; z: number }]> = [
+                [wia, woa], [woa, wob], [wob, wib],
+            ];
+            for (const [ga, gb] of guardEdges) {
+                if (Math.hypot(gb.x - ga.x, gb.z - ga.z) < 0.1) continue;
+                try {
+                    cm.execute?.(new CreateHandrailCommand({
+                        id: createId('handrail'),
+                        start: { x: ga.x, z: ga.z },
+                        end: { x: gb.x, z: gb.z },
+                        height: BALCONY_GUARD_HEIGHT_M,
+                        thickness: ROOF_GUARD_THICKNESS_M,
+                        levelId,
+                        baseOffset: 0,
+                        fillType: 'glass',
+                        railProfile: 'rectangular',
+                    }), { source: 'RESI_PIPELINE_BALCONY' });
+                    guards++;
+                } catch (e) { console.warn('[resi-building] balcony guard edge skipped:', e); }
+            }
+        }
+        console.log(`[resi-building] §RESI-BALCONY — ${slabs} balcony slab(s) + ${guards} guard edge(s) across ${builds.length} upper apartment(s)`);
+    }
+
     /**
      * Build the central core: a straight (I-shape) stair per adjacent level pair,
      * placed inside the LEFT half of the core rect, + ONE lift (vertical-circulation
@@ -819,6 +1090,7 @@ export class ResidentialBuildingExecutor {
         floorToFloorM: number,
         baseElevationM: number,
         xf: ResidentialRigidTransform,
+        roofGarden = false,
     ): { stairs: number; lifts: number } {
         const core = result.core;   // LOCAL (principal-axis) frame.
         const coreW = core.x1 - core.x0;
@@ -845,7 +1117,11 @@ export class ResidentialBuildingExecutor {
         const liftCx = core.x0 + coreW * 0.75;
         const liftCz = cz0 + lobbyDepth + shaftDepth / 2;   // lift FRONT (door) sits on the lobby line
 
-        const topIndex = result.levels.length - 1;
+        // §RESI-ROOF-GARDEN — the top INDEX the circulation reaches. Normally the top apartment
+        // floor (levels.length − 1); when the roof deck is ON, the roof level (registered at index
+        // levels.length in `levelIdByIndex`) so the stair adds a final top→roof flight + the lift a
+        // roof cab. Off-by-one here puts the roof flight one storey wrong (spike risk E2).
+        const topIndex = roofGarden ? result.levels.length : result.levels.length - 1;
         let stairs = 0;
         // A stair between each adjacent level pair (ground→1, 1→2, …).
         for (let idx = 0; idx < topIndex; idx++) {

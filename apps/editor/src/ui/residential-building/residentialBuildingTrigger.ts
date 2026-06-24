@@ -35,6 +35,8 @@ export interface ResidentialBuildingConsoleOptions {
     readonly floorToFloorM?: number;
     readonly siteLatitudeDeg?: number;
     readonly footprint?: ReadonlyArray<{ x: number; z: number }>;
+    /** §RESI-ROOF-GARDEN (2026-06-24) — OPTIONAL roof amenity deck. Default OFF. */
+    readonly roofGarden?: boolean;
 }
 
 declare global {
@@ -62,6 +64,7 @@ function toRequest(opts?: ResidentialBuildingConsoleOptions): ResidentialBuildin
         ...(typeof opts?.floorToFloorM === 'number' ? { floorToFloorM: opts.floorToFloorM } : {}),
         ...(typeof opts?.siteLatitudeDeg === 'number' ? { siteLatitudeDeg: opts.siteLatitudeDeg } : {}),
         ...(opts?.footprint && opts.footprint.length >= 3 ? { footprint: opts.footprint } : {}),
+        ...(opts?.roofGarden === true ? { roofGarden: true } : {}),
     };
 }
 
