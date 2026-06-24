@@ -57,7 +57,7 @@ import {
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
 import { triggerFloorLayout } from '../floor-layout/floorLayoutTrigger.js';
 import { nameDetectedRooms } from '../apartment-layout/nameDetectedRooms.js';
-import { resolveEntranceOnShell, entranceOffsetOnWall } from './groundFloorPlacement.js';
+import { resolveEntranceOnShell, entranceOffsetOnWall, type EntranceHostHit } from './groundFloorPlacement.js';
 
 const _tracer = trace.getTracer('@pryzm/editor', '0.1.0');
 
@@ -110,6 +110,19 @@ export interface ResidentialExecuteInput {
      *  handful of EXISTING furniture amenities (benches, tables, planters, trees) lands on the deck.
      *  Pool / BBQ are a Slice-2 follow-up (they need NEW FurnitureTypes — deferred). */
     readonly roofGarden?: boolean;
+    /** §RESI-BALCONIES (modal option, 2026-06-24) — emit projecting cantilever balconies off the
+     *  upper-floor apartments' façades. Default ON (absent ⇒ true). When false the balcony pass is
+     *  skipped entirely (no slabs / guards). */
+    readonly balconies?: boolean;
+    /** §RESI-FACADE-COLOUR (modal colour picker, 2026-06-24) — the building FINISH colour (hex
+     *  `#rrggbb`). Applied to the opaque SHELL + CORE + CELL-perimeter walls + the flat ROOF (a
+     *  yellow façade paints them yellow, Notting-Hill pastel). Glazing (curtain mullions/glass)
+     *  keeps its own defaults. Absent ⇒ the all-white default (no per-element colour stamped). */
+    readonly facadeColor?: string;
+    /** §RESI-GROUND-COMMERCIAL-CURTAIN (modal option, 2026-06-24) — the GROUND-floor shopfront
+     *  style. Default false: build SOLID shell walls with BIG commercial window openings + a door
+     *  (glass-in-frame). When true: keep the existing curtain-wall shopfront. */
+    readonly groundCommercialCurtain?: boolean;
 }
 
 export interface ResidentialExecuteResult {
@@ -177,6 +190,15 @@ export class ResidentialBuildingExecutor {
         const baseElevationM = ground.elevation ?? 0;
         // §RESI-ROOF-GARDEN (2026-06-24) — the optional roof amenity deck (default OFF).
         const roofGarden = input?.roofGarden === true;
+        // §RESI-BALCONIES (2026-06-24) — projecting balconies, default ON (absent ⇒ true).
+        const balconiesEnabled = input?.balconies !== false;
+        // §RESI-GROUND-COMMERCIAL-CURTAIN (2026-06-24) — ground shopfront style. Default false ⇒
+        // SOLID shell + big commercial windows; true ⇒ the curtain-wall shopfront.
+        const groundCurtain = input?.groundCommercialCurtain === true;
+        // §RESI-FACADE-COLOUR (2026-06-24) — the opaque-finish colour for shell / core / cell walls
+        // + roof. Validate to a #rrggbb hex; an invalid/absent value ⇒ undefined (all-white default).
+        const facadeColor = (typeof input?.facadeColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(input.facadeColor))
+            ? input.facadeColor : undefined;
 
         // ── (a) Mint editor levels 1…N above the ground (ground reuses the active
         // level). We own the ids and map orchestrator levelIndex → editor levelId.
@@ -234,6 +256,12 @@ export class ResidentialBuildingExecutor {
         // 2026-06-24) — the GROUND façade is a glazed commercial shopfront (curtain walls on every
         // façade edge except the solid entrance bay), dispatched in the structural batch.
         const groundCurtainPayloads: Array<{ id: string; start: { x: number; z: number }; end: { x: number; z: number }; height: number; levelId: string }> = [];
+        // §RESI-GROUND-COMMERCIAL-CURTAIN (modal option, 2026-06-24) — when the curtain shopfront is
+        // OFF (the DEFAULT), the ground façade is SOLID shell walls with BIG commercial window
+        // openings (sill 0.01 m, head 3.5 m) hosted on them. These specs are punched in a deferred
+        // pass once the ground shell walls land in the store (like the entrance door / apartment
+        // openings) — the bus wall.batch.create is async.
+        const groundCommercialWindowSpecs: Array<{ wallId: string; offset: number; width: number; sillHeight: number; height: number; levelId: string }> = [];
         // §RESI-GROUND-CORRIDOR — interior corridor walls linking the ground entrance to the core.
         let groundCorridorPayload: { walls: ReadonlyArray<Record<string, unknown>>; levelId: string } | undefined;
         const corridorBoundaryItems: Array<{ id: string; levelId: string; start: { x: number; z: number }; end: { x: number; z: number } }> = [];
@@ -241,6 +269,9 @@ export class ResidentialBuildingExecutor {
         // the main entrance door) + the ground level id for the deferred entrance pass.
         let groundLevelId: string | undefined;
         let groundShellPayload: { walls: ReadonlyArray<Record<string, unknown>>; levelId: string } | undefined;
+        // §RESI-DOOR-CENTRE-SPINE — the SOLID door-bay wall id + length (when the ground shell built
+        // one), so the deferred entrance pass hosts the door on it, centred on the corridor axis.
+        let groundDoorBay: { wallId: string; wallLengthM: number } | undefined;
 
         let placedCount = 0, rejectedCount = 0;
 
@@ -271,9 +302,14 @@ export class ResidentialBuildingExecutor {
             let shellPayload: { walls: ReadonlyArray<Record<string, unknown>>; levelId: string };
             if (lvl.levelIndex === 0) {
                 const wec = this._rotate({ x: result.groundFloor.entranceCenter.x, z: result.groundFloor.entranceCenter.z }, xf);
-                const g = this._buildGroundShell(levelId, lvl.footprint, floorToFloorM, wec);
+                const g = this._buildGroundShell(levelId, lvl.footprint, floorToFloorM, wec, groundCurtain);
                 shellPayload = g.shellPayload;
+                // §RESI-DOOR-CENTRE-SPINE — remember the door-bay wall for the centred entrance pass.
+                groundDoorBay = g.doorBay;
+                // §RESI-GROUND-COMMERCIAL-CURTAIN — only the curtain shopfront mode emits curtain
+                // walls; the SOLID commercial-window mode emits big window openings on the shell.
                 for (const cw of g.curtainWalls) groundCurtainPayloads.push(cw);
+                for (const ws of g.commercialWindows) groundCommercialWindowSpecs.push(ws);
                 // §RESI-GROUND-CORRIDOR — run an interior corridor from the entrance door all the way
                 // to the core's z0 FIRE DOOR (so it connects with no gap), as wide as the solid
                 // entrance bay (≥ 2 m). The fire door is on the core's LOCAL z0 edge midpoint.
@@ -286,6 +322,8 @@ export class ResidentialBuildingExecutor {
             } else {
                 shellPayload = this._buildShellPerimeter(levelId, lvl.footprint, floorToFloorM);
             }
+            // §RESI-FACADE-COLOUR — paint the opaque shell walls (ground solid bay + upper façade).
+            this._paintWalls(shellPayload, facadeColor);
             shellPayloads.push(shellPayload);
             // §RESI-NO-DOUBLE-WALL — the building shell walls in the {id,start,end} form the apartment
             // engine's window resolver expects. Façade windows now resolve onto these (the cells skip their
@@ -300,6 +338,8 @@ export class ResidentialBuildingExecutor {
             // deferred via coreDoorSpecs once the walls land).
             if (result.core) {
                 const cp = this._buildCorePerimeter(levelId, result.core, floorToFloorM, xf);
+                // §RESI-FACADE-COLOUR — paint the opaque RC core walls the finish colour.
+                this._paintWalls(cp.payload, facadeColor);
                 corePerimeterPayloads.push(cp.payload);
                 coreDoorSpecs.push(...cp.doors);
             }
@@ -328,6 +368,8 @@ export class ResidentialBuildingExecutor {
                 // Apartment cell perimeter (4 walls, pre-minted) so façade windows resolve.
                 // Built from the LOCAL cell.rect, rotated to world by the rigid transform.
                 const perimeter = this._buildCellPerimeter(levelId, apt, floorToFloorM, xf);
+                // §RESI-FACADE-COLOUR — paint the cell-perimeter (party/corridor-facing) walls.
+                this._paintWalls(perimeter.payload, facadeColor);
                 cellPerimeterPayloads.push(perimeter.payload);
                 const opts: LayoutExecuteOptions = {
                     levelId,
@@ -420,7 +462,8 @@ export class ResidentialBuildingExecutor {
             // 3b. §RESI-ROOF (founder "we need a top level with the roof", 2026-06-23) — a flat
             // roof capping the building on the top level's wall head.
             const topLvl = result.levels[result.levels.length - 1];
-            if (topLvl) this._createRoof(cm, topLvl.footprint, roofLevelId);
+            // §RESI-FACADE-COLOUR — the flat roof takes the finish colour too (Notting-Hill pastel).
+            if (topLvl) this._createRoof(cm, topLvl.footprint, roofLevelId, facadeColor);
             // 3c. §RESI-ROOF-GARDEN — turn the flat roof into a walkable amenity deck: a perimeter
             // glass guard ringing the footprint + a handful of EXISTING furniture amenities, all on
             // the roof level. The deck IS the flat roof slab (no slab change). Core is the keep-out.
@@ -436,7 +479,8 @@ export class ResidentialBuildingExecutor {
             // 5. §RESI-BALCONY — projecting cantilever balconies off the upper-floor apartments'
             //    façade (slab + 3-edge glass guard). Upper floors only; clear of the ground curtain
             //    shopfront + the roof deck (those levels are never in `balconyCandidates`).
-            this._createBalconies(cm, balconyCandidates, xf);
+            //    §RESI-BALCONIES — modal-gated: skipped entirely when the option is OFF.
+            if (balconiesEnabled) this._createBalconies(cm, balconyCandidates, xf);
         }, {
             levelIds: allLevelIds,
             totalElementCount: shellPayloads.length * 4 + corePerimeterPayloads.length * 4 + cellPerimeterPayloads.length * 4 + groundCurtainPayloads.length + apartmentBuilds.length + slabPolys.length + result.levels.length,
@@ -465,10 +509,15 @@ export class ResidentialBuildingExecutor {
         // apartment openings, the shell wall.batch.create is async (the bus READs the
         // committed store), so we host the door once the ground shell walls have landed.
         if (groundLevelId && groundShellPayload) {
-            this._buildEntranceDoor(groundLevelId, groundShellPayload, result.groundFloor, xf);
+            this._buildEntranceDoor(groundLevelId, groundShellPayload, result.groundFloor, xf, groundDoorBay);
         }
         // §RESI-CORE-DOORS — punch the two fire doors per level on the core walls (deferred).
         this._finishCoreDoors(coreDoorSpecs);
+
+        // §RESI-GROUND-COMMERCIAL-CURTAIN — when the ground floor is the SOLID-shell commercial mode
+        // (the default), punch the big shopfront windows on the ground shell walls (deferred — the
+        // shell wall.batch.create is async via the bus).
+        this._finishGroundCommercialWindows(groundCommercialWindowSpecs);
 
         // NOTE: no custom completion event is emitted — `RuntimeEvents` is a typed map
         // (no catch-all index) and registering a new key lives in runtime-composer
@@ -481,6 +530,15 @@ export class ResidentialBuildingExecutor {
         );
 
         return { ok: true, levelIds, apartmentCount: placedCount, stairCount, liftCount };
+    }
+
+    /** §RESI-FACADE-COLOUR — stamp `materialColor` (hex) onto every wall record of a payload, in
+     *  place, when a finish colour is set. No-op when `color` is undefined (all-white default ⇒ no
+     *  per-element colour, the wall keeps its system-type/default material). Returns the payload. */
+    private _paintWalls<T extends { walls: ReadonlyArray<Record<string, unknown>> }>(payload: T, color?: string): T {
+        if (!color) return payload;
+        for (const w of payload.walls) (w as Record<string, unknown>).materialColor = color;
+        return payload;
     }
 
     /** Building shell perimeter: one wall per footprint edge, pre-minted ids. */
@@ -505,27 +563,43 @@ export class ResidentialBuildingExecutor {
         return { walls, levelId };
     }
 
-    /** §RESI-GROUND-CURTAIN — the ground floor as a commercial glazed shopfront: a curtain wall
-     *  along every façade edge EXCEPT the one nearest the entrance (kept as a solid bay so the main
-     *  entrance door still has a host + the glazed front reads with a frame). `footprint` is WORLD;
-     *  curtain walls + the solid bay all live in that one world frame. Degenerate ring ⇒ falls back
-     *  to the normal solid shell. */
+    /** §RESI-GROUND-CURTAIN / §RESI-GROUND-COMMERCIAL-CURTAIN — the ground floor as a commercial
+     *  shopfront, in one of two styles:
+     *   - `useCurtain === true`  → a CURTAIN WALL along every façade edge except a narrow SOLID door
+     *     bay (the historical behaviour): glazed mullion-and-transom front + the door bay host.
+     *   - `useCurtain === false` (DEFAULT) → SOLID shell walls on every façade edge, each non-bay
+     *     edge carrying a BIG COMMERCIAL WINDOW opening (sill 0.01 m, head 3.5 m) so it reads as a
+     *     glass-in-frame shopfront rather than a frameless curtain wall. The window specs are
+     *     punched in a deferred pass once the shell walls land (the bus is async).
+     *  `footprint` is WORLD; every wall / curtain / window lives in that one world frame. Degenerate
+     *  ring ⇒ falls back to the normal solid shell. */
     private _buildGroundShell(
         levelId: string,
         footprint: ReadonlyArray<{ x: number; z: number }>,
         wallHeightM: number,
         worldEntranceCenter: { x: number; z: number },
+        useCurtain: boolean,
     ): {
         shellPayload: { walls: ReadonlyArray<Record<string, unknown>>; levelId: string };
         curtainWalls: Array<{ id: string; start: { x: number; z: number }; end: { x: number; z: number }; height: number; levelId: string }>;
+        /** §RESI-GROUND-COMMERCIAL-CURTAIN — big window specs for the SOLID-shell mode (per
+         *  non-bay façade wall id), deferred-punched once the shell walls land. */
+        commercialWindows: Array<{ wallId: string; offset: number; width: number; sillHeight: number; height: number; levelId: string }>;
         /** World-XZ centre of the entrance door (the bay/façade midpoint) — the executor runs the
          *  ground-floor interior corridor from here to the core (§RESI-GROUND-CORRIDOR). */
         doorCenter?: { x: number; z: number };
+        /** §RESI-DOOR-CENTRE-SPINE (founder 2026-06-24) — the SOLID door-bay wall id + its length,
+         *  so the deferred entrance pass hosts the door on THIS exact wall, centred on it (= the
+         *  façade midpoint = the corridor `from`), instead of re-resolving via the orchestrator's
+         *  off-centre entrance point. Entrance → corridor → core fire door then share one centred
+         *  axis. Absent only on the degenerate-ring fallback. */
+        doorBay?: { wallId: string; wallLengthM: number };
     } {
         const ring = this._cleanRing(footprint);
         if (ring.length < 3) {
-            return { shellPayload: this._buildShellPerimeter(levelId, footprint, wallHeightM), curtainWalls: [] };
+            return { shellPayload: this._buildShellPerimeter(levelId, footprint, wallHeightM), curtainWalls: [], commercialWindows: [] };
         }
+        let doorBay: { wallId: string; wallLengthM: number } | undefined;
         // The entrance edge = the façade edge whose midpoint is nearest the world entrance centre.
         let entranceEdge = 0, best = Infinity;
         for (let i = 0; i < ring.length; i++) {
@@ -535,32 +609,60 @@ export class ResidentialBuildingExecutor {
         }
         const walls: Array<Record<string, unknown>> = [];
         const curtainWalls: Array<{ id: string; start: { x: number; z: number }; end: { x: number; z: number }; height: number; levelId: string }> = [];
+        const commercialWindows: Array<{ wallId: string; offset: number; width: number; sillHeight: number; height: number; levelId: string }> = [];
         let doorCenter: { x: number; z: number } | undefined;
-        // §RESI-GROUND-DOOR-BAY (founder 2026-06-24: "the curtain wall could also be on the face
-        // where the door is, just until the corridor boundary") — the entrance face is now MOSTLY
-        // glazed too: only a narrow SOLID door bay (centred on the entrance, ~corridor-wide) hosts
-        // the main door; the rest of that edge is curtain wall, like the other façades.
-        const MIN_CURTAIN_M = 0.4;         // skip a curtain stub shorter than this
+        const MIN_SEG_M = 0.4;             // skip a curtain/wall stub shorter than this
+        // §RESI-GROUND-COMMERCIAL-CURTAIN — big shopfront window geometry (founder: sill 0.01 m,
+        // head 3.5 m). Head is clamped just under the wall head so the opening never breaches it.
+        const WIN_SILL_M = 0.01;
+        const WIN_HEAD_M = 3.5;
+        const WIN_SIDE_MARGIN_M = 0.3;     // leave a stub of solid wall either side of the glass
         // §RESI-GROUND-SLAB-COVER (founder 2026-06-24: "on ground→first floor we see the slab; the
         // walls should rise to the slab level on the ground floor"). The first-floor slab sits on the
         // ground-storey head; a curtain/wall only floor-to-floor tall leaves the slab EDGE exposed
         // (the black band). Raise the ground shopfront by the slab thickness so it wraps that edge.
         const groundWallH = wallHeightM + DEFAULT_SLAB_THICKNESS_M;
-        const pushWall = (pa: { x: number; z: number }, pb: { x: number; z: number }): void => {
+        // Push a solid wall a→b. `window` ⇒ (commercial mode only) also record a big centred window
+        // spec on it. Returns the wall id (or undefined for a degenerate stub).
+        const pushWall = (pa: { x: number; z: number }, pb: { x: number; z: number }, windowed = false): string | undefined => {
+            const len = Math.hypot(pb.x - pa.x, pb.z - pa.z);
+            if (len < MIN_SEG_M) return undefined;
+            const id = createId('wall');
             walls.push({
-                id: createId('wall'), levelId,
+                id, levelId,
                 baseLine: [{ x: pa.x, y: 0, z: pa.z }, { x: pb.x, y: 0, z: pb.z }],
                 height: groundWallH, thickness: SHELL_WALL_THICKNESS_M,
             });
+            if (windowed) {
+                const winW = len - 2 * WIN_SIDE_MARGIN_M;
+                if (winW >= 0.6) {
+                    // Head clamped under the wall head (leave ≥0.1 m of lintel).
+                    const head = Math.min(WIN_HEAD_M, groundWallH - 0.1);
+                    commercialWindows.push({
+                        wallId: id,
+                        offset: (len - winW) / 2,
+                        width: winW,
+                        sillHeight: WIN_SILL_M,
+                        height: Math.max(0.6, head - WIN_SILL_M),
+                        levelId,
+                    });
+                }
+            }
+            return id;
         };
         const pushCurtain = (pa: { x: number; z: number }, pb: { x: number; z: number }): void => {
-            if (Math.hypot(pb.x - pa.x, pb.z - pa.z) < MIN_CURTAIN_M) return;
+            if (Math.hypot(pb.x - pa.x, pb.z - pa.z) < MIN_SEG_M) return;
             curtainWalls.push({ id: createId('curtainwall'), start: { x: pa.x, z: pa.z }, end: { x: pb.x, z: pb.z }, height: groundWallH, levelId });
+        };
+        // A non-entrance façade edge: curtain wall (curtain mode) OR solid wall + big window (default).
+        const pushFacadeEdge = (pa: { x: number; z: number }, pb: { x: number; z: number }): void => {
+            if (useCurtain) pushCurtain(pa, pb);
+            else pushWall(pa, pb, true);
         };
         for (let i = 0; i < ring.length; i++) {
             const a = ring[i]!, b = ring[(i + 1) % ring.length]!;
             if (i === entranceEdge) {
-                // Split the entrance edge into curtain | solid door-bay | curtain.
+                // Split the entrance edge into [glazed/windowed] | solid door-bay | [glazed/windowed].
                 const len = Math.hypot(b.x - a.x, b.z - a.z);
                 const nx = (b.x - a.x) / len, nz = (b.z - a.z) / len;
                 // §RESI-DOOR-CENTRE (founder 2026-06-24: "center the door on the wall outside") —
@@ -571,14 +673,17 @@ export class ResidentialBuildingExecutor {
                 const s1 = Math.min(len, t + ENTRANCE_BAY_HALF_M);
                 const at = (s: number): { x: number; z: number } => ({ x: a.x + nx * s, z: a.z + nz * s });
                 doorCenter = at(t);                // door centre = façade midpoint (corridor start)
-                pushCurtain(a, at(s0));            // glazed before the bay
-                pushWall(at(s0), at(s1));          // solid door bay (hosts the main entrance door)
-                pushCurtain(at(s1), b);            // glazed after the bay
+                pushFacadeEdge(a, at(s0));         // glazed / windowed before the bay
+                // §RESI-DOOR-CENTRE-SPINE — capture the SOLID door-bay wall id + length so the
+                // entrance door is hosted on THIS wall, centred (= the façade midpoint = corridor from).
+                const bayWallId = pushWall(at(s0), at(s1));   // solid door bay (hosts the main entrance door)
+                if (bayWallId) doorBay = { wallId: bayWallId, wallLengthM: Math.max(0, s1 - s0) };
+                pushFacadeEdge(at(s1), b);         // glazed / windowed after the bay
             } else {
-                pushCurtain(a, b);
+                pushFacadeEdge(a, b);
             }
         }
-        return { shellPayload: { walls, levelId }, curtainWalls, ...(doorCenter ? { doorCenter } : {}) };
+        return { shellPayload: { walls, levelId }, curtainWalls, commercialWindows, ...(doorCenter ? { doorCenter } : {}), ...(doorBay ? { doorBay } : {}) };
     }
 
     /** §RESI-GROUND-CORRIDOR (founder 2026-06-24: "the corridor must REACH the core (it leaves a
@@ -777,6 +882,53 @@ export class ResidentialBuildingExecutor {
         tryPunch(40);
     }
 
+    /** §RESI-GROUND-COMMERCIAL-CURTAIN — punch the BIG commercial shopfront windows on the
+     *  (already committed) ground shell walls. Deferred + polled exactly like the core doors:
+     *  the ground shell wall.batch.create is async via the bus, so wait (≤6 s) for every host
+     *  wall to land, then punch all window openings in ONE batch + flush the host meshes. The
+     *  opening carries the SAME rich fields the engine's shell windows use (windowType +
+     *  systemTypeId) so they render as real see-through glazing, not a blind recess. Never throws. */
+    private _finishGroundCommercialWindows(
+        specs: ReadonlyArray<{ wallId: string; offset: number; width: number; sillHeight: number; height: number; levelId: string }>,
+    ): void {
+        if (specs.length === 0) return;
+        const cm = getCommandManager();
+        if (!cm?.execute) { console.warn('[resi-building] commandManager unavailable — ground windows skipped'); return; }
+        const wallIds = specs.map(s => s.wallId);
+        const wallStore = storeRegistry.getStoreForType('wall') as unknown as { getById?: (id: string) => unknown } | undefined;
+        const ready = (): boolean => !wallStore?.getById ? true : wallIds.every(id => wallStore.getById!(id) != null);
+        const levelIds = [...new Set(specs.map(s => s.levelId))];
+        const tryPunch = (n: number): void => {
+            if (!ready() && n > 0) { setTimeout(() => tryPunch(n - 1), 150); return; }
+            try {
+                batchCoordinator.runBatch(() => {
+                    cm.execute?.(new CreateWallOpeningsBatchCommand(specs.map(s => ({
+                        wallId: s.wallId,
+                        openingData: {
+                            id: createId('opening'),
+                            type: 'window',
+                            windowType: 'single',
+                            offset: s.offset,
+                            width: s.width,
+                            height: s.height,
+                            sillHeight: s.sillHeight,
+                            elementId: createId('window'),
+                            // Clear commercial glazing (timber/alu casement default) so the
+                            // shopfront reads as real see-through glass-in-frame.
+                            systemTypeId: 'wt-timber-casement',
+                        },
+                    }))));
+                }, { levelIds, totalElementCount: specs.length, skipRedetectRooms: true });
+                setTimeout(() => {
+                    try { window.__wallRebuildControl?.rebuildWalls?.(wallIds); }
+                    catch (e) { console.warn('[resi-building] ground-window rebuildWalls failed (non-fatal):', e); }
+                }, 250);
+                console.log(`[resi-building] ground commercial windows — ${specs.length} punched on ${levelIds.length} level(s)`);
+            } catch (e) { console.warn('[resi-building] ground windows batch failed (non-fatal):', e); }
+        };
+        tryPunch(40);
+    }
+
     /** Drop near-duplicate consecutive vertices + the wrap duplicate so every edge
      *  is a genuine corner (mirrors HouseLayoutExecutor._buildPerimeterShell). */
     private _cleanRing(poly: ReadonlyArray<{ x: number; z: number }>): { x: number; z: number }[] {
@@ -838,6 +990,7 @@ export class ResidentialBuildingExecutor {
         cm: CommandManagerLike,
         topFootprint: ReadonlyArray<{ x: number; z: number }>,
         roofLevelId: string,
+        materialColor?: string,
     ): void {
         try {
             const poly = this._cleanRing(topFootprint);
@@ -858,6 +1011,9 @@ export class ResidentialBuildingExecutor {
                 baseOffset: THICK,
                 thickness: THICK,
                 autoBaseOffset: false,
+                // §RESI-FACADE-COLOUR — paint the roof the building finish colour; absent ⇒ the
+                // CreateRoofCommand default (#c8a46e tile) stands.
+                ...(materialColor ? { materialColor } : {}),
             }), { source: 'RESI_PIPELINE_ROOF' });
         } catch (e) { console.warn('[resi-building] roof create failed (skipped):', e); }
     }
@@ -899,13 +1055,20 @@ export class ResidentialBuildingExecutor {
         console.log(`[resi-building] §RESI-ROOF-GARDEN perimeter guard — ${railed} edge(s) railed on roof level`);
     }
 
-    /** §RESI-ROOF-GARDEN (2026-06-24) — place a deterministic handful of EXISTING furniture
-     *  amenities (benches, tables, planters, trees) on the deck via CreateFurnitureCommand, clear
-     *  of the central CORE keep-out. `footprint` is WORLD-XZ; `core` is the LOCAL (principal-axis)
-     *  rect, rotated to world by `xf` (spike risk E4 — frame mismatch puts items in the core). The
-     *  command forces position.y = roofLevel.elevation (spike risk E1); we pass baseOffset = deck
-     *  thickness so items rest ON the slab top, not the level datum. Pool / BBQ are deferred to
-     *  Slice 2 (they need NEW FurnitureTypes). */
+    /** §RESI-ROOF-GARDEN (2026-06-24, founder feedback round 2) — furnish the deck as a DESIGNED roof
+     *  terrace, not a random scatter:
+     *   - a PLANTER EDGE: a row of potted plants lined just inside the glass guard on each footprint
+     *     edge (a green perimeter band) — capped low (≤0.9 m) so nothing pokes over the parapet;
+     *   - a central SEATING CLUSTER (two benches facing a coffee table) anchored near the core door,
+     *     so the social zone reads as one group instead of scattered single items;
+     *   - a clear CENTRAL CIRCULATION path left open from the core out across the deck.
+     *  NO tall trees (the parametric tree ignores the requested height and renders ~6 m, towering
+     *  over the building — founder feedback); NO RNG — every position is grid/anchor-derived, so the
+     *  layout is deterministic. Height is CAPPED at ROOF_AMENITY_MAX_H so nothing breaches ~2.5 m
+     *  above the deck. `footprint` is WORLD-XZ; `core` is the LOCAL rect, rotated to world by `xf`.
+     *  The command forces position.y = roofLevel.elevation; baseOffset = deck thickness rests items
+     *  on the slab top. A proper green LAWN FINISH on the deck slab is a follow-up (CreateSlabCommand
+     *  / the roof have no per-element colour-able floor-finish field on this path). */
     private _furnishRoofDeck(
         cm: CommandManagerLike,
         footprint: ReadonlyArray<{ x: number; z: number }>,
@@ -915,10 +1078,7 @@ export class ResidentialBuildingExecutor {
     ): void {
         const ring = this._cleanRing(footprint);
         if (ring.length < 3) return;
-        // Deck AABB (WORLD) — a robust placement region for the axis-aligned amenity grid.
-        const xs = ring.map(p => p.x), zs = ring.map(p => p.z);
-        const minX = Math.min(...xs), maxX = Math.max(...xs);
-        const minZ = Math.min(...zs), maxZ = Math.max(...zs);
+        const ROOF_AMENITY_MAX_H = 2.5;        // founder cap: nothing taller than this above the deck
         // The CORE keep-out in WORLD: rotate the LOCAL rect corners, take their AABB (a slightly
         // conservative box on a tilted parcel — keeps amenities safely clear of the headhouse).
         const cc = [
@@ -931,47 +1091,86 @@ export class ResidentialBuildingExecutor {
         const coreMaxX = Math.max(...cc.map(p => p.x)) + 0.6;
         const coreMinZ = Math.min(...cc.map(p => p.z)) - 0.6;
         const coreMaxZ = Math.max(...cc.map(p => p.z)) + 0.6;
+        const coreCx = (coreMinX + coreMaxX) / 2, coreCz = (coreMinZ + coreMaxZ) / 2;
         const inCore = (x: number, z: number): boolean =>
             x >= coreMinX && x <= coreMaxX && z >= coreMinZ && z <= coreMaxZ;
-        const inset = 1.2;   // keep amenities off the guard / parapet
-        // A deterministic amenity menu drawn from EXISTING FurnitureTypes (spike A.3 table).
-        type Item = { type: FurnitureType; w: number; l: number; h: number; material: FurnitureMaterial };
-        const MENU: Item[] = [
-            { type: 'entry_bench', w: 1.4, l: 0.5, h: 0.45, material: 'wood' },     // bench
-            { type: 'coffee_table', w: 0.9, l: 0.6, h: 0.4, material: 'wood' },     // table
-            { type: 'lounge_chair', w: 0.7, l: 0.9, h: 0.8, material: 'fabric' },   // outdoor seat
-            { type: 'plant_01', w: 0.5, l: 0.5, h: 0.9, material: 'wood' },         // planter
-            { type: 'arbol_t_01', w: 1.2, l: 1.2, h: 3.0, material: 'wood' },       // tree
-        ];
-        // Walk a coarse grid inside the deck (minus the core), cycling the menu — a recognizable,
-        // deterministic scatter without an optimiser (slice 1). World-XZ; no transform (footprint
-        // is world). Cap the count so a huge plate doesn't flood the deck.
-        const step = 3.5;
-        let placed = 0, k = 0;
-        const MAX_ITEMS = 24;
-        for (let z = minZ + inset; z <= maxZ - inset && placed < MAX_ITEMS; z += step) {
-            for (let x = minX + inset; x <= maxX - inset && placed < MAX_ITEMS; x += step) {
-                if (inCore(x, z)) continue;
-                const item = MENU[k % MENU.length]!;
-                k++;
-                try {
-                    cm.execute?.(new CreateFurnitureCommand({
-                        id: createId('furniture'),
-                        furnitureType: item.type,
-                        position: { x, y: 0, z },               // y forced to level.elevation in execute()
-                        rotation: { x: 0, y: 0, z: 0 },
-                        levelId: roofLevelId,
-                        baseOffset: ROOF_DECK_THICKNESS_M,      // sit on the deck slab top, not the datum
-                        width: item.w,
-                        length: item.l,
-                        height: item.h,
-                        material: item.material,
-                    }), { source: 'RESI_PIPELINE_ROOF_GARDEN' });
-                    placed++;
-                } catch (e) { console.warn('[resi-building] roof amenity skipped:', e); }
+
+        let placed = 0;
+        const place = (
+            type: FurnitureType, x: number, z: number, w: number, l: number, h: number,
+            material: FurnitureMaterial, rotY = 0,
+        ): void => {
+            if (inCore(x, z)) return;
+            try {
+                cm.execute?.(new CreateFurnitureCommand({
+                    id: createId('furniture'),
+                    furnitureType: type,
+                    position: { x, y: 0, z },               // y forced to level.elevation in execute()
+                    rotation: { x: 0, y: rotY, z: 0 },
+                    levelId: roofLevelId,
+                    baseOffset: ROOF_DECK_THICKNESS_M,      // sit on the deck slab top, not the datum
+                    width: w,
+                    length: l,
+                    height: Math.min(h, ROOF_AMENITY_MAX_H),
+                    material,
+                }), { source: 'RESI_PIPELINE_ROOF_GARDEN' });
+                placed++;
+            } catch (e) { console.warn('[resi-building] roof amenity skipped:', e); }
+        };
+
+        // ── 1. PLANTER EDGE — a deterministic row of potted plants stepped along each footprint edge,
+        // pulled INWARD off the guard by `edgeInset`, cycling 3 small planter species for variety. A
+        // green band hugging the parapet (founder: "line planters along the perimeter").
+        const edgeInset = 0.9;                 // off the glass guard
+        const planterStep = 2.6;               // spacing between perimeter planters
+        const PLANTERS: FurnitureType[] = ['plant_01', 'plant_02', 'plant_03'];
+        let pk = 0;
+        for (let i = 0; i < ring.length; i++) {
+            const a = ring[i]!, b = ring[(i + 1) % ring.length]!;
+            const ex = b.x - a.x, ez = b.z - a.z;
+            const edgeLen = Math.hypot(ex, ez);
+            if (edgeLen < 1.5) continue;
+            const ux = ex / edgeLen, uz = ez / edgeLen;       // along the edge
+            // Inward normal = perpendicular pointing toward the deck centre (the core centre proxy).
+            let nx = -uz, nz = ux;
+            const midX = (a.x + b.x) / 2, midZ = (a.z + b.z) / 2;
+            if ((coreCx - midX) * nx + (coreCz - midZ) * nz < 0) { nx = -nx; nz = -nz; }
+            const count = Math.floor((edgeLen - 1.0) / planterStep);
+            for (let j = 0; j <= count; j++) {
+                const t = (edgeLen - count * planterStep) / 2 + j * planterStep;   // centred run
+                const px = a.x + ux * t + nx * edgeInset;
+                const pz = a.z + uz * t + nz * edgeInset;
+                place(PLANTERS[pk % PLANTERS.length]!, px, pz, 0.5, 0.5, 0.85, 'wood');
+                pk++;
             }
         }
-        console.log(`[resi-building] §RESI-ROOF-GARDEN amenities — ${placed} item(s) placed on the deck`);
+
+        // ── 2. SEATING CLUSTER — anchored just OUTSIDE the core's z0 (lobby/door) face, on the deck
+        // side, so it reads as the social hub by the roof access without blocking the door. Two benches
+        // flank a coffee table; a clear path stays open between the core door and the cluster.
+        // Anchor: step from the core centre out along +world-Z of the run direction (deck side away
+        // from the building centre is approximated by stepping toward the footprint AABB centre).
+        const fxs = ring.map(p => p.x), fzs = ring.map(p => p.z);
+        const deckCx = (Math.min(...fxs) + Math.max(...fxs)) / 2;
+        const deckCz = (Math.min(...fzs) + Math.max(...fzs)) / 2;
+        // Direction from the core toward the deck centre (so the cluster sits in open deck, not the core).
+        let dx = deckCx - coreCx, dz = deckCz - coreCz;
+        const dlen = Math.hypot(dx, dz) || 1;
+        dx /= dlen; dz /= dlen;
+        const clusterGap = Math.max(coreMaxX - coreMinX, coreMaxZ - coreMinZ) / 2 + 2.4;   // clear of core
+        const cxAnchor = coreCx + dx * clusterGap;
+        const czAnchor = coreCz + dz * clusterGap;
+        const rotY = Math.atan2(dx, dz);                  // benches face the table along the deck axis
+        // perpendicular (bench offset axis)
+        const perpX = -dz, perpZ = dx;
+        place('coffee_table', cxAnchor, czAnchor, 1.0, 0.6, 0.4, 'wood', rotY);
+        place('entry_bench', cxAnchor + perpX * 1.1, czAnchor + perpZ * 1.1, 1.5, 0.5, 0.45, 'wood', rotY);
+        place('entry_bench', cxAnchor - perpX * 1.1, czAnchor - perpZ * 1.1, 1.5, 0.5, 0.45, 'wood', rotY + Math.PI);
+        // A pair of lounge chairs at the far end of the cluster (still grouped, not scattered).
+        place('lounge_chair', cxAnchor + dx * 2.2 + perpX * 0.7, czAnchor + dz * 2.2 + perpZ * 0.7, 0.7, 0.8, 0.8, 'fabric', rotY + Math.PI);
+        place('lounge_chair', cxAnchor + dx * 2.2 - perpX * 0.7, czAnchor + dz * 2.2 - perpZ * 0.7, 0.7, 0.8, 0.8, 'fabric', rotY + Math.PI);
+
+        console.log(`[resi-building] §RESI-ROOF-GARDEN terrace — ${placed} item(s) (planter edge + seating cluster, no trees, deterministic)`);
     }
 
     /** §RESI-BALCONY (2026-06-24, balcony spike D.4) — for each UPPER-floor apartment, drop ONE
@@ -1109,13 +1308,33 @@ export class ResidentialBuildingExecutor {
         // §RESI-CORE-CIRCULATION (R-CORE-2/6, founder 2026-06-24) — a shared LOBBY band at the core's
         // z0 (corridor) edge that the fire door opens into; BOTH the stair and the lift are set BACK
         // behind it so neither blocks the approach. Stair = LEFT half, lift = RIGHT half.
-        const stairCellX0 = core.x0;
-        const stairCellW = coreW / 2;
         const halfRunDepth = Math.floor(totalRisers / 2) * STAIR_TREAD_M;   // U-stair folded run depth
         const lobbyDepth = Math.max(0.8, Math.min(1.4, coreD - halfRunDepth - 0.3));
         const shaftDepth = Math.min(2.4, Math.max(1.6, coreD - lobbyDepth - 0.2));
         const liftCx = core.x0 + coreW * 0.75;
         const liftCz = cz0 + lobbyDepth + shaftDepth / 2;   // lift FRONT (door) sits on the lobby line
+        const shaftWidth = Math.min(2.0, Math.max(1.6, coreW / 2 - 0.2));
+
+        // §RESI-CORE-STAIR-CLASH (founder 2026-06-24: "the core wall clips the stair") — the RC core
+        // perimeter wall is CENTRED on the rect edge (thickness SHELL_WALL_THICKNESS_M), so the LEFT
+        // wall's INNER face is at core.x0 + SHELL_WALL_THICKNESS_M/2. The U-stair occupies a LATERAL
+        // x-band: run 1 is centred at `stairCenterX`; run 2 is offset −stairWidth (perpDir); each run
+        // is ±stairWidth/2 wide. So the footprint spans [stairCenterX − 1.5·w, stairCenterX + 0.5·w]
+        // (total 2·w). Previously stairCenterX = core.x0 + coreW/4 with w≈1.0 put the leftmost run
+        // edge exactly on core.x0 → INTO the left wall. Fix: compute a CLEARED x-band between the left
+        // core wall inner face and the lift's left edge, clamp the stair width to half that band, and
+        // anchor the footprint's leftmost edge at the band's left so the stair never touches the wall.
+        const STAIR_CORE_CLEARANCE_M = 0.05;
+        const xBandLeft = core.x0 + SHELL_WALL_THICKNESS_M / 2 + STAIR_CORE_CLEARANCE_M;
+        const xBandRight = (liftCx - shaftWidth / 2) - STAIR_CORE_CLEARANCE_M;   // clear of the lift too
+        const xBand = Math.max(0, xBandRight - xBandLeft);
+        // Footprint lateral span = 2·stairWidth must fit the band ⇒ stairWidth ≤ band/2. Also keep the
+        // architectural floor (≥0.9 m) — if the band is too tight the max() wins and the stair is
+        // narrower than ideal but still inside the band (a small overhang is preferable to a wall clip,
+        // and a 6 m core comfortably yields ≥0.9 m here).
+        const stairWidth = Math.max(0.9, Math.min(STAIR_WIDTH_M, xBand / 2));
+        // Run-1 centre x: anchor the footprint's leftmost edge (stairCenterX − 1.5·w) at xBandLeft.
+        const stairCenterX = xBandLeft + 1.5 * stairWidth;
 
         // §RESI-ROOF-GARDEN — the top INDEX the circulation reaches. Normally the top apartment
         // floor (levels.length − 1); when the roof deck is ON, the roof level (registered at index
@@ -1131,16 +1350,17 @@ export class ResidentialBuildingExecutor {
             const startY = baseElevationM + idx * floorToFloorM;
             // §RESI-CORE-CIRCULATION — the stair starts BACK from z0 by the shared lobby depth, so a
             // clear run-in landing sits between the z0 fire door and the bottom tread (the U-stair's
-            // run-OUT folds back into that same lobby). Stair runs +Z, centred in the stair half-cell.
-            const startLocal = this._rotate({ x: stairCellX0 + stairCellW / 2, z: cz0 + lobbyDepth }, xf);
+            // run-OUT folds back into that same lobby). Stair runs +Z; run 1 is centred at the
+            // CLEARED `stairCenterX` (§RESI-CORE-STAIR-CLASH) so the U-footprint never touches the
+            // left core wall or the lift.
+            const startLocal = this._rotate({ x: stairCenterX, z: cz0 + lobbyDepth }, xf);
             const startPosition = { x: startLocal.x, y: startY, z: startLocal.z };
             // §RESI-CORE-USTAIR (founder 2026-06-24: "the stair clashes with the core — the stair can
             // be in U to take less space"). A straight 17-riser run (~4.25 m) overran the 4 m-deep
             // core. Fold it into a U — two half-flights + a half-landing — so it fits the core
             // footprint. Geometry mirrors the canonical StairCommandPlan U-shape (§7.1): run 2 is the
             // reverse of run 1, offset one stair-width laterally, starting halfRun+tread along + up
-            // half the rise. Width is capped at half the stair cell so both runs sit side-by-side.
-            const stairWidth = Math.min(STAIR_WIDTH_M, Math.max(0.9, stairCellW / 2 - 0.1));
+            // half the rise. `stairWidth` is the cleared lateral band width (hoisted above).
             const dir = { x: runDir.x, y: 0, z: runDir.z };
             const reverseDir = { x: -runDir.x, y: 0, z: -runDir.z };
             const perpDir = { x: -runDir.z, y: 0, z: runDir.x };
@@ -1185,8 +1405,8 @@ export class ResidentialBuildingExecutor {
         let lifts = 0;
         const liftOrigin = this._rotate({ x: liftCx, z: liftCz }, xf);
         const liftRotationY = Math.atan2(runDir.x, runDir.z);
-        const shaftWidth = Math.min(2.0, Math.max(1.6, coreW / 2 - 0.2));
-        // shaftDepth is defined in the core setup (sized so the lift sits BEHIND the lobby band).
+        // shaftWidth + shaftDepth are defined in the core setup (sized so the lift sits BEHIND the
+        // lobby band; shaftWidth is also used to bound the stair's cleared x-band above).
         // §RESI-LIFT-TOP-CAB (founder "the lift is not present on the top floor", 2026-06-23) — the
         // mesh height = |topEl − baseEl| (LiftMeshBuilder.resolveSpan), so a cab needs a level ABOVE
         // its base. The TOP floor has none → it was skipped. Loop INCLUSIVE to the top index: lower
@@ -1448,6 +1668,7 @@ export class ResidentialBuildingExecutor {
         shell: { walls: ReadonlyArray<Record<string, unknown>>; levelId: string },
         gf: GroundFloorDescriptor,
         xf: ResidentialRigidTransform,
+        doorBay?: { wallId: string; wallLengthM: number },
     ): void {
         const cm = getCommandManager();
         if (!cm?.execute) { console.warn('[resi-building] commandManager unavailable — entrance skipped'); return; }
@@ -1465,10 +1686,27 @@ export class ResidentialBuildingExecutor {
         // Wait (poll, ≤6 s) for the ground shell walls to land, then punch the entrance.
         const tryPunch = (n: number): void => {
             if (!shellReady() && n > 0) { setTimeout(() => tryPunch(n - 1), 150); return; }
-            const hit = resolveEntranceOnShell(shell.walls, worldCenter);
-            if (!hit) { console.warn('[resi-building] entrance — no shell wall resolved (skipped)'); return; }
+            // §RESI-DOOR-CENTRE-SPINE (founder 2026-06-24: "entrance → corridor → core door must read
+            // as ONE centred spine") — host the entrance on the SOLID door-bay wall the ground shell
+            // minted (its midpoint IS the corridor `from`), NOT a wall re-resolved from the
+            // orchestrator's off-centre entrance point (which could pick a side window wall and centre
+            // the door there). Fall back to the nearest-wall resolve only when no bay was built (the
+            // degenerate-ring solid-shell fallback). Either way the door is CENTRED on its host wall.
+            let hostWallId: string;
+            let hostLenM: number;
+            if (doorBay) {
+                hostWallId = doorBay.wallId;
+                hostLenM = doorBay.wallLengthM;
+            } else {
+                const hit = resolveEntranceOnShell(shell.walls, worldCenter);
+                if (!hit) { console.warn('[resi-building] entrance — no shell wall resolved (skipped)'); return; }
+                hostWallId = hit.wallId;
+                hostLenM = hit.wallLengthM;
+            }
+            const hit: EntranceHostHit = { wallId: hostWallId, wallLengthM: hostLenM, centerAlongM: hostLenM / 2 };
             const { width } = entranceOffsetOnWall(hit, gf.entranceWidthM);
-            // §RESI-DOOR-CENTRE — centre the door on its (bay) host wall so it sits mid-façade.
+            // §RESI-DOOR-CENTRE — centre the door on its (bay) host wall so it sits mid-façade, on the
+            // corridor axis (host-wall midpoint = corridor `from` = core fire door target).
             const offset = Math.max(0, (hit.wallLengthM - width) / 2);
             try {
                 batchCoordinator.runBatch(() => {

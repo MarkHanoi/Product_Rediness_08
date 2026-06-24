@@ -59,6 +59,20 @@ function readNumber(md: Record<string, unknown>, ...keys: string[]): number | un
     return undefined;
 }
 
+/** Read a `#rrggbb` hex colour string from the brief metadata. Accepts a 3- or 6-digit hex
+ *  (expanding the short form). Absent / malformed ⇒ undefined. */
+function readHexColor(md: Record<string, unknown>, ...keys: string[]): string | undefined {
+    for (const k of keys) {
+        const raw = md[k];
+        if (typeof raw !== 'string') continue;
+        const v = raw.trim();
+        if (/^#[0-9a-fA-F]{6}$/.test(v)) return v.toLowerCase();
+        const m = /^#([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])$/.exec(v);
+        if (m) return `#${m[1]}${m[1]}${m[2]}${m[2]}${m[3]}${m[3]}`.toLowerCase();
+    }
+    return undefined;
+}
+
 /** Read a boolean-ish from the brief metadata. Absent ⇒ undefined. */
 function readBool(md: Record<string, unknown>, ...keys: string[]): boolean | undefined {
     for (const k of keys) {
@@ -103,8 +117,15 @@ export function residentialRequestFromBrief(
         : { T1: false, T2: true, T3: true, T4: false };
 
     const siteLatitudeDeg = readNumber(md, 'siteLatitudeDeg', 'latDeg', 'lat');
-    // §RESI-PREVIEW-OPTIONS — the modal's roof-garden toggle (default OFF).
+    // §RESI-PREVIEW-OPTIONS — the modal's four build options. roof-garden (default OFF),
+    // balconies (default ON), façade colour (hex), ground commercial-curtain (default OFF).
     const roofGarden = readBool(md, 'roofGarden') === true;
+    // §RESI-BALCONIES — default ON: only `false`/`no`/`0` turns it off; absent stays ON.
+    const balconies = readBool(md, 'balconies') !== false;
+    // §RESI-GROUND-COMMERCIAL-CURTAIN — default OFF (solid shell + big commercial windows).
+    const groundCommercialCurtain = readBool(md, 'groundCommercialCurtain', 'groundCurtain') === true;
+    // §RESI-FACADE-COLOUR — a #rrggbb hex finish colour from the modal colour picker (else default).
+    const facadeColor = readHexColor(md, 'facadeColor', 'finishColor', 'facadeColour');
 
     return {
         upperLevels,
@@ -113,6 +134,10 @@ export function residentialRequestFromBrief(
         typologies,
         ...(typeof siteLatitudeDeg === 'number' ? { siteLatitudeDeg } : {}),
         ...(roofGarden ? { roofGarden: true } : {}),
+        // Balconies are ON by default; only thread the flag when the modal turned it OFF.
+        ...(balconies ? {} : { balconies: false }),
+        ...(groundCommercialCurtain ? { groundCommercialCurtain: true } : {}),
+        ...(facadeColor ? { facadeColor } : {}),
         footprint,
     };
 }
