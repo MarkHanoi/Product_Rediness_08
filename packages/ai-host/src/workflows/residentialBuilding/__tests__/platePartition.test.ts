@@ -94,13 +94,17 @@ describe('partitionLevelPlate — rectangular plate', () => {
         }
     });
 
-    it('every apartment area lands within its typology m² band', () => {
+    it('every apartment area clears its typology floor and keeps its typology (fill-plate)', () => {
         const apts = [T2, T3, T2, T3];
         const res = expectOk(partitionLevelPlate(baseInput(apts)));
         res.apartmentCells.forEach((cell, i) => {
-            const d = apts[i]!;
+            const d = apts[i % apts.length]!;
+            // Feasibility floor still holds — a cell is never sub-minimum for its typology.
             expect(cell.areaM2).toBeGreaterThanOrEqual(d.minAreaM2 - 1e-2);
-            expect(cell.areaM2).toBeLessThanOrEqual(d.maxAreaM2 + 1e-2);
+            // §RESI-FILL-PLATE — apartments STRETCH to consume the plate, so a cell's area is
+            // geometry-bound and MAY exceed the typology's nominal max band (the band is the
+            // packer's TARGET, not a hard partition cap; the per-cell program scaler then sizes
+            // the dwelling to the actual area). The upper-band assertion no longer applies.
             expect(cell.typology).toBe(d.typology);
         });
     });

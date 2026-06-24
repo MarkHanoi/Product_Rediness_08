@@ -234,11 +234,22 @@ export function scaleCellProgram(pinned: ApartmentProgram, cellAreaM2: number): 
     // a bedroom count only when the cell clears grossMin × SLACK; otherwise we step down (an 85 m²
     // cell whose 3-bed grossMin is 85 becomes a comfortable 2-bed that actually lays out). Studio
     // floor is unchanged. Pure + deterministic.
-    const SLACK = 1.12;
+    // §RESI-PROGRAM-SLACK-2 (founder "0 apartments — units can't fit, all cells rejected",
+    // 2026-06-24) — the headroom a program needs GROWS with the bedroom count. A 3-bed adds a
+    // comb corridor + an ensuite + more partition walls, so in a DEPTH-CAPPED cell (the rows are
+    // ≤ MAX_APARTMENT_DEPTH_M ≈ 9 m) it needs far more than the flat 12% a 1-bed needs. The old
+    // flat 1.12 kept ~99 m² cells as 3-beds whose master realised at 11.9 < 12 m² (the §3.1 min)
+    // and sealed a room → every orientation hard-failed the min-area + circulation gates → 0
+    // apartments (the founder's screenshot: 4 corner cells all hatched ✗). Scale the slack with the
+    // count so an over-ambitious cell steps DOWN to the count it can actually lay out — a 99 m²
+    // cell becomes a roomy 2-bed that ships, not a rejected 3-bed. (Raising the MAX slider can't
+    // help: the cell area is bounded by the corridor-depth cap, not the size band.) Studio keeps
+    // its bare floor. Pure + deterministic.
+    const slackFor = (b: number): number => b >= 4 ? 1.35 : b === 3 ? 1.28 : b === 2 ? 1.15 : 1.06;
     let beds = pinnedBeds;
     for (let b = pinnedBeds; b >= 0; b--) {
         const d = apartmentDimensionsFor(b);
-        const needM2 = b === 0 ? d.grossMin : d.grossMin * SLACK;   // studio keeps its bare floor
+        const needM2 = b === 0 ? d.grossMin : d.grossMin * slackFor(b);   // studio keeps its bare floor
         if (cellAreaM2 >= needM2 - 1e-6) { beds = b; break; }
         beds = 0; // smaller than even the studio min — clamp to studio, engine soft-fails if truly degenerate
     }
