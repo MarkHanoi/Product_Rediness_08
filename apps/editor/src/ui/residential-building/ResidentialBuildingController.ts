@@ -69,6 +69,10 @@ export interface ResidentialBuildingRequest {
     /** OPTIONAL explicit footprint (metres, plan XZ). When omitted, read from the
      *  active level's drawn shell (the house-flow source). */
     readonly footprint?: ReadonlyArray<{ x: number; z: number }>;
+    /** §RESI-ROOF-GARDEN (2026-06-24) — OPTIONAL roof amenity deck. Default OFF. Threaded straight
+     *  to the executor (`ResidentialExecuteInput.roofGarden`); the deck is executor-emitted so the
+     *  pure orchestrator/preview are unchanged for this slice. */
+    readonly roofGarden?: boolean;
 }
 
 export interface ResidentialBuildingRequestResult {
@@ -162,7 +166,7 @@ export function countPlacedApartments(result: ResidentialBuildingOk): number {
 export class ResidentialBuildingController {
     private readonly modal = new ResidentialBuildingModal();
     private readonly executor = new ResidentialBuildingExecutor();
-    private _pending: { runtime: PryzmRuntime; result: ResidentialBuildingOk; floorToFloorM: number } | null = null;
+    private _pending: { runtime: PryzmRuntime; result: ResidentialBuildingOk; floorToFloorM: number; roofGarden: boolean } | null = null;
 
     /**
      * Compute the building for the active shell + open the modal. On Build, build
@@ -226,7 +230,7 @@ export class ResidentialBuildingController {
             `${apartmentCount} apartment(s) placed — opening modal. ${result.diagnostic}`,
         );
 
-        this._pending = { runtime, result, floorToFloorM: input.floorToFloorM ?? DEFAULT_FLOOR_TO_FLOOR_M };
+        this._pending = { runtime, result, floorToFloorM: input.floorToFloorM ?? DEFAULT_FLOOR_TO_FLOOR_M, roofGarden: req.roofGarden === true };
         this.modal.show(result, {
             onBuild: () => this._build(),
             onCancel: () => { console.log('[resi-building] controller: modal cancelled (no scene mutation)'); this._pending = null; },
@@ -250,7 +254,7 @@ export class ResidentialBuildingController {
         if (!p) return;
         console.log('[resi-building] controller: Build pressed → executor');
         p.runtime.events?.emit('pryzm:toast', { message: 'Building residential building…', severity: 'info' });
-        void this.executor.execute(p.runtime, p.result, { floorToFloorM: p.floorToFloorM });
+        void this.executor.execute(p.runtime, p.result, { floorToFloorM: p.floorToFloorM, roofGarden: p.roofGarden });
         this._pending = null;
     }
 }

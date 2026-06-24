@@ -148,7 +148,12 @@
       "Bash(awk '{print $NF}')",
       "Bash(awk -F/ '{print $1\"/\"$2}')",
       "Bash(pnpm --filter @pryzm/editor exec vitest run __tests__/buildBuildingGraph.test.ts)",
-      "Bash(pnpm --filter @pryzm/geometry-furniture test)"
+      "Bash(pnpm --filter @pryzm/geometry-furniture test)",
+      "Bash(pnpm --filter @pryzm/ai-host exec vitest run __tests__/_repro2.test.ts)",
+      "Bash(rm -f packages/ai-host/__tests__/_repro2.test.ts packages/ai-host/__tests__/_repro_narrow.test.ts)",
+      "Bash(pnpm --filter @pryzm/ai-host exec vitest run __tests__/residential)",
+      "Bash(pnpm --filter @pryzm/ai-host exec vitest run __tests__/residentialPlateFill.test.ts)",
+      "Bash(pnpm --filter @pryzm/ai-host exec vitest run __tests__/residential src/workflows/residentialBuilding)"
     ],
     "additionalDirectories": [
       "c:\\Users\\LENOVO\\.claude\\projects\\c--Users-LENOVO-OneDrive-Desktop-PRYZM-Product-Rediness-08\\memory"
