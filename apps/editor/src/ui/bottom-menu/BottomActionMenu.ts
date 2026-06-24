@@ -80,6 +80,20 @@ export class BottomActionMenu {
     // §ROOM-LABELS-TOGGLE (2026-06-10) — 3D room-name sprite visibility. Default
     // true (current behaviour); the toggle button flips it via RoomLabelRenderer.
     private _roomLabelsVisible = true;
+    // §CEILING-HIDDEN-IN-3D (2026-06-24) — ceilings cap each room in the 3D
+    // authoring view and block seeing the interior layout, so they are HIDDEN BY
+    // DEFAULT whenever the 3D/perspective view is active. Tracks whether the live
+    // viewport is the 3D view (vs a plan/section/elevation Canvas2D view). The
+    // editor opens in 3D, so this starts true. Updated from the authoritative
+    // 'view-activated' event (mode === '3D'). Plan views, schedules and exports
+    // read from the store / a separate projection and are unaffected — this is a
+    // pure scene-`.visible` filter, never a geometry or store mutation.
+    private _view3DActive = true;
+    // §CEILING-HIDDEN-IN-3D — user override: a default-on hide that stays
+    // toggle-able. When the user explicitly shows ceilings in 3D (e.g. via the
+    // V/G browser / a future toggle) this flips false and the 3D filter stops
+    // hiding them until reset. Default true = ceilings hidden in 3D.
+    private _hideCeilingsIn3D = true;
     private _expanded = false;
     private _sectionBoxActive = false;
     private _pendingKey: string | null = null;
@@ -170,6 +184,27 @@ export class BottomActionMenu {
             if (this._activeLevelOnly || this._levelMode === 'solo') this._applySceneVisibilityFilters();
             this._render();
         });
+
+        // §CEILING-HIDDEN-IN-3D (2026-06-24) — keep the ceiling-hide in lock-step
+        // with the live view mode. The ViewController emits 'view-activated' with
+        // mode === '3D' for the perspective authoring view and a plan/section/
+        // elevation mode otherwise. Re-run the scene visibility filter on every
+        // switch so ceilings hide entering 3D and restore leaving it (plan views
+        // get their ceilings back). Listening here mirrors the existing
+        // activeLevelChanged wiring; no new global reads.
+        this.runtime?.events?.on('view-activated', (payload: unknown) => {
+            const mode = (payload as { mode?: string } | undefined)?.mode;
+            if (mode === undefined) return;
+            const next3D = mode === '3D';
+            if (next3D === this._view3DActive) return;
+            this._view3DActive = next3D;
+            this._applySceneVisibilityFilters();
+        });
+
+        // §CEILING-HIDDEN-IN-3D — hide ceilings on initial paint (editor opens in
+        // the 3D view). Deferred a tick so the scene + ceiling roots exist; the
+        // filter is idempotent and recomputes from the captured originals.
+        queueMicrotask(() => { if (this._view3DActive) this._applySceneVisibilityFilters(); });
     }
 
     get element(): HTMLElement {
@@ -694,6 +729,11 @@ export class BottomActionMenu {
         this._restoreLevelTransforms();
         for (const [obj, visible] of this._originalVisibility) obj.visible = visible;
         this._originalVisibility.clear();
+        // §CEILING-HIDDEN-IN-3D (2026-06-24) — "Reset view" clears every override
+        // but the 3D ceiling-hide is a default, not an override: re-apply it so a
+        // reset while in the 3D view leaves the interior visible (ceilings stay
+        // hidden). No-op in plan views or when the user toggled the hide off.
+        if (this._view3DActive && this._hideCeilingsIn3D) this._applySceneVisibilityFilters();
         this._invalidateSelectionCache();
         this.runtime?.events?.emit('pryzm-inspect-level-explode', { mode: 'stacked', source: 'bottom-menu' }); // F.events.15
         this.runtime?.events?.emit('bam:reset-view-controls', {}); // F.events.14
@@ -964,6 +1004,15 @@ export class BottomActionMenu {
         return type === 'wall' || type === 'walls';
     }
 
+    // §CEILING-HIDDEN-IN-3D (2026-06-24) — a scene object is a ceiling when its
+    // userData is stamped by CeilingPanelBuilder (elementType/type === 'ceiling').
+    // Matches the same tag LevelExplodeController._isCeilingRoot uses, so the
+    // 3D-view default-hide and the explode-hide agree on what a ceiling is.
+    private _isCeilingObject(obj: any): boolean {
+        const type = String(obj.userData?.elementType ?? obj.userData?.type ?? '').toLowerCase();
+        return type === 'ceiling';
+    }
+
     private _wallVisibleInMode(obj: any): boolean {
         if (!this._isWallObject(obj)) return true;
         // §WALL-CUTAWAY-XRAY — 'cutaway' is now an x-ray transparency effect (see
@@ -993,6 +1042,12 @@ export class BottomActionMenu {
             if ((this._activeLevelOnly || this._levelMode === 'solo') && activeLevelId) visible = visible && this._objectLevelId(obj) === activeLevelId;
             if (this._elementsInViewOnly && obj.userData?.id) visible = visible && this._visibleElementIds.has(String(obj.userData.id));
             visible = visible && this._wallVisibleInMode(obj);
+            // §CEILING-HIDDEN-IN-3D (2026-06-24) — hide ceiling roots while the 3D
+            // view is active (default-on, toggle-able) so they don't cap the rooms
+            // and block the interior layout. Visibility is recomputed from the
+            // captured original each pass, so switching to a plan view (where
+            // _view3DActive is false) restores the ceiling on the next filter run.
+            if (this._view3DActive && this._hideCeilingsIn3D && this._isCeilingObject(obj)) visible = false;
             obj.visible = visible;
         });
         this._invalidateSelectionCache();
