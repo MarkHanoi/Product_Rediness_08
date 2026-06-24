@@ -823,11 +823,6 @@ export class ResidentialBuildingExecutor {
         const core = result.core;   // LOCAL (principal-axis) frame.
         const coreW = core.x1 - core.x0;
         const coreD = core.z1 - core.z0;
-        // Split the core: LEFT half = stair, RIGHT half = lift shaft.
-        const stairCellX0 = core.x0;
-        const stairCellW = coreW / 2;
-        const liftCx = core.x0 + coreW * 0.75;
-        const liftCz = (core.z0 + core.z1) / 2;
         const cz0 = core.z0;
         // §RESI-RIGID-TRANSFORM — the stair RUN is along LOCAL +Z; rotate the run direction
         // to the WORLD parcel so the stair aligns with the rotated core (θ=0 ⇒ {x:0,z:1}).
@@ -839,6 +834,17 @@ export class ResidentialBuildingExecutor {
         while (riserHeight > STAIR_RISER_MAX_M && totalRisers < 40) { totalRisers++; riserHeight = floorToFloorM / totalRisers; }
         while (riserHeight < STAIR_RISER_MIN_M && totalRisers > 2) { totalRisers--; riserHeight = floorToFloorM / totalRisers; }
 
+        // §RESI-CORE-CIRCULATION (R-CORE-2/6, founder 2026-06-24) — a shared LOBBY band at the core's
+        // z0 (corridor) edge that the fire door opens into; BOTH the stair and the lift are set BACK
+        // behind it so neither blocks the approach. Stair = LEFT half, lift = RIGHT half.
+        const stairCellX0 = core.x0;
+        const stairCellW = coreW / 2;
+        const halfRunDepth = Math.floor(totalRisers / 2) * STAIR_TREAD_M;   // U-stair folded run depth
+        const lobbyDepth = Math.max(0.8, Math.min(1.4, coreD - halfRunDepth - 0.3));
+        const shaftDepth = Math.min(2.4, Math.max(1.6, coreD - lobbyDepth - 0.2));
+        const liftCx = core.x0 + coreW * 0.75;
+        const liftCz = cz0 + lobbyDepth + shaftDepth / 2;   // lift FRONT (door) sits on the lobby line
+
         const topIndex = result.levels.length - 1;
         let stairs = 0;
         // A stair between each adjacent level pair (ground→1, 1→2, …).
@@ -847,15 +853,10 @@ export class ResidentialBuildingExecutor {
             const toLevelId = levelIdByIndex.get(idx + 1);
             if (!fromLevelId || !toLevelId) continue;
             const startY = baseElevationM + idx * floorToFloorM;
-            // §RESI-CORE-CIRCULATION (founder 2026-06-24: "the stair entrance has a wall in front —
-            // circulation is blocked; the stair needs a built-in access path"). Set the stair BACK
-            // from the core's z0 wall by an APPROACH-LANDING depth so a clear run-in landing sits
-            // between the z0 fire door and the bottom tread — and the U-stair's run-OUT (which folds
-            // back to the z0 side) lands in that SAME lobby. Stair runs +Z, centred in the stair
-            // half-cell; LOCAL → WORLD via xf. Landing is clamped so the folded run still clears z1.
-            const halfRunDepth = Math.floor(totalRisers / 2) * STAIR_TREAD_M;
-            const STAIR_LANDING_DEPTH_M = Math.max(0.3, Math.min(1.2, coreD - halfRunDepth - 0.3));
-            const startLocal = this._rotate({ x: stairCellX0 + stairCellW / 2, z: cz0 + STAIR_LANDING_DEPTH_M }, xf);
+            // §RESI-CORE-CIRCULATION — the stair starts BACK from z0 by the shared lobby depth, so a
+            // clear run-in landing sits between the z0 fire door and the bottom tread (the U-stair's
+            // run-OUT folds back into that same lobby). Stair runs +Z, centred in the stair half-cell.
+            const startLocal = this._rotate({ x: stairCellX0 + stairCellW / 2, z: cz0 + lobbyDepth }, xf);
             const startPosition = { x: startLocal.x, y: startY, z: startLocal.z };
             // §RESI-CORE-USTAIR (founder 2026-06-24: "the stair clashes with the core — the stair can
             // be in U to take less space"). A straight 17-riser run (~4.25 m) overran the 4 m-deep
@@ -909,7 +910,7 @@ export class ResidentialBuildingExecutor {
         const liftOrigin = this._rotate({ x: liftCx, z: liftCz }, xf);
         const liftRotationY = Math.atan2(runDir.x, runDir.z);
         const shaftWidth = Math.min(2.0, Math.max(1.6, coreW / 2 - 0.2));
-        const shaftDepth = Math.min(2.4, Math.max(1.6, coreD - 0.2));
+        // shaftDepth is defined in the core setup (sized so the lift sits BEHIND the lobby band).
         // §RESI-LIFT-TOP-CAB (founder "the lift is not present on the top floor", 2026-06-23) — the
         // mesh height = |topEl − baseEl| (LiftMeshBuilder.resolveSpan), so a cab needs a level ABOVE
         // its base. The TOP floor has none → it was skipped. Loop INCLUSIVE to the top index: lower
