@@ -173,18 +173,46 @@ export class LevelExplodeController {
     this._mode        = mode;
     this._soloLevelId = soloLevelId;
 
+    let hiddenCeilings = 0;
     for (const group of this._levelGroups) {
       // Y offset: stacked = 0, exploded = index * GAP
       group.targetOffset = mode === 'exploded' ? group.index * EXPLODE_GAP : 0;
 
-      // Visibility: solo hides all levels except the selected one
-      const isVisible = mode !== 'solo' || group.levelId === this._soloLevelId;
+      // Visibility derivation — single source of truth (mirrors the
+      // §FLOOR-ISOLATE-ROOMTAG capture/restore discipline: every root's
+      // visibility is recomputed from scratch each apply, so collapsing or
+      // switching modes restores exactly without per-root saved snapshots).
+      //
+      //  · solo  → hide all levels except the selected one
+      //  · explode → §LEVEL-EXPLODE-HIDE-CEILINGS (2026-06-24): hide ceiling
+      //    roots so they don't cap each storey and occlude the room layout
+      //    below. Stacked (collapsed) keeps ceilings — the normal building
+      //    view is unaffected.
+      const levelVisible = mode !== 'solo' || group.levelId === this._soloLevelId;
       for (const root of group.roots) {
-        root.visible = isVisible;
+        const ceiling = LevelExplodeController._isCeilingRoot(root);
+        const visible = levelVisible && !(mode === 'exploded' && ceiling);
+        if (ceiling && !visible) hiddenCeilings++;
+        root.visible = visible;
       }
     }
 
+    if (mode === 'exploded') {
+      console.log(`[§LEVEL-EXPLODE-HIDE-CEILINGS] exploded — hid ${hiddenCeilings} ceiling root(s)`);
+    }
+
     this._startRaf();
+  }
+
+  /**
+   * §LEVEL-EXPLODE-HIDE-CEILINGS (2026-06-24): a level-group root represents a
+   * ceiling when its userData is stamped by CeilingPanelBuilder
+   * (elementType/type === 'ceiling'). View-only classification — no geometry or
+   * store state is touched.
+   */
+  private static _isCeilingRoot(root: THREE.Object3D): boolean {
+    const ud = root.userData as { elementType?: string; type?: string };
+    return ud.elementType === 'ceiling' || ud.type === 'ceiling';
   }
 
   // ── Scene group building ──────────────────────────────────────────────────
