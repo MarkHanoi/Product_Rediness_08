@@ -542,6 +542,17 @@ export class ResidentialBuildingExecutor {
         // dispatch directly. Deferred a beat so the structural slabs have settled in the store.
         this._finishPublicFloors(cm, result, levelIdByIndex, xf);
 
+        // §RESI-WALL-CEILING-FINISH (founder 2026-06-24: "Wall Finish + Ceiling Finish are all '—'") —
+        // over ALL building levels (ground + residential, so commercial/corridor/core rooms are
+        // covered too): (a) CREATE a ceiling in every detected room — the D-CE engine auto-fires only
+        // on `apartment.layout-executed`, which the residential pipeline never emits, so ceilings
+        // would otherwise never be built — and (b) author a full `room.finishes` set (floor + WALLS +
+        // ceiling, each NAMED) on every room so the schedule's Floor / Wall / Ceiling columns ALL
+        // populate (the RoomFinishResolver now falls back to room.finishes when no layered element
+        // finish exists). Both passes defer internally past the room-detection settle.
+        this._ceilRoomsPerLevel(runtime, levelIds);
+        this._scheduleRoomFinishes(runtime, levelIds);
+
         // NOTE: no custom completion event is emitted — `RuntimeEvents` is a typed map
         // (no catch-all index) and registering a new key lives in runtime-composer
         // (out of this slice's scope). The toast + the returned result carry the
@@ -650,7 +661,13 @@ export class ResidentialBuildingExecutor {
         const WIN_PANE_W_M = 1.8;          // CONSTANT glazed-pane width, building-wide (≤ 2 m)
         const WIN_GAP_TARGET_M = 0.7;      // preferred inter-window spacing (sets the per-segment count)
         const WIN_GAP_MIN_M = 0.4;         // a count is only accepted if its spacing clears this floor
-        const WIN_EDGE_MARGIN_M = 0.45;    // CONSTANT corner setback reserved at BOTH ends (the cornerMargin)
+        // §RESI-GROUND-WINDOW-CORNER-MARGIN (founder 2026-06-24: "the ground windows are too close to
+        // the corners") — reserve a FATTER ~0.9 m solid corner pier at BOTH ends of every windowed
+        // segment. At a building corner the two perpendicular walls EACH leave ~0.9 m ⇒ a clean ~1.8 m
+        // solid corner. The even-divide is otherwise unchanged (constant 1.8 m width, equal spacing,
+        // last window flush to wallLength − cornerMargin); a short segment that can't fit ≥1 window
+        // with the bigger margins is left SOLID.
+        const WIN_EDGE_MARGIN_M = 0.9;     // CONSTANT corner setback reserved at BOTH ends (the cornerMargin)
         // §RESI-GROUND-SLAB-COVER (founder 2026-06-24: "on ground→first floor we see the slab; the
         // walls should rise to the slab level on the ground floor"). The first-floor slab sits on the
         // ground-storey head; a curtain/wall only floor-to-floor tall leaves the slab EDGE exposed
@@ -912,6 +929,34 @@ export class ResidentialBuildingExecutor {
         return { payload: { walls, levelId }, doors };
     }
 
+    /** §RESI-DOOR-CENTRE-ALL (founder 2026-06-24: "center ALL resi doors") — the single, shared
+     *  door-centring rule for EVERY door the executor punches (entrance bay, CORE fire/lobby door,
+     *  apartment corridor entry). Reads the host wall's ACTUAL length from its committed `baseLine`
+     *  in the store (NOT a pre-computed length, which can go stale / mismatch the rotated-frame
+     *  geometry) and centres the leaf on it: `offset = (storedLen − width)/2`, clamped so the frame
+     *  stays inside an equal jamb at each end. The `offset` is a distance ALONG the wall's local
+     *  baseLine axis, so a ROTATED plot behaves identically. Asserts the result is centred. Falls
+     *  back to `fallbackLen` if the store read misses. Returns the centred along-wall offset. */
+    private _centredDoorOffset(wallId: string, width: number, fallbackLen: number, tag: string, jambM = 0.2): number {
+        const wallStore = storeRegistry.getStoreForType('wall') as unknown as { getById?: (id: string) => unknown } | undefined;
+        const w = wallStore?.getById?.(wallId) as { baseLine?: ReadonlyArray<{ x: number; z: number }> } | undefined;
+        let storedLen = fallbackLen;
+        const bl = w?.baseLine;
+        if (bl && bl.length >= 2) {
+            const a = bl[0]!, b = bl[1]!;
+            const l = Math.hypot(b.x - a.x, b.z - a.z);
+            if (Number.isFinite(l) && l > 0.05) storedLen = l;
+        }
+        let offset = Math.max(0, (storedLen - width) / 2);
+        // Clamp [offset, offset+width] ⊆ [jamb, storedLen − jamb] (belt-and-braces vs FP drift).
+        offset = Math.min(Math.max(jambM, offset), Math.max(0, storedLen - jambM - width));
+        const centreErr = Math.abs(offset - (storedLen - width) / 2);
+        if (centreErr > 0.02) {
+            console.warn(`[resi-building] §RESI-DOOR-CENTRE-ALL ⚠ ${tag} door not centred (offset=${offset.toFixed(2)} expected=${((storedLen - width) / 2).toFixed(2)} len=${storedLen.toFixed(2)})`);
+        }
+        return offset;
+    }
+
     /** §RESI-CORE-DOORS — punch the two fire doors per level on the (already committed) core
      *  walls. Deferred + polled exactly like the main entrance: the core wall.batch.create is
      *  async via the bus, so we wait (≤6 s) for every host wall to land in the store, then punch
@@ -935,7 +980,9 @@ export class ResidentialBuildingExecutor {
                         openingData: {
                             id: createId('opening'),
                             type: 'door',
-                            offset: s.offset,
+                            // §RESI-DOOR-CENTRE-ALL — re-centre on the STORED core wall length at punch
+                            // time (the pre-computed s.offset was (len−w)/2 ⇒ fallback len = 2·offset+w).
+                            offset: this._centredDoorOffset(s.wallId, s.width, 2 * s.offset + s.width, 'core'),
                             width: s.width,
                             height: 2.1,
                             sillHeight: 0,
@@ -1793,23 +1840,33 @@ export class ResidentialBuildingExecutor {
         const roomStore = storeRegistry.getStoreForType('room') as unknown as
             { getAll?(): Array<{ id: string; levelId: string; occupancyType?: string }> } | undefined;
         const levelSet = new Set(levelIds);
-        // Defer past the floor-finish stagger so room detection + naming have fully settled.
-        setTimeout(() => {
+        const readRooms = (): Array<{ id: string; levelId: string; occupancyType?: string }> =>
+            (roomStore?.getAll?.() ?? []).filter(r => levelSet.has(r.levelId));
+        // POLL for rooms to land before authoring finishes — apartment room detection runs on its own
+        // (size-scaled) budget in _finishApartments, so a fixed delay would race a large plate. Wait
+        // until the room count STABILISES (or the ~24 s budget runs out), then author once.
+        let prevCount = -1, stable = 0;
+        const tryFinish = (n: number): void => {
+            const rooms = readRooms();
+            // Stable for 2 consecutive ticks (detection settled) OR budget exhausted ⇒ go.
+            if (rooms.length > 0 && rooms.length === prevCount) stable++; else stable = 0;
+            prevCount = rooms.length;
+            if (!(stable >= 2 || n <= 0)) { setTimeout(() => tryFinish(n - 1), 300); return; }
+            if (rooms.length === 0) { console.log('[resi-building] §RESI-WALL-CEILING-FINISH — no rooms to schedule-finish'); return; }
             try {
-                const rooms = (roomStore?.getAll?.() ?? []).filter(r => levelSet.has(r.levelId));
-                if (rooms.length === 0) { console.log('[resi-building] §RESI-WALL-CEILING-FINISH — no rooms to schedule-finish'); return; }
-                let n = 0;
+                let k = 0;
                 batchCoordinator.runBatch(() => {
                     for (const r of rooms) {
                         try {
                             cm.execute?.(new UpdateRoomFinishesCommand(r.id, finishFor(r.occupancyType ?? '')), { source: 'RESI_PIPELINE_ROOM_FINISH' });
-                            n++;
+                            k++;
                         } catch (e) { console.warn('[resi-building] room-finish failed for', r.id, '(non-fatal):', e); }
                     }
                 }, { levelIds: [...levelSet], totalElementCount: rooms.length, skipRedetectRooms: true });
-                console.log(`[resi-building] §RESI-WALL-CEILING-FINISH — authored finishes (floor+wall+ceiling) on ${n} room(s)`);
+                console.log(`[resi-building] §RESI-WALL-CEILING-FINISH — authored finishes (floor+wall+ceiling) on ${k} room(s)`);
             } catch (e) { console.warn('[resi-building] room-finish pass failed (non-fatal):', e); }
-        }, 1400);
+        };
+        setTimeout(() => tryFinish(80), 1400);   // first check after the floor-finish stagger; ~24 s budget
     }
 
     /** §RESI-WALL-CEILING-FINISH — create a CEILING in every detected room on every level (the D-CE
@@ -1819,13 +1876,25 @@ export class ResidentialBuildingExecutor {
      *  rooms have settled. Best-effort. */
     private _ceilRoomsPerLevel(runtime: PryzmRuntime, levelIds: readonly string[]): void {
         const pc = (window as unknown as { projectContext?: { activeLevelId?: string | null } }).projectContext;
-        levelIds.forEach((lid, i) => {
-            setTimeout(() => {
+        const roomStore = storeRegistry.getStoreForType('room') as unknown as
+            { getAll?(): Array<{ levelId: string }> } | undefined;
+        const roomCountOn = (lid: string): number => (roomStore?.getAll?.() ?? []).filter(r => r.levelId === lid).length;
+        // Per level, WAIT for that level's room count to stabilise (detection settled) before firing
+        // the ceiling trigger — large plates land rooms on a size-scaled budget, so a fixed delay races.
+        levelIds.forEach((lid) => {
+            let prev = -1, stable = 0;
+            const fire = (n: number): void => {
+                const c = roomCountOn(lid);
+                if (c > 0 && c === prev) stable++; else stable = 0;
+                prev = c;
+                if (!(stable >= 2 || n <= 0)) { setTimeout(() => fire(n - 1), 300); return; }
+                if (c === 0) return;   // no rooms on this level (e.g. a bare core-only level) → nothing to ceil
                 try {
                     if (pc) pc.activeLevelId = lid;
                     triggerCeilingLayout(runtime);
                 } catch (e) { console.warn('[resi-building] ceiling pass failed on', lid, '(non-fatal):', e); }
-            }, 900 + i * 250);
+            };
+            setTimeout(() => fire(80), 900);   // first check after the floor stagger; ~24 s budget per level
         });
     }
 
@@ -1937,7 +2006,10 @@ export class ResidentialBuildingExecutor {
                 opening: {
                     id: createId('opening'),
                     type: 'door',
-                    offset: b.entryDoor.offset,
+                    // §RESI-DOOR-CENTRE-ALL — re-centre the apartment corridor-entry door on its
+                    // STORED host wall length (pre-computed offset was (len−w)/2 ⇒ fallback len =
+                    // 2·offset+w). The cell-perimeter wall has already landed by the deferred pass.
+                    offset: this._centredDoorOffset(b.entryDoor.wallId, b.entryDoor.width, 2 * b.entryDoor.offset + b.entryDoor.width, 'apt-entry'),
                     width: b.entryDoor.width,
                     height: 2.1,
                     sillHeight: 0,
@@ -2051,14 +2123,9 @@ export class ResidentialBuildingExecutor {
             const ENTRANCE_MARGIN_M = 0.4;          // equal solid jamb reserved at BOTH wall ends
             // Cap the leaf so it fits inside both margins, floored so a tiny bay still yields a leaf.
             const width = Math.max(0.6, Math.min(gf.entranceWidthM, storedLen - 2 * ENTRANCE_MARGIN_M));
-            // Dead-centre on the REAL host wall ⇒ equal margins left↔right ⇒ door centre = wall midpoint.
-            let offset = Math.max(0, (storedLen - width) / 2);
-            // Hard clamp + assert: [offset, offset+width] ⊆ [margin, storedLen − margin], centred.
-            offset = Math.min(Math.max(ENTRANCE_MARGIN_M, offset), Math.max(0, storedLen - ENTRANCE_MARGIN_M - width));
-            const centreErr = Math.abs(offset - (storedLen - width) / 2);
-            if (centreErr > 0.02) {
-                console.warn(`[resi-building] §RESI-DOOR-CENTRE-FIX-2 ⚠ entrance not centred (offset=${offset.toFixed(2)} expected=${((storedLen - width) / 2).toFixed(2)} len=${storedLen.toFixed(2)})`);
-            }
+            // §RESI-DOOR-CENTRE-ALL — centre via the shared helper (stored-wall midpoint + assert), the
+            // SAME rule every other resi door uses; `storedLen` already read above is the fallback.
+            const offset = this._centredDoorOffset(hostWallId, width, storedLen, 'entrance', ENTRANCE_MARGIN_M);
             const hit: EntranceHostHit = { wallId: hostWallId, wallLengthM: storedLen, centerAlongM: storedLen / 2 };
             try {
                 batchCoordinator.runBatch(() => {
