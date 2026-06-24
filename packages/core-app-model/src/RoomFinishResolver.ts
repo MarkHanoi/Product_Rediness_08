@@ -118,6 +118,10 @@ export function resolveRoomFinishes(room: any): ResolvedRoomFinishes {
       if (layer?.name) { floorFinish = layer.name; break; }
     }
   }
+  // §RESI-WALL-CEILING-FINISH (2026-06-24) — final fallback to the ROOM's authored floor finish.
+  if (floorFinish === '—' && room.finishes?.floor?.materialName) {
+    floorFinish = room.finishes.floor.materialName;
+  }
 
   // ── Wall finish ───────────────────────────────────────────────────────────
   const wallFinishNames = new Set<string>();
@@ -127,7 +131,14 @@ export function resolveRoomFinishes(room: any): ResolvedRoomFinishes {
     const layer = w.layers.find((l: any) => l.function === 'finish-interior');
     if (layer?.name) wallFinishNames.add(layer.name);
   }
-  const wallFinish = wallFinishNames.size > 0 ? [...wallFinishNames].join(', ') : '—';
+  // §RESI-WALL-CEILING-FINISH (2026-06-24) — fall back to the ROOM's authored wall finish
+  // (`room.finishes.walls.materialName`) when no bounding wall carries a layered finish. Walls in
+  // the generated building are plain (single-volume, not layered), so the layer read above is empty;
+  // the room record is then the authoritative wall-finish source (a default PAINT is set per room).
+  let wallFinish = wallFinishNames.size > 0 ? [...wallFinishNames].join(', ') : '—';
+  if (wallFinish === '—' && room.finishes?.walls?.materialName) {
+    wallFinish = room.finishes.walls.materialName;
+  }
 
   // ── Ceiling finish ────────────────────────────────────────────────────────
   let ceilingFinish = '—';
@@ -156,6 +167,10 @@ export function resolveRoomFinishes(room: any): ResolvedRoomFinishes {
         }
       }
     }
+  }
+  // §RESI-WALL-CEILING-FINISH (2026-06-24) — final fallback to the ROOM's authored ceiling finish.
+  if (ceilingFinish === '—' && room.finishes?.ceiling?.materialName) {
+    ceilingFinish = room.finishes.ceiling.materialName;
   }
 
   // ── Door finish ───────────────────────────────────────────────────────────
