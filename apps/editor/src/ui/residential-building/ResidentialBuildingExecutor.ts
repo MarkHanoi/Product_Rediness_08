@@ -66,7 +66,7 @@ import { nameDetectedRooms } from '../apartment-layout/nameDetectedRooms.js';
 // finish passes read (getStairVoidsForLevel) to CUT the finish over the open stairwell. Mirrors
 // the house: record the stair's footprint on its UPPER (host) level so the finish never re-covers
 // the slab void you can see through.
-import { resetStairVoids, recordStairVoid } from '../house-layout/houseStairVoids.js';
+import { resetStairVoids, recordStairVoid, getStairVoidsForLevel } from '../house-layout/houseStairVoids.js';
 import { resolveEntranceOnShell, type EntranceHostHit } from './groundFloorPlacement.js';
 
 const _tracer = trace.getTracer('@pryzm/editor', '0.1.0');
@@ -195,6 +195,10 @@ export class ResidentialBuildingExecutor {
 
         const cm = getCommandManager();
         if (!cm?.execute) { toast('Command manager unavailable — restart the dev server.', 'error'); return { ok: false, reason: 'no command manager' }; }
+
+        // §RESI-STAIR-VOID-IN-FINISH (2026-06-24) — clear any voids from a PRIOR generation so a
+        // re-build (same session) doesn't leak stale stairwell holes into this building's finishes.
+        resetStairVoids();
 
         const floorToFloorM = input?.floorToFloorM && input.floorToFloorM > 0 ? input.floorToFloorM : DEFAULT_FLOOR_TO_FLOOR_M;
         const baseElevationM = ground.elevation ?? 0;
@@ -1861,6 +1865,25 @@ export class ResidentialBuildingExecutor {
                     accessibilityType: 'standard',
                 }), { source: 'RESI_PIPELINE_STAIR' });
                 stairs++;
+                // §RESI-STAIR-VOID-IN-FINISH (2026-06-24) — CreateStairCommand auto-punched the SLAB
+                // void from `computeStairFootprintRect(input)`; recompute the SAME world-XZ rect from
+                // the SAME inputs and record it on the void's HOST = the UPPER level (`toLevelId`), so
+                // the floor finish + core-lobby finish on that level CUT the open stairwell instead of
+                // re-tiling over it. Best-effort — a footprint miss must never break the stair.
+                try {
+                    const vr = computeStairFootprintRect({
+                        shape: 'U',
+                        width: stairWidth,
+                        treadDepth: STAIR_TREAD_M,
+                        startPosition,
+                        flights: [
+                            { direction: dir, riserCount: fBefore },
+                            { direction: reverseDir, riserCount: fAfter, startOverride: secondStart },
+                        ],
+                        landings: [{ depth: landingDepth }],
+                    });
+                    if (vr && vr.length >= 3) recordStairVoid(toLevelId, vr);
+                } catch (e) { console.warn('[resi-building] §RESI-STAIR-VOID-IN-FINISH void record failed (skipped):', e); }
             } catch (e) { console.warn('[resi-building] stair create failed (skipped):', e); }
         }
 
@@ -2183,8 +2206,46 @@ export class ResidentialBuildingExecutor {
         const CORRIDOR = { color: '#c9c2b6', pattern: 'seamless' as const, name: 'Stone-Effect Vinyl (Corridor)' };
         const CORE_LOBBY = { color: '#bcae8f', pattern: 'terrazzo' as const, name: 'Terrazzo (Lift Lobby)' };
 
+        // §RESI-STAIR-VOID-IN-FINISH — build floor service-holes (CW-wound, vs the CCW finish ring)
+        // for every recorded stairwell void on `levelId` whose centroid falls inside `worldPoly`, so
+        // a direct finish (the core lobby) is CUT around the open stairwell instead of re-covering it.
+        // Exactly mirrors CreateFloorsByRoomTypeCommand._serviceHolesForRoom.
+        const signedArea = (poly: ReadonlyArray<{ x: number; z: number }>): number => {
+            let s = 0;
+            for (let i = 0; i < poly.length; i++) { const a = poly[i]!, b = poly[(i + 1) % poly.length]!; s += a.x * b.z - b.x * a.z; }
+            return s * 0.5;
+        };
+        const polyCentroid = (poly: ReadonlyArray<{ x: number; z: number }>): { x: number; z: number } => {
+            let sx = 0, sz = 0; for (const p of poly) { sx += p.x; sz += p.z; } const n = poly.length || 1; return { x: sx / n, z: sz / n };
+        };
+        const pointInPoly = (pt: { x: number; z: number }, poly: ReadonlyArray<{ x: number; z: number }>): boolean => {
+            let inside = false;
+            for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+                const a = poly[i]!, b = poly[j]!;
+                if (((a.z > pt.z) !== (b.z > pt.z)) && pt.x < ((b.x - a.x) * (pt.z - a.z)) / (b.z - a.z) + a.x) inside = !inside;
+            }
+            return inside;
+        };
+        const voidHolesFor = (levelId: string, ring: ReadonlyArray<{ x: number; z: number }>): Array<Record<string, unknown>> => {
+            const holes: Array<Record<string, unknown>> = [];
+            for (const v of getStairVoidsForLevel(levelId)) {
+                if (v.polygon.length < 3) continue;
+                if (!pointInPoly(polyCentroid(v.polygon), ring)) continue;
+                // Force the void CW (opposite the CCW finish ring) — the canonical hole winding.
+                const cw = signedArea(v.polygon) > 0 ? [...v.polygon].reverse() : [...v.polygon];
+                holes.push({
+                    id: createId('opening'), elementId: createId('opening'),
+                    subType: 'floor-hatch', shape: 'polygon',
+                    polygon: cw.map(p => ({ x: p.x, z: p.z })), label: 'Stairwell void',
+                });
+            }
+            return holes;
+        };
+
         // Lay ONE thin finish over a WORLD-XZ polygon on a level. Guards degenerate rings + area.
-        const layFinish = (levelId: string, worldPoly: ReadonlyArray<{ x: number; z: number }>, finish: { color: string; pattern: FloorPattern; name: string }, label: string): boolean => {
+        // §RESI-STAIR-VOID-IN-FINISH — when `cutVoids` is set, the finish is CUT around any recorded
+        // stairwell void inside it (the core lobby uses this so the stair hole stays open).
+        const layFinish = (levelId: string, worldPoly: ReadonlyArray<{ x: number; z: number }>, finish: { color: string; pattern: FloorPattern; name: string }, label: string, cutVoids = false): boolean => {
             const ring = this._cleanRing(worldPoly);
             if (ring.length < 3) return false;
             // Shoelace area guard — skip a near-zero (sliver) finish.
@@ -2194,6 +2255,7 @@ export class ResidentialBuildingExecutor {
                 area2 += a.x * b.z - b.x * a.z;
             }
             if (Math.abs(area2) / 2 < 0.25) return false;   // < 0.25 m² ⇒ not a real floor
+            const serviceHoles = cutVoids ? voidHolesFor(levelId, ring) : [];
             try {
                 cm.execute?.(new CreateFloorCommand({
                     floorId: createId('floor'),
@@ -2204,6 +2266,8 @@ export class ResidentialBuildingExecutor {
                     // Bare thin applied finish seated on the slab top (default thickness/baseOffset),
                     // tinted + patterned + NAMED so the room schedule's Floor Finish column reads it.
                     finishSpec: { finishColor: finish.color, finishPattern: finish.pattern, materialName: finish.name, exposedScreed: false },
+                    // §RESI-STAIR-VOID-IN-FINISH — cut the open stairwell out of the finish.
+                    ...(serviceHoles.length > 0 ? { serviceHoles: serviceHoles as never } : {}),
                 }), { source: 'RESI_PIPELINE_PUBLIC_FLOOR' });
                 return true;
             } catch (e) { console.warn('[resi-building] public floor-finish failed on', levelId, label, '(non-fatal):', e); return false; }
@@ -2297,8 +2361,11 @@ export class ResidentialBuildingExecutor {
                                 const tight = cells.length > 0 ? tightCorridorRect(band, cells) : null;
                                 if (layFinish(levelId, rectToWorld(tight ?? band), CORRIDOR, 'Corridor floor')) laid++;
                             }
-                            // CORE LOBBY — the core interior circulation floor (LOCAL → world).
-                            if (result.core && layFinish(levelId, rectToWorld(result.core), CORE_LOBBY, 'Core lobby floor')) laid++;
+                            // CORE LOBBY — the core interior circulation floor (LOCAL → world). The
+                            // stair lands inside the core, so §RESI-STAIR-VOID-IN-FINISH CUTS the
+                            // recorded stairwell void out of this finish (cutVoids = true) so the open
+                            // stairwell shows through instead of being re-tiled over.
+                            if (result.core && layFinish(levelId, rectToWorld(result.core), CORE_LOBBY, 'Core lobby floor', true)) laid++;
                         }
                     }
                 }, { levelIds: [...new Set(levelIdByIndex.values())], totalElementCount: result.levels.length, skipRedetectRooms: true });
