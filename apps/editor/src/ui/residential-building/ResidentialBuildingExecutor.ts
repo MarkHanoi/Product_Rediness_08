@@ -321,8 +321,12 @@ export class ResidentialBuildingExecutor {
             // 0c. §RESI-GROUND-CURTAIN — commercial glazed shopfront on the ground façade (legacy
             // cm.execute path, like the slab/stair; the id is pre-minted per the curtain contract).
             for (const cw of groundCurtainPayloads) {
-                try { cm.execute?.(new CreateCurtainWallCommand(cw), { source: 'RESI_PIPELINE_CURTAINWALL' }); }
-                catch (e) { console.warn('[resi-building] curtain wall create failed (skipped):', e); }
+                try {
+                    // §RESI-WHITE-FINISH (founder 2026-06-24: "initially all white — curtain
+                    // mullions white metallic"). Default the shopfront to white-metallic mullions +
+                    // clear glazing; a per-build colour picker in the modal is the next step.
+                    cm.execute?.(new CreateCurtainWallCommand({ ...cw, mullionColor: '#e8eaed', glazingColor: '#dfe9f0' }), { source: 'RESI_PIPELINE_CURTAINWALL' });
+                } catch (e) { console.warn('[resi-building] curtain wall create failed (skipped):', e); }
             }
             // 1. Apartment cell perimeters (host walls for the façade windows).
             for (const payload of cellPerimeterPayloads) {
