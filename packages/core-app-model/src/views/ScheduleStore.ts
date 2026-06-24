@@ -156,7 +156,12 @@ class ScheduleStoreImpl {
                 id:           'Rooms Schedule',
                 name:         'Room Schedule',
                 scheduleType: 'rooms',
-                fields:       ['number', 'name', 'level', 'department', 'occupancy', 'grossArea', 'perimeter', 'volume', 'height', 'floor', 'wall', 'ceiling'],
+                // §INSPECT-DATA-TAB-WIRE (2026-06-24) — 'department' dropped from the
+                // seeded default: residential rooms carry no department data, so the
+                // extractor always renders '—' (ScheduleExtractor.ts r.department || '—')
+                // and the column shows blank. The capability is retained — users can
+                // add the Department column back manually; only the default is trimmed.
+                fields:       ['number', 'name', 'level', 'occupancy', 'grossArea', 'perimeter', 'volume', 'height', 'floor', 'wall', 'ceiling'],
             },
             {
                 id:           'Stairs Schedule',
