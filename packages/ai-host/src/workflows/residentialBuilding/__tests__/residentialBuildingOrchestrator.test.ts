@@ -277,6 +277,38 @@ describe('residentialBuildingOrchestrator — P7 (D-TGL per cell)', () => {
         }
     });
 
+    it('§RESI-T3-FIT — a T3 demand yields at least one apartment laid out as 3 bedrooms (no reject)', () => {
+        // A plate whose core leaves ~13–16 m-wide runs at ~9 m depth → a cell in the proven 3-bed
+        // keep band. Before §RESI-T3-FIT the 9 m depth cap forced ~95 m² cells that always scaled
+        // down to a 2-bed, so T3 never appeared.
+        const r = orchestrateResidentialBuilding(
+            input({
+                footprint: rectPoly(34, 30),
+                upperLevels: 1,
+                coreWidthM: 6,
+                coreDepthM: 5,
+                corridorWidthM: 1.5,
+                minApartmentAreaM2: 95,
+                maxApartmentAreaM2: 135,
+                typologies: { T1: false, T2: false, T3: true, T4: false },
+            }),
+        );
+        expect(r.status).toBe('ok');
+        if (r.status !== 'ok') return;
+        const apts = r.perLevelApartments[1]!.apartments;
+        // NEVER regress to zero apartments.
+        expect(apts.length).toBeGreaterThanOrEqual(1);
+        // At least one apartment lays out with 3 bedrooms (master counts as a bedroom).
+        const threeBed = apts.filter((a) => {
+            if (a.status !== 'ok' || !a.layout) return false;
+            const beds = a.layout.rooms.filter((rm) => rm.type === 'bedroom' || rm.type === 'master').length;
+            return beds >= 3;
+        });
+        expect(threeBed.length).toBeGreaterThanOrEqual(1);
+        // And nothing was rejected (every placed cell laid out).
+        expect(apts.every((a) => a.status === 'ok')).toBe(true);
+    });
+
     it('the orchestrate diagnostic + per-cell status survive the P7 wiring', () => {
         const r = orchestrateResidentialBuilding(p7input({ upperLevels: 3 }));
         expect(r.status).toBe('ok');

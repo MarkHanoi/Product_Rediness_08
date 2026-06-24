@@ -127,6 +127,31 @@ export const MAX_APARTMENT_DEPTH_M = 9;
  *  engine rejects. 0.6 ⇒ a 9 m-deep cell is ≥ 5.4 m wide (aspect ≤ ~1.7:1). */
 const MIN_CELL_ASPECT = 0.6;
 
+// §RESI-T3-FIT (founder "T3 never appears — only 2-bed ever wins", 2026-06-24) — a 3-bed survives
+// `scaleCellProgram` (keeps its 3 bedrooms) only at ~108 m²+ (3-bed grossMin 85 × the count-scaled
+// slack 1.28); a 4-bed at ~155 m²+ (115 × 1.35). With the depth capped at ~9 m an EVEN-divided run
+// yields ~95 m² cells — below the 3-bed keep threshold — so every T3 cell stepped DOWN to a 2-bed.
+//
+// The engine (mapped empirically — _diag grid) lays out + KEEPS 3 bedrooms at depth 9 only when the
+// cell is ≥ ~13 m WIDE (13×9 = 117 m² up to 17×9 = 153 m²); a 4-bed wants ≥ ~14×11. So to let T3/T4
+// actually appear we steer a keep-typology row's cells toward a TARGET WIDTH inside that proven band
+// (FEWER, WIDER cells), CAPPED at an engine-feasible max so we never mint the 17×11 (b=4) / 17×10
+// (rejected) over-wide cell. A run too narrow for even one min-keep cell falls back to the ordinary
+// band → the cell scales down to the count it can hold (never a rejected cell, never a regression).
+interface KeepSpec { minW: number; targetW: number; maxW: number }
+/** Per-typology cell WIDTH band (m) at the standard ~9 m depth, from the engine-feasibility grid:
+ *  the cell must be ≥ minW to keep the full bedroom count, ≤ maxW to still lay out (engine rejects
+ *  beyond), and we aim at targetW. Width scales inversely with depth at pack time (so a deeper row
+ *  needs proportionally less width for the same area). T1/T2 keep the ordinary band (no entry). */
+const TYPOLOGY_KEEP_WIDTH: Partial<Record<Typology, KeepSpec>> = {
+    // 3-bed: 13×9 = 117 (b=3) … 17×9 = 153 (b=3, still lays out); aim ~14 m.
+    T3: { minW: 13, targetW: 14, maxW: 16.5 },
+    // 4-bed: 15×11 = 165 (b=4); at 9 m depth a 4-bed never reaches b=4 (needs depth), so the packer's
+    // depth cap stays 9 and a too-shallow run lets the cell scale to 3-bed — bounded, never rejected.
+    // We still aim WIDE so a deep-enough plate (≥ ~11 m rows near the edge) hits the 4-bed band.
+    T4: { minW: 15, targetW: 16, maxW: 17 },
+};
+
 function bbox(poly: readonly Pt[]): Rect {
     let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
     for (const p of poly) {
@@ -379,6 +404,7 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
     // Pack one apartment ROW: a band of depth `depth` on one side of a corridor line,
     // doors hung on the corridor edge. Walks left→right across the row's X-runs slicing
     // in-band cells until the demand list (or the run) is exhausted.
+    //
     function packRow(cellZ0: number, cellZ1: number, doorEdge: 'z0' | 'z1'): void {
         const depth = round4(cellZ1 - cellZ0);
         if (depth <= MIN_ROW_DEPTH - EPS) return;
@@ -388,8 +414,21 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
             const runWidth = round4(run.x1 - run.x0);
             const ref = apartments[cursor];
             if (!ref) break;
-            const wMin = Math.max(ref.minAreaM2 / depth, minWidthByAspect);
-            const wMax = Math.max(ref.maxAreaM2 / depth, wMin);
+            // §RESI-T3-FIT — a T3/T4 demand carries a WIDTH band (TYPOLOGY_KEEP_WIDTH) proven to keep
+            // the full bedroom count AND lay out at ~9 m depth. The band is scaled by the actual row
+            // depth (a deeper row needs proportionally less width for the same area) and applied ONLY
+            // when the run is wide enough to host even one min-keep cell — else we fall back to the
+            // ordinary band so the cell still places (it scales down to a feasible count, no reject).
+            const keep = TYPOLOGY_KEEP_WIDTH[ref.typology];
+            const depthScale = MAX_APARTMENT_DEPTH_M / depth;  // wider band for a shallower row, etc.
+            const wMinBase = Math.max(ref.minAreaM2 / depth, minWidthByAspect);
+            const wMaxBase = Math.max(ref.maxAreaM2 / depth, wMinBase);
+            const keepActive = keep !== undefined && runWidth >= keep.minW * depthScale - EPS;
+            // When the keep band is active, the cell width target/floor/ceiling come from the proven
+            // engine band (scaled by depth); otherwise the ordinary demand band drives the division.
+            const wMin = keepActive ? Math.max(wMinBase, keep!.minW * depthScale) : wMinBase;
+            const wMax = keepActive ? Math.max(wMin, keep!.maxW * depthScale) : wMaxBase;
+            const wTarget = keepActive ? keep!.targetW * depthScale : Math.min(Math.max((ref.minAreaM2 + ref.maxAreaM2) / 2 / depth, wMin), wMax);
             if (runWidth < wMin - EPS) continue;   // run too narrow for even one min-width cell — skip it
             // §RESI-PACKROW-EVEN (founder "fill the plate", 2026-06-23) — divide the WHOLE run into
             // EQUAL-width cells instead of greedily slicing one mid-width cell and BREAKING on the
@@ -400,11 +439,25 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
             // nCells is bounded so each equal cell stays engine-feasible: ≥ wMin (never sub-min slivers)
             // and, where the run allows, ≤ wMax; within that band we pick the count closest to the
             // demand's ideal mid-width. Deterministic (no RNG) → ADR-0061 stable output.
-            const midWidth = Math.min(Math.max((ref.minAreaM2 + ref.maxAreaM2) / 2 / depth, wMin), wMax);
+            // The ideal cell count divides the run into ~wTarget-wide cells (the keep target for a
+            // T3/T4, else the demand mid-width). Bounded so each equal cell stays ≥ wMin and ≤ wMax.
             const maxCellsByMin = Math.max(1, Math.floor(runWidth / wMin + EPS));   // most cells keeping w ≥ wMin
             const minCellsByMax = Math.max(1, Math.ceil(runWidth / wMax - EPS));    // fewest cells keeping w ≤ wMax
-            const idealCells = Math.max(1, Math.round(runWidth / midWidth));
-            const nCells = Math.min(maxCellsByMin, Math.max(minCellsByMax, idealCells));
+            const idealCells = Math.max(1, Math.round(runWidth / wTarget));
+            let nCells: number;
+            if (keepActive && minCellsByMax > maxCellsByMin) {
+                // §RESI-T3-FIT — the run can't be cleanly divided INSIDE the keep band [minW,maxW]
+                // (e.g. a 19 m run: 1 cell > maxW, 2 cells < minW). ENGINE FEASIBILITY WINS over the
+                // bedroom-keep target: pick the FEWEST cells that keep each ≤ maxW (so the engine lays
+                // the cell out rather than rejecting an over-wide one). The cell then scales to the
+                // count its area can hold — never a reject. A run whose width IS inside the band keeps
+                // the keep target below and produces the full-count T3/T4 cell.
+                nCells = minCellsByMax;
+            } else {
+                // Clamp the ideal into [minByMax, maxByMin]; prefer fewer (wider → keeps the count).
+                const loCells = Math.min(minCellsByMax, maxCellsByMin);
+                nCells = Math.min(maxCellsByMin, Math.max(loCells, idealCells));
+            }
             const w = round4(runWidth / nCells);
             for (let k = 0; k < nCells && cursor < apartments.length; k++) {
                 const demand = apartments[cursor];
@@ -416,6 +469,53 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
                 placements.push({ typology: demand.typology, rect, areaM2: round4(rectArea(rect)), doorEdge });
                 cursor++;
             }
+        }
+    }
+
+    // §RESI-FILL-MIDEDGE (founder "leaves huge empty space without apartments — the blue box
+    // beside the core", 2026-06-24) — `runsFor` carves the FULL core WIDTH out of every row
+    // that touches the core's Z-band, even where that row extends BEYOND the core in Z. So a
+    // ~9 m-deep core-band row whose core overlap is only the ~5 m core depth still reserved the
+    // full 6 m core width across its WHOLE depth, leaving the INNER STRIPS `[coreX0,spineX0]` and
+    // `[spineX1,coreX1]` un-tiled wherever the row lies OUTSIDE the core in Z (the "blue box").
+    //
+    // We DON'T split the row (that would make the corridor-touching outer cells reach via a thin
+    // sliver — it broke engine feasibility). Instead the OUTER runs `[bb.x0,coreX0]`/`[coreX1,bb.x1]`
+    // pack FULL-DEPTH against the corridor exactly as before (reach + feasibility unchanged), and we
+    // ADDITIVELY pack the inner strips in JUST the row's out-of-core Z sub-band as mid-edge cells
+    // whose door faces the VERTICAL SPINE on the inner x-edge. So the formerly-empty strip beside
+    // the core fills, the proven outer cells are byte-identical, and every cell stays reached
+    // (outer via the horizontal corridor, inner via the spine). Deterministic, no RNG.
+    //
+    // The inner strip is only packed when it is genuinely usable (≥ MIN_ROW_DEPTH deep beyond the
+    // core AND ≥ a min-area cell wide) — a tight plate where the strip is a sliver simply skips it
+    // (byte-identical to the pre-fix output → no regression on the proven small-plate cases).
+    const STRIP_W_LEFT = round4(spineX0 - coreX0);   // [coreX0, spineX0] left inner strip width
+    const STRIP_W_RIGHT = round4(coreX1 - spineX1);  // [spineX1, coreX1] right inner strip width
+    function packInnerStrips(rowZ0: number, rowZ1: number, doorEdge: 'z0' | 'z1'): void {
+        // The part of the row OUTSIDE the core in Z (where the spine — not the core — bounds the
+        // strip). With doorEdge z1 (front row, z < corridor) the out-of-core part is below coreN.z0;
+        // with z0 (back row) it is above coreN.z1.
+        const segZ0 = doorEdge === 'z1' ? rowZ0 : Math.max(rowZ0, coreN.z1);
+        const segZ1 = doorEdge === 'z1' ? Math.min(rowZ1, coreN.z0) : rowZ1;
+        const depth = round4(segZ1 - segZ0);
+        if (depth <= MIN_ROW_DEPTH - EPS) return;
+        const minWidthByAspect = depth * MIN_CELL_ASPECT;
+        const strips: Array<{ x0: number; x1: number; door: ApartmentCell['doorEdge'] }> = [];
+        if (STRIP_W_LEFT > EPS) strips.push({ x0: coreX0, x1: spineX0, door: 'x1' });   // door faces spine (right edge)
+        if (STRIP_W_RIGHT > EPS) strips.push({ x0: spineX1, x1: coreX1, door: 'x0' });  // door faces spine (left edge)
+        for (const strip of strips) {
+            if (cursor >= apartments.length) break;
+            const ref = apartments[cursor];
+            if (!ref) break;
+            const stripW = round4(strip.x1 - strip.x0);
+            const wMin = Math.max(ref.minAreaM2 / depth, minWidthByAspect);
+            // Only place the strip cell when it clears the min-width feasibility floor; a thin core-
+            // to-spine gap (most cores) is left as the spine surround (no sub-min slivers, no regress).
+            if (stripW < wMin - EPS) continue;
+            const rect = normRect({ x0: round4(strip.x0), z0: round4(segZ0), x1: round4(strip.x1), z1: round4(segZ1) });
+            placements.push({ typology: ref.typology, rect, areaM2: round4(rectArea(rect)), doorEdge: strip.door });
+            cursor++;
         }
     }
 
@@ -437,7 +537,10 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
             : bb.z0;
         const frontDepth = Math.min(MAX_APARTMENT_DEPTH_M, myTop - frontOuterLimit);
         if (frontDepth > MIN_ROW_DEPTH - EPS) {
-            packRow(round4(myTop - frontDepth), myTop, 'z1');
+            const frontZ0 = round4(myTop - frontDepth);
+            packRow(frontZ0, myTop, 'z1');
+            // §RESI-FILL-MIDEDGE — fill the inner strips beside the core in the row's out-of-core part.
+            packInnerStrips(frontZ0, myTop, 'z1');
         }
 
         // BACK row (z > corridor): door edge is z0 (the corridor's bottom).
@@ -447,7 +550,9 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
             : bb.z1;
         const backDepth = Math.min(MAX_APARTMENT_DEPTH_M, backOuterLimit - myBot);
         if (backDepth > MIN_ROW_DEPTH - EPS) {
-            packRow(myBot, round4(myBot + backDepth), 'z0');
+            const backZ1 = round4(myBot + backDepth);
+            packRow(myBot, backZ1, 'z0');
+            packInnerStrips(myBot, backZ1, 'z0');
         }
     }
 

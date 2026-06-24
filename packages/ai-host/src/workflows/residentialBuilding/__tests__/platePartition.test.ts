@@ -154,6 +154,100 @@ describe('partitionLevelPlate — rectangular plate', () => {
     });
 });
 
+describe('partitionLevelPlate — §RESI-FILL-MIDEDGE (fill beside the core)', () => {
+    /** A WIDE-core plate so the inner strips beside the core (between the core edge and the
+     *  vertical spine) are themselves wide enough to host an apartment — the "blue box" region
+     *  the founder reported as empty. Core 18 m wide ⇒ each inner strip ≈ (18 − 1.5)/2 = 8.25 m. */
+    function wideCoreInput(apartments: ApartmentDemand[]): PlatePartitionInput {
+        return {
+            levelIndex: 2,
+            footprint: rectPoly(50, 43),
+            core: centredCore(50, 43, 18, 5),
+            corridor: { widthM: 1.5 },
+            apartments,
+        };
+    }
+
+    it('places apartment cells in the mid-edge regions beside the core (x<coreX0 / x>coreX1 at the core Z-band)', () => {
+        const manyT2 = Array.from({ length: 60 }, () => T2);
+        const res = expectOk(partitionLevelPlate(wideCoreInput(manyT2)));
+        const core = res.core;
+        // The mid-edge INNER-STRIP cells sit in the core-WIDTH strip [coreX0,coreX1] at a Z OUTSIDE
+        // the core's own Z-band — exactly the strip reserved (empty) before this fix — and reach
+        // circulation via the vertical SPINE, so their door is hung on an x-edge (not a z-edge).
+        const innerStrip = res.apartmentCells.filter((c) => {
+            const r = c.rect;
+            const intoStrip = r.x0 >= core.x0 - 0.01 && r.x1 <= core.x1 + 0.01; // wholly inside the core-width strip
+            const outsideCoreZ = r.z1 <= core.z0 + 0.01 || r.z0 >= core.z1 - 0.01;
+            return intoStrip && outsideCoreZ && (c.doorEdge === 'x0' || c.doorEdge === 'x1');
+        });
+        expect(innerStrip.length).toBeGreaterThanOrEqual(1);
+        // Every such cell genuinely centred in a mid-edge region (x < coreX0 or x > coreX1 at core Z).
+        for (const c of innerStrip) {
+            const cx = (c.rect.x0 + c.rect.x1) / 2;
+            const cz = (c.rect.z0 + c.rect.z1) / 2;
+            expect(cx < core.x0 || cx > core.x1).toBe(false);   // strip is BETWEEN coreX0..coreX1
+            expect(cz < core.z0 || cz > core.z1).toBe(true);    // …at a Z outside the core band
+        }
+    });
+
+    it('mid-edge cells never overlap the core, the corridor, or each other', () => {
+        const res = expectOk(partitionLevelPlate(wideCoreInput(Array.from({ length: 60 }, () => T2))));
+        const cells = res.apartmentCells.map((c) => c.rect);
+        for (let i = 0; i < cells.length; i++) {
+            for (let j = i + 1; j < cells.length; j++) {
+                expect(overlaps(cells[i]!, cells[j]!)).toBe(false);
+            }
+            expect(overlaps(cells[i]!, res.core)).toBe(false);
+            for (const corr of res.publicCorridor) expect(overlaps(cells[i]!, corr)).toBe(false);
+        }
+    });
+
+    it('still places the proven corridor-fronting cells on a small plate (no mid-edge regression)', () => {
+        // The base 30×16 plate's inner strips are sub-apartment thin ⇒ no mid-edge cells, and the
+        // ordinary corridor-fronting packing is byte-identical to before the fill-midedge change.
+        const res = expectOk(partitionLevelPlate(baseInput([T2, T2, T2, T2])));
+        expect(res.apartmentCells.length).toBe(4);
+        expect(res.apartmentsReached).toBe(4);
+    });
+});
+
+describe('partitionLevelPlate — §RESI-T3-FIT (3-bed cells appear)', () => {
+    // A T3 demand on a plate whose core leaves ~13–16 m-wide runs at ~9 m depth → cells in the
+    // proven 3-bed-keep band (13×9 = 117 m² … 16×9 = 144 m²). Before this fix the 9 m depth cap
+    // forced ~95 m² cells that always scaled DOWN to a 2-bed.
+    const T3wide: ApartmentDemand = { typology: 'T3', minAreaM2: 95, maxAreaM2: 135 };
+
+    function t3Input(): PlatePartitionInput {
+        return {
+            levelIndex: 4,
+            footprint: rectPoly(34, 30),
+            core: centredCore(34, 30, 6, 5),
+            corridor: { widthM: 1.5 },
+            apartments: Array.from({ length: 20 }, () => T3wide),
+        };
+    }
+
+    it('produces at least one cell big enough to keep 3 bedrooms (area ≥ the 3-bed keep threshold)', () => {
+        const res = expectOk(partitionLevelPlate(t3Input()));
+        // The 3-bed keep threshold is grossMin 85 × the count-scaled slack 1.28 ≈ 108.8 m².
+        const KEEP_3BED = 108.8;
+        const keepers = res.apartmentCells.filter((c) => c.typology === 'T3' && c.areaM2 >= KEEP_3BED);
+        expect(keepers.length).toBeGreaterThanOrEqual(1);
+        // …and every produced cell still lies within the engine-feasible width band (≤ ~17 m) so
+        // the per-cell engine lays it out rather than rejecting an over-wide cell.
+        for (const c of res.apartmentCells) {
+            expect(c.rect.x1 - c.rect.x0).toBeLessThanOrEqual(17.5);
+        }
+    });
+
+    it('NEVER regresses to zero apartments for a T3 demand', () => {
+        const res = expectOk(partitionLevelPlate(t3Input()));
+        expect(res.apartmentCells.length).toBeGreaterThanOrEqual(1);
+        expect(res.apartmentsReached).toBe(res.apartmentCells.length);
+    });
+});
+
 describe('partitionLevelPlate — soft-fail (never throws)', () => {
     it('rejects a non-rectangular footprint', () => {
         const lShape: Pt[] = [
