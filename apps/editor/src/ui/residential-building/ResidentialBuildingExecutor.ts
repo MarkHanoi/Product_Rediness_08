@@ -162,6 +162,16 @@ export class ResidentialBuildingExecutor {
             }
             levelIdByIndex.set(lvl.levelIndex, levelId);
         }
+        // §RESI-ROOF-LEVEL (founder 2026-06-24: "the roof needs to be on the level ABOVE, as a
+        // separate level — the same rule the house follows"). Mint a dedicated ROOF level at the
+        // top storey's wall head (elevation = baseElevationM + N×ftf), so the flat roof lives on
+        // its own level / plan ABOVE the apartments, not embedded in the top apartment floor.
+        const roofLevelId = `L-resi-${Date.now()}-roof-${Math.random().toString(36).slice(2, 8)}`;
+        {
+            const roofElevationM = baseElevationM + result.levels.length * floorToFloorM;
+            const res = cm.execute(new AddLevelCommand({ levelId: roofLevelId, name: 'Roof', elevation: roofElevationM, height: floorToFloorM }), { source: 'RESI_PIPELINE_LEVEL' });
+            if (!res?.success) console.warn('[resi-building] roof-level AddLevelCommand failed — roof may sit on the top floor');
+        }
         const levelIds = [...levelIdByIndex.values()];
         console.log('[resi-building] minted levels', levelIds);
 
@@ -335,8 +345,7 @@ export class ResidentialBuildingExecutor {
             // 3b. §RESI-ROOF (founder "we need a top level with the roof", 2026-06-23) — a flat
             // roof capping the building on the top level's wall head.
             const topLvl = result.levels[result.levels.length - 1];
-            const topLvlId = topLvl ? levelIdByIndex.get(topLvl.levelIndex) : undefined;
-            if (topLvl && topLvlId) this._createRoof(cm, topLvl.footprint, topLvlId, floorToFloorM);
+            if (topLvl) this._createRoof(cm, topLvl.footprint, roofLevelId);
             // 4. Central core — a stair per adjacent level pair + ONE lift ground→top.
             const coreResult = this._createCore(cm, result, levelIdByIndex, floorToFloorM, baseElevationM, xf);
             stairCount = coreResult.stairs;
@@ -680,8 +689,7 @@ export class ResidentialBuildingExecutor {
     private _createRoof(
         cm: CommandManagerLike,
         topFootprint: ReadonlyArray<{ x: number; z: number }>,
-        topLevelId: string,
-        floorToFloorM: number,
+        roofLevelId: string,
     ): void {
         try {
             const poly = this._cleanRing(topFootprint);
@@ -692,13 +700,14 @@ export class ResidentialBuildingExecutor {
             const polygon: [number, number][] = poly.map(p => [p.x - cx, p.z - cz] as [number, number]);
             const THICK = 0.25;
             cm.execute?.(new CreateRoofCommand(createId('roof'), {
-                levelId: topLevelId,
+                levelId: roofLevelId,
                 footprint: { polygon, centroid: [cx, cz] },
                 roofType: 'flat',
                 overhang: 0,
-                // worldY(origin) = topLevel.elevation + baseOffset; we want the slab origin at the
-                // wall head + thickness (flat slab extrudes down → bottom lands on the wall head).
-                baseOffset: floorToFloorM + THICK,
+                // The roof LEVEL elevation is already the top-storey wall head, so worldY(origin) =
+                // roofLevel.elevation + baseOffset. A flat slab extrudes DOWN from its origin, so
+                // baseOffset = thickness lifts it so the slab bottom rests ON the wall head.
+                baseOffset: THICK,
                 thickness: THICK,
                 autoBaseOffset: false,
             }), { source: 'RESI_PIPELINE_ROOF' });
