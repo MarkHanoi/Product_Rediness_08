@@ -67,6 +67,10 @@ const STAIR_RISER_MIN_M = 0.15;
 const STAIR_RISER_MAX_M = 0.19;
 const STAIR_TREAD_M = 0.27;
 const STAIR_WIDTH_M = 1.0;
+/** §RESI-GROUND-DOOR-BAY — half-width of the solid entrance bay (door + frame). The ground
+ *  corridor is built this wide too (founder 2026-06-24: "the corridor can be as wide as the
+ *  solid portion of the façade"). */
+const ENTRANCE_BAY_HALF_M = 1.6;
 
 /** A minimal command-manager handle — the legacy synchronous execute path the
  *  apartment / house executors use. */
@@ -239,12 +243,14 @@ export class ResidentialBuildingExecutor {
                 const g = this._buildGroundShell(levelId, lvl.footprint, floorToFloorM, wec);
                 shellPayload = g.shellPayload;
                 for (const cw of g.curtainWalls) groundCurtainPayloads.push(cw);
-                // §RESI-GROUND-CORRIDOR — run an interior corridor from the entrance door to the core.
+                // §RESI-GROUND-CORRIDOR — run an interior corridor from the entrance door all the way
+                // to the core's z0 FIRE DOOR (so it connects with no gap), as wide as the solid
+                // entrance bay (≥ 2 m). The fire door is on the core's LOCAL z0 edge midpoint.
                 if (g.doorCenter && result.core) {
                     const core = result.core;
-                    const coreCenter = this._rotate({ x: (core.x0 + core.x1) / 2, z: (core.z0 + core.z1) / 2 }, xf);
-                    const coreHalf = Math.max(core.x1 - core.x0, core.z1 - core.z0) / 2;
-                    groundCorridorPayload = this._buildGroundCorridor(levelId, g.doorCenter, coreCenter, coreHalf, floorToFloorM);
+                    const fireDoor = this._rotate({ x: (core.x0 + core.x1) / 2, z: core.z0 }, xf);
+                    const corridorW = Math.max(2.0, 2 * ENTRANCE_BAY_HALF_M);   // ≥2 m, bay-wide
+                    groundCorridorPayload = this._buildGroundCorridor(levelId, g.doorCenter, fireDoor, corridorW, floorToFloorM);
                 }
             } else {
                 shellPayload = this._buildShellPerimeter(levelId, lvl.footprint, floorToFloorM);
@@ -479,7 +485,6 @@ export class ResidentialBuildingExecutor {
         // where the door is, just until the corridor boundary") — the entrance face is now MOSTLY
         // glazed too: only a narrow SOLID door bay (centred on the entrance, ~corridor-wide) hosts
         // the main door; the rest of that edge is curtain wall, like the other façades.
-        const ENTRANCE_BAY_HALF_M = 1.6;   // half-width of the solid entrance bay (door + frame)
         const MIN_CURTAIN_M = 0.4;         // skip a curtain stub shorter than this
         // §RESI-GROUND-SLAB-COVER (founder 2026-06-24: "on ground→first floor we see the slab; the
         // walls should rise to the slab level on the ground floor"). The first-floor slab sits on the
@@ -521,26 +526,24 @@ export class ResidentialBuildingExecutor {
         return { shellPayload: { walls, levelId }, curtainWalls, ...(doorCenter ? { doorCenter } : {}) };
     }
 
-    /** §RESI-GROUND-CORRIDOR (founder 2026-06-24: "on the ground floor we should have a corridor
-     *  connecting the entrance door with the core") — two parallel interior partition walls forming
-     *  a ~1.4 m corridor from the entrance door (`from`) toward the core (`to`), stopping at the core
-     *  perimeter (`coreHalfM` short of the core centre) so it meets the core's fire door. World frame. */
+    /** §RESI-GROUND-CORRIDOR (founder 2026-06-24: "the corridor must REACH the core (it leaves a
+     *  gap) and be ≥2 m wide — as wide as the solid façade portion") — two parallel interior
+     *  partition walls forming a `widthM`-wide corridor running the FULL distance from the entrance
+     *  door (`from`) to the core fire door (`to`), so it meets the core with no gap. World frame. */
     private _buildGroundCorridor(
         levelId: string,
         from: { x: number; z: number },
         to: { x: number; z: number },
-        coreHalfM: number,
+        widthM: number,
         wallHeightM: number,
     ): { walls: ReadonlyArray<Record<string, unknown>>; levelId: string } {
         const dx = to.x - from.x, dz = to.z - from.z;
         const len = Math.hypot(dx, dz);
         const walls: Array<Record<string, unknown>> = [];
-        if (len < coreHalfM + 1.0) return { walls, levelId };   // too close to lay a useful corridor
-        const nx = dx / len, nz = dz / len;        // entrance → core
+        if (len < 1.0) return { walls, levelId };  // door already at the core — no corridor needed
+        const nx = dx / len, nz = dz / len;        // entrance → core fire door
         const px = -nz, pz = nx;                   // perpendicular (corridor half-width axis)
-        const HALF = 0.7;                          // 1.4 m clear corridor
-        const stop = len - coreHalfM;              // stop at the core perimeter, not its centre
-        const end = { x: from.x + nx * stop, z: from.z + nz * stop };
+        const half = widthM / 2;
         const seg = (a: { x: number; z: number }, b: { x: number; z: number }): void => {
             walls.push({
                 id: createId('wall'), levelId,
@@ -548,8 +551,9 @@ export class ResidentialBuildingExecutor {
                 height: wallHeightM, thickness: CELL_WALL_THICKNESS_M,
             });
         };
-        seg({ x: from.x + px * HALF, z: from.z + pz * HALF }, { x: end.x + px * HALF, z: end.z + pz * HALF });
-        seg({ x: from.x - px * HALF, z: from.z - pz * HALF }, { x: end.x - px * HALF, z: end.z - pz * HALF });
+        // Run both side walls the FULL length, from the entrance door to the core fire door.
+        seg({ x: from.x + px * half, z: from.z + pz * half }, { x: to.x + px * half, z: to.z + pz * half });
+        seg({ x: from.x - px * half, z: from.z - pz * half }, { x: to.x - px * half, z: to.z - pz * half });
         return { walls, levelId };
     }
 
