@@ -52,6 +52,35 @@ function expectOk(out: ReturnType<typeof partitionLevelPlate>): PlatePartitionRe
     return out as PlatePartitionResult;
 }
 
+describe('partitionLevelPlate — §RESI-CLIP-BOUNDARY (non-rectangular plate)', () => {
+    const manyT2 = Array.from({ length: 24 }, () => T2);
+
+    it('a rectangular clipPolygon === the plate keeps every cell (no behavioural change)', () => {
+        const base = baseInput(manyT2);
+        const full = expectOk(partitionLevelPlate(base));
+        const clipped = expectOk(partitionLevelPlate({ ...base, clipPolygon: rectPoly(30, 16) }));
+        expect(clipped.apartmentCells.length).toBe(full.apartmentCells.length);
+    });
+
+    it('an L-shaped clip drops cells whose centre falls in the removed notch', () => {
+        const base = baseInput(manyT2);
+        const full = expectOk(partitionLevelPlate(base));
+        // L-shape: remove the top-right quadrant (x>15, z<8) from the 30×16 plate.
+        const lShape: Pt[] = [
+            { x: 0, z: 0 }, { x: 15, z: 0 }, { x: 15, z: 8 },
+            { x: 30, z: 8 }, { x: 30, z: 16 }, { x: 0, z: 16 },
+        ];
+        const clipped = expectOk(partitionLevelPlate({ ...base, clipPolygon: lShape }));
+        // Fewer cells than the full rectangle…
+        expect(clipped.apartmentCells.length).toBeLessThan(full.apartmentCells.length);
+        // …and NO surviving cell has its centre inside the removed notch.
+        for (const c of clipped.apartmentCells) {
+            const cx = (c.rect.x0 + c.rect.x1) / 2, cz = (c.rect.z0 + c.rect.z1) / 2;
+            expect(cx > 15 && cz < 8).toBe(false);
+        }
+    });
+});
+
 describe('partitionLevelPlate — rectangular plate', () => {
     for (const n of [2, 3, 4]) {
         it(`packs ${n} apartments, corridor reaches every cell`, () => {

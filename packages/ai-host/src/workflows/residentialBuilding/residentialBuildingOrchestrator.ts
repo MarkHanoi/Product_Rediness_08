@@ -595,6 +595,9 @@ function _orchestrate(input: ResidentialBuildingOrchestratorInput): ResidentialB
                 core,
                 corridor: { widthM: corridorWidthM },
                 apartments: allDemands.slice(0, k),
+                // §RESI-CLIP-BOUNDARY — the partition tiles the bbox (platePoly) but clips cells to
+                // the REAL de-rotated parcel so an L/trapezoid stops building past the drawn line.
+                clipPolygon: footprint,
             });
             if (attempt.status === 'ok') {
                 partition = attempt;

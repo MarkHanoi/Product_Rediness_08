@@ -62,6 +62,15 @@ export interface PlatePartitionInput {
     readonly corridor: CorridorSpec;
     /** The apartment mix to pack on this level (audit §6), in placement order. */
     readonly apartments: readonly ApartmentDemand[];
+    /**
+     * §RESI-CLIP-BOUNDARY (founder 2026-06-24: "an L-shape comes out rectangular — the algorithm
+     * is set for rectangular plates"). The REAL (possibly non-rectangular) plate polygon in the
+     * SAME LOCAL frame as `footprint`/`core`. The partition still tiles the bounding box, but when
+     * this is supplied it DROPS any apartment cell whose centre falls OUTSIDE this polygon — so an
+     * L / trapezoid stops building apartments past the drawn boundary (the first slice of true
+     * non-rectangular support). Absent ⇒ no clipping (byte-identical to the rectangular stub).
+     */
+    readonly clipPolygon?: readonly Pt[];
 }
 
 /** One placed apartment cell. */
@@ -138,6 +147,19 @@ function isRectangle(poly: readonly Pt[], bb: Rect): boolean {
     return rectWidth(bb) > EPS && rectDepth(bb) > EPS;
 }
 
+/** Ray-casting point-in-polygon (plan XZ). Boundary points count as inside-ish (we only use
+ *  this on cell CENTRES, which are never exactly on an edge for a real plate). */
+function pointInPolygon(px: number, pz: number, poly: readonly Pt[]): boolean {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const a = poly[i]!, b = poly[j]!;
+        const intersect = (a.z > pz) !== (b.z > pz) &&
+            px < ((b.x - a.x) * (pz - a.z)) / (b.z - a.z) + a.x;
+        if (intersect) inside = !inside;
+    }
+    return inside;
+}
+
 /** Shoelace area (abs, m²) of a closed polygon. */
 function polygonArea(poly: readonly Pt[]): number {
     let a = 0;
@@ -204,7 +226,7 @@ function reject(levelIndex: number, reason: string): PlatePartitionRejected {
 }
 
 function _partition(input: PlatePartitionInput): PlatePartitionOutput {
-    const { levelIndex, footprint, core, corridor, apartments } = input;
+    const { levelIndex, footprint, core, corridor, apartments, clipPolygon } = input;
 
     const bb = bbox(footprint);
     // §RESI-APPROX-RECT (founder 2026-06-23): the orchestrator de-rotates the parcel into this
@@ -429,6 +451,21 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
         }
     }
 
+    // §RESI-CLIP-BOUNDARY — drop any cell whose CENTRE is outside the real (possibly non-
+    // rectangular) plate polygon, so an L / trapezoid stops building apartments past the drawn
+    // boundary. The bbox tiling above is unchanged; this only removes out-of-shape cells. A near-
+    // rectangular plate keeps every cell (all centres inside) → no behavioural change.
+    let clippedOut = 0;
+    if (clipPolygon && clipPolygon.length >= 3) {
+        for (let i = placements.length - 1; i >= 0; i--) {
+            const r = placements[i]!.rect;
+            if (!pointInPolygon((r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2, clipPolygon)) {
+                placements.splice(i, 1);
+                clippedOut++;
+            }
+        }
+    }
+
     // §RESI-FILL-PLATE: place as MANY apartments as fit and return them — do NOT reject just
     // because the demand list exceeds the plate's capacity (the plate filling to capacity with a
     // surplus demand list is success, not failure; the orchestrator's "fill the plate" path
@@ -453,7 +490,7 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
         `§DIAG-RESI-PARTITION level=${levelIndex} status=ok N=${placements.length} ` +
         `corridors=${corridorBands.length} ` +
         `mix=[${mix.join(',')}] areas=[${areas.map((a) => a.toFixed(1)).join(',')}] ` +
-        `reached=${reached}/${placements.length}`;
+        `clippedOutOfBoundary=${clippedOut} reached=${reached}/${placements.length}`;
 
     return {
         status: 'ok',
