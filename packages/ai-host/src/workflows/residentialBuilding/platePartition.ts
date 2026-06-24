@@ -127,6 +127,35 @@ export const MAX_APARTMENT_DEPTH_M = 9;
  *  engine rejects. 0.6 ⇒ a 9 m-deep cell is ≥ 5.4 m wide (aspect ≤ ~1.7:1). */
 const MIN_CELL_ASPECT = 0.6;
 
+// §RESI-T3-FIT-REGRESSION-FIX (founder "20 units couldn't fit at this size — 0 apartments",
+// 2026-06-24) — THE per-cell rejection root cause. The packer hands the partition a TIGHT area
+// band (e.g. a T2 [66,81] m²); at the depth-capped ~9 m row that band maps to a cell WIDTH ceiling
+// wMax = 81/9 = 9 m. But the centred core splits each row into ~14 m-wide runs (the NARROW vertical
+// spine — not the full core — is carved from out-of-core rows). With wMin = 66/9 = 7.33 m the old
+// even-division capped nCells at maxCellsByMin = floor(14/7.33) = 1 → ONE 14.3 m-wide cell. The
+// FROZEN D-TGL engine REJECTS a cell wider than its per-depth feasible edge (~13.25 m at a 9 m
+// depth; mapped empirically over runApartmentCellLayout, all 1–4 bed × depth 7.3–9), so EVERY such
+// cell soft-failed → 0 apartments (the founder's 4-cells-all-hatched screenshot). The fix: cap the
+// cell width at the ENGINE'S OWN feasible MAX, and when the run can't be evenly tiled at-or-below
+// that cap, SLICE GREEDILY at the cap and LEAVE the sub-min remainder unbuilt (a thin strip) —
+// never minting one over-wide cell the engine rejects.
+//
+// The cap is DEPTH-DEPENDENT. The upper (multi-room) feasible width is NOT a simple multiple of
+// depth — it is WIDER at shallow depths (a 7.3 m row lays out up to ~14.75 m wide) and NARROWER at
+// the 9 m cap (~13.25 m). A flat factor·depth either over-shrinks a shallow cell BELOW its area
+// floor (regressing the §RESI-T3-FIT area guarantee) or exceeds the deep reject edge. `min(13,
+// depth + 4)` tracks the SMALLEST feasible upper width across every program at every depth in the
+// band with margin: d 7.3 → 11.3, d 8 → 12, d 8.5 → 12.5, d 9 → 13 — each verified feasible AND
+// ≥ a T3's area-floor width (a 7.3 m-deep T3 at 11.3 m is 82.5 m² ≥ its 80 m² floor). Below ~7.3 m
+// depth the engine can't lay out a multi-room apartment at ANY width (it scales to a studio), so
+// the cap is moot there.
+/** Engine-feasible MAX cell width (m) at a given row depth — the upper edge the frozen D-TGL engine
+ *  reliably lays out, with margin below the per-depth reject edge. See the block comment above. */
+const engineMaxCellWidth = (depthM: number): number => Math.min(13, depthM + 4);
+/** Engine-feasible MIN cell width as a multiple of row depth — keeps a cell in the engine's upper
+ *  (multi-room) band, away from the narrow studio-only sliver band. ≈ 7.65 m at a 9 m depth. */
+const ENGINE_MIN_WIDTH_FACTOR = 0.85;
+
 // §RESI-T3-FIT (founder "T3 never appears — only 2-bed ever wins", 2026-06-24) — a 3-bed survives
 // `scaleCellProgram` (keeps its 3 bedrooms) only at ~108 m²+ (3-bed grossMin 85 × the count-scaled
 // slack 1.28); a 4-bed at ~155 m²+ (115 × 1.35). With the depth capped at ~9 m an EVEN-divided run
@@ -421,50 +450,78 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
             // ordinary band so the cell still places (it scales down to a feasible count, no reject).
             const keep = TYPOLOGY_KEEP_WIDTH[ref.typology];
             const depthScale = MAX_APARTMENT_DEPTH_M / depth;  // wider band for a shallower row, etc.
+            const wFeasMin = ENGINE_MIN_WIDTH_FACTOR * depth;
             const wMinBase = Math.max(ref.minAreaM2 / depth, minWidthByAspect);
             const wMaxBase = Math.max(ref.maxAreaM2 / depth, wMinBase);
             const keepActive = keep !== undefined && runWidth >= keep.minW * depthScale - EPS;
             // When the keep band is active, the cell width target/floor/ceiling come from the proven
             // engine band (scaled by depth); otherwise the ordinary demand band drives the division.
-            const wMin = keepActive ? Math.max(wMinBase, keep!.minW * depthScale) : wMinBase;
-            const wMax = keepActive ? Math.max(wMin, keep!.maxW * depthScale) : wMaxBase;
-            const wTarget = keepActive ? keep!.targetW * depthScale : Math.min(Math.max((ref.minAreaM2 + ref.maxAreaM2) / 2 / depth, wMin), wMax);
-            if (runWidth < wMin - EPS) continue;   // run too narrow for even one min-width cell — skip it
+            const wMinArea = keepActive ? Math.max(wMinBase, keep!.minW * depthScale) : wMinBase;
+            const wMaxArea = keepActive ? Math.max(wMinArea, keep!.maxW * depthScale) : wMaxBase;
+            // §RESI-T3-FIT-REGRESSION-FIX — the ENGINE'S OWN feasible MAX width at this row depth.
+            // The area-band-derived wMax (maxAreaM2/depth) does NOT bound width to what the engine can
+            // lay out — a small area band yields a wMax SMALLER than the feasible width, and the
+            // maxCellsByMin floor can then still force an OVER-wide cell when the run won't divide. So
+            // we cap the cell width at wFeasMax (never over-wide). For a NON-keep typology (T1/T2) that
+            // is the generic per-depth engine edge `engineMaxCellWidth(depth)` (~13 m at d = 9). For a
+            // keep typology (T3/T4) the keep band's OWN maxW (16.5/17 m, scaled by depth) is ALREADY the
+            // engine-calibrated upper edge for that program (a 3/4-bed lays out wider than a 1/2-bed at
+            // the same depth — sweep: ~17.75 m vs ~13.25 m at d = 9), so we keep it rather than
+            // over-shrinking a wide T3/T4 cell with the conservative 1/2-bed cap.
+            const wFeasMax = keepActive ? wMaxArea : engineMaxCellWidth(depth);
+            // wMax is HARD-capped at wFeasMax (never over-wide); wMin is raised toward wFeasMin but
+            // never above wMax (so [wMin,wMax] stays non-empty).
+            const wMax = Math.min(wMaxArea, wFeasMax);
+            const wMin = Math.min(Math.max(wMinArea, wFeasMin), wMax);
+            const wTarget = keepActive
+                ? Math.min(keep!.targetW * depthScale, wMax)
+                : Math.min(Math.max((ref.minAreaM2 + ref.maxAreaM2) / 2 / depth, wMin), wMax);
+            // §RESI-T3-FIT-REGRESSION-FIX — SKIP a run too narrow to host even one cell of the demand's
+            // minimum AREA. The skip threshold is the AREA floor (`wMinArea`), NOT the engine-clamped
+            // `wMin`: on a very shallow row (e.g. a 1.88 m-deep clamped edge row) `wMax = engine cap`
+            // collapses small and `wMin` would be dragged down with it, so an engine-clamped test would
+            // place a sub-area sliver the engine then rejects (the 16× tiny rejected cells regression).
+            // Testing the area floor preserves the proven behaviour: a row that can't host a min-area
+            // apartment is left empty (byte-identical to before this fix on those rows).
+            if (runWidth < wMinArea - EPS) continue;
             // §RESI-PACKROW-EVEN (founder "fill the plate", 2026-06-23) — divide the WHOLE run into
             // EQUAL-width cells instead of greedily slicing one mid-width cell and BREAKING on the
-            // sub-wMin remainder. The old greedy break left ~7m empty on every core-split row (the core
-            // splits each row into two ~16m runs; one ~8.9m cell fit, the 7.1m residual was < wMin so the
-            // loop bailed) → those leftovers merged into the ~390m² central "Room 01-002" void. Even
-            // division leaves NO remainder, so a 16m run hosts 2 cells (not 1) and the plate fills.
-            // nCells is bounded so each equal cell stays engine-feasible: ≥ wMin (never sub-min slivers)
-            // and, where the run allows, ≤ wMax; within that band we pick the count closest to the
-            // demand's ideal mid-width. Deterministic (no RNG) → ADR-0061 stable output.
-            // The ideal cell count divides the run into ~wTarget-wide cells (the keep target for a
-            // T3/T4, else the demand mid-width). Bounded so each equal cell stays ≥ wMin and ≤ wMax.
+            // sub-wMin remainder. Even division leaves NO remainder, so a 16m run hosts 2 cells (not 1)
+            // and the plate fills. nCells is bounded so each equal cell stays engine-feasible: ≥ wMin
+            // and ≤ wMax; within that band we pick the count closest to the demand's ideal mid-width.
+            // Deterministic (no RNG) → ADR-0061 stable output.
             const maxCellsByMin = Math.max(1, Math.floor(runWidth / wMin + EPS));   // most cells keeping w ≥ wMin
             const minCellsByMax = Math.max(1, Math.ceil(runWidth / wMax - EPS));    // fewest cells keeping w ≤ wMax
             const idealCells = Math.max(1, Math.round(runWidth / wTarget));
             let nCells: number;
-            if (keepActive && minCellsByMax > maxCellsByMin) {
-                // §RESI-T3-FIT — the run can't be cleanly divided INSIDE the keep band [minW,maxW]
-                // (e.g. a 19 m run: 1 cell > maxW, 2 cells < minW). ENGINE FEASIBILITY WINS over the
-                // bedroom-keep target: pick the FEWEST cells that keep each ≤ maxW (so the engine lays
-                // the cell out rather than rejecting an over-wide one). The cell then scales to the
-                // count its area can hold — never a reject. A run whose width IS inside the band keeps
-                // the keep target below and produces the full-count T3/T4 cell.
-                nCells = minCellsByMax;
+            let sliceWidth: number | undefined;   // set ⇒ greedy-slice at this width, leave the remainder
+            if (minCellsByMax > maxCellsByMin) {
+                // §RESI-T3-FIT-REGRESSION-FIX — the run can't be tiled EVENLY inside [wMin, wMax]
+                // (e.g. a 14.3 m run at depth 9: 1 cell = 14.3 m > wMax ≈ 12.6 m, 2 cells = 7.1 m <
+                // wMin ≈ 7.65 m). Even division would force EITHER an over-wide cell the engine rejects
+                // (the founder's 0-apartments bug) OR a sub-min sliver. ENGINE FEASIBILITY WINS: SLICE
+                // GREEDILY at wMax and LEAVE the sub-min remainder unbuilt (a thin strip — accepted per
+                // the founder's narrowed scope; the central-void/strip-fill pass is separate). This
+                // guarantees every emitted cell is ≤ wMax (engine-layable) → never a rejected over-wide
+                // cell → adding any typology (T1) to the mix can no longer drop the count to 0.
+                nCells = Math.max(1, Math.floor(runWidth / wMax + EPS));
+                sliceWidth = round4(wMax);
             } else {
                 // Clamp the ideal into [minByMax, maxByMin]; prefer fewer (wider → keeps the count).
                 const loCells = Math.min(minCellsByMax, maxCellsByMin);
                 nCells = Math.min(maxCellsByMin, Math.max(loCells, idealCells));
             }
-            const w = round4(runWidth / nCells);
+            const w = sliceWidth ?? round4(runWidth / nCells);
             for (let k = 0; k < nCells && cursor < apartments.length; k++) {
                 const demand = apartments[cursor];
                 if (!demand) break;
                 const x0 = round4(run.x0 + k * w);
-                // The last cell snaps to the run's true end so float drift never leaves a hairline gap.
-                const x1 = k === nCells - 1 ? round4(run.x1) : round4(run.x0 + (k + 1) * w);
+                // Even division: the last cell snaps to the run's true end so float drift never leaves a
+                // hairline gap. Greedy slice (sliceWidth set): every cell is exactly wMax-wide and the
+                // sub-min remainder beyond the last slice is intentionally LEFT unbuilt (a thin strip).
+                const x1 = (sliceWidth === undefined && k === nCells - 1)
+                    ? round4(run.x1)
+                    : round4(run.x0 + (k + 1) * w);
                 const rect = normRect({ x0, z0: round4(cellZ0), x1, z1: round4(cellZ1) });
                 placements.push({ typology: demand.typology, rect, areaM2: round4(rectArea(rect)), doorEdge });
                 cursor++;
