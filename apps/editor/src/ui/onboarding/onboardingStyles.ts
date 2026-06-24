@@ -763,7 +763,9 @@ export const ONBOARDING_STYLES = `
   border: 1px solid rgba(102, 0, 255, 0.14);
   border-radius: 0.4rem;
 }
-.os-onboarding-overlay .os-resi-preview-plan svg { width: 100%; height: auto; }
+/* §RESI-PREVIEW-SMALLER (founder 2026-06-24) — cap the plan thumbnail so the whole setup
+   modal (4 option groups + colour swatches + preview) fits without the top being clipped. */
+.os-onboarding-overlay .os-resi-preview-plan svg { width: 100%; height: auto; max-height: 150px; }
 .os-onboarding-overlay .os-resi-preview-caption {
   font-size: 0.72rem;
   color: rgba(20, 10, 40, 0.5);
