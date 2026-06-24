@@ -863,6 +863,22 @@ export class SplitViewManager implements ISplitViewManager {
             this._svpSpecialId = viewId;
             this._activateMode('3d');
             console.log('[SplitViewManager] View changed → 3D View');
+            // §SVP3D-FRAME-ON-SWITCH (founder 2026-06-24: "the right-pane 3D should zoom/fit") — the
+            // right pane's 3D mode is a 1:1 mirror of the main canvas and has NO camera of its own,
+            // so framing the MAIN perspective camera reframes the mirror. §VIEW-AUTOFRAME above only
+            // fires on split-view ENTRY, not on this in-session switch to 3D. Reuse the registered
+            // zoom-fit command (→ zoomToAll), deferred ~320 ms so just-committed meshes are present,
+            // guarded by the same no-hijack-while-drawing predicate.
+            setTimeout(() => {
+                if (!this._active || this._svpMode !== '3d') return;
+                if (shouldSuppressAutoFrameWhileDrawing()) return;
+                try {
+                    window.runtime?.bus?.executeCommand('zoom-fit', {});
+                    console.log('[SplitViewManager] §SVP3D-FRAME-ON-SWITCH: framed main 3D on right-pane 3D switch.');
+                } catch (err) {
+                    console.warn('[SplitViewManager] §SVP3D-FRAME-ON-SWITCH: zoom-fit failed (non-fatal):', err);
+                }
+            }, 320);
             return;
         }
 
