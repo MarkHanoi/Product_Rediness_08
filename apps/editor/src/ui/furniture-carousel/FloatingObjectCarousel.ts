@@ -112,6 +112,13 @@ export class FloatingObjectCarousel {
     // D.7.5 batch #4: rAF handle replaced by FrameScheduler disposer.
     private rafId: TickListenerDisposer | null = null;
 
+    // §FURNITURE-GLB-404-SUMMARY — the GLB catalog (public/items/**) is deliberately NOT baked
+    // into the prod image (~185 MB; tracker OBJECT-STORAGE-GLB), so every model 404s in prod and
+    // falls back to placeholder geometry. Instead of one console.warn per item (a flood of
+    // hundreds while testing), coalesce failures into ONE trailing summary line.
+    private _glbFailures: string[] = [];
+    private _glbFailTimer: ReturnType<typeof setTimeout> | null = null;
+
     // ── Pointer / drag ────────────────────────────────────────────────────────
     private ptrDown:       boolean = false;
     private ptrDragStart:  boolean = false;
@@ -195,6 +202,7 @@ export class FloatingObjectCarousel {
         window.removeEventListener('pointerup',   this._onPtrUp);
 
         this._clearItems();
+        if (this._glbFailTimer) { clearTimeout(this._glbFailTimer); this._glbFailTimer = null; }
         this.renderer?.dispose();
         this.root?.remove();
     }
@@ -348,6 +356,27 @@ export class FloatingObjectCarousel {
 
     // ── Item management ────────────────────────────────────────────────────────
 
+    /** §FURNITURE-GLB-404-SUMMARY — accumulate a GLB load failure and emit ONE trailing summary
+     *  line (~500 ms after the last failure) instead of one warn per item. In prod the whole
+     *  catalog 404s (OBJECT-STORAGE-GLB), so this turns a flood into a single, honest line; a
+     *  genuine one-off path typo still surfaces (count=1 with the path). The first failing path is
+     *  kept so a real typo is debuggable. */
+    private _reportGlbFailure(path: string, _err: unknown): void {
+        this._glbFailures.push(path);
+        if (this._glbFailTimer) clearTimeout(this._glbFailTimer);
+        this._glbFailTimer = setTimeout(() => {
+            const n = this._glbFailures.length;
+            const first = this._glbFailures[0];
+            console.warn(
+                `[Carousel] §FURNITURE-GLB-404-SUMMARY ${n} furniture model(s) failed to load ` +
+                `(e.g. "${first}") — using placeholder geometry. In prod the GLB catalog is not ` +
+                `baked into the image (tracker OBJECT-STORAGE-GLB); re-host on object storage to fix.`,
+            );
+            this._glbFailures = [];
+            this._glbFailTimer = null;
+        }, 500);
+    }
+
     private _loadCategory(category: FurnitureCategory): void {
         this._clearItems();
 
@@ -386,7 +415,9 @@ export class FloatingObjectCarousel {
                     undefined,
                     (err) => {
                         if (!this.items.includes(item)) return;
-                        console.warn(`[Carousel] GLB load failed for ${descriptor.glbPath}:`, err);
+                        // §FURNITURE-GLB-404-SUMMARY — coalesce into one trailing summary
+                        // (see field comment) instead of warning per item.
+                        this._reportGlbFailure(descriptor.glbPath!, err);
                         // Fallback: grey box so the slot is never empty
                         const geo = new THREE.BoxGeometry(0.8, 0.8, 0.8);
                         const mat = new THREE.MeshStandardMaterial({ color: 0x888888 });
