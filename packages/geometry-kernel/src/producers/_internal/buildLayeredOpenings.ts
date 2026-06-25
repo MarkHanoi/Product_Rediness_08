@@ -40,8 +40,10 @@ export function clusterOpenings(openings: readonly Opening[]): OpeningCluster[] 
   const sorted = [...openings].sort((a, b) => a.offset - b.offset);
   const clusters: OpeningCluster[] = [];
   for (const op of sorted) {
-    const left = op.offset - op.width / 2;
-    const right = op.offset + op.width / 2;
+    // §OPENING-OFFSET-LEFTEDGE-UNIFY (2026-06-24): op.offset is the LEFT EDGE of the
+    // span [offset, offset+width] (matches every producer, occupancy, C15 §2 voidStart).
+    const left = op.offset;
+    const right = op.offset + op.width;
     let merged = false;
     for (const cluster of clusters) {
       if (right >= cluster.minLeft - 0.001 && left <= cluster.maxRight + 0.001) {
@@ -69,8 +71,9 @@ function normaliseOpeningRects(
 ): OpeningRect[] {
   const rects: OpeningRect[] = [];
   for (const op of openings) {
-    const left = Math.max(0, op.offset - op.width / 2);
-    const right = Math.min(wallLength, op.offset + op.width / 2);
+    // §OPENING-OFFSET-LEFTEDGE-UNIFY: offset is the LEFT EDGE; span = [offset, offset+width].
+    const left = Math.max(0, op.offset);
+    const right = Math.min(wallLength, op.offset + op.width);
     const bottom = Math.max(0, op.sillHeight ?? 0);
     const top = Math.min(wallHeight, (op.sillHeight ?? 0) + op.height);
     if (right - left > 0.001 && top - bottom > 0.001) {

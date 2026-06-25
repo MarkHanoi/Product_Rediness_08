@@ -19,8 +19,8 @@
  *   (b) command-layer code can compute world positions before a store update
  *       if needed (e.g. for future explicit cascade via `wallStore.updateDoor`).
  *
- * FORMULA
- *   worldCenter = baseLine[0]  +  normalize(baseLine[1] − baseLine[0]) × offset
+ * FORMULA (§OPENING-OFFSET-LEFTEDGE-UNIFY 2026-06-24 — offset is the LEFT EDGE)
+ *   worldCenter = baseLine[0]  +  normalize(baseLine[1] − baseLine[0]) × (offset + width/2)
  *   Y           = levelElevation + sillHeight + height / 2
  *   wallAngle   = atan2(dir.z, dir.x)    (rotation about Y-axis)
  *
@@ -39,8 +39,14 @@ import * as THREE from '@pryzm/renderer-three/three';
 
 /** Minimal opening parameters needed to compute world position. */
 export interface OpeningPositionInput {
-    /** Distance from baseLine[0] to the CENTRE of the opening (metres). */
+    /**
+     * §OPENING-OFFSET-LEFTEDGE-UNIFY (2026-06-24): distance from baseLine[0] to the
+     * LEFT EDGE of the opening span [offset, offset+width] (metres). The opening
+     * CENTRE = offset + width/2.
+     */
     offset:      number;
+    /** Opening width along the wall (metres). */
+    width:       number;
     /** Total opening height (metres). */
     height:      number;
     /** Distance from the level floor to the bottom of the opening (metres). */
@@ -80,8 +86,9 @@ export function computeOpeningWorldPos(
     const wallDir  = new THREE.Vector3().subVectors(end, start).normalize();
     const wallAngle = Math.atan2(wallDir.z, wallDir.x);
 
+    // §OPENING-OFFSET-LEFTEDGE-UNIFY: centre along the wall = left edge + width/2.
     const worldCenter = start.clone()
-        .addScaledVector(wallDir, opening.offset)
+        .addScaledVector(wallDir, opening.offset + opening.width / 2)
         .setY(levelElevation + opening.sillHeight + opening.height / 2);
 
     return { worldCenter, wallAngle, wallDir };

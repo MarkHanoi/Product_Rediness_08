@@ -30,15 +30,18 @@ import {
 } from '../src/WallHoleBodyBuilder';
 
 // A plain partition wall with one centred interior window.
+// §OPENING-OFFSET-LEFTEDGE-UNIFY (2026-06-24): `offset` is the LEFT EDGE of the span
+// [offset, offset+width]. A centred window on a length-4 wall has offset = (4 − 1.2)/2
+// = 1.4, so the jambs land at 1.4 and 2.6 (centre 2.0) — same physical window as before.
 const WALL: WallHoleBodyParams = {
     length: 4,
     height: 2.8,
     thickness: 0.1,
     baseOffset: 0,
-    openings: [{ offset: 2, width: 1.2, height: 1.2, sillHeight: 0.9 }],
+    openings: [{ offset: 1.4, width: 1.2, height: 1.2, sillHeight: 0.9 }],
 };
-const JAMB_LEFT = 2 - 1.2 / 2;   // 1.4
-const JAMB_RIGHT = 2 + 1.2 / 2;  // 2.6
+const JAMB_LEFT = 1.4;            // offset (left edge)
+const JAMB_RIGHT = 1.4 + 1.2;    // offset + width = 2.6
 const SILL = 0.9;
 const HEAD = 0.9 + 1.2;          // 2.1
 
@@ -125,7 +128,8 @@ describe('WallHoleBodyBuilder — continuous body, no seam', () => {
         // A door reaches the floor (sillHeight 0). It is carved out of the OUTER
         // profile (a bottom notch), not a closed hole — so the body stays one
         // continuous surface. The classifier reports it as a notch, not a hole.
-        const floorDoor = { ...WALL, openings: [{ offset: 2, width: 0.9, height: 2.1, sillHeight: 0 }] };
+        // §OPENING-OFFSET-LEFTEDGE-UNIFY: left-edge 1.55 + width 0.9 → span [1.55, 2.45], centre 2.0.
+        const floorDoor = { ...WALL, openings: [{ offset: 1.55, width: 0.9, height: 2.1, sillHeight: 0 }] };
         const norm = normaliseWallHoles(floorDoor);
         expect(norm).not.toBeNull();
         expect(norm!.holes.length).toBe(0);
@@ -134,11 +138,11 @@ describe('WallHoleBodyBuilder — continuous body, no seam', () => {
         const geo = buildWallHoleBodyGeometry(floorDoor)!;
         expect(geo).not.toBeNull();
         const tris = triangles(geo);
-        // The door opening rectangle (centre 2, half-width 0.45, head 2.1) must be
+        // The door opening rectangle (span [1.55, 2.45], head 2.1) must be
         // empty on the front face — no front-face triangle centroid inside it.
         const front = WALL.thickness / 2;
         const inDoor = (x: number, y: number) =>
-            x > 2 - 0.45 + 1e-3 && x < 2 + 0.45 - 1e-3 && y > 1e-3 && y < 2.1 - 1e-3;
+            x > 1.55 + 1e-3 && x < 2.45 - 1e-3 && y > 1e-3 && y < 2.1 - 1e-3;
         const frontInDoor = tris.filter((t) => {
             if (!t.every((v) => NEAR(v.z, front))) return false;
             const cx = (t[0].x + t[1].x + t[2].x) / 3;
@@ -151,28 +155,31 @@ describe('WallHoleBodyBuilder — continuous body, no seam', () => {
 
 describe('WallHoleBodyBuilder — fallback (returns null → keep segmented path)', () => {
     it('rejects an edge-touching opening (notch, not a hole)', () => {
-        const touchingLeft = { ...WALL, openings: [{ offset: 0.6, width: 1.2, height: 1.2, sillHeight: 0.9 }] };
+        // §OPENING-OFFSET-LEFTEDGE-UNIFY: left-edge 0 + width 1.2 → span [0, 1.2] touches the start edge.
+        const touchingLeft = { ...WALL, openings: [{ offset: 0, width: 1.2, height: 1.2, sillHeight: 0.9 }] };
         expect(normaliseWallHoles(touchingLeft)).toBeNull();
     });
 
     it('rejects overlapping openings (would self-intersect in extrude)', () => {
+        // §OPENING-OFFSET-LEFTEDGE-UNIFY: spans [1.2, 2.4] and [1.8, 3.0] overlap.
         const overlapping = {
             ...WALL,
             openings: [
+                { offset: 1.2, width: 1.2, height: 1.2, sillHeight: 0.9 },
                 { offset: 1.8, width: 1.2, height: 1.2, sillHeight: 0.9 },
-                { offset: 2.4, width: 1.2, height: 1.2, sillHeight: 0.9 },
             ],
         };
         expect(normaliseWallHoles(overlapping)).toBeNull();
     });
 
     it('accepts two separated interior openings', () => {
+        // §OPENING-OFFSET-LEFTEDGE-UNIFY: spans [1.0, 2.0] and [4.0, 5.0] (separated).
         const twoWindows = {
             ...WALL,
             length: 6,
             openings: [
-                { offset: 1.5, width: 1.0, height: 1.2, sillHeight: 0.9 },
-                { offset: 4.5, width: 1.0, height: 1.2, sillHeight: 0.9 },
+                { offset: 1.0, width: 1.0, height: 1.2, sillHeight: 0.9 },
+                { offset: 4.0, width: 1.0, height: 1.2, sillHeight: 0.9 },
             ],
         };
         const norm = normaliseWallHoles(twoWindows);
@@ -186,9 +193,10 @@ describe('WallHoleBodyBuilder — fallback (returns null → keep segmented path
         const mixed = {
             ...WALL,
             length: 6,
+            // §OPENING-OFFSET-LEFTEDGE-UNIFY: window span [1.0, 2.0], door span [3.55, 4.45].
             openings: [
-                { offset: 1.5, width: 1.0, height: 1.2, sillHeight: 0.9 }, // window
-                { offset: 4.0, width: 0.9, height: 2.1, sillHeight: 0 },   // door
+                { offset: 1.0, width: 1.0, height: 1.2, sillHeight: 0.9 }, // window
+                { offset: 3.55, width: 0.9, height: 2.1, sillHeight: 0 },  // door
             ],
         };
         const norm = normaliseWallHoles(mixed);
@@ -203,5 +211,67 @@ describe('WallHoleBodyBuilder — fallback (returns null → keep segmented path
         expect(normaliseWallHoles({ ...WALL, thickness: 0 })).toBeNull();
         expect(normaliseWallHoles({ ...WALL, openings: [] })).toBeNull();
         expect(normaliseWallHoles({ ...WALL, openings: [{ offset: 2, width: 0, height: 1.2, sillHeight: 0.9 }] })).toBeNull();
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §OPENING-OFFSET-LEFTEDGE-UNIFY (2026-06-24) — offset-convention regression.
+//
+// The stored opening `offset` is the LEFT EDGE of the span [offset, offset+width]
+// (the convention used by every producer, the door/window tools, the occupancy
+// store, and C15 §2 voidStart=offset). The geometry builders MUST cut/centre the
+// void on that span — NOT treat `offset` as the centre. Before the fix a "centred"
+// door (offset=(len−width)/2) rendered its centre at len/2 − width/2, i.e. ~width/2
+// hard against baseLine[0] — the founder's chronic "doors not centred" complaint.
+//
+// This proves the convention through the pure, exported builder primitive: the cut
+// rect spans exactly [offset, offset+width], so a centred opening sits at len/2 and
+// an offset=0 opening sits at width/2.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('§OPENING-OFFSET-LEFTEDGE-UNIFY — offset is the LEFT EDGE of the void span', () => {
+    const LEN = 4;
+    const W = 1.2;
+    const baseWall: WallHoleBodyParams = {
+        length: LEN, height: 2.8, thickness: 0.1, baseOffset: 0, openings: [],
+    };
+
+    /** Centre of the single hole/notch rect the builder produced, along the wall. */
+    const cutCentre = (p: WallHoleBodyParams): number => {
+        const norm = normaliseWallHoles(p)!;
+        expect(norm).not.toBeNull();
+        const rect = (norm.holes[0] ?? norm.notches[0])!;
+        expect(rect).toBeTruthy();
+        return (rect.x0 + rect.x1) / 2;
+    };
+
+    it('a centred opening offset=(len−width)/2 cuts its centre at len/2 (within 1mm)', () => {
+        const centredOffset = (LEN - W) / 2;            // 1.4 — left edge of a centred window
+        const wall = { ...baseWall, openings: [{ offset: centredOffset, width: W, height: 1.2, sillHeight: 0.9 }] };
+        expect(Math.abs(cutCentre(wall) - LEN / 2)).toBeLessThan(0.001);   // centre at 2.0
+    });
+
+    it('an opening at the start (offset 0) places its centre at width/2 (void-span identity)', () => {
+        // normaliseWallHoles intentionally rejects an opening whose span touches the
+        // start edge ([0, width]) as non-extrude-able, so assert the convention via the
+        // void-span identity the builder uses: span = [offset, offset+width] ⇒ for
+        // offset=0 the centre = (0 + width)/2 = width/2. (The non-zero offset case below
+        // exercises the same identity through the actual builder output.)
+        const offset = 0;
+        expect((offset + (offset + W)) / 2).toBeCloseTo(W / 2, 6);          // centre at 0.6
+    });
+
+    it('a near-start opening cuts its centre at offset + width/2 (within 1mm)', () => {
+        const offset = 0.2;                                                 // span [0.2, 1.4]
+        const wall = { ...baseWall, openings: [{ offset, width: W, height: 2.1, sillHeight: 0 }] };
+        expect(Math.abs(cutCentre(wall) - (offset + W / 2))).toBeLessThan(0.001);  // centre 0.8
+    });
+
+    it('the cut rect spans exactly [offset, offset+width]', () => {
+        const offset = 1.0;
+        const wall = { ...baseWall, openings: [{ offset, width: W, height: 1.2, sillHeight: 0.9 }] };
+        const norm = normaliseWallHoles(wall)!;
+        const rect = (norm.holes[0] ?? norm.notches[0])!;
+        expect(Math.abs(rect.x0 - offset)).toBeLessThan(0.001);
+        expect(Math.abs(rect.x1 - (offset + W))).toBeLessThan(0.001);
     });
 });

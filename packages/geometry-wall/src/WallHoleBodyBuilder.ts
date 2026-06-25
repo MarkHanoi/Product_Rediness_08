@@ -32,7 +32,10 @@ import * as THREE from '@pryzm/renderer-three/three';
 
 /** A rectangular opening in the wall face, in wall-local (x along wall) metres. */
 export interface WallOpeningRect {
-    /** Centre offset along the wall (metres from the wall start). */
+    /**
+     * §OPENING-OFFSET-LEFTEDGE-UNIFY (2026-06-24): LEFT-EDGE offset of the opening
+     * span [offset, offset+width] along the wall (metres from the wall start).
+     */
     readonly offset: number;
     /** Opening width (metres). */
     readonly width: number;
@@ -81,8 +84,9 @@ export function normaliseWallHoles(p: WallHoleBodyParams): NormWallHoles | null 
     const rects: NormRect[] = [];
     for (const op of p.openings) {
         if (!(op.width > 0 && op.height > 0)) return null;
-        const x0 = op.offset - op.width / 2;
-        const x1 = op.offset + op.width / 2;
+        // §OPENING-OFFSET-LEFTEDGE-UNIFY: offset is the LEFT EDGE; span = [offset, offset+width].
+        const x0 = op.offset;
+        const x1 = op.offset + op.width;
         const y0 = op.sillHeight ?? 0;
         const y1 = y0 + op.height;
         // Must sit strictly inside the wall in x; the head must stay below the top

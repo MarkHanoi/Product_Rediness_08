@@ -361,10 +361,12 @@ export class DoorBuilder {
         const dir = new THREE.Vector3().subVectors(end, start).normalize();
         const wallAngle = Math.atan2(dir.z, dir.x);
 
-        // `door.offset` is the CENTRE of the opening along the wall baseline
-        // (WallFragmentBuilder convention: left = offset - width/2).
-        // Do NOT add width/2 here — the wall group has already centred everything on offset.
-        const centre = start.clone().addScaledVector(dir, door.offset);
+        // §OPENING-OFFSET-LEFTEDGE-UNIFY (2026-06-24): `door.offset` is the LEFT EDGE
+        // of the opening span [offset, offset+width] along the wall baseline (the
+        // convention used by every producer, the door tool, the occupancy store, and
+        // C15 §2 voidStart=offset). The frame CENTRE = offset + width/2 — which is
+        // exactly where WallFragmentBuilder now cuts the void and places the frame.
+        const centre = start.clone().addScaledVector(dir, door.offset + door.width / 2);
 
         // §DOOR-AUDIT-2026 (DOOR-SPATIAL-FALLBACK) — never silently default to Y=0
         // when level membership is broken. Throw SpatialAuthorityError so the failure

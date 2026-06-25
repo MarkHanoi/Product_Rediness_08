@@ -91,7 +91,11 @@ export class SpatialAuthority {
                 const baselineVec = new THREE.Vector3().subVectors(end, start);
                 const dir = baselineVec.clone().normalize();
 
-                const pos = start.clone().add(dir.multiplyScalar(semanticData.offset));
+                // §OPENING-OFFSET-LEFTEDGE-UNIFY (2026-06-24): semanticData.offset is the
+                // LEFT EDGE of the opening span [offset, offset+width]; the element CENTRE
+                // (its world transform position) = offset + width/2.
+                const halfWidth = (Number(semanticData.width) || 0) / 2;
+                const pos = start.clone().add(dir.multiplyScalar(semanticData.offset + halfWidth));
 
                 const wallTransform = this.resolveWorldTransform(semanticData.wallId);
                 const sillHeight = semanticData.sillHeight ?? 0;

@@ -406,13 +406,18 @@ export class DoorTool {
         const wallDirNormalized = wallDir.clone().normalize();
         const hitDir = new THREE.Vector3().subVectors(hit.point, start);
 
-        let offset = hitDir.dot(wallDirNormalized);
+        const centreAlong = hitDir.dot(wallDirNormalized);
 
-        // PLAN-10: Clamp using CENTER convention (not 0 to wallLength).
-        // offset is the distance from baseLine[0] to the CENTRE of the opening.
+        // §OPENING-OFFSET-LEFTEDGE-UNIFY (2026-06-24): the stored opening `offset` is the
+        // LEFT EDGE of the span [offset, offset+width] (the convention used by every
+        // generator, the plugin door tool, the occupancy store, and C15 §2 voidStart).
+        // The raycast gives the CENTRE the user is pointing at, so convert centre →
+        // left edge and clamp the SPAN inside [0, wallLength]. (Previously this stored
+        // the centre and even passed a centre to the left-edge canPlace — a pre-existing
+        // producer/occupancy mismatch fixed here.)
         const width = this.doorType === 'double' ? 2.0 : 1.0;
-        const halfW = width / 2;
-        offset = Math.max(halfW, Math.min(offset, wallLength - halfW));
+        let offset = centreAlong - width / 2;
+        offset = Math.max(0, Math.min(offset, wallLength - width));
 
         if (!isFinite(offset)) {
             console.error("[DoorTool] Computed door offset is invalid:", offset);

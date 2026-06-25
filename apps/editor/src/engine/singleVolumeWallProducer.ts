@@ -64,7 +64,9 @@ export async function singleVolumeWallProducer(
         .filter((o) => o.width > 0 && o.height > 0)
         .map((o) =>
             produceExtrude(
-                rect(o.offset - o.width / 2, o.offset + o.width / 2, -hz - INSET, hz + INSET),
+                // §OPENING-OFFSET-LEFTEDGE-UNIFY (2026-06-24): o.offset is the LEFT EDGE
+                // of the span [offset, offset+width]; the cutter spans exactly that.
+                rect(o.offset, o.offset + o.width, -hz - INSET, hz + INSET),
                 o.height + 2 * INSET,
                 { worldY: o.sillHeight - INSET, material: asMaterialKey('wall|csg-void') },
             ),

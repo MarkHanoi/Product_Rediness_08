@@ -82,13 +82,14 @@ describe('projectCapVertex', () => {
 });
 
 describe('computeOpeningWorldPos', () => {
-  it('places opening centre at offset along baseline + level Y', () => {
+  it('places opening centre at offset + width/2 along baseline + level Y', () => {
+    // §OPENING-OFFSET-LEFTEDGE-UNIFY (2026-06-24): offset is the LEFT EDGE; centre = offset + width/2.
     const out = computeOpeningWorldPos(
       [{ x: 0, y: 0, z: 0 }, { x: 10, y: 0, z: 0 }],
-      { offset: 4, height: 2, sillHeight: 0.5 },
+      { offset: 4, width: 1.2, height: 2, sillHeight: 0.5 },
       3,
     );
-    expect(approxEq(out.worldCenter.x, 4)).toBe(true);
+    expect(approxEq(out.worldCenter.x, 4 + 0.6)).toBe(true);   // centre = 4 + 1.2/2
     expect(approxEq(out.worldCenter.y, 3 + 0.5 + 1)).toBe(true);
     expect(out.wallDir).toEqual({ x: 1, y: 0, z: 0 });
   });
