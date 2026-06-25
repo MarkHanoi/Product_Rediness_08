@@ -20,15 +20,17 @@ describe('SceneQualityTierManager (ADR-0076 §PERF-WEBGPU-FRAGMENT)', () => {
             expect(nominalTierForMeshCount(0)).toBe('cinematic');
             expect(nominalTierForMeshCount(1_500)).toBe('cinematic');
         });
-        it('maps normal scenes to balanced (today behaviour band)', () => {
+        it('maps a narrow balanced band (1501–2500) — re-tuned 2026-06-25', () => {
             expect(nominalTierForMeshCount(1_501)).toBe('balanced');
-            expect(nominalTierForMeshCount(6_000)).toBe('balanced');
+            expect(nominalTierForMeshCount(2_500)).toBe('balanced');
         });
-        it('maps heavy scenes to performance', () => {
-            expect(nominalTierForMeshCount(6_001)).toBe('performance');
-            expect(nominalTierForMeshCount(15_000)).toBe('performance');
-            // The audited ~13,048-mesh scene lands in performance.
+        it('maps a typical generated building (~4000 meshes) to performance', () => {
+            // §PERF-WEBGPU-FRAGMENT re-tune: balanced ceiling 6000→2500 so the
+            // founder's real ~4000-mesh building lands in performance (SSGI off).
+            expect(nominalTierForMeshCount(2_501)).toBe('performance');
+            expect(nominalTierForMeshCount(4_062)).toBe('performance'); // founder's real count
             expect(nominalTierForMeshCount(13_048)).toBe('performance');
+            expect(nominalTierForMeshCount(15_000)).toBe('performance');
         });
         it('maps very large scenes to survival', () => {
             expect(nominalTierForMeshCount(15_001)).toBe('survival');
@@ -60,10 +62,11 @@ describe('SceneQualityTierManager (ADR-0076 §PERF-WEBGPU-FRAGMENT)', () => {
             expect(settingsForTier('cinematic').reflectionProbes).toBe(true);
             expect(settingsForTier('balanced').reflectionProbes).toBe(false);
         });
-        it('performance drops SSGI, decorative shadows and full PBR', () => {
+        it('performance drops SSGI, TRAA, decorative shadows and full PBR', () => {
             const s = settingsForTier('performance');
             expect(s.ssgi).toBe(false);
-            expect(s.traa).toBe(true);
+            // §PERF-WEBGPU-FRAGMENT re-tune — TRAA also OFF at performance.
+            expect(s.traa).toBe(false);
             expect(s.decorativeFurnitureShadows).toBe(false);
             expect(s.fullScenePbrTraverse).toBe(false);
             expect(s.shadowLevel).toBe('standard');
@@ -79,30 +82,31 @@ describe('SceneQualityTierManager (ADR-0076 §PERF-WEBGPU-FRAGMENT)', () => {
     describe('computeTier — hysteresis (no thrash at boundaries)', () => {
         it('cold start (no prevTier) returns the nominal tier', () => {
             expect(computeTier(7_000, undefined)).toBe('performance');
-            expect(computeTier(3_000, undefined)).toBe('balanced');
+            expect(computeTier(2_000, undefined)).toBe('balanced'); // 1501–2500
+            expect(computeTier(4_062, undefined)).toBe('performance'); // founder's building
         });
 
         it('holds the previous tier inside the ±10% guard band on a step DOWN', () => {
-            // balanced upper bound = 6000; +10% band = 6600. At 6300 (just over the
+            // balanced upper bound = 2500; +10% band = 2750. At 2600 (just over the
             // nominal boundary but within the band) we must HOLD balanced.
-            expect(computeTier(6_300, 'balanced')).toBe('balanced');
+            expect(computeTier(2_600, 'balanced')).toBe('balanced');
             // Clearly over the band → step down to performance.
-            expect(computeTier(6_700, 'balanced')).toBe('performance');
+            expect(computeTier(2_800, 'balanced')).toBe('performance');
         });
 
         it('holds the previous tier inside the band on a step UP', () => {
-            // Coming from performance, balanced floor boundary = 6000; −10% = 5400.
-            // At 5700 (under nominal boundary but inside band) HOLD performance.
-            expect(computeTier(5_700, 'performance')).toBe('performance');
+            // Coming from performance, balanced/performance boundary = 2500; −10% = 2250.
+            // At 2400 (under nominal boundary but inside band) HOLD performance.
+            expect(computeTier(2_400, 'performance')).toBe('performance');
             // Clearly under the band → step up to balanced.
-            expect(computeTier(5_300, 'performance')).toBe('balanced');
+            expect(computeTier(2_200, 'performance')).toBe('balanced');
         });
 
         it('does not oscillate when count wobbles across a boundary inside the band', () => {
             let tier: SceneQualityTier = 'balanced';
-            for (const n of [6_100, 5_900, 6_200, 5_950, 6_050]) {
+            for (const n of [2_600, 2_400, 2_700, 2_450, 2_550]) {
                 tier = computeTier(n, tier);
-                // All within ±10% of 6000 (5400..6600) → must stay balanced.
+                // All within ±10% of 2500 (2250..2750) → must stay balanced.
                 expect(tier).toBe('balanced');
             }
         });
@@ -122,11 +126,11 @@ describe('SceneQualityTierManager (ADR-0076 §PERF-WEBGPU-FRAGMENT)', () => {
         });
 
         it('reports changed=true only on a real transition', () => {
-            const first = mgr.update(3_000);
+            const first = mgr.update(2_000);
             expect(first.tier).toBe('balanced');
             expect(first.changed).toBe(true); // cold start counts as a change
 
-            const second = mgr.update(3_200);
+            const second = mgr.update(2_100);
             expect(second.tier).toBe('balanced');
             expect(second.changed).toBe(false); // same tier → no re-apply
 

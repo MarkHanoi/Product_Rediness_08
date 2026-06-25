@@ -73,10 +73,19 @@ const TIER_ORDER: readonly SceneQualityTier[] = [
     'cinematic',
 ];
 
-/** Mesh-count UPPER bound (inclusive) for each tier, at the nominal boundary. */
+/**
+ * Mesh-count UPPER bound (inclusive) for each tier, at the nominal boundary.
+ *
+ * §PERF-WEBGPU-FRAGMENT re-tune (2026-06-25): the `balanced` ceiling dropped
+ * 6000→2500 so a typical generated building (~4000 meshes — the founder's real
+ * case) lands in `performance` (SSGI OFF, shadow=standard, decorative-furniture
+ * shadows OFF) for a real frame-time win, instead of `balanced` (which kept the
+ * heavy SSGI/TRAA/high-shadow pipeline). Small showcase scenes (≤1500) stay
+ * `cinematic` = full quality, unchanged.
+ */
 const TIER_UPPER_BOUND: Record<SceneQualityTier, number> = {
     cinematic: 1_500,
-    balanced: 6_000,
+    balanced: 2_500,
     performance: 15_000,
     survival: Number.POSITIVE_INFINITY,
 };
@@ -141,7 +150,10 @@ const TIER_SETTINGS: Record<SceneQualityTier, SceneQualitySettings> = {
     },
     performance: {
         ssgi: false,
-        traa: true,
+        // §PERF-WEBGPU-FRAGMENT re-tune — TRAA OFF at performance too, to shed the
+        // per-frame temporal-reprojection cost on heavy generated buildings. The
+        // goal of this tier is a real frame-time win, so all the heavy post-FX go.
+        traa: false,
         reflectionProbes: false,
         shadowLevel: 'standard',
         decorativeFurnitureShadows: false,

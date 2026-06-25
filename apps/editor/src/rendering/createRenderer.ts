@@ -138,6 +138,18 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<Rendere
     const pref = getRendererBackendPreference();
     const forceWebGL = pref === 'webgl';
 
+    // §PERF-WEBGPU-FRAGMENT — make the boot backend DECISION observable so a
+    // "why webgpu on a fresh profile?" is self-explanatory in the console:
+    //   - resolvedPreference=webgl  → unset profile OR explicit WebGL (default).
+    //   - resolvedPreference=webgpu → a value was PERSISTED by a prior toggle click
+    //     (NOT an independent default — there is one renderer-creation path).
+    console.log(
+        `[createRenderer] §PERF-WEBGPU-FRAGMENT resolvedPreference=${pref} ` +
+        `(forceWebGL=${forceWebGL}) — ${forceWebGL
+            ? 'forcing plain WebGL2 (stable, no TSL post-FX)'
+            : "using WebGPU-first chain (this value was explicitly persisted by the backend toggle; clear it or pick 'WebGL' to get the WebGL default)"}`,
+    );
+
     // ── Factory creates the best available adapter (C04 §1.4) ────────────
     // RendererHandleFactory.create() attempts:
     //   1. WebGPURenderer with native WebGPU backend → type='webgpu'
