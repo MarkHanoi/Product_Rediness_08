@@ -77,6 +77,8 @@ import { RenderingPipelineCoordinator } from '@pryzm/core-app-model/rendering';
 // ADR-0076 Axis 2 (§PERF-WEBGPU-FRAGMENT) — furniture decorative-shadow budget setter.
 import { setFurnitureShadowBudget } from '@pryzm/geometry-furniture';
 import { probeRendererBackend, createRenderer } from '../rendering/createRenderer';
+// §PERF-WEBGPU-FRAGMENT / ADR-0076 — user-facing GPU backend corner toggle.
+import { rendererBackendToggle } from '@app/ui/overlays/RendererBackendToggle';
 import { RenderPipelineManager } from '@pryzm/renderer-three';
 import { ViewportCrashGuard } from '@app/ui/primitives/ViewportCrashGuard';
 import { RenderHealthIndicator } from '@app/ui/overlays/RenderHealthIndicator';
@@ -163,6 +165,17 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         throw new Error('[initScene] GPU backend not supported — aborting engine init.');
     }
     console.log(`[PRYZM] GPU backend detected: ${detectedBackend}`);
+
+    // §PERF-WEBGPU-FRAGMENT / ADR-0076 — mount the corner GPU backend toggle
+    // (Auto / WebGPU / WebGL). Mounted unconditionally + early so it is the
+    // user's escape hatch even when the WebGPU pipeline is misbehaving. The
+    // active backend label is filled once createRenderer() sets
+    // window.pryzmRendererBackend; a later remount picks it up.
+    try {
+        rendererBackendToggle.mount();
+    } catch (toggleErr) {
+        console.warn('[initScene] §PERF-WEBGPU-FRAGMENT backend toggle mount failed:', toggleErr);
+    }
 
     // ── World + OBC components ────────────────────────────────────────────────
     // createBimWorld exposes components, world, threeScene, threeCamera to window
@@ -1326,6 +1339,11 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         pryzmRenderer        = rendererResult.renderer;
         pryzmCanvas          = webgpuCanvas;
         isPhase5Active       = true;
+
+        // §PERF-WEBGPU-FRAGMENT / ADR-0076 — remount the backend toggle now that
+        // createRenderer() has set window.pryzmRendererBackend, so the pill shows
+        // the active backend (e.g. "· webgpu"). mount() is idempotent.
+        try { rendererBackendToggle.mount(); } catch { /* non-fatal cosmetic remount */ }
 
         // ── Silence OBC's camera-driven render trigger (fix 2) ────────────
         // `updateIfManualMode` is registered on camera-controls 'update' and

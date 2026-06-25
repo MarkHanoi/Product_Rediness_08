@@ -56,10 +56,25 @@ export class RendererHandleFactory {
    *
    * Logs `[renderer-three] backend: webgpu|webgl2|webgl1` per C04 §1.4.
    *
+   * @param forceWebGL  When true (user picked "WebGL" in the corner backend
+   *   toggle, §PERF-WEBGPU-FRAGMENT / ADR-0076), skip the WebGPU adapter
+   *   entirely and create the plain WebGLRendererAdapter directly. This is the
+   *   user's stability escape hatch — a simple, very stable forward render with
+   *   no TSL post-FX. 'auto' / 'webgpu' leave the normal chain unchanged.
+   *
    * @throws {Error} only when truly no GPU is available (neither WebGPU nor WebGL2).
    *   In practice this only occurs in truly headless CI environments.
    */
-  static async create(canvas: HTMLCanvasElement): Promise<RendererHandle> {
+  static async create(canvas: HTMLCanvasElement, forceWebGL = false): Promise<RendererHandle> {
+    // ── User escape hatch: forced plain WebGL2 (no TSL pipeline) ──────────
+    if (forceWebGL) {
+      console.log('[renderer-three] backend: webgl1 (forced by user backend toggle)');
+      return new WebGLRendererAdapter(canvas, {
+        antialias: true,
+        preserveDrawingBuffer: true,
+      });
+    }
+
     // ── 1 + 2. Try WebGPURenderer first ─────────────────────────────────
     // WebGPURenderer handles both WebGPU and WebGL2 backends internally.
     // Returns null only when WebGPURenderer itself fails (no WebGL2 at all).

@@ -67,6 +67,43 @@ export interface RendererResult {
     backend: RendererBackend;
 }
 
+// ── User backend preference (corner toggle) ─────────────────────────────────
+//
+// §PERF-WEBGPU-FRAGMENT / ADR-0076 — the founder-requested corner toggle. The
+// renderer is created once at boot, so the toggle persists the choice to
+// localStorage and reloads; the next boot honours it here.
+
+/**
+ * The user's chosen GPU backend.
+ *  - `'auto'`   — WebGPU when available, else WebGL2 (the default; today's behaviour).
+ *  - `'webgpu'` — prefer the full WebGPU TSL pipeline (still falls back internally
+ *                 if the device has no WebGPU).
+ *  - `'webgl'`  — force plain WebGL2 (no TSL post-FX) — the stability escape hatch.
+ */
+export type RendererBackendPreference = 'auto' | 'webgpu' | 'webgl';
+
+const BACKEND_PREF_KEY = 'pryzm.renderer.backend';
+
+/** Read the persisted backend preference. Defaults to 'auto'. Storage-safe. */
+export function getRendererBackendPreference(): RendererBackendPreference {
+    try {
+        const v = globalThis.localStorage?.getItem(BACKEND_PREF_KEY);
+        if (v === 'webgpu' || v === 'webgl' || v === 'auto') return v;
+    } catch {
+        /* localStorage unavailable (private mode / non-browser) — fall through */
+    }
+    return 'auto';
+}
+
+/** Persist the backend preference. Caller is responsible for reloading. */
+export function setRendererBackendPreference(pref: RendererBackendPreference): void {
+    try {
+        globalThis.localStorage?.setItem(BACKEND_PREF_KEY, pref);
+    } catch {
+        /* non-fatal */
+    }
+}
+
 // ── Public API ────────────────────────────────────────────────────────────
 
 /**
@@ -83,13 +120,19 @@ export interface RendererResult {
  *          or `'webgl-only'`.
  */
 export async function createRenderer(canvas: HTMLCanvasElement): Promise<RendererResult> {
+    // ── User backend preference (corner toggle, §PERF-WEBGPU-FRAGMENT) ────
+    // 'webgl' forces the plain WebGL2 path (no TSL pipeline) — the user's
+    // stability escape hatch. 'auto'/'webgpu' use the normal C04 §1.4 chain.
+    const pref = getRendererBackendPreference();
+    const forceWebGL = pref === 'webgl';
+
     // ── Factory creates the best available adapter (C04 §1.4) ────────────
     // RendererHandleFactory.create() attempts:
     //   1. WebGPURenderer with native WebGPU backend → type='webgpu'
     //   2. WebGPURenderer with WebGL2 backend        → type='webgl2'
     //   3. Plain THREE.WebGLRenderer (last resort)   → type='webgl2'
     // And logs `[renderer-three] backend: webgpu|webgl2|webgl1`.
-    const handle = await RendererHandleFactory.create(canvas);
+    const handle = await RendererHandleFactory.create(canvas, forceWebGL);
 
     // ── Extract the underlying THREE.WebGLRenderer ────────────────────────
     // Backward-compat: initScene.ts passes the raw THREE.WebGLRenderer to
@@ -197,6 +240,10 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<Rendere
             'Please update createRenderer.ts to handle the new adapter class.',
         );
     }
+
+    // Expose the resolved backend so the corner toggle (RendererBackendToggle)
+    // can show what is actually in use (e.g. "· webgpu"). §PERF-WEBGPU-FRAGMENT.
+    window.pryzmRendererBackend = backend;
 
     return { renderer: threeRenderer, backend };
 }
