@@ -35,7 +35,12 @@ interface CommandManagerLike {
 
 /** Run the deterministic floor-finish pass for the active level. Safe from
  *  the AI panel or the DevTools console. */
-export function triggerFloorLayout(runtimeArg?: PryzmRuntime | null): void {
+export function triggerFloorLayout(
+    runtimeArg?: PryzmRuntime | null,
+    /** §RESI-CORRIDOR-FINISH-NO-DOUBLE — the resi pipeline lays its public corridor as ONE merged
+     *  finish, so it passes `skipCirculation` to stop this per-room pass double-coating the cross. */
+    opts?: { readonly skipCirculation?: boolean },
+): void {
     const rt = (runtimeArg ?? (window.runtime as unknown as PryzmRuntime | undefined)) ?? undefined;
     const toast = (message: string, severity: 'info' | 'success' | 'error'): void => {
         rt?.events?.emit('pryzm:toast', { message, severity });
@@ -60,7 +65,7 @@ export function triggerFloorLayout(runtimeArg?: PryzmRuntime | null): void {
         // the stairwell stays open through the floor plate, not just the structure).
         // Empty for the apartment + single-storey paths (no stairs) → no holes.
         const voids = getStairVoidsForLevel(lid);
-        const cmd = new CreateFloorsByRoomTypeCommand(lid, style, voids);
+        const cmd = new CreateFloorsByRoomTypeCommand(lid, style, voids, { skipCirculation: opts?.skipCirculation });
         if (voids.length > 0) console.log('[floor-layout] §VOID-FINISH cutting', voids.length, 'stairwell void(s) into the finish on', lid);
         const res = cm.execute(cmd, { source: 'APARTMENT_PIPELINE_FLOOR' });
         if (res?.success) {

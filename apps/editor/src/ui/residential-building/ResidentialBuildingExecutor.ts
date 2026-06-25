@@ -2305,7 +2305,10 @@ export class ResidentialBuildingExecutor {
             setTimeout(() => {
                 try {
                     if (pc) pc.activeLevelId = lid;
-                    triggerFloorLayout(runtime);
+                    // §RESI-CORRIDOR-FINISH-NO-DOUBLE — skip circulation rooms here; the public
+                    // corridor is laid as ONE merged-union finish by `_finishPublicFloors` (§FIX2),
+                    // so flooring the detected corridor sub-rooms again would seam-patch over it.
+                    triggerFloorLayout(runtime, { skipCirculation: true });
                 } catch (e) { console.warn('[resi-building] floor-finish failed on', lid, '(non-fatal):', e); }
             }, 500 + i * 250);
         });
@@ -2340,6 +2343,11 @@ export class ResidentialBuildingExecutor {
                     ? { materialName: 'Porcelain Tile (Wet)', materialColor: '#d8d4cc' }
                     : occ === 'kitchen' || occ === 'utility-room'
                     ? { materialName: 'Porcelain Tile', materialColor: '#d9d2c6' }
+                    // §RESI-CORRIDOR-FINISH-NO-DOUBLE — circulation rooms read the SAME finish the
+                    // merged public-corridor surface lays (§FIX2 CORRIDOR), so the Floor Finish
+                    // schedule column matches what's on the floor (not a default oak it never got).
+                    : occ === 'corridor' || occ === 'entrance-lobby'
+                    ? { materialName: 'Stone-Effect Vinyl (Corridor)', materialColor: '#c9c2b6' }
                     : occ === 'living-room' || occ === 'dining-room' || occ === 'kitchen'
                     ? { materialName: 'Engineered Oak', materialColor: '#caa472' }
                     : { materialName: 'Engineered Oak', materialColor: '#caa472' };

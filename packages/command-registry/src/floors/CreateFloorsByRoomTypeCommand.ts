@@ -50,6 +50,14 @@ const TILE_TYPES = new Set([
     'kitchen', 'kitchen-shared', 'bathroom', 'wc', 'accessible-wc', 'shower-room', 'utility-room',
     'storage',
 ]);
+/** §RESI-CORRIDOR-FINISH-NO-DOUBLE (founder 2026-06-25, "the public corridor should be a single
+ *  floor finish") — the multi-family residential pipeline lays its PUBLIC circulation (corridor
+ *  runs + spine + core lobby) as ONE merged-union finish (§RESI-CORRIDOR-FINISH-CONTINUOUS-FIX2),
+ *  so the per-room pass must NOT also floor the detected corridor sub-rooms — that double-coats the
+ *  cross with seamed timber patches over the single vinyl surface. The `skipCirculation` option
+ *  (passed only by the resi pipeline) drops these circulation occupancies from this pass. The house
+ *  + apartment pipelines pass nothing and keep flooring corridors as timber (no merged pass there). */
+const CIRCULATION_TYPES = new Set(['corridor', 'entrance-lobby']);
 
 /** §FLOOR-INNER-FACE — minimal read-only view of a wall the inset resolver needs:
  *  its centreline endpoints, thickness, and door/window openings. Mirrors the
@@ -83,7 +91,14 @@ export class CreateFloorsByRoomTypeCommand implements Command {
      *  `polygon` service-hole, so the upper-storey finish stays open over the stair —
      *  matching the slab void the stair already punched. Empty / omitted on the
      *  apartment + single-storey paths (no stairs), so behaviour is unchanged. */
-    constructor(private levelId: string, private style?: string, private voids?: ReadonlyArray<FloorVoid>) {
+    constructor(
+        private levelId: string,
+        private style?: string,
+        private voids?: ReadonlyArray<FloorVoid>,
+        /** §RESI-CORRIDOR-FINISH-NO-DOUBLE — when set, corridor / entrance-lobby rooms are NOT
+         *  floored by this per-room pass (the resi pipeline floors them as one merged surface). */
+        private options?: { readonly skipCirculation?: boolean },
+    ) {
         this.id = `cmd-floors-by-room-${Date.now()}`;
         this.timestamp = Date.now();
     }
@@ -509,6 +524,8 @@ export class CreateFloorsByRoomTypeCommand implements Command {
 
     private _finishCategory(occ: string | undefined): 'timber' | 'tile-stone' | null {
         if (!occ) return null;
+        // §RESI-CORRIDOR-FINISH-NO-DOUBLE — resi pipeline owns the (merged) corridor finish.
+        if (this.options?.skipCirculation && CIRCULATION_TYPES.has(occ)) return null;
         if (TIMBER_TYPES.has(occ)) return 'timber';
         if (TILE_TYPES.has(occ)) return 'tile-stone';
         return null;
