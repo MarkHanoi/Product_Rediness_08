@@ -17,6 +17,18 @@ import { BimGridRenderer } from './BimGridRenderer';
 import { storeEventBus, StoreChangeEvent } from './StoreEventBus'; // TODO(TASK-08)
 import { elementRegistry } from './ElementRegistry';
 
+/**
+ * §LOAD-REDETECT-FREEZE (2026-06-25) — true while a project restore replays the
+ * Create* commands. The per-element register/unregister loggers below are hot on
+ * that path (thousands of synchronous console.log lines = real main-thread jank),
+ * and they are pure noise on a known-good restore. ProjectLoader.load() sets
+ * `globalThis.__pryzmProjectLoadActive` for the duration of the load and clears it
+ * in finally, so live-edit logging is unchanged.
+ */
+function __pryzmLoadActive(): boolean {
+    return (globalThis as unknown as { __pryzmProjectLoadActive?: boolean }).__pryzmProjectLoadActive === true;
+}
+
 export interface Level {
     id: string;
     name: string;
@@ -245,7 +257,7 @@ export class BimManager {
             level.childrenIds.push(elementId);
         }
 
-        console.log(`[BimManager] Registered element ${elementId} to level ${levelId}`);
+        if (!__pryzmLoadActive()) console.log(`[BimManager] Registered element ${elementId} to level ${levelId}`);
     }
 
     /**
@@ -309,7 +321,7 @@ export class BimManager {
         this.levels.forEach(level => {
             level.childrenIds = level.childrenIds.filter(id => id !== elementId);
         });
-        console.log(`[BimManager] Unregistered element ${elementId}`);
+        if (!__pryzmLoadActive()) console.log(`[BimManager] Unregistered element ${elementId}`);
     }
 
     // ------------------------------------------------------------------

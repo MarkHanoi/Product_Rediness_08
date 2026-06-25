@@ -38,6 +38,19 @@
 
 import { WallData, Opening } from './WallTypes';
 
+/**
+ * §LOAD-REDETECT-FREEZE (2026-06-25) — true while a project restore replays the
+ * Create* commands. Restoring a persisted building runs canPlace() once per
+ * opening, so the success log below fires hundreds–thousands of times on the
+ * load thread — pure noise (every opening was already validated when first
+ * authored, and on restore the data is known-good). ProjectLoader.load() sets
+ * `globalThis.__pryzmProjectLoadActive` for the load window; live edits are
+ * unaffected and still log normally.
+ */
+function __pryzmLoadActive(): boolean {
+    return (globalThis as unknown as { __pryzmProjectLoadActive?: boolean }).__pryzmProjectLoadActive === true;
+}
+
 // ─── Public types ─────────────────────────────────────────────────────────────
 
 export interface CanPlaceResult {
@@ -176,11 +189,13 @@ export class WallOccupancyStore {
             };
         }
 
-        console.log(
-            `[WallOccupancyStore] canPlace OK: wall=${wall.id} ` +
-            `offset=${offsetM.toFixed(3)}m width=${widthM.toFixed(3)}m ` +
-            `wallLen=${wallLengthM.toFixed(3)}m`
-        );
+        if (!__pryzmLoadActive()) {
+            console.log(
+                `[WallOccupancyStore] canPlace OK: wall=${wall.id} ` +
+                `offset=${offsetM.toFixed(3)}m width=${widthM.toFixed(3)}m ` +
+                `wallLen=${wallLengthM.toFixed(3)}m`
+            );
+        }
 
         return { valid: true, conflictIds: [] };
     }
