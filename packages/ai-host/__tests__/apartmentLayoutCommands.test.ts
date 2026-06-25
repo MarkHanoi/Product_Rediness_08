@@ -490,4 +490,75 @@ describe('buildLayoutCommands (A6-wire)', () => {
             expect(winOpenings.every(t => t === 'wt-timber-casement')).toBe(true);
         });
     });
+
+    // §RBL-PLACEMENT-AT-SOURCE (2026-06-25) — the boundary commands the executor turns
+    // into RoomBoundingLine records must NEVER carry an undefined / non-finite start or
+    // end. The renderer's §RBL-PLACEMENT-GUARD used to skip such records with one warn
+    // PER LINE; the producer is fixed here so the guard never fires for generated rooms.
+    describe('boundaryCommands — every emitted RoomBoundingLine has a real start AND end', () => {
+        type RblPayload = { id: string; levelId: string; start: { x: number; z: number }; end: { x: number; z: number } };
+        const finite = (p: { x: number; z: number }): boolean => Number.isFinite(p.x) && Number.isFinite(p.z);
+
+        it('emits one roomBoundingLine.create per boundary, all with finite start/end (metres)', () => {
+            // A representative apartment layout: two open-plan thresholds (kitchen↔living,
+            // hall↔living), in plan mm. Both must survive and convert to metres cleanly.
+            const set = buildLayoutCommands(option({
+                doors: [],
+                boundaries: [
+                    { start: { x: 0, y: 0 },    end: { x: 4000, y: 0 } },
+                    { start: { x: 4000, y: 0 }, end: { x: 4000, y: 3500 } },
+                ],
+            }), OPTS, counterMinter());
+
+            expect(set.boundaryCommands).toHaveLength(2);
+            for (const bc of set.boundaryCommands) {
+                expect(bc.command).toBe('roomBoundingLine.create');
+                const p = bc.payload as RblPayload;
+                // The exact invariant the renderer's §RBL-PLACEMENT-GUARD checks:
+                expect(p.start).toBeDefined();
+                expect(p.end).toBeDefined();
+                expect(finite(p.start)).toBe(true);
+                expect(finite(p.end)).toBe(true);
+            }
+            // mm → m conversion.
+            const first = set.boundaryCommands[0]!.payload as RblPayload;
+            expect(first.start).toEqual({ x: 0, z: 0 });
+            expect(first.end).toEqual({ x: 4, z: 0 });
+            // No degenerate boundary → no §RBL-PLACEMENT-AT-SOURCE warning.
+            expect(set.warnings.some(w => /RBL-PLACEMENT-AT-SOURCE/.test(w))).toBe(false);
+        });
+
+        it('DROPS degenerate boundaries (undefined / NaN endpoint or zero-length) — not emitted', () => {
+            const set = buildLayoutCommands(option({
+                doors: [],
+                boundaries: [
+                    // 0: valid — kept
+                    { start: { x: 0, y: 0 }, end: { x: 4000, y: 0 } },
+                    // 1: undefined endpoint (the §RBL-PLACEMENT-GUARD trigger) — dropped
+                    { start: { x: 0, y: 0 }, end: undefined as unknown as { x: number; y: number } },
+                    // 2: NaN coordinate (collapsed/rotated segment) — dropped
+                    { start: { x: NaN, y: 0 }, end: { x: 4000, y: 0 } },
+                    // 3: zero-length (< 10 mm guard) — dropped
+                    { start: { x: 1000, y: 1000 }, end: { x: 1000, y: 1000 } },
+                ],
+            }), OPTS, counterMinter());
+
+            // Only the single valid boundary survives.
+            expect(set.boundaryCommands).toHaveLength(1);
+            const p = set.boundaryCommands[0]!.payload as RblPayload;
+            expect(finite(p.start)).toBe(true);
+            expect(finite(p.end)).toBe(true);
+
+            // EXACTLY ONE summary warning for the three drops (not one per line).
+            const summary = set.warnings.filter(w => /RBL-PLACEMENT-AT-SOURCE/.test(w));
+            expect(summary).toHaveLength(1);
+            expect(summary[0]).toMatch(/dropped 3 degenerate/);
+        });
+
+        it('no boundaries in the option → no boundary commands + no warning (byte-identical)', () => {
+            const set = buildLayoutCommands(option({ doors: [] }), OPTS, counterMinter());
+            expect(set.boundaryCommands).toHaveLength(0);
+            expect(set.warnings.some(w => /RBL-PLACEMENT-AT-SOURCE/.test(w))).toBe(false);
+        });
+    });
 });
