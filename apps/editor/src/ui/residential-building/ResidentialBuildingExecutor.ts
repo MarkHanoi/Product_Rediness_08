@@ -1812,81 +1812,64 @@ export class ResidentialBuildingExecutor {
         // It must fit the band from the LEFT inner face to the lift's left edge (clear of the lift too).
         const xBandRight = Math.min(innerX1, (liftCx - shaftWidth / 2) - STAIR_CORE_CLEARANCE_M);
         const xBand = Math.max(0, xBandRight - innerX0);
-        // §RESI-CORE-STAIR-ALWAYS (founder 2026-06-24: "the core stair is MISSING entirely") — the
-        // width MUST be ≥ the CreateStairCommand MIN_WIDTH (0.9 m) or `canExecute` BLOCKS and the
-        // stair is silently never created. So FLOOR at 0.9 (not 0.6): a tight/scaled core gets a
-        // 0.9 m stair that may overhang the band slightly — a present, valid stair beats a rejected
-        // (missing) one. Capped at the ideal STAIR_WIDTH_M; prefers band/2 when that is ≥ 0.9.
+        // §RESI-STAIR-GUARD-CONTAIN (founder 2026-06-24: doubled verticals on the right = stair body +
+        // guard clashing the core RC wall) — CLAMP the lateral footprint `2·stairWidth` to fit INSIDE
+        // the core inner rect by construction: stairWidth ≤ min(xBand, xInnerDepth)/2. The width MUST
+        // also be ≥ the CreateStairCommand MIN_WIDTH (0.9 m) or `canExecute` BLOCKS (§RESI-CORE-STAIR-
+        // ALWAYS) — a CONTAINED 0.9 m stair still beats a clashing one, so the 0.9 floor wins on a
+        // sub-1.8 m-inner core (a tiny, slight, single-axis overhang; the doubled-wall clash is gone).
         const STAIR_MIN_WIDTH_M = 0.9;   // == STAIR_CONSTRAINTS.MIN_WIDTH (command rejects below this)
-        const stairWidth = Math.max(STAIR_MIN_WIDTH_M, Math.min(STAIR_WIDTH_M, xBand / 2));
+        const xContain = Math.min(xBand, xInnerDepth) / 2;   // keep 2·w inside the inner rect AND the lift band
+        const stairWidth = Math.max(STAIR_MIN_WIDTH_M, Math.min(STAIR_WIDTH_M, xContain));
         // Run-1 centre x: anchor the footprint's leftmost edge (stairCenterX − 1.5·w) at the inner face.
         const stairCenterX = innerX0 + 1.5 * stairWidth;
 
-        // ── DEPTH (z) fit — the heart of the fix. The U body's run-direction depth is
-        // flight-1-run + landing-depth (flight 2 runs BACK within that same Z band). We:
-        //   • split the risers so flight 1 is the LONGER half (before = ceil(N/2)) ⇒ flight 2 (after)
-        //     runs back WITHIN flight 1's Z span (after ≤ before+1) — never past z0;
-        //   • use a SQUARE half-turn landing (depth = stairWidth, not 2·stairWidth);
-        //   • DROP risers (within the code max riser height) until flight-1-run + landing ≤ zInnerDepth;
-        //   • then HARD-ASSERT the resulting body fits, shrinking the landing as the last lever.
-        // §RESI-STAIR-QUALITY-MATCH-HOUSE (founder 2026-06-24: "the house stair is perfect; the resi
-        // core stair has a poor landing") — the HOUSE uses a FULL `2·width` half-turn landing for its
-        // U-stair (HouseLayoutExecutor `landings:[{depth: 2*width}]`). PREFER that here for house
-        // parity; the depth-fit + the hard clamp below shrink it ONLY when the (tight) core can't hold
-        // it — never below a usable landing. A proper landing (not the old 0.6 m clamp) is the goal.
-        const STAIR_LANDING_IDEAL_M = 2 * stairWidth;     // house parity (full half-turn landing)
-        const STAIR_LANDING_DEPTH_M = STAIR_LANDING_IDEAL_M;
+        // ── DEPTH (z) fit. §RESI-STAIR-LANDING-RECONNECT — with the HOUSE half-turn contract, the U
+        // body's RUN-direction (z) footprint is just `flight1Run + ONE tread` (flight 2 starts one
+        // tread past flight 1 and runs BACK within flight 1's z-band; the `2·width` landing span is
+        // LATERAL/cross-run, budgeted in the x-fit above as `2·stairWidth ≤ xBand`). So the depth
+        // budget reserves `flight1Run + tread`, NOT `flight1Run + 2·width` — the old over-reservation
+        // made the body look far deeper than it is and fed the detached-landing math.
         const beforeOf = (n: number): number => Math.ceil(n / 2);
-        const stairBodyDepth = (n: number, landing: number): number => beforeOf(n) * STAIR_TREAD_M + landing;
+        const stairRunDepth = (n: number): number => beforeOf(n) * STAIR_TREAD_M + STAIR_TREAD_M;
         // §RESI-GROUND-HEIGHT-4500 / §RESI-CORE-STAIR-ALWAYS — re-fit the switchback to the TALLEST
-        // rise (the 4.5 m ground): drop risers (raising riser height) until the half-run + min landing
-        // fits the inner depth — BUT the riser height is NEVER allowed above the command's MAX
-        // (STAIR_RISER_MAX_M = 0.19). A riser > 0.19 makes `CreateStairCommand.canExecute` BLOCK and
-        // the stair is silently never created (the original missing-stair bug). So the depth-fit stops
-        // BEFORE the next drop would exceed 0.19; if the body still overflows at that point, the stair
-        // is allowed to OVERHANG the core depth slightly (the per-flight loop keeps every riser ≤ 0.19
-        // so the command always accepts it). A present, valid, slightly-overhanging stair always beats
-        // a rejected/missing one — that is the hard guarantee.
-        const MIN_LANDING_M = 0.6;
+        // rise (the 4.5 m ground): drop risers (raising riser height) until the run depth fits the
+        // inner depth — BUT the riser height is NEVER allowed above the command MAX (0.19), or
+        // `canExecute` BLOCKS and the stair is silently never created. The depth-fit stops BEFORE the
+        // next drop would exceed 0.19; a residual overflow is CONTAINED (not warned-and-overhung)
+        // below by seating the body flush to z0 and clamping the lateral width — §RESI-STAIR-GUARD-CONTAIN.
         {
             let guard = 60;
             while (guard-- > 0) {
-                if (stairBodyDepth(totalRisers, MIN_LANDING_M) <= zInnerDepth || totalRisers <= 3) break;
-                // The NEXT drop would raise the riser past the command MAX → STOP (a >0.19 riser is
-                // rejected). The body may then overhang; that is acceptable, a missing stair is not.
+                if (stairRunDepth(totalRisers) <= zInnerDepth || totalRisers <= 3) break;
                 if (maxFtf / (totalRisers - 1) > STAIR_RISER_MAX_M) break;
                 totalRisers--;
                 riserHeight = maxFtf / totalRisers;
             }
         }
-        // §RESI-GROUND-HEIGHT-4500 — the depth-fitted riser count the footprint PREFERS to hold. The
-        // per-flight loop derives each floor's count from its own rise and only uses this as a soft
-        // preference — it will RAISE the count above this when needed to keep the riser ≤ 0.19 (so the
-        // command never rejects), accepting a small footprint overhang rather than skipping the stair.
         const preferredRisersInFootprint = totalRisers;
         const beforeRisers = beforeOf(totalRisers);
         const flight1Run = beforeRisers * STAIR_TREAD_M;
-        // §RESI-STAIR-QUALITY-MATCH-HOUSE — the landing PREFERS the house's full 2·width half-turn
-        // depth, shrunk to fit the (tight) core's residual inner depth so the body does NOT worsen the
-        // §RESI-CORE-STAIR-FIT overhang. So a roomy core gets the full house-parity landing (up to
-        // 2·width); a tight 4 m core gets the largest landing that still fits the half-run + lobby —
-        // floored at 0.6 m only as the absolute usable minimum. Net: a proper landing wherever the
-        // core allows, never the cramped fixed-0.6 m it used to always be.
-        const landingDepth = Math.max(0.6, Math.min(STAIR_LANDING_DEPTH_M, zInnerDepth - flight1Run));
-        const stairDepth = flight1Run + landingDepth;     // the U body's full run-direction depth
-        // Seat the stair at the z0 inner face; any depth slack becomes the lobby in FRONT (the fire
-        // door's run-in). lobbyDepth ≥ 0 — when the body fills the core the stair starts at z0 inner.
+        // The landing depth PASSED to the command is the house value 2·width (the mesh's CROSS-RUN
+        // span); the RUN-direction footprint is `flight1Run + tread`.
+        const landingDepth = 2 * stairWidth;
+        const stairDepth = flight1Run + STAIR_TREAD_M;     // the U body's RUN-direction (z) depth
+        // §RESI-STAIR-GUARD-CONTAIN — seat the stair flush to the z0 inner face and CONTAIN the body
+        // in the inner rect by construction. Any depth slack in front becomes the lobby (the fire-door
+        // run-in). When the (tight) core can't hold the full run depth, we keep the body seated at z0
+        // (lobbyDepth 0) so its far edge is as far from z1 as possible — the per-flight loop already
+        // caps risers at 0.19; a residual run-overflow is the only unavoidable case (a 4.5 m rise in a
+        // 4 m core), and even then the body stays as contained as physically possible.
         const lobbyDepth = Math.max(0, Math.min(1.4, zInnerDepth - stairDepth));
         const stairStartZ = innerZ0 + lobbyDepth;
-        // §RESI-CORE-STAIR-FIT — final assertion the body fits the inner rect in BOTH axes; warn (and
-        // the geometry is already clamped to fit) if a pathologically small core can't contain it.
+        // Containment check (now on the TRUE run depth). 2·stairWidth ≤ xInnerDepth holds by the x-fit
+        // (stairWidth ≤ xBand/2 ≤ xInnerDepth/2). Warn only if the rise genuinely cannot fit the depth.
         const widthFits = 2 * stairWidth <= xInnerDepth + 1e-6;
         const depthFits = stairStartZ + stairDepth <= innerZ1 + 1e-6;
         if (!widthFits || !depthFits) {
             console.warn(
-                `[resi-building] §RESI-CORE-STAIR-FIT ⚠ core too small to fully contain the stair ` +
-                `(coreW=${coreW.toFixed(2)} coreD=${coreD.toFixed(2)} 2w=${(2 * stairWidth).toFixed(2)}/${xInnerDepth.toFixed(2)} ` +
-                `depth=${stairDepth.toFixed(2)}/${(innerZ1 - stairStartZ).toFixed(2)}) — geometry clamped to the inner rect.`,
+                `[resi-building] §RESI-STAIR-GUARD-CONTAIN ⚠ core too shallow to fully contain the run ` +
+                `(coreD=${coreD.toFixed(2)} runDepth=${stairDepth.toFixed(2)}/${(innerZ1 - stairStartZ).toFixed(2)}) — body seated flush to z0.`,
             );
         }
         // Lift sits BEHIND the lobby line, in the RIGHT half. Its depth fits the remaining inner depth.
@@ -1948,13 +1931,17 @@ export class ResidentialBuildingExecutor {
             const dir = { x: runDir.x, y: 0, z: runDir.z };
             const reverseDir = { x: -runDir.x, y: 0, z: -runDir.z };
             const perpDir = { x: -runDir.z, y: 0, z: runDir.x };
-            // Flight 2 starts at the landing's FAR edge (fFlight1Run + landingDepth along +Z), offset
-            // one stair-width across (perpDir), up the flight-1 rise. It then runs −Z back over the
-            // SAME Z band, so the U's run-direction depth = fFlight1Run + landingDepth ≤ stairDepth.
+            // §RESI-STAIR-LANDING-RECONNECT (founder 2026-06-24: "the landing/second flight floats,
+            // detached") — match the HOUSE U-stair contract EXACTLY (HouseLayoutExecutor:2792-2796 +
+            // StairMeshBuilder:487-539): flight 2 starts ONE TREAD past flight 1's end (NOT past the
+            // whole landing), offset one stair-width across (perpDir), up the flight-1 rise. The mesh
+            // builder draws the half-turn LANDING from `landings[0].depth` as the CROSS-RUN (perpDir)
+            // span (= 2·width), so flight 2 sits flush against flight 1 + the landing — connected, not
+            // an orphaned box ~2·width-tread beyond it.
             const secondStart = {
-                x: startPosition.x + dir.x * (fFlight1Run + landingDepth) + perpDir.x * stairWidth,
+                x: startPosition.x + dir.x * (fFlight1Run + STAIR_TREAD_M) + perpDir.x * stairWidth,
                 y: startPosition.y + fBefore * fRiserH,
-                z: startPosition.z + dir.z * (fFlight1Run + landingDepth) + perpDir.z * stairWidth,
+                z: startPosition.z + dir.z * (fFlight1Run + STAIR_TREAD_M) + perpDir.z * stairWidth,
             };
             try {
                 // §RESI-CORE-STAIR-ALWAYS — capture the result: `CreateStairCommand.canExecute` returns
@@ -1975,7 +1962,14 @@ export class ResidentialBuildingExecutor {
                         { direction: dir, riserCount: fBefore },
                         { direction: reverseDir, riserCount: fAfter, startOverride: secondStart },
                     ],
-                    landings: [{ depth: landingDepth }],
+                    // §RESI-STAIR-LANDING-RECONNECT — the mesh builder consumes landing.depth as the
+                    // CROSS-RUN (perpDir) span of the half-turn landing = 2·width (the house value), so
+                    // the landing bridges flight 1 ↔ flight 2 (which sit one tread + one width apart).
+                    landings: [{ depth: 2 * stairWidth }],
+                    // §RESI-STAIR-LANDING-RECONNECT — flight 2 is offset to the LEFT of flight 1 (perpDir
+                    // = +outward-left), matching the geometry we built; the house passes this and the
+                    // resi omitted it (also fixes the rotated-parcel landing-side bug).
+                    secondRunSide: 'left',
                     accessibilityType: 'standard',
                 }), { source: 'RESI_PIPELINE_STAIR' });
                 if (res && res.success === false) {
@@ -2002,7 +1996,9 @@ export class ResidentialBuildingExecutor {
                             { direction: dir, riserCount: fBefore },
                             { direction: reverseDir, riserCount: fAfter, startOverride: secondStart },
                         ],
-                        landings: [{ depth: landingDepth }],
+                        // §RESI-STAIR-LANDING-RECONNECT — SAME landing depth (2·width) the stair command
+                        // got, so the recorded void footprint matches the real stair body exactly.
+                        landings: [{ depth: 2 * stairWidth }],
                     });
                     if (vr && vr.length >= 3) {
                         recordStairVoid(toLevelId, vr);
@@ -2011,7 +2007,14 @@ export class ResidentialBuildingExecutor {
                         // the one the final flight tops out toward — stays OPEN for access), exactly
                         // like HouseLayoutExecutor._createVoidGuardrail. Without this the core stair's
                         // open hole had no rail (the founder's "bad handrail"). 1.050 m, baluster fill.
-                        this._createStairVoidGuard(cm, vr, toLevelId, reverseDir);
+                        // §RESI-STAIR-GUARD-CONTAIN — rail ONLY the lobby (z0) edge, corners clamped
+                        // inside the core inner rect so no rail clashes the RC wall or the flight rails.
+                        // lobbyDir = reverseDir (points toward the z0 fire door = the open step-off side).
+                        this._createStairVoidGuard(
+                            cm, vr, toLevelId, reverseDir,
+                            { x0: innerX0, z0: innerZ0, x1: innerX1, z1: innerZ1 },
+                            STAIR_CORE_CLEARANCE_M, xf,
+                        );
                     }
                 } catch (e) { console.warn('[resi-building] §RESI-STAIR-VOID-IN-FINISH void/guard failed (skipped):', e); }
             } catch (e) { console.warn('[resi-building] stair create failed (skipped):', e); }
@@ -2076,28 +2079,34 @@ export class ResidentialBuildingExecutor {
         return { stairs, lifts };
     }
 
-    /** §RESI-STAIR-QUALITY-MATCH-HOUSE (founder 2026-06-24) — guard the open stairwell VOID on the
-     *  upper floor with a baluster handrail on 3 of its 4 edges (the step-off edge — the one the final
-     *  flight tops out toward — stays OPEN for access). EXACT port of HouseLayoutExecutor's
-     *  `_createVoidGuardrail`: 1.050 m, `fillType:'baluster'`, on the void's HOST (upper) level, using
-     *  the SAME `computeStairFootprintRect` polygon the slab void + finish-cut used (so the rail edges
-     *  coincide with the open hole). `voidRect` is WORLD-XZ (4 CCW corners); `lastFlightDir` is the
-     *  final flight's run direction (the step-off side). Best-effort; never throws. */
+    /** §RESI-STAIR-GUARD-CONTAIN (founder 2026-06-24: "doubled verticals on the right" = void guard ON
+     *  TOP of the stair's own flight rails + ON the core RC wall) — the core is FULLY ENCLOSED by RC
+     *  perimeter walls on all 4 sides (the z0 edge has the fire door), and `CreateStairCommand` ALREADY
+     *  emits BOTH left+right flight rails (proposeRailings). So the void only needs ONE fall-rail: the
+     *  edge facing the LOBBY (the z0 / fire-door side you step off into), where there is neither an RC
+     *  wall right against it nor a flight rail. Railing the other 3 edges doubled the balusters + clashed
+     *  the RC wall. We therefore rail ONLY the lobby-facing edge, with both its corners CLAMPED inside
+     *  the core INNER rect (minus clearance) so the rail can never coincide with a core wall.
+     *  `voidRect` is WORLD-XZ; `lobbyDir` points from the core toward the z0 fire door (the open side);
+     *  `innerLocal` is the core inner rect (LOCAL) + `xf` to test/clamp corners. Best-effort. */
     private _createStairVoidGuard(
         cm: CommandManagerLike,
         voidRect: ReadonlyArray<{ x: number; z: number }>,
         topLevelId: string,
-        lastFlightDir: { x: number; y?: number; z: number },
+        lobbyDir: { x: number; y?: number; z: number },
+        innerLocal: { x0: number; z0: number; x1: number; z1: number },
+        clearance: number,
+        xf: ResidentialRigidTransform,
     ): void {
         const c = voidRect.slice(0, 4).map(p => ({ x: p.x, z: p.z }));
         if (c.length < 4) return;
         const cx = (c[0]!.x + c[1]!.x + c[2]!.x + c[3]!.x) / 4;
         const cz = (c[0]!.z + c[1]!.z + c[2]!.z + c[3]!.z) / 4;
         const edges: Array<[number, number]> = [[0, 1], [1, 2], [2, 3], [3, 0]];
-        // The OPEN (step-off) edge = the one whose outward midpoint normal best aligns with the final
-        // flight direction (you walk OFF the stair across that edge), so it stays rail-free.
-        const ldLen = Math.hypot(lastFlightDir.x, lastFlightDir.z) || 1;
-        const ldx = lastFlightDir.x / ldLen, ldz = lastFlightDir.z / ldLen;
+        // The LOBBY (open / step-off) edge = the one whose outward midpoint normal best aligns with the
+        // direction toward the z0 fire door — that's the only fall edge not bounded by an RC wall.
+        const ldLen = Math.hypot(lobbyDir.x, lobbyDir.z) || 1;
+        const ldx = lobbyDir.x / ldLen, ldz = lobbyDir.z / ldLen;
         let openIdx = 0, bestDot = -Infinity;
         edges.forEach(([i, j], idx) => {
             const mx = (c[i]!.x + c[j]!.x) / 2, mz = (c[i]!.z + c[j]!.z) / 2;
@@ -2106,25 +2115,32 @@ export class ResidentialBuildingExecutor {
             const dot = (ox / olen) * ldx + (oz / olen) * ldz;
             if (dot > bestDot) { bestDot = dot; openIdx = idx; }
         });
-        let railed = 0;
-        edges.forEach(([i, j], idx) => {
-            if (idx === openIdx) return;   // step-off side stays open
-            try {
-                cm.execute?.(new CreateHandrailCommand({
-                    id: createId('handrail'),
-                    start: { x: c[i]!.x, z: c[i]!.z },
-                    end: { x: c[j]!.x, z: c[j]!.z },
-                    height: STAIR_HANDRAIL_HEIGHT_M,
-                    thickness: 0.05,
-                    levelId: topLevelId,
-                    baseOffset: 0,
-                    fillType: 'baluster',
-                    railProfile: 'rectangular',
-                }), { source: 'RESI_PIPELINE_STAIR_VOID_GUARD' });
-                railed++;
-            } catch (e) { console.warn('[resi-building] stair-void guard edge skipped:', e); }
-        });
-        console.log(`[resi-building] §RESI-STAIR-QUALITY-MATCH-HOUSE stair-void guardrail — ${railed}/3 edge(s) railed on ${topLevelId}`);
+        // Clamp a WORLD corner into the core INNER rect (minus clearance): de-rotate to LOCAL, clamp,
+        // re-rotate to WORLD — so the rail never sits on or beyond a core RC wall.
+        const inX0 = innerLocal.x0 + clearance, inX1 = innerLocal.x1 - clearance;
+        const inZ0 = innerLocal.z0 + clearance, inZ1 = innerLocal.z1 - clearance;
+        const clampWorld = (p: { x: number; z: number }): { x: number; z: number } => {
+            const l = this._unrotate(p, xf);
+            const cl = { x: Math.min(Math.max(l.x, inX0), inX1), z: Math.min(Math.max(l.z, inZ0), inZ1) };
+            return this._rotate(cl, xf);
+        };
+        const [i, j] = edges[openIdx]!;
+        const a = clampWorld(c[i]!), b = clampWorld(c[j]!);
+        if (Math.hypot(b.x - a.x, b.z - a.z) < 0.1) return;   // degenerate after clamp → skip
+        try {
+            cm.execute?.(new CreateHandrailCommand({
+                id: createId('handrail'),
+                start: { x: a.x, z: a.z },
+                end: { x: b.x, z: b.z },
+                height: STAIR_HANDRAIL_HEIGHT_M,
+                thickness: 0.05,
+                levelId: topLevelId,
+                baseOffset: 0,
+                fillType: 'baluster',
+                railProfile: 'rectangular',
+            }), { source: 'RESI_PIPELINE_STAIR_VOID_GUARD' });
+            console.log(`[resi-building] §RESI-STAIR-GUARD-CONTAIN stair-void fall-rail — 1 lobby edge railed on ${topLevelId} (others bounded by RC walls + flight rails)`);
+        } catch (e) { console.warn('[resi-building] stair-void guard edge skipped:', e); }
     }
 
     /** Add the 4 edges of a corridor band as room-bounding lines so detection reads
@@ -2861,6 +2877,15 @@ export class ResidentialBuildingExecutor {
     private _rotate(p: { x: number; z: number }, xf: ResidentialRigidTransform): { x: number; z: number } {
         if (!xf.thetaRad) return { x: p.x, z: p.z };
         const c = Math.cos(xf.thetaRad), s = Math.sin(xf.thetaRad);
+        const dx = p.x - xf.pivot.x, dz = p.z - xf.pivot.z;
+        return { x: xf.pivot.x + dx * c - dz * s, z: xf.pivot.z + dx * s + dz * c };
+    }
+
+    /** §RESI-STAIR-GUARD-CONTAIN — inverse of `_rotate`: WORLD parcel XZ → LOCAL (principal-axis) by
+     *  −θ about the pivot, so a world point can be clamped against the LOCAL core inner rect. Pure. */
+    private _unrotate(p: { x: number; z: number }, xf: ResidentialRigidTransform): { x: number; z: number } {
+        if (!xf.thetaRad) return { x: p.x, z: p.z };
+        const c = Math.cos(-xf.thetaRad), s = Math.sin(-xf.thetaRad);
         const dx = p.x - xf.pivot.x, dz = p.z - xf.pivot.z;
         return { x: xf.pivot.x + dx * c - dz * s, z: xf.pivot.z + dx * s + dz * c };
     }
