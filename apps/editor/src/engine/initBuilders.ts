@@ -36,6 +36,8 @@ import { storeEventBus } from '@pryzm/core-app-model';
 // ── Slab subsystem ─────────────────────────────────────────────────────────
 import { SlabStore, SlabFragmentBuilder, SlabLevelCleanupHandler } from '@pryzm/geometry-slab';
 import { ColumnFragmentBuilder, installColumnPlanSymbolBuilder } from '@pryzm/geometry-column';
+// ADR-0076 Axis 3 (§PERF-WEBGPU-FRAGMENT) — element-agnostic GPU-instancing bridge.
+import { ElementInstanceBridge, instancedElementRenderer } from '@pryzm/core-app-model/rendering';
 
 // ── Ceiling subsystem ──────────────────────────────────────────────────────
 import { CeilingStore }             from '@pryzm/core-app-model/stores';
@@ -279,6 +281,15 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     //   AFTER columnBuilder in the bootstrap order.
     const columnBuilder = new ColumnFragmentBuilder(scene, bimManager, null);
     window.columnBuilder = columnBuilder;
+    // ADR-0076 Axis 3 (§PERF-WEBGPU-FRAGMENT) — inject the GPU-instancing bridge
+    // over the SAME shared renderer walls use. DEFAULT-OFF: simple concrete
+    // columns only instance when globalThis.__pryzmElementInstancingV1 === true;
+    // otherwise the builder stays entirely on the fragment path.
+    try {
+        columnBuilder.setInstanceBridge(new ElementInstanceBridge(instancedElementRenderer));
+    } catch (instErr) {
+        console.warn('[initBuilders] §PERF-WEBGPU-FRAGMENT column instance bridge wiring failed:', instErr);
+    }
     // §COLUMN-AUDIT-2026 §W8: install the plan-symbol builder factory now
     //   that columnStore exists. EdgeProjectorService imports the singleton
     //   reference and sees the resolved instance from this point on.
