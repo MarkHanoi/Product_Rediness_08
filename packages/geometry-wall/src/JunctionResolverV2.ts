@@ -64,14 +64,51 @@ export interface WallMiter {
 }
 
 export interface ResolveOptions {
-    /** Endpoint snap radius (m). Default 1 mm. */
+    /** Endpoint snap radius (m). Default = the §RESI-L0-CORNER-CLOSE near-junction
+     *  band (0.20 m); pass an explicit value to override (e.g. 0.001 for exact input). */
     readonly snapEpsilonM?: number;
-    /** Perpendicular tolerance for T-projection (m). Default 1 mm. */
+    /** Perpendicular tolerance for T-projection (m). Default = the near-junction band
+     *  (0.20 m); pass an explicit value to override. */
     readonly tProjectionEpsilonM?: number;
 }
 
-const DEFAULT_SNAP = 0.001;
-const DEFAULT_T_EPS = 0.001;
+// §RESI-L0-CORNER-CLOSE (2026-06-25) — endpoint-cluster + T-projection band.
+//
+// THE founder defect (defect #1): on a GENERATED / WELDED (often ~45° ROTATED) ground
+// shell the two perimeter walls meeting at an L-corner are NOT bit-exact coincident —
+// post-weld / post-miter / principal-axis drift leaves them 20–285 mm apart. The legacy
+// WallJoinResolver recovers this via §NEAR-CORNER-L (snapRadius-wide endpoint cluster +
+// pair-wise bisector miter) and closes the corner to 0 mm. But the DEFAULT-ON V2 pipeline
+// (WallPipelineV2) clustered endpoints with a 1 mm epsilon, so those drifted corner
+// endpoints fell into SEPARATE single-endpoint clusters → no junction → BOTH walls got a
+// square cap → the corner opened (the "tiny diamond of empty space" in plan, vertical seam
+// in 3D — even though each wall, taken alone, looks "mitred-eligible"). The same 1 mm
+// T-projection tolerance also missed a partition whose end lands a few cm off a shell BODY
+// (the room-loop signature) so it never became an edge-coincident T.
+//
+// FIX: default the cluster + T-projection band to the SAME "touching" floor the rest of the
+// stack already treats as one node — RoomDetectionEngine's SNAP_FLOOR (0.20 m) and the legacy
+// resolver's §NEAR-CORNER-L band (0.12 m) — so a welded/rotated corner whose endpoints are
+// within the band clusters into ONE junction and the ring sweep produces the SHARED,
+// edge-coincident corner (corner closes, by construction). This is a DETECTION-TIME band ONLY:
+// `resolveJunctions` returns per-end corner POINTS and NEVER relocates a wall's centreline
+// baseline — so widening it can never double a wall or split a baseline (the failure mode that
+// regressed §CLAMP-COSHARE-WELD / ADR-0072 P3c-b). The band is kept at the touching floor
+// (0.20 m), comfortably below any real room dimension / partition spacing, so distinct
+// junctions are never fused. An escape hatch (`__pryzmWallV2JunctionBandM`) restores the tight
+// 1 mm legacy values for diagnostics / exact-input callers.
+const JUNCTION_BAND_FLOOR_M = 0.20;
+/** The pre-fix tight cluster epsilon (1 mm). Available via the escape hatch. */
+const LEGACY_TIGHT_M = 0.001;
+
+/** Default endpoint-cluster + T-projection band (m). The near-junction floor
+ *  (0.20 m), overridable to the legacy 1 mm via `__pryzmWallV2JunctionBandM`. */
+function defaultJunctionBandM(): number {
+    const o = (globalThis as { __pryzmWallV2JunctionBandM?: number }).__pryzmWallV2JunctionBandM;
+    if (typeof o === 'number' && Number.isFinite(o) && o >= 0) return o;
+    return JUNCTION_BAND_FLOOR_M;
+}
+
 const PARALLEL_DET = 1e-9;
 
 // §WALL-BODY-INNER-FACE (residual of §ONE-FRAME-MINT, 2026-06-18) — a partition END that
@@ -355,10 +392,16 @@ export function resolveJunctions(
     walls: readonly WallInput[],
     opts: ResolveOptions = {},
 ): WallMiter[] {
+    // §RESI-L0-CORNER-CLOSE — a caller-supplied epsilon ALWAYS wins (exact-input
+    // callers / the detect unit test still pin 1 mm). Absent → the near-junction band
+    // (`defaultJunctionBandM`, default 0.20 m; restore the legacy 1 mm with the escape
+    // hatch). `LEGACY_TIGHT_M` documents the pre-fix value for callers that want it.
+    const band = defaultJunctionBandM();
     const o: Required<ResolveOptions> = {
-        snapEpsilonM: opts.snapEpsilonM ?? DEFAULT_SNAP,
-        tProjectionEpsilonM: opts.tProjectionEpsilonM ?? DEFAULT_T_EPS,
+        snapEpsilonM: opts.snapEpsilonM ?? band,
+        tProjectionEpsilonM: opts.tProjectionEpsilonM ?? band,
     };
+    void LEGACY_TIGHT_M;
     const miters: WallMiter[] = walls.map(w => ({ id: w.id }));
     const junctions = detectJunctions(walls, o);
     for (const j of junctions) applyRingSweep(j, walls, miters);

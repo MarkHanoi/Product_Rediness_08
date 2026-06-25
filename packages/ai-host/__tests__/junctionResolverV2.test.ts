@@ -319,3 +319,168 @@ describe('JunctionResolverV2 — determinism', () => {
         expect(JSON.stringify(resolveJunctions(walls))).toEqual(JSON.stringify(resolveJunctions(walls)));
     });
 });
+
+// ─── §RESI-L0-CORNER-CLOSE — welded/rotated-plate corner + partition-T band ────
+//
+// Defect #1 repro: on a generated/welded ground shell the two perimeter walls meeting
+// at an L-corner are NOT bit-exact coincident (post-weld / principal-axis drift leaves
+// them tens–hundreds of mm apart). With the PRE-FIX 1 mm cluster epsilon they fell into
+// separate single-endpoint clusters → NO junction → both walls square-capped → the corner
+// opened (a visible diamond/seam). The fix defaults the cluster + T-projection band to the
+// "touching" floor (0.20 m) the rest of the stack already uses, so the welded corner
+// clusters into ONE junction and the ring sweep produces the SHARED edge-coincident corner.
+// CRITICAL: `resolveJunctions` returns per-end corner POINTS only — it NEVER relocates a
+// wall's centreline baseline, so widening the band can never double a wall (the §CLAMP-
+// COSHARE-WELD / ADR-0072 P3c-b regression mode).
+describe('JunctionResolverV2 — §RESI-L0-CORNER-CLOSE (welded corner closes)', () => {
+    const T = 0.2;
+
+    // Build a welded L: wall A (0,0)→(5,0); wall B starts `offMm` off A's end (5,0),
+    // nudged along the diagonal (1,1)/√2, and rises in +z. Real generated-plate drift.
+    function weldedL(offMm: number): WallInput[] {
+        const d = (offMm / 1000) / Math.SQRT2;
+        return [
+            { id: 'A', start: { x: 0, z: 0 }, end: { x: 5, z: 0 }, thickness: T },
+            { id: 'B', start: { x: 5 + d, z: d }, end: { x: 5, z: 5 }, thickness: T },
+        ];
+    }
+
+    // The shared inside corner: A's end-corner must equal B's start-corner (edge-coincident).
+    function sharedCornerCoincident(walls: WallInput[]): boolean {
+        const r = resolveJunctions(walls);
+        const a = r.find(m => m.id === 'A')!;
+        const b = r.find(m => m.id === 'B')!;
+        if (!a.endLeft || !a.endRight || !b.startLeft || !b.startRight) return false;
+        const aC = [a.endLeft, a.endRight];
+        const bC = [b.startLeft, b.startRight];
+        // Each of A's end corners must be matched (≤1 mm) by one of B's start corners.
+        return aC.every(ac => bC.some(bc => closePt(ac, bc, 1e-3)));
+    }
+
+    it('PRE-FIX repro: a 127 mm welded corner with the TIGHT 1 mm epsilon does NOT join (both square-capped)', () => {
+        // Pin the failure mode the fix removes: at 1 mm epsilon the drifted endpoints
+        // never cluster → no junction → no corners → the open corner.
+        const r = resolveJunctions(weldedL(127), { snapEpsilonM: 0.001, tProjectionEpsilonM: 0.001 });
+        const a = r.find(m => m.id === 'A')!;
+        const b = r.find(m => m.id === 'B')!;
+        expect(a.endLeft).toBeUndefined();
+        expect(b.startLeft).toBeUndefined();
+    });
+
+    it('a 127 mm welded corner CLOSES with the default band (shared edge-coincident corner)', () => {
+        expect(sharedCornerCoincident(weldedL(127))).toBe(true);
+    });
+
+    it('welded corners across the drift band (20–200 mm) all close to a shared corner', () => {
+        for (const offMm of [20, 40, 90, 127, 200]) {
+            expect(sharedCornerCoincident(weldedL(offMm)), `off=${offMm}mm`).toBe(true);
+        }
+    });
+
+    it('the ring sweep NEVER relocates a wall baseline (no doubling) — start/end unchanged', () => {
+        // A wall is described to the footprint builder by its ORIGINAL start/end; the
+        // resolver only attaches corner POINTS. Prove the inputs are untouched: the
+        // footprint centreline equals the input baseline for both walls at every offset.
+        for (const offMm of [40, 127, 200]) {
+            const walls = weldedL(offMm);
+            const r = resolveJunctions(walls);
+            for (const w of walls) {
+                const m = r.find(x => x.id === w.id)!;
+                const fp = buildWallFootprint(w, m);
+                expect(closePt(fp.start, w.start), `${w.id} start off=${offMm}`).toBe(true);
+                expect(closePt(fp.end, w.end), `${w.id} end off=${offMm}`).toBe(true);
+            }
+        }
+    });
+
+    it('REGRESSION: two DISTINCT junctions ≥0.5 m apart are NOT fused (band stays below room scale)', () => {
+        // A short wall whose two ends each meet a DIFFERENT perpendicular wall, the two
+        // corners 0.6 m apart. The band (0.20 m) must keep them as two separate junctions —
+        // fusing them would mis-mitre / merge distinct corners. Assert each corner is its
+        // own shared pair and the two junction pivots are 0.6 m apart (not collapsed).
+        const walls: WallInput[] = [
+            { id: 'A', start: { x: 0, z: 0 }, end: { x: 0, z: 0.6 }, thickness: T }, // short spine
+            { id: 'B', start: { x: 0, z: 0 }, end: { x: 3, z: 0 }, thickness: T },   // meets A.start
+            { id: 'C', start: { x: 0, z: 0.6 }, end: { x: 3, z: 0.6 }, thickness: T }, // meets A.end
+        ];
+        const r = resolveJunctions(walls);
+        const a = r.find(m => m.id === 'A')!;
+        expect(a.startPivot).toBeDefined();
+        expect(a.endPivot).toBeDefined();
+        // The two distinct corners stay 0.6 m apart — NOT collapsed into one node.
+        const sep = Math.hypot(a.startPivot!.x - a.endPivot!.x, a.startPivot!.z - a.endPivot!.z);
+        expect(sep).toBeCloseTo(0.6, 3);
+        // A is not degenerate / collapsed.
+        const fp = buildWallFootprint(walls[0]!, a);
+        expect(closePt(fp.start, { x: 0, z: 0 })).toBe(true);
+        expect(closePt(fp.end, { x: 0, z: 0.6 })).toBe(true);
+    });
+
+    it('escape hatch __pryzmWallV2JunctionBandM restores the legacy tight band (corner re-opens)', () => {
+        const g = globalThis as { __pryzmWallV2JunctionBandM?: number };
+        const prev = g.__pryzmWallV2JunctionBandM;
+        g.__pryzmWallV2JunctionBandM = 0.001;
+        try {
+            // With the legacy 1 mm band the 127 mm welded corner no longer joins.
+            const r = resolveJunctions(weldedL(127));
+            const a = r.find(m => m.id === 'A')!;
+            expect(a.endLeft).toBeUndefined();
+        } finally {
+            if (prev === undefined) delete g.__pryzmWallV2JunctionBandM;
+            else g.__pryzmWallV2JunctionBandM = prev;
+        }
+    });
+});
+
+// ─── §RESI-L0-CORNER-CLOSE — partition→shell-body T within the band (defect #2 quality) ──
+//
+// Defect #2 context: a partition that should T onto a shell BODY but whose end sits a few
+// cm off the body. With the pre-fix 1 mm T-projection tolerance the partition never became
+// an edge-coincident T → the wall loop the room detector traces did not close cleanly. The
+// widened T-projection band detects the partition as a passthrough-T so its end-corners
+// land on the shell body (edge-coincident). This is the SAFE part of defect #2 — a partition
+// already within the touching band of the host. A partition whose end is PHYSICALLY short of
+// the host (e.g. 285 mm) is NOT closed here: the resolver does not relocate the partition
+// baseline (that would be the doubling-prone weld the project reverted twice), so a genuinely
+// short endpoint must be fixed UPSTREAM at emit time — see the report.
+describe('JunctionResolverV2 — §RESI-L0-CORNER-CLOSE (partition→shell-body T within band)', () => {
+    const TS = 0.2;   // shell (passthrough)
+    const TP = 0.2;   // partition
+
+    function partitionT(endZ: number): WallInput[] {
+        return [
+            { id: 'S', start: { x: -5, z: 0 }, end: { x: 5, z: 0 }, thickness: TS },
+            { id: 'P', start: { x: 0, z: 3 }, end: { x: 0, z: endZ }, thickness: TP },
+        ];
+    }
+
+    it('PRE-FIX repro: a partition end 100 mm off the shell body is NOT detected as a T (1 mm tol)', () => {
+        const j = __internal.detectJunctions(partitionT(0.10), { snapEpsilonM: 0.001, tProjectionEpsilonM: 0.001 });
+        expect(j).toHaveLength(0);   // no junction → no edge-coincident corner
+    });
+
+    it('a partition end within the band of the shell body becomes an edge-coincident T (corners on the body)', () => {
+        // End at z=0.10 (one shell half-thickness off the centreline = ON the inner face).
+        const r = resolveJunctions(partitionT(0.10));
+        const p = r.find(m => m.id === 'P')!;
+        expect(p.endLeft).toBeDefined();
+        expect(p.endRight).toBeDefined();
+        // Both end corners sit on the shell body line (perpendicular foot at z=0 ±halfT).
+        const fp = buildWallFootprint(partitionT(0.10)[1]!, p);
+        const minZ = Math.min(...fp.polygon.map(pt => pt.z));
+        expect(minZ).toBeLessThanOrEqual(TS / 2 + 1e-6);   // reaches at/onto the shell body
+    });
+
+    it('SAFETY/HONESTY: a partition PHYSICALLY short of the host (285 mm) is NOT relocated by the resolver', () => {
+        // The resolver attaches a corner at the partition's OWN (short) end — it never drags
+        // the baseline onto the host (the reverted doubling weld). Prove the footprint still
+        // ENDS at the short endpoint: the gap is the caller's (emit-time) responsibility.
+        const walls = partitionT(0.30);   // 285+ mm short of the host body
+        const r = resolveJunctions(walls);
+        const p = r.find(m => m.id === 'P')!;
+        const fp = buildWallFootprint(walls[1]!, p);
+        // Centreline end is unchanged (no relocation) and the body does not reach z=0.
+        expect(closePt(fp.end, { x: 0, z: 0.30 })).toBe(true);
+        expect(Math.min(...fp.polygon.map(pt => pt.z))).toBeGreaterThan(TS / 2 + 1e-3);
+    });
+});
