@@ -53,6 +53,11 @@ import { ReflectionProbeService } from './ReflectionProbeService';
 import { ProceduralSkyService, SkyParams, SkyPresetId } from './ProceduralSkyService';
 import { ClearcoatMaterialUpgrader } from './ClearcoatMaterialUpgrader';
 import { RealSunService, RealSunConfig } from './RealSunService';
+import {
+    sceneQualityTierManager,
+    type SceneQualityTier,
+    type SceneQualitySettings,
+} from './SceneQualityTierManager';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -440,6 +445,101 @@ export class RenderingPipelineCoordinator {
         this._emitState();
     }
 
+    // ── ADR-0076 Axis 1 — scene-size render quality tiers (§PERF-WEBGPU-FRAGMENT) ──
+
+    /**
+     * Optional app-injected hooks the coordinator calls when the render tier
+     * changes. Kept as injected callbacks (not direct imports) so the coordinator
+     * (core-app-model) does not take a dependency on the app layer or on
+     * geometry-furniture (which would be a circular dependency).
+     *
+     *   onSsgi          — enable/disable SSGI (RenderPipelineManager, app-wired).
+     *   onFurnitureBudget — set the furniture shadow budget (geometry-furniture).
+     */
+    private _onTierSsgi?: (enabled: boolean) => void;
+    private _onTierFurnitureBudget?: (decorativeShadows: boolean) => void;
+
+    /**
+     * Inject the SSGI toggle the coordinator should call on a tier change.
+     * No-op-safe: if never injected, the tier applier simply skips the SSGI step.
+     */
+    setTierSsgiHook(hook: (enabled: boolean) => void): void {
+        this._onTierSsgi = hook;
+    }
+
+    /**
+     * Inject the furniture-shadow-budget setter the coordinator calls on a tier
+     * change. `decorativeShadows=false` ⇒ decorative furniture stops casting.
+     */
+    setTierFurnitureBudgetHook(hook: (decorativeShadows: boolean) => void): void {
+        this._onTierFurnitureBudget = hook;
+    }
+
+    /**
+     * Apply the render quality tier implied by the current scene mesh count
+     * (ADR-0076 Axis 1). Conservative + hysteretic: on small/normal scenes the
+     * tier stays cinematic/balanced (today's behaviour, zero change); only
+     * already-heavy scenes (>6k / >15k meshes) step down SSGI/shadow/decorative
+     * furniture shadows. Idempotent — re-applies only when the tier actually
+     * changes (so it is safe to call from a debounced scene-change hook).
+     *
+     * Drives the parts the coordinator OWNS directly (shadow level, reflection
+     * probe) and the injected hooks for SSGI + furniture budget. Returns the
+     * resolved tier + settings so the caller can drive anything else (e.g. TRAA).
+     *
+     * Does NOT call requestAnimationFrame (P3) and mutates only the THREE
+     * projection layer via already-tested service mutators.
+     *
+     * @param meshCount  current scene mesh count (from FrustumCullingService).
+     */
+    applyTierForMeshCount(meshCount: number): { tier: SceneQualityTier; changed: boolean; settings: SceneQualitySettings } {
+        const result = sceneQualityTierManager.update(meshCount);
+        if (!result.changed) return result;
+
+        const { settings, tier } = result;
+
+        // Furniture decorative-shadow budget (Axis 2) — injected hook.
+        try {
+            this._onTierFurnitureBudget?.(settings.decorativeFurnitureShadows);
+        } catch (err) {
+            console.warn('[RenderingPipelineCoordinator] tier furniture-budget hook error:', err);
+        }
+
+        // SSGI — injected hook (RenderPipelineManager lives in renderer-three).
+        try {
+            this._onTierSsgi?.(settings.ssgi);
+        } catch (err) {
+            console.warn('[RenderingPipelineCoordinator] tier SSGI hook error:', err);
+        }
+
+        // Shadow level — owned directly; reuse the tested upgrader mutators.
+        if (this._renderer && this._scene) {
+            const shadowLevel = settings.shadowLevel as ShadowQualityLevel;
+            try {
+                if (!this._shadowUpgrader.applied) {
+                    this._shadowUpgrader.apply(this._renderer, this._scene, shadowLevel);
+                } else {
+                    this._shadowUpgrader.setLevel(shadowLevel);
+                }
+            } catch (err) {
+                console.warn('[RenderingPipelineCoordinator] tier shadow-level error:', err);
+            }
+        }
+
+        // Reflection probe — owned directly (ultra/cinematic only).
+        if (!settings.reflectionProbes && this._reflectionProbe.active) {
+            this._reflectionProbe.deactivate();
+        }
+
+        console.log(
+            `[RenderingPipelineCoordinator] §PERF-WEBGPU-FRAGMENT render tier → "${tier}" ` +
+            `(meshes=${meshCount}; ssgi=${settings.ssgi} shadows=${settings.shadowLevel} ` +
+            `decorativeFurnitureShadows=${settings.decorativeFurnitureShadows}).`,
+        );
+
+        return result;
+    }
+
     dispose(): void {
         this._lightingService.dispose();
         this._shadowUpgrader.dispose();
@@ -452,6 +552,8 @@ export class RenderingPipelineCoordinator {
         this._level    = 'off';
         this._scene    = null;
         this._renderer = null;
+        // ADR-0076 Axis 1 — forget the held tier so the next project is a cold start.
+        sceneQualityTierManager.reset();
     }
 
     // ── Private ────────────────────────────────────────────────────────────

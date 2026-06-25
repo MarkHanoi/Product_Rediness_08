@@ -319,6 +319,13 @@ declare global {
         // ── Renderer / pipeline globals ───────────────────────────────────────
         pryzmCanvas:       HTMLCanvasElement | undefined;
         pryzmRenderer:     unknown;
+        /**
+         * §PERF-WEBGPU-FRAGMENT / ADR-0076 — the GPU backend actually resolved at
+         * boot ('webgpu' | 'webgl-fallback' | 'webgl-only'). Written by
+         * createRenderer(); read by RendererBackendToggle to show the active
+         * backend. Typed here so the toggle needs no `(window as any)` (P4).
+         */
+        pryzmRendererBackend: 'webgpu' | 'webgl-fallback' | 'webgl-only' | undefined;
         obcRendererCanvas: HTMLCanvasElement | undefined;
         renderPipelineManager:
             | { onProjectSwitch?: () => void }
