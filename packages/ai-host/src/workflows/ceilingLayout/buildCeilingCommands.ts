@@ -50,6 +50,18 @@ export function buildCeilingCommands(
             warnings.push(`room "${p.roomId}" skipped — boundary < 3 points`);
             continue;
         }
+        // §RESI-CEILING-DEGENERATE-GUARD-2 (2026-06-25) — final emit gate: reject a zero-area /
+        // collinear boundary (≥3 raw points but no real area) so the `ceiling.batch.create` payload
+        // never carries a ceiling that load-fails `validatePolygon` (the 120-element freeze).
+        let area2 = 0;
+        for (let i = 0; i < p.boundary.length; i++) {
+            const a = p.boundary[i]!, b = p.boundary[(i + 1) % p.boundary.length]!;
+            area2 += a.x * b.z - b.x * a.z;
+        }
+        if (Math.abs(area2) / 2 < 0.05) {
+            warnings.push(`room "${p.roomId}" skipped — degenerate boundary (area ${(Math.abs(area2) / 2).toFixed(4)} m² < 0.05)`);
+            continue;
+        }
         if (!Number.isFinite(p.ceilingHeightM) || p.ceilingHeightM <= 0) {
             warnings.push(`room "${p.roomId}" skipped — invalid ceilingHeight`);
             continue;

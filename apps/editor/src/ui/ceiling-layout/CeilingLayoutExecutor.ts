@@ -87,10 +87,20 @@ export class CeilingLayoutExecutor {
             };
 
             const allPlaced: PlacedCeiling[] = [];
-            let ceiled = 0, skipped = 0, voidSkipped = 0;
+            let ceiled = 0, skipped = 0, voidSkipped = 0, degenerateSkipped = 0;
             for (const r of allRooms) {
-                const poly = (r.boundary?.polygon ?? []) as readonly Pt[];
-                if (poly.length < 3) { skipped++; continue; }
+                const rawPoly = (r.boundary?.polygon ?? []) as readonly Pt[];
+                if (rawPoly.length < 3) { skipped++; continue; }
+                // §RESI-CEILING-DEGENERATE-GUARD-2 (2026-06-25) — CLEAN the room polygon (drop near-
+                // coincident + collinear vertices) and AREA-GUARD it BEFORE emitting a ceiling. A room
+                // can carry a ≥3-point but zero-area / collinear boundary mid-detection; a ceiling built
+                // on it persists with <3 distinct corners → load-fails `validatePolygon` and freezes
+                // project-open (the "120 elements failed" bug). SKIP such rooms; pass the CLEAN polygon.
+                const poly = this._cleanRing(rawPoly);
+                if (poly.length < 3 || Math.abs(this._signedArea(poly)) < 0.05) {
+                    degenerateSkipped++; skipped++;
+                    continue;
+                }
                 if (roomHostsVoid(poly)) {
                     voidSkipped++; skipped++;
                     console.log('[ceiling-layout] §VOID-FINISH skipping ceiling for stairwell-void room', r.id);
@@ -107,6 +117,9 @@ export class CeilingLayoutExecutor {
                 const placed = ceilingForRoom(input);
                 if (placed) { ceiled++; allPlaced.push(placed); }
                 else skipped++;
+            }
+            if (degenerateSkipped > 0) {
+                console.warn(`[ceiling-layout] §RESI-CEILING-DEGENERATE-GUARD-2 skipped ${degenerateSkipped} room(s) with a degenerate (collinear/zero-area) boundary — no ceiling emitted for them.`);
             }
 
             console.log(
@@ -177,5 +190,40 @@ export class CeilingLayoutExecutor {
             if (intersects) inside = !inside;
         }
         return inside;
+    }
+
+    /** §RESI-CEILING-DEGENERATE-GUARD-2 — clean a ring: drop consecutive near-coincident points
+     *  (< 1 mm) AND collinear vertices (zero cross-product), close the wrap. Returns the distinct
+     *  corners; a degenerate (line/point) input collapses to < 3 so the caller can skip it. */
+    private _cleanRing(poly: ReadonlyArray<{ x: number; z: number }>): Array<{ x: number; z: number }> {
+        const dedup: Array<{ x: number; z: number }> = [];
+        for (const p of poly) {
+            const prev = dedup[dedup.length - 1];
+            if (prev && Math.hypot(p.x - prev.x, p.z - prev.z) < 1e-3) continue;
+            dedup.push({ x: p.x, z: p.z });
+        }
+        if (dedup.length >= 2) {
+            const a = dedup[0]!, z = dedup[dedup.length - 1]!;
+            if (Math.hypot(a.x - z.x, a.z - z.z) < 1e-3) dedup.pop();
+        }
+        if (dedup.length < 3) return dedup;
+        // Drop collinear vertices (a→b→c with zero cross-product).
+        const out: Array<{ x: number; z: number }> = [];
+        for (let i = 0; i < dedup.length; i++) {
+            const a = dedup[(i - 1 + dedup.length) % dedup.length]!, b = dedup[i]!, c = dedup[(i + 1) % dedup.length]!;
+            const cross = (b.x - a.x) * (c.z - a.z) - (b.z - a.z) * (c.x - a.x);
+            if (Math.abs(cross) > 1e-6) out.push(b);
+        }
+        return out.length >= 3 ? out : dedup;
+    }
+
+    /** §RESI-CEILING-DEGENERATE-GUARD-2 — shoelace signed area of an XZ ring (m²). */
+    private _signedArea(poly: ReadonlyArray<{ x: number; z: number }>): number {
+        let s = 0;
+        for (let i = 0; i < poly.length; i++) {
+            const a = poly[i]!, b = poly[(i + 1) % poly.length]!;
+            s += a.x * b.z - b.x * a.z;
+        }
+        return s * 0.5;
     }
 }
