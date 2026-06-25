@@ -10,7 +10,12 @@
 
 export type CeilableOccupancy =
     | 'bedroom' | 'living-room' | 'kitchen' | 'dining-room' | 'bathroom'
-    | 'entrance-lobby' | 'corridor' | 'private-office' | 'utility-room';
+    | 'entrance-lobby' | 'corridor' | 'private-office' | 'utility-room'
+    // §RESI-CEILING-SERVICE-ROOMS (2026-06-25) — small service rooms WERE skipped by the
+    // ceiling pass (no archetype → `ceilingForRoom` returned null), leaving them open to the
+    // slab above. They are enclosed service spaces and MUST be ceiled. These are the canonical
+    // `RoomOccupancyType` strings the detector emits (NOT bare 'storage' / 'shower').
+    | 'wc' | 'accessible-wc' | 'shower-room' | 'storage-residential';
 
 export interface Pt { readonly x: number; readonly z: number }
 export interface Vec3m { readonly x: number; readonly y: number; readonly z: number }
