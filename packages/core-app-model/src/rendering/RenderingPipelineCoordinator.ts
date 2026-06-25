@@ -458,7 +458,19 @@ export class RenderingPipelineCoordinator {
      *   onFurnitureBudget — set the furniture shadow budget (geometry-furniture).
      */
     private _onTierSsgi?: (enabled: boolean) => void;
+    private _onTierTraa?: (enabled: boolean) => void;
     private _onTierFurnitureBudget?: (decorativeShadows: boolean) => void;
+
+    /**
+     * §PERF-WEBGPU-FRAGMENT — tier-log throttle state. The tier is re-evaluated on
+     * every geometry-add (it can fire 100+ times during one generation), so we MUST
+     * NOT log every call. We log: (1) ALWAYS on a real tier CHANGE, and (2) at most
+     * once per STEADY-STATE settle window for the "[unchanged]" confirmation.
+     */
+    private _lastLoggedTier: SceneQualityTier | undefined = undefined;
+    private _lastUnchangedLogAtMs = 0;
+    /** Steady-state confirmation cadence: at most one [unchanged] line per this window. */
+    private static readonly _UNCHANGED_LOG_INTERVAL_MS = 4000;
 
     /**
      * Inject the SSGI toggle the coordinator should call on a tier change.
@@ -466,6 +478,15 @@ export class RenderingPipelineCoordinator {
      */
     setTierSsgiHook(hook: (enabled: boolean) => void): void {
         this._onTierSsgi = hook;
+    }
+
+    /**
+     * Inject the TRAA toggle the coordinator should call on a tier change.
+     * No-op-safe: if never injected, the tier applier simply skips the TRAA step.
+     * (TRAA lives in RenderPipelineManager — renderer-three, app-wired.)
+     */
+    setTierTraaHook(hook: (enabled: boolean) => void): void {
+        this._onTierTraa = hook;
     }
 
     /**
@@ -497,15 +518,26 @@ export class RenderingPipelineCoordinator {
         const result = sceneQualityTierManager.update(meshCount);
         const { settings, tier, changed } = result;
 
-        // §PERF-WEBGPU-FRAGMENT — ALWAYS log the decision so the tier behaviour is
-        // observable on every batch (the founder reported "no data with tier"). The
-        // one-line format requested by the perf review:
-        console.log(
+        // §PERF-WEBGPU-FRAGMENT — THROTTLED tier log. This runs on every geometry-add
+        // (188× during one generation in the founder's session), so we must not spam.
+        // Log ALWAYS on a real tier change; for the steady-state "[unchanged]"
+        // confirmation, log at most once per settle window.
+        const tierLine =
             `[SceneQualityTier] ${meshCount} meshes → tier=${tier} ` +
             `(SSGI=${settings.ssgi ? 'on' : 'off'} TRAA=${settings.traa ? 'on' : 'off'} ` +
-            `shadow=${settings.shadowLevel} decorativeShadows=${settings.decorativeFurnitureShadows ? 'on' : 'off'})` +
-            `${changed ? '' : ' [unchanged]'}`,
-        );
+            `shadow=${settings.shadowLevel} decorativeShadows=${settings.decorativeFurnitureShadows ? 'on' : 'off'})`;
+        const tierTransitioned = tier !== this._lastLoggedTier;
+        if (tierTransitioned) {
+            console.log(tierLine);
+            this._lastLoggedTier = tier;
+            this._lastUnchangedLogAtMs = Date.now();
+        } else {
+            const now = Date.now();
+            if (now - this._lastUnchangedLogAtMs >= RenderingPipelineCoordinator._UNCHANGED_LOG_INTERVAL_MS) {
+                console.log(`${tierLine} [unchanged]`);
+                this._lastUnchangedLogAtMs = now;
+            }
+        }
 
         // Only (re)apply the THREE-side mutators when the tier actually changed —
         // applying identical settings every batch is wasted work + flicker risk.
@@ -523,6 +555,14 @@ export class RenderingPipelineCoordinator {
             this._onTierSsgi?.(settings.ssgi);
         } catch (err) {
             console.warn('[RenderingPipelineCoordinator] tier SSGI hook error:', err);
+        }
+
+        // TRAA — injected hook. At performance/survival TRAA may be turned off to
+        // shed the per-frame temporal-reprojection cost on heavy scenes.
+        try {
+            this._onTierTraa?.(settings.traa);
+        } catch (err) {
+            console.warn('[RenderingPipelineCoordinator] tier TRAA hook error:', err);
         }
 
         // Shadow level — owned directly; reuse the tested upgrader mutators.
@@ -585,6 +625,10 @@ export class RenderingPipelineCoordinator {
         this._renderer = null;
         // ADR-0076 Axis 1 — forget the held tier so the next project is a cold start.
         sceneQualityTierManager.reset();
+        // §PERF-WEBGPU-FRAGMENT — reset the tier-log throttle so the next project
+        // logs its first tier decision immediately.
+        this._lastLoggedTier = undefined;
+        this._lastUnchangedLogAtMs = 0;
     }
 
     // ── Private ────────────────────────────────────────────────────────────
