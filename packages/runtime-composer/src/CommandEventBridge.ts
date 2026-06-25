@@ -87,6 +87,7 @@ export function wireCommandEventBridge(
             baseOffset?: number;
             systemTypeId?: string;
             materialColor?: string;
+            layers?: ReadonlyArray<{ name: string; function: string; thickness: number; materialId?: string; materialColor?: string }>;
           };
           events.emit('wall.created', {
             commandId:    record.id,
@@ -102,6 +103,9 @@ export function wireCommandEventBridge(
             // §RESI-FACADE-COLOUR-PERSIST (2026-06-24) — forward the per-wall finish colour so
             // the legacy-store mirror renders it (the field was dropped here before).
             materialColor: p.materialColor,
+            // §RESI-FACADE-INTERIOR-WHITE (2026-06-24) — forward the per-layer finish stack so the
+            // legacy mirror builds a layered (per-face) wall.
+            layers:       p.layers,
           });
           break;
         }
@@ -122,6 +126,7 @@ export function wireCommandEventBridge(
               baseOffset?: number;
               systemTypeId?: string;
               materialColor?: string;
+              layers?: ReadonlyArray<{ name: string; function: string; thickness: number; materialId?: string; materialColor?: string }>;
             }>;
             levelId?: string;
           };
@@ -142,6 +147,9 @@ export function wireCommandEventBridge(
               // §RESI-FACADE-COLOUR-PERSIST (2026-06-24) — carry the per-wall finish colour
               // through the batch fan-out (was dropped → façade walls rendered default grey).
               materialColor: w.materialColor,
+              // §RESI-FACADE-INTERIOR-WHITE (2026-06-24) — carry the per-layer finish stack through
+              // the batch fan-out so layered (per-face) shell walls render correctly.
+              layers:       w.layers,
             });
           }
           break;

@@ -94,6 +94,9 @@ const BALCONY_SIDE_INSET_M = 0.05;       // pull side edges off the wall ends to
 
 // §RESI-ROOF-GARDEN (2026-06-24) — roof amenity-deck tuning (roof-garden spike slice 1).
 const ROOF_GUARD_HEIGHT_M = 1.1;         // perimeter glass guard height
+// §RESI-STAIR-QUALITY-MATCH-HOUSE (2026-06-24) — the stairwell-void guardrail height, matching the
+// house (HouseLayoutExecutor.STAIR_HANDRAIL_HEIGHT_M = 1.050, baluster fill = the stair's own rail).
+const STAIR_HANDRAIL_HEIGHT_M = 1.050;
 const ROOF_GUARD_THICKNESS_M = 0.05;     // guard post/profile thickness
 const ROOF_DECK_THICKNESS_M = 0.25;      // matches _createRoof THICK — slab top above level datum
 
@@ -359,8 +362,12 @@ export class ResidentialBuildingExecutor {
             } else {
                 shellPayload = this._buildShellPerimeter(levelId, lvl.footprint, levelFtf);
             }
-            // §RESI-FACADE-COLOUR — paint the opaque shell walls (ground solid bay + upper façade).
-            this._paintWalls(shellPayload, facadeColor);
+            // §RESI-FACADE-COLOUR / §RESI-FACADE-INTERIOR-WHITE — the EXTERIOR shell walls read the
+            // façade colour OUTSIDE and WHITE INSIDE (founder 2026-06-24). Make them LAYERED walls
+            // (exterior finish = façade colour, interior finish = white), ordered per-wall so the
+            // façade layer faces AWAY from the building centroid. No-op (plain wall) when no façade
+            // colour is set (all-white default keeps a single default material).
+            this._paintShellWallsTwoFace(shellPayload, lvl.footprint, facadeColor);
             shellPayloads.push(shellPayload);
             // §RESI-NO-DOUBLE-WALL — the building shell walls in the {id,start,end} form the apartment
             // engine's window resolver expects. Façade windows now resolve onto these (the cells skip their
@@ -620,12 +627,50 @@ export class ResidentialBuildingExecutor {
         return { ok: true, levelIds, apartmentCount: placedCount, stairCount, liftCount };
     }
 
-    /** §RESI-FACADE-COLOUR — stamp `materialColor` (hex) onto every wall record of a payload, in
-     *  place, when a finish colour is set. No-op when `color` is undefined (all-white default ⇒ no
-     *  per-element colour, the wall keeps its system-type/default material). Returns the payload. */
-    private _paintWalls<T extends { walls: ReadonlyArray<Record<string, unknown>> }>(payload: T, color?: string): T {
-        if (!color) return payload;
-        for (const w of payload.walls) (w as Record<string, unknown>).materialColor = color;
+    /** §RESI-FACADE-INTERIOR-WHITE (founder 2026-06-24: "the exterior wall reads the façade colour
+     *  OUTSIDE but WHITE INSIDE — only the exterior face keeps the façade colour") — make each
+     *  EXTERIOR shell wall a LAYERED wall so the renderer draws each face its own finish:
+     *    [ finish-exterior (façade colour) · structure (default) · finish-interior (WHITE) ]
+     *  The WallFragmentBuilder stacks layers across the wall thickness from `-thick/2` toward the
+     *  outward normal `(-dir.z, dir.x)` (layer 0 = the −outward / RIGHT-of-direction side). We ORDER
+     *  the two finish layers PER WALL using the footprint CENTROID so the façade layer always faces
+     *  AWAY from the building (exterior), regardless of the ring winding. `materialColor` is also kept
+     *  on the wall record as the schedule/property tint (= the EXTERIOR colour). No-op when no façade
+     *  colour is set (a plain default-material wall). `footprint` is the wall ring (WORLD-XZ). */
+    private _paintShellWallsTwoFace<T extends { walls: ReadonlyArray<Record<string, unknown>> }>(
+        payload: T,
+        footprint: ReadonlyArray<{ x: number; z: number }>,
+        exteriorColor?: string,
+    ): T {
+        if (!exteriorColor) return payload;
+        const INTERIOR_WHITE = '#f4f1ec';     // matt-emulsion white (matches the room wall finish)
+        const ring = this._cleanRing(footprint);
+        let cx = 0, cz = 0;
+        for (const p of ring) { cx += p.x; cz += p.z; }
+        const n = ring.length || 1; cx /= n; cz /= n;   // building centroid (WORLD)
+        for (const w of payload.walls) {
+            const rec = w as Record<string, unknown>;
+            const bl = rec.baseLine as ReadonlyArray<{ x: number; z: number }> | undefined;
+            const thickness = typeof rec.thickness === 'number' ? rec.thickness : SHELL_WALL_THICKNESS_M;
+            // Keep the whole-wall tint = the EXTERIOR colour (schedule/property panel + any non-layered
+            // fallback render path reads this).
+            rec.materialColor = exteriorColor;
+            if (!bl || bl.length < 2) continue;
+            const a = bl[0]!, b = bl[1]!;
+            const dx = b.x - a.x, dz = b.z - a.z;
+            // outward (the layer-stack axis) = (-dz, dx) = LEFT of a→b; layer 0 sits on the −outward side.
+            const outX = -dz, outZ = dx;
+            const midX = (a.x + b.x) / 2, midZ = (a.z + b.z) / 2;
+            // Centroid side along +outward: >0 ⇒ centroid is on the +outward (LEFT) side ⇒ the −outward
+            // (layer-0) side is EXTERIOR ⇒ layer 0 = façade. <0 ⇒ layer 0 = interior (white).
+            const centroidDotOut = (cx - midX) * outX + (cz - midZ) * outZ;
+            const ext = { name: 'Façade Finish', function: 'finish-exterior', thickness: 0.02, materialColor: exteriorColor };
+            const str = { name: 'Structure', function: 'structure', thickness: Math.max(0.04, thickness - 0.04), materialColor: '#d9d4cc' };
+            const intr = { name: 'Paint - Matt Emulsion', function: 'finish-interior', thickness: 0.02, materialColor: INTERIOR_WHITE };
+            // Layer 0 is the −outward side. If the centroid is on +outward, −outward is exterior ⇒
+            // [exterior, structure, interior]; else [interior, structure, exterior].
+            rec.layers = centroidDotOut > 0 ? [ext, str, intr] : [intr, str, ext];
+        }
         return payload;
     }
 
@@ -1784,7 +1829,13 @@ export class ResidentialBuildingExecutor {
         //   • use a SQUARE half-turn landing (depth = stairWidth, not 2·stairWidth);
         //   • DROP risers (within the code max riser height) until flight-1-run + landing ≤ zInnerDepth;
         //   • then HARD-ASSERT the resulting body fits, shrinking the landing as the last lever.
-        const STAIR_LANDING_DEPTH_M = stairWidth;     // square half-turn landing (was 2·stairWidth — the bug)
+        // §RESI-STAIR-QUALITY-MATCH-HOUSE (founder 2026-06-24: "the house stair is perfect; the resi
+        // core stair has a poor landing") — the HOUSE uses a FULL `2·width` half-turn landing for its
+        // U-stair (HouseLayoutExecutor `landings:[{depth: 2*width}]`). PREFER that here for house
+        // parity; the depth-fit + the hard clamp below shrink it ONLY when the (tight) core can't hold
+        // it — never below a usable landing. A proper landing (not the old 0.6 m clamp) is the goal.
+        const STAIR_LANDING_IDEAL_M = 2 * stairWidth;     // house parity (full half-turn landing)
+        const STAIR_LANDING_DEPTH_M = STAIR_LANDING_IDEAL_M;
         const beforeOf = (n: number): number => Math.ceil(n / 2);
         const stairBodyDepth = (n: number, landing: number): number => beforeOf(n) * STAIR_TREAD_M + landing;
         // §RESI-GROUND-HEIGHT-4500 / §RESI-CORE-STAIR-ALWAYS — re-fit the switchback to the TALLEST
@@ -1814,10 +1865,13 @@ export class ResidentialBuildingExecutor {
         // command never rejects), accepting a small footprint overhang rather than skipping the stair.
         const preferredRisersInFootprint = totalRisers;
         const beforeRisers = beforeOf(totalRisers);
-        const afterRisers = totalRisers - beforeRisers;
         const flight1Run = beforeRisers * STAIR_TREAD_M;
-        // HARD landing clamp — if the body still overflows (very shallow core), shrink the landing to
-        // the residual depth (floored at a usable 0.6 m) so the body NEVER crosses the z1 inner face.
+        // §RESI-STAIR-QUALITY-MATCH-HOUSE — the landing PREFERS the house's full 2·width half-turn
+        // depth, shrunk to fit the (tight) core's residual inner depth so the body does NOT worsen the
+        // §RESI-CORE-STAIR-FIT overhang. So a roomy core gets the full house-parity landing (up to
+        // 2·width); a tight 4 m core gets the largest landing that still fits the half-run + lobby —
+        // floored at 0.6 m only as the absolute usable minimum. Net: a proper landing wherever the
+        // core allows, never the cramped fixed-0.6 m it used to always be.
         const landingDepth = Math.max(0.6, Math.min(STAIR_LANDING_DEPTH_M, zInnerDepth - flight1Run));
         const stairDepth = flight1Run + landingDepth;     // the U body's full run-direction depth
         // Seat the stair at the z0 inner face; any depth slack becomes the lobby in FRONT (the fire
@@ -1950,8 +2004,16 @@ export class ResidentialBuildingExecutor {
                         ],
                         landings: [{ depth: landingDepth }],
                     });
-                    if (vr && vr.length >= 3) recordStairVoid(toLevelId, vr);
-                } catch (e) { console.warn('[resi-building] §RESI-STAIR-VOID-IN-FINISH void record failed (skipped):', e); }
+                    if (vr && vr.length >= 3) {
+                        recordStairVoid(toLevelId, vr);
+                        // §RESI-STAIR-QUALITY-MATCH-HOUSE (2026-06-24) — guard the OPEN stairwell void
+                        // on the UPPER floor with a 3-edge baluster handrail (the 4th, step-off edge —
+                        // the one the final flight tops out toward — stays OPEN for access), exactly
+                        // like HouseLayoutExecutor._createVoidGuardrail. Without this the core stair's
+                        // open hole had no rail (the founder's "bad handrail"). 1.050 m, baluster fill.
+                        this._createStairVoidGuard(cm, vr, toLevelId, reverseDir);
+                    }
+                } catch (e) { console.warn('[resi-building] §RESI-STAIR-VOID-IN-FINISH void/guard failed (skipped):', e); }
             } catch (e) { console.warn('[resi-building] stair create failed (skipped):', e); }
         }
 
@@ -2012,6 +2074,57 @@ export class ResidentialBuildingExecutor {
 
         console.log(`[resi-building] core — ${stairs} stair(s) + ${lifts} lift(s) centred at core (${core.x0.toFixed(1)},${core.z0.toFixed(1)})–(${core.x1.toFixed(1)},${core.z1.toFixed(1)})`);
         return { stairs, lifts };
+    }
+
+    /** §RESI-STAIR-QUALITY-MATCH-HOUSE (founder 2026-06-24) — guard the open stairwell VOID on the
+     *  upper floor with a baluster handrail on 3 of its 4 edges (the step-off edge — the one the final
+     *  flight tops out toward — stays OPEN for access). EXACT port of HouseLayoutExecutor's
+     *  `_createVoidGuardrail`: 1.050 m, `fillType:'baluster'`, on the void's HOST (upper) level, using
+     *  the SAME `computeStairFootprintRect` polygon the slab void + finish-cut used (so the rail edges
+     *  coincide with the open hole). `voidRect` is WORLD-XZ (4 CCW corners); `lastFlightDir` is the
+     *  final flight's run direction (the step-off side). Best-effort; never throws. */
+    private _createStairVoidGuard(
+        cm: CommandManagerLike,
+        voidRect: ReadonlyArray<{ x: number; z: number }>,
+        topLevelId: string,
+        lastFlightDir: { x: number; y?: number; z: number },
+    ): void {
+        const c = voidRect.slice(0, 4).map(p => ({ x: p.x, z: p.z }));
+        if (c.length < 4) return;
+        const cx = (c[0]!.x + c[1]!.x + c[2]!.x + c[3]!.x) / 4;
+        const cz = (c[0]!.z + c[1]!.z + c[2]!.z + c[3]!.z) / 4;
+        const edges: Array<[number, number]> = [[0, 1], [1, 2], [2, 3], [3, 0]];
+        // The OPEN (step-off) edge = the one whose outward midpoint normal best aligns with the final
+        // flight direction (you walk OFF the stair across that edge), so it stays rail-free.
+        const ldLen = Math.hypot(lastFlightDir.x, lastFlightDir.z) || 1;
+        const ldx = lastFlightDir.x / ldLen, ldz = lastFlightDir.z / ldLen;
+        let openIdx = 0, bestDot = -Infinity;
+        edges.forEach(([i, j], idx) => {
+            const mx = (c[i]!.x + c[j]!.x) / 2, mz = (c[i]!.z + c[j]!.z) / 2;
+            const ox = mx - cx, oz = mz - cz;
+            const olen = Math.hypot(ox, oz) || 1;
+            const dot = (ox / olen) * ldx + (oz / olen) * ldz;
+            if (dot > bestDot) { bestDot = dot; openIdx = idx; }
+        });
+        let railed = 0;
+        edges.forEach(([i, j], idx) => {
+            if (idx === openIdx) return;   // step-off side stays open
+            try {
+                cm.execute?.(new CreateHandrailCommand({
+                    id: createId('handrail'),
+                    start: { x: c[i]!.x, z: c[i]!.z },
+                    end: { x: c[j]!.x, z: c[j]!.z },
+                    height: STAIR_HANDRAIL_HEIGHT_M,
+                    thickness: 0.05,
+                    levelId: topLevelId,
+                    baseOffset: 0,
+                    fillType: 'baluster',
+                    railProfile: 'rectangular',
+                }), { source: 'RESI_PIPELINE_STAIR_VOID_GUARD' });
+                railed++;
+            } catch (e) { console.warn('[resi-building] stair-void guard edge skipped:', e); }
+        });
+        console.log(`[resi-building] §RESI-STAIR-QUALITY-MATCH-HOUSE stair-void guardrail — ${railed}/3 edge(s) railed on ${topLevelId}`);
     }
 
     /** Add the 4 edges of a corridor band as room-bounding lines so detection reads
@@ -2177,7 +2290,7 @@ export class ResidentialBuildingExecutor {
      *  CEILING = painted plasterboard (moisture-resistant in wet rooms); FLOOR keyed to the room kind
      *  (the floor element pass also sets it, this is the schedule-side guarantee). Deferred per level
      *  so the rooms have settled. Best-effort: a miss on one room/level logs + skips. */
-    private _scheduleRoomFinishes(runtime: PryzmRuntime, levelIds: readonly string[]): void {
+    private _scheduleRoomFinishes(_runtime: PryzmRuntime, levelIds: readonly string[]): void {
         const cm = getCommandManager();
         if (!cm?.execute) return;
         // Wet rooms take a moisture-resistant ceiling + a wipeable wall finish; everything else gets
@@ -2301,8 +2414,9 @@ export class ResidentialBuildingExecutor {
         // so each public area reads as a FINISHED floor (not raw slab) AND the room schedule's Floor
         // Finish column reads the materialName.
         const COMMERCIAL = { color: '#b8b4ad', pattern: 'tile-600x600' as const, name: 'Porcelain Tile 600×600 (Commercial)' };
+        // §RESI-CORRIDOR-FINISH-CONTINUOUS-FIX2 — ONE tone for the whole merged circulation cross
+        // (runs + spine + core lobby), so it reads as a single continuous surface, not patches.
         const CORRIDOR = { color: '#c9c2b6', pattern: 'seamless' as const, name: 'Stone-Effect Vinyl (Corridor)' };
-        const CORE_LOBBY = { color: '#bcae8f', pattern: 'terrazzo' as const, name: 'Terrazzo (Lift Lobby)' };
 
         // §RESI-STAIR-VOID-IN-FINISH — build floor service-holes (CW-wound, vs the CCW finish ring)
         // for every recorded stairwell void on `levelId` whose centroid falls inside `worldPoly`, so
@@ -2433,6 +2547,83 @@ export class ResidentialBuildingExecutor {
             return { x0, z0: bz0, x1, z1: bz1 };
         };
 
+        // §RESI-CORRIDOR-FINISH-CONTINUOUS-FIX2 (founder 2026-06-24: "the corridor finish STILL has
+        // gaps — patches between apartments, not one continuous run") — merge a set of axis-aligned
+        // rects (the tightened corridor runs + the transverse spine + the core lobby) into ONE
+        // CONNECTED outline polygon (the rectilinear union), so the corridor finish is a single
+        // unbroken surface along the whole circulation. Algorithm: build the grid of all distinct x
+        // and z breakpoints, mark every cell covered by ANY rect, then trace the boundary of the
+        // covered region (marching the cell edges that border covered↔uncovered) into a CCW ring.
+        // Robust for the resi case (parallel runs + one spine + core, all axis-aligned in LOCAL).
+        // Returns the merged ring(s); a disconnected component (shouldn't happen once they overlap)
+        // surfaces as its own ring. LOCAL frame — the caller rotates to world.
+        const unionRectsToRings = (
+            rects: ReadonlyArray<{ x0: number; z0: number; x1: number; z1: number }>,
+        ): Array<Array<{ x: number; z: number }>> => {
+            const valid = rects
+                .map(r => ({ x0: Math.min(r.x0, r.x1), x1: Math.max(r.x0, r.x1), z0: Math.min(r.z0, r.z1), z1: Math.max(r.z0, r.z1) }))
+                .filter(r => r.x1 - r.x0 > 1e-4 && r.z1 - r.z0 > 1e-4);
+            if (valid.length === 0) return [];
+            const xs = [...new Set(valid.flatMap(r => [r.x0, r.x1]))].sort((a, b) => a - b);
+            const zs = [...new Set(valid.flatMap(r => [r.z0, r.z1]))].sort((a, b) => a - b);
+            const nx = xs.length - 1, nz = zs.length - 1;
+            if (nx < 1 || nz < 1) return [];
+            // covered[i][j] = cell [xs[i],xs[i+1]] × [zs[j],zs[j+1]] is inside some rect.
+            const covered: boolean[][] = Array.from({ length: nx }, () => new Array<boolean>(nz).fill(false));
+            for (let i = 0; i < nx; i++) {
+                const cx = (xs[i]! + xs[i + 1]!) / 2;
+                for (let j = 0; j < nz; j++) {
+                    const cz = (zs[j]! + zs[j + 1]!) / 2;
+                    covered[i]![j] = valid.some(r => cx > r.x0 && cx < r.x1 && cz > r.z0 && cz < r.z1);
+                }
+            }
+            // Collect boundary edges (between a covered cell and uncovered/outside), as directed
+            // segments wound so the covered region is on the LEFT (CCW outer). Each grid edge is
+            // a unit segment between two adjacent breakpoint vertices.
+            const key = (a: { x: number; z: number }, b: { x: number; z: number }): string => `${a.x.toFixed(4)},${a.z.toFixed(4)}->${b.x.toFixed(4)},${b.z.toFixed(4)}`;
+            const edges = new Map<string, { a: { x: number; z: number }; b: { x: number; z: number } }>();
+            const addEdge = (a: { x: number; z: number }, b: { x: number; z: number }): void => { edges.set(key(a, b), { a, b }); };
+            const isCov = (i: number, j: number): boolean => i >= 0 && i < nx && j >= 0 && j < nz && covered[i]![j]!;
+            for (let i = 0; i < nx; i++) {
+                for (let j = 0; j < nz; j++) {
+                    if (!covered[i]![j]) continue;
+                    const x0 = xs[i]!, x1 = xs[i + 1]!, z0 = zs[j]!, z1 = zs[j + 1]!;
+                    // Boundary on a side where the neighbour is NOT covered. Wind CCW (region on left).
+                    if (!isCov(i, j - 1)) addEdge({ x: x0, z: z0 }, { x: x1, z: z0 });   // bottom (−z) → +x
+                    if (!isCov(i + 1, j)) addEdge({ x: x1, z: z0 }, { x: x1, z: z1 });   // right (+x)  → +z
+                    if (!isCov(i, j + 1)) addEdge({ x: x1, z: z1 }, { x: x0, z: z1 });   // top (+z)    → −x
+                    if (!isCov(i - 1, j)) addEdge({ x: x0, z: z1 }, { x: x0, z: z0 });   // left (−x)   → −z
+                }
+            }
+            // Chain the directed edges into rings by following a→b from each unused edge.
+            const byStart = new Map<string, { a: { x: number; z: number }; b: { x: number; z: number } }[]>();
+            for (const e of edges.values()) {
+                const k = `${e.a.x.toFixed(4)},${e.a.z.toFixed(4)}`;
+                (byStart.get(k) ?? byStart.set(k, []).get(k)!).push(e);
+            }
+            const used = new Set<string>();
+            const rings: Array<Array<{ x: number; z: number }>> = [];
+            for (const start of edges.values()) {
+                if (used.has(key(start.a, start.b))) continue;
+                const ring: Array<{ x: number; z: number }> = [];
+                let cur = start;
+                let guard = edges.size + 4;
+                while (guard-- > 0) {
+                    used.add(key(cur.a, cur.b));
+                    ring.push({ x: cur.a.x, z: cur.a.z });
+                    const k = `${cur.b.x.toFixed(4)},${cur.b.z.toFixed(4)}`;
+                    const next = (byStart.get(k) ?? []).find(e => !used.has(key(e.a, e.b)));
+                    if (!next) break;
+                    cur = next;
+                    if (cur === start || key(cur.a, cur.b) === key(start.a, start.b)) break;
+                }
+                // Drop collinear interior vertices for a clean ring; keep ≥3 corners.
+                const simplified = this._cleanRing(ring);
+                if (simplified.length >= 3) rings.push(simplified);
+            }
+            return rings;
+        };
+
         let laid = 0;
         // Defer a beat so the structural slabs (and the bus dispatches) have settled.
         setTimeout(() => {
@@ -2446,24 +2637,40 @@ export class ResidentialBuildingExecutor {
                             // GROUND commercial floor — the whole (WORLD) footprint.
                             if (layFinish(levelId, lvl.footprint, COMMERCIAL, 'Commercial floor')) laid++;
                         } else {
-                            // §RESI-CORRIDOR-FINISH-SPAN — the PUBLIC CORRIDOR finish must span exactly
-                            // the band BETWEEN the apartment rows. Clip the orchestrator's corridor band
-                            // to the tight rect actually flanked by THIS level's placed apartment cells
-                            // (no overlap onto the apartments, no gap); fall back to the raw band if no
-                            // apartment flanks it (e.g. a transverse spine to the core).
+                            // §RESI-CORRIDOR-FINISH-CONTINUOUS-FIX2 — emit the public-circulation finish
+                            // as ONE CONTINUOUS surface tracing the whole cross: every corridor RUN
+                            // (tightened ACROSS to the gap between the facing apartment rows, so it never
+                            // bleeds into the apartments), the transverse SPINE, AND the CORE lobby —
+                            // merged into a single rectilinear-union polygon per level. The rects are
+                            // built to OVERLAP at the core intersection (the core rect is included), so
+                            // the union has NO gap around the core and NO isolated patches.
                             const perLevel = result.perLevelApartments[i];
                             const cells = (perLevel?.apartments ?? [])
                                 .filter(a => a.status === 'ok')
                                 .map(a => ({ rect: a.cell.rect }));
+                            const corridorRects: Array<{ x0: number; z0: number; x1: number; z1: number }> = [];
                             for (const band of perLevel?.publicCorridor ?? []) {
+                                // Tighten the WIDTH to the apartment gap (full length kept); spines with
+                                // no flanking apartment stay raw so they bridge runs↔core.
                                 const tight = cells.length > 0 ? tightCorridorRect(band, cells) : null;
-                                if (layFinish(levelId, rectToWorld(tight ?? band), CORRIDOR, 'Corridor floor')) laid++;
+                                corridorRects.push(tight ?? { x0: Math.min(band.x0, band.x1), z0: Math.min(band.z0, band.z1), x1: Math.max(band.x0, band.x1), z1: Math.max(band.z0, band.z1) });
                             }
-                            // CORE LOBBY — the core interior circulation floor (LOCAL → world). The
-                            // stair lands inside the core, so §RESI-STAIR-VOID-IN-FINISH CUTS the
-                            // recorded stairwell void out of this finish (cutVoids = true) so the open
-                            // stairwell shows through instead of being re-tiled over.
-                            if (result.core && layFinish(levelId, rectToWorld(result.core), CORE_LOBBY, 'Core lobby floor', true)) laid++;
+                            // Include the CORE rect so the cross MEETS through the core (no gap at the
+                            // intersection); the stairwell void is cut from the merged finish below.
+                            if (result.core) {
+                                corridorRects.push({ x0: result.core.x0, z0: result.core.z0, x1: result.core.x1, z1: result.core.z1 });
+                            }
+                            // Merge into one (or few) connected ring(s); each ring → ONE floor finish,
+                            // CUT around any recorded stairwell void on this level (the core sits in it).
+                            const rings = unionRectsToRings(corridorRects);
+                            if (rings.length === 0) {
+                                // Degenerate fallback — lay the core lobby alone so the level isn't bare.
+                                if (result.core && layFinish(levelId, rectToWorld(result.core), CORRIDOR, 'Corridor floor', true)) laid++;
+                            } else {
+                                for (const ring of rings) {
+                                    if (layFinish(levelId, ring.map(p => this._rotate({ x: p.x, z: p.z }, xf)), CORRIDOR, 'Corridor floor', true)) laid++;
+                                }
+                            }
                         }
                     }
                 }, { levelIds: [...new Set(levelIdByIndex.values())], totalElementCount: result.levels.length, skipRedetectRooms: true });

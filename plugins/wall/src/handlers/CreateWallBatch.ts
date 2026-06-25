@@ -127,6 +127,9 @@ export class CreateWallBatchHandler
           ...(w.materialColor !== undefined ? { materialColor: w.materialColor } : {}),
           ...(w.materialId !== undefined ? { materialId: w.materialId } : {}),
           ...(w.systemTypeId !== undefined ? { systemTypeId: w.systemTypeId } : {}),
+          // §RESI-FACADE-INTERIOR-WHITE (2026-06-24) — carry the per-layer finish stack so a layered
+          // wall (exterior façade colour + interior white) persists + renders per-face.
+          ...(w.layers !== undefined ? { layers: w.layers } : {}),
         }) as WallData;
       } catch (cause) {
         throw new WallSchemaError(
