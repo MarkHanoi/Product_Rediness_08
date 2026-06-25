@@ -2350,7 +2350,12 @@ export class WallFragmentBuilder {
 
         const t = opening.offset / wallLength;
         const sillHeight = opening.sillHeight ?? 0;
-        const localY = sillHeight + opening.height / 2 + wall.baseOffset;
+        // §WALL-NAN-GUARD (2026-06-25): wall.baseOffset is optional and arrives
+        // `undefined` from the generator/batch path (CreateWallBatch only spreads it
+        // when defined; §RESI-FACADE shell walls omit it). `undefined + n === NaN`
+        // would place the opening frame at NaN localY → NaN bounding volumes. Default
+        // to 0, matching §FIX-NAN-Y on the wall-body path.
+        const localY = sillHeight + opening.height / 2 + (wall.baseOffset ?? 0);
 
         const pos = dir.clone().multiplyScalar(opening.offset);
         frameGroup.position.set(pos.x, localY, pos.z);
@@ -2515,7 +2520,12 @@ export class WallFragmentBuilder {
 
         const t = opening.offset / wallLength;
         const sillHeight = opening.sillHeight ?? 0;
-        const localY = sillHeight + opening.height / 2 + wall.baseOffset;
+        // §WALL-NAN-GUARD (2026-06-25): wall.baseOffset is optional and arrives
+        // `undefined` from the generator/batch path (CreateWallBatch only spreads it
+        // when defined; §RESI-FACADE shell walls omit it). `undefined + n === NaN`
+        // would place the opening frame at NaN localY → NaN bounding volumes. Default
+        // to 0, matching §FIX-NAN-Y on the wall-body path.
+        const localY = sillHeight + opening.height / 2 + (wall.baseOffset ?? 0);
 
         const pos = dir.clone().multiplyScalar(opening.offset);
         frameGroup.position.set(pos.x, localY, pos.z);
