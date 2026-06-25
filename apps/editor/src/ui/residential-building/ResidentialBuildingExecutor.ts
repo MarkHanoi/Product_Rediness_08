@@ -1808,21 +1808,34 @@ export class ResidentialBuildingExecutor {
         const xInnerDepth = Math.max(0, innerX1 - innerX0);
         const zInnerDepth = Math.max(0, innerZ1 - innerZ0);
 
-        // ── LATERAL (x) fit. A U-stair is TWO flights side-by-side ⇒ lateral footprint = 2·stairWidth.
-        // It must fit the band from the LEFT inner face to the lift's left edge (clear of the lift too).
+        // §RESI-STAIR-GUARD-CONTAIN-FIX2 (founder 2026-06-25: the L-shaped baluster guard pokes
+        // THROUGH the white core wall) — the L is the stair's OWN left+right flight balustrade
+        // (CreateStairCommand.proposeRailings hardcodes BOTH sides, following flight1 → landing →
+        // flight2 = the L/U the founder sees); the resi caller cannot disable a side. Its baluster line
+        // sits at the flight EDGE (centreline ± width/2) and extends OUTWARD by ~balusterWidth/2. So
+        // the LEFT flight (run-2) rail, whose left edge was anchored at innerX0 (only 0.1 m off the RC
+        // wall inner face), pokes its balusters into the wall. FIX: reserve a dedicated RAIL CLEARANCE
+        // so the stair's leftmost flight edge sits a clean gap off the wall — the left rail then stands
+        // inside the void with visible air to the wall. Folded into the lateral fit + the start anchor.
+        const STAIR_RAIL_CLEAR_M = 0.18;   // ≥ baluster half-width + a visible air gap to the RC wall
+        // ── LATERAL (x) fit. A U-stair is TWO flights side-by-side ⇒ lateral footprint = 2·stairWidth,
+        // PLUS the left rail clearance off the wall. It must fit the band from the LEFT inner face
+        // (+ rail clear) to the lift's left edge (clear of the lift too).
+        const xBandLeft = innerX0 + STAIR_RAIL_CLEAR_M;     // left flight edge sits here, off the wall
         const xBandRight = Math.min(innerX1, (liftCx - shaftWidth / 2) - STAIR_CORE_CLEARANCE_M);
-        const xBand = Math.max(0, xBandRight - innerX0);
-        // §RESI-STAIR-GUARD-CONTAIN (founder 2026-06-24: doubled verticals on the right = stair body +
-        // guard clashing the core RC wall) — CLAMP the lateral footprint `2·stairWidth` to fit INSIDE
-        // the core inner rect by construction: stairWidth ≤ min(xBand, xInnerDepth)/2. The width MUST
-        // also be ≥ the CreateStairCommand MIN_WIDTH (0.9 m) or `canExecute` BLOCKS (§RESI-CORE-STAIR-
-        // ALWAYS) — a CONTAINED 0.9 m stair still beats a clashing one, so the 0.9 floor wins on a
-        // sub-1.8 m-inner core (a tiny, slight, single-axis overhang; the doubled-wall clash is gone).
+        const xBand = Math.max(0, xBandRight - xBandLeft);
+        // CLAMP the lateral footprint `2·stairWidth` to fit INSIDE the cleared band by construction:
+        // stairWidth ≤ min(xBand, xInnerDepth − rail clear)/2. The width MUST also be ≥ the command
+        // MIN_WIDTH (0.9 m) or `canExecute` BLOCKS (§RESI-CORE-STAIR-ALWAYS) — a contained 0.9 m stair
+        // still beats a clashing one, so the 0.9 floor wins on a sub-1.8 m core (tiny single-axis
+        // overhang; the through-wall rail clash is gone).
         const STAIR_MIN_WIDTH_M = 0.9;   // == STAIR_CONSTRAINTS.MIN_WIDTH (command rejects below this)
-        const xContain = Math.min(xBand, xInnerDepth) / 2;   // keep 2·w inside the inner rect AND the lift band
+        const xContain = Math.min(xBand, xInnerDepth - STAIR_RAIL_CLEAR_M) / 2;
         const stairWidth = Math.max(STAIR_MIN_WIDTH_M, Math.min(STAIR_WIDTH_M, xContain));
-        // Run-1 centre x: anchor the footprint's leftmost edge (stairCenterX − 1.5·w) at the inner face.
-        const stairCenterX = innerX0 + 1.5 * stairWidth;
+        // Run-1 centre x: anchor the footprint's leftmost edge (= run-2's left edge = stairCenterX −
+        // 1.5·w) at the CLEARED band's left (innerX0 + rail clear), so the LEFT flight balustrade
+        // stands STAIR_RAIL_CLEAR_M off the core RC wall inner face (no through-wall balusters).
+        const stairCenterX = xBandLeft + 1.5 * stairWidth;
 
         // ── DEPTH (z) fit. §RESI-STAIR-LANDING-RECONNECT — with the HOUSE half-turn contract, the U
         // body's RUN-direction (z) footprint is just `flight1Run + ONE tread` (flight 2 starts one
@@ -1864,12 +1877,15 @@ export class ResidentialBuildingExecutor {
         const stairStartZ = innerZ0 + lobbyDepth;
         // Containment check (now on the TRUE run depth). 2·stairWidth ≤ xInnerDepth holds by the x-fit
         // (stairWidth ≤ xBand/2 ≤ xInnerDepth/2). Warn only if the rise genuinely cannot fit the depth.
-        const widthFits = 2 * stairWidth <= xInnerDepth + 1e-6;
+        // §RESI-STAIR-GUARD-CONTAIN-FIX2 — the body occupies [xBandLeft, xBandLeft + 2·w] laterally
+        // (left edge inset by the rail clearance), so containment is `xBandLeft + 2·w ≤ innerX1`.
+        const widthFits = xBandLeft + 2 * stairWidth <= innerX1 + 1e-6;
         const depthFits = stairStartZ + stairDepth <= innerZ1 + 1e-6;
         if (!widthFits || !depthFits) {
             console.warn(
-                `[resi-building] §RESI-STAIR-GUARD-CONTAIN ⚠ core too shallow to fully contain the run ` +
-                `(coreD=${coreD.toFixed(2)} runDepth=${stairDepth.toFixed(2)}/${(innerZ1 - stairStartZ).toFixed(2)}) — body seated flush to z0.`,
+                `[resi-building] §RESI-STAIR-GUARD-CONTAIN ⚠ core too small to fully contain the stair+rail ` +
+                `(coreD=${coreD.toFixed(2)} runDepth=${stairDepth.toFixed(2)}/${(innerZ1 - stairStartZ).toFixed(2)} ` +
+                `rightEdge=${(xBandLeft + 2 * stairWidth).toFixed(2)}/${innerX1.toFixed(2)}) — geometry seated flush to the left wall + z0.`,
             );
         }
         // Lift sits BEHIND the lobby line, in the RIGHT half. Its depth fits the remaining inner depth.
