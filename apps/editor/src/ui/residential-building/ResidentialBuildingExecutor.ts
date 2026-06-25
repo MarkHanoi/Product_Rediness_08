@@ -1851,8 +1851,7 @@ export class ResidentialBuildingExecutor {
         const beforeRisers = beforeOf(totalRisers);
         const flight1Run = beforeRisers * STAIR_TREAD_M;
         // The landing depth PASSED to the command is the house value 2·width (the mesh's CROSS-RUN
-        // span); the RUN-direction footprint is `flight1Run + tread`.
-        const landingDepth = 2 * stairWidth;
+        // span, set inline at the CreateStair call); the RUN-direction footprint is `flight1Run + tread`.
         const stairDepth = flight1Run + STAIR_TREAD_M;     // the U body's RUN-direction (z) depth
         // §RESI-STAIR-GUARD-CONTAIN — seat the stair flush to the z0 inner face and CONTAIN the body
         // in the inner rect by construction. Any depth slack in front becomes the lobby (the fire-door
