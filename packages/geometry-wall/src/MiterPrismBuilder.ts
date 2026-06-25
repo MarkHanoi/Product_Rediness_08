@@ -1,5 +1,9 @@
 import * as THREE from '@pryzm/renderer-three/three';
 
+// §WALL-NAN-GUARD (2026-06-25) — one-shot latch so the non-finite fallback in
+// buildMiterPrism() logs ONCE per process rather than every wall rebuild.
+let _miterPrismNanWarned = false;
+
 /**
  * Builds a custom BufferGeometry for a wall section that has correct miter cuts
  * at its start and/or end faces.
@@ -40,14 +44,27 @@ export function buildMiterPrism(
     endMN?:   { nx: number; nz: number } | null,
 ): THREE.BufferGeometry {
 
-    const wallDir = new THREE.Vector3().subVectors(worldEnd, worldStart).normalize();
+    // §WALL-NAN-GUARD (2026-06-25) — coerce non-finite scalar inputs so a bad
+    // baseOffset/height (the §RESI-FACADE layered regression class) cannot seed a
+    // NaN Y into every cap vertex. The plain-wall path defaults baseOffset to 0;
+    // mirror that here for the layered miter-prism path.
+    const _baseOffset = Number.isFinite(baseOffset) ? baseOffset : 0;
+    const _height     = Number.isFinite(height)     ? height     : 0;
+
+    let wallDir = new THREE.Vector3().subVectors(worldEnd, worldStart).normalize();
+    // A zero-length layer centreline normalises to (0,0,0) → every projected/extruded
+    // vertex would be NaN-free here but the cap orientation is undefined; default to
+    // +X so the geometry is finite and the §WALL-NAN-GUARD backstop below is a no-op.
+    if (!Number.isFinite(wallDir.x) || !Number.isFinite(wallDir.z) || wallDir.lengthSq() < 1e-12) {
+        wallDir = new THREE.Vector3(1, 0, 0);
+    }
     const outward = new THREE.Vector3(-wallDir.z, 0, wallDir.x);
 
     const S = worldStart.clone();
     const E = worldEnd.clone();
 
-    const yBot = worldStart.y + baseOffset;
-    const yTop = worldStart.y + baseOffset + height;
+    const yBot = worldStart.y + _baseOffset;
+    const yTop = worldStart.y + _baseOffset + _height;
 
     type P3 = [number, number, number];
 
@@ -74,8 +91,16 @@ export function buildMiterPrism(
     ): P3 {
         if (!mn) return base;
 
+        // §WALL-NAN-GUARD (2026-06-25) — if the miter normal itself is non-finite
+        // (a degenerate consensus/bisector that escaped the resolver guards) the
+        // existing `Math.abs(mnDotDir) < 1e-9` test FAILS OPEN, because
+        // `Math.abs(NaN) < 1e-9` is false — so a NaN `t` would slide into the
+        // vertex and poison computeBoundingBox()/Sphere(). Square-cap (return the
+        // un-projected base) when MN is non-finite so the cap is valid, not NaN.
+        if (!Number.isFinite(mn.nx) || !Number.isFinite(mn.nz)) return base;
+
         const mnDotDir = mn.nx * dir.x + mn.nz * dir.z;
-        if (Math.abs(mnDotDir) < 1e-9) return base;
+        if (!Number.isFinite(mnDotDir) || Math.abs(mnDotDir) < 1e-9) return base;
 
         const dx = miterPlaneOrigin.x - base[0];
         const dz = miterPlaneOrigin.z - base[2];
@@ -127,6 +152,48 @@ export function buildMiterPrism(
     quad(sIB, eIB, eOB, sOB,  0, -1, 0);
     quad(sOB, sOT, sIT, sIB, -wallDir.x, 0, -wallDir.z);
     quad(eOB, eIB, eIT, eOT,  wallDir.x, 0,  wallDir.z);
+
+    // §WALL-NAN-GUARD (2026-06-25) — final backstop. If any cap vertex is still
+    // non-finite (an unforeseen degeneracy upstream), rebuild the prism as a plain
+    // butt-capped box (no miter projection) so the geometry committed to the
+    // renderer is always finite. A square-capped wall beats a NaN flood + a wall
+    // that vanishes from the scene. Logged once per process to avoid per-frame spam.
+    let _finite = true;
+    for (let i = 0; i < pos.length; i++) {
+        if (!Number.isFinite(pos[i])) { _finite = false; break; }
+    }
+    if (!_finite) {
+        if (!_miterPrismNanWarned) {
+            _miterPrismNanWarned = true;
+            console.warn(
+                '[MiterPrismBuilder] §WALL-NAN-GUARD non-finite miter-prism vertex ' +
+                '— falling back to a square-capped box (this log is one-shot).',
+            );
+        }
+        const bSOB = startBase(+1, yBot), bSOT = startBase(+1, yTop);
+        const bSIB = startBase(-1, yBot), bSIT = startBase(-1, yTop);
+        const bEOB = endBase(+1, yBot),   bEOT = endBase(+1, yTop);
+        const bEIB = endBase(-1, yBot),   bEIT = endBase(-1, yTop);
+        const pos2: number[] = [];
+        const nrm2: number[] = [];
+        const tri2 = (a: P3, b: P3, c: P3, nx: number, ny: number, nz: number) => {
+            pos2.push(...a, ...b, ...c);
+            nrm2.push(nx, ny, nz, nx, ny, nz, nx, ny, nz);
+        };
+        const quad2 = (a: P3, b: P3, c: P3, d: P3, nx: number, ny: number, nz: number) => {
+            tri2(a, b, c, nx, ny, nz); tri2(a, c, d, nx, ny, nz);
+        };
+        quad2(bSOB, bEOB, bEOT, bSOT,  outward.x, 0, outward.z);
+        quad2(bSIB, bSIT, bEIT, bEIB, -outward.x, 0, -outward.z);
+        quad2(bSOT, bEOT, bEIT, bSIT,  0, 1, 0);
+        quad2(bSIB, bEIB, bEOB, bSOB,  0, -1, 0);
+        quad2(bSOB, bSOT, bSIT, bSIB, -wallDir.x, 0, -wallDir.z);
+        quad2(bEOB, bEIB, bEIT, bEOT,  wallDir.x, 0,  wallDir.z);
+        const fb = new THREE.BufferGeometry();
+        fb.setAttribute('position', new THREE.Float32BufferAttribute(pos2, 3));
+        fb.setAttribute('normal',   new THREE.Float32BufferAttribute(nrm2, 3));
+        return fb;
+    }
 
     const geom = new THREE.BufferGeometry();
     geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));

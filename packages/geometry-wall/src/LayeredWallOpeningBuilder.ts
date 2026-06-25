@@ -77,6 +77,11 @@ function normaliseOpeningRects(openings: Opening[], wallLength: number, wallHeig
     return rects;
 }
 
+// §WALL-NAN-GUARD (2026-06-25) — one-shot latch so the defensive non-finite
+// fallback below logs ONCE per (wallId|layerIndex) instead of flooding the
+// console every wall rebuild (the symptom we are eliminating).
+const _nanGuardLogged = new Set<string>();
+
 function buildContinuousLayerGeometry(
     rects: OpeningRect[],
     wallLength: number,
@@ -88,7 +93,24 @@ function buildContinuousLayerGeometry(
     layerThickness: number,
     startMN?: { nx: number; nz: number } | null,
     endMN?:   { nx: number; nz: number } | null,
+    // §WALL-NAN-GUARD — identity for the one-shot non-finite diagnostic.
+    wallId?: string,
+    layerIndex?: number,
 ): THREE.BufferGeometry {
+    // §WALL-NAN-GUARD (2026-06-25) — DEFENCE-IN-DEPTH against a NaN baseOffset /
+    // NaN scalar reaching the BufferGeometry. The canonical regression
+    // (§RESI-FACADE-INTERIOR-WHITE layered perimeter walls) passed an `undefined`
+    // wall.baseOffset straight into `wallBaseOffset + y` → every vertex Y was NaN →
+    // computeBoundingBox()/computeBoundingSphere() spammed "Computed min/max have
+    // NaN values" / "radius is NaN" once per wall rebuild AND the wall vanished.
+    // The caller now defaults baseOffset to 0 (root fix), but we coerce here too so
+    // ANY non-finite scalar input (baseOffset, length, height, layer offset) cannot
+    // produce a NaN-coordinate geometry. A wrong-but-finite wall beats a NaN flood.
+    if (!Number.isFinite(wallBaseOffset)) wallBaseOffset = 0;
+    if (!Number.isFinite(wallLength))     wallLength = 0;
+    if (!Number.isFinite(wallHeight))     wallHeight = 0;
+    if (!Number.isFinite(layerCenter))    layerCenter = 0;
+    if (!Number.isFinite(layerThickness)) layerThickness = 0;
     const xs = [0, wallLength];
     const ys = [0, wallHeight];
     for (const rect of rects) {
@@ -226,6 +248,52 @@ function buildContinuousLayerGeometry(
         }
     }
 
+    // §WALL-NAN-GUARD (2026-06-25) — final safety net: if any computed vertex
+    // position is non-finite, the BufferGeometry would spam computeBoundingBox()/
+    // computeBoundingSphere() NaN warnings every rebuild AND the wall would not
+    // render. Detect it here, log ONCE (latched by wallId|layerIndex), and fall
+    // back to a valid plain box spanning the layer's extent so the wall renders as
+    // a simple solid rather than vanishing. This kills the console flood regardless
+    // of the upstream root cause (bad baseOffset, bad miter projection, etc.).
+    let _positionsFinite = true;
+    for (let pi = 0; pi < positions.length; pi++) {
+        if (!Number.isFinite(positions[pi])) { _positionsFinite = false; break; }
+    }
+    if (!_positionsFinite) {
+        const key = `${wallId ?? '?'}|${layerIndex ?? '?'}`;
+        if (!_nanGuardLogged.has(key)) {
+            _nanGuardLogged.add(key);
+            console.warn(
+                `[LayeredWallOpeningBuilder] §WALL-NAN-GUARD non-finite vertex in layered ` +
+                `opening geometry — wall=${wallId ?? '?'} layer=${layerIndex ?? '?'} ` +
+                `(len=${wallLength} h=${wallHeight} baseOff=${wallBaseOffset} ` +
+                `layerCenter=${layerCenter} layerThk=${layerThickness} ` +
+                `startMN=${startMN ? `${startMN.nx},${startMN.nz}` : 'none'} ` +
+                `endMN=${endMN ? `${endMN.nx},${endMN.nz}` : 'none'}). ` +
+                `Falling back to a plain box so the wall still renders.`,
+            );
+        }
+        // Build a clean axis-aligned box for the layer along the wall direction.
+        // All inputs were coerced finite at the top, so this box is always valid.
+        const safeLen   = Math.max(1e-3, wallLength);
+        const safeHt    = Math.max(1e-3, wallHeight);
+        const safeThk   = Math.max(1e-3, layerThickness);
+        const fallback  = new THREE.BoxGeometry(safeLen, safeHt, safeThk);
+        // Box is centred at origin and axis-aligned along local X (= wall length).
+        // Rotate FIRST about the origin to align local X with `direction`, THEN
+        // translate to the layer's placement (mid-length along `direction`, lateral
+        // `layerCenter` along `outward`, vertical centre at baseOffset + height/2).
+        const ang = Math.atan2(direction.z, direction.x);
+        fallback.rotateY(-ang);
+        const mid = direction.clone().multiplyScalar(safeLen / 2)
+            .add(outward.clone().multiplyScalar(layerCenter));
+        fallback.translate(mid.x, wallBaseOffset + safeHt / 2, mid.z);
+        fallback.computeVertexNormals();
+        fallback.computeBoundingBox();
+        fallback.computeBoundingSphere();
+        return fallback;
+    }
+
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     geometry.setIndex(indices);
@@ -285,7 +353,14 @@ export function buildLayeredWallSegmentsAroundOpenings(
     const outward       = new THREE.Vector3(-direction.z, 0, direction.x);
 
     const wallHeight    = wall.height;
-    const wallBaseOffset = wall.baseOffset;
+    // §WALL-NAN-GUARD (2026-06-25) — ROOT FIX. `wall.baseOffset` is typed `number`
+    // but the generator/command path (e.g. §RESI-FACADE-INTERIOR-WHITE shell walls,
+    // which carry NO baseOffset) leaves it `undefined` at render time. Feeding
+    // `undefined` into `wallBaseOffset + y` below produced a NaN Y on EVERY vertex,
+    // which the BufferGeometry then reported as NaN min/max + NaN radius once per
+    // wall rebuild, and the wall vanished. The plain-wall path already defends with
+    // `?? 0` (WallFragmentBuilder §FIX-NAN-Y); the layered-opening path did not.
+    const wallBaseOffset = Number.isFinite(wall.baseOffset as number) ? (wall.baseOffset as number) : 0;
     const openingRects = normaliseOpeningRects(
         clusters.flatMap(cluster => cluster.openings),
         wallLength,
@@ -326,6 +401,8 @@ export function buildLayeredWallSegmentsAroundOpenings(
             layer.thickness,
             miterNormals?.start,
             miterNormals?.end,
+            wall.id,
+            layerIndex,
         );
         const mesh = new THREE.Mesh(geo, layerMat.clone());
         mesh.userData = { ...commonUserData };
