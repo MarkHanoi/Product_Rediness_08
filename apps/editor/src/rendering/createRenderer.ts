@@ -75,16 +75,28 @@ export interface RendererResult {
 
 /**
  * The user's chosen GPU backend.
- *  - `'auto'`   — WebGPU when available, else WebGL2 (the default; today's behaviour).
+ *  - `'auto'`   — WebGPU when available, else WebGL2 (an explicit, WebGPU-capable choice).
  *  - `'webgpu'` — prefer the full WebGPU TSL pipeline (still falls back internally
- *                 if the device has no WebGPU).
- *  - `'webgl'`  — force plain WebGL2 (no TSL post-FX) — the stability escape hatch.
+ *                 if the device has no WebGPU). Needed for the presentation /
+ *                 SSGI / TRAA fidelity tier.
+ *  - `'webgl'`  — plain WebGL2 (no TSL post-FX) — the stable, fragment-engine-suited
+ *                 path. **This is the DEFAULT when the user has set no override**
+ *                 (founder decision, 2026-06-25): the per-element fragment engine
+ *                 suits WebGL's cheap-draw model; WebGPU only wins once instancing /
+ *                 material-sharing land, and WebGL renders the full building cleanly.
  */
 export type RendererBackendPreference = 'auto' | 'webgpu' | 'webgl';
 
 const BACKEND_PREF_KEY = 'pryzm.renderer.backend';
 
-/** Read the persisted backend preference. Defaults to 'auto'. Storage-safe. */
+/**
+ * Read the persisted backend preference.
+ *
+ * §PERF-WEBGPU-FRAGMENT (founder decision 2026-06-25) — when the user has NOT
+ * set an override, the DEFAULT is `'webgl'` (the stable, fragment-engine-suited
+ * path), NOT WebGPU. WebGPU stays fully selectable via the toggle ('webgpu' /
+ * 'auto'). Storage-safe.
+ */
 export function getRendererBackendPreference(): RendererBackendPreference {
     try {
         const v = globalThis.localStorage?.getItem(BACKEND_PREF_KEY);
@@ -92,7 +104,7 @@ export function getRendererBackendPreference(): RendererBackendPreference {
     } catch {
         /* localStorage unavailable (private mode / non-browser) — fall through */
     }
-    return 'auto';
+    return 'webgl'; // unset default → WebGL (was 'auto'/WebGPU-first)
 }
 
 /** Persist the backend preference. Caller is responsible for reloading. */
