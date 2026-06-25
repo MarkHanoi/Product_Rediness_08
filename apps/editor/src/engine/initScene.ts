@@ -1629,10 +1629,11 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         window.renderingPipelineCoordinator = renderingCoordinator;
 
         // ── ADR-0076 Axis 1 (§PERF-WEBGPU-FRAGMENT) — render quality tier hooks ──
-        // The coordinator owns shadow level + reflection probe directly; SSGI and
-        // the furniture shadow budget live elsewhere, so we inject them as hooks.
-        // Default-on but conservative + hysteretic: small/normal scenes stay on
-        // today's settings; only already-heavy scenes (>6k / >15k meshes) degrade.
+        // The coordinator owns shadow level + reflection probe directly; SSGI / TRAA
+        // and the furniture shadow budget live elsewhere, so we inject them as hooks.
+        // Default-on + hysteretic: ≤1500 meshes = cinematic (full quality, unchanged);
+        // a typical generated building (~4000 meshes) drops to `performance`
+        // (SSGI off, TRAA off, shadow=standard, decorative-furniture shadows off).
         renderingCoordinator.setTierFurnitureBudgetHook((decorativeShadows) => {
             setFurnitureShadowBudget(decorativeShadows ? 'full' : 'decorative-off');
         });
@@ -1641,6 +1642,14 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             // the WebGPU TSL pipeline owns SSGI, so this is safe on every backend.
             if (enabled) { void window.enableSSGI?.(); }
             else { window.disableSSGI?.(); }
+        });
+        renderingCoordinator.setTierTraaHook((enabled) => {
+            // TRAA lives in RenderPipelineManager (WebGPU TSL path). Resolved at
+            // call-time via window so the RPM (created later in this init) is wired.
+            // Both methods are idempotent + no-op when WebGPU is inactive.
+            const rpm = window.renderPipelineManager;
+            if (enabled) { void rpm?.activateTRAA?.(); }
+            else { void rpm?.deactivateTRAA?.(); }
         });
 
         // §A.21.D40 PBR-SCOPE — meshes already handed to the PBR upgrader.

@@ -328,7 +328,15 @@ declare global {
         pryzmRendererBackend: 'webgpu' | 'webgl-fallback' | 'webgl-only' | undefined;
         obcRendererCanvas: HTMLCanvasElement | undefined;
         renderPipelineManager:
-            | { onProjectSwitch?: () => void }
+            | {
+                onProjectSwitch?: () => void;
+                // §PERF-WEBGPU-FRAGMENT / ADR-0076 — TRAA toggle driven by the render
+                // quality tier (Axis 1). Both are async + idempotent + no-op on WebGL.
+                activateTRAA?: () => Promise<void>;
+                deactivateTRAA?: () => Promise<void>;
+                /** Pipeline status — webGpuActive gates the WebGL SSGI path (read at initScene). */
+                readonly status?: { webGpuActive?: boolean };
+              }
             | undefined;
         renderingPipelineCoordinator: unknown;
         renderingQualityPanel:
