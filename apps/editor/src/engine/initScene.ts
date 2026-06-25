@@ -1697,6 +1697,21 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                     // upgraded (was: a full scene.traverse on every geometry event).
                     const newMeshes = collectNewPbrMeshes(scene);
                     if (newMeshes.length > 0) renderingCoordinator.onSceneGeometryAdded(newMeshes);
+                    // §PERF-WEBGPU-FRAGMENT / ADR-0076 — re-evaluate the render tier on
+                    // every (non-batched) geometry add too, not only at batch-end. Some
+                    // generators (e.g. the residential-building pipeline) add geometry
+                    // outside batchCoordinator batches, so the post-batch callback alone
+                    // could leave the tier stuck at cold-start. applyTierForMeshCount
+                    // ALWAYS logs (observable) and only re-applies on a real tier change.
+                    try {
+                        let meshCount = 0;
+                        scene.traverse((obj) => {
+                            if (obj instanceof THREE.Mesh || obj instanceof THREE.InstancedMesh) meshCount++;
+                        });
+                        renderingCoordinator.applyTierForMeshCount(meshCount);
+                    } catch (tierErr) {
+                        console.warn('[initScene] §PERF-WEBGPU-FRAGMENT per-event tier apply error:', tierErr);
+                    }
                     // NOTE: scheduleShadowRebuild() is intentionally NOT called here.
                     // Setting castShadow/receiveShadow on individual meshes does NOT
                     // destroy or recreate ShadowDepthTexture — the texture lives on

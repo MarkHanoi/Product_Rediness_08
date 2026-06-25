@@ -494,9 +494,21 @@ export class RenderingPipelineCoordinator {
      */
     applyTierForMeshCount(meshCount: number): { tier: SceneQualityTier; changed: boolean; settings: SceneQualitySettings } {
         const result = sceneQualityTierManager.update(meshCount);
-        if (!result.changed) return result;
+        const { settings, tier, changed } = result;
 
-        const { settings, tier } = result;
+        // §PERF-WEBGPU-FRAGMENT — ALWAYS log the decision so the tier behaviour is
+        // observable on every batch (the founder reported "no data with tier"). The
+        // one-line format requested by the perf review:
+        console.log(
+            `[SceneQualityTier] ${meshCount} meshes → tier=${tier} ` +
+            `(SSGI=${settings.ssgi ? 'on' : 'off'} TRAA=${settings.traa ? 'on' : 'off'} ` +
+            `shadow=${settings.shadowLevel} decorativeShadows=${settings.decorativeFurnitureShadows ? 'on' : 'off'})` +
+            `${changed ? '' : ' [unchanged]'}`,
+        );
+
+        // Only (re)apply the THREE-side mutators when the tier actually changed —
+        // applying identical settings every batch is wasted work + flicker risk.
+        if (!changed) return result;
 
         // Furniture decorative-shadow budget (Axis 2) — injected hook.
         try {
@@ -532,9 +544,8 @@ export class RenderingPipelineCoordinator {
         }
 
         console.log(
-            `[RenderingPipelineCoordinator] §PERF-WEBGPU-FRAGMENT render tier → "${tier}" ` +
-            `(meshes=${meshCount}; ssgi=${settings.ssgi} shadows=${settings.shadowLevel} ` +
-            `decorativeFurnitureShadows=${settings.decorativeFurnitureShadows}).`,
+            `[RenderingPipelineCoordinator] §PERF-WEBGPU-FRAGMENT applied tier "${tier}" ` +
+            `(furniture/SSGI hooks + shadow=${settings.shadowLevel}).`,
         );
 
         return result;
