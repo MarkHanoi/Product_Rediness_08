@@ -24,6 +24,7 @@
 
 import { VersionRecord } from './PlatformShellTypes';
 import { apiFetch } from '@pryzm/core-app-model';
+import { getVersionCacheStore } from './VersionCacheStore';
 
 // ── Backoff schedule (Phase 2) ────────────────────────────────────────────────
 
@@ -491,6 +492,8 @@ export class ServerSyncQueue {
 
     private persistQueue(): void {
         if (this.queue.length === 0) {
+            // §VERSION-QUOTA-INDEXEDDB — clear from BOTH stores so neither resurrects.
+            try { getVersionCacheStore().clearSyncQueue(); } catch { /* non-fatal */ }
             try { localStorage.removeItem(QUEUE_STORAGE_KEY); } catch { /* localStorage unavailable */ }
             return;
         }
@@ -502,6 +505,23 @@ export class ServerSyncQueue {
             nextAttemptAt: item.nextAttemptAt,
         }));
 
+        // §VERSION-QUOTA-INDEXEDDB (2026-06-25) — PRIMARY persistence is IndexedDB,
+        // whose quota (hundreds of MB+) easily holds full VersionRecord snapshots.
+        // Each queue item carries an entire serialised BIM scene; on a large project
+        // even ONE item exceeded the ~1.5 MB localStorage byte budget, so the newest
+        // autosave could not survive a reload. IDB persists the WHOLE queue verbatim
+        // (no budget trimming) and never throws.
+        const store = getVersionCacheStore();
+        if (!store.isDisabled()) {
+            store.putSyncQueue(JSON.stringify(serialisable));   // mirror sync + IDB async
+            // Drop any stale legacy localStorage queue so a cold-mirror load can't
+            // resurrect an outdated (trimmed) copy from the fallback path.
+            try { localStorage.removeItem(QUEUE_STORAGE_KEY); } catch { /* ignore */ }
+            return;
+        }
+
+        // ── Fallback: IndexedDB unavailable → preserve the original byte-budgeted
+        // localStorage persistence (graceful degrade, never crash). ─────────────
         // §SYNC-QUEUE-QUOTA — trim to the byte budget BEFORE the write so the
         // serialised payload is bounded. Then write with a quota-aware retry: if
         // the environment's real quota is still exceeded (other localStorage
@@ -566,9 +586,32 @@ export class ServerSyncQueue {
     }
 
     private loadPersistedQueue(): void {
+        // §VERSION-QUOTA-INDEXEDDB — the queue now lives in IndexedDB (read via a
+        // synchronous mirror), with legacy localStorage as a fallback. At construction
+        // the mirror is usually COLD (warm() is async), so this synchronous pass picks
+        // up the legacy localStorage copy if present, and an async warm below loads the
+        // IDB-resident queue (the durable, untrimmed one) and merges it in.
+        const store = getVersionCacheStore();
+        this._applyPersistedQueue(store.getSyncQueueSync() ?? localStorage.getItem(QUEUE_STORAGE_KEY));
+
+        if (!store.isDisabled()) {
+            store.warm().then(() => {
+                const raw = store.getSyncQueueSync();
+                if (!raw) return;
+                const before = this.queue.length;
+                this._applyPersistedQueue(raw);
+                if (this.queue.length > before || before === 0) {
+                    if (this.queue.length > 0) this.scheduleFlush(3000);
+                }
+            }).catch(() => { /* non-fatal — in-memory queue (if any) still retries */ });
+        }
+    }
+
+    /** Parse a persisted queue JSON blob into `this.queue` (capped, backoff reset).
+     *  Never throws; a malformed blob leaves the current queue untouched. */
+    private _applyPersistedQueue(raw: string | null | undefined): void {
+        if (!raw) return;
         try {
-            const raw = localStorage.getItem(QUEUE_STORAGE_KEY);
-            if (!raw) return;
             const items = JSON.parse(raw) as QueueItem[];
             if (!Array.isArray(items)) return;
             this.queue = items.slice(0, MAX_QUEUE_ITEMS);
@@ -576,7 +619,7 @@ export class ServerSyncQueue {
                 item.nextAttemptAt = Date.now() + 5000;
             });
         } catch {
-            this.queue = [];
+            // leave existing queue as-is on a parse failure
         }
     }
 }

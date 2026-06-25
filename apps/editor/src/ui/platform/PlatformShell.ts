@@ -27,7 +27,7 @@
  */
 
 import { injectAppTheme } from '../styles/AppTheme';
-import { versionRepository } from './ProjectRepository';
+import { versionRepository, warmVersionCache } from './ProjectRepository';
 import type { SaveAdapter, LoadAdapter, IProjectSnapshot, ShellCtx } from './PlatformShellTypes';
 import type { VersionRecord } from './PlatformShellTypes';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
@@ -167,6 +167,14 @@ export class PlatformShell {
         this.saveCtrl.schedulePostLoadThumbnailCapture(id);
 
         // ── Auto-restore latest saved version ────────────────────────────────
+        // §VERSION-QUOTA-INDEXEDDB (2026-06-25) — local version history now lives in
+        // IndexedDB (large quota), read through a synchronous mirror. On a deep-linked
+        // open / hard reload the mirror may still be cold (the hub's warm hasn't run),
+        // so a synchronous read could miss persisted history and fall to the server.
+        // Kick a warm now (idempotent); for the "no local version" branch we await it
+        // and re-read before deciding to go to the server, so large-project history
+        // reliably auto-restores after a reload.
+        void warmVersionCache();
         const localVersions = versionRepository.getVersions(id);
         if (localVersions.length > 0) {
             const latest = localVersions[localVersions.length - 1]!;
@@ -196,6 +204,20 @@ export class PlatformShell {
                 versionId: string; versionLabel: string; snapshot: IProjectSnapshot;
                 elementCount: number; createdAt: string;
             } | null | undefined);
+            // §VERSION-QUOTA-INDEXEDDB — the synchronous read above may have missed
+            // IndexedDB-resident history because the mirror was still cold (deep-link
+            // / hard reload). Before falling through to the server, await the warm and
+            // re-read; a hit restores local history (incl. large >5 MB projects that
+            // no longer fit localStorage). No prefetch hint = safe to await first.
+            // The actual loadVersion happens AFTER the empty-load clears the scene
+            // (in the .then below) so warm-restore never races the scene clear.
+            const warmAttempt: Promise<VersionRecord | null> = (!prefetched)
+                ? warmVersionCache().then(() => {
+                    if (this.ctx.activeProjectId !== id) return null;
+                    const warmed = versionRepository.getVersions(id);
+                    return warmed.length > 0 ? warmed[warmed.length - 1]! : null;
+                }).catch(() => null)
+                : Promise.resolve(null);
             console.log('[PlatformShell] No local versions — clearing scene before data restore');
             this.ctx.loadAdapter.load(this._makeEmptySnapshot(id, name))
                 .then(() => {
@@ -219,8 +241,19 @@ export class PlatformShell {
                         this.versionCtrl.loadVersion(record);
                         return;
                     } else {
-                        console.log('[PlatformShell] Scene cleared — checking server for project:', id);
-                        return this._loadLatestVersionFromServer(id);
+                        // §VERSION-QUOTA-INDEXEDDB — wait for the IDB warm-retry to
+                        // settle (after the scene clear, so no race). If it surfaced
+                        // local history, load it; otherwise fall through to the server.
+                        return warmAttempt.then((warmedLatest) => {
+                            if (this.ctx.activeProjectId !== id) return;
+                            if (warmedLatest) {
+                                console.log('[PlatformShell] §VERSION-QUOTA-INDEXEDDB — restoring local version after IDB warm:', warmedLatest.label);
+                                this.versionCtrl.loadVersion(warmedLatest);
+                                return;
+                            }
+                            console.log('[PlatformShell] Scene cleared — checking server for project:', id);
+                            return this._loadLatestVersionFromServer(id);
+                        });
                     }
                 })
                 .catch(err => {
