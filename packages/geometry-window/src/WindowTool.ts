@@ -362,7 +362,7 @@ export class WindowTool {
         const wallDirNormalized = wallDir.clone().normalize();
         const hitDir = new THREE.Vector3().subVectors(hit.point, start);
 
-        let offset = hitDir.dot(wallDirNormalized);
+        const centreAlong = hitDir.dot(wallDirNormalized);
 
         // Get and validate window dimensions
         const width = this.windowType === 'double' ? this.DEFAULT_DOUBLE_WIDTH : this.DEFAULT_SINGLE_WIDTH;
@@ -375,10 +375,15 @@ export class WindowTool {
             return;
         }
 
-        // PLAN-10: Clamp using CENTER convention (not 0 to wallLength).
-        // offset is the distance from baseLine[0] to the CENTRE of the opening.
-        const halfW = width / 2;
-        offset = Math.max(halfW, Math.min(offset, wallLength - halfW));
+        // §OPENING-OFFSET-LEFTEDGE-UNIFY (2026-06-24): the stored opening `offset` is the
+        // LEFT EDGE of the span [offset, offset+width] (the convention used by every
+        // generator, the plugin window tool, the occupancy store, and C15 §2 voidStart).
+        // The raycast gives the CENTRE the user is pointing at, so convert centre →
+        // left edge and clamp the SPAN inside [0, wallLength]. (Previously this stored
+        // the centre and passed a centre to the left-edge canPlace — a pre-existing
+        // producer/occupancy mismatch fixed here.)
+        let offset = centreAlong - width / 2;
+        offset = Math.max(0, Math.min(offset, wallLength - width));
 
         // Validate that the offset is a finite number
         if (!isFinite(offset)) {

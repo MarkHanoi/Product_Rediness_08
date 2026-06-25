@@ -246,19 +246,24 @@ export class WindowPlanToolHandler implements PlanToolHandler {
         return bestId;
     }
 
+    // §OPENING-OFFSET-LEFTEDGE-UNIFY (2026-06-24): returns the LEFT EDGE of the opening
+    // span [offset, offset+width] (the convention used by occupancy + C15 §2 voidStart).
+    // The click projects to the opening CENTRE, so subtract width/2 and clamp the SPAN
+    // inside [0, wallLen]. (Previously returned the centre, which the geometry builders
+    // then mis-rendered against every left-edge producer.)
     private _computeWallOffset(worldX: number, worldZ: number, wallId: string, openingWidth: number, ws: WallStore): number {
         const wall = ws.getById(wallId) as WallData | undefined;
-        if (!wall?.baseLine || wall.baseLine.length < 2) return openingWidth / 2;
+        if (!wall?.baseLine || wall.baseLine.length < 2) return 0;
 
         const ax = wall.baseLine[0].x, az = wall.baseLine[0].z;
         const bx = wall.baseLine[1].x, bz = wall.baseLine[1].z;
         const dx = bx - ax, dz = bz - az;
         const wallLen = Math.hypot(dx, dz);
-        if (wallLen < 0.001) return openingWidth / 2;
+        if (wallLen < 0.001) return 0;
 
-        const raw  = ((worldX - ax) * dx + (worldZ - az) * dz) / wallLen;
-        const half = openingWidth / 2;
-        return Math.max(half, Math.min(wallLen - half, raw));
+        const rawCentre = ((worldX - ax) * dx + (worldZ - az) * dz) / wallLen;
+        const left = rawCentre - openingWidth / 2;
+        return Math.max(0, Math.min(wallLen - openingWidth, left));
     }
 
     private _findNearestWallIdInVerticalView(pt: WorldPoint, c: PlanToolDrawContext, maxDistM = 2.0): string | null {
@@ -289,23 +294,25 @@ export class WindowPlanToolHandler implements PlanToolHandler {
         return bestId;
     }
 
+    // §OPENING-OFFSET-LEFTEDGE-UNIFY (2026-06-24): returns the LEFT EDGE of the opening
+    // span — see _computeWallOffset. Centre (t·wallLen) → left edge − width/2, span clamped.
     private _computeWallOffsetInVerticalView(worldH: number, wallId: string, openingWidth: number, c: PlanToolDrawContext, ws: WallStore): number {
         const wall = ws.getById(wallId) as WallData | undefined;
-        if (!wall?.baseLine || wall.baseLine.length < 2) return openingWidth / 2;
+        if (!wall?.baseLine || wall.baseLine.length < 2) return 0;
 
         const a = wall.baseLine[0];
         const b = wall.baseLine[1];
         const dx = b.x - a.x;
         const dz = b.z - a.z;
         const wallLen = Math.hypot(dx, dz);
-        if (wallLen < 0.001) return openingWidth / 2;
+        if (wallLen < 0.001) return 0;
 
         const aH = c.viewPlane.hWorldAxis === 'x' ? a.x : a.z;
         const bH = c.viewPlane.hWorldAxis === 'x' ? b.x : b.z;
         const dH = bH - aH;
         const t = Math.abs(dH) > 1e-6 ? Math.max(0, Math.min(1, (worldH - aH) / dH)) : 0.5;
-        const half = openingWidth / 2;
-        return Math.max(half, Math.min(wallLen - half, t * wallLen));
+        const left = t * wallLen - openingWidth / 2;
+        return Math.max(0, Math.min(wallLen - openingWidth, left));
     }
 
     private _getNearestWallScreenAngle(worldX: number, worldZ: number, c: PlanToolDrawContext): number {

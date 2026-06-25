@@ -169,10 +169,11 @@ export class DoorPlanSymbolBuilder {
         // Wall left-normal: 90° CCW from dir in XZ plane — (−dir.z, 0, dir.x).
         const leftNormal = new THREE.Vector3(-dir.z, 0, dir.x);
 
-        // Door centre: baseLine[0] + dir * door.offset  (PLAN-09 CENTER convention)
-        const centre   = start.clone().addScaledVector(dir, Number(door.offset));
+        // §OPENING-OFFSET-LEFTEDGE-UNIFY (2026-06-24): door.offset is the LEFT EDGE of
+        // the span [offset, offset+width]; the plan-symbol CENTRE = offset + width/2.
         const width    = Number(door.width);
         const halfWidth = width / 2;
+        const centre   = start.clone().addScaledVector(dir, Number(door.offset) + halfWidth);
 
         // ── Frame and leaf dimensions ─────────────────────────────────────────
         const frameThick: number = Math.max(0, Number(door.frameThickness ?? 0.05));

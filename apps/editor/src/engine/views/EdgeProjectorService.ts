@@ -305,7 +305,9 @@ function _suppressPlanViewOpeningLines(
         // The cut plane must be strictly inside the opening (with 5 cm tolerance).
         if (cutPlaneY <= worldBottom + 0.05 || cutPlaneY >= worldTop - 0.05) continue;
 
-        zones.push({ min: offset - width / 2, max: offset + width / 2 });
+        // §OPENING-OFFSET-LEFTEDGE-UNIFY (2026-06-24): offset is the LEFT EDGE;
+        // span = [offset, offset+width].
+        zones.push({ min: offset, max: offset + width });
     }
     if (zones.length === 0) return;
 
@@ -447,8 +449,9 @@ function _suppressWallOpeningSeams(
 
         const sill = Number(op.sillHeight) || 0;
         const head = sill + height;
-        const leftBase = start.clone().addScaledVector(dir, offset - width / 2);
-        const rightBase = start.clone().addScaledVector(dir, offset + width / 2);
+        // §OPENING-OFFSET-LEFTEDGE-UNIFY: offset is the LEFT EDGE; span = [offset, offset+width].
+        const leftBase = start.clone().addScaledVector(dir, offset);
+        const rightBase = start.clone().addScaledVector(dir, offset + width);
         const leftSillPt = new THREE.Vector3(leftBase.x, wallBaseY + sill, leftBase.z);
         const rightSillPt = new THREE.Vector3(rightBase.x, wallBaseY + sill, rightBase.z);
         const leftHeadPt = new THREE.Vector3(leftBase.x, wallBaseY + head, leftBase.z);
@@ -474,7 +477,8 @@ function _suppressWallOpeningSeams(
             });
         }
 
-        for (const edgeOffset of [offset - width / 2, offset + width / 2]) {
+        // §OPENING-OFFSET-LEFTEDGE-UNIFY: offset is the LEFT EDGE; jambs at offset and offset+width.
+        for (const edgeOffset of [offset, offset + width]) {
             const base = start.clone().addScaledVector(dir, edgeOffset);
             const sillPt = new THREE.Vector3(base.x, wallBaseY + sill, base.z);
             const headPt = new THREE.Vector3(base.x, wallBaseY + head, base.z);

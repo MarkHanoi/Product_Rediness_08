@@ -1280,10 +1280,12 @@ export class LinearDimensionAnnotationTool {
             if (len < 0.001) return;
             dir.divideScalar(len);
             const prefix = sourceType === 'window' ? 'win' : 'door';
+            // §OPENING-OFFSET-LEFTEDGE-UNIFY (2026-06-24): item.offset is the LEFT EDGE of
+            // the opening span [offset, offset+width]; Centre = offset + width/2.
             const xDefs = [
-                { name: 'Left', along: item.offset - item.width * 0.5, code: 0 },
-                { name: 'Center', along: item.offset, code: 1 },
-                { name: 'Right', along: item.offset + item.width * 0.5, code: 2 },
+                { name: 'Left', along: item.offset, code: 0 },
+                { name: 'Center', along: item.offset + item.width * 0.5, code: 1 },
+                { name: 'Right', along: item.offset + item.width, code: 2 },
             ];
             const yDefs = [
                 { name: 'Base', y: start.y, code: 0 },

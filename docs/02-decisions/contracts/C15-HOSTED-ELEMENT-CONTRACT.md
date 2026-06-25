@@ -14,7 +14,7 @@
 | **Hosted element** | A door or window that is fully owned by a single wall ("the host wall"). Its position is defined by a scalar `offset` along the wall direction, not by an absolute world coordinate. |
 | **Host wall** | The `Wall` entity (in `WallStore`) that contains the hosted element in its `openings[]` array. |
 | **Opening** | The entry in `wall.openings[]` describing a void cut: `{ elementId, offset, width, height }`. |
-| **Offset** | Signed distance from `baseLine[0]` along the wall direction (`wallDir = normalise(baseLine[1] − baseLine[0])`) at which the **centre** of the hosted element sits. |
+| **Offset** | Signed distance from `baseLine[0]` along the wall direction (`wallDir = normalise(baseLine[1] − baseLine[0])`) to the **left edge / start** of the opening span `[offset, offset + width]`. The element **centre** therefore sits at `offset + width/2` (see §2 `worldCentre`/`voidStart`). *(§OPENING-OFFSET-LEFTEDGE-UNIFY 2026-06-24 — corrected from "centre", which contradicted the §2 `voidStart = baseLine[0] + offset × wallDir` formula and every producer/occupancy check.)* |
 | **Void geometry** | The mesh geometry gap ("cut") baked into the wall mesh by `WallFragmentBuilder` at build time. |
 | **Opening frame** | The door/window mesh (frame + leaf) managed as a Three.js scene group separate from the wall mesh. |
 | **WallRebuildCoordinator** | The service that subscribes to `bim-wall-updated` from `WallStore` and re-invokes `WallFragmentBuilder` for that wall. |

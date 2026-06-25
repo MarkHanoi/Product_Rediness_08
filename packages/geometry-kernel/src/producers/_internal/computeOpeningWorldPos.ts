@@ -12,7 +12,10 @@
 import type { Point3D } from '../../types/Point3D.js';
 
 export interface OpeningPositionInput {
-  readonly offset: number;     // Distance from baseLine[0] to opening centre (m).
+  // §OPENING-OFFSET-LEFTEDGE-UNIFY (2026-06-24): offset is the LEFT EDGE of the span
+  // [offset, offset+width]; the opening CENTRE = offset + width/2.
+  readonly offset: number;     // Distance from baseLine[0] to opening LEFT EDGE (m).
+  readonly width: number;      // Opening width along the wall (m).
   readonly height: number;     // Total opening height (m).
   readonly sillHeight: number; // Floor → bottom-of-opening (m).
 }
@@ -39,10 +42,12 @@ export function computeOpeningWorldPos(
 
   const wallAngle = Math.atan2(dirZ, dirX);
 
+  // §OPENING-OFFSET-LEFTEDGE-UNIFY: centre along the wall = left edge + width/2.
+  const centreAlong = opening.offset + opening.width / 2;
   const worldCenter: Point3D = {
-    x: start.x + dirX * opening.offset,
+    x: start.x + dirX * centreAlong,
     y: levelElevation + opening.sillHeight + opening.height / 2,
-    z: start.z + dirZ * opening.offset,
+    z: start.z + dirZ * centreAlong,
   };
 
   return {

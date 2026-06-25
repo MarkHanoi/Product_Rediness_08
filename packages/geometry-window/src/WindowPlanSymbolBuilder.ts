@@ -136,8 +136,10 @@ export class WindowPlanSymbolBuilder {
         const wallThickness = Number(wallData.thickness ?? 0.2);
         const halfThick = wallThickness / 2;
 
-        const centre = start.clone().addScaledVector(dir, Number(win.offset));
+        // §OPENING-OFFSET-LEFTEDGE-UNIFY (2026-06-24): win.offset is the LEFT EDGE of the
+        // span [offset, offset+width]; the plan-symbol CENTRE = offset + width/2.
         const halfW  = Number(win.width) / 2;
+        const centre = start.clone().addScaledVector(dir, Number(win.offset) + halfW);
 
         // Corner A and B of the opening along the wall direction
         const edgeA = centre.clone().addScaledVector(dir, -halfW);

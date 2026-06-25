@@ -163,8 +163,12 @@ export class HostedElementDragController {
         // for any wall not sitting at (0,0,0).
         const worldPos = new THREE.Vector3();
         obj.getWorldPosition(worldPos);
-        const rawNewOffset = new THREE.Vector3().subVectors(worldPos, start).dot(wallDir);
-        const clampedNewOffset = Math.max(0, Math.min(rawNewOffset, wallLength - elem.width));
+        // §OPENING-OFFSET-LEFTEDGE-UNIFY (2026-06-24): the element group renders at its
+        // CENTRE (positionGroup = offset + width/2), so the projection below is the new
+        // CENTRE along the wall. The stored/committed `offset` is the LEFT EDGE, so
+        // convert centre → left edge before clamping the SPAN inside [0, wallLength].
+        const rawCentreOffset = new THREE.Vector3().subVectors(worldPos, start).dot(wallDir);
+        const clampedNewOffset = Math.max(0, Math.min(rawCentreOffset - elem.width / 2, wallLength - elem.width));
         const delta = clampedNewOffset - this.dragStartOffset;
 
         if (Math.abs(delta) < MIN_MOVE_THRESHOLD) {
@@ -172,7 +176,7 @@ export class HostedElementDragController {
             // The store rebuild triggered by the next selection event will
             // authoratively restore the correct position anyway.
             const wallStart = new THREE.Vector3(start.x, start.y ?? 0, start.z);
-            this.restorePosition(obj, wallStart, wallDir, this.dragStartOffset);
+            this.restorePosition(obj, wallStart, wallDir, this.dragStartOffset, elem.width);
             return;
         }
 
@@ -246,14 +250,19 @@ export class HostedElementDragController {
         (this.transformControls as any).showZ = z;
     }
 
-    /** Snap the object back to `offset` along `wallDir` without firing a command. */
+    /**
+     * Snap the object back to its CENTRE along `wallDir` without firing a command.
+     * §OPENING-OFFSET-LEFTEDGE-UNIFY (2026-06-24): `offset` is the LEFT EDGE of the
+     * span; the rendered element CENTRE = offset + width/2.
+     */
     private restorePosition(
         obj: THREE.Object3D,
         wallStart: THREE.Vector3,
         wallDir: THREE.Vector3,
         offset: number,
+        width: number,
     ): void {
-        const correctPos = wallStart.clone().addScaledVector(wallDir, offset);
+        const correctPos = wallStart.clone().addScaledVector(wallDir, offset + width / 2);
         // Preserve Y (controlled by sillHeight + height/2 + baseOffset — store-authoritative)
         obj.position.set(correctPos.x, obj.position.y, correctPos.z);
     }

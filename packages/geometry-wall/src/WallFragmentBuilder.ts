@@ -1584,8 +1584,15 @@ export class WallFragmentBuilder {
             const clusters: SpanCluster[] = [];
 
             for (const op of sortedOpenings) {
-                const left = op.offset - op.width / 2;
-                const right = op.offset + op.width / 2;
+                // §OPENING-OFFSET-LEFTEDGE-UNIFY (2026-06-24): `op.offset` is the LEFT
+                // EDGE of the opening span [offset, offset+width] along the baseline
+                // (the convention used by every producer, the door/window tools, the
+                // occupancy store, and C15 §2 voidStart=offset). The void span and the
+                // frame centre below are BOTH derived from this left edge so they stay
+                // aligned. (Previously this treated offset as the centre, shifting a
+                // "centred" door ~width/2 toward baseLine[0].)
+                const left = op.offset;
+                const right = op.offset + op.width;
 
                 let merged = false;
 
@@ -1688,7 +1695,9 @@ export class WallFragmentBuilder {
                             role: 'geometry',
                             selectable: false
                         };
-                        positionLocal(gapMesh, op.offset, currentY + gapBelow / 2 + wallBaseOffset);
+                        // §OPENING-OFFSET-LEFTEDGE-UNIFY: gap mesh width = op.width, so its
+                        // CENTRE sits at the opening centre = left-edge offset + width/2.
+                        positionLocal(gapMesh, op.offset + op.width / 2, currentY + gapBelow / 2 + wallBaseOffset);
                         wallGroup!.add(gapMesh);
                     }
 
@@ -2348,11 +2357,15 @@ export class WallFragmentBuilder {
             return new THREE.Group();
         }
 
-        const t = opening.offset / wallLength;
+        // §OPENING-OFFSET-LEFTEDGE-UNIFY (2026-06-24): `opening.offset` is the LEFT
+        // EDGE of the span [offset, offset+width]; the frame's CENTRE sits at
+        // offset + width/2. This matches the void span computed in the cluster path.
+        const centreAlong = opening.offset + opening.width / 2;
+        const t = centreAlong / wallLength;
         const sillHeight = opening.sillHeight ?? 0;
         const localY = sillHeight + opening.height / 2 + wall.baseOffset;
 
-        const pos = dir.clone().multiplyScalar(opening.offset);
+        const pos = dir.clone().multiplyScalar(centreAlong);
         frameGroup.position.set(pos.x, localY, pos.z);
 
         // Correct rotation calculation
@@ -2513,11 +2526,15 @@ export class WallFragmentBuilder {
             return new THREE.Group();
         }
 
-        const t = opening.offset / wallLength;
+        // §OPENING-OFFSET-LEFTEDGE-UNIFY (2026-06-24): `opening.offset` is the LEFT
+        // EDGE of the span [offset, offset+width]; the frame's CENTRE sits at
+        // offset + width/2. This matches the void span computed in the cluster path.
+        const centreAlong = opening.offset + opening.width / 2;
+        const t = centreAlong / wallLength;
         const sillHeight = opening.sillHeight ?? 0;
         const localY = sillHeight + opening.height / 2 + wall.baseOffset;
 
-        const pos = dir.clone().multiplyScalar(opening.offset);
+        const pos = dir.clone().multiplyScalar(centreAlong);
         frameGroup.position.set(pos.x, localY, pos.z);
 
         // Correct rotation calculation

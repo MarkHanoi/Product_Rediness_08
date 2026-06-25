@@ -595,7 +595,9 @@ export function logExecRoomDiagnostics(
                     if (op.type !== 'window') continue;
                     if (typeof op.offset !== 'number' || typeof op.width !== 'number') continue;
                     checked++;
-                    const lo = op.offset - op.width / 2, hi = op.offset + op.width / 2;
+                    // §OPENING-OFFSET-LEFTEDGE-UNIFY (2026-06-24): offset is the LEFT EDGE;
+                    // span = [offset, offset+width].
+                    const lo = op.offset, hi = op.offset + op.width;
                     const EPS = 0.02;
                     if (lo < -EPS || hi > len + EPS) {
                         winOutOfBoundsCount++;
