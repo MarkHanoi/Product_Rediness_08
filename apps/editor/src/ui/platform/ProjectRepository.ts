@@ -27,6 +27,7 @@ import { VersionRecord } from './PlatformShellTypes';
 import { deflateSync, inflateSync, strToU8, strFromU8 } from 'fflate';
 import { getCurrentUserId } from '@pryzm/core-app-model';
 import { getThumbnailCacheStore } from './ThumbnailCacheStore';
+import { getVersionCacheStore } from './VersionCacheStore';
 
 /**
  * Gap 8 — Snapshot compression utilities.
@@ -211,6 +212,48 @@ export async function warmThumbnailCache(): Promise<void> {
             } catch { /* extremely full — next per-project save will retry via eviction */ }
         }
     } catch { /* non-fatal — migration retried on next save */ }
+}
+
+/**
+ * §VERSION-QUOTA-INDEXEDDB (2026-06-25) — warm the version cache's synchronous
+ * mirror from IndexedDB so the (synchronous) auto-restore read in
+ * `setProjectContext` (`getVersions`) surfaces persisted history without awaiting
+ * IDB. Call once on hub mount (alongside `warmThumbnailCache`) and again right
+ * before opening a project, so a deep-linked open also sees its local history.
+ * Resolves immediately if already warm / IDB unavailable. Never throws.
+ *
+ * Also performs a one-time MIGRATION: any legacy `bim-project-<id>-versions`
+ * payloads still sitting in localStorage (written before this change) are copied
+ * into IDB and removed from localStorage, immediately reclaiming the bloat that
+ * caused the quota exhaustion — without waiting for each project to be re-saved.
+ * The payload is the SAME compressed string the read path already understands, so
+ * the copy is verbatim (no recompression, compression preserved).
+ */
+export async function warmVersionCache(): Promise<void> {
+    const store = getVersionCacheStore();
+    try { await store.warm(); } catch { /* non-fatal */ }
+    if (store.isDisabled()) return; // no IDB — leave legacy localStorage in place as the fallback
+    // One-time migration of legacy localStorage version stores → IDB.
+    try {
+        const legacyKeys: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (!k) continue;
+            if (k.startsWith(STORAGE_VERSIONS_PREFIX) && k.endsWith(VERSIONS_SUFFIX)) legacyKeys.push(k);
+        }
+        for (const k of legacyKeys) {
+            const id = k.slice(STORAGE_VERSIONS_PREFIX.length, -VERSIONS_SUFFIX.length);
+            // Don't clobber a payload already migrated into IDB (mirror wins).
+            if (store.getVersionsSync(id) !== undefined) { try { localStorage.removeItem(k); } catch { /* ignore */ } continue; }
+            const payload = localStorage.getItem(k);
+            if (payload == null) continue;
+            store.putVersions(id, payload);          // verbatim — already compressed
+            try { localStorage.removeItem(k); } catch { /* ignore */ }
+        }
+        if (legacyKeys.length > 0) {
+            console.log(`[VersionRepository] §VERSION-QUOTA-INDEXEDDB — migrated ${legacyKeys.length} legacy version store(s) from localStorage into IndexedDB.`);
+        }
+    } catch { /* non-fatal — legacy stores stay in localStorage and are read via the fallback */ }
 }
 
 /**
@@ -523,7 +566,13 @@ export class LocalVersionRepository implements IVersionRepository {
 
     getVersions(projectId: string): VersionRecord[] {
         try {
-            const raw = localStorage.getItem(this.key(projectId));
+            // §VERSION-QUOTA-INDEXEDDB — primary store is IDB (synchronous mirror,
+            // warmed at hub mount / before project open). Fall back to the legacy
+            // localStorage payload when the mirror is cold (e.g. a deep-linked open
+            // before `warmVersionCache` ran, or an environment without IDB). Both
+            // hold the SAME compressed string, so the decompress path is identical.
+            const raw = getVersionCacheStore().getVersionsSync(projectId)
+                ?? localStorage.getItem(this.key(projectId));
             if (!raw) return [];
             const json = _decompressJSON(raw);
             return JSON.parse(json) as VersionRecord[];
@@ -579,14 +628,18 @@ export class LocalVersionRepository implements IVersionRepository {
         const idx = versions.findIndex(v => v.id === versionId);
         if (idx < 0) return;
         versions[idx] = { ...versions[idx], syncStatus };
+        // §VERSION-QUOTA-INDEXEDDB — persist to IDB (durable, large quota). Never
+        // throws; the mirror is updated synchronously so the next read is correct.
         try {
-            localStorage.setItem(this.key(projectId), _compressJSON(JSON.stringify(versions)));
+            getVersionCacheStore().putVersions(projectId, _compressJSON(JSON.stringify(versions)));
         } catch {
-            console.warn('[VersionRepository] Quota exceeded — syncStatus not persisted');
+            console.warn('[VersionRepository] syncStatus not persisted');
         }
     }
 
     deleteVersions(projectId: string): void {
+        // §VERSION-QUOTA-INDEXEDDB — drop from IDB (primary) AND legacy localStorage.
+        try { getVersionCacheStore().deleteVersions(projectId); } catch { /* non-fatal */ }
         try {
             localStorage.removeItem(this.key(projectId));
         } catch {
@@ -609,6 +662,28 @@ export class LocalVersionRepository implements IVersionRepository {
             );
         }
 
+        // §VERSION-QUOTA-INDEXEDDB (2026-06-25) — the PRIMARY durable store is now
+        // IndexedDB (origin quota is hundreds of MB+), not localStorage (~5–10 MB
+        // origin cap shared with everything else). A 5.4 MB compressed snapshot from
+        // a large project (785 elements) overflowed localStorage and the whole
+        // version history was dropped, even though the SERVER copy saved fine. IDB
+        // holds the full `MAX_VERSIONS_STORED` snapshots and survives a reload.
+        const store = getVersionCacheStore();
+        if (!store.isDisabled()) {
+            const payload = _compressJSON(JSON.stringify(trimmed));
+            store.putVersions(projectId, payload);               // mirror sync + IDB async, never throws
+            // Best-effort: drop any stale legacy localStorage copy so we don't read
+            // an outdated payload from the fallback path before the next warm.
+            try { localStorage.removeItem(this.key(projectId)); } catch { /* ignore */ }
+            console.log(
+                `[VersionRepository] ${trimmed.length} version(s) persisted to IndexedDB ` +
+                `(project "${projectId}", ~${(payload.length * 2 / 1024 / 1024).toFixed(1)} MB compressed).`
+            );
+            return;
+        }
+
+        // ── Fallback: IndexedDB unavailable → preserve the original localStorage
+        // trim/evict behaviour (graceful degrade, never crash). ────────────────
         for (const targetCount of TRIM_TARGETS) {
             const slice = trimmed.slice(-targetCount);
             try {

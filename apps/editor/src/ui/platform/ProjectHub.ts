@@ -22,7 +22,7 @@
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import { injectAppTheme } from '../styles/AppTheme';
 import { PlatformUser, signOut } from './AuthModal';
-import { projectRepository, ProjectMeta, warmThumbnailCache } from './ProjectRepository';
+import { projectRepository, ProjectMeta, warmThumbnailCache, warmVersionCache } from './ProjectRepository';
 import { EntitlementStore } from '@pryzm/core-app-model';
 import { getPlanDisplayName, PLAN_LIMITS } from '@pryzm/core-app-model';
 import { ProjectMemberPanel, ProjectMember } from './ProjectMemberPanel';
@@ -87,6 +87,11 @@ export class ProjectHub {
         // BEFORE the first server sync, then re-render so previews appear. Thumbnail
         // bytes no longer live in the project index, so the synchronous card render
         // reads them from this mirror; warming populates it once per session.
+        // §VERSION-QUOTA-INDEXEDDB (2026-06-25) — warm the IndexedDB version mirror
+        // (and migrate any legacy localStorage version stores) on hub mount so the
+        // synchronous auto-restore read at project-open surfaces local history that
+        // is now too large for localStorage. Fire-and-forget; never blocks the hub.
+        warmVersionCache().catch(() => { /* non-fatal — server version fallback covers cold reads */ });
         warmThumbnailCache()
             .then(() => { this.refreshGrid(); })
             .catch(() => { /* non-fatal — server thumbnailUrl / placeholder still render */ })
