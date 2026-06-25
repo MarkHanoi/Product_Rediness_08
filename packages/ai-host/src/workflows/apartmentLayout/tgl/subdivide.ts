@@ -1949,7 +1949,7 @@ function tryHallHingeCarve(
     corridor: ProgramRoom,
     master: ProgramRoom | undefined,
     ensuite: ProgramRoom | undefined,
-    ensuiteCarveArea: number,
+    _ensuiteCarveArea: number,
     corridorWidthM?: number,
     // §SUITE-WITHIN-PARENT — the (host → ensuite) suites to carve from the combed private slices.
     // OFF / apartment: the single master suite ⇒ identical to the legacy master→ensuite carve.
@@ -2571,7 +2571,7 @@ function tryNoPublicSingleLoadedCarve(
     privateRooms: readonly ProgramRoom[],
     master: ProgramRoom | undefined,
     ensuite: ProgramRoom | undefined,
-    ensuiteCarveArea: number,
+    _ensuiteCarveArea: number,
     corridorWidthM?: number,
     // §STAIR-FACE-AXIS (founder upper-floor fix) — the stair keep-out (shell frame). When present,
     // lay the corridor strip on the keep-out's edge so it SHARES A WALL with the stair (the corridor

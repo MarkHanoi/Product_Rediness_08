@@ -45,6 +45,7 @@ const REL_TYPE_LABEL: Record<RelationshipType, string> = {
     levelOf:          'Level of (building)',
     servesZone:       'Serves zone',
     connectedByStair: 'Connected by stair',
+    connectedByLift:  'Connected by lift',
     // ── G-1 temporal / causal / performance / lifecycle / intent ─────────────
     precededBy:          'Preceded by (version)',
     supersedes:          'Supersedes (version)',
@@ -73,6 +74,7 @@ const REL_ICON: Record<RelationshipType, string> = {
     levelOf:          '🏬',
     servesZone:       '🌡',
     connectedByStair: '🪜',
+    connectedByLift:  '🛗',
     // ── G-1 temporal / causal / performance / lifecycle / intent ─────────────
     precededBy:          '⏮',
     supersedes:          '⏭',
@@ -102,6 +104,7 @@ const REL_ORDER: Record<RelationshipType, number> = {
     supports:         11,
     servesZone:       12,
     connectedByStair: 13,
+    connectedByLift:  13,
     // ── G-1 temporal / causal / performance / lifecycle / intent ─────────────
     precededBy:          14,
     supersedes:          15,

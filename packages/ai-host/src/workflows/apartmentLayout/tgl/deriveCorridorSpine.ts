@@ -126,7 +126,7 @@ export function deriveCorridorSpine(
 
 /** Add a vertical leg from the horizontal primary run to an edge stair, when not already reached. */
 function addStairLegX(
-    segments: SpineSegment[], shell: readonly Pt[], zc: number, xL: number, xR: number,
+    segments: SpineSegment[], _shell: readonly Pt[], zc: number, xL: number, xR: number,
     widthM: number, stair?: Rect,
 ): void {
     if (!stair) return;
@@ -145,7 +145,7 @@ function addStairLegX(
 
 /** Add a horizontal leg from the vertical primary run to an edge stair, when not already reached. */
 function addStairLegZ(
-    segments: SpineSegment[], shell: readonly Pt[], xc: number, zL: number, zR: number,
+    segments: SpineSegment[], _shell: readonly Pt[], xc: number, zL: number, zR: number,
     widthM: number, stair?: Rect,
 ): void {
     if (!stair) return;
