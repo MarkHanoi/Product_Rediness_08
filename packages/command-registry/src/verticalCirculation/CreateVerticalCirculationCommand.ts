@@ -86,8 +86,22 @@ export class CreateVerticalCirculationCommand implements Command {
         const blockingIssues: string[] = [];
         const warnings: string[] = [];
 
-        if (baseLevelId === this.input.topLevelId) {
-            blockingIssues.push('Base level and top level cannot be the same');
+        // §RESI-LIFT-TOP-CAB (founder "the lift is not present on the top floor", 2026-06-23).
+        // A lift cab is emitted per ADJACENT level pair (base = floor i, top = floor i+1). The
+        // TOP residential floor has no level above it, so the residential generator emits its cab
+        // as a DEGENERATE single-floor span (base === top): a cab that lives entirely in the top
+        // floor's volume. LiftMeshBuilder.resolveSpan() already handles this — when base/top
+        // elevations are equal it falls back to a one-storey cab anchored at origin.y. Rejecting
+        // base === top here is what silently DROPPED the top-floor cab (canExecute blocks BEFORE
+        // execute, so the executor's try/catch only logged a warning). Allow the degenerate
+        // single-floor cab; only a MISSING (empty/undefined) top level is a hard error.
+        if (!baseLevelId) {
+            blockingIssues.push('Missing base level for lift creation');
+        }
+        if (!this.input.topLevelId) {
+            blockingIssues.push('Missing top level for lift creation');
+        } else if (baseLevelId === this.input.topLevelId) {
+            warnings.push('Single-floor lift cab (base level equals top level)');
         }
 
         const liftStore = ctx.stores.liftStore;
