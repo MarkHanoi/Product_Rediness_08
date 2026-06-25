@@ -133,8 +133,13 @@ export function buildResidentialPlanSvg(
     // ── plate fill (no shell stroke yet — drawn last, on top, as the heaviest line) ──
     parts.push(rectEl({ x0, z0, x1, z1 }, PLATE_FILL, 'none', 0));
 
-    // ── public-corridor band (drawn under the cells; thin defining edge) ─────────────
-    for (const c of corridors) parts.push(rectEl(c, CORRIDOR_FILL, CORRIDOR_STROKE, 0.75));
+    // ── public-corridor band (drawn under the cells) ─────────────────────────────────
+    // §RESI-PREVIEW-CORRIDOR-CONTINUOUS — the corridor is emitted as several abutting
+    // segment rects (the cross arms + the core lobby). Stroking EACH segment drew the
+    // shared internal edges as seams, so one continuous band read as "3 different
+    // finishes". Draw the segments as FILL-ONLY (same fill) so they merge seamlessly;
+    // the apartment cells (on top) + the shell outline (drawn last) provide the framing.
+    for (const c of corridors) parts.push(rectEl(c, CORRIDOR_FILL, 'none', 0));
 
     // ── apartment cells: typology tint + medium party-wall stroke ────────────────────
     let placed = 0, rejected = 0;
