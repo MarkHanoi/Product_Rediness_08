@@ -105,8 +105,17 @@ export interface SceneQualitySettings {
      */
     readonly decorativeFurnitureShadows: boolean;
     /**
-     * Whether a whole-scene PBR re-traverse is permitted. At performance+ the
-     * wiring layer should prefer incremental PBR (upgradeNewMeshes) instead.
+     * Whether the expensive whole-scene/post-batch PBR upgrade is permitted.
+     *
+     * Measured cost (founder, real 785-element / 4073-mesh building):
+     *   post-batch PBRSceneUpgrader = 38.7 SECONDS wall-clock (materials look
+     *   unfinished for ~38s as 4073 meshes trickle through needsUpdate → WebGPU
+     *   PSO recompiles). This is THE project-open bottleneck, not negligible.
+     *
+     * So this is true ONLY at `cinematic` (≤1500 meshes — small showcase scenes
+     * where the cosmetic envMapIntensity/toneMapped tuning is affordable). At
+     * `balanced` and above the upgrade is SKIPPED: the base MeshStandardMaterial
+     * is already PBR-capable and renders correctly without the tuning pass.
      */
     readonly fullScenePbrTraverse: boolean;
 }
@@ -126,7 +135,9 @@ const TIER_SETTINGS: Record<SceneQualityTier, SceneQualitySettings> = {
         reflectionProbes: false,
         shadowLevel: 'high',
         decorativeFurnitureShadows: true,
-        fullScenePbrTraverse: true,
+        // Skip the 38.7s post-batch PBR upgrade on anything beyond a small showcase
+        // scene — base MeshStandardMaterial already renders correctly without it.
+        fullScenePbrTraverse: false,
     },
     performance: {
         ssgi: false,

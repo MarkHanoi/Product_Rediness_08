@@ -1765,6 +1765,29 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                 );
                 return;
             }
+
+            // §PERF-WEBGPU-FRAGMENT / ADR-0076 — TIER-GATED PBR DEFER (the 38.7s fix).
+            // On a real 4073-mesh building the post-batch PBRSceneUpgrader is ~38.7s
+            // wall-clock (materials look unfinished for ~38s). It is only a cosmetic
+            // envMapIntensity/toneMapped refinement — base MeshStandardMaterial already
+            // renders correctly without it. So at `balanced` and above (any scene
+            // beyond a small ≤1500-mesh showcase) we SKIP the whole-scene upgrade
+            // entirely. The tier was already (re)evaluated at the top of this callback,
+            // so currentTier reflects this batch's mesh count.
+            if (!renderingCoordinator.shouldRunFullPbrUpgrade()) {
+                let _mc = 0;
+                try {
+                    (world.scene.three as THREE.Scene).traverse((o) => {
+                        if (o instanceof THREE.Mesh || o instanceof THREE.InstancedMesh) _mc++;
+                    });
+                } catch { /* count is advisory */ }
+                console.log(
+                    `[SceneQualityTier] deferring/skipping post-batch PBR upgrade ` +
+                    `(${_mc} meshes — tier above 'cinematic'; base MeshStandardMaterial ` +
+                    `renders correctly without the cosmetic envMap tuning). §PERF-WEBGPU-FRAGMENT`
+                );
+                return;
+            }
             console.log(
                 '[BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-RUNNING ' +
                 '(skipPbrUpgrade=false at post-batch callback time — running upgrade)'

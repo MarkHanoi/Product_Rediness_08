@@ -55,6 +55,7 @@ import { ClearcoatMaterialUpgrader } from './ClearcoatMaterialUpgrader';
 import { RealSunService, RealSunConfig } from './RealSunService';
 import {
     sceneQualityTierManager,
+    settingsForTier,
     type SceneQualityTier,
     type SceneQualitySettings,
 } from './SceneQualityTierManager';
@@ -549,6 +550,25 @@ export class RenderingPipelineCoordinator {
         );
 
         return result;
+    }
+
+    /**
+     * ADR-0076 §PERF-WEBGPU-FRAGMENT — whether the expensive whole-scene/post-batch
+     * PBR upgrade should run for the CURRENT render tier.
+     *
+     * Measured: the post-batch PBRSceneUpgrader is 38.7 s wall-clock on a real
+     * 4073-mesh building (THE project-open bottleneck). It is only worth running at
+     * `cinematic` (small showcase scenes); at `balanced`+ the base
+     * MeshStandardMaterial already renders correctly, so the caller should SKIP it.
+     *
+     * Returns true only when the held tier's `fullScenePbrTraverse` is true. Before
+     * the first tier evaluation (held tier undefined) it returns true so cold-start
+     * behaviour is unchanged for small scenes.
+     */
+    shouldRunFullPbrUpgrade(): boolean {
+        const tier = sceneQualityTierManager.currentTier;
+        if (tier === undefined) return true; // cold start — unchanged for small scenes
+        return settingsForTier(tier).fullScenePbrTraverse;
     }
 
     dispose(): void {
