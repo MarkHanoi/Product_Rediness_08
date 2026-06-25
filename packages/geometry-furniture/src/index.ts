@@ -17,6 +17,8 @@ export { FurnitureStore } from './FurnitureStore';
 export { MaterialService } from './MaterialService';
 export { AIElementEngine } from './AIElementEngine';
 export { FurnitureFragmentBuilder } from './FurnitureFragmentBuilder';
+// ADR-0076 Axis 2 (§PERF-WEBGPU-FRAGMENT) — furniture decorative-shadow budget.
+export * from './furnitureShadowBudget';
 export { FurnitureTool } from './FurnitureTool';
 export * from './FurnitureCategoryMap';
 // F8.3 (2026-05-31) — material-intent labels (substrate for future

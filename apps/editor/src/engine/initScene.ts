@@ -74,6 +74,8 @@ import type { EnhancedBloomService as _EnhancedBloomServiceImpl } from '@pryzm/c
 import type { SSGIService as _SSGIServiceImpl } from '@pryzm/core-app-model/rendering';
 import { RenderPerformanceService } from '@pryzm/core-app-model/rendering';
 import { RenderingPipelineCoordinator } from '@pryzm/core-app-model/rendering';
+// ADR-0076 Axis 2 (§PERF-WEBGPU-FRAGMENT) — furniture decorative-shadow budget setter.
+import { setFurnitureShadowBudget } from '@pryzm/geometry-furniture';
 import { probeRendererBackend, createRenderer } from '../rendering/createRenderer';
 import { RenderPipelineManager } from '@pryzm/renderer-three';
 import { ViewportCrashGuard } from '@app/ui/primitives/ViewportCrashGuard';
@@ -1608,6 +1610,21 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         // Expose for UI and VPT interop
         window.renderingPipelineCoordinator = renderingCoordinator;
 
+        // ── ADR-0076 Axis 1 (§PERF-WEBGPU-FRAGMENT) — render quality tier hooks ──
+        // The coordinator owns shadow level + reflection probe directly; SSGI and
+        // the furniture shadow budget live elsewhere, so we inject them as hooks.
+        // Default-on but conservative + hysteretic: small/normal scenes stay on
+        // today's settings; only already-heavy scenes (>6k / >15k meshes) degrade.
+        renderingCoordinator.setTierFurnitureBudgetHook((decorativeShadows) => {
+            setFurnitureShadowBudget(decorativeShadows ? 'full' : 'decorative-off');
+        });
+        renderingCoordinator.setTierSsgiHook((enabled) => {
+            // window.enableSSGI/disableSSGI self-guard: enableSSGI is a no-op while
+            // the WebGPU TSL pipeline owns SSGI, so this is safe on every backend.
+            if (enabled) { void window.enableSSGI?.(); }
+            else { window.disableSSGI?.(); }
+        });
+
         // §A.21.D40 PBR-SCOPE — meshes already handed to the PBR upgrader.
         // The upgrader itself is idempotent at the MATERIAL level (it skips any
         // material already snapshotted), but the post-batch callback used to
@@ -1681,6 +1698,22 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         // The setTimeout(0) here matches the existing per-element deferred pattern,
         // ensuring any trailing one-tick builder work lands before the scan.
         batchCoordinator.setPostBatchCallback(() => {
+            // ── ADR-0076 Axis 1 (§PERF-WEBGPU-FRAGMENT) — re-tier after every batch ──
+            // A batch is the moment a scene becomes heavy. Count the live scene
+            // meshes once and let the coordinator step the quality tier down on
+            // already-heavy scenes (hysteretic; idempotent — only re-applies on a
+            // real tier change). Runs regardless of the PBR-skip early-return below.
+            try {
+                const scene = world.scene.three as THREE.Scene;
+                let meshCount = 0;
+                scene.traverse((obj) => {
+                    if (obj instanceof THREE.Mesh || obj instanceof THREE.InstancedMesh) meshCount++;
+                });
+                renderingCoordinator.applyTierForMeshCount(meshCount);
+            } catch (tierErr) {
+                console.warn('[initScene] §PERF-WEBGPU-FRAGMENT tier apply error:', tierErr);
+            }
+
             // §FIX-SKIP-PBR-UPGRADE (2026-05-05): Curtain-wall batches pass skipPbrUpgrade:true
             // because curtain wall materials are already MeshStandardMaterial (PBR-ready).
             // The scene-traverse + needsUpdate=true pass measured ~482 ms for 626 meshes even

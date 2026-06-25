@@ -5,6 +5,9 @@ import { FurnitureFactory } from './builders/FurnitureFactory';
 import { WardrobeEngine } from './engines/WardrobeEngine';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { furnitureWorldY } from './furnitureElevation';
+import {
+    furnitureCastsShadowUnderBudget,
+} from './furnitureShadowBudget';
 
 export class FurnitureFragmentBuilder {
     private scene: THREE.Scene;
@@ -186,7 +189,13 @@ export class FurnitureFragmentBuilder {
                         furnitureCategory: data.furnitureCategory,
                     };
 
-                    child.castShadow = true;
+                    // ADR-0076 Axis 2 (§PERF-WEBGPU-FRAGMENT) — decorative furniture
+                    // (plants, lamps, rugs, wall decor, curtains) stops casting shadows
+                    // at the `performance`+ render tier to cut shadow-caster count.
+                    // The default budget is 'full' → this stays `true` (today's exact
+                    // behaviour) until the render-tier wiring lowers the budget.
+                    // receiveShadow is unchanged so surfaces still take shadows on them.
+                    child.castShadow = furnitureCastsShadowUnderBudget(data.furnitureType);
                     child.receiveShadow = true;
                 }
             });
