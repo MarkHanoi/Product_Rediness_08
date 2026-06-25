@@ -91,6 +91,12 @@ export class CreateCeilingBatchHandler
     return withHandlerSpan(this.type + '.handler', { 'pryzm.command.type': this.type }, () => {
       const defaultLevelId = cmd.levelId ?? '';
       const fresh: CeilingData[] = [];
+      // §RESI-CEILING-DEGENERATE-GUARD-2 (2026-06-25) — a DEGENERATE boundary (zero-area / collinear /
+      // <3 distinct corners) must NEVER be saved: it load-fails `validatePolygon` ("≥3 vertices") and
+      // froze project-open with "120 elements failed". We DROP such entries from the batch (the valid
+      // ceilings still commit — a generator emitting one bad room must not lose the whole floor's
+      // ceilings) and report ONCE, not N times. Genuine dim errors still throw (a real schema bug).
+      let droppedDegenerate = 0;
 
       for (let i = 0; i < cmd.ceilings.length; i++) {
         const c = cmd.ceilings[i]!;
@@ -105,7 +111,9 @@ export class CreateCeilingBatchHandler
         }
         if (c.boundary !== undefined) {
           const v = validateCeilingBoundary(c.boundary);
-          if (!v.ok) throw new CeilingGeometryError(`ceilings[${i}].boundary: ${v.reason ?? 'invalid'}`);
+          // §RESI-CEILING-DEGENERATE-GUARD-2 — DROP (skip) a degenerate boundary rather than save it
+          // or throw the whole batch. The strengthened validator now also catches zero-area/collinear.
+          if (!v.ok) { droppedDegenerate++; continue; }
         }
 
         const seed: Partial<CeilingData> = {
@@ -130,7 +138,14 @@ export class CreateCeilingBatchHandler
         fresh.push(ceiling);
       }
 
-      // One Immer batch for the whole set — single undo-stack entry.
+      // §RESI-CEILING-DEGENERATE-GUARD-2 — ONE summary warn (not N lines) when degenerate ceilings
+      // were dropped, so a bad-room generator is visible without flooding the console / save.
+      if (droppedDegenerate > 0) {
+        console.warn(`[ceiling.batch.create] §RESI-CEILING-DEGENERATE-GUARD-2 dropped ${droppedDegenerate} degenerate ceiling(s) (zero-area / collinear / <3 distinct corners) — ${fresh.length} valid ceiling(s) committed.`);
+      }
+
+      // One Immer batch for the whole set — single undo-stack entry. (An all-degenerate batch
+      // commits an empty patch — a no-op — rather than throwing, so the rest of the build proceeds.)
       const [next, forward, inverse] = produceCommand<CeilingsState>(ctx.stores.ceiling, draft => {
         for (const c of fresh) (draft as Record<string, CeilingData>)[c.id] = c;
       });
