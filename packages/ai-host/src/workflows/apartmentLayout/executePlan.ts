@@ -766,9 +766,35 @@ export function buildLayoutCommands(
     // so we divide by MM_PER_M here exactly like buildLayoutPlan does for doors.
     // RoomBoundingLine is not a `@pryzm/schemas` ElementType, so we mint ids INLINE
     // (just a string id, the legacy command stamps the canonical mark itself).
+    //
+    // §RBL-PLACEMENT-AT-SOURCE (2026-06-25) — this is the PRODUCER the renderer's
+    // §RBL-PLACEMENT-GUARD was firing for. `LayoutBoundary.start/end` are TYPED as
+    // present `Vec2mm`, but a boundary can reach here with an absent / non-finite
+    // endpoint when the candidate geometry degenerated upstream (a zero-length run,
+    // a NaN from a rotateBoundary on a collapsed segment, or an AI/legacy option that
+    // populated `boundaries` by hand). Emitting such a record minted a RoomBoundingLine
+    // whose `placement.start/end` was undefined/NaN, which the builder then SKIPPED with
+    // one console.warn PER LINE (hundreds during a multi-apartment generate). Fix the
+    // SOURCE: only emit a boundary command when BOTH endpoints are real, finite points
+    // AND the line is non-degenerate (≥ the command's own 10 mm min-length guard). Drop
+    // the rest here with a SINGLE summary warning so the builder never sees a placement-
+    // less record. A clean apartment plate has every boundary well-formed → nothing is
+    // dropped → byte-identical output.
     const boundaryCommands: LayoutCommand[] = [];
+    const boundaryWarnings: string[] = [];
+    let droppedBoundaries = 0;
+    const finitePt = (p: Vec2mm | undefined): p is Vec2mm =>
+        !!p && Number.isFinite(p.x) && Number.isFinite(p.y);
     for (let i = 0; i < (option.boundaries ?? []).length; i++) {
         const b = option.boundaries![i]!;
+        // Endpoints must both be present + finite, and the line must clear the
+        // CreateRoomBoundingLineCommand's own 10 mm (= 0.01 m) min-length guard —
+        // otherwise the command would build (or skip) a line we never want to ship.
+        if (!finitePt(b.start) || !finitePt(b.end)
+            || Math.hypot((b.end.x - b.start.x) / MM_PER_M, (b.end.y - b.start.y) / MM_PER_M) < 0.01) {
+            droppedBoundaries++;
+            continue;
+        }
         boundaryCommands.push({
             command: 'roomBoundingLine.create',           // legacy-sync path; no bus verb yet
             payload: {
@@ -778,6 +804,13 @@ export function buildLayoutCommands(
                 end:   { x: b.end.x   / MM_PER_M, z: b.end.y   / MM_PER_M },
             },
         });
+    }
+    if (droppedBoundaries > 0) {
+        boundaryWarnings.push(
+            `[buildLayoutCommands] §RBL-PLACEMENT-AT-SOURCE dropped ${droppedBoundaries} degenerate ` +
+            `room-bounding line(s) (missing/non-finite endpoint or < 10 mm) before emit — ` +
+            `not minting placement-less RoomBoundingLine records.`,
+        );
     }
 
     // ── ADR-0069 (GR4) — graph-authoritative ROOM creation specs ──────────────────
@@ -836,6 +869,6 @@ export function buildLayoutCommands(
         doorIds,
         windowIds,
         totalElementCount: plan.totalElementCount + shellWindowIds.length + roomCommands.length,
-        warnings: [...plan.warnings, ...roomWarnings],
+        warnings: [...plan.warnings, ...boundaryWarnings, ...roomWarnings],
     };
 }
