@@ -210,6 +210,33 @@ export interface LoadResult {
     warnings: string[];
 }
 
+/**
+ * §LOAD-REDETECT-FREEZE (2026-06-25) — pure decision helper for the post-load
+ * room-redetect sweep.
+ *
+ * Returns the set of level IDs that ALREADY have rooms persisted in the
+ * snapshot. The post-load sweep skips redetection for these levels because the
+ * hydrated rooms (restored via BatchCreateRoomsCommand) are the authoritative
+ * saved state (ADR-0069). Levels NOT in this set — legacy/pre-room-persistence
+ * snapshots, or levels whose rooms went missing — still get a full redetect so
+ * room detection for un-persisted geometry is never lost.
+ *
+ * Exported and pure so the skip decision is unit-testable without standing up
+ * the whole runtime + command pipeline.
+ */
+export function levelsWithPersistedRooms(
+    snapshotRooms: ReadonlyArray<{ levelId?: string | null }> | null | undefined,
+): Set<string> {
+    const out = new Set<string>();
+    if (Array.isArray(snapshotRooms)) {
+        for (const room of snapshotRooms) {
+            const lvl = room?.levelId;
+            if (typeof lvl === 'string' && lvl.length > 0) out.add(lvl);
+        }
+    }
+    return out;
+}
+
 export class ProjectLoader {
     constructor(private commandManager: CommandManager) {}
 
@@ -337,6 +364,21 @@ export class ProjectLoader {
         const wallRebuildControl = (typeof window !== 'undefined') ? window.__wallRebuildControl : null;
         try { wallRebuildControl?.pause?.(); } catch (e) { console.warn('[ProjectLoader] __wallRebuildControl.pause() failed', e); }
         // ── End §LOAD-RAF-PAUSE pause ────────────────────────────────────────
+
+        // ── §LOAD-REDETECT-FREEZE (2026-06-25) — suppress per-element verbose
+        //    logging for the duration of the load/restore window. ──────────────
+        // Restoring a persisted project replays the Create* commands, so the
+        // hot per-element loggers fire THOUSANDS of synchronous console.log
+        // lines on the main thread during a single open:
+        //   • `[BimManager] Registered element … to level …` (BimKernel.ts)
+        //   • `[WallOccupancyStore] canPlace OK: wall=… …`   (WallOccupancyStore.ts)
+        // At 783 elements × 7 levels that console flood is itself real
+        // main-thread jank (DevTools serialises + paints every line). These
+        // logs are noise on a known-good restore — the data was already
+        // validated when first authored. Gate them behind this flag, which the
+        // shared-package loggers check; it is set ONLY for the load() body and
+        // cleared in finally, so live-edit logging is unchanged.
+        (globalThis as unknown as { __pryzmProjectLoadActive?: boolean }).__pryzmProjectLoadActive = true;
 
         // Track which level IDs were actually loaded so the post-load sweep
         // only fires for levels that have geometry.
@@ -1597,12 +1639,53 @@ export class ProjectLoader {
             // that previously blocked the main thread during load.
             try { topologyObserver?.resume?.(); } catch (e) { console.warn('[ProjectLoader] roomTopologyObserver.resume() failed', e); }
 
+            // §LOAD-REDETECT-FREEZE (2026-06-25) — project-open FREEZE fix.
+            //
+            // Rooms ARE persisted in the snapshot (ProjectSerializer writes
+            // `snapshot.rooms`; both load paths hydrate them via
+            // BatchCreateRoomsCommand — Step 13 in the legacy path,
+            // ImportProjectCommand in the fast path). When a level already
+            // carries hydrated rooms, re-running the full
+            // RoomDetectionEngine.detectRoomsForLevel() graph-walk on EVERY
+            // level is pure redundant work — for a 783-element / 7-level
+            // residential building it dominated load as a ~6 s `redetect_sweep`
+            // phase (`[ProjectLoader] §LOAD-PHASE name=redetect_sweep
+            // total=6025.9ms`), each level preceded by hundreds of
+            // `[BimManager] Unregistered element …` churn lines as the
+            // freshly-detected room IDs replaced the hydrated ones, plus the
+            // WallRebuildCoordinator re-queue + WallJoinResolver multi-cluster
+            // storm those redetects re-triggered.
+            //
+            // Hydrating the persisted rooms IS the authoritative state
+            // (ADR-0069 — graph-authoritative room identity at execution: the
+            // saved rooms already carry their identity + semantic data, and the
+            // persisted wall geometry is already join-resolved — see
+            // §WALL-JOIN-LOAD-SKIP above). So: SKIP the redetect for any level
+            // whose rooms were restored from the snapshot, and only redetect
+            // levels that have NO persisted rooms (legacy/pre-room-persistence
+            // snapshots, or a level whose rooms went missing). New geometry and
+            // manual edits are unaffected — they still redetect through the
+            // now-resumed RoomTopologyObserver debounce, exactly as before, so
+            // room detection for NEW walls is preserved.
+            const persistedRooms = (snapshot as { rooms?: Array<{ levelId?: string }> }).rooms;
+            const skipRedetectLevels = levelsWithPersistedRooms(persistedRooms);
+
             if (Array.isArray(snapshot.levels) && snapshot.levels.length > 0) {
                 try {
                     const elevation = (lvl: any) => (typeof lvl.elevation === 'number' ? lvl.elevation : 0);
                     const height    = (lvl: any) => (typeof lvl.height === 'number' ? lvl.height : 3.0);
+                    let skippedLevels = 0;
+                    let redetectedLevels = 0;
                     for (const lvl of snapshot.levels) {
                         if (!lvl?.id) continue;
+                        // §LOAD-REDETECT-FREEZE — skip the expensive detect sweep
+                        // for levels whose rooms were already hydrated from the
+                        // snapshot. The hydrated rooms are the saved-state truth.
+                        if (skipRedetectLevels.has(lvl.id)) {
+                            skippedLevels++;
+                            continue;
+                        }
+                        redetectedLevels++;
                         try {
                             // Phase F-1.2: dispatch to rooms.redetect bus handler, which calls
                             // commandManager internally (initBusHandlers.ts §P0-A39 registration).
@@ -1617,6 +1700,14 @@ export class ProjectLoader {
                         } catch (e) {
                             console.warn(`[ProjectLoader] Final REDETECT_ROOMS failed for level '${lvl.id}':`, e);
                         }
+                    }
+                    if (skippedLevels > 0) {
+                        console.log(
+                            `[ProjectLoader] §LOAD-REDETECT-FREEZE — hydrated persisted rooms; ` +
+                            `skipped redetect for ${skippedLevels} level(s) ` +
+                            `(${skipRedetectLevels.size} level(s) had saved rooms), ` +
+                            `redetected ${redetectedLevels} level(s) without persisted rooms.`,
+                        );
                     }
                 } catch (err) {
                     console.warn('[ProjectLoader] rooms.redetect bus dispatch sweep failed:', err);
@@ -1669,6 +1760,9 @@ export class ProjectLoader {
             // the redetect_sweep phase, this guarantees the watchdog stops
             // firing. Idempotent — clearInterval on a cleared id is a no-op.
             clearInterval(__watchdog);
+            // §LOAD-REDETECT-FREEZE — restore per-element verbose logging now
+            // that the (synchronous) restore replay + sweep dispatch is done.
+            (globalThis as unknown as { __pryzmProjectLoadActive?: boolean }).__pryzmProjectLoadActive = false;
             console.groupEnd();
         }
 
