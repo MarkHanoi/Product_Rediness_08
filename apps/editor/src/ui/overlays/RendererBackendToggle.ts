@@ -109,8 +109,41 @@ export class RendererBackendToggle {
     private _choose(pref: RendererBackendPreference): void {
         if (pref === getRendererBackendPreference()) return;
         setRendererBackendPreference(pref);
-        // The renderer is created once at boot; reload to apply the new backend.
-        try { location.reload(); } catch { /* non-browser env */ }
+
+        // §PERF-WEBGPU-FRAGMENT / ADR-0076 — the renderer backend is resolved ONCE
+        // at boot by RendererHandleFactory. A LIVE in-place renderer hot-swap of an
+        // already-open project collapses the viewport (scene/camera/RenderPipeline
+        // manager/frame-loop are bound to the old renderer). The founder confirmed a
+        // FRESH boot into either backend renders perfectly. So we deliberately do NOT
+        // hot-swap — we persist the choice and trigger a full page reload, which boots
+        // cleanly into the chosen backend via the exact, known-good boot path.
+        this._showReloadNotice(pref);
+        // Defer the reload one tick so the notice paints before navigation.
+        setTimeout(() => {
+            try { location.reload(); } catch { /* non-browser env */ }
+        }, 350);
+    }
+
+    /** Tiny centered "switching renderer — reloading…" notice shown before reload. */
+    private _showReloadNotice(pref: RendererBackendPreference): void {
+        try {
+            const label = pref === 'webgl' ? 'WebGL' : pref === 'webgpu' ? 'WebGPU' : 'Auto';
+            const note = document.createElement('div');
+            note.setAttribute('role', 'status');
+            Object.assign(note.style, {
+                position: 'fixed',
+                inset: '0',
+                zIndex: '2147483600',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'rgba(255,255,255,0.86)',
+                font: '600 14px/1.4 system-ui, sans-serif',
+                color: '#3a2a66',
+            } as CSSStyleDeclaration);
+            note.textContent = `Switching renderer to ${label} — reloading…`;
+            document.body.appendChild(note);
+        } catch { /* non-fatal cosmetic */ }
     }
 }
 
