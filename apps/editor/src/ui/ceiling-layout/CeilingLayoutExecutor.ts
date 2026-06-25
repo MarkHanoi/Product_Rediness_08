@@ -23,6 +23,33 @@ import { getStairVoidsForLevel } from '../house-layout/houseStairVoids.js';
 
 interface Pt { x: number; z: number }
 
+// §RESI-CEILING-CLEARHEIGHT (2026-06-25) — the finished ceiling sits at the room's CLEAR
+// height, NOT the structural floor-to-floor (ftf). Previously the executor passed `level.height`
+// (the ftf, e.g. 3.0 m) verbatim as the ceiling-height override, so the ceiling slab was placed
+// at the full storey height instead of a realistic finished-ceiling level — visually wrong and
+// it left no service zone for the floor build-up / ducts / down-stand above.
+//
+// We reserve a service/structure zone below the slab above and place the ceiling at
+// `ftf - SERVICE_ZONE_M`, clamped to a sane band. A typical UK/EU residential ftf of 3.0 m with
+// a ~0.6 m zone gives the standard ~2.4 m clear ceiling.
+const CEILING_SERVICE_ZONE_M = 0.6;   // floor build-up + structure + MEP service void below the slab above
+const MIN_CLEAR_CEILING_M = 2.1;      // never drop below a habitable clear height
+const DEFAULT_CLEAR_CEILING_M = 2.4;  // fallback clear height when the level reports no ftf
+
+/** §RESI-CEILING-CLEARHEIGHT — convert a floor-to-floor height to a finished clear ceiling
+ *  height. `undefined`/invalid ftf (level didn't report one) → `DEFAULT_CLEAR_CEILING_M` so the
+ *  ceiling still lands at a realistic finished height (never the raw storey height). A reported
+ *  ftf is reduced by the service zone and clamped to [MIN_CLEAR_CEILING_M, ftf). Exported for unit test. */
+export function clearCeilingHeightFromFtf(ftf: number | undefined): number {
+    if (typeof ftf !== 'number' || !Number.isFinite(ftf) || ftf <= 0) return DEFAULT_CLEAR_CEILING_M;
+    const clear = ftf - CEILING_SERVICE_ZONE_M;
+    if (clear < MIN_CLEAR_CEILING_M) {
+        // Very low storey — keep a habitable clear height but never exceed the ftf itself.
+        return Math.min(ftf, MIN_CLEAR_CEILING_M);
+    }
+    return clear;
+}
+
 interface RoomLike {
     id: string;
     levelId: string;
@@ -61,10 +88,12 @@ export class CeilingLayoutExecutor {
                 return;
             }
 
-            // Carry the level's clear height as the override default — the
-            // pure engine still applies its archetype if no override is given.
+            // §RESI-CEILING-CLEARHEIGHT — derive the finished CLEAR ceiling height from the level's
+            // floor-to-floor height (subtract the service/structure zone), NOT the raw ftf. Passing
+            // ftf verbatim (the old behaviour) placed the slab at the full storey height. When the
+            // level reports no ftf, a realistic default clear height is used (DEFAULT_CLEAR_CEILING_M).
             const levelElevation = level.elevation ?? 0;
-            const ceilingOverrideM = typeof level.height === 'number' ? level.height : undefined;
+            const ceilingOverrideM = clearCeilingHeightFromFtf(level.height);
 
             // §SW-LAZY-CHUNK-404: engine imported statically at module top.
 

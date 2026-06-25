@@ -35,6 +35,17 @@ describe('archetypeForCeiling', () => {
         expect(archetypeForCeiling('living-room')!.materialColor).toBe('#f5f5f0');
         expect(archetypeForCeiling('bedroom')!.materialColor).toBe('#f5f5f0');
     });
+
+    it('§RESI-CEILING-SERVICE-ROOMS — wc / accessible-wc / shower-room / storage now resolve an archetype', () => {
+        // These small service rooms were previously skipped (no archetype → no ceiling),
+        // leaving them open to the slab above. They MUST now be ceilable.
+        for (const o of ['wc', 'accessible-wc', 'shower-room', 'storage-residential']) {
+            const arch = archetypeForCeiling(o);
+            expect(arch, `archetype for ${o}`).toBeDefined();
+            // Service rooms share the bathroom cool-white moisture-tolerant tint.
+            expect(arch!.materialColor, `${o} tint`).toBe('#eef2f3');
+        }
+    });
 });
 
 describe('ceilingForRoom', () => {
@@ -67,6 +78,25 @@ describe('ceilingForRoom', () => {
     it('respects level.elevation when computing the ceiling Y', () => {
         const placed = ceilingForRoom(baseInput({ levelElevation: 5.0 }));
         for (const v of placed!.boundary) expect(v.y).toBeCloseTo(7.7, 6);
+    });
+
+    it('§RESI-CEILING-SERVICE-ROOMS — wc / storage rooms now produce a placed ceiling (not null)', () => {
+        for (const o of ['wc', 'accessible-wc', 'shower-room', 'storage-residential']) {
+            const placed = ceilingForRoom(baseInput({ occupancy: o }));
+            expect(placed, `ceiling for ${o}`).not.toBeNull();
+            expect(placed!.boundary).toHaveLength(4);
+            expect(placed!.materialColor).toBe('#eef2f3');
+        }
+    });
+
+    it('§RESI-CEILING-CLEARHEIGHT — a clear-height override places the slab BELOW floor-to-floor', () => {
+        // The executor now passes a CLEAR ceiling height (ftf − service zone), e.g. 2.4 m for a
+        // 3.0 m ftf — NOT the raw 3.0 m. The pure engine must honour that override for the Y.
+        const placed = ceilingForRoom(baseInput({ ceilingHeightM: 2.4 }));
+        expect(placed!.ceilingHeightM).toBe(2.4);
+        for (const v of placed!.boundary) expect(v.y).toBeCloseTo(2.4, 6);
+        // Crucially: the slab is well below a 3.0 m floor-to-floor height.
+        expect(placed!.ceilingHeightM).toBeLessThan(3.0);
     });
 
     it('returns null for unsupported occupancies', () => {
