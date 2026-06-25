@@ -21,11 +21,15 @@ describe('clearCeilingHeightFromFtf — §RESI-CEILING-CLEARHEIGHT', () => {
         expect(clearCeilingHeightFromFtf(2.9)).toBeCloseTo(2.3, 6);
     });
 
-    it('clamps to a habitable minimum (≥ 2.1 m) for a very low storey, never exceeding ftf', () => {
-        // 2.5 m ftf − 0.6 = 1.9 m < min → clamp up to 2.1 m, still < ftf.
+    it('clamps just above the 2.1 m door head (2.15 m) for a very low storey, never exceeding ftf', () => {
+        // §RESI-CEILING-DOOR-HEAD — 2.5 m ftf − 0.6 = 1.9 m < min → clamp up to 2.15 m (door head
+        // 2.1 + 0.05 clearance), still < ftf, so the ceiling never sits flush on the door head.
         const clear = clearCeilingHeightFromFtf(2.5);
-        expect(clear).toBe(2.1);
+        expect(clear).toBe(2.15);
+        expect(clear).toBeGreaterThan(2.1);        // strictly above the 2.1 m door head
         expect(clear).toBeLessThanOrEqual(2.5);
+        // 2.7 m ftf − 0.6 = 2.1 m would land flush on the door head; the clamp lifts it to 2.15.
+        expect(clearCeilingHeightFromFtf(2.7)).toBe(2.15);
         // A pathologically low ftf can't be exceeded by the clamp.
         expect(clearCeilingHeightFromFtf(2.0)).toBe(2.0);
     });
