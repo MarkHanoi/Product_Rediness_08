@@ -32,6 +32,15 @@ import type { RendererHandle } from '../RendererHandle.js';
 export interface WebGPURendererAdapterOptions {
   /** Max device-pixel-ratio cap.  Defaults to 1.5 (Pascal pattern). */
   dprCap?: number;
+  /**
+   * §PERF-WEBGPU-FRAGMENT / ADR-0076 — force the WebGL2 backend (skip native
+   * WebGPU). Used when the user picks "WebGL" in the backend toggle: this yields
+   * a WebGL2 context (high limits, modern resource management) via the
+   * WebGPURenderer, NOT the plain THREE.WebGLRenderer last-resort. Resolves
+   * `type` to 'webgl2'. The render quality tier (Axis 1) keeps the TSL post-FX
+   * off on heavy scenes so this stays light.
+   */
+  forceWebGL2?: boolean;
 }
 
 /** @internal — shape of the WebGPURenderer backend exposed by Three.js r183. */
@@ -130,6 +139,10 @@ export class WebGPURendererAdapter implements RendererHandle {
         antialias:       false,            // TRAA replaces hardware MSAA (Phase 4)
         alpha:           true,             // transparent overlay — OBC canvas shows through
         powerPreference: 'high-performance',
+        // §PERF-WEBGPU-FRAGMENT — when the user picked "WebGL", skip native WebGPU
+        // and use WebGPURenderer's WebGL2 backend (high limits + modern resource
+        // management). WebGPURenderer honours `forceWebGL` to pick the WebGL2 path.
+        ...(opts.forceWebGL2 ? { forceWebGL: true } : {}),
       });
 
       // Apply BIM defaults BEFORE init() — spec-mandated ordering for WebGPURenderer.

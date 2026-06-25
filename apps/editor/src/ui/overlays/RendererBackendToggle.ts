@@ -117,6 +117,13 @@ export class RendererBackendToggle {
         // FRESH boot into either backend renders perfectly. So we deliberately do NOT
         // hot-swap — we persist the choice and trigger a full page reload, which boots
         // cleanly into the chosen backend via the exact, known-good boot path.
+        //
+        // REOPEN-PROJECT: a plain reload boots to the projects hub (#/projects), so
+        // the user would lose the project they were in on every swap. Set a one-shot
+        // sessionStorage flag; PlatformRouter consumes it on the next boot and
+        // relaunches the last-open project (which it records in launchWorkspace).
+        try { sessionStorage.setItem('pryzm.reopenProjectAfterReload', '1'); } catch { /* no sessionStorage */ }
+
         this._showReloadNotice(pref);
         // Defer the reload one tick so the notice paints before navigation.
         setTimeout(() => {

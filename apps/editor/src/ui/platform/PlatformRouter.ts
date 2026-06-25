@@ -77,6 +77,13 @@ const ROOT_ID = 'platform-root';
 const HASH_LANDING = '#/';
 const HASH_PROJECTS = '#/projects';
 
+// §PERF-WEBGPU-FRAGMENT / ADR-0076 — renderer-backend-toggle reopen-project keys.
+//   LAST_OPEN_PROJECT_KEY — written by launchWorkspace on every project open.
+//   REOPEN_AFTER_RELOAD_KEY — set by RendererBackendToggle just before it reloads;
+//     read once on the next boot to relaunch LAST_OPEN_PROJECT_KEY's project.
+const LAST_OPEN_PROJECT_KEY   = 'pryzm.lastOpenProject';
+const REOPEN_AFTER_RELOAD_KEY = 'pryzm.reopenProjectAfterReload';
+
 export class PlatformRouter {
     private root: HTMLElement;
     private landing: LandingPage | null = null;
@@ -337,9 +344,53 @@ export class PlatformRouter {
             // showHub mounts.  `showLanding()` removes it via LandingPage's
             // constructor, but the hub path bypasses LandingPage.
             document.querySelector('[data-pryzm-skeleton="landing"]')?.remove();
+
+            // §PERF-WEBGPU-FRAGMENT / ADR-0076 — if a renderer-backend toggle just
+            // reloaded the page, REOPEN the project the user was in instead of
+            // dumping them at the hub. The reopen flag + last-open project both live
+            // in sessionStorage; consume (clear) them so a normal future reload that
+            // is NOT toggle-driven still lands on the hub.
+            if (router._tryReopenProjectAfterReload()) return;
+
             router.showHub(user);
         } else {
             router.showLanding();
+        }
+    }
+
+    /**
+     * §PERF-WEBGPU-FRAGMENT / ADR-0076 — consume the renderer-toggle reopen request.
+     *
+     * Returns true (and launches the workspace) when BOTH the reopen flag and a
+     * valid last-open project are present in sessionStorage. Always clears the
+     * one-shot reopen flag so it fires exactly once. Returns false otherwise so the
+     * caller falls through to the hub.
+     */
+    private _tryReopenProjectAfterReload(): boolean {
+        let reopen: string | null = null;
+        let raw: string | null = null;
+        try {
+            reopen = sessionStorage.getItem(REOPEN_AFTER_RELOAD_KEY);
+            // The reopen flag is one-shot — clear it now regardless of outcome.
+            if (reopen) sessionStorage.removeItem(REOPEN_AFTER_RELOAD_KEY);
+            raw = sessionStorage.getItem(LAST_OPEN_PROJECT_KEY);
+        } catch { return false; }
+
+        if (!reopen || !raw) return false;
+
+        try {
+            const { projectId, projectName } = JSON.parse(raw) as {
+                projectId?: string; projectName?: string;
+            };
+            if (!projectId) return false;
+            console.log(
+                `[PlatformRouter] §PERF-WEBGPU-FRAGMENT reopening "${projectName ?? projectId}" ` +
+                `after renderer-backend toggle reload.`,
+            );
+            this.launchWorkspace(projectId, projectName ?? 'Project');
+            return true;
+        } catch {
+            return false;
         }
     }
 
@@ -866,6 +917,17 @@ export class PlatformRouter {
 
     private launchWorkspace(projectId: string, projectName: string, opts?: { isNewProject?: boolean }): void {
         console.log(`[PlatformRouter] Opening project: "${projectName}" (${projectId})${opts?.isNewProject ? ' [new]' : ''}`);
+
+        // §PERF-WEBGPU-FRAGMENT / ADR-0076 — remember the currently-open project so a
+        // renderer-backend toggle (which persists + full-page-reloads) can reopen it
+        // after boot instead of dumping the user at the projects hub. Survives the
+        // reload via sessionStorage (cleared once consumed on the next boot).
+        try {
+            sessionStorage.setItem(
+                LAST_OPEN_PROJECT_KEY,
+                JSON.stringify({ projectId, projectName }),
+            );
+        } catch { /* sessionStorage unavailable — reopen-after-reload simply won't fire */ }
 
         // Phase 10: Maintenance Mode — block BIM editor for all users
         if (OwnerFeatureFlags.isEnabled('maintenanceMode')) {
