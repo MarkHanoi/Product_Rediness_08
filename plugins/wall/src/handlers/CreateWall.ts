@@ -53,6 +53,11 @@ export interface CreateWallPayload {
   readonly materialColor?: string;
   readonly materialId?: string;
   readonly systemTypeId?: string;
+  /** §RESI-FACADE-INTERIOR-WHITE (2026-06-24) — per-layer finish stack. When supplied, the wall
+   *  renders each layer with its own `materialColor`, so a wall with a `finish-exterior` layer (the
+   *  façade colour) + a `finish-interior` layer (white) reads coloured outside, white inside. Carried
+   *  verbatim into `Wall.parse` (the schema validates each layer); absent ⇒ a plain single-colour wall. */
+  readonly layers?: WallData['layers'];
 }
 
 type WallHandlerStores = Readonly<{ wall: WallsState } & Record<string, unknown>>;

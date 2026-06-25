@@ -325,6 +325,15 @@ export interface RuntimeEvents {
     // mesh-building WallStore. Without this the residential façade colour (and any batch-created
     // wall's Color Override) was dropped between the Immer store and the legacy render store.
     readonly materialColor?: string;
+    // §RESI-FACADE-INTERIOR-WHITE (2026-06-24): per-layer finish stack, forwarded so the legacy-store
+    // mirror builds a LAYERED wall (exterior façade colour + interior white = per-face finishes).
+    readonly layers?: ReadonlyArray<Readonly<{
+      readonly name: string;
+      readonly function: string;
+      readonly thickness: number;
+      readonly materialId?: string;
+      readonly materialColor?: string;
+    }>>;
   };
 
   // ── A25: Remaining-family typed domain events (C11 §5.2) ─────────────────

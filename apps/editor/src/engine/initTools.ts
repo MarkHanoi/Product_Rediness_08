@@ -945,6 +945,10 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                         // (the 3D mesh) AND the property panel — never copied it, so batch-created
                         // walls rendered the default grey and the panel showed the #888888 fallback.
                         ...(ev.materialColor !== undefined ? { materialColor: ev.materialColor } : {}),
+                        // §RESI-FACADE-INTERIOR-WHITE (2026-06-24) — carry the per-layer finish stack
+                        // into the mesh-building legacy store so a layered shell wall renders the
+                        // façade colour on its exterior layer + white on its interior layer (per-face).
+                        ...(ev.layers !== undefined ? { layers: ev.layers } : {}),
                     } as any);
                     console.log('[initTools] §P2.1: wall mirrored to legacy store', ev.wallId);
                 } catch (err) {
