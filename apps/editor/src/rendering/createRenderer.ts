@@ -133,8 +133,12 @@ export function setRendererBackendPreference(pref: RendererBackendPreference): v
  */
 export async function createRenderer(canvas: HTMLCanvasElement): Promise<RendererResult> {
     // ── User backend preference (corner toggle, §PERF-WEBGPU-FRAGMENT) ────
-    // 'webgl' forces the plain WebGL2 path (no TSL pipeline) — the user's
-    // stability escape hatch. 'auto'/'webgpu' use the normal C04 §1.4 chain.
+    // 'webgl' resolves to the WebGL2 backend (high limits, modern resource
+    // management — via WebGPURenderer's forceWebGL), falling back to plain
+    // THREE.WebGLRenderer only if WebGL2 is unavailable. NOT the old plain-WebGL1
+    // last-resort that crash-guarded on heavy generated buildings. The render
+    // quality tier keeps SSGI/TRAA off on heavy scenes so WebGL2 stays light.
+    // 'auto'/'webgpu' use the normal C04 §1.4 (native-WebGPU-first) chain.
     const pref = getRendererBackendPreference();
     const forceWebGL = pref === 'webgl';
 
@@ -146,7 +150,7 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<Rendere
     console.log(
         `[createRenderer] §PERF-WEBGPU-FRAGMENT resolvedPreference=${pref} ` +
         `(forceWebGL=${forceWebGL}) — ${forceWebGL
-            ? 'forcing plain WebGL2 (stable, no TSL post-FX)'
+            ? 'resolving to WebGL2 backend (high limits; tier keeps post-FX off on heavy scenes)'
             : "using WebGPU-first chain (this value was explicitly persisted by the backend toggle; clear it or pick 'WebGL' to get the WebGL default)"}`,
     );
 

@@ -66,9 +66,34 @@ export class RendererHandleFactory {
    *   In practice this only occurs in truly headless CI environments.
    */
   static async create(canvas: HTMLCanvasElement, forceWebGL = false): Promise<RendererHandle> {
-    // ── User escape hatch: forced plain WebGL2 (no TSL pipeline) ──────────
+    // ── User escape hatch: forced WebGL — resolve to WebGL2, NOT plain WebGL1 ──
+    // §PERF-WEBGPU-FRAGMENT / ADR-0076 (founder blocker 2026-06-25):
+    //   The old short-circuit returned the plain THREE.WebGLRenderer last-resort
+    //   (labelled 'webgl-only'), whose tight limits exhaust on a heavy generated
+    //   building → crash-guard. The modern, high-limit WebGL2 path is the
+    //   WebGPURenderer with its WebGL2 backend (type='webgl2'). Resolution for the
+    //   'webgl' preference is: WebGL2 (via WebGPURenderer forceWebGL) → plain
+    //   THREE.WebGLRenderer ONLY if WebGL2 is genuinely unavailable.
+    //   The render quality tier (Axis 1) keeps SSGI/TRAA OFF on heavy scenes, so
+    //   this WebGL2 path stays light despite the WebGPURenderer/TSL plumbing.
     if (forceWebGL) {
-      console.log('[renderer-three] backend: webgl1 (forced by user backend toggle)');
+      try {
+        const webgl2 = await WebGPURendererAdapter.create(canvas, { forceWebGL2: true });
+        if (webgl2 !== null) {
+          console.log(`[renderer-three] backend: ${webgl2.type} (forced WebGL → WebGL2 backend)`);
+          return webgl2;
+        }
+      } catch (err) {
+        console.warn(
+          '[renderer-three] forced-WebGL: WebGPURenderer(forceWebGL) threw — ' +
+          'falling back to plain THREE.WebGLRenderer (WebGL2 context):',
+          err instanceof Error ? err.message : err,
+        );
+      }
+      // Genuine WebGL2-via-WebGPURenderer failure → plain WebGLRenderer.
+      // Note: THREE.WebGLRenderer requests a WebGL2 context in r150+; this is a
+      // WebGL2 context, just without the WebGPURenderer node-resource manager.
+      console.log('[renderer-three] backend: webgl1 (forced WebGL — plain THREE.WebGLRenderer fallback)');
       return new WebGLRendererAdapter(canvas, {
         antialias: true,
         preserveDrawingBuffer: true,
