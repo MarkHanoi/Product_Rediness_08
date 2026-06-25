@@ -41,12 +41,20 @@ describe('SceneQualityTierManager (ADR-0076 §PERF-WEBGPU-FRAGMENT)', () => {
     });
 
     describe('settingsForTier — quality contract', () => {
-        it('balanced equals today behaviour: post-FX on, furniture shadows on, full PBR', () => {
+        it('balanced keeps post-FX + furniture shadows on, but SKIPS the costly whole-scene PBR upgrade', () => {
             const s = settingsForTier('balanced');
             expect(s.ssgi).toBe(true);
             expect(s.traa).toBe(true);
             expect(s.decorativeFurnitureShadows).toBe(true);
-            expect(s.fullScenePbrTraverse).toBe(true);
+            // §PERF-WEBGPU-FRAGMENT — the 38.7s post-batch PBR upgrade is skipped at
+            // balanced+ (only cinematic ≤1500 meshes runs it).
+            expect(s.fullScenePbrTraverse).toBe(false);
+        });
+        it('only cinematic runs the full PBR upgrade (the 38.7s pass)', () => {
+            expect(settingsForTier('cinematic').fullScenePbrTraverse).toBe(true);
+            expect(settingsForTier('balanced').fullScenePbrTraverse).toBe(false);
+            expect(settingsForTier('performance').fullScenePbrTraverse).toBe(false);
+            expect(settingsForTier('survival').fullScenePbrTraverse).toBe(false);
         });
         it('cinematic adds reflection probes', () => {
             expect(settingsForTier('cinematic').reflectionProbes).toBe(true);

@@ -45,6 +45,11 @@ import { createColumnLOD } from '@pryzm/plugin-structural';
 import { STANDARD_MATERIAL_LIBRARY } from '@pryzm/core-app-model/material-library';
 import { SpatialAuthorityError } from '@pryzm/core-app-model';
 import type { BimManager } from '@pryzm/core-app-model';
+// ADR-0076 Axis 3 (§PERF-WEBGPU-FRAGMENT) — optional GPU-instancing bridge.
+import {
+    ElementInstanceBridge,
+    isElementInstancingEnabled,
+} from '@pryzm/core-app-model/rendering';
 import { resolveSlabBaseOffsetForPoint } from './SlabColumnCoupling';
 
 interface MinSlabStoreForCoupling {
@@ -58,6 +63,14 @@ export class ColumnFragmentBuilder {
     private bimManager: BimManager | null;
     /** §W9: optional slab store for slab-base offset re-resolution. */
     private slabStore: MinSlabStoreForCoupling | null;
+    /**
+     * ADR-0076 Axis 3 (§PERF-WEBGPU-FRAGMENT) — optional GPU-instancing bridge.
+     * When injected AND the `__pryzmElementInstancingV1` flag is on AND a column
+     * is a SIMPLE concrete box/cylinder (not a steel-LOD profile), the column is
+     * registered as a GPU instance instead of an individual mesh. Default-off:
+     * null bridge OR flag-off keeps every column on the fragment path.
+     */
+    private _instanceBridge: ElementInstanceBridge | null = null;
 
     // ── C11 §2 step 3: FrameScheduler adaptive drain ──────────────────────────
     /** Pending column builds keyed by id — later update wins (dedup). */
@@ -86,6 +99,30 @@ export class ColumnFragmentBuilder {
     }
 
     /**
+     * ADR-0076 Axis 3 — inject the GPU-instancing bridge (the SAME one walls use,
+     * constructed over the shared `instancedElementRenderer`). Until this is
+     * injected AND `globalThis.__pryzmElementInstancingV1 === true`, columns build
+     * exactly as before.
+     */
+    setInstanceBridge(bridge: ElementInstanceBridge): void {
+        this._instanceBridge = bridge;
+        console.log('[ColumnFragmentBuilder] §PERF-WEBGPU-FRAGMENT ElementInstanceBridge injected (gated by __pryzmElementInstancingV1).');
+    }
+
+    /**
+     * Eligibility: a column may use the instanced path only when the bridge is
+     * present, the flag is on, and the geometry is a SINGLE unit primitive — i.e.
+     * a concrete rectangular or circular column. Steel UC/UB profiles build a
+     * multi-mesh THREE.LOD and MUST stay on the fragment path.
+     */
+    private _instanceKindFor(column: ColumnData): 'box' | 'cylinder' | null {
+        if (!this._instanceBridge || !isElementInstancingEnabled()) return null;
+        const isSteel = (column.profile === 'UC' || column.profile === 'UB') && !!column.steelProfileName;
+        if (isSteel) return null;
+        return column.profile === 'circular' ? 'cylinder' : 'box';
+    }
+
+    /**
      * C11 §2 step 3 — enqueue a column build; drain fires on the next
      * pre-render tick so geometry is never built synchronously in an event
      * handler. Later calls for the same id overwrite earlier ones (dedup).
@@ -99,6 +136,11 @@ export class ColumnFragmentBuilder {
 
     remove(id: string): void {
         this._pendingBuilds.delete(id);
+        // ADR-0076 Axis 3 — release the GPU instance slot if this column was on
+        // the instanced path (no-op otherwise).
+        if (this._instanceBridge?.isInstanced(id)) {
+            this._instanceBridge.unregister(id);
+        }
         const mesh = this.meshes.get(id);
         if (mesh) {
             this.scene.remove(mesh);
@@ -181,6 +223,19 @@ export class ColumnFragmentBuilder {
             this._disposeMesh(old);
             this.meshes.delete(column.id);
             elementRegistry.unregisterRoot(column.id);
+        }
+
+        // ── ADR-0076 Axis 3 — GPU-instanced path (simple concrete columns) ──
+        // Default-off (bridge null OR flag off OR steel-LOD → kind === null), in
+        // which case we fall straight through to the fragment path below.
+        const instanceKind = this._instanceKindFor(column);
+        if (instanceKind) {
+            return this._buildInstanced(column, resolvedY, instanceKind, _priorVersion);
+        }
+        // A column that was previously instanced but is no longer eligible (e.g.
+        // changed to a steel profile) must release its instance slot first.
+        if (this._instanceBridge?.isInstanced(column.id)) {
+            this._instanceBridge.unregister(column.id);
         }
 
         const isSteelSection = column.profile === 'UC' || column.profile === 'UB';
@@ -272,6 +327,94 @@ export class ColumnFragmentBuilder {
     }
 
     // ── Private helpers ──────────────────────────────────────────────────────
+
+    /**
+     * ADR-0076 Axis 3 — build a simple concrete column as a GPU instance.
+     *
+     * The rendered geometry lives in the InstancedMesh owned by
+     * InstancedElementRenderer (per-instance pick + per-level visibility carried
+     * there). We still create a small THREE.Group root + an invisible hit-proxy
+     * mesh so that (a) SelectionManager raycasting can find the column, (b) the
+     * elementRegistry + inspector see an unmodified scene-graph node, and (c)
+     * removeWall-style cleanup works. Mirrors WallFragmentBuilder's instanced
+     * "simple wall" path (WallFragmentBuilder.ts:869-927).
+     */
+    private _buildInstanced(
+        column: ColumnData,
+        resolvedY: number,
+        kind: 'box' | 'cylinder',
+        priorVersion: number,
+    ): THREE.Object3D {
+        const material = this._createColumnMaterial(column, 'concrete');
+
+        // For a circular column, width is the diameter → X/Z size = width.
+        const sizeX = kind === 'cylinder' ? column.width : column.width;
+        const sizeZ = kind === 'cylinder' ? column.width : column.depth;
+
+        // The column base sits at (position.x, resolvedY + baseOffset, position.z);
+        // its CENTRE is half the height above that.
+        const baseY = resolvedY + column.baseOffset;
+        this._instanceBridge!.register(
+            column.id,
+            column.levelId,
+            'Column',
+            {
+                centre: { x: column.position.x, y: baseY + column.height / 2, z: column.position.z },
+                rotationY: column.rotation,
+                size: { x: sizeX, y: column.height, z: sizeZ },
+            },
+            material,
+            kind,
+        );
+
+        // Root group + identity userData (same shape as the fragment path).
+        const root = new THREE.Group();
+        root.userData = {
+            id:            column.id,
+            type:          'column',
+            elementType:   'Column',
+            modelId:       'model-default',
+            selectable:    true,
+            levelId:       column.levelId,
+            parentId:      column.parentId,
+            profile:       column.profile,
+            steelProfileName: undefined,
+            width:         column.width,
+            depth:         column.depth,
+            height:        column.height,
+            baseOffset:    column.baseOffset,
+            rotation:      column.rotation,
+            position:      column.position,
+            materialId:    column.materialId,
+            materialColor: column.materialColor,
+            properties:    column.properties,
+            ifcData:       column.ifcData,
+            version:       priorVersion + 1,
+            isInstancedProxy: true,
+        };
+        Object.defineProperty(root.userData, 'id',          { writable: false });
+        Object.defineProperty(root.userData, 'elementType', { writable: false });
+
+        root.position.set(column.position.x, baseY, column.position.z);
+        root.rotation.y = column.rotation;
+
+        // Invisible hit-proxy so intersectObjects() can still select the column.
+        // colorWrite/depthWrite false → completely imperceptible but raycastable.
+        const proxyGeo = kind === 'cylinder'
+            ? new THREE.CylinderGeometry(column.width / 2, column.width / 2, column.height, 16)
+            : new THREE.BoxGeometry(column.width, column.height, column.depth);
+        proxyGeo.translate(0, column.height / 2, 0); // base at local y=0, matching fragment path
+        const proxyMat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
+        const proxyMesh = new THREE.Mesh(proxyGeo, proxyMat);
+        proxyMesh.userData = { role: 'hit-proxy' };
+        root.add(proxyMesh);
+
+        this.scene.add(root);
+        this.meshes.set(column.id, root);
+        elementRegistry.registerRoot(column.id, root);
+
+        return root;
+    }
 
     /**
      * Build parametric steel I/H-section column with THREE.LOD.
