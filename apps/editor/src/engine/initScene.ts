@@ -76,7 +76,10 @@ import { RenderPerformanceService } from '@pryzm/core-app-model/rendering';
 import { RenderingPipelineCoordinator } from '@pryzm/core-app-model/rendering';
 // ADR-0076 Axis 2 (§PERF-WEBGPU-FRAGMENT) — furniture decorative-shadow budget setter.
 import { setFurnitureShadowBudget } from '@pryzm/geometry-furniture';
-import { probeRendererBackend, createRenderer } from '../rendering/createRenderer';
+import { probeRendererBackend, createRenderer, setRendererBackendPreference } from '../rendering/createRenderer';
+import type { RendererBackendPreference } from '../rendering/createRenderer';
+// ADR-0077 (§RENDERER-LIVE-SWAP) — OTel span for the live backend swap (C01 P8).
+import { trace, SpanStatusCode } from '@opentelemetry/api';
 // §PERF-WEBGPU-FRAGMENT / ADR-0076 — user-facing GPU backend corner toggle.
 import { rendererBackendToggle } from '@app/ui/overlays/RendererBackendToggle';
 import { RenderPipelineManager } from '@pryzm/renderer-three';
@@ -984,6 +987,21 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
     // and the OBC default ('webgl-only') stay on the lightweight WebGL path.
     let pryzmRendererBackend: import('../rendering/createRenderer').RendererBackend = 'webgl-only';
 
+    // ── ADR-0077 (§RENDERER-LIVE-SWAP) — rebind-layer holders ────────────────
+    // The renderer-bound services are constructed later in this same composition
+    // root (RenderPipelineManager, RenderPerformanceService) inside their own
+    // try blocks. We hoist references to the outer scope so the live-swap closure
+    // (swapRendererBackend, defined at the end of initScene) can re-bind every
+    // service that captured the OLD renderer to the NEW one — WITHOUT a page
+    // reload. Null until the matching block below assigns them. P1: this stays a
+    // single composition root; no parallel runtime wiring is created.
+    // (RenderPerformanceService is bound to the OBC renderer, which is never
+    //  swapped, so it needs no holder here.)
+    let renderPipelineManagerRef: import('@pryzm/renderer-three').RenderPipelineManager | null = null;
+    // Re-sizes the active PRYZM renderer to the container — assigned where the
+    // `resize` closure is defined so the swap can resize a freshly-built renderer.
+    let resizePryzmRenderer: (() => void) | null = null;
+
     const updateIfManualMode = () => {
         if (world.renderer && world.renderer.mode === OBC.RendererMode.MANUAL) {
             world.renderer.needsUpdate = true;
@@ -1030,6 +1048,9 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         }
     };
     resize();
+    // ADR-0077 (§RENDERER-LIVE-SWAP) — expose the resize closure to the swap so a
+    // freshly-built renderer/canvas is sized to the container before first paint.
+    resizePryzmRenderer = resize;
 
     // C2 — Debounced pipeline rebuild on window resize (Phase C polish).
     // When the window resizes, the WebGPU render targets need to be recreated
@@ -2091,6 +2112,8 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         }
 
         window.renderPipelineManager = renderPipelineManager;
+        // ADR-0077 (§RENDERER-LIVE-SWAP) — hoist for the live-swap rebind layer.
+        renderPipelineManagerRef = renderPipelineManager;
 
         // ── Phase 2 Performance: IViewSwitchListener + FrameCoordinator ──────
         // Register RPM as a view-switch listener so ViewController calls
@@ -2793,6 +2816,208 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         console.warn('[initScene] ParcelBoundarySceneRenderer init error:', pbErr?.message ?? pbErr);
     }
     // ── End A.8.x parcel-boundary outline ─────────────────────────────────────
+
+    // ── ADR-0077 (§RENDERER-LIVE-SWAP) — live in-place backend swap ───────────
+    // Supersedes ADR-0076's persist+reload toggle. The renderer-bound services
+    // (RenderPipelineManager, the PRYZM overlay canvas, the resize sync) were all
+    // captured in THIS composition root, so the rebind layer lives here too (P1 —
+    // one runtime, one wiring path). The scene graph (THREE.Scene, geometry,
+    // materials, lights, camera) is backend-agnostic CPU data and is NOT rebuilt;
+    // THREE re-uploads GPU resources lazily on the next render against the new
+    // device. The work is: stop the loop → dispose old RPM pipeline + old renderer
+    // → build the new renderer on a fresh canvas in the same DOM slot → re-bind
+    // every captured service → re-establish the TSL pipeline for the new backend →
+    // resume the loop. Camera position/target and the current view are untouched
+    // (we never touch world.camera). On failure we keep the current renderer and
+    // surface a toast; the toggle's own catch falls back to the legacy reload.
+    //
+    // RenderPerformanceService is bound to the OBC renderer (postproductionRenderer
+    // .three) which is NEVER swapped, so it needs no re-bind. RenderingPipeline-
+    // Coordinator's tier gate reads window.renderPipelineManager.status.webGpuActive
+    // at call-time, so it picks up the new backend automatically on the next
+    // geometry-add — no re-bind needed there either. The `_swapTracer` span (P8)
+    // records the from/to backend + outcome.
+    const _swapTracer = trace.getTracer('pryzm-engine');
+    let _swapInFlight = false;
+    const swapRendererBackend = async (pref: RendererBackendPreference): Promise<boolean> => {
+        return _swapTracer.startActiveSpan('pryzm.renderer.swap', async (span) => {
+            span.setAttribute('pryzm.renderer.swap.pref', pref);
+            span.setAttribute('pryzm.renderer.swap.from', pryzmRendererBackend);
+
+            // Re-entrancy + capability guards.
+            if (_swapInFlight) {
+                console.warn('[initScene] §RENDERER-LIVE-SWAP swap already in flight — ignoring.');
+                span.setAttribute('pryzm.renderer.swap.outcome', 'busy');
+                span.end();
+                return false;
+            }
+            // The live swap re-binds the PRYZM-owned overlay renderer + its TSL
+            // pipeline. If Phase 5 never activated (OBC WebGL is the sole renderer,
+            // no pryzmCanvas), there is nothing to rebind in place — signal the
+            // caller to use the reload path instead.
+            if (!isPhase5Active || !pryzmCanvas || !renderPipelineManagerRef) {
+                console.warn(
+                    '[initScene] §RENDERER-LIVE-SWAP Phase 5 not active (no PRYZM overlay renderer) — ' +
+                    'cannot hot-swap; caller should reload.',
+                );
+                span.setAttribute('pryzm.renderer.swap.outcome', 'no-phase5');
+                span.end();
+                return false;
+            }
+
+            _swapInFlight = true;
+            // Persist FIRST so createRenderer() resolves the new backend AND a fresh
+            // boot honours the choice. (No reload — that is the whole point.)
+            setRendererBackendPreference(pref);
+
+            const rpm = renderPipelineManagerRef;
+            const oldCanvas = pryzmCanvas;
+            const oldRenderer = pryzmRenderer;
+            // Capture the OLD backend up-front — step 4 reassigns pryzmRendererBackend
+            // to the new value, so the rollback path must use this snapshot to re-bind
+            // the old renderer with the correct (real-WebGPU?) flag.
+            const oldBackend = pryzmRendererBackend;
+            let newCanvas: HTMLCanvasElement | null = null;
+
+            try {
+                // 1. Stop the single rAF loop (P3 — never start a second one; we
+                //    re-start THIS one after the rebind).
+                try { (unifiedFrameLoop as any).stop?.(); } catch { /* ignore */ }
+
+                // 2. Dispose the old TSL pipeline (watch the §I2 usedTimes guard,
+                //    handled inside RPM.dispose() → _safeDisposeRenderPipeline()).
+                try { rpm.dispose(); }
+                catch (e) { console.warn('[initScene] §RENDERER-LIVE-SWAP old RPM dispose failed (non-fatal):', e); }
+
+                // 3. Build the NEW renderer on a FRESH canvas in the SAME DOM slot.
+                //    WebGPURenderer is constructed against one canvas for its
+                //    lifetime, so we mint a new overlay canvas rather than reuse the
+                //    old one. createRenderer() reads the just-persisted preference.
+                newCanvas = document.createElement('canvas');
+                newCanvas.setAttribute('data-pryzm', 'webgpu');
+                newCanvas.style.cssText = [
+                    'position:absolute', 'top:0', 'left:0',
+                    'width:100%', 'height:100%', 'pointer-events:none', 'z-index:2',
+                ].join(';');
+                newCanvas.width  = window.innerWidth;
+                newCanvas.height = window.innerHeight;
+                container.appendChild(newCanvas);
+
+                const newResult = await createRenderer(newCanvas);
+
+                // A backend that cannot drive the TSL pipeline (plain WebGLRenderer)
+                // is only produced when WebGPURenderer construction itself failed —
+                // treat as a swap failure and roll back to the old renderer.
+                if (newResult.backend === 'webgl-only') {
+                    throw new Error(
+                        `[initScene] §RENDERER-LIVE-SWAP new renderer backend is 'webgl-only' ` +
+                        `(WebGPURenderer construction failed) — rolling back.`,
+                    );
+                }
+
+                // 4. Promote the new renderer + canvas to the closure refs that
+                //    every other handler reads (resize, VPT suspend/resume, etc.).
+                pryzmRenderer        = newResult.renderer;
+                pryzmCanvas          = newCanvas;
+                pryzmRendererBackend = newResult.backend;
+
+                // Prime clear colour to transparent (same as the boot path) so the
+                // TSL bgUniform mix() drives the background, not an opaque clear.
+                try { (pryzmRenderer as any).setClearColor?.(new THREE.Color(0x000000), 0); }
+                catch { /* not all variants expose setClearColor */ }
+
+                // Size the new renderer/canvas to the container BEFORE first paint.
+                try { resizePryzmRenderer?.(); }
+                catch { (pryzmRenderer as any).setSize?.(window.innerWidth, window.innerHeight); }
+
+                // 5. Re-bind the TSL pipeline to the new renderer for the NEW
+                //    backend. §PERF-WEBGL2-NO-TSL — only a native 'webgpu' backend
+                //    may run the TSL pipeline; 'webgl-fallback' stays lightweight.
+                const newIsRealWebGPU = newResult.backend === 'webgpu';
+                await rpm.bind(
+                    world.scene.three as THREE.Scene,
+                    world.camera.three,
+                    pryzmRenderer,
+                    'light',
+                    newIsRealWebGPU,
+                );
+                if (rpm.status.webGpuActive) {
+                    await rpm.activateSSGI();
+                    await rpm.activateOutlines();
+                }
+
+                // 6. Publish the new renderer/canvas on the window globals other
+                //    subsystems read (sheet thumbnails, legacy service suspend).
+                window.pryzmRenderer = pryzmRenderer;
+                window.pryzmCanvas   = pryzmCanvas;
+
+                // 7. Remove the OLD canvas + dispose the OLD renderer now that the
+                //    new one is live (do this AFTER the new renderer renders-ready
+                //    so there is no blank frame).
+                try { (oldRenderer as any).dispose?.(); }
+                catch (e) { console.warn('[initScene] §RENDERER-LIVE-SWAP old renderer dispose failed (non-fatal):', e); }
+                try { oldCanvas.remove(); } catch { /* already detached */ }
+
+                // 8. Resume the single rAF loop. The PASCAL render callback closes
+                //    over `renderPipelineManager` (the SAME rpm instance, now rebound
+                //    to the new renderer) so no callback re-wire is needed.
+                try { (unifiedFrameLoop as any).start?.(); } catch { /* ignore */ }
+
+                span.setAttribute('pryzm.renderer.swap.to', pryzmRendererBackend);
+                span.setAttribute('pryzm.renderer.swap.outcome', 'ok');
+                console.log(
+                    `[initScene] §RENDERER-LIVE-SWAP live swap complete — backend now: ${pryzmRendererBackend} (no reload).`,
+                );
+
+                // Remount the corner pill so the "· <backend>" label updates.
+                try { rendererBackendToggle.mount(); } catch { /* cosmetic */ }
+
+                _swapInFlight = false;
+                span.end();
+                return true;
+            } catch (err) {
+                // Rollback: the old renderer/canvas may still be alive (we only
+                // dispose them on the success path). Re-bind the existing rpm to the
+                // OLD renderer and resume so the viewport is never left dead.
+                console.error('[initScene] §RENDERER-LIVE-SWAP swap failed — rolling back to previous backend:', err);
+                span.recordException(err as Error);
+                span.setStatus({ code: SpanStatusCode.ERROR });
+                try { newCanvas?.remove(); } catch { /* ignore */ }
+                try {
+                    pryzmRenderer        = oldRenderer;
+                    pryzmCanvas          = oldCanvas;
+                    pryzmRendererBackend = oldBackend;
+                    window.pryzmRenderer = oldRenderer;
+                    window.pryzmCanvas   = oldCanvas;
+                    const oldIsRealWebGPU = oldBackend === 'webgpu';
+                    await rpm.bind(
+                        world.scene.three as THREE.Scene,
+                        world.camera.three,
+                        oldRenderer,
+                        'light',
+                        oldIsRealWebGPU,
+                    );
+                    if (rpm.status.webGpuActive) {
+                        await rpm.activateSSGI();
+                        await rpm.activateOutlines();
+                    }
+                    try { (unifiedFrameLoop as any).start?.(); } catch { /* ignore */ }
+                    console.warn('[initScene] §RENDERER-LIVE-SWAP rolled back — previous renderer restored, viewport alive.');
+                } catch (rollbackErr) {
+                    console.error('[initScene] §RENDERER-LIVE-SWAP ROLLBACK also failed — viewport may need a reload:', rollbackErr);
+                }
+                span.setAttribute('pryzm.renderer.swap.outcome', 'failed');
+                _swapInFlight = false;
+                span.end();
+                return false;
+            }
+        });
+    };
+
+    // Register the swap so the corner RendererBackendToggle can call it instead of
+    // persisting + reloading (ADR-0077 supersedes ADR-0076's reload path).
+    window.pryzmSwapRendererBackend = swapRendererBackend;
+    console.log('[initScene] §RENDERER-LIVE-SWAP live backend-swap entry point registered (window.pryzmSwapRendererBackend).');
 
     // ── Return typed scene result ─────────────────────────────────────────────
     // groundFloorController is not returned — it is already on window.groundFloorController

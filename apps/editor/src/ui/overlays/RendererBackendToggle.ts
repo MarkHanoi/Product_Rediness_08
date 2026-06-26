@@ -14,9 +14,12 @@
  *     a dead renderer ("A valid external Instance reference no longer exists"),
  *     the user can pin WebGL and keep working without a crash loop.
  *
- * The renderer is created once at engine boot, so switching backends writes the
- * persisted preference (localStorage) and reloads the page — the next boot
- * honours the choice via createRenderer().
+ * ADR-0077 (§RENDERER-LIVE-SWAP, supersedes ADR-0076's reload path): switching
+ * backends now performs a LIVE, in-place renderer swap via
+ * `window.pryzmSwapRendererBackend` (registered by initScene). The project stays
+ * open, the camera/view stays put, and the viewport keeps rendering — no page
+ * reload, no project reopen. The persist+reload path is retained only as a
+ * graceful fallback (`_reloadInto`) when the live swap is unavailable or fails.
  *
  * CONTRACT (05-BIM-UI-ARCHITECTURE §1): self-contained widget; no store writes.
  * P4: the active-backend read uses the typed `window.pryzmRendererBackend`
@@ -108,24 +111,71 @@ export class RendererBackendToggle {
 
     private _choose(pref: RendererBackendPreference): void {
         if (pref === getRendererBackendPreference()) return;
+
+        // ADR-0077 (§RENDERER-LIVE-SWAP) — supersedes ADR-0076's persist+reload.
+        // initScene now registers `window.pryzmSwapRendererBackend`, a live in-place
+        // rebind layer: it disposes the old renderer + TSL pipeline, builds the new
+        // backend on a fresh canvas in the same DOM slot, re-binds every renderer-
+        // bound service, re-establishes the TSL pipeline for the new backend, and
+        // resumes the single rAF loop — keeping the project open, the camera/view
+        // exactly where it was, and the viewport rendering. No reload, no reopen.
+        // The swap function persists the preference itself (so a fresh boot still
+        // honours it). We mark the buttons busy while it runs.
+        const swap = window.pryzmSwapRendererBackend;
+        if (typeof swap === 'function') {
+            this._setBusy(pref);
+            void swap(pref)
+                .then((ok) => {
+                    if (ok) {
+                        // Live swap succeeded — remount to reflect the new active
+                        // backend + clear the busy state.
+                        this.mount();
+                        return;
+                    }
+                    // Swap declined/failed (e.g. Phase 5 inactive, or WebGPU
+                    // unavailable and rolled back). Fall back to the legacy reload
+                    // path so the user still lands on the chosen backend.
+                    console.warn('[RendererBackendToggle] §RENDERER-LIVE-SWAP live swap unavailable/failed — using reload fallback.');
+                    this._reloadInto(pref);
+                })
+                .catch((err) => {
+                    console.error('[RendererBackendToggle] §RENDERER-LIVE-SWAP swap threw — using reload fallback:', err);
+                    this._reloadInto(pref);
+                });
+            return;
+        }
+
+        // No swap entry point registered (engine not fully initialised) — use the
+        // legacy reload path so the toggle still works.
+        this._reloadInto(pref);
+    }
+
+    /** Disable the buttons + show a tiny "switching…" hint during the live swap. */
+    private _setBusy(pref: RendererBackendPreference): void {
+        try {
+            const wrap = document.getElementById(TOGGLE_ID);
+            if (!wrap) return;
+            wrap.style.opacity = '0.6';
+            wrap.style.pointerEvents = 'none';
+            const label = pref === 'webgl' ? 'WebGL' : pref === 'webgpu' ? 'WebGPU' : 'Auto';
+            const hint = document.createElement('span');
+            hint.textContent = `· switching to ${label}…`;
+            hint.style.opacity = '0.7';
+            wrap.appendChild(hint);
+        } catch { /* non-fatal cosmetic */ }
+    }
+
+    /**
+     * ADR-0077 fallback — the legacy ADR-0076 persist+reload path. Used only when
+     * the live swap is unavailable or fails: persist the choice, set the one-shot
+     * reopen-project flag, then reload. A plain reload boots to the projects hub
+     * (#/projects), so the sessionStorage flag tells PlatformRouter to relaunch the
+     * last-open project on the next boot.
+     */
+    private _reloadInto(pref: RendererBackendPreference): void {
         setRendererBackendPreference(pref);
-
-        // §PERF-WEBGPU-FRAGMENT / ADR-0076 — the renderer backend is resolved ONCE
-        // at boot by RendererHandleFactory. A LIVE in-place renderer hot-swap of an
-        // already-open project collapses the viewport (scene/camera/RenderPipeline
-        // manager/frame-loop are bound to the old renderer). The founder confirmed a
-        // FRESH boot into either backend renders perfectly. So we deliberately do NOT
-        // hot-swap — we persist the choice and trigger a full page reload, which boots
-        // cleanly into the chosen backend via the exact, known-good boot path.
-        //
-        // REOPEN-PROJECT: a plain reload boots to the projects hub (#/projects), so
-        // the user would lose the project they were in on every swap. Set a one-shot
-        // sessionStorage flag; PlatformRouter consumes it on the next boot and
-        // relaunches the last-open project (which it records in launchWorkspace).
         try { sessionStorage.setItem('pryzm.reopenProjectAfterReload', '1'); } catch { /* no sessionStorage */ }
-
         this._showReloadNotice(pref);
-        // Defer the reload one tick so the notice paints before navigation.
         setTimeout(() => {
             try { location.reload(); } catch { /* non-browser env */ }
         }, 350);

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **Proposed** — 2026-06-24 |
+| Status | **Proposed** — 2026-06-24 · reload-on-toggle sub-decision **SUPERSEDED by [ADR-0077](./0077-live-renderer-backend-swap.md)** (§RENDERER-LIVE-SWAP, 2026-06-26) — the corner GPU pill now performs a live, in-place renderer swap instead of persist+reload; the rest of this ADR stands. |
 | Tag | §PERF-WEBGPU-FRAGMENT · 2026-06-24 |
 | Owner | Graphics / Engine lead |
 | Closes | Founder #1 issue: "3D viewport slow under WebGPU on populated scenes" |

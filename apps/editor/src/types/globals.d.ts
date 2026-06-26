@@ -326,6 +326,17 @@ declare global {
          * backend. Typed here so the toggle needs no `(window as any)` (P4).
          */
         pryzmRendererBackend: 'webgpu' | 'webgl-fallback' | 'webgl-only' | undefined;
+        /**
+         * ADR-0077 (§RENDERER-LIVE-SWAP) — live, in-place renderer backend swap.
+         * Registered by initScene once the rebind layer is wired. The corner
+         * RendererBackendToggle calls this INSTEAD of persist+reload. Resolves
+         * `true` when the new backend is live and rendering; `false` when the
+         * swap could not complete (caller falls back to the legacy reload path).
+         * Typed here so the toggle needs no `(window as any)` (P4).
+         */
+        pryzmSwapRendererBackend:
+            | ((pref: 'auto' | 'webgpu' | 'webgl') => Promise<boolean>)
+            | undefined;
         obcRendererCanvas: HTMLCanvasElement | undefined;
         renderPipelineManager:
             | {
