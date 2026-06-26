@@ -35,32 +35,46 @@ export class JoinTool extends OperationToolBase {
         this._setCursor('crosshair');
         this._showInstructions('Click the second wall to join with — Esc to cancel');
 
-        const handler = (e: Event) => {
-            const { elementId: pickedId, elementType: pickedType } = (e as CustomEvent).detail ?? {};
-            if (!pickedId) return;                          // no element under cursor
-            if (pickedType && pickedType !== 'wall') {
-                this._showInstructions('⚠ Only walls can be joined in Phase 1 — click a wall');
-                return;
-            }
-            if (pickedId === this._wallAId) {
-                this._showInstructions('⚠ Cannot join a wall to itself — click a different wall');
-                return;
-            }
-            this._executeJoin(pickedId);
-        };
-
-        this._addListener('bim-canvas-world-click', handler as EventListener, window);
+        // §OP-LISTEN-DEFER — the listener is attached on the NEXT macrotask (see
+        // OperationToolBase) so the click that activated this tool cannot be
+        // consumed as wall B, and clicks on wall A itself are ignored as residual
+        // selection noise. The handler returns true ONLY when it actually picks a
+        // distinct second wall, so an empty / wall-A / non-wall click does not tear
+        // the listener down — the user can click again.
+        this._addCanvasClickListener(
+            (detail) => {
+                const pickedId   = detail.elementId ?? null;
+                const pickedType = detail.elementType ?? null;
+                if (!pickedId) return false;                 // no element under cursor
+                if (pickedType && pickedType !== 'wall') {
+                    this._showInstructions('⚠ Only walls can be joined in Phase 1 — click a wall');
+                    return false;
+                }
+                if (pickedId === this._wallAId) {
+                    this._showInstructions('⚠ Cannot join a wall to itself — click a different wall');
+                    return false;
+                }
+                return this._executeJoin(pickedId);
+            },
+            { ignoreElementId: this._wallAId },
+        );
     }
 
-    private _executeJoin(wallBId: string): void {
+    /** Returns true when the join consumed the click (succeeded OR errored on a real pick). */
+    private _executeJoin(wallBId: string): boolean {
         const cmd = new JoinWallsCommand({ wallAId: this._wallAId, wallBId });
         const result = this._cmd.execute(cmd);
         if (!result.success) {
             const info = result.info?.[0] ?? 'Join failed';
             this._showError(info);
-            return;
+            // A real wall-B was picked; the operation is over (the user got an
+            // explanatory toast). Consume the click so the tool deactivates rather
+            // than silently waiting for another pick the user does not expect.
+            this._complete();
+            return true;
         }
         this._complete();
+        return true;
     }
 
     private _showError(msg: string): void {

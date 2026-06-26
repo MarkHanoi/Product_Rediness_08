@@ -53,11 +53,14 @@ export class MirrorTool extends OperationToolBase {
         this._setCursor('crosshair');
         this._showInstructions('Click the FIRST point of the mirror axis — Esc to cancel');
 
-        const step0 = (e: Event) => {
-            const { worldPoint } = (e as CustomEvent).detail ?? {};
-            if (!worldPoint) return;
+        // §OP-LISTEN-DEFER — step0 is attached on the next macrotask so the click
+        // that activated the Mirror tool (the selecting click) cannot be consumed
+        // as the first axis point.
+        const step0 = (detail: { worldPoint?: unknown }): boolean => {
+            const worldPoint = detail.worldPoint as Point3D | undefined;
+            if (!worldPoint) return false;
 
-            this._p1 = worldPoint as Point3D;
+            this._p1 = worldPoint;
 
             // Start dashed-line gizmo if scene is available
             if (this._scene) {
@@ -73,26 +76,28 @@ export class MirrorTool extends OperationToolBase {
             }
 
             this._nextStep('Click the SECOND point of the mirror axis — Esc to cancel');
-            this._swapCanvasHandler(step0, step1);
+            this._swapCanvasClickListener(step1);
+            return true;
         };
 
-        const step1 = (e: Event) => {
-            const { worldPoint } = (e as CustomEvent).detail ?? {};
-            if (!worldPoint) return;
+        const step1 = (detail: { worldPoint?: unknown }): boolean => {
+            const worldPoint = detail.worldPoint as Point3D | undefined;
+            if (!worldPoint) return false;
 
-            const p2 = worldPoint as Point3D;
+            const p2 = worldPoint;
             const dx = p2.x - this._p1!.x, dz = p2.z - this._p1!.z;
             if (Math.sqrt(dx * dx + dz * dz) < 0.05) {
                 this._showInstructions('⚠ Points are too close — pick a farther second point');
-                return;
+                return false;
             }
 
             this._gizmo?.dispose();
             this._gizmo = null;
             this._executeMirror(this._p1!, p2);
+            return true;
         };
 
-        this._addListener('bim-canvas-world-click', step0 as EventListener, window);
+        this._addCanvasClickListener(step0);
     }
 
     override cancel(): void {
@@ -116,15 +121,5 @@ export class MirrorTool extends OperationToolBase {
             return;
         }
         this._complete();
-    }
-
-    /** Swap the bim-canvas-world-click handler in the managed listener list. */
-    private _swapCanvasHandler(oldFn: EventListener, newFn: EventListener): void {
-        const arr = (this as any)._listeners as Array<{ type: string; handler: EventListener; target: EventTarget }>;
-        const type = 'bim-canvas-world-click';
-        window.removeEventListener(type, oldFn);
-        const idx = arr.findLastIndex((e: any) => e.type === type && e.handler === oldFn);
-        if (idx >= 0) arr[idx] = { type, handler: newFn, target: window };
-        window.addEventListener(type, newFn);
     }
 }

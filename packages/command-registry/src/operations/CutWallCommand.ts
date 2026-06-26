@@ -96,6 +96,26 @@ export class CutWallCommand implements Command {
             };
         }
 
+        // §CUT-SPIKE-GUARD — near-parallel walls produce a far-off intersection, so
+        // trimming the far endpoint TO it EXTENDS the wall into a spike instead of
+        // cutting it back. A genuine cut never makes a wall dramatically longer than
+        // it was. Reject when either result balloons past an absolute cap AND a
+        // multiple of its original length (mirrors §JOIN-SPIKE-GUARD).
+        const origLenA = _lenXZ(wallA.baseLine);
+        const origLenB = _lenXZ(wallB.baseLine);
+        const isSpike = (newLen: number, origLen: number): boolean =>
+            newLen > _CUT_MAX_LEN_ABS && newLen > origLen * _CUT_MAX_LEN_RATIO;
+        if (isSpike(_lenXZ(newBaseLineA), origLenA) || isSpike(_lenXZ(newBaseLineB), origLenB)) {
+            return {
+                success: false,
+                affectedElementIds: [],
+                info: [
+                    'Cut rejected: the walls are too close to parallel — trimming would extend a wall ' +
+                    'to a far-off point. Pick two walls that meet at a clear corner.',
+                ],
+            };
+        }
+
         ctx.stores.wallStore.update(this.input.wallAId, {
             baseLine: newBaseLineA,
             _renderVersion: ((wallA as any)._renderVersion ?? 0) + 1,
@@ -135,6 +155,11 @@ export class CutWallCommand implements Command {
 }
 
 // ── XZ plane geometry helpers ──────────────────────────────────────────────
+
+// §CUT-SPIKE-GUARD — a trim must not balloon a wall past this absolute length AND
+// this multiple of its original length (near-parallel ⇒ far-off intersection).
+const _CUT_MAX_LEN_ABS = 20.0;     // metres
+const _CUT_MAX_LEN_RATIO = 4.0;    // result may not exceed 4× the original length
 
 function _lineIntersectXZ(a0: Point3D, a1: Point3D, b0: Point3D, b1: Point3D): Point3D | null {
     const dax = a1.x - a0.x, daz = a1.z - a0.z;

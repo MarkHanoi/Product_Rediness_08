@@ -53,6 +53,14 @@ export class JoinWallsCommand implements Command {
         if (this.input.wallAId === this.input.wallBId) return { ok: false, reason: 'SAME_WALL', blockingIssues: ['Cannot join a wall to itself'] };
         const ix = _lineIntersectXZ(wallA.baseLine[0], wallA.baseLine[1], wallB.baseLine[0], wallB.baseLine[1]);
         if (!ix) return { ok: false, reason: 'WALLS_PARALLEL', blockingIssues: ['Walls are parallel — no intersection exists'] };
+        // §JOIN-SPIKE-GUARD — reject a join whose intersection sits implausibly far
+        // beyond both walls (near-parallel ⇒ far-off intersection ⇒ spike). See the
+        // helper for the precise rule. Validate here so the operation never even
+        // snapshots/mutates for an implausible join.
+        const plaus = _joinPlausibility(wallA.baseLine, wallB.baseLine, ix);
+        if (plaus.kind === 'spike') {
+            return { ok: false, reason: 'JOIN_SPIKE', blockingIssues: [plaus.message] };
+        }
         return { ok: true };
     }
 
@@ -64,6 +72,18 @@ export class JoinWallsCommand implements Command {
 
         const ix = _lineIntersectXZ(wallA.baseLine[0], wallA.baseLine[1], wallB.baseLine[0], wallB.baseLine[1]);
         if (!ix) return { success: false, affectedElementIds: [], info: ['Walls are parallel'] };
+
+        // §JOIN-SPIKE-GUARD — classify before mutating.
+        //   'spike'         → reject (would shoot an endpoint to a far-off point).
+        //   'already-joined' → no-op with feedback (nearest ends already meet).
+        //   'ok'            → proceed.
+        const plaus = _joinPlausibility(wallA.baseLine, wallB.baseLine, ix);
+        if (plaus.kind === 'spike') {
+            return { success: false, affectedElementIds: [], info: [plaus.message] };
+        }
+        if (plaus.kind === 'already-joined') {
+            return { success: false, affectedElementIds: [], info: ['Walls are already joined at this corner'] };
+        }
 
         this.prevSnapshotA = serializeWallSnapshot(wallA);
         this.prevSnapshotB = serializeWallSnapshot(wallB);
@@ -122,6 +142,60 @@ function _lineIntersectXZ(
     const dx = b0.x - a0.x, dz = b0.z - a0.z;
     const t  = (dx * (-dbz) + dbx * dz) / det;
     return { x: a0.x + t * dax, y: a0.y, z: a0.z + t * daz };
+}
+
+// §JOIN-SPIKE-GUARD constants.
+//   A genuine corner/extension join moves a wall's nearest endpoint a SHORT way
+//   to the intersection — it tidies a near-meeting corner. A near-parallel pair
+//   produces an intersection point far off in space; moving the nearest endpoint
+//   there extends the wall enormously, producing the founder's "spike" (a sharp
+//   far-off triangle). We reject when the nearest-endpoint TRAVEL for EITHER wall
+//   exceeds both an absolute cap AND a multiple of that wall's own length.
+const _JOIN_MAX_TRAVEL_ABS = 8.0;        // metres — a single join never legitimately moves an end this far
+const _JOIN_MAX_TRAVEL_RATIO = 3.0;      // travel may not exceed 3× the wall's own length
+const _JOIN_ALREADY_JOINED_TOL = 0.01;   // 10 mm — both nearest ends already coincide with the intersection
+
+type _JoinPlausibility =
+    | { kind: 'ok' }
+    | { kind: 'already-joined' }
+    | { kind: 'spike'; message: string };
+
+/**
+ * Decide whether moving each wall's NEAREST endpoint to `ix` is a plausible join.
+ *
+ * Pure XZ-plane arithmetic; no side effects. The travel distance of a wall's
+ * nearest endpoint to the intersection is the amount that wall is extended (or
+ * trimmed). A legitimate join keeps that travel small relative to the wall; a
+ * near-parallel pair yields a far-off `ix` and a huge travel → spike.
+ */
+function _joinPlausibility(
+    blA: [Point3D, Point3D],
+    blB: [Point3D, Point3D],
+    ix: Point3D,
+): _JoinPlausibility {
+    const lenA = _distXZ(blA[0], blA[1]);
+    const lenB = _distXZ(blB[0], blB[1]);
+    const travelA = Math.min(_distXZ(blA[0], ix), _distXZ(blA[1], ix));
+    const travelB = Math.min(_distXZ(blB[0], ix), _distXZ(blB[1], ix));
+
+    const isSpike = (travel: number, len: number): boolean =>
+        travel > _JOIN_MAX_TRAVEL_ABS && travel > len * _JOIN_MAX_TRAVEL_RATIO;
+
+    if (isSpike(travelA, lenA) || isSpike(travelB, lenB)) {
+        const worst = Math.max(travelA, travelB);
+        return {
+            kind: 'spike',
+            message:
+                `Join rejected: the walls are too close to parallel — joining would extend a wall by ` +
+                `${worst.toFixed(1)} m to a far-off point. Pick two walls that meet at a clear corner.`,
+        };
+    }
+
+    if (travelA <= _JOIN_ALREADY_JOINED_TOL && travelB <= _JOIN_ALREADY_JOINED_TOL) {
+        return { kind: 'already-joined' };
+    }
+
+    return { kind: 'ok' };
 }
 
 /**
