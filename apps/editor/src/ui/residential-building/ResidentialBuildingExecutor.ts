@@ -27,6 +27,12 @@
 import { trace } from '@opentelemetry/api';
 import { batchCoordinator, storeRegistry, storeEventBus } from '@pryzm/core-app-model';
 import type { FloorPattern } from '@pryzm/core-app-model';
+// §DEFERWORK-RESI-ADOPT — background-tab-resilient deferral.  `deferWork` honours
+// the delay via setTimeout while the tab is VISIBLE (foreground identical) but
+// rides the unthrottled BackgroundHeartbeat when `document.hidden`, so these
+// deferred finishing passes / poll loops keep advancing instead of crawling
+// under the ≥1 s background setTimeout clamp.  See §BACKGROUND-TAB-KEEPALIVE.
+import { deferWork } from '@pryzm/frame-scheduler';
 import { createId } from '@pryzm/schemas';
 import {
     AddLevelCommand,
@@ -1208,7 +1214,7 @@ export class ResidentialBuildingExecutor {
         const ready = (): boolean => !wallStore?.getById ? true : wallIds.every(id => wallStore.getById!(id) != null);
         const levelIds = [...new Set(specs.map(s => s.levelId))];
         const tryPunch = (n: number): void => {
-            if (!ready() && n > 0) { setTimeout(() => tryPunch(n - 1), 150); return; }
+            if (!ready() && n > 0) { deferWork(() => tryPunch(n - 1), 150); return; }
             try {
                 batchCoordinator.runBatch(() => {
                     cm.execute?.(new CreateWallOpeningsBatchCommand(specs.map(s => ({
@@ -1229,7 +1235,7 @@ export class ResidentialBuildingExecutor {
                         },
                     }))));
                 }, { levelIds, totalElementCount: specs.length, skipRedetectRooms: true });
-                setTimeout(() => {
+                deferWork(() => {
                     try { window.__wallRebuildControl?.rebuildWalls?.(wallIds); }
                     catch (e) { console.warn('[resi-building] core-door rebuildWalls failed (non-fatal):', e); }
                 }, 250);
@@ -1256,7 +1262,7 @@ export class ResidentialBuildingExecutor {
         const ready = (): boolean => !wallStore?.getById ? true : wallIds.every(id => wallStore.getById!(id) != null);
         const levelIds = [...new Set(specs.map(s => s.levelId))];
         const tryPunch = (n: number): void => {
-            if (!ready() && n > 0) { setTimeout(() => tryPunch(n - 1), 150); return; }
+            if (!ready() && n > 0) { deferWork(() => tryPunch(n - 1), 150); return; }
             try {
                 batchCoordinator.runBatch(() => {
                     cm.execute?.(new CreateWallOpeningsBatchCommand(specs.map(s => ({
@@ -1276,7 +1282,7 @@ export class ResidentialBuildingExecutor {
                         },
                     }))));
                 }, { levelIds, totalElementCount: specs.length, skipRedetectRooms: true });
-                setTimeout(() => {
+                deferWork(() => {
                     try { window.__wallRebuildControl?.rebuildWalls?.(wallIds); }
                     catch (e) { console.warn('[resi-building] ground-window rebuildWalls failed (non-fatal):', e); }
                 }, 250);
@@ -1330,7 +1336,7 @@ export class ResidentialBuildingExecutor {
      *  signals for the whole batch drain. The v1 fire-on-a-fixed-timeout raced that window and was
      *  silently discarded (a manual edit works only BECAUSE it happens later, with no discard window).
      *  Fix: (1) wait for every host wall to land in the store, then (2) fire INSIDE
-     *  `batchCoordinator.onNextSettle` BUT deferred one macrotask (`setTimeout 0`) so it runs AFTER the
+     *  `batchCoordinator.onNextSettle` BUT deferred one macrotask (`deferWork(…, 0)`) so it runs AFTER the
      *  batch's onComplete has called `__wallRebuildControl.restore()` (which closes the discard window
      *  — the settle listeners fire a few lines BEFORE restore in the SAME onComplete, so a macrotask
      *  hop clears it). (3) Re-fire a couple more times on a short delay so any LATER deferred batch
@@ -1349,12 +1355,12 @@ export class ResidentialBuildingExecutor {
         const ready = (): boolean => !wallStore?.getById ? true : ids.every(id => wallStore.getById!(id) != null);
 
         // Fire ONE whole-level resolve over all ids, AFTER the current batch's discard window has
-        // closed. `onNextSettle` fires once the batch is settled; the `setTimeout(0)` then hops past
+        // closed. `onNextSettle` fires once the batch is settled; the `deferWork(…, 0)` then hops past
         // the rest of that synchronous onComplete (incl. `restore()`), so the rebuild is no longer
         // dropped. A small retry chain re-applies after any later openings/finish batch settles too.
         const fireAfterSettle = (retriesLeft: number): void => {
             batchCoordinator.onNextSettle(() => {
-                setTimeout(() => {
+                deferWork(() => {
                     try {
                         window.__wallRebuildControl?.rebuildWalls?.(ids);
                         console.log(`[resi-building] §RESI-EXTERIOR-WALL-MITER-FIX2 — corner-join pass on ${ids.length} wall(s) (post-settle, discard window closed)`);
@@ -1362,7 +1368,7 @@ export class ResidentialBuildingExecutor {
                     // Re-fire later so a subsequent deferred batch (openings/finishes) that re-squares
                     // via its own discard cycle gets re-mitred. Each pass is idempotent (resolveLevel
                     // on already-mitred walls is a no-op-equivalent re-resolve).
-                    if (retriesLeft > 0) setTimeout(() => fireAfterSettle(retriesLeft - 1), 1500);
+                    if (retriesLeft > 0) deferWork(() => fireAfterSettle(retriesLeft - 1), 1500);
                 }, 0);
             });
         };
@@ -1371,7 +1377,7 @@ export class ResidentialBuildingExecutor {
         // ticks (~6 s, small builds byte-identical) and capped at 60 (~9 s) so it can't hang the UI.
         const budget = Math.min(60, Math.max(40, Math.ceil(ids.length / 8)));
         const tryMitre = (n: number): void => {
-            if (!ready() && n > 0) { setTimeout(() => tryMitre(n - 1), 150); return; }
+            if (!ready() && n > 0) { deferWork(() => tryMitre(n - 1), 150); return; }
             // Walls have landed (or the budget ran out) → schedule the settle-gated, post-restore
             // resolve, with 3 re-fires to outlast the openings + finish + entrance/window batches.
             fireAfterSettle(3);
@@ -2349,7 +2355,10 @@ export class ResidentialBuildingExecutor {
 
         let done = false;
         let unsub: (() => void) | undefined;
-        let poll: ReturnType<typeof setTimeout> | undefined;
+        // §DEFERWORK-RESI-ADOPT — `poll` now holds the deferWork canceller (a fn)
+        // rather than a raw timer handle, so the wall-ready poll keeps ticking
+        // when the tab is backgrounded instead of crawling under the ≥1 s clamp.
+        let poll: (() => void) | undefined;
 
         // Graph-authoritative rooms (default ON) — when used, this batch skips the
         // room redetect so detection never re-segments the engine's designed rooms.
@@ -2365,7 +2374,7 @@ export class ResidentialBuildingExecutor {
         const go = (): void => {
             if (done) return;
             done = true;
-            if (poll) clearTimeout(poll);
+            if (poll) poll();   // §DEFERWORK-RESI-ADOPT — cancel the pending deferWork poll
             unsub?.();
             const levelIds = [...new Set(builds.map(b => b.levelId))];
             try {
@@ -2383,7 +2392,7 @@ export class ResidentialBuildingExecutor {
             // Flush the host-wall meshes for the openings just added (mirrors §A.21.D28).
             const openingWallIds = [...neededWallIds];
             if (openingWallIds.length > 0) {
-                setTimeout(() => {
+                deferWork(() => {
                     try { window.__wallRebuildControl?.rebuildWalls?.(openingWallIds); }
                     catch (e) { console.warn('[resi-building] rebuildWalls failed (non-fatal):', e); }
                 }, 250);
@@ -2421,7 +2430,7 @@ export class ResidentialBuildingExecutor {
         const tick = (n: number): void => {
             if (done) return;
             if (wallsReady() || n <= 0) { go(); return; }
-            poll = setTimeout(() => tick(n - 1), 150);
+            poll = deferWork(() => tick(n - 1), 150);
         };
         // §RESI-FINISH-BUDGET (founder "residential never fills", 2026-06-23) — the wall-ready poll
         // budget MUST scale with the build size. A large plate emits hundreds of apartments → thousands
@@ -2447,7 +2456,7 @@ export class ResidentialBuildingExecutor {
     private _finishFloorsPerLevel(runtime: PryzmRuntime, levelIds: readonly string[]): void {
         const pc = (window as unknown as { projectContext?: { activeLevelId?: string | null } }).projectContext;
         levelIds.forEach((lid, i) => {
-            setTimeout(() => {
+            deferWork(() => {
                 try {
                     if (pc) pc.activeLevelId = lid;
                     // §RESI-CORRIDOR-FINISH-NO-DOUBLE — skip circulation rooms here; the public
@@ -2512,7 +2521,7 @@ export class ResidentialBuildingExecutor {
             // Stable for 2 consecutive ticks (detection settled) OR budget exhausted ⇒ go.
             if (rooms.length > 0 && rooms.length === prevCount) stable++; else stable = 0;
             prevCount = rooms.length;
-            if (!(stable >= 2 || n <= 0)) { setTimeout(() => tryFinish(n - 1), 300); return; }
+            if (!(stable >= 2 || n <= 0)) { deferWork(() => tryFinish(n - 1), 300); return; }
             if (rooms.length === 0) { console.log('[resi-building] §RESI-WALL-CEILING-FINISH — no rooms to schedule-finish'); return; }
             try {
                 let k = 0;
@@ -2527,7 +2536,7 @@ export class ResidentialBuildingExecutor {
                 console.log(`[resi-building] §RESI-WALL-CEILING-FINISH — authored finishes (floor+wall+ceiling) on ${k} room(s)`);
             } catch (e) { console.warn('[resi-building] room-finish pass failed (non-fatal):', e); }
         };
-        setTimeout(() => tryFinish(80), 1400);   // first check after the floor-finish stagger; ~24 s budget
+        deferWork(() => tryFinish(80), 1400);   // first check after the floor-finish stagger; ~24 s budget
     }
 
     /** §RESI-WALL-CEILING-FINISH — create a CEILING in every detected room on every level (the D-CE
@@ -2559,7 +2568,7 @@ export class ResidentialBuildingExecutor {
                 // Stable only when the valid count holds AND no room is still mid-detection (no polygon).
                 if (c > 0 && c === prev && !anyDegenerateOn(lid)) stable++; else stable = 0;
                 prev = c;
-                if (!(stable >= 2 || n <= 0)) { setTimeout(() => fire(n - 1), 300); return; }
+                if (!(stable >= 2 || n <= 0)) { deferWork(() => fire(n - 1), 300); return; }
                 if (c === 0) return;   // no VALID rooms on this level (e.g. a bare core-only level) → nothing to ceil
                 // Budget exhausted but rooms still degenerate ⇒ DO NOT ceil (a degenerate ceiling would
                 // break the save). Better to ship un-ceiled than to freeze the project on reload.
@@ -2572,7 +2581,7 @@ export class ResidentialBuildingExecutor {
                     triggerCeilingLayout(runtime);
                 } catch (e) { console.warn('[resi-building] ceiling pass failed on', lid, '(non-fatal):', e); }
             };
-            setTimeout(() => fire(80), 900);   // first check after the floor stagger; ~24 s budget per level
+            deferWork(() => fire(80), 900);   // first check after the floor stagger; ~24 s budget per level
         });
     }
 
@@ -2679,7 +2688,7 @@ export class ResidentialBuildingExecutor {
 
         let laid = 0;
         // Defer a beat so the structural slabs (and the bus dispatches) have settled.
-        setTimeout(() => {
+        deferWork(() => {
             try {
                 batchCoordinator.runBatch(() => {
                     for (let i = 0; i < result.levels.length; i++) {
@@ -2727,7 +2736,7 @@ export class ResidentialBuildingExecutor {
                 }, { levelIds: [...new Set(levelIdByIndex.values())], totalElementCount: result.levels.length, skipRedetectRooms: true });
                 console.log(`[resi-building] §RESI-PUBLIC-FLOOR-FINISH — laid ${laid} public floor finish(es)`);
             } catch (e) { console.warn('[resi-building] public floor-finish batch failed (non-fatal):', e); }
-        }, 700);
+        }, 700);   // §DEFERWORK-RESI-ADOPT — background-resilient defer
     }
 
     /** Create one apartment's doors + windows + boundaries + graph rooms inside the
@@ -2832,7 +2841,7 @@ export class ResidentialBuildingExecutor {
 
         // Wait (poll, ≤6 s) for the ground shell walls to land, then punch the entrance.
         const tryPunch = (n: number): void => {
-            if (!shellReady() && n > 0) { setTimeout(() => tryPunch(n - 1), 150); return; }
+            if (!shellReady() && n > 0) { deferWork(() => tryPunch(n - 1), 150); return; }
             // §RESI-DOOR-CENTRE-SPINE (founder 2026-06-24: "entrance → corridor → core door must read
             // as ONE centred spine") — host the entrance on the SOLID door-bay wall the ground shell
             // minted (its midpoint IS the corridor `from`), NOT a wall re-resolved from the
@@ -2898,7 +2907,7 @@ export class ResidentialBuildingExecutor {
                     }]));
                 }, { levelIds: [levelId], totalElementCount: 1, skipRedetectRooms: true });
                 // Flush the host wall mesh so the opening shows (mirror of the apartment pass).
-                setTimeout(() => {
+                deferWork(() => {
                     try { window.__wallRebuildControl?.rebuildWalls?.([hit.wallId]); }
                     catch (e) { console.warn('[resi-building] entrance rebuildWalls failed (non-fatal):', e); }
                 }, 250);
