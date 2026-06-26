@@ -4,11 +4,44 @@ import { StairRailingStore } from './StairRailingStore';
 import { StairStore } from './StairStore';
 import { StairData } from './StairTypes';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
+// ADR-0076 Axis 3 (§PERF-WEBGPU-FRAGMENT / §PERF-RAIL-INSTANCING) — optional
+// GPU-instancing bridge. Mirrors ColumnFragmentBuilder / BeamFragmentBuilder: when
+// injected AND the `__pryzmElementInstancingV1` flag is on, the REPEATED vertical
+// balusters + posts of a stair railing (the per-railing mesh-count multiplier — the
+// spike measured ~200-300 post meshes + many balusters per building, each its own
+// draw call) are registered as GPU instances instead of N individual meshes. The
+// sloped top/bottom rails + glass panels stay on the fragment path. Default-off:
+// null bridge OR flag-off keeps every sub-mesh on the fragment path.
+import {
+    ElementInstanceBridge,
+    isElementInstancingEnabled,
+} from '@pryzm/core-app-model/rendering';
 
 export class StairRailingBuilder {
     private meshGroups: Map<string, THREE.Group> = new Map();
     private scene?: THREE.Scene;
     private stairStore?: StairStore;
+    /**
+     * ADR-0076 Axis 3 (§PERF-RAIL-INSTANCING) — optional GPU-instancing bridge.
+     * When injected AND `__pryzmElementInstancingV1` is on, the repeated balusters
+     * + posts of a railing are registered as GPU instances (one InstancedMesh per
+     * geo×mat×level) instead of individual THREE.Mesh draw calls. Default-off.
+     */
+    private _instanceBridge: ElementInstanceBridge | null = null;
+    /**
+     * §PERF-RAIL-INSTANCING — synthetic instance ids registered on the bridge per
+     * railing id (a railing is 1:N on the bridge). Lets removeRailing / a rebuild
+     * release EVERY slot it allocated. Keyed by railing id.
+     */
+    private _instanceIds: Map<string, string[]> = new Map();
+    /** §PERF-RAIL-INSTANCING — instance ids collected during the CURRENT buildRailing. */
+    private _pendingInstanceIds: string[] | null = null;
+    /** §PERF-RAIL-INSTANCING — monotonic per-build counter for unique instance ids. */
+    private _instanceSeq = 0;
+    /** §PERF-RAIL-INSTANCING — levelId of the railing under construction (for the bridge). */
+    private _buildLevelId = 'default';
+    /** §PERF-RAIL-INSTANCING — id of the railing under construction (for instance keys). */
+    private _buildRailingId: string | null = null;
 
     constructor(
         private railingStore: StairRailingStore,
@@ -97,6 +130,70 @@ export class StairRailingBuilder {
         this.stairStore = stairStore;
     }
 
+    /**
+     * ADR-0076 Axis 3 — inject the GPU-instancing bridge (the SAME one walls +
+     * columns + beams use, constructed over the shared `instancedElementRenderer`).
+     * Until this is injected AND `globalThis.__pryzmElementInstancingV1 === true`,
+     * railings build exactly as before. Mirrors ColumnFragmentBuilder.setInstanceBridge.
+     */
+    setInstanceBridge(bridge: ElementInstanceBridge): void {
+        this._instanceBridge = bridge;
+        console.log('[StairRailingBuilder] §PERF-RAIL-INSTANCING ElementInstanceBridge injected (gated by __pryzmElementInstancingV1).');
+    }
+
+    /** §PERF-RAIL-INSTANCING — instanced path active only when bridge present + flag on. */
+    private _instancingActive(): boolean {
+        return !!this._instanceBridge && isElementInstancingEnabled();
+    }
+
+    /** §PERF-RAIL-INSTANCING — release every instance slot a railing registered. */
+    private _unregisterInstances(railingId: string): void {
+        const ids = this._instanceIds.get(railingId);
+        if (ids && this._instanceBridge) {
+            for (const id of ids) this._instanceBridge.unregister(id);
+        }
+        this._instanceIds.delete(railingId);
+    }
+
+    /**
+     * §PERF-RAIL-INSTANCING — register ONE repeated vertical member (baluster/post)
+     * as a GPU instance whose box centre is `(cx, baseElev + height/2, cz)` in WORLD
+     * space (railing meshes are placed in absolute world coords — the group has an
+     * identity transform — so there is no parent rotation to fold in; rotationY = 0).
+     * Square box/cylinder cross-section → size = (width, height, width). Returns true
+     * when it instanced; false → caller must add the fragment mesh.
+     *
+     * NOTE: stair-railing groups are `selectable: false` (the original fragment
+     * meshes were too), so NO invisible hit-proxy is added here — that would re-add
+     * a per-member mesh and partly defeat the instancing win. Per-level isolate is
+     * preserved by the bridge stamping `elementType: 'stair-railing'` + the railing's
+     * levelId on the aggregate InstancedMesh group.
+     */
+    private _tryInstanceMember(
+        railingId: string,
+        cx: number, baseElev: number, cz: number,
+        width: number, height: number,
+        cylinder: boolean,
+        material: THREE.Material,
+    ): boolean {
+        if (!this._instancingActive() || this._pendingInstanceIds === null) return false;
+        const instId = `${railingId}#m-${this._instanceSeq++}`;
+        this._instanceBridge!.register(
+            instId,
+            this._buildLevelId,
+            'stair-railing',
+            {
+                centre: { x: cx, y: baseElev + height / 2, z: cz },
+                rotationY: 0, // world-placed, axis-vertical, square cross-section
+                size: { x: width, y: height, z: width },
+            },
+            material,
+            cylinder ? 'cylinder' : 'box',
+        );
+        this._pendingInstanceIds.push(instId);
+        return true;
+    }
+
     private resolveStair(stairId: string): StairData | undefined {
         return this.stairStore?.getById(stairId) as StairData | undefined;
     }
@@ -113,6 +210,14 @@ export class StairRailingBuilder {
         const priorVersion =
             (this.meshGroups.get(railing.id)?.userData?.version as number | undefined) ?? 0;
         this.removeRailing(railing.id);
+
+        // §PERF-RAIL-INSTANCING — begin collecting this railing's GPU instance ids.
+        // removeRailing() above already released any prior slots. Instancing is active
+        // only when the bridge is injected AND the flag is on; otherwise the helpers
+        // fall through to the fragment mesh path and this list stays empty.
+        this._buildLevelId = stair.levelId || stair.baseLevelId || 'default';
+        this._buildRailingId = railing.id;
+        this._pendingInstanceIds = [];
 
         const group = new THREE.Group();
         group.name = `stair-railing-${railing.id}`;
@@ -159,6 +264,15 @@ export class StairRailingBuilder {
         this.meshGroups.set(railing.id, group);
         this.scene?.add(group);
         elementRegistry.registerRoot(railing.id, group);
+
+        // §PERF-RAIL-INSTANCING — persist the GPU instance ids this build registered
+        // so removeRailing / the next rebuild can release every slot. Empty on the
+        // fragment path (flag off / no bridge).
+        if (this._pendingInstanceIds && this._pendingInstanceIds.length > 0) {
+            this._instanceIds.set(railing.id, this._pendingInstanceIds);
+        }
+        this._pendingInstanceIds = null;
+        this._buildRailingId = null;
 
         console.log(`[StairRailingBuilder] Built railing ${railing.id} (${railing.side}, type=${effectiveType}) for stair ${railing.stairId} — ${stair.flights.length} flight(s)`);
     }
@@ -296,12 +410,17 @@ export class StairRailingBuilder {
                     .add(offset)
                     .setY(balBaseElev);
                 const bw = railing.balusterWidth;
-                const balGeom = new THREE.BoxGeometry(bw, railHeight, bw);
-                const bal = new THREE.Mesh(balGeom, railMat.clone());
-                bal.position.set(balBasePos.x, balBasePos.y + railHeight / 2, balBasePos.z);
-                bal.userData.elementType = 'stair-railing';
-                bal.userData.selectable = false;
-                group.add(bal);
+                // §PERF-RAIL-INSTANCING — square box baluster; instance when active.
+                if (!(this._buildRailingId && this._tryInstanceMember(
+                    this._buildRailingId, balBasePos.x, balBasePos.y, balBasePos.z, bw, railHeight, false, railMat.clone(),
+                ))) {
+                    const balGeom = new THREE.BoxGeometry(bw, railHeight, bw);
+                    const bal = new THREE.Mesh(balGeom, railMat.clone());
+                    bal.position.set(balBasePos.x, balBasePos.y + railHeight / 2, balBasePos.z);
+                    bal.userData.elementType = 'stair-railing';
+                    bal.userData.selectable = false;
+                    group.add(bal);
+                }
             }
 
             // ── Start/end posts ──────────────────────────────────────────────────
@@ -357,12 +476,17 @@ export class StairRailingBuilder {
                     .add(offset)
                     .setY(balBaseElev);
                 const bw = railing.balusterWidth;
-                const balGeom = new THREE.CylinderGeometry(bw / 2, bw / 2, railHeight, 8);
-                const bal = new THREE.Mesh(balGeom, railMat.clone());
-                bal.position.set(balBasePos.x, balBasePos.y + railHeight / 2, balBasePos.z);
-                bal.userData.elementType = 'stair-railing';
-                bal.userData.selectable = false;
-                group.add(bal);
+                // §PERF-RAIL-INSTANCING — round (cylinder) baluster; instance when active.
+                if (!(this._buildRailingId && this._tryInstanceMember(
+                    this._buildRailingId, balBasePos.x, balBasePos.y, balBasePos.z, bw, railHeight, true, railMat.clone(),
+                ))) {
+                    const balGeom = new THREE.CylinderGeometry(bw / 2, bw / 2, railHeight, 8);
+                    const bal = new THREE.Mesh(balGeom, railMat.clone());
+                    bal.position.set(balBasePos.x, balBasePos.y + railHeight / 2, balBasePos.z);
+                    bal.userData.elementType = 'stair-railing';
+                    bal.userData.selectable = false;
+                    group.add(bal);
+                }
             }
 
             // ── Start/end posts ──────────────────────────────────────────────────
@@ -849,10 +973,18 @@ export class StairRailingBuilder {
         const balSpacing = railing.balusterSpacing;
         const balCount = Math.max(1, Math.floor(spanLen / balSpacing));
         const bw = railing.balusterWidth;
+        const isRound = type === 'circular';
         for (let i = 0; i <= balCount; i++) {
             const t = i / balCount;
             const basePos = a.clone().lerp(b, t);
-            const balGeom = type === 'circular'
+            // §PERF-RAIL-INSTANCING — instance the repeated infill baluster when active.
+            if (this._buildRailingId && this._tryInstanceMember(
+                this._buildRailingId, basePos.x, baseElev, basePos.z, bw, railHeight, isRound,
+                this.makeMaterial(railing.material, 0x7a5c38),
+            )) {
+                continue;
+            }
+            const balGeom = isRound
                 ? new THREE.CylinderGeometry(bw / 2, bw / 2, railHeight, 8)
                 : new THREE.BoxGeometry(bw, railHeight, bw);
             const bal = new THREE.Mesh(balGeom, this.makeMaterial(railing.material, 0x7a5c38));
@@ -873,6 +1005,12 @@ export class StairRailingBuilder {
         size: number,
         mat: THREE.MeshStandardMaterial
     ): void {
+        // §PERF-RAIL-INSTANCING — a post is a simple repeated square box; instance it
+        // when the bridge + flag are active (fragment path otherwise).
+        const railingId = this._buildRailingId;
+        if (railingId && this._tryInstanceMember(railingId, baseXZ.x, baseElev, baseXZ.z, size, height, false, mat)) {
+            return;
+        }
         const geom = new THREE.BoxGeometry(size, height, size);
         const mesh = new THREE.Mesh(geom, mat);
         mesh.position.set(baseXZ.x, baseElev + height / 2, baseXZ.z);
@@ -942,6 +1080,9 @@ export class StairRailingBuilder {
     }
 
     removeRailing(railingId: string): void {
+        // §PERF-RAIL-INSTANCING — release any GPU instance slots first (no-op on the
+        // pure fragment path).
+        this._unregisterInstances(railingId);
         const group = this.meshGroups.get(railingId);
         if (group) {
             this.scene?.remove(group);
