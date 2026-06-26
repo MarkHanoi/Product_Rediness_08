@@ -854,6 +854,16 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     new BeamLevelCleanupHandler(beamStore);
 
     const beamBuilder = new BeamFragmentBuilder(scene);
+    // ADR-0076 Axis 3 (§PERF-WEBGPU-FRAGMENT / §PERF-BEAM-INSTANCING) — inject the
+    // GPU-instancing bridge over the SAME shared renderer walls + columns use.
+    // DEFAULT-OFF: simple concrete rectangular beams only instance when
+    // globalThis.__pryzmElementInstancingV1 === true; otherwise the builder stays
+    // entirely on the fragment path. Mirrors the columnBuilder wiring above.
+    try {
+        beamBuilder.setInstanceBridge(new ElementInstanceBridge(instancedElementRenderer));
+    } catch (instErr) {
+        console.warn('[initBuilders] §PERF-BEAM-INSTANCING beam instance bridge wiring failed:', instErr);
+    }
     beamStore.setBuilder(beamBuilder);
     console.log('[initBuilders] Beam subsystem initialised');
 

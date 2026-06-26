@@ -27,6 +27,15 @@ import { BeamData } from '@pryzm/core-app-model/stores';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { SteelProfileLibrary } from '@pryzm/plugin-structural';
 import { createBeamLOD } from '@pryzm/plugin-structural';
+// ADR-0076 Axis 3 (§PERF-WEBGPU-FRAGMENT / §PERF-BEAM-INSTANCING) — optional
+// GPU-instancing bridge. Mirrors ColumnFragmentBuilder exactly: when injected
+// AND the `__pryzmElementInstancingV1` flag is on AND the beam is a SIMPLE
+// concrete rectangular box (not a steel I/H-section LOD, not inclined), the
+// beam is registered as a GPU instance instead of an individual mesh.
+import {
+    ElementInstanceBridge,
+    isElementInstancingEnabled,
+} from '@pryzm/core-app-model/rendering';
 
 // §BEAM-AUDIT-2026-C3: shared materials are MODULE-SCOPED singletons reused
 // across every beam in the scene. `_disposeMesh` MUST NOT call `.dispose()`
@@ -55,6 +64,15 @@ const _localZ = new THREE.Vector3(0, 0, 1);
 export class BeamFragmentBuilder {
     private scene: THREE.Scene;
     private meshes: Map<string, THREE.Object3D> = new Map();
+    /**
+     * ADR-0076 Axis 3 (§PERF-WEBGPU-FRAGMENT / §PERF-BEAM-INSTANCING) — optional
+     * GPU-instancing bridge. When injected AND the `__pryzmElementInstancingV1`
+     * flag is on AND a beam is a SIMPLE concrete rectangular box (not a steel-LOD
+     * I/H-section, not inclined), the beam is registered as a GPU instance instead
+     * of an individual mesh. Default-off: null bridge OR flag-off keeps every beam
+     * on the fragment path. Mirrors ColumnFragmentBuilder._instanceBridge.
+     */
+    private _instanceBridge: ElementInstanceBridge | null = null;
 
     // ── C11 §2 step 3: FrameScheduler adaptive drain ──────────────────────────
     /** Pending beam builds keyed by id — later update wins (dedup). */
@@ -71,6 +89,48 @@ export class BeamFragmentBuilder {
     }
 
     /**
+     * ADR-0076 Axis 3 — inject the GPU-instancing bridge (the SAME one walls +
+     * columns use, constructed over the shared `instancedElementRenderer`). Until
+     * this is injected AND `globalThis.__pryzmElementInstancingV1 === true`, beams
+     * build exactly as before. Mirrors ColumnFragmentBuilder.setInstanceBridge.
+     */
+    setInstanceBridge(bridge: ElementInstanceBridge): void {
+        this._instanceBridge = bridge;
+        console.log('[BeamFragmentBuilder] §PERF-BEAM-INSTANCING ElementInstanceBridge injected (gated by __pryzmElementInstancingV1).');
+    }
+
+    /**
+     * Eligibility: a beam may use the instanced path only when the bridge is
+     * present, the flag is on, and the geometry is a SINGLE unit box — i.e. a
+     * simple concrete RECTANGULAR beam. Returns 'box' for that case, null
+     * otherwise (→ fragment path). Mirrors ColumnFragmentBuilder._instanceKindFor.
+     *
+     * Excluded from the instanced path (all return null):
+     *   - bridge null / flag off,
+     *   - steel UB/UC I-section profiles (multi-mesh THREE.LOD — the fragment
+     *     path's _buildSteelBeam),
+     *   - INCLINED beams: the bridge can only express a single rotateY (the box
+     *     stays axis-vertical). A beam whose start→end has a non-trivial vertical
+     *     component would render mis-tilted as an instance, so it MUST stay on the
+     *     fragment path (which orients via a full quaternion). Horizontal beams
+     *     (|Δy| ≈ 0) are the only safe box case.
+     */
+    private _instanceKindFor(beam: BeamData): 'box' | null {
+        if (!this._instanceBridge || !isElementInstancingEnabled()) return null;
+        const isSteel = (beam.sectionType === 'UB' || beam.sectionType === 'UC') && !!beam.steelProfileName;
+        if (isSteel) return null;
+        // Only horizontal beams map cleanly to a rotateY-only instance matrix.
+        const dy = beam.endPoint.y - beam.startPoint.y;
+        const dx = beam.endPoint.x - beam.startPoint.x;
+        const dz = beam.endPoint.z - beam.startPoint.z;
+        const horizontalSpan = Math.hypot(dx, dz);
+        // Tolerance: vertical drop must be a negligible fraction of the run (and
+        // sub-mm absolute). A flat structural beam has dy == 0 by construction.
+        if (Math.abs(dy) > 1e-4 && Math.abs(dy) > 1e-3 * horizontalSpan) return null;
+        return 'box';
+    }
+
+    /**
      * C11 §2 step 3 — enqueue a beam build; drain fires on the next
      * pre-render tick so geometry is never built synchronously in an event
      * handler. Later calls for the same id overwrite earlier ones (dedup).
@@ -84,6 +144,11 @@ export class BeamFragmentBuilder {
 
     remove(id: string): void {
         this._pendingBuilds.delete(id);
+        // ADR-0076 Axis 3 — release the GPU instance slot if this beam was on the
+        // instanced path (no-op otherwise). Mirrors ColumnFragmentBuilder.remove.
+        if (this._instanceBridge?.isInstanced(id)) {
+            this._instanceBridge.unregister(id);
+        }
         const mesh = this.meshes.get(id);
         if (mesh) {
             this.scene.remove(mesh);
@@ -155,6 +220,20 @@ export class BeamFragmentBuilder {
             return dummy;
         }
 
+        // ── ADR-0076 Axis 3 (§PERF-BEAM-INSTANCING) — GPU-instanced path ──────
+        // Default-off (bridge null OR flag off OR steel-LOD OR inclined →
+        // kind === null), in which case we fall straight through to the fragment
+        // path below. Mirrors ColumnFragmentBuilder.build().
+        const instanceKind = this._instanceKindFor(beam);
+        if (instanceKind) {
+            return this._buildInstanced(beam, start, end, length, _priorVersion);
+        }
+        // A beam that was previously instanced but is no longer eligible (e.g.
+        // changed to a steel profile or became inclined) must release its slot.
+        if (this._instanceBridge?.isInstanced(beam.id)) {
+            this._instanceBridge.unregister(beam.id);
+        }
+
         const isSteelSection = (beam.sectionType === 'UB' || beam.sectionType === 'UC') && !!beam.steelProfileName;
 
         let root: THREE.Object3D;
@@ -210,6 +289,121 @@ export class BeamFragmentBuilder {
     }
 
     // ── Private helpers ──────────────────────────────────────────────────────
+
+    /**
+     * ADR-0076 Axis 3 (§PERF-BEAM-INSTANCING) — build a simple concrete
+     * rectangular beam as a GPU instance.
+     *
+     * AXIS / ROTATION MAPPING (the subtle part — verified against the fragment
+     * path `_buildConcreteBeam`):
+     *
+     *   Fragment path: `BoxGeometry(width, depth, length)` centred at the beam
+     *   midpoint, then oriented by `quaternion.setFromUnitVectors(localZ, dir)`
+     *   where `localZ = (0,0,1)` and `dir = normalize(end - start)`. So the box's
+     *   LOCAL axes are X = width (horizontal, across), Y = depth (vertical),
+     *   Z = length (along the beam axis), and local +Z is rotated to point along
+     *   the beam.
+     *
+     *   Instanced path: the bridge builds `translate(centre) × rotateY(θ) ×
+     *   scale(size)` on a unit box. `makeRotationY(θ)` maps local +Z = (0,0,1) to
+     *   world (sinθ, 0, cosθ). To make local +Z point along the (horizontal) beam
+     *   direction (dx, 0, dz) we need (sinθ, cosθ) ∝ (dx, dz), i.e.
+     *       θ = atan2(dx, dz).
+     *   With `size = (width, depth, length)` the unit box scales to exactly the
+     *   same extents as the fragment BoxGeometry. Centre is the same midpoint.
+     *   For a horizontal beam this rotateY-only transform is IDENTICAL to the
+     *   fragment quaternion (which, for a horizontal dir, is a pure Y rotation) —
+     *   same position, size and orientation. Inclined beams are excluded upstream
+     *   by `_instanceKindFor` (they'd need the full quaternion).
+     *
+     * Mirrors ColumnFragmentBuilder._buildInstanced: the rendered geometry lives
+     * in the shared InstancedMesh (per-instance pick + per-level isolate carried
+     * by InstancedElementRenderer); we still create a Group root + invisible
+     * hit-proxy mesh so SelectionManager raycasting, elementRegistry and cleanup
+     * all work unchanged.
+     */
+    private _buildInstanced(
+        beam: BeamData,
+        start: THREE.Vector3,
+        end: THREE.Vector3,
+        length: number,
+        priorVersion: number,
+    ): THREE.Object3D {
+        const dx = end.x - start.x;
+        const dz = end.z - start.z;
+        // Bearing of the (horizontal) beam axis — see the axis-mapping note above.
+        const rotationY = Math.atan2(dx, dz);
+        const centre = {
+            x: (start.x + end.x) * 0.5,
+            y: (start.y + end.y) * 0.5,
+            z: (start.z + end.z) * 0.5,
+        };
+
+        // §PERF-BEAM-INSTANCING — register on the shared instanced renderer.
+        // elementType MUST be lowercase 'beam' (matches the fragment-path
+        // userData.elementType so Project Browser isolate/hide-by-type resolves
+        // the aggregate group, §INSTANCED-ISOLATE-FIX).
+        this._instanceBridge!.register(
+            beam.id,
+            beam.levelId,
+            'beam',
+            {
+                centre,
+                rotationY,
+                // Local X = width (across), Y = depth (vertical), Z = length
+                // (along axis) — identical to BoxGeometry(width, depth, length).
+                size: { x: beam.width, y: beam.depth, z: length },
+            },
+            _concreteMat,
+            'box',
+        );
+
+        // Root group + identity userData (same shape as the fragment path).
+        const root = new THREE.Group();
+        root.userData = {
+            id:               beam.id,
+            elementType:      'beam',
+            modelId:          'model-default',
+            selectable:       true,
+            levelId:          beam.levelId,
+            steelProfileName: beam.steelProfileName,
+            sectionType:      beam.sectionType,
+            width:            beam.width,
+            depth:            beam.depth,
+            length,
+            startSupportId:   beam.startSupportId,
+            endSupportId:     beam.endSupportId,
+            startSupportType: beam.startSupportType,
+            endSupportType:   beam.endSupportType,
+            material:         beam.material,
+            loadBearing:      beam.loadBearing,
+            fireRating:       beam.fireRating,
+            version:          priorVersion + 1,
+            isInstancedProxy: true,
+        };
+        Object.defineProperty(root.userData, 'id',          { writable: false });
+        Object.defineProperty(root.userData, 'elementType', { writable: false });
+
+        // Position + orient the root exactly like the rendered instance so the
+        // invisible hit-proxy (added in local space) lands on the real beam.
+        root.position.set(centre.x, centre.y, centre.z);
+        root.rotation.y = rotationY;
+
+        // Invisible hit-proxy so intersectObjects() can still select the beam.
+        // colorWrite/depthWrite false → imperceptible but raycastable. Box is
+        // centred at the origin (BoxGeometry default), matching the instance.
+        const proxyGeo = new THREE.BoxGeometry(beam.width, beam.depth, length);
+        const proxyMat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
+        const proxyMesh = new THREE.Mesh(proxyGeo, proxyMat);
+        proxyMesh.userData = { role: 'hit-proxy' };
+        root.add(proxyMesh);
+
+        this.scene.add(root);
+        this.meshes.set(beam.id, root);
+        elementRegistry.registerRoot(beam.id, root);
+
+        return root;
+    }
 
     /**
      * Build parametric steel I-section beam with THREE.LOD.
