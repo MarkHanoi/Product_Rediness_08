@@ -1034,6 +1034,16 @@ export class ResidentialBuildingExecutor {
         entryDoor: { wallId: string; offset: number; width: number; corridorAligned: boolean };
     } {
         const r = apt.cell.rect;
+        // §NONRECT-CELLS-P1 (flag `globalThis.__pryzmNonRectCells`) — when the cell was RESHAPED to a
+        // non-rectangular footprint (its polygon has > 4 vertices), build the perimeter walls along the
+        // POLYGON edges (not the bbox rect) so the unit's walls follow the real drawn boundary. The
+        // corridor-fronting (door) edge carries the entry door. Flag OFF / a rect cell ⇒ the byte-
+        // identical 4-edge rect path below.
+        const nonRectCells = (window as unknown as { __pryzmNonRectCells?: boolean }).__pryzmNonRectCells === true;
+        const cellPoly = (apt.cell as { polygon?: ReadonlyArray<{ x: number; z: number }> }).polygon;
+        if (nonRectCells && cellPoly && cellPoly.length > 4) {
+            return this._buildPolygonCellPerimeter(levelId, apt, wallHeightM, xf, cellPoly);
+        }
         const corners = [
             this._rotate({ x: r.x0, z: r.z0 }, xf),
             this._rotate({ x: r.x1, z: r.z0 }, xf),
@@ -1095,6 +1105,65 @@ export class ResidentialBuildingExecutor {
             offset: aligned ? aligned.offset : centredOffset,
             width: doorWidth,
             // When the offset is corridor-aligned, the deferred punch keeps it verbatim (no re-centre).
+            corridorAligned: aligned != null,
+        };
+        return { payload: { walls, levelId }, shellWalls, entryDoor };
+    }
+
+    /** §NONRECT-CELLS-P1 — build a RESHAPED (non-rect) cell's perimeter walls along its polygon edges
+     *  (LOCAL → world via xf), one wall per edge. The corridor-fronting edge (the one nearest the
+     *  cell's `doorEdge` side of its bbox) carries the entry door. Façade edges that coincide with the
+     *  building shell are still skipped (the shell hosts them) — an interior/party/door edge is kept.
+     *  Mirrors `_buildCellPerimeter`'s contract; used only when the flag is ON + the cell is non-rect. */
+    private _buildPolygonCellPerimeter(
+        levelId: string,
+        apt: PlacedApartment,
+        wallHeightM: number,
+        xf: ResidentialRigidTransform,
+        poly: ReadonlyArray<{ x: number; z: number }>,
+    ): {
+        payload: { walls: ReadonlyArray<Record<string, unknown>>; levelId: string };
+        shellWalls: ReadonlyArray<{ id: string; start: { x: number; z: number }; end: { x: number; z: number } }>;
+        entryDoor: { wallId: string; offset: number; width: number; corridorAligned: boolean };
+    } {
+        const r = apt.cell.rect;
+        const walls: Array<Record<string, unknown>> = [];
+        const shellWalls: Array<{ id: string; start: { x: number; z: number }; end: { x: number; z: number } }> = [];
+        // The door-edge constant coordinate of the cell bbox (the corridor-facing side).
+        const doorConst = apt.cell.doorEdge === 'z0' ? r.z0 : apt.cell.doorEdge === 'z1' ? r.z1
+            : apt.cell.doorEdge === 'x0' ? r.x0 : r.x1;
+        const doorAxisIsZ = apt.cell.doorEdge === 'z0' || apt.cell.doorEdge === 'z1';
+        let doorWallId: string | undefined, doorEdgeLenM = 0;
+        for (let i = 0; i < poly.length; i++) {
+            const a = poly[i]!, b = poly[(i + 1) % poly.length]!;
+            const len = Math.hypot(b.x - a.x, b.z - a.z);
+            if (len < 0.05) continue;
+            const wa = this._rotate({ x: a.x, z: a.z }, xf);
+            const wb = this._rotate({ x: b.x, z: b.z }, xf);
+            const id = createId('wall');
+            walls.push({
+                id, levelId,
+                baseLine: [{ x: wa.x, y: 0, z: wa.z }, { x: wb.x, y: 0, z: wb.z }],
+                height: wallHeightM, thickness: CELL_WALL_THICKNESS_M,
+            });
+            shellWalls.push({ id, start: { x: wa.x, z: wa.z }, end: { x: wb.x, z: wb.z } });
+            // The door edge is the polygon edge lying ON the cell's corridor-facing side: both endpoints
+            // share the door-axis constant coordinate (within tol) and the edge runs along the other axis.
+            const onDoorSide = doorAxisIsZ
+                ? (Math.abs(a.z - doorConst) < 0.1 && Math.abs(b.z - doorConst) < 0.1)
+                : (Math.abs(a.x - doorConst) < 0.1 && Math.abs(b.x - doorConst) < 0.1);
+            if (onDoorSide && len > doorEdgeLenM) { doorWallId = id; doorEdgeLenM = len; }
+        }
+        const edgeLenM = doorEdgeLenM > 0 ? doorEdgeLenM : (doorAxisIsZ ? r.x1 - r.x0 : r.z1 - r.z0);
+        const doorWidth = Math.min(0.9, Math.max(0.7, edgeLenM - 0.4));
+        const aligned = this._resolveEntryDoorOffset(
+            (apt.layout?.rooms ?? []) as ReadonlyArray<{ type?: string; occupancy?: string; polygon?: ReadonlyArray<{ x: number; y: number }> }>,
+            apt.cell.doorEdge, r, doorWidth,
+        );
+        const entryDoor = {
+            wallId: doorWallId ?? shellWalls[0]?.id ?? createId('wall'),
+            offset: aligned ? aligned.offset : Math.max(0, (edgeLenM - doorWidth) / 2),
+            width: doorWidth,
             corridorAligned: aligned != null,
         };
         return { payload: { walls, levelId }, shellWalls, entryDoor };

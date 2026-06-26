@@ -80,6 +80,21 @@ export interface ApartmentCell {
     readonly areaM2: number;
     /** Which edge of `rect` faces (shares ≥ door-width with) the public corridor. */
     readonly doorEdge: 'x0' | 'x1' | 'z0' | 'z1';
+    /** §NONRECT-CELLS-P1 — the cell's REAL footprint polygon (metres, plan-XZ, CCW). For a
+     *  rectangular cell this is exactly `rectPolygon(rect)` (4 corners) → byte-identical geometry.
+     *  When the §RESI-CLIP-BOUNDARY pass RESHAPES an out-of-shape cell to the drawn boundary (flag
+     *  `__pryzmNonRectCells` ON) this is the clipped rectilinear polygon; the single-apartment
+     *  engine lays out rooms in THIS perimeter (polySubdivide), and rect-only gates read its bbox
+     *  (`cellBBoxRect`). ALWAYS present (rect cells set it from their rect). */
+    readonly polygon: readonly Pt[];
+}
+
+/** §NONRECT-CELLS-P1 — the 4-corner CCW polygon of an axis-aligned rect (the identity case: a rect
+ *  cell's `polygon` is exactly this, so a rectangular plate stays byte-identical). */
+export function rectPolygon(r: Rect): Pt[] {
+    return [
+        { x: r.x0, z: r.z0 }, { x: r.x1, z: r.z0 }, { x: r.x1, z: r.z1 }, { x: r.x0, z: r.z1 },
+    ];
 }
 
 export interface PlatePartitionResult {
@@ -239,6 +254,264 @@ function polygonArea(poly: readonly Pt[]): number {
         a += p.x * q.z - q.x * p.z;
     }
     return Math.abs(a) / 2;
+}
+
+/**
+ * §NONRECT-CELLS-P1 — clip an axis-aligned RECT to a (rectilinear) boundary polygon, returning the
+ * single CCW ring of their intersection (or null when the overlap is empty / a sliver). RESHAPE,
+ * not drop: a cell that pokes past the drawn L/trapezoid boundary becomes the rectilinear cell that
+ * stays inside it (absorbing the residual the rect packer would waste). Robust for the rectilinear
+ * boundaries the resi pipeline draws: it builds the breakpoint grid over the rect ∩ boundary, marks
+ * each grid sub-cell whose CENTRE is inside BOTH, then traces the covered region's outer boundary
+ * (the same proven marching-edges tracer the corridor-residual uses). Pure + deterministic.
+ */
+function clipRectToPolygon(rect: Rect, poly: readonly Pt[]): Pt[] | null {
+    if (poly.length < 3) return null;
+    const rx0 = Math.min(rect.x0, rect.x1), rx1 = Math.max(rect.x0, rect.x1);
+    const rz0 = Math.min(rect.z0, rect.z1), rz1 = Math.max(rect.z0, rect.z1);
+    if (rx1 - rx0 <= EPS || rz1 - rz0 <= EPS) return null;
+    // Breakpoint grid: the rect edges + every boundary vertex coord, clamped to the rect extent.
+    const xs = new Set<number>([rx0, rx1]);
+    const zs = new Set<number>([rz0, rz1]);
+    for (const p of poly) {
+        if (p.x > rx0 + EPS && p.x < rx1 - EPS) xs.add(round4(p.x));
+        if (p.z > rz0 + EPS && p.z < rz1 - EPS) zs.add(round4(p.z));
+    }
+    const xa = [...xs].sort((a, b) => a - b);
+    const za = [...zs].sort((a, b) => a - b);
+    const nx = xa.length - 1, nz = za.length - 1;
+    if (nx < 1 || nz < 1) return null;
+    // covered[i][j] = grid cell centre is inside the boundary polygon (it is inside the rect by
+    // construction). The cell rect is the union of the covered grid cells.
+    const covered: boolean[][] = Array.from({ length: nx }, () => new Array<boolean>(nz).fill(false));
+    for (let i = 0; i < nx; i++) {
+        const cx = (xa[i]! + xa[i + 1]!) / 2;
+        for (let j = 0; j < nz; j++) {
+            const cz = (za[j]! + za[j + 1]!) / 2;
+            covered[i]![j] = pointInPolygon(cx, cz, poly);
+        }
+    }
+    // Trace the covered region's boundary into directed edges (covered region on the LEFT = CCW).
+    const key = (a: Pt, b: Pt): string => `${a.x.toFixed(4)},${a.z.toFixed(4)}->${b.x.toFixed(4)},${b.z.toFixed(4)}`;
+    const edges = new Map<string, { a: Pt; b: Pt }>();
+    const addEdge = (a: Pt, b: Pt): void => { edges.set(key(a, b), { a, b }); };
+    const isCov = (i: number, j: number): boolean => i >= 0 && i < nx && j >= 0 && j < nz && covered[i]![j]!;
+    for (let i = 0; i < nx; i++) {
+        for (let j = 0; j < nz; j++) {
+            if (!covered[i]![j]) continue;
+            const x0 = xa[i]!, x1 = xa[i + 1]!, z0 = za[j]!, z1 = za[j + 1]!;
+            if (!isCov(i, j - 1)) addEdge({ x: x0, z: z0 }, { x: x1, z: z0 });
+            if (!isCov(i + 1, j)) addEdge({ x: x1, z: z0 }, { x: x1, z: z1 });
+            if (!isCov(i, j + 1)) addEdge({ x: x1, z: z1 }, { x: x0, z: z1 });
+            if (!isCov(i - 1, j)) addEdge({ x: x0, z: z1 }, { x: x0, z: z0 });
+        }
+    }
+    if (edges.size === 0) return null;
+    // Chain the directed edges into a ring, then drop collinear vertices for a clean polygon.
+    const byStart = new Map<string, { a: Pt; b: Pt }[]>();
+    for (const e of edges.values()) {
+        const k = `${e.a.x.toFixed(4)},${e.a.z.toFixed(4)}`;
+        (byStart.get(k) ?? byStart.set(k, []).get(k)!).push(e);
+    }
+    const used = new Set<string>();
+    let best: Pt[] = [];
+    for (const start of edges.values()) {
+        if (used.has(key(start.a, start.b))) continue;
+        const ring: Pt[] = [];
+        let cur = start, guard = edges.size + 4;
+        while (guard-- > 0) {
+            used.add(key(cur.a, cur.b));
+            ring.push({ x: cur.a.x, z: cur.a.z });
+            const k = `${cur.b.x.toFixed(4)},${cur.b.z.toFixed(4)}`;
+            const next = (byStart.get(k) ?? []).find(e => !used.has(key(e.a, e.b)));
+            if (!next) break;
+            cur = next;
+            if (key(cur.a, cur.b) === key(start.a, start.b)) break;
+        }
+        // Keep the LARGEST ring (the cell's main body; ignore any tiny disconnected speck).
+        if (polygonArea(ring) > polygonArea(best)) best = ring;
+    }
+    // Drop collinear vertices.
+    const clean: Pt[] = [];
+    const n = best.length;
+    for (let i = 0; i < n; i++) {
+        const a = best[(i - 1 + n) % n]!, b = best[i]!, c = best[(i + 1) % n]!;
+        const cross = (b.x - a.x) * (c.z - a.z) - (b.z - a.z) * (c.x - a.x);
+        if (Math.abs(cross) < 1e-6) continue;
+        clean.push(b);
+    }
+    return clean.length >= 3 ? clean : null;
+}
+
+/**
+ * §NONRECT-CELLS-P1 — RESIDUAL ABSORPTION. Find the in-boundary area NOT covered by any placed cell,
+ * the core, or a corridor, decompose it into connected rectilinear regions, and mint a reshaped cell
+ * for each region that (a) is ≥ a feasible apartment size, (b) is ≤ the outer-band depth from the
+ * corridor it fronts, and (c) FRONTS a corridor by ≥ a door width (CF). The cell's polygon is the
+ * region clipped to the boundary. Mutates `placements`. Deterministic; only runs when the flag is on.
+ */
+function absorbResidual(
+    placements: ApartmentCell[],
+    corridors: readonly Rect[],
+    bb: Rect,
+    core: Rect,
+    clipPolygon: readonly Pt[] | undefined,
+    demands: readonly ApartmentDemand[],
+    nextDemand: () => ApartmentDemand | undefined,
+): void {
+    if (demands.length === 0) return;
+    // Build the breakpoint grid over the plate; mark a grid cell OCCUPIED when its centre is in any
+    // placed cell / the core / a corridor / OUTSIDE the boundary. The residual = the rest.
+    const xs = new Set<number>([bb.x0, bb.x1]);
+    const zs = new Set<number>([bb.z0, bb.z1]);
+    const occupiers: Rect[] = [...placements.map(p => p.rect), core, ...corridors];
+    for (const r of occupiers) { xs.add(round4(r.x0)); xs.add(round4(r.x1)); zs.add(round4(r.z0)); zs.add(round4(r.z1)); }
+    const xa = [...xs].filter(x => x >= bb.x0 - EPS && x <= bb.x1 + EPS).sort((a, b) => a - b);
+    const za = [...zs].filter(z => z >= bb.z0 - EPS && z <= bb.z1 + EPS).sort((a, b) => a - b);
+    const nx = xa.length - 1, nz = za.length - 1;
+    if (nx < 1 || nz < 1) return;
+    const inRect = (cx: number, cz: number, r: Rect): boolean =>
+        cx > Math.min(r.x0, r.x1) + EPS && cx < Math.max(r.x0, r.x1) - EPS &&
+        cz > Math.min(r.z0, r.z1) + EPS && cz < Math.max(r.z0, r.z1) - EPS;
+    // residual[i][j] = empty AND inside the boundary.
+    const residual: boolean[][] = Array.from({ length: nx }, () => new Array<boolean>(nz).fill(false));
+    for (let i = 0; i < nx; i++) {
+        const cx = (xa[i]! + xa[i + 1]!) / 2;
+        for (let j = 0; j < nz; j++) {
+            const cz = (za[j]! + za[j + 1]!) / 2;
+            if (clipPolygon && clipPolygon.length >= 3 && !pointInPolygon(cx, cz, clipPolygon)) continue;
+            if (occupiers.some(r => inRect(cx, cz, r))) continue;
+            residual[i]![j] = true;
+        }
+    }
+    // Flood-fill the residual grid into connected components (4-neighbour).
+    const comp: number[][] = Array.from({ length: nx }, () => new Array<number>(nz).fill(-1));
+    let nc = 0;
+    for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) {
+        if (!residual[i]![j] || comp[i]![j] >= 0) continue;
+        const stack: Array<[number, number]> = [[i, j]];
+        comp[i]![j] = nc;
+        while (stack.length) {
+            const [ci, cj] = stack.pop()!;
+            for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+                const ni = ci + di, nj = cj + dj;
+                if (ni < 0 || ni >= nx || nj < 0 || nj >= nz) continue;
+                if (residual[ni]![nj] && comp[ni]![nj] < 0) { comp[ni]![nj] = nc; stack.push([ni, nj]); }
+            }
+        }
+        nc++;
+    }
+    // For each component, trace its outer ring + check it fronts a corridor and is feasible.
+    for (let cId = 0; cId < nc; cId++) {
+        const ring = traceComponentRing(comp, cId, xa, za, nx, nz);
+        if (!ring || ring.length < 3) continue;
+        const area = polygonArea(ring);
+        if (!polygonFrontsCorridor(ring, corridors, DOOR_WIDTH_M)) continue;   // CF: must front a corridor
+        const rbb = bbox(ring);
+        const w = rbb.x1 - rbb.x0, dpt = rbb.z1 - rbb.z0;
+        const minSide = Math.min(w, dpt), maxSide = Math.max(w, dpt);
+        // §NONRECT-CELLS-P1 ENGINE-FEASIBILITY GATE — only mint an absorbed cell the per-cell D-TGL
+        // engine can actually lay out (else it soft-fails and the unit never ships). The engine needs
+        // a region that is (a) ≥ a real apartment area, (b) ≥ the feasible min DEPTH (~7.5 m short
+        // side — a shallower pocket is the un-tileable shallow-row residual, left empty by design),
+        // and (c) not aspect-extreme (≤ ~2.2:1). A pocket failing these stays residual (no rejected
+        // sliver cell — the founder sees only laid-out apartments). This keeps the absorbed cells
+        // ENGINE-FEASIBLE so the realOK count actually rises, not just the partition fill geometry.
+        const ENGINE_MIN_DEPTH_M = 7.5, MAX_ASPECT = 2.2, MIN_ABSORB_AREA = 50;
+        if (area < MIN_ABSORB_AREA) continue;
+        if (minSide < ENGINE_MIN_DEPTH_M - EPS) continue;
+        if (maxSide / Math.max(EPS, minSide) > MAX_ASPECT) continue;
+        // The polygon must FILL most of its bbox (a near-rect pocket lays out; a thin L-arm doesn't).
+        if (area < 0.75 * w * dpt) continue;
+        const demand = nextDemand();
+        if (!demand) break;
+        placements.push({
+            typology: demand.typology,
+            rect: normRect(rbb),
+            areaM2: round4(area),
+            doorEdge: 'z0',
+            polygon: ring.map(p => ({ x: round4(p.x), z: round4(p.z) })),
+        });
+    }
+}
+
+/** Trace the outer ring of grid component `cId` (covered-on-left ⇒ CCW), dropping collinear verts. */
+function traceComponentRing(
+    comp: readonly number[][], cId: number, xa: readonly number[], za: readonly number[], nx: number, nz: number,
+): Pt[] | null {
+    const key = (a: Pt, b: Pt): string => `${a.x.toFixed(4)},${a.z.toFixed(4)}->${b.x.toFixed(4)},${b.z.toFixed(4)}`;
+    const edges = new Map<string, { a: Pt; b: Pt }>();
+    const add = (a: Pt, b: Pt): void => { edges.set(key(a, b), { a, b }); };
+    const is = (i: number, j: number): boolean => i >= 0 && i < nx && j >= 0 && j < nz && comp[i]![j] === cId;
+    for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) {
+        if (comp[i]![j] !== cId) continue;
+        const x0 = xa[i]!, x1 = xa[i + 1]!, z0 = za[j]!, z1 = za[j + 1]!;
+        if (!is(i, j - 1)) add({ x: x0, z: z0 }, { x: x1, z: z0 });
+        if (!is(i + 1, j)) add({ x: x1, z: z0 }, { x: x1, z: z1 });
+        if (!is(i, j + 1)) add({ x: x1, z: z1 }, { x: x0, z: z1 });
+        if (!is(i - 1, j)) add({ x: x0, z: z1 }, { x: x0, z: z0 });
+    }
+    if (edges.size === 0) return null;
+    const byStart = new Map<string, { a: Pt; b: Pt }[]>();
+    for (const e of edges.values()) {
+        const k = `${e.a.x.toFixed(4)},${e.a.z.toFixed(4)}`;
+        (byStart.get(k) ?? byStart.set(k, []).get(k)!).push(e);
+    }
+    const used = new Set<string>();
+    let best: Pt[] = [];
+    for (const start of edges.values()) {
+        if (used.has(key(start.a, start.b))) continue;
+        const ring: Pt[] = [];
+        let cur = start, guard = edges.size + 4;
+        while (guard-- > 0) {
+            used.add(key(cur.a, cur.b));
+            ring.push({ x: cur.a.x, z: cur.a.z });
+            const k = `${cur.b.x.toFixed(4)},${cur.b.z.toFixed(4)}`;
+            const next = (byStart.get(k) ?? []).find(e => !used.has(key(e.a, e.b)));
+            if (!next) break;
+            cur = next;
+            if (key(cur.a, cur.b) === key(start.a, start.b)) break;
+        }
+        if (polygonArea(ring) > polygonArea(best)) best = ring;
+    }
+    const clean: Pt[] = [];
+    const n = best.length;
+    for (let i = 0; i < n; i++) {
+        const a = best[(i - 1 + n) % n]!, b = best[i]!, c = best[(i + 1) % n]!;
+        const cross = (b.x - a.x) * (c.z - a.z) - (b.z - a.z) * (c.x - a.x);
+        if (Math.abs(cross) < 1e-6) continue;
+        clean.push(b);
+    }
+    return clean.length >= 3 ? clean : null;
+}
+
+/** §NONRECT-CELLS-P1 — does any polygon EDGE share ≥ `minShare` of its length with a corridor band's
+ *  edge (the corridor-first invariant CF: a reshaped cell must still FRONT a corridor — never sealed)?
+ *  A cell edge fronts a corridor when it is collinear with, and overlaps, a corridor band boundary. */
+function polygonFrontsCorridor(poly: readonly Pt[], corridors: readonly Rect[], minShare: number): boolean {
+    for (let i = 0; i < poly.length; i++) {
+        const a = poly[i]!, b = poly[(i + 1) % poly.length]!;
+        const horizontal = Math.abs(a.z - b.z) < 1e-4;
+        const vertical = Math.abs(a.x - b.x) < 1e-4;
+        if (!horizontal && !vertical) continue;
+        for (const c of corridors) {
+            const cx0 = Math.min(c.x0, c.x1), cx1 = Math.max(c.x0, c.x1);
+            const cz0 = Math.min(c.z0, c.z1), cz1 = Math.max(c.z0, c.z1);
+            if (horizontal) {
+                // The edge's z must coincide with a corridor horizontal boundary; overlap along x.
+                const onBoundary = Math.abs(a.z - cz0) < 0.05 || Math.abs(a.z - cz1) < 0.05;
+                if (!onBoundary) continue;
+                const lo = Math.max(Math.min(a.x, b.x), cx0), hi = Math.min(Math.max(a.x, b.x), cx1);
+                if (hi - lo >= minShare) return true;
+            } else {
+                const onBoundary = Math.abs(a.x - cx0) < 0.05 || Math.abs(a.x - cx1) < 0.05;
+                if (!onBoundary) continue;
+                const lo = Math.max(Math.min(a.z, b.z), cz0), hi = Math.min(Math.max(a.z, b.z), cz1);
+                if (hi - lo >= minShare) return true;
+            }
+        }
+    }
+    return false;
 }
 
 const round4 = (n: number): number => Math.round(n * 1e4) / 1e4;
@@ -581,7 +854,7 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
                 const snapToRunEnd = isLast && (startX > run.x0 + EPS || sliceWidth === undefined);
                 const x1 = snapToRunEnd ? round4(run.x1) : round4(startX + (k + 1) * w);
                 const rect = normRect({ x0, z0: round4(cellZ0), x1, z1: round4(cellZ1) });
-                placements.push({ typology: demand.typology, rect, areaM2: round4(rectArea(rect)), doorEdge });
+                placements.push({ typology: demand.typology, rect, areaM2: round4(rectArea(rect)), doorEdge, polygon: rectPolygon(rect) });
                 cursor++;
             }
         }
@@ -637,7 +910,7 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
             // to-spine gap (most cores) is left as the spine surround (no sub-min slivers, no regress).
             if (stripW < wMin - EPS) continue;
             const rect = normRect({ x0: round4(strip.x0), z0: round4(segZ0), x1: round4(strip.x1), z1: round4(segZ1) });
-            placements.push({ typology: ref.typology, rect, areaM2: round4(rectArea(rect)), doorEdge: strip.door });
+            placements.push({ typology: ref.typology, rect, areaM2: round4(rectArea(rect)), doorEdge: strip.door, polygon: rectPolygon(rect) });
             cursor++;
         }
     }
@@ -684,19 +957,65 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
         }
     }
 
-    // §RESI-CLIP-BOUNDARY — drop any cell whose CENTRE is outside the real (possibly non-
-    // rectangular) plate polygon, so an L / trapezoid stops building apartments past the drawn
-    // boundary. The bbox tiling above is unchanged; this only removes out-of-shape cells. A near-
-    // rectangular plate keeps every cell (all centres inside) → no behavioural change.
-    let clippedOut = 0;
+    // §RESI-CLIP-BOUNDARY / §NONRECT-CELLS-P1 — handle cells that poke past the real (possibly non-
+    // rectangular) plate polygon. DEFAULT (flag OFF): DROP any cell whose CENTRE is outside the drawn
+    // boundary (the proven byte-identical behaviour). FLAG ON (`globalThis.__pryzmNonRectCells`):
+    // RESHAPE-NOT-DROP — clip the cell rect to the drawn boundary into a rectilinear cell that stays
+    // inside it, ABSORBING the residual the rect packer wastes (the deep-plate / L under-fill). The
+    // corridor-first invariant CF is preserved: a reshaped cell is kept ONLY when one of its polygon
+    // edges still FRONTS a corridor band by ≥ a door width — a cell that can't front the corridor is
+    // SOFT-FAILED (dropped, C50 §1.7), NEVER shipped sealed. A rect cell wholly inside keeps its rect
+    // polygon (identity). On a rectangular plate the flag is moot (no cell is out-of-shape) → identical.
+    let clippedOut = 0, reshaped = 0;
+    const nonRectCells = (globalThis as { __pryzmNonRectCells?: boolean }).__pryzmNonRectCells === true;
     if (clipPolygon && clipPolygon.length >= 3) {
         for (let i = placements.length - 1; i >= 0; i--) {
-            const r = placements[i]!.rect;
-            if (!pointInPolygon((r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2, clipPolygon)) {
-                placements.splice(i, 1);
-                clippedOut++;
+            const cell = placements[i]!;
+            const r = cell.rect;
+            const centreInside = pointInPolygon((r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2, clipPolygon);
+            // Fully (or centre-) inside ⇒ keep as-is (rect polygon already set at push time).
+            if (centreInside && pointInPolygon(r.x0 + EPS, r.z0 + EPS, clipPolygon)
+                && pointInPolygon(r.x1 - EPS, r.z1 - EPS, clipPolygon)
+                && pointInPolygon(r.x0 + EPS, r.z1 - EPS, clipPolygon)
+                && pointInPolygon(r.x1 - EPS, r.z0 + EPS, clipPolygon)) {
+                continue;   // wholly inside → unchanged
             }
+            if (!nonRectCells) {
+                // DEFAULT — drop a cell whose CENTRE is outside (byte-identical to the prior behaviour).
+                if (!centreInside) { placements.splice(i, 1); clippedOut++; }
+                continue;
+            }
+            // FLAG ON — RESHAPE: clip the cell to the boundary. Keep only when it stays a real,
+            // corridor-fronting cell; else soft-fail (drop), never sealed.
+            const clipped = clipRectToPolygon(r, clipPolygon);
+            const minAreaForKeep = 18;   // a reshaped fragment below ~a studio floor is not a real unit
+            if (!clipped || polygonArea(clipped) < minAreaForKeep
+                || !polygonFrontsCorridor(clipped, corridorBands, DOOR_WIDTH_M)) {
+                placements.splice(i, 1); clippedOut++;
+                continue;
+            }
+            const bb2 = bbox(clipped);
+            placements[i] = {
+                ...cell,
+                rect: normRect(bb2),                       // the reshaped cell's bbox (rect-only gates read this)
+                areaM2: round4(polygonArea(clipped)),
+                polygon: clipped.map(p => ({ x: round4(p.x), z: round4(p.z) })),
+            };
+            reshaped++;
         }
+    }
+
+    // §NONRECT-CELLS-P1 — RESIDUAL ABSORPTION (flag ON). The rect packer caps each row at the
+    // apartment-depth limit and leaves the DEEP residual of a deep band UN-TILED (the founder's
+    // deep-plate under-fill). With the flag on we now ABSORB that residual: per corridor band, the
+    // un-tiled strip BEYOND the capped row (between the row's outer edge and the next corridor / the
+    // plate edge / the boundary) is minted as ADDITIONAL reshaped cells that FRONT THE SAME corridor
+    // through the already-placed row in front of them — kept only when ≥ a feasible size + reachable.
+    // Bounded to the in-boundary area (clipped to `clipPolygon` when present). Deterministic. This
+    // is the mechanism that lifts a deep 37×29 plate's fill materially without shallow-row regressions
+    // (the absorbed cells are DEEP, not shallow — they take the leftover depth as ONE more unit row).
+    if (nonRectCells) {
+        absorbResidual(placements, corridorBands, bb, coreN, clipPolygon, apartments, () => cursor < apartments.length ? apartments[cursor++] : undefined);
     }
 
     // §RESI-FILL-PLATE: place as MANY apartments as fit and return them — do NOT reject just
@@ -719,17 +1038,18 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
 
     const areas = placements.map((c) => c.areaM2);
     const mix = placements.map((c) => c.typology);
-    // §DIAG-RESI-FILL (§RESI-PLATE-UNDERFILL, SPEC-NONRECT-APARTMENTS-CORRIDOR-FIRST) — the apartment
-    // FILL RATIO: placed-apartment footprint ÷ the NET plate area (plate − core). This is the headline
-    // metric the under-fill fix targets; a healthy plate fills a strong majority of its net area.
-    const placedArea = placements.reduce((s, c) => s + rectArea(c.rect), 0);
+    // §DIAG-RESI-FILL (§RESI-PLATE-UNDERFILL / §NONRECT-CELLS-P1) — the apartment FILL RATIO: placed-
+    // apartment footprint ÷ the NET plate area (plate − core). The headline under-fill metric. The
+    // placed footprint uses each cell's REAL polygon area (`c.areaM2`, set to the polygon area for a
+    // reshaped non-rect cell) so a reshaped cell counts its true footprint, not its over-counting bbox.
+    const placedArea = placements.reduce((s, c) => s + c.areaM2, 0);
     const netPlateArea = Math.max(EPS, bbArea - rectArea(coreN));
     const fillRatio = round4(placedArea / netPlateArea);
     const diagnostic =
         `§DIAG-RESI-PARTITION level=${levelIndex} status=ok N=${placements.length} ` +
         `corridors=${corridorBands.length} ` +
         `mix=[${mix.join(',')}] areas=[${areas.map((a) => a.toFixed(1)).join(',')}] ` +
-        `clippedOutOfBoundary=${clippedOut} reached=${reached}/${placements.length} ` +
+        `clippedOutOfBoundary=${clippedOut} reshaped=${reshaped} reached=${reached}/${placements.length} ` +
         `§DIAG-RESI-FILL fillRatio=${fillRatio.toFixed(3)} (placed=${placedArea.toFixed(0)}m²/net=${netPlateArea.toFixed(0)}m²)`;
 
     return {
