@@ -2,6 +2,7 @@
 // Spec: docs/archive/pryzm3-internal/04-PLAN-FORWARD/46-IMPLEMENTATION-PLAN-2026-05-08.md §5.2
 import { enablePatches } from 'immer';
 import { flushRuntimeEventListeners } from './runtimeEventBridge';
+import { reactToScheduleSelection } from './scheduleClickZoom';
 enablePatches();
 
 import * as THREE from '@pryzm/renderer-three/three';
@@ -318,11 +319,24 @@ export async function bootstrap(
 
     // F.events.4 — Route cross-panel element selection through typed runtime.events bus.
     // Replaces the window.addEventListener('pryzm-element-selected') removed from SelectionManager.init().
+    //
+    // §SCHEDULE-CLICK-ZOOM — when the selection originates from a schedule row
+    // click (source: 'schedule'), one user action should both SELECT and ZOOM:
+    // after selectById() succeeds we dispatch the existing `zoom-selected`
+    // command (registered below at §C-B1), which frames whatever is currently
+    // selected.  This is the single chokepoint for EVERY schedule (rooms,
+    // doors, windows, walls, slabs, columns, …) and every element type, so the
+    // zoom generalises automatically — the schedule UI itself is unchanged.
+    //
+    // Edge cases handled gracefully:
+    //   • element on a non-active level / not yet in the scene → selectById
+    //     returns false → we do NOT dispatch zoom (no fit-all flash, no throw);
+    //   • element with no geometry → the zoom-selected handler boxes the object
+    //     and falls back to zoomToAll on an empty box (never throws);
+    //   • non-schedule sources (living-graph, inspect, 3d) keep prior behaviour.
     if (runtime) {
         runtime.events.on('pryzm-element-selected', (detail) => {
-            if (detail.source === '3d') return;
-            if (!detail.elementType) return;
-            if (detail.elementId) selectionManager.selectById(detail.elementId);
+            reactToScheduleSelection(detail, selectionManager, runtime.bus);
         });
     }
 
