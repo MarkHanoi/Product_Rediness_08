@@ -912,6 +912,37 @@ describe('GpuPickStrategy respects visibility (§PICK-RESPECT-VISIBILITY)', () =
     expect(pickSlotsForId(strategy, 'stair-1')).toBe(1);
   });
 
+  it('an element that goes visible->invisible has its STALE clone removed from the pick scene (exploded-ceiling case)', () => {
+    // A compound element (root Group visible=true) whose ONLY child mesh is
+    // hidden (e.g. a ceiling set visible=false in exploded view) must not leave
+    // a stale clone in the pick scene — otherwise a click reads the stale pixel
+    // and resolves to the now-invisible element, shadowing a visible one.
+    const strategy = new GpuPickStrategy({ targetWidth: 4, targetHeight: 4 });
+    const group = new THREE.Group(); // root stays visible
+    const child = makeMesh();
+    group.add(child);
+    const registry = objectRegistry([{ id: 'ceiling-1', kind: 'wall', obj: group }]);
+    const { renderer } = makeFakeRenderer(4, 4);
+    const ctx = makeCtx(registry, renderer);
+
+    // Visible child → entry + clone built.
+    strategy.pick({ x: 50, y: 50 }, ctx);
+    expect(pickSlotsForId(strategy, 'ceiling-1')).toBe(1);
+    const sceneRef = (strategy as unknown as { pickScene: THREE.Scene }).pickScene;
+    const meshClonesBefore = sceneRef.children.filter((c) => (c as THREE.Mesh).isMesh).length;
+    expect(meshClonesBefore).toBeGreaterThan(0);
+
+    // Hide ONLY the child (root group still visible) → no visible meshes.
+    child.visible = false;
+    strategy.pick({ x: 50, y: 50 }, ctx);
+    // The stale entry + clone must be gone (not merely skipped).
+    expect(pickSlotsForId(strategy, 'ceiling-1')).toBe(0);
+    const entries = (strategy as unknown as { entries: Map<string, unknown> }).entries;
+    expect(entries.has('ceiling-1')).toBe(false);
+    const meshClonesAfter = sceneRef.children.filter((c) => (c as THREE.Mesh).isMesh).length;
+    expect(meshClonesAfter).toBe(0);
+  });
+
   it('an instanced group hidden by level (visible=false) registers NO per-instance pick slots', () => {
     // When isolation hides a whole InstancedElementRenderer group via .visible,
     // none of its instances (columns/beams) may be pickable. Showing it again

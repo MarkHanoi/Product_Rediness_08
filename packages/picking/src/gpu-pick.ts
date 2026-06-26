@@ -959,7 +959,22 @@ export class GpuPickStrategy implements PickStrategy {
       // only covered the first child mesh — all other geometry was invisible
       // to the GPU pick readback, causing missed picks on multi-fragment walls.
       const allMeshes = collectVisibleMeshes(obj);
-      if (allMeshes.length === 0) continue;
+      if (allMeshes.length === 0) {
+        // §PICK-RESPECT-VISIBILITY — the element has NO visible geometry now
+        // (e.g. its child meshes were individually hidden, or a ceiling went
+        // visible=false in exploded view via LevelExplodeController, while the
+        // root group itself stays visible=true so the hierarchy guard above did
+        // not catch it). A bare `continue` here used to LEAVE the element's prior
+        // PickEntry — clone + slot colour — in the pick scene, so the id-buffer
+        // kept rendering a STALE clone of a now-invisible object: a click on a
+        // VISIBLE element behind/around it could read the stale pixel and resolve
+        // to the wrong (invisible) element ("3D selection picks wrong element in
+        // exploded view"; hidden element stays selectable). Dispose the entry so
+        // an element with no visible geometry has NO clone in the pick scene.
+        const stale = this.entries.get(id);
+        if (stale !== undefined) this._invalidateEntry(id, stale);
+        continue;
+      }
 
       const primaryMesh = allMeshes[0]!;
 
