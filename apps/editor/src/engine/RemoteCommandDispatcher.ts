@@ -40,9 +40,42 @@
 import { CommandRegistry } from './CommandRegistry';
 import type { CommandManager } from '@pryzm/command-registry';
 import type { SerializedCommand } from '@pryzm/command-registry';
+import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 
 export interface SuppressBroadcastRef {
     value: boolean;
+}
+
+/**
+ * §DUPLICATE-ROOMS-PERSIST (2026-06-26) — true iff `serialized` is a creation
+ * command whose targets are ALREADY in the element registry, so re-applying it
+ * would double-create.
+ *
+ * WHY: collab catch-up (`replayCatchUp`) and reconnect re-send the full command
+ * log. When a project is opened, its elements are hydrated into the registry
+ * BEFORE replay catches up, so the replay re-executes the SAME `CREATE_*`
+ * commands for ids that already exist. Two failure modes were observed:
+ *   1. Duplicate ROOMS — `CreateRoomCommand.execute` does `roomStore.add()`
+ *      (creating a 2nd room object for the space) and only THEN hits the throwing
+ *      `registerSemantic`, which is swallowed → the duplicate room persists and
+ *      shows as a generic "Room NN" twin alongside the named graph room.
+ *   2. FATAL "ID already exists in ElementRegistry" — stairs/lifts whose create
+ *      path registers semantics via the THROWING variant froze the whole load.
+ *
+ * Skipping a create whose every target id is already registered makes replay
+ * IDEMPOTENT (Invariant E-2 reinforced): an already-applied create is a no-op,
+ * not a double-apply or a FATAL. Conservative by design — we only skip when
+ * `targetIds` is non-empty AND every id is registered, so a partially-applied
+ * batch (some ids missing) still replays to fill the gap, and derived/bulk
+ * creates that don't predeclare their ids (empty `targetIds`) are never skipped.
+ */
+export function isAlreadyAppliedCreate(serialized: SerializedCommand): boolean {
+    const type = String(serialized.type ?? '');
+    if (!type.startsWith('CREATE_') && !type.startsWith('BATCH_CREATE_')) return false;
+    const ids = serialized.targetIds;
+    if (!Array.isArray(ids) || ids.length === 0) return false;
+    // Every target already in the registry ⇒ this create was already applied.
+    return ids.every((id) => elementRegistry.getStoreType(String(id)) !== undefined);
 }
 
 export class RemoteCommandDispatcher {
@@ -63,8 +96,23 @@ export class RemoteCommandDispatcher {
      *
      * @returns 'applied' | 'unknown-type' | 'validation-failed' | 'error'
      */
-    dispatch(serialized: SerializedCommand): 'applied' | 'unknown-type' | 'validation-failed' | 'error' {
+    dispatch(serialized: SerializedCommand): 'applied' | 'unknown-type' | 'validation-failed' | 'error' | 'skipped-duplicate' {
         if (!serialized?.type) return 'error';
+
+        // §DUPLICATE-ROOMS-PERSIST — make replay/catch-up idempotent: a CREATE
+        // command whose targets are all already registered was already applied
+        // (hydration before catch-up, or a re-sent log). Re-executing it would
+        // double-create a room (duplicate "Room NN" twin) or FATAL on the
+        // throwing registerSemantic (stair/lift). Skip it BEFORE reconstructing
+        // or executing the command, so neither side effect can happen.
+        if (isAlreadyAppliedCreate(serialized)) {
+            console.info(
+                '[RemoteCommandDispatcher] §DUPLICATE-ROOMS-PERSIST — skipping already-applied create:',
+                serialized.type,
+                serialized.targetIds,
+            );
+            return 'skipped-duplicate';
+        }
 
         const command = CommandRegistry.create(serialized);
 
