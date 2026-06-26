@@ -54,6 +54,32 @@ describe('buildBuildingPlanSvg — §BUILDING-PREVIEW-MODULAR shared kit', () =>
         expect(out.svg).not.toContain('Infinity');
     });
 
+    it('§BUILDING-PREVIEW-QUALITY — renders a cell\'s INTERNAL sub-rooms (house-grade detail), tinted by room type', () => {
+        const d = descriptor({
+            roomPalette: { fills: { bedroom: '#ece4ff', kitchen: '#d8e4f5', living: '#e3d8ff' }, defaultFill: '#ece6fb' },
+            cells: [{
+                rect: { x0: 0, z0: 0, x1: 9, z1: 6 }, fillKey: 'T2', label: 'T2', doorEdge: 'z1',
+                subRooms: [
+                    { polygon: [{ x: 0, z: 0 }, { x: 4, z: 0 }, { x: 4, z: 6 }, { x: 0, z: 6 }], roomType: 'living' },
+                    { polygon: [{ x: 4, z: 0 }, { x: 9, z: 0 }, { x: 9, z: 3 }, { x: 4, z: 3 }], roomType: 'kitchen' },
+                    { polygon: [{ x: 4, z: 3 }, { x: 9, z: 3 }, { x: 9, z: 6 }, { x: 4, z: 6 }], roomType: 'bedroom' },
+                ],
+            }],
+        });
+        const out = buildBuildingPlanSvg(d, { targetPx: 300 });
+        // The three room polygons render tinted by their type (not one flat unit box).
+        expect(out.svg).toContain('fill="#e3d8ff"');   // living
+        expect(out.svg).toContain('fill="#d8e4f5"');   // kitchen
+        expect(out.svg).toContain('fill="#ece4ff"');   // bedroom
+        expect(out.placed).toBe(1);
+    });
+
+    it('falls back to a FLAT cell fill when no roomPalette / no subRooms (byte-shape stable)', () => {
+        const flat = buildBuildingPlanSvg(descriptor(), { targetPx: 300 }).svg;
+        // The plain descriptor (no subRooms) renders cells as the typology fill, stroked as one box.
+        expect(flat).toContain('fill="#dcd0ff"');
+    });
+
     it('L-SHAPE FIX — draws the REAL footprint POLYGON as the shell boundary, not a bbox rect', () => {
         const out = buildBuildingPlanSvg(descriptor(), { targetPx: 200 });
         // The shell is a <polygon> (6 verts), NOT a full-plate <rect> covering the bbox.

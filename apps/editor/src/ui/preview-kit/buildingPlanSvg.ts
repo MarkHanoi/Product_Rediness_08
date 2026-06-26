@@ -118,6 +118,9 @@ export function buildBuildingPlanSvg(
     for (const c of d.corridors) parts.push(cellShape(c, CORRIDOR_FILL, 'none', 0));
 
     // ── cells: fill + thin partition stroke; muted cells hatch ────────────────────────────
+    // §BUILDING-PREVIEW-QUALITY — when a cell carries internal `subRooms` we draw each room
+    // (tinted by roomType) so the unit reads like a real little plan (house-grade detail), then a
+    // thin partition stroke between rooms; otherwise the cell renders as one flat tinted box.
     let placed = 0, muted = 0;
     const doorTicks: string[] = [];
     for (const c of d.cells) {
@@ -127,7 +130,19 @@ export function buildBuildingPlanSvg(
         } else {
             placed++;
             const fill = d.palette.fills[c.fillKey] ?? d.palette.defaultFill;
-            parts.push(cellShape(c, fill, PARTITION_STROKE, 1));
+            const rooms = c.subRooms ?? [];
+            if (rooms.length > 0 && d.roomPalette) {
+                // Base unit fill first (so any gaps between room polygons read as the unit tint), then
+                // each room polygon tinted by its type + a thin partition stroke (house-grade detail).
+                parts.push(cellShape(c, fill, 'none', 0));
+                for (const rm of rooms) {
+                    if (rm.polygon.length < 3) continue;
+                    const rf = d.roomPalette.fills[rm.roomType] ?? d.roomPalette.defaultFill;
+                    parts.push(`<polygon points="${polyPts(rm.polygon)}" fill="${rf}" stroke="${PARTITION_STROKE}" stroke-width="0.8" stroke-linejoin="miter"/>`);
+                }
+            } else {
+                parts.push(cellShape(c, fill, PARTITION_STROKE, 1));
+            }
         }
         parts.push(...cellLabels(c, X, Y, scale));
         if (!c.muted && c.doorEdge) {

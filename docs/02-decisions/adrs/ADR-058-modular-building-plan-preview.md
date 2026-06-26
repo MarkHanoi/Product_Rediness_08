@@ -59,7 +59,13 @@ a new typology supplies a descriptor (an *adapter*), never a new renderer.
 - `cells: PlanCell[]` — unit/room footprints. Each cell may carry an axis-aligned `rect` AND an
   optional real `polygon` (drawn in preference to the rect, so a non-rectilinear unit renders
   truthfully), a `fillKey` into the descriptor `palette`, labels, a `muted` (no-fit) flag, and a
-  circulation-facing `doorEdge` (→ a door tick).
+  circulation-facing `doorEdge` (→ a door tick). **§BUILDING-PREVIEW-QUALITY (2026-06-26):** a cell
+  may also carry `subRooms: PlanSubRoom[]` — its INTERNAL room subdivision (the apartment's
+  bedroom/living/kitchen/… polygons). When present the renderer draws each room tinted by
+  `roomType` (keyed to the descriptor's `roomPalette`) with a thin partition stroke, so each unit
+  reads like a **real little plan (rooms, not a box)** at building scale — the building preview now
+  matches the house preview's room-level quality (this supersedes the original ADR scope note that
+  kept the building preview box-level; see §D3). Absent ⇒ a flat tinted cell (back-compat).
 - `corridors: PlanCorridor[]` — circulation bands, drawn as a **continuous** fill under the
   cells (preserves §RESI-PREVIEW-CORRIDOR-CONTINUOUS — abutting bands share one fill, no seams).
 - `core: PlanCore | null` — the vertical-core lift+stair glyph, or null (a single house / an
@@ -77,17 +83,27 @@ partition), a real lift+stair core glyph, per-cell door ticks, a wrapping colour
 arrow, a scale bar, calm brand-tinted hatch for no-fit cells — and renders the **footprint
 polygon** (not a rect). Brand-locked to C18 §41: white + `#6600FF`, deep-indigo ink, **no black**.
 
-### D3 — the residential modal ADOPTS the kit; the house room-level thumbnail stays
+### D3 — the residential modal ADOPTS the kit; the building preview now renders ROOM-LEVEL detail
 
 `residentialPlanThumbnail.ts` becomes a thin **adapter**: `buildResidentialPlanDescriptor` maps
 `ResidentialBuildingOk` → descriptor, **de-rotating the WORLD `levels[i].footprint` into the
 LOCAL plan frame** (via `result.transform`'s `−θ`-about-pivot) so the L-shape boundary aligns
-with the LOCAL cells; `buildResidentialPlanSvg` is a one-line wrapper over the kit. The house /
-apartment **room-level** thumbnail (`buildLayoutThumbnailSvg`) is a *different granularity*
-(rooms, walls, doors, windows of ONE unit/storey) and **already** honours a real perimeter
-polygon — it is NOT folded into the building-level kit (that would be a regression). The two
-levels are complementary: the **building-level kit** (this ADR) draws the whole-plate plan
-(footprint + unit cells + core + corridor); the **room-level thumbnail** draws inside one unit.
+with the LOCAL cells; `buildResidentialPlanSvg` is a one-line wrapper over the kit.
+
+**§BUILDING-PREVIEW-QUALITY (2026-06-26) — REVISED:** the adapter now also threads each
+apartment's INTERNAL rooms (`apt.layout.rooms`, plan-mm polygons → LOCAL metres) into the cell's
+`subRooms`, and supplies a `roomPalette` + a room-type legend. So the building preview draws each
+unit as a real little plan (rooms tinted by type + partition strokes + door ticks), at building
+scale — it now **matches the house preview's room-level quality**, not a box per apartment. This
+SUPERSEDES the original ADR position (which kept the building preview box-level to avoid touching
+the house's room thumbnail): the room detail is supplied *through the same kit* (the descriptor's
+`subRooms`/`roomPalette` extension), so the kit's reuse model is unchanged — a future typology
+that has unit sub-rooms simply populates them, one that doesn't omits them (flat cells).
+
+The house / apartment **room-level** thumbnail (`buildLayoutThumbnailSvg`) remains a *separate,
+even finer* renderer (walls, doors, windows, dimension marks of ONE unit/storey at full size) and
+is NOT folded into the building-level kit — but the building kit now carries enough room detail
+that the founder's "match the house quality" gap is closed at building scale.
 
 ### D4 — one shared FAÇADE palette
 

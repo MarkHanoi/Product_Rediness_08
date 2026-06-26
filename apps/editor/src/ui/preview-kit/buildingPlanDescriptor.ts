@@ -36,6 +36,21 @@ export interface PlanCell {
     readonly mutedNote?: string;
     /** OPTIONAL circulation-facing edge → a door tick is drawn on it. */
     readonly doorEdge?: PlanEdge;
+    /** §BUILDING-PREVIEW-QUALITY — OPTIONAL internal rooms of this cell (an apartment's room
+     *  subdivision). When present the renderer draws each room (house-grade detail) INSTEAD of a
+     *  single flat tinted box, so the unit reads like a real plan. Empty/absent ⇒ a flat cell. */
+    readonly subRooms?: readonly PlanSubRoom[];
+}
+
+/** §BUILDING-PREVIEW-QUALITY — one INTERNAL room of a cell (an apartment's bedroom/living/…),
+ *  so each unit reads like a real little plan (rooms, not a box) at building scale. The renderer
+ *  draws each sub-room's polygon tinted by `roomType` with a thin partition stroke + a door tick on
+ *  its corridor-facing edge. Polygons are in the SAME plan-metre frame as the cell. */
+export interface PlanSubRoom {
+    /** The room footprint polygon (metres, plan-XZ). ≥3 points. */
+    readonly polygon: readonly PlanPt[];
+    /** Room type key into the descriptor's `roomPalette` (e.g. 'bedroom', 'corridor'). */
+    readonly roomType: string;
 }
 
 /** A circulation band (corridor / lobby) — drawn as a continuous pale fill UNDER the cells.
@@ -85,6 +100,9 @@ export interface BuildingPlanDescriptor {
     readonly core: PlanCore | null;
     /** The colour key for the cell fills. */
     readonly palette: PlanPalette;
+    /** §BUILDING-PREVIEW-QUALITY — OPTIONAL room-type → fill hex for cell sub-rooms (when cells carry
+     *  `subRooms`). Absent ⇒ cells render flat (no internal room detail). */
+    readonly roomPalette?: PlanPalette;
     /** Legend rows (typologies/room-types present + core/corridor). */
     readonly legend: readonly PlanLegendEntry[];
     /** A friendly level/plan label (e.g. 'First floor'). */
