@@ -62,6 +62,78 @@ function sharedMat(hex: string, opts: Partial<THREE.MeshStandardMaterialParamete
     return _matCache.get(key)!;
 }
 
+// ── §LIGHT-LOD-IMPROVE (2026-06-26) — tessellation budget ──────────────────────
+//
+// Lights are numerous (≥1 ceiling fixture per room + corner floor lamps), so the
+// segment counts are tiered rather than maximal. A flat 32–40 everywhere wastes
+// triangles on parts no one looks at (thin cables, sockets), while the visible
+// bodies and the emissive lenses are where fidelity reads.
+//
+//   SEG_BODY  (24) — main visible bodies: shade cylinders, cones, canisters,
+//                    drum shades. 24 reads round at room distance; the eye can't
+//                    pick out facets past ~20 on a 0.1–0.25 m radius part.
+//   SEG_LENS  (32) — the emissive lens/diffuser. This is the part the founder
+//                    actually looks at ("does it read as a light?"), so it earns
+//                    a few more segments + a gentle dome instead of a flat disc.
+//   SEG_TRIM  (28) — bezel/trim rings (torus). A faceted ring is the most
+//                    obvious "crude" tell, so trims get a notch above bodies.
+//   SEG_THIN  (10) — sockets, collars, canopy roses: small but on-axis, so 10
+//                    (was 8) kills the visible hexagon without real cost.
+//   SEG_CABLE (6)  — hanging cables: ~4–8 mm radius, read as a line; 6 is plenty.
+//
+// All bodies are capped at 32 — a building with hundreds of fixtures stays light.
+// NOTE(future): identical downlights repeat heavily across a plate and are a
+// strong GPU-instancing candidate; a later instancing pass (owned by another
+// track) can collapse them. Do NOT wire instancing here.
+const SEG_BODY  = 24;
+const SEG_LENS  = 32;
+const SEG_TRIM  = 28;
+const SEG_THIN  = 10;
+const SEG_CABLE = 6;
+
+/** Warm-white lens tint shared by every fixture's emissive diffuser. */
+const LENS_WARM = '#fff8e0';
+
+/**
+ * §LIGHT-LOD-IMPROVE — a gently domed emissive lens (spherical cap) that reads
+ * as a lit diffuser from any angle, replacing the old flat `CircleGeometry`
+ * glow disc. The cap bulges `bulge`× its radius toward the room so it catches a
+ * highlight and never looks like a printed sticker.
+ *
+ * @param radius   lens radius (m)
+ * @param tint     hex emissive/diffuse colour (warm/neutral — never brand purple)
+ * @param emissive emissive intensity (fixture-tuned)
+ * @param bulge    cap depth as a fraction of radius (0 = flat, 0.25 ≈ shallow dome)
+ */
+function emissiveLens(
+    radius: number,
+    tint: string,
+    emissive: number,
+    bulge = 0.18,
+): THREE.Mesh {
+    // Spherical-cap geometry: a sphere of radius R sliced to a shallow dome whose
+    // base radius == `radius`. phiLength chosen so sin(phi)*R == radius.
+    const depth = Math.max(0.0001, radius * bulge);
+    const sphereR = (radius * radius + depth * depth) / (2 * depth);
+    const phi = Math.asin(Math.min(1, radius / sphereR));
+    const geo = new THREE.SphereGeometry(sphereR, SEG_LENS, Math.max(6, Math.round(SEG_LENS / 3)), 0, Math.PI * 2, 0, phi);
+    const mat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(tint),
+        emissive: new THREE.Color(tint),
+        emissiveIntensity: emissive,
+        roughness: 1,
+        metalness: 0,
+    });
+    // The default cap apex is at +Y; lights face DOWN into the room, so flip it
+    // so the dome bulges toward −Y. After the flip the apex sits at −depth and
+    // the base ring at local Y=0 (the fixture mouth), matching the old flat-disc
+    // placement the callers already use.
+    geo.rotateX(Math.PI);
+    geo.translate(0, sphereR - depth, 0);
+    const mesh = new THREE.Mesh(geo, mat);
+    return mesh;
+}
+
 // ── Builder ───────────────────────────────────────────────────────────────────
 
 export class LightingFragmentBuilder {
@@ -207,7 +279,7 @@ export class LightingFragmentBuilder {
 
         // Central canopy disc at the ceiling.
         const canopyMat = sharedMat(p.canopyColor, { roughness: 0.55, metalness: 0.4 });
-        const canopyGeo = new THREE.CylinderGeometry(p.canopyRadius, p.canopyRadius, p.canopyHeight, 32);
+        const canopyGeo = new THREE.CylinderGeometry(p.canopyRadius, p.canopyRadius, p.canopyHeight, SEG_TRIM);
         const canopy = new THREE.Mesh(canopyGeo, canopyMat);
         canopy.position.y = -(p.canopyHeight / 2);
         canopy.castShadow = true;
@@ -227,36 +299,28 @@ export class LightingFragmentBuilder {
             const cableLen = p.minCableLen + (p.maxCableLen - p.minCableLen) * t;
 
             // Cable (thin black cylinder hanging straight down).
-            const cableGeo = new THREE.CylinderGeometry(0.004, 0.004, cableLen, 8);
+            const cableGeo = new THREE.CylinderGeometry(0.004, 0.004, cableLen, SEG_CABLE);
             const cable = new THREE.Mesh(cableGeo, cableMat);
             cable.position.set(px, -p.canopyHeight - cableLen / 2, pz);
             group.add(cable);
 
             // Sub-pendant body — slim brass cylinder.
             const bodyY = -p.canopyHeight - cableLen - p.pendantHeight / 2;
-            const bodyGeo = new THREE.CylinderGeometry(p.pendantRadius, p.pendantRadius, p.pendantHeight, 24, 1, true);
+            const bodyGeo = new THREE.CylinderGeometry(p.pendantRadius, p.pendantRadius, p.pendantHeight, SEG_BODY, 1, true);
             const body = new THREE.Mesh(bodyGeo, bodyMat);
             body.position.set(px, bodyY, pz);
             body.castShadow = true;
             group.add(body);
 
             // Top cap so the cylinder reads as closed at the top.
-            const topGeo = new THREE.CircleGeometry(p.pendantRadius, 24);
+            const topGeo = new THREE.CircleGeometry(p.pendantRadius, SEG_BODY);
             const topMesh = new THREE.Mesh(topGeo, bodyMat);
             topMesh.rotation.x = -Math.PI / 2;
             topMesh.position.set(px, bodyY + p.pendantHeight / 2, pz);
             group.add(topMesh);
 
-            // Emissive glow at the bottom of each sub-pendant.
-            const glowGeo = new THREE.CircleGeometry(p.pendantRadius * 0.85, 24);
-            const glowMat = new THREE.MeshStandardMaterial({
-                color: new THREE.Color('#fff8e0'),
-                emissive: new THREE.Color('#fff8e0'),
-                emissiveIntensity: 0.7,
-                roughness: 1, metalness: 0,
-            });
-            const glow = new THREE.Mesh(glowGeo, glowMat);
-            glow.rotation.x = Math.PI / 2;
+            // §LIGHT-LOD-IMPROVE — domed warm lens at each sub-pendant (was flat disc).
+            const glow = emissiveLens(p.pendantRadius * 0.85, LENS_WARM, 0.7, 0.2);
             glow.position.set(px, bodyY - p.pendantHeight / 2 + 0.002, pz);
             group.add(glow);
         }
@@ -317,32 +381,38 @@ export class LightingFragmentBuilder {
         const p = { ...DOWNLIGHT_DEFAULTS, ...data.downlightParams };
         const group = new THREE.Group();
 
-        const bodyGeo = new THREE.CylinderGeometry(p.radius, p.radius, p.height, 32, 1, false);
+        // §LIGHT-LOD-IMPROVE — a real surface-downlight reads as: canister body +
+        // a recessed reflector cone + a bright domed lens behind a slim outer
+        // trim bezel. Previously this was just a black can + a flat emissive
+        // disc, which is the crudest of the lot since it is also the most placed.
+        const bodyGeo = new THREE.CylinderGeometry(p.radius, p.radius * 0.96, p.height, SEG_BODY, 1, false);
         const bodyMat = sharedMat(p.color, { roughness: 0.7, metalness: 0.2 });
         const body = new THREE.Mesh(bodyGeo, bodyMat);
         body.position.y = -(p.height / 2);
         body.castShadow = true;
         group.add(body);
 
-        const reflR = p.radius * 0.72;
-        const reflGeo = new THREE.SphereGeometry(reflR, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2);
-        const reflMat = sharedMat(p.goldColor, { roughness: 0.1, metalness: 0.9, side: THREE.BackSide });
+        // Recessed gold reflector cone (open downward) — gives the bezel depth.
+        const reflR = p.radius * 0.78;
+        const reflGeo = new THREE.CylinderGeometry(reflR, reflR * 0.55, p.height * 0.6, SEG_BODY, 1, true);
+        const reflMat = sharedMat(p.goldColor, { roughness: 0.12, metalness: 0.9, side: THREE.BackSide });
         const refl = new THREE.Mesh(reflGeo, reflMat);
-        refl.rotation.x = Math.PI;
-        refl.position.y = -p.height + reflR * 0.4;
+        refl.position.y = -p.height + p.height * 0.3 + 0.004;
         group.add(refl);
 
-        const glowGeo = new THREE.CircleGeometry(reflR * 0.55, 24);
-        const glowMat = new THREE.MeshStandardMaterial({
-            color: new THREE.Color('#fff8e0'),
-            emissive: new THREE.Color('#fff8e0'),
-            emissiveIntensity: 0.6,
-            roughness: 1, metalness: 0,
-        });
-        const glow = new THREE.Mesh(glowGeo, glowMat);
-        glow.rotation.x = Math.PI / 2;
-        glow.position.y = -p.height + 0.005;
-        group.add(glow);
+        // Outer trim bezel — a thin torus ring at the mouth. A faceted ring is
+        // the most obvious "low-poly" tell, so it gets SEG_TRIM.
+        const bezelGeo = new THREE.TorusGeometry(p.radius * 0.92, p.radius * 0.10, 8, SEG_TRIM);
+        const bezelMat = sharedMat('#3a3a3a', { roughness: 0.55, metalness: 0.5 });
+        const bezel = new THREE.Mesh(bezelGeo, bezelMat);
+        bezel.rotation.x = Math.PI / 2;
+        bezel.position.y = -p.height + 0.002;
+        group.add(bezel);
+
+        // Domed emissive lens behind the bezel.
+        const lens = emissiveLens(reflR * 0.62, LENS_WARM, 0.7, 0.22);
+        lens.position.y = -p.height + p.height * 0.10;
+        group.add(lens);
 
         return group;
     }
@@ -354,34 +424,34 @@ export class LightingFragmentBuilder {
         const p = { ...PENDANT_DEFAULTS, ...data.pendantParams };
         const group = new THREE.Group();
 
-        const cableGeo = new THREE.CylinderGeometry(0.004, 0.004, p.cableLen, 8);
+        const cableGeo = new THREE.CylinderGeometry(0.004, 0.004, p.cableLen, SEG_CABLE);
         const cableMat = sharedMat('#888888', { roughness: 0.8, metalness: 0.3 });
         const cable = new THREE.Mesh(cableGeo, cableMat);
         cable.position.y = -(p.cableLen / 2);
         group.add(cable);
 
-        const roseGeo = new THREE.CylinderGeometry(0.018, 0.018, 0.012, 16);
+        const roseGeo = new THREE.CylinderGeometry(0.018, 0.018, 0.012, SEG_THIN);
         const roseMat = sharedMat('#cccccc', { roughness: 0.4, metalness: 0.5 });
         const rose = new THREE.Mesh(roseGeo, roseMat);
         rose.position.y = -0.006;
         group.add(rose);
 
         const bodyY = -(p.cableLen + p.height / 2);
-        const bodyGeo = new THREE.CylinderGeometry(p.radius, p.radius, p.height, 32, 1, true);
+        const bodyGeo = new THREE.CylinderGeometry(p.radius, p.radius, p.height, SEG_BODY, 1, true);
         const bodyMat = sharedMat(p.color, { roughness: 0.6, metalness: 0.1, side: THREE.FrontSide });
         const body = new THREE.Mesh(bodyGeo, bodyMat);
         body.position.y = bodyY;
         body.castShadow = true;
         group.add(body);
 
-        const topGeo = new THREE.CircleGeometry(p.radius, 32);
+        const topGeo = new THREE.CircleGeometry(p.radius, SEG_BODY);
         const topMesh = new THREE.Mesh(topGeo, bodyMat);
         topMesh.rotation.x = -Math.PI / 2;
         topMesh.position.y = bodyY + p.height / 2;
         group.add(topMesh);
 
         const innerR = p.radius * 0.8;
-        const innerGeo = new THREE.RingGeometry(innerR * 0.7, innerR, 32);
+        const innerGeo = new THREE.RingGeometry(innerR * 0.7, innerR, SEG_BODY);
         const innerMat = new THREE.MeshStandardMaterial({
             color: new THREE.Color('#c8a000'),
             emissive: new THREE.Color('#c8a000'),
@@ -394,15 +464,8 @@ export class LightingFragmentBuilder {
         inner.position.y = bodyY - p.height / 2 + 0.01;
         group.add(inner);
 
-        const glowGeo = new THREE.CircleGeometry(p.radius * 0.5, 24);
-        const glowMat = new THREE.MeshStandardMaterial({
-            color: new THREE.Color('#fff8e0'),
-            emissive: new THREE.Color('#fff8e0'),
-            emissiveIntensity: 0.5,
-            roughness: 1, metalness: 0,
-        });
-        const glow = new THREE.Mesh(glowGeo, glowMat);
-        glow.rotation.x = Math.PI / 2;
+        // §LIGHT-LOD-IMPROVE — domed warm lens at the mouth (was a flat disc).
+        const glow = emissiveLens(p.radius * 0.5, LENS_WARM, 0.5, 0.2);
         glow.position.y = bodyY - p.height / 2 + 0.002;
         group.add(glow);
 
@@ -501,7 +564,7 @@ export class LightingFragmentBuilder {
         const shadeMat = sharedMat(p.color, { roughness: 0.55, metalness: 0.0 });
 
         // Top rounded cap
-        const topGeo = new THREE.SphereGeometry(p.radius, 36, 12, 0, Math.PI * 2, 0, Math.PI / 2);
+        const topGeo = new THREE.SphereGeometry(p.radius, SEG_BODY, 12, 0, Math.PI * 2, 0, Math.PI / 2);
         const top = new THREE.Mesh(topGeo, shadeMat);
         top.position.y = shadeY + p.height * 0.1;
         top.scale.set(1, p.height / (p.radius * 0.8), 1);
@@ -509,7 +572,7 @@ export class LightingFragmentBuilder {
         group.add(top);
 
         // Bottom rounded cap (inverted)
-        const botGeo = new THREE.SphereGeometry(p.radius, 36, 12, 0, Math.PI * 2, 0, Math.PI / 2);
+        const botGeo = new THREE.SphereGeometry(p.radius, SEG_BODY, 12, 0, Math.PI * 2, 0, Math.PI / 2);
         const bot = new THREE.Mesh(botGeo, shadeMat);
         bot.rotation.x = Math.PI;
         bot.position.y = shadeY - p.height * 0.1;
@@ -517,16 +580,8 @@ export class LightingFragmentBuilder {
         bot.castShadow = true;
         group.add(bot);
 
-        // Emissive inner glow disc at bottom opening
-        const glowGeo = new THREE.CircleGeometry(p.radius * 0.45, 32);
-        const glowMat = new THREE.MeshStandardMaterial({
-            color: new THREE.Color('#fff8e0'),
-            emissive: new THREE.Color('#fff8e0'),
-            emissiveIntensity: 0.55,
-            roughness: 1, metalness: 0,
-        });
-        const glow = new THREE.Mesh(glowGeo, glowMat);
-        glow.rotation.x = Math.PI / 2;
+        // §LIGHT-LOD-IMPROVE — domed warm lens at bottom opening (was flat disc).
+        const glow = emissiveLens(p.radius * 0.45, LENS_WARM, 0.55, 0.16);
         glow.position.y = shadeY - p.height * 0.1 - 0.002;
         group.add(glow);
 
@@ -558,7 +613,7 @@ export class LightingFragmentBuilder {
 
         // Bell body — open-bottom cone/cylinder with organic profile
         const bellY = -(p.cableLen + 0.025 + p.height / 2);
-        const bellGeo = new THREE.CylinderGeometry(p.botRadius, p.topRadius, p.height, 32, 2, true);
+        const bellGeo = new THREE.CylinderGeometry(p.botRadius, p.topRadius, p.height, SEG_BODY, 2, true);
         const bellMat = sharedMat(p.color, { roughness: 0.15, metalness: 0.05 });
         const bell = new THREE.Mesh(bellGeo, bellMat);
         bell.position.y = bellY;
@@ -573,7 +628,7 @@ export class LightingFragmentBuilder {
         group.add(topMesh);
 
         // Rim detail at bottom — thin white inner lip
-        const rimGeo = new THREE.TorusGeometry(p.botRadius, 0.006, 8, 32);
+        const rimGeo = new THREE.TorusGeometry(p.botRadius, 0.006, 8, SEG_TRIM);
         const rimMat = sharedMat(p.innerColor, { roughness: 0.4, metalness: 0.1 });
         const rim = new THREE.Mesh(rimGeo, rimMat);
         rim.position.y = bellY - p.height / 2;
@@ -621,14 +676,14 @@ export class LightingFragmentBuilder {
         const shadeMat = sharedMat(p.color, { roughness: 0.65, metalness: 0.0 });
 
         // Main cone — wide at bottom, narrow at top
-        const coneGeo = new THREE.CylinderGeometry(p.topRadius, p.botRadius, p.height, 40, 1, true);
+        const coneGeo = new THREE.CylinderGeometry(p.topRadius, p.botRadius, p.height, SEG_BODY, 1, true);
         const cone = new THREE.Mesh(coneGeo, shadeMat);
         cone.position.y = shadeY;
         cone.castShadow = true;
         group.add(cone);
 
         // Flat top cap
-        const topGeo = new THREE.CircleGeometry(p.topRadius, 32);
+        const topGeo = new THREE.CircleGeometry(p.topRadius, SEG_BODY);
         const topCap = new THREE.Mesh(topGeo, shadeMat);
         topCap.rotation.x = -Math.PI / 2;
         topCap.position.y = shadeY + p.height / 2;
@@ -642,21 +697,13 @@ export class LightingFragmentBuilder {
         group.add(innerTop);
 
         // Bottom rim ring (slight thickness detail)
-        const rimGeo = new THREE.TorusGeometry(p.botRadius, 0.007, 8, 48);
+        const rimGeo = new THREE.TorusGeometry(p.botRadius, 0.007, 8, SEG_TRIM);
         const rim = new THREE.Mesh(rimGeo, shadeMat);
         rim.position.y = shadeY - p.height / 2;
         group.add(rim);
 
-        // Emissive glow disc inside
-        const glowGeo = new THREE.CircleGeometry(p.botRadius * 0.55, 36);
-        const glowMat = new THREE.MeshStandardMaterial({
-            color: new THREE.Color('#fff8e0'),
-            emissive: new THREE.Color('#fff8e0'),
-            emissiveIntensity: 0.5,
-            roughness: 1, metalness: 0,
-        });
-        const glow = new THREE.Mesh(glowGeo, glowMat);
-        glow.rotation.x = Math.PI / 2;
+        // §LIGHT-LOD-IMPROVE — domed warm lens inside the brim (was flat disc).
+        const glow = emissiveLens(p.botRadius * 0.55, LENS_WARM, 0.5, 0.14);
         glow.position.y = shadeY - p.height / 2 + 0.002;
         group.add(glow);
 
@@ -713,28 +760,20 @@ export class LightingFragmentBuilder {
         const shadeY = p.postHeight + 0.04 + p.shadeHeight / 2;
         const shadeMat = sharedMat(p.shadeColor, { roughness: 0.8, metalness: 0.0, side: THREE.DoubleSide });
 
-        const outerGeo = new THREE.CylinderGeometry(p.shadeRadius, p.shadeRadius, p.shadeHeight, 36, 1, true);
+        const outerGeo = new THREE.CylinderGeometry(p.shadeRadius, p.shadeRadius, p.shadeHeight, SEG_BODY, 1, true);
         const outer = new THREE.Mesh(outerGeo, shadeMat);
         outer.position.y = shadeY;
         outer.castShadow = true;
         group.add(outer);
 
-        const topCapGeo = new THREE.CircleGeometry(p.shadeRadius, 36);
+        const topCapGeo = new THREE.CircleGeometry(p.shadeRadius, SEG_BODY);
         const topCap = new THREE.Mesh(topCapGeo, shadeMat);
         topCap.rotation.x = -Math.PI / 2;
         topCap.position.y = shadeY + p.shadeHeight / 2;
         group.add(topCap);
 
-        // Glow disc inside shade
-        const glowGeo = new THREE.CircleGeometry(p.shadeRadius * 0.6, 32);
-        const glowMat = new THREE.MeshStandardMaterial({
-            color: new THREE.Color('#fff8e0'),
-            emissive: new THREE.Color('#fff8e0'),
-            emissiveIntensity: 0.45,
-            roughness: 1, metalness: 0,
-        });
-        const glow = new THREE.Mesh(glowGeo, glowMat);
-        glow.rotation.x = Math.PI / 2;
+        // §LIGHT-LOD-IMPROVE — domed warm lens at the shade opening (was flat disc).
+        const glow = emissiveLens(p.shadeRadius * 0.6, LENS_WARM, 0.45, 0.12);
         glow.position.y = shadeY - p.shadeHeight / 2 + 0.005;
         group.add(glow);
 
@@ -776,7 +815,7 @@ export class LightingFragmentBuilder {
 
         // Shade dome — hemisphere facing downward at end of arm
         const shadeY = p.postHeight + 0.055;
-        const domeGeo = new THREE.SphereGeometry(p.shadeRadius, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+        const domeGeo = new THREE.SphereGeometry(p.shadeRadius, SEG_BODY, 16, 0, Math.PI * 2, 0, Math.PI / 2);
         const domeMat = sharedMat(p.color, { roughness: 0.2, metalness: 0.9, side: THREE.DoubleSide });
         const dome = new THREE.Mesh(domeGeo, domeMat);
         dome.rotation.x = Math.PI; // open face downward
@@ -790,16 +829,8 @@ export class LightingFragmentBuilder {
         collar.position.y = p.postHeight + 0.055;
         group.add(collar);
 
-        // Glow disc inside dome
-        const glowGeo = new THREE.CircleGeometry(p.shadeRadius * 0.65, 28);
-        const glowMat = new THREE.MeshStandardMaterial({
-            color: new THREE.Color('#fff3d0'),
-            emissive: new THREE.Color('#fff3d0'),
-            emissiveIntensity: 0.5,
-            roughness: 1, metalness: 0,
-        });
-        const glow = new THREE.Mesh(glowGeo, glowMat);
-        glow.rotation.x = Math.PI / 2;
+        // §LIGHT-LOD-IMPROVE — domed warm lens under the dome (was flat disc).
+        const glow = emissiveLens(p.shadeRadius * 0.65, '#fff3d0', 0.5, 0.15);
         glow.position.set(armLen, shadeY - p.shadeRadius * 0.1, 0);
         group.add(glow);
 
@@ -841,7 +872,7 @@ export class LightingFragmentBuilder {
         const shadeMat = sharedMat(p.shadeColor, { roughness: 0.75, metalness: 0.0, side: THREE.DoubleSide });
         const shadeY = sockY + 0.025 + p.shadeHeight / 2;
 
-        const shadeGeo = new THREE.CylinderGeometry(p.shadeTopR, p.shadeBotR, p.shadeHeight, 36, 1, true);
+        const shadeGeo = new THREE.CylinderGeometry(p.shadeTopR, p.shadeBotR, p.shadeHeight, SEG_BODY, 1, true);
         const shade = new THREE.Mesh(shadeGeo, shadeMat);
         shade.position.y = shadeY;
         shade.castShadow = true;
@@ -854,16 +885,8 @@ export class LightingFragmentBuilder {
         topCap.position.y = shadeY + p.shadeHeight / 2;
         group.add(topCap);
 
-        // Glow disc at shade opening
-        const glowGeo = new THREE.CircleGeometry(p.shadeBotR * 0.55, 28);
-        const glowMat = new THREE.MeshStandardMaterial({
-            color: new THREE.Color('#fff8e0'),
-            emissive: new THREE.Color('#fff8e0'),
-            emissiveIntensity: 0.50,
-            roughness: 1, metalness: 0,
-        });
-        const glow = new THREE.Mesh(glowGeo, glowMat);
-        glow.rotation.x = Math.PI / 2;
+        // §LIGHT-LOD-IMPROVE — domed warm lens at the cone opening (was flat disc).
+        const glow = emissiveLens(p.shadeBotR * 0.55, LENS_WARM, 0.50, 0.13);
         glow.position.y = shadeY - p.shadeHeight / 2 + 0.003;
         group.add(glow);
 
@@ -932,29 +955,21 @@ export class LightingFragmentBuilder {
         const shadeY = p.legHeight + p.shadeHeight / 2 + 0.01;
         const shadeMat = sharedMat(p.shadeColor, { roughness: 0.85, metalness: 0.0, side: THREE.DoubleSide });
 
-        const outerGeo = new THREE.CylinderGeometry(p.shadeRadius, p.shadeRadius, p.shadeHeight, 40, 1, true);
+        const outerGeo = new THREE.CylinderGeometry(p.shadeRadius, p.shadeRadius, p.shadeHeight, SEG_BODY, 1, true);
         const outer = new THREE.Mesh(outerGeo, shadeMat);
         outer.position.y = shadeY;
         outer.castShadow = true;
         group.add(outer);
 
         // Top cap
-        const topCapGeo = new THREE.CircleGeometry(p.shadeRadius, 40);
+        const topCapGeo = new THREE.CircleGeometry(p.shadeRadius, SEG_BODY);
         const topCap = new THREE.Mesh(topCapGeo, shadeMat);
         topCap.rotation.x = -Math.PI / 2;
         topCap.position.y = shadeY + p.shadeHeight / 2;
         group.add(topCap);
 
-        // Glow disc at bottom opening
-        const glowGeo = new THREE.CircleGeometry(p.shadeRadius * 0.55, 36);
-        const glowMat = new THREE.MeshStandardMaterial({
-            color: new THREE.Color('#fff3d0'),
-            emissive: new THREE.Color('#fff3d0'),
-            emissiveIntensity: 0.4,
-            roughness: 1, metalness: 0,
-        });
-        const glow = new THREE.Mesh(glowGeo, glowMat);
-        glow.rotation.x = Math.PI / 2;
+        // §LIGHT-LOD-IMPROVE — domed warm lens at the drum opening (was flat disc).
+        const glow = emissiveLens(p.shadeRadius * 0.55, '#fff3d0', 0.4, 0.12);
         glow.position.y = shadeY - p.shadeHeight / 2 + 0.005;
         group.add(glow);
 
