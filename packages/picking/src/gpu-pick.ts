@@ -832,6 +832,24 @@ export class GpuPickStrategy implements PickStrategy {
       const obj = registry.objectFor(id);
       if (obj === null) continue;
 
+      // §PICK-RESPECT-VISIBILITY — an element whose root is hidden (visible=false
+      // on the root or any ancestor) must NOT be pickable. Floor isolation
+      // ("Active Level Only") and every other hide write `root.visible = false`;
+      // the renderer skips those roots, so the pick id-buffer MUST skip them too —
+      // otherwise a click resolves to an element the user cannot see. Keying off
+      // the SAME `.visible` signal the renderer honours makes render and pick agree
+      // by construction (no parallel hidden-list to drift). This single guard covers
+      // ALL three downstream branches (instanced-group, coalesced-IM, simple-mesh).
+      // If a prior entry exists for a now-hidden root, drop it so its slot leaves
+      // the id-buffer; a later visible sync rebuilds it from scratch.
+      if (!isVisibleInHierarchy(obj)) {
+        const existing = this.entries.get(id);
+        if (existing !== undefined) this._invalidateEntry(id, existing);
+        const existingGroup = this.instancedGroupEntries.get(id);
+        if (existingGroup !== undefined) this._disposeInstancedGroupEntry(id, existingGroup);
+        continue;
+      }
+
       // §SELECT-INSTANCED-PICK (FIX #1) — InstancedElementRenderer group path.
       // The group carries a single SYNTHETIC userData.id (so the registry includes
       // it) but hosts MANY BIM elements, one per occupied instance slot. We paint
@@ -941,7 +959,22 @@ export class GpuPickStrategy implements PickStrategy {
       // only covered the first child mesh — all other geometry was invisible
       // to the GPU pick readback, causing missed picks on multi-fragment walls.
       const allMeshes = collectVisibleMeshes(obj);
-      if (allMeshes.length === 0) continue;
+      if (allMeshes.length === 0) {
+        // §PICK-RESPECT-VISIBILITY — the element has NO visible geometry now
+        // (e.g. its child meshes were individually hidden, or a ceiling went
+        // visible=false in exploded view via LevelExplodeController, while the
+        // root group itself stays visible=true so the hierarchy guard above did
+        // not catch it). A bare `continue` here used to LEAVE the element's prior
+        // PickEntry — clone + slot colour — in the pick scene, so the id-buffer
+        // kept rendering a STALE clone of a now-invisible object: a click on a
+        // VISIBLE element behind/around it could read the stale pixel and resolve
+        // to the wrong (invisible) element ("3D selection picks wrong element in
+        // exploded view"; hidden element stays selectable). Dispose the entry so
+        // an element with no visible geometry has NO clone in the pick scene.
+        const stale = this.entries.get(id);
+        if (stale !== undefined) this._invalidateEntry(id, stale);
+        continue;
+      }
 
       const primaryMesh = allMeshes[0]!;
 
@@ -1176,19 +1209,53 @@ export class GpuPickStrategy implements PickStrategy {
     const currentGen = (obj.userData as { version?: number }).version;
     if (currentGen === undefined || currentGen === entry.generation) return false;
 
+    this._invalidateEntry(id, entry);
+    return true;
+  }
+
+  /**
+   * Tear down one standard (Mesh / coalesced-IM) pick entry: remove its primary
+   * and additional clones from the pick scene, dispose its material, free its
+   * pick slot (clearing indexToId + returning the slot to the free-list), and
+   * drop it from `entries`. Shared by the stale-generation guard (FIX #4) and the
+   * §PICK-RESPECT-VISIBILITY hidden-root skip so a hidden element's slot leaves
+   * the id-buffer and can never be resolved by a pick.
+   */
+  private _invalidateEntry(id: ElementId, entry: PickEntry): void {
     this.pickScene.remove(entry.clone);
     for (const c of entry.additionalClones) this.pickScene.remove(c);
     entry.material.dispose();
     this.indexToId.delete(entry.slotIndex);
     this._freeSlots.push(entry.slotIndex);
     this.entries.delete(id);
-    return true;
   }
 }
 
 // ---------------------------------------------------------------------------
 // ADR-046: InstancedMesh pick helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * §PICK-RESPECT-VISIBILITY — true iff `obj` is renderable: neither it nor any of
+ * its ancestors has `visible === false`.
+ *
+ * THREE's renderer skips a subtree the moment ANY node on the path from the root
+ * to a mesh is `visible=false`; floor isolation ("Active Level Only") and other
+ * hides set `root.visible = false` on the REGISTERED root (a Group), while its
+ * child meshes keep `visible=true`. Checking only the registered object's own
+ * flag would miss a hide applied to an ancestor; checking only child flags (as
+ * `collectVisibleMeshes` did) misses a hide applied to the root Group itself.
+ * Walking the whole chain keeps the pick id-buffer 1:1 with what the renderer
+ * actually draws, so a click can never resolve to a hidden element.
+ */
+function isVisibleInHierarchy(obj: THREE.Object3D): boolean {
+  let node: THREE.Object3D | null = obj;
+  while (node !== null) {
+    if (node.visible === false) return false;
+    node = node.parent;
+  }
+  return true;
+}
 
 /**
  * Collect all InstancedMesh descendants of `obj` — including hidden ones
@@ -1219,6 +1286,10 @@ function collectInstancedMeshes(obj: THREE.Object3D | null): THREE.InstancedMesh
  */
 function collectVisibleMeshes(obj: THREE.Object3D | null): THREE.Mesh[] {
   if (obj === null) return [];
+  // §PICK-RESPECT-VISIBILITY — a hidden root contributes NOTHING, even if its
+  // child meshes carry visible=true (isolation hides the root Group, not the
+  // leaves). The renderer skips the whole subtree, so the pick scene must too.
+  if (obj.visible === false) return [];
   if (obj instanceof THREE.InstancedMesh) return [];
   if (obj instanceof THREE.Mesh) {
     return obj.visible ? [obj] : [];
