@@ -170,4 +170,42 @@ describe('deferWork (§BACKGROUND-TAB-KEEPALIVE)', () => {
     vi.advanceTimersByTime(0);
     expect(fn).toHaveBeenCalledTimes(1);
   });
+
+  it('§DEFERWORK-RESI-ADOPT poll pattern: a self-re-arming tick drains while hidden, cancellable mid-poll', () => {
+    // Characterises the ResidentialBuildingExecutor._finishApartments poll seam:
+    //   let poll; const tick = n => { if (ready||n<=0) go(); else poll = deferWork(()=>tick(n-1),150); };
+    //   go(): if (poll) poll();   // cancel the pending re-tick
+    vi.useFakeTimers();
+    const vis = makeVisibility(true); // hidden (backgrounded tab)
+    const timers = makeManualTimers();
+    const hb = new BackgroundHeartbeat({
+      visibility: vis,
+      timers,
+      channelFactory: makeSyncChannelFactory(),
+    });
+    _setBackgroundHeartbeatForTest(hb);
+
+    let ready = false;
+    let went = 0;
+    let poll: (() => void) | undefined;
+    const go = (): void => { if (poll) poll(); went++; };
+    const tick = (n: number): void => {
+      if (ready || n <= 0) { go(); return; }
+      // Heartbeat clock advances each pulse so the 150ms delay is satisfied.
+      timers.clock += 200;
+      poll = deferWork(() => tick(n - 1), 150);
+    };
+
+    tick(5);             // not ready → arms poll #1 (rides heartbeat while hidden)
+    timers.flush();      // pulse → re-tick → arms poll #2
+    timers.flush();      // pulse → re-tick → arms poll #3
+    expect(went).toBe(0);
+    ready = true;        // walls landed
+    timers.flush();      // pulse → tick sees ready → go()
+    expect(went).toBe(1);
+    // Further pulses must not re-fire (poll was cancelled inside go()).
+    timers.flush();
+    timers.flush();
+    expect(went).toBe(1);
+  });
 });
