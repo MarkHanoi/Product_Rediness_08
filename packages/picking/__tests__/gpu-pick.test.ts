@@ -819,3 +819,125 @@ describe('chooseNearestThinSlot (§SELECT-THIN-WINS)', () => {
     expect(a.slot).toBe(3); // lower id wins the deterministic tie-break
   });
 });
+
+// ---------------------------------------------------------------------------
+// §PICK-RESPECT-VISIBILITY — a hidden element (visible=false, by floor isolation
+// or any other hide) must NOT be in the pick id-buffer, so a click can never
+// resolve to it. Toggling it visible again makes it pickable. Render and pick
+// agree by construction because the pick sync keys off the SAME `.visible`
+// signal the renderer (and isolation) writes.
+// ---------------------------------------------------------------------------
+
+/** Registry over arbitrary Object3D roots (Group or Mesh) keyed by id. */
+function objectRegistry(items: { id: string; kind: string; obj: THREE.Object3D }[]): ElementRegistry {
+  return {
+    kindOf: (id) => (items.find((e) => e.id === id)?.kind ?? null) as never,
+    ids: () => items.map((e) => e.id),
+    objectFor: (id) => items.find((e) => e.id === id)?.obj ?? null,
+  };
+}
+
+/** Count the pick-scene clones whose decoded slot maps to `id` in indexToId. */
+function pickSlotsForId(strategy: GpuPickStrategy, id: string): number {
+  const indexToId = (strategy as unknown as { indexToId: Map<number, string> }).indexToId;
+  let n = 0;
+  for (const v of indexToId.values()) if (v === id) n += 1;
+  return n;
+}
+
+function makeCtx(registry: ElementRegistry, renderer: GpuPickRenderer): PickContext {
+  return {
+    camera: makeCamera(),
+    elementRegistry: registry,
+    viewportWidth: 100,
+    viewportHeight: 100,
+    scene: new THREE.Scene(),
+    renderer,
+  };
+}
+
+describe('GpuPickStrategy respects visibility (§PICK-RESPECT-VISIBILITY)', () => {
+  it('a mesh with visible=false is NOT resolvable by a pick; toggling visible makes it pickable', () => {
+    const strategy = new GpuPickStrategy({ targetWidth: 4, targetHeight: 4 });
+    const mesh = makeMesh();
+    const registry = objectRegistry([{ id: 'wall-1', kind: 'wall', obj: mesh }]);
+    const { renderer, setPixels } = makeFakeRenderer(4, 4);
+    const ctx = makeCtx(registry, renderer);
+
+    // Visible: a pick over slot-1 colour resolves to the element.
+    strategy.pick({ x: 50, y: 50 }, ctx); // builds the entry, assigns slot 1
+    expect(pickSlotsForId(strategy, 'wall-1')).toBe(1);
+    const [r, g, b, a] = encodeIndexToRGBA(1);
+    setPixels(() => [r, g, b, a]);
+    expect(strategy.pick({ x: 50, y: 50 }, ctx)!.elementId).toBe('wall-1');
+
+    // Hide it (the same write floor isolation performs) → the next sync drops it
+    // from the id-buffer, so NO slot maps to it and a pick over the old slot
+    // colour resolves to nothing.
+    mesh.visible = false;
+    strategy.pick({ x: 50, y: 50 }, ctx); // re-sync with the element hidden
+    expect(pickSlotsForId(strategy, 'wall-1')).toBe(0);
+    expect(strategy.pick({ x: 50, y: 50 }, ctx)).toBeNull();
+
+    // Re-show it → it becomes pickable again (slot reassigned, resolvable).
+    mesh.visible = true;
+    strategy.pick({ x: 50, y: 50 }, ctx);
+    expect(pickSlotsForId(strategy, 'wall-1')).toBe(1);
+    const slot = [...(strategy as unknown as { indexToId: Map<number, string> }).indexToId]
+      .find(([, v]) => v === 'wall-1')![0];
+    const [r2, g2, b2, a2] = encodeIndexToRGBA(slot);
+    setPixels(() => [r2, g2, b2, a2]);
+    expect(strategy.pick({ x: 50, y: 50 }, ctx)!.elementId).toBe('wall-1');
+  });
+
+  it('a hidden ROOT GROUP with visible child meshes is excluded (isolation hides the root, not the leaves)', () => {
+    // Floor isolation sets `root.visible = false` on the registered Group while
+    // its child meshes keep visible=true. The pick must still exclude it.
+    const strategy = new GpuPickStrategy({ targetWidth: 4, targetHeight: 4 });
+    const group = new THREE.Group();
+    const child = makeMesh();
+    child.visible = true;
+    group.add(child);
+    group.visible = false; // isolation hid the root
+    const registry = objectRegistry([{ id: 'stair-1', kind: 'wall', obj: group }]);
+    const { renderer } = makeFakeRenderer(4, 4);
+    const ctx = makeCtx(registry, renderer);
+
+    strategy.pick({ x: 50, y: 50 }, ctx);
+    expect(pickSlotsForId(strategy, 'stair-1')).toBe(0);
+
+    // Un-isolate → the group is visible again and its child becomes pickable.
+    group.visible = true;
+    strategy.pick({ x: 50, y: 50 }, ctx);
+    expect(pickSlotsForId(strategy, 'stair-1')).toBe(1);
+  });
+
+  it('an instanced group hidden by level (visible=false) registers NO per-instance pick slots', () => {
+    // When isolation hides a whole InstancedElementRenderer group via .visible,
+    // none of its instances (columns/beams) may be pickable. Showing it again
+    // restores per-instance picking.
+    const strategy = new GpuPickStrategy({ targetWidth: 4, targetHeight: 4 });
+    const im = makeInstancedGroup(['col-0', 'col-1', 'col-2']);
+    const registry = instancedGroupRegistry(im);
+    const { renderer } = makeFakeRenderer(4, 4);
+    const ctx = makeCtx(registry, renderer);
+
+    // Visible: every occupied instance is registered.
+    strategy.pick({ x: 50, y: 50 }, ctx);
+    expect(pickSlotsForId(strategy, 'col-0')).toBe(1);
+    expect(pickSlotsForId(strategy, 'col-2')).toBe(1);
+
+    // Hide the whole group by level (isolation) → no per-instance slot survives.
+    im.visible = false;
+    strategy.pick({ x: 50, y: 50 }, ctx);
+    expect(pickSlotsForId(strategy, 'col-0')).toBe(0);
+    expect(pickSlotsForId(strategy, 'col-1')).toBe(0);
+    expect(pickSlotsForId(strategy, 'col-2')).toBe(0);
+
+    // Show it again → per-instance picking is restored.
+    im.visible = true;
+    strategy.pick({ x: 50, y: 50 }, ctx);
+    expect(pickSlotsForId(strategy, 'col-0')).toBe(1);
+    expect(pickSlotsForId(strategy, 'col-2')).toBe(1);
+  });
+});
