@@ -43,48 +43,53 @@ export class CutTool extends OperationToolBase {
         this._setCursor('crosshair');
         this._showInstructions('Click on THIS wall — the clicked side will be KEPT after the cut');
 
-        // Step 0 handler — pick keepPointA by clicking on wall A
-        const step0 = (e: Event) => {
-            const detail = (e as CustomEvent).detail ?? {};
-            const { worldPoint, elementId: pickedId } = detail;
-            if (!worldPoint) return;
-
-            // Accept if the user clicked wall A (or anywhere on the canvas for keepPoint)
-            this._keepPointA = worldPoint as Point3D;
-            this._nextStep('Click the wall to cut AGAINST — then click the side to keep');
-
-            // Replace step0 with step1
-            window.removeEventListener('bim-canvas-world-click', step0);
-            window.addEventListener('bim-canvas-world-click', step1);
-            // Remove from managed listeners and add step1
-            this._replaceLastListener('bim-canvas-world-click', step0, step1);
-            console.log(`[CutTool] keepPointA recorded`, this._keepPointA, 'picked element:', pickedId);
-        };
-
-        // Step 1 handler — pick wallB + keepPointB
-        const step1 = (e: Event) => {
-            const detail = (e as CustomEvent).detail ?? {};
-            const { worldPoint, elementId: wallBId, elementType: pickedType } = detail;
-            if (!worldPoint || !wallBId) {
-                this._showInstructions('⚠ Click on a wall — Esc to cancel');
-                return;
-            }
-            if (pickedType && pickedType !== 'wall') {
-                this._showInstructions('⚠ Only walls can be cut in Phase 1 — click a wall');
-                return;
-            }
-            if (wallBId === this._wallAId) {
-                this._showInstructions('⚠ Cannot cut a wall against itself — click a different wall');
-                return;
-            }
-            this._executeCut(wallBId, worldPoint as Point3D);
-        };
-
-        this._addListener('bim-canvas-world-click', step0 as EventListener, window);
+        // §OP-LISTEN-DEFER — step0 is attached on the NEXT macrotask so the click
+        // that activated the Cut tool (which selected wall A) cannot be consumed as
+        // keepPointA. step0 legitimately accepts a click on wall A (it marks the
+        // side to keep), so it does NOT ignore wall A — but the defer guarantees it
+        // is the user's deliberate click, not the activating selection click.
+        this._addCanvasClickListener(detail => this._handleStep0(detail));
     }
 
-    private _executeCut(wallBId: string, keepPointB: Point3D): void {
-        if (!this._keepPointA) return;
+    /** Step 0 — pick keepPointA. Returns true when the click is consumed. */
+    private _handleStep0(detail: { worldPoint?: unknown; elementId?: string | null }): boolean {
+        const worldPoint = detail.worldPoint as Point3D | undefined;
+        if (!worldPoint) return false;
+
+        // Accept a click on wall A (or anywhere on the canvas) as the keep-side mark.
+        this._keepPointA = worldPoint;
+        this._nextStep('Click the wall to cut AGAINST — then click the side to keep');
+        console.log('[CutTool] keepPointA recorded', this._keepPointA, 'picked element:', detail.elementId ?? null);
+
+        // Advance to step1. The swap helper detaches step0 and attaches step1 with
+        // the same multi-dispatch auto-remove guard.
+        this._swapCanvasClickListener(d => this._handleStep1(d));
+        return true;
+    }
+
+    /** Step 1 — pick wall B + keepPointB. Returns true when the click is consumed. */
+    private _handleStep1(detail: { worldPoint?: unknown; elementId?: string | null; elementType?: string | null }): boolean {
+        const worldPoint = detail.worldPoint as Point3D | undefined;
+        const wallBId    = detail.elementId ?? null;
+        const pickedType = detail.elementType ?? null;
+        if (!worldPoint || !wallBId) {
+            this._showInstructions('⚠ Click on a wall — Esc to cancel');
+            return false;
+        }
+        if (pickedType && pickedType !== 'wall') {
+            this._showInstructions('⚠ Only walls can be cut in Phase 1 — click a wall');
+            return false;
+        }
+        if (wallBId === this._wallAId) {
+            this._showInstructions('⚠ Cannot cut a wall against itself — click a different wall');
+            return false;
+        }
+        return this._executeCut(wallBId, worldPoint);
+    }
+
+    /** Returns true when the cut consumed the click (succeeded OR errored on a real pick). */
+    private _executeCut(wallBId: string, keepPointB: Point3D): boolean {
+        if (!this._keepPointA) return false;
         const cmd = new CutWallCommand({
             wallAId:    this._wallAId,
             wallBId,
@@ -95,20 +100,10 @@ export class CutTool extends OperationToolBase {
         if (!result.success) {
             const info = result.info?.[0] ?? 'Cut failed';
             window.dispatchEvent(new CustomEvent('bim-operation-error', { detail: { msg: info } })); // TODO(TASK-12)
-            return;
+            this._complete();
+            return true;
         }
         this._complete();
-    }
-
-    /**
-     * Swaps step0 for step1 in the managed listeners array so cleanup on
-     * cancel() still removes the active handler.
-     */
-    private _replaceLastListener(type: string, oldFn: EventListener, newFn: EventListener): void {
-        const arr = (this as any)._listeners as Array<{ type: string; handler: EventListener; target: EventTarget }>;
-        const idx = arr.findLastIndex((e: any) => e.type === type && e.handler === oldFn);
-        if (idx >= 0) {
-            arr[idx] = { type, handler: newFn, target: window };
-        }
+        return true;
     }
 }
