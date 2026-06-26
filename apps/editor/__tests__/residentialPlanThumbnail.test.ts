@@ -187,6 +187,46 @@ describe('buildResidentialPlanSvg', () => {
         expect(d.footprint.length).toBe(4);
     });
 
+    // §BUILDING-PREVIEW-QUALITY — the apartment's INTERNAL rooms are threaded into the descriptor
+    // cells as sub-rooms (so each unit renders like a real plan, not a flat box).
+    it('§BUILDING-PREVIEW-QUALITY — threads apartment rooms (with polygons) into cell.subRooms + a room legend', () => {
+        const roomLayout = layout({
+            rooms: [
+                { name: 'Living', type: 'living', area: 20, windowCount: 1, hasDirectAccess: true, adjacentTo: [],
+                  polygon: [{ x: 0, y: 0 }, { x: 4000, y: 0 }, { x: 4000, y: 7000 }, { x: 0, y: 7000 }] },
+                { name: 'Kitchen', type: 'kitchen', area: 10, windowCount: 1, hasDirectAccess: true, adjacentTo: [],
+                  polygon: [{ x: 4000, y: 0 }, { x: 8000, y: 0 }, { x: 8000, y: 3500 }, { x: 4000, y: 3500 }] },
+                { name: 'Bedroom 1', type: 'bedroom', area: 12, windowCount: 1, hasDirectAccess: true, adjacentTo: [],
+                  polygon: [{ x: 4000, y: 3500 }, { x: 8000, y: 3500 }, { x: 8000, y: 7000 }, { x: 4000, y: 7000 }] },
+            ],
+        });
+        const r = okResult({
+            perLevelApartments: [
+                { levelIndex: 0, role: 'ground', apartments: [], publicCorridor: [] },
+                upperFloor(1, [aptAt(0, { layout: roomLayout })]),
+                { levelIndex: 2, role: 'upper', apartments: [], publicCorridor: [] },
+            ],
+        });
+        const d = buildResidentialPlanDescriptor(r)!;
+        const cell = d.cells[0]!;
+        expect(cell.subRooms).toBeTruthy();
+        expect(cell.subRooms!.length).toBe(3);
+        // Polygons were converted mm→m (plan-y → world-z) into the LOCAL cell frame.
+        expect(cell.subRooms![0]!.polygon[0]).toEqual({ x: 0, z: 0 });
+        expect(cell.subRooms![0]!.polygon[2]).toEqual({ x: 4, z: 7 });
+        // Room types normalised; a room palette is supplied for the renderer.
+        expect(cell.subRooms!.map(rm => rm.roomType)).toEqual(['living-room', 'kitchen', 'bedroom']);
+        expect(d.roomPalette).toBeTruthy();
+        // The legend now reads room types (house parity), not typology swatches.
+        const labels = d.legend.map(l => l.label);
+        expect(labels).toContain('Living');
+        expect(labels).toContain('Kitchen');
+        expect(labels).toContain('Bedroom');
+        // The rendered SVG draws the room fills with a thin partition stroke (house-grade detail).
+        const svg = buildResidentialPlanSvg(r).svg;
+        expect(svg).toMatch(/<polygon points="[^"]+" fill="#[0-9a-f]{6}" stroke="#9b8cc4" stroke-width="0\.8"/);
+    });
+
     it('marks rejected cells (counts them) without a big red ×', () => {
         const r = okResult({
             perLevelApartments: [

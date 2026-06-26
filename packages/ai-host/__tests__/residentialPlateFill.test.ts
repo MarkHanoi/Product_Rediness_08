@@ -170,3 +170,33 @@ describe('§RESI-FILL-PLATE — apartments fill the plate, not a central cluster
         expect(out.status).toBe('rejected');
     });
 });
+
+describe('§RESI-PLATE-UNDERFILL — large plates pack MANY apartments at a high fillRatio', () => {
+    // The founder's report: a ~37×29 m plate yielded only ~3 apartments (most of the plate empty).
+    // The fix packs MANY units (rows tile the whole plate, the width residual is filled with even
+    // cells) and reports the §DIAG-RESI-FILL `fillRatio` (placed footprint ÷ net plate area).
+    it('the founder ~37×29 plate packs MANY MORE than 3 apartments', () => {
+        const res = expectOk(partitionLevelPlate(largeInput(37.4, 29.3)));
+        // Many more than the founder's 3 — the rows tile the plate depth + width.
+        expect(res.apartmentCells.length).toBeGreaterThanOrEqual(6);
+        // The §DIAG-RESI-FILL ratio is reported and is a strong fraction of the net plate.
+        expect(res.fillRatio).toBeGreaterThanOrEqual(0.5);
+        expect(res.diagnostic).toContain('§DIAG-RESI-FILL');
+        expect(res.apartmentsReached).toBe(res.apartmentCells.length);
+    });
+
+    it('a large 100×80 plate fills a strong majority of its net area (fillRatio ≥ 0.80)', () => {
+        const res = expectOk(partitionLevelPlate(largeInput(100, 80)));
+        expect(res.fillRatio).toBeGreaterThanOrEqual(0.80);
+        expect(res.apartmentCells.length).toBeGreaterThanOrEqual(60);
+    });
+
+    it('the fillRatio = placed footprint ÷ (plate − core) and matches the cells', () => {
+        const res = expectOk(partitionLevelPlate(largeInput(60, 40)));
+        const placed = res.apartmentCells.reduce((s, c) => s + (c.rect.x1 - c.rect.x0) * (c.rect.z1 - c.rect.z0), 0);
+        const net = 60 * 40 - (res.core.x1 - res.core.x0) * (res.core.z1 - res.core.z0);
+        expect(res.fillRatio).toBeCloseTo(placed / net, 2);
+        // The width-residual fix lifts the fill well above the old greedy-slice baseline.
+        expect(res.fillRatio).toBeGreaterThanOrEqual(0.80);
+    });
+});

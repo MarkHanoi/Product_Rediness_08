@@ -18,7 +18,7 @@
 import type { ResidentialBuildingOk, PlacedApartment, ResidentialRigidTransform } from '@pryzm/ai-host';
 import { buildBuildingPlanSvg } from '../preview-kit/buildingPlanSvg.js';
 import type {
-    BuildingPlanDescriptor, PlanCell, PlanCorridor, PlanLegendEntry, PlanPt, PlanRect,
+    BuildingPlanDescriptor, PlanCell, PlanCorridor, PlanLegendEntry, PlanPt, PlanRect, PlanSubRoom,
 } from '../preview-kit/buildingPlanDescriptor.js';
 
 interface Rectish { x0: number; z0: number; x1: number; z1: number }
@@ -36,6 +36,39 @@ const CORE_FILL = '#6600ff';
 const CORE_STROKE = '#4a00bf';
 const CORRIDOR_FILL = '#f2eeff';
 const CORRIDOR_STROKE = '#cfc2f2';
+
+// §BUILDING-PREVIEW-QUALITY — per-room-type fills for the apartment INTERNAL plan (house-grade
+// detail), in the brand purple family (no black). Living/social warm, sleeping mid, wet rooms
+// cool, circulation palest. A room-type not listed falls back to the neutral default.
+const ROOM_FILL: Record<string, string> = {
+    'living-room': '#e3d8ff', living: '#e3d8ff', 'dining-room': '#e7ddff',
+    kitchen: '#d8e4f5', bedroom: '#ece4ff', master: '#e0d2ff', 'master-bedroom': '#e0d2ff',
+    bathroom: '#dceef0', ensuite: '#dceef0', 'en-suite': '#dceef0', wc: '#dceef0', 'shower-room': '#dceef0',
+    corridor: '#f4f0ff', hall: '#f4f0ff', 'entry-hall': '#f4f0ff', landing: '#f4f0ff',
+    utility: '#e6eef0', 'utility-room': '#e6eef0', store: '#eee9f7', balcony: '#eef6ee',
+};
+const ROOM_DEFAULT_FILL = '#ece6fb';
+const ROOM_LABEL: Record<string, string> = {
+    'living-room': 'Living', kitchen: 'Kitchen', bedroom: 'Bedroom', bathroom: 'Bathroom',
+    corridor: 'Circulation', hall: 'Circulation',
+};
+
+/** Normalise an engine room type / occupancy to a ROOM_FILL key (lower-case, common synonyms). */
+function normaliseRoomType(type: string | undefined, occupancy: string | undefined): string {
+    const t = (type ?? occupancy ?? '').toLowerCase();
+    if (t.includes('living')) return 'living-room';
+    if (t.includes('kitchen')) return 'kitchen';
+    if (t.includes('dining')) return 'dining-room';
+    if (t.includes('master')) return 'master';
+    if (t.includes('bed')) return 'bedroom';
+    if (t.includes('ensuite') || t.includes('en-suite')) return 'ensuite';
+    if (t.includes('bath') || t === 'wc' || t.includes('shower')) return 'bathroom';
+    if (t.includes('corridor') || t.includes('hall') || t.includes('landing') || t.includes('entry')) return 'corridor';
+    if (t.includes('utility') || t.includes('laundry')) return 'utility';
+    if (t.includes('balcony')) return 'balcony';
+    if (t.includes('store')) return 'store';
+    return t || 'room';
+}
 
 /** Inverse rigid transform: WORLD parcel XZ → LOCAL (principal-axis) by −θ about the pivot,
  *  so the world footprint polygon lands in the SAME LOCAL frame the cells/core/corridor use. */
@@ -112,25 +145,50 @@ export function buildResidentialPlanDescriptor(result: ResidentialBuildingOk): B
     const cells: PlanCell[] = apts.map((c) => {
         const r = c.cell.rect as PlanRect;
         const ok = c.status === 'ok';
-        return ok
-            ? {
-                rect: r, fillKey: c.typology, label: c.typology,
-                subLabel: `${Math.round(c.targetAreaM2)} m²`,
-                doorEdge: c.cell.doorEdge as Edge,
-            }
-            : { rect: r, fillKey: c.typology, muted: true, label: c.typology, mutedNote: 'no fit' };
+        if (!ok) return { rect: r, fillKey: c.typology, muted: true, label: c.typology, mutedNote: 'no fit' };
+        // §BUILDING-PREVIEW-QUALITY — thread the apartment's INTERNAL rooms so the unit reads like a
+        // real little plan (rooms, not a box) at building scale. The engine emits room polygons in
+        // plan-mm at the cell's world position (the resi orchestrator runs the engine on `cell.rect`
+        // world-metre coords, angle 0), so mm→m (plan-y = world-z) lands them in the LOCAL cell frame.
+        const subRooms: PlanSubRoom[] = [];
+        for (const rm of c.layout?.rooms ?? []) {
+            const poly = rm.polygon;
+            if (!poly || poly.length < 3) continue;
+            subRooms.push({
+                polygon: poly.map(p => ({ x: p.x / 1000, z: p.y / 1000 })),
+                roomType: normaliseRoomType(rm.type, (rm as { occupancy?: string }).occupancy),
+            });
+        }
+        return {
+            rect: r, fillKey: c.typology, label: c.typology,
+            subLabel: `${Math.round(c.targetAreaM2)} m²`,
+            doorEdge: c.cell.doorEdge as Edge,
+            ...(subRooms.length > 0 ? { subRooms } : {}),
+        };
     });
 
     // §RESI-PREVIEW-CORRIDOR-CONTINUOUS — pass the bands as fill-only rects; the shared renderer
     // draws them under the cells with one fill so they read as one continuous circulation band.
     const corridors: PlanCorridor[] = corridorsIn.map(r => ({ rect: r as PlanRect }));
 
-    // Legend: typologies actually present (placed) + core + corridor.
-    const present = new Set<string>();
-    for (const c of apts) if (c.status === 'ok') present.add(c.typology);
+    // §BUILDING-PREVIEW-QUALITY — the legend now keys to the ROOM-TYPE palette the unit plans use
+    // (Living / Kitchen / Bedroom / Bathroom / Circulation) when any apartment carries room detail,
+    // matching the house preview's room legend; else it falls back to the typology swatches. Core +
+    // corridor always shown. Only room types ACTUALLY present are listed.
+    const anyRooms = cells.some(c => (c.subRooms?.length ?? 0) > 0);
+    const presentRoomKeys = new Set<string>();
+    for (const c of cells) for (const rm of c.subRooms ?? []) presentRoomKeys.add(rm.roomType);
     const legend: PlanLegendEntry[] = [];
-    for (const t of ['T1', 'T2', 'T3', 'T4']) {
-        if (present.has(t)) legend.push({ fill: TYPO_FILL[t]!, stroke: PARTITION_STROKE, label: `${t} · ${TYPO_LABEL[t]!}` });
+    if (anyRooms) {
+        for (const key of ['living-room', 'kitchen', 'bedroom', 'bathroom', 'corridor']) {
+            if (presentRoomKeys.has(key)) legend.push({ fill: ROOM_FILL[key]!, stroke: PARTITION_STROKE, label: ROOM_LABEL[key] ?? key });
+        }
+    } else {
+        const present = new Set<string>();
+        for (const c of apts) if (c.status === 'ok') present.add(c.typology);
+        for (const t of ['T1', 'T2', 'T3', 'T4']) {
+            if (present.has(t)) legend.push({ fill: TYPO_FILL[t]!, stroke: PARTITION_STROKE, label: `${t} · ${TYPO_LABEL[t]!}` });
+        }
     }
     legend.push({ fill: CORE_FILL, stroke: CORE_STROKE, label: 'Core' });
     legend.push({ fill: CORRIDOR_FILL, stroke: CORRIDOR_STROKE, label: 'Corridor' });
@@ -141,6 +199,7 @@ export function buildResidentialPlanDescriptor(result: ResidentialBuildingOk): B
         corridors,
         core: { rect: core as PlanRect, label: 'CORE' },
         palette: { fills: TYPO_FILL, defaultFill: TYPO_FILL.T2! },
+        roomPalette: { fills: ROOM_FILL, defaultFill: ROOM_DEFAULT_FILL },
         legend,
         levelLabel: idx <= 0 ? 'Ground floor' : `Floor ${idx}`,
         northArrow: true,
