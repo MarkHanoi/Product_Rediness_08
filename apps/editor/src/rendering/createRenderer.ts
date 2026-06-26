@@ -239,7 +239,10 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<Rendere
                         const scene  = window.threeScene;
                         const camera = window.threeCamera;
                         if (rpm && scene && camera) {
-                            await rpm.bind(scene, camera, newResult.renderer);
+                            // §PERF-WEBGL2-NO-TSL — thread the authoritative resolved
+                            // backend so the rebind never re-probes the renderer CLASS.
+                            // Only a native 'webgpu' backend may run the TSL pipeline.
+                            await rpm.bind(scene, camera, newResult.renderer, 'light', newResult.backend === 'webgpu');
                             console.log('[createRenderer] WebGPU device recovered — pipeline rebound.');
                         } else {
                             console.error(
