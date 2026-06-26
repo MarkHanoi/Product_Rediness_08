@@ -76,6 +76,55 @@ export class RoomLabelRenderer {
         return this._visible;
     }
 
+    /**
+     * §ISOLATE-ROOM-LABELS-PER-FLOOR (2026-06-26) — show/hide ONLY the room-name
+     * sprites whose owning room sits on `levelId`. Used by the bottom-toolbar tag
+     * toggle WHILE a floor is isolated, so the button drives just the isolated
+     * floor's labels (not the global flag, which would also flip hidden
+     * other-storey labels back on under the isolation).
+     *
+     * Resolves each sprite's owning level from the room store (`roomId →
+     * room.levelId`). Pure visibility flip — no sprite add/remove, no store write.
+     * Does NOT change the global `_visible` flag: the level filter and the global
+     * toggle compose, and clearing isolation restores via the global flag.
+     *
+     * @returns the number of sprites toggled (for the caller's restore bookkeeping).
+     */
+    setRoomLabelsVisibleForLevel(levelId: string, visible: boolean): number {
+        const bm = this._bimManager ?? (window as any).bimManager;
+        const roomStore = (window as any).roomStore as
+            | { getById?: (id: string) => { levelId?: string } | undefined }
+            | undefined;
+        let toggled = 0;
+        for (const [roomId, sprite] of this._sprites) {
+            const lvl = roomStore?.getById?.(roomId)?.levelId
+                ?? (sprite.userData?.levelId as string | undefined);
+            if (lvl !== undefined && String(lvl) === String(levelId)) {
+                sprite.visible = visible;
+                toggled++;
+            }
+            void bm; // bimManager reserved for future elevation-keyed resolution
+        }
+        return toggled;
+    }
+
+    /**
+     * §ISOLATE-ROOM-LABELS-PER-FLOOR — current visible-sprite count for `levelId`
+     * (used to characterise the pre-isolation state the caller restores).
+     */
+    countVisibleRoomLabelsForLevel(levelId: string): number {
+        const roomStore = (window as any).roomStore as
+            | { getById?: (id: string) => { levelId?: string } | undefined }
+            | undefined;
+        let n = 0;
+        for (const [roomId, sprite] of this._sprites) {
+            const lvl = roomStore?.getById?.(roomId)?.levelId
+                ?? (sprite.userData?.levelId as string | undefined);
+            if (lvl !== undefined && String(lvl) === String(levelId) && sprite.visible) n++;
+        }
+        return n;
+    }
+
     removeRoom(roomId: string): void {
         const sprite = this._sprites.get(roomId);
         if (!sprite) return;

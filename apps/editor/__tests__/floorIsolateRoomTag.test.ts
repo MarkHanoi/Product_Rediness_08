@@ -137,3 +137,130 @@ describe('§FLOOR-ISOLATE-ROOMTAG — floor isolation hides other levels\' room 
         expect(labelL1.visible).toBe(true);
     });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §ISOLATE-ROOM-LABELS-PER-FLOOR (2026-06-26)
+//
+// While a floor is isolated:
+//   1. DEFAULT to showing ONLY the isolated floor's room labels.
+//   2. The bottom-toolbar tag toggle drives ONLY the isolated floor's labels
+//      (it must NOT flip the global flag and reveal other storeys' tags).
+//   3. Clearing isolation restores the prior (pre-isolation) global label state.
+//
+// These tests exercise the renderer-less fallback path (no window.roomLabelRenderer),
+// which filters the sprites directly by their (store-resolved) userData.levelId.
+describe('§ISOLATE-ROOM-LABELS-PER-FLOOR — tag toggle is scoped to the isolated floor', () => {
+    let scene: THREE.Scene;
+    let labelL0: THREE.Sprite;
+    let labelL1: THREE.Sprite;
+
+    beforeEach(() => {
+        scene = new THREE.Scene();
+        labelL0 = makeRoomLabel('room-L0');
+        labelL1 = makeRoomLabel('room-L1');
+        scene.add(labelL0, labelL1);
+
+        const rooms: Record<string, { levelId: string }> = {
+            'room-L0': { levelId: 'L0' },
+            'room-L1': { levelId: 'L1' },
+        };
+        (window as any).roomStore = { getById: (id: string) => rooms[id] };
+        (window as any).scene = scene;
+        (window as any).projectContext = { activeLevelId: 'L0', levels: [{ id: 'L0' }, { id: 'L1' }] };
+        (window as any).bimManager = {
+            getLevels: () => [{ id: 'L0', elevation: 0 }, { id: 'L1', elevation: 3 }],
+            activeLevelId: 'L0',
+        };
+    });
+
+    afterEach(() => {
+        delete (window as any).roomStore;
+        delete (window as any).scene;
+        delete (window as any).projectContext;
+        delete (window as any).bimManager;
+        delete (window as any).roomLabelRenderer;
+    });
+
+    it('isolate L0 → only L0 label visible; toggle hides/shows ONLY L0; L1 stays hidden', () => {
+        const menu = new BottomActionMenu(STUB_PROPS);
+
+        (menu as any)._toggleActiveLevelOnly(); // isolate L0
+        // Default: only the isolated floor's label is visible.
+        expect(labelL0.visible).toBe(true);
+        expect(labelL1.visible).toBe(false);
+
+        // Toggle the tag button WHILE isolated → hides only L0's label.
+        (menu as any)._toggleRoomLabels();
+        expect(labelL0.visible).toBe(false);
+        expect(labelL1.visible).toBe(false); // other storey stays hidden, NOT revealed
+
+        // Toggle again → shows only L0's label back; L1 still hidden.
+        (menu as any)._toggleRoomLabels();
+        expect(labelL0.visible).toBe(true);
+        expect(labelL1.visible).toBe(false);
+    });
+
+    it('clearing isolation restores the prior global label state (labels were ON)', () => {
+        const menu = new BottomActionMenu(STUB_PROPS);
+
+        (menu as any)._toggleActiveLevelOnly(); // isolate L0
+        (menu as any)._toggleRoomLabels();      // hide L0's label while isolated
+        expect(labelL0.visible).toBe(false);
+
+        (menu as any)._toggleActiveLevelOnly(); // clear isolation
+        // Prior state was "labels visible" → both restored.
+        expect(labelL0.visible).toBe(true);
+        expect(labelL1.visible).toBe(true);
+        // The per-floor toggle did NOT leak into the global flag.
+        expect((menu as any)._roomLabelsVisible).toBe(true);
+    });
+
+    it('if labels were globally OFF before isolation, the isolated floor inherits OFF; toggle scopes to it; clear restores OFF', () => {
+        const menu = new BottomActionMenu(STUB_PROPS);
+
+        // Turn labels off globally first (no isolation active).
+        (menu as any)._toggleRoomLabels();
+        expect(labelL0.visible).toBe(false);
+        expect(labelL1.visible).toBe(false);
+        expect((menu as any)._roomLabelsVisible).toBe(false);
+
+        (menu as any)._toggleActiveLevelOnly(); // isolate L0 — inherits global OFF
+        expect(labelL0.visible).toBe(false);
+        expect(labelL1.visible).toBe(false);
+
+        // The per-floor toggle now turns ON only L0's labels.
+        (menu as any)._toggleRoomLabels();
+        expect(labelL0.visible).toBe(true);
+        expect(labelL1.visible).toBe(false); // other storey stays hidden
+
+        (menu as any)._toggleActiveLevelOnly(); // clear isolation
+        // Restores the remembered pre-isolation GLOBAL state (OFF) — the per-floor
+        // toggling did not leak into the global flag.
+        expect((menu as any)._roomLabelsVisible).toBe(false);
+        expect(labelL0.visible).toBe(false);
+        expect(labelL1.visible).toBe(false);
+    });
+
+    it('with a RoomLabelRenderer present, the toggle calls the level-scoped API', () => {
+        const calls: Array<{ levelId: string; visible: boolean }> = [];
+        let globalCalls = 0;
+        (window as any).roomLabelRenderer = {
+            setRoomLabelsVisibleForLevel: (levelId: string, visible: boolean) => calls.push({ levelId, visible }),
+            setRoomLabelsVisible: () => { globalCalls++; },
+        };
+        const menu = new BottomActionMenu(STUB_PROPS);
+
+        (menu as any)._toggleActiveLevelOnly(); // isolate L0 → defaults level labels on
+        (menu as any)._toggleRoomLabels();      // hide L0's labels
+        (menu as any)._toggleRoomLabels();      // show L0's labels
+
+        // Every toggle while isolated routed to the level-scoped API for L0.
+        expect(calls.every(c => c.levelId === 'L0')).toBe(true);
+        expect(calls).toContainEqual({ levelId: 'L0', visible: false });
+        expect(calls).toContainEqual({ levelId: 'L0', visible: true });
+
+        // Clearing isolation restores via the GLOBAL API (prior state).
+        (menu as any)._toggleActiveLevelOnly();
+        expect(globalCalls).toBeGreaterThan(0);
+    });
+});

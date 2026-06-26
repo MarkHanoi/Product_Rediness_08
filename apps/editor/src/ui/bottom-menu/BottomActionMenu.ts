@@ -3,6 +3,7 @@ import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-sched
 import { WallDrawingMode } from '@pryzm/geometry-wall';
 import * as PryzmIcons from '../icons/PryzmIcons';
 import { SlabModePicker } from '../SlabModePicker';
+import { resolveLevelIsolation } from '../../engine/inspect/LevelIsolationResolver';
 
 export type BAMLevelMode = 'stacked' | 'exploded' | 'solo';
 export type BAMWallCutMode = 'cutaway' | 'up' | 'down';
@@ -80,6 +81,13 @@ export class BottomActionMenu {
     // §ROOM-LABELS-TOGGLE (2026-06-10) — 3D room-name sprite visibility. Default
     // true (current behaviour); the toggle button flips it via RoomLabelRenderer.
     private _roomLabelsVisible = true;
+    // §ISOLATE-ROOM-LABELS-PER-FLOOR (2026-06-26) — while a floor is isolated the
+    // tag-toggle drives ONLY the isolated level's labels. This tracks that
+    // per-level on/off state (default ON), and `_roomLabelsVisibleBeforeIsolate`
+    // captures the pre-isolation GLOBAL flag so clearing isolation restores the
+    // prior behaviour exactly (see _toggleActiveLevelOnly / _toggleRoomLabels).
+    private _isolatedLevelLabelsVisible = true;
+    private _roomLabelsVisibleBeforeIsolate: boolean | null = null;
     // §CEILING-HIDDEN-IN-3D (2026-06-24) — ceilings cap each room in the 3D
     // authoring view and block seeing the interior layout, so they are HIDDEN BY
     // DEFAULT whenever the 3D/perspective view is active. Tracks whether the live
@@ -675,16 +683,54 @@ export class BottomActionMenu {
         }
     }
 
+    /** §ISOLATE-ROOM-LABELS-PER-FLOOR — true while a single floor is isolated. */
+    private _isFloorIsolated(): boolean {
+        return this._activeLevelOnly || this._levelMode === 'solo';
+    }
+
     /**
-     * §ROOM-LABELS-TOGGLE (2026-06-10) — flips the 3D room-name sprite labels
-     * on/off. Drives RoomLabelRenderer.setRoomLabelsVisible() (single owner of
-     * the sprites) so future labels honour the flag too; falls back to a direct
-     * scene traverse of `userData.type === 'room-label'` sprites if the renderer
-     * instance is not yet on window. Does NOT touch the 2D plan-view room tags.
+     * §ROOM-LABELS-TOGGLE (2026-06-10) / §ISOLATE-ROOM-LABELS-PER-FLOOR (2026-06-26)
+     * — flips the 3D room-name sprite labels on/off.
+     *
+     * DEFAULT (no floor isolated): global flip via
+     * RoomLabelRenderer.setRoomLabelsVisible() — the single owner of the sprites,
+     * so future labels honour the flag too. Falls back to a direct scene traverse
+     * of `userData.type === 'room-label'` sprites if the renderer instance is not
+     * yet on window. Does NOT touch the 2D plan-view room tags.
+     *
+     * WHILE A FLOOR IS ISOLATED: the button drives ONLY the isolated level's
+     * labels (setRoomLabelsVisibleForLevel) — the founder's request. Other
+     * storeys' labels are already hidden by the isolation filter and must stay
+     * hidden; flipping the GLOBAL flag here would wrongly reveal them. The global
+     * flag is left untouched so clearing isolation restores the prior behaviour.
      */
     private _toggleRoomLabels(): void {
-        this._roomLabelsVisible = !this._roomLabelsVisible;
         const renderer = window.roomLabelRenderer; // §ROOM-LABELS-TOGGLE — set in initBuilders
+
+        if (this._isFloorIsolated()) {
+            // Scope the toggle to the isolated floor only.
+            this._isolatedLevelLabelsVisible = !this._isolatedLevelLabelsVisible;
+            const activeLevelId = this._getActiveLevelId();
+            if (activeLevelId) {
+                if (renderer?.setRoomLabelsVisibleForLevel) {
+                    renderer.setRoomLabelsVisibleForLevel(activeLevelId, this._isolatedLevelLabelsVisible);
+                } else {
+                    // Fallback: flip only the isolated level's label sprites directly.
+                    const scene = this._getScene();
+                    if (scene) this._stampAnnotationLevelTags(scene);
+                    scene?.traverse((obj: any) => {
+                        if (obj.userData?.type === 'room-label'
+                            && String(obj.userData?.levelId ?? '') === activeLevelId) {
+                            obj.visible = this._isolatedLevelLabelsVisible;
+                        }
+                    });
+                }
+            }
+            this._render();
+            return;
+        }
+
+        this._roomLabelsVisible = !this._roomLabelsVisible;
         if (renderer?.setRoomLabelsVisible) {
             renderer.setRoomLabelsVisible(this._roomLabelsVisible);
         } else {
@@ -700,8 +746,52 @@ export class BottomActionMenu {
     private _toggleActiveLevelOnly(): void {
         if (!this._getActiveLevelId()) this._setActiveLevelToFirstAvailable();
         this._activeLevelOnly = !this._activeLevelOnly;
+        if (this._activeLevelOnly) {
+            this._enterRoomLabelIsolation();
+        } else {
+            this._exitRoomLabelIsolation();
+        }
         this._applySceneVisibilityFilters();
         this._render();
+    }
+
+    /**
+     * §ISOLATE-ROOM-LABELS-PER-FLOOR — on floor isolate: remember the
+     * pre-isolation GLOBAL room-label flag, then scope subsequent toggling to the
+     * isolated floor only. The isolation scene-filter already hides every OTHER
+     * storey's label sprite (§FLOOR-ISOLATE-ROOMTAG), so by default ONLY the
+     * isolated floor's labels remain — and they inherit the current global
+     * on/off state (we never surprise the user by forcing labels back on if they
+     * had hidden them). The per-floor toggle starts from that same state.
+     */
+    private _enterRoomLabelIsolation(): void {
+        if (this._roomLabelsVisibleBeforeIsolate === null) {
+            this._roomLabelsVisibleBeforeIsolate = this._roomLabelsVisible;
+        }
+        // Per-floor toggle seeds from the global label state, then diverges.
+        this._isolatedLevelLabelsVisible = this._roomLabelsVisible;
+        const activeLevelId = this._getActiveLevelId();
+        const renderer = window.roomLabelRenderer;
+        if (activeLevelId && renderer?.setRoomLabelsVisibleForLevel) {
+            renderer.setRoomLabelsVisibleForLevel(activeLevelId, this._isolatedLevelLabelsVisible);
+        }
+    }
+
+    /**
+     * §ISOLATE-ROOM-LABELS-PER-FLOOR — on isolation clear: restore the remembered
+     * pre-isolation room-label visibility (the prior GLOBAL behaviour), undoing
+     * any per-floor toggling done while isolated.
+     */
+    private _exitRoomLabelIsolation(): void {
+        const prior = this._roomLabelsVisibleBeforeIsolate;
+        this._roomLabelsVisibleBeforeIsolate = null;
+        this._isolatedLevelLabelsVisible = true;
+        if (prior === null) return;
+        this._roomLabelsVisible = prior;
+        const renderer = window.roomLabelRenderer;
+        if (renderer?.setRoomLabelsVisible) {
+            renderer.setRoomLabelsVisible(prior);
+        }
     }
 
     private async _resetView(): Promise<void> {
@@ -1050,7 +1140,48 @@ export class BottomActionMenu {
             if (this._view3DActive && this._hideCeilingsIn3D && this._isCeilingObject(obj)) visible = false;
             obj.visible = visible;
         });
+        this._applyRegistryLevelIsolation(activeLevelId);
         this._invalidateSelectionCache();
+    }
+
+    /**
+     * §ISOLATE-ALL-ELEMENTS-WIRED (2026-06-26) — single-source-of-truth pass that
+     * corrects the per-level isolation decision for EVERY registered element
+     * root, on top of the raw scene-traverse above.
+     *
+     * WHY: the traverse keys isolation on a single stamped `userData.levelId`.
+     * That (a) silently drops any element type whose root failed to stamp a
+     * levelId, and (b) WRONGLY hides span elements — a stair / lift (and its
+     * railing / handrail) physically crosses base→top, so isolating the TOP
+     * level must keep it visible even though its primary `levelId` is the base.
+     * The founder's "stair shows but railing missing on Ground Floor" is this
+     * class of bug.
+     *
+     * The resolver enumerates `elementRegistry.getAllRoots()` (the one place
+     * every Create-command / builder registers its root) so coverage is by construction —
+     * a new element type that registers a root is isolated automatically. We only
+     * RE-decide elements that the resolver places, and only while a single floor
+     * is isolated; the ceiling-in-3D hide and elements-in-view filters still win
+     * (we never force-show something those hid). Pure `.visible` writes — no
+     * store/registry mutation.
+     */
+    private _applyRegistryLevelIsolation(activeLevelId: string | null): void {
+        if (!this._isFloorIsolated() || !activeLevelId) return;
+        const decisions = resolveLevelIsolation(activeLevelId);
+        for (const d of decisions) {
+            const root = d.root as THREE.Object3D;
+            this._rememberVisibility(root);
+            const base = this._originalVisibility.get(root) ?? root.visible;
+            // Start from the captured original, AND the isolation decision.
+            let visible = base && d.visibleInIsolation;
+            // Preserve the other independent filters that may hide this root.
+            visible = visible && this._wallVisibleInMode(root);
+            if (this._elementsInViewOnly && root.userData?.id) {
+                visible = visible && this._visibleElementIds.has(String(root.userData.id));
+            }
+            if (this._view3DActive && this._hideCeilingsIn3D && this._isCeilingObject(root)) visible = false;
+            root.visible = visible;
+        }
     }
 
     private _captureElementsInView(): void {
