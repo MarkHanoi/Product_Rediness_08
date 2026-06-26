@@ -146,6 +146,31 @@ export class ElementRegistry {
     getRoot(id: string): THREE.Object3D | undefined {
         return this.idToRootMap.get(id);
     }
+
+    /**
+     * §ISOLATE-ALL-ELEMENTS-WIRED (2026-06-26) — read-only enumeration of every
+     * registered element root, paired with its authoritative {@link StoreType}.
+     *
+     * This is the SINGLE SOURCE OF TRUTH for "what scene roots are placed BIM
+     * elements". Every Create-command / builder path registers its root here via
+     * {@link registerRoot} (wall, slab, column, beam, stair, stair-railing,
+     * handrail, lift/verticalCirculation, curtain-wall, door, window, roof,
+     * plumbing, furniture, lighting, ceiling, floor, …). The floor-isolation
+     * filter enumerates THIS map so every element type is covered BY
+     * CONSTRUCTION — a newly added element type that registers a root is
+     * isolated automatically, with no hardcoded type list to fall out of.
+     *
+     * Pure read: returns a fresh array snapshot; never mutates either map.
+     * `storeType` is `undefined` for the rare root registered via registerRoot()
+     * without a matching registerSemantic() (still enumerated, just untyped).
+     */
+    getAllRoots(): Array<{ id: string; root: THREE.Object3D; storeType: StoreType | undefined }> {
+        const out: Array<{ id: string; root: THREE.Object3D; storeType: StoreType | undefined }> = [];
+        for (const [id, root] of this.idToRootMap) {
+            out.push({ id, root, storeType: this.idToStoreMap.get(id) });
+        }
+        return out;
+    }
 }
 
 export const elementRegistry = ElementRegistry.getInstance();
