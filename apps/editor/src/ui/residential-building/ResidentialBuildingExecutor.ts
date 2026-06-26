@@ -67,6 +67,10 @@ import { nameDetectedRooms } from '../apartment-layout/nameDetectedRooms.js';
 // wall commits so no observer-driven redetect can mint a generic "Room NN" to double
 // against the engine's named graph rooms.
 import { decideAndPreMarkGraphAuthority, type GraphAuthorityObserverLike } from './residentialGraphAuthority.js';
+// §RESI-CORRIDOR-FINISH-SHAPE (founder 2026-06-26) — the public-corridor floor finish is
+// the CLEAN RESIDUAL region (shell interior − apartment cells − core), not a union of thin
+// per-band strips. PURE residual-grid + ring tracer (LOCAL frame; caller rotates to world).
+import { computeCorridorResidualRings } from './residentialCorridorResidual.js';
 // §RESI-STAIR-VOID-IN-FINISH (2026-06-24) — the shared stairwell-void registry the floor/ceiling
 // finish passes read (getStairVoidsForLevel) to CUT the finish over the open stairwell. Mirrors
 // the house: record the stair's footprint on its UPPER (host) level so the finish never re-covers
@@ -2707,137 +2711,6 @@ export class ResidentialBuildingExecutor {
             this._rotate({ x: r.x0, z: r.z1 }, xf),
         ];
 
-        // §RESI-CORRIDOR-FINISH-SPAN / §RESI-CORRIDOR-FINISH-CONTINUOUS (founder 2026-06-24: the
-        // corridor finish must be exactly the distance BETWEEN the apartment rows AND one CONTINUOUS
-        // band along the WHOLE circulation route — connecting through the core lobby, no broken
-        // strips). So we clip ONLY the ACROSS dimension (the corridor WIDTH = the gap between the two
-        // facing apartment rows' inner/door-edge faces) and keep the ALONG dimension = the FULL band
-        // length, so consecutive corridor runs + the transverse spine + the core lobby overlap into
-        // ONE connected surface (no gaps along the route). When the across-gap can't be resolved (no
-        // flanking apartment), the raw band stands. Returns the width-tightened, full-length band.
-        const tightCorridorRect = (
-            band: { x0: number; z0: number; x1: number; z1: number },
-            cells: ReadonlyArray<{ rect: { x0: number; z0: number; x1: number; z1: number } }>,
-        ): { x0: number; z0: number; x1: number; z1: number } | null => {
-            const bx0 = Math.min(band.x0, band.x1), bx1 = Math.max(band.x0, band.x1);
-            const bz0 = Math.min(band.z0, band.z1), bz1 = Math.max(band.z0, band.z1);
-            const runAlongX = (bx1 - bx0) >= (bz1 - bz0);   // long axis
-            const TOUCH = 0.35;   // a cell flanks the band if its inner edge is within this of the band face
-            // Tighten the WIDTH to the gap between the flanking rows' inner faces; keep the FULL length.
-            let acrossLo = Infinity, acrossHi = -Infinity, flanked = 0;
-            for (const c of cells) {
-                const r = c.rect;
-                const rx0 = Math.min(r.x0, r.x1), rx1 = Math.max(r.x0, r.x1);
-                const rz0 = Math.min(r.z0, r.z1), rz1 = Math.max(r.z0, r.z1);
-                if (runAlongX) {
-                    if (rx1 <= bx0 + 0.05 || rx0 >= bx1 - 0.05) continue;   // must overlap the band along X
-                    const below = Math.abs(rz1 - bz0) <= TOUCH;   // cell's far(z1) face meets band's near(z0)
-                    const above = Math.abs(rz0 - bz1) <= TOUCH;   // cell's near(z0) face meets band's far(z1)
-                    if (!below && !above) continue;
-                    acrossLo = Math.min(acrossLo, below ? rz1 : bz0);
-                    acrossHi = Math.max(acrossHi, above ? rz0 : bz1);
-                    flanked++;
-                } else {
-                    if (rz1 <= bz0 + 0.05 || rz0 >= bz1 - 0.05) continue;
-                    const left = Math.abs(rx1 - bx0) <= TOUCH;
-                    const right = Math.abs(rx0 - bx1) <= TOUCH;
-                    if (!left && !right) continue;
-                    acrossLo = Math.min(acrossLo, left ? rx1 : bx0);
-                    acrossHi = Math.max(acrossHi, right ? rx0 : bx1);
-                    flanked++;
-                }
-            }
-            if (flanked === 0) return null;   // no apartment flanks this run (e.g. spine) → raw band
-            // Across span clamped to the band (never wider than the planned corridor); full length kept.
-            if (runAlongX) {
-                const z0 = Math.max(bz0, Math.min(acrossLo, bz1));
-                const z1 = Math.min(bz1, Math.max(acrossHi, bz0));
-                if (!(z1 > z0)) return { x0: bx0, z0: bz0, x1: bx1, z1: bz1 };
-                return { x0: bx0, z0, x1: bx1, z1 };
-            }
-            const x0 = Math.max(bx0, Math.min(acrossLo, bx1));
-            const x1 = Math.min(bx1, Math.max(acrossHi, bx0));
-            if (!(x1 > x0)) return { x0: bx0, z0: bz0, x1: bx1, z1: bz1 };
-            return { x0, z0: bz0, x1, z1: bz1 };
-        };
-
-        // §RESI-CORRIDOR-FINISH-CONTINUOUS-FIX2 (founder 2026-06-24: "the corridor finish STILL has
-        // gaps — patches between apartments, not one continuous run") — merge a set of axis-aligned
-        // rects (the tightened corridor runs + the transverse spine + the core lobby) into ONE
-        // CONNECTED outline polygon (the rectilinear union), so the corridor finish is a single
-        // unbroken surface along the whole circulation. Algorithm: build the grid of all distinct x
-        // and z breakpoints, mark every cell covered by ANY rect, then trace the boundary of the
-        // covered region (marching the cell edges that border covered↔uncovered) into a CCW ring.
-        // Robust for the resi case (parallel runs + one spine + core, all axis-aligned in LOCAL).
-        // Returns the merged ring(s); a disconnected component (shouldn't happen once they overlap)
-        // surfaces as its own ring. LOCAL frame — the caller rotates to world.
-        const unionRectsToRings = (
-            rects: ReadonlyArray<{ x0: number; z0: number; x1: number; z1: number }>,
-        ): Array<Array<{ x: number; z: number }>> => {
-            const valid = rects
-                .map(r => ({ x0: Math.min(r.x0, r.x1), x1: Math.max(r.x0, r.x1), z0: Math.min(r.z0, r.z1), z1: Math.max(r.z0, r.z1) }))
-                .filter(r => r.x1 - r.x0 > 1e-4 && r.z1 - r.z0 > 1e-4);
-            if (valid.length === 0) return [];
-            const xs = [...new Set(valid.flatMap(r => [r.x0, r.x1]))].sort((a, b) => a - b);
-            const zs = [...new Set(valid.flatMap(r => [r.z0, r.z1]))].sort((a, b) => a - b);
-            const nx = xs.length - 1, nz = zs.length - 1;
-            if (nx < 1 || nz < 1) return [];
-            // covered[i][j] = cell [xs[i],xs[i+1]] × [zs[j],zs[j+1]] is inside some rect.
-            const covered: boolean[][] = Array.from({ length: nx }, () => new Array<boolean>(nz).fill(false));
-            for (let i = 0; i < nx; i++) {
-                const cx = (xs[i]! + xs[i + 1]!) / 2;
-                for (let j = 0; j < nz; j++) {
-                    const cz = (zs[j]! + zs[j + 1]!) / 2;
-                    covered[i]![j] = valid.some(r => cx > r.x0 && cx < r.x1 && cz > r.z0 && cz < r.z1);
-                }
-            }
-            // Collect boundary edges (between a covered cell and uncovered/outside), as directed
-            // segments wound so the covered region is on the LEFT (CCW outer). Each grid edge is
-            // a unit segment between two adjacent breakpoint vertices.
-            const key = (a: { x: number; z: number }, b: { x: number; z: number }): string => `${a.x.toFixed(4)},${a.z.toFixed(4)}->${b.x.toFixed(4)},${b.z.toFixed(4)}`;
-            const edges = new Map<string, { a: { x: number; z: number }; b: { x: number; z: number } }>();
-            const addEdge = (a: { x: number; z: number }, b: { x: number; z: number }): void => { edges.set(key(a, b), { a, b }); };
-            const isCov = (i: number, j: number): boolean => i >= 0 && i < nx && j >= 0 && j < nz && covered[i]![j]!;
-            for (let i = 0; i < nx; i++) {
-                for (let j = 0; j < nz; j++) {
-                    if (!covered[i]![j]) continue;
-                    const x0 = xs[i]!, x1 = xs[i + 1]!, z0 = zs[j]!, z1 = zs[j + 1]!;
-                    // Boundary on a side where the neighbour is NOT covered. Wind CCW (region on left).
-                    if (!isCov(i, j - 1)) addEdge({ x: x0, z: z0 }, { x: x1, z: z0 });   // bottom (−z) → +x
-                    if (!isCov(i + 1, j)) addEdge({ x: x1, z: z0 }, { x: x1, z: z1 });   // right (+x)  → +z
-                    if (!isCov(i, j + 1)) addEdge({ x: x1, z: z1 }, { x: x0, z: z1 });   // top (+z)    → −x
-                    if (!isCov(i - 1, j)) addEdge({ x: x0, z: z1 }, { x: x0, z: z0 });   // left (−x)   → −z
-                }
-            }
-            // Chain the directed edges into rings by following a→b from each unused edge.
-            const byStart = new Map<string, { a: { x: number; z: number }; b: { x: number; z: number } }[]>();
-            for (const e of edges.values()) {
-                const k = `${e.a.x.toFixed(4)},${e.a.z.toFixed(4)}`;
-                (byStart.get(k) ?? byStart.set(k, []).get(k)!).push(e);
-            }
-            const used = new Set<string>();
-            const rings: Array<Array<{ x: number; z: number }>> = [];
-            for (const start of edges.values()) {
-                if (used.has(key(start.a, start.b))) continue;
-                const ring: Array<{ x: number; z: number }> = [];
-                let cur = start;
-                let guard = edges.size + 4;
-                while (guard-- > 0) {
-                    used.add(key(cur.a, cur.b));
-                    ring.push({ x: cur.a.x, z: cur.a.z });
-                    const k = `${cur.b.x.toFixed(4)},${cur.b.z.toFixed(4)}`;
-                    const next = (byStart.get(k) ?? []).find(e => !used.has(key(e.a, e.b)));
-                    if (!next) break;
-                    cur = next;
-                    if (cur === start || key(cur.a, cur.b) === key(start.a, start.b)) break;
-                }
-                // Drop collinear interior vertices for a clean ring; keep ≥3 corners.
-                const simplified = this._cleanRing(ring);
-                if (simplified.length >= 3) rings.push(simplified);
-            }
-            return rings;
-        };
-
         let laid = 0;
         // Defer a beat so the structural slabs (and the bus dispatches) have settled.
         setTimeout(() => {
@@ -2851,32 +2724,30 @@ export class ResidentialBuildingExecutor {
                             // GROUND commercial floor — the whole (WORLD) footprint.
                             if (layFinish(levelId, lvl.footprint, COMMERCIAL, 'Commercial floor')) laid++;
                         } else {
-                            // §RESI-CORRIDOR-FINISH-CONTINUOUS-FIX2 — emit the public-circulation finish
-                            // as ONE CONTINUOUS surface tracing the whole cross: every corridor RUN
-                            // (tightened ACROSS to the gap between the facing apartment rows, so it never
-                            // bleeds into the apartments), the transverse SPINE, AND the CORE lobby —
-                            // merged into a single rectilinear-union polygon per level. The rects are
-                            // built to OVERLAP at the core intersection (the core rect is included), so
-                            // the union has NO gap around the core and NO isolated patches.
+                            // §RESI-CORRIDOR-FINISH-SHAPE (founder 2026-06-26: "the public-corridor
+                            // finish is ONE finish now [good] but its SHAPE is a comb of thin strips —
+                            // it should be the CLEAN RESIDUAL: the leftover circulation space = the
+                            // shell interior MINUS all apartment cells MINUS the core"). The previous
+                            // §FIX2 UNIONED the tightened per-band corridor runs from the parallel-
+                            // corridor grid, which renders as parallel strips. Now we compute the
+                            // RESIDUAL region directly — interiorPoly − ∪cells − core — which yields the
+                            // clean H/cross hugging the apartment walls, the shell, and the core.
+                            //
+                            // Cells/core are LOCAL (axis-aligned); the level footprint is WORLD, so we
+                            // un-rotate it to LOCAL to subtract against, then rotate the residual rings
+                            // back to world for the finish. The stairwell void is still cut (cutVoids).
                             const perLevel = result.perLevelApartments[i];
-                            const cells = (perLevel?.apartments ?? [])
+                            const cellRects = (perLevel?.apartments ?? [])
                                 .filter(a => a.status === 'ok')
-                                .map(a => ({ rect: a.cell.rect }));
-                            const corridorRects: Array<{ x0: number; z0: number; x1: number; z1: number }> = [];
-                            for (const band of perLevel?.publicCorridor ?? []) {
-                                // Tighten the WIDTH to the apartment gap (full length kept); spines with
-                                // no flanking apartment stay raw so they bridge runs↔core.
-                                const tight = cells.length > 0 ? tightCorridorRect(band, cells) : null;
-                                corridorRects.push(tight ?? { x0: Math.min(band.x0, band.x1), z0: Math.min(band.z0, band.z1), x1: Math.max(band.x0, band.x1), z1: Math.max(band.z0, band.z1) });
-                            }
-                            // Include the CORE rect so the cross MEETS through the core (no gap at the
-                            // intersection); the stairwell void is cut from the merged finish below.
-                            if (result.core) {
-                                corridorRects.push({ x0: result.core.x0, z0: result.core.z0, x1: result.core.x1, z1: result.core.z1 });
-                            }
-                            // Merge into one (or few) connected ring(s); each ring → ONE floor finish,
-                            // CUT around any recorded stairwell void on this level (the core sits in it).
-                            const rings = unionRectsToRings(corridorRects);
+                                .map(a => a.cell.rect);
+                            const interiorLocal = this._cleanRing(
+                                lvl.footprint.map(p => this._unrotate({ x: p.x, z: p.z }, xf)),
+                            );
+                            const rings = computeCorridorResidualRings(
+                                interiorLocal,
+                                cellRects,
+                                result.core ? { x0: result.core.x0, z0: result.core.z0, x1: result.core.x1, z1: result.core.z1 } : null,
+                            );
                             if (rings.length === 0) {
                                 // Degenerate fallback — lay the core lobby alone so the level isn't bare.
                                 if (result.core && layFinish(levelId, rectToWorld(result.core), CORRIDOR, 'Corridor floor', true)) laid++;
