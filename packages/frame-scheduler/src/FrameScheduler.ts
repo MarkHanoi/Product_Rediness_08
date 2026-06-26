@@ -38,6 +38,10 @@ import {
   type RafAdapter,
 } from './RafAdapter.js';
 import { IdleContinuation, IDLE_CONTINUATION_FRAMES } from './IdleContinuation.js';
+import {
+  getBackgroundHeartbeat,
+  type BackgroundHeartbeat,
+} from './BackgroundHeartbeat.js';
 
 const PRIORITY_RANK: Record<Priority, number> = {
   interaction: 0,
@@ -64,6 +68,21 @@ export class FrameScheduler {
   private rafHandle: number | null = null;
   private running = false;
   private lastTickTime = 0;
+
+  // ── §BACKGROUND-TAB-KEEPALIVE — background work-pump state ────────────────
+  // When `document.hidden`, browsers PAUSE rAF (the adapter never fires) so the
+  // WORK drain would stall.  In that window we pump `tick()` off the
+  // BackgroundHeartbeat (an unthrottled MessageChannel pulse) instead.  The
+  // heartbeat NEVER drives a render — rendering stays paused in the background;
+  // it only keeps the WORK queue (batch drain, deferred passes) advancing.
+  // Foreground is byte-identical: when visible we always take the rAF path.
+  //
+  // Gate: default-ON; set `globalThis.__pryzmDisableBackgroundKeepalive = true`
+  // to fall back to pure-rAF (reversible kill-switch, no behavioural change
+  // when the tab is visible either way).
+  private heartbeat: BackgroundHeartbeat | null = null;
+  /** Disposer for the active heartbeat subscription (null when not subscribed). */
+  private heartbeatUnsub: (() => void) | null = null;
   private readonly tickListeners = new Map<string, TickListener>();
   private readonly idle = new IdleContinuation();
   /** True after we've fired the `pryzm.frame.idle-continuation` "enter" event
@@ -222,6 +241,8 @@ export class FrameScheduler {
     this.motionActive = false;
     this.motionListeners.clear();
     this._batchBudgets.clear();
+    // §BACKGROUND-TAB-KEEPALIVE: drop any active background pump subscription.
+    this._unsubscribeHeartbeat();
   }
 
   // ── §F.3 — Shared per-rAF budget tokens ───────────────────────────────────
@@ -283,6 +304,11 @@ export class FrameScheduler {
     this.running = true;
     this.idle.reset();
     this.idleEntryEmitted = false;
+    // §BACKGROUND-TAB-KEEPALIVE: ensure the visibility bridge is installed once
+    // so a hidden→visible transition immediately re-arms the rAF path (the
+    // heartbeat pump self-suspends when visible, so without this nudge a loop
+    // that went background could sit until the next markDirty()).
+    this._installVisibilityBridge();
     // Anchor `lastTickTime` to the adapter's clock — NOT `this.clock()`
     // (which defaults to `Date.now()` in the Unix-epoch time-base).
     // The first tick's `now` argument is in the adapter's time-base; if
@@ -304,6 +330,9 @@ export class FrameScheduler {
       this.adapter.cancel(this.rafHandle);
     }
     this.rafHandle = null;
+    // §BACKGROUND-TAB-KEEPALIVE: release any background pump so an idle/stopped
+    // scheduler does not keep the heartbeat alive (it has no other purpose).
+    this._unsubscribeHeartbeat();
   }
 
   get isRunning(): boolean {
@@ -540,9 +569,105 @@ export class FrameScheduler {
 
   // ── S03-T2: idle continuation gate ────────────────────────────────────────
 
+  /**
+   * §BACKGROUND-TAB-KEEPALIVE — is the background keep-alive enabled and the
+   * tab currently hidden?  When true, `scheduleNext()` pumps off the
+   * BackgroundHeartbeat instead of rAF (which the browser has paused).
+   *
+   * Returns false whenever the tab is visible — guaranteeing the foreground
+   * path is the exact rAF path it was before this feature (no behavioural
+   * change when visible).  Also false if the kill-switch global is set, or if
+   * the host has no document (headless / test adapters drive rAF directly).
+   */
+  private _shouldUseBackgroundPump(): boolean {
+    if ((globalThis as { __pryzmDisableBackgroundKeepalive?: boolean })
+          .__pryzmDisableBackgroundKeepalive === true) {
+      return false;
+    }
+    // Only divert to the heartbeat when a REAL document reports hidden.  The
+    // FakeRafAdapter tests have no document, so they always stay on rAF.
+    const heartbeat = this._getHeartbeat();
+    return heartbeat !== null && heartbeat.isHidden;
+  }
+
+  /** Lazily obtain the shared heartbeat; null if construction fails (no
+   *  MessageChannel in this host) so we degrade to the rAF-only path. */
+  private _getHeartbeat(): BackgroundHeartbeat | null {
+    if (this.heartbeat === null) {
+      try {
+        this.heartbeat = getBackgroundHeartbeat();
+      } catch {
+        this.heartbeat = null;
+      }
+    }
+    return this.heartbeat;
+  }
+
   private scheduleNext(): void {
     if (!this.running || this.adapter === null) return;
+    // §BACKGROUND-TAB-KEEPALIVE: while hidden, rAF is paused — pump the WORK
+    // drain off the unthrottled heartbeat.  Subscribe ONCE; the heartbeat
+    // re-pulses itself until we unsubscribe (on becoming visible or stopping).
+    if (this._shouldUseBackgroundPump()) {
+      const heartbeat = this._getHeartbeat();
+      if (heartbeat !== null) {
+        if (this.heartbeatUnsub === null) {
+          this.heartbeatUnsub = heartbeat.subscribe((now) => {
+            // Defensive: if we became visible since the last pulse, drop back
+            // to rAF on the next scheduleNext() (which `tick()` calls).
+            this.tick(now);
+          });
+        }
+        return;
+      }
+      // Heartbeat unavailable — fall through to rAF (best effort).
+    }
+    // Foreground (or keep-alive disabled): the ORIGINAL rAF path, unchanged.
+    this._unsubscribeHeartbeat();
     this.rafHandle = this.adapter.request((now) => this.tick(now));
+  }
+
+  /** Drop the background heartbeat subscription if one is active. */
+  private _unsubscribeHeartbeat(): void {
+    if (this.heartbeatUnsub !== null) {
+      const unsub = this.heartbeatUnsub;
+      this.heartbeatUnsub = null;
+      try { unsub(); } catch { /* non-fatal */ }
+    }
+  }
+
+  /** True once `_installVisibilityBridge()` has wired the listener. */
+  private _visibilityBridgeInstalled = false;
+
+  /**
+   * §BACKGROUND-TAB-KEEPALIVE — install (once) a `visibilitychange` listener
+   * that, on becoming VISIBLE while the loop is running off the heartbeat,
+   * unsubscribes the heartbeat and re-arms the rAF pump.  Without this the
+   * scheduler would keep using the (now wasteful, but still functional)
+   * heartbeat after the tab returns to foreground; the bridge restores the
+   * exact rAF path the instant the tab is visible again.
+   *
+   * No-op in headless/test hosts that have no `document` (those drive rAF via
+   * an injected adapter and never enter the heartbeat path).
+   */
+  private _installVisibilityBridge(): void {
+    if (this._visibilityBridgeInstalled) return;
+    const doc = (globalThis as {
+      document?: {
+        addEventListener?(type: 'visibilitychange', listener: () => void): void;
+      };
+    }).document;
+    if (!doc?.addEventListener) return;
+    this._visibilityBridgeInstalled = true;
+    doc.addEventListener('visibilitychange', () => {
+      if (!this.running) return;
+      const heartbeat = this._getHeartbeat();
+      if (heartbeat !== null && !heartbeat.isHidden && this.heartbeatUnsub !== null) {
+        // Back in foreground — leave the heartbeat and resume rAF immediately.
+        this._unsubscribeHeartbeat();
+        if (this.rafHandle === null) this.scheduleNext();
+      }
+    });
   }
 
   private tick(now: number): void {

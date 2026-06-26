@@ -38,6 +38,33 @@ export {
 } from './WorkerPool.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
+// §BACKGROUND-TAB-KEEPALIVE — background-resilient work pump.
+//
+// `BackgroundHeartbeat` is the SINGLE additional work-pump (owned by this
+// module, per P3) that keeps the WORK queue advancing when `document.hidden`
+// pauses rAF.  `deferWork()` is the drop-in `setTimeout` replacement for
+// generation/AI-batch deferred passes so they don't crawl under the 1 s
+// background-tab clamp.  Rendering is NOT pumped in the background.
+export {
+  BackgroundHeartbeat,
+  getBackgroundHeartbeat,
+  _resetBackgroundHeartbeatForTest,
+  _setBackgroundHeartbeatForTest,
+  DEFAULT_HEARTBEAT_INTERVAL_MS,
+} from './BackgroundHeartbeat.js';
+export type {
+  HeartbeatTick,
+  HeartbeatPort,
+  ChannelFactory,
+  HeartbeatTimers,
+  VisibilitySource,
+  BackgroundHeartbeatOptions,
+} from './BackgroundHeartbeat.js';
+
+export { deferWork } from './deferWork.js';
+export type { DeferWorkCanceller } from './deferWork.js';
+
+// ─────────────────────────────────────────────────────────────────────────────
 // D.7.1 — Process-singleton accessor.
 //
 // `getFrameScheduler()` returns the **single shared** `FrameScheduler`
