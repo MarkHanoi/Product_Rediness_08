@@ -11,6 +11,7 @@ export type ToolName =
     | 'column'
     | 'beam'
     | 'stair'
+    | 'lift'
     | 'ceiling'
     | 'floor'
     | 'roof'

@@ -31,6 +31,7 @@
     "@pryzm/geometry-slab": "workspace:*",
     "@pryzm/geometry-stair": "workspace:*",
     "@pryzm/geometry-column": "workspace:*",
+    "@pryzm/geometry-lift": "workspace:*",
     "@pryzm/geometry-roof": "workspace:*",
     "@pryzm/geometry-curtain-wall": "workspace:*",
     "@pryzm/room-topology": "workspace:*",

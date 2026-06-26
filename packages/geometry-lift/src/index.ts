@@ -20,3 +20,17 @@ export { LiftTypeStore } from './LiftTypeStore';
 // ── Builder ──────────────────────────────────────────────────────────────────
 export { LiftMeshBuilder } from './LiftMeshBuilder';
 export type { LiftLevelProvider } from './LiftMeshBuilder';
+
+// ── Tool ───────────────────────────────────────────────────────────────────── §LIFT-CREATE-TOOL
+// Interactive single-click lift placement tool; mirrors @pryzm/geometry-column's
+// ColumnTool. Drives the EXISTING CreateVerticalCirculationCommand (injected via
+// LiftToolDeps.createCommand to avoid a static command-registry import cycle).
+export { LiftTool } from './LiftTool';
+export type { LiftToolDeps, LiftToolCommand } from './LiftTool';
+export {
+    resolveLiftSpan,
+    buildLiftCommandInput,
+    DEFAULT_TYPE_ID,
+    DEFAULT_KIND,
+} from './LiftToolPlacement';
+export type { LiftToolLevel, LiftCommandInput } from './LiftToolPlacement';

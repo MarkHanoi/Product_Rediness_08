@@ -6,6 +6,7 @@ import { CurtainWallTool } from '@pryzm/geometry-curtain-wall';
 import { ColumnTool } from '@pryzm/geometry-column';
 import { BeamTool } from './BeamTool.js';
 import { StairTool } from '@pryzm/geometry-stair';
+import { LiftTool } from '@pryzm/geometry-lift';
 import { OpeningTool } from './OpeningTool.js';
 import { RoofTool, RoofToolState } from '@pryzm/geometry-roof';
 import { FloorTool } from '@pryzm/geometry-slab';
@@ -58,6 +59,7 @@ export class ToolManager {
     // §DIM-IV-3 — New annotation-system linear dim (Class A tool)
     private _linearDimAnnotationTool: LinearDimensionAnnotationTool | null = null;
     private stairTool: StairTool | null = null;
+    private liftTool: LiftTool | null = null;
     private openingTool: OpeningTool | null = null;
     // §ANN-B3/B4 — new annotation tools
     private textNoteTool: TextNoteTool | null = null;
@@ -225,6 +227,18 @@ export class ToolManager {
             isActive: () => tool.active,
             activate: (options: any) => tool.activate(options),
             deactivate: () => tool.deactivate()
+        });
+    }
+
+    // §LIFT-CREATE-TOOL — single-click lift (vertical-circulation) placement tool.
+    setLiftTool(tool: LiftTool): void {
+        this.liftTool = tool;
+        this.registerTool({
+            tool: tool,
+            name: 'lift',
+            isActive: () => tool.isActive,
+            activate: (options: any) => tool.activate(options),
+            deactivate: () => tool.deactivate(),
         });
     }
 
@@ -828,6 +842,18 @@ export class ToolManager {
         await this.activateTool('stair', () => {
             if (this.stairTool) {
                 this.stairTool.activate(options);
+            }
+        });
+    }
+
+    // §LIFT-CREATE-TOOL — activate the single-click lift placement tool. Mirrors
+    // activateColumn(): one click → CreateVerticalCirculationCommand (one undo).
+    async activateLift(options?: { kind?: import('@pryzm/geometry-lift').LiftKind; typeId?: string }): Promise<void> {
+        await this.activateTool('lift', () => {
+            if (this.liftTool) {
+                this.liftTool.activate(options);
+            } else {
+                console.warn('ToolManager: liftTool is NULL — was setLiftTool() called?');
             }
         });
     }

@@ -261,6 +261,10 @@ export function mountCreatePanel(
                     items: [
                         { label: "Column", icon: PryzmIcons.pryzmColumn, action: () => props.toolManager.activateColumn() },
                         { label: "Beam", icon: PryzmIcons.pryzmBeam, action: () => props.toolManager.activateBeam() },
+                        // §LIFT-CREATE-TOOL — manual lift placement (peer of Column). One
+                        // click → CreateVerticalCirculationCommand (the same command the
+                        // residential generator drives); base = active level, top = level above.
+                        { label: "Lift", icon: "material-symbols:elevator-outline", action: () => props.toolManager.activateLift?.() },
                         {
                             label: "Slab",
                             icon: PryzmIcons.pryzmSlab,

@@ -118,6 +118,7 @@ declare global {
     stairPathTool?: any;
     stairPath3DTool?: any;
     stairTool?: any;
+    liftTool?: any;
     ceilingTool?: any;
     floorTool?: any;
     doorTool?: any;

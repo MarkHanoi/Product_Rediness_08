@@ -37,6 +37,7 @@ import * as OBC from '@thatopen/components';
 import { SelectionManager } from '@pryzm/input-host';
 import { ToolManager } from '@pryzm/input-host';
 import { CommandManager } from '@pryzm/command-registry';
+import { CreateVerticalCirculationCommand } from '@pryzm/command-registry';
 import { resolvePickStrategy } from '@pryzm/picking';
 
 import { SlabTool } from '@pryzm/geometry-slab';
@@ -72,6 +73,7 @@ import { CurtainWallTool } from '@pryzm/geometry-curtain-wall';
 import { ColumnTool } from '@pryzm/geometry-column';
 import { BeamTool } from '@pryzm/input-host';
 import { StairTool } from '@pryzm/geometry-stair';
+import { LiftTool } from '@pryzm/geometry-lift';
 import { StairPath3DToolHandler } from './views/plantools/StairPath3DToolHandler';
 import { shouldSuppressAutoFrameWhileDrawing } from './views/autoframeGuard';
 import { singleVolumeWallProducer } from './singleVolumeWallProducer';
@@ -203,6 +205,7 @@ export interface ToolsResult {
     columnTool: ColumnTool;
     beamTool: BeamTool;
     stairTool: StairTool;
+    liftTool: LiftTool;
     plumbingTool: PlumbingTool;
     furnitureTool: FurnitureTool;
     furnitureCarousel: FloatingObjectCarousel;
@@ -2049,6 +2052,33 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
     window.renderer   = world.renderer.three;
     toolManager.setStairTool(stairTool);
 
+    // ── LiftTool (§LIFT-CREATE-TOOL) ──────────────────────────────────────────
+    // Single-click vertical-circulation (lift) placement tool, peer of ColumnTool.
+    // It drives the EXISTING CreateVerticalCirculationCommand — the same command
+    // the residential generator uses — so a hand-placed lift is one command = one
+    // undo (P6). The command constructor is injected (createCommand) so the
+    // geometry-lift package needs no command-registry dependency (no import cycle).
+    const liftTool = new LiftTool(
+        world,
+        _sharedCbs,
+        {
+            createCommand: (input) => new CreateVerticalCirculationCommand(input),
+            getCommandManager: () => commandManager,
+            getLiftStore: () => liftStore,
+            getLiftTypeStore: () => liftTypeStore,
+            getActiveLevelId: () => projectContext.activeLevelId ?? null,
+            // Base→top span resolution mirrors how the stair tool spans levels.
+            getLevels: () => (bimManager.getLevels?.() ?? []).map((l: any) => ({
+                id: l.id,
+                elevation: l.elevation ?? 0,
+            })),
+            getToolManager: () => toolManager,
+            getCanvas: () => window.pryzmCanvas,
+        },
+    );
+    window.liftTool = liftTool;
+    toolManager.setLiftTool(liftTool);
+
     // ── Stair sketch-in-3D (#101 / SPEC-STAIR-3D-CREATION) ────────────────────
     // The modern polyline stair (I/L/U/curved) can now be sketched directly in
     // the 3D view, mirroring slab/floor. BimService.activateStairPathTool routes
@@ -2253,6 +2283,7 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
         columnTool,
         beamTool,
         stairTool,
+        liftTool,
         plumbingTool,
         furnitureTool,
         furnitureCarousel,
