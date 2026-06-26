@@ -337,14 +337,42 @@ describe('partitionLevelPlate — §RESI-CORNER-UNITS-ALWAYS (dual-aspect corner
 });
 
 describe('partitionLevelPlate — soft-fail (never throws)', () => {
-    it('rejects a non-rectangular footprint', () => {
+    it('rejects a non-rectangular footprint when NO clip polygon is supplied (would tile past the boundary)', () => {
         const lShape: Pt[] = [
             { x: 0, z: 0 }, { x: 10, z: 0 }, { x: 10, z: 5 },
             { x: 5, z: 5 }, { x: 5, z: 10 }, { x: 0, z: 10 },
         ];
         const out = partitionLevelPlate({ ...baseInput([T2]), footprint: lShape });
         expect(out.status).toBe('rejected');
-        if (out.status === 'rejected') expect(out.reason).toMatch(/rectangular/);
+        // §RESI-PLATE-UNDERFILL — without a clip polygon the bbox tiling has nothing to clip out-of-
+        // shape cells against, so a sparse (< 0.80 fill) plate is still rejected ("too sparse to tile").
+        if (out.status === 'rejected') expect(out.reason).toMatch(/too sparse to tile/);
+    });
+
+    it('§RESI-PLATE-UNDERFILL — ACCEPTS a real L-plate WHEN a clipPolygon is supplied (cells clipped to the L)', () => {
+        // A larger L (so usable bands fit): a 30×30 plate with the top-right 14×14 corner removed.
+        const lShape: Pt[] = [
+            { x: 0, z: 0 }, { x: 30, z: 0 }, { x: 30, z: 16 },
+            { x: 16, z: 16 }, { x: 16, z: 30 }, { x: 0, z: 30 },
+        ];
+        const out = partitionLevelPlate({
+            levelIndex: 2,
+            footprint: lShape,
+            core: centredCore(30, 30, 6, 4),
+            corridor: { widthM: 1.5 },
+            apartments: Array.from({ length: 200 }, (_, i) => (i % 2 === 0 ? T2 : T3)),
+            clipPolygon: lShape,   // the real boundary — cells whose centre is outside are dropped
+        });
+        expect(out.status).toBe('ok');   // §RESI-PLATE-UNDERFILL — the L is ACCEPTED, not rejected.
+        if (out.status !== 'ok') return;
+        // It places real apartments, and every placed cell's CENTRE is inside the L (no apartment
+        // built in the removed top-right corner — the §RESI-CLIP-BOUNDARY pass drops those).
+        expect(out.apartmentCells.length).toBeGreaterThanOrEqual(2);
+        for (const c of out.apartmentCells) {
+            const cx = (c.rect.x0 + c.rect.x1) / 2, cz = (c.rect.z0 + c.rect.z1) / 2;
+            const inRemovedCorner = cx > 16 && cz > 16;
+            expect(inRemovedCorner).toBe(false);
+        }
     });
 
     it('rejects when the plate is too small to fit the requested mix', () => {

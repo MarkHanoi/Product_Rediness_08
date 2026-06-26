@@ -92,6 +92,9 @@ export interface PlatePartitionResult {
     readonly apartmentCells: readonly ApartmentCell[];
     /** N apartments served (share ≥ door-width with the corridor) / N requested. */
     readonly apartmentsReached: number;
+    /** §DIAG-RESI-FILL — placed-apartment footprint ÷ net plate area (plate − core), 0..~1. The
+     *  headline §RESI-PLATE-UNDERFILL metric; a well-packed plate fills a strong majority of its net. */
+    readonly fillRatio: number;
     readonly diagnostic: string;
 }
 
@@ -310,8 +313,16 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
         return reject(levelIndex, 'footprint is degenerate (zero-area plate)');
     }
     const bboxFill = polygonArea(footprint) / bbArea;
-    if (!isRectangle(footprint, bb) && bboxFill < 0.8) {
-        return reject(levelIndex, `footprint must be roughly rectangular (bbox fill ${bboxFill.toFixed(2)} < 0.80)`);
+    // §RESI-PLATE-UNDERFILL — accept a real L / non-rectangular plate. The partition tiles the bbox
+    // and the §RESI-CLIP-BOUNDARY pass DROPS any cell whose centre falls outside the real polygon, so
+    // an L-plate builds apartments only within the drawn boundary (the SPEC's safe non-rect subset).
+    // When a `clipPolygon` is supplied we therefore admit a much lower bbox fill (an L is typically
+    // ~0.55–0.75); only a genuinely degenerate sliver (< 0.30) is still rejected. WITHOUT a clip
+    // polygon we keep the 0.80 guard, because the bbox tiling would otherwise build phantom cells past
+    // the boundary with nothing to clip them. A perfect rectangle (fill ≈ 1.0) is unchanged.
+    const minFill = clipPolygon && clipPolygon.length >= 3 ? 0.3 : 0.8;
+    if (!isRectangle(footprint, bb) && bboxFill < minFill) {
+        return reject(levelIndex, `footprint too sparse to tile (bbox fill ${bboxFill.toFixed(2)} < ${minFill.toFixed(2)})`);
     }
     if (corridor.widthM <= 0) {
         return reject(levelIndex, 'corridor width must be positive');
@@ -381,23 +392,13 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
                 ? prevOuterRowEdge - edgeZ > MIN_ROW_DEPTH
                 : edgeZ - prevOuterRowEdge > MIN_ROW_DEPTH;
             if (!gapRemaining) break;
-            // Clamp the corridor inward if its stepped position would carry the row past the edge OR
-            // leave a façade strip too THIN to host a corner apartment. §RESI-CORNER-UNITS-ALWAYS: the
-            // outermost corridor must sit a FULL apartment depth from the plate edge so a real (dual-
-            // aspect) corner unit fits between it and the façade — a stepped corridor that lands only a
-            // metre or two from the edge (e.g. a 44 m plate: pitch puts it ~1.8 m from the edge) leaves
-            // the corner un-buildable. We clamp such a corridor to exactly MAX_APARTMENT_DEPTH_M + half-
-            // corridor from the edge, so a 9 m-deep façade apartment (reaching corner ↔ corridor) fits.
             const clampedToEdge = edgeZ - dir * (MAX_APARTMENT_DEPTH_M + halfCorr);
             const facadeGap = dir < 0 ? (stepped - halfCorr) - edgeZ : edgeZ - (stepped + halfCorr);
             const tooThinFacade = facadeGap < MAX_APARTMENT_DEPTH_M - EPS;
             const cz = tooThinFacade ? clampedToEdge : stepped;
             const overshoots = tooThinFacade;
-            // The corridor must sit meaningfully BEYOND its inner neighbour (toward the edge) so a
-            // usable apartment row fits between them — else the neighbour already covers the edge.
             const beyondNeighbour = dir < 0 ? prev - cz : cz - prev;
             if (beyondNeighbour < SIDE_MIN_GAP - EPS) break;
-            // …and leave a usable row between it and the plate edge.
             const fitsInside = dir < 0
                 ? cz - halfCorr > edgeZ + MIN_ROW_DEPTH - EPS
                 : cz + halfCorr < edgeZ - MIN_ROW_DEPTH + EPS;
@@ -415,6 +416,7 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
         ...sideCorridors(bb.z1, 1),
     ];
     // Sort lines top→bottom for deterministic row tiling + neighbour math.
+    centreLines.sort((a, b) => a - b);
     centreLines.sort((a, b) => a - b);
 
     const corridorBands: Rect[] = centreLines.map((cz) =>
@@ -526,8 +528,23 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
                 // the founder's narrowed scope; the central-void/strip-fill pass is separate). This
                 // guarantees every emitted cell is ≤ wMax (engine-layable) → never a rejected over-wide
                 // cell → adding any typology (T1) to the mix can no longer drop the count to 0.
-                nCells = Math.max(1, Math.floor(runWidth / wMax + EPS));
-                sliceWidth = round4(wMax);
+                // §RESI-PLATE-UNDERFILL (founder 2026-06-26: large plates UNDER-FILL — a wide run lost
+                // its sub-wMax remainder to an un-built strip). Prefer the FEWEST EQUAL cells that keep
+                // each ≤ wMax: nEven = ceil(runWidth/wMax). When those equal cells are STILL ≥ the engine
+                // MIN width (wFeasMin) the whole run tiles with NO wasted strip (e.g. a 16.5 m run at
+                // depth 9 → 2 × 8.25 m cells, both engine-feasible — instead of 1 × 13 m cell + a 3.5 m
+                // gap). Only when an extra cell would fall BELOW the min do we fall back to the greedy
+                // wMax slice + leave the remainder (the proven anti-over-wide behaviour). Deterministic.
+                const nEven = Math.max(1, Math.ceil(runWidth / wMax - EPS));
+                const evenW = runWidth / nEven;
+                // The even cell must clear BOTH the engine MIN width AND the demand's MIN AREA (so the
+                // extra cell is a real, on-spec apartment — not a feasible-width but sub-area sliver).
+                if (evenW >= wFeasMin - EPS && evenW >= wMinArea - EPS) {
+                    nCells = nEven;                          // even tiling fills the run, every cell on-spec
+                } else {
+                    nCells = Math.max(1, Math.floor(runWidth / wMax + EPS));
+                    sliceWidth = round4(wMax);               // greedy: leave the sub-min remainder unbuilt
+                }
             } else {
                 // Clamp the ideal into [minByMax, maxByMin]; prefer fewer (wider → keeps the count).
                 const loCells = Math.min(minCellsByMax, maxCellsByMin);
@@ -702,11 +719,18 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
 
     const areas = placements.map((c) => c.areaM2);
     const mix = placements.map((c) => c.typology);
+    // §DIAG-RESI-FILL (§RESI-PLATE-UNDERFILL, SPEC-NONRECT-APARTMENTS-CORRIDOR-FIRST) — the apartment
+    // FILL RATIO: placed-apartment footprint ÷ the NET plate area (plate − core). This is the headline
+    // metric the under-fill fix targets; a healthy plate fills a strong majority of its net area.
+    const placedArea = placements.reduce((s, c) => s + rectArea(c.rect), 0);
+    const netPlateArea = Math.max(EPS, bbArea - rectArea(coreN));
+    const fillRatio = round4(placedArea / netPlateArea);
     const diagnostic =
         `§DIAG-RESI-PARTITION level=${levelIndex} status=ok N=${placements.length} ` +
         `corridors=${corridorBands.length} ` +
         `mix=[${mix.join(',')}] areas=[${areas.map((a) => a.toFixed(1)).join(',')}] ` +
-        `clippedOutOfBoundary=${clippedOut} reached=${reached}/${placements.length}`;
+        `clippedOutOfBoundary=${clippedOut} reached=${reached}/${placements.length} ` +
+        `§DIAG-RESI-FILL fillRatio=${fillRatio.toFixed(3)} (placed=${placedArea.toFixed(0)}m²/net=${netPlateArea.toFixed(0)}m²)`;
 
     return {
         status: 'ok',
@@ -714,6 +738,7 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
         publicCorridor: corridorBands,
         apartmentCells: placements,
         apartmentsReached: reached,
+        fillRatio,
         diagnostic,
     };
 }
