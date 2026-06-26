@@ -68,6 +68,11 @@ import { setNeighbourFootprints } from '../site/neighbourFootprintStore.js';
 import { resolveOrthoSnap } from './orthoSnap.js';
 // §RECT-BOUNDARY — pure two-corner → axis-aligned CCW rectangle corner builder.
 import { rectCornersFromOpposite } from './rectBoundary.js';
+// §SITE-PLAN-OVERLAY — georeferenced client-plan (PDF/image) overlay controller.
+import {
+    mountSitePlanOverlayController,
+    type SitePlanOverlayControllerHandle,
+} from '../site/overlay/SitePlanOverlayController.js';
 
 /** §BND-90-DEFAULT-ON — forgiving lock band (deg) for freehand map drawing (was the
  *  8° ORTHO_SNAP_TOLERANCE_DEG, too tight to hit by hand now the lock is default-on). */
@@ -326,6 +331,30 @@ export function mountSiteBoundaryMap2D(
     toggle.appendChild(satBtn);
     overlay.appendChild(toggle);
 
+    // ── §SITE-PLAN-OVERLAY — "Overlay plan/PDF" entry button ─────────────────────
+    // Opens the file picker on the site-plan overlay controller (mounted on map load).
+    // Brand white + #6600FF. Sits under the basemap toggle, left of the panel.
+    const overlayBtn = document.createElement('button');
+    overlayBtn.type = 'button';
+    overlayBtn.textContent = '📄 Overlay plan / PDF';
+    overlayBtn.setAttribute('data-testid', 'site-overlay-open-btn');
+    Object.assign(overlayBtn.style, {
+        position: 'absolute',
+        top: '92px',
+        left: '12px',
+        zIndex: '21',
+        padding: '7px 12px',
+        borderRadius: '8px',
+        border: `1px solid ${VIOLET}`,
+        background: 'rgba(255,255,255,0.95)',
+        color: VIOLET,
+        cursor: 'pointer',
+        font: '600 12px/1 system-ui, sans-serif',
+        boxShadow: '0 2px 10px rgba(60,52,40,0.18)',
+    } satisfies Partial<CSSStyleDeclaration>);
+    overlayBtn.addEventListener('click', () => overlayController?.promptUpload());
+    overlay.appendChild(overlayBtn);
+
     // ── §BND-MODE-STRIP — boundary-draw MODE toolbar (mirrors WallDrawingHUD) ────
     // The founder's spec: present the boundary draw modes as a floating wall-style
     // pill strip — `MODE: [R Rectangle] [L Linear] [O Orthogonal] [C Curved] · ESC`
@@ -426,6 +455,9 @@ export function mountSiteBoundaryMap2D(
     let rectCornerA: LatLon | null = null;
     let draggingIdx: number | null = null;
     let disposed = false;
+    // §SITE-PLAN-OVERLAY — the georeferenced client-plan overlay controller, mounted on
+    // map load (so the MapLibre map handle exists). Null until then / after dispose.
+    let overlayController: SitePlanOverlayControllerHandle | null = null;
     // O.7.2.b — set true by commit(). The map + boundary stay rendered, but draw
     // handlers are detached and the instruction/Esc/close affordances are frozen so
     // no further vertices can be added. The map is disposed ONLY later, at
@@ -1223,6 +1255,10 @@ export function mountSiteBoundaryMap2D(
         // MAP-DATA-OVERTURE — cancel any in-flight context fetch + pending debounce.
         try { ctxAbort?.abort(); } catch { /* ignore */ }
         if (ctxDebounce) { clearTimeout(ctxDebounce); ctxDebounce = null; }
+        // §SITE-PLAN-OVERLAY — tear down the overlay panel + raster (persistence kept).
+        try { overlayController?.dispose(); } catch { /* ignore */ }
+        overlayController = null;
+        try { delete (window as unknown as { pryzmOpenSitePlanOverlay?: () => void }).pryzmOpenSitePlanOverlay; } catch { /* ignore */ }
         try { map.remove(); } catch { /* map may already be torn down */ }
         if (overlay.parentElement) overlay.parentElement.removeChild(overlay);
         console.log('[gis] map2d: disposed');
@@ -1262,6 +1298,30 @@ export function mountSiteBoundaryMap2D(
         // MAP-DATA-OVERTURE — populate context footprints now + on every pan/zoom.
         loadContextBuildings(true);
         map.on('moveend', () => loadContextBuildings(false));
+
+        // §SITE-PLAN-OVERLAY — mount the client-plan overlay controller now the map is
+        // ready. It renders the calibrated raster UNDER the violet draw layers and owns
+        // the upload + move/scale/rotate/opacity/calibrate panel. The boundary tracing
+        // itself stays the existing draw tool — the overlay only sits beneath it.
+        try {
+            const ctx = resolveSiteContext(runtime ?? null);
+            overlayController = mountSitePlanOverlayController({
+                map,
+                parent: overlay,
+                getOrigin,
+                projectId: ctx?.projectId ?? null,
+                toast: (message, severity) => {
+                    (runtime ?? null)?.events?.emit('pryzm:toast', { message, severity });
+                },
+            });
+            // §SITE-PLAN-OVERLAY — window hook so the onboarding "Overlay a plan/PDF"
+            // choice can open the upload picker after the draw map mounts.
+            (window as unknown as { pryzmOpenSitePlanOverlay?: () => void }).pryzmOpenSitePlanOverlay =
+                () => overlayController?.promptUpload();
+        } catch (err) {
+            console.warn('[site-overlay] controller mount failed (non-fatal):', err);
+        }
+
         console.log('[gis] map2d: ready — Forma minimal-vector boundary-draw map mounted');
     });
 

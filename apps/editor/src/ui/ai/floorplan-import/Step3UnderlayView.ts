@@ -45,7 +45,19 @@ export async function handlePlaceUnderlay(state: FPState): Promise<void> {
     (state as any)._lastCreationParams = creationParams;
 
     state.underlayTool = new FloorPlanUnderlayTool(scene, camera, renderer.domElement);
-    await state.underlayTool.create(creationParams);
+    // §SITE-PLAN-OVERLAY (crash fix) — guard the texture-backed create so an unreadable
+    // or oversized image fails with a toast instead of throwing into the import flow (and
+    // never leaves a half-built mesh that could crash the renderer). The tool already
+    // downscales over-limit images, but a decode failure must still degrade gracefully.
+    try {
+        await state.underlayTool.create(creationParams);
+    } catch (err) {
+        console.error('[FloorPlanImport] underlay create failed:', err);
+        try { state.underlayTool.dispose(); } catch { /* ignore */ }
+        state.underlayTool = null;
+        setStatus('Could not place that plan — the image may be corrupt or too large.', true);
+        return;
+    }
 
     // Contract 01 §2.1 — record the placement as a Command so Ctrl+Z can undo it.
     // [P6-E.5.2] Migrated: window.commandManager → runtime.bus (01-BIM-ENGINE-CORE-CONTRACT §1).
