@@ -87,6 +87,22 @@ interface IFrameCoordinator {
 const MAX_RETRIES     = 3;
 const RETRY_DELAY_MS  = 500;
 
+/**
+ * §PERF-PHASE2 — shadow-rebuild debounce window (ms).
+ *
+ * Was a hard-coded `16` (one frame). On project LOAD, PascalSceneLighting calls
+ * scheduleShadowRebuild() once per new mesh in a single `bim-*-added` event burst
+ * (~88×). A 16 ms window is shorter than the gap between successive burst sub-ticks,
+ * so the timer re-armed and FIRED several times mid-load — each fire disposing +
+ * recreating the ShadowDepthTexture while the WebGPU queue still referenced the old
+ * handle (the "Destroyed texture used in a submit" race) AND running a full pipeline
+ * rebuild longtask per fire. Raising the window to 100 ms lets a load burst coalesce
+ * into ONE rebuild after the burst settles. Steady-state interactive shadow changes
+ * (single mesh add/move) still rebuild after a single 100 ms idle — imperceptible —
+ * and the in-flight/queued latch (§#47) is unchanged. Foreground render is identical.
+ */
+const SHADOW_REBUILD_DEBOUNCE_MS = 100;
+
 // ── Phase flags ───────────────────────────────────────────────────────────
 
 export type PipelinePhase = 'idle' | 'phase2' | 'phase3' | 'phase4' | 'error';
@@ -506,8 +522,10 @@ export class RenderPipelineManager implements IViewSwitchListener {
      *
      * Fix: pause rendering immediately (_hasPipelineError = true), then do a
      * FULL rebuild — recreate scenePass + zonePass + SSGI nodes — so all
-     * compiled GPU handles are fresh.  Debounced to 16 ms (one frame) so bursts
-     * of rapid additions (e.g. loading a large model) coalesce into one rebuild.
+     * compiled GPU handles are fresh.  Debounced to SHADOW_REBUILD_DEBOUNCE_MS
+     * (§PERF-PHASE2, 100 ms) so a project-load burst of rapid additions
+     * (~88 meshes in one event tick) coalesces into ONE rebuild after the burst
+     * settles, instead of firing several mid-load (the old 16 ms window).
      */
     private _shadowRebuildTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -586,7 +604,7 @@ export class RenderPipelineManager implements IViewSwitchListener {
             } finally {
                 this._finishRebuildAndDrainQueue();
             }
-        }, 16);
+        }, SHADOW_REBUILD_DEBOUNCE_MS);
     }
 
     /**
@@ -669,7 +687,7 @@ export class RenderPipelineManager implements IViewSwitchListener {
             // BUG-FIX (black walls on 3D return): block the PASCAL pipeline
             // immediately so zero contaminated frames composite the plan-view
             // SSGI AO history before _fullRebuild() creates fresh SSGINode nodes.
-            // Without this, the 16ms setTimeout in scheduleShadowRebuild() allows
+            // Without this, the debounce setTimeout in scheduleShadowRebuild() allows
             // 1-3 frames of near-zero (black) AO to render — visible as black walls
             // around door/window openings that had geometry clipped in plan view.
             // _hasPipelineError is cleared by _fullRebuild() on completion.
