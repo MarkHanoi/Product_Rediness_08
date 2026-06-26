@@ -63,6 +63,20 @@ interface ElementRecord {
     slot: number;
 }
 
+/**
+ * §SELECT-INSTANCED-PICK (FIX #5) — world-space oriented bounding box for one
+ * instance.  `center` + `quaternion` come from the per-instance world matrix;
+ * `size` is the shared local geometry's bounding-box extents scaled by the
+ * matrix's per-axis scale.  Used to build a real selection highlight for
+ * instanced-only elements (e.g. structural columns/beams) instead of the faint
+ * AABB fallback box.
+ */
+export interface InstanceObb {
+    readonly center: { x: number; y: number; z: number };
+    readonly size: { x: number; y: number; z: number };
+    readonly quaternion: { x: number; y: number; z: number; w: number };
+}
+
 export class InstancedElementRenderer {
 
     private _scene: THREE.Scene | null = null;
@@ -78,6 +92,14 @@ export class InstancedElementRenderer {
      * Allows O(1) lookup during updateTransform / unregister.
      */
     private _elements: Map<string, ElementRecord> = new Map();
+
+    /**
+     * §SELECT-INSTANCED-PICK (FIX #5) — groupKey → (slot → instance OBB).
+     * Captured at register() time so the selection highlight for an
+     * instanced-only element (column/beam) can be the element's real oriented
+     * box, not a faint axis-aligned fallback.
+     */
+    private _obbByGroup: Map<string, Map<number, InstanceObb>> = new Map();
 
     // ── Scene injection ───────────────────────────────────────────────────────
 
@@ -133,6 +155,8 @@ export class InstancedElementRenderer {
             const prevGroup = this._groups.get(prev.groupKey);
             if (prevGroup) {
                 prevGroup.removeInstance(elementId);
+                // §SELECT-INSTANCED-PICK (FIX #5) — release the old slot's OBB too.
+                this._obbByGroup.get(prev.groupKey)?.delete(prev.slot);
                 if (prevGroup.activeCount === 0) {
                     this._removeGroup(prev.groupKey, prevGroup);
                 }
@@ -159,6 +183,24 @@ export class InstancedElementRenderer {
                 }
                 return undefined;
             };
+            // §SELECT-INSTANCED-PICK (FIX #1) — enumerate every OCCUPIED instance
+            // slot in this group so the GPU pick strategy can paint a DISTINCT pick
+            // colour per instance. The group itself carries a single synthetic
+            // userData.id (stamped below) ONLY so the ElementRegistry includes it;
+            // the FINAL resolved selection is always the per-instance element id
+            // returned by getInstanceElementId(slot) — never the group id.
+            group.mesh.userData.getOccupiedInstanceSlots = (): readonly number[] => {
+                const slots: number[] = [];
+                for (const [, record] of this._elements.entries()) {
+                    if (record.groupKey === key) slots.push(record.slot);
+                }
+                return slots;
+            };
+            // §SELECT-INSTANCED-PICK (FIX #5) — per-instance OBB store + accessor.
+            const obbStore = new Map<number, InstanceObb>();
+            this._obbByGroup.set(key, obbStore);
+            group.mesh.userData.getInstanceObb = (slotIndex: number): InstanceObb | undefined =>
+                obbStore.get(slotIndex);
             // §INSTANCED-ISOLATE-FIX (2026-05-25) — stamp the REAL element type (e.g.
             // 'wall') rather than the generic placeholder so the Project Browser's
             // isolate/hide-by-type traverses (ProjectVisibilitySection) can resolve this
@@ -167,6 +209,16 @@ export class InstancedElementRenderer {
             // generic label when the caller does not supply a type.
             group.mesh.userData.elementType = elementType ?? 'InstancedElement';
             group.mesh.userData.isInstancedGroup = true;
+            // §SELECT-INSTANCED-PICK (FIX #1) — stamp a STABLE synthetic group id so
+            // GpuPickStrategy._buildElementRegistry (which keys by userData.id) maps
+            // this InstancedMesh under a defined id and syncPickScene renders it into
+            // the id buffer. Without an id the group fell out of the registry → the
+            // group was never drawn into the GPU id buffer → instanced walls/columns/
+            // beams were UNCLICKABLE on the default (GPU) pick path (the BVH path
+            // worked via hit.instanceId → getInstanceElementId). CRITICAL: this id is
+            // a hosting handle only — the resolved selection is the per-instance
+            // element id, recovered in gpu-pick.ts via per-instance slot colours.
+            group.mesh.userData.id = `instanced-group-${key}`;
             // §INSTANCED-LEVEL-VIS (2026-05-25) — stamp the group's levelId so the
             // Project Browser's hide-by-level (ProjectVisibilitySection.applyLevelVisibility,
             // which matches `obj.userData.levelId === levelId`) can hide instanced elements.
@@ -189,6 +241,18 @@ export class InstancedElementRenderer {
 
         if (slot >= 0) {
             this._elements.set(elementId, { groupKey: key, slot });
+
+            // §SELECT-INSTANCED-PICK (FIX #5) — store the instance's world-space OBB
+            // so SelectionManager._buildGeometryHighlight can build a REAL purple fill
+            // for instanced-only elements (columns/beams) instead of falling through
+            // to the faint AABB box. The OBB = the shared geometry's LOCAL bounding box
+            // (half-extents) carried by this instance's world matrix (centre +
+            // rotation). One geometry per group, so the local box is shared; only the
+            // per-instance matrix differs.
+            const obbStore = this._obbByGroup.get(key);
+            if (obbStore) {
+                obbStore.set(slot, this._computeInstanceObb(group.mesh.geometry, matrix));
+            }
         }
     }
 
@@ -204,6 +268,11 @@ export class InstancedElementRenderer {
         if (!record) return;
         const group = this._groups.get(record.groupKey);
         group?.setMatrix(elementId, matrix);
+        // §SELECT-INSTANCED-PICK (FIX #5) — keep the highlight OBB in sync on move.
+        if (group) {
+            this._obbByGroup.get(record.groupKey)
+                ?.set(record.slot, this._computeInstanceObb(group.mesh.geometry, matrix));
+        }
     }
 
     /**
@@ -218,6 +287,8 @@ export class InstancedElementRenderer {
         const group = this._groups.get(record.groupKey);
         group?.removeInstance(elementId);
         this._elements.delete(elementId);
+        // §SELECT-INSTANCED-PICK (FIX #5) — drop the freed slot's OBB.
+        this._obbByGroup.get(record.groupKey)?.delete(record.slot);
 
         // Remove empty groups to free GPU memory.
         if (group && group.activeCount === 0) {
@@ -267,6 +338,8 @@ export class InstancedElementRenderer {
         }
         group.dispose();
         this._groups.delete(key);
+        // §SELECT-INSTANCED-PICK (FIX #5) — drop the whole group's OBB store.
+        this._obbByGroup.delete(key);
     }
 
     /**
@@ -281,6 +354,49 @@ export class InstancedElementRenderer {
      * Including the material UUID prevents cross-type collisions (e.g. a 1×1×1
      * glass box and a 1×1×1 frame box with different materials get separate groups).
      */
+    /**
+     * §SELECT-INSTANCED-PICK (FIX #5) — derive the world-space OBB for one
+     * instance from the shared local geometry box + the instance world matrix.
+     *
+     * `center`    = local box centre transformed by the matrix.
+     * `size`      = local box extents scaled by the matrix's per-axis scale.
+     * `quaternion`= the matrix rotation (no shear assumed — BIM instance matrices
+     *               are TRS).
+     */
+    private _computeInstanceObb(
+        geometry: THREE.BufferGeometry,
+        matrix: THREE.Matrix4,
+    ): InstanceObb {
+        if (geometry.boundingBox === null) geometry.computeBoundingBox();
+        const box = geometry.boundingBox;
+        const localCenter = new THREE.Vector3();
+        const localSize = new THREE.Vector3(1, 1, 1);
+        if (box) {
+            box.getCenter(localCenter);
+            box.getSize(localSize);
+        }
+
+        const position = new THREE.Vector3();
+        const quaternion = new THREE.Quaternion();
+        const scale = new THREE.Vector3();
+        matrix.decompose(position, quaternion, scale);
+
+        // World centre = matrix · localCenter.
+        const worldCenter = localCenter.clone().applyMatrix4(matrix);
+        // World extents = local extents × |per-axis scale| (rotation captured by quaternion).
+        const worldSize = new THREE.Vector3(
+            localSize.x * Math.abs(scale.x),
+            localSize.y * Math.abs(scale.y),
+            localSize.z * Math.abs(scale.z),
+        );
+
+        return {
+            center: { x: worldCenter.x, y: worldCenter.y, z: worldCenter.z },
+            size: { x: worldSize.x, y: worldSize.y, z: worldSize.z },
+            quaternion: { x: quaternion.x, y: quaternion.y, z: quaternion.z, w: quaternion.w },
+        };
+    }
+
     private _hashGeometry(
         geometry: THREE.BufferGeometry,
         material: THREE.Material,
