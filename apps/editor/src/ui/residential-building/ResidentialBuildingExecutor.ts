@@ -62,6 +62,11 @@ import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
 import { triggerFloorLayout } from '../floor-layout/floorLayoutTrigger.js';
 import { triggerCeilingLayout } from '../ceiling-layout/ceilingLayoutTrigger.js';
 import { nameDetectedRooms } from '../apartment-layout/nameDetectedRooms.js';
+// §RESI-DOUBLE-ROOM-TAGS (ADR-0069 GR1) — the PURE graph-authority decision + pre-mark
+// (mirrors the house executor's pre-mark chokepoint); decided ONCE before the async
+// wall commits so no observer-driven redetect can mint a generic "Room NN" to double
+// against the engine's named graph rooms.
+import { decideAndPreMarkGraphAuthority, type GraphAuthorityObserverLike } from './residentialGraphAuthority.js';
 // §RESI-STAIR-VOID-IN-FINISH (2026-06-24) — the shared stairwell-void registry the floor/ceiling
 // finish passes read (getStairVoidsForLevel) to CUT the finish over the open stairwell. Mirrors
 // the house: record the stair's footprint on its UPPER (host) level so the finish never re-covers
@@ -474,6 +479,32 @@ export class ResidentialBuildingExecutor {
 
         console.log(`[resi-building] prepared — ${placedCount} apartment(s), ${rejectedCount} rejected, ${shellPayloads.length} shell ring(s)`);
 
+        // ── §RESI-DOUBLE-ROOM-TAGS (founder 2026-06-26: "every space ships with the correct
+        // name AND a duplicate generic 'Room NN' overlaid on it") — ADR-0069 GR1, mirroring the
+        // HOUSE fix's pre-mark chokepoint. ROOT CAUSE: graph-authoritative was set TOO LATE —
+        // only deep inside `_finishOneApartment` (the DEFERRED `_finishApartments` batch, which
+        // polls for the async host walls to land). But the structural batch below dispatches the
+        // apartment walls via the bus (async), and each `bim-wall-mutation-committed` arms the
+        // RoomTopologyObserver's 300 ms soft-coalesce → `_executeRedetect`. The structural +
+        // corridor batches only arm a 1 s post-batch cooldown; once it lapses (and BEFORE the
+        // deferred finish batch marks the level), that auto-redetect RUNS on a NOT-YET-authoritative
+        // level → it mints the generic "Room NN" set. Then `_finishApartments` adds the NAMED
+        // graph rooms on top → the two coexist (the founder's double tags). FIX: decide
+        // graph-authority ONCE here (all-or-nothing across the apartment levels, identical rule to
+        // `_finishApartments`) and PRE-MARK every apartment level authoritative BEFORE any wall
+        // commits, so no observer-driven redetect can ever create a generic room to double against.
+        // Reversible: window.__pryzmGraphRooms === false forces legacy detection.
+        const graphRoomsEnabled = (window as unknown as { __pryzmGraphRooms?: boolean }).__pryzmGraphRooms !== false;
+        const { useGraphRooms } = decideAndPreMarkGraphAuthority(
+            apartmentBuilds.map(b => ({ levelId: b.levelId, roomCommandCount: b.set.roomCommands.length })),
+            graphRoomsEnabled,
+            (window as unknown as { roomTopologyObserver?: GraphAuthorityObserverLike }).roomTopologyObserver,
+        );
+        console.log(
+            `[resi-building] §DIAG-GRAPH-GATE useGraphRooms=${useGraphRooms} graphRoomsEnabled=${graphRoomsEnabled} ` +
+            `apartmentLevels=[${apartmentBuilds.map(b => `${b.levelId}:${b.set.roomCommands.length}`).join(', ')}]`,
+        );
+
         // ── Structural batch: shells + cell perimeters + apartment partitions + slabs
         // + core (stairs + lift) + corridor lines → ONE undo unit.
         const allLevelIds = [...new Set(levelIds)];
@@ -595,7 +626,10 @@ export class ResidentialBuildingExecutor {
 
         // ── Deferred openings + doors + windows + rooms per apartment, once the host
         // walls have landed (the bus is async — openings READ the committed store).
-        void this._finishApartments(runtime, apartmentBuilds);
+        // §RESI-DOUBLE-ROOM-TAGS — pass the graph-authority decision computed (and
+        // pre-marked) above so the deferred finish batch uses the SAME all-or-nothing
+        // value (skipRedetectRooms must be consistent with the pre-mark).
+        void this._finishApartments(runtime, apartmentBuilds, useGraphRooms);
 
         // §RESI-GROUND-FLOOR — deferred MAIN ENTRANCE door on the ground shell. Like the
         // apartment openings, the shell wall.batch.create is async (the bus READs the
@@ -2326,7 +2360,7 @@ export class ResidentialBuildingExecutor {
      * store (the bus is async — openings READ the committed store). Mirrors the
      * apartment executor's wall-readiness gate + one coalesced batch.
      */
-    private _finishApartments(runtime: PryzmRuntime, builds: readonly ApartmentBuild[]): void {
+    private _finishApartments(runtime: PryzmRuntime, builds: readonly ApartmentBuild[], useGraphRooms: boolean): void {
         if (builds.length === 0) return;
         const cm = getCommandManager();
         if (!cm?.execute) { console.warn('[resi-building] commandManager unavailable — openings skipped'); return; }
@@ -2352,8 +2386,11 @@ export class ResidentialBuildingExecutor {
         // When the flag is OFF (no graph rooms minted), detection RUNS so the
         // apartments still get rooms (mirrors the apartment executor's
         // `skipRedetectRooms: useGraphRooms`). All-or-nothing across this batch.
-        const graphRoomsEnabled = (window as unknown as { __pryzmGraphRooms?: boolean }).__pryzmGraphRooms !== false;
-        const useGraphRooms = graphRoomsEnabled && builds.some(b => b.set.roomCommands.length > 0);
+        // §RESI-DOUBLE-ROOM-TAGS — `useGraphRooms` is now DECIDED ONCE by the caller
+        // (`execute`), which ALSO pre-marks the apartment levels graph-authoritative
+        // BEFORE the structural batch's async wall commits. We MUST reuse that exact
+        // value here so the batch's `skipRedetectRooms` stays consistent with the
+        // pre-mark — recomputing it could diverge and re-open the double-room window.
 
         const go = (): void => {
             if (done) return;
