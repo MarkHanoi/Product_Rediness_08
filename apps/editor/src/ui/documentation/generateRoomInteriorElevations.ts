@@ -113,6 +113,13 @@ export function generateRoomInteriorElevations(runtime: PryzmRuntime, scope: Roo
                     console.warn('[documentation] §DOC-ROOM-INTERIOR-ELEVATIONS create failed for', v.name, e);
                 }
             }
+        }, {
+            // View definitions create no room-defining geometry, so skip the
+            // post-batch redetect + PBR sweeps (BatchOptions is required on main).
+            levelIds: [],
+            totalElementCount: views.length,
+            skipRedetectRooms: true,
+            skipPbrUpgrade: true,
         });
 
         const scopeLabel =
