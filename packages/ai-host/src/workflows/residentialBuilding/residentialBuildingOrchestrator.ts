@@ -726,6 +726,9 @@ function _orchestrate(input: ResidentialBuildingOrchestratorInput): ResidentialB
                 cell: cell.rect,
                 program: plan.program,
                 facadeEdges,
+                // §RESI-ENTRY-INTO-CORRIDOR — the cell's corridor-facing edge, so the engine routes
+                // the internal corridor to the front door (door opens into circulation, not a room).
+                doorEdge: cell.doorEdge,
                 ...(input.solar ? { solar: input.solar } : {}),
             });
 

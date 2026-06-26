@@ -168,9 +168,11 @@ interface ApartmentBuild {
     readonly set: LayoutCommandSet;
     readonly option: ScoredLayoutOption;
     /** §RESI-APT-ENTRY — the main APARTMENT FRONT DOOR from the public corridor: which
-     *  cell-perimeter wall (the corridor-facing `doorEdge`) hosts it + the centred offset
-     *  and clear width. Deferred-punched once the perimeter wall lands, like the windows. */
-    readonly entryDoor?: { readonly wallId: string; readonly offset: number; readonly width: number };
+     *  cell-perimeter wall (the corridor-facing `doorEdge`) hosts it + the offset and clear
+     *  width. Deferred-punched once the perimeter wall lands, like the windows.
+     *  §RESI-ENTRY-INTO-CORRIDOR — `corridorAligned` ⇒ `offset` already targets where the
+     *  internal corridor meets the edge; the punch keeps it verbatim (no re-centre). */
+    readonly entryDoor?: { readonly wallId: string; readonly offset: number; readonly width: number; readonly corridorAligned: boolean };
 }
 
 export class ResidentialBuildingExecutor {
@@ -971,6 +973,56 @@ export class ResidentialBuildingExecutor {
      *  every corner is rotated to the WORLD parcel by the rigid transform so the
      *  perimeter (and the shellWalls the engine's façade windows resolve against,
      *  which are also transformed via `planToWorldXZ`) all live in one world frame. */
+    /** §RESI-ENTRY-INTO-CORRIDOR — resolve the front-door along-edge offset so the door opens into
+     *  the apartment's INTERNAL circulation where it meets the corridor-facing cell edge. Mirrors the
+     *  pure ai-host `resolveEntryDoorOffset` (kept local so the editor needn't import a new symbol
+     *  across the worktree package boundary; the ai-host unit tests pin the same logic). Reads the
+     *  engine layout's circulation-room (corridor/hall) footprints (plan-mm polygons) and centres the
+     *  door within the widest one touching the edge. Returns null when none reaches the edge ⇒ caller
+     *  falls back to a centred door. Pure. */
+    private _resolveEntryDoorOffset(
+        rooms: ReadonlyArray<{ type?: string; occupancy?: string; polygon?: ReadonlyArray<{ x: number; y: number }> }>,
+        doorEdge: 'x0' | 'x1' | 'z0' | 'z1',
+        cell: { x0: number; z0: number; x1: number; z1: number },
+        doorWidth: number,
+        jambM = 0.2,
+    ): { offset: number } | null {
+        const MM = 1e-3, TOUCH = 0.25;
+        const CIRC_T = new Set(['corridor', 'hall', 'entry', 'entry-hall', 'landing']);
+        const CIRC_O = new Set(['corridor', 'entrance-lobby', 'hall', 'entry-hall']);
+        const isCirc = (rm: { type?: string; occupancy?: string }): boolean =>
+            (rm.type !== undefined && CIRC_T.has(rm.type)) || (rm.occupancy !== undefined && CIRC_O.has(rm.occupancy));
+        const horizontal = doorEdge === 'z0' || doorEdge === 'z1';
+        const wallLo = horizontal ? Math.min(cell.x0, cell.x1) : Math.min(cell.z0, cell.z1);
+        const wallHi = horizontal ? Math.max(cell.x0, cell.x1) : Math.max(cell.z0, cell.z1);
+        const wallLen = wallHi - wallLo;
+        if (!(wallLen > 0) || !(doorWidth > 0) || doorWidth + 2 * jambM > wallLen) return null;
+        const edgeCoord = doorEdge === 'z0' ? cell.z0 : doorEdge === 'z1' ? cell.z1 : doorEdge === 'x0' ? cell.x0 : cell.x1;
+        let bestLo = NaN, bestHi = NaN, bestSpan = -Infinity;
+        for (const rm of rooms) {
+            if (!isCirc(rm) || !rm.polygon || rm.polygon.length < 3) continue;
+            let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+            for (const p of rm.polygon) {
+                const x = p.x * MM, z = p.y * MM;
+                if (x < minX) minX = x; if (x > maxX) maxX = x;
+                if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+            }
+            const reaches = horizontal
+                ? (Math.abs(minZ - edgeCoord) <= TOUCH || Math.abs(maxZ - edgeCoord) <= TOUCH)
+                : (Math.abs(minX - edgeCoord) <= TOUCH || Math.abs(maxX - edgeCoord) <= TOUCH);
+            if (!reaches) continue;
+            const rLo = horizontal ? minX : minZ, rHi = horizontal ? maxX : maxZ;
+            const lo = Math.max(rLo, wallLo), hi = Math.min(rHi, wallHi);
+            const span = hi - lo;
+            if (span > bestSpan && span > 0) { bestSpan = span; bestLo = lo; bestHi = hi; }
+        }
+        if (!(bestSpan > 0)) return null;
+        const spanCentreAlong = (bestLo + bestHi) / 2 - wallLo;
+        let offset = spanCentreAlong - doorWidth / 2;
+        offset = Math.min(Math.max(jambM, offset), Math.max(jambM, wallLen - jambM - doorWidth));
+        return { offset };
+    }
+
     private _buildCellPerimeter(
         levelId: string,
         apt: PlacedApartment,
@@ -979,7 +1031,7 @@ export class ResidentialBuildingExecutor {
     ): {
         payload: { walls: ReadonlyArray<Record<string, unknown>>; levelId: string };
         shellWalls: ReadonlyArray<{ id: string; start: { x: number; z: number }; end: { x: number; z: number } }>;
-        entryDoor: { wallId: string; offset: number; width: number };
+        entryDoor: { wallId: string; offset: number; width: number; corridorAligned: boolean };
     } {
         const r = apt.cell.rect;
         const corners = [
@@ -1025,10 +1077,25 @@ export class ResidentialBuildingExecutor {
             ? r.x1 - r.x0
             : r.z1 - r.z0;
         const doorWidth = Math.min(0.9, Math.max(0.7, edgeLenM - 0.4));
+        // §RESI-ENTRY-INTO-CORRIDOR (founder 2026-06-26: "I enter into a BEDROOM") — align the front
+        // door to where the apartment's INTERNAL CORRIDOR/HALL meets the corridor-facing edge, so the
+        // door opens INTO circulation, not a habitable room. `resolveEntryDoorOffset` reads the engine
+        // layout's circulation-room footprints; when none reaches the edge it returns null and we fall
+        // back to the centred offset (and the engine-side entry-leg routing is what makes a corridor
+        // reach the edge). `aligned` ⇒ the executor must NOT re-centre this door (see _finishOneApartment).
+        const aligned = this._resolveEntryDoorOffset(
+            (apt.layout?.rooms ?? []) as ReadonlyArray<{ type?: string; occupancy?: string; polygon?: ReadonlyArray<{ x: number; y: number }> }>,
+            apt.cell.doorEdge,
+            r,
+            doorWidth,
+        );
+        const centredOffset = Math.max(0, (edgeLenM - doorWidth) / 2);
         const entryDoor = {
             wallId: doorWallId ?? shellWalls[0]?.id ?? createId('wall'),
-            offset: Math.max(0, (edgeLenM - doorWidth) / 2),
+            offset: aligned ? aligned.offset : centredOffset,
             width: doorWidth,
+            // When the offset is corridor-aligned, the deferred punch keeps it verbatim (no re-centre).
+            corridorAligned: aligned != null,
         };
         return { payload: { walls, levelId }, shellWalls, entryDoor };
     }
@@ -2675,19 +2742,22 @@ export class ResidentialBuildingExecutor {
             ...set.openingCommands.map(op => ({ p: op.payload as { wallId: string; opening: unknown } })),
             ...set.shellWindowOpeningCommands.map(op => ({ p: op.payload as { wallId: string; opening: unknown } })),
         ];
-        // §RESI-APT-ENTRY — the apartment FRONT DOOR onto the public corridor, centred on the
+        // §RESI-APT-ENTRY — the apartment FRONT DOOR onto the public corridor, hosted on the
         // cell's corridor-facing perimeter wall. Single-leaf, standard height. Without this the
         // apartment is a sealed box (no way in from the corridor).
+        // §RESI-ENTRY-INTO-CORRIDOR — when the offset is corridor-aligned (it targets where the
+        // internal corridor meets the edge) keep it VERBATIM so the door opens into circulation;
+        // otherwise (no corridor reached the edge) re-centre on the stored wall length (§RESI-DOOR-
+        // CENTRE-ALL), the old behaviour.
         const entryItems = b.entryDoor
             ? [{
                 wallId: b.entryDoor.wallId,
                 opening: {
                     id: createId('opening'),
                     type: 'door',
-                    // §RESI-DOOR-CENTRE-ALL — re-centre the apartment corridor-entry door on its
-                    // STORED host wall length (pre-computed offset was (len−w)/2 ⇒ fallback len =
-                    // 2·offset+w). The cell-perimeter wall has already landed by the deferred pass.
-                    offset: this._centredDoorOffset(b.entryDoor.wallId, b.entryDoor.width, 2 * b.entryDoor.offset + b.entryDoor.width, 'apt-entry'),
+                    offset: b.entryDoor.corridorAligned
+                        ? b.entryDoor.offset
+                        : this._centredDoorOffset(b.entryDoor.wallId, b.entryDoor.width, 2 * b.entryDoor.offset + b.entryDoor.width, 'apt-entry'),
                     width: b.entryDoor.width,
                     height: 2.1,
                     sillHeight: 0,

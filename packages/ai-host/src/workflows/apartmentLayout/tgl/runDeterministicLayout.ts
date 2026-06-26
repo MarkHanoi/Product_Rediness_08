@@ -146,6 +146,12 @@ export function generateDeterministicLayouts(
     // subdivided circulation-FIRST (derive corridor spine → pack rooms off it). Threaded to
     // EnumerateInput.spineFirst → SubdivideOptions.spineFirst. Absent ⇒ byte-identical legacy carve.
     spineFirst?: boolean,
+    // §RESI-ENTRY-INTO-CORRIDOR — OPTIONAL front-door / entry anchor in WORLD-metres plan frame
+    // ({x,z}). Forward-mapped into the engine's principal-axis frame (same −angle map as the shell)
+    // and threaded EnumerateInput.entry → SubdivideOptions.entry → deriveCorridorSpine, so the
+    // internal corridor reaches the entry edge (the apartment front door opens into circulation).
+    // Absent ⇒ no entry leg (byte-identical to the pre-entry behaviour for every caller that omits it).
+    entryWorld?: { readonly x: number; readonly z: number },
 ): ScoredLayoutOption[] {
     const perimeter = shell.perimeter as Pt[];
     if (!perimeter || perimeter.length < 3) return [];
@@ -193,6 +199,12 @@ export function generateDeterministicLayouts(
     const shellPolygon = angle === 0 ? perimeter : perimeter.map(p => rotatePt(p, -angle, pivot));
     const winSpans = angle === 0 ? windowSpansWorld : windowSpansWorld?.map(fwdSpan);
     const doorSpans = angle === 0 ? doorSpansWorld : doorSpansWorld?.map(fwdSpan);
+    // §RESI-ENTRY-INTO-CORRIDOR — forward-map the world entry anchor into the engine frame (same
+    // −angle map as the shell). For an axis-aligned cell (angle === 0, the resi apartment path) it
+    // passes straight through. enumerate then maps it per-strategy via `t.fwd`.
+    const entryEngine = entryWorld
+        ? (angle === 0 ? { x: entryWorld.x, z: entryWorld.z } : rotatePt({ x: entryWorld.x, z: entryWorld.z }, -angle, pivot))
+        : undefined;
 
     // §STAIR-KEEPOUT (A.21.D21) — map each WORLD keep-out rect into the engine's
     // principal-axis frame. When angle === 0 the rect passes straight through
@@ -238,6 +250,7 @@ export function generateDeterministicLayouts(
         ...(envelopeValidator ? { envelopeValidator } : {}),
         ...(lockBedroomCount ? { lockBedroomCount: true } : {}),
         ...(spineFirst ? { spineFirst: true } : {}),   // §SPINE-FIRST P4 (opt-in; off ⇒ byte-identical)
+        ...(entryEngine ? { entry: entryEngine } : {}),   // §RESI-ENTRY-INTO-CORRIDOR (engine-frame anchor)
         ...(keepOutEngine && keepOutEngine.length > 0 ? { keepOutRects: keepOutEngine } : {}),
         ...(residualExcludeEngine && residualExcludeEngine.length > 0 ? { residualExcludeRects: residualExcludeEngine } : {}),
         // §ENV-E2-SOLAR (E.2) — thread the site latitude so the engine biases

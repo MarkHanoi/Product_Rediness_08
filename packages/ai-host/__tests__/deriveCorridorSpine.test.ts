@@ -105,4 +105,55 @@ describe('§SPINE-FIRST P1 — deriveCorridorSpine', () => {
         expect(deriveCorridorSpine([{ x: 0, z: 0 }, { x: 1, z: 0 }])).toBeNull();   // < 3 verts
         expect(deriveCorridorSpine([{ x: 0, z: 0 }, { x: 5, z: 0 }, { x: 10, z: 0 }])).toBeNull(); // zero height
     });
+
+    // §RESI-ENTRY-INTO-CORRIDOR — the entry anchor routes the spine to the front-door edge.
+    describe('§RESI-ENTRY-INTO-CORRIDOR — entry anchor', () => {
+        it('entry OFF the primary run adds a perpendicular leg reaching the entry edge (L/T)', () => {
+            // 12×8 plate, run horizontal at z=4. Entry on the z0 edge (the corridor-facing edge):
+            // midpoint (6, 0). A vertical leg must DROP from the run (z=4) to the entry edge (z≈0).
+            const shell = rect(12, 8);
+            const s = deriveCorridorSpine(shell, { entry: { x: 6, z: 0 } })!;
+            expect(s.segments.length).toBe(2);
+            const leg = s.segments[1]!;
+            expect(leg.a.z).toBeCloseTo(4, 5);                 // starts on the run
+            expect(leg.b.z).toBeCloseTo(0, 5);                 // reaches the entry edge
+            expect(leg.a.x).toBeCloseTo(leg.b.x, 5);           // vertical (perpendicular to the run)
+            expect(leg.a.x).toBeCloseTo(6, 1);                 // under the entry x
+        });
+
+        it('entry on the z1 (far) edge drops a leg to that edge', () => {
+            const shell = rect(12, 8);
+            const s = deriveCorridorSpine(shell, { entry: { x: 3, z: 8 } })!;
+            expect(s.segments.length).toBe(2);
+            const leg = s.segments[1]!;
+            expect(leg.a.z).toBeCloseTo(4, 5);
+            expect(leg.b.z).toBeCloseTo(8, 5);
+            expect(leg.b.x).toBeCloseTo(3, 1);
+        });
+
+        it('on a TALL plate (vertical run) an entry on the x0 edge adds a horizontal leg', () => {
+            const shell = rect(8, 14);   // primary run vertical at x=4
+            const s = deriveCorridorSpine(shell, { entry: { x: 0, z: 7 } })!;
+            expect(s.primaryAxis).toBe('z');
+            const leg = s.segments[s.segments.length - 1]!;
+            expect(leg.a.x).toBeCloseTo(4, 5);                 // from the run
+            expect(leg.b.x).toBeCloseTo(0, 5);                 // to the x0 entry edge
+            expect(leg.a.z).toBeCloseTo(leg.b.z, 5);           // horizontal
+            expect(leg.a.z).toBeCloseTo(7, 1);
+        });
+
+        it('entry ALREADY on the run band: no leg added (run already passes the entry)', () => {
+            // Entry near the run line (z≈4) → already reached, no extra leg.
+            const shell = rect(12, 8);
+            const s = deriveCorridorSpine(shell, { entry: { x: 6, z: 4.2 } })!;
+            expect(s.segments.length).toBe(1);
+        });
+
+        it('no entry ⇒ byte-identical to the legacy single-run spine', () => {
+            const shell = rect(12, 8);
+            const withNone = deriveCorridorSpine(shell)!;
+            const withUndef = deriveCorridorSpine(shell, { entry: undefined })!;
+            expect(JSON.stringify(withNone)).toEqual(JSON.stringify(withUndef));
+        });
+    });
 });
