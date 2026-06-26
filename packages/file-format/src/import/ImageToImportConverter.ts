@@ -32,6 +32,14 @@ import { type PDFConversionResult } from './PDFToImageConverter';
 const MAX_WIDTH_PX = 1500;
 
 /**
+ * §SITE-PLAN-OVERLAY (crash fix) — maximum HEIGHT for the rasterised image. A tall image
+ * capped only on width could still exceed the GPU max texture dimension when uploaded as a
+ * THREE texture (WebGPU device-lost). Capping both dimensions keeps the underlay texture
+ * uploadable on every backend. See PDFToImageConverter MAX_HEIGHT_PX.
+ */
+const MAX_HEIGHT_PX = 4096;
+
+/**
  * JPEG quality for the re-encoded output.
  * Must match PDFToImageConverter.JPEG_QUALITY.
  */
@@ -61,7 +69,9 @@ export async function convertImageToImportResult(file: File): Promise<PDFConvers
             throw new Error('Image has zero dimensions — file may be corrupt.');
         }
 
-        const renderScale = Math.min(1, MAX_WIDTH_PX / srcW);
+        // §SITE-PLAN-OVERLAY (crash fix) — fit BOTH dimensions under their caps (never
+        // upscale: the leading `1` keeps a small image at native size).
+        const renderScale = Math.min(1, MAX_WIDTH_PX / srcW, MAX_HEIGHT_PX / srcH);
         const outW = Math.round(srcW * renderScale);
         const outH = Math.round(srcH * renderScale);
 

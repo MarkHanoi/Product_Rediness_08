@@ -368,10 +368,70 @@ export class FloorPlanUnderlayTool {
 
     // ── Private: texture loader ────────────────────────────────────────────────
 
+    /**
+     * §SITE-PLAN-OVERLAY (crash fix) — the largest texture dimension we will upload.
+     * Both converters now cap their rasters at 4096px, but a RESTORED data URL (or any
+     * future caller) could still be oversized; this is the last-line guard so an
+     * over-limit image is DOWNSCALED on a 2D canvas rather than handed to the GPU, where
+     * exceeding `maxTextureDimension2D` triggers a WebGPU device-lost crash. Conservative
+     * 4096 is ≤ the WebGL floor and well under the WebGPU guaranteed minimum (8192).
+     */
+    private static readonly MAX_TEXTURE_DIM = 4096;
+
+    /**
+     * Load an image URL into a THREE texture, DOWNSCALING any image whose larger
+     * dimension exceeds MAX_TEXTURE_DIM (aspect-preserving) so the GPU upload can never
+     * exceed the device limit. Fully guarded — rejects on decode/draw failure rather
+     * than leaving a half-built mesh; the caller's create() try/catch surfaces a toast.
+     */
     private loadTexture(url: string): Promise<THREE.Texture> {
         return new Promise((resolve, reject) => {
-            new THREE.TextureLoader().load(url, resolve, undefined, reject);
+            new THREE.TextureLoader().load(
+                url,
+                (texture) => {
+                    try {
+                        const safe = FloorPlanUnderlayTool.clampTextureSize(texture);
+                        resolve(safe);
+                    } catch (err) {
+                        try { texture.dispose(); } catch { /* ignore */ }
+                        reject(err instanceof Error ? err : new Error(String(err)));
+                    }
+                },
+                undefined,
+                (err) => reject(err instanceof Error ? err : new Error('Texture load failed.')),
+            );
         });
+    }
+
+    /**
+     * If the decoded image exceeds MAX_TEXTURE_DIM on either axis, redraw it onto a
+     * size-capped canvas and return a CanvasTexture; otherwise return the texture as-is.
+     */
+    private static clampTextureSize(texture: THREE.Texture): THREE.Texture {
+        const img = texture.image as { width?: number; height?: number } | undefined;
+        const w = typeof img?.width === 'number' ? img.width : 0;
+        const h = typeof img?.height === 'number' ? img.height : 0;
+        const longest = Math.max(w, h);
+        if (longest <= FloorPlanUnderlayTool.MAX_TEXTURE_DIM || longest === 0) {
+            return texture;
+        }
+        const scale = FloorPlanUnderlayTool.MAX_TEXTURE_DIM / longest;
+        const outW = Math.max(1, Math.round(w * scale));
+        const outH = Math.max(1, Math.round(h * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = outW;
+        canvas.height = outH;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('2D canvas context unavailable for texture downscale.');
+        ctx.drawImage(texture.image as CanvasImageSource, 0, 0, outW, outH);
+        const downscaled = new THREE.CanvasTexture(canvas);
+        downscaled.colorSpace = texture.colorSpace;
+        downscaled.needsUpdate = true;
+        try { texture.dispose(); } catch { /* original no longer needed */ }
+        console.warn(
+            `[FloorPlanUnderlayTool] Underlay image ${w}×${h}px exceeded the ${FloorPlanUnderlayTool.MAX_TEXTURE_DIM}px GPU cap — downscaled to ${outW}×${outH}px to avoid a device-lost crash.`,
+        );
+        return downscaled;
     }
 
     // ── Private: selection outline ─────────────────────────────────────────────

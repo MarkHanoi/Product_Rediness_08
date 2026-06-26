@@ -445,8 +445,16 @@ class OnboardingStepController {
             'Open the map and trace your real plot boundary, corner by corner.',
             'onboarding-site-draw',
         );
+        // §SITE-PLAN-OVERLAY — overlay a client PDF / survey image on the map, calibrate
+        // it to true scale, then trace the boundary against BOTH the plan and the basemap.
+        const overlayBtn = this.buildChoiceCard(
+            '📄 Overlay a plan / PDF',
+            'Place your survey or CAD plan on the map, scale it to true size, then trace the boundary.',
+            'onboarding-site-overlay',
+        );
         choices.appendChild(defaultBtn);
         choices.appendChild(drawBtn);
+        choices.appendChild(overlayBtn);
         body.appendChild(choices);
 
         const footer = document.createElement('div');
@@ -466,6 +474,19 @@ class OnboardingStepController {
         drawBtn.addEventListener('click', () => {
             console.log('[onboarding-step] site choice: draw on map.');
             void this.startDrawThenGenerate();
+        });
+        overlayBtn.addEventListener('click', () => {
+            console.log('[onboarding-step] site choice: overlay a plan/PDF then draw.');
+            // Same draw flow (opens the 2D map where the overlay controller is mounted),
+            // then auto-open the overlay upload picker so the user starts from their plan.
+            void this.startDrawThenGenerate().then(() => {
+                try {
+                    const open = (window as unknown as { pryzmOpenSitePlanOverlay?: () => void }).pryzmOpenSitePlanOverlay;
+                    open?.();
+                } catch (err) {
+                    console.warn('[onboarding-step] pryzmOpenSitePlanOverlay unavailable (non-fatal):', err);
+                }
+            });
         });
         back.addEventListener('click', () => this.renderLocationStep());
     }

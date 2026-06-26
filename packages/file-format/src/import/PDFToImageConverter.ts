@@ -86,6 +86,19 @@ export interface PDFConversionResult {
 const MAX_WIDTH_PX = 1500;
 
 /**
+ * §SITE-PLAN-OVERLAY (crash fix) — maximum HEIGHT for the rendered page.
+ *
+ * Width was capped (MAX_WIDTH_PX) but height was NOT, so a tall/portrait plan rendered
+ * at full height (e.g. 1500 × 50000 px). That oversized canvas became a THREE texture in
+ * FloorPlanUnderlayTool with no device-limit clamp → on the WebGPU backend it exceeded
+ * `maxTextureDimension2D` (typ. 8192) → GPU device-lost → the app crashed a beat after the
+ * underlay "linked". Capping BOTH dimensions well under the WebGL/WebGPU floor (4096)
+ * makes the rasterised page always uploadable. The render scale is the min of the width-
+ * and height-fit factors so the aspect ratio is preserved.
+ */
+const MAX_HEIGHT_PX = 4096;
+
+/**
  * JPEG quality for the exported image.
  * 0.92 keeps DCT block artifacts below the wall-thickness threshold so Claude
  * does not misread artifact edges as wall boundaries.
@@ -137,7 +150,13 @@ export async function convertPDFPage1ToImage(file: File): Promise<PDFConversionR
 
     // ── Render to canvas ──────────────────────────────────────────────────────
     const viewport = page.getViewport({ scale: 1 });
-    const renderScale = Math.min(2, MAX_WIDTH_PX / viewport.width);
+    // §SITE-PLAN-OVERLAY (crash fix) — fit BOTH width and height under their caps so a
+    // tall page can never produce an over-limit canvas (the WebGPU device-lost root cause).
+    const renderScale = Math.min(
+        2,
+        MAX_WIDTH_PX / viewport.width,
+        MAX_HEIGHT_PX / viewport.height,
+    );
     const scaledViewport = page.getViewport({ scale: renderScale });
 
     const canvas = document.createElement('canvas');
