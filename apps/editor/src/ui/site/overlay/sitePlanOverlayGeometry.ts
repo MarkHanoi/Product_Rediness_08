@@ -180,8 +180,13 @@ export function toMapLibreCoordinates(
     t: SitePlanOverlayTransform,
     originLat: number,
     originLon: number,
-): [number, number][] {
-    return overlayCornerLatLons(t, originLat, originLon).map((ll) => [ll.lon, ll.lat] as [number, number]);
+): [[number, number], [number, number], [number, number], [number, number]] {
+    // overlayCornerLatLons returns exactly 4 corners (TL,TR,BR,BL); MapLibre's image
+    // `coordinates` requires a strict 4-tuple, so assert the fixed length.
+    const lngLats = overlayCornerLatLons(t, originLat, originLon).map(
+        (ll) => [ll.lon, ll.lat] as [number, number],
+    );
+    return [lngLats[0]!, lngLats[1]!, lngLats[2]!, lngLats[3]!];
 }
 
 // ── default placement ────────────────────────────────────────────────────────
