@@ -1,6 +1,31 @@
 import * as THREE from '@pryzm/renderer-three/three';
-import { toCreasedNormals } from '@pryzm/renderer-three';
+import { toCreasedNormals, mergeGeometries } from '@pryzm/renderer-three';
 import { WallData, Opening, WallLayer } from './WallTypes';
+
+/**
+ * §PERF-PHASE2 — wall-layer mesh-explosion cap.
+ *
+ * A layered wall with openings emits one mesh+material PER LAYER (see
+ * buildLayeredWallSegmentsAroundOpenings). A wall whose system type stacks many
+ * layers (e.g. brick / cavity / blockwork / service-void / plasterboard +
+ * skim = 5-7 layers) therefore produces 5-7 separate draw calls EACH, and a
+ * façade of such walls multiplies that across every wall — the layered-wall mesh
+ * explosion the spike flagged.
+ *
+ * Cap: once a wall's layer-mesh count exceeds MAX_WALL_LAYER_SEGMENTS, layers
+ * that share an IDENTICAL material colour are MERGED into a single mesh per
+ * colour (mergeGeometries on the already-built per-layer geometries). Because the
+ * merged geometries share one material and live in the same wall-local space, the
+ * union is pixel-for-pixel identical to the separate meshes — only the draw-call
+ * count drops. Layers with distinct colours are NEVER merged (visual result
+ * preserved). Under the threshold, the path is byte-identical to before (no merge).
+ *
+ * Openings are unaffected: each layer geometry already encodes the opening voids
+ * (buildContinuousLayerGeometry punches the grid), so merging same-colour layers
+ * simply concatenates void-correct geometries. This path is the NON-CSG layered
+ * path; CSG/plain walls are untouched.
+ */
+export const MAX_WALL_LAYER_SEGMENTS = 4;
 
 export interface OpeningCluster {
     minLeft: number;
@@ -369,27 +394,22 @@ export function buildLayeredWallSegmentsAroundOpenings(
 
     let layerCursor = -totalThickness / 2;
 
+    // ── Build the per-layer geometry + resolved colour first ──────────────────
+    // §PERF-PHASE2 — collect geometries so we can OPTIONALLY merge same-colour
+    // layers into one mesh below. Under the threshold this loop is byte-identical
+    // to the old per-layer emission (no merge).
+    interface BuiltLayer {
+        geo: THREE.BufferGeometry;
+        matColor: string;
+        layer: WallLayer;
+        layerIndex: number;
+    }
+    const built: BuiltLayer[] = [];
     for (const [layerIndex, layer] of (wall.layers as WallLayer[]).entries()) {
         const layerCenter = layerCursor + layer.thickness / 2;
         layerCursor += layer.thickness;
 
-        const matColor = (layer as any).materialColor ?? wall.materialColor ?? '#d4c5b0';
-        const layerMat = new THREE.MeshStandardMaterial({
-            color:     matColor,
-            roughness: 0.85,
-            metalness: 0.0,
-        });
-
-        const commonUserData = {
-            role:       'geometry',
-            selectable: false,
-            wallId:     wall.id,
-            parentId:   wall.id,
-            layerName:  layer.name,
-            layerFunction: layer.function,
-            layerIndex,
-        };
-
+        const matColor: string = (layer as any).materialColor ?? wall.materialColor ?? '#d4c5b0';
         const geo = buildContinuousLayerGeometry(
             openingRects,
             wallLength,
@@ -404,11 +424,80 @@ export function buildLayeredWallSegmentsAroundOpenings(
             wall.id,
             layerIndex,
         );
-        const mesh = new THREE.Mesh(geo, layerMat.clone());
-        mesh.userData = { ...commonUserData };
+        built.push({ geo, matColor, layer, layerIndex });
+    }
+
+    const makeMat = (matColor: string): THREE.MeshStandardMaterial =>
+        new THREE.MeshStandardMaterial({ color: matColor, roughness: 0.85, metalness: 0.0 });
+
+    const emitMesh = (
+        geo: THREE.BufferGeometry,
+        matColor: string,
+        userData: Record<string, unknown>,
+    ): void => {
+        const mesh = new THREE.Mesh(geo, makeMat(matColor));
+        mesh.userData = userData;
         mesh.position.set(0, 0, 0);
         wallGroup.add(mesh);
         addedMeshes.push(mesh);
+    };
+
+    // ── §PERF-PHASE2 cap: merge same-colour layers when over the threshold ────
+    // Only merges geometries that share an IDENTICAL colour → visually identical
+    // (one material, unioned geometry). Distinct-colour layers stay separate.
+    if (built.length > MAX_WALL_LAYER_SEGMENTS) {
+        // Group layer indices by resolved colour, preserving first-seen order.
+        const byColor = new Map<string, BuiltLayer[]>();
+        for (const b of built) {
+            const g = byColor.get(b.matColor);
+            if (g) g.push(b);
+            else byColor.set(b.matColor, [b]);
+        }
+        for (const [matColor, group] of byColor) {
+            if (group.length === 1) {
+                // Single layer of this colour — emit as-is (no merge needed).
+                const b = group[0]!;
+                emitMesh(b.geo, matColor, {
+                    role: 'geometry', selectable: false, wallId: wall.id, parentId: wall.id,
+                    layerName: b.layer.name, layerFunction: b.layer.function, layerIndex: b.layerIndex,
+                });
+                continue;
+            }
+            // Merge all geometries of this colour into ONE. mergeGeometries returns
+            // null if the inputs are attribute-incompatible — fall back to per-layer
+            // emission in that (not expected) case so nothing is dropped.
+            const merged = mergeGeometries(group.map(b => b.geo), false);
+            if (merged) {
+                merged.computeBoundingBox();
+                merged.computeBoundingSphere();
+                // Dispose the now-merged source geometries.
+                for (const b of group) b.geo.dispose();
+                emitMesh(merged, matColor, {
+                    role: 'geometry', selectable: false, wallId: wall.id, parentId: wall.id,
+                    // Per-layer name/function/index are not load-bearing for selection
+                    // (which keys on wallId); record the set that was merged for debug.
+                    layerMerged: true,
+                    layerIndices: group.map(b => b.layerIndex),
+                    layerNames: group.map(b => b.layer.name),
+                });
+            } else {
+                for (const b of group) {
+                    emitMesh(b.geo, matColor, {
+                        role: 'geometry', selectable: false, wallId: wall.id, parentId: wall.id,
+                        layerName: b.layer.name, layerFunction: b.layer.function, layerIndex: b.layerIndex,
+                    });
+                }
+            }
+        }
+        return addedMeshes;
+    }
+
+    // ── Under threshold: original per-layer emission (byte-identical to before) ─
+    for (const b of built) {
+        emitMesh(b.geo, b.matColor, {
+            role: 'geometry', selectable: false, wallId: wall.id, parentId: wall.id,
+            layerName: b.layer.name, layerFunction: b.layer.function, layerIndex: b.layerIndex,
+        });
     }
 
     return addedMeshes;
