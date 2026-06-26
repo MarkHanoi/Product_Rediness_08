@@ -471,6 +471,51 @@ export class SelectionManager implements ISelectionManager {
         };
     }
 
+    /**
+     * §SELECT-INSTANCED-PICK (FIX #3) / §SELECT-SVP3D-ANCHOR-SKIP — clear the
+     * hover-confirmed click anchor.
+     *
+     * When the split-view 3D pane opens or closes, `_lastHoverConfirmedClientX/Y`
+     * (and the GPU-confirmed hover ref) can hold STALE pre-pane coordinates: while
+     * the cursor was over the SVP pane the MAIN canvas received no hover rAF, so a
+     * subsequent main-canvas click within CLICK_HOVER_SNAP_PX of the stale position
+     * would "snap back" to the old element (the architect's "selection reverts to
+     * the latest selected"). Clearing the anchor on the visibility transition forces
+     * the next click to run a fresh pick. This complements the per-click
+     * __pryzmForwarded skip already in performSelection() — that handles forwarded
+     * clicks; this handles the FIRST real main-canvas click after the layout change.
+     *
+     * Also clears if the GPU-confirmed hover target was removed from the scene
+     * (liveness guard) so a deleted element can't remain the anchor.
+     */
+    clearHoverAnchor(): void {
+        this._lastHoverConfirmedClientX = null;
+        this._lastHoverConfirmedClientY = null;
+        this._lastHoveredObjectGpu = null;
+    }
+
+    /**
+     * §SELECT-INSTANCED-PICK (FIX #3) — liveness guard: returns true (and clears
+     * the anchor) when the GPU-confirmed hover target is no longer attached to the
+     * scene graph (parent chain detached). Called before honouring the click anchor
+     * so a removed element can never resolve a stale selection.
+     */
+    private _anchorTargetIsStale(): boolean {
+        const target = this._lastHoveredObjectGpu;
+        if (target === null) return false;
+        // Walk to the scene root; if the chain terminates before reaching the live
+        // scene it was removed (parent === null and it isn't the scene itself).
+        let cur: THREE.Object3D | null = target;
+        const sceneRoot = this.world.scene.three as THREE.Object3D;
+        while (cur !== null) {
+            if (cur === sceneRoot) return false; // still attached
+            cur = cur.parent;
+        }
+        // Detached — clear and report stale.
+        this.clearHoverAnchor();
+        return true;
+    }
+
     setEnabled(enabled: boolean) {
         this.enabled = enabled;
         if (!enabled) {
@@ -530,6 +575,16 @@ export class SelectionManager implements ISelectionManager {
         cacheInvalidationEvents.forEach(evt =>
             window.addEventListener(evt, invalidateSelectableCache)
         );
+
+        // §SELECT-INSTANCED-PICK (FIX #3) — clear the hover-confirmed click anchor
+        // whenever the split-view 3D pane opens/closes. The runtime EventBus
+        // (DOMEventBus during migration) dispatches these as window CustomEvents,
+        // so the existing window.addEventListener pattern reaches them. Without this,
+        // `_lastHoverConfirmedClientX/Y` keep stale pre-pane coords and the first
+        // main-canvas click after the layout change snaps to the wrong element
+        // (§SELECT-SVP3D-ANCHOR-SKIP).
+        window.addEventListener('split-view-activated',   () => this.clearHoverAnchor());
+        window.addEventListener('split-view-deactivated', () => this.clearHoverAnchor());
 
         // ── Selection highlight refresh on geometry rebuild ───────────────
         // FurnitureFragmentBuilder.updateFurniture() reuses the same root
@@ -948,6 +1003,11 @@ export class SelectionManager implements ISelectionManager {
         if (
             !_isForwarded &&
             _anchorTarget !== null &&
+            // §SELECT-INSTANCED-PICK (FIX #3) — liveness guard: skip (and clear) the
+            // anchor when the GPU-confirmed hover target was removed from the scene
+            // (e.g. element deleted, or stale across a split-view layout change), so
+            // the click never resolves a dangling element.
+            !this._anchorTargetIsStale() &&
             this._lastHoverConfirmedClientX !== null &&
             this._lastHoverConfirmedClientY !== null
         ) {
@@ -1265,7 +1325,10 @@ export class SelectionManager implements ISelectionManager {
         this.unselectAll();
         this.selectedObject = obj;
 
-        this.applyHighlight(obj);
+        // §SELECT-INSTANCED-PICK (FIX #5) — pass the per-instance element id so the
+        // highlight for an instanced-only element (column/beam) reads that one
+        // instance's OBB, not the whole group's union AABB.
+        this.applyHighlight(obj, elementIdOverride);
         this.updateInspector(obj);
 
         // §STAIR-3D-MOVE (2026-06-11) — stairs are now movable via the gizmo, the
@@ -1376,8 +1439,24 @@ export class SelectionManager implements ISelectionManager {
         return false;
     }
 
-    applyHighlight(obj: THREE.Object3D) {
+    applyHighlight(obj: THREE.Object3D, instanceElementId?: string) {
         this.clearHighlight();
+
+        // §SELECT-INSTANCED-PICK (FIX #5) — instanced-only element (column/beam):
+        // the selected element IS one slot of an InstancedElementRenderer group, so
+        // there is no clonable per-element mesh — _buildGeometryHighlight would skip
+        // the InstancedMesh and the AABB fallback would box the WHOLE group's union.
+        // Build a real purple OBB from the per-instance extents stamped at register()
+        // time (userData.getInstanceObb(slot)), keeping the unified PRYZM purple.
+        if (obj.userData?.isInstancedGroup === true && instanceElementId) {
+            const obb = this._instanceObbFor(obj, instanceElementId);
+            if (obb) {
+                this._applyObbHighlight(obj, obb.center, obb.size, obb.quaternion);
+                return;
+            }
+            // No OBB available — fall through to the generic paths below.
+        }
+
         if (!(obj instanceof THREE.Mesh || obj instanceof THREE.Group)) return;
 
         const elementType = (obj.userData?.elementType ?? '').toLowerCase();
@@ -1545,6 +1624,99 @@ export class SelectionManager implements ISelectionManager {
             return null;
         }
         return group;
+    }
+
+    /**
+     * §SELECT-INSTANCED-PICK (FIX #5) — resolve the per-instance world-space OBB
+     * for `instanceElementId` within an InstancedElementRenderer group, or null if
+     * the group does not expose the helpers / the element is not an instance.
+     *
+     * The group stamps `getOccupiedInstanceSlots()`, `getInstanceElementId(slot)`
+     * and `getInstanceObb(slot)` on userData at register() time. We resolve the
+     * slot whose element id matches, then read its OBB.
+     */
+    private _instanceObbFor(
+        obj: THREE.Object3D,
+        instanceElementId: string,
+    ): { center: THREE.Vector3; size: THREE.Vector3; quaternion: THREE.Quaternion } | null {
+        const ud = obj.userData as {
+            getOccupiedInstanceSlots?: () => readonly number[];
+            getInstanceElementId?: (slot: number) => string | undefined;
+            getInstanceObb?: (slot: number) => {
+                center: { x: number; y: number; z: number };
+                size: { x: number; y: number; z: number };
+                quaternion: { x: number; y: number; z: number; w: number };
+            } | undefined;
+        };
+        if (!ud.getOccupiedInstanceSlots || !ud.getInstanceElementId || !ud.getInstanceObb) {
+            return null;
+        }
+        for (const slot of ud.getOccupiedInstanceSlots()) {
+            if (ud.getInstanceElementId(slot) === instanceElementId) {
+                const raw = ud.getInstanceObb(slot);
+                if (!raw) return null;
+                return {
+                    center: new THREE.Vector3(raw.center.x, raw.center.y, raw.center.z),
+                    size: new THREE.Vector3(raw.size.x, raw.size.y, raw.size.z),
+                    quaternion: new THREE.Quaternion(
+                        raw.quaternion.x, raw.quaternion.y, raw.quaternion.z, raw.quaternion.w,
+                    ),
+                };
+            }
+        }
+        return null;
+    }
+
+    /**
+     * §SELECT-INSTANCED-PICK (FIX #5) — build a STRONG unified-purple (#6600FF) OBB
+     * highlight box from an explicit oriented box. Used for instanced-only elements
+     * where there is no clonable per-element mesh to overlay. Unlike the faint 0.15
+     * AABB fallback, this is the element's EXACT oriented box (opacity 0.4 fill +
+     * crisp purple edges), so columns/beams read as a real highlight.
+     */
+    private _applyObbHighlight(
+        obj: THREE.Object3D,
+        center: THREE.Vector3,
+        size: THREE.Vector3,
+        quaternion: THREE.Quaternion,
+    ): void {
+        const PADDING = 0.06; // metres — small clearance so the box doesn't z-fight the surface
+        const geo = new THREE.BoxGeometry(size.x + PADDING, size.y + PADDING, size.z + PADDING);
+        const mat = new THREE.MeshBasicMaterial({
+            color:               0x6600FF, // unified PRYZM purple
+            transparent:         true,
+            opacity:             0.4,      // strong fill (matches the geometry overlay), not the faint 0.15 box
+            depthWrite:          false,
+            side:                THREE.DoubleSide,
+            polygonOffset:       true,
+            polygonOffsetFactor: -2,
+            polygonOffsetUnits:  -2,
+        });
+
+        const box = new THREE.Mesh(geo, mat);
+        box.position.copy(center);
+        box.quaternion.copy(quaternion);
+        box.userData.isHelper = true;
+        box.renderOrder = 999;
+
+        const edgesGeo = new THREE.EdgesGeometry(geo);
+        const edgesMat = new THREE.LineBasicMaterial({ color: 0x6600FF, linewidth: 2 });
+        box.add(new THREE.LineSegments(edgesGeo, edgesMat));
+
+        this.highlightMesh = box;
+        this.world.scene.three.add(box);
+
+        this.transformControls.attach(obj);
+        this.selectedObject = obj;
+
+        if (this.levelPlaneConstraint) {
+            this.levelPlaneConstraint.detach();
+            const elemType = (obj.userData?.elementType ?? '').toLowerCase();
+            const isHosted = elemType === 'door' || elemType === 'window';
+            if (!isHosted) {
+                this.levelPlaneConstraint.attach(obj);
+            }
+        }
     }
 
 

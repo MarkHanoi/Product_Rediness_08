@@ -127,6 +127,49 @@ interface PickEntry {
    * every panel in the wall is reachable by the pick ray.
    */
   readonly additionalClones: THREE.Object3D[];
+  /**
+   * §SELECT-INSTANCED-PICK (FIX #4) — the source element's `userData.version` at
+   * the time this entry was built. Builders bump `userData.version` on EVERY
+   * geometry rebuild. When a rapid hover+click straddles a rebuild that swaps the
+   * element's InstancedMesh children WITHOUT changing their count (e.g. a
+   * curtain-wall panel rebuild keeping the panel count), the count-based
+   * reconciliation alone cannot tell the clones are stale. A generation mismatch
+   * forces a FULL rebuild of the entry, so no clone is left pointing at orphaned
+   * geometry. `undefined` = element carries no version (never invalidates on gen).
+   */
+  generation: number | undefined;
+}
+
+/**
+ * §SELECT-INSTANCED-PICK (FIX #1) — a registry entry for an
+ * InstancedElementRenderer group (userData.isInstancedGroup === true).
+ *
+ * Unlike a coalesced curtain-wall (where ONE InstancedMesh = ONE element), an
+ * instanced GROUP hosts MANY distinct BIM elements, one per occupied instance
+ * slot.  The pick must therefore paint a DISTINCT pick colour PER INSTANCE so
+ * the readback resolves the per-INSTANCE element id — never the synthetic group
+ * id.  The clone is a single pick-coloured InstancedMesh whose `instanceColor`
+ * encodes each instance's allocated pick slot; `pickSlotByInstance` records the
+ * pick slot allocated for each source instance slot so they can be freed and
+ * the indexToId map kept consistent on rebuild/removal.
+ */
+interface InstancedGroupPickEntry {
+  /** This entry hosts an InstancedElementRenderer group — distinct render path. */
+  readonly kind: 'instanced-group';
+  /** The pick-coloured InstancedMesh clone in world space. */
+  readonly clone: THREE.InstancedMesh;
+  /** White material (instanceColor passes through 1:1). */
+  readonly material: THREE.MeshBasicMaterial;
+  /** sourceInstanceSlot → allocated pick slot.  Used for free-list + indexToId upkeep. */
+  readonly pickSlotByInstance: Map<number, number>;
+  /**
+   * Stable signature of the (sourceSlot → elementId) membership at build time.
+   * When the next sync sees the SAME signature, only the per-instance world
+   * matrices are refreshed — the allocated pick slots + colours are kept stable
+   * (so a hover→click pair resolves the same element). Only a membership CHANGE
+   * triggers a full dispose + rebuild.
+   */
+  membershipSig: string;
 }
 
 export class GpuPickStrategy implements PickStrategy {
@@ -167,6 +210,12 @@ export class GpuPickStrategy implements PickStrategy {
 
   private readonly pickScene = new THREE.Scene();
   private readonly entries = new Map<ElementId, PickEntry>();
+  /**
+   * §SELECT-INSTANCED-PICK (FIX #1) — registry-id → instanced-group entry.
+   * Keyed by the group's SYNTHETIC userData.id; the per-instance element ids it
+   * resolves live in `indexToId` exactly like any other element.
+   */
+  private readonly instancedGroupEntries = new Map<ElementId, InstancedGroupPickEntry>();
   private readonly indexToId = new Map<number, ElementId>();
   private nextSlot = 1; // slot 0 reserved for "no hit"
 
@@ -329,6 +378,12 @@ export class GpuPickStrategy implements PickStrategy {
         this.pickScene.remove(c);
       }
     }
+    // §SELECT-INSTANCED-PICK (FIX #1) — tear down instanced-group pick clones.
+    for (const [, entry] of this.instancedGroupEntries) {
+      this.pickScene.remove(entry.clone);
+      entry.material.dispose();
+    }
+    this.instancedGroupEntries.clear();
     this.entries.clear();
     this.indexToId.clear();
     this.renderTarget = null;
@@ -762,12 +817,38 @@ export class GpuPickStrategy implements PickStrategy {
           this.entries.delete(id);
         }
       }
+      // §SELECT-INSTANCED-PICK (FIX #1) — parallel removal pass for instanced
+      // groups that left the registry: drop their clone + free every per-instance
+      // pick slot they held so indexToId never resolves a stale element id.
+      for (const [id, entry] of this.instancedGroupEntries) {
+        if (!liveIds.has(id)) {
+          this._disposeInstancedGroupEntry(id, entry);
+        }
+      }
     }
 
     // Add new elements + refresh transforms.
     for (const id of liveIds) {
       const obj = registry.objectFor(id);
       if (obj === null) continue;
+
+      // §SELECT-INSTANCED-PICK (FIX #1) — InstancedElementRenderer group path.
+      // The group carries a single SYNTHETIC userData.id (so the registry includes
+      // it) but hosts MANY BIM elements, one per occupied instance slot. We paint
+      // a DISTINCT pick colour per instance and register each instance's element id
+      // under its OWN pick slot, so the id-buffer readback resolves the per-INSTANCE
+      // element — never the synthetic group id. This is the GPU-path mirror of the
+      // BVH path's hit.instanceId → getInstanceElementId(slot) resolution.
+      if (obj.userData?.isInstancedGroup === true && obj instanceof THREE.InstancedMesh) {
+        this._syncInstancedGroup(id, obj);
+        continue;
+      }
+
+      // §SELECT-INSTANCED-PICK (FIX #4) — generation guard: if the element was
+      // rebuilt since its entry was created (userData.version bumped), drop the
+      // stale entry so it is rebuilt fresh below — defeating the rapid hover+click
+      // reconciliation race where an IM-child swap keeps the same count.
+      this._invalidateIfStaleGeneration(id, obj);
 
       // ADR-046: Collect ALL InstancedMesh descendants (including hidden ones
       // whose geometry is now served visually by a merged IM).  For each IM,
@@ -810,7 +891,13 @@ export class GpuPickStrategy implements PickStrategy {
             additionalClones.push(extra);
           }
 
-          this.entries.set(id, { slotIndex, clone: primaryClone, material, additionalClones });
+          this.entries.set(id, {
+            slotIndex,
+            clone: primaryClone,
+            material,
+            additionalClones,
+            generation: (obj.userData as { version?: number }).version,
+          });
           this.indexToId.set(slotIndex, id);
         } else {
           // Refresh transforms for all existing clones.
@@ -885,7 +972,13 @@ export class GpuPickStrategy implements PickStrategy {
           additionalClones.push(extra);
         }
 
-        entry = { slotIndex, clone, material, additionalClones };
+        entry = {
+          slotIndex,
+          clone,
+          material,
+          additionalClones,
+          generation: (obj.userData as { version?: number }).version,
+        };
         this.entries.set(id, entry);
         this.indexToId.set(slotIndex, id);
       }
@@ -924,6 +1017,172 @@ export class GpuPickStrategy implements PickStrategy {
         }
       }
     }
+  }
+
+  /**
+   * §SELECT-INSTANCED-PICK (FIX #1) — render an InstancedElementRenderer group
+   * into the pick scene with a DISTINCT pick colour per occupied instance.
+   *
+   * Each occupied instance hosts a different BIM element. We:
+   *   1. resolve every occupied source slot via `getOccupiedInstanceSlots()`,
+   *   2. resolve each slot's element id via `getInstanceElementId(slot)`,
+   *   3. allocate ONE pick slot per element id and register `indexToId[pickSlot]
+   *      = elementId`,
+   *   4. bake the pick-slot colour into the clone InstancedMesh's `instanceColor`
+   *      at the SAME source slot index, copying that instance's world matrix.
+   *
+   * The id-buffer readback at a pixel covered by instance `k` therefore decodes
+   * to instance `k`'s pick slot → its per-INSTANCE element id. The synthetic
+   * group id is never the resolved selection — it exists only so the registry
+   * includes the group. Rebuilt fully each call (instance counts are small and
+   * the slot set can change as the curtain-wall / structural grid rebuilds).
+   */
+  private _syncInstancedGroup(id: ElementId, group: THREE.InstancedMesh): void {
+    const ud = group.userData as {
+      getOccupiedInstanceSlots?: () => readonly number[];
+      getInstanceElementId?: (slot: number) => string | undefined;
+    };
+    const occupied = ud.getOccupiedInstanceSlots?.() ?? [];
+    const getElemId = ud.getInstanceElementId;
+
+    // Build the membership signature (sourceSlot:elementId, sorted) so a stable
+    // group only refreshes matrices and keeps its pick slots + colours — a
+    // hover→click pair must resolve the SAME element. Only a membership change
+    // (slot added/removed/re-homed) forces a full dispose + rebuild.
+    const pairs: string[] = [];
+    if (getElemId !== undefined) {
+      for (const slot of occupied) {
+        const eid = getElemId(slot);
+        if (eid !== undefined) pairs.push(`${slot}\x1f${eid}`);
+      }
+    }
+    pairs.sort();
+    const membershipSig = pairs.join('\x00');
+
+    const prior = this.instancedGroupEntries.get(id);
+    if (prior && prior.membershipSig === membershipSig && membershipSig !== '') {
+      // STABLE membership — refresh only the per-instance world matrices.
+      group.updateMatrixWorld(true);
+      const localM = new THREE.Matrix4();
+      const worldM = new THREE.Matrix4();
+      for (const srcSlot of prior.pickSlotByInstance.keys()) {
+        group.getMatrixAt(srcSlot, localM);
+        worldM.multiplyMatrices(group.matrixWorld, localM);
+        prior.clone.setMatrixAt(srcSlot, worldM);
+      }
+      prior.clone.instanceMatrix.needsUpdate = true;
+      return;
+    }
+
+    // Membership changed (or first build) — tear down any prior entry and rebuild.
+    if (prior) this._disposeInstancedGroupEntry(id, prior);
+
+    if (occupied.length === 0 || getElemId === undefined) return;
+
+    group.updateMatrixWorld(true);
+
+    const count = group.count;
+    const material = new THREE.MeshBasicMaterial({
+      // White base so the per-instance `instanceColor` passes through 1:1 — the
+      // colour the readback decodes is EXACTLY the encoded pick slot.
+      color: new THREE.Color(1, 1, 1),
+      transparent: false,
+      depthTest: true,
+      depthWrite: true,
+      // FIX-S16-Z parity: pull pick fragments slightly toward the camera.
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
+    });
+
+    const clone = new THREE.InstancedMesh(group.geometry, material, count);
+    clone.matrixAutoUpdate = false;
+    clone.matrix.identity();
+    clone.matrixWorld.identity();
+
+    // Park EVERY slot at zero scale + slot-0 colour ("no hit") so non-occupied
+    // slots produce no pickable fragments and never decode to a live element.
+    const zero = new THREE.Matrix4().makeScale(0, 0, 0);
+    const black = new THREE.Color(0, 0, 0);
+    for (let i = 0; i < count; i++) {
+      clone.setMatrixAt(i, zero);
+      clone.setColorAt(i, black);
+    }
+
+    const localMatrix = new THREE.Matrix4();
+    const worldMatrix = new THREE.Matrix4();
+    const pickSlotByInstance = new Map<number, number>();
+    const colour = new THREE.Color();
+
+    for (const srcSlot of occupied) {
+      if (srcSlot < 0 || srcSlot >= count) continue;
+      const elemId = getElemId(srcSlot);
+      if (elemId === undefined) continue;
+
+      const pickSlot = this._allocateSlot();
+      this.indexToId.set(pickSlot, elemId);
+      pickSlotByInstance.set(srcSlot, pickSlot);
+
+      const [r, g, b] = encodeIndexToRGBA(pickSlot);
+      colour.setRGB(r / 255, g / 255, b / 255);
+      clone.setColorAt(srcSlot, colour);
+
+      // World matrix = group world transform × per-instance local matrix.
+      group.getMatrixAt(srcSlot, localMatrix);
+      worldMatrix.multiplyMatrices(group.matrixWorld, localMatrix);
+      clone.setMatrixAt(srcSlot, worldMatrix);
+    }
+
+    clone.instanceMatrix.needsUpdate = true;
+    if (clone.instanceColor) clone.instanceColor.needsUpdate = true;
+    this.pickScene.add(clone);
+    this.instancedGroupEntries.set(id, {
+      kind: 'instanced-group',
+      clone,
+      material,
+      pickSlotByInstance,
+      membershipSig,
+    });
+  }
+
+  /**
+   * §SELECT-INSTANCED-PICK (FIX #1) — dispose one instanced-group pick entry:
+   * remove its clone, free every per-instance pick slot it held (returning them
+   * to the free-list and clearing indexToId), and dispose its material.
+   */
+  private _disposeInstancedGroupEntry(id: ElementId, entry: InstancedGroupPickEntry): void {
+    this.pickScene.remove(entry.clone);
+    for (const pickSlot of entry.pickSlotByInstance.values()) {
+      this.indexToId.delete(pickSlot);
+      this._freeSlots.push(pickSlot);
+    }
+    entry.material.dispose();
+    this.instancedGroupEntries.delete(id);
+  }
+
+  /**
+   * §SELECT-INSTANCED-PICK (FIX #4) — generation guard against a reconciliation
+   * race. If an existing standard pick entry's stored generation differs from the
+   * element's CURRENT `userData.version`, the element was rebuilt since the entry
+   * was created (possibly swapping its InstancedMesh children with no count
+   * change). Dispose the entry (freeing its slot + clones) so the add path below
+   * rebuilds it from scratch, rather than incrementally reconciling clones that
+   * may point at orphaned geometry. No-op when the element carries no version or
+   * the generation is unchanged.  Returns true if the entry was invalidated.
+   */
+  private _invalidateIfStaleGeneration(id: ElementId, obj: THREE.Object3D): boolean {
+    const entry = this.entries.get(id);
+    if (entry === undefined) return false;
+    const currentGen = (obj.userData as { version?: number }).version;
+    if (currentGen === undefined || currentGen === entry.generation) return false;
+
+    this.pickScene.remove(entry.clone);
+    for (const c of entry.additionalClones) this.pickScene.remove(c);
+    entry.material.dispose();
+    this.indexToId.delete(entry.slotIndex);
+    this._freeSlots.push(entry.slotIndex);
+    this.entries.delete(id);
+    return true;
   }
 }
 

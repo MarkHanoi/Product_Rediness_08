@@ -8,6 +8,7 @@ import {
   chooseNearestThinSlot,
 } from '../src/gpu-pick.js';
 import {
+  decodeRGBAToIndex,
   encodeIndexToRGBA,
   type ElementRegistry,
   type GpuPickRenderer,
@@ -479,6 +480,214 @@ describe('GpuPickStrategy depth readback (Task 2.4 / R10 / C04 §3)', () => {
     };
     const result = strategy.pick({ x: 50, y: 50 }, ctx);
     expect(result).toBeNull(); // null from pickInternal, not a crash
+  });
+});
+
+// ---------------------------------------------------------------------------
+// §SELECT-INSTANCED-PICK (FIX #1) — instanced groups resolve to the PER-INSTANCE
+// element id on the GPU pick path (not the synthetic group id, not undefined).
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a fake InstancedElementRenderer group: a THREE.InstancedMesh stamped
+ * with the SAME userData contract the real renderer stamps (synthetic group id,
+ * isInstancedGroup, getOccupiedInstanceSlots, getInstanceElementId). Each
+ * `elementIds[k]` occupies source instance slot `k`.
+ */
+function makeInstancedGroup(elementIds: (string | undefined)[]): THREE.InstancedMesh {
+  const geo = new THREE.BoxGeometry(0.3, 3, 0.3);
+  const im = new THREE.InstancedMesh(geo, new THREE.MeshBasicMaterial(), elementIds.length);
+  im.count = elementIds.length;
+  const m = new THREE.Matrix4();
+  for (let i = 0; i < elementIds.length; i++) {
+    m.makeTranslation(i * 2, 0, 0);
+    im.setMatrixAt(i, m);
+  }
+  im.instanceMatrix.needsUpdate = true;
+  const occupied = elementIds.map((id, i) => (id === undefined ? -1 : i)).filter((i) => i >= 0);
+  im.userData.id = 'instanced-group-key';
+  im.userData.isInstancedGroup = true;
+  im.userData.elementType = 'column';
+  im.userData.getOccupiedInstanceSlots = () => occupied;
+  im.userData.getInstanceElementId = (slot: number): string | undefined => elementIds[slot];
+  return im;
+}
+
+/** Registry returning a single instanced group under its synthetic id. */
+function instancedGroupRegistry(im: THREE.InstancedMesh): ElementRegistry {
+  const id = im.userData.id as string;
+  return {
+    kindOf: (queryId) => (queryId === id ? ('column' as never) : (null as never)),
+    ids: () => [id],
+    objectFor: (queryId) => (queryId === id ? im : null),
+  };
+}
+
+/**
+ * Reach into the strategy's internal pick scene + indexToId map (TS `private` is
+ * not a runtime barrier — test-only introspection) and return, for each occupied
+ * SOURCE instance slot, the element id its baked pick colour decodes to. This is
+ * the exact pair the id-buffer readback consumes: instanceColor[srcSlot] → pick
+ * slot → indexToId → per-INSTANCE element id.
+ */
+function resolveInstancedColours(strategy: GpuPickStrategy): Map<number, string> {
+  const scene = (strategy as unknown as { pickScene: THREE.Scene }).pickScene;
+  const indexToId = (strategy as unknown as { indexToId: Map<number, string> }).indexToId;
+  let clone: THREE.InstancedMesh | null = null;
+  scene.traverse((o) => {
+    if ((o as THREE.InstancedMesh).isInstancedMesh) clone = o as THREE.InstancedMesh;
+  });
+  if (clone === null) throw new Error('no instanced pick clone in pick scene');
+  const im = clone as THREE.InstancedMesh;
+  const out = new Map<number, string>();
+  const c = new THREE.Color();
+  for (let slot = 0; slot < im.count; slot++) {
+    im.getColorAt(slot, c);
+    const pickSlot = decodeRGBAToIndex(
+      Math.round(c.r * 255), Math.round(c.g * 255), Math.round(c.b * 255), 255,
+    );
+    const elementId = indexToId.get(pickSlot);
+    if (elementId !== undefined) out.set(slot, elementId);
+  }
+  return out;
+}
+
+function buildInstancedGroupPick(elementIds: (string | undefined)[]): GpuPickStrategy {
+  const strategy = new GpuPickStrategy({ targetWidth: 4, targetHeight: 4 });
+  const im = makeInstancedGroup(elementIds);
+  const registry = instancedGroupRegistry(im);
+  const { renderer } = makeFakeRenderer(4, 4);
+  const ctx: PickContext = {
+    camera: makeCamera(),
+    elementRegistry: registry,
+    viewportWidth: 100,
+    viewportHeight: 100,
+    scene: new THREE.Scene(),
+    renderer,
+  };
+  // One pick builds the instanced pick clone + per-instance pick colours.
+  strategy.pick({ x: 50, y: 50 }, ctx);
+  return strategy;
+}
+
+describe('GpuPickStrategy instanced groups (§SELECT-INSTANCED-PICK FIX #1)', () => {
+  it('source instance slot 2 resolves to slot-2 element id, NOT the synthetic group id', () => {
+    const strategy = buildInstancedGroupPick(['col-0', 'col-1', 'col-2']);
+    const resolved = resolveInstancedColours(strategy);
+    // The id-buffer pixel covered by instance 2 decodes to col-2's element id.
+    expect(resolved.get(2)).toBe('col-2');
+    expect(resolved.get(2)).not.toBe('instanced-group-key');
+  });
+
+  it('each occupied instance maps to its OWN element id (wall/column/beam mirror)', () => {
+    const strategy = buildInstancedGroupPick(['beam-A', 'beam-B', 'beam-C']);
+    const resolved = resolveInstancedColours(strategy);
+    expect(resolved.get(0)).toBe('beam-A');
+    expect(resolved.get(1)).toBe('beam-B');
+    expect(resolved.get(2)).toBe('beam-C');
+  });
+
+  it('the synthetic group id is never a resolved selection (group is a hosting handle only)', () => {
+    const strategy = buildInstancedGroupPick(['col-0', 'col-1']);
+    const resolved = resolveInstancedColours(strategy);
+    const ids = new Set(resolved.values());
+    expect(ids.has('col-0')).toBe(true);
+    expect(ids.has('col-1')).toBe(true);
+    expect(ids.has('instanced-group-key')).toBe(false);
+  });
+
+  it('an unoccupied slot stays at "no hit" (decodes to no element)', () => {
+    // slot 1 is a gap (undefined) — its parked colour must NOT decode to any element.
+    const strategy = buildInstancedGroupPick(['col-0', undefined, 'col-2']);
+    const resolved = resolveInstancedColours(strategy);
+    expect(resolved.get(0)).toBe('col-0');
+    expect(resolved.has(1)).toBe(false); // parked → background
+    expect(resolved.get(2)).toBe('col-2');
+  });
+
+  it('the synthetic group id makes the group reachable through the registry', () => {
+    // FIX #1 precondition: the group must carry a userData.id (the real renderer
+    // stamps `instanced-group-${key}`) so _buildElementRegistry includes it and
+    // syncPickScene renders it into the id buffer. Without an id it was excluded.
+    const im = makeInstancedGroup(['col-0']);
+    expect(im.userData.id).toBe('instanced-group-key');
+    expect(im.userData.isInstancedGroup).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// §SELECT-INSTANCED-PICK (FIX #4) — generation guard rejects a stale
+// reconciliation when an element rebuilds (userData.version bump) between picks.
+// ---------------------------------------------------------------------------
+
+describe('GpuPickStrategy generation guard (§SELECT-INSTANCED-PICK FIX #4)', () => {
+  it('a userData.version bump forces a fresh entry (new geometry survives, no orphan)', () => {
+    const strategy = new GpuPickStrategy({ targetWidth: 4, targetHeight: 4 });
+    const mesh = makeMesh();
+    mesh.userData.version = 1;
+    const registry = fakeRegistry([{ id: 'cw-1', kind: 'curtainWall', mesh }]);
+    const { renderer, setPixels } = makeFakeRenderer(4, 4);
+    const ctx: PickContext = {
+      camera: makeCamera(),
+      elementRegistry: registry,
+      viewportWidth: 100,
+      viewportHeight: 100,
+      scene: new THREE.Scene(),
+      renderer,
+    };
+
+    // First pick at version 1 — entry built, slot 1 assigned.
+    strategy.pick({ x: 50, y: 50 }, ctx);
+    const sceneRef = (strategy as unknown as { pickScene: THREE.Scene }).pickScene;
+    const firstClone = sceneRef.children.find(
+      (c) => (c as THREE.Mesh).isMesh,
+    ) as THREE.Mesh;
+
+    // Simulate a rebuild that swaps the geometry but keeps the SAME mesh object
+    // and child count — only userData.version bumps (the curtain-wall panel
+    // rebuild race). Without the generation guard the stale clone would persist.
+    const newGeo = new THREE.BoxGeometry(2, 2, 2);
+    mesh.geometry = newGeo;
+    mesh.userData.version = 2;
+
+    strategy.pick({ x: 50, y: 50 }, ctx);
+    const secondClone = sceneRef.children.find(
+      (c) => (c as THREE.Mesh).isMesh,
+    ) as THREE.Mesh;
+
+    // The entry was invalidated + rebuilt → a NEW clone instance referencing the
+    // NEW geometry (the stale reconciliation was rejected).
+    expect(secondClone).not.toBe(firstClone);
+    expect(secondClone.geometry).toBe(newGeo);
+
+    // And the element is still pickable under its id after the rebuild.
+    const [r, g, b, a] = encodeIndexToRGBA(1);
+    setPixels(() => [r, g, b, a]);
+    const result = strategy.pick({ x: 50, y: 50 }, ctx);
+    expect(result!.elementId).toBe('cw-1');
+  });
+
+  it('an unchanged version reuses the SAME entry (no needless rebuild)', () => {
+    const strategy = new GpuPickStrategy({ targetWidth: 4, targetHeight: 4 });
+    const mesh = makeMesh();
+    mesh.userData.version = 7;
+    const registry = fakeRegistry([{ id: 'wall-x', kind: 'wall', mesh }]);
+    const { renderer } = makeFakeRenderer(4, 4);
+    const ctx: PickContext = {
+      camera: makeCamera(),
+      elementRegistry: registry,
+      viewportWidth: 100,
+      viewportHeight: 100,
+      scene: new THREE.Scene(),
+      renderer,
+    };
+    strategy.pick({ x: 50, y: 50 }, ctx);
+    const sceneRef = (strategy as unknown as { pickScene: THREE.Scene }).pickScene;
+    const firstClone = sceneRef.children.find((c) => (c as THREE.Mesh).isMesh);
+
+    strategy.pick({ x: 50, y: 50 }, ctx); // same version → no invalidation
+    const secondClone = sceneRef.children.find((c) => (c as THREE.Mesh).isMesh);
+    expect(secondClone).toBe(firstClone);
   });
 });
 
