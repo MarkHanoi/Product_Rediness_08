@@ -364,8 +364,13 @@ export {
   RESI_APARTMENT_CONSTRAINTS,
   RESI_SCORING_WEIGHTS,
   RESI_LAYOUT_COUNT,
+  // §RESI-CORE-REWORK — clearance-derived core sizing (the single source of truth the
+  // orchestrator floors the core at; exposed for tests + future consumers).
+  deriveCoreSizing,
 } from './workflows/residentialBuilding/index.js';
 export type {
+  CoreSizing,
+  CoreSizingInput,
   ResidentialBuildingOrchestratorInput,
   ResidentialBuildingResult,
   ResidentialBuildingOk,

@@ -165,7 +165,7 @@ describe('residentialBuildingOrchestrator — P3', () => {
         expect(r.core.x1 - r.core.x0).toBeLessThan(6);
     });
 
-    it('§RESI-SMALL-PLATE-CORE-SCALE — a LARGE plate keeps the requested core + corridor EXACTLY (identity)', () => {
+    it('§RESI-CORE-REWORK — a LARGE plate floors the core at the clearance MINIMUM (deeper than the old 6×4), corridor identity kept', async () => {
         const r = orchestrateResidentialBuilding(
             input({
                 footprint: rectPoly(40, 40),
@@ -180,9 +180,17 @@ describe('residentialBuildingOrchestrator — P3', () => {
         );
         expect(r.status).toBe('ok');
         if (r.status !== 'ok') return;
-        // Requested core kept exactly (no down-scaling on a plate that comfortably holds it).
-        expect(r.core.x1 - r.core.x0).toBeCloseTo(6, 3);
-        expect(r.core.z1 - r.core.z0).toBeCloseTo(4, 3);
+        // §RESI-CORE-REWORK — the requested core is now FLOORED at the clearance-derived minimum so
+        // the stair body (incl. the half-turn landing) + lift shaft + 1.2 m approaches fit inside.
+        // Width 6 ≥ the derived min (≈4.28) ⇒ kept; depth 4 < the derived min (≈6.31) ⇒ RAISED to it.
+        const coreW = r.core.x1 - r.core.x0;
+        const coreD = r.core.z1 - r.core.z0;
+        const { deriveCoreSizing } = await import('../coreSizing.js');
+        const min = deriveCoreSizing({ maxFloorToFloorM: 4.5 });
+        expect(coreW).toBeGreaterThanOrEqual(min.coreWidthM - 1e-6);
+        expect(coreW).toBeCloseTo(6, 3);                       // requested width kept (≥ min)
+        expect(coreD).toBeCloseTo(min.coreDepthM, 3);          // depth floored UP to the clearance min
+        expect(coreD).toBeGreaterThan(4);                      // the founder's bigger core
         // Requested corridor kept exactly (1.5 m wide).
         const corr = r.perLevelApartments[1]!.publicCorridor[0]!;
         expect(corr.z1 - corr.z0).toBeCloseTo(1.5, 3);

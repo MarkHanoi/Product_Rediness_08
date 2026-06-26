@@ -89,14 +89,16 @@ const STAIR_RISER_MIN_M = 0.15;
 const STAIR_RISER_MAX_M = 0.19;
 const STAIR_TREAD_M = 0.27;
 const STAIR_WIDTH_M = 1.0;
+/** §RESI-CORE-REWORK — the architectural approach clearance (m): the clear run in front of the
+ *  stair's first riser (to step ON) + the lift door. MUST equal `APPROACH_CLEAR_M` in the ai-host
+ *  `coreSizing` module (the orchestrator sizes the core to hold this approach; the executor seats the
+ *  stair lobby to it). Kept as a local mirror so the editor needn't import a value across the
+ *  worktree package boundary; the coreSizing unit tests pin the ai-host side at the same 1.2 m. */
+const RESI_APPROACH_CLEAR_M = 1.2;
 /** §RESI-GROUND-DOOR-BAY — half-width of the solid entrance bay (door + frame). The ground
  *  corridor is built this wide too (founder 2026-06-24: "the corridor can be as wide as the
  *  solid portion of the façade"). */
 const ENTRANCE_BAY_HALF_M = 1.6;
-/** §RESI-LIFT-LANDING-DOORS — the lift landing-door clear width (m). The resi lift command leaves
- *  VerticalCirculation `doorWidth` at its schema default (0.9 m), so the landing door matches it.
- *  Also the founder fallback when a per-lift width isn't carried into the executor. */
-const LIFT_LANDING_DOOR_W = 0.9;
 
 // §RESI-BALCONY (2026-06-24) — projecting cantilever balcony tuning (balcony spike D.2).
 const BALCONY_DEPTH_M = 1.4;             // cantilever depth off the façade (rule minShortSideM)
@@ -301,11 +303,15 @@ export class ResidentialBuildingExecutor {
         // the core walls are now SOLID; the two spine-facing edges get a real (fire-rated) door,
         // punched in a deferred pass once the core walls land in the store.
         const coreDoorSpecs: Array<{ wallId: string; offset: number; width: number; levelId: string }> = [];
-        // §RESI-LIFT-LANDING-DOORS (founder: a real lift has a landing door at EVERY served level) —
-        // a C15-hosted door opening in the core's z0 LOBBY-facing RC wall, at the LIFT shaft's
-        // x-position (the wall face the cab door abuts), on each level the lift serves. Punched in a
-        // deferred pass once the core walls land in the store, exactly like the core fire doors.
-        const landingDoorSpecs: Array<{ wallId: string; offset: number; width: number; levelId: string }> = [];
+        // §RESI-CORE-REWORK (founder 2026-06-26: "two confusing doors on the same core wall") — the
+        // earlier §RESI-LIFT-LANDING-DOORS added a SECOND door on the core's z0 PERIMETER wall (the
+        // lift "landing" door) right next to the centred fire door. Architecturally wrong: the core
+        // perimeter has exactly ONE pedestrian access door (the fire/lobby door into the core lobby);
+        // the lift is then reached from WITHIN the lobby. A lift LANDING door belongs on the lift
+        // SHAFT face (the wall the cab opens onto) — but the resi lift is a mesh (CreateVertical
+        // Circulation), NOT modelled as its own shaft walls, so there is no shaft face to host it.
+        // Per the rework, the perimeter landing door is REMOVED entirely (the landing-door collection
+        // + finish pass are gone); the core keeps its single fire door.
         // §RESI-GROUND-CURTAIN (founder "ground floor should have curtain panels for commercial",
         // 2026-06-24) — the GROUND façade is a glazed commercial shopfront (curtain walls on every
         // façade edge except the solid entrance bay), dispatched in the structural batch.
@@ -406,9 +412,8 @@ export class ResidentialBuildingExecutor {
                 // the façade colour.
                 corePerimeterPayloads.push(cp.payload);
                 coreDoorSpecs.push(...cp.doors);
-                // §RESI-LIFT-LANDING-DOORS — a lift landing door on the z0 lobby wall, at the lift
-                // shaft x (clear of the centred fire door). Skipped cleanly if it can't fit.
-                this._collectLandingDoor(landingDoorSpecs, result.core, cp.lobbyWallId, levelId);
+                // §RESI-CORE-REWORK — NO second perimeter door. The single fire/lobby door (in
+                // cp.doors) is the core's only pedestrian access; the lift is reached from the lobby.
             }
 
             // §RESI-GROUND-FLOOR — remember the ground shell (level 0) so the deferred pass can
@@ -476,9 +481,8 @@ export class ResidentialBuildingExecutor {
             const cp = this._buildCorePerimeter(roofLevelId, result.core, floorToFloorM, xf);
             corePerimeterPayloads.push(cp.payload);
             coreDoorSpecs.push(...cp.doors);
-            // §RESI-LIFT-LANDING-DOORS — the lift climbs ONE flight to the roof headhouse, so it
-            // serves the roof level too → a landing door on the roof core's z0 lobby wall.
-            this._collectLandingDoor(landingDoorSpecs, result.core, cp.lobbyWallId, roofLevelId);
+            // §RESI-CORE-REWORK — single fire/lobby door on the roof headhouse too (no second
+            // perimeter landing door); the lift is reached from the headhouse lobby.
         }
 
         console.log(`[resi-building] prepared — ${placedCount} apartment(s), ${rejectedCount} rejected, ${shellPayloads.length} shell ring(s)`);
@@ -641,12 +645,9 @@ export class ResidentialBuildingExecutor {
         if (groundLevelId && groundShellPayload) {
             this._buildEntranceDoor(groundLevelId, groundShellPayload, result.groundFloor, xf, groundDoorBay);
         }
-        // §RESI-CORE-DOORS — punch the two fire doors per level on the core walls (deferred).
+        // §RESI-CORE-DOORS — punch the single fire/lobby door per level on the core walls (deferred).
+        // §RESI-CORE-REWORK — the second perimeter "lift landing" door is removed; one door per core.
         this._finishCoreDoors(coreDoorSpecs);
-
-        // §RESI-LIFT-LANDING-DOORS — punch the lift landing door per served level on the z0 core
-        // wall, at the lift shaft x (deferred — the core wall.batch.create is async via the bus).
-        this._finishLandingDoors(landingDoorSpecs);
 
         // §RESI-GROUND-COMMERCIAL-CURTAIN — when the ground floor is the SOLID-shell commercial mode
         // (the default), punch the big shopfront windows on the ground shell walls (deferred — the
@@ -1039,61 +1040,12 @@ export class ResidentialBuildingExecutor {
      *  fire-door spec so the deferred pass punches a real door once the wall lands. `core` is the
      *  LOCAL (principal-axis) rect (metres); every corner is rotated to the WORLD parcel by `xf`,
      *  exactly like the cell perimeter, so the core sits on the rotated boundary (θ=0 ⇒ identity). */
-    /** §RESI-LIFT-LANDING-DOORS — the lift cab's LOCAL x within the core (RIGHT half, behind the
-     *  shared lobby band; mirrors `_createCore`). Single source of truth so the lift mesh and its
-     *  landing door (hosted on the z0 wall) share the exact same shaft x. Pure → unit-testable. */
+    /** §RESI-CORE-REWORK — the lift cab's LOCAL x within the core (RIGHT half, behind the shared
+     *  lobby band; mirrors `_createCore`). Single source of truth for the lift mesh's shaft x.
+     *  Pure → unit-testable. (The former lift "landing door" that this also fed has been removed:
+     *  the core has ONE perimeter fire door; the lift is reached from the lobby.) */
     private static _liftLocalCx(core: { x0: number; x1: number }): number {
         return core.x0 + (core.x1 - core.x0) * 0.75;
-    }
-
-    /** §RESI-LIFT-LANDING-DOORS — the along-wall offset (leading edge) for the lift landing door on
-     *  the core's z0 lobby wall. The z0 wall runs from the LOCAL corner (x0,z0)→(x1,z0), so the
-     *  along-wall distance to the lift centre is `liftCx − x0`; the door's leading edge sits half a
-     *  width back, clamped so the leaf stays inside the wall ends. Pure → unit-testable. Returns
-     *  `undefined` when the door cannot fit clear of the wall ends (skip rather than overhang). */
-    static landingDoorOffset(
-        core: { x0: number; x1: number },
-        width: number,
-        jambM = 0.2,
-    ): number | undefined {
-        const wallLen = core.x1 - core.x0;
-        if (!(wallLen > 0) || !(width > 0) || width + 2 * jambM > wallLen) return undefined;
-        const liftCx = ResidentialBuildingExecutor._liftLocalCx(core);
-        const centre = liftCx - core.x0;                 // along-wall distance to the shaft centre
-        let offset = centre - width / 2;                 // leading edge
-        offset = Math.min(Math.max(jambM, offset), wallLen - jambM - width);
-        return offset;
-    }
-
-    /** §RESI-LIFT-LANDING-DOORS — record ONE lift landing-door spec for this level on the core's
-     *  z0 lobby wall, at the lift shaft x. Guards: (a) the lobby wall must exist (an edge that
-     *  degenerated to <0.05 m returns no id — skip), (b) the door must fit clear of the wall ends
-     *  (`landingDoorOffset` returns `undefined` otherwise), and (c) it must NOT overlap the centred
-     *  fire door on the SAME wall (a separate offset on the SAME face) — skip if it would. Width =
-     *  the lift's landing-door width (the lift command leaves `doorWidth` at the schema default 0.9
-     *  m → that's the width here too; falls back to 0.9 if absent). */
-    private _collectLandingDoor(
-        out: Array<{ wallId: string; offset: number; width: number; levelId: string }>,
-        core: { x0: number; x1: number; z0: number; z1: number },
-        lobbyWallId: string | undefined,
-        levelId: string,
-        liftDoorWidth?: number,
-    ): void {
-        if (!lobbyWallId) return;   // (a) no hostable z0 face on this level
-        const width = liftDoorWidth && liftDoorWidth > 0 ? liftDoorWidth : LIFT_LANDING_DOOR_W;
-        const offset = ResidentialBuildingExecutor.landingDoorOffset(core, width);
-        if (offset === undefined) return;   // (b) cannot fit clear of the wall ends
-        // (c) Don't collide with the centred fire door on the SAME z0 wall. The fire door is
-        // centred (`_buildCorePerimeter`: offset (len−w)/2, w = min(1.0, max(0.8, len−0.4))).
-        const wallLen = core.x1 - core.x0;
-        const fireW = Math.min(1.0, Math.max(0.8, wallLen - 0.4));
-        const fireOff = Math.max(0, (wallLen - fireW) / 2);
-        const overlap = offset < fireOff + fireW && fireOff < offset + width;
-        if (overlap) {
-            console.warn(`[resi-building] §RESI-LIFT-LANDING-DOORS ⚠ landing door overlaps the fire door on the z0 core wall (coreW=${wallLen.toFixed(2)}) — skipped on this level.`);
-            return;
-        }
-        out.push({ wallId: lobbyWallId, offset, width, levelId });
     }
 
     private _buildCorePerimeter(
@@ -1104,15 +1056,10 @@ export class ResidentialBuildingExecutor {
     ): {
         payload: { walls: ReadonlyArray<Record<string, unknown>>; levelId: string };
         doors: Array<{ wallId: string; offset: number; width: number; levelId: string }>;
-        // §RESI-LIFT-LANDING-DOORS — the LOCAL z0 (lobby-facing) wall id, so the deferred
-        // landing-door pass can host a lift door on the SAME wall face the lift cab abuts.
-        lobbyWallId?: string;
     } {
         const DOOR_W = 1.0;          // fire-door clear width
         const walls: Array<Record<string, unknown>> = [];
         const doors: Array<{ wallId: string; offset: number; width: number; levelId: string }> = [];
-        // §RESI-LIFT-LANDING-DOORS — capture the z0 lobby wall id the lift faces.
-        let lobbyWallId: string | undefined;
         // One SOLID LOCAL edge a→b. `door` ⇒ also record a centred door spec on it (hosted later).
         // Returns the minted wall id (undefined if the edge degenerated and was skipped).
         const seg = (a: { x: number; z: number }, b: { x: number; z: number }, door: boolean): string | undefined => {
@@ -1142,14 +1089,13 @@ export class ResidentialBuildingExecutor {
         // The stair sets back from z0 (its run climbs +Z toward z1), so a z1 door would open against
         // the BACK of the stair run (the blocked "wall in front" the founder reported). z0 is the
         // lobby/approach side the corridor connects to → the single sound access door goes there.
-        // §RESI-LIFT-LANDING-DOORS — the z0 edge is ALSO the wall face the lift cab door abuts
-        // (lift sits in the RIGHT half, its door on the z0 lobby line), so its id hosts the lift
-        // landing door too (at the lift's x, clear of the centred fire door).
-        lobbyWallId = seg(c0, c1, true);    // z0 edge — fire door into the lobby (stair run-in + lift, corridor side).
+        // §RESI-CORE-REWORK — this is the core's ONLY pedestrian door; the lift is reached from the
+        // lobby this door opens into (no second perimeter landing door).
+        seg(c0, c1, true);    // z0 edge — the single fire/lobby door (stair run-in + lift, corridor side).
         seg(c1, c2, false);   // x1 edge — solid RC.
         seg(c2, c3, false);   // z1 edge — SOLID (backs the top of the stair run; no door).
         seg(c3, c0, false);   // x0 edge — solid RC.
-        return { payload: { walls, levelId }, doors, lobbyWallId };
+        return { payload: { walls, levelId }, doors };
     }
 
     /** §RESI-DOOR-CENTRE-ALL (founder 2026-06-24: "center ALL resi doors") — the single, shared
@@ -1222,56 +1168,6 @@ export class ResidentialBuildingExecutor {
                 }, 250);
                 console.log(`[resi-building] core fire doors — ${specs.length} punched on ${levelIds.length} level(s)`);
             } catch (e) { console.warn('[resi-building] core doors batch failed (non-fatal):', e); }
-        };
-        tryPunch(40);
-    }
-
-    /** §RESI-LIFT-LANDING-DOORS — punch the lift LANDING door per served level on the (already
-     *  committed) core z0 lobby wall, at the lift shaft x (NOT centred — the centred slot is the
-     *  fire door, on the same wall). Deferred + polled exactly like the core fire doors: the core
-     *  wall.batch.create is async via the bus, so wait (≤6 s) for every host wall to land, then
-     *  punch all landing-door openings in ONE batch + flush the host meshes. The pre-computed
-     *  `offset` is already the lift-x along-wall offset on the stored wall length (the core z0 wall
-     *  is rigid, so its world length == its LOCAL length the offset was derived from). One summary
-     *  log of how many landing doors were placed. Never throws. */
-    private _finishLandingDoors(
-        specs: ReadonlyArray<{ wallId: string; offset: number; width: number; levelId: string }>,
-    ): void {
-        if (specs.length === 0) { console.log('[resi-building] §RESI-LIFT-LANDING-DOORS — 0 landing doors placed (no hostable core lobby wall).'); return; }
-        const cm = getCommandManager();
-        if (!cm?.execute) { console.warn('[resi-building] commandManager unavailable — lift landing doors skipped'); return; }
-        const wallIds = specs.map(s => s.wallId);
-        const wallStore = storeRegistry.getStoreForType('wall') as unknown as { getById?: (id: string) => unknown } | undefined;
-        const ready = (): boolean => !wallStore?.getById ? true : wallIds.every(id => wallStore.getById!(id) != null);
-        const levelIds = [...new Set(specs.map(s => s.levelId))];
-        const tryPunch = (n: number): void => {
-            if (!ready() && n > 0) { setTimeout(() => tryPunch(n - 1), 150); return; }
-            try {
-                batchCoordinator.runBatch(() => {
-                    cm.execute?.(new CreateWallOpeningsBatchCommand(specs.map(s => ({
-                        wallId: s.wallId,
-                        openingData: {
-                            id: createId('opening'),
-                            type: 'door',
-                            // §RESI-LIFT-LANDING-DOORS — keep the lift-x offset (do NOT re-centre; the
-                            // centred slot belongs to the fire door on this same z0 wall).
-                            offset: s.offset,
-                            width: s.width,
-                            height: 2.1,
-                            sillHeight: 0,
-                            elementId: createId('door'),
-                            doorType: 'single',
-                            // Solid leaf, matching the fire-rated core access doors.
-                            systemTypeId: 'dt-solid-timber',
-                        },
-                    }))));
-                }, { levelIds, totalElementCount: specs.length, skipRedetectRooms: true });
-                setTimeout(() => {
-                    try { window.__wallRebuildControl?.rebuildWalls?.(wallIds); }
-                    catch (e) { console.warn('[resi-building] landing-door rebuildWalls failed (non-fatal):', e); }
-                }, 250);
-                console.log(`[resi-building] §RESI-LIFT-LANDING-DOORS — ${specs.length} lift landing door(s) placed on ${levelIds.length} level(s).`);
-            } catch (e) { console.warn('[resi-building] lift landing doors batch failed (non-fatal):', e); }
         };
         tryPunch(40);
     }
@@ -2042,13 +1938,16 @@ export class ResidentialBuildingExecutor {
         // The landing depth PASSED to the command is the house value 2·width (the mesh's CROSS-RUN
         // span, set inline at the CreateStair call); the RUN-direction footprint is `flight1Run + tread`.
         const stairDepth = flight1Run + STAIR_TREAD_M;     // the U body's RUN-direction (z) depth
-        // §RESI-STAIR-GUARD-CONTAIN — seat the stair flush to the z0 inner face and CONTAIN the body
-        // in the inner rect by construction. Any depth slack in front becomes the lobby (the fire-door
-        // run-in). When the (tight) core can't hold the full run depth, we keep the body seated at z0
-        // (lobbyDepth 0) so its far edge is as far from z1 as possible — the per-flight loop already
-        // caps risers at 0.19; a residual run-overflow is the only unavoidable case (a 4.5 m rise in a
-        // 4 m core), and even then the body stays as contained as physically possible.
-        const lobbyDepth = Math.max(0, Math.min(1.4, zInnerDepth - stairDepth));
+        // §RESI-STAIR-GUARD-CONTAIN / §RESI-CORE-REWORK — seat the stair so a proper 1.2 m approach
+        // run sits in front of its first riser (to step ON) AND the whole body stays inside the inner
+        // rect. The core is now sized (deriveCoreSizing) so the inner depth holds APPROACH_CLEAR_M
+        // (1.2 m) lobby + the stair body, so we TARGET that 1.2 m approach as the lobby depth (capped
+        // by the real slack so the body never overruns z1). On a tight legacy core the slack may be
+        // <1.2 m; then the lobby shrinks (down to 0) keeping the body seated as far from z1 as
+        // possible — the per-flight loop caps risers at 0.19 and the width-fit contains the lateral
+        // landing, so the only unavoidable case is a 4.5 m rise in a sub-minimum core.
+        const slackZ = Math.max(0, zInnerDepth - stairDepth);
+        const lobbyDepth = Math.min(slackZ, RESI_APPROACH_CLEAR_M);
         const stairStartZ = innerZ0 + lobbyDepth;
         // Containment check (now on the TRUE run depth). 2·stairWidth ≤ xInnerDepth holds by the x-fit
         // (stairWidth ≤ xBand/2 ≤ xInnerDepth/2). Warn only if the rise genuinely cannot fit the depth.
