@@ -1659,6 +1659,20 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             else { void rpm?.deactivateTRAA?.(); }
         });
 
+        // §PERF-WEBGL2-NO-SSGI — authoritative "is this a REAL WebGPU backend?" signal
+        // for the render-tier backend gate. On the WebGL2 fallback backend (a
+        // WebGPURenderer with forceWebGL:true, or a plain WebGLRenderer) the tier must
+        // force SSGI/TRAA OFF — otherwise the legacy multi-pass denoised SSGIService
+        // (window.enableSSGI → SSGIService.activate) runs on the GL thread and freezes
+        // the viewport (renders but cannot orbit) on heavy scenes. The RPM's
+        // status.webGpuActive is set from RenderPipelineManager.isRealWebGPUBackend()
+        // (backend.isWebGPUBackend === true) — the same authoritative signal
+        // §PERF-WEBGL2-NO-TSL uses to gate the TSL pipeline. Resolved at call-time:
+        // the RPM is created later in this init, and undefined (RPM not yet bound)
+        // safely leaves cold-start behaviour unchanged.
+        const resolveIsRealWebGPU = (): boolean | undefined =>
+            window.renderPipelineManager?.status?.webGpuActive;
+
         // §A.21.D40 PBR-SCOPE — meshes already handed to the PBR upgrader.
         // The upgrader itself is idempotent at the MATERIAL level (it skips any
         // material already snapshotted), but the post-batch callback used to
@@ -1724,7 +1738,7 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                         scene.traverse((obj) => {
                             if (obj instanceof THREE.Mesh || obj instanceof THREE.InstancedMesh) meshCount++;
                         });
-                        renderingCoordinator.applyTierForMeshCount(meshCount);
+                        renderingCoordinator.applyTierForMeshCount(meshCount, resolveIsRealWebGPU());
                     } catch (tierErr) {
                         console.warn('[initScene] §PERF-WEBGPU-FRAGMENT per-event tier apply error:', tierErr);
                     }
@@ -1758,7 +1772,7 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                 scene.traverse((obj) => {
                     if (obj instanceof THREE.Mesh || obj instanceof THREE.InstancedMesh) meshCount++;
                 });
-                renderingCoordinator.applyTierForMeshCount(meshCount);
+                renderingCoordinator.applyTierForMeshCount(meshCount, resolveIsRealWebGPU());
             } catch (tierErr) {
                 console.warn('[initScene] §PERF-WEBGPU-FRAGMENT tier apply error:', tierErr);
             }

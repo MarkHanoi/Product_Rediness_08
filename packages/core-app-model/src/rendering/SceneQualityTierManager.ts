@@ -181,6 +181,63 @@ export function settingsForTier(tier: SceneQualityTier): SceneQualitySettings {
 }
 
 /**
+ * §PERF-WEBGL2-NO-SSGI — backend gate. The mesh-count tier above is backend-AGNOSTIC,
+ * but the heavy post-FX it can enable (SSGI / TRAA) are only affordable on a real
+ * WebGPU backend. On the WebGL2 fallback backend (a `THREE.WebGPURenderer` created
+ * with `forceWebGL: true`, or a plain WebGLRenderer) the legacy multi-pass denoised
+ * `SSGIService` runs on the main GL thread and makes each frame take ~seconds on a
+ * heavy scene — the viewport renders but cannot orbit (the freeze this fixes).
+ *
+ * §PERF-WEBGL2-NO-TSL already gates the renderer-three TSL pipeline (SSGI/outlines/
+ * post-FX) on the same authoritative `backend.isWebGPUBackend === true` signal, but
+ * the tier's `ssgi` flag drives a SECOND, independent activation path
+ * (`RenderingPipelineCoordinator._onTierSsgi → window.enableSSGI → SSGIService`).
+ * This gate closes that path: on a non-real-WebGPU backend it forces SSGI and TRAA
+ * OFF and caps shadows to the lightweight `standard` level (no decorative-furniture
+ * shadows, no reflection probes) REGARDLESS of the mesh-count tier — so the WebGL2
+ * path is genuinely lightweight (standard PBR + basic shadows → smooth orbit).
+ *
+ * Authoritative input: `isWebGPU` = `RenderPipelineManager.isRealWebGPUBackend()`
+ * (i.e. `backend.isWebGPUBackend === true`). On real WebGPU the settings are returned
+ * UNCHANGED — WebGPU behaviour is exactly as today (SSGI/TRAA still by tier).
+ *
+ * `isWebGPU === undefined` (unknown / not yet wired) is treated as "leave unchanged"
+ * so cold-start behaviour for small scenes is preserved; callers that know the
+ * backend (the coordinator) always pass the real flag.
+ *
+ * Pure. P8: `pryzm.scene-quality.backend-gate` span.
+ */
+export function applyBackendGate(
+    settings: SceneQualitySettings,
+    isWebGPU: boolean | undefined,
+): SceneQualitySettings {
+    return withTierSpan(
+        'backend-gate',
+        { 'pryzm.scene_quality.is_webgpu': isWebGPU ?? 'unknown' },
+        () => {
+            // Real WebGPU (or unknown) → no change: WebGPU runs SSGI/TRAA by tier.
+            if (isWebGPU !== false) return settings;
+            // Non-real-WebGPU (forced-WebGL2 / WebGL) → force the lightweight path.
+            if (!settings.ssgi && !settings.traa
+                && settings.shadowLevel === 'standard'
+                && !settings.decorativeFurnitureShadows
+                && !settings.reflectionProbes) {
+                return settings; // already lightweight — avoid a needless clone
+            }
+            return {
+                ...settings,
+                ssgi: false,
+                traa: false,
+                reflectionProbes: false,
+                decorativeFurnitureShadows: false,
+                // Cap to the lightweight shadow level (basic shadows on WebGL2).
+                shadowLevel: 'standard',
+            };
+        },
+    );
+}
+
+/**
  * Map a raw mesh count to a tier WITHOUT hysteresis (the nominal mapping).
  * Used as the baseline; `computeTier` layers hysteresis on top.
  *
@@ -284,17 +341,33 @@ export class SceneQualityTierManager {
      * `changed` is true only when the tier transitioned, so the caller can skip
      * re-applying identical settings every frame.
      *
+     * §PERF-WEBGL2-NO-SSGI — `isWebGPU` is the authoritative backend flag
+     * (`RenderPipelineManager.isRealWebGPUBackend()`). When `false` the returned
+     * settings are run through {@link applyBackendGate} so SSGI / TRAA are forced
+     * OFF (and shadows capped to `standard`) regardless of the mesh-count tier —
+     * the heavy `SSGIService` never activates on the WebGL2 fallback backend. The
+     * held tier is the backend-AGNOSTIC mesh-count tier (so hysteresis is identical
+     * across backends); only the SETTINGS are gated. `undefined` / `true` leave the
+     * settings unchanged (real-WebGPU behaviour is exactly as today).
+     *
      * P8: `pryzm.scene-quality.update` span.
      */
-    update(meshCount: number): { tier: SceneQualityTier; changed: boolean; settings: SceneQualitySettings } {
+    update(
+        meshCount: number,
+        isWebGPU?: boolean,
+    ): { tier: SceneQualityTier; changed: boolean; settings: SceneQualitySettings } {
         return withTierSpan(
             'update',
-            { 'pryzm.scene_quality.mesh_count': Number.isFinite(meshCount) ? meshCount : -1 },
+            {
+                'pryzm.scene_quality.mesh_count': Number.isFinite(meshCount) ? meshCount : -1,
+                'pryzm.scene_quality.is_webgpu': isWebGPU ?? 'unknown',
+            },
             () => {
                 const next = computeTier(meshCount, this._tier);
                 const changed = next !== this._tier;
                 this._tier = next;
-                return { tier: next, changed, settings: settingsForTier(next) };
+                const settings = applyBackendGate(settingsForTier(next), isWebGPU);
+                return { tier: next, changed, settings };
             },
         );
     }
