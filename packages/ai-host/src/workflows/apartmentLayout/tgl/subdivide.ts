@@ -261,6 +261,11 @@ export interface SubdivideOptions {
      * is read OUTSIDE the spine-first gates and can be supplied without enabling spine-first. Absent ⇒ the
      * in-host split is already host-bounded ⇒ byte-identical. */
     readonly shellPolygonForBounds?: readonly Pt[];
+    /** §RESI-ENTRY-INTO-CORRIDOR — the front-door / entry anchor in THIS strategy's frame (metres),
+     *  threaded straight into `subdivideViaSpine` → `deriveCorridorSpine` so the corridor spine
+     *  reaches the entry edge (an L/T when off the primary run). Absent ⇒ no entry leg (byte-identical
+     *  to the pre-entry spine; the apartment/house paths that pass no entry are unchanged). */
+    readonly entry?: Pt;
 }
 
 /** Axis-line snap tolerance (m). Matches the EPS_M used by the SCORING
@@ -4189,6 +4194,8 @@ export function subdivideWithReport(
         const spineOpts = {
             ...(keepOutRects[0] ? { stairKeepOut: keepOutRects[0] } : {}),
             ...(corridorWidthM !== undefined ? { corridorWidthM } : {}),
+            // §RESI-ENTRY-INTO-CORRIDOR — route the spine to the apartment front-door edge.
+            ...(options.entry ? { entry: options.entry } : {}),
             spineTree: true as const,
         };
         if (wantSingleLoaded) {
@@ -4217,6 +4224,8 @@ export function subdivideWithReport(
         const shellForSpine = options.shellPolygon && options.shellPolygon.length >= 3 ? options.shellPolygon : bboxPoly;
         const spineRes = subdivideViaSpine(shellForSpine, graph, {
             stairKeepOut: keepOutRects[0], corridorWidthM,
+            // §RESI-ENTRY-INTO-CORRIDOR — route the spine to the apartment front-door edge.
+            ...(options.entry ? { entry: options.entry } : {}),
         });
         if (spineRes && spineRes.dropped.length === 0) {
             // §SPINE-FIRST P6/P8 — with the P8 rectangular-shell gate above, the shell is an axis-

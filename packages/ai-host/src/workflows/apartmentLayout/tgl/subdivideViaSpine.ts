@@ -40,6 +40,10 @@ export interface SubdivideViaSpineOptions {
      *  from the windows-vs-circulation trap). Only meaningful with `spineTree`. Default false ⇒ the
      *  double-loaded multi-leg pack (byte-identical). The caller gates this to non-fragmented plates. */
     readonly singleLoaded?: boolean;
+    /** §RESI-ENTRY-INTO-CORRIDOR — the apartment FRONT-DOOR / entry anchor (this strategy frame,
+     *  metres). Threaded into `deriveCorridorSpine` so the corridor spine reaches the entry edge
+     *  (an L/T when off the primary run) → the front door opens INTO circulation, not a room. */
+    readonly entry?: Pt;
 }
 
 /**
@@ -159,6 +163,8 @@ export function subdivideViaSpine(
     const spine = deriveCorridorSpine(shellPolygon, {
         ...(opts.stairKeepOut ? { stairKeepOut: opts.stairKeepOut } : {}),
         widthM: opts.corridorWidthM ?? 1.2,
+        // §RESI-ENTRY-INTO-CORRIDOR — route the spine to the front-door entry edge.
+        ...(opts.entry ? { entry: opts.entry } : {}),
     });
     if (!spine) return null;
 

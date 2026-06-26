@@ -110,6 +110,11 @@ export function deriveCorridorSpine(
         if (xR - xL < EPS) return null;
         segments.push({ a: { x: xL, z: zc }, b: { x: xR, z: zc } });
         addStairLegX(segments, shell, zc, xL, xR, widthM, opts.stairKeepOut);
+        // §RESI-ENTRY-INTO-CORRIDOR — when an ENTRY anchor is given (the apartment front-door
+        // point on the corridor-facing cell edge), add a perpendicular leg so the spine REACHES
+        // the entry edge — an L/T when the entry lies off the primary (horizontal) run. This is
+        // what guarantees the front door opens INTO the internal corridor, not a habitable room.
+        addEntryLeg(segments, bb, primaryAxis, zc, xL, xR, opts.entry);
     } else {
         const xc = (bb.x0 + bb.x1) / 2;
         const chord = verticalChord(shell, xc);
@@ -119,9 +124,53 @@ export function deriveCorridorSpine(
         if (zR - zL < EPS) return null;
         segments.push({ a: { x: xc, z: zL }, b: { x: xc, z: zR } });
         addStairLegZ(segments, shell, xc, zL, zR, widthM, opts.stairKeepOut);
+        // §RESI-ENTRY-INTO-CORRIDOR — perpendicular leg to the entry anchor (see above).
+        addEntryLeg(segments, bb, primaryAxis, xc, zL, zR, opts.entry);
     }
 
     return { segments, widthM, primaryAxis };
+}
+
+/**
+ * §RESI-ENTRY-INTO-CORRIDOR — add a perpendicular leg from the primary run to the ENTRY anchor,
+ * so the corridor reaches the entry edge (the apartment front door then opens into circulation).
+ *
+ * The primary run lies on the SHORT-axis centre; an entry on the perimeter is generally OFF that
+ * line (e.g. the corridor-facing edge midpoint), so a short leg drops from the run to the entry —
+ * forming the founder's L/T. When the entry already lies on the run (within half a corridor width)
+ * NO leg is added (the run already passes the entry). Pure; mutates `segments` in place.
+ *
+ * @param runConst  the constant coordinate of the primary run (zc when primaryAxis='x', xc when 'z').
+ * @param runLo/runHi  the primary run's span along its axis (xL..xR or zL..zR).
+ */
+function addEntryLeg(
+    segments: SpineSegment[],
+    bb: Rect,
+    primaryAxis: 'x' | 'z',
+    runConst: number,
+    runLo: number,
+    runHi: number,
+    entry?: Pt,
+): void {
+    if (!entry) return;
+    const half = Math.max(DOOR_W, 0.6);   // "already reached" tolerance ≈ a door width
+    if (primaryAxis === 'x') {
+        // Primary run is horizontal at z = runConst, spanning x ∈ [runLo, runHi].
+        // The entry's z distance from the run is the leg length; its x is the joint (clamped to the run).
+        if (Math.abs(entry.z - runConst) <= half) return;       // entry already on the run band
+        const jointX = Math.min(Math.max(entry.x, runLo), runHi);
+        // Reach to the entry edge (clamped inside the shell bbox so the leg never leaves the cell).
+        const targetZ = Math.min(Math.max(entry.z, bb.z0), bb.z1);
+        if (Math.abs(targetZ - runConst) < EPS) return;
+        segments.push({ a: { x: jointX, z: runConst }, b: { x: jointX, z: targetZ } });
+    } else {
+        // Primary run is vertical at x = runConst, spanning z ∈ [runLo, runHi].
+        if (Math.abs(entry.x - runConst) <= half) return;
+        const jointZ = Math.min(Math.max(entry.z, runLo), runHi);
+        const targetX = Math.min(Math.max(entry.x, bb.x0), bb.x1);
+        if (Math.abs(targetX - runConst) < EPS) return;
+        segments.push({ a: { x: runConst, z: jointZ }, b: { x: targetX, z: jointZ } });
+    }
 }
 
 /** Add a vertical leg from the horizontal primary run to an edge stair, when not already reached. */

@@ -11,3 +11,6 @@ export * from './residentialBuildingOrchestrator.js';
 // §RESI-CORE-REWORK — the clearance-derived core sizing (single source of truth for
 // coreWidth/coreDepth, shared by the orchestrator + the editor executor).
 export * from './coreSizing.js';
+// §RESI-ENTRY-INTO-CORRIDOR — the front-door-into-circulation offset resolver (pure; mirrored
+// locally in the editor executor, exported here so it is unit-testable).
+export * from './apartmentEntryDoorOffset.js';

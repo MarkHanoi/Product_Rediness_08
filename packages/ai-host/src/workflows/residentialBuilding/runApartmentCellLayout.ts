@@ -96,6 +96,27 @@ export interface ApartmentCellLayoutInput {
     readonly weights?: ScoringWeights;
     /** OPTIONAL candidate count (defaults to RESI_LAYOUT_COUNT). */
     readonly count?: number;
+    /** §RESI-ENTRY-INTO-CORRIDOR — which cell edge faces the public corridor (the apartment front
+     *  door edge). When given (and no explicit `entry`), the entry anchor is this edge's midpoint, so
+     *  the internal corridor routes to it and the front door opens into circulation, not a room. */
+    readonly doorEdge?: CellEdge;
+    /** §RESI-ENTRY-INTO-CORRIDOR — OPTIONAL explicit entry anchor (cell-frame metres), overriding the
+     *  `doorEdge` midpoint. Absent + no doorEdge ⇒ no entry leg (byte-identical to the legacy engine). */
+    readonly entry?: { readonly x: number; readonly z: number };
+}
+
+/** §RESI-ENTRY-INTO-CORRIDOR — the midpoint of a cell's corridor-facing `doorEdge`, in the cell's
+ *  (world-metres) plan frame. This is the apartment front-door point the internal corridor must reach.
+ *  Returns undefined when no doorEdge is supplied (⇒ no entry anchor ⇒ legacy spine). Pure. */
+function entryFromDoorEdge(cell: Rect, doorEdge?: CellEdge): { x: number; z: number } | undefined {
+    if (!doorEdge) return undefined;
+    const cx = (cell.x0 + cell.x1) / 2, cz = (cell.z0 + cell.z1) / 2;
+    switch (doorEdge) {
+        case 'z0': return { x: cx, z: cell.z0 };
+        case 'z1': return { x: cx, z: cell.z1 };
+        case 'x0': return { x: cell.x0, z: cz };
+        case 'x1': return { x: cell.x1, z: cz };
+    }
 }
 
 export interface ApartmentCellLayoutOk {
@@ -350,8 +371,16 @@ function _run(input: ApartmentCellLayoutInput): ApartmentCellLayoutResult {
     const weights = input.weights ?? RESI_SCORING_WEIGHTS;
     const count = input.count ?? RESI_LAYOUT_COUNT;
 
+    // §RESI-ENTRY-INTO-CORRIDOR — the front-door / entry anchor: the MIDPOINT of the cell's
+    // corridor-facing `doorEdge`, in the cell's (world-metres, axis-aligned) plan frame. Fed to the
+    // engine so the internal corridor spine REACHES this edge (an L/T when the corridor's main run is
+    // perpendicular to it) → the apartment front door opens INTO circulation, never a bedroom. The
+    // cell is axis-aligned (angle === 0 inside the engine), so this passes straight through unrotated.
+    const entryWorld = input.entry ?? entryFromDoorEdge(cell, input.doorEdge);
+
     // Run the FROZEN engine. No keep-out / residual-exclude rects (the apartment cell is a
-    // clean plate — the core is OUTSIDE it). Solar is threaded when supplied.
+    // clean plate — the core is OUTSIDE it). Solar is threaded when supplied. §RESI-ENTRY-INTO-
+    // CORRIDOR threads `entryWorld` (the LAST positional param) so the corridor reaches the entry.
     const options = generateDeterministicLayouts(
         shell,
         program,
@@ -361,6 +390,16 @@ function _run(input: ApartmentCellLayoutInput): ApartmentCellLayoutResult {
         undefined,            // windowSpansWorld — none (no pre-existing exterior windows)
         undefined,            // doorSpansWorld — none
         input.solar,          // optional climate-driven window orientation
+        undefined,            // envelopeValidator
+        undefined,            // keepOutRectsWorld
+        undefined,            // tuning
+        undefined,            // residualExcludeRectsWorld
+        undefined,            // style
+        undefined,            // keepOutRectsLayout
+        undefined,            // residualExcludeRectsLayout
+        undefined,            // lockBedroomCount
+        undefined,            // spineFirst
+        entryWorld,           // §RESI-ENTRY-INTO-CORRIDOR — front-door anchor (world metres)
     );
 
     if (!options || options.length === 0) {

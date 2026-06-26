@@ -136,6 +136,11 @@ export interface EnumerateInput {
      *  area-first carve. Threaded to SubdivideOptions.spineFirst. The house orchestrator sets it
      *  from `window.__pryzmSpineFirst` for opt-in browser testing. Default off ⇒ byte-identical. */
     readonly spineFirst?: boolean;
+    /** §RESI-ENTRY-INTO-CORRIDOR — the front-door / entry anchor in the ENGINE (rotated, pre-strategy)
+     *  frame, metres. `buildCandidate` maps it into each strategy frame and threads it to
+     *  SubdivideOptions.entry → subdivideViaSpine → deriveCorridorSpine, so the internal corridor
+     *  reaches the entry edge. Absent ⇒ no entry leg (byte-identical). */
+    readonly entry?: Pt;
     /** A.21.h — OPTIONAL injected gross-area envelope validator. Defaults to the
      *  apartment §D3.5 gate (`validateApartmentEnvelope`, keyed on bedroom count).
      *  The house orchestrator injects `validateHouseStorey` so a house plate is
@@ -1144,6 +1149,9 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     const polyT = input.shellPolygon.map(t.fwd);
     let rectsT = decomposeToRects(polyT);
     if (rectsT.length === 0) return null;
+    // §RESI-ENTRY-INTO-CORRIDOR — map the entry anchor into THIS strategy's frame (the same
+    // `t.fwd` the shell polygon went through), so the corridor spine routes to the front-door edge.
+    const entryT: Pt | undefined = input.entry ? t.fwd(input.entry) : undefined;
 
     // §STAIR-KEEPOUT (A.21.D21) — carve the reserved stair core(s) out of the
     // buildable rect set so no room/partition tiles across the stair. The keep-out
@@ -1283,6 +1291,9 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
             ...(input.spineFirst
                 && (globalThis as { window?: { __pryzmSpineTree?: boolean } }).window?.__pryzmSpineTree === true
                 ? { spineTree: true, shellPolygon: polyT } : {}),
+            // §RESI-ENTRY-INTO-CORRIDOR — the strategy-frame entry anchor; only meaningful on the
+            // spine path (subdivide reads it inside the spineFirst gates), so pass it whenever set.
+            ...(entryT ? { entry: entryT } : {}),
         },
     );
     const placementsT = subRes.placements;
