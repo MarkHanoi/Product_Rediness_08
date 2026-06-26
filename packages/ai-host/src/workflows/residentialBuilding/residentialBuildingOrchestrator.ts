@@ -38,6 +38,9 @@
 // (core containment — a centred core is trivially contained); P8 (≥1 span per exported fn).
 
 import { trace } from '@opentelemetry/api';
+// §RESI-CORE-REWORK — derive the minimum core plan size from the stair + lift footprints +
+// the 1.2 m approach clearances (single source of truth shared with the executor).
+import { deriveCoreSizing } from './coreSizing.js';
 import type { Pt, Rect } from '../apartmentLayout/tgl/rectDecomposition.js';
 import { rectArea, rectWidth, rectDepth, principalAxisAngle, rotatePt } from '../apartmentLayout/tgl/rectDecomposition.js';
 import type { ApartmentProgram } from '../apartmentLayout/types.js';
@@ -485,11 +488,23 @@ function _orchestrate(input: ResidentialBuildingOrchestratorInput): ResidentialB
     if (!(plateW > 1e-3) || !(plateD > 1e-3)) {
         return reject('footprint is degenerate (zero width/depth after orienting)');
     }
-    // §RESI-SMALL-PLATE-CORE-SCALE — scale the requested core DOWN on a small plate so the apartment
-    // runs/bands beside it stay usable (see `effectiveCoreSize`). A large plate keeps the requested
-    // core EXACTLY (identity). The containment check below uses the EFFECTIVE core, so a small plate
-    // that the fixed 6×4 core would have made "too small" now builds a smaller point-block instead.
-    const { coreWidthM, coreDepthM } = effectiveCoreSize(plateW, plateD, reqCoreWidthM, reqCoreDepthM);
+    // §RESI-CORE-REWORK (founder 2026-06-26: "the core is too tight — the stair landing pokes past
+    // the wall, the lift has no approach") — DERIVE the minimum core plan size from the stair + lift
+    // footprints and the 1.2 m approach clearances (single source of truth: `deriveCoreSizing`), then
+    // FLOOR the requested/default core at it so the core GROWS to contain the full U-stair body (incl.
+    // the top landing) + the lift shaft + a 1.2 m run in front of each. The worst-case stair rise is
+    // the executor's tall commercial ground (max(4.5, ftf)); the lift shaft uses the executor's
+    // lower-bound passenger cab so the floor is the architectural minimum. Apartments packing around a
+    // slightly bigger core is the founder's explicit trade.
+    const floorToFloorMForCore = input.floorToFloorM ?? DEFAULT_FLOOR_TO_FLOOR_M;
+    const coreMin = deriveCoreSizing({ maxFloorToFloorM: Math.max(4.5, floorToFloorMForCore) });
+    const flooredCoreWidthM = Math.max(reqCoreWidthM, coreMin.coreWidthM);
+    const flooredCoreDepthM = Math.max(reqCoreDepthM, coreMin.coreDepthM);
+    // §RESI-SMALL-PLATE-CORE-SCALE — scale the (now clearance-floored) core DOWN on a small plate so the
+    // apartment runs/bands beside it stay usable (see `effectiveCoreSize`). A large plate keeps the
+    // floored core EXACTLY. The containment check below uses the EFFECTIVE core, so a small plate that
+    // can't hold the full clearance core builds a smaller point-block instead (graceful, not a reject).
+    const { coreWidthM, coreDepthM } = effectiveCoreSize(plateW, plateD, flooredCoreWidthM, flooredCoreDepthM);
     if (coreWidthM >= plateW || coreDepthM >= plateD) {
         return reject('core does not fit inside the footprint');
     }

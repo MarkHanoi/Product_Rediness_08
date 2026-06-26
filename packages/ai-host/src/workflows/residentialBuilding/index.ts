@@ -8,3 +8,6 @@ export * from './platePartition.js';
 export * from './apartmentPacker.js';
 export * from './runApartmentCellLayout.js';
 export * from './residentialBuildingOrchestrator.js';
+// §RESI-CORE-REWORK — the clearance-derived core sizing (single source of truth for
+// coreWidth/coreDepth, shared by the orchestrator + the editor executor).
+export * from './coreSizing.js';
