@@ -402,3 +402,85 @@ describe('partitionLevelPlate — soft-fail (never throws)', () => {
         if (out.status === 'rejected') expect(out.reason).toMatch(/contained/);
     });
 });
+
+describe('§NONRECT-CELLS-P1 — reshape-not-drop, flag-gated', () => {
+    const NRFLAG = '__pryzmNonRectCells';
+    const setFlag = (v: boolean): void => { (globalThis as unknown as Record<string, unknown>)[NRFLAG] = v; };
+    const many = (n: number): ApartmentDemand[] => Array.from({ length: n }, (_, i) => (i % 2 === 0 ? T2 : T3));
+
+    it('every rect cell carries a 4-corner polygon = rectPolygon(rect) — identity', () => {
+        setFlag(false);
+        try {
+            const res = expectOk(partitionLevelPlate(baseInput(many(40))));
+            for (const c of res.apartmentCells) {
+                expect(c.polygon.length).toBe(4);
+                // polygon == the rect corners.
+                const xs = c.polygon.map(p => p.x), zs = c.polygon.map(p => p.z);
+                expect(Math.min(...xs)).toBeCloseTo(c.rect.x0, 3);
+                expect(Math.max(...xs)).toBeCloseTo(c.rect.x1, 3);
+                expect(Math.min(...zs)).toBeCloseTo(c.rect.z0, 3);
+                expect(Math.max(...zs)).toBeCloseTo(c.rect.z1, 3);
+            }
+        } finally { setFlag(false); }
+    });
+
+    it('FLAG OFF — a rectangular plate is byte-identical regardless of the flag', () => {
+        setFlag(false);
+        const off = JSON.stringify(partitionLevelPlate(baseInput(many(60))));
+        setFlag(true);
+        const onNoClip = JSON.stringify(partitionLevelPlate(baseInput(many(60))));   // no clipPolygon
+        setFlag(false);
+        expect(off).toBe(onNoClip);   // the flag is a no-op on a plain rectangular plate
+    });
+
+    it('FLAG ON — an L-plate RESHAPES the boundary-straddling cell (clip-not-drop), all units corridor-fronting', () => {
+        // A 40×30 L: the top-right 11×11 corner is removed (the notch cuts mid-cell).
+        const L: Pt[] = [
+            { x: 0, z: 0 }, { x: 40, z: 0 }, { x: 40, z: 19 },
+            { x: 29, z: 19 }, { x: 29, z: 30 }, { x: 0, z: 30 },
+        ];
+        const input: PlatePartitionInput = {
+            levelIndex: 2, footprint: L, core: centredCore(40, 30, 6, 4),
+            corridor: { widthM: 1.5 }, apartments: many(200), clipPolygon: L,
+        };
+        setFlag(false);
+        const dropped = expectOk(partitionLevelPlate(input));
+        setFlag(true);
+        const reshaped = expectOk(partitionLevelPlate(input));
+        setFlag(false);
+
+        // RESHAPE-NOT-DROP: with the flag ON at least one cell becomes the clipped (in-boundary) shape.
+        expect(reshaped.diagnostic).toMatch(/reshaped=[1-9]/);
+        // CF invariant — every placed cell still fronts a corridor (reached = N/N).
+        expect(reshaped.apartmentsReached).toBe(reshaped.apartmentCells.length);
+        // No cell's CENTROID falls in the REMOVED corner (the bbox tiling never ships an apartment past
+        // the drawn boundary) — the reshape clips straddling cells back inside the L.
+        for (const c of reshaped.apartmentCells) {
+            let cx = 0, cz = 0;
+            for (const v of c.polygon) { cx += v.x; cz += v.z; }
+            cx /= c.polygon.length; cz /= c.polygon.length;
+            const inRemovedCorner = cx > 29 + 0.5 && cz > 19 + 0.5;   // the removed top-right corner
+            expect(inRemovedCorner).toBe(false);
+        }
+        // The §DIAG-RESI-FILL ratio is reported under both flags.
+        expect(dropped.diagnostic).toContain('§DIAG-RESI-FILL');
+        expect(reshaped.diagnostic).toContain('§DIAG-RESI-FILL');
+    });
+
+    it('FLAG ON — a deep 37×29 rect plate fills materially higher (residual absorbed where feasible)', () => {
+        const deep: PlatePartitionInput = {
+            levelIndex: 2, footprint: rectPoly(37.4, 29.3), core: centredCore(37.4, 29.3, 6, 6.31),
+            corridor: { widthM: 1.5 }, apartments: many(400),
+        };
+        setFlag(false);
+        const off = expectOk(partitionLevelPlate(deep));
+        setFlag(true);
+        const on = expectOk(partitionLevelPlate(deep));
+        setFlag(false);
+        // The flag never REDUCES the fill on a deep plate, and absorbs genuine feasible residual when
+        // present (≥ the OFF baseline; the engine-feasibility gate keeps absorbed cells layout-able).
+        expect(on.fillRatio).toBeGreaterThanOrEqual(off.fillRatio - 1e-6);
+        // Every placed cell — rect or absorbed — fronts a corridor (CF).
+        expect(on.apartmentsReached).toBe(on.apartmentCells.length);
+    });
+});

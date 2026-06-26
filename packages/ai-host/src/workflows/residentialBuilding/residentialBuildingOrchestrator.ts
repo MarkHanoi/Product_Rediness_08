@@ -724,6 +724,10 @@ function _orchestrate(input: ResidentialBuildingOrchestratorInput): ResidentialB
             // + doors). Windows are suppressed on blind party-wall edges. Soft-fails per cell.
             const cellResult: ApartmentCellLayoutResult = runApartmentCellLayout({
                 cell: cell.rect,
+                // §NONRECT-CELLS-P1 — thread the cell's REAL polygon so a RESHAPED (L-fronting) cell
+                // lays out rooms in its non-rect perimeter; a rect cell (4-corner polygon) is the
+                // identity (the engine takes the byte-identical rect path).
+                ...(cell.polygon && cell.polygon.length > 4 ? { cellPolygon: cell.polygon } : {}),
                 program: plan.program,
                 facadeEdges,
                 // §RESI-ENTRY-INTO-CORRIDOR — the cell's corridor-facing edge, so the engine routes

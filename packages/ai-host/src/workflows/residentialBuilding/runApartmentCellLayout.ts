@@ -76,8 +76,13 @@ export const RESI_SCORING_WEIGHTS: ScoringWeights = {
 export const RESI_LAYOUT_COUNT = 3;
 
 export interface ApartmentCellLayoutInput {
-    /** The apartment cell rect (world metres, plan frame { x, z }). Axis-aligned. */
+    /** The apartment cell rect (world metres, plan frame { x, z }). Axis-aligned (the bbox of the
+     *  cell; for a reshaped non-rect cell this is its bounding box). */
     readonly cell: Rect;
+    /** §NONRECT-CELLS-P1 — OPTIONAL real cell footprint polygon (world metres). When supplied (a
+     *  reshaped, possibly-concave L-fronting cell) the engine lays out rooms in THIS perimeter via
+     *  the polygon-native subdivider. Absent / a plain rect ⇒ the rect ring (byte-identical). */
+    readonly cellPolygon?: readonly { readonly x: number; readonly z: number }[];
     /** The apartment program (bedrooms pinned by the typology — from the packer). */
     readonly program: ApartmentProgram;
     /**
@@ -299,27 +304,40 @@ export function scaleCellProgram(pinned: ApartmentProgram, cellAreaM2: number): 
     };
 }
 
-/** Build a `ShellAnalysis` from an axis-aligned cell rect (world metres). The engine reads
- *  `perimeter` (the 4 cell corners) + `netAreaM2`; `faces` is empty (the engine derives
- *  window faces from the perimeter itself — the apartment generator's analyseShell faces are
- *  a hint for the AI prompt, not consumed by the deterministic engine's window emission). */
-export function shellFromCell(cell: Rect): ShellAnalysis {
+/** Build a `ShellAnalysis` from an apartment cell (world metres). The engine reads `perimeter`
+ *  (the cell outline) + `netAreaM2`; `faces` is empty (the deterministic engine derives window
+ *  faces from the perimeter itself — the analyseShell faces are an AI-prompt hint, not consumed).
+ *
+ *  §NONRECT-CELLS-P1 — when a non-degenerate `polygon` (≥3 verts, e.g. a reshaped L-fronting cell)
+ *  is supplied, it is threaded through as the perimeter so the ALREADY-polygon-native single-
+ *  apartment engine (`subdividePolygon`/`tileConcave`) lays out rooms in the NON-RECT unit. Absent
+ *  / a 4-corner rect polygon ⇒ the axis-aligned rect ring (byte-identical to the pre-P1 behaviour).
+ */
+export function shellFromCell(cell: Rect, polygon?: readonly { readonly x: number; readonly z: number }[]): ShellAnalysis {
     const w = Math.max(0, cell.x1 - cell.x0);
     const d = Math.max(0, cell.z1 - cell.z0);
-    return {
-        netAreaM2: w * d,
-        widthM: w,
-        depthM: d,
-        // CCW ring starting at (x0,z0). angle === 0 for an axis-aligned rect → the engine
-        // runs unrotated and emits perimeter walls exactly on these edges.
-        perimeter: [
+    // The cell outline: the supplied polygon (non-rect cells), else the 4-corner rect ring.
+    const perimeter = polygon && polygon.length >= 3
+        ? polygon.map(p => ({ x: p.x, z: p.z }))
+        : [
             { x: cell.x0, z: cell.z0 },
             { x: cell.x1, z: cell.z0 },
             { x: cell.x1, z: cell.z1 },
             { x: cell.x0, z: cell.z1 },
-        ],
-        faces: [],
-    };
+        ];
+    // Net area = the polygon's real area (a reshaped cell is smaller than its bbox w·d).
+    const netAreaM2 = polygon && polygon.length >= 3 ? polygonAreaOf(perimeter) : w * d;
+    return { netAreaM2, widthM: w, depthM: d, perimeter, faces: [] };
+}
+
+/** Shoelace area (abs, m²) of a closed polygon — the reshaped cell's real footprint. */
+function polygonAreaOf(poly: readonly { x: number; z: number }[]): number {
+    let a = 0;
+    for (let i = 0, n = poly.length; i < n; i++) {
+        const p = poly[i]!, q = poly[(i + 1) % n]!;
+        a += p.x * q.z - q.x * p.z;
+    }
+    return Math.abs(a) / 2;
 }
 
 /**
@@ -356,7 +374,10 @@ function _run(input: ApartmentCellLayoutInput): ApartmentCellLayoutResult {
         input.facadeEdges instanceof Set ? input.facadeEdges : new Set(input.facadeEdges ?? []);
     const blindEdges = ALL_EDGES.filter((e) => !facade.has(e));
 
-    const shell = shellFromCell(cell);
+    // §NONRECT-CELLS-P1 — a reshaped cell carries its real polygon; the engine lays out rooms in it.
+    // A plain rect cell (polygon = its 4 corners, or absent) takes the byte-identical rect path.
+    const isRectPoly = !input.cellPolygon || input.cellPolygon.length === 4;
+    const shell = shellFromCell(cell, isRectPoly ? undefined : input.cellPolygon);
     if (shell.widthM <= 0 || shell.depthM <= 0 || shell.netAreaM2 <= 0) {
         return { status: 'rejected', reason: 'cell is degenerate (zero width/depth)' };
     }
