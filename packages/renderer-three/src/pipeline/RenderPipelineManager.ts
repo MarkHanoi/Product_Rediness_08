@@ -219,28 +219,81 @@ export class RenderPipelineManager implements IViewSwitchListener {
     // ── Lifecycle ────────────────────────────────────────────────────────────
 
     /**
+     * §PERF-WEBGL2-NO-TSL — authoritative "is this a REAL WebGPU backend?" test.
+     *
+     * The TSL pipeline (SSGI / outlines / multi-phase post-FX) may ONLY activate
+     * on a genuine WebGPU backend. It must NOT key off the renderer CLASS:
+     * a `THREE.WebGPURenderer` created with `forceWebGL: true` (the user's
+     * "WebGL" backend toggle) has `isWebGPURenderer === true` BUT a **WebGL2
+     * backend** — `renderer.backend.isWebGPUBackend === false`. Keying off the
+     * class wrongly bound the full TSL pipeline on the forced-WebGL path,
+     * producing multi-minute loads and a permanently frozen viewport on heavy
+     * scenes (the WebGL path is meant to be the lightweight one).
+     *
+     * Resolution order:
+     *  1. If the caller threaded an authoritative flag (`override`), trust it —
+     *     the RendererHandleFactory already resolved the backend
+     *     ('webgpu' vs 'webgl-fallback'/'webgl-only') and is the source of truth.
+     *  2. Otherwise probe `renderer.backend.isWebGPUBackend === true` — the only
+     *     renderer-level signal that distinguishes a real WebGPU backend from the
+     *     WebGL2 backend of a forced-WebGL WebGPURenderer.
+     *
+     * Note we deliberately do NOT fall back to `isWebGPURenderer` — that is the
+     * exact class-level check that caused the regression.
+     *
+     * @internal exported for unit testing (fake renderer → activates vs skips).
+     */
+    static isRealWebGPUBackend(
+        renderer: THREE.WebGLRenderer | null | undefined,
+        override?: boolean,
+    ): boolean {
+        if (typeof override === 'boolean') return override;
+        const backend = (renderer as unknown as {
+            backend?: { isWebGPUBackend?: boolean };
+        } | null | undefined)?.backend;
+        return backend?.isWebGPUBackend === true;
+    }
+
+    /**
      * Binds the manager to the live Three.js scene, camera, and renderer.
      *
-     * If the renderer is WebGPU-capable, loads TSL modules and sets up the
-     * Phase 2 pipeline (MRT ScenePass + ZonePass + Background).
-     * If the renderer is WebGL (OBC-managed), gracefully no-ops.
+     * If the renderer is backed by a **real WebGPU backend**, loads TSL modules
+     * and sets up the Phase 2 pipeline (MRT ScenePass + ZonePass + Background).
+     * Otherwise (WebGL2 backend — including a WebGPURenderer created with
+     * `forceWebGL: true`, or a plain OBC-managed WebGLRenderer) it gracefully
+     * no-ops so the lightweight WebGL render path is used.
+     *
+     * §PERF-WEBGL2-NO-TSL — see {@link isRealWebGPUBackend}. The ONLY condition
+     * that means "real WebGPU → run TSL" is `backend.isWebGPUBackend === true`
+     * (or an authoritative `backendIsWebGPU === true` override), NOT the renderer
+     * class.
+     *
+     * @param backendIsWebGPU
+     *   Optional authoritative override threaded from the caller, which already
+     *   knows the resolved backend (RendererHandleFactory:
+     *   'webgpu' | 'webgl-fallback' | 'webgl-only'). Pass `true` ONLY for the
+     *   native-WebGPU 'webgpu' case. When omitted, `bind()` probes
+     *   `renderer.backend.isWebGPUBackend`.
      */
     async bind(
         scene: THREE.Scene,
         camera: THREE.Camera,
         renderer: THREE.WebGLRenderer,
         initialTheme: BgTheme = 'dark',
+        backendIsWebGPU?: boolean,
     ): Promise<void> {
         this._scene    = scene;
         this._camera   = camera;
         this._renderer = renderer;
 
-        const isWebGPU = (renderer as any).isWebGPURenderer === true;
+        const isWebGPU = RenderPipelineManager.isRealWebGPUBackend(renderer, backendIsWebGPU);
 
         if (!isWebGPU) {
             console.log(
-                '[RenderPipelineManager] WebGL renderer detected. ' +
-                'TSL pipeline prepared but inactive until Phase 5 (OBC decoupling).',
+                '[RenderPipelineManager] §PERF-WEBGL2-NO-TSL WebGL2 backend detected ' +
+                `(authoritativeOverride=${backendIsWebGPU === undefined ? 'none' : String(backendIsWebGPU)}, ` +
+                `backend.isWebGPUBackend=${String((renderer as unknown as { backend?: { isWebGPUBackend?: boolean } })?.backend?.isWebGPUBackend)}). ` +
+                'Lightweight WebGL render path active — TSL pipeline (SSGI / outlines / post-FX) stays OFF.',
             );
             this._phase = 'phase2';
             this._emitState();

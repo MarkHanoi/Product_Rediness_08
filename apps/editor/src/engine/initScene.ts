@@ -977,6 +977,12 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
     let pryzmRenderer:    THREE.WebGLRenderer      = postproductionRenderer.three;
     let pryzmCanvas:      HTMLCanvasElement | null = null;
     let isPhase5Active                             = false;
+    // §PERF-WEBGL2-NO-TSL — the AUTHORITATIVE resolved GPU backend the renderer
+    // factory selected. Threaded into RenderPipelineManager.bind() so it never
+    // re-probes the renderer CLASS. Only 'webgpu' (a native WebGPU backend) may run
+    // the TSL pipeline; 'webgl-fallback' (WebGPURenderer forceWebGL → WebGL2 backend)
+    // and the OBC default ('webgl-only') stay on the lightweight WebGL path.
+    let pryzmRendererBackend: import('../rendering/createRenderer').RendererBackend = 'webgl-only';
 
     const updateIfManualMode = () => {
         if (world.renderer && world.renderer.mode === OBC.RendererMode.MANUAL) {
@@ -1339,6 +1345,7 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         pryzmRenderer        = rendererResult.renderer;
         pryzmCanvas          = webgpuCanvas;
         isPhase5Active       = true;
+        pryzmRendererBackend = rendererResult.backend; // §PERF-WEBGL2-NO-TSL authoritative backend
 
         // §PERF-WEBGPU-FRAGMENT / ADR-0076 — remount the backend toggle now that
         // createRenderer() has set window.pryzmRendererBackend, so the pill shows
@@ -2014,11 +2021,21 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         // Always start with a pure white background (light theme).
         // Binding with 'light' initialises the TSL bgUniform directly to #ffffff —
         // no extra setColor() call needed, so there is no dark→white flash.
+        //
+        // §PERF-WEBGL2-NO-TSL — thread the AUTHORITATIVE backend the factory already
+        // resolved. ONLY backend==='webgpu' (a native WebGPU backend) may run the TSL
+        // pipeline. backend==='webgl-fallback' is a WebGPURenderer with forceWebGL → a
+        // WebGL2 backend: it has isWebGPURenderer===true but MUST use the lightweight
+        // WebGL path. Passing this flag stops bind() re-probing the renderer CLASS (the
+        // old `.isWebGPURenderer` check) which wrongly bound SSGI/outlines/post-FX on the
+        // forced-WebGL path → multi-minute load + frozen viewport on heavy scenes.
+        const backendIsRealWebGPU = pryzmRendererBackend === 'webgpu';
         await renderPipelineManager.bind(
             world.scene.three as THREE.Scene,
             world.camera.three,
             pryzmRenderer,
             'light',
+            backendIsRealWebGPU,
         );
 
         // ── Phase 3 + 4: Activate full TSL post-processing pipeline ───────
