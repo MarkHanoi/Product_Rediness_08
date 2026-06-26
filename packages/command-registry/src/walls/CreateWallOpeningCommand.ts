@@ -104,6 +104,13 @@ export class CreateWallOpeningCommand implements Command {
                 const doorSysType = opening.systemTypeId
                     ? doorSystemTypeStore.getById(opening.systemTypeId)
                     : undefined;
+                // §DOOR-SYSTYPE-RESOLVE-WARN (audit 2026-06-25 D1) — a systemTypeId was supplied but
+                // didn't resolve to a built-in door type → the door ships with NO frame/leaf finish
+                // (the finish block below is skipped) and reads blank in the schedules. That silent
+                // skip masks a mistyped id; surface it loudly so it's caught (the door still creates).
+                if (opening.systemTypeId && !doorSysType) {
+                    console.warn(`[CreateWallOpeningCommand] door systemTypeId "${opening.systemTypeId}" did not resolve to a built-in door type — door created WITHOUT frame/leaf finish (blank schedule). Use a real DoorSystemTypeStore id.`);
+                }
 
                 // Contract §03-1.7: Auto-generate a canonical mark (DO-FF-NNN) at creation time.
                 // Use the caller-supplied mark if one was already set; otherwise use MarkGenerator.
