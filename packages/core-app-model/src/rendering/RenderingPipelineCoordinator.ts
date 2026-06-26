@@ -512,10 +512,20 @@ export class RenderingPipelineCoordinator {
      * Does NOT call requestAnimationFrame (P3) and mutates only the THREE
      * projection layer via already-tested service mutators.
      *
+     * §PERF-WEBGL2-NO-SSGI — `isWebGPU` is the authoritative real-WebGPU backend flag
+     * (`RenderPipelineManager.isRealWebGPUBackend()` / `status.webGpuActive`), threaded
+     * from the app wiring (initScene). When `false`, the tier's SSGI/TRAA settings are
+     * forced OFF (and shadows capped to `standard`) so the heavy legacy `SSGIService`
+     * never activates on the WebGL2 fallback backend — closing the second
+     * SSGI-activation path that §PERF-WEBGL2-NO-TSL did not cover. `undefined` / `true`
+     * leave WebGPU behaviour exactly as today. The held mesh-count tier is
+     * backend-agnostic; only the applied settings are gated.
+     *
      * @param meshCount  current scene mesh count (from FrustumCullingService).
+     * @param isWebGPU   authoritative real-WebGPU backend flag (undefined = unknown).
      */
-    applyTierForMeshCount(meshCount: number): { tier: SceneQualityTier; changed: boolean; settings: SceneQualitySettings } {
-        const result = sceneQualityTierManager.update(meshCount);
+    applyTierForMeshCount(meshCount: number, isWebGPU?: boolean): { tier: SceneQualityTier; changed: boolean; settings: SceneQualitySettings } {
+        const result = sceneQualityTierManager.update(meshCount, isWebGPU);
         const { settings, tier, changed } = result;
 
         // §PERF-WEBGPU-FRAGMENT — THROTTLED tier log. This runs on every geometry-add

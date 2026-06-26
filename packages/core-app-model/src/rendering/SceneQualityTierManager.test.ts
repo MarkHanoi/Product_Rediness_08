@@ -10,6 +10,7 @@ import {
     computeTier,
     nominalTierForMeshCount,
     settingsForTier,
+    applyBackendGate,
     SceneQualityTierManager,
     type SceneQualityTier,
 } from './SceneQualityTierManager';
@@ -151,6 +152,89 @@ describe('SceneQualityTierManager (ADR-0076 §PERF-WEBGPU-FRAGMENT)', () => {
             expect(mgr.currentTier).toBeUndefined();
             const after = mgr.update(3_000);
             expect(after.changed).toBe(true);
+        });
+    });
+
+    // ── §PERF-WEBGL2-NO-SSGI — backend gate (forced-WebGL2 must never run SSGI/TRAA) ──
+    describe('applyBackendGate — non-WebGPU forces SSGI/TRAA off', () => {
+        it('forces SSGI + TRAA off on a "balanced" tier when isWebGPU=false', () => {
+            // balanced = the smoking-gun tier (2221 meshes → SSGI=on TRAA=on) that
+            // froze the WebGL2 viewport. With the backend gate it must come back
+            // lightweight: SSGI off, TRAA off, standard shadows, no decorative shadows.
+            const gated = applyBackendGate(settingsForTier('balanced'), false);
+            expect(gated.ssgi).toBe(false);
+            expect(gated.traa).toBe(false);
+            expect(gated.shadowLevel).toBe('standard');
+            expect(gated.decorativeFurnitureShadows).toBe(false);
+            expect(gated.reflectionProbes).toBe(false);
+        });
+
+        it('forces SSGI + TRAA off on a "cinematic" tier too (small scene on WebGL2)', () => {
+            const gated = applyBackendGate(settingsForTier('cinematic'), false);
+            expect(gated.ssgi).toBe(false);
+            expect(gated.traa).toBe(false);
+            expect(gated.reflectionProbes).toBe(false);
+        });
+
+        it('leaves real-WebGPU settings EXACTLY unchanged (isWebGPU=true)', () => {
+            const base = settingsForTier('balanced');
+            const gated = applyBackendGate(base, true);
+            expect(gated).toEqual(base);
+            expect(gated.ssgi).toBe(true);  // WebGPU keeps SSGI on at balanced
+            expect(gated.traa).toBe(true);
+        });
+
+        it('treats unknown backend (undefined) as unchanged (cold-start safe)', () => {
+            const base = settingsForTier('cinematic');
+            expect(applyBackendGate(base, undefined)).toEqual(base);
+        });
+
+        it('does not preserve the fullScenePbrTraverse independence of the tier', () => {
+            // PBR upgrade is orthogonal to the backend gate — it is driven by tier,
+            // not backend, so the gate must NOT touch fullScenePbrTraverse.
+            const gated = applyBackendGate(settingsForTier('cinematic'), false);
+            expect(gated.fullScenePbrTraverse).toBe(true); // unchanged by the gate
+        });
+    });
+
+    describe('SceneQualityTierManager.update(meshCount, isWebGPU) — backend-gated settings', () => {
+        let mgr: SceneQualityTierManager;
+        beforeEach(() => {
+            mgr = new SceneQualityTierManager();
+        });
+
+        it('isWebGPU=false → SSGI=false + TRAA=false at a balanced mesh count', () => {
+            // 2_000 meshes is a "balanced" tier that WOULD enable SSGI/TRAA on WebGPU.
+            const { tier, settings } = mgr.update(2_000, false);
+            expect(tier).toBe('balanced');            // tier itself is backend-agnostic
+            expect(settings.ssgi).toBe(false);        // …but SSGI is gated off on WebGL2
+            expect(settings.traa).toBe(false);
+            expect(settings.shadowLevel).toBe('standard');
+        });
+
+        it('isWebGPU=true → unchanged (SSGI on at balanced)', () => {
+            const { tier, settings } = mgr.update(2_000, true);
+            expect(tier).toBe('balanced');
+            expect(settings.ssgi).toBe(true);
+            expect(settings.traa).toBe(true);
+        });
+
+        it('omitting isWebGPU preserves today\'s behaviour (SSGI on at balanced)', () => {
+            const { settings } = mgr.update(2_000);
+            expect(settings.ssgi).toBe(true);
+            expect(settings.traa).toBe(true);
+        });
+
+        it('held tier (hysteresis) is identical regardless of backend flag', () => {
+            // The held mesh-count tier must not depend on the backend flag — only the
+            // applied SETTINGS are gated — so hysteresis is consistent across backends.
+            const a = new SceneQualityTierManager();
+            const b = new SceneQualityTierManager();
+            for (const n of [2_000, 2_600, 2_400]) {
+                const ra = a.update(n, true);
+                const rb = b.update(n, false);
+                expect(ra.tier).toBe(rb.tier);
+            }
         });
     });
 });
