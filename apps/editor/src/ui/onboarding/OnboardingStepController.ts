@@ -67,6 +67,8 @@ import { generateHouseFromBoundary, type FootprintPoint } from '../house-layout/
 import { generateResidentialFromBoundary } from '../residential-building/residentialFromBoundary.js';
 import { buildResidentialCardModel } from '../residential-building/residentialCardModel.js';
 import { buildResidentialPlanSvg } from '../residential-building/residentialPlanThumbnail.js';
+// §BUILDING-PREVIEW-MODULAR — the shared, building-type-agnostic façade palette (single source).
+import { FACADE_PALETTE, DEFAULT_FACADE_HEX } from '../preview-kit/buildingPlanDescriptor.js';
 import { orchestrateResidentialBuilding } from '@pryzm/ai-host';
 import { makeDraggable } from '../makeDraggable.js';
 import { makeResizable } from '../makeResizable.js';
@@ -915,7 +917,7 @@ class OnboardingStepController {
         let roofGardenOn = false;
         let commercialCurtain = false;          // false ⇒ big commercial windows (the default)
         let balconiesOn = true;
-        let facadeColor = '#f4f1ec';            // Notting-Hill pastel palette, default warm white
+        let facadeColor = DEFAULT_FACADE_HEX;   // §BUILDING-PREVIEW-MODULAR — shared palette head (warm white)
         const singleSelect = (
             labelText: string,
             opts: Array<{ key: string; label: string; on: boolean }>,
@@ -966,14 +968,13 @@ class OnboardingStepController {
         colourLbl.textContent = 'Façade colour';
         colourWrap.appendChild(colourLbl);
         const swatchRow = document.createElement('div');
-        swatchRow.className = 'os-typo-chips';
-        const PASTELS: Array<{ name: string; hex: string }> = [
-            { name: 'White', hex: '#f4f1ec' }, { name: 'Yellow', hex: '#f3dca0' },
-            { name: 'Pink', hex: '#e9b7b0' }, { name: 'Red', hex: '#c97b6e' },
-            { name: 'Blue', hex: '#a9c2d4' }, { name: 'Green', hex: '#aec7a8' },
-            { name: 'Grey', hex: '#cfcdc8' },
-        ];
-        for (const p of PASTELS) {
+        // §BUILDING-PREVIEW-MODULAR — the façade swatch row wraps to multiple rows for the
+        // expanded (~21) pastel palette; `os-swatch-row` lays them out in a flowing wrap.
+        swatchRow.className = 'os-typo-chips os-swatch-row';
+        // §BUILDING-PREVIEW-MODULAR — the façade palette is the SHARED, building-type-agnostic
+        // set (single source of truth in the preview-kit), so house / residential / every future
+        // typology offer the same ~21 tasteful pastels. The original 7 lead so existing picks resolve.
+        for (const p of FACADE_PALETTE) {
             const sw = document.createElement('button');
             sw.type = 'button';
             sw.className = 'os-swatch' + (p.hex === facadeColor ? ' os-swatch--on' : '');

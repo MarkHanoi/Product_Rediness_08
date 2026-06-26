@@ -848,6 +848,13 @@ export const ONBOARDING_STYLES = `
   border-color: #6600ff;
   box-shadow: 0 0 0 2px rgba(102, 0, 255, 0.35);
 }
+/* §BUILDING-PREVIEW-MODULAR — the expanded (~21) pastel façade palette wraps to a tidy
+   multi-row grid; a slightly tighter gap + a cap keep it neat. The swatches are FAÇADE
+   tints only; the chrome stays white + #6600FF (NO black). */
+.os-onboarding-overlay .os-swatch-row {
+  gap: 0.38rem;
+  max-width: 19rem;
+}
 
 /* ── DRAG + RESIZE chrome (shared with makeDraggable / makeResizable) ───────────
    The helpers toggle .vg-panel--dragging / .vg-panel--resizing. Suppress text
