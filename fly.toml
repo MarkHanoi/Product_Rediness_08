@@ -97,11 +97,16 @@ kill_timeout = "10s"
   [[http_service.checks]]
     interval        = "30s"
     timeout         = "5s"
-    # 30s grace aligns with the Dockerfile HEALTHCHECK --start-period: the tsx
-    # loader (~100 workspace pkgs) + Express init + background migrations take
-    # ~30s to reach /api/health/ready. A 5s grace counted boot-time failures and
-    # could flap the first deploy; a longer grace only adds boot tolerance.
-    grace_period    = "30s"
+    # §DEPLOY-HEALTH-GRACE (2026-06-27): widened 30s → 90s. The rolling deploy
+    # was intermittently failing — "WARNING The app is not listening on
+    # 0.0.0.0:5000 … timeout reached waiting for health checks to pass" — because
+    # the tsx loader (~100 workspace pkgs) + Express init + the SELECT-1 readiness
+    # probe against a cold Supabase pool + background migrations can exceed 30s on
+    # a slow boot, so the machine was killed before it ever bound :5000. The retry
+    # then succeeded (boot was faster), making the deploy flap. A longer grace only
+    # adds boot tolerance — steady-state checks (interval 30s) are unchanged — so
+    # 90s removes the race without masking a genuinely dead instance.
+    grace_period    = "90s"
     method          = "GET"
     path            = "/api/health/ready"
     protocol        = "http"
