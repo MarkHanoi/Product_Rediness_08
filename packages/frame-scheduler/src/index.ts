@@ -26,6 +26,11 @@ export { PRIORITIES, TICK_PRIORITIES, isPriority, isTickPriority } from './types
 export { FrameScheduler } from './FrameScheduler.js';
 import { FrameScheduler } from './FrameScheduler.js';
 
+// §FRAME-PROFILER — per-subsystem frame-cost accumulator (founder perf request).
+// Zero cost unless `globalThis.__pryzmFrameProfile === true`; then logs one
+// summary line per second. Console filter string: `[FrameProfiler]`.
+export { FrameProfiler } from './FrameProfiler.js';
+
 export type { RafAdapter, RafCallback } from './RafAdapter.js';
 export { GlobalRafAdapter, FakeRafAdapter } from './RafAdapter.js';
 

@@ -37,6 +37,16 @@ import { validateNoRoomOverlap, type RoomOverlap } from '../topology/validateNoR
 import { windowMandatoryFor, isPrivate, roomRule } from '../rules/programRules.js';
 import { dimensionsFor } from '../dimensions/roomDimensions.js';
 
+/**
+ * §DIAG diagnostic gate. All per-candidate / per-enumerate §DIAG breadcrumb logging is
+ * OFF by default (8 candidates × ~30 lines floods the console in a hot tower loop). Set
+ * `globalThis.__pryzmLayoutDiag = true` in the console to restore every §DIAG line. The
+ * `if` short-circuits BOTH the console call AND the template-string build. P4: cast
+ * through `globalThis`, never `(window as any)`.
+ */
+const _layoutDiagOn = (): boolean =>
+    (globalThis as unknown as { __pryzmLayoutDiag?: boolean }).__pryzmLayoutDiag === true;
+
 /** §DIAG-MIN-AREA-GATE / §DIAG-MANDATORY-GATE (tracker §68.1/§68.2) — the HARD
  *  architectural rules a candidate can fail. `minarea` = a habitable room below its
  *  `areaMin`; `mandatory` = a requested mandatory room (kitchen/living/bedroom/
@@ -1850,7 +1860,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
             for (const m of claim.mints) typeByIdNet.set(m.id, m.type);
             const net = resolveRoomOverlaps(residualPlacements, typeByIdNet);
             if (net.resolved.length > 0 || net.dropped.length > 0) {
-                console.warn(
+                if (_layoutDiagOn()) console.warn(
                     `[D-TGL] §DIAG-OVERLAP cand ${strategyKey(s)} EMIT-net resolved ${net.resolved.length} ` +
                     `room-room overlap(s) after residual fill — dropped=[${net.dropped.join(',') || 'none'}] ` +
                     `worstResidualM2=${net.worstResidualM2.toFixed(4)} (the residual grow/mint left an overlap; net clipped it)`,
@@ -1916,7 +1926,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
             }
         }
         const grownCount = claim.claims.filter(c => c.how === 'grown').length;
-        console.log(
+        if (_layoutDiagOn()) console.log(
             `[D-TGL] §DIAG-FILL-RESIDUAL cand ${strategyKey(s)} ` +
             `largestBlankBefore=${claim.largestBlankBeforeM2.toFixed(1)} totalBlankBefore=${claim.totalBlankBeforeM2.toFixed(1)} ` +
             `→ claimed ${claim.claims.length} fragment(s) (${grownCount} grown, ${claim.mints.length} minted) ` +
@@ -1926,7 +1936,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         // §DIAG-FILL-RESIDUAL — per-fragment audit (the founder's §65.2-MODERATE top-floor
         // case: each moderate blank logged with its area + grown-into vs minted-as + neighbour).
         for (const c of claim.claims) {
-            console.log(
+            if (_layoutDiagOn()) console.log(
                 `[D-TGL] §DIAG-FILL-RESIDUAL   • ${c.areaM2.toFixed(1)} m² ${c.how} ` +
                 `${c.how === 'grown' ? `into ${c.label}` : `as "${c.label}"`} ` +
                 `(neighbour ${c.neighbourId ?? 'none'})`,
@@ -2134,7 +2144,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         const detail = roomOverlaps
             .map(o => `${o.nameA}↔${o.nameB} area=${o.areaM2.toFixed(1)}m²`)
             .join(', ');
-        console.log(
+        if (_layoutDiagOn()) console.log(
             `[D-TGL] §DIAG-ROOM-OVERLAP cand ${strategyKey(s)} ` +
             `pairsChecked=${overlapResult.pairsChecked} overlaps=${roomOverlaps.length}` +
             `${detail ? ` [${detail}]` : ''}`,
@@ -2221,7 +2231,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
                 : -1;
             return `${id}=${d < 0 ? '?' : `${d.toFixed(2)}m`}`;
         }).join(' ');
-        console.log(
+        if (_layoutDiagOn()) console.log(
             `[D-TGL] §DIAG-FRONTAGE-DIST cand ${strategyKey(s)} ` +
             `rectified=${frontagePerimeter.length !== input.shellPolygon.length || frontagePerimeter.some((p, i) => Math.abs(p.x - input.shellPolygon[i]!.x) > 1e-6 || Math.abs(p.z - input.shellPolygon[i]!.z) > 1e-6)} ` +
             `[${detail}]`,
@@ -2247,7 +2257,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
                     : rectTouchesPerimeter(p.rect, frontagePerimeter),
             ).length;
             const allOn = onPerimeter === hallPlacements.length;
-            console.log(
+            if (_layoutDiagOn()) console.log(
                 `[D-TGL] §DIAG-HALL-PERIMETER cand ${strategyKey(s)} ` +
                 `halls=${hallPlacements.length} perimeterAdjacent=${onPerimeter} ` +
                 `${allOn ? '✓' : '⚠'}`,
@@ -2293,7 +2303,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         const unreachNamed = unreachableHabitable
             .map(id => `${id}(${typeById.get(id) ?? '?'})`)
             .join(',') || 'none';
-        console.log(
+        if (_layoutDiagOn()) console.log(
             `[D-TGL] §DIAG-CIRCULATION-REACH cand ${strategyKey(s)} ` +
             `entry=${bubble.entryId ?? 'none'} ` +
             `allHabitableReachable=${unreachableHabitable.length === 0 ? 'YES' : 'NO'} ` +
@@ -2312,7 +2322,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     {
         const ci = measureCorridorInterior(graph);
         const ca = measureCorridorAccess(graph);
-        console.log(
+        if (_layoutDiagOn()) console.log(
             `[D-TGL] §DIAG-CORRIDOR-QUALITY cand ${strategyKey(s)} ` +
             `perimeterAbut=${ci.corridorExtWallLenM.toFixed(2)}m/${ci.corridorWallLenM.toFixed(2)}m ` +
             `interior=${ci.score.toFixed(2)} ` +
@@ -2427,7 +2437,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     });
     const hardValid = hardFailedRules.length === 0;
     // §DIAG-TOPO-GATE — per-candidate hard-gate decision line (logging only).
-    console.log(
+    if (_layoutDiagOn()) console.log(
         `[D-TGL] §DIAG-TOPO-GATE strategy=${strategyKey(s)} hardValid=${hardValid} ` +
         `floor=${housePath ? (isGroundFloor ? 'ground' : 'upper') : 'apartment'} ` +
         `corridorStairGap=${corridorStairGap ? 'YES' : 'no'} corridorHallGap=${corridorHallGap ? 'YES' : 'no'} ` +
@@ -2446,7 +2456,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         const detail = underMinAreaRooms
             .map(r => `${r.roomId}(${r.type})=${r.areaM2.toFixed(1)}<${r.areaMinM2}`)
             .join(' ');
-        console.log(
+        if (_layoutDiagOn()) console.log(
             `[D-TGL] §DIAG-MIN-AREA-GATE cand ${strategyKey(s)} ` +
             `underMin=${underMinAreaRooms.length}${detail ? ` [${detail}]` : ''} ` +
             `rejected=${hasUnderMinArea ? 'YES' : 'no'}`,
@@ -2459,7 +2469,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         const requested = Array.from(requestedMandatoryCounts(input.program).entries())
             .map(([t, n]) => `${n}×${t}`).join(',') || 'none';
         const missing = missingMandatoryTypes.join(',') || 'none';
-        console.log(
+        if (_layoutDiagOn()) console.log(
             `[D-TGL] §DIAG-MANDATORY-GATE cand ${strategyKey(s)} ` +
             `requested=[${requested}] missing=[${missing}] ` +
             `rejected=${hasMissingMandatory ? 'YES' : 'no'}`,
@@ -2474,7 +2484,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     const droppedTypes = droppedRooms.map(d => d.type).join(',') || 'none';
     const frontageFailIds = frontage.hardFindings.map(f => f.roomId).join(',') || 'none';
     const weighted = weightedSum(objectives, input.weights);
-    console.log(
+    if (_layoutDiagOn()) console.log(
         `[D-TGL] §DIAG-ENUM cand ${strategyKey(s)} weighted=${weighted.toFixed(3)} ` +
         `connected=${metrics.connected} shapeOK=${shapeAdmissible} topoOK=${topologyAdmissible} ` +
         `circRouted=${circulationRouted} compromises=${compromises} ` +
@@ -2901,7 +2911,7 @@ export function enumerateLayouts(input: EnumerateInput): TglCandidate[] {
         const reason = !anyMandatoryComplete
             ? `every strategy dropped a REQUESTED mandatory room (missing: [${missingUnion.join(', ')}])`
             : `every strategy shrank a habitable room below its minimum area (under-min: [${underMinUnion.join(', ')}])`;
-        console.warn(
+        if (_layoutDiagOn()) console.warn(
             `[apartment-layout] §DIAG-MANDATORY-GATE/§DIAG-MIN-AREA-GATE reject: ` +
             `${reason} across all ${candidates.length} strategies. The plate is too small for the ` +
             `requested program (${requested}) at minimum room sizes — surfacing a structured ` +
@@ -3025,7 +3035,7 @@ export function enumerateLayouts(input: EnumerateInput): TglCandidate[] {
             .map(a => `${a}=${best.objectives[a].toFixed(2)}`)
             .join(' ');
         const winDropped = best.droppedRooms.map(d => d.type).join(',') || 'none';
-        console.log(
+        if (_layoutDiagOn()) console.log(
             `[D-TGL] §DIAG-WINNER strategy=${best.strategy} tier=${pool_} ` +
             `hardValid=${best.hardValid} hardFailed=[${best.hardFailedRules.join(',') || 'none'}] ` +
             `rank=${best.rank} weighted=${best.weighted.toFixed(3)} ` +
@@ -3033,7 +3043,7 @@ export function enumerateLayouts(input: EnumerateInput): TglCandidate[] {
             `topoOK=${best.topologyAdmissible} circRouted=${best.circulationRouted} ` +
             `compromises=${best.compromises} droppedRooms=[${winDropped}]`,
         );
-        console.log(`[D-TGL] §DIAG-WINNER objectives: ${axes}`);
+        if (_layoutDiagOn()) console.log(`[D-TGL] §DIAG-WINNER objectives: ${axes}`);
     }
 
     // §DIAG-CORRIDOR-STAIR-SUMMARY (founder spec, 2026-06-17) — the single storey-level line
@@ -3053,7 +3063,7 @@ export function enumerateLayouts(input: EnumerateInput): TglCandidate[] {
         const anchor = groundFloor ? 'entrance hall' : 'stair';
         const contiguous = candidates.filter(c => !c.hardFailedRules.includes(gateRule)).length;
         const bestContiguous = !best.hardFailedRules.includes(gateRule);
-        console.log(
+        if (_layoutDiagOn()) console.log(
             `[D-TGL] §DIAG-CORRIDOR-CONTIGUITY-SUMMARY floor=${groundFloor ? 'ground' : 'upper'} ` +
             `contiguous=${contiguous}/${candidates.length} strategies reached the ${anchor}; ` +
             `selected=${bestContiguous ? 'YES' : 'NO'} ` +

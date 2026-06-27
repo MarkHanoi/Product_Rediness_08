@@ -90,6 +90,21 @@ export function resolveOpeningRenderMap(wall: WallData, store: WallStore): Openi
     return map;
 }
 
+// §WALL-CORNER-DIAG (PERF, 2026-06-27) — the §DIAG-PERIM-CORNER / -WHOLE corner
+// probes and the per-wall §DIAG-OPENING-VOID logs are O(n²)-endpoint-cluster +
+// heavy console I/O that ran UNCONDITIONALLY on every wall-mutation flush. They
+// are NOT per-frame (the flush is event-driven via scheduleOnce), but on a 192-
+// wall level each edit still paid the O(n²) cluster + ~dozens of console lines
+// for zero production benefit. Gate the whole capability behind one cheap typed
+// global so a normal session pays nothing; turn it on from the console with
+//   globalThis.__pryzmWallCornerDiag = true
+// to restore the full corner/void diagnostics. `_wallDiagOn()` is the single
+// guard — read it ONCE per flush and skip the probe AND its string-building when
+// off (the template interpolation is itself a cost we must not pay).
+function _wallDiagOn(): boolean {
+    return (globalThis as unknown as { __pryzmWallCornerDiag?: boolean }).__pryzmWallCornerDiag === true;
+}
+
 type _WallDirtyEntry = { event: 'add' | 'update' | 'remove'; wall: WallData; prevState?: WallData };
 
 interface WallRebuildDeps {
@@ -528,7 +543,8 @@ export class WallRebuildCoordinator {
             // BOTH walls carry a cached miter and the GAP between their cached TRIMMED
             // corner endpoints (a clean corner ⇒ the two trimmed ends coincide; a gap ⇒
             // the cap planes no longer meet → the visible open corner). Pure logging.
-            try {
+            // §WALL-CORNER-DIAG (PERF) — opt-in; skipped (cluster + strings) when off.
+            if (_wallDiagOn()) try {
                 for (const [levelId] of cachedByLevel) {
                     const lvlWalls = liveStore.getAll().filter((w: WallData) => w.levelId === levelId);
                     // Untrimmed (source) endpoints → true corners cluster even after a trim.
@@ -770,22 +786,30 @@ export class WallRebuildCoordinator {
                                 if (ud?.role === 'hit-proxy') hasHitProxy = true;
                             }
                         }
+                        // §DIAG-OPENING-VOID (functional, NOT gated): voidCut drives the
+                        // whole-level fallback below, so it must always run. The `path`
+                        // label + the verbose per-wall info log ARE diagnostic — only
+                        // build the string / emit when §WALL-CORNER-DIAG is on.
                         const voidCut = !isHidden && bodyParts > 0;
-                        const path = !group ? 'no-group'
+                        const path = (): string => !group ? 'no-group'
                             : (bodyParts === 0 && hasHitProxy) ? 'instanced'
                             : isHidden ? 'hidden(invalid-join?)'
                             : (fresh.layers && fresh.layers.length > 0) ? 'layered-grid'
                             : 'single-segmented';
-                        console.log(
-                            `[WallRebuildCoordinator] §DIAG-OPENING-VOID wall=${wallId} ` +
-                            `level=${levelId} openings=${_openings.length} path=${path} ` +
-                            `bodyParts=${bodyParts} cachedJoin=${cachedJoinData ? (cachedJoinData.invalid ? 'INVALID' : 'yes') : 'null'} ` +
-                            `voidCut=${voidCut}`,
-                        );
+                        if (_wallDiagOn()) {
+                            console.log(
+                                `[WallRebuildCoordinator] §DIAG-OPENING-VOID wall=${wallId} ` +
+                                `level=${levelId} openings=${_openings.length} path=${path()} ` +
+                                `bodyParts=${bodyParts} cachedJoin=${cachedJoinData ? (cachedJoinData.invalid ? 'INVALID' : 'yes') : 'null'} ` +
+                                `voidCut=${voidCut}`,
+                            );
+                        }
                         if (!voidCut) {
+                            // A genuine defect (door leaf on an un-carved wall) — keep this
+                            // warn unconditional; it is rare and routes to the repair path.
                             console.warn(
                                 `[WallRebuildCoordinator] §DIAG-OPENING-VOID ⚠ wall=${wallId} has ${_openings.length} ` +
-                                `opening(s) but the body-only rebuild did NOT cut the void (path=${path}) — ` +
+                                `opening(s) but the body-only rebuild did NOT cut the void (path=${path()}) — ` +
                                 `routing to the whole-level rebuild so the hole is carved.`,
                             );
                             _voidNotCut.push(wallId);
@@ -1276,7 +1300,10 @@ export class WallRebuildCoordinator {
                 // §NEAR-CORNER-L resolver fix a slightly-gapped (welded/rotated) shell
                 // corner is now mitred to the shared centreline crossing, so this should
                 // read gap≈0 + bothMitred. Pure logging; gated to avoid console flood.
-                try {
+                // §WALL-CORNER-DIAG (PERF) — the O(n²) endpoint cluster + console output
+                // below is opt-in. A normal flush skips it entirely (no cluster, no
+                // string-building). Enable with `globalThis.__pryzmWallCornerDiag = true`.
+                if (_wallDiagOn()) try {
                     const _ends: Array<{ id: string; side: 'start' | 'end'; p: { x: number; z: number } }> = [];
                     for (const w of levelWalls) {
                         const src = (w as unknown as { _sourceBaseLine?: ReadonlyArray<{ x: number; z: number }> })._sourceBaseLine ?? w.baseLine;

@@ -15,6 +15,15 @@ import { clipToConvexShell } from './polySubdivide.js';
 import type { BubbleGraph, ProgramRoom } from './bubbleGraph.js';
 import type { Pt, Rect } from './rectDecomposition.js';
 
+/**
+ * §DIAG diagnostic gate. §DIAG breadcrumb logging is OFF by default. Set
+ * `globalThis.__pryzmLayoutDiag = true` in the console to restore every §DIAG line. The
+ * `if` short-circuits BOTH the console call AND the template-string build. P4: cast
+ * through `globalThis`, never `(window as any)`.
+ */
+const _layoutDiagOn = (): boolean =>
+    (globalThis as unknown as { __pryzmLayoutDiag?: boolean }).__pryzmLayoutDiag === true;
+
 const bboxOf = (poly: readonly Pt[]): Rect => {
     let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
     for (const p of poly) {
@@ -115,7 +124,7 @@ function carveSpineSuites(res: SpinePackResult | null, suites: readonly SpineSui
     }
     // §DIAG-SUITE — host-adjacency proof: carved (attached) vs dropped; detached MUST be 0 by
     // construction (every carve splits the host rect, so the ensuite always shares the cut wall).
-    console.log(
+    if (_layoutDiagOn()) console.log(
         `[D-TGL spine] §DIAG-SUITE carve: suites=${suites.length} carved=${carved} dropped=${droppedCount} detached=0 ` +
         `(every carved ensuite is a corner of its host; host-adjacency guaranteed by construction).`,
     );

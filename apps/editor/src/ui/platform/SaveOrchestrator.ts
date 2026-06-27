@@ -139,7 +139,17 @@ export class SaveOrchestrator {
 
     constructor(options: SaveOrchestratorOptions, runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null = null) {
         this.runtime = runtime;
-        this.DEBOUNCE_MS = options.debounceMs ?? 1000;
+        // §PERF-AUTOSAVE-DEBOUNCE (2026-06-27) — autosave does a FULL-project
+        // serialize (793 elements → ~16.6 MB) TWICE per fire (once in getHash()
+        // for the dirty-check, once in saveVersionInternal for the snapshot) plus
+        // a main-thread deflate, on EVERY edit-burst. On a large 7-level building
+        // a 1 s debounce re-pays that whole cost ~1 s after the user pauses even
+        // briefly mid-edit. Widening the default to 2.5 s coalesces a rapid
+        // edit-session (drag, nudge, retype) into far fewer heavy saves while
+        // staying well inside the beforeunload emergency-flush safety net (which
+        // still writes localStorage synchronously on tab close, so no edit is
+        // lost). Callers can still override via options.debounceMs.
+        this.DEBOUNCE_MS = options.debounceMs ?? 2500;
         this.getHash = options.getHash;
         this.onAutoSave = options.onAutoSave;
         this.onSaveStatusChange = options.onSaveStatusChange ?? (() => { });

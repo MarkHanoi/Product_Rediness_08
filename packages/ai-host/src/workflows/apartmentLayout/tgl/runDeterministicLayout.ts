@@ -19,6 +19,15 @@ import { glazingBiasFor } from '../../furnishLayout/style/StyleRegistry.js';
 
 const r3 = (n: number): number => Math.round(n * 1000) / 1000;
 
+/**
+ * §DIAG diagnostic gate. §DIAG breadcrumb logging is OFF by default. Set
+ * `globalThis.__pryzmLayoutDiag = true` in the console to restore every §DIAG line. The
+ * `if` short-circuits BOTH the console call AND the template-string build. P4: cast
+ * through `globalThis`, never `(window as any)`.
+ */
+const _layoutDiagOn = (): boolean =>
+    (globalThis as unknown as { __pryzmLayoutDiag?: boolean }).__pryzmLayoutDiag === true;
+
 /** Below this residual dominant-edge angle a shell is treated as already
  *  axis-aligned and NO rotation is applied — preserves bit-identical output for
  *  rectangles / L / U / T shells (no-regression) and skips a pointless transform.
@@ -351,7 +360,7 @@ export function generateDeterministicLayouts(
                     }
                 }
             }
-            console.log(
+            if (_layoutDiagOn()) console.log(
                 `[D-TGL] §DIAG-RECTIFY-PROJECT rectifyFired=${rectifyFired} projected=${projectedCount} `
                 + `maxResidual=${maxResidualM.toFixed(3)}m`
                 + `${rectifyFired && maxResidualM > 0.02 ? ' ⚠ a perimeter-terminating partition did NOT reach the shell (open seam → room merge)' : rectifyFired ? ' ✓ all perimeter partitions on the shell' : ' (no rectify — stair-step decomposition; partitions tile the real shell directly)'}`,

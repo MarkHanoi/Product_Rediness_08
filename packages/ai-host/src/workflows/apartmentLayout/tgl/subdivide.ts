@@ -33,6 +33,16 @@ import { dimensionsFor } from '../dimensions/roomDimensions.js';
 import { subdivideViaSpine } from './subdivideViaSpine.js';   // §SPINE-FIRST P4 (flag-gated)
 import type { SpinePackResult } from './packRoomsAlongSpine.js';   // §SINGLE-LOAD-PERIPHERAL guard typing
 
+/**
+ * §DIAG diagnostic gate. All §DIAG / §EVERY-ROOM-ACCESS-COMB breadcrumb logging is OFF
+ * by default (these fire per-candidate in a hot tower loop). Set
+ * `globalThis.__pryzmLayoutDiag = true` in the console to restore every §DIAG line. The
+ * `if` short-circuits BOTH the console call AND the template-string build. P4: cast
+ * through `globalThis`, never `(window as any)`.
+ */
+const _layoutDiagOn = (): boolean =>
+    (globalThis as unknown as { __pryzmLayoutDiag?: boolean }).__pryzmLayoutDiag === true;
+
 /** A room's realised footprint inside the shell. */
 export interface RoomPlacement {
     readonly roomId: string;
@@ -1495,7 +1505,7 @@ function carveSuiteEnsuites(
         }
     }
     if (suites.length > 0) {
-        console.log(
+        if (_layoutDiagOn()) console.log(
             `[D-TGL subdivide] §DIAG-SUITE carve: suites=${suites.length} carved=${carved} ` +
             `fellBack=${fellBack} (each carved ensuite = a corner of its host, door host↔ensuite, ` +
             `never the corridor; fall-backs left the host whole + reported the ensuite).`,
@@ -2320,7 +2330,7 @@ function trySingleRectCarve(
                 if (touchesEdge(hr.z1, pr.z1)) shellLenM = Math.max(shellLenM, hr.x1 - hr.x0);   // top shell wall
             }
             const boundsShell = shellLenM >= STAIR_DOOR_MIN_M - EPS;   // ≥ a door width (0.9 m)
-            console.log(
+            if (_layoutDiagOn()) console.log(
                 `[D-TGL subdivide] §DIAG-ENTRANCE-PERIMETER hall=${hallRoom.id} carve=${hallCarve ? 'SHELL-SLICE' : 'squarify'} ` +
                 `boundsShellWall=${boundsShell ? 'YES' : 'NO'} shellWallLenM=${shellLenM.toFixed(2)} ` +
                 `(YES ⇒ the front door can be hosted on the hall's perimeter wall — editor §DIAG-ENTRANCE turns ✓; ` +
@@ -2352,7 +2362,7 @@ function trySingleRectCarve(
         : undefined;
     const comb = sliceZoneAlongFace(carve.privateRect, orderedPrivate, combFaceAxis, combMinAlong);
     let priv: SubdivideResult = comb ?? placeInRectReported(carve.privateRect, orderedPrivate);
-    console.log(
+    if (_layoutDiagOn()) console.log(
         `[D-TGL subdivide] §EVERY-ROOM-ACCESS-COMB ${comb ? 'APPLIED' : 'fell back to squarify'} ` +
         `privateRooms=${orderedPrivate.length} faceAxis=${combFaceAxis} ` +
         `(${comb ? 'every private room abuts the corridor face' : 'comb infeasible — floors/depth too tight'})`,
@@ -4158,7 +4168,7 @@ export function subdivideWithReport(
                     return (vAbut && zOv >= 0.9) || (hAbut && xOv >= 0.9);
                 })
                 : false;
-            console.log(
+            if (_layoutDiagOn()) console.log(
                 `[D-TGL subdivide] §DIAG-SPINE-SINGLELOAD mode=${label} rooms=${treeRes.rooms.length} ` +
                 `band=${label === 'single-loaded' ? 'one' : 'multi'} corridorCells=${treeRes.corridorCells.length} ` +
                 `stairBridged=${stairKo ? (stairBridged ? 'YES' : 'no') : 'n/a'}`,
@@ -4389,7 +4399,7 @@ export function subdivideWithReport(
                 const ov = keepOutRects.reduce((m, ko) => Math.max(m, overlapAreaM2(p.rect, ko)), 0);
                 if (ov > 1e-3 && (!worst || ov > worst.ov)) worst = { id: p.roomId, type: typeByRoomId.get(p.roomId) ?? '?', ov };
             }
-            console.log(
+            if (_layoutDiagOn()) console.log(
                 `[D-TGL subdivide] §DIAG-STAIR-OVERLAP roomOverlapsKeepOut=${worst ? 'YES' : 'NO'}` +
                 `${worst ? ` offending=${worst.id}(${worst.type}) overlapM2=${worst.ov.toFixed(2)}` : ''} ` +
                 `(YES ⇒ a habitable room is drawn across the stair keep-out — the §65.1 defect; NO ⇒ only the stair occupies it)`,
@@ -4405,7 +4415,7 @@ export function subdivideWithReport(
             const reachM = corrP
                 ? keepOutRects.reduce((b, ko) => Math.max(b, sharedWallLengthM(corrP.rect, ko)), 0)
                 : 0;
-            console.log(
+            if (_layoutDiagOn()) console.log(
                 `[D-TGL subdivide] §DIAG-STAIR-CIRC corridor=${graph.corridorId} keepOuts=${keepOutRects.length} ` +
                 `corridorReachM=${reachM.toFixed(2)} sharesStairWall=${reachM >= STAIR_DOOR_MIN_M - EPS ? 'YES' : 'NO'} ` +
                 `(YES ⇒ stair can door onto circulation; NO ⇒ enumerate §STAIR-SPINE-TOUCH must bridge or the stair is served through a room)`,
@@ -4432,7 +4442,7 @@ export function subdivideWithReport(
         const typeByRoomIdNet: ReadonlyMap<string, RoomType> = new Map(graph.rooms.map(r => [r.id, r.type]));
         const net = resolveRoomOverlaps(snapped, typeByRoomIdNet);
         if (net.resolved.length > 0 || net.dropped.length > 0) {
-            console.warn(
+            if (_layoutDiagOn()) console.warn(
                 `[D-TGL subdivide] §DIAG-OVERLAP resolved ${net.resolved.length} room-room overlap(s) ` +
                 `(clipped/dropped the lower-priority room) — dropped=[${net.dropped.join(',') || 'none'}] ` +
                 `worstClippedM2=${(net.resolved[0]?.areaM2 ?? 0).toFixed(4)} worstResidualM2=${net.worstResidualM2.toFixed(4)} ` +
@@ -4546,7 +4556,7 @@ export function subdivideWithReport(
         // apartment byte-identical.
         const DOMINANT_FRACTION = 0.40;
         const dominantFrac = rectArea(dominant) / Math.max(EPS, totalArea);
-        console.log(`[D-TGL subdivide] §DIAG-RECTS stairCarved=true rects=${frag.length} areas=[${frag.map(r => rectArea(r).toFixed(1)).join(', ')}] total=${totalArea.toFixed(1)} dominantFrac=${dominantFrac.toFixed(2)} rooms=${graph.rooms.length} gate=${DOMINANT_FRACTION}`);
+        if (_layoutDiagOn()) console.log(`[D-TGL subdivide] §DIAG-RECTS stairCarved=true rects=${frag.length} areas=[${frag.map(r => rectArea(r).toFixed(1)).join(', ')}] total=${totalArea.toFixed(1)} dominantFrac=${dominantFrac.toFixed(2)} rooms=${graph.rooms.length} gate=${DOMINANT_FRACTION}`);
         // §DIAG-BRANCH (Part 8, 2026-06-09) — deterministic branch line for the next prod
         // run: WHICH path the stair-carved plate took. `path=carve` ⇒ the dominant gate
         // fired → the corridor spine runs in the dominant rect (the founder's fix); the
@@ -4555,7 +4565,7 @@ export function subdivideWithReport(
         // Fix 4 lower gate are meant to AVOID). Read this against §DIAG-STAIR-RESERVE's
         // `kind`: a CORNER reserve should always land here as `path=carve`.
         const branchPath = dominantFrac >= DOMINANT_FRACTION ? 'carve' : 'generic';
-        console.log(`[D-TGL subdivide] §DIAG-BRANCH stairCarved dominantFrac=${dominantFrac.toFixed(2)} path=${branchPath}`);
+        if (_layoutDiagOn()) console.log(`[D-TGL subdivide] §DIAG-BRANCH stairCarved dominantFrac=${dominantFrac.toFixed(2)} path=${branchPath}`);
         if (rectArea(dominant) >= DOMINANT_FRACTION * totalArea) {
             // §STAIR-CIRC-FACE — when a stair keep-out is supplied, prefer the single-loaded
             // (one-face) corridor so the §STAIR-CIRC-FACE reflection in `finalise` can bring it
@@ -4609,7 +4619,7 @@ export function subdivideWithReport(
                         return finalise(spanning);
                     }
                 }
-                console.log(`[D-TGL subdivide] §DIAG-BRANCH dominant-carve eligible: carveDrops=0 sealedDependents=${carvedSealed} → picked carve`);
+                if (_layoutDiagOn()) console.log(`[D-TGL subdivide] §DIAG-BRANCH dominant-carve eligible: carveDrops=0 sealedDependents=${carvedSealed} → picked carve`);
                 return finalise(carved);
             }
             // §STAIR-SPANNING-CORRIDOR (tracker §52.3 / §52.6, 2026-06-11) — the
@@ -4626,7 +4636,7 @@ export function subdivideWithReport(
             // corridor; otherwise null ⇒ we keep the original behaviour below (no regression).
             const spanning = tryStairSpanningCorridor(frag, graph, corridorWidthM);
             if (spanning !== null) {
-                console.log(`[D-TGL subdivide] §DIAG-BRANCH whole-programme carve ${carved === null ? 'infeasible' : `would drop ${carved.droppedRooms.map(d => d.type).join(',')}`} → §STAIR-SPANNING-CORRIDOR rescued (0 drops, every dependent abuts the corridor)`);
+                if (_layoutDiagOn()) console.log(`[D-TGL subdivide] §DIAG-BRANCH whole-programme carve ${carved === null ? 'infeasible' : `would drop ${carved.droppedRooms.map(d => d.type).join(',')}`} → §STAIR-SPANNING-CORRIDOR rescued (0 drops, every dependent abuts the corridor)`);
                 return finalise(spanning);
             }
             if (carved !== null) {
@@ -4634,7 +4644,7 @@ export function subdivideWithReport(
                 const carvedDrops = carved.droppedRooms.length;
                 const genericDrops = generic.droppedRooms.length;
                 const pick = genericDrops < carvedDrops ? 'generic' : 'carve';
-                console.log(`[D-TGL subdivide] §DIAG-BRANCH dominant-carve eligible: carveDrops=${carvedDrops} genericDrops=${genericDrops} → picked ${pick}${(pick === 'carve' ? carved : generic).droppedRooms.length > 0 ? ` (DROPPED ${(pick === 'carve' ? carved : generic).droppedRooms.map(d => d.type).join(',')})` : ''}`);
+                if (_layoutDiagOn()) console.log(`[D-TGL subdivide] §DIAG-BRANCH dominant-carve eligible: carveDrops=${carvedDrops} genericDrops=${genericDrops} → picked ${pick}${(pick === 'carve' ? carved : generic).droppedRooms.length > 0 ? ` (DROPPED ${(pick === 'carve' ? carved : generic).droppedRooms.map(d => d.type).join(',')})` : ''}`);
                 return finalise(genericDrops < carvedDrops ? generic : carved);
             }
             // No corridor/private split (e.g. studio brief): squarify the whole

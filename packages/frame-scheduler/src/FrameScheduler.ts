@@ -42,6 +42,16 @@ import {
   getBackgroundHeartbeat,
   type BackgroundHeartbeat,
 } from './BackgroundHeartbeat.js';
+import { FrameProfiler } from './FrameProfiler.js';
+
+/**
+ * High-resolution monotonic clock for the frame profiler's sub-measurements.
+ * Falls back to Date.now() in hosts without `performance` (headless tests).
+ */
+const _perfNow = (): number => {
+  const p = (globalThis as { performance?: { now?: () => number } }).performance;
+  return typeof p?.now === 'function' ? p.now() : Date.now();
+};
 
 const PRIORITY_RANK: Record<Priority, number> = {
   interaction: 0,
@@ -90,6 +100,12 @@ export class FrameScheduler {
   private idleEntryEmitted = false;
   /** Cached count for OTel attribute `pryzm.frame.tick.tick_count`. */
   private tickCount = 0;
+
+  /**
+   * §FRAME-PROFILER — per-subsystem frame-cost accumulator. Zero cost unless
+   * `globalThis.__pryzmFrameProfile === true`. Console filter: `[FrameProfiler]`.
+   */
+  private readonly profiler = new FrameProfiler();
 
   /**
    * Monotonic counter used by `scheduleOnce()` to mint unique listener IDs
@@ -678,6 +694,11 @@ export class FrameScheduler {
     const deltaMs = now - this.lastTickTime;
     this.lastTickTime = now;
 
+    // §FRAME-PROFILER — single typed-global read; everything below is gated on it.
+    const _prof = this.profiler.isOn();
+    const _profStart = _prof ? _perfNow() : 0;
+    if (_prof) this.profiler.beginFrame(_profStart);
+
     // §F.3 — Reset per-rAF budget tokens at the top of each tick so all
     // drain callbacks sharing a budget key start each frame with a fresh
     // consumedMs = 0.  This is O(k) where k is the number of live budget
@@ -695,7 +716,9 @@ export class FrameScheduler {
       this.dirtyFlags.size > 0 || this.pending.length > 0;
 
     // 1. Drain the priority queue (wraps in `pryzm.frame.tick` OTel span).
+    const _drainT0 = _prof ? _perfNow() : 0;
     this.drainSync();
+    if (_prof) this.profiler.recordDrain(_perfNow() - _drainT0);
 
     // 2. Run tick listeners in TickPriority order.  Listener errors are
     //    isolated — one broken subsystem must not kill the frame loop.
@@ -717,6 +740,7 @@ export class FrameScheduler {
       for (const priority of TICK_PRIORITIES) {
         for (const listener of listenersThisTick) {
           if (listener.priority !== priority) continue;
+          const _lT0 = _prof ? _perfNow() : 0;
           try {
             listener.callback(now, deltaMs);
           } catch (err) {
@@ -726,8 +750,16 @@ export class FrameScheduler {
               err,
             );
           }
+          if (_prof) this.profiler.recordListener(listener.id, _perfNow() - _lT0);
         }
       }
+    }
+
+    // §FRAME-PROFILER — record total frame wall-time + emit the 1 s summary.
+    // Placed before the idle-gate's early returns so it runs on every tick.
+    if (_prof) {
+      const _frameEnd = _perfNow();
+      this.profiler.endFrame(_frameEnd - _profStart, _frameEnd);
     }
 
     // 3. Idle-continuation gate (ADR-006).  If the tick had work to do —
