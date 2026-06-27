@@ -856,6 +856,127 @@ export const ONBOARDING_STYLES = `
   max-width: 19rem;
 }
 
+/* ── §RESI-LANDSCAPE-MODAL (founder 2026-06-27) — wide LANDSCAPE residential setup ──
+   The residential program step (and ONLY that step) earns the wide layout the founder
+   asked for: a left "Views / levels" rail · a LARGE central plan preview · the controls
+   form on the right — mirroring the residential-HOUSE preview modal. It rides the
+   non-blocking docked-banner presentation (--drawing) so the drawn boundary stays
+   visible behind it, but --resi widens the card and replaces the single vertical
+   column with a 3-column grid. White + #6600FF only. Collapses to one column when the
+   viewport is too narrow for three. The --resi rules come AFTER --confirm so they
+   win the cascade (same specificity, later wins) for the body's flex-direction. */
+.os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--resi .os-header,
+.os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--resi .os-body {
+  /* Override the slim 560px banner cap — the landscape layout needs widescreen room. */
+  width: min(1080px, 96vw);
+}
+.os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--resi .os-body {
+  /* Reset the --confirm vertical column: the body now hosts ONE landscape grid. */
+  display: block;
+  /* The card can get tall on small screens — let the body scroll internally. */
+  max-height: min(82vh, 760px);
+  overflow-y: auto;
+  padding: 0.85rem 0.95rem 0.95rem;
+}
+.os-onboarding-overlay--resi .os-resi-layout {
+  display: grid;
+  /* LEFT views rail · CENTER plan (takes the slack) · RIGHT controls. */
+  grid-template-columns: 152px minmax(0, 1fr) 300px;
+  gap: 0.85rem;
+  align-items: start;
+}
+/* Narrow viewport: collapse to a single column (views → plan → form stack). */
+@media (max-width: 880px) {
+  .os-onboarding-overlay--resi .os-resi-layout { grid-template-columns: 1fr; }
+}
+
+/* LEFT — "Views / levels" rail. A framed column of per-floor chips; the
+   representative-plan floor is highlighted in #6600FF. */
+.os-onboarding-overlay--resi .os-resi-views {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.6rem 0.55rem;
+  border: 1px solid rgba(102, 0, 255, 0.16);
+  border-radius: 0.7rem;
+  background: linear-gradient(180deg, #ffffff 0%, rgba(102, 0, 255, 0.035) 100%);
+}
+.os-onboarding-overlay--resi .os-resi-views-head {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6600ff;
+  padding: 0 0.15rem 0.15rem;
+}
+.os-onboarding-overlay--resi .os-resi-views-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.32rem;
+}
+.os-onboarding-overlay--resi .os-resi-views-empty {
+  font-size: 0.74rem;
+  color: rgba(42, 26, 82, 0.5);
+  padding: 0.2rem 0.15rem;
+}
+.os-onboarding-overlay--resi .os-resi-view-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.06rem;
+  text-align: left;
+  padding: 0.4rem 0.55rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(102, 0, 255, 0.12);
+  background: rgba(255, 255, 255, 0.7);
+  color: #2a1a52;
+  cursor: default;
+}
+.os-onboarding-overlay--resi .os-resi-view-chip--on {
+  border-color: #6600ff;
+  background: rgba(102, 0, 255, 0.08);
+  box-shadow: 0 0 0 1px rgba(102, 0, 255, 0.22) inset;
+}
+.os-onboarding-overlay--resi .os-resi-view-chip-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #2a1a52;
+}
+.os-onboarding-overlay--resi .os-resi-view-chip--on .os-resi-view-chip-label { color: #6600ff; }
+.os-onboarding-overlay--resi .os-resi-view-chip-meta {
+  font-size: 0.68rem;
+  color: #6b5f8c;
+}
+
+/* CENTER — the large plan preview stage. Lets the preview occupy the main area. */
+.os-onboarding-overlay--resi .os-resi-stage {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.os-onboarding-overlay--resi .os-resi-stage .os-resi-preview {
+  margin-top: 0;
+}
+/* The big central plan — let it use the full stage width (cap raised vs. the old
+   190px portrait thumbnail so the plan is genuinely prominent, not a small box). */
+.os-onboarding-overlay--resi .os-resi-stage .os-resi-preview-plan svg {
+  max-height: 360px;
+}
+
+/* RIGHT — the controls form column. Tighter gaps so all groups fit beside the plan;
+   it scrolls internally if the parameter stack runs taller than the card. */
+.os-onboarding-overlay--resi .os-resi-form {
+  margin-top: 0;
+  gap: 0.55rem;
+  max-height: min(72vh, 680px);
+  overflow-y: auto;
+  padding-right: 0.15rem;
+}
+/* On the single-column (narrow) fallback, drop the per-column scroll so the whole
+   body scrolls as one. */
+@media (max-width: 880px) {
+  .os-onboarding-overlay--resi .os-resi-form { max-height: none; overflow: visible; }
+}
+
 /* ── DRAG + RESIZE chrome (shared with makeDraggable / makeResizable) ───────────
    The helpers toggle .vg-panel--dragging / .vg-panel--resizing. Suppress text
    selection while interacting; show the grip in the bottom-right corner. */

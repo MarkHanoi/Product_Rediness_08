@@ -65,7 +65,7 @@ import { geocodeAddress } from '../site/geocodeAddress.js';
 import { generateApartmentFromBoundary } from '../apartment-layout/apartmentFromBoundary.js';
 import { generateHouseFromBoundary, type FootprintPoint } from '../house-layout/houseFromBoundary.js';
 import { generateResidentialFromBoundary } from '../residential-building/residentialFromBoundary.js';
-import { buildResidentialCardModel } from '../residential-building/residentialCardModel.js';
+import { buildResidentialCardModel, type ResidentialCardModel } from '../residential-building/residentialCardModel.js';
 import { buildResidentialPlanSvg } from '../residential-building/residentialPlanThumbnail.js';
 // §BUILDING-PREVIEW-MODULAR — the shared, building-type-agnostic façade palette (single source).
 import { FACADE_PALETTE, DEFAULT_FACADE_HEX } from '../preview-kit/buildingPlanDescriptor.js';
@@ -202,6 +202,14 @@ class OnboardingStepController {
 
     private toast(message: string, severity: 'info' | 'success' | 'error'): void {
         try { this.runtime.events?.emit('pryzm:toast', { message, severity }); } catch { /* ignore */ }
+    }
+
+    /** §RESI-LANDSCAPE-MODAL — minimal HTML-escape for any interpolated runtime text
+     *  written into the views rail (floor labels come from the card model). */
+    private escResi(s: string): string {
+        return String(s).replace(/[&<>"']/g, (c) => (
+            c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : c === '"' ? '&quot;' : '&#39;'
+        ));
     }
 
     // ── overlay shell ─────────────────────────────────────────────────────────
@@ -812,6 +820,14 @@ class OnboardingStepController {
         const body = this.clearBody();
         console.log(`[onboarding-step] residential program step (source="${source}").`);
 
+        // §RESI-LANDSCAPE-MODAL (founder 2026-06-27) — the residential setup is the ONE
+        // step that earns a wide LANDSCAPE layout (left "levels/views" rail · large central
+        // plan preview · right controls), mirroring the residential-HOUSE preview modal.
+        // `--resi` widens the docked card + switches the body to the 3-column grid (CSS);
+        // it is removed on every exit (generate / not-now) so the slim banner returns for
+        // the other steps. Behaviour-neutral: the same form/inputs/handlers, re-grouped.
+        this.overlay?.classList.add('os-onboarding-overlay--resi');
+
         // Seed from any captured brief value, else the founder defaults.
         const num = (v: unknown, dflt: number): number => {
             const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN;
@@ -1034,7 +1050,29 @@ class OnboardingStepController {
         actions.appendChild(notNow);
         form.appendChild(actions);
 
-        body.appendChild(form);
+        // §RESI-LANDSCAPE-MODAL — assemble the three landscape columns:
+        //   LEFT  — "Views / levels" rail (level label + per-floor distribution chips).
+        //   CENTER — the large plan preview (the `preview` div, populated below).
+        //   RIGHT  — the controls `form` (built above, unchanged).
+        // CSS (`os-resi-layout`) lays these out side-by-side on a wide card and collapses
+        // to a single column on a narrow viewport, so the form/preview wiring is untouched.
+        const layout = document.createElement('div');
+        layout.className = 'os-resi-layout';
+
+        const views = document.createElement('aside');
+        views.className = 'os-resi-views';
+        views.setAttribute('data-testid', 'onboarding-resi-views');
+        const viewsHead = document.createElement('div');
+        viewsHead.className = 'os-resi-views-head';
+        viewsHead.textContent = 'Views';
+        views.appendChild(viewsHead);
+        const viewsList = document.createElement('div');
+        viewsList.className = 'os-resi-views-list';
+        viewsList.setAttribute('data-testid', 'onboarding-resi-views-list');
+        views.appendChild(viewsList);
+
+        const stage = document.createElement('div');
+        stage.className = 'os-resi-stage';
 
         // §RESI-LIVE-SLIDERS (2/2) — LIVE LAYOUT PREVIEW. On every slider / typology / floor change,
         // debounce-run the PURE orchestrator on the drawn footprint and show the resulting apartment
@@ -1046,18 +1084,46 @@ class OnboardingStepController {
         const preview = document.createElement('div');
         preview.className = 'os-resi-preview';
         preview.setAttribute('data-testid', 'onboarding-resi-preview');
-        body.appendChild(preview);
+        stage.appendChild(preview);
+
+        // §RESI-LANDSCAPE-MODAL — commit the three columns: views (left) · stage (centre) ·
+        // form (right). Done here (after `preview`/`stage` exist) so the form stays the
+        // last column; the body now hosts ONE landscape grid instead of a tall stack.
+        layout.appendChild(views);
+        layout.appendChild(stage);
+        layout.appendChild(form);
+        body.appendChild(layout);
 
         const numV = (v: string, d: number): number => { const n = Number(v); return Number.isFinite(n) ? n : d; };
+        /** §RESI-LANDSCAPE-MODAL — paint the LEFT "Views / levels" rail from the live result:
+         *  the representative-plan label (highlighted) + one chip per floor with its unit count.
+         *  Display-only, rebuilt on every live re-render so it tracks the sliders. */
+        const renderViewsRail = (card: ResidentialCardModel | null, planLabel: string): void => {
+            if (!card) { viewsList.innerHTML = `<span class="os-resi-views-empty">Draw a plot to preview floors.</span>`; return; }
+            const rows: string[] = [];
+            for (const f of card.floors) {
+                const placed = f.apartments.filter(a => a.status === 'ok').length;
+                const isPlan = !!planLabel && f.label === planLabel;
+                const meta = f.role === 'ground'
+                    ? (f.commercialGroundFloor ? 'Commercial · core' : 'Lobby · core')
+                    : `${placed} unit${placed === 1 ? '' : 's'}`;
+                rows.push(
+                    `<button type="button" class="os-resi-view-chip${isPlan ? ' os-resi-view-chip--on' : ''}" tabindex="-1">` +
+                    `<span class="os-resi-view-chip-label">${this.escResi(f.label)}</span>` +
+                    `<span class="os-resi-view-chip-meta">${this.escResi(meta)}</span></button>`,
+                );
+            }
+            viewsList.innerHTML = rows.join('') || `<span class="os-resi-views-empty">No floors yet.</span>`;
+        };
         const renderLivePreview = (): void => {
             const footprint = this.readParcelFootprint();
-            if (!footprint) { preview.innerHTML = `<span class="os-resi-preview-hint">Draw a plot to preview the layout.</span>`; return; }
+            if (!footprint) { preview.innerHTML = `<span class="os-resi-preview-hint">Draw a plot to preview the layout.</span>`; renderViewsRail(null, ''); return; }
             let minM2 = numV(minInput.value, seedMin);
             let maxM2 = numV(maxInput.value, seedMax);
             if (maxM2 < minM2) { const t = minM2; minM2 = maxM2; maxM2 = t; }
             const floors = Math.max(1, Math.min(20, Math.round(numV(floorsInput.value, seedFloors))));
             if (!(typoState.T1 || typoState.T2 || typoState.T3 || typoState.T4)) {
-                preview.innerHTML = `<span class="os-resi-preview-hint">Pick at least one apartment type to preview.</span>`; return;
+                preview.innerHTML = `<span class="os-resi-preview-hint">Pick at least one apartment type to preview.</span>`; renderViewsRail(null, ''); return;
             }
             try {
                 const result = orchestrateResidentialBuilding({
@@ -1069,7 +1135,7 @@ class OnboardingStepController {
                     typologies: { T1: typoState.T1, T2: typoState.T2, T3: typoState.T3, T4: typoState.T4 },
                 });
                 if (result.status !== 'ok') {
-                    preview.innerHTML = `<span class="os-resi-preview-hint">No layout fits at this size — try a larger size band or fewer floors.</span>`; return;
+                    preview.innerHTML = `<span class="os-resi-preview-hint">No layout fits at this size — try a larger size band or fewer floors.</span>`; renderViewsRail(null, ''); return;
                 }
                 const card = buildResidentialCardModel(result);
                 const mix = new Map<string, number>();
@@ -1077,7 +1143,7 @@ class OnboardingStepController {
                 const mixStr = [...mix.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([t, n]) => `${t}×${n}`).join(' · ') || '—';
                 // §RESI-LIVE-PLAN (founder 2026-06-23) — draw the ACTUAL floor plan, not just the
                 // count/mix. The orchestrator is pure + ms-fast, so the slider redraws the plan live.
-                const plan = buildResidentialPlanSvg(result, { targetPx: 320 });
+                const plan = buildResidentialPlanSvg(result, { targetPx: 460 });
                 const aptWord = card.totalApartments === 1 ? 'apartment' : 'apartments';
                 const flrWord = card.upperLevels === 1 ? 'floor' : 'floors';
                 preview.innerHTML =
@@ -1087,8 +1153,10 @@ class OnboardingStepController {
                     `<strong>${Math.round(card.totalNetAreaM2)}</strong> m² net · <strong>${card.upperLevels}</strong> residential ${flrWord}</div>` +
                     `<div class="os-resi-preview-mix">${mixStr}</div>` +
                     (card.totalRejected > 0 ? `<div class="os-resi-preview-warn">${card.totalRejected} unit(s) didn't fit — try a larger size band or fewer types</div>` : ``);
+                renderViewsRail(card, plan.levelLabel);
             } catch (err) {
                 preview.innerHTML = `<span class="os-resi-preview-hint">Live preview unavailable.</span>`;
+                renderViewsRail(null, '');
                 console.warn('[onboarding-step] residential live preview threw (non-fatal):', err);
             }
         };
@@ -1133,12 +1201,14 @@ class OnboardingStepController {
                 floors, minApartmentAreaM2: minM2, maxApartmentAreaM2: maxM2, typologies: { ...typoState },
             });
             this.overlay?.classList.remove('os-onboarding-overlay--confirm');
+            this.overlay?.classList.remove('os-onboarding-overlay--resi');
             void this.generateAndFinish();
         };
         form.addEventListener('submit', onSubmit);
         this.addCleanup(() => form.removeEventListener('submit', onSubmit));
 
         notNow.addEventListener('click', () => {
+            this.overlay?.classList.remove('os-onboarding-overlay--resi');
             console.log('[onboarding-step] residential program → NOT NOW — disposing overlay, leaving boundary/site intact.');
             this.toast('Saved your plot — generate any time from the AI panel.', 'info');
             this.dispose();
@@ -1149,6 +1219,7 @@ class OnboardingStepController {
         this.step = 'generating';
         this.setDrawingPresentation(false);
         this.overlay?.classList.remove('os-onboarding-overlay--confirm');
+        this.overlay?.classList.remove('os-onboarding-overlay--resi');
         this.setStepIndicator(4, 'Generating');
         const body = this.clearBody();
         const p = document.createElement('p');
