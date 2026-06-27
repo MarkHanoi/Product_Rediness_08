@@ -683,37 +683,121 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
         return lines;
     }
 
-    const centreLines: number[] = [
+    // ── §RESI-CORRIDOR-GRID (Phase 2, flag `globalThis.__pryzmCorridorGrid`) — THE deep-plate
+    // under-fill fix (founder 2026-06-26: "it is not possible to have only 3 apartments in such a
+    // huge floorplate"). The §RESI-FILL-PLATE outward-walk above CLAMPS an edge corridor a fixed
+    // `cap` in from each plate edge; on a MODERATELY-deep plate (depth between one and two pitches,
+    // e.g. 60×30) the core corridor + both clamped edge corridors land only ~5 m apart, so the
+    // apartment ROWS between them collapse below MIN_ROW_DEPTH and get dropped — the plate keeps just
+    // its two outer rows (12 cells / ~0.55 fill on a 1 800 m² plate) with a dead band and three
+    // useless corridors through the middle. Phase 2 instead lays an EVEN corridor GRID sized so every
+    // one of its `2·m` double-loaded rows tiles the depth at an equal, engine-feasible depth.
+    //
+    // m = ceil(D / pitch) is the FEWEST corridors that keep each row ≤ cap (so no row is dropped and
+    // no deep residual is left). The `m` corridors are spaced at an even pitch `D/m`, and the grid is
+    // PHASE-SHIFTED so one corridor lands closest to `coreCz` (the vertical spine still ties the grid
+    // to the core). A SHALLOW plate (depth ≤ one pitch ⇒ m = 1) returns the single central corridor,
+    // BYTE-IDENTICAL to the proven shallow-row path — so all §DIAG gates stay green. Deterministic.
+    const corridorGrid = (globalThis as { __pryzmCorridorGrid?: boolean }).__pryzmCorridorGrid === true;
+    const plateDepth = round4(bb.z1 - bb.z0);
+
+    /** §RESI-CORRIDOR-GRID — even corridor GRID centrelines for a given corridor count `m`: `m`
+     *  evenly-spaced lines whose `2·m` double-loaded rows tile the plate depth at equal depth,
+     *  phase-shifted so one line sits closest to `coreCz` (keeping the spine tied to the core). */
+    function gridLinesFor(m: number): number[] {
+        if (m <= 1) return [coreCz];  // single central corridor (the proven path)
+        const span = plateDepth / m;  // centre-to-centre even pitch
+        const baseFirst = bb.z0 + span / 2;
+        const nearestI = Math.round((coreCz - baseFirst) / span);
+        const shift = coreCz - (baseFirst + nearestI * span);
+        const lines: number[] = [];
+        const loBound = bb.z0 + halfCorr + MIN_ROW_DEPTH;
+        const hiBound = bb.z1 - halfCorr - MIN_ROW_DEPTH;
+        for (let i = 0; i < m; i++) {
+            let cz = baseFirst + i * span + shift;
+            // The shift can nudge an end line outside the plate — clamp it back so its band fits and
+            // its outer row stays ≥ MIN_ROW_DEPTH from the edge.
+            if (loBound <= hiBound) cz = Math.min(Math.max(cz, loBound), hiBound);
+            lines.push(round4(cz));
+        }
+        return lines;
+    }
+
+    /** §RESI-CORRIDOR-GRID — candidate even-grid line sets to PACK + compare against the baseline.
+     *  `mIdeal = ceil(D / pitch)` is the fewest corridors that keep each of the `2·m` rows ≤ cap; we
+     *  also offer mIdeal±1 (a deeper plate sometimes fills more with one extra/fewer corridor since the
+     *  core fragments rows). The best-by-placed-count wins downstream — so a candidate that the row
+     *  geometry can't actually fill simply loses. Only emitted when the plate genuinely needs a grid
+     *  (depth > one pitch ⇒ a single central corridor leaves a deep dead band). */
+    function gridCandidateLineSets(): number[][] {
+        const mIdeal = Math.ceil(plateDepth / pitch - EPS);
+        if (mIdeal <= 1) return [];   // shallow plate ⇒ the single central corridor already tiles it
+        const sets: number[][] = [];
+        const seen = new Set<string>();
+        for (const m of [mIdeal, mIdeal + 1, mIdeal - 1]) {
+            if (m < 2) continue;
+            // Each of the 2·m rows must be usefully deep (never below the row-serve floor).
+            const rowDepth = (plateDepth - m * corridor.widthM) / (2 * m);
+            if (rowDepth <= MIN_ROW_DEPTH - EPS) continue;
+            const lines = gridLinesFor(m);
+            const k = lines.map((z) => z.toFixed(3)).join(',');
+            if (seen.has(k)) continue;
+            seen.add(k);
+            sets.push(lines);
+        }
+        return sets;
+    }
+
+    // §RESI-CORE-SPINE constants (shared by every candidate's spine + run carving).
+    const coreCx = (coreX0 + coreX1) / 2;
+    const spineX0 = round4(coreCx - halfCorr);
+    const spineX1 = round4(coreCx + halfCorr);
+
+    // The CANDIDATE corridor-line layouts. The baseline §RESI-FILL-PLATE outward walk is always a
+    // candidate. With the §RESI-CORRIDOR-GRID flag ON we ALSO offer the even grid (and a couple of
+    // neighbouring corridor counts), then PACK each candidate and keep the one that places the most
+    // apartments (tie → higher area). This guarantees the grid never REGRESSES a plate the baseline
+    // already fills well (it only wins where it genuinely fills more — the deep-plate valley) while
+    // the founder's huge plate stops coming out with a dead middle band. Flag OFF ⇒ baseline only ⇒
+    // byte-identical. Deterministic (fixed candidate set, deterministic pack, deterministic tiebreak).
+    const baselineLines = [
         ...sideCorridors(bb.z0, -1),
         coreCz,
         ...sideCorridors(bb.z1, 1),
     ];
-    // Sort lines top→bottom for deterministic row tiling + neighbour math.
-    centreLines.sort((a, b) => a - b);
-    centreLines.sort((a, b) => a - b);
-
-    const corridorBands: Rect[] = centreLines.map((cz) =>
-        normRect({ x0: bb.x0, z0: round4(cz - halfCorr), x1: bb.x1, z1: round4(cz + halfCorr) }),
-    );
-
-    // §RESI-CORE-SPINE (founder "the corridors are isolated from the core", 2026-06-23) — the
-    // horizontal corridor bands above never link to each other or to the core, so a resident
-    // leaving the stair/lift cannot reach the corridors that serve the apartments. Add a NARROW
-    // VERTICAL corridor SPINE at the core's X-centre, spanning the full plate depth, that crosses
-    // (and so CONNECTS) every horizontal band + the core into ONE circulation network. The spine is
-    // corridor-width and always sits INSIDE the core's X-span, so the channel is continuous (core-
-    // width where the core sits, spine-width elsewhere). It is emitted as the column MINUS the core
-    // rect → up to two segments (above + below the core); each crosses every horizontal band's Z.
-    const coreCx = (coreX0 + coreX1) / 2;
-    const spineX0 = round4(coreCx - halfCorr);
-    const spineX1 = round4(coreCx + halfCorr);
-    if (coreN.z0 - bb.z0 > EPS) corridorBands.push(normRect({ x0: spineX0, z0: bb.z0, x1: spineX1, z1: coreN.z0 }));
-    if (bb.z1 - coreN.z1 > EPS) corridorBands.push(normRect({ x0: spineX0, z0: coreN.z1, x1: spineX1, z1: bb.z1 }));
-
-    const placements: ApartmentCell[] = [];
-    let cursor = 0;
+    const candidateLineSets: number[][] = [baselineLines];
+    if (corridorGrid) {
+        for (const lines of gridCandidateLineSets()) candidateLineSets.push(lines);
+    }
 
     type Run = { x0: number; x1: number };
+
+    /** Build the corridor bands + spine for one candidate `centreLinesIn`, then PACK the plate into
+     *  apartment cells. Pure of any outer mutable state (its own `placements`/`cursor`), so a caller
+     *  can pack several candidates and keep the best. Returns the placed cells AND the candidate's
+     *  corridor bands (the downstream clip/absorb passes need the WINNER's bands). */
+    function packPlate(centreLinesIn: readonly number[]): { placements: ApartmentCell[]; corridorBands: Rect[] } {
+        const centreLines = [...centreLinesIn];
+        // Sort lines top→bottom for deterministic row tiling + neighbour math.
+        centreLines.sort((a, b) => a - b);
+
+        const corridorBands: Rect[] = centreLines.map((cz) =>
+            normRect({ x0: bb.x0, z0: round4(cz - halfCorr), x1: bb.x1, z1: round4(cz + halfCorr) }),
+        );
+
+        // §RESI-CORE-SPINE (founder "the corridors are isolated from the core", 2026-06-23) — the
+        // horizontal corridor bands above never link to each other or to the core, so a resident
+        // leaving the stair/lift cannot reach the corridors that serve the apartments. Add a NARROW
+        // VERTICAL corridor SPINE at the core's X-centre, spanning the full plate depth, that crosses
+        // (and so CONNECTS) every horizontal band + the core into ONE circulation network. The spine is
+        // corridor-width and always sits INSIDE the core's X-span, so the channel is continuous (core-
+        // width where the core sits, spine-width elsewhere). It is emitted as the column MINUS the core
+        // rect → up to two segments (above + below the core); each crosses every horizontal band's Z.
+        if (coreN.z0 - bb.z0 > EPS) corridorBands.push(normRect({ x0: spineX0, z0: bb.z0, x1: spineX1, z1: coreN.z0 }));
+        if (bb.z1 - coreN.z1 > EPS) corridorBands.push(normRect({ x0: spineX0, z0: coreN.z1, x1: spineX1, z1: bb.z1 }));
+
+        const placements: ApartmentCell[] = [];
+        let cursor = 0;
     // The X-runs available on a row. A channel is carved from EVERY row at the core's X so the
     // vertical SPINE corridor runs uninterrupted and links every horizontal band to the core: the
     // FULL core width on rows that straddle the core in Z, else the NARROW spine strip.
@@ -955,7 +1039,32 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
             packRow(myBot, backZ1, 'z0');
             packInnerStrips(myBot, backZ1, 'z0');
         }
+        }
+
+        return { placements, corridorBands };
     }
+
+    // §RESI-CORRIDOR-GRID — pack every candidate and keep the BEST (most apartments, tie → most
+    // placed area). Flag OFF ⇒ exactly one candidate (the baseline) ⇒ byte-identical. With the flag
+    // ON the even grid only wins where it actually places more cells (the deep-plate valley); a plate
+    // the baseline already fills well keeps the baseline (no regression). Deterministic.
+    let best = packPlate(candidateLineSets[0]!);
+    let bestArea = best.placements.reduce((s, c) => s + c.areaM2, 0);
+    for (let ci = 1; ci < candidateLineSets.length; ci++) {
+        const cand = packPlate(candidateLineSets[ci]!);
+        const candArea = cand.placements.reduce((s, c) => s + c.areaM2, 0);
+        if (cand.placements.length > best.placements.length ||
+            (cand.placements.length === best.placements.length && candArea > bestArea + EPS)) {
+            best = cand;
+            bestArea = candArea;
+        }
+    }
+    const placements = best.placements;
+    const corridorBands = best.corridorBands;
+    // The residual-absorption pass (flag ON) appends EXTRA cells from the demand tail; it consumes
+    // the demand from where the winning candidate's packing stopped. Every candidate packs the same
+    // demand list in order from cursor 0, so the count it placed is exactly the demand it consumed.
+    let cursor = placements.length;
 
     // §RESI-CLIP-BOUNDARY / §NONRECT-CELLS-P1 — handle cells that poke past the real (possibly non-
     // rectangular) plate polygon. DEFAULT (flag OFF): DROP any cell whose CENTRE is outside the drawn
