@@ -68,6 +68,16 @@ import {
 // shell. Pure + deterministic; a window already in-bounds is byte-identical.
 const POSTCOND_EPS_MM = 1e-3;
 
+/**
+ * §DIAG diagnostic gate. All §DIAG-WIN / §DIAG-WINDOW-GUARANTEE breadcrumb logging is OFF
+ * by default (fires per-room per-candidate in a hot tower loop). Set
+ * `globalThis.__pryzmLayoutDiag = true` in the console to restore every §DIAG line. The
+ * `if` short-circuits BOTH the console call AND the template-string build. P4: cast
+ * through `globalThis`, never `(window as any)`.
+ */
+const _layoutDiagOn = (): boolean =>
+    (globalThis as unknown as { __pryzmLayoutDiag?: boolean }).__pryzmLayoutDiag === true;
+
 /** Clamp one placement so its span [offset, offset+width] lies within the host wall —
  *  the HARD #4 guarantee: a window may NEVER exceed [0, wallLen]. This is a pure SAFETY
  *  BACKSTOP: it does NOT re-impose the corner setback (the placer already honours that as
@@ -618,17 +628,17 @@ export function emitWindowsForRoom(
     // change). The `why` cases below pinpoint WHY a room gets ZERO windows.
     const winTag = roomName ? `${roomName} (${roomType})` : roomType;
     if (!isWindowable(roomType)) {
-        console.log(`[D-TGL] §DIAG-WIN ${winTag}: 0 windows — room type not windowable`);
+        if (_layoutDiagOn()) console.log(`[D-TGL] §DIAG-WIN ${winTag}: 0 windows — room type not windowable`);
         return [];
     }
     if (externalWalls.length === 0) {
-        console.log(`[D-TGL] §DIAG-WIN ${winTag}: 0 windows — NO external wall (fully interior room)`);
+        if (_layoutDiagOn()) console.log(`[D-TGL] §DIAG-WIN ${winTag}: 0 windows — NO external wall (fully interior room)`);
         return [];
     }
 
     const spec = WINDOW_SPECS[roomType as WindowableRoomType];
     if (!spec) {
-        console.log(`[D-TGL] §DIAG-WIN ${winTag}: 0 windows — no WINDOW_SPEC for type`);
+        if (_layoutDiagOn()) console.log(`[D-TGL] §DIAG-WIN ${winTag}: 0 windows — no WINDOW_SPEC for type`);
         return [];
     }
 
@@ -690,7 +700,7 @@ export function emitWindowsForRoom(
                 .sort((a, b) => score(b.w) - score(a.w) || a.w.wallIndex - b.w.wallIndex);
             if (candidates.length === 0) {
                 const lens = externalWalls.map(w => Math.round(segLenMm(w))).join(',');
-                console.log(
+                if (_layoutDiagOn()) console.log(
                     `[D-TGL] §DIAG-WIN ${winTag}: 0 windows — all ${externalWalls.length} external ` +
                     `wall(s) shorter than minWallLength=${spec.minWallLengthMm}mm, fallback ` +
                     `minHost=${minHostMm}mm, AND the last-resort minimal opening ` +
@@ -832,7 +842,7 @@ export function emitWindowsForRoom(
         // §DIAG-WIN — per-wall placement outcome. When a qualifying wall yields ZERO
         // offsets the window was de-overlapped away by doors/partitions/other windows.
         const wantOnWall0 = wantOnWall;
-        console.log(
+        if (_layoutDiagOn()) console.log(
             `[D-TGL] §DIAG-WIN ${winTag}: wall#${cand.w.wallIndex} len=${Math.round(wallLenMm)}mm ` +
             `roomBand=[${Math.round(band.lo)},${Math.round(band.hi)}] ` +
             `wanted=${wantOnWall0} placed=${offsets.length}${offsets.length === 0
@@ -991,7 +1001,7 @@ export function emitWindowsForRoom(
     for (const p of bounded) out.push(p);
 
     // §DIAG-WIN — room summary: total windows emitted + the wall indices they landed on.
-    console.log(
+    if (_layoutDiagOn()) console.log(
         `[D-TGL] §DIAG-WIN ${winTag}: emitted ${out.length} window(s) ` +
         `on wall(s)=[${[...new Set(out.map(w => w.wallIndex))].join(',') || 'none'}]` +
         `${out.length === 0 ? ' — every qualifying wall was crowded out by openings' : ''}`,
@@ -1013,19 +1023,19 @@ export function emitWindowsForRoom(
     if (hostableWalls.length > 0) {
         const lens = hostableWalls.map(w => Math.round(segLenMm(w))).join(',');
         if (out.length > 0) {
-            console.log(
+            if (_layoutDiagOn()) console.log(
                 `[D-TGL] §DIAG-WINDOW-GUARANTEE ${winTag}: emitted ${out.length} — ✓ ` +
                 `(${hostableWalls.length} hostable external wall(s) mm=[${lens}])`,
             );
         } else {
-            console.log(
+            if (_layoutDiagOn()) console.log(
                 `[D-TGL] §DIAG-WINDOW-GUARANTEE ${winTag}: emitted 0 with ${hostableWalls.length} ` +
                 `hostable external wall(s) mm=[${lens}] — ⚠ GUARANTEE VIOLATION (every candidate ` +
                 `crowded out by doors/partitions/de-overlap)`,
             );
         }
     } else {
-        console.log(
+        if (_layoutDiagOn()) console.log(
             `[D-TGL] §DIAG-WINDOW-GUARANTEE ${winTag}: skipped — NO-USABLE-FRONTAGE ` +
             `(no external wall hosts a ${MIN_WINDOW_MM}mm opening between corner piers)`,
         );

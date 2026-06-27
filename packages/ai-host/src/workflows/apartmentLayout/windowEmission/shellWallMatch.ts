@@ -18,6 +18,15 @@
 import type { LayoutWall, LayoutWindow, RoomType, Vec2mm } from '../types.js';
 import { windowMandatoryFor, windowDesiredFor } from '../rules/programRules.js';
 
+/**
+ * §DIAG diagnostic gate. §DIAG breadcrumb logging is OFF by default (fires per-candidate
+ * in a hot tower loop). Set `globalThis.__pryzmLayoutDiag = true` in the console to
+ * restore every §DIAG line. The `if` short-circuits BOTH the console call AND the
+ * template-string build. P4: cast through `globalThis`, never `(window as any)`.
+ */
+const _layoutDiagOn = (): boolean =>
+    (globalThis as unknown as { __pryzmLayoutDiag?: boolean }).__pryzmLayoutDiag === true;
+
 /** A shell wall already present in the editor's wall store. World METRES. */
 export interface ShellWall {
     readonly id:    string;
@@ -923,7 +932,7 @@ export function resolveAllShellWindows(
     for (const k of kept) buckets[compassOf(k.shellWallId)] = (buckets[compassOf(k.shellWallId)] ?? 0) + 1;
     const dist = Object.entries(buckets).map(([f, n]) => `${f}:${n}`).join(' ') || 'none';
     const rescuedKept = keptItems.filter(e => e.rescued).length;
-    console.log(
+    if (_layoutDiagOn()) console.log(
         `[D-TGL] §DIAG-WIN-DIST resolved=${out.length} kept=${kept.length} ` +
         `droppedByDeOverlap=${out.length - (kept.length - rescuedKept)} unmatchedToShell=${unmatched} ` +
         `rescued=${rescuedKept} façadeAxisDist={${dist}}`,
@@ -950,13 +959,13 @@ export function resolveAllShellWindows(
         }
         residualOverlaps += wallResidual;
         if (removed > 0 || wallResidual > 0) {
-            console.log(
+            if (_layoutDiagOn()) console.log(
                 `[D-TGL] §DIAG-WINDOW-OVERLAP wall=${wallId} windows=${ws.length} ` +
                 `overlapsRemoved=${removed}${wallResidual > 0 ? ` ⚠ RESIDUAL-OVERLAP=${wallResidual}` : ''}`,
             );
         }
     }
-    console.log(
+    if (_layoutDiagOn()) console.log(
         `[D-TGL] §DIAG-WINDOW-OVERLAP wallsWithWindows=${finalByWall.size} ` +
         `overlapsRemoved=${totalRemovedByOverlap} residualOverlaps=${residualOverlaps}` +
         `${residualOverlaps > 0 ? ' ⚠ DE-OVERLAP INVARIANT VIOLATED' : ' ✓ all disjoint'}`,
@@ -965,7 +974,7 @@ export function resolveAllShellWindows(
     // abutting a neighbour within setback) + how many windows were suppressed there.
     // Only logs when a blind set was actually supplied, so the default path is silent.
     if (blind.size > 0) {
-        console.log(
+        if (_layoutDiagOn()) console.log(
             `[D-TGL] §DIAG-PARTY-WALL blindFacades=${blind.size} [${[...blind].join(',')}] ` +
             `windowsSuppressed=${blindSuppressed}`,
         );
@@ -976,7 +985,7 @@ export function resolveAllShellWindows(
     // corner/span guard too aggressive). Only logs when something failed.
     if (unmatched > 0) {
         const breakdown = Object.entries(reasonTally).map(([r, n]) => `${r}:${n}`).join(' ') || 'none';
-        console.log(`[D-TGL] §DIAG-WIN-UNMATCHED total=${unmatched} → ${breakdown}`);
+        if (_layoutDiagOn()) console.log(`[D-TGL] §DIAG-WIN-UNMATCHED total=${unmatched} → ${breakdown}`);
     }
     // §WINDOW-MANDATORY-RESCUE (A.21.D60) — state when the rescue fired + which relaxation
     // it used for each window-mandatory room that would otherwise have been windowless. A
@@ -1030,18 +1039,18 @@ export function resolveAllShellWindows(
         // declaration) that ends windowless is reported but not asserted as a violation
         // (it may be a genuinely interior room whose stray candidate was dropped).
         const isPerimeter = perimeterRooms.has(key);
-        if (has) { winYes++; console.log(`[D-TGL] §DIAG-WINDOW-RULE ${key}(${type}) → window ✓`); }
+        if (has) { winYes++; if (_layoutDiagOn()) console.log(`[D-TGL] §DIAG-WINDOW-RULE ${key}(${type}) → window ✓`); }
         else {
             const reason = rescueByKey.get(key) === 'NO-FRONTAGE'
                 ? 'NO-FRONTAGE (no external wall)'
                 : 'all candidates dropped (see §DIAG-WIN-UNMATCHED)';
             winNo.push(`${key}(${type})`);
             const flag = isPerimeter ? '⚠ PERIMETER-ROOM WINDOWLESS — RULE VIOLATION' : 'window ✗';
-            console.log(`[D-TGL] §DIAG-WINDOW-RULE ${key}(${type}) → ${flag} — ${reason}`);
+            if (_layoutDiagOn()) console.log(`[D-TGL] §DIAG-WINDOW-RULE ${key}(${type}) → ${flag} — ${reason}`);
         }
     }
     const perimViolations = winNo.filter(k => perimeterRooms.has(k.slice(0, k.lastIndexOf('('))));
-    console.log(
+    if (_layoutDiagOn()) console.log(
         `[D-TGL] §DIAG-WINDOW-RULE roomsWithWindow=${winYes}/${desiredRoomKeys.size} ` +
         `roomsWithoutWindow=[${winNo.join(',') || 'none'}] ` +
         `perimeterRoomViolations=${perimViolations.length}` +

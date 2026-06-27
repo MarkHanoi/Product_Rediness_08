@@ -25,6 +25,15 @@ import type { RoomPlacement } from './subdivide.js';
 import { cellFromRect } from './subdivide.js';
 import { doorAllowedBetween, ENSUITE_HOST_EXTRA_DOORS, isCirculation, isOpenPlanEligible, maxDoorsFor, minDoorWidthBetween, roomRule } from '../rules/programRules.js';
 
+/**
+ * §DIAG diagnostic gate. All §DIAG breadcrumb logging is OFF by default (these fire
+ * per-candidate in a hot tower loop). Set `globalThis.__pryzmLayoutDiag = true` in the
+ * console to restore every §DIAG line. The `if` short-circuits BOTH the console call AND
+ * the template-string build. P4: cast through `globalThis`, never `(window as any)`.
+ */
+const _layoutDiagOn = (): boolean =>
+    (globalThis as unknown as { __pryzmLayoutDiag?: boolean }).__pryzmLayoutDiag === true;
+
 export interface WallSeg {
     readonly id: string;
     readonly a: Pt;
@@ -1060,13 +1069,13 @@ export function buildWallsAndDoors(
             const shouldSeparate = !legitOpenPlan;
             if (!shouldSeparate) return;   // intentional kitchen-diner — not a divider candidate
             const ok = dividerPresent;
-            console.log(
+            if (_layoutDiagOn()) console.log(
                 `[D-TGL] §DIAG-MERGE-DIVIDER pair=${tx}↔${ty} dividerPresent=${ok ? 'YES' : 'NO'} ` +
                 `openZone=${openZone ? 'YES' : 'NO'} weldDropped=${'N/A(pre-weld)'} ` +
                 `${ok ? '✓' : '⚠ MERGE-RISK (room-separating wall missing → rooms flood-merge)'}`,
             );
             if (!ok) {
-                console.warn(
+                if (_layoutDiagOn()) console.warn(
                     `[D-TGL] §DIAG-MERGE-DIVIDER ⚠ ${tx}↔${ty} should be SEPARATE rooms but has NO divider ` +
                     `(openZone=${openZone}). If this is NOT an intended open-plan kitchen+dining pair the two ` +
                     `rooms will detect as ONE compound room. See §OPEN-PLAN-ELIGIBLE / openPlanLivingDining.`,
@@ -1156,7 +1165,7 @@ export function buildWallsAndDoors(
         if (r.type !== 'ensuite' || !r.ensuiteHostId) continue;
         const hostType = typeOf.get(r.ensuiteHostId) ?? '?';
         const paired = isEnsuiteHostPair(r.id, r.ensuiteHostId);
-        console.log(
+        if (_layoutDiagOn()) console.log(
             `[D-TGL] §DIAG-BEDROOM-ENSUITE-2DOOR ensuite=${r.id} host=${r.ensuiteHostId}(${hostType}) ` +
             `paired=${paired} hostEffectiveMaxDoors=${maxDoorsFor(hostType) + (ensuiteHostBonus.get(r.ensuiteHostId) ?? 0)}`,
         );
@@ -1383,7 +1392,7 @@ export function buildWallsAndDoors(
     let diagDoorsPrev = 0;
     const diagPass = (label: string): void => {
         const placed = openings.length - diagDoorsPrev;
-        console.log(
+        if (_layoutDiagOn()) console.log(
             `[D-TGL] §DIAG-DOORS pass=${label} placed=${placed} ` +
             `cumulativeDoors=${openings.length} compromises=${compromises}`,
         );
@@ -1474,7 +1483,7 @@ export function buildWallsAndDoors(
                     || wallMidDistToCentroid(p.w.seg, c) - wallMidDistToCentroid(q.w.seg, c)
                     || (p.w.seg.id < q.w.seg.id ? -1 : 1));
             if (candidates.length === 0) {
-                console.log(`[D-TGL] §DIAG-CORRIDOR-FORCE skipped ${id}(${typeOf.get(id) ?? '?'}) (no circulation-adjacent wall)`);
+                if (_layoutDiagOn()) console.log(`[D-TGL] §DIAG-CORRIDOR-FORCE skipped ${id}(${typeOf.get(id) ?? '?'}) (no circulation-adjacent wall)`);
                 continue;
             }
             // Already corridor-served by a bubble/open door? Then nothing to force.
@@ -1490,23 +1499,23 @@ export function buildWallsAndDoors(
             let placed = false;
             for (const { w } of candidates) {
                 if (!permitted(w.a, w.b)) {
-                    console.log(`[D-TGL] §DIAG-CORRIDOR-FORCE skipped ${id}(${typeOf.get(id) ?? '?'}) (forbidden pair with ${typeOf.get(w.a === id ? w.b : w.a) ?? '?'})`);
+                    if (_layoutDiagOn()) console.log(`[D-TGL] §DIAG-CORRIDOR-FORCE skipped ${id}(${typeOf.get(id) ?? '?'}) (forbidden pair with ${typeOf.get(w.a === id ? w.b : w.a) ?? '?'})`);
                     continue;
                 }
                 if (!underCap(w.a) || !underCap(w.b)) {
-                    console.log(`[D-TGL] §DIAG-CORRIDOR-FORCE skipped ${id}(${typeOf.get(id) ?? '?'}) (door cap reached)`);
+                    if (_layoutDiagOn()) console.log(`[D-TGL] §DIAG-CORRIDOR-FORCE skipped ${id}(${typeOf.get(id) ?? '?'}) (door cap reached)`);
                     continue;
                 }
                 if (wallHasDoor.has(w.seg.id)) continue;            // a sibling already took this wall
                 if (addDoor(w.seg, w.a, w.b)) {
                     cUnion(w.a, w.b);
                     placed = true;
-                    console.log(`[D-TGL] §DIAG-CORRIDOR-FORCE placed ${id}(${typeOf.get(id) ?? '?'}) → corridor door on ${w.seg.id} (len=${w.len.toFixed(2)}m)`);
+                    if (_layoutDiagOn()) console.log(`[D-TGL] §DIAG-CORRIDOR-FORCE placed ${id}(${typeOf.get(id) ?? '?'}) → corridor door on ${w.seg.id} (len=${w.len.toFixed(2)}m)`);
                     break;
                 }
             }
             if (!placed) {
-                console.log(`[D-TGL] §DIAG-CORRIDOR-FORCE skipped ${id}(${typeOf.get(id) ?? '?'}) (no host wall could fit a legal door)`);
+                if (_layoutDiagOn()) console.log(`[D-TGL] §DIAG-CORRIDOR-FORCE skipped ${id}(${typeOf.get(id) ?? '?'}) (no host wall could fit a legal door)`);
             }
         }
         diagPass('corridor-force');
@@ -1864,7 +1873,7 @@ export function buildWallsAndDoors(
                 .filter((c): c is NonNullable<typeof c> => c !== null)
                 .sort((p, q) => p.prio - q.prio || q.w.len - p.w.len || (p.w.seg.id < q.w.seg.id ? -1 : 1));
             if (candidates.length === 0) {
-                console.log(`[D-TGL] §DIAG-WETROOM-PUBLIC skipped ${id}(bathroom) (no corridor/living/dining-adjacent wall — hall excluded — stays sealed)`);
+                if (_layoutDiagOn()) console.log(`[D-TGL] §DIAG-WETROOM-PUBLIC skipped ${id}(bathroom) (no corridor/living/dining-adjacent wall — hall excluded — stays sealed)`);
                 continue;
             }
             let placed = false;
@@ -1878,12 +1887,12 @@ export function buildWallsAndDoors(
                     cUnion(w.a, w.b);
                     compromises++;
                     placed = true;
-                    console.log(`[D-TGL] §DIAG-WETROOM-PUBLIC placed ${id}(bathroom) → ${otherType} door on ${w.seg.id} (len=${w.len.toFixed(2)}m)`);
+                    if (_layoutDiagOn()) console.log(`[D-TGL] §DIAG-WETROOM-PUBLIC placed ${id}(bathroom) → ${otherType} door on ${w.seg.id} (len=${w.len.toFixed(2)}m)`);
                     break;
                 }
             }
             if (!placed) {
-                console.log(`[D-TGL] §DIAG-WETROOM-PUBLIC skipped ${id}(bathroom) (no host wall could fit a door — stays sealed)`);
+                if (_layoutDiagOn()) console.log(`[D-TGL] §DIAG-WETROOM-PUBLIC skipped ${id}(bathroom) (no host wall could fit a door — stays sealed)`);
             }
         }
         diagPass('wetroom-public');
@@ -1950,7 +1959,7 @@ export function buildWallsAndDoors(
             .filter(([a, b]) => b && (a === r.id || b === r.id))
             .map(([a, b]) => typeOf.get(a === r.id ? b! : a) ?? '?');
         const doorOntoCirc = doorPartnerTypes.some(t => isCirculation(t));
-        console.log(
+        if (_layoutDiagOn()) console.log(
             `[D-TGL] §DIAG-STAIR-CIRC ${r.id}(stair) sharesCorridorWall=${sharesCircWall ? 'YES' : 'NO'} ` +
             `doorPartners=[${doorPartnerTypes.join(',') || 'none'}] ` +
             `doorOntoCirculation=${doorOntoCirc ? 'YES' : doorPartnerTypes.length > 0 ? 'NO (served through a room — founder bug)' : 'NO (SEALED)'}`,
@@ -1966,7 +1975,7 @@ export function buildWallsAndDoors(
     const reroutedNamed = unroutedToCirculationRoomIds
         .map(id => `${id}(${typeOf.get(id) ?? '?'})`)
         .join(',') || 'none';
-    console.log(
+    if (_layoutDiagOn()) console.log(
         `[D-TGL] §DIAG-DOORS summary: doors=${openingsOut.length} compromises=${compromises} ` +
         `walls=${segmentsOut.length} sealed=[${sealedNamed}] unroutedToCirculation=[${reroutedNamed}]`,
     );
@@ -2004,9 +2013,9 @@ export function buildWallsAndDoors(
         const desc = partners.length === 0
             ? 'NO DOOR ✗'
             : partners.map(p => `${typeOf.get(p.other) ?? '?'}${p.ok ? '✓' : '✗'}`).join(', ');
-        console.log(`[D-TGL] §DIAG-ADJACENCY ${r.id}(${r.type}) → ${desc}`);
+        if (_layoutDiagOn()) console.log(`[D-TGL] §DIAG-ADJACENCY ${r.id}(${r.type}) → ${desc}`);
     }
-    console.log(
+    if (_layoutDiagOn()) console.log(
         `[D-TGL] §DIAG-DOOR-RULE roomsWithDoor=${roomsWithDoor.length}/${graph.rooms.length} ` +
         `roomsWithoutDoor=[${roomsWithoutDoor.join(',') || 'none'}] ` +
         `permissionViolations=${permissionViolations}`,

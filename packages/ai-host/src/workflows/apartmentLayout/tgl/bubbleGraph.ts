@@ -15,6 +15,15 @@ import { computeDaylightDepthField, type DaylightDepthField } from '../environme
 import { classifyEdge, type EdgeType } from './edgeTypes.js';
 import type { Pt } from './rectDecomposition.js';
 
+/**
+ * §DIAG diagnostic gate. §DIAG breadcrumb logging is OFF by default (fires per-candidate
+ * in a hot tower loop). Set `globalThis.__pryzmLayoutDiag = true` in the console to
+ * restore every §DIAG line. The `if` short-circuits BOTH the console call AND the
+ * template-string build. P4: cast through `globalThis`, never `(window as any)`.
+ */
+const _layoutDiagOn = (): boolean =>
+    (globalThis as unknown as { __pryzmLayoutDiag?: boolean }).__pryzmLayoutDiag === true;
+
 export interface ProgramRoom {
     readonly id: string;            // unique in this layout, e.g. 'r0'
     readonly type: RoomType;
@@ -384,7 +393,7 @@ export function buildBubbleGraph(
     // minted (bedroom→ensuite pairs) and how the shared-bath count moved. Logging only; no
     // behaviour change. Emitted only when the suite gate is ON (OFF ⇒ byte-identical, no log).
     if (suiteMode) {
-        console.log(
+        if (_layoutDiagOn()) console.log(
             `[D-TGL] §DIAG-SUITE mint: suiteMode=ON beds=${beds} suites=${suiteEnsuiteCount} ` +
             `ensuitesMinted=${suiteEnsuiteCount} sharedBaths=${baths} ` +
             `(requestedBaths=${Math.max(0, Math.floor(program.bathrooms))}) ` +
@@ -649,14 +658,14 @@ export function buildBubbleGraph(
     for (const r of withAreas) {
         const rule = roomRule(r.type);
         totalTargetM2 += r.targetAreaM2;
-        console.log(
+        if (_layoutDiagOn()) console.log(
             `[D-TGL] §DIAG-BUBBLE room ${r.id} type=${r.type} ` +
             `targetAreaM2=${r.targetAreaM2.toFixed(1)} minAreaM2=${rule.minAreaM2 ?? 0} ` +
             `minShortSideM=${(rule.minShortSideM ?? 0)} privacy=${rule.privacy} ` +
             `needsWindow=${r.needsWindow} isPrivate=${r.isPrivate}`,
         );
     }
-    console.log(
+    if (_layoutDiagOn()) console.log(
         `[D-TGL] §DIAG-BUBBLE totals: rooms=${withAreas.length} ` +
         `totalTargetM2=${totalTargetM2.toFixed(1)} availableAreaM2=${availableAreaM2.toFixed(1)} ` +
         `fillRatio=${availableAreaM2 > 0 ? (totalTargetM2 / availableAreaM2).toFixed(2) : 'n/a'} ` +
@@ -672,7 +681,7 @@ export function buildBubbleGraph(
         const grewBeds = program.bedrooms - Math.max(0, Math.floor(rawProgram.bedrooms));
         const grewRooms = grewBeds > 0;
         const fit = availableAreaM2 > 0 ? (totalTargetM2 / availableAreaM2) : 0;
-        console.log(
+        if (_layoutDiagOn()) console.log(
             `[D-TGL] §DIAG-PROGRAM-FIT shellAreaM2=${availableAreaM2.toFixed(1)} ` +
             `requestedBeds=${Math.max(0, Math.floor(rawProgram.bedrooms))} chosenBeds=${program.bedrooms} ` +
             `chosenBaths=${program.bathrooms} rooms=${withAreas.length} ` +

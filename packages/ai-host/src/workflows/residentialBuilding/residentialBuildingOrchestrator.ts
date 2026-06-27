@@ -64,6 +64,16 @@ import type { ScoredLayoutOption } from '../apartmentLayout/types.js';
 
 const _tracer = trace.getTracer('@pryzm/ai-host', '0.1.0');
 
+/**
+ * §DIAG-RESI-APARTMENT diagnostic gate. Per-apartment breadcrumb logging is OFF by
+ * default (a 20-storey tower would emit thousands of lines in a hot loop). Set
+ * `globalThis.__pryzmLayoutDiag = true` in the console to restore every §DIAG line.
+ * The `if` short-circuits BOTH the console call AND the template-string build. P4:
+ * cast through `globalThis`, never `(window as any)`.
+ */
+const _layoutDiagOn = (): boolean =>
+    (globalThis as unknown as { __pryzmLayoutDiag?: boolean }).__pryzmLayoutDiag === true;
+
 const DEFAULT_FLOOR_TO_FLOOR_M = 3.0;
 const DEFAULT_BASE_ELEVATION_M = 0;
 /** Door clear width (m) — the corridor must be ≥ this; reused by the partition. */
@@ -762,7 +772,7 @@ function _orchestrate(input: ResidentialBuildingOrchestratorInput): ResidentialB
             // §DIAG-RESI-APARTMENT level=k apt=i typology=Tn rooms=… windows=… blindEdges=…
             const rooms = cellResult.status === 'ok' ? cellResult.roomCount : 0;
             const windows = cellResult.status === 'ok' ? cellResult.windowCount : 0;
-            console.log(
+            if (_layoutDiagOn()) console.log(
                 `[resi-building] §DIAG-RESI-APARTMENT level=${levelIndex} apt=${i} ` +
                 `typology=${plan.typology} status=${cellResult.status} rooms=${rooms} ` +
                 `windows=${windows} blindEdges=[${blindEdges.join(',')}]` +

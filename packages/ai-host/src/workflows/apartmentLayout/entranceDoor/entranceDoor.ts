@@ -24,6 +24,15 @@ import type { LayoutOption, LayoutRoom, Vec2mm } from '../types.js';
 import type { ShellWall } from '../windowEmission/shellWallMatch.js';
 import { defaultEntranceDoorSystemTypeId } from '../resolvers/defaultElementTypes.js';
 
+/**
+ * §DIAG diagnostic gate. §DIAG breadcrumb logging is OFF by default (fires per-apartment
+ * in a hot tower loop). Set `globalThis.__pryzmLayoutDiag = true` in the console to
+ * restore every §DIAG line. The `if` short-circuits BOTH the console call AND the
+ * template-string build. P4: cast through `globalThis`, never `(window as any)`.
+ */
+const _layoutDiagOn = (): boolean =>
+    (globalThis as unknown as { __pryzmLayoutDiag?: boolean }).__pryzmLayoutDiag === true;
+
 /** Standard residential entry-door width (m) — A.21.D29 brief: ~0.9–1.0 m. We use
  *  1.0 m (a generous single leaf) but clamp DOWN to fit a short shell wall. */
 export const ENTRANCE_DOOR_WIDTH_M = 1.0;
@@ -225,11 +234,11 @@ export function resolveEntranceDoor(
     if (blind.size > 0) {
         const nonBlind = shellWalls.filter(w => !blind.has(w.id));
         if (nonBlind.length === 0) {
-            console.log('[D-TGL] §DIAG-PARTY-WALL entrance: ALL shell walls are blind — no entrance placed');
+            if (_layoutDiagOn()) console.log('[D-TGL] §DIAG-PARTY-WALL entrance: ALL shell walls are blind — no entrance placed');
             return null;
         }
         if (nonBlind.length !== shellWalls.length) {
-            console.log(
+            if (_layoutDiagOn()) console.log(
                 `[D-TGL] §DIAG-PARTY-WALL entrance: excluded ${shellWalls.length - nonBlind.length} ` +
                 `blind façade(s) from the entrance candidate set`,
             );
@@ -258,13 +267,13 @@ export function resolveEntranceDoor(
     const finish = (d: EntranceDoorDispatch | null): EntranceDoorDispatch | null => {
         if (d) {
             const onHall = hallBoundsWallIds.size > 0 && hallBoundsWallIds.has(d.shellWallId);
-            console.log(
+            if (_layoutDiagOn()) console.log(
                 `[D-TGL] §DIAG-ENTRANCE door wall=${d.shellWallId} boundsHall=${onHall ? '✓' : '⚠'} ` +
                 `hall=${hall ? (hall.name ?? hall.type) : 'none'} ground=✓ ` +
                 `offset=${d.offsetM.toFixed(2)}m width=${d.widthM.toFixed(2)}m`,
             );
         } else {
-            console.log(`[D-TGL] §DIAG-ENTRANCE door=NONE hall=${hall ? (hall.name ?? hall.type) : 'none'} (no hall-bounding shell wall fit a door)`);
+            if (_layoutDiagOn()) console.log(`[D-TGL] §DIAG-ENTRANCE door=NONE hall=${hall ? (hall.name ?? hall.type) : 'none'} (no hall-bounding shell wall fit a door)`);
         }
         return d;
     };
