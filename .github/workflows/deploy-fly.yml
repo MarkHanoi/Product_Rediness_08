@@ -109,7 +109,37 @@ jobs:
         #   globe streams the SAME Google Photorealistic 3D Tiles directly via the key.
         #   Empty/absent (the default) → no effect, keyless ESRI fallback unchanged.
         #   Branch order is ion-token → google-key → keyless.
-        run: flyctl deploy --local-only --build-arg LOWMEM=0 --build-arg VITE_CESIUM_TOKEN="${{ secrets.VITE_CESIUM_TOKEN }}" --build-arg VITE_GOOGLE_MAPS_KEY="${{ secrets.VITE_GOOGLE_MAPS_KEY }}" --strategy=rolling
+        # §DEPLOY-RETRY (2026-06-27): the BUILD always succeeds + pushes, but the
+        # rolling health check intermittently fails — "WARNING The app is not
+        # listening on 0.0.0.0:5000 … timeout reached waiting for health checks"
+        # — because a cold machine start runs `tsx server.js` (transpiling ~100
+        # workspace pkgs at boot) before it reaches httpServer.listen(), and that
+        # sometimes exceeds Fly's smoke-check window. Same image, nondeterministic:
+        # it passes on the very next try. So we retry the deploy up to 3× (Docker
+        # layer cache makes a retry mostly the fast push + health phase) and give
+        # each attempt a 5m health wait. fly.toml grace_period=90s covers the HTTP
+        # readiness; this covers the deploy-time smoke/health race.
+        run: |
+          set +e
+          for attempt in 1 2 3; do
+            echo "::group::Fly deploy attempt $attempt"
+            flyctl deploy --local-only \
+              --build-arg LOWMEM=0 \
+              --build-arg VITE_CESIUM_TOKEN="${{ secrets.VITE_CESIUM_TOKEN }}" \
+              --build-arg VITE_GOOGLE_MAPS_KEY="${{ secrets.VITE_GOOGLE_MAPS_KEY }}" \
+              --strategy=rolling \
+              --wait-timeout=5m
+            code=$?
+            echo "::endgroup::"
+            if [ "$code" -eq 0 ]; then
+              echo "✓ Fly deploy succeeded on attempt $attempt"
+              exit 0
+            fi
+            echo "✗ Fly deploy attempt $attempt failed (exit $code) — retrying in 15s…"
+            sleep 15
+          done
+          echo "✗ All 3 Fly deploy attempts failed — see logs above."
+          exit 1
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
