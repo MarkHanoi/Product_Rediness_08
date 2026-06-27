@@ -111,6 +111,44 @@ function defaultJunctionBandM(): number {
 
 const PARALLEL_DET = 1e-9;
 
+// §RESI-PERIM-CORNER-PIVOT (founder 2026-06-26) — align V2's L-junction pivot with the
+// LEGACY resolver's `sharedPt`.
+//
+// THE founder defect (this round): a generated HOUSE / residential BUILDING shows an
+// un-mitred SEAM at PERIMETER external corners even where the §DIAG-PERIM-CORNER-WHOLE
+// probe reports `bothMitred`. Root cause = TWO miter pipelines pivoting a DRIFTED corner
+// at DIFFERENT points:
+//   • Legacy `WallJoinResolver` (the path a perimeter wall WITH A WINDOW renders through,
+//     via `buildMiterPrism`) trims both walls to `sharedPt` = the centreline×centreline
+//     INTERSECTION of the two walls.
+//   • V2 `JunctionResolverV2` (the path a PLAIN neighbour renders through, via the
+//     footprint extruder) pivots the ring sweep at the endpoint-cluster CENTROID.
+// On a PERFECT corner centroid ≡ intersection, so both agree (gap 0). On a generated /
+// welded shell the corner endpoints drift tens–hundreds of mm apart, so centroid ≠
+// intersection — a window-bearing wall (legacy) and its plain neighbour (V2) then place
+// their SHARED outer corner at two different points and the corner opens (a ~tens-of-mm
+// seam). `bothMitred` stays true and the legacy-vs-legacy gap probe still reads ~0 because
+// it never compares the two PIPELINES — only legacy trimmed baselines against each other.
+//
+// FIX: for a pure 2-real-endpoint L junction (no passthrough), refine the ring-sweep pivot
+// from the centroid to the centreline×centreline intersection — the exact point legacy uses.
+// Both V2 corner POINTS still coincide with each other (every existing V2 test holds), AND
+// they now coincide with the legacy neighbour's cap, so a mixed-pipeline corner closes.
+// This is DETECTION-FRAME ONLY: it changes the reference point the corners are computed
+// FROM; it NEVER relocates a wall's centreline baseline (the §CLAMP-COSHARE-WELD / ADR-0072
+// P3c-b doubling regression). Guards: skip near-parallel pairs (no well-defined crossing),
+// and accept the crossing only when it lies within `PIVOT_REFINE_BAND_M` of the centroid so
+// a shallow corner can never teleport the pivot far down the wall.
+const PIVOT_REFINE_BAND_M = JUNCTION_BAND_FLOOR_M;
+/** Below this |sin θ| the two wall directions are treated as parallel (no L crossing). */
+const PIVOT_REFINE_MIN_SIN = 0.05;
+
+/** Escape hatch: set `__pryzmWallV2LPivotRefine = false` to restore the pre-fix
+ *  centroid pivot (diagnostics / exact-input callers). Default ON. */
+function lPivotRefineEnabled(): boolean {
+    return (globalThis as { __pryzmWallV2LPivotRefine?: boolean }).__pryzmWallV2LPivotRefine !== false;
+}
+
 // §WALL-BODY-INNER-FACE (residual of §ONE-FRAME-MINT, 2026-06-18) — a partition END that
 // terminates on a THICKER passthrough wall's BODY (the partition→shell T-junction) must
 // stop at that host's INNER (room-side) face, NEVER spike a triangular tongue to the host
@@ -290,6 +328,38 @@ function buildSweepEntries(j: JunctionDraft, walls: readonly WallInput[]): Sweep
 }
 
 /**
+ * §RESI-PERIM-CORNER-PIVOT — for a pure 2-real-endpoint L junction (no passthrough)
+ * return the centreline×centreline INTERSECTION of the two walls (the exact point the
+ * legacy `WallJoinResolver` trims to), so a wall that renders via the V2 footprint and a
+ * neighbour that renders via the legacy `buildMiterPrism` (e.g. a window-bearing perimeter
+ * wall) place their SHARED corner at the same point and the corner closes. Returns the
+ * original centroid `j.point` unchanged for every other case (T / X / Y / passthrough,
+ * near-parallel, or a crossing that falls outside the near-junction band). NEVER relocates
+ * a baseline — this only refines the reference point the ring sweep mitres AROUND.
+ */
+function refineLJunctionPivot(j: JunctionDraft, walls: readonly WallInput[]): Pt2 {
+    if (!lPivotRefineEnabled()) return j.point;
+    // Pure L only: exactly two REAL wall-ends and no passthrough barrier.
+    if (j.passthroughWalls.length !== 0 || j.realEndpoints.length !== 2) return j.point;
+    const r0 = j.realEndpoints[0]!;
+    const r1 = j.realEndpoints[1]!;
+    if (r0.wallIdx === r1.wallIdx) return j.point;       // both ends of ONE wall — not a corner.
+    const w0 = walls[r0.wallIdx]!;
+    const w1 = walls[r1.wallIdx]!;
+    const d0 = unit(sub(w0.end, w0.start));
+    const d1 = unit(sub(w1.end, w1.start));
+    // Near-parallel pair has no well-defined L crossing → keep the centroid.
+    const sinTheta = Math.abs(d0.x * d1.z - d0.z * d1.x);
+    if (sinTheta < PIVOT_REFINE_MIN_SIN) return j.point;
+    const cross = intersectLines(w0.start, d0, w1.start, d1);
+    if (!cross) return j.point;
+    // Accept only a crossing within the near-junction band of the centroid — a shallow
+    // corner can otherwise place the crossing far down the wall; never teleport the pivot.
+    if (len(sub(cross, j.point)) > PIVOT_REFINE_BAND_M) return j.point;
+    return cross;
+}
+
+/**
  * Apply the ring sweep to a junction: compute the shared corner between each
  * adjacent pair of wall-ends, and write it as `left` of curr and `right` of next
  * in the `WallMiter[]` accumulator. Passthrough walls are NOT modified (they pass
@@ -299,6 +369,11 @@ function applyRingSweep(j: JunctionDraft, walls: readonly WallInput[], miters: W
     const entries = buildSweepEntries(j, walls);
     const n = entries.length;
     if (n < 2) return;
+
+    // §RESI-PERIM-CORNER-PIVOT — the point the ring sweep mitres around. For a pure L
+    // junction this is refined from the cluster centroid to the centreline crossing (the
+    // legacy `sharedPt`) so V2 and legacy place a drifted external corner identically.
+    const pivot: Pt2 = refineLJunctionPivot(j, walls);
 
     // Helper to mutate the accumulator entry for a wall (immutable shape: we
     // construct a new object each time we attach a corner, so order doesn't matter).
@@ -335,8 +410,8 @@ function applyRingSweep(j: JunctionDraft, walls: readonly WallInput[], miters: W
         // `curr.direction`, so the left edge is offset by halfT*leftPerp(direction)).
         const halfTc = curr.thickness * 0.5;
         const halfTn = next.thickness * 0.5;
-        const leftAnchorCurr  = add(j.point, scale(leftPerp(curr.direction),  +halfTc));
-        const rightAnchorNext = add(j.point, scale(leftPerp(next.direction),  -halfTn));
+        const leftAnchorCurr  = add(pivot, scale(leftPerp(curr.direction),  +halfTc));
+        const rightAnchorNext = add(pivot, scale(leftPerp(next.direction),  -halfTn));
 
         // §V2-NEAR-PARALLEL-CAP (founder 2026-06-19) — skip the corner for a NEAR-parallel
         // pair (a collinear pass-through, or a shallow off-axis kink on a tilted plate).
@@ -369,12 +444,13 @@ function applyRingSweep(j: JunctionDraft, walls: readonly WallInput[], miters: W
         // the adjacent wall.
         if (!curr.isPassthrough) setCorner(curr.wallIdx, curr.isStart, 'Left',  corner);
         if (!next.isPassthrough) setCorner(next.wallIdx, next.isStart, 'Right', corner);
-        // Pivot vertex at the junction centre. Each real-endpoint wall pivots on
-        // it; pivots are deduplicated (first writer wins). §WALL-BODY-INNER-FACE — a
-        // partition meeting a materially-thicker passthrough (shell) BODY does NOT get
+        // Pivot vertex at the junction centre (§RESI-PERIM-CORNER-PIVOT: the centreline
+        // crossing for a pure L, else the cluster centroid). Each real-endpoint wall
+        // pivots on it; pivots are deduplicated (first writer wins). §WALL-BODY-INNER-FACE
+        // — a partition meeting a materially-thicker passthrough (shell) BODY does NOT get
         // the centreline pivot, so its footprint ends on the inner-face corners.
-        if (!curr.isPassthrough && !suppressInnerFacePivot(curr.thickness)) setPivot(curr.wallIdx, curr.isStart, j.point);
-        if (!next.isPassthrough && !suppressInnerFacePivot(next.thickness)) setPivot(next.wallIdx, next.isStart, j.point);
+        if (!curr.isPassthrough && !suppressInnerFacePivot(curr.thickness)) setPivot(curr.wallIdx, curr.isStart, pivot);
+        if (!next.isPassthrough && !suppressInnerFacePivot(next.thickness)) setPivot(next.wallIdx, next.isStart, pivot);
     }
 }
 
