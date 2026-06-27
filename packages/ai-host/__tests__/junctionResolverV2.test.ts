@@ -484,3 +484,125 @@ describe('JunctionResolverV2 — §RESI-L0-CORNER-CLOSE (partition→shell-body 
         expect(Math.min(...fp.polygon.map(pt => pt.z))).toBeGreaterThan(TS / 2 + 1e-3);
     });
 });
+
+// ─── §RESI-PERIM-CORNER-PIVOT — V2 L-pivot == legacy sharedPt (mixed-pipeline corner) ──
+//
+// Founder defect (2026-06-26): a generated HOUSE / residential BUILDING shows an un-mitred
+// SEAM at perimeter external corners even where the diagnostic reports `bothMitred`. Root
+// cause = a window-bearing perimeter wall renders via the LEGACY `buildMiterPrism` (pivots
+// at the centreline×centreline crossing `sharedPt`) while its PLAIN neighbour renders via
+// the V2 footprint (pivoted at the endpoint-cluster CENTROID). On a DRIFTED corner those two
+// points differ → the shared outer corner opens. The fix refines V2's pure-L pivot to the
+// centreline crossing so both pipelines place the corner identically. These tests pin that
+// the V2 pivot equals the analytic centreline crossing (= the legacy sharedPt) for the
+// drift band, and that nothing teleports / regresses.
+describe('JunctionResolverV2 — §RESI-PERIM-CORNER-PIVOT (V2 L-pivot == legacy sharedPt)', () => {
+    const T = 0.2;
+
+    // 2-D infinite-line intersection (matches WallJoinResolver._intersect2D / legacy sharedPt).
+    function lineCross(p1: Pt2, d1: Pt2, p2: Pt2, d2: Pt2): Pt2 | null {
+        const det = d1.x * d2.z - d1.z * d2.x;
+        if (Math.abs(det) < 1e-12) return null;
+        const wx = p2.x - p1.x, wz = p2.z - p1.z;
+        const t = (wx * d2.z - wz * d2.x) / det;
+        return { x: p1.x + t * d1.x, z: p1.z + t * d1.z };
+    }
+    const u = (a: Pt2): Pt2 => { const L = Math.hypot(a.x, a.z) || 1; return { x: a.x / L, z: a.z / L }; };
+
+    // Welded external L (same generator-drift family as §RESI-L0-CORNER-CLOSE): A ends near
+    // (5,0); B starts `offMm` off along the diagonal and rises in +z.
+    function weldedL(offMm: number): WallInput[] {
+        const d = (offMm / 1000) / Math.SQRT2;
+        return [
+            { id: 'A', start: { x: 0, z: 0 }, end: { x: 5, z: 0 }, thickness: T },
+            { id: 'B', start: { x: 5 + d, z: d }, end: { x: 5, z: 5 }, thickness: T },
+        ];
+    }
+
+    it('the V2 L-pivot lands on the centreline crossing (legacy sharedPt), NOT the centroid', () => {
+        for (const offMm of [40, 90, 127, 200]) {
+            const walls = weldedL(offMm);
+            const r = resolveJunctions(walls);
+            const a = r.find(m => m.id === 'A')!;
+            const wA = walls[0]!, wB = walls[1]!;
+            const sharedPt = lineCross(wA.start, u({ x: wA.end.x - wA.start.x, z: wA.end.z - wA.start.z }),
+                                       wB.start, u({ x: wB.end.x - wB.start.x, z: wB.end.z - wB.start.z }))!;
+            // The refined pivot equals the legacy sharedPt — so a legacy-rendered neighbour
+            // and this V2-rendered wall share the same corner reference frame.
+            expect(closePt(a.endPivot!, sharedPt, 1e-6), `off=${offMm}`).toBe(true);
+            // And it is genuinely refined AWAY from the centroid for a drifted corner.
+            const centroid = { x: (wA.end.x + wB.start.x) / 2, z: (wA.end.z + wB.start.z) / 2 };
+            expect(Math.hypot(a.endPivot!.x - centroid.x, a.endPivot!.z - centroid.z)).toBeGreaterThan(1e-4);
+        }
+    });
+
+    it('V2 corners STILL coincide with each other after the pivot refinement (no V2 regression)', () => {
+        for (const offMm of [0, 40, 127, 200]) {
+            const walls = weldedL(offMm);
+            const r = resolveJunctions(walls);
+            const a = r.find(m => m.id === 'A')!;
+            const b = r.find(m => m.id === 'B')!;
+            const aC = [a.endLeft!, a.endRight!];
+            const bC = [b.startLeft!, b.startRight!];
+            expect(aC.every(ac => bC.some(bc => closePt(ac, bc, 1e-3))), `off=${offMm}`).toBe(true);
+        }
+    });
+
+    it('a PERFECT corner is byte-identical (centroid == crossing) — pivot stays at the corner', () => {
+        const walls: WallInput[] = [
+            { id: 'A', start: { x: 0, z: 0 }, end: { x: 5, z: 0 }, thickness: T },
+            { id: 'B', start: { x: 5, z: 0 }, end: { x: 5, z: 5 }, thickness: T },
+        ];
+        const r = resolveJunctions(walls);
+        const a = r.find(m => m.id === 'A')!;
+        expect(closePt(a.endPivot!, { x: 5, z: 0 })).toBe(true);
+    });
+
+    it('the resolver NEVER relocates a baseline (footprint centreline == input) under refinement', () => {
+        for (const offMm of [40, 127, 200]) {
+            const walls = weldedL(offMm);
+            const r = resolveJunctions(walls);
+            for (const w of walls) {
+                const m = r.find(x => x.id === w.id)!;
+                const fp = buildWallFootprint(w, m);
+                expect(closePt(fp.start, w.start), `${w.id} start off=${offMm}`).toBe(true);
+                expect(closePt(fp.end, w.end), `${w.id} end off=${offMm}`).toBe(true);
+            }
+        }
+    });
+
+    it('T / X junctions are UNAFFECTED (pivot refinement is L-only)', () => {
+        // T: passthrough present → pivot stays at the centroid (on the passthrough body).
+        const tWalls: WallInput[] = [
+            { id: 'A', start: { x: 0, z: 0 }, end: { x: 10, z: 0 }, thickness: T },
+            { id: 'B', start: { x: 5, z: 0 }, end: { x: 5, z: 5 }, thickness: T },
+        ];
+        const tr = resolveJunctions(tWalls);
+        expect(closePt(tr.find(m => m.id === 'B')!.startPivot!, { x: 5, z: 0 })).toBe(true);
+        // X: four real ends → not a 2-end L → pivot stays at the centroid (origin).
+        const xWalls: WallInput[] = [
+            { id: 'E', start: { x: 0, z: 0 }, end: { x: 5, z: 0 }, thickness: T },
+            { id: 'N', start: { x: 0, z: 0 }, end: { x: 0, z: 5 }, thickness: T },
+            { id: 'W', start: { x: 0, z: 0 }, end: { x: -5, z: 0 }, thickness: T },
+            { id: 'S', start: { x: 0, z: 0 }, end: { x: 0, z: -5 }, thickness: T },
+        ];
+        const xr = resolveJunctions(xWalls);
+        for (const m of xr) expect(closePt(m.startPivot!, { x: 0, z: 0 })).toBe(true);
+    });
+
+    it('escape hatch __pryzmWallV2LPivotRefine=false restores the pre-fix centroid pivot', () => {
+        const g = globalThis as { __pryzmWallV2LPivotRefine?: boolean };
+        const prev = g.__pryzmWallV2LPivotRefine;
+        g.__pryzmWallV2LPivotRefine = false;
+        try {
+            const walls = weldedL(127);
+            const r = resolveJunctions(walls);
+            const a = r.find(m => m.id === 'A')!;
+            const centroid = { x: (walls[0]!.end.x + walls[1]!.start.x) / 2, z: (walls[0]!.end.z + walls[1]!.start.z) / 2 };
+            expect(closePt(a.endPivot!, centroid, 1e-6)).toBe(true);
+        } finally {
+            if (prev === undefined) delete g.__pryzmWallV2LPivotRefine;
+            else g.__pryzmWallV2LPivotRefine = prev;
+        }
+    });
+});
