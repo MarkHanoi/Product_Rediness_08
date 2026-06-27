@@ -33,6 +33,26 @@ export class ProjectNotFoundError extends Error {
     }
 }
 
+/**
+ * §VERSIONS-410-STALE-SAVE (2026-06-27) — a version save arrived for a project
+ * that no longer exists AND the caller asserted (via If-Match, or by replaying a
+ * previously-synced idempotency key) that it should already exist. This is a
+ * stale autosave replay for a deleted project — the client's ServerSyncQueue
+ * treats any 4xx as terminal and DROPS the queued item, so we return 410 Gone
+ * (rather than re-creating the project via the first-save pattern, or hard-500ing
+ * in a retry loop). 410 is distinct from 404 so the client/log can tell "this
+ * project was deleted" from "bad id".
+ */
+export class ProjectGoneError extends Error {
+    constructor(projectId) {
+        super(`Project no longer exists (stale save dropped): ${projectId}`);
+        this.name = 'ProjectGoneError';
+        this.code = 'project_gone';
+        this.statusCode = 410;
+        this.projectId = projectId;
+    }
+}
+
 export class ProjectAccessDeniedError extends Error {
     constructor(projectId) {
         super(`Access denied to project: ${projectId}`);
@@ -147,8 +167,59 @@ export function handleProjectApiError(err, res, ctx = '') {
         return res.status(err.statusCode).json(body);
     }
 
-    const msg = err?.message ?? String(err);
-    console.error(`${prefix}Unhandled server error: ${msg}`);
+    // ── §VERSIONS-DB-ERROR-CLASSIFY (2026-06-27) ──────────────────────────────
+    // Raw PostgreSQL / Supabase errors carry no `.statusCode`, so they previously
+    // all collapsed into an opaque 500 that the client's ServerSyncQueue RETRIED
+    // forever. Map the well-known SQL states to precise, log-rich responses so a
+    // bad queued save resolves to a terminal 4xx (dropped by the queue) or a
+    // clearly-retryable 503 — never a silent 500 loop.
+    const code = err?.code ?? '';
+    const msg  = err?.message ?? String(err);
+
+    // 23503 foreign_key_violation — the version's project_id has no matching
+    // projects row (the project was deleted; ON DELETE CASCADE removed it). This
+    // is a stale autosave for a gone project → 410 so the queue DROPS it.
+    if (code === '23503' || /foreign key|violates foreign key/i.test(msg)) {
+        console.error(`${prefix}FK violation (project likely deleted) code=${code} detail=${err?.detail ?? ''} — returning 410`);
+        return res.status(410).json({
+            error: 'Project no longer exists — stale save dropped.',
+            code: 'project_gone',
+        });
+    }
+    // 23505 unique_violation — a duplicate idempotency_key / version id raced in.
+    // The save effectively already exists; tell the client it succeeded-ish (409
+    // is terminal for the queue, so it stops retrying without losing local data).
+    if (code === '23505' || /duplicate key|unique constraint/i.test(msg)) {
+        console.error(`${prefix}unique_violation code=${code} constraint=${err?.constraint ?? ''} — returning 409`);
+        return res.status(409).json({
+            error: 'A version with that id already exists.',
+            code: 'version_duplicate',
+        });
+    }
+    // Transient connection drops on the Supabase tx-pooler carry no statusCode and
+    // are genuinely retryable — surface as 503 (the queue retries 5xx with backoff).
+    if (code === '57P01' || code === '08006' || code === '08000' || code === '08003' ||
+        code === 'ECONNRESET' || code === 'ETIMEDOUT' || code === 'EPIPE' ||
+        /connection terminated|connection timeout|terminated unexpectedly|server closed the connection|socket hang up|connection error/i.test(msg)) {
+        console.error(`${prefix}db connection dropped (transient) code=${code} — returning 503`);
+        return res.status(503).json({
+            error: 'Database connection interrupted — please retry.',
+            code: 'db_connection_lost',
+        });
+    }
+
+    // Genuinely unexpected error → 500, LOGGED with every diagnostic field
+    // node-postgres exposes so the real cause is grep-able from one log line.
+    console.error(`${prefix}Unhandled server error: ${msg}`, {
+        code,
+        detail:     err?.detail,
+        hint:       err?.hint,
+        table:      err?.table,
+        column:     err?.column,
+        constraint: err?.constraint,
+        severity:   err?.severity,
+        routine:    err?.routine,
+    });
     if (err?.stack) console.error(err.stack);
     return res.status(500).json({ error: 'Internal server error', code: 'server_error' });
 }

@@ -15,7 +15,7 @@
 
 import { randomBytes } from 'crypto';
 import { query, withTransaction, getPgPool } from './pgClient.js';
-import { ProjectConflictError, VersionLimitError, PreconditionFailedError } from './errors.js';
+import { ProjectConflictError, VersionLimitError, PreconditionFailedError, ProjectGoneError } from './errors.js';
 
 // §SERVER-V1-INMEMORY-FALLBACK (DAILY-USE 2026-05-21, Round 40) — last-resort
 // in-memory fallback so the architect can create / list / open projects even
@@ -678,7 +678,7 @@ export async function createVersion({ versionId, projectId, label, snapshot, ele
 export async function createVersionTransactional({
     versionId, projectId, projectName, userId, label, snapshot,
     elementCount, idempotencyKey, maxVersions, plan,
-    expectedVersionCount,
+    expectedVersionCount, assertExists,
 }) {
     return withTransaction(async (client) => {
         // ── Step 1: Lock the project row (or detect that it doesn't exist yet) ──
@@ -688,6 +688,15 @@ export async function createVersionTransactional({
         );
 
         if (projResult.rows.length === 0) {
+            // ── Step 1a: §VERSIONS-410-STALE-SAVE — the project row is gone but the
+            // caller asserted it should exist (If-Match present, i.e. this client
+            // had previously synced a version for it). This is a stale autosave for
+            // a DELETED project — return 410 so the client's ServerSyncQueue drops
+            // it, rather than silently re-creating the deleted project below.
+            if (assertExists) {
+                throw new ProjectGoneError(projectId);
+            }
+
             // ── Step 1b: GAP-06 — Optimistic locking check on first-save ──
             // If the client asserted a non-zero expected version count, the project
             // should already exist. A mismatch here means a race or stale client.
