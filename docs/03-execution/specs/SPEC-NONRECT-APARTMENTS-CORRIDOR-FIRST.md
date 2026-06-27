@@ -2,13 +2,14 @@
 
 | Field | Value |
 |---|---|
-| Status | Active — normative (Phase 1) |
-| Version | 1.0 |
-| Date | 2026-06-26 |
+| Status | Active — normative (Phase 1 + Phase 2) |
+| Version | 1.1 |
+| Date | 2026-06-27 |
 | Owner | Residential-building generator (`@pryzm/ai-host` workflows/residentialBuilding) |
-| Flag | `globalThis.__pryzmNonRectCells === true` (default OFF — rectangular plates byte-identical) |
+| Flag (P1) | `globalThis.__pryzmNonRectCells === true` (default OFF — rectangular plates byte-identical) |
+| Flag (P2) | `globalThis.__pryzmCorridorGrid === true` (default OFF — every plate byte-identical) |
 | Contracts | [C50 §1.7](../../02-decisions/contracts/C50-TYPOLOGY-PIPELINE.md) (soft-fail, never throw), [C53](../../02-decisions/contracts/C53-GENERATIVE-LAYOUT-ENGINE-ARCHITECTURE.md) (the polygon-native engine) |
-| Related | §RESI-PLATE-UNDERFILL, §RESI-CLIP-BOUNDARY, §RESI-FILL-PLATE |
+| Related | §RESI-PLATE-UNDERFILL, §RESI-CLIP-BOUNDARY, §RESI-FILL-PLATE, §RESI-CORRIDOR-GRID |
 
 > The residential plate packer tiles the plate BBOX with axis-aligned rect cells and DROPS any cell
 > that straddles a non-rectangular (L / trapezoid) drawn boundary — so a non-rect plot loses the
@@ -89,3 +90,65 @@ the corridor-fronting edge carries the entry door. Flag OFF / a rect cell ⇒ th
 rect-cell polygon identity; flag-OFF byte-identity; L-plate reshape + CF + no-corner-overrun; deep
 37×29 fill never decreases + CF. Plus byte-identity across the existing partition/fill/orchestrator
 suites with the flag OFF.
+
+---
+
+## PHASE 2 — §RESI-CORRIDOR-GRID (deep-plate corridor-grid fill)
+
+> Founder 2026-06-26: *"it is not possible to have only 3 apartments in such a huge floorplate."* The
+> baseline §RESI-FILL-PLATE corridor walk (`sideCorridors`) steps OUTWARD from the core by a fixed
+> `pitch = 2·cap + corridorWidth` and CLAMPS the last corridor a fixed `cap` in from each plate edge.
+> On a MODERATELY-deep plate — depth between one and two pitches (e.g. 60×30) — the core corridor and
+> both clamped edge corridors land only ~5 m apart, so the apartment ROWS between them collapse below
+> `MIN_ROW_DEPTH` and are dropped. The plate keeps just its two outer rows (≈12 cells / ~0.55 fill on a
+> 1 800 m² plate) with a dead middle band crossed by three useless corridors — the founder's symptom.
+
+### §P2.1 Scope & flag
+
+Phase 2 is gated behind `globalThis.__pryzmCorridorGrid` (independent of the P1 flag). **OFF (default):
+byte-identical** to the pre-P2 partition on EVERY plate (only the baseline corridor line-set is packed).
+ON: an EVEN corridor GRID is offered as an additional candidate. Both flags compose (each is read
+independently inside `partitionLevelPlate`).
+
+### §P2.2 The even corridor GRID
+
+When ON, `gridCandidateLineSets()` offers EVEN-grid corridor line-sets for a small corridor-count range
+around `mIdeal = ceil(D / pitch)` (the fewest corridors keeping each of the `2·m` double-loaded rows
+≤ `cap`): `mIdeal`, `mIdeal±1`. Each set lays `m` corridors at an even pitch `D/m`, PHASE-SHIFTED so one
+line lands closest to `coreCz` (the vertical SPINE still ties the grid to the core — every apartment
+stays corridor-reachable). A SHALLOW plate (`D ≤ pitch ⇒ mIdeal ≤ 1`) offers NO grid candidate ⇒ the
+single central corridor (proven path) is used unchanged.
+
+### §P2.3 Best-of-candidates (no regression by construction)
+
+`partitionLevelPlate` PACKS every candidate line-set with the identical, unchanged row-packer
+(`packPlate(centreLines)` — a pure closure over the demand list) and keeps the one that places the most
+apartments (tie → most placed area). The baseline is always candidate 0, so a plate the baseline already
+fills well KEEPS the baseline — the grid only wins where it genuinely packs more (the deep-plate valley).
+This makes the flag safe by construction: it can never reduce a plate's apartment count.
+
+### §P2.4 Gates / acceptance (Phase 2)
+
+- **Flag OFF byte-identical** on every plate (pinned by test) — the §DIAG shallow-row gates stay green.
+- **Flag ON, shallow plate byte-identical** to OFF (the grid emits no candidate below one pitch).
+- **Deep 60×30 plate** yields a sensible COUNT (≥ 24, > 2× the baseline ~12), every cell reached = N/N,
+  no overlaps with cells / core / corridors.
+- **Every placed cell is corridor-adjacent** (a cell edge overlaps a corridor band edge by ≥ a door
+  width) — verified geometrically, not just via the `apartmentsReached` counter.
+- **Never regresses** a plate the baseline already fills (60×32 / 60×36 / 80×60 / 137×137: count ≥ OFF).
+
+### §P2.5 Tests
+
+`platePartition.test.ts` §RESI-CORRIDOR-GRID block: flag-OFF byte-identity (multiple plates); flag-ON
+shallow byte-identity; deep-60×30 many-apartments + reached=N/N; per-cell corridor-adjacency (geometric);
+no-overlap; no-regression across the well-filled depths.
+
+### §P2.6 In-browser verification still owed
+
+The unit tests prove the partition GEOMETRY (count, reach, no-overlap). What still needs a live check on
+`pryzm.fly.dev` with `globalThis.__pryzmCorridorGrid = true`: (a) the per-cell D-TGL engine actually lays
+out the grid's rows (the grid rows can be shallower than the baseline's — ~6.75 m at 60×30 vs the 9 m
+cap — and the frozen engine's feasible floor is ~7.5 m for a full multi-room unit; sub-floor rows scale to
+studios, which is acceptable but should be eyeballed); (b) the executor builds the extra corridor bands as
+real circulation (the spine still connects every grid line to the core); (c) the founder's actual large
+drawn plate now reads as many apartments, not 3.

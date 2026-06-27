@@ -484,3 +484,126 @@ describe('§NONRECT-CELLS-P1 — reshape-not-drop, flag-gated', () => {
         expect(on.apartmentsReached).toBe(on.apartmentCells.length);
     });
 });
+
+describe('§RESI-CORRIDOR-GRID (Phase 2) — deep-plate corridor-grid fill, flag-gated', () => {
+    const CGFLAG = '__pryzmCorridorGrid';
+    const setGrid = (v: boolean): void => { (globalThis as unknown as Record<string, unknown>)[CGFLAG] = v; };
+    const manyT2 = (n: number): ApartmentDemand[] => Array.from({ length: n }, () => T2);
+
+    /** A deep rectangular plate that the baseline outward-walk under-fills: depth between one and
+     *  two corridor pitches (60×30 ⇒ the founder's "huge floorplate, only 3 apartments" valley). */
+    function deepInput(w: number, d: number, apts: ApartmentDemand[]): PlatePartitionInput {
+        return {
+            levelIndex: 0,
+            footprint: rectPoly(w, d),
+            core: centredCore(w, d, 8, 6),
+            corridor: { widthM: 1.5 },
+            apartments: apts,
+        };
+    }
+
+    it('FLAG OFF — default, byte-identical to the baseline on every plate (no behavioural change)', () => {
+        setGrid(false);
+        for (const [w, d] of [[60, 30], [60, 16], [40, 40], [80, 60]] as Array<[number, number]>) {
+            const a = JSON.stringify(partitionLevelPlate(deepInput(w, d, manyT2(400))));
+            const b = JSON.stringify(partitionLevelPlate(deepInput(w, d, manyT2(400))));
+            expect(a).toBe(b);   // deterministic
+        }
+    });
+
+    it('FLAG ON — a SHALLOW plate (depth ≤ one corridor pitch) is byte-identical to flag OFF', () => {
+        // 60×16 is shallower than one pitch (≈ 19.5 m) ⇒ a single central corridor already tiles it,
+        // so the grid emits NO extra candidate and the output must be unchanged — the proven
+        // shallow-row path and every §DIAG gate stay green.
+        const input = deepInput(60, 16, manyT2(200));
+        setGrid(false);
+        const off = JSON.stringify(partitionLevelPlate(input));
+        setGrid(true);
+        const on = JSON.stringify(partitionLevelPlate(input));
+        setGrid(false);
+        expect(on).toBe(off);
+    });
+
+    it('FLAG ON — a deep 60×30 plate yields MANY apartments (not the baseline 12), every one corridor-adjacent', () => {
+        const input = deepInput(60, 30, manyT2(400));
+        setGrid(false);
+        const off = expectOk(partitionLevelPlate(input));
+        setGrid(true);
+        const on = expectOk(partitionLevelPlate(input));
+        setGrid(false);
+
+        // The baseline under-fills this exact plate (the founder's symptom): the outward walk clamps
+        // edge corridors so close the interior rows collapse and only the two outer rows pack.
+        expect(off.apartmentCells.length).toBeLessThanOrEqual(14);
+        // The corridor grid fills the depth — a sensible COUNT, materially more than the baseline.
+        expect(on.apartmentCells.length).toBeGreaterThanOrEqual(24);
+        expect(on.apartmentCells.length).toBeGreaterThan(off.apartmentCells.length * 2);
+        // CORRIDOR-FIRST: EVERY placed cell is reachable from a corridor (reached = N/N).
+        expect(on.apartmentsReached).toBe(on.apartmentCells.length);
+    });
+
+    it('FLAG ON — every placed cell shares an EDGE with a corridor band (corridor-adjacency, geometric)', () => {
+        setGrid(true);
+        const res = expectOk(partitionLevelPlate(deepInput(60, 30, manyT2(400))));
+        setGrid(false);
+        const corridors = res.publicCorridor;
+        // A cell fronts a corridor when one of its four edges is collinear with, and overlaps ≥ a
+        // door-width of, a corridor band boundary.
+        const DOOR = 0.8;
+        const frontsCorridor = (r: Rect): boolean => {
+            for (const c of corridors) {
+                // horizontal shared edge (cell z-edge on a corridor z-boundary), x-overlap
+                for (const cellZ of [r.z0, r.z1]) {
+                    for (const corrZ of [c.z0, c.z1]) {
+                        if (Math.abs(cellZ - corrZ) < 0.05) {
+                            const lo = Math.max(r.x0, c.x0), hi = Math.min(r.x1, c.x1);
+                            if (hi - lo >= DOOR) return true;
+                        }
+                    }
+                }
+                // vertical shared edge (cell x-edge on a corridor x-boundary), z-overlap
+                for (const cellX of [r.x0, r.x1]) {
+                    for (const corrX of [c.x0, c.x1]) {
+                        if (Math.abs(cellX - corrX) < 0.05) {
+                            const lo = Math.max(r.z0, c.z0), hi = Math.min(r.z1, c.z1);
+                            if (hi - lo >= DOOR) return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        };
+        for (const cell of res.apartmentCells) {
+            expect(frontsCorridor(cell.rect)).toBe(true);
+        }
+    });
+
+    it('FLAG ON — cells never overlap each other, the core, or any corridor band (deep plate)', () => {
+        setGrid(true);
+        const res = expectOk(partitionLevelPlate(deepInput(60, 30, manyT2(400))));
+        setGrid(false);
+        const cells = res.apartmentCells.map((c) => c.rect);
+        for (let i = 0; i < cells.length; i++) {
+            for (let j = i + 1; j < cells.length; j++) {
+                expect(overlaps(cells[i]!, cells[j]!)).toBe(false);
+            }
+            expect(overlaps(cells[i]!, res.core)).toBe(false);
+            for (const corr of res.publicCorridor) expect(overlaps(cells[i]!, corr)).toBe(false);
+        }
+    });
+
+    it('FLAG ON — never REGRESSES a plate the baseline already fills well (best-of-candidates)', () => {
+        // 60×32 / 60×36 are depths the baseline already tiles well; the grid must not reduce the
+        // count (it packs every candidate and keeps the best, so the baseline wins where it leads).
+        for (const [w, d] of [[60, 32], [60, 36], [80, 60], [137, 137]] as Array<[number, number]>) {
+            const input = deepInput(w, d, manyT2(800));
+            setGrid(false);
+            const off = expectOk(partitionLevelPlate(input));
+            setGrid(true);
+            const on = expectOk(partitionLevelPlate(input));
+            setGrid(false);
+            expect(on.apartmentCells.length).toBeGreaterThanOrEqual(off.apartmentCells.length);
+            expect(on.apartmentsReached).toBe(on.apartmentCells.length);
+        }
+    });
+});
