@@ -4,6 +4,7 @@ import { WallDrawingMode } from '@pryzm/geometry-wall';
 import * as PryzmIcons from '../icons/PryzmIcons';
 import { SlabModePicker } from '../SlabModePicker';
 import { resolveLevelIsolation } from '../../engine/inspect/LevelIsolationResolver';
+import { resolveNightBackground } from '../../engine/inspect/NightModeBackgroundResolver';
 
 export type BAMLevelMode = 'stacked' | 'exploded' | 'solo';
 export type BAMWallCutMode = 'cutaway' | 'up' | 'down';
@@ -610,28 +611,50 @@ export class BottomActionMenu {
     private _toggleDayNight(): void {
         this._isNight = !this._isNight;
 
-        // ── Use the RenderPipelineManager's BackgroundUniform when available.
-        // Directly setting scene.background conflicts with the TSL compositor,
-        // causing the "super white mask" artifact on day restore (contrast blow-out).
+        // ── §NIGHT-BG-WEBGL-FALLBACK — resolve the background per LIVE backend.
+        // Directly setting scene.background conflicts with the TSL compositor on
+        // native WebGPU (causes a "super white mask" on day restore), so there we
+        // drive the BackgroundUniform via setTheme(). But on the WebGL2 backend
+        // (the §PERF fallback most prod sessions run) the pipeline never builds a
+        // BackgroundUniform — setTheme() is a SILENT no-op — so we MUST paint
+        // scene.background + the renderer clear-color directly, otherwise NIGHT
+        // mode leaves the viewport stuck WHITE. The old `if (rpm) {…} else {…}`
+        // branch always took the WebGPU arm (rpm exists regardless of backend),
+        // making the WebGL path unreachable. The resolver decides which path can
+        // actually paint the colour for the live renderer.
         const rpm = window.renderPipelineManager; // TODO(D.4): replace with runtime.scene.renderPipeline — Phase D.4
-        if (rpm) {
+        const webGpuUniformLive = rpm?.status?.webGpuActive === true;
+        const bg = resolveNightBackground(this._isNight, webGpuUniformLive);
+
+        if (bg.applyPath === 'webgpu-uniform' && rpm) {
+            // Native WebGPU TSL pipeline — animate the background uniform.
             rpm.setTheme(this._isNight ? 'dark' : 'light');
-            // Also update the viewport container's CSS background so the div behind
-            // the WebGPU canvas matches the rendered scene colour (not stuck at white).
-            const vp = window.viewportContainer as HTMLElement | null;
-            // §NIGHT-DARK-BLUE-BG (2026-06-11) — deep navy blue at night (must match
-            // DARK_BG_HEX in renderer-three BackgroundUniform / SCENE_BG_DARK_HEX).
-            if (vp) vp.style.background = this._isNight ? '#0a0f2c' : '#ffffff';
         } else {
-            // Fallback for non-WebGPU / pipeline-less rendering paths.
+            // WebGL2 / pipeline-less path — paint scene.background AND the renderer
+            // clear-color so the canvas is actually repainted by the OBC loop.
             const scene = this._getScene();
             if (scene) {
                 if (this._savedBackground === undefined) this._savedBackground = scene.background;
                 scene.background = this._isNight
-                    ? new THREE.Color(0x0a0f2c) // §NIGHT-DARK-BLUE-BG — deep navy (see DARK_BG_HEX)
-                    : (this._savedBackground ?? new THREE.Color(0xffffff));
+                    ? new THREE.Color(bg.hex)
+                    : (this._savedBackground ?? new THREE.Color(bg.hex));
+            }
+            try {
+                const renderer = window.world?.renderer?.three as THREE.WebGLRenderer | undefined; // TODO(D.4): replace with runtime.scene.world — Phase D.4
+                renderer?.setClearColor(new THREE.Color(bg.hex), 1);
+            } catch {
+                // PostproductionRenderer may override clear-color — scene.background
+                // still provides the painted fallback.
             }
         }
+
+        // Always update the viewport container's CSS background so the div behind
+        // the canvas matches the rendered scene colour (not stuck at white) on
+        // either backend.
+        const vp = window.viewportContainer as HTMLElement | null;
+        // §NIGHT-DARK-BLUE-BG (2026-06-11) — deep navy blue at night (must match
+        // DARK_BG_HEX in renderer-three BackgroundUniform / SCENE_BG_DARK_HEX).
+        if (vp) vp.style.background = bg.hex;
 
         // Light intensity: dim by 62% for night, restore to saved original for day.
         const scene = this._getScene();
