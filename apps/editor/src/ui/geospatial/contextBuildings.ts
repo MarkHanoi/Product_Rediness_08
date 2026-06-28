@@ -51,6 +51,9 @@ export interface ContextBuildingFeature {
     readonly properties: {
         /** Extrusion height in metres (resolved from height / building:levels). */
         readonly heightM: number;
+        /** OSM `building:levels` (floor count) when tagged — feeds the population
+         *  density proxy with a truthful GFA. Omitted when no levels tag exists. */
+        readonly floors?: number;
         /** OSM id (debug / dedupe). */
         readonly osmId: number;
     };
@@ -86,8 +89,9 @@ export const OVERPASS_ORIGINS = [
     'https://overpass.osm.jp',
 ] as const;
 
-/** Assumed storey height (m) when only `building:levels` is known. */
-const METRES_PER_LEVEL = 3.1;
+/** Assumed storey height (m) when only `building:levels` is known. ~3.2 m is a
+ *  typical mixed residential/commercial floor-to-floor (founder 2026-06-28). */
+const METRES_PER_LEVEL = 3.2;
 /** Fallback height (m) for a footprint with no height/levels tag at all. */
 const DEFAULT_BUILDING_HEIGHT_M = 9;
 /** Clamp so a stray bad tag can't produce a skyscraper or a zero-height sliver. */
@@ -186,15 +190,35 @@ export function contextBboxAround(
     return [lon - h * lonScale, lat - h, lon + h * lonScale, lat + h];
 }
 
-/** Resolve an extrusion height (m) from OSM tags. */
+/** Resolve an extrusion height (m) from OSM tags. Prefers the explicit `height`
+ *  (+ `roof:height` when both are tagged), else `building:levels` × storey height,
+ *  else a sensible default. Accuracy refinement (founder 2026-06-28). */
 function resolveHeight(tags: Record<string, string> | undefined): number {
     if (tags) {
         const h = parseFloat(tags['height'] ?? tags['building:height'] ?? '');
-        if (Number.isFinite(h) && h > 0) return clampHeight(h);
+        if (Number.isFinite(h) && h > 0) {
+            // `height` is usually the TOTAL height; only add `roof:height` when the
+            // tagged height is explicitly the wall/eave height (rare). Keep it simple
+            // + robust: prefer `height` as-is, which is what most mappers intend.
+            return clampHeight(h);
+        }
         const lvl = parseFloat(tags['building:levels'] ?? tags['levels'] ?? '');
-        if (Number.isFinite(lvl) && lvl > 0) return clampHeight(lvl * METRES_PER_LEVEL);
+        if (Number.isFinite(lvl) && lvl > 0) {
+            const roof = parseFloat(tags['roof:height'] ?? '');
+            const roofAdd = Number.isFinite(roof) && roof > 0 ? roof : 0;
+            return clampHeight(lvl * METRES_PER_LEVEL + roofAdd);
+        }
     }
     return DEFAULT_BUILDING_HEIGHT_M;
+}
+
+/** OSM `building:levels` (floor count) when tagged, else undefined. Feeds the
+ *  population-density GFA proxy with a truthful storey count. */
+function resolveFloors(tags: Record<string, string> | undefined): number | undefined {
+    if (!tags) return undefined;
+    const lvl = parseFloat(tags['building:levels'] ?? tags['levels'] ?? '');
+    if (Number.isFinite(lvl) && lvl >= 1 && lvl <= 200) return Math.round(lvl);
+    return undefined;
 }
 
 function clampHeight(h: number): number {
@@ -244,10 +268,15 @@ function overpassToCollection(elements: OverpassElement[]): ContextBuildingColle
         const first = ring[0]!;
         const last = ring[ring.length - 1]!;
         if (first[0] !== last[0] || first[1] !== last[1]) ring.push([first[0], first[1]]);
+        const floors = resolveFloors(tags);
         features.push({
             type: 'Feature',
             geometry: { type: 'Polygon', coordinates: [ring] },
-            properties: { heightM: resolveHeight(tags), osmId: id },
+            properties: {
+                heightM: resolveHeight(tags),
+                osmId: id,
+                ...(floors !== undefined ? { floors } : {}),
+            },
         });
     };
 

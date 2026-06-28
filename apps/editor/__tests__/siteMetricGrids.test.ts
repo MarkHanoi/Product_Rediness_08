@@ -37,10 +37,42 @@ const FOOTPRINTS: MetricFootprint[] = [
 ];
 
 describe('buildSiteMetricGrid', () => {
-    it('returns [] for the surface-raycast metrics (sun hours / daylight)', () => {
+    it('returns [] for daylight (BIM-view-only) and for sun-hours without lat/lon', () => {
         const radius = 80;
-        expect(buildSiteMetricGrid('sunHours', { radius, footprints: FOOTPRINTS, dataset: DATASET })).toEqual([]);
         expect(buildSiteMetricGrid('daylight', { radius, footprints: FOOTPRINTS, dataset: DATASET })).toEqual([]);
+        // Sun-hours needs a site lat/lon (sun position) — absent → [].
+        expect(buildSiteMetricGrid('sunHours', { radius, footprints: FOOTPRINTS, dataset: DATASET })).toEqual([]);
+    });
+
+    it('builds a sun-hours ground heatmap from lat/lon (shadows reduce hours)', () => {
+        const cells = buildSiteMetricGrid('sunHours', {
+            radius: 80, footprints: FOOTPRINTS, dataset: null,
+            latDeg: 41.39, lngDeg: 2.17, sunDay: 'summer', sunStepMinutes: 30,
+            gridCountCap: 16,
+        });
+        expect(cells.length).toBeGreaterThan(0);
+        for (const c of cells) {
+            expect(c.value).toBeGreaterThanOrEqual(0);   // hours
+            expect(typeof c.colorHex).toBe('string');
+            expect(c.colorHex.length).toBeGreaterThan(0);
+        }
+        // The building casts shadow on some cells → a spread of sun-hours values
+        // (not every cell sees the full uninterrupted day).
+        const values = new Set(cells.map((c) => c.value.toFixed(1)));
+        expect(values.size).toBeGreaterThan(1);
+        // Some cell gets meaningful sun (the open SW corner is unshaded at midday).
+        expect(cells.some((c) => c.value > 1)).toBe(true);
+    });
+
+    it('winter sun-hours are no greater than summer at the same site', () => {
+        const common = {
+            radius: 80, footprints: FOOTPRINTS, dataset: null,
+            latDeg: 41.39, lngDeg: 2.17, sunStepMinutes: 30, gridCountCap: 12,
+        } as const;
+        const summer = buildSiteMetricGrid('sunHours', { ...common, sunDay: 'summer' });
+        const winter = buildSiteMetricGrid('sunHours', { ...common, sunDay: 'winter' });
+        const maxOf = (cs: typeof summer) => cs.reduce((m, c) => Math.max(m, c.value), 0);
+        expect(maxOf(winter)).toBeLessThanOrEqual(maxOf(summer) + 1e-6);
     });
 
     it('builds coloured temperature (UHI) cells from the climate baseline', () => {
@@ -86,12 +118,12 @@ describe('buildSiteMetricGrid', () => {
 });
 
 describe('siteMetricAvailability', () => {
-    it('disables climate metrics without a dataset and sun hours without a massing', () => {
+    it('disables climate metrics without a dataset and sun hours without a location', () => {
         const a = siteMetricAvailability(false, false);
         const byMetric = Object.fromEntries(a.map((m) => [m.metric, m]));
         expect(byMetric.temperature!.available).toBe(false);
         expect(byMetric.wind!.available).toBe(false);
-        expect(byMetric.sunHours!.available).toBe(false);
+        expect(byMetric.sunHours!.available).toBe(false);   // no location
         expect(byMetric.temperature!.reason).toBeTruthy();
         // Population is an OSM proxy — available regardless of climate.
         expect(byMetric.population!.available).toBe(true);
@@ -99,15 +131,22 @@ describe('siteMetricAvailability', () => {
         expect(byMetric.daylight!.available).toBe(false);
     });
 
-    it('enables climate metrics + sun hours once data + massing exist', () => {
+    it('enables sun hours once a location exists (no climate dataset needed)', () => {
+        const a = siteMetricAvailability(false, true);   // hasDataset=false, hasLocation=true
+        const byMetric = Object.fromEntries(a.map((m) => [m.metric, m]));
+        expect(byMetric.sunHours!.available).toBe(true);
+        // Sun-hours is a GROUND grid now (renders like the others).
+        expect(byMetric.sunHours!.isGroundGrid).toBe(true);
+        // Climate metrics still gated on the dataset.
+        expect(byMetric.temperature!.available).toBe(false);
+    });
+
+    it('enables climate metrics once a dataset exists', () => {
         const a = siteMetricAvailability(true, true);
         const byMetric = Object.fromEntries(a.map((m) => [m.metric, m]));
         expect(byMetric.temperature!.available).toBe(true);
         expect(byMetric.wind!.available).toBe(true);
-        expect(byMetric.sunHours!.available).toBe(true);
-        // Ground-grid flag distinguishes the renderer path.
         expect(byMetric.temperature!.isGroundGrid).toBe(true);
-        expect(byMetric.sunHours!.isGroundGrid).toBe(false);
     });
 });
 

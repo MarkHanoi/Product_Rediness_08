@@ -76,6 +76,7 @@ export interface FormaSunViewport {
     // a ground-grid metric (temperature / wind / population) paints it; null clears.
     setSiteMetricOverlay?(metric: SiteMetric | null): void;
     getSiteMetricOverlay?(): SiteMetric | null;
+    setSiteMetricSunDay?(day: 'summer' | 'equinox' | 'winter'): void;
 }
 
 /** Season presets → a representative day (UTC midnight) of the current year. */
@@ -104,6 +105,9 @@ export class FormaSiteAnalysisControls {
     private metricChipRow: HTMLElement | null = null;
     private metricLegendWrap: HTMLElement | null = null;
     private activeMetric: SiteMetric | null = null;
+    /** Sun-hours analysis-day preset row + current preset (default summer solstice). */
+    private sunDayRow: HTMLElement | null = null;
+    private sunDay: 'summer' | 'equinox' | 'winter' = 'summer';
     /** Guards a single proactive `ensureSiteClimate` per mount (avoid loops). */
     private climateEnsureRequested = false;
     /** SITE-PANEL-UI — user dismissed the panel (✕). STATIC so the choice persists
@@ -238,6 +242,7 @@ export class FormaSiteAnalysisControls {
         this.studyBtn = null;
         this.metricChipRow = null;
         this.metricLegendWrap = null;
+        this.sunDayRow = null;
         this.activeMetric = null;
         this.climateEnsureRequested = false;
     }
@@ -797,22 +802,28 @@ export class FormaSiteAnalysisControls {
     //
     // ONE colour-binned analytical heatmap at a time over the side-3D site view —
     // the Forma "module" pattern: pick a metric, the massing/site colours by it, a
-    // gradient legend appears. Sun hours routes to the existing surface raycast
-    // (`pryzmComputeSunHours`); temperature / wind / population are ground heatmaps
-    // rendered by the viewport from the pure street-analytics grids. Metrics with
-    // no data source are shown but DISABLED with a reason (never a faked layer).
+    // gradient legend appears. ALL metrics — incl. sun hours — paint as a GROUND
+    // heatmap via the viewport overlay path so they all render in the side-3D view
+    // (which shows no BIM mesh). Sun hours integrates direct sun over the analysis
+    // day with a pure shadow-ray test; temperature / wind / population read the
+    // street-analytics grids. Metrics with no data source are shown but DISABLED.
 
     private metricSupported(): boolean {
         return typeof this.viewport.setSiteMetricOverlay === 'function';
     }
 
-    /** True when a proposed massing exists (sun hours / daylight need a model). */
-    private hasMassing(): boolean {
-        try { return !!this.viewport.getFormaSunPosition; } catch { return false; }
+    /** True when a site lat/lon is known (sun-hours needs the sun position). */
+    private hasLocation(): boolean {
+        try {
+            const loc = this.runtime?.siteModelStore.getLocation?.();
+            if (loc && (loc.latitude !== 0 || loc.longitude !== 0)) return true;
+        } catch { /* ignore */ }
+        const ltp = getCurrentSiteOrigin();
+        return !!(ltp && (ltp.lat !== 0 || ltp.lon !== 0));
     }
 
     private currentAvailability(): MetricAvailability[] {
-        return siteMetricAvailability(!!this.resolveDataset(), this.hasMassing());
+        return siteMetricAvailability(!!this.resolveDataset(), this.hasLocation());
     }
 
     private buildMetricSwitcherBlock(): HTMLElement {
@@ -822,17 +833,58 @@ export class FormaSiteAnalysisControls {
         this.metricChipRow = row;
         block.appendChild(row);
 
+        // Sun-day preset row (only shown while the sun-hours heatmap is active).
+        const sunDay = document.createElement('div');
+        Object.assign(sunDay.style, { display: 'none', gap: '4px', marginTop: '4px' });
+        this.sunDayRow = sunDay;
+        block.appendChild(sunDay);
+
         const legend = document.createElement('div');
         this.metricLegendWrap = legend;
         block.appendChild(legend);
 
         this.renderMetricChips();
+        this.renderSunDayRow();
         block.appendChild(this.smallNote(
             this.metricSupported()
-                ? 'Pick one metric to colour the site. Sun hours rides the model raycast; others read climate + OSM.'
+                ? 'Pick one metric to colour the site. Sun hours = direct-sun shadow study; others read climate + OSM.'
                 : 'Open the 3D Forma view to colour the site by a metric.',
         ));
         return block;
+    }
+
+    /** §SITE-METRIC-HEATMAP — the sun-hours analysis-day presets (Summer / Equinox /
+     *  Winter, Forma pattern). Shown only while the sun-hours heatmap is active;
+     *  each button drives `viewport.setSiteMetricSunDay()` → the heatmap repaints. */
+    private renderSunDayRow(): void {
+        const row = this.sunDayRow;
+        if (!row) return;
+        row.replaceChildren();
+        if (this.activeMetric !== 'sunHours') { row.style.display = 'none'; return; }
+        row.style.display = 'flex';
+        const presets: ReadonlyArray<{ key: 'summer' | 'equinox' | 'winter'; label: string }> = [
+            { key: 'summer', label: 'Summer' },
+            { key: 'equinox', label: 'Equinox' },
+            { key: 'winter', label: 'Winter' },
+        ];
+        for (const p of presets) {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.textContent = p.label;
+            const isOn = this.sunDay === p.key;
+            Object.assign(b.style, {
+                flex: '1', minWidth: '48px', appearance: 'none', cursor: 'pointer',
+                border: `1px solid ${isOn ? ACCENT : '#e3dcfa'}`, borderRadius: '6px',
+                background: isOn ? ACCENT : '#faf8ff', color: isOn ? '#fff' : ACCENT,
+                font: '600 10px/1 system-ui', padding: '5px 4px',
+            } satisfies Partial<CSSStyleDeclaration>);
+            b.addEventListener('click', () => {
+                this.sunDay = p.key;
+                try { this.viewport.setSiteMetricSunDay?.(p.key); } catch { /* ignore */ }
+                this.renderSunDayRow();
+            });
+            row.appendChild(b);
+        }
     }
 
     /** (Re)build the chip row from the current data availability. */
@@ -864,7 +916,7 @@ export class FormaSiteAnalysisControls {
                 chip.title = a.reason ?? 'No data source wired';
             } else {
                 chip.title = a.metric === 'sunHours'
-                    ? 'Paint sun-hours on the model'
+                    ? 'Colour the site by direct sun-hours (shadow study)'
                     : `Colour the site by ${a.label.toLowerCase()}`;
                 chip.addEventListener('click', () => this.selectMetric(a.metric));
             }
@@ -877,21 +929,20 @@ export class FormaSiteAnalysisControls {
         const next = this.activeMetric === metric ? null : metric;
         this.activeMetric = next;
 
-        // Sun hours is a surface raycast, not a ground heatmap: route to the console
-        // pass (typed global) and clear any ground heatmap; others go to the viewport.
-        if (next === 'sunHours') {
-            try { this.viewport.setSiteMetricOverlay?.(null); } catch { /* ignore */ }
-            try { window.pryzmComputeSunHours?.(); } catch (e) { console.warn('[forma-analysis] sun-hours failed:', e); }
-        } else {
-            try { window.pryzmClearSunHours?.(); } catch { /* ignore */ }
-            // Make sure the climate ground grids have a dataset before painting.
-            if (next === 'temperature' || next === 'wind') {
-                if (!this.resolveDataset()) this.climateEnsureRequested = false;
-                try { this.ensureClimateIfMissing(); } catch { /* ignore */ }
-                this.syncOverlayDataset();
-            }
-            try { this.viewport.setSiteMetricOverlay?.(next); } catch (e) { console.warn('[forma-analysis] metric overlay failed:', e); }
+        // §SITE-METRIC-HEATMAP — ALL metrics (incl. sun hours) now paint as a GROUND
+        // heatmap in the side-3D view via the SAME viewport overlay path, so they all
+        // render. (The BIM-mesh `pryzmComputeSunHours` raycast is a separate pass for
+        // the BIM view — not used here, since the Cesium view shows no BIM mesh.)
+        // temperature/wind first need a climate dataset; sun hours/population do not.
+        if (next === 'temperature' || next === 'wind') {
+            if (!this.resolveDataset()) this.climateEnsureRequested = false;
+            try { this.ensureClimateIfMissing(); } catch { /* ignore */ }
+            this.syncOverlayDataset();
         }
+        try { this.viewport.setSiteMetricOverlay?.(next); } catch (e) { console.warn('[forma-analysis] metric overlay failed:', e); }
+
+        // Show the sun-day preset row only while the sun-hours heatmap is active.
+        this.renderSunDayRow();
         this.renderMetricChips();
         this.renderMetricLegend();
     }

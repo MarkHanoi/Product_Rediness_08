@@ -466,9 +466,11 @@ export class CesiumViewport {
   /** Entities for the active site-metric ground heatmap (its own layer so it can
    *  be cleared independently of the sun-path/wind/heat climate overlays). */
   private siteMetricEntities: Cesium.Entity[] = [];
-  /** The metric currently shown as a ground heatmap, or null (off). Sun-hours /
-   *  daylight are NOT ground grids — they are routed to the surface raycast pass. */
+  /** The metric currently shown as a ground heatmap, or null (off). 'daylight' is
+   *  BIM-view-only; the others (sun hours / temperature / wind / population) draw. */
   private siteMetricActive: SiteMetric | null = null;
+  /** Analysis-day preset for the sun-hours ground heatmap (Forma pattern). */
+  private siteMetricSunDay: 'summer' | 'winter' | 'equinox' = 'summer';
   /** The last OSM context collection (footprints + heights, lon/lat) so the
    *  population/wind/heat grids can read built density. Captured on context load. */
   private lastContextCollection: ContextBuildingCollection | null = null;
@@ -3753,21 +3755,22 @@ export class CesiumViewport {
 
   // ── §SITE-METRIC-HEATMAP — Hektar/Forma-style switchable ground heatmap ──────
   //
-  // ONE colour-binned ground heatmap at a time (temperature · wind · population),
-  // mapped onto the site in the SAME site-ENU frame as the massing + the other
-  // overlays. The DATA comes from the pure `buildSiteMetricGrid` bridge over
-  // @pryzm/street-analytics (UHI / Lawson wind / OSM population proxy). Sun-hours
-  // is NOT a ground grid — the switcher routes it to the surface raycast pass — so
-  // selecting 'sunHours'/'daylight' here simply clears any ground heatmap.
+  // ONE colour-binned ground heatmap at a time (sun hours · temperature · wind ·
+  // population), mapped onto the site in the SAME site-ENU frame as the massing +
+  // the other overlays. The DATA comes from the pure `buildSiteMetricGrid` bridge
+  // (sun-hours via the @pryzm/solar-analysis NOAA sun-samples + a pure analytic
+  // shadow-ray test against the massing/context; temperature/wind/population via
+  // @pryzm/street-analytics). 'daylight' is BIM-view-only (per-room VSC), so
+  // selecting it here clears any ground heatmap.
 
   /**
    * Show ONE site metric as a colour-binned ground heatmap (or clear with null).
-   * Only the ground-grid metrics draw here (temperature / wind / population);
-   * 'sunHours' / 'daylight' clear the ground layer (they ride the surface pass).
+   * Ground-grid metrics draw here: sun hours / temperature / wind / population.
+   * 'daylight' clears the ground layer (it rides the BIM per-room pass).
    * The analysis controls own the metric switch + legend; this just renders.
    */
   public setSiteMetricOverlay(metric: SiteMetric | null): void {
-    if (metric === 'sunHours' || metric === 'daylight') metric = null;
+    if (metric === 'daylight') metric = null;
     this.siteMetricActive = metric;
     if (metric) this.renderSiteMetricOverlay();
     else this.clearSiteMetricOverlay();
@@ -3776,6 +3779,13 @@ export class CesiumViewport {
   /** The active ground-heatmap metric, or null. */
   public getSiteMetricOverlay(): SiteMetric | null {
     return this.siteMetricActive;
+  }
+
+  /** Set the sun-hours analysis-day preset (summer/winter/equinox) and repaint if
+   *  the sun-hours heatmap is currently shown. */
+  public setSiteMetricSunDay(day: 'summer' | 'winter' | 'equinox'): void {
+    this.siteMetricSunDay = day;
+    if (this.siteMetricActive === 'sunHours') this.renderSiteMetricOverlay();
   }
 
   /** Project the OSM context + proposed massing footprints into the site-ENU frame
@@ -3799,7 +3809,12 @@ export class CesiumViewport {
           enuRing.push({ x: local.x, z: local.y });
         }
         if (enuRing.length >= 3) {
-          out.push({ ring: enuRing, heightM: Math.max(0.1, f.properties.heightM) });
+          out.push({
+            ring: enuRing,
+            heightM: Math.max(0.1, f.properties.heightM),
+            // Real OSM floor count (when tagged) → truthful population GFA proxy.
+            ...(f.properties.floors !== undefined ? { floors: f.properties.floors } : {}),
+          });
         }
       }
     }
@@ -3828,19 +3843,31 @@ export class CesiumViewport {
     const origin = this.overlayOrigin();
     this.clearSiteMetricOverlay();
     if (!viewer || !metric || !origin) return;
-    if (metric === 'sunHours' || metric === 'daylight') return;
+    if (metric === 'daylight') return;             // BIM-view-only (per-room VSC)
     try {
       const radius = this.overlayRadiusM();
       const base = this.formaTerrainBaseHeight;
       const enu = Cesium.Transforms.eastNorthUpToFixedFrame(
         Cesium.Cartesian3.fromDegrees(origin.lon, origin.lat, 0),
       );
+      // §SITE-METRIC-HEATMAP-FINER (founder 2026-06-28) — ~2× resolution (half the
+      // cell edge) for the street-analytics metrics (cap 52 → ≤ ~2700 cells). Sun
+      // hours is a raycast PER cell × PER sun sample, so a full 52² grid at 15-min
+      // cadence janks; keep it visibly finer than before (cap 40) and coarsen the
+      // sun cadence to 20 min to compensate. Accuracy of the shadow study is
+      // secondary to "it renders smoothly".
+      const isSun = metric === 'sunHours';
       const cells: MetricGridCell[] = buildSiteMetricGrid(metric, {
         radius,
         footprints: this.siteMetricFootprints(origin),
         dataset: this.climateOverlayDataset,
         heightAboveGround: 0.16,
-        gridCountCap: 26,
+        gridCountCap: isSun ? 40 : 52,
+        // Sun-hours only — the site lat/lon (sun position) + the analysis-day preset.
+        latDeg: origin.lat,
+        lngDeg: origin.lon,
+        sunDay: this.siteMetricSunDay,
+        sunStepMinutes: 20,
       });
       let drawn = 0;
       for (let i = 0; i < cells.length; i++) {
