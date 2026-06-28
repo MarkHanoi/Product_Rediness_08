@@ -1044,6 +1044,9 @@ importers:
       '@pryzm/stores':
         specifier: workspace:*
         version: link:../../packages/stores
+      '@pryzm/street-analytics':
+        specifier: workspace:*
+        version: link:../../packages/street-analytics
       '@pryzm/typology-pipeline':
         specifier: workspace:*
         version: link:../../packages/typology-pipeline

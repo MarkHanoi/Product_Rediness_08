@@ -42,6 +42,14 @@ import {
     monthlyTempSeries,
 } from '../climate/climateChartData';
 import { getCurrentSiteOrigin } from '../site/siteDispatch';
+// §SITE-METRIC-HEATMAP — pure metric availability + legend helpers for the Hektar/
+// Forma-style switchable ground heatmap (the math lives in @pryzm/street-analytics).
+import {
+    siteMetricAvailability,
+    siteMetricLegend,
+    type SiteMetric,
+    type MetricAvailability,
+} from '../climate/siteMetricGrids';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const ACCENT = '#6600FF';
@@ -64,6 +72,10 @@ export interface FormaSunViewport {
     setSunPathOverlay?(on: boolean): void;
     setWindOverlay?(on: boolean): void;
     setHeatOverlay?(on: boolean): void;
+    // §SITE-METRIC-HEATMAP — switchable Hektar/Forma-style ground heatmap. Selecting
+    // a ground-grid metric (temperature / wind / population) paints it; null clears.
+    setSiteMetricOverlay?(metric: SiteMetric | null): void;
+    getSiteMetricOverlay?(): SiteMetric | null;
 }
 
 /** Season presets → a representative day (UTC midnight) of the current year. */
@@ -88,6 +100,10 @@ export class FormaSiteAnalysisControls {
     private weatherWrap: HTMLElement | null = null;
     private climateNote: HTMLElement | null = null;
     private studyBtn: HTMLButtonElement | null = null;
+    /** §SITE-METRIC-HEATMAP — the metric-switcher chip row + legend host + state. */
+    private metricChipRow: HTMLElement | null = null;
+    private metricLegendWrap: HTMLElement | null = null;
+    private activeMetric: SiteMetric | null = null;
     /** Guards a single proactive `ensureSiteClimate` per mount (avoid loops). */
     private climateEnsureRequested = false;
     /** SITE-PANEL-UI — user dismissed the panel (✕). STATIC so the choice persists
@@ -132,6 +148,7 @@ export class FormaSiteAnalysisControls {
         root.appendChild(this.buildClimateBlock());
         root.appendChild(this.buildWindBlock());
         root.appendChild(this.build3dLayersBlock());
+        root.appendChild(this.buildMetricSwitcherBlock());
 
         this.mountTarget.appendChild(root);
         this.root = root;
@@ -158,7 +175,7 @@ export class FormaSiteAnalysisControls {
         //     Re-running the ingest when the site/origin arrives ingests the bundled
         //     normals instantly → the climate subscription repaints the rose.
         try {
-            const refresh = () => { this.renderWindRose(); this.renderWeatherCard(); };
+            const refresh = () => { this.renderWindRose(); this.renderWeatherCard(); this.refreshMetricSwitcher(); };
             const onSiteChange = () => {
                 this.climateEnsureRequested = false;
                 this.ensureClimateIfMissing();
@@ -205,6 +222,8 @@ export class FormaSiteAnalysisControls {
             this.viewport.setSunPathOverlay?.(false);
             this.viewport.setWindOverlay?.(false);
             this.viewport.setHeatOverlay?.(false);
+            // §SITE-METRIC-HEATMAP — clear any active ground heatmap on view exit.
+            this.viewport.setSiteMetricOverlay?.(null);
         } catch { /* ignore */ }
         try { if (isClimatePanelOpen()) closeClimatePanel(); } catch { /* ignore */ }
         if (this.root?.parentElement) this.root.parentElement.removeChild(this.root);
@@ -217,6 +236,9 @@ export class FormaSiteAnalysisControls {
         this.weatherWrap = null;
         this.climateNote = null;
         this.studyBtn = null;
+        this.metricChipRow = null;
+        this.metricLegendWrap = null;
+        this.activeMetric = null;
         this.climateEnsureRequested = false;
     }
 
@@ -769,6 +791,158 @@ export class FormaSiteAnalysisControls {
      *  wind/heat overlays draw from the same data as the rose/weather card. */
     private syncOverlayDataset(): void {
         try { this.viewport.setClimateOverlayDataset?.(this.resolveDataset()); } catch { /* ignore */ }
+    }
+
+    // ── §SITE-METRIC-HEATMAP — Hektar/Forma-style metric switcher ────────────────
+    //
+    // ONE colour-binned analytical heatmap at a time over the side-3D site view —
+    // the Forma "module" pattern: pick a metric, the massing/site colours by it, a
+    // gradient legend appears. Sun hours routes to the existing surface raycast
+    // (`pryzmComputeSunHours`); temperature / wind / population are ground heatmaps
+    // rendered by the viewport from the pure street-analytics grids. Metrics with
+    // no data source are shown but DISABLED with a reason (never a faked layer).
+
+    private metricSupported(): boolean {
+        return typeof this.viewport.setSiteMetricOverlay === 'function';
+    }
+
+    /** True when a proposed massing exists (sun hours / daylight need a model). */
+    private hasMassing(): boolean {
+        try { return !!this.viewport.getFormaSunPosition; } catch { return false; }
+    }
+
+    private currentAvailability(): MetricAvailability[] {
+        return siteMetricAvailability(!!this.resolveDataset(), this.hasMassing());
+    }
+
+    private buildMetricSwitcherBlock(): HTMLElement {
+        const block = this.sectionBlock('🎨 Analysis heatmap');
+        const row = document.createElement('div');
+        Object.assign(row.style, { display: 'flex', gap: '4px', flexWrap: 'wrap' });
+        this.metricChipRow = row;
+        block.appendChild(row);
+
+        const legend = document.createElement('div');
+        this.metricLegendWrap = legend;
+        block.appendChild(legend);
+
+        this.renderMetricChips();
+        block.appendChild(this.smallNote(
+            this.metricSupported()
+                ? 'Pick one metric to colour the site. Sun hours rides the model raycast; others read climate + OSM.'
+                : 'Open the 3D Forma view to colour the site by a metric.',
+        ));
+        return block;
+    }
+
+    /** (Re)build the chip row from the current data availability. */
+    private renderMetricChips(): void {
+        const row = this.metricChipRow;
+        if (!row) return;
+        row.replaceChildren();
+        const supported = this.metricSupported();
+        const avail = this.currentAvailability();
+        const ACCENT_ON = ACCENT;
+        for (const a of avail) {
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.setAttribute('data-metric', a.metric);
+            chip.textContent = a.label;
+            const isOn = this.activeMetric === a.metric;
+            const enabled = supported && a.available;
+            Object.assign(chip.style, {
+                flex: '1', minWidth: '64px', appearance: 'none',
+                cursor: enabled ? 'pointer' : 'not-allowed',
+                border: `1px solid ${isOn ? ACCENT_ON : '#e3dcfa'}`,
+                borderRadius: '6px',
+                background: isOn ? ACCENT_ON : '#faf8ff',
+                color: isOn ? '#ffffff' : (enabled ? ACCENT_ON : '#bdb6d6'),
+                font: '600 11px/1.1 system-ui', padding: '6px 4px',
+            } satisfies Partial<CSSStyleDeclaration>);
+            if (!enabled) {
+                chip.disabled = true;
+                chip.title = a.reason ?? 'No data source wired';
+            } else {
+                chip.title = a.metric === 'sunHours'
+                    ? 'Paint sun-hours on the model'
+                    : `Colour the site by ${a.label.toLowerCase()}`;
+                chip.addEventListener('click', () => this.selectMetric(a.metric));
+            }
+            row.appendChild(chip);
+        }
+    }
+
+    /** Toggle a metric on (off when re-clicking the active one). */
+    private selectMetric(metric: SiteMetric): void {
+        const next = this.activeMetric === metric ? null : metric;
+        this.activeMetric = next;
+
+        // Sun hours is a surface raycast, not a ground heatmap: route to the console
+        // pass (typed global) and clear any ground heatmap; others go to the viewport.
+        if (next === 'sunHours') {
+            try { this.viewport.setSiteMetricOverlay?.(null); } catch { /* ignore */ }
+            try { window.pryzmComputeSunHours?.(); } catch (e) { console.warn('[forma-analysis] sun-hours failed:', e); }
+        } else {
+            try { window.pryzmClearSunHours?.(); } catch { /* ignore */ }
+            // Make sure the climate ground grids have a dataset before painting.
+            if (next === 'temperature' || next === 'wind') {
+                if (!this.resolveDataset()) this.climateEnsureRequested = false;
+                try { this.ensureClimateIfMissing(); } catch { /* ignore */ }
+                this.syncOverlayDataset();
+            }
+            try { this.viewport.setSiteMetricOverlay?.(next); } catch (e) { console.warn('[forma-analysis] metric overlay failed:', e); }
+        }
+        this.renderMetricChips();
+        this.renderMetricLegend();
+    }
+
+    /** Repaint the chip enabled-state + legend when data availability changes. */
+    private refreshMetricSwitcher(): void {
+        // If the active metric just lost its data, drop it cleanly.
+        if (this.activeMetric) {
+            const a = this.currentAvailability().find((m) => m.metric === this.activeMetric);
+            if (a && !a.available) {
+                this.activeMetric = null;
+                try { this.viewport.setSiteMetricOverlay?.(null); } catch { /* ignore */ }
+            }
+        }
+        this.renderMetricChips();
+        this.renderMetricLegend();
+    }
+
+    /** Draw the gradient legend for the active metric (or clear when none). */
+    private renderMetricLegend(): void {
+        const wrap = this.metricLegendWrap;
+        if (!wrap) return;
+        wrap.replaceChildren();
+        if (!this.activeMetric) return;
+        const legend = siteMetricLegend(this.activeMetric, this.resolveDataset());
+        if (!legend) return;
+
+        const title = document.createElement('div');
+        title.textContent = legend.title;
+        Object.assign(title.style, { font: '600 10px/1.2 system-ui', color: '#6b6486', margin: '4px 0 2px' });
+        wrap.appendChild(title);
+
+        const bar = document.createElement('div');
+        Object.assign(bar.style, {
+            height: '10px', borderRadius: '5px', border: '1px solid #ece7fb',
+            background: `linear-gradient(to right, ${legend.stops.join(', ')})`,
+        } satisfies Partial<CSSStyleDeclaration>);
+        wrap.appendChild(bar);
+
+        const labels = document.createElement('div');
+        Object.assign(labels.style, {
+            display: 'flex', justifyContent: 'space-between',
+            font: '500 9px/1.2 system-ui', color: '#8a83a6', marginTop: '1px',
+        } satisfies Partial<CSSStyleDeclaration>);
+        const lo = document.createElement('span');
+        lo.textContent = legend.lowLabel;
+        const hi = document.createElement('span');
+        hi.textContent = legend.highLabel;
+        labels.appendChild(lo);
+        labels.appendChild(hi);
+        wrap.appendChild(labels);
     }
 
     private renderWindRose(): void {

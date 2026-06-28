@@ -66,6 +66,7 @@
     "@pryzm/scene-committer": "workspace:*",
     "@pryzm/solar-analysis": "workspace:*",
     "@pryzm/stores": "workspace:*",
+    "@pryzm/street-analytics": "workspace:*",
     "@pryzm/view-state": "workspace:*"
   },
   "devDependencies": {
