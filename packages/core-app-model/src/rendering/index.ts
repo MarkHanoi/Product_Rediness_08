@@ -29,6 +29,7 @@ export * from './RenderMaterialLibrary.js';
 export * from './RenderPerformanceService.js';
 export * from './SceneQualityTierManager.js';
 export * from './ElementInstanceBridge.js';
+export * from './FurnitureInstanceBridge.js';
 export * from './ShadowQualityUpgrader.js';
 export * from './SharedRenderingState.js';
 export * from './SSGIService.js';

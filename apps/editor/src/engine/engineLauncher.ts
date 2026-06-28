@@ -261,7 +261,7 @@ export async function bootstrap(
         curtainPanelStore: curtainPanelStoreInstance,
         slabStore, ceilingStore, floorStore, roomStore,
         wallStore, roofStore, plumbingStore, openingStore,
-        furnitureStore, handrailStore, beamStore,
+        furnitureStore, lightingStore, handrailStore, beamStore,
         stairStore, stairTypeStore, stairLandingStore, stairRailingStore,
         liftStore, liftTypeStore, liftMeshBuilder,
         gridStore, wallSystemTypeStore, slabSystemTypeStore,
@@ -675,6 +675,7 @@ export async function bootstrap(
         curtainPanelStore: curtainPanelStoreInstance,
         doorStore,         windowStore,          roofStore,
         plumbingStore,     furnitureStore,       handrailStore,
+        lightingStore,
         openingStore,      gridStore,            roomStore,
         ceilingStore,      floorStore,           annotationStore,
     });

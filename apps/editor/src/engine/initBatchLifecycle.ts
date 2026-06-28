@@ -26,6 +26,17 @@ export function initBatchLifecycle(params: { world: any }): void {
                 const _badge = document.getElementById('perf-mode-loading-badge');
                 if (_badge) _badge.textContent = '⚡ PERF MODE — building geometry';
                 console.log(`[initBatchLifecycle] §L1-BATCH-PERF-MODE engaged (${count} elements)`);
+                // §AUTOSAVE-BATCH-SUPPRESS (2026-06-26) — announce batch open so
+                // SaveOrchestrator can coalesce a multi-batch generation (e.g.
+                // furnish-all-floors, which runs ONE runBatch per level — each
+                // previously tripped a full-project serialize+compress+IndexedDB
+                // write mid-operation, the repeated "[ProjectSerializer] Snapshot
+                // created: 763 elements" the founder saw). SaveOrchestrator
+                // ref-counts these and emits a SINGLE save once every batch drains.
+                // Purely additive event — the indicator wiring above is unchanged.
+                try {
+                    window.dispatchEvent(new CustomEvent('pryzm-batch-started'));
+                } catch { /* non-fatal */ }
             },
             () => {
                 unifiedFrameLoop.endBatchRenderSuppress();
@@ -33,6 +44,13 @@ export function initBatchLifecycle(params: { world: any }): void {
                 window.performanceModePanel?.autoDisablePerf();
                 console.log('[initBatchLifecycle] §L1-BATCH-PERF-MODE restored after batch drain');
                 try { _instancedMeshCoalescer.onBatchEnd(); } catch { /* non-fatal */ }
+                // §AUTOSAVE-BATCH-SUPPRESS — announce batch drain; SaveOrchestrator
+                // decrements its ref-count and, when it reaches zero, schedules the
+                // single coalesced autosave (after a short settle so consecutive
+                // per-level batches don't each re-arm a save).
+                try {
+                    window.dispatchEvent(new CustomEvent('pryzm-batch-ended'));
+                } catch { /* non-fatal */ }
             },
         );
 
