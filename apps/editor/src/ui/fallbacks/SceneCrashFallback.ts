@@ -70,15 +70,28 @@ export function showSceneCrashFallback(opts: SceneCrashFallbackOptions = {}, run
 
     card.append(heading, body);
 
-    // ── Dev-mode error details ─────────────────────────────────────────────
-    const isDev = (import.meta as any).env?.MODE === 'development'
-        || (typeof process !== 'undefined' && (process as any).env?.NODE_ENV === 'development');
+    // ── Error details (§VCG-DIAGNOSTIC) ────────────────────────────────────
+    // Surface the REAL caught error in BOTH dev and prod, inside a collapsible
+    // <details> so it does not dominate the card but is one click away. This is
+    // what lets the founder report the true underlying cause instead of the
+    // generic "GPU driver / memory" copy. The expensive stack is only stamped
+    // into the DOM when the user opens the disclosure.
+    if (opts.error) {
+        const err = opts.error;
 
-    if (isDev && opts.error) {
+        const details = document.createElement('details');
+        details.className = 'scf-error-disclosure';
+
+        const summary = document.createElement('summary');
+        summary.className   = 'scf-error-summary';
+        summary.textContent = 'Show technical details';
+
         const pre = document.createElement('pre');
         pre.className   = 'scf-error-details';
-        pre.textContent = opts.error.message + (opts.error.stack ? '\n\n' + opts.error.stack : '');
-        card.appendChild(pre);
+        pre.textContent = err.message + (err.stack ? '\n\n' + err.stack : '');
+
+        details.append(summary, pre);
+        card.appendChild(details);
     }
 
     // ── Actions ────────────────────────────────────────────────────────────
