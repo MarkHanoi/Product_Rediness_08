@@ -1040,12 +1040,13 @@ export class ResidentialBuildingExecutor {
         entryDoor: { wallId: string; offset: number; width: number; corridorAligned: boolean };
     } {
         const r = apt.cell.rect;
-        // §NONRECT-CELLS-P1 (flag `globalThis.__pryzmNonRectCells`) — when the cell was RESHAPED to a
-        // non-rectangular footprint (its polygon has > 4 vertices), build the perimeter walls along the
-        // POLYGON edges (not the bbox rect) so the unit's walls follow the real drawn boundary. The
-        // corridor-fronting (door) edge carries the entry door. Flag OFF / a rect cell ⇒ the byte-
-        // identical 4-edge rect path below.
-        const nonRectCells = (window as unknown as { __pryzmNonRectCells?: boolean }).__pryzmNonRectCells === true;
+        // §NONRECT-CELLS-P1 / §RESI-NONRECT-DEFAULT — when the cell was RESHAPED to a non-rectangular
+        // footprint (its polygon has > 4 vertices), build the perimeter walls along the POLYGON edges
+        // (not the bbox rect) so the unit's walls follow the real drawn boundary. The corridor-fronting
+        // (door) edge carries the entry door. DEFAULT-ON to match the partition (which now emits non-rect
+        // cells by default); the `__pryzmNonRectCells` flag is an OPT-OUT kill-switch (`=== false` ⇒ the
+        // byte-identical 4-edge rect path below). A plain rect cell (≤ 4 verts) always takes the rect path.
+        const nonRectCells = (window as unknown as { __pryzmNonRectCells?: boolean }).__pryzmNonRectCells !== false;
         const cellPoly = (apt.cell as { polygon?: ReadonlyArray<{ x: number; z: number }> }).polygon;
         if (nonRectCells && cellPoly && cellPoly.length > 4) {
             return this._buildPolygonCellPerimeter(levelId, apt, wallHeightM, xf, cellPoly);

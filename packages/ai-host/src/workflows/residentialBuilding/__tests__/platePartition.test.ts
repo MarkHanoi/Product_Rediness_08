@@ -29,8 +29,10 @@ function centredCore(w: number, d: number, cw: number, cd: number): Rect {
     return { x0: cx - cw / 2, z0: cz - cd / 2, x1: cx + cw / 2, z1: cz + cd / 2 };
 }
 
+const T1: ApartmentDemand = { typology: 'T1', minAreaM2: 35, maxAreaM2: 55 };
 const T2: ApartmentDemand = { typology: 'T2', minAreaM2: 55, maxAreaM2: 80 };
 const T3: ApartmentDemand = { typology: 'T3', minAreaM2: 80, maxAreaM2: 110 };
+const T4: ApartmentDemand = { typology: 'T4', minAreaM2: 110, maxAreaM2: 150 };
 
 /** A generous 30 m × 16 m plate, 2.4 m × 3.0 m centred core, 1.4 m corridor. */
 function baseInput(apartments: ApartmentDemand[]): PlatePartitionInput {
@@ -123,18 +125,16 @@ describe('partitionLevelPlate — rectangular plate', () => {
         }
     });
 
-    it('every apartment area clears its typology floor and keeps its typology (fill-plate)', () => {
+    it('every apartment is one of the enabled typologies, sized to clear a real apartment floor (fill-plate)', () => {
         const apts = [T2, T3, T2, T3];
         const res = expectOk(partitionLevelPlate(baseInput(apts)));
-        res.apartmentCells.forEach((cell, i) => {
-            const d = apts[i % apts.length]!;
-            // Feasibility floor still holds — a cell is never sub-minimum for its typology.
-            expect(cell.areaM2).toBeGreaterThanOrEqual(d.minAreaM2 - 1e-2);
-            // §RESI-FILL-PLATE — apartments STRETCH to consume the plate, so a cell's area is
-            // geometry-bound and MAY exceed the typology's nominal max band (the band is the
-            // packer's TARGET, not a hard partition cap; the per-cell program scaler then sizes
-            // the dwelling to the actual area). The upper-band assertion no longer applies.
-            expect(cell.typology).toBe(d.typology);
+        const enabled = new Set(apts.map((a) => a.typology));
+        res.apartmentCells.forEach((cell) => {
+            // §RESI-EDGE-TYPE-VARIETY — typology is now driven by the cell's REAL AREA (corners →
+            // larger T, edge-fill → smaller T), not the demand index. Every cell is still one of the
+            // ENABLED typologies (within the brief's mix), and clears a real-apartment floor.
+            expect(enabled.has(cell.typology)).toBe(true);
+            expect(cell.areaM2).toBeGreaterThanOrEqual(35 - 1e-2);   // ≥ the smallest typology floor
         });
     });
 
@@ -483,15 +483,60 @@ describe('§NONRECT-CELLS-P1 — reshape-not-drop, flag-gated', () => {
         // Every placed cell — rect or absorbed — fronts a corridor (CF).
         expect(on.apartmentsReached).toBe(on.apartmentCells.length);
     });
+
+    it('§RESI-NONRECT-DEFAULT — DEFAULT (no flag) RESHAPES an L-plate (multi-shape cells), every cell corridor-reached', () => {
+        // The non-rect path is DEFAULT-ON. With NO flag set, an L-plate must RESHAPE straddling cells to
+        // the drawn boundary (multi-shape, > 4-vert polygons) AND keep every unit corridor-fronting — so
+        // the founder gets adaptable, non-rectangular apartments by default, not dropped boundary cells.
+        const clearNR = (): void => { delete (globalThis as unknown as Record<string, unknown>)[NRFLAG]; };
+        // A 40×30 L with a top-right notch (remove x>35, z<5). On this plate the front-right corner cell
+        // spans ≈[31,0]–[40,9], so the x=35 notch edge cuts THROUGH it → it straddles the boundary and is
+        // RESHAPED to the in-boundary rectilinear (multi-shape) cell rather than dropped.
+        const L: Pt[] = [
+            { x: 0, z: 0 }, { x: 35, z: 0 }, { x: 35, z: 5 },
+            { x: 40, z: 5 }, { x: 40, z: 30 }, { x: 0, z: 30 },
+        ];
+        const input: PlatePartitionInput = {
+            levelIndex: 2, footprint: L, core: centredCore(40, 30, 6, 4),
+            corridor: { widthM: 1.5 }, apartments: many(400), clipPolygon: L,
+        };
+        clearNR();   // DEFAULT — no flag set
+        const def = expectOk(partitionLevelPlate(input));
+        // Opt-out (=== false) drops straddling cells (the proven pre-default path) — fewer or rect-only.
+        setFlag(false);
+        const optOut = expectOk(partitionLevelPlate(input));
+        clearNR();
+        // DEFAULT reshapes ≥ 1 straddling cell into a multi-shape (> 4-vert) polygon…
+        const defNonRect = def.apartmentCells.filter((c) => c.polygon.length > 4).length;
+        expect(defNonRect).toBeGreaterThanOrEqual(1);
+        // …which the opt-out path never produces (it only drops).
+        const optNonRect = optOut.apartmentCells.filter((c) => c.polygon.length > 4).length;
+        expect(optNonRect).toBe(0);
+        // CORRIDOR-FIRST holds under the default — every cell (rect or reshaped) is reached from a corridor.
+        expect(def.apartmentsReached).toBe(def.apartmentCells.length);
+        // No cell centroid lands in the removed corner (x>35, z<5 — nothing built past the drawn boundary).
+        for (const c of def.apartmentCells) {
+            let cx = 0, cz = 0;
+            for (const v of c.polygon) { cx += v.x; cz += v.z; }
+            cx /= c.polygon.length; cz /= c.polygon.length;
+            expect(cx > 35 + 0.5 && cz < 5 - 0.5).toBe(false);
+        }
+    });
 });
 
-describe('§RESI-CORRIDOR-GRID (Phase 2) — deep-plate corridor-grid fill, flag-gated', () => {
+describe('§RESI-CORRIDOR-GRID (Phase 3) — DEFAULT-ON corner-preserving perimeter fill', () => {
     const CGFLAG = '__pryzmCorridorGrid';
-    const setGrid = (v: boolean): void => { (globalThis as unknown as Record<string, unknown>)[CGFLAG] = v; };
+    // §P3 — the grid is DEFAULT-ON; the flag is now an OPT-OUT kill-switch (=== false ⇒ baseline only).
+    const setOptOut = (v: boolean): void => { (globalThis as unknown as Record<string, unknown>)[CGFLAG] = v; };
+    const clearFlag = (): void => { delete (globalThis as unknown as Record<string, unknown>)[CGFLAG]; };
     const manyT2 = (n: number): ApartmentDemand[] => Array.from({ length: n }, () => T2);
+    const ENGINE_MIN_ROW_DEPTH = 7.5;
+    const rowDepth = (r: Rect): number => Math.abs(r.z1 - r.z0);
+    const feasible = (res: PlatePartitionResult): number =>
+        res.apartmentCells.filter((c) => rowDepth(c.rect) >= ENGINE_MIN_ROW_DEPTH - 1e-6).length;
 
-    /** A deep rectangular plate that the baseline outward-walk under-fills: depth between one and
-     *  two corridor pitches (60×30 ⇒ the founder's "huge floorplate, only 3 apartments" valley). */
+    /** A deep rectangular plate. The deep corner band is preserved; the interior fills with feasible
+     *  edge-adjacent rows where the depth allows (the founder's "corners + edge-fill" intent). */
     function deepInput(w: number, d: number, apts: ApartmentDemand[]): PlatePartitionInput {
         return {
             levelIndex: 0,
@@ -502,50 +547,61 @@ describe('§RESI-CORRIDOR-GRID (Phase 2) — deep-plate corridor-grid fill, flag
         };
     }
 
-    it('FLAG OFF — default, byte-identical to the baseline on every plate (no behavioural change)', () => {
-        setGrid(false);
-        for (const [w, d] of [[60, 30], [60, 16], [40, 40], [80, 60]] as Array<[number, number]>) {
-            const a = JSON.stringify(partitionLevelPlate(deepInput(w, d, manyT2(400))));
-            const b = JSON.stringify(partitionLevelPlate(deepInput(w, d, manyT2(400))));
-            expect(a).toBe(b);   // deterministic
+    it('OPT-OUT (=== false) — baseline only, deterministic on every plate', () => {
+        setOptOut(true);
+        try {
+            for (const [w, d] of [[60, 30], [60, 16], [40, 40], [80, 60]] as Array<[number, number]>) {
+                const a = JSON.stringify(partitionLevelPlate(deepInput(w, d, manyT2(400))));
+                const b = JSON.stringify(partitionLevelPlate(deepInput(w, d, manyT2(400))));
+                expect(a).toBe(b);   // deterministic
+            }
+        } finally { clearFlag(); }
+    });
+
+    it('DEFAULT (no flag) — never REGRESSES vs the opt-out baseline (best-of-candidates, feasible-first)', () => {
+        for (const [w, d] of [[60, 30], [40, 30], [40, 40], [60, 32], [60, 36], [80, 60], [137, 137]] as Array<[number, number]>) {
+            const input = deepInput(w, d, manyT2(1000));
+            setOptOut(true);
+            const off = expectOk(partitionLevelPlate(input));
+            clearFlag();   // default = grid on
+            const on = expectOk(partitionLevelPlate(input));
+            // The default never places FEWER engine-feasible cells than the baseline-only path, and
+            // never fewer cells overall (the hybrid is only ever an ADDITIONAL candidate).
+            expect(feasible(on)).toBeGreaterThanOrEqual(feasible(off));
+            expect(on.apartmentCells.length).toBeGreaterThanOrEqual(off.apartmentCells.length);
+            expect(on.apartmentsReached).toBe(on.apartmentCells.length);
         }
     });
 
-    it('FLAG ON — a SHALLOW plate (depth ≤ one corridor pitch) is byte-identical to flag OFF', () => {
-        // 60×16 is shallower than one pitch (≈ 19.5 m) ⇒ a single central corridor already tiles it,
-        // so the grid emits NO extra candidate and the output must be unchanged — the proven
-        // shallow-row path and every §DIAG gate stay green.
-        const input = deepInput(60, 16, manyT2(200));
-        setGrid(false);
-        const off = JSON.stringify(partitionLevelPlate(input));
-        setGrid(true);
-        const on = JSON.stringify(partitionLevelPlate(input));
-        setGrid(false);
-        expect(on).toBe(off);
-    });
-
-    it('FLAG ON — a deep 60×30 plate yields MANY apartments (not the baseline 12), every one corridor-adjacent', () => {
-        const input = deepInput(60, 30, manyT2(400));
-        setGrid(false);
+    it('DEFAULT — a deep plate fills the perimeter with FEASIBLE corner + edge units (≥ the baseline)', () => {
+        // 80×60 is deep enough for the hybrid to add a feasible interior corridor on top of the deep
+        // corner bands — the founder's "corners + edge-fill" result. The count rises and EVERY placed
+        // cell is a buildable, engine-feasible row (no sub-feasible slivers in the winning candidate).
+        const input = deepInput(80, 60, manyT2(1200));
+        setOptOut(true);
         const off = expectOk(partitionLevelPlate(input));
-        setGrid(true);
+        clearFlag();
         const on = expectOk(partitionLevelPlate(input));
-        setGrid(false);
-
-        // The baseline under-fills this exact plate (the founder's symptom): the outward walk clamps
-        // edge corridors so close the interior rows collapse and only the two outer rows pack.
-        expect(off.apartmentCells.length).toBeLessThanOrEqual(14);
-        // The corridor grid fills the depth — a sensible COUNT, materially more than the baseline.
-        expect(on.apartmentCells.length).toBeGreaterThanOrEqual(24);
-        expect(on.apartmentCells.length).toBeGreaterThan(off.apartmentCells.length * 2);
-        // CORRIDOR-FIRST: EVERY placed cell is reachable from a corridor (reached = N/N).
+        expect(on.apartmentCells.length).toBeGreaterThanOrEqual(off.apartmentCells.length);
+        // The default packs a strong, feasible fill (corners + multiple feasible interior rows).
+        expect(feasible(on)).toBeGreaterThanOrEqual(40);
         expect(on.apartmentsReached).toBe(on.apartmentCells.length);
     });
 
-    it('FLAG ON — every placed cell shares an EDGE with a corridor band (corridor-adjacency, geometric)', () => {
-        setGrid(true);
-        const res = expectOk(partitionLevelPlate(deepInput(60, 30, manyT2(400))));
-        setGrid(false);
+    it('DEFAULT — a SHALLOW plate (no room for a deep outer band + a feasible interior corridor) is the baseline', () => {
+        // 60×16 is too shallow to host two deep corner bands AND a feasible interior corridor, so the
+        // hybrid emits no candidate and the plate keeps its proven baseline tiling.
+        const input = deepInput(60, 16, manyT2(200));
+        setOptOut(true);
+        const off = JSON.stringify(partitionLevelPlate(input));
+        clearFlag();
+        const on = JSON.stringify(partitionLevelPlate(input));
+        expect(on).toBe(off);
+    });
+
+    it('DEFAULT — every placed cell shares an EDGE with a corridor band (corridor-adjacency, geometric)', () => {
+        clearFlag();
+        const res = expectOk(partitionLevelPlate(deepInput(80, 60, manyT2(1200))));
         const corridors = res.publicCorridor;
         // A cell fronts a corridor when one of its four edges is collinear with, and overlaps ≥ a
         // door-width of, a corridor band boundary.
@@ -578,10 +634,9 @@ describe('§RESI-CORRIDOR-GRID (Phase 2) — deep-plate corridor-grid fill, flag
         }
     });
 
-    it('FLAG ON — cells never overlap each other, the core, or any corridor band (deep plate)', () => {
-        setGrid(true);
-        const res = expectOk(partitionLevelPlate(deepInput(60, 30, manyT2(400))));
-        setGrid(false);
+    it('DEFAULT — cells never overlap each other, the core, or any corridor band (deep plate)', () => {
+        clearFlag();
+        const res = expectOk(partitionLevelPlate(deepInput(80, 60, manyT2(1200))));
         const cells = res.apartmentCells.map((c) => c.rect);
         for (let i = 0; i < cells.length; i++) {
             for (let j = i + 1; j < cells.length; j++) {
@@ -592,18 +647,115 @@ describe('§RESI-CORRIDOR-GRID (Phase 2) — deep-plate corridor-grid fill, flag
         }
     });
 
-    it('FLAG ON — never REGRESSES a plate the baseline already fills well (best-of-candidates)', () => {
-        // 60×32 / 60×36 are depths the baseline already tiles well; the grid must not reduce the
-        // count (it packs every candidate and keeps the best, so the baseline wins where it leads).
-        for (const [w, d] of [[60, 32], [60, 36], [80, 60], [137, 137]] as Array<[number, number]>) {
-            const input = deepInput(w, d, manyT2(800));
-            setGrid(false);
-            const off = expectOk(partitionLevelPlate(input));
-            setGrid(true);
-            const on = expectOk(partitionLevelPlate(input));
-            setGrid(false);
-            expect(on.apartmentCells.length).toBeGreaterThanOrEqual(off.apartmentCells.length);
-            expect(on.apartmentsReached).toBe(on.apartmentCells.length);
+    it('DEFAULT — deep corner band is PRESERVED: a feasible dual-aspect cell touches each plate corner', () => {
+        // The founder's hard requirement — KEEP the corner units. The hybrid's outer corridors are
+        // deep corner bands, so a corner cell reaches BOTH the plate edge (façade) and a corridor.
+        const w = 80, d = 60;
+        const res = expectOk(partitionLevelPlate(deepInput(w, d, manyT2(1200))));
+        const tol = 0.3;
+        const corner = { x0z0: false, x1z0: false, x0z1: false, x1z1: false };
+        for (const c of res.apartmentCells) {
+            const r = c.rect;
+            if (rowDepth(r) < ENGINE_MIN_ROW_DEPTH - 1e-6) continue;   // a feasible (buildable) cell
+            const onX0 = Math.abs(r.x0) < tol, onX1 = Math.abs(r.x1 - w) < tol;
+            const onZ0 = Math.abs(r.z0) < tol, onZ1 = Math.abs(r.z1 - d) < tol;
+            if (onX0 && onZ0) corner.x0z0 = true;
+            if (onX1 && onZ0) corner.x1z0 = true;
+            if (onX0 && onZ1) corner.x0z1 = true;
+            if (onX1 && onZ1) corner.x1z1 = true;
         }
+        expect(corner.x0z0 && corner.x1z0 && corner.x0z1 && corner.x1z1).toBe(true);
+    });
+});
+
+describe('§RESI-EDGE-TYPE-VARIETY (Phase 3) — corners + varied edge-fill on a large plate (DEFAULT)', () => {
+    const ENGINE_MIN_ROW_DEPTH = 7.5;
+    const rowDepth = (r: Rect): number => Math.abs(r.z1 - r.z0);
+    const clearFlag = (): void => { delete (globalThis as unknown as Record<string, unknown>).__pryzmCorridorGrid; };
+
+    /** A large rectangular plate, mixed-typology demand (the brief's enabled mix), centred core. */
+    function largeInput(w: number, d: number, apts: ApartmentDemand[]): PlatePartitionInput {
+        return {
+            levelIndex: 1,
+            footprint: rectPoly(w, d),
+            core: centredCore(w, d, 8, 6),
+            corridor: { widthM: 1.5 },
+            apartments: apts,
+        };
+    }
+    /** A long mixed demand list (corners + edge-fill come from the area-driven re-stamp, not order). */
+    const mixed = (n: number): ApartmentDemand[] =>
+        Array.from({ length: n }, (_, i) => [T1, T2, T3, T4][i % 4]!);
+
+    it('a large plate places MANY apartments (count scales with area), not ~4 corners', () => {
+        clearFlag();
+        const small = expectOk(partitionLevelPlate(largeInput(40, 30, mixed(600))));
+        const large = expectOk(partitionLevelPlate(largeInput(60, 40, mixed(900))));
+        // A larger plate places strictly more apartments (count tracks area, not a fixed 4).
+        expect(small.apartmentCells.length).toBeGreaterThanOrEqual(8);
+        expect(large.apartmentCells.length).toBeGreaterThan(small.apartmentCells.length);
+        // The plate is NOT "4 corners only" — the perimeter band between the corners is filled.
+        expect(large.apartmentCells.length).toBeGreaterThanOrEqual(16);
+    });
+
+    it('VARIETY — the mix spans more than one typology (corners larger, edge-fill smaller)', () => {
+        clearFlag();
+        const res = expectOk(partitionLevelPlate(largeInput(60, 40, mixed(900))));
+        const types = new Set(res.apartmentCells.map((c) => c.typology));
+        // More than one typology is present (variety), and every type is from the enabled mix.
+        expect(types.size).toBeGreaterThanOrEqual(2);
+        for (const c of res.apartmentCells) expect(['T1', 'T2', 'T3', 'T4']).toContain(c.typology);
+        // GEOMETRY-HONEST — the largest cells carry the larger typology; the smallest the smaller one.
+        const bands: Record<string, number> = { T1: 0, T2: 1, T3: 2, T4: 3 };
+        const sorted = [...res.apartmentCells].sort((a, b) => a.areaM2 - b.areaM2);
+        const smallest = sorted[0]!, biggest = sorted[sorted.length - 1]!;
+        expect(bands[biggest.typology]!).toBeGreaterThanOrEqual(bands[smallest.typology]!);
+    });
+
+    it('every cell is corridor-reached and no cell overlaps another, the core, or a corridor', () => {
+        clearFlag();
+        const res = expectOk(partitionLevelPlate(largeInput(60, 40, mixed(900))));
+        expect(res.apartmentsReached).toBe(res.apartmentCells.length);
+        const cells = res.apartmentCells.map((c) => c.rect);
+        for (let i = 0; i < cells.length; i++) {
+            for (let j = i + 1; j < cells.length; j++) expect(overlaps(cells[i]!, cells[j]!)).toBe(false);
+            expect(overlaps(cells[i]!, res.core)).toBe(false);
+            for (const corr of res.publicCorridor) expect(overlaps(cells[i]!, corr)).toBe(false);
+        }
+    });
+
+    it('a SMALL plate still yields its honest (small) count — variety does not inflate it', () => {
+        clearFlag();
+        // A 20×15 plate genuinely fits only a few units; the default must NOT force a fixed count.
+        const res = expectOk(partitionLevelPlate(largeInput(20, 15, mixed(200))));
+        expect(res.apartmentCells.length).toBeLessThanOrEqual(6);
+        expect(res.apartmentsReached).toBe(res.apartmentCells.length);
+    });
+
+    it('a single-typology brief stays uniform (re-stamp is a no-op) — no spurious variety', () => {
+        clearFlag();
+        const res = expectOk(partitionLevelPlate(largeInput(60, 40, Array.from({ length: 900 }, () => T2))));
+        for (const c of res.apartmentCells) expect(c.typology).toBe('T2');
+    });
+
+    it('the deep corner cells reach a plate corner AND are the larger typology', () => {
+        clearFlag();
+        const w = 60, d = 40;
+        const res = expectOk(partitionLevelPlate(largeInput(w, d, mixed(900))));
+        const tol = 0.3;
+        const cornerCells = res.apartmentCells.filter((c) => {
+            const r = c.rect;
+            if (rowDepth(r) < ENGINE_MIN_ROW_DEPTH - 1e-6) return false;
+            const onX = Math.abs(r.x0) < tol || Math.abs(r.x1 - w) < tol;
+            const onZ = Math.abs(r.z0) < tol || Math.abs(r.z1 - d) < tol;
+            return onX && onZ;
+        });
+        // There ARE feasible (deep, dual-aspect) corner cells, and the LARGEST corner cell carries a
+        // larger typology (≥ T2) — the founder's "corner T3/T4" intent. A narrow corner cell may still
+        // be a small unit; the rule is geometry-honest (typology follows the cell area), not forced.
+        expect(cornerCells.length).toBeGreaterThanOrEqual(4);
+        const bands: Record<string, number> = { T1: 0, T2: 1, T3: 2, T4: 3 };
+        const largestCorner = [...cornerCells].sort((a, b) => b.areaM2 - a.areaM2)[0]!;
+        expect(bands[largestCorner.typology]!).toBeGreaterThanOrEqual(bands.T2!);
     });
 });

@@ -106,7 +106,7 @@ const round2 = (n: number): number => Math.round(n * 100) / 100;
  * `scaleProgramToShell` applies (bathrooms = clamp(1..3, floor(beds/2)); masterEnSuite
  * when beds ≥ 3), so a packed program is consistent with the engine's own scaling.
  */
-function programFor(t: Typology): ApartmentProgram {
+export function programFor(t: Typology): ApartmentProgram {
     const bedrooms = typologyBedrooms(t);
     const bathrooms = Math.min(3, Math.max(1, Math.floor(bedrooms / 2)));
     return {

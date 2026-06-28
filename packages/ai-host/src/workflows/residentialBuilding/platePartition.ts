@@ -155,6 +155,12 @@ export const MAX_APARTMENT_DEPTH_M = 9;
 /** Max depth (m) for the OUTERMOST (plate-edge-touching) apartment row, so its corner cells reach the
  *  façade while still fronting the corridor. Held at the engine's proven deeper-cell limit (~12 m). */
 const MAX_OUTER_BAND_DEPTH_M = 12;
+// §RESI-CORRIDOR-GRID — the shallowest apartment row depth (m) at which the frozen D-TGL engine still
+// lays out a real multi-room apartment (rather than soft-failing / scaling to a studio). Mirrors the
+// absorbResidual ENGINE_MIN_DEPTH_M gate. The hybrid grid only adds an INTERIOR corridor when its rows
+// clear this — so the perimeter fills with buildable units, never un-layable slivers the founder sees
+// as the same empty band.
+const ENGINE_MIN_ROW_DEPTH_M = 7.5;
 /** Min cell width as a fraction of its depth — below this the cell is a sliver the
  *  engine rejects. 0.6 ⇒ a 9 m-deep cell is ≥ 5.4 m wide (aspect ≤ ~1.7:1). */
 const MIN_CELL_ASPECT = 0.6;
@@ -519,6 +525,39 @@ function normRect(r: Rect): Rect {
     return { x0: round4(r.x0), z0: round4(r.z0), x1: round4(r.x1), z1: round4(r.z1) };
 }
 
+// §RESI-EDGE-TYPE-VARIETY (founder 2026-06-27: "fill the long edges between the corners with ADJACENT
+// apartments — and these can be DIFFERENT: fewer bedrooms (T1/T2 vs corner T3/T4), different sizes…").
+// The packer picks ONE typology for every equal slot, so a filled plate came out uniform (every cell
+// the same T). Once the grid fills the perimeter, the cells are NOT uniform in area — a deep corner
+// cell is genuinely larger than a shallow edge-fill cell — so we re-stamp each placed cell's typology
+// from its REAL AREA, choosing among the typologies the demand actually requested (the user's enabled
+// mix). Larger cells → larger typology, smaller cells → smaller typology. This is geometry-honest
+// (the bedroom count follows the cell that can hold it) and keeps every cell within the brief's mix.
+/** The per-typology net-area band (m²) — mirrors `apartmentPacker.TYPOLOGY_BAND` (audit §6). Kept a
+ *  local copy so platePartition stays a leaf (no upward import of the packer); exported so the
+ *  orchestrator can declare the enabled-typology palette without re-deriving the bands. */
+export const TYPOLOGY_AREA_BAND: Record<Typology, { min: number; max: number }> = {
+    T1: { min: 35, max: 55 },
+    T2: { min: 55, max: 80 },
+    T3: { min: 80, max: 110 },
+    T4: { min: 110, max: 150 },
+};
+/** Pick the typology (from the ENABLED set, largest→smallest) whose area band best fits `areaM2`:
+ *  the largest enabled typology whose band MIN ≤ area (so a big cell becomes a big unit); if the area
+ *  is below every enabled min, the smallest enabled typology (the cell is a small unit of that type).
+ *  Deterministic — `enabled` is iterated in a fixed T1→T4 order. */
+function typologyForArea(areaM2: number, enabled: readonly Typology[]): Typology {
+    const order: readonly Typology[] = ['T1', 'T2', 'T3', 'T4'];
+    const present = order.filter((t) => enabled.includes(t));
+    if (present.length === 0) return 'T2';
+    // Largest enabled typology whose band MIN the area clears.
+    for (let i = present.length - 1; i >= 0; i--) {
+        const t = present[i]!;
+        if (areaM2 + EPS >= TYPOLOGY_AREA_BAND[t].min) return t;
+    }
+    return present[0]!;   // below every band min → the smallest enabled typology
+}
+
 /**
  * Partition a rectangular level plate into [core] + [public corridor] + [N apartment
  * cells]. Pure + deterministic. Infeasible inputs → `status: 'rejected'` (C50 soft-fail
@@ -683,63 +722,101 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
         return lines;
     }
 
-    // ── §RESI-CORRIDOR-GRID (Phase 2, flag `globalThis.__pryzmCorridorGrid`) — THE deep-plate
-    // under-fill fix (founder 2026-06-26: "it is not possible to have only 3 apartments in such a
-    // huge floorplate"). The §RESI-FILL-PLATE outward-walk above CLAMPS an edge corridor a fixed
-    // `cap` in from each plate edge; on a MODERATELY-deep plate (depth between one and two pitches,
-    // e.g. 60×30) the core corridor + both clamped edge corridors land only ~5 m apart, so the
-    // apartment ROWS between them collapse below MIN_ROW_DEPTH and get dropped — the plate keeps just
-    // its two outer rows (12 cells / ~0.55 fill on a 1 800 m² plate) with a dead band and three
-    // useless corridors through the middle. Phase 2 instead lays an EVEN corridor GRID sized so every
-    // one of its `2·m` double-loaded rows tiles the depth at an equal, engine-feasible depth.
+    // ── §RESI-CORRIDOR-GRID (Phase 3 — DEFAULT-ON, founder 2026-06-27: "KEEP corner apartments… but
+    // ALSO fill the long edges between the corners with adjacent apartments"). THE perimeter-band fill.
+    // The baseline §RESI-FILL-PLATE outward-walk steps OUTWARD by a fixed `pitch` and CLAMPS the last
+    // corridor a fixed `cap` in from each plate edge; on a MODERATELY-deep plate (depth between one and
+    // two pitches, e.g. 40×30 / 60×30) the core corridor + both clamped edge corridors crowd within
+    // ~5 m, so the apartment ROWS between them collapse below the engine-feasible depth and lay out
+    // NOTHING — the plate keeps just its two deep outer rows whose corner-anchored packing reads as
+    // "~4 corner units around an empty perimeter band" (the founder's screenshot).
     //
-    // m = ceil(D / pitch) is the FEWEST corridors that keep each row ≤ cap (so no row is dropped and
-    // no deep residual is left). The `m` corridors are spaced at an even pitch `D/m`, and the grid is
-    // PHASE-SHIFTED so one corridor lands closest to `coreCz` (the vertical spine still ties the grid
-    // to the core). A SHALLOW plate (depth ≤ one pitch ⇒ m = 1) returns the single central corridor,
-    // BYTE-IDENTICAL to the proven shallow-row path — so all §DIAG gates stay green. Deterministic.
-    const corridorGrid = (globalThis as { __pryzmCorridorGrid?: boolean }).__pryzmCorridorGrid === true;
+    // The HYBRID candidate KEEPS the founder's deep corner band — two outer corridors placed so their
+    // outer rows are a full engine-feasible depth and reach the plate edge (corner units, dual-aspect)
+    // — and FILLS the interior between them with evenly-spaced corridors whose rows tile the residual
+    // depth. So a large plate reads as corners + a full ring/grid of edge-adjacent units, not 4 corners
+    // around a dead band. The §RESI-EDGE-TYPE-VARIETY re-stamp then makes the deep corner cells the
+    // larger typology and the shallower edge-fill cells the smaller ones.
+    //
+    // §P3 — DEFAULT-ON (was flag-gated `__pryzmCorridorGrid`). The hybrid is ALWAYS offered as a
+    // candidate; the best-of-candidates selection (baseline is candidate 0) keeps it SAFE BY
+    // CONSTRUCTION — the hybrid only wins where it genuinely places more apartments, so a plate the
+    // baseline already fills well is unchanged and NO plate regresses. Because the hybrid's OUTER rows
+    // ARE deep corner rows (same depth as the baseline's), a winning hybrid NEVER sacrifices the corner
+    // units — it only ADDS interior edge-fill rows. The legacy `__pryzmCorridorGrid` flag is now an
+    // OPT-OUT kill-switch: `=== false` forces the baseline-only set (byte-identical to pre-P3). A
+    // SHALLOW plate (no room for a deep outer band + a feasible interior corridor) offers NO hybrid
+    // candidate ⇒ the baseline single/central corridor path → small plates byte-identical.
+    const corridorGridOptOut = (globalThis as { __pryzmCorridorGrid?: boolean }).__pryzmCorridorGrid === false;
+    const corridorGrid = !corridorGridOptOut;   // DEFAULT-ON: the rich fill is what the user gets
     const plateDepth = round4(bb.z1 - bb.z0);
 
-    /** §RESI-CORRIDOR-GRID — even corridor GRID centrelines for a given corridor count `m`: `m`
-     *  evenly-spaced lines whose `2·m` double-loaded rows tile the plate depth at equal depth,
-     *  phase-shifted so one line sits closest to `coreCz` (keeping the spine tied to the core). */
-    function gridLinesFor(m: number): number[] {
-        if (m <= 1) return [coreCz];  // single central corridor (the proven path)
-        const span = plateDepth / m;  // centre-to-centre even pitch
-        const baseFirst = bb.z0 + span / 2;
-        const nearestI = Math.round((coreCz - baseFirst) / span);
-        const shift = coreCz - (baseFirst + nearestI * span);
-        const lines: number[] = [];
-        const loBound = bb.z0 + halfCorr + MIN_ROW_DEPTH;
-        const hiBound = bb.z1 - halfCorr - MIN_ROW_DEPTH;
-        for (let i = 0; i < m; i++) {
-            let cz = baseFirst + i * span + shift;
-            // The shift can nudge an end line outside the plate — clamp it back so its band fits and
-            // its outer row stays ≥ MIN_ROW_DEPTH from the edge.
-            if (loBound <= hiBound) cz = Math.min(Math.max(cz, loBound), hiBound);
-            lines.push(round4(cz));
+    /** §RESI-CORRIDOR-GRID — the HYBRID corner-preserving corridor line-set for a given number of
+     *  INTERIOR corridors `nInterior`. Two OUTER corridors are placed `outerDepth + halfCorr` from each
+     *  plate edge so their outer rows are a full `outerDepth`-deep band that reaches the edge (the
+     *  founder's deep dual-aspect corner units). `nInterior` evenly-spaced corridors then tile the band
+     *  between the two outer corridors. Returns `null` when the plate is too shallow to host the deep
+     *  outer band plus at least the requested interior corridors (so a small plate falls back to the
+     *  baseline, byte-identical). The vertical SPINE (core X-centre, full depth) ties every line to the
+     *  core, so every cell stays corridor-reachable regardless of `nInterior`. */
+    function hybridLinesFor(nInterior: number, outerDepth: number): number[] | null {
+        const top = round4(bb.z0 + halfCorr + outerDepth);
+        const bot = round4(bb.z1 - halfCorr - outerDepth);
+        // The two outer corridors must sit inside the plate and leave a real interior band between them.
+        if (top >= bot - EPS) return null;
+        const lines: number[] = [top];
+        if (nInterior > 0) {
+            const span = (bot - top) / (nInterior + 1);
+            // Each interior row (half the inter-corridor span minus the half-corridor) must clear the
+            // ENGINE-FEASIBLE depth floor — NOT just MIN_ROW_DEPTH. An interior row shallower than the
+            // engine can lay out a real multi-room apartment in (≈ 7.5 m) would soft-fail downstream and
+            // the founder would see the same empty band. So we only add interior corridors when their
+            // rows are genuinely buildable; an interior band too thin for a feasible row yields NO hybrid
+            // candidate for that count and the plate falls back to its deep-corner baseline (correct for
+            // a smaller plate — 4 deep corner units beat a band of un-buildable slivers).
+            const interiorRowDepth = span / 2 - halfCorr;
+            if (interiorRowDepth < ENGINE_MIN_ROW_DEPTH_M - EPS) return null;
+            for (let i = 1; i <= nInterior; i++) lines.push(round4(top + i * span));
         }
-        return lines;
+        lines.push(bot);
+        // De-dup + order (top===bot guarded above; a 1-interior degenerate is filtered by the set).
+        const uniq = [...new Set(lines.map((z) => round4(z)))].sort((a, b) => a - b);
+        return uniq.length >= 2 ? uniq : null;
     }
 
-    /** §RESI-CORRIDOR-GRID — candidate even-grid line sets to PACK + compare against the baseline.
-     *  `mIdeal = ceil(D / pitch)` is the fewest corridors that keep each of the `2·m` rows ≤ cap; we
-     *  also offer mIdeal±1 (a deeper plate sometimes fills more with one extra/fewer corridor since the
-     *  core fragments rows). The best-by-placed-count wins downstream — so a candidate that the row
-     *  geometry can't actually fill simply loses. Only emitted when the plate genuinely needs a grid
-     *  (depth > one pitch ⇒ a single central corridor leaves a deep dead band). */
+    /** §RESI-CORRIDOR-GRID — candidate HYBRID line-sets to PACK + compare against the baseline. The
+     *  baseline under-fills when the plate depth is between one and two pitches (the deep-band valley);
+     *  the hybrid keeps the deep corner band and fills the interior with `nInterior` corridors. We offer
+     *  a small range of interior counts (the residual band can fill best with one more/fewer corridor as
+     *  the core fragments rows) and let best-of-count pick. Only emitted when the plate is deep enough to
+     *  host the deep outer band PLUS a feasible interior band (else the baseline already tiles it). */
     function gridCandidateLineSets(): number[][] {
-        const mIdeal = Math.ceil(plateDepth / pitch - EPS);
-        if (mIdeal <= 1) return [];   // shallow plate ⇒ the single central corridor already tiles it
+        // The deep outer corner band — the engine-feasible deep row (≈ the 9 m proven cap) so a corner
+        // cell lays out as a full multi-room dual-aspect unit AND reaches the plate edge.
+        const outerDepth = MAX_APARTMENT_DEPTH_M;
+        // The interior band between the two deep outer corridors, and how many interior corridors tile
+        // it so each interior row stays ≤ the apartment-depth cap (the fewest that keep rows feasible,
+        // ± a couple so best-of-count can choose).
+        const interiorBand = plateDepth - 2 * (outerDepth + corridor.widthM);
+        if (interiorBand <= MIN_ROW_DEPTH) return [];   // not deep enough for a distinct interior band
+        // The span between the two deep outer corridors' CENTRELINES; nInterior corridors split it into
+        // (nInterior+1) gaps, each = two apartment rows + the corridor. A gap fits two ENGINE-FEASIBLE
+        // rows when it is ≥ 2·(7.5 m + halfCorr) wide, so the MAX feasible interior corridor count is
+        // bounded by that. We pack EVERY feasible count 0…max and let best-of-count pick the richest
+        // (a deeper plate can host more interior corridors at the feasible depth; a shallower one only a
+        // few or none). All shallow-row candidates are filtered inside hybridLinesFor by the same floor.
+        const outerSpan = (bb.z1 - halfCorr - outerDepth) - (bb.z0 + halfCorr + outerDepth);
+        const gapForFeasibleRows = 2 * (ENGINE_MIN_ROW_DEPTH_M + halfCorr);
+        const nMax = Math.max(0, Math.floor(outerSpan / gapForFeasibleRows) - 1);
+        // Only offer hybrids that ADD ≥1 interior corridor (n ≥ 1). The n=0 hybrid is just the two deep
+        // outer corridors, whose inner rows can meet in a sub-feasible sliver band — exactly the baseline
+        // valley we are fixing; leaving n=0 out keeps that plate on the baseline (its proven deep-corner
+        // result) and lets the hybrid win ONLY when it genuinely tiles the interior with feasible rows.
         const sets: number[][] = [];
         const seen = new Set<string>();
-        for (const m of [mIdeal, mIdeal + 1, mIdeal - 1]) {
-            if (m < 2) continue;
-            // Each of the 2·m rows must be usefully deep (never below the row-serve floor).
-            const rowDepth = (plateDepth - m * corridor.widthM) / (2 * m);
-            if (rowDepth <= MIN_ROW_DEPTH - EPS) continue;
-            const lines = gridLinesFor(m);
+        for (let n = nMax; n >= 1; n--) {
+            const lines = hybridLinesFor(n, outerDepth);
+            if (!lines) continue;
             const k = lines.map((z) => z.toFixed(3)).join(',');
             if (seen.has(k)) continue;
             seen.add(k);
@@ -754,12 +831,13 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
     const spineX1 = round4(coreCx + halfCorr);
 
     // The CANDIDATE corridor-line layouts. The baseline §RESI-FILL-PLATE outward walk is always a
-    // candidate. With the §RESI-CORRIDOR-GRID flag ON we ALSO offer the even grid (and a couple of
-    // neighbouring corridor counts), then PACK each candidate and keep the one that places the most
-    // apartments (tie → higher area). This guarantees the grid never REGRESSES a plate the baseline
-    // already fills well (it only wins where it genuinely fills more — the deep-plate valley) while
-    // the founder's huge plate stops coming out with a dead middle band. Flag OFF ⇒ baseline only ⇒
-    // byte-identical. Deterministic (fixed candidate set, deterministic pack, deterministic tiebreak).
+    // candidate. §P3 DEFAULT-ON: we ALSO offer the even grid (and a couple of neighbouring corridor
+    // counts), then PACK each candidate and keep the one that places the most apartments (tie → higher
+    // area). This guarantees the grid never REGRESSES a plate the baseline already fills well (it only
+    // wins where it genuinely fills more — the deep-plate valley) while the founder's plate stops
+    // coming out as 4 corner units around a dead perimeter band. The opt-out kill-switch
+    // (`__pryzmCorridorGrid === false`) drops the grid candidates ⇒ baseline only ⇒ byte-identical.
+    // Deterministic (fixed candidate set, deterministic pack, deterministic tiebreak).
     const baselineLines = [
         ...sideCorridors(bb.z0, -1),
         coreCz,
@@ -1044,18 +1122,28 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
         return { placements, corridorBands };
     }
 
-    // §RESI-CORRIDOR-GRID — pack every candidate and keep the BEST (most apartments, tie → most
-    // placed area). Flag OFF ⇒ exactly one candidate (the baseline) ⇒ byte-identical. With the flag
-    // ON the even grid only wins where it actually places more cells (the deep-plate valley); a plate
-    // the baseline already fills well keeps the baseline (no regression). Deterministic.
+    // §RESI-CORRIDOR-GRID — pack every candidate and keep the BEST. The score is the count of
+    // ENGINE-FEASIBLE cells FIRST (a cell whose row is ≥ the engine-feasible depth — a real, buildable
+    // apartment), then total count, then placed area. Scoring feasible cells first is what makes the
+    // hybrid win where it should: the baseline's deep-valley plates pack a band of SUB-FEASIBLE sliver
+    // rows that inflate the raw count but soft-fail downstream (the founder still sees an empty band),
+    // so a hybrid that tiles the interior with FEWER but BUILDABLE rows must beat them. Where the
+    // baseline already fills with feasible rows it stays the winner (candidate 0, ties keep it) — no
+    // regression. Flag opt-out ⇒ exactly one candidate (the baseline) ⇒ byte-identical. Deterministic.
+    const feasibleCount = (cells: readonly ApartmentCell[]): number =>
+        cells.filter((c) => Math.abs(c.rect.z1 - c.rect.z0) >= ENGINE_MIN_ROW_DEPTH_M - EPS).length;
     let best = packPlate(candidateLineSets[0]!);
     let bestArea = best.placements.reduce((s, c) => s + c.areaM2, 0);
+    let bestFeasible = feasibleCount(best.placements);
     for (let ci = 1; ci < candidateLineSets.length; ci++) {
         const cand = packPlate(candidateLineSets[ci]!);
         const candArea = cand.placements.reduce((s, c) => s + c.areaM2, 0);
-        if (cand.placements.length > best.placements.length ||
-            (cand.placements.length === best.placements.length && candArea > bestArea + EPS)) {
+        const candFeasible = feasibleCount(cand.placements);
+        if (candFeasible > bestFeasible ||
+            (candFeasible === bestFeasible && cand.placements.length > best.placements.length) ||
+            (candFeasible === bestFeasible && cand.placements.length === best.placements.length && candArea > bestArea + EPS)) {
             best = cand;
+            bestFeasible = candFeasible;
             bestArea = candArea;
         }
     }
@@ -1076,7 +1164,17 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
     // SOFT-FAILED (dropped, C50 §1.7), NEVER shipped sealed. A rect cell wholly inside keeps its rect
     // polygon (identity). On a rectangular plate the flag is moot (no cell is out-of-shape) → identical.
     let clippedOut = 0, reshaped = 0;
-    const nonRectCells = (globalThis as { __pryzmNonRectCells?: boolean }).__pryzmNonRectCells === true;
+    // §RESI-NONRECT-DEFAULT (founder 2026-06-27: "way more professional and adaptable — NOT just
+    // rectangular apartments; the apartments can fill the COMPLETE floor plate"). The non-rect path
+    // (RESHAPE-NOT-DROP + RESIDUAL ABSORPTION) is now DEFAULT-ON: a straddling cell on an L/trapezoid
+    // boundary becomes the in-boundary rectilinear (multi-shape) cell instead of being dropped, and
+    // feasible residual pockets the rect rows left empty are absorbed as extra reshaped cells — every
+    // one engine-feasibility-gated and corridor-fronting (CF). On a RECTANGULAR plate no cell is
+    // out-of-shape and the absorbed residual (if any) is sub-feasible, so the path is byte-identical
+    // (pinned by the flag-OFF==ON-no-clip tests). The legacy `__pryzmNonRectCells` flag is now an
+    // OPT-OUT kill-switch: `=== false` forces the proven drop-not-reshape path. The polygon-native
+    // single-apartment engine (subdividePolygon/tileConcave) lays out the >4-vert cells (SPEC §5).
+    const nonRectCells = (globalThis as { __pryzmNonRectCells?: boolean }).__pryzmNonRectCells !== false;
     if (clipPolygon && clipPolygon.length >= 3) {
         for (let i = placements.length - 1; i >= 0; i--) {
             const cell = placements[i]!;
@@ -1125,6 +1223,23 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
     // (the absorbed cells are DEEP, not shallow — they take the leftover depth as ONE more unit row).
     if (nonRectCells) {
         absorbResidual(placements, corridorBands, bb, coreN, clipPolygon, apartments, () => cursor < apartments.length ? apartments[cursor++] : undefined);
+    }
+
+    // §RESI-EDGE-TYPE-VARIETY — re-stamp each placed cell's typology from its REAL AREA, choosing among
+    // the typologies the demand actually requested (the user's enabled mix). With the grid filling the
+    // perimeter the cells are no longer uniform: a deep corner cell is genuinely larger than a shallow
+    // edge-fill cell, so the corners come out as the larger typology (more bedrooms) and the edge-fill
+    // units as smaller ones — exactly the founder's "corners T3/T4, edge-fill T1/T2" intent. This is
+    // geometry-honest: the bedroom count follows the cell that can hold it, every cell stays within the
+    // brief's enabled mix, and the orchestrator pairs each cell to a program BY THIS typology (not by
+    // demand index). When only ONE typology is enabled this is a no-op (every cell keeps that type) →
+    // a single-typology brief is byte-identical. Deterministic.
+    const enabledTypologies = Array.from(new Set(apartments.map((a) => a.typology)));
+    if (enabledTypologies.length > 1) {
+        for (let i = 0; i < placements.length; i++) {
+            const c = placements[i]!;
+            placements[i] = { ...c, typology: typologyForArea(c.areaM2, enabledTypologies) };
+        }
     }
 
     // §RESI-FILL-PLATE: place as MANY apartments as fit and return them — do NOT reject just
