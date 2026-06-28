@@ -63,8 +63,8 @@ import {
 } from './server/renderService.js';
 
 // ── Replit-PostgreSQL auth & project store ────────────────────────────────────
-import { getPgPool, query as pgQuery, getBackendInfo } from './server/pgClient.js';
-import { handleProjectApiError, SnapshotTooLargeError, ProjectConflictError, VersionLimitError, PreconditionFailedError } from './server/errors.js';
+import { getPgPool, query as pgQuery, getBackendInfo, setMigrationsReady as pgSetMigrationsReady, markMigrationsSettled as pgMarkMigrationsSettled } from './server/pgClient.js';
+import { handleProjectApiError, SnapshotTooLargeError, ProjectConflictError, VersionLimitError, PreconditionFailedError, ProjectGoneError } from './server/errors.js';
 import { runMigrations } from './server/dbMigrate.js';
 import { signUp as authSignUp, signIn as authSignIn, verifyToken as authVerifyToken } from './server/authStore.js';
 import * as pgProjectStore from './server/projectStore.js';
@@ -3275,6 +3275,23 @@ app.post('/api/projects/:id/versions', authMiddleware, async (req, res) => {
                 ? idempotencyKey
                 : `ver-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
+            // ── §VERSIONS-410-STALE-SAVE (Supabase path) ─────────────────────
+            // An If-Match header means this client previously synced a version
+            // for this project, so the project row should still exist. If it's
+            // gone it was deleted server-side — this is a stale autosave replay.
+            // Return 410 (terminal 4xx → the queue DROPS it) BEFORE the RPC below,
+            // whose upsert would otherwise silently RE-CREATE the deleted project.
+            if (ifMatchHeader !== undefined) {
+                const { data: existsRow } = await supabase
+                    .from('projects')
+                    .select('id')
+                    .eq('id', id)
+                    .maybeSingle();
+                if (!existsRow) {
+                    throw new ProjectGoneError(id);
+                }
+            }
+
             // ── [GAP-06] Advisory optimistic-locking check (Supabase path) ───
             // Best-effort (not inside a PG transaction). The PG path uses a
             // FOR UPDATE lock for full atomicity. This advisory check prevents
@@ -3396,6 +3413,11 @@ app.post('/api/projects/:id/versions', authMiddleware, async (req, res) => {
                 maxVersions,
                 plan,
                 expectedVersionCount,
+                // §VERSIONS-410-STALE-SAVE — an If-Match header means this client
+                // previously synced a version for this project (it only learns a
+                // count from a prior successful save). If the project row is now
+                // absent it was deleted → 410 (stale save), not first-save creation.
+                assertExists: ifMatchHeader !== undefined,
             });
             if (io) io.to(`project:${id}`).emit('version-saved', { versionId: version?.id, label, elementCount });
             deliverWebhookEvent(id, 'model.saved', { versionId: version?.id, label, elementCount, projectId: id }).catch(() => {});
@@ -3411,6 +3433,12 @@ app.post('/api/projects/:id/versions', authMiddleware, async (req, res) => {
         const _existingProj = pgProjectStore.imGetProject(id);
         if (_existingProj && _existingProj.ownerId !== req.auth.userId) {
             throw new ProjectConflictError(id, 'Project is owned by a different user');
+        }
+        // §VERSIONS-410-STALE-SAVE (in-memory path) — If-Match asserts the project
+        // existed; if it's absent it was deleted → 410 so the queue drops the stale
+        // save instead of re-creating the project in imUpsertProject below.
+        if (!_existingProj && ifMatchHeader !== undefined) {
+            throw new ProjectGoneError(id);
         }
 
         // [GAP-07] Typed version limit for in-memory path
@@ -5667,9 +5695,10 @@ httpServer.listen(PORT, '0.0.0.0', async () => {
         // pgClient flag so the v1 router's gate middleware can stop
         // returning 503 `migrations_in_progress` for new requests. The
         // local `_migrationsReady` is kept for /api/health/ready parity.
+        // §SERVER-503-GATE-WEDGE-GUARD — statically-imported binding (cannot fail to
+        // resolve) so a loader hiccup can never leave the v1 gate closed.
         try {
-            const { setMigrationsReady } = await import('./server/pgClient.js');
-            setMigrationsReady(true);
+            pgSetMigrationsReady(true);
         } catch (e) {
             console.warn('[server] setMigrationsReady() failed (non-fatal):', e?.message ?? e);
         }
@@ -5712,9 +5741,14 @@ httpServer.listen(PORT, '0.0.0.0', async () => {
         // create/list/open/delete fall through to the in-memory degrade path and the architect
         // can keep working. The self-heal below still upgrades to real persistence if the DB
         // recovers (setMigrationsReady(true) then flips schema-ready too).
+        // §SERVER-503-GATE-WEDGE-GUARD (2026-06-27) — call the STATICALLY-imported
+        // markMigrationsSettled directly. The previous dynamic import() could itself
+        // reject (module-eval / loader hiccup) → caught here → _migrationsSettled
+        // stayed false FOREVER → the v1 gate 503'd `migrations_in_progress`
+        // permanently with no self-clear. The static binding cannot fail to resolve,
+        // so the gate is guaranteed to open within MIGRATION_BOOT_GATE_TIMEOUT_MS.
         try {
-            const { markMigrationsSettled } = await import('./server/pgClient.js');
-            markMigrationsSettled();
+            pgMarkMigrationsSettled();
         } catch (e) {
             console.warn('[server] markMigrationsSettled() failed (non-fatal):', e?.message ?? e);
         }
