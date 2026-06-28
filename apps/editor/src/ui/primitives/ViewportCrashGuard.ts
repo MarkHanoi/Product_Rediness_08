@@ -52,6 +52,21 @@ const KNOWN_NONFATAL_KEYWORDS: string[] = [
     'usedtimes',
 ];
 
+// §VCG-CONSECUTIVE-FRAME-GUARD: A SINGLE render-related throw is almost never a
+// real, persistent viewport crash. Heavy WebGL2 scenes (e.g. a 5-storey
+// residential building with the analysis side-panel open) routinely emit a
+// one-off transient throw from a shadow update, an analysis overlay, or a
+// stale render target left behind by a live renderer-swap / level operation —
+// the very next frame renders fine. Showing the hard crash dialog on the first
+// such throw is a false positive that bounces the founder back to the hub.
+//
+// We therefore COUNT consecutive render-related throws and only escalate to the
+// crash dialog once we cross the threshold inside a short window. Any throw that
+// is NOT followed by another render-related throw within RESET_WINDOW_MS resets
+// the streak (one-off throws are swallowed + logged, never crashed on).
+const CONSECUTIVE_CRASH_THRESHOLD = 4;
+const CONSECUTIVE_RESET_WINDOW_MS = 4000;
+
 // ── ViewportCrashGuard ─────────────────────────────────────────────────────
 
 export class ViewportCrashGuard {
@@ -61,6 +76,10 @@ export class ViewportCrashGuard {
 
     private _active     = false;
     private _hasCrashed = false;
+
+    // §VCG-CONSECUTIVE-FRAME-GUARD state.
+    private _consecutiveFailures = 0;
+    private _lastFailureAt       = 0;
 
     private _errorHandler?:     (e: ErrorEvent) => void;
     private _rejectionHandler?: (e: PromiseRejectionEvent) => void;
@@ -86,7 +105,11 @@ export class ViewportCrashGuard {
             }
             if (this._hasCrashed) return;
             if (this._isRenderRelated(e.message ?? '')) {
-                this._handleCrash(new Error(e.message), 'window.onerror (render context)');
+                // §VCG-DIAGNOSTIC: surface the REAL error (with the original
+                // Error object + stack when the browser gives us one via
+                // e.error) so the true cause is visible in prod, not just dev.
+                const realError = e.error instanceof Error ? e.error : new Error(e.message);
+                this._recordRenderFailure(realError, 'window.onerror (render context)');
             }
         };
 
@@ -103,7 +126,7 @@ export class ViewportCrashGuard {
                 ? e.reason
                 : new Error(msg);
             if (this._isRenderRelated(reason.message)) {
-                this._handleCrash(reason, 'unhandledrejection (render context)');
+                this._recordRenderFailure(reason, 'unhandledrejection (render context)');
             }
         };
 
@@ -122,6 +145,8 @@ export class ViewportCrashGuard {
         if (this._rejectionHandler) window.removeEventListener('unhandledrejection', this._rejectionHandler);
         this._active     = false;
         this._hasCrashed = false;
+        this._consecutiveFailures = 0;
+        this._lastFailureAt       = 0;
         hideSceneCrashFallback();
         console.log('[ViewportCrashGuard] Deactivated.');
     }
@@ -147,10 +172,59 @@ export class ViewportCrashGuard {
 
     // ── Private ────────────────────────────────────────────────────────────
 
+    /**
+     * §VCG-CONSECUTIVE-FRAME-GUARD + §VCG-DIAGNOSTIC.
+     *
+     * Records a render-related throw caught from the window 'error' /
+     * 'unhandledrejection' listeners. ALWAYS logs the real caught error + stack
+     * to the console (tagged) so the true cause is visible in production — the
+     * old code only displayed it in dev mode, hiding it from the founder.
+     *
+     * A single transient throw is swallowed (logged only). The crash dialog is
+     * shown only after CONSECUTIVE_CRASH_THRESHOLD render-related throws arrive
+     * within CONSECUTIVE_RESET_WINDOW_MS of each other — a genuinely persistent
+     * render failure. A gap longer than the window resets the streak.
+     */
+    private _recordRenderFailure(error: Error, source: string): void {
+        if (this._hasCrashed) return;
+
+        const now = Date.now();
+        if (now - this._lastFailureAt > CONSECUTIVE_RESET_WINDOW_MS) {
+            // Streak broken (or first failure) — start a fresh count.
+            this._consecutiveFailures = 0;
+        }
+        this._consecutiveFailures++;
+        this._lastFailureAt = now;
+
+        // ALWAYS surface the real error + stack (prod + dev), tagged so the
+        // founder can copy it out of the console when reporting.
+        console.error(
+            `[ViewportCrashGuard] caught render error (${source}) — ` +
+            `consecutive ${this._consecutiveFailures}/${CONSECUTIVE_CRASH_THRESHOLD}:`,
+            error,
+        );
+
+        if (this._consecutiveFailures < CONSECUTIVE_CRASH_THRESHOLD) {
+            // Transient — swallow + log, keep the viewport alive. The next clean
+            // frame (no further throw within the window) clears the streak.
+            console.warn(
+                '[ViewportCrashGuard] Transient render error swallowed — ' +
+                'viewport kept alive (not a persistent crash yet).',
+            );
+            return;
+        }
+
+        // Threshold crossed — this is a persistent, frame-after-frame failure.
+        this._handleCrash(error, `${source} ×${this._consecutiveFailures}`);
+    }
+
     private _handleCrash(error: Error, source: string): void {
         this._hasCrashed = true;
 
-        console.error(`[ViewportCrashGuard] Viewport crash (${source}):`, error.message);
+        // §VCG-DIAGNOSTIC: log the FULL error object + stack (not just .message)
+        // so the true failing render path is recoverable from the prod console.
+        console.error(`[ViewportCrashGuard] Viewport crash (${source}):`, error);
+        if (error.stack) console.error('[ViewportCrashGuard] stack:', error.stack);
 
         if (typeof window.Sentry !== 'undefined') { // TODO(C.3.x): legacy Sentry — replace with runtime.telemetry (Sentry)
             window.Sentry.captureException(error); // TODO(C.3.x): legacy Sentry — replace with runtime.telemetry (Sentry)
@@ -159,6 +233,10 @@ export class ViewportCrashGuard {
         const onRetry = (): void => {
             hideSceneCrashFallback();
             this._hasCrashed = false;
+            // Reset the consecutive-failure streak so a recovered viewport
+            // starts from a clean slate (and is not one throw away from re-crash).
+            this._consecutiveFailures = 0;
+            this._lastFailureAt       = 0;
 
             // Prefer soft recovery: rebuild the RPM pipeline (clears outline arrays,
             // disposes GPU targets, schedules a pipeline rebuild).

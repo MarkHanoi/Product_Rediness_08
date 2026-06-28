@@ -44,8 +44,24 @@ export const SCF_STYLES = `
         line-height: 1.55;
     }
 
-    .scf-error-details {
+    .scf-error-disclosure {
         margin: 0.875rem 0 0;
+    }
+
+    .scf-error-summary {
+        cursor: pointer;
+        font-size: 0.75rem;
+        color: var(--app-text-muted, #6b7280);
+        user-select: none;
+        outline: none;
+    }
+
+    .scf-error-summary:hover {
+        color: var(--app-text, #111827);
+    }
+
+    .scf-error-details {
+        margin: 0.5rem 0 0;
         padding: 0.625rem;
         background: #fffbeb;
         border: 1px solid #fde68a;
