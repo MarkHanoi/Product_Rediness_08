@@ -367,6 +367,8 @@ export {
   // §RESI-CORE-REWORK — clearance-derived core sizing (the single source of truth the
   // orchestrator floors the core at; exposed for tests + future consumers).
   deriveCoreSizing,
+  // §RESI-OPENING-IN-WALL — emit-stage clamp keeping an opening within its STORED (mitred) wall.
+  clampOpeningToWall,
 } from './workflows/residentialBuilding/index.js';
 export type {
   CoreSizing,
@@ -389,6 +391,7 @@ export type {
   CellEdge,
   ApartmentCellLayoutInput,
   ApartmentCellLayoutResult,
+  ClampedOpening,
 } from './workflows/residentialBuilding/index.js';
 
 // ── D-FLE Furniture Layout Engine — public surface ───────────────────────────
