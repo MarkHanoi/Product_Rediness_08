@@ -54,6 +54,7 @@ import type { FurnitureType, FurnitureMaterial } from '@pryzm/geometry-furniture
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import {
     buildLayoutCommands,
+    clampOpeningToWall,
     type ResidentialBuildingOk,
     type ResidentialRigidTransform,
     type GroundFloorDescriptor,
@@ -1268,6 +1269,69 @@ export class ResidentialBuildingExecutor {
         return offset;
     }
 
+    /** Read a committed wall's ACTUAL length (m) from its `baseLine` in the store, or `null` when
+     *  the wall hasn't landed / has no usable baseLine. The stored wall is MITRED (corner-trimmed)
+     *  so it can be a few cm shorter than the generation-time edge length — which is exactly why a
+     *  pre-computed opening offset/width can overrun it. Shared read for §RESI-OPENING-IN-WALL. */
+    private _storedWallLengthM(wallId: string): number | null {
+        const wallStore = storeRegistry.getStoreForType('wall') as unknown as { getById?: (id: string) => unknown } | undefined;
+        if (!wallStore?.getById) return null;   // no store read available → caller keeps its value
+        const w = wallStore.getById(wallId) as { baseLine?: ReadonlyArray<{ x: number; z: number }> } | undefined;
+        const bl = w?.baseLine;
+        if (!bl || bl.length < 2) return null;
+        const a = bl[0]!, b = bl[1]!;
+        const l = Math.hypot(b.x - a.x, b.z - a.z);
+        return Number.isFinite(l) && l > 0.05 ? l : null;
+    }
+
+    /** §RESI-OPENING-IN-WALL (founder 2026-06-26: "1 element failed — Opening [15.827, 16.727] >
+     *  16.665") — the emit-stage clamp for a WINDOW opening, mirroring `_centredDoorOffset`'s
+     *  stored-length read for doors. The executor computes window offsets/widths against the
+     *  GENERATION-time edge length, but the committed wall is MITRED (shorter), so a window at
+     *  `len − margin − width` overruns the now-shorter stored wall and the occupancy validator
+     *  REJECTS it (the "1 element failed"). This reads the wall's ACTUAL stored length and clamps
+     *  the span into [0, storedLen] (shrinking an over-wide width, pulling the offset in) via the
+     *  pure `clampOpeningToWall`. Returns the clamped {offset,width}, or `null` to DROP the opening
+     *  when even a minimal one can't fit. When the wall length can't be read (store miss / not yet
+     *  landed) the input is kept verbatim (the punch is gated on the wall having landed anyway). */
+    private _clampWindowToStoredWall(
+        wallId: string, offset: number, width: number, tag: string,
+    ): { offset: number; width: number } | null {
+        const storedLen = this._storedWallLengthM(wallId);
+        if (storedLen === null) return { offset, width };   // can't read → keep verbatim
+        const res = clampOpeningToWall(offset, width, storedLen);
+        if (res === null) {
+            console.warn(`[resi-building] §RESI-OPENING-IN-WALL ⚠ ${tag} window dropped — wall ${wallId.slice(0, 8)} len=${storedLen.toFixed(3)}m too short for a minimal opening (req off=${offset.toFixed(3)} w=${width.toFixed(3)}).`);
+            return null;
+        }
+        if (res.clamped) {
+            console.warn(`[resi-building] §RESI-OPENING-IN-WALL ${tag} window clamped to stored wall ${wallId.slice(0, 8)} (len=${storedLen.toFixed(3)}m): off ${offset.toFixed(3)}→${res.offset.toFixed(3)} w ${width.toFixed(3)}→${res.width.toFixed(3)} — never emitted past the wall end.`);
+        }
+        return { offset: res.offset, width: res.width };
+    }
+
+    /** §RESI-OPENING-IN-WALL — pull a corridor-ALIGNED door offset into bounds on its STORED (mitred)
+     *  host wall WITHOUT re-centring (the alignment puts the door where the internal corridor meets
+     *  the edge — re-centring would break §RESI-ENTRY-INTO-CORRIDOR). The verbatim offset is computed
+     *  against the generation-time edge length, so on a mitred (shorter) cell wall the door's far edge
+     *  can poke past the wall end and the occupancy validator REJECTS it (the apartment then ships a
+     *  SEALED box — no way in). This keeps the leaf WIDTH (a door must not shrink) and only pulls the
+     *  offset into [jamb, storedLen − jamb − width]; if the leaf can't fit even minimally it returns
+     *  `null` so the caller falls back to the centred offset. Store miss → keep the offset verbatim. */
+    private _clampDoorOffsetToStoredWall(
+        wallId: string, offset: number, width: number, jambM = 0.2,
+    ): number | null {
+        const storedLen = this._storedWallLengthM(wallId);
+        if (storedLen === null) return offset;   // can't read → keep verbatim (punch is gated on landing)
+        const maxOff = storedLen - jambM - width;
+        if (maxOff < jambM - 1e-6) return null;  // wall too short to host the leaf with jambs → centred fallback
+        const clamped = Math.min(Math.max(offset, jambM), maxOff);
+        if (Math.abs(clamped - offset) > 1e-4) {
+            console.warn(`[resi-building] §RESI-OPENING-IN-WALL apt-entry door offset clamped to stored wall ${wallId.slice(0, 8)} (len=${storedLen.toFixed(3)}m): ${offset.toFixed(3)}→${clamped.toFixed(3)} — corridor-aligned but pulled in-bounds (never past the wall end).`);
+        }
+        return clamped;
+    }
+
     /** §RESI-CORE-DOORS — punch the two fire doors per level on the (already committed) core
      *  walls. Deferred + polled exactly like the main entrance: the core wall.batch.create is
      *  async via the bus, so we wait (≤6 s) for every host wall to land in the store, then punch
@@ -1333,15 +1397,26 @@ export class ResidentialBuildingExecutor {
         const tryPunch = (n: number): void => {
             if (!ready() && n > 0) { deferWork(() => tryPunch(n - 1), 150); return; }
             try {
+                // §RESI-OPENING-IN-WALL — clamp each window to its STORED (mitred) host-wall length
+                // BEFORE emit, so a pane computed at the generation-time edge length never overruns
+                // the now-shorter committed wall (the "1 element failed — Opening […] > […]"). A
+                // pane that can't fit even minimally on the stored wall is DROPPED (not emitted OOB).
+                const items = specs
+                    .map(s => {
+                        const c = this._clampWindowToStoredWall(s.wallId, s.offset, s.width, 'ground-commercial');
+                        return c ? { s, offset: c.offset, width: c.width } : null;
+                    })
+                    .filter((it): it is { s: typeof specs[number]; offset: number; width: number } => it !== null);
+                if (items.length === 0) { console.warn('[resi-building] ground commercial windows — all dropped (no host wall could fit a pane)'); return; }
                 batchCoordinator.runBatch(() => {
-                    cm.execute?.(new CreateWallOpeningsBatchCommand(specs.map(s => ({
+                    cm.execute?.(new CreateWallOpeningsBatchCommand(items.map(({ s, offset, width }) => ({
                         wallId: s.wallId,
                         openingData: {
                             id: createId('opening'),
                             type: 'window',
                             windowType: 'single',
-                            offset: s.offset,
-                            width: s.width,
+                            offset,
+                            width,
                             height: s.height,
                             sillHeight: s.sillHeight,
                             elementId: createId('window'),
@@ -1350,12 +1425,12 @@ export class ResidentialBuildingExecutor {
                             systemTypeId: 'wt-timber-casement',
                         },
                     }))));
-                }, { levelIds, totalElementCount: specs.length, skipRedetectRooms: true });
+                }, { levelIds, totalElementCount: items.length, skipRedetectRooms: true });
                 deferWork(() => {
                     try { window.__wallRebuildControl?.rebuildWalls?.(wallIds); }
                     catch (e) { console.warn('[resi-building] ground-window rebuildWalls failed (non-fatal):', e); }
                 }, 250);
-                console.log(`[resi-building] ground commercial windows — ${specs.length} punched on ${levelIds.length} level(s)`);
+                console.log(`[resi-building] ground commercial windows — ${items.length}/${specs.length} punched on ${levelIds.length} level(s)`);
             } catch (e) { console.warn('[resi-building] ground windows batch failed (non-fatal):', e); }
         };
         tryPunch(40);
@@ -2816,9 +2891,28 @@ export class ResidentialBuildingExecutor {
         const set = b.set;
         const levelId = b.levelId;
         // Doors + shell windows → ONE opening batch.
+        // §RESI-OPENING-IN-WALL — the SHELL WINDOW openings are placed against the engine's cell
+        // geometry, but the committed cell walls are MITRED (shorter) at their corners, so a window
+        // at `len − margin − width` can overrun the now-shorter stored wall and be REJECTED ("1
+        // element failed — Opening […] > […]"). Clamp each shell-window span to its stored host wall
+        // BEFORE emit; a window that can't fit even minimally is dropped (never emitted OOB). Door
+        // openings are left verbatim (the engine already seats doors clear of the cell corners, and
+        // a clamp could shift a door off its intended hinge side).
+        type OpeningItem = { p: { wallId: string; opening: unknown } };
+        const shellWindowItems = set.shellWindowOpeningCommands
+            .map((op): OpeningItem | null => {
+                const p = op.payload as { wallId: string; opening: { offset?: number; width?: number } };
+                const off = typeof p.opening.offset === 'number' ? p.opening.offset : NaN;
+                const wid = typeof p.opening.width === 'number' ? p.opening.width : NaN;
+                if (!Number.isFinite(off) || !Number.isFinite(wid)) return { p };   // unknown shape → keep verbatim
+                const c = this._clampWindowToStoredWall(p.wallId, off, wid, 'apt-shell');
+                if (c === null) return null;   // can't fit even minimally → drop (never emit OOB)
+                return { p: { wallId: p.wallId, opening: { ...p.opening, offset: c.offset, width: c.width } } };
+            })
+            .filter((it): it is OpeningItem => it !== null);
         const openingItems = [
             ...set.openingCommands.map(op => ({ p: op.payload as { wallId: string; opening: unknown } })),
-            ...set.shellWindowOpeningCommands.map(op => ({ p: op.payload as { wallId: string; opening: unknown } })),
+            ...shellWindowItems,
         ];
         // §RESI-APT-ENTRY — the apartment FRONT DOOR onto the public corridor, hosted on the
         // cell's corridor-facing perimeter wall. Single-leaf, standard height. Without this the
@@ -2827,15 +2921,23 @@ export class ResidentialBuildingExecutor {
         // internal corridor meets the edge) keep it VERBATIM so the door opens into circulation;
         // otherwise (no corridor reached the edge) re-centre on the stored wall length (§RESI-DOOR-
         // CENTRE-ALL), the old behaviour.
+        // §RESI-OPENING-IN-WALL — a corridor-ALIGNED offset is computed against the generation-time
+        // edge length, so on a mitred (shorter) cell wall it can overrun the wall end and the entry
+        // door is REJECTED (sealed apartment). Pull it in-bounds WITHOUT re-centring; only when the
+        // leaf can't fit at all do we fall back to the centred offset (§RESI-DOOR-CENTRE-ALL).
+        const entryOffset = b.entryDoor
+            ? (b.entryDoor.corridorAligned
+                ? (this._clampDoorOffsetToStoredWall(b.entryDoor.wallId, b.entryDoor.offset, b.entryDoor.width)
+                    ?? this._centredDoorOffset(b.entryDoor.wallId, b.entryDoor.width, 2 * b.entryDoor.offset + b.entryDoor.width, 'apt-entry'))
+                : this._centredDoorOffset(b.entryDoor.wallId, b.entryDoor.width, 2 * b.entryDoor.offset + b.entryDoor.width, 'apt-entry'))
+            : 0;
         const entryItems = b.entryDoor
             ? [{
                 wallId: b.entryDoor.wallId,
                 opening: {
                     id: createId('opening'),
                     type: 'door',
-                    offset: b.entryDoor.corridorAligned
-                        ? b.entryDoor.offset
-                        : this._centredDoorOffset(b.entryDoor.wallId, b.entryDoor.width, 2 * b.entryDoor.offset + b.entryDoor.width, 'apt-entry'),
+                    offset: entryOffset,
                     width: b.entryDoor.width,
                     height: 2.1,
                     sillHeight: 0,

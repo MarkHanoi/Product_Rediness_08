@@ -14,3 +14,6 @@ export * from './coreSizing.js';
 // §RESI-ENTRY-INTO-CORRIDOR — the front-door-into-circulation offset resolver (pure; mirrored
 // locally in the editor executor, exported here so it is unit-testable).
 export * from './apartmentEntryDoorOffset.js';
+// §RESI-OPENING-IN-WALL — the emit-stage clamp that keeps a window/door opening within its STORED
+// host-wall length (mitred walls are shorter than generation-time), used by the editor executor.
+export * from './clampOpeningToWall.js';
