@@ -46,11 +46,13 @@ import { rectArea, rectWidth, rectDepth, principalAxisAngle, rotatePt } from '..
 import type { ApartmentProgram } from '../apartmentLayout/types.js';
 import {
     packApartments,
+    programFor,
     type PlannedApartment,
 } from './apartmentPacker.js';
 import {
     partitionLevelPlate,
     MAX_APARTMENT_DEPTH_M,
+    TYPOLOGY_AREA_BAND,
     type Typology,
     type ApartmentDemand,
     type ApartmentCell,
@@ -646,6 +648,23 @@ function _orchestrate(input: ResidentialBuildingOrchestratorInput): ResidentialB
         // however many actually fit. We pair each PLACED cell back to a plan by `i % N` below
         // (same typology ⇒ same program ⇒ reusing a plan for another same-typology cell is sound).
         const baseDemands = packed.apartments.map(demandFor);
+        // §RESI-EDGE-TYPE-VARIETY (founder 2026-06-27) — the packer picks ONE typology for its equal
+        // slots, so baseDemands is single-typology and the partition's area-driven re-stamp would have
+        // nothing to vary toward. DECLARE the full ENABLED typology set to the partition (each enabled
+        // T1–T4 the user requested, with a band clamped into the user's [min,max]) so the partition
+        // knows which typologies it may assign by area: corners (the largest cells) become the largest
+        // enabled typology, edge-fill (the smallest cells) the smallest. The demands still drive cell
+        // WIDTH/area via the packer's base sizing; the enabled set only widens the typology palette.
+        const enabledTypologyDemands: ApartmentDemand[] = (['T1', 'T2', 'T3', 'T4'] as const)
+            .filter((t) => typologies[t])
+            .map((t) => {
+                const band = TYPOLOGY_AREA_BAND[t];
+                const min = Math.max(band.min, minApartmentAreaM2);
+                const max = Math.min(band.max, maxApartmentAreaM2);
+                // When the user band excludes the typology's own band, keep a non-empty placeholder
+                // band (the partition only reads `.typology` from these to populate the enabled set).
+                return { typology: t, minAreaM2: Math.min(min, max), maxAreaM2: Math.max(min, max) };
+            });
         const minDemandArea = Math.max(20, Math.min(...baseDemands.map((d) => d.minAreaM2)));
         // Gross plate area ÷ smallest cell area over-counts (ignores core/corridors) — but
         // over-supply is harmless (the partition caps), so a generous estimate only lets it FILL.
@@ -653,6 +672,9 @@ function _orchestrate(input: ResidentialBuildingOrchestratorInput): ResidentialB
         const reps = Math.max(1, Math.ceil(capacityCells / baseDemands.length));
         const allDemands: ApartmentDemand[] = [];
         for (let r = 0; r < reps; r++) allDemands.push(...baseDemands);
+        // Append the enabled-typology declarations so the partition's re-stamp palette spans the full
+        // requested mix (these tail demands are consumed only if the plate is huge; harmless otherwise).
+        allDemands.push(...enabledTypologyDemands);
         // §RESI-PARTITION-BBOX-PLATE (large-plate zero-apartments fix, 2026-06-23) — hand the
         // partition the AXIS-ALIGNED BBOX RECTANGLE of the local footprint, NOT the (possibly
         // irregular) de-rotated parcel polygon. THE BUG: the orchestrator already commits to
@@ -721,9 +743,20 @@ function _orchestrate(input: ResidentialBuildingOrchestratorInput): ResidentialB
         const apartments: PlacedApartment[] = placed.map((cell: ApartmentCell, i: number) => {
             // §RESI-FILL-DEMAND — the partition may now place MORE cells than the packer's N
             // (the mix was repeated to fill the plate). Cells beyond N reuse an earlier same-
-            // typology plan (cycled): the partition packs the repeated demand list in order, so
-            // cell[i]'s typology === baseDemands[i % N].typology === packed.apartments[i % N].
-            const plan = packed.apartments[i % packed.apartments.length]!;
+            // typology plan (cycled).
+            // §RESI-EDGE-TYPE-VARIETY (2026-06-27) — the partition now RE-STAMPS each cell's typology
+            // from its real area (corners → larger T, edge-fill → smaller T), so cell[i].typology may
+            // NO LONGER equal baseDemands[i % N].typology. Pair each cell to a program BY ITS STAMPED
+            // TYPOLOGY (so the bedroom count matches the cell that holds it) rather than the demand
+            // index. We reuse a matching packed plan when one exists (preserving the packer's target
+            // area), else synthesize the canonical program for the cell's typology.
+            const cellTypology = cell.typology;
+            const plan = packed.apartments.find((a) => a.typology === cellTypology)
+                ?? {
+                    typology: cellTypology,
+                    targetAreaM2: round4(rectArea(cell.rect)),
+                    program: programFor(cellTypology),
+                };
 
             // §DIAG-PARTY-WALL — true exterior façade edges (the rest are blind party walls).
             const facadeEdges = facadeEdgesFor(cell, plateBB);

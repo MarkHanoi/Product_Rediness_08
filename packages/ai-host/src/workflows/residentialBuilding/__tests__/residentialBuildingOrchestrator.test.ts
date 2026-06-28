@@ -63,7 +63,8 @@ describe('residentialBuildingOrchestrator — P3', () => {
             expect(r.status).toBe('ok');
             if (r.status === 'ok') expect(r.levels.length).toBe(n + 1);
         }
-    });
+    }, 30_000);   // §RESI-EDGE-TYPE-VARIETY — more typologies now survive (more cells lay out) ⇒ more
+                  // per-cell engine work across 33 levels; the heavier-but-richer path needs headroom.
 
     it('places a CENTRED core whose centroid ≈ the footprint centroid on every level', () => {
         const fp = rectPoly(30, 18);
