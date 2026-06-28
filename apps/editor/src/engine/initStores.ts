@@ -66,6 +66,15 @@ export interface AllStores {
     roofStore:         unknown;
     plumbingStore:     unknown;
     furnitureStore:    unknown;
+    /**
+     * §LIGHTING-STORE-FIX (2026-06-26) — register the lighting store under its
+     * canonical type key so StoreRegistry.getStoreForType('lighting') resolves it
+     * (mirrors plumbing/furniture). Optional — bootstraps that don't supply the
+     * instance simply skip the registration line. NOTE: the bus storesProvider is
+     * fed separately by the lighting plugin descriptor in PluginRegistry.ts; this
+     * line wires the SECONDARY StoreRegistry lookup used by type-keyed consumers.
+     */
+    lightingStore?:    unknown;
     handrailStore:     unknown;
     openingStore:      unknown;
     gridStore:         unknown;
@@ -113,6 +122,9 @@ export function registerAllStores(stores: AllStores): void {
     r('roof',          stores.roofStore);
     r('plumbing',      stores.plumbingStore);
     r('furniture',     stores.furnitureStore);
+    // §LIGHTING-STORE-FIX (2026-06-26) — register the legacy 3D lighting store
+    // under its canonical type key for type-keyed consumers. Optional.
+    if (stores.lightingStore) r('lighting', stores.lightingStore);
     r('handrail',      stores.handrailStore);
     r('opening',       stores.openingStore);
     r('grid',          stores.gridStore);

@@ -126,6 +126,24 @@ export class SaveOrchestrator {
      */
     private _settleUntil: number = 0;
 
+    /**
+     * §AUTOSAVE-BATCH-SUPPRESS (2026-06-26) — number of batch windows currently
+     * open. A multi-level generation (furnish-all-floors) runs ONE
+     * `batchCoordinator.runBatch()` per level; each fires `pryzm-batch-started`
+     * then `pryzm-batch-ended`. While `_batchDepth > 0` mutations still mark the
+     * project dirty, but `executeSave()` DEFERS — so the dozens of per-fixture /
+     * per-level mutations coalesce into ONE autosave at the end instead of the
+     * repeated full-project serialize+compress the founder saw mid-furnish. The
+     * depth counter coalesces back-to-back per-level batches: a brief gap between
+     * two batches must NOT trip a save, so on the drain-to-zero we open a short
+     * settle window (`_BATCH_SETTLE_MS`) and only then schedule the single save.
+     */
+    private _batchDepth: number = 0;
+
+    /** Settle window opened when the last batch drains, so consecutive per-level
+     *  batches in one generation coalesce into a single autosave. */
+    private static readonly _BATCH_SETTLE_MS = 1500;
+
     private readonly getHash: () => string;
     private readonly onAutoSave: (label: string) => void;
     private readonly onSaveStatusChange: (status: SaveStatus) => void;
@@ -133,6 +151,8 @@ export class SaveOrchestrator {
     private readonly mutationHandler: () => void;
     private readonly clearHandler: () => void;
     private readonly beforeUnloadHandler: () => void;
+    private readonly batchStartHandler: () => void;
+    private readonly batchEndHandler: () => void;
 
     /** Phase B (S73-WIRE) — runtime threaded by parent. */
     public readonly runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null;
@@ -158,14 +178,23 @@ export class SaveOrchestrator {
         this.clearHandler = () => {
             this.hasDirtyChanges = false;
             this.pendingSave = false;
+            // §AUTOSAVE-BATCH-SUPPRESS — a project clear/switch ends any open batch
+            // window; reset the depth so a forceReset that skipped the end event can
+            // never leave autosave permanently suppressed.
+            this._batchDepth = 0;
             this.cancelDebounce();
             this.setStatus('idle');
         };
         this.beforeUnloadHandler = () => this.flushBeforeUnload();
+        this.batchStartHandler = () => this.handleBatchStart();
+        this.batchEndHandler = () => this.handleBatchEnd();
 
         MUTATION_EVENTS.forEach(evt => window.addEventListener(evt, this.mutationHandler));
         window.addEventListener('bim-project-cleared', this.clearHandler);
         window.addEventListener('beforeunload', this.beforeUnloadHandler);
+        // §AUTOSAVE-BATCH-SUPPRESS — coalesce a multi-batch generation to one save.
+        window.addEventListener('pryzm-batch-started', this.batchStartHandler);
+        window.addEventListener('pryzm-batch-ended', this.batchEndHandler);
 
         console.log('[SaveOrchestrator] Initialised — debounce:', this.DEBOUNCE_MS, 'ms');
     }
@@ -213,6 +242,16 @@ export class SaveOrchestrator {
         // setLoading(true) is called, but guard here as well in case a
         // future refactor changes that invariant.
         if (this.isLoading) return;
+
+        // §AUTOSAVE-BATCH-SUPPRESS — a bulk generation is mid-flight (one or more
+        // runBatch windows open). Keep the project marked dirty but defer the save;
+        // handleBatchEnd() re-arms the debounce once every batch has drained, so the
+        // whole multi-level furnish/generate produces exactly one snapshot write.
+        if (this._batchDepth > 0) {
+            this.cancelDebounce();
+            this.setStatus('pending');
+            return;
+        }
 
         // PERF-FIX (Apr 2026): During the post-load settle window, defer the
         // actual save to the settle deadline so the post-load mutation storm
@@ -295,6 +334,8 @@ export class SaveOrchestrator {
     setLoading(isLoading: boolean): void {
         this.isLoading = isLoading;
         if (isLoading) {
+            // §AUTOSAVE-BATCH-SUPPRESS — a load supersedes any in-flight batch.
+            this._batchDepth = 0;
             this.cancelDebounce();
             // Clear any stale dirty state from the previous project immediately.
             // This ensures flushBeforeUnload() finds hasDirtyChanges=false if it
@@ -311,6 +352,46 @@ export class SaveOrchestrator {
             // wall joins, view rebuilds) are coalesced into a single autosave
             // that fires once the deadline passes.
             this._settleUntil = Date.now() + 4000;
+        }
+    }
+
+    // ── §AUTOSAVE-BATCH-SUPPRESS: bulk-generation coalescing ──────────────────
+
+    /**
+     * Fired on `pryzm-batch-started`. Marks a batch window open so executeSave()
+     * defers. Ref-counted because a multi-level generation opens several batch
+     * windows in sequence (and they may briefly overlap). Cancels any in-flight
+     * debounce so a save already armed by the first mutations of the batch does
+     * not fire mid-generation.
+     */
+    private handleBatchStart(): void {
+        this._batchDepth++;
+        this.cancelDebounce();
+        // Mutations during the batch are real changes — reflect "pending" so the
+        // toolbar shows unsaved work, but the actual write waits for drain.
+        if (this.hasDirtyChanges) this.setStatus('pending');
+    }
+
+    /**
+     * Fired on `pryzm-batch-ended`. Decrements the ref-count; when the LAST batch
+     * window drains, opens a short settle window and (if anything is dirty)
+     * schedules the single coalesced autosave. The settle window prevents a brief
+     * inter-batch gap in a multi-level furnish from arming a premature save.
+     */
+    private handleBatchEnd(): void {
+        if (this._batchDepth > 0) this._batchDepth--;
+        if (this._batchDepth > 0) return;
+
+        // Coalesce consecutive per-level batches: a save armed now would still see
+        // _settleUntil in the future and defer to the deadline (executeSave's
+        // settle-window branch), so back-to-back batches collapse to one write.
+        this._settleUntil = Math.max(
+            this._settleUntil,
+            Date.now() + SaveOrchestrator._BATCH_SETTLE_MS,
+        );
+        if (this.hasDirtyChanges || this.pendingSave) {
+            this.pendingSave = false;
+            this.scheduleDebounce();
         }
     }
 
@@ -385,6 +466,8 @@ export class SaveOrchestrator {
         MUTATION_EVENTS.forEach(evt => window.removeEventListener(evt, this.mutationHandler));
         window.removeEventListener('bim-project-cleared', this.clearHandler);
         window.removeEventListener('beforeunload', this.beforeUnloadHandler);
+        window.removeEventListener('pryzm-batch-started', this.batchStartHandler);
+        window.removeEventListener('pryzm-batch-ended', this.batchEndHandler);
         console.log('[SaveOrchestrator] Disposed');
     }
 }

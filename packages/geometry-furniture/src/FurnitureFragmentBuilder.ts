@@ -9,6 +9,27 @@ import {
     furnitureCastsShadowUnderBudget,
 } from './furnitureShadowBudget';
 
+/**
+ * §PERF-WEBGPU-FURNITURE-INSTANCING (2026-06-26) — structural handle for the
+ * GPU-instancing bridge injected by initBuilders. Typed structurally (not via a
+ * direct value import of FurnitureInstanceBridge) so geometry-furniture takes no
+ * new value dependency and avoids any import cycle — exactly how the wall
+ * fragment builder receives WallInstanceBridge. The concrete bridge lives in
+ * @pryzm/core-app-model/rendering.
+ */
+export interface FurnitureInstanceBridgeLike {
+    /** Enable check — `globalThis.__pryzmFurnitureInstancingV1 === true`. */
+    register(
+        elementId: string,
+        levelId: string,
+        group: THREE.Object3D,
+        worldMatrix: THREE.Matrix4,
+    ): boolean;
+    updateTransform(elementId: string, worldMatrix: THREE.Matrix4): void;
+    unregister(elementId: string): void;
+    isInstanced(elementId: string): boolean;
+}
+
 export class FurnitureFragmentBuilder {
     private scene: THREE.Scene;
     public furnitureRoots = new Map<string, THREE.Group>();
@@ -16,8 +37,27 @@ export class FurnitureFragmentBuilder {
     private materialService = new MaterialService();
     private wardrobeEngine = new WardrobeEngine();
 
+    /**
+     * §PERF-WEBGPU-FURNITURE-INSTANCING — optional GPU-instancing bridge + flag
+     * gate. Injected by initBuilders via setInstanceBridge(); the gate is a
+     * function so the flag can be toggled at runtime without re-wiring. When the
+     * bridge is absent or the flag is off, EVERY furniture item stays on the
+     * fragment path (today's exact behaviour).
+     */
+    private _instanceBridge: FurnitureInstanceBridgeLike | null = null;
+    private _instancingEnabled: () => boolean = () => false;
+
     constructor(scene: THREE.Scene) {
         this.scene = scene;
+    }
+
+    /**
+     * Inject the furniture GPU-instancing bridge + its flag gate. Mirrors
+     * WallFragmentBuilder.setInstanceBridge(). Safe to call once at bootstrap.
+     */
+    setInstanceBridge(bridge: FurnitureInstanceBridgeLike, isEnabled: () => boolean): void {
+        this._instanceBridge = bridge;
+        this._instancingEnabled = isEnabled;
     }
 
     updateFurniture(data: FurnitureData): void {
@@ -200,12 +240,13 @@ export class FurnitureFragmentBuilder {
                 }
             });
 
-            root.add(mesh);
-
             // A.21.D15 — the ONE place the mount offset is applied:
             // worldY = floor (data.position.y) + baseOffset (mount height).
             // Builders draw geometry FLOOR-RELATIVE (group origin = floor) and
             // must NOT re-add baseOffset internally, or wall-mounted items float.
+            // NOTE: position/rotation are written on `root` BEFORE the instancing
+            // attempt so the bridge can read root.matrixWorld for the per-instance
+            // transform — and so the fragment fallback path is unchanged.
             if (data.position) {
                 root.position.set(
                     data.position.x,
@@ -234,7 +275,63 @@ export class FurnitureFragmentBuilder {
                 root.quaternion.setFromEuler(new THREE.Euler(data.rotation.x, data.rotation.y, data.rotation.z, (data.rotation.order || 'XYZ') as THREE.EulerOrder));
             }
 
-            root.visible = true;
+            // ── §PERF-WEBGPU-FURNITURE-INSTANCING (2026-06-26) ────────────────
+            // Try the GPU-instancing path BEFORE adding the per-item group to the
+            // scene. When the flag is on and the built group bakes to a single
+            // (geometry, material) leaf, the bridge registers it into the shared
+            // InstancedElementRenderer (one InstancedMesh draw call for all
+            // identical items) and the empty `root` carries no geometry → no
+            // duplicate draw. Per-element pick + per-level isolate are preserved
+            // by the renderer (the furniture id is the per-instance pick id). On
+            // ANY miss (flag off, ineligible, error) we fall straight back to the
+            // fragment path — identical to today.
+            let instanced = false;
+            if (this._instanceBridge && this._instancingEnabled()) {
+                try {
+                    root.updateMatrixWorld(true);
+                    const worldMatrix = new THREE.Matrix4().copy(root.matrixWorld);
+                    instanced = this._instanceBridge.register(
+                        data.id,
+                        data.levelId,
+                        mesh,
+                        worldMatrix,
+                    );
+                } catch (instErr) {
+                    instanced = false;
+                    console.warn(
+                        `[FurnitureFragmentBuilder] §PERF-WEBGPU-FURNITURE-INSTANCING ` +
+                        `instance register failed for id=${data.id} type="${data.furnitureType}" — ` +
+                        `falling back to fragment path:`,
+                        instErr,
+                    );
+                }
+            }
+
+            if (instanced) {
+                // Item is rendered by the InstancedElementRenderer; dispose the
+                // now-unused per-item geometry/materials and keep `root` empty +
+                // invisible so it never double-draws and never costs a draw call.
+                mesh.traverse((child) => {
+                    if (child instanceof THREE.Mesh) {
+                        child.geometry.dispose();
+                        const mat = child.material;
+                        if (Array.isArray(mat)) {
+                            mat.forEach((mm) => { if (!this.materialService.isCachedMaterial(mm)) mm.dispose(); });
+                        } else if (!this.materialService.isCachedMaterial(mat)) {
+                            mat.dispose();
+                        }
+                    }
+                });
+                root.visible = false;
+            } else {
+                // Fragment fallback (or flag off): render the per-item group, and
+                // release any stale instance the bridge may still hold for this id.
+                if (this._instanceBridge?.isInstanced(data.id)) {
+                    this._instanceBridge.unregister(data.id);
+                }
+                root.add(mesh);
+                root.visible = true;
+            }
         }
     }
 
@@ -243,6 +340,12 @@ export class FurnitureFragmentBuilder {
     }
 
     removeFurniture(id: string): void {
+        // §PERF-WEBGPU-FURNITURE-INSTANCING — release the GPU instance first (the
+        // root may be empty/invisible when the item was instanced, so the mesh
+        // disposal below is a no-op for it; the instance slot still must be freed).
+        if (this._instanceBridge?.isInstanced(id)) {
+            this._instanceBridge.unregister(id);
+        }
         const root = this.furnitureRoots.get(id);
         if (root) {
             // Properly dispose geometries AND unique materials before removal

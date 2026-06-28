@@ -82,6 +82,13 @@ import { buildAnnotationHandlerSet } from '@pryzm/plugin-annotations';
 // orthogonal to storeKey naming.
 import { FurnitureStore, buildFurnitureHandlerSet } from '@pryzm/plugin-furniture';
 import { PlumbingStore, buildPlumbingHandlerSet } from '@pryzm/plugin-plumbing';
+// §LIGHTING-STORE-FIX (2026-06-26) — lighting was registered for HANDLERS
+// (engineLauncher registerLightingHandlers) but never contributed a STORE here,
+// so the bus storesProvider had no `lighting` key and every `lighting.create`
+// threw "required store 'lighting' is missing from HandlerContext.stores" (48×
+// per furnish — once per fixture). Mirror the plumbing descriptor exactly:
+// LightingStore() (no-arg) + buildLightingHandlerSet() (no deps).
+import { LightingStore, buildLightingHandlerSet } from '@pryzm/plugin-lighting';
 import {
   RoomStore,
   buildRoomHandlerSet,
@@ -284,6 +291,26 @@ export const ALL_PLUGINS: readonly PluginDescriptor[] = [
     storeKey: 'plumbing',
     buildStore: () => new PlumbingStore() as unknown as Store<object>,
     buildHandlers: () => buildPlumbingHandlerSet() as readonly CommandHandler<unknown>[],
+  },
+
+  // ---- Lighting (§LIGHTING-STORE-FIX 2026-06-26) ----
+  //
+  // Sibling of plumbing: the lighting handlers were already registered (via
+  // registerLightingHandlers in engineLauncher AND, authoritatively, here through
+  // buildHandlers), but no STORE was contributed — so the bus storesProvider
+  // (built from `stores[plugin.storeKey]` in bootstrap.everything.ts) had no
+  // `lighting` key. CreateLightingHandler.affectedStores = ['lighting'] and reads
+  // ctx.stores.lighting, so every lighting.create threw
+  //   "required store 'lighting' is missing from HandlerContext.stores" (ADR-002 §3)
+  // — 48× per furnish (once per fixture), and the post-furnish fixtures never
+  // rendered. Contributing LightingStore under storeKey 'lighting' (exact mirror of
+  // the plumbing descriptor) closes the create→`lighting.created`→legacy-3D-store
+  // bridge that initTools already wires.
+  {
+    id: 'lighting',
+    storeKey: 'lighting',
+    buildStore: () => new LightingStore() as unknown as Store<object>,
+    buildHandlers: () => buildLightingHandlerSet() as readonly CommandHandler<unknown>[],
   },
 
   // ---- Rooms (E-finish.0.E orphan registration) ----

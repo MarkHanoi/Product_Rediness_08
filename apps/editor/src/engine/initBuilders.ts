@@ -38,6 +38,9 @@ import { SlabStore, SlabFragmentBuilder, SlabLevelCleanupHandler } from '@pryzm/
 import { ColumnFragmentBuilder, installColumnPlanSymbolBuilder } from '@pryzm/geometry-column';
 // ADR-0076 Axis 3 (§PERF-WEBGPU-FRAGMENT) — element-agnostic GPU-instancing bridge.
 import { ElementInstanceBridge, instancedElementRenderer } from '@pryzm/core-app-model/rendering';
+// §PERF-WEBGPU-FURNITURE-INSTANCING (2026-06-26) — furniture GPU-instancing bridge
+// + its independent flag (__pryzmFurnitureInstancingV1, default OFF).
+import { FurnitureInstanceBridge, isFurnitureInstancingEnabled } from '@pryzm/core-app-model/rendering';
 
 // ── Ceiling subsystem ──────────────────────────────────────────────────────
 import { CeilingStore }             from '@pryzm/core-app-model/stores';
@@ -688,6 +691,20 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     window.furnitureStore = furnitureStore; // TODO(TASK-08)
 
     const furnitureBuilder = new FurnitureFragmentBuilder(scene);
+    // §PERF-WEBGPU-FURNITURE-INSTANCING (2026-06-26) — wire the furniture
+    // GPU-instancing bridge to the SAME shared InstancedElementRenderer that
+    // walls/columns/beams use. Default-OFF behind __pryzmFurnitureInstancingV1
+    // (a separate switch from the wall/element flag), so this is inert until the
+    // flag is explicitly enabled and verified in-browser. Mirrors the columnBuilder
+    // / beamBuilder instance-bridge wiring above.
+    try {
+        furnitureBuilder.setInstanceBridge(
+            new FurnitureInstanceBridge(instancedElementRenderer),
+            isFurnitureInstancingEnabled,
+        );
+    } catch (instErr) {
+        console.warn('[initBuilders] §PERF-WEBGPU-FURNITURE-INSTANCING furniture instance bridge wiring failed:', instErr);
+    }
     // §09 F-09: expose the builder as a non-enumerable, non-writable handle so it
     // does not leak through `Object.keys(window)` enumeration or get reassigned by
     // untrusted scripts at runtime. Existing callers that read it directly continue
