@@ -35,6 +35,16 @@ import {
     heatFieldCells,
 } from "../climate/climateOverlayGeometry";
 import { windRoseBars } from "../climate/climateChartData";
+// §SITE-METRIC-HEATMAP — pure Hektar/Forma-style ground-grid metric bridge (no
+// Cesium/THREE/DOM): composes @pryzm/street-analytics into coloured ground cells in
+// the SAME site-ENU frame as the climate overlays, plus the per-metric legend.
+import {
+    buildSiteMetricGrid,
+    siteMetricLegend,
+    type SiteMetric,
+    type MetricFootprint,
+    type MetricGridCell,
+} from "../climate/siteMetricGrids";
 
 // H7 (07-BIM-SECURITY-CONTRACT §6.1): Cesium Ion token MUST be loaded from the
 // VITE_CESIUM_TOKEN environment variable and MUST NOT be hardcoded in source.
@@ -451,6 +461,17 @@ export class CesiumViewport {
   /** The ClimateDataset the wind/heat overlays draw from. Supplied by the
    *  analysis controls (which own the ClimateStore read); null until ingested. */
   private climateOverlayDataset: import('@pryzm/schemas').ClimateDataset | null = null;
+
+  // ---- §SITE-METRIC-HEATMAP — Hektar/Forma-style switchable ground heatmap ----
+  /** Entities for the active site-metric ground heatmap (its own layer so it can
+   *  be cleared independently of the sun-path/wind/heat climate overlays). */
+  private siteMetricEntities: Cesium.Entity[] = [];
+  /** The metric currently shown as a ground heatmap, or null (off). Sun-hours /
+   *  daylight are NOT ground grids — they are routed to the surface raycast pass. */
+  private siteMetricActive: SiteMetric | null = null;
+  /** The last OSM context collection (footprints + heights, lon/lat) so the
+   *  population/wind/heat grids can read built density. Captured on context load. */
+  private lastContextCollection: ContextBuildingCollection | null = null;
 
   // ---- MAP-DATA-OVERTURE — context-building (surrounding massing) state ----
   /** Cesium entities placed for the surrounding OSM/Overture context buildings,
@@ -3373,6 +3394,11 @@ export class CesiumViewport {
     // is the cleanest fetch-capture point. Best-effort, never throws.
     setNeighbourFootprints(lat, lon, collection);
 
+    // §SITE-METRIC-HEATMAP — retain the footprints so the population / wind / heat
+    // ground grids can read the surrounding built density; refresh an active heatmap.
+    this.lastContextCollection = collection;
+    if (this.siteMetricActive) this.renderSiteMetricOverlay();
+
     this.clearContextBuildings();
     this.contextBuildingsAt = { lat, lon };
 
@@ -3697,6 +3723,11 @@ export class CesiumViewport {
     this.climateOverlayDataset = ds;
     if (this.climateOverlayOn.wind) this.renderWindOverlay();
     if (this.climateOverlayOn.heat) this.renderHeatOverlay();
+    // §SITE-METRIC-HEATMAP — the temperature / wind ground grids read the dataset;
+    // repaint an active heatmap when fresh climate data lands.
+    if (this.siteMetricActive === 'temperature' || this.siteMetricActive === 'wind') {
+      this.renderSiteMetricOverlay();
+    }
   }
 
   /** Toggle the 3D sun-path arc overlay (summer/equinox/winter dome arcs). */
@@ -3718,6 +3749,138 @@ export class CesiumViewport {
     this.climateOverlayOn.heat = on;
     if (on) this.renderHeatOverlay();
     else this.clearOverlayLayer('heat');
+  }
+
+  // ── §SITE-METRIC-HEATMAP — Hektar/Forma-style switchable ground heatmap ──────
+  //
+  // ONE colour-binned ground heatmap at a time (temperature · wind · population),
+  // mapped onto the site in the SAME site-ENU frame as the massing + the other
+  // overlays. The DATA comes from the pure `buildSiteMetricGrid` bridge over
+  // @pryzm/street-analytics (UHI / Lawson wind / OSM population proxy). Sun-hours
+  // is NOT a ground grid — the switcher routes it to the surface raycast pass — so
+  // selecting 'sunHours'/'daylight' here simply clears any ground heatmap.
+
+  /**
+   * Show ONE site metric as a colour-binned ground heatmap (or clear with null).
+   * Only the ground-grid metrics draw here (temperature / wind / population);
+   * 'sunHours' / 'daylight' clear the ground layer (they ride the surface pass).
+   * The analysis controls own the metric switch + legend; this just renders.
+   */
+  public setSiteMetricOverlay(metric: SiteMetric | null): void {
+    if (metric === 'sunHours' || metric === 'daylight') metric = null;
+    this.siteMetricActive = metric;
+    if (metric) this.renderSiteMetricOverlay();
+    else this.clearSiteMetricOverlay();
+  }
+
+  /** The active ground-heatmap metric, or null. */
+  public getSiteMetricOverlay(): SiteMetric | null {
+    return this.siteMetricActive;
+  }
+
+  /** Project the OSM context + proposed massing footprints into the site-ENU frame
+   *  (east/north metres about the overlay origin) for the street-analytics grids. */
+  private siteMetricFootprints(origin: { lat: number; lon: number }): MetricFootprint[] {
+    const out: MetricFootprint[] = [];
+    const originCart = Cesium.Cartesian3.fromDegrees(origin.lon, origin.lat, 0);
+    const enu = Cesium.Transforms.eastNorthUpToFixedFrame(originCart);
+    const inv = Cesium.Matrix4.inverse(enu, new Cesium.Matrix4());
+    const collection = this.lastContextCollection;
+    if (collection) {
+      for (const f of collection.features) {
+        const ring = f.geometry.coordinates[0];
+        if (!ring || ring.length < 4) continue;
+        const enuRing: { x: number; z: number }[] = [];
+        for (const [flon, flat] of ring) {
+          if (flon == null || flat == null) continue;
+          const fc = Cesium.Cartesian3.fromDegrees(flon, flat, 0);
+          const local = Cesium.Matrix4.multiplyByPoint(inv, fc, new Cesium.Cartesian3());
+          // ENU x = east, y = north → StreetGrid XZ (x = east, z = north).
+          enuRing.push({ x: local.x, z: local.y });
+        }
+        if (enuRing.length >= 3) {
+          out.push({ ring: enuRing, heightM: Math.max(0.1, f.properties.heightM) });
+        }
+      }
+    }
+    // The proposed massing as one footprint so the field reads its density/shelter
+    // even when OSM context is sparse (a square about the massing centroid).
+    const o = this.formaMassingOrigin;
+    if (o && o.areaM2 > 0) {
+      const half = Math.sqrt(o.areaM2) / 2;
+      const cx = o.centroidEast;
+      const cz = o.centroidNorth;
+      out.push({
+        ring: [
+          { x: cx - half, z: cz - half }, { x: cx + half, z: cz - half },
+          { x: cx + half, z: cz + half }, { x: cx - half, z: cz + half },
+        ],
+        heightM: 9,
+      });
+    }
+    return out;
+  }
+
+  /** Render the active site-metric ground heatmap as colour-binned ENU cells. */
+  private renderSiteMetricOverlay(): void {
+    const viewer = this.viewer;
+    const metric = this.siteMetricActive;
+    const origin = this.overlayOrigin();
+    this.clearSiteMetricOverlay();
+    if (!viewer || !metric || !origin) return;
+    if (metric === 'sunHours' || metric === 'daylight') return;
+    try {
+      const radius = this.overlayRadiusM();
+      const base = this.formaTerrainBaseHeight;
+      const enu = Cesium.Transforms.eastNorthUpToFixedFrame(
+        Cesium.Cartesian3.fromDegrees(origin.lon, origin.lat, 0),
+      );
+      const cells: MetricGridCell[] = buildSiteMetricGrid(metric, {
+        radius,
+        footprints: this.siteMetricFootprints(origin),
+        dataset: this.climateOverlayDataset,
+        heightAboveGround: 0.16,
+        gridCountCap: 26,
+      });
+      let drawn = 0;
+      for (let i = 0; i < cells.length; i++) {
+        const c = cells[i]!;
+        // Only paint cells within the analysis disc (a round Forma-style cutout).
+        if (Math.hypot(c.east, c.north) > radius * 1.02) continue;
+        const cz = base + c.up;
+        const h = c.halfSize * 0.96; // tiny gap so cells read as a grid
+        const corners = [
+          this.enuToCartesian(enu, c.east - h, c.north - h, cz),
+          this.enuToCartesian(enu, c.east + h, c.north - h, cz),
+          this.enuToCartesian(enu, c.east + h, c.north + h, cz),
+          this.enuToCartesian(enu, c.east - h, c.north + h, cz),
+        ];
+        const ent = viewer.entities.add({
+          name: `pryzm-site-metric-${metric}-${i}`,
+          polygon: {
+            hierarchy: new Cesium.PolygonHierarchy(corners),
+            perPositionHeight: true,
+            material: Cesium.Color.fromCssColorString(c.colorHex).withAlpha(0.5),
+          },
+        });
+        this.siteMetricEntities.push(ent);
+        drawn++;
+      }
+      viewer.scene.requestRender();
+      const legend = siteMetricLegend(metric, this.climateOverlayDataset);
+      console.log(`[CesiumViewport][site-metric] ${metric} heatmap: ${drawn}/${cells.length} cell(s), radius ${radius.toFixed(0)} m${legend ? ` (${legend.title})` : ''}.`);
+    } catch (e) {
+      console.warn('[CesiumViewport][site-metric] overlay failed:', e);
+    }
+  }
+
+  /** Remove the site-metric heatmap entities (idempotent). */
+  private clearSiteMetricOverlay(): void {
+    const viewer = this.viewer;
+    if (viewer) {
+      for (const e of this.siteMetricEntities) { try { viewer.entities.remove(e); } catch { /* gone */ } }
+    }
+    this.siteMetricEntities = [];
   }
 
   /** The site origin (= ENU anchor) the overlays place against, or null. Prefers
@@ -4029,6 +4192,7 @@ export class CesiumViewport {
     this.clearOverlayLayer('sunPath');
     this.clearOverlayLayer('wind');
     this.clearOverlayLayer('heat');
+    this.clearSiteMetricOverlay();
   }
 
   /** Re-draw whichever climate overlays are currently toggled ON (called after a
@@ -4037,6 +4201,7 @@ export class CesiumViewport {
     if (this.climateOverlayOn.sunPath) this.renderSunPathOverlay();
     if (this.climateOverlayOn.wind) this.renderWindOverlay();
     if (this.climateOverlayOn.heat) this.renderHeatOverlay();
+    if (this.siteMetricActive) this.renderSiteMetricOverlay();
   }
 
   /**
