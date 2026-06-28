@@ -70,6 +70,7 @@ import { buildResidentialPlanSvg } from '../residential-building/residentialPlan
 // §BUILDING-PREVIEW-MODULAR — the shared, building-type-agnostic façade palette (single source).
 import { FACADE_PALETTE, DEFAULT_FACADE_HEX } from '../preview-kit/buildingPlanDescriptor.js';
 import { orchestrateResidentialBuilding } from '@pryzm/ai-host';
+import type { ResidentialBuildingOk } from '@pryzm/ai-host';
 import { makeDraggable } from '../makeDraggable.js';
 import { makeResizable } from '../makeResizable.js';
 
@@ -1095,35 +1096,89 @@ class OnboardingStepController {
         body.appendChild(layout);
 
         const numV = (v: string, d: number): number => { const n = Number(v); return Number.isFinite(n) ? n : d; };
+
+        // §RESI-PER-LEVEL-PREVIEW (founder 2026-06-28) — clicking a Views-rail chip drives the
+        // CENTRE preview to THAT level's plan + caption + unit-count. The orchestrator OK result
+        // (and its card model) are cached here so a chip click re-renders the preview INSTANTLY
+        // (no re-run); a slider/typology/floor change re-runs the orchestrator and refreshes the
+        // cache. `selectedLevelIndex === null` ⇒ track the representative pick (engine default).
+        // The index is the position into `result.levels` / `card.floors` (orchestrator-aligned).
+        let lastResult: ResidentialBuildingOk | null = null;
+        let lastCard: ResidentialCardModel | null = null;
+        let selectedLevelIndex: number | null = null;
+
         /** §RESI-LANDSCAPE-MODAL — paint the LEFT "Views / levels" rail from the live result:
-         *  the representative-plan label (highlighted) + one chip per floor with its unit count.
-         *  Display-only, rebuilt on every live re-render so it tracks the sliders. */
-        const renderViewsRail = (card: ResidentialCardModel | null, planLabel: string): void => {
+         *  one CLICKABLE chip per floor (label + unit count); the SELECTED level is highlighted.
+         *  Rebuilt on every live re-render so it tracks the sliders; click handlers are re-bound
+         *  here (innerHTML replace drops the old ones). */
+        const renderViewsRail = (card: ResidentialCardModel | null, activeIndex: number): void => {
             if (!card) { viewsList.innerHTML = `<span class="os-resi-views-empty">Draw a plot to preview floors.</span>`; return; }
             const rows: string[] = [];
-            for (const f of card.floors) {
+            for (let i = 0; i < card.floors.length; i++) {
+                const f = card.floors[i]!;
                 const placed = f.apartments.filter(a => a.status === 'ok').length;
-                const isPlan = !!planLabel && f.label === planLabel;
+                const isActive = i === activeIndex;
                 const meta = f.role === 'ground'
                     ? (f.commercialGroundFloor ? 'Commercial · core' : 'Lobby · core')
                     : `${placed} unit${placed === 1 ? '' : 's'}`;
                 rows.push(
-                    `<button type="button" class="os-resi-view-chip${isPlan ? ' os-resi-view-chip--on' : ''}" tabindex="-1">` +
+                    `<button type="button" class="os-resi-view-chip${isActive ? ' os-resi-view-chip--on' : ''}" ` +
+                    `data-level="${i}" aria-pressed="${isActive ? 'true' : 'false'}">` +
                     `<span class="os-resi-view-chip-label">${this.escResi(f.label)}</span>` +
                     `<span class="os-resi-view-chip-meta">${this.escResi(meta)}</span></button>`,
                 );
             }
             viewsList.innerHTML = rows.join('') || `<span class="os-resi-views-empty">No floors yet.</span>`;
+            // Re-bind chip clicks: select that level → re-render the preview for it (no re-run).
+            viewsList.querySelectorAll('button.os-resi-view-chip').forEach((b) => {
+                b.addEventListener('click', () => {
+                    const idx = Number((b as HTMLElement).dataset['level']);
+                    if (!Number.isInteger(idx)) return;
+                    selectedLevelIndex = idx;
+                    console.log('[onboarding-step] §RESI-PER-LEVEL-PREVIEW: views chip →', idx);
+                    if (lastResult && lastCard) renderPreviewForLevel(lastResult, lastCard, idx);
+                });
+            });
         };
+
+        /** §RESI-PER-LEVEL-PREVIEW — render the CENTRE preview + caption + unit-count line for a
+         *  SPECIFIC level of an already-computed result. The building TOTALS (whole-building apt
+         *  count / net area / floor count) stay constant; the per-level line + plan track the
+         *  selected floor. Re-highlights the rail to match. */
+        const renderPreviewForLevel = (result: ResidentialBuildingOk, card: ResidentialCardModel, levelIndex: number): void => {
+            const idx = Math.max(0, Math.min(card.floors.length - 1, levelIndex));
+            const floor = card.floors[idx];
+            const plan = buildResidentialPlanSvg(result, { targetPx: 460, levelIndex: idx });
+            const placed = floor ? floor.apartments.filter(a => a.status === 'ok').length : 0;
+            // Per-level line: ground = its commercial/core role; upper = its placed unit count.
+            const levelLine = floor && floor.role === 'ground'
+                ? (floor.commercialGroundFloor ? 'Commercial ground floor · core' : 'Lobby · core')
+                : `${placed} apartment${placed === 1 ? '' : 's'} on this floor`;
+            const mix = new Map<string, number>();
+            for (const f of card.floors) for (const a of f.apartments) if (a.status === 'ok') mix.set(a.typology, (mix.get(a.typology) ?? 0) + 1);
+            const mixStr = [...mix.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([t, n]) => `${t}×${n}`).join(' · ') || '—';
+            const aptWord = card.totalApartments === 1 ? 'apartment' : 'apartments';
+            const flrWord = card.upperLevels === 1 ? 'floor' : 'floors';
+            const caption = plan.levelLabel || (floor ? floor.label : '');
+            preview.innerHTML =
+                (plan.svg ? `<div class="os-resi-preview-plan">${plan.svg}</div>` +
+                    `<div class="os-resi-preview-caption">${this.escResi(caption)} · ${this.escResi(levelLine)}</div>` : ``) +
+                `<div class="os-resi-preview-head"><strong>${card.totalApartments}</strong> ${aptWord} · ` +
+                `<strong>${Math.round(card.totalNetAreaM2)}</strong> m² net · <strong>${card.upperLevels}</strong> residential ${flrWord}</div>` +
+                `<div class="os-resi-preview-mix">${mixStr}</div>` +
+                (card.totalRejected > 0 ? `<div class="os-resi-preview-warn">${card.totalRejected} unit(s) didn't fit — try a larger size band or fewer types</div>` : ``);
+            renderViewsRail(card, idx);
+        };
+
         const renderLivePreview = (): void => {
             const footprint = this.readParcelFootprint();
-            if (!footprint) { preview.innerHTML = `<span class="os-resi-preview-hint">Draw a plot to preview the layout.</span>`; renderViewsRail(null, ''); return; }
+            if (!footprint) { preview.innerHTML = `<span class="os-resi-preview-hint">Draw a plot to preview the layout.</span>`; lastResult = null; lastCard = null; renderViewsRail(null, -1); return; }
             let minM2 = numV(minInput.value, seedMin);
             let maxM2 = numV(maxInput.value, seedMax);
             if (maxM2 < minM2) { const t = minM2; minM2 = maxM2; maxM2 = t; }
             const floors = Math.max(1, Math.min(20, Math.round(numV(floorsInput.value, seedFloors))));
             if (!(typoState.T1 || typoState.T2 || typoState.T3 || typoState.T4)) {
-                preview.innerHTML = `<span class="os-resi-preview-hint">Pick at least one apartment type to preview.</span>`; renderViewsRail(null, ''); return;
+                preview.innerHTML = `<span class="os-resi-preview-hint">Pick at least one apartment type to preview.</span>`; lastResult = null; lastCard = null; renderViewsRail(null, -1); return;
             }
             try {
                 const result = orchestrateResidentialBuilding({
@@ -1135,28 +1190,29 @@ class OnboardingStepController {
                     typologies: { T1: typoState.T1, T2: typoState.T2, T3: typoState.T3, T4: typoState.T4 },
                 });
                 if (result.status !== 'ok') {
-                    preview.innerHTML = `<span class="os-resi-preview-hint">No layout fits at this size — try a larger size band or fewer floors.</span>`; renderViewsRail(null, ''); return;
+                    preview.innerHTML = `<span class="os-resi-preview-hint">No layout fits at this size — try a larger size band or fewer floors.</span>`; lastResult = null; lastCard = null; renderViewsRail(null, -1); return;
                 }
                 const card = buildResidentialCardModel(result);
-                const mix = new Map<string, number>();
-                for (const f of card.floors) for (const a of f.apartments) if (a.status === 'ok') mix.set(a.typology, (mix.get(a.typology) ?? 0) + 1);
-                const mixStr = [...mix.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([t, n]) => `${t}×${n}`).join(' · ') || '—';
-                // §RESI-LIVE-PLAN (founder 2026-06-23) — draw the ACTUAL floor plan, not just the
-                // count/mix. The orchestrator is pure + ms-fast, so the slider redraws the plan live.
-                const plan = buildResidentialPlanSvg(result, { targetPx: 460 });
-                const aptWord = card.totalApartments === 1 ? 'apartment' : 'apartments';
-                const flrWord = card.upperLevels === 1 ? 'floor' : 'floors';
-                preview.innerHTML =
-                    (plan.svg ? `<div class="os-resi-preview-plan">${plan.svg}</div>` +
-                        `<div class="os-resi-preview-caption">${plan.levelLabel} · representative plan</div>` : ``) +
-                    `<div class="os-resi-preview-head"><strong>${card.totalApartments}</strong> ${aptWord} · ` +
-                    `<strong>${Math.round(card.totalNetAreaM2)}</strong> m² net · <strong>${card.upperLevels}</strong> residential ${flrWord}</div>` +
-                    `<div class="os-resi-preview-mix">${mixStr}</div>` +
-                    (card.totalRejected > 0 ? `<div class="os-resi-preview-warn">${card.totalRejected} unit(s) didn't fit — try a larger size band or fewer types</div>` : ``);
-                renderViewsRail(card, plan.levelLabel);
+                lastResult = result;
+                lastCard = card;
+                // §RESI-PER-LEVEL-PREVIEW — keep the user's selected floor across slider changes when
+                // it still exists; otherwise fall back to the representative pick (selectedLevelIndex
+                // stays null so the preview tracks the engine default).
+                let activeIndex: number;
+                if (selectedLevelIndex !== null && selectedLevelIndex < card.floors.length) {
+                    activeIndex = selectedLevelIndex;
+                } else {
+                    selectedLevelIndex = null;
+                    // Render once to discover the representative level, then highlight it in the rail.
+                    const probe = buildResidentialPlanSvg(result, { targetPx: 1 });
+                    activeIndex = card.floors.findIndex(f => f.label === probe.levelLabel);
+                    if (activeIndex < 0) activeIndex = Math.max(0, card.floors.length - 1);
+                }
+                renderPreviewForLevel(result, card, activeIndex);
             } catch (err) {
                 preview.innerHTML = `<span class="os-resi-preview-hint">Live preview unavailable.</span>`;
-                renderViewsRail(null, '');
+                lastResult = null; lastCard = null;
+                renderViewsRail(null, -1);
                 console.warn('[onboarding-step] residential live preview threw (non-fatal):', err);
             }
         };

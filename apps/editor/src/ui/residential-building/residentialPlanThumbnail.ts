@@ -17,6 +17,7 @@
 
 import type { ResidentialBuildingOk, PlacedApartment, ResidentialRigidTransform } from '@pryzm/ai-host';
 import { buildBuildingPlanSvg } from '../preview-kit/buildingPlanSvg.js';
+import { floorLabel } from './residentialCardModel.js';
 import type {
     BuildingPlanDescriptor, PlanCell, PlanCorridor, PlanLegendEntry, PlanPt, PlanRect, PlanSubRoom,
 } from '../preview-kit/buildingPlanDescriptor.js';
@@ -110,12 +111,33 @@ function pickLevelIndex(result: ResidentialBuildingOk): number {
     return firstWithApts >= 0 ? firstWithApts : Math.max(0, per.length - 1);
 }
 
+/** §RESI-PER-LEVEL-PREVIEW (founder 2026-06-28) — resolve the level the preview should
+ *  render. When the caller passes an explicit `levelIndex` (a Views-rail chip click) and it
+ *  is a valid level, render THAT level; otherwise fall back to the representative pick. */
+function resolveLevelIndex(result: ResidentialBuildingOk, requested?: number): number {
+    if (
+        typeof requested === 'number' &&
+        Number.isInteger(requested) &&
+        requested >= 0 &&
+        requested < result.levels.length
+    ) {
+        return requested;
+    }
+    return pickLevelIndex(result);
+}
+
 /**
- * Build the residential `BuildingPlanDescriptor` for one representative floor. Exported so
- * the descriptor (and the L-shape footprint) is unit-testable WITHOUT rendering. PURE.
+ * Build the residential `BuildingPlanDescriptor` for one floor. Exported so the descriptor
+ * (and the L-shape footprint) is unit-testable WITHOUT rendering. PURE.
+ *
+ * §RESI-PER-LEVEL-PREVIEW — pass an explicit `levelIndex` to render THAT level (a Views-rail
+ * chip click in the residential setup modal); omit it to render the representative floor.
  */
-export function buildResidentialPlanDescriptor(result: ResidentialBuildingOk): BuildingPlanDescriptor | null {
-    const idx = pickLevelIndex(result);
+export function buildResidentialPlanDescriptor(
+    result: ResidentialBuildingOk,
+    levelIndex?: number,
+): BuildingPlanDescriptor | null {
+    const idx = resolveLevelIndex(result, levelIndex);
     const per = result.perLevelApartments[idx];
     const level = result.levels[idx];
     const core = result.core as Rectish;
@@ -201,23 +223,29 @@ export function buildResidentialPlanDescriptor(result: ResidentialBuildingOk): B
         palette: { fills: TYPO_FILL, defaultFill: TYPO_FILL.T2! },
         roomPalette: { fills: ROOM_FILL, defaultFill: ROOM_DEFAULT_FILL },
         legend,
-        levelLabel: idx <= 0 ? 'Ground floor' : `Floor ${idx}`,
+        // §RESI-PER-LEVEL-PREVIEW — architectural ordinals ("Ground floor", "First floor",
+        // …) sourced from the SAME floorLabel() the Views rail uses, keyed off the level's
+        // own levelIndex so the preview caption always matches the selected rail chip.
+        levelLabel: floorLabel(level?.levelIndex ?? idx),
         northArrow: true,
         scaleBar: true,
     };
 }
 
 /**
- * Build a top-down floor-plan SVG (string) for one representative floor of the residential
- * building. Thin wrapper over the shared `buildBuildingPlanSvg` — see the module header.
- * Returns '' (with placed/rejected 0) when there is no geometry to draw.
+ * Build a top-down floor-plan SVG (string) for one floor of the residential building. Thin
+ * wrapper over the shared `buildBuildingPlanSvg` — see the module header. Returns '' (with
+ * placed/rejected 0) when there is no geometry to draw.
+ *
+ * §RESI-PER-LEVEL-PREVIEW — pass `opts.levelIndex` to render a SPECIFIC level (the Views-rail
+ * chip the user clicked); omit it for the representative floor.
  */
 export function buildResidentialPlanSvg(
     result: ResidentialBuildingOk,
-    opts: { targetPx?: number } = {},
+    opts: { targetPx?: number; levelIndex?: number } = {},
 ): { svg: string; levelLabel: string; placed: number; rejected: number } {
-    const descriptor = buildResidentialPlanDescriptor(result);
+    const descriptor = buildResidentialPlanDescriptor(result, opts.levelIndex);
     if (!descriptor) return { svg: '', levelLabel: '', placed: 0, rejected: 0 };
-    const out = buildBuildingPlanSvg(descriptor, opts);
+    const out = buildBuildingPlanSvg(descriptor, opts.targetPx !== undefined ? { targetPx: opts.targetPx } : {});
     return { svg: out.svg, levelLabel: out.levelLabel, placed: out.placed, rejected: out.muted };
 }

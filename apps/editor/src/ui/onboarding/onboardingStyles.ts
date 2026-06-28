@@ -870,6 +870,30 @@ export const ONBOARDING_STYLES = `
   /* Override the slim 560px banner cap — the landscape layout needs widescreen room. */
   width: min(1080px, 96vw);
 }
+/* §RESI-DRAG (founder 2026-06-28) — make the landscape setup card DRAGGABLE by its header.
+   The --drawing banner makes the overlay a full-width (100vw) transparent strip with the
+   visible card centred inside it; dragging that strip can only nudge it vertically (its
+   width ≈ viewport width pins it horizontally). For --resi we instead size the OVERLAY to
+   the card itself and dock it bottom-centre, so it stays NON-BLOCKING (no scrim, the drawn
+   boundary shows behind) yet getBoundingClientRect() returns the real card box —
+   makeDraggable then repositions the actual card and the on-screen clamp works. */
+.os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--resi {
+  inset: auto auto 1.2rem 50%;
+  transform: translateX(-50%);
+  width: min(1080px, 96vw);
+  align-items: stretch;
+}
+/* Header carries the move cursor again (the slim banner set it to default). The drag
+   listener is wired in mountOverlay and survives the body re-renders between steps. */
+.os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--resi .os-header {
+  cursor: move;
+  border-radius: 14px 14px 0 0;
+}
+/* Once dragged, makeDraggable pins left/top + clears the transform; honour that by
+   dropping the centring translate so the card sits exactly where it was released. */
+.os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--resi.vg-panel--dragging {
+  transform: none;
+}
 .os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--resi .os-body {
   /* Reset the --confirm vertical column: the body now hosts ONE landscape grid. */
   display: block;

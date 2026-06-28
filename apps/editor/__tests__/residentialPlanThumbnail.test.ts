@@ -94,11 +94,33 @@ describe('buildResidentialPlanSvg', () => {
         expect(out.svg).toContain('</svg>');
         expect(out.placed).toBe(4);
         expect(out.rejected).toBe(0);
-        expect(out.levelLabel).toBe('Floor 1');
+        // §RESI-PER-LEVEL-PREVIEW — architectural ordinal (was 'Floor 1'); the representative
+        // pick for okResult() is the first upper level (index 1) → 'First floor'.
+        expect(out.levelLabel).toBe('First floor');
         // No numeric leakage into coordinates / dimensions.
         expect(out.svg).not.toContain('NaN');
         expect(out.svg).not.toContain('undefined');
         expect(out.svg).not.toContain('Infinity');
+    });
+
+    // §RESI-PER-LEVEL-PREVIEW (founder 2026-06-28) — an explicit levelIndex renders THAT
+    // floor (rail-chip click), captioned with its architectural ordinal.
+    it('renders a SPECIFIC level when levelIndex is passed (ground / upper)', () => {
+        const ground = buildResidentialPlanSvg(okResult(), { targetPx: 300, levelIndex: 0 });
+        expect(ground.levelLabel).toBe('Ground floor');
+        const second = buildResidentialPlanSvg(okResult(), { targetPx: 300, levelIndex: 2 });
+        expect(second.levelLabel).toBe('Second floor');
+        expect(second.placed).toBe(4);
+    });
+    it('falls back to the representative floor for an out-of-range levelIndex', () => {
+        const out = buildResidentialPlanSvg(okResult(), { targetPx: 300, levelIndex: 99 });
+        expect(out.levelLabel).toBe('First floor');
+    });
+    it('descriptor honours an explicit levelIndex', () => {
+        const d0 = buildResidentialPlanDescriptor(okResult(), 0)!;
+        expect(d0.levelLabel).toBe('Ground floor');
+        const d2 = buildResidentialPlanDescriptor(okResult(), 2)!;
+        expect(d2.levelLabel).toBe('Second floor');
     });
 
     it('draws the core symbol, a north arrow, a scale bar and a typology legend', () => {
