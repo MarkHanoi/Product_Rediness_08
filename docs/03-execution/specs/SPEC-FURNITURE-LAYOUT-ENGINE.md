@@ -167,6 +167,39 @@ Deterministic, per item, in archetype order:
 Groups (e.g. two bedside tables) are placed relative to their leader (the bed): each at
 the bed's head corners, mirrored, sharing the bed's yaw.
 
+### §5.1 — Accent overlap resolution (`accentResolve`, §FURNISH-ACCENT-OVERLAP, 2026-06-29)
+
+The lamp passes (`bedsideLamps` / `bedVariety.placeIntegratedBedLamps`) append a task
+lamp ON each bedside surface **after** the main place pass, bypassing the solver's
+collision/clearance set. Two failure modes followed, both surfaced (correctly) by the
+post-furnish validator (§8) but shipped anyway because nothing fed the finding back:
+
+1. **Host-clash** — a lamp riding its host carried footprint `baseOffset = 0`, so the
+   validator's height-aware `bandsOverlap` read it at the floor band and reported it
+   clashing the host (`bedside_table[i] OVERLAPS lamp[j]`).
+2. **Neighbour-clash** — a riding lamp's plan footprint genuinely overlapped a NON-host
+   floor body (dresser / wardrobe) whose vertical band also overlapped
+   (`dresser[0] OVERLAPS lamp[8]`).
+
+`resolveAccentOverlaps(placed)` runs once before the room's furniture is returned and
+is the **reject → retry → drop** feedback loop the validator's overlap finding now drives:
+
+- **Lift** each accent's footprint `baseOffset` onto its host's top surface (the floor
+  body whose plan footprint contains the accent centre), so a lamp resting on its table
+  is height-separated → mode (1) gone. (Same mechanism as the rug-under-bed /
+  mirror-above-bed height exemptions already in the validator — the resolver shares the
+  exact `bandsOverlap` / underlay / mounted predicate so a residual clash it *keeps* is
+  guaranteed not flagged.)
+- **Retry**: against every non-host floor body + every already-placed accent, test the
+  accent with the *same* predicate the validator uses; on a clash, nudge it inboard
+  toward its host centre in 5 cm steps (so it slides onto the table, away from the piece
+  it was poking).
+- **Drop**: if no candidate pose is clear, the accent is **dropped** rather than shipped
+  — a missing reading lamp beats a lamp embedded in the dresser.
+
+Pure + deterministic; non-accent items pass through byte-identical, and a free-standing
+accent (the corner floor `lamp`, already collision-placed by the solver) is untouched.
+
 ---
 
 ## §6 — Furniture catalogue (F3)
@@ -213,6 +246,33 @@ sorted output; round 1e-6). Global test: `furnishRoom(input)` twice → deep-equ
 - **F7 `furnishRoom`** — a 3×4 m bedroom → bed + 2 bedside tables (+ wardrobe iff area ≥ min); a 5×4 m living → sofa + coffee table; kitchen → a cabinet run config; deterministic.
 - **F8 `buildFurnishCommands`** — one `furniture.create` per placed item; `rotation` scalar; `hostedSpaceId` set; ids unique; mm/units correct.
 - **F9 (integration, happy-dom)** — feed D-TGL-built + detected rooms → furnish → assert furniture appears in `furnitureStore` and `RoomContentsService.getContents(room).contained.furniture` lists them; no item's centroid outside its room.
+
+### §8.1 — Kitchen work-triangle from the parametric config (§FURNISH-KITCHEN-TRIANGLE-CONFIG, 2026-06-29)
+
+The post-furnish validator (§8) runs the G10 NKBA work-triangle check via
+`validateKitchenFromFurniture`. The **primary** kitchen path (`planKitchenRun`) emits ONE
+`kitchen_straight | kitchen_l_shape | kitchen_u_shape` element whose appliance positions
+live in `kitchenConfig.units[]` (cell + arm + `appliance`), NOT as separate
+`sink`/`hob`/`fridge` items. The validator therefore fell through to the **degenerate
+single-run heuristic** (three points at ±0.25·runWidth → ~0.95 m legs on a ~3.8 m run),
+HARD-failing the triangle on kitchens whose real appliances are ≥1.2 m apart **by
+construction** (sink↔hob are placed ≥2 cells = ≥1.2 m apart; the fridge sits off-corner
+or on a secondary arm).
+
+The fix reads the **TRUE** work-triangle from the config: `trianglePointsFromConfig`
+transforms each appliance cell's engine-local centre to world XZ using the placed run's
+`position` (main-arm midpoint) + `rotationY`, mirroring the `KitchenCabinetEngine` local
+frame (main cell `i` at local x = −L/2 + (i+0.5)·unitW; left/right arms off the X=∓L/2
+corners along +Z). This config path is tried **before** the run-centre heuristic; a
+config-less bare `kitchen_straight` keeps the legacy heuristic (back-compat). Genuinely
+sub-minimal galley kitchens that cannot space the triangle still surface a soft/hard
+finding — the validator now measures what is actually built, not an artifact.
+
+Test contract additions: a normal parametric run (I and L) has **no** `legMin` HARD
+finding; the post-furnish kitchen warnings carry **no** `kitchen-triangle (HARD)`;
+config-less runs keep the degenerate result. Plus the §5.1 accent contract: a furnished
+bedroom (all four bed types) ships **no** `lamp OVERLAPS …` warning; a lamp riding its
+host is lifted to the host top; an unresolvable accent is dropped, not shipped.
 
 ---
 
