@@ -61,6 +61,16 @@ import { InstanceGroup, INSTANCE_GROUP_MAX } from './InstanceGroup';
 interface ElementRecord {
     groupKey: string;
     slot: number;
+    /**
+     * §FURNITURE-MULTIPART-INSTANCING — the id surfaced to selection/pick for this
+     * slot. For single-element registrations this equals the storage key
+     * (`elementId`). For a multi-material furniture PART the storage key is a
+     * synthetic per-part key (`elementId#partN`) while `pickId` is the REAL
+     * furniture element id, so picking any part resolves to the one furniture
+     * element. Defaults to the storage key when the caller does not override it,
+     * preserving the wall/column behaviour exactly.
+     */
+    pickId: string;
 }
 
 /**
@@ -120,10 +130,18 @@ export class InstancedElementRenderer {
      * If no group exists, a new InstanceGroup + InstancedMesh is created and
      * added to the scene.
      *
-     * @param elementId  Unique BIM element ID.
+     * @param elementId  Unique storage key for this registration. For a single
+     *                   element this is the BIM element id. For a multi-material
+     *                   furniture PART it is a synthetic per-part key
+     *                   (`elementId#partN`) — see `pickId`.
      * @param geometry   The element's THREE.BufferGeometry.
      * @param material   The element's THREE.Material.
      * @param matrix     World-space transform matrix for this instance.
+     * @param pickId     §FURNITURE-MULTIPART-INSTANCING — the id surfaced to
+     *                   selection (getInstanceElementId). Defaults to `elementId`.
+     *                   A multi-material furniture item passes the REAL furniture
+     *                   element id here for EVERY part so picking any part resolves
+     *                   to the one furniture element.
      */
     register(
         elementId: string,
@@ -132,6 +150,7 @@ export class InstancedElementRenderer {
         matrix: THREE.Matrix4,
         levelId?: string,
         elementType?: string,
+        pickId?: string,
     ): void {
         const key = this._hashGeometry(geometry, material, levelId);
 
@@ -176,9 +195,13 @@ export class InstancedElementRenderer {
             // private, so we provide a slot→id array rebuilt on demand.
             // We use a lazy getter so the array stays in sync.
             group.mesh.userData.getInstanceElementId = (slotIndex: number): string | undefined => {
-                for (const [id, record] of this._elements.entries()) {
+                for (const [, record] of this._elements.entries()) {
                     if (record.groupKey === key && record.slot === slotIndex) {
-                        return id;
+                        // §FURNITURE-MULTIPART-INSTANCING — return the pick id, NOT the
+                        // storage key. For walls/columns pickId === storage key; for a
+                        // multi-material furniture part it is the real furniture id, so
+                        // selecting any part resolves to the one furniture element.
+                        return record.pickId;
                     }
                 }
                 return undefined;
@@ -240,7 +263,7 @@ export class InstancedElementRenderer {
         const slot  = group.addInstance(elementId, matrix);
 
         if (slot >= 0) {
-            this._elements.set(elementId, { groupKey: key, slot });
+            this._elements.set(elementId, { groupKey: key, slot, pickId: pickId ?? elementId });
 
             // §SELECT-INSTANCED-PICK (FIX #5) — store the instance's world-space OBB
             // so SelectionManager._buildGeometryHighlight can build a REAL purple fill
