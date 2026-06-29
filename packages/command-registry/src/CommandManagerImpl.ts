@@ -176,6 +176,52 @@ export class CommandManager {
     }
 
     /**
+     * §LOAD-CHUNKED (2026-06-29) — async, frame-yielding dispatch for the
+     * PROJECT_LOAD fast path.
+     *
+     * Identical to `execute()`'s PROJECT_LOAD branch (no snapshot, no undo push,
+     * no per-command log — load is atomic and the undo stack must be empty after
+     * open) EXCEPT it `await`s the command's own `executeChunked(ctx, yieldFn)`
+     * instead of calling the synchronous `execute(ctx)`. The command yields a
+     * frame between element chunks via `yieldFn`, so the browser paints during a
+     * heavy load instead of freezing (C11 §6.1 — batch geometry build spread
+     * across frames). The post-command callback fan-out fires exactly once, as in
+     * the synchronous path.
+     *
+     * Only used for `PROJECT_LOAD`; non-load callers continue through `execute()`.
+     */
+    async executeChunked(
+        command: Command & { executeChunked(ctx: CommandContext, yieldFn: () => Promise<void>): Promise<CommandResult> },
+        yieldFn: () => Promise<void>,
+    ): Promise<CommandResult> {
+        const validation = command.canExecute(this.context);
+        if (!validation.ok) {
+            return { success: false, affectedElementIds: [], info: [validation.reason || 'Validation failed'] };
+        }
+        try {
+            const result = await command.executeChunked(this.context, yieldFn);
+            if (!result.success) return result;
+            // PROJECT_LOAD: no undo push (Contract 20 GAP-3). Fire the single
+            // post-command fan-out so PropertyInspector / Contract 31.7 listeners
+            // refresh once, exactly as the synchronous load path does.
+            this.commandExecutedCallbacks.forEach(cb => {
+                try { cb(command, result); } catch (e) {
+                    console.warn('[CommandManager] Error in commandExecuted callback', e);
+                }
+            });
+            return result;
+        } catch (err) {
+            console.error('[CommandManager] FATAL ERROR DURING CHUNKED EXECUTION', err);
+            return {
+                success: false,
+                affectedElementIds: [],
+                info: ['Chunked execution failed'],
+                error: err instanceof Error ? err.message : 'Unknown error',
+            };
+        }
+    }
+
+    /**
      * Contract 01 §2.2 — SCOPED SNAPSHOT
      *
      * When the command declares `affectedStores`, only those stores are cloned.

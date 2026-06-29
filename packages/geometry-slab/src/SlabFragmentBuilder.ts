@@ -9,6 +9,19 @@ import { SketchLoopIntersector, Segment2D } from './SketchLoopIntersector';
 import { outsetPolygon, SLAB_WALL_OUTSET } from './SlabGeometryUtils';
 import { batchCoordinator } from '@pryzm/core-app-model';
 
+// ─── §LOAD-FLOOD-GATE (2026-06-29) — slab-build timing-log gate ─────────────────
+//
+// Each slab build logs three timing lines (`outset`, `triangulate`,
+// `BUILD_COMPLETE`). On a residential load these fire synchronously, once per
+// slab × every floor, during the hot restore loop — pure main-thread console
+// cost with DevTools open. Gate them behind an opt-in flag (default OFF) so a
+// normal load pays zero; the BUILD timings stay one keystroke away for perf
+// work. `__pryzmSlabBuildDiag` is the canonical name.
+function slabBuildDiagOn(): boolean {
+    return (globalThis as unknown as { __pryzmSlabBuildDiag?: boolean })
+        .__pryzmSlabBuildDiag === true;
+}
+
 /**
  * B2: Render-mode descriptor for slab edge overlays.
  * '3d'  — default, subtle medium-grey, depth-tested, renderOrder=1.
@@ -809,10 +822,13 @@ export class SlabFragmentBuilder {
             // Only the outer boundary is outset — holes are voids and must NOT be expanded.
             const __t_outset_start = performance.now();
             const buildPolygon = outsetPolygon(resolvedPolygon, SLAB_WALL_OUTSET);
-            console.log(`[SlabFragmentBuilder] outset slabId="${data.id}" vertices=${resolvedPolygon.length} elapsed=${(performance.now() - __t_outset_start).toFixed(1)}ms`);
             const __t_tri_start = performance.now();
             geometry = SlabFragmentBuilder.buildSlabGeometry(buildPolygon, data.thickness, allHoles);
-            console.log(`[SlabFragmentBuilder] triangulate slabId="${data.id}" outerVertices=${buildPolygon.length} elapsed=${(performance.now() - __t_tri_start).toFixed(1)}ms`);
+            // §LOAD-FLOOD-GATE — per-slab timing logs gated (default OFF).
+            if (slabBuildDiagOn()) {
+                console.log(`[SlabFragmentBuilder] outset slabId="${data.id}" vertices=${resolvedPolygon.length} elapsed=${(__t_tri_start - __t_outset_start).toFixed(1)}ms`);
+                console.log(`[SlabFragmentBuilder] triangulate slabId="${data.id}" outerVertices=${buildPolygon.length} elapsed=${(performance.now() - __t_tri_start).toFixed(1)}ms`);
+            }
         } else {
             // BoxGeometry fallback — holes not supported without a polygon outline.
             geometry = new THREE.BoxGeometry(data.width, data.thickness, data.depth);
@@ -912,7 +928,10 @@ export class SlabFragmentBuilder {
             selectable: false,
         };
 
-        console.log(`[SlabFragmentBuilder] BUILD_COMPLETE slabId="${data.id}" totalMs=${(performance.now() - __t_build_start).toFixed(1)}ms`);
+        // §LOAD-FLOOD-GATE — per-slab BUILD_COMPLETE timing gated (default OFF).
+        if (slabBuildDiagOn()) {
+            console.log(`[SlabFragmentBuilder] BUILD_COMPLETE slabId="${data.id}" totalMs=${(performance.now() - __t_build_start).toFixed(1)}ms`);
+        }
         return { mesh, edges: edgesLine };
     }
 

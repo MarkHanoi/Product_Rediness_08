@@ -10,6 +10,33 @@ import type { JoinData } from '@pryzm/core-app-model';
 // Re-exported here for colocation with WallJoinResolver consumers.
 export type { JoinData } from '@pryzm/core-app-model';
 
+// ─── §LOAD-FLOOD-GATE (2026-06-29) — wall-join diagnostic gate ──────────────────
+//
+// A whole-level `resolveLevel` pass over a residential building (hundreds of
+// partition→shell T-joins + multi-wall clusters + diff-thickness corners × 5-7
+// floors) emits THOUSANDS of `console.log`/`console.warn` lines. With DevTools
+// open every line is serialised + painted on the MAIN THREAD, so the resolver
+// log alone is measurable jank during a project open (the load-time resolve is
+// deferred off the critical path by §WALL-JOIN-LOAD-SKIP, but it still runs and
+// still floods). These four diagnostic sites were previously ALWAYS-ON:
+//   • §PARTITION-SHELL-INNER-FACE REFUSED   • §SHELL-ANCHOR-PRESERVE
+//   • §MULTI-CLUSTER per-cluster summary    • §WJR-DIFF-THICKNESS butt
+//
+// Gate them behind a single opt-in flag (default OFF) so a normal load/resolve
+// pays ZERO console cost while the full diagnostic capability survives for
+// debugging. `wallJoinDiagOn()` is a cheap boolean read; callers wrap the whole
+// `console.*(...)` call (including the string interpolation) in `if (...)` so
+// the message is never even built when the flag is off. The legacy
+// `__PRYZM_WALL_JOIN_DEBUG` flag is honoured too (back-compat alias) so existing
+// debug sessions keep working; `__pryzmWallJoinDiag` is the canonical name.
+function wallJoinDiagOn(): boolean {
+    const g = globalThis as unknown as {
+        __pryzmWallJoinDiag?: boolean;
+        __PRYZM_WALL_JOIN_DEBUG?: boolean;
+    };
+    return g.__pryzmWallJoinDiag === true || g.__PRYZM_WALL_JOIN_DEBUG === true;
+}
+
 // ─── Internal types ───────────────────────────────────────────────────────────
 
 type Side = 'start' | 'end';
@@ -408,10 +435,15 @@ export class WallJoinResolver {
             //       leave it un-clamped (rendered at its source baseline), exactly
             //       as the bare `return` did before this fix.
             const curLen = ws.distanceTo(we);
-            console.warn(
-                `[WallJoinResolver] §PARTITION-SHELL-INNER-FACE REFUSED — clamp would collapse ` +
-                `${wall.id}(${side}) newLen=${newLen.toFixed(4)} (MIN=${minLen}) curLen=${curLen.toFixed(4)}`,
-            );
+            // §LOAD-FLOOD-GATE — gated (default OFF). The clamp-refusal is handled
+            // (degenerate stubs are flagged invalid below); the log is diagnostic only
+            // and fired per-refused-join, flooding a heavy load.
+            if (wallJoinDiagOn()) {
+                console.warn(
+                    `[WallJoinResolver] §PARTITION-SHELL-INNER-FACE REFUSED — clamp would collapse ` +
+                    `${wall.id}(${side}) newLen=${newLen.toFixed(4)} (MIN=${minLen}) curLen=${curLen.toFixed(4)}`,
+                );
+            }
             if (curLen < DEGENERATE_STUB_LENGTH) {
                 this._flagInvalid(
                     wall.id, bl, result,
@@ -443,7 +475,7 @@ export class WallJoinResolver {
         // of console writes, which on its own measurably slows the resolve and drowns the
         // load console. Gate it behind `window.__PRYZM_WALL_JOIN_DEBUG` (default OFF) so
         // it is opt-in for debugging and silent in production / on load.
-        if ((globalThis as unknown as { __PRYZM_WALL_JOIN_DEBUG?: boolean }).__PRYZM_WALL_JOIN_DEBUG === true) {
+        if (wallJoinDiagOn()) {
             const beforeCls =
                 curLateral <= -hostHalfT + 1e-3 ? 'protrudes⚠'
                 : Math.abs(curLateral) <= 1e-3   ? 'centreline⚠'
@@ -1167,12 +1199,17 @@ export class WallJoinResolver {
                 const _bodyHost = _bodyAnchorOf(ep);
                 if (_bodyHost) {
                     _cntShellAnchorPreserved++;
-                    console.log(
-                        `[WallJoinResolver] §SHELL-ANCHOR-PRESERVE  wall=${ep.wallId}(${ep.side}) ` +
-                        `on non-cluster (perimeter) body of ${_bodyHost.hostId} ` +
-                        `(perp=${_bodyHost.perp.toFixed(3)}m) — NOT cluster-trimmed; deferred to ` +
-                        `pair-wise T-join so it stays on the perimeter and the room seals`
-                    );
+                    // §LOAD-FLOOD-GATE — gated (default OFF). The preserve count is
+                    // still rolled into the per-cluster summary line; this per-endpoint
+                    // line is diagnostic only and floods a heavy load.
+                    if (wallJoinDiagOn()) {
+                        console.log(
+                            `[WallJoinResolver] §SHELL-ANCHOR-PRESERVE  wall=${ep.wallId}(${ep.side}) ` +
+                            `on non-cluster (perimeter) body of ${_bodyHost.hostId} ` +
+                            `(perp=${_bodyHost.perp.toFixed(3)}m) — NOT cluster-trimmed; deferred to ` +
+                            `pair-wise T-join so it stays on the perimeter and the room seals`
+                        );
+                    }
                     continue;
                 }
 
@@ -1540,17 +1577,20 @@ export class WallJoinResolver {
                 }
             }
 
-            // Always-on per-cluster summary so production diagnostics retain
-            // visibility into multi-wall junctions without flooding the console.
-            console.log(
-                `[WallJoinResolver] §MULTI-CLUSTER cluster: ${endpoints.length} endpoints @ ` +
-                `(${consensusPoint.x.toFixed(3)}, ${consensusPoint.z.toFixed(3)}) ` +
-                `[primary=${_cntPrimary} t-into=${_cntTInto} pinned=${_cntPinned}` +
-                (_cntSecPinned ? ` sec-pinned=${_cntSecPinned}` : '') +
-                ` trimmed=${_cntTrimmed}` +
-                (_cntShellAnchorPreserved ? ` shellAnchor=${_cntShellAnchorPreserved}` : '') +
-                (_cntSkippedSelfCluster ? ` selfCluster=${_cntSkippedSelfCluster}` : '') + `]`
-            );
+            // §LOAD-FLOOD-GATE — per-cluster summary, gated (default OFF). One line
+            // per junction cluster; a dense residential plate has hundreds of clusters
+            // × N floors, so this floods a heavy load. Opt-in for debugging.
+            if (wallJoinDiagOn()) {
+                console.log(
+                    `[WallJoinResolver] §MULTI-CLUSTER cluster: ${endpoints.length} endpoints @ ` +
+                    `(${consensusPoint.x.toFixed(3)}, ${consensusPoint.z.toFixed(3)}) ` +
+                    `[primary=${_cntPrimary} t-into=${_cntTInto} pinned=${_cntPinned}` +
+                    (_cntSecPinned ? ` sec-pinned=${_cntSecPinned}` : '') +
+                    ` trimmed=${_cntTrimmed}` +
+                    (_cntShellAnchorPreserved ? ` shellAnchor=${_cntShellAnchorPreserved}` : '') +
+                    (_cntSkippedSelfCluster ? ` selfCluster=${_cntSkippedSelfCluster}` : '') + `]`
+                );
+            }
             if (_cntSkippedSelfCluster > 0) {
                 console.warn(
                     `[WallJoinResolver] §SELF-CLUSTER-GUARD: skipped ${_cntSkippedSelfCluster} endpoint(s) ` +
@@ -2009,7 +2049,11 @@ export class WallJoinResolver {
             else                                adjSub.endMN   = null;
             result.set(subordinateEp.wallId, adjSub);
 
-            console.log(`[WJR-DIFF-THICKNESS] (option-B butt) dominant=${dominantEp.wallId}(${dominantEp.side}) tDom=${dominantT} sub=${subordinateEp.wallId}(${subordinateEp.side}) tSub=${subordinateT}`);
+            // §LOAD-FLOOD-GATE — gated (default OFF). Fires once per diff-thickness
+            // corner inside resolveLevel → floods a heavy load.
+            if (wallJoinDiagOn()) {
+                console.log(`[WJR-DIFF-THICKNESS] (option-B butt) dominant=${dominantEp.wallId}(${dominantEp.side}) tDom=${dominantT} sub=${subordinateEp.wallId}(${subordinateEp.side}) tSub=${subordinateT}`);
+            }
 
             // §DIAG-WALL-JOIN — diff-thickness L: the subordinate butts the dominant's
             // NEAR lateral face and the dominant is EXTENDED by subordinateT/2 to back the
@@ -2020,7 +2064,7 @@ export class WallJoinResolver {
             // §WALL-JOIN-LOAD-SKIP (2026-06-24) — gate behind __PRYZM_WALL_JOIN_DEBUG
             // (default OFF); fires once per corner-join inside resolveLevel → floods on
             // large buildings.
-            if ((globalThis as unknown as { __PRYZM_WALL_JOIN_DEBUG?: boolean }).__PRYZM_WALL_JOIN_DEBUG === true) {
+            if (wallJoinDiagOn()) {
                 const _angDegDT = (this._angleFromDirs(dirA, dirB) * 180) / Math.PI;
                 const _clsDT = _angDegDT < 10 ? 'COLLINEAR' : _angDegDT >= 60 ? 'L' : 'SHALLOW-L';
                 console.log(
@@ -2101,7 +2145,7 @@ export class WallJoinResolver {
         // building it emits thousands of console writes and (per the PERF-FIX note below)
         // cost ~50–150 ms per load. Gate the whole block behind __PRYZM_WALL_JOIN_DEBUG
         // (default OFF) — opt-in for debugging, silent in production / on load.
-        if ((globalThis as unknown as { __PRYZM_WALL_JOIN_DEBUG?: boolean }).__PRYZM_WALL_JOIN_DEBUG === true) {
+        if (wallJoinDiagOn()) {
         const _jointGapM = newA[epA.side === 'start' ? 0 : 1]
             .distanceTo(newB[epB.side === 'start' ? 0 : 1]);
         const _angRad = this._angleFromDirs(dirA, dirB);   // ∈ [0, π/2] (uses |dot|)
