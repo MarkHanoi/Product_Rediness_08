@@ -1454,9 +1454,57 @@ export class WallJoinResolver {
                 const trimPt = consensusPoint.clone();
                 if (_axLen2 > 1e-12) {
                     // Perpendicular foot of consensusPoint on the line (free → joinEnd).
-                    const _t =
+                    // _t is the axis parameter: _t=0 is the free end, _t=1 is the CURRENT
+                    // join endpoint. _t<1 ⇒ the foot lies BEHIND the join end (a RETREAT
+                    // toward the free end); _t>1 ⇒ the foot lies AHEAD (a forward EXTENSION).
+                    let _t =
                         ((consensusPoint.x - _free.x) * _axisX +
                          (consensusPoint.z - _free.z) * _axisZ) / _axLen2;
+
+                    // §CONSENSUS-OVERTRIM-GUARD (2026-06-29) — cap the BACKWARD retreat.
+                    //
+                    // THE residual over-trim (ADR-0072/ADR-0073 "interior partition ends land
+                    // ~0.3–1.0 m short of / outside their host"; founder "some walls start but
+                    // don't go until the perimeter wall"): when this wall's join end already
+                    // reaches (or OVERSHOOTS) the junction — i.e. it should terminate ON a
+                    // SHELL host (or a neighbour) at/just past the cluster — but the averaged
+                    // cluster consensus happens to sit BEHIND that end along the wall's own
+                    // axis, the on-centreline foot RETREATS the endpoint up to ~0.45 m back
+                    // toward the free end (the §CONSENSUS-PROXIMITY-GUARD band). That retreat
+                    // pulls the wall off its host, leaving the ~285 mm physical gap that breaks
+                    // the closed wall LOOP RoomDetectionEngine needs → unclassified room →
+                    // §FURNISH-EMPTY. The §SHELL-ANCHOR-PRESERVE / proximity guards catch the
+                    // gross cases; this is the residual that slips through inside their bands.
+                    //
+                    // The forward (extension, _t≥1) direction is the LEGITIMATE gap-closing
+                    // trim (a member drawn SHORT of the junction reaching forward to it — the
+                    // genuine-star / near-collinear-Y / shallow-Y cases). It is left untouched,
+                    // so those paths stay BYTE-IDENTICAL. Only an over-long BACKWARD retreat is
+                    // capped: the endpoint may retreat at most OVERTRIM_BACK_TOL (a tiny align-
+                    // to-neighbour trim); beyond that it is pinned at its original on-axis
+                    // position. The endpoint stays EXACTLY on its own centreline (zero lateral
+                    // drift) and is never pushed forward beyond the foot (no over-extend spike),
+                    // mirroring decidePreservedBaseline's tolerances. A pinned overshoot end
+                    // still seals the junction: it sits ≤ snapRadius from consensus (proximity
+                    // guard) and within RoomDetectionEngine._snapNearbyCorners(0.30) of the
+                    // other cluster members.
+                    const _tJoin = 1;                       // axis param of the current join end
+                    const _axisLen = Math.sqrt(_axLen2);
+                    const OVERTRIM_BACK_TOL = 0.05;         // ≤50 mm legitimate backward align
+                    const _minT = _tJoin - OVERTRIM_BACK_TOL / _axisLen;
+                    if (_t < _minT) {
+                        if ((globalThis as any).window?.__pryzmDebugWalls) {
+                            const _retreat = (_tJoin - _t) * _axisLen;
+                            console.log(
+                                `[WallJoinResolver] §CONSENSUS-OVERTRIM-GUARD wall=${ep.wallId}(${ep.side}) ` +
+                                `consensus would RETREAT join end ${(_retreat * 1000).toFixed(0)}mm back along axis ` +
+                                `(> ${(OVERTRIM_BACK_TOL * 1000).toFixed(0)}mm) — pinned at original end so it keeps ` +
+                                `reaching its host (no ~285mm short-fall; loop seals via snap tol)`,
+                            );
+                        }
+                        _t = _minT;
+                    }
+
                     trimPt.set(_free.x + _t * _axisX, consensusPoint.y, _free.z + _t * _axisZ);
                 }
                 trimPt.y = ep.side === 'start' ? ws.y : we.y;   // preserve floor Y
