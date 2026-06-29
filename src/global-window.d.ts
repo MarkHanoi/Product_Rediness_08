@@ -457,6 +457,12 @@ declare global {
          *  baselines stay put ("ground walls go off at the end" fix). See
          *  WallRebuildCoordinator._rebuildWallBodies. */
         rebuildWallBodies?(wallIds: readonly string[]): void;
+        /** §PERF-WALL-DRAG-DEFER (ADR-061) — drain wall events queued while a wall
+         *  drag was in flight (`window.__wallDragInProgress`). Called by
+         *  registerTransformDragHandler on drag-END as a safety net so a
+         *  sub-threshold drag that committed no command still settles the wall.
+         *  See WallRebuildCoordinator._resumeAndFlushDeferredDrag. */
+        resumeAndFlushDeferredDrag?(): void;
     };
     /**
      * C13 §4 (Wave 35 I-2) — Project isolation teardown surface.
@@ -535,6 +541,11 @@ declare global {
     __wardrobeSubUnit?: any;
     activeLevelElevation?: any;
     isCameraDragging?: any;
+    /** §PERF-WALL-DRAG-DEFER (ADR-061) — true while a wall is being dragged via the
+     *  3D gizmo / endpoint handle; defers the heavy whole-level wall rebuild to
+     *  drag-end. Set/cleared by registerTransformDragHandler; read by
+     *  WallRebuildCoordinator._scheduleFlush. */
+    __wallDragInProgress?: boolean;
     unselectAll?: any;
     __projectScopedStorage?: any;
     __projectScopeRegistry?: any;

@@ -2109,6 +2109,27 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             await renderPipelineManager.activateSSGI();
             await renderPipelineManager.activateOutlines();
             console.log('[initScene] TSL pipeline at Phase 3/4 (SSGI + Outlines). TRAA OFF by default.');
+        } else if (isPhase5Active && pryzmRendererBackend === 'webgl-fallback') {
+            // ── §PERF-WEBGL2-RENDER-ON-MOVE (ADR-061) ────────────────────────
+            // Phase 5 is active (PRYZM owns the sole renderer, OBC is MANUAL +
+            // silenced + `updateIfManualMode` was removed) but the resolved
+            // backend is the WebGL2 backend of a forced-WebGL WebGPURenderer, so
+            // the TSL pipeline is OFF and renderPipelineManager.render() would
+            // no-op. With nothing driving a per-frame paint, the viewport froze
+            // during orbit/pan/zoom and only repainted once motion stopped.
+            //
+            // Enable the lightweight WebGL render path so the existing pascal
+            // callback (called once per rAF by the single FrameScheduler loop —
+            // C04 §2 / P3) issues a plain `renderer.render(scene, camera)` every
+            // frame. The camera-controls 'update'/'controlstart' events already
+            // call FrameScheduler.beginMotion() (initScene §cameraDragging), which
+            // keeps that single loop alive for the whole drag + damping tail — so
+            // the scene now repaints continuously while moving and idles at rest.
+            renderPipelineManager.setLightweightWebGlRender(true);
+            console.log(
+                '[initScene] §PERF-WEBGL2-RENDER-ON-MOVE — lightweight per-frame WebGL render enabled ' +
+                '(webgl-fallback backend; continuous repaint during camera movement).',
+            );
         }
 
         window.renderPipelineManager = renderPipelineManager;
@@ -2945,6 +2966,11 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                     await rpm.activateSSGI();
                     await rpm.activateOutlines();
                 }
+                // §PERF-WEBGL2-RENDER-ON-MOVE (ADR-061) — match the boot path:
+                // drive a per-frame plain WebGL render when the (new) backend is
+                // the WebGL2-backed forced-WebGL renderer, and turn it OFF when
+                // swapping to a real WebGPU backend (the TSL pipeline renders).
+                rpm.setLightweightWebGlRender(newResult.backend === 'webgl-fallback');
 
                 // 6. Publish the new renderer/canvas on the window globals other
                 //    subsystems read (sheet thumbnails, legacy service suspend).

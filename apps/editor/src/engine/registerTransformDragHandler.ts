@@ -46,6 +46,23 @@ export function registerTransformDragHandler(deps: DragHandlerDeps): void {
     transformControls.addEventListener('dragging-changed', (event) => {
         world.camera.controls.enabled = !event.value;
 
+        // §PERF-WALL-DRAG-DEFER (ADR-061) — mark a wall drag as in-progress so
+        // WallRebuildCoordinator._scheduleFlush defers the heavy whole-level
+        // wall-join resolve (+ room redetect + plan re-projection) until release.
+        // The live mesh still follows the gizmo via WallTransformController
+        // (visual-only). Set at drag-START (event.value=true) when the selected
+        // element is a wall; the flag is cleared at drag-END below (after the
+        // single authoritative commit is dispatched) so the deferred flush drains
+        // exactly once. Guard on element type so non-wall drags are unaffected.
+        if (event.value) {
+            const sel = selectionManager.selectedObject;
+            const selType = (sel?.userData?.elementType ?? '').toString().toLowerCase();
+            if (selType === 'wall') {
+                window.__wallDragInProgress = true;
+            }
+            return;
+        }
+
         if (!event.value && selectionManager.selectedObject) {
             const obj = selectionManager.selectedObject;
             const elemType = (obj.userData?.elementType ?? '').toLowerCase();
@@ -117,6 +134,15 @@ export function registerTransformDragHandler(deps: DragHandlerDeps): void {
                             { x: newStart.x, y: newStart.y, z: newStart.z },
                             { x: newEnd.x,   y: newEnd.y,   z: newEnd.z   },
                         ];
+
+                        // §PERF-WALL-DRAG-DEFER (ADR-061) — the drag is ending and we
+                        // are about to dispatch the SINGLE authoritative commit. Clear
+                        // the in-progress flag FIRST so the synchronous store-subscriber
+                        // → WallRebuildCoordinator._scheduleFlush triggered by this
+                        // commit takes the normal (immediate) path and rebuilds the wall
+                        // once. Any flushes that were deferred DURING the drag are drained
+                        // by this same commit's flush.
+                        window.__wallDragInProgress = false;
 
                         // [F-1.2 R2/R3 §E.5.x] BUS-PRIMARY — bus handler bridges to commandManager.
                         // Direct window.commandManager call removed; bus fires UpdateWallBaselineHandler
@@ -474,6 +500,16 @@ export function registerTransformDragHandler(deps: DragHandlerDeps): void {
             obj.userData.posX = Number(obj.position.x.toFixed(2));
             obj.userData.posZ = Number(obj.position.z.toFixed(2));
             updateInspector(obj);
+
+            // §PERF-WALL-DRAG-DEFER (ADR-061) — safety net: clear the flag on ANY
+            // wall drag-end (e.g. a sub-threshold move that dispatched no command,
+            // so the in-branch clear above never ran) and drain any flush that was
+            // deferred during the drag so the wall geometry settles immediately.
+            if (window.__wallDragInProgress) {
+                window.__wallDragInProgress = false;
+                try { window.__wallRebuildControl?.resumeAndFlushDeferredDrag?.(); }
+                catch { /* coordinator optional / not yet wired */ }
+            }
         }
     });
 

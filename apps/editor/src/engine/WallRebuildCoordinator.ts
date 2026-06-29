@@ -205,6 +205,9 @@ export class WallRebuildCoordinator {
             // appear. Falls back to `rebuildWalls` (whole-level) when a wall has no
             // cached join (never resolved) so a free wall still renders correctly.
             rebuildWallBodies:  (wallIds: readonly string[]) => this._rebuildWallBodies(wallIds),
+            // §PERF-WALL-DRAG-DEFER (ADR-061) — drain wall events queued during a
+            // wall drag once the gizmo is released (drag-end safety net).
+            resumeAndFlushDeferredDrag: () => this._resumeAndFlushDeferredDrag(),
         };
 
         window.__engineTeardown = {
@@ -630,9 +633,38 @@ export class WallRebuildCoordinator {
         // clear handler (see init()) drains the view-switch case.
         if (this._wallRebuildPaused) return;
         if (this._viewSwitchInProgress) return;
+        // §PERF-WALL-DRAG-DEFER (ADR-061) — while a wall is being dragged via the
+        // 3D gizmo / endpoint handle, the event is queued (above) but the
+        // expensive whole-level `_flush` (WallJoinResolver.resolveLevel +
+        // per-wall buildWall re-cutting hosted openings) is DEFERRED until the
+        // drag ends. The mesh follows the gizmo live via WallTransformController
+        // (visual-only), so feedback stays smooth; the authoritative rebuild,
+        // room redetect, and plan re-projection fire ONCE on release via
+        // resumeAndFlushDeferredDrag(). This mirrors the door-move pattern
+        // (ADR-057) and stops the synchronous rebuild storm from blocking the
+        // interaction frame. The drag-end commit clears the flag BEFORE its own
+        // store mutation, so that final mutation takes the immediate path below.
+        if (typeof window !== 'undefined' && window.__wallDragInProgress === true) return;
         if (this._wallRafHandle === null) {
             this._wallRafHandle = getFrameScheduler().scheduleOnce('engine-bootstrap-wall-flush', () => this._flush());
         }
+    }
+
+    /**
+     * §PERF-WALL-DRAG-DEFER (ADR-061) — drain any wall events that were queued
+     * while `window.__wallDragInProgress` was set (a wall drag in flight). Called
+     * by registerTransformDragHandler on drag-END as a safety net for the rare
+     * case where the drag moved sub-threshold and dispatched no command (so no
+     * store mutation re-triggered `_scheduleFlush`). Schedules ONE whole-level
+     * flush if events are pending and none is already scheduled. Honours the
+     * pause / view-switch guards exactly like `_scheduleFlush`.
+     */
+    private _resumeAndFlushDeferredDrag(): void {
+        if (this._pendingWallEvents.size === 0) return;
+        if (this._wallRebuildPaused) return;
+        if (this._viewSwitchInProgress) return;
+        if (this._wallRafHandle !== null) return;
+        this._wallRafHandle = getFrameScheduler().scheduleOnce('engine-bootstrap-wall-flush', () => this._flush());
     }
 
     private static _pt3dDist(a: {x:number;y:number;z:number}, b: {x:number;y:number;z:number}): number {

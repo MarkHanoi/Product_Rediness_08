@@ -116,3 +116,89 @@ describe('RenderPipelineManager.bind() — TSL activation gating (§PERF-WEBGL2-
     expect(rpm.status.webGpuActive).toBe(true);
   });
 });
+
+// ── §PERF-WEBGL2-RENDER-ON-MOVE (ADR-061) — lightweight per-frame WebGL render ─
+//
+// Regression context (prod, 2026-06-29):
+//   On the default 'webgl' backend preference the renderer is a forced-WebGL
+//   WebGPURenderer (backend='webgl-fallback'). Phase 5 is active so OBC is locked
+//   to MANUAL + silenced, and the TSL pipeline is OFF (webGpuActive=false) — so
+//   render() no-op'd and NOTHING painted per frame. The viewport froze during
+//   orbit/pan/zoom and only repainted once motion stopped. The fix drives a plain
+//   `renderer.render(scene, camera)` each frame via setLightweightWebGlRender(true).
+describe('RenderPipelineManager — lightweight WebGL render gate (§PERF-WEBGL2-RENDER-ON-MOVE)', () => {
+  const scene  = {} as any;
+  const camera = {} as any;
+
+  /** A WebGL2 renderer that records every render() call (the per-frame paint). */
+  function recordingWebGl2Renderer(): any {
+    const calls: Array<{ scene: unknown; camera: unknown }> = [];
+    return {
+      isWebGPURenderer: true,
+      backend: { isWebGPUBackend: false }, // forced-WebGL → WebGL2 backend
+      setClearAlpha: () => {},
+      render: (s: unknown, c: unknown) => { calls.push({ scene: s, camera: c }); },
+      __calls: calls,
+    };
+  }
+
+  it('defaults to OFF — render() does NOT paint on a forced-WebGL backend without enabling', async () => {
+    const renderer = recordingWebGl2Renderer();
+    const rpm = new RenderPipelineManager();
+    await rpm.bind(scene, camera, renderer, 'dark'); // webGpuActive=false
+    expect(rpm.isLightweightWebGlActive).toBe(false);
+    rpm.render(0.016);
+    // No lightweight flag + no TSL pipeline ⇒ render() early-returns, never paints.
+    expect(renderer.__calls.length).toBe(0);
+  });
+
+  it('once enabled, render() issues a plain renderer.render(scene, camera) every call', async () => {
+    const renderer = recordingWebGl2Renderer();
+    const rpm = new RenderPipelineManager();
+    await rpm.bind(scene, camera, renderer, 'dark');
+    rpm.setLightweightWebGlRender(true);
+    expect(rpm.isLightweightWebGlActive).toBe(true);
+
+    rpm.render(0.016);
+    rpm.render(0.016);
+    rpm.render(0.016);
+    // Three rAF ticks → three continuous repaints (this is the orbit smoothness fix).
+    expect(renderer.__calls.length).toBe(3);
+    expect(renderer.__calls[0].scene).toBe(scene);
+    expect(renderer.__calls[0].camera).toBe(camera);
+  });
+
+  it('is suppressed while suspended (heavy-op guard) and resumes after', async () => {
+    const renderer = recordingWebGl2Renderer();
+    const rpm = new RenderPipelineManager();
+    await rpm.bind(scene, camera, renderer, 'dark');
+    rpm.setLightweightWebGlRender(true);
+
+    rpm.setSuspended(true);
+    rpm.render(0.016);
+    expect(renderer.__calls.length).toBe(0); // suspended → no paint
+
+    rpm.setSuspended(false);
+    rpm.render(0.016);
+    expect(renderer.__calls.length).toBe(1); // resumed → paints again
+  });
+
+  it('setLightweightWebGlRender(false) turns the per-frame paint back off', async () => {
+    const renderer = recordingWebGl2Renderer();
+    const rpm = new RenderPipelineManager();
+    await rpm.bind(scene, camera, renderer, 'dark');
+    rpm.setLightweightWebGlRender(true);
+    rpm.render(0.016);
+    expect(renderer.__calls.length).toBe(1);
+
+    rpm.setLightweightWebGlRender(false);
+    rpm.render(0.016);
+    expect(renderer.__calls.length).toBe(1); // no further paints
+  });
+
+  it('does not paint before scene/camera/renderer are bound (null-safe)', () => {
+    const rpm = new RenderPipelineManager();
+    rpm.setLightweightWebGlRender(true); // enabled but never bound
+    expect(() => rpm.render(0.016)).not.toThrow();
+  });
+});

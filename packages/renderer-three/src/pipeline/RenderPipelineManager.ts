@@ -141,6 +141,26 @@ export class RenderPipelineManager implements IViewSwitchListener {
     private _backgroundUniform:  BackgroundUniform | null     = null;
 
     private _webGpuActive        = false;
+
+    // ── §PERF-WEBGL2-RENDER-ON-MOVE (ADR-061) ────────────────────────────────
+    // When the resolved backend is the WebGL2 backend of a forced-WebGL
+    // WebGPURenderer (RendererBackend 'webgl-fallback'), the TSL pipeline is OFF
+    // (_webGpuActive=false) so render() would no-op — BUT in Phase 5 the OBC
+    // PostproductionRenderer is locked to MANUAL and silenced, so NOTHING paints
+    // the scene per-frame. The viewport then only repaints when some other code
+    // path happens to drive a render (e.g. on camera 'rest'), producing the
+    // "navigation is stuck — only updates after you stop moving" bug.
+    //
+    // Fix: when this flag is set, render() performs a lightweight, direct
+    // `renderer.render(scene, camera)` every frame. The pascal callback already
+    // calls render() once per rAF tick from the single FrameScheduler-owned loop
+    // (C04 §2 / P3), so this drives a continuous repaint during orbit/pan/zoom on
+    // the WebGL2 backend WITHOUT adding a second rAF loop. Enabled explicitly by
+    // initScene ONLY for the Phase-5 webgl-fallback path (where this manager owns
+    // the sole render); left OFF for native WebGPU (TSL pipeline renders) and for
+    // the OBC-managed 'webgl-only' path (OBC's AUTO loop renders).
+    private _lightweightWebGlActive = false;
+
     private _phase: PipelinePhase = 'idle';
     private _hasPipelineError    = false;
     private _retryCount          = 0;
@@ -351,7 +371,58 @@ export class RenderPipelineManager implements IViewSwitchListener {
 
     get isSuspended(): boolean { return this._suspended; }
 
+    /**
+     * §PERF-WEBGL2-RENDER-ON-MOVE (ADR-061) — enable/disable the lightweight
+     * per-frame WebGL render path.
+     *
+     * Call with `true` ONLY when this manager is the sole renderer on the WebGL2
+     * backend (Phase-5 'webgl-fallback' path: OBC is MANUAL/silenced and the TSL
+     * pipeline is OFF). When enabled, {@link render} issues a direct
+     * `renderer.render(scene, camera)` each frame so camera movement repaints
+     * continuously. No-op when the renderer/scene/camera are not yet bound.
+     *
+     * Idempotent. Has no effect on a real WebGPU backend (the TSL pipeline owns
+     * rendering there) — callers MUST NOT enable it in that case.
+     *
+     * @param active — true to drive a per-frame plain WebGL render.
+     */
+    setLightweightWebGlRender(active: boolean): void {
+        if (this._lightweightWebGlActive === active) return;
+        this._lightweightWebGlActive = active;
+        console.log(
+            `[RenderPipelineManager] §PERF-WEBGL2-RENDER-ON-MOVE lightweight WebGL render ` +
+            `${active ? 'ENABLED' : 'disabled'} — continuous per-frame repaint on the WebGL2 backend ` +
+            `${active ? 'active (camera movement now renders every frame)' : 'off'}.`,
+        );
+    }
+
+    /** True while the lightweight per-frame WebGL render path is active. */
+    get isLightweightWebGlActive(): boolean { return this._lightweightWebGlActive; }
+
     render(delta = 0.016): void {
+        // ── §PERF-WEBGL2-RENDER-ON-MOVE (ADR-061) ────────────────────────────
+        // Lightweight WebGL2 path: the TSL pipeline is OFF (_webGpuActive=false)
+        // but this manager owns the sole render in Phase 5. Drive a plain scene
+        // render every frame so orbit/pan/zoom repaints continuously. This branch
+        // is taken BEFORE the _webGpuActive early-return below.
+        if (this._lightweightWebGlActive) {
+            if (this._suspended) return; // honour heavy-op suspension (IFC load, etc.)
+            const renderer = this._renderer;
+            const scene    = this._scene;
+            const camera   = this._camera;
+            if (!renderer || !scene || !camera) return;
+            try {
+                (renderer as any).setClearAlpha?.(0);
+                renderer.render(scene, camera);
+            } catch (err: unknown) {
+                console.error(
+                    '[RenderPipelineManager] §PERF-WEBGL2-RENDER-ON-MOVE lightweight render failed:',
+                    err instanceof Error ? err.message : err,
+                );
+            }
+            return;
+        }
+
         if (!this._webGpuActive) return;
 
         // Tick background uniform lerp every frame regardless of pipeline state

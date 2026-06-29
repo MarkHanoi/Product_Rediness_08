@@ -72,6 +72,19 @@ declare global {
          */
         isCameraDragging: boolean;
 
+        /**
+         * §PERF-WALL-DRAG-DEFER (ADR-061) — true while a wall is being moved via
+         * the 3D transform gizmo or an endpoint-handle drag. Set on the
+         * TransformControls `dragging-changed`(true) for a wall; cleared on
+         * `dragging-changed`(false). Read by WallRebuildCoordinator._scheduleFlush
+         * to DEFER the expensive whole-level wall-join resolve + room redetect +
+         * plan re-projection until the drag settles, so the heavy rebuild runs
+         * ONCE on release rather than blocking each interaction frame. The live
+         * mesh follows the gizmo via WallTransformController (visual-only) during
+         * the drag, matching the door-move pattern (ADR-057).
+         */
+        __wallDragInProgress?: boolean;
+
         // ── Sub-element selection caches ──────────────────────────────────────
         /**
          * Transient curtain-wall sub-element last clicked.
