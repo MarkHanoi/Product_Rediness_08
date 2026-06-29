@@ -275,22 +275,44 @@ export function revokeBlobUrl(blobUrl: string): void {
 }
 
 /**
- * Dispose geometries and materials
+ * Tear down the temporary export root.
+ *
+ * §I3 / §GLOBE-REAL-EXPORT-NODISPOSE (founder 2026-06-29) — the Real-GLB export
+ * for the Cesium photoreal globe used to crash and never reach the globe:
+ *
+ *   [ViewportCrashGuard] §I3 suppressed non-fatal GPU internal:
+ *   Uncaught TypeError: Cannot read properties of undefined (reading 'usedTimes')
+ *
+ * ROOT CAUSE: `exportFragmentsToGLB` clones the LIVE BIM elements with
+ * `clone(true)`. THREE's `Mesh.copy()` copies `geometry` and `material` BY
+ * REFERENCE (three 0.183 Mesh.js L126 `this.material = source.material`; geometry
+ * likewise) — the clones do NOT own their own GPU resources, they SHARE the live
+ * scene's. So `geometry.dispose()` / `material.dispose()` here did not free
+ * export-only buffers — it freed the LIVE viewport's still-bound GPU resources.
+ * On the WebGPU backend a material dispose fires the renderer's resource teardown
+ * → `NodeManager.delete(renderObject)` (three webgpu NodeManager.js L271) reads
+ * `this.get(object).nodeBuilderState.usedTimes` on a render object whose node
+ * state is gone → `undefined.usedTimes` TypeError — the SAME `usedTimes`
+ * device-loss family already guarded by RenderPipelineManager §I2
+ * (`_safeDisposeRenderPipeline`). ViewportCrashGuard §I3 then swallowed the throw,
+ * aborting the export so the building never landed on the globe. (On WebGL it
+ * would silently corrupt the live render instead of throwing.)
+ *
+ * FIX: never dispose resources the clones SHARE with the live scene. The export
+ * root holds only references — GLTFExporter reads CPU-side attributes/material
+ * props and allocates no new GPU resources — so there is nothing export-owned to
+ * free. We simply DETACH the clones (clear the group) and let the live scene keep
+ * ownership of their geometry/material lifecycle. A defensive `usedTimes`
+ * normalization mirrors §I2 in case a future code path makes the clones own their
+ * resources and disposal is reintroduced.
  */
 function disposeExportRoot(root: THREE.Group) {
-  root.traverse((child) => {
-    if (child instanceof THREE.Mesh) {
-      child.geometry?.dispose();
-
-      if (child.material) {
-        if (Array.isArray(child.material)) {
-          child.material.forEach(m => m.dispose());
-        } else {
-          child.material.dispose();
-        }
-      }
-    }
-  });
+  // §I3 — DO NOT dispose geometry/material: they are shared by reference with the
+  // live scene (clone(true) reference-copies both). Disposing them frees the live
+  // viewport's GPU buffers → WebGPU NodeManager `usedTimes` crash / WebGL render
+  // corruption. Just detach so the temporary group is GC'd; the live scene owns
+  // the underlying resources.
+  root.clear();
 }
 
 /**
