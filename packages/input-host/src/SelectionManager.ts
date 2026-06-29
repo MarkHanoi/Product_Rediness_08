@@ -77,6 +77,30 @@ export class SelectionManager implements ISelectionManager {
     /** Whether pointer-click selection is active. Public per `ISelectionManager`. */
     enabled = true;
 
+    // ── §SELECT-STUCK-STATE-SELFHEAL — pointer-drag tracking for self-healing ──
+    // The click→select guard in performSelection() early-returns when
+    // `window.isCameraDragging` or `this.isTransforming` is true. Both are set by
+    // EVENTS that can be MISSED — a programmatic camera transition (dblclick-zoom
+    // `setLookAt(...,true)`) fires `controlstart` (→ isCameraDragging=true) but
+    // does NOT always fire a matching `rest`/`sleep` (e.g. the camera was already
+    // framed → no movement → no `rest`), so the flag sticks TRUE forever and EVERY
+    // subsequent click is swallowed → "after a double-click, nothing selects, no
+    // recovery". Likewise a TransformControls drag whose `dragging-changed:false`
+    // is missed (pointer left canvas / exception) leaves isTransforming stuck.
+    //
+    // Self-heal: a browser `click` only fires after press+release WITHOUT a real
+    // drag, so if these flags are set at click time but the user did NOT actually
+    // drag this gesture (and the gizmo is not LIVE-dragging per
+    // transformControls.dragging), the flags are STALE — we clear them and proceed.
+    /** clientX at the last pointerdown on the canvas (null = no live press). */
+    private _pointerDownClientX: number | null = null;
+    /** clientY at the last pointerdown on the canvas. */
+    private _pointerDownClientY: number | null = null;
+    /** True once the pointer moved past the drag threshold since pointerdown. */
+    private _pointerDraggedThisGesture = false;
+    /** Squared px distance past which a press counts as a real drag, not a click. */
+    private static readonly POINTER_DRAG_PX2 = 6 * 6;
+
     // ── Curtain-wall sub-element tracking ───────────────────────────────────
     /** Amber highlight mesh placed on the currently active sub-element. */
     private cwSubHighlight: THREE.Mesh | null = null;
@@ -595,6 +619,34 @@ export class SelectionManager implements ISelectionManager {
     }
 
     /**
+     * §SELECT-STUCK-STATE-SELFHEAL — clear stale interaction flags that can
+     * permanently swallow click-selection.
+     *
+     * `isTransforming` (gizmo-drag mirror) and `window.isCameraDragging` (camera
+     * orbit / programmatic transition) gate `performSelection()`. Both are cleared
+     * by events that can be missed — most notably a dblclick-zoom
+     * `setLookAt(...,true)` that fires `controlstart` (→ isCameraDragging=true) but
+     * no matching `rest` when the camera was already framed — leaving selection
+     * dead for the session. This is the user's universal escape hatch: unless the
+     * gizmo is GENUINELY live-dragging (`transformControls.dragging === true`),
+     * every stuck flag is reset so the next click selects again.
+     *
+     * Called on Escape (any time) and on every fresh canvas pointerdown.
+     */
+    private _healStuckInteractionState(reason: string): void {
+        const gizmoLiveDragging =
+            (this.transformControls as { dragging?: boolean }).dragging === true;
+        if (gizmoLiveDragging) return; // a real drag is in progress — leave it alone
+        let healed = false;
+        if (this.isTransforming) { this.isTransforming = false; healed = true; }
+        if (window.isCameraDragging) { window.isCameraDragging = false; healed = true; }
+        this._pointerDraggedThisGesture = false;
+        if (healed) {
+            console.warn(`[SelectionManager] §SELECT-STUCK-STATE-SELFHEAL cleared stale interaction flags (${reason}) — selection un-wedged`);
+        }
+    }
+
+    /**
      * §SELECT-GIZMO-REATTACH — re-resolve the selected element after its mesh was
      * rebuilt.
      *
@@ -954,6 +1006,13 @@ export class SelectionManager implements ISelectionManager {
             }
 
             // ── Escape key — deselect or go back to parent CW view ────────
+            if (e.key === 'Escape') {
+                // §SELECT-STUCK-STATE-SELFHEAL — Escape is the universal "un-stick"
+                // key: always clear stale interaction flags so selection can never
+                // stay permanently wedged, even if SelectionManager is disabled by
+                // an active tool that itself got stuck.
+                this._healStuckInteractionState('escape-key');
+            }
             if (e.key === 'Escape' && this.enabled) {
                 if (this.selectedObject) {
                     const selType = (
@@ -1033,8 +1092,15 @@ export class SelectionManager implements ISelectionManager {
         // devices where 'click' may not reliably fire on canvas elements.
         // On desktop (where 'click' fires), both may run — performSelection
         // is idempotent so a double-call on the same frame is harmless.
-        this.domElement.addEventListener('pointerdown', () => {
+        this.domElement.addEventListener('pointerdown', (e) => {
             this.touchStartTime = Date.now();
+            // §SELECT-STUCK-STATE-SELFHEAL — start a fresh gesture: remember where
+            // the press began and assume it is a click until the pointer moves far
+            // enough to count as a drag (set in the pointermove handler below).
+            const pe = e as PointerEvent;
+            this._pointerDownClientX = pe.clientX;
+            this._pointerDownClientY = pe.clientY;
+            this._pointerDraggedThisGesture = false;
         });
 
         this.domElement.addEventListener('pointerup', (e) => {
@@ -1161,12 +1227,49 @@ export class SelectionManager implements ISelectionManager {
     }
 
     private performSelection(event: MouseEvent | PointerEvent) {
-        if (!this.enabled || this.isTransforming) return;
-        // ── cameraDragging guard (Pascal §cameraDragging) ──────────────────
-        // Prevents phantom selections when the user releases the mouse after
-        // orbiting. Pascal sets cameraDragging=true on 'onTransitionStart' and
-        // false on 'onRest'/'onSleep'. PRYZM uses a window flag set in EngineBootstrap.
-        if (window.isCameraDragging) return;
+        if (!this.enabled) return;
+
+        // ── §SELECT-STUCK-STATE-SELFHEAL — self-healing interaction guards ─────
+        // The `isTransforming` and `window.isCameraDragging` flags gate selection
+        // so a click that merely ends an orbit / gizmo drag doesn't mis-select.
+        // But both are cleared by EVENTS that can be MISSED (a programmatic
+        // dblclick-zoom `setLookAt(...,true)` fires `controlstart` but not always a
+        // matching `rest`; a TransformControls drag whose `dragging-changed:false`
+        // is dropped when the pointer leaves the canvas), leaving the flag stuck
+        // TRUE so EVERY later click is swallowed with no recovery — the founder's
+        // "after a double-click nothing selects" lockup.
+        //
+        // A browser `click` only fires after press+release WITHOUT a real drag, so
+        // if a flag is set but THIS gesture did not actually drag (and the gizmo is
+        // not LIVE-dragging per transformControls.dragging), the flag is STALE.
+        // Heal it and proceed instead of returning forever. The gizmo's own live
+        // `.dragging` boolean is the authoritative transform signal — if it is
+        // genuinely dragging we still bail (a real drag-release click).
+        const gizmoLiveDragging =
+            (this.transformControls as { dragging?: boolean }).dragging === true;
+        // Consume the per-gesture drag flag for THIS click and reset it so a later
+        // click that arrives without a preceding canvas pointerdown (e.g. a
+        // forwarded split-view click) defaults to "not dragged" and can never stay
+        // wedged on a stale `true`.
+        const userDraggedThisGesture = this._pointerDraggedThisGesture;
+        this._pointerDraggedThisGesture = false;
+        this._pointerDownClientX = null;
+        this._pointerDownClientY = null;
+
+        if (this.isTransforming && !gizmoLiveDragging) {
+            console.warn('[SelectionManager] §SELECT-STUCK-STATE-SELFHEAL stale isTransforming cleared (no live gizmo drag) — selection un-wedged');
+            this.isTransforming = false;
+        }
+        if (window.isCameraDragging && !userDraggedThisGesture) {
+            console.warn('[SelectionManager] §SELECT-STUCK-STATE-SELFHEAL stale isCameraDragging cleared (click without a real pointer drag) — selection un-wedged');
+            window.isCameraDragging = false;
+        }
+
+        // After healing, re-evaluate: only bail when a transform/orbit is GENUINELY
+        // in progress for this gesture (a real drag-release click that should not
+        // select). Otherwise fall through and select normally.
+        if (gizmoLiveDragging || this.isTransforming) return;
+        if (window.isCameraDragging && userDraggedThisGesture) return;
 
         // MEDIUM-4: OTel span covering the full pick-to-select pipeline.
         // Attributes are set before the span ends so Honeycomb/Jaeger can
@@ -2791,6 +2894,19 @@ export class SelectionManager implements ISelectionManager {
      * currently transforming (dragging) an object.
      */
     private _onPointerMove(event: PointerEvent): void {
+        // §SELECT-STUCK-STATE-SELFHEAL — track real pointer-drag distance for the
+        // self-healing click guard. MUST run BEFORE the guards below: a camera
+        // orbit sets window.isCameraDragging=true, which would otherwise skip this
+        // and we'd never learn the user actually dragged. Marks the current gesture
+        // as a genuine drag once the pointer leaves the click threshold.
+        if (!this._pointerDraggedThisGesture && this._pointerDownClientX !== null && this._pointerDownClientY !== null) {
+            const ddx = event.clientX - this._pointerDownClientX;
+            const ddy = event.clientY - this._pointerDownClientY;
+            if (ddx * ddx + ddy * ddy > SelectionManager.POINTER_DRAG_PX2) {
+                this._pointerDraggedThisGesture = true;
+            }
+        }
+
         if (!this.enabled || this.isTransforming) return;
         // Suppress hover raycasting while the camera is being dragged (orbit / pan).
         // Matches Pascal's cameraDragging guard for the SelectionManager hover path.
