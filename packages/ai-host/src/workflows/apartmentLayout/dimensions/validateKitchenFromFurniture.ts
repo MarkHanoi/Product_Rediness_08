@@ -32,6 +32,81 @@ const KITCHEN_RUN_KINDS = new Set<FurnitureKind>([
 const ptOf = (p: PlacedFurniture): Pt => ({ x: p.position.x, z: p.position.z });
 
 /**
+ * §FURNISH-KITCHEN-TRIANGLE-CONFIG (2026-06-29) — extract the WORK-TRIANGLE points
+ * (sink / hob / fridge) from a PARAMETRIC kitchen run's `kitchenConfig.units` slots.
+ *
+ * WHY: the primary kitchen path (`planKitchenRun`) emits ONE `kitchen_straight` /
+ * `kitchen_l_shape` / `kitchen_u_shape` element carrying a `KitchenCabinetConfigLike`
+ * whose `units[]` flag which CELL holds each appliance — it does NOT emit separate
+ * `sink` / `hob` / `fridge` items. So the old `validateKitchenFromFurniture` fell to
+ * the DEGENERATE single-run heuristic (Case C: three points at ±0.25·runWidth → legs
+ * of 0.25·W ≈ 0.95 m on a ~3.8 m run), producing the spurious
+ * `kitchen-triangle (HARD): leg 0.95 m < 1.2 m` warnings on layouts whose REAL
+ * appliances are ≥1.2 m apart by construction. Reading the cells gives the TRUE
+ * spacing (sink↔hob are ≥2 cells = ≥1.2 m apart; the fridge sits off-corner / on a
+ * secondary arm), so the validator measures what is actually built.
+ *
+ * The cell world positions mirror the KitchenCabinetEngine local frame EXACTLY (engine
+ * doc-comment §Group origin / §Main-Left-Right arms):
+ *   • The placed run `position` is the MAIN-arm MID-POINT; the run's `rotationY` yaw
+ *     maps engine-local +Z (cabinet FRONT) → the room inward normal (sin yaw, cos yaw)
+ *     and engine-local +X → (cos yaw, −sin yaw) (footprintCorners convention).
+ *   • Main cell i centre: local (x = −L/2 + (i+0.5)·mainUnitW, z = 0).
+ *   • Left  cell i centre: from the X=−L/2 corner, along +Z: local
+ *     (x = −L/2 + depth/2, z = depth/2 + (i+0.5)·leftUnitW).
+ *   • Right cell i centre: from the X=+L/2 corner, along +Z: local
+ *     (x = +L/2 − depth/2, z = depth/2 + (i+0.5)·rightUnitW).
+ * Returns null when the run carries no config or any of the three appliances is
+ * un-slotted (caller falls back to the run-centre heuristic). Pure + deterministic.
+ */
+function trianglePointsFromConfig(run: PlacedFurniture): { sink: Pt; stove: Pt; fridge: Pt } | null {
+    const cfg = run.kitchenConfig;
+    if (!cfg || !cfg.units || cfg.units.length === 0) return null;
+    const yaw = run.rotationY;
+    const cos = Math.cos(yaw), sin = Math.sin(yaw);
+    const L = cfg.length;
+    const depth = cfg.depth;
+    const mainUnitW = cfg.numUnits > 0 ? L / cfg.numUnits : L;
+    const leftLen = cfg.lengthLeft ?? 0, numLeft = cfg.numUnitsLeft ?? 0;
+    const rightLen = cfg.lengthRight ?? 0, numRight = cfg.numUnitsRight ?? 0;
+    const leftUnitW = numLeft > 0 ? leftLen / numLeft : 0;
+    const rightUnitW = numRight > 0 ? rightLen / numRight : 0;
+
+    // Engine-local (x,z) → world: +x → (cos,−sin), +z → (sin,cos), origin = run.position.
+    const toWorld = (lx: number, lz: number): Pt => ({
+        x: run.position.x + lx * cos + lz * sin,
+        z: run.position.z - lx * sin + lz * cos,
+    });
+    const cellLocal = (arm: 'main' | 'left' | 'right', i: number): { x: number; z: number } | null => {
+        if (arm === 'main') return { x: -L / 2 + (i + 0.5) * mainUnitW, z: 0 };
+        if (arm === 'left') {
+            if (leftUnitW <= 0) return null;
+            return { x: -L / 2 + depth / 2, z: depth / 2 + (i + 0.5) * leftUnitW };
+        }
+        if (arm === 'right') {
+            if (rightUnitW <= 0) return null;
+            return { x: L / 2 - depth / 2, z: depth / 2 + (i + 0.5) * rightUnitW };
+        }
+        return null;
+    };
+
+    const findAppliance = (match: (a: string) => boolean): Pt | null => {
+        for (const u of cfg.units!) {
+            if (u.appliance && match(u.appliance)) {
+                const loc = cellLocal(u.arm, u.index);
+                if (loc) return toWorld(loc.x, loc.z);
+            }
+        }
+        return null;
+    };
+    const sink = findAppliance(a => a.includes('sink'));
+    const stove = findAppliance(a => a.includes('hob') || a.includes('stove') || a.includes('cooktop') || a.includes('oven'));
+    const fridge = findAppliance(a => a.includes('fridge'));
+    if (!sink || !stove || !fridge) return null;
+    return { sink, stove, fridge };
+}
+
+/**
  * Run the G10 NKBA work-triangle validator against a placed kitchen's
  * furniture. Returns null when the heuristic can't form a triangle.
  */
@@ -50,6 +125,22 @@ export function validateKitchenFromFurniture(
             kitchenId: kitchenRoomId,
             sink: ptOf(sinkP), stove: ptOf(hobP), fridge: ptOf(fridgeP),
         });
+    }
+
+    // §FURNISH-KITCHEN-TRIANGLE-CONFIG (2026-06-29) — PARAMETRIC run path: the primary
+    // kitchen planner emits ONE run element carrying its appliance slots in
+    // `kitchenConfig.units`. Read the TRUE sink/hob/fridge cell positions from the
+    // config (NKBA-accurate) BEFORE the degenerate run-centre heuristic below, which
+    // otherwise fabricated a 0.25·runWidth triangle (≈0.95 m legs) and spuriously
+    // HARD-failed runs whose real appliances are ≥1.2 m apart by construction.
+    for (const run of placed) {
+        if (!KITCHEN_RUN_KINDS.has(run.kind) || !run.kitchenConfig) continue;
+        const tri = trianglePointsFromConfig(run);
+        if (tri) {
+            return validateKitchenTriangle({
+                kitchenId: kitchenRoomId, sink: tri.sink, stove: tri.stove, fridge: tri.fridge,
+            });
+        }
     }
 
     const runs = placed.filter(p => KITCHEN_RUN_KINDS.has(p.kind));

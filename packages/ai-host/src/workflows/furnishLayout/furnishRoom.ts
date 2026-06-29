@@ -18,6 +18,7 @@ import {
     type BedType,
 } from './bedVariety.js';
 import { preferCornerSofa, polygonExtent, applyCornerSofa } from './sofaVariety.js';
+import { resolveAccentOverlaps } from './accentResolve.js';
 import {
     validateLivingLayout, formatLivingViolations,
     scoreLivingLayout, formatLivingScore,
@@ -90,7 +91,14 @@ export function furnishRoom(input: FurnishRoomInput, options: FurnishOptions = {
         const lamps = bedType && bedHasIntegratedBedside(bedType)
             ? placeIntegratedBedLamps(input, withWardrobe, doorObstacles(input))
             : placeBedsideLamps(input, withWardrobe);
-        return [...withWardrobe, ...lamps];
+        // §FURNISH-ACCENT-OVERLAP (2026-06-29) — the lamp passes append AFTER the main
+        // place pass and bypass collision, so a riding lamp can (1) read as floor-
+        // clashing its own host and (2) genuinely overlap a neighbouring floor piece
+        // (dresser / wardrobe). resolveAccentOverlaps lifts each lamp onto its host top
+        // (height-separated from the host) and nudges/drops any lamp whose plan footprint
+        // would still clash a non-host body — the validator's finding fed back into
+        // placement (reject→retry→drop) instead of shipping the warning.
+        return resolveAccentOverlaps([...withWardrobe, ...lamps]);
     }
     return placed;
 }
