@@ -123,7 +123,14 @@ export interface MetricGridInput {
     readonly dataset: ClimateDataset | null;
     /** Float height above ground for the cells (m). Default 0.16. */
     readonly heightAboveGround?: number;
-    /** Cells per side cap (perf). Default 26 → ≤ 676 cells. */
+    /** TARGET cell edge length (m). The grid is built at this resolution, then the
+     *  cell size is auto-clamped UP if `maxCells` would be exceeded (§perf cap).
+     *  Preferred over `gridCountCap`. Default derives from `gridCountCap` or 6 m. */
+    readonly cellSizeM?: number;
+    /** Hard cap on total cells (perf — bounds work on a huge disc). Default 6000. */
+    readonly maxCells?: number;
+    /** DEPRECATED — cells per side cap. When set (and `cellSizeM` is not), the cell
+     *  size is `2·radius / gridCountCap`. Kept for the unit tests. */
     readonly gridCountCap?: number;
     // ── Sun-hours only ───────────────────────────────────────────────────────
     /** Site latitude (deg) — REQUIRED for the 'sunHours' metric (sun position). */
@@ -149,8 +156,20 @@ const DEFAULT_LABELS: Record<SiteMetric, string> = {
  * switcher uses this to enable / grey-out + caption each metric chip rather than
  * faking an empty layer (the Forma "no data source wired" affordance).
  *
- * @param hasDataset   a ClimateDataset is resolvable (temperature + wind baselines).
- * @param hasLocation  a site lat/lon is known (sun-hours needs the sun position).
+ * §SITE-METRIC-CLIMATE-INSTANT (founder 2026-06-28) — Temperature + Wind are
+ * available the moment a site LOCATION exists, NOT gated on the live ClimateStore
+ * being populated. `@pryzm/climate-host` guarantees an INSTANT, offline, bundled
+ * regional-normals dataset for any lat/lon (`ensureSiteClimate` Stage 1 writes it
+ * synchronously with no network); the live Open-Meteo/PVGIS fetch only refines it
+ * in the background. Gating these chips on `hasDataset` (which lags the async
+ * ingest, or never lands if the fetch is throttled/blocked) left them stuck on
+ * "Wind data loading…". They now enable on `hasLocation`; the selecting path kicks
+ * the bundled ingest so the dataset is present by paint time, and the
+ * `setClimateOverlayDataset` subscription repaints when it lands.
+ *
+ * @param hasDataset   a ClimateDataset is ALREADY resolved (for the note nuance).
+ * @param hasLocation  a site lat/lon is known — enables sun-hours + temp + wind
+ *                     (bundled climate normals are guaranteed for any location).
  */
 export function siteMetricAvailability(
     hasDataset: boolean,
@@ -168,16 +187,20 @@ export function siteMetricAvailability(
         isGroundGrid,
         ...(reason !== undefined ? { reason } : {}),
     });
+    // Climate metrics enable on location (bundled normals are instant); the note
+    // says "regional normals" until the live fetch refines the dataset.
+    const climateReason = hasLocation
+        ? (hasDataset ? undefined : 'Approx — regional normals')
+        : 'Set a site location';
     return [
-        // Sun-hours is now a GROUND grid in the side-3D view (renders like the others)
-        // — it needs only the site lat/lon (sun position) + the massing/context the
-        // disc already shows; no climate dataset, no BIM mesh.
+        // Sun-hours is a GROUND grid — needs only the site lat/lon (sun position) +
+        // the massing/context the disc already shows; no climate dataset, no BIM mesh.
         mk('sunHours', hasLocation, true, hasLocation ? undefined : 'Set a site location'),
-        // Ground grids — real/partial, need the climate baseline.
-        mk('temperature', hasDataset, true, hasDataset ? undefined : 'No climate data yet'),
-        mk('wind', hasDataset, true, hasDataset ? undefined : 'No climate data yet'),
-        // Population is an OSM proxy — it needs context footprints, not climate; it
-        // renders flat (zero) with none, so gate it on having ANY footprints.
+        // Temperature + wind: available on LOCATION (bundled regional normals are
+        // instant + offline; the live fetch only refines). NOT gated on the live store.
+        mk('temperature', hasLocation, true, climateReason),
+        mk('wind', hasLocation, true, climateReason),
+        // Population is an OSM proxy — it needs context footprints, not climate.
         mk('population', true, true),
         // Daylight VSC is computed per room on the BIM scene, not as a side-3D ground
         // grid — surfaced via the existing pryzmComputeDaylight pass, not here yet.
@@ -374,10 +397,49 @@ function sunHoursCellColour(intensity: number): string {
     return '#F4753A';
 }
 
+/** One-time log guard for the §perf cell-cap clamp. */
+let cellCapClampLogged = false;
+
+/** Resolve the target cell size (m), clamped UP so the grid never exceeds the hard
+ *  cell cap (bounds work on a large disc). Logs once when it clamps. */
+function resolveCellSize(input: MetricGridInput, defaultCellM: number): { cellSize: number; maxCells: number } {
+    const maxCells = Math.max(64, input.maxCells ?? 6000);
+    let cellSize = input.cellSizeM && input.cellSizeM > 0
+        ? input.cellSizeM
+        : (input.gridCountCap && input.gridCountCap > 0
+            ? (2 * input.radius) / input.gridCountCap
+            : defaultCellM);
+    // The grid is ~(2R/cellSize)² cells; clamp cellSize up until that is ≤ maxCells.
+    const perSide = (cs: number): number => Math.ceil((2 * input.radius) / cs);
+    if (perSide(cellSize) * perSide(cellSize) > maxCells) {
+        const target = (2 * input.radius) / Math.sqrt(maxCells);
+        if (!cellCapClampLogged) {
+            cellCapClampLogged = true;
+            console.log(
+                `[site-metric] §perf cell-cap: ${perSide(cellSize) ** 2} cells would exceed ` +
+                `${maxCells}; clamping cell size ${cellSize.toFixed(1)}→${target.toFixed(1)} m.`,
+            );
+        }
+        cellSize = target;
+        while (perSide(cellSize) * perSide(cellSize) > maxCells) cellSize *= 1.04;
+    }
+    return { cellSize, maxCells };
+}
+
+/** Default target cell edge (m) per metric — sun-hours is the heaviest (raycast per
+ *  cell × sun sample × prism) so it gets a slightly larger min cell. */
+function defaultCellM(metric: SiteMetric): number {
+    return metric === 'sunHours' ? 5 : 3.5;
+}
+
 /**
  * Build the coloured ground cells for a ground-grid metric (sun hours / temperature
  * / wind / population) in the site-ENU frame. Returns `[]` when the metric is not a
  * ground grid (daylight) or its required data is missing. PURE + deterministic.
+ *
+ * NOTE: for 'sunHours' this is the SYNCHRONOUS (whole-grid) build — fine for tests
+ * and small discs. The editor uses the CHUNKED `prepareSunHoursGrid` driver for the
+ * large interactive disc so the per-cell raycast never freezes the viewport.
  */
 export function buildSiteMetricGrid(
     metric: SiteMetric,
@@ -386,48 +448,24 @@ export function buildSiteMetricGrid(
     if (metric === 'daylight') return [];          // BIM-view only (per-room VSC)
     if (!(input.radius > 0)) return [];
     const up = input.heightAboveGround ?? 0.16;
-    const cap = Math.max(6, input.gridCountCap ?? 26);
-    // Cell size so the grid spans [-R, R] with ≤ cap cells per side.
-    const cellSize = (2 * input.radius) / cap;
+    const { cellSize, maxCells } = resolveCellSize(input, defaultCellM(metric));
     const { polys, obstacles } = toObstacles(input.footprints);
     const cells = buildStreetGrid(discBoundary(input.radius), polys, {
         cellSize,
         margin: 0,
-        maxCells: cap * cap + 4,
+        maxCells: maxCells + 16,
     });
     if (cells.length === 0) return [];
 
     if (metric === 'sunHours') {
-        const lat = input.latDeg, lng = input.lngDeg;
-        if (lat == null || lng == null) return [];   // sun position needs lat/lon
-        const samples = generateSunSamples({
-            latDeg: lat,
-            lngDeg: lng,
-            dayOfYear: sunDayOfYear(input.sunDay),
-            stepMinutes: input.sunStepMinutes && input.sunStepMinutes > 0 ? input.sunStepMinutes : 15,
-            daylightOnly: true,                      // drop below-horizon instants
-        });
-        const stepHours = (input.sunStepMinutes && input.sunStepMinutes > 0 ? input.sunStepMinutes : 15) / 60;
-        const prisms = toPrisms(input.footprints);
-        const sampleUp = 0.5;                        // test ray ~0.5 m above ground
-        // Max possible = every above-horizon sample unobstructed.
-        const maxHours = samples.length * stepHours;
-        const raw = cells.map((c) => {
-            // Don't paint cells UNDER a building (they're inside the mass).
-            if (c.underBuilding) return { c, hours: 0, skip: true };
-            let lit = 0;
-            for (const s of samples) {
-                if (!sunBlocked(c.x, c.z, sampleUp, s, prisms)) lit++;
-            }
-            return { c, hours: lit * stepHours, skip: false };
-        });
-        return raw
-            .filter((r) => !r.skip)
-            .map(({ c, hours }) => ({
-                east: c.x, north: c.z, halfSize: c.size / 2, up,
-                colorHex: sunHoursCellColour(maxHours > 0 ? hours / maxHours : 0),
-                value: hours,
-            }));
+        const prep = prepareSunHoursGrid(input);
+        if (!prep) return [];
+        const out: MetricGridCell[] = [];
+        for (const c of prep.cells) {
+            const cell = prep.evaluate(c);
+            if (cell) out.push(cell);
+        }
+        return out;
     }
 
     if (metric === 'population') {
@@ -457,6 +495,87 @@ export function buildSiteMetricGrid(
         east: c.x, north: c.z, halfSize: c.size / 2, up,
         colorHex: heatCellColour(c.intensity), value: c.tempC,
     }));
+}
+
+// ── Chunked sun-hours build (the heaviest metric — raycast per cell) ──────────
+//
+// The sun-hours grid is the only metric whose PER-CELL cost (raycast × sun samples
+// × building prisms) is heavy enough to freeze the viewport on a large, fine disc.
+// `prepareSunHoursGrid` does the cheap setup ONCE (grid + sun samples + prisms) and
+// returns the cells PLUS a pure per-cell `evaluate`, so the editor can drive the
+// heavy loop in batches across frames (progressive reveal) instead of synchronously.
+
+/** A grid cell awaiting sun-hours evaluation (centre + size, ENU XZ metres). */
+export interface SunHoursCell {
+    readonly x: number;          // east
+    readonly z: number;          // north
+    readonly size: number;       // cell edge (m)
+    readonly underBuilding: boolean;
+}
+
+/** A prepared sun-hours build: the cells + a pure per-cell evaluator + the float
+ *  height the cells render at. The caller batches `evaluate` across frames. */
+export interface SunHoursGridPrep {
+    readonly cells: ReadonlyArray<SunHoursCell>;
+    /** Evaluate ONE cell → its coloured `MetricGridCell`, or null to skip (under a
+     *  building). Pure + deterministic; safe to call in any order / in batches. */
+    readonly evaluate: (cell: SunHoursCell) => MetricGridCell | null;
+}
+
+/**
+ * Prepare a chunkable sun-hours ground grid. Returns null when sun-hours can't be
+ * computed (no radius / no lat-lon). The cheap work (grid, sun-sample set, building
+ * prisms, normalisation) is done here ONCE; the heavy per-cell raycast lives in the
+ * returned `evaluate`, which the editor calls in per-frame batches. PURE.
+ */
+export function prepareSunHoursGrid(input: MetricGridInput): SunHoursGridPrep | null {
+    if (!(input.radius > 0)) return null;
+    const lat = input.latDeg, lng = input.lngDeg;
+    if (lat == null || lng == null) return null;
+    const up = input.heightAboveGround ?? 0.16;
+    const { cellSize, maxCells } = resolveCellSize(input, defaultCellM('sunHours'));
+    const { polys } = toObstacles(input.footprints);
+    const cells = buildStreetGrid(discBoundary(input.radius), polys, {
+        cellSize,
+        margin: 0,
+        maxCells: maxCells + 16,
+    });
+    if (cells.length === 0) return null;
+
+    const stepMinutes = input.sunStepMinutes && input.sunStepMinutes > 0 ? input.sunStepMinutes : 15;
+    const samples = generateSunSamples({
+        latDeg: lat,
+        lngDeg: lng,
+        dayOfYear: sunDayOfYear(input.sunDay),
+        stepMinutes,
+        daylightOnly: true,
+    });
+    const stepHours = stepMinutes / 60;
+    const prisms = toPrisms(input.footprints);
+    const sampleUp = 0.5;
+    const maxHours = samples.length * stepHours;
+    const radius = input.radius;
+
+    const evaluate = (c: SunHoursCell): MetricGridCell | null => {
+        if (c.underBuilding) return null;                 // inside the mass — skip
+        // Skip cells outside the analysis disc (round Forma-style cutout).
+        if (Math.hypot(c.x, c.z) > radius * 1.02) return null;
+        let lit = 0;
+        for (const s of samples) {
+            if (!sunBlocked(c.x, c.z, sampleUp, s, prisms)) lit++;
+        }
+        const hours = lit * stepHours;
+        return {
+            east: c.x, north: c.z, halfSize: c.size / 2, up,
+            colorHex: sunHoursCellColour(maxHours > 0 ? hours / maxHours : 0),
+            value: hours,
+        };
+    };
+
+    return {
+        cells: cells.map((c) => ({ x: c.x, z: c.z, size: c.size, underBuilding: c.underBuilding })),
+        evaluate,
+    };
 }
 
 /** The gradient legend + unit for a metric (drawn beside the heatmap). */

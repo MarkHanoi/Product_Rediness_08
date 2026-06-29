@@ -118,30 +118,35 @@ describe('buildSiteMetricGrid', () => {
 });
 
 describe('siteMetricAvailability', () => {
-    it('disables climate metrics without a dataset and sun hours without a location', () => {
-        const a = siteMetricAvailability(false, false);
+    it('disables ALL location-driven metrics when no location is set', () => {
+        const a = siteMetricAvailability(false, false);  // no dataset, no location
         const byMetric = Object.fromEntries(a.map((m) => [m.metric, m]));
         expect(byMetric.temperature!.available).toBe(false);
         expect(byMetric.wind!.available).toBe(false);
         expect(byMetric.sunHours!.available).toBe(false);   // no location
         expect(byMetric.temperature!.reason).toBeTruthy();
-        // Population is an OSM proxy — available regardless of climate.
+        // Population is an OSM proxy — available regardless of climate/location.
         expect(byMetric.population!.available).toBe(true);
         // Daylight is BIM-view only here.
         expect(byMetric.daylight!.available).toBe(false);
     });
 
-    it('enables sun hours once a location exists (no climate dataset needed)', () => {
+    it('§SITE-METRIC-CLIMATE-INSTANT: temp+wind+sun ENABLE on location even with NO live dataset', () => {
+        // The bug: temp/wind were gated on the live ClimateStore (hasDataset) and
+        // stayed disabled while the fetch lagged. They must enable on LOCATION alone
+        // (bundled regional normals are instant), with an "approx" reason.
         const a = siteMetricAvailability(false, true);   // hasDataset=false, hasLocation=true
         const byMetric = Object.fromEntries(a.map((m) => [m.metric, m]));
         expect(byMetric.sunHours!.available).toBe(true);
-        // Sun-hours is a GROUND grid now (renders like the others).
+        expect(byMetric.temperature!.available).toBe(true);   // ← was false (the bug)
+        expect(byMetric.wind!.available).toBe(true);          // ← was false (the bug)
+        expect(byMetric.temperature!.isGroundGrid).toBe(true);
         expect(byMetric.sunHours!.isGroundGrid).toBe(true);
-        // Climate metrics still gated on the dataset.
-        expect(byMetric.temperature!.available).toBe(false);
+        // Enabled-but-approx note (regional normals until the live fetch refines).
+        expect(byMetric.temperature!.reason).toMatch(/approx|regional/i);
     });
 
-    it('enables climate metrics once a dataset exists', () => {
+    it('temp+wind have NO "approx" caveat once the live dataset is resolved', () => {
         const a = siteMetricAvailability(true, true);
         const byMetric = Object.fromEntries(a.map((m) => [m.metric, m]));
         expect(byMetric.temperature!.available).toBe(true);

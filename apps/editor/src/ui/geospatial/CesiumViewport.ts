@@ -7,6 +7,7 @@ import * as Cesium from "cesium";
 // that cast shadows (Forma/Archistar-style context). Same data path as the 2D map.
 import {
     fetchContextBuildings,
+    CONTEXT_BBOX_HALF_DEG,
     type ContextBuildingCollection,
 } from "./contextBuildings";
 import { fetchContextRoads, type ContextRoadCollection } from "./contextRoads";
@@ -40,11 +41,17 @@ import { windRoseBars } from "../climate/climateChartData";
 // the SAME site-ENU frame as the climate overlays, plus the per-metric legend.
 import {
     buildSiteMetricGrid,
+    prepareSunHoursGrid,
     siteMetricLegend,
     type SiteMetric,
     type MetricFootprint,
     type MetricGridCell,
+    type SunHoursCell,
 } from "../climate/siteMetricGrids";
+// §SITE-METRIC-HEATMAP-CHUNKED — frame-budget-friendly deferral so the larger /
+// finer ground heatmap (esp. the per-cell sun-hours raycast) fills in progressively
+// across frames instead of freezing the WebGPU viewport on one synchronous build.
+import { deferWork, type DeferWorkCanceller } from "@pryzm/frame-scheduler";
 
 // H7 (07-BIM-SECURITY-CONTRACT §6.1): Cesium Ion token MUST be loaded from the
 // VITE_CESIUM_TOKEN environment variable and MUST NOT be hardcoded in source.
@@ -471,6 +478,11 @@ export class CesiumViewport {
   private siteMetricActive: SiteMetric | null = null;
   /** Analysis-day preset for the sun-hours ground heatmap (Forma pattern). */
   private siteMetricSunDay: 'summer' | 'winter' | 'equinox' = 'summer';
+  /** Cancellers for the in-flight CHUNKED metric build (cleared/cancelled on every
+   *  re-render + dispose so a stale build never paints over a newer one). */
+  private siteMetricChunkCancellers: DeferWorkCanceller[] = [];
+  /** Monotonic build token — a chunk callback bails if a newer build superseded it. */
+  private siteMetricBuildSeq = 0;
   /** The last OSM context collection (footprints + heights, lon/lat) so the
    *  population/wind/heat grids can read built density. Captured on context load. */
   private lastContextCollection: ContextBuildingCollection | null = null;
@@ -3836,73 +3848,137 @@ export class CesiumViewport {
     return out;
   }
 
-  /** Render the active site-metric ground heatmap as colour-binned ENU cells. */
+  /**
+   * Render the active site-metric ground heatmap — LARGER disc + FINER cells, built
+   * PROGRESSIVELY across frames so it never freezes the WebGPU viewport.
+   *
+   * §SITE-METRIC-HEATMAP-LARGER/FINER/CHUNKED (founder 2026-06-28):
+   *  - disc radius = `siteMetricRadiusM()` (~2× the overlay radius, clamped to OSM
+   *    context coverage so it never spills into an empty zone);
+   *  - target cell ≈ 3.5 m (climate metrics) / 5 m (sun hours, the heaviest),
+   *    clamped UP by the pure builder's hard cell cap so a big disc stays bounded;
+   *  - the cells are PAINTED in per-frame batches via `deferWork`, and for sun-hours
+   *    the heavy per-cell raycast is also evaluated inside those batches (the field
+   *    fills in, reading as "computing"). A monotonic build token + the chunk
+   *    cancellers guarantee a stale build never paints over a newer toggle/date.
+   */
   private renderSiteMetricOverlay(): void {
     const viewer = this.viewer;
     const metric = this.siteMetricActive;
     const origin = this.overlayOrigin();
-    this.clearSiteMetricOverlay();
+    this.clearSiteMetricOverlay();                 // also cancels in-flight chunks
     if (!viewer || !metric || !origin) return;
     if (metric === 'daylight') return;             // BIM-view-only (per-room VSC)
+
+    const seq = ++this.siteMetricBuildSeq;         // this build's token
+    const radius = this.siteMetricRadiusM();
+    const base = this.formaTerrainBaseHeight;
+    const enu = Cesium.Transforms.eastNorthUpToFixedFrame(
+      Cesium.Cartesian3.fromDegrees(origin.lon, origin.lat, 0),
+    );
+    const footprints = this.siteMetricFootprints(origin);
+    // Paint one prepared cell as a Cesium polygon (shared by every metric path).
+    const paintCell = (c: MetricGridCell): void => {
+      if (Math.hypot(c.east, c.north) > radius * 1.02) return; // round cutout
+      const cz = base + c.up;
+      const h = c.halfSize * 0.96;                  // tiny gap so cells read as a grid
+      const corners = [
+        this.enuToCartesian(enu, c.east - h, c.north - h, cz),
+        this.enuToCartesian(enu, c.east + h, c.north - h, cz),
+        this.enuToCartesian(enu, c.east + h, c.north + h, cz),
+        this.enuToCartesian(enu, c.east - h, c.north + h, cz),
+      ];
+      const ent = viewer.entities.add({
+        name: `pryzm-site-metric-${metric}`,
+        polygon: {
+          hierarchy: new Cesium.PolygonHierarchy(corners),
+          perPositionHeight: true,
+          material: Cesium.Color.fromCssColorString(c.colorHex).withAlpha(0.5),
+        },
+      });
+      this.siteMetricEntities.push(ent);
+    };
+
     try {
-      const radius = this.overlayRadiusM();
-      const base = this.formaTerrainBaseHeight;
-      const enu = Cesium.Transforms.eastNorthUpToFixedFrame(
-        Cesium.Cartesian3.fromDegrees(origin.lon, origin.lat, 0),
-      );
-      // §SITE-METRIC-HEATMAP-FINER (founder 2026-06-28) — ~2× resolution (half the
-      // cell edge) for the street-analytics metrics (cap 52 → ≤ ~2700 cells). Sun
-      // hours is a raycast PER cell × PER sun sample, so a full 52² grid at 15-min
-      // cadence janks; keep it visibly finer than before (cap 40) and coarsen the
-      // sun cadence to 20 min to compensate. Accuracy of the shadow study is
-      // secondary to "it renders smoothly".
-      const isSun = metric === 'sunHours';
+      const legend = siteMetricLegend(metric, this.climateOverlayDataset);
+      if (metric === 'sunHours') {
+        // Heaviest metric: prepare once (grid + sun samples + prisms), then evaluate
+        // + paint the per-cell raycast in batches across frames.
+        const prep = prepareSunHoursGrid({
+          radius,
+          footprints,
+          dataset: null,
+          heightAboveGround: 0.16,
+          cellSizeM: 5,
+          maxCells: 2600,            // hard cap (raycast cost) — big disc stays bounded
+          latDeg: origin.lat,
+          lngDeg: origin.lon,
+          sunDay: this.siteMetricSunDay,
+          sunStepMinutes: 25,        // sane cadence for the heaviest metric
+        });
+        if (!prep) return;
+        this.chunkBuild(seq, prep.cells.length, 220, (lo, hi) => {
+          for (let i = lo; i < hi; i++) {
+            const cell = prep.evaluate(prep.cells[i] as SunHoursCell);
+            if (cell) paintCell(cell);
+          }
+        }, () => console.log(`[CesiumViewport][site-metric] sunHours heatmap: ${this.siteMetricEntities.length} cell(s), radius ${radius.toFixed(0)} m (chunked${legend ? `, ${legend.title}` : ''}).`));
+        return;
+      }
+
+      // Cheap metrics: the whole-grid pure build is fast; only the PAINT is chunked.
       const cells: MetricGridCell[] = buildSiteMetricGrid(metric, {
         radius,
-        footprints: this.siteMetricFootprints(origin),
+        footprints,
         dataset: this.climateOverlayDataset,
         heightAboveGround: 0.16,
-        gridCountCap: isSun ? 40 : 52,
-        // Sun-hours only — the site lat/lon (sun position) + the analysis-day preset.
-        latDeg: origin.lat,
-        lngDeg: origin.lon,
-        sunDay: this.siteMetricSunDay,
-        sunStepMinutes: 20,
+        cellSizeM: 3.5,
+        maxCells: 6000,
       });
-      let drawn = 0;
-      for (let i = 0; i < cells.length; i++) {
-        const c = cells[i]!;
-        // Only paint cells within the analysis disc (a round Forma-style cutout).
-        if (Math.hypot(c.east, c.north) > radius * 1.02) continue;
-        const cz = base + c.up;
-        const h = c.halfSize * 0.96; // tiny gap so cells read as a grid
-        const corners = [
-          this.enuToCartesian(enu, c.east - h, c.north - h, cz),
-          this.enuToCartesian(enu, c.east + h, c.north - h, cz),
-          this.enuToCartesian(enu, c.east + h, c.north + h, cz),
-          this.enuToCartesian(enu, c.east - h, c.north + h, cz),
-        ];
-        const ent = viewer.entities.add({
-          name: `pryzm-site-metric-${metric}-${i}`,
-          polygon: {
-            hierarchy: new Cesium.PolygonHierarchy(corners),
-            perPositionHeight: true,
-            material: Cesium.Color.fromCssColorString(c.colorHex).withAlpha(0.5),
-          },
-        });
-        this.siteMetricEntities.push(ent);
-        drawn++;
-      }
-      viewer.scene.requestRender();
-      const legend = siteMetricLegend(metric, this.climateOverlayDataset);
-      console.log(`[CesiumViewport][site-metric] ${metric} heatmap: ${drawn}/${cells.length} cell(s), radius ${radius.toFixed(0)} m${legend ? ` (${legend.title})` : ''}.`);
+      this.chunkBuild(seq, cells.length, 600, (lo, hi) => {
+        for (let i = lo; i < hi; i++) paintCell(cells[i]!);
+      }, () => console.log(`[CesiumViewport][site-metric] ${metric} heatmap: ${this.siteMetricEntities.length}/${cells.length} cell(s), radius ${radius.toFixed(0)} m (chunked${legend ? `, ${legend.title}` : ''}).`));
     } catch (e) {
       console.warn('[CesiumViewport][site-metric] overlay failed:', e);
     }
   }
 
-  /** Remove the site-metric heatmap entities (idempotent). */
+  /**
+   * Drive a [0,total) range in `batch`-sized chunks, one chunk per deferred tick, so
+   * the heavy build never blocks a frame. Each chunk bails if a newer build (`seq`)
+   * superseded it; `requestRender` after each chunk reveals the field progressively;
+   * `onDone` runs after the last chunk. Cancellers are tracked for clear/dispose.
+   */
+  private chunkBuild(
+    seq: number,
+    total: number,
+    batch: number,
+    work: (lo: number, hi: number) => void,
+    onDone: () => void,
+  ): void {
+    const viewer = this.viewer;
+    const step = (start: number): void => {
+      if (seq !== this.siteMetricBuildSeq || !this.viewer || this.viewer !== viewer) return;
+      const end = Math.min(total, start + batch);
+      try { work(start, end); } catch (e) { console.warn('[CesiumViewport][site-metric] chunk failed:', e); }
+      try { viewer.scene.requestRender(); } catch { /* viewer gone */ }
+      if (end < total) {
+        const cancel = deferWork(() => step(end), 0);
+        this.siteMetricChunkCancellers.push(cancel);
+      } else {
+        onDone();
+      }
+    };
+    if (total <= 0) { onDone(); return; }
+    step(0);
+  }
+
+  /** Remove the site-metric heatmap entities + cancel any in-flight chunked build. */
   private clearSiteMetricOverlay(): void {
+    // Invalidate any in-flight chunk callbacks + cancel their pending timers.
+    this.siteMetricBuildSeq++;
+    for (const cancel of this.siteMetricChunkCancellers) { try { cancel(); } catch { /* ignore */ } }
+    this.siteMetricChunkCancellers = [];
     const viewer = this.viewer;
     if (viewer) {
       for (const e of this.siteMetricEntities) { try { viewer.entities.remove(e); } catch { /* gone */ } }
@@ -3925,6 +4001,25 @@ export class CesiumViewport {
     const area = this.formaMassingOrigin?.areaM2 ?? 0;
     const fromArea = area > 0 ? 1.6 * Math.sqrt(area) : 0;
     return Math.max(40, Math.min(400, fromArea || 80));
+  }
+
+  /**
+   * §SITE-METRIC-HEATMAP-LARGER (founder 2026-06-28) — the analysis DISC radius for
+   * the metric ground heatmap is ~2× the overlay (sun-path/wind) radius so it covers
+   * the surrounding site/context, not just a tight ring around the building. It is
+   * CLAMPED to the OSM context coverage (the ±CONTEXT_BBOX_HALF_DEG bbox ≈ ±890 m at
+   * the equator) so the heatmap never spills into an empty no-context zone — option
+   * (b), no Overpass change, no dense-urban timeout risk. The other overlays keep the
+   * smaller `overlayRadiusM()` so arcs/streaks still frame the massing.
+   */
+  private siteMetricRadiusM(): number {
+    const wide = this.overlayRadiusM() * 2;
+    // Context bbox half-extent in metres (N/S is uniform — the binding/smaller
+    // coverage, since E/W is widened by latitude in contextBboxAround).
+    const contextHalfM = CONTEXT_BBOX_HALF_DEG * 111_320; // deg latitude → m
+    // Leave a ~10% margin inside the context edge so cells always sit on real context.
+    const coverageCap = Math.max(120, contextHalfM * 0.9);
+    return Math.min(Math.max(80, wide), coverageCap);
   }
 
   /** A circular proxy of the building MASS the wind streamlines bend around and
