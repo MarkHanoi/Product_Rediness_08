@@ -129,3 +129,74 @@ describe('§RESI-PARTITION-BBOX-PLATE — a LARGE plate places MANY apartments (
         expect(JSON.stringify(a)).toBe(JSON.stringify(b));
     });
 });
+
+describe('§RESI-MIDEDGE-FILL-REGRESSION — a large square fills the mid-edge bands (not just 4 corners)', () => {
+    // FOUNDER REPRODUCTION (2026-06-29): a LARGE square plot, 5 levels, T2+T3 mix, min 25 / max 100 m²
+    // produced "only 4 corner units, the mid-edge bands between the corners completely empty". The
+    // §RESI-CORRIDOR-GRID (default-on) + §RESI-EDGE-TYPE-VARIETY perimeter fill resolves this: the plate
+    // now packs a full grid of double-loaded rows around the central core, so a large square places
+    // MANY units and the mid-edge bands carry apartments. This test LOCKS that in — a regression back
+    // to a corner-quadrant-only partition (4 cells) would fail it. (The 4-corner screenshot the founder
+    // saw was a STALE bundle predating the corridor-grid commit `89e3f6fd`.)
+    //
+    // The founder used min 25 m² (below T2's 55 m² band floor); the orchestrator floors the packer min
+    // at the engine-feasible 72 m² (capped by the user max 100), so cells come out as real T2/T3 units.
+
+    /** A cell counts as "mid-edge" when one z-extreme sits on a plate Z-façade but it is NOT a corner
+     *  (it does not also touch an X-façade) — i.e. an edge-adjacent unit between the two corner units. */
+    function midEdgeCount(cells: ReadonlyArray<{ rect: { x0: number; x1: number; z0: number; z1: number } }>, w: number, d: number): number {
+        const tol = 0.3;
+        let n = 0;
+        for (const c of cells) {
+            const r = c.rect;
+            const onX = Math.abs(r.x0) < tol || Math.abs(r.x1 - w) < tol;
+            const onZ = Math.abs(r.z0) < tol || Math.abs(r.z1 - d) < tol;
+            // mid-edge along a Z-façade: touches a z-edge but NOT an x-edge (so it is between corners)…
+            if (onZ && !onX) n++;
+            // …or mid-edge along an X-façade: touches an x-edge but NOT a z-edge.
+            else if (onX && !onZ) n++;
+        }
+        return n;
+    }
+
+    function founderInput(w: number, d: number): ResidentialBuildingOrchestratorInput {
+        return {
+            footprint: plate(w, d),
+            upperLevels: 1,                 // one upper level is enough to assert the per-plate fill
+            coreWidthM: 6,
+            coreDepthM: 4,
+            corridorWidthM: 1.5,
+            minApartmentAreaM2: 25,         // the founder's value (below T2's band floor → floored to 72)
+            maxApartmentAreaM2: 100,
+            typologies: { T1: false, T2: true, T3: true, T4: false },
+        };
+    }
+
+    it('a 60×60 m square places FAR more than 4 units AND fills the mid-edge bands', { timeout: 60_000 }, () => {
+        const r = orchestrateResidentialBuilding(founderInput(60, 60));
+        expect(r.status).toBe('ok');
+        if (r.status !== 'ok') return;
+        const upper = r.perLevelApartments.find((l) => l.role === 'upper');
+        expect(upper).toBeTruthy();
+        if (!upper) return;
+        // (a) the plate is NOT "4 corner units" — it packs a full perimeter ring + interior rows.
+        expect(upper.apartments.length).toBeGreaterThan(4);
+        expect(upper.apartments.length).toBeGreaterThanOrEqual(16);
+        // (b) the mid-edge bands BETWEEN the corners carry apartments (the founder's empty white bands).
+        expect(midEdgeCount(upper.apartments.map((a) => a.cell), 60, 60)).toBeGreaterThanOrEqual(4);
+        // (c) every placed apartment actually laid out (engine-feasible — no sliver soft-fails).
+        expect(upper.apartments.every((a) => a.status === 'ok')).toBe(true);
+    });
+
+    it('the unit count tracks plate area (a bigger square places strictly more) — not a fixed 4', { timeout: 60_000 }, () => {
+        const small = orchestrateResidentialBuilding(founderInput(40, 40));
+        const large = orchestrateResidentialBuilding(founderInput(80, 80));
+        expect(small.status).toBe('ok');
+        expect(large.status).toBe('ok');
+        if (small.status !== 'ok' || large.status !== 'ok') return;
+        const sUpper = small.perLevelApartments.find((l) => l.role === 'upper')!;
+        const lUpper = large.perLevelApartments.find((l) => l.role === 'upper')!;
+        expect(sUpper.apartments.length).toBeGreaterThanOrEqual(8);
+        expect(lUpper.apartments.length).toBeGreaterThan(sUpper.apartments.length);
+    });
+});
