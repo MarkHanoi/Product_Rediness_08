@@ -89,9 +89,15 @@ export class WallOccupancyStore {
      * @param wall        Frozen WallData — provides openings[] and baseLine
      * @param offsetM     Distance from wall start to LEFT edge of new opening (metres)
      * @param widthM      Width of the new opening (metres)
-     * @param excludeId   Optional Opening.id to skip during conflict check.
-     *                    Use when moving or resizing an existing opening so it
-     *                    does not conflict with itself.
+     * @param excludeId   Optional id to skip during the conflict check. Matched
+     *                    against BOTH `Opening.id` AND `Opening.elementId` so a
+     *                    caller may pass either the opening id OR the hosted
+     *                    element id (door/window id). This is essential for the
+     *                    MOVE path: a small in-place nudge of a door/window
+     *                    produces a NEW range that overlaps the element's OWN
+     *                    pre-move slot — without excluding it by elementId the
+     *                    move is wrongly rejected as a self-conflict, because
+     *                    Opening.id is distinct from the hosted element id.
      *
      * @returns  { valid: true } when placement is clear.
      *           { valid: false, conflictIds, reason } when blocked.
@@ -161,7 +167,13 @@ export class WallOccupancyStore {
         const openings: Opening[] = wall.openings ?? [];
 
         for (const existing of openings) {
-            if (excludeId && existing.id === excludeId) continue;
+            // §MOVE-EXCLUDE-SELF: skip the element's OWN slot during a move so a
+            // small in-place nudge isn't rejected as a self-conflict. The MOVE
+            // commands pass the hosted element id (door/window id) as excludeId,
+            // which equals Opening.elementId — NOT Opening.id — so we must match
+            // either field. (Create still passes the new opening id, which won't
+            // exist in openings[] yet, so this is a no-op for the create path.)
+            if (excludeId && (existing.id === excludeId || existing.elementId === excludeId)) continue;
 
             const exStart = existing.offset;
             const exEnd   = existing.offset + existing.width;
