@@ -111,6 +111,16 @@ import { doorStore } from '@pryzm/geometry-door';
 import { windowStore } from '@pryzm/geometry-window';
 
 /**
+ * §LOAD-CHUNKED (2026-06-29) — elements processed between frame yields in the
+ * chunked import path. A slab triangulation (the heaviest per-element work that
+ * still runs synchronously on restore — walls/doors/windows are deferred by the
+ * WallRebuildCoordinator restore flush) is the budget driver; ~120 keeps each
+ * chunk inside a frame while keeping the number of paints modest on a typical
+ * residential building (≈ 800 elements → ≈ 7 chunks/yields).
+ */
+export const IMPORT_CHUNK_SIZE = 120;
+
+/**
  * Mutable bookkeeping owned by the command and read by the caller after
  * `execute()` returns.  Mirrors the LoadResult counters that ProjectLoader
  * historically populated inline.
@@ -205,31 +215,23 @@ export class ImportProjectCommand implements Command {
         return { ok: true };
     }
 
-    execute(ctx: CommandContext): CommandResult {
-        const snapshot   = this.snapshot;
-        const stats      = this.stats;
-        const isCancel   = this.opts.isCancelled ?? (() => false);
-
+    /**
+     * Build the shared `runSub` + `recordFail` helpers used by both the
+     * synchronous `execute()` driver and the chunked `executeChunked()` driver.
+     * Kept as one factory so the two drivers run BYTE-IDENTICAL per-element
+     * semantics — the only difference between them is *when* they yield.
+     */
+    private _makeHelpers(ctx: CommandContext): {
+        runSub: (cmd: Command) => CommandResult;
+        recordFail: (label: string, r: CommandResult) => void;
+    } {
+        const stats = this.stats;
         /**
-         * Run a sub-command without going through CommandManager.
-         *
-         * The PROJECT_LOAD fast path in CommandManager already skips snapshot,
-         * undo push, and verbose logging.  The remaining per-call overhead it
-         * imposes is:
-         *   - constructing a `validation` object,
-         *   - allocating a `result` object on success,
-         *   - fanning out commandExecutedCallbacks (Contract 31.7) once per
-         *     sub-command — for N elements this is N PropertyInspector
-         *     refreshes.
-         *
-         * By calling cmd.execute(ctx) directly we keep validation (the
-         * sub-command's own `canExecute` is the source of truth for element
-         * shape) but collapse the N callback fan-outs into the single
-         * fan-out fired by CommandManager when *this* outer command resolves.
-         *
-         * Errors are caught locally and turned into a non-fatal CommandResult
-         * so that one bad element does not abort the entire import — the
-         * legacy ProjectLoader path used the same recover-and-continue model.
+         * Run a sub-command without going through CommandManager.  (See the
+         * original execute() doc-block: validation is preserved, the per-element
+         * CommandManager callback fan-out is collapsed to the single fan-out
+         * fired when this outer command resolves.)  Errors are caught locally so
+         * one bad element does not abort the import.
          */
         const runSub = (cmd: Command): CommandResult => {
             try {
@@ -250,13 +252,81 @@ export class ImportProjectCommand implements Command {
                 };
             }
         };
-
         const recordFail = (label: string, r: CommandResult) => {
             stats.failed++;
             const msg = `${label}: ${r.error ?? r.info?.join(', ') ?? 'failed'}`;
             stats.errors.push(msg);
             console.warn(`[ImportProjectCommand] Failed: ${msg}`);
         };
+        return { runSub, recordFail };
+    }
+
+    /**
+     * Synchronous import (Command-interface entry point + flag-off fallback).
+     *
+     * Drains the `*_orchestrate()` generator to completion WITHOUT yielding, so
+     * behaviour is byte-identical to the original monolithic execute(): all
+     * element creation + the synchronous geometry it drives (e.g. slab
+     * triangulation via the `bim-slab-added` DOM event) runs in one JS task.
+     * Used when chunked load is disabled, and for any non-load caller.
+     */
+    execute(ctx: CommandContext): CommandResult {
+        const { runSub, recordFail } = this._makeHelpers(ctx);
+        const gen = this._orchestrate(ctx, runSub, recordFail);
+        let step = gen.next();
+        while (!step.done) step = gen.next();      // run-to-completion, no yielding
+        return step.value;
+    }
+
+    /**
+     * §LOAD-CHUNKED (2026-06-29) — chunked, frame-yielding import.
+     *
+     * Drains the SAME `*_orchestrate()` generator as execute(), but `await`s the
+     * caller-supplied `yieldFn` at every generator checkpoint (between element
+     * steps and every CHUNK_SIZE elements inside the heavy slab/wall/door loops).
+     * The caller (ProjectLoader) backs `yieldFn` with the frame scheduler (P3 —
+     * no new rAF), so the browser PAINTS between chunks: the loading overlay and
+     * partial scene stay responsive instead of freezing for the whole build.
+     *
+     * Per-element semantics are identical to execute() — same sub-commands, same
+     * order, same stats bookkeeping. Only the cadence differs.  C11 §6.1 / line
+     * 285: "batch creation geometry build MUST be spread across multiple frames
+     * via the scheduler — not run as a single synchronous loop."
+     */
+    async executeChunked(
+        ctx: CommandContext,
+        yieldFn: () => Promise<void>,
+    ): Promise<CommandResult> {
+        const { runSub, recordFail } = this._makeHelpers(ctx);
+        const gen = this._orchestrate(ctx, runSub, recordFail);
+        let step = gen.next();
+        while (!step.done) {
+            await yieldFn();
+            step = gen.next();
+        }
+        return step.value;
+    }
+
+    /**
+     * The single source of truth for the import orchestration.  Both execute()
+     * (sync) and executeChunked() (async) drive this generator; it `yield`s at
+     * each step boundary and every IMPORT_CHUNK_SIZE elements inside the heavy
+     * loops so the async driver can paint a frame there.  The sync driver simply
+     * ignores the yields and runs straight through.
+     */
+    private *_orchestrate(
+        ctx: CommandContext,
+        runSub: (cmd: Command) => CommandResult,
+        recordFail: (label: string, r: CommandResult) => void,
+    ): Generator<void, CommandResult, void> {
+        const snapshot   = this.snapshot;
+        const stats      = this.stats;
+        const isCancel   = this.opts.isCancelled ?? (() => false);
+        // Elements processed between frame yields. ~120 keeps each chunk's
+        // synchronous geometry (a slab triangulation is the heaviest per-element
+        // cost on restore) comfortably inside a frame budget while keeping the
+        // total chunk count — and thus the number of paints — modest.
+        const CHUNK = IMPORT_CHUNK_SIZE;
 
         try {
             // ── Step 0: Clear current project ────────────────────────────────
@@ -369,7 +439,13 @@ export class ImportProjectCommand implements Command {
 
             // ── Step 4: Walls + per-wall openings (priority 20) ──────────────
             console.log(`[ImportProjectCommand] Loading ${snapshot.walls.length} walls`);
+            let _wallChunk = 0;
             for (const wall of snapshot.walls) {
+                // §LOAD-CHUNKED — yield a frame every CHUNK walls (+ their openings)
+                // so the chunked driver can paint. Wall BODIES are deferred to the
+                // restore flush, but each CreateWallCommand/opening still does store +
+                // registry + spatial-index work that adds up across ≈200 walls.
+                if (++_wallChunk >= CHUNK) { _wallChunk = 0; yield; }
                 const bl = wall.baseLine;
                 const cmd = new CreateWallCommand(wall.id, {
                     start:         { x: bl[0].x, z: bl[0].z },
@@ -408,9 +484,23 @@ export class ImportProjectCommand implements Command {
 
             // ── Step 5: Slabs (priority 21) ──────────────────────────────────
             console.log(`[ImportProjectCommand] Loading ${snapshot.slabs.length} slabs`);
+            let _slabChunk = 0;
             for (const slab of snapshot.slabs) {
+                // §LOAD-CHUNKED — slab build (outset + triangulate) fires SYNCHRONOUSLY
+                // via the `bim-slab-added` DOM event, so this is the heaviest per-element
+                // work on restore. Yield a frame every CHUNK slabs so a building with many
+                // floor plates does not triangulate them all in one blocking task.
+                if (++_slabChunk >= CHUNK) { _slabChunk = 0; yield; }
                 const cmd = new CreateSlabCommand({
                     id:        slab.id,
+                    // §LOAD-FLOOD-GATE (2026-06-29) — thread the persisted IFC GUID
+                    // (or mint a fresh one) so CreateSlabCommand.execute() never hits
+                    // its `§2.6 C2 ifcGuid not injected` warning. On a heavy load that
+                    // warning fired once PER SLAB *with a full stack trace*, adding real
+                    // main-thread console cost during the hot restore loop. Threading
+                    // the GUID also round-trips the IFC key (parity with the ceiling /
+                    // floor / curtain-wall restores that already pass ifcGuid).
+                    ifcGuid:   (slab as { ifcData?: { guid?: string } }).ifcData?.guid ?? crypto.randomUUID(),
                     width:     slab.width,
                     depth:     slab.depth,
                     thickness: slab.thickness,
@@ -563,7 +653,10 @@ export class ImportProjectCommand implements Command {
 
             // ── Step 7: Furniture (priority 23) ──────────────────────────────
             console.log(`[ImportProjectCommand] Loading ${snapshot.furniture.length} furniture items`);
+            yield; // §LOAD-CHUNKED — paint a frame before the furniture-build step
+            let _furnChunk = 0;
             for (const f of snapshot.furniture) {
+                if (++_furnChunk >= CHUNK) { _furnChunk = 0; yield; }
                 try {
                     const cmd = new CreateFurnitureCommand({
                         id:                    f.id,
@@ -611,6 +704,7 @@ export class ImportProjectCommand implements Command {
 
             // ── Step 8: Roofs (priority 24) ──────────────────────────────────
             console.log(`[ImportProjectCommand] Loading ${snapshot.roofs.length} roofs`);
+            yield; // §LOAD-CHUNKED — paint a frame before the roof-build step
             for (const roof of snapshot.roofs) {
                 const cmd = migrateRoofSnapshotToCommand(roof);
                 if (!cmd) {
@@ -680,7 +774,10 @@ export class ImportProjectCommand implements Command {
 
             // ── Step 11: Curtain walls (priority 26) ─────────────────────────
             console.log(`[ImportProjectCommand] Loading ${snapshot.curtainWalls.length} curtain walls`);
+            yield; // §LOAD-CHUNKED — paint a frame before the (mullion-grid) curtain-wall build step
+            let _cwChunk = 0;
             for (const cw of snapshot.curtainWalls) {
+                if (++_cwChunk >= CHUNK) { _cwChunk = 0; yield; }
                 try {
                     const bl = cw.baseLine;
                     const cmd = new CreateCurtainWallCommand({

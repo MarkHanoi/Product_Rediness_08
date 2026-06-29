@@ -46,6 +46,7 @@
  */
 
 import { CommandManager } from '@pryzm/command-registry';
+import { getFrameScheduler } from '@pryzm/frame-scheduler'; // §LOAD-CHUNKED — P3-owned rAF for the chunked-load yield
 import { storeEventBus } from '@pryzm/core-app-model';
 import { ProjectSnapshot } from './ProjectSerializer';
 import { BatchCreateRoomsCommand } from '@pryzm/command-registry';
@@ -417,7 +418,54 @@ export class ProjectLoader {
                 // ── New path: one command, one callback fan-out ──────────────
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const importCmd = new ImportProjectCommand(snapshot as any, { isCancelled: cancelled });
-                const importResult = exec(importCmd);
+
+                // ── §LOAD-CHUNKED (2026-06-29) — frame-yielding dispatch ──────
+                // The element-creation loop drives SYNCHRONOUS geometry (slab
+                // triangulation fires inline via the `bim-slab-added` DOM event;
+                // wall bodies are deferred, but per-element store/registry/spatial
+                // work still adds up). Running it as one JS task froze the screen
+                // mid-open on a heavy residential building. Chunked dispatch yields
+                // a frame (via the P3-owned FrameScheduler — no new rAF) between
+                // element chunks so the loading overlay + partial scene stay live
+                // and the user sees a progressive build (C11 §6.1).
+                //
+                // Default-ON; set localStorage 'PRYZM_CHUNKED_LOAD'='false' (or
+                // globalThis.__pryzmChunkedLoad = false) to fall back to the
+                // synchronous one-task path used before this fix.
+                const useChunked = this._useChunkedLoad();
+                let importResult: ReturnType<typeof exec>;
+                if (useChunked) {
+                    // yieldFn schedules a single FrameScheduler tick and resolves
+                    // after it fires — the browser renders the frame in between, so
+                    // each chunk is followed by a paint. P3-compliant: no rAF here.
+                    //
+                    // §LOAD-CHUNKED instrumentation: count the yields and the
+                    // longest synchronous gap BETWEEN yields. A small max-gap proves
+                    // the main thread is being released (no single LONGTASK). The
+                    // summary prints once after the import resolves.
+                    let _yields = 0;
+                    let _maxGapMs = 0;
+                    let _lastResume = performance.now();
+                    const yieldFrame = (): Promise<void> =>
+                        new Promise<void>(resolve => {
+                            // Time the synchronous chunk that just ran (since the last resume).
+                            const gap = performance.now() - _lastResume;
+                            if (gap > _maxGapMs) _maxGapMs = gap;
+                            getFrameScheduler().scheduleOnce('project-load-chunk', () => {
+                                _yields++;
+                                _lastResume = performance.now();
+                                resolve();
+                            }, 'post-render');
+                        });
+                    importResult = await this.commandManager.executeChunked(importCmd, yieldFrame);
+                    console.log(
+                        `[ProjectLoader] §LOAD-CHUNKED — yielded ${_yields} frame(s) during element build; ` +
+                        `longest synchronous chunk between yields=${_maxGapMs.toFixed(1)}ms ` +
+                        `(main thread released ${_yields} time(s), so the UI painted progressively instead of freezing).`,
+                    );
+                } else {
+                    importResult = exec(importCmd);
+                }
 
                 // Roll the command's per-element counters up into the LoadResult
                 // so the calling UI sees identical {loaded, failed, errors,
@@ -591,6 +639,12 @@ export class ProjectLoader {
             for (const slab of snapshot.slabs) {
                 const cmd = new CreateSlabCommand({
                     id: slab.id,
+                    // §LOAD-FLOOD-GATE (2026-06-29) — thread the persisted IFC GUID
+                    // (or mint a fresh one) so CreateSlabCommand.execute() never logs
+                    // its `§2.6 C2 ifcGuid not injected` warning-with-stack-trace once
+                    // per slab on a heavy load. Also round-trips the IFC key (parity
+                    // with the ImportProjectCommand fast path + ceiling/floor restores).
+                    ifcGuid: (slab as { ifcData?: { guid?: string } }).ifcData?.guid ?? crypto.randomUUID(),
                     width: slab.width,
                     depth: slab.depth,
                     thickness: slab.thickness,
@@ -1889,6 +1943,40 @@ export class ProjectLoader {
         } catch { /* env not available — fall through */ }
 
         // Default: new path on
+        return true;
+    }
+
+    /**
+     * §LOAD-CHUNKED (2026-06-29) — feature-flag resolver for the chunked,
+     * frame-yielding load dispatch. Default ON. Overrides (checked in order):
+     *
+     *   1. globalThis.__pryzmChunkedLoad (boolean) — runtime kill-switch a dev
+     *      can flip in the console without reload.
+     *   2. localStorage 'PRYZM_CHUNKED_LOAD' — 'false'/'0'/'off'/'no' → sync path.
+     *
+     * Falling back to `false` routes the load through the original synchronous
+     * one-task `exec(importCmd)` path (byte-identical to pre-fix behaviour).
+     */
+    private _useChunkedLoad(): boolean {
+        const isFalsy = (v: unknown): boolean => {
+            if (typeof v !== 'string') return false;
+            const lc = v.trim().toLowerCase();
+            return lc === 'false' || lc === '0' || lc === 'off' || lc === 'no';
+        };
+
+        // Runtime boolean kill-switch (highest priority).
+        const g = globalThis as unknown as { __pryzmChunkedLoad?: boolean };
+        if (typeof g.__pryzmChunkedLoad === 'boolean') return g.__pryzmChunkedLoad;
+
+        // localStorage override.
+        try {
+            if (typeof window !== 'undefined' && window.localStorage) {
+                const ls = window.localStorage.getItem('PRYZM_CHUNKED_LOAD');
+                if (ls !== null) return !isFalsy(ls);
+            }
+        } catch { /* private-browsing or sandboxed iframe — fall through */ }
+
+        // Default: chunked load on
         return true;
     }
 }
