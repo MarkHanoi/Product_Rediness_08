@@ -43,6 +43,28 @@ import type { SpinePackResult } from './packRoomsAlongSpine.js';   // §SINGLE-L
 const _layoutDiagOn = (): boolean =>
     (globalThis as unknown as { __pryzmLayoutDiag?: boolean }).__pryzmLayoutDiag === true;
 
+/** §SPINE-CONCAVE-ARMS — true iff `poly` is a concave AXIS-RECTILINEAR shell (an L/T/U/cross): every
+ *  edge axis-aligned AND ≥1 reflex vertex. These shells take the branching arm-spine pack, which keeps
+ *  every cell in-shell by construction, so the convex clamp must be skipped (it would mangle them).
+ *  A rectangle (no reflex), a sheared quad (diagonal edge), or any convex shell ⇒ false. Pure. */
+function isConcaveAxisRectilinearShell(poly: readonly Pt[]): boolean {
+    if (poly.length < 5) return false;
+    for (let i = 0; i < poly.length; i++) {
+        const a = poly[i]!, b = poly[(i + 1) % poly.length]!;
+        if (Math.abs(a.x - b.x) > 1e-6 && Math.abs(a.z - b.z) > 1e-6) return false;   // diagonal edge ⇒ not rectilinear
+    }
+    let area2 = 0;
+    for (let i = 0; i < poly.length; i++) { const p = poly[i]!, q = poly[(i + 1) % poly.length]!; area2 += p.x * q.z - q.x * p.z; }
+    const ccw = area2 >= 0;
+    for (let i = 0; i < poly.length; i++) {
+        const a = poly[(i - 1 + poly.length) % poly.length]!, b = poly[i]!, c = poly[(i + 1) % poly.length]!;
+        const cross = (b.x - a.x) * (c.z - b.z) - (b.z - a.z) * (c.x - b.x);
+        if (Math.abs(cross) < 1e-9) continue;
+        if (ccw ? cross < 0 : cross > 0) return true;
+    }
+    return false;
+}
+
 /** A room's realised footprint inside the shell. */
 export interface RoomPlacement {
     readonly roomId: string;
@@ -4095,7 +4117,17 @@ export function subdivideWithReport(
             { x: bx0, z: bz0 }, { x: bx1, z: bz0 }, { x: bx1, z: bz1 }, { x: bx0, z: bz1 },
         ];
         const shellForSpine = options.shellPolygon && options.shellPolygon.length >= 3 ? options.shellPolygon : bboxPoly;
-        const clampPoly = options.shellPolygon && options.shellPolygon.length >= 3 ? options.shellPolygon : undefined;
+        // §SPINE-CONCAVE-ARMS — `clampRectToConvexShell` is CONVEX-only; on a concave axis-rectilinear
+        // (L/T/U/cross) shell it mangles the in-shell arm cells (the reflex vertex pulls them inward),
+        // collapsing the corridor cells so `rectUnionRing` returns null → no corridor ring → the
+        // corridor lifts as one rect → most rooms ship SEALED (the founder's red graph). The
+        // branching arm-spine pack already keeps every corridor/room cell INSIDE the shell by
+        // construction (it tiles the `decomposeToRects` arm rects), so the convex clamp is both
+        // unnecessary AND harmful here — skip it for the concave-rectilinear shell. Convex / sheared /
+        // rectangular shells keep the clamp ⇒ byte-identical.
+        const shellConcaveRectilinear = !!(options.shellPolygon && isConcaveAxisRectilinearShell(options.shellPolygon));
+        const clampPoly = options.shellPolygon && options.shellPolygon.length >= 3 && !shellConcaveRectilinear
+            ? options.shellPolygon : undefined;
         // NOTE (§SPINE-TREE / leak audit 2026-06-23): this clamp falls back to the UNCLAMPED rect on a
         // null (cell fully outside a sheared shell). That is INTENTIONALLY tolerated here (unlike the
         // rect-gated P8b branch): the spine-TREE path carries shell-CLIPPED polygons in
@@ -4208,7 +4240,12 @@ export function subdivideWithReport(
             ...(options.entry ? { entry: options.entry } : {}),
             spineTree: true as const,
         };
-        if (wantSingleLoaded) {
+        // §SPINE-CONCAVE-ARMS — SINGLE-LOADED packs every room into ONE straight band against a single
+        // edge, so it CANNOT traverse the perpendicular arm of a concave (L/T/U/cross) shell — exactly
+        // the founder's "straight corridor that never branches, rooms stranded" defect. On a concave
+        // rectilinear shell SKIP single-loaded and go straight to the branching multi-leg tree (Attempt
+        // 2), whose arm-spine reaches every arm. Convex / rectangular shells keep single-loaded first.
+        if (wantSingleLoaded && !shellConcaveRectilinear) {
             const sl = subdivideViaSpine(shellForSpine, graph, { ...spineOpts, singleLoaded: true });
             const shipped = tryTreeRes(sl, 'single-loaded');
             if (shipped) return shipped;

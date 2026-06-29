@@ -198,3 +198,46 @@ residential.
 The throughline: **whenever circulation is derived first and rooms hang off it, the plan is sound for
 any footprint; whenever it is a by-product of area packing, it breaks.** This spec makes the former the
 engine.
+
+---
+
+## 7. §SPINE-CONCAVE-ARMS — the spine BRANCHES on a concave (L/T/U/cross) footprint (2026-06-28)
+
+The P1–P8 core derives a *straight* primary run from the shell's long axis (plus stair/entry legs).
+On a **concave axis-rectilinear** footprint (an L / T / U / cross house plate) that single run is
+wrong in three coupled ways the founder hit ("I never saw a corridor branch on a shape other than I
+really connecting all rooms; the graph is never all-blue, rooms always red"):
+
+1. **`deriveCorridorSpine`** computed ONE bbox-cross-centre chord. On an L that chord can lie in ONE
+   arm only (or cross the notch), so the run never traverses the perpendicular arm — no branch.
+2. **`packRoomsAlongSpineTree`** built the corridor strip + residual room bands against the **bbox**,
+   so a band (and the rooms in it) spilled into the **notch** (outside the building).
+3. The **§SPINE-TREE consumer** (`subdivide`) convex-clamped the corridor cells
+   (`clampRectToConvexShell` is convex-only); on a concave shell that collapsed them so the L/T
+   corridor **ring** was lost → the corridor lifted as one rect → most rooms shipped SEALED.
+
+The result: a straight corridor + notch/sealed rooms = the red graph.
+
+**The fix (all in `apartmentLayout/tgl/`, gated to concave axis-rectilinear shells ⇒ rectangles &
+sheared quads byte-identical):**
+
+- `deriveCorridorSpine` decomposes a concave axis-rectilinear shell into its **arm rects**
+  (`decomposeToRects`) and routes a corridor segment along **each arm**; a secondary arm's strip is
+  **offset toward the junction edge** it shares with the host arm, so the arm's full remaining depth
+  is ONE façade band (a window AND a corridor wall for every room) and the perpendicular strips
+  **overlap at the junction** — a clean orthogonal **L / T / +** corridor, no diagonal connectors.
+- `packRoomsAlongSpineTree` tiles the **arm rects** (never the bbox) for the residual room bands, so
+  no room is ever placed in the notch; the corridor cells are the arm segment strips (no
+  bbox-spanning primary).
+- the §SPINE-TREE consumer **skips the convex clamp** on a concave shell (the arm-spine keeps every
+  cell in-shell by construction) so the L/T corridor ring survives → every room shares a corridor
+  wall → reachable.
+- the **single-loaded** attempt (one straight peripheral band) is **skipped** for a concave shell —
+  it cannot traverse a perpendicular arm — so the branching multi-leg tree is used.
+
+**Result** (the founder's gate): the shipped winner on an L / T / U footprint no longer fails the
+`circulation` or `reach` rule — every private room reaches circulation and every habitable room is
+reachable from the entrance (graph all-blue). Pinned by `spineConcaveArmsBranching.test.ts`
+(geometry: a real branching corridor, no drops, all in-shell, all corridor-adjacent) and
+`spineConcaveArmsReach.test.ts` (the live `enumerateLayouts` gate). Window/quality refinement of the
+banding on tight concave plates remains follow-up (a `window`-axis quality concern, not circulation).

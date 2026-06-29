@@ -10,9 +10,9 @@
 // skewed-shell residuals are P3. Consumes a SpinePath from deriveCorridorSpine (P1).
 
 import type { Pt, Rect } from './rectDecomposition.js';
-import { rectArea, subtractRectsFromRects } from './rectDecomposition.js';
+import { rectArea, subtractRectsFromRects, decomposeToRects } from './rectDecomposition.js';
 import { clipToConvexShell } from './polySubdivide.js';
-import type { SpinePath } from './deriveCorridorSpine.js';
+import type { SpinePath, SpineSegment } from './deriveCorridorSpine.js';
 
 const DOOR_W = 0.8;
 const SNAP = 0.05;
@@ -61,6 +61,47 @@ function corridorCellsOf(run: Rect, spine: SpinePath): Rect[] {
         }
     }
     return cells;
+}
+
+/** §SPINE-CONCAVE-ARMS — a corridor-width rect for ONE centre-line segment (orthogonal). Unlike
+ *  `corridorCellsOf` this does NOT span the shell bbox for segment 0 — it follows the segment's own
+ *  extent, so a branching arm-spine on an L/T/U shell never pokes its primary cell into the notch. */
+function segCell(s: SpineSegment, half: number): Rect {
+    if (Math.abs(s.a.x - s.b.x) < EPS) {                     // vertical segment
+        return { x0: s.a.x - half, x1: s.a.x + half, z0: Math.min(s.a.z, s.b.z), z1: Math.max(s.a.z, s.b.z) };
+    }
+    return { z0: s.a.z - half, z1: s.a.z + half, x0: Math.min(s.a.x, s.b.x), x1: Math.max(s.a.x, s.b.x) };
+}
+
+/** Every corridor cell built purely from the spine segments (each = its segment's strip). For a
+ *  branching arm-spine this is the realised corridor footprint — no bbox-spanning segment-0 strip.
+ *  Only AXIS-ALIGNED segments contribute a cell (a branching spine is orthogonal by construction). */
+function corridorCellsFromSegments(spine: SpinePath): Rect[] {
+    const half = spine.widthM / 2;
+    return spine.segments
+        .filter(s => Math.abs(s.a.x - s.b.x) < EPS || Math.abs(s.a.z - s.b.z) < EPS)
+        .map(s => segCell(s, half))
+        .filter(c => c.x1 - c.x0 > EPS && c.z1 - c.z0 > EPS);
+}
+
+/** True iff `poly` is a concave axis-rectilinear shell (an L/T/U/cross) — the case where the band
+ *  region must be the arm rects (not the bbox) so no room lands in the notch. */
+function isConcaveAxisRectilinear(poly: readonly Pt[]): boolean {
+    if (poly.length < 5) return false;                       // a rect has 4 vertices ⇒ never concave
+    for (let i = 0; i < poly.length; i++) {
+        const a = poly[i]!, b = poly[(i + 1) % poly.length]!;
+        if (Math.abs(a.x - b.x) > 1e-6 && Math.abs(a.z - b.z) > 1e-6) return false;   // diagonal ⇒ not axis-rectilinear
+    }
+    let area2 = 0;
+    for (let i = 0; i < poly.length; i++) { const p = poly[i]!, q = poly[(i + 1) % poly.length]!; area2 += p.x * q.z - q.x * p.z; }
+    const ccw = area2 >= 0;
+    for (let i = 0; i < poly.length; i++) {
+        const a = poly[(i - 1 + poly.length) % poly.length]!, b = poly[i]!, c = poly[(i + 1) % poly.length]!;
+        const cross = (b.x - a.x) * (c.z - b.z) - (b.z - a.z) * (c.x - b.x);
+        if (Math.abs(cross) < EPS) continue;
+        if (ccw ? cross < 0 : cross > 0) return true;
+    }
+    return false;
 }
 
 const EPS = 1e-6;
@@ -242,16 +283,35 @@ export function packRoomsAlongSpineTree(
         return packSingleLoaded(shellBbox, spine, rooms, opts);
     }
 
-    // The primary run as a full-width corridor strip (same as packRoomsAlongSpine's corridor rect).
-    const corridor: Rect = spine.primaryAxis === 'x'
+    // §SPINE-CONCAVE-ARMS — on a concave axis-rectilinear (L/T/U/cross) shell the band region MUST be
+    // the shell's ARM rects, not the bbox: a bbox band would spill into the notch (outside the
+    // building) and the rooms placed there would clip away → SEALED / unreachable (the founder's red
+    // graph). The corridor is the BRANCHING arm-spine's own cells (every segment a strip, no
+    // bbox-spanning primary), so a corridor cell abuts each arm's rooms by construction. A convex /
+    // rectangular shell (or no shellPolygon) keeps the bbox path ⇒ byte-identical.
+    const concaveArms = opts.shellPolygon && isConcaveAxisRectilinear(opts.shellPolygon)
+        ? decomposeToRects(opts.shellPolygon).filter(r => rectArea(r) > EPS)
+        : null;
+
+    // The primary run as a full-width corridor strip (same as packRoomsAlongSpine's corridor rect) —
+    // EXCEPT on a concave arm shell, where every corridor cell follows its segment (never the bbox).
+    const bboxCorridor: Rect = spine.primaryAxis === 'x'
         ? { x0: shellBbox.x0, z0: run.a.z - half, x1: shellBbox.x1, z1: run.a.z + half }
         : { x0: run.a.x - half, z0: shellBbox.z0, x1: run.a.x + half, z1: shellBbox.z1 };
-    const corridorCells = corridorCellsOf(corridor, spine);
+    const corridorCells = concaveArms ? corridorCellsFromSegments(spine) : corridorCellsOf(bboxCorridor, spine);
+    // §SPINE-CONCAVE-ARMS — the representative corridor rect drives wall/door adjacency + the clamp in
+    // the §SPINE-TREE consumer. On a concave shell the bbox strip would clamp to a degenerate sliver
+    // (it spans the notch), so use the LARGEST real corridor cell (a genuine segment strip inside the
+    // shell). The full L/T ring still rides on the consumer's `rectUnionRing(corridorCells)`.
+    const corridor: Rect = concaveArms && corridorCells.length > 0
+        ? corridorCells.slice().sort((p, q) => rectArea(q) - rectArea(p))[0]!
+        : bboxCorridor;
 
-    // Residual bands = shell bbox − every corridor strip − the stair keep-out; each abuts a corridor
-    // cell by construction, and NO band covers the stair (so no room ever tiles over it — §18 slice 5a).
+    // Residual bands = (arm rects on a concave shell, else the bbox) − every corridor strip − the
+    // stair keep-out; each abuts a corridor cell by construction, and NO band covers the stair.
+    const bandBase = concaveArms ?? [shellBbox];
     const obstacles = opts.keepOut ? [...corridorCells, opts.keepOut] : corridorCells;
-    const bands = subtractRectsFromRects([shellBbox], obstacles)
+    const bands = subtractRectsFromRects(bandBase, obstacles)
         .filter(r => rectArea(r) > EPS)
         .sort((p, q) => rectArea(q) - rectArea(p) || p.x0 - q.x0 || p.z0 - q.z0);
     if (bands.length === 0) return null;
@@ -315,7 +375,12 @@ export function packRoomsAlongSpineTree(
     };
 
     // §18 slice 2 — public/private zoning: cohort[0] → side-A bands, cohort[1] → side-B bands.
-    if (opts.cohorts) {
+    // §SPINE-CONCAVE-ARMS — the "two sides of the primary run" split is meaningless on a BRANCHING
+    // arm-spine (bands come from several arms, not two sides of one run), and forcing public rooms to
+    // one side strands a public room in a band with no façade (a `window` fail). On a concave shell let
+    // the rooms BALANCE freely across every arm band (each band reaches the façade by construction), so
+    // every window-room keeps an exterior wall. Rectangular shells keep the public/private zoning.
+    if (opts.cohorts && !concaveArms) {
         const bandsA = bands.filter(b => sideOf(b) === 'A');
         const bandsB = bands.filter(b => sideOf(b) === 'B');
         if (bandsA.length > 0 && bandsB.length > 0) {
