@@ -197,6 +197,17 @@ export class SelectionManager implements ISelectionManager {
      */
     private _lastHoveredObjectGpu: THREE.Object3D | null = null;
 
+    /**
+     * §SELECT-INSTANCED-FURNITURE-PICK — the PER-INSTANCE element id GPU-confirmed at
+     * the last hover, when `_lastHoveredObjectGpu` is an InstancedElementRenderer
+     * group hosting many elements (instanced furniture / columns / beams). The
+     * click-anchor branch passes this to select() as the per-instance override so an
+     * anchored click on an instanced item selects (and highlights) the RIGHT instance,
+     * not the whole group. `null` when the hovered target is a normal element (its own
+     * root carries the id) or there is no hover. Reset alongside `_lastHoveredObjectGpu`.
+     */
+    private _lastHoveredInstanceIdGpu: string | null = null;
+
     // ── §MARQUEE-SELECT-2026 — Multi-element marquee highlights ─────────────
     /**
      * Wireframe AABB highlight meshes for each NON-PRIMARY element in a
@@ -378,6 +389,35 @@ export class SelectionManager implements ISelectionManager {
                 idToObj.set(id, obj);
             }
         }
+        // §SELECT-INSTANCED-FURNITURE-PICK — also index every PER-INSTANCE element id
+        // of an InstancedElementRenderer group → the group object. Walls/columns keep
+        // their own (empty-but-visible) root + hit-proxy in the cache, so objectFor(id)
+        // already resolves them; INSTANCED FURNITURE does NOT — when an item is
+        // instanced its per-item root is set visible=false (FurnitureFragmentBuilder)
+        // and excluded from the selectable cache, so the GPU pick's per-instance
+        // elementId had NO entry in idToObj. objectFor() returned null → the GPU hit
+        // was dropped (click silently fell back to the slower BVH path; HOVER showed
+        // no outline and never armed the click anchor). Mapping each occupied
+        // instance's element id to its hosting group makes objectFor(furnitureId)
+        // resolve the group; the GPU resolution below then selects it with that id as
+        // the per-instance override (mirroring the BVH path's getInstanceElementId →
+        // select(group, instanceId)). The synthetic group id stays mapped to the group
+        // itself (set in the loop above) — we never overwrite an existing id, so a real
+        // own-root always wins. Per-instance BIM ids are unique, so this is additive.
+        for (const obj of cache) {
+            if (obj.userData?.isInstancedGroup !== true) continue;
+            const getSlots = obj.userData?.getOccupiedInstanceSlots as
+                (() => readonly number[]) | undefined;
+            const getElemId = obj.userData?.getInstanceElementId as
+                ((slot: number) => string | undefined) | undefined;
+            if (!getSlots || !getElemId) continue;
+            for (const slot of getSlots()) {
+                const memberId = getElemId(slot);
+                if (memberId !== undefined && !idToObj.has(memberId)) {
+                    idToObj.set(memberId, obj);
+                }
+            }
+        }
         return {
             ids: (): readonly string[] => [...idToObj.keys()],
             kindOf: (id: string): ElementKind | null => {
@@ -492,6 +532,7 @@ export class SelectionManager implements ISelectionManager {
         this._lastHoverConfirmedClientX = null;
         this._lastHoverConfirmedClientY = null;
         this._lastHoveredObjectGpu = null;
+        this._lastHoveredInstanceIdGpu = null;
     }
 
     /**
@@ -527,6 +568,7 @@ export class SelectionManager implements ISelectionManager {
             // §SELECT-3D-1 — mirror reset for the GPU-confirmed hover ref so a
             // stale tool-entry doesn't leak a pre-tool click target.
             this._lastHoveredObjectGpu = null;
+            this._lastHoveredInstanceIdGpu = null;
             this._lastHoverConfirmedClientX = null;
             this._lastHoverConfirmedClientY = null;
             // §SELECT-TAB-CYCLE — clear cycle state on tool switch so the
@@ -1015,6 +1057,13 @@ export class SelectionManager implements ISelectionManager {
             const dy = event.clientY - this._lastHoverConfirmedClientY;
             if (dx * dx + dy * dy <= CLICK_HOVER_SNAP_PX * CLICK_HOVER_SNAP_PX) {
                 const resolvedRoot = this.findSelectableRoot(_anchorTarget) ?? _anchorTarget;
+                // §SELECT-INSTANCED-FURNITURE-PICK — if the GPU-confirmed hover target is
+                // an instanced group, carry the per-instance element id captured at hover
+                // time so the anchored click selects THAT instance, not the whole group.
+                const anchorInstanceOverride =
+                    resolvedRoot.userData?.isInstancedGroup === true
+                        ? this._lastHoveredInstanceIdGpu ?? undefined
+                        : undefined;
                 // Dispatch bim-canvas-world-click via level-plane intersection
                 // (no depth buffer available on this fast path).
                 const levelY  = window.activeLevelElevation ?? 0;
@@ -1024,16 +1073,16 @@ export class SelectionManager implements ISelectionManager {
                 window.dispatchEvent(new CustomEvent('bim-canvas-world-click', { // TODO(TASK-11)
                     detail: {
                         worldPoint:  { x: worldPt.x, y: worldPt.y, z: worldPt.z },
-                        elementId:   resolvedRoot.userData?.id ?? null,
+                        elementId:   anchorInstanceOverride ?? resolvedRoot.userData?.id ?? null,
                         elementType: resolvedRoot.userData?.elementType ?? resolvedRoot.userData?.type ?? null,
                     },
                 }));
-                console.log(`[PickResolver] hover-anchor hit=${resolvedRoot.userData?.id ?? resolvedRoot.uuid}`);
+                console.log(`[PickResolver] hover-anchor hit=${anchorInstanceOverride ?? resolvedRoot.userData?.id ?? resolvedRoot.uuid}`);
                 _pickSpan.setAttribute('pryzm.selection.strategy', 'hover-anchor');
                 _pickSpan.setAttribute('pryzm.selection.hit', true);
                 window.__curtainSubElement = null;
                 this.resetSubElementState();
-                this.select(resolvedRoot);
+                this.select(resolvedRoot, anchorInstanceOverride);
                 return;
             }
         }
@@ -1125,7 +1174,20 @@ export class SelectionManager implements ISelectionManager {
                         const resolvedRoot = this.findSelectableRoot(obj) ?? obj;
                         window.__curtainSubElement = null;
                         this.resetSubElementState();
-                        this.select(resolvedRoot);
+                        // §SELECT-INSTANCED-FURNITURE-PICK — when the GPU hit resolved to
+                        // an InstancedElementRenderer group whose synthetic group id is
+                        // NOT the picked element id, the picked id is a PER-INSTANCE member
+                        // (e.g. an instanced furniture item / column). Pass it as the
+                        // per-instance override so select()/applyHighlight build the OBB for
+                        // THAT instance (FIX #5) and the store receives the real element id —
+                        // exactly as the BVH path does via getInstanceElementId(). For
+                        // non-instanced hits the override is undefined (unchanged behaviour).
+                        const instanceOverride =
+                            resolvedRoot.userData?.isInstancedGroup === true &&
+                            resolvedRoot.userData?.id !== gpuResult.elementId
+                                ? gpuResult.elementId
+                                : undefined;
+                        this.select(resolvedRoot, instanceOverride);
                         return;
                     }
                 } else {
@@ -1765,6 +1827,7 @@ export class SelectionManager implements ISelectionManager {
         this._lastHoveredObject = null;
         // §SELECT-3D-1 — mirror reset for the GPU-confirmed ref + anchor.
         this._lastHoveredObjectGpu = null;
+        this._lastHoveredInstanceIdGpu = null;
         this._lastHoverConfirmedClientX = null;
         this._lastHoverConfirmedClientY = null;
 
@@ -2709,6 +2772,15 @@ export class SelectionManager implements ISelectionManager {
                 // click-anchor branch can reach it without trusting the BVH
                 // ref (which may have been overwritten by a stale raycast).
                 this._lastHoveredObjectGpu = hoveredRoot;
+                // §SELECT-INSTANCED-FURNITURE-PICK — when the hovered root is an
+                // instanced group hosting many elements, remember WHICH per-instance
+                // element the pixel resolved to (the picked id ≠ the synthetic group id)
+                // so an anchored click selects that instance, not the whole group.
+                this._lastHoveredInstanceIdGpu =
+                    hoveredRoot?.userData?.isInstancedGroup === true &&
+                    hoveredRoot.userData?.id !== gpuHoverResult.elementId
+                        ? gpuHoverResult.elementId
+                        : null;
                 const newUuid = hoveredRoot?.uuid ?? null;
                 if (newUuid !== this._lastHoveredUuid) {
                     this._lastHoveredUuid = newUuid;
@@ -2726,6 +2798,7 @@ export class SelectionManager implements ISelectionManager {
                 // result cannot leak into a later click whose new anchor
                 // happens to land within 8px of an old confirmed position.
                 this._lastHoveredObjectGpu = null;
+                this._lastHoveredInstanceIdGpu = null;
                 _hoverSpan.setAttribute('pryzm.selection.hit', false);
             }
         } catch {
