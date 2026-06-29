@@ -544,17 +544,138 @@ export class SelectionManager implements ISelectionManager {
     private _anchorTargetIsStale(): boolean {
         const target = this._lastHoveredObjectGpu;
         if (target === null) return false;
-        // Walk to the scene root; if the chain terminates before reaching the live
-        // scene it was removed (parent === null and it isn't the scene itself).
-        let cur: THREE.Object3D | null = target;
-        const sceneRoot = this.world.scene.three as THREE.Object3D;
-        while (cur !== null) {
-            if (cur === sceneRoot) return false; // still attached
-            cur = cur.parent;
-        }
+        if (this._isAttachedToScene(target)) return false;
         // Detached — clear and report stale.
         this.clearHoverAnchor();
         return true;
+    }
+
+    /**
+     * §SELECT-GIZMO-REATTACH — true when `obj`'s parent chain reaches the live
+     * scene root (i.e. it is still part of the scene graph). When an element is
+     * MOVED / UNDONE / re-created its mesh is disposed + rebuilt (old group
+     * scene.remove()'d, new group scene.add()'d), so a cached reference to the
+     * old object becomes detached. THREE's TransformControls.updateMatrixWorld
+     * throws "The attached 3D object must be a part of the scene graph" on EVERY
+     * render frame while the gizmo stays attached to such a detached object —
+     * which floods the console and wedges the interaction loop so subsequent
+     * picks no longer select. Used by the rebuild handler + gizmo guard below.
+     */
+    private _isAttachedToScene(obj: THREE.Object3D): boolean {
+        const sceneRoot = this.world.scene.three as THREE.Object3D;
+        let cur: THREE.Object3D | null = obj;
+        while (cur !== null) {
+            if (cur === sceneRoot) return true;
+            cur = cur.parent;
+        }
+        return false;
+    }
+
+    /**
+     * §SELECT-GIZMO-REATTACH — defensive guard against the TransformControls
+     * "must be a part of the scene graph" per-frame flood.
+     *
+     * If the gizmo is attached to an object that is no longer in the scene graph
+     * (its element was rebuilt/disposed and we did not get a chance to re-resolve
+     * it, e.g. an external scene clear or a rebuild that fired no `bim-*-updated`
+     * event), DETACH it. The next selection click re-attaches cleanly. Returns
+     * true if it detached a stale object. Safe to call every frame.
+     *
+     * Note: wall/stair gizmos attach to an invisible PROXY (added to the scene by
+     * WallTransformController / StairTransformController); those proxies stay in
+     * the scene while their controller is active, so this guard leaves them alone.
+     */
+    guardTransformControlsAttachment(): boolean {
+        const tcObj = (this.transformControls as { object?: THREE.Object3D | null }).object ?? null;
+        if (tcObj === null) return false;
+        if (this._isAttachedToScene(tcObj)) return false;
+        console.warn('[SelectionManager] §SELECT-GIZMO-REATTACH gizmo attached to a detached object — detaching to stop the per-frame flood');
+        this.transformControls.detach();
+        return true;
+    }
+
+    /**
+     * §SELECT-GIZMO-REATTACH — re-resolve the selected element after its mesh was
+     * rebuilt.
+     *
+     * Called when a `bim-<type>-updated` event fires for the element that is
+     * currently selected. The builder disposes the old Object3D and adds a fresh
+     * one carrying the same `userData.id`; our `selectedObject` (and the gizmo's
+     * attached object) still point at the now-detached old mesh. We:
+     *   1. Detach the gizmo if it is bound to a detached object (stops the flood).
+     *   2. Re-resolve the current Object3D for the element id from the (already
+     *      invalidated) selectable cache / scene.
+     *   3. If found and it differs from the stale `selectedObject`, re-select it —
+     *      `select()` re-applies the highlight, re-attaches the gizmo and re-fires
+     *      `bim-selection-changed` so the wall/stair/hosted controllers re-bind to
+     *      the NEW mesh.
+     *   4. If the element is gone (e.g. undo of a create), `unselectAll()` so the
+     *      gizmo never holds a dangling object.
+     */
+    private _reresolveSelectionAfterRebuild(updatedId: string): void {
+        if (!updatedId) return;
+        const sel = this.selectedObject;
+        if (!sel || sel.userData?.id !== updatedId) return;
+
+        // (1) Always detach a stale gizmo immediately — even if re-resolution
+        // below fails, we must not leave the gizmo on a detached object.
+        this.guardTransformControlsAttachment();
+
+        // (2) Re-resolve the live Object3D for this element id. The same rebuild
+        // event invalidated _selectableCache (registered in init()), so
+        // _resolveLiveObjectById() rebuilds it on demand and returns the NEW mesh.
+        const fresh = this._resolveLiveObjectById(updatedId);
+
+        if (!fresh) {
+            // Element no longer in the scene (e.g. undo-of-create removed it) —
+            // drop the selection entirely so nothing dangles.
+            this.unselectAll();
+            return;
+        }
+
+        const freshRoot = this.findSelectableRoot(fresh) ?? fresh;
+        if (freshRoot === sel && this._isAttachedToScene(sel)) {
+            // Same object reference AND still attached (builder reused the root
+            // and only swapped children) — just refresh the highlight extents.
+            this.applyHighlight(sel);
+            // Re-attach the gizmo in case the guard above detached it.
+            const elemType = (sel.userData?.elementType ?? sel.userData?.type ?? '').toLowerCase();
+            if (elemType !== 'room') this.transformControls.attach(sel);
+            return;
+        }
+
+        // Builder swapped in a brand-new root → re-select it. select() resets
+        // selectedObject, re-applies highlight, re-attaches the gizmo, and
+        // re-fires bim-selection-changed so the per-type controllers re-bind.
+        this.select(freshRoot);
+    }
+
+    /**
+     * §SELECT-GIZMO-REATTACH — resolve the live (scene-attached) Object3D that
+     * currently carries `id`. Prefers the selectable cache (rebuilt lazily after
+     * the rebuild event invalidated it) and falls back to a scene traversal.
+     * Only returns objects that are actually attached to the scene graph so a
+     * stale cache entry pointing at a disposed mesh is never returned.
+     */
+    private _resolveLiveObjectById(id: string): THREE.Object3D | null {
+        this._ensureSelectableCache();
+        if (this._selectableCache) {
+            for (const obj of this._selectableCache) {
+                if (obj.userData?.id === id && this._isAttachedToScene(obj)) return obj;
+            }
+        }
+        let found: THREE.Object3D | null = null;
+        try {
+            const sceneRoot = this.world.scene?.three as THREE.Object3D | undefined;
+            if (sceneRoot) {
+                sceneRoot.traverse((obj) => {
+                    if (!found && obj.userData?.id === id) found = obj;
+                });
+            }
+        } catch (err) {
+            console.warn('[SelectionManager.§SELECT-GIZMO-REATTACH] scene traversal error:', err);
+        }
+        return found;
     }
 
     setEnabled(enabled: boolean) {
@@ -628,26 +749,71 @@ export class SelectionManager implements ISelectionManager {
         window.addEventListener('split-view-activated',   () => this.clearHoverAnchor());
         window.addEventListener('split-view-deactivated', () => this.clearHoverAnchor());
 
+        // ── §SELECT-GIZMO-REATTACH — re-bind the gizmo + selection on rebuild ──
+        // When a selected element is MOVED / UNDONE / re-created, its mesh is
+        // disposed and rebuilt: the old Object3D is removed from the scene graph
+        // and a NEW group (same userData.id) is added. The TransformControls
+        // gizmo (and `selectedObject`) still point at the now-DETACHED old mesh,
+        // so THREE.TransformControls.updateMatrixWorld throws "The attached 3D
+        // object must be a part of the scene graph" on EVERY render frame
+        // (logged 156×/19×/425× in the field) — wedging the interaction loop so
+        // subsequent clicks no longer resolve / select anything.
+        //
+        // Listening to the per-type `bim-<type>-updated` events (emitted by every
+        // builder after it swaps the mesh) lets us, for the SELECTED element only,
+        // re-resolve the current Object3D by id and re-attach the gizmo to the new
+        // mesh (or detach + unselect if the element is gone). These run AFTER the
+        // cache-invalidation listeners registered above (same event, registration
+        // order preserved by the DOM), so _resolveLiveObjectById() rebuilds the
+        // selectable cache fresh and returns the NEW mesh. Deferred via
+        // setTimeout(0) so the builder's own scene.add() has completed first.
+        const rebuiltEventToType: Record<string, string> = {
+            'bim-wall-updated':        'wall',
+            'bim-door-updated':        'door',
+            'bim-window-updated':      'window',
+            'bim-slab-updated':        'slab',
+            'bim-roof-updated':        'roof',
+            'bim-ceiling-updated':     'ceiling',
+            'bim-floor-updated':       'floor',
+            'bim-column-updated':      'column',
+            'bim-beam-updated':        'beam',
+            'bim-stair-updated':       'stair',
+            'bim-railing-updated':     'railing',
+            'bim-curtainwall-updated': 'curtainwall',
+            'bim-plumbing-updated':    'plumbing',
+            'bim-lighting-updated':    'lighting',
+            'bim-furniture-updated':   'furniture',
+        };
+        const extractRebuiltId = (e: Event, type: string): string | null => {
+            const detail = (e as CustomEvent).detail as Record<string, unknown> | undefined;
+            if (!detail) return null;
+            // Builders emit either { id } (door/window/wall/…) or a nested
+            // { <type>: { id } } payload (furniture-style). Accept both.
+            const direct = detail.id;
+            if (typeof direct === 'string') return direct;
+            const nested = detail[type] as { id?: unknown } | undefined;
+            if (nested && typeof nested.id === 'string') return nested.id;
+            return null;
+        };
+        for (const [evt, type] of Object.entries(rebuiltEventToType)) {
+            window.addEventListener(evt, (e) => {
+                if (!this.selectedObject) return;
+                const updatedId = extractRebuiltId(e, type);
+                if (!updatedId || this.selectedObject.userData?.id !== updatedId) return;
+                // Defer so the builder's scene.remove(old) + scene.add(new) has
+                // settled before we re-resolve the live Object3D for this id.
+                setTimeout(() => this._reresolveSelectionAfterRebuild(updatedId), 0);
+            });
+        }
+
         // ── Selection highlight refresh on geometry rebuild ───────────────
-        // FurnitureFragmentBuilder.updateFurniture() reuses the same root
-        // Object3D but disposes/reclears its children and rebuilds the mesh
-        // tree. The cached `highlightMesh` (a world-space Box3 wireframe
-        // computed at selection time) therefore points at stale extents
-        // when the user resizes the element via the property panel.
-        // Re-derive the highlight after each rebuild for the currently
-        // selected furniture root. Deferred via setTimeout(0) so the
-        // builder's own listener has already swapped in the new geometry.
-        window.addEventListener('bim-furniture-updated', (e: any) => {
-            const updatedId = e?.detail?.furniture?.id;
-            if (!updatedId || !this.selectedObject) return;
-            if (this.selectedObject.userData?.id !== updatedId) return;
-            setTimeout(() => {
-                const obj = this.selectedObject;
-                if (obj && obj.userData?.id === updatedId) {
-                    this.applyHighlight(obj);
-                }
-            }, 0);
-        });
+        // (Folded into the §SELECT-GIZMO-REATTACH `bim-furniture-updated`
+        // handler above: FurnitureFragmentBuilder.updateFurniture() reuses the
+        // same root Object3D and only swaps its children, so the cached
+        // `highlightMesh` would otherwise point at stale extents after a
+        // property-panel resize. `_reresolveSelectionAfterRebuild()` re-applies
+        // the highlight on the reused-and-still-attached root — same effect as
+        // the old dedicated listener, now unified for every element type.)
 
         // F.events.4 — DOM listener removed. engineLauncher.ts wires
         // runtime.events.on('pryzm-element-selected', ...) → selectById() after initTools().
@@ -911,6 +1077,20 @@ export class SelectionManager implements ISelectionManager {
         // A2: Hover detection — throttled raycasting dispatches 'bim-hover-changed'
         // so the TSL OutlinePass can show the pulsing blue hover outline.
         this.domElement.addEventListener('pointermove', (e) => this._onPointerMove(e));
+
+        // ── §SELECT-GIZMO-REATTACH — per-frame gizmo liveness guard ───────────
+        // Belt-and-suspenders for the event-driven re-attach above: if a rebuild
+        // detached the gizmo's target without firing a `bim-<type>-updated` event
+        // (external scene clear / snapshot reload), or in the 1-tick window before
+        // the deferred re-resolve runs, this `pre-render` tick detaches the gizmo
+        // BEFORE THREE traverses the helper — preventing the per-frame
+        // "must be a part of the scene graph" throw flood at its source.
+        // O(depth) when a gizmo is attached, a single null-check otherwise.
+        getFrameScheduler().addTickListener(
+            'selection-manager-gizmo-liveness-guard',
+            () => { this.guardTransformControlsAttachment(); },
+            'pre-render',
+        );
     }
 
     private syncHostedElements(_parent: THREE.Object3D) {
