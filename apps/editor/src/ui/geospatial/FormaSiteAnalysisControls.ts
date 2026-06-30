@@ -917,9 +917,11 @@ export class FormaSiteAnalysisControls {
             } else {
                 chip.title = a.metric === 'sunHours'
                     ? 'Colour the site by direct sun-hours (shadow study)'
-                    : a.metric === 'population'
-                        ? 'Colour the site by an OSM footprint-density proxy (GFA = footprint × floors) — not census data'
-                        : `Colour the site by ${a.label.toLowerCase()}`;
+                    : a.metric === 'daylight'
+                        ? 'Colour the site by Vertical Sky Component — % of sky visible vs the massing + OSM context (right-to-light)'
+                        : a.metric === 'population'
+                            ? 'Colour the site by an OSM footprint-density proxy (GFA = footprint × floors) — not census data'
+                            : `Colour the site by ${a.label.toLowerCase()}`;
                 chip.addEventListener('click', () => this.selectMetric(a.metric));
             }
             row.appendChild(chip);
@@ -1029,6 +1031,12 @@ export class FormaSiteAnalysisControls {
             case 'sunHours':
                 return 'Direct-beam sun-hours on the analysis day, shadowed by the massing + ' +
                     'OSM context (pure analytic shadow study).';
+            case 'daylight':
+                // §SITE-METRIC-DAYLIGHT-VSC — Vertical Sky Component: % of the sky
+                // hemisphere visible at each cell, obstructed by the massing + OSM
+                // context. Open-site datum ≈ 40 %; right-to-light flags < ~27 %.
+                return 'Vertical Sky Component: % of sky visible, obstructed by the massing + ' +
+                    'OSM context (analytic sky sweep). Open ≈ 40%; right-to-light concern < ~27%.';
             default:
                 return null;
         }

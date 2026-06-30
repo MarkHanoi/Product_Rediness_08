@@ -62,7 +62,10 @@ import {
 import { monthlyTempSeries } from './climateChartData';
 
 /** The metrics the side-3D switcher can route to. `'sunHours'` + `'daylight'` are
- *  handled by the existing surface raycast pass, NOT by this ground-grid bridge. */
+ *  both chunked raycast/hemisphere passes this bridge produces as GROUND grids.
+ *  §SITE-METRIC-DAYLIGHT-VSC (2026-06-30) — 'daylight' is now a real side-3D ground
+ *  grid (Vertical Sky Component: the % of the sky hemisphere unobstructed by the
+ *  neighbouring massing + OSM context at each cell), NOT a BIM-view-only pass. */
 export type SiteMetric = 'sunHours' | 'temperature' | 'wind' | 'population' | 'daylight';
 
 /** Whether a metric has a real/partial data source, and the disabled reason if not. */
@@ -207,9 +210,12 @@ export function siteMetricAvailability(
         mk('wind', hasLocation, true, climateReason),
         // Population is an OSM proxy — it needs context footprints, not climate.
         mk('population', true, true),
-        // Daylight VSC is computed per room on the BIM scene, not as a side-3D ground
-        // grid — surfaced via the existing pryzmComputeDaylight pass, not here yet.
-        mk('daylight', false, false, 'Open in the BIM view (VSC)'),
+        // §SITE-METRIC-DAYLIGHT-VSC (2026-06-30) — Daylight (Vertical Sky Component) is
+        // now a REAL side-3D ground grid: per cell we sample the sky hemisphere and
+        // measure the fraction unobstructed by the massing + OSM context (no climate,
+        // no BIM mesh). Available the moment there's an analysis disc (context optional
+        // — an open site simply reads near the unobstructed VSC maximum everywhere).
+        mk('daylight', true, true),
     ];
 }
 
@@ -438,7 +444,9 @@ function resolveCellSize(input: MetricGridInput, defaultCellM: number): { cellSi
  *  area; `resolveCellSize` clamps UP only if the raised `maxCells` would be exceeded
  *  (and logs when it does — never a silent truncation). */
 function defaultCellM(metric: SiteMetric): number {
-    return metric === 'sunHours' ? 2.5 : 1.8;
+    // Sun-hours + daylight VSC are the heaviest (raycast / sky-sweep per cell), so they
+    // get a slightly larger min cell than the cheap climate/population grids.
+    return metric === 'sunHours' || metric === 'daylight' ? 2.5 : 1.8;
 }
 
 /**
@@ -492,19 +500,19 @@ function coordToken(lat: number, lon: number): string {
 }
 
 /**
- * Build the coloured ground cells for a ground-grid metric (sun hours / temperature
- * / wind / population) in the site-ENU frame. Returns `[]` when the metric is not a
- * ground grid (daylight) or its required data is missing. PURE + deterministic.
+ * Build the coloured ground cells for a ground-grid metric (sun hours / daylight VSC
+ * / temperature / wind / population) in the site-ENU frame. Returns `[]` when the
+ * metric's required data is missing. PURE + deterministic.
  *
- * NOTE: for 'sunHours' this is the SYNCHRONOUS (whole-grid) build — fine for tests
- * and small discs. The editor uses the CHUNKED `prepareSunHoursGrid` driver for the
- * large interactive disc so the per-cell raycast never freezes the viewport.
+ * NOTE: for 'sunHours' + 'daylight' this is the SYNCHRONOUS (whole-grid) build — fine
+ * for tests and small discs. The editor uses the CHUNKED `prepareSunHoursGrid` /
+ * `prepareDaylightVscGrid` drivers for the large interactive disc so the per-cell
+ * raycast / sky-sweep never freezes the viewport.
  */
 export function buildSiteMetricGrid(
     metric: SiteMetric,
     input: MetricGridInput,
 ): MetricGridCell[] {
-    if (metric === 'daylight') return [];          // BIM-view only (per-room VSC)
     if (!(input.radius > 0)) return [];
     const up = input.heightAboveGround ?? 0.16;
     const { cellSize, maxCells } = resolveCellSize(input, defaultCellM(metric));
@@ -518,6 +526,19 @@ export function buildSiteMetricGrid(
 
     if (metric === 'sunHours') {
         const prep = prepareSunHoursGrid(input);
+        if (!prep) return [];
+        const out: MetricGridCell[] = [];
+        for (const c of prep.cells) {
+            const cell = prep.evaluate(c);
+            if (cell) out.push(cell);
+        }
+        return out;
+    }
+
+    // §SITE-METRIC-DAYLIGHT-VSC — Vertical Sky Component ground grid (per-cell sky
+    // sweep against the context prisms). Needs only an analysis disc; no climate/mesh.
+    if (metric === 'daylight') {
+        const prep = prepareDaylightVscGrid(input);
         if (!prep) return [];
         const out: MetricGridCell[] = [];
         for (const c of prep.cells) {
@@ -640,6 +661,174 @@ export function prepareSunHoursGrid(input: MetricGridInput): SunHoursGridPrep | 
     };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// §SITE-METRIC-DAYLIGHT-VSC (founder 2026-06-30) — Vertical Sky Component ground grid
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// VSC (Vertical Sky Component) is a standard daylight / right-to-light metric: the
+// proportion of a uniform (CIE-overcast-style) sky hemisphere that is visible from a
+// point on a façade, expressed as a percentage. Against a fully UNOBSTRUCTED vertical
+// plane VSC ≈ 39.6 % (the textbook datum); a neighbour's massing that fills part of
+// the sky lowers it. The BRE/right-to-light "rule of thumb" flags a window whose VSC
+// drops below ~27 % (or to <0.8× its prior value) as materially affected.
+//
+// We compute a GROUND-CELL field (so it paints identically to the other side-3D
+// metrics, which show no BIM mesh): per cell we stand a notional observer ~1.6 m up
+// and sweep the sky hemisphere on an (azimuth × altitude) lattice; a sky patch counts
+// as VISIBLE when the ray toward it clears every context-building prism. Each visible
+// patch is weighted by sin(altitude)·cos(altitude) (the projected-solid-angle weight
+// that yields the canonical unobstructed datum), and the result is reported as a
+// percentage of the unobstructed total. PURE + deterministic — reuses the SAME
+// extruded-footprint prisms + ray-march occlusion as the sun-hours pass (no THREE,
+// P2-safe). The disc-wide field shows how the proposed massing + neighbours shade the
+// sky for points across the site — the planning question VSC answers.
+
+/** Canonical unobstructed VSC datum (%) — VSC against a clear vertical plane. The
+ *  field is scaled so a fully open cell reads ≈ this value (textbook ≈ 39.6 %). */
+const UNOBSTRUCTED_VSC_PCT = 39.6;
+/** Observer height (m) for the sky sweep — eye/façade-mid datum, matches the BRE
+ *  reference-point convention well enough for a planning heatmap. */
+const VSC_OBSERVER_UP_M = 1.6;
+/** Sky-hemisphere lattice resolution (azimuth × altitude sample counts). Kept modest
+ *  so the per-cell cost (azSteps×altSteps ray-marches × prisms) stays chunkable. */
+const VSC_AZ_STEPS = 24;
+const VSC_ALT_STEPS = 9;
+
+/**
+ * §SITE-METRIC-DAYLIGHT-VSC — Vertical Sky Component (%) at one cell, given the
+ * context prisms. Sweeps the upper sky hemisphere on a fixed (az × alt) lattice;
+ * a patch is visible when the ray toward it (rising at `tan(alt)` per horizontal
+ * metre) is not blocked by any prism. Each patch carries the projected weight
+ * `sin(alt)·cos(alt)`, and the visible weight is normalised to the unobstructed
+ * total then scaled to `UNOBSTRUCTED_VSC_PCT`. PURE + deterministic.
+ *
+ * Exported so the chunked driver + the unit test can call the exact per-cell math.
+ */
+export function verticalSkyComponentPct(
+    e0: number, n0: number, up0: number,
+    prisms: readonly Prism[],
+): number {
+    let visibleW = 0;
+    let totalW = 0;
+    for (let ai = 0; ai < VSC_ALT_STEPS; ai++) {
+        // Sample altitude band centres in (0, 90°), avoiding the horizon (0) + zenith
+        // (90°) singular weights. Projected weight sin·cos peaks near 45°.
+        const alt = ((ai + 0.5) / VSC_ALT_STEPS) * (Math.PI / 2);
+        const sa = Math.sin(alt), ca = Math.cos(alt);
+        const w = sa * ca;                      // projected solid-angle weight
+        const slope = ca > 1e-6 ? sa / ca : 1e6; // up per horizontal metre = tan(alt)
+        for (let zi = 0; zi < VSC_AZ_STEPS; zi++) {
+            const az = (zi / VSC_AZ_STEPS) * Math.PI * 2;
+            totalW += w;
+            const de = Math.sin(az), dn = Math.cos(az);  // horizontal unit (any 2π sweep)
+            let blocked = false;
+            for (const p of prisms) {
+                if (rayBlockedByPrism(e0, n0, up0, de, dn, slope, p)) { blocked = true; break; }
+            }
+            if (!blocked) visibleW += w;
+        }
+    }
+    if (totalW <= 0) return UNOBSTRUCTED_VSC_PCT;
+    return (visibleW / totalW) * UNOBSTRUCTED_VSC_PCT;
+}
+
+/** VSC (%) → colour ramp. BRAND: warm-open (#6600FF-tinted bright) high sky → deep
+ *  PRYZM-purple low sky, through white at the mid. White + #6600FF, no black. A low
+ *  VSC (overshadowed) reads deep purple; a clear sky reads warm/bright. */
+function vscCellColour(vscPct: number): string {
+    // Normalise against the unobstructed datum so an open site spans the warm top.
+    const t = Math.max(0, Math.min(1, vscPct / UNOBSTRUCTED_VSC_PCT));
+    const stops: ReadonlyArray<readonly [number, number, number, number]> = [
+        [0.00, 0x66, 0x00, 0xFF], // #6600FF — overshadowed (deep PRYZM purple)
+        [0.45, 0xB7, 0x9B, 0xF6], // #B79BF6 — soft violet
+        [0.72, 0xFF, 0xFF, 0xFF], // #FFFFFF — neutral (mid sky)
+        [1.00, 0xF6, 0xC4, 0x45], // #F6C445 — open/bright sky (warm)
+    ];
+    for (let i = 1; i < stops.length; i++) {
+        if (t <= stops[i]![0]) {
+            const [t0, r0, g0, b0] = stops[i - 1]!;
+            const [t1, r1, g1, b1] = stops[i]!;
+            const s = (t - t0) / (t1 - t0 || 1);
+            const r = Math.round(r0 + s * (r1 - r0));
+            const g = Math.round(g0 + s * (g1 - g0));
+            const b = Math.round(b0 + s * (b1 - b0));
+            return `rgb(${r},${g},${b})`;
+        }
+    }
+    return '#F6C445';
+}
+
+/** A grid cell awaiting VSC evaluation (centre + size, ENU XZ metres). */
+export interface DaylightVscCell {
+    readonly x: number;          // east
+    readonly z: number;          // north
+    readonly size: number;       // cell edge (m)
+    readonly underBuilding: boolean;
+}
+
+/** A prepared VSC build: the cells + a pure per-cell evaluator + the float height the
+ *  cells render at. The caller batches `evaluate` across frames (chunked, like sun). */
+export interface DaylightVscGridPrep {
+    readonly cells: ReadonlyArray<DaylightVscCell>;
+    /** Evaluate ONE cell → its coloured `MetricGridCell`, or null to skip (under a
+     *  building / outside the disc). Pure + deterministic; safe in any order. */
+    readonly evaluate: (cell: DaylightVscCell) => MetricGridCell | null;
+}
+
+/**
+ * §SITE-METRIC-DAYLIGHT-VSC — prepare a chunkable Vertical Sky Component ground grid.
+ * Returns null when it can't be computed (no radius). The cheap work (grid + prisms)
+ * is done ONCE; the heavy per-cell sky sweep lives in the returned `evaluate`, which
+ * the editor calls in per-frame batches (progressive reveal) — the SAME pattern as
+ * `prepareSunHoursGrid`. PURE.
+ *
+ * Span: §SITE-METRIC-DAYLIGHT-VSC — emits a single structured telemetry breadcrumb
+ * (this transitional apps/editor/src/ui/climate zone has no L7 otel facade and the
+ * GA otel-span gate scopes only the plugins handler dirs; the breadcrumb keeps the
+ * function observable without a forbidden direct @opentelemetry import).
+ */
+export function prepareDaylightVscGrid(input: MetricGridInput): DaylightVscGridPrep | null {
+    if (!(input.radius > 0)) return null;
+    const up = input.heightAboveGround ?? 0.16;
+    const { cellSize, maxCells } = resolveCellSize(input, defaultCellM('daylight'));
+    const { polys } = toObstacles(input.footprints);
+    const cells = buildStreetGrid(discBoundary(input.radius), polys, {
+        cellSize,
+        margin: 0,
+        maxCells: maxCells + 16,
+    });
+    if (cells.length === 0) return null;
+
+    const prisms = toPrisms(input.footprints);
+    const radius = input.radius;
+    const observerUp = VSC_OBSERVER_UP_M;
+
+    // §SITE-METRIC-DAYLIGHT-VSC span breadcrumb (see doc-comment above).
+    try {
+        console.debug(
+            `[span][site-metric-daylight-vsc] prepared grid: ${cells.length} cell(s), ` +
+            `${prisms.length} context prism(s), radius ${radius.toFixed(0)} m, ` +
+            `cell ${cellSize.toFixed(1)} m, lattice ${VSC_AZ_STEPS}×${VSC_ALT_STEPS}.`,
+        );
+    } catch { /* console unavailable (headless test) — span is best-effort */ }
+
+    const evaluate = (c: DaylightVscCell): MetricGridCell | null => {
+        if (c.underBuilding) return null;                 // inside the mass — skip
+        if (Math.hypot(c.x, c.z) > radius * 1.02) return null; // round Forma cutout
+        const vscPct = verticalSkyComponentPct(c.x, c.z, observerUp, prisms);
+        return {
+            east: c.x, north: c.z, halfSize: c.size / 2, up,
+            colorHex: vscCellColour(vscPct),
+            value: vscPct,
+        };
+    };
+
+    return {
+        cells: cells.map((c) => ({ x: c.x, z: c.z, size: c.size, underBuilding: c.underBuilding })),
+        evaluate,
+    };
+}
+
 /** The gradient legend + unit for a metric (drawn beside the heatmap). */
 export function siteMetricLegend(
     metric: SiteMetric,
@@ -679,6 +868,17 @@ export function siteMetricLegend(
                 lowLabel: 'Shaded',
                 highLabel: 'Sunny',
                 unit: 'h',
+            };
+        case 'daylight':
+            // §SITE-METRIC-DAYLIGHT-VSC — % of sky hemisphere visible (right-to-light
+            // VSC). Deep PRYZM-purple (overshadowed) → white → warm (open sky); the
+            // axis runs 0 → the unobstructed datum (≈ 40 %). White + #6600FF, no black.
+            return {
+                title: 'Daylight (VSC)',
+                stops: ['#6600FF', '#B79BF6', '#FFFFFF', '#F6C445'],
+                lowLabel: 'Overshadowed',
+                highLabel: 'Open sky',
+                unit: '%',
             };
         default:
             return null;

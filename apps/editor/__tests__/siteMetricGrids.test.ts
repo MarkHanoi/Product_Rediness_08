@@ -11,6 +11,8 @@ import {
     buildSiteMetricGrid,
     siteMetricLegend,
     siteMetricAvailability,
+    verticalSkyComponentPct,
+    prepareDaylightVscGrid,
     type MetricFootprint,
 } from '../src/ui/climate/siteMetricGrids';
 
@@ -37,11 +39,26 @@ const FOOTPRINTS: MetricFootprint[] = [
 ];
 
 describe('buildSiteMetricGrid', () => {
-    it('returns [] for daylight (BIM-view-only) and for sun-hours without lat/lon', () => {
+    it('returns [] for sun-hours without lat/lon', () => {
         const radius = 80;
-        expect(buildSiteMetricGrid('daylight', { radius, footprints: FOOTPRINTS, dataset: DATASET })).toEqual([]);
         // Sun-hours needs a site lat/lon (sun position) — absent → [].
         expect(buildSiteMetricGrid('sunHours', { radius, footprints: FOOTPRINTS, dataset: DATASET })).toEqual([]);
+    });
+
+    it('§SITE-METRIC-DAYLIGHT-VSC: builds a daylight VSC ground grid (no climate/lat-lon needed)', () => {
+        const cells = buildSiteMetricGrid('daylight', {
+            radius: 80, footprints: FOOTPRINTS, dataset: null, gridCountCap: 16,
+        });
+        expect(cells.length).toBeGreaterThan(0);
+        for (const c of cells) {
+            expect(c.value).toBeGreaterThanOrEqual(0);     // VSC %
+            expect(c.value).toBeLessThanOrEqual(40 + 1e-6); // ≤ the unobstructed datum
+            expect(typeof c.colorHex).toBe('string');
+            expect(c.colorHex.length).toBeGreaterThan(0);
+        }
+        // The context building obstructs the sky for nearby cells → a spread of values.
+        const values = new Set(cells.map((c) => c.value.toFixed(1)));
+        expect(values.size).toBeGreaterThan(1);
     });
 
     it('builds a sun-hours ground heatmap from lat/lon (shadows reduce hours)', () => {
@@ -133,6 +150,52 @@ describe('buildSiteMetricGrid', () => {
     });
 });
 
+describe('§SITE-METRIC-DAYLIGHT-VSC — verticalSkyComponentPct', () => {
+    it('an OPEN site (no context) reads at the unobstructed datum (≈ 40%)', () => {
+        const vsc = verticalSkyComponentPct(0, 0, 1.6, []);
+        // Sweep against no prisms → every sky patch visible → the canonical datum.
+        expect(vsc).toBeGreaterThan(38);
+        expect(vsc).toBeLessThanOrEqual(40);
+    });
+
+    it('a TALL building next to the point lowers VSC below the open datum', () => {
+        // A 60 m-tall slab 5 m east of the observer fills a big chunk of the sky.
+        const open = verticalSkyComponentPct(0, 0, 1.6, []);
+        const shadedCells = prepareDaylightVscGrid({
+            radius: 60, footprints: [{
+                ring: [{ x: 4, z: -20 }, { x: 24, z: -20 }, { x: 24, z: 20 }, { x: 4, z: 20 }],
+                heightM: 60,
+            }], dataset: null, gridCountCap: 12,
+        });
+        expect(shadedCells).not.toBeNull();
+        // A cell hard against the slab's west face must see meaningfully less sky than
+        // an unobstructed point.
+        const near = shadedCells!.evaluate({ x: 2, z: 0, size: 4, underBuilding: false });
+        expect(near).not.toBeNull();
+        expect(near!.value).toBeLessThan(open);
+        expect(near!.value).toBeGreaterThanOrEqual(0);
+    });
+
+    it('a TALLER neighbour shades MORE sky than a shorter one at the same spot', () => {
+        const ring = [{ x: 4, z: -20 }, { x: 24, z: -20 }, { x: 24, z: 20 }, { x: 4, z: 20 }];
+        const low = prepareDaylightVscGrid({ radius: 60, footprints: [{ ring, heightM: 8 }], dataset: null, gridCountCap: 12 });
+        const high = prepareDaylightVscGrid({ radius: 60, footprints: [{ ring, heightM: 60 }], dataset: null, gridCountCap: 12 });
+        const lowV = low!.evaluate({ x: 2, z: 0, size: 4, underBuilding: false })!.value;
+        const highV = high!.evaluate({ x: 2, z: 0, size: 4, underBuilding: false })!.value;
+        expect(highV).toBeLessThanOrEqual(lowV);
+    });
+
+    it('skips cells under a building / outside the disc (null)', () => {
+        const prep = prepareDaylightVscGrid({ radius: 40, footprints: FOOTPRINTS, dataset: null, gridCountCap: 12 });
+        expect(prep!.evaluate({ x: 0, z: 0, size: 4, underBuilding: true })).toBeNull();
+        expect(prep!.evaluate({ x: 999, z: 999, size: 4, underBuilding: false })).toBeNull();
+    });
+
+    it('returns null for a non-positive radius', () => {
+        expect(prepareDaylightVscGrid({ radius: 0, footprints: FOOTPRINTS, dataset: null })).toBeNull();
+    });
+});
+
 describe('siteMetricAvailability', () => {
     it('disables ALL location-driven metrics when no location is set', () => {
         const a = siteMetricAvailability(false, false);  // no dataset, no location
@@ -143,8 +206,10 @@ describe('siteMetricAvailability', () => {
         expect(byMetric.temperature!.reason).toBeTruthy();
         // Population is an OSM proxy — available regardless of climate/location.
         expect(byMetric.population!.available).toBe(true);
-        // Daylight is BIM-view only here.
-        expect(byMetric.daylight!.available).toBe(false);
+        // §SITE-METRIC-DAYLIGHT-VSC — daylight is a ground grid needing only the disc
+        // (no climate/location) → available even with no location set.
+        expect(byMetric.daylight!.available).toBe(true);
+        expect(byMetric.daylight!.isGroundGrid).toBe(true);
     });
 
     it('§SITE-METRIC-CLIMATE-INSTANT: temp+wind+sun ENABLE on location even with NO live dataset', () => {
@@ -172,8 +237,8 @@ describe('siteMetricAvailability', () => {
 });
 
 describe('siteMetricLegend', () => {
-    it('returns a gradient legend for each ground + surface metric', () => {
-        for (const m of ['temperature', 'wind', 'population', 'sunHours'] as const) {
+    it('returns a gradient legend for each ground metric (incl. daylight VSC)', () => {
+        for (const m of ['temperature', 'wind', 'population', 'sunHours', 'daylight'] as const) {
             const legend = siteMetricLegend(m, DATASET);
             expect(legend).not.toBeNull();
             expect(legend!.stops.length).toBeGreaterThanOrEqual(2);
@@ -182,7 +247,13 @@ describe('siteMetricLegend', () => {
         }
     });
 
-    it('returns null for daylight (no side-3D legend)', () => {
-        expect(siteMetricLegend('daylight', DATASET)).toBeNull();
+    it('§SITE-METRIC-DAYLIGHT-VSC — daylight legend reports a % unit + VSC title', () => {
+        const legend = siteMetricLegend('daylight', DATASET);
+        expect(legend!.unit).toBe('%');
+        expect(legend!.title).toMatch(/VSC|Daylight/i);
+        // Brand: ramp must include the PRYZM purple + white, never black.
+        expect(legend!.stops).toContain('#6600FF');
+        expect(legend!.stops).toContain('#FFFFFF');
+        expect(legend!.stops.join(',').toLowerCase()).not.toContain('#000');
     });
 });
