@@ -80,6 +80,7 @@ import type { ProjectSnapshot } from '@pryzm/core-app-model';
 import {
     findOpeningElementData,
     migrateRoofSnapshotToCommand,
+    dropDegeneratePolygonRecords,
 } from './projectLoaderUtils';
 import { ClearProjectCommand } from './ClearProjectCommand';
 import { AddLevelCommand } from '../levels/AddLevelCommand';
@@ -137,6 +138,15 @@ export interface ImportProjectStats {
      * behaviour at ProjectLoader.ts ~L1257).
      */
     loadedLevelIds: Set<string>;
+    /**
+     * §LOAD-HEAL-DEGENERATE-POLYGON — set of level IDs that had at least one
+     * degenerate ROOM polygon dropped during this import. The post-load
+     * §LOAD-REDETECT-FREEZE skip normally suppresses redetect for any level that
+     * carries persisted rooms; but a level whose (degenerate) rooms we just
+     * dropped MUST be redetected so it re-seals from the join-resolved walls.
+     * The caller removes these levels from the skip-set.
+     */
+    healedRoomLevelIds: Set<string>;
 }
 
 export interface ImportProjectCommandOptions {
@@ -198,6 +208,7 @@ export class ImportProjectCommand implements Command {
         errors: [],
         warnings: [],
         loadedLevelIds: new Set<string>(),
+        healedRoomLevelIds: new Set<string>(),
     };
 
     constructor(
@@ -515,7 +526,17 @@ export class ImportProjectCommand implements Command {
             }
 
             // ── Step 5b: Ceilings (priority 21.5) ────────────────────────────
-            const snapshotCeilings = (snapshot as any).ceilings;
+            // §LOAD-HEAL-DEGENERATE-POLYGON — DROP ceilings whose persisted
+            // polygon is degenerate (an OLD project's collapsed-wall room left a
+            // zero-area / <3-distinct-vertex ring). They would otherwise fail
+            // `validateCeilingBoundary` one-by-one → the "120 elements failed"
+            // banner. Dropping them lets the post-load redetect re-seal rooms.
+            const rawCeilings = (snapshot as any).ceilings;
+            const { kept: snapshotCeilings, dropped: droppedCeilings } =
+                dropDegeneratePolygonRecords<any>(rawCeilings, (c) => c?.polygon ?? c?.boundary?.polygon);
+            if (droppedCeilings.length > 0) {
+                console.warn(`[ImportProjectCommand] §LOAD-HEAL-DEGENERATE-POLYGON — dropped ${droppedCeilings.length} degenerate ceiling polygon(s) from an old snapshot (rooms will re-seal via post-load redetect)`);
+            }
             if (Array.isArray(snapshotCeilings) && snapshotCeilings.length > 0) {
                 console.log(`[ImportProjectCommand] Loading ${snapshotCeilings.length} ceilings`);
                 for (const ceiling of snapshotCeilings) {
@@ -545,7 +566,14 @@ export class ImportProjectCommand implements Command {
             }
 
             // ── Step 5c: Floor finishes (priority 21.8) ──────────────────────
-            const snapshotFloors = (snapshot as any).floors;
+            // §LOAD-HEAL-DEGENERATE-POLYGON — same heal for floor finishes; a
+            // floor's ring lives at `.boundary.polygon` (or legacy `.polygon`).
+            const rawFloors = (snapshot as any).floors;
+            const { kept: snapshotFloors, dropped: droppedFloors } =
+                dropDegeneratePolygonRecords<any>(rawFloors, (f) => f?.boundary?.polygon ?? f?.polygon);
+            if (droppedFloors.length > 0) {
+                console.warn(`[ImportProjectCommand] §LOAD-HEAL-DEGENERATE-POLYGON — dropped ${droppedFloors.length} degenerate floor polygon(s) from an old snapshot (rooms will re-seal via post-load redetect)`);
+            }
             if (Array.isArray(snapshotFloors) && snapshotFloors.length > 0) {
                 console.log(`[ImportProjectCommand] Loading ${snapshotFloors.length} floor finishes`);
                 for (const floor of snapshotFloors) {
@@ -825,7 +853,26 @@ export class ImportProjectCommand implements Command {
             }
 
             // ── Step 13: Rooms (priority 31 — after walls for boundary accuracy) ──
-            const snapshotRooms = (snapshot as any).rooms;
+            // §LOAD-HEAL-DEGENERATE-POLYGON — DROP rooms whose persisted boundary
+            // ring is degenerate (the collapsed-wall perimeter never sealed). They
+            // would fail `deserializeRoom` / room-schema validation and count
+            // toward the failure banner; the post-load redetect re-creates a clean
+            // room from the join-resolved walls. A room WITHOUT a boundary polygon
+            // (e.g. a bare semantic stub) is kept — only HAVING a degenerate ring
+            // triggers the drop.
+            const rawRooms = (snapshot as any).rooms;
+            const { kept: snapshotRooms, dropped: droppedRooms } =
+                dropDegeneratePolygonRecords<any>(rawRooms, (r) => r?.boundary?.polygon);
+            if (droppedRooms.length > 0) {
+                console.warn(`[ImportProjectCommand] §LOAD-HEAL-DEGENERATE-POLYGON — dropped ${droppedRooms.length} degenerate room polygon(s) from an old snapshot (rooms will re-seal via post-load redetect)`);
+                // Remember which levels lost a room so the caller forces a
+                // redetect there (the §LOAD-REDETECT-FREEZE skip is keyed on the
+                // RAW snapshot rooms, which still list the dropped ones).
+                for (const r of droppedRooms) {
+                    const lvl = r?.levelId;
+                    if (typeof lvl === 'string' && lvl.length > 0) stats.healedRoomLevelIds.add(lvl);
+                }
+            }
             if (Array.isArray(snapshotRooms) && snapshotRooms.length > 0) {
                 console.log(`[ImportProjectCommand] Loading ${snapshotRooms.length} rooms`);
                 const hydrated: any[] = [];
