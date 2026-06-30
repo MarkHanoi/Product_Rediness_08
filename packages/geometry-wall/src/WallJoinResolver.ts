@@ -355,6 +355,20 @@ export class WallJoinResolver {
         // "partition crossing the exterior wall line"). A shell↔shell L-corner is
         // endpoint-to-endpoint (foot AT the host's end), so it is excluded here and
         // its bisector miter is left untouched.
+        // §PARTITION-SHELL-COLLINEAR-GUARD (2026-06-30) — the clamp below places the
+        // join endpoint at `hostContact + hostDir*along + sideNormal*targetLateral`,
+        // where `along = (freePt − hostContact)·hostDir`. That is only correct when the
+        // partition meets the host near-PERPENDICULARLY (then `along ≈ 0`, so the new
+        // endpoint stays at the join end and only its lateral offset moves to the inner
+        // face). For a partition running NEAR-COLLINEAR with / grazing the host, `along ≈
+        // ±(full wall length)`, so `newJoin` is placed ~a wall-length down the host and
+        // only `hostHalfT` off-axis → `newLen ≈ hostHalfT` (≈0.049 m), collapsing a long
+        // (e.g. 6.2 m) wall (the founder's `§PARTITION-SHELL-INNER-FACE REFUSED … newLen=
+        // 0.0490 curLen=6.2383`). A real partition-T is never collinear with its host, so
+        // reject any candidate host whose axis is within ~30° of THIS wall's axis. The
+        // existing inner-face tests are all near-perpendicular → byte-identical.
+        const _partDir = new THREE.Vector3().subVectors(freePt, joinPt).normalize();
+        const PERP_COLLINEAR_DOT = 0.5;   // cos 60° — reject hosts >30° from perpendicular
         let host: WallData | null = null;
         let hostContact = new THREE.Vector3();
         let hostHalfT = 0;
@@ -372,6 +386,11 @@ export class WallJoinResolver {
             // (endpoint↔endpoint) is never reclassified as a body-T.
             const endMargin = Math.max(0.05, h.thickness / 2);
             if (c.distanceTo(hs) < endMargin || c.distanceTo(he) < endMargin) continue;
+            // §PARTITION-SHELL-COLLINEAR-GUARD — skip a near-collinear/grazing host. A
+            // genuine partition-T meets the host near-perpendicular (|partDir·hostDir| ≈
+            // 0); a grazing neighbour (≈1) is NOT a wall terminating on this host's body.
+            const _hDir = new THREE.Vector3().subVectors(he, hs).normalize();
+            if (Math.abs(_hDir.dot(_partDir)) > PERP_COLLINEAR_DOT) continue;
             // The host must materially extend PAST the contact on both sides (it
             // "passes through" the junction) — the geometric signature of a shell
             // body relative to a terminating partition stem.
@@ -1039,8 +1058,10 @@ export class WallJoinResolver {
             // room stops sealing. This block surfaces, per cluster + per endpoint,
             // exactly WHY the cluster is unpinned and which endpoints sit on a
             // non-cluster wall body (a shell T-anchor the trim would break).
-            const _whyOn = !!(globalThis as any).window?.__pryzmDebugWalls || true; // always on (founder asked)
             // Endpoints in THIS cluster, by key, for "is the body-host a cluster member?" test.
+            // NB: `_clusterWallIds` + `_bodyAnchorOf` are LOAD-BEARING — the §SHELL-ANCHOR-
+            // PRESERVE branch below (~L1207) calls `_bodyAnchorOf(ep)` to decide whether to
+            // defer an endpoint to the pair-wise T-join. They MUST stay outside the diag gate.
             const _clusterWallIds = new Set(endpoints.map(e => e.wallId));
             // Detect, per endpoint, whether it lies on the BODY (mid-span, not at an
             // endpoint) of some OTHER wall that is NOT part of this cluster. That is
@@ -1062,9 +1083,18 @@ export class WallJoinResolver {
                 }
                 return bestHost ? { hostId: bestHost, perp: bestPerp } : null;
             };
-            const _hasPinned   = pinnedKeys.size > 0;
-            const _hasPrimary  = !!primaryPair;
-            if (_whyOn) {
+            // §MULTI-CLUSTER-WHY-FLOOD-GATE (2026-06-30) — this diagnostic used to be
+            // hard `|| true` ("always on, founder asked"). On a 5-storey resi building it
+            // printed HUNDREDS of 3-4-line blocks per generation/open, and the per-endpoint
+            // `_bodyAnchorOf` re-scan + multi-line string concat ran on the main thread even
+            // though nothing consumes the output in prod. Gate the entire diagnostic block
+            // (the second `_bodyAnchorOf` sweep + string interpolation + log) behind
+            // `wallJoinDiagOn()` (default OFF in prod; `globalThis.__pryzmWallJoinDiag = true`
+            // restores it). The load-bearing §SHELL-ANCHOR-PRESERVE call above is untouched.
+            // Mirrors every other gated resolver diagnostic here. §LOAD-FLOOD-GATE / ADR-060.
+            if (wallJoinDiagOn()) {
+                const _hasPinned   = pinnedKeys.size > 0;
+                const _hasPrimary  = !!primaryPair;
                 const _reason =
                     clusterHasPassThrough ? 'PASS-THROUGH (collinear pair → square caps to consensus)'
                     : _hasPrimary         ? 'HAS-PRIMARY-CORNER (pinned perpendicular pair found)'

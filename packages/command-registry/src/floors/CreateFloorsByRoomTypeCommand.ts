@@ -59,6 +59,27 @@ const TILE_TYPES = new Set([
  *  + apartment pipelines pass nothing and keep flooring corridors as timber (no merged pass there). */
 const CIRCULATION_TYPES = new Set(['corridor', 'entrance-lobby']);
 
+/**
+ * §FLOOR-DIAG-FLOOD-GATE (2026-06-30) — the per-room `[floor §DIAG] …` line and the
+ * big "Created N floor(s) by room type …" info string used to be ALWAYS-ON. On a
+ * 5-storey resi building this command runs per level × ~15 rooms/level, each push
+ * building an interpolated `_roomTag(room)` string, then the whole `_diag` array is
+ * BOTH logged line-by-line AND spread into the command `info` — hundreds of strings
+ * built + concatenated on the main thread during open. Gate the EXPENSIVE string
+ * construction (not just the console.* call) behind `__pryzmLayoutDiag` / the legacy
+ * `__pryzmFloorDiag` (default OFF in prod; either flag restores every §DIAG line).
+ * Mirrors the `__pryzmLayoutDiag` pattern used across the apartment-layout workflows
+ * and §LOAD-FLOOD-GATE / ADR-060. A cheap boolean read; callers MUST consult it
+ * before building any §DIAG string so the message is never even constructed when off.
+ */
+function floorDiagOn(): boolean {
+    const g = globalThis as unknown as {
+        __pryzmLayoutDiag?: boolean;
+        __pryzmFloorDiag?: boolean;
+    };
+    return g.__pryzmLayoutDiag === true || g.__pryzmFloorDiag === true;
+}
+
 /** §FLOOR-INNER-FACE — minimal read-only view of a wall the inset resolver needs:
  *  its centreline endpoints, thickness, and door/window openings. Mirrors the
  *  WallData shape without importing the full type (avoids a heavier coupling). */
@@ -173,33 +194,52 @@ export class CreateFloorsByRoomTypeCommand implements Command {
 
         // First execute coalesces store events + suppresses the per-floor reprojection /
         // redetect storm (floors don't bound rooms). Redo runs directly (re-creates).
+        //
+        // §FLOOR-BATCH-JOIN (2026-06-30) — when this command is dispatched from INSIDE a
+        // parent batch (the resi `CREATE_FLOORS_BY_ROOM_TYPE` path runs under the executor's
+        // own runBatch), a nested `runBatch(run, …)` logged "runBatch called while already
+        // batching — nesting not supported. Running fn() without batch guards" and ran `run()`
+        // UNGUARDED — every per-floor store event escaped the outer batch's coalescing →
+        // extra reprojection/redetect events + jank. Detect the in-flight batch via the
+        // `isBatching` getter and JOIN it (run `run()` directly, so the OUTER batch's guards
+        // — including its own coalescing/redetect-suppression — apply). Only open a fresh
+        // batch when we are the top-level dispatch.
         if (this.createdCommands.length === 0) {
-            batchCoordinator.runBatch(run, {
-                levelIds: [this.levelId],
-                totalElementCount: roomsOnLevel(context, this.levelId).length,
-                skipRedetectRooms: true,
-                // §POSTGEN-PERF (2026-06-16) — floors are room-bounded slabs with PBR-ready
-                // materials; the per-batch full-scene PBR/PSO render (~1s) is wasted here.
-                skipPbrUpgrade: true,
-            });
+            if (batchCoordinator.isBatching) {
+                // Already inside a batch — join it (no nested runBatch).
+                run();
+            } else {
+                batchCoordinator.runBatch(run, {
+                    levelIds: [this.levelId],
+                    totalElementCount: roomsOnLevel(context, this.levelId).length,
+                    skipRedetectRooms: true,
+                    // §POSTGEN-PERF (2026-06-16) — floors are room-bounded slabs with PBR-ready
+                    // materials; the per-batch full-scene PBR/PSO render (~1s) is wasted here.
+                    skipPbrUpgrade: true,
+                });
+            }
         } else {
             run();
         }
 
         this.targetIds.push(...affectedIds);
-        // §FLOOR-INNER-FACE §DIAG — one always-on line per floored room: boundary
-        // source (inner-face ✓ / centreline ⚠), the inset applied, and the door-gap
-        // count where the floor meets a neighbour at a threshold.
+        // §FLOOR-DIAG-FLOOD-GATE — the per-room §DIAG lines + the big "Created N floor(s)"
+        // info string are gated (default OFF in prod). `_diag` is empty unless the flag is
+        // on (every push routes through `_pushDiag`), so this loop + the `info` spread are
+        // already no-ops in prod; the `Created …` summary stays only when diag is on so the
+        // command `info` is not a giant concatenated string on the hot open path.
         if (this._diag.length > 0 && typeof console !== 'undefined') {
             for (const line of this._diag) console.log(line);
         }
         return {
             success: true,
             affectedElementIds: affectedIds,
-            info: [
-                `Created ${affectedIds.length} floor(s) by room type on level ${this.levelId}.`,
-                ...this._diag,
-            ],
+            info: floorDiagOn()
+                ? [
+                    `Created ${affectedIds.length} floor(s) by room type on level ${this.levelId}.`,
+                    ...this._diag,
+                ]
+                : [],
         };
     }
 
@@ -226,6 +266,12 @@ export class CreateFloorsByRoomTypeCommand implements Command {
 
     /** §FLOOR-INNER-FACE §DIAG accumulator — one line per floored room. */
     private _diag: string[] = [];
+
+    /** §FLOOR-DIAG-FLOOD-GATE — accumulate a §DIAG line ONLY when the diag flag is on.
+     *  Takes a thunk so the (interpolated) string is never even built in prod. */
+    private _pushDiag(build: () => string): void {
+        if (floorDiagOn()) this._diag.push(build());
+    }
 
     /**
      * §FLOOR-INNER-FACE (2026-06-10) — derive the room's INNER-FACE floor polygon by
@@ -259,7 +305,7 @@ export class CreateFloorsByRoomTypeCommand implements Command {
             const roomStore = (context.stores as any).roomStore as {
                 getById?: (id: string) => { boundingWallIds?: string[] } | undefined;
             } | undefined;
-            if (!wallStore) { this._diag.push(`[floor §DIAG] ${this._roomTag(room)} boundary=centreline ⚠ (no wallStore)`); return centreline; }
+            if (!wallStore) { this._pushDiag(() => `[floor §DIAG] ${this._roomTag(room)} boundary=centreline ⚠ (no wallStore)`); return centreline; }
 
             // Candidate bounding walls: the room's recorded boundingWallIds, else all
             // walls on the level (the per-edge collinear test selects the right one).
@@ -270,7 +316,7 @@ export class CreateFloorsByRoomTypeCommand implements Command {
             if (walls.length === 0 && wallStore.getByLevel) {
                 walls.push(...wallStore.getByLevel(this.levelId));
             }
-            if (walls.length === 0) { this._diag.push(`[floor §DIAG] ${this._roomTag(room)} boundary=centreline ⚠ (no bounding walls)`); return centreline; }
+            if (walls.length === 0) { this._pushDiag(() => `[floor §DIAG] ${this._roomTag(room)} boundary=centreline ⚠ (no bounding walls)`); return centreline; }
 
             // Build subdivided ring + per-edge insets.
             const HALF = (t: number) => Math.max(0, t) / 2;
@@ -317,12 +363,12 @@ export class CreateFloorsByRoomTypeCommand implements Command {
                 }
             }
 
-            if (ring.length < 3) { this._diag.push(`[floor §DIAG] ${this._roomTag(room)} boundary=centreline ⚠ (degenerate after subdivide)`); return centreline; }
+            if (ring.length < 3) { this._pushDiag(() => `[floor §DIAG] ${this._roomTag(room)} boundary=centreline ⚠ (degenerate after subdivide)`); return centreline; }
 
             const inner = insetPolygonToInnerFaces(ring, insets, (line) => {
                 // §DIAG-FLOOR-INSET — surface the miter-clamp / fall-back reason per
                 // room so we can see which rooms triggered the robustness path.
-                this._diag.push(`[floor §DIAG] ${this._roomTag(room)} ${line}`);
+                this._pushDiag(() => `[floor §DIAG] ${this._roomTag(room)} ${line}`);
             });
             const ok = inner !== ring; // util returns the SAME array ref on fail-safe
             // §FLOOR-INSET-VALIDATE (2026-06-16) — the util can return a DIFFERENT array
@@ -346,13 +392,13 @@ export class CreateFloorsByRoomTypeCommand implements Command {
             const baseArea = polyArea(centreline);
             const insetSane = ok && inner.length >= 3 && baseArea > 0 && innerArea >= 0.5 * baseArea;
             const maxInset = insets.reduce((m, v) => Math.max(m, v), 0);
-            this._diag.push(
+            this._pushDiag(() =>
                 `[floor §DIAG] ${this._roomTag(room)} boundary=${insetSane ? 'inner-face ✓' : (ok ? `centreline ⚠ (inset DEGENERATE: ${innerArea.toFixed(2)}m² vs base ${baseArea.toFixed(2)}m²)` : 'centreline ⚠ (inset collapsed)')} ` +
                 `edges=${matchedEdges}/${centreline.length} maxInset=${(maxInset * 1000).toFixed(0)}mm door-gaps=${doorGaps}`,
             );
             return insetSane ? inner : centreline;
         } catch (err) {
-            this._diag.push(`[floor §DIAG] ${this._roomTag(room)} boundary=centreline ⚠ (error: ${String(err)})`);
+            this._pushDiag(() => `[floor §DIAG] ${this._roomTag(room)} boundary=centreline ⚠ (error: ${String(err)})`);
             return centreline;
         }
     }
