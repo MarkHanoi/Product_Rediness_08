@@ -63,6 +63,10 @@ import { createBackgroundUniform } from './BackgroundUniform';
 import type { PassNode, TSLNode } from '../tsl-types';
 import type { BackgroundUniform, BgTheme } from './BackgroundUniform';
 import { DOMEventBus } from '@pryzm/event-bus';
+// §I2 — shared device-loss `usedTimes` predicate (single source of truth for
+// the WebGPU dispose-throw family; also used by the element-builder safeDispose
+// helpers). See ../safeDispose.ts.
+import { isUsedTimesDisposeError } from '../safeDispose';
 const _bus = new DOMEventBus();
 /**
  * View-switch listener protocol — renderer-local definition.
@@ -1384,9 +1388,14 @@ export class RenderPipelineManager implements IViewSwitchListener {
             }
             (this._renderPipeline as any).dispose?.();
         } catch (dispErr: unknown) {
+            // §I2 — classify via the shared `usedTimes` predicate (single source
+            // of truth, reused by the element-builder safeDispose helpers).
+            const kind = isUsedTimesDisposeError(dispErr)
+                ? 'stale GPU session after device loss'
+                : 'unexpected pipeline dispose failure';
             console.warn(
-                '[RenderPipelineManager] §FIX-DISPOSE-USEDTIMES — old pipeline dispose ' +
-                'error (non-fatal, stale GPU session after device loss):',
+                `[RenderPipelineManager] §FIX-DISPOSE-USEDTIMES — old pipeline dispose ` +
+                `error (non-fatal, ${kind}):`,
                 (dispErr as Error)?.message ?? dispErr,
             );
         }

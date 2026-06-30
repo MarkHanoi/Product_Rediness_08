@@ -1,4 +1,7 @@
 import * as THREE from '@pryzm/renderer-three/three';
+// §I2 — WebGPU-safe disposal: routing material/geometry teardown through these
+// stops the `[DoorBuilder] build error: … usedTimes` throw aborting rebuild().
+import { safeDisposeGeometry, safeDisposeMaterial } from '@pryzm/renderer-three';
 import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-scheduler';
 import { doorStore } from './DoorStore';
 import { doorSystemTypeStore } from './DoorSystemTypeStore';
@@ -662,7 +665,7 @@ export class DoorBuilder {
         if (group) {
             group.traverse(obj => {
                 if (obj instanceof THREE.Mesh) {
-                    obj.geometry.dispose();
+                    safeDisposeGeometry(obj.geometry); // §I2 — WebGPU-safe
                 }
             });
             this.scene.remove(group);
@@ -675,7 +678,7 @@ export class DoorBuilder {
         // Dispose cloned materials (not the _hingeMat singleton)
         const mats = this.doorMaterials.get(id);
         if (mats) {
-            for (const m of mats) m.dispose();
+            for (const m of mats) safeDisposeMaterial(m); // §I2 — WebGPU-safe
             this.doorMaterials.delete(id);
         }
     }

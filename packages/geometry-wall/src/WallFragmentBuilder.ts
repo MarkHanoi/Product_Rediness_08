@@ -2,6 +2,9 @@
 
 import * as THREE from '@pryzm/renderer-three/three';
 import { mergeGeometries, toCreasedNormals } from '@pryzm/renderer-three';
+// §I2 — WebGPU-safe disposal for the live wall-rebuild teardown sites (a stale
+// WebGPU render object must never throw `usedTimes` and abort the rebuild).
+import { safeDisposeGeometry, safeDisposeMaterials } from '@pryzm/renderer-three';
 import { WallData, Opening, FragmentEntityMapping } from './WallTypes';
 import { VisualStyle, WALL_REALISTIC_MATERIAL, WALL_SCHEMATIC_MATERIAL } from '@pryzm/core-app-model/material-library';
 import { spatialAuthority, SpatialAuthorityError } from '@pryzm/core-app-model';
@@ -3114,13 +3117,8 @@ export class WallFragmentBuilder {
         group.traverse((obj: THREE.Object3D) => {
             if (obj === group) return;
             if (obj instanceof THREE.Mesh || obj instanceof THREE.LineSegments) {
-                obj.geometry?.dispose();
-                const mat = (obj as any).material;
-                if (Array.isArray(mat)) {
-                    mat.forEach((m: any) => m?.dispose?.());
-                } else {
-                    mat?.dispose?.();
-                }
+                safeDisposeGeometry(obj.geometry);              // §I2 — WebGPU-safe
+                safeDisposeMaterials((obj as any).material);    // §I2 — WebGPU-safe
             }
         });
         group.clear();
@@ -3151,16 +3149,8 @@ export class WallFragmentBuilder {
                     // persistent wallGroup root from being disposed prematurely.
                     fragment.mesh.traverse((obj: any) => {
                         if (obj instanceof THREE.Mesh) {
-                            obj.geometry.dispose();
-                            if (Array.isArray(obj.material)) {
-                                obj.material.forEach(m => {
-                                    if (m && typeof m.dispose === 'function') {
-                                        m.dispose();
-                                    }
-                                });
-                            } else if (obj.material && typeof obj.material.dispose === 'function') {
-                                obj.material.dispose();
-                            }
+                            safeDisposeGeometry(obj.geometry);       // §I2 — WebGPU-safe
+                            safeDisposeMaterials(obj.material);      // §I2 — WebGPU-safe
                         }
                     });
                 }
@@ -3210,15 +3200,7 @@ export class WallFragmentBuilder {
         for (const fragment of this.fragments.values()) {
             const oldMat = fragment.mesh.material;
             fragment.mesh.material = this.createWallMaterial();
-            if (Array.isArray(oldMat)) {
-                oldMat.forEach(m => {
-                    if (m && typeof m.dispose === 'function') {
-                        m.dispose();
-                    }
-                });
-            } else if (oldMat && typeof oldMat.dispose === 'function') {
-                oldMat.dispose();
-            }
+            safeDisposeMaterials(oldMat); // §I2 — WebGPU-safe
         }
     }
 

@@ -1,4 +1,6 @@
 import * as THREE from '@pryzm/renderer-three/three';
+// §I2 — WebGPU-safe subtree disposal for the live roof-rebuild teardown.
+import { safeDisposeObject3D } from '@pryzm/renderer-three';
 import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-scheduler';
 import { RoofData } from './RoofTypes.js';
 import { RoofGeometryBuilder } from './RoofGeometryBuilder.js';
@@ -153,17 +155,7 @@ export class RoofFragmentBuilder {
     }
 
     private _disposeChildren(root: THREE.Group): void {
-        root.traverse(obj => {
-            if ((obj as THREE.Mesh).isMesh) {
-                const mesh = obj as THREE.Mesh;
-                mesh.geometry?.dispose();
-                if (Array.isArray(mesh.material)) {
-                    mesh.material.forEach(m => m.dispose());
-                } else {
-                    mesh.material?.dispose();
-                }
-            }
-        });
+        safeDisposeObject3D(root); // §I2 — WebGPU-safe subtree teardown
         root.clear();
     }
 
