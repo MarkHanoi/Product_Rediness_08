@@ -82,12 +82,22 @@ export class CreateLightingByRoomCommand implements Command {
             affectedIds.push(...r.affectedElementIds);
         };
 
+        // §FLOOR-BATCH-JOIN (2026-06-30) — mirror of CreateFloorsByRoomTypeCommand /
+        // CreateCeilingsByRoomCommand. When dispatched from INSIDE a parent batch (the resi
+        // per-room generator path), a nested `runBatch` logged "runBatch called while already
+        // batching" and ran `run()` UNGUARDED, leaking per-room store events past the outer
+        // batch's coalescing. Detect the in-flight batch via `isBatching` and JOIN it.
         if (this.createdCommands.length === 0) {
-            batchCoordinator.runBatch(run, {
-                levelIds: [this.levelId],
-                totalElementCount: roomsOnLevel(context, this.levelId).length,
-                skipRedetectRooms: true,
-            });
+            if (batchCoordinator.isBatching) {
+                // Already inside a batch — join it (no nested runBatch).
+                run();
+            } else {
+                batchCoordinator.runBatch(run, {
+                    levelIds: [this.levelId],
+                    totalElementCount: roomsOnLevel(context, this.levelId).length,
+                    skipRedetectRooms: true,
+                });
+            }
         } else {
             run();
         }
