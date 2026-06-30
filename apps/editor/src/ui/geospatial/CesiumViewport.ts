@@ -46,6 +46,10 @@ import { windRoseBars } from "../climate/climateChartData";
 import {
     buildSiteMetricGrid,
     prepareSunHoursGrid,
+    // §SITE-METRIC-TEXTURE — rasterise ANY metric's coloured cells into ONE smooth
+    // bilinearly-interpolated ground texture (display decoupled from the compute grid;
+    // removes the per-cell entity cap so EVERY metric reads fine + smooth, not blocky).
+    rasterizeMetricTexture,
     // §SITE-METRIC-DAYLIGHT-VSC — chunkable Vertical Sky Component ground grid.
     prepareDaylightVscGrid,
     siteMetricLegend,
@@ -57,6 +61,7 @@ import {
     type MetricFootprint,
     type MetricGridCell,
     type SunHoursCell,
+    type MetricTexture,
     type DaylightVscCell,
 } from "../climate/siteMetricGrids";
 // §SITE-METRIC-HEATMAP-CHUNKED — frame-budget-friendly deferral so the larger /
@@ -4120,42 +4125,40 @@ export class CesiumViewport {
     const seq = ++this.siteMetricBuildSeq;         // this build's token
     const radius = this.siteMetricRadiusM();
     const base = this.formaTerrainBaseHeight;
-    const enu = Cesium.Transforms.eastNorthUpToFixedFrame(
-      Cesium.Cartesian3.fromDegrees(origin.lon, origin.lat, 0),
-    );
+    // §SITE-METRIC-TEXTURE — the heatmap renders as ONE geographic ground rectangle
+    // (paintMetricTexture builds its own Cartographic bounds from the origin), so no
+    // per-cell ENU matrix is needed here any more.
     const footprints = this.siteMetricFootprints(origin);
-    // Paint one prepared cell as a Cesium polygon (shared by every metric path).
-    const paintCell = (c: MetricGridCell): void => {
-      if (Math.hypot(c.east, c.north) > radius * 1.02) return; // round cutout
-      const cz = base + c.up;
-      const h = c.halfSize * 0.96;                  // tiny gap so cells read as a grid
-      const corners = [
-        this.enuToCartesian(enu, c.east - h, c.north - h, cz),
-        this.enuToCartesian(enu, c.east + h, c.north - h, cz),
-        this.enuToCartesian(enu, c.east + h, c.north + h, cz),
-        this.enuToCartesian(enu, c.east - h, c.north + h, cz),
-      ];
-      const ent = viewer.entities.add({
-        name: `pryzm-site-metric-${metric}`,
-        polygon: {
-          hierarchy: new Cesium.PolygonHierarchy(corners),
-          perPositionHeight: true,
-          material: Cesium.Color.fromCssColorString(c.colorHex).withAlpha(0.5),
-        },
-      });
-      this.siteMetricEntities.push(ent);
+    // §SITE-METRIC-TEXTURE (founder 2026-06-30, ADR-0086) — UNIVERSAL smooth render.
+    // EVERY metric (temperature/wind/population/daylight/sunHours) now DISPLAYS as ONE
+    // bilinearly-interpolated ground texture instead of one Cesium ENTITY per cell. The
+    // per-cell entity cap is GONE, so the display is arbitrarily fine + smooth (no
+    // blocky cells) regardless of the compute cell size — the founder's "cells are
+    // massive" applies to temperature too, and the cap was why shrinking the cell size
+    // alone didn't help. We rasterise from whatever cells a metric produced (in RGB
+    // space off each cell's own `colorHex`, so every existing ramp + legend is honoured)
+    // and finish the chunked build by painting that single texture once.
+    const finishTexture = (
+      cells: ReadonlyArray<MetricGridCell>,
+      cellSizeM: number,
+      label: string,
+    ): void => {
+      if (seq !== this.siteMetricBuildSeq) return;     // a newer toggle/date superseded
+      const tex = rasterizeMetricTexture(cells, radius, cellSizeM);
+      this.paintMetricTexture(tex, metric, origin, base, 0.16);
+      console.log(`[CesiumViewport][site-metric] ${metric} heatmap: smooth texture ${tex.size}×${tex.size} (≈${((2 * tex.radiusM) / tex.size).toFixed(1)} m/texel) from ${tex.sampleCount}/${cells.length} cell(s), radius ${radius.toFixed(0)} m (chunked${label ? `, ${label}` : ''}).`);
     };
 
     try {
       const legend = siteMetricLegend(metric, this.climateOverlayDataset);
+      const legendTitle = legend ? legend.title : '';
       if (metric === 'sunHours') {
-        // Heaviest metric: prepare once (grid + sun samples + prisms), then evaluate
-        // + paint the per-cell raycast in batches across frames.
-        // §SITE-METRIC-COST-TIER (founder 2026-06-30, ADR-0084) — sun-hours raycasts
-        // PER CELL × sun-sample × prism; on the 240 m disc the finer grid was millions
-        // of ray tests → it never visibly completed ("sun-hours NOT rendering"). It now
-        // uses the EXPENSIVE-tier budget (coarser ~5 m cell, ~3.5k cap) so it completes
-        // + PAINTS in a couple of seconds. Cheap field metrics keep the fine grid.
+        // §SITE-METRIC-SUN-TEXTURE — DECOUPLE DISPLAY from COMPUTE. Sun-hours raycasts
+        // PER CELL × sun-sample × prism, so a FINE compute grid freezes the viewport
+        // ("§perf cell-cap … clamping 5.0→8.1 m"). We COMPUTE the intensity field on the
+        // affordable COARSE raycast grid (batched across frames so it never blocks), then
+        // DISPLAY it through the SAME universal fine texture (≈10× finer than the compute
+        // cells) — fine/smooth like the cheap metrics, no raycast hang.
         const budget = siteMetricGridBudget('sunHours');
         const prep = prepareSunHoursGrid({
           radius,
@@ -4170,22 +4173,22 @@ export class CesiumViewport {
           sunStepMinutes: 25,        // sane cadence for the heaviest metric
         });
         if (!prep) return;
+        // Compute the coloured cells via the chunked raycast; the texture is built ONCE
+        // at the end. No cell ever becomes a Cesium entity.
+        const sunCells: MetricGridCell[] = [];
         this.chunkBuild(seq, prep.cells.length, 220, (lo, hi) => {
           for (let i = lo; i < hi; i++) {
             const cell = prep.evaluate(prep.cells[i] as SunHoursCell);
-            if (cell) paintCell(cell);
+            if (cell) sunCells.push(cell);
           }
-        }, () => console.log(`[CesiumViewport][site-metric] sunHours heatmap: ${this.siteMetricEntities.length} cell(s), radius ${radius.toFixed(0)} m (chunked${legend ? `, ${legend.title}` : ''}).`));
+        }, () => finishTexture(sunCells, prep.cellSizeM, legendTitle));
         return;
       }
 
       if (metric === 'daylight') {
-        // §SITE-METRIC-DAYLIGHT-VSC — Vertical Sky Component: prepare once (grid +
-        // context prisms), then evaluate + paint the per-cell sky sweep in batches
-        // across frames (heavy like sun-hours, so chunked the same way). Needs only
-        // the analysis disc — no climate dataset, no lat/lon, no BIM mesh.
-        // §SITE-METRIC-COST-TIER — daylight VSC sweeps az×alt sky patches × prisms per
-        // cell (even heavier than sun-hours), so it uses the same EXPENSIVE-tier budget.
+        // §SITE-METRIC-DAYLIGHT-VSC — per-cell sky sweep against the context prisms
+        // (heavy like sun-hours, so COMPUTE stays chunked on the expensive-tier budget);
+        // DISPLAY through the same universal smooth texture so it isn't blocky either.
         const budget = siteMetricGridBudget('daylight');
         const prep = prepareDaylightVscGrid({
           radius,
@@ -4196,20 +4199,22 @@ export class CesiumViewport {
           maxCells: budget.maxCells,  // the sweep stays chunked
         });
         if (!prep) return;
+        const vscCells: MetricGridCell[] = [];
         this.chunkBuild(seq, prep.cells.length, 220, (lo, hi) => {
           for (let i = lo; i < hi; i++) {
             const cell = prep.evaluate(prep.cells[i] as DaylightVscCell);
-            if (cell) paintCell(cell);
+            if (cell) vscCells.push(cell);
           }
-        }, () => console.log(`[CesiumViewport][site-metric] daylight VSC heatmap: ${this.siteMetricEntities.length} cell(s), radius ${radius.toFixed(0)} m (chunked${legend ? `, ${legend.title}` : ''}).`));
+        }, () => finishTexture(vscCells, budget.cellSizeM, legendTitle));
         return;
       }
 
-      // Cheap O(1) field metrics: the whole-grid pure build is fast; only the PAINT is
-      // chunked. §SITE-METRIC-COST-TIER — fine grid (~1.8 m, generous cap) from the
-      // cheap-tier budget. §SITE-METRIC-CLIMATE-FALLBACK — pass lat/lon so temperature/
-      // wind synthesise bundled regional normals when the live ClimateStore dataset is
-      // still null (was the "temperature/wind: 0/0 cells" prod symptom).
+      // Cheap O(1) field metrics (temperature/wind/population): the whole-grid pure build
+      // is fast, so COMPUTE on a fine grid; DISPLAY through the universal texture so the
+      // result is smooth + uncapped (the old per-cell entity cap left temperature blocky
+      // at ~2.5 m even with a small cell-size number). §SITE-METRIC-CLIMATE-FALLBACK —
+      // pass lat/lon so temperature/wind synthesise bundled regional normals when the
+      // live ClimateStore dataset is still null.
       const cheapBudget = siteMetricGridBudget(metric);
       const cells: MetricGridCell[] = buildSiteMetricGrid(metric, {
         radius,
@@ -4221,12 +4226,67 @@ export class CesiumViewport {
         latDeg: origin.lat,
         lngDeg: origin.lon,
       });
-      this.chunkBuild(seq, cells.length, 600, (lo, hi) => {
-        for (let i = lo; i < hi; i++) paintCell(cells[i]!);
-      }, () => console.log(`[CesiumViewport][site-metric] ${metric} heatmap: ${this.siteMetricEntities.length}/${cells.length} cell(s), radius ${radius.toFixed(0)} m (chunked${legend ? `, ${legend.title}` : ''}).`));
+      finishTexture(cells, cheapBudget.cellSizeM, legendTitle);
     } catch (e) {
       console.warn('[CesiumViewport][site-metric] overlay failed:', e);
     }
+  }
+
+  /**
+   * §SITE-METRIC-TEXTURE (founder 2026-06-30, ADR-0086) — paint ANY metric's rasterised
+   * field as ONE smooth ground rectangle (a single draw call) instead of thousands of
+   * discrete polygon entities. This is the UNIVERSAL render for every metric: removing
+   * the per-cell entity cap is what lets temperature (and all others, not just
+   * sun-hours) display fine + smooth instead of blocky. The texture's RGBA is wrapped in
+   * a canvas and used as an `ImageMaterialProperty`; the rectangle is the analysis
+   * disc's 2R×2R bounding square centred on the site origin (north-up ENU ≈ cartographic
+   * at this scale — the metric grid uses true `eastNorthUpToFixedFrame`, no project-north
+   * spin). Texels outside the round disc carry alpha 0, so the visible field is the
+   * Forma-style circle. The single entity joins `siteMetricEntities`, so
+   * `clearSiteMetricOverlay` removes it like any other heatmap layer. Span-free (a
+   * private render helper; the compute path's `rasterizeMetricTexture` carries the
+   * §-tagged breadcrumb).
+   */
+  private paintMetricTexture(
+    tex: MetricTexture,
+    metric: SiteMetric,
+    origin: { lat: number; lon: number },
+    base: number,
+    up: number,
+  ): void {
+    const viewer = this.viewer;
+    if (!viewer) return;
+    // RGBA → canvas (ImageMaterialProperty accepts an HTMLCanvasElement directly).
+    const canvas = document.createElement('canvas');
+    canvas.width = tex.size;
+    canvas.height = tex.size;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    // Build the ImageData via the canvas (its backing buffer is a plain ArrayBuffer,
+    // sidestepping the Uint8ClampedArray<ArrayBufferLike> vs ImageDataArray overload).
+    const img = ctx.createImageData(tex.size, tex.size);
+    img.data.set(tex.rgba);
+    ctx.putImageData(img, 0, 0);
+    // ±R metres → degrees about the origin (north-up). E/W widens by cos(lat).
+    const R = tex.radiusM;
+    const dLat = (R / 111_320);
+    const dLon = R / (111_320 * Math.max(0.05, Math.cos((origin.lat * Math.PI) / 180)));
+    const ent = viewer.entities.add({
+      name: `pryzm-site-metric-${metric}`,
+      rectangle: {
+        coordinates: Cesium.Rectangle.fromDegrees(
+          origin.lon - dLon, origin.lat - dLat,
+          origin.lon + dLon, origin.lat + dLat,
+        ),
+        height: base + up,
+        material: new Cesium.ImageMaterialProperty({
+          image: canvas,
+          transparent: true,
+        }),
+      },
+    });
+    this.siteMetricEntities.push(ent);
+    try { viewer.scene.requestRender(); } catch { /* viewer gone */ }
   }
 
   /**
