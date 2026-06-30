@@ -66,7 +66,11 @@ import { DOMEventBus } from '@pryzm/event-bus';
 // §I2 — shared device-loss `usedTimes` predicate (single source of truth for
 // the WebGPU dispose-throw family; also used by the element-builder safeDispose
 // helpers). See ../safeDispose.ts.
-import { isUsedTimesDisposeError } from '../safeDispose';
+// §RPM-RECOVERY-DOWNGRADE (ADR-0087) — `isShaderCompileError` classifies the
+// "Fragment shader failed to compile" RuntimeError THREE throws after a
+// device-loss + recovery rebuild so we can downgrade to the lightweight phase-2
+// pipeline instead of letting it flip THREE's fatal "Rendering has stopped" latch.
+import { isUsedTimesDisposeError, isShaderCompileError } from '../safeDispose';
 const _bus = new DOMEventBus();
 /**
  * View-switch listener protocol — renderer-local definition.
@@ -168,6 +172,21 @@ export class RenderPipelineManager implements IViewSwitchListener {
     private _phase: PipelinePhase = 'idle';
     private _hasPipelineError    = false;
     private _retryCount          = 0;
+
+    /**
+     * §RPM-RECOVERY-DOWNGRADE (ADR-0087) — when true, the heavy TSL post-FX
+     * passes (SSGI / TRAA / outlines) are FORCE-DISABLED because a shader failed
+     * to compile (typically on a freshly device-loss-recovered WebGPU device).
+     * The manager then runs ONLY the lightweight phase-2 pipeline (MRT scene +
+     * background blend) so the viewport keeps rendering plain instead of dying
+     * behind THREE's fatal "Rendering has stopped" overlay.
+     *
+     * `activateSSGI()` / `activateTRAA()` / `activateOutlines()` no-op while this
+     * latch is set. `tryUpgradePostFx()` clears it and re-attempts the full
+     * pipeline on an idle frame; if compilation fails again it re-latches and
+     * stays on the safe path.
+     */
+    private _postFxDisabled = false;
 
     private _ssgiActive          = false;
     private _traaActive          = false;
@@ -472,6 +491,24 @@ export class RenderPipelineManager implements IViewSwitchListener {
 
             this._safeDisposeRenderPipeline();
             this._renderPipeline = null;
+
+            // §RPM-RECOVERY-DOWNGRADE (ADR-0087) — a shader-COMPILE failure (the
+            // post-device-loss "Fragment shader failed to compile" RuntimeError)
+            // will NEVER heal on a plain retry: the SAME heavy phase-4 TSL graph
+            // (SSGI / TRAA / outlines) recompiles to the SAME failing shader and
+            // THREE flips its fatal "Rendering has stopped" latch. Short-circuit
+            // the retry ladder and DOWNGRADE straight to the lightweight phase-2
+            // pipeline (no post-FX) so the viewport keeps rendering plain instead
+            // of dying behind the hard error overlay.
+            if (isShaderCompileError(err)) {
+                console.warn(
+                    '[RenderPipelineManager] §RPM-RECOVERY-DOWNGRADE shader-compile failure in render ' +
+                    '— disabling post-FX (SSGI/TRAA/outlines) and falling back to the lightweight ' +
+                    'phase-2 pipeline. Viewport stays alive (degraded, no overlay).',
+                );
+                this._downgradeToLightweightPipeline();
+                return;
+            }
 
             if (this._retryCount < MAX_RETRIES) {
                 this._retryCount++;
@@ -1002,6 +1039,7 @@ export class RenderPipelineManager implements IViewSwitchListener {
         this._uIsOrthographic                  = null;
         this._phase                            = 'idle';
         this._webGpuActive                     = false;
+        this._postFxDisabled                   = false; // §RPM-RECOVERY-DOWNGRADE
     }
 
     // ── Phase 3: SSGI activation ──────────────────────────────────────────
@@ -1014,6 +1052,14 @@ export class RenderPipelineManager implements IViewSwitchListener {
     async activateSSGI(params?: object): Promise<void> {
         if (!this._webGpuActive || !this._scenePass || !this._camera) {
             console.warn('[RenderPipelineManager] Cannot activate SSGI: pipeline not ready.');
+            return;
+        }
+        // §RPM-RECOVERY-DOWNGRADE (ADR-0087) — post-FX is force-disabled after a
+        // shader-compile failure (device-loss recovery). Re-building the heavy
+        // SSGI graph would just re-trigger the fatal compile error, so stay on
+        // the lightweight phase-2 pipeline. tryUpgradePostFx() clears the latch.
+        if (this._postFxDisabled) {
+            console.warn('[RenderPipelineManager] §RPM-RECOVERY-DOWNGRADE activateSSGI skipped — post-FX disabled after a shader-compile failure.');
             return;
         }
         // Idempotency guard: skip rebuild when SSGI is already active and no params
@@ -1065,6 +1111,11 @@ export class RenderPipelineManager implements IViewSwitchListener {
             console.warn('[RenderPipelineManager] Cannot activate TRAA: WebGPU not active.');
             return;
         }
+        // §RPM-RECOVERY-DOWNGRADE (ADR-0087) — see activateSSGI().
+        if (this._postFxDisabled) {
+            console.warn('[RenderPipelineManager] §RPM-RECOVERY-DOWNGRADE activateTRAA skipped — post-FX disabled after a shader-compile failure.');
+            return;
+        }
         this._traaActive = true;
         console.log('[RenderPipelineManager] TRAA enabled (r183 TRAANode colour filter).');
         await this._rebuildPipelineWithCurrentState();
@@ -1103,6 +1154,11 @@ export class RenderPipelineManager implements IViewSwitchListener {
     async activateOutlines(): Promise<void> {
         if (!this._webGpuActive || !this._scenePass || !this._scene || !this._camera) {
             console.warn('[RenderPipelineManager] Cannot activate outlines: pipeline not ready.');
+            return;
+        }
+        // §RPM-RECOVERY-DOWNGRADE (ADR-0087) — see activateSSGI().
+        if (this._postFxDisabled) {
+            console.warn('[RenderPipelineManager] §RPM-RECOVERY-DOWNGRADE activateOutlines skipped — post-FX disabled after a shader-compile failure.');
             return;
         }
         try {
@@ -1432,11 +1488,162 @@ export class RenderPipelineManager implements IViewSwitchListener {
         this._hasPipelineError = false;
 
         this._rebuildPipelineWithCurrentState().catch((err: unknown) => {
+            // §RPM-RECOVERY-DOWNGRADE (ADR-0087) — a shader-compile failure during
+            // a rebuild downgrades to the safe lightweight pipeline instead of
+            // killing the viewport with phase='error' (→ crash overlay).
+            if (isShaderCompileError(err)) {
+                console.warn('[RenderPipelineManager] §RPM-RECOVERY-DOWNGRADE rebuild hit a shader-compile failure — downgrading to lightweight phase-2.');
+                this._downgradeToLightweightPipeline();
+                return;
+            }
             console.error('[RenderPipelineManager] Rebuild failed:', err);
             this._phase = 'error';
             this._emitState();
         });
     }
+
+    /**
+     * §RPM-RECOVERY-DOWNGRADE (ADR-0087) — strip ALL heavy post-FX (SSGI / TRAA /
+     * outlines) and rebuild the minimal phase-2 pipeline (MRT scene + background
+     * blend) so the viewport keeps rendering plain.
+     *
+     * Called when a shader fails to compile — typically the heavy phase-4 TSL
+     * graph (SSGI/outlines) rebuilt against a freshly device-loss-recovered WebGPU
+     * device. Retrying the SAME graph just recompiles the SAME failing shader and
+     * flips THREE's fatal "Rendering has stopped" latch, so we instead drop to the
+     * known-good lightweight pipeline and latch `_postFxDisabled` so the activate*
+     * methods don't immediately rebuild the heavy graph again.
+     *
+     * Never throws: a failure to even build phase-2 is the only path to
+     * phase='error' (a genuinely unrecoverable state → crash overlay).
+     */
+    private _downgradeToLightweightPipeline(): void {
+        this._postFxDisabled = true;
+        this._ssgiActive     = false;
+        this._traaActive     = false;
+        this._outlinesActive = false;
+        this._cachedAo       = null;
+        this._cachedGi       = null;
+        this._disposeOutlineInstances();
+        this._retryCount     = 0;
+        this._hasPipelineError = false;
+
+        // Build the minimal phase-2 pipeline. If even THIS throws a shader-compile
+        // error the device is genuinely unusable for TSL → surface phase='error'.
+        this._buildPipeline()
+            .then(() => {
+                console.log(
+                    '[RenderPipelineManager] §RPM-RECOVERY-DOWNGRADE lightweight phase-2 pipeline active ' +
+                    '— viewport rendering plain (post-FX disabled). Call tryUpgradePostFx() to re-attempt the full pipeline.',
+                );
+            })
+            .catch((err: unknown) => {
+                console.error('[RenderPipelineManager] §RPM-RECOVERY-DOWNGRADE lightweight rebuild ALSO failed — unrecoverable:', err);
+                this._phase = 'error';
+                this._emitState();
+            });
+    }
+
+    /**
+     * §RPM-RECOVERY-DOWNGRADE (ADR-0087) — public, NON-FATAL device-loss recovery
+     * entry point.
+     *
+     * Re-binds the (already-recreated) renderer and attempts the FULL pipeline
+     * (phase-2 → SSGI → outlines). If any stage throws a shader-compile failure
+     * — the post-device-loss "Fragment shader failed to compile" RuntimeError —
+     * the manager downgrades to the lightweight phase-2 pipeline rather than
+     * letting the throw escape and flip THREE's fatal "Rendering has stopped"
+     * latch. The viewport therefore ALWAYS ends up rendering (degraded if
+     * necessary) — never on a dead overlay.
+     *
+     * Returns the resolved phase so callers can log the outcome.
+     *
+     * @param scene  Live THREE scene to bind.
+     * @param camera Live camera to bind.
+     * @param renderer The freshly-recreated renderer.
+     * @param backendIsWebGPU Authoritative backend flag from the factory
+     *   ('webgpu' → true). When false, bind() takes the lightweight WebGL path
+     *   and this is effectively a no-op upgrade.
+     * @param restorePostFx When true (default), re-attempt SSGI + outlines after
+     *   the phase-2 bind succeeds; on shader-compile failure, downgrade.
+     */
+    async recoverPipeline(
+        scene: THREE.Scene,
+        camera: THREE.Camera,
+        renderer: THREE.WebGLRenderer,
+        backendIsWebGPU?: boolean,
+        restorePostFx = true,
+    ): Promise<PipelinePhase> {
+        // Clear any latch from a PRIOR recovery so a fresh device gets a fair
+        // attempt at the full pipeline.
+        this._postFxDisabled = false;
+        this._retryCount     = 0;
+
+        try {
+            await this.bind(scene, camera, renderer, 'light', backendIsWebGPU);
+        } catch (err: unknown) {
+            if (isShaderCompileError(err)) {
+                console.warn('[RenderPipelineManager] §RPM-RECOVERY-DOWNGRADE recoverPipeline bind() shader-compile failure — lightweight downgrade.');
+                this._downgradeToLightweightPipeline();
+                return this._phase;
+            }
+            throw err;
+        }
+
+        // Lightweight WebGL path (no real WebGPU backend): nothing more to do.
+        if (!this._webGpuActive) return this._phase;
+
+        if (restorePostFx) {
+            try {
+                await this.activateSSGI();
+                await this.activateOutlines();
+            } catch (err: unknown) {
+                if (isShaderCompileError(err)) {
+                    console.warn(
+                        '[RenderPipelineManager] §RPM-RECOVERY-DOWNGRADE recoverPipeline post-FX rebuild hit a ' +
+                        'shader-compile failure — downgrading to lightweight phase-2. Viewport stays alive.',
+                    );
+                    this._downgradeToLightweightPipeline();
+                    return this._phase;
+                }
+                // Non-shader failure during post-FX: keep the phase-2 pipeline
+                // that bind() already built rather than crashing.
+                console.error('[RenderPipelineManager] §RPM-RECOVERY-DOWNGRADE recoverPipeline post-FX failed (non-shader) — staying on phase-2:', err);
+                this._postFxDisabled = true;
+            }
+        }
+
+        console.log(`[RenderPipelineManager] §RPM-RECOVERY-DOWNGRADE recoverPipeline complete — phase=${this._phase}, postFxDisabled=${this._postFxDisabled}.`);
+        return this._phase;
+    }
+
+    /**
+     * §RPM-RECOVERY-DOWNGRADE (ADR-0087) — best-effort re-upgrade to the full
+     * post-FX pipeline after a downgrade. Clears the `_postFxDisabled` latch and
+     * re-attempts SSGI + outlines; on a repeat shader-compile failure it
+     * re-latches and stays on the safe phase-2 path. Safe to call on an idle
+     * frame. No-op if post-FX is not currently disabled or WebGPU is inactive.
+     *
+     * @returns true if the full pipeline was restored, false if it stayed downgraded.
+     */
+    async tryUpgradePostFx(): Promise<boolean> {
+        if (!this._webGpuActive || !this._postFxDisabled) return !this._postFxDisabled;
+        console.log('[RenderPipelineManager] §RPM-RECOVERY-DOWNGRADE tryUpgradePostFx — re-attempting full pipeline.');
+        this._postFxDisabled = false;
+        try {
+            await this.activateSSGI();
+            await this.activateOutlines();
+            console.log('[RenderPipelineManager] §RPM-RECOVERY-DOWNGRADE tryUpgradePostFx succeeded — full pipeline restored.');
+            return true;
+        } catch (err: unknown) {
+            console.warn('[RenderPipelineManager] §RPM-RECOVERY-DOWNGRADE tryUpgradePostFx failed — staying downgraded:', err);
+            this._downgradeToLightweightPipeline();
+            return false;
+        }
+    }
+
+    /** True while the lightweight (post-FX-disabled) recovery path is active. */
+    get isPostFxDisabled(): boolean { return this._postFxDisabled; }
 
     /**
      * Multi-Camera Single-Pipeline — Phase A fast-path rebuild.

@@ -118,6 +118,7 @@ export type { ObcRendererLike } from './accessors.js';
 // See ./safeDispose.ts and RenderPipelineManager._safeDisposeRenderPipeline (§I.2.1).
 export {
   isUsedTimesDisposeError,
+  isShaderCompileError,
   safeDisposeMaterial,
   safeDisposeMaterials,
   safeDisposeGeometry,

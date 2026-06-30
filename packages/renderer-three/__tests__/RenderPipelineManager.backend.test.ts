@@ -11,8 +11,9 @@
 // These tests pin the corrected detection: the TSL pipeline activates ONLY for a real
 // WebGPU backend (`backend.isWebGPUBackend === true`) or an authoritative override.
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { RenderPipelineManager } from '../src/pipeline/RenderPipelineManager.js';
+import { isShaderCompileError } from '../src/safeDispose.js';
 
 // ── Fake renderers (no live GPU; only the fields detection reads) ────────────
 
@@ -200,5 +201,105 @@ describe('RenderPipelineManager — lightweight WebGL render gate (§PERF-WEBGL2
     const rpm = new RenderPipelineManager();
     rpm.setLightweightWebGlRender(true); // enabled but never bound
     expect(() => rpm.render(0.016)).not.toThrow();
+  });
+});
+
+// ── §RPM-RECOVERY-DOWNGRADE (ADR-0087) — device-loss recovery is NON-FATAL ─────
+//
+// DEMO-KILLER (prod, 2026-06-29): on the office-building circular plate a WebGPU
+// device-loss + recovery rebuilt the heavy phase-4 TSL pipeline (SSGI/outlines)
+// against the fresh device; a generated fragment shader failed to compile, which
+// flipped THREE's fatal "Rendering has stopped" latch and killed the render loop
+// behind a hard error overlay. The fix classifies that shader-compile RuntimeError
+// and DOWNGRADES to the lightweight phase-2 pipeline (no post-FX) instead of
+// escalating to phase='error' (which shows the crash overlay).
+describe('isShaderCompileError (§RPM-RECOVERY-DOWNGRADE)', () => {
+  it('matches the exact THREE WebGPU "Fragment shader failed to compile" RuntimeError', () => {
+    const err = new Error('Fragment shader failed to compile. Compile log: …');
+    expect(isShaderCompileError(err)).toBe(true);
+  });
+
+  it('matches vertex-shader compile failures and WGSL compile logs', () => {
+    expect(isShaderCompileError(new Error('Vertex shader failed to compile'))).toBe(true);
+    expect(isShaderCompileError(new Error('WGSL compilation error at line 12'))).toBe(true);
+    expect(isShaderCompileError('Shader failed to COMPILE')).toBe(true); // string form, case-insensitive
+  });
+
+  it('does NOT match the §I2 usedTimes dispose error (that has its own non-fatal path)', () => {
+    expect(isShaderCompileError(new Error("Cannot read properties of undefined (reading 'usedTimes')"))).toBe(false);
+  });
+
+  it('does NOT match unrelated runtime errors (genuine crashes must still surface)', () => {
+    expect(isShaderCompileError(new Error('Cannot read properties of null'))).toBe(false);
+    expect(isShaderCompileError(new Error('Out of memory'))).toBe(false);
+    expect(isShaderCompileError(null)).toBe(false);
+    expect(isShaderCompileError(undefined)).toBe(false);
+  });
+});
+
+describe('RenderPipelineManager.render() — shader-compile downgrade (§RPM-RECOVERY-DOWNGRADE)', () => {
+  /**
+   * Build an RPM in a fake "WebGPU active, pipeline bound" state without a live
+   * GPU. We set the private fields directly (the test owns the instance) and
+   * stub the private _downgradeToLightweightPipeline so we can assert it was
+   * called WITHOUT importing three/webgpu (which is unavailable under happy-dom).
+   */
+  function rpmWithThrowingPipeline(thrown: unknown) {
+    const rpm = new RenderPipelineManager() as any;
+    rpm._webGpuActive   = true;
+    rpm._renderer       = { setClearAlpha: () => {} };
+    rpm._renderPipeline = { render: () => { throw thrown; } };
+    rpm._backgroundUniform = { tick: () => {} };
+    const downgrade = vi.fn();
+    rpm._downgradeToLightweightPipeline = downgrade;
+    return { rpm, downgrade };
+  }
+
+  it('DOWNGRADES (not phase=error) when render throws a fragment-shader-compile RuntimeError', () => {
+    const { rpm, downgrade } = rpmWithThrowingPipeline(
+      new Error('Fragment shader failed to compile. Compile log: …'),
+    );
+    rpm.render(0.016);
+    expect(downgrade).toHaveBeenCalledTimes(1);
+    // Critical: it must NOT go to the fatal 'error' phase (→ crash overlay).
+    expect(rpm.status.phase).not.toBe('error');
+  });
+
+  it('does NOT downgrade for a NON-shader render throw — keeps the existing retry ladder', () => {
+    vi.useFakeTimers();
+    const { rpm, downgrade } = rpmWithThrowingPipeline(new Error('some transient GPU hiccup'));
+    rpm.render(0.016);
+    // A non-shader error schedules a retry (does not downgrade).
+    expect(downgrade).not.toHaveBeenCalled();
+    expect(rpm.status.retryCount).toBe(1);
+    vi.useRealTimers();
+  });
+});
+
+describe('RenderPipelineManager — post-FX latch gates activate* (§RPM-RECOVERY-DOWNGRADE)', () => {
+  it('activateSSGI / activateTRAA / activateOutlines no-op while post-FX is disabled', async () => {
+    const rpm = new RenderPipelineManager() as any;
+    rpm._webGpuActive   = true;
+    rpm._postFxDisabled = true;
+    // scenePass/scene/camera present so the only thing stopping activation is the latch.
+    rpm._scenePass = {};
+    rpm._scene     = {};
+    rpm._camera    = {};
+
+    await rpm.activateSSGI();
+    await rpm.activateTRAA();
+    await rpm.activateOutlines();
+
+    expect(rpm.status.ssgiActive).toBe(false);
+    expect(rpm.status.traaActive).toBe(false);
+    expect(rpm.status.outlinesActive).toBe(false);
+    expect(rpm.isPostFxDisabled).toBe(true);
+  });
+
+  it('tryUpgradePostFx is a no-op (returns true) when post-FX is NOT disabled', async () => {
+    const rpm = new RenderPipelineManager() as any;
+    rpm._webGpuActive   = true;
+    rpm._postFxDisabled = false;
+    await expect(rpm.tryUpgradePostFx()).resolves.toBe(true);
   });
 });

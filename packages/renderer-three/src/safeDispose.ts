@@ -66,6 +66,41 @@ export function isUsedTimesDisposeError(err: unknown): boolean {
 }
 
 /**
+ * §RPM-RECOVERY-DOWNGRADE (ADR-0087) — returns true iff `err` is a WebGPU/TSL
+ * SHADER-COMPILE failure of the kind THREE.js throws from the WebGPU
+ * `Renderer.render()` path after a device-loss + recovery rebuild, e.g.
+ *
+ *   RuntimeError: Fragment shader failed to compile. Compile log: …
+ *   RuntimeError: Vertex shader failed to compile …
+ *
+ * This is the DEMO-KILLER: when the heavy phase-4 TSL pipeline (SSGI / TRAA /
+ * outlines) is rebuilt against a freshly-recovered device and a generated shader
+ * fails to compile, THREE flips its internal "Rendering has stopped" latch and
+ * the whole render loop dies behind a hard error overlay. We classify these so
+ * the pipeline can DOWNGRADE to the lightweight phase-2 pipeline (no post-FX)
+ * instead of dying — the viewport keeps rendering plain.
+ *
+ * We match on message text (compile + shader keywords, or WGSL compile log)
+ * rather than the constructor so the guard survives THREE minor upgrades and
+ * bundler renaming. A non-shader RuntimeError (e.g. a real logic bug) is NOT
+ * matched, so genuine unrecoverable states still surface.
+ */
+export function isShaderCompileError(err: unknown): boolean {
+    if (!err) return false;
+    const msg =
+        typeof err === 'string'
+            ? err
+            : (err as { message?: unknown })?.message;
+    if (typeof msg !== 'string') return false;
+    const lc = msg.toLowerCase();
+    // Primary signature: "<stage> shader failed to compile" (the exact THREE text).
+    if (lc.includes('shader') && lc.includes('compile')) return true;
+    // WGSL compile-log variants emitted by some backends/drivers.
+    if (lc.includes('wgsl') && (lc.includes('compile') || lc.includes('compilation'))) return true;
+    return false;
+}
+
+/**
  * §I2 — Dispose a single THREE Material without ever throwing the WebGPU
  * `usedTimes` device-loss TypeError. Any OTHER error re-throws so genuine
  * disposal bugs are not masked.

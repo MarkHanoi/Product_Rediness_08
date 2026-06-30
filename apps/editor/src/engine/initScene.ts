@@ -123,6 +123,45 @@ import { batchCoordinator } from '@pryzm/core-app-model';
 // so callers retain full type narrowing (mode, needsUpdate, controls, updateShadows…).
 type BimWorld = ReturnType<typeof createBimWorld>['world'];
 
+// ── §RPM-RECOVERY-DOWNGRADE (ADR-0087) — non-fatal pipeline rebind helper ────────
+//
+// During a renderer live-swap (and the device-loss recovery path in
+// createRenderer.ts) the heavy phase-4 TSL pipeline (SSGI/outlines) is rebuilt
+// against a fresh GPU device. On some devices a generated fragment shader fails
+// to compile, which previously flipped THREE's fatal "Rendering has stopped"
+// latch and killed the viewport behind a hard error overlay.
+//
+// RenderPipelineManager.recoverPipeline() rebuilds the FULL pipeline but
+// DOWNGRADES to the lightweight phase-2 pipeline (no post-FX) on a shader-compile
+// failure — the viewport keeps rendering plain. This wrapper prefers it and
+// falls back to the old bind()+activate* sequence for any older RPM build that
+// predates the method (defensive; both call sites in the live-swap reuse it).
+async function recoverPipelineOrBind(
+    rpm: RenderPipelineManager,
+    scene: THREE.Scene,
+    camera: THREE.Camera,
+    renderer: THREE.WebGLRenderer,
+    backendIsWebGPU: boolean,
+): Promise<void> {
+    // Structural shape (not Pick<RPM,…>) so this compiles even against an older
+    // RPM .d.ts that predates recoverPipeline (cross-package type resolution).
+    const maybe = rpm as unknown as {
+        recoverPipeline?: (
+            s: THREE.Scene, c: THREE.Camera, r: THREE.WebGLRenderer, b?: boolean,
+        ) => Promise<unknown>;
+    };
+    if (typeof maybe.recoverPipeline === 'function') {
+        await maybe.recoverPipeline(scene, camera, renderer, backendIsWebGPU);
+        return;
+    }
+    // Legacy fallback path (no recoverPipeline): old fatal-on-compile sequence.
+    await rpm.bind(scene, camera, renderer, 'light', backendIsWebGPU);
+    if (rpm.status.webGpuActive) {
+        await rpm.activateSSGI();
+        await rpm.activateOutlines();
+    }
+}
+
 // ── Public result type ─────────────────────────────────────────────────────────
 
 export interface SceneResult {
@@ -2955,17 +2994,11 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                 //    backend. §PERF-WEBGL2-NO-TSL — only a native 'webgpu' backend
                 //    may run the TSL pipeline; 'webgl-fallback' stays lightweight.
                 const newIsRealWebGPU = newResult.backend === 'webgpu';
-                await rpm.bind(
-                    world.scene.three as THREE.Scene,
-                    world.camera.three,
-                    pryzmRenderer,
-                    'light',
-                    newIsRealWebGPU,
-                );
-                if (rpm.status.webGpuActive) {
-                    await rpm.activateSSGI();
-                    await rpm.activateOutlines();
-                }
+                // §RPM-RECOVERY-DOWNGRADE (ADR-0087) — route through recoverPipeline()
+                // so a "Fragment shader failed to compile" on the new device downgrades
+                // to the lightweight phase-2 pipeline instead of killing the viewport.
+                // (defensive: tolerate an older RPM build without the method.)
+                await recoverPipelineOrBind(rpm, world.scene.three as THREE.Scene, world.camera.three, pryzmRenderer, newIsRealWebGPU);
                 // §PERF-WEBGL2-RENDER-ON-MOVE (ADR-061) — match the boot path:
                 // drive a per-frame plain WebGL render when the (new) backend is
                 // the WebGL2-backed forced-WebGL renderer, and turn it OFF when
@@ -3016,17 +3049,8 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                     window.pryzmRenderer = oldRenderer;
                     window.pryzmCanvas   = oldCanvas;
                     const oldIsRealWebGPU = oldBackend === 'webgpu';
-                    await rpm.bind(
-                        world.scene.three as THREE.Scene,
-                        world.camera.three,
-                        oldRenderer,
-                        'light',
-                        oldIsRealWebGPU,
-                    );
-                    if (rpm.status.webGpuActive) {
-                        await rpm.activateSSGI();
-                        await rpm.activateOutlines();
-                    }
+                    // §RPM-RECOVERY-DOWNGRADE (ADR-0087) — non-fatal rebind on rollback too.
+                    await recoverPipelineOrBind(rpm, world.scene.three as THREE.Scene, world.camera.three, oldRenderer, oldIsRealWebGPU);
                     try { (unifiedFrameLoop as any).start?.(); } catch { /* ignore */ }
                     console.warn('[initScene] §RENDERER-LIVE-SWAP rolled back — previous renderer restored, viewport alive.');
                 } catch (rollbackErr) {
