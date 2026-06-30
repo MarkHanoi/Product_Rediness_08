@@ -236,6 +236,8 @@ export enum CommandType {
     RENAME_ROOM                       = 'RENAME_ROOM',
     SET_ROOM_OCCUPANCY                = 'SET_ROOM_OCCUPANCY',
     UPDATE_ROOM_FINISHES              = 'UPDATE_ROOM_FINISHES',
+    // §RESI-FINISH-BULK (ADR-0087) — apply finishes to many rooms in one command.
+    UPDATE_ROOM_FINISHES_BULK         = 'UPDATE_ROOM_FINISHES_BULK',
     DETECT_ROOM_FROM_WALLS            = 'DETECT_ROOM_FROM_WALLS',
     DETECT_ALL_ROOMS                  = 'DETECT_ALL_ROOMS',
     BATCH_CREATE_ROOMS                = 'BATCH_CREATE_ROOMS',

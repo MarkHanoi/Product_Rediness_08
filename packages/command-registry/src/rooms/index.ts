@@ -10,6 +10,8 @@ export { DeleteRoomCommand }      from './DeleteRoomCommand';
 export { RenameRoomCommand }      from './RenameRoomCommand';
 export { SetRoomOccupancyCommand } from './SetRoomOccupancyCommand';
 export { UpdateRoomFinishesCommand } from './UpdateRoomFinishesCommand';
+export { UpdateRoomFinishesBulkCommand } from './UpdateRoomFinishesBulkCommand';
+export type { RoomFinishPatch } from './UpdateRoomFinishesBulkCommand';
 export { DetectRoomFromWallsCommand } from './DetectRoomFromWallsCommand';
 export { DetectAllRoomsCommand }  from './DetectAllRoomsCommand';
 export { BatchCreateRoomsCommand } from './BatchCreateRoomsCommand';

@@ -181,6 +181,7 @@ export * from './rooms/SetRoomOccupancyCommand';
 export * from './rooms/UpdateRoomBoundaryCommand';
 export * from './rooms/UpdateRoomCommand';
 export * from './rooms/UpdateRoomFinishesCommand';
+export * from './rooms/UpdateRoomFinishesBulkCommand';
 
 // ─── Roofs ────────────────────────────────────────────────────────────────
 export * from './roofs/CreateRoofCommand';
