@@ -104,6 +104,26 @@ function countChip(g: ApartmentTypeGroup): string {
     return `<span class="rb-type-count">×${g.count} ${unitWord}${span}</span>`;
 }
 
+/**
+ * §DOOR-RESCUE-REACH / §CIRCULATION-GRAPH PART 9 (founder, ADR-0087) — the "Circulation NN%"
+ * chip beside an apartment's /100 score. NN% = the share of HABITABLE rooms reachable through a
+ * PATH OF DOORS from the entrance; 100% = MAXIMUM circulation (the generator guarantee). Brand
+ * #6600FF at 100% (solid, white text), a softer violet below; NO black. "~" prefixes an
+ * approximate (pre-deploy) value. Pure string.
+ */
+function rbCirculationChipHtml(pct: number, exact: boolean): string {
+    const p = Math.max(0, Math.min(100, Math.round(pct)));
+    const full = p >= 100;
+    const bg = full ? '#6600FF' : '#EDE7FF';
+    const fg = full ? '#ffffff' : '#5B21B6';
+    const border = full ? '#6600FF' : '#C9B8FF';
+    const approx = exact ? '' : '~';
+    const title = full
+        ? 'Circulation 100% — every habitable room is reachable through doors from the entrance (maximum circulation)'
+        : `Circulation ${approx}${p}% — some habitable rooms are not yet reachable through a path of doors from the entrance`;
+    return `<span class="rb-apt-circulation" title="${esc(title)}" style="display:inline-flex;align-items:center;padding:1px 6px;border-radius:999px;font-size:9px;font-weight:600;line-height:1.4;background:${bg};color:${fg};border:1px solid ${border};">Circulation ${approx}${p}%</span>`;
+}
+
 /** One DISTINCT-type gallery card: a representative plan + programme + area + score +
  *  a count of how many of this exact type the building has. Rejected types render a
  *  calm hatched "doesn't fit" card (still deduped to one). */
@@ -130,6 +150,7 @@ function buildTypeCardHtml(g: ApartmentTypeGroup, thumbSvg: string): string {
         </div>
         <div class="rb-apt-foot">
           <span class="rb-apt-meta">${esc(a.roomSummary)} · ${a.targetAreaM2} m²</span>
+          ${rbCirculationChipHtml(a.circulationPct, a.circulationExact)}
         </div>
       </div>`;
 }

@@ -202,10 +202,14 @@ door circulation scores < 100 because the other soft axes (corridor area penalty
 reach, elegance, …) never simultaneously max out. So "84" was never a circulation failure
 signal by itself. The architecturally meaningful circulation number is `computeCirculationReachability().fraction`
 (hard) + the soft `corridorAccess` axis (`measureCorridorAccess`, already door-aware via
-`CONNECTS_THROUGH`). **Recommendation:** surface the circulation % SEPARATELY in the modal
-("circulation 100%") rather than conflating it with the multi-axis design `score`, and gate
-`fraction === 1` as the demo target. (Graph + reachability shipped; modal-label wiring is the
-next, small, follow-up.)
+`CONNECTS_THROUGH`). **SHIPPED (2026-06-30, ADR-0087):** the circulation % is surfaced SEPARATELY
+in every modal — a brand-purple "Circulation NN%" chip beside the `/100` score (apartment card
+`layoutCardModel`/`layoutModalHtml`, per-floor in the house "Design your house — live" modal
+`houseCardModel`/`houseModalHtml`, per-apartment in the resi preview `residentialCardModel`/
+`residentialModalHtml`) — NOT conflated with the multi-axis design `score`. 100% (solid `#6600FF`)
+= every habitable room is door-reachable from the entrance (maximum circulation); below 100% reads
+a softer violet. The chip value is `computeCirculationReachability(option).fraction` rounded to a
+percent; a wall-adjacency fallback (no door graph) is shown with a "~" qualifier.
 
 ### 9.4 — GUARANTEE maximum circulation in the generator (cross-typology)
 The generator must GUARANTEE `fraction === 1` for the chosen winner across ALL typologies. The
@@ -221,3 +225,41 @@ hard gates already reject `unreachableHabitableRoomIds.length > 0` (enumerate.ts
 The platform invariant: **a winner ships only if `computeCirculationReachability().fraction === 1`**
 — wire this as a final hard gate in each orchestrator (house/apartment/resi). The graph + the
 pure reachability predicate (this slice) make that gate trivial to add and to TEST.
+
+### 9.5 — `§DOOR-RESCUE-REACH`: the generator-side guarantee (SHIPPED 2026-06-30, ADR-0087)
+The lever in §9.4(2) is realised as a **door-rescue post-pass** in the SHARED door router
+`packages/ai-host/src/workflows/apartmentLayout/tgl/wallsAndDoors.ts` (`buildWallsAndDoors`,
+labelled `§DOOR-RESCUE-REACH`, pass `2e`, after the circulation-reroute / multihop / wetroom
+passes). Because it lives in the shared TGL path, APARTMENT, HOUSE, and RESIDENTIAL (per-cell)
+all inherit it — no per-typology fork.
+
+What it closes that the earlier passes did not:
+- The reroute passes (`2c` / `2c-ii`) target only PRIVATE/SERVICE rooms (`needsCirculationAccess`
+  returns false for a PUBLIC type), so a **sealed public room** (living/kitchen/dining with no
+  door) was invisible to them. The multihop chain only fires when a PERMITTED door-chain already
+  exists.
+- The rescue pass **BFS-marks every room reachable from the entrance over the realised DOOR graph**
+  (the same predicate `unreachableHabitableRoomIds` + the modal's `computeCirculationReachability`
+  use — one entrance-root rule: explicit entry → lowest-id circulation → lowest-id room), then for
+  each still-UNREACHED **habitable** room (the `REACH_HABITABLE_TYPES` set: living/kitchen/dining/
+  master/bedroom/study) adds ONE door onto a shared wall with an already-REACHED neighbour. It
+  **iterates** to convergence — a rescue makes the room reached, so a room reachable only through it
+  is rescued on the next round.
+
+Privacy is respected (this is NOT a blanket "open every wall"):
+- **Permitted-only.** The rescue NEVER crosses a forbidden type pair (no bedroom↔bedroom,
+  bathroom-off-living, …). Tier 1 = a clean rule-legal under-cap door; Tier 2 = a permitted pair
+  relaxing only the door CAP (counted as a `compromise` so P8 keeps preferring a plan that needed
+  none). A habitable room with no PERMITTED reached neighbour stays flagged (rare; the ranker /
+  reach diagnostic handle it) rather than being forced open illegally.
+- **Wet/service rooms are EXCLUDED** from the rescue — a sealed bathroom is owned by the dedicated
+  privacy passes (`§BATH-CORRIDOR-ONLY`, `§WETROOM-PUBLIC-DOOR`, `§HALL-NOT-WETROOM-ONLY`), so the
+  rescue never re-introduces the bathroom↔bedroom / bathroom-off-hall anti-patterns those exist to
+  prevent.
+- **NET-ADD only** — never removes/moves a door; a fully-reachable layout is byte-identical.
+
+Effect: `computeCirculationReachability().fraction → 1` for every normal plan, by construction,
+through the shared engine path. Tested in `packages/ai-host/__tests__/tglWallsAndDoors.test.ts`
+(`§DOOR-RESCUE-REACH` describe block): a plan with an initially-unreachable public room — and one
+reachable only THROUGH it — converge to an empty `unreachableHabitableRoomIds` (door-fraction 1),
+while an already-connected plan is a no-op.

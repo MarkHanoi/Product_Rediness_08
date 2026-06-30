@@ -14,6 +14,7 @@ import type {
     PlacedApartment,
     BuildingLevel,
 } from '@pryzm/ai-host';
+import { computeCirculationReachability } from '../apartment-layout/layoutBubbleGraph.js';
 
 const round1 = (n: number): number => Math.round(n * 10) / 10;
 const clampPct = (n: number): number => Math.max(0, Math.min(100, Math.round(n)));
@@ -44,6 +45,13 @@ export interface ApartmentCardSummary {
     readonly score: number;
     /** Short room-type roll-up, e.g. "2 bed · 1 bath · kitchen". */
     readonly roomSummary: string;
+    /** §DOOR-RESCUE-REACH / §CIRCULATION-GRAPH PART 9 (founder, ADR-0087) — the door-aware
+     *  CIRCULATION COMPLETENESS for THIS apartment (0-100): the share of HABITABLE rooms
+     *  reachable through a PATH OF DOORS from the entrance. 100 ⇒ MAXIMUM circulation (the
+     *  generator guarantee). 0 for a rejected (no-layout) cell. */
+    readonly circulationPct: number;
+    /** True when the apartment carries a real door graph so `circulationPct` is exact. */
+    readonly circulationExact: boolean;
 }
 
 /** One floor's per-card summary. */
@@ -99,6 +107,11 @@ function buildApartmentSummary(apt: PlacedApartment, index: number): ApartmentCa
     const score = apt.status === 'ok'
         ? clampPct(apt.layout?.score?.overall ?? 0)
         : 0;
+    // §DOOR-RESCUE-REACH — per-apartment door-aware circulation completeness (100% = every
+    // habitable room reachable through doors from the entrance). 0 for a rejected (no-layout) cell.
+    const reach = apt.status === 'ok' && apt.layout
+        ? computeCirculationReachability(apt.layout)
+        : null;
     return {
         index,
         typology: apt.typology,
@@ -110,6 +123,8 @@ function buildApartmentSummary(apt: PlacedApartment, index: number): ApartmentCa
         windowCount: windows,
         score,
         roomSummary: apt.status === 'ok' ? roomSummaryLine(apt) : 'no layout — over-programmed',
+        circulationPct: reach ? clampPct(reach.fraction * 100) : 0,
+        circulationExact: reach ? reach.hasDoorGraph : false,
     };
 }
 

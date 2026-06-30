@@ -1898,6 +1898,114 @@ export function buildWallsAndDoors(
         diagPass('wetroom-public');
     }
 
+    // (2e) §DOOR-RESCUE-REACH (founder §CIRCULATION-GRAPH PART 9, 2026-06-30, ADR-0087) —
+    // the GENERATOR GUARANTEE of MAXIMUM circulation: after every pass above, EVERY
+    // HABITABLE room must be reachable through a PATH OF DOORS from the entrance. The
+    // earlier reroute passes (2c / 2c-ii) only target PRIVATE/SERVICE rooms (a sealed
+    // PUBLIC living/kitchen/dining room is invisible to them — `needsCirculationAccess`
+    // returns false for a public type), and the multihop chain only fires when a PERMITTED
+    // door-chain exists. This pass closes BOTH gaps: it BFS-marks every room reachable from
+    // the entrance over the realised DOOR graph (the same predicate `unreachableHabitableRoomIds`
+    // and the modal's `computeCirculationReachability` use), then for each still-UNREACHED
+    // HABITABLE room it adds ONE door onto a shared wall with an already-REACHED neighbour —
+    // PRIVACY-FIRST (a `permitted` pair, longest wall first), relaxing the door cap and then
+    // the type matrix only as a graded last resort (each counted as a compromise so P8 keeps
+    // preferring a plan that needed none). It iterates: a rescue makes the room reached, so a
+    // room reachable only through it is rescued on the next round. Cross-typology — runs on the
+    // SHARED apartment + house path (no `housePath` gate) so `fraction → 1` for every normal
+    // plan. NET-ADD only (never removes/moves a door); a fully-reachable layout is byte-identical.
+    {
+        // Habitable = the rooms whose entrance-reachability is THE guarantee — EXACTLY the
+        // engine `REACH_HABITABLE_TYPES` set that `unreachableHabitableRoomIds` (and the modal's
+        // `computeCirculationReachability`) measures, so the rescue target and the score's
+        // denominator are one set. WET / SERVICE rooms (bathroom/wc/utility) are DELIBERATELY
+        // EXCLUDED: a sealed wet room is governed by the dedicated privacy passes (the apartment
+        // §BATH-CORRIDOR-ONLY rule + the house §WETROOM-PUBLIC-DOOR / §HALL-NOT-WETROOM-ONLY
+        // fallbacks), NOT by a blanket rescue — opening a bathroom onto an arbitrary neighbour
+        // would re-introduce the bathroom↔bedroom / bathroom-off-hall anti-patterns those passes
+        // exist to prevent. Mirrors `REACH_HABITABLE_TYPES` in enumerate.ts.
+        const RESCUE_HABITABLE_TYPES = new Set(['living', 'kitchen', 'dining', 'master', 'bedroom', 'study']);
+        const isHabitable = (id: string): boolean =>
+            RESCUE_HABITABLE_TYPES.has(roomRule(typeOf.get(id) ?? '').type);
+        // Deterministic entrance root: explicit entry → lowest-id circulation room → lowest-id
+        // room. Identical selection to `unreachableHabitableRoomIds` so the in-engine guarantee
+        // and the modal's % agree on the same front.
+        const allIds = graph.rooms.map(r => r.id).sort();
+        const circIds = allIds.filter(id => isCirculation(typeOf.get(id) ?? ''));
+        const rootId =
+            (graph.entryId && typeOf.has(graph.entryId)) ? graph.entryId :
+            (circIds[0] ?? allIds[0]);
+        if (rootId !== undefined) {
+            // Door + open-threshold permeability adjacency, rebuilt from the REALISED openings
+            // each round (so a door this pass adds is immediately seen). Sorted ⇒ stable BFS.
+            const reachedFrom = (root: string): Set<string> => {
+                const adj = new Map<string, string[]>();
+                for (const id of allIds) adj.set(id, []);
+                const link = (a: string | undefined, b: string | undefined): void => {
+                    if (!a || !b || a === b || !adj.has(a) || !adj.has(b)) return;
+                    adj.get(a)!.push(b); adj.get(b)!.push(a);
+                };
+                for (const o of openings) {
+                    if (o.type !== 'door') continue;
+                    const [a, b] = o.betweenRoomIds as readonly [string, string?];
+                    link(a, b ?? undefined);
+                }
+                for (const e of graph.edges) if (e.via === 'open') link(e.a, e.b);
+                for (const [, ns] of adj) ns.sort();
+                const seen = new Set<string>([root]);
+                const q = [root];
+                while (q.length) {
+                    const cur = q.shift()!;
+                    for (const nb of adj.get(cur) ?? []) if (!seen.has(nb)) { seen.add(nb); q.push(nb); }
+                }
+                return seen;
+            };
+            // Add a door from an UNREACHED habitable room to its best already-REACHED neighbour.
+            // PRIVACY-FIRST and PERMITTED-ONLY (never a forbidden pair — that would re-introduce
+            // the bedroom↔bedroom / bathroom-off-living anti-patterns the matrix exists to block):
+            //   Tier 1 — a clean, rule-legal, under-cap door.
+            //   Tier 2 — a permitted pair, relaxing only the door CAP (counts as a compromise so
+            //            P8 keeps preferring a plan that needed none).
+            // Within a tier, longest wall first (most likely to host a clear door), then stable id.
+            // A habitable room with NO permitted reached neighbour stays unreached (genuinely
+            // land-locked in this tiling) — surfaced by the reach diagnostic + the ranker, never
+            // forced open illegally. Returns true if a door was placed.
+            const rescueOne = (id: string, reached: ReadonlySet<string>): boolean => {
+                const toReached = shared
+                    .filter(c => (c.a === id || c.b === id) && reached.has(c.a === id ? c.b : c.a) && permitted(c.a, c.b));
+                const byRun = (p: (typeof shared)[number], q: (typeof shared)[number]): number =>
+                    q.len - p.len || (p.seg.id < q.seg.id ? -1 : 1);
+                // Tier 1 — a clean, rule-legal, under-cap door.
+                for (const c of toReached.filter(c => underCap(c.a) && underCap(c.b)).sort(byRun)) {
+                    if (wallHasDoor.has(c.seg.id)) continue;
+                    if (addDoor(c.seg, c.a, c.b)) { cUnion(c.a, c.b); return true; }
+                }
+                // Tier 2 — permitted pair, relax the door cap (counts as a compromise).
+                for (const c of toReached.sort(byRun)) {
+                    if (wallHasDoor.has(c.seg.id)) continue;
+                    if (addDoor(c.seg, c.a, c.b)) { cUnion(c.a, c.b); compromises++; return true; }
+                }
+                return false;
+            };
+            // Iterate to convergence: each round rescues every habitable room adjacent to the
+            // current reached frontier, then re-expands the frontier. Bounded by room count
+            // (each round adds ≥1 reached room or stops). Deterministic id order within a round.
+            let guard = allIds.length + 1;
+            for (;;) {
+                if (guard-- <= 0) break;                       // belt-and-braces (never reached in practice)
+                const reached = reachedFrom(rootId);
+                const unreached = allIds.filter(id => isHabitable(id) && !reached.has(id));
+                if (unreached.length === 0) break;            // GUARANTEE met — every habitable room reached
+                let progressed = false;
+                for (const id of unreached) {
+                    if (rescueOne(id, reached)) { progressed = true; break; }  // re-BFS after each add
+                }
+                if (!progressed) break;                       // genuinely land-locked (no reached neighbour)
+            }
+        }
+        diagPass('door-rescue-reach');
+    }
+
     // §CIRCULATION-REROUTE diagnostic — private/service rooms STILL without a
     // DIRECT circulation door after the re-route passes: genuinely land-locked
     // (no legal circulation-adjacent wall in this placement). Reported as a

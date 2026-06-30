@@ -58,6 +58,38 @@ describe('buildLayoutCardModel (A5-modal-core)', () => {
         expect(m.bars[1]!.pct).toBe(0);
     });
 
+    // §DOOR-RESCUE-REACH / §CIRCULATION-GRAPH PART 9 (ADR-0087) — the door-aware
+    // circulation completeness surfaced for the modal's "Circulation NN%" chip.
+    describe('circulationPct (door-aware reachability)', () => {
+        it('is 100 when every habitable room has a door path from the entrance', () => {
+            // hall — door — living — door — bedroom: every habitable room is door-reachable.
+            const m = buildLayoutCardModel(opt({
+                rooms: [
+                    { name: 'Hall', type: 'hall', area: 6, windowCount: 0, hasDirectAccess: true, adjacentTo: ['Living'], doorAdjacentTo: ['Living'] },
+                    { name: 'Living', type: 'living', area: 20, windowCount: 2, hasDirectAccess: true, adjacentTo: ['Hall', 'Bedroom'], doorAdjacentTo: ['Hall', 'Bedroom'] },
+                    { name: 'Bedroom', type: 'bedroom', area: 14, windowCount: 1, hasDirectAccess: true, adjacentTo: ['Living'], doorAdjacentTo: ['Living'] },
+                ] as ScoredLayoutOption['rooms'],
+            }), 0);
+            expect(m.circulationPct).toBe(100);
+            expect(m.circulationExact).toBe(true);
+        });
+
+        it('is below 100 when a habitable room is sealed (no door path)', () => {
+            // The bedroom shares a wall with the living room (`adjacentTo`) but has NO door
+            // (`doorAdjacentTo` empty) — it is unreachable through the door graph.
+            const m = buildLayoutCardModel(opt({
+                rooms: [
+                    { name: 'Hall', type: 'hall', area: 6, windowCount: 0, hasDirectAccess: true, adjacentTo: ['Living'], doorAdjacentTo: ['Living'] },
+                    { name: 'Living', type: 'living', area: 20, windowCount: 2, hasDirectAccess: true, adjacentTo: ['Hall', 'Bedroom'], doorAdjacentTo: ['Hall'] },
+                    { name: 'Bedroom', type: 'bedroom', area: 14, windowCount: 1, hasDirectAccess: false, adjacentTo: ['Living'], doorAdjacentTo: [] },
+                ] as ScoredLayoutOption['rooms'],
+            }), 0);
+            // 2 of 2 habitable reached? Living is reached (hall→living); bedroom is NOT → 1/2 = 50%.
+            expect(m.circulationPct).toBe(50);
+            expect(m.circulationExact).toBe(true);
+        });
+    });
+
     // L1-α-4 + L2-β-5 (2026-05-30) — cognition axes surfaced from breakdown.
     describe('cognition axes surfacing', () => {
         it('AI-relay path (only 4 primary axes) emits exactly 4 bars', () => {

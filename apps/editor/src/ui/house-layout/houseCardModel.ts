@@ -12,6 +12,7 @@
 // imports (erased at compile time), so this unit-tests in plain Node.
 
 import type { ScoredHouseLayoutOption, ScoredLayoutOption } from '@pryzm/ai-host';
+import { computeCirculationReachability } from '../apartment-layout/layoutBubbleGraph.js';
 
 const round1 = (n: number): number => Math.round(n * 10) / 10;
 const clampPct = (n: number): number => Math.max(0, Math.min(100, Math.round(n)));
@@ -39,6 +40,15 @@ export interface StoreyCardSummary {
     readonly totalAreaM2: number;     // rounded to 0.1
     /** Short room-type roll-up, e.g. "3 bed · 2 bath · kitchen". */
     readonly roomSummary: string;
+    /** §DOOR-RESCUE-REACH / §CIRCULATION-GRAPH PART 9 (founder, ADR-0087) — the door-aware
+     *  CIRCULATION COMPLETENESS for THIS storey (0-100): the share of HABITABLE rooms reachable
+     *  through a PATH OF DOORS from the storey entrance (`computeCirculationReachability`).
+     *  100 ⇒ MAXIMUM circulation (the generator guarantee). Surfaced per-floor in the modal
+     *  beside the storey score, separating true door-graph completeness from the soft score. */
+    readonly circulationPct: number;
+    /** True when the storey carries a real door graph so `circulationPct` is exact (else the
+     *  value is a wall-adjacency fallback and is rendered with a "~" qualifier). */
+    readonly circulationExact: boolean;
 }
 
 /** The whole-house card view-model — one per modal card. */
@@ -76,6 +86,9 @@ function roomSummaryLine(option: ScoredLayoutOption): string {
 function buildStoreySummary(option: ScoredLayoutOption, storeyIndex: number): StoreyCardSummary {
     const rooms = option.rooms ?? [];
     const totalAreaM2 = round1(rooms.reduce((s, r) => s + (r.area || 0), 0));
+    // §DOOR-RESCUE-REACH — per-storey door-aware circulation completeness (100% = every
+    // habitable room on this floor is reachable through doors from the entrance).
+    const reach = computeCirculationReachability(option);
     return {
         storeyIndex,
         label: storeyLabel(storeyIndex),
@@ -84,6 +97,8 @@ function buildStoreySummary(option: ScoredLayoutOption, storeyIndex: number): St
         roomCount: rooms.length,
         totalAreaM2,
         roomSummary: roomSummaryLine(option),
+        circulationPct: clampPct(reach.fraction * 100),
+        circulationExact: reach.hasDoorGraph,
     };
 }
 

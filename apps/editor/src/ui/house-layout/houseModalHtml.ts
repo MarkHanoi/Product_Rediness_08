@@ -338,9 +338,36 @@ export function buildHouseProgramEditFormHtml(state: HouseProgramFormState): str
  *  `storeyKey` is a stable per-row index so the handler scopes to ONE row. When
  *  `safeGraph` is empty (no graph for this storey) the toggle is omitted and the
  *  plan shows alone. */
+/**
+ * §DOOR-RESCUE-REACH / §CIRCULATION-GRAPH PART 9 (founder, ADR-0087) — the per-floor
+ * "Circulation NN%" chip rendered beside the storey score. NN% = the share of HABITABLE rooms
+ * on this floor reachable through a PATH OF DOORS from the entrance; 100% = MAXIMUM circulation
+ * (the generator guarantee). Brand #6600FF at 100% (solid, white text), a softer violet below;
+ * NO black. A "~" prefixes an approximate (pre-deploy) value. Pure string.
+ */
+function houseCirculationChipHtml(pct: number, exact: boolean): string {
+    const p = Math.max(0, Math.min(100, Math.round(pct)));
+    const full = p >= 100;
+    const bg = full ? '#6600FF' : '#EDE7FF';
+    const fg = full ? '#ffffff' : '#5B21B6';
+    const border = full ? '#6600FF' : '#C9B8FF';
+    const approx = exact ? '' : '~';
+    const title = full
+        ? 'Circulation 100% — every habitable room on this floor is reachable through doors from the entrance (maximum circulation)'
+        : `Circulation ${approx}${p}% — some habitable rooms on this floor are not yet reachable through a path of doors from the entrance`;
+    return (
+        `<span class="hlm-storey-circulation" title="${escHtml(title)}" ` +
+        `style="display:inline-flex;align-items:center;padding:1px 6px;border-radius:999px;` +
+        `font-size:10px;font-weight:600;line-height:1.4;margin-left:6px;` +
+        `background:${bg};color:${fg};border:1px solid ${border};">` +
+        `Circulation ${approx}${p}%</span>`
+    );
+}
+
 function storeyHtml(
     label: string, safeThumb: string, safeGraph: string, roomSummary: string,
     areaM2: number, score: number, cardIndex: number, storeyKey: number,
+    circulationPct: number, circulationExact: boolean,
 ): string {
     const hasGraph = safeGraph.length > 0;
     const toggle = hasGraph
@@ -362,7 +389,9 @@ function storeyHtml(
         `<div class="hlm-storey-meta">` +
         `<span class="hlm-storey-label">${escHtml(label)}</span>` +
         `<span class="hlm-storey-summary">${escHtml(roomSummary)}</span>` +
-        `<span class="hlm-storey-stats">${areaM2} m² · score ${score}</span>` +
+        `<span class="hlm-storey-stats">${areaM2} m² · score ${score}` +
+        houseCirculationChipHtml(circulationPct, circulationExact) +
+        `</span>` +
         `</div>` +
         '</div>'
     );
@@ -376,7 +405,7 @@ function cardHtml(
     storeyGraphs: readonly string[] = [],
 ): string {
     const storeys = card.storeys
-        .map((s, i) => storeyHtml(s.label, storeyThumbs[i] ?? '', storeyGraphs[i] ?? '', s.roomSummary, s.totalAreaM2, s.score, card.index, i))
+        .map((s, i) => storeyHtml(s.label, storeyThumbs[i] ?? '', storeyGraphs[i] ?? '', s.roomSummary, s.totalAreaM2, s.score, card.index, i, s.circulationPct, s.circulationExact))
         .join('');
     const roofLabel = card.roofKind.charAt(0).toUpperCase() + card.roofKind.slice(1);
     const stairText = card.stairCount > 0
@@ -436,7 +465,9 @@ export function buildHousePanesHtml(
         `<div class="hlm-pane-storey" data-storey-index="${i}">` +
         `<div class="hlm-pane-storey-label">${escHtml(s.label)}</div>` +
         `<div class="hlm-pane-plan">${storeyThumbs[i] ?? ''}</div>` +
-        `<div class="hlm-pane-storey-stats">${s.totalAreaM2} m² · score ${s.score}</div>` +
+        `<div class="hlm-pane-storey-stats">${s.totalAreaM2} m² · score ${s.score}` +
+        houseCirculationChipHtml(s.circulationPct, s.circulationExact) +
+        `</div>` +
         `</div>`,
     ).join('');
     return (
