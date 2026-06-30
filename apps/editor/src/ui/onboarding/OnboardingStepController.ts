@@ -1342,8 +1342,13 @@ class OnboardingStepController {
         if (this.disposed) return;
         const body = this.clearBody();
         console.log(`[onboarding-step] §OFFICE-PREVIEW-STEP office setup step (source="${source}").`);
-        // Reuse the resi landscape layout (left rail · centre preview · right controls).
+        // §OFFICE-PREVIEW-MODAL-LAYOUT — the office step rides the wide landscape card
+        // (--resi widens it + resets the body to one grid) but lays its OWN two-column
+        // grid (--office): LEFT = bounded plate preview + analytics table, RIGHT = the
+        // controls form. Its own modifier keeps the office grid template independent of
+        // the resi 3-column rail layout.
         this.overlay?.classList.add('os-onboarding-overlay--resi');
+        this.overlay?.classList.add('os-onboarding-overlay--office');
 
         // Derive the circular radius from the drawn parcel (else the office default).
         const footprint = this.readParcelFootprint();
@@ -1467,16 +1472,26 @@ class OnboardingStepController {
         actions.appendChild(generate); actions.appendChild(notNow);
         form.appendChild(actions);
 
-        // Landscape layout: centre preview stage + right controls form.
+        // §OFFICE-PREVIEW-MODAL-LAYOUT — two-column landscape:
+        //   LEFT  — a bounded plate-preview box (the circular SVG, fixed-size, its OWN
+        //           box) with the analytics key→value table beneath it.
+        //   RIGHT — the controls form (sliders · culture · caption · actions).
+        // The preview and the sliders sit in separate, bounded grid cells and never
+        // overlap. `plate` holds the SVG; `analytics` holds the table — separate targets
+        // so refreshPreview paints into distinct regions.
         const layout = document.createElement('div');
-        layout.className = 'os-resi-layout';
-        const stage = document.createElement('div');
-        stage.className = 'os-resi-stage';
-        const preview = document.createElement('div');
-        preview.className = 'os-resi-preview';
-        preview.setAttribute('data-testid', 'onboarding-office-preview');
-        stage.appendChild(preview);
-        layout.appendChild(stage);
+        layout.className = 'os-office-layout';
+        const left = document.createElement('div');
+        left.className = 'os-office-left';
+        const plate = document.createElement('div');
+        plate.className = 'os-office-plate';
+        plate.setAttribute('data-testid', 'onboarding-office-preview');
+        const analytics = document.createElement('div');
+        analytics.className = 'os-office-analytics';
+        analytics.setAttribute('data-testid', 'onboarding-office-analytics');
+        left.appendChild(plate);
+        left.appendChild(analytics);
+        layout.appendChild(left);
         layout.appendChild(form);
         body.appendChild(layout);
 
@@ -1502,20 +1517,21 @@ class OnboardingStepController {
                 culture,
             });
             if (result.status !== 'ok') {
-                preview.innerHTML = `<p class="os-hint">Adjust the radius or storeys to preview the tower.</p>`;
+                plate.innerHTML = `<p class="os-resi-preview-hint">Adjust the radius or storeys to preview the tower.</p>`;
+                analytics.innerHTML = '';
                 return;
             }
             const ok: OfficeBuildingOk = result;
-            const svg = buildOfficePlatePreviewSvg(ok, 300);
-            const analytics = buildOfficeAnalyticsHtml(ok);
+            const svg = buildOfficePlatePreviewSvg(ok, 260);
             const note = ok.autoFit.notes.length > 0
                 ? `<p class="os-hint" data-testid="onboarding-office-autofit">${ok.autoFit.notes.map((n) => this._escapeHtml(n)).join(' ')}</p>`
                 : '';
-            preview.innerHTML =
-                `<div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">` +
-                `<div>${svg}<div style="margin-top:8px;font-size:12px;color:#6600FF;font-weight:600;text-align:center">Representative open-plan floor</div></div>` +
-                `<div style="flex:1 1 300px;min-width:280px">${analytics}</div>` +
-                `</div>${note}`;
+            // LEFT-TOP: the bounded circular plate in its own box (nothing overlaps it).
+            plate.innerHTML =
+                `<div class="os-office-plate-svg">${svg}</div>` +
+                `<div class="os-office-plate-caption">Representative open-plan floor</div>`;
+            // LEFT-BOTTOM: the analytics key→value table (+ optional auto-fit note).
+            analytics.innerHTML = buildOfficeAnalyticsHtml(ok) + note;
         };
         // Re-render live on any control change.
         for (const el of [storiesInput, radiusInput, ftfInput, deskInput]) {
@@ -1541,6 +1557,7 @@ class OnboardingStepController {
             console.log('[onboarding-step] §OFFICE-PREVIEW-STEP build confirmed', { stories, radiusM, culture });
             this.overlay?.classList.remove('os-onboarding-overlay--confirm');
             this.overlay?.classList.remove('os-onboarding-overlay--resi');
+            this.overlay?.classList.remove('os-onboarding-overlay--office');
             void this.generateAndFinish();
         };
         form.addEventListener('submit', onSubmit);
@@ -1548,6 +1565,7 @@ class OnboardingStepController {
 
         notNow.addEventListener('click', () => {
             this.overlay?.classList.remove('os-onboarding-overlay--resi');
+            this.overlay?.classList.remove('os-onboarding-overlay--office');
             console.log('[onboarding-step] §OFFICE-PREVIEW-STEP → NOT NOW — disposing overlay, leaving boundary/site intact.');
             this.toast('Saved your plot — generate any time from the AI panel.', 'info');
             this.dispose();
@@ -1566,6 +1584,7 @@ class OnboardingStepController {
         this.setDrawingPresentation(false);
         this.overlay?.classList.remove('os-onboarding-overlay--confirm');
         this.overlay?.classList.remove('os-onboarding-overlay--resi');
+        this.overlay?.classList.remove('os-onboarding-overlay--office');
         this.setStepIndicator(4, 'Generating');
         const body = this.clearBody();
         const p = document.createElement('p');

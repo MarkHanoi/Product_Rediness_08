@@ -55,11 +55,13 @@ function legendRow(z: OfficeZone): string {
     );
 }
 
-/** The analytics panel: desk count, m²/desk, % open/enclosed, daylight %, core ratio. */
+/** The analytics panel: desk count, m²/desk, % open/enclosed, daylight %, core ratio.
+ *  Laid out as a clean two-column key→value table — metric name (left, muted) and the
+ *  value (right, emphasised), one aligned row each. */
 export function buildOfficeAnalyticsHtml(result: OfficeBuildingOk): string {
     const a = result.analytics;
     const metric = (label: string, value: string): string =>
-        `<div class="ob-metric"><div class="ob-metric-value">${value}</div><div class="ob-metric-label">${escapeHtml(label)}</div></div>`;
+        `<div class="ob-metric"><span class="ob-metric-label">${escapeHtml(label)}</span><span class="ob-metric-value">${escapeHtml(value)}</span></div>`;
 
     const metrics =
         metric('Storeys', String(a.stories)) +
