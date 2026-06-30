@@ -68,6 +68,13 @@ import { setNeighbourFootprints } from '../site/neighbourFootprintStore.js';
 import { resolveOrthoSnap } from './orthoSnap.js';
 // §RECT-BOUNDARY — pure two-corner → axis-aligned CCW rectangle corner builder.
 import { rectCornersFromOpposite } from './rectBoundary.js';
+// §CIRCLE-BOUNDARY — pure centre+radius → closed CCW N-gon circle corner builder.
+import {
+    circleCornersFromCentreRadius,
+    circleRadiusMetres,
+    fmtRadiusMetres,
+    snapRadiusToRound,
+} from './circleBoundary.js';
 // §SITE-PLAN-OVERLAY — georeferenced client-plan (PDF/image) overlay controller.
 import {
     mountSitePlanOverlayController,
@@ -368,9 +375,11 @@ export function mountSiteBoundaryMap2D(
     //   O Orthogonal → drawMode='polygon', orthoEnabled=true  (A.21.D60 90°-lock)
     //   C Curved     → no spline/arc boundary geometry exists yet → graceful
     //                  fallback to Linear polygon + a toast (pill still shown, marked).
+    //   I Circle     → §CIRCLE-BOUNDARY two-point (centre + circumference); emits a
+    //                  closed 64-gon polygon down the SAME commit path as Rectangle.
     // The bar is `position:absolute` inside the overlay (the overlay is the editor
     // #container, also absolute) so it floats at the top-centre of the draw surface.
-    type BoundaryDrawMode = 'rectangle' | 'linear' | 'orthogonal' | 'curved';
+    type BoundaryDrawMode = 'rectangle' | 'linear' | 'orthogonal' | 'curved' | 'circle';
     const modeBar = document.createElement('div');
     modeBar.className = 'wdh-bar';
     modeBar.setAttribute('data-bnd-mode-bar', '1');
@@ -395,6 +404,8 @@ export function mountSiteBoundaryMap2D(
         { key: 'L', label: 'Linear',     mode: 'linear'     },
         { key: 'O', label: 'Orthogonal', mode: 'orthogonal' },
         { key: 'C', label: 'Curved',     mode: 'curved'     },
+        // §CIRCLE-BOUNDARY — key 'I' (C is taken by Curved); two-point circle.
+        { key: 'I', label: 'Circle',     mode: 'circle'     },
     ];
     const modeBtns = new Map<BoundaryDrawMode, HTMLButtonElement>();
     for (const d of MODE_DEFS) {
@@ -445,14 +456,19 @@ export function mountSiteBoundaryMap2D(
     // legacy vertex-by-vertex polygon draw (Enter / dbl-click to close), differing
     // only in the 90°-lock + the curved fallback note (see setDrawMode).
     let uiMode: BoundaryDrawMode = 'rectangle';
-    // §RECT-BOUNDARY — the INTERNAL geometry mode the draw handlers branch on. Only
-    // two shapes exist: a two-corner axis-aligned rectangle, or a vertex-by-vertex
-    // polygon. The four UI pills collapse onto these two (+ the ortho flag below).
-    let drawMode: 'rectangle' | 'polygon' = 'rectangle';
+    // §RECT-BOUNDARY / §CIRCLE-BOUNDARY — the INTERNAL geometry mode the draw handlers
+    // branch on. Three shapes exist: a two-corner axis-aligned rectangle, a two-point
+    // circle (centre + circumference → N-gon), or a vertex-by-vertex polygon. The five
+    // UI pills collapse onto these (+ the ortho flag below).
+    let drawMode: 'rectangle' | 'polygon' | 'circle' = 'rectangle';
     // §RECT-BOUNDARY — the first clicked corner in rectangle mode (null = awaiting
     // the first click). The live rubber-band rectangle previews from here to the
     // cursor; the second click commits.
     let rectCornerA: LatLon | null = null;
+    // §CIRCLE-BOUNDARY — the clicked circle CENTRE (null = awaiting the first click).
+    // Once set, the live circle previews from this centre out to the cursor radius;
+    // the second click commits the closed N-gon. The radius readout chip tracks it.
+    let circleCentre: LatLon | null = null;
     let draggingIdx: number | null = null;
     let disposed = false;
     // §SITE-PLAN-OVERLAY — the georeferenced client-plan overlay controller, mounted on
@@ -487,6 +503,10 @@ export function mountSiteBoundaryMap2D(
     const dimMarkers: MapLibreMarker[] = [];
     // The current cursor lng/lat (raw or snapped) for the live in-progress edge.
     let cursorLL: LatLon | null = null;
+    // §CIRCLE-BOUNDARY — a single pooled chip showing the LIVE radius (centre→cursor)
+    // while drawing a circle, mirroring the line tool's length labels. Created lazily
+    // on the first circle draw; positioned at the circumference point under the cursor.
+    let radiusMarker: MapLibreMarker | null = null;
 
     // MAP-DATA-OVERTURE — context-building fetch state. We fetch the richer OSM
     // footprints for the current map centre and feed them into the geojson source
@@ -578,7 +598,10 @@ export function mountSiteBoundaryMap2D(
         if (disposed) return;
         // Build the list of segments to label: placed edges + the live segment.
         const segs: Array<{ a: LatLon; b: LatLon }> = [];
-        const n = vertices.length;
+        // §CIRCLE-BOUNDARY — a circle is a 64-gon; labelling all 64 chords is noise.
+        // The radius readout chip (refreshRadiusLabel) is the circle's affordance, so
+        // suppress per-edge dimensions in circle mode (leave segs empty → all hidden).
+        const n = drawMode === 'circle' ? 0 : vertices.length;
         // Placed edges. When the ring is "closed" (≥3 vertices) we label the
         // closing edge (last → first) too so every drawn edge has a dimension.
         const placedEdges = n >= 3 ? n : Math.max(0, n - 1);
@@ -878,6 +901,54 @@ export function mountSiteBoundaryMap2D(
         return true;
     }
 
+    /**
+     * §CIRCLE-BOUNDARY — build the live closed N-gon circle from `centre` out to a
+     * circumference point (`edge`, the cursor) and write it into `vertices` (reusing
+     * the polygon fill/line/handle render path). The radius is the projected metric
+     * distance centre→edge, snapped to round numbers (0.5 m) when close. Returns
+     * false for a degenerate (≈ zero) radius, leaving `vertices` as just [centre].
+     */
+    function setCircleVertices(centre: LatLon, edge: LatLon): boolean {
+        const rawR = circleRadiusMetres(centre, edge);
+        const r = snapRadiusToRound(rawR);
+        vertices.length = 0;
+        const corners = r > 0.05 ? circleCornersFromCentreRadius(centre, r) : null;
+        if (!corners) {
+            vertices.push({ lat: centre.lat, lon: centre.lon });
+            return false;
+        }
+        vertices.push(...corners);
+        return true;
+    }
+
+    /**
+     * §CIRCLE-BOUNDARY — show/refresh the live radius readout chip at the
+     * circumference point under the cursor while drawing a circle. Hidden when no
+     * circle is in progress (no centre / not circle mode / frozen). The chip text
+     * matches the line tool's metric label format (`R 12.5 m`).
+     */
+    function refreshRadiusLabel(): void {
+        if (disposed) return;
+        const active = !committed && drawMode === 'circle' && circleCentre && cursorLL;
+        if (!active) {
+            if (radiusMarker) radiusMarker.getElement().style.display = 'none';
+            return;
+        }
+        const rawR = circleRadiusMetres(circleCentre!, cursorLL!);
+        const r = snapRadiusToRound(rawR);
+        if (!radiusMarker) {
+            radiusMarker = new MapLibreMarker({ element: makeDimChip(), anchor: 'center' });
+            radiusMarker.setLngLat([0, 0]).addTo(map);
+        }
+        const el = radiusMarker.getElement();
+        if (r < 0.05) { el.style.display = 'none'; return; }
+        el.style.display = '';
+        el.textContent = fmtRadiusMetres(r);
+        // Position at the circumference point (the cursor) so the readout tracks the
+        // dragged radius like the line tool's length label tracks the segment end.
+        radiusMarker.setLngLat([cursorLL!.lon, cursorLL!.lat]);
+    }
+
     function onClick(e: MapMouseEvent): void {
         if (disposed || committed) return;
         // Ignore the click that ends a vertex-drag.
@@ -916,6 +987,37 @@ export function mountSiteBoundaryMap2D(
             return;
         }
 
+        // §CIRCLE-BOUNDARY — circle mode: first click = CENTRE; second = a point on
+        // the circumference → IMMEDIATE commit of the closed N-gon polygon.
+        if (drawMode === 'circle') {
+            if (!circleCentre) {
+                circleCentre = { lat, lon };
+                vertices.length = 0;
+                vertices.push({ lat, lon }); // show a handle at the centre
+                snapTarget = null;
+                refreshSnapIndicator();
+                refreshRing();
+                refreshRadiusLabel();
+                console.log(`[gis] map2d circle centre @ ${lat.toFixed(6)}, ${lon.toFixed(6)}`);
+                return;
+            }
+            const ok = setCircleVertices(circleCentre, { lat, lon });
+            snapTarget = null;
+            refreshSnapIndicator();
+            refreshRing();
+            if (!ok) {
+                console.warn('[gis] map2d circle: zero-radius — click further from the centre');
+                toast('Click further from the centre to set a radius.', 'error');
+                return;
+            }
+            const r = snapRadiusToRound(circleRadiusMetres(circleCentre, { lat, lon }));
+            console.log(
+                `[gis] map2d circle radius ${r.toFixed(2)} m @ ${lat.toFixed(6)}, ${lon.toFixed(6)} → ${vertices.length}-gon, committing`,
+            );
+            commit();
+            return;
+        }
+
         // Polygon mode (legacy): each click adds a vertex.
         vertices.push({ lat, lon });
         // Clear the snap so it doesn't linger over the just-placed vertex.
@@ -930,9 +1032,10 @@ export function mountSiteBoundaryMap2D(
 
     function onDblClick(e: MapMouseEvent): void {
         if (disposed || committed) return;
-        // §RECT-BOUNDARY — rectangle mode commits on the second single click; the
-        // close-the-loop double-click is a polygon-only affordance.
-        if (drawMode === 'rectangle') { e.preventDefault(); return; }
+        // §RECT-BOUNDARY / §CIRCLE-BOUNDARY — rectangle + circle modes commit on the
+        // second single click; the close-the-loop double-click is a polygon-only
+        // affordance.
+        if (drawMode === 'rectangle' || drawMode === 'circle') { e.preventDefault(); return; }
         e.preventDefault();
         // The dblclick fires after two single clicks already added two vertices;
         // they are the intended last corner (duplicated) — drop one before commit.
@@ -968,8 +1071,11 @@ export function mountSiteBoundaryMap2D(
         // relative-right-angle (ortho) snap doesn't apply (and would make the live
         // rect jitter, since it'd read the preview rect's own edges). Keep the
         // building corner/edge snap so corner B can land on a real footprint corner.
+        // §CIRCLE-BOUNDARY — circle mode (like rectangle) is radial by construction, so
+        // the relative-right-angle (ortho) snap doesn't apply. Keep the building
+        // corner/edge snap so the centre/circumference can land on a real footprint.
         const next =
-            drawMode === 'rectangle'
+            drawMode === 'rectangle' || drawMode === 'circle'
                 ? resolveSnap(e.point)
                 : (resolveSnap(e.point) ?? resolveOrthoSnapTarget(e.point));
         // A.21.D9 — track the cursor (snapped position when a snap is active, else
@@ -984,7 +1090,15 @@ export function mountSiteBoundaryMap2D(
             setRectVertices(rectCornerA, cursorLL);
             refreshRing();
         }
+        // §CIRCLE-BOUNDARY — live rubber-band circle: once the centre is placed,
+        // preview the N-gon from the centre out to the cursor radius via the SAME
+        // render path. The radius readout chip follows the circumference point.
+        if (drawMode === 'circle' && circleCentre) {
+            setCircleVertices(circleCentre, cursorLL);
+            refreshRing();
+        }
         refreshDimLabels();
+        refreshRadiusLabel();
         const changed =
             (next === null) !== (snapTarget === null) ||
             (next !== null && snapTarget !== null &&
@@ -1016,9 +1130,10 @@ export function mountSiteBoundaryMap2D(
         if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
         if (ev.key === 'Enter') {
             ev.preventDefault();
-            // §RECT-BOUNDARY — Enter is a polygon-only close. Rectangle commits on the
-            // second click; a stray Enter must not commit the live preview rect.
-            if (drawMode === 'rectangle') return;
+            // §RECT-BOUNDARY / §CIRCLE-BOUNDARY — Enter is a polygon-only close.
+            // Rectangle + circle commit on the second click; a stray Enter must not
+            // commit the live preview rect/circle.
+            if (drawMode === 'rectangle' || drawMode === 'circle') return;
             commit();
         } else if (ev.key === 'Escape') {
             ev.preventDefault();
@@ -1029,7 +1144,7 @@ export function mountSiteBoundaryMap2D(
         // HUD. Plain keys only (no modifier) so they don't clash with browser combos.
         if (ev.altKey || ev.ctrlKey || ev.metaKey) return;
         const mode: BoundaryDrawMode | undefined = {
-            r: 'rectangle', l: 'linear', o: 'orthogonal', c: 'curved',
+            r: 'rectangle', l: 'linear', o: 'orthogonal', c: 'curved', i: 'circle',
         }[ev.key.toLowerCase()] as BoundaryDrawMode | undefined;
         if (mode) {
             ev.preventDefault();
@@ -1101,6 +1216,10 @@ export function mountSiteBoundaryMap2D(
                 // a straight polyline; tell the user so the result isn't a surprise.
                 chip.textContent = 'Curved not available yet — drawing straight segments · double-click or Enter to close · Esc';
                 break;
+            case 'circle':
+                // §CIRCLE-BOUNDARY — click centre, then a point on the circumference.
+                chip.textContent = 'Click the centre, then a point on the edge (radius shown) · Esc to cancel';
+                break;
         }
     }
     /**
@@ -1135,15 +1254,21 @@ export function mountSiteBoundaryMap2D(
                 orthoEnabled = false;
                 toast('Curved boundaries aren’t available yet — drawing straight segments.', 'info');
                 break;
+            case 'circle':
+                // §CIRCLE-BOUNDARY — two-point centre+radius → closed 64-gon polygon.
+                drawMode = 'circle';
+                break;
         }
-        // Reset the in-progress draw (clears corner A / partial polygon).
+        // Reset the in-progress draw (clears corner A / circle centre / partial polygon).
         rectCornerA = null;
+        circleCentre = null;
         vertices.length = 0;
         snapTarget = null;
         cursorLL = null;
         try { refreshRing(); } catch { /* style may be swapping */ }
         try { refreshSnapIndicator(); } catch { /* ignore */ }
         try { refreshDimLabels(); } catch { /* ignore */ }
+        try { refreshRadiusLabel(); } catch { /* ignore */ }
         paintModeStrip();
         refreshModeChrome();
         console.log(`[gis] map2d: draw mode → ${next} (geometry=${drawMode}, ortho=${orthoEnabled})`);
@@ -1184,6 +1309,8 @@ export function mountSiteBoundaryMap2D(
         cursorLL = null;
         try { refreshSnapIndicator(); } catch { /* style may be swapping */ }
         try { refreshDimLabels(); } catch { /* style may be swapping */ }
+        // §CIRCLE-BOUNDARY — drop the live radius readout (the circle is committed).
+        try { refreshRadiusLabel(); } catch { /* style may be swapping */ }
         try { map.getCanvas().style.cursor = ''; } catch { /* ignore */ }
         // Freeze the chrome: the instruction chip + close (×) no longer apply (the
         // overlay is now a passive backdrop for the confirm step). Hide them so the
@@ -1252,6 +1379,8 @@ export function mountSiteBoundaryMap2D(
         // A.21.D9 — remove all pooled dimension-label markers.
         for (const m of dimMarkers) { try { m.remove(); } catch { /* ignore */ } }
         dimMarkers.length = 0;
+        // §CIRCLE-BOUNDARY — remove the live radius readout marker.
+        if (radiusMarker) { try { radiusMarker.remove(); } catch { /* ignore */ } radiusMarker = null; }
         // MAP-DATA-OVERTURE — cancel any in-flight context fetch + pending debounce.
         try { ctxAbort?.abort(); } catch { /* ignore */ }
         if (ctxDebounce) { clearTimeout(ctxDebounce); ctxDebounce = null; }
