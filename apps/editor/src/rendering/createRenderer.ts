@@ -242,8 +242,31 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<Rendere
                             // §PERF-WEBGL2-NO-TSL — thread the authoritative resolved
                             // backend so the rebind never re-probes the renderer CLASS.
                             // Only a native 'webgpu' backend may run the TSL pipeline.
-                            await rpm.bind(scene, camera, newResult.renderer, 'light', newResult.backend === 'webgpu');
-                            console.log('[createRenderer] WebGPU device recovered — pipeline rebound.');
+                            //
+                            // §RPM-RECOVERY-DOWNGRADE (ADR-0087) — DEMO-KILLER FIX.
+                            // Route through recoverPipeline() (NON-FATAL) instead of a
+                            // bare bind(). On a freshly device-loss-recovered WebGPU
+                            // device the heavy phase-4 TSL graph (SSGI/outlines) often
+                            // hits "Fragment shader failed to compile", which previously
+                            // flipped THREE's fatal "Rendering has stopped" latch and
+                            // killed the viewport. recoverPipeline() rebuilds the full
+                            // pipeline but DOWNGRADES to the lightweight phase-2 pipeline
+                            // on a shader-compile failure — the viewport keeps rendering
+                            // plain, never the dead overlay.
+                            if (typeof rpm.recoverPipeline === 'function') {
+                                const phase = await rpm.recoverPipeline(
+                                    scene, camera, newResult.renderer,
+                                    newResult.backend === 'webgpu',
+                                );
+                                console.log(
+                                    `[createRenderer] WebGPU device recovered — pipeline rebound (phase=${phase}` +
+                                    `${rpm.isPostFxDisabled ? ', post-FX downgraded — shader recompile failed on recovered device' : ''}).`,
+                                );
+                            } else {
+                                // Defensive fallback if an older RPM is on window.
+                                await rpm.bind(scene, camera, newResult.renderer, 'light', newResult.backend === 'webgpu');
+                                console.log('[createRenderer] WebGPU device recovered — pipeline rebound.');
+                            }
                         } else {
                             console.error(
                                 '[createRenderer] WebGPU recovery: missing rpm/scene/camera on window — pipeline NOT rebound.',

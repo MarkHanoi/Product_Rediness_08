@@ -371,6 +371,21 @@ declare global {
                 deactivateTRAA?: () => Promise<void>;
                 /** Pipeline status — webGpuActive gates the WebGL SSGI path (read at initScene). */
                 readonly status?: { webGpuActive?: boolean };
+                // §RPM-RECOVERY-DOWNGRADE (ADR-0087) — NON-FATAL device-loss recovery.
+                // Rebuilds the pipeline and downgrades to lightweight phase-2 on a
+                // shader-compile failure instead of killing the viewport. Returns the
+                // resolved phase. Older RPMs may not expose it — call defensively.
+                recoverPipeline?: (
+                    scene: unknown,
+                    camera: unknown,
+                    renderer: unknown,
+                    backendIsWebGPU?: boolean,
+                    restorePostFx?: boolean,
+                ) => Promise<string>;
+                /** True while running the lightweight (post-FX-disabled) recovery path. */
+                readonly isPostFxDisabled?: boolean;
+                /** Best-effort re-upgrade to the full post-FX pipeline after a downgrade. */
+                tryUpgradePostFx?: () => Promise<boolean>;
               }
             | undefined;
         renderingPipelineCoordinator: unknown;
