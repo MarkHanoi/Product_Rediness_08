@@ -42,6 +42,7 @@ import type {
     DtglLayoutRoom,
 } from '@pryzm/ai-host/validators/layout-adapter';
 import type { LayoutOption, LayoutRoom, ScoredLayoutOption } from '@pryzm/ai-host';
+import { computeCirculationReachability } from './layoutBubbleGraph.js';
 
 /** Axis key — closed union. The 4 primary axes are always present; the
  *  11 cognition axes are emitted only when the breakdown carries them. */
@@ -128,6 +129,21 @@ export interface LayoutCardModel {
      *  Undefined when no axis crosses the 0.7 threshold so the renderer
      *  emits nothing (no empty line / no placeholder). */
     readonly narrative?: string;
+    /** §DOOR-RESCUE-REACH / §CIRCULATION-GRAPH PART 9 (founder, ADR-0087) — the
+     *  door-aware CIRCULATION COMPLETENESS for this layout: the percentage (0-100)
+     *  of HABITABLE rooms reachable through a PATH OF DOORS from the entrance
+     *  (`computeCirculationReachability(option).fraction`). 100 ⇒ MAXIMUM circulation
+     *  (every habitable room door-reachable — the generator guarantee). This is
+     *  SEPARATE from the soft 23-axis `overall` score: it measures true door-graph
+     *  completeness, not a weighted preference. The modal renders it as a brand-purple
+     *  "Circulation NN%" chip beside the /100 score. Always present (neutral 100 when
+     *  a layout has no habitable rooms). */
+    readonly circulationPct: number;
+    /** True when the layout carries a real door graph (`doorAdjacentTo` on every
+     *  room) so `circulationPct` is exact; false ⇒ computed over wall-adjacency as a
+     *  degraded fallback (a pre-deploy engine build) and the chip is rendered with a
+     *  "~" qualifier. */
+    readonly circulationExact: boolean;
 }
 
 const BAR_LABELS: Record<ScoreBarKey, string> = {
@@ -435,6 +451,11 @@ export function buildLayoutCardModel(option: ScoredLayoutOption, index: number):
         hierarchy:       hierarchyValue,
     });
 
+    // §DOOR-RESCUE-REACH / §CIRCULATION-GRAPH PART 9 — door-aware circulation completeness:
+    // the fraction of habitable rooms reachable through a PATH OF DOORS from the entrance.
+    // 100% ⇒ MAXIMUM circulation (the generator guarantee). Surfaced as a chip beside the score.
+    const reach = computeCirculationReachability(option);
+
     return {
         index,
         title,
@@ -446,6 +467,8 @@ export function buildLayoutCardModel(option: ScoredLayoutOption, index: number):
         doorCount: option.doors.length,
         totalAreaM2,
         validation: buildValidationBadge(option),
+        circulationPct: Math.max(0, Math.min(100, Math.round(reach.fraction * 100))),
+        circulationExact: reach.hasDoorGraph,
         ...(narrative ? { narrative } : {}),
     };
 }

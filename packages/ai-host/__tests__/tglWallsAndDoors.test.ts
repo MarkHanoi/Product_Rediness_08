@@ -5,6 +5,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { buildWallsAndDoors } from '../src/workflows/apartmentLayout/tgl/wallsAndDoors.js';
+import { unreachableHabitableRoomIds } from '../src/workflows/apartmentLayout/tgl/enumerate.js';
 import { buildBubbleGraph, type BubbleGraph, type ProgramRoom } from '../src/workflows/apartmentLayout/tgl/bubbleGraph.js';
 import { subdivide } from '../src/workflows/apartmentLayout/tgl/subdivide.js';
 import { decomposeToRects, type Pt } from '../src/workflows/apartmentLayout/tgl/rectDecomposition.js';
@@ -1174,6 +1175,70 @@ describe('§EXTEND-TO-PERIMETER — exterior walls reach the slanted shell', () 
             const out2 = buildWallsAndDoors([A, B], g);
             expect(JSON.stringify(out1)).toEqual(JSON.stringify(out2));   // deterministic
             expect(out1.openings).toHaveLength(1);
+        });
+    });
+
+    // §DOOR-RESCUE-REACH (founder §CIRCULATION-GRAPH PART 9, ADR-0087) — the GENERATOR
+    // GUARANTEE: after buildWallsAndDoors, EVERY habitable room is reachable through a
+    // PATH OF DOORS from the entrance (`unreachableHabitableRoomIds` empty ⇒ fraction === 1).
+    describe('§DOOR-RESCUE-REACH — maximum-circulation guarantee', () => {
+        // Engine-side equivalent of the modal's `computeCirculationReachability`: the realised
+        // door set drives `unreachableHabitableRoomIds`; empty ⇒ door-fraction 1.0.
+        const reachOf = (out: ReturnType<typeof buildWallsAndDoors>, bubble: BubbleGraph): readonly string[] =>
+            unreachableHabitableRoomIds({
+                bubble,
+                doorOpenings: out.openings.map(o => ({ type: o.type, betweenRoomIds: o.betweenRoomIds })),
+            });
+
+        it('rescues a SEALED PUBLIC room (living) the private/service passes ignore → fraction 1', () => {
+            // hall | living share x=5. NO bubble door edge. The reroute passes (2c/2c-ii) only
+            // target private/service rooms, so a sealed PUBLIC living room is invisible to them —
+            // WITHOUT the rescue pass `living` would be unreachable. The rescue adds a hall↔living
+            // door (a permitted pair), so every habitable room is door-reachable.
+            const hall: RoomPlacement = { roomId: 'H', rect: { x0: 0, z0: 0, x1: 5, z1: 4 } };
+            const living: RoomPlacement = { roomId: 'L', rect: { x0: 5, z0: 0, x1: 10, z1: 4 } };
+            const rooms: ProgramRoom[] = [
+                { id: 'H', type: 'hall', name: 'H', targetAreaM2: 8, isPrivate: false, needsWindow: false },
+                { id: 'L', type: 'living', name: 'L', targetAreaM2: 20, isPrivate: false, needsWindow: true },
+            ];
+            const g: BubbleGraph = { rooms, edges: [], corridorId: null, entryId: 'H' };
+            const out = buildWallsAndDoors([hall, living], g);
+            // A door connects the hall and the living room.
+            expect(out.openings.some(o => o.betweenRoomIds.includes('H') && o.betweenRoomIds.includes('L'))).toBe(true);
+            // GUARANTEE: every habitable room reachable from the entrance through doors.
+            expect(reachOf(out, g)).toEqual([]);
+        });
+
+        it('rescues a room reachable ONLY THROUGH a sealed public room (iterates to convergence) → fraction 1', () => {
+            // Row: hall | living | bedroom. NO bubble edges. The bedroom touches only the living
+            // room (not the hall); the living room touches only the hall. Two-step rescue: hall↔living
+            // first (living becomes reached), then living↔bedroom on the next round.
+            const hall: RoomPlacement = { roomId: 'H', rect: { x0: 0, z0: 0, x1: 4, z1: 4 } };
+            const living: RoomPlacement = { roomId: 'L', rect: { x0: 4, z0: 0, x1: 8, z1: 4 } };
+            const bed: RoomPlacement = { roomId: 'B', rect: { x0: 8, z0: 0, x1: 12, z1: 4 } };
+            const rooms: ProgramRoom[] = [
+                { id: 'H', type: 'hall', name: 'H', targetAreaM2: 8, isPrivate: false, needsWindow: false },
+                { id: 'L', type: 'living', name: 'L', targetAreaM2: 18, isPrivate: false, needsWindow: true },
+                { id: 'B', type: 'bedroom', name: 'B', targetAreaM2: 16, isPrivate: true, needsWindow: true },
+            ];
+            const g: BubbleGraph = { rooms, edges: [], corridorId: null, entryId: 'H' };
+            const out = buildWallsAndDoors([hall, living, bed], g);
+            // Both the living room and the bedroom become door-reachable from the entrance.
+            expect(reachOf(out, g)).toEqual([]);
+            // Deterministic.
+            const out2 = buildWallsAndDoors([hall, living, bed], g);
+            expect(JSON.stringify(out)).toEqual(JSON.stringify(out2));
+        });
+
+        it('is a NO-OP for an already fully-reachable plan (no extra doors, byte-identical)', () => {
+            // corridor↔bedroom with the bubble door already requested: the bedroom is reachable
+            // before the rescue pass runs, so the pass adds nothing.
+            const A: RoomPlacement = { roomId: 'A', rect: { x0: 0, z0: 0, x1: 5, z1: 4 } };
+            const B: RoomPlacement = { roomId: 'B', rect: { x0: 5, z0: 0, x1: 10, z1: 4 } };
+            const g = graphOf([room('A', 'corridor'), room('B', 'bedroom')], [{ a: 'A', b: 'B', via: 'door' }]);
+            const out = buildWallsAndDoors([A, B], g);
+            expect(out.openings).toHaveLength(1);            // the single bubble door, no rescue add
+            expect(reachOf(out, g)).toEqual([]);
         });
     });
 });

@@ -214,6 +214,38 @@ function validationHtml(card: LayoutCardModel): string {
     );
 }
 
+/**
+ * §DOOR-RESCUE-REACH / §CIRCULATION-GRAPH PART 9 (founder, ADR-0087) — the "Circulation NN%"
+ * chip beside the /100 score. NN% is the door-aware circulation completeness
+ * (`card.circulationPct`): the share of HABITABLE rooms reachable through a PATH OF DOORS from
+ * the entrance. 100% ⇒ MAXIMUM circulation (the generator guarantee — every habitable room
+ * door-reachable). This is SEPARATE from the soft 23-axis score: it measures true door-graph
+ * completeness, not a weighted preference, so a low-scoring-but-fully-connected plan still reads
+ * 100% and a sealed-room plan reads below it. Brand: #6600FF at 100% (solid purple, white text);
+ * a softer violet tint below 100% so an incomplete plan reads at a glance (NO black). When the
+ * door graph is approximate (pre-deploy build) the value is prefixed "~". Pure string.
+ */
+function circulationChipHtml(card: LayoutCardModel): string {
+    const pct = Math.max(0, Math.min(100, Math.round(card.circulationPct)));
+    const full = pct >= 100;
+    // 100% = solid brand purple; below = a desaturated violet so the chip still reads as
+    // "circulation, not yet complete" without introducing black or a clashing alert colour.
+    const bg = full ? '#6600FF' : '#EDE7FF';
+    const fg = full ? '#ffffff' : '#5B21B6';
+    const border = full ? '#6600FF' : '#C9B8FF';
+    const approx = card.circulationExact ? '' : '~';
+    const title = full
+        ? 'Circulation 100% — every habitable room is reachable through doors from the entrance (maximum circulation)'
+        : `Circulation ${approx}${pct}% — some habitable rooms are not yet reachable through a path of doors from the entrance`;
+    return (
+        `<span class="alm-circulation" title="${escHtml(title)}" ` +
+        `style="display:inline-flex;align-items:center;gap:3px;margin-left:auto;margin-right:8px;` +
+        `padding:2px 7px;border-radius:999px;font-size:11px;font-weight:600;line-height:1.4;` +
+        `background:${bg};color:${fg};border:1px solid ${border};">` +
+        `Circulation ${approx}${pct}%</span>`
+    );
+}
+
 function cardHtml(card: LayoutCardModel, safeThumb: string, safeGraph: string): string {
     const bars = card.bars.map(b =>
         `<div class="alm-bar"><span class="alm-bar-label">${escHtml(b.label)}</span>` +
@@ -248,6 +280,7 @@ function cardHtml(card: LayoutCardModel, safeThumb: string, safeGraph: string): 
         `<div class="alm-thumb alm-view alm-view--plan">${safeThumb}</div>` +
         `<div class="alm-thumb alm-view alm-view--graph">${safeGraph}</div>` +
         `<div class="alm-card-head"><span class="alm-title">${escHtml(card.title)}</span>` +
+        circulationChipHtml(card) +
         `<span class="alm-overall" title="overall score">${card.overall}<small>/100</small></span></div>` +
         `<div class="alm-bars">${bars}</div>` +
         narrative +
