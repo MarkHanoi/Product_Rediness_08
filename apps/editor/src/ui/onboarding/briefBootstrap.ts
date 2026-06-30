@@ -174,7 +174,12 @@ async function handleBriefReady(
     // routes `residential-multifamily` to the residential generator (which reads the
     // drawn parcel boundary, runs the orchestrator, and opens the residential preview
     // modal → Build), exactly the way `apartment`/`casa-unifamiliar` route.
-    const GENERATOR_READY_TYPOLOGIES = new Set(['apartment', 'casa-unifamiliar', 'residential-multifamily']);
+    // §OFFICE-ONBOARDING-WIRE — `office` joins the wired set: it flows through the SAME
+    // guided step flow (location → draw-or-skip → confirm → generate); the TYPOLOGY SWITCH
+    // in `OnboardingStepController.generateAndFinish` routes `office` to the office
+    // controller (derives a circular footprint from the drawn parcel, opens the office
+    // setup modal → Build), exactly the way the other wired typologies route.
+    const GENERATOR_READY_TYPOLOGIES = new Set(['apartment', 'casa-unifamiliar', 'residential-multifamily', 'office', 'office-building']);
     if (!GENERATOR_READY_TYPOLOGIES.has(brief.typologyId)) {
         console.log(
             `[onboarding-bootstrap] typology "${brief.typologyId}" is not yet auto-wired ` +
@@ -185,7 +190,11 @@ async function handleBriefReady(
     }
     const isHouse = brief.typologyId === 'casa-unifamiliar';
     const isResidentialBuilding = brief.typologyId === 'residential-multifamily';
-    const typologyNoun = isResidentialBuilding ? 'residential building' : isHouse ? 'house' : 'apartment';
+    const isOffice = brief.typologyId === 'office' || brief.typologyId === 'office-building'; // §OFFICE-ONBOARDING-WIRE
+    const typologyNoun = isOffice ? 'office building'
+        : isResidentialBuilding ? 'residential building'
+            : isHouse ? 'house'
+                : 'apartment';
 
     if (typeof deps.createAndOpenProject !== 'function') {
         console.warn('[onboarding-bootstrap] no createAndOpenProject dep — cannot create a project; bailing.');

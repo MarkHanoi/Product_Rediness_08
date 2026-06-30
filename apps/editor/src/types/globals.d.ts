@@ -198,7 +198,8 @@ declare global {
          *  only the generator call is apartment-specific. */
         pryzmGenerateApartmentFromBoundary?: () => void;
         /** Office building (4th typology) — DevTools console command to generate a
-         *  circular office tower. GATED behind `__PRYZM_OFFICE_BUILDING__`. */
+         *  circular office tower. §OFFICE-ONBOARDING-WIRE: feature is ON by default;
+         *  only `__PRYZM_OFFICE_BUILDING__ === false` force-disables it. */
         pryzmGenerateOfficeBuilding?: (opts?: {
             stories?: number;
             radiusM?: number;
@@ -420,8 +421,9 @@ declare global {
         __instancedElementRenderer: unknown;
         /** Runtime feature-flag bag. Safe to read with optional chaining. */
         __PRYZM_FLAGS__: Partial<PryzmRuntimeFlags>;
-        /** Office-building (4th typology) feature gate. OFF unless explicitly set
-         *  true before composeRuntime / before calling pryzmGenerateOfficeBuilding. */
+        /** Office-building (4th typology) feature gate. §OFFICE-ONBOARDING-WIRE: ON by
+         *  default (picking the office typology IS the opt-in). Set explicitly to
+         *  `false` to force-disable; any other value (incl. undefined) ⇒ enabled. */
         __PRYZM_OFFICE_BUILDING__: boolean | undefined;
         __resetCwPrewarm: (() => void) | undefined;
     }
