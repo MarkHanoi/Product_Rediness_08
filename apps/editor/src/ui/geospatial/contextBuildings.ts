@@ -78,7 +78,9 @@ export const OVERPASS_ENDPOINTS = [
     // §A.21.D-GLOBE2 (2026-06-05) — extra keyless CORS mirrors so heavy testing that
     // rate-limits (429) the primary still gets context buildings from a fallback.
     'https://overpass.private.coffee/api/interpreter',
-    'https://overpass.osm.jp/api/interpreter',
+    // §SITE-METRIC-OVERPASS-PARALLEL (2026-06-29) — `overpass.osm.jp` REMOVED: its TLS
+    // cert is `ERR_CERT_COMMON_NAME_INVALID`, so it could never succeed and only added a
+    // guaranteed-failed leg to the cascade.
 ] as const;
 
 /** The origin(s) that must appear in the server CSP `connect-src` for fetch. */
@@ -86,7 +88,6 @@ export const OVERPASS_ORIGINS = [
     'https://overpass-api.de',
     'https://overpass.kumi.systems',
     'https://overpass.private.coffee',
-    'https://overpass.osm.jp',
 ] as const;
 
 /** Assumed storey height (m) when only `building:levels` is known. ~3.2 m is a
@@ -130,15 +131,23 @@ export const CONTEXT_BBOX_HALF_DEG = 0.008;
 export const CONTEXT_BBOX_FALLBACK_HALF_DEG = 0.005;
 
 /**
- * Overpass request timeout (ms). §A.21.D54 — raised 9 s → 20 s so a legitimately
- * large urban tile has time to come back over a slow public mirror before we move
- * on (still below the server-side `timeout:25` in the QL). The UI never blocks on
- * this — the fetch is always awaited off the placement path.
+ * Overpass request timeout (ms).
+ *
+ * §SITE-METRIC-OVERPASS-PARALLEL (2026-06-29) — dropped 20 s → 9 s. The mirrors now
+ * RACE in PARALLEL (`Promise.any`) instead of running serially, so the timeout is a
+ * per-mirror cap on a SINGLE concurrent round, not a cost paid N times in sequence.
+ * The old 20 s × 4-mirror serial cascade was ~60–80 s worst-case before success;
+ * racing means the FASTEST live mirror wins in seconds and a slow/dead one no longer
+ * delays the others. 9 s still lets a legitimately large urban tile return.
  */
-export const OVERPASS_TIMEOUT_MS = 20000;
+export const OVERPASS_TIMEOUT_MS = 9000;
 
 /** Per-bbox-key cache so panning within a tile doesn't refetch. */
 const cache = new Map<string, ContextBuildingCollection>();
+/** §SITE-METRIC-OVERPASS-PARALLEL — per-bbox IN-FLIGHT promise cache. Re-entering the
+ *  view (or two consumers — 3D + 2D context) for the SAME bbox while a fetch is still
+ *  running shares the ONE pending request instead of firing a second mirror race. */
+const inFlight = new Map<string, Promise<ContextBuildingCollection>>();
 /** One-time "context buildings unavailable" warning guard. */
 let warnedOnce = false;
 
@@ -345,16 +354,38 @@ async function fetchForBbox(bbox: Bbox, signal?: AbortSignal): Promise<ContextBu
     // re-visited site loads its context buildings without another Overpass call.
     const persisted = lsRead(key);
     if (persisted) { cache.set(key, persisted); return persisted; }
+    // §SITE-METRIC-OVERPASS-PARALLEL — a fetch for THIS bbox is already racing; share it.
+    const pending = inFlight.get(key);
+    if (pending) return pending;
 
+    const p = raceMirrors(bbox, key, signal).finally(() => { inFlight.delete(key); });
+    inFlight.set(key, p);
+    return p;
+}
+
+/**
+ * §SITE-METRIC-OVERPASS-PARALLEL (2026-06-29) — race ALL Overpass mirrors in PARALLEL
+ * and take the FIRST that returns a usable response (`Promise.any`), instead of trying
+ * them one-at-a-time. The old serial cascade paid the per-mirror timeout (was 20 s)
+ * sequentially — up to ~60–80 s before a working mirror was reached. Racing means the
+ * fastest live mirror wins in seconds; a slow/down/rate-limited one no longer delays
+ * the rest. Each leg has its OWN timeout (a slow mirror self-aborts) and honours the
+ * caller's abort signal. NEVER throws — all-fail degrades to an empty collection.
+ */
+async function raceMirrors(
+    bbox: Bbox,
+    key: string,
+    signal?: AbortSignal,
+): Promise<ContextBuildingCollection> {
     const body = 'data=' + encodeURIComponent(overpassQuery(bbox));
 
-    for (const endpoint of OVERPASS_ENDPOINTS) {
-        // Per-endpoint timeout, also honouring a caller abort. §GIS-ABORT-REASON
-        // (founder 2026-06-11) — pass an explicit reason so the console reads "Overpass
-        // timeout" instead of the alarming "AbortError: signal is aborted without reason"
-        // (the public mirrors are routinely slow / rate-limited; this is a NON-FATAL
-        // graceful-degrade, the building + massing still render).
+    // One racing leg per mirror. A leg REJECTS on any failure (timeout / HTTP / parse)
+    // so `Promise.any` skips it; it RESOLVES only with a usable collection.
+    const legs = OVERPASS_ENDPOINTS.map((endpoint) => (async (): Promise<ContextBuildingCollection> => {
         const ctrl = new AbortController();
+        // §GIS-ABORT-REASON — explicit reasons so the console reads "Overpass timeout"
+        // not the alarming "signal is aborted without reason" (mirrors are routinely
+        // slow / rate-limited; this is a NON-FATAL graceful-degrade).
         const timer = setTimeout(
             () => ctrl.abort(new DOMException(`Overpass timeout after ${OVERPASS_TIMEOUT_MS}ms (mirror slow/rate-limited)`, 'TimeoutError')),
             OVERPASS_TIMEOUT_MS,
@@ -369,42 +400,45 @@ async function fetchForBbox(bbox: Bbox, signal?: AbortSignal): Promise<ContextBu
                 signal: ctrl.signal,
             });
             if (!res.ok) {
-                console.warn(`[gis] context buildings: ${endpoint} HTTP ${res.status} — trying next mirror.`);
-                continue;
+                console.warn(`[gis] context buildings: ${endpoint} HTTP ${res.status} — skipping this mirror.`);
+                throw new Error(`HTTP ${res.status}`);
             }
             const json = (await res.json()) as { elements?: OverpassElement[] };
-            const collection = overpassToCollection(json.elements ?? []);
-            cache.set(key, collection);
-            if (collection.features.length > 0) lsWrite(key, collection); // persist non-empty results
-            console.log(
-                `[gis] context buildings: ${collection.features.length} OSM footprint(s) ` +
-                    `for bbox ${key} via ${new URL(endpoint).host}.`,
-            );
-            return collection;
-        } catch (e) {
-            if (signal?.aborted) {
-                // Caller cancelled (dispose / new location) — not a failure; bail quietly.
-                return emptyContextCollection();
-            }
-            console.warn(`[gis] context buildings: ${endpoint} fetch failed — trying next mirror:`, e);
+            return overpassToCollection(json.elements ?? []);
         } finally {
             clearTimeout(timer);
             signal?.removeEventListener('abort', onAbort);
         }
-    }
+    })());
 
-    // All mirrors failed → degrade to no context buildings (today's behaviour).
-    if (!warnedOnce) {
-        warnedOnce = true;
-        console.warn(
-            '[gis] context buildings unavailable (all Overpass mirrors failed/offline) — ' +
-                'rendering without surrounding context. This is non-fatal.',
+    try {
+        const collection = await Promise.any(legs);
+        if (signal?.aborted) return emptyContextCollection();
+        cache.set(key, collection);
+        if (collection.features.length > 0) lsWrite(key, collection); // persist non-empty
+        console.log(
+            `[gis] context buildings: ${collection.features.length} OSM footprint(s) ` +
+                `for bbox ${key} (fastest of ${OVERPASS_ENDPOINTS.length} mirror(s) raced).`,
         );
+        return collection;
+    } catch (e) {
+        // Caller cancelled → quiet bail (not a mirror failure).
+        if (signal?.aborted) return emptyContextCollection();
+        // Promise.any rejects with an AggregateError only when EVERY mirror failed.
+        if (!warnedOnce) {
+            warnedOnce = true;
+            console.warn(
+                '[gis] context buildings unavailable (all Overpass mirrors failed/offline) — ' +
+                    'rendering without surrounding context. This is non-fatal.',
+                e,
+            );
+        }
+        return emptyContextCollection();
     }
-    return emptyContextCollection();
 }
 
-/** Test/diagnostic helper — clears the per-bbox cache. */
+/** Test/diagnostic helper — clears the per-bbox cache (memory + in-flight). */
 export function clearContextBuildingCache(): void {
     cache.clear();
+    inFlight.clear();
 }

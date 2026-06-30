@@ -35,6 +35,11 @@
 // branch here that returns `MetricGridCell[]` — the renderer + legend are generic.
 
 import type { ClimateDataset } from '@pryzm/schemas';
+// §SITE-METRIC-CLIMATE-FALLBACK — the pure, synchronous, OFFLINE bundled-normals
+// ClimateDataset builder (lat/lon → 12 monthly normals + a synthesised 16-sector
+// wind rose). Used to GUARANTEE temperature + wind paint a real field even when the
+// async ClimateStore dataset hasn't landed (or never resolves under a blocked fetch).
+import { buildFallbackClimateDataset } from '@pryzm/climate-host';
 import {
     buildStreetGrid,
     computeHeatIslandGrid,
@@ -427,9 +432,63 @@ function resolveCellSize(input: MetricGridInput, defaultCellM: number): { cellSi
 }
 
 /** Default target cell edge (m) per metric — sun-hours is the heaviest (raycast per
- *  cell × sun sample × prism) so it gets a slightly larger min cell. */
+ *  cell × sun sample × prism) so it gets a slightly larger min cell.
+ *  §SITE-METRIC-FINER (2026-06-29) — HALVED (sun 5→2.5 m, climate/pop 3.5→1.8 m) so
+ *  the heatmap reads as a fine field, not coarse blocks. ~4× the cells for the same
+ *  area; `resolveCellSize` clamps UP only if the raised `maxCells` would be exceeded
+ *  (and logs when it does — never a silent truncation). */
 function defaultCellM(metric: SiteMetric): number {
-    return metric === 'sunHours' ? 5 : 3.5;
+    return metric === 'sunHours' ? 2.5 : 1.8;
+}
+
+/**
+ * §SITE-METRIC-CLIMATE-FALLBACK (founder 2026-06-29) — resolve a ClimateDataset for
+ * the temperature + wind grids. Prefers the live/ingested `input.dataset`; when that
+ * is null (the async ClimateStore ingest hasn't landed, or a blocked fetch never
+ * resolves) it SYNTHESISES the OFFLINE bundled regional normals from the site lat/lon
+ * — the SAME `fallback-defaults` dataset `ensureSiteClimate` Stage 1 ingests — so the
+ * heatmap paints a real field instantly instead of returning 0 cells. Returns null
+ * only when there is genuinely no dataset AND no lat/lon to derive one from.
+ *
+ * Internal (not exported) so it adds no public-API surface / span obligation — the
+ * exported `buildSiteMetricGrid` is the single entry point.
+ */
+function resolveGridDataset(input: MetricGridInput): ClimateDataset | null {
+    if (input.dataset) return input.dataset;
+    const lat = input.latDeg, lon = input.lngDeg;
+    if (lat == null || lon == null) return null;
+    try {
+        // Deterministic alphanumeric token from the coordinates so the same site reuses
+        // one dataset key. The schema id pattern is `climate:[A-Za-z0-9]{16,32}` and the
+        // siteRef is `[A-Za-z0-9_-]{3,64}` — NO colons/dots — so we hash to base-36.
+        const token = coordToken(lat, lon);
+        return buildFallbackClimateDataset({
+            id: `climate:${token}`,          // climate:<16 base-36 chars>
+            siteRef: `site-bundled-${token}`, // [A-Za-z0-9_-] only
+            lat,
+            lon,
+        });
+    } catch {
+        return null;
+    }
+}
+
+/** A stable 16-char base-36 token from a lat/lon pair (FNV-1a over the rounded
+ *  coordinates). Pure + deterministic; used to mint a schema-valid bundled dataset
+ *  id (`climate:[A-Za-z0-9]{16,32}`) without colons/dots. */
+function coordToken(lat: number, lon: number): string {
+    const key = `${lat.toFixed(5)},${lon.toFixed(5)}`;
+    // Two independent FNV-1a passes (different seeds) → 32-bit each → 8 base-36 chars
+    // each → 16 chars total, always within the 16–32 alphanumeric window.
+    const hash = (seed: number): string => {
+        let h = seed >>> 0;
+        for (let i = 0; i < key.length; i++) {
+            h ^= key.charCodeAt(i);
+            h = Math.imul(h, 0x01000193) >>> 0;
+        }
+        return h.toString(36).padStart(8, '0').slice(-8);
+    };
+    return (hash(0x811c9dc5) + hash(0x9e3779b1)).slice(0, 16);
 }
 
 /**
@@ -476,8 +535,11 @@ export function buildSiteMetricGrid(
         }));
     }
 
-    // temperature + wind both need the climate baselines.
-    const ds = input.dataset;
+    // temperature + wind both need the climate baselines. §SITE-METRIC-CLIMATE-FALLBACK
+    // — prefer the live/ingested dataset; else SYNTHESISE bundled regional normals from
+    // the site lat/lon so the field paints instantly instead of returning 0 cells (the
+    // prod "temperature/wind: 0/0" symptom when the async ClimateStore ingest lagged).
+    const ds = resolveGridDataset(input);
     if (!ds) return [];
     const wind = { meanMs: ds.windRose.meanSpeedMps, prevailingFromDeg: prevailingFromDeg(ds) };
 

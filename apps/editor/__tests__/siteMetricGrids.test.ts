@@ -107,9 +107,25 @@ describe('buildSiteMetricGrid', () => {
         expect(cells.some((c) => c.value > 0)).toBe(true);
     });
 
-    it('returns [] for temperature/wind when no dataset is available', () => {
+    it('returns [] for temperature/wind when NO dataset AND no lat/lon (nothing to derive normals from)', () => {
         expect(buildSiteMetricGrid('temperature', { radius: 80, footprints: FOOTPRINTS, dataset: null })).toEqual([]);
         expect(buildSiteMetricGrid('wind', { radius: 80, footprints: FOOTPRINTS, dataset: null })).toEqual([]);
+    });
+
+    it('§SITE-METRIC-CLIMATE-FALLBACK: temperature/wind paint from BUNDLED normals when ' +
+        'no live dataset but lat/lon is known (was the prod "0/0 cells" symptom)', () => {
+        const common = {
+            radius: 80, footprints: FOOTPRINTS, dataset: null,
+            latDeg: 48.8626, lngDeg: 2.3137, gridCountCap: 16,   // Paris (the prod site)
+        } as const;
+        const temp = buildSiteMetricGrid('temperature', common);
+        const wind = buildSiteMetricGrid('wind', common);
+        expect(temp.length).toBeGreaterThan(0);   // ← was [] (the bug)
+        expect(wind.length).toBeGreaterThan(0);    // ← was [] (the bug)
+        for (const c of temp) expect(Number.isFinite(c.value)).toBe(true);
+        // A live dataset still takes precedence over the synthesised bundled one.
+        const withLive = buildSiteMetricGrid('temperature', { ...common, dataset: DATASET });
+        expect(withLive.length).toBeGreaterThan(0);
     });
 
     it('returns [] for a non-positive radius', () => {

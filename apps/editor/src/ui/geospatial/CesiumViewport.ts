@@ -285,6 +285,12 @@ const BIM_DEFAULT_WALL_COLOUR = '#d4c5b0';
 const BIM_DEFAULT_SLAB_COLOUR = '#808080';
 const BIM_DEFAULT_ROOF_COLOUR = '#c8a46e';
 
+// §SITE-METRIC-RADIUS-DECOUPLE (founder 2026-06-29, ADR-0079) — the DEFAULT analysis
+// disc radius (m) for the metric heatmap, INDEPENDENT of camera/overlay framing. This
+// is ≥ 2× the old prod default (~115 m), covering a real neighbourhood, and is the
+// floor `siteMetricRadiusM()` clamps the massing-derived extent up to.
+const DEFAULT_SITE_METRIC_RADIUS_M = 240;
+
 export class CesiumViewport {
   private container: HTMLDivElement;
   private viewer: Cesium.Viewer | null = null;
@@ -478,6 +484,9 @@ export class CesiumViewport {
   private siteMetricActive: SiteMetric | null = null;
   /** Analysis-day preset for the sun-hours ground heatmap (Forma pattern). */
   private siteMetricSunDay: 'summer' | 'winter' | 'equinox' = 'summer';
+  /** §SITE-METRIC-RADIUS-DECOUPLE — explicit analysis-disc radius (m), or null = the
+   *  decoupled default. Set via `setSiteMetricRadiusOverride` (future slider). */
+  private siteMetricRadiusOverrideM: number | null = null;
   /** Cancellers for the in-flight CHUNKED metric build (cleared/cancelled on every
    *  re-render + dispose so a stale build never paints over a newer one). */
   private siteMetricChunkCancellers: DeferWorkCanceller[] = [];
@@ -3909,8 +3918,13 @@ export class CesiumViewport {
           footprints,
           dataset: null,
           heightAboveGround: 0.16,
-          cellSizeM: 5,
-          maxCells: 2600,            // hard cap (raycast cost) — big disc stays bounded
+          // §SITE-METRIC-FINER (2026-06-29) — HALVED cell (5→2.5 m) + raised cap so the
+          // finer field on the larger disc isn't silently truncated. Sun-hours is the
+          // heaviest (raycast/cell), so its cap is the lower of the two; if the disc is
+          // big enough to still exceed it, `resolveCellSize` clamps up + logs (no silent
+          // drop). The chunked per-cell raycast keeps it non-blocking.
+          cellSizeM: 2.5,
+          maxCells: 9000,            // raised 2600→9000 (finer cells); raycast stays chunked
           latDeg: origin.lat,
           lngDeg: origin.lon,
           sunDay: this.siteMetricSunDay,
@@ -3927,13 +3941,19 @@ export class CesiumViewport {
       }
 
       // Cheap metrics: the whole-grid pure build is fast; only the PAINT is chunked.
+      // §SITE-METRIC-FINER — HALVED cell (3.5→1.8 m) + raised cap (6000→20000) for a
+      // fine field on the larger disc. §SITE-METRIC-CLIMATE-FALLBACK — pass lat/lon so
+      // temperature/wind synthesise bundled regional normals when the live ClimateStore
+      // dataset is still null (was the "temperature/wind: 0/0 cells" prod symptom).
       const cells: MetricGridCell[] = buildSiteMetricGrid(metric, {
         radius,
         footprints,
         dataset: this.climateOverlayDataset,
         heightAboveGround: 0.16,
-        cellSizeM: 3.5,
-        maxCells: 6000,
+        cellSizeM: 1.8,
+        maxCells: 24000,
+        latDeg: origin.lat,
+        lngDeg: origin.lon,
       });
       this.chunkBuild(seq, cells.length, 600, (lo, hi) => {
         for (let i = lo; i < hi; i++) paintCell(cells[i]!);
@@ -4005,21 +4025,43 @@ export class CesiumViewport {
 
   /**
    * §SITE-METRIC-HEATMAP-LARGER (founder 2026-06-28) — the analysis DISC radius for
-   * the metric ground heatmap is ~2× the overlay (sun-path/wind) radius so it covers
-   * the surrounding site/context, not just a tight ring around the building. It is
-   * CLAMPED to the OSM context coverage (the ±CONTEXT_BBOX_HALF_DEG bbox ≈ ±890 m at
-   * the equator) so the heatmap never spills into an empty no-context zone — option
-   * (b), no Overpass change, no dense-urban timeout risk. The other overlays keep the
-   * smaller `overlayRadiusM()` so arcs/streaks still frame the massing.
+   * the metric ground heatmap.
+   *
+   * §SITE-METRIC-RADIUS-DECOUPLE (founder 2026-06-29, ADR-0079) — the disc is an
+   * INDEPENDENT analysis extent, NOT a function of the overlay/camera framing. The old
+   * `overlayRadiusM()*2` made the disc track the massing-area framing (≈115 m in prod),
+   * so it shrank/grew with the view instead of covering a fixed neighbourhood. We now
+   * default to a fixed `DEFAULT_SITE_METRIC_RADIUS_M` (≥ 230 m — at least DOUBLE the
+   * old default), overridable per-session via `siteMetricRadiusOverrideM`, and floored
+   * at the massing-derived extent so a very large plot still gets full coverage. Still
+   * CLAMPED to the OSM context coverage (±CONTEXT_BBOX_HALF_DEG bbox) so cells never
+   * spill into an empty no-context zone. The arcs/streaks overlays keep `overlayRadiusM`.
    */
   private siteMetricRadiusM(): number {
-    const wide = this.overlayRadiusM() * 2;
+    // Independent default (decoupled from camera/overlay framing); a large plot can
+    // still widen it via the massing-derived `overlayRadiusM()*2` floor.
+    const wantBase = this.siteMetricRadiusOverrideM ?? DEFAULT_SITE_METRIC_RADIUS_M;
+    const want = Math.max(wantBase, this.overlayRadiusM() * 2);
     // Context bbox half-extent in metres (N/S is uniform — the binding/smaller
     // coverage, since E/W is widened by latitude in contextBboxAround).
     const contextHalfM = CONTEXT_BBOX_HALF_DEG * 111_320; // deg latitude → m
     // Leave a ~10% margin inside the context edge so cells always sit on real context.
-    const coverageCap = Math.max(120, contextHalfM * 0.9);
-    return Math.min(Math.max(80, wide), coverageCap);
+    const coverageCap = Math.max(DEFAULT_SITE_METRIC_RADIUS_M, contextHalfM * 0.9);
+    return Math.min(Math.max(DEFAULT_SITE_METRIC_RADIUS_M, want), coverageCap);
+  }
+
+  /**
+   * §SITE-METRIC-RADIUS-DECOUPLE — set an explicit analysis-disc radius (m) for the
+   * metric heatmap (null = the decoupled default). Clamped + repainted on change so a
+   * future "analysis radius" slider can drive it directly. Idempotent.
+   */
+  public setSiteMetricRadiusOverride(radiusM: number | null): void {
+    const next = radiusM != null && Number.isFinite(radiusM) && radiusM > 0
+      ? Math.max(40, Math.min(2000, radiusM))
+      : null;
+    if (next === this.siteMetricRadiusOverrideM) return;
+    this.siteMetricRadiusOverrideM = next;
+    if (this.siteMetricActive) this.renderSiteMetricOverlay();
   }
 
   /** A circular proxy of the building MASS the wind streamlines bend around and

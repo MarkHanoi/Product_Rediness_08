@@ -144,7 +144,8 @@ export function buildConnectSrc(env = process.env, isProd = IS_PROD) {
         // §A.21.D-GLOBE2 — extra keyless Overpass mirrors so context buildings
         // survive rate-limiting (429) of the primary during heavy testing.
         'https://overpass.private.coffee',
-        'https://overpass.osm.jp',
+        // §SITE-METRIC-OVERPASS-PARALLEL (2026-06-29) — `overpass.osm.jp` dropped:
+        // its TLS cert is invalid (ERR_CERT_COMMON_NAME_INVALID), so it never connected.
         // CLIMATE-LIVE-DATA — keyless live climate sources for the FORMA.5
         // climate card + sun/wind analysis (apps/editor/src/ui/climate/
         // liveClimateFetch.ts → @pryzm/climate-host liveNormalsAdapter).
