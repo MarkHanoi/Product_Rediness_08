@@ -13,6 +13,8 @@
     "src"
   ],
   "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
@@ -21,5 +23,8 @@
     "@pryzm/frame-scheduler": "workspace:*",
     "@pryzm/geometry-wall": "workspace:*",
     "@pryzm/command-registry": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.9"
   }
 }
