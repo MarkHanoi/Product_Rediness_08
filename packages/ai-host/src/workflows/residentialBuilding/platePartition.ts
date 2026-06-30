@@ -92,6 +92,15 @@ export interface ApartmentCell {
      *  engine lays out rooms in THIS perimeter (polySubdivide), and rect-only gates read its bbox
      *  (`cellBBoxRect`). ALWAYS present (rect cells set it from their rect). */
     readonly polygon: readonly Pt[];
+    /** §RESI-CORE-CIRCULATION (founder 2026-06-30: "circulation always needs to be at the core") —
+     *  TRUE iff this cell's door edge fronts a corridor band that traces back to the CENTRAL CORE
+     *  through other corridors only (no marooned corridor stub, no unit-to-unit-only circulation).
+     *  Every shipped cell SHOULD be `true`: the winning candidate's corridor network is repaired to
+     *  connect every fronting band to the core (`repairCoreCirculation`) and then each cell is tagged
+     *  (`tagCoreReachability`). The preview graph roots `true` cells to the core hub and shows any
+     *  `false` cell honestly (orphaned). Optional at push time (defaults true), set authoritatively
+     *  on the result. */
+    readonly coreReachable?: boolean;
 }
 
 /** §NONRECT-CELLS-P1 — the 4-corner CCW polygon of an axis-aligned rect (the identity case: a rect
@@ -112,6 +121,12 @@ export interface PlatePartitionResult {
     readonly apartmentCells: readonly ApartmentCell[];
     /** N apartments served (share ≥ door-width with the corridor) / N requested. */
     readonly apartmentsReached: number;
+    /** §RESI-CORE-CIRCULATION — N apartments whose door fronts a CORE-CONNECTED corridor (the door
+     *  edge shares ≥ a door width with a corridor band that traces back to the central core through
+     *  corridors only). The strict core-centric invariant: on a well-formed plate this equals
+     *  `apartmentCells.length`. Always ≤ `apartmentsReached` (a band may front a cell yet be a
+     *  marooned stub, which this does NOT count). */
+    readonly apartmentsCoreReachable: number;
     /** §DIAG-RESI-FILL — placed-apartment footprint ÷ net plate area (plate − core), 0..~1. The
      *  headline §RESI-PLATE-UNDERFILL metric; a well-packed plate fills a strong majority of its net. */
     readonly fillRatio: number;
@@ -580,6 +595,198 @@ function typologyForArea(areaM2: number, enabled: readonly Typology[]): Typology
         if (areaM2 + EPS >= TYPOLOGY_AREA_BAND[t].min) return t;
     }
     return present[0]!;   // below every band min → the smallest enabled typology
+}
+
+// ── §RESI-CORE-CIRCULATION (founder 2026-06-30: "circulation always needs to be at the CORE") ──────
+// The packer fronts every apartment on SOME corridor band, but that alone does NOT make circulation
+// core-centric: a band could be a marooned stub (e.g. a per-wing connector that doesn't quite butt
+// the core spine, or a side-façade unit fronting a corridor that the §RESI-FILL-SIDEFACADE trim left
+// short of the core). The founder wants EVERY apartment's entry to connect to the CORE-anchored
+// corridor cross — not to a neighbour unit and not to an isolated corridor stub.
+//
+// These pure helpers (a) build the corridor connectivity graph and find the component touching the
+// CORE, (b) REPAIR a near-miss by extending/joining a fronting band to the core component with a
+// short spur, and (c) TAG each cell `coreReachable` iff its door fronts a core-connected band. The
+// orchestrator/preview consume the tag; the diagnostic reports `coreReached=N/N`.
+
+/** Two axis-aligned rects are CIRCULATION-ADJACENT when they overlap OR share a boundary segment
+ *  longer than a door width (so a resident can walk from one corridor band into the other). A small
+ *  overlap tolerance lets float-rounded coincident edges count as connected. */
+function corridorsAdjacent(a: Rect, b: Rect): boolean {
+    const ax0 = Math.min(a.x0, a.x1), ax1 = Math.max(a.x0, a.x1);
+    const az0 = Math.min(a.z0, a.z1), az1 = Math.max(a.z0, a.z1);
+    const bx0 = Math.min(b.x0, b.x1), bx1 = Math.max(b.x0, b.x1);
+    const bz0 = Math.min(b.z0, b.z1), bz1 = Math.max(b.z0, b.z1);
+    // Overlap (interiors intersect) OR edge-touch with ≥ door-width shared run along the touching axis.
+    const xOverlap = Math.min(ax1, bx1) - Math.max(ax0, bx0);
+    const zOverlap = Math.min(az1, bz1) - Math.max(az0, bz0);
+    const TOUCH = 0.05;            // collinear-edge coincidence tolerance (m)
+    if (xOverlap > EPS && zOverlap > EPS) return true;                       // true overlap
+    // Edge-touch: one axis just touches (gap ≤ TOUCH) while the other shares ≥ a door width.
+    if (Math.abs(xOverlap) <= TOUCH && zOverlap >= DOOR_WIDTH_M - EPS) return true;
+    if (Math.abs(zOverlap) <= TOUCH && xOverlap >= DOOR_WIDTH_M - EPS) return true;
+    return false;
+}
+
+/** Does a rect (a corridor band, or the CORE) circulation-touch a band? Reuses `corridorsAdjacent`. */
+function rectTouchesBand(r: Rect, band: Rect): boolean {
+    return corridorsAdjacent(r, band);
+}
+
+/** §RESI-CORE-CIRCULATION — the set of corridor-band indices REACHABLE FROM THE CORE through other
+ *  corridor bands only (BFS over the corridor adjacency graph, seeded by bands touching the core).
+ *  A band NOT in this set is a marooned stub — any apartment fronting only such a band is NOT
+ *  core-connected. Pure + deterministic (index order fixed). */
+function coreConnectedBandSet(corridorBands: readonly Rect[], core: Rect): Set<number> {
+    const reachable = new Set<number>();
+    const queue: number[] = [];
+    // Seed: every band that touches the core.
+    for (let i = 0; i < corridorBands.length; i++) {
+        if (rectTouchesBand(core, corridorBands[i]!)) { reachable.add(i); queue.push(i); }
+    }
+    // BFS the corridor adjacency graph.
+    while (queue.length) {
+        const i = queue.shift()!;
+        const bi = corridorBands[i]!;
+        for (let j = 0; j < corridorBands.length; j++) {
+            if (reachable.has(j)) continue;
+            if (corridorsAdjacent(bi, corridorBands[j]!)) { reachable.add(j); queue.push(j); }
+        }
+    }
+    return reachable;
+}
+
+/** §RESI-CORE-CIRCULATION — does a cell's DOOR EDGE front a corridor band that is in `connected`
+ *  (the core-connected set)? The door edge is the cell's `doorEdge`; we test that edge shares ≥ a
+ *  door width with a core-connected band's coincident boundary. Mirrors `polygonFrontsCorridor` but
+ *  restricted to the door edge AND to core-connected bands. */
+function cellDoorOnConnectedCorridor(
+    cell: ApartmentCell, corridorBands: readonly Rect[], connected: ReadonlySet<number>,
+): boolean {
+    const r = cell.rect;
+    // The door edge as a segment (constant coord + span).
+    const e = cell.doorEdge;
+    const horizontal = e === 'z0' || e === 'z1';
+    const edgeConst = e === 'x0' ? r.x0 : e === 'x1' ? r.x1 : e === 'z0' ? r.z0 : r.z1;
+    const spanLo = horizontal ? Math.min(r.x0, r.x1) : Math.min(r.z0, r.z1);
+    const spanHi = horizontal ? Math.max(r.x0, r.x1) : Math.max(r.z0, r.z1);
+    for (let i = 0; i < corridorBands.length; i++) {
+        if (!connected.has(i)) continue;
+        const c = corridorBands[i]!;
+        const cx0 = Math.min(c.x0, c.x1), cx1 = Math.max(c.x0, c.x1);
+        const cz0 = Math.min(c.z0, c.z1), cz1 = Math.max(c.z0, c.z1);
+        if (horizontal) {
+            // door on a horizontal edge (z const): the band's z0 or z1 must coincide; overlap along x.
+            const onBoundary = Math.abs(edgeConst - cz0) < 0.05 || Math.abs(edgeConst - cz1) < 0.05;
+            if (!onBoundary) continue;
+            const lo = Math.max(spanLo, cx0), hi = Math.min(spanHi, cx1);
+            if (hi - lo >= DOOR_WIDTH_M - EPS) return true;
+        } else {
+            const onBoundary = Math.abs(edgeConst - cx0) < 0.05 || Math.abs(edgeConst - cx1) < 0.05;
+            if (!onBoundary) continue;
+            const lo = Math.max(spanLo, cz0), hi = Math.min(spanHi, cz1);
+            if (hi - lo >= DOOR_WIDTH_M - EPS) return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * §RESI-CORE-CIRCULATION — REPAIR the corridor network so every band that FRONTS A PLACED CELL is
+ * connected to the core. A band that is marooned (not in the core component) but serves at least one
+ * cell is joined to the core component by a short SPUR corridor: a corridor-width column/row along
+ * the core's spine axis (X-centre) that bridges the gap between the stub band and the nearest
+ * core-connected band. Mutates `corridorBands` IN PLACE (appends spurs). Idempotent: a fully-
+ * connected network gets no spurs (no-op → byte-identical). Deterministic.
+ *
+ * Strategy: most stubs are SHORT of the core spine by a small gap (the side-façade trim or a wing
+ * connector). The spur is the rect spanning from the stub band toward the core's X-centre at the
+ * stub's Z (a horizontal bridge) or from the stub's X toward the core's Z (a vertical bridge),
+ * corridor-width, clamped to the plate. We add the MINIMAL bridge that makes the stub adjacent to a
+ * core-connected band, re-running the BFS until no serving stub remains or no progress is possible.
+ */
+function repairCoreCirculation(
+    corridorBands: Rect[],
+    placements: readonly ApartmentCell[],
+    core: Rect,
+    halfCorr: number,
+    plate: Rect,
+): void {
+    const coreCx = (Math.min(core.x0, core.x1) + Math.max(core.x0, core.x1)) / 2;
+    const coreZc = (Math.min(core.z0, core.z1) + Math.max(core.z0, core.z1)) / 2;
+    const spineX0 = round4(coreCx - halfCorr), spineX1 = round4(coreCx + halfCorr);
+    // A spur corridor must NOT be laid over a placed apartment cell (that would seal the unit it
+    // crosses). Reject any candidate leg that overlaps a cell's interior.
+    const overlapsAnyCell = (leg: Rect): boolean => placements.some((p) => {
+        const a = leg, b = p.rect;
+        const ax0 = Math.min(a.x0, a.x1), ax1 = Math.max(a.x0, a.x1);
+        const az0 = Math.min(a.z0, a.z1), az1 = Math.max(a.z0, a.z1);
+        const bx0 = Math.min(b.x0, b.x1), bx1 = Math.max(b.x0, b.x1);
+        const bz0 = Math.min(b.z0, b.z1), bz1 = Math.max(b.z0, b.z1);
+        return Math.min(ax1, bx1) - Math.max(ax0, bx0) > 1e-3 &&
+               Math.min(az1, bz1) - Math.max(az0, bz0) > 1e-3;
+    });
+    // Which bands SERVE a placed cell (front its door edge)? Only those must reach the core.
+    const servesCell = (bandIdx: number): boolean => {
+        const one = new Set<number>([bandIdx]);
+        return placements.some((p) => cellDoorOnConnectedCorridor(p, corridorBands, one));
+    };
+    let guard = corridorBands.length + 8;
+    while (guard-- > 0) {
+        const connected = coreConnectedBandSet(corridorBands, core);
+        // A serving band that is NOT core-connected is a stub we must bridge.
+        let stubIdx = -1;
+        for (let i = 0; i < corridorBands.length; i++) {
+            if (!connected.has(i) && servesCell(i)) { stubIdx = i; break; }
+        }
+        if (stubIdx < 0) break;   // every serving band is core-connected → done
+        const stub = corridorBands[stubIdx]!;
+        const sx0 = Math.min(stub.x0, stub.x1), sx1 = Math.max(stub.x0, stub.x1);
+        const sz0 = Math.min(stub.z0, stub.z1), sz1 = Math.max(stub.z0, stub.z1);
+        // Bridge the stub to the core's X-centre spine with an L of corridor-width legs: a COLUMN at
+        // the core spine X spanning the stub's Z toward the core's Z (butts the spine), and a ROW at
+        // the stub's Z-centre reaching from the stub to the core spine (butts the stub). Both are
+        // clamped to the plate. Together they reconnect the stub to the core component.
+        const legZ0 = round4(Math.max(plate.z0, Math.min(sz0, coreZc)));
+        const legZ1 = round4(Math.min(plate.z1, Math.max(sz1, coreZc)));
+        const vLeg = normRect({ x0: spineX0, z0: legZ0, x1: spineX1, z1: legZ1 });
+        const szc = round4((sz0 + sz1) / 2);
+        const hz0 = round4(szc - halfCorr), hz1 = round4(szc + halfCorr);
+        const hx0 = round4(Math.max(plate.x0, Math.min(sx1, spineX0, sx0)));
+        const hx1 = round4(Math.min(plate.x1, Math.max(sx0, spineX1, sx1)));
+        const hLeg = normRect({ x0: hx0, z0: hz0, x1: hx1, z1: hz1 });
+        let added = false;
+        for (const leg of [hLeg, vLeg]) {
+            if (Math.abs(leg.x1 - leg.x0) < EPS || Math.abs(leg.z1 - leg.z0) < EPS) continue;
+            // Never seal a unit: skip a leg that crosses a placed apartment.
+            if (overlapsAnyCell(leg)) continue;
+            const already = corridorBands.some((b) =>
+                Math.abs(b.x0 - leg.x0) < 1e-3 && Math.abs(b.x1 - leg.x1) < 1e-3 &&
+                Math.abs(b.z0 - leg.z0) < 1e-3 && Math.abs(b.z1 - leg.z1) < 1e-3);
+            if (already) continue;
+            corridorBands.push(leg);
+            added = true;
+        }
+        // No leg could be safely added (degenerate / would seal a unit) → stop; the stub's cells stay
+        // tagged coreReachable:false and the preview graph shows them honestly (orphaned). C50 soft-fail.
+        if (!added) break;
+    }
+}
+
+/** §RESI-CORE-CIRCULATION — TAG every cell `coreReachable` from the (possibly repaired) network, and
+ *  return the count that are core-connected. A cell is core-reachable iff its door edge fronts a
+ *  corridor band in the core component. Pure-ish (returns a new array; does not mutate input cells). */
+function tagCoreReachability(
+    placements: readonly ApartmentCell[], corridorBands: readonly Rect[], core: Rect,
+): { tagged: ApartmentCell[]; coreReached: number } {
+    const connected = coreConnectedBandSet(corridorBands, core);
+    let coreReached = 0;
+    const tagged = placements.map((cell) => {
+        const reachable = cellDoorOnConnectedCorridor(cell, corridorBands, connected);
+        if (reachable) coreReached++;
+        return { ...cell, coreReachable: reachable };
+    });
+    return { tagged, coreReached };
 }
 
 /**
@@ -1523,6 +1730,19 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
         return w >= DOOR_WIDTH_M - EPS;
     }).length;
 
+    // ── §RESI-CORE-CIRCULATION — make circulation strictly CORE-CENTRIC (founder 2026-06-30: "always
+    // needs to be at the CORE"). Fronting SOME corridor is not enough — a band could be a marooned
+    // stub. (1) REPAIR: bridge any serving-but-disconnected band to the core component with a short
+    // spur corridor (no-op on a fully-connected network → byte-identical). (2) TAG: mark each cell
+    // `coreReachable` iff its door fronts a CORE-CONNECTED band, and count them. The winning candidate's
+    // full-width horizontal corridors already all cross the core spine, so on a clean rectangular plate
+    // every band is core-connected and the repair adds nothing; the repair earns its keep on the
+    // §RESI-FILL-SIDEFACADE-trimmed and §RESI-RECT-DECOMP per-wing-connector plates.
+    repairCoreCirculation(corridorBands, placements, coreN, halfCorr, bb);
+    const { tagged, coreReached } = tagCoreReachability(placements, corridorBands, coreN);
+    placements.length = 0;
+    placements.push(...tagged);
+
     const areas = placements.map((c) => c.areaM2);
     const mix = placements.map((c) => c.typology);
     // §DIAG-RESI-FILL (§RESI-PLATE-UNDERFILL / §NONRECT-CELLS-P1) — the apartment FILL RATIO: placed-
@@ -1537,6 +1757,7 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
         `corridors=${corridorBands.length} ` +
         `mix=[${mix.join(',')}] areas=[${areas.map((a) => a.toFixed(1)).join(',')}] ` +
         `clippedOutOfBoundary=${clippedOut} reshaped=${reshaped} reached=${reached}/${placements.length} ` +
+        `§RESI-CORE-CIRCULATION coreReached=${coreReached}/${placements.length} ` +
         `§DIAG-RESI-FILL fillRatio=${fillRatio.toFixed(3)} (placed=${placedArea.toFixed(0)}m²/net=${netPlateArea.toFixed(0)}m²)`;
 
     return {
@@ -1545,6 +1766,7 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
         publicCorridor: corridorBands,
         apartmentCells: placements,
         apartmentsReached: reached,
+        apartmentsCoreReachable: coreReached,
         fillRatio,
         diagnostic,
     };

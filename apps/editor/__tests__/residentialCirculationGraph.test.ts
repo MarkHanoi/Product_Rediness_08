@@ -7,12 +7,12 @@ import { describe, expect, it } from 'vitest';
 import { buildResidentialCirculationGraphSvg } from '../src/ui/residential-building/residentialCirculationGraph.js';
 import type { ResidentialBuildingOk, PlacedApartment } from '@pryzm/ai-host';
 
-function placed(typology: PlacedApartment['typology'], x: number): PlacedApartment {
+function placed(typology: PlacedApartment['typology'], x: number, coreReachable = true): PlacedApartment {
     return {
         typology,
         targetAreaM2: 55,
         program: { bedrooms: 2, bathrooms: 1, masterEnSuite: false, openPlanKitchenDining: true, livingRoom: true, entranceHall: false },
-        cell: { rect: { x0: x, z0: 0, x1: x + 8, z1: 7 }, doorEdge: 'z0' } as PlacedApartment['cell'],
+        cell: { rect: { x0: x, z0: 0, x1: x + 8, z1: 7 }, doorEdge: 'z0', coreReachable } as PlacedApartment['cell'],
         status: 'ok',
         layout: undefined,
         facadeEdges: ['z1'],
@@ -70,5 +70,35 @@ describe('buildResidentialCirculationGraphSvg — §RESI-CIRC-GRAPH', () => {
         const a = buildResidentialCirculationGraphSvg(res, { levelIndex: 1 });
         const b = buildResidentialCirculationGraphSvg(res, { levelIndex: 1 });
         expect(b.svg).toBe(a.svg);
+    });
+
+    it('§RESI-CORE-LABEL — the hub reads "Core" and each unit reads its TYPOLOGY (not "Corr."/"Living")', () => {
+        const res = okResult([placed('T2', 0), placed('T3', 24)]);
+        const { svg } = buildResidentialCirculationGraphSvg(res, { levelIndex: 1, width: 460, height: 180 });
+        // The BUILDING-LEVEL labels: the central hub is the building "Core" (lifts/stairs)…
+        expect(svg).toContain('>Core<');
+        // …and each unit node is labelled by its typology (matching the plan's T1/T2/T3 labels).
+        expect(svg).toContain('>T2<');
+        expect(svg).toContain('>T3<');
+        // The OLD generic labels must be gone (the founder's complaint).
+        expect(svg).not.toContain('>Corr.<');
+        expect(svg).not.toContain('>Living<');
+    });
+
+    it('§RESI-CORE-CIRCULATION — roots every CORE-REACHABLE apartment to the core hub (star)', () => {
+        // 3 core-reachable apartments → 3 edges, all to the core (a core-centric star, not a chain).
+        const res = okResult([placed('T2', 0), placed('T1', 8), placed('T3', 24)]);
+        const { svg } = buildResidentialCirculationGraphSvg(res, { levelIndex: 1 });
+        expect((svg.match(/<line/g) ?? []).length).toBe(3);   // every unit edged to the core
+    });
+
+    it('§RESI-CORE-CIRCULATION — shows a NON-core-reachable unit HONESTLY (orphaned, no core edge)', () => {
+        // Two units core-reachable, one NOT (e.g. a layout the engine could not connect). The graph
+        // must NOT paint a false star — the orphan gets no edge to the core, so the eye sees the gap.
+        const res = okResult([placed('T2', 0), placed('T1', 8), placed('T3', 24, /*coreReachable*/ false)]);
+        const { svg, nodeCount } = buildResidentialCirculationGraphSvg(res, { levelIndex: 1 });
+        expect(nodeCount).toBe(3);                              // still one node per apartment
+        expect((svg.match(/<circle/g) ?? []).length).toBe(4);  // core hub + 3 apartments
+        expect((svg.match(/<line/g) ?? []).length).toBe(2);    // only the 2 core-reachable units edge to the core
     });
 });
