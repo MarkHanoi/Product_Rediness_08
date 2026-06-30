@@ -1002,14 +1002,16 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
         );
       }
     }
-    // Office-building (tower) — the FOURTH typology. GATED default-OFF: the pack only
-    // registers (and only then appears in the TypologyPicker + RAC) when the founder
-    // opts in by setting `globalThis.__PRYZM_OFFICE_BUILDING__ = true` BEFORE
-    // composeRuntime. Keeps production byte-identical until browser-validated. Read via
-    // a narrow typed lookup on globalThis (NOT `(window as any)`, so P4-clean).
+    // Office-building (tower) — the FOURTH typology. §OFFICE-ONBOARDING-WIRE (2026-06-30):
+    // now registered ON by default so "Commercial building — office" is a FIRST-CLASS
+    // typology in the TypologyPicker + RAC. Selecting it IS the opt-in (mirrors the
+    // UI generate-path gate in officeBuildingTrigger). Only an EXPLICIT
+    // `globalThis.__PRYZM_OFFICE_BUILDING__ === false` force-disables registration; any
+    // other value (incl. undefined) ⇒ registered. Read via a narrow typed lookup on
+    // globalThis (NOT `(window as any)`, so P4-clean).
     const officeBuildingGateOn =
       (globalThis as { __PRYZM_OFFICE_BUILDING__?: boolean })
-        .__PRYZM_OFFICE_BUILDING__ === true;
+        .__PRYZM_OFFICE_BUILDING__ !== false;
     if (officeBuildingGateOn) {
       try {
         typologyRegistry.register(buildOfficeBuildingTypologyPack());

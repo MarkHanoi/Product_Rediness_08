@@ -65,6 +65,11 @@ import { geocodeAddress } from '../site/geocodeAddress.js';
 import { generateApartmentFromBoundary } from '../apartment-layout/apartmentFromBoundary.js';
 import { generateHouseFromBoundary, type FootprintPoint } from '../house-layout/houseFromBoundary.js';
 import { generateResidentialFromBoundary } from '../residential-building/residentialFromBoundary.js';
+// §OFFICE-ONBOARDING-WIRE — the office tower is a FIRST-CLASS typology from the picker.
+// We derive its circular footprint (centroid + fit radius) from the drawn parcel, then
+// drive the SAME office controller the console path uses (opens the setup modal / plate).
+import { deriveOfficeCircleFromParcel, isOfficeTypologyId, resolveOfficeStoreyCount } from '../office-building/deriveOfficeCircle.js';
+import { getOfficeBuildingController } from '../office-building/officeBuildingTrigger.js';
 import { buildResidentialCardModel, type ResidentialCardModel } from '../residential-building/residentialCardModel.js';
 import { buildResidentialPlanSvg } from '../residential-building/residentialPlanThumbnail.js';
 // §RESI-CIRC-GRAPH — the per-floor circulation bubble graph (house-modal parity), shown BELOW the plan.
@@ -80,6 +85,11 @@ import { makeResizable } from '../makeResizable.js';
  *  `createSiteFromRect` + `briefBootstrap`'s single-apartment-scale default. */
 const DEFAULT_PARCEL_WIDTH_M = 10;
 const DEFAULT_PARCEL_DEPTH_M = 8;
+
+/** §OFFICE-ONBOARDING-WIRE — fallback circular-plate radius (m) when the drawn parcel
+ *  can't be read/derived, so the office flow never blocks (mirrors the office
+ *  controller's own DEFAULT_RADIUS_M). */
+const OFFICE_DEFAULT_RADIUS_M = 22;
 
 /** How long to wait for the user to commit a drawn boundary before the watchdog
  *  falls back to the default rectangle + generates (so the flow can't hang). */
@@ -175,9 +185,19 @@ class OnboardingStepController {
             case 'casa-unifamiliar': return 'house';   // §A.6.c — friendly noun
             case 'house': return 'house';
             case 'residential-multifamily': return 'residential building'; // §RESI-MULTIFAMILY
+            // §OFFICE-ONBOARDING-WIRE — the picker emits the registry pack id
+            // (`office-building`); the RAC/short form may emit `office`. Accept BOTH.
             case 'office': return 'office';
+            case 'office-building': return 'office';
             default: return this.typologyId || 'design';
         }
+    }
+
+    /** §OFFICE-ONBOARDING-WIRE — true when the brief's typology is the office tower,
+     *  under EITHER id the picker (`office-building`, the registry pack id) or the
+     *  short/RAC form (`office`) may thread. */
+    private isOfficeTypology(): boolean {
+        return isOfficeTypologyId(this.typologyId);
     }
 
     start(): void {
@@ -1411,6 +1431,13 @@ class OnboardingStepController {
                 // the opt-in (no console flag on this path). ADDITIVE — neither the
                 // apartment nor the house branch is touched.
                 await generateResidentialFromBoundary(this.runtime, this.briefMetadata);
+            } else if (this.isOfficeTypology()) {
+                // §OFFICE-ONBOARDING-WIRE — the office TOWER. The tower is CIRCULAR
+                // (radius + stories), but the user draws a polygon parcel, so we derive
+                // the circle (centroid + a fit radius that sits inside the plot) from
+                // the drawn boundary and drive the office controller (opens the setup
+                // modal / emits the plate). ADDITIVE — apartment/house/resi untouched.
+                await this.generateOffice();
             } else {
                 // O.12.c — forward the STRUCTURED brief so the user's captured
                 // bedroom/bathroom/option choices drive the generated layout.
@@ -1480,6 +1507,39 @@ class OnboardingStepController {
             storeyCount,
             footprint ? { footprint } : undefined,
         );
+    }
+
+    /**
+     * §OFFICE-ONBOARDING-WIRE — the OFFICE generate branch. The office tower is
+     * CIRCULAR (radius + stories), but the user drew a POLYGON parcel, so we:
+     *   1. read the drawn parcel polygon (`readParcelFootprint()`, shared with house),
+     *   2. derive a circle that SITS INSIDE the plot (centroid + fit radius, the pure
+     *      `deriveOfficeCircleFromParcel`),
+     *   3. resolve the storey count from the brief (`floors`/`levels`/`stories`, up to
+     *      ~40), then
+     *   4. drive the SAME office controller the console path uses (opens the office
+     *      setup modal / emits the plate) via `request({ stories, radiusM })`.
+     * If the parcel read/derive fails we fall back to a default radius (22 m) so the
+     * flow never blocks — mirroring the house path's defensive posture. Span-free
+     * here: the office controller's `request()` owns the OTel span (per file convention).
+     */
+    private async generateOffice(): Promise<void> {
+        const stories = resolveOfficeStoreyCount(this.briefMetadata);
+        const footprint = this.readParcelFootprint();
+        const circle = deriveOfficeCircleFromParcel(footprint);
+        const radiusM = circle?.radiusM && circle.radiusM > 0 ? circle.radiusM : OFFICE_DEFAULT_RADIUS_M;
+        console.log('[onboarding-step] §OFFICE-ONBOARDING-WIRE → OFFICE generator', {
+            stories,
+            footprintPts: footprint?.length ?? 0,
+            derivedRadiusM: circle?.radiusM ?? null,
+            radiusM,
+        });
+        try {
+            await getOfficeBuildingController().request(this.runtime, { stories, radiusM });
+        } catch (err) {
+            console.error('[onboarding-step] §OFFICE-ONBOARDING-WIRE: office controller request threw (swallowed):', err);
+            this.toast(`Office generation failed: ${String(err)}`, 'error');
+        }
     }
 
     /**
