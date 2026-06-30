@@ -344,29 +344,57 @@ export function buildPlanGraphOverlaySvg(
     });
     if (centres.size === 0) return planSvg;
 
-    // 2. Edges — symmetric-dedupe over adjacentTo (name → index). Collected first
-    //    so we can compute each node's DEGREE (how many connections it has) —
-    //    degree drives node size + hub detection. Drawn BEHIND the nodes.
+    // 2. Edges — symmetric-dedupe (name → index). Collected first so we can compute
+    //    each node's DEGREE (drives node size + hub detection) and so DOOR NODES can
+    //    be placed on each real-door edge. Drawn BEHIND the nodes.
+    //
+    // §DOOR-GRAPH-NODES (founder 2026-06-29, "DOORS must become first-class ENTITIES
+    // in the circulation graph") — a circulation edge between two rooms is REAL only
+    // when a DOOR connects them. So each edge is tagged `door` from the room's
+    // `doorAdjacentTo` (the realised opening graph, emitGeometry.ts), and a small
+    // door NODE is rendered at the edge midpoint (room — door — room). Rooms that
+    // merely SHARE A WALL but have no door between them (`adjacentTo` only) render as
+    // a faint DASHED no-door edge with NO door node, so a room reachable only without
+    // a door is visibly NOT solidly connected. When the engine build predates
+    // `doorAdjacentTo` (no room carries it) we fall back to the old `adjacentTo`
+    // edges with every edge flagged `door` (pre-deploy parity — graph unchanged).
     const idxByName = new Map<string, number>();
     rooms.forEach((r, i) => idxByName.set(r.name, i));
-    const degree = new Map<number, number>();           // node index → connection count
-    const edges: Array<{ i: number; j: number }> = [];
+    // DEGREE counts DOOR connections only (the real access graph drives hub sizing).
+    const degree = new Map<number, number>();           // node index → door-connection count
+    const edges: Array<{ i: number; j: number; door: boolean }> = [];
     const seen = new Set<string>();
+    // Has any room a door graph? (post-deploy engine). Drives the fallback below.
+    const hasDoorGraph = rooms.some(r => Array.isArray(r.doorAdjacentTo));
+    // Per-room door-neighbour name set (for O(1) "is this a real door?" lookup).
+    const doorNamesByIdx = rooms.map(r =>
+        new Set(Array.isArray(r.doorAdjacentTo) ? r.doorAdjacentTo.filter(n => typeof n === 'string') : []));
     rooms.forEach((r) => {
-        const adj = Array.isArray(r.adjacentTo) ? r.adjacentTo : [];
-        for (const other of adj) {
-            if (typeof other !== 'string' || other === r.name) continue;
+        const i = idxByName.get(r.name)!;
+        // Union of wall-adjacency + door-adjacency names so a door that is NOT also
+        // listed in adjacentTo still yields an edge (robust to one-sided data).
+        const adjNames = new Set<string>();
+        for (const n of (Array.isArray(r.adjacentTo) ? r.adjacentTo : [])) if (typeof n === 'string') adjNames.add(n);
+        for (const n of doorNamesByIdx[i]!) adjNames.add(n);
+        for (const other of adjNames) {
+            if (other === r.name) continue;
             const j = idxByName.get(other);
             if (j === undefined) continue;
-            const i = idxByName.get(r.name)!;
             const a = centres.get(i), b = centres.get(j);
             if (!a || !b) continue;                         // a node has no plan position
             const key = r.name < other ? `${r.name}|${other}` : `${other}|${r.name}`;
             if (seen.has(key)) continue;
             seen.add(key);
-            edges.push({ i, j });
-            degree.set(i, (degree.get(i) ?? 0) + 1);
-            degree.set(j, (degree.get(j) ?? 0) + 1);
+            // A door exists iff either side lists the other in doorAdjacentTo, OR
+            // (pre-deploy, no door graph at all) we treat every wall edge as a door.
+            const door = hasDoorGraph
+                ? (doorNamesByIdx[i]!.has(other) || doorNamesByIdx[j]!.has(r.name))
+                : true;
+            edges.push({ i, j, door });
+            if (door) {
+                degree.set(i, (degree.get(i) ?? 0) + 1);
+                degree.set(j, (degree.get(j) ?? 0) + 1);
+            }
         }
     });
 
@@ -405,9 +433,19 @@ export function buildPlanGraphOverlaySvg(
         `</defs>`;
 
     // 3. Edges — thin smooth violet lines BEHIND the nodes; hub↔hub edges read a
-    //    touch thicker + more opaque, with a faint along-edge gradient.
-    const edgeEls: string[] = edges.map(({ i, j }) => {
+    //    touch thicker + more opaque, with a faint along-edge gradient. §DOOR-GRAPH-NODES
+    //    — a DOOR edge is solid violet; a NO-DOOR (wall-shared only) edge is a faint
+    //    DASHED violet line at low opacity so the lack of a real connection reads at a
+    //    glance (the two rooms touch but you can't walk between them).
+    const edgeEls: string[] = edges.map(({ i, j, door }) => {
         const a = centres.get(i)!, b = centres.get(j)!;
+        if (!door) {
+            return (
+                `<line x1="${f1(a.x)}" y1="${f1(a.y)}" x2="${f1(b.x)}" y2="${f1(b.y)}" ` +
+                `stroke="${PRYZM_PURPLE}" stroke-width="1" stroke-opacity="${Math.max(0.12, edgeOpacity - 0.35)}" ` +
+                `stroke-dasharray="2 3" stroke-linecap="round" pointer-events="none"/>`
+            );
+        }
         const hub = isHub(i) && isHub(j);
         const w = hub ? 2.2 : 1.5;
         const op = hub ? Math.min(1, edgeOpacity + 0.2) : edgeOpacity;
@@ -418,6 +456,24 @@ export function buildPlanGraphOverlaySvg(
             `stroke-linecap="round" pointer-events="none"/>`
         );
     });
+    // 3b. §DOOR-GRAPH-NODES — a small WHITE disc with a purple ring at the MIDPOINT of
+    //     each real-door edge: the door is a first-class node sitting BETWEEN the two
+    //     rooms it connects (room — door — room). White fill + #6600FF ring keeps it
+    //     brand + distinct from the larger room discs. pointer-events:none (inert —
+    //     only room nodes are interactive). Drawn after edges, before halos/rooms, so
+    //     the room discs paint on top where they overlap.
+    const DOOR_R = Math.max(2.2, baseRadius * 0.5);
+    const doorNodeEls: string[] = edges
+        .filter(e => e.door)
+        .map(({ i, j }) => {
+            const a = centres.get(i)!, b = centres.get(j)!;
+            const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+            return (
+                `<circle class="alm-graph-door-node" cx="${f1(mx)}" cy="${f1(my)}" r="${f1(DOOR_R)}" ` +
+                `fill="#ffffff" stroke="${PRYZM_PURPLE}" stroke-width="1.3" pointer-events="none">` +
+                `<title>door</title></circle>`
+            );
+        });
 
     // 4. Halos — soft violet outer glow under each node so the dots "pop" on the
     //    plan. Painted between the edges and the crisp node discs.
@@ -566,7 +622,7 @@ export function buildPlanGraphOverlaySvg(
     //    </svg> so it paints ON TOP, in full colour, in the SAME viewBox.
     const overlay =
         `<g class="alm-plan-graph-overlay" aria-label="room connectivity graph">` +
-        defs + edgeEls.join('') + haloEls.join('') + nodeEls.join('') + labelEls.join('') +
+        defs + edgeEls.join('') + doorNodeEls.join('') + haloEls.join('') + nodeEls.join('') + labelEls.join('') +
         `</g>`;
     const closeIdx = planSvg.lastIndexOf('</svg>');
     if (closeIdx < 0) return planSvg + overlay;            // defensive — shouldn't happen
@@ -580,4 +636,127 @@ export function buildPlanGraphOverlaySvg(
     const body = planSvg.slice(openEnd + 1, closeIdx);
     const greyOpen = `<g class="alm-plan-grey-base" filter="url(#${greyId})" opacity="0.62">`;
     return head + greyDefs + greyOpen + body + `</g>` + overlay + planSvg.slice(closeIdx);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §DOOR-GRAPH-NODES / §CIRCULATION-REACH (founder 2026-06-29) — the door-aware
+// circulation REACHABILITY metric. The founder's directive: "MAXIMUM score = every
+// habitable room cell is reachable through circulation … DOORS are the enablers".
+// This is the SINGLE door-aware source of truth that the modal's circulation %, the
+// red-node logic, and tests share — a room is "reached" ONLY via a path of
+// DOOR-connected rooms from the storey entrance (hall on the ground floor, else the
+// stair, mirroring `unreachableHabitableRoomIds` in the engine). It returns 1.0
+// (true 100%) iff EVERY habitable room has such a door path; a room reachable only
+// through a wall (no door) or only through another private room counts as UNREACHED.
+//
+// Habitable = NOT a pure circulation space (corridor/hall/stair are the spine, not
+// destinations) and NOT served-within-parent (an en-suite reached via its master is
+// architecturally allowed). Mirrors the engine `REACH_HABITABLE_TYPES` set.
+//
+// PURE + deterministic — no I/O, no THREE, no DOM, no RNG, sorted output. P8 note:
+// like the engine's `unreachableHabitableRoomIds` (ADR-0061) this is a pure graph
+// predicate with NO OpenTelemetry span — adding one would force a runtime telemetry
+// import into this explicitly ZERO-runtime-import module. Consistent precedent.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Circulation/entrance room types — the spine, not habitable destinations. */
+const REACH_CIRCULATION_TYPES = new Set(['corridor', 'hall', 'stair']);
+/** Served-within-parent types — reached via their parent room by design (en-suite). */
+const REACH_SERVED_WITHIN = new Set(['ensuite']);
+
+export interface CirculationReachability {
+    /** Habitable rooms reachable from the entrance over the DOOR graph. */
+    readonly reached: number;
+    /** Total habitable rooms (the denominator). */
+    readonly total: number;
+    /** reached / total ∈ [0,1]. 1.0 ⇔ every habitable room has a door path to the
+     *  entrance — the founder's "MAXIMUM circulation". Neutral 1.0 when no habitable
+     *  rooms (nothing to reach). */
+    readonly fraction: number;
+    /** Names of the habitable rooms that are NOT reachable through doors — the rooms
+     *  blocking a 100% score (sorted, deterministic). */
+    readonly unreachedRoomNames: readonly string[];
+    /** True when the layout carries a real door graph (`doorAdjacentTo` on every
+     *  room). When false, `fraction` is computed over wall-adjacency as a degraded
+     *  fallback and should be treated as approximate (pre-deploy builds). */
+    readonly hasDoorGraph: boolean;
+}
+
+/**
+ * §CIRCULATION-REACH — compute door-aware circulation reachability for a layout
+ * option. BFS from the entrance over the DOOR graph (`room.doorAdjacentTo`), falling
+ * back to `adjacentTo` only when no room carries a door graph. Pure + deterministic.
+ *
+ * This is the correctness fix behind the founder's "score TOO LOW": a room must be
+ * reached through an actual DOOR path, not mere wall adjacency — so a layout that
+ * LOOKS connected (rooms touching) but lacks circulation doors scores BELOW 1.0, and
+ * only a layout where every habitable room genuinely doors onto circulation hits 1.0.
+ */
+export function computeCirculationReachability(option: LayoutOption): CirculationReachability {
+    const rooms = (option.rooms ?? []).filter(
+        (r): r is LayoutRoom => !!r && typeof r.name === 'string' && r.name.length > 0,
+    );
+    const hasDoorGraph = rooms.length > 0 && rooms.every(r => Array.isArray(r.doorAdjacentTo));
+    const typeOf = (r: LayoutRoom): string => String(r.type ?? '').toLowerCase();
+    const isCirc = (t: string): boolean => REACH_CIRCULATION_TYPES.has(t);
+    const isHabitable = (r: LayoutRoom): boolean => {
+        const t = typeOf(r);
+        return !isCirc(t) && !REACH_SERVED_WITHIN.has(t);
+    };
+    const habitable = rooms.filter(isHabitable);
+    if (habitable.length === 0) {
+        return { reached: 0, total: 0, fraction: 1, unreachedRoomNames: [], hasDoorGraph };
+    }
+
+    // Build the permeability adjacency: door graph when present, else wall adjacency.
+    const idxByName = new Map<string, number>();
+    rooms.forEach((r, i) => idxByName.set(r.name, i));
+    const adj: number[][] = rooms.map(() => []);
+    const linkNames = (a: string, others: readonly string[] | undefined): void => {
+        const i = idxByName.get(a);
+        if (i === undefined) return;
+        for (const n of (others ?? [])) {
+            if (typeof n !== 'string') continue;
+            const j = idxByName.get(n);
+            if (j === undefined || j === i) continue;
+            adj[i]!.push(j);
+            adj[j]!.push(i);                                  // undirected (robust to one-sided data)
+        }
+    };
+    for (const r of rooms) linkNames(r.name, hasDoorGraph ? r.doorAdjacentTo : r.adjacentTo);
+
+    // Deterministic entrance root: hall → stair → first circulation → first room (sorted).
+    const sorted = [...rooms].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    const root =
+        sorted.find(r => typeOf(r) === 'hall') ??
+        sorted.find(r => typeOf(r) === 'stair') ??
+        sorted.find(r => isCirc(typeOf(r))) ??
+        sorted[0]!;
+    const rootIdx = idxByName.get(root.name)!;
+
+    // BFS over the permeability graph.
+    const reachedSet = new Set<number>([rootIdx]);
+    const queue = [rootIdx];
+    while (queue.length) {
+        const cur = queue.shift()!;
+        for (const nb of (adj[cur] ?? []).slice().sort((x, y) => x - y)) {
+            if (!reachedSet.has(nb)) { reachedSet.add(nb); queue.push(nb); }
+        }
+    }
+
+    const unreached: string[] = [];
+    let reached = 0;
+    for (const r of habitable) {
+        const i = idxByName.get(r.name)!;
+        if (reachedSet.has(i)) reached += 1;
+        else unreached.push(r.name);
+    }
+    unreached.sort();
+    return {
+        reached,
+        total: habitable.length,
+        fraction: reached / habitable.length,
+        unreachedRoomNames: unreached,
+        hasDoorGraph,
+    };
 }
