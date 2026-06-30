@@ -1169,7 +1169,22 @@ export class WallJoinResolver {
                         const dConsArm = Math.hypot(armPos.x - consensusPoint.x, armPos.z - consensusPoint.z);
                         const isCollinearArm = Math.abs(armDir.dot(passThroughDir)) >= COLLINEAR_DOT;
                         const snapTolArm = Math.min(thresholds.snapRadius, 0.5);
-                        if (!isCollinearArm && dConsArm > 1e-3 && dConsArm <= snapTolArm) {
+                        // §MC-PARTITION-TRIM-SHELL-YIELD (2026-06-30) — if this angled arm's
+                        // endpoint ALSO lies on a NON-cluster (shell/perimeter) wall body, the
+                        // interior partition-only `consensusPoint` is ~0.27–0.30 m OFF that
+                        // shell face. Square-capping to consensus here pulls the arm OFF the
+                        // shell and leaves a PERPENDICULAR gap the room detector can't bridge
+                        // (the resi `unresolvedLoopBreaks=9` defect — the arm should butt onto
+                        // the shell, not the interior centroid). Yield those endpoints to the
+                        // §SHELL-ANCHOR-PRESERVE branch below → pair-wise T-join, which (with
+                        // §T-JOIN-PERP-GATE) now CONNECTS the near-miss onto the shell face so
+                        // the room loop closes. A pure interior Y/star arm has no shell body
+                        // under its end → bodyHost null → behaviour unchanged.
+                        const armBodyHost = _bodyAnchorOf(ep);
+                        if (armBodyHost) {
+                            // Fall through to §SHELL-ANCHOR-PRESERVE (it re-tests _bodyAnchorOf
+                            // and defers to the T-join). Do NOT square-cap, do NOT mark handled.
+                        } else if (!isCollinearArm && dConsArm > 1e-3 && dConsArm <= snapTolArm) {
                             const trimPtMC = consensusPoint.clone();
                             trimPtMC.y = ep.side === 'start' ? ws.y : we.y;   // preserve floor Y
                             const newBLMC: [THREE.Vector3, THREE.Vector3] =
@@ -2406,7 +2421,28 @@ export class WallJoinResolver {
         //   wall below the minimum length.  Without this guard a small wall
         //   placed near a long perpendicular wall gets stretched/inverted by
         //   the projection onto the host's lateral face.
-        if (trimPt.distanceTo(secJoinEp) > MAX_CORNER_OFFSET) {
+        //
+        // §T-JOIN-PERP-GATE (2026-06-30) — the original guard measured the
+        //   ALONG-AXIS trim length `trimPt.distanceTo(secJoinEp)`. At a SHALLOW
+        //   approach angle that length blows up far past MAX_CORNER_OFFSET even
+        //   when the endpoint is only a SMALL PERPENDICULAR gap from the host face
+        //   — exactly the resi-partition near-miss the prompt describes (arm 0.27–
+        //   0.30 m off the cluster junction, square-capped into a gap the room
+        //   detector can't bridge → "T-JOIN: trim distance exceeds safety bound,
+        //   skipping" ×28 + unresolvedLoopBreaks=9). _detect already proved the
+        //   endpoint is within SNAP_RADIUS of the host BODY (perpendicular), so a
+        //   shallow-angle along-axis overshoot is NOT evidence of a stray wall.
+        //   Gate on the TRUE perpendicular gap of the endpoint from the host face
+        //   instead: if the endpoint sits within MAX_CORNER_OFFSET of the face
+        //   (the sane snap the prompt asks for), CONNECT it by extending to the
+        //   host face so the room loop closes — never reject a genuine near-miss.
+        //   A generous along-axis runaway cap (3× MAX_CORNER_OFFSET) still rejects
+        //   pathological grazing trims that would stretch a small wall across a room.
+        const perpGap = Math.abs(
+            new THREE.Vector3().subVectors(secJoinEp, faceO).dot(faceN),
+        );
+        const ALONG_RUNAWAY_CAP = MAX_CORNER_OFFSET * 3;
+        if (perpGap > MAX_CORNER_OFFSET || trimPt.distanceTo(secJoinEp) > ALONG_RUNAWAY_CAP) {
             console.warn('[WallJoinResolver] T-JOIN: trim distance exceeds safety bound, skipping');
             return;
         }

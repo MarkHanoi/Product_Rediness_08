@@ -87,12 +87,25 @@ export class CreateCeilingsByRoomCommand implements Command {
             affectedIds.push(...r.affectedElementIds);
         };
 
+        // §FLOOR-BATCH-JOIN (2026-06-30) — mirror of CreateFloorsByRoomTypeCommand. When this
+        // command is dispatched from INSIDE a parent batch (the resi ceiling-layout path runs
+        // every per-room ceiling under the executor's own runBatch), a nested `runBatch(run, …)`
+        // logged "runBatch called while already batching — nesting not supported. Running fn()
+        // without batch guards" (once per level ×6) and ran `run()` UNGUARDED — every per-room
+        // store event escaped the outer batch's coalescing/redetect-suppression. Detect the
+        // in-flight batch via the `isBatching` getter and JOIN it (run `run()` directly, so the
+        // OUTER batch's guards apply). Only open a fresh batch when we are the top-level dispatch.
         if (this.createdCommands.length === 0) {
-            batchCoordinator.runBatch(run, {
-                levelIds: [this.levelId],
-                totalElementCount: roomsOnLevel(context, this.levelId).length,
-                skipRedetectRooms: true,
-            });
+            if (batchCoordinator.isBatching) {
+                // Already inside a batch — join it (no nested runBatch).
+                run();
+            } else {
+                batchCoordinator.runBatch(run, {
+                    levelIds: [this.levelId],
+                    totalElementCount: roomsOnLevel(context, this.levelId).length,
+                    skipRedetectRooms: true,
+                });
+            }
         } else {
             run();
         }
