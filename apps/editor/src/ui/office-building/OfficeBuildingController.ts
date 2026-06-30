@@ -141,8 +141,59 @@ export class OfficeBuildingController {
         const p = this._pending;
         if (!p) return;
         console.log('[office-building] controller: Build pressed → executor');
-        p.runtime.events?.emit('pryzm:toast', { message: 'Building office floor plate…', severity: 'info' });
+        p.runtime.events?.emit('pryzm:toast', { message: 'Building office tower…', severity: 'info' });
         void this.executor.execute(p.runtime, p.result);
         this._pending = null;
+    }
+
+    /**
+     * §OFFICE-PREVIEW-STEP — orchestrate + BUILD in one call, WITHOUT opening the modal.
+     * The onboarding office SETUP step already previewed the tower (plate + analytics +
+     * Build button), so the modal would be a redundant second preview. This runs the same
+     * PURE orchestrator (which ALWAYS auto-fits / never hard-rejects per Task A) and goes
+     * straight to the executor. Reports the as-built desk count. P8: own span.
+     */
+    async buildDirect(runtime: PryzmRuntime, req: OfficeBuildingRequest): Promise<OfficeBuildingRequestResult> {
+        return _tracer.startActiveSpan('pryzm.editor.officeBuilding.buildDirect', async (span) => {
+            try {
+                const active = resolveActiveLevel();
+                const derived = active?.id ? deriveRadiusFromShell(active.id) : null;
+                const radiusM = req.radiusM && req.radiusM > 0 ? req.radiusM : (derived && derived > 8 ? derived : DEFAULT_RADIUS_M);
+                const result: OfficeBuildingResult = orchestrateOfficeBuilding({
+                    radiusM,
+                    stories: req.stories,
+                    floorToFloorM: req.floorToFloorM && req.floorToFloorM > 0 ? req.floorToFloorM : DEFAULT_FLOOR_TO_FLOOR_M,
+                    baseElevationM: active?.elevation ?? 0,
+                    ...(typeof req.deskDensityPer1000Sqft === 'number' ? { deskDensityPer1000Sqft: req.deskDensityPer1000Sqft } : {}),
+                    ...(req.deskMode ? { deskMode: req.deskMode } : {}),
+                    ...(req.culture ? { culture: req.culture } : {}),
+                    ...(typeof req.mechanicalEveryN === 'number' ? { mechanicalEveryN: req.mechanicalEveryN } : {}),
+                });
+                if (result.status === 'rejected') {
+                    // Task A makes this near-impossible (only a non-finite radius), but never block.
+                    console.warn('[office-building] buildDirect: orchestrator rejected —', result.reason);
+                    runtime.events?.emit('pryzm:toast', { message: `Office: ${result.reason}`, severity: 'warn' });
+                    span.setAttribute('pryzm.office.buildDirect.ok', false);
+                    span.end();
+                    return { ok: false, reason: result.reason };
+                }
+                console.log(
+                    `[office-building] buildDirect → ${result.stories}-storey tower ` +
+                    `(${result.analytics.totalDesks} desks). ${result.diagnostic}`,
+                );
+                if (result.autoFit.notes.length > 0) {
+                    runtime.events?.emit('pryzm:toast', { message: result.autoFit.notes[0]!, severity: 'info' });
+                }
+                await this.executor.execute(runtime, result);
+                span.setAttribute('pryzm.office.buildDirect.ok', true);
+                span.setAttribute('pryzm.office.buildDirect.desks', result.analytics.totalDesks);
+                span.end();
+                return { ok: true, deskCount: result.analytics.totalDesks };
+            } catch (err) {
+                span.recordException(err as Error);
+                span.end();
+                throw err;
+            }
+        });
     }
 }

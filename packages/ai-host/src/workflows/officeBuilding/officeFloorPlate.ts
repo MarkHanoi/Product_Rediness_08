@@ -95,6 +95,25 @@ export interface OfficeFloorAnalytics {
     readonly daylightAdjacentDeskPct: number;
 }
 
+/**
+ * §OFFICE-PLATE-AUTOFIT — what the feasibility auto-fit had to adjust to keep the
+ * floor buildable on a small plate (mirrors resi's "N units didn't fit" notice). All
+ * fields are the AS-BUILT values; `notes` is a human summary for the modal. Empty
+ * `notes` ⇒ nothing was adjusted (the requested config fit as-is).
+ */
+export interface OfficePlateAutoFit {
+    /** Radius actually used after the min-radius clamp (m). */
+    readonly radiusM: number;
+    /** True when the radius was clamped UP to the minimum sensible plate. */
+    readonly radiusClamped: boolean;
+    /** Core area fraction actually used (may be < the rise target on a small plate). */
+    readonly coreFraction: number;
+    /** True when the core fraction was shrunk so the inner ring stays a corridor wide. */
+    readonly coreShrunk: boolean;
+    /** Human-readable adjustment notes (one line each). Empty ⇒ no adjustment. */
+    readonly notes: readonly string[];
+}
+
 export interface OfficeFloorPlateInput {
     /** Floor-plate radius (m). */
     readonly radiusM: number;
@@ -122,6 +141,8 @@ export interface OfficeFloorPlateOk {
     /** The centred-core disc radius (m). */
     readonly coreRadiusM: number;
     readonly analytics: OfficeFloorAnalytics;
+    /** §OFFICE-PLATE-AUTOFIT — what (if anything) was adjusted to fit a small plate. */
+    readonly autoFit: OfficePlateAutoFit;
     readonly diagnostic: string;
 }
 
@@ -136,8 +157,16 @@ export type OfficeFloorPlateResult = OfficeFloorPlateOk | OfficeFloorPlateReject
 const DEFAULT_SEGMENTS = 64;
 const DEFAULT_DESK_DENSITY = 6;
 const DEFAULT_MIN_CORRIDOR_M = 1.5;
-/** Minimum plate radius (m) below which a centred-core ring floor is infeasible. */
-const MIN_RADIUS_M = 8;
+/**
+ * §OFFICE-PLATE-AUTOFIT — minimum SENSIBLE plate radius (m). A circular office floor
+ * smaller than this can't host a centred core + concentric rings, so instead of
+ * REJECTING the whole generation we CLAMP UP to this radius and build the smallest
+ * sensible plate (the resi generator degrades, never hard-rejects — the office must
+ * match that). 10 m ⇒ ~314 m² plate, enough for a core + a thin ring program.
+ */
+export const MIN_BUILD_RADIUS_M = 10;
+/** Floor of the core area fraction the auto-fit may shrink to (keeps a real core). */
+const MIN_CORE_FRACTION = 0.10;
 
 /**
  * §OFFICE-CORE-RISE-ZONE — the core area FRACTION of GFA, scaling UP with storeys.
@@ -209,9 +238,23 @@ function reject(reason: string): OfficeFloorPlateRejected {
 }
 
 function _generate(input: OfficeFloorPlateInput): OfficeFloorPlateResult {
-    const radiusM = input.radiusM;
-    if (!(radiusM > MIN_RADIUS_M)) {
-        return reject(`plate radius must be > ${MIN_RADIUS_M} m (got ${round4(radiusM)})`);
+    // §OFFICE-PLATE-AUTOFIT — NEVER hard-reject for a too-small plate. A radius below
+    // the minimum sensible plate is CLAMPED UP (the smallest buildable tower), exactly
+    // as the resi generator degrades rather than refusing. A non-finite / non-positive
+    // radius is the only genuinely unusable input → caller falls back to the default.
+    const autoFitNotes: string[] = [];
+    const requestedRadiusM = input.radiusM;
+    if (!(requestedRadiusM > 0) || !Number.isFinite(requestedRadiusM)) {
+        return reject(`plate radius must be a positive number (got ${round4(requestedRadiusM)})`);
+    }
+    let radiusM = requestedRadiusM;
+    let radiusClamped = false;
+    if (radiusM < MIN_BUILD_RADIUS_M) {
+        radiusClamped = true;
+        autoFitNotes.push(
+            `Plate radius raised from ${round4(requestedRadiusM)} m to the ${MIN_BUILD_RADIUS_M} m minimum (a smaller circular floor can't host a core + ring program).`,
+        );
+        radiusM = MIN_BUILD_RADIUS_M;
     }
     const stories = Math.max(1, Math.floor(input.stories || 1));
     const segments = Math.max(12, Math.floor(input.segments ?? DEFAULT_SEGMENTS));
@@ -228,9 +271,30 @@ function _generate(input: OfficeFloorPlateInput): OfficeFloorPlateResult {
     //   open-plan 45–55% · enclosed offices 15–20% · collab pods 10–15% ·
     //   circulation 12–15%. Because area grows with r², equal-area rings get THINNER
     //   outward — we solve each ring's outer radius from a cumulative area target.
-    const coreFrac = coreFractionForRise(stories);
-    const coreAreaM2 = round4(grossFloorAreaM2 * coreFrac);
-    const coreRadiusM = round4(Math.sqrt(coreAreaM2 / Math.PI));
+    // §OFFICE-PLATE-AUTOFIT — the core fraction is rise-scaled, but on a SMALL plate a
+    // big rise-core would swallow the inner circulation ring. Rather than reject, we
+    // SHRINK the core fraction (down to MIN_CORE_FRACTION) until the inner ring is at
+    // least a half-corridor wide. We solve the largest core radius that leaves a
+    // half-corridor inner ring, then derive the core fraction from it (clamped to the
+    // rise target as a CEILING and MIN_CORE_FRACTION as a FLOOR). Pure + deterministic.
+    const riseCoreFrac = coreFractionForRise(stories);
+    // Largest core radius that still leaves a half-corridor inner ring inside the plate.
+    const maxCoreRadiusForRing = Math.max(0, radiusM - minCorridorM * 0.5);
+    const riseCoreRadius = Math.sqrt((grossFloorAreaM2 * riseCoreFrac) / Math.PI);
+    let coreRadiusUsed = Math.min(riseCoreRadius, maxCoreRadiusForRing);
+    let coreFrac = round4((Math.PI * coreRadiusUsed * coreRadiusUsed) / grossFloorAreaM2);
+    let coreShrunk = false;
+    if (coreFrac < riseCoreFrac - 1e-4) {
+        coreShrunk = true;
+        // Don't let the core vanish — floor it (a real tower always needs lift/MEP risers).
+        coreFrac = Math.max(MIN_CORE_FRACTION, coreFrac);
+        coreRadiusUsed = Math.sqrt((grossFloorAreaM2 * coreFrac) / Math.PI);
+        autoFitNotes.push(
+            `Core shrunk to ${Math.round(coreFrac * 100)}% of the floor (target ${Math.round(riseCoreFrac * 100)}%) so the ${stories}-storey core fits this plate with a circulation ring.`,
+        );
+    }
+    const coreAreaM2 = round4(Math.PI * coreRadiusUsed * coreRadiusUsed);
+    const coreRadiusM = round4(coreRadiusUsed);
 
     // Remaining (usable) area fractions OF GROSS, summing to (1 − coreFrac):
     const usableFrac = 1 - coreFrac;
@@ -250,16 +314,18 @@ function _generate(input: OfficeFloorPlateInput): OfficeFloorPlateResult {
         return round4(Math.sqrt(cumArea / Math.PI));
     };
     const rCore = coreRadiusM;
-    const rInnerCirc = radiusAt(innerCircFrac * scale * grossFloorAreaM2);
-    const rOpenPlan = radiusAt(openPlanFrac * scale * grossFloorAreaM2);
-    const rPerim = radiusAt(perimFrac * scale * grossFloorAreaM2);
-    const rCollab = radiusAt(collabFrac * scale * grossFloorAreaM2);
+    // §OFFICE-PLATE-AUTOFIT — the inner circulation ring must be at least a half-corridor
+    // wide. The core-shrink above already guarantees room for it; here we additionally
+    // CLAMP its outer radius UP to (core + half-corridor) so the corridor is real even
+    // when the area-fraction solver would make it razor-thin — then push the remaining
+    // ring radii out so they stay strictly ordered and inside the plate. No reject path.
+    const innerFloor = Math.min(round4(rCore + minCorridorM * 0.5), round4(radiusM));
+    const rInnerCirc = Math.max(radiusAt(innerCircFrac * scale * grossFloorAreaM2), innerFloor);
+    const order = (r: number): number => Math.min(round4(radiusM), Math.max(r, rInnerCirc));
+    const rOpenPlan = order(Math.max(radiusAt(openPlanFrac * scale * grossFloorAreaM2), rInnerCirc));
+    const rPerim = order(Math.max(radiusAt(perimFrac * scale * grossFloorAreaM2), rOpenPlan));
+    const rCollab = order(Math.max(radiusAt(collabFrac * scale * grossFloorAreaM2), rPerim));
     const rOuter = radiusM; // outer circulation ring closes on the glass line
-
-    // Feasibility: the inner circulation ring must be at least a corridor wide.
-    if (rInnerCirc - rCore < minCorridorM * 0.5) {
-        return reject('core leaves no room for an inner circulation ring (plate too small for storey count)');
-    }
 
     const fullDisc = circlePolygon(radiusM, segments);
 
@@ -390,10 +456,19 @@ function _generate(input: OfficeFloorPlateInput): OfficeFloorPlateResult {
         daylightAdjacentDeskPct,
     };
 
+    const autoFit: OfficePlateAutoFit = {
+        radiusM: round4(radiusM),
+        radiusClamped,
+        coreFraction: round4(coreFrac),
+        coreShrunk,
+        notes: autoFitNotes,
+    };
+
     const diagnostic =
         `§DIAG-OFFICE-PLATE r=${round4(radiusM)} stories=${stories} ` +
         `coreFrac=${coreFrac} coreR=${rCore} desks=${deskCount} ` +
-        `coreEff=${coreEfficiencyRatio} openPlan%=${openPlanPct}`;
+        `coreEff=${coreEfficiencyRatio} openPlan%=${openPlanPct} ` +
+        `autoFit=${radiusClamped || coreShrunk ? `clamped(${autoFitNotes.length})` : 'none'}`;
 
-    return { status: 'ok', radiusM, zones, coreRadiusM: rCore, analytics, diagnostic };
+    return { status: 'ok', radiusM, zones, coreRadiusM: rCore, analytics, autoFit, diagnostic };
 }

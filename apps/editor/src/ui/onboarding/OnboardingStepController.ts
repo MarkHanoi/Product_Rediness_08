@@ -70,6 +70,12 @@ import { generateResidentialFromBoundary } from '../residential-building/residen
 // drive the SAME office controller the console path uses (opens the setup modal / plate).
 import { deriveOfficeCircleFromParcel, isOfficeTypologyId, resolveOfficeStoreyCount } from '../office-building/deriveOfficeCircle.js';
 import { getOfficeBuildingController } from '../office-building/officeBuildingTrigger.js';
+// §OFFICE-PREVIEW-STEP — the office SETUP/PREVIEW step (mirrors resi's program step):
+// a live circular-plate preview + analytics + adjustable params + a Build button. The
+// orchestrator runs PURE here for the live preview; the controller owns the real build.
+import { orchestrateOfficeBuilding, maxFeasibleStoriesForRadius } from '@pryzm/ai-host';
+import type { OfficeBuildingOk, WorkplaceCulture } from '@pryzm/ai-host';
+import { buildOfficePlatePreviewSvg, buildOfficeAnalyticsHtml } from '../office-building/officePlatePreview.js';
 import { buildResidentialCardModel, type ResidentialCardModel } from '../residential-building/residentialCardModel.js';
 import { buildResidentialPlanSvg } from '../residential-building/residentialPlanThumbnail.js';
 // §RESI-CIRC-GRAPH — the per-floor circulation bubble graph (house-modal parity), shown BELOW the plan.
@@ -777,6 +783,16 @@ class OnboardingStepController {
             return;
         }
 
+        // §OFFICE-PREVIEW-STEP (founder 2026-06-30) — the office tower earns its own SETUP
+        // step (like the residential building): adjustable stories / floor-to-floor / radius
+        // / desk-density / culture + a LIVE circular-plate preview + analytics + a "Build
+        // this tower" button. Instead of straight-to-generate-and-reject, the founder SEES
+        // the feasible config (Task A clamps the slider to the plate) before building.
+        if (this.isOfficeTypology()) {
+            this.renderOfficeProgramStep(source);
+            return;
+        }
+
         const body = this.clearBody();
 
         const typology = this.typologyLabel();
@@ -1309,6 +1325,242 @@ class OnboardingStepController {
         });
     }
 
+    /**
+     * §OFFICE-PREVIEW-STEP (founder 2026-06-30) — the OFFICE-building SETUP step, the
+     * sibling of `renderResidentialProgramStep`. Replaces the generic confirm for the
+     * office typology: the user sets STORIES (1..feasibleMax), FLOOR-TO-FLOOR height,
+     * RADIUS (derived from the drawn parcel, adjustable), DESK DENSITY and the workplace
+     * CULTURE (open-plan-first / perimeter-offices-first), with a LIVE circular-plate
+     * PREVIEW + the analytics panel re-rendering on every change. Task A guarantees the
+     * preview is always feasible (the stories slider is capped to `maxFeasibleStoriesFor
+     * Radius`), so the founder never sees a rejected config. "Build this tower" writes the
+     * chosen params into `briefMetadata` (read by `generateOffice`) and runs the SAME
+     * generate path. Display-only preview — NO scene mutation here (P3/P6); the executor
+     * owns the build on click. Confined to the office step (coordination guard).
+     */
+    private renderOfficeProgramStep(source: 'drawn' | 'default-plot'): void {
+        if (this.disposed) return;
+        const body = this.clearBody();
+        console.log(`[onboarding-step] §OFFICE-PREVIEW-STEP office setup step (source="${source}").`);
+        // Reuse the resi landscape layout (left rail · centre preview · right controls).
+        this.overlay?.classList.add('os-onboarding-overlay--resi');
+
+        // Derive the circular radius from the drawn parcel (else the office default).
+        const footprint = this.readParcelFootprint();
+        const circle = deriveOfficeCircleFromParcel(footprint);
+        const derivedRadiusM = Math.round(((circle?.radiusM && circle.radiusM > 0) ? circle.radiusM : OFFICE_DEFAULT_RADIUS_M) * 10) / 10;
+
+        // Seed from any captured brief value, else the demo defaults (40 storeys clamped).
+        const seedStories = resolveOfficeStoreyCount(this.briefMetadata);
+        const seedFtf = 4.0;
+        const seedDeskDensity = 6;
+        let culture: WorkplaceCulture = 'open-plan-first';
+
+        const title = document.createElement('p');
+        title.className = 'os-prompt';
+        title.textContent = 'Set up your office building';
+        title.setAttribute('data-testid', 'onboarding-office-title');
+        body.appendChild(title);
+
+        const hint = document.createElement('p');
+        hint.className = 'os-hint';
+        hint.textContent = source === 'drawn'
+            ? 'A circular tower fitted to the plot you drew. Set the height, plate radius and workplace culture — the floor plate updates live.'
+            : 'A circular tower. Set the height, plate radius and workplace culture — the floor plate updates live.';
+        body.appendChild(hint);
+
+        const form = document.createElement('form');
+        form.className = 'os-resi-form';
+
+        // Live value-readout slider (mirrors the resi sliderField).
+        const sliderField = (label: string, testId: string, value: number, min: number, max: number, step: number, unit: string): HTMLInputElement => {
+            const row = document.createElement('label');
+            row.className = 'os-field os-field--slider';
+            const head = document.createElement('span');
+            head.className = 'os-field-head';
+            const cap = document.createElement('span');
+            cap.className = 'os-field-label';
+            cap.textContent = label;
+            const val = document.createElement('span');
+            val.className = 'os-field-value';
+            val.setAttribute('data-testid', `${testId}-value`);
+            val.textContent = `${value}${unit}`;
+            head.appendChild(cap); head.appendChild(val);
+            const input = document.createElement('input');
+            input.type = 'range';
+            input.className = 'os-input os-slider';
+            input.setAttribute('data-testid', testId);
+            input.value = String(value);
+            input.min = String(min); input.max = String(max); input.step = String(step);
+            input.addEventListener('input', () => { val.textContent = `${input.value}${unit}`; });
+            row.appendChild(head); row.appendChild(input);
+            form.appendChild(row);
+            return input;
+        };
+
+        // §OFFICE-PREVIEW-STEP — the stories slider is CAPPED to the FEASIBLE max for the
+        // current radius (Task A), so the preview is never infeasible. The cap follows the
+        // radius slider live (a bigger plate hosts a taller tower).
+        const feasibleMax = Math.max(1, maxFeasibleStoriesForRadius(derivedRadiusM));
+        const storiesInput = sliderField('Storeys', 'onboarding-office-stories', Math.min(seedStories, feasibleMax), 1, Math.max(feasibleMax, 1), 1, '');
+        const radiusInput = sliderField('Plate radius', 'onboarding-office-radius', derivedRadiusM, 8, Math.max(60, Math.ceil(derivedRadiusM)), 1, ' m');
+        const ftfInput = sliderField('Floor-to-floor height', 'onboarding-office-ftf', seedFtf, 3, 6, 0.1, ' m');
+        const deskInput = sliderField('Desk density', 'onboarding-office-desk', seedDeskDensity, 4, 8, 1, ' /1000 sqft');
+
+        // Culture toggle (open-plan-first / perimeter-offices-first).
+        const cultureWrap = document.createElement('div');
+        cultureWrap.className = 'os-field';
+        const cultureLbl = document.createElement('span');
+        cultureLbl.className = 'os-field-label';
+        cultureLbl.textContent = 'Workplace culture';
+        cultureWrap.appendChild(cultureLbl);
+        const cultureRow = document.createElement('div');
+        cultureRow.className = 'os-typo-chips';
+        const cultureOpts: Array<{ key: WorkplaceCulture; label: string }> = [
+            { key: 'open-plan-first', label: 'Open-plan first' },
+            { key: 'perimeter-offices-first', label: 'Perimeter offices first' },
+        ];
+        let refreshPreview: () => void = () => { /* set below */ };
+        for (const o of cultureOpts) {
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'os-typo-chip' + (o.key === culture ? ' os-typo-chip--on' : '');
+            chip.setAttribute('data-testid', `onboarding-office-culture-${o.key}`);
+            chip.setAttribute('aria-pressed', String(o.key === culture));
+            chip.textContent = o.label;
+            chip.addEventListener('click', () => {
+                culture = o.key;
+                cultureRow.querySelectorAll('button').forEach((b) => { b.classList.remove('os-typo-chip--on'); b.setAttribute('aria-pressed', 'false'); });
+                chip.classList.add('os-typo-chip--on');
+                chip.setAttribute('aria-pressed', 'true');
+                refreshPreview();
+            });
+            cultureRow.appendChild(chip);
+        }
+        cultureWrap.appendChild(cultureRow);
+        form.appendChild(cultureWrap);
+
+        // Plate-shape note (circular) — informational chip.
+        const shapeNote = document.createElement('p');
+        shapeNote.className = 'os-hint';
+        shapeNote.textContent = 'Plate shape: circular (centred core + concentric desk rings).';
+        form.appendChild(shapeNote);
+
+        const status = document.createElement('p');
+        status.className = 'os-status';
+        status.setAttribute('data-testid', 'onboarding-office-status');
+        status.hidden = true;
+        form.appendChild(status);
+
+        const actions = document.createElement('div');
+        actions.className = 'os-confirm-actions';
+        const generate = document.createElement('button');
+        generate.type = 'submit';
+        generate.className = 'os-btn os-btn--primary';
+        generate.setAttribute('data-testid', 'onboarding-office-generate');
+        generate.textContent = 'Build this tower';
+        const notNow = document.createElement('button');
+        notNow.type = 'button';
+        notNow.className = 'os-btn os-btn--ghost';
+        notNow.setAttribute('data-testid', 'onboarding-office-notnow');
+        notNow.textContent = `Not now — I'll design it myself`;
+        actions.appendChild(generate); actions.appendChild(notNow);
+        form.appendChild(actions);
+
+        // Landscape layout: centre preview stage + right controls form.
+        const layout = document.createElement('div');
+        layout.className = 'os-resi-layout';
+        const stage = document.createElement('div');
+        stage.className = 'os-resi-stage';
+        const preview = document.createElement('div');
+        preview.className = 'os-resi-preview';
+        preview.setAttribute('data-testid', 'onboarding-office-preview');
+        stage.appendChild(preview);
+        layout.appendChild(stage);
+        layout.appendChild(form);
+        body.appendChild(layout);
+
+        // §OFFICE-PREVIEW-STEP — LIVE PREVIEW: run the PURE orchestrator on the current
+        // params and paint the circular plate SVG + analytics. Display-only (no mutation).
+        const numV = (v: string, d: number): number => { const n = Number(v); return Number.isFinite(n) ? n : d; };
+        refreshPreview = (): void => {
+            const radiusM = numV(radiusInput.value, derivedRadiusM);
+            // Re-cap the stories slider to this radius (a smaller plate → fewer storeys).
+            const cap = Math.max(1, maxFeasibleStoriesForRadius(radiusM));
+            storiesInput.max = String(cap);
+            if (numV(storiesInput.value, seedStories) > cap) {
+                storiesInput.value = String(cap);
+                const valEl = storiesInput.parentElement?.querySelector('[data-testid="onboarding-office-stories-value"]');
+                if (valEl) valEl.textContent = String(cap);
+            }
+            const stories = Math.max(1, Math.round(numV(storiesInput.value, seedStories)));
+            const result = orchestrateOfficeBuilding({
+                radiusM,
+                stories,
+                floorToFloorM: numV(ftfInput.value, seedFtf),
+                deskDensityPer1000Sqft: Math.round(numV(deskInput.value, seedDeskDensity)),
+                culture,
+            });
+            if (result.status !== 'ok') {
+                preview.innerHTML = `<p class="os-hint">Adjust the radius or storeys to preview the tower.</p>`;
+                return;
+            }
+            const ok: OfficeBuildingOk = result;
+            const svg = buildOfficePlatePreviewSvg(ok, 300);
+            const analytics = buildOfficeAnalyticsHtml(ok);
+            const note = ok.autoFit.notes.length > 0
+                ? `<p class="os-hint" data-testid="onboarding-office-autofit">${ok.autoFit.notes.map((n) => this._escapeHtml(n)).join(' ')}</p>`
+                : '';
+            preview.innerHTML =
+                `<div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">` +
+                `<div>${svg}<div style="margin-top:8px;font-size:12px;color:#6600FF;font-weight:600;text-align:center">Representative open-plan floor</div></div>` +
+                `<div style="flex:1 1 300px;min-width:280px">${analytics}</div>` +
+                `</div>${note}`;
+        };
+        // Re-render live on any control change.
+        for (const el of [storiesInput, radiusInput, ftfInput, deskInput]) {
+            el.addEventListener('input', refreshPreview);
+        }
+        refreshPreview();
+
+        const onSubmit = (e: Event): void => {
+            e.preventDefault();
+            const radiusM = numV(radiusInput.value, derivedRadiusM);
+            const cap = Math.max(1, maxFeasibleStoriesForRadius(radiusM));
+            const stories = Math.min(Math.max(1, Math.round(numV(storiesInput.value, seedStories))), cap);
+            // §OFFICE-PREVIEW-STEP — write the chosen params into the brief so `generateOffice`
+            // builds EXACTLY what the preview showed (same source of truth as the resi step).
+            this.briefMetadata = {
+                ...this.briefMetadata,
+                floors: stories,
+                officeRadiusM: radiusM,
+                officeFloorToFloorM: numV(ftfInput.value, seedFtf),
+                officeDeskDensity: Math.round(numV(deskInput.value, seedDeskDensity)),
+                officeCulture: culture,
+            };
+            console.log('[onboarding-step] §OFFICE-PREVIEW-STEP build confirmed', { stories, radiusM, culture });
+            this.overlay?.classList.remove('os-onboarding-overlay--confirm');
+            this.overlay?.classList.remove('os-onboarding-overlay--resi');
+            void this.generateAndFinish();
+        };
+        form.addEventListener('submit', onSubmit);
+        this.addCleanup(() => form.removeEventListener('submit', onSubmit));
+
+        notNow.addEventListener('click', () => {
+            this.overlay?.classList.remove('os-onboarding-overlay--resi');
+            console.log('[onboarding-step] §OFFICE-PREVIEW-STEP → NOT NOW — disposing overlay, leaving boundary/site intact.');
+            this.toast('Saved your plot — generate any time from the AI panel.', 'info');
+            this.dispose();
+        });
+    }
+
+    /** §OFFICE-PREVIEW-STEP — minimal HTML escape for preview notes (display-only). */
+    private _escapeHtml(s: string): string {
+        return s.replace(/[&<>"']/g, (c) => (
+            { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] ?? c
+        ));
+    }
+
     private renderGeneratingStep(): void {
         this.step = 'generating';
         this.setDrawingPresentation(false);
@@ -1527,15 +1779,42 @@ class OnboardingStepController {
         const stories = resolveOfficeStoreyCount(this.briefMetadata);
         const footprint = this.readParcelFootprint();
         const circle = deriveOfficeCircleFromParcel(footprint);
-        const radiusM = circle?.radiusM && circle.radiusM > 0 ? circle.radiusM : OFFICE_DEFAULT_RADIUS_M;
+        // §OFFICE-PREVIEW-STEP — if the office SETUP step ran, it wrote the chosen params
+        // (radius / floor-to-floor / desk density / culture) into the brief, so build
+        // EXACTLY what the preview showed and SKIP the controller's own modal (the
+        // onboarding step already WAS the preview). Otherwise (console / RAC path), fall
+        // back to deriving the radius + the modal `request` as before.
+        const md = this.briefMetadata;
+        const previewRadius = typeof md['officeRadiusM'] === 'number' ? (md['officeRadiusM'] as number) : null;
+        const radiusM = previewRadius && previewRadius > 0
+            ? previewRadius
+            : (circle?.radiusM && circle.radiusM > 0 ? circle.radiusM : OFFICE_DEFAULT_RADIUS_M);
+        const culture = md['officeCulture'] === 'perimeter-offices-first' || md['officeCulture'] === 'open-plan-first'
+            ? (md['officeCulture'] as WorkplaceCulture) : undefined;
+        const floorToFloorM = typeof md['officeFloorToFloorM'] === 'number' ? (md['officeFloorToFloorM'] as number) : undefined;
+        const deskDensityPer1000Sqft = typeof md['officeDeskDensity'] === 'number' ? (md['officeDeskDensity'] as number) : undefined;
         console.log('[onboarding-step] §OFFICE-ONBOARDING-WIRE → OFFICE generator', {
             stories,
             footprintPts: footprint?.length ?? 0,
             derivedRadiusM: circle?.radiusM ?? null,
             radiusM,
+            fromPreview: previewRadius != null,
         });
         try {
-            await getOfficeBuildingController().request(this.runtime, { stories, radiusM });
+            const controller = getOfficeBuildingController();
+            const req = {
+                stories,
+                radiusM,
+                ...(floorToFloorM ? { floorToFloorM } : {}),
+                ...(deskDensityPer1000Sqft ? { deskDensityPer1000Sqft } : {}),
+                ...(culture ? { culture } : {}),
+            };
+            if (previewRadius != null) {
+                // The onboarding step already previewed → build directly (no second modal).
+                await controller.buildDirect(this.runtime, req);
+            } else {
+                await controller.request(this.runtime, req);
+            }
         } catch (err) {
             console.error('[onboarding-step] §OFFICE-ONBOARDING-WIRE: office controller request threw (swallowed):', err);
             this.toast(`Office generation failed: ${String(err)}`, 'error');

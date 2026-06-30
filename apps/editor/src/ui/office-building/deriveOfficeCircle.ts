@@ -128,7 +128,21 @@ export function deriveOfficeCircleFromParcel(
 
     // Clamp by the bbox half-min-side so an odd plot never yields a circle past the bbox.
     const bboxFit = Math.min(width, depth) / 2;
-    const radiusM = Math.min(minEdgeDist, bboxFit);
+    let radiusM = Math.min(minEdgeDist, bboxFit);
+
+    // §OFFICE-DERIVE-FILL (founder 2026-06-30: "a 499 m² parcel gave radius 10 m — derive
+    // toward FILLING the parcel"). The inscribed-circle radius is geometrically correct
+    // (the circle must sit inside the plot), but for a near-square parcel the centroid-
+    // inscribed radius is often a touch CONSERVATIVE versus the largest plate that still
+    // fits the bbox. Push the radius UP toward the bbox-fit (the biggest circle that fits
+    // the bounding box) — without EVER exceeding it — using the geometric mean of the two,
+    // so an irregular plot still respects its tight edges while a regular plot fills more.
+    // The circle never pokes past the bbox (bboxFit ceiling), so it stays inside a convex
+    // plot; a concave plot is still bounded by `minEdgeDist` via the mean.
+    if (Number.isFinite(minEdgeDist) && minEdgeDist > 0 && bboxFit > radiusM) {
+        const filled = Math.sqrt(radiusM * bboxFit); // ∈ [radiusM, bboxFit]
+        radiusM = Math.min(filled, bboxFit);
+    }
     if (!(radiusM > 0) || !Number.isFinite(radiusM)) return null;
 
     return { cx, cz, radiusM };

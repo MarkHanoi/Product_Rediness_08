@@ -403,12 +403,14 @@ export {
   riseZoneLabel,
   orchestrateOfficeBuilding,
   classifyOfficeFloor,
+  maxFeasibleStoriesForRadius,
 } from './workflows/officeBuilding/index.js';
 export type {
   OfficeFloorPlateInput,
   OfficeFloorPlateResult,
   OfficeFloorPlateOk,
   OfficeFloorPlateRejected,
+  OfficePlateAutoFit,
   OfficeZone,
   OfficeZoneKind,
   OfficeFloorAnalytics,
