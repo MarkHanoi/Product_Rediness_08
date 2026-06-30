@@ -1,8 +1,8 @@
-# ADR-0081 — Circle boundary-draw tool (centre + radius → closed N-gon)
+# ADR-0082 — Circle / Ellipse / Fillet boundary-draw tools (centre + radius → closed N-gon)
 
 - Status: Accepted
 - Date: 2026-06-30
-- Tags: §CIRCLE-BOUNDARY, geospatial, boundary-draw, site
+- Tags: §CIRCLE-BOUNDARY, §ELLIPSE-BOUNDARY, §FILLET-BOUNDARY, geospatial, boundary-draw, site
 - Supersedes / relates to: §RECT-BOUNDARY, §BND-MODE-STRIP (the boundary-draw mode strip),
   ADR-059 (site-plan overlay), C19 (site substrate / parcel boundary)
 
@@ -66,12 +66,51 @@ matches the rectangle emitter, so `classifyEdges` sees a consistent outward norm
 - Preview stroke stays PRYZM violet `#6600FF` (vertex handles) over the Forma green
   boundary line — the existing render path; brand-compliant, no black.
 
-## Stretch / not-done (clean seams left)
+## Follow-up — Ellipse + Fillet siblings (2026-06-30, this ADR extended in place)
 
-- **Ellipse** (centre + two radii) and **Arc/fillet on an existing boundary corner** were
-  scoped as stretch and are **not** built. They would plug in as additional pill modes that
-  emit N-gon vertices through the SAME `setX...Vertices → refreshRing → commit` seam the
-  circle uses. The pure-emitter pattern (`circleBoundary.ts`) is the template: add an
-  `ellipseCornersFromCentreRadii(...)` / `arcCornersOnCorner(...)` pure module + a draw-mode
-  branch in `onClick` / `onMouseMove`. No downstream contract change is needed (still a
-  vertex ring).
+The two seam-marked stretch siblings were taken up. Both reuse the circle's
+projection-inversion + the SAME `setX...Vertices → refreshRing → commit` seam; no
+downstream contract change (still a vertex ring).
+
+### §ELLIPSE-BOUNDARY — SHIPPED (sixth pill, `E`)
+
+- New PURE module `apps/editor/src/ui/geospatial/ellipseBoundary.ts` mirroring
+  `circleBoundary.ts`: `ellipseCornersFromCentreRadii(centre, rxMetres, ryMetres,
+  segments=64)` → closed CCW 64-gon, with per-axis projection inversion so the projected
+  XZ ellipse is true (semi-major `rx` along East/X, semi-minor `ry` along North/Z), NOT
+  longitude-stretched. Helpers: `ellipseAxisRadiusMetres` (per-axis read-back),
+  `fmtRadiiMetres` (`Rx 20.0 × Ry 12.5 m` readout), `snapRadiusToRound` (same 0.5 m snap).
+- **Interaction = centre → bounding-box corner** (the ADR-marked "bounding-box ellipse"
+  option): click 1 = centre; the second click's projected X offset = `rx`, Y offset = `ry`
+  → immediate commit, exactly the circle's two-click shape. Live rubber-band preview +
+  two-axis radii readout chip in brand `#6600FF`; per-edge dim chips suppressed (as for the
+  circle); ortho snap excluded (the ellipse is box-defined). A circle is the `rx === ry`
+  special case (asserted in tests).
+- Unit-tested in `apps/editor/__tests__/ellipseBoundary.test.ts` (closed N-gon, area ≈
+  π·rx·ry, XZ extent 2rx × 2ry, ellipse-equation membership, CCW winding, degenerate-input
+  rejection, per-axis read-back, readout/snap format).
+
+### §FILLET-BOUNDARY — pure helper SHIPPED; corner-pick UI deferred (clean seam)
+
+- New PURE module `apps/editor/src/ui/geospatial/filletBoundary.ts`:
+  `filletCornerArc(prev, corner, next, radiusMetres, segments=8)` rounds one boundary
+  corner into an N-segment arc TANGENT to the two adjacent edges — computed in true metric
+  XZ (project about the corner, solve, invert back to lat/lon). It CLAMPS the radius so the
+  tangent never consumes more than half (`EDGE_FRACTION = 0.5`) of either adjacent edge (no
+  self-intersection) and returns the clamped `radiusUsed` so the UI can show it;
+  `maxFilletRadiusMetres` exposes that cap. Collinear / degenerate / non-positive input →
+  empty arc (caller keeps the corner). Helpers: `fmtFilletRadiusMetres` (`Fillet 2.5 m`).
+- Unit-tested in `apps/editor/__tests__/filletBoundary.test.ts` (constant-radius arc from a
+  single centre, tangency to both edges, radius clamp, collinear/degenerate empties, segment
+  count, max-radius scaling).
+- **UI deferred (NOT half-built):** the corner-pick interaction (require/read-back a
+  committed boundary → hit-test a corner → drag a fillet radius → splice the arc → re-commit)
+  is a distinct interaction from the two-click draw modes and is documented as a TODO at the
+  `§BND-MODE-STRIP` mode-strip definition in `SiteBoundaryMap2D.ts`. The pure engine above is
+  the ready plug-in point.
+
+### Pure-helper convention (both modules)
+
+The pure geometry helpers in this directory carry no OTel span — consistent with
+`circleBoundary.ts` / `rectBoundary.ts` / `orthoSnap.ts`; the GA OTel gate (P8) is scoped to
+`plugins/*/src/handlers/`, not these pure lat/lon → vertex emitters.

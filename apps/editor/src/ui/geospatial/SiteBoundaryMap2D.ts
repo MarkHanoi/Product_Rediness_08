@@ -75,6 +75,16 @@ import {
     fmtRadiusMetres,
     snapRadiusToRound,
 } from './circleBoundary.js';
+// §ELLIPSE-BOUNDARY — pure centre+two-radii → closed CCW N-gon ellipse corner builder.
+// Center → bounding-box corner: the corner's projected X offset = the semi-major
+// (East/X) radius, its Y offset = the semi-minor (North/Z) radius. One drag / two
+// clicks, mirroring the circle's commit seam (ADR-0082 ellipse stretch).
+import {
+    ellipseCornersFromCentreRadii,
+    ellipseAxisRadiusMetres,
+    fmtRadiiMetres,
+    snapRadiusToRound as snapEllipseRadiusToRound,
+} from './ellipseBoundary.js';
 // §SITE-PLAN-OVERLAY — georeferenced client-plan (PDF/image) overlay controller.
 import {
     mountSitePlanOverlayController,
@@ -377,9 +387,28 @@ export function mountSiteBoundaryMap2D(
     //                  fallback to Linear polygon + a toast (pill still shown, marked).
     //   I Circle     → §CIRCLE-BOUNDARY two-point (centre + circumference); emits a
     //                  closed 64-gon polygon down the SAME commit path as Rectangle.
+    //   E Ellipse    → §ELLIPSE-BOUNDARY two-point (centre + bounding-box corner): the
+    //                  corner's projected X offset = semi-major (East) radius, Y offset
+    //                  = semi-minor (North) radius; emits a closed 64-gon down the SAME
+    //                  commit path (ADR-0082 ellipse stretch — tower massing).
+    //
+    // §FILLET-BOUNDARY — TODO (ADR-0082 arc/fillet stretch): a "Fillet" pill that lets
+    // the user round an EXISTING boundary corner into a tangent arc WITHOUT redrawing.
+    // The PURE engine is already shipped + unit-tested (`filletBoundary.ts`:
+    // `filletCornerArc(prev, corner, next, radiusMetres, segments)` → arc vertices to
+    // splice in place of the corner, with `maxFilletRadiusMetres` clamping the radius so
+    // the arc fits within the two edges). What remains is the corner-pick INTERACTION:
+    // (1) require a committed parcel boundary (read it back from the C19 SiteModelStore
+    // or re-draw it into `vertices`); (2) hit-test the cursor against the boundary
+    // vertices to pick a corner; (3) drag a fillet radius with a live `fmtFilletRadiusMetres`
+    // readout; (4) splice `filletCornerArc(...).arc` into the ring at the corner index and
+    // re-commit via the SAME `buildBoundaryFromLatLonRing → dispatchParcelBoundary` path.
+    // Deferred (not half-built) because the corner-pick + boundary-readback UI is a
+    // distinct interaction from the two-click draw modes here.
+    //
     // The bar is `position:absolute` inside the overlay (the overlay is the editor
     // #container, also absolute) so it floats at the top-centre of the draw surface.
-    type BoundaryDrawMode = 'rectangle' | 'linear' | 'orthogonal' | 'curved' | 'circle';
+    type BoundaryDrawMode = 'rectangle' | 'linear' | 'orthogonal' | 'curved' | 'circle' | 'ellipse';
     const modeBar = document.createElement('div');
     modeBar.className = 'wdh-bar';
     modeBar.setAttribute('data-bnd-mode-bar', '1');
@@ -406,6 +435,8 @@ export function mountSiteBoundaryMap2D(
         { key: 'C', label: 'Curved',     mode: 'curved'     },
         // §CIRCLE-BOUNDARY — key 'I' (C is taken by Curved); two-point circle.
         { key: 'I', label: 'Circle',     mode: 'circle'     },
+        // §ELLIPSE-BOUNDARY — key 'E'; two-point centre + bounding-box corner.
+        { key: 'E', label: 'Ellipse',    mode: 'ellipse'    },
     ];
     const modeBtns = new Map<BoundaryDrawMode, HTMLButtonElement>();
     for (const d of MODE_DEFS) {
@@ -456,11 +487,12 @@ export function mountSiteBoundaryMap2D(
     // legacy vertex-by-vertex polygon draw (Enter / dbl-click to close), differing
     // only in the 90°-lock + the curved fallback note (see setDrawMode).
     let uiMode: BoundaryDrawMode = 'rectangle';
-    // §RECT-BOUNDARY / §CIRCLE-BOUNDARY — the INTERNAL geometry mode the draw handlers
-    // branch on. Three shapes exist: a two-corner axis-aligned rectangle, a two-point
-    // circle (centre + circumference → N-gon), or a vertex-by-vertex polygon. The five
-    // UI pills collapse onto these (+ the ortho flag below).
-    let drawMode: 'rectangle' | 'polygon' | 'circle' = 'rectangle';
+    // §RECT-BOUNDARY / §CIRCLE-BOUNDARY / §ELLIPSE-BOUNDARY — the INTERNAL geometry mode
+    // the draw handlers branch on. Four shapes exist: a two-corner axis-aligned
+    // rectangle, a two-point circle (centre + circumference → N-gon), a two-point
+    // ellipse (centre + bounding-box corner → N-gon), or a vertex-by-vertex polygon.
+    // The six UI pills collapse onto these (+ the ortho flag below).
+    let drawMode: 'rectangle' | 'polygon' | 'circle' | 'ellipse' = 'rectangle';
     // §RECT-BOUNDARY — the first clicked corner in rectangle mode (null = awaiting
     // the first click). The live rubber-band rectangle previews from here to the
     // cursor; the second click commits.
@@ -469,6 +501,12 @@ export function mountSiteBoundaryMap2D(
     // Once set, the live circle previews from this centre out to the cursor radius;
     // the second click commits the closed N-gon. The radius readout chip tracks it.
     let circleCentre: LatLon | null = null;
+    // §ELLIPSE-BOUNDARY — the clicked ellipse CENTRE (null = awaiting the first click).
+    // Once set, the live ellipse previews from this centre out to the cursor
+    // (bounding-box corner: |Δx| = semi-major / East radius, |Δz| = semi-minor /
+    // North radius); the second click commits the closed N-gon. The radii readout
+    // chip tracks it.
+    let ellipseCentre: LatLon | null = null;
     let draggingIdx: number | null = null;
     let disposed = false;
     // §SITE-PLAN-OVERLAY — the georeferenced client-plan overlay controller, mounted on
@@ -598,10 +636,10 @@ export function mountSiteBoundaryMap2D(
         if (disposed) return;
         // Build the list of segments to label: placed edges + the live segment.
         const segs: Array<{ a: LatLon; b: LatLon }> = [];
-        // §CIRCLE-BOUNDARY — a circle is a 64-gon; labelling all 64 chords is noise.
-        // The radius readout chip (refreshRadiusLabel) is the circle's affordance, so
-        // suppress per-edge dimensions in circle mode (leave segs empty → all hidden).
-        const n = drawMode === 'circle' ? 0 : vertices.length;
+        // §CIRCLE-BOUNDARY / §ELLIPSE-BOUNDARY — a circle/ellipse is a 64-gon; labelling
+        // all 64 chords is noise. The radius readout chip (refreshRadiusLabel) is the
+        // affordance, so suppress per-edge dimensions in those modes (segs empty → hidden).
+        const n = drawMode === 'circle' || drawMode === 'ellipse' ? 0 : vertices.length;
         // Placed edges. When the ring is "closed" (≥3 vertices) we label the
         // closing edge (last → first) too so every drawn edge has a dimension.
         const placedEdges = n >= 3 ? n : Math.max(0, n - 1);
@@ -922,13 +960,52 @@ export function mountSiteBoundaryMap2D(
     }
 
     /**
-     * §CIRCLE-BOUNDARY — show/refresh the live radius readout chip at the
-     * circumference point under the cursor while drawing a circle. Hidden when no
-     * circle is in progress (no centre / not circle mode / frozen). The chip text
-     * matches the line tool's metric label format (`R 12.5 m`).
+     * §ELLIPSE-BOUNDARY — build the live closed N-gon ellipse from `centre` out to a
+     * bounding-box corner (`corner`, the cursor) and write it into `vertices` (reusing
+     * the polygon fill/line/handle render path). The semi-major (East/X) radius is the
+     * projected |Δx| centre→corner, the semi-minor (North/Z) is |Δz|, each snapped to
+     * round numbers (0.5 m) when close. Returns false for a degenerate (≈ zero) radius
+     * on either axis, leaving `vertices` as just [centre].
+     */
+    function setEllipseVertices(centre: LatLon, corner: LatLon): boolean {
+        const rawRx = ellipseAxisRadiusMetres(centre, corner, 'x');
+        const rawRy = ellipseAxisRadiusMetres(centre, corner, 'z');
+        const rx = snapEllipseRadiusToRound(rawRx);
+        const ry = snapEllipseRadiusToRound(rawRy);
+        vertices.length = 0;
+        const corners = rx > 0.05 && ry > 0.05 ? ellipseCornersFromCentreRadii(centre, rx, ry) : null;
+        if (!corners) {
+            vertices.push({ lat: centre.lat, lon: centre.lon });
+            return false;
+        }
+        vertices.push(...corners);
+        return true;
+    }
+
+    /**
+     * §CIRCLE-BOUNDARY / §ELLIPSE-BOUNDARY — show/refresh the live radius readout chip
+     * at the point under the cursor while drawing a circle (`R 12.5 m`) or an ellipse
+     * (`Rx 20.0 × Ry 12.5 m`). Hidden when no circle/ellipse is in progress (no centre
+     * / wrong mode / frozen). The chip reuses the SAME pooled `radiusMarker` (only one
+     * radial mode is active at a time).
      */
     function refreshRadiusLabel(): void {
         if (disposed) return;
+        // §ELLIPSE-BOUNDARY — two-axis readout while dragging the bounding-box corner.
+        if (!committed && drawMode === 'ellipse' && ellipseCentre && cursorLL) {
+            const rx = snapEllipseRadiusToRound(ellipseAxisRadiusMetres(ellipseCentre, cursorLL, 'x'));
+            const ry = snapEllipseRadiusToRound(ellipseAxisRadiusMetres(ellipseCentre, cursorLL, 'z'));
+            if (!radiusMarker) {
+                radiusMarker = new MapLibreMarker({ element: makeDimChip(), anchor: 'center' });
+                radiusMarker.setLngLat([0, 0]).addTo(map);
+            }
+            const el = radiusMarker.getElement();
+            if (rx < 0.05 || ry < 0.05) { el.style.display = 'none'; return; }
+            el.style.display = '';
+            el.textContent = fmtRadiiMetres(rx, ry);
+            radiusMarker.setLngLat([cursorLL.lon, cursorLL.lat]);
+            return;
+        }
         const active = !committed && drawMode === 'circle' && circleCentre && cursorLL;
         if (!active) {
             if (radiusMarker) radiusMarker.getElement().style.display = 'none';
@@ -1018,6 +1095,39 @@ export function mountSiteBoundaryMap2D(
             return;
         }
 
+        // §ELLIPSE-BOUNDARY — ellipse mode: first click = CENTRE; second = a
+        // bounding-box corner (|Δx| = East radius, |Δz| = North radius) → IMMEDIATE
+        // commit of the closed N-gon polygon.
+        if (drawMode === 'ellipse') {
+            if (!ellipseCentre) {
+                ellipseCentre = { lat, lon };
+                vertices.length = 0;
+                vertices.push({ lat, lon }); // show a handle at the centre
+                snapTarget = null;
+                refreshSnapIndicator();
+                refreshRing();
+                refreshRadiusLabel();
+                console.log(`[gis] map2d ellipse centre @ ${lat.toFixed(6)}, ${lon.toFixed(6)}`);
+                return;
+            }
+            const ok = setEllipseVertices(ellipseCentre, { lat, lon });
+            snapTarget = null;
+            refreshSnapIndicator();
+            refreshRing();
+            if (!ok) {
+                console.warn('[gis] map2d ellipse: zero-radius on an axis — pick a corner offset on BOTH axes');
+                toast('Pick a corner offset from the centre on BOTH axes.', 'error');
+                return;
+            }
+            const rx = snapEllipseRadiusToRound(ellipseAxisRadiusMetres(ellipseCentre, { lat, lon }, 'x'));
+            const ry = snapEllipseRadiusToRound(ellipseAxisRadiusMetres(ellipseCentre, { lat, lon }, 'z'));
+            console.log(
+                `[gis] map2d ellipse Rx ${rx.toFixed(2)} × Ry ${ry.toFixed(2)} m @ ${lat.toFixed(6)}, ${lon.toFixed(6)} → ${vertices.length}-gon, committing`,
+            );
+            commit();
+            return;
+        }
+
         // Polygon mode (legacy): each click adds a vertex.
         vertices.push({ lat, lon });
         // Clear the snap so it doesn't linger over the just-placed vertex.
@@ -1032,10 +1142,10 @@ export function mountSiteBoundaryMap2D(
 
     function onDblClick(e: MapMouseEvent): void {
         if (disposed || committed) return;
-        // §RECT-BOUNDARY / §CIRCLE-BOUNDARY — rectangle + circle modes commit on the
-        // second single click; the close-the-loop double-click is a polygon-only
-        // affordance.
-        if (drawMode === 'rectangle' || drawMode === 'circle') { e.preventDefault(); return; }
+        // §RECT-BOUNDARY / §CIRCLE-BOUNDARY / §ELLIPSE-BOUNDARY — rectangle + circle +
+        // ellipse modes commit on the second single click; the close-the-loop
+        // double-click is a polygon-only affordance.
+        if (drawMode === 'rectangle' || drawMode === 'circle' || drawMode === 'ellipse') { e.preventDefault(); return; }
         e.preventDefault();
         // The dblclick fires after two single clicks already added two vertices;
         // they are the intended last corner (duplicated) — drop one before commit.
@@ -1071,11 +1181,12 @@ export function mountSiteBoundaryMap2D(
         // relative-right-angle (ortho) snap doesn't apply (and would make the live
         // rect jitter, since it'd read the preview rect's own edges). Keep the
         // building corner/edge snap so corner B can land on a real footprint corner.
-        // §CIRCLE-BOUNDARY — circle mode (like rectangle) is radial by construction, so
-        // the relative-right-angle (ortho) snap doesn't apply. Keep the building
-        // corner/edge snap so the centre/circumference can land on a real footprint.
+        // §CIRCLE-BOUNDARY / §ELLIPSE-BOUNDARY — circle + ellipse modes (like rectangle)
+        // are radial/box-defined by construction, so the relative-right-angle (ortho)
+        // snap doesn't apply. Keep the building corner/edge snap so the centre /
+        // circumference / box corner can land on a real footprint.
         const next =
-            drawMode === 'rectangle' || drawMode === 'circle'
+            drawMode === 'rectangle' || drawMode === 'circle' || drawMode === 'ellipse'
                 ? resolveSnap(e.point)
                 : (resolveSnap(e.point) ?? resolveOrthoSnapTarget(e.point));
         // A.21.D9 — track the cursor (snapped position when a snap is active, else
@@ -1095,6 +1206,13 @@ export function mountSiteBoundaryMap2D(
         // render path. The radius readout chip follows the circumference point.
         if (drawMode === 'circle' && circleCentre) {
             setCircleVertices(circleCentre, cursorLL);
+            refreshRing();
+        }
+        // §ELLIPSE-BOUNDARY — live rubber-band ellipse: once the centre is placed,
+        // preview the N-gon from the centre out to the cursor (bounding-box corner)
+        // via the SAME render path. The two-axis radii readout follows the cursor.
+        if (drawMode === 'ellipse' && ellipseCentre) {
+            setEllipseVertices(ellipseCentre, cursorLL);
             refreshRing();
         }
         refreshDimLabels();
@@ -1130,10 +1248,10 @@ export function mountSiteBoundaryMap2D(
         if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
         if (ev.key === 'Enter') {
             ev.preventDefault();
-            // §RECT-BOUNDARY / §CIRCLE-BOUNDARY — Enter is a polygon-only close.
-            // Rectangle + circle commit on the second click; a stray Enter must not
-            // commit the live preview rect/circle.
-            if (drawMode === 'rectangle' || drawMode === 'circle') return;
+            // §RECT-BOUNDARY / §CIRCLE-BOUNDARY / §ELLIPSE-BOUNDARY — Enter is a
+            // polygon-only close. Rectangle + circle + ellipse commit on the second
+            // click; a stray Enter must not commit the live preview shape.
+            if (drawMode === 'rectangle' || drawMode === 'circle' || drawMode === 'ellipse') return;
             commit();
         } else if (ev.key === 'Escape') {
             ev.preventDefault();
@@ -1144,7 +1262,7 @@ export function mountSiteBoundaryMap2D(
         // HUD. Plain keys only (no modifier) so they don't clash with browser combos.
         if (ev.altKey || ev.ctrlKey || ev.metaKey) return;
         const mode: BoundaryDrawMode | undefined = {
-            r: 'rectangle', l: 'linear', o: 'orthogonal', c: 'curved', i: 'circle',
+            r: 'rectangle', l: 'linear', o: 'orthogonal', c: 'curved', i: 'circle', e: 'ellipse',
         }[ev.key.toLowerCase()] as BoundaryDrawMode | undefined;
         if (mode) {
             ev.preventDefault();
@@ -1220,6 +1338,10 @@ export function mountSiteBoundaryMap2D(
                 // §CIRCLE-BOUNDARY — click centre, then a point on the circumference.
                 chip.textContent = 'Click the centre, then a point on the edge (radius shown) · Esc to cancel';
                 break;
+            case 'ellipse':
+                // §ELLIPSE-BOUNDARY — click centre, then a bounding-box corner (two radii shown).
+                chip.textContent = 'Click the centre, then a corner of the bounding box (Rx × Ry shown) · Esc to cancel';
+                break;
         }
     }
     /**
@@ -1258,10 +1380,15 @@ export function mountSiteBoundaryMap2D(
                 // §CIRCLE-BOUNDARY — two-point centre+radius → closed 64-gon polygon.
                 drawMode = 'circle';
                 break;
+            case 'ellipse':
+                // §ELLIPSE-BOUNDARY — two-point centre + bounding-box corner → 64-gon.
+                drawMode = 'ellipse';
+                break;
         }
-        // Reset the in-progress draw (clears corner A / circle centre / partial polygon).
+        // Reset the in-progress draw (clears corner A / circle+ellipse centre / partial polygon).
         rectCornerA = null;
         circleCentre = null;
+        ellipseCentre = null;
         vertices.length = 0;
         snapTarget = null;
         cursorLL = null;
