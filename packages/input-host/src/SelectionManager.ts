@@ -619,6 +619,65 @@ export class SelectionManager implements ISelectionManager {
     }
 
     /**
+     * §SELECT-HOVER-MATRIX-GUARD (FIX #1 + #2) — propagate world matrices for a
+     * GPU pick WITHOUT letting a stale gizmo abort the frame.
+     *
+     * Both the hover RAF (`_onHoverGpuPickRaf`) and the click pick path call
+     * `scene.updateMatrixWorld(true)` to bring batch-created / matrixAutoUpdate=false
+     * elements current before the pick render. TransformControls is itself a child
+     * of the scene, and stock THREE's `TransformControls.updateMatrixWorld()` THROWS
+     * ("The attached 3D object must be a part of the scene graph") the instant its
+     * attached object's parent chain no longer reaches the scene root — which happens
+     * CONSTANTLY on a resi building whose 92 walls are re-queued + rebuilt in the
+     * background (§RESI-EXTERIOR-WALL-MITER-FIX2): the selected wall's old mesh is
+     * disposed mid-hover before our deferred `_reresolveSelectionAfterRebuild` runs.
+     *
+     * When that throw fires inside the hover RAF:
+     *   • the GPU hover pick NEVER runs → `_lastHoveredObjectGpu` / the click anchor
+     *     are never refreshed → every subsequent click snaps back to the LAST wall
+     *     (the "stuck selection" symptom);
+     *   • the half-finished `updateMatrixWorld` traversal + the WebGPU dispose it
+     *     triggers surface the §I2/§I3 `usedTimes` device-loss family UNGUARDED into
+     *     ViewportCrashGuard, which aborts that frame's render (the highlight
+     *     "flickers off").
+     *
+     * Fix: detach any stale gizmo FIRST (so the throw can't happen at all), then run
+     * the matrix update inside a try/catch as belt-and-braces — if anything still
+     * throws (e.g. a wall/stair PROXY whose WallTransformController removed it from
+     * the scene during the same rebuild), we detach the gizmo and retry ONCE so the
+     * scene matrices still get updated and the pick can proceed. The render frame is
+     * never aborted by a hover.
+     */
+    private _safeUpdateMatrixWorldForPick(): void {
+        // (1) Never let the gizmo poison the traversal: drop a detached target up front.
+        this.guardTransformControlsAttachment();
+        const sceneRoot = this.world.scene.three as THREE.Object3D;
+        try {
+            sceneRoot.updateMatrixWorld(true);
+        } catch (err) {
+            // (2) Belt-and-braces: a gizmo/proxy can detach between the guard above
+            // and this call under heavy rebuild churn. Detach + retry once so the
+            // hover/click never throws into ViewportCrashGuard and aborts the frame.
+            console.warn(
+                '[SelectionManager] §SELECT-HOVER-MATRIX-GUARD updateMatrixWorld threw ' +
+                '(likely a detached gizmo target during a background rebuild) — detaching gizmo and retrying once:',
+                err instanceof Error ? err.message : err,
+            );
+            try { this.transformControls.detach(); } catch { /* already detached */ }
+            try {
+                sceneRoot.updateMatrixWorld(true);
+            } catch (err2) {
+                // Still throwing — swallow so the pick can fall through to the BVH
+                // path and the render frame survives. Never rethrow on a hover.
+                console.warn(
+                    '[SelectionManager] §SELECT-HOVER-MATRIX-GUARD updateMatrixWorld still threw after gizmo detach — skipping matrix sync this frame:',
+                    err2 instanceof Error ? err2.message : err2,
+                );
+            }
+        }
+    }
+
+    /**
      * §SELECT-STUCK-STATE-SELFHEAL — clear stale interaction flags that can
      * permanently swallow click-selection.
      *
@@ -1394,7 +1453,9 @@ export class SelectionManager implements ISelectionManager {
         // cost paid by the normal render frame — it guarantees all matrixWorld values
         // are current before we query syncPickScene.
         if (this._pickStrategy) {
-            this.world.scene.three.updateMatrixWorld(true);
+            // §SELECT-HOVER-MATRIX-GUARD (FIX #1/#2) — guarded matrix sync so a stale
+            // gizmo can't throw into the click pick and wedge selection mid-rebuild.
+            this._safeUpdateMatrixWorldForPick();
             const pickCtx: PickContext = {
                 camera:          this.camera.three as THREE.Camera,
                 elementRegistry: this._buildElementRegistry(),
@@ -3025,7 +3086,11 @@ export class SelectionManager implements ISelectionManager {
             // Hover RAF fires asynchronously — batch-created elements may have been
             // added between the last render frame and this pre-render slot, leaving
             // their pick-scene clones at stale world positions.
-            this.world.scene.three.updateMatrixWorld(true);
+            // §SELECT-HOVER-MATRIX-GUARD (FIX #1/#2) — route through the guarded
+            // helper so a stale gizmo (selected wall rebuilt out from under us by the
+            // background resi rebuild) can't throw "must be a part of the scene graph"
+            // here, abort the GPU hover pick, and leave the click anchor stale.
+            this._safeUpdateMatrixWorldForPick();
 
             // FIX-S16-RC5: Ensure the selectable cache is warm before building
             // the element registry.  A bim-* mutation event between _onPointerMove

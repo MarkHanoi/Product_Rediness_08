@@ -222,3 +222,86 @@ describe('SelectionManager §SELECT-GIZMO-REATTACH — _reresolveSelectionAfterR
     expect(tc.detach).not.toHaveBeenCalled();
   });
 });
+
+describe('SelectionManager §SELECT-HOVER-MATRIX-GUARD — _safeUpdateMatrixWorldForPick', () => {
+  /**
+   * A scene-child gizmo that mirrors stock THREE.TransformControls:
+   * `updateMatrixWorld` THROWS "must be a part of the scene graph" while it holds
+   * an attached object whose parent chain no longer reaches a scene root. This is
+   * exactly the throw that aborts the hover RAF / click pick under the resi-building
+   * background-rebuild churn. Adding it as a child of the scene means
+   * `scene.updateMatrixWorld(true)` recurses into it (as the real scene does).
+   */
+  class FakeGizmo extends THREE.Object3D {
+    attachedTo: THREE.Object3D | null = null;
+    override updateMatrixWorld(force?: boolean): void {
+      if (this.attachedTo !== null) {
+        let cur: THREE.Object3D | null = this.attachedTo;
+        let inScene = false;
+        while (cur !== null) {
+          if ((cur as THREE.Object3D).type === 'Scene') { inScene = true; break; }
+          cur = cur.parent;
+        }
+        if (!inScene) {
+          throw new Error('TransformControls: The attached 3D object must be a part of the scene graph.');
+        }
+      }
+      super.updateMatrixWorld(force);
+    }
+  }
+
+  function makeManagerWithGizmo(scene: THREE.Scene, gizmo: FakeGizmo) {
+    const tc = {
+      object: null as THREE.Object3D | null,
+      attach: vi.fn((o: THREE.Object3D) => { tc.object = o; gizmo.attachedTo = o; }),
+      detach: vi.fn(() => { tc.object = null; gizmo.attachedTo = null; }),
+      addEventListener: vi.fn(),
+    };
+    const mgr = new SelectionManager(
+      makeWorld(scene),
+      makeCamera(),
+      makeDom(),
+      tc as unknown as ConstructorParameters<typeof SelectionManager>[3],
+      () => {},
+    );
+    return { mgr: mgr as unknown as { _safeUpdateMatrixWorldForPick: () => void }, tc };
+  }
+
+  it('does NOT throw and updates matrices when the gizmo target was rebuilt out of the scene', () => {
+    const scene = new THREE.Scene();
+    const gizmo = new FakeGizmo();
+    scene.add(gizmo); // gizmo is a scene child, like the real TransformControls
+
+    const { mgr, tc } = makeManagerWithGizmo(scene, gizmo);
+
+    // Select an element, then simulate the background rebuild disposing its mesh.
+    const el = makeElement('wall-1', 'wall');
+    scene.add(el);
+    tc.attach(el);
+    scene.remove(el); // mesh disposed/detached out from under the gizmo
+
+    // A naive scene.updateMatrixWorld(true) would throw here — the guard must not.
+    expect(() => mgr._safeUpdateMatrixWorldForPick()).not.toThrow();
+    // The stale gizmo was detached so the throw can never recur.
+    expect(tc.object).toBeNull();
+    expect(tc.detach).toHaveBeenCalled();
+  });
+
+  it('leaves a still-attached gizmo alone and completes the matrix sync', () => {
+    const scene = new THREE.Scene();
+    const gizmo = new FakeGizmo();
+    scene.add(gizmo);
+
+    const { mgr, tc } = makeManagerWithGizmo(scene, gizmo);
+
+    const el = makeElement('wall-2', 'wall');
+    scene.add(el);
+    tc.attach(el);
+    tc.detach.mockClear();
+
+    expect(() => mgr._safeUpdateMatrixWorldForPick()).not.toThrow();
+    // Healthy attachment is preserved — no needless detach/realign churn.
+    expect(tc.object).toBe(el);
+    expect(tc.detach).not.toHaveBeenCalled();
+  });
+});
