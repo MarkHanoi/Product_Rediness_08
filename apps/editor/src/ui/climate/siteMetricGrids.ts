@@ -384,9 +384,11 @@ function sunDayOfYear(preset: SunDayPreset | undefined): number {
     }
 }
 
-/** Sun-hours intensity (0 = shaded … 1 = full sun) → blue→teal→gold→warm ramp.
- *  Matches `siteMetricLegend('sunHours')` so the legend reads the same scale. */
-function sunHoursCellColour(intensity: number): string {
+/** Sun-hours intensity (0 = shaded … 1 = full sun) → blue→teal→gold→warm ramp as
+ *  [r,g,b] (0..255). Matches `siteMetricLegend('sunHours')`. The numeric core shared
+ *  by `sunHoursCellColour` (CSS string) + the §SITE-METRIC-SUN-TEXTURE rasterizer
+ *  (so the smooth texture + the legend + the discrete cells read the SAME ramp). */
+function sunHoursRgb(intensity: number): readonly [number, number, number] {
     const t = Math.max(0, Math.min(1, intensity));
     const stops: ReadonlyArray<readonly [number, number, number, number]> = [
         [0.00, 0x2C, 0x3E, 0x80], // #2C3E80 — shaded (deep blue)
@@ -399,13 +401,21 @@ function sunHoursCellColour(intensity: number): string {
             const [t0, r0, g0, b0] = stops[i - 1]!;
             const [t1, r1, g1, b1] = stops[i]!;
             const s = (t - t0) / (t1 - t0 || 1);
-            const r = Math.round(r0 + s * (r1 - r0));
-            const g = Math.round(g0 + s * (g1 - g0));
-            const b = Math.round(b0 + s * (b1 - b0));
-            return `rgb(${r},${g},${b})`;
+            return [
+                Math.round(r0 + s * (r1 - r0)),
+                Math.round(g0 + s * (g1 - g0)),
+                Math.round(b0 + s * (b1 - b0)),
+            ];
         }
     }
-    return '#F4753A';
+    return [0xF4, 0x75, 0x3A];
+}
+
+/** Sun-hours intensity (0 = shaded … 1 = full sun) → blue→teal→gold→warm CSS colour.
+ *  Matches `siteMetricLegend('sunHours')` so the legend reads the same scale. */
+function sunHoursCellColour(intensity: number): string {
+    const [r, g, b] = sunHoursRgb(intensity);
+    return `rgb(${r},${g},${b})`;
 }
 
 /** One-time log guard for the §perf cell-cap clamp. */
@@ -485,23 +495,29 @@ export function metricCostTier(metric: SiteMetric): MetricCostTier {
  *  the (chunked) build, so resolution is decoupled per metric in ONE place. */
 export function siteMetricGridBudget(metric: SiteMetric): { cellSizeM: number; maxCells: number } {
     return metricCostTier(metric) === 'expensive'
-        // Expensive: ~5 m cells, capped ≈ 3500 cells. On the 240 m disc that is a few
-        // thousand cells × samples × prisms — completes + paints in a couple of seconds.
-        // 3.5k cells is also far fewer Cesium entities to draw than the old ~9k.
-        // DO NOT shrink this tier here — a fine raycast grid freezes the viewport; the
-        // fine-grained sun-hours fix is a separate texture-decouple pass (§perf).
-        ? { cellSizeM: 5, maxCells: 3500 }
-        // §SITE-METRIC-FINE-CHEAP (founder 2026-06-30) — the cheap O(1) field metrics
-        // (temperature / wind / population) read as COARSE to the founder at ~2.4 m. Their
-        // per-cell maths is trivial; the ONLY cost is the Cesium entity count, and the
-        // build is already chunked across frames (CesiumViewport.chunkBuild), so we can
-        // paint a MUCH finer grid. ~1.3 m cells on the 240 m disc ≈ (480/1.3)² ≈ 136k raw,
-        // clamped UP by `resolveCellSize` to the 28k cap (≈ 1.6 m effective) — fine enough
-        // to read as a smooth field, generous enough that nothing is silently truncated
-        // (the clamp-and-log in `resolveCellSize` still fires + logs if it bites).
-        // TRADEOFF: ~28k cheap cells is ~3× the old entity count — heavier to draw, but
-        // chunked (non-blocking) and still O(1) per cell, so no compute-stall risk.
-        : { cellSizeM: 1.3, maxCells: 28000 };
+        // Expensive: ~4 m COMPUTE cells, capped ≈ 5000. On the 240 m disc that is a few
+        // thousand cells × samples × prisms — completes in a couple of seconds.
+        // §SITE-METRIC-SUN-TEXTURE (founder 2026-06-30, ADR-0086): sun-hours no longer
+        // renders one Cesium ENTITY per cell — it COMPUTES on this affordable raycast
+        // grid then DISPLAYS a SINGLE bilinearly-interpolated texture (smooth, one draw
+        // call). So the entity-count ceiling that pinned this at ~5 m / 3.5k is GONE; the
+        // only remaining cost is the raycast, so we can afford a slightly FINER compute
+        // grid (~4 m, ~5k) → a smoother resampled field. The texture display resolution
+        // (SUN_TEXTURE_SIZE) is INDEPENDENT of this and stays fine regardless.
+        // DO NOT shrink the COMPUTE cell much below ~3 m — the raycast still scales with
+        // cell count and a very fine raycast grid re-freezes the viewport.
+        ? { cellSizeM: 4, maxCells: 5000 }
+        // §SITE-METRIC-FINE-CHEAP / §SITE-METRIC-TEXTURE (founder 2026-06-30) — the cheap
+        // O(1) field metrics (temperature / wind / population) read as COARSE because the
+        // cap that bounded them was the per-cell ENTITY count (~28k → ~1.6 m effective,
+        // still blocky). §SITE-METRIC-TEXTURE removes that: every metric now DISPLAYS as
+        // ONE interpolated texture, not N entities, so the cap no longer governs the look
+        // — it only bounds the trivial O(1) COMPUTE that feeds the texture's source
+        // lattice. We can therefore ask for a much finer COMPUTE grid (~1.0 m, cap 60k →
+        // ≈ 2.0 m effective on the 480 m-wide disc) and the 512² texture resamples it to
+        // ≈ 0.9 m/texel, smooth. The `resolveCellSize` clamp-and-log still fires if the
+        // cap bites; the build is fast (no raycast) so no stall risk.
+        : { cellSizeM: 1.0, maxCells: 60000 };
 }
 
 /** Default target cell edge (m) per metric — derived from the cost-tier budget so the
@@ -614,9 +630,17 @@ export function buildSiteMetricGrid(
 
     if (metric === 'population') {
         const { cells: pop } = computePopulationDensityGrid(cells, obstacles);
+        // §SITE-METRIC-POP-CONTRAST — the OSM GFA proxy (footprint × floors) has a real
+        // but COMPRESSED intensity spread (most of a neighbourhood is mid-rise), so the
+        // raw ramp reads as one uniform colour ("is it all the same?"). Re-normalise each
+        // cell's intensity against the DISC's own min→max, then gain about the median, so
+        // dense cores read clearly hot + open/low-rise reads clearly low — the SAME
+        // stretch pattern as temperature/wind. The reported `value` (persons/m²) is the
+        // engine's real number; only the COLOUR contrast is sharpened.
+        const stretch = densityContrastMap(pop.map((c) => c.intensity));
         return pop.map((c) => ({
             east: c.x, north: c.z, halfSize: c.size / 2, up,
-            colorHex: densityCellColour(c.intensity), value: c.density,
+            colorHex: densityCellColour(stretch(c.intensity)), value: c.density,
         }));
     }
 
@@ -741,6 +765,40 @@ function contrastStretch(t: number, gain: number): number {
     return Math.max(0, Math.min(1, c));
 }
 
+/**
+ * §SITE-METRIC-POP-CONTRAST — build a per-disc population-intensity contrast map. The
+ * OSM GFA proxy (footprint × floors) is real but COMPRESSED (most of a neighbourhood is
+ * mid-rise), so the raw intensities cluster in a narrow band → the density map reads as
+ * one flat colour. We DISC-NORMALISE: re-stretch each intensity against the disc's own
+ * min→max so the full ramp is used, then gain about the MEDIAN so the dense cores climb
+ * clearly hot and the open/low-rise tail reads clearly low. Returns a pure mapping fn
+ * `intensity → contrast-stretched intensity` (0..1). Degenerate (≤1 distinct value or a
+ * flat field) → identity, so a genuinely-uniform site is not faked into false variation.
+ */
+function densityContrastMap(intensities: readonly number[]): (i: number) => number {
+    let lo = Infinity, hi = -Infinity;
+    for (const v of intensities) {
+        if (!Number.isFinite(v)) continue;
+        if (v < lo) lo = v;
+        if (v > hi) hi = v;
+    }
+    const span = hi - lo;
+    if (!(span > 1e-6)) return (i) => Math.max(0, Math.min(1, i)); // flat → identity
+    // Median of the normalised values → the gain pivot (robust to the long low tail).
+    const norm = intensities
+        .filter((v) => Number.isFinite(v))
+        .map((v) => (v - lo) / span)
+        .sort((a, b) => a - b);
+    const mid = norm.length > 0 ? norm[Math.floor(norm.length / 2)]! : 0.5;
+    const pivot = Math.max(0.1, Math.min(0.9, mid));
+    const gain = 1.6;                                   // sharpen dense vs sparse
+    return (i: number): number => {
+        const n = Math.max(0, Math.min(1, (i - lo) / span));   // disc min→max stretch
+        const c = (n - pivot) * gain + pivot;                  // gain about the median
+        return Math.max(0, Math.min(1, c));
+    };
+}
+
 // ── Chunked sun-hours build (the heaviest metric — raycast per cell) ──────────
 //
 // The sun-hours grid is the only metric whose PER-CELL cost (raycast × sun samples
@@ -764,6 +822,20 @@ export interface SunHoursGridPrep {
     /** Evaluate ONE cell → its coloured `MetricGridCell`, or null to skip (under a
      *  building). Pure + deterministic; safe to call in any order / in batches. */
     readonly evaluate: (cell: SunHoursCell) => MetricGridCell | null;
+    // §SITE-METRIC-SUN-TEXTURE (founder 2026-06-30, ADR-0086) — DISPLAY/COMPUTE
+    // decouple. These let the renderer COMPUTE sun-hours on this affordable raycast
+    // grid, then DISPLAY a smooth bilinearly-interpolated texture (one draw call)
+    // instead of thousands of discrete rectangle entities (which read as big squares
+    // and were the entity-count drag). The texture is finer-looking AND cheaper.
+    /** Raw sun-hours INTENSITY (0 = shaded … 1 = full sun) at a cell centre, or
+     *  null when the cell is under a building (no contribution to the field). The
+     *  heavy raycast lives here; the caller still batches it across frames. */
+    readonly evaluateIntensity: (cell: SunHoursCell) => number | null;
+    /** The compute-grid cell edge (m) — the spacing of the cell-centre lattice the
+     *  texture resamples FROM. */
+    readonly cellSizeM: number;
+    /** The analysis-disc radius (m) the texture spans (square 2R × 2R, round cutout). */
+    readonly radiusM: number;
 }
 
 /**
@@ -802,7 +874,11 @@ export function prepareSunHoursGrid(input: MetricGridInput): SunHoursGridPrep | 
     const maxHours = samples.length * stepHours;
     const radius = input.radius;
 
-    const evaluate = (c: SunHoursCell): MetricGridCell | null => {
+    // §SITE-METRIC-SUN-TEXTURE — the heavy raycast, factored out so BOTH the discrete
+    // `evaluate` (legacy entity path / tests) and the smooth-texture rasterizer share
+    // ONE compute. Returns intensity (0..1) at the cell centre, or null under a mass /
+    // outside the disc (no field contribution).
+    const evaluateIntensity = (c: SunHoursCell): number | null => {
         if (c.underBuilding) return null;                 // inside the mass — skip
         // Skip cells outside the analysis disc (round Forma-style cutout).
         if (Math.hypot(c.x, c.z) > radius * 1.02) return null;
@@ -811,17 +887,338 @@ export function prepareSunHoursGrid(input: MetricGridInput): SunHoursGridPrep | 
             if (!sunBlocked(c.x, c.z, sampleUp, s, prisms)) lit++;
         }
         const hours = lit * stepHours;
+        return maxHours > 0 ? hours / maxHours : 0;
+    };
+
+    const evaluate = (c: SunHoursCell): MetricGridCell | null => {
+        const intensity = evaluateIntensity(c);
+        if (intensity == null) return null;
         return {
             east: c.x, north: c.z, halfSize: c.size / 2, up,
-            colorHex: sunHoursCellColour(maxHours > 0 ? hours / maxHours : 0),
-            value: hours,
+            colorHex: sunHoursCellColour(intensity),
+            value: intensity * maxHours,
         };
     };
 
     return {
         cells: cells.map((c) => ({ x: c.x, z: c.z, size: c.size, underBuilding: c.underBuilding })),
         evaluate,
+        evaluateIntensity,
+        cellSizeM: cellSize,
+        radiusM: radius,
     };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §SITE-METRIC-SUN-TEXTURE (founder 2026-06-30, ADR-0086) — smooth sun-hours TEXTURE
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// PROBLEM: sun-hours raycasts PER CELL × sun-sample × prism, so a FINE compute grid
+// freezes the viewport ("§perf cell-cap …; clamping 5.0→8.1 m", "2199 cell(s)"). The
+// cheap field metrics paint at ~1.3 m and read smooth; sun-hours read as a few
+// thousand big squares.
+//
+// FIX — DECOUPLE DISPLAY from COMPUTE. The expensive part is the raycast COMPUTE, not
+// the render. So we COMPUTE sun-hours on the affordable raycast grid (a few thousand
+// cell centres, unchanged), then DISPLAY it as ONE bilinearly-interpolated TEXTURE
+// over the disc — a single draw call, no thousands of entities, and a SMOOTH gradient
+// (no visible squares). This is both finer-LOOKING and cheaper to render than the
+// discrete cells.
+//
+// HOW: the compute cells sit on a regular `cellSize` lattice (buildStreetGrid), so we
+// snap each computed intensity into a coarse index lattice `[gi][gj]` (+ a valid mask
+// — cells under a mass / outside the disc are holes). Then for every fine display
+// texel we BILINEARLY interpolate from the 4 surrounding lattice nodes, renormalising
+// the weights by the valid mask so holes fill smoothly from their neighbours instead
+// of punching dark squares. Texels outside the round analysis disc get alpha 0 (the
+// Forma-style circular cutout); a thin edge feather avoids a hard ring.
+
+/** A rasterised sun-hours field: a square RGBA texture (premultiplied-free, straight
+ *  alpha) the renderer uploads to ONE Cesium ground rectangle covering the disc. */
+export interface SunHoursTexture {
+    /** Texture edge in texels (square `size × size`). */
+    readonly size: number;
+    /** RGBA bytes, row-major, `size·size·4` long. Row 0 = NORTH edge (north→south as
+     *  v increases) so the caller maps it onto a north-up rectangle directly. */
+    readonly rgba: Uint8ClampedArray;
+    /** Disc radius (m) the square texture spans — its half-width in ENU metres. */
+    readonly radiusM: number;
+    /** Count of compute cells that contributed a value (diagnostic / span). */
+    readonly sampleCount: number;
+}
+
+/** Fine DISPLAY resolution (texels per side) of the sun-hours texture — DECOUPLED
+ *  from the (coarse, affordable) raycast COMPUTE grid. 512² ≈ 262k texels over the
+ *  2R-wide disc square is ≈ 0.9 m / texel on the 240 m (480 m-wide) analysis disc —
+ *  ~10× finer than the ~8 m compute cells the founder called "massive", reading as
+ *  smooth as the cheap metrics. It is a PURE CPU bilinear resample (NO extra raycasts)
+ *  + ONE GPU upload (one ground rectangle), so going this fine costs almost nothing —
+ *  unlike adding display cells as entities, which is why the discrete path stayed
+ *  coarse. §SITE-METRIC-SUN-TEXTURE. */
+const SUN_TEXTURE_SIZE = 512;
+
+/**
+ * §SITE-METRIC-SUN-TEXTURE — rasterise a SMOOTH, bilinearly-interpolated sun-hours
+ * texture from already-computed per-cell intensities. PURE (no Cesium / THREE / DOM):
+ * returns raw RGBA bytes the renderer wraps in a canvas/data-texture.
+ *
+ * @param prep        the prepared grid (gives `cellSizeM`, `radiusM`, the cells).
+ * @param intensities intensity (0..1) PER cell in `prep.cells` order, or null for a
+ *                    skipped cell (under a mass / outside the disc). Length must match
+ *                    `prep.cells`. The caller fills this by batching `evaluateIntensity`
+ *                    across frames (chunked), then calls this ONCE.
+ * @param texSize     texture edge in texels (default `SUN_TEXTURE_SIZE`).
+ *
+ * Span: §SITE-METRIC-SUN-TEXTURE — a single structured console breadcrumb (this
+ * transitional apps/editor/src/ui/climate zone has no L7 otel facade; the GA otel-span
+ * gate scopes only the plugins handler dirs — same convention as `prepareDaylightVscGrid`).
+ */
+export function rasterizeSunHoursTexture(
+    prep: SunHoursGridPrep,
+    intensities: ReadonlyArray<number | null>,
+    texSize: number = SUN_TEXTURE_SIZE,
+): SunHoursTexture {
+    const R = prep.radiusM;
+    const cs = Math.max(0.5, prep.cellSizeM);
+    const size = Math.max(8, Math.floor(texSize));
+
+    // ── Build the coarse value lattice keyed by snapped (gi, gj). Index 0 sits at
+    //    the disc's −R edge; `nLat` nodes span the full 2R square (+1 for the far edge).
+    const nLat = Math.max(2, Math.ceil((2 * R) / cs) + 1);
+    const vals = new Float32Array(nLat * nLat);   // accumulated intensity
+    const wts = new Float32Array(nLat * nLat);    // accumulation weight (cell count)
+    const at = (gi: number, gj: number): number => gj * nLat + gi;
+    let sampleCount = 0;
+    const cells = prep.cells;
+    for (let i = 0; i < cells.length; i++) {
+        const v = intensities[i];
+        if (v == null) continue;                  // hole (under a mass / off-disc)
+        const c = cells[i]!;
+        // Snap the cell centre to its nearest lattice node (centres ARE on the lattice
+        // up to the buildStreetGrid offset; nearest-node is robust to that offset).
+        const gi = Math.max(0, Math.min(nLat - 1, Math.round((c.x + R) / cs)));
+        const gj = Math.max(0, Math.min(nLat - 1, Math.round((c.z + R) / cs)));
+        const idx = at(gi, gj);
+        vals[idx]! += v;
+        wts[idx]! += 1;
+        sampleCount++;
+    }
+    // Collapse accumulations → mean per node; valid where any cell landed.
+    const node = new Float32Array(nLat * nLat);
+    const valid = new Uint8Array(nLat * nLat);
+    for (let k = 0; k < node.length; k++) {
+        if (wts[k]! > 0) { node[k] = vals[k]! / wts[k]!; valid[k] = 1; }
+    }
+
+    // ── Resample → fine RGBA texture with masked bilinear interpolation.
+    const rgba = new Uint8ClampedArray(size * size * 4);
+    for (let ty = 0; ty < size; ty++) {
+        // Texel centre → ENU north (row 0 = north edge, +R; row size-1 = −R).
+        const north = R - ((ty + 0.5) / size) * (2 * R);
+        for (let tx = 0; tx < size; tx++) {
+            const east = -R + ((tx + 0.5) / size) * (2 * R);
+            const o = (ty * size + tx) * 4;
+            // Outside the round disc → transparent (with a thin feather to avoid a ring).
+            const dist = Math.hypot(east, north);
+            if (dist > R) { rgba[o + 3] = 0; continue; }
+            // Position in lattice coordinates.
+            const fx = (east + R) / cs;
+            const fz = (north + R) / cs;
+            const gi = Math.floor(fx), gj = Math.floor(fz);
+            const sx = fx - gi, sz = fz - gj;
+            // Masked bilinear: weight each of the 4 corners by (1−s)/s AND its valid
+            // mask, then renormalise so holes don't darken — they fill from neighbours.
+            let acc = 0, wsum = 0;
+            const corner = (ci: number, cj: number, w: number): void => {
+                if (ci < 0 || cj < 0 || ci >= nLat || cj >= nLat) return;
+                const k = at(ci, cj);
+                if (!valid[k]) return;
+                acc += node[k]! * w; wsum += w;
+            };
+            corner(gi, gj, (1 - sx) * (1 - sz));
+            corner(gi + 1, gj, sx * (1 - sz));
+            corner(gi, gj + 1, (1 - sx) * sz);
+            corner(gi + 1, gj + 1, sx * sz);
+            if (wsum <= 0) { rgba[o + 3] = 0; continue; } // no nearby data → transparent
+            const [r, g, b] = sunHoursRgb(acc / wsum);
+            rgba[o] = r; rgba[o + 1] = g; rgba[o + 2] = b;
+            // Match the discrete-cell alpha (0.5) for parity with the legend/overlay,
+            // feathering the outermost ~2% of the radius so the disc edge reads soft.
+            const edge = Math.max(0, Math.min(1, (R - dist) / (R * 0.02)));
+            rgba[o + 3] = Math.round(0.5 * 255 * edge);
+        }
+    }
+
+    // §SITE-METRIC-SUN-TEXTURE span breadcrumb (see doc-comment above).
+    try {
+        console.debug(
+            `[span][site-metric-sun-texture] rasterised ${size}×${size} texels from ` +
+            `${sampleCount}/${cells.length} computed cell(s); lattice ${nLat}×${nLat}, ` +
+            `cell ${cs.toFixed(1)} m, radius ${R.toFixed(0)} m.`,
+        );
+    } catch { /* console unavailable (headless test) — span is best-effort */ }
+
+    return { size, rgba, radiusM: R, sampleCount };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §SITE-METRIC-TEXTURE (founder 2026-06-30, ADR-0086) — UNIVERSAL smooth render path
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// The founder's "cells are massive / make them ~10% the size" applies to EVERY metric,
+// not just sun-hours: the discrete render draws one Cesium ENTITY per cell, so a fine
+// grid is capped on entity count (~28k) → temperature still reads blocky (~2.5 m). The
+// fix generalises the sun-hours texture-decouple to ALL metrics: rasterise whatever
+// cells a metric produced into ONE smooth, bilinearly-interpolated ground texture (one
+// draw call), so the per-cell ENTITY cap is gone and the DISPLAY can be arbitrarily
+// fine regardless of the compute cell size. We interpolate in RGB SPACE straight from
+// each cell's own `colorHex`, so this is metric-AGNOSTIC — it honours every metric's
+// existing ramp (the sun blue→warm, the Lawson step palette, the purple VSC ramp, the
+// warm UHI ramp) with no per-metric numeric replumb.
+
+/** Parse a CSS colour (`#RGB`, `#RRGGBB`, or `rgb(r,g,b)`) → [r,g,b] 0..255. The metric
+ *  ramps emit exactly these forms; unknown input falls back to mid-grey. PURE. */
+function parseCssRgb(css: string): readonly [number, number, number] {
+    const s = css.trim();
+    if (s.charCodeAt(0) === 35 /* '#' */) {
+        const hex = s.slice(1);
+        if (hex.length === 3) {
+            const r = parseInt(hex[0]! + hex[0]!, 16);
+            const g = parseInt(hex[1]! + hex[1]!, 16);
+            const b = parseInt(hex[2]! + hex[2]!, 16);
+            return [r, g, b];
+        }
+        if (hex.length >= 6) {
+            return [parseInt(hex.slice(0, 2), 16), parseInt(hex.slice(2, 4), 16), parseInt(hex.slice(4, 6), 16)];
+        }
+    }
+    const m = s.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+    if (m) return [+m[1]!, +m[2]!, +m[3]!];
+    return [128, 128, 128];
+}
+
+/** A rasterised metric field: a square RGBA texture the renderer uploads to ONE Cesium
+ *  ground rectangle covering the disc. The universal smooth-display product for ALL
+ *  metrics (sun-hours, temperature, wind, population, daylight). §SITE-METRIC-TEXTURE. */
+export interface MetricTexture {
+    /** Texture edge in texels (square `size × size`). */
+    readonly size: number;
+    /** RGBA bytes, row-major, `size·size·4`. Row 0 = NORTH edge (maps onto a north-up
+     *  rectangle directly). */
+    readonly rgba: Uint8ClampedArray;
+    /** Disc radius (m) the square texture spans — its half-width in ENU metres. */
+    readonly radiusM: number;
+    /** Count of cells that contributed a colour (diagnostic / span). */
+    readonly sampleCount: number;
+}
+
+/** Default fine DISPLAY resolution for the universal metric texture — same rationale
+ *  as `SUN_TEXTURE_SIZE` (≈ 0.9 m/texel on the 240 m disc, ONE GPU upload). */
+const METRIC_TEXTURE_SIZE = SUN_TEXTURE_SIZE;
+
+/** Straight-alpha of the heatmap (matches the discrete-cell `withAlpha(0.5)`). */
+const METRIC_TEXTURE_ALPHA = 0.5;
+
+/**
+ * §SITE-METRIC-TEXTURE — rasterise ANY metric's coloured ground cells into ONE smooth,
+ * bilinearly-interpolated RGBA texture (RGB-space interpolation of each cell's own
+ * `colorHex`, so it is metric-agnostic + honours every existing ramp). Holes (cells
+ * skipped under a mass / off-disc) fill from neighbours via a mask-renormalised
+ * bilinear; texels outside the round disc are transparent (the Forma cutout + edge
+ * feather). PURE (no Cesium / THREE / DOM) — returns raw bytes the renderer wraps in a
+ * canvas. The DISPLAY resolution is independent of the cells' compute resolution, so a
+ * COARSE compute grid (sun-hours raycast, or a capped cheap grid) still displays fine.
+ *
+ * @param cells     the metric's coloured cells (centre `east`/`north`, `colorHex`).
+ * @param radiusM   the analysis-disc radius (m) the texture spans.
+ * @param cellSizeM the cells' spacing (m) — the lattice the texture resamples FROM.
+ * @param texSize   texture edge in texels (default `METRIC_TEXTURE_SIZE`).
+ *
+ * Span: §SITE-METRIC-TEXTURE — a single structured console breadcrumb (same convention
+ * as `rasterizeSunHoursTexture` / `prepareDaylightVscGrid`).
+ */
+export function rasterizeMetricTexture(
+    cells: ReadonlyArray<MetricGridCell>,
+    radiusM: number,
+    cellSizeM: number,
+    texSize: number = METRIC_TEXTURE_SIZE,
+): MetricTexture {
+    const R = Math.max(1, radiusM);
+    const cs = Math.max(0.5, cellSizeM);
+    const size = Math.max(8, Math.floor(texSize));
+
+    // Coarse RGB lattice keyed by snapped (gi, gj): accumulate each channel + a weight.
+    const nLat = Math.max(2, Math.ceil((2 * R) / cs) + 1);
+    const accR = new Float32Array(nLat * nLat);
+    const accG = new Float32Array(nLat * nLat);
+    const accB = new Float32Array(nLat * nLat);
+    const wts = new Float32Array(nLat * nLat);
+    const at = (gi: number, gj: number): number => gj * nLat + gi;
+    let sampleCount = 0;
+    for (let i = 0; i < cells.length; i++) {
+        const c = cells[i]!;
+        if (Math.hypot(c.east, c.north) > R * 1.02) continue; // off-disc → hole
+        const [r, g, b] = parseCssRgb(c.colorHex);
+        const gi = Math.max(0, Math.min(nLat - 1, Math.round((c.east + R) / cs)));
+        const gj = Math.max(0, Math.min(nLat - 1, Math.round((c.north + R) / cs)));
+        const k = at(gi, gj);
+        accR[k]! += r; accG[k]! += g; accB[k]! += b; wts[k]! += 1;
+        sampleCount++;
+    }
+    const nodeR = new Float32Array(nLat * nLat);
+    const nodeG = new Float32Array(nLat * nLat);
+    const nodeB = new Float32Array(nLat * nLat);
+    const valid = new Uint8Array(nLat * nLat);
+    for (let k = 0; k < valid.length; k++) {
+        if (wts[k]! > 0) {
+            nodeR[k] = accR[k]! / wts[k]!;
+            nodeG[k] = accG[k]! / wts[k]!;
+            nodeB[k] = accB[k]! / wts[k]!;
+            valid[k] = 1;
+        }
+    }
+
+    const rgba = new Uint8ClampedArray(size * size * 4);
+    for (let ty = 0; ty < size; ty++) {
+        const north = R - ((ty + 0.5) / size) * (2 * R);   // row 0 = north edge
+        for (let tx = 0; tx < size; tx++) {
+            const east = -R + ((tx + 0.5) / size) * (2 * R);
+            const o = (ty * size + tx) * 4;
+            const dist = Math.hypot(east, north);
+            if (dist > R) { rgba[o + 3] = 0; continue; }    // round cutout
+            const fx = (east + R) / cs, fz = (north + R) / cs;
+            const gi = Math.floor(fx), gj = Math.floor(fz);
+            const sx = fx - gi, sz = fz - gj;
+            let r = 0, g = 0, b = 0, wsum = 0;
+            const corner = (ci: number, cj: number, w: number): void => {
+                if (ci < 0 || cj < 0 || ci >= nLat || cj >= nLat) return;
+                const k = at(ci, cj);
+                if (!valid[k]) return;
+                r += nodeR[k]! * w; g += nodeG[k]! * w; b += nodeB[k]! * w; wsum += w;
+            };
+            corner(gi, gj, (1 - sx) * (1 - sz));
+            corner(gi + 1, gj, sx * (1 - sz));
+            corner(gi, gj + 1, (1 - sx) * sz);
+            corner(gi + 1, gj + 1, sx * sz);
+            if (wsum <= 0) { rgba[o + 3] = 0; continue; }
+            rgba[o] = Math.round(r / wsum);
+            rgba[o + 1] = Math.round(g / wsum);
+            rgba[o + 2] = Math.round(b / wsum);
+            const edge = Math.max(0, Math.min(1, (R - dist) / (R * 0.02)));
+            rgba[o + 3] = Math.round(METRIC_TEXTURE_ALPHA * 255 * edge);
+        }
+    }
+
+    // §SITE-METRIC-TEXTURE span breadcrumb.
+    try {
+        console.debug(
+            `[span][site-metric-texture] rasterised ${size}×${size} texels from ` +
+            `${sampleCount}/${cells.length} cell(s); lattice ${nLat}×${nLat}, ` +
+            `cell ${cs.toFixed(1)} m, radius ${R.toFixed(0)} m.`,
+        );
+    } catch { /* console unavailable (headless test) — best-effort */ }
+
+    return { size, rgba, radiusM: R, sampleCount };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

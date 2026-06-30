@@ -13,6 +13,9 @@ import {
     siteMetricAvailability,
     verticalSkyComponentPct,
     prepareDaylightVscGrid,
+    prepareSunHoursGrid,
+    rasterizeSunHoursTexture,
+    rasterizeMetricTexture,
     metricCostTier,
     siteMetricGridBudget,
     type SiteMetric,
@@ -125,6 +128,25 @@ describe('buildSiteMetricGrid', () => {
         expect(cells.length).toBeGreaterThan(0);
         // At least one cell over the building footprint reads non-zero density.
         expect(cells.some((c) => c.value > 0)).toBe(true);
+    });
+
+    it('§SITE-METRIC-POP-CONTRAST: population density shows clear spatial variation (not one flat colour)', () => {
+        // A dense tall block + a low-rise block + open ground → the GFA proxy must read
+        // as clearly DIFFERENT density (the founder "is it all the same colour?" defect).
+        const mixed: MetricFootprint[] = [
+            { ring: [{ x: -40, z: -40 }, { x: -10, z: -40 }, { x: -10, z: -10 }, { x: -40, z: -10 }], heightM: 60, floors: 20 },
+            { ring: [{ x: 15, z: 15 }, { x: 30, z: 15 }, { x: 30, z: 30 }, { x: 15, z: 30 }], heightM: 6, floors: 2 },
+        ];
+        const cells = buildSiteMetricGrid('population', {
+            radius: 90, footprints: mixed, dataset: null, gridCountCap: 48,
+        });
+        expect(cells.length).toBeGreaterThan(0);
+        // Density VALUES vary (engine real numbers) AND the displayed COLOURS vary after
+        // the contrast stretch — high-density core vs low/open must not collapse to one.
+        const values = new Set(cells.map((c) => c.value.toFixed(3)));
+        expect(values.size).toBeGreaterThan(1);
+        const colours = new Set(cells.map((c) => c.colorHex));
+        expect(colours.size).toBeGreaterThan(2);   // a spread across the ramp, not flat
     });
 
     it('returns [] for temperature/wind when NO dataset AND no lat/lon (nothing to derive normals from)', () => {
@@ -260,8 +282,11 @@ describe('§SITE-METRIC-COST-TIER — per-metric grid resolution (ADR-0084)', ()
         expect(day.cellSizeM).toBeGreaterThan(temp.cellSizeM);
         expect(sun.maxCells).toBeLessThan(pop.maxCells);
         expect(day.maxCells).toBeLessThan(temp.maxCells);
-        // Concrete bound: the expensive cap is small enough to complete in seconds.
-        expect(sun.maxCells).toBeLessThanOrEqual(4000);
+        // Concrete bound: the expensive COMPUTE cap stays small enough to complete in
+        // seconds. §SITE-METRIC-SUN-TEXTURE — the display is now a single interpolated
+        // texture (not one entity per cell), so the only ceiling is the raycast COMPUTE;
+        // ~5k cells (~4 m on the 240 m disc) is still a couple-of-seconds raycast.
+        expect(sun.maxCells).toBeLessThanOrEqual(5000);
     });
 
     it('the expensive (sun-hours) grid yields FEWER cells than the cheap (population) ' +
@@ -385,5 +410,160 @@ describe('siteMetricLegend', () => {
         expect(legend!.stops).toContain('#6600FF');
         expect(legend!.stops).toContain('#FFFFFF');
         expect(legend!.stops.join(',').toLowerCase()).not.toContain('#000');
+    });
+});
+
+// §SITE-METRIC-SUN-TEXTURE — the DISPLAY/COMPUTE decouple: compute on the affordable
+// raycast grid, render as ONE smooth bilinearly-interpolated texture. These pin the
+// pure rasterizer: correct size/shape, the round-disc alpha cutout, interpolation
+// continuity, masked-hole fill, and that the texture reads the SAME colour ramp.
+describe('rasterizeSunHoursTexture (§SITE-METRIC-SUN-TEXTURE)', () => {
+    const SUN_INPUT = {
+        radius: 80, footprints: FOOTPRINTS, dataset: null,
+        latDeg: 41.39, lngDeg: 2.17, sunDay: 'summer' as const, sunStepMinutes: 30,
+        gridCountCap: 16,
+    };
+
+    it('exposes evaluateIntensity (0..1) consistent with the discrete colour cell', () => {
+        const prep = prepareSunHoursGrid(SUN_INPUT);
+        expect(prep).not.toBeNull();
+        // Find a cell that is in the open (some sun) and one under the building.
+        const lit = prep!.cells.find((c) => !c.underBuilding && Math.hypot(c.x, c.z) <= SUN_INPUT.radius);
+        expect(lit).toBeDefined();
+        const intensity = prep!.evaluateIntensity(lit!);
+        expect(intensity).not.toBeNull();
+        expect(intensity!).toBeGreaterThanOrEqual(0);
+        expect(intensity!).toBeLessThanOrEqual(1);
+        // The discrete cell colour must come from the SAME intensity (parity).
+        const cell = prep!.evaluate(lit!);
+        expect(cell).not.toBeNull();
+        // Under-building cells yield null intensity (a texture hole filled by neighbours).
+        const under = prep!.cells.find((c) => c.underBuilding);
+        if (under) expect(prep!.evaluateIntensity(under)).toBeNull();
+    });
+
+    it('rasterises a square RGBA texture with a round transparent cutout', () => {
+        const prep = prepareSunHoursGrid(SUN_INPUT)!;
+        const intensities = prep.cells.map((c) => prep.evaluateIntensity(c));
+        const tex = rasterizeSunHoursTexture(prep, intensities, 64);
+        expect(tex.size).toBe(64);
+        expect(tex.rgba.length).toBe(64 * 64 * 4);
+        expect(tex.radiusM).toBe(prep.radiusM);
+        expect(tex.sampleCount).toBeGreaterThan(0);
+        // The CENTRE texel sits inside the disc → opaque(ish); a CORNER sits OUTSIDE the
+        // inscribed circle → fully transparent (the Forma round cutout).
+        const at = (tx: number, ty: number, ch: number) => tex.rgba[(ty * tex.size + tx) * 4 + ch]!;
+        const mid = Math.floor(tex.size / 2);
+        expect(at(mid, mid, 3)).toBeGreaterThan(0);     // centre opaque
+        expect(at(0, 0, 3)).toBe(0);                    // corner outside disc → alpha 0
+        expect(at(tex.size - 1, tex.size - 1, 3)).toBe(0);
+    });
+
+    it('interpolates smoothly — neighbouring texels differ by small steps (no big squares)', () => {
+        const prep = prepareSunHoursGrid(SUN_INPUT)!;
+        const intensities = prep.cells.map((c) => prep.evaluateIntensity(c));
+        const tex = rasterizeSunHoursTexture(prep, intensities, 96);
+        const mid = Math.floor(tex.size / 2);
+        const red = (tx: number) => tex.rgba[(mid * tex.size + tx) * 4]!;
+        // Along the central opaque row, adjacent texels should not jump by a full ramp
+        // step (bilinear interpolation = gradual). Scan the inner third (well inside disc).
+        let maxJump = 0;
+        for (let tx = mid - 10; tx < mid + 10; tx++) {
+            const a = tex.rgba[(mid * tex.size + tx) * 4 + 3]!;
+            const b = tex.rgba[(mid * tex.size + tx + 1) * 4 + 3]!;
+            if (a > 0 && b > 0) maxJump = Math.max(maxJump, Math.abs(red(tx + 1) - red(tx)));
+        }
+        // A discrete-cell render would jump by tens of units at each cell boundary; the
+        // interpolated texture moves in small steps. Generous bound (just proves smoothing).
+        expect(maxJump).toBeLessThan(60);
+    });
+
+    it('DEFAULT display resolution is fine (~≤1 m/texel on a 240 m disc) — the founder "10× finer" target', () => {
+        // The point of the decouple: DISPLAY is ~10× finer than the coarse raycast
+        // COMPUTE grid. On a 240 m (480 m-wide) disc the default texture must give
+        // ~≤1 m visual texels (the cheap-metric "fine/smooth" look), NOT ~8 m squares.
+        const prep = prepareSunHoursGrid({ ...SUN_INPUT, radius: 240 })!;
+        const intensities = prep.cells.map((c) => prep.evaluateIntensity(c));
+        const tex = rasterizeSunHoursTexture(prep, intensities);   // default texSize
+        const metresPerTexel = (2 * tex.radiusM) / tex.size;
+        expect(metresPerTexel).toBeLessThanOrEqual(1.0);
+        // …while the COMPUTE grid stays affordable (coarse, no raycast hang).
+        expect(prep.cellSizeM).toBeGreaterThanOrEqual(3);
+    });
+
+    it('masked-hole fill: a cell under the building still gets a colour from neighbours', () => {
+        const prep = prepareSunHoursGrid(SUN_INPUT)!;
+        const intensities = prep.cells.map((c) => prep.evaluateIntensity(c));
+        const tex = rasterizeSunHoursTexture(prep, intensities, 128);
+        // Sample the texel over the building centre (≈ (20,20) ENU). Even though those
+        // compute cells are holes, the bilinear masked fill paints SOME opaque colour
+        // (from surrounding lit cells) rather than a transparent punch-out inside the disc.
+        const R = tex.radiusM;
+        const east = 20, north = 20;
+        const tx = Math.floor(((east + R) / (2 * R)) * tex.size);
+        const ty = Math.floor(((R - north) / (2 * R)) * tex.size);
+        const alpha = tex.rgba[(ty * tex.size + tx) * 4 + 3]!;
+        expect(alpha).toBeGreaterThan(0);   // filled, not a transparent square
+    });
+});
+
+// §SITE-METRIC-TEXTURE — the UNIVERSAL smooth render path: rasterise ANY metric's
+// coloured cells into one bilinearly-interpolated texture (RGB-space, metric-agnostic),
+// so EVERY metric (temperature included) displays fine + smooth with no per-cell entity
+// cap. These pin: it works from the cheap metrics' OWN cells, honours their ramp colour,
+// has the round cutout, and interpolates RGB smoothly.
+describe('rasterizeMetricTexture (§SITE-METRIC-TEXTURE — universal smooth render)', () => {
+    it('rasterises a CHEAP metric (temperature) into a smooth round texture honouring its ramp', () => {
+        const cells = buildSiteMetricGrid('temperature', {
+            radius: 120, footprints: FOOTPRINTS, dataset: DATASET, gridCountCap: 40,
+        });
+        expect(cells.length).toBeGreaterThan(0);
+        // Derive the cell spacing from the cells themselves (2·halfSize).
+        const cellSize = cells[0]!.halfSize * 2;
+        const tex = rasterizeMetricTexture(cells, 120, cellSize, 128);
+        expect(tex.size).toBe(128);
+        expect(tex.rgba.length).toBe(128 * 128 * 4);
+        expect(tex.sampleCount).toBeGreaterThan(0);
+        const at = (tx: number, ty: number, ch: number) => tex.rgba[(ty * tex.size + tx) * 4 + ch]!;
+        const mid = Math.floor(tex.size / 2);
+        expect(at(mid, mid, 3)).toBeGreaterThan(0);   // centre opaque
+        expect(at(0, 0, 3)).toBe(0);                  // corner outside disc → transparent
+        // The texture colours come from the warm UHI ramp (red-dominant), NOT grey/black:
+        // some opaque texel must be warm (R clearly above B).
+        let sawWarm = false;
+        for (let i = 0; i < tex.rgba.length && !sawWarm; i += 4) {
+            if (tex.rgba[i + 3]! > 0 && tex.rgba[i]! > tex.rgba[i + 2]! + 20) sawWarm = true;
+        }
+        expect(sawWarm).toBe(true);
+    });
+
+    it('interpolates RGB smoothly across the field (no hard cell edges)', () => {
+        const cells = buildSiteMetricGrid('population', {
+            radius: 120, footprints: FOOTPRINTS, dataset: null, gridCountCap: 30,
+        });
+        const cellSize = cells[0]!.halfSize * 2;
+        const tex = rasterizeMetricTexture(cells, 120, cellSize, 128);
+        const mid = Math.floor(tex.size / 2);
+        let maxJump = 0;
+        for (let tx = mid - 12; tx < mid + 12; tx++) {
+            const a3 = tex.rgba[(mid * tex.size + tx) * 4 + 3]!;
+            const b3 = tex.rgba[(mid * tex.size + tx + 1) * 4 + 3]!;
+            if (a3 > 0 && b3 > 0) {
+                const aR = tex.rgba[(mid * tex.size + tx) * 4]!;
+                const bR = tex.rgba[(mid * tex.size + tx + 1) * 4]!;
+                maxJump = Math.max(maxJump, Math.abs(bR - aR));
+            }
+        }
+        expect(maxJump).toBeLessThan(60);   // gradual, not a per-cell step
+    });
+
+    it('default display resolution is fine (~≤1 m/texel) for cheap metrics too', () => {
+        const cells = buildSiteMetricGrid('temperature', {
+            radius: 240, footprints: FOOTPRINTS, dataset: DATASET,
+        });
+        const cellSize = cells[0]!.halfSize * 2;
+        const tex = rasterizeMetricTexture(cells, 240, cellSize);   // default texSize
+        const metresPerTexel = (2 * tex.radiusM) / tex.size;
+        expect(metresPerTexel).toBeLessThanOrEqual(1.0);   // temperature is fine, not blocky
     });
 });

@@ -156,3 +156,74 @@ Founder feedback on the deployed 240 m disc:
   cheap grid yields > 12k cells on the 240 m disc, and temperature/wind value **and**
   colour vary across the disc (incl. wind not collapsing to one colour on a low-mean
   bundled baseline).
+
+---
+
+## Amendment — 2026-06-30 (§SITE-METRIC-SUN-TEXTURE) — sun-hours DISPLAY decoupled from COMPUTE
+
+This lands the deferred follow-up this ADR itself named ("render the heatmap as a
+single … canvas-texture rectangle overlay"). It is the fine-grained sun-hours fix the
+cost-tier amendment explicitly punted ("the EXPENSIVE tier is unchanged … the
+fine-grained sun-hours fix is a separate texture-decouple pass").
+
+### Problem
+
+Sun-hours still read as a few thousand BIG SQUARES while the cheap metrics paint a
+smooth ~1.3 m field. We could not simply shrink the expensive cell: the cost is the
+per-cell **raycast** (× sun-sample × prism), so a fine raycast grid re-freezes the
+viewport (live log: `§perf cell-cap: 9216 cells would exceed 3500; clamping 5.0→8.1 m`,
+`sunHours heatmap: 2199 cell(s)`).
+
+### Decision — decouple DISPLAY resolution from COMPUTE resolution (Option A)
+
+The expensive part is the COMPUTE, not the render. So COMPUTE sun-hours on the
+affordable raycast grid (unchanged chunked, non-blocking), then DISPLAY a single
+**bilinearly-interpolated texture** over the disc — one draw call, a smooth gradient,
+no thousands of entities.
+
+- `siteMetricGrids.ts` (pure, no Cesium/THREE/DOM):
+  - `SunHoursGridPrep` now also exposes `evaluateIntensity(cell) → 0..1 | null` (the
+    factored-out raycast, shared by the discrete `evaluate` and the texture), plus
+    `cellSizeM` + `radiusM` (the compute-lattice geometry the texture resamples from).
+  - **`rasterizeSunHoursTexture(prep, intensities[, texSize])` → `SunHoursTexture`**
+    (RGBA bytes, default 512² ≈ 0.9 m/texel on the 240 m disc — ~10× finer than the
+    ~8 m compute cells the founder called "massive"). It snaps each computed intensity onto a regular index
+    lattice (+ a valid mask for holes under a mass / off-disc), then for every fine
+    texel does a **mask-renormalised bilinear** interpolation of the 4 surrounding
+    nodes — so building-shadow holes fill smoothly from neighbours instead of punching
+    dark squares. A round-disc alpha cutout (+ a thin edge feather) gives the Forma
+    circle; colours come from the SAME `sunHoursRgb` ramp as the discrete cells + legend.
+  - The expensive-tier budget is nudged `5 m / 3500 → 4 m / 5000`: the entity-count
+    ceiling that pinned sun-hours coarse is GONE (display is now one texture, not N
+    entities), so the only remaining limit is the raycast — a slightly finer COMPUTE
+    grid → a smoother resampled field, still a couple-of-seconds raycast. Daylight VSC
+    keeps the discrete-entity path (its colour-step field reads fine as cells).
+
+- `CesiumViewport.renderSiteMetricOverlay` sun-hours branch: chunk-fills the per-cell
+  `intensities` across frames (same `chunkBuild`, same stale-`seq` guard), then builds
+  the texture ONCE and paints it via `paintSunHoursTexture` — a single
+  `rectangle` entity over the disc's 2R×2R bounding square (north-up ENU ≈ cartographic
+  at this scale; the grid uses true `eastNorthUpToFixedFrame`, no project-north spin)
+  with an `ImageMaterialProperty` from the RGBA canvas. The entity joins
+  `siteMetricEntities`, so `clearSiteMetricOverlay` removes it like any layer.
+
+### Consequences
+
+- Sun-hours now reads as fine/smooth as the cheap metrics WITHOUT re-freezing: compute
+  stays on the affordable raycast grid (chunked, non-blocking) and the smooth gradient
+  is ONE textured rectangle (cheaper than thousands of entity rectangles). Keeps the
+  shaded→sunny ramp + legend (same `sunHoursRgb` core).
+- `siteMetricGrids.ts` stays pure (texture is raw RGBA; the canvas/material lives in the
+  Cesium render branch only). Span: `rasterizeSunHoursTexture` emits the §-tagged
+  `[span][site-metric-sun-texture]` console breadcrumb (same convention as
+  `prepareDaylightVscGrid` — this transitional `apps/editor/src/ui/climate` zone has no
+  L7 otel facade; the GA otel-span gate scopes only the plugins handler dirs).
+  `paintSunHoursTexture` is a private render helper (span-free; the compute path carries
+  the breadcrumb).
+- Unit tests pin: `evaluateIntensity` is 0..1 + null under a mass; the texture is square
+  RGBA with a round transparent cutout (centre opaque, corners α0); adjacent texels move
+  in small steps (interpolation smoothing, not big squares); a building-shadow hole still
+  gets an opaque colour from its neighbours (masked fill).
+- The OTHER named follow-up (spatial-index the prisms, Option B) remains open and is now
+  orthogonal — a future raycast speedup can raise the expensive cap → an even finer
+  compute grid feeding the same texture, with no render-path change.
