@@ -163,3 +163,48 @@ circulation, no marooned stub. Regression tests: `platePartition.test.ts` §RESI
 INDEPENDENT BFS-from-core check verifies every cell's door fronts a core-connected corridor on
 rect / 80×60 hybrid / 34.8² side-façade / L plates; diagnostic asserts `coreReached=N/N`;
 determinism) + `residentialCirculationGraph.test.ts` (star-rooting + honest orphan rendering).
+
+---
+
+## §RESI-CORRIDOR-TO-CORE + §RESI-CORE-DOOR — corridor walls butt the core; doors well calculated (2026-06-30)
+
+**Context.** On the residential building the founder marked two plan-view defects near the central
+core with arrows: (1) *"the walls of the corridor should arrive **JUST to the core**"* — the corridor
+did not terminate cleanly at the core; and (2) *"the door should always be **well calculated**"* — a
+small room cluster by the core had a mis-placed entry door (wrong offset along its wall).
+
+**Root cause.**
+- **(1) Corridor through the core.** Horizontal corridor bands span the FULL plate width
+  `[plate.x0, plate.x1]`. A band whose Z overlaps the core therefore runs STRAIGHT THROUGH the core
+  rect (over the stair/lift) — the corridor overshot past the core face into its interior instead of
+  butting it. (The §RESI-CORE-SPINE vertical segments were already core-clipped in Z; only the
+  full-width horizontals crossed the core.)
+- **(2) Door centred on the whole edge.** The executor's geometric door fallback centred the leaf on
+  the WHOLE `doorEdge`. For a small core-flank / inner-strip unit whose door edge only PARTIALLY abuts
+  a corridor (the rest abuts the core RC wall or a perpendicular party wall), that centre landed at a
+  corner — or over the core — rather than on the wall the unit actually shares with circulation.
+
+**Decision (`platePartition.ts`).**
+- **§RESI-CORRIDOR-TO-CORE (`clipCorridorBandsToCore`).** After best-of selection, every winning
+  corridor band that crosses the core is SPLIT at the core faces: a horizontal run becomes its left
+  segment `[band.x0, core.x0]` and right segment `[core.x1, band.x1]` (each keeping the band's Z), so
+  each corridor wall terminates EXACTLY on the core's X-face — no gap, no overshoot, no stub inside the
+  core. (A vertical band is split at the core's Z-faces.) Both segments still BUTT the core, so the
+  §RESI-CORE-CIRCULATION graph is preserved (the spine bridges them across the core lobby). A plate
+  whose bands never cross the core is byte-identical. Runs BEFORE the repair/tag passes.
+- **§RESI-CORE-DOOR (`computeCoreDoorPlacement`, exported).** For each cell, compute the door's
+  along-edge CLEAR SPAN as the widest overlap between the `doorEdge` and the CORE-CONNECTED corridor
+  band(s) it fronts, then a sane offset CENTRED in that shared span, clamped clear of each end by a
+  jamb. Stamped onto every shipped cell as `coreDoorOffset`/`coreDoorWidth` (absent when the door edge
+  shares < a door width with a core-connected band). The executor (`_buildCellPerimeter` /
+  `_buildPolygonCellPerimeter`) PREFERS this validated offset over its centre-of-the-whole-edge
+  fallback (kept verbatim by the deferred punch — already corner-clamped), so a small core-flank
+  unit's door is never mis-placed at a corner / over the core.
+
+**Consequences.** Corridor walls read as a clean spur butting the core; unit doors sit on the
+corridor-shared wall, corner-clear. Regression tests: `platePartition.test.ts` §RESI-CORRIDOR-TO-CORE
+(no band's interior overlaps the core; a band butts a core face; the full-width core corridor is split
+into left+right segments on rect / 40×18 wide / 80×60 hybrid plates) + §RESI-CORE-DOOR (every stamped
+door lies inside the corridor-shared span, corner-clear, on rect / 34.8² side-façade / 80×60 plates;
+determinism). `residentialPlateFill.test.ts` updated: the single core corridor is now two co-linear
+core-butting segments (no full-width band through the core).

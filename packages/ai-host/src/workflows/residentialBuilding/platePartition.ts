@@ -101,6 +101,18 @@ export interface ApartmentCell {
      *  `false` cell honestly (orphaned). Optional at push time (defaults true), set authoritatively
      *  on the result. */
     readonly coreReachable?: boolean;
+    /** §RESI-CORE-DOOR (founder 2026-06-30: "the door should always be well calculated") — the
+     *  along-edge offset (from the door edge's low corner, m) for the unit's entry door, computed so
+     *  the door sits CENTRED within the span the `doorEdge` SHARES with the core-connected corridor
+     *  (clear of corners / the core / a perpendicular wall by a jamb margin). Set on every shipped
+     *  core-reachable cell whose door edge genuinely shares ≥ a door width with circulation; absent
+     *  when the door edge doesn't share with a core-connected band (caller falls back to its engine-
+     *  circulation alignment / centred offset). The executor PREFERS this geometric offset for its
+     *  fallback so a small core-flank unit's door is never mis-placed at a corner. */
+    readonly coreDoorOffset?: number;
+    /** §RESI-CORE-DOOR — the door leaf width (m) that fits the corridor-shared span with jambs (paired
+     *  with `coreDoorOffset`). Absent when `coreDoorOffset` is. */
+    readonly coreDoorWidth?: number;
 }
 
 /** §NONRECT-CELLS-P1 — the 4-corner CCW polygon of an axis-aligned rect (the identity case: a rect
@@ -689,6 +701,122 @@ function cellDoorOnConnectedCorridor(
         }
     }
     return false;
+}
+
+// ── §RESI-CORRIDOR-TO-CORE (founder 2026-06-30, plan-view arrows: "the walls of the corridor should
+// arrive JUST to the core") ──────────────────────────────────────────────────────────────────────
+// The horizontal corridor bands span the FULL plate width `[plate.x0, plate.x1]`, so a band whose Z
+// overlaps the core RUNS STRAIGHT THROUGH the core rect (over the stair/lift). Geometrically the
+// corridor then overshoots PAST the core face into its interior — the founder's "corridor walls don't
+// arrive just to the core" defect (the corridor reads as crossing the core instead of butting it).
+// `clipCorridorBandsToCore` SPLITS every band that overlaps the core interior at the core's faces:
+// a band wider than tall (a horizontal run) becomes its left segment `[band.x0, core.x0]` and right
+// segment `[core.x1, band.x1]` (each clamped to the band's Z), so each corridor wall terminates EXACTLY
+// on the core's X-face — no gap, no overshoot, no stub floating inside the core. A band taller than
+// wide (a vertical spine/connector) is split at the core's Z-faces the same way. A band that does NOT
+// overlap the core interior is kept verbatim. The two resulting segments both BUTT the core, so they
+// stay core-connected (the spine bridges them across the core) and the §RESI-CORE-CIRCULATION graph is
+// unchanged. Pure + deterministic; a plate whose bands never cross the core (no horizontal corridor at
+// the core's Z) is byte-identical (the core-spanning rows are typically only the core corridor itself).
+function clipCorridorBandsToCore(bands: readonly Rect[], core: Rect): Rect[] {
+    const cx0 = Math.min(core.x0, core.x1), cx1 = Math.max(core.x0, core.x1);
+    const cz0 = Math.min(core.z0, core.z1), cz1 = Math.max(core.z0, core.z1);
+    const out: Rect[] = [];
+    for (const b of bands) {
+        const bx0 = Math.min(b.x0, b.x1), bx1 = Math.max(b.x0, b.x1);
+        const bz0 = Math.min(b.z0, b.z1), bz1 = Math.max(b.z0, b.z1);
+        // Does the band's interior overlap the core's interior at all?
+        const xOverlap = Math.min(bx1, cx1) - Math.max(bx0, cx0);
+        const zOverlap = Math.min(bz1, cz1) - Math.max(bz0, cz0);
+        if (xOverlap <= EPS || zOverlap <= EPS) { out.push(normRect(b)); continue; }   // no crossing → verbatim
+        const horizontal = (bx1 - bx0) >= (bz1 - bz0);
+        if (horizontal) {
+            // Split at the core's X-faces; each segment keeps the band's Z and butts the core face.
+            if (cx0 - bx0 > EPS) out.push(normRect({ x0: bx0, z0: bz0, x1: cx0, z1: bz1 }));   // left, butts core.x0
+            if (bx1 - cx1 > EPS) out.push(normRect({ x0: cx1, z0: bz0, x1: bx1, z1: bz1 }));   // right, butts core.x1
+        } else {
+            // Vertical band → split at the core's Z-faces; each segment butts a core Z-face.
+            if (cz0 - bz0 > EPS) out.push(normRect({ x0: bx0, z0: bz0, x1: bx1, z1: cz0 }));   // above, butts core.z0
+            if (bz1 - cz1 > EPS) out.push(normRect({ x0: bx0, z0: cz1, x1: bx1, z1: bz1 }));   // below, butts core.z1
+        }
+        // If the band is entirely inside the core in the split axis it produces no segment (it WAS the
+        // core lobby strip — dropped, since the core perimeter encloses that space, never a corridor wall).
+    }
+    return out;
+}
+
+// ── §RESI-CORE-DOOR (founder 2026-06-30, plan-view arrow: "the door should always be well calculated")
+// ──────────────────────────────────────────────────────────────────────────────────────────────────
+// A cell records WHICH edge fronts circulation (`doorEdge`) but the executor's geometric fallback
+// centres the door on the WHOLE edge — which, for a small core-flank / inner-strip unit whose door
+// edge only PARTIALLY abuts a corridor (the rest abuts the core RC wall or a perpendicular party wall),
+// lands the door at a corner or even over the core. The founder's mis-placed-door arrow.
+// `computeCoreDoorPlacement` returns the door's along-edge CLEAR SPAN as the OVERLAP between the cell's
+// door edge and the CORE-CONNECTED corridor band(s) it fronts — so the door sits on the wall the unit
+// genuinely SHARES with core-reaching circulation — then a sane offset CENTRED in that shared span,
+// clamped clear of each corner by a door-width jamb margin. When the door edge shares < a door width
+// with any core-connected band (a sealed/ambiguous cell) it returns null so the executor keeps its
+// engine-circulation alignment / centred fallback. Pure + deterministic.
+export interface CoreDoorPlacement {
+    /** The along-edge offset (leading edge, from the edge's low corner, m) for the entry door. */
+    readonly offset: number;
+    /** The door leaf width used (m) — the clamped width that fits the shared span with jambs. */
+    readonly width: number;
+    /** The corridor-shared clear span on the door edge: [lo, hi] along the edge axis (m). */
+    readonly clearLo: number;
+    readonly clearHi: number;
+}
+
+/** §RESI-CORE-DOOR — compute the validated door offset on a cell's `doorEdge`, centred within the span
+ *  the edge SHARES with a core-connected corridor band, clear of corners. `connected` is the core-
+ *  connected band index set (from `coreConnectedBandSet`). Returns null when no core-connected band
+ *  shares ≥ a door width with the door edge (caller falls back). `jambM` reserves solid wall at each
+ *  end of the SHARED span (so the leaf never abuts a corner / the core / a perpendicular wall). */
+export function computeCoreDoorPlacement(
+    cell: ApartmentCell,
+    corridorBands: readonly Rect[],
+    connected: ReadonlySet<number>,
+    doorWidth = DOOR_WIDTH_M,
+    jambM = 0.2,
+): CoreDoorPlacement | null {
+    const r = cell.rect;
+    const e = cell.doorEdge;
+    const horizontal = e === 'z0' || e === 'z1';
+    const edgeConst = e === 'x0' ? Math.min(r.x0, r.x1) : e === 'x1' ? Math.max(r.x0, r.x1)
+        : e === 'z0' ? Math.min(r.z0, r.z1) : Math.max(r.z0, r.z1);
+    const spanLo = horizontal ? Math.min(r.x0, r.x1) : Math.min(r.z0, r.z1);
+    const spanHi = horizontal ? Math.max(r.x0, r.x1) : Math.max(r.z0, r.z1);
+    // The WIDEST overlap between the door edge and a CORE-CONNECTED band coincident with that edge.
+    let bestLo = NaN, bestHi = NaN, bestSpan = -Infinity;
+    for (let i = 0; i < corridorBands.length; i++) {
+        if (!connected.has(i)) continue;
+        const c = corridorBands[i]!;
+        const cx0 = Math.min(c.x0, c.x1), cx1 = Math.max(c.x0, c.x1);
+        const cz0 = Math.min(c.z0, c.z1), cz1 = Math.max(c.z0, c.z1);
+        if (horizontal) {
+            const onBoundary = Math.abs(edgeConst - cz0) < 0.05 || Math.abs(edgeConst - cz1) < 0.05;
+            if (!onBoundary) continue;
+            const lo = Math.max(spanLo, cx0), hi = Math.min(spanHi, cx1);
+            if (hi - lo > bestSpan) { bestSpan = hi - lo; bestLo = lo; bestHi = hi; }
+        } else {
+            const onBoundary = Math.abs(edgeConst - cx0) < 0.05 || Math.abs(edgeConst - cx1) < 0.05;
+            if (!onBoundary) continue;
+            const lo = Math.max(spanLo, cz0), hi = Math.min(spanHi, cz1);
+            if (hi - lo > bestSpan) { bestSpan = hi - lo; bestLo = lo; bestHi = hi; }
+        }
+    }
+    if (!(bestSpan >= DOOR_WIDTH_M - EPS)) return null;   // door edge doesn't share a door width with circulation
+    // Clamp the leaf to fit the shared span with a jamb each side; centre it in the shared span.
+    const w = Math.max(0.7, Math.min(doorWidth, bestSpan - 2 * jambM));
+    if (!(w > 0)) return null;
+    const sharedCentre = (bestLo + bestHi) / 2;
+    // Offset is measured from the EDGE's low corner (spanLo), matching the executor's door host frame.
+    let offset = (sharedCentre - spanLo) - w / 2;
+    // Clamp clear of the corridor-shared span's ends (never over the core / a corner / a perpendicular wall).
+    const minOff = (bestLo - spanLo) + jambM;
+    const maxOff = (bestHi - spanLo) - jambM - w;
+    offset = Math.min(Math.max(minOff, offset), Math.max(minOff, maxOff));
+    return { offset: round4(offset), width: round4(w), clearLo: round4(bestLo), clearHi: round4(bestHi) };
 }
 
 /**
@@ -1618,7 +1746,13 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
     // sub-rect ⇒ packDecomposed returns null ⇒ the baseline keeps winning (byte-identical, no regress).
     if (corridorGrid) considerCandidate(packDecomposed());
     const placements = best.placements;
-    const corridorBands = best.corridorBands;
+    // §RESI-CORRIDOR-TO-CORE — clip the winning candidate's corridor bands so no band runs THROUGH the
+    // core: every band crossing the core is split at the core faces, so each corridor wall butts the
+    // core boundary exactly (no overshoot into / gap before the core). Done on the winner only, before
+    // the repair/tag passes (which read the band geometry). Idempotent on a plate whose bands never
+    // cross the core (byte-identical there). The split keeps both segments touching the core, so the
+    // §RESI-CORE-CIRCULATION graph is preserved (the vertical spine bridges the two sides across the core).
+    const corridorBands = clipCorridorBandsToCore(best.corridorBands, coreN);
     // The residual-absorption pass (flag ON) appends EXTRA cells from the demand tail; it consumes
     // the demand from where the winning candidate's packing stopped. Every candidate packs the same
     // demand list in order from cursor 0, so the count it placed is exactly the demand it consumed.
@@ -1740,8 +1874,18 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
     // §RESI-FILL-SIDEFACADE-trimmed and §RESI-RECT-DECOMP per-wing-connector plates.
     repairCoreCirculation(corridorBands, placements, coreN, halfCorr, bb);
     const { tagged, coreReached } = tagCoreReachability(placements, corridorBands, coreN);
+    // §RESI-CORE-DOOR — stamp each cell's validated entry-door offset: centred within the span its
+    // `doorEdge` SHARES with a core-connected corridor band, clear of corners. The executor uses this
+    // as its geometric door offset (replacing the centre-of-the-WHOLE-edge fallback that mis-placed a
+    // small core-flank unit's door). Absent on a cell whose door edge doesn't share a door width with
+    // a core-connected band (the executor keeps its engine-circulation / centred fallback there).
+    const connectedForDoors = coreConnectedBandSet(corridorBands, coreN);
+    const withDoors = tagged.map((cell) => {
+        const dp = computeCoreDoorPlacement(cell, corridorBands, connectedForDoors);
+        return dp ? { ...cell, coreDoorOffset: dp.offset, coreDoorWidth: dp.width } : cell;
+    });
     placements.length = 0;
-    placements.push(...tagged);
+    placements.push(...withDoors);
 
     const areas = placements.map((c) => c.areaM2);
     const mix = placements.map((c) => c.typology);

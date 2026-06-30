@@ -153,10 +153,28 @@ describe('§RESI-FILL-PLATE — apartments fill the plate, not a central cluster
         // A 30×16 plate has depth < 2·pitch → just the core corridor; apartments still pack.
         const res = expectOk(partitionLevelPlate(largeInput(30, 16, { apartments: manyDemands(40) })));
         expect(res.apartmentCells.length).toBeGreaterThanOrEqual(4);
-        // Only one HORIZONTAL band fits in a 16 m-deep plate (plus the §RESI-CORE-SPINE segments
-        // that connect it to the core — those are narrow verticals, not full-width bands).
-        const horizontal = res.publicCorridor.filter(c => c.x0 < 1e-3 && Math.abs(c.x1 - 30) < 1e-3);
-        expect(horizontal.length).toBe(1);
+        // §RESI-CORRIDOR-TO-CORE — the single core corridor LINE is now SPLIT at the core faces so its
+        // walls arrive JUST to the core (no full-width band running through the core). At the core's Z
+        // it is two co-linear segments: a LEFT one ending at core.x0 and a RIGHT one starting at core.x1.
+        // (Plus the §RESI-CORE-SPINE vertical segments that connect it to the core.)
+        const cz = (res.core.z0 + res.core.z1) / 2;
+        const atCoreZ = res.publicCorridor.filter(c => {
+            const z0 = Math.min(c.z0, c.z1), z1 = Math.max(c.z0, c.z1);
+            return z0 < cz + 1e-3 && z1 > cz - 1e-3 && Math.abs(c.x1 - c.x0) > Math.abs(c.z1 - c.z0);
+        });
+        const leftSeg = atCoreZ.some(c => Math.min(c.x0, c.x1) < 1e-3 && Math.abs(Math.max(c.x0, c.x1) - res.core.x0) < 1e-3);
+        const rightSeg = atCoreZ.some(c => Math.abs(Math.min(c.x0, c.x1) - res.core.x1) < 1e-3 && Math.abs(Math.max(c.x0, c.x1) - 30) < 1e-3);
+        expect(leftSeg).toBe(true);
+        expect(rightSeg).toBe(true);
+        // No horizontal band runs THROUGH the core (the founder's "arrive JUST to the core").
+        const throughCore = res.publicCorridor.some(c => {
+            const x0 = Math.min(c.x0, c.x1), x1 = Math.max(c.x0, c.x1);
+            const z0 = Math.min(c.z0, c.z1), z1 = Math.max(c.z0, c.z1);
+            const xo = Math.min(x1, res.core.x1) - Math.max(x0, res.core.x0);
+            const zo = Math.min(z1, res.core.z1) - Math.max(z0, res.core.z0);
+            return xo > 1e-3 && zo > 1e-3;
+        });
+        expect(throughCore).toBe(false);
     });
 
     it('a genuinely TINY plate still rejects (does not mask a real capacity miss)', () => {

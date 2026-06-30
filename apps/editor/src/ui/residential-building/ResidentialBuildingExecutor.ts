@@ -1109,12 +1109,20 @@ export class ResidentialBuildingExecutor {
             doorWidth,
         );
         const centredOffset = Math.max(0, (edgeLenM - doorWidth) / 2);
+        // §RESI-CORE-DOOR (founder 2026-06-30: "the door should always be well calculated") — when the
+        // engine-circulation alignment is null, PREFER the partition's validated `coreDoorOffset`: it
+        // centres the door within the span the door edge SHARES with the core-connected corridor, clear
+        // of corners / the core / a perpendicular wall. This replaces the plain centre-of-the-WHOLE-edge
+        // fallback that mis-placed a small core-flank unit's door at a corner. Treated as corridor-aligned
+        // (kept verbatim by the deferred punch) since it is already corner-clamped against the shared span.
+        const coreDoor = (apt.cell as { coreDoorOffset?: number; coreDoorWidth?: number });
+        const useCoreDoor = !aligned && coreDoor.coreDoorOffset !== undefined;
         const entryDoor = {
             wallId: doorWallId ?? shellWalls[0]?.id ?? createId('wall'),
-            offset: aligned ? aligned.offset : centredOffset,
-            width: doorWidth,
-            // When the offset is corridor-aligned, the deferred punch keeps it verbatim (no re-centre).
-            corridorAligned: aligned != null,
+            offset: aligned ? aligned.offset : useCoreDoor ? coreDoor.coreDoorOffset! : centredOffset,
+            width: useCoreDoor && coreDoor.coreDoorWidth ? coreDoor.coreDoorWidth : doorWidth,
+            // When the offset is corridor-aligned OR core-door-validated, the deferred punch keeps it verbatim.
+            corridorAligned: aligned != null || useCoreDoor,
         };
         return { payload: { walls, levelId }, shellWalls, entryDoor };
     }
@@ -1169,11 +1177,15 @@ export class ResidentialBuildingExecutor {
             (apt.layout?.rooms ?? []) as ReadonlyArray<{ type?: string; occupancy?: string; polygon?: ReadonlyArray<{ x: number; y: number }> }>,
             apt.cell.doorEdge, r, doorWidth,
         );
+        // §RESI-CORE-DOOR — prefer the partition's validated, corridor-shared, corner-clear offset over
+        // the plain centred fallback (mirrors `_buildCellPerimeter`); kept verbatim by the deferred punch.
+        const coreDoor = (apt.cell as { coreDoorOffset?: number; coreDoorWidth?: number });
+        const useCoreDoor = !aligned && coreDoor.coreDoorOffset !== undefined;
         const entryDoor = {
             wallId: doorWallId ?? shellWalls[0]?.id ?? createId('wall'),
-            offset: aligned ? aligned.offset : Math.max(0, (edgeLenM - doorWidth) / 2),
-            width: doorWidth,
-            corridorAligned: aligned != null,
+            offset: aligned ? aligned.offset : useCoreDoor ? coreDoor.coreDoorOffset! : Math.max(0, (edgeLenM - doorWidth) / 2),
+            width: useCoreDoor && coreDoor.coreDoorWidth ? coreDoor.coreDoorWidth : doorWidth,
+            corridorAligned: aligned != null || useCoreDoor,
         };
         return { payload: { walls, levelId }, shellWalls, entryDoor };
     }
