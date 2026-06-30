@@ -1119,38 +1119,63 @@ export class CesiumViewport {
 
     this.handler.setInputAction(
       (movement: { position: Cesium.Cartesian2 }) => {
-        if (!this.viewer) return;
+        // §FORMA-CLICK-NO-NAV (2026-06-30) — a scene click in the 3D-Site / Forma
+        // view must STAY in the view (interact with the scene), never route home.
+        // `scene.pick()` runs an off-screen render pass; on a heavy Forma scene
+        // (white materials + site-metric textures + many primitives) it can throw a
+        // transient WebGL/context error. Previously this throw escaped the Cesium
+        // ScreenSpaceEventHandler callback as an unhandled `window` 'error' event
+        // whose message ("WebGL" / "context lost" / "renderer") matched
+        // ViewportCrashGuard's render-error keywords — a few stray clicks crossed its
+        // consecutive-throw threshold, the SceneCrashFallback appeared, and its
+        // "Back to projects" link (`<a href="/">`) full-reloaded the app to a FRESH
+        // BOOT at the project hub, LOSING the open project. We now CATCH + LOG the
+        // pick/selection error here (the ViewportCrashGuard "swallow transient
+        // render throw" posture) so a non-fatal scene click can never escalate to a
+        // route-home/reload. Legitimate navigation (the explicit "Views"/hub buttons)
+        // is unaffected — only the accidental pick-crash → hub path is closed.
+        try {
+          if (!this.viewer) return;
 
-        const pickedObject = this.viewer.scene.pick(movement.position);
+          const pickedObject = this.viewer.scene.pick(movement.position);
 
-        if (!Cesium.defined(pickedObject)) return;
+          if (!Cesium.defined(pickedObject)) return;
 
-        // If GLB model clicked
-        if (pickedObject.primitive instanceof Cesium.Model) {
-          const model = pickedObject.primitive as Cesium.Model;
-          this.currentModel = model;
-          console.log("✅ BIM model selected");
+          // If GLB model clicked
+          if (pickedObject.primitive instanceof Cesium.Model) {
+            const model = pickedObject.primitive as Cesium.Model;
+            this.currentModel = model;
+            console.log("✅ BIM model selected");
 
-          // §CESIUM-GIZMO-REMOVED (founder 2026-06-19) — the transform gizmo that drew
-          // RED(X)/GREEN(Y)/BLUE(Z) origin axis lines on selection (the green/purple
-          // lines at the building corner) is gone. The yellow silhouette below is the
-          // selection feedback; no axes are ever attached.
+            // §CESIUM-GIZMO-REMOVED (founder 2026-06-19) — the transform gizmo that drew
+            // RED(X)/GREEN(Y)/BLUE(Z) origin axis lines on selection (the green/purple
+            // lines at the building corner) is gone. The yellow silhouette below is the
+            // selection feedback; no axes are ever attached.
 
-          // Use silhouette for persistent visual feedback
-          model.silhouetteColor = Cesium.Color.YELLOW;
-          model.silhouetteSize = 3;
+            // Use silhouette for persistent visual feedback
+            model.silhouetteColor = Cesium.Color.YELLOW;
+            model.silhouetteSize = 3;
 
-          return;
-        }
+            return;
+          }
 
-        // Clicked away - deselect
-        if (this.currentModel) {
-          this.currentModel.silhouetteSize = 0;
-        }
+          // Clicked away - deselect
+          if (this.currentModel) {
+            this.currentModel.silhouetteSize = 0;
+          }
 
-        // Optional: still allow tile feature selection
-        if (pickedObject instanceof Cesium.Cesium3DTileFeature) {
-          console.log("Tile feature selected");
+          // Optional: still allow tile feature selection
+          if (pickedObject instanceof Cesium.Cesium3DTileFeature) {
+            console.log("Tile feature selected");
+          }
+        } catch (err) {
+          // §FORMA-CLICK-NO-NAV — swallow + log; the viewport stays live and the
+          // user keeps their open project. Never re-throw (that re-arms the
+          // crash-guard → hub-navigation path this guard exists to close).
+          console.warn(
+            "[gis][cesium] §FORMA-CLICK-NO-NAV — scene-click pick/selection threw (non-fatal, swallowed; view kept):",
+            err,
+          );
         }
       },
       Cesium.ScreenSpaceEventType.LEFT_CLICK
