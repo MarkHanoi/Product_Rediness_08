@@ -241,6 +241,20 @@ const FORMA_FLY_MIN_GROUND_CLEARANCE_M = 25;
 const FORMA_SILHOUETTE_WIDTH = 1.5;
 /** Ambient-occlusion intensity (§2 — ≈ 2.5). */
 const FORMA_AO_INTENSITY = 2.5;
+/**
+ * §FORMA-AO-OPT-IN (ADR-0087) — DEFAULT OFF. Cesium's ambient-occlusion
+ * post-process is a cosmetic effect whose generated fragment shader FAILS TO
+ * COMPILE on some GPU/driver combos (notably the founder's machine). Cesium
+ * treats a shader-compile failure as FATAL: it raises `scene.renderError`,
+ * shows its error panel, and STOPS the entire render loop — so one optional
+ * effect blanks the whole Forma massing view ("Rendering has stopped").
+ *
+ * AO adds nothing essential to a massing study (we already have soft shadows +
+ * silhouette), so we ship it OFF and gate it behind an explicit opt-in flag
+ * (`window.__pryzmFormaAO === true`). Even when opted-in, the `scene.renderError`
+ * guard (installed at mount) auto-disables AO on the first compile failure and
+ * keeps rendering, so the view can never die. */
+const FORMA_AO_DEFAULT_ENABLED = false;
 /** Directional-light intensity for the Forma key light. §A.21.D-FORMA2 raised
  *  1.8 → 2.3 so strong-white masses read crisp + bright with stronger highlights
  *  (founder: "strong white + stronger contrast"). */
@@ -373,6 +387,16 @@ export class CesiumViewport {
   private formaSilhouetteComposite: Cesium.PostProcessStageComposite | null = null;
   /** One-time guard so the "post-process unavailable" warning logs only once. */
   private formaPostProcessWarned = false;
+  /** §FORMA-AO-OPT-IN (ADR-0087) — whether AO is wanted at all this session.
+   *  Defaults OFF (the AO shader crashes on some GPUs); set true via
+   *  `window.__pryzmFormaAO` before mount to opt in. */
+  private formaAoOptIn = FORMA_AO_DEFAULT_ENABLED;
+  /** §FORMA-RENDER-ERROR-GUARD (ADR-0087) — set once the post-process shader has
+   *  faulted, so we never re-enable AO/silhouette after Cesium reported a
+   *  render error for them (avoids a crash → disable → re-enable → crash loop). */
+  private formaPostProcessFaulted = false;
+  /** Disposer for the `scene.renderError` subscription (called on dispose). */
+  private renderErrorSub: (() => void) | null = null;
 
   // ---- FORMA.3 — authored-massing entity placement state ----
   /** Entities placed for the authored massing (proposed buildings + boundary),
@@ -894,10 +918,21 @@ export class CesiumViewport {
       // (audit §1.2.2 / inline comment :104-111), so the abstract Forma look is
       // strictly better and we default it ON. Either can be overridden by
       // `window.__pryzmFormaMode` (true/false) before mount.
+      // §FORMA-RENDER-ERROR-GUARD (ADR-0087) — install BEFORE any Forma mode is
+      // applied, so a post-process shader-compile failure disables the offending
+      // stage and keeps the loop alive instead of letting Cesium stop rendering.
+      this.installRenderErrorGuard();
+
       try {
-        const win = window as unknown as { __pryzmFormaMode?: boolean; pryzmSetCesiumFormaMode?: (on: boolean) => void };
+        const win = window as unknown as {
+          __pryzmFormaMode?: boolean;
+          __pryzmFormaAO?: boolean;
+          pryzmSetCesiumFormaMode?: (on: boolean) => void;
+        };
         win.pryzmSetCesiumFormaMode = (on: boolean) => this.setFormaMode(on);
         const flag = win.__pryzmFormaMode;
+        // §FORMA-AO-OPT-IN (ADR-0087) — AO is OFF unless explicitly opted in.
+        if (typeof win.__pryzmFormaAO === 'boolean') this.formaAoOptIn = win.__pryzmFormaAO;
         // GIS-CESIUM-NOTOKEN — when VITE_CESIUM_TOKEN is ABSENT we FORCE Forma flat-
         // ground regardless of whether the (hardcoded dev-token) photogrammetry call
         // happened to resolve: without a real configured token the photoreal globe
@@ -1348,15 +1383,28 @@ export class CesiumViewport {
     }
 
     // --- Post-process: AO + silhouette (FEATURE-DETECTED; degrade gracefully). ---
-    this.ensureFormaPostProcess();
-    if (this.formaAoStage) this.formaAoStage.enabled = true;
-    if (this.formaSilhouetteComposite) this.formaSilhouetteComposite.enabled = true;
+    // §FORMA-AO-OPT-IN (ADR-0087) — AO defaults OFF (its shader crashes on some
+    // GPUs and Cesium treats that as a FATAL render-stop). It is only built +
+    // enabled when explicitly opted in AND the post-process hasn't already
+    // faulted this session. Silhouette stays on (cheap edge-detection, no AO
+    // gaussian loop) but is also disabled once a render-error fault is seen.
+    const aoWanted = this.formaAoOptIn && !this.formaPostProcessFaulted;
+    this.ensureFormaPostProcess(aoWanted);
+    if (this.formaAoStage) this.formaAoStage.enabled = aoWanted;
+    if (this.formaSilhouetteComposite) this.formaSilhouetteComposite.enabled = !this.formaPostProcessFaulted;
 
+    const aoLabel = this.formaPostProcessFaulted
+      ? ', AO=disabled (render-error guard)'
+      : !this.formaAoOptIn
+        ? ', AO=off (opt-in via window.__pryzmFormaAO)'
+        : this.formaAoStage
+          ? ', AO'
+          : ', AO=unavailable';
     console.log(
       '[CesiumViewport] FORMA mode applied: flat ground ' + FORMA_PALETTE.ground +
         ', no sky/atmosphere, soft shadows 4096' +
-        (this.formaAoStage ? ', AO' : ', AO=unavailable') +
-        (this.formaSilhouetteComposite ? ', silhouette' : ', silhouette=unavailable') + '.'
+        aoLabel +
+        (this.formaSilhouetteComposite && !this.formaPostProcessFaulted ? ', silhouette' : ', silhouette=unavailable') + '.'
     );
   }
 
@@ -1637,8 +1685,12 @@ export class CesiumViewport {
    * `scene.postProcessStages` is unsupported), we log once and skip it; the
    * Forma flat materials + shadows still apply. Stages are added with
    * `.enabled = false` and toggled by apply/restore.
+   *
+   * §FORMA-AO-OPT-IN (ADR-0087) — the AO stage is only CONSTRUCTED when
+   * `buildAo` is true (it defaults OFF because its fragment shader crashes the
+   * Cesium render loop on some GPUs). Silhouette is always built.
    */
-  private ensureFormaPostProcess(): void {
+  private ensureFormaPostProcess(buildAo: boolean): void {
     const viewer = this.viewer;
     if (!viewer) return;
     const scene = viewer.scene;
@@ -1653,7 +1705,7 @@ export class CesiumViewport {
     // (`stages.ambientOcclusion`, HBAO), not a factory — feature-detect both:
     // prefer the built-in; fall back to a `createAmbientOcclusionStage()`
     // factory if a future/older build has one instead.
-    if (!this.formaAoStage) {
+    if (buildAo && !this.formaAoStage) {
       try {
         const collAny = stages as unknown as {
           ambientOcclusion?: Cesium.PostProcessStageComposite;
@@ -1756,6 +1808,70 @@ export class CesiumViewport {
       '[CesiumViewport][forma] post-process degraded (' + reason + '). ' +
         'Keeping flat materials + shadows; skipping AO/silhouette.'
     );
+  }
+
+  /**
+   * §FORMA-RENDER-ERROR-GUARD (ADR-0087) — keep the Cesium render loop ALIVE
+   * when a post-process fragment shader fails to compile.
+   *
+   * Cesium treats a shader-compile failure (e.g. the AO HBAO gaussian shader on
+   * an unsupported GPU/driver) as FATAL: it raises `scene.renderError`, calls
+   * `showErrorPanel`, and STOPS the render loop — so one optional cosmetic
+   * effect would blank the entire Forma massing view ("Rendering has stopped").
+   *
+   * We subscribe to `scene.renderError` and, on any render error, DISABLE the
+   * Forma post-process stages (AO + silhouette), mark the post-process as
+   * faulted so apply/restore never re-enables them, and request a fresh render.
+   * The massing geometry + shadows still draw; only the broken effect is shed.
+   * Cesium re-arms its render loop on the next `requestRender()`, so dropping
+   * the faulty stage restores the view. Failures here are non-fatal.
+   */
+  private installRenderErrorGuard(): void {
+    const viewer = this.viewer;
+    if (!viewer) return;
+    const scene = viewer.scene;
+    // `renderError` is a Cesium Event<(scene, error) => void>; the generated
+    // .d.ts types it loosely — addEventListener returns a remover function.
+    const evt = (scene as unknown as {
+      renderError?: { addEventListener?: (cb: (scene: unknown, error: unknown) => void) => (() => void) };
+    }).renderError;
+    if (!evt || typeof evt.addEventListener !== 'function') {
+      console.warn('[CesiumViewport][forma] scene.renderError unavailable — cannot install render-error guard.');
+      return;
+    }
+    try {
+      const remover = evt.addEventListener((_scene: unknown, error: unknown) => {
+        // Only act once — and only when a post-process stage is actually live.
+        if (this.formaPostProcessFaulted) return;
+        const hadPostProcess =
+          (this.formaAoStage?.enabled ?? false) || (this.formaSilhouetteComposite?.enabled ?? false);
+        this.formaPostProcessFaulted = true;
+        console.error(
+          '[CesiumViewport][forma] §FORMA-RENDER-ERROR-GUARD: render error caught ' +
+            '(likely a post-process shader compile failure) — disabling AO + silhouette ' +
+            'and keeping the scene rendering. Error:',
+          error
+        );
+        try {
+          if (this.formaAoStage) this.formaAoStage.enabled = false;
+          if (this.formaSilhouetteComposite) this.formaSilhouetteComposite.enabled = false;
+        } catch (e) {
+          console.warn('[CesiumViewport][forma] disabling faulted post-process failed:', e);
+        }
+        // Re-arm the render loop so the massing redraws without the broken stage.
+        if (hadPostProcess) {
+          try {
+            this.viewer?.scene.requestRender();
+          } catch (e) {
+            console.warn('[CesiumViewport][forma] requestRender after render-error failed:', e);
+          }
+        }
+      });
+      this.renderErrorSub = typeof remover === 'function' ? remover : null;
+      console.log('[CesiumViewport][forma] §FORMA-RENDER-ERROR-GUARD installed (post-process crashes are non-fatal).');
+    } catch (e) {
+      console.warn('[CesiumViewport][forma] failed to install render-error guard:', e);
+    }
   }
 
   /**
@@ -5469,6 +5585,18 @@ export class CesiumViewport {
       this.handler.destroy();
       this.handler = null;
     }
+
+    // §FORMA-RENDER-ERROR-GUARD (ADR-0087) — drop the renderError subscription
+    // before destroying the viewer so a re-mount installs a fresh one.
+    if (this.renderErrorSub) {
+      try {
+        this.renderErrorSub();
+      } catch (e) {
+        console.warn('[CesiumViewport] renderError subscription dispose failed:', e);
+      }
+      this.renderErrorSub = null;
+    }
+    this.formaPostProcessFaulted = false;
 
     if (this.viewer) {
       this.viewer.destroy();
