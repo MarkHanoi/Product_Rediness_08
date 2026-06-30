@@ -45,6 +45,14 @@ massing. Live prod evidence (Paris, LAT 48.8626 LON 2.3137) showed four defects:
    climate/pop 6000→24000). The pure builder's `resolveCellSize` still clamps the
    cell size UP if a cap would be exceeded and **logs once** when it does — finer
    cells are never silently truncated.
+   > **SUPERSEDED by [ADR-0084](./0084-site-metric-per-metric-cost-tier-resolution.md)
+   > (§SITE-METRIC-COST-TIER, 2026-06-30).** The uniform finer grid here drowned the
+   > EXPENSIVE per-cell raycast metrics (sun-hours, daylight VSC) in cell count on the
+   > 240 m disc — sun-hours never visibly completed. Cell resolution is now decoupled
+   > per **cost tier**: expensive raycast metrics get a coarser cell + a lower cap
+   > (~5 m / 3500) so they paint in seconds; cheap O(1) field metrics keep a fine
+   > grid with a bounded entity count (~2.4 m / 12000). The clamp-up-and-log behaviour
+   > described here is retained.
 3. **Climate fallback for temperature + wind.** `buildSiteMetricGrid` now resolves a
    dataset via an internal `resolveGridDataset`: it prefers the live `input.dataset`
    and otherwise **synthesises the OFFLINE bundled regional normals** from the site

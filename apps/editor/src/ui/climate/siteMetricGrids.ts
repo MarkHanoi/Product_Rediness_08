@@ -412,9 +412,15 @@ function sunHoursCellColour(intensity: number): string {
 let cellCapClampLogged = false;
 
 /** Resolve the target cell size (m), clamped UP so the grid never exceeds the hard
- *  cell cap (bounds work on a large disc). Logs once when it clamps. */
-function resolveCellSize(input: MetricGridInput, defaultCellM: number): { cellSize: number; maxCells: number } {
-    const maxCells = Math.max(64, input.maxCells ?? 6000);
+ *  cell cap (bounds work on a large disc). Logs once when it clamps.
+ *  §SITE-METRIC-COST-TIER — `defaultMaxCells` lets an expensive (raycast) metric
+ *  default to a far lower cap than a cheap field metric when the caller passes none. */
+function resolveCellSize(
+    input: MetricGridInput,
+    defaultCellM: number,
+    defaultMaxCells = 6000,
+): { cellSize: number; maxCells: number } {
+    const maxCells = Math.max(64, input.maxCells ?? defaultMaxCells);
     let cellSize = input.cellSizeM && input.cellSizeM > 0
         ? input.cellSizeM
         : (input.gridCountCap && input.gridCountCap > 0
@@ -437,16 +443,63 @@ function resolveCellSize(input: MetricGridInput, defaultCellM: number): { cellSi
     return { cellSize, maxCells };
 }
 
-/** Default target cell edge (m) per metric — sun-hours is the heaviest (raycast per
- *  cell × sun sample × prism) so it gets a slightly larger min cell.
- *  §SITE-METRIC-FINER (2026-06-29) — HALVED (sun 5→2.5 m, climate/pop 3.5→1.8 m) so
- *  the heatmap reads as a fine field, not coarse blocks. ~4× the cells for the same
- *  area; `resolveCellSize` clamps UP only if the raised `maxCells` would be exceeded
- *  (and logs when it does — never a silent truncation). */
+// ─────────────────────────────────────────────────────────────────────────────
+// §SITE-METRIC-COST-TIER (founder 2026-06-30, ADR-0084) — per-metric grid RESOLUTION
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// The metrics do NOT cost the same per cell. The CHEAP field metrics are O(1) closed
+// formulae per cell:
+//   • temperature — UHI ΔT from a built-density formula;
+//   • wind        — Lawson shelter proxy;
+//   • population   — OSM GFA footprint-density proxy.
+// They tolerate a very fine grid (~22k cells on the 240 m disc) without stalling.
+//
+// The EXPENSIVE metrics raycast PER CELL against EVERY context prism for many sky/sun
+// directions:
+//   • sunHours — one shadow ray-march per (cell × sun-sample × prism);
+//   • daylight — one ray-march per (cell × az×alt sky patch × prism) — even heavier.
+// On the 240 m disc the OSM context can be hundreds of prisms, so a fine grid here is
+// MILLIONS of ray tests — sun-hours then takes minutes or never visibly completes
+// (the founder symptom: "sun-hours NOT rendering" while the cheap metrics paint fine).
+//
+// FIX: DECOUPLE the grid resolution per cost tier. Expensive metrics get a COARSER
+// cell floor + a much lower hard cell cap (a few thousand cells) so they complete +
+// PAINT in a couple of seconds; the cheap metrics keep the fine field. The renderer
+// reads `siteMetricGridBudget(metric)` instead of hard-coding cell size / caps, so
+// this one table is the single source of truth (and the unit test pins it).
+
+/** The compute cost class of a metric's per-cell evaluation. `'expensive'` = a
+ *  per-cell raycast/sky-sweep against the context prisms (sun-hours, daylight VSC);
+ *  `'cheap'` = an O(1) closed-form field (temperature, wind, population). */
+export type MetricCostTier = 'cheap' | 'expensive';
+
+/** Classify a metric by per-cell cost (drives the grid-resolution budget). */
+export function metricCostTier(metric: SiteMetric): MetricCostTier {
+    return metric === 'sunHours' || metric === 'daylight' ? 'expensive' : 'cheap';
+}
+
+/** The recommended grid resolution budget for a metric on the large analysis disc.
+ *  §SITE-METRIC-COST-TIER — expensive raycast metrics get a COARSER cell + a far
+ *  lower cell cap so the per-cell raycast completes + paints within a few seconds;
+ *  cheap field metrics keep the fine grid. The renderer passes these straight into
+ *  the (chunked) build, so resolution is decoupled per metric in ONE place. */
+export function siteMetricGridBudget(metric: SiteMetric): { cellSizeM: number; maxCells: number } {
+    return metricCostTier(metric) === 'expensive'
+        // Expensive: ~5 m cells, capped ≈ 3500 cells. On the 240 m disc that is a few
+        // thousand cells × samples × prisms — completes + paints in a couple of seconds.
+        // 3.5k cells is also far fewer Cesium entities to draw than the old ~9k.
+        ? { cellSizeM: 5, maxCells: 3500 }
+        // Cheap O(1) field: a fine grid (~2.4 m) but a cap (≈ 12k) that keeps the
+        // entity-draw count bounded — ~22k individual entities was the "population is
+        // slow" symptom (the per-cell maths is trivial; the N entities are the cost).
+        : { cellSizeM: 2.4, maxCells: 12000 };
+}
+
+/** Default target cell edge (m) per metric — derived from the cost-tier budget so the
+ *  pure (whole-grid) `buildSiteMetricGrid` path stays consistent with the renderer's
+ *  chunked path. §SITE-METRIC-COST-TIER. */
 function defaultCellM(metric: SiteMetric): number {
-    // Sun-hours + daylight VSC are the heaviest (raycast / sky-sweep per cell), so they
-    // get a slightly larger min cell than the cheap climate/population grids.
-    return metric === 'sunHours' || metric === 'daylight' ? 2.5 : 1.8;
+    return siteMetricGridBudget(metric).cellSizeM;
 }
 
 /**
@@ -515,7 +568,9 @@ export function buildSiteMetricGrid(
 ): MetricGridCell[] {
     if (!(input.radius > 0)) return [];
     const up = input.heightAboveGround ?? 0.16;
-    const { cellSize, maxCells } = resolveCellSize(input, defaultCellM(metric));
+    const { cellSize, maxCells } = resolveCellSize(
+        input, defaultCellM(metric), siteMetricGridBudget(metric).maxCells,
+    );
     const { polys, obstacles } = toObstacles(input.footprints);
     const cells = buildStreetGrid(discBoundary(input.radius), polys, {
         cellSize,
@@ -616,7 +671,9 @@ export function prepareSunHoursGrid(input: MetricGridInput): SunHoursGridPrep | 
     const lat = input.latDeg, lng = input.lngDeg;
     if (lat == null || lng == null) return null;
     const up = input.heightAboveGround ?? 0.16;
-    const { cellSize, maxCells } = resolveCellSize(input, defaultCellM('sunHours'));
+    const { cellSize, maxCells } = resolveCellSize(
+        input, defaultCellM('sunHours'), siteMetricGridBudget('sunHours').maxCells,
+    );
     const { polys } = toObstacles(input.footprints);
     const cells = buildStreetGrid(discBoundary(input.radius), polys, {
         cellSize,
@@ -790,7 +847,9 @@ export interface DaylightVscGridPrep {
 export function prepareDaylightVscGrid(input: MetricGridInput): DaylightVscGridPrep | null {
     if (!(input.radius > 0)) return null;
     const up = input.heightAboveGround ?? 0.16;
-    const { cellSize, maxCells } = resolveCellSize(input, defaultCellM('daylight'));
+    const { cellSize, maxCells } = resolveCellSize(
+        input, defaultCellM('daylight'), siteMetricGridBudget('daylight').maxCells,
+    );
     const { polys } = toObstacles(input.footprints);
     const cells = buildStreetGrid(discBoundary(input.radius), polys, {
         cellSize,

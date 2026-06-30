@@ -13,6 +13,9 @@ import {
     siteMetricAvailability,
     verticalSkyComponentPct,
     prepareDaylightVscGrid,
+    metricCostTier,
+    siteMetricGridBudget,
+    type SiteMetric,
     type MetricFootprint,
 } from '../src/ui/climate/siteMetricGrids';
 
@@ -233,6 +236,65 @@ describe('siteMetricAvailability', () => {
         expect(byMetric.temperature!.available).toBe(true);
         expect(byMetric.wind!.available).toBe(true);
         expect(byMetric.temperature!.isGroundGrid).toBe(true);
+    });
+});
+
+describe('§SITE-METRIC-COST-TIER — per-metric grid resolution (ADR-0084)', () => {
+    it('classifies the raycast metrics as expensive and the field metrics as cheap', () => {
+        expect(metricCostTier('sunHours')).toBe('expensive');
+        expect(metricCostTier('daylight')).toBe('expensive');
+        expect(metricCostTier('temperature')).toBe('cheap');
+        expect(metricCostTier('wind')).toBe('cheap');
+        expect(metricCostTier('population')).toBe('cheap');
+    });
+
+    it('gives the EXPENSIVE metrics a COARSER cell + LOWER cap than the cheap field metrics', () => {
+        const sun = siteMetricGridBudget('sunHours');
+        const day = siteMetricGridBudget('daylight');
+        const pop = siteMetricGridBudget('population');
+        const temp = siteMetricGridBudget('temperature');
+        // Sun-hours / daylight raycast per cell → coarser cells (fewer of them) than the
+        // O(1) population/temperature field. This is the decoupling that stops sun-hours
+        // drowning in cell count on the 240 m disc.
+        expect(sun.cellSizeM).toBeGreaterThan(pop.cellSizeM);
+        expect(day.cellSizeM).toBeGreaterThan(temp.cellSizeM);
+        expect(sun.maxCells).toBeLessThan(pop.maxCells);
+        expect(day.maxCells).toBeLessThan(temp.maxCells);
+        // Concrete bound: the expensive cap is small enough to complete in seconds.
+        expect(sun.maxCells).toBeLessThanOrEqual(4000);
+    });
+
+    it('the expensive (sun-hours) grid yields FEWER cells than the cheap (population) ' +
+        'grid on the SAME large disc — the per-metric resolution decoupling', () => {
+        // On a 240 m-style disc the budgets must produce materially fewer sun-hours cells
+        // than population cells, so the raycast metric paints quickly.
+        const radius = 240;
+        const sunBudget = siteMetricGridBudget('sunHours');
+        const popBudget = siteMetricGridBudget('population');
+        const sun = buildSiteMetricGrid('sunHours', {
+            radius, footprints: FOOTPRINTS, dataset: null,
+            latDeg: 41.39, lngDeg: 2.17, sunDay: 'summer', sunStepMinutes: 30,
+            cellSizeM: sunBudget.cellSizeM, maxCells: sunBudget.maxCells,
+        });
+        const pop = buildSiteMetricGrid('population', {
+            radius, footprints: FOOTPRINTS, dataset: null,
+            cellSizeM: popBudget.cellSizeM, maxCells: popBudget.maxCells,
+        });
+        expect(sun.length).toBeGreaterThan(0);
+        expect(pop.length).toBeGreaterThan(0);
+        expect(sun.length).toBeLessThan(pop.length);
+        // And the expensive grid stays under its (low) cap — bounded raycast work.
+        expect(sun.length).toBeLessThanOrEqual(sunBudget.maxCells + 32);
+    });
+
+    it('every metric has a positive, finite budget', () => {
+        for (const m of ['sunHours', 'daylight', 'temperature', 'wind', 'population'] as const satisfies readonly SiteMetric[]) {
+            const b = siteMetricGridBudget(m);
+            expect(b.cellSizeM).toBeGreaterThan(0);
+            expect(b.maxCells).toBeGreaterThan(0);
+            expect(Number.isFinite(b.cellSizeM)).toBe(true);
+            expect(Number.isFinite(b.maxCells)).toBe(true);
+        }
     });
 });
 
