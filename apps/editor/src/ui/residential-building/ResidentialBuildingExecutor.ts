@@ -47,7 +47,8 @@ import {
     CreateHandrailCommand,
     CreateFurnitureCommand,
     CreateFloorCommand,
-    UpdateRoomFinishesCommand,
+    UpdateRoomFinishesBulkCommand,
+    type RoomFinishPatch,
 } from '@pryzm/command-registry';
 import { roomDataFromGraphSpec, type GraphRoomSpec, type RoomData, type RoomFinishes } from '@pryzm/room-topology';
 import type { FurnitureType, FurnitureMaterial } from '@pryzm/geometry-furniture';
@@ -2685,16 +2686,20 @@ export class ResidentialBuildingExecutor {
             if (!(stable >= 2 || n <= 0)) { deferWork(() => tryFinish(n - 1), 300); return; }
             if (rooms.length === 0) { console.log('[resi-building] §RESI-WALL-CEILING-FINISH — no rooms to schedule-finish'); return; }
             try {
+                // §RESI-FINISH-BULK (ADR-0087) — author ALL room finishes in ONE bulk command
+                // (single CommandManager execute → one undo entry, one mutation pass) instead of
+                // N separate UpdateRoomFinishesCommand. The old per-room loop fired ~11 store
+                // events × N rooms ≈ 2883 events → the §E.1 CRDT adapter clocked a ~19 s blackout.
+                const patches: RoomFinishPatch[] = rooms.map(r => ({
+                    roomId: r.id,
+                    finishes: finishFor(r.occupancyType ?? ''),
+                }));
                 let k = 0;
                 batchCoordinator.runBatch(() => {
-                    for (const r of rooms) {
-                        try {
-                            cm.execute?.(new UpdateRoomFinishesCommand(r.id, finishFor(r.occupancyType ?? '')), { source: 'RESI_PIPELINE_ROOM_FINISH' });
-                            k++;
-                        } catch (e) { console.warn('[resi-building] room-finish failed for', r.id, '(non-fatal):', e); }
-                    }
+                    const res = cm.execute?.(new UpdateRoomFinishesBulkCommand(patches), { source: 'RESI_PIPELINE_ROOM_FINISH' });
+                    k = res?.success === false ? 0 : patches.length;
                 }, { levelIds: [...levelSet], totalElementCount: rooms.length, skipRedetectRooms: true });
-                console.log(`[resi-building] §RESI-WALL-CEILING-FINISH — authored finishes (floor+wall+ceiling) on ${k} room(s)`);
+                console.log(`[resi-building] §RESI-WALL-CEILING-FINISH — authored finishes (floor+wall+ceiling) on ${k} room(s) [bulk]`);
             } catch (e) { console.warn('[resi-building] room-finish pass failed (non-fatal):', e); }
         };
         deferWork(() => tryFinish(80), 1400);   // first check after the floor-finish stagger; ~24 s budget
