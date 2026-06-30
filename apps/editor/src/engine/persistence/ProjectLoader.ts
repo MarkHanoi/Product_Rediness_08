@@ -87,7 +87,7 @@ import { wallSystemTypeStore } from '@pryzm/geometry-wall';
 import { ceilingSystemTypeStore } from '@pryzm/core-app-model/stores';
 import { CreateCeilingCommand } from '@pryzm/command-registry';
 import { floorSystemTypeStore } from '@pryzm/core-app-model/stores';
-import { CreateFloorCommand, ImportProjectCommand } from '@pryzm/command-registry';
+import { CreateFloorCommand, ImportProjectCommand, dropDegeneratePolygonRecords } from '@pryzm/command-registry'; // §LOAD-HEAL-DEGENERATE-POLYGON
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { hierarchyStore } from '@pryzm/core-app-model';
 import { templateStore } from '@pryzm/core-app-model';
@@ -384,6 +384,11 @@ export class ProjectLoader {
         // Track which level IDs were actually loaded so the post-load sweep
         // only fires for levels that have geometry.
         const loadedLevelIds = new Set<string>();
+        // §LOAD-HEAL-DEGENERATE-POLYGON — levels whose persisted (degenerate)
+        // rooms were dropped at import; these MUST be force-redetected even
+        // though the raw snapshot still lists rooms for them (so the
+        // §LOAD-REDETECT-FREEZE skip is overridden for them below).
+        const healedRoomLevelIds = new Set<string>();
         // ── End topology observer pause ──────────────────────────────────────
 
         // ── PERF-AUDIT-2026 P0: Event-Bus Batch Wrap ─────────────────────────
@@ -476,6 +481,11 @@ export class ProjectLoader {
                 result.warnings.push(...importCmd.stats.warnings);
                 for (const lvlId of importCmd.stats.loadedLevelIds) {
                     loadedLevelIds.add(lvlId);
+                }
+                // §LOAD-HEAL-DEGENERATE-POLYGON — carry healed levels through so
+                // the post-load redetect sweep re-seals them.
+                for (const lvlId of importCmd.stats.healedRoomLevelIds) {
+                    healedRoomLevelIds.add(lvlId);
                 }
 
                 if (!importResult.success) {
@@ -659,7 +669,13 @@ export class ProjectLoader {
             }
 
             // ── Step 5b: Ceilings (priority 21.5 — after slabs, before stairs) ──
-            const snapshotCeilings = (snapshot as any).ceilings;
+            // §LOAD-HEAL-DEGENERATE-POLYGON — drop degenerate ceiling polygons
+            // (old-snapshot collapsed-wall rooms) so they don't fail on open.
+            const { kept: snapshotCeilings, dropped: __droppedCeilings } =
+                dropDegeneratePolygonRecords<any>((snapshot as any).ceilings, (c: any) => c?.polygon ?? c?.boundary?.polygon);
+            if (__droppedCeilings.length > 0) {
+                console.warn(`[ProjectLoader] §LOAD-HEAL-DEGENERATE-POLYGON — dropped ${__droppedCeilings.length} degenerate ceiling polygon(s) from an old snapshot`);
+            }
             if (Array.isArray(snapshotCeilings) && snapshotCeilings.length > 0) {
                 console.log(`[ProjectLoader] Loading ${snapshotCeilings.length} ceilings`);
                 for (const ceiling of snapshotCeilings) {
@@ -688,7 +704,12 @@ export class ProjectLoader {
             }
 
             // ── Step 5c: Floor Finishes (priority 21.8 — after ceilings, before stairs) ──
-            const snapshotFloors = (snapshot as any).floors;
+            // §LOAD-HEAL-DEGENERATE-POLYGON — drop degenerate floor polygons.
+            const { kept: snapshotFloors, dropped: __droppedFloors } =
+                dropDegeneratePolygonRecords<any>((snapshot as any).floors, (f: any) => f?.boundary?.polygon ?? f?.polygon);
+            if (__droppedFloors.length > 0) {
+                console.warn(`[ProjectLoader] §LOAD-HEAL-DEGENERATE-POLYGON — dropped ${__droppedFloors.length} degenerate floor polygon(s) from an old snapshot`);
+            }
             if (Array.isArray(snapshotFloors) && snapshotFloors.length > 0) {
                 console.log(`[ProjectLoader] Loading ${snapshotFloors.length} floor finishes`);
                 for (const floor of snapshotFloors) {
@@ -1021,7 +1042,17 @@ export class ProjectLoader {
             }
 
             // ── Step 13: Rooms (priority 31 — after walls for boundary accuracy) ─
-            const snapshotRooms = (snapshot as any).rooms;
+            // §LOAD-HEAL-DEGENERATE-POLYGON — drop degenerate room boundaries
+            // (record the affected levels so they are force-redetected below).
+            const { kept: snapshotRooms, dropped: __droppedRooms } =
+                dropDegeneratePolygonRecords<any>((snapshot as any).rooms, (r: any) => r?.boundary?.polygon);
+            if (__droppedRooms.length > 0) {
+                console.warn(`[ProjectLoader] §LOAD-HEAL-DEGENERATE-POLYGON — dropped ${__droppedRooms.length} degenerate room polygon(s) from an old snapshot`);
+                for (const r of __droppedRooms) {
+                    const lvl = (r as { levelId?: string })?.levelId;
+                    if (typeof lvl === 'string' && lvl.length > 0) healedRoomLevelIds.add(lvl);
+                }
+            }
             if (Array.isArray(snapshotRooms) && snapshotRooms.length > 0) {
                 console.log(`[ProjectLoader] Loading ${snapshotRooms.length} rooms`);
                 const hydrated = [];
@@ -1723,48 +1754,89 @@ export class ProjectLoader {
             // room detection for NEW walls is preserved.
             const persistedRooms = (snapshot as { rooms?: Array<{ levelId?: string }> }).rooms;
             const skipRedetectLevels = levelsWithPersistedRooms(persistedRooms);
+            // §LOAD-HEAL-DEGENERATE-POLYGON — a level whose persisted rooms we
+            // DROPPED (degenerate boundary) must NOT be skipped: it has to
+            // redetect so it re-seals from the now join-resolved walls. Remove
+            // healed levels from the skip-set (the raw snapshot still lists their
+            // dropped rooms, so levelsWithPersistedRooms() would otherwise skip).
+            for (const lvlId of healedRoomLevelIds) skipRedetectLevels.delete(lvlId);
 
-            if (Array.isArray(snapshot.levels) && snapshot.levels.length > 0) {
-                try {
-                    const elevation = (lvl: any) => (typeof lvl.elevation === 'number' ? lvl.elevation : 0);
-                    const height    = (lvl: any) => (typeof lvl.height === 'number' ? lvl.height : 3.0);
-                    let skippedLevels = 0;
-                    let redetectedLevels = 0;
-                    for (const lvl of snapshot.levels) {
-                        if (!lvl?.id) continue;
-                        // §LOAD-REDETECT-FREEZE — skip the expensive detect sweep
-                        // for levels whose rooms were already hydrated from the
-                        // snapshot. The hydrated rooms are the saved-state truth.
-                        if (skipRedetectLevels.has(lvl.id)) {
-                            skippedLevels++;
-                            continue;
-                        }
-                        redetectedLevels++;
-                        try {
-                            // Phase F-1.2: dispatch to rooms.redetect bus handler, which calls
-                            // commandManager internally (initBusHandlers.ts §P0-A39 registration).
-                            // Direct commandManager.execute(ReDetectRoomsCommand) removed.
-                            window.runtime?.bus?.executeCommand('rooms.redetect', {
-                                levelId:   lvl.id,
-                                elevation: elevation(lvl),
-                                height:    height(lvl),
-                            }).catch((e: unknown) => {
-                                console.warn(`[ProjectLoader] rooms.redetect bus dispatch failed for level '${lvl.id}':`, e);
-                            });
-                        } catch (e) {
-                            console.warn(`[ProjectLoader] Final REDETECT_ROOMS failed for level '${lvl.id}':`, e);
-                        }
+            // ── §LOAD-REDETECT-CHUNKED (2026-06-30) — project-open FREEZE fix B ──
+            // The per-level redetect sweep used to run as ONE synchronous for-loop:
+            // each `rooms.redetect` dispatch lands (via the CustomEvent bridge) on a
+            // synchronous `commandManager.execute(ReDetectRoomsCommand)` whose
+            // RoomDetectionEngine.detectRoomsForLevel() graph-walk + the room-store
+            // churn it drives (→ `bim-room-updated` → SpatialTree.refreshTree +
+            // RuleEngine re-validation, per level) all run on the SAME task. For a
+            // 7-level building that is a multi-hundred-ms synchronous block that
+            // freezes the WebGL viewport right as the scene appears — the founder's
+            // forced-WebGL "3D view freezes while opening" symptom. §LOAD-CHUNKED
+            // (ADR-060) chunked the element BUILD but not THIS post-load sweep.
+            //
+            // Fix: drive the sweep through the P3-owned FrameScheduler (no new rAF)
+            // ONE LEVEL PER FRAME, so the browser paints between levels and the
+            // viewport stays live + builds progressively. Fire-and-forget, exactly
+            // like the old loop (load() never awaited these dispatches). A runtime
+            // kill-switch (globalThis.__pryzmChunkedLoad === false) routes back to
+            // the synchronous one-task sweep for parity debugging.
+            const levelsToRedetect = (Array.isArray(snapshot.levels) ? snapshot.levels : [])
+                .filter((lvl: any) => lvl?.id && !skipRedetectLevels.has(lvl.id));
+            const skippedLevels = (Array.isArray(snapshot.levels) ? snapshot.levels.length : 0) - levelsToRedetect.length;
+            if (skippedLevels > 0) {
+                console.log(
+                    `[ProjectLoader] §LOAD-REDETECT-FREEZE — hydrated persisted rooms; ` +
+                    `skipped redetect for ${skippedLevels} level(s) ` +
+                    `(${skipRedetectLevels.size} level(s) had saved rooms), ` +
+                    `redetecting ${levelsToRedetect.length} level(s) without persisted rooms` +
+                    `${healedRoomLevelIds.size > 0 ? ` (incl. ${healedRoomLevelIds.size} healed)` : ''}.`,
+                );
+            }
+
+            if (levelsToRedetect.length > 0) {
+                const elevationOf = (lvl: any) => (typeof lvl.elevation === 'number' ? lvl.elevation : 0);
+                const heightOf    = (lvl: any) => (typeof lvl.height === 'number' ? lvl.height : 3.0);
+                const dispatchOne = (lvl: any): void => {
+                    try {
+                        // Phase F-1.2: dispatch to rooms.redetect bus handler, which calls
+                        // commandManager internally (initBusHandlers.ts §P0-A39 registration).
+                        window.runtime?.bus?.executeCommand('rooms.redetect', {
+                            levelId:   lvl.id,
+                            elevation: elevationOf(lvl),
+                            height:    heightOf(lvl),
+                        })?.catch((e: unknown) => {
+                            console.warn(`[ProjectLoader] rooms.redetect bus dispatch failed for level '${lvl.id}':`, e);
+                        });
+                    } catch (e) {
+                        console.warn(`[ProjectLoader] Final REDETECT_ROOMS failed for level '${lvl.id}':`, e);
                     }
-                    if (skippedLevels > 0) {
-                        console.log(
-                            `[ProjectLoader] §LOAD-REDETECT-FREEZE — hydrated persisted rooms; ` +
-                            `skipped redetect for ${skippedLevels} level(s) ` +
-                            `(${skipRedetectLevels.size} level(s) had saved rooms), ` +
-                            `redetected ${redetectedLevels} level(s) without persisted rooms.`,
-                        );
-                    }
-                } catch (err) {
-                    console.warn('[ProjectLoader] rooms.redetect bus dispatch sweep failed:', err);
+                };
+
+                if (this._useChunkedLoad()) {
+                    // §LOAD-REDETECT-CHUNKED — drain the level queue ONE PER FRAME:
+                    // redetect a level, then schedule the next on the FrameScheduler's
+                    // next post-render tick (the browser paints in between). A simple
+                    // recursive drain — the same pattern the chunked element load uses.
+                    const scheduler = getFrameScheduler();
+                    const queue = [...levelsToRedetect];
+                    const drainNext = (): void => {
+                        const lvl = queue.shift();
+                        if (!lvl) return;
+                        dispatchOne(lvl);
+                        if (queue.length > 0) {
+                            scheduler.scheduleOnce('project-load-redetect', drainNext, 'post-render');
+                        }
+                    };
+                    // Kick the first level off the next frame too, so the load()
+                    // finally block returns (and the scene paints) before any redetect
+                    // runs — the viewport is never blocked synchronously at open.
+                    scheduler.scheduleOnce('project-load-redetect', drainNext, 'post-render');
+                    console.log(
+                        `[ProjectLoader] §LOAD-REDETECT-CHUNKED — scheduled ${levelsToRedetect.length} per-level redetect(s) ` +
+                        `across frames (one level/frame) so the viewport paints progressively instead of freezing.`,
+                    );
+                } else {
+                    // Synchronous fallback (parity with pre-fix one-task sweep).
+                    for (const lvl of levelsToRedetect) dispatchOne(lvl);
                 }
             }
             // ── End topology observer resume ──────────────────────────────────

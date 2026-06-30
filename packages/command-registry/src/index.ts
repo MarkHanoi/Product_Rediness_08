@@ -152,6 +152,9 @@ export * from './plumbing/MovePlumbingCommand';
 // ─── Project ──────────────────────────────────────────────────────────────
 export * from './project/ClearProjectCommand';
 export * from './project/ImportProjectCommand';
+// §LOAD-HEAL-DEGENERATE-POLYGON — pure load-time heal helpers (drop degenerate
+// floor/ceiling/room polygons from OLD snapshots so they don't fail on open).
+export { isDegeneratePolygon, dropDegeneratePolygonRecords } from './project/projectLoaderUtils';
 
 // ─── Requirements ─────────────────────────────────────────────────────────
 export * from './requirements/DeleteRequirementCommand';
