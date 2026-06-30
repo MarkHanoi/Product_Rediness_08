@@ -960,3 +960,174 @@ describe('§RESI-CORE-CIRCULATION — every apartment is reachable FROM THE CORE
         expect(JSON.stringify(partitionLevelPlate(inp))).toBe(JSON.stringify(partitionLevelPlate(inp)));
     });
 });
+
+describe('§RESI-CORRIDOR-TO-CORE — corridor walls arrive JUST to the core (no band runs through it)', () => {
+    // The founder's plan-view arrows: "the walls of the corridor should arrive JUST to the core". A
+    // horizontal corridor band used to span the FULL plate width and run STRAIGHT THROUGH the core
+    // (over the stair/lift), so the corridor overshot past the core face into its interior. The fix
+    // SPLITS every band crossing the core at the core faces, so each corridor wall terminates EXACTLY
+    // on the core boundary. These tests assert the post-fix invariant: NO returned corridor band's
+    // interior overlaps the core's interior, and a band that meets the core BUTTS a core face.
+    const norm = (r: Rect): Rect => ({
+        x0: Math.min(r.x0, r.x1), x1: Math.max(r.x0, r.x1),
+        z0: Math.min(r.z0, r.z1), z1: Math.max(r.z0, r.z1),
+    });
+    /** Interior-overlap area between two rects (0 when they only touch / are disjoint). */
+    function interiorOverlap(a0: Rect, b0: Rect): number {
+        const a = norm(a0), b = norm(b0);
+        const xo = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0);
+        const zo = Math.min(a.z1, b.z1) - Math.max(a.z0, b.z0);
+        return xo > 1e-6 && zo > 1e-6 ? xo * zo : 0;
+    }
+    /** Does a band BUTT a core face (a shared edge coincident with a core face, with run overlap)? */
+    function buttsCoreFace(b0: Rect, core0: Rect): boolean {
+        const b = norm(b0), c = norm(core0);
+        const onX = (Math.abs(b.x1 - c.x0) < 1e-3 || Math.abs(b.x0 - c.x1) < 1e-3)
+            && Math.min(b.z1, c.z1) - Math.max(b.z0, c.z0) > 1e-3;
+        const onZ = (Math.abs(b.z1 - c.z0) < 1e-3 || Math.abs(b.z0 - c.z1) < 1e-3)
+            && Math.min(b.x1, c.x1) - Math.max(b.x0, c.x0) > 1e-3;
+        return onX || onZ;
+    }
+
+    function expectNoBandThroughCore(res: PlatePartitionResult): void {
+        for (const band of res.publicCorridor) {
+            // INVARIANT: no corridor band's interior pokes into the core interior (no overshoot).
+            expect(interiorOverlap(band, res.core)).toBeLessThan(1e-4);
+        }
+        // At least one band must BUTT the core (the corridor reaches the core, not a marooned grid).
+        expect(res.publicCorridor.some((b) => buttsCoreFace(b, res.core))).toBe(true);
+    }
+
+    it('rectangular plate: no corridor band crosses the core; a band butts the core face', () => {
+        const res = expectOk(partitionLevelPlate(baseInput([T2, T3, T2, T3])));
+        expectNoBandThroughCore(res);
+    });
+
+    it('a wide plate whose core corridor would span the full width: the band is split at the core', () => {
+        const res = expectOk(partitionLevelPlate({
+            levelIndex: 0,
+            footprint: rectPoly(40, 18),
+            core: centredCore(40, 18, 6, 4),
+            corridor: { widthM: 1.6 },
+            apartments: Array.from({ length: 40 }, (_, i) => (i % 2 === 0 ? T2 : T3)),
+        }));
+        expectNoBandThroughCore(res);
+        // The corridor centred on the core's Z must NOT be one full-width band over the core: there
+        // should be a band ending at the core's left face AND one starting at the core's right face.
+        const cz = (res.core.z0 + res.core.z1) / 2;
+        const atCoreZ = res.publicCorridor.map(norm).filter((b) => b.z0 < cz + 1e-3 && b.z1 > cz - 1e-3 && (b.x1 - b.x0) > (b.z1 - b.z0));
+        const left = atCoreZ.some((b) => Math.abs(b.x1 - res.core.x0) < 1e-3);
+        const right = atCoreZ.some((b) => Math.abs(b.x0 - res.core.x1) < 1e-3);
+        expect(left).toBe(true);
+        expect(right).toBe(true);
+    });
+
+    it('a deep corridor-grid plate: still no band runs through the core', () => {
+        const res = expectOk(partitionLevelPlate({
+            levelIndex: 0,
+            footprint: rectPoly(80, 60),
+            core: centredCore(80, 60, 8, 6),
+            corridor: { widthM: 1.5 },
+            apartments: Array.from({ length: 1200 }, () => T2),
+        }));
+        expectNoBandThroughCore(res);
+    });
+});
+
+describe('§RESI-CORE-DOOR — every unit door is well calculated (on its corridor-shared wall, corner-clear)', () => {
+    // The founder's plan-view arrow: "the door should always be well calculated". A small core-flank /
+    // inner-strip unit's door used to be centred on the WHOLE edge — landing at a corner or over the
+    // core. The partition now stamps `coreDoorOffset`: the door's along-edge offset CENTRED within the
+    // span the `doorEdge` shares with a core-connected corridor, clamped clear of corners. These tests
+    // assert every stamped door lies on the corridor-shared wall with a valid, corner-clear offset.
+    const DOOR = 0.8;
+    const norm = (r: Rect): Rect => ({
+        x0: Math.min(r.x0, r.x1), x1: Math.max(r.x0, r.x1),
+        z0: Math.min(r.z0, r.z1), z1: Math.max(r.z0, r.z1),
+    });
+    /** The door edge's along-axis low/high and the band-shared span on that edge. */
+    function sharedSpanOnDoorEdge(cell: { rect: Rect; doorEdge: 'x0' | 'x1' | 'z0' | 'z1' }, corridors: readonly Rect[]): { lo: number; hi: number; edgeLo: number; edgeHi: number } | null {
+        const r = norm(cell.rect); const e = cell.doorEdge;
+        const horizontal = e === 'z0' || e === 'z1';
+        const edgeConst = e === 'x0' ? r.x0 : e === 'x1' ? r.x1 : e === 'z0' ? r.z0 : r.z1;
+        const edgeLo = horizontal ? r.x0 : r.z0, edgeHi = horizontal ? r.x1 : r.z1;
+        let bestLo = NaN, bestHi = NaN, best = -Infinity;
+        for (const c0 of corridors) {
+            const c = norm(c0);
+            if (horizontal) {
+                if (Math.abs(edgeConst - c.z0) >= 0.05 && Math.abs(edgeConst - c.z1) >= 0.05) continue;
+                const lo = Math.max(edgeLo, c.x0), hi = Math.min(edgeHi, c.x1);
+                if (hi - lo > best) { best = hi - lo; bestLo = lo; bestHi = hi; }
+            } else {
+                if (Math.abs(edgeConst - c.x0) >= 0.05 && Math.abs(edgeConst - c.x1) >= 0.05) continue;
+                const lo = Math.max(edgeLo, c.z0), hi = Math.min(edgeHi, c.z1);
+                if (hi - lo > best) { best = hi - lo; bestLo = lo; bestHi = hi; }
+            }
+        }
+        return best > 0 ? { lo: bestLo, hi: bestHi, edgeLo, edgeHi } : null;
+    }
+
+    /** Every cell carrying a stamped core door: the door [offset, offset+width] (from edge low corner)
+     *  lies inside the corridor-SHARED span, clear of each corner of that span by ≥ a small jamb. */
+    function expectDoorsWellCalculated(res: PlatePartitionResult): void {
+        let stamped = 0;
+        for (const cell of res.apartmentCells) {
+            const c = cell as { rect: Rect; doorEdge: 'x0' | 'x1' | 'z0' | 'z1'; coreDoorOffset?: number; coreDoorWidth?: number; coreReachable?: boolean };
+            if (c.coreDoorOffset === undefined) continue;
+            stamped++;
+            const w = c.coreDoorWidth ?? DOOR;
+            const shared = sharedSpanOnDoorEdge(c, res.publicCorridor);
+            // A stamped door MUST front a corridor-shared span ≥ a door width.
+            expect(shared).not.toBeNull();
+            expect(shared!.hi - shared!.lo).toBeGreaterThanOrEqual(DOOR - 1e-3);
+            // The door leaf (absolute coords along the edge) sits inside the SHARED span (on the wall
+            // the unit shares with circulation — never over the core or a perpendicular wall).
+            const doorLo = shared!.edgeLo + c.coreDoorOffset!;
+            const doorHi = doorLo + w;
+            expect(doorLo).toBeGreaterThanOrEqual(shared!.lo - 1e-3);
+            expect(doorHi).toBeLessThanOrEqual(shared!.hi + 1e-3);
+            // Corner-clear: a jamb each end of the shared span (unless the span is exactly leaf-tight).
+            const jamb = Math.min(0.2, (shared!.hi - shared!.lo - w) / 2 + 1e-6);
+            expect(doorLo).toBeGreaterThanOrEqual(shared!.lo + jamb - 1e-3);
+            expect(doorHi).toBeLessThanOrEqual(shared!.hi - jamb + 1e-3);
+        }
+        // The plate must actually exercise the path (at least some unit got a validated core door).
+        expect(stamped).toBeGreaterThan(0);
+    }
+
+    it('rectangular plate: every stamped unit door lies on its corridor-shared wall, corner-clear', () => {
+        const res = expectOk(partitionLevelPlate(baseInput([T2, T3, T2, T3])));
+        expectDoorsWellCalculated(res);
+    });
+
+    it('the founder side-façade plate (core-flank + inner-strip units): doors well calculated', () => {
+        const res = expectOk(partitionLevelPlate({
+            levelIndex: 1,
+            footprint: rectPoly(34.8, 34.8),
+            core: centredCore(34.8, 34.8, 6, 4),
+            corridor: { widthM: 1.5 },
+            apartments: Array.from({ length: 200 }, (_, i) => (i % 2 === 0 ? T2 : T3)),
+        }));
+        expectDoorsWellCalculated(res);
+    });
+
+    it('a deep corridor-grid plate: doors well calculated', () => {
+        const res = expectOk(partitionLevelPlate({
+            levelIndex: 0,
+            footprint: rectPoly(80, 60),
+            core: centredCore(80, 60, 8, 6),
+            corridor: { widthM: 1.5 },
+            apartments: Array.from({ length: 1200 }, () => T2),
+        }));
+        expectDoorsWellCalculated(res);
+    });
+
+    it('a stamped core door is deterministic (same input → same offset/width)', () => {
+        const inp = baseInput([T2, T3, T2, T3]);
+        const a = expectOk(partitionLevelPlate(inp)).apartmentCells.map((c) => [
+            (c as { coreDoorOffset?: number }).coreDoorOffset, (c as { coreDoorWidth?: number }).coreDoorWidth]);
+        const b = expectOk(partitionLevelPlate(inp)).apartmentCells.map((c) => [
+            (c as { coreDoorOffset?: number }).coreDoorOffset, (c as { coreDoorWidth?: number }).coreDoorWidth]);
+        expect(JSON.stringify(a)).toBe(JSON.stringify(b));
+    });
+});
