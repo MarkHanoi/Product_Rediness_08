@@ -1502,7 +1502,19 @@ export class ResidentialBuildingExecutor {
         // Fire ONE whole-level resolve over all ids, AFTER the current batch's discard window has
         // closed. `onNextSettle` fires once the batch is settled; the `deferWork(…, 0)` then hops past
         // the rest of that synchronous onComplete (incl. `restore()`), so the rebuild is no longer
-        // dropped. A small retry chain re-applies after any later openings/finish batch settles too.
+        // dropped.
+        //
+        // §RESI-MITER-SETTLE-ONCE (founder 2026-06-30: the build, fully settled with NO edit in flight,
+        // re-queued ALL 92 exterior walls REPEATEDLY — detaching the selection gizmo every frame
+        // (3D select/hover flicker) and burning the main thread). ROOT CAUSE: the v1 retry chain re-fired
+        // on a FIXED 1500 ms `deferWork` timer UNCONDITIONALLY — 4 passes regardless of whether any later
+        // batch had actually re-squared the walls — so after the openings/finish batches settled the pass
+        // kept firing on dead time. FIX: re-arm ONLY via `onNextSettle`, which fires solely when ANOTHER
+        // batch genuinely settles (a real openings/finish/entrance cycle that could re-square corners).
+        // When no further wall-mutating batch arrives, the re-armed listener never fires → the pass runs
+        // ONCE and then STOPS (no settle-tick / timer spam). A bounded `retriesLeft` still caps the chain
+        // so a pathological batch storm can't loop forever; each pass is idempotent (resolveLevel on
+        // already-mitred walls is a no-op-equivalent re-resolve).
         const fireAfterSettle = (retriesLeft: number): void => {
             batchCoordinator.onNextSettle(() => {
                 deferWork(() => {
@@ -1510,10 +1522,12 @@ export class ResidentialBuildingExecutor {
                         window.__wallRebuildControl?.rebuildWalls?.(ids);
                         console.log(`[resi-building] §RESI-EXTERIOR-WALL-MITER-FIX2 — corner-join pass on ${ids.length} wall(s) (post-settle, discard window closed)`);
                     } catch (e) { console.warn('[resi-building] §RESI-EXTERIOR-WALL-MITER-FIX2 rebuildWalls failed (non-fatal):', e); }
-                    // Re-fire later so a subsequent deferred batch (openings/finishes) that re-squares
-                    // via its own discard cycle gets re-mitred. Each pass is idempotent (resolveLevel
-                    // on already-mitred walls is a no-op-equivalent re-resolve).
-                    if (retriesLeft > 0) deferWork(() => fireAfterSettle(retriesLeft - 1), 1500);
+                    // Re-arm via the SETTLE event (not a timer): this re-fires ONLY if a subsequent
+                    // wall-mutating batch (openings / finishes / entrance) actually settles and could have
+                    // re-squared the corners. If the build is done and nothing else runs, the listener
+                    // stays pending and never fires — so a settled building gets exactly ONE corner-join
+                    // pass per real batch, never the repeated re-queue the founder saw.
+                    if (retriesLeft > 0) fireAfterSettle(retriesLeft - 1);
                 }, 0);
             });
         };
@@ -1524,8 +1538,10 @@ export class ResidentialBuildingExecutor {
         const tryMitre = (n: number): void => {
             if (!ready() && n > 0) { deferWork(() => tryMitre(n - 1), 150); return; }
             // Walls have landed (or the budget ran out) → schedule the settle-gated, post-restore
-            // resolve, with 3 re-fires to outlast the openings + finish + entrance/window batches.
-            fireAfterSettle(3);
+            // resolve. §RESI-MITER-SETTLE-ONCE — re-arm via SETTLE (not a timer) up to a SMALL bound so
+            // the openings + finish batches that can re-square corners are re-mitred, then it STOPS (a
+            // settled build with nothing in flight fires no further passes — no re-queue flicker/spam).
+            fireAfterSettle(2);
         };
         tryMitre(budget);
     }

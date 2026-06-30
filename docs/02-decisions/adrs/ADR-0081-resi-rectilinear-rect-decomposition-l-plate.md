@@ -76,3 +76,47 @@ its own corridor grid, tied to the central core, then select best-of-candidates.
   reuses it unchanged is far lower-risk than threading concavity through every code path.
 - **Move ONLY the core into the boundary and keep one grid** — insufficient: a single bbox-centred
   grid still abandons the wing whose depth does not align with it; the L needs a grid PER wing.
+
+## Addendum — §RESI-FILL-SIDEFACADE (founder 2026-06-30): fill the SIDE plate-edge mid-edge bands
+
+**Context.** After the rect-decomposition shipped, the founder tested a **near-rectangular
+~1213 m² plate** (≈35×35 m, central core, min apartment **60 m²**) and reported the preview still
+showed **only ~3 corner units**, with large empty bands **beside the central core**. Verdict:
+"apartments fit the corners always — great approach — BUT they don't need to be square; rectangular
+is fine, and there's still a lot of space around to fit MORE."
+
+**Preview vs real packer — resolved.** The setup-modal preview (`residentialPlanThumbnail.ts` →
+`buildResidentialPlanDescriptor`) consumes the REAL orchestrator output
+(`ResidentialBuildingOk.perLevelApartments`), i.e. the actual `partitionLevelPlate` packing — it is
+NOT a separate simplified path. So the under-fill is in the **packer**, not a preview mismatch.
+
+**Root cause.** On a ~35×35 m plate the corridor grid tiles the **TOP and BOTTOM façade bands**
+(4 corner + 4 mid-edge units = 8), but the **LEFT and RIGHT plate-edge façades in the central
+Z-zone** — the strips between the top-corner band and the bottom-corner band, beside the core — sit
+empty: the inter-corridor rows there are sub-feasible (~3–6 m) slivers, and `absorbResidual`'s
+interior pockets are landlocked (no façade → the window-needing D-TGL engine produces **no layout**
+and the cell soft-fails). Net: 8 units, the side mid-edge bands wasted.
+
+**Decision (`platePartition.ts`, §RESI-FILL-SIDEFACADE).** After the corridor-grid row loop, a new
+pass packs the two **side-façade bands** directly, but ONLY when they are genuinely empty:
+
+- The central zone is bounded in Z by the corridor just ABOVE the core and the one just BELOW it.
+  A full-width horizontal corridor running strictly INSIDE that zone (the core's own corridor) is
+  redundant in the side X-range (side units reach the core via the vertical SPINE), so its band is
+  **trimmed to the core's X-span** — eliminating the fragmenting sliver.
+- Each side band hosts up to two **RECTANGULAR (elongated)** units: one hugging the plate edge and
+  fronting the corridor ABOVE the zone (door + façade), one fronting the corridor BELOW. Each is
+  capped at the outer-band depth, gated for engine feasibility (≥ ~7.5 m each side, area ≥ the
+  demand min) and a **sane aspect ≤ 3.5:1** (the founder's "rectangular is fine … respect a sane
+  max aspect"). Corner units stay roughly square; the side-band units stretch to fill.
+- **Safe by construction.** The pass is gated on the side zone being EMPTY (no existing placement
+  overlaps it) and every minted cell is overlap-checked against the core, placements, and corridor
+  bands. On a DEEP plate the corridor grid already fills the central rows ⇒ the side zone is
+  occupied ⇒ the pass is a **no-op** (no regression — all 70 partition/large-plate tests pass).
+
+**Consequences.** The founder's ~1213 m² plate now packs **10 units/floor** (4 corner + 4 top/bottom
+mid-edge + 2 side-façade), every one engine-feasible (laid out) and core-reachable — comfortably in
+the 8–14 target, up from the deployed 3. The side mid-edge bands the founder saw empty now carry
+rectangular apartments. Regression tests: `residentialLargePlate.test.ts` §RESI-FILL-SIDEFACADE
+(founder plate ≥8 units + side-band occupied + every unit OK; a 40×30 plate yields a non-square
+unit with aspect ≤ 3.5:1; an L-plate still places ≥8; determinism).

@@ -170,6 +170,25 @@ const ENGINE_MIN_ROW_DEPTH_M = 7.5;
  *  engine rejects. 0.6 ⇒ a 9 m-deep cell is ≥ 5.4 m wide (aspect ≤ ~1.7:1). */
 const MIN_CELL_ASPECT = 0.6;
 
+// §RESI-FILL-COREFLANK (founder 2026-06-30: "apartments fit the corners always — great — BUT they
+// don't need to be square; rectangular is fine, and there's still a lot of space around the central
+// core to fit MORE"). On a near-rectangular ~1200 m² plate the corridor grid fills the two DEEP outer
+// bands (corner units) but leaves the CENTRAL depth zone FLANKING THE CORE empty: the band between the
+// corridor just above the core and the corridor just below it, on each side of the core, is one large
+// ~14×14 m pocket that NO row tiles (the rows there are the sub-feasible inter-corridor slivers) and
+// that absorbResidual rejects because the middle corridor fragments it below the ~7.5 m engine depth.
+// The §RESI-FILL-COREFLANK pass packs those two core-flanking pockets DIRECTLY as ELONGATED RECTANGULAR
+// units fronting the nearest horizontal corridor (door on the corridor edge), allowing a generous
+// aspect so a long thin flank becomes one or two real apartments instead of dead space. Every flank
+// unit fronts a corridor by construction (so it is core-reachable) and is engine-feasibility-gated.
+/** Max aspect (long:short) for a RECTANGULAR mid-edge / core-flank unit. The frozen D-TGL engine lays
+ *  out an elongated apartment well past square (rooms strung along the long axis); 3.5:1 is the sane
+ *  ceiling the founder set ("rectangular is fine … respect a sane max aspect"). */
+const MAX_RECT_ASPECT = 3.5;
+/** A core-flank pocket must be at least this deep (m) toward the façade to host a real apartment — the
+ *  same engine-feasible floor the absorb/grid passes use. A shallower pocket stays empty (no sliver). */
+const COREFLANK_MIN_DEPTH_M = 7.5;
+
 // §RESI-T3-FIT-REGRESSION-FIX (founder "20 units couldn't fit at this size — 0 apartments",
 // 2026-06-24) — THE per-cell rejection root cause. The packer hands the partition a TIGHT area
 // band (e.g. a T2 [66,81] m²); at the depth-capped ~9 m row that band maps to a cell WIDTH ceiling
@@ -1160,6 +1179,125 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
             packRow(myBot, backZ1, 'z0');
             packInnerStrips(myBot, backZ1, 'z0');
         }
+        }
+
+        // §RESI-FILL-SIDEFACADE — fill the LEFT and RIGHT plate-edge MID-EDGE BANDS (founder 2026-06-30:
+        // "apartments fit the corners always — great — BUT they don't need to be square; rectangular is
+        // fine, and there's still a lot of space around to fit MORE"). The corridor grid tiles the TOP and
+        // BOTTOM façade bands (corners + their mid-edge units), but the LEFT (x = plate.x0) and RIGHT
+        // (x = plate.x1) façades in the CENTRAL Z-zone — between the top-corner band and the bottom-corner
+        // band — sit empty: the inter-corridor rows there are sub-feasible slivers and absorbResidual's
+        // pockets are interior (no façade → the engine, which needs a window edge, produces no layout).
+        //
+        // We pack those two SIDE-FAÇADE bands directly: a unit hugs the plate's left/right edge (so it has
+        // a real exterior wall + windows) and hangs its DOOR on the nearest HORIZONTAL corridor (so it is
+        // core-reachable via the corridor + spine). Each band hosts up to two units — one fronting the
+        // corridor ABOVE the central zone, one fronting the corridor BELOW — each a RECTANGULAR (elongated)
+        // apartment: deep toward the building interior (capped at the outer-band depth) and tall enough in
+        // Z to reach its corridor. Width-sliced like a row so a tall band becomes several on-spec units.
+        // Only on the core-containing plate (spineCarve); a decomposed wing has no centred core spine.
+        if (spineCarve && spineX0 >= plate.x0 - EPS && spineX1 <= plate.x1 + EPS) {
+            // The corridor nearest ABOVE the core's top and the one nearest BELOW its bottom bound the
+            // central side-façade zone in Z. (centreLines is sorted top→bottom.)
+            let zAbove = plate.z0, zBelow = plate.z1;
+            let corridorAtTop = false, corridorAtBot = false;
+            for (const cz of centreLines) {
+                const cTop = round4(cz - halfCorr), cBot = round4(cz + halfCorr);
+                if (cBot <= coreN.z0 + EPS && cBot > zAbove) { zAbove = cBot; corridorAtTop = true; }
+                if (cTop >= coreN.z1 - EPS && cTop < zBelow) { zBelow = cTop; corridorAtBot = true; }
+            }
+            const zoneZ0 = round4(zAbove), zoneZ1 = round4(zBelow);
+            const zoneDepthZ = round4(zoneZ1 - zoneZ0);   // the central zone's Z-extent (corridor→corridor)
+            // The side band's INWARD depth (toward the building interior, in X) is capped at the outer-band
+            // depth; it must not reach the core (so a left band stops at coreX0, a right band at coreX1).
+            const leftInward = round4(Math.min(MAX_OUTER_BAND_DEPTH_M, coreX0 - plate.x0));
+            const rightInward = round4(Math.min(MAX_OUTER_BAND_DEPTH_M, plate.x1 - coreX1));
+            const sides: Array<{ x0: number; x1: number }> = [];
+            if (leftInward > MIN_ROW_DEPTH) sides.push({ x0: plate.x0, x1: round4(plate.x0 + leftInward) });
+            if (rightInward > MIN_ROW_DEPTH) sides.push({ x0: round4(plate.x1 - rightInward), x1: plate.x1 });
+
+            // §RESI-FILL-SIDEFACADE — the pass ONLY fires when the side bands are GENUINELY EMPTY (the
+            // under-filled near-rectangular plate). On a DEEP plate the corridor grid already tiles the
+            // central rows with feasible cells fronting the interior corridors, so touching them here would
+            // double-tile / orphan their corridors. Gate the whole pass: if any existing placement already
+            // occupies either side band in the central zone, skip it entirely (no-op, no regression).
+            const rOverlapsRect = (a: Rect, b: Rect): boolean =>
+                Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0) > 1e-3 &&
+                Math.min(a.z1, b.z1) - Math.max(a.z0, b.z0) > 1e-3;
+            const sideZoneRects: Rect[] = sides.map((s) => normRect({ x0: s.x0, z0: zoneZ0, x1: s.x1, z1: zoneZ1 }));
+            const sideZoneEmpty = sides.length > 0 && zoneDepthZ >= COREFLANK_MIN_DEPTH_M - EPS &&
+                !placements.some((p) => sideZoneRects.some((zr) => rOverlapsRect(p.rect, zr)));
+            // A horizontal corridor running ENTIRELY INSIDE the central zone (strictly between zoneZ0 and
+            // zoneZ1 — e.g. the core's own corridor) fragments the EMPTY side bands into sub-feasible
+            // slivers AND would be overlapped by a side unit spanning the zone. The side units front the
+            // zone's TOP/BOTTOM corridors and reach the core via the VERTICAL SPINE, so a mid-zone corridor
+            // is redundant in the side X-range: TRIM its band to the core's X-span (where the spine needs
+            // it). Only done when the side zone is empty (so no already-placed cell loses its corridor).
+            if (sideZoneEmpty) {
+                for (let bi = 0; bi < corridorBands.length; bi++) {
+                    const cb = corridorBands[bi]!;
+                    const horizontal = Math.abs(cb.x1 - cb.x0) > Math.abs(cb.z1 - cb.z0);
+                    const insideZone = cb.z0 > zoneZ0 + EPS && cb.z1 < zoneZ1 - EPS;
+                    const spansSides = cb.x0 <= plate.x0 + EPS && cb.x1 >= plate.x1 - EPS;
+                    if (horizontal && insideZone && spansSides) {
+                        corridorBands[bi] = normRect({ x0: coreX0, z0: cb.z0, x1: coreX1, z1: cb.z1 });
+                    }
+                }
+            }
+
+            // The unit's Z-extent fronting a corridor: it must reach the corridor (door) and be deep enough
+            // in Z (≥ engine floor). When the zone is tall enough for two non-overlapping units, place one
+            // against the TOP corridor (door z0) and one against the BOTTOM corridor (door z1); else a
+            // single unit fronting whichever corridor bounds the zone. Each unit's Z-extent is capped at
+            // the apartment-depth cap so a very tall zone leaves an interior gap rather than an over-deep
+            // unit (the gap is a deeper sliver absorbResidual may later pick up — never a correctness bug).
+            type SubZ = { z0: number; z1: number; door: 'z0' | 'z1' };
+            const subZs: SubZ[] = [];
+            const canTwo = corridorAtTop && corridorAtBot &&
+                zoneDepthZ >= 2 * COREFLANK_MIN_DEPTH_M - EPS;
+            if (canTwo) {
+                const topZ = round4(Math.min(MAX_APARTMENT_DEPTH_M, zoneDepthZ / 2));
+                const botZ = round4(Math.min(MAX_APARTMENT_DEPTH_M, zoneDepthZ / 2));
+                subZs.push({ z0: zoneZ0, z1: round4(zoneZ0 + topZ), door: 'z0' });
+                subZs.push({ z0: round4(zoneZ1 - botZ), z1: zoneZ1, door: 'z1' });
+            } else if (zoneDepthZ >= COREFLANK_MIN_DEPTH_M - EPS) {
+                const h = round4(Math.min(MAX_OUTER_BAND_DEPTH_M, zoneDepthZ));
+                if (corridorAtTop) subZs.push({ z0: zoneZ0, z1: round4(zoneZ0 + h), door: 'z0' });
+                else if (corridorAtBot) subZs.push({ z0: round4(zoneZ1 - h), z1: zoneZ1, door: 'z1' });
+            }
+
+            for (const side of (sideZoneEmpty ? sides : [])) {
+                const inwardDepth = round4(side.x1 - side.x0);    // the unit's depth toward the interior (X)
+                for (const sub of subZs) {
+                    if (cursor >= apartments.length) break;
+                    const ref = apartments[cursor];
+                    if (!ref) break;
+                    const bandZ = round4(sub.z1 - sub.z0);        // the unit's Z-extent (façade length, fronts corridor on `sub.door`)
+                    if (bandZ < COREFLANK_MIN_DEPTH_M - EPS) continue;
+                    // ONE unit per (side × corridor-front): the cell hugs the plate-edge X-side (façade +
+                    // windows) and reaches its corridor on the sub.door Z-edge. We DON'T slice the Z-extent
+                    // (only the cell touching the corridor would have a door — an interior Z-slice would be
+                    // sealed); the inward X-depth is the unit's other dimension. The cell is engine-feasible
+                    // when both extents clear the depth floor, area ≥ the demand min, and aspect ≤ the cap.
+                    const area = round4(inwardDepth * bandZ);
+                    const aspect = Math.max(inwardDepth, bandZ) / Math.max(EPS, Math.min(inwardDepth, bandZ));
+                    if (inwardDepth < COREFLANK_MIN_DEPTH_M - EPS) continue;
+                    if (area < ref.minAreaM2 - EPS) continue;
+                    if (aspect > MAX_RECT_ASPECT + EPS) continue;
+                    const rect = normRect({ x0: round4(side.x0), z0: round4(sub.z0), x1: round4(side.x1), z1: round4(sub.z1) });
+                    // §RESI-FILL-SIDEFACADE — defensive: never overlap the core, an existing cell, or a
+                    // corridor band (the zone-empty gate above already ensures this; this is belt-and-braces
+                    // for the two-unit sub case where the first sub could meet the second).
+                    if (rOverlapsRect(rect, coreN)) continue;
+                    if (placements.some((p) => rOverlapsRect(rect, p.rect))) continue;
+                    if (corridorBands.some((cb) => rOverlapsRect(rect, cb))) continue;
+                    // §RESI-FILL-SIDEFACADE — door faces the horizontal corridor (sub.door) → core-reachable;
+                    // façade (windows) is the plate-edge X-side (set downstream from the cell's plate-edge
+                    // contact). Both present → habitable + reachable.
+                    placements.push({ typology: ref.typology, rect, areaM2: area, doorEdge: sub.door, polygon: rectPolygon(rect) });
+                    cursor++;
+                }
+            }
         }
 
         return { placements, corridorBands };
