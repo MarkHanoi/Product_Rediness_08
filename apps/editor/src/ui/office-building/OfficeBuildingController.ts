@@ -1,0 +1,148 @@
+// Office building — controller wiring the "Set up your office building" modal.
+//
+// The SIBLING of ResidentialBuildingController, but an office tower is generated
+// from a RADIUS (circular plate) + storey count, so it does NOT require a drawn
+// boundary: the radius comes from the request (or is derived from a drawn shell's
+// bbox when one exists). It:
+//   1. runs the PURE `orchestrateOfficeBuilding(...)` to compute the tower,
+//   2. on a feasible result opens the modal (circular plate preview + analytics),
+//   3. on Build, invokes `OfficeBuildingExecutor.execute(...)` (one runBatch),
+//   4. on Cancel, dismisses (no scene mutation happened yet).
+//
+// P3/P6/P8: the controller performs NO scene mutation itself — the EXECUTOR owns all
+// mutation through the command bus. GATED behind `globalThis.__PRYZM_OFFICE_BUILDING__`.
+
+import { trace } from '@opentelemetry/api';
+import type { PryzmRuntime } from '@pryzm/runtime-composer';
+import {
+    orchestrateOfficeBuilding,
+    type OfficeBuildingResult,
+    type OfficeBuildingOk,
+    type DeskMode,
+    type WorkplaceCulture,
+} from '@pryzm/ai-host';
+import { storeRegistry } from '@pryzm/core-app-model';
+import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
+import { OfficeBuildingModal } from './OfficeBuildingModal.js';
+import { OfficeBuildingExecutor } from './OfficeBuildingExecutor.js';
+
+const _tracer = trace.getTracer('@pryzm/editor', '0.1.0');
+
+const DEFAULT_RADIUS_M = 22;
+const DEFAULT_FLOOR_TO_FLOOR_M = 4.0;
+
+/** The user inputs the office feature needs. */
+export interface OfficeBuildingRequest {
+    /** Storeys (1..60; demo uses 40). */
+    readonly stories: number;
+    /** Circular plate radius (m). When omitted, derived from a drawn shell or default. */
+    readonly radiusM?: number;
+    readonly floorToFloorM?: number;
+    readonly deskDensityPer1000Sqft?: number;
+    readonly deskMode?: DeskMode;
+    readonly culture?: WorkplaceCulture;
+    readonly mechanicalEveryN?: number;
+}
+
+export interface OfficeBuildingRequestResult {
+    readonly ok: boolean;
+    readonly reason?: string;
+    readonly deskCount?: number;
+}
+
+interface WallRecord { id: string; levelId: string; baseLine?: ReadonlyArray<{ x: number; z: number }>; }
+
+/** Derive a circular-plate radius (m) from the active level's drawn shell bbox
+ *  (half the shorter side ≈ inscribed circle). Returns null with < 3 walls. */
+export function deriveRadiusFromShell(levelId: string): number | null {
+    const wallStore = storeRegistry.getStoreForType('wall') as unknown as { getAll?(): WallRecord[] } | undefined;
+    const all = wallStore?.getAll?.() ?? [];
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity, n = 0;
+    for (const w of all) {
+        if (w.levelId !== levelId) continue;
+        const bl = w.baseLine;
+        if (!bl || bl.length < 2) continue;
+        for (const p of bl) {
+            if (!p) continue;
+            if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
+            if (p.z < minZ) minZ = p.z; if (p.z > maxZ) maxZ = p.z;
+        }
+        n++;
+    }
+    if (n < 3 || !(maxX > minX) || !(maxZ > minZ)) return null;
+    return Math.min(maxX - minX, maxZ - minZ) / 2;
+}
+
+/** Drives the office-building modal. Owns the modal + executor singletons. */
+export class OfficeBuildingController {
+    private readonly modal = new OfficeBuildingModal();
+    private readonly executor = new OfficeBuildingExecutor();
+    private _pending: { runtime: PryzmRuntime; result: OfficeBuildingOk } | null = null;
+
+    async request(runtime: PryzmRuntime, req: OfficeBuildingRequest): Promise<OfficeBuildingRequestResult> {
+        return _tracer.startActiveSpan('pryzm.editor.officeBuilding.request', async (span) => {
+            try {
+                const out = await this._request(runtime, req);
+                span.setAttribute('pryzm.office.request.ok', out.ok);
+                if (typeof out.deskCount === 'number') span.setAttribute('pryzm.office.request.desks', out.deskCount);
+                span.end();
+                return out;
+            } catch (err) {
+                span.recordException(err as Error);
+                span.end();
+                throw err;
+            }
+        });
+    }
+
+    private async _request(runtime: PryzmRuntime, req: OfficeBuildingRequest): Promise<OfficeBuildingRequestResult> {
+        const toast = (message: string, severity: 'info' | 'success' | 'error' | 'warn'): void => {
+            runtime.events?.emit('pryzm:toast', { message, severity });
+        };
+
+        // Radius: explicit request → drawn shell → default. (No boundary required for
+        // a circular tower — the radius drives the plate directly.)
+        const active = resolveActiveLevel();
+        const derived = active?.id ? deriveRadiusFromShell(active.id) : null;
+        const radiusM = req.radiusM && req.radiusM > 0 ? req.radiusM : (derived && derived > 8 ? derived : DEFAULT_RADIUS_M);
+
+        const result: OfficeBuildingResult = orchestrateOfficeBuilding({
+            radiusM,
+            stories: req.stories,
+            floorToFloorM: req.floorToFloorM && req.floorToFloorM > 0 ? req.floorToFloorM : DEFAULT_FLOOR_TO_FLOOR_M,
+            baseElevationM: active?.elevation ?? 0,
+            ...(typeof req.deskDensityPer1000Sqft === 'number' ? { deskDensityPer1000Sqft: req.deskDensityPer1000Sqft } : {}),
+            ...(req.deskMode ? { deskMode: req.deskMode } : {}),
+            ...(req.culture ? { culture: req.culture } : {}),
+            ...(typeof req.mechanicalEveryN === 'number' ? { mechanicalEveryN: req.mechanicalEveryN } : {}),
+        });
+
+        if (result.status === 'rejected') {
+            console.warn('[office-building] controller: rejected —', result.reason);
+            this.modal.showError(result.reason, () => { console.log('[office-building] error dismissed'); });
+            return { ok: false, reason: result.reason };
+        }
+
+        console.log(
+            `[office-building] controller: computed ${result.stories}-storey tower — ` +
+            `${result.analytics.totalDesks} desks across ${result.analytics.officeFloors} office floors. ${result.diagnostic}`,
+        );
+        toast(`Office tower ready — ${result.stories} storeys, ${result.analytics.totalDesks} desks.`, 'info');
+
+        this._pending = { runtime, result };
+        this.modal.show(result, {
+            onBuild: () => this._build(),
+            onCancel: () => { console.log('[office-building] controller: modal cancelled (no scene mutation)'); this._pending = null; },
+        });
+        return { ok: true, deskCount: result.analytics.totalDesks };
+    }
+
+    private _build(): void {
+        const p = this._pending;
+        if (!p) return;
+        console.log('[office-building] controller: Build pressed → executor');
+        p.runtime.events?.emit('pryzm:toast', { message: 'Building office floor plate…', severity: 'info' });
+        void this.executor.execute(p.runtime, p.result);
+        this._pending = null;
+    }
+}

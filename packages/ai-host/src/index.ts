@@ -394,6 +394,35 @@ export type {
   ClampedOpening,
 } from './workflows/residentialBuilding/index.js';
 
+// ── Office building (4th typology) — circular floor-plate + tower orchestrator ──
+// PURE L2 planners (zero THREE, zero DOM). Consumed by the editor's office-building
+// trigger/controller (apps/editor/src/ui/office-building/) + the office typology pack.
+export {
+  generateOfficeFloorPlate,
+  coreFractionForRise,
+  riseZoneLabel,
+  orchestrateOfficeBuilding,
+  classifyOfficeFloor,
+} from './workflows/officeBuilding/index.js';
+export type {
+  OfficeFloorPlateInput,
+  OfficeFloorPlateResult,
+  OfficeFloorPlateOk,
+  OfficeFloorPlateRejected,
+  OfficeZone,
+  OfficeZoneKind,
+  OfficeFloorAnalytics,
+  WorkplaceCulture,
+  DeskMode,
+  OfficeBuildingOrchestratorInput,
+  OfficeBuildingResult,
+  OfficeBuildingOk,
+  OfficeBuildingRejected,
+  OfficeBuildingAnalytics,
+  OfficeFloorDescriptor,
+  OfficeFloorType,
+} from './workflows/officeBuilding/index.js';
+
 // ── D-FLE Furniture Layout Engine — public surface ───────────────────────────
 // The deterministic per-room furniture layout engine (SPEC-FURNITURE-LAYOUT-ENGINE).
 // Pure: zero THREE, zero DOM. Consumed by the editor's furnish trigger

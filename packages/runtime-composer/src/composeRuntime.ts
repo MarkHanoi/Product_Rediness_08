@@ -87,6 +87,7 @@ import { buildCasaUnifamiliarTypologyPack } from '@pryzm/typology-pack-casa-unif
 // GATED default-OFF until the orchestrator slices are browser-validated (see the
 // registration site below). Plan: RESIDENTIAL-BUILDING-MULTI-FAMILY-AUDIT-AND-PLAN.md.
 import { buildResidentialBuildingTypologyPack } from '@pryzm/typology-pack-residential-building';
+import { buildOfficeBuildingTypologyPack } from '@pryzm/typology-pack-office-building';
 
 import { EventBus } from './EventBus.js';
 import { wireCommandEventBridge } from './CommandEventBridge.js';
@@ -997,6 +998,24 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       } catch (err) {
         console.warn(
           '[runtime-composer] residential-building typology pack registration skipped:',
+          err,
+        );
+      }
+    }
+    // Office-building (tower) — the FOURTH typology. GATED default-OFF: the pack only
+    // registers (and only then appears in the TypologyPicker + RAC) when the founder
+    // opts in by setting `globalThis.__PRYZM_OFFICE_BUILDING__ = true` BEFORE
+    // composeRuntime. Keeps production byte-identical until browser-validated. Read via
+    // a narrow typed lookup on globalThis (NOT `(window as any)`, so P4-clean).
+    const officeBuildingGateOn =
+      (globalThis as { __PRYZM_OFFICE_BUILDING__?: boolean })
+        .__PRYZM_OFFICE_BUILDING__ === true;
+    if (officeBuildingGateOn) {
+      try {
+        typologyRegistry.register(buildOfficeBuildingTypologyPack());
+      } catch (err) {
+        console.warn(
+          '[runtime-composer] office-building typology pack registration skipped:',
           err,
         );
       }
