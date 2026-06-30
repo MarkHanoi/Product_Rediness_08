@@ -25,7 +25,9 @@ import {
     generateOfficeFloorPlate,
     coreFractionForRise,
     riseZoneLabel,
+    MIN_BUILD_RADIUS_M,
     type OfficeFloorPlateOk,
+    type OfficePlateAutoFit,
     type WorkplaceCulture,
     type DeskMode,
 } from './officeFloorPlate.js';
@@ -101,6 +103,13 @@ export interface OfficeBuildingOk {
     /** The representative open-plan circular plate (shown + built). */
     readonly representativePlate: OfficeFloorPlateOk;
     readonly analytics: OfficeBuildingAnalytics;
+    /**
+     * §OFFICE-PLATE-AUTOFIT — the requested storey count BEFORE auto-fit (so the modal
+     * can say "requested 40, fits 8"). Equals `stories` when nothing was reduced.
+     */
+    readonly requestedStories: number;
+    /** §OFFICE-PLATE-AUTOFIT — adjustments made to keep the tower buildable (notes for the modal). */
+    readonly autoFit: OfficePlateAutoFit;
     readonly diagnostic: string;
 }
 
@@ -148,6 +157,46 @@ export function classifyOfficeFloor(
     return 'open-plan';
 }
 
+/**
+ * §OFFICE-PLATE-AUTOFIT — the MAX storey count whose rise-scaled core comfortably fits
+ * a circular plate of `radiusM` WITHOUT shrinking the core below its rise target (i.e.
+ * the floor a user could pick and still get the "designed" core, not a degraded one).
+ *
+ * Taller towers need a bigger core fraction (`coreFractionForRise`), so a small plate
+ * tops out at fewer storeys. We scan 1..60 and return the tallest whose rise-core still
+ * leaves at least a half-corridor inner ring. ALWAYS returns ≥1 (the plate generator can
+ * build a 1-storey floor on any positive radius by shrinking the core if needed). The
+ * onboarding setup step uses this to CAP the stories slider so the preview is never
+ * infeasible. PURE + deterministic. P8: ≥1 span.
+ */
+export function maxFeasibleStoriesForRadius(radiusM: number, minCorridorM = 1.5): number {
+    return _tracer.startActiveSpan(
+        'pryzm.ai.workflow.officeBuilding.maxFeasibleStories',
+        (span) => {
+            try {
+                let best = 1;
+                if (radiusM > 0 && Number.isFinite(radiusM)) {
+                    const gfa = Math.PI * radiusM * radiusM;
+                    const corridor = Math.max(1.2, minCorridorM);
+                    for (let s = 1; s <= 60; s++) {
+                        const coreR = Math.sqrt((gfa * coreFractionForRise(s)) / Math.PI);
+                        // Rise-core fits "as designed" iff it leaves a half-corridor inner ring.
+                        if (radiusM - coreR >= corridor * 0.5) best = s; else break;
+                    }
+                }
+                span.setAttribute('pryzm.office.maxFeasibleStories.radiusM', round4(radiusM));
+                span.setAttribute('pryzm.office.maxFeasibleStories.value', best);
+                span.end();
+                return best;
+            } catch (err) {
+                span.recordException(err as Error);
+                span.end();
+                throw err;
+            }
+        },
+    ) as number;
+}
+
 /** Orchestrate an office tower. PURE + DETERMINISTIC. Soft-fails (C50 §1.7), never throws. */
 export function orchestrateOfficeBuilding(
     input: OfficeBuildingOrchestratorInput,
@@ -178,20 +227,53 @@ function reject(reason: string): OfficeBuildingRejected {
 }
 
 function _orchestrate(input: OfficeBuildingOrchestratorInput): OfficeBuildingResult {
-    const stories = Math.floor(input.stories || 0);
-    if (!Number.isInteger(stories) || stories < 1 || stories > 60) {
-        return reject('stories must be an integer in 1..60');
+    // §OFFICE-PLATE-AUTOFIT — the office must ALWAYS build (degrade gracefully like the
+    // resi generator), so we CLAMP rather than reject. The ONLY genuinely unusable input
+    // is a non-positive / non-finite radius (no plate to put a tower on); everything else
+    // is auto-fitted. The requested storey count is remembered so the modal can report
+    // any reduction ("requested 40, fits ~8 at this radius").
+    if (!(input.radiusM > 0) || !Number.isFinite(input.radiusM)) {
+        return reject('radius must be a positive number');
     }
-    if (!(input.radiusM > 0)) {
-        return reject('radius must be positive');
+    const requestedStories = Math.max(1, Math.floor(input.stories || 1));
+    const autoFitNotes: string[] = [];
+
+    // §OFFICE-PLATE-AUTOFIT — clamp the radius UP to the minimum sensible plate HERE so
+    // the WHOLE building (analytics radius, floor elevations, GFA) is consistent with the
+    // plate the generator actually builds (the plate clamps internally too, but the
+    // orchestrator must report the AS-BUILT radius, not the requested undersize one).
+    const radiusM = Math.max(input.radiusM, MIN_BUILD_RADIUS_M);
+    if (radiusM > input.radiusM) {
+        autoFitNotes.push(
+            `Plate radius raised from ${round4(input.radiusM)} m to the ${MIN_BUILD_RADIUS_M} m minimum so a circular floor with a core + ring program fits.`,
+        );
     }
+
+    // Cap the storey count to what the plate can host with an un-shrunk rise-core, then
+    // hard-clamp to the engine ceiling (60). A small plate → a shorter tower (it STILL
+    // builds at the requested count via core-shrink, but we prefer a clean tower; the
+    // plate generator's own auto-fit covers any residual undersize).
+    const maxFeasible = maxFeasibleStoriesForRadius(radiusM);
+    let stories = Math.min(requestedStories, 60);
+    if (requestedStories > 60) {
+        autoFitNotes.push(`Capped to the 60-storey engine ceiling (requested ${requestedStories}).`);
+    }
+    if (stories > maxFeasible) {
+        autoFitNotes.push(
+            `Plate fits ~${maxFeasible} storeys at this radius (requested ${requestedStories}); built ${maxFeasible}.`,
+        );
+        stories = maxFeasible;
+    }
+
     const floorToFloorM = input.floorToFloorM && input.floorToFloorM > 0 ? input.floorToFloorM : DEFAULT_FLOOR_TO_FLOOR_M;
     const baseElevationM = input.baseElevationM ?? 0;
     const mechanicalEveryN = input.mechanicalEveryN && input.mechanicalEveryN > 0 ? Math.floor(input.mechanicalEveryN) : DEFAULT_MECHANICAL_EVERY_N;
 
-    // Representative open-plan plate (the archetype shown + built).
+    // Representative open-plan plate (the archetype shown + built). Its own auto-fit
+    // clamps a too-small radius / shrinks the core; it only rejects a non-finite radius
+    // (already guarded above), so in practice this always returns 'ok'.
     const plate = generateOfficeFloorPlate({
-        radiusM: input.radiusM,
+        radiusM,
         stories,
         floorIndex: 1,
         ...(typeof input.deskDensityPer1000Sqft === 'number' ? { deskDensityPer1000Sqft: input.deskDensityPer1000Sqft } : {}),
@@ -199,7 +281,15 @@ function _orchestrate(input: OfficeBuildingOrchestratorInput): OfficeBuildingRes
         ...(input.culture ? { culture: input.culture } : {}),
     });
     if (plate.status === 'rejected') {
+        // Defensive: should not happen given the radius guard, but never throw.
         return reject(`floor plate infeasible: ${plate.reason}`);
+    }
+    // Merge the plate's CORE-SHRINK note (the radius is already clamped here, so the
+    // plate won't re-add a radius note — avoid double-reporting).
+    if (plate.autoFit.coreShrunk) {
+        for (const n of plate.autoFit.notes) {
+            if (!autoFitNotes.includes(n)) autoFitNotes.push(n);
+        }
     }
 
     // ── Storey loop: stamp the floor-type variety. ────────────────────────────────
@@ -225,11 +315,13 @@ function _orchestrate(input: OfficeBuildingOrchestratorInput): OfficeBuildingRes
 
     const analytics: OfficeBuildingAnalytics = {
         stories,
-        radiusM: input.radiusM,
+        radiusM,
         floorToFloorM,
         buildingHeightM,
         riseZone: riseZoneLabel(stories),
-        coreFraction: coreFractionForRise(stories),
+        // §OFFICE-PLATE-AUTOFIT — report the AS-BUILT core fraction (the plate may have
+        // shrunk it to fit a small plate), not the un-fitted rise target.
+        coreFraction: plate.autoFit.coreFraction,
         coreEfficiencyRatio: plate.analytics.coreEfficiencyRatio,
         desksPerOfficeFloor,
         officeFloors,
@@ -245,20 +337,30 @@ function _orchestrate(input: OfficeBuildingOrchestratorInput): OfficeBuildingRes
     const typeCounts = floors.reduce<Record<string, number>>((acc, f) => {
         acc[f.type] = (acc[f.type] ?? 0) + 1; return acc;
     }, {});
+    const autoFit: OfficePlateAutoFit = {
+        radiusM: round4(radiusM),
+        radiusClamped: radiusM > input.radiusM,
+        coreFraction: plate.autoFit.coreFraction,
+        coreShrunk: plate.autoFit.coreShrunk,
+        notes: autoFitNotes,
+    };
+
     const diagnostic =
-        `§DIAG-OFFICE-ORCHESTRATE stories=${stories} r=${round4(input.radiusM)} ` +
+        `§DIAG-OFFICE-ORCHESTRATE stories=${stories} (req=${requestedStories}) r=${round4(radiusM)} (req=${round4(input.radiusM)}) ` +
         `riseZone="${analytics.riseZone}" officeFloors=${officeFloors} ` +
         `desks/floor=${desksPerOfficeFloor} totalDesks=${totalDesks} ` +
-        `types=${JSON.stringify(typeCounts)}`;
+        `autoFit=${autoFitNotes.length} types=${JSON.stringify(typeCounts)}`;
 
     return {
         status: 'ok',
-        radiusM: input.radiusM,
+        radiusM,
         stories,
         floorToFloorM,
         floors,
         representativePlate: plate,
         analytics,
+        requestedStories,
+        autoFit,
         diagnostic,
     };
 }

@@ -69,3 +69,69 @@ Make office a **first-class typology from the picker**, mirroring residential-bu
   OnboardingStepController.ts` (dispatch + `generateOffice`), `briefBootstrap.ts` (ready-set +
   toast noun), `apps/editor/src/types/globals.d.ts` (gate comments),
   `packages/runtime-composer/src/composeRuntime.ts` (registration gate flip).
+
+## Amendment (2026-06-30) — feasibility ALWAYS builds · preview step · full tower
+
+The founder live-tested and hit three gaps; this amendment supersedes point 4 above (a bespoke
+office setup step IS now built) and adds the feasibility + tower-build decisions.
+
+### §OFFICE-PLATE-AUTOFIT — the office must ALWAYS build (degrade like residential)
+
+A ~499 m² parcel derived `radius 10 m`, `stories 40` → the controller **hard-rejected** ("floor
+plate infeasible: core leaves no room for an inner circulation ring"), so nothing built. The
+residential building never hard-rejects (it degrades: "N units didn't fit" but still emits a
+building). Decision: the office matches that posture.
+
+- `generateOfficeFloorPlate` (`packages/ai-host/.../officeFloorPlate.ts`) no longer rejects a
+  too-small plate. It **clamps the radius UP** to a minimum sensible plate (`MIN_BUILD_RADIUS_M =
+  10 m`) and **shrinks the core fraction** (floor `MIN_CORE_FRACTION = 0.10`) so the inner
+  circulation ring stays a half-corridor wide. The ring radii are clamped to stay strictly
+  ordered + inside the plate. The ONLY remaining reject is a non-finite / non-positive radius
+  (genuinely no plate to build on). It returns a new `autoFit: OfficePlateAutoFit` with the
+  as-built radius / core fraction + human `notes`.
+- `orchestrateOfficeBuilding` clamps the radius up-front (so the whole building — analytics radius,
+  floor elevations, GFA — is consistent with the built plate), caps the storey count to
+  `maxFeasibleStoriesForRadius(radius)` (NEW exported helper, ≥1 span), hard-clamps to the 60-storey
+  engine ceiling, and surfaces `requestedStories` + a merged `autoFit`. It clamps rather than
+  rejects out-of-range stories — the office ALWAYS builds.
+- `deriveOfficeCircleFromParcel` (§OFFICE-DERIVE-FILL) pushes the derived radius UP toward the
+  bbox-fit (geometric mean of the centroid-inscribed radius and the bbox half-min-side), never past
+  the bbox — so a near-square ~500 m² parcel fills toward the largest plate that fits instead of an
+  over-conservative inscribed radius.
+
+### §OFFICE-PREVIEW-STEP — an office SETUP step mirroring the residential building
+
+`OnboardingStepController.renderGenerateConfirmStep` now branches on `isOfficeTypology()` to
+`renderOfficeProgramStep` (the sibling of `renderResidentialProgramStep`), confined to the office
+region (no edits to the resi/house/apartment branches or the `§ONB-RESULT-VIEW` handoff). It renders
+the resi landscape layout (centre live preview · right controls) with: a STORIES slider **capped to
+`maxFeasibleStoriesForRadius`** (so the preview is never infeasible — it re-caps live as the radius
+slider moves), FLOOR-TO-FLOOR, RADIUS (derived, adjustable), DESK DENSITY, a CULTURE toggle
+(open-plan-first / perimeter-offices-first), and a circular-plate note. It re-runs the PURE
+`orchestrateOfficeBuilding` on every change and paints the existing `buildOfficePlatePreviewSvg` +
+`buildOfficeAnalyticsHtml` (display-only, no scene mutation — P3/P6). "Build this tower" writes the
+chosen params into `briefMetadata` and runs the SAME generate path; `generateOffice` reads them and
+calls the new `OfficeBuildingController.buildDirect` (orchestrate + execute, NO redundant second
+modal). The console / RAC path (no preview) still uses `request()` + the modal.
+
+### §OFFICE-TOWER-BUILD — the executor builds a real multi-storey tower (not one disc)
+
+The `OfficeBuildingExecutor` previously emitted only ONE representative slab (a flat disc). It now
+mints one editor level per feasible storey (`AddLevelCommand`) and, in ONE `batchCoordinator.runBatch`
+(one undo, `skipRedetectRooms`): (a) a CIRCULAR FLOOR SLAB per storey stacked at the floor-to-floor
+cascade, (b) a segmented PERIMETER WALL RING (the n-gon footprint edges as wall segments via the bus
+`wall.batch.create`) per storey for a façade the Forma white-materials / façade-analysis can paint
+on, and (c) on the representative office floor, the CENTRAL CORE slab + the concentric desk-zone
+room-bounding lines (open-plan / perimeter / collab / circulation) so the plate reads as an office
+layout in plan. Level minting degrades gracefully (stops + builds a shorter tower) if a level fails.
+Per-desk BIM furniture is a later slice.
+
+- Tests: `packages/ai-host/.../officeFloorPlate.test.ts` (auto-fit: small plate clamps + still
+  builds + never rejects; core-shrink; storey clamp; `maxFeasibleStoriesForRadius` monotonic ≥1) and
+  `apps/editor/__tests__/DeriveOfficeCircle.test.ts` (§OFFICE-DERIVE-FILL: ~500 m² → sensible radius;
+  fill never past the bbox).
+- Files (this amendment): `packages/ai-host/src/workflows/officeBuilding/officeFloorPlate.ts`,
+  `officeBuildingOrchestrator.ts`, `packages/ai-host/src/index.ts` (exports),
+  `apps/editor/src/ui/office-building/{deriveOfficeCircle.ts, OfficeBuildingController.ts,
+  OfficeBuildingExecutor.ts}`, `apps/editor/src/ui/onboarding/OnboardingStepController.ts`
+  (office step + `generateOffice` only).

@@ -60,6 +60,32 @@ describe('deriveOfficeCircleFromParcel', () => {
         expect(c.radiusM).toBeGreaterThan(0);
     });
 
+    it('§OFFICE-DERIVE-FILL — a ~500 m² parcel derives a sensible (not tiny) radius', () => {
+        // ~499 m² near-square parcel (≈22.34 m side). The founder saw radius 10 m before;
+        // the derived radius should now be sensible (≈ half the side, ~11 m), and the
+        // generator's own 10 m min-build floor guarantees a buildable plate either way.
+        const side = Math.sqrt(499); // ≈ 22.34
+        const c = deriveOfficeCircleFromParcel(sq(side))!;
+        expect(c).not.toBeNull();
+        // Fills toward the bbox: ≈ side/2 (the largest circle that fits the square).
+        expect(c.radiusM).toBeGreaterThanOrEqual(10);
+        expect(c.radiusM).toBeCloseTo(side / 2, 4);
+    });
+
+    it('§OFFICE-DERIVE-FILL — pushes the radius UP toward the bbox-fit but never past it', () => {
+        // A diamond (rotated square) — the centroid-inscribed radius is SMALLER than the
+        // bbox half-min-side, so the fill blend lifts it, staying ≤ bboxFit (inside the bbox).
+        const half = 20;
+        const diamond: ParcelPoint[] = [
+            { x: half, z: 0 }, { x: 2 * half, z: half }, { x: half, z: 2 * half }, { x: 0, z: half },
+        ];
+        const c = deriveOfficeCircleFromParcel(diamond)!;
+        const bboxFit = half; // bbox is 40×40 → half-min-side 20
+        const inscribed = half / Math.SQRT2; // centroid→edge of a diamond = half/√2 ≈ 14.14
+        expect(c.radiusM).toBeGreaterThan(inscribed - 1e-6); // lifted above the raw inscribed
+        expect(c.radiusM).toBeLessThanOrEqual(bboxFit + 1e-9); // never past the bbox
+    });
+
     it('returns null for degenerate / unusable input (caller defaults the radius)', () => {
         expect(deriveOfficeCircleFromParcel(null)).toBeNull();
         expect(deriveOfficeCircleFromParcel(undefined)).toBeNull();
