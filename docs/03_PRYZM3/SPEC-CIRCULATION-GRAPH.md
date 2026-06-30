@@ -155,3 +155,69 @@ and it MUST land on an EXTERIOR/perimeter wall of the hall (GF-R1: hall.perimete
 Today `§DIAG-ENTRANCE-PERIMETER boundsShellWall=YES` says it CAN, but the realised front door
 often isn't placed on the perimeter. Enforce: the hall always gets a front door hosted on its
 shell-perimeter wall (door router / executor), not an interior wall.
+
+---
+## PART 9 — DOORS AS FIRST-CLASS GRAPH ENTITIES + MAXIMUM CIRCULATION (founder, 2026-06-29)
+
+Origin: founder "the circulation scores are TOO LOW … we need MAXIMUM = every habitable room
+cell is reachable through circulation. DOORS must become first-class ENTITIES in the graph —
+a circulation edge between two rooms is only REAL if a DOOR connects them." This generalises to
+**ANY typology** (house / apartment / residential building): circulation is a platform concept.
+See ADR-062. Implementation slice (graph + scoring) is LIVE in
+`apps/editor/src/ui/apartment-layout/layoutBubbleGraph.ts`.
+
+### 9.1 — The model (door-aware bipartite-ish graph)
+- Nodes are of TWO kinds: **room nodes** (one per room, sized by door-degree) and **door nodes**
+  (one small node per realised opening, placed at the midpoint of the edge between the two rooms
+  it connects). A room↔room circulation edge is drawn as **room — door — door-node — room**.
+- An edge is REAL (solid violet) **iff** a door connects the two rooms — sourced from
+  `room.doorAdjacentTo` (the realised opening graph emitted by `emitGeometry.ts`, the
+  `permeable` set / `CONNECTS_THROUGH` edges), NOT `adjacentTo` (mere wall-sharing).
+- A wall-shared-but-doorless adjacency renders as a **faint dashed** edge with NO door node — so
+  a room reachable only WITHOUT a door is visibly NOT solidly connected (founder's "just because
+  it's adjacent … needs a door, otherwise not compliant").
+- Pre-deploy parity: when no room carries `doorAdjacentTo`, every wall edge is treated as a door
+  (graph unchanged from the old wall-adjacency rendering).
+
+### 9.2 — Reachability is door-PATH from the entrance (the score correctness fix)
+`computeCirculationReachability(option)` (pure, deterministic, exported from `layoutBubbleGraph.ts`)
+BFS-es from the storey entrance (hall → stair → first circulation room) over the DOOR graph and
+returns `{ reached, total, fraction, unreachedRoomNames, hasDoorGraph }`:
+- **Habitable** = NOT a circulation space (corridor/hall/stair are the spine, not destinations)
+  and NOT served-within-parent (en-suite via master is allowed).
+- A room is **reached** ONLY via a path of door-connected rooms — transitive over doors (a
+  walk-through-bedroom-to-bedroom counts as reached IF a door path exists; a sealed room does
+  not; a room touching the corridor by a wall with no door does not).
+- **`fraction === 1.0` ⟺ MAXIMUM circulation** — every habitable room has a door path to the
+  entrance. This is the true circulation number; mere wall-adjacency can no longer inflate it.
+
+This is the single door-aware source of truth shared by the graph's RED-node logic
+(`§GRAPH-COMPLIANCE-RED` / `§CIRC-REACH`) and any displayed circulation %.
+
+### 9.3 — The "score 84" diagnosis (why the displayed number is < 100)
+The per-floor "score NN" in the house/apartment modal is `option.score.overall` — a SOFT
+weighted sum over ~23 cognition axes (efficiency, daylight, privacy, proportionalElegance,
+`corridorAccess`, …), NOT a circulation-completeness percentage. Even a layout with PERFECT
+door circulation scores < 100 because the other soft axes (corridor area penalty, daylight
+reach, elegance, …) never simultaneously max out. So "84" was never a circulation failure
+signal by itself. The architecturally meaningful circulation number is `computeCirculationReachability().fraction`
+(hard) + the soft `corridorAccess` axis (`measureCorridorAccess`, already door-aware via
+`CONNECTS_THROUGH`). **Recommendation:** surface the circulation % SEPARATELY in the modal
+("circulation 100%") rather than conflating it with the multi-axis design `score`, and gate
+`fraction === 1` as the demo target. (Graph + reachability shipped; modal-label wiring is the
+next, small, follow-up.)
+
+### 9.4 — GUARANTEE maximum circulation in the generator (cross-typology)
+The generator must GUARANTEE `fraction === 1` for the chosen winner across ALL typologies. The
+hard gates already reject `unreachableHabitableRoomIds.length > 0` (enumerate.ts) and
+`servedThroughPrivateRoomIds` — both door-set based. The remaining levers (precise, staged):
+1. **House:** the residual unreachable case is FR-1 (a fragmented-plate far region) — handle by
+   the POST-SELECTION suite rescue (retype the landlocked-but-public-abutting bedroom →
+   master+ensuite + place its door), NOT a per-candidate retype (see FR-1 analysis above).
+2. **Apartment:** the door router (`wallsAndDoors.ts`) must emit a circulation door for every
+   gated private room; `corridorAccess` already scores it and the reach gate rejects gaps.
+3. **Residential building:** each per-cell apartment runs the same gate; the shared core/corridor
+   must door onto every unit entrance (corridor-reaches-stair contiguity, `§CORRIDOR-STAIR-CONTIGUITY`).
+The platform invariant: **a winner ships only if `computeCirculationReachability().fraction === 1`**
+— wire this as a final hard gate in each orchestrator (house/apartment/resi). The graph + the
+pure reachability predicate (this slice) make that gate trivial to add and to TEST.
