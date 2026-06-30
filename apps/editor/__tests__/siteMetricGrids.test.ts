@@ -18,6 +18,8 @@ import {
     rasterizeMetricTexture,
     metricCostTier,
     siteMetricGridBudget,
+    buildFacadeSamplePoints,
+    prepareFacadeSunGrid,
     type SiteMetric,
     type MetricFootprint,
 } from '../src/ui/climate/siteMetricGrids';
@@ -565,5 +567,87 @@ describe('rasterizeMetricTexture (§SITE-METRIC-TEXTURE — universal smooth ren
         const tex = rasterizeMetricTexture(cells, 240, cellSize);   // default texSize
         const metresPerTexel = (2 * tex.radiusM) / tex.size;
         expect(metresPerTexel).toBeLessThanOrEqual(1.0);   // temperature is fine, not blocky
+    });
+});
+
+// ── §FORMA-FACADE-ANALYSIS (ADR-0093) — designed-building façade sun analysis ──
+
+// A simple 10 m × 10 m building footprint (site-ENU XZ metres, x = east, z = north).
+const BUILDING_RING = [
+    { x: -5, z: -5 }, { x: 5, z: -5 }, { x: 5, z: 5 }, { x: -5, z: 5 },
+];
+
+describe('§FORMA-FACADE-ANALYSIS — buildFacadeSamplePoints', () => {
+    it('generates wall + roof sample points across the footprint', () => {
+        const pts = buildFacadeSamplePoints([BUILDING_RING], 6, 2.5, 4000);
+        expect(pts.length).toBeGreaterThan(0);
+        const walls = pts.filter((p) => p.surface === 'wall');
+        const roof = pts.filter((p) => p.surface === 'roof');
+        expect(walls.length).toBeGreaterThan(0);
+        expect(roof.length).toBeGreaterThan(0);
+    });
+
+    it('wall points carry a unit OUTWARD normal; roof points face up (0,0)', () => {
+        const pts = buildFacadeSamplePoints([BUILDING_RING], 6);
+        for (const p of pts) {
+            if (p.surface === 'wall') {
+                const mag = Math.hypot(p.normE, p.normN);
+                expect(mag).toBeCloseTo(1, 5);
+                // Outward: the normal points away from the (0,0) centroid at the face.
+                expect(p.east * p.normE + p.north * p.normN).toBeGreaterThan(0);
+            } else {
+                expect(p.normE).toBe(0);
+                expect(p.normN).toBe(0);
+            }
+        }
+    });
+
+    it('keeps wall heights within the building height', () => {
+        const H = 8;
+        const pts = buildFacadeSamplePoints([BUILDING_RING], H);
+        for (const p of pts) expect(p.up).toBeLessThanOrEqual(H + 0.1);
+    });
+
+    it('respects the maxSamples cap (decimates uniformly)', () => {
+        const pts = buildFacadeSamplePoints([BUILDING_RING], 30, 0.5, 200);
+        expect(pts.length).toBeLessThanOrEqual(200);
+        expect(pts.length).toBeGreaterThan(0);
+    });
+
+    it('returns [] for a degenerate ring', () => {
+        expect(buildFacadeSamplePoints([[{ x: 0, z: 0 }, { x: 1, z: 1 }]], 6)).toEqual([]);
+    });
+});
+
+describe('§FORMA-FACADE-ANALYSIS — prepareFacadeSunGrid', () => {
+    it('returns null without lat/lon or rings', () => {
+        expect(prepareFacadeSunGrid({
+            footprintRings: [BUILDING_RING], heightM: 6, occluders: [],
+            latDeg: undefined as unknown as number, lngDeg: 2.17,
+        })).toBeNull();
+        expect(prepareFacadeSunGrid({
+            footprintRings: [], heightM: 6, occluders: [], latDeg: 41.39, lngDeg: 2.17,
+        })).toBeNull();
+    });
+
+    it('prepares points + a pure intensity evaluator in [0,1] using the sun ramp', () => {
+        const prep = prepareFacadeSunGrid({
+            footprintRings: [BUILDING_RING],
+            heightM: 6,
+            occluders: [{ ring: BUILDING_RING, heightM: 6 }],   // the building shades itself
+            latDeg: 41.39,
+            lngDeg: 2.17,
+            sunDay: 'summer',
+            sampleSpacingM: 3,
+            maxSamples: 800,
+        });
+        expect(prep).not.toBeNull();
+        const p = prep!.points[0]!;
+        const intensity = prep!.evaluateIntensity(p);
+        expect(intensity).toBeGreaterThanOrEqual(0);
+        expect(intensity).toBeLessThanOrEqual(1);
+        // The colour map is the SAME sun-hours ramp used by the ground heatmap.
+        expect(prep!.colourFor(1)).toMatch(/^rgb\(/);
+        expect(prep!.colourFor(0)).toMatch(/^rgb\(/);
     });
 });

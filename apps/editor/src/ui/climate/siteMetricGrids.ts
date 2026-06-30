@@ -910,6 +910,233 @@ export function prepareSunHoursGrid(input: MetricGridInput): SunHoursGridPrep | 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// §FORMA-FACADE-ANALYSIS (ADR-0093, 2026-06-30) — sun-hours on the BUILDING FAÇADE
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Task B: on demand (toggle, default OFF), paint the active metric (priority:
+// SUN-HOURS) on the user's DESIGNED building's outer FAÇADE + roof — not the context
+// buildings — with the SAME blue→teal→gold→warm ramp as the ground heatmap.
+//
+// This is the COMPUTE half (pure, no Cesium/THREE/DOM, P2-safe): from the building's
+// exterior footprint ring + per-storey heights it generates a lattice of sample
+// POINTS across each exterior vertical wall face (along the segment × up the storey)
+// plus the roof, and exposes a pure `evaluateIntensity(point)` that runs the SAME
+// direct-beam shadow test the ground grid uses (`sunBlocked` vs the extruded context
+// + own-massing prisms). The CesiumViewport renders coloured quads/points per face
+// (clean per-face colouring; the smooth-interpolated-per-face version is SPEC'd in
+// ADR-0093). The caller batches `evaluateIntensity` across frames so the per-point
+// raycast never freezes the viewport.
+//
+// FRAME: same as the ground grid — (east, north, up) metres; footprint rings are the
+// StreetGrid XZ convention (x = east, z = north). The outward face NORMAL is used only
+// to nudge the sample point just outside the wall so it doesn't self-occlude.
+
+/** A façade sample point on the designed building's exterior surface. */
+export interface FacadeSamplePoint {
+    /** Sample position — east metres from the site origin. */
+    readonly east: number;
+    /** Sample position — north metres from the site origin. */
+    readonly north: number;
+    /** Sample position — up metres above ground. */
+    readonly up: number;
+    /** Surface kind (wall face or roof) — for the renderer's quad orientation. */
+    readonly surface: 'wall' | 'roof';
+    /** Outward unit normal in (east, north) for a WALL face; (0,0) for roof (faces up). */
+    readonly normE: number;
+    readonly normN: number;
+}
+
+/** Inputs for the façade-sun build. Reuses the ground grid's sun fields. */
+export interface FacadeSunInput {
+    /** The DESIGNED building's exterior footprint ring(s), site-ENU XZ metres
+     *  (x = east, z = north). One ring per disjoint mass; each is treated as a closed
+     *  loop of exterior wall faces. */
+    readonly footprintRings: ReadonlyArray<ReadonlyArray<Pt>>;
+    /** Total building height (m) — the top of the highest storey (roof level). */
+    readonly heightM: number;
+    /** OCCLUDER footprints (context + the designed building itself) for the shadow
+     *  test — same shape as the ground grid's `footprints`. */
+    readonly occluders: readonly MetricFootprint[];
+    /** Site latitude (deg) — REQUIRED (sun position). */
+    readonly latDeg: number;
+    /** Site longitude (deg) — REQUIRED. */
+    readonly lngDeg: number;
+    /** Analysis-day preset (default 'summer'). */
+    readonly sunDay?: SunDayPreset;
+    /** Sun sample cadence (minutes). Default 25 (matches the ground sun-hours). */
+    readonly sunStepMinutes?: number;
+    /** Target sample spacing on the façade (m). Default 2.5 (clean per-face read). */
+    readonly sampleSpacingM?: number;
+    /** Hard cap on façade sample points (perf). Default 4000. */
+    readonly maxSamples?: number;
+}
+
+/** A prepared façade-sun build: the sample points + a pure per-point evaluator. */
+export interface FacadeSunPrep {
+    readonly points: ReadonlyArray<FacadeSamplePoint>;
+    /** Sun-hours INTENSITY (0 = shaded … 1 = full sun) at a sample point. Pure +
+     *  deterministic; safe to batch in any order. The heavy raycast lives here. */
+    readonly evaluateIntensity: (p: FacadeSamplePoint) => number;
+    /** Map an intensity (0..1) → the SAME blue→teal→gold→warm CSS colour as the
+     *  ground sun-hours heatmap (so the façade + floor read one ramp). */
+    readonly colourFor: (intensity: number) => string;
+}
+
+/**
+ * §FORMA-FACADE-ANALYSIS — generate façade sample points across a building footprint.
+ * PURE: walks each ring's edges, lays a grid of points along the segment (× up the
+ * height) on each EXTERIOR wall face, plus a coarse roof grid, and nudges each wall
+ * point slightly OUTWARD along the face normal so the shadow ray doesn't self-occlude.
+ * Exported separately (not inlined) so the sampling is unit-testable without the
+ * sun/occlusion machinery.
+ *
+ * @param footprintRings  exterior ring(s), site-ENU XZ metres.
+ * @param heightM         building top height (m).
+ * @param spacing         target sample spacing (m).
+ * @param maxSamples      hard cap (samples are decimated by raising the spacing).
+ */
+export function buildFacadeSamplePoints(
+    footprintRings: ReadonlyArray<ReadonlyArray<Pt>>,
+    heightM: number,
+    spacing = 2.5,
+    maxSamples = 4000,
+): FacadeSamplePoint[] {
+    const H = Math.max(0.5, heightM);
+    const out: FacadeSamplePoint[] = [];
+    const step = Math.max(0.5, spacing);
+
+    // Ring winding determines the inward side; we nudge OUTWARD (away from the ring
+    // centroid) regardless of winding, which is robust for convex + mildly-concave
+    // plans (a planning heatmap, not a survey).
+    for (const ring of footprintRings) {
+        if (ring.length < 3) continue;
+        // Centroid (for the outward direction).
+        let cx = 0, cz = 0;
+        for (const p of ring) { cx += p.x; cz += p.z; }
+        cx /= ring.length; cz /= ring.length;
+
+        for (let i = 0; i < ring.length; i++) {
+            const a = ring[i]!;
+            const b = ring[(i + 1) % ring.length]!;
+            const dx = b.x - a.x, dz = b.z - a.z;
+            const segLen = Math.hypot(dx, dz);
+            if (segLen < 1e-3) continue;
+            const ux = dx / segLen, uz = dz / segLen;        // along-segment unit
+            // Face normal candidates (perpendicular); pick the one pointing AWAY from
+            // the centroid (outward).
+            let nE = -uz, nN = ux;
+            const mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2; // segment midpoint
+            if ((mx - cx) * nE + (mz - cz) * nN < 0) { nE = -nE; nN = -nN; }
+
+            const nAlong = Math.max(1, Math.round(segLen / step));
+            const nUp = Math.max(1, Math.round(H / step));
+            for (let s = 0; s <= nAlong; s++) {
+                const t = s / nAlong;
+                const px = a.x + ux * segLen * t;
+                const pz = a.z + uz * segLen * t;
+                for (let u = 0; u <= nUp; u++) {
+                    const up = (u / nUp) * H;
+                    out.push({
+                        // Nudge 0.25 m outward so the ray clears the wall face itself.
+                        east: px + nE * 0.25,
+                        north: pz + nN * 0.25,
+                        up: Math.max(0.3, up),
+                        surface: 'wall',
+                        normE: nE,
+                        normN: nN,
+                    });
+                }
+            }
+        }
+
+        // Roof: a coarse grid over the ring bbox at the top, point-in-ring filtered.
+        let minE = Infinity, maxE = -Infinity, minN = Infinity, maxN = -Infinity;
+        for (const p of ring) {
+            if (p.x < minE) minE = p.x; if (p.x > maxE) maxE = p.x;
+            if (p.z < minN) minN = p.z; if (p.z > maxN) maxN = p.z;
+        }
+        const roofRing = ring.map((p) => ({ e: p.x, n: p.z }));
+        const roofStep = step * 1.5;
+        for (let e = minE; e <= maxE; e += roofStep) {
+            for (let n = minN; n <= maxN; n += roofStep) {
+                if (!pointInRing(e, n, roofRing)) continue;
+                out.push({ east: e, north: n, up: H + 0.05, surface: 'roof', normE: 0, normN: 0 });
+            }
+        }
+    }
+
+    // §perf — decimate uniformly if over the cap (keep every k-th point).
+    if (out.length > maxSamples && maxSamples > 0) {
+        const k = Math.ceil(out.length / maxSamples);
+        const decimated: FacadeSamplePoint[] = [];
+        for (let i = 0; i < out.length; i += k) decimated.push(out[i]!);
+        return decimated;
+    }
+    return out;
+}
+
+/**
+ * §FORMA-FACADE-ANALYSIS — prepare a chunkable façade sun-hours build. Returns null
+ * when it can't compute (no rings / no lat-lon). The cheap work (sample points, sun
+ * samples, occluder prisms, normalisation) is done ONCE here; the heavy per-point
+ * raycast lives in the returned `evaluateIntensity`, which the editor calls in
+ * per-frame batches. PURE.
+ *
+ * Span: §FORMA-FACADE-ANALYSIS — a single structured console breadcrumb (this
+ * transitional apps/editor/src/ui/climate zone has no L7 otel facade; same convention
+ * as `rasterizeSunHoursTexture` / `prepareDaylightVscGrid`).
+ */
+export function prepareFacadeSunGrid(input: FacadeSunInput): FacadeSunPrep | null {
+    if (!input.footprintRings.some((r) => r.length >= 3)) return null;
+    if (input.latDeg == null || input.lngDeg == null) return null;
+
+    const points = buildFacadeSamplePoints(
+        input.footprintRings,
+        input.heightM,
+        input.sampleSpacingM ?? 2.5,
+        input.maxSamples ?? 4000,
+    );
+    if (points.length === 0) return null;
+
+    const stepMinutes = input.sunStepMinutes && input.sunStepMinutes > 0 ? input.sunStepMinutes : 25;
+    const samples = generateSunSamples({
+        latDeg: input.latDeg,
+        lngDeg: input.lngDeg,
+        dayOfYear: sunDayOfYear(input.sunDay),
+        stepMinutes,
+        daylightOnly: true,
+    });
+    const prisms = toPrisms(input.occluders);
+    const maxLit = samples.length || 1;
+
+    const evaluateIntensity = (p: FacadeSamplePoint): number => {
+        let lit = 0;
+        for (const s of samples) {
+            // A wall face only receives a sun sample whose direction is on its OUTWARD
+            // side (back-faces are self-shaded); the roof faces up so it takes all
+            // above-horizon samples. east = dir.x, north = −dir.z, up = dir.y.
+            const sE = s.dir.x, sN = -s.dir.z;
+            if (p.surface === 'wall') {
+                const facing = sE * p.normE + sN * p.normN;
+                if (facing <= 0) continue;               // sun is behind this face
+            }
+            if (!sunBlocked(p.east, p.north, p.up, s, prisms)) lit++;
+        }
+        return Math.max(0, Math.min(1, lit / maxLit));
+    };
+
+    try {
+        console.debug(
+            `[span][forma-facade-analysis] prepared ${points.length} façade sample point(s); ` +
+            `${samples.length} sun sample(s), ${prisms.length} occluder prism(s), ` +
+            `H ${input.heightM.toFixed(1)} m.`,
+        );
+    } catch { /* console unavailable (headless test) — span is best-effort */ }
+
+    return { points, evaluateIntensity, colourFor: sunHoursCellColour };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // §SITE-METRIC-SUN-TEXTURE (founder 2026-06-30, ADR-0086) — smooth sun-hours TEXTURE
 // ─────────────────────────────────────────────────────────────────────────────
 //
