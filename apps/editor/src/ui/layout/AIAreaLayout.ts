@@ -5,6 +5,7 @@ import { createAICreatePanel } from '../ai/AICreatePanel';
 import { installApartmentLayoutConsoleTrigger } from '../apartment-layout/apartmentLayoutTrigger';
 import { installHouseLayoutConsoleTrigger } from '../house-layout/houseLayoutTrigger';
 import { installResidentialBuildingConsoleTrigger } from '../residential-building/residentialBuildingTrigger';
+import { installOfficeBuildingConsoleTrigger } from '../office-building/officeBuildingTrigger';
 import { installDesignParamsConsoleTrigger } from '../apartment-layout/DesignParamsPanel';
 import { installFurnishLayoutTrigger } from '../furnish-layout/furnishLayoutTrigger';
 import { installLightingLayoutTrigger } from '../lighting-layout/lightingLayoutTrigger';
@@ -208,6 +209,12 @@ export function mountAIArea(props: UIProps, runtime: PryzmRuntime | null): AIRes
     // the vertical-circulation element) + per-floor public corridor + packed
     // apartments, all through the command bus in one undo.
     installResidentialBuildingConsoleTrigger(runtime ?? null);
+    // 4th typology — Office building (tower). ADDITIVE + GATED: registers
+    // `pryzmGenerateOfficeBuilding(opts)` but the feature stays OFF until
+    // `globalThis.__PRYZM_OFFICE_BUILDING__ = true` is set. Generates a circular
+    // office floor plate (centred core + concentric desk rings + perimeter offices /
+    // collab pods) for a multi-storey tower with department/floor-type variety.
+    installOfficeBuildingConsoleTrigger(runtime ?? null);
     // A.25.1 — Living Design Parameters: register `pryzmToggleDesignParams()` so
     // the parameter-sliders panel can be opened from anywhere. Its sliders feed
     // the D-TGL scorer weights (via the activeDesignParams stash) and debounce a

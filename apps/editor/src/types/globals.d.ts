@@ -197,6 +197,17 @@ declare global {
          *  pryzmCreateSiteFromRect() first. The site read is typology-agnostic;
          *  only the generator call is apartment-specific. */
         pryzmGenerateApartmentFromBoundary?: () => void;
+        /** Office building (4th typology) — DevTools console command to generate a
+         *  circular office tower. GATED behind `__PRYZM_OFFICE_BUILDING__`. */
+        pryzmGenerateOfficeBuilding?: (opts?: {
+            stories?: number;
+            radiusM?: number;
+            floorToFloorM?: number;
+            deskDensityPer1000Sqft?: number;
+            deskMode?: 'bench' | 'individual';
+            culture?: 'open-plan-first' | 'perimeter-offices-first';
+            mechanicalEveryN?: number;
+        }) => void;
         /** A.8.c.f — open the Hektar-style 2D cream/shadow boundary-draw map
          *  (MapLibre). Click each corner, double-click / Enter to close, Esc to
          *  cancel. On close it projects the lat/lon ring → site-XZ + dispatches
@@ -394,6 +405,9 @@ declare global {
         __instancedElementRenderer: unknown;
         /** Runtime feature-flag bag. Safe to read with optional chaining. */
         __PRYZM_FLAGS__: Partial<PryzmRuntimeFlags>;
+        /** Office-building (4th typology) feature gate. OFF unless explicitly set
+         *  true before composeRuntime / before calling pryzmGenerateOfficeBuilding. */
+        __PRYZM_OFFICE_BUILDING__: boolean | undefined;
         __resetCwPrewarm: (() => void) | undefined;
     }
 }
