@@ -42,6 +42,13 @@ import {
     monthlyTempSeries,
 } from '../climate/climateChartData';
 import { getCurrentSiteOrigin } from '../site/siteDispatch';
+// §SITE-METRIC-WIND-CONTRAST — the pure OFFLINE bundled-normals ClimateDataset builder
+// (lat/lon → 12 monthly normals + a synthesised 16-sector wind rose). Used to give the
+// wind-rose PANEL (and its mean/prevailing readout) a real DIRECTIONAL rose the instant
+// a site location exists, instead of latching on an EMPTY "Wind data loading…" rose
+// while the async ClimateStore ingest lands — the SAME bundled path the metric grid
+// already uses, so the panel rose and the map field agree.
+import { buildFallbackClimateDataset } from '@pryzm/climate-host';
 // §SITE-METRIC-HEATMAP — pure metric availability + legend helpers for the Hektar/
 // Forma-style switchable ground heatmap (the math lives in @pryzm/street-analytics).
 import {
@@ -1023,11 +1030,17 @@ export class FormaSiteAnalysisControls {
                 return 'OSM proxy: building footprint × floors (GFA) — not census/WorldPop. ' +
                     'Indicates relative built density, not measured residents.';
             case 'temperature':
-                return 'Urban heat-island ΔT over the site climate baseline (estimated regional ' +
-                    'normals until live data refines), modulated by OSM built density.';
+                // §SITE-METRIC-DATA-SOURCE-NOTE — make the MODELLED-ESTIMATE provenance
+                // explicit (mirrors the population "OSM proxy — not census" pattern) so a
+                // viewer knows this is a model, not a live sensor reading.
+                return 'Estimated: regional climate normal + urban-heat-island ΔT from OSM built ' +
+                    'density (not live sensor measurement). Dense zones read hotter, open/green cooler.';
             case 'wind':
-                return 'Lawson pedestrian-comfort proxy from the climate wind rose + OSM shelter ' +
-                    '(estimated regional normals until live data refines).';
+                // §SITE-METRIC-DATA-SOURCE-NOTE + §SITE-METRIC-WIND-CONTRAST — explicit
+                // modelled-estimate provenance; the field is a Lawson shelter proxy over a
+                // regional wind-rose baseline, not a measured anemometer field.
+                return 'Estimated: Lawson pedestrian-comfort proxy from regional climate wind-rose ' +
+                    '+ OSM upwind shelter (not live measurement). Sheltered zones read calmer, exposed windier.';
             case 'sunHours':
                 return 'Direct-beam sun-hours on the analysis day, shadowed by the massing + ' +
                     'OSM context (pure analytic shadow study).';
@@ -1048,12 +1061,13 @@ export class FormaSiteAnalysisControls {
         this.syncOverlayDataset();
         if (!wrap) return;
         wrap.replaceChildren();
-        const ds = this.resolveDataset();
+        // §SITE-METRIC-WIND-CONTRAST — resolve to bundled regional normals when the live
+        // ClimateStore dataset hasn't landed but a location exists, so the rose shows a
+        // real DIRECTIONAL wind (mean + prevailing) the moment the site has a location —
+        // never an empty "Wind data loading…" rose while the map already paints a field.
+        const ds = this.resolveDatasetOrFallback();
         if (!ds) {
-            // §CLIMATE-ESTIMATED-BADGE — a dataset is ingested asynchronously (bundled
-            // normals land within a tick of mount); read this transient as "loading",
-            // not a hard "no data" failure, so the panel never latches on an alarming
-            // empty state during the brief async window.
+            // Genuinely no dataset AND no location to derive one from → quiet prompt.
             if (this.windNote) this.windNote.textContent = 'Wind data loading… (set a site location if the map is empty).';
             wrap.appendChild(this.windRoseSvg([], 0));
             return;
@@ -1135,6 +1149,49 @@ export class FormaSiteAnalysisControls {
         }
     }
 
+    /**
+     * §SITE-METRIC-WIND-CONTRAST — resolve a dataset for the WIND-ROSE panel, falling
+     * back to OFFLINE bundled regional normals (a real non-empty rose with a non-zero
+     * mean speed + prevailing direction) when the live ClimateStore dataset hasn't
+     * landed yet but a site LOCATION exists. This is the SAME bundled path the metric
+     * GRID already uses (`resolveGridDataset` in siteMetricGrids), so the panel rose no
+     * longer latches on an empty "Wind data loading…" state while the map already paints
+     * a real directional wind field. Returns null only when there is genuinely no
+     * dataset AND no location to derive one from. PURE (given the coordinates).
+     */
+    private resolveDatasetOrFallback(): ClimateDataset | null {
+        const live = this.resolveDataset();
+        if (live) return live;
+        const ll = this.siteLatLon();
+        if (!ll) return null;
+        try {
+            const token = climateToken(ll.lat, ll.lon);
+            return buildFallbackClimateDataset({
+                id: `climate:${token}`,
+                siteRef: `site-bundled-${token}`,
+                lat: ll.lat,
+                lon: ll.lon,
+            });
+        } catch {
+            return null;
+        }
+    }
+
+    /** Best-effort site lat/lon for the bundled-normals fallback (store location → LTP
+     *  origin). Returns null when no real location is known. */
+    private siteLatLon(): { lat: number; lon: number } | null {
+        const rt = this.runtime;
+        try {
+            const loc = rt?.siteModelStore.getLocation?.();
+            if (loc && (loc.latitude !== 0 || loc.longitude !== 0)) {
+                return { lat: loc.latitude, lon: loc.longitude };
+            }
+        } catch { /* fall through to the LTP origin */ }
+        const ltp = getCurrentSiteOrigin();
+        if (ltp && (ltp.lat !== 0 || ltp.lon !== 0)) return { lat: ltp.lat, lon: ltp.lon };
+        return null;
+    }
+
     private sectionBlock(titleText: string): HTMLElement {
         const block = document.createElement('div');
         Object.assign(block.style, { display: 'flex', flexDirection: 'column', gap: '6px' });
@@ -1154,6 +1211,23 @@ export class FormaSiteAnalysisControls {
 }
 
 // ── Pure DOM/SVG mini-helpers ─────────────────────────────────────────────────
+
+/** §SITE-METRIC-WIND-CONTRAST — a stable 16-char base-36 token from a lat/lon pair
+ *  (FNV-1a over the rounded coordinates), used to mint a schema-valid bundled climate
+ *  dataset id (`climate:[A-Za-z0-9]{16,32}`) without colons/dots. Mirrors `coordToken`
+ *  in siteMetricGrids so the panel rose keys to the SAME bundled dataset as the map. */
+function climateToken(lat: number, lon: number): string {
+    const key = `${lat.toFixed(5)},${lon.toFixed(5)}`;
+    const hash = (seed: number): string => {
+        let h = seed >>> 0;
+        for (let i = 0; i < key.length; i++) {
+            h ^= key.charCodeAt(i);
+            h = Math.imul(h, 0x01000193) >>> 0;
+        }
+        return h.toString(36).padStart(8, '0').slice(-8);
+    };
+    return (hash(0x811c9dc5) + hash(0x9e3779b1)).slice(0, 16);
+}
 
 function toDateInputValue(d: Date): string {
     const y = d.getUTCFullYear();

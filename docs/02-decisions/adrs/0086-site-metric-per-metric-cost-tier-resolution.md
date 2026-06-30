@@ -96,3 +96,63 @@ This **supersedes ADR-0079 decision #2** (the uniform 2.5 m / 1.8 m cells + 9000
   and pool/reuse the cell geometry across metric switches.
 - Spatial-index the context prisms so the expensive cap can be raised back toward the
   fine grid without re-introducing the stall.
+
+---
+
+## Amendment — 2026-06-30 (§SITE-METRIC-FINE-CHEAP + §SITE-METRIC-{TEMP,WIND}-CONTRAST)
+
+Founder feedback on the deployed 240 m disc:
+
+1. **"Cells are still too big — want them MUCH smaller."** The cheap-tier budget
+   (`2.4 m`, cap `12000`) still read as coarse; the live log showed temperature at
+   `8988/11025 cell(s)`.
+2. **"Is the data accurate? is it all the same?"** — the Temperature map looked
+   uniform, and the Wind map rendered a **flat CALM (all-blue)** field with the panel
+   on "Wind data loading…" and an **empty wind rose**.
+
+### Decision (amends the **cheap tier** of `siteMetricGridBudget` only)
+
+- **Cheap tier → a much finer grid.** `cellSizeM 2.4 → 1.3 m`, `maxCells 12000 → 28000`.
+  The cheap metrics are O(1) per cell and the build is already chunked across frames
+  (`CesiumViewport.chunkBuild`), so the only cost is entity count — ~28k cells is ~3×
+  heavier to draw but non-blocking and stall-free. The `resolveCellSize` clamp-and-log
+  still fires if the cap bites (nothing silently truncated). **The EXPENSIVE tier is
+  unchanged (`5 m` / `3500`)** — a fine raycast grid would re-introduce the freeze; the
+  fine-grained sun-hours fix is a separate texture-decouple pass.
+
+- **Temperature + wind now VARY visibly (contrast).** Two pure value→colour remaps in
+  `siteMetricGrids.ts` (no change to the shared `@pryzm/street-analytics` engines):
+  - `§SITE-METRIC-TEMP-CONTRAST` — stretch the UHI intensity (linear gain about the
+    0.5 pivot) so dense-built (hot) vs open/green (cool) zones differ clearly on the
+    warm ramp.
+  - `§SITE-METRIC-WIND-CONTRAST` — the flat-calm root cause was a **too-low freestream**:
+    a temperate bundled-normals mean (~2–3 m/s) sits under the Lawson "comfortable"
+    threshold (2.5 m/s) for *every* cell, so shelter (which only lowers speed) can't
+    move any cell to another class → one flat colour. Fix: a non-zero DIRECTIONAL
+    baseline with an **exposure FLOOR** (`windInput`, 4.2 m/s — open field lands in the
+    differentiating band; a real live mean above the floor passes through), recoloured
+    off a **continuous** Lawson ramp (`lawsonRampColour`) instead of the 4-class step
+    palette, so sheltered-vs-exposed cells separate into distinct hues.
+
+- **Honest provenance + non-empty rose** (`FormaSiteAnalysisControls.ts`):
+  - Temperature + wind captions made explicit MODELLED ESTIMATES, mirroring the
+    population "OSM proxy — not census" pattern: *"Estimated: regional climate normal +
+    urban-heat-island ΔT from OSM built density (not live sensor measurement)"* and
+    *"Estimated: Lawson pedestrian-comfort proxy from regional climate wind-rose + OSM
+    upwind shelter (not live measurement)"*.
+  - The wind-rose PANEL now falls back to OFFLINE bundled regional normals
+    (`resolveDatasetOrFallback`) when the live ClimateStore dataset hasn't landed but a
+    location exists — the SAME bundled path the metric grid uses — so the rose shows a
+    real mean + prevailing direction instead of latching on an empty
+    "Wind data loading…" state while the map already paints a field.
+
+### Consequences
+
+- The cheap field metrics paint a visibly smooth grid (~1.6 m effective after the cap
+  clamp on the 240 m disc); the temperature + wind maps clearly differentiate hot/cool
+  and sheltered/exposed instead of reading uniform.
+- No new compute-stall risk (still O(1) per cell, chunked); the expensive tier and the
+  clamp-and-log are untouched. Unit tests pin: cheap cells ≤ 1.5 m + cap ≥ 20k, the
+  cheap grid yields > 12k cells on the 240 m disc, and temperature/wind value **and**
+  colour vary across the disc (incl. wind not collapsing to one colour on a low-mean
+  bundled baseline).

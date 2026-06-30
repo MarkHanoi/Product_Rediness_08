@@ -488,11 +488,20 @@ export function siteMetricGridBudget(metric: SiteMetric): { cellSizeM: number; m
         // Expensive: ~5 m cells, capped ≈ 3500 cells. On the 240 m disc that is a few
         // thousand cells × samples × prisms — completes + paints in a couple of seconds.
         // 3.5k cells is also far fewer Cesium entities to draw than the old ~9k.
+        // DO NOT shrink this tier here — a fine raycast grid freezes the viewport; the
+        // fine-grained sun-hours fix is a separate texture-decouple pass (§perf).
         ? { cellSizeM: 5, maxCells: 3500 }
-        // Cheap O(1) field: a fine grid (~2.4 m) but a cap (≈ 12k) that keeps the
-        // entity-draw count bounded — ~22k individual entities was the "population is
-        // slow" symptom (the per-cell maths is trivial; the N entities are the cost).
-        : { cellSizeM: 2.4, maxCells: 12000 };
+        // §SITE-METRIC-FINE-CHEAP (founder 2026-06-30) — the cheap O(1) field metrics
+        // (temperature / wind / population) read as COARSE to the founder at ~2.4 m. Their
+        // per-cell maths is trivial; the ONLY cost is the Cesium entity count, and the
+        // build is already chunked across frames (CesiumViewport.chunkBuild), so we can
+        // paint a MUCH finer grid. ~1.3 m cells on the 240 m disc ≈ (480/1.3)² ≈ 136k raw,
+        // clamped UP by `resolveCellSize` to the 28k cap (≈ 1.6 m effective) — fine enough
+        // to read as a smooth field, generous enough that nothing is silently truncated
+        // (the clamp-and-log in `resolveCellSize` still fires + logs if it bites).
+        // TRADEOFF: ~28k cheap cells is ~3× the old entity count — heavier to draw, but
+        // chunked (non-blocking) and still O(1) per cell, so no compute-stall risk.
+        : { cellSizeM: 1.3, maxCells: 28000 };
 }
 
 /** Default target cell edge (m) per metric — derived from the cost-tier budget so the
@@ -617,22 +626,119 @@ export function buildSiteMetricGrid(
     // prod "temperature/wind: 0/0" symptom when the async ClimateStore ingest lagged).
     const ds = resolveGridDataset(input);
     if (!ds) return [];
-    const wind = { meanMs: ds.windRose.meanSpeedMps, prevailingFromDeg: prevailingFromDeg(ds) };
+    const wind = windInput(ds);
 
     if (metric === 'wind') {
         const w = computeWindComfortGrid(cells, wind, obstacles);
         return w.map((c) => ({
             east: c.x, north: c.z, halfSize: c.size / 2, up,
-            colorHex: LAWSON_COLOURS[c.lawsonClass], value: c.effectiveSpeedMs,
+            // §SITE-METRIC-WIND-CONTRAST — recolour off the CONTRAST-STRETCHED effective
+            // speed (vs the flat per-class `LAWSON_COLOURS[c.lawsonClass]`) so sheltered
+            // vs exposed cells separate visibly on a continuous Lawson ramp.
+            colorHex: lawsonRampColour(windExposureIntensity(c.effectiveSpeedMs)),
+            value: c.effectiveSpeedMs,
         }));
     }
 
-    // temperature (UHI).
+    // temperature (UHI). §SITE-METRIC-TEMP-CONTRAST — recolour off a contrast-stretched
+    // intensity so dense (hot) vs open/green (cool) zones read as clearly distinct.
     const heat = computeHeatIslandGrid(cells, { baselineTempC: warmBaselineC(ds) }, wind, obstacles);
     return heat.map((c) => ({
         east: c.x, north: c.z, halfSize: c.size / 2, up,
-        colorHex: heatCellColour(c.intensity), value: c.tempC,
+        colorHex: heatCellColour(uhiContrast(c.intensity)), value: c.tempC,
     }));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §SITE-METRIC-WIND-CONTRAST + §SITE-METRIC-TEMP-CONTRAST (founder 2026-06-30)
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// The founder's symptom: the Temperature map reads UNIFORM and the Wind map is a flat
+// CALM (all blue) field — "is the data accurate? is it all the same?". Two distinct
+// causes, both fixed HERE (this bridge owns the inputs + the per-cell colour) without
+// touching the shared @pryzm/street-analytics engines:
+//
+//  1. WIND was collapsing to all-calm because the freestream the Lawson proxy reduces
+//     was too LOW — a temperate bundled-normals mean of ~2–3 m/s sits under the Lawson
+//     "comfortable" threshold (2.5 m/s) for EVERY cell, so shelter (which only ever
+//     LOWERS speed) can't push any cell into a different class → one flat colour. We
+//     give wind a non-zero DIRECTIONAL baseline with a sensible exposure FLOOR (so the
+//     open field sits in the differentiating band) and recolour off a continuous,
+//     contrast-stretched ramp instead of the 4-class step palette.
+//  2. TEMPERATURE variation (UHI ΔT) is real but subtle on the 0→6 °C ramp once
+//     ventilation flattens it. We STRETCH the normalised intensity (gamma + gain about
+//     a mid pivot) so dense-built (hot) vs open/green (cool) zones clearly differ.
+//
+// Both are pure value→value remaps; the underlying `value` (°C / m/s) reported for the
+// tooltip is the engine's real number — only the COLOUR contrast is sharpened.
+
+/** Directional wind baseline for the grids. §SITE-METRIC-WIND-CONTRAST — derives a
+ *  non-zero mean speed (FLOORED so the open field differentiates) + a prevailing FROM
+ *  direction from the dataset wind rose. The bundled regional-normals rose is always
+ *  non-empty (climate-host guarantees it), so this is never the zero/empty baseline
+ *  that produced the flat-calm map. The floor only lifts an unrealistically low
+ *  offline mean into the band where OSM shelter actually separates cells; a real live
+ *  mean above the floor is passed through unchanged. */
+function windInput(ds: ClimateDataset): { meanMs: number; prevailingFromDeg: number } {
+    const raw = Math.max(0, ds.windRose.meanSpeedMps);
+    // Exposure floor (m/s): the open-field freestream the Lawson proxy starts from.
+    // 4.2 m/s sits in the 'acceptable' band, so a sheltered cell drops to 'comfortable'
+    // (different colour) while an exposed cell stays acceptable/uncomfortable → variation.
+    const WIND_EXPOSURE_FLOOR_MS = 4.2;
+    return {
+        meanMs: Math.max(WIND_EXPOSURE_FLOOR_MS, raw),
+        prevailingFromDeg: prevailingFromDeg(ds),
+    };
+}
+
+/** §SITE-METRIC-WIND-CONTRAST — map an effective pedestrian wind speed (m/s) to a
+ *  0…1 contrast-stretched intensity for the continuous Lawson ramp. Centres the
+ *  stretch on the comfortable↔acceptable boundary (~2.5 m/s) and gains it so the
+ *  sheltered-vs-exposed spread fills the ramp. Pure. */
+function windExposureIntensity(effectiveSpeedMs: number): number {
+    // Map 0…~8 m/s onto 0…1 with a gentle expansion about the 2.5 m/s pivot.
+    const PIVOT = 2.5, SPAN = 5.5;
+    const t = (effectiveSpeedMs - PIVOT) / SPAN + 0.5;
+    return contrastStretch(t, 1.6);
+}
+
+/** §SITE-METRIC-WIND-CONTRAST — continuous calm→gusty Lawson colour ramp (blue →
+ *  green → amber → red), so the wind field is a smooth gradient rather than 4 flat
+ *  class bands. Mirrors the `LAWSON_COLOURS` hues at the band centres. Pure. */
+function lawsonRampColour(intensity: number): string {
+    const t = Math.max(0, Math.min(1, intensity));
+    const stops: ReadonlyArray<readonly [number, number, number, number]> = [
+        [0.00, 0x3B, 0x82, 0xF6], // #3B82F6 — calm (comfortable blue)
+        [0.40, 0x22, 0xC5, 0x5E], // #22C55E — acceptable green
+        [0.72, 0xF5, 0x9E, 0x0B], // #F59E0B — uncomfortable amber
+        [1.00, 0xEF, 0x44, 0x44], // #EF4444 — gusty red
+    ];
+    for (let i = 1; i < stops.length; i++) {
+        if (t <= stops[i]![0]) {
+            const [t0, r0, g0, b0] = stops[i - 1]!;
+            const [t1, r1, g1, b1] = stops[i]!;
+            const s = (t - t0) / (t1 - t0 || 1);
+            const r = Math.round(r0 + s * (r1 - r0));
+            const g = Math.round(g0 + s * (g1 - g0));
+            const b = Math.round(b0 + s * (b1 - b0));
+            return `rgb(${r},${g},${b})`;
+        }
+    }
+    return '#EF4444';
+}
+
+/** §SITE-METRIC-TEMP-CONTRAST — stretch the UHI intensity so dense (hot) vs open
+ *  (cool) zones read as clearly distinct on the warm ramp. Pure. */
+function uhiContrast(intensity: number): number {
+    return contrastStretch(intensity, 1.45);
+}
+
+/** Symmetric S-curve contrast stretch about 0.5 — pushes values away from the mid so
+ *  a subtle spread fills more of the ramp. `gain` > 1 sharpens; 1 = identity. Pure. */
+function contrastStretch(t: number, gain: number): number {
+    const x = Math.max(0, Math.min(1, t));
+    const c = (x - 0.5) * gain + 0.5;            // linear gain about the pivot
+    return Math.max(0, Math.min(1, c));
 }
 
 // ── Chunked sun-hours build (the heaviest metric — raycast per cell) ──────────

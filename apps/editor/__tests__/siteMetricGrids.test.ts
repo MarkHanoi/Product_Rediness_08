@@ -296,6 +296,74 @@ describe('§SITE-METRIC-COST-TIER — per-metric grid resolution (ADR-0084)', ()
             expect(Number.isFinite(b.maxCells)).toBe(true);
         }
     });
+
+    it('§SITE-METRIC-FINE-CHEAP: the cheap field metrics paint a FINE grid (≤ ~1.5 m ' +
+        'cells, generous cap) so the disc reads smooth, not coarse', () => {
+        for (const m of ['temperature', 'wind', 'population'] as const satisfies readonly SiteMetric[]) {
+            const b = siteMetricGridBudget(m);
+            // Founder feedback: ~2.4 m read as coarse. The fine budget must be much smaller.
+            expect(b.cellSizeM).toBeLessThanOrEqual(1.5);
+            // …with a cap generous enough to actually paint a fine 240 m disc.
+            expect(b.maxCells).toBeGreaterThanOrEqual(20000);
+        }
+    });
+
+    it('§SITE-METRIC-FINE-CHEAP: a cheap metric yields MANY more cells on the 240 m disc ' +
+        'than the old ~2.4 m budget would (finer grid)', () => {
+        const radius = 240;
+        const popBudget = siteMetricGridBudget('population');
+        const pop = buildSiteMetricGrid('population', {
+            radius, footprints: FOOTPRINTS, dataset: null,
+            cellSizeM: popBudget.cellSizeM, maxCells: popBudget.maxCells,
+        });
+        // The old cap was 12000; the fine budget must paint materially more cells.
+        expect(pop.length).toBeGreaterThan(12000);
+        // …but still bounded by the (generous) cap — nothing silently unbounded.
+        expect(pop.length).toBeLessThanOrEqual(popBudget.maxCells + 64);
+    });
+});
+
+// §SITE-METRIC-TEMP-CONTRAST + §SITE-METRIC-WIND-CONTRAST — the founder's "is it all the
+// same?" symptom: the temperature + wind fields must VARY spatially (and be coloured to
+// read distinctly), not collapse to one flat value/colour.
+describe('§SITE-METRIC contrast — fields VARY spatially (not flat)', () => {
+    it('§SITE-METRIC-TEMP-CONTRAST: temperature value AND colour vary across the disc', () => {
+        const cells = buildSiteMetricGrid('temperature', {
+            radius: 120, footprints: FOOTPRINTS, dataset: DATASET, cellSizeM: 6, maxCells: 4000,
+        });
+        expect(cells.length).toBeGreaterThan(0);
+        // Real per-cell variation: dense-near-building (hot) vs open (cool).
+        const values = new Set(cells.map((c) => c.value.toFixed(2)));
+        expect(values.size).toBeGreaterThan(1);
+        // …and that variation reaches the COLOUR (contrast-stretched ramp), not one hex.
+        const colours = new Set(cells.map((c) => c.colorHex));
+        expect(colours.size).toBeGreaterThan(1);
+    });
+
+    it('§SITE-METRIC-WIND-CONTRAST: wind colour varies across the disc (sheltered vs exposed)', () => {
+        const cells = buildSiteMetricGrid('wind', {
+            radius: 120, footprints: FOOTPRINTS, dataset: DATASET, cellSizeM: 6, maxCells: 4000,
+        });
+        expect(cells.length).toBeGreaterThan(0);
+        const colours = new Set(cells.map((c) => c.colorHex));
+        // The continuous Lawson ramp + the shelter spread → more than one distinct colour
+        // (the flat-blue symptom was a SINGLE colour everywhere).
+        expect(colours.size).toBeGreaterThan(1);
+    });
+
+    it('§SITE-METRIC-WIND-CONTRAST: wind is NOT flat-calm even with a LOW-mean bundled ' +
+        'baseline — the exposure floor lifts the open field off the calm floor', () => {
+        // Bundled normals for any in-range site give a non-zero directional rose; the
+        // exposure floor guarantees the open field sits in a differentiating band so
+        // OSM shelter separates cells into more than one colour (the fix for "all blue").
+        const cells = buildSiteMetricGrid('wind', {
+            radius: 120, footprints: FOOTPRINTS, dataset: null,
+            latDeg: 51.5072, lngDeg: -0.1276, cellSizeM: 6, maxCells: 4000,   // London
+        });
+        expect(cells.length).toBeGreaterThan(0);
+        const colours = new Set(cells.map((c) => c.colorHex));
+        expect(colours.size).toBeGreaterThan(1);   // ← was a single flat colour (the bug)
+    });
 });
 
 describe('siteMetricLegend', () => {
