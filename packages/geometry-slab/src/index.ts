@@ -22,6 +22,9 @@ export * from './SlabGeomUtils';
 export * from './SlabGeometryUtils';
 export * from './SlabSnapUtils';
 
+// ── §SLAB-REGION-CURVED — shared curve-aware region tracer (pure, THREE-free) ─
+export * from './SlabRegionTracer';
+
 // ── Fragment builder + edge-render mode ───────────────────────────────────────
 export * from './SlabFragmentBuilder';
 

@@ -1,5 +1,10 @@
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 import { createId } from '@pryzm/schemas';
+// §SLAB-REGION-CURVED — shared, curve-aware region tracer. The plan-view overlay
+// previously read each wall as a single straight baseLine chord and dropped the
+// `curve` descriptor, so a region bounded by a curved/filleted wall never closed.
+// Delegating to the same tracer the 3D tool uses fixes curved-wall regions here too.
+import { findRegionAtPoint as traceRegionAtPoint } from '@pryzm/geometry-slab';
 
 const SLAB_FILL_COLOR   = '#64748b';
 const SLAB_EDGE_COLOR   = '#475569';
@@ -221,140 +226,25 @@ export class SlabPlanToolHandler implements PlanToolHandler {
         this._clearOverlay();
     }
 
-    // ─── region detection (ported from SlabTool.ts) ──────────────────────────
+    // ─── region detection (shared curve-aware tracer) ────────────────────────
 
     /**
      * Find the minimal closed wall loop containing the point (worldX, worldZ).
      * Returns the loop vertices as V2[] (XZ world coords), or null if none found.
+     *
+     * §SLAB-REGION-CURVED — delegates to @pryzm/geometry-slab's shared tracer,
+     * which tessellates curved/filleted walls (curve.control) into Bézier chords
+     * so an arc boundary closes and the region polygon follows the curve. The old
+     * inline tracer read each wall as a single straight baseLine chord and dropped
+     * the curve, so curved-wall regions never closed.
      */
     private _findRegionAtPoint(wx: number, wz: number): V2[] | null {
-        const walls: any[] = window.wallStore?.getAll?.() ?? []; // TODO(TASK-08)
-        if (walls.length === 0) return null;
-
-        const segments: [V2, V2][] = [];
-        for (const w of walls) {
-            const bl = w.baseLine;
-            if (!bl || bl.length < 2) continue;
-            segments.push([
-                { x: bl[0].x, y: bl[0].z },
-                { x: bl[1].x, y: bl[1].z },
-            ]);
-        }
-
-        const loops = this._buildClosedLoops(segments);
-        const click: V2 = { x: wx, y: wz };
-
-        for (const loop of loops) {
-            if (this._isPointInPolygon(click, loop)) return loop;
-        }
-        return null;
-    }
-
-    private _buildClosedLoops(segments: [V2, V2][]): V2[][] {
-        const points: V2[] = [];
-        const adj = new Map<number, number[]>();
-        const tolerance = 0.15;
-
-        const getIdx = (p: V2): number => {
-            for (let i = 0; i < points.length; i++) {
-                const dx = points[i].x - p.x, dy = points[i].y - p.y;
-                if (Math.sqrt(dx * dx + dy * dy) < tolerance) return i;
-            }
-            points.push({ x: p.x, y: p.y });
-            return points.length - 1;
-        };
-
-        for (const [a, b] of segments) {
-            const u = getIdx(a);
-            const v = getIdx(b);
-            if (u === v) continue;
-            if (!adj.has(u)) adj.set(u, []);
-            if (!adj.has(v)) adj.set(v, []);
-            adj.get(u)!.push(v);
-            adj.get(v)!.push(u);
-        }
-
-        const loops: V2[][] = [];
-        const visitedEdges = new Set<string>();
-
-        for (let i = 0; i < points.length; i++) {
-            for (const neighbor of (adj.get(i) ?? [])) {
-                if (visitedEdges.has(`${i}-${neighbor}`)) continue;
-                const loop = this._traceLoop(i, neighbor, adj, points, visitedEdges);
-                if (loop && loop.length >= 3) loops.push(loop);
-            }
-        }
-        return loops;
-    }
-
-    private _traceLoop(
-        startIdx: number,
-        nextIdx: number,
-        adj: Map<number, number[]>,
-        points: V2[],
-        visitedEdges: Set<string>,
-    ): V2[] | null {
-        const idxs = [startIdx, nextIdx];
-        visitedEdges.add(`${startIdx}-${nextIdx}`);
-        visitedEdges.add(`${nextIdx}-${startIdx}`);
-
-        let currIdx = nextIdx;
-        let prevIdx = startIdx;
-
-        while (true) {
-            const neighbors = adj.get(currIdx) ?? [];
-            if (neighbors.length < 2) return null;
-
-            const pCurr = points[currIdx];
-            const pPrev = points[prevIdx];
-            const vPrevX = pPrev.x - pCurr.x, vPrevY = pPrev.y - pCurr.y;
-            const vPrevLen = Math.sqrt(vPrevX * vPrevX + vPrevY * vPrevY) || 1;
-            const nvPrevX = vPrevX / vPrevLen, nvPrevY = vPrevY / vPrevLen;
-
-            let bestNeighbor = -1;
-            let bestAngle = Infinity;
-
-            for (const n of neighbors) {
-                if (n === prevIdx) continue;
-                const vNextX = points[n].x - pCurr.x, vNextY = points[n].y - pCurr.y;
-                const vNextLen = Math.sqrt(vNextX * vNextX + vNextY * vNextY) || 1;
-                const nvNextX = vNextX / vNextLen, nvNextY = vNextY / vNextLen;
-
-                let angle = Math.atan2(nvNextY, nvNextX) - Math.atan2(nvPrevY, nvPrevX);
-                if (angle <= 0) angle += Math.PI * 2;
-
-                if (angle < bestAngle) {
-                    bestAngle = angle;
-                    bestNeighbor = n;
-                }
-            }
-
-            if (bestNeighbor === -1) return null;
-            if (bestNeighbor === startIdx) break;
-            if (idxs.includes(bestNeighbor)) return null;
-
-            visitedEdges.add(`${currIdx}-${bestNeighbor}`);
-            visitedEdges.add(`${bestNeighbor}-${currIdx}`);
-            idxs.push(bestNeighbor);
-            prevIdx = currIdx;
-            currIdx = bestNeighbor;
-
-            if (idxs.length > 50) return null;
-        }
-
-        return idxs.map(i => points[i]);
-    }
-
-    private _isPointInPolygon(pt: V2, poly: V2[]): boolean {
-        let inside = false;
-        for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-            const xi = poly[i].x, yi = poly[i].y;
-            const xj = poly[j].x, yj = poly[j].y;
-            const intersect = ((yi > pt.y) !== (yj > pt.y)) &&
-                (pt.x < (xj - xi) * (pt.y - yi) / (yj - yi) + xi);
-            if (intersect) inside = !inside;
-        }
-        return inside;
+        const walls = (window.wallStore?.getAll?.() ?? []) as ReadonlyArray<{
+            baseLine?: ReadonlyArray<{ x: number; z: number }> | null;
+            curve?: { control?: { x: number; z: number } | null; segments?: number } | null;
+        }>; // TODO(TASK-08)
+        const ring = traceRegionAtPoint(walls, wx, wz);
+        return ring && ring.length >= 3 ? ring : null;
     }
 
     // ─── drawing ─────────────────────────────────────────────────────────────

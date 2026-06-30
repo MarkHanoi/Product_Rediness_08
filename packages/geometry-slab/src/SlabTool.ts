@@ -16,6 +16,10 @@ import { projectContext, PREVIEW_COLOR } from '@pryzm/core-app-model';
 import { DimensionPreview } from '@pryzm/geometry-wall';
 import { SlabPickWallsController } from './SlabPickWallsController.js';
 import { snapToAxisOrDiagonal } from './SlabSnapUtils.js';
+// §SLAB-REGION-CURVED — single shared, curve-aware region tracer (pure, THREE-free).
+// Both this 3D tool and the plan-view overlay (SlabPlanToolHandler) consume it so
+// curved/filleted-wall regions trace identically in both views.
+import { findRegionAtPoint as traceRegionAtPoint } from './SlabRegionTracer.js';
 // DOC-5.3 — Direct 2D element creation in plan view (unified coordinate resolver)
 import { planView2DCreationMode } from '@pryzm/core-app-model';
 
@@ -769,6 +773,16 @@ export class SlabTool {
             const point = this.getPlanPoint(e);
             if (!point) return;
             this.updatePolylinePreview(point);
+        } else if (this.activeTool === 'REGION_SLAB') {
+            // §SLAB-REGION-3D (DAILY-USE 2026-06-29) — live region hover-preview in
+            // the 3D view, matching the plan-view overlay (SlabPlanToolHandler.onMouseMove).
+            // Previously REGION_SLAB had NO onPointerMove branch here, so in 3D the
+            // user got zero feedback before clicking: no highlighted region, and the
+            // candidate polygon was resolved only on pointerdown. Hovering now
+            // detects + previews the enclosing region exactly like plan view.
+            const point = this.getPlanPoint(e);
+            if (!point) return;
+            this.updateRegionDetection(point);
         }
     };
 
@@ -1285,175 +1299,21 @@ export class SlabTool {
         }
     }
 
-    private findRegionAtPoint(pt: THREE.Vector3): THREE.Vector2[] | null {
-        const walls = this.wallStore.getAll();
-        const segments: [THREE.Vector2, THREE.Vector2][] = [];
-        for (const w of walls) {
-            // §SLAB-REGION-CURVED (DAILY-USE 2026-05-22) — a curved wall is a
-            // quadratic Bézier (curve.control), not a straight baseLine chord.
-            // Previously this pushed ONE chord segment per wall, so a region bounded
-            // by curved walls was detected (and the slab built) as a straight cut
-            // across the arc. Tessellate curved walls into Bézier-sampled segments so
-            // the closed loop — and the slab polygon — follows the arc.
-            const pts = this._wallPlanCenterline(w.baseLine, w.curve);
-            for (let i = 0; i + 1 < pts.length; i++) {
-                const u = pts[i]; const v = pts[i + 1];
-                if (u && v) segments.push([u, v]);
-            }
-        }
-
-        const loops = this.buildClosedLoops(segments);
-        const click2D = new THREE.Vector2(pt.x, pt.z);
-
-        for (const loop of loops) {
-            if (this.isPointInPolygon(click2D, loop)) {
-                return loop;
-            }
-        }
-
-        return null;
-    }
-
     /**
-     * §SLAB-REGION-CURVED — sample a wall's plan centreline into XZ points. Straight
-     * walls → [start, end]; curved walls → the quadratic-Bézier arc (curve.control)
-     * tessellated so each sub-segment exceeds buildClosedLoops' 0.15 m weld tolerance
-     * (otherwise the intermediate nodes would be welded back into a single chord and
-     * the curve would be lost). This makes a region bounded by curved walls trace the
-     * actual arc instead of a straight cut across it.
+     * §SLAB-REGION-CURVED — delegate to the shared, curve-aware tracer so the 3D
+     * tool and the plan-view overlay resolve regions identically (incl. curved /
+     * filleted-wall boundaries, which are tessellated into Bézier chords inside
+     * the tracer). Converts the pure {x,y} ring back to THREE.Vector2 for the
+     * preview / commit path.
      */
-    private _wallPlanCenterline(
-        baseLine: ReadonlyArray<{ x: number; z: number }>,
-        curve?: { control?: { x: number; z: number } } | null,
-    ): THREE.Vector2[] {
-        const p0 = baseLine[0];
-        const p1 = baseLine[1];
-        if (!p0 || !p1) return [];
-        const a = new THREE.Vector2(p0.x, p0.z);
-        const b = new THREE.Vector2(p1.x, p1.z);
-        const ctrl = curve?.control;
-        if (!ctrl) return [a, b];
-        const cx = ctrl.x;
-        const cz = ctrl.z;
-        // Segment count from chord length (~0.5 m/seg > 0.15 m weld tolerance),
-        // clamped so tiny arcs still get ≥2 segments and large arcs stay bounded.
-        const chord = a.distanceTo(b);
-        const n = Math.max(2, Math.min(48, Math.ceil(chord / 0.5)));
-        const out: THREE.Vector2[] = [];
-        for (let i = 0; i <= n; i++) {
-            const t = i / n;
-            const mt = 1 - t;
-            out.push(new THREE.Vector2(
-                mt * mt * a.x + 2 * mt * t * cx + t * t * b.x,
-                mt * mt * a.y + 2 * mt * t * cz + t * t * b.y,
-            ));
-        }
-        return out;
-    }
-
-    private buildClosedLoops(segments: [THREE.Vector2, THREE.Vector2][]): THREE.Vector2[][] {
-        const points: THREE.Vector2[] = [];
-        const adj = new Map<number, number[]>();
-        const tolerance = 0.15; // Increased tolerance from 0.05 to 0.15 for better region detection
-
-        const getPointIdx = (p: THREE.Vector2) => {
-            for (let i = 0; i < points.length; i++) {
-                if (points[i].distanceTo(p) < tolerance) return i;
-            }
-            points.push(p.clone());
-            return points.length - 1;
-        };
-
-        for (const [a, b] of segments) {
-            const u = getPointIdx(a);
-            const v = getPointIdx(b);
-            if (u === v) continue;
-            if (!adj.has(u)) adj.set(u, []);
-            if (!adj.has(v)) adj.set(v, []);
-            adj.get(u)!.push(v);
-            adj.get(v)!.push(u);
-        }
-
-        const loops: THREE.Vector2[][] = [];
-        const visitedEdges = new Set<string>();
-
-        for (let i = 0; i < points.length; i++) {
-            const neighbors = adj.get(i) || [];
-            for (const neighbor of neighbors) {
-                if (visitedEdges.has(`${i}-${neighbor}`)) continue;
-
-                const loop = this.traceSpecificLoop(i, neighbor, adj, points, visitedEdges);
-                if (loop && loop.length >= 3) {
-                    loops.push(loop);
-                }
-            }
-        }
-
-        return loops;
-    }
-
-    private traceSpecificLoop(startIdx: number, nextIdx: number, adj: Map<number, number[]>, points: THREE.Vector2[], visitedEdges: Set<string>): THREE.Vector2[] | null {
-        const loopIdxs = [startIdx, nextIdx];
-        visitedEdges.add(`${startIdx}-${nextIdx}`);
-        visitedEdges.add(`${nextIdx}-${startIdx}`);
-
-        let currIdx = nextIdx;
-        let prevIdx = startIdx;
-
-        while (true) {
-            const neighbors = adj.get(currIdx) || [];
-            if (neighbors.length < 2) return null;
-
-            // Find next neighbor based on smallest angle (to find minimal cycles)
-            const pCurr = points[currIdx];
-            const pPrev = points[prevIdx];
-            const vPrev = new THREE.Vector2().subVectors(pPrev, pCurr).normalize();
-
-            let bestNeighbor = -1;
-            let bestAngle = Infinity;
-
-            for (const n of neighbors) {
-                if (n === prevIdx) continue;
-                const vNext = new THREE.Vector2().subVectors(points[n], pCurr).normalize();
-
-                // Signed angle from vPrev to vNext
-                let angle = Math.atan2(vNext.y, vNext.x) - Math.atan2(vPrev.y, vPrev.x);
-                if (angle <= 0) angle += Math.PI * 2;
-
-                if (angle < bestAngle) {
-                    bestAngle = angle;
-                    bestNeighbor = n;
-                }
-            }
-
-            if (bestNeighbor === -1) return null;
-            if (bestNeighbor === startIdx) break;
-
-            if (loopIdxs.includes(bestNeighbor)) return null; // Avoid self-intersections
-
-            visitedEdges.add(`${currIdx}-${bestNeighbor}`);
-            visitedEdges.add(`${bestNeighbor}-${currIdx}`);
-
-            loopIdxs.push(bestNeighbor);
-            prevIdx = currIdx;
-            currIdx = bestNeighbor;
-
-            if (loopIdxs.length > 50) return null; // Safety break
-        }
-
-        return loopIdxs.map(idx => points[idx]);
-    }
-
-    private isPointInPolygon(point: THREE.Vector2, polygon: THREE.Vector2[]): boolean {
-        let inside = false;
-        for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-            const xi = polygon[i].x, yi = polygon[i].y;
-            const xj = polygon[j].x, yj = polygon[j].y;
-            const intersect = ((yi > point.y) !== (yj > point.y)) &&
-                (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi);
-            if (intersect) inside = !inside;
-        }
-        return inside;
+    private findRegionAtPoint(pt: THREE.Vector3): THREE.Vector2[] | null {
+        const walls = this.wallStore.getAll() as ReadonlyArray<{
+            baseLine?: ReadonlyArray<{ x: number; z: number }> | null;
+            curve?: { control?: { x: number; z: number } | null; segments?: number } | null;
+        }>;
+        const ring = traceRegionAtPoint(walls, pt.x, pt.z);
+        if (!ring || ring.length < 3) return null;
+        return ring.map((p) => new THREE.Vector2(p.x, p.y));
     }
 
     private showRegionPreview(polygon: THREE.Vector2[]): void {
@@ -1471,7 +1331,12 @@ export class SlabTool {
 
         this.regionPreview = new THREE.Mesh(geometry, material);
         this.regionPreview.rotation.x = -Math.PI / 2;
-        this.regionPreview.position.y = 0.02;
+        // §SLAB-REGION-3D — place the preview at the ACTIVE-LEVEL elevation (was a
+        // hard-coded Y=0.02). On an upper level the click resolves on the level
+        // plane (getPlanPoint → §SLAB-3D-PREVIEW), so a Y≈0 preview would parallax
+        // off the cursor in the angled 3D camera and read as "no preview".
+        const elevation = this.resolveElevationForPreview(projectContext.activeLevelId);
+        this.regionPreview.position.y = elevation + 0.02;
         this.regionPreview.userData.isPreview = true;
         this.world.scene.three.add(this.regionPreview);
     }
