@@ -45,6 +45,10 @@ import {
     // §SITE-METRIC-DAYLIGHT-VSC — chunkable Vertical Sky Component ground grid.
     prepareDaylightVscGrid,
     siteMetricLegend,
+    // §SITE-METRIC-COST-TIER — per-metric grid resolution budget (expensive raycast
+    // metrics get a coarser/cheaper grid than the O(1) field metrics). Single source
+    // of truth for cell size + cap so the renderer never hard-codes resolution.
+    siteMetricGridBudget,
     type SiteMetric,
     type MetricFootprint,
     type MetricGridCell,
@@ -3916,18 +3920,19 @@ export class CesiumViewport {
       if (metric === 'sunHours') {
         // Heaviest metric: prepare once (grid + sun samples + prisms), then evaluate
         // + paint the per-cell raycast in batches across frames.
+        // §SITE-METRIC-COST-TIER (founder 2026-06-30, ADR-0084) — sun-hours raycasts
+        // PER CELL × sun-sample × prism; on the 240 m disc the finer grid was millions
+        // of ray tests → it never visibly completed ("sun-hours NOT rendering"). It now
+        // uses the EXPENSIVE-tier budget (coarser ~5 m cell, ~3.5k cap) so it completes
+        // + PAINTS in a couple of seconds. Cheap field metrics keep the fine grid.
+        const budget = siteMetricGridBudget('sunHours');
         const prep = prepareSunHoursGrid({
           radius,
           footprints,
           dataset: null,
           heightAboveGround: 0.16,
-          // §SITE-METRIC-FINER (2026-06-29) — HALVED cell (5→2.5 m) + raised cap so the
-          // finer field on the larger disc isn't silently truncated. Sun-hours is the
-          // heaviest (raycast/cell), so its cap is the lower of the two; if the disc is
-          // big enough to still exceed it, `resolveCellSize` clamps up + logs (no silent
-          // drop). The chunked per-cell raycast keeps it non-blocking.
-          cellSizeM: 2.5,
-          maxCells: 9000,            // raised 2600→9000 (finer cells); raycast stays chunked
+          cellSizeM: budget.cellSizeM,
+          maxCells: budget.maxCells,
           latDeg: origin.lat,
           lngDeg: origin.lon,
           sunDay: this.siteMetricSunDay,
@@ -3948,13 +3953,16 @@ export class CesiumViewport {
         // context prisms), then evaluate + paint the per-cell sky sweep in batches
         // across frames (heavy like sun-hours, so chunked the same way). Needs only
         // the analysis disc — no climate dataset, no lat/lon, no BIM mesh.
+        // §SITE-METRIC-COST-TIER — daylight VSC sweeps az×alt sky patches × prisms per
+        // cell (even heavier than sun-hours), so it uses the same EXPENSIVE-tier budget.
+        const budget = siteMetricGridBudget('daylight');
         const prep = prepareDaylightVscGrid({
           radius,
           footprints,
           dataset: null,
           heightAboveGround: 0.16,
-          cellSizeM: 2.5,
-          maxCells: 9000,            // matches the sun-hours cap; the sweep stays chunked
+          cellSizeM: budget.cellSizeM,
+          maxCells: budget.maxCells,  // the sweep stays chunked
         });
         if (!prep) return;
         this.chunkBuild(seq, prep.cells.length, 220, (lo, hi) => {
@@ -3966,18 +3974,19 @@ export class CesiumViewport {
         return;
       }
 
-      // Cheap metrics: the whole-grid pure build is fast; only the PAINT is chunked.
-      // §SITE-METRIC-FINER — HALVED cell (3.5→1.8 m) + raised cap (6000→20000) for a
-      // fine field on the larger disc. §SITE-METRIC-CLIMATE-FALLBACK — pass lat/lon so
-      // temperature/wind synthesise bundled regional normals when the live ClimateStore
-      // dataset is still null (was the "temperature/wind: 0/0 cells" prod symptom).
+      // Cheap O(1) field metrics: the whole-grid pure build is fast; only the PAINT is
+      // chunked. §SITE-METRIC-COST-TIER — fine grid (~1.8 m, generous cap) from the
+      // cheap-tier budget. §SITE-METRIC-CLIMATE-FALLBACK — pass lat/lon so temperature/
+      // wind synthesise bundled regional normals when the live ClimateStore dataset is
+      // still null (was the "temperature/wind: 0/0 cells" prod symptom).
+      const cheapBudget = siteMetricGridBudget(metric);
       const cells: MetricGridCell[] = buildSiteMetricGrid(metric, {
         radius,
         footprints,
         dataset: this.climateOverlayDataset,
         heightAboveGround: 0.16,
-        cellSizeM: 1.8,
-        maxCells: 24000,
+        cellSizeM: cheapBudget.cellSizeM,
+        maxCells: cheapBudget.maxCells,
         latDeg: origin.lat,
         lngDeg: origin.lon,
       });
