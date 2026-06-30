@@ -133,6 +133,18 @@ export class WallRebuildCoordinator {
     private _prevJoinMap = new Map<string, JoinData>();
     private static readonly _ADJACENCY_TOL = 0.31;
 
+    // §A.21.D28-COALESCE (2026-06-30) — de-dup redundant explicit `rebuildWalls()`
+    // re-queues. The generated-layout pipelines (and the resi §RESI-EXTERIOR-WALL-
+    // MITER-FIX2 corner pass) call `rebuildWalls(sameWallSet)` REPEATEDLY across a
+    // single generation+settle — and a sibling agent confirmed it fires again on mere
+    // hover. Each call previously re-queued the whole exterior set + logged + scheduled
+    // a flush, so the full set was rebuilt several times per settle. We fingerprint the
+    // requested id-set; while an IDENTICAL set is still pending (queued + a flush
+    // scheduled, not yet drained) a repeat call is a no-op. The fingerprint clears when
+    // the flush actually drains (`_flush` start) so a genuinely-new post-edit re-queue
+    // for the same walls still runs.
+    private _pendingRebuildKey: string | null = null;
+
     // Deps wired via init()
     private _wallTool!: WallRebuildDeps['wallTool'];
     private _slabStore!: any;
@@ -397,6 +409,7 @@ export class WallRebuildCoordinator {
         if (this._wallRafHandle !== null) { try { this._wallRafHandle(); } catch { /* ignore */ } this._wallRafHandle = null; }
         this._pendingWallEvents.clear();
         this._prevJoinMap.clear();
+        this._pendingRebuildKey = null;   // §A.21.D28-COALESCE — clear fingerprint on project switch
         console.log('[WallRebuildCoordinator] C13 resetWallRebuildState() — wall pipeline clean for project switch');
     }
 
@@ -419,6 +432,21 @@ export class WallRebuildCoordinator {
     private _rebuildWalls(wallIds: readonly string[]): void {
         const store = this._wallTool?.getWallStore?.();
         if (!store) return;
+        // §A.21.D28-COALESCE — if an IDENTICAL set is already queued with a flush
+        // pending (not yet drained), this re-queue is redundant: the in-flight flush
+        // will rebuild exactly these walls. Skip it (no re-queue, no log, no extra
+        // flush schedule). The key clears when `_flush()` actually drains. A different
+        // set, or a repeat after the flush drained, proceeds normally.
+        const _key = wallIds.length > 0
+            ? Array.from(new Set(wallIds)).sort().join(',')
+            : '';
+        if (
+            _key !== '' &&
+            this._pendingRebuildKey === _key &&
+            (this._wallRafHandle !== null || this._joinsResolving)
+        ) {
+            return;
+        }
         let queued = 0;
         for (const id of wallIds) {
             const wall = store.getById(id);
@@ -431,6 +459,7 @@ export class WallRebuildCoordinator {
             queued++;
         }
         if (queued === 0) return;
+        this._pendingRebuildKey = _key;
         console.log(`[WallRebuildCoordinator] §A.21.D28 rebuildWalls — re-queued ${queued} wall(s) for an explicit post-openings rebuild`);
         // If a resolve is mid-flight, or a flush is already scheduled, let that run
         // (it will pick up the freshly-queued walls). Otherwise schedule one now.
@@ -888,6 +917,9 @@ export class WallRebuildCoordinator {
 
     private _flush(): void {
         this._wallRafHandle = null;
+        // §A.21.D28-COALESCE — the drain is starting; clear the explicit-rebuild
+        // fingerprint so a genuinely-new post-drain `rebuildWalls(sameSet)` is honoured.
+        this._pendingRebuildKey = null;
         if (this._pendingWallEvents.size === 0) return;
 
         const batch = new Map(this._pendingWallEvents);
