@@ -120,3 +120,46 @@ the 8–14 target, up from the deployed 3. The side mid-edge bands the founder s
 rectangular apartments. Regression tests: `residentialLargePlate.test.ts` §RESI-FILL-SIDEFACADE
 (founder plate ≥8 units + side-band occupied + every unit OK; a 40×30 plate yields a non-square
 unit with aspect ≤ 3.5:1; an L-plate still places ≥8; determinism).
+
+## Addendum — §RESI-CORE-CIRCULATION (founder 2026-06-30): circulation must be CORE-CENTRIC
+
+**Context.** With the plate now well-packed (~9–10 units/floor — corners + mid-edge + side-façade),
+the founder's verdict: *"Now the layout is more exploring the gaps but **always circulation needs to
+be at the core**."* In the preview circulation graph some apartments appeared chained unit-to-unit /
+to a local corridor rather than EVERY apartment connecting to the **central core's** corridor cross.
+
+**Root cause.** Fronting *some* corridor band was the only invariant (`apartmentsReached` counts a
+cell that shares ≥ a door width with ANY band). But a band is not guaranteed to trace back to the
+core: the §RESI-FILL-SIDEFACADE pass **trims** the mid-zone corridor to the core's X-span (so a
+side-façade unit relies on the vertical SPINE reaching the core), and §RESI-RECT-DECOMP wings are
+tied to the core only by a **connector column + a transverse tie band** — a small geometric gap
+could leave a serving band marooned, so a unit doored onto a corridor that does NOT reach the
+stair/lift. The preview graph also *assumed* every apartment was core-connected (it unconditionally
+edged each node to the core hub), painting a false core-centric star even if the real layout chained.
+
+**Decision (`platePartition.ts`, §RESI-CORE-CIRCULATION).** After best-of selection, on the WINNING
+candidate's corridor network:
+
+- **Connectivity graph + core component.** `coreConnectedBandSet` BFSes the corridor adjacency graph
+  (bands are adjacent when they overlap or edge-touch with ≥ a door-width shared run), seeded by the
+  bands touching the **core** → the set of bands reachable FROM THE CORE through corridors only.
+- **Repair (`repairCoreCirculation`).** Any band that *serves* a placed cell (fronts its door) but is
+  NOT in the core component is bridged to the core with a short **spur** (an L of corridor-width legs:
+  one column at the core X-centre spanning to the core Z, one row at the stub's Z reaching the core
+  spine). Re-BFS until no serving stub remains. **No-op** on a fully-connected network (a clean
+  rectangular plate's full-width horizontals all already cross the core spine) → byte-identical.
+- **Tag (`tagCoreReachability`).** Each cell is tagged `coreReachable` iff its door edge fronts a
+  band in the (repaired) core component. The result carries `apartmentsCoreReachable` (== N on a
+  well-formed plate) and the diagnostic reports `§RESI-CORE-CIRCULATION coreReached=N/N`.
+
+**Preview graph (`residentialCirculationGraph.ts`).** Roots every **core-reachable** apartment to the
+core hub (a core-centric STAR — stair/lift in the middle, apartments ringing it); a non-reachable
+unit is shown **orphaned** (no core edge, `hasDirectAccess:false`) so the founder can SEE any unit
+the real layout failed to connect — the graph never paints a false star.
+
+**Consequences.** Every apartment on the founder's ~1213 m² plate (and on rectangular / deep-hybrid /
+L-decomposed plates) is reachable FROM THE CORE through corridors only — no unit-to-unit-only
+circulation, no marooned stub. Regression tests: `platePartition.test.ts` §RESI-CORE-CIRCULATION (an
+INDEPENDENT BFS-from-core check verifies every cell's door fronts a core-connected corridor on
+rect / 80×60 hybrid / 34.8² side-façade / L plates; diagnostic asserts `coreReached=N/N`;
+determinism) + `residentialCirculationGraph.test.ts` (star-rooting + honest orphan rendering).

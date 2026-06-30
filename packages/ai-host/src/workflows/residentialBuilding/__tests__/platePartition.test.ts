@@ -832,3 +832,131 @@ describe('§RESI-EDGE-TYPE-VARIETY (Phase 3) — corners + varied edge-fill on a
         expect(bands[largestCorner.typology]!).toBeGreaterThanOrEqual(bands.T2!);
     });
 });
+
+describe('§RESI-CORE-CIRCULATION — every apartment is reachable FROM THE CORE through corridors only', () => {
+    // The founder's acceptance: "circulation always needs to be at the CORE". Fronting SOME corridor is
+    // not enough — the corridor a unit doors onto MUST trace back to the central core through corridors
+    // only (no marooned stub, no unit-to-unit-only circulation). These tests verify the invariant with
+    // an INDEPENDENT core-reachability check over the returned corridor network (BFS from the core),
+    // then the cell's door-edge front-test against the core-connected band set.
+
+    const DOOR = 0.8;
+    const norm = (r: Rect): Rect => ({
+        x0: Math.min(r.x0, r.x1), x1: Math.max(r.x0, r.x1),
+        z0: Math.min(r.z0, r.z1), z1: Math.max(r.z0, r.z1),
+    });
+    /** Two rects are circulation-adjacent: overlap, or edge-touch with ≥ a door-width shared run. */
+    function adjacent(a0: Rect, b0: Rect): boolean {
+        const a = norm(a0), b = norm(b0);
+        const xo = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0);
+        const zo = Math.min(a.z1, b.z1) - Math.max(a.z0, b.z0);
+        if (xo > 1e-6 && zo > 1e-6) return true;
+        if (Math.abs(xo) <= 0.05 && zo >= DOOR - 1e-6) return true;
+        if (Math.abs(zo) <= 0.05 && xo >= DOOR - 1e-6) return true;
+        return false;
+    }
+    /** Indices of corridor bands reachable from the CORE through other corridors (BFS). */
+    function coreConnected(corridors: readonly Rect[], core: Rect): Set<number> {
+        const seen = new Set<number>(); const q: number[] = [];
+        corridors.forEach((c, i) => { if (adjacent(core, c)) { seen.add(i); q.push(i); } });
+        while (q.length) {
+            const i = q.shift()!;
+            corridors.forEach((c, j) => { if (!seen.has(j) && adjacent(corridors[i]!, c)) { seen.add(j); q.push(j); } });
+        }
+        return seen;
+    }
+    /** Does a cell's DOOR EDGE front a core-connected corridor band? (Independent of the engine's tag.) */
+    function doorOnCoreCorridor(cell: { rect: Rect; doorEdge: 'x0' | 'x1' | 'z0' | 'z1' }, corridors: readonly Rect[], connected: ReadonlySet<number>): boolean {
+        const r = norm(cell.rect); const e = cell.doorEdge;
+        const horizontal = e === 'z0' || e === 'z1';
+        const edgeConst = e === 'x0' ? r.x0 : e === 'x1' ? r.x1 : e === 'z0' ? r.z0 : r.z1;
+        const lo = horizontal ? r.x0 : r.z0, hi = horizontal ? r.x1 : r.z1;
+        for (let i = 0; i < corridors.length; i++) {
+            if (!connected.has(i)) continue;
+            const c = norm(corridors[i]!);
+            if (horizontal) {
+                if (Math.abs(edgeConst - c.z0) >= 0.05 && Math.abs(edgeConst - c.z1) >= 0.05) continue;
+                if (Math.min(hi, c.x1) - Math.max(lo, c.x0) >= DOOR - 1e-6) return true;
+            } else {
+                if (Math.abs(edgeConst - c.x0) >= 0.05 && Math.abs(edgeConst - c.x1) >= 0.05) continue;
+                if (Math.min(hi, c.z1) - Math.max(lo, c.z0) >= DOOR - 1e-6) return true;
+            }
+        }
+        return false;
+    }
+
+    /** Assert: (a) the engine's coreReachable count equals N, (b) every cell carries coreReachable===true,
+     *  and (c) the INDEPENDENT check agrees — every cell's door fronts a core-connected corridor. */
+    function expectAllCoreReachable(res: PlatePartitionResult): void {
+        const connected = coreConnected(res.publicCorridor, res.core);
+        // (a) the headline metric: every placed apartment is core-reachable.
+        expect(res.apartmentsCoreReachable).toBe(res.apartmentCells.length);
+        for (const c of res.apartmentCells) {
+            // (b) the per-cell tag the preview graph reads.
+            expect(c.coreReachable).toBe(true);
+            // (c) INDEPENDENT verification — no unit whose only circulation neighbour is another unit.
+            expect(doorOnCoreCorridor(c, res.publicCorridor, connected)).toBe(true);
+        }
+    }
+
+    it('a rectangular plate: every cell doors onto a core-connected corridor', () => {
+        const res = expectOk(partitionLevelPlate(baseInput([T2, T3, T2, T3])));
+        expectAllCoreReachable(res);
+    });
+
+    it('the founder ~1213 m² side-façade plate (34.8×34.8, min 60): every cell core-reachable', () => {
+        const res = expectOk(partitionLevelPlate({
+            levelIndex: 1,
+            footprint: rectPoly(34.8, 34.8),
+            core: centredCore(34.8, 34.8, 6, 4),
+            corridor: { widthM: 1.5 },
+            apartments: Array.from({ length: 200 }, (_, i) => (i % 2 === 0 ? T2 : T3)),
+        }));
+        // The plate packs the side-façade bands (the §RESI-FILL-SIDEFACADE units that front a trimmed
+        // mid-zone corridor) — exactly the case where a band could end up disconnected from the core.
+        expect(res.apartmentCells.length).toBeGreaterThanOrEqual(8);
+        expectAllCoreReachable(res);
+    });
+
+    it('a deep 80×60 plate (corridor-grid hybrid): every cell core-reachable', () => {
+        const res = expectOk(partitionLevelPlate({
+            levelIndex: 0,
+            footprint: rectPoly(80, 60),
+            core: centredCore(80, 60, 8, 6),
+            corridor: { widthM: 1.5 },
+            apartments: Array.from({ length: 1200 }, () => T2),
+        }));
+        expectAllCoreReachable(res);
+    });
+
+    it('an L-plate (§RESI-RECT-DECOMP per-wing connectors): every cell core-reachable through corridors only', () => {
+        const W = 44, D = 40, NX = 20, NZ = 20;
+        const bigL: Pt[] = [
+            { x: 0, z: 0 }, { x: NX, z: 0 }, { x: NX, z: NZ },
+            { x: W, z: NZ }, { x: W, z: D }, { x: 0, z: D },
+        ];
+        const res = expectOk(partitionLevelPlate({
+            levelIndex: 2,
+            footprint: rectPoly(W, D),
+            core: { x0: 8, z0: 24, x1: 12, z1: 27 },
+            corridor: { widthM: 1.4 },
+            apartments: Array.from({ length: 60 }, () => ({ typology: 'T1', minAreaM2: 30, maxAreaM2: 55 } as ApartmentDemand)),
+            clipPolygon: bigL,
+        }));
+        // BOTH wings filled (per §RESI-RECT-DECOMP) AND every wing's cells reach the core via the
+        // connector corridors + the transverse tie band (no marooned wing).
+        expect(res.apartmentCells.length).toBeGreaterThanOrEqual(8);
+        expectAllCoreReachable(res);
+    });
+
+    it('the diagnostic reports §RESI-CORE-CIRCULATION coreReached=N/N', () => {
+        const res = expectOk(partitionLevelPlate(baseInput([T2, T3, T2])));
+        expect(res.diagnostic).toContain('§RESI-CORE-CIRCULATION');
+        expect(res.diagnostic).toContain(`coreReached=${res.apartmentCells.length}/${res.apartmentCells.length}`);
+    });
+
+    it('is deterministic with the core-circulation pass (same input → byte-identical)', () => {
+        const inp = baseInput([T2, T3, T2, T3]);
+        expect(JSON.stringify(partitionLevelPlate(inp))).toBe(JSON.stringify(partitionLevelPlate(inp)));
+    });
+});

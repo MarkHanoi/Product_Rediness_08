@@ -86,31 +86,57 @@ export function buildResidentialCirculationGraphSvg(
 
     const nodes: GraphNode[] = [];
     // The CORE hub — every apartment connects to it (the circulation spine reaches the stair/lift).
+    // §RESI-CORE-LABEL (founder 2026-06-30: the hub read "Corr." and units read "Living" — wrong at
+    // the BUILDING level). The shared bubble renderer derives a node's LABEL from its `type` (via its
+    // room-type short-label map: 'corridor'→"Corr.", 'living'→"Living"), falling through to the literal
+    // `type` string for an UNKNOWN type. We keep that renderer READ-ONLY (Agent-1 owns it) and instead
+    // pass BUILDING-LEVEL type strings: the hub's `type` is the literal "Core" (lifts/stairs — the
+    // building core, matching the plan's "CORE" centre), and each unit's `type` is its TYPOLOGY
+    // (T1/T2/T3/T4 — matching the plan's unit labels) — so the renderer prints "Core" + "T2", not
+    // "Corr." + "Living". The node FILL still comes from `occupancy` (renderer reads occupancy first),
+    // so the core keeps its circulation tone and units keep their warm palette — colours unchanged.
     const CORE_NAME = 'Core';
     nodes.push({
-        name: CORE_NAME, type: 'corridor', area: 0, windowCount: 0, hasDirectAccess: true,
+        name: CORE_NAME, type: 'Core', area: 0, windowCount: 0, hasDirectAccess: true,
         adjacentTo: [], centroid: coreCentre, occupancy: 'corridor',
     });
 
+    // §RESI-CORE-CIRCULATION (founder 2026-06-30: "circulation always needs to be at the CORE") — root
+    // EVERY apartment node to the CORE hub through the corridor, so the graph reads as a core-centric
+    // STAR (stair/lift in the middle, apartments ringing it) — NOT a chain of unit→unit→corridor. The
+    // partition tags each cell `coreReachable` iff its door fronts a corridor band that traces back to
+    // the core; we honour that tag HONESTLY: a core-reachable unit edges to the core (it is part of the
+    // star), while a NOT-core-reachable unit is shown ORPHANED (no edge to the core) so the founder can
+    // SEE any unit the real layout failed to connect — the graph never paints a false core-centric star.
+    let coreReachableCount = 0;
     placed.forEach((a, i) => {
         const r = a.cell.rect as Rectish;
         const name = `${a.typology} ${i + 1}`;
+        // The cell carries the partition's core-reachability tag. Treat an absent tag as reachable
+        // (older results predating §RESI-CORE-CIRCULATION default to connected — the prior behaviour).
+        const coreReachable = (a.cell as { coreReachable?: boolean }).coreReachable !== false;
+        if (coreReachable) coreReachableCount++;
         nodes.push({
             name,
-            type: TYPO_OCCUPANCY[a.typology] === 'bedroom' ? 'bedroom' : 'living',
+            // §RESI-CORE-LABEL — the node LABEL is the unit's TYPOLOGY (T1/T2/T3/T4 — the shared
+            // renderer prints the literal `type` for an unknown type), matching the plan's unit labels,
+            // NOT the generic "Living"/"Bed". Colour still comes from `occupancy` below.
+            type: a.typology,
             area: Math.round(a.targetAreaM2),
             windowCount: 0,
-            hasDirectAccess: true,
-            // Each apartment fronts the public corridor → the core. Edge to the core hub.
-            adjacentTo: [CORE_NAME],
+            // A non-core-reachable unit has no direct access to the core circulation — flag it.
+            hasDirectAccess: coreReachable,
+            // CORE-CENTRIC: a core-reachable apartment edges to the core hub (rooted to the star). A
+            // non-reachable unit is left orphaned (no core edge) so the graph reflects reality.
+            adjacentTo: coreReachable ? [CORE_NAME] : [],
             centroid: { x: ((r.x0 + r.x1) / 2) * 1000, y: ((r.z0 + r.z1) / 2) * 1000 },
             occupancy: TYPO_OCCUPANCY[a.typology] ?? 'living-room',
         });
-        // Make the adjacency symmetric so the core node also lists this apartment (the bubble
-        // renderer dedupes symmetric edges, so this only ensures the edge survives if a future
-        // renderer reads one direction only).
-        nodes[0]!.adjacentTo.push(name);
+        // Make the adjacency symmetric so the core node also lists each core-reachable apartment (the
+        // bubble renderer dedupes symmetric edges; this keeps the edge if a renderer reads one way only).
+        if (coreReachable) nodes[0]!.adjacentTo.push(name);
     });
+    void coreReachableCount;   // (kept for a future "N/N core-connected" caption; computed here)
 
     const bubbleOpts: BubbleGraphOptions = {
         width: opts.width ?? 460,
