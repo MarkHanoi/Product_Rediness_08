@@ -24,6 +24,10 @@ import { getCurrentSiteOrigin } from "../site/siteDispatch";
 // FORMA.6 — pure building-fidelity helpers (no THREE/Cesium/DOM): the floor-filter
 // show-all decision + geometry signature for the REAL full-fidelity Forma model.
 import { realModelStaysVisible } from "./formaBuildingFidelity";
+// §FORMA-SCENE-QUALITY (ADR-0089) — tuned "architectural model" quality constants
+// (clean neutral massing, soft gradient shadowing/fog, sky-gradient backdrop) +
+// the pure CSS sky-gradient builder. Cesium-free helper; see formaSceneQuality.ts.
+import { FORMA_QUALITY, buildFormaSkyGradientCss } from "./formaSceneQuality";
 // A.21.D24 — pure 3D climate-overlay geometry generators (no THREE/Cesium/DOM)
 // + the pure wind-rose chart helper. The Cesium placement below anchors these
 // ENU points with the SAME eastNorthUpToFixedFrame used for the massing.
@@ -141,18 +145,32 @@ const CESIUM_Z = 15;
 const GLOBE_LOADING_COLOUR = '#EDECF5';
 
 const FORMA_PALETTE = {
-  /** Flat warm-grey massing ground (§2 Ground & water). */
-  ground: '#D9D5CE',
-  /** Scene background — kills the photo sky (§2 Sky / background). */
-  background: '#E8E8E6',
+  /** Flat neutral light-grey massing ground (§2 Ground & water).
+   *  §FORMA-SCENE-QUALITY (ADR-0089) — was a warm beige (#D9D5CE) that read
+   *  slightly "sandy"; the Spacio/Forma reference ground is a cooler, cleaner
+   *  architectural light-grey so the white massing + soft shadows read against a
+   *  neutral plane (not a warm desert). Still soft, never stark. */
+  ground: '#DDDCD9',
+  /** Scene background — soft neutral (§2 Sky / background). §FORMA-SCENE-QUALITY:
+   *  this is now the FALLBACK flat fill; the visible backdrop is the soft vertical
+   *  sky GRADIENT painted on the container (buildFormaSkyGradientCss) showing
+   *  through the alpha canvas. Kept here so a no-alpha GPU still gets a clean
+   *  neutral clear colour instead of black. */
+  background: '#E9EAEC',
   /** Crisp graphite silhouette outline (§2) — dark enough for strong edge
    *  definition + contrast (founder: "stronger contrast"), not pure black. */
   silhouette: '#2B2B2B',
-  /** Proposed-building volume fill (§2) — STRONG WHITE (founder: "strong white as
-   *  forma"). Fully opaque; the single solid mass reads as a clean white volume. */
-  proposedFill: '#FFFFFF',
-  /** Context-building fill (§2). */
-  contextFill: '#E8E5DF',
+  /** Proposed-building volume fill (§2). §FORMA-SCENE-QUALITY (ADR-0089) — was
+   *  PURE white (#FFFFFF), which blew out under the key light so faces lost their
+   *  value range and the mass read flat. A soft near-white (a hair below 100%)
+   *  keeps the clean architectural-model look while letting the directional
+   *  shading + AO/contact-shadow gradient define the faces (founder: "not pure-
+   *  white blown-out … a hint of value range so faces read"). */
+  proposedFill: '#F4F4F2',
+  /** Context-building fill (§2). §FORMA-SCENE-QUALITY — a touch cooler/greyer than
+   *  the warm beige it was, so context massing recedes as neutral grey behind the
+   *  brighter proposed mass (the reference's "context = quiet grey" read). */
+  contextFill: '#D9D8D3',
   /** Subtle graphite outline for context massing (lighter than proposed). */
   contextOutline: '#9A958C',
   /** Soft shadow tint (§2 Shadows) — rgba(20,20,20,0.30). */
@@ -249,24 +267,30 @@ const FORMA_AO_INTENSITY = 2.5;
  * shows its error panel, and STOPS the entire render loop — so one optional
  * effect blanks the whole Forma massing view ("Rendering has stopped").
  *
- * AO adds nothing essential to a massing study (we already have soft shadows +
- * silhouette), so we ship it OFF and gate it behind an explicit opt-in flag
- * (`window.__pryzmFormaAO === true`). Even when opted-in, the `scene.renderError`
- * guard (installed at mount) auto-disables AO on the first compile failure and
- * keeps rendering, so the view can never die. */
-const FORMA_AO_DEFAULT_ENABLED = false;
+ * §FORMA-SCENE-QUALITY (ADR-0089) — AO is the lovely "gradient shadowing in the
+ * crevices" the founder ranked #1, so we now ATTEMPT it BY DEFAULT, but ONLY
+ * behind the full capability path: (a) `isAmbientOcclusionSupported(scene)` /
+ * WEBGL_depth_texture feature-detect, (b) a guarded construct, and (c) the
+ * `scene.renderError` guard (§FORMA-RENDER-ERROR-GUARD) which latches
+ * `formaPostProcessFaulted` and sheds AO on the FIRST compile failure while
+ * keeping the loop alive. GPUs that compile it get the AO; GPUs that can't
+ * degrade to the soft directional shadows + fog gradient (which already read as
+ * gentle ambient depth) — never the "Rendering has stopped" overlay. The opt-in
+ * flag still works as an explicit OVERRIDE (`window.__pryzmFormaAO === false`
+ * force-disables it on a machine known to choke even past the feature-detect). */
+const FORMA_AO_DEFAULT_ENABLED = true;
 /** Directional-light intensity for the Forma key light. §A.21.D-FORMA2 raised
  *  1.8 → 2.3 so strong-white masses read crisp + bright with stronger highlights
  *  (founder: "strong white + stronger contrast"). */
 const FORMA_LIGHT_INTENSITY = 2.3;
 /**
- * §A.21.D-FORMA2 — shadow strength (fraction of light remaining IN shadow).
- * Lower = darker/stronger shadow. 0.30 gives the crisp Forma cast shadow the
- * founder asked for while still leaving enough fill that shaded faces don't
- * crush to pure black. Replaces the old `max(0.3, 1 - FORMA_AMBIENT)` (= 0.45,
- * too weak).
+ * §A.21.D-FORMA2 / §FORMA-SCENE-QUALITY (ADR-0089) — shadow strength now lives in
+ * `FORMA_QUALITY.shadowDarkness` (formaSceneQuality.ts) so the "soft gradient
+ * shadowing" look is tuned in one place alongside the fog/sky constants. The old
+ * standalone `FORMA_SHADOW_DARKNESS = 0.30` (a harder cast) was superseded by the
+ * slightly-lighter 0.34 there, which lets the PCF penumbra read as a falloff
+ * gradient (founder's #1 ask) rather than a stark silhouette.
  */
-const FORMA_SHADOW_DARKNESS = 0.30;
 
 /**
  * §A.21.D39#6 — GLASS translucency for window panels. The glazing inset is a
@@ -397,6 +421,11 @@ export class CesiumViewport {
   private formaPostProcessFaulted = false;
   /** Disposer for the `scene.renderError` subscription (called on dispose). */
   private renderErrorSub: (() => void) | null = null;
+  /** §FORMA-SCENE-QUALITY (ADR-0089) — the container's `style.background` captured
+   *  the first time the Forma sky-gradient backdrop is applied, restored when the
+   *  gradient is cleared (leaving Forma) so the photoreal/globe path gets its
+   *  original opaque container background back. `null` = no backdrop applied. */
+  private formaPrevContainerBg: string | null = null;
 
   // ---- FORMA.3 — authored-massing entity placement state ----
   /** Entities placed for the authored massing (proposed buildings + boundary),
@@ -677,6 +706,15 @@ export class CesiumViewport {
         timeline: false,
         navigationHelpButton: false,
         scene3DOnly: true,
+        // §FORMA-SCENE-QUALITY (ADR-0089) — request an ALPHA-capable WebGL context
+        // so Forma mode can set `scene.backgroundColor = TRANSPARENT` and reveal the
+        // soft CSS sky-GRADIENT painted on the container (a flat scene clear colour
+        // can't be a gradient). Harmless to the photoreal path: geometry still draws
+        // opaque, only the cleared background becomes see-through (and there the
+        // container background is the brand-safe loading colour, never black). A GPU
+        // that ignores `alpha:true` simply clears opaque to FORMA_PALETTE.background
+        // (the no-alpha fallback) — clean neutral, no crash.
+        contextOptions: { webgl: { alpha: true } },
         // No token → no default base imagery layer (zero ESRI/ion/Bing request).
         // Token present → omit so Cesium installs its default ion base layer.
         ...(photorealAvailable ? {} : { baseLayer: false as const }),
@@ -1336,7 +1374,7 @@ export class CesiumViewport {
       console.warn('[CesiumViewport][forma] tileset hide failed:', e);
     }
 
-    // --- Sky / background: kill the photo look (§2 Sky / background). ---
+    // --- Sky / background: soft neutral gradient backdrop (§2 + §FORMA-SCENE-QUALITY). ---
     try {
       // SkyBox.show is missing from the class in cesium's generated .d.ts
       // (emitted as a stray module-level `var show`); access via a safe cast.
@@ -1344,8 +1382,31 @@ export class CesiumViewport {
       if (scene.skyAtmosphere) scene.skyAtmosphere.show = false;
       if (scene.sun) scene.sun.show = false;
       if (scene.moon) scene.moon.show = false;
-      scene.fog.enabled = false;
-      scene.backgroundColor = Cesium.Color.fromCssColorString(FORMA_PALETTE.background);
+
+      // §FORMA-SCENE-QUALITY (ADR-0089) — SOFT GROUND-AO / DEPTH GRADIENT via fog.
+      // Cesium's SSAO post-process is the fragile path (it crashes on some GPUs,
+      // see §FORMA-AO-OPT-IN); fog is the robust, GPU-agnostic way to get the
+      // reference's "gentle gradient toward the horizon" so far massing melts into
+      // the ground plane instead of meeting a hard line. Very light density, high
+      // minimum brightness, and a neutral tint matched to the sky horizon so it
+      // reads as atmospheric depth, never as haze or black.
+      scene.fog.enabled = true;
+      scene.fog.density = FORMA_QUALITY.fogDensity;
+      const fogAny = scene.fog as unknown as { minimumBrightness?: number; color?: Cesium.Color };
+      if ('minimumBrightness' in fogAny) fogAny.minimumBrightness = FORMA_QUALITY.fogMinBrightness;
+      if ('color' in fogAny) fogAny.color = Cesium.Color.fromCssColorString(FORMA_QUALITY.fogColor);
+
+      // §FORMA-SCENE-QUALITY — the soft VERTICAL SKY GRADIENT backdrop. Cesium's
+      // WebGL canvas clears to `backgroundColor` (a single flat colour), so a true
+      // gradient sky is painted as a CSS background on the container and revealed
+      // through the (alpha) canvas. We therefore set the scene clear colour to
+      // TRANSPARENT so the gradient shows; the flat FORMA_PALETTE.background stays
+      // as the no-alpha fallback (a GPU/context without alpha clears opaque to it,
+      // still a clean neutral, never black). Robust on BOTH backends: Cesium is
+      // WebGL regardless of the BIM editor's WebGPU renderer, and a transparent
+      // clear is a core GL feature.
+      scene.backgroundColor = Cesium.Color.TRANSPARENT;
+      this.applyFormaSkyBackdrop(true);
     } catch (e) {
       console.warn('[CesiumViewport][forma] sky/background config failed:', e);
     }
@@ -1366,7 +1427,7 @@ export class CesiumViewport {
       console.warn('[CesiumViewport][forma] lighting config failed:', e);
     }
 
-    // --- Shadows: soft, large, dark-grey translucent tone (§2 Shadows). ---
+    // --- Shadows: SOFT GRADIENT contact shadows (§2 Shadows + §FORMA-SCENE-QUALITY). ---
     try {
       viewer.shadows = true;
       const sm = scene.shadowMap;
@@ -1374,35 +1435,49 @@ export class CesiumViewport {
         sm.enabled = true;
         sm.softShadows = true;
         sm.size = 4096;
-        // §A.21.D-FORMA2 — stronger cast shadow for contrast (founder ask).
-        // `darkness` = fraction of light remaining in shadow; lower = darker.
-        sm.darkness = FORMA_SHADOW_DARKNESS;
+        // §FORMA-SCENE-QUALITY (ADR-0089) — the founder's #1 ask is "soft GRADIENT
+        // shadowing", not a hard graphite cast. `darkness` = fraction of light
+        // remaining in shadow; FORMA_QUALITY.shadowDarkness (0.34) is a touch
+        // lighter than the old 0.30 so the PCF soft edge reads as a falloff
+        // gradient under eaves/in crevices rather than a stark silhouette — still
+        // clearly present. Combined with the fog ground-AO gradient above, this is
+        // the robust "gradient shadowing" that holds even when SSAO can't compile.
+        sm.darkness = FORMA_QUALITY.shadowDarkness;
+        // Wider PCF tap radius softens the penumbra (Cesium exposes it loosely).
+        const smAny = sm as unknown as { softShadowSamples?: number; _pointBias?: unknown };
+        if ('softShadowSamples' in smAny && typeof smAny.softShadowSamples === 'number') {
+          smAny.softShadowSamples = Math.max(smAny.softShadowSamples ?? 0, FORMA_QUALITY.shadowSoftBlur);
+        }
       }
     } catch (e) {
       console.warn('[CesiumViewport][forma] shadow config failed:', e);
     }
 
     // --- Post-process: AO + silhouette (FEATURE-DETECTED; degrade gracefully). ---
-    // §FORMA-AO-OPT-IN (ADR-0087) — AO defaults OFF (its shader crashes on some
-    // GPUs and Cesium treats that as a FATAL render-stop). It is only built +
-    // enabled when explicitly opted in AND the post-process hasn't already
-    // faulted this session. Silhouette stays on (cheap edge-detection, no AO
-    // gaussian loop) but is also disabled once a render-error fault is seen.
+    // §FORMA-AO-OPT-IN (ADR-0087) + §FORMA-SCENE-QUALITY (ADR-0089) — AO now
+    // defaults ON because it is the founder's #1 "gradient shadowing in the
+    // crevices" ask, but ONLY through the full capability path: it is built only
+    // when wanted AND not already faulted; ensureFormaPostProcess() further gates
+    // on `isAmbientOcclusionSupported(scene)` (WEBGL_depth_texture); and the
+    // §FORMA-RENDER-ERROR-GUARD sheds it + latches `formaPostProcessFaulted` on the
+    // FIRST compile failure, so a GPU that can't compile HBAO degrades to the soft
+    // directional shadows + fog ground-AO gradient (never the render-stop overlay).
+    // `window.__pryzmFormaAO === false` is the explicit force-OFF override.
     const aoWanted = this.formaAoOptIn && !this.formaPostProcessFaulted;
     this.ensureFormaPostProcess(aoWanted);
     if (this.formaAoStage) this.formaAoStage.enabled = aoWanted;
     if (this.formaSilhouetteComposite) this.formaSilhouetteComposite.enabled = !this.formaPostProcessFaulted;
 
     const aoLabel = this.formaPostProcessFaulted
-      ? ', AO=disabled (render-error guard)'
+      ? ', AO=disabled (render-error guard → fog+shadow gradient)'
       : !this.formaAoOptIn
-        ? ', AO=off (opt-in via window.__pryzmFormaAO)'
+        ? ', AO=off (forced via window.__pryzmFormaAO=false)'
         : this.formaAoStage
-          ? ', AO'
-          : ', AO=unavailable';
+          ? ', AO (gradient shadowing)'
+          : ', AO=unavailable (GPU → fog+shadow gradient)';
     console.log(
-      '[CesiumViewport] FORMA mode applied: flat ground ' + FORMA_PALETTE.ground +
-        ', no sky/atmosphere, soft shadows 4096' +
+      '[CesiumViewport] FORMA mode applied: neutral ground ' + FORMA_PALETTE.ground +
+        ', soft sky-gradient backdrop, fog ground-AO, soft shadows 4096' +
         aoLabel +
         (this.formaSilhouetteComposite && !this.formaPostProcessFaulted ? ', silhouette' : ', silhouette=unavailable') + '.'
     );
@@ -1616,8 +1691,13 @@ export class CesiumViewport {
       if (scene.skyAtmosphere) scene.skyAtmosphere.show = true;
       if (scene.sun) scene.sun.show = true;
       if (scene.moon) scene.moon.show = true;
-      // Photoreal default has fog off in this viewport already; leave it off.
-      // §GLOBE-FIRST-FRAME-COLOUR — brand-safe background, not pure black.
+      // §FORMA-SCENE-QUALITY (ADR-0089) — leaving Forma: turn the soft ground-AO
+      // fog back OFF (the photoreal/globe path runs without it here) and remove the
+      // CSS sky-gradient backdrop so the photoreal canvas paints over an opaque
+      // clear colour again (not a transparent-revealed gradient).
+      scene.fog.enabled = false;
+      this.applyFormaSkyBackdrop(false);
+      // §GLOBE-FIRST-FRAME-COLOUR — brand-safe OPAQUE background, not pure black.
       scene.backgroundColor = Cesium.Color.fromCssColorString(GLOBE_LOADING_COLOUR);
     } catch (e) {
       console.warn('[CesiumViewport][forma] restore sky failed:', e);
@@ -1871,6 +1951,41 @@ export class CesiumViewport {
       console.log('[CesiumViewport][forma] §FORMA-RENDER-ERROR-GUARD installed (post-process crashes are non-fatal).');
     } catch (e) {
       console.warn('[CesiumViewport][forma] failed to install render-error guard:', e);
+    }
+  }
+
+  /**
+   * §FORMA-SCENE-QUALITY (ADR-0089) — paint (or clear) the soft vertical sky
+   * GRADIENT backdrop on the Cesium container.
+   *
+   * Cesium's WebGL canvas clears to a single flat `scene.backgroundColor`, so a
+   * true gradient sky (the Spacio/Forma reference backdrop) is a CSS background
+   * on the container, revealed through the canvas wherever Forma mode sets the
+   * scene clear colour to TRANSPARENT. This is robust on both backends: Cesium is
+   * always WebGL (independent of the BIM editor's WebGPU renderer) and a
+   * transparent clear + CSS backdrop is core-platform, not GPU-feature-gated.
+   *
+   * `on=false` removes the gradient (restores the container's opaque base) so the
+   * photoreal globe paints over a solid clear colour again. Best-effort + safe to
+   * call before/after the viewer exists. Span-free (UI DOM styling, no async/IO —
+   * matches this file's other private UI helpers).
+   */
+  private applyFormaSkyBackdrop(on: boolean): void {
+    try {
+      const el = this.container;
+      if (!el) return;
+      if (on) {
+        // Remember the previous opaque background once so a later clear restores it.
+        if (this.formaPrevContainerBg === null) {
+          this.formaPrevContainerBg = el.style.background || '';
+        }
+        el.style.background = buildFormaSkyGradientCss();
+      } else if (this.formaPrevContainerBg !== null) {
+        el.style.background = this.formaPrevContainerBg;
+        this.formaPrevContainerBg = null;
+      }
+    } catch (e) {
+      console.warn('[CesiumViewport][forma] applyFormaSkyBackdrop failed:', e);
     }
   }
 
@@ -5597,6 +5712,9 @@ export class CesiumViewport {
       this.renderErrorSub = null;
     }
     this.formaPostProcessFaulted = false;
+    // §FORMA-SCENE-QUALITY (ADR-0089) — drop the sky-gradient backdrop on dispose
+    // so a re-mounted viewport starts from the container's original background.
+    try { this.applyFormaSkyBackdrop(false); } catch { /* container already gone */ }
 
     if (this.viewer) {
       this.viewer.destroy();
