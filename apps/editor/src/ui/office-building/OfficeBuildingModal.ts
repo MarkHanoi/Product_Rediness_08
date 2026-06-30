@@ -23,10 +23,11 @@ const STYLES = `
 .ob-preview-caption { margin-top:8px; font-size:12px; color:#6600FF; font-weight:600; text-align:center; }
 .ob-analytics { flex:1 1 320px; min-width:300px; color:#1a1a2e; }
 .ob-section-title { font-size:12px; font-weight:700; color:#6600FF; text-transform:uppercase; letter-spacing:0.04em; margin:14px 0 6px; }
-.ob-metrics { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; }
-.ob-metric { background:#F7F4FF; border:1px solid #6600FF22; border-radius:10px; padding:8px 10px; }
-.ob-metric-value { font-size:18px; font-weight:700; color:#1a1a2e; }
-.ob-metric-label { font-size:11px; color:#555; margin-top:2px; }
+.ob-metrics { display:flex; flex-direction:column; gap:0; border:1px solid #6600FF22; border-radius:10px; overflow:hidden; background:#F7F4FF; }
+.ob-metric { display:flex; align-items:baseline; justify-content:space-between; gap:12px; padding:7px 12px; border-bottom:1px solid #6600FF14; }
+.ob-metric:last-child { border-bottom:none; }
+.ob-metric-label { font-size:12px; color:#555; }
+.ob-metric-value { font-size:14px; font-weight:700; color:#1a1a2e; font-variant-numeric:tabular-nums; white-space:nowrap; }
 .ob-rise { font-size:13px; color:#333; }
 .ob-legend { display:flex; flex-direction:column; gap:4px; }
 .ob-legend-row { display:flex; align-items:center; gap:8px; font-size:12px; }

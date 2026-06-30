@@ -1018,6 +1018,164 @@ export const ONBOARDING_STYLES = `
   .os-onboarding-overlay--resi .os-resi-form { max-height: none; overflow: visible; }
 }
 
+/* ── §OFFICE-PREVIEW-MODAL-LAYOUT (founder 2026-06-30) — the OFFICE-building setup step ──
+   A clean two-column landscape: LEFT = a bounded circular plate preview (its own box,
+   nothing overlaps it) + the floor-plate analytics key→value table beneath; RIGHT = the
+   four labelled sliders, the culture toggle, the plate-shape caption and the action
+   buttons. Rides the --resi wide card + body reset, then lays its OWN grid via --office
+   so the preview and the sliders sit in SEPARATE bounded cells and never bleed into each
+   other. Brand white + #6600FF, dark-grey text (NO pure black). */
+.os-onboarding-overlay--office .os-office-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+@media (max-width: 880px) {
+  .os-onboarding-overlay--office .os-office-layout { grid-template-columns: 1fr; }
+}
+
+/* LEFT column — preview box (top) stacked over the analytics table (bottom). */
+.os-onboarding-overlay--office .os-office-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+/* The bounded plate-preview box — the circular SVG centred on a white sheet with a
+   faint purple frame. Fixed, self-contained; nothing from the form reaches into it. */
+.os-onboarding-overlay--office .os-office-plate {
+  padding: 0.7rem;
+  border: 1px solid rgba(102, 0, 255, 0.18);
+  border-radius: 0.7rem;
+  background: linear-gradient(180deg, #ffffff 0%, rgba(102, 0, 255, 0.04) 100%);
+}
+.os-onboarding-overlay--office .os-office-plate-svg {
+  display: flex;
+  justify-content: center;
+}
+.os-onboarding-overlay--office .os-office-plate-svg svg {
+  width: 100%;
+  height: auto;
+  max-width: 260px;
+  border-radius: 10px;
+  box-shadow: 0 1px 6px rgba(102, 0, 255, 0.1);
+}
+.os-onboarding-overlay--office .os-office-plate-caption {
+  margin-top: 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #6600ff;
+  text-align: center;
+}
+
+/* The analytics card — frames the key→value table + zone legend + variety chips. */
+.os-onboarding-overlay--office .os-office-analytics {
+  padding: 0.7rem 0.8rem 0.8rem;
+  border: 1px solid rgba(102, 0, 255, 0.16);
+  border-radius: 0.7rem;
+  background: #ffffff;
+}
+
+/* §OFFICE-PREVIEW-MODAL-LAYOUT — the ob-* analytics styles are injected by the standalone
+   OfficeBuildingModal; the onboarding overlay never loads that sheet, so without these the
+   analytics rendered as an unstyled value-above-label list. Define a clean two-column
+   key→value table here (label left/muted · value right/emphasised, aligned rows). */
+.os-onboarding-overlay--office .ob-analytics { color: #2a1a52; }
+.os-onboarding-overlay--office .ob-section-title {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6600ff;
+  margin: 0.7rem 0 0.35rem;
+}
+.os-onboarding-overlay--office .ob-section-title:first-child { margin-top: 0; }
+.os-onboarding-overlay--office .ob-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid rgba(102, 0, 255, 0.14);
+  border-radius: 0.55rem;
+  overflow: hidden;
+  background: rgba(102, 0, 255, 0.03);
+}
+.os-onboarding-overlay--office .ob-metric {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.4rem 0.65rem;
+  border-bottom: 1px solid rgba(102, 0, 255, 0.1);
+}
+.os-onboarding-overlay--office .ob-metric:last-child { border-bottom: none; }
+.os-onboarding-overlay--office .ob-metric-label {
+  font-size: 0.78rem;
+  color: rgba(42, 26, 82, 0.62);
+}
+.os-onboarding-overlay--office .ob-metric-value {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #2a1a52;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.os-onboarding-overlay--office .ob-rise { font-size: 0.8rem; color: #4a3a6a; }
+.os-onboarding-overlay--office .ob-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.os-onboarding-overlay--office .ob-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.74rem;
+}
+.os-onboarding-overlay--office .ob-swatch {
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 3px;
+  flex: 0 0 auto;
+}
+.os-onboarding-overlay--office .ob-legend-label { flex: 1 1 auto; color: #2a1a52; }
+.os-onboarding-overlay--office .ob-legend-area {
+  color: #6600ff;
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.os-onboarding-overlay--office .ob-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.os-onboarding-overlay--office .ob-chip {
+  background: rgba(102, 0, 255, 0.08);
+  color: #4400aa;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+/* RIGHT column — the controls form. Clear vertical spacing between slider rows; it
+   scrolls internally if the parameter stack runs taller than the card. */
+.os-onboarding-overlay--office .os-office-layout .os-resi-form {
+  margin-top: 0;
+  gap: 0.9rem;
+  max-height: min(72vh, 680px);
+  overflow-y: auto;
+  padding-right: 0.15rem;
+}
+@media (max-width: 880px) {
+  .os-onboarding-overlay--office .os-office-layout .os-resi-form {
+    max-height: none;
+    overflow: visible;
+  }
+}
+
 /* ── DRAG + RESIZE chrome (shared with makeDraggable / makeResizable) ───────────
    The helpers toggle .vg-panel--dragging / .vg-panel--resizing. Suppress text
    selection while interacting; show the grip in the bottom-right corner. */
