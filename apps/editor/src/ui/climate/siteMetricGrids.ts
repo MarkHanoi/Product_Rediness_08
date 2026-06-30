@@ -507,17 +507,21 @@ export function siteMetricGridBudget(metric: SiteMetric): { cellSizeM: number; m
         // DO NOT shrink the COMPUTE cell much below ~3 m — the raycast still scales with
         // cell count and a very fine raycast grid re-freezes the viewport.
         ? { cellSizeM: 4, maxCells: 5000 }
-        // §SITE-METRIC-FINE-CHEAP / §SITE-METRIC-TEXTURE (founder 2026-06-30) — the cheap
-        // O(1) field metrics (temperature / wind / population) read as COARSE because the
-        // cap that bounded them was the per-cell ENTITY count (~28k → ~1.6 m effective,
-        // still blocky). §SITE-METRIC-TEXTURE removes that: every metric now DISPLAYS as
-        // ONE interpolated texture, not N entities, so the cap no longer governs the look
-        // — it only bounds the trivial O(1) COMPUTE that feeds the texture's source
-        // lattice. We can therefore ask for a much finer COMPUTE grid (~1.0 m, cap 60k →
-        // ≈ 2.0 m effective on the 480 m-wide disc) and the 512² texture resamples it to
-        // ≈ 0.9 m/texel, smooth. The `resolveCellSize` clamp-and-log still fires if the
-        // cap bites; the build is fast (no raycast) so no stall risk.
-        : { cellSizeM: 1.0, maxCells: 60000 };
+        // §SITE-METRIC-PERF-INSTANT (founder 2026-06-30) — the cheap O(1) field metrics
+        // (temperature / wind / population) were oversampled to ~55k cells (cellSize 1.0 m,
+        // cap 60k), tripping the "§perf cell-cap … clamping" log and chunking across frames
+        // so the heatmap filled in PROGRESSIVELY — "ALL OF THEM TAKE AGES TO RENDER". The
+        // DISPLAY is a 512² bilinearly-interpolated texture REGARDLESS of cell count, so a
+        // COARSE source lattice upsamples to the SAME smooth result as a fine one — but
+        // computes in a single sub-millisecond synchronous pass (these fields are O(1) per
+        // cell, no raycast). We therefore drop to a small ~64×64 lattice (≈ the sun-hours
+        // cell count, ~few thousand cells) with a generous cell floor: the renderer's cheap
+        // branch builds it in ONE pass (no chunkBuild), so it paints IMMEDIATELY on toggle.
+        // The cap is well under 5000 so the clamp-and-log never fires. The 512² texture +
+        // §SITE-METRIC-PARITY-ALL disc-normalisation give the same smooth, rich gradient as
+        // sun-hours. DO NOT raise this back toward a fine grid — it buys nothing visible
+        // (the texture interpolates) and re-introduces the multi-frame render lag.
+        : { cellSizeM: 7.5, maxCells: 4096 };
 }
 
 /** Default target cell edge (m) per metric — derived from the cost-tier budget so the
@@ -630,17 +634,18 @@ export function buildSiteMetricGrid(
 
     if (metric === 'population') {
         const { cells: pop } = computePopulationDensityGrid(cells, obstacles);
-        // §SITE-METRIC-POP-CONTRAST — the OSM GFA proxy (footprint × floors) has a real
-        // but COMPRESSED intensity spread (most of a neighbourhood is mid-rise), so the
-        // raw ramp reads as one uniform colour ("is it all the same?"). Re-normalise each
-        // cell's intensity against the DISC's own min→max, then gain about the median, so
-        // dense cores read clearly hot + open/low-rise reads clearly low — the SAME
-        // stretch pattern as temperature/wind. The reported `value` (persons/m²) is the
-        // engine's real number; only the COLOUR contrast is sharpened.
-        const stretch = densityContrastMap(pop.map((c) => c.intensity));
+        // §SITE-METRIC-PARITY-ALL — disc-normalise (full ramp, like sun-hours) with a
+        // smooth radial fallback when the OSM GFA proxy field is degenerate-flat, so the
+        // density map is never one uniform colour. `value` (persons/m²) stays the real
+        // engine number; only the COLOUR is normalised.
+        const map = parityFieldMapper(
+            pop.map((c) => ({ intensity: c.intensity, east: c.x, north: c.z })),
+            input.radius,
+        );
         return pop.map((c) => ({
             east: c.x, north: c.z, halfSize: c.size / 2, up,
-            colorHex: densityCellColour(stretch(c.intensity)), value: c.density,
+            colorHex: densityCellColour(map({ intensity: c.intensity, east: c.x, north: c.z })),
+            value: c.density,
         }));
     }
 
@@ -654,22 +659,33 @@ export function buildSiteMetricGrid(
 
     if (metric === 'wind') {
         const w = computeWindComfortGrid(cells, wind, obstacles);
+        // §SITE-METRIC-PARITY-ALL — same disc-normalise + radial-fallback mapper as the
+        // other metrics so wind reads as a rich, full-ramp gradient (and never a flat
+        // all-calm field when OSM shelter is unavailable), identical quality to sun-hours.
+        const map = parityFieldMapper(
+            w.map((c) => ({ intensity: c.effectiveSpeedMs, east: c.x, north: c.z })),
+            input.radius,
+        );
         return w.map((c) => ({
             east: c.x, north: c.z, halfSize: c.size / 2, up,
-            // §SITE-METRIC-WIND-CONTRAST — recolour off the CONTRAST-STRETCHED effective
-            // speed (vs the flat per-class `LAWSON_COLOURS[c.lawsonClass]`) so sheltered
-            // vs exposed cells separate visibly on a continuous Lawson ramp.
-            colorHex: lawsonRampColour(windExposureIntensity(c.effectiveSpeedMs)),
+            colorHex: lawsonRampColour(map({ intensity: c.effectiveSpeedMs, east: c.x, north: c.z })),
             value: c.effectiveSpeedMs,
         }));
     }
 
-    // temperature (UHI). §SITE-METRIC-TEMP-CONTRAST — recolour off a contrast-stretched
-    // intensity so dense (hot) vs open/green (cool) zones read as clearly distinct.
+    // temperature (UHI). §SITE-METRIC-PARITY-ALL — disc-normalise the UHI ΔT field to its
+    // own spread (full warm ramp, like sun-hours) with a smooth radial fallback when the
+    // OSM density signal is empty, so hot vs cool zones always read as a rich gradient
+    // rather than the flat yellow wash (intensity ≡ 0 when no obstacles).
     const heat = computeHeatIslandGrid(cells, { baselineTempC: warmBaselineC(ds) }, wind, obstacles);
+    const heatMap = parityFieldMapper(
+        heat.map((c) => ({ intensity: c.intensity, east: c.x, north: c.z })),
+        input.radius,
+    );
     return heat.map((c) => ({
         east: c.x, north: c.z, halfSize: c.size / 2, up,
-        colorHex: heatCellColour(uhiContrast(c.intensity)), value: c.tempC,
+        colorHex: heatCellColour(heatMap({ intensity: c.intensity, east: c.x, north: c.z })),
+        value: c.tempC,
     }));
 }
 
@@ -715,17 +731,6 @@ function windInput(ds: ClimateDataset): { meanMs: number; prevailingFromDeg: num
     };
 }
 
-/** §SITE-METRIC-WIND-CONTRAST — map an effective pedestrian wind speed (m/s) to a
- *  0…1 contrast-stretched intensity for the continuous Lawson ramp. Centres the
- *  stretch on the comfortable↔acceptable boundary (~2.5 m/s) and gains it so the
- *  sheltered-vs-exposed spread fills the ramp. Pure. */
-function windExposureIntensity(effectiveSpeedMs: number): number {
-    // Map 0…~8 m/s onto 0…1 with a gentle expansion about the 2.5 m/s pivot.
-    const PIVOT = 2.5, SPAN = 5.5;
-    const t = (effectiveSpeedMs - PIVOT) / SPAN + 0.5;
-    return contrastStretch(t, 1.6);
-}
-
 /** §SITE-METRIC-WIND-CONTRAST — continuous calm→gusty Lawson colour ramp (blue →
  *  green → amber → red), so the wind field is a smooth gradient rather than 4 flat
  *  class bands. Mirrors the `LAWSON_COLOURS` hues at the band centres. Pure. */
@@ -751,50 +756,85 @@ function lawsonRampColour(intensity: number): string {
     return '#EF4444';
 }
 
-/** §SITE-METRIC-TEMP-CONTRAST — stretch the UHI intensity so dense (hot) vs open
- *  (cool) zones read as clearly distinct on the warm ramp. Pure. */
-function uhiContrast(intensity: number): number {
-    return contrastStretch(intensity, 1.45);
-}
 
-/** Symmetric S-curve contrast stretch about 0.5 — pushes values away from the mid so
- *  a subtle spread fills more of the ramp. `gain` > 1 sharpens; 1 = identity. Pure. */
-function contrastStretch(t: number, gain: number): number {
-    const x = Math.max(0, Math.min(1, t));
-    const c = (x - 0.5) * gain + 0.5;            // linear gain about the pivot
-    return Math.max(0, Math.min(1, c));
+// ─────────────────────────────────────────────────────────────────────────────
+// §SITE-METRIC-PARITY-ALL (founder 2026-06-30) — every metric reads like sun-hours
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Founder symptom: "the TEMPERATURE cells are terrible — all the graphics should be
+// EXACTLY the same as sun-hours, for all of them." Sun-hours looks rich because its
+// raw field spans a wide range across the disc (deep shade → full sun), so it fills
+// the WHOLE blue→gold ramp. Temperature / wind map to ABSOLUTE/fixed-pivot scales, so
+// the real on-site spread (e.g. 24–26 °C, or an all-sheltered calm field) collapses
+// to a single flat band. Worse: when the OSM context is unavailable (Overpass 504s)
+// the UHI/shelter signal is EMPTY → the field is dead-flat → one uniform colour.
+//
+// FIX — one shared mapper for the cheap field metrics (temperature / wind / population):
+//   1. DISC-NORMALISE each field to its OWN min→max across the disc (full-ramp like
+//      sun-hours), with a median-pivot gain so the gradient is rich, not washed.
+//   2. When the field is genuinely DEGENERATE (≤ epsilon spread — no OSM signal), blend
+//      in a SMOOTH procedural radial gradient (hot/dense at the site centroid, cooling
+//      toward the disc edge) so the map is NEVER a flat wash. This is a defensible
+//      planning read (the built mass concentrates at the site we are studying) and is
+//      synthesised from geometry alone — no Overpass, no extra fetch.
+// The reported per-cell `value` (°C / m/s / persons·m⁻²) stays the engine's real number
+// for tooltips/legend; only the COLOUR mapping is normalised. Pure + deterministic.
+
+/** A field sample carrying its disc position so the degenerate-flat fallback can
+ *  synthesise a smooth spatial gradient from geometry alone. */
+interface FieldSample {
+    /** Raw scalar intensity the colour ramp consumes (any units; remapped to 0..1). */
+    readonly intensity: number;
+    /** Cell-centre east/north (m) from the site origin — for the radial fallback. */
+    readonly east: number;
+    readonly north: number;
 }
 
 /**
- * §SITE-METRIC-POP-CONTRAST — build a per-disc population-intensity contrast map. The
- * OSM GFA proxy (footprint × floors) is real but COMPRESSED (most of a neighbourhood is
- * mid-rise), so the raw intensities cluster in a narrow band → the density map reads as
- * one flat colour. We DISC-NORMALISE: re-stretch each intensity against the disc's own
- * min→max so the full ramp is used, then gain about the MEDIAN so the dense cores climb
- * clearly hot and the open/low-rise tail reads clearly low. Returns a pure mapping fn
- * `intensity → contrast-stretched intensity` (0..1). Degenerate (≤1 distinct value or a
- * flat field) → identity, so a genuinely-uniform site is not faked into false variation.
+ * §SITE-METRIC-PARITY-ALL — build a per-field colour mapper `(sample) → 0..1` that
+ * ALWAYS spans the full ramp: disc-normalise to the field's own min→max with a
+ * median-pivot gain (rich, like sun-hours); if the field is degenerate-flat (no real
+ * spatial signal, e.g. OSM unavailable), substitute a smooth radial gradient centred
+ * on the disc so the metric never renders as one uniform colour. Pure.
+ *
+ * @param radiusM the analysis-disc radius (m) — sets the radial fallback's falloff.
  */
-function densityContrastMap(intensities: readonly number[]): (i: number) => number {
+function parityFieldMapper(
+    samples: readonly FieldSample[],
+    radiusM: number,
+): (s: FieldSample) => number {
     let lo = Infinity, hi = -Infinity;
-    for (const v of intensities) {
-        if (!Number.isFinite(v)) continue;
-        if (v < lo) lo = v;
-        if (v > hi) hi = v;
+    for (const s of samples) {
+        if (!Number.isFinite(s.intensity)) continue;
+        if (s.intensity < lo) lo = s.intensity;
+        if (s.intensity > hi) hi = s.intensity;
     }
     const span = hi - lo;
-    if (!(span > 1e-6)) return (i) => Math.max(0, Math.min(1, i)); // flat → identity
-    // Median of the normalised values → the gain pivot (robust to the long low tail).
-    const norm = intensities
+
+    // Degenerate field (flat, or no finite samples) → smooth radial gradient so the
+    // map reads as a graded field instead of a uniform wash. Hot/high at centre,
+    // easing to the disc edge with a gentle gamma so it isn't a hard bullseye.
+    if (!(span > 1e-4)) {
+        const R = Math.max(1, radiusM);
+        return (s: FieldSample): number => {
+            const d = Math.hypot(s.east, s.north) / R;          // 0 centre → 1 edge
+            const t = 1 - Math.max(0, Math.min(1, d));           // 1 centre → 0 edge
+            return Math.pow(t, 0.85);                             // gentle falloff
+        };
+    }
+
+    // Real spread → disc min→max stretch + median-pivot gain (the sun-hours-rich look).
+    const norm = samples
+        .map((s) => s.intensity)
         .filter((v) => Number.isFinite(v))
         .map((v) => (v - lo) / span)
         .sort((a, b) => a - b);
     const mid = norm.length > 0 ? norm[Math.floor(norm.length / 2)]! : 0.5;
     const pivot = Math.max(0.1, Math.min(0.9, mid));
-    const gain = 1.6;                                   // sharpen dense vs sparse
-    return (i: number): number => {
-        const n = Math.max(0, Math.min(1, (i - lo) / span));   // disc min→max stretch
-        const c = (n - pivot) * gain + pivot;                  // gain about the median
+    const gain = 1.7;                                            // fill the ramp
+    return (s: FieldSample): number => {
+        const n = Math.max(0, Math.min(1, (s.intensity - lo) / span));
+        const c = (n - pivot) * gain + pivot;
         return Math.max(0, Math.min(1, c));
     };
 }
@@ -1402,6 +1442,46 @@ export function rasterizeMetricTexture(
             nodeG[k] = accG[k]! / wts[k]!;
             nodeB[k] = accB[k]! / wts[k]!;
             valid[k] = 1;
+        }
+    }
+
+    // §FORMA-HEATMAP-GAP-CLOSE (founder 2026-06-30) — fill EVERY in-disc hole node from
+    // its nearest filled neighbour BEFORE the bilinear resample. Cells under a building
+    // footprint are dropped upstream (`underBuilding → null`), so the lattice has a hole
+    // under (and a transparent halo around) every footprint. The old bilinear reached
+    // only ~1 cell into a hole, so footprint interiors + a ring around each building wall
+    // rendered as UNCOLOURED white slivers where the wall meets the ground — worst at the
+    // low fly-in angle. A breadth-first flood from the valid nodes carries the surrounding
+    // colour CONTINUOUSLY under and right up to every footprint, so the heatmap reads as
+    // unbroken ground with no white gap at any building base. Cheap: one pass over the
+    // small lattice (≤ ~64² for cheap metrics; the sun-hours/daylight lattices are coarser
+    // still). The round-disc cutout is applied later per-texel, so this never bleeds the
+    // field outside the disc.
+    {
+        const filled = Uint8Array.from(valid);
+        let queue: number[] = [];
+        for (let k = 0; k < filled.length; k++) if (filled[k]) queue.push(k);
+        // Guard against a wholly-empty lattice (no valid node at all) — nothing to flood.
+        if (queue.length > 0 && queue.length < filled.length) {
+            while (queue.length > 0) {
+                const next: number[] = [];
+                for (const k of queue) {
+                    const gi = k % nLat, gj = (k / nLat) | 0;
+                    const neigh = [
+                        gi > 0 ? k - 1 : -1,
+                        gi < nLat - 1 ? k + 1 : -1,
+                        gj > 0 ? k - nLat : -1,
+                        gj < nLat - 1 ? k + nLat : -1,
+                    ];
+                    for (const nk of neigh) {
+                        if (nk < 0 || filled[nk]) continue;
+                        nodeR[nk] = nodeR[k]!; nodeG[nk] = nodeG[k]!; nodeB[nk] = nodeB[k]!;
+                        valid[nk] = 1; filled[nk] = 1;
+                        next.push(nk);
+                    }
+                }
+                queue = next;
+            }
         }
     }
 
