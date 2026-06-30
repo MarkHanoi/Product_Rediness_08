@@ -619,6 +619,15 @@ export class PlatformRouter {
         // route it to the residential generator. The building-type SELECTION is the
         // opt-in (no console flag for this path).
         if (v === 'residential-multifamily') return 'residential-multifamily';
+        // §OFFICE-ONBOARDING-WIRE — the office tower is a wired GENERATOR BRANCH
+        // (OnboardingStepController → generateOffice → OfficeBuildingController), like
+        // residential-multifamily above — NOT a registry-gated Pack. The New-Project
+        // dropdown emits `commercial` for "Commercial building — office"; seed the
+        // office typology id directly so the dispatch (isOfficeTypologyId) routes it to
+        // the office generator instead of falling through to apartment.
+        if (v === 'commercial' || v === 'office' || v === 'office-building' || v === 'commercial-office') {
+            return 'office-building';
+        }
         let candidate: string | undefined;
         if (v === 'apartment') candidate = 'apartment';
         else if (v === 'casa-unifamiliar' || v === 'house' || v === 'casa') candidate = 'casa-unifamiliar';
