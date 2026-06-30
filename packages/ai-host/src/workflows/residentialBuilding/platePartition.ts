@@ -26,7 +26,12 @@
 
 import { trace } from '@opentelemetry/api';
 import type { Pt, Rect } from '../apartmentLayout/tgl/rectDecomposition.js';
-import { rectArea, rectWidth, rectDepth } from '../apartmentLayout/tgl/rectDecomposition.js';
+import {
+    rectArea, rectWidth, rectDepth,
+    // §RESI-RECT-DECOMP — the proven rectilinear slab-sweep decomposition (L/T/U → axis-aligned
+    // rects) + the guillotine core-subtraction, reused to tile a concave plate wing-by-wing.
+    decomposeToRects, subtractRectsFromRects,
+} from '../apartmentLayout/tgl/rectDecomposition.js';
 
 const _tracer = trace.getTracer('@pryzm/ai-host', '0.1.0');
 
@@ -853,14 +858,32 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
     /** Build the corridor bands + spine for one candidate `centreLinesIn`, then PACK the plate into
      *  apartment cells. Pure of any outer mutable state (its own `placements`/`cursor`), so a caller
      *  can pack several candidates and keep the best. Returns the placed cells AND the candidate's
-     *  corridor bands (the downstream clip/absorb passes need the WINNER's bands). */
-    function packPlate(centreLinesIn: readonly number[]): { placements: ApartmentCell[]; corridorBands: Rect[] } {
+     *  corridor bands (the downstream clip/absorb passes need the WINNER's bands).
+     *
+     *  §RESI-RECT-DECOMP (founder 2026-06-29: an L-shape plate fills only ~3 units / one wing) — the
+     *  packer is now parameterised by the RECTANGLE `plate` it tiles (default `bb`, the full bbox).
+     *  The L/T/U rect-decomposition path (`packDecomposed`) calls this once PER SUB-RECTANGLE so each
+     *  wing of a concave plate gets its OWN corridor-grid pack, instead of the whole L being tiled as
+     *  one bbox band that abandons the second wing. A sub-rect that DOES NOT contain the core packs
+     *  its rows against its own edges and its corridors are wired to the core by the connector spine
+     *  the caller adds; a sub-rect that contains the core packs around it exactly as the full bbox did.
+     *  `spineCarve` (default true) controls whether the core/spine X-channel is carved from this
+     *  plate's rows (true for the core-containing wing; for a wing WITHOUT the core the connector spine
+     *  is the only channel, so that wing carves only its own connector column — passed via `connectorX`).
+     *  With `plate === bb` and no overrides this is byte-identical to the pre-decomp packer. */
+    function packPlate(
+        centreLinesIn: readonly number[],
+        plate: Rect = bb,
+        opts: { spineCarve?: boolean; connectorX?: { x0: number; x1: number } } = {},
+    ): { placements: ApartmentCell[]; corridorBands: Rect[] } {
+        const spineCarve = opts.spineCarve ?? true;
+        const connectorX = opts.connectorX;
         const centreLines = [...centreLinesIn];
         // Sort lines top→bottom for deterministic row tiling + neighbour math.
         centreLines.sort((a, b) => a - b);
 
         const corridorBands: Rect[] = centreLines.map((cz) =>
-            normRect({ x0: bb.x0, z0: round4(cz - halfCorr), x1: bb.x1, z1: round4(cz + halfCorr) }),
+            normRect({ x0: plate.x0, z0: round4(cz - halfCorr), x1: plate.x1, z1: round4(cz + halfCorr) }),
         );
 
         // §RESI-CORE-SPINE (founder "the corridors are isolated from the core", 2026-06-23) — the
@@ -871,22 +894,39 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
         // corridor-width and always sits INSIDE the core's X-span, so the channel is continuous (core-
         // width where the core sits, spine-width elsewhere). It is emitted as the column MINUS the core
         // rect → up to two segments (above + below the core); each crosses every horizontal band's Z.
-        if (coreN.z0 - bb.z0 > EPS) corridorBands.push(normRect({ x0: spineX0, z0: bb.z0, x1: spineX1, z1: coreN.z0 }));
-        if (bb.z1 - coreN.z1 > EPS) corridorBands.push(normRect({ x0: spineX0, z0: coreN.z1, x1: spineX1, z1: bb.z1 }));
+        // §RESI-RECT-DECOMP — only the core-containing plate emits the core spine (spineCarve); a wing
+        // without the core is tied to circulation by the connector the caller adds instead.
+        if (spineCarve && spineX0 >= plate.x0 - EPS && spineX1 <= plate.x1 + EPS) {
+            const sTop = Math.max(plate.z0, bb.z0), sBot = Math.min(plate.z1, bb.z1);
+            if (coreN.z0 - sTop > EPS) corridorBands.push(normRect({ x0: spineX0, z0: round4(Math.max(sTop, plate.z0)), x1: spineX1, z1: coreN.z0 }));
+            if (sBot - coreN.z1 > EPS) corridorBands.push(normRect({ x0: spineX0, z0: coreN.z1, x1: spineX1, z1: round4(Math.min(sBot, plate.z1)) }));
+        }
 
         const placements: ApartmentCell[] = [];
         let cursor = 0;
     // The X-runs available on a row. A channel is carved from EVERY row at the core's X so the
     // vertical SPINE corridor runs uninterrupted and links every horizontal band to the core: the
     // FULL core width on rows that straddle the core in Z, else the NARROW spine strip.
+    // §RESI-RECT-DECOMP — the carve is clamped to THIS plate's X-extent; a wing that does not contain
+    // the core's X carves only its `connectorX` column (the corridor that reaches the core), so it
+    // never reserves a phantom core strip outside the wing.
     function runsFor(z0: number, z1: number): Run[] {
         const overlapsCoreZ = !(coreN.z1 <= z0 + EPS || coreN.z0 >= z1 - EPS);
-        const cutX0 = overlapsCoreZ ? coreX0 : spineX0;
-        const cutX1 = overlapsCoreZ ? coreX1 : spineX1;
+        let cutX0: number, cutX1: number;
+        if (spineCarve && spineX0 >= plate.x0 - EPS && spineX1 <= plate.x1 + EPS) {
+            cutX0 = overlapsCoreZ ? coreX0 : spineX0;
+            cutX1 = overlapsCoreZ ? coreX1 : spineX1;
+        } else if (connectorX) {
+            cutX0 = connectorX.x0;
+            cutX1 = connectorX.x1;
+        } else {
+            // No spine, no connector to carve — the whole plate is one run.
+            return [{ x0: plate.x0, x1: plate.x1 }];
+        }
         const runs: Run[] = [];
-        if (cutX0 - bb.x0 > EPS) runs.push({ x0: bb.x0, x1: cutX0 });
-        if (bb.x1 - cutX1 > EPS) runs.push({ x0: cutX1, x1: bb.x1 });
-        return runs.length > 0 ? runs : [{ x0: bb.x0, x1: bb.x1 }];
+        if (cutX0 - plate.x0 > EPS) runs.push({ x0: plate.x0, x1: cutX0 });
+        if (plate.x1 - cutX1 > EPS) runs.push({ x0: cutX1, x1: plate.x1 });
+        return runs.length > 0 ? runs : [{ x0: plate.x0, x1: plate.x1 }];
     }
 
     // Pack one apartment ROW: a band of depth `depth` on one side of a corridor line,
@@ -997,8 +1037,8 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
             // behaviour. Even division has no remainder, so this is a no-op there (byte-identical).
             const packedWidth = nCells * w;
             const remainder = round4(runWidth - packedWidth);
-            const touchesRight = Math.abs(run.x1 - bb.x1) <= 1e-3;
-            const touchesLeft = Math.abs(run.x0 - bb.x0) <= 1e-3;
+            const touchesRight = Math.abs(run.x1 - plate.x1) <= 1e-3;
+            const touchesLeft = Math.abs(run.x0 - plate.x0) <= 1e-3;
             // Slide the whole packed block to the boundary end so a plate-edge run fills its corner.
             // Prefer the right edge when a run somehow touches both (a full-width edge run): the left
             // corner is then covered by the FIRST cell starting at run.x0 anyway (block spans the run).
@@ -1043,6 +1083,9 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
     const STRIP_W_LEFT = round4(spineX0 - coreX0);   // [coreX0, spineX0] left inner strip width
     const STRIP_W_RIGHT = round4(coreX1 - spineX1);  // [spineX1, coreX1] right inner strip width
     function packInnerStrips(rowZ0: number, rowZ1: number, doorEdge: 'z0' | 'z1'): void {
+        // §RESI-RECT-DECOMP — the inner strips beside the CORE only exist on the core-containing plate
+        // (`spineCarve`); a decomposed wing has no core, so its rows are tiled fully by `packRow`.
+        if (!spineCarve) return;
         // §RESI-CORNER-UNITS-ALWAYS guard — packInnerStrips ADDS the inner strips ONLY for a row that
         // OVERLAPS the core in Z (where `runsFor` carves the FULL core width, leaving the strips for
         // this pass). A row entirely OUTSIDE the core's Z-band already has its inner strips filled by
@@ -1092,7 +1135,7 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
         const prevCz = i > 0 ? centreLines[i - 1]! : undefined;
         const frontOuterLimit = prevCz !== undefined
             ? (prevCz + halfCorr + myTop) / 2   // midpoint between the two corridor near-edges
-            : bb.z0;
+            : plate.z0;
         // §RESI-CORNER-UNITS-ALWAYS — the OUTERMOST front row (no prev corridor ⇒ it abuts the plate
         // edge) is allowed the DEEPER cap so it spans corridor→façade and its corner cells reach the
         // edge; an interior front row keeps the standard cap.
@@ -1109,7 +1152,7 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
         const nextCz = i < centreLines.length - 1 ? centreLines[i + 1]! : undefined;
         const backOuterLimit = nextCz !== undefined
             ? (nextCz - halfCorr + myBot) / 2
-            : bb.z1;
+            : plate.z1;
         const backCap = nextCz === undefined ? MAX_OUTER_BAND_DEPTH_M : MAX_APARTMENT_DEPTH_M;
         const backDepth = Math.min(backCap, backOuterLimit - myBot);
         if (backDepth > MIN_ROW_DEPTH - EPS) {
@@ -1120,6 +1163,80 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
         }
 
         return { placements, corridorBands };
+    }
+
+    // ── §RESI-RECT-DECOMP (founder 2026-06-29: a ~1165 m² L-SHAPE plate previewed only 3 units/floor,
+    // both wings + the mid-edge bands wasted) — THE non-rectangular plate-fill. The baseline +
+    // corridor-grid candidates tile the bbox RECTANGLE and rely on the downstream clip to drop the
+    // out-of-boundary cells; on a concave L/T/U that abandons every wing whose depth does not align
+    // with the single bbox-centred corridor grid, so only the band straddling the core fills.
+    //
+    // This candidate instead DECOMPOSES the REAL drawn boundary (`clipPolygon`) into axis-aligned
+    // rectangles (the proven rectilinear slab-sweep `decomposeToRects`), SUBTRACTS the core
+    // (`subtractRectsFromRects`), and packs EACH sub-rectangle with its OWN corridor-grid pack via the
+    // parameterised `packPlate(plate=subRect)`. Circulation is preserved to the core by construction:
+    // a sub-rect that CONTAINS the core packs around it with the normal core spine; a sub-rect WITHOUT
+    // the core is wired to circulation by a CONNECTOR corridor column (`connectorX`) aligned with the
+    // core/neighbour spine, carved from its rows so its doors front that connector. The connector runs
+    // the wing's full depth and butts the core-containing region, so every wing's corridor network is
+    // one connected graph reaching the stair/lift. Deterministic; only contributes a candidate when the
+    // plate is genuinely concave (a rectangle decomposes to ONE rect ⇒ identical to packPlate(bb) ⇒
+    // best-of selection keeps the baseline, no regression).
+    function packDecomposed(): { placements: ApartmentCell[]; corridorBands: Rect[] } | null {
+        if (!clipPolygon || clipPolygon.length < 4) return null;
+        // Decompose the REAL boundary into rects, then carve the core out of every sub-rect so no
+        // apartment tiles over the stair/lift. A clean rectangle yields ONE rect (no benefit) → skip.
+        const rawRects = decomposeToRects(clipPolygon, MIN_ROW_DEPTH);
+        if (rawRects.length < 2) return null;   // not concave enough to beat the bbox pack
+        const subRects = subtractRectsFromRects(rawRects, [coreN], MIN_ROW_DEPTH)
+            // Keep only sub-rects big enough to host at least one feasible apartment band.
+            .filter((r) => rectWidth(r) > MIN_ROW_DEPTH && rectDepth(r) > MIN_ROW_DEPTH);
+        if (subRects.length === 0) return null;
+
+        const allPlacements: ApartmentCell[] = [];
+        const allBands: Rect[] = [];
+        // Pack sub-rects in a deterministic order (top-left first) so cells/cursor are stable.
+        const ordered = [...subRects].sort((a, b) => (a.z0 - b.z0) || (a.x0 - b.x0));
+        for (const sr of ordered) {
+            // Does this sub-rect straddle the core in X (so the core spine sits inside it)?
+            const coreInX = coreN.x0 >= sr.x0 - EPS && coreN.x1 <= sr.x1 + EPS;
+            const coreInZ = !(coreN.z1 <= sr.z0 + EPS || coreN.z0 >= sr.z1 - EPS);
+            const hasCore = coreInX && coreInZ;
+            // Corridor centrelines for THIS sub-rect: walk the same parallel-double-loaded grid within
+            // the sub-rect's depth. The first line is centred on the core's Z when the core is in this
+            // wing, else on the sub-rect's own Z-centre (so its rows tile symmetrically).
+            const srCz = hasCore ? coreCz : round4((sr.z0 + sr.z1) / 2);
+            const lines: number[] = [srCz];
+            const pitch2 = 2 * MAX_APARTMENT_DEPTH_M + corridor.widthM;
+            for (let k = 1; k <= 1000; k++) {
+                const up = round4(srCz - k * pitch2), dn = round4(srCz + k * pitch2);
+                let added = false;
+                if (up - halfCorr > sr.z0 + MIN_ROW_DEPTH) { lines.push(up); added = true; }
+                if (dn + halfCorr < sr.z1 - MIN_ROW_DEPTH) { lines.push(dn); added = true; }
+                if (!added) break;
+            }
+            // A wing WITHOUT the core needs a connector column to reach the core. Align it with the
+            // core's X when the core's X overlaps the wing's X-span (then the wing's connector lines up
+            // with the core spine), else clamp it to the wing edge NEAREST the core in X (so the
+            // connector reaches toward the core-containing region). The connector is corridor-width.
+            let connectorX: { x0: number; x1: number } | undefined;
+            if (!hasCore) {
+                let cx = (spineX0 + spineX1) / 2;
+                if (cx < sr.x0 + halfCorr) cx = sr.x0 + halfCorr;
+                if (cx > sr.x1 - halfCorr) cx = sr.x1 - halfCorr;
+                connectorX = { x0: round4(cx - halfCorr), x1: round4(cx + halfCorr) };
+                // Emit the connector band spanning the wing's depth so the wing's corridors link to it.
+                allBands.push(normRect({ x0: connectorX.x0, z0: sr.z0, x1: connectorX.x1, z1: sr.z1 }));
+            }
+            const packed = packPlate(lines, sr, { spineCarve: hasCore, connectorX });
+            allPlacements.push(...packed.placements);
+            allBands.push(...packed.corridorBands);
+        }
+        // §RESI-RECT-DECOMP CIRCULATION-TIE — add a transverse band along the core's Z-centre across the
+        // FULL bbox so the per-wing connector columns + the core spine join into ONE network (a resident
+        // leaving the stair reaches every wing). Clipped to the boundary downstream like every band.
+        allBands.push(normRect({ x0: bb.x0, z0: round4(coreCz - halfCorr), x1: bb.x1, z1: round4(coreCz + halfCorr) }));
+        return allPlacements.length > 0 ? { placements: allPlacements, corridorBands: allBands } : null;
     }
 
     // §RESI-CORRIDOR-GRID — pack every candidate and keep the BEST. The score is the count of
@@ -1135,8 +1252,8 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
     let best = packPlate(candidateLineSets[0]!);
     let bestArea = best.placements.reduce((s, c) => s + c.areaM2, 0);
     let bestFeasible = feasibleCount(best.placements);
-    for (let ci = 1; ci < candidateLineSets.length; ci++) {
-        const cand = packPlate(candidateLineSets[ci]!);
+    const considerCandidate = (cand: { placements: ApartmentCell[]; corridorBands: Rect[] } | null): void => {
+        if (!cand) return;
         const candArea = cand.placements.reduce((s, c) => s + c.areaM2, 0);
         const candFeasible = feasibleCount(cand.placements);
         if (candFeasible > bestFeasible ||
@@ -1146,7 +1263,15 @@ function _partition(input: PlatePartitionInput): PlatePartitionOutput {
             bestFeasible = candFeasible;
             bestArea = candArea;
         }
+    };
+    for (let ci = 1; ci < candidateLineSets.length; ci++) {
+        considerCandidate(packPlate(candidateLineSets[ci]!));
     }
+    // §RESI-RECT-DECOMP — the wing-by-wing rect-decomposition candidate (concave L/T/U plates only). It
+    // wins on a concave plate because it fills EVERY wing's corridor grid (the bbox candidates abandon
+    // the wing that doesn't align with the single bbox-centred grid); on a rectangle it produces ONE
+    // sub-rect ⇒ packDecomposed returns null ⇒ the baseline keeps winning (byte-identical, no regress).
+    if (corridorGrid) considerCandidate(packDecomposed());
     const placements = best.placements;
     const corridorBands = best.corridorBands;
     // The residual-absorption pass (flag ON) appends EXTRA cells from the demand tail; it consumes

@@ -83,6 +83,79 @@ describe('partitionLevelPlate — §RESI-CLIP-BOUNDARY (non-rectangular plate)',
     });
 });
 
+describe('partitionLevelPlate — §RESI-RECT-DECOMP (L-shape fills BOTH wings)', () => {
+    // The founder's case: a large concave L plate (~1165 m²) with a central core, 30 m² min units.
+    // A 44×40 bbox (1760) with the top-right 24×20 quadrant removed → 1760 − 480 = 1280 m² (≈ the
+    // founder's ~1165 m²). The vertical wing is x∈[0,20], the horizontal wing is z∈[20,40].
+    const W = 44, D = 40, NOTCH_X = 20, NOTCH_Z = 20;
+    const bigL: Pt[] = [
+        { x: 0, z: 0 }, { x: NOTCH_X, z: 0 }, { x: NOTCH_X, z: NOTCH_Z },
+        { x: W, z: NOTCH_Z }, { x: W, z: D }, { x: 0, z: D },
+    ];
+    // Core sits in the L's solid lower-left (inside both wings' junction), 4×3, small corridors.
+    const core: Rect = { x0: 8, z0: 24, x1: 12, z1: 27 };
+    // 30–100 m² band → small T1/T2 units, plenty of capacity.
+    const T30: ApartmentDemand = { typology: 'T1', minAreaM2: 30, maxAreaM2: 55 };
+    const demand = Array.from({ length: 60 }, () => T30);
+
+    function lInput(): PlatePartitionInput {
+        return {
+            levelIndex: 2,
+            // The orchestrator hands the partition the BBOX rectangle as `footprint` + the real L as clip.
+            footprint: rectPoly(W, D),
+            core,
+            corridor: { widthM: 1.4 },
+            apartments: demand,
+            clipPolygon: bigL,
+        };
+    }
+
+    function inPoly(px: number, pz: number, poly: Pt[]): boolean {
+        let inside = false;
+        for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+            const a = poly[i]!, b = poly[j]!;
+            if (((a.z > pz) !== (b.z > pz)) && px < ((b.x - a.x) * (pz - a.z)) / (b.z - a.z) + a.x) inside = !inside;
+        }
+        return inside;
+    }
+
+    it('places WELL MORE than 3 units on the L plate (the founder under-fill bug)', () => {
+        const res = expectOk(partitionLevelPlate(lInput()));
+        expect(res.apartmentCells.length).toBeGreaterThan(3);
+        expect(res.apartmentCells.length).toBeGreaterThanOrEqual(8);
+    });
+
+    it('fills BOTH wings — the vertical wing (z<NOTCH_Z) AND the horizontal wing (x>NOTCH_X)', () => {
+        const res = expectOk(partitionLevelPlate(lInput()));
+        // Vertical wing: cells whose centre sits in the upper part (z < NOTCH_Z) of the x∈[0,NOTCH_X] leg.
+        const inVerticalWing = res.apartmentCells.filter((c) => {
+            const cz = (c.rect.z0 + c.rect.z1) / 2;
+            return cz < NOTCH_Z - 1;
+        });
+        // Horizontal wing: cells whose centre sits past the notch (x > NOTCH_X).
+        const inHorizontalWing = res.apartmentCells.filter((c) => {
+            const cx = (c.rect.x0 + c.rect.x1) / 2;
+            return cx > NOTCH_X + 1;
+        });
+        expect(inVerticalWing.length).toBeGreaterThan(0);
+        expect(inHorizontalWing.length).toBeGreaterThan(0);
+    });
+
+    it('every placed cell centre is INSIDE the real L boundary (no phantom notch units)', () => {
+        const res = expectOk(partitionLevelPlate(lInput()));
+        for (const c of res.apartmentCells) {
+            const cx = (c.rect.x0 + c.rect.x1) / 2, cz = (c.rect.z0 + c.rect.z1) / 2;
+            expect(inPoly(cx, cz, bigL)).toBe(true);
+        }
+    });
+
+    it('is deterministic (same input → same cell count)', () => {
+        const a = expectOk(partitionLevelPlate(lInput()));
+        const b = expectOk(partitionLevelPlate(lInput()));
+        expect(b.apartmentCells.length).toBe(a.apartmentCells.length);
+    });
+});
+
 describe('partitionLevelPlate — rectangular plate', () => {
     for (const n of [2, 3, 4]) {
         it(`packs ${n} apartments, corridor reaches every cell`, () => {

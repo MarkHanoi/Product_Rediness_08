@@ -67,6 +67,8 @@ import { generateHouseFromBoundary, type FootprintPoint } from '../house-layout/
 import { generateResidentialFromBoundary } from '../residential-building/residentialFromBoundary.js';
 import { buildResidentialCardModel, type ResidentialCardModel } from '../residential-building/residentialCardModel.js';
 import { buildResidentialPlanSvg } from '../residential-building/residentialPlanThumbnail.js';
+// §RESI-CIRC-GRAPH — the per-floor circulation bubble graph (house-modal parity), shown BELOW the plan.
+import { buildResidentialCirculationGraphSvg } from '../residential-building/residentialCirculationGraph.js';
 // §BUILDING-PREVIEW-MODULAR — the shared, building-type-agnostic façade palette (single source).
 import { FACADE_PALETTE, DEFAULT_FACADE_HEX } from '../preview-kit/buildingPlanDescriptor.js';
 import { orchestrateResidentialBuilding } from '@pryzm/ai-host';
@@ -1160,9 +1162,25 @@ class OnboardingStepController {
             const aptWord = card.totalApartments === 1 ? 'apartment' : 'apartments';
             const flrWord = card.upperLevels === 1 ? 'floor' : 'floors';
             const caption = plan.levelLabel || (floor ? floor.label : '');
+            // §RESI-CIRC-GRAPH — the floor's circulation bubble graph (core hub + one node per
+            // apartment, each edged to the core), shown BELOW the plan. CONSUME-ONLY of the shared
+            // bubble renderer (the house modal's Living-Graph language). Empty on a no-apartment floor.
+            let graphHtml = '';
+            try {
+                const graph = buildResidentialCirculationGraphSvg(result, { levelIndex: idx });
+                if (graph.svg) {
+                    graphHtml =
+                        `<div class="os-resi-preview-graph">` +
+                        `<div class="os-resi-preview-graph-head">Circulation · core + ${graph.nodeCount} unit${graph.nodeCount === 1 ? '' : 's'}</div>` +
+                        `<div class="os-resi-preview-graph-svg">${graph.svg}</div></div>`;
+                }
+            } catch (e) {
+                console.warn('[onboarding-step] §RESI-CIRC-GRAPH render failed (non-fatal):', e);
+            }
             preview.innerHTML =
                 (plan.svg ? `<div class="os-resi-preview-plan">${plan.svg}</div>` +
                     `<div class="os-resi-preview-caption">${this.escResi(caption)} · ${this.escResi(levelLine)}</div>` : ``) +
+                graphHtml +
                 `<div class="os-resi-preview-head"><strong>${card.totalApartments}</strong> ${aptWord} · ` +
                 `<strong>${Math.round(card.totalNetAreaM2)}</strong> m² net · <strong>${card.upperLevels}</strong> residential ${flrWord}</div>` +
                 `<div class="os-resi-preview-mix">${mixStr}</div>` +
