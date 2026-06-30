@@ -1,4 +1,7 @@
 import * as THREE from '@pryzm/renderer-three/three';
+// §I2 — WebGPU-safe disposal: stops `[WindowBuilder] build error: … usedTimes`
+// aborting rebuild() during the live element-rebuild churn.
+import { safeDisposeGeometry, safeDisposeMaterial } from '@pryzm/renderer-three';
 import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-scheduler';
 import { windowStore } from './WindowStore';
 import { windowSystemTypeStore } from './WindowSystemTypeStore';
@@ -577,7 +580,7 @@ export class WindowBuilder {
         if (group) {
             group.traverse(obj => {
                 if (obj instanceof THREE.Mesh) {
-                    obj.geometry.dispose();
+                    safeDisposeGeometry(obj.geometry); // §I2 — WebGPU-safe
                 }
             });
             this.scene.remove(group);
@@ -588,7 +591,7 @@ export class WindowBuilder {
         }
         const mats = this.windowMaterials.get(id);
         if (mats) {
-            for (const m of mats) m.dispose();
+            for (const m of mats) safeDisposeMaterial(m); // §I2 — WebGPU-safe
             this.windowMaterials.delete(id);
         }
     }

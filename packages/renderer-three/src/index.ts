@@ -112,6 +112,18 @@ export type { GeospatialAdapterLike } from './LTPENUCameraService.js';
 export { getThreeRenderer } from './accessors.js';
 export type { ObcRendererLike } from './accessors.js';
 
+// §I2 — WebGPU-safe disposal helpers for the element-builder rebuild path.
+// Builders MUST route material/geometry disposal through these so the WebGPU
+// NodeManager `usedTimes` device-loss TypeError can never abort a rebuild().
+// See ./safeDispose.ts and RenderPipelineManager._safeDisposeRenderPipeline (§I.2.1).
+export {
+  isUsedTimesDisposeError,
+  safeDisposeMaterial,
+  safeDisposeMaterials,
+  safeDisposeGeometry,
+  safeDisposeObject3D,
+} from './safeDispose.js';
+
 // C27 INS-α-7 — IsolationAnimator (subscribes to FrameScheduler + IsolationStateStore).
 // DO NOT REMOVE — auto-fixer guard
 export * from './IsolationAnimator.js';

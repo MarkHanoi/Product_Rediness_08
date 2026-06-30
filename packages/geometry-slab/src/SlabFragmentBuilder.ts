@@ -1,4 +1,6 @@
 import * as THREE from '@pryzm/renderer-three/three';
+// §I2 — WebGPU-safe subtree disposal for the live slab-rebuild teardown.
+import { safeDisposeObject3D } from '@pryzm/renderer-three';
 import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-scheduler';
 import { SlabData } from './SlabTypes';
 import { BimManager } from '@pryzm/core-app-model';
@@ -401,22 +403,7 @@ export class SlabFragmentBuilder {
             ? data.polygon.map(p => ({ x: p.x, y: p.y }))
             : undefined;
 
-        root.traverse((child) => {
-            if ((child as THREE.Mesh).isMesh) {
-                const mesh = child as THREE.Mesh;
-                if (mesh.geometry) mesh.geometry.dispose();
-                if (Array.isArray(mesh.material)) {
-                    mesh.material.forEach(m => m.dispose());
-                } else if (mesh.material) {
-                    (mesh.material as THREE.Material).dispose();
-                }
-            }
-            if ((child as THREE.LineSegments).isLineSegments) {
-                const line = child as THREE.LineSegments;
-                if (line.geometry) line.geometry.dispose();
-                if (line.material) (line.material as THREE.Material).dispose();
-            }
-        });
+        safeDisposeObject3D(root); // §I2 — WebGPU-safe subtree teardown
 
         root.clear();
 
@@ -507,22 +494,7 @@ export class SlabFragmentBuilder {
 
         const root = this.slabRoots.get(id);
         if (root) {
-            root.traverse((child) => {
-                if ((child as THREE.Mesh).isMesh) {
-                    const mesh = child as THREE.Mesh;
-                    if (mesh.geometry) mesh.geometry.dispose();
-                    if (Array.isArray(mesh.material)) {
-                        mesh.material.forEach(m => m.dispose());
-                    } else if (mesh.material) {
-                        (mesh.material as THREE.Material).dispose();
-                    }
-                }
-                if ((child as THREE.LineSegments).isLineSegments) {
-                    const line = child as THREE.LineSegments;
-                    if (line.geometry) line.geometry.dispose();
-                    if (line.material) (line.material as THREE.Material).dispose();
-                }
-            });
+            safeDisposeObject3D(root); // §I2 — WebGPU-safe subtree teardown
 
             this.scene.remove(root);
             this.slabRoots.delete(id);

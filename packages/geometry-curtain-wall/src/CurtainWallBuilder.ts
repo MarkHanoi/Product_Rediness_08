@@ -104,6 +104,9 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
+// §I2 — WebGPU-safe disposal (preserves the shared-resource guards below; only
+// the dispose CALL is hardened against the `usedTimes` device-loss throw).
+import { safeDisposeGeometry, safeDisposeMaterials } from '@pryzm/renderer-three';
 import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-scheduler';
 import { CurtainWallData } from './CurtainWallTypes';
 import { VisualStyle } from '@pryzm/core-app-model/material-library';
@@ -2239,15 +2242,12 @@ export class CurtainWallBuilder {
         // matching WallFragmentBuilder._disposeWallGroupChildren's pattern.
         group.traverse((obj) => {
             if (!(obj instanceof THREE.Mesh) && !(obj instanceof THREE.InstancedMesh)) return;
+            // §I2 — keep the shared-resource guards; only the dispose call is hardened.
             if (!obj.userData?.sharedGeometry) {
-                obj.geometry?.dispose?.();
+                safeDisposeGeometry(obj.geometry);
             }
             if (!obj.userData?.sharedMaterial) {
-                if (Array.isArray(obj.material)) {
-                    obj.material.forEach((m: THREE.Material) => m.dispose());
-                } else if (obj.material) {
-                    (obj.material as THREE.Material).dispose();
-                }
+                safeDisposeMaterials(obj.material);
             }
         });
     }

@@ -37,6 +37,8 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
+// §I2 — WebGPU-safe subtree disposal for the live column-rebuild teardown.
+import { safeDisposeObject3D } from '@pryzm/renderer-three';
 import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-scheduler';
 import { ColumnData } from './ColumnTypes';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
@@ -492,17 +494,7 @@ export class ColumnFragmentBuilder {
     }
 
     private _disposeMesh(obj: THREE.Object3D): void {
-        obj.traverse(child => {
-            const m = child as THREE.Mesh;
-            if (m.isMesh) {
-                m.geometry?.dispose();
-                if (Array.isArray(m.material)) {
-                    m.material.forEach(mat => mat.dispose());
-                } else {
-                    (m.material as THREE.Material)?.dispose();
-                }
-            }
-        });
+        safeDisposeObject3D(obj); // §I2 — WebGPU-safe subtree teardown
     }
 
     /**

@@ -16,6 +16,8 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
+// §I2 — WebGPU-safe subtree disposal for the live ceiling-rebuild teardown.
+import { safeDisposeObject3D } from '@pryzm/renderer-three';
 import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-scheduler';
 import { CeilingData, CeilingHoleElement, CeilingVertex } from '@pryzm/core-app-model/stores';
 import { computeCeilingArea as computeArea, computeCeilingBoundingBox as computeBoundingBox, ensureCeilingCCW as ensureCCW,  } from '@pryzm/core-app-model/stores';
@@ -445,18 +447,6 @@ export class CeilingPanelBuilder {
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   private _disposeObject(obj: THREE.Object3D): void {
-    if ((obj as THREE.Mesh).isMesh) {
-      const mesh = obj as THREE.Mesh;
-      mesh.geometry?.dispose();
-      if (Array.isArray(mesh.material)) {
-        mesh.material.forEach(m => m.dispose());
-      } else {
-        (mesh.material as THREE.Material)?.dispose();
-      }
-    } else if ((obj as THREE.LineSegments).isLine) {
-      const line = obj as THREE.LineSegments;
-      line.geometry?.dispose();
-      (line.material as THREE.Material)?.dispose();
-    }
+    safeDisposeObject3D(obj); // §I2 — WebGPU-safe subtree teardown
   }
 }
