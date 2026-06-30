@@ -42,11 +42,14 @@ import { windRoseBars } from "../climate/climateChartData";
 import {
     buildSiteMetricGrid,
     prepareSunHoursGrid,
+    // §SITE-METRIC-DAYLIGHT-VSC — chunkable Vertical Sky Component ground grid.
+    prepareDaylightVscGrid,
     siteMetricLegend,
     type SiteMetric,
     type MetricFootprint,
     type MetricGridCell,
     type SunHoursCell,
+    type DaylightVscCell,
 } from "../climate/siteMetricGrids";
 // §SITE-METRIC-HEATMAP-CHUNKED — frame-budget-friendly deferral so the larger /
 // finer ground heatmap (esp. the per-cell sun-hours raycast) fills in progressively
@@ -3786,12 +3789,13 @@ export class CesiumViewport {
 
   /**
    * Show ONE site metric as a colour-binned ground heatmap (or clear with null).
-   * Ground-grid metrics draw here: sun hours / temperature / wind / population.
-   * 'daylight' clears the ground layer (it rides the BIM per-room pass).
+   * Ground-grid metrics draw here: sun hours / daylight VSC / temperature / wind /
+   * population. §SITE-METRIC-DAYLIGHT-VSC (2026-06-30) — 'daylight' is now a real
+   * side-3D ground grid (per-cell Vertical Sky Component against the massing + OSM
+   * context), no longer a BIM-view-only pass.
    * The analysis controls own the metric switch + legend; this just renders.
    */
   public setSiteMetricOverlay(metric: SiteMetric | null): void {
-    if (metric === 'daylight') metric = null;
     this.siteMetricActive = metric;
     if (metric) this.renderSiteMetricOverlay();
     else this.clearSiteMetricOverlay();
@@ -3877,7 +3881,6 @@ export class CesiumViewport {
     const origin = this.overlayOrigin();
     this.clearSiteMetricOverlay();                 // also cancels in-flight chunks
     if (!viewer || !metric || !origin) return;
-    if (metric === 'daylight') return;             // BIM-view-only (per-room VSC)
 
     const seq = ++this.siteMetricBuildSeq;         // this build's token
     const radius = this.siteMetricRadiusM();
@@ -3937,6 +3940,29 @@ export class CesiumViewport {
             if (cell) paintCell(cell);
           }
         }, () => console.log(`[CesiumViewport][site-metric] sunHours heatmap: ${this.siteMetricEntities.length} cell(s), radius ${radius.toFixed(0)} m (chunked${legend ? `, ${legend.title}` : ''}).`));
+        return;
+      }
+
+      if (metric === 'daylight') {
+        // §SITE-METRIC-DAYLIGHT-VSC — Vertical Sky Component: prepare once (grid +
+        // context prisms), then evaluate + paint the per-cell sky sweep in batches
+        // across frames (heavy like sun-hours, so chunked the same way). Needs only
+        // the analysis disc — no climate dataset, no lat/lon, no BIM mesh.
+        const prep = prepareDaylightVscGrid({
+          radius,
+          footprints,
+          dataset: null,
+          heightAboveGround: 0.16,
+          cellSizeM: 2.5,
+          maxCells: 9000,            // matches the sun-hours cap; the sweep stays chunked
+        });
+        if (!prep) return;
+        this.chunkBuild(seq, prep.cells.length, 220, (lo, hi) => {
+          for (let i = lo; i < hi; i++) {
+            const cell = prep.evaluate(prep.cells[i] as DaylightVscCell);
+            if (cell) paintCell(cell);
+          }
+        }, () => console.log(`[CesiumViewport][site-metric] daylight VSC heatmap: ${this.siteMetricEntities.length} cell(s), radius ${radius.toFixed(0)} m (chunked${legend ? `, ${legend.title}` : ''}).`));
         return;
       }
 
