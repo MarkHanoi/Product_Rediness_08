@@ -917,7 +917,9 @@ export class FormaSiteAnalysisControls {
             } else {
                 chip.title = a.metric === 'sunHours'
                     ? 'Colour the site by direct sun-hours (shadow study)'
-                    : `Colour the site by ${a.label.toLowerCase()}`;
+                    : a.metric === 'population'
+                        ? 'Colour the site by an OSM footprint-density proxy (GFA = footprint × floors) — not census data'
+                        : `Colour the site by ${a.label.toLowerCase()}`;
                 chip.addEventListener('click', () => this.selectMetric(a.metric));
             }
             row.appendChild(chip);
@@ -994,6 +996,42 @@ export class FormaSiteAnalysisControls {
         labels.appendChild(lo);
         labels.appendChild(hi);
         wrap.appendChild(labels);
+
+        // §SITE-METRIC-DATA-SOURCE-NOTE (founder 2026-06-30) — a one-line provenance
+        // caption under the legend so the data source is never ambiguous. Population is
+        // an OSM building-footprint × floor-count DENSITY PROXY, NOT census/WorldPop;
+        // temperature/wind read the (possibly bundled/estimated) climate normals.
+        const note = this.metricSourceNote(this.activeMetric);
+        if (note) {
+            const cap = document.createElement('div');
+            cap.textContent = note;
+            cap.title = note;
+            Object.assign(cap.style, {
+                font: '400 9px/1.3 system-ui', color: '#8a83a6', marginTop: '3px',
+            } satisfies Partial<CSSStyleDeclaration>);
+            wrap.appendChild(cap);
+        }
+    }
+
+    /** §SITE-METRIC-DATA-SOURCE-NOTE — a short provenance caption for the active metric
+     *  so its data source / limitations are explicit in the panel (and as a tooltip). */
+    private metricSourceNote(metric: SiteMetric): string | null {
+        switch (metric) {
+            case 'population':
+                return 'OSM proxy: building footprint × floors (GFA) — not census/WorldPop. ' +
+                    'Indicates relative built density, not measured residents.';
+            case 'temperature':
+                return 'Urban heat-island ΔT over the site climate baseline (estimated regional ' +
+                    'normals until live data refines), modulated by OSM built density.';
+            case 'wind':
+                return 'Lawson pedestrian-comfort proxy from the climate wind rose + OSM shelter ' +
+                    '(estimated regional normals until live data refines).';
+            case 'sunHours':
+                return 'Direct-beam sun-hours on the analysis day, shadowed by the massing + ' +
+                    'OSM context (pure analytic shadow study).';
+            default:
+                return null;
+        }
     }
 
     private renderWindRose(): void {
