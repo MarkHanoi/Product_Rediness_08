@@ -84,6 +84,11 @@ export interface FormaSunViewport {
     setSiteMetricOverlay?(metric: SiteMetric | null): void;
     getSiteMetricOverlay?(): SiteMetric | null;
     setSiteMetricSunDay?(day: 'summer' | 'equinox' | 'winter'): void;
+    // §FORMA-FACADE-ANALYSIS (ADR-0093) — on-demand sun-hours on the DESIGNED
+    // building's outer façade + roof (DEFAULT OFF). Optional: degrade gracefully when
+    // the viewport doesn't implement it (test stub / older build).
+    setFacadeAnalysis?(on: boolean): void;
+    getFacadeAnalysis?(): boolean;
 }
 
 /** Season presets → a representative day (UTC midnight) of the current year. */
@@ -115,6 +120,11 @@ export class FormaSiteAnalysisControls {
     /** Sun-hours analysis-day preset row + current preset (default summer solstice). */
     private sunDayRow: HTMLElement | null = null;
     private sunDay: 'summer' | 'equinox' | 'winter' = 'summer';
+    /** §FORMA-FACADE-ANALYSIS — the "Analyse building façade" toggle row + state. The
+     *  toggle is DEFAULT OFF (analysis paints only on the ground); shown only while the
+     *  sun-hours heatmap is active (façade priority metric = sun-hours). */
+    private facadeRow: HTMLElement | null = null;
+    private facadeOn = false;
     /** Guards a single proactive `ensureSiteClimate` per mount (avoid loops). */
     private climateEnsureRequested = false;
     /** SITE-PANEL-UI — user dismissed the panel (✕). STATIC so the choice persists
@@ -235,6 +245,8 @@ export class FormaSiteAnalysisControls {
             this.viewport.setHeatOverlay?.(false);
             // §SITE-METRIC-HEATMAP — clear any active ground heatmap on view exit.
             this.viewport.setSiteMetricOverlay?.(null);
+            // §FORMA-FACADE-ANALYSIS — clear the façade study on view exit.
+            this.viewport.setFacadeAnalysis?.(false);
         } catch { /* ignore */ }
         try { if (isClimatePanelOpen()) closeClimatePanel(); } catch { /* ignore */ }
         if (this.root?.parentElement) this.root.parentElement.removeChild(this.root);
@@ -250,6 +262,8 @@ export class FormaSiteAnalysisControls {
         this.metricChipRow = null;
         this.metricLegendWrap = null;
         this.sunDayRow = null;
+        this.facadeRow = null;
+        this.facadeOn = false;
         this.activeMetric = null;
         this.climateEnsureRequested = false;
     }
@@ -846,12 +860,20 @@ export class FormaSiteAnalysisControls {
         this.sunDayRow = sunDay;
         block.appendChild(sunDay);
 
+        // §FORMA-FACADE-ANALYSIS — the "Analyse building façade" toggle (default OFF;
+        // shown only while sun-hours is the active metric).
+        const facade = document.createElement('div');
+        Object.assign(facade.style, { display: 'none', marginTop: '4px' });
+        this.facadeRow = facade;
+        block.appendChild(facade);
+
         const legend = document.createElement('div');
         this.metricLegendWrap = legend;
         block.appendChild(legend);
 
         this.renderMetricChips();
         this.renderSunDayRow();
+        this.renderFacadeToggle();
         block.appendChild(this.smallNote(
             this.metricSupported()
                 ? 'Pick one metric to colour the site. Sun hours = direct-sun shadow study; others read climate + OSM.'
@@ -892,6 +914,48 @@ export class FormaSiteAnalysisControls {
             });
             row.appendChild(b);
         }
+    }
+
+    /** §FORMA-FACADE-ANALYSIS — the "Analyse building façade" toggle (DEFAULT OFF).
+     *  Shown only while the sun-hours heatmap is active (façade priority = sun-hours);
+     *  ON also colours the designed building's outer façade + roof by sun-hours with
+     *  the SAME ramp. Degrades to disabled when the viewport can't paint façades. */
+    private renderFacadeToggle(): void {
+        const row = this.facadeRow;
+        if (!row) return;
+        row.replaceChildren();
+        const supported = typeof this.viewport.setFacadeAnalysis === 'function';
+        // Only meaningful for the sun-hours metric (the priority façade metric).
+        if (this.activeMetric !== 'sunHours') { row.style.display = 'none'; return; }
+        row.style.display = 'block';
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.setAttribute('data-testid', 'forma-facade-toggle');
+        const paint = () => {
+            btn.textContent = this.facadeOn ? '🏢 Façade analysis: ON' : '🏢 Analyse building façade';
+            btn.style.background = this.facadeOn ? ACCENT : '#faf8ff';
+            btn.style.color = this.facadeOn ? '#ffffff' : (supported ? ACCENT : '#bdb6d6');
+        };
+        Object.assign(btn.style, {
+            width: '100%', appearance: 'none', cursor: supported ? 'pointer' : 'not-allowed',
+            border: `1px solid ${this.facadeOn ? ACCENT : '#e3dcfa'}`, borderRadius: '6px',
+            font: '600 11px/1 system-ui', padding: '6px 4px',
+        } satisfies Partial<CSSStyleDeclaration>);
+        paint();
+        if (supported) {
+            btn.title = 'Colour the designed building’s façade + roof by direct sun-hours';
+            btn.addEventListener('click', () => {
+                this.facadeOn = !this.facadeOn;
+                paint();
+                try { this.viewport.setFacadeAnalysis?.(this.facadeOn); }
+                catch (e) { console.warn('[forma-analysis] façade toggle failed:', e); }
+            });
+        } else {
+            btn.disabled = true;
+            btn.title = 'This view does not support façade analysis.';
+        }
+        row.appendChild(btn);
     }
 
     /** (Re)build the chip row from the current data availability. */
@@ -952,8 +1016,16 @@ export class FormaSiteAnalysisControls {
         }
         try { this.viewport.setSiteMetricOverlay?.(next); } catch (e) { console.warn('[forma-analysis] metric overlay failed:', e); }
 
-        // Show the sun-day preset row only while the sun-hours heatmap is active.
+        // §FORMA-FACADE-ANALYSIS — leaving sun-hours clears the façade study (the
+        // viewport already clears on the metric switch; keep the UI state in sync).
+        if (next !== 'sunHours' && this.facadeOn) {
+            this.facadeOn = false;
+            try { this.viewport.setFacadeAnalysis?.(false); } catch { /* ignore */ }
+        }
+
+        // Show the sun-day preset row + façade toggle only while sun-hours is active.
         this.renderSunDayRow();
+        this.renderFacadeToggle();
         this.renderMetricChips();
         this.renderMetricLegend();
     }

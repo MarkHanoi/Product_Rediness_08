@@ -63,6 +63,12 @@ import {
     type SunHoursCell,
     type MetricTexture,
     type DaylightVscCell,
+    // §FORMA-FACADE-ANALYSIS (ADR-0093) — sun-hours on the DESIGNED building's outer
+    // façade + roof (on-demand toggle), using the SAME ramp + direct-beam shadow test
+    // as the ground sun-hours heatmap. Pure compute (no Cesium/THREE), chunkable.
+    prepareFacadeSunGrid,
+    type FacadeSamplePoint,
+    type FacadeSunPrep,
 } from "../climate/siteMetricGrids";
 // §SITE-METRIC-HEATMAP-CHUNKED — frame-budget-friendly deferral so the larger /
 // finer ground heatmap (esp. the per-cell sun-hours raycast) fills in progressively
@@ -557,6 +563,19 @@ export class CesiumViewport {
   private siteMetricChunkCancellers: DeferWorkCanceller[] = [];
   /** Monotonic build token — a chunk callback bails if a newer build superseded it. */
   private siteMetricBuildSeq = 0;
+
+  // ---- §FORMA-FACADE-ANALYSIS (ADR-0093) — sun-hours on the DESIGNED building ----
+  /** ON-demand façade analysis toggle (DEFAULT OFF — analysis paints only on the
+   *  ground until the user turns this on). When ON AND the active metric is sun-hours,
+   *  the designed building's outer façade + roof are coloured by direct sun-hours. */
+  private facadeAnalysisOn = false;
+  /** Coloured façade quad entities (own layer — cleared independently). */
+  private facadeAnalysisEntities: Cesium.Entity[] = [];
+  /** Cancellers for the in-flight CHUNKED façade build. */
+  private facadeAnalysisChunkCancellers: DeferWorkCanceller[] = [];
+  /** Monotonic façade build token — a chunk bails if a newer build superseded it. */
+  private facadeAnalysisBuildSeq = 0;
+
   /** The last OSM context collection (footprints + heights, lon/lat) so the
    *  population/wind/heat grids can read built density. Captured on context load. */
   private lastContextCollection: ContextBuildingCollection | null = null;
@@ -4039,6 +4058,13 @@ export class CesiumViewport {
     this.siteMetricActive = metric;
     if (metric) this.renderSiteMetricOverlay();
     else this.clearSiteMetricOverlay();
+    // §FORMA-FACADE-ANALYSIS — the façade study follows the active metric: it only
+    // paints when sun-hours is active AND the façade toggle is ON. Repaint/clear to
+    // stay in sync with a metric switch (e.g. sun-hours → temperature clears it).
+    if (this.facadeAnalysisOn) {
+      if (metric === 'sunHours') this.renderFacadeAnalysis();
+      else this.clearFacadeAnalysis();
+    }
   }
 
   /** The active ground-heatmap metric, or null. */
@@ -4051,6 +4077,184 @@ export class CesiumViewport {
   public setSiteMetricSunDay(day: 'summer' | 'winter' | 'equinox'): void {
     this.siteMetricSunDay = day;
     if (this.siteMetricActive === 'sunHours') this.renderSiteMetricOverlay();
+    // §FORMA-FACADE-ANALYSIS — the façade study uses the SAME analysis day, so repaint
+    // it too when it's active (matches the ground heatmap's day preset).
+    if (this.facadeAnalysisOn && this.siteMetricActive === 'sunHours') this.renderFacadeAnalysis();
+  }
+
+  // ---- §FORMA-FACADE-ANALYSIS (ADR-0093) — sun-hours on the designed building ----
+
+  /**
+   * §FORMA-FACADE-ANALYSIS — toggle the on-demand FAÇADE sun analysis (DEFAULT OFF).
+   * When ON and the active metric is sun-hours, colour the user's DESIGNED building's
+   * outer façade + roof by direct sun-hours (the SAME ramp + shadow test as the ground
+   * heatmap), NOT the context buildings. When OFF, analysis paints only on the ground.
+   * Clears cleanly on OFF / when the active metric isn't sun-hours.
+   */
+  public setFacadeAnalysis(on: boolean): void {
+    this.facadeAnalysisOn = !!on;
+    if (this.facadeAnalysisOn && this.siteMetricActive === 'sunHours') {
+      this.renderFacadeAnalysis();
+    } else {
+      this.clearFacadeAnalysis();
+    }
+  }
+
+  /** §FORMA-FACADE-ANALYSIS — current façade-analysis toggle state. */
+  public getFacadeAnalysis(): boolean {
+    return this.facadeAnalysisOn;
+  }
+
+  /**
+   * §FORMA-FACADE-ANALYSIS — paint the designed building's façade + roof by sun-hours.
+   * Reuses the building FOOTPRINT (`formaLastMassingInput.boundary`, scene-XZ → ENU)
+   * and storey heights, samples points across each exterior wall face + roof, and runs
+   * the SAME direct-beam shadow test the ground grid uses (chunked across frames so the
+   * per-point raycast never freezes the viewport). Each point becomes a small coloured
+   * quad on the building surface, in the SAME blue→teal→gold→warm sun-hours ramp.
+   */
+  private renderFacadeAnalysis(): void {
+    const viewer = this.viewer;
+    const origin = this.overlayOrigin();
+    this.clearFacadeAnalysis();                       // also cancels in-flight chunks
+    if (!viewer || !origin || !this.facadeAnalysisOn) return;
+    if (this.siteMetricActive !== 'sunHours') return; // priority metric = sun-hours
+
+    const input = this.formaLastMassingInput;
+    const boundary = input?.boundary;
+    if (!boundary || boundary.length < 3) {
+      console.log('[CesiumViewport][forma-facade] no building footprint — skipping façade analysis.');
+      return;
+    }
+
+    // Building exterior ring: scene-XZ → ENU metres (east = x, north = −z), in the
+    // metric `Pt` convention (x = east, z = north) the occluder prisms also use.
+    const ring = boundary.map((p) => ({ x: p.x, z: -p.z }));
+    // Building top height = the tallest storey band's base + height (the roof level).
+    let heightM = 0;
+    for (const b of this.formaStoreyBands) {
+      const top = (b.baseElevation || 0) + (b.heightM || 0);
+      if (top > heightM) heightM = top;
+    }
+    if (!(heightM > 0)) heightM = 3; // single-storey fallback
+
+    // Occluders = OSM context + the proposed massing (the same set the ground grid uses).
+    const occluders = this.siteMetricFootprints(origin);
+
+    const prep: FacadeSunPrep | null = prepareFacadeSunGrid({
+      footprintRings: [ring],
+      heightM,
+      occluders,
+      latDeg: origin.lat,
+      lngDeg: origin.lon,
+      sunDay: this.siteMetricSunDay,
+      sunStepMinutes: 25,
+      sampleSpacingM: 2.5,
+      maxSamples: 3500,
+    });
+    if (!prep) return;
+
+    const seq = ++this.facadeAnalysisBuildSeq;
+    const base = this.formaTerrainBaseHeight;
+    const originCart = Cesium.Cartesian3.fromDegrees(origin.lon, origin.lat, base);
+    const enu = Cesium.Transforms.eastNorthUpToFixedFrame(originCart);
+    const points = prep.points;
+
+    // Chunked raycast + paint: evaluate a batch of points per frame, adding a small
+    // coloured quad per point so the building fills in progressively ("computing").
+    const HALF = 1.3; // quad half-size (m) — slightly overlapping for a continuous read
+    this.facadeChunkBuild(seq, points.length, 160, (lo, hi) => {
+      for (let i = lo; i < hi; i++) {
+        const p = points[i] as FacadeSamplePoint;
+        const intensity = prep.evaluateIntensity(p);
+        const colour = Cesium.Color.fromCssColorString(prep.colourFor(intensity)).withAlpha(0.92);
+        const corners = this.facadeQuadCorners(enu, p, HALF);
+        const ent = viewer.entities.add({
+          name: 'pryzm-facade-sun',
+          polygon: {
+            hierarchy: new Cesium.PolygonHierarchy(corners),
+            material: colour,
+            perPositionHeight: true,
+            outline: false,
+          },
+        });
+        this.facadeAnalysisEntities.push(ent);
+      }
+    }, () => {
+      console.log(
+        `[CesiumViewport][forma-facade] §FORMA-FACADE-ANALYSIS painted ${this.facadeAnalysisEntities.length} ` +
+          `façade sun-hours quad(s) on the designed building (H ${heightM.toFixed(1)} m, day ${this.siteMetricSunDay}).`,
+      );
+    });
+  }
+
+  /** §FORMA-FACADE-ANALYSIS — the 4 ENU world corners of a small quad at a façade
+   *  sample point. Wall quads lie in the vertical plane (along the face tangent ×
+   *  up); roof quads lie flat (east × north). */
+  private facadeQuadCorners(
+    enu: Cesium.Matrix4,
+    p: FacadeSamplePoint,
+    half: number,
+  ): Cesium.Cartesian3[] {
+    // Local ENU offsets for the quad's tangent + the second axis.
+    let t1e: number, t1n: number, t1u: number; // first in-plane axis
+    let t2e: number, t2n: number, t2u: number; // second in-plane axis
+    if (p.surface === 'roof') {
+      t1e = 1; t1n = 0; t1u = 0;
+      t2e = 0; t2n = 1; t2u = 0;
+    } else {
+      // Wall: tangent along the face (perpendicular to the outward normal, horizontal)
+      // and the vertical (up) axis.
+      t1e = -p.normN; t1n = p.normE; t1u = 0;     // horizontal tangent
+      t2e = 0; t2n = 0; t2u = 1;                   // vertical
+    }
+    const mk = (s1: number, s2: number): Cesium.Cartesian3 => {
+      const e = p.east + t1e * s1 * half + t2e * s2 * half;
+      const n = p.north + t1n * s1 * half + t2n * s2 * half;
+      const u = p.up + t1u * s1 * half + t2u * s2 * half;
+      // ENU local (east, north, up); the matrix already sits at the terrain base.
+      const local = new Cesium.Cartesian3(e, n, u);
+      return Cesium.Matrix4.multiplyByPoint(enu, local, new Cesium.Cartesian3());
+    };
+    return [mk(-1, -1), mk(1, -1), mk(1, 1), mk(-1, 1)];
+  }
+
+  /** §FORMA-FACADE-ANALYSIS — chunked driver for the per-point façade raycast (mirrors
+   *  `chunkBuild` but on the façade build's own token + cancellers). */
+  private facadeChunkBuild(
+    seq: number,
+    total: number,
+    batch: number,
+    work: (lo: number, hi: number) => void,
+    onDone: () => void,
+  ): void {
+    const viewer = this.viewer;
+    const step = (start: number): void => {
+      if (seq !== this.facadeAnalysisBuildSeq || !this.viewer || this.viewer !== viewer) return;
+      const end = Math.min(total, start + batch);
+      try { work(start, end); } catch (e) { console.warn('[CesiumViewport][forma-facade] chunk failed:', e); }
+      try { viewer.scene.requestRender(); } catch { /* viewer gone */ }
+      if (end < total) {
+        const cancel = deferWork(() => step(end), 0);
+        this.facadeAnalysisChunkCancellers.push(cancel);
+      } else {
+        onDone();
+      }
+    };
+    if (total <= 0) { onDone(); return; }
+    step(0);
+  }
+
+  /** §FORMA-FACADE-ANALYSIS — remove the façade quads + cancel any in-flight build. */
+  private clearFacadeAnalysis(): void {
+    this.facadeAnalysisBuildSeq++;
+    for (const cancel of this.facadeAnalysisChunkCancellers) { try { cancel(); } catch { /* ignore */ } }
+    this.facadeAnalysisChunkCancellers = [];
+    const viewer = this.viewer;
+    if (viewer) {
+      for (const e of this.facadeAnalysisEntities) { try { viewer.entities.remove(e); } catch { /* gone */ } }
+    }
+    this.facadeAnalysisEntities = [];
   }
 
   /** Project the OSM context + proposed massing footprints into the site-ENU frame
@@ -4683,6 +4887,8 @@ export class CesiumViewport {
     this.clearOverlayLayer('wind');
     this.clearOverlayLayer('heat');
     this.clearSiteMetricOverlay();
+    // §FORMA-FACADE-ANALYSIS — drop the façade quads too (massing re-render / dispose).
+    this.clearFacadeAnalysis();
   }
 
   /** Re-draw whichever climate overlays are currently toggled ON (called after a
@@ -4692,6 +4898,9 @@ export class CesiumViewport {
     if (this.climateOverlayOn.wind) this.renderWindOverlay();
     if (this.climateOverlayOn.heat) this.renderHeatOverlay();
     if (this.siteMetricActive) this.renderSiteMetricOverlay();
+    // §FORMA-FACADE-ANALYSIS — re-paint the façade study on the freshly-placed massing
+    // (it tracks the building footprint/heights, which just changed).
+    if (this.facadeAnalysisOn && this.siteMetricActive === 'sunHours') this.renderFacadeAnalysis();
   }
 
   /**

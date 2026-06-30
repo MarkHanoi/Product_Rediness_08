@@ -1723,7 +1723,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             }
             formaRealExporting = true;
             const { exportFragmentsToGLB } = await import('@pryzm/file-format');
-            const glbUrl = await exportFragmentsToGLB(scene as any);
+            // §FORMA-WHITE-MATERIAL (ADR-0093) — on the Forma 3D-site STUDY view the
+            // building reads as a clean WHITE architectural model (Spacio/Forma
+            // reference): every element near-white, windows translucent glass. This
+            // is Forma-VIEW-ONLY — the editor's WebGPU BIM view keeps real materials,
+            // and the normal GLB download/export path (no option) is unchanged.
+            const glbUrl = await exportFragmentsToGLB(scene as any, { formaWhite: true });
             if (!glbUrl) {
                 console.warn('[gis][forma6] GLB export returned no url — keeping massing.');
                 return;

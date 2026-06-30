@@ -108,12 +108,177 @@ export function selectElementsForExport(scene: THREE.Object3D): THREE.Object3D[]
 }
 
 /**
+ * §FORMA-WHITE-MATERIAL (ADR-0093, 2026-06-30) — the role a mesh plays when the
+ * Forma-white override remaps materials. `'glass'` keeps a translucent glazing
+ * material so windows read as glass; `'opaque'` becomes the clean near-white
+ * architectural massing material (everything else: walls, slabs, roofs, doors…).
+ */
+export type FormaWhiteRole = 'glass' | 'opaque';
+
+/**
+ * §FORMA-WHITE-MATERIAL — element types whose material role is GLASS regardless of
+ * the underlying material (a window/curtain-wall pane). Lowercased for a case-
+ * insensitive match against the various casings stores stamp.
+ */
+const GLASS_ELEMENT_TYPES = new Set<string>([
+  'window',
+  'curtainwall',
+  'curtain-wall',
+  'curtainpanel',
+  'glazing',
+  'skylight',
+]);
+
+/**
+ * §FORMA-WHITE-MATERIAL — classify a mesh's Forma-white role from its element type
+ * + its material, WITHOUT mutating anything (pure, unit-testable).
+ *
+ * A mesh reads as GLASS when EITHER:
+ *   • its (own or ancestor) element type is a window/curtain-wall/glazing type, OR
+ *   • its material is physically glass — `transmission > 0`, or the BIM glazing
+ *     convention of `transparent === true` with `depthWrite === false` (see
+ *     `makeGlassMat` in @pryzm/geometry-window: glass must not occlude what's
+ *     behind it). A merely `transparent` material with depthWrite ON is NOT
+ *     treated as glass (e.g. faded preview overlays) — only the glazing pattern is.
+ *
+ * Everything else is OPAQUE (→ the white massing material).
+ *
+ * @param elementType  the resolved element type hint (own or nearest ancestor's
+ *                     `userData.elementType`), or undefined.
+ * @param material     the mesh's material (or the first of a material array).
+ */
+export function classifyFormaWhiteRole(
+  elementType: string | undefined,
+  material: THREE.Material | THREE.Material[] | null | undefined,
+): FormaWhiteRole {
+  if (elementType && GLASS_ELEMENT_TYPES.has(elementType.toLowerCase())) return 'glass';
+  const mat = Array.isArray(material) ? material[0] : material;
+  if (mat) {
+    const m = mat as THREE.Material & {
+      transmission?: number;
+      transparent?: boolean;
+      depthWrite?: boolean;
+    };
+    if (typeof m.transmission === 'number' && m.transmission > 0) return 'glass';
+    if (m.transparent === true && m.depthWrite === false) return 'glass';
+  }
+  return 'opaque';
+}
+
+/**
+ * §FORMA-WHITE-MATERIAL — the Forma-white palette the override paints with. Mirrors
+ * the massing's `FORMA_PALETTE` near-white (so the real model reads as the SAME
+ * clean architectural white the abstract massing already uses) + a translucent
+ * blue-grey glass. Brand-safe (white + cool glass; never black). Hex (0xRRGGBB).
+ */
+export interface FormaWhitePalette {
+  /** Near-white massing fill for every opaque element (default `0xF4F4F2`). */
+  readonly opaqueHex?: number;
+  /** Translucent glazing tint for window/glass meshes (default `0xBFD3E6`). */
+  readonly glassHex?: number;
+  /** Glass opacity 0..1 (default `0.34`). */
+  readonly glassOpacity?: number;
+}
+
+const FORMA_WHITE_DEFAULT_OPAQUE = 0xf4f4f2; // = FORMA_PALETTE.proposedFill
+const FORMA_WHITE_DEFAULT_GLASS = 0xbfd3e6;  // soft cool glass blue
+const FORMA_WHITE_DEFAULT_GLASS_OPACITY = 0.34;
+
+/**
+ * §FORMA-WHITE-MATERIAL — remap EVERY mesh under `clone` to a Forma-white material:
+ * a clean near-white for opaque elements, a translucent glass for windows/glazing.
+ *
+ * IMPORTANT (§I3 safety): the export clones SHARE their materials BY REFERENCE with
+ * the live BIM scene. We therefore NEVER mutate the existing material — we ASSIGN a
+ * fresh export-only material to `mesh.material`. The fresh materials are collected
+ * into `owned` so `disposeExportRoot` can free ONLY these (they are export-owned, not
+ * shared with the live scene). Returns nothing; mutates `mesh.material` references
+ * on the clone subtree only.
+ */
+function applyFormaWhiteOverride(
+  clone: THREE.Object3D,
+  palette: FormaWhitePalette,
+  owned: THREE.Material[],
+): void {
+  const opaqueHex = palette.opaqueHex ?? FORMA_WHITE_DEFAULT_OPAQUE;
+  const glassHex = palette.glassHex ?? FORMA_WHITE_DEFAULT_GLASS;
+  const glassOpacity = palette.glassOpacity ?? FORMA_WHITE_DEFAULT_GLASS_OPACITY;
+
+  // ONE shared white + ONE shared glass material per export tree (cheap; Cesium
+  // de-dups identical materials anyway). Created lazily so a glass-free model never
+  // allocates the glass material.
+  let whiteMat: THREE.MeshStandardMaterial | null = null;
+  let glassMat: THREE.MeshPhysicalMaterial | null = null;
+  const getWhite = (): THREE.MeshStandardMaterial => {
+    if (!whiteMat) {
+      whiteMat = new THREE.MeshStandardMaterial({ color: opaqueHex, roughness: 0.82, metalness: 0.0 });
+      owned.push(whiteMat);
+    }
+    return whiteMat;
+  };
+  const getGlass = (): THREE.MeshPhysicalMaterial => {
+    if (!glassMat) {
+      glassMat = new THREE.MeshPhysicalMaterial({
+        color: glassHex,
+        roughness: 0.08,
+        metalness: 0.0,
+        transmission: 0.85,
+        ior: 1.5,
+        thickness: 0.006,
+        transparent: true,
+        opacity: glassOpacity,
+        depthWrite: false,
+      });
+      owned.push(glassMat);
+    }
+    return glassMat;
+  };
+
+  // Resolve the nearest element-type hint walking up from a mesh (the glass element
+  // types live on the window GROUP, not always the leaf pane mesh).
+  const elementTypeOf = (obj: THREE.Object3D): string | undefined => {
+    let p: THREE.Object3D | null = obj;
+    while (p) {
+      const et = p.userData?.elementType;
+      if (et) return String(et);
+      p = p.parent;
+    }
+    return undefined;
+  };
+
+  clone.traverse((child) => {
+    const mesh = child as THREE.Mesh;
+    if (!(mesh as unknown as { isMesh?: boolean }).isMesh) return;
+    const role = classifyFormaWhiteRole(elementTypeOf(child), mesh.material);
+    mesh.material = role === 'glass' ? getGlass() : getWhite();
+  });
+}
+
+/**
  * Exports fragments from a Three.js scene to a GLB binary format
  * Preserves hierarchy and lets Cesium handle world placement.
  * Model base is anchored to Y = 0.
+ *
+ * §FORMA-WHITE-MATERIAL (ADR-0093) — pass `options.formaWhite` to remap every
+ * exported element to a clean white architectural material (windows → translucent
+ * glass). This is the FORMA-VIEW-ONLY look (Spacio/Forma white massing); the default
+ * export (no option) keeps the real BIM materials unchanged, so the editor's WebGPU
+ * BIM view and the normal download path are NOT affected.
  */
-export async function exportFragmentsToGLB(scene: THREE.Scene): Promise<string> {
+export async function exportFragmentsToGLB(
+  scene: THREE.Scene,
+  options?: { formaWhite?: boolean | FormaWhitePalette },
+): Promise<string> {
   console.log("🚀 Starting GLB Export (Hierarchy preserved)...");
+
+  // §FORMA-WHITE-MATERIAL — resolve the white-override request (off by default).
+  const formaWhite = options?.formaWhite;
+  const formaWhitePalette: FormaWhitePalette | null = formaWhite
+    ? (formaWhite === true ? {} : formaWhite)
+    : null;
+  // Export-owned override materials (disposed in disposeExportRoot — they are NOT
+  // shared with the live scene, unlike the cloned real materials).
+  const ownedOverrideMaterials: THREE.Material[] = [];
 
   const exportRoot = new THREE.Group();
   exportRoot.name = "exportRoot";
@@ -169,6 +334,13 @@ export async function exportFragmentsToGLB(scene: THREE.Scene): Promise<string> 
         child.userData = cleanUserData;
       }
     });
+
+    // §FORMA-WHITE-MATERIAL — when requested, remap this clone's meshes to the clean
+    // white massing material (glass for windows). Assigns FRESH export-only materials
+    // to the clone references (never mutates the live/shared materials).
+    if (formaWhitePalette) {
+      applyFormaWhiteOverride(clone, formaWhitePalette, ownedOverrideMaterials);
+    }
 
     exportRoot.add(clone);
   }
@@ -230,7 +402,7 @@ export async function exportFragmentsToGLB(scene: THREE.Scene): Promise<string> 
           const blob = new Blob([result], { type: "model/gltf-binary" });
           const url = URL.createObjectURL(blob);
 
-          disposeExportRoot(exportRoot);
+          disposeExportRoot(exportRoot, ownedOverrideMaterials);
 
           console.log("✅ GLB Export complete.");
           console.log("📦 Blob size:", blob.size, "bytes");
@@ -241,7 +413,7 @@ export async function exportFragmentsToGLB(scene: THREE.Scene): Promise<string> 
         }
       },
       (error) => {
-        disposeExportRoot(exportRoot);
+        disposeExportRoot(exportRoot, ownedOverrideMaterials);
         reject(error);
       },
       {
@@ -306,12 +478,17 @@ export function revokeBlobUrl(blobUrl: string): void {
  * normalization mirrors §I2 in case a future code path makes the clones own their
  * resources and disposal is reintroduced.
  */
-function disposeExportRoot(root: THREE.Group) {
+function disposeExportRoot(root: THREE.Group, ownedMaterials: THREE.Material[] = []) {
   // §I3 — DO NOT dispose geometry/material: they are shared by reference with the
   // live scene (clone(true) reference-copies both). Disposing them frees the live
   // viewport's GPU buffers → WebGPU NodeManager `usedTimes` crash / WebGL render
   // corruption. Just detach so the temporary group is GC'd; the live scene owns
   // the underlying resources.
+  //
+  // §FORMA-WHITE-MATERIAL — the override materials are the ONE exception: they were
+  // freshly allocated here (NOT shared with the live scene), so disposing them frees
+  // export-only GPU resources without touching the live viewport. Safe to dispose.
+  for (const m of ownedMaterials) { try { m.dispose(); } catch { /* already gone */ } }
   root.clear();
 }
 
