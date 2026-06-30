@@ -135,3 +135,80 @@ Per-desk BIM furniture is a later slice.
   `apps/editor/src/ui/office-building/{deriveOfficeCircle.ts, OfficeBuildingController.ts,
   OfficeBuildingExecutor.ts}`, `apps/editor/src/ui/onboarding/OnboardingStepController.ts`
   (office step + `generateOffice` only).
+
+## Amendment (2026-06-30) — §OFFICE-PERIMETER-GLAZING · curtain-glass façade + RBL/perf fixes
+
+The founder live-tested the tower and asked for a **glass curtain-wall reading**: EVERY perimeter
+wall segment, on EVERY storey, must carry a window that fills almost the **full width** of the
+segment and almost the **full height** (sill near the floor, head near the slab — floor-to-slab
+glazing). Three issues were fixed in `OfficeBuildingExecutor.ts` (+ the new pure
+`officePerimeterGlazing.ts`).
+
+### §OFFICE-PERIMETER-GLAZING — a hosted window per segment (window, not curtain-wall)
+
+Each perimeter segment now hosts ONE **punched window** — a C15 HOSTED opening (`type: 'window'`)
+created through the command bus (`CreateWallOpeningsBatchCommand` → `wall.createOpening`), NOT a
+direct store write (P6/C11). **Decision: a punched window, not a curtain-wall element.** Rationale:
+(a) the founder asked for a window *hosted in* each segment — a punched opening is the canonical
+C15 hosted child of its host wall; (b) it reuses the exact, proven cascade the residential building
+uses for its commercial shopfront windows (`§RESI-GROUND-COMMERCIAL-CURTAIN`), including the
+stored-wall length clamp (`clampOpeningToWall`) that keeps a pane from overrunning the corner; (c)
+the perimeter wall ring is KEPT (the founder's spec is a window *in* each segment, not a wall
+replacement) and a window reads as glass while keeping the façade structure for shadow/analysis.
+
+- **Sizing (pure, unit-tested `perimeterGlazingSpec`)**: width = segment − 2·jamb where jamb =
+  clamp(7.5%·seg, [0.15, 0.30] m), shrunk on a short segment so a minimal pane still fits; centred
+  (equal jamb both ends). Sill = 0.15 m (low); head = floor-to-floor − 0.30 m header; pane height =
+  ftf − 0.30 − 0.15 (≥ 85% of the storey height — "almost full height to the slab"). A segment too
+  short for a sensible pane (< 0.4 m clear) is skipped (degrades gracefully, like level minting).
+- **Glass classification**: the opening stamps `systemTypeId: 'wt-aluminium-commercial'` (anodised
+  aluminium office/retail glazing, low `glassOpacity` ⇒ transmissive). The WindowBuilder renders
+  real see-through glazing with a `window`/glass `userData.elementType`, so the Forma white-model
+  pass (ADR-0093) + `solarSurfaceFilter` GLASS tokens classify it as glazing, not opaque white.
+- **Ordering / single build**: windows are collected during the structural batch (host wall ids
+  pre-minted) and punched in a DEFERRED, polled pass once the async `wall.batch.create` host walls
+  land in the store (mirrors the resi/apartment openings pass) — the perimeter wall ring already
+  ships in the one structural `runBatch`; the glazing pass keeps `skipRedetectRooms` (façade glass
+  doesn't change room topology). A segment whose stored host wall can't fit a pane is dropped.
+
+### §RBL-PLACEMENT-AT-SOURCE — office zone lines were ALL dropped
+
+Every office desk-zone room-bounding-line was being skipped by the renderer's §RBL-PLACEMENT-GUARD
+(`placement.start/end undefined`) and crashed the collab replay (`CREATE_ROOM_BOUNDING_LINE …
+reading 'x'`), so each floor read as one empty room. Fixed at the SOURCE: the pure `ringPlanSegments`
+helper emits a bounding line ONLY when both polygon endpoints are real finite points AND the edge is
+non-degenerate (≥ 10 mm), so no undefined/NaN endpoint ever reaches a `CREATE_ROOM_BOUNDING_LINE`
+payload.
+
+### §OFFICE-PERIMETER-COARSEN — fewer elements (the "stuck on creation" headline)
+
+The founder's root complaint: "too many elements — always stuck on creation." A 40-storey ×
+≈64-gon footprint emitted ≈2560 perimeter wall segments (+ as many glazing windows) — the dominant
+creation cost. **Investigation: a single closed-loop curtain-wall element is NOT supported** —
+`CreateCurtainWallCommand` takes a single straight `start`/`end` segment, so glazing the circular
+perimeter with curtain walls would still be ONE element per segment (no win over one window per
+segment). The real lever is fewer SEGMENTS: the executor now **resamples the circular footprint
+down to a ≤24-gon** (`resampleRing`, pure + unit-tested) for BOTH the slab outline and the
+wall/window ring (kept on the SAME ring so they stay aligned). A 24-gon still reads as round at
+building scale and cuts the per-storey perimeter element count ~2.6× (64→24): a 40-storey tower's
+perimeter drops from ≈2560 walls → ≈960, and glazing windows likewise. Analytics / feasibility /
+radius are untouched (emission-only decimation). Zone lines were ALREADY representative-floor only
+(one floor, not 40). Net for a 40-storey build: roughly hundreds-to-low-thousands instead of
+≈2641 — bounded by 24·storeys for the perimeter rather than 64·storeys.
+
+### §OFFICE-PERF — skipPbrUpgrade on the structural batch
+
+The structural `runBatch` now passes `skipPbrUpgrade: true` (big repeated-geometry batch that
+doesn't need the cosmetic PBR envMap upgrade the engine warns about). The perimeter walls already
+emit via one batched `wall.batch.create` per storey inside the `skipRedetectRooms` batch (room
+re-detection suppressed, fired once — NOT per segment). NOT changed: level minting still runs before
+the structural batch, matching the proven `ResidentialBuildingExecutor` pattern (levels are committed
++ `res.success`-checked so geometry can reference them and the build can degrade to a shorter tower);
+folding `AddLevelCommand` into the batch is left as a separate, app-verifiable perf follow-up.
+
+- Tests: `apps/editor/__tests__/OfficePerimeterGlazing.test.ts` (13 cases — glazing width/height/
+  centring/short-segment/null degrade; RBL `ringPlanSegments` defined-endpoint / bad-vertex /
+  degenerate-edge guards; `resampleRing` 64-gon→≤24 decimation / under-cap passthrough / non-finite
+  drop).
+- Files: `apps/editor/src/ui/office-building/{OfficeBuildingExecutor.ts, officePerimeterGlazing.ts
+  (NEW pure)}`.

@@ -25,20 +25,55 @@
 // boundary. The pure orchestrator already carries its own spans.
 
 import { trace } from '@opentelemetry/api';
-import { batchCoordinator } from '@pryzm/core-app-model';
+import { batchCoordinator, storeRegistry } from '@pryzm/core-app-model';
+// §OFFICE-PERIMETER-GLAZING — background-tab-resilient deferral. The perimeter wall
+// ring lands via the bus (`wall.batch.create`) ASYNC, so the curtain-glazing windows
+// are punched in a deferred pass that polls for the host walls to appear in the store,
+// mirroring ResidentialBuildingExecutor._finishGroundCommercialWindows.
+import { deferWork } from '@pryzm/frame-scheduler';
 import { createId } from '@pryzm/schemas';
 import {
     AddLevelCommand,
     CreateSlabCommand,
     CreateRoomBoundingLinesBatchCommand,
+    CreateWallOpeningsBatchCommand,
 } from '@pryzm/command-registry';
+import { clampOpeningToWall } from '@pryzm/ai-host';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import type { OfficeBuildingOk, OfficeZone } from '@pryzm/ai-host';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
+// ── §OFFICE-PERIMETER-GLAZING (founder 2026-06-30) — curtain glazing per segment ──────
+//
+// The founder's rule: the circular office tower reads as a GLASS CURTAIN-WALL tower —
+// EVERY perimeter wall segment on EVERY storey gets ONE window that fills almost the FULL
+// WIDTH of the segment (a small masonry jamb at each end so it never overruns the corner)
+// and almost the FULL HEIGHT (sill near the floor, head near the slab soffit). We host a
+// real PUNCHED WINDOW (a C15 hosted opening, type 'window') in each segment rather than a
+// curtain-wall element — see the ADR-0092 §OFFICE-PERIMETER-GLAZING amendment for the
+// rationale. A commercial glazing system type makes it render as real see-through glass so
+// the Forma white-materials / façade-analysis classify it as GLASS. The PURE placement math
+// lives in `officePerimeterGlazing.ts` (DOM-free) so it is unit-testable in plain Node.
+import {
+    perimeterGlazingSpec,
+    isFinitePlanPt,
+    ringPlanSegments,
+    resampleRing,
+    GLAZING_SYSTEM_TYPE_ID,
+} from './officePerimeterGlazing.js';
 
 const _tracer = trace.getTracer('@pryzm/editor', '0.1.0');
 const DEFAULT_SLAB_THICKNESS_M = 0.2;
 const PERIMETER_WALL_THICKNESS_M = 0.2;
+
+/** One curtain-glazing window spec hosted in a perimeter wall segment. */
+interface PerimeterGlazingSpec {
+    readonly wallId: string;
+    readonly levelId: string;
+    readonly offset: number;     // m along the wall from its start
+    readonly width: number;      // m (≈ segment − 2·jamb)
+    readonly sillHeight: number; // m above the floor
+    readonly height: number;     // m (≈ floor-to-floor − header − sill)
+}
 
 interface CommandManagerLike {
     execute?: (cmd: unknown, ctx?: { source?: string }) => { success?: boolean } | undefined;
@@ -62,16 +97,22 @@ interface WallRingPayload {
     readonly levelId: string;
 }
 
+/** A perimeter-wall ring + the per-segment geometry the glazing pass needs (host wall
+ *  id + segment length) so each segment can host a near-full curtain window. */
+interface WallRing {
+    readonly payload: WallRingPayload;
+    readonly segments: ReadonlyArray<{ readonly wallId: string; readonly lengthM: number }>;
+}
+
 /** Convert one zone's outer (and optional inner) polygon into closed bounding-line
- *  segments on `levelId`. The executor draws the ring outlines so room detection
- *  reads the concentric office zones. Pure helper. */
+ *  segments on `levelId`. The executor draws the ring outlines so room detection reads the
+ *  concentric office zones. The endpoint validation lives in the pure `ringPlanSegments`
+ *  (§RBL-PLACEMENT-AT-SOURCE) so it is unit-testable; this only stamps ids + levelId. */
 function zoneBoundingLines(zone: OfficeZone, levelId: string): BoundingLineItem[] {
     const items: BoundingLineItem[] = [];
     const ring = (poly: readonly Pt2[]): void => {
-        for (let i = 0; i < poly.length; i++) {
-            const a = poly[i]!;
-            const b = poly[(i + 1) % poly.length]!;
-            items.push({ id: `office-rbl-${createId('annotation')}`, levelId, start: { x: a.x, z: a.z }, end: { x: b.x, z: b.z } });
+        for (const seg of ringPlanSegments(poly)) {
+            items.push({ id: `office-rbl-${createId('annotation')}`, levelId, start: seg.start, end: seg.end });
         }
     };
     ring(zone.outerPolygon);
@@ -80,21 +121,30 @@ function zoneBoundingLines(zone: OfficeZone, levelId: string): BoundingLineItem[
 }
 
 /** §OFFICE-TOWER-BUILD — a perimeter wall ring from an n-gon footprint: one wall per
- *  edge (consecutive edges share the exact corner endpoint, so the ring closes). */
-function buildPerimeterRing(footprint: readonly Pt2[], levelId: string, heightM: number): WallRingPayload {
+ *  edge (consecutive edges share the exact corner endpoint, so the ring closes). Also
+ *  returns the per-segment geometry (host wall id + length) so §OFFICE-PERIMETER-GLAZING
+ *  can host a near-full curtain window in each segment. A degenerate / non-finite edge is
+ *  skipped (no wall, no segment) so a bad vertex never mints a zero-length wall. */
+function buildPerimeterRing(footprint: readonly Pt2[], levelId: string, heightM: number): WallRing {
     const walls: Array<Record<string, unknown>> = [];
+    const segments: Array<{ wallId: string; lengthM: number }> = [];
     for (let i = 0; i < footprint.length; i++) {
-        const a = footprint[i]!;
-        const b = footprint[(i + 1) % footprint.length]!;
+        const a = footprint[i];
+        const b = footprint[(i + 1) % footprint.length];
+        if (!isFinitePlanPt(a) || !isFinitePlanPt(b)) continue;
+        const lengthM = Math.hypot(b.x - a.x, b.z - a.z);
+        if (lengthM < 0.05) continue;              // degenerate edge — skip
+        const wallId = createId('wall');
         walls.push({
-            id: createId('wall'),
+            id: wallId,
             levelId,
             baseLine: [{ x: a.x, y: 0, z: a.z }, { x: b.x, y: 0, z: b.z }],
             height: heightM,
             thickness: PERIMETER_WALL_THICKNESS_M,
         });
+        segments.push({ wallId, lengthM });
     }
-    return { walls, levelId };
+    return { payload: { walls, levelId }, segments };
 }
 
 export class OfficeBuildingExecutor {
@@ -140,7 +190,18 @@ export class OfficeBuildingExecutor {
 
         const plate = result.representativePlate;
         // The circular footprint (outermost ring = the full disc n-gon).
-        const disc = plate.zones[plate.zones.length - 1]!.outerPolygon as readonly Pt2[];
+        const discFull = plate.zones[plate.zones.length - 1]!.outerPolygon as readonly Pt2[];
+        if (discFull.length < 3) {
+            toast('Office building: degenerate plate — nothing built.', 'warn');
+            return { storeyCount: 0, slabCount: 0, wallCount: 0 };
+        }
+        // §OFFICE-PERIMETER-COARSEN (founder 2026-06-30: "too many elements — stuck on creation")
+        // — the orchestrator's circular footprint is a fine ≈64-gon → ≈2560 perimeter walls +
+        // windows at 40 storeys (the dominant creation cost). Resample the perimeter DOWN to a
+        // ≤24-gon (still visually round at building scale) for BOTH the slab outline AND the
+        // wall/window ring, so they stay aligned and the per-storey element count drops ~3×.
+        // The analytics / feasibility / radius are untouched (this is an emission-only decimation).
+        const disc = resampleRing(discFull) as readonly Pt2[];
         if (disc.length < 3) {
             toast('Office building: degenerate plate — nothing built.', 'warn');
             return { storeyCount: 0, slabCount: 0, wallCount: 0 };
@@ -189,6 +250,10 @@ export class OfficeBuildingExecutor {
 
         // Representative-floor zone outlines as room-bounding lines (the plan layout).
         const boundaryItems: BoundingLineItem[] = [];
+        // §OFFICE-PERIMETER-GLAZING — one near-full curtain window per perimeter segment on
+        // EVERY storey. Collected here (host wall id known at emit time) and punched in a
+        // deferred pass once the perimeter walls land (the bus wall.batch.create is async).
+        const glazingSpecs: PerimeterGlazingSpec[] = [];
 
         let slabCount = 0, wallCount = 0;
         try {
@@ -207,10 +272,20 @@ export class OfficeBuildingExecutor {
                     }), { source: 'OFFICE_PIPELINE_SLAB' });
                     slabCount++;
 
-                    // (b) Perimeter wall ring (segmented n-gon façade) for this storey.
+                    // (b) Perimeter wall ring (segmented n-gon façade) for this storey — ONE
+                    //     batched wall.batch.create (NOT per-segment wall.create), so room
+                    //     re-detection is suppressed by the surrounding skipRedetectRooms batch
+                    //     instead of firing once per segment.
                     const ring = buildPerimeterRing(disc, levelId, floorToFloorM);
-                    this._dispatchWallBatch(runtime, ring, `perimeter-L${index}`);
-                    wallCount += ring.walls.length;
+                    this._dispatchWallBatch(runtime, ring.payload, `perimeter-L${index}`);
+                    wallCount += ring.payload.walls.length;
+                    // §OFFICE-PERIMETER-GLAZING — a near-full-width / near-full-height window per
+                    // segment (skip segments too short to host a sensible pane).
+                    for (const seg of ring.segments) {
+                        const g = perimeterGlazingSpec(seg.lengthM, floorToFloorM);
+                        if (!g) continue;
+                        glazingSpecs.push({ wallId: seg.wallId, levelId, offset: g.offset, width: g.width, sillHeight: g.sillHeight, height: g.height });
+                    }
 
                     // (c) On the representative floor: core slab + concentric zone plan lines.
                     if (index === representativeFloorIndex) {
@@ -241,14 +316,27 @@ export class OfficeBuildingExecutor {
                 levelIds: [...new Set(levelIds)],
                 totalElementCount: slabCount + wallCount + boundaryItems.length,
                 skipRedetectRooms: true,
+                // §OFFICE-PERF (founder 2026-06-30) — the office tower is a big repeated-geometry
+                // batch (N-gon × storeys slabs/walls) that does NOT need the cosmetic PBR envMap
+                // upgrade; skipping it avoids the per-pass compile cost the engine warns about
+                // (§FIX-POST-GEOMETRY-COMPILE-V2 "consider setting skipPbrUpgrade=true").
+                skipPbrUpgrade: true,
             });
         } catch (e) {
             console.warn('[office-building] tower batch failed (skipped):', e);
         }
 
+        // §OFFICE-PERIMETER-GLAZING — punch the per-segment curtain windows on the (now
+        // landing) perimeter walls. Deferred + polled: the bus wall.batch.create is async,
+        // so wait for the host walls to appear in the store, then punch all windows in ONE
+        // batch (skipRedetectRooms — façade glazing doesn't change room topology).
+        this._finishPerimeterGlazing(glazingSpecs);
+
         console.log(
             `[office-building] built ${storeyCount}-storey circular tower — ` +
-            `${slabCount} slab(s), ${wallCount} perimeter wall segment(s), ` +
+            `${slabCount} slab(s), ${wallCount} perimeter wall segment(s) ` +
+            `(§OFFICE-PERIMETER-COARSEN: ${disc.length}-gon vs ${discFull.length}-gon footprint), ` +
+            `${glazingSpecs.length} curtain glazing window(s), ` +
             `${boundaryItems.length} zone line(s) on the representative floor, ` +
             `${plate.analytics.deskCount} desks/floor. ${result.diagnostic}`,
         );
@@ -271,5 +359,87 @@ export class OfficeBuildingExecutor {
         } catch (e) {
             console.warn(`[office-building] wall.batch.create (${tag}) threw on`, payload.levelId, e);
         }
+    }
+
+    /** §OFFICE-PERIMETER-GLAZING — punch one near-full curtain WINDOW into each perimeter
+     *  wall segment, on every storey, once the host walls have landed. Mirrors
+     *  ResidentialBuildingExecutor._finishGroundCommercialWindows: the perimeter
+     *  wall.batch.create is ASYNC via the bus, so poll (≤6 s) for every host wall to appear
+     *  in the store, clamp each window to the STORED wall length (never overrun the corner),
+     *  then punch ALL windows in ONE batch (type 'window', commercial glazing systemTypeId so
+     *  it renders as real see-through GLASS for the Forma white-materials pass). A segment
+     *  whose host wall can't fit a minimal pane is DROPPED (degrades gracefully). The
+     *  window goes through the command bus (CreateWallOpeningsBatchCommand) as a HOSTED C15
+     *  opening — no new mutation path (P6/C11). Never throws. */
+    private _finishPerimeterGlazing(specs: ReadonlyArray<PerimeterGlazingSpec>): void {
+        if (specs.length === 0) return;
+        const cm = getCommandManager();
+        if (!cm?.execute) { console.warn('[office-building] commandManager unavailable — perimeter glazing skipped'); return; }
+        const wallIds = specs.map((s) => s.wallId);
+        const wallStore = storeRegistry.getStoreForType('wall') as unknown as { getById?: (id: string) => unknown } | undefined;
+        const ready = (): boolean => !wallStore?.getById ? true : wallIds.every((id) => wallStore.getById!(id) != null);
+        const levelIds = [...new Set(specs.map((s) => s.levelId))];
+        const tryPunch = (n: number): void => {
+            if (!ready() && n > 0) { deferWork(() => tryPunch(n - 1), 150); return; }
+            try {
+                // Clamp each window to its STORED host-wall length BEFORE emit, so a pane never
+                // overruns the committed wall (the occupancy validator rejects an OOB opening).
+                const items = specs
+                    .map((s) => {
+                        const c = this._clampGlazingToStoredWall(s.wallId, s.offset, s.width);
+                        return c ? { s, offset: c.offset, width: c.width } : null;
+                    })
+                    .filter((it): it is { s: PerimeterGlazingSpec; offset: number; width: number } => it !== null);
+                if (items.length === 0) { console.warn('[office-building] perimeter glazing — all dropped (no host wall could fit a pane)'); return; }
+                batchCoordinator.runBatch(() => {
+                    cm.execute?.(new CreateWallOpeningsBatchCommand(items.map(({ s, offset, width }) => ({
+                        wallId: s.wallId,
+                        openingData: {
+                            id: createId('opening'),
+                            type: 'window',
+                            // §A.21.D12 — the rich window fields on the OPENING drive the WindowBuilder
+                            // frame + glazing (CreateWallOpeningCommand reads them into windowStore).
+                            windowType: 'single',
+                            offset,
+                            width,
+                            height: s.height,
+                            sillHeight: s.sillHeight,
+                            elementId: createId('window'),
+                            // Commercial anodised-aluminium glazing (low glassOpacity ⇒ transmissive)
+                            // so the façade reads as a real glass curtain wall + Forma classifies it
+                            // as GLASS, not opaque white.
+                            systemTypeId: GLAZING_SYSTEM_TYPE_ID,
+                        },
+                    }))), { source: 'OFFICE_PIPELINE_GLAZING' });
+                }, { levelIds, totalElementCount: items.length, skipRedetectRooms: true, skipPbrUpgrade: true });
+                // Flush the host wall meshes so the openings show (mirror of the resi pass).
+                deferWork(() => {
+                    try { window.__wallRebuildControl?.rebuildWalls?.(wallIds); }
+                    catch (e) { console.warn('[office-building] glazing rebuildWalls failed (non-fatal):', e); }
+                }, 250);
+                console.log(`[office-building] perimeter glazing — ${items.length}/${specs.length} curtain windows punched on ${levelIds.length} storey(s)`);
+            } catch (e) { console.warn('[office-building] perimeter glazing batch failed (non-fatal):', e); }
+        };
+        tryPunch(40);
+    }
+
+    /** §OFFICE-PERIMETER-GLAZING — clamp a window {offset,width} to the host wall's STORED
+     *  length via the pure `clampOpeningToWall`, so a pane computed at generation-time edge
+     *  length never overruns the now-committed (possibly mitred) wall. Returns the clamped
+     *  span, or `null` to DROP the window when even a minimal pane can't fit. A store miss
+     *  (wall not readable) keeps the input verbatim (the punch is gated on landing anyway). */
+    private _clampGlazingToStoredWall(
+        wallId: string, offset: number, width: number,
+    ): { offset: number; width: number } | null {
+        const wallStore = storeRegistry.getStoreForType('wall') as unknown as { getById?: (id: string) => unknown } | undefined;
+        const w = wallStore?.getById?.(wallId) as { baseLine?: ReadonlyArray<{ x: number; z: number }> } | undefined;
+        const bl = w?.baseLine;
+        if (!bl || bl.length < 2) return { offset, width };       // can't read → keep verbatim
+        const a = bl[0]!, b = bl[1]!;
+        const storedLen = Math.hypot(b.x - a.x, b.z - a.z);
+        if (!Number.isFinite(storedLen) || storedLen <= 0.05) return { offset, width };
+        const res = clampOpeningToWall(offset, width, storedLen);
+        if (res === null) return null;
+        return { offset: res.offset, width: res.width };
     }
 }
