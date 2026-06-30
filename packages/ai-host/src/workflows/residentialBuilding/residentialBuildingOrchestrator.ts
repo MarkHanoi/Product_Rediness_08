@@ -42,7 +42,7 @@ import { trace } from '@opentelemetry/api';
 // the 1.2 m approach clearances (single source of truth shared with the executor).
 import { deriveCoreSizing } from './coreSizing.js';
 import type { Pt, Rect } from '../apartmentLayout/tgl/rectDecomposition.js';
-import { rectArea, rectWidth, rectDepth, principalAxisAngle, rotatePt } from '../apartmentLayout/tgl/rectDecomposition.js';
+import { rectArea, rectWidth, rectDepth, principalAxisAngle, rotatePt, decomposeToRects } from '../apartmentLayout/tgl/rectDecomposition.js';
 import type { ApartmentProgram } from '../apartmentLayout/types.js';
 import {
     packApartments,
@@ -299,6 +299,19 @@ function bbox(poly: readonly Pt[]): Rect {
     return { x0, z0, x1, z1 };
 }
 
+/** §RESI-CORE-IN-BOUNDARY — ray-casting point-in-polygon (plan XZ). Used to test whether the bbox-
+ *  centroid core sits inside the real (possibly concave) footprint before relocating it. Pure. */
+function pointInPolygon(px: number, pz: number, poly: readonly Pt[]): boolean {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const a = poly[i]!, b = poly[j]!;
+        const intersect = (a.z > pz) !== (b.z > pz) &&
+            px < ((b.x - a.x) * (pz - a.z)) / (b.z - a.z) + a.x;
+        if (intersect) inside = !inside;
+    }
+    return inside;
+}
+
 /** A near-axis-aligned plate (|θ| < ~0.6°) collapses to θ = 0 so it stays byte-identical to
  *  the pre-transform behaviour. Mirrors the house's `Math.abs(rawAngle) >= 0.01` threshold
  *  (`houseOrchestrator.ts:556`) + `deriveProjectNorthFrame`. */
@@ -527,8 +540,36 @@ function _orchestrate(input: ResidentialBuildingOrchestratorInput): ResidentialB
     // ── R-CENTRE: place the core centred on the footprint centroid, identical XZ on
     // every level. This is the residential divergence from the house's worst-aspect
     // corner placement (see file header + audit §3.1).
-    const fcx = (bb.x0 + bb.x1) / 2;
-    const fcz = (bb.z0 + bb.z1) / 2;
+    let fcx = (bb.x0 + bb.x1) / 2;
+    let fcz = (bb.z0 + bb.z1) / 2;
+    // §RESI-CORE-IN-BOUNDARY (founder 2026-06-29: an L-SHAPE plate filled only ~3 units, both wings
+    // wasted) — on a CONCAVE plate the bbox CENTROID can fall in the NOTCH (the missing wing), so the
+    // centred core would sit OUTSIDE the real building → the apartments can't ring it and circulation
+    // never reaches a wing. When the bbox-centroid core is NOT fully inside the real footprint, relocate
+    // it to the centre of the LARGEST axis-aligned sub-rectangle of the de-rotated footprint (the proven
+    // rectilinear slab-sweep), clamped so the core fits inside that sub-rect. A convex/rectangular plate
+    // keeps the bbox centroid EXACTLY (the check passes) → byte-identical. Pure + deterministic.
+    const coreFullyInside = (cx: number, cz: number): boolean => {
+        const hw = coreWidthM / 2, hd = coreDepthM / 2;
+        return pointInPolygon(cx, cz, footprint) &&
+            pointInPolygon(cx - hw, cz - hd, footprint) && pointInPolygon(cx + hw, cz - hd, footprint) &&
+            pointInPolygon(cx + hw, cz + hd, footprint) && pointInPolygon(cx - hw, cz + hd, footprint);
+    };
+    if (!coreFullyInside(fcx, fcz)) {
+        const rects = decomposeToRects(footprint, Math.min(coreWidthM, coreDepthM));
+        let bestR: Rect | null = null, bestA = -Infinity;
+        for (const r of rects) {
+            if (rectWidth(r) < coreWidthM || rectDepth(r) < coreDepthM) continue;   // core must fit
+            const a = rectArea(r);
+            if (a > bestA) { bestA = a; bestR = r; }
+        }
+        if (bestR) {
+            // Centre on the sub-rect, clamped so the core stays inside it.
+            const cx = (bestR.x0 + bestR.x1) / 2, cz = (bestR.z0 + bestR.z1) / 2;
+            fcx = Math.min(Math.max(cx, bestR.x0 + coreWidthM / 2), bestR.x1 - coreWidthM / 2);
+            fcz = Math.min(Math.max(cz, bestR.z0 + coreDepthM / 2), bestR.z1 - coreDepthM / 2);
+        }
+    }
     const core: Rect = {
         x0: round4(fcx - coreWidthM / 2),
         z0: round4(fcz - coreDepthM / 2),

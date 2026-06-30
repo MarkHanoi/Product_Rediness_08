@@ -785,6 +785,23 @@ export const ONBOARDING_STYLES = `
   content: ""; width: 0.45rem; height: 0.45rem; border-radius: 999px;
   background: #6600ff; flex: 0 0 auto;
 }
+/* §RESI-CIRC-GRAPH — the circulation bubble graph panel BELOW the plan (house-modal parity).
+   Brand white + #6600FF, soft purple-tinted chrome (NO black). */
+.os-onboarding-overlay .os-resi-preview-graph {
+  margin: 0 0 0.5rem;
+  padding: 0.4rem 0.5rem 0.5rem;
+  border: 1px solid rgba(102, 0, 255, 0.14);
+  border-radius: 10px;
+  background: linear-gradient(180deg, #ffffff 0%, #faf8ff 100%);
+}
+.os-onboarding-overlay .os-resi-preview-graph-head {
+  font-size: 0.7rem; font-weight: 700; color: #6600ff;
+  letter-spacing: 0.01em; margin: 0 0 0.3rem; text-align: center;
+}
+.os-onboarding-overlay .os-resi-preview-graph-svg { display: flex; justify-content: center; }
+.os-onboarding-overlay .os-resi-preview-graph-svg svg {
+  width: 100%; height: auto; max-height: 200px; display: block;
+}
 .os-onboarding-overlay .os-resi-preview-head {
   font-size: 0.86rem; font-weight: 500;
   color: #2a1a52;
