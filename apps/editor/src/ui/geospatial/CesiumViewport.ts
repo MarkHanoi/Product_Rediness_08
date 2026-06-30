@@ -1478,12 +1478,43 @@ export class CesiumViewport {
 
     // --- Shadows: SOFT GRADIENT contact shadows (§2 Shadows + §FORMA-SCENE-QUALITY). ---
     try {
+      // §FORMA-GRAZING-BANDING-FIX (founder 2026-06-30) — depth precision FIRST. The
+      // initial Forma fly-in lands at a LOW oblique angle (pitch ≈ −68°); at that
+      // grazing angle the flat ground + context-building faces showed horizontal LINE
+      // BANDING. Root cause is twofold (both worst at grazing angles): (1) shadow-map
+      // projective aliasing / self-shadow acne on the large flat receiver, and (2)
+      // depth-buffer z-fighting between near-coplanar surfaces. A logarithmic depth
+      // buffer keeps Z precision even across the wide near/far span of a site scene, so
+      // coplanar ground vs context bases stop fighting. Cesium defaults it ON, but the
+      // photoreal/globe entry path or a prior frustum tweak can leave it off — assert it.
+      scene.logarithmicDepthBuffer = true;
+
       viewer.shadows = true;
       const sm = scene.shadowMap;
       if (sm) {
         sm.enabled = true;
         sm.softShadows = true;
-        sm.size = 4096;
+        // §FORMA-GRAZING-BANDING-FIX — 4096 over the WHOLE default 5 km shadow volume
+        // gave very low texel density on the ground, so each shadow-map texel projected
+        // into long thin strips across the flat receiver → the horizontal moiré bands at
+        // grazing angles. Two coordinated fixes:
+        //   • `maximumDistance` — clamp the shadow volume to the SITE scale (~600 m, the
+        //     fly-in framing height) instead of 5 km. The same map now covers ~70× less
+        //     area, so texel density (and therefore the sampling rate on the flat ground)
+        //     rises dramatically and the projective aliasing bands collapse. `fadingEnabled`
+        //     softens the cut-off so distant context fades rather than hard-clipping.
+        //   • `size` 2048 — at the clamped distance 2048² is already FINER per-metre than
+        //     4096 was over 5 km, and a smaller map further reduces the moiré (fewer texels
+        //     stretched per ground pixel = less aliasing). Cheaper, and crisper here.
+        sm.size = 2048;
+        sm.maximumDistance = 600;
+        sm.fadingEnabled = true;
+        // §FORMA-GRAZING-BANDING-FIX — NORMAL-OFFSET bias is THE Cesium knob that kills
+        // self-shadow acne on a flat receiver: it pushes the shadow comparison along the
+        // surface normal so a coplanar lit ground doesn't shadow itself into stripes.
+        // Cesium defaults it on, but assert it explicitly (the founder symptom is exactly
+        // flat-surface self-shadowing at grazing angles).
+        sm.normalOffset = true;
         // §FORMA-SCENE-QUALITY (ADR-0089) — the founder's #1 ask is "soft GRADIENT
         // shadowing", not a hard graphite cast. `darkness` = fraction of light
         // remaining in shadow; FORMA_QUALITY.shadowDarkness (0.34) is a touch
@@ -1526,7 +1557,7 @@ export class CesiumViewport {
           : ', AO=unavailable (GPU → fog+shadow gradient)';
     console.log(
       '[CesiumViewport] FORMA mode applied: neutral ground ' + FORMA_PALETTE.ground +
-        ', soft sky-gradient backdrop, fog ground-AO, soft shadows 4096' +
+        ', soft sky-gradient backdrop, fog ground-AO, soft shadows 2048@600m (§FORMA-GRAZING-BANDING-FIX)' +
         aoLabel +
         (this.formaSilhouetteComposite && !this.formaPostProcessFaulted ? ', silhouette' : ', silhouette=unavailable') + '.'
     );

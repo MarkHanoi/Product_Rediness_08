@@ -272,46 +272,37 @@ describe('§SITE-METRIC-COST-TIER — per-metric grid resolution (ADR-0084)', ()
         expect(metricCostTier('population')).toBe('cheap');
     });
 
-    it('gives the EXPENSIVE metrics a COARSER cell + LOWER cap than the cheap field metrics', () => {
+    it('§SITE-METRIC-PERF-INSTANT: the cheap field metrics compute on a SMALL, instant ' +
+        'grid (the 512² texture upsamples it, so coarse looks identical but paints in one ' +
+        'synchronous sub-ms pass)', () => {
         const sun = siteMetricGridBudget('sunHours');
         const day = siteMetricGridBudget('daylight');
         const pop = siteMetricGridBudget('population');
         const temp = siteMetricGridBudget('temperature');
-        // Sun-hours / daylight raycast per cell → coarser cells (fewer of them) than the
-        // O(1) population/temperature field. This is the decoupling that stops sun-hours
-        // drowning in cell count on the 240 m disc.
-        expect(sun.cellSizeM).toBeGreaterThan(pop.cellSizeM);
-        expect(day.cellSizeM).toBeGreaterThan(temp.cellSizeM);
-        expect(sun.maxCells).toBeLessThan(pop.maxCells);
-        expect(day.maxCells).toBeLessThan(temp.maxCells);
-        // Concrete bound: the expensive COMPUTE cap stays small enough to complete in
-        // seconds. §SITE-METRIC-SUN-TEXTURE — the display is now a single interpolated
-        // texture (not one entity per cell), so the only ceiling is the raycast COMPUTE;
-        // ~5k cells (~4 m on the 240 m disc) is still a couple-of-seconds raycast.
+        // §SITE-METRIC-PERF-INSTANT (founder 2026-06-30) — the cheap O(1) fields were
+        // oversampled to ~55k cells (chunked across frames → "takes ages"). The DISPLAY is
+        // a 512² bilinear texture regardless of cell count, so the cheap grid is now a
+        // small ~64×64 (~4k) lattice that builds in ONE pass → instant paint. The expensive
+        // raycast metrics keep their own (also-bounded) budget.
+        expect(pop.maxCells).toBeLessThanOrEqual(5000);
+        expect(temp.maxCells).toBeLessThanOrEqual(5000);
+        // The expensive COMPUTE cap stays small enough to complete in seconds.
         expect(sun.maxCells).toBeLessThanOrEqual(5000);
+        expect(day.maxCells).toBeLessThanOrEqual(5000);
     });
 
-    it('the expensive (sun-hours) grid yields FEWER cells than the cheap (population) ' +
-        'grid on the SAME large disc — the per-metric resolution decoupling', () => {
-        // On a 240 m-style disc the budgets must produce materially fewer sun-hours cells
-        // than population cells, so the raycast metric paints quickly.
+    it('§SITE-METRIC-PERF-INSTANT: the cheap grid stays well under 5000 cells on the 240 m ' +
+        'disc, so the per-cell COMPUTE is a single instant pass (no §perf cell-cap clamp)', () => {
         const radius = 240;
-        const sunBudget = siteMetricGridBudget('sunHours');
         const popBudget = siteMetricGridBudget('population');
-        const sun = buildSiteMetricGrid('sunHours', {
-            radius, footprints: FOOTPRINTS, dataset: null,
-            latDeg: 41.39, lngDeg: 2.17, sunDay: 'summer', sunStepMinutes: 30,
-            cellSizeM: sunBudget.cellSizeM, maxCells: sunBudget.maxCells,
-        });
         const pop = buildSiteMetricGrid('population', {
             radius, footprints: FOOTPRINTS, dataset: null,
             cellSizeM: popBudget.cellSizeM, maxCells: popBudget.maxCells,
         });
-        expect(sun.length).toBeGreaterThan(0);
         expect(pop.length).toBeGreaterThan(0);
-        expect(sun.length).toBeLessThan(pop.length);
-        // And the expensive grid stays under its (low) cap — bounded raycast work.
-        expect(sun.length).toBeLessThanOrEqual(sunBudget.maxCells + 32);
+        // Far fewer than the old ~55k — a few thousand cells, bounded by the small cap.
+        expect(pop.length).toBeLessThanOrEqual(popBudget.maxCells + 64);
+        expect(pop.length).toBeLessThanOrEqual(5000);
     });
 
     it('every metric has a positive, finite budget', () => {
@@ -322,31 +313,6 @@ describe('§SITE-METRIC-COST-TIER — per-metric grid resolution (ADR-0084)', ()
             expect(Number.isFinite(b.cellSizeM)).toBe(true);
             expect(Number.isFinite(b.maxCells)).toBe(true);
         }
-    });
-
-    it('§SITE-METRIC-FINE-CHEAP: the cheap field metrics paint a FINE grid (≤ ~1.5 m ' +
-        'cells, generous cap) so the disc reads smooth, not coarse', () => {
-        for (const m of ['temperature', 'wind', 'population'] as const satisfies readonly SiteMetric[]) {
-            const b = siteMetricGridBudget(m);
-            // Founder feedback: ~2.4 m read as coarse. The fine budget must be much smaller.
-            expect(b.cellSizeM).toBeLessThanOrEqual(1.5);
-            // …with a cap generous enough to actually paint a fine 240 m disc.
-            expect(b.maxCells).toBeGreaterThanOrEqual(20000);
-        }
-    });
-
-    it('§SITE-METRIC-FINE-CHEAP: a cheap metric yields MANY more cells on the 240 m disc ' +
-        'than the old ~2.4 m budget would (finer grid)', () => {
-        const radius = 240;
-        const popBudget = siteMetricGridBudget('population');
-        const pop = buildSiteMetricGrid('population', {
-            radius, footprints: FOOTPRINTS, dataset: null,
-            cellSizeM: popBudget.cellSizeM, maxCells: popBudget.maxCells,
-        });
-        // The old cap was 12000; the fine budget must paint materially more cells.
-        expect(pop.length).toBeGreaterThan(12000);
-        // …but still bounded by the (generous) cap — nothing silently unbounded.
-        expect(pop.length).toBeLessThanOrEqual(popBudget.maxCells + 64);
     });
 });
 
