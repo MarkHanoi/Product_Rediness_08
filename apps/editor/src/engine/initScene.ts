@@ -1813,6 +1813,23 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             });
         });
 
+        // §PERF-POSTGEOM-COMPILE-NO-SYNC-BLOCK (ADR-0094) — inject the ACTUAL live
+        // scene mesh-count provider the BatchCoordinator uses to gate its post-geometry
+        // synchronous `rpm.render()` compile. BatchCoordinator lives in core-app-model
+        // and must not import THREE (P2), so it reads the real scene size via this hook
+        // (initScene is the THREE owner). Without it, the coordinator judged small-vs-
+        // large by the batch's EXPECTED element count — which is ~0 for office/resi/
+        // apartment (geometry arrives via the bus uncounted) — so a 1200+-mesh tower
+        // slipped into a ~50s synchronous render that froze the viewport.
+        batchCoordinator.setSceneMeshCountProvider(() => {
+            const scene = world.scene.three as THREE.Scene;
+            let meshCount = 0;
+            scene.traverse((obj) => {
+                if (obj instanceof THREE.Mesh || obj instanceof THREE.InstancedMesh) meshCount++;
+            });
+            return meshCount;
+        });
+
         // P1.3: Single consolidated geometry pass after every batch completes.
         // During a batch (e.g. 50 curtain walls via AI), the per-element `bim-*-added`
         // window events are gated above (isBatching guard) and in the Pascal block below.

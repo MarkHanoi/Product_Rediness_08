@@ -93,6 +93,36 @@ const TIER_UPPER_BOUND: Record<SceneQualityTier, number> = {
 /** Symmetric hysteresis band as a fraction of the boundary (±10%). */
 const HYSTERESIS_FRACTION = 0.1;
 
+/**
+ * §PERF-LARGE-SCENE-TIER-CAP (ADR-0094) — hard mesh-count ceiling above which the
+ * render tier is CAPPED at `performance` (SSGI OFF, TRAA OFF, shadow ≤ standard, no
+ * decorative-furniture shadows), regardless of the nominal cinematic/balanced band.
+ *
+ * Evidence: a generated office tower logged
+ *   `[SceneQualityTier] 1211 meshes → tier=cinematic (SSGI/TRAA/shadow=high)`
+ * and was terrible to interact with — the heavy cinematic post-FX pipeline
+ * (SSGI + TRAA + high shadows) is unaffordable on a 1200+-mesh building. The
+ * nominal `cinematic` ceiling (1500) and `balanced` ceiling (2500) both keep
+ * SSGI/TRAA/high-shadow ON, so a ~1211-mesh tower stayed cinematic.
+ *
+ * Set to 1200 — just below the observed 1211-mesh tower — so:
+ *   - genuinely small / normal scenes (< 1200 meshes: single showcase rooms, a
+ *     house, one apartment) keep cinematic/balanced EXACTLY as before (zero change);
+ *   - any scene at/above ~1200 meshes (multi-storey towers, generated buildings) is
+ *     capped at `performance` for a real interaction win.
+ *
+ * This is a one-directional CAP: it can only LOWER the tier a large scene would
+ * otherwise get, never raise a small scene's tier. The `performance`/`survival`
+ * step-down at 15k meshes is unaffected (those are already ≤ performance).
+ */
+const LARGE_SCENE_PERFORMANCE_CAP_MESH_COUNT = 1_200;
+
+/**
+ * The richest tier permitted at/above {@link LARGE_SCENE_PERFORMANCE_CAP_MESH_COUNT}.
+ * `performance` = SSGI off, TRAA off, shadow=standard, decorative shadows off.
+ */
+const LARGE_SCENE_CAP_TIER: SceneQualityTier = 'performance';
+
 // ── Settings ────────────────────────────────────────────────────────────────
 
 /** A 'high' or 'ultra' or 'standard' shadow level, matching ShadowQualityUpgrader. */
@@ -249,12 +279,26 @@ export function nominalTierForMeshCount(meshCount: number): SceneQualityTier {
         { 'pryzm.scene_quality.mesh_count': meshCount },
         () => {
             const n = Number.isFinite(meshCount) ? Math.max(0, meshCount) : 0;
-            if (n <= TIER_UPPER_BOUND.cinematic) return 'cinematic';
-            if (n <= TIER_UPPER_BOUND.balanced) return 'balanced';
-            if (n <= TIER_UPPER_BOUND.performance) return 'performance';
-            return 'survival';
+            const base: SceneQualityTier =
+                n <= TIER_UPPER_BOUND.cinematic ? 'cinematic'
+                : n <= TIER_UPPER_BOUND.balanced ? 'balanced'
+                : n <= TIER_UPPER_BOUND.performance ? 'performance'
+                : 'survival';
+            // §PERF-LARGE-SCENE-TIER-CAP (ADR-0094) — one-directional cap: a large
+            // scene (≥ 1200 meshes, the 1211-tower evidence) can be no richer than
+            // `performance`. Returns whichever of {base, cap} is CHEAPER, so it only
+            // ever lowers quality for heavy scenes and never raises a small scene's tier.
+            if (n >= LARGE_SCENE_PERFORMANCE_CAP_MESH_COUNT) {
+                return cheaperTier(base, LARGE_SCENE_CAP_TIER);
+            }
+            return base;
         },
     );
+}
+
+/** Return whichever of the two tiers is CHEAPER (lower in TIER_ORDER). Pure helper. */
+function cheaperTier(a: SceneQualityTier, b: SceneQualityTier): SceneQualityTier {
+    return TIER_ORDER.indexOf(a) <= TIER_ORDER.indexOf(b) ? a : b;
 }
 
 /**
@@ -283,6 +327,22 @@ export function computeTier(meshCount: number, prevTier?: SceneQualityTier): Sce
             if (prevTier === undefined) return nominal;
             if (nominal === prevTier) return prevTier;
 
+            // §PERF-LARGE-SCENE-TIER-CAP (ADR-0094) — the large-scene cap is DECISIVE,
+            // not subject to the ±10% hysteresis hold. Otherwise a scene that GREW
+            // through cinematic up to ~1211 meshes would be held at cinematic by the
+            // step-down band (cinematic bound 1500 × 1.1 = 1650 > 1211) and never take
+            // the cap — exactly the 1211-mesh tower freeze. So once the scene is at/above
+            // the cap threshold, snap straight to the capped tier if it is richer than
+            // the cap; the ±10% band applies only BELOW the threshold (see hysteresis
+            // below for stepping back up as the scene shrinks under the cap).
+            if (n >= LARGE_SCENE_PERFORMANCE_CAP_MESH_COUNT) {
+                if (TIER_ORDER.indexOf(prevTier) > TIER_ORDER.indexOf(LARGE_SCENE_CAP_TIER)) {
+                    return nominal; // already capped by nominalTierForMeshCount
+                }
+                // prevTier is already ≤ cap — fall through to normal hysteresis so the
+                // performance/survival boundary at 15k still gets its guard band.
+            }
+
             const prevIdx = TIER_ORDER.indexOf(prevTier);
             const nomIdx = TIER_ORDER.indexOf(nominal);
 
@@ -298,6 +358,16 @@ export function computeTier(meshCount: number, prevTier?: SceneQualityTier): Sce
             }
 
             if (steppingUp) {
+                // §PERF-LARGE-SCENE-TIER-CAP (ADR-0094) — when stepping UP OUT of the
+                // capped `performance` tier back toward cinematic/balanced, the binding
+                // boundary is the large-scene cap (1200), not the balanced boundary
+                // (2500). Apply the cap's own ±10% band so a scene wobbling around 1200
+                // meshes does not thrash cinematic↔performance: only release the cap once
+                // the count drops clearly below 1200 − band (≈1080).
+                if (prevTier === LARGE_SCENE_CAP_TIER) {
+                    const capRelease = LARGE_SCENE_PERFORMANCE_CAP_MESH_COUNT * (1 - HYSTERESIS_FRACTION);
+                    return n < capRelease ? nominal : prevTier;
+                }
                 // To step UP (toward richer quality) we must drop clearly BELOW the
                 // boundary that separates prevTier from the next-richer tier. That
                 // boundary is the UPPER BOUND of the tier exactly one step richer
