@@ -27,6 +27,10 @@ export interface OfficeBuildingConsoleOptions {
     readonly deskMode?: DeskMode;
     readonly culture?: WorkplaceCulture;
     readonly mechanicalEveryN?: number;
+    /** §OFFICE-FACADE-GLASS-COLOUR — opaque façade finish colour (hex `#rrggbb`). Default white. */
+    readonly facadeColor?: string;
+    /** §OFFICE-FACADE-GLASS-COLOUR — glass tint for curtain-wall glazing + glazed offices (hex). */
+    readonly glassColor?: string;
 }
 
 /** §OFFICE-ONBOARDING-WIRE — the feature gate. ON by default; only an EXPLICIT
@@ -46,6 +50,8 @@ function toRequest(opts?: OfficeBuildingConsoleOptions): OfficeBuildingRequest {
         ...(opts?.deskMode ? { deskMode: opts.deskMode } : {}),
         ...(opts?.culture ? { culture: opts.culture } : {}),
         ...(typeof opts?.mechanicalEveryN === 'number' ? { mechanicalEveryN: opts.mechanicalEveryN } : {}),
+        ...(typeof opts?.facadeColor === 'string' ? { facadeColor: opts.facadeColor } : {}),
+        ...(typeof opts?.glassColor === 'string' ? { glassColor: opts.glassColor } : {}),
     };
 }
 
