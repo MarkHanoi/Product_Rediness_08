@@ -276,3 +276,76 @@ residential executor uses (P6 — commands only; P2 — no THREE; P8 — one spa
   ceiling-light core keep-out).
 - Files: `apps/editor/src/ui/office-building/{OfficeBuildingExecutor.ts, officeInteriorFitout.ts
   (NEW pure)}`.
+
+## Amendment (2026-07-01) — Phase 1 of SPEC-OFFICE-GENERATION-ENGINE · architecture/furnish SPLIT · full core services · circulation-first floor · facade+glass colour
+
+| Field | Value |
+|---|---|
+| Tags | §OFFICE-ARCH-FURNISH-SPLIT, §OFFICE-CORE-SERVICES, §OFFICE-CIRCULATION-FIRST, §OFFICE-FACADE-GLASS-COLOUR |
+| Governs | `docs/02-decisions/specs/SPEC-OFFICE-GENERATION-ENGINE.md` (P1: §1–§4, §9 steps 1–6) |
+
+### Context
+
+The founder ratified the canonical **SPEC-OFFICE-GENERATION-ENGINE** (a best-in-class generative
+office engine). Phase 1 implements the ARCHITECTURE/FURNISH split, the full core services, the
+circulation-first floor algorithm, the AI-dropdown commands, the preview toggle, and per-founder
+façade + glass colour pickers. The §OFFICE-INTERIOR-FITOUT amendment above emitted loose furniture
+DURING Build — SPEC §1 requires architecture and furnishing to be TWO independent systems.
+
+### Decision
+
+1. **§OFFICE-ARCH-FURNISH-SPLIT (SPEC §1/§2)** — Command 1 (`OfficeBuildingExecutor.execute`) now
+   emits **ARCHITECTURE ONLY** (slabs · perimeter/external walls · internal partition walls · roof ·
+   doors · curtain glazing · structural core · lift shafts · staircases · toilets · accessible WC ·
+   kitchenette + support/plant/storage rooms · circulation corridors · glazed office enclosures). ALL
+   loose furniture (desks · chairs · reception · collab · cafe · meeting furniture · downlights ·
+   floor finishes) MOVED OUT of Build into **Command 2 = Furnish Office** (`officeFurnish.ts` +
+   `officeFurnishTrigger.ts`), which reads the architecture Command 1 stashed (`officeBuildContext.ts`)
+   and populates it WITHOUT regenerating architecture. Registered as `pryzmFurnishOffice()` (console)
+   + a **"Furnish Office" AI-dropdown** entry; **"Generate Office Architecture"** was also added to the
+   dropdown. A **preview toggle** on `renderOfficeProgramStep` ("Architecture Only ↔ Architecture +
+   Interior", default Architecture Only) threads through `buildDirect(..., { withInterior })` →
+   `execute(..., { withInterior })` so "+ Interior" furnishes in the same build.
+2. **§OFFICE-CORE-SERVICES (SPEC §3 — never empty core)** — the core now ALWAYS carries a main
+   switchback (U) `CreateStairCommand` + a fire-escape stair (run OPPOSITE the main run) + ≥1 lift
+   `CreateVerticalCirculationCommand` (2-car bank on large/very-large floors) + a fire-rated lobby,
+   PLUS a toilet/service block (male · female · accessible WC · cleaning closet · service shaft) whose
+   **cubicle counts SCALE by floor size** (`cubiclesPerGender`: small=2 · medium=3–4 · large=5+ ·
+   very-large by occupant load ≈ 1/10 m² NIA). Emitted on the DETAILED floors (ground + representative)
+   so a tall tower stays performant.
+3. **§OFFICE-CIRCULATION-FIRST (SPEC §4/§9 steps 1–6)** — `planOfficeFloorArchitecture` SOLVES
+   CIRCULATION BEFORE ROOMS by construction: GFA + core (steps 1–2, upstream) → **primary + secondary
+   circulation + escape spokes (step 3)** → **support rooms (meeting/kitchenette/storage/plant, step
+   4)** → **internal partitions + glazed office enclosures (step 5)**. The ordered pipeline is proven
+   by the `§DIAG-OFFICE-CIRCULATION-FIRST` diagnostic (tested: 3→4→5). Partitions land via
+   `wall.batch.create`; glazed enclosures via `CreateCurtainWallCommand`.
+4. **§OFFICE-FACADE-GLASS-COLOUR (founder)** — TWO colour pickers on the office preview panel,
+   mirroring the residential `§RESI-FACADE-COLOUR` swatch row: **Façade colour** (`materialColor` on
+   perimeter/core/partition/toilet walls + roof) and **Glass colour** (NEW — `glazingColor` on the
+   glazed-office curtain walls + the perimeter window glazing, since the office is heavily glazed).
+   Threaded `officeBuildingTrigger → OfficeBuildingController → OfficeBuildingExecutor`. Defaults
+   (façade warm-white, glass `#9bc8e4`) reproduce the current look when absent.
+5. **Phase 2 (deferred)** — the MODULAR Furnish Office engine (SPEC §5/§6 module library +
+   occupancy-driven placement §8 + circulation clearances §7 + final validation §9 7–8) is a later
+   run. Phase 1 ships only the L2 seam `packages/ai-host/src/workflows/officeFurnish/` (module-type
+   vocabulary + `estimateOccupancy`); Command 2 currently MOVES the existing furniture into the
+   command rather than rewriting it.
+
+### Consequences
+
+- Command 1 emits architecture only; Command 2 (`pryzmFurnishOffice`) furnishes it — architecture
+  never regenerates on furnish. The office is now the FIRST typology with a clean generate-vs-furnish
+  split (a template for the others).
+- NEW pure modules (unit-testable in Node): `officeCorePlan.ts` (core services + circulation-first
+  planners), and `packages/ai-host/src/workflows/officeFurnish/officeModuleLibrary.ts`.
+- Tests: `apps/editor/__tests__/OfficeCorePlan.test.ts` (12 cases — cubicle scaling small/medium/
+  large/very-large · never-empty core · 2-car bank on large · circulation-BEFORE-rooms order ·
+  support/glazed inboard of glass) + `packages/ai-host/src/workflows/officeFurnish/__tests__/
+  officeModuleLibrary.test.ts` (occupancy estimator).
+- Files: `apps/editor/src/ui/office-building/{OfficeBuildingExecutor.ts, OfficeBuildingController.ts,
+  officeBuildingTrigger.ts, officeCorePlan.ts (NEW), officeFurnish.ts (NEW), officeFurnishTrigger.ts
+  (NEW), officeBuildContext.ts (NEW), officeInteriorFitout.ts (furniture math retained for Command 2)}`,
+  `apps/editor/src/ui/onboarding/OnboardingStepController.ts` (office step toggle + colour pickers +
+  generateOffice threading), `apps/editor/src/ui/layout/AIAreaLayout.ts` (console register),
+  `apps/editor/src/ui/ai/AIPanel.ts` (dropdown entries), `packages/ai-host/src/workflows/officeFurnish/*
+  (NEW)`, `packages/ai-host/src/index.ts` (exports).

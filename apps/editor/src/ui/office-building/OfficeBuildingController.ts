@@ -42,6 +42,10 @@ export interface OfficeBuildingRequest {
     readonly deskMode?: DeskMode;
     readonly culture?: WorkplaceCulture;
     readonly mechanicalEveryN?: number;
+    /** §OFFICE-FACADE-GLASS-COLOUR — opaque façade finish colour (hex `#rrggbb`). Default white. */
+    readonly facadeColor?: string;
+    /** §OFFICE-FACADE-GLASS-COLOUR — glass tint for curtain-wall glazing + glazed offices (hex). */
+    readonly glassColor?: string;
 }
 
 export interface OfficeBuildingRequestResult {
@@ -77,7 +81,7 @@ export function deriveRadiusFromShell(levelId: string): number | null {
 export class OfficeBuildingController {
     private readonly modal = new OfficeBuildingModal();
     private readonly executor = new OfficeBuildingExecutor();
-    private _pending: { runtime: PryzmRuntime; result: OfficeBuildingOk } | null = null;
+    private _pending: { runtime: PryzmRuntime; result: OfficeBuildingOk; facadeColor?: string; glassColor?: string } | null = null;
 
     async request(runtime: PryzmRuntime, req: OfficeBuildingRequest): Promise<OfficeBuildingRequestResult> {
         return _tracer.startActiveSpan('pryzm.editor.officeBuilding.request', async (span) => {
@@ -129,7 +133,9 @@ export class OfficeBuildingController {
         );
         toast(`Office tower ready — ${result.stories} storeys, ${result.analytics.totalDesks} desks.`, 'info');
 
-        this._pending = { runtime, result };
+        // §OFFICE-FACADE-GLASS-COLOUR — stash the façade + glass colours so the Build handler can
+        // pass them to the executor's paint pass.
+        this._pending = { runtime, result, facadeColor: req.facadeColor, glassColor: req.glassColor };
         this.modal.show(result, {
             onBuild: () => this._build(),
             onCancel: () => { console.log('[office-building] controller: modal cancelled (no scene mutation)'); this._pending = null; },
@@ -142,7 +148,7 @@ export class OfficeBuildingController {
         if (!p) return;
         console.log('[office-building] controller: Build pressed → executor');
         p.runtime.events?.emit('pryzm:toast', { message: 'Building office tower…', severity: 'info' });
-        void this.executor.execute(p.runtime, p.result);
+        void this.executor.execute(p.runtime, p.result, { facadeColor: p.facadeColor, glassColor: p.glassColor });
         this._pending = null;
     }
 
@@ -153,7 +159,11 @@ export class OfficeBuildingController {
      * PURE orchestrator (which ALWAYS auto-fits / never hard-rejects per Task A) and goes
      * straight to the executor. Reports the as-built desk count. P8: own span.
      */
-    async buildDirect(runtime: PryzmRuntime, req: OfficeBuildingRequest): Promise<OfficeBuildingRequestResult> {
+    async buildDirect(
+        runtime: PryzmRuntime,
+        req: OfficeBuildingRequest,
+        opts?: { withInterior?: boolean },
+    ): Promise<OfficeBuildingRequestResult> {
         return _tracer.startActiveSpan('pryzm.editor.officeBuilding.buildDirect', async (span) => {
             try {
                 const active = resolveActiveLevel();
@@ -184,8 +194,13 @@ export class OfficeBuildingController {
                 if (result.autoFit.notes.length > 0) {
                     runtime.events?.emit('pryzm:toast', { message: result.autoFit.notes[0]!, severity: 'info' });
                 }
-                await this.executor.execute(runtime, result);
+                await this.executor.execute(runtime, result, {
+                    withInterior: opts?.withInterior === true,
+                    facadeColor: req.facadeColor,
+                    glassColor: req.glassColor,
+                });
                 span.setAttribute('pryzm.office.buildDirect.ok', true);
+                span.setAttribute('pryzm.office.buildDirect.withInterior', opts?.withInterior === true);
                 span.setAttribute('pryzm.office.buildDirect.desks', result.analytics.totalDesks);
                 span.end();
                 return { ok: true, deskCount: result.analytics.totalDesks };

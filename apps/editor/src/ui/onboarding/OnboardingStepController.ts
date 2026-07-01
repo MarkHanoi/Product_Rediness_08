@@ -1445,6 +1445,95 @@ class OnboardingStepController {
         cultureWrap.appendChild(cultureRow);
         form.appendChild(cultureWrap);
 
+        // §OFFICE-ARCH-FURNISH-SPLIT (SPEC-OFFICE-GENERATION-ENGINE §2) — the preview toggle:
+        // "Architecture Only ↔ Architecture + Interior". Default = Architecture Only (the SPEC §1
+        // split — architecture is the primary deliverable; furniture is Command 2). When
+        // "+ Interior" is picked, Build runs the architecture THEN the furnish pass in one go.
+        let withInterior = false;   // default: Architecture Only
+        const interiorWrap = document.createElement('div');
+        interiorWrap.className = 'os-field';
+        const interiorLbl = document.createElement('span');
+        interiorLbl.className = 'os-field-label';
+        interiorLbl.textContent = 'Interior';
+        interiorWrap.appendChild(interiorLbl);
+        const interiorRow = document.createElement('div');
+        interiorRow.className = 'os-typo-chips';
+        const interiorOpts: Array<{ key: boolean; label: string }> = [
+            { key: false, label: 'Architecture Only' },
+            { key: true, label: 'Architecture + Interior' },
+        ];
+        for (const o of interiorOpts) {
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'os-typo-chip' + (o.key === withInterior ? ' os-typo-chip--on' : '');
+            chip.setAttribute('data-testid', `onboarding-office-interior-${o.key ? 'on' : 'off'}`);
+            chip.setAttribute('aria-pressed', String(o.key === withInterior));
+            chip.textContent = o.label;
+            chip.addEventListener('click', () => {
+                withInterior = o.key;
+                interiorRow.querySelectorAll('button').forEach((b) => { b.classList.remove('os-typo-chip--on'); b.setAttribute('aria-pressed', 'false'); });
+                chip.classList.add('os-typo-chip--on');
+                chip.setAttribute('aria-pressed', 'true');
+            });
+            interiorRow.appendChild(chip);
+        }
+        interiorWrap.appendChild(interiorRow);
+        form.appendChild(interiorWrap);
+
+        // §OFFICE-FACADE-GLASS-COLOUR (founder) — TWO colour pickers, mirroring the residential
+        // building's §RESI-FACADE-COLOUR swatch row: a FAÇADE colour (painted on the opaque
+        // shell / walls / core / roof) and a GLASS colour (the office is heavily glazed — curtain
+        // walls + glazed offices — so the glass tint is user-controllable too). Both default so
+        // "absent" reproduces the current look (façade warm-white, glass a light neutral blue).
+        let facadeColor: string = DEFAULT_FACADE_HEX;
+        let glassColor = '#9bc8e4';   // curtain-wall builder default light blue
+        const swatchPicker = (
+            labelText: string,
+            palette: ReadonlyArray<{ hex: string; name: string }>,
+            initial: string,
+            onPick: (hex: string) => void,
+            testId: string,
+        ): void => {
+            const wrap = document.createElement('div');
+            wrap.className = 'os-field';
+            const lbl = document.createElement('span');
+            lbl.className = 'os-field-label';
+            lbl.textContent = labelText;
+            wrap.appendChild(lbl);
+            const row = document.createElement('div');
+            row.className = 'os-typo-chips os-swatch-row';
+            row.setAttribute('data-testid', testId);
+            for (const p of palette) {
+                const sw = document.createElement('button');
+                sw.type = 'button';
+                sw.className = 'os-swatch' + (p.hex === initial ? ' os-swatch--on' : '');
+                sw.style.background = p.hex;
+                sw.title = p.name;
+                sw.setAttribute('aria-label', p.name);
+                sw.addEventListener('click', () => {
+                    row.querySelectorAll('button').forEach((b) => b.classList.remove('os-swatch--on'));
+                    sw.classList.add('os-swatch--on');
+                    onPick(p.hex);
+                });
+                row.appendChild(sw);
+            }
+            wrap.appendChild(row);
+            form.appendChild(wrap);
+        };
+        // Façade colour — the SHARED building palette (same swatches the residential step offers).
+        swatchPicker('Façade colour', FACADE_PALETTE, facadeColor, (hex) => { facadeColor = hex; }, 'onboarding-office-facade-colour');
+        // Glass colour — a small light-blue/neutral tint palette for the curtain-wall glazing.
+        const GLASS_PALETTE: ReadonlyArray<{ hex: string; name: string }> = [
+            { hex: '#9bc8e4', name: 'Sky blue (default)' },
+            { hex: '#bcd9ea', name: 'Pale blue' },
+            { hex: '#a8c6c0', name: 'Sea green' },
+            { hex: '#c9d6e0', name: 'Cool grey' },
+            { hex: '#8fb3c9', name: 'Steel blue' },
+            { hex: '#d6e4ec', name: 'Clear glass' },
+            { hex: '#7fa8b8', name: 'Deep teal' },
+        ];
+        swatchPicker('Glass colour', GLASS_PALETTE, glassColor, (hex) => { glassColor = hex; }, 'onboarding-office-glass-colour');
+
         // Plate-shape note (circular) — informational chip.
         const shapeNote = document.createElement('p');
         shapeNote.className = 'os-hint';
@@ -1553,8 +1642,13 @@ class OnboardingStepController {
                 officeFloorToFloorM: numV(ftfInput.value, seedFtf),
                 officeDeskDensity: Math.round(numV(deskInput.value, seedDeskDensity)),
                 officeCulture: culture,
+                // §OFFICE-ARCH-FURNISH-SPLIT — the preview toggle. Read by generateOffice → buildDirect.
+                officeWithInterior: withInterior,
+                // §OFFICE-FACADE-GLASS-COLOUR — façade + glass colours from the swatch pickers.
+                officeFacadeColor: facadeColor,
+                officeGlassColor: glassColor,
             };
-            console.log('[onboarding-step] §OFFICE-PREVIEW-STEP build confirmed', { stories, radiusM, culture });
+            console.log('[onboarding-step] §OFFICE-PREVIEW-STEP build confirmed', { stories, radiusM, culture, withInterior });
             this.overlay?.classList.remove('os-onboarding-overlay--confirm');
             this.overlay?.classList.remove('os-onboarding-overlay--resi');
             this.overlay?.classList.remove('os-onboarding-overlay--office');
@@ -1812,6 +1906,13 @@ class OnboardingStepController {
             ? (md['officeCulture'] as WorkplaceCulture) : undefined;
         const floorToFloorM = typeof md['officeFloorToFloorM'] === 'number' ? (md['officeFloorToFloorM'] as number) : undefined;
         const deskDensityPer1000Sqft = typeof md['officeDeskDensity'] === 'number' ? (md['officeDeskDensity'] as number) : undefined;
+        // §OFFICE-ARCH-FURNISH-SPLIT — the preview toggle: "Architecture + Interior" furnishes in
+        // the same build. Default (undefined / false) = Architecture Only (SPEC §2 default).
+        const withInterior = md['officeWithInterior'] === true;
+        // §OFFICE-FACADE-GLASS-COLOUR — the façade + glass colours from the preview swatches.
+        const hexRe = /^#[0-9a-fA-F]{6}$/;
+        const facadeColor = typeof md['officeFacadeColor'] === 'string' && hexRe.test(md['officeFacadeColor'] as string) ? (md['officeFacadeColor'] as string) : undefined;
+        const glassColor = typeof md['officeGlassColor'] === 'string' && hexRe.test(md['officeGlassColor'] as string) ? (md['officeGlassColor'] as string) : undefined;
         console.log('[onboarding-step] §OFFICE-ONBOARDING-WIRE → OFFICE generator', {
             stories,
             footprintPts: footprint?.length ?? 0,
@@ -1827,10 +1928,13 @@ class OnboardingStepController {
                 ...(floorToFloorM ? { floorToFloorM } : {}),
                 ...(deskDensityPer1000Sqft ? { deskDensityPer1000Sqft } : {}),
                 ...(culture ? { culture } : {}),
+                ...(facadeColor ? { facadeColor } : {}),
+                ...(glassColor ? { glassColor } : {}),
             };
             if (previewRadius != null) {
                 // The onboarding step already previewed → build directly (no second modal).
-                await controller.buildDirect(this.runtime, req);
+                // §OFFICE-ARCH-FURNISH-SPLIT — thread the preview's Architecture/Interior toggle.
+                await controller.buildDirect(this.runtime, req, { withInterior });
             } else {
                 await controller.request(this.runtime, req);
             }
