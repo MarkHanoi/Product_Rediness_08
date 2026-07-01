@@ -45,7 +45,16 @@ export class CreateRoomBoundingLineCommand implements Command {
     }
 
     canExecute(_ctx: CommandContext): CommandValidationResult {
-        const { start, end } = this._data;
+        const { start, end } = this._data ?? {};
+        // §RBL-REPLAY-GUARD — a malformed/legacy replayed CREATE_ROOM_BOUNDING_LINE can arrive
+        // with start/end (or their x/z) undefined. Reading end.x here threw a TypeError that the
+        // RemoteCommandDispatcher surfaced as "§REMOTE-EXEC-FALLBACK failed: CREATE_ROOM_BOUNDING_LINE
+        // ... reading 'x'" on every collab catch-up reconnect. Reject cleanly instead of throwing.
+        if (!start || !end ||
+            !Number.isFinite(start.x) || !Number.isFinite(start.z) ||
+            !Number.isFinite(end.x)   || !Number.isFinite(end.z)) {
+            return { ok: false, reason: 'Room Bounding Line endpoints missing/invalid — malformed replay skipped' };
+        }
         const dx = end.x - start.x;
         const dz = end.z - start.z;
         const len = Math.sqrt(dx * dx + dz * dz);
