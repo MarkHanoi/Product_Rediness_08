@@ -23,6 +23,8 @@
 // algorithm defines GFA → core position → primary circulation + escape routes → support rooms →
 // internal partitions + glazed enclosures — SOLVING CIRCULATION BEFORE ROOMS.
 
+import { ringPlanSegments } from './officePerimeterGlazing.js';
+
 /** A finite plan point (m, {x,z}). */
 export interface Pt2 { readonly x: number; readonly z: number }
 
@@ -544,4 +546,35 @@ export function planOfficeFloorArchitecture(input: {
 
     const diagnostic = `§DIAG-OFFICE-CIRCULATION-FIRST order=[${steps.join(' → ')}]`;
     return { circulation, supportRooms, partitionWalls, glazedEnclosures, namedRooms, diagnostic };
+}
+
+/** Number of segments in each circulation ring outline (a 32-gon reads as round in plan). */
+const CIRCULATION_RING_SEGMENTS = 32;
+
+/**
+ * §OFFICE-CIRC-RBL-PLACEMENT (founder 2026-07-01) — the PURE producer of the circulation-ring
+ * room-bounding-line segments the executor draws as `office-circ-` RoomBoundingLines. Builds the
+ * ring's inner + outer circle outlines (a 32-gon each) and routes EVERY edge through the SAME
+ * `ringPlanSegments` §RBL-PLACEMENT-AT-SOURCE guard that every other office RBL uses, so no edge
+ * with an undefined / NaN endpoint or a degenerate (< 10 mm) length ever reaches a
+ * `CREATE_ROOM_BOUNDING_LINE` payload. Before this, the executor built the 32-gon INLINE and pushed
+ * `{start,end}` verbatim — the ONLY office RBL emission that bypassed the guard — so a ring on a
+ * collapsed radius (innerR === outerR, or a clamped zone radius) minted coincident-vertex edges the
+ * renderer's §RBL-PLACEMENT-GUARD then SKIPPED (placement.start/end undefined) → the circulation
+ * corridors never rendered. A radius ≤ 0 is dropped (no outline). Pure + deterministic.
+ */
+export function circulationRingSegments(
+    ring: Pick<CirculationRing, 'innerR' | 'outerR'>,
+): Array<{ start: Pt2; end: Pt2 }> {
+    const out: Array<{ start: Pt2; end: Pt2 }> = [];
+    for (const r of [ring.innerR, ring.outerR]) {
+        if (!(r > 0) || !Number.isFinite(r)) continue;
+        const poly = Array.from({ length: CIRCULATION_RING_SEGMENTS }, (_v, i) => {
+            const a = (2 * Math.PI * i) / CIRCULATION_RING_SEGMENTS;
+            return { x: Math.cos(a) * r, z: Math.sin(a) * r };
+        });
+        // §RBL-PLACEMENT-AT-SOURCE — the shared guard: only finite-endpoint, non-degenerate edges.
+        out.push(...ringPlanSegments(poly));
+    }
+    return out;
 }

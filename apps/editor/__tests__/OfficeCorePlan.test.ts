@@ -15,6 +15,7 @@ import {
     cubiclesPerGender,
     planOfficeCore,
     planOfficeFloorArchitecture,
+    circulationRingSegments,
 } from '../src/ui/office-building/officeCorePlan';
 
 describe('classifyFloorSize', () => {
@@ -139,6 +140,86 @@ describe('§OFFICE-CORE-SERVICES — planOfficeCore never emits an empty core', 
         const maleLabel = plan?.toiletRooms.find((r) => r.label.toLowerCase().includes('male') && !r.label.toLowerCase().includes('female'))?.label ?? '';
         expect(maleLabel).toContain(String(plan?.cubiclesPerGender));
         expect(plan?.cubiclesPerGender).toBeGreaterThanOrEqual(5);
+    });
+});
+
+// §OFFICE-CORE-REAL-CIRCULATION (founder 2026-07-01: "we need the REAL stair placed in the core +
+// real vertical-circulation LIFT, like the residential building") — the executor emits a REAL
+// CreateStairCommand (main + fire escape) per adjacent level pair + a CreateVerticalCirculation
+// (lift) per level from the plan. These pin the PURE plan the executor consumes: the plan ALWAYS
+// carries a placeable main stair, a fire-escape stair, and ≥1 lift with real (finite, >0) footprints
+// so the executor's stair/lift commands can never be empty.
+describe('§OFFICE-CORE-REAL-CIRCULATION — the plan always yields placeable stair + lift footprints', () => {
+    it('mainStair + fireStair carry finite centre/width/run for a CreateStairCommand', () => {
+        const plan = planOfficeCore(6, 1520, 1140);
+        expect(plan).not.toBeNull();
+        if (!plan) return;
+        for (const s of [plan.mainStair, plan.fireStair]) {
+            expect(Number.isFinite(s.cx)).toBe(true);
+            expect(Number.isFinite(s.cz)).toBe(true);
+            expect(s.widthM).toBeGreaterThan(0);
+            expect(s.runDepthM).toBeGreaterThan(0);
+            // A unit run direction (the stair flight heading) — the CreateStairCommand flight dir.
+            expect(Math.hypot(s.runDir.x, s.runDir.z)).toBeGreaterThan(0.99);
+        }
+    });
+    it('≥1 lift shaft carries a finite centre + a real (>0) shaft footprint for a lift command', () => {
+        const plan = planOfficeCore(6, 1520, 1140);
+        expect(plan).not.toBeNull();
+        if (!plan) return;
+        expect(plan.lifts.length).toBeGreaterThanOrEqual(1);
+        for (const l of plan.lifts) {
+            expect(Number.isFinite(l.cx)).toBe(true);
+            expect(Number.isFinite(l.cz)).toBe(true);
+            expect(l.widthM).toBeGreaterThan(0);
+            expect(l.depthM).toBeGreaterThan(0);
+            expect(Number.isFinite(l.rotationY)).toBe(true);
+        }
+    });
+});
+
+// §OFFICE-CIRC-RBL-PLACEMENT (founder 2026-07-01: "hundreds of office-circ annotations render with
+// placement.start/end undefined — the circulation corridors DON'T render") — the executor draws each
+// circulation ring's RoomBoundingLines via `circulationRingSegments`. These pin the FIX: every emitted
+// segment carries a REAL, finite start/end (never undefined/NaN, never degenerate), so the renderer's
+// §RBL-PLACEMENT-GUARD never skips it and the corridors render.
+describe('§OFFICE-CIRC-RBL-PLACEMENT — circulationRingSegments always carry a defined, finite placement', () => {
+    it('emits closed inner + outer ring segments with finite, non-degenerate start/end', () => {
+        const segs = circulationRingSegments({ innerR: 6, outerR: 8 });
+        expect(segs.length).toBeGreaterThan(0);
+        for (const s of segs) {
+            // The exact invariant the renderer's §RBL-PLACEMENT-GUARD checks: start/end both defined
+            // + finite (an undefined endpoint is what got every office-circ line skipped).
+            expect(s.start).toBeDefined();
+            expect(s.end).toBeDefined();
+            expect(Number.isFinite(s.start.x)).toBe(true);
+            expect(Number.isFinite(s.start.z)).toBe(true);
+            expect(Number.isFinite(s.end.x)).toBe(true);
+            expect(Number.isFinite(s.end.z)).toBe(true);
+            // Non-degenerate (≥ the command's 10 mm min-length guard).
+            expect(Math.hypot(s.end.x - s.start.x, s.end.z - s.start.z)).toBeGreaterThanOrEqual(0.01);
+        }
+    });
+    it('drops a ring with a collapsed / non-positive radius (no undefined-placement line ever emitted)', () => {
+        expect(circulationRingSegments({ innerR: 0, outerR: 0 })).toHaveLength(0);
+        expect(circulationRingSegments({ innerR: -3, outerR: -1 })).toHaveLength(0);
+        // A single valid radius still yields ONE ring (the other, zero, is dropped) — all finite.
+        const oneRing = circulationRingSegments({ innerR: 0, outerR: 8 });
+        expect(oneRing.length).toBeGreaterThan(0);
+        for (const s of oneRing) {
+            expect(Number.isFinite(s.start.x) && Number.isFinite(s.end.x)).toBe(true);
+        }
+    });
+    it('every real circulation ring from the planner yields defined-placement segments', () => {
+        const arch = planOfficeFloorArchitecture({ discR: 22, coreR: 6, innerCircOuterR: 8, openPlanOuterR: 16, perimMidR: 19 });
+        for (const ring of arch.circulation) {
+            for (const s of circulationRingSegments(ring)) {
+                expect(s.start).toBeDefined();
+                expect(s.end).toBeDefined();
+                expect(Number.isFinite(s.start.x) && Number.isFinite(s.start.z)).toBe(true);
+                expect(Number.isFinite(s.end.x) && Number.isFinite(s.end.z)).toBe(true);
+            }
+        }
     });
 });
 

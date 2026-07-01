@@ -65,6 +65,7 @@ import { coreSquare } from './officeInteriorFitout.js';
 import {
     planOfficeCore,
     planOfficeFloorArchitecture,
+    circulationRingSegments,
     type OfficeCorePlan,
     type WallSeg,
 } from './officeCorePlan.js';
@@ -404,7 +405,11 @@ export class OfficeBuildingExecutor {
                     // edge (punched deferred once the walls land). Mirrors ResidentialBuildingExecutor
                     // ._buildCorePerimeter (one wall per edge, shared corners, one door spec).
                     if (core) {
-                        const cw = this._buildCoreWalls(core.corners, core.doorEdgeIndex, levelId, floorToFloorM, facadeColor);
+                        // §OFFICE-CORE-WALL-INNER-COLOUR (founder 2026-07-01) — the RC core enclosure
+                        // (stair/lift/WC shaft) is an INTERIOR partition, so it reads the INNER-WALL
+                        // colour, NOT the façade colour. Only the EXTERNAL shell + roof take the façade
+                        // colour; the glazing takes the glass colour.
+                        const cw = this._buildCoreWalls(core.corners, core.doorEdgeIndex, levelId, floorToFloorM, innerWallColor);
                         if (cw.payload.walls.length > 0) {
                             this._dispatchWallBatch(runtime, cw.payload, `core-L${index}`);
                             coreWallPayloads.push(cw.payload);
@@ -476,8 +481,14 @@ export class OfficeBuildingExecutor {
         // §OFFICE-CORE-SERVICES (SPEC §3 — never generate empty cores) — the FULL core: main
         // switchback stair + fire-escape stair + lift shaft(s) + fire-rated lobby, PLUS a toilet +
         // service block (male · female · accessible WC · cleaning closet · service shaft) whose
-        // cubicle counts SCALE with floor size. Emitted on the DETAILED floors (ground + rep) so a
-        // tall tower doesn't freeze. Stairs/lifts span each detailed floor's storey.
+        // cubicle counts SCALE with floor size.
+        // §OFFICE-CORE-REAL-CIRCULATION (founder 2026-07-01: "we need the REAL stair (check the
+        // residential building) placed in the core + a real vertical-circulation LIFT ground→top") —
+        // mirror ResidentialBuildingExecutor._createCore: emit a REAL switchback stair + a fire-escape
+        // stair per ADJACENT minted-level pair (ground→1, 1→2, … so vertical circulation is CONTINUOUS
+        // to roof access, not a decorative one-storey stub on 2 floors), and ONE lift cab per level
+        // spanning ground→top. The toilet/lobby/corridor plan (room-lines + partitions) stays on the
+        // first detailed floor (one plan floor is enough — the shaft repeats on every storey).
         const corePlan = planOfficeCore(coreRadiusM, plate.analytics.grossFloorAreaM2, plate.analytics.usableAreaM2);
         const detailedIndices = [...new Set([0, representativeFloorIndex])].filter((i) => levelIdByIndex.has(i));
         let stairCount = 0, liftCount = 0;
@@ -720,7 +731,9 @@ export class OfficeBuildingExecutor {
         doorEdgeIndex: number,
         levelId: string,
         heightM: number,
-        facadeColor?: string,
+        // §OFFICE-CORE-WALL-INNER-COLOUR — the RC core enclosure is an INTERIOR partition, so it
+        // reads the INNER-WALL colour (not the façade colour). Absent ⇒ the default wall finish.
+        innerWallColor?: string,
     ): {
         payload: { walls: ReadonlyArray<Record<string, unknown>>; levelId: string };
         doors: Array<{ wallId: string; offset: number; width: number; levelId: string }>;
@@ -740,8 +753,9 @@ export class OfficeBuildingExecutor {
                 baseLine: [{ x: a.x, y: 0, z: a.z }, { x: b.x, y: 0, z: b.z }],
                 height: heightM,
                 thickness: CORE_WALL_THICKNESS_M,
-                // §OFFICE-FACADE-GLASS-COLOUR — the RC core reads the façade finish colour too.
-                ...(facadeColor ? { materialColor: facadeColor } : {}),
+                // §OFFICE-CORE-WALL-INNER-COLOUR — the RC core enclosure is an INTERIOR partition, so
+                // it reads the INNER-WALL colour (matching the interior partitions), NOT the façade.
+                ...(innerWallColor ? { materialColor: innerWallColor } : {}),
             });
             if (i === doorEdgeIndex) {
                 const w = Math.min(DOOR_W, Math.max(0.8, len - 0.4));
@@ -933,22 +947,39 @@ export class OfficeBuildingExecutor {
         const roomLines: BoundingLineItem[] = [];
         const toiletWalls: WallSeg[] = [];
 
-        for (const index of detailedIndices) {
-            const levelId = levelIdByIndex.get(index);
-            if (!levelId) continue;
-            const elevationM = baseElevationM + index * floorToFloorM;
-
-            // ── Vertical circulation: main + fire-escape switchback stairs (one storey each). ──
+        // §OFFICE-CORE-REAL-CIRCULATION — the CONTINUOUS vertical-circulation spine (mirrors
+        // ResidentialBuildingExecutor._createCore): a REAL switchback stair + a fire-escape stair per
+        // ADJACENT minted-level pair (ground→1, 1→2, … top-1→top), and ONE lift cab per level spanning
+        // ground→top. The minted indices (level minting can break early → shorter tower) are the SINGLE
+        // SOURCE for the level pairs, so the stair/lift reach exactly as high as the tower actually built.
+        const mintedIndices = [...levelIdByIndex.keys()].sort((a, b) => a - b);
+        const topIndex = mintedIndices[mintedIndices.length - 1] ?? 0;
+        for (let idx = 0; idx < topIndex; idx++) {
+            const fromLevelId = levelIdByIndex.get(idx);
+            const toLevelId = levelIdByIndex.get(idx + 1);
+            if (!fromLevelId || !toLevelId) continue;   // a gap from an early-broken mint — skip the pair
+            const startY = baseElevationM + idx * floorToFloorM;
+            const flightRise = floorToFloorM;   // uniform storey height (the office cascade is uniform)
+            // ── Vertical circulation: main + fire-escape switchback stairs, one flight PER LEVEL PAIR
+            //    (baseLevelId=from, topLevelId=to) so the stair spans the real storey and reaches roof.
             for (const stair of [core.mainStair, core.fireStair]) {
-                if (this._emitCoreStair(cm, stair, levelId, levelId, elevationM, floorToFloorM)) stairs++;
+                if (this._emitCoreStair(cm, stair, fromLevelId, toLevelId, startY, flightRise)) stairs++;
             }
-            // ── Lift shaft(s): 1 for small/medium, 2 for large+. One cab per storey. ──
+        }
+        // ── Lift shaft(s): 1 for small/medium, 2 for large+. ONE cab per level spanning ground→top,
+        //    so the shaft is visible on EVERY floor (mirrors §RESI-LIFT-EVERY-FLOOR). The top floor
+        //    passes base===top (a one-storey cab anchored at its floor, per resolveSpan's fallback).
+        for (const idx of mintedIndices) {
+            const fromLevelId = levelIdByIndex.get(idx);
+            if (!fromLevelId) continue;
+            const toLevelId = levelIdByIndex.get(idx + 1) ?? fromLevelId;
+            const elevationM = baseElevationM + idx * floorToFloorM;
             for (const lift of core.lifts) {
                 try {
                     cm.execute?.(new CreateVerticalCirculationCommand({
                         id: createId('verticalCirculation'),
-                        baseLevelId: levelId,
-                        topLevelId: levelId,
+                        baseLevelId: fromLevelId,
+                        topLevelId: toLevelId,
                         kind: 'passenger',
                         origin: { x: lift.cx, y: elevationM, z: lift.cz },
                         rotation: lift.rotationY,
@@ -958,14 +989,18 @@ export class OfficeBuildingExecutor {
                     lifts++;
                 } catch (e) { console.warn('[office-building] §OFFICE-CORE-SERVICES lift create failed (skipped):', e); }
             }
+        }
 
-            // Collect the fire-lobby + corridor + toilet room-bounding lines ONCE (first detailed floor).
-            if (roomLines.length === 0) {
-                this._rectRoomLines(roomLines, core.fireLobby, levelId);
+        // Collect the fire-lobby + corridor + toilet room-bounding lines ONCE (first detailed floor).
+        {
+            const firstDetailed = detailedIndices.find((i) => levelIdByIndex.has(i));
+            const planLevelId = firstDetailed != null ? levelIdByIndex.get(firstDetailed) : undefined;
+            if (planLevelId) {
+                this._rectRoomLines(roomLines, core.fireLobby, planLevelId);
                 // §OFFICE-CORE-WELLPROPORTIONED — the CIRCULATION CORRIDOR (founder: "the toilets
                 // don't have a run") as bounding lines so it reads as a proper corridor.
-                this._rectRoomLines(roomLines, core.corridor, levelId);
-                for (const r of core.toiletRooms) this._rectRoomLines(roomLines, r, levelId);
+                this._rectRoomLines(roomLines, core.corridor, planLevelId);
+                for (const r of core.toiletRooms) this._rectRoomLines(roomLines, r, planLevelId);
                 toiletWalls.push(...core.toiletWalls);
             }
         }
@@ -993,9 +1028,11 @@ export class OfficeBuildingExecutor {
         return { stairs, lifts };
     }
 
-    /** §OFFICE-CORE-SERVICES — emit ONE switchback (U) stair spanning `[from,to]` at `elevationM`,
-     *  its riser/tread sized to the storey rise + inside the command's valid band. Mirrors the
-     *  resi core-stair math (simplified: one storey, contained footprint). Returns true on success. */
+    /** §OFFICE-CORE-SERVICES / §OFFICE-CORE-REAL-CIRCULATION — emit ONE switchback (U) stair spanning
+     *  the REAL adjacent level pair `baseLevelId → topLevelId` at `elevationM`, its riser/tread sized
+     *  to the storey `rise` + kept inside the command's valid band [0.15, 0.19] (else CreateStairCommand
+     *  BLOCKS). Mirrors the resi core-stair math (one flight per level pair, contained footprint, slab
+     *  void auto-punched in the upper floor). Returns true on success. */
     private _emitCoreStair(
         cm: CommandManagerLike,
         stair: { cx: number; cz: number; widthM: number; runDepthM: number; runDir: { x: number; z: number } },
@@ -1043,9 +1080,11 @@ export class OfficeBuildingExecutor {
                 landings,
                 secondRunSide: 'left',
                 accessibilityType: 'standard',
-                // The core slab is retained as the shaft mass; skip the auto slab-void punch so a
-                // one-storey representative core stair doesn't cut a hole under itself.
-                autoCreateOpening: false,
+                // §OFFICE-CORE-REAL-CIRCULATION — the stair now spans a REAL adjacent level pair
+                // (baseLevelId → topLevelId), so let CreateStairCommand auto-punch the slab void in
+                // the UPPER floor (you walk up THROUGH it) exactly like the residential core stair.
+                // The recorded stair void (below) then cuts the floor finish over that same opening.
+                autoCreateOpening: true,
             }), { source: 'OFFICE_PIPELINE_STAIR' });
             if (res && (res as { success?: boolean }).success === false) {
                 console.warn(`[office-building] §OFFICE-CORE-SERVICES stair rejected (rise=${rise.toFixed(2)} risers=${risers} riserH=${riserH.toFixed(3)} width=${width.toFixed(2)}).`);
@@ -1078,19 +1117,21 @@ export class OfficeBuildingExecutor {
         glassColor?: string,
     ): void {
         // Circulation rings + escape spokes + support-room outlines as room-bounding lines.
+        // §OFFICE-CIRC-RBL-PLACEMENT (founder 2026-07-01: "hundreds of office-circ annotations render
+        // with placement.start/end undefined — the circulation corridors the core claims to add DON'T
+        // render") — ROOT CAUSE: this pass built the circulation ring 32-gon INLINE and pushed
+        // {start,end} verbatim, the ONLY office RBL emission that BYPASSED the §RBL-PLACEMENT-AT-SOURCE
+        // guard (`ringPlanSegments`) every other office RBL routes through (zone lines `office-rbl-`,
+        // rect rooms `office-room-`). A ring built on a collapsed radius (innerR === outerR, or a
+        // clamped/degenerate zone radius) minted zero-length / coincident-vertex edges whose serialized
+        // placement round-tripped to undefined, so the RoomBoundingLineBuilder's §RBL-PLACEMENT-GUARD
+        // SKIPPED every one. FIX: build each ring outline through `circulationRingSegments` (which
+        // routes every edge through the SAME `ringPlanSegments` finite-endpoint + non-degenerate guard),
+        // so every emitted `office-circ-` line carries a REAL, finite placement.start/end and renders.
         const lines: BoundingLineItem[] = [];
         for (const ring of arch.circulation) {
-            // Draw the ring's inner + outer circle outlines (32-gon) so detection reads the corridor.
-            for (const r of [ring.innerR, ring.outerR]) {
-                if (!(r > 0)) continue;
-                const poly = Array.from({ length: 32 }, (_v, i) => {
-                    const a = (2 * Math.PI * i) / 32;
-                    return { x: Math.cos(a) * r, z: Math.sin(a) * r };
-                });
-                for (let i = 0; i < poly.length; i++) {
-                    const a = poly[i]!, b = poly[(i + 1) % poly.length]!;
-                    lines.push({ id: `office-circ-${createId('annotation')}`, levelId, start: { x: a.x, z: a.z }, end: { x: b.x, z: b.z } });
-                }
+            for (const seg of circulationRingSegments(ring)) {
+                lines.push({ id: `office-circ-${createId('annotation')}`, levelId, start: seg.start, end: seg.end });
             }
         }
         for (const room of arch.supportRooms) this._rectRoomLines(lines, room, levelId);

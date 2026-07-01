@@ -349,3 +349,55 @@ DURING Build — SPEC §1 requires architecture and furnishing to be TWO indepen
   generateOffice threading), `apps/editor/src/ui/layout/AIAreaLayout.ts` (console register),
   `apps/editor/src/ui/ai/AIPanel.ts` (dropdown entries), `packages/ai-host/src/workflows/officeFurnish/*
   (NEW)`, `packages/ai-host/src/index.ts` (exports).
+
+## Amendment (2026-07-01) — §OFFICE-CORE-REAL-CIRCULATION · §OFFICE-CIRC-RBL-PLACEMENT · §OFFICE-CORE-WALL-INNER-COLOUR
+
+Three founder fixes to the office CORE, all mirroring the PROVEN residential building (`Residential
+BuildingExecutor._createCore`) rather than reinventing:
+
+1. **§OFFICE-CORE-REAL-CIRCULATION** — the founder: "we need the REAL stair (check the residential
+   building) placed in the core + a real vertical-circulation LIFT (check the residential building)."
+   The shipped core emitted a decorative ONE-STOREY stair (`baseLevelId === topLevelId`) on only the
+   two detailed floors — not a continuous run. `_buildCoreServices` now mirrors residential
+   `_createCore`: it emits a REAL `CreateStairCommand` switchback (main **+** fire-escape, remote
+   second egress) per **adjacent minted-level pair** (ground→1, 1→2, … top−1→top) so vertical
+   circulation is CONTINUOUS to roof access, and ONE `CreateVerticalCirculationCommand` **lift cab per
+   level** spanning ground→top (visible on every floor, top floor gets the one-storey fallback cab).
+   The stair now spans a real pair, so `CreateStairCommand.autoCreateOpening` is re-enabled (the slab
+   void is punched in the UPPER floor — you walk up THROUGH it) and the recorded `recordStairVoid`
+   cuts the floor finish over that same opening, exactly like the residential core. The stair riser
+   count is derived into the command-valid `[0.15, 0.19]` band per flight so `CreateStairCommand` never
+   silently blocks. Stair footprint sizing reuses `computeStairFootprintRect` from `@pryzm/geometry-
+   stair` (the same helper residential uses). Nesting: the whole core-service pass runs AFTER the
+   structural `runBatch` has closed, so its `cm.execute` / `runBatch` calls are top-level (never nested
+   inside an already-open batch — the "runBatch called while already batching" warning cannot occur
+   here).
+
+2. **§OFFICE-CIRC-RBL-PLACEMENT** — the founder: hundreds of `office-circ` circulation-ring
+   RoomBoundingLines rendered with `placement.start/end === undefined`, so every one was SKIPPED by the
+   renderer's §RBL-PLACEMENT-GUARD and the circulation corridors never rendered. ROOT CAUSE: the
+   circulation-ring pass built its 32-gon outline INLINE and pushed `{start,end}` verbatim — the ONLY
+   office RBL emission that BYPASSED the §RBL-PLACEMENT-AT-SOURCE guard (`ringPlanSegments`) that every
+   other office RBL routes through (zone lines `office-rbl-`, rect rooms `office-room-`). A ring on a
+   collapsed radius (innerR === outerR, or a clamped/degenerate zone radius) minted coincident-vertex /
+   zero-length edges whose placement round-tripped to undefined. FIX (at the SOURCE, the ADR's
+   canonical rule): a NEW pure `circulationRingSegments(ring)` in `officeCorePlan.ts` builds each ring's
+   inner + outer outline and routes EVERY edge through the SAME `ringPlanSegments` finite-endpoint +
+   non-degenerate (≥ 10 mm) guard, dropping any non-positive/non-finite radius. Every emitted
+   `office-circ-` line now carries a REAL, finite `placement.start/end` → the guard never skips it →
+   the corridors render.
+
+3. **§OFFICE-CORE-WALL-INNER-COLOUR** — the RC core enclosure walls (around the stair/lift/WC shaft)
+   were painted with `facadeColor`. They are INTERIOR partitions, so they now read the **inner-wall
+   colour** (`innerWallColor`, the picker the previous core agent added), matching the interior
+   partitions — `facadeColor` stays on the EXTERNAL shell + roof only, `glassColor` on the glazing.
+   The toilet/service + floor partitions already read `innerWallColor`; this brings the core enclosure
+   into line.
+
+- Tests: `apps/editor/__tests__/OfficeCorePlan.test.ts` extended — `circulationRingSegments` always
+  yields defined + finite + non-degenerate `start`/`end` (the exact §RBL-PLACEMENT-GUARD invariant),
+  drops collapsed/non-positive radii, and every real planner ring yields defined-placement segments;
+  plus the plan always carries placeable main-stair + fire-stair footprints and ≥1 lift footprint (the
+  inputs the executor's `CreateStairCommand` / `CreateVerticalCirculationCommand` consume).
+- Files: `apps/editor/src/ui/office-building/{OfficeBuildingExecutor.ts, officeCorePlan.ts (+
+  `circulationRingSegments`)}`, `apps/editor/__tests__/OfficeCorePlan.test.ts`.
