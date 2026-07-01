@@ -147,6 +147,60 @@ export function createBimWorld(container: HTMLElement) {
 
     components.init();
 
+    // ── §WEBGL2-VIEW-UNSTICK (2026-07-01) — harden OBC's self-driving rAF loop ──
+    //
+    // OBC's `Components.update` (dist/index.mjs) is an arrow property that runs
+    // its OWN requestAnimationFrame loop, started by `components.init()`. Each
+    // frame it iterates every registered component and calls `component.update`,
+    // and ONLY re-arms `requestAnimationFrame(this.update)` at the END. This loop
+    // is what ticks `world.camera.controls.update(delta)` every frame (which in
+    // turn fires the 'update'/'rest' camera events that wake PRYZM's
+    // frame-scheduler via beginMotion). It is INDEPENDENT of PRYZM's scheduler.
+    //
+    // ROOT CAUSE of the "3D view stuck — cannot rotate/move the camera" symptom
+    // seen when opening an old project: if ANY component's `update(delta)` throws
+    // (e.g. a renderer/builder touching a half-restored element after a load with
+    // failures), the exception escapes OBC's `update()` BEFORE the re-arm line is
+    // reached → the rAF loop dies → camera-controls stop being ticked → the
+    // camera freezes AND no more 'update' events fire → PRYZM's scheduler parks.
+    // A single throwing component permanently freezes the entire viewport.
+    //
+    // Fix: wrap `components.update` so a throw is caught and the rAF loop is
+    // ALWAYS re-armed. The original `update` reads `this.update` (now this
+    // wrapper) when it re-arms on a clean frame, so the guard stays installed
+    // across frames; on a throwing frame we re-arm here. One bad frame logs once
+    // and is skipped — the camera keeps moving on the next frame instead of
+    // freezing forever. No span: pure defensive wrapper around an existing loop.
+    try {
+        const raf: (cb: FrameRequestCallback) => number =
+            typeof requestAnimationFrame === 'function'
+                ? requestAnimationFrame
+                : ((cb) => setTimeout(() => cb(performance.now()), 16) as unknown as number);
+        const originalUpdate = (components as unknown as { update: () => void }).update;
+        if (typeof originalUpdate === 'function') {
+            let loggedLoopError = false;
+            const guardedUpdate = (): void => {
+                try {
+                    originalUpdate();
+                } catch (err) {
+                    if (!loggedLoopError) {
+                        loggedLoopError = true; // log once — never spam every frame
+                        console.error(
+                            '[BimWorld] §WEBGL2-VIEW-UNSTICK — an OBC component update() threw; ' +
+                            'the frame loop was re-armed so the camera stays live. First error:',
+                            err,
+                        );
+                    }
+                    // Re-arm the loop the failed frame never reached.
+                    raf(guardedUpdate);
+                }
+            };
+            (components as unknown as { update: () => void }).update = guardedUpdate;
+        }
+    } catch (wrapErr) {
+        console.warn('[BimWorld] §WEBGL2-VIEW-UNSTICK — could not install OBC update guard (non-fatal):', wrapErr);
+    }
+
     // ── Camera Anti-Clip: Constraints — minDistance, maxDistance, polar angles ──
     // Contract: docs/02-decisions/contracts/10-CAMERA-ZOOM-CONSTRAINTS-CONTRACT.md
     //

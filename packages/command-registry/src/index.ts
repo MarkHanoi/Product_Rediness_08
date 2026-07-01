@@ -154,7 +154,7 @@ export * from './project/ClearProjectCommand';
 export * from './project/ImportProjectCommand';
 // §LOAD-HEAL-DEGENERATE-POLYGON — pure load-time heal helpers (drop degenerate
 // floor/ceiling/room polygons from OLD snapshots so they don't fail on open).
-export { isDegeneratePolygon, dropDegeneratePolygonRecords } from './project/projectLoaderUtils';
+export { isDegeneratePolygon, dropDegeneratePolygonRecords, ceilingRestoreBoundaryFields } from './project/projectLoaderUtils';
 
 // ─── Requirements ─────────────────────────────────────────────────────────
 export * from './requirements/DeleteRequirementCommand';
