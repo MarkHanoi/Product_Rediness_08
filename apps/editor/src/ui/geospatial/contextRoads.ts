@@ -18,6 +18,10 @@ export interface ContextWay {
     readonly coords: ReadonlyArray<readonly [number, number]>;
     /** 'road' (motorway…residential/service) or 'pedestrian' (footway/path/steps/cycleway). */
     readonly kind: 'road' | 'pedestrian';
+    /** §FORMA-CTX-ROAD-RIBBON — the raw OSM `highway` class (e.g. 'motorway',
+     *  'primary', 'residential', 'service'), used to width-scale the ground ribbon so
+     *  major roads read wider than side streets, matching a real street map. */
+    readonly highway: string;
     readonly osmId: number;
 }
 export interface ContextRoadCollection {
@@ -89,6 +93,7 @@ export async function fetchContextRoads(
                 ways.push({
                     coords: el.geometry.map((p) => [p.lon, p.lat] as const),
                     kind: PEDESTRIAN.has(hw) ? 'pedestrian' : 'road',
+                    highway: hw,
                     osmId: el.id,
                 });
             }
