@@ -37,11 +37,28 @@ import {
     CreateSlabCommand,
     CreateRoomBoundingLinesBatchCommand,
     CreateWallOpeningsBatchCommand,
+    CreateRoofCommand,
+    CreateFurnitureCommand,
+    CreateFloorCommand,
+    CreateLightingCommand,
 } from '@pryzm/command-registry';
+import type { FurnitureType, FurnitureMaterial } from '@pryzm/geometry-furniture';
 import { clampOpeningToWall } from '@pryzm/ai-host';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import type { OfficeBuildingOk, OfficeZone } from '@pryzm/ai-host';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
+// §OFFICE-INTERIOR-FITOUT (founder 2026-07-01) — PURE placement math for the interior
+// (desks/chairs grid, meeting rooms, cafe, core square, lobby, ceiling lights). DOM-free +
+// unit-testable; the executor turns these plans into real elements via the command bus.
+import {
+    deskGrid,
+    meetingRooms,
+    cafeClusters,
+    coreSquare,
+    lobbyPlan,
+    ceilingLightGrid,
+    type PlacedFurniture,
+} from './officeInteriorFitout.js';
 // ── §OFFICE-PERIMETER-GLAZING (founder 2026-06-30) — curtain glazing per segment ──────
 //
 // The founder's rule: the circular office tower reads as a GLASS CURTAIN-WALL tower —
@@ -64,6 +81,14 @@ import {
 const _tracer = trace.getTracer('@pryzm/editor', '0.1.0');
 const DEFAULT_SLAB_THICKNESS_M = 0.2;
 const PERIMETER_WALL_THICKNESS_M = 0.2;
+// §OFFICE-INTERIOR-FITOUT — core enclosure wall gauge (RC shaft) + roof cap thickness.
+const CORE_WALL_THICKNESS_M = 0.2;
+const ROOF_THICKNESS_M = 0.25;
+/** Cap the desks fitted on the representative floor so the batch stays performant (founder:
+ *  "detail a few REPRESENTATIVE floors, not all 40"). The plate analytics desk count can be
+ *  large; we place a believable subset, not every desk. */
+const MAX_FITOUT_DESKS = 60;
+const MAX_CEILING_LIGHTS = 48;
 
 /** One curtain-glazing window spec hosted in a perimeter wall segment. */
 interface PerimeterGlazingSpec {
@@ -255,6 +280,36 @@ export class OfficeBuildingExecutor {
         // deferred pass once the perimeter walls land (the bus wall.batch.create is async).
         const glazingSpecs: PerimeterGlazingSpec[] = [];
 
+        // ── §OFFICE-INTERIOR-FITOUT (founder 2026-07-01) — the missing INSIDE of the tower. ──
+        // Ground (0), the representative office floor, and the top storey are the DETAILED floors
+        // (a believable few, not all 40 — performance-aware per the founder's scope). Everything
+        // collected here lands in the ONE structural batch (walls/roof) + deferred passes (door
+        // openings + furniture + lights + finishes), mirroring the residential executor.
+        const groundLevelId = levelIdByIndex.get(0)!;
+        // Level minting can break early (degrade to a shorter tower), so the TOP detailed floor is
+        // the HIGHEST index that actually minted, not blindly storeyCount−1.
+        const mintedIndices = [...levelIdByIndex.keys()].sort((a, b) => a - b);
+        const topStoreyIndex = mintedIndices[mintedIndices.length - 1] ?? 0;
+        const topLevelId = levelIdByIndex.get(topStoreyIndex)!;
+        const repLevelId = levelIdByIndex.get(representativeFloorIndex) ?? groundLevelId;
+        // Plate radius (the disc is origin-centred) drives every ring placement below.
+        const discRadiusM = Math.max(...disc.map((p) => Math.hypot(p.x, p.z)));
+        const coreRadiusM = plate.coreRadiusM;
+        // §OFFICE-ENTRANCE — pick an entrance direction (+X) on the ground perimeter. The nearest
+        // perimeter wall segment to this heading hosts the double front door; the lobby faces it.
+        const entranceAngle = 0;
+        // §OFFICE-CORE-WALLS — a square RC enclosure inscribed in the circular core, with one
+        // door onto the open-plan lobby. Built on EVERY storey (the shaft is continuous); the
+        // door is punched deferred once the walls land. `core` may be null on a tiny plate.
+        const core = coreSquare(coreRadiusM);
+        // Core-wall payloads (per storey) + the deferred fire-door specs (host wall known at emit).
+        const coreWallPayloads: Array<{ walls: ReadonlyArray<Record<string, unknown>>; levelId: string }> = [];
+        interface CoreDoorSpec { wallId: string; offset: number; width: number; levelId: string }
+        const coreDoorSpecs: CoreDoorSpec[] = [];
+        // §OFFICE-ENTRANCE — the ground perimeter wall ring (host for the entrance door). Captured
+        // from the ground storey's ring so the deferred entrance pass can host the door.
+        let groundRing: WallRing | undefined;
+
         let slabCount = 0, wallCount = 0;
         try {
             batchCoordinator.runBatch(() => {
@@ -279,12 +334,30 @@ export class OfficeBuildingExecutor {
                     const ring = buildPerimeterRing(disc, levelId, floorToFloorM);
                     this._dispatchWallBatch(runtime, ring.payload, `perimeter-L${index}`);
                     wallCount += ring.payload.walls.length;
+                    // §OFFICE-ENTRANCE — remember the GROUND ring so the deferred entrance pass can
+                    // host the front door on the perimeter segment nearest the entrance heading.
+                    if (index === 0) groundRing = ring;
                     // §OFFICE-PERIMETER-GLAZING — a near-full-width / near-full-height window per
                     // segment (skip segments too short to host a sensible pane).
                     for (const seg of ring.segments) {
                         const g = perimeterGlazingSpec(seg.lengthM, floorToFloorM);
                         if (!g) continue;
                         glazingSpecs.push({ wallId: seg.wallId, levelId, offset: g.offset, width: g.width, sillHeight: g.sillHeight, height: g.height });
+                    }
+
+                    // §OFFICE-CORE-WALLS (founder 2026-07-01: "the central core as real enclosing
+                    // WALLS, not just a slab") — a square RC enclosure inscribed in the circular core,
+                    // on EVERY storey (the shaft is continuous), with ONE fire/lobby door on the +X
+                    // edge (punched deferred once the walls land). Mirrors ResidentialBuildingExecutor
+                    // ._buildCorePerimeter (one wall per edge, shared corners, one door spec).
+                    if (core) {
+                        const cw = this._buildCoreWalls(core.corners, core.doorEdgeIndex, levelId, floorToFloorM);
+                        if (cw.payload.walls.length > 0) {
+                            this._dispatchWallBatch(runtime, cw.payload, `core-L${index}`);
+                            coreWallPayloads.push(cw.payload);
+                            coreDoorSpecs.push(...cw.doors);
+                            wallCount += cw.payload.walls.length;
+                        }
                     }
 
                     // (c) On the representative floor: core slab + concentric zone plan lines.
@@ -308,13 +381,19 @@ export class OfficeBuildingExecutor {
                     }
                 }
 
+                // §OFFICE-ROOF-CAP (founder 2026-07-01: "roof=0 today — cap the top level") — a flat
+                // roof slab over the disc on the TOP storey's wall head. Mirrors Residential
+                // BuildingExecutor._createRoof: a flat slab extrudes DOWN from its origin, so
+                // baseOffset = thickness lifts the slab bottom to rest ON the top-storey wall head.
+                this._createRoof(cm, disc, topLevelId, floorToFloorM);
+
                 // Concentric zone outlines (the representative floor's office plan).
                 if (boundaryItems.length > 0) {
                     cm.execute?.(new CreateRoomBoundingLinesBatchCommand(boundaryItems));
                 }
             }, {
                 levelIds: [...new Set(levelIds)],
-                totalElementCount: slabCount + wallCount + boundaryItems.length,
+                totalElementCount: slabCount + wallCount + boundaryItems.length + 1,
                 skipRedetectRooms: true,
                 // §OFFICE-PERF (founder 2026-06-30) — the office tower is a big repeated-geometry
                 // batch (N-gon × storeys slabs/walls) that does NOT need the cosmetic PBR envMap
@@ -332,17 +411,43 @@ export class OfficeBuildingExecutor {
         // batch (skipRedetectRooms — façade glazing doesn't change room topology).
         this._finishPerimeterGlazing(glazingSpecs);
 
+        // §OFFICE-CORE-WALLS — punch the single fire/lobby door per storey on the (now landing)
+        // core walls, then mitre the core corners so the shaft reads clean. Deferred + polled.
+        this._finishCoreDoors(coreDoorSpecs);
+        this._mitreCorners([...coreWallPayloads]);
+
+        // §OFFICE-ENTRANCE — the ground-floor double front door on the perimeter segment nearest
+        // the entrance heading (deferred once the ground ring lands).
+        if (groundRing) this._finishEntranceDoor(groundRing, entranceAngle, groundLevelId, floorToFloorM);
+
+        // §OFFICE-INTERIOR-FITOUT — furniture (desks+chairs open-plan, meeting rooms, ground cafe +
+        // reception lobby), ceiling downlights, and a floor finish on the DETAILED floors. All
+        // deferred (furniture READs the committed levels; finishes seat on the settled slabs), each
+        // in its own suppressed batch so it never triggers the room-redetect storm.
+        const fitout = this._fitoutInterior({
+            repLevelId, groundLevelId, discRadiusM, coreRadiusM,
+            openPlanInnerR: this._zoneRadius(plate, 'inner-circulation'),
+            openPlanOuterR: this._zoneRadius(plate, 'open-plan'),
+            perimMidR: this._zoneMidRadius(plate, 'perimeter-office', 'open-plan'),
+            deskCount: Math.min(MAX_FITOUT_DESKS, plate.analytics.deskCount),
+            entranceAngle,
+        });
+
         console.log(
             `[office-building] built ${storeyCount}-storey circular tower — ` +
-            `${slabCount} slab(s), ${wallCount} perimeter wall segment(s) ` +
+            `${slabCount} slab(s), ${wallCount} wall segment(s) ` +
+            `(${coreWallPayloads.length} core-wall ring(s)) ` +
             `(§OFFICE-PERIMETER-COARSEN: ${disc.length}-gon vs ${discFull.length}-gon footprint), ` +
-            `${glazingSpecs.length} curtain glazing window(s), ` +
+            `${glazingSpecs.length} curtain glazing window(s), 1 roof cap, ` +
+            `${coreDoorSpecs.length} core door(s), ${groundRing ? 1 : 0} entrance door, ` +
+            `${fitout.furnitureCount} furniture + ${fitout.lightCount} light(s) on the detailed floor(s), ` +
             `${boundaryItems.length} zone line(s) on the representative floor, ` +
             `${plate.analytics.deskCount} desks/floor. ${result.diagnostic}`,
         );
         toast(
-            `Office tower built — ${storeyCount} storeys, ${result.analytics.totalDesks.toLocaleString()} desks, ` +
-            `core efficiency ${Math.round(result.analytics.coreEfficiencyRatio * 100)}%.`,
+            `Office tower built — ${storeyCount} storeys, roof + core walls + entrance, ` +
+            `${fitout.furnitureCount} desks/chairs fitted, ` +
+            `${result.analytics.totalDesks.toLocaleString()} desks planned.`,
             'success',
         );
         return { storeyCount, slabCount, wallCount };
@@ -441,5 +546,366 @@ export class OfficeBuildingExecutor {
         const res = clampOpeningToWall(offset, width, storedLen);
         if (res === null) return null;
         return { offset: res.offset, width: res.width };
+    }
+
+    // ── §OFFICE-INTERIOR-FITOUT (founder 2026-07-01) — roof · core walls · entrance · interior ──
+
+    /** §OFFICE-ROOF-CAP — a flat roof over the disc footprint on the top storey's wall head.
+     *  Mirrors ResidentialBuildingExecutor._createRoof: the RoofFootprint is CENTROID-LOCAL
+     *  `polygon` + world `centroid`. A flat slab extrudes DOWN from its origin, so baseOffset =
+     *  (floorToFloor + thickness) lifts the slab bottom to rest on the top-storey wall head. */
+    private _createRoof(
+        cm: CommandManagerLike,
+        disc: readonly Pt2[],
+        topLevelId: string,
+        floorToFloorM: number,
+    ): void {
+        try {
+            if (disc.length < 3) return;
+            // The office disc is origin-centred already, so the centroid is ~(0,0); compute it for
+            // robustness and emit the polygon relative to it (RoofFootprint convention).
+            let cx = 0, cz = 0;
+            for (const p of disc) { cx += p.x; cz += p.z; }
+            cx /= disc.length; cz /= disc.length;
+            const polygon: [number, number][] = disc.map((p) => [p.x - cx, p.z - cz] as [number, number]);
+            cm.execute?.(new CreateRoofCommand(createId('roof'), {
+                levelId: topLevelId,
+                footprint: { polygon, centroid: [cx, cz] },
+                roofType: 'flat',
+                overhang: 0,
+                // The top storey's FLOOR is topLevel.elevation; the wall head is one floorToFloor
+                // above. Lift by floorToFloor + thickness so the flat slab bottom rests on the head.
+                baseOffset: floorToFloorM + ROOF_THICKNESS_M,
+                thickness: ROOF_THICKNESS_M,
+                autoBaseOffset: false,
+            }), { source: 'OFFICE_PIPELINE_ROOF' });
+        } catch (e) { console.warn('[office-building] roof cap create failed (skipped):', e); }
+    }
+
+    /** §OFFICE-CORE-WALLS — one wall per edge of the square core enclosure (consecutive edges
+     *  share the exact corner endpoint so the ring closes), with a single centred fire/lobby door
+     *  on the `doorEdgeIndex` edge (recorded as a deferred spec, punched once the walls land).
+     *  Mirrors ResidentialBuildingExecutor._buildCorePerimeter. */
+    private _buildCoreWalls(
+        corners: readonly Pt2[],
+        doorEdgeIndex: number,
+        levelId: string,
+        heightM: number,
+    ): {
+        payload: { walls: ReadonlyArray<Record<string, unknown>>; levelId: string };
+        doors: Array<{ wallId: string; offset: number; width: number; levelId: string }>;
+    } {
+        const walls: Array<Record<string, unknown>> = [];
+        const doors: Array<{ wallId: string; offset: number; width: number; levelId: string }> = [];
+        const DOOR_W = 1.0;
+        for (let i = 0; i < corners.length; i++) {
+            const a = corners[i]!;
+            const b = corners[(i + 1) % corners.length]!;
+            const len = Math.hypot(b.x - a.x, b.z - a.z);
+            if (len < 0.2) continue;   // degenerate edge — skip
+            const wallId = createId('wall');
+            walls.push({
+                id: wallId,
+                levelId,
+                baseLine: [{ x: a.x, y: 0, z: a.z }, { x: b.x, y: 0, z: b.z }],
+                height: heightM,
+                thickness: CORE_WALL_THICKNESS_M,
+            });
+            if (i === doorEdgeIndex) {
+                const w = Math.min(DOOR_W, Math.max(0.8, len - 0.4));
+                doors.push({ wallId, offset: Math.max(0, (len - w) / 2), width: w, levelId });
+            }
+        }
+        return { payload: { walls, levelId }, doors };
+    }
+
+    /** §OFFICE-CORE-WALLS — punch the single fire/lobby door per storey on the (already committed)
+     *  core walls. Deferred + polled exactly like the perimeter glazing: the core wall.batch.create
+     *  is async via the bus, so wait (≤6 s) for every host wall to land, then punch all door
+     *  openings in ONE batch + flush the host meshes. Mirrors ResidentialBuildingExecutor
+     *  ._finishCoreDoors. Never throws. */
+    private _finishCoreDoors(
+        specs: ReadonlyArray<{ wallId: string; offset: number; width: number; levelId: string }>,
+    ): void {
+        if (specs.length === 0) return;
+        const cm = getCommandManager();
+        if (!cm?.execute) { console.warn('[office-building] commandManager unavailable — core doors skipped'); return; }
+        const wallIds = specs.map((s) => s.wallId);
+        const wallStore = storeRegistry.getStoreForType('wall') as unknown as { getById?: (id: string) => unknown } | undefined;
+        const ready = (): boolean => !wallStore?.getById ? true : wallIds.every((id) => wallStore.getById!(id) != null);
+        const levelIds = [...new Set(specs.map((s) => s.levelId))];
+        const tryPunch = (n: number): void => {
+            if (!ready() && n > 0) { deferWork(() => tryPunch(n - 1), 150); return; }
+            try {
+                const items = specs
+                    .map((s) => {
+                        const c = this._clampGlazingToStoredWall(s.wallId, s.offset, s.width);
+                        return c ? { s, offset: c.offset, width: c.width } : null;
+                    })
+                    .filter((it): it is { s: typeof specs[number]; offset: number; width: number } => it !== null);
+                if (items.length === 0) { console.warn('[office-building] core doors — all dropped (no host wall could fit a leaf)'); return; }
+                batchCoordinator.runBatch(() => {
+                    cm.execute?.(new CreateWallOpeningsBatchCommand(items.map(({ s, offset, width }) => ({
+                        wallId: s.wallId,
+                        openingData: {
+                            id: createId('opening'),
+                            type: 'door',
+                            offset,
+                            width,
+                            height: 2.1,
+                            sillHeight: 0,
+                            elementId: createId('door'),
+                            doorType: 'single',
+                            systemTypeId: 'dt-solid-timber',
+                        },
+                    }))), { source: 'OFFICE_PIPELINE_CORE_DOOR' });
+                }, { levelIds, totalElementCount: items.length, skipRedetectRooms: true, skipPbrUpgrade: true });
+                deferWork(() => {
+                    try { window.__wallRebuildControl?.rebuildWalls?.(wallIds); }
+                    catch (e) { console.warn('[office-building] core-door rebuildWalls failed (non-fatal):', e); }
+                }, 250);
+                console.log(`[office-building] core fire doors — ${items.length} punched on ${levelIds.length} storey(s)`);
+            } catch (e) { console.warn('[office-building] core doors batch failed (non-fatal):', e); }
+        };
+        tryPunch(40);
+    }
+
+    /** §OFFICE-ENTRANCE — the ground-floor DOUBLE front door. The perimeter ring is landing async,
+     *  so wait for its walls, pick the segment whose midpoint direction is nearest the entrance
+     *  heading, and punch a centred glazed double door on it. Mirrors the resi entrance punch. */
+    private _finishEntranceDoor(
+        ring: WallRing,
+        entranceAngle: number,
+        levelId: string,
+        floorToFloorM: number,
+    ): void {
+        const cm = getCommandManager();
+        if (!cm?.execute) { console.warn('[office-building] commandManager unavailable — entrance skipped'); return; }
+        const wallIds = ring.segments.map((s) => s.wallId);
+        if (wallIds.length === 0) return;
+        const wallStore = storeRegistry.getStoreForType('wall') as unknown as { getById?: (id: string) => unknown } | undefined;
+        const ready = (): boolean => !wallStore?.getById ? true : wallIds.every((id) => wallStore.getById!(id) != null);
+        const dirX = Math.cos(entranceAngle), dirZ = Math.sin(entranceAngle);
+        const tryPunch = (n: number): void => {
+            if (!ready() && n > 0) { deferWork(() => tryPunch(n - 1), 150); return; }
+            // Pick the perimeter wall whose midpoint heading best matches the entrance direction and
+            // is long enough to host a door leaf.
+            let best: { wallId: string; len: number; dot: number } | null = null;
+            for (const seg of ring.segments) {
+                const w = wallStore?.getById?.(seg.wallId) as { baseLine?: ReadonlyArray<{ x: number; z: number }> } | undefined;
+                const bl = w?.baseLine;
+                if (!bl || bl.length < 2) continue;
+                const a = bl[0]!, b = bl[1]!;
+                const mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2;
+                const mr = Math.hypot(mx, mz) || 1;
+                const dot = (mx / mr) * dirX + (mz / mr) * dirZ;
+                const len = Math.hypot(b.x - a.x, b.z - a.z);
+                if (len < 1.4) continue;
+                if (!best || dot > best.dot) best = { wallId: seg.wallId, len, dot };
+            }
+            if (!best) { console.warn('[office-building] entrance — no suitable perimeter wall (skipped)'); return; }
+            const MARGIN = 0.4;
+            const width = Math.max(1.2, Math.min(2.4, best.len - 2 * MARGIN));
+            const offset = Math.max(MARGIN, (best.len - width) / 2);
+            try {
+                batchCoordinator.runBatch(() => {
+                    cm.execute?.(new CreateWallOpeningsBatchCommand([{
+                        wallId: best!.wallId,
+                        openingData: {
+                            id: createId('opening'),
+                            type: 'door',
+                            offset,
+                            width,
+                            height: Math.min(2.6, floorToFloorM - 0.3),
+                            sillHeight: 0,
+                            elementId: createId('door'),
+                            doorType: 'double',
+                            systemTypeId: 'dt-modern-entrance-glazed',
+                        },
+                    }]), { source: 'OFFICE_PIPELINE_ENTRANCE' });
+                }, { levelIds: [levelId], totalElementCount: 1, skipRedetectRooms: true });
+                deferWork(() => {
+                    try { window.__wallRebuildControl?.rebuildWalls?.([best!.wallId]); }
+                    catch (e) { console.warn('[office-building] entrance rebuildWalls failed (non-fatal):', e); }
+                }, 250);
+                console.log(`[office-building] main entrance — ${width.toFixed(2)}m double door on perimeter wall @ offset ${offset.toFixed(2)}m`);
+            } catch (e) { console.warn('[office-building] entrance door batch failed (non-fatal):', e); }
+        };
+        tryPunch(40);
+    }
+
+    /** §OFFICE-CORE-WALLS — run the corner-join / MITRE pass on the committed core walls once they
+     *  land (consecutive edges already share the exact corner, so this just RUNS the resolver via
+     *  __wallRebuildControl.rebuildWalls). Mirrors ResidentialBuildingExecutor._mitreShellCorners
+     *  (simplified: fire once after the walls land + one settle re-arm). Never throws. */
+    private _mitreCorners(
+        payloads: ReadonlyArray<{ walls: ReadonlyArray<Record<string, unknown>>; levelId: string }>,
+    ): void {
+        const ids: string[] = [];
+        for (const p of payloads) for (const w of p.walls) {
+            const id = (w as { id?: unknown }).id;
+            if (typeof id === 'string' && id.length > 0) ids.push(id);
+        }
+        if (ids.length === 0) return;
+        const wallStore = storeRegistry.getStoreForType('wall') as unknown as { getById?: (id: string) => unknown } | undefined;
+        const ready = (): boolean => !wallStore?.getById ? true : ids.every((id) => wallStore.getById!(id) != null);
+        const tryMitre = (n: number): void => {
+            if (!ready() && n > 0) { deferWork(() => tryMitre(n - 1), 150); return; }
+            batchCoordinator.onNextSettle(() => {
+                deferWork(() => {
+                    try { window.__wallRebuildControl?.rebuildWalls?.(ids); }
+                    catch (e) { console.warn('[office-building] core mitre rebuildWalls failed (non-fatal):', e); }
+                }, 0);
+            });
+        };
+        tryMitre(40);
+    }
+
+    /** §OFFICE-INTERIOR-FITOUT — the outer radius (m) of a named zone on the plate (origin-centred).
+     *  Returns 0 when the zone is absent. */
+    private _zoneRadius(plate: OfficeBuildingOk['representativePlate'], kind: string): number {
+        const z = plate.zones.find((zz) => zz.kind === kind);
+        return z ? z.outerRadiusM : 0;
+    }
+
+    /** §OFFICE-INTERIOR-FITOUT — the MID radius (m) of the band a zone occupies, i.e. between the
+     *  inner zone's outer radius and this zone's outer radius. Falls back to a sensible offset. */
+    private _zoneMidRadius(plate: OfficeBuildingOk['representativePlate'], kind: string, innerKind: string): number {
+        const outer = this._zoneRadius(plate, kind);
+        const inner = this._zoneRadius(plate, innerKind);
+        if (outer > 0 && inner > 0 && outer > inner) return (outer + inner) / 2;
+        return outer > 0 ? outer - 1.5 : 0;
+    }
+
+    /** §OFFICE-INTERIOR-FITOUT — the whole interior fit-out: desks+chairs (open-plan), meeting
+     *  rooms (perimeter), the ground cafe + reception lobby, ceiling downlights, and a floor
+     *  finish, on the DETAILED floors only. Each family lands in its own suppressed, deferred
+     *  batch so it never triggers the room-redetect storm and stays performant. Returns counts. */
+    private _fitoutInterior(cfg: {
+        repLevelId: string;
+        groundLevelId: string;
+        discRadiusM: number;
+        coreRadiusM: number;
+        openPlanInnerR: number;
+        openPlanOuterR: number;
+        perimMidR: number;
+        deskCount: number;
+        entranceAngle: number;
+    }): { furnitureCount: number; lightCount: number } {
+        const cm = getCommandManager();
+        if (!cm?.execute) return { furnitureCount: 0, lightCount: 0 };
+
+        // Plan the furniture (PURE) — desks/chairs on the open-plan ring, meeting clusters on the
+        // perimeter ring, cafe + reception on the ground.
+        const desks = deskGrid(cfg.openPlanInnerR, cfg.openPlanOuterR, cfg.deskCount);
+        const meetings = meetingRooms(cfg.perimMidR, 3, Math.PI / 6);
+        const cafes = cafeClusters(Math.max(cfg.coreRadiusM + 2, cfg.openPlanInnerR + 1), 4, Math.PI / 8);
+        const lobby = lobbyPlan(cfg.discRadiusM, cfg.entranceAngle);
+        const lightPts = ceilingLightGrid(cfg.discRadiusM, cfg.coreRadiusM, 3.5, MAX_CEILING_LIGHTS);
+
+        // PLANNED counts (the actual creates run in the deferred batches below; this return value
+        // feeds the summary log/toast synchronously, so report what we scheduled).
+        const plannedFurniture =
+            desks.length * 2 +
+            meetings.reduce((s, m) => s + 1 + m.chairs.length, 0) +
+            cafes.reduce((s, c) => s + 1 + c.chairs.length, 0) +
+            1 + lobby.seats.length;
+        const plannedLights = lightPts.length;
+
+        const place = (levelId: string, type: FurnitureType, f: PlacedFurniture, height: number, material: FurnitureMaterial): void => {
+            try {
+                cm.execute?.(new CreateFurnitureCommand({
+                    id: createId('furniture'),
+                    furnitureType: type,
+                    position: { x: f.x, y: 0, z: f.z },      // y forced to level.elevation in execute()
+                    rotation: { x: 0, y: f.rotY, z: 0 },
+                    levelId,
+                    baseOffset: 0,
+                    width: f.width,
+                    length: f.length,
+                    height,
+                    material,
+                }), { source: 'OFFICE_PIPELINE_FURNITURE' });
+            } catch (e) { console.warn('[office-building] furniture skipped:', e); }
+        };
+
+        // ── Furniture batch on the representative office floor (desks/chairs + meeting rooms). ──
+        deferWork(() => {
+            try {
+                batchCoordinator.runBatch(() => {
+                    for (const dc of desks) {
+                        place(cfg.repLevelId, 'desk', dc.desk, 0.74, 'wood');
+                        place(cfg.repLevelId, 'desk_chair', dc.chair, 1.0, 'fabric');
+                    }
+                    for (const m of meetings) {
+                        place(cfg.repLevelId, 'table', m.table, 0.74, 'wood');
+                        for (const c of m.chairs) place(cfg.repLevelId, 'chair', c, 0.9, 'fabric');
+                    }
+                }, { levelIds: [cfg.repLevelId], totalElementCount: desks.length * 2 + meetings.length * 7, skipRedetectRooms: true, skipPbrUpgrade: true });
+                console.log(`[office-building] fit-out — ${desks.length} desk+chair, ${meetings.length} meeting room(s) on the representative floor`);
+            } catch (e) { console.warn('[office-building] fit-out furniture batch failed (non-fatal):', e); }
+        }, 600);
+
+        // ── Ground cafe + reception lobby batch. ──
+        deferWork(() => {
+            try {
+                batchCoordinator.runBatch(() => {
+                    for (const cc of cafes) {
+                        place(cfg.groundLevelId, 'coffee_table', cc.table, 0.5, 'wood');
+                        for (const c of cc.chairs) place(cfg.groundLevelId, 'chair', c, 0.9, 'fabric');
+                    }
+                    place(cfg.groundLevelId, 'table', lobby.reception, 1.1, 'wood');     // reception desk
+                    for (const s of lobby.seats) place(cfg.groundLevelId, 'sofa_2seat', s, 0.8, 'fabric');
+                }, { levelIds: [cfg.groundLevelId], totalElementCount: cafes.length * 5 + 3, skipRedetectRooms: true, skipPbrUpgrade: true });
+                console.log(`[office-building] fit-out — ${cafes.length} cafe cluster(s) + reception lobby on the ground floor`);
+            } catch (e) { console.warn('[office-building] fit-out cafe/lobby batch failed (non-fatal):', e); }
+        }, 700);
+
+        // ── Ceiling downlights on the representative floor (schema-valid `downlight` kind). ──
+        deferWork(() => {
+            try {
+                batchCoordinator.runBatch(() => {
+                    for (const p of lightPts) {
+                        cm.execute?.(new CreateLightingCommand({
+                            id: createId('lighting'),
+                            fixtureType: 'downlight',
+                            position: { x: p.x, y: 0, z: p.z },
+                            levelId: cfg.repLevelId,
+                            tags: ['office', 'ceiling'],
+                        }), { source: 'OFFICE_PIPELINE_LIGHTING' });
+                    }
+                }, { levelIds: [cfg.repLevelId], totalElementCount: lightPts.length, skipRedetectRooms: true, skipPbrUpgrade: true });
+                console.log(`[office-building] fit-out — ${lightPts.length} ceiling downlight(s) on the representative floor`);
+            } catch (e) { console.warn('[office-building] fit-out lighting batch failed (non-fatal):', e); }
+        }, 800);
+
+        // ── Floor finish (carpet on office floor, stone on the ground lobby) — thin applied
+        // finishes over the disc, seated on the settled slab. Room-independent. ──
+        deferWork(() => {
+            const lay = (levelId: string, color: string, name: string): void => {
+                try {
+                    cm.execute?.(new CreateFloorCommand({
+                        floorId: createId('floor'), ifcGuid: createId('floor'),
+                        polygon: cfg.discRadiusM > 0
+                            ? Array.from({ length: 32 }, (_v, i) => {
+                                const a = (2 * Math.PI * i) / 32;
+                                return { x: Math.cos(a) * (cfg.discRadiusM - 0.1), z: Math.sin(a) * (cfg.discRadiusM - 0.1) };
+                            })
+                            : [],
+                        levelId,
+                        finishSpec: { finishColor: color, finishPattern: 'none', materialName: name, exposedScreed: false },
+                    }), { source: 'OFFICE_PIPELINE_FLOOR_FINISH' });
+                } catch (e) { console.warn('[office-building] floor finish skipped:', name, e); }
+            };
+            try {
+                batchCoordinator.runBatch(() => {
+                    lay(cfg.repLevelId, '#c9c2b6', 'Office Carpet Tile');
+                    lay(cfg.groundLevelId, '#d8d4cc', 'Lobby Stone Tile');
+                }, { levelIds: [...new Set([cfg.repLevelId, cfg.groundLevelId])], totalElementCount: 2, skipRedetectRooms: true, skipPbrUpgrade: true });
+                console.log('[office-building] fit-out — floor finishes laid on the representative + ground floor');
+            } catch (e) { console.warn('[office-building] fit-out floor-finish batch failed (non-fatal):', e); }
+        }, 900);
+
+        return { furnitureCount: plannedFurniture, lightCount: plannedLights };
     }
 }
