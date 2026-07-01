@@ -31,6 +31,8 @@ export interface OfficeBuildingConsoleOptions {
     readonly facadeColor?: string;
     /** §OFFICE-FACADE-GLASS-COLOUR — glass tint for curtain-wall glazing + glazed offices (hex). */
     readonly glassColor?: string;
+    /** §OFFICE-INNER-WALL-COLOUR — interior partition-wall finish colour (hex `#rrggbb`). */
+    readonly innerWallColor?: string;
 }
 
 /** §OFFICE-ONBOARDING-WIRE — the feature gate. ON by default; only an EXPLICIT
@@ -52,6 +54,7 @@ function toRequest(opts?: OfficeBuildingConsoleOptions): OfficeBuildingRequest {
         ...(typeof opts?.mechanicalEveryN === 'number' ? { mechanicalEveryN: opts.mechanicalEveryN } : {}),
         ...(typeof opts?.facadeColor === 'string' ? { facadeColor: opts.facadeColor } : {}),
         ...(typeof opts?.glassColor === 'string' ? { glassColor: opts.glassColor } : {}),
+        ...(typeof opts?.innerWallColor === 'string' ? { innerWallColor: opts.innerWallColor } : {}),
     };
 }
 
