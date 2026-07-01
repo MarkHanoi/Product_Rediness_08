@@ -3299,6 +3299,29 @@ export class CesiumViewport {
       sampleLon = centroidLL.lon;
       samplePts.push(centroidLL);
       for (const p of input.boundary) samplePts.push(enuToLatLon(p.x, -p.z));
+      // §GLOBE-GROUND-STREET-RING (founder 2026-07-01) — ALSO sample a ring in the
+      // SURROUNDING STREET (each footprint vertex pushed ~1.7× outward from the centroid,
+      // plus 8 compass points ~30 m beyond the footprint). The building base must sit on
+      // the STREET ground, and the MINIMUM over these points reliably recovers it even when
+      // the whole footprint sits on an elevated podium/roof — WITHOUT needing an absolute
+      // height cap (the old §GLOBE-FLOAT-SAFETY cap wrongly rejected Paris's real ~80 m
+      // ground as a "rooftop" and buried the tower 80 m underground).
+      const east = c.east, north = c.north;
+      for (const p of input.boundary) {
+        const ox = east + (p.x - east) * 1.7;
+        const oy = north + (-p.z - north) * 1.7;
+        samplePts.push(enuToLatLon(ox, oy));
+      }
+      // Footprint half-extent → a comfortable street ring radius beyond it.
+      let ext = 0;
+      for (const p of input.boundary) {
+        ext = Math.max(ext, Math.hypot(p.x - east, -p.z - north));
+      }
+      const ringR = ext + 30;
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        samplePts.push(enuToLatLon(east + Math.cos(a) * ringR, north + Math.sin(a) * ringR));
+      }
     } else {
       samplePts.push({ lat: sampleLat, lon: sampleLon });
     }
@@ -3411,24 +3434,12 @@ export class CesiumViewport {
     // §GLOBE-CRASH-GUARD — also bail if the viewer was disposed during the await.
     if (myToken !== this.formaTerrainToken || !this.isViewerLive()) return;
 
-    // §GLOBE-FLOAT-SAFETY (founder 2026-07-01) — in a dense core the tile height-pick can
-    // still latch onto a TALL neighbour building's ROOF (all footprint points occluded by
-    // the same tower), returning e.g. 160 m → the whole model floats a skyscraper up (the
-    // founder's persistent "still floating in the sky"). Without a real bare-earth terrain
-    // provider we can't perfectly separate ground from roof, so as a demo-safety net reject
-    // an implausibly high pick: urban ground/geoid sits within a few tens of metres of the
-    // ellipsoid, so treat > FLOAT_SANE_MAX_M as a rooftop artefact and RETRY (tiles may
-    // still be streaming a cleaner ground sample), then fall back to a flat 0 seat rather
-    // than float. A genuinely high-altitude site would need the terrain-provider path.
-    const FLOAT_SANE_MAX_M = 80;
-    if (sampledHeight !== null && sampledHeight > FLOAT_SANE_MAX_M) {
-      console.warn(
-        `[CesiumViewport][globe] §GLOBE-FLOAT-SAFETY rejecting implausible tile height ` +
-          `${sampledHeight.toFixed(1)} m (likely a neighbour rooftop, not ground) — ` +
-          `${retriesLeft > 0 ? 'retrying' : 'seating flat at 0'}.`,
-      );
-      sampledHeight = null; // treat as "no usable height" → retry / flat-0 below
-    }
+    // §GLOBE-FLOAT-SAFETY superseded by §GLOBE-GROUND-STREET-RING (founder 2026-07-01):
+    // the old absolute cap (reject > 80 m) wrongly buried cities whose ground is genuinely
+    // elevated (Paris ground ≈ 80 m ellipsoid = geoid + terrain → the tower sank 80 m
+    // underground). A fixed threshold can't separate "elevated flat ground" from "neighbour
+    // rooftop". Instead we now take the MINIMUM over the footprint PLUS a surrounding-street
+    // ring (added above): the street min IS the ground in both cases — no absolute cap.
 
     if (sampledHeight === null) {
       // Tiles not yet loaded at this LOD (common right after the toggle). Retry a
