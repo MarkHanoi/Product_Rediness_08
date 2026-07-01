@@ -20,6 +20,7 @@ import {
     siteMetricGridBudget,
     buildFacadeSamplePoints,
     prepareFacadeSunGrid,
+    buildRealWindRose,
     type SiteMetric,
     type MetricFootprint,
 } from '../src/ui/climate/siteMetricGrids';
@@ -582,6 +583,97 @@ describe('§FORMA-FACADE-ANALYSIS — buildFacadeSamplePoints', () => {
 
     it('returns [] for a degenerate ring', () => {
         expect(buildFacadeSamplePoints([[{ x: 0, z: 0 }, { x: 1, z: 1 }]], 6)).toEqual([]);
+    });
+});
+
+// ── §ANALYSIS-REAL-* (ADR-0095) — real free-dataset baselines drive the metrics ──
+
+describe('§ANALYSIS-REAL-POPULATION — real WorldPop density anchors the population map', () => {
+    it('reports REAL persons/hectare in the cell values (not the OSM GFA proxy)', () => {
+        const realPerHa = 480; // a dense residential neighbourhood
+        const cells = buildSiteMetricGrid('population', {
+            radius: 90, footprints: FOOTPRINTS, dataset: null, gridCountCap: 32,
+            realPopulationPerHa: realPerHa,
+        });
+        expect(cells.length).toBeGreaterThan(0);
+        // Values are now persons/HECTARE anchored to the real plot mean — the plot-average
+        // over the disc should be near the supplied real density (the OSM pattern only
+        // redistributes it), i.e. a realistic hundreds-of-p/ha scale, not the ~0.0x p/m².
+        const mean = cells.reduce((a, c) => a + c.value, 0) / cells.length;
+        expect(mean).toBeGreaterThan(1);        // real p/ha scale, not the p/m² proxy
+        expect(Number.isFinite(mean)).toBe(true);
+    });
+
+    it('a monument/open site with a low real density reads honestly LOW', () => {
+        // Even with a big footprint (which the OSM proxy would read as "busy"), a low
+        // real WorldPop density keeps the whole field honestly low.
+        const cells = buildSiteMetricGrid('population', {
+            radius: 90, footprints: FOOTPRINTS, dataset: null, gridCountCap: 32,
+            realPopulationPerHa: 8,   // a landmark plaza — very few residents
+        });
+        const mean = cells.reduce((a, c) => a + c.value, 0) / cells.length;
+        expect(mean).toBeLessThan(40);   // honestly low, not a fake hotspot
+    });
+});
+
+describe('§ANALYSIS-REAL-TEMPERATURE — real base air temp modulated by UHI', () => {
+    it('uses the REAL baseline air temp as the base value the UHI ΔT sits on', () => {
+        const realBase = 31; // a hot-climate real warm-season mean
+        const cells = buildSiteMetricGrid('temperature', {
+            radius: 90, footprints: FOOTPRINTS, dataset: DATASET, gridCountCap: 24,
+            realBaselineTempC: realBase,
+        });
+        expect(cells.length).toBeGreaterThan(0);
+        // Every cell is at least the real base (UHI only ADDS heat over open ground).
+        for (const c of cells) expect(c.value).toBeGreaterThanOrEqual(realBase - 1e-6);
+        // The hottest cell is the real base + a positive UHI ΔT.
+        const maxC = cells.reduce((m, c) => Math.max(m, c.value), -Infinity);
+        expect(maxC).toBeGreaterThanOrEqual(realBase);
+    });
+});
+
+describe('§ANALYSIS-REAL-WIND — real NASA POWER freestream drives the Lawson field', () => {
+    it('varies across the disc with a real freestream + real prevailing direction', () => {
+        const cells = buildSiteMetricGrid('wind', {
+            radius: 120, footprints: FOOTPRINTS, dataset: DATASET, cellSizeM: 6, maxCells: 4000,
+            realWindMeanMs: 6.4, realWindFromDeg: 315,   // real: 6.4 m/s from NW
+        });
+        expect(cells.length).toBeGreaterThan(0);
+        const colours = new Set(cells.map((c) => c.colorHex));
+        expect(colours.size).toBeGreaterThan(1);   // shelter modulates the real freestream
+    });
+});
+
+describe('§ANALYSIS-REAL-WIND — buildRealWindRose', () => {
+    it('builds a 16-sector rose peaking at the real prevailing direction', () => {
+        const rose = buildRealWindRose(6.0, 90 /* from E */, 12.0);
+        expect(rose.sectors.length).toBe(16);
+        expect(rose.meanSpeedMps).toBeCloseTo(6.0, 5);
+        expect(rose.p99SpeedMps).toBeCloseTo(12.0, 5);
+        // The sector at the prevailing direction (90°) carries the most hours.
+        const hoursAt = (deg: number) =>
+            rose.sectors.find((s) => Math.abs(s.sectorDeg - deg) < 1e-6)!.speedBinHours.reduce((a, h) => a + h, 0);
+        const prevailing = hoursAt(90);
+        const opposite = hoursAt(270);
+        expect(prevailing).toBeGreaterThan(opposite);
+        // Total hours ≈ a year (the rose distributes 8760 h over the sectors).
+        const total = rose.sectors.reduce((a, s) => a + s.speedBinHours.reduce((b, h) => b + h, 0), 0);
+        expect(total).toBeGreaterThan(8000);
+        expect(total).toBeLessThan(9600);
+    });
+});
+
+describe('§ANALYSIS-NO-FAKE-FALLBACK — degenerate field degrades to flat, not a radial hotspot', () => {
+    it('a metric with NO spatial signal renders one uniform colour (no building-centred bullseye)', () => {
+        // No context footprints + no real data → the OSM density/UHI field is dead-flat.
+        // The old code substituted a smooth RADIAL gradient centred on the disc; now it
+        // must be a single flat colour (honest "no variation to show").
+        const cells = buildSiteMetricGrid('population', {
+            radius: 100, footprints: [], dataset: null, gridCountCap: 24,
+        });
+        expect(cells.length).toBeGreaterThan(0);
+        const colours = new Set(cells.map((c) => c.colorHex));
+        expect(colours.size).toBe(1);   // flat — NOT a radial gradient of many colours
     });
 });
 

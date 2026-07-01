@@ -70,6 +70,16 @@ import {
     type FacadeSamplePoint,
     type FacadeSunPrep,
 } from "../climate/siteMetricGrids";
+// §ANALYSIS-REAL-POPULATION + §ANALYSIS-REAL-TEMPERATURE + §ANALYSIS-REAL-WIND
+// (ADR-0095) — REAL free-dataset baselines (NASA POWER climate + WorldPop population)
+// for the analysis metrics. Async + cached + non-fatal; the render path peeks the
+// cache synchronously and kicks a fetch that repaints when real data lands.
+import {
+    fetchRealClimateBaseline,
+    fetchRealPopulationSample,
+    peekRealClimateBaseline,
+    peekRealPopulationSample,
+} from "../climate/siteRealData";
 // §SITE-METRIC-HEATMAP-CHUNKED — frame-budget-friendly deferral so the larger /
 // finer ground heatmap (esp. the per-cell sun-hours raycast) fills in progressively
 // across frames instead of freezing the WebGPU viewport on one synchronous build.
@@ -467,6 +477,13 @@ export class CesiumViewport {
   /** The last massing input, kept so `setVisibleFormaLevels` can re-render the
    *  SAME massing with a new floor filter without the caller re-reading state. */
   private formaLastMassingInput: Parameters<CesiumViewport['renderFormaMassing']>[0] | null = null;
+
+  // §ANALYSIS-REAL-* (ADR-0095) — per-site (rounded lat/lon) guards so we schedule the
+  // real-data fetch + one repaint per site once, not on every metric repaint (avoids a
+  // fetch/repaint loop). The fetchers themselves cache + de-dupe; these only gate the
+  // "kick + repaint-when-landed" scheduling.
+  private realDataKickedClimate = new Set<string>();
+  private realDataKickedPop = new Set<string>();
 
   // ---- FORMA.4 — coordinate bridge: terrain clamp + live-update cache ----
   /** Ground height (metres above the ellipsoid) sampled at the boundary
@@ -1097,12 +1114,10 @@ export class CesiumViewport {
         if (!this.isViewerLive()) return;
         try {
           const carto = this.viewer!.camera.positionCartographic;
-
-          console.log("CesiumViewport RUNTIME VERIFICATION:");
-          console.log("LAT:", Cesium.Math.toDegrees(carto.latitude));
-          console.log("LON:", Cesium.Math.toDegrees(carto.longitude));
-          console.log("HEIGHT:", carto.height);
-
+          // §GLOBE-TILE-CLAMP-NO-SELF-HIT (ADR-0095) — removed the per-moveEnd
+          // "RUNTIME VERIFICATION" LAT/LON/HEIGHT console spam (fired on EVERY camera
+          // stop → hundreds of lines flooding the console). The pan-driven context
+          // refresh below is the only behaviour this handler needs.
           this.maybeRefreshContextOnPan(
             Cesium.Math.toDegrees(carto.latitude),
             Cesium.Math.toDegrees(carto.longitude),
@@ -3044,6 +3059,32 @@ export class CesiumViewport {
    *     current base (no re-place), log once. Never throws, never blanks the view.
    *   • a newer placement supersedes this one (token) → bail.
    */
+  /**
+   * §GLOBE-TILE-CLAMP-NO-SELF-HIT (ADR-0095) — has the site centroid NOT moved since the
+   * given prior clamp? Computes the placement centroid (boundary centroid → lat/lon, or
+   * the origin when no boundary) the SAME way the clamp does, and compares to the last
+   * sampled point within ~0.1 m. Used to skip a redundant re-sample / re-seat on a mere
+   * globe view switch (the creep-up feedback loop). Pure read; guarded/best-effort.
+   */
+  private centroidUnchangedFor(
+    input: Parameters<CesiumViewport['renderFormaMassing']>[0],
+    prev: { lat: number; lon: number },
+  ): boolean {
+    let cLat = input.originLat, cLon = input.originLon;
+    try {
+      if (input.boundary && input.boundary.length >= 3) {
+        const oc = Cesium.Cartesian3.fromDegrees(input.originLon, input.originLat, 0);
+        const e = Cesium.Transforms.eastNorthUpToFixedFrame(oc);
+        const ct = this.polygonCentroidAndAreaXZ(input.boundary);
+        const cc = Cesium.Matrix4.multiplyByPoint(e, new Cesium.Cartesian3(ct.east, ct.north, 0), new Cesium.Cartesian3());
+        const cg = Cesium.Cartographic.fromCartesian(cc);
+        cLat = Cesium.Math.toDegrees(cg.latitude);
+        cLon = Cesium.Math.toDegrees(cg.longitude);
+      }
+    } catch { return false; }
+    return Math.abs(prev.lat - cLat) < 1e-6 && Math.abs(prev.lon - cLon) < 1e-6;
+  }
+
   private async clampToPhotorealTilesThenReplace(
     input: Parameters<CesiumViewport['renderFormaMassing']>[0],
     retriesLeft = 3,
@@ -3051,6 +3092,25 @@ export class CesiumViewport {
     const viewer = this.viewer;
     if (!viewer) return;
     const scene = viewer.scene;
+
+    // §GLOBE-TILE-CLAMP-NO-SELF-HIT (founder 2026-07-01, ADR-0095) — DON'T re-sample /
+    // re-seat on a mere view switch when the site centroid hasn't moved and we already
+    // have a settled ground height. The old code re-ran the whole clamp on every globe
+    // re-entry; combined with the self-hit bug (below) that RE-SEATED the model on top
+    // of itself each time → it CREPT UP ~one building height per view switch. If the
+    // centroid is unchanged, reuse the cached `formaTerrainBaseHeight` and just re-place
+    // absolutely at it (never relative to the model's current position).
+    if (!input._skipTerrainClamp) {
+      const prev = this.formaTerrainSampledAt;
+      if (prev && this.centroidUnchangedFor(input, prev)) {
+        console.log(
+          `[CesiumViewport][globe] §GLOBE-TILE-CLAMP-NO-SELF-HIT centroid unchanged — ` +
+            `reusing settled ground height ${this.formaTerrainBaseHeight.toFixed(2)} m (no re-sample, no creep).`,
+        );
+        this.reframeAfterBaseSettle();
+        return;
+      }
+    }
 
     // §GIS-LOC (2026-06-08) — GROUND-height sampling that rejects tile-building roofs.
     //
@@ -3094,8 +3154,17 @@ export class CesiumViewport {
 
     // sampleHeightMostDetailed raycasts the loaded tilesets (and terrain). It is
     // a newer Cesium API; feature-detect so older builds degrade silently.
+    // §GLOBE-TILE-CLAMP-NO-SELF-HIT — the real Cesium signature is
+    // `sampleHeightMostDetailed(positions, objectsToExclude?, width?)`; we pass the
+    // placed model + context entities in the exclude list so the sample NEVER hits the
+    // thing it's placing (the cumulative creep-up feedback loop) or our own extruded
+    // context boxes.
     const sampleFn = (scene as unknown as {
-      sampleHeightMostDetailed?: (positions: Cesium.Cartographic[]) => Promise<Cesium.Cartographic[]>;
+      sampleHeightMostDetailed?: (
+        positions: Cesium.Cartographic[],
+        objectsToExclude?: unknown[],
+        width?: number,
+      ) => Promise<Cesium.Cartographic[]>;
     }).sampleHeightMostDetailed;
     if (typeof sampleFn !== 'function') {
       this.warnTerrainOnce('scene.sampleHeightMostDetailed unavailable — building stays at base 0 on the globe.');
@@ -3109,7 +3178,14 @@ export class CesiumViewport {
     let sampledHeight: number | null = null;
     try {
       const cartos = samplePts.map((s) => Cesium.Cartographic.fromDegrees(s.lon, s.lat));
-      const results = await sampleFn.call(scene, cartos);
+      // §GLOBE-TILE-CLAMP-NO-SELF-HIT — exclude the ALREADY-PLACED model (and our own
+      // context extrusions) from the height raycast so the sample can never land on the
+      // thing we're re-seating (which stacked it ~one storey per view switch) or on our
+      // context boxes. Best-effort: only include live, non-destroyed primitives/entities.
+      const exclude: unknown[] = [];
+      if (this.realModelOnGlobe && !this.realModelOnGlobe.isDestroyed()) exclude.push(this.realModelOnGlobe);
+      for (const e of this.contextBuildingEntities) { if (e) exclude.push(e); }
+      const results = await sampleFn.call(scene, cartos, exclude.length > 0 ? exclude : undefined);
       // §GIS-LOC — MIN over all plot samples = the ground (roofs are higher). Ignore
       // non-finite samples (points where no tile/terrain was hit).
       for (const r of results) {
@@ -3441,6 +3517,92 @@ export class CesiumViewport {
     else this.flyToFormaSite();
   }
 
+  /**
+   * §GLOBE-FIT-BUILDING (founder 2026-07-01, ADR-0095) — compute the placed building's
+   * BOUNDING SPHERE (world Cartesian centre + radius) so the camera can FIT the whole
+   * tower like "zoom-extents" on the main BIM view — instead of the √area altitude
+   * heuristic that could clip/off-centre a tall building. Prefers the REAL model
+   * primitive's own bounding sphere (exact); else derives one from the massing storey
+   * bands (footprint half-diagonal × storey height) about the site centroid. Returns
+   * null when nothing is placed / the math is non-finite. Pure read; guarded.
+   */
+  private modelBoundingSphere(): Cesium.BoundingSphere | null {
+    const o = this.formaMassingOrigin;
+    if (!o || !Number.isFinite(o.lat) || !Number.isFinite(o.lon)) return null;
+    // Prefer the real model's own bounding sphere (exact, includes its true height).
+    const model = this.realModelOnGlobe;
+    if (model && !model.isDestroyed()) {
+      const bs = (model as unknown as { boundingSphere?: Cesium.BoundingSphere }).boundingSphere;
+      if (bs && Number.isFinite(bs.radius) && bs.radius > 0) return bs;
+    }
+    try {
+      // Massing fallback: centre at the site centroid seated on the ground base; radius
+      // = the footprint half-diagonal combined with the total building height so the
+      // sphere encloses the whole tower (not just its plan).
+      const originCartesian = Cesium.Cartesian3.fromDegrees(o.lon, o.lat, 0);
+      const enu = Cesium.Transforms.eastNorthUpToFixedFrame(originCartesian);
+      let totalH = 0;
+      for (const b of this.formaStoreyBands) {
+        const top = (b.baseElevation || 0) + (b.heightM || 0);
+        if (top > totalH) totalH = top;
+      }
+      if (!(totalH > 0)) totalH = 9;
+      const half = Math.max(4, Math.sqrt(Math.max(1, o.areaM2)) / 2);
+      const centreUp = this.formaTerrainBaseHeight + totalH / 2;
+      const centre = Cesium.Matrix4.multiplyByPoint(
+        enu, new Cesium.Cartesian3(o.centroidEast, o.centroidNorth, centreUp), new Cesium.Cartesian3(),
+      );
+      const radius = Math.max(6, Math.hypot(half, totalH / 2) * 1.15);
+      if (!Number.isFinite(radius)) return null;
+      return new Cesium.BoundingSphere(centre, radius);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * §GLOBE-FIT-BUILDING (ADR-0095) — fly the camera to FIT the placed building's
+   * bounding sphere, pulling out slightly so the WHOLE tower is framed (zoom-extents),
+   * with a gentle downward pitch. Shared by BOTH the initial 3D-Site/3D-Globe landing
+   * and the "Zoom to Site" button. Returns true when it flew; false when no bounding
+   * sphere could be resolved (the caller then falls back to the √area heuristic).
+   */
+  private flyToModelBoundingSphere(orientationOverride?: { headingDeg: number; pitchDeg: number }): boolean {
+    const viewer = this.viewer;
+    if (!viewer) return false;
+    const sphere = this.modelBoundingSphere();
+    if (!sphere) return false;
+    const headingDeg = orientationOverride?.headingDeg ?? FORMA_FLY_HEADING_DEG;
+    const pitchDeg = orientationOverride?.pitchDeg ?? FORMA_FLY_PITCH_DEG;
+    try {
+      this.formaProgrammaticFlyInFlight = true;
+      const clearFlyFlag = (): void => { this.formaProgrammaticFlyInFlight = false; };
+      // Offset range ≈ 2.5× radius so the whole building sits comfortably in frame with
+      // margin (matches "fit all" on the BIM view), from the same oblique heading/pitch.
+      const range = Math.max(20, sphere.radius * 2.5);
+      viewer.camera.flyToBoundingSphere(sphere, {
+        offset: new Cesium.HeadingPitchRange(
+          Cesium.Math.toRadians(headingDeg),
+          Cesium.Math.toRadians(pitchDeg),
+          range,
+        ),
+        duration: FORMA_FLY_DURATION_S,
+        complete: clearFlyFlag,
+        cancel: clearFlyFlag,
+      });
+      viewer.scene.requestRender();
+      console.log(
+        `[CesiumViewport][forma] §GLOBE-FIT-BUILDING flyToBoundingSphere: radius ` +
+          `${sphere.radius.toFixed(1)} m, range ${range.toFixed(0)} m (heading ${headingDeg}°, pitch ${pitchDeg}°).`,
+      );
+      return true;
+    } catch (e) {
+      this.formaProgrammaticFlyInFlight = false;
+      console.warn('[CesiumViewport][forma] §GLOBE-FIT-BUILDING flyToBoundingSphere failed — falling back:', e);
+      return false;
+    }
+  }
+
   public flyToFormaSite(orientationOverride?: { headingDeg: number; pitchDeg: number }): void {
     const viewer = this.viewer;
     const o = this.formaMassingOrigin;
@@ -3448,6 +3610,10 @@ export class CesiumViewport {
       console.warn('[CesiumViewport][forma] flyToFormaSite: no massing placed yet — ignored.');
       return;
     }
+    // §GLOBE-FIT-BUILDING — prefer fitting the actual building bounding sphere (whole
+    // tower framed, zoom-extents) for BOTH the initial landing and Zoom-to-Site; fall
+    // back to the √area altitude heuristic below only when no sphere resolves.
+    if (this.flyToModelBoundingSphere(orientationOverride)) return;
     // §GLOBE-FRAME-NO-JUMP — never fly to an invalid frame target. A NaN/non-finite
     // lat/lon/centroid (e.g. a placement that failed to resolve a footprint) would
     // send the camera "off" to nowhere — the founder's "jumps off / flies away".
@@ -4176,16 +4342,61 @@ export class CesiumViewport {
     if (!viewer || !origin || !this.facadeAnalysisOn) return;
     if (this.siteMetricActive !== 'sunHours') return; // priority metric = sun-hours
 
+    // §FORMA-FACADE-FOOTPRINT-FIX (founder 2026-07-01, ADR-0095) — resolve the DESIGNED
+    // building's exterior footprint robustly, most-reliable source first, so the façade
+    // study paints in BOTH Real and Massing fidelity modes (formaLastMassingInput persists
+    // in both — it's the massing fallback under the real model). The old code used ONLY
+    // `input.boundary`, which is null whenever no parcel ring was drawn (the founder's
+    // "no building footprint — skipping" log), so sun-on-façade never painted:
+    //   1. the drawn parcel boundary (input.boundary), if present;
+    //   2. else the massing wall-loop perimeter reconstructed from the authored walls
+    //      (reconstructPerimeterRing — the SAME single-polygon silhouette the shell
+    //      extrusion uses, so it matches the building exactly);
+    //   3. else the ground-storey FLOOR-SLAB outer ring (a generated building always
+    //      authors a floor plate whose outer ring IS the shell footprint);
+    //   4. else a square about the massing centroid (formaMassingOrigin) so an
+    //      already-placed building without a traceable loop still gets a study.
+    // scene-XZ → the metric Pt convention (x = east, z = north): east = x, north = −z.
     const input = this.formaLastMassingInput;
-    const boundary = input?.boundary;
-    if (!boundary || boundary.length < 3) {
-      console.log('[CesiumViewport][forma-facade] no building footprint — skipping façade analysis.');
+    const sceneRingToMetric = (
+      r: ReadonlyArray<{ x: number; z: number }>,
+    ): { x: number; z: number }[] => r.map((p) => ({ x: p.x, z: -p.z }));
+
+    let ring: { x: number; z: number }[] | null = null;
+    let ringSource = '';
+    if (input?.boundary && input.boundary.length >= 3) {
+      ring = sceneRingToMetric(input.boundary);
+      ringSource = 'parcel-boundary';
+    }
+    if (!ring && input) {
+      // The authored walls include the perimeter shell; reconstructPerimeterRing traces
+      // the outer boundary loop (interior partitions branch off + are not followed).
+      const wallRing = this.reconstructPerimeterRing(input.walls);
+      if (wallRing && wallRing.length >= 3) { ring = sceneRingToMetric(wallRing); ringSource = 'wall-loop'; }
+    }
+    if (!ring && input) {
+      const slabRing = this.slabRingForBand(input.slabs ?? [], 0);
+      if (slabRing && slabRing.length >= 3) { ring = sceneRingToMetric(slabRing); ringSource = 'floor-slab'; }
+    }
+    if (!ring) {
+      // Last resort: a square about the placed massing centroid (already ENU metres —
+      // east = centroidEast, north = centroidNorth — so NO z-flip here).
+      const o = this.formaMassingOrigin;
+      if (o && o.areaM2 > 0) {
+        const half = Math.max(2, Math.sqrt(o.areaM2) / 2);
+        const cx = o.centroidEast, cz = o.centroidNorth;
+        ring = [
+          { x: cx - half, z: cz - half }, { x: cx + half, z: cz - half },
+          { x: cx + half, z: cz + half }, { x: cx - half, z: cz + half },
+        ];
+        ringSource = 'massing-centroid-square';
+      }
+    }
+    if (!ring || ring.length < 3) {
+      console.log('[CesiumViewport][forma-facade] no building footprint (no boundary / wall-loop / slab / massing) — skipping façade analysis.');
       return;
     }
-
-    // Building exterior ring: scene-XZ → ENU metres (east = x, north = −z), in the
-    // metric `Pt` convention (x = east, z = north) the occluder prisms also use.
-    const ring = boundary.map((p) => ({ x: p.x, z: -p.z }));
+    console.log(`[CesiumViewport][forma-facade] §FORMA-FACADE-FOOTPRINT-FIX footprint from ${ringSource} (${ring.length} pts).`);
     // Building top height = the tallest storey band's base + height (the roof level).
     let heightM = 0;
     for (const b of this.formaStoreyBands) {
@@ -4476,6 +4687,15 @@ export class CesiumViewport {
       // pass lat/lon so temperature/wind synthesise bundled regional normals when the
       // live ClimateStore dataset is still null.
       const cheapBudget = siteMetricGridBudget(metric);
+      // §ANALYSIS-REAL-* (ADR-0095) — peek the REAL free-dataset cache (NASA POWER
+      // climate + WorldPop population) synchronously; kick an async fetch that repaints
+      // this exact metric when the real data lands. When the cache is empty/failed the
+      // real* fields are undefined → the pure builder degrades honestly (temperature
+      // uses bundled normals labelled "estimate"; population uses the OSM proxy pattern;
+      // NO synthetic radial fallback). Non-fatal by construction.
+      this.kickRealSiteData(metric, origin);
+      const realClim = peekRealClimateBaseline(origin.lat, origin.lon);
+      const realPop = peekRealPopulationSample(origin.lat, origin.lon);
       const cells: MetricGridCell[] = buildSiteMetricGrid(metric, {
         radius,
         footprints,
@@ -4485,10 +4705,52 @@ export class CesiumViewport {
         maxCells: cheapBudget.maxCells,
         latDeg: origin.lat,
         lngDeg: origin.lon,
+        ...(realClim ? {
+          realBaselineTempC: realClim.warmAirTempC,
+          realWindMeanMs: realClim.windMeanMs,
+          realWindFromDeg: realClim.windFromDeg,
+        } : {}),
+        ...(realPop ? { realPopulationPerHa: realPop.personsPerHa } : {}),
       });
       finishTexture(cells, cheapBudget.cellSizeM, legendTitle);
     } catch (e) {
       console.warn('[CesiumViewport][site-metric] overlay failed:', e);
+    }
+  }
+
+  /**
+   * §ANALYSIS-REAL-POPULATION + §ANALYSIS-REAL-TEMPERATURE + §ANALYSIS-REAL-WIND
+   * (ADR-0095) — kick the async REAL free-dataset fetches (NASA POWER climate + WorldPop
+   * population) for the site, and repaint the ACTIVE metric once real data lands so the
+   * heatmap upgrades from the labelled estimate to real values in place. De-duped per
+   * rounded lat/lon (the fetchers cache + de-dupe in-flight; this guard just avoids
+   * scheduling a redundant repaint). NON-FATAL: a fetch failure resolves null and the
+   * metric simply stays in its honest estimate state (no synthetic fallback). Only the
+   * cheap climate/population metrics consume real data; sun-hours/daylight are pure
+   * geometry and skip this.
+   */
+  private kickRealSiteData(metric: SiteMetric, origin: { lat: number; lon: number }): void {
+    if (metric !== 'temperature' && metric !== 'wind' && metric !== 'population') return;
+    const key = `${origin.lat.toFixed(2)},${origin.lon.toFixed(2)}`;
+    // Climate (temperature + wind) — one NASA POWER request.
+    if (metric === 'temperature' || metric === 'wind') {
+      if (!peekRealClimateBaseline(origin.lat, origin.lon) && !this.realDataKickedClimate.has(key)) {
+        this.realDataKickedClimate.add(key);
+        void fetchRealClimateBaseline(origin.lat, origin.lon).then((r) => {
+          if (r && this.siteMetricActive && (this.siteMetricActive === 'temperature' || this.siteMetricActive === 'wind')) {
+            this.renderSiteMetricOverlay();
+          }
+        }).catch(() => { /* non-fatal — fetcher already logged */ });
+      }
+    }
+    // Population — WorldPop gridded density.
+    if (metric === 'population') {
+      if (!peekRealPopulationSample(origin.lat, origin.lon) && !this.realDataKickedPop.has(key)) {
+        this.realDataKickedPop.add(key);
+        void fetchRealPopulationSample(origin.lat, origin.lon).then((r) => {
+          if (r && this.siteMetricActive === 'population') this.renderSiteMetricOverlay();
+        }).catch(() => { /* non-fatal — fetcher already logged */ });
+      }
     }
   }
 
