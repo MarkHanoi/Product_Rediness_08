@@ -198,6 +198,12 @@ function loadEngine(): Promise<EngineModule> {
 
 let _bootstrapped = false;
 
+// §GPU-DISABLED-GRACEFUL-BOOT — one-shot guard so the forced-WebGL retry runs at
+// most once per session. Without it, a true GPU lockout (where even the WebGL
+// path throws) would loop bootstrap forever.
+let _gpuForcedWebglRetried = false;
+const BACKEND_PREF_KEY = 'pryzm.renderer.backend';
+
 async function startEngine(runtime: import('@pryzm/runtime-composer').PryzmRuntime | null = null): Promise<void> {
     const mod = await loadEngine();
     if (!_bootstrapped) {
@@ -215,6 +221,55 @@ async function startEngine(runtime: import('@pryzm/runtime-composer').PryzmRunti
             _bootstrapped = true;
         } catch (err) {
             console.error('[main] bootstrap() failed — engine NOT marked bootstrapped, retry possible:', err);
+
+            // ── §GPU-DISABLED-GRACEFUL-BOOT ───────────────────────────────────
+            // Distinguish a browser GPU lockout (no WebGL/WebGPU context can be
+            // obtained — the OBC/ThatOpen `new THREE.WebGLRenderer` inside
+            // `initScene`→`createBimWorld` throws "Error creating WebGL context")
+            // from any other bootstrap error. On a GPU-disabled failure:
+            //   1. FIRST try the safe fallback ONCE — if the failed attempt was on
+            //      the WebGPU/hardware path, force the plain-WebGL backend and
+            //      re-run bootstrap a single time. Some lockouts only kill the
+            //      WebGPU device while WebGL2 still works.
+            //   2. If even the forced-WebGL retry throws the same context error
+            //      (a true, total lockout), paint the branded recovery overlay so
+            //      the user gets clear "quit & reopen + enable hardware
+            //      acceleration" steps instead of a blank/broken app.
+            // The overlay module has ZERO engine deps and is dynamically imported
+            // so the NORMAL boot path gains no bytes and is entirely unaffected.
+            const { isGpuDisabledError, showGpuDisabledOverlay } = await import('./gpuDisabledOverlay');
+            if (isGpuDisabledError(err)) {
+                let forcedWebgl = false;
+                try {
+                    forcedWebgl = globalThis.localStorage?.getItem(BACKEND_PREF_KEY) === 'webgl';
+                } catch { /* localStorage unavailable — treat as not-yet-forced */ }
+
+                if (!_gpuForcedWebglRetried && !forcedWebgl) {
+                    // Retry ONCE on the plain-WebGL backend (safest path). Persist the
+                    // preference the SAME way the corner toggle does so
+                    // createRenderer.getRendererBackendPreference() picks it up on the
+                    // re-run — no engine import needed here (engine failed to boot).
+                    _gpuForcedWebglRetried = true;
+                    try { globalThis.localStorage?.setItem(BACKEND_PREF_KEY, 'webgl'); }
+                    catch { /* non-fatal — retry still proceeds with in-memory default */ }
+                    console.warn('[main] §GPU-DISABLED-GRACEFUL-BOOT — context creation failed on the current backend; forcing WebGL and retrying bootstrap ONCE.');
+                    try {
+                        await mod.bootstrap(runtime);
+                        _bootstrapped = true;
+                        return; // recovered on the WebGL path
+                    } catch (retryErr) {
+                        console.error('[main] §GPU-DISABLED-GRACEFUL-BOOT — forced-WebGL retry also failed; GPU appears fully disabled:', retryErr);
+                        showGpuDisabledOverlay();
+                        throw retryErr;
+                    }
+                }
+
+                // Already retried (or WebGL was already forced) and it still failed:
+                // this is a true GPU lockout — show the recovery overlay.
+                console.error('[main] §GPU-DISABLED-GRACEFUL-BOOT — GPU is disabled and the WebGL fallback did not help; showing recovery overlay.');
+                showGpuDisabledOverlay();
+            }
+
             throw err;
         }
     }
