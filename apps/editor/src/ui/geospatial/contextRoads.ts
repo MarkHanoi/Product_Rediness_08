@@ -10,6 +10,7 @@
 import {
     OVERPASS_ENDPOINTS, OVERPASS_TIMEOUT_MS,
     contextBboxAround, CONTEXT_BBOX_HALF_DEG,
+    fetchOverpassViaProxy,
     type Bbox,
 } from './contextBuildings';
 
@@ -52,6 +53,23 @@ export function emptyRoadCollection(): ContextRoadCollection {
     return { type: 'ContextRoadCollection', ways: [] };
 }
 
+/** Parse the Overpass `out geom` elements into road/pedestrian polylines. Shared
+ *  by the §OVERPASS-PROXY path and the direct-mirror fallback below. */
+function roadsFromElements(elements: OverpassWay[]): ContextRoadCollection {
+    const ways: ContextWay[] = [];
+    for (const el of elements) {
+        if (el.type !== 'way' || !el.geometry || el.geometry.length < 2) continue;
+        const hw = el.tags?.['highway'] ?? '';
+        ways.push({
+            coords: el.geometry.map((p) => [p.lon, p.lat] as const),
+            kind: PEDESTRIAN.has(hw) ? 'pedestrian' : 'road',
+            highway: hw,
+            osmId: el.id,
+        });
+    }
+    return { type: 'ContextRoadCollection', ways };
+}
+
 export async function fetchContextRoads(
     lat: number, lon: number, signal?: AbortSignal,
 ): Promise<ContextRoadCollection> {
@@ -63,7 +81,20 @@ export async function fetchContextRoads(
     const hit = cache.get(key);
     if (hit) return hit;
 
-    const body = 'data=' + encodeURIComponent(overpassRoadQuery(bbox));
+    const query = overpassRoadQuery(bbox);
+
+    // §OVERPASS-PROXY — same-origin proxy FIRST (shared server cache dodges the
+    // per-browser 429). `null` = proxy unreachable → direct-mirror fallback below.
+    const viaProxy = await fetchOverpassViaProxy<OverpassWay>(query, signal);
+    if (signal?.aborted) return emptyRoadCollection();
+    if (viaProxy) {
+        const collection = roadsFromElements(viaProxy.elements ?? []);
+        cache.set(key, collection);
+        console.log(`[gis] context roads: ${collection.ways.length} way(s) for bbox ${key} via /api/overpass proxy.`);
+        return collection;
+    }
+
+    const body = 'data=' + encodeURIComponent(query);
     for (const endpoint of OVERPASS_ENDPOINTS) {
         // §GIS-ABORT-REASON (founder 2026-06-11) — explicit reasons so the console reads
         // "Overpass timeout" / "caller cancelled" instead of "aborted without reason"
@@ -86,20 +117,9 @@ export async function fetchContextRoads(
                 continue;
             }
             const json = (await res.json()) as { elements?: OverpassWay[] };
-            const ways: ContextWay[] = [];
-            for (const el of json.elements ?? []) {
-                if (el.type !== 'way' || !el.geometry || el.geometry.length < 2) continue;
-                const hw = el.tags?.['highway'] ?? '';
-                ways.push({
-                    coords: el.geometry.map((p) => [p.lon, p.lat] as const),
-                    kind: PEDESTRIAN.has(hw) ? 'pedestrian' : 'road',
-                    highway: hw,
-                    osmId: el.id,
-                });
-            }
-            const collection = { type: 'ContextRoadCollection' as const, ways };
+            const collection = roadsFromElements(json.elements ?? []);
             cache.set(key, collection);
-            console.log(`[gis] context roads: ${ways.length} way(s) for bbox ${key} via ${new URL(endpoint).host}.`);
+            console.log(`[gis] context roads: ${collection.ways.length} way(s) for bbox ${key} via ${new URL(endpoint).host}.`);
             return collection;
         } catch (e) {
             if (signal?.aborted) return emptyRoadCollection();
