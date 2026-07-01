@@ -122,6 +122,42 @@ flexibility) from leading workplace-planning firms and workstation systems — p
 
 ---
 
+## 11. Furniture quality & component library (Phase-2 target)
+
+Quality bar = a professional, biophilic, Steelcase / Herman-Miller-grade fit-out (per founder
+reference imagery), NOT generic boxes. Every module is assembled from a curated component library so
+the result reads as a real studio, not scattered desks. Each module composes these components:
+
+- **Bench desk systems** — white/light tops on slim metal A-frame or beam legs; desks group into
+  back-to-back rows (bench) sharing a spine; single/linear variants for smaller zones.
+- **Desktop privacy screens / dividers** — low translucent (frosted glass or fabric) screens between
+  facing desks and along bench spines; define visual privacy without closing the plan.
+- **Ergonomic task chairs** — mesh-back task chairs (mixed black + light), one per desk; visitor +
+  lounge + stool variants for meeting / breakout / kitchen.
+- **Desktop tech** — monitor (single/dual), keyboard, occasional laptop, per workstation.
+- **Mobile storage pedestals / caddies** — wood + white under-/beside-desk pedestals; tall shelving
+  units doubling as **low room-divider storage** (boxes, files, plants, accessories on open shelves).
+- **Biophilic planting** — large floor planters at zone edges + desktop plants; a signature element.
+- **Accessory / decor layer** — pegboard walls with hung organizers + headphones + small shelves;
+  desk trays, task lamps, organizers, mugs, monitor risers; wall art; studio signage.
+- **Amenity pieces** — sofas + lounge chairs + coffee tables (collab/breakout); meeting table + TV +
+  whiteboard (meeting rooms); kitchen island + high table + stools + coffee machine/fridge/microwave
+  (kitchen); acoustic phone-booth pod.
+- **Finishes** — warm timber/parquet office floor; the module colour palette stays light + neutral.
+
+Placement rules: modules snap to the circulation grid (§7 clearances); planters + shelving-dividers
+mark zone boundaries; accessories/decor are scattered deterministically to avoid a sterile look but
+never obstruct circulation or egress. Density scales with occupancy (§8).
+
+**Asset dependency (must flag):** the visual quality depends on the GLB furniture catalog. In prod the
+`/items/*.glb` catalog 404s (tracker OBJECT-STORAGE-GLB — the 185 MB catalog is `.dockerignore`d out of
+the image), so furniture renders as PLACEHOLDER geometry. To actually see this quality, the curated GLB
+assets (bench desks, mesh chairs, screens, pedestals, shelving, planters, accessories) must be re-hosted
+on object storage and referenced by the FurnitureType entries the engine emits. The engine work
+(module composition) and the asset work (hosting good GLBs) are BOTH required for the reference look.
+
+---
+
 ## Implementation phasing (this repo)
 - **P1 — Split + core services + circulation-first architecture:** Command 1 emits architecture only
   (§1 arch list); AI-dropdown "Generate Office Architecture" + "Furnish Office"; preview toggle (§2);
