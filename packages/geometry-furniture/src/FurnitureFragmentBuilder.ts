@@ -1,4 +1,12 @@
 import * as THREE from '@pryzm/renderer-three/three';
+// §FIX-FURNITURE-USEDTIMES (Defect B) — route material/geometry disposal through
+// the WebGPU-safe helpers so a `usedTimes` device-loss TypeError (thrown by the
+// WebGPU NodeManager when disposing a material/geometry whose node state was torn
+// down by the WebGPU→WebGL2 live backend swap / device-loss) can never abort
+// updateFurniture() before the new mesh is built. That abort is exactly why the
+// office project's sofa_2seat items failed to render ("bim-furniture-added failed
+// ... reading 'usedTimes'"). Mirrors DoorBuilder / WallFragmentBuilder (§I2).
+import { safeDisposeGeometry, safeDisposeMaterial } from '@pryzm/renderer-three';
 import { FurnitureData } from './FurnitureTypes';
 import { MaterialService } from './MaterialService';
 import { FurnitureFactory } from './builders/FurnitureFactory';
@@ -150,18 +158,18 @@ export class FurnitureFragmentBuilder {
         if (root) {
             root.traverse(child => {
                 if (child instanceof THREE.Mesh) {
-                    child.geometry.dispose();
+                    safeDisposeGeometry(child.geometry); // §FIX-FURNITURE-USEDTIMES
 
                     // Only dispose materials that are NOT from cache
                     if (Array.isArray(child.material)) {
                         child.material.forEach(mat => {
                             if (!this.materialService.isCachedMaterial(mat)) {
-                                mat.dispose();
+                                safeDisposeMaterial(mat); // §FIX-FURNITURE-USEDTIMES
                             }
                         });
                     } else {
                         if (!this.materialService.isCachedMaterial(child.material)) {
-                            child.material.dispose();
+                            safeDisposeMaterial(child.material); // §FIX-FURNITURE-USEDTIMES
                         }
                     }
                 }
@@ -313,12 +321,12 @@ export class FurnitureFragmentBuilder {
                 // invisible so it never double-draws and never costs a draw call.
                 mesh.traverse((child) => {
                     if (child instanceof THREE.Mesh) {
-                        child.geometry.dispose();
+                        safeDisposeGeometry(child.geometry); // §FIX-FURNITURE-USEDTIMES
                         const mat = child.material;
                         if (Array.isArray(mat)) {
-                            mat.forEach((mm) => { if (!this.materialService.isCachedMaterial(mm)) mm.dispose(); });
+                            mat.forEach((mm) => { if (!this.materialService.isCachedMaterial(mm)) safeDisposeMaterial(mm); }); // §FIX-FURNITURE-USEDTIMES
                         } else if (!this.materialService.isCachedMaterial(mat)) {
-                            mat.dispose();
+                            safeDisposeMaterial(mat); // §FIX-FURNITURE-USEDTIMES
                         }
                     }
                 });
@@ -351,18 +359,18 @@ export class FurnitureFragmentBuilder {
             // Properly dispose geometries AND unique materials before removal
             root.traverse(child => {
                 if (child instanceof THREE.Mesh) {
-                    child.geometry.dispose();
+                    safeDisposeGeometry(child.geometry); // §FIX-FURNITURE-USEDTIMES
 
                     // Only dispose materials that are NOT from cache
                     if (Array.isArray(child.material)) {
                         child.material.forEach(mat => {
                             if (!this.materialService.isCachedMaterial(mat)) {
-                                mat.dispose();
+                                safeDisposeMaterial(mat); // §FIX-FURNITURE-USEDTIMES
                             }
                         });
                     } else {
                         if (!this.materialService.isCachedMaterial(child.material)) {
-                            child.material.dispose();
+                            safeDisposeMaterial(child.material); // §FIX-FURNITURE-USEDTIMES
                         }
                     }
                 }
