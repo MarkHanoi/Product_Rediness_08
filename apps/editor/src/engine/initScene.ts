@@ -1128,6 +1128,23 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         roObserver.observe(editorContainer);
     }
 
+    // §FIX-OBC-BASE-STALE-COMPOSITE (Defect A / A1) — one-shot clear of the OBC
+    // base framebuffer. The OBC base canvas (autoClear=false, silenced in Phase 5)
+    // otherwise freezes on its last-painted frame and composites UNDER the
+    // transparent PRYZM overlay, producing the "duplicated visuals on camera move"
+    // ghosting. Clearing to fully-transparent black leaves the overlay as the sole
+    // visible surface. Best-effort: any failure is non-fatal (OBC keeps its frame).
+    const clearObcBaseFramebuffer = (reason: string): void => {
+        try {
+            const obc = postproductionRenderer.three as THREE.WebGLRenderer;
+            obc.setClearColor?.(new THREE.Color(0x000000), 0);
+            obc.clear?.(true, true, true);
+            console.log(`[initScene] §FIX-OBC-BASE-STALE-COMPOSITE OBC base framebuffer cleared (${reason}).`);
+        } catch (e) {
+            console.warn('[initScene] §FIX-OBC-BASE-STALE-COMPOSITE OBC base clear failed (non-fatal):', e);
+        }
+    };
+
     // ── Task 5.1 Phase 5: WebGL Context Loss Resilience ──────────────────────
     // GPU context can be lost when too much geometry is uploaded in a single
     // synchronous call stack — most commonly triggered by
@@ -1479,6 +1496,24 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         window.pryzmRenderer        = pryzmRenderer;
         // Expose OBC WebGL renderer canvas for sheet 3D view thumbnail capture
         window.obcRendererCanvas    = postproductionRenderer.three.domElement;
+
+        // §FIX-OBC-BASE-STALE-COMPOSITE (Defect A / A1) — the "junks / duplicated
+        // visuals on camera move" root cause. In Phase 5 the PRYZM overlay canvas
+        // (z-index:2, alpha:true, cleared transparent every frame) is composited on
+        // TOP of the OBC base canvas. The OBC base renderer has autoClear=false
+        // (BimWorld.ts) and is now silenced (MANUAL, postproduction off, never
+        // renders again) — so it FREEZES on whatever it last painted during boot,
+        // before Phase 5 locked it. As the camera orbits/pans, the overlay draws the
+        // scene at its new positions while the frozen OBC frame shows the OLD
+        // positions THROUGH the overlay's transparent pixels → the user sees BOTH
+        // the live and the stale geometry at once = doubled/ghosted "junks".
+        //
+        // Fix: clear the OBC base framebuffer ONCE at hand-over so nothing stale
+        // sits under the transparent overlay. OBC never renders again in Phase 5 so a
+        // single clear suffices; VPT/bloom modes re-drive the OBC canvas themselves
+        // (they hide pryzmCanvas), so the canvas stays fully usable. Re-applied after
+        // a live backend swap (§RENDERER-LIVE-SWAP) for the same reason.
+        clearObcBaseFramebuffer('phase5-activate');
 
         console.log(
             `[initScene] Phase 5 active — PRYZM renderer: ${rendererResult.backend}`,
@@ -3033,6 +3068,11 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                 try { (oldRenderer as any).dispose?.(); }
                 catch (e) { console.warn('[initScene] §RENDERER-LIVE-SWAP old renderer dispose failed (non-fatal):', e); }
                 try { oldCanvas.remove(); } catch { /* already detached */ }
+
+                // §FIX-OBC-BASE-STALE-COMPOSITE (Defect A / A1) — re-clear the OBC
+                // base framebuffer after the swap. The new overlay is transparent, so
+                // any stale OBC frame would again ghost under it during camera move.
+                clearObcBaseFramebuffer('post-live-swap');
 
                 // 8. Resume the single rAF loop. The PASCAL render callback closes
                 //    over `renderPipelineManager` (the SAME rpm instance, now rebound
