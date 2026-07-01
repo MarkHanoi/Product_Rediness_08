@@ -388,17 +388,19 @@ export class BatchLoadingIndicator {
         style.id = id;
         style.textContent = `
             /* §FIX-BATCH-OVERLAY: Full-viewport backdrop.
-               §LOADING-WHITE-BACKDROP (founder 2026-07-01) — the founder wants the
-               loading background COMPLETELY WHITE (was the shared dark/blurred panel
-               scrim). Solid opaque white fully covers the scene so the card sits on a
-               clean white field; no blur needed on a solid fill. */
+               §LOADING-WHITE-BACKDROP (founder 2026-07-01) — a WHITE but SEMI-TRANSPARENT
+               scrim (the founder wanted the white look back to being see-through "as it was",
+               not the solid-white field): a soft white haze + blur so the scene reads faintly
+               behind the card, on a clean white tint (no dark/purple scrim). */
             .pryzm-batch-backdrop {
                 position: fixed;
                 inset: 0;
                 z-index: 88880;
                 display: none;
                 opacity: 0;
-                background: #ffffff;
+                background: rgba(255, 255, 255, 0.68);
+                backdrop-filter: blur(8px);
+                -webkit-backdrop-filter: blur(8px);
                 transition: opacity 0.20s ease;
                 pointer-events: all;
             }
@@ -440,10 +442,11 @@ export class BatchLoadingIndicator {
                the 3-D shape reads clearly and the card feels premium. The prism
                keeps turning on the compositor thread (immune to main-thread
                LONGTASKs); this tile is a static backdrop only. */
-            /* §LOADING-WHITE-BACKDROP — the icon tile is now the SAME white as the card
-               (founder: uniform white panel, no distinct grey box). The shared PRYZM prism
-               has white translucent faces, so on a white tile it would vanish; a soft
-               drop-shadow on the prism gives it just enough definition to still read. */
+            /* §LOADING-WHITE-BACKDROP — the founder wants to SEE the turning prism on the
+               white panel (a pure-white tile made the white-faced prism vanish). Use a very
+               light NEUTRAL tile (soft grey, no purple) — reads as near-white so the panel
+               still feels clean, but gives the white prism enough contrast to read + turn
+               visibly. Kept a faint drop-shadow for depth. */
             .pryzm-batch-indicator__spinner {
                 flex-shrink: 0;
                 display: flex;
@@ -452,8 +455,11 @@ export class BatchLoadingIndicator {
                 width: 74px;
                 height: 74px;
                 border-radius: 16px;
-                background: #ffffff;
-                filter: drop-shadow(0 3px 9px rgba(10, 6, 30, 0.22));
+                background:
+                    radial-gradient(ellipse at 32% 30%, #f6f7f9 0%, transparent 62%),
+                    #e4e6ec;
+                box-shadow: inset 0 0 0 1px rgba(10, 6, 30, 0.05);
+                filter: drop-shadow(0 2px 6px rgba(10, 6, 30, 0.12));
             }
 
             .pryzm-batch-indicator__text {
