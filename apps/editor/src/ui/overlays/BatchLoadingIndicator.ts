@@ -449,10 +449,10 @@ export class BatchLoadingIndicator {
                 height: 74px;
                 border-radius: 16px;
                 background:
-                    radial-gradient(ellipse at 30% 32%, #c8b6ff 0%, transparent 60%),
-                    radial-gradient(ellipse at 72% 74%, #b8a2ff 0%, transparent 58%),
-                    #ece7ff;
-                box-shadow: inset 0 0 0 1px rgba(102, 0, 255, 0.08);
+                    radial-gradient(ellipse at 30% 32%, #d2d2d8 0%, transparent 60%),
+                    radial-gradient(ellipse at 72% 74%, #c4c4cc 0%, transparent 58%),
+                    #e7e7eb;
+                box-shadow: inset 0 0 0 1px rgba(10, 6, 30, 0.06);
             }
 
             .pryzm-batch-indicator__text {
@@ -476,7 +476,7 @@ export class BatchLoadingIndicator {
             .pryzm-batch-indicator__label {
                 font-size: 12.5px;
                 font-weight: 500;
-                color: #6600FF;
+                color: #5a5f70;
                 letter-spacing: 0.005em;
                 white-space: nowrap;
                 overflow: hidden;
@@ -506,9 +506,9 @@ export class BatchLoadingIndicator {
             .pryzm-batch-indicator__bar {
                 height: 100%;
                 width: 0%;
-                background: linear-gradient(90deg, #8B5CF6 0%, #6600FF 100%);
+                background: linear-gradient(90deg, #6b7080 0%, #3a3e4a 100%);
                 border-radius: inherit;
-                box-shadow: 0 0 8px rgba(102, 0, 255, 0.40);
+                box-shadow: 0 0 6px rgba(10, 6, 30, 0.18);
             }
             .pryzm-batch-indicator__pct {
                 flex-shrink: 0;
@@ -516,7 +516,7 @@ export class BatchLoadingIndicator {
                 text-align: right;
                 font-size: 11px;
                 font-weight: 600;
-                color: #6600FF;
+                color: #5a5f70;
                 letter-spacing: 0.02em;
                 font-variant-numeric: tabular-nums;
             }
