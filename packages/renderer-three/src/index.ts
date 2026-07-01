@@ -123,6 +123,9 @@ export {
   safeDisposeMaterials,
   safeDisposeGeometry,
   safeDisposeObject3D,
+  // §FIX-DELETED-TEXTURE-BIND — shared env/PBR texture disposal safety.
+  safeDisposeTexture,
+  detachTextureFromScene,
 } from './safeDispose.js';
 
 // C27 INS-α-7 — IsolationAnimator (subscribes to FrameScheduler + IsolationStateStore).

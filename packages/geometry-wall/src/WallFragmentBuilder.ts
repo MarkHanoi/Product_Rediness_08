@@ -4,7 +4,7 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { mergeGeometries, toCreasedNormals } from '@pryzm/renderer-three';
 // §I2 — WebGPU-safe disposal for the live wall-rebuild teardown sites (a stale
 // WebGPU render object must never throw `usedTimes` and abort the rebuild).
-import { safeDisposeGeometry, safeDisposeMaterials } from '@pryzm/renderer-three';
+import { safeDisposeGeometry, safeDisposeMaterial, safeDisposeMaterials } from '@pryzm/renderer-three';
 import { WallData, Opening, FragmentEntityMapping } from './WallTypes';
 import { VisualStyle, WALL_REALISTIC_MATERIAL, WALL_SCHEMATIC_MATERIAL } from '@pryzm/core-app-model/material-library';
 import { spatialAuthority, SpatialAuthorityError } from '@pryzm/core-app-model';
@@ -144,6 +144,17 @@ export class WallFragmentBuilder {
     // Null until EngineBootstrap injects it after initScene wires InstancedElementRenderer.
     // When set, simple walls (no openings, not curved, no miter) route to GPU instancing.
     private _instanceBridge: WallInstanceBridge | null = null;
+
+    // §INSTANCE-MAT-SHARE (2026-07-01) — colour-keyed cache of the MeshStandardMaterial
+    // handed to the instanced path. Before this cache, buildWall() minted a BRAND-NEW
+    // material per simple wall, so InstancedElementRenderer's group key
+    // (`levelId_…_material.uuid`) put every wall in its OWN group of size 1 — GPU
+    // instancing collapsed NOTHING on the 40-storey office (1065 walls → ~1065 draw
+    // calls). Sharing ONE material per distinct colour lets all identical-colour simple
+    // walls on a level coalesce into a single InstancedMesh → 1 draw call per
+    // (colour × level). InstanceGroup never disposes the material (it may be shared —
+    // see InstanceGroup.dispose), so this cache owns their lifetime; freed in dispose().
+    private _instanceMaterialCache = new Map<string, THREE.MeshStandardMaterial>();
 
     // §WALL-SINGLE-VOLUME-CSG (#96 phase 3) — optional injected CSG producer.
     // Null until apps/editor injects it (it imports @pryzm/geometry-kernel's
@@ -892,9 +903,13 @@ export class WallFragmentBuilder {
             // The old '#d4c5b0' beige fallback made join/opening-free walls (e.g. whole
             // ground-floor runs of a generated house) render tan while their
             // opening-bearing neighbours rendered white — the "beige walls failing" bug.
-            const mat = new THREE.MeshStandardMaterial({
-                color: new THREE.Color(intentColour ?? wall.materialColor ?? '#e8e8e8'),
-            });
+            //
+            // §INSTANCE-MAT-SHARE (2026-07-01) — share ONE material per distinct colour
+            // (was: a fresh material per wall, which gave every wall a unique
+            // material.uuid → a singleton InstanceGroup → zero draw-call savings). With
+            // sharing, all identical-colour simple walls on a level collapse into one
+            // InstancedMesh. See _getInstanceMaterial().
+            const mat = this._getInstanceMaterial(intentColour ?? wall.materialColor ?? '#e8e8e8');
             this._instanceBridge!.register(wall, resolvedY, joinData, mat);
 
             // §INSTANCED-SELECTION-FIX: Add an invisible hit-proxy mesh so that
@@ -2989,6 +3004,30 @@ export class WallFragmentBuilder {
         return fromGlobal ?? this._v2Cache ?? null;
     }
 
+    /**
+     * §INSTANCE-MAT-SHARE (2026-07-01) — return a SHARED MeshStandardMaterial for the
+     * given colour, minting one lazily the first time each colour is seen. Sharing is
+     * what makes GPU instancing actually collapse draw calls: InstancedElementRenderer
+     * keys its groups on `material.uuid`, so a per-wall material forces one group per
+     * wall (no batching). All simple walls of the same colour on the same level then
+     * share one InstancedMesh → one draw call.
+     *
+     * The colour is normalised through THREE.Color so equivalent inputs (`'#e8e8e8'`,
+     * `0xe8e8e8`, `'rgb(232,232,232)'`) map to the same cache key and the same material.
+     * The material carries no per-instance state (colour lives on the material, position
+     * on the instance matrix), so sharing is fully safe. InstanceGroup.dispose() never
+     * frees the material; this builder owns their lifetime and frees them in dispose().
+     */
+    private _getInstanceMaterial(colour: string | number): THREE.MeshStandardMaterial {
+        const key = new THREE.Color(colour).getHexString();
+        let mat = this._instanceMaterialCache.get(key);
+        if (!mat) {
+            mat = new THREE.MeshStandardMaterial({ color: new THREE.Color(`#${key}`) });
+            this._instanceMaterialCache.set(key, mat);
+        }
+        return mat;
+    }
+
     private createWallMaterial(wall?: WallData): THREE.Material {
         // §M-H1 (DAILY-USE-AUDIT 2026-05-20) — resolve `wall.materialId` against
         // the STANDARD_MATERIAL_LIBRARY map (when both supplied) so picking
@@ -3217,5 +3256,9 @@ export class WallFragmentBuilder {
         this.fragmentToEntityMap.clear();
         this.wallToFragmentsMap.clear();
         this.wallRoots.clear();
+        // §INSTANCE-MAT-SHARE — free the shared instanced-wall materials (InstanceGroup
+        // never disposes them; this builder owns their lifetime). WebGPU-safe (§I2).
+        for (const mat of this._instanceMaterialCache.values()) safeDisposeMaterial(mat);
+        this._instanceMaterialCache.clear();
     }
 }

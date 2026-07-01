@@ -26,7 +26,7 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
-import { Sky } from '@pryzm/renderer-three';
+import { Sky, safeDisposeTexture } from '@pryzm/renderer-three';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -192,7 +192,10 @@ export class ProceduralSkyService {
 
         this._scene.environment = this._savedEnv;
 
-        this._currentEnvMap?.dispose();
+        // §FIX-DELETED-TEXTURE-BIND — the PMREM env map may still be referenced as
+        // an explicit `mat.envMap` on live materials; detach every such binding
+        // before deleting the GL texture so no draw binds a deleted object.
+        safeDisposeTexture(this._currentEnvMap, this._scene);
         this._currentEnvMap = null;
 
         this._pmremGenerator?.dispose();
@@ -276,7 +279,11 @@ export class ProceduralSkyService {
         captureScene.add(this._sky);
 
         if (this._currentEnvMap) {
-            this._currentEnvMap.dispose();
+            // §FIX-DELETED-TEXTURE-BIND — re-bake replaces scene.environment below,
+            // but live materials that captured the OLD env map as an explicit
+            // `mat.envMap` would bind a deleted texture on the next frame. Detach
+            // every such reference from the scene before deleting the old GL texture.
+            safeDisposeTexture(this._currentEnvMap, scene);
             this._currentEnvMap = null;
         }
 
