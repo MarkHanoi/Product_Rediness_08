@@ -462,6 +462,14 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     let globeBuildingFidelity: 'massing' | 'real' = 'real';
     let globeFidelityWrap: HTMLElement | null = null;
     let refreshGlobeFidelityButtons: () => void = () => { /* bar not mounted yet */ };
+    // §CESIUM-PERF-GLOBE-GLB-CACHE (2026-07-01) — signature cache for the REAL-model
+    // GLB export on the PHOTOREAL globe path (mirrors the Forma path's formaReal* set).
+    // The globe path previously re-exported the ~22 MB GLB on EVERY entry; these let it
+    // export ONCE per geometry-version and reuse the placed model across view switches.
+    // `computeBuildingSignature()` (defined below) folds element counts + coarse geom.
+    let globeRealLastSig: string | null = null;
+    let globeRealExporting = false;
+    let globeRealPlaced = false;
     // §GLOBE-ZOOM-DEFAULT (founder, 2026-06-17) — the "Zoom to Site" affordance used
     // to live ONLY on the Forma toggle bar (mounted exclusively by "Site 3D (Forma)"),
     // so on the photoreal "3D globe" path the user had no way to reframe to the house.
@@ -1561,6 +1569,9 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // Drop any previously-placed real model so the two don't double-render.
             if (globeBuildingFidelity === 'massing') {
                 cesiumViewport.clearRealModelOnGlobe?.();
+                // §CESIUM-PERF-GLOBE-GLB-CACHE — the real model is gone; the next flip to
+                // 'real' must re-place it (don't let the cache short-circuit an empty globe).
+                globeRealPlaced = false;
                 console.log('[gis][globe] §GLOBE-FIDELITY fidelity="massing" — showing massing blocks on the tiles (no real-model overlay).');
                 return;
             }
@@ -1589,11 +1600,29 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 console.warn('[gis][globe] renderRealModelOnGlobe unavailable (old build) — keeping massing.');
                 return;
             }
+            // §CESIUM-PERF-GLOBE-GLB-CACHE (2026-07-01) — the 22 MB GLB was re-serialised
+            // + re-uploaded on EVERY globe entry (every view switch re-ran this path),
+            // even when nothing about the building changed — the single biggest cost of
+            // entering the 3D globe. Mirror the Forma path's signature cache: skip the
+            // whole export when the geometry signature is unchanged AND a real model is
+            // ALREADY placed on the globe. The camera/metric/view-toggle no longer force
+            // a re-export; only a real geometry edit (which bumps the signature) does.
+            if (globeRealExporting) return;                          // an export is already in flight.
+            const sig = computeBuildingSignature();
+            if (sig === globeRealLastSig && globeRealPlaced && globeRealLastSig !== null) {
+                // Geometry unchanged + the model is still on the tiles → reuse it as-is.
+                // (renderBuildingOnGlobe hides the massing blocks; the placed real model
+                // persists across view switches until geometry changes or fidelity flips.)
+                console.log('[gis][globe] §CESIUM-PERF-GLOBE-GLB-CACHE geometry unchanged — reusing placed real model (no re-export).');
+                cesiumViewport.clearFormaMassingEntitiesOnly?.();
+                return;
+            }
             const scene = props.world?.scene?.three;
             if (!scene) {
                 console.warn('[gis][globe] no BIM scene to serialise — keeping massing.');
                 return;
             }
+            globeRealExporting = true;
             const { exportFragmentsToGLB } = await import('@pryzm/file-format');
             const glbUrl = await exportFragmentsToGLB(scene as any);
             if (!glbUrl) {
@@ -1609,12 +1638,22 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 // Real model is on the tiles — hide the abstract massing blocks so the
                 // two don't double-render (keep storey-band metadata + selector).
                 cesiumViewport.clearFormaMassingEntitiesOnly?.();
+                // §CESIUM-PERF-GLOBE-GLB-CACHE — remember the signature so a re-entry with
+                // unchanged geometry short-circuits above (no re-export).
+                globeRealLastSig = sig;
+                globeRealPlaced = true;
                 console.log('[gis][globe] §A.21.D49 REAL detailed model placed on tiles — massing blocks hidden.');
             } else {
+                // Declined (fidelity flipped mid-export / load failed) — revoke the unused
+                // blob so it doesn't leak, keep the massing fallback, clear the cache flag.
+                try { URL.revokeObjectURL(glbUrl); } catch { /* not a blob */ }
+                globeRealPlaced = false;
                 console.log('[gis][globe] §A.21.D49 real-model placement declined — massing fallback kept.');
             }
         } catch (err) {
             console.warn('[gis][globe] §A.21.D49 real-model overlay failed (keeping massing fallback):', err);
+        } finally {
+            globeRealExporting = false;
         }
     };
 
@@ -1637,6 +1676,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         if (fidelity === 'massing') {
             // Drop the real model so only the (about-to-be-re-rendered) massing shows.
             cesiumViewport?.clearRealModelOnGlobe?.();
+            // §CESIUM-PERF-GLOBE-GLB-CACHE — model dropped; a later flip to 'real' must
+            // re-place it, so clear the "already placed" flag (keep the signature so an
+            // UNCHANGED building still recognises the geometry and re-exports at most once).
+            globeRealPlaced = false;
         }
         // Re-run the globe placement in place (no re-fly): renders the massing, then
         // — when fidelity is 'real' — overlays the real model + hides the blocks.
