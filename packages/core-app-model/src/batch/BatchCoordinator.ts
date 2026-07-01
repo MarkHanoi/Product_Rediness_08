@@ -461,6 +461,31 @@ class BatchCoordinatorImpl {
     private _onBatchEnd: (() => void) | null = null;
     /** §FIX-GPU-COMPILE-LABEL: fires just before the first post-suppress render frame. */
     private _onGpuCompileStart: (() => void) | null = null;
+    /**
+     * §LOADING-REAL-PROGRESS (2026-07-01) — live build-progress callback.
+     *
+     * Fired by `reportBuildProgress()` (called from the Wall / Slab / CurtainWall
+     * fragment builders on every rAF drain frame) with the RAW per-frame numbers:
+     *   • `built`      — elements built THIS frame,
+     *   • `remaining`  — elements still queued in that builder,
+     *   • `phaseHint`  — coarse phase label ('structure' | 'facade' | …) so the
+     *                    overlay can show "Building structure…" vs "Glazing façade…".
+     *
+     * The overlay (BatchLoadingIndicator) accumulates these into a cumulative
+     * built / peak-total ratio and drives the CSS progress bar from the REAL
+     * ratio — replacing the old fixed 80 ms-per-element guess that stalled at 85 %.
+     *
+     * Why raw (not pre-accumulated) numbers: the office/house generation runs MANY
+     * back-to-back deferred sub-batches whose declared `totalElementCount` is ≈0/1
+     * (geometry arrives via the bus UNCOUNTED). Accumulating in the overlay — which
+     * only resets when it is actually re-shown from a hidden state — lets the count
+     * span the whole visible generation, so the user sees the TRUE cumulative total
+     * (thousands) instead of one sub-batch's bogus "1".
+     *
+     * Purely additive + best-effort: errors are swallowed; a missing callback is a
+     * silent no-op. Only one callback is supported; subsequent calls replace it.
+     */
+    private _onBatchProgress: ((built: number, remaining: number, phaseHint?: string) => void) | null = null;
 
     /**
      * §PERF-POSTGEOM-COMPILE-NO-SYNC-BLOCK (ADR-0094) — app-injected provider that
@@ -694,6 +719,49 @@ class BatchCoordinatorImpl {
      */
     setGpuCompileStartCallback(cb: () => void): void {
         this._onGpuCompileStart = cb;
+    }
+
+    /**
+     * §LOADING-REAL-PROGRESS (2026-07-01) — wire a callback that receives live
+     * fragment-builder drain progress (built this frame, elements still queued,
+     * a coarse phase hint). Fired from `reportBuildProgress()` on every rAF drain
+     * frame of the Wall / Slab / CurtainWall builders while a batch is in progress.
+     *
+     * Used by BatchLoadingIndicator to drive the progress bar from the REAL
+     * built/total ratio and show a live "N / M elements" sub-label + phase title.
+     *
+     * Only one callback is supported; subsequent calls replace the previous.
+     */
+    setBatchProgressCallback(
+        cb: (built: number, remaining: number, phaseHint?: string) => void,
+    ): void {
+        this._onBatchProgress = cb;
+    }
+
+    /**
+     * §LOADING-REAL-PROGRESS (2026-07-01) — report a fragment-builder drain frame.
+     *
+     * Called by WallFragmentBuilder / SlabFragmentBuilder / CurtainWallBuilder at
+     * the point they log their `RAF_DRAIN built=N remaining=M` line — i.e. every
+     * frame they build a slice of their pending-build queue. Forwards the RAW
+     * per-frame numbers to the wired progress callback so the loading overlay can
+     * show TRUE cumulative progress across the whole (multi-sub-batch) generation.
+     *
+     * No-op when no batch is in progress or no callback is wired. Best-effort:
+     * a throwing callback must never disrupt a geometry build, so errors are
+     * swallowed. `phaseHint` is a coarse label the overlay maps to a title
+     * ('structure' → "Building structure…", 'facade' → "Glazing façade…").
+     *
+     * @param built      Elements built in the frame that just completed.
+     * @param remaining  Elements still queued in the reporting builder.
+     * @param phaseHint  Coarse phase label for the overlay title (optional).
+     */
+    reportBuildProgress(built: number, remaining: number, phaseHint?: string): void {
+        if (!this._isBatching) return;
+        const cb = this._onBatchProgress;
+        if (!cb) return;
+        try { cb(built, remaining, phaseHint); }
+        catch { /* non-fatal — progress reporting must never disrupt a build */ }
     }
 
     /**

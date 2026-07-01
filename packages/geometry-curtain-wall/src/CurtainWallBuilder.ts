@@ -981,6 +981,10 @@ export class CurtainWallBuilder {
                 `motionGate=${_isMotionGate}`
             );
         }
+        // §LOADING-REAL-PROGRESS (2026-07-01) — report live curtain-wall drain progress
+        // to the loading overlay. Curtain walls are the façade-glazing pass, so the
+        // overlay title reads "Glazing façade…" while these drain. (No-op outside a batch.)
+        batchCoordinator.reportBuildProgress(batch.length, this._pendingBuildsMap.size, 'facade');
         if (this._pendingBuildsMap.size > 0) {
             // G2-T5 / Sprint A32 (C11 §5.2/§6.1): reschedule for next frame.
             // MOTION-GATE: use 'post-render' when the camera is actively navigating

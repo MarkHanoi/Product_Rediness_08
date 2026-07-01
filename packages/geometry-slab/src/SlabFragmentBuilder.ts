@@ -318,6 +318,9 @@ export class SlabFragmentBuilder {
             `[SlabFragmentBuilder] RAF_DRAIN built=${batch.length} remaining=${this._pendingBuilds.length} ` +
             `queueBefore=${__queue_before} frameMs=${frameMs.toFixed(1)}ms`
         );
+        // §LOADING-REAL-PROGRESS (2026-07-01) — report live slab-drain progress to the
+        // loading overlay (slabs are part of the structural pass).
+        batchCoordinator.reportBuildProgress(batch.length, this._pendingBuilds.length, 'structure');
         if (this._pendingBuilds.length > 0) {
             // Sprint A33 (C11 §5.2/§6.1): canonical FrameScheduler.schedule() API.
             const FrameScheduler = getFrameScheduler();

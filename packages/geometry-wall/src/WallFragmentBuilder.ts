@@ -459,6 +459,11 @@ export class WallFragmentBuilder {
             `[WallFragmentBuilder] RAF_DRAIN built=${batch.length} remaining=${this._pendingBuilds.length} ` +
             `queueBefore=${__queue_before} frameMs=${frameMs.toFixed(1)}ms nextBudget=${this._buildsPerFrame} isBatch=${batchCoordinator.isBatching}`
         );
+        // §LOADING-REAL-PROGRESS (2026-07-01) — feed the loading overlay the REAL live
+        // drain progress (built this frame + still-queued) so it shows the true
+        // cumulative element count and a bar driven by the actual build ratio, not a
+        // per-sub-batch declared count of "1". Walls are the structural pass.
+        batchCoordinator.reportBuildProgress(batch.length, this._pendingBuilds.length, 'structure');
         if (this._pendingBuilds.length > 0) {
             // Sprint A32 (C11 §5.2/§6.1): reschedule at pre-render for next frame.
             const FrameScheduler = getFrameScheduler();

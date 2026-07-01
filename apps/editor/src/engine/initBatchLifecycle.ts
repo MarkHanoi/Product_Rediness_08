@@ -54,6 +54,17 @@ export function initBatchLifecycle(params: { world: any }): void {
             },
         );
 
+        // §LOADING-REAL-PROGRESS (2026-07-01) — pipe the REAL live fragment-builder
+        // drain progress (built this frame / still-queued / phase hint) into the
+        // overlay so the bar advances by the true build ratio and the sub-label shows
+        // the actual cumulative element count (e.g. "1,240 / 2,355 elements") instead
+        // of the bogus per-sub-batch "Building 1 element…". Best-effort — a throwing
+        // overlay must never disrupt geometry building.
+        batchCoordinator.setBatchProgressCallback((built, remaining, phaseHint) => {
+            try { _batchIndicator.setProgress(built, remaining, phaseHint); }
+            catch { /* non-fatal — overlay progress must never disrupt the build */ }
+        });
+
         batchCoordinator.setGpuCompileStartCallback(() => {
             _batchIndicator.transitionToGpuCompile();
             try {
