@@ -81,6 +81,7 @@ import {
     findOpeningElementData,
     migrateRoofSnapshotToCommand,
     dropDegeneratePolygonRecords,
+    ceilingRestoreBoundaryFields,
 } from './projectLoaderUtils';
 import { ClearProjectCommand } from './ClearProjectCommand';
 import { AddLevelCommand } from '../levels/AddLevelCommand';
@@ -541,20 +542,27 @@ export class ImportProjectCommand implements Command {
                 console.log(`[ImportProjectCommand] Loading ${snapshotCeilings.length} ceilings`);
                 for (const ceiling of snapshotCeilings) {
                     try {
+                        // §OPEN-OLD-CEILING-RESTORE (2026-07-01) — the serialized
+                        // ceiling nests polygon/height/thickness/baseOffset under
+                        // `boundary`. Reading the flat fields yielded `undefined` →
+                        // validateCeilingPolygon(undefined) failed → every ceiling
+                        // counted as a failed element. `ceilingRestoreBoundaryFields`
+                        // reads `boundary` first (flat fallback for any legacy record).
+                        const cb = ceilingRestoreBoundaryFields(ceiling);
                         const cmd = new CreateCeilingCommand({
                             ceilingId:    ceiling.id ?? crypto.randomUUID(),
-                            ifcGuid:      ceiling.ifcGuid ?? ceiling.ifc?.guid ?? crypto.randomUUID(),
+                            ifcGuid:      ceiling.ifcGuid ?? ceiling.ifc?.guid ?? ceiling.ifcData?.guid ?? crypto.randomUUID(),
                             levelId:      ceiling.levelId,
-                            polygon:      ceiling.polygon,
-                            height:       ceiling.height,
-                            thickness:    ceiling.thickness,
-                            baseOffset:   ceiling.baseOffset,
+                            polygon:      cb.polygon,
+                            height:       cb.height,
+                            thickness:    cb.thickness,
+                            baseOffset:   cb.baseOffset,
                             systemTypeId: ceiling.systemTypeId,
                             label:        ceiling.label,
                             layers:       ceiling.layers,
                             finishSpec:   ceiling.finishSpec,
                             holeElements: ceiling.holeElements,
-                            createdBy:    ceiling.createdBy,
+                            createdBy:    ceiling.metadata?.createdBy ?? ceiling.createdBy,
                         });
                         const r = runSub(cmd);
                         r.success ? stats.loaded++ : recordFail(`Ceiling ${ceiling.id}`, r);

@@ -87,7 +87,7 @@ import { wallSystemTypeStore } from '@pryzm/geometry-wall';
 import { ceilingSystemTypeStore } from '@pryzm/core-app-model/stores';
 import { CreateCeilingCommand } from '@pryzm/command-registry';
 import { floorSystemTypeStore } from '@pryzm/core-app-model/stores';
-import { CreateFloorCommand, ImportProjectCommand, dropDegeneratePolygonRecords } from '@pryzm/command-registry'; // §LOAD-HEAL-DEGENERATE-POLYGON
+import { CreateFloorCommand, ImportProjectCommand, dropDegeneratePolygonRecords, ceilingRestoreBoundaryFields } from '@pryzm/command-registry'; // §LOAD-HEAL-DEGENERATE-POLYGON + §OPEN-OLD-CEILING-RESTORE
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { hierarchyStore } from '@pryzm/core-app-model';
 import { templateStore } from '@pryzm/core-app-model';
@@ -680,20 +680,30 @@ export class ProjectLoader {
                 console.log(`[ProjectLoader] Loading ${snapshotCeilings.length} ceilings`);
                 for (const ceiling of snapshotCeilings) {
                     try {
+                        // §OPEN-OLD-CEILING-RESTORE (2026-07-01) — the serialized
+                        // ceiling nests polygon/height/thickness/baseOffset under
+                        // `boundary` (CeilingData.boundary: CeilingBoundary). Reading
+                        // the flat fields (`ceiling.polygon`, `ceiling.height`, …)
+                        // yielded `undefined` → validateCeilingPolygon(undefined)
+                        // failed → EVERY ceiling was counted as a failed element and
+                        // never restored (the "N elements failed" banner + missing
+                        // ceilings). `ceilingRestoreBoundaryFields` reads `boundary`
+                        // first, keeping a flat fallback for any legacy record.
+                        const cb = ceilingRestoreBoundaryFields(ceiling);
                         const cmd = new CreateCeilingCommand({
                             ceilingId:    ceiling.id ?? crypto.randomUUID(),
-                            ifcGuid:      ceiling.ifcGuid ?? ceiling.ifc?.guid ?? crypto.randomUUID(),
+                            ifcGuid:      ceiling.ifcGuid ?? ceiling.ifc?.guid ?? ceiling.ifcData?.guid ?? crypto.randomUUID(),
                             levelId:      ceiling.levelId,
-                            polygon:      ceiling.polygon,
-                            height:       ceiling.height,
-                            thickness:    ceiling.thickness,
-                            baseOffset:   ceiling.baseOffset,
+                            polygon:      cb.polygon,
+                            height:       cb.height,
+                            thickness:    cb.thickness,
+                            baseOffset:   cb.baseOffset,
                             systemTypeId: ceiling.systemTypeId,
                             label:        ceiling.label,
                             layers:       ceiling.layers,
                             finishSpec:   ceiling.finishSpec,
                             holeElements: ceiling.holeElements,
-                            createdBy:    ceiling.createdBy,
+                            createdBy:    ceiling.metadata?.createdBy ?? ceiling.createdBy,
                         });
                         const r = exec(cmd);
                         r.success ? result.loaded++ : this.recordFail(result, `Ceiling ${ceiling.id}`, r);

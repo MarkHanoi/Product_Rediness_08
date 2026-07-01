@@ -20,6 +20,7 @@ import { describe, it, expect } from 'vitest';
 import {
     isDegeneratePolygon,
     dropDegeneratePolygonRecords,
+    ceilingRestoreBoundaryFields,
 } from '../src/project/projectLoaderUtils';
 
 describe('§LOAD-HEAL-DEGENERATE-POLYGON — isDegeneratePolygon', () => {
@@ -129,5 +130,89 @@ describe('§LOAD-HEAL-DEGENERATE-POLYGON — dropDegeneratePolygonRecords', () =
         const healedLevels = new Set(dropped.map(r => r.levelId));
         expect(healedLevels.has('L1')).toBe(true);
         expect(healedLevels.has('L0')).toBe(false);
+    });
+});
+
+// §OPEN-OLD-CEILING-RESTORE regression.
+//
+// A persisted ceiling is the full `CeilingData` object: its
+// polygon/height/thickness/baseOffset live nested under `.boundary`
+// (`CeilingData.boundary: CeilingBoundary`). Every project-load restore site
+// used to read the FLAT fields (`ceiling.polygon`, `ceiling.height`, …) which
+// are `undefined` on a real snapshot → `validateCeilingPolygon(undefined)`
+// failed → EVERY ceiling was counted as a "failed element" and never restored
+// (the founder's "N elements failed — see console" banner + missing ceilings on
+// open). `ceilingRestoreBoundaryFields` reads `.boundary` first with a flat
+// fallback so both current snapshots and any legacy flat record round-trip.
+describe('§OPEN-OLD-CEILING-RESTORE — ceilingRestoreBoundaryFields', () => {
+    const squarePoly = [
+        { x: 0, z: 0 }, { x: 4, z: 0 }, { x: 4, z: 3 }, { x: 0, z: 3 },
+    ];
+
+    it('reads polygon/height/thickness/baseOffset from the nested `boundary` (the real serialized shape)', () => {
+        // Exactly what ProjectSerializer writes: deepStrip(CeilingData).
+        const serialized = {
+            id: 'ceil-1',
+            type: 'ceiling',
+            levelId: 'L0',
+            boundary: {
+                polygon: squarePoly,
+                height: 2.7,
+                thickness: 0.025,
+                baseOffset: 0.1,
+                detectionMethod: 'manual-polygon',
+            },
+        };
+        const fields = ceilingRestoreBoundaryFields(serialized);
+        expect(fields.polygon).toBe(squarePoly);
+        expect(fields.height).toBe(2.7);
+        expect(fields.thickness).toBe(0.025);
+        expect(fields.baseOffset).toBe(0.1);
+    });
+
+    it('the nested polygon it returns is NON-degenerate (would have PASSED validation had it been read) — proves the old flat-read regression', () => {
+        const serialized = { boundary: { polygon: squarePoly, height: 2.7 } };
+        // Old (buggy) read: flat fields are undefined → validation would reject.
+        expect((serialized as any).polygon).toBeUndefined();
+        expect((serialized as any).height).toBeUndefined();
+        // New read: recovers a valid ring.
+        const fields = ceilingRestoreBoundaryFields(serialized);
+        expect(isDegeneratePolygon(fields.polygon)).toBe(false);
+        expect(fields.height).toBe(2.7);
+    });
+
+    it('falls back to flat fields for a legacy flat-shaped record (no `boundary`)', () => {
+        const legacyFlat = {
+            id: 'ceil-legacy',
+            polygon: squarePoly,
+            height: 3.0,
+            thickness: 0.05,
+            baseOffset: 0,
+        };
+        const fields = ceilingRestoreBoundaryFields(legacyFlat);
+        expect(fields.polygon).toBe(squarePoly);
+        expect(fields.height).toBe(3.0);
+        expect(fields.thickness).toBe(0.05);
+        expect(fields.baseOffset).toBe(0);
+    });
+
+    it('prefers `boundary` over any stray flat field when both are present', () => {
+        const mixed = {
+            polygon: [{ x: 9, z: 9 }],      // stray degenerate flat value
+            height: 99,
+            boundary: { polygon: squarePoly, height: 2.7, thickness: 0.025, baseOffset: 0 },
+        };
+        const fields = ceilingRestoreBoundaryFields(mixed);
+        expect(fields.polygon).toBe(squarePoly); // boundary wins
+        expect(fields.height).toBe(2.7);
+    });
+
+    it('null / undefined record yields all-undefined fields (no throw)', () => {
+        expect(ceilingRestoreBoundaryFields(null)).toEqual({
+            polygon: undefined, height: undefined, thickness: undefined, baseOffset: undefined,
+        });
+        expect(ceilingRestoreBoundaryFields(undefined)).toEqual({
+            polygon: undefined, height: undefined, thickness: undefined, baseOffset: undefined,
+        });
     });
 });

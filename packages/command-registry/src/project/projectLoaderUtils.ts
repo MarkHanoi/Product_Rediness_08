@@ -156,6 +156,41 @@ export function dropDegeneratePolygonRecords<T>(
 }
 
 /**
+ * §OPEN-OLD-CEILING-RESTORE (2026-07-01) — map a serialised ceiling snapshot
+ * record to the flat fields `CreateCeilingCommand` expects.
+ *
+ * ROOT CAUSE this fixes: a persisted ceiling is the full `CeilingData` object,
+ * whose polygon/height/thickness/baseOffset live nested under `.boundary`
+ * (`CeilingData.boundary: CeilingBoundary`). Every restore site read the FLAT
+ * fields (`ceiling.polygon`, `ceiling.height`, …), which are `undefined` on a
+ * real snapshot → `validateCeilingPolygon(undefined)` failed → EVERY ceiling was
+ * counted as a failed element and never restored (the "N elements failed" banner
+ * + missing ceilings on open). This reads `.boundary` first with a flat fallback
+ * so both current snapshots and any legacy flat-shaped record round-trip.
+ *
+ * Pure + exported so the mapping is unit-testable without the command pipeline
+ * (mirrors `findOpeningElementData` / `migrateRoofSnapshotToCommand`).
+ *
+ * @returns the sub-object of `CreateCeilingPayload` derivable from the record
+ *          (polygon/height/thickness/baseOffset). The caller supplies the ids,
+ *          levelId, label, layers, finishSpec, etc.
+ */
+export function ceilingRestoreBoundaryFields(ceiling: any): {
+    polygon: any;
+    height: any;
+    thickness: any;
+    baseOffset: any;
+} {
+    const b = ceiling?.boundary ?? {};
+    return {
+        polygon:    b.polygon    ?? ceiling?.polygon,
+        height:     b.height     ?? ceiling?.height,
+        thickness:  b.thickness  ?? ceiling?.thickness,
+        baseOffset: b.baseOffset ?? ceiling?.baseOffset,
+    };
+}
+
+/**
  * Convert a serialised roof snapshot record into a CreateRoofCommand.
  */
 export function migrateRoofSnapshotToCommand(roof: any): CreateRoofCommand | null {
