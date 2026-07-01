@@ -387,18 +387,18 @@ export class BatchLoadingIndicator {
         const style = document.createElement('style');
         style.id = id;
         style.textContent = `
-            /* §FIX-BATCH-OVERLAY: Full-viewport frosted backdrop */
+            /* §FIX-BATCH-OVERLAY: Full-viewport backdrop.
+               §LOADING-WHITE-BACKDROP (founder 2026-07-01) — the founder wants the
+               loading background COMPLETELY WHITE (was the shared dark/blurred panel
+               scrim). Solid opaque white fully covers the scene so the card sits on a
+               clean white field; no blur needed on a solid fill. */
             .pryzm-batch-backdrop {
                 position: fixed;
                 inset: 0;
                 z-index: 88880;
                 display: none;
                 opacity: 0;
-                /* §PANEL-BACKDROP-UNIFY — shared scrim (was rgba(10,6,30,0.58)+blur10).
-                   The AI batch "Building N elements" modal now uses the one token. */
-                background: var(--pryzm-panel-backdrop);
-                backdrop-filter: var(--pryzm-panel-backdrop-blur);
-                -webkit-backdrop-filter: var(--pryzm-panel-backdrop-blur);
+                background: #ffffff;
                 transition: opacity 0.20s ease;
                 pointer-events: all;
             }
@@ -440,6 +440,10 @@ export class BatchLoadingIndicator {
                the 3-D shape reads clearly and the card feels premium. The prism
                keeps turning on the compositor thread (immune to main-thread
                LONGTASKs); this tile is a static backdrop only. */
+            /* §LOADING-WHITE-BACKDROP — the icon tile is now the SAME white as the card
+               (founder: uniform white panel, no distinct grey box). The shared PRYZM prism
+               has white translucent faces, so on a white tile it would vanish; a soft
+               drop-shadow on the prism gives it just enough definition to still read. */
             .pryzm-batch-indicator__spinner {
                 flex-shrink: 0;
                 display: flex;
@@ -448,11 +452,8 @@ export class BatchLoadingIndicator {
                 width: 74px;
                 height: 74px;
                 border-radius: 16px;
-                background:
-                    radial-gradient(ellipse at 30% 32%, #d2d2d8 0%, transparent 60%),
-                    radial-gradient(ellipse at 72% 74%, #c4c4cc 0%, transparent 58%),
-                    #e7e7eb;
-                box-shadow: inset 0 0 0 1px rgba(10, 6, 30, 0.06);
+                background: #ffffff;
+                filter: drop-shadow(0 3px 9px rgba(10, 6, 30, 0.22));
             }
 
             .pryzm-batch-indicator__text {
