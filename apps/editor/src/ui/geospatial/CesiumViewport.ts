@@ -618,6 +618,12 @@ export class CesiumViewport {
   private facadeAnalysisChunkCancellers: DeferWorkCanceller[] = [];
   /** Monotonic façade build token — a chunk bails if a newer build superseded it. */
   private facadeAnalysisBuildSeq = 0;
+  /** §FORMA-FACADE-VISIBLE (founder 2026-07-01) — TRUE while the normal building
+   *  materials (massing blocks + real GLB) are being SUPPRESSED so ONLY the sun-hours
+   *  façade texture reads on the tower ("once façade analysis is on only those colours
+   *  should render"). Set when the analysis paints, cleared when it's turned OFF, so the
+   *  suppression is fully reversible and the floor-filter respects it. */
+  private facadeSuppressingMassing = false;
 
   /** The last OSM context collection (footprints + heights, lon/lat) so the
    *  population/wind/heat grids can read built density. Captured on context load. */
@@ -1844,6 +1850,22 @@ export class CesiumViewport {
     // never lingers over the photoreal globe (the globe has its OWN realModelOnGlobe
     // overlay). Harmless no-op when no Forma real model is placed.
     try { this.clearRealModelOnForma(); } catch { /* already gone */ }
+
+    // §CESIUM-VIEW-SOUNDNESS (founder 2026-07-01) — the site-analysis overlays (ground
+    // sun-hours/temperature/wind heatmap + the §FORMA-FACADE-ANALYSIS façade texture) are
+    // FORMA-STUDY overlays painted on the flat ENU ground. They must NOT linger over the
+    // photoreal globe (they'd float as a stray coloured disc + tower skin on the tiles).
+    // Clear them on the way out; re-entering Forma re-paints whatever was toggled ON via
+    // refreshActiveClimateOverlays, so this is fully reversible. Also un-suppress the
+    // building materials (the façade study may have hidden them) so nothing is left
+    // invisible if the study re-runs later.
+    try {
+      this.clearSiteMetricOverlay();
+      this.clearFacadeAnalysis();
+      if (this.facadeSuppressingMassing) this.setBuildingMaterialsVisibleForFacade(true);
+    } catch (e) {
+      console.warn('[CesiumViewport][forma] leaving-Forma overlay clear failed:', e);
+    }
 
     try {
       // Re-show imagery; hide globe again only if a tileset is present + shown.
@@ -4628,7 +4650,12 @@ export class CesiumViewport {
     // stay in sync with a metric switch (e.g. sun-hours → temperature clears it).
     if (this.facadeAnalysisOn) {
       if (metric === 'sunHours') this.renderFacadeAnalysis();
-      else this.clearFacadeAnalysis();
+      else {
+        this.clearFacadeAnalysis();
+        // §FORMA-FACADE-VISIBLE — metric left sun-hours: no façade texture now shows, so
+        // bring the normal building materials back (they were suppressed for the study).
+        if (this.facadeSuppressingMassing) this.setBuildingMaterialsVisibleForFacade(true);
+      }
     }
   }
 
@@ -4662,6 +4689,9 @@ export class CesiumViewport {
       this.renderFacadeAnalysis();
     } else {
       this.clearFacadeAnalysis();
+      // §FORMA-FACADE-VISIBLE — analysis OFF (or metric ≠ sun-hours): restore the normal
+      // building materials that were suppressed while the tower showed pure sun-hours.
+      if (this.facadeSuppressingMassing) this.setBuildingMaterialsVisibleForFacade(true);
     }
   }
 
@@ -4682,6 +4712,12 @@ export class CesiumViewport {
     const viewer = this.viewer;
     const origin = this.overlayOrigin();
     this.clearFacadeAnalysis();                       // also cancels in-flight chunks
+    // §FORMA-FACADE-VISIBLE — un-suppress the building's own materials up-front: this
+    // repaint replaces the old façade texture, and if it BAILS before painting (no
+    // viewer / footprint / prep) the building must NOT be left invisible. onDone
+    // re-suppresses once the new texture has actually painted. Never leaves a hidden
+    // tower with no gradient on it.
+    if (this.facadeSuppressingMassing) this.setBuildingMaterialsVisibleForFacade(true);
     if (!viewer || !origin || !this.facadeAnalysisOn) return;
     if (this.siteMetricActive !== 'sunHours') return; // priority metric = sun-hours
 
@@ -4900,7 +4936,9 @@ export class CesiumViewport {
       let facesPainted = 0;
       for (const job of faceJobs) {
         const aspect = job.segLen / Math.max(1e-3, heightM);
-        const tex: FacadeSunTexture = rasterizeFacadeSunTexture(job.intensities, job.nU, job.nV, aspect, 0.92);
+        // §FORMA-FACADE-VISIBLE — near-opaque (0.98) + vivid ramp so the sun-hours gradient
+        // reads boldly on the tower and the analysis colours dominate the wall face.
+        const tex: FacadeSunTexture = rasterizeFacadeSunTexture(job.intensities, job.nU, job.nV, aspect, 0.98, true);
         const material = this.facadeTextureMaterial(tex);
         if (!material) continue;
         const ent = viewer.entities.add({
@@ -4917,7 +4955,7 @@ export class CesiumViewport {
         facesPainted++;
       }
       // Roof — one textured polygon of the ring. Aspect = bbox width / depth.
-      const roofTex = rasterizeFacadeSunTexture(roofInts, roofNU, roofNV, roofW / Math.max(1e-3, roofD), 0.92);
+      const roofTex = rasterizeFacadeSunTexture(roofInts, roofNU, roofNV, roofW / Math.max(1e-3, roofD), 0.98, true);
       const roofMat = this.facadeTextureMaterial(roofTex);
       if (roofMat && roofRingWorld.length >= 3) {
         const ent = viewer.entities.add({
@@ -4930,6 +4968,12 @@ export class CesiumViewport {
           },
         });
         this.facadeAnalysisEntities.push(ent);
+      }
+      // §FORMA-FACADE-VISIBLE — the analysis has now PAINTED, so suppress the building's
+      // own materials: the tower reads as a pure sun-hours gradient object, not the grey/
+      // pastel massing (or the real GLB) showing through. Reversed in setFacadeAnalysis(OFF).
+      if (this.facadeAnalysisOn && this.facadeAnalysisEntities.length > 0) {
+        this.setBuildingMaterialsVisibleForFacade(false);
       }
       try { viewer.scene.requestRender(); } catch { /* viewer gone */ }
       console.log(
@@ -4992,6 +5036,40 @@ export class CesiumViewport {
       for (const e of this.facadeAnalysisEntities) { try { viewer.entities.remove(e); } catch { /* gone */ } }
     }
     this.facadeAnalysisEntities = [];
+  }
+
+  /**
+   * §FORMA-FACADE-VISIBLE (founder 2026-07-01) — while façade analysis is ON, SUPPRESS
+   * the building's own materials so ONLY the sun-hours texture reads on the tower ("once
+   * façade analysis is on only those colours should render"). Hides BOTH representations
+   * (whichever is live): the abstract massing polygon entities AND the REAL full-fidelity
+   * GLB model. Fully reversible — passing `visible = true` re-shows them exactly.
+   *
+   * The façade-analysis entities themselves live in `facadeAnalysisEntities` (a SEPARATE
+   * layer), so they are never touched here. The real model's floor-filter show-state is
+   * re-honoured on restore (via `applyFormaRealModelFloorFilter`), so a partial-floor
+   * filter that was active before analysis is preserved.
+   *
+   * @param visible false = suppress (analysis ON), true = restore (analysis OFF).
+   */
+  private setBuildingMaterialsVisibleForFacade(visible: boolean): void {
+    const viewer = this.viewer;
+    this.facadeSuppressingMassing = !visible;
+    // Massing polygon blocks.
+    for (const ent of this.formaMassingEntities) {
+      try { ent.show = visible; } catch { /* gone */ }
+    }
+    // Real full-fidelity GLB model. On restore, defer to the floor-filter's own show
+    // decision (which itself now respects the suppression flag, cleared just above).
+    const model = this.realModelOnForma;
+    if (model && !model.isDestroyed()) {
+      if (!visible) {
+        try { model.show = false; } catch { /* gone */ }
+      } else {
+        this.applyFormaRealModelFloorFilter();
+      }
+    }
+    try { viewer?.scene.requestRender(); } catch { /* viewer gone */ }
   }
 
   /** Project the OSM context + proposed massing footprints into the site-ENU frame
@@ -6140,7 +6218,11 @@ export class CesiumViewport {
     const model = this.realModelOnForma;
     if (!model || model.isDestroyed()) return false;
     const showAll = realModelStaysVisible(this.formaVisibleLevels, this.formaStoreyBands.length);
-    model.show = showAll;
+    // §FORMA-FACADE-VISIBLE — while façade analysis is suppressing the building's own
+    // materials, the real model stays HIDDEN regardless of the floor filter (only the
+    // sun-hours texture reads). The show-all return value is preserved so callers still
+    // know the filter is "show all" (they clear the massing blocks accordingly).
+    model.show = showAll && !this.facadeSuppressingMassing;
     if (!showAll) {
       console.log(
         '[CesiumViewport][forma6] partial floor filter active — hiding the monolithic real model, ' +
@@ -6859,6 +6941,11 @@ export class CesiumViewport {
       this.clearAllClimateOverlays();
       this.climateOverlayOn = { sunPath: false, wind: false, heat: false };
       this.climateOverlayDataset = null;
+      // §FORMA-FACADE-VISIBLE — reset the façade-analysis toggle + material-suppression
+      // flag so a re-mounted viewport (project switch) starts with the normal building
+      // materials visible and the study OFF (the entities were dropped just above).
+      this.facadeAnalysisOn = false;
+      this.facadeSuppressingMassing = false;
     } catch (e) {
       console.warn('[CesiumViewport] climate-overlay dispose failed:', e);
     }
