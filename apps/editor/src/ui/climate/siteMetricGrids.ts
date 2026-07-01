@@ -479,6 +479,38 @@ function sunHoursRgb(intensity: number): readonly [number, number, number] {
     return [0xF4, 0x75, 0x3A];
 }
 
+/**
+ * §FORMA-FACADE-VISIBLE (founder 2026-07-01) — a MORE VIVID rendering of the SAME
+ * `sunHoursRgb` ramp for the FAÇADE only (the founder: the gradient "works great but
+ * needs to be more visible"). This does NOT invent new colours or a new scale: it takes
+ * the exact ramp colour for the intensity, then boosts SATURATION + CONTRAST about the
+ * ramp's own mid-grey so the blue→teal→gold→warm bands read boldly on camera instead of
+ * washed out at distance. The floor heatmap + legend keep the plain `sunHoursRgb`, so the
+ * two still read as ONE scale — the façade is just a punchier presentation of it.
+ *
+ * @param intensity 0..1 sun-hours fraction (same input as `sunHoursRgb`).
+ * @param sat       saturation multiplier about the pixel luminance (1 = unchanged; the
+ *                  façade uses ~1.45 so the hues are richer, not pastel).
+ * @param contrast  contrast multiplier about mid-grey 128 (1 = unchanged; ~1.18 deepens
+ *                  the shaded end + brightens the sunlit end so bands separate clearly).
+ */
+function sunHoursRgbVivid(
+    intensity: number,
+    sat = 1.45,
+    contrast = 1.18,
+): readonly [number, number, number] {
+    const [r0, g0, b0] = sunHoursRgb(intensity);
+    // Rec. 601 luma — the same grey the eye reads, so saturation pivots about perceived
+    // brightness (keeps the hue, only pushes it away from grey).
+    const luma = 0.299 * r0 + 0.587 * g0 + 0.114 * b0;
+    const punch = (c: number): number => {
+        let v = luma + (c - luma) * sat;   // saturation about luma
+        v = 128 + (v - 128) * contrast;    // contrast about mid-grey
+        return Math.round(Math.max(0, Math.min(255, v)));
+    };
+    return [punch(r0), punch(g0), punch(b0)];
+}
+
 /** Sun-hours intensity (0 = shaded … 1 = full sun) → blue→teal→gold→warm CSS colour.
  *  Matches `siteMetricLegend('sunHours')` so the legend reads the same scale. */
 function sunHoursCellColour(intensity: number): string {
@@ -1360,6 +1392,11 @@ const FACADE_TEXTURE_MAX = 256;
  * raw RGBA bytes the renderer wraps in a canvas. Uses the SAME `sunHoursRgb` ramp as the
  * floor heatmap + legend, so the façade and the ground read one scale.
  *
+ * §FORMA-FACADE-VISIBLE (founder 2026-07-01) — the façade now renders the ramp through
+ * `sunHoursRgbVivid` (saturation + contrast boost of the SAME colours) and near-opaque by
+ * default, so the gradient reads boldly on camera instead of washed out. Pass `vivid:false`
+ * to fall back to the plain ramp (used by any caller that must exactly match the floor).
+ *
  * @param intensities row-major `nU·nV` intensities (0..1) or null for a hole (a point the
  *                    caller couldn't evaluate). Index = `v * nU + u`; v=0 is the BOTTOM of
  *                    the face (up=0), v=nV-1 is the TOP — the output rows are FLIPPED so
@@ -1369,14 +1406,18 @@ const FACADE_TEXTURE_MAX = 256;
  * @param aspect      face width / height (m/m) — sizes the texture so texels stay roughly
  *                    square (a long low face gets a wide texture, a tall thin face a tall
  *                    one), capped at `FACADE_TEXTURE_MAX` per axis.
- * @param alpha       straight alpha 0..1 for lit texels (default 0.9 — a crisp façade skin).
+ * @param alpha       straight alpha 0..1 for lit texels (default 0.98 — a bold, near-opaque
+ *                    façade skin so the analysis colours dominate the surface).
+ * @param vivid       when true (default), colour through the punchy `sunHoursRgbVivid`
+ *                    presentation of the ramp; when false, the plain `sunHoursRgb`.
  */
 export function rasterizeFacadeSunTexture(
     intensities: ReadonlyArray<number | null>,
     nU: number,
     nV: number,
     aspect = 1,
-    alpha = 0.9,
+    alpha = 0.98,
+    vivid = true,
 ): FacadeSunTexture {
     const lu = Math.max(2, Math.floor(nU));
     const lv = Math.max(2, Math.floor(nV));
@@ -1446,7 +1487,8 @@ export function rasterizeFacadeSunTexture(
             corner(gi, gj + 1, (1 - su) * sv);
             corner(gi + 1, gj + 1, su * sv);
             if (wsum <= 0) { rgba[o + 3] = 0; continue; }
-            const [r, g, b] = sunHoursRgb(acc / wsum);
+            // §FORMA-FACADE-VISIBLE — bolder presentation of the SAME ramp on the façade.
+            const [r, g, b] = vivid ? sunHoursRgbVivid(acc / wsum) : sunHoursRgb(acc / wsum);
             rgba[o] = r; rgba[o + 1] = g; rgba[o + 2] = b;
             rgba[o + 3] = Math.round(Math.max(0, Math.min(1, alpha)) * 255);
         }
