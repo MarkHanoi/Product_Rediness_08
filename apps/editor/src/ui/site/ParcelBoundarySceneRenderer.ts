@@ -169,6 +169,14 @@ export class ParcelBoundarySceneRenderer {
         });
         const loop = new THREE.Line(lineGeo, lineMat);
         loop.name = 'pryzm-parcel-boundary-loop';
+        // §PARCEL-OUTLINE-3D-HIDE (founder 2026-07-01): the violet ring floats under
+        // the generated tower/house in the pure-3D BIM model view and reads as a
+        // confusing stray circle. Tag the LINE with the SAME flag as the fill so the
+        // existing 3-D-view gate (initScene `_applyParcelFillVisibilityForView`) hides
+        // BOTH the ring and the fill in '3D', keeping the boundary visible only in the
+        // site / GIS / plan views where it is useful site context.
+        loop.userData.isParcelBoundaryLine = true;
+        loop.userData.isParcelBoundaryFill = true;
         group.add(loop);
 
         // ── Faint translucent fill ───────────────────────────────────────────
@@ -226,8 +234,11 @@ export class ParcelBoundarySceneRenderer {
             // extends past the footprint and is usually offset/angled vs the building)
             // and reads as a light-grey slab over the white viewport. It is SITE
             // context, valid in the site / GIS / plan views, so we gate (not delete)
-            // it: hidden in '3D', shown everywhere else. The violet boundary LINE is
-            // NOT tagged — a thin outline is harmless and keeps the lot legible in 3-D.
+            // it: hidden in '3D', shown everywhere else. §PARCEL-OUTLINE-3D-HIDE — the
+            // violet boundary LINE now carries the SAME flag (see buildOutline), so both
+            // the ring and the fill are hidden in the pure-3D BIM view and kept only in
+            // the site / plan views (founder: the ring floated under the tower as a
+            // confusing stray circle).
             mesh.userData.isParcelBoundaryFill = true;
             return mesh;
         } catch (e) {
