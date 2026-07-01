@@ -149,6 +149,24 @@ export interface MetricGridInput {
     readonly sunDay?: SunDayPreset;
     /** Sun sample cadence (minutes) for 'sunHours'. Default 15. */
     readonly sunStepMinutes?: number;
+    // ── REAL data baselines (ADR-0095) ───────────────────────────────────────
+    // §ANALYSIS-REAL-TEMPERATURE — the REAL site air-temperature baseline (°C) from
+    // NASA POWER climatology. When present, the temperature grid uses THIS as the base
+    // value and adds the built-density UHI ΔT as a spatial modulation ON TOP of it
+    // (air temp barely varies across a 240 m disc — the UHI delta is the real spatial
+    // signal). When absent, temperature degrades honestly (see `realDataMissing`).
+    readonly realBaselineTempC?: number;
+    // §ANALYSIS-REAL-WIND — the REAL regional wind freestream from NASA POWER (10 m
+    // wind SPEED + prevailing FROM-direction). When present, the Lawson pedestrian
+    // field starts from THIS measured freestream (the shelter/exposure modulation
+    // legitimately stays as the computed spatial signal on top of the real wind).
+    readonly realWindMeanMs?: number;
+    readonly realWindFromDeg?: number;
+    // §ANALYSIS-REAL-POPULATION — the REAL WorldPop areal density (persons/HECTARE)
+    // for the site. When present the population grid is anchored to this measured
+    // density (so a monument reads honestly low + a dense block high), using the OSM
+    // GFA footprint pattern only to distribute it spatially within the plot.
+    readonly realPopulationPerHa?: number;
 }
 
 const DEFAULT_LABELS: Record<SiteMetric, string> = {
@@ -217,6 +235,56 @@ export function siteMetricAvailability(
         // — an open site simply reads near the unobstructed VSC maximum everywhere).
         mk('daylight', true, true),
     ];
+}
+
+/**
+ * §ANALYSIS-REAL-WIND (ADR-0095) — build a REAL 16-sector wind rose from the NASA POWER
+ * freestream (mean 10 m speed + prevailing FROM-direction + a peak/gust speed). The rose
+ * concentrates its hours around the measured prevailing direction (a von-Mises-like
+ * cosine lobe over the 16 sectors) so the panel's wind-rose SVG plots the REAL prevailing
+ * wind instead of the synthesised regional-normals rose. Pure + deterministic.
+ *
+ * @param meanMs   annual-mean 10 m wind speed (m/s) from NASA POWER WS10M.
+ * @param fromDeg  prevailing FROM-direction (deg, 0 = N clockwise) from WD10M.
+ * @param gustMs   representative peak/gust 10 m speed (m/s) → the rose's p99.
+ */
+export function buildRealWindRose(
+    meanMs: number,
+    fromDeg: number,
+    gustMs: number,
+): { sectors: { sectorDeg: number; speedBinHours: [number, number, number, number, number, number] }[]; meanSpeedMps: number; p99SpeedMps: number } {
+    const SECTORS = 16;
+    const HOURS_PER_YEAR = 8760;
+    const centre = ((fromDeg % 360) + 360) % 360;
+    // Speed-bin thresholds (Beaufort-ish, m/s): [1.5, 3.3, 5.4, 7.9, 10.7, ∞].
+    const binOf = (s: number): number =>
+        s < 1.5 ? 0 : s < 3.3 ? 1 : s < 5.4 ? 2 : s < 7.9 ? 3 : s < 10.7 ? 4 : 5;
+    // Directional weight: a cosine lobe peaking at the prevailing sector (so most hours
+    // come from that direction), with a broad floor so every sector has some.
+    const weights: number[] = [];
+    let wsum = 0;
+    for (let i = 0; i < SECTORS; i++) {
+        const sectorDeg = (i * 360) / SECTORS;
+        let d = Math.abs(sectorDeg - centre) % 360;
+        if (d > 180) d = 360 - d;
+        const w = 0.15 + 0.85 * Math.pow(Math.cos((d * Math.PI) / 180) * 0.5 + 0.5, 3);
+        weights.push(w);
+        wsum += w;
+    }
+    const sectors = weights.map((w, i) => {
+        const hours = (w / (wsum || 1)) * HOURS_PER_YEAR;
+        const speedBinHours: [number, number, number, number, number, number] = [0, 0, 0, 0, 0, 0];
+        // Put each sector's hours in the bin the mean speed lands in (a simple, honest
+        // rose driven by the real mean; a full per-hour histogram isn't available from
+        // the monthly climatology, and the mean is what drives the Lawson field anyway).
+        speedBinHours[binOf(meanMs)] = hours;
+        return { sectorDeg: (i * 360) / SECTORS, speedBinHours };
+    });
+    return {
+        sectors,
+        meanSpeedMps: Math.max(0, Math.min(90, meanMs)),
+        p99SpeedMps: Math.max(0, Math.min(90, gustMs)),
+    };
 }
 
 /** Prevailing wind FROM-direction (deg, 0 = N) = the sector with the most hours. */
@@ -633,11 +701,46 @@ export function buildSiteMetricGrid(
     }
 
     if (metric === 'population') {
+        // §ANALYSIS-REAL-POPULATION (ADR-0095) — anchor the population map to the REAL
+        // WorldPop areal density (persons/HECTARE) when we have it. WorldPop is the
+        // measured truth: a dense residential block reads high, an open monument/plaza
+        // reads honestly LOW (the OSM GFA proxy instead read a landmark's big footprint
+        // as "busy"). We keep the OSM footprint field only as the WITHIN-plot SPATIAL
+        // pattern (which cells sit over built mass vs open ground), rescaled so the plot
+        // MEAN equals the real WorldPop density. When WorldPop is unavailable the metric
+        // degrades honestly (flat, labelled low-confidence) — NO synthetic fallback.
         const { cells: pop } = computePopulationDensityGrid(cells, obstacles);
-        // §SITE-METRIC-PARITY-ALL — disc-normalise (full ramp, like sun-hours) with a
-        // smooth radial fallback when the OSM GFA proxy field is degenerate-flat, so the
-        // density map is never one uniform colour. `value` (persons/m²) stays the real
-        // engine number; only the COLOUR is normalised.
+        const realPerHa = input.realPopulationPerHa;
+        const haveReal = typeof realPerHa === 'number' && Number.isFinite(realPerHa) && realPerHa >= 0;
+        if (haveReal) {
+            // persons/ha → persons/m² (÷ 10 000). Distribute the plot-mean real density
+            // across cells IN PROPORTION to the OSM built-mass pattern (a cell over 3×
+            // the mean built mass carries ~3× the residents), so the map reads real
+            // absolute values AND the real spatial concentration.
+            const realPerM2 = realPerHa! / 10_000;
+            let meanIntensity = 0;
+            for (const c of pop) meanIntensity += c.intensity;
+            meanIntensity = pop.length > 0 ? meanIntensity / pop.length : 0;
+            const scale = meanIntensity > 1e-6 ? realPerM2 / meanIntensity : 0;
+            const realCells = pop.map((c) => ({
+                ...c,
+                // real persons/m² per cell = plot-mean scaled by this cell's relative
+                // built-mass; flat (uniform = the real mean) when there is no OSM pattern.
+                realDensity: meanIntensity > 1e-6 ? c.intensity * scale : realPerM2,
+            }));
+            const map = parityFieldMapper(
+                realCells.map((c) => ({ intensity: c.realDensity, east: c.x, north: c.z })),
+                input.radius,
+            );
+            return realCells.map((c) => ({
+                east: c.x, north: c.z, halfSize: c.size / 2, up,
+                colorHex: densityCellColour(map({ intensity: c.realDensity, east: c.x, north: c.z })),
+                value: c.realDensity * 10_000, // report REAL persons/hectare in tooltips
+            }));
+        }
+        // §ANALYSIS-NO-FAKE-FALLBACK — no real WorldPop density: fall back to the OSM
+        // built-density PATTERN (clearly labelled a proxy in the legend), disc-normalised
+        // for a readable gradient but with NO invented radial hotspot.
         const map = parityFieldMapper(
             pop.map((c) => ({ intensity: c.intensity, east: c.x, north: c.z })),
             input.radius,
@@ -655,7 +758,11 @@ export function buildSiteMetricGrid(
     // prod "temperature/wind: 0/0" symptom when the async ClimateStore ingest lagged).
     const ds = resolveGridDataset(input);
     if (!ds) return [];
-    const wind = windInput(ds);
+    // §ANALYSIS-REAL-WIND (ADR-0095) — prefer the REAL NASA POWER freestream (10 m mean
+    // speed + prevailing FROM-direction). The Lawson shelter/exposure modulation stays
+    // the computed spatial signal ON TOP of this measured wind. Falls back to the
+    // bundled-normals rose only when POWER is unavailable (labelled estimate).
+    const wind = windInput(ds, input.realWindMeanMs, input.realWindFromDeg);
 
     if (metric === 'wind') {
         const w = computeWindComfortGrid(cells, wind, obstacles);
@@ -673,11 +780,17 @@ export function buildSiteMetricGrid(
         }));
     }
 
-    // temperature (UHI). §SITE-METRIC-PARITY-ALL — disc-normalise the UHI ΔT field to its
-    // own spread (full warm ramp, like sun-hours) with a smooth radial fallback when the
-    // OSM density signal is empty, so hot vs cool zones always read as a rich gradient
-    // rather than the flat yellow wash (intensity ≡ 0 when no obstacles).
-    const heat = computeHeatIslandGrid(cells, { baselineTempC: warmBaselineC(ds) }, wind, obstacles);
+    // temperature (UHI). §ANALYSIS-REAL-TEMPERATURE (ADR-0095) — the BASE air temperature
+    // is the REAL NASA POWER warm-season climatology when available (not the synthesised
+    // regional normals); the built-density UHI ΔT is the spatial modulation ON TOP of it
+    // (air temp barely varies across a 240 m disc, so the UHI delta is the real spatial
+    // signal, but the base value is now measured). §SITE-METRIC-PARITY-ALL disc-normalises
+    // the ΔT field for a rich gradient — but with NO invented radial fallback when the OSM
+    // density signal is empty (§ANALYSIS-NO-FAKE-FALLBACK: flat, honest).
+    const baselineTempC = typeof input.realBaselineTempC === 'number' && Number.isFinite(input.realBaselineTempC)
+        ? input.realBaselineTempC
+        : warmBaselineC(ds);
+    const heat = computeHeatIslandGrid(cells, { baselineTempC }, wind, obstacles);
     const heatMap = parityFieldMapper(
         heat.map((c) => ({ intensity: c.intensity, east: c.x, north: c.z })),
         input.radius,
@@ -719,7 +832,24 @@ export function buildSiteMetricGrid(
  *  that produced the flat-calm map. The floor only lifts an unrealistically low
  *  offline mean into the band where OSM shelter actually separates cells; a real live
  *  mean above the floor is passed through unchanged. */
-function windInput(ds: ClimateDataset): { meanMs: number; prevailingFromDeg: number } {
+function windInput(
+    ds: ClimateDataset,
+    realMeanMs?: number,
+    realFromDeg?: number,
+): { meanMs: number; prevailingFromDeg: number } {
+    // §ANALYSIS-REAL-WIND (ADR-0095) — prefer the REAL NASA POWER freestream (10 m mean
+    // speed + prevailing FROM-direction). When real, DON'T apply the exposure floor: the
+    // measured mean is the truth, and the Lawson shelter modulation on top is the real
+    // pedestrian-level spatial signal. When real is absent, fall back to the bundled
+    // rose mean with the exposure floor so the estimate still differentiates cells.
+    const haveRealMean = typeof realMeanMs === 'number' && Number.isFinite(realMeanMs) && realMeanMs > 0;
+    const haveRealDir = typeof realFromDeg === 'number' && Number.isFinite(realFromDeg);
+    if (haveRealMean) {
+        return {
+            meanMs: realMeanMs!,
+            prevailingFromDeg: haveRealDir ? ((realFromDeg! % 360) + 360) % 360 : prevailingFromDeg(ds),
+        };
+    }
     const raw = Math.max(0, ds.windRose.meanSpeedMps);
     // Exposure floor (m/s): the open-field freestream the Lawson proxy starts from.
     // 4.2 m/s sits in the 'acceptable' band, so a sheltered cell drops to 'comfortable'
@@ -727,7 +857,7 @@ function windInput(ds: ClimateDataset): { meanMs: number; prevailingFromDeg: num
     const WIND_EXPOSURE_FLOOR_MS = 4.2;
     return {
         meanMs: Math.max(WIND_EXPOSURE_FLOOR_MS, raw),
-        prevailingFromDeg: prevailingFromDeg(ds),
+        prevailingFromDeg: haveRealDir ? ((realFromDeg! % 360) + 360) % 360 : prevailingFromDeg(ds),
     };
 }
 
@@ -772,13 +902,20 @@ function lawsonRampColour(intensity: number): string {
 // FIX — one shared mapper for the cheap field metrics (temperature / wind / population):
 //   1. DISC-NORMALISE each field to its OWN min→max across the disc (full-ramp like
 //      sun-hours), with a median-pivot gain so the gradient is rich, not washed.
-//   2. When the field is genuinely DEGENERATE (≤ epsilon spread — no OSM signal), blend
-//      in a SMOOTH procedural radial gradient (hot/dense at the site centroid, cooling
-//      toward the disc edge) so the map is NEVER a flat wash. This is a defensible
-//      planning read (the built mass concentrates at the site we are studying) and is
-//      synthesised from geometry alone — no Overpass, no extra fetch.
-// The reported per-cell `value` (°C / m/s / persons·m⁻²) stays the engine's real number
-// for tooltips/legend; only the COLOUR mapping is normalised. Pure + deterministic.
+//   2. When the field is genuinely DEGENERATE (≤ epsilon spread — no real spatial
+//      signal), DEGRADE HONESTLY: return a FLAT mid value everywhere (a uniform,
+//      truthful "no spatial variation to show" read).
+//
+// §ANALYSIS-NO-FAKE-FALLBACK (founder 2026-07-01, ADR-0095) — the previous version
+// substituted a SMOOTH procedural RADIAL gradient (hot/dense at the site centroid,
+// cooling to the disc edge) when the field was degenerate. That was an INVENTED
+// hotspot centred on the building — a landmark like Sagrada Família would read a fake
+// "busy" bullseye purely from geometry, with no data behind it. That radial synthetic
+// is now REMOVED. When there is no real spatial signal the mapper returns a flat field
+// (the caller labels the metric low-confidence / estimate-unavailable), NEVER a
+// building-centred gradient. The real per-cell `value` (°C / m/s / persons·ha⁻¹) stays
+// the engine's real number for tooltips/legend; only the COLOUR mapping is normalised.
+// Pure + deterministic.
 
 /** A field sample carrying its disc position so the degenerate-flat fallback can
  *  synthesise a smooth spatial gradient from geometry alone. */
@@ -792,17 +929,21 @@ interface FieldSample {
 
 /**
  * §SITE-METRIC-PARITY-ALL — build a per-field colour mapper `(sample) → 0..1` that
- * ALWAYS spans the full ramp: disc-normalise to the field's own min→max with a
- * median-pivot gain (rich, like sun-hours); if the field is degenerate-flat (no real
- * spatial signal, e.g. OSM unavailable), substitute a smooth radial gradient centred
- * on the disc so the metric never renders as one uniform colour. Pure.
+ * spans the full ramp when there IS a real spatial signal: disc-normalise to the
+ * field's own min→max with a median-pivot gain (rich, like sun-hours).
  *
- * @param radiusM the analysis-disc radius (m) — sets the radial fallback's falloff.
+ * §ANALYSIS-NO-FAKE-FALLBACK (ADR-0095) — when the field is genuinely degenerate-flat
+ * (no real spatial signal), DEGRADE HONESTLY: return a FLAT mid value everywhere. The
+ * old building-centred synthetic RADIAL gradient is REMOVED — it invented a fake
+ * hotspot on the studied building with no data behind it. Pure.
+ *
+ * @param radiusM the analysis-disc radius (m) — retained for signature stability.
  */
 function parityFieldMapper(
     samples: readonly FieldSample[],
     radiusM: number,
 ): (s: FieldSample) => number {
+    void radiusM; // §ANALYSIS-NO-FAKE-FALLBACK — no radial fallback; radius unused now.
     let lo = Infinity, hi = -Infinity;
     for (const s of samples) {
         if (!Number.isFinite(s.intensity)) continue;
@@ -811,16 +952,11 @@ function parityFieldMapper(
     }
     const span = hi - lo;
 
-    // Degenerate field (flat, or no finite samples) → smooth radial gradient so the
-    // map reads as a graded field instead of a uniform wash. Hot/high at centre,
-    // easing to the disc edge with a gentle gamma so it isn't a hard bullseye.
+    // §ANALYSIS-NO-FAKE-FALLBACK — degenerate field (flat, or no finite samples) →
+    // a FLAT mid value everywhere. Honest: "no spatial variation to show" reads as one
+    // uniform colour, NOT an invented radial hotspot centred on the building.
     if (!(span > 1e-4)) {
-        const R = Math.max(1, radiusM);
-        return (s: FieldSample): number => {
-            const d = Math.hypot(s.east, s.north) / R;          // 0 centre → 1 edge
-            const t = 1 - Math.max(0, Math.min(1, d));           // 1 centre → 0 edge
-            return Math.pow(t, 0.85);                             // gentle falloff
-        };
+        return (_s: FieldSample): number => 0.5;
     }
 
     // Real spread → disc min→max stretch + median-pivot gain (the sun-hours-rich look).
@@ -1723,12 +1859,14 @@ export function siteMetricLegend(
                 unit: 'm/s',
             };
         case 'population':
+            // §ANALYSIS-REAL-POPULATION (ADR-0095) — real WorldPop persons/hectare when
+            // available (title set by the panel caption); the ramp + unit are stable.
             return {
-                title: 'Population density (OSM proxy)',
+                title: 'Population density (WorldPop)',
                 stops: ['#FFFFC8', '#FFB864', '#FF7832', '#B41E14'],
                 lowLabel: 'Low',
                 highLabel: 'High',
-                unit: 'p/m²',
+                unit: 'p/ha',
             };
         case 'sunHours':
             return {

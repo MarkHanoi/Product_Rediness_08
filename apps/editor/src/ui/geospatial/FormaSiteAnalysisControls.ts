@@ -54,9 +54,17 @@ import { buildFallbackClimateDataset } from '@pryzm/climate-host';
 import {
     siteMetricAvailability,
     siteMetricLegend,
+    buildRealWindRose,
     type SiteMetric,
     type MetricAvailability,
 } from '../climate/siteMetricGrids';
+// §ANALYSIS-REAL-* (ADR-0095) — synchronous peeks of the REAL free-dataset cache (NASA
+// POWER climate + WorldPop population) so the panel captions + wind rose report REAL
+// provenance when live data has landed, and an honest "estimate" otherwise.
+import {
+    peekRealClimateBaseline,
+    peekRealPopulationSample,
+} from '../climate/siteRealData';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const ACCENT = '#6600FF';
@@ -833,14 +841,10 @@ export class FormaSiteAnalysisControls {
         return typeof this.viewport.setSiteMetricOverlay === 'function';
     }
 
-    /** True when a site lat/lon is known (sun-hours needs the sun position). */
+    /** True when a site lat/lon is known (sun-hours needs the sun position). §ANALYSIS-
+     *  REAL-* — delegates to the shared `siteLatLon()` (also used by the real-data peeks). */
     private hasLocation(): boolean {
-        try {
-            const loc = this.runtime?.siteModelStore.getLocation?.();
-            if (loc && (loc.latitude !== 0 || loc.longitude !== 0)) return true;
-        } catch { /* ignore */ }
-        const ltp = getCurrentSiteOrigin();
-        return !!(ltp && (ltp.lat !== 0 || ltp.lon !== 0));
+        return this.siteLatLon() != null;
     }
 
     private currentAvailability(): MetricAvailability[] {
@@ -1097,22 +1101,36 @@ export class FormaSiteAnalysisControls {
     /** §SITE-METRIC-DATA-SOURCE-NOTE — a short provenance caption for the active metric
      *  so its data source / limitations are explicit in the panel (and as a tooltip). */
     private metricSourceNote(metric: SiteMetric): string | null {
+        // §ANALYSIS-REAL-* (ADR-0095) — when the real free-dataset cache has landed for
+        // this site, the caption reports the REAL source; otherwise it reads the honest
+        // estimate provenance (and NEVER claims a synthetic fallback).
+        const ll = this.siteLatLon();
+        const realClim = ll ? peekRealClimateBaseline(ll.lat, ll.lon) : null;
+        const realPop = ll ? peekRealPopulationSample(ll.lat, ll.lon) : null;
         switch (metric) {
             case 'population':
-                return 'OSM proxy: building footprint × floors (GFA) — not census/WorldPop. ' +
-                    'Indicates relative built density, not measured residents.';
+                return realPop
+                    ? `Real data · WorldPop 100 m gridded population (${realPop.personsPerHa.toFixed(0)} p/ha at this site). ` +
+                        'Distributed within the plot by OSM built mass; monuments/open ground read honestly low.'
+                    : 'Estimate unavailable — WorldPop not reachable; showing OSM built-density proxy ' +
+                        '(footprint × floors), NOT measured residents.';
             case 'temperature':
-                // §SITE-METRIC-DATA-SOURCE-NOTE — make the MODELLED-ESTIMATE provenance
-                // explicit (mirrors the population "OSM proxy — not census" pattern) so a
-                // viewer knows this is a model, not a live sensor reading.
-                return 'Estimated: regional climate normal + urban-heat-island ΔT from OSM built ' +
-                    'density (not live sensor measurement). Dense zones read hotter, open/green cooler.';
+                // §ANALYSIS-REAL-TEMPERATURE — base air temp is REAL NASA POWER T2M
+                // climatology when landed; the UHI ΔT is the spatial modulation on top.
+                return realClim
+                    ? `Real data · NASA POWER T2M air-temp climatology (~${realClim.warmAirTempC.toFixed(0)}°C warm-season base) ` +
+                        '+ urban-heat-island ΔT from OSM built density. Dense zones read hotter, open/green cooler.'
+                    : 'Estimate — regional climate normal + urban-heat-island ΔT from OSM built density ' +
+                        '(NASA POWER not yet reachable). Dense zones read hotter, open/green cooler.';
             case 'wind':
-                // §SITE-METRIC-DATA-SOURCE-NOTE + §SITE-METRIC-WIND-CONTRAST — explicit
-                // modelled-estimate provenance; the field is a Lawson shelter proxy over a
-                // regional wind-rose baseline, not a measured anemometer field.
-                return 'Estimated: Lawson pedestrian-comfort proxy from regional climate wind-rose ' +
-                    '+ OSM upwind shelter (not live measurement). Sheltered zones read calmer, exposed windier.';
+                // §ANALYSIS-REAL-WIND — base freestream (speed + prevailing direction) is
+                // REAL NASA POWER when landed; only the Lawson pedestrian-comfort modelling
+                // is an estimate on top of the real regional wind.
+                return realClim
+                    ? `Real base wind · NASA POWER (~${realClim.windMeanMs.toFixed(1)} m/s, from ${this.compass(realClim.windFromDeg)}) ` +
+                        '+ estimated Lawson pedestrian shelter/exposure. Sheltered zones read calmer, exposed windier.'
+                    : 'Estimate — Lawson pedestrian-comfort proxy over a regional wind-rose baseline ' +
+                        '(NASA POWER not yet reachable). Sheltered zones read calmer, exposed windier.';
             case 'sunHours':
                 return 'Direct-beam sun-hours on the analysis day, shadowed by the massing + ' +
                     'OSM context (pure analytic shadow study).';
@@ -1127,6 +1145,12 @@ export class FormaSiteAnalysisControls {
         }
     }
 
+    /** §ANALYSIS-REAL-WIND — 8-point compass abbreviation for a FROM-direction (deg). */
+    private compass(deg: number): string {
+        const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+        return dirs[Math.round((((deg % 360) + 360) % 360) / 45) % 8]!;
+    }
+
     private renderWindRose(): void {
         const wrap = this.windWrap;
         // A.21.D24 — keep the 3D wind/heat overlays fed with the latest dataset.
@@ -1138,6 +1162,24 @@ export class FormaSiteAnalysisControls {
         // real DIRECTIONAL wind (mean + prevailing) the moment the site has a location —
         // never an empty "Wind data loading…" rose while the map already paints a field.
         const ds = this.resolveDatasetOrFallback();
+        // §ANALYSIS-REAL-WIND (ADR-0095) — when the REAL NASA POWER freestream has landed
+        // for this site, plot the REAL prevailing direction + mean/gust (buildRealWindRose)
+        // instead of the synthesised regional-normals rose. The rose is then real data;
+        // only the pedestrian-comfort MAP modelling stays an estimate.
+        const ll = this.siteLatLon();
+        const realClim = ll ? peekRealClimateBaseline(ll.lat, ll.lon) : null;
+        if (realClim) {
+            const realRose = buildRealWindRose(realClim.windMeanMs, realClim.windFromDeg, realClim.windGustMs);
+            const chart = windRoseBars(realRose);
+            wrap.appendChild(this.windRoseSvg(chart.bars, chart.maxFrequency));
+            if (this.windNote) {
+                this.windNote.textContent =
+                    `Real data · NASA POWER. Mean ${realClim.windMeanMs.toFixed(1)} m/s · gust ` +
+                    `${realClim.windGustMs.toFixed(1)} m/s · prevailing from ${this.compass(realClim.windFromDeg)}. ` +
+                    'Bars point FROM prevailing.';
+            }
+            return;
+        }
         if (!ds) {
             // Genuinely no dataset AND no location to derive one from → quiet prompt.
             if (this.windNote) this.windNote.textContent = 'Wind data loading… (set a site location if the map is empty).';
