@@ -212,3 +212,67 @@ folding `AddLevelCommand` into the batch is left as a separate, app-verifiable p
   drop).
 - Files: `apps/editor/src/ui/office-building/{OfficeBuildingExecutor.ts, officePerimeterGlazing.ts
   (NEW pure)}`.
+
+## Amendment (2026-07-01) — §OFFICE-INTERIOR-FITOUT · a real office INTERIOR (roof · core walls · entrance · desks/chairs · meeting rooms · cafe · lighting · finishes)
+
+| Field | Value |
+|---|---|
+| Tags | §OFFICE-INTERIOR-FITOUT, §OFFICE-ROOF-CAP, §OFFICE-CORE-WALLS, §OFFICE-ENTRANCE, §OFFICE-DESK-GRID, §OFFICE-MEETING-ROOMS, §OFFICE-CAFE, §OFFICE-LOBBY, §OFFICE-CEILING-LIGHTS |
+
+### Context
+
+Founder (2026-07-01): the office generator shipped only a SHELL — per-storey circular slabs + a
+coarsened perimeter wall/glazing ring + a solid core slab + zone lines. It was "missing EVERYTHING
+inside": no roof, no interior layout, no entrance, no core WALLS (only a slab), no desks/chairs, no
+meeting rooms, no cafe, no lighting, no floor finish. The build must read as a real office fit-out —
+but PERFORMANCE-AWARE: fully fitting out all 40 floors freezes the main thread, so we detail a FEW
+REPRESENTATIVE floors and leave the rest as massing.
+
+### Decision — §OFFICE-INTERIOR-FITOUT
+
+The executor now emits a believable interior, reusing the SAME element commands + patterns the
+residential executor uses (P6 — commands only; P2 — no THREE; P8 — one span at `execute`):
+
+1. **§OFFICE-ROOF-CAP** — a flat `CreateRoofCommand` slab over the disc on the TOP storey's wall
+   head (`baseOffset = floorToFloor + thickness`, mirroring `ResidentialBuildingExecutor._createRoof`).
+   Emitted inside the ONE structural batch. Roof went from 0 → 1.
+2. **§OFFICE-CORE-WALLS** — the central core is now real ENCLOSING WALLS (a square RC enclosure
+   inscribed in the circular core, one wall per edge with shared corners) on EVERY storey (the shaft
+   is continuous), plus ONE centred fire/lobby door punched in a deferred pass once the walls land
+   (mirrors `_buildCorePerimeter` / `_finishCoreDoors`). A `_mitreCorners` pass runs the corner-join
+   resolver so the shaft reads clean. The solid core slab is retained as the shaft mass.
+3. **§OFFICE-ENTRANCE** — a glazed DOUBLE front door punched (deferred) on the GROUND perimeter wall
+   segment whose midpoint heading best matches the +X entrance direction.
+4. **Interior fit-out on the DETAILED floors** (ground + the representative office floor, capped for
+   performance) via the existing `CreateFurnitureCommand` + `CreateLightingCommand` +
+   `CreateFloorCommand`:
+   - **§OFFICE-DESK-GRID** — desk (`desk`) + chair (`desk_chair`) pairs on a regular grid inside the
+     open-plan annulus, facing outward, capped at `MAX_FITOUT_DESKS = 60`.
+   - **§OFFICE-MEETING-ROOMS** — 3 boardroom clusters (`table` + 6 `chair`) on the perimeter-office
+     ring.
+   - **§OFFICE-CAFE** + **§OFFICE-LOBBY** — ground-floor cafe clusters (`coffee_table` + 4 `chair`)
+     + a reception desk (`table`) with two waiting `sofa_2seat` seats near the entrance.
+   - **§OFFICE-CEILING-LIGHTS** — a `downlight` grid (schema-valid `kind`, avoiding the lighting
+     `kind`-enum bug) inside the disc, skipping the core keep-out, capped at 48.
+   - **Floor finishes** — a thin carpet finish on the office floor + a stone finish on the ground
+     lobby (`CreateFloorCommand`, room-independent).
+
+   All fit-out families land in their OWN deferred, `skipRedetectRooms` + `skipPbrUpgrade` batches so
+   they never trigger the room-redetect storm and stay off the critical path — furniture READs the
+   committed levels, finishes seat on the settled slabs. Detailing only a few floors keeps the emit
+   performant on a 40-storey tower.
+
+### Consequences
+
+- The PURE placement math (`deskGrid`, `meetingRooms`, `cafeClusters`, `coreSquare`, `lobbyPlan`,
+  `ceilingLightGrid`) lives in a NEW DOM-free module so it is unit-testable in plain Node.
+- Element-count impact per generation (representative + ground detailed): +1 roof, +(4 core walls ×
+  storeys) core walls, +(1 door × storeys) core doors, +1 entrance door, up to ~60 desk+chair pairs
+  (~120 items) + 3 meeting clusters (~21 items) on the office floor, ~4 cafe clusters (~20 items) +
+  reception (3 items) on the ground, up to 48 downlights, +2 floor finishes. The other ~38 floors stay
+  as shell massing (unchanged) so the tower doesn't freeze.
+- Tests: `apps/editor/__tests__/OfficeInteriorFitout.test.ts` (13 cases — desk-band containment +
+  cap, meeting-cluster count/spread, cafe clusters, inscribed core square + door edge, lobby set-back,
+  ceiling-light core keep-out).
+- Files: `apps/editor/src/ui/office-building/{OfficeBuildingExecutor.ts, officeInteriorFitout.ts
+  (NEW pure)}`.
