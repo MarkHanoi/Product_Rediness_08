@@ -592,6 +592,15 @@ export class CesiumViewport {
   private siteMetricChunkCancellers: DeferWorkCanceller[] = [];
   /** Monotonic build token — a chunk callback bails if a newer build superseded it. */
   private siteMetricBuildSeq = 0;
+  /** §CESIUM-PERF-METRIC-TEXTURE-CACHE (2026-07-01) — the rasterised heatmap texture,
+   *  cached per (metric · rounded origin · sun-day · radius). Switching BACK to a
+   *  previously-computed metric then re-paints the cached texture in ONE draw instead
+   *  of re-running the 512×512 raster over ~3700 cells (and, for sun-hours/daylight,
+   *  the chunked per-cell raycast). Invalidated on site-location / massing-origin /
+   *  sun-day change so a stale field never shows. `paintMetricTexture` still builds a
+   *  fresh canvas per paint (canvases aren't reusable across removed entities), but the
+   *  expensive COMPUTE is skipped. */
+  private siteMetricTextureCache = new Map<string, MetricTexture>();
 
   // ---- §FORMA-FACADE-ANALYSIS (ADR-0093) — sun-hours on the DESIGNED building ----
   /** ON-demand façade analysis toggle (DEFAULT OFF — analysis paints only on the
@@ -779,6 +788,20 @@ export class CesiumViewport {
         // that ignores `alpha:true` simply clears opaque to FORMA_PALETTE.background
         // (the no-alpha fallback) — clean neutral, no crash.
         contextOptions: { webgl: { alpha: true } },
+        // §CESIUM-PERF-REQUEST-RENDER-MODE (2026-07-01) — render ON-DEMAND, not every
+        // frame. Both Cesium views (photoreal globe + Forma massing) sit IDLE most of
+        // the time — the camera parks, no entity changes — yet the default continuous
+        // render loop redraws the whole scene 60×/s regardless, burning GPU (visible as
+        // the heavy webgl-fallback footer). With `requestRenderMode` Cesium renders only
+        // when the scene actually changes; Cesium AUTO-requests a render on camera
+        // move/zoom/tilt, tileset load, and imagery-layer change, so interactive drag is
+        // unaffected. Our OWN scene mutations (sun/shadow scrub, model placement, metric
+        // overlay, context load, Forma toggle) ALREADY call `scene.requestRender()` at
+        // ~40 sites — this flag simply stops the wasted idle frames between them.
+        // `maximumRenderTimeChange` still forces a periodic redraw so the sun/atmosphere
+        // stay correct if the simulation clock advances without an explicit request.
+        requestRenderMode: true,
+        maximumRenderTimeChange: 1.0,
         // No token → no default base imagery layer (zero ESRI/ion/Bing request).
         // Token present → omit so Cesium installs its default ion base layer.
         ...(photorealAvailable ? {} : { baseLayer: false as const }),
@@ -893,7 +916,15 @@ export class CesiumViewport {
 
       // Apply the shared sharpness/quality props to whichever tileset we load.
       const applyTilesetQuality = (tileset: Cesium.Cesium3DTileset): void => {
-        tileset.maximumScreenSpaceError = 2;
+        // §CESIUM-PERF-TILESET-SSE (2026-07-01) — the previous `maximumScreenSpaceError
+        // = 2` demanded EXTREME detail (a tile is refined until its screen error is ≤2
+        // px — far past Cesium's default of 16), which streams + keeps resident a HUGE
+        // number of leaf tiles for the Google Photorealistic set. That is a primary
+        // driver of the "slow / heavy" globe: constant tile fetch + GPU upload + memory
+        // thrash. Raise to 20 (well above default) — visually still crisp for an urban
+        // context massing view, with FAR fewer tiles. `dynamicScreenSpaceError` keeps
+        // distant tiles even coarser, compounding the saving.
+        tileset.maximumScreenSpaceError = 20;
         tileset.dynamicScreenSpaceError = true;
         tileset.preloadFlightDestinations = true;
         tileset.preferLeaves = true;
@@ -902,6 +933,27 @@ export class CesiumViewport {
         tileset.foveatedConeSize = 0.1;
         tileset.foveatedInterpolationCallback = Cesium.Math.lerp;
         tileset.foveatedTimeDelay = 0.05;
+        // §CESIUM-PERF-TILESET-MEMORY — cap GPU/host memory so the tileset stops
+        // thrashing (unbounded caches let it grow until the browser stutters/OOMs on a
+        // long session). Cesium ≥1.107 uses `cacheBytes` (soft target) +
+        // `maximumCacheOverflowBytes` (hard ceiling above it); older builds use
+        // `maximumMemoryUsage` (MB). Feature-detect + set whichever exists so we don't
+        // hard-depend on one Cesium version. Guarded — an unknown build just skips.
+        try {
+          const anyTs = tileset as unknown as {
+            cacheBytes?: number;
+            maximumCacheOverflowBytes?: number;
+            maximumMemoryUsage?: number;
+          };
+          if (typeof anyTs.cacheBytes === 'number') {
+            anyTs.cacheBytes = 384 * 1024 * 1024;              // ~384 MB soft target
+            if (typeof anyTs.maximumCacheOverflowBytes === 'number') {
+              anyTs.maximumCacheOverflowBytes = 256 * 1024 * 1024; // +256 MB hard overflow
+            }
+          } else if (typeof anyTs.maximumMemoryUsage === 'number') {
+            anyTs.maximumMemoryUsage = 512;                   // MB (older Cesium)
+          }
+        } catch { /* unknown Cesium build — leave tileset defaults */ }
       };
 
       if (_cesiumToken) try {
@@ -1354,6 +1406,9 @@ export class CesiumViewport {
       );
       // FORMA.5 — re-anchor the sun at the new site so shadows are correct here.
       this.setFormaSunLocation(loc.latitude, loc.longitude);
+      // §CESIUM-PERF-METRIC-TEXTURE-CACHE — the site moved, so cached heatmap fields
+      // (keyed by origin) are stale for the fallback (no-massing) origin path. Flush.
+      this.invalidateSiteMetricTextureCache();
       this.frameSiteLocation(loc.latitude, loc.longitude, { instant: false });
       // MAP-DATA-OVERTURE — refresh the surrounding context buildings for the new
       // site (only while the Forma massing canvas is active; in photoreal the
@@ -3000,6 +3055,13 @@ export class CesiumViewport {
     // Feed the proposed-building entities into the FORMA.2 silhouette stage (§3).
     this.setFormaSilhouetteTargets(silhouetteTargets);
 
+    // §CESIUM-PERF-METRIC-TEXTURE-CACHE — the overlay anchor may have moved (new plot
+    // / re-located site), so any cached heatmap fields are stale. Flush them; the
+    // active metric (if any) recomputes for the new origin, everything else lazily.
+    const prevOrigin = this.formaMassingOrigin;
+    if (!prevOrigin || prevOrigin.lat !== originLat || prevOrigin.lon !== originLon) {
+      this.invalidateSiteMetricTextureCache();
+    }
     this.formaMassingOrigin = { lat: originLat, lon: originLon, centroidEast, centroidNorth, areaM2 };
 
     if (input.frameCentroid) {
@@ -4869,6 +4931,18 @@ export class CesiumViewport {
     const seq = ++this.siteMetricBuildSeq;         // this build's token
     const radius = this.siteMetricRadiusM();
     const base = this.formaTerrainBaseHeight;
+
+    // §CESIUM-PERF-METRIC-TEXTURE-CACHE — a previously-computed field for this exact
+    // (metric · origin · day · radius) can be re-painted directly, skipping the whole
+    // raster (and, for sun-hours/daylight, the chunked raycast). Sun-day only affects
+    // sun-hours, but folding it into every key is harmless (it's constant for the rest).
+    const cacheKey = this.siteMetricCacheKey(metric, origin, radius);
+    const cachedTex = this.siteMetricTextureCache.get(cacheKey);
+    if (cachedTex) {
+      this.paintMetricTexture(cachedTex, metric, origin, base, 0.16);
+      console.log(`[CesiumViewport][site-metric] ${metric} heatmap: REUSED cached texture ${cachedTex.size}×${cachedTex.size} (no recompute) for key ${cacheKey}.`);
+      return;
+    }
     // §SITE-METRIC-TEXTURE — the heatmap renders as ONE geographic ground rectangle
     // (paintMetricTexture builds its own Cartographic bounds from the origin), so no
     // per-cell ENU matrix is needed here any more.
@@ -4889,6 +4963,9 @@ export class CesiumViewport {
     ): void => {
       if (seq !== this.siteMetricBuildSeq) return;     // a newer toggle/date superseded
       const tex = rasterizeMetricTexture(cells, radius, cellSizeM);
+      // §CESIUM-PERF-METRIC-TEXTURE-CACHE — remember the finished field so a later
+      // switch back to this metric re-paints it without recomputing.
+      this.siteMetricTextureCache.set(cacheKey, tex);
       this.paintMetricTexture(tex, metric, origin, base, 0.16);
       console.log(`[CesiumViewport][site-metric] ${metric} heatmap: smooth texture ${tex.size}×${tex.size} (≈${((2 * tex.radiusM) / tex.size).toFixed(1)} m/texel) from ${tex.sampleCount}/${cells.length} cell(s), radius ${radius.toFixed(0)} m (chunked${label ? `, ${label}` : ''}).`);
     };
@@ -5125,6 +5202,30 @@ export class CesiumViewport {
       for (const e of this.siteMetricEntities) { try { viewer.entities.remove(e); } catch { /* gone */ } }
     }
     this.siteMetricEntities = [];
+  }
+
+  /**
+   * §CESIUM-PERF-METRIC-TEXTURE-CACHE — a stable key for the rasterised heatmap of a
+   * (metric · origin · sun-day · radius). Origin is rounded to ~1 m (5 decimals) so a
+   * sub-metre camera/framing jitter reuses the cache; a real re-location changes it.
+   * The sun-day is folded in for every metric (constant for the non-sun ones — cheap +
+   * harmless), so a day change only ever misses the sun-hours key.
+   */
+  private siteMetricCacheKey(
+    metric: SiteMetric,
+    origin: { lat: number; lon: number },
+    radius: number,
+  ): string {
+    return `${metric}|${origin.lat.toFixed(5)},${origin.lon.toFixed(5)}|${this.siteMetricSunDay}|r${Math.round(radius)}`;
+  }
+
+  /** §CESIUM-PERF-METRIC-TEXTURE-CACHE — drop every cached heatmap texture. Called
+   *  when the site location / massing origin moves (all keys go stale). A sun-day
+   *  change is handled by the key itself, so it does NOT need to flush here. */
+  private invalidateSiteMetricTextureCache(): void {
+    if (this.siteMetricTextureCache.size > 0) {
+      this.siteMetricTextureCache.clear();
+    }
   }
 
   /** The site origin (= ENU anchor) the overlays place against, or null. Prefers
@@ -6592,6 +6693,10 @@ export class CesiumViewport {
 
   public dispose(): void {
     console.log("Disposing Cesium...");
+
+    // §CESIUM-PERF-METRIC-TEXTURE-CACHE — release the cached heatmap textures so a
+    // disposed viewport doesn't retain their raster buffers.
+    try { this.siteMetricTextureCache.clear(); } catch { /* ignore */ }
 
     // FORMA.3 — drop any placed massing/boundary entities first.
     try {
