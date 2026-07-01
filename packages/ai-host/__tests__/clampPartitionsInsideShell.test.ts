@@ -6,6 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { clampPartitionsInsideShell, type WeldWall, type XZ as WeldXZ } from '../src/workflows/houseLayout/weldPartitionsToShell.js';
+import { checkShellContainment } from '../src/workflows/houseLayout/containmentChecks.js';
 
 /** Square shell ring 0..10 (CCW), world metres. */
 const SQUARE: WeldXZ[] = [{ x: 0, z: 0 }, { x: 10, z: 0 }, { x: 10, z: 10 }, { x: 0, z: 10 }];
@@ -67,5 +68,57 @@ describe('§SHELL-CONTAIN — clampPartitionsInsideShell', () => {
     it('degenerate ring (<3 verts) ⇒ pass-through copy (never throws)', () => {
         const out = clampPartitionsInsideShell([w('p', 0, 0, 99, 99)], [{ x: 0, z: 0 }, { x: 1, z: 0 }]);
         expect(out[0]!.end).toEqual({ x: 99, z: 99 });
+    });
+});
+
+// §DIAG-HOUSE-SHELL-CONTAINMENT (2026-07-01) — the executor's unconditional containment step
+// (`HouseLayoutExecutor._containWithinShell`) clamps EVERY partition endpoint onto the shell on
+// EVERY floor/path, then asserts no wall vertex remains outside via `checkShellContainment`.
+// These tests exercise that exact clamp+validate invariant on an ANGLED (rotated, non-axis-
+// aligned) plot — the founder's "rooms poke outside the shell on both floors" case — where the
+// no-weld paths (ground engine-perimeter, upper bit-exact) previously left endpoints breaching.
+describe('§DIAG-HOUSE-SHELL-CONTAINMENT — angled-plot containment invariant', () => {
+    /** A ~45°-rotated square plot (the founder's angled plate), world metres. */
+    const rot = Math.PI / 4;
+    const cos = Math.cos(rot), sin = Math.sin(rot);
+    const R = (x: number, z: number): WeldXZ => ({ x: x * cos - z * sin, z: x * sin + z * cos });
+    const ANGLED: WeldXZ[] = [R(0, 0), R(10, 0), R(10, 10), R(0, 10)];
+
+    it('rooms/partitions breaching the angled shell are ALL clipped back inside (zero residual)', () => {
+        // Emulate the engine tiling partitions against the AXIS-ALIGNED bbox of the rotated
+        // plate: several endpoints land OUTSIDE the true (rotated) footprint ring.
+        const rooms: WeldWall[] = [
+            // A room rect whose far corner pokes past the slanted edge (axis-aligned tiling).
+            w('roomA', 2, 2, 11.5, 5),      // end well outside the rotated ring
+            w('roomB', 5, 8, 9, 12.5),      // end past the top slanted edge
+            w('divider', -1.5, 4, 6, 4),    // start pokes past the left slanted edge
+            w('inside', 3, 3, 6, 6),        // genuinely interior — must stay put
+        ];
+        const before = checkShellContainment(rooms, ANGLED);
+        expect(before.count, 'fixture must actually breach the shell').toBeGreaterThan(0);
+
+        const contained = clampPartitionsInsideShell(rooms, ANGLED);
+        const after = checkShellContainment(contained, ANGLED);
+        // THE invariant: after containment, NO room/partition vertex lies outside the shell.
+        expect(after.count).toBe(0);
+        expect(after.maxOvershootM).toBeLessThanOrEqual(0.05 + 1e-6);
+    });
+
+    it('the genuinely-interior wall is left untouched by the containment clamp', () => {
+        const contained = clampPartitionsInsideShell([w('inside', 3, 3, 6, 6)], ANGLED);
+        expect(contained[0]!.start).toEqual({ x: 3, z: 3 });
+        expect(contained[0]!.end).toEqual({ x: 6, z: 6 });
+    });
+
+    it('every clamped endpoint is inside-or-on the angled shell (validator agrees with clamp)', () => {
+        // A dense fan of walls, half of them shooting outside in every direction.
+        const walls: WeldWall[] = [];
+        for (let k = 0; k < 8; k++) {
+            const a = (k / 8) * Math.PI * 2;
+            walls.push(w(`ray${k}`, 5, 5, 5 + 12 * Math.cos(a), 5 + 12 * Math.sin(a)));
+        }
+        const contained = clampPartitionsInsideShell(walls, ANGLED);
+        const report = checkShellContainment(contained, ANGLED);
+        expect(report.count, `residual off-shell endpoints: ${JSON.stringify(report.violations)}`).toBe(0);
     });
 });

@@ -913,6 +913,37 @@ export class HouseLayoutExecutor {
                     }
                 }
 
+                // ── §DIAG-HOUSE-SHELL-CONTAINMENT (2026-07-01, THE walls-off-shell fix) ──
+                // UNCONDITIONAL containment backstop — runs on EVERY storey on EVERY path
+                // (ground engine-perimeter AND weld-fallback; upper bit-exact AND weld),
+                // AFTER all the weld decisions above. ROOT CAUSE of the founder's "rooms poke
+                // outside the shell on BOTH floors": `clampPartitionsInsideShell` (the proven
+                // §SHELL-CONTAIN clamp) previously ran ONLY inside `_weldGroundPartitions` — so
+                // it was BYPASSED on the two COMMON no-weld paths (ground drawn-shell-on-ring,
+                // upper axis-aligned bit-exact). On an angled / rotated plate the engine tiles
+                // partitions against the principal-axis bbox and pushes perimeter-terminating
+                // endpoints past the drawn shell; with no weld, nothing clamped them → the
+                // rectangles + partition walls rendered OUTSIDE the footprint on that path.
+                //
+                // FIX: clamp EVERY partition + boundary endpoint back onto the shell ring here,
+                // independent of the weld decision, reusing the SAME `clampPartitionsInsideShell`
+                // helper the weld path uses (no reinvention). Ground uses the drawn shell ring
+                // (`shell.perimeter`); upper uses its minted footprint ring (`storey.footprint`).
+                // Byte-identical no-op wherever endpoints are already inside (weld already
+                // clamped, or axis-aligned plate lands on the ring). Degenerate walls a clamp
+                // collapses are reconciled (openings/doors/windows on them dropped) exactly like
+                // the weld reconciler. Flag (default ON): `window.__pryzmHouseShellContain === false`
+                // forces the legacy behaviour (containment only inside the weld path).
+                {
+                    const containEnabled =
+                        (window as unknown as { __pryzmHouseShellContain?: boolean })
+                            .__pryzmHouseShellContain !== false;
+                    const shellRing = isGround ? shell.perimeter : storey.footprint;
+                    if (containEnabled && shellRing && shellRing.length >= 3) {
+                        set = this._containWithinShell(set, shellRing, storey.levelId);
+                    }
+                }
+
                 // §OPENING-REBASE (Defect 2) — snapshot the PRE-resolve baseline of every
                 // host wall the engine measured offsets against. Interior/partition hosts:
                 // the (possibly welded) `wallBatch` baseline — the SAME segment the engine
@@ -2326,6 +2357,134 @@ export class HouseLayoutExecutor {
             };
         } catch (e) {
             console.warn('[house-layout] §GROUND-WELD failed (passing through unwelded):', e);
+            return set;
+        }
+    }
+
+    /**
+     * §DIAG-HOUSE-SHELL-CONTAINMENT (2026-07-01) — UNCONDITIONAL shell-containment step.
+     *
+     * Clamp every interior partition + boundary (open-plan splitter) endpoint back onto the
+     * shell perimeter ring so NO generated room rectangle / partition wall extends past the
+     * footprint — on EVERY storey, independent of whether the (path-specific) weld ran. This
+     * is the containment BACKSTOP that closes the founder's "rooms poke outside the shell on
+     * both floors" defect: `_weldGroundPartitions` already clamps via `clampPartitionsInsideShell`,
+     * but it is SKIPPED on the ground engine-perimeter path + the upper bit-exact path, where a
+     * rotated/angled plate's principal-axis tiling still pushes endpoints outside the ring.
+     *
+     * REUSES the proven `clampPartitionsInsideShell` helper (ai-host §SHELL-CONTAIN) — the same
+     * one the weld path calls — and the `checkShellContainment` validator (ai-host §CONTAIN-CHECK)
+     * to log a §DIAG-HOUSE-SHELL-CONTAINMENT summary (endpoints checked, breaches clipped,
+     * residual). Walls a clamp collapses below the editor's 0.05 m min length are DROPPED and
+     * their openings/doors/windows reconciled (identical to the weld reconciler), so the layout
+     * stays valid + closes rooms. Byte-identical no-op where every endpoint is already inside
+     * (weld already clamped, or an axis-aligned plate whose endpoints land on the ring).
+     * Best-effort — on any failure the input set passes through unchanged. Pure decision logic
+     * (the geometry lives in ai-host); returns a NEW LayoutCommandSet, input untouched.
+     */
+    private _containWithinShell(
+        set: LayoutCommandSet,
+        shellRing: readonly { x: number; z: number }[],
+        levelId: string,
+    ): LayoutCommandSet {
+        try {
+            if (shellRing.length < 3) return set;
+            const payload = set.wallBatch.payload as {
+                walls: Array<{ id: string; levelId: string; baseLine: Array<{ x: number; y?: number; z: number }>; height?: number; thickness?: number }>;
+                levelId: string;
+            };
+            const inWalls = payload.walls;
+            if (!Array.isArray(inWalls) || inWalls.length === 0) return set;
+
+            const partitions: WeldWall[] = inWalls
+                .filter(w => w.baseLine && w.baseLine[0] && w.baseLine[1])
+                .map(w => ({
+                    id: w.id,
+                    start: { x: w.baseLine[0]!.x, z: w.baseLine[0]!.z },
+                    end:   { x: w.baseLine[1]!.x, z: w.baseLine[1]!.z },
+                }));
+
+            // §CONTAIN-CHECK — measure the breach BEFORE the clamp, then confirm CLEARED after.
+            const before = checkShellContainment(partitions, shellRing);
+            const clamped = clampPartitionsInsideShell(partitions, shellRing);
+            const clampedById = new Map(clamped.map(w => [w.id, w]));
+
+            // Rebuild the wall payload: apply each clamped endpoint (preserving y / height /
+            // thickness); DROP any wall the clamp collapsed below the editor's min-wall length
+            // (both endpoints clamped to ~the same boundary point) so no zero-length spike ships.
+            const MIN_LEN_M = 0.05;
+            const keptIds = new Set<string>();
+            const droppedIds: string[] = [];
+            const newWalls = inWalls
+                .map(w => {
+                    const cw = clampedById.get(w.id);
+                    if (!cw) { keptIds.add(w.id); return w; }   // no usable baseline — leave untouched (still kept)
+                    const len = Math.hypot(cw.end.x - cw.start.x, cw.end.z - cw.start.z);
+                    if (len < MIN_LEN_M) { droppedIds.push(w.id); return null; }
+                    const y = w.baseLine[0]!.y ?? 0;
+                    keptIds.add(w.id);
+                    return { ...w, baseLine: [{ x: cw.start.x, y, z: cw.start.z }, { x: cw.end.x, y, z: cw.end.z }] };
+                })
+                .filter((w): w is NonNullable<typeof w> => w !== null);
+
+            // Clamp the boundaries (open-plan splitters) onto the ring too — the same defect
+            // reaches a boundary that terminates past the perimeter on an angled plate.
+            const boundaryCommands = set.boundaryCommands.map(bc => {
+                const p = bc.payload as { id: string; levelId: string; start: { x: number; z: number }; end: { x: number; z: number } };
+                const [cw] = clampPartitionsInsideShell(
+                    [{ id: p.id, start: { x: p.start.x, z: p.start.z }, end: { x: p.end.x, z: p.end.z } }],
+                    shellRing,
+                );
+                if (!cw) return bc;
+                return { ...bc, payload: { ...p, start: { x: cw.start.x, z: cw.start.z }, end: { x: cw.end.x, z: cw.end.z } } };
+            });
+
+            // §DIAG-HOUSE-SHELL-CONTAINMENT — the queued "checker so we avoid walls going off
+            // the shell": report breaches clipped + confirm the ring now contains every wall.
+            if (before.count > 0 || droppedIds.length > 0) {
+                const containedWalls: WeldWall[] = newWalls
+                    .filter(w => w.baseLine && w.baseLine[0] && w.baseLine[1])
+                    .map(w => ({ id: w.id, start: { x: w.baseLine[0]!.x, z: w.baseLine[0]!.z }, end: { x: w.baseLine[1]!.x, z: w.baseLine[1]!.z } }));
+                const after = checkShellContainment(containedWalls, shellRing);
+                console.warn(
+                    `[house-layout] §DIAG-HOUSE-SHELL-CONTAINMENT levelId=${levelId} ` +
+                    `walls=${inWalls.length} off-shell-before=${before.count} worst=${before.maxOvershootM.toFixed(3)}m ` +
+                    `clipped=${before.count} dropped=${droppedIds.length} ` +
+                    `off-shell-after=${after.count}` +
+                    (after.count > 0 ? ` worst=${after.maxOvershootM.toFixed(3)}m (RESIDUAL)` : ' (CLEARED)') +
+                    (before.count > 0 ? ` breaches=[${before.violations.map(v => `${v.id}:${v.end}+${v.overshootM.toFixed(2)}m`).join(', ')}]` : '') +
+                    (droppedIds.length > 0 ? ` droppedIds=[${droppedIds.join(', ')}]` : ''),
+                );
+            } else {
+                console.log(`[house-layout] §DIAG-HOUSE-SHELL-CONTAINMENT levelId=${levelId} OK — all ${inWalls.length} wall(s) already inside the shell (no clip).`);
+            }
+
+            if (droppedIds.length === 0) {
+                // No wall dropped — only endpoints moved; openings/doors/windows unaffected.
+                return {
+                    ...set,
+                    wallBatch: { ...set.wallBatch, payload: { ...payload, walls: newWalls } },
+                    boundaryCommands,
+                };
+            }
+
+            // A wall was dropped — reconcile any opening/door/window hosted on it (same as the
+            // weld reconciler) so no orphaned opening references a removed wall.
+            const keepOpening = (cmd: LayoutCommand): boolean => {
+                const wid = (cmd.payload as { wallId?: string }).wallId;
+                return wid === undefined || keptIds.has(wid);
+            };
+            return {
+                ...set,
+                wallBatch: { ...set.wallBatch, payload: { ...payload, walls: newWalls } },
+                openingCommands: set.openingCommands.filter(keepOpening),
+                windowOpeningCommands: set.windowOpeningCommands.filter(keepOpening),
+                doorBatch: this._filterDoorBatch(set.doorBatch, keptIds),
+                windowBatch: this._filterWindowBatch(set.windowBatch, keptIds),
+                boundaryCommands,
+            };
+        } catch (e) {
+            console.warn('[house-layout] §DIAG-HOUSE-SHELL-CONTAINMENT failed (passing through un-contained):', e);
             return set;
         }
     }
