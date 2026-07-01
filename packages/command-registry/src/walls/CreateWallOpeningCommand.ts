@@ -23,15 +23,33 @@ export class CreateWallOpeningCommand implements Command {
     private readonly openingElementId: string;
 
     constructor(private data: { wallId: string, openingData: any }) {
-        this.targetIds = [data.wallId];
-        this.openingId = data.openingData.id || crypto.randomUUID();
-        this.openingElementId = data.openingData.elementId || crypto.randomUUID();
+        // §ADD-OPENING-REPLAY-GUARD — a malformed / legacy replayed ADD_OPENING can arrive with
+        // `openingData` undefined (older command-log entries, partial catch-up payloads). Reading
+        // `.id` off undefined here threw a TypeError INSIDE the command factory, which the
+        // RemoteCommandDispatcher logged as a full "Factory failed for type: ADD_OPENING" stack on
+        // EVERY collab catch-up reconnect (founder saw it flood the console 49× per reload). Tolerate
+        // the missing data so the constructor never throws; canExecute() then rejects it cleanly with
+        // a single one-line warning instead of a red stack.
+        if (!this.data || typeof this.data !== 'object') this.data = { wallId: '', openingData: {} };
+        if (!this.data.openingData || typeof this.data.openingData !== 'object') this.data.openingData = {};
+        this.targetIds = [this.data.wallId];
+        this.openingId = this.data.openingData.id || crypto.randomUUID();
+        this.openingElementId = this.data.openingData.elementId || crypto.randomUUID();
         // Normalise so downstream code always sees stable IDs
         this.data.openingData.id = this.openingId;
         this.data.openingData.elementId = this.openingElementId;
     }
 
     canExecute(context: CommandContext): CommandValidationResult {
+        // §ADD-OPENING-REPLAY-GUARD — reject a malformed replay (no wall target, or an empty
+        // openingData that carries no geometry/type at all) cleanly, so it surfaces as a single
+        // one-line "canExecute rejected" rather than a thrown factory stack (see constructor).
+        const od = this.data.openingData;
+        const hasGeometry = od.width != null || od.type != null || od.systemTypeId != null;
+        if (!this.data.wallId || !hasGeometry) {
+            return { ok: false, reason: 'Opening data missing/incomplete — malformed replay skipped' };
+        }
+
         const wall = context.stores.wallStore.getById(this.data.wallId);
         if (!wall) return { ok: false, reason: 'Wall not found' };
 
