@@ -461,6 +461,74 @@ class BatchCoordinatorImpl {
     private _onBatchEnd: (() => void) | null = null;
     /** §FIX-GPU-COMPILE-LABEL: fires just before the first post-suppress render frame. */
     private _onGpuCompileStart: (() => void) | null = null;
+
+    /**
+     * §PERF-POSTGEOM-COMPILE-NO-SYNC-BLOCK (ADR-0094) — app-injected provider that
+     * returns the ACTUAL live scene mesh count (Mesh + InstancedMesh). Injected by
+     * initScene (the THREE owner) so this core-app-model coordinator never imports
+     * THREE (P2). Used by the §FIX-POST-GEOMETRY-COMPILE-V2 block to base the
+     * small-vs-large synchronous-render decision on the REAL scene size rather than
+     * the batch's EXPECTED element count. Office/resi/apartment geometry arrives via
+     * the bus UNCOUNTED (`totalElementCount` ≈ 0/≤32) while the actual scene is 1200+
+     * meshes, so the expected count alone let a ~50s synchronous `rpm.render()` slip
+     * through and froze the viewport. When unset, the decision falls back to the
+     * expected count (pre-fix behaviour) so nothing regresses if the hook is missing.
+     */
+    private _sceneMeshCountProvider: (() => number) | null = null;
+
+    /**
+     * §PERF-POSTGEOM-COMPILE-NO-SYNC-BLOCK (ADR-0094) — actual-scene mesh-count ceiling
+     * above which the post-geometry synchronous `rpm.render()` compile is NEVER run.
+     * Evidence: a large office build logged `single pass took 49942.9ms > 100ms` — a
+     * single synchronous pass on a 1200+-mesh scene blocked the main thread ~50s on
+     * BOTH WebGPU and WebGL. Above this ceiling the eager compile is skipped entirely;
+     * the normal frame loop compiles PSOs lazily frame-by-frame (no ~50s LONGTASK).
+     * Set at 200 — comfortably below the observed 1200-mesh freeze yet well above any
+     * small showcase batch where a single sub-100ms pass is affordable.
+     */
+    static readonly POSTGEOM_SYNC_COMPILE_MAX_SCENE_MESHES = 200;
+
+    /**
+     * §PERF-LARGE-BATCH-SKIP-PBR (ADR-0094) — actual-scene mesh-count threshold above
+     * which a batch auto-defaults `skipPbrUpgrade=true`. Aligned with the render tier's
+     * large-scene cap (~1200 meshes → `performance`, which already skips the whole-scene
+     * PBR upgrade): once a scene is this big the cosmetic upgrade is not worth its
+     * multi-second cost. Small/normal scenes stay below this and keep the upgrade.
+     */
+    static readonly LARGE_BATCH_SKIP_PBR_SCENE_MESHES = 1_200;
+
+    /**
+     * §PERF-LARGE-BATCH-SKIP-PBR (ADR-0094) — EXPECTED-element-count fallback threshold
+     * for the same auto-default, for batches whose elements ARE counted up front (so a
+     * big batch is caught even before its geometry lands in the scene). Conservative:
+     * only clearly-large element batches trip it; small edits are unaffected.
+     */
+    static readonly LARGE_BATCH_SKIP_PBR_ELEMENTS = 400;
+
+    /**
+     * §PERF-POSTGEOM-COMPILE-NO-SYNC-BLOCK (ADR-0094) — PURE decision: should the
+     * post-geometry synchronous `rpm.render()` compile be SKIPPED for this batch?
+     *
+     * Skips when ANY of:
+     *   - `skipPbrUpgrade` — CW/slab batches whose PSOs are prewarmed;
+     *   - `expectedElements > 32` — a large batch by declared element count;
+     *   - `sceneMeshCount > POSTGEOM_SYNC_COMPILE_MAX_SCENE_MESHES` — the ACTUAL scene is
+     *     large (the fix: bus-fed office/resi geometry reports expectedElements ≈ 0 while
+     *     the real scene is 1200+ meshes, so only this arm catches the ~50s freeze).
+     *
+     * `sceneMeshCount < 0` means "unknown / provider unwired" — that arm is ignored and
+     * the decision falls back to the expected-count arm (pre-fix behaviour). Pure &
+     * side-effect-free so it is unit-testable without a renderer or the DOM.
+     */
+    static shouldSkipPostGeometrySyncCompile(args: {
+        skipPbrUpgrade: boolean;
+        expectedElements: number;
+        sceneMeshCount: number;
+    }): boolean {
+        const sceneTooLarge =
+            args.sceneMeshCount > BatchCoordinatorImpl.POSTGEOM_SYNC_COMPILE_MAX_SCENE_MESHES;
+        return args.skipPbrUpgrade || args.expectedElements > 32 || sceneTooLarge;
+    }
     /**
      * §POSTGEN-SETTLE (2026-06-11) — one-shot "this batch has fully settled"
      * subscribers. Unlike `_onFinalSweepComplete` (a single engine-owned slot),
@@ -626,6 +694,17 @@ class BatchCoordinatorImpl {
      */
     setGpuCompileStartCallback(cb: () => void): void {
         this._onGpuCompileStart = cb;
+    }
+
+    /**
+     * §PERF-POSTGEOM-COMPILE-NO-SYNC-BLOCK (ADR-0094) — inject a provider that returns
+     * the ACTUAL live scene mesh count (Mesh + InstancedMesh). Injected once at engine
+     * startup by initScene (the THREE owner). Used to gate the §FIX-POST-GEOMETRY-
+     * COMPILE-V2 synchronous render on the REAL scene size, not the batch's expected
+     * element count. Only one provider is supported; subsequent calls replace it.
+     */
+    setSceneMeshCountProvider(provider: () => number): void {
+        this._sceneMeshCountProvider = provider;
     }
 
     /**
@@ -1122,6 +1201,31 @@ class BatchCoordinatorImpl {
         this._totalElementCount = opts.totalElementCount;
         this._skipRedetectRooms = opts.skipRedetectRooms ?? false;
         this._skipPbrUpgrade    = opts.skipPbrUpgrade    ?? false;
+        // §PERF-LARGE-BATCH-SKIP-PBR (ADR-0094) — auto-default skipPbrUpgrade for large
+        // batches so generators (office/resi/apartment/house) don't each have to
+        // remember to set it. The cosmetic whole-scene PBR upgrade (envMap/toneMapped
+        // tuning) is only worthwhile on a small showcase scene; on a large scene it is a
+        // multi-second cost (a live office build logged ~6.6s) for no visible gain — the
+        // base MeshStandardMaterial already renders correctly. We measure "large" by the
+        // ACTUAL live scene mesh count (same provider as the post-geometry-compile gate),
+        // so it fires for bus-fed geometry too where the expected element count is ~0.
+        // Only ever turns the flag ON (never overrides an explicit `false` into `true`
+        // incorrectly, and never turns an explicit `true` off).
+        if (!this._skipPbrUpgrade) {
+            let _sceneMeshes = -1;
+            try { _sceneMeshes = this._sceneMeshCountProvider?.() ?? -1; }
+            catch { _sceneMeshes = -1; }
+            const _expected = opts.totalElementCount;
+            if (_sceneMeshes > BatchCoordinatorImpl.LARGE_BATCH_SKIP_PBR_SCENE_MESHES
+                || _expected > BatchCoordinatorImpl.LARGE_BATCH_SKIP_PBR_ELEMENTS) {
+                this._skipPbrUpgrade = true;
+                console.log(
+                    `[BatchCoordinator] §PERF-LARGE-BATCH-SKIP-PBR auto-enabled ` +
+                    `skipPbrUpgrade (sceneMeshes=${_sceneMeshes}, expectedElements=${_expected}) — ` +
+                    `skipping the cosmetic whole-scene PBR upgrade for this large batch.`
+                );
+            }
+        }
         this._registrationQueue = [];
         this._postBatchWindowEvents.clear();
         if (this._regDrainDispose !== null) {
@@ -1534,15 +1638,38 @@ class BatchCoordinatorImpl {
                     //       where the full scene render costs <100ms.
                     //   (c) Small batches (≤32, no skipPbrUpgrade): run ONE pass only,
                     //       with a 100ms cost guard that warns if the scene is too large.
+                    //
+                    // §PERF-POSTGEOM-COMPILE-NO-SYNC-BLOCK (ADR-0094): the (b) guard used the
+                    // batch's EXPECTED element count (`_totalElementCount`). Office/resi/apartment
+                    // geometry arrives via the BUS uncounted, so a 1200+-mesh tower batch reports
+                    // `elementCount ≈ 0` and slipped past (b) into the single synchronous render —
+                    // a live office build logged `single pass took 49942.9ms > 100ms`, freezing the
+                    // viewport ~50s on BOTH WebGPU and WebGL. FIX: also consult the ACTUAL live
+                    // scene mesh count (injected provider). When the real scene exceeds
+                    // POSTGEOM_SYNC_COMPILE_MAX_SCENE_MESHES, SKIP the synchronous render entirely
+                    // and let the frame loop compile PSOs lazily — no ~50s main-thread block.
                     {
                         const _pgRpm = window.renderPipelineManager;
-                        const _pgSkip = this._skipPbrUpgrade || this._totalElementCount > 32;
+                        let _pgSceneMeshes = -1;
+                        try { _pgSceneMeshes = this._sceneMeshCountProvider?.() ?? -1; }
+                        catch { _pgSceneMeshes = -1; }
+                        const _pgSceneTooLarge =
+                            _pgSceneMeshes > BatchCoordinatorImpl.POSTGEOM_SYNC_COMPILE_MAX_SCENE_MESHES;
+                        const _pgSkip = BatchCoordinatorImpl.shouldSkipPostGeometrySyncCompile({
+                            skipPbrUpgrade: this._skipPbrUpgrade,
+                            expectedElements: this._totalElementCount,
+                            sceneMeshCount: _pgSceneMeshes,
+                        });
                         if (_pgSkip) {
                             console.log(
                                 `[BatchCoordinator] §FIX-POST-GEOMETRY-COMPILE-V2 ` +
                                 `SKIPPED (skipPbrUpgrade=${this._skipPbrUpgrade}, ` +
-                                `elementCount=${this._totalElementCount}) — ` +
-                                `prewarm covers PSOs for large CW/slab batches. ` +
+                                `elementCount=${this._totalElementCount}, ` +
+                                `sceneMeshes=${_pgSceneMeshes}, ` +
+                                `sceneTooLarge=${_pgSceneTooLarge}) — ` +
+                                `prewarm + lazy frame-loop compile cover PSOs; ` +
+                                `no synchronous render on large scenes ` +
+                                `(§PERF-POSTGEOM-COMPILE-NO-SYNC-BLOCK). ` +
                                 `T=+${(performance.now() - this._batchStartTime).toFixed(1)}ms`
                             );
                         } else if (_pgRpm?.render) {
@@ -1550,7 +1677,9 @@ class BatchCoordinatorImpl {
                                 const _pgT0 = performance.now();
                                 console.log(
                                     `[BatchCoordinator] §FIX-POST-GEOMETRY-COMPILE-V2 ` +
-                                    `1 rpm.render() pass (small batch ≤32 elements). ` +
+                                    `1 rpm.render() pass (small batch ≤32 elements, ` +
+                                    `actualSceneMeshes=${_pgSceneMeshes} ≤ ` +
+                                    `${BatchCoordinatorImpl.POSTGEOM_SYNC_COMPILE_MAX_SCENE_MESHES}). ` +
                                     `T=+${(_pgT0 - this._batchStartTime).toFixed(1)}ms`
                                 );
                                 const _pgSavedSelected: object[] = _pgRpm.selectedObjects?.splice(0) ?? [];
@@ -1565,9 +1694,12 @@ class BatchCoordinatorImpl {
                                 if (_pgMs > 100) {
                                     console.warn(
                                         `[BatchCoordinator] §FIX-POST-GEOMETRY-COMPILE-V2 ` +
-                                        `WARN: single pass took ${_pgMs.toFixed(1)}ms > 100ms — ` +
-                                        `scene larger than expected for post-geometry compile. ` +
-                                        `Consider setting skipPbrUpgrade=true on this batch type.`
+                                        `WARN: single pass took ${_pgMs.toFixed(1)}ms > 100ms ` +
+                                        `(actualSceneMeshes=${_pgSceneMeshes}) — scene larger than ` +
+                                        `expected for post-geometry compile. If the mesh-count ` +
+                                        `provider is unwired this net can miss; ensure ` +
+                                        `setSceneMeshCountProvider() is injected ` +
+                                        `(§PERF-POSTGEOM-COMPILE-NO-SYNC-BLOCK).`
                                     );
                                 } else {
                                     console.log(
@@ -1941,3 +2073,11 @@ class BatchCoordinatorImpl {
 }
 
 export const batchCoordinator = new BatchCoordinatorImpl();
+
+/**
+ * Named export of the coordinator class (alias of the internal `BatchCoordinatorImpl`).
+ * Exposes the pure static perf-decision helpers / thresholds
+ * (§PERF-POSTGEOM-COMPILE-NO-SYNC-BLOCK, §PERF-LARGE-BATCH-SKIP-PBR — ADR-0094) for
+ * unit testing without constructing the full coordinator or a renderer.
+ */
+export { BatchCoordinatorImpl as BatchCoordinator };

@@ -17,17 +17,23 @@ import {
 
 describe('SceneQualityTierManager (ADR-0076 §PERF-WEBGPU-FRAGMENT)', () => {
     describe('nominalTierForMeshCount — boundary mapping', () => {
-        it('maps small scenes to cinematic', () => {
+        it('maps small scenes to cinematic (below the large-scene cap)', () => {
             expect(nominalTierForMeshCount(0)).toBe('cinematic');
-            expect(nominalTierForMeshCount(1_500)).toBe('cinematic');
+            // §PERF-LARGE-SCENE-TIER-CAP — cinematic now only holds below the 1200-mesh
+            // cap (the 1211-tower evidence). 1199 stays cinematic; 1500 is capped.
+            expect(nominalTierForMeshCount(1_199)).toBe('cinematic');
         });
-        it('maps a narrow balanced band (1501–2500) — re-tuned 2026-06-25', () => {
-            expect(nominalTierForMeshCount(1_501)).toBe('balanced');
-            expect(nominalTierForMeshCount(2_500)).toBe('balanced');
+        it('§PERF-LARGE-SCENE-TIER-CAP — caps ≥1200 meshes at performance (1211-tower evidence)', () => {
+            // A generated office tower logged `1211 meshes → tier=cinematic
+            // (SSGI/TRAA/shadow=high)` and was terrible to interact with. The hard cap
+            // forces any scene at/above 1200 meshes to `performance` (SSGI/TRAA OFF,
+            // shadow=standard) regardless of the nominal cinematic/balanced band.
+            expect(nominalTierForMeshCount(1_200)).toBe('performance'); // at the cap
+            expect(nominalTierForMeshCount(1_211)).toBe('performance'); // the real evidence count
+            expect(nominalTierForMeshCount(1_500)).toBe('performance'); // was cinematic pre-cap
+            expect(nominalTierForMeshCount(2_500)).toBe('performance'); // was balanced pre-cap
         });
         it('maps a typical generated building (~4000 meshes) to performance', () => {
-            // §PERF-WEBGPU-FRAGMENT re-tune: balanced ceiling 6000→2500 so the
-            // founder's real ~4000-mesh building lands in performance (SSGI off).
             expect(nominalTierForMeshCount(2_501)).toBe('performance');
             expect(nominalTierForMeshCount(4_062)).toBe('performance'); // founder's real count
             expect(nominalTierForMeshCount(13_048)).toBe('performance');
@@ -83,40 +89,67 @@ describe('SceneQualityTierManager (ADR-0076 §PERF-WEBGPU-FRAGMENT)', () => {
     describe('computeTier — hysteresis (no thrash at boundaries)', () => {
         it('cold start (no prevTier) returns the nominal tier', () => {
             expect(computeTier(7_000, undefined)).toBe('performance');
-            expect(computeTier(2_000, undefined)).toBe('balanced'); // 1501–2500
+            // §PERF-LARGE-SCENE-TIER-CAP — 2000 meshes is now capped to performance
+            // (was balanced pre-cap).
+            expect(computeTier(2_000, undefined)).toBe('performance');
             expect(computeTier(4_062, undefined)).toBe('performance'); // founder's building
+            expect(computeTier(500, undefined)).toBe('cinematic');     // small scene unchanged
         });
 
-        it('holds the previous tier inside the ±10% guard band on a step DOWN', () => {
-            // balanced upper bound = 2500; +10% band = 2750. At 2600 (just over the
-            // nominal boundary but within the band) we must HOLD balanced.
-            expect(computeTier(2_600, 'balanced')).toBe('balanced');
-            // Clearly over the band → step down to performance.
-            expect(computeTier(2_800, 'balanced')).toBe('performance');
+        it('holds the previous tier inside the ±10% guard band on a step DOWN (perf↔survival)', () => {
+            // performance upper bound = 15000; +10% band = 16500. At 16000 (just over the
+            // nominal boundary but within the band) we must HOLD performance.
+            expect(computeTier(16_000, 'performance')).toBe('performance');
+            // Clearly over the band → step down to survival.
+            expect(computeTier(17_000, 'performance')).toBe('survival');
         });
 
-        it('holds the previous tier inside the band on a step UP', () => {
-            // Coming from performance, balanced/performance boundary = 2500; −10% = 2250.
-            // At 2400 (under nominal boundary but inside band) HOLD performance.
-            expect(computeTier(2_400, 'performance')).toBe('performance');
-            // Clearly under the band → step up to balanced.
-            expect(computeTier(2_200, 'performance')).toBe('balanced');
-        });
-
-        it('does not oscillate when count wobbles across a boundary inside the band', () => {
-            let tier: SceneQualityTier = 'balanced';
-            for (const n of [2_600, 2_400, 2_700, 2_450, 2_550]) {
+        it('does not oscillate when count wobbles across the perf/survival boundary', () => {
+            let tier: SceneQualityTier = 'performance';
+            for (const n of [16_000, 14_000, 16_400, 14_500, 15_500]) {
                 tier = computeTier(n, tier);
-                // All within ±10% of 2500 (2250..2750) → must stay balanced.
-                expect(tier).toBe('balanced');
+                // All within ±10% of 15000 (13500..16500) → must stay performance.
+                expect(tier).toBe('performance');
             }
         });
 
         it('crosses cleanly when the count moves decisively past the band', () => {
-            let tier = computeTier(20_000, 'balanced'); // far over → survival
+            let tier = computeTier(20_000, 'performance'); // far over → survival
             expect(tier).toBe('survival');
             tier = computeTier(500, tier); // far under → cinematic
             expect(tier).toBe('cinematic');
+        });
+    });
+
+    // §PERF-LARGE-SCENE-TIER-CAP (ADR-0094) — the 1200-mesh cap is DECISIVE (not
+    // subject to the cinematic step-down band) and has its own release hysteresis.
+    describe('computeTier — large-scene cap is decisive + has release hysteresis', () => {
+        it('snaps a scene that GREW through cinematic up to 1211 meshes to performance', () => {
+            // The bug: cinematic bound 1500 × 1.1 = 1650 > 1211, so the normal step-down
+            // band would HOLD cinematic — the 1211-tower freeze. The cap must override.
+            expect(computeTier(1_211, 'cinematic')).toBe('performance');
+            expect(computeTier(1_200, 'cinematic')).toBe('performance');
+        });
+
+        it('keeps a small scene (1199) cinematic — cap does not touch normal scenes', () => {
+            expect(computeTier(1_199, 'cinematic')).toBe('cinematic');
+            expect(computeTier(800, 'cinematic')).toBe('cinematic');
+        });
+
+        it('holds performance until the count drops clearly below the cap band (release ≈1080)', () => {
+            // Cap release = 1200 × 0.9 = 1080. Between 1080 and 1199 the cap is held.
+            expect(computeTier(1_150, 'performance')).toBe('performance'); // in release band
+            expect(computeTier(1_100, 'performance')).toBe('performance'); // still in band
+            expect(computeTier(1_000, 'performance')).toBe('cinematic');   // clearly under → release
+        });
+
+        it('does not thrash cinematic↔performance around the 1200-mesh cap', () => {
+            let tier: SceneQualityTier = 'cinematic';
+            // 1250 engages the cap; wobbling 1090..1250 must NOT bounce back to cinematic.
+            for (const n of [1_250, 1_120, 1_240, 1_090, 1_210]) {
+                tier = computeTier(n, tier);
+                expect(tier).toBe('performance');
+            }
         });
     });
 
@@ -127,12 +160,13 @@ describe('SceneQualityTierManager (ADR-0076 §PERF-WEBGPU-FRAGMENT)', () => {
         });
 
         it('reports changed=true only on a real transition', () => {
+            // §PERF-LARGE-SCENE-TIER-CAP — 2000/2100 meshes are capped to performance.
             const first = mgr.update(2_000);
-            expect(first.tier).toBe('balanced');
+            expect(first.tier).toBe('performance');
             expect(first.changed).toBe(true); // cold start counts as a change
 
             const second = mgr.update(2_100);
-            expect(second.tier).toBe('balanced');
+            expect(second.tier).toBe('performance');
             expect(second.changed).toBe(false); // same tier → no re-apply
 
             const third = mgr.update(20_000);
@@ -203,24 +237,26 @@ describe('SceneQualityTierManager (ADR-0076 §PERF-WEBGPU-FRAGMENT)', () => {
             mgr = new SceneQualityTierManager();
         });
 
-        it('isWebGPU=false → SSGI=false + TRAA=false at a balanced mesh count', () => {
-            // 2_000 meshes is a "balanced" tier that WOULD enable SSGI/TRAA on WebGPU.
-            const { tier, settings } = mgr.update(2_000, false);
-            expect(tier).toBe('balanced');            // tier itself is backend-agnostic
+        it('isWebGPU=false → SSGI=false + TRAA=false at an SSGI-enabled (cinematic) mesh count', () => {
+            // 500 meshes is a small "cinematic" tier that WOULD enable SSGI/TRAA on WebGPU.
+            // (§PERF-LARGE-SCENE-TIER-CAP: ≥1200-mesh scenes are now capped to performance,
+            // where SSGI/TRAA are already off, so we use a small scene to exercise the gate.)
+            const { tier, settings } = mgr.update(500, false);
+            expect(tier).toBe('cinematic');           // tier itself is backend-agnostic
             expect(settings.ssgi).toBe(false);        // …but SSGI is gated off on WebGL2
             expect(settings.traa).toBe(false);
             expect(settings.shadowLevel).toBe('standard');
         });
 
-        it('isWebGPU=true → unchanged (SSGI on at balanced)', () => {
-            const { tier, settings } = mgr.update(2_000, true);
-            expect(tier).toBe('balanced');
+        it('isWebGPU=true → unchanged (SSGI on at cinematic)', () => {
+            const { tier, settings } = mgr.update(500, true);
+            expect(tier).toBe('cinematic');
             expect(settings.ssgi).toBe(true);
             expect(settings.traa).toBe(true);
         });
 
-        it('omitting isWebGPU preserves today\'s behaviour (SSGI on at balanced)', () => {
-            const { settings } = mgr.update(2_000);
+        it('omitting isWebGPU preserves today\'s behaviour (SSGI on at cinematic)', () => {
+            const { settings } = mgr.update(500);
             expect(settings.ssgi).toBe(true);
             expect(settings.traa).toBe(true);
         });
@@ -230,7 +266,7 @@ describe('SceneQualityTierManager (ADR-0076 §PERF-WEBGPU-FRAGMENT)', () => {
             // applied SETTINGS are gated — so hysteresis is consistent across backends.
             const a = new SceneQualityTierManager();
             const b = new SceneQualityTierManager();
-            for (const n of [2_000, 2_600, 2_400]) {
+            for (const n of [16_000, 14_000, 16_400]) {
                 const ra = a.update(n, true);
                 const rb = b.update(n, false);
                 expect(ra.tier).toBe(rb.tier);
