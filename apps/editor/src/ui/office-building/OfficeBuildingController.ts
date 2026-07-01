@@ -46,6 +46,9 @@ export interface OfficeBuildingRequest {
     readonly facadeColor?: string;
     /** §OFFICE-FACADE-GLASS-COLOUR — glass tint for curtain-wall glazing + glazed offices (hex). */
     readonly glassColor?: string;
+    /** §OFFICE-INNER-WALL-COLOUR — interior partition-wall finish colour (hex `#rrggbb`). Default
+     *  keeps the current partition look (absent ⇒ undefined). */
+    readonly innerWallColor?: string;
 }
 
 export interface OfficeBuildingRequestResult {
@@ -81,7 +84,7 @@ export function deriveRadiusFromShell(levelId: string): number | null {
 export class OfficeBuildingController {
     private readonly modal = new OfficeBuildingModal();
     private readonly executor = new OfficeBuildingExecutor();
-    private _pending: { runtime: PryzmRuntime; result: OfficeBuildingOk; facadeColor?: string; glassColor?: string } | null = null;
+    private _pending: { runtime: PryzmRuntime; result: OfficeBuildingOk; facadeColor?: string; glassColor?: string; innerWallColor?: string } | null = null;
 
     async request(runtime: PryzmRuntime, req: OfficeBuildingRequest): Promise<OfficeBuildingRequestResult> {
         return _tracer.startActiveSpan('pryzm.editor.officeBuilding.request', async (span) => {
@@ -135,7 +138,7 @@ export class OfficeBuildingController {
 
         // §OFFICE-FACADE-GLASS-COLOUR — stash the façade + glass colours so the Build handler can
         // pass them to the executor's paint pass.
-        this._pending = { runtime, result, facadeColor: req.facadeColor, glassColor: req.glassColor };
+        this._pending = { runtime, result, facadeColor: req.facadeColor, glassColor: req.glassColor, innerWallColor: req.innerWallColor };
         this.modal.show(result, {
             onBuild: () => this._build(),
             onCancel: () => { console.log('[office-building] controller: modal cancelled (no scene mutation)'); this._pending = null; },
@@ -148,7 +151,7 @@ export class OfficeBuildingController {
         if (!p) return;
         console.log('[office-building] controller: Build pressed → executor');
         p.runtime.events?.emit('pryzm:toast', { message: 'Building office tower…', severity: 'info' });
-        void this.executor.execute(p.runtime, p.result, { facadeColor: p.facadeColor, glassColor: p.glassColor });
+        void this.executor.execute(p.runtime, p.result, { facadeColor: p.facadeColor, glassColor: p.glassColor, innerWallColor: p.innerWallColor });
         this._pending = null;
     }
 
@@ -198,6 +201,7 @@ export class OfficeBuildingController {
                     withInterior: opts?.withInterior === true,
                     facadeColor: req.facadeColor,
                     glassColor: req.glassColor,
+                    innerWallColor: req.innerWallColor,
                 });
                 span.setAttribute('pryzm.office.buildDirect.ok', true);
                 span.setAttribute('pryzm.office.buildDirect.withInterior', opts?.withInterior === true);

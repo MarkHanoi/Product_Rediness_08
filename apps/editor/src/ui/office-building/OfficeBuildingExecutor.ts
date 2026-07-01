@@ -41,8 +41,17 @@ import {
     CreateStairCommand,
     CreateVerticalCirculationCommand,
     CreateCurtainWallCommand,
+    BatchCreateRoomsCommand,
+    CreateFloorCommand,
 } from '@pryzm/command-registry';
 import { clampOpeningToWall } from '@pryzm/ai-host';
+// §OFFICE-CORE-WELLPROPORTIONED — mirror the residential building's PROVEN core + finish pipeline:
+// name the shipped rooms via the graph-authoritative RoomData factory (so they carry real names,
+// not "Room 00-NNN"), register the stairwell void (so the floor finish is CUT over the open stair),
+// and lay a real floor finish. All the SAME commands/mechanisms ResidentialBuildingExecutor uses.
+import { roomDataFromGraphSpec, type RoomData } from '@pryzm/room-topology';
+import { computeStairFootprintRect } from '@pryzm/geometry-stair';
+import { recordStairVoid, getStairVoidsForLevel, resetStairVoids } from '../house-layout/houseStairVoids.js';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import type { OfficeBuildingOk, OfficeZone } from '@pryzm/ai-host';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
@@ -200,7 +209,7 @@ export class OfficeBuildingExecutor {
     async execute(
         runtime: PryzmRuntime,
         result: OfficeBuildingOk,
-        opts?: { withInterior?: boolean; facadeColor?: string; glassColor?: string },
+        opts?: { withInterior?: boolean; facadeColor?: string; glassColor?: string; innerWallColor?: string },
     ): Promise<void> {
         return _tracer.startActiveSpan('pryzm.editor.officeBuilding.execute', async (span) => {
             try {
@@ -224,7 +233,7 @@ export class OfficeBuildingExecutor {
     private async _execute(
         runtime: PryzmRuntime,
         result: OfficeBuildingOk,
-        opts?: { withInterior?: boolean; facadeColor?: string; glassColor?: string },
+        opts?: { withInterior?: boolean; facadeColor?: string; glassColor?: string; innerWallColor?: string },
     ): Promise<{ storeyCount: number; slabCount: number; wallCount: number; stairCount: number; liftCount: number }> {
         const toast = (message: string, severity: 'info' | 'success' | 'error' | 'warn'): void => {
             runtime.events?.emit('pryzm:toast', { message, severity });
@@ -236,6 +245,11 @@ export class OfficeBuildingExecutor {
         const hex = /^#[0-9a-fA-F]{6}$/;
         const facadeColor = (typeof opts?.facadeColor === 'string' && hex.test(opts.facadeColor)) ? opts.facadeColor : undefined;
         const glassColor = (typeof opts?.glassColor === 'string' && hex.test(opts.glassColor)) ? opts.glassColor : undefined;
+        // §OFFICE-INNER-WALL-COLOUR (founder 2026-07-01: "add an INNER-WALL colour — interior
+        // partitions can differ from the façade"). Painted on the INTERNAL partition walls + the
+        // core/toilet partition walls (the RC shell + roof keep the façade colour, glazing the glass
+        // colour). Absent ⇒ undefined ⇒ the partitions keep the current default look.
+        const innerWallColor = (typeof opts?.innerWallColor === 'string' && hex.test(opts.innerWallColor)) ? opts.innerWallColor : undefined;
         const cm = getCommandManager();
         if (!cm?.execute) {
             console.warn('[office-building] commandManager unavailable — nothing built.');
@@ -247,6 +261,10 @@ export class OfficeBuildingExecutor {
             toast('No active level — draw a boundary first.', 'error');
             return { storeyCount: 0, slabCount: 0, wallCount: 0, stairCount: 0, liftCount: 0 };
         }
+        // §OFFICE-CORE-WELLPROPORTIONED — clear the stairwell-void registry at the START of each
+        // build so a re-generate never cuts the finish over a stale void (mirrors resetStairVoids()
+        // in ResidentialBuildingExecutor / HouseLayoutExecutor).
+        resetStairVoids();
 
         const plate = result.representativePlate;
         // The circular footprint (outermost ring = the full disc n-gon).
@@ -464,7 +482,8 @@ export class OfficeBuildingExecutor {
         const detailedIndices = [...new Set([0, representativeFloorIndex])].filter((i) => levelIdByIndex.has(i));
         let stairCount = 0, liftCount = 0;
         if (corePlan) {
-            const svc = this._buildCoreServices(cm, corePlan, detailedIndices, levelIdByIndex, floorToFloorM, baseElevationM, facadeColor);
+            // §OFFICE-INNER-WALL-COLOUR — the toilet/service partitions read the INNER-WALL colour.
+            const svc = this._buildCoreServices(cm, corePlan, detailedIndices, levelIdByIndex, floorToFloorM, baseElevationM, innerWallColor);
             stairCount = svc.stairs; liftCount = svc.lifts;
         } else {
             console.log('[office-building] §OFFICE-CORE-SERVICES — core too small for a service plan; kept as shell core.');
@@ -481,7 +500,14 @@ export class OfficeBuildingExecutor {
             openPlanOuterR: this._zoneRadius(plate, 'open-plan'),
             perimMidR: this._zoneMidRadius(plate, 'perimeter-office', 'open-plan'),
         });
-        this._buildFloorArchitecture(cm, floorArch, repLevelId, floorToFloorM, facadeColor, glassColor);
+        // §OFFICE-INNER-WALL-COLOUR — internal office partitions read the inner-wall colour; the
+        // glazed enclosures keep the glass colour.
+        this._buildFloorArchitecture(cm, floorArch, repLevelId, floorToFloorM, innerWallColor, glassColor);
+
+        // §OFFICE-CORE-WELLPROPORTIONED — name the shipped rooms (so they carry real names, not
+        // "Room 00-NNN") + lay the floor finishes (cut over the open stairwell), mirroring the
+        // residential building's graph-authoritative room + CreateFloorCommand finish passes.
+        this._nameAndFinishFloors(cm, corePlan, floorArch, detailedIndices, levelIdByIndex, floorToFloorM, discRadiusM, coreRadiusM, facadeColor);
 
         // §OFFICE-ARCH-FURNISH-SPLIT — stash the furnish context so Command 2 (Furnish Office) can
         // populate THIS architecture without regenerating it (SPEC §1). No furniture is emitted here.
@@ -898,7 +924,8 @@ export class OfficeBuildingExecutor {
         levelIdByIndex: Map<number, string>,
         floorToFloorM: number,
         baseElevationM: number,
-        facadeColor?: string,
+        /** §OFFICE-INNER-WALL-COLOUR — the toilet/service partitions read this inner-wall colour. */
+        innerWallColor?: string,
     ): { stairs: number; lifts: number } {
         let stairs = 0, lifts = 0;
         // Room-bounding lines for the fire lobby + toilet/service rooms, drawn on the FIRST detailed
@@ -932,9 +959,12 @@ export class OfficeBuildingExecutor {
                 } catch (e) { console.warn('[office-building] §OFFICE-CORE-SERVICES lift create failed (skipped):', e); }
             }
 
-            // Collect the fire-lobby + toilet room-bounding lines ONCE (on the first detailed floor).
+            // Collect the fire-lobby + corridor + toilet room-bounding lines ONCE (first detailed floor).
             if (roomLines.length === 0) {
                 this._rectRoomLines(roomLines, core.fireLobby, levelId);
+                // §OFFICE-CORE-WELLPROPORTIONED — the CIRCULATION CORRIDOR (founder: "the toilets
+                // don't have a run") as bounding lines so it reads as a proper corridor.
+                this._rectRoomLines(roomLines, core.corridor, levelId);
                 for (const r of core.toiletRooms) this._rectRoomLines(roomLines, r, levelId);
                 toiletWalls.push(...core.toiletWalls);
             }
@@ -952,8 +982,9 @@ export class OfficeBuildingExecutor {
                     }, { levelIds: [firstLevelId], totalElementCount: roomLines.length, skipRedetectRooms: true, skipPbrUpgrade: true });
                 }
                 // Partition walls go through the bus (wall.batch.create) like the perimeter/core walls.
+                // §OFFICE-INNER-WALL-COLOUR — the toilet/service partitions read the inner-wall colour.
                 if (toiletWalls.length > 0) {
-                    const payload = this._segsToWallPayload(toiletWalls, firstLevelId, floorToFloorM, PARTITION_WALL_THICKNESS_M, facadeColor);
+                    const payload = this._segsToWallPayload(toiletWalls, firstLevelId, floorToFloorM, PARTITION_WALL_THICKNESS_M, innerWallColor);
                     if (payload.walls.length > 0) this._dispatchWallBatchByLevel(firstLevelId, payload, 'toilet-partitions');
                 }
             } catch (e) { console.warn('[office-building] §OFFICE-CORE-SERVICES toilet rooms batch failed (non-fatal):', e); }
@@ -993,6 +1024,11 @@ export class OfficeBuildingExecutor {
             y: startPosition.y + before * riserH,
             z: startPosition.z + dir.z * (before * STAIR_TREAD_M + STAIR_TREAD_M) + perp.z * width,
         };
+        const flights = [
+            { direction: dir, riserCount: before },
+            { direction: reverse, riserCount: after, startOverride: secondStart },
+        ];
+        const landings = [{ depth: 2 * width }];
         try {
             const res = cm.execute?.(new CreateStairCommand({
                 id: createId('stair'),
@@ -1003,11 +1039,8 @@ export class OfficeBuildingExecutor {
                 treadDepth: STAIR_TREAD_M,
                 width,
                 startPosition,
-                flights: [
-                    { direction: dir, riserCount: before },
-                    { direction: reverse, riserCount: after, startOverride: secondStart },
-                ],
-                landings: [{ depth: 2 * width }],
+                flights,
+                landings,
                 secondRunSide: 'left',
                 accessibilityType: 'standard',
                 // The core slab is retained as the shaft mass; skip the auto slab-void punch so a
@@ -1018,6 +1051,13 @@ export class OfficeBuildingExecutor {
                 console.warn(`[office-building] §OFFICE-CORE-SERVICES stair rejected (rise=${rise.toFixed(2)} risers=${risers} riserH=${riserH.toFixed(3)} width=${width.toFixed(2)}).`);
                 return false;
             }
+            // §OFFICE-CORE-WELLPROPORTIONED — register the stairwell void (the SAME oriented-rect
+            // footprint the slab opening uses) so the floor-finish pass CUTS the finish over the open
+            // stair instead of re-covering it. Mirrors ResidentialBuildingExecutor's recordStairVoid.
+            try {
+                const vr = computeStairFootprintRect({ shape: 'U', width, treadDepth: STAIR_TREAD_M, startPosition, flights, landings });
+                if (vr && vr.length >= 3) recordStairVoid(topLevelId, vr);
+            } catch (e) { console.warn('[office-building] §OFFICE-CORE-SERVICES stair void record failed (non-fatal):', e); }
             return true;
         } catch (e) { console.warn('[office-building] §OFFICE-CORE-SERVICES stair create failed (skipped):', e); return false; }
     }
@@ -1033,7 +1073,8 @@ export class OfficeBuildingExecutor {
         arch: ReturnType<typeof planOfficeFloorArchitecture>,
         levelId: string,
         floorToFloorM: number,
-        facadeColor?: string,
+        /** §OFFICE-INNER-WALL-COLOUR — the internal office partitions read this inner-wall colour. */
+        innerWallColor?: string,
         glassColor?: string,
     ): void {
         // Circulation rings + escape spokes + support-room outlines as room-bounding lines.
@@ -1055,7 +1096,8 @@ export class OfficeBuildingExecutor {
         for (const room of arch.supportRooms) this._rectRoomLines(lines, room, levelId);
 
         // Internal partition walls (opaque) + glazed office enclosures (curtain-wall).
-        const partitionPayload = this._segsToWallPayload(arch.partitionWalls, levelId, floorToFloorM, PARTITION_WALL_THICKNESS_M, facadeColor);
+        // §OFFICE-INNER-WALL-COLOUR — internal partitions read the inner-wall colour (absent ⇒ default).
+        const partitionPayload = this._segsToWallPayload(arch.partitionWalls, levelId, floorToFloorM, PARTITION_WALL_THICKNESS_M, innerWallColor);
 
         deferWork(() => {
             try {
@@ -1088,6 +1130,135 @@ export class OfficeBuildingExecutor {
                 console.log(`[office-building] §OFFICE-CIRCULATION-FIRST — ${arch.circulation.length} circulation ring(s), ${arch.supportRooms.length} support room(s), ${partitionPayload.walls.length} partition wall(s), ${arch.glazedEnclosures.length} glazed office(s) on ${levelId}`);
             } catch (e) { console.warn('[office-building] §OFFICE-CIRCULATION-FIRST floor architecture batch failed (non-fatal):', e); }
         }, 400);
+    }
+
+    // ── §OFFICE-CORE-WELLPROPORTIONED — graph-authoritative room NAMING + floor FINISH pass ──────
+
+    /** §OFFICE-CORE-WELLPROPORTIONED — name the shipped rooms + lay floor finishes on the detailed
+     *  floors, mirroring ResidentialBuildingExecutor's PROVEN passes:
+     *   • ROOM NAMES: build a graph-authoritative `RoomData` (via `roomDataFromGraphSpec`) for every
+     *     core/service + open-plan/support/glazed room — each carrying a real NAME (Stair, Fire
+     *     Escape Stair, Lift Lobby, WC — Male, …, Open-Plan Office) — and dispatch them via
+     *     `BatchCreateRoomsCommand`, then mark the level graph-authoritative so detection never
+     *     overrides the names with the auto "Room 00-NNN" label.
+     *   • FLOOR FINISH: lay a `CreateFloorCommand` finish over each named room's polygon, CUT around
+     *     any recorded stairwell void inside it (via `getStairVoidsForLevel`) so the finish never
+     *     covers the open stair — exactly like `_finishPublicFloors`. Core/WC rooms get a tile tone;
+     *     the office floor gets the office finish tone. Deferred + suppressed. Never throws. */
+    private _nameAndFinishFloors(
+        cm: CommandManagerLike,
+        corePlan: OfficeCorePlan | null,
+        arch: ReturnType<typeof planOfficeFloorArchitecture>,
+        detailedIndices: readonly number[],
+        levelIdByIndex: Map<number, string>,
+        floorToFloorM: number,
+        _discRadiusM: number,
+        _coreRadiusM: number,
+        _facadeColor?: string,
+    ): void {
+        // Distinct finish tones so each area reads as a FINISHED floor (not raw slab) + the schedule
+        // reads the materialName (mirrors ResidentialBuildingExecutor's public-floor palette).
+        const OFFICE_FINISH = { color: '#c9c2b6', pattern: 'seamless' as const, name: 'Carpet Tile (Office)' };
+        const CORE_FINISH = { color: '#b8b4ad', pattern: 'tile-600x600' as const, name: 'Porcelain Tile 600×600 (Core / WC)' };
+
+        // The named rooms: the core/service rooms + the floor's open-plan/support/glazed rooms.
+        const named = [...(corePlan?.namedRooms ?? []), ...arch.namedRooms];
+        if (named.length === 0) return;
+
+        // Shoelace helpers (mirror _finishPublicFloors' void-cut math).
+        const signedArea = (poly: ReadonlyArray<{ x: number; z: number }>): number => {
+            let s = 0;
+            for (let i = 0; i < poly.length; i++) { const a = poly[i]!, b = poly[(i + 1) % poly.length]!; s += a.x * b.z - b.x * a.z; }
+            return s * 0.5;
+        };
+        const polyCentroid = (poly: ReadonlyArray<{ x: number; z: number }>): { x: number; z: number } => {
+            let sx = 0, sz = 0; for (const p of poly) { sx += p.x; sz += p.z; } const n = poly.length || 1; return { x: sx / n, z: sz / n };
+        };
+        const pointInPoly = (pt: { x: number; z: number }, poly: ReadonlyArray<{ x: number; z: number }>): boolean => {
+            let inside = false;
+            for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+                const a = poly[i]!, b = poly[j]!;
+                if (((a.z > pt.z) !== (b.z > pt.z)) && pt.x < ((b.x - a.x) * (pt.z - a.z)) / (b.z - a.z) + a.x) inside = !inside;
+            }
+            return inside;
+        };
+        // §OFFICE-STAIR-VOID-IN-FINISH — CW-wound holes for every recorded stairwell void inside a
+        // finish ring, so the finish is CUT around the open stair (canonical hole winding vs CCW ring).
+        const voidHolesFor = (levelId: string, ring: ReadonlyArray<{ x: number; z: number }>): Array<Record<string, unknown>> => {
+            const holes: Array<Record<string, unknown>> = [];
+            for (const v of getStairVoidsForLevel(levelId)) {
+                if (v.polygon.length < 3) continue;
+                if (!pointInPoly(polyCentroid(v.polygon), ring)) continue;
+                const cw = signedArea(v.polygon) > 0 ? [...v.polygon].reverse() : [...v.polygon];
+                holes.push({
+                    id: createId('opening'), elementId: createId('opening'),
+                    subType: 'floor-hatch', shape: 'polygon',
+                    polygon: cw.map((p) => ({ x: p.x, z: p.z })), label: 'Stairwell void',
+                });
+            }
+            return holes;
+        };
+
+        const roomHeightM = Math.max(2.4, floorToFloorM - 0.3);
+        // Name + finish rooms on the FIRST detailed floor (the plan floor); the core shaft repeats
+        // on every storey but one named plan floor is enough (mirrors the resi one-plan-floor rule).
+        const firstDetailed = detailedIndices.find((i) => levelIdByIndex.has(i));
+        const levelId = firstDetailed != null ? levelIdByIndex.get(firstDetailed) : undefined;
+        if (!levelId) return;
+
+        deferWork(() => {
+            try {
+                // ── ROOM NAMES: graph-authoritative RoomData per named room (real names, not "Room NN").
+                const rooms: RoomData[] = [];
+                let rn = 0;
+                for (const nr of named) {
+                    if (nr.corners.length < 3) continue;
+                    const rd = roomDataFromGraphSpec(
+                        { levelId, name: nr.name, polygon: nr.corners.map((c) => ({ x: c.x, z: c.z })), occupancyType: nr.occupancyType },
+                        { levelHeightM: roomHeightM, roomNumber: String(++rn).padStart(2, '0') },
+                    );
+                    if (rd) rooms.push(rd);
+                }
+                if (rooms.length > 0) {
+                    batchCoordinator.runBatch(() => {
+                        try {
+                            cm.execute?.(new BatchCreateRoomsCommand(rooms), { source: 'OFFICE_PIPELINE_ROOMS' });
+                            (window as unknown as { roomTopologyObserver?: { markGraphAuthoritative(l: string): void } })
+                                .roomTopologyObserver?.markGraphAuthoritative(levelId);
+                        } catch (e) { console.warn('[office-building] §OFFICE-CORE-WELLPROPORTIONED room-name batch failed (non-fatal):', e); }
+                    }, { levelIds: [levelId], totalElementCount: rooms.length, skipRedetectRooms: true, skipPbrUpgrade: true });
+                }
+
+                // ── FLOOR FINISHES: one thin finish per named room, CUT over any stairwell void inside it.
+                let laid = 0;
+                batchCoordinator.runBatch(() => {
+                    for (const nr of named) {
+                        if (nr.corners.length < 3) continue;
+                        const ring = nr.corners.map((c) => ({ x: c.x, z: c.z }));
+                        // Skip the service shaft (a vertical duct, not a walkable finished floor).
+                        if (/shaft/i.test(nr.name)) continue;
+                        let area2 = 0;
+                        for (let i = 0; i < ring.length; i++) { const a = ring[i]!, b = ring[(i + 1) % ring.length]!; area2 += a.x * b.z - b.x * a.z; }
+                        if (Math.abs(area2) / 2 < 0.25) continue;   // < 0.25 m² ⇒ not a real floor
+                        const finish = nr.finishGroup === 'core' ? CORE_FINISH : OFFICE_FINISH;
+                        const holes = voidHolesFor(levelId, ring);
+                        try {
+                            cm.execute?.(new CreateFloorCommand({
+                                floorId: createId('floor'),
+                                ifcGuid: createId('floor'),
+                                polygon: ring.map((p) => ({ x: p.x, z: p.z })),
+                                levelId,
+                                label: nr.name,
+                                finishSpec: { finishColor: finish.color, finishPattern: finish.pattern, materialName: finish.name, exposedScreed: false },
+                                ...(holes.length > 0 ? { serviceHoles: holes as never } : {}),
+                            }), { source: 'OFFICE_PIPELINE_FLOOR_FINISH' });
+                            laid++;
+                        } catch (e) { console.warn('[office-building] §OFFICE-CORE-WELLPROPORTIONED floor finish failed on', nr.name, '(non-fatal):', e); }
+                    }
+                }, { levelIds: [levelId], totalElementCount: named.length, skipRedetectRooms: true, skipPbrUpgrade: true });
+                console.log(`[office-building] §OFFICE-CORE-WELLPROPORTIONED — named ${rooms.length} room(s) + laid ${laid} floor finish(es) on ${levelId} (voids cut over open stairs)`);
+            } catch (e) { console.warn('[office-building] §OFFICE-CORE-WELLPROPORTIONED name+finish batch failed (non-fatal):', e); }
+        }, 800);
     }
 
     /** Push the four edges of an axis-aligned rectangle room as room-bounding lines. */

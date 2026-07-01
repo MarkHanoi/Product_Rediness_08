@@ -62,7 +62,7 @@ describe('§OFFICE-CORE-SERVICES — planOfficeCore never emits an empty core', 
         // The fire escape runs OPPOSITE the main stair (a remote second egress).
         expect(Math.sign(plan.mainStair.runDir.z)).toBe(-Math.sign(plan.fireStair.runDir.z));
         expect(plan.lifts.length).toBeGreaterThanOrEqual(1);
-        // Fire-rated lobby is a real rectangle.
+        // Fire-rated / lift lobby is a real rectangle.
         expect(plan.fireLobby.x1).toBeGreaterThan(plan.fireLobby.x0);
         expect(plan.fireLobby.z1).toBeGreaterThan(plan.fireLobby.z0);
         // Toilets: male · female · accessible WC · cleaning closet · service shaft (5 rooms).
@@ -74,6 +74,53 @@ describe('§OFFICE-CORE-SERVICES — planOfficeCore never emits an empty core', 
         expect(labels.some((l) => l.includes('shaft'))).toBe(true);
         // Enclosing partition walls exist for the toilet block.
         expect(plan.toiletWalls.length).toBeGreaterThan(0);
+    });
+
+    // §OFFICE-CORE-WELLPROPORTIONED — the core is a well-proportioned SERVICE BAR with a CORRIDOR
+    // + REAL-SIZED WCs + NAMED rooms (founder: giant empty room with 4 tiny 3.8 m² boxes, no run).
+    it('the core has a real CIRCULATION CORRIDOR connecting the services (founder: "no run to the toilets")', () => {
+        const plan = planOfficeCore(6, 1520, 1140);
+        expect(plan).not.toBeNull();
+        if (!plan) return;
+        // A real corridor rectangle (≥ ~1.5 m clear, spanning the core width).
+        const cw = Math.abs(plan.corridor.z1 - plan.corridor.z0);
+        const cLen = Math.abs(plan.corridor.x1 - plan.corridor.x0);
+        expect(cw).toBeGreaterThanOrEqual(1.5);
+        expect(cLen).toBeGreaterThan(cw);   // it runs across the core, linking left ↔ right
+    });
+
+    it('the WCs are REAL rooms (~≥4 m² each), NOT 3.8 m² token boxes', () => {
+        // The 22 m demo plate ⇒ coreR ~11 m (coreFraction ~0.25). WCs on that plate are real rooms.
+        const plan = planOfficeCore(11, 1520, 1140);
+        expect(plan).not.toBeNull();
+        if (!plan) return;
+        const area = (r: { x0: number; z0: number; x1: number; z1: number }): number =>
+            Math.abs(r.x1 - r.x0) * Math.abs(r.z1 - r.z0);
+        const male = plan.toiletRooms.find((r) => /male/i.test(r.label) && !/female/i.test(r.label))!;
+        const female = plan.toiletRooms.find((r) => /female/i.test(r.label))!;
+        const access = plan.toiletRooms.find((r) => /accessible/i.test(r.label))!;
+        expect(area(male)).toBeGreaterThanOrEqual(4);
+        expect(area(female)).toBeGreaterThanOrEqual(4);
+        // Accessible WC is a real BOUNDED room (~≥3.5 m², not ballooned across the whole zone).
+        expect(area(access)).toBeGreaterThanOrEqual(3.5);
+        expect(area(access)).toBeLessThanOrEqual(8);
+    });
+
+    it('every core/service room is NAMED (Stair · Fire Escape Stair · Lift Lobby · WC — … · Corridor) — never "Room 00-NNN"', () => {
+        const plan = planOfficeCore(6, 1520, 1140);
+        expect(plan).not.toBeNull();
+        if (!plan) return;
+        const names = plan.namedRooms.map((r) => r.name.toLowerCase());
+        expect(names).toContain('stair');
+        expect(names).toContain('fire escape stair');
+        expect(names).toContain('lift lobby');
+        expect(names).toContain('corridor');
+        expect(names.some((n) => n.includes('wc — male') || (n.includes('male') && !n.includes('female')))).toBe(true);
+        expect(names.some((n) => n.includes('accessible'))).toBe(true);
+        // No auto "room NN" fallback names ever appear in the plan.
+        expect(names.some((n) => /^room\s*\d/.test(n))).toBe(false);
+        // Every named room carries a valid ≥3-vertex polygon (materialises as a graph room).
+        for (const r of plan.namedRooms) expect(r.corners.length).toBeGreaterThanOrEqual(3);
     });
 
     it('a large floor gets a 2-car lift bank; a small floor gets 1 car', () => {
@@ -144,5 +191,18 @@ describe('§OFFICE-CIRCULATION-FIRST — planOfficeFloorArchitecture solves circ
     it('partition walls exist for every support room (4 edges each)', () => {
         const arch = planOfficeFloorArchitecture(input);
         expect(arch.partitionWalls.length).toBe(arch.supportRooms.length * 4);
+    });
+
+    // §OFFICE-CORE-WELLPROPORTIONED — the floor ships NAMED rooms so the open-plan area reads as a
+    // named "Open-Plan Office", not one giant "Room 00-001" (the founder's screenshot defect).
+    it('the floor carries NAMED rooms incl. an "Open-Plan Office" (not one giant "Room 00-001")', () => {
+        const arch = planOfficeFloorArchitecture(input);
+        expect(arch.namedRooms.length).toBeGreaterThan(0);
+        const names = arch.namedRooms.map((r) => r.name.toLowerCase());
+        expect(names.some((n) => n.includes('open-plan office'))).toBe(true);
+        expect(names.some((n) => n.includes('meeting'))).toBe(true);
+        // No auto "room NN" fallback names in the plan.
+        expect(names.some((n) => /^room\s*\d/.test(n))).toBe(false);
+        for (const r of arch.namedRooms) expect(r.corners.length).toBeGreaterThanOrEqual(3);
     });
 });

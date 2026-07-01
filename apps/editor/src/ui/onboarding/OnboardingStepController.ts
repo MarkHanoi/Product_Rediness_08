@@ -1487,6 +1487,10 @@ class OnboardingStepController {
         // "absent" reproduces the current look (façade warm-white, glass a light neutral blue).
         let facadeColor: string = DEFAULT_FACADE_HEX;
         let glassColor = '#9bc8e4';   // curtain-wall builder default light blue
+        // §OFFICE-INNER-WALL-COLOUR (founder 2026-07-01) — a THIRD picker: the INNER-WALL colour, so
+        // interior partition walls (office partitions + core/toilet partitions) can differ from the
+        // façade. Default = warm white (same as the façade default) so "absent" reproduces the look.
+        let innerWallColor: string = DEFAULT_FACADE_HEX;
         const swatchPicker = (
             labelText: string,
             palette: ReadonlyArray<{ hex: string; name: string }>,
@@ -1533,6 +1537,9 @@ class OnboardingStepController {
             { hex: '#7fa8b8', name: 'Deep teal' },
         ];
         swatchPicker('Glass colour', GLASS_PALETTE, glassColor, (hex) => { glassColor = hex; }, 'onboarding-office-glass-colour');
+        // §OFFICE-INNER-WALL-COLOUR — inner-wall colour picker (interior partitions), the SHARED
+        // building palette (same swatches the façade offers) so a partition can differ from the shell.
+        swatchPicker('Inner-wall colour', FACADE_PALETTE, innerWallColor, (hex) => { innerWallColor = hex; }, 'onboarding-office-innerwall-colour');
 
         // Plate-shape note (circular) — informational chip.
         const shapeNote = document.createElement('p');
@@ -1647,6 +1654,8 @@ class OnboardingStepController {
                 // §OFFICE-FACADE-GLASS-COLOUR — façade + glass colours from the swatch pickers.
                 officeFacadeColor: facadeColor,
                 officeGlassColor: glassColor,
+                // §OFFICE-INNER-WALL-COLOUR — the inner-wall (interior partition) colour.
+                officeInnerWallColor: innerWallColor,
             };
             console.log('[onboarding-step] §OFFICE-PREVIEW-STEP build confirmed', { stories, radiusM, culture, withInterior });
             this.overlay?.classList.remove('os-onboarding-overlay--confirm');
@@ -1913,6 +1922,8 @@ class OnboardingStepController {
         const hexRe = /^#[0-9a-fA-F]{6}$/;
         const facadeColor = typeof md['officeFacadeColor'] === 'string' && hexRe.test(md['officeFacadeColor'] as string) ? (md['officeFacadeColor'] as string) : undefined;
         const glassColor = typeof md['officeGlassColor'] === 'string' && hexRe.test(md['officeGlassColor'] as string) ? (md['officeGlassColor'] as string) : undefined;
+        // §OFFICE-INNER-WALL-COLOUR — the inner-wall (interior partition) colour from the preview.
+        const innerWallColor = typeof md['officeInnerWallColor'] === 'string' && hexRe.test(md['officeInnerWallColor'] as string) ? (md['officeInnerWallColor'] as string) : undefined;
         console.log('[onboarding-step] §OFFICE-ONBOARDING-WIRE → OFFICE generator', {
             stories,
             footprintPts: footprint?.length ?? 0,
@@ -1930,6 +1941,7 @@ class OnboardingStepController {
                 ...(culture ? { culture } : {}),
                 ...(facadeColor ? { facadeColor } : {}),
                 ...(glassColor ? { glassColor } : {}),
+                ...(innerWallColor ? { innerWallColor } : {}),
             };
             if (previewRadius != null) {
                 // The onboarding step already previewed → build directly (no second modal).
