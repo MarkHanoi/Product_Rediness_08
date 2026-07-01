@@ -43,6 +43,8 @@ import { helmetMiddleware, applyEmbedHeaders } from './server/securityHeaders.js
 import { CSP_REPORT_PATH, cspReportBodyParser, cspReportHandler } from './server/cspReport.js';
 // IP-A3 A.5.e: lead-capture sink for the RAC onboarding handoff
 import { LEADS_PATH, leadsBodyParser, leadsHandler } from './server/leads.js';
+// §OVERPASS-PROXY: same-origin Overpass proxy + shared cache for Forma 3D-site context
+import { OVERPASS_PATH, overpassBodyParser, overpassHandler } from './server/overpassProxy.js';
 // M-SUPABASE-KEY: prefers SUPABASE_SERVICE_ROLE_KEY over SUPABASE_ANON_KEY
 import { getSupabaseClient } from './server/supabaseClient.js';
 import { verifyPluginSignatureNode, lookupPublisherKey, fetchRevocationList } from './server/pluginSigningService.js';
@@ -341,6 +343,18 @@ app.post(CSP_REPORT_PATH, cspReportBodyParser, cspReportHandler);
 // brief here so the lead survives even if the visitor abandons sign-up.
 // Rate-capped + size-capped; always 200 so capture never blocks onboarding.
 app.post(LEADS_PATH, leadsBodyParser, leadsHandler);
+
+// §OVERPASS-PROXY — same-origin Overpass proxy + SHARED server-side cache for the
+// Forma 3D-site CONTEXT (surrounding buildings / roads / parks / water). Public +
+// unauthenticated: context OSM data is not user-specific, and the browser used to
+// hit the public mirrors directly (which 429/timeout per-IP). Now every client
+// POSTs its Overpass-QL here; the server forwards ONCE to the mirrors and caches
+// (24 h TTL, bounded size) so the same city is fetched once and served instantly
+// to all clients + demo reloads — bypassing per-browser rate limits. apiLimiter
+// (60 req/min/IP) + globalLimiter guard abuse. Same-origin → connect-src 'self'
+// already covers it (no CSP change). Never crashes: all-mirrors-failed → 200
+// { elements: [] } so the client's non-fatal "no context" path still works.
+app.post(OVERPASS_PATH, apiLimiter, overpassBodyParser, overpassHandler);
 
 // ── Phase E-1: Public Read-Only REST API ──────────────────────────────────────
 // Endpoints: GET /api/v1/projects/:id/{model,rooms,graph,compliance,programme,hierarchy,schedules/:type}

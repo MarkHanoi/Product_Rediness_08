@@ -10,6 +10,7 @@
 import {
     OVERPASS_ENDPOINTS, OVERPASS_TIMEOUT_MS,
     contextBboxAround, CONTEXT_BBOX_HALF_DEG,
+    fetchOverpassViaProxy,
     type Bbox,
 } from './contextBuildings';
 
@@ -55,6 +56,26 @@ export function emptyWaterCollection(): ContextWaterCollection {
     return { type: 'ContextWaterCollection', areas: [], ways: [] };
 }
 
+/** Parse Overpass `out geom` elements into water areas + waterways. Shared by
+ *  the §OVERPASS-PROXY path and the direct-mirror fallback below. */
+function waterFromElements(elements: OverpassWay[]): ContextWaterCollection {
+    const areas: ContextWaterArea[] = [];
+    const ways: ContextWaterway[] = [];
+    for (const el of elements) {
+        if (el.type !== 'way' || !el.geometry || el.geometry.length < 2) continue;
+        const isArea = el.tags?.['natural'] === 'water'
+            || el.tags?.['landuse'] === 'reservoir'
+            || el.tags?.['waterway'] === 'riverbank'
+            || isClosed(el.geometry);
+        if (isArea && el.geometry.length >= 4) {
+            areas.push({ ring: el.geometry.map((p) => [p.lon, p.lat] as const), osmId: el.id });
+        } else {
+            ways.push({ coords: el.geometry.map((p) => [p.lon, p.lat] as const), osmId: el.id });
+        }
+    }
+    return { type: 'ContextWaterCollection', areas, ways };
+}
+
 /** Is this way a closed ring (first point ≈ last point)? Lakes are closed; a
  *  river centre-line is open. `natural=water`/`reservoir` are areas regardless. */
 function isClosed(geom: Array<{ lat: number; lon: number }>): boolean {
@@ -74,7 +95,20 @@ export async function fetchContextWater(
     const hit = cache.get(key);
     if (hit) return hit;
 
-    const body = 'data=' + encodeURIComponent(overpassWaterQuery(bbox));
+    const query = overpassWaterQuery(bbox);
+
+    // §OVERPASS-PROXY — same-origin proxy FIRST (shared server cache dodges the
+    // per-browser 429). `null` = proxy unreachable → direct-mirror fallback below.
+    const viaProxy = await fetchOverpassViaProxy<OverpassWay>(query, signal);
+    if (signal?.aborted) return emptyWaterCollection();
+    if (viaProxy) {
+        const collection = waterFromElements(viaProxy.elements ?? []);
+        cache.set(key, collection);
+        console.log(`[gis] context water: ${collection.areas.length} area(s) + ${collection.ways.length} waterway(s) for bbox ${key} via /api/overpass proxy.`);
+        return collection;
+    }
+
+    const body = 'data=' + encodeURIComponent(query);
     for (const endpoint of OVERPASS_ENDPOINTS) {
         // §GIS-ABORT-REASON — explicit reasons; non-fatal graceful-degrade (water
         // context is skipped, the scene still renders).
@@ -96,23 +130,9 @@ export async function fetchContextWater(
                 continue;
             }
             const json = (await res.json()) as { elements?: OverpassWay[] };
-            const areas: ContextWaterArea[] = [];
-            const ways: ContextWaterway[] = [];
-            for (const el of json.elements ?? []) {
-                if (el.type !== 'way' || !el.geometry || el.geometry.length < 2) continue;
-                const isArea = el.tags?.['natural'] === 'water'
-                    || el.tags?.['landuse'] === 'reservoir'
-                    || el.tags?.['waterway'] === 'riverbank'
-                    || isClosed(el.geometry);
-                if (isArea && el.geometry.length >= 4) {
-                    areas.push({ ring: el.geometry.map((p) => [p.lon, p.lat] as const), osmId: el.id });
-                } else {
-                    ways.push({ coords: el.geometry.map((p) => [p.lon, p.lat] as const), osmId: el.id });
-                }
-            }
-            const collection = { type: 'ContextWaterCollection' as const, areas, ways };
+            const collection = waterFromElements(json.elements ?? []);
             cache.set(key, collection);
-            console.log(`[gis] context water: ${areas.length} area(s) + ${ways.length} waterway(s) for bbox ${key} via ${new URL(endpoint).host}.`);
+            console.log(`[gis] context water: ${collection.areas.length} area(s) + ${collection.ways.length} waterway(s) for bbox ${key} via ${new URL(endpoint).host}.`);
             return collection;
         } catch (e) {
             if (signal?.aborted) return emptyWaterCollection();

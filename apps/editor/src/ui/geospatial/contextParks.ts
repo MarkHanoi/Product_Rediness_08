@@ -11,6 +11,7 @@
 import {
     OVERPASS_ENDPOINTS, OVERPASS_TIMEOUT_MS,
     contextBboxAround, CONTEXT_BBOX_HALF_DEG,
+    fetchOverpassViaProxy,
     type Bbox,
 } from './contextBuildings';
 
@@ -52,6 +53,23 @@ export function emptyParkCollection(): ContextParkCollection {
     return { type: 'ContextParkCollection', areas: [] };
 }
 
+/** Parse Overpass `out geom` elements (ways + multipolygon relations) into green
+ *  areas. Shared by the §OVERPASS-PROXY path and the direct-mirror fallback. */
+function parksFromElements(elements: OverpassEl[]): ContextParkCollection {
+    const areas: ContextParkArea[] = [];
+    for (const el of elements) {
+        if (el.type === 'way') {
+            pushRing(areas, el.geometry, el.id);
+        } else if (el.type === 'relation' && el.members) {
+            // Multipolygon park (e.g. Central Park) → draw each outer ring.
+            for (const m of el.members) {
+                if (m.role === 'outer') pushRing(areas, m.geometry, el.id);
+            }
+        }
+    }
+    return { type: 'ContextParkCollection', areas };
+}
+
 /** A ring is usable as a filled area when it has ≥4 points. Overpass `out geom`
  *  returns way geometry inline; multipolygon relations expose their outer rings via
  *  members (role 'outer'). We take outer rings only (inner holes are ignored — a
@@ -76,7 +94,20 @@ export async function fetchContextParks(
     const hit = cache.get(key);
     if (hit) return hit;
 
-    const body = 'data=' + encodeURIComponent(overpassParkQuery(bbox));
+    const query = overpassParkQuery(bbox);
+
+    // §OVERPASS-PROXY — same-origin proxy FIRST (shared server cache dodges the
+    // per-browser 429). `null` = proxy unreachable → direct-mirror fallback below.
+    const viaProxy = await fetchOverpassViaProxy<OverpassEl>(query, signal);
+    if (signal?.aborted) return emptyParkCollection();
+    if (viaProxy) {
+        const collection = parksFromElements(viaProxy.elements ?? []);
+        cache.set(key, collection);
+        console.log(`[gis] context parks: ${collection.areas.length} green area(s) for bbox ${key} via /api/overpass proxy.`);
+        return collection;
+    }
+
+    const body = 'data=' + encodeURIComponent(query);
     for (const endpoint of OVERPASS_ENDPOINTS) {
         // §GIS-ABORT-REASON — explicit reasons; non-fatal graceful-degrade (parks
         // context is skipped, the scene still renders).
@@ -98,20 +129,9 @@ export async function fetchContextParks(
                 continue;
             }
             const json = (await res.json()) as { elements?: OverpassEl[] };
-            const areas: ContextParkArea[] = [];
-            for (const el of json.elements ?? []) {
-                if (el.type === 'way') {
-                    pushRing(areas, el.geometry, el.id);
-                } else if (el.type === 'relation' && el.members) {
-                    // Multipolygon park (e.g. Central Park) → draw each outer ring.
-                    for (const m of el.members) {
-                        if (m.role === 'outer') pushRing(areas, m.geometry, el.id);
-                    }
-                }
-            }
-            const collection = { type: 'ContextParkCollection' as const, areas };
+            const collection = parksFromElements(json.elements ?? []);
             cache.set(key, collection);
-            console.log(`[gis] context parks: ${areas.length} green area(s) for bbox ${key} via ${new URL(endpoint).host}.`);
+            console.log(`[gis] context parks: ${collection.areas.length} green area(s) for bbox ${key} via ${new URL(endpoint).host}.`);
             return collection;
         } catch (e) {
             if (signal?.aborted) return emptyParkCollection();

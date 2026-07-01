@@ -90,6 +90,52 @@ export const OVERPASS_ORIGINS = [
     'https://overpass.private.coffee',
 ] as const;
 
+/**
+ * §OVERPASS-PROXY (2026-07-01) — the SAME-ORIGIN server proxy for Overpass.
+ *
+ * WHY: the public mirrors rate-limit (429) / time out PER CLIENT IP, so heavy
+ * demo testing exhausts them and the Forma 3D-site context "stops rendering"
+ * (recurring founder complaint). Routing every Overpass-QL query through
+ * `/api/overpass` on OUR origin means the SERVER forwards it ONCE to the mirrors
+ * and CACHES the response (24 h TTL, shared across ALL clients + reloads) — so
+ * the same city is fetched from Overpass once and served instantly thereafter,
+ * bypassing per-browser 429s entirely (see server/overpassProxy.js).
+ *
+ * Same-origin → CSP `connect-src 'self'` already covers it (no CSP change). The
+ * direct-mirror path below stays as a FALLBACK for when the proxy itself is
+ * unreachable (e.g. running the client without the BFF), so nothing regresses.
+ */
+export const OVERPASS_PROXY_ENDPOINT = '/api/overpass';
+
+/**
+ * §OVERPASS-PROXY — POST an Overpass-QL `query` to the same-origin server proxy.
+ * Resolves with the parsed Overpass JSON `{ elements }` on success, or `null` on
+ * ANY failure (network / non-2xx / parse / abort / empty) so the caller can fall
+ * back to the direct public mirrors. NEVER throws.
+ *
+ * The proxy answers 200 `{ elements: [] }` even when every upstream mirror fails,
+ * so a `null` here means the PROXY ITSELF was unreachable (no server) — exactly
+ * the case where the direct-mirror fallback should run. An empty-but-present
+ * `elements` array is a legitimate proxy answer and is returned as-is.
+ */
+export async function fetchOverpassViaProxy<T = unknown>(
+    query: string,
+    signal?: AbortSignal,
+): Promise<{ elements?: T[] } | null> {
+    try {
+        const res = await fetch(OVERPASS_PROXY_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'data=' + encodeURIComponent(query),
+            signal,
+        });
+        if (!res.ok) return null;
+        return (await res.json()) as { elements?: T[] };
+    } catch {
+        return null; // proxy unreachable / aborted — fall back to direct mirrors
+    }
+}
+
 /** Assumed storey height (m) when only `building:levels` is known. ~3.2 m is a
  *  typical mixed residential/commercial floor-to-floor (founder 2026-06-28). */
 const METRES_PER_LEVEL = 3.2;
@@ -468,7 +514,27 @@ async function raceMirrors(
     key: string,
     signal?: AbortSignal,
 ): Promise<ContextBuildingCollection> {
-    const body = 'data=' + encodeURIComponent(overpassQuery(bbox));
+    const query = overpassQuery(bbox);
+
+    // §OVERPASS-PROXY — try the SAME-ORIGIN server proxy FIRST. It forwards to the
+    // mirrors once (server IP) and serves a shared 24 h cache, so the founder's
+    // repeated demo reloads hit the cache instantly instead of tripping the public
+    // mirrors' per-browser 429. `null` means the proxy itself is unreachable (no
+    // BFF) → fall through to the direct-mirror race below (nothing regresses).
+    const viaProxy = await fetchOverpassViaProxy<OverpassElement>(query, signal);
+    if (signal?.aborted) return emptyContextCollection();
+    if (viaProxy) {
+        const winner = overpassToCollection(viaProxy.elements ?? []);
+        cache.set(key, winner);
+        if (winner.features.length > 0) lsWrite(key, winner); // persist non-empty
+        console.log(
+            `[gis] context buildings: ${winner.features.length} OSM footprint(s) ` +
+                `for bbox ${key} (via same-origin /api/overpass proxy).`,
+        );
+        return winner;
+    }
+
+    const body = 'data=' + encodeURIComponent(query);
 
     // A single mirror attempt. Resolves with a usable collection, or null on any
     // failure (timeout / HTTP / parse / 429) so the orchestrator can move on.
