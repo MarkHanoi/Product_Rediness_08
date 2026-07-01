@@ -9,6 +9,7 @@ import { describe, it, expect } from 'vitest';
 import {
     benchWorkstation, linearWorkstation, singleWorkstation,
     meetingRoomBlock, kitchenBlock, breakoutBlock, executiveOffice, phoneBooth, collaborativeBlock,
+    receptionBlock, meetingNook, decorCluster,
     moduleDesks,
 } from '../moduleRecipes.js';
 import { planModuleMix } from '../occupancyPlan.js';
@@ -40,6 +41,26 @@ describe('§5 module recipes compose the right cluster', () => {
         expect(phoneBooth(0, 0, 0).items.some((i) => i.furnitureType === 'desk_chair')).toBe(true);
         expect(collaborativeBlock(0, 0, 0).items.some((i) => i.furnitureType.startsWith('sofa'))).toBe(true);
     });
+    it('§OFFICE-FURNISH-DEPTH reception composes counter + logo wall + waiting sofas + coffee table + plants', () => {
+        const m = receptionBlock(0, 20, 0);
+        expect(m.kind).toBe('reception-block');
+        expect(m.items.some((i) => i.furnitureType === 'console_table')).toBe(true);      // counter
+        expect(m.items.some((i) => i.furnitureType === 'wall_art')).toBe(true);            // logo/back wall
+        expect(m.items.filter((i) => i.furnitureType === 'sofa_2seat').length).toBe(2);    // waiting lounge
+        expect(m.items.some((i) => i.furnitureType === 'coffee_table')).toBe(true);
+        expect(m.items.filter((i) => i.furnitureType.startsWith('plant')).length).toBeGreaterThanOrEqual(3);
+    });
+    it('§OFFICE-FURNISH-DEPTH meeting nook + decor cluster compose their pieces', () => {
+        const nook = meetingNook(0, 0, 0);
+        expect(nook.kind).toBe('meeting-nook');
+        expect(nook.items.filter((i) => i.furnitureType === 'lounge_chair').length).toBeGreaterThanOrEqual(3);
+        expect(nook.items.some((i) => i.furnitureType === 'coffee_table')).toBe(true);
+        const decor = decorCluster(0, 0, 0);
+        expect(decor.kind).toBe('decor-cluster');
+        expect(decor.items.some((i) => i.furnitureType === 'bookshelf_glass')).toBe(true); // shelving-divider
+        expect(decor.items.some((i) => i.furnitureType === 'lamp')).toBe(true);
+        expect(decor.items.some((i) => i.furnitureType.startsWith('plant'))).toBe(true);
+    });
 });
 
 describe('§8 planModuleMix scales all amenities with occupancy', () => {
@@ -54,6 +75,15 @@ describe('§8 planModuleMix scales all amenities with occupancy', () => {
         const mix = planModuleMix(2000, { desksTargetOverride: 30 });
         expect(mix.desks).toBe(30);
         expect(mix.meetingRooms).toBeGreaterThan(1);   // 200 occupants → several meeting rooms
+    });
+    it('§OFFICE-FURNISH-DEPTH nooks + decor clusters scale with occupancy; reception is ground-only', () => {
+        const small = planModuleMix(400);
+        const big = planModuleMix(2000);
+        expect(big.meetingNooks).toBeGreaterThanOrEqual(small.meetingNooks);
+        expect(big.decorClusters).toBeGreaterThanOrEqual(small.decorClusters);
+        // Reception is a ground-floor arrival experience only.
+        expect(planModuleMix(2000, { isGroundFloor: false }).receptionBlocks).toBe(0);
+        expect(planModuleMix(2000, { isGroundFloor: true }).receptionBlocks).toBe(1);
     });
 });
 
@@ -113,5 +143,25 @@ describe('§5/§7/§8 planFloorFurnish — occupancy-driven, circulation-clean b
         const a = planFloorFurnish(input);
         const b = planFloorFurnish(input);
         expect(a.items.length).toBe(b.items.length);
+    });
+
+    it('§OFFICE-FURNISH-DEPTH places meeting nooks + decor clusters + amenity modules, clearance-clean', () => {
+        const plan = planFloorFurnish(input);
+        expect(plan.modules.some((m) => m.kind === 'meeting-nook')).toBe(true);
+        expect(plan.modules.some((m) => m.kind === 'decor-cluster')).toBe(true);
+        expect(plan.modules.some((m) => m.kind === 'collaborative-block')).toBe(true);
+        expect(plan.modules.some((m) => m.kind === 'meeting-room-block')).toBe(true);
+        expect(plan.modules.some((m) => m.kind === 'kitchen-block')).toBe(true);
+        expect(plan.validation.ok).toBe(true);          // still clean after the new modules
+    });
+
+    it('§OFFICE-FURNISH-DEPTH the GROUND floor places a reception block at the entrance', () => {
+        const ground = planFloorFurnish({ ...input, floorIndex: 0, isGroundFloor: true, entranceAngle: Math.PI / 4 });
+        expect(ground.mix.receptionBlocks).toBe(1);
+        expect(ground.modules.some((m) => m.kind === 'reception-block')).toBe(true);
+        expect(ground.validation.ok).toBe(true);
+        // A non-ground floor gets NO reception.
+        const upper = planFloorFurnish({ ...input, floorIndex: 2, isGroundFloor: false });
+        expect(upper.modules.some((m) => m.kind === 'reception-block')).toBe(false);
     });
 });

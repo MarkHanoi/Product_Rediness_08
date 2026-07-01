@@ -21,10 +21,16 @@ export interface ModuleMix {
     readonly executiveOffices: number;
     /** Collaborative corners (open-plan). */
     readonly collaborationBlocks: number;
+    /** Informal, un-enclosed meeting nooks in the open plan (SPEC §5 informal meeting). */
+    readonly meetingNooks: number;
     /** Breakout / lounge zones. */
     readonly breakoutBlocks: number;
     /** Kitchen blocks (a floor gets a kitchenette; ground gets a larger one). */
     readonly kitchenBlocks: number;
+    /** Reception blocks — ground floor only (1 at the entrance), else 0. */
+    readonly receptionBlocks: number;
+    /** Biophilic + accessory decor clusters marking open-plan zone edges (SPEC §11). */
+    readonly decorClusters: number;
 }
 
 /**
@@ -50,11 +56,18 @@ export function planModuleMix(
     const phoneBooths = occupancy > 0 ? Math.max(1, Math.round(occupancy / 14)) : 0;
     const executiveOffices = occupancy >= 20 ? Math.max(1, Math.round(occupancy / 25)) : 0;
     const collaborationBlocks = occupancy > 0 ? Math.max(1, Math.round(occupancy / 20)) : 0;
+    // Informal huddle nooks are lighter-touch than a full collaborative block — ~1 per 25 people.
+    const meetingNooks = occupancy > 0 ? Math.max(1, Math.round(occupancy / 25)) : 0;
     const breakoutBlocks = occupancy >= 20 ? Math.max(1, Math.round(occupancy / 40)) : 0;
-    // Every furnished floor gets one kitchenette; the ground gets the same (plus reception elsewhere).
+    // Every furnished floor gets one kitchenette; the ground gets the same (plus reception).
     const kitchenBlocks = occupancy > 0 ? 1 : 0;
+    // Reception is a ground-floor-only arrival experience (one at the entrance).
+    const receptionBlocks = opts?.isGroundFloor && occupancy > 0 ? 1 : 0;
+    // Decor clusters mark open-plan zone boundaries; scale gently with the plate (~1 per 30 people).
+    const decorClusters = occupancy > 0 ? Math.max(2, Math.round(occupancy / 30)) : 0;
     return {
         occupancy, desks, meetingRooms, phoneBooths, executiveOffices,
-        collaborationBlocks, breakoutBlocks, kitchenBlocks,
+        collaborationBlocks, meetingNooks, breakoutBlocks, kitchenBlocks,
+        receptionBlocks, decorClusters,
     };
 }

@@ -19,7 +19,11 @@ export type OfficeModuleKind =
     | 'executive-office'     // large desk · visitor chairs · meeting table (glazed §6)
     | 'phone-booth'          // small acoustic room · desk · chair (glazed §6)
     | 'kitchen-block'        // cabinetry · island · appliances · high table
-    | 'breakout-block';      // sofas · lounge chairs · plants
+    | 'breakout-block'       // sofas · lounge chairs · plants
+    // ── §OFFICE-FURNISH-DEPTH (ADR-0096 enrichment) — completeness modules. ──
+    | 'reception-block'      // reception desk · logo/back wall · waiting sofas · coffee table · plants (ground)
+    | 'meeting-nook'         // informal huddle: low table · lounge chairs · plant (open-plan, un-enclosed)
+    | 'decor-cluster';       // biophilic + accessory decor (planters · shelving-divider · lamp · art)
 
 /**
  * SPEC §8 — estimate occupancy from USABLE floor area. ~1 workstation occupant per 10 m² NIA is a

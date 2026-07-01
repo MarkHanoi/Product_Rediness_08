@@ -22,6 +22,7 @@ import {
     benchWorkstation, linearWorkstation, singleWorkstation,
     collaborativeBlock, breakoutBlock, meetingRoomBlock,
     executiveOffice, phoneBooth, kitchenBlock, moduleDesks,
+    receptionBlock, meetingNook, decorCluster,
 } from './moduleRecipes.js';
 import { planModuleMix, type ModuleMix } from './occupancyPlan.js';
 import {
@@ -61,8 +62,10 @@ export interface FurnishFloorInput {
     readonly rooms: readonly FurnishRoom[];
     /** Desk budget cap (perf) — bench/linear rows fill up to this. */
     readonly deskBudget: number;
-    /** True for the ground floor (reception/cafe handled separately; kitchen still placed). */
+    /** True for the ground floor (reception placed at the entrance; kitchen still placed). */
     readonly isGroundFloor?: boolean;
+    /** Entrance heading (radians) — the reception block faces this direction (ground floor only). */
+    readonly entranceAngle?: number;
 }
 
 /** The planned furniture for one floor. */
@@ -127,7 +130,7 @@ export function planFloorFurnish(input: FurnishFloorInput): FurnishFloorPlan {
     const keepouts = buildKeepouts(input);
     const mix = planModuleMix(input.usableAreaM2, {
         desksTargetOverride: input.deskBudget,
-        isGroundFloor: input.isGroundFloor,
+        ...(input.isGroundFloor !== undefined ? { isGroundFloor: input.isGroundFloor } : {}),
     });
     const modules: PlacedModule[] = [];
     let desksPlaced = 0;
@@ -181,9 +184,35 @@ export function planFloorFurnish(input: FurnishFloorInput): FurnishFloorPlan {
             if (moduleClears(m, keepouts)) modules.push(m);
         }
     };
-    const innerEdgeR = Math.min(bandInner + 2.5, bandOuter - 1.0);
-    placeRingModules(mix.collaborationBlocks, innerEdgeR, Math.PI / 5, collaborativeBlock);
-    placeRingModules(mix.breakoutBlocks, Math.min(bandOuter - 2.0, input.discR - 3.0), Math.PI / 3, breakoutBlock);
+    // Collaboration + breakout + nook amenity rings live in the MIDDLE of the open-plan band so their
+    // (conservatively-bounded) footprints clear both the inner primary-corridor annulus and the
+    // perimeter secondary corridor. `bandMid` is the clear centre of the band.
+    const bandMid = (bandInner + bandOuter) / 2;
+    placeRingModules(mix.collaborationBlocks, bandMid, Math.PI / 5, collaborativeBlock);
+    placeRingModules(mix.breakoutBlocks, Math.min(bandMid + 2.0, bandOuter - 3.0), Math.PI / 3, breakoutBlock);
+    // Informal meeting nooks scattered on an offset shelf (angle offset so they don't stack on collab).
+    placeRingModules(mix.meetingNooks, Math.max(bandMid - 2.0, bandInner + 2.0), Math.PI / 7, meetingNook);
+
+    // ── 2b. RECEPTION BLOCK at the entrance (ground floor only). ──
+    // The reception is the arrival experience: placed at the entrance angle, facing inward. Its (deep)
+    // waiting lounge + logo-wall footprint is seated in the middle of the band so it clears BOTH the
+    // primary corridor (inward) and the perimeter secondary corridor (outward). Validated like any module.
+    if ((mix.receptionBlocks ?? 0) > 0) {
+        const entA = input.entranceAngle ?? 0;
+        const recR = Math.min(Math.max(bandMid, bandInner + 3.0), bandOuter - 3.0);
+        const rcx = Math.cos(entA) * recR, rcz = Math.sin(entA) * recR;
+        // Face the reception counter inward (toward the core) so the waiting lounge greets the entrance.
+        const recRotY = Math.atan2(-rcz, -rcx) - Math.PI / 2;
+        const rec = receptionBlock(rcx, rcz, recRotY);
+        if (moduleClears(rec, keepouts)) modules.push(rec);
+    }
+
+    // ── 2c. DECOR CLUSTERS marking open-plan zone boundaries (SPEC §11) — validated modules. ──
+    // Seated a little outboard of the band mid (they are shallow, so they sit closer to the perimeter).
+    placeRingModules(
+        mix.decorClusters, Math.min(bandMid + 3.0, bandOuter - 1.5), Math.PI / 9,
+        (cx, cz, rotY) => decorCluster(cx, cz, rotY, `plant_0${1 + (Math.abs((cx + cz) | 0) % 8)}`),
+    );
 
     // ── 3. AMENITY MODULES into the architecture's SUPPORT ROOMS + GLAZED ENCLOSURES (§6). ──
     // Assign by room kind, honouring the occupancy mix caps. Glazed enclosures host exec/focus rooms.
