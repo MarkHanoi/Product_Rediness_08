@@ -118,6 +118,8 @@ export function collaborativeBlock(cx: number, cz: number, rotY = 0): PlacedModu
         place('wall_art', 'metal', 1.2, cx, cz, rotY, 0.9, 1.4, 0, 1.2, 0.05),    // whiteboard
         place('plant_04', 'fabric', 1.6, cx, cz, rotY, 1.9, 1.3, 0, 0.6, 0.6),
         place('plant_01', 'fabric', 0.5, cx, cz, rotY, 0.6, -0.3, 0, 0.3, 0.3),   // desktop plant
+        // A shelving-divider marks the open edge of the collaboration zone (SPEC §11 room-divider storage).
+        place('bookshelf_glass', 'wood', 1.4, cx, cz, rotY, -2.0, 0, Math.PI / 2, 1.4, 0.4),
     ];
     return toModule('collaborative-block', cx, cz, items);
 }
@@ -140,7 +142,9 @@ export function meetingRoomBlock(cx: number, cz: number, seatsPerSide = 3, rotY 
     }
     items.push(place('tv', 'metal', 1.4, cx, cz, rotY, TABLE_W / 2 + 0.4, 0, Math.PI / 2, 1.4, 0.1));   // presentation TV
     items.push(place('wall_art', 'metal', 1.2, cx, cz, rotY, 0, TABLE_D / 2 + 0.7, 0, 1.6, 0.05));      // whiteboard
-    items.push(place('sideboard', 'wood', 0.75, cx, cz, rotY, -(TABLE_W / 2 + 0.4), 0, Math.PI / 2, 1.4, 0.45)); // storage
+    items.push(place('sideboard', 'wood', 0.75, cx, cz, rotY, -(TABLE_W / 2 + 0.4), 0, Math.PI / 2, 1.4, 0.45)); // credenza storage
+    // Biophilic accent in the corner of the room (SPEC §11 signature planting).
+    items.push(place('plant_03', 'fabric', 1.4, cx, cz, rotY, -(TABLE_W / 2 + 0.3), TABLE_D / 2 + 0.6, 0, 0.5, 0.5));
     return toModule('meeting-room-block', cx, cz, items);
 }
 
@@ -211,6 +215,65 @@ export function breakoutBlock(cx: number, cz: number, rotY = 0): PlacedModule {
         place('plant_07', 'fabric', 1.5, cx, cz, rotY, 1.9, 0.9, 0, 0.6, 0.6),
     ];
     return toModule('breakout-block', cx, cz, items);
+}
+
+/**
+ * §OFFICE-FURNISH-DEPTH RECEPTION BLOCK — the ground-floor arrival experience (SPEC Command 2 list +
+ * §11): a reception counter + a logo/back wall + a flanking pair of waiting sofas around a coffee
+ * table + biophilic planters. The counter sits at the anchor facing local −Z (the entrance approach);
+ * the back wall (logo panel) is behind it on +Z; the waiting lounge is in front on −Z. PURE.
+ */
+export function receptionBlock(cx: number, cz: number, rotY = 0): PlacedModule {
+    const items: PlacedItem[] = [
+        // Reception counter (a wide desk-height counter). `console_table` reads as a slim reception run.
+        place('console_table', 'wood', 1.1, cx, cz, rotY, 0, 0, 0, 3.0, 0.8),
+        // Logo / back wall behind the counter (thin wall-mounted slab — SPEC §11 studio signage).
+        place('wall_art', 'metal', 2.2, cx, cz, rotY, 0, 0.7, 0, 3.4, 0.06),
+        // Waiting lounge in front of the counter (−Z): two sofas facing a coffee table.
+        place('sofa_2seat', 'fabric', 0.8, cx, cz, rotY, -1.5, -2.6, Math.PI / 2, 1.7, 0.85),
+        place('sofa_2seat', 'fabric', 0.8, cx, cz, rotY, 1.5, -2.6, -Math.PI / 2, 1.7, 0.85),
+        place('coffee_table', 'wood', 0.4, cx, cz, rotY, 0, -2.6, 0, 1.1, 0.6),
+        // A pair of tall entrance planters framing the reception (signature biophilic gesture).
+        place('plant_04', 'fabric', 1.8, cx, cz, rotY, -1.9, 0.2, 0, 0.7, 0.7),
+        place('plant_06', 'fabric', 1.8, cx, cz, rotY, 1.9, 0.2, 0, 0.7, 0.7),
+        // A desktop plant on the counter (SPEC §11 desktop planting).
+        place('plant_01', 'fabric', 0.5, cx, cz, rotY, 0.9, 0, 0, 0.3, 0.3),
+    ];
+    return toModule('reception-block', cx, cz, items);
+}
+
+/**
+ * §OFFICE-FURNISH-DEPTH INFORMAL MEETING NOOK — an un-enclosed huddle in the open plan (SPEC Command 2
+ * "informal meeting spaces"): a low round table ringed by lounge chairs + a planter marking the zone.
+ * Smaller than the collaborative block; drops between workstation shelves. PURE.
+ */
+export function meetingNook(cx: number, cz: number, rotY = 0): PlacedModule {
+    const items: PlacedItem[] = [
+        place('coffee_table', 'wood', 0.45, cx, cz, rotY, 0, 0, 0, 0.9, 0.9),
+        place('lounge_chair', 'fabric', 0.8, cx, cz, rotY, -1.0, 0, Math.PI / 2, 0.8, 0.8),
+        place('lounge_chair', 'fabric', 0.8, cx, cz, rotY, 1.0, 0, -Math.PI / 2, 0.8, 0.8),
+        place('lounge_chair', 'fabric', 0.8, cx, cz, rotY, 0, -1.0, 0, 0.8, 0.8),
+        place('plant_05', 'fabric', 1.3, cx, cz, rotY, 1.1, 1.1, 0, 0.5, 0.5),
+    ];
+    return toModule('meeting-nook', cx, cz, items);
+}
+
+/**
+ * §OFFICE-FURNISH-DEPTH DECOR CLUSTER — a biophilic + accessory vignette used to MARK an open-plan
+ * zone boundary (SPEC §11): a tall shelving-divider doubling as low storage, a floor planter, and a
+ * task lamp / accessory. `bookshelf_glass` reads as the open shelving-divider; the pieces line up on
+ * the module's local +X so the cluster can sit against a circulation edge without blocking it. PURE.
+ */
+export function decorCluster(cx: number, cz: number, rotY = 0, plantSku = 'plant_02'): PlacedModule {
+    const items: PlacedItem[] = [
+        // Shelving-divider (open shelves w/ boxes/files/plants) — a low room divider (SPEC §11).
+        place('bookshelf_glass', 'wood', 1.5, cx, cz, rotY, 0, 0, 0, 1.6, 0.4),
+        // Floor planter capping the divider.
+        place(plantSku, 'fabric', 1.5, cx, cz, rotY, 1.1, 0, 0, 0.6, 0.6),
+        // A task lamp / accessory on the low end.
+        place('lamp', 'metal', 1.4, cx, cz, rotY, -1.0, 0, 0, 0.3, 0.3),
+    ];
+    return toModule('decor-cluster', cx, cz, items);
 }
 
 /** Convenience: the desk count a module contributes (workstation modules only). */

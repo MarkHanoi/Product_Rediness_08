@@ -27,7 +27,7 @@ import {
 } from '@pryzm/command-registry';
 import { planFloorFurnish, type FurnishFloorInput, type PlacedItem } from '@pryzm/ai-host';
 import type { FurnitureType, FurnitureMaterial } from '@pryzm/geometry-furniture';
-import { cafeClusters, lobbyPlan, ceilingLightGrid } from './officeInteriorFitout.js';
+import { cafeClusters, ceilingLightGrid } from './officeInteriorFitout.js';
 import type { OfficeFurnishContext } from './officeBuildContext.js';
 
 const MAX_CEILING_LIGHTS = 48;
@@ -64,6 +64,7 @@ function toFloorInput(cfg: OfficeFurnishContext, floorIndex: number, isGroundFlo
         rooms: cfg.rooms,
         deskBudget: cfg.deskCount,
         isGroundFloor,
+        entranceAngle: cfg.entranceAngle,
     };
 }
 
@@ -81,26 +82,30 @@ export function furnishOfficeInterior(cfg: OfficeFurnishContext): OfficeFurnishR
     // ── Plan the modular fit-out (PURE) for the representative office floor + the ground floor. ──
     const repPlan = planFloorFurnish(toFloorInput(cfg, 1, false));
     const groundPlan = planFloorFurnish(toFloorInput(cfg, 0, true));
-    // Ground reception + cafe (kept from Phase 1 — the reception/cafe layer is ground-specific).
+    // Ground cafe / canteen seating (kept from Phase 1 — the ground breakout ring). The reception
+    // arrival experience is now a full modular `reception-block` inside groundPlan (SPEC Command 2 +
+    // §11: counter + logo wall + waiting sofas + coffee table + planters), so the Phase-1 inline
+    // lobbyPlan reception is dropped to avoid a duplicate desk/sofa pair.
     const cafes = cafeClusters(Math.max(cfg.coreRadiusM + 2, cfg.openPlanInnerR + 1), 4, Math.PI / 8);
-    const lobby = lobbyPlan(cfg.discRadiusM, cfg.entranceAngle);
     const lightPts = ceilingLightGrid(cfg.discRadiusM, cfg.coreRadiusM, 3.5, MAX_CEILING_LIGHTS);
 
     const clearanceOk = repPlan.validation.ok && groundPlan.validation.ok;
     console.log(`[office-furnish] ${repPlan.validation.diagnostic} (rep floor)`);
     console.log(`[office-furnish] ${groundPlan.validation.diagnostic} (ground floor)`);
     console.log(
-        `[office-furnish] §OFFICE-FURNISH-MODULAR occupancy≈${repPlan.mix.occupancy}: ` +
-        `desks=${repPlan.desksPlaced} meeting=${repPlan.mix.meetingRooms} booth=${repPlan.mix.phoneBooths} ` +
-        `exec=${repPlan.mix.executiveOffices} collab=${repPlan.mix.collaborationBlocks} ` +
-        `breakout=${repPlan.mix.breakoutBlocks} kitchen=${repPlan.mix.kitchenBlocks} ` +
-        `→ ${repPlan.modules.length} modules on the rep floor, ${groundPlan.modules.length} on the ground.`,
+        `[office-furnish] §DIAG-OFFICE-FURNISH §OFFICE-FURNISH-MODULAR occupancy≈${repPlan.mix.occupancy}: ` +
+        `desks=${repPlan.desksPlaced} meeting=${repPlan.mix.meetingRooms} nook=${repPlan.mix.meetingNooks} ` +
+        `booth=${repPlan.mix.phoneBooths} exec=${repPlan.mix.executiveOffices} ` +
+        `collab=${repPlan.mix.collaborationBlocks} breakout=${repPlan.mix.breakoutBlocks} ` +
+        `kitchen=${repPlan.mix.kitchenBlocks} decor=${repPlan.mix.decorClusters} ` +
+        `→ ${repPlan.modules.length} modules on the rep floor; ground reception=${groundPlan.mix.receptionBlocks} ` +
+        `→ ${groundPlan.modules.length} modules + ${cafes.length} cafe cluster(s).`,
     );
 
     const moduleCount = repPlan.modules.length + groundPlan.modules.length;
     const plannedFurniture =
         repPlan.items.length + groundPlan.items.length +
-        cafes.reduce((s, c) => s + 1 + c.chairs.length, 0) + 1 + lobby.seats.length;
+        cafes.reduce((s, c) => s + 1 + c.chairs.length, 0);
     const plannedLights = lightPts.length;
 
     // A PlacedItem → CreateFurnitureCommand emitter. The engine only names EXISTING FurnitureTypes;
@@ -132,20 +137,18 @@ export function furnishOfficeInterior(cfg: OfficeFurnishContext): OfficeFurnishR
         } catch (e) { console.warn('[office-furnish] rep-floor module batch failed (non-fatal):', e); }
     }, 200);
 
-    // ── Ground floor: the modular items + the reception lobby + cafe clusters. ──
+    // ── Ground floor: the modular items (incl. the reception block) + cafe/canteen seating. ──
     deferWork(() => {
         try {
             batchCoordinator.runBatch(() => {
                 for (const it of groundPlan.items) placeItem(cfg.groundLevelId, it);
-                // Reception + cafe (ground-specific amenity layer).
+                // Cafe / canteen seating (ground-specific breakout ring — round tables + chairs).
                 for (const cc of cafes) {
                     placeItem(cfg.groundLevelId, { furnitureType: 'coffee_table', material: 'wood', height: 0.5, x: cc.table.x, z: cc.table.z, rotY: cc.table.rotY, width: cc.table.width, length: cc.table.length });
                     for (const c of cc.chairs) placeItem(cfg.groundLevelId, { furnitureType: 'chair', material: 'fabric', height: 0.9, x: c.x, z: c.z, rotY: c.rotY, width: c.width, length: c.length });
                 }
-                placeItem(cfg.groundLevelId, { furnitureType: 'table', material: 'wood', height: 1.1, x: lobby.reception.x, z: lobby.reception.z, rotY: lobby.reception.rotY, width: lobby.reception.width, length: lobby.reception.length });
-                for (const s of lobby.seats) placeItem(cfg.groundLevelId, { furnitureType: 'sofa_2seat', material: 'fabric', height: 0.8, x: s.x, z: s.z, rotY: s.rotY, width: s.width, length: s.length });
-            }, { levelIds: [cfg.groundLevelId], totalElementCount: groundPlan.items.length + cafes.length * 5 + 3, skipRedetectRooms: true, skipPbrUpgrade: true });
-            console.log(`[office-furnish] ${groundPlan.items.length} module item(s) + reception + ${cafes.length} cafe cluster(s) on the ground floor`);
+            }, { levelIds: [cfg.groundLevelId], totalElementCount: groundPlan.items.length + cafes.length * 5, skipRedetectRooms: true, skipPbrUpgrade: true });
+            console.log(`[office-furnish] ${groundPlan.items.length} module item(s) (incl. reception) + ${cafes.length} cafe cluster(s) on the ground floor`);
         } catch (e) { console.warn('[office-furnish] ground module batch failed (non-fatal):', e); }
     }, 300);
 
