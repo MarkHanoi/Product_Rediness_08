@@ -670,6 +670,22 @@ export class CesiumViewport {
    *  provider → ellipsoid-height 0 ≠ the visible NYC street surface which is tens of metres up). */
   private photorealTileset: Cesium.Cesium3DTileset | null = null;
 
+  /** §GLOBE-TERRAIN-HEIGHT (founder 2026-07-01) — a STANDALONE Cesium World Terrain
+   *  provider (bare-earth, buildings EXCLUDED) attached via the SAME ion access that
+   *  streams the Google Photorealistic 3D-Tiles. Used ONLY as the height-SAMPLE source
+   *  for `sampleTerrainMostDetailed` at the footprint centroid — it is deliberately NOT
+   *  set as `viewer.scene.terrainProvider` because the photoreal tiles already ARE the
+   *  rendered surface (mounting terrain under them z-fights / floats the tiles). Lazily
+   *  created on the FIRST photoreal clamp (so a keyless/no-ion build never pays for it),
+   *  then cached. `null` = not yet attempted; a resolved provider or `false`-ish failure
+   *  is tracked by `photorealTerrainLoadTried`. Bare-earth ground avoids the rooftop
+   *  overshoot the tile-mesh clamp hits in wall-to-wall cities (Paris ~131 m rooftop). */
+  private photorealTerrainProvider: Cesium.TerrainProvider | null = null;
+  /** §GLOBE-TERRAIN-HEIGHT — one-shot latch so we only attempt to create the World
+   *  Terrain provider ONCE per viewport (a failed/absent ion asset must not re-fetch on
+   *  every clamp). Set true the first time creation is attempted regardless of outcome. */
+  private photorealTerrainLoadTried = false;
+
   /** Phase B (S73-WIRE) — runtime threaded by parent. */
   public readonly runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null;
 
@@ -3029,16 +3045,25 @@ export class CesiumViewport {
     if (boundary && boundary.length >= 3) {
       try {
         const positions = boundary.map((p) => toCartesian(p.x, p.z, baseHeight + 0.05));
-        const ent = viewer.entities.add({
-          name: 'pryzm-forma-parcel-boundary',
-          polygon: {
-            hierarchy: new Cesium.PolygonHierarchy(positions),
-            material: Cesium.Color.fromCssColorString(FORMA_PALETTE.boundaryLine).withAlpha(0.08),
-            height: baseHeight + 0.05,
-            outline: false,
-          },
-        });
-        this.formaMassingEntities.push(ent);
+        // §GLOBE-SCOPED-DETAIL (founder 2026-07-01) — SCOPED-AREA FLAT/BLURRY FIX. On the
+        // photoreal "3D globe" the flat clamped fill polygon below is a tinted disc laid
+        // over the site → the analysed region reads FLAT + washed-out against the crisp
+        // surrounding 3D tiles (founder screenshot). Skip the FILL on the photoreal path
+        // and keep ONLY the thin dashed OUTLINE (added next), so the photoreal tiles read
+        // through the scoped area at full 3D detail. On the Forma flat-ground STUDY path
+        // (no tiles) the faint fill still helps read the plot, so we keep it there.
+        if (!input.keepPhotoreal) {
+          const ent = viewer.entities.add({
+            name: 'pryzm-forma-parcel-boundary',
+            polygon: {
+              hierarchy: new Cesium.PolygonHierarchy(positions),
+              material: Cesium.Color.fromCssColorString(FORMA_PALETTE.boundaryLine).withAlpha(0.08),
+              height: baseHeight + 0.05,
+              outline: false,
+            },
+          });
+          this.formaMassingEntities.push(ent);
+        }
 
         // Dashed top line (closed ring).
         const ringClosed = [...positions, positions[0]!];
@@ -3263,6 +3288,94 @@ export class CesiumViewport {
     }
   }
 
+  /**
+   * §GLOBE-TERRAIN-HEIGHT (founder 2026-07-01) — lazily create (once) a STANDALONE
+   * Cesium World Terrain provider for BARE-EARTH height sampling, reusing the same
+   * `Cesium.Ion.defaultAccessToken` (set at module load from VITE_CESIUM_TOKEN) that
+   * unlocks the Google Photorealistic 3D-Tiles. Returns the provider (usable by
+   * `sampleTerrainMostDetailed`) or null when unavailable (no ion token, offline, older
+   * Cesium without `createWorldTerrainAsync`, or the fetch failed). Deliberately does
+   * NOT touch `viewer.scene.terrainProvider` — see the field doc: mounting terrain under
+   * the photoreal tiles z-fights them, so we keep this SAMPLE-ONLY. Guarded/best-effort;
+   * never throws. The `photorealTerrainLoadTried` latch ensures one attempt per viewport.
+   */
+  private async getPhotorealBareEarthTerrain(): Promise<Cesium.TerrainProvider | null> {
+    if (this.photorealTerrainProvider) return this.photorealTerrainProvider;
+    if (this.photorealTerrainLoadTried) return this.photorealTerrainProvider;
+    this.photorealTerrainLoadTried = true;
+    // No ion access → the world-terrain asset can't stream; skip (fall back to tiles).
+    if (!Cesium.Ion.defaultAccessToken) {
+      console.log(
+        '[CesiumViewport][globe] §GLOBE-TERRAIN-HEIGHT — no ion token → World Terrain ' +
+          'height sample unavailable; falling back to the photoreal-tile clamp.',
+      );
+      return null;
+    }
+    try {
+      const factory = (
+        Cesium as unknown as {
+          createWorldTerrainAsync?: () => Promise<Cesium.TerrainProvider>;
+        }
+      ).createWorldTerrainAsync;
+      if (typeof factory !== 'function') {
+        console.warn(
+          '[CesiumViewport][globe] §GLOBE-TERRAIN-HEIGHT — Cesium.createWorldTerrainAsync ' +
+            'unavailable in this build; falling back to the photoreal-tile clamp.',
+        );
+        return null;
+      }
+      const provider = await factory.call(Cesium);
+      // Only keep it if it actually carries elevation data (has `availability`, is not the
+      // flat ellipsoid) — otherwise sampleTerrainMostDetailed would throw on it.
+      if (provider && this.terrainProviderHasElevationData(provider)) {
+        this.photorealTerrainProvider = provider;
+        console.log(
+          '[CesiumViewport][globe] §GLOBE-TERRAIN-HEIGHT — Cesium World Terrain attached ' +
+            '(sample-only, bare-earth) for accurate building base height.',
+        );
+        return provider;
+      }
+      console.warn(
+        '[CesiumViewport][globe] §GLOBE-TERRAIN-HEIGHT — World Terrain provider has no ' +
+          'elevation availability; falling back to the photoreal-tile clamp.',
+      );
+      return null;
+    } catch (e) {
+      console.warn(
+        '[CesiumViewport][globe] §GLOBE-TERRAIN-HEIGHT — World Terrain load failed (' +
+          String(e) + '); falling back to the photoreal-tile clamp.',
+      );
+      return null;
+    }
+  }
+
+  /**
+   * §GLOBE-TERRAIN-HEIGHT — sample the TRUE bare-earth ground height at the footprint
+   * centroid via `Cesium.sampleTerrainMostDetailed` on the World Terrain provider. This
+   * is the ROBUST base height in ANY city because the terrain mesh EXCLUDES buildings —
+   * unlike the photoreal-tile clamp, whose every footprint/street sample can land on a
+   * roof in a wall-to-wall city (Paris 48.8697,2.317 logged a 131.98 m rooftop overshoot;
+   * central-Paris bare ground is ~40–80 m ellipsoid). Returns a finite height or null
+   * (provider unavailable / sample rejected / NaN). Guarded/best-effort; never throws.
+   */
+  private async samplePhotorealBareEarthHeight(lat: number, lon: number): Promise<number | null> {
+    const provider = await this.getPhotorealBareEarthTerrain();
+    if (!provider) return null;
+    try {
+      const carto = Cesium.Cartographic.fromDegrees(lon, lat);
+      const [result] = await Cesium.sampleTerrainMostDetailed(provider, [carto]);
+      const h = result?.height;
+      if (typeof h === 'number' && Number.isFinite(h)) return h;
+      return null;
+    } catch (e) {
+      console.warn(
+        '[CesiumViewport][globe] §GLOBE-TERRAIN-HEIGHT — sampleTerrainMostDetailed rejected (' +
+          String(e) + '); falling back to the photoreal-tile clamp.',
+      );
+      return null;
+    }
+  }
+
   private async clampToPhotorealTilesThenReplace(
     input: Parameters<CesiumViewport['renderFormaMassing']>[0],
     retriesLeft = 3,
@@ -3351,6 +3464,30 @@ export class CesiumViewport {
       }
     } else {
       samplePts.push({ lat: sampleLat, lon: sampleLon });
+    }
+
+    // §GLOBE-TERRAIN-HEIGHT (founder 2026-07-01) — DEFINITIVE Z FIX. Prefer a REAL
+    // BARE-EARTH terrain sample over the tile-mesh clamp. The tile clamp raycasts the
+    // Google Photorealistic 3D-Tiles, which INCLUDE buildings — so in a wall-to-wall
+    // city EVERY footprint + street-ring sample lands on a roof, the min is still a
+    // rooftop, and the tower floats (Paris 48.8697,2.317 logged 131.98 m — a rooftop
+    // overshoot; bare ground is ~40–80 m ellipsoid). Cesium World Terrain is bare-earth
+    // (buildings excluded), so `sampleTerrainMostDetailed` at the footprint centroid
+    // gives the TRUE ground height in ANY city. We attach it as a SAMPLE-ONLY provider
+    // (NOT viewer.scene.terrainProvider — that would z-fight/float the photoreal tiles),
+    // reusing the same ion access that streams the tiles. If terrain is unavailable
+    // (no ion token / offline / older Cesium), we fall through to the tile-mesh clamp +
+    // street-ring below (unchanged), so nothing regresses on the keyless path.
+    {
+      const myTerrainToken = ++this.formaTerrainToken;
+      const bareEarth = await this.samplePhotorealBareEarthHeight(sampleLat, sampleLon);
+      // A newer placement started during the await → let it own the clamp; bail.
+      // §GLOBE-CRASH-GUARD — also bail if the viewer was disposed during the await.
+      if (myTerrainToken !== this.formaTerrainToken || !this.isViewerLive()) return;
+      if (bareEarth !== null && Number.isFinite(bareEarth)) {
+        this.commitPhotorealBase(input, bareEarth, sampleLat, sampleLon, 'terrain height sample');
+        return;
+      }
     }
 
     // §GLOBE-TILE-CLAMP-FLUSH (founder 2026-07-01, ADR-0095) — RESIDUAL FLOAT ROOT CAUSE.
@@ -3487,6 +3624,25 @@ export class CesiumViewport {
       return;
     }
 
+    this.commitPhotorealBase(input, sampledHeight, sampleLat, sampleLon, 'photoreal-tile clamp');
+  }
+
+  /**
+   * §GLOBE-TERRAIN-HEIGHT / §GLOBE-TILE-CLAMP — shared COMMIT tail for the photoreal
+   * base height. Records the sampled centroid, no-ops when the resolved base equals the
+   * base we already framed at, else stores `formaTerrainBaseHeight`, re-places the
+   * massing absolutely at that base (never relative → no creep), and issues the one-shot
+   * §GLOBE-FRAME-NO-JUMP re-frame. `source` names the origin (terrain / tile) for the log.
+   * Extracted so BOTH the bare-earth World Terrain sample and the tile-mesh clamp seat the
+   * building identically. Assumes the caller already passed the token / viewer-live guard.
+   */
+  private commitPhotorealBase(
+    input: Parameters<CesiumViewport['renderFormaMassing']>[0],
+    sampledHeight: number,
+    sampleLat: number,
+    sampleLon: number,
+    source: string,
+  ): void {
     this.formaTerrainSampledAt = { lat: sampleLat, lon: sampleLon };
     if (Math.abs(sampledHeight - this.formaTerrainBaseHeight) < 1e-3) {
       // §GLOBE-FIRST-FRAME-BASE — the resolved base equals the base we framed at
@@ -3501,10 +3657,10 @@ export class CesiumViewport {
 
     this.formaTerrainBaseHeight = sampledHeight;
     console.log(
-      `[CesiumViewport][globe] photoreal-tile clamp: base height ${sampledHeight.toFixed(2)} m ` +
-        `at LAT ${sampleLat.toFixed(6)} LON ${sampleLon.toFixed(6)} — re-placing on the tiles.`,
+      `[CesiumViewport][globe] ${source}: base height ${sampledHeight.toFixed(2)} m ` +
+        `at LAT ${sampleLat.toFixed(6)} LON ${sampleLon.toFixed(6)} — re-placing.`,
     );
-    // Re-place at the tile-surface base. `_skipTerrainClamp` prevents re-entry;
+    // Re-place at the resolved base. `_skipTerrainClamp` prevents re-entry;
     // `frameCentroid:false` so the re-place never re-flies the camera.
     this.renderFormaMassing({ ...input, frameCentroid: false, _skipTerrainClamp: true });
     // §GLOBE-FRAME-NO-JUMP (supersedes §GLOBE-FIRST-FRAME-BASE-ROBUST). The base just
@@ -3522,7 +3678,7 @@ export class CesiumViewport {
       this.formaReframeOnBaseSettle = null; // we own the re-frame here
       this.performInitialReframe(
         input.framePreset === 'plan' ? 'plan' : 'oblique',
-        'photoreal-tile clamp',
+        source,
       );
     } else {
       this.reframeAfterBaseSettle();
