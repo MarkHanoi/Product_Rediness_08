@@ -48,7 +48,7 @@
  * also carries no span), these helpers are intentionally span-free.
  */
 
-import type { BufferGeometry, Material, Object3D, Mesh } from '@pryzm/renderer-three/three';
+import type { BufferGeometry, Material, Object3D, Mesh, Texture, Scene } from '@pryzm/renderer-three/three';
 
 /**
  * Returns true iff `err` is the WebGPU NodeManager device-loss / stale-render-
@@ -181,4 +181,128 @@ export function safeDisposeObject3D(
             safeDisposeMaterials(maybeMesh.material as Material | Material[]);
         }
     });
+}
+
+/* ─── §FIX-DELETED-TEXTURE-BIND — shared-texture disposal safety ─────────────
+ *
+ * The bug (same FAMILY as §I2, but for TEXTURES): a SHARED THREE.Texture — an
+ * HDRI/PMREM env map, or a PBR color/normal/roughness map cached in the
+ * material library and assigned as `.map` / `.envMap` on HUNDREDS of per-element
+ * materials across every storey of a heavy scene — is `.dispose()`d (a quality /
+ * HDRI / sky change, a reload, an env-map re-bake) while LIVE meshes still carry
+ * a reference to it. `Texture.dispose()` deletes the underlying GL texture object
+ * immediately; every material that still points at it then asks the renderer to
+ * bind a deleted object, and the (WebGL / webgl-fallback) driver floods:
+ *
+ *     WebGL: INVALID_OPERATION: bindTexture: attempt to use a deleted object
+ *
+ * Those draws are rejected, so the elements referencing that texture DROP OUT of
+ * the frame — the founder's "it doesn't render all the elements" on the
+ * 40-storey office (~1316 elements). WebGPU device-loss re-baking hits the same
+ * dangling-reference class.
+ *
+ * The fix mirrors the guarded/ref-counted spirit of `safeDisposeMaterial`: never
+ * delete a texture that a live mesh still binds. `detachTextureFromScene()`
+ * walks the scene and NULLS every material slot (and `scene.environment` /
+ * `scene.background`) that points at the doomed texture BEFORE it is deleted, so
+ * no live draw can bind a deleted object. `safeDisposeTexture()` does that detach
+ * then disposes the texture WebGPU-safely.
+ */
+
+/** Texture-carrying slots on THREE materials we may need to detach. */
+const TEXTURE_MATERIAL_SLOTS = [
+    'map',
+    'envMap',
+    'normalMap',
+    'roughnessMap',
+    'metalnessMap',
+    'aoMap',
+    'emissiveMap',
+    'bumpMap',
+    'displacementMap',
+    'alphaMap',
+    'lightMap',
+    'clearcoatMap',
+    'clearcoatNormalMap',
+    'clearcoatRoughnessMap',
+    'sheenColorMap',
+    'sheenRoughnessMap',
+    'specularMap',
+    'specularIntensityMap',
+    'specularColorMap',
+    'transmissionMap',
+    'thicknessMap',
+    'iridescenceMap',
+    'iridescenceThicknessMap',
+    'anisotropyMap',
+    'gradientMap',
+] as const;
+
+/**
+ * §FIX-DELETED-TEXTURE-BIND — Detach `texture` from every live reference in
+ * `scene` (all material texture slots on every Mesh, plus `scene.environment` /
+ * `scene.background`) so that once it is deleted no live draw can bind it. Sets
+ * `material.needsUpdate = true` on any material we detached so the renderer drops
+ * the stale binding on the next frame.
+ *
+ * No-op when `texture` or `scene` is null/undefined.
+ */
+export function detachTextureFromScene(
+    texture: Texture | null | undefined,
+    scene: Scene | null | undefined,
+): void {
+    if (!texture || !scene) return;
+
+    // Scene-level IBL / background slots.
+    const sceneRec = scene as unknown as Record<string, unknown>;
+    if (sceneRec.environment === texture) sceneRec.environment = null;
+    if (sceneRec.background === texture) sceneRec.background = null;
+
+    scene.traverse((obj: Object3D) => {
+        const maybeMesh = obj as Partial<Mesh>;
+        const material = maybeMesh.material;
+        if (!material) return;
+        const mats = Array.isArray(material) ? material : [material];
+        for (const mat of mats) {
+            if (!mat) continue;
+            const rec = mat as unknown as Record<string, unknown>;
+            let touched = false;
+            for (const slot of TEXTURE_MATERIAL_SLOTS) {
+                if (rec[slot] === texture) {
+                    rec[slot] = null;
+                    touched = true;
+                }
+            }
+            if (touched) (mat as Material).needsUpdate = true;
+        }
+    });
+}
+
+/**
+ * §FIX-DELETED-TEXTURE-BIND — Dispose a THREE.Texture WITHOUT ever leaving a
+ * deleted texture bound to a live mesh.
+ *
+ * When `scene` is provided, every live reference to `texture` is detached first
+ * (see {@link detachTextureFromScene}) — this is the guard that stops the
+ * `bindTexture: attempt to use a deleted object` flood on shared env/PBR maps.
+ * Callers that KNOW the texture is exclusively theirs may omit `scene`.
+ *
+ * WebGPU-safe: the `usedTimes` device-loss TypeError (§I2 family — texture
+ * disposal can also fan out into NodeManager teardown on WebGPU) is swallowed;
+ * any other error re-throws so genuine disposal bugs still surface.
+ *
+ * Safe to call with `null`/`undefined` (no-op).
+ */
+export function safeDisposeTexture(
+    texture: Texture | null | undefined,
+    scene?: Scene | null | undefined,
+): void {
+    if (!texture) return;
+    if (scene) detachTextureFromScene(texture, scene);
+    try {
+        texture.dispose();
+    } catch (err) {
+        if (isUsedTimesDisposeError(err)) return; // §I2
+        throw err;
+    }
 }
