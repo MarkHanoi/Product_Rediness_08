@@ -1482,6 +1482,38 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                     `origin LAT ${origin.lat} LON ${origin.lon}.`
             );
         }
+        // §FORMA-FULL-HEIGHT-EXPLICIT (founder 2026-07-01) — resolve the TRUE building
+        // height and pass it so the Cesium massing tiles the shell + façade across the
+        // WHOLE tower. ROOT CAUSE of "only the ground level gets façade colours": the
+        // office's authored walls arrive at baseElevation 0 (all storeys collapsed), so
+        // groupWallsIntoStoreyBands makes ONE 4 m band and the slab-derived height lift
+        // never fires → the massing + façade rendered a single ground ring. Derive the
+        // height here from the levels (max elevation + a storey height, or level COUNT ×
+        // storey height when elevations aren't stamped — the office case) and the slabs'
+        // topElevation, and take the max. When the authored bands already reach this
+        // height (real multi-storey walls), the Cesium side no-ops (harmless).
+        let fullBuildingHeightM = 0;
+        try {
+            const levels =
+                (window.bimManager as { getLevels?: () => Array<{ elevation?: number }> } | undefined)
+                    ?.getLevels?.() ?? [];
+            let maxLevelElev = 0;
+            for (const l of levels) {
+                if (typeof l.elevation === 'number' && Number.isFinite(l.elevation) && l.elevation > maxLevelElev) {
+                    maxLevelElev = l.elevation;
+                }
+            }
+            let storeyH = 0;
+            for (const w of walls) { if (w.height > storeyH) storeyH = w.height; }
+            if (!(storeyH > 0.5)) storeyH = 4;
+            // Accurate when levels carry elevations; else fall back to COUNT × storey
+            // height (a 40-level office → ~40×4 = 160 m even with unstamped elevations).
+            const fromLevels = maxLevelElev > 0.5 ? maxLevelElev + storeyH : levels.length * storeyH;
+            let fromSlabs = 0;
+            for (const s of slabs) { if (s.topElevation > fromSlabs) fromSlabs = s.topElevation; }
+            fullBuildingHeightM = Math.max(fromLevels, fromSlabs);
+        } catch { /* best-effort — Cesium still resolves height from its own signals */ }
+
         cesiumViewport.renderFormaMassing({
             originLat: origin.lat,
             originLon: origin.lon,
@@ -1495,6 +1527,8 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // §A.21.D34(d) — façade window/door insets + coarse stair volumes.
             openings,
             stairs,
+            // §FORMA-FULL-HEIGHT-EXPLICIT — the resolved true tower height (see above).
+            ...(fullBuildingHeightM > 0 ? { fullBuildingHeightM } : {}),
             frameCentroid: frame,
             framePreset: preset,
         });
