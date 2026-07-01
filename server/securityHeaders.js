@@ -158,6 +158,21 @@ export function buildConnectSrc(env = process.env, isProd = IS_PROD) {
         // when volume warrants.
         'https://climate-api.open-meteo.com',
         'https://re.jrc.ec.europa.eu',
+        // §ANALYSIS-REAL-DATA-CSP (ADR-0095) — the site-analysis REAL datasets the
+        // Forma metrics read directly from the browser (apps/editor/src/ui/climate/
+        // siteRealData.ts):
+        //   - NASA POWER (power.larc.nasa.gov): T2M air-temperature + WS10M/WD10M
+        //     wind climatology → the temperature + wind heatmaps and the wind rose.
+        //   - WorldPop (api.worldpop.org): gridded population stats over the plot →
+        //     the population-density heatmap (real persons/hectare).
+        // Both are FREE + NO KEY and send permissive CORS, so direct browser→provider
+        // is the designed path. WITHOUT these two origins the fetch is CSP-blocked
+        // ("Refused to connect … violates connect-src") and every metric silently
+        // degrades to the built-density ESTIMATE — exactly what shipped in ADR-0095
+        // (the fetchers landed, this allowlist entry didn't). Failure still degrades
+        // gracefully to the estimate (non-fatal).
+        'https://power.larc.nasa.gov',
+        'https://api.worldpop.org',
     ];
 
     // Supabase REST + realtime — derive the EXACT project origin from
