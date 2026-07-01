@@ -473,6 +473,20 @@ export class RenderingPipelineCoordinator {
     private static readonly _UNCHANGED_LOG_INTERVAL_MS = 4000;
 
     /**
+     * §SHADOW-DEVICE-LOSS-FIX (Fix 2) — mesh-count ceiling above which the shadow map
+     * is turned OFF regardless of tier (defense in depth alongside `survival.shadows`).
+     *
+     * The 40-storey office logged 15009 meshes (survival) with shadow flags on 14283 of
+     * them — a shadow pass over that many casters churns the ShadowDepthTexture and loses
+     * the WebGPU device. Set to 8000: comfortably ABOVE a typical generated building
+     * (~4062 meshes — the founder's real `performance`-tier case, which KEEPS shadows,
+     * unchanged) yet well below the office, so only the very-heavy path drops shadows.
+     * The primary gate is still `survival.shadows === false` (fires at 15001 meshes);
+     * this ceiling is defense in depth for anything heavy that lands in `performance`.
+     */
+    private static readonly _LARGE_SCENE_SHADOWS_OFF_MESH_COUNT = 8000;
+
+    /**
      * Inject the SSGI toggle the coordinator should call on a tier change.
      * No-op-safe: if never injected, the tier applier simply skips the SSGI step.
      */
@@ -535,7 +549,8 @@ export class RenderingPipelineCoordinator {
         const tierLine =
             `[SceneQualityTier] ${meshCount} meshes → tier=${tier} ` +
             `(SSGI=${settings.ssgi ? 'on' : 'off'} TRAA=${settings.traa ? 'on' : 'off'} ` +
-            `shadow=${settings.shadowLevel} decorativeShadows=${settings.decorativeFurnitureShadows ? 'on' : 'off'})`;
+            `shadows=${settings.shadows ? settings.shadowLevel : 'OFF'} ` +
+            `decorativeShadows=${settings.decorativeFurnitureShadows ? 'on' : 'off'})`;
         const tierTransitioned = tier !== this._lastLoggedTier;
         if (tierTransitioned) {
             console.log(tierLine);
@@ -546,6 +561,23 @@ export class RenderingPipelineCoordinator {
             if (now - this._lastUnchangedLogAtMs >= RenderingPipelineCoordinator._UNCHANGED_LOG_INTERVAL_MS) {
                 console.log(`${tierLine} [unchanged]`);
                 this._lastUnchangedLogAtMs = now;
+            }
+        }
+
+        // §SHADOW-DEVICE-LOSS-FIX (Fix 2) — the shadows ON/OFF decision depends on the
+        // raw mesh COUNT (the 8000 ceiling), which can cross WITHIN a single tier
+        // (`performance` spans 2500–15000) where `changed` is false. So evaluate the
+        // shadow gate every call — it is idempotent (a no-op when the desired state
+        // already holds) so it is cheap and never churns. The `survival.shadows=false`
+        // transition at 15001 IS a tier change and also flows through here.
+        if (this._shadowUpgrader.applied) {
+            const shadowsOff =
+                !settings.shadows ||
+                meshCount >= RenderingPipelineCoordinator._LARGE_SCENE_SHADOWS_OFF_MESH_COUNT;
+            try {
+                this._shadowUpgrader.setShadowsEnabled(!shadowsOff);
+            } catch (err) {
+                console.warn('[RenderingPipelineCoordinator] §SHADOW-DEVICE-LOSS-FIX shadow-enable gate error:', err);
             }
         }
 
@@ -584,6 +616,16 @@ export class RenderingPipelineCoordinator {
                 } else {
                     this._shadowUpgrader.setLevel(shadowLevel);
                 }
+                // §SHADOW-DEVICE-LOSS-FIX (Fix 2) — turn the shadow map ON/OFF for the
+                // tier. `settings.shadows === false` on survival; also defensively kill
+                // shadows once the scene exceeds LARGE_SCENE_SHADOWS_OFF_MESH_COUNT
+                // (~4000) regardless of tier, so the ShadowDepthTexture churn that loses
+                // the WebGPU device on the 40-storey office (14283 shadow-flagged meshes)
+                // cannot occur. Normal scenes keep shadows exactly as before.
+                const shadowsOff =
+                    !settings.shadows ||
+                    meshCount >= RenderingPipelineCoordinator._LARGE_SCENE_SHADOWS_OFF_MESH_COUNT;
+                this._shadowUpgrader.setShadowsEnabled(!shadowsOff);
             } catch (err) {
                 console.warn('[RenderingPipelineCoordinator] tier shadow-level error:', err);
             }

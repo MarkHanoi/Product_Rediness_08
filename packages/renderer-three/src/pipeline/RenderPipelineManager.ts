@@ -1460,12 +1460,50 @@ export class RenderPipelineManager implements IViewSwitchListener {
     /**
      * Disposes raw OutlineNode GPU render targets and clears stored nodes.
      * Must be called before rebuilding the pipeline or on project-switch.
+     *
+     * §SHADOW-DEVICE-LOSS-FIX (Bug B) — the OutlineNode `.dispose()` walks its
+     * internal render targets + materials and, on a STALE / device-loss-recovered
+     * WebGPU session, hits the same NodeManager `usedTimes` TypeError family that
+     * `_safeDisposeRenderPipeline` (§FIX-DISPOSE-USEDTIMES) and the element-builder
+     * `safeDispose*` helpers already tame:
+     *
+     *   TypeError: Cannot read properties of undefined (reading 'usedTimes')
+     *       at onMaterialDispose (three) … _disposeOutlineInstances
+     *
+     * Before this guard the throw escaped `_disposeOutlineInstances()` → aborted
+     * `activateOutlines()` / `recoverPipeline()` → recovery failed → the device was
+     * lost AGAIN (a recoverable device-loss became a total renderer death). Each
+     * dispose is now individually wrapped so the stale-GPU `usedTimes` throw is
+     * swallowed and teardown always completes; any OTHER error still surfaces.
      */
     private _disposeOutlineInstances(): void {
         if (this._outlineNodes) {
-            this._outlineNodes.rawInstances.selected?.dispose?.();
-            this._outlineNodes.rawInstances.hover?.dispose?.();
+            this._safeDisposeOutlineInstance(this._outlineNodes.rawInstances.selected);
+            this._safeDisposeOutlineInstance(this._outlineNodes.rawInstances.hover);
             this._outlineNodes = null;
+        }
+    }
+
+    /**
+     * §SHADOW-DEVICE-LOSS-FIX (Bug B) — dispose ONE raw OutlineNode instance,
+     * swallowing ONLY the stale-GPU `usedTimes` device-loss TypeError (via the
+     * shared {@link isUsedTimesDisposeError} predicate). Any other error re-throws
+     * so genuine disposal bugs still surface. Safe with null/undefined.
+     */
+    private _safeDisposeOutlineInstance(instance: { dispose?: () => void } | null | undefined): void {
+        if (!instance || typeof instance.dispose !== 'function') return;
+        try {
+            instance.dispose();
+        } catch (err: unknown) {
+            if (isUsedTimesDisposeError(err)) {
+                console.warn(
+                    '[RenderPipelineManager] §SHADOW-DEVICE-LOSS-FIX outline dispose hit the stale-GPU ' +
+                    'usedTimes device-loss error (non-fatal, swallowed so recovery completes):',
+                    (err as Error)?.message ?? err,
+                );
+                return;
+            }
+            throw err;
         }
     }
 

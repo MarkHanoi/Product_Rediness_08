@@ -139,6 +139,18 @@ export interface SceneQualitySettings {
     /** Shadow-map quality level. */
     readonly shadowLevel: TierShadowLevel;
     /**
+     * §SHADOW-DEVICE-LOSS-FIX (Fix 2) — whether the shadow map is enabled AT ALL.
+     *
+     * True on cinematic/balanced/performance (shadows work as before). FALSE only on
+     * `survival` (enormous scenes — the 40-storey office logged 14283 shadow-flagged
+     * meshes): allocating a shadow pass over that many casters is what churns the
+     * ShadowDepthTexture and loses the WebGPU device ("Destroyed texture used in a
+     * submit"). Turning the shadow map OFF removes the pass entirely — the trigger AND
+     * a large perf win. Only the very-heavy survival path changes; every normal scene
+     * keeps shadows exactly as today.
+     */
+    readonly shadows: boolean;
+    /**
      * Whether decorative furniture (plants, lamps, rugs, wall decor, curtains)
      * should cast shadows. False at performance+ to cut shadow-caster count.
      */
@@ -165,6 +177,7 @@ const TIER_SETTINGS: Record<SceneQualityTier, SceneQualitySettings> = {
         traa: true,
         reflectionProbes: true,
         shadowLevel: 'high',
+        shadows: true,
         decorativeFurnitureShadows: true,
         fullScenePbrTraverse: true,
     },
@@ -173,6 +186,7 @@ const TIER_SETTINGS: Record<SceneQualityTier, SceneQualitySettings> = {
         traa: true,
         reflectionProbes: false,
         shadowLevel: 'high',
+        shadows: true,
         decorativeFurnitureShadows: true,
         // Skip the 38.7s post-batch PBR upgrade on anything beyond a small showcase
         // scene — base MeshStandardMaterial already renders correctly without it.
@@ -186,6 +200,7 @@ const TIER_SETTINGS: Record<SceneQualityTier, SceneQualitySettings> = {
         traa: false,
         reflectionProbes: false,
         shadowLevel: 'standard',
+        shadows: true,
         decorativeFurnitureShadows: false,
         fullScenePbrTraverse: false,
     },
@@ -194,6 +209,11 @@ const TIER_SETTINGS: Record<SceneQualityTier, SceneQualitySettings> = {
         traa: false,
         reflectionProbes: false,
         shadowLevel: 'standard',
+        // §SHADOW-DEVICE-LOSS-FIX (Fix 2) — shadows OFF on survival. On the 40-storey
+        // office (15009 meshes → survival; 14283 shadow-flagged) the shadow pass churns
+        // the ShadowDepthTexture and loses the WebGPU device. Dropping the shadow map
+        // removes the crash trigger and is a big frame-time win.
+        shadows: false,
         decorativeFurnitureShadows: false,
         fullScenePbrTraverse: false,
     },
