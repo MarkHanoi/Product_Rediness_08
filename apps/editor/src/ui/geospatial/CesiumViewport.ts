@@ -68,8 +68,13 @@ import {
     // façade + roof (on-demand toggle), using the SAME ramp + direct-beam shadow test
     // as the ground sun-hours heatmap. Pure compute (no Cesium/THREE), chunkable.
     prepareFacadeSunGrid,
+    // §FORMA-FACADE-SMOOTH (founder 2026-07-01) — rasterise the per-face façade sun field
+    // into ONE smooth bilinearly-interpolated texture per wall face (+ roof) so the façade
+    // reads as a continuous gradient like the floor heatmap, not ~2159 discrete quads.
+    rasterizeFacadeSunTexture,
     type FacadeSamplePoint,
     type FacadeSunPrep,
+    type FacadeSunTexture,
 } from "../climate/siteMetricGrids";
 // §ANALYSIS-REAL-POPULATION + §ANALYSIS-REAL-TEMPERATURE + §ANALYSIS-REAL-WIND
 // (ADR-0095) — REAL free-dataset baselines (NASA POWER climate + WorldPop population)
@@ -4751,25 +4756,18 @@ export class CesiumViewport {
     // Occluders = OSM context + the proposed massing (the same set the ground grid uses).
     const occluders = this.siteMetricFootprints(origin);
 
-    // §FORMA-FACADE-DENSITY (founder 2026-07-01, ADR-0095) — clean, consistent quad
-    // density across the FULL elevation. The old fixed 2.5 m / 3500-sample budget was
-    // tuned for a ~4 m ground ring; on a 160 m tower it left the façade sparse + chunky.
-    // Scale the sample budget with the actual painted surface area (perimeter × height)
-    // at ~1 sample / 2 m² so a tall tower gets proportionally MORE samples (capped for
-    // perf), and derive the quad size FROM the spacing so quads meet edge-to-edge for a
-    // continuous read at every height instead of the chunky translucent blocks.
-    let perimeterM = 0;
-    for (let i = 0; i < ring.length; i++) {
-      const a = ring[i]!; const b = ring[(i + 1) % ring.length]!;
-      perimeterM += Math.hypot(b.x - a.x, b.z - a.z);
-    }
-    const facadeAreaM2 = Math.max(1, perimeterM * heightM);
-    const SAMPLE_SPACING_M = 2.5;
-    const maxSamples = Math.min(
-      12000,
-      Math.max(3500, Math.ceil(facadeAreaM2 / (SAMPLE_SPACING_M * SAMPLE_SPACING_M)) + 500),
-    );
-
+    // §FORMA-FACADE-SMOOTH (founder 2026-07-01) — the compute LATTICE spacing. The heavy
+    // per-point raycast is COMPUTE; the DISPLAY is DECOUPLED (each face is rasterised to a
+    // fine bilinear texture, exactly like the ground §SITE-METRIC-SUN-TEXTURE), so the
+    // compute lattice can stay affordably coarse (~2.5 m nodes) and still DISPLAY as a
+    // continuous gradient. We build the lattice PER FACE (each ring edge × the full 0..H
+    // height) so it samples continuously up the WHOLE tower — no per-storey tiling, hence
+    // no seams between the storey bands within a face.
+    const LATTICE_SPACING_M = 2.5;
+    // Sun/occluder machinery (sun samples, occluder prisms, the pure per-point evaluator)
+    // is reused verbatim from the ground grid via prepareFacadeSunGrid; we only supply our
+    // OWN per-face lattice geometry to `evaluateIntensity` for full control of the texture
+    // topology. maxSamples is generous — the lattice is coarse, so this never bites.
     const prep: FacadeSunPrep | null = prepareFacadeSunGrid({
       footprintRings: [ring],
       heightM,
@@ -4778,8 +4776,8 @@ export class CesiumViewport {
       lngDeg: origin.lon,
       sunDay: this.siteMetricSunDay,
       sunStepMinutes: 25,
-      sampleSpacingM: SAMPLE_SPACING_M,
-      maxSamples,
+      sampleSpacingM: LATTICE_SPACING_M,
+      maxSamples: 20000,
     });
     if (!prep) return;
 
@@ -4787,71 +4785,175 @@ export class CesiumViewport {
     const base = this.formaTerrainBaseHeight;
     const originCart = Cesium.Cartesian3.fromDegrees(origin.lon, origin.lat, base);
     const enu = Cesium.Transforms.eastNorthUpToFixedFrame(originCart);
-    const points = prep.points;
 
-    // Chunked raycast + paint: evaluate a batch of points per frame, adding a small
-    // coloured quad per point so the building fills in progressively ("computing").
-    // §FORMA-FACADE-DENSITY — quad half-size derived from the sample spacing (half the
-    // spacing, +8% overlap) so quads tile edge-to-edge into a smooth continuous skin at
-    // any height rather than isolated chunky blocks; higher opacity for a crisp read.
-    const HALF = (SAMPLE_SPACING_M / 2) * 1.08;
-    this.facadeChunkBuild(seq, points.length, 160, (lo, hi) => {
+    // Ring centroid → the outward direction for each face (mirrors buildFacadeSamplePoints).
+    let cx = 0, cz = 0;
+    for (const p of ring) { cx += p.x; cz += p.z; }
+    cx /= ring.length; cz /= ring.length;
+
+    // Build one FACE job per ring edge: a (nU × nV) lattice spanning the face rectangle
+    // (0..segLen along × 0..H up), continuously up the full elevation. Each node is a
+    // FacadeSamplePoint fed to the SAME `prep.evaluateIntensity`. The whole tower's faces
+    // are evaluated across frames (chunked) so the per-point raycast never freezes the
+    // viewport, then each face is rasterised to ONE smooth texture + painted once.
+    interface FaceJob {
+      nU: number; nV: number; segLen: number;
+      // world corners of the face rectangle (bottom-start, bottom-end, top-end, top-start)
+      corners: Cesium.Cartesian3[];
+      intensities: Array<number | null>;
+      // sampler geometry: face start (ax,az), along-unit (ux,uz), outward normal (nE,nN).
+      geo: { ax: number; az: number; ux: number; uz: number; nE: number; nN: number };
+    }
+    const enuLocal = (e: number, n: number, u: number): Cesium.Cartesian3 =>
+      Cesium.Matrix4.multiplyByPoint(enu, new Cesium.Cartesian3(e, n, u), new Cesium.Cartesian3());
+
+    const faceJobs: FaceJob[] = [];
+    for (let i = 0; i < ring.length; i++) {
+      const a = ring[i]!; const b = ring[(i + 1) % ring.length]!;
+      const dx = b.x - a.x, dz = b.z - a.z;
+      const segLen = Math.hypot(dx, dz);
+      if (segLen < 1e-3) continue;
+      const ux = dx / segLen, uz = dz / segLen;                 // along-face unit
+      let nE = -uz, nN = ux;                                     // outward face normal
+      const mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2;
+      if ((mx - cx) * nE + (mz - cz) * nN < 0) { nE = -nE; nN = -nN; }
+      const nU = Math.max(2, Math.round(segLen / LATTICE_SPACING_M) + 1);
+      const nV = Math.max(2, Math.round(heightM / LATTICE_SPACING_M) + 1);
+      // Face rectangle corners (perPositionHeight polygon). Order: BL, BR, TR, TL.
+      const bl = enuLocal(a.x, a.z, 0), br = enuLocal(b.x, b.z, 0);
+      const tr = enuLocal(b.x, b.z, heightM), tl = enuLocal(a.x, a.z, heightM);
+      faceJobs.push({
+        nU, nV, segLen,
+        corners: [bl, br, tr, tl],
+        intensities: new Array<number | null>(nU * nV).fill(null),
+        geo: { ax: a.x, az: a.z, ux, uz, nE, nN },
+      });
+    }
+
+    // Roof: a single flat lattice over the ring bbox at the top (point-in-ring filtered),
+    // painted as ONE textured polygon of the ring itself.
+    let minE = Infinity, maxE = -Infinity, minN = Infinity, maxN = -Infinity;
+    for (const p of ring) {
+      if (p.x < minE) minE = p.x; if (p.x > maxE) maxE = p.x;
+      if (p.z < minN) minN = p.z; if (p.z > maxN) maxN = p.z;
+    }
+    const roofW = Math.max(1e-3, maxE - minE), roofD = Math.max(1e-3, maxN - minN);
+    const roofNU = Math.max(2, Math.round(roofW / LATTICE_SPACING_M) + 1);
+    const roofNV = Math.max(2, Math.round(roofD / LATTICE_SPACING_M) + 1);
+    const roofRing = ring.map((p) => ({ e: p.x, n: p.z }));
+    const roofInts = new Array<number | null>(roofNU * roofNV).fill(null);
+    const roofRingWorld = ring.map((p) => enuLocal(p.x, p.z, heightM + 0.05));
+
+    // Flatten all lattice nodes into one work list (face nodes + roof nodes) so the chunk
+    // driver evaluates them uniformly across frames. Each entry knows where to store its
+    // result. total nodes ≈ perimeter·H / spacing² — coarse, so this is affordable.
+    type NodeRef =
+      | { kind: 'face'; job: FaceJob; u: number; v: number }
+      | { kind: 'roof'; u: number; v: number };
+    const nodes: NodeRef[] = [];
+    for (const job of faceJobs) {
+      for (let v = 0; v < job.nV; v++) for (let u = 0; u < job.nU; u++) nodes.push({ kind: 'face', job, u, v });
+    }
+    for (let v = 0; v < roofNV; v++) for (let u = 0; u < roofNU; u++) nodes.push({ kind: 'roof', u, v });
+
+    const pointInRoof = (e: number, n: number): boolean => {
+      // ray-cast even-odd (same convention as buildFacadeSamplePoints' pointInRing).
+      let inside = false;
+      for (let i = 0, j = roofRing.length - 1; i < roofRing.length; j = i++) {
+        const ei = roofRing[i]!.e, ni = roofRing[i]!.n, ej = roofRing[j]!.e, nj = roofRing[j]!.n;
+        if ((ni > n) !== (nj > n) && e < ((ej - ei) * (n - ni)) / (nj - ni || 1e-9) + ei) inside = !inside;
+      }
+      return inside;
+    };
+
+    this.facadeChunkBuild(seq, nodes.length, 400, (lo, hi) => {
       for (let i = lo; i < hi; i++) {
-        const p = points[i] as FacadeSamplePoint;
-        const intensity = prep.evaluateIntensity(p);
-        // §FORMA-FACADE-DENSITY — near-opaque so the full-elevation skin reads as a
-        // crisp colour-graded façade (the old 0.92 let the white shell bleed through,
-        // making the chunky quads look washed-out/translucent).
-        const colour = Cesium.Color.fromCssColorString(prep.colourFor(intensity)).withAlpha(0.98);
-        const corners = this.facadeQuadCorners(enu, p, HALF);
+        const ref = nodes[i]!;
+        if (ref.kind === 'face') {
+          const job = ref.job;
+          const geo = job.geo;
+          const t = job.nU > 1 ? ref.u / (job.nU - 1) : 0;
+          const along = t * job.segLen;
+          const up = job.nV > 1 ? (ref.v / (job.nV - 1)) * heightM : 0;
+          const px = geo.ax + geo.ux * along;
+          const pz = geo.az + geo.uz * along;
+          const sp: FacadeSamplePoint = {
+            east: px + geo.nE * 0.25, north: pz + geo.nN * 0.25,
+            up: Math.max(0.3, up), surface: 'wall', normE: geo.nE, normN: geo.nN,
+          };
+          job.intensities[ref.v * job.nU + ref.u] = prep.evaluateIntensity(sp);
+        } else {
+          const e = minE + (roofNU > 1 ? ref.u / (roofNU - 1) : 0) * roofW;
+          const n = minN + (roofNV > 1 ? ref.v / (roofNV - 1) : 0) * roofD;
+          // Outside the plan → hole (flood-filled) so the roof texture still fills the ring.
+          const val = pointInRoof(e, n)
+            ? prep.evaluateIntensity({ east: e, north: n, up: heightM + 0.05, surface: 'roof', normE: 0, normN: 0 })
+            : null;
+          roofInts[ref.v * roofNU + ref.u] = val;
+        }
+      }
+    }, () => {
+      // §FORMA-FACADE-SMOOTH — rasterise + paint ONE textured polygon per face + roof.
+      // Each face texture is a smooth bilinear gradient continuous both along the face and
+      // up the FULL elevation (V spans 0..H in a single lattice), so there are no seams
+      // between storeys and no discrete quads.
+      let facesPainted = 0;
+      for (const job of faceJobs) {
+        const aspect = job.segLen / Math.max(1e-3, heightM);
+        const tex: FacadeSunTexture = rasterizeFacadeSunTexture(job.intensities, job.nU, job.nV, aspect, 0.92);
+        const material = this.facadeTextureMaterial(tex);
+        if (!material) continue;
         const ent = viewer.entities.add({
           name: 'pryzm-facade-sun',
           polygon: {
-            hierarchy: new Cesium.PolygonHierarchy(corners),
-            material: colour,
+            hierarchy: new Cesium.PolygonHierarchy(job.corners),
+            material,
+            perPositionHeight: true,
+            outline: false,
+            stRotation: 0,
+          },
+        });
+        this.facadeAnalysisEntities.push(ent);
+        facesPainted++;
+      }
+      // Roof — one textured polygon of the ring. Aspect = bbox width / depth.
+      const roofTex = rasterizeFacadeSunTexture(roofInts, roofNU, roofNV, roofW / Math.max(1e-3, roofD), 0.92);
+      const roofMat = this.facadeTextureMaterial(roofTex);
+      if (roofMat && roofRingWorld.length >= 3) {
+        const ent = viewer.entities.add({
+          name: 'pryzm-facade-sun-roof',
+          polygon: {
+            hierarchy: new Cesium.PolygonHierarchy(roofRingWorld),
+            material: roofMat,
             perPositionHeight: true,
             outline: false,
           },
         });
         this.facadeAnalysisEntities.push(ent);
       }
-    }, () => {
+      try { viewer.scene.requestRender(); } catch { /* viewer gone */ }
       console.log(
-        `[CesiumViewport][forma-facade] §FORMA-FACADE-ANALYSIS painted ${this.facadeAnalysisEntities.length} ` +
-          `façade sun-hours quad(s) on the designed building (H ${heightM.toFixed(1)} m, day ${this.siteMetricSunDay}).`,
+        `[CesiumViewport][forma-facade] §FORMA-FACADE-SMOOTH painted ${this.facadeAnalysisEntities.length} ` +
+          `smooth textured façade surface(s) (${facesPainted} wall face(s) + roof, ${nodes.length} lattice node(s), ` +
+          `H ${heightM.toFixed(1)} m, day ${this.siteMetricSunDay}).`,
       );
     });
   }
 
-  /** §FORMA-FACADE-ANALYSIS — the 4 ENU world corners of a small quad at a façade
-   *  sample point. Wall quads lie in the vertical plane (along the face tangent ×
-   *  up); roof quads lie flat (east × north). */
-  private facadeQuadCorners(
-    enu: Cesium.Matrix4,
-    p: FacadeSamplePoint,
-    half: number,
-  ): Cesium.Cartesian3[] {
-    // Local ENU offsets for the quad's tangent + the second axis.
-    let t1e: number, t1n: number, t1u: number; // first in-plane axis
-    let t2e: number, t2n: number, t2u: number; // second in-plane axis
-    if (p.surface === 'roof') {
-      t1e = 1; t1n = 0; t1u = 0;
-      t2e = 0; t2n = 1; t2u = 0;
-    } else {
-      // Wall: tangent along the face (perpendicular to the outward normal, horizontal)
-      // and the vertical (up) axis.
-      t1e = -p.normN; t1n = p.normE; t1u = 0;     // horizontal tangent
-      t2e = 0; t2n = 0; t2u = 1;                   // vertical
-    }
-    const mk = (s1: number, s2: number): Cesium.Cartesian3 => {
-      const e = p.east + t1e * s1 * half + t2e * s2 * half;
-      const n = p.north + t1n * s1 * half + t2n * s2 * half;
-      const u = p.up + t1u * s1 * half + t2u * s2 * half;
-      // ENU local (east, north, up); the matrix already sits at the terrain base.
-      const local = new Cesium.Cartesian3(e, n, u);
-      return Cesium.Matrix4.multiplyByPoint(enu, local, new Cesium.Cartesian3());
-    };
-    return [mk(-1, -1), mk(1, -1), mk(1, 1), mk(-1, 1)];
+  /** §FORMA-FACADE-SMOOTH — wrap a rasterised façade texture in a Cesium
+   *  ImageMaterialProperty (RGBA → canvas → transparent image material), the SAME
+   *  display mechanism the ground heatmap uses (`paintMetricTexture`). Returns null if
+   *  no 2D context is available (headless). */
+  private facadeTextureMaterial(tex: FacadeSunTexture): Cesium.ImageMaterialProperty | null {
+    const canvas = document.createElement('canvas');
+    canvas.width = tex.width;
+    canvas.height = tex.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    const img = ctx.createImageData(tex.width, tex.height);
+    img.data.set(tex.rgba);
+    ctx.putImageData(img, 0, 0);
+    return new Cesium.ImageMaterialProperty({ image: canvas, transparent: true });
   }
 
   /** §FORMA-FACADE-ANALYSIS — chunked driver for the per-point façade raycast (mirrors

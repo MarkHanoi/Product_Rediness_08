@@ -1313,6 +1313,156 @@ export function prepareFacadeSunGrid(input: FacadeSunInput): FacadeSunPrep | nul
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// §FORMA-FACADE-SMOOTH (founder 2026-07-01) — smooth CONTINUOUS façade gradient
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// PROBLEM: the façade study painted ONE small coloured quad per sample point (~2159 on
+// a 160 m tower) → blocky, no continuity, seams between the tiled storey bands. The
+// ground heatmap, by contrast, reads as ONE smooth bilinearly-interpolated TEXTURE
+// (§SITE-METRIC-SUN-TEXTURE / §SITE-METRIC-TEXTURE) — the founder wants the SAME quality.
+//
+// FIX — mirror the ground texture-decouple for the façade: keep the (expensive) per-point
+// raycast COMPUTE exactly as-is, then DISPLAY each unrolled wall FACE (and the roof) as
+// ONE bilinearly-interpolated RGBA TEXTURE mapped onto a single rectangle/polygon, using
+// the SAME `sunHoursRgb` ramp the floor + legend use. A face's sample points already lie
+// on a regular (along × up) lattice sampled continuously from up=0 to up=H (NOT per-band),
+// so a per-face texture is smooth BOTH within a storey and ACROSS every storey seam.
+//
+// This helper is the pure UV-rectangle analogue of `rasterizeSunHoursTexture`: it takes a
+// dense `nU × nV` lattice of intensities (0..1, or null for a hole → filled from
+// neighbours) and resamples it to a fine RGBA texture with masked bilinear smoothing. No
+// disc cutout (a façade face is a full rectangle); U = along the face, V = UP the height
+// (row 0 = TOP of the wall, so the caller maps it onto an upright rectangle directly).
+
+/** A rasterised façade field: a fine RGBA texture the renderer maps onto ONE wall face
+ *  (or the roof) rectangle. §FORMA-FACADE-SMOOTH. */
+export interface FacadeSunTexture {
+    /** Texture width in texels (along the face / U). */
+    readonly width: number;
+    /** Texture height in texels (up the face / V). */
+    readonly height: number;
+    /** RGBA bytes, row-major, `width·height·4`. Row 0 = TOP of the face (v increases
+     *  downward), so it maps onto an upright rectangle whose top edge is the wall top. */
+    readonly rgba: Uint8ClampedArray;
+    /** Count of lattice nodes that carried a computed value (diagnostic / span). */
+    readonly sampleCount: number;
+}
+
+/** Fine DISPLAY resolution (texels) per façade-face axis — DECOUPLED from the (coarse,
+ *  affordable) raycast COMPUTE lattice, exactly like `SUN_TEXTURE_SIZE` for the floor.
+ *  A pure CPU bilinear resample + ONE GPU upload per face, so going fine costs almost
+ *  nothing. §FORMA-FACADE-SMOOTH. */
+const FACADE_TEXTURE_MAX = 256;
+
+/**
+ * §FORMA-FACADE-SMOOTH — rasterise a SMOOTH, bilinearly-interpolated façade texture from
+ * an already-computed `nU × nV` intensity lattice. PURE (no Cesium / THREE / DOM): returns
+ * raw RGBA bytes the renderer wraps in a canvas. Uses the SAME `sunHoursRgb` ramp as the
+ * floor heatmap + legend, so the façade and the ground read one scale.
+ *
+ * @param intensities row-major `nU·nV` intensities (0..1) or null for a hole (a point the
+ *                    caller couldn't evaluate). Index = `v * nU + u`; v=0 is the BOTTOM of
+ *                    the face (up=0), v=nV-1 is the TOP — the output rows are FLIPPED so
+ *                    row 0 = top.
+ * @param nU          lattice nodes ALONG the face (≥2).
+ * @param nV          lattice nodes UP the face (≥2).
+ * @param aspect      face width / height (m/m) — sizes the texture so texels stay roughly
+ *                    square (a long low face gets a wide texture, a tall thin face a tall
+ *                    one), capped at `FACADE_TEXTURE_MAX` per axis.
+ * @param alpha       straight alpha 0..1 for lit texels (default 0.9 — a crisp façade skin).
+ */
+export function rasterizeFacadeSunTexture(
+    intensities: ReadonlyArray<number | null>,
+    nU: number,
+    nV: number,
+    aspect = 1,
+    alpha = 0.9,
+): FacadeSunTexture {
+    const lu = Math.max(2, Math.floor(nU));
+    const lv = Math.max(2, Math.floor(nV));
+    // Texel dims: keep texels ~square via the face aspect, capped per axis. The smaller
+    // axis scales down proportionally so a very wide/low face doesn't waste a full 256².
+    const a = Math.max(0.05, Math.min(20, aspect || 1));
+    const width = Math.max(4, Math.min(FACADE_TEXTURE_MAX, Math.round(a >= 1 ? FACADE_TEXTURE_MAX : FACADE_TEXTURE_MAX * a)));
+    const height = Math.max(4, Math.min(FACADE_TEXTURE_MAX, Math.round(a >= 1 ? FACADE_TEXTURE_MAX / a : FACADE_TEXTURE_MAX)));
+
+    // Node lattice (mean per node — the caller passes one value per node already, but a
+    // null is a hole to flood-fill so a face never punches a transparent square).
+    const node = new Float32Array(lu * lv);
+    const valid = new Uint8Array(lu * lv);
+    for (let k = 0; k < lu * lv; k++) {
+        const v = intensities[k];
+        if (v != null && Number.isFinite(v)) { node[k] = Math.max(0, Math.min(1, v)); valid[k] = 1; }
+    }
+    // Flood-fill every hole from its nearest valid neighbour (same BFS the ground
+    // rasteriser uses to close footprint holes) so the bilinear never darkens a gap.
+    {
+        const filled = Uint8Array.from(valid);
+        let queue: number[] = [];
+        for (let k = 0; k < filled.length; k++) if (filled[k]) queue.push(k);
+        if (queue.length > 0 && queue.length < filled.length) {
+            while (queue.length > 0) {
+                const next: number[] = [];
+                for (const k of queue) {
+                    const gi = k % lu, gj = (k / lu) | 0;
+                    const neigh = [
+                        gi > 0 ? k - 1 : -1,
+                        gi < lu - 1 ? k + 1 : -1,
+                        gj > 0 ? k - lu : -1,
+                        gj < lv - 1 ? k + lu : -1,
+                    ];
+                    for (const nk of neigh) {
+                        if (nk < 0 || filled[nk]) continue;
+                        node[nk] = node[k]!; valid[nk] = 1; filled[nk] = 1;
+                        next.push(nk);
+                    }
+                }
+                queue = next;
+            }
+        }
+    }
+
+    let sampleCount = 0;
+    for (let k = 0; k < valid.length; k++) if (valid[k]) sampleCount++;
+
+    const rgba = new Uint8ClampedArray(width * height * 4);
+    for (let ty = 0; ty < height; ty++) {
+        // Row 0 = TOP of the face → highest v. Map texel row → lattice v in [0, lv-1].
+        const fv = (1 - (ty + 0.5) / height) * (lv - 1);
+        const gj = Math.floor(fv), sv = fv - gj;
+        for (let tx = 0; tx < width; tx++) {
+            const fu = ((tx + 0.5) / width) * (lu - 1);
+            const gi = Math.floor(fu), su = fu - gi;
+            const o = (ty * width + tx) * 4;
+            let acc = 0, wsum = 0;
+            const corner = (ci: number, cj: number, w: number): void => {
+                if (ci < 0 || cj < 0 || ci >= lu || cj >= lv) return;
+                const k = cj * lu + ci;
+                if (!valid[k]) return;
+                acc += node[k]! * w; wsum += w;
+            };
+            corner(gi, gj, (1 - su) * (1 - sv));
+            corner(gi + 1, gj, su * (1 - sv));
+            corner(gi, gj + 1, (1 - su) * sv);
+            corner(gi + 1, gj + 1, su * sv);
+            if (wsum <= 0) { rgba[o + 3] = 0; continue; }
+            const [r, g, b] = sunHoursRgb(acc / wsum);
+            rgba[o] = r; rgba[o + 1] = g; rgba[o + 2] = b;
+            rgba[o + 3] = Math.round(Math.max(0, Math.min(1, alpha)) * 255);
+        }
+    }
+
+    try {
+        console.debug(
+            `[span][forma-facade-smooth] rasterised ${width}×${height} texels from ` +
+            `${sampleCount}/${lu * lv} lattice node(s) (lattice ${lu}×${lv}, aspect ${a.toFixed(2)}).`,
+        );
+    } catch { /* console unavailable (headless test) — span is best-effort */ }
+
+    return { width, height, rgba, sampleCount };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // §SITE-METRIC-SUN-TEXTURE (founder 2026-06-30, ADR-0086) — smooth sun-hours TEXTURE
 // ─────────────────────────────────────────────────────────────────────────────
 //
