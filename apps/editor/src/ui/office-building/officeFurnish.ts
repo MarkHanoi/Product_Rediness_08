@@ -1,15 +1,21 @@
-// §OFFICE-ARCH-FURNISH-SPLIT (Phase 1) — Command 2 = Furnish Office (interior fit-out ONLY).
+// §OFFICE-FURNISH-MODULAR (Phase 2 of SPEC-OFFICE-GENERATION-ENGINE §5/§6/§7/§8/§9 steps 7–8) —
+// Command 2 = Furnish Office (interior fit-out ONLY), rebuilt as the MODULAR engine.
 //
-// SPEC §1: a SEPARATE command that ANALYSES the existing architecture and populates it with
-// furniture — office desks · chairs · reception · collaboration · meeting-room furniture · cafe
-// seating. Architecture is NEVER regenerated here; only furniture is ADDED. This is the code that
-// was formerly emitted DURING Build (the §OFFICE-INTERIOR-FITOUT furniture pass) — Phase 1 moves
-// it verbatim into this command so furnishing still works. A clean modular Phase-2 rewrite (the
-// SPEC §5/§6 module library + occupancy-driven placement) comes later.
+// SPEC §5 redesigns the fit-out as reusable MODULES snapped to the circulation grid (not random
+// desks). This command READS the architecture Command 1 stashed (officeBuildContext) and drives the
+// PURE L2 engine (`planFloorFurnish` in @pryzm/ai-host): occupancy-driven (§8) module composition
+// placed clear of the circulation rings + fire-egress spokes (§7), with a final egress/clearance
+// validation (§9 step 8, logged as §DIAG-OFFICE-FURNISH-VALIDATION). Each PlacedItem is emitted as a
+// CreateFurnitureCommand on the built floor — the ONLY mutation path (P6). Architecture is NEVER
+// regenerated (SPEC §1); only furniture + lights + finishes are ADDED, in deferred, suppressed
+// batches (skipRedetectRooms/skipPbrUpgrade) so it never triggers the room-redetect storm.
 //
 // P6 (commands only): every mutation flows through the command bus / commandManager. P2: no THREE.
-// It READs the built floors and stamps furniture on them, in deferred, suppressed batches so it
-// never triggers the room-redetect storm.
+//
+// ASSET DEPENDENCY (flag, do not fix here): furniture renders as PLACEHOLDER geometry until the GLB
+// catalog is re-hosted (tracker OBJECT-STORAGE-GLB — the 185 MB /items/*.glb catalog is
+// .dockerignored out of the prod image). The module COMPOSITION + placement + quantities are correct;
+// the reference Steelcase/Herman-Miller look additionally needs the curated GLBs hosted. See ADR-0096.
 
 import { batchCoordinator } from '@pryzm/core-app-model';
 import { deferWork } from '@pryzm/frame-scheduler';
@@ -19,15 +25,9 @@ import {
     CreateFloorCommand,
     CreateLightingCommand,
 } from '@pryzm/command-registry';
+import { planFloorFurnish, type FurnishFloorInput, type PlacedItem } from '@pryzm/ai-host';
 import type { FurnitureType, FurnitureMaterial } from '@pryzm/geometry-furniture';
-import {
-    deskGrid,
-    meetingRooms,
-    cafeClusters,
-    lobbyPlan,
-    ceilingLightGrid,
-    type PlacedFurniture,
-} from './officeInteriorFitout.js';
+import { cafeClusters, lobbyPlan, ceilingLightGrid } from './officeInteriorFitout.js';
 import type { OfficeFurnishContext } from './officeBuildContext.js';
 
 const MAX_CEILING_LIGHTS = 48;
@@ -43,81 +43,110 @@ function getCommandManager(): CommandManagerLike | undefined {
 export interface OfficeFurnishResult {
     readonly furnitureCount: number;
     readonly lightCount: number;
+    /** Modules composed across the detailed floors (SPEC §5). */
+    readonly moduleCount: number;
+    /** True if the §9-8 validation found no clearance/egress violation on any floor. */
+    readonly clearanceOk: boolean;
+}
+
+/** Map the engine's radial + architecture context to the pure planner's FurnishFloorInput. */
+function toFloorInput(cfg: OfficeFurnishContext, floorIndex: number, isGroundFloor: boolean): FurnishFloorInput {
+    return {
+        floorIndex,
+        usableAreaM2: cfg.usableAreaM2,
+        discR: cfg.discRadiusM,
+        coreR: cfg.coreRadiusM,
+        openPlanInnerR: cfg.openPlanInnerR,
+        openPlanOuterR: cfg.openPlanOuterR,
+        primaryCorridor: cfg.primaryCorridor,
+        secondaryCorridor: cfg.secondaryCorridor,
+        escapeAngles: cfg.escapeAngles,
+        rooms: cfg.rooms,
+        deskBudget: cfg.deskCount,
+        isGroundFloor,
+    };
 }
 
 /**
- * §OFFICE-ARCH-FURNISH-SPLIT — Command 2: furnish the EXISTING office architecture. Given the
- * geometric context Command 1 stashed (level ids + plate radii), place desks/chairs on the open
- * plan, meeting clusters on the perimeter ring, and a ground-floor cafe + reception lobby, plus
- * ceiling downlights + floor finishes — all in deferred, suppressed batches. Returns the PLANNED
- * counts (the actual creates run in the deferred batches). Never regenerates architecture.
+ * §OFFICE-FURNISH-MODULAR — Command 2: furnish the EXISTING office architecture with the modular
+ * engine. Plans the representative office floor + the ground floor from occupancy (§8), places the §5
+ * modules clear of circulation (§7), validates egress (§9-8), and emits every item + reception/cafe +
+ * ceiling downlights + floor finishes in deferred, suppressed batches. Returns the PLANNED counts
+ * (the actual creates run in the deferred batches). Never regenerates architecture.
  */
 export function furnishOfficeInterior(cfg: OfficeFurnishContext): OfficeFurnishResult {
     const cm = getCommandManager();
-    if (!cm?.execute) return { furnitureCount: 0, lightCount: 0 };
+    if (!cm?.execute) return { furnitureCount: 0, lightCount: 0, moduleCount: 0, clearanceOk: true };
 
-    // Plan the furniture (PURE) — desks/chairs on the open-plan ring, meeting clusters on the
-    // perimeter ring, cafe + reception on the ground.
-    const desks = deskGrid(cfg.openPlanInnerR, cfg.openPlanOuterR, cfg.deskCount);
-    const meetings = meetingRooms(cfg.perimMidR, 3, Math.PI / 6);
+    // ── Plan the modular fit-out (PURE) for the representative office floor + the ground floor. ──
+    const repPlan = planFloorFurnish(toFloorInput(cfg, 1, false));
+    const groundPlan = planFloorFurnish(toFloorInput(cfg, 0, true));
+    // Ground reception + cafe (kept from Phase 1 — the reception/cafe layer is ground-specific).
     const cafes = cafeClusters(Math.max(cfg.coreRadiusM + 2, cfg.openPlanInnerR + 1), 4, Math.PI / 8);
     const lobby = lobbyPlan(cfg.discRadiusM, cfg.entranceAngle);
     const lightPts = ceilingLightGrid(cfg.discRadiusM, cfg.coreRadiusM, 3.5, MAX_CEILING_LIGHTS);
 
+    const clearanceOk = repPlan.validation.ok && groundPlan.validation.ok;
+    console.log(`[office-furnish] ${repPlan.validation.diagnostic} (rep floor)`);
+    console.log(`[office-furnish] ${groundPlan.validation.diagnostic} (ground floor)`);
+    console.log(
+        `[office-furnish] §OFFICE-FURNISH-MODULAR occupancy≈${repPlan.mix.occupancy}: ` +
+        `desks=${repPlan.desksPlaced} meeting=${repPlan.mix.meetingRooms} booth=${repPlan.mix.phoneBooths} ` +
+        `exec=${repPlan.mix.executiveOffices} collab=${repPlan.mix.collaborationBlocks} ` +
+        `breakout=${repPlan.mix.breakoutBlocks} kitchen=${repPlan.mix.kitchenBlocks} ` +
+        `→ ${repPlan.modules.length} modules on the rep floor, ${groundPlan.modules.length} on the ground.`,
+    );
+
+    const moduleCount = repPlan.modules.length + groundPlan.modules.length;
     const plannedFurniture =
-        desks.length * 2 +
-        meetings.reduce((s, m) => s + 1 + m.chairs.length, 0) +
-        cafes.reduce((s, c) => s + 1 + c.chairs.length, 0) +
-        1 + lobby.seats.length;
+        repPlan.items.length + groundPlan.items.length +
+        cafes.reduce((s, c) => s + 1 + c.chairs.length, 0) + 1 + lobby.seats.length;
     const plannedLights = lightPts.length;
 
-    const place = (levelId: string, type: FurnitureType, f: PlacedFurniture, height: number, material: FurnitureMaterial): void => {
+    // A PlacedItem → CreateFurnitureCommand emitter. The engine only names EXISTING FurnitureTypes;
+    // cast at the boundary (the pure L2 engine keeps `furnitureType` a bare string to avoid the import).
+    const placeItem = (levelId: string, it: PlacedItem): void => {
         try {
             cm.execute?.(new CreateFurnitureCommand({
                 id: createId('furniture'),
-                furnitureType: type,
-                position: { x: f.x, y: 0, z: f.z },      // y forced to level.elevation in execute()
-                rotation: { x: 0, y: f.rotY, z: 0 },
+                furnitureType: it.furnitureType as FurnitureType,
+                position: { x: it.x, y: 0, z: it.z },      // y forced to level.elevation in execute()
+                rotation: { x: 0, y: it.rotY, z: 0 },
                 levelId,
                 baseOffset: 0,
-                width: f.width,
-                length: f.length,
-                height,
-                material,
-            }), { source: 'OFFICE_FURNISH_FURNITURE' });
-        } catch (e) { console.warn('[office-furnish] furniture skipped:', e); }
+                width: it.width,
+                length: it.length,
+                height: it.height,
+                material: it.material as FurnitureMaterial,
+            }), { source: 'OFFICE_FURNISH_MODULE' });
+        } catch (e) { console.warn('[office-furnish] module item skipped:', it.furnitureType, e); }
     };
 
-    // ── Furniture batch on the representative office floor (desks/chairs + meeting rooms). ──
+    // ── Representative office floor: the modular workstation/collab/meeting/exec/booth/kitchen items. ──
     deferWork(() => {
         try {
             batchCoordinator.runBatch(() => {
-                for (const dc of desks) {
-                    place(cfg.repLevelId, 'desk', dc.desk, 0.74, 'wood');
-                    place(cfg.repLevelId, 'desk_chair', dc.chair, 1.0, 'fabric');
-                }
-                for (const m of meetings) {
-                    place(cfg.repLevelId, 'table', m.table, 0.74, 'wood');
-                    for (const c of m.chairs) place(cfg.repLevelId, 'chair', c, 0.9, 'fabric');
-                }
-            }, { levelIds: [cfg.repLevelId], totalElementCount: desks.length * 2 + meetings.length * 7, skipRedetectRooms: true, skipPbrUpgrade: true });
-            console.log(`[office-furnish] ${desks.length} desk+chair, ${meetings.length} meeting room(s) on the representative floor`);
-        } catch (e) { console.warn('[office-furnish] furniture batch failed (non-fatal):', e); }
+                for (const it of repPlan.items) placeItem(cfg.repLevelId, it);
+            }, { levelIds: [cfg.repLevelId], totalElementCount: repPlan.items.length, skipRedetectRooms: true, skipPbrUpgrade: true });
+            console.log(`[office-furnish] ${repPlan.items.length} module item(s) placed on the representative floor`);
+        } catch (e) { console.warn('[office-furnish] rep-floor module batch failed (non-fatal):', e); }
     }, 200);
 
-    // ── Ground cafe + reception lobby batch. ──
+    // ── Ground floor: the modular items + the reception lobby + cafe clusters. ──
     deferWork(() => {
         try {
             batchCoordinator.runBatch(() => {
+                for (const it of groundPlan.items) placeItem(cfg.groundLevelId, it);
+                // Reception + cafe (ground-specific amenity layer).
                 for (const cc of cafes) {
-                    place(cfg.groundLevelId, 'coffee_table', cc.table, 0.5, 'wood');
-                    for (const c of cc.chairs) place(cfg.groundLevelId, 'chair', c, 0.9, 'fabric');
+                    placeItem(cfg.groundLevelId, { furnitureType: 'coffee_table', material: 'wood', height: 0.5, x: cc.table.x, z: cc.table.z, rotY: cc.table.rotY, width: cc.table.width, length: cc.table.length });
+                    for (const c of cc.chairs) placeItem(cfg.groundLevelId, { furnitureType: 'chair', material: 'fabric', height: 0.9, x: c.x, z: c.z, rotY: c.rotY, width: c.width, length: c.length });
                 }
-                place(cfg.groundLevelId, 'table', lobby.reception, 1.1, 'wood');     // reception desk
-                for (const s of lobby.seats) place(cfg.groundLevelId, 'sofa_2seat', s, 0.8, 'fabric');
-            }, { levelIds: [cfg.groundLevelId], totalElementCount: cafes.length * 5 + 3, skipRedetectRooms: true, skipPbrUpgrade: true });
-            console.log(`[office-furnish] ${cafes.length} cafe cluster(s) + reception lobby on the ground floor`);
-        } catch (e) { console.warn('[office-furnish] cafe/lobby batch failed (non-fatal):', e); }
+                placeItem(cfg.groundLevelId, { furnitureType: 'table', material: 'wood', height: 1.1, x: lobby.reception.x, z: lobby.reception.z, rotY: lobby.reception.rotY, width: lobby.reception.width, length: lobby.reception.length });
+                for (const s of lobby.seats) placeItem(cfg.groundLevelId, { furnitureType: 'sofa_2seat', material: 'fabric', height: 0.8, x: s.x, z: s.z, rotY: s.rotY, width: s.width, length: s.length });
+            }, { levelIds: [cfg.groundLevelId], totalElementCount: groundPlan.items.length + cafes.length * 5 + 3, skipRedetectRooms: true, skipPbrUpgrade: true });
+            console.log(`[office-furnish] ${groundPlan.items.length} module item(s) + reception + ${cafes.length} cafe cluster(s) on the ground floor`);
+        } catch (e) { console.warn('[office-furnish] ground module batch failed (non-fatal):', e); }
     }, 300);
 
     // ── Ceiling downlights on the representative floor (schema-valid `downlight` kind). ──
@@ -138,8 +167,8 @@ export function furnishOfficeInterior(cfg: OfficeFurnishContext): OfficeFurnishR
         } catch (e) { console.warn('[office-furnish] lighting batch failed (non-fatal):', e); }
     }, 400);
 
-    // ── Floor finish (carpet on office floor, stone on the ground lobby) — thin applied
-    // finishes over the disc, seated on the settled slab. Room-independent. ──
+    // ── Floor finish (warm timber office floor + stone lobby) — thin applied finishes over the disc,
+    // seated on the settled slab. Room-independent (SPEC §11 warm timber/parquet office floor). ──
     deferWork(() => {
         const lay = (levelId: string, color: string, name: string): void => {
             try {
@@ -158,12 +187,12 @@ export function furnishOfficeInterior(cfg: OfficeFurnishContext): OfficeFurnishR
         };
         try {
             batchCoordinator.runBatch(() => {
-                lay(cfg.repLevelId, '#c9c2b6', 'Office Carpet Tile');
+                lay(cfg.repLevelId, '#b98a5e', 'Warm Timber Office Floor');   // SPEC §11 warm timber/parquet
                 lay(cfg.groundLevelId, '#d8d4cc', 'Lobby Stone Tile');
             }, { levelIds: [...new Set([cfg.repLevelId, cfg.groundLevelId])], totalElementCount: 2, skipRedetectRooms: true, skipPbrUpgrade: true });
             console.log('[office-furnish] floor finishes laid on the representative + ground floor');
         } catch (e) { console.warn('[office-furnish] floor-finish batch failed (non-fatal):', e); }
     }, 500);
 
-    return { furnitureCount: plannedFurniture, lightCount: plannedLights };
+    return { furnitureCount: plannedFurniture, lightCount: plannedLights, moduleCount, clearanceOk };
 }

@@ -8,6 +8,16 @@
 // detailed-floor level ids + the plate radii) here. Command 2 reads it and places furniture on
 // the already-built floors. No store writes, no THREE, no DOM — a plain in-memory handoff.
 
+/** A support room / glazed enclosure the architecture placed — a host for an amenity module. */
+export interface OfficeFurnishRoom {
+    /** The architecture's room kind (support rooms) or a glazed-enclosure kind (SPEC §6). */
+    readonly kind: 'meeting' | 'kitchenette' | 'storage' | 'plant' | 'glazed-exec' | 'glazed-focus' | 'glazed-interview';
+    readonly x0: number;
+    readonly z0: number;
+    readonly x1: number;
+    readonly z1: number;
+}
+
 /** The geometric context Command 2 (Furnish Office) needs to populate the built architecture. */
 export interface OfficeFurnishContext {
     /** The representative (detailed) office floor level id. */
@@ -28,6 +38,18 @@ export interface OfficeFurnishContext {
     readonly deskCount: number;
     /** Entrance heading (rad) — the reception faces this direction. */
     readonly entranceAngle: number;
+
+    // ── Phase 2 (SPEC §5/§6/§7/§8/§9) — the circulation-first architecture the modular engine reads. ──
+    /** Usable floor area (m²) — drives occupancy (§8). */
+    readonly usableAreaM2: number;
+    /** Primary circulation annulus (around the core) — a §7 keep-out. */
+    readonly primaryCorridor: { readonly innerR: number; readonly outerR: number };
+    /** Secondary circulation annulus (perimeter loop) — a §7 keep-out. */
+    readonly secondaryCorridor: { readonly innerR: number; readonly outerR: number };
+    /** Escape spoke headings (rad) — fire-egress routes the furniture must never block (§7/§9-8). */
+    readonly escapeAngles: readonly number[];
+    /** Support rooms + glazed enclosures — hosts for the meeting/exec/booth/kitchen amenity modules. */
+    readonly rooms: readonly OfficeFurnishRoom[];
 }
 
 let _lastContext: OfficeFurnishContext | null = null;
