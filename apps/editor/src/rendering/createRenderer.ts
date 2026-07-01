@@ -231,6 +231,17 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<Rendere
 
                         const newResult = await createRenderer(canvas);
                         window.pryzmRenderer = newResult.renderer;
+                        // §SHADOW-DEVICE-LOSS-FIX (Bug C) — if the fallback swapped in a
+                        // FRESH canvas (WebGL2 cannot bind a WebGPU-tainted canvas), the
+                        // live canvas is the renderer's domElement now, NOT the old one.
+                        // Re-point window.pryzmCanvas so resize / thumbnail capture use it.
+                        try {
+                            const liveCanvas = newResult.renderer.domElement as HTMLCanvasElement;
+                            if (liveCanvas && liveCanvas !== window.pryzmCanvas) {
+                                window.pryzmCanvas = liveCanvas;
+                                console.log('[createRenderer] §SHADOW-DEVICE-LOSS-FIX window.pryzmCanvas re-pointed to the fresh recovery canvas.');
+                            }
+                        } catch { /* domElement always present on THREE renderers */ }
                         console.log('[createRenderer] WebGPU device recovered — renderer recreated.');
 
                         // 3D-VIEW-AUDIT-2026 §F11 — read window.threeScene / window.threeCamera

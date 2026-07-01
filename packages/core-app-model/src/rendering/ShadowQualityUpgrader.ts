@@ -82,10 +82,50 @@ export class ShadowQualityUpgrader {
     private _currentLevel: ShadowQualityLevel         = 'standard';
     private _isApplied = false;
 
+    /**
+     * §SHADOW-DEVICE-LOSS-FIX — shadow-map ON/OFF gate (Fix 2, survival tier).
+     *
+     * When the scene is enormous (survival tier / >~4000 shadow-casters — the
+     * 40-storey office logged 14283 shadow-flagged meshes) allocating a shadow
+     * pass over every one of them is what churns the ShadowDepthTexture and loses
+     * the WebGPU device. `setShadowsEnabled(false)` turns the shadow map OFF at the
+     * renderer AND clears `castShadow` on the upgraded lights so THREE never
+     * allocates/renders a shadow pass at all. Reversible via setShadowsEnabled(true)
+     * and restore(). Null until apply() runs.
+     */
+    private _shadowsEnabled = true;
+    private _prevShadowMapEnabled: boolean | null = null;
+    /** Lights whose castShadow we cleared while shadows are OFF (to restore later). */
+    private _lightsShadowDisabled: (THREE.DirectionalLight | THREE.SpotLight | THREE.PointLight)[] = [];
+
     /** Returns the current quality level. */
     get currentLevel(): ShadowQualityLevel { return this._currentLevel; }
     /** Returns true if settings have been applied. */
     get applied(): boolean { return this._isApplied; }
+    /** Whether the shadow map is currently enabled (false ⇒ survival shadows-off). */
+    get shadowsEnabled(): boolean { return this._shadowsEnabled; }
+
+    /**
+     * §SHADOW-DEVICE-LOSS-FIX (Fix 1) — release a light's old ShadowDepthTexture
+     * WITHOUT ever disposing it mid-submit.
+     *
+     * Nulls `sh.map` NOW so THREE regenerates a fresh depth attachment, but DEFERS
+     * the GPU `.dispose()` of the OLD texture past the current frame's submit via
+     * `setTimeout(0)`. Disposing synchronously while the WebGPU command buffer still
+     * references the texture triggers "Destroyed texture [ShadowDepthTexture] used
+     * in a submit" → the device is lost → all pipelines/shaders become invalid →
+     * "Rendering has stopped".
+     *
+     * This mirrors the deferral apply() has always used; setLevel()/restore()
+     * previously disposed `sh.map` synchronously (the mid-submit crash on the
+     * survival office when the tier flips shadow level).
+     */
+    private static _deferReleaseShadowMap(sh: THREE.LightShadow | undefined | null): void {
+        if (!sh || !sh.map) return;
+        const oldMap = sh.map;
+        (sh as { map: unknown }).map = null;
+        setTimeout(() => { try { oldMap.dispose(); } catch { /* already reclaimed */ } }, 0);
+    }
 
     /**
      * Applies shadow quality upgrade to the renderer and all shadow-casting
@@ -103,11 +143,16 @@ export class ShadowQualityUpgrader {
         this._renderer     = renderer;
         this._currentLevel = level;
         this._snapshots    = [];
+        // §SHADOW-DEVICE-LOSS-FIX — apply() always brings shadows back ON (the
+        // survival shadows-off gate is a separate, explicit setShadowsEnabled(false)).
+        this._shadowsEnabled       = true;
+        this._lightsShadowDisabled = [];
 
         const cfg = QUALITY_CONFIGS[level];
 
-        // Save renderer shadow map type, upgrade it
-        this._prevShadowType        = renderer.shadowMap.type;
+        // Save renderer shadow map type + enabled flag, upgrade it
+        this._prevShadowType         = renderer.shadowMap.type;
+        this._prevShadowMapEnabled   = renderer.shadowMap.enabled;
         renderer.shadowMap.type     = cfg.shadowType;
         renderer.shadowMap.enabled  = true;
 
@@ -137,18 +182,12 @@ export class ShadowQualityUpgrader {
                 }
 
                 // Invalidate shadow map so it is regenerated at new resolution.
-                // §SHADOW-DISPOSE-DEFER (founder 2026-06-19) — null the map NOW so THREE
-                // regenerates it, but DEFER the GPU dispose past the current frame's
-                // submit. Disposing synchronously while a command buffer still references
-                // the texture triggers "Destroyed texture [ShadowDepthTexture] used in a
-                // submit" → device-loss cascade → the render stalls and project-OPEN HANGS
-                // (the founder's "opening models gets stuck"). This fires during load when
-                // PascalSceneLighting flags shadows on dozens of meshes.
-                if (obj.shadow.map) {
-                    const _oldMap = obj.shadow.map;
-                    (obj.shadow as any).map = null;
-                    setTimeout(() => { try { _oldMap.dispose(); } catch { /* already gone */ } }, 0);
-                }
+                // §SHADOW-DISPOSE-DEFER (founder 2026-06-19) / §SHADOW-DEVICE-LOSS-FIX —
+                // null the map NOW so THREE regenerates it, but DEFER the GPU dispose past
+                // the current frame's submit. Disposing synchronously while a command
+                // buffer still references the texture triggers "Destroyed texture
+                // [ShadowDepthTexture] used in a submit" → device-loss cascade.
+                ShadowQualityUpgrader._deferReleaseShadowMap(obj.shadow);
             }
         });
 
@@ -170,6 +209,14 @@ export class ShadowQualityUpgrader {
         if (this._prevShadowType !== null) {
             this._renderer.shadowMap.type = this._prevShadowType;
         }
+        // §SHADOW-DEVICE-LOSS-FIX — restore the renderer's shadowMap.enabled flag
+        // (the survival shadows-off gate may have turned it off) and re-arm any
+        // lights whose castShadow we cleared.
+        if (this._prevShadowMapEnabled !== null) {
+            this._renderer.shadowMap.enabled = this._prevShadowMapEnabled;
+        }
+        for (const light of this._lightsShadowDisabled) light.castShadow = true;
+        this._lightsShadowDisabled = [];
 
         for (const snap of this._snapshots) {
             const sh = snap.light.shadow;
@@ -180,15 +227,16 @@ export class ShadowQualityUpgrader {
             if ('radius' in sh) {
                 (sh as any).radius = snap.shadowRadius;
             }
-            if (sh.map) {
-                sh.map.dispose();
-                (sh as any).map = null;
-            }
+            // §SHADOW-DEVICE-LOSS-FIX — defer the ShadowDepthTexture dispose past the
+            // current submit (was a synchronous sh.map.dispose() — the mid-submit crash).
+            ShadowQualityUpgrader._deferReleaseShadowMap(sh);
         }
 
         this._snapshots    = [];
         this._renderer     = null;
         this._prevShadowType = null;
+        this._prevShadowMapEnabled = null;
+        this._shadowsEnabled = true;
         this._isApplied    = false;
 
         console.log('[ShadowQualityUpgrader] Shadow settings restored.');
@@ -218,13 +266,62 @@ export class ShadowQualityUpgrader {
             if ('radius' in sh) {
                 (sh as any).radius = cfg.radius;
             }
-            if (sh.map) {
-                sh.map.dispose();
-                (sh as any).map = null;
-            }
+            // §SHADOW-DEVICE-LOSS-FIX — defer the ShadowDepthTexture dispose past the
+            // current submit (was a synchronous sh.map.dispose() while the WebGPU queue
+            // still referenced it → "Destroyed texture used in a submit" → device lost).
+            ShadowQualityUpgrader._deferReleaseShadowMap(sh);
         }
 
         console.log(`[ShadowQualityUpgrader] Level changed to "${level}"`);
+    }
+
+    /**
+     * §SHADOW-DEVICE-LOSS-FIX (Fix 2) — turn the whole shadow map ON or OFF.
+     *
+     * On the survival tier / an enormous scene (the 40-storey office: 14283
+     * shadow-flagged meshes) rendering a shadow pass over every caster is what
+     * repeatedly churns the ShadowDepthTexture and loses the WebGPU device. Turning
+     * shadows OFF removes the shadow pass entirely — a big perf win AND it stops the
+     * ShadowDepthTexture allocate/dispose cycle at the source.
+     *
+     * `enabled=false`:
+     *   - sets `renderer.shadowMap.enabled = false` (no shadow pass runs), and
+     *   - clears `castShadow` on every upgraded light so THREE does not even attempt
+     *     to allocate a shadow map for them; each light's old ShadowDepthTexture is
+     *     released via the deferred (post-submit) path — never mid-submit.
+     * `enabled=true` reverses both.
+     *
+     * Requires apply() to have run. Idempotent. Reversed by restore()/dispose().
+     */
+    setShadowsEnabled(enabled: boolean): void {
+        if (!this._isApplied || !this._renderer) return;
+        if (enabled === this._shadowsEnabled) return;
+        this._shadowsEnabled = enabled;
+
+        this._renderer.shadowMap.enabled = enabled;
+
+        if (!enabled) {
+            // Turn shadows OFF: clear castShadow on the upgraded lights and defer the
+            // release of their ShadowDepthTexture past the current submit.
+            this._lightsShadowDisabled = [];
+            for (const snap of this._snapshots) {
+                const light = snap.light;
+                if (light.castShadow) {
+                    light.castShadow = false;
+                    this._lightsShadowDisabled.push(light);
+                }
+                ShadowQualityUpgrader._deferReleaseShadowMap(light.shadow);
+            }
+            console.log(
+                `[ShadowQualityUpgrader] §SHADOW-DEVICE-LOSS-FIX shadows OFF ` +
+                `(${this._lightsShadowDisabled.length} light(s) de-shadowed; no shadow pass — survival tier).`,
+            );
+        } else {
+            // Turn shadows back ON: re-arm castShadow on the lights we disabled.
+            for (const light of this._lightsShadowDisabled) light.castShadow = true;
+            this._lightsShadowDisabled = [];
+            console.log('[ShadowQualityUpgrader] §SHADOW-DEVICE-LOSS-FIX shadows ON (shadow pass restored).');
+        }
     }
 
     dispose(): void {

@@ -47,6 +47,73 @@ export class RendererHandleFactory {
   private constructor() {}
 
   /**
+   * §SHADOW-DEVICE-LOSS-FIX (Bug C) — return a canvas guaranteed to accept a
+   * plain WebGL2 context.
+   *
+   * The browser forbids acquiring a WebGL2 context on a canvas that ALREADY holds
+   * a context of a different type: once a WebGPU (or WebGPURenderer WebGL2) context
+   * was created on `canvas`, `new THREE.WebGLRenderer({ canvas })` throws
+   *   "A WebGL context could not be created. Reason: Canvas has an existing
+   *    context of a different type"
+   * — which killed the LAST fallback during WebGPU device-loss recovery and left
+   * the viewer with NO renderer at all (total death / blank viewport).
+   *
+   * `maybeTainted` marks the canvas as possibly already holding a WebGPU/WebGL2
+   * context (true on every fallback that follows a WebGPURenderer attempt). When
+   * set, we mint a FRESH <canvas>, copy the tainted one's size / id / className /
+   * inline style, splice it into the SAME parent in the SAME DOM position, and
+   * remove the old one — so the plain WebGLRenderer gets a pristine canvas while
+   * the viewport keeps the same on-screen element geometry and stacking.
+   *
+   * If the tainted canvas is not attached to the DOM (headless / offscreen) we
+   * still return a detached fresh canvas sized to match, so construction succeeds.
+   */
+  private static _canvasForPlainWebGL(
+    canvas: HTMLCanvasElement,
+    maybeTainted: boolean,
+  ): HTMLCanvasElement {
+    if (!maybeTainted) return canvas;
+    // No DOM (SSR / worker) — nothing to splice; hand back the original.
+    if (typeof document === 'undefined') return canvas;
+
+    let fresh: HTMLCanvasElement;
+    try {
+      fresh = document.createElement('canvas');
+    } catch {
+      return canvas; // document exists but createElement failed — best effort.
+    }
+
+    // Copy the pixel buffer size + presentation attributes so the swap is invisible.
+    fresh.width     = canvas.width  || canvas.clientWidth  || 0;
+    fresh.height    = canvas.height || canvas.clientHeight || 0;
+    if (canvas.id)        fresh.id        = canvas.id;
+    if (canvas.className) fresh.className = canvas.className;
+    const styleText = canvas.getAttribute('style');
+    if (styleText) fresh.setAttribute('style', styleText);
+
+    // Splice the fresh canvas into the DOM in place of the tainted one.
+    const parent = canvas.parentNode;
+    if (parent) {
+      try {
+        parent.insertBefore(fresh, canvas);
+        parent.removeChild(canvas);
+        console.log(
+          '[renderer-three] §SHADOW-DEVICE-LOSS-FIX replaced the WebGPU-tainted canvas with a ' +
+          'fresh one so the plain-WebGL2 fallback can acquire a context (avoids "existing context of a different type").',
+        );
+      } catch (err) {
+        console.warn(
+          '[renderer-three] §SHADOW-DEVICE-LOSS-FIX canvas replace failed — using original canvas ' +
+          '(WebGL2 context may fail if it is tainted):',
+          err instanceof Error ? err.message : err,
+        );
+        return canvas;
+      }
+    }
+    return fresh;
+  }
+
+  /**
    * Create the best available RendererHandle for `canvas`.
    *
    * Priority (C04 §1.4):
@@ -93,11 +160,17 @@ export class RendererHandleFactory {
       // Genuine WebGL2-via-WebGPURenderer failure → plain WebGLRenderer.
       // Note: THREE.WebGLRenderer requests a WebGL2 context in r150+; this is a
       // WebGL2 context, just without the WebGPURenderer node-resource manager.
+      // §SHADOW-DEVICE-LOSS-FIX (Bug C) — the WebGPURenderer(forceWebGL2) attempt
+      // above may have TAINTED the canvas with a context; use a fresh canvas so the
+      // plain WebGL2 context can be acquired.
       console.log('[renderer-three] backend: webgl1 (forced WebGL — plain THREE.WebGLRenderer fallback)');
-      return new WebGLRendererAdapter(canvas, {
-        antialias: true,
-        preserveDrawingBuffer: true,
-      });
+      return new WebGLRendererAdapter(
+        RendererHandleFactory._canvasForPlainWebGL(canvas, true),
+        {
+          antialias: true,
+          preserveDrawingBuffer: true,
+        },
+      );
     }
 
     // ── 1 + 2. Try WebGPURenderer first ─────────────────────────────────
@@ -127,7 +200,14 @@ export class RendererHandleFactory {
       'Falling back to plain THREE.WebGLRenderer (no TSL pipeline).',
     );
     try {
-      const webgl = new WebGLRendererAdapter(canvas, {
+      // §SHADOW-DEVICE-LOSS-FIX (Bug C) — we reach here ONLY after a WebGPURenderer
+      // attempt, so the canvas may already hold a WebGPU/WebGL2 context; acquiring a
+      // plain WebGL2 context on it throws "Canvas has an existing context of a
+      // different type". Use a fresh, untainted canvas so this last-resort ALWAYS
+      // succeeds — the difference between a graceful WebGL2 viewport and a dead viewer.
+      const webgl = new WebGLRendererAdapter(
+        RendererHandleFactory._canvasForPlainWebGL(canvas, true),
+        {
         // 3D-VIEW-AUDIT-2026 §F2.3 — antialias=true intentionally diverges
         // from the WebGPU path (which uses antialias:false because TRAA
         // replaces MSAA).  TRAA is unavailable on this fallback path, so
