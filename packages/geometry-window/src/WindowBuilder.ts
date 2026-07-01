@@ -10,8 +10,29 @@ import { WallStore } from '@pryzm/geometry-wall';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { SpatialAuthorityError } from '@pryzm/core-app-model';
 import { vgGovernanceStore, VGStyle } from '@pryzm/visibility';
+// §INSTANCE-WINDOWS (2026-07-01) — GPU instancing over the SAME shared
+// InstancedElementRenderer walls/columns/beams use, plus its default-off flag.
+// We register sub-boxes DIRECTLY against the renderer (not via
+// ElementInstanceBridge) so we can pass a per-instance `pickId` = the window id:
+// every sub-box of a window resolves to the ONE window element on selection,
+// exactly like §FURNITURE-MULTIPART-INSTANCING. The bridge type is injected so
+// EngineBootstrap wiring mirrors the column/beam pattern, but the actual
+// registration uses the bridge's underlying renderer singleton.
+import {
+    ElementInstanceBridge,
+    isElementInstancingEnabled,
+    instancedElementRenderer,
+} from '@pryzm/core-app-model/rendering';
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
+
+// §INSTANCE-WINDOWS — ONE shared unit box for every instanced window sub-box.
+// InstancedElementRenderer hashes (geometry, material, level) into the group key,
+// so a single unit box scaled per-instance lets identical sub-boxes across all
+// storeys collapse into one InstancedMesh. Module-level (never disposed — it is a
+// template; the InstanceGroup owns the GPU buffer copy). Only read on the
+// flag-on instanced path, so it is inert by default.
+const _unitBox = new THREE.BoxGeometry(1, 1, 1);
 
 // ── Helper: add a BoxGeometry mesh to parent ────────────────────────────────
 function addBox(
@@ -105,6 +126,36 @@ export class WindowBuilder {
     private windowMaterials: Map<string, THREE.Material[]> = new Map();
     private unsubscribe: (() => void) | null = null;
 
+    // §INSTANCE-WINDOWS (2026-07-01) — SHARED window material cache.
+    //
+    // Before this cache buildVisuals() minted a BRAND-NEW frame + glass material
+    // per window (makeMat / makeGlassMat). On the 40-storey office (~920 windows)
+    // that is ~1840 unique materials; because InstancedElementRenderer keys its
+    // groups by `…_material.uuid`, a unique material forces a size-1 group → zero
+    // instancing (identical to the wall bug §INSTANCE-MAT-SHARE fixed). Sharing ONE
+    // frame material per (levelId, colour) and ONE glass material per
+    // (levelId, opacity) lets every identical window across all 40 storeys collapse
+    // into a handful of InstancedMeshes. The cache OWNS these materials' lifetime;
+    // per-window dispose() must NOT dispose a shared material (it may back thousands
+    // of windows). Freed in deactivate().
+    private _sharedFrameMats = new Map<string, THREE.MeshStandardMaterial>();
+    private _sharedGlassMats = new Map<string, THREE.MeshPhysicalMaterial>();
+
+    /**
+     * §INSTANCE-WINDOWS — optional GPU-instancing bridge (the SAME shared
+     * InstancedElementRenderer walls/columns/beams use). When injected AND
+     * `globalThis.__pryzmElementInstancingV1 === true`, every window sub-box
+     * (frame bars + glass panes) is registered as a GPU instance keyed by a
+     * synthetic per-sub-mesh storage id `${winId}#N` with pickId = winId, so all
+     * identical sub-boxes across the 40 storeys collapse into one InstancedMesh
+     * per (geometry × colour × level) while selection still resolves to the one
+     * window element. Default-OFF: null bridge OR flag-off keeps every window on
+     * the individual-mesh path (unchanged behaviour). Mirrors columnBuilder.
+     */
+    private _instanceBridge: ElementInstanceBridge | null = null;
+    /** Per-window list of instanced sub-mesh storage keys, for unregister on rebuild/remove. */
+    private _instancedSubKeys: Map<string, string[]> = new Map();
+
     // ── C11 §2 step 3: FrameScheduler adaptive drain ──────────────────────────
     /** Pending window builds keyed by id — later update wins (dedup). */
     private _pendingBuilds = new Map<string, WindowBuildTask>();
@@ -118,6 +169,51 @@ export class WindowBuilder {
     constructor(scene: THREE.Scene, wallStore: WallStore) {
         this.scene = scene;
         this.wallStore = wallStore;
+    }
+
+    /**
+     * §INSTANCE-WINDOWS — inject the GPU-instancing bridge (the SAME one walls /
+     * columns use, constructed over the shared `instancedElementRenderer`). Until
+     * this is injected AND `globalThis.__pryzmElementInstancingV1 === true`,
+     * windows build exactly as before (individual sub-meshes). Mirrors
+     * ColumnFragmentBuilder.setInstanceBridge / initBuilders columnBuilder wiring.
+     */
+    setInstanceBridge(bridge: ElementInstanceBridge): void {
+        this._instanceBridge = bridge;
+        console.log('[WindowBuilder] §INSTANCE-WINDOWS ElementInstanceBridge injected (gated by __pryzmElementInstancingV1).');
+    }
+
+    /** True when the instanced path should be used for this build pass. */
+    private _instancingActive(): boolean {
+        return this._instanceBridge !== null && isElementInstancingEnabled();
+    }
+
+    /**
+     * §INSTANCE-WINDOWS — resolve a SHARED frame material for (levelId, colour,
+     * transparent, opacity). Identical windows across all 40 storeys share ONE
+     * material so InstancedElementRenderer can coalesce them (and even on the
+     * non-instanced path this cuts material count from ~1 per window to ~1 per
+     * distinct colour per level). Cache owns lifetime — never disposed per-window.
+     */
+    private _sharedFrameMaterial(levelId: string, color: string, transparent: boolean, opacity: number, roughness = 0.6): THREE.MeshStandardMaterial {
+        const key = `${levelId}|${new THREE.Color(color).getHexString()}|${transparent ? 't' : 'o'}|${opacity.toFixed(3)}|r${roughness}`;
+        let mat = this._sharedFrameMats.get(key);
+        if (!mat) {
+            mat = makeMat(color, roughness, 0, transparent, opacity);
+            this._sharedFrameMats.set(key, mat);
+        }
+        return mat;
+    }
+
+    /** §INSTANCE-WINDOWS — shared glass material for (levelId, opacity). */
+    private _sharedGlassMaterial(levelId: string, opacity: number): THREE.MeshPhysicalMaterial {
+        const key = `${levelId}|${opacity.toFixed(3)}`;
+        let mat = this._sharedGlassMats.get(key);
+        if (!mat) {
+            mat = makeGlassMat(opacity, THREE.DoubleSide);
+            this._sharedGlassMats.set(key, mat);
+        }
+        return mat;
     }
 
     /** Call once after scene is ready. Replays any already-stored windows (from project load). */
@@ -160,6 +256,17 @@ export class WindowBuilder {
      */
     private _isPropertyOnlyChange(prev: WindowOpening, next: WindowOpening): boolean {
         if (prev === next) return false;
+        // §INSTANCE-WINDOWS — the property-only fast path mutates the window's
+        // frame/glass materials IN PLACE (_applyPropertyOnly). Those materials are
+        // now SHARED across every identical window (see _sharedFrameMaterial /
+        // _sharedGlassMaterial), so an in-place colour/opacity patch would bleed to
+        // thousands of sibling windows. Force a full rebuild instead: rebuild()
+        // re-resolves to the correctly-keyed shared material (and re-registers the
+        // instance under the new material's group), keeping the cache immutable.
+        // The rebuild is deferred + adaptively sliced, so the interactive cost is
+        // bounded — correctness over the micro-optimisation for a shared-material
+        // colour edit.
+        return false;
         const vg = vgGovernanceStore.getEffectiveStyle('Window', next.id);
         if (vg.hidden || vg.colorOverride !== undefined || vg.opacityFactor !== undefined) return false;
         let materialDirty = false;
@@ -228,6 +335,15 @@ export class WindowBuilder {
         for (const id of [...this.windowGroups.keys()]) {
             this.dispose(id);
         }
+
+        // §INSTANCE-WINDOWS — the SHARED material caches are cache-owned (never
+        // disposed per-window), so free them here on full teardown to avoid a GPU
+        // material leak across project close/reopen.
+        for (const m of this._sharedFrameMats.values()) safeDisposeMaterial(m);
+        for (const m of this._sharedGlassMats.values()) safeDisposeMaterial(m);
+        this._sharedFrameMats.clear();
+        this._sharedGlassMats.clear();
+        this._instancedSubKeys.clear();
     }
 
     /**
@@ -346,11 +462,27 @@ export class WindowBuilder {
 
         // Use wall thickness so the frame fully spans the void (no exposed cut edges).
         const frameDepth = (wallData.thickness ?? 0.2) + 0.02;
-        const mats = this.buildVisuals(win, group, frameDepth, vgStyle);
+        const mats = this.buildVisuals(win, group, frameDepth, vgStyle, wallData.levelId ?? 'default');
         this.windowMaterials.set(win.id, mats);
         this.positionGroup(win, group, wallData);
+
+        // §INSTANCE-WINDOWS — when the flag is on, convert the freshly-built
+        // sub-meshes into GPU instances. This reuses ALL the geometry maths above
+        // (each box was built in group-local space; the group was just positioned
+        // + rotated in world space) so the instanced placement is byte-identical to
+        // the individual-mesh placement — we only change HOW it reaches the GPU.
+        // After conversion the group holds a single invisible hit-proxy so
+        // SelectionManager raycasting still resolves the window. Default-off path
+        // keeps every real sub-mesh (unchanged behaviour).
+        if (this._instancingActive()) {
+            this._convertGroupToInstances(win, group, wallData.levelId);
+        }
+
         group.traverse(obj => {
             if (obj !== group && obj instanceof THREE.Mesh) {
+                // §INSTANCE-WINDOWS — preserve the hit-proxy's role so dispose() can
+                // free its throwaway material; only stamp real geometry sub-meshes.
+                if (obj.userData?.role === 'hit-proxy') return;
                 obj.userData = Object.freeze({
                     ...obj.userData,
                     elementType: 'Window',
@@ -371,6 +503,109 @@ export class WindowBuilder {
         // F.events.18 — typed bus replaces variable CustomEvent
         if (isUpdate) _bus.emit('bim-window-updated', { id: win.id });
         else _bus.emit('bim-window-added', { id: win.id });
+    }
+
+    /**
+     * §INSTANCE-WINDOWS — replace a window group's individual sub-meshes with GPU
+     * instances registered in the shared InstancedElementRenderer, then leave a
+     * single invisible hit-proxy on the group for selection raycasting.
+     *
+     * Correctness: every sub-box is an axis-aligned BoxGeometry(w,h,d) at a pure
+     * translation in group-local space; the group carries the world position +
+     * Y-rotation. So a sub-box's WORLD transform is exactly the group's world
+     * matrix composed with the box's local translation — we read that back from
+     * the child's `matrixWorld` (decompose → centre, quaternion, scale) and hand
+     * it to ElementInstanceBridge, which rebuilds `translate × rotateY × scale`.
+     * Because the sub-box has no local rotation and the group only rotates about
+     * Y, the decomposed rotation is a pure Y-rotation, so passing `rotationY`
+     * reproduces the placement exactly.
+     *
+     * Storage key = `${win.id}#${i}` (unique per sub-box); pickId = win.id (via
+     * the group userData path — SelectionManager resolves the window through the
+     * hit-proxy, not the instance, so we do NOT need per-instance pick here, but
+     * the shared material keying still coalesces boxes across all storeys).
+     */
+    private _convertGroupToInstances(win: WindowOpening, group: THREE.Group, levelId: string): void {
+        if (!this._instanceBridge) return;
+
+        // Ensure child world matrices reflect the group's just-set world transform.
+        group.updateMatrixWorld(true);
+
+        // Collect meshes first (we mutate the group while iterating).
+        const meshes: THREE.Mesh[] = [];
+        group.traverse(obj => {
+            if (obj !== group && obj instanceof THREE.Mesh) meshes.push(obj);
+        });
+
+        const subKeys: string[] = [];
+        const _pos = new THREE.Vector3();
+        const _quat = new THREE.Quaternion();
+        const _scale = new THREE.Vector3();
+        const _euler = new THREE.Euler();
+
+        let i = 0;
+        for (const mesh of meshes) {
+            const geo = mesh.geometry as THREE.BoxGeometry;
+            const params = (geo as any).parameters as { width?: number; height?: number; depth?: number } | undefined;
+            // Only unit-box-derived geometries carry .parameters; every window
+            // sub-mesh is a BoxGeometry, so this is always present. Guard anyway.
+            if (!params || params.width == null) continue;
+
+            mesh.matrixWorld.decompose(_pos, _quat, _scale);
+            _euler.setFromQuaternion(_quat, 'YXZ');
+
+            // World extents: box params × group scale (group scale is 1, but keep the
+            // multiply for safety). Encode translate × rotateY × scale so a shared
+            // unit box renders at the right place + size — identical maths to
+            // ElementInstanceBridge._buildMatrix / WallInstanceBridge.register.
+            const sizeX = (params.width ?? 1) * _scale.x || 1e-6;
+            const sizeY = (params.height ?? 1) * _scale.y || 1e-6;
+            const sizeZ = (params.depth ?? 1) * _scale.z || 1e-6;
+            const matrix = new THREE.Matrix4()
+                .makeTranslation(_pos.x, _pos.y, _pos.z)
+                .multiply(new THREE.Matrix4().makeRotationY(_euler.y))
+                .multiply(new THREE.Matrix4().makeScale(sizeX, sizeY, sizeZ));
+
+            const material = mesh.material as THREE.Material;
+            // Storage key is UNIQUE per sub-box (`${win.id}#${i}`) so each occupies its
+            // own addressable slot; pickId = win.id for EVERY sub-box so that picking
+            // ANY frame bar or glass pane resolves to the ONE window element (mirrors
+            // §FURNITURE-MULTIPART-INSTANCING). The shared unit box + shared material
+            // mean identical windows across all 40 storeys coalesce into one
+            // InstancedMesh per (sub-box shape × colour × level).
+            const storageKey = `${win.id}#${i}`;
+            instancedElementRenderer.register(
+                storageKey,
+                _unitBox,
+                material,
+                matrix,
+                levelId,
+                'Window',
+                win.id,   // pickId — resolves every sub-box to the window element
+            );
+            subKeys.push(storageKey);
+            i++;
+        }
+
+        this._instancedSubKeys.set(win.id, subKeys);
+
+        // Strip the real sub-meshes (their geometry is now redundant — the
+        // InstancedMesh renders them). Dispose only the geometry; the materials are
+        // SHARED (cache-owned) so they must survive.
+        for (const mesh of meshes) {
+            safeDisposeGeometry(mesh.geometry); // §I2 — WebGPU-safe
+            group.remove(mesh);
+        }
+
+        // Add ONE invisible hit-proxy spanning the whole window so raycast
+        // selection still resolves the window group (mirrors the wall/column
+        // instanced-selection pattern: colorWrite/depthWrite off = imperceptible
+        // but raycastable). Built in group-local space (window centred at origin).
+        const proxyGeo = new THREE.BoxGeometry(win.width, win.height, (win.frameDepth ?? 0.2) + 0.02);
+        const proxyMat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
+        const proxy = new THREE.Mesh(proxyGeo, proxyMat);
+        proxy.userData = { role: 'hit-proxy' };
+        group.add(proxy);
     }
 
     private positionGroup(win: WindowOpening, group: THREE.Group, wallData: any): void {
@@ -449,7 +684,7 @@ export class WindowBuilder {
         return (typeof explicit === 'string' && explicit.length > 0) ? explicit : SENTINEL;
     }
 
-    private buildVisuals(win: WindowOpening, group: THREE.Group, wallFrameDepth?: number, vgStyle?: VGStyle): THREE.Material[] {
+    private buildVisuals(win: WindowOpening, group: THREE.Group, wallFrameDepth?: number, vgStyle?: VGStyle, levelId = 'default'): THREE.Material[] {
         const mats: THREE.Material[] = [];
         const { width: w, height: h, frameThickness: ft } = win;
         // Use the wall-derived depth when provided so the frame spans the full void.
@@ -464,10 +699,14 @@ export class WindowBuilder {
         const frameOpacity = Math.max(0, Math.min(1, opacityFactor));
         const glassOpacity = Math.max(0, Math.min(1, win.glassOpacity * opacityFactor));
 
-        const frameMat = makeMat(frameColor, 0.6, 0, frameTransparent, frameOpacity);
+        // §INSTANCE-WINDOWS — SHARED materials (see _sharedFrameMaterial). Identical
+        // windows across all 40 storeys now share ONE frame + ONE glass material per
+        // (level, colour/opacity) instead of minting a fresh pair each. These are
+        // cache-owned and MUST NOT be disposed per-window (dispose() skips them).
+        const frameMat = this._sharedFrameMaterial(levelId, frameColor, frameTransparent, frameOpacity);
         // A.21.D40 #4 — believable transparent glass (physical transmission), not
         // an opaque light-blue panel. See makeGlassMat above.
-        const glassMat = makeGlassMat(glassOpacity, THREE.DoubleSide);
+        const glassMat = this._sharedGlassMaterial(levelId, glassOpacity);
         mats.push(frameMat, glassMat);
 
         // ── Outer Frame ────────────────────────────────────────────────────
@@ -558,7 +797,9 @@ export class WindowBuilder {
 
         // ── Sill ───────────────────────────────────────────────────────────
         if (win.sill && win.sillDepth > 0 && win.sillThickness > 0) {
-            const sillMat = makeMat(win.frameColor, 0.7, 0);
+            // §INSTANCE-WINDOWS — sill mirrors the frame colour (roughness 0.7),
+            // resolved from the SHARED cache so it coalesces across storeys too.
+            const sillMat = this._sharedFrameMaterial(levelId, this._resolveFrameColor(win), false, 1, 0.7);
             mats.push(sillMat);
             // Sill protrudes from bottom of window toward exterior (positive Z in group space)
             addBox(
@@ -576,11 +817,26 @@ export class WindowBuilder {
     }
 
     private dispose(id: string): void {
+        // §INSTANCE-WINDOWS — release any GPU instance slots this window owns
+        // BEFORE tearing down its group. No-op when the window was on the
+        // individual-mesh path (map has no entry).
+        const subKeys = this._instancedSubKeys.get(id);
+        if (subKeys) {
+            for (const k of subKeys) instancedElementRenderer.unregister(k);
+            this._instancedSubKeys.delete(id);
+        }
+
         const group = this.windowGroups.get(id);
         if (group) {
             group.traverse(obj => {
                 if (obj instanceof THREE.Mesh) {
                     safeDisposeGeometry(obj.geometry); // §I2 — WebGPU-safe
+                    // The hit-proxy owns its own throwaway MeshBasicMaterial; dispose
+                    // it. Real window sub-meshes use SHARED cache-owned materials
+                    // (frame/glass/sill) which must NOT be disposed here.
+                    if (obj.userData?.role === 'hit-proxy') {
+                        safeDisposeMaterial(obj.material as THREE.Material);
+                    }
                 }
             });
             this.scene.remove(group);
@@ -589,10 +845,10 @@ export class WindowBuilder {
 
             _bus.emit('bim-window-removed', { id }); // F.events.18
         }
-        const mats = this.windowMaterials.get(id);
-        if (mats) {
-            for (const m of mats) safeDisposeMaterial(m); // §I2 — WebGPU-safe
-            this.windowMaterials.delete(id);
-        }
+        // §INSTANCE-WINDOWS — do NOT dispose the tracked materials: they are SHARED
+        // across every identical window (cache-owned, freed in deactivate()).
+        // Disposing here would blank out sibling windows still using them. We keep
+        // the windowMaterials map only for the (now rebuild-only) property path.
+        this.windowMaterials.delete(id);
     }
 }

@@ -671,6 +671,18 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     doorBuilder.activate();
 
     const windowBuilder = new WindowBuilder(scene, wallStore);
+    // §INSTANCE-WINDOWS (2026-07-01) — inject the GPU-instancing bridge over the
+    // SAME shared renderer walls/columns/beams use. DEFAULT-OFF: window sub-meshes
+    // (frame bars + glass panes) only route to instancing when
+    // globalThis.__pryzmElementInstancingV1 === true; otherwise every window stays
+    // on the individual-mesh path. Material SHARING (the always-on part of
+    // §INSTANCE-WINDOWS) is independent of this flag and always active. Mirrors the
+    // columnBuilder instance-bridge wiring above.
+    try {
+        windowBuilder.setInstanceBridge(new ElementInstanceBridge(instancedElementRenderer));
+    } catch (instErr) {
+        console.warn('[initBuilders] §INSTANCE-WINDOWS window instance bridge wiring failed:', instErr);
+    }
     windowBuilder.activate();
 
     // §DOOR-AUDIT-2026 P2 #12 / §WIN-AUDIT-2026 W9 — element-class dependency
