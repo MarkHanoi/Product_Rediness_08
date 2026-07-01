@@ -162,6 +162,15 @@ export class BvhPickStrategy implements PickStrategy {
     let bestKind: ElementKind | null = null;
     let bestFaceIndex: number | undefined;
 
+    // §SELECT-INSTANCED-PICK (FIX #6) — the ElementRegistry maps BOTH an instanced
+    // group's synthetic id AND every one of its per-instance member ids to the SAME
+    // InstancedMesh object (SelectionManager._buildElementRegistry). Raycasting that
+    // one mesh once PER id both wastes work and — worse — returns whichever registry
+    // id happened to win instead of the instance actually under the cursor. Track the
+    // instanced groups already raycast (by Object3D identity) so each is processed
+    // exactly once; the real per-instance element id comes from hit.instanceId below.
+    const seenInstancedGroups = new Set<THREE.Object3D>();
+
     for (const id of ctx.elementRegistry.ids()) {
       const obj = ctx.elementRegistry.objectFor(id);
       const mesh = firstMesh(obj);
@@ -170,6 +179,34 @@ export class BvhPickStrategy implements PickStrategy {
       // so an isolate/hide-d element (root `.visible = false`) would otherwise
       // stay selectable via this path. (GpuPickStrategy already excludes it.)
       if (!isEffectivelyVisible(obj)) continue;
+
+      // §SELECT-INSTANCED-PICK (FIX #6) — instanced-group path. The registered
+      // object is an InstancedElementRenderer group (userData.isInstancedGroup)
+      // hosting MANY BIM elements, one per occupied instance slot. THREE's
+      // InstancedMesh raycast populates `hit.instanceId`; the real element id is
+      // `getInstanceElementId(instanceId)`. The OLD code ignored instanceId and
+      // returned `id` (often the synthetic group id, or an arbitrary member id) — so
+      // on the WebGL/headless FALLBACK every instanced wall/column/beam picked to the
+      // wrong element, or to a non-existent synthetic id → no selection at all. This
+      // is the CPU-path mirror of the GPU path's per-instance colour resolution.
+      const instancedGroup = asInstancedGroup(obj);
+      if (instancedGroup !== null) {
+        if (seenInstancedGroups.has(obj)) continue;
+        seenInstancedGroups.add(obj);
+        const hit = this.raycaster.intersectObject(obj, false)[0];
+        if (hit === undefined || hit.instanceId === undefined) continue;
+        const memberId = instancedGroup.getInstanceElementId(hit.instanceId);
+        if (memberId === undefined) continue;
+        if (bestHit === null || hit.distance < bestHit.distance) {
+          bestHit = hit;
+          bestId = memberId;
+          bestKind = ctx.elementRegistry.kindOf(memberId)
+            ?? (instancedGroup.elementType as ElementKind | null)
+            ?? ctx.elementRegistry.kindOf(id);
+          bestFaceIndex = hit.faceIndex ?? undefined;
+        }
+        continue;
+      }
 
       this.ensureBvh(id, mesh.geometry as THREE.BufferGeometry, ctx.elementRegistry);
 
@@ -209,12 +246,55 @@ export class BvhPickStrategy implements PickStrategy {
     const results: PickResult[] = [];
     const tmpBox = new THREE.Box3();
 
+    // §SELECT-INSTANCED-PICK (FIX #6) — one InstancedMesh hosts MANY members, all
+    // mapped to the same object in the registry. Enumerate its OCCUPIED instances so
+    // a marquee returns each member element whose per-instance box intersects the
+    // rect — not one arbitrary member for the whole group (or nothing). Process each
+    // group object once (identity-deduped) even though it appears under many ids.
+    const seenInstancedGroups = new Set<THREE.Object3D>();
+    const instMatrix = new THREE.Matrix4();
+
     for (const id of ctx.elementRegistry.ids()) {
       const obj = ctx.elementRegistry.objectFor(id);
       const mesh = firstMesh(obj);
       if (mesh === null) continue;
       // #113 — exclude hidden elements from marquee/rect selection too.
       if (obj === null || !isEffectivelyVisible(obj)) continue;
+
+      // §SELECT-INSTANCED-PICK (FIX #6) — instanced-group marquee path.
+      const instancedGroup = asInstancedGroup(obj);
+      if (instancedGroup !== null) {
+        if (seenInstancedGroups.has(obj)) continue;
+        seenInstancedGroups.add(obj);
+        const im = obj as THREE.InstancedMesh;
+        const localBox = im.geometry.boundingBox
+          ?? (im.geometry.computeBoundingBox(), im.geometry.boundingBox);
+        if (!localBox) continue;
+        im.updateWorldMatrix(true, false);
+        for (const slot of instancedGroup.getOccupiedInstanceSlots()) {
+          const memberId = instancedGroup.getInstanceElementId(slot);
+          if (memberId === undefined) continue;
+          im.getMatrixAt(slot, instMatrix);
+          instMatrix.premultiply(im.matrixWorld);
+          tmpBox.copy(localBox).applyMatrix4(instMatrix);
+          if (tmpBox.isEmpty()) continue;
+          const screenBox = projectBoxToScreen(tmpBox, ctx);
+          if (screenBox === null) continue;
+          if (!rectsOverlap(rect, screenBox)) continue;
+          const kind = ctx.elementRegistry.kindOf(memberId)
+            ?? (instancedGroup.elementType as ElementKind | null);
+          if (kind === null) continue;
+          const center = tmpBox.getCenter(new THREE.Vector3());
+          results.push({
+            elementId: memberId,
+            elementKind: kind,
+            hitPoint: { x: center.x, y: center.y, z: center.z },
+            distance: ctx.camera.position.distanceTo(center),
+          });
+        }
+        continue;
+      }
+
       this.ensureBvh(id, mesh.geometry as THREE.BufferGeometry, ctx.elementRegistry);
       tmpBox.setFromObject(mesh);
       if (tmpBox.isEmpty()) continue;
@@ -300,6 +380,39 @@ function firstMesh(obj: THREE.Object3D | null): THREE.Mesh | null {
     if (child instanceof THREE.Mesh) found = child;
   });
   return found;
+}
+
+/**
+ * §SELECT-INSTANCED-PICK (FIX #6) — the userData surface an InstancedElementRenderer
+ * group exposes so picking can resolve a hit instance to its real BIM element id.
+ * Mirrors the exact contract `InstancedElementRenderer.register()` stamps and that
+ * `GpuPickStrategy` / `SelectionManager` already read.
+ */
+interface InstancedGroupUserData {
+  getInstanceElementId: (slot: number) => string | undefined;
+  getOccupiedInstanceSlots: () => readonly number[];
+  elementType?: string;
+}
+
+/**
+ * §SELECT-INSTANCED-PICK (FIX #6) — return the instanced-group accessor surface iff
+ * `obj` is an InstancedElementRenderer group (an InstancedMesh flagged
+ * `userData.isInstancedGroup` that carries the per-instance id accessors); otherwise
+ * null. A plain coalesced-curtain-wall InstancedMesh (one element per whole mesh)
+ * does NOT carry these accessors and correctly returns null, so it stays on the
+ * standard per-element path.
+ */
+function asInstancedGroup(obj: THREE.Object3D): InstancedGroupUserData | null {
+  const ud = obj.userData as Record<string, unknown> | undefined;
+  if (!ud || ud.isInstancedGroup !== true) return null;
+  if (!(obj as THREE.InstancedMesh).isInstancedMesh) return null;
+  if (
+    typeof ud.getInstanceElementId !== 'function' ||
+    typeof ud.getOccupiedInstanceSlots !== 'function'
+  ) {
+    return null;
+  }
+  return ud as unknown as InstancedGroupUserData;
 }
 
 function screenToNdc(point: Point2D, ctx: PickContext): THREE.Vector2 {

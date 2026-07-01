@@ -1,7 +1,7 @@
 
 import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
-import { TransformControls, getThreeRenderer } from '@pryzm/renderer-three';
+import { TransformControls, getThreeRenderer, safeDisposeMaterial, safeDisposeGeometry } from '@pryzm/renderer-three';
 import { CurtainSubElement } from '@pryzm/geometry-curtain-wall';
 import { LevelPlaneConstraint } from './LevelPlaneConstraint.js';
 import { BIM_LAYER } from '@pryzm/scene-committer';
@@ -2026,7 +2026,8 @@ export class SelectionManager implements ISelectionManager {
         });
 
         if (count === 0) {
-            mat.dispose();
+            // §SELECT-CLEARHIGHLIGHT-DISPOSE-GUARD — WebGPU-safe (see clearHighlight).
+            safeDisposeMaterial(mat);
             return null;
         }
         return group;
@@ -2549,8 +2550,9 @@ export class SelectionManager implements ISelectionManager {
     private clearSubElementHighlight(): void {
         if (this.cwSubHighlight) {
             this.world.scene.three.remove(this.cwSubHighlight);
-            this.cwSubHighlight.geometry.dispose();
-            (this.cwSubHighlight.material as THREE.Material).dispose();
+            // §SELECT-CLEARHIGHLIGHT-DISPOSE-GUARD — WebGPU-safe (see clearHighlight).
+            safeDisposeGeometry(this.cwSubHighlight.geometry as THREE.BufferGeometry);
+            safeDisposeMaterial(this.cwSubHighlight.material as THREE.Material);
             this.cwSubHighlight = null;
         }
     }
@@ -2685,8 +2687,9 @@ export class SelectionManager implements ISelectionManager {
     private _clearKcHighlight(): void {
         if (this.kcSubHighlight) {
             this.world.scene.three.remove(this.kcSubHighlight);
-            this.kcSubHighlight.geometry.dispose();
-            (this.kcSubHighlight.material as THREE.Material).dispose();
+            // §SELECT-CLEARHIGHLIGHT-DISPOSE-GUARD — WebGPU-safe (see clearHighlight).
+            safeDisposeGeometry(this.kcSubHighlight.geometry as THREE.BufferGeometry);
+            safeDisposeMaterial(this.kcSubHighlight.material as THREE.Material);
             this.kcSubHighlight = null;
         }
     }
@@ -2777,8 +2780,9 @@ export class SelectionManager implements ISelectionManager {
     private _clearWdHighlight(): void {
         if (this.wdSubHighlight) {
             this.world.scene.three.remove(this.wdSubHighlight);
-            this.wdSubHighlight.geometry.dispose();
-            (this.wdSubHighlight.material as THREE.Material).dispose();
+            // §SELECT-CLEARHIGHLIGHT-DISPOSE-GUARD — WebGPU-safe (see clearHighlight).
+            safeDisposeGeometry(this.wdSubHighlight.geometry as THREE.BufferGeometry);
+            safeDisposeMaterial(this.wdSubHighlight.material as THREE.Material);
             this.wdSubHighlight = null;
         }
     }
@@ -2801,21 +2805,35 @@ export class SelectionManager implements ISelectionManager {
             // flagged sharedGeometry) — that would destroy the real element's
             // buffers.  Materials are deduped so a shared overlay material is
             // disposed exactly once.
+            //
+            // §SELECT-CLEARHIGHLIGHT-DISPOSE-GUARD — route EVERY dispose through the
+            // renderer-three WebGPU-safe helpers. A raw `material.dispose()` throws
+            // `TypeError: Cannot read properties of undefined (reading 'usedTimes')`
+            // on the WebGPU backend when the material's NodeManager render-object was
+            // already torn down (device-loss/recovery, backend swap). Because
+            // clearHighlight() runs at the TOP of applyHighlight() on EVERY selection,
+            // that throw propagated out of the GPU click pick → `[PickResolver] GPU
+            // pick threw — falling back to BVH` on every click (degraded selection +
+            // console flood via ViewportCrashGuard §I3). The helpers swallow ONLY the
+            // usedTimes device-loss TypeError (any real disposal bug still re-throws),
+            // so clearHighlight() can never abort the pick. All these materials/geoms
+            // are highlight-OWNED clones (never a live element's base material), so
+            // disposing them is correct — only the WebGPU throw needed taming.
             const disposedMats = new Set<THREE.Material>();
             this.highlightMesh.traverse((child) => {
                 const m = child as THREE.Mesh & THREE.LineSegments;
                 if (!(m.isMesh || (m as unknown as THREE.Line).isLine)) return;
                 if (!child.userData?.sharedGeometry) {
-                    m.geometry?.dispose?.();
+                    safeDisposeGeometry(m.geometry as THREE.BufferGeometry | undefined);
                 }
                 const mat = m.material as THREE.Material | THREE.Material[] | undefined;
                 if (Array.isArray(mat)) {
                     for (const mm of mat) {
-                        if (mm && !disposedMats.has(mm)) { disposedMats.add(mm); mm.dispose(); }
+                        if (mm && !disposedMats.has(mm)) { disposedMats.add(mm); safeDisposeMaterial(mm); }
                     }
                 } else if (mat && !disposedMats.has(mat)) {
                     disposedMats.add(mat);
-                    mat.dispose();
+                    safeDisposeMaterial(mat);
                 }
             });
             this.highlightMesh = null;
@@ -2919,7 +2937,8 @@ export class SelectionManager implements ISelectionManager {
                 wire.userData.isHelper      = true;
                 wire.userData.isMarqueeHL   = true;
                 wire.renderOrder            = 999;
-                geo.dispose(); // EdgesGeometry has its own buffer
+                // §SELECT-CLEARHIGHLIGHT-DISPOSE-GUARD — WebGPU-safe (see clearHighlight).
+                safeDisposeGeometry(geo); // EdgesGeometry has its own buffer
                 scene.add(wire);
                 this._marqueeHighlightMeshes.push(wire);
             } catch {
@@ -2935,10 +2954,11 @@ export class SelectionManager implements ISelectionManager {
         for (const m of this._marqueeHighlightMeshes) {
             if (scene) scene.remove(m);
             const ls = m as THREE.LineSegments;
-            ls.geometry?.dispose?.();
+            // §SELECT-CLEARHIGHLIGHT-DISPOSE-GUARD — WebGPU-safe (see clearHighlight).
+            safeDisposeGeometry(ls.geometry as THREE.BufferGeometry | undefined);
             const mat = ls.material as THREE.Material | THREE.Material[] | undefined;
-            if (Array.isArray(mat)) mat.forEach(mm => mm.dispose());
-            else if (mat) mat.dispose();
+            if (Array.isArray(mat)) mat.forEach(mm => safeDisposeMaterial(mm));
+            else if (mat) safeDisposeMaterial(mat);
         }
         this._marqueeHighlightMeshes = [];
     }
