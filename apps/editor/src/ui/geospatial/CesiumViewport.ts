@@ -921,10 +921,13 @@ export class CesiumViewport {
         // px — far past Cesium's default of 16), which streams + keeps resident a HUGE
         // number of leaf tiles for the Google Photorealistic set. That is a primary
         // driver of the "slow / heavy" globe: constant tile fetch + GPU upload + memory
-        // thrash. Raise to 20 (well above default) — visually still crisp for an urban
-        // context massing view, with FAR fewer tiles. `dynamicScreenSpaceError` keeps
-        // distant tiles even coarser, compounding the saving.
-        tileset.maximumScreenSpaceError = 20;
+        // thrash. §CESIUM-SSE-RETUNE (founder 2026-07-01) — 20 was too coarse: the
+        // Google tiles read as distorted spiky blobs near the building and, worse, the
+        // clamp sampled a coarse/wrong surface so the model floated. 12 is the balance:
+        // still far fewer tiles than the old 2 (big perf saving) but crisp enough that
+        // the context reads cleanly AND the near-building tiles are detailed enough for
+        // an accurate height clamp. `dynamicScreenSpaceError` keeps distant tiles coarser.
+        tileset.maximumScreenSpaceError = 12;
         tileset.dynamicScreenSpaceError = true;
         tileset.preloadFlightDestinations = true;
         tileset.preferLeaves = true;
@@ -3407,6 +3410,25 @@ export class CesiumViewport {
     // A newer placement started after us — let it own the clamp; bail.
     // §GLOBE-CRASH-GUARD — also bail if the viewer was disposed during the await.
     if (myToken !== this.formaTerrainToken || !this.isViewerLive()) return;
+
+    // §GLOBE-FLOAT-SAFETY (founder 2026-07-01) — in a dense core the tile height-pick can
+    // still latch onto a TALL neighbour building's ROOF (all footprint points occluded by
+    // the same tower), returning e.g. 160 m → the whole model floats a skyscraper up (the
+    // founder's persistent "still floating in the sky"). Without a real bare-earth terrain
+    // provider we can't perfectly separate ground from roof, so as a demo-safety net reject
+    // an implausibly high pick: urban ground/geoid sits within a few tens of metres of the
+    // ellipsoid, so treat > FLOAT_SANE_MAX_M as a rooftop artefact and RETRY (tiles may
+    // still be streaming a cleaner ground sample), then fall back to a flat 0 seat rather
+    // than float. A genuinely high-altitude site would need the terrain-provider path.
+    const FLOAT_SANE_MAX_M = 80;
+    if (sampledHeight !== null && sampledHeight > FLOAT_SANE_MAX_M) {
+      console.warn(
+        `[CesiumViewport][globe] §GLOBE-FLOAT-SAFETY rejecting implausible tile height ` +
+          `${sampledHeight.toFixed(1)} m (likely a neighbour rooftop, not ground) — ` +
+          `${retriesLeft > 0 ? 'retrying' : 'seating flat at 0'}.`,
+      );
+      sampledHeight = null; // treat as "no usable height" → retry / flat-0 below
+    }
 
     if (sampledHeight === null) {
       // Tiles not yet loaded at this LOD (common right after the toggle). Retry a
