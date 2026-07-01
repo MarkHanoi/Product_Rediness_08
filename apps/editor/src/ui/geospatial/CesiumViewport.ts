@@ -12,6 +12,7 @@ import {
 } from "./contextBuildings";
 import { fetchContextRoads, type ContextRoadCollection } from "./contextRoads";
 import { fetchContextWater, type ContextWaterCollection } from "./contextWater";
+import { fetchContextParks, type ContextParkCollection } from "./contextParks";
 // PW.2 (§DIAG-PARTY-WALL) — capture neighbour footprints for the layout pipeline
 // (party/blind-wall detection in resolveBlindFacades). Editor-side store, no engine dep.
 import { setNeighbourFootprints } from "../site/neighbourFootprintStore";
@@ -214,11 +215,22 @@ const FORMA_PALETTE = {
   /** §A.21.D34(d) — coarse STAIR volume tint (light graphite, sits between the
    *  white shell and the dark door so the stairwell mass reads). */
   stair: '#B9B3A8',
-  /** FORMA-CTX §22.2 — thin grey road centre-lines (Forma/Archistar look). */
-  road: '#8A8A8A',
+  /** FORMA-CTX §22.2 — thin grey road centre-lines (Forma/Archistar look).
+   *  §FORMA-CTX-ROAD-RIBBON (founder 2026-07-01) — now used as flat GROUND ribbons
+   *  (not floating lines); a LIGHT warm-grey street tone matching the 2D basemap so
+   *  the street grid reads as pale streets on the neutral ground, under the buildings. */
+  road: '#C9C7C2',
+  /** §FORMA-CTX-ROAD-RIBBON — subtle casing outline for the street ribbons. */
+  roadEdge: '#B4B1AB',
   /** FORMA-CTX-WATER (founder 2026-06-19) — soft blue lakes/rivers, matching the
    *  2D map's water tone so the site reads with its real water context. */
   water: '#AEC9DB',
+  /** §FORMA-CTX-PARKS (founder 2026-07-01) — natural park green for leisure=park /
+   *  landuse=grass|forest / natural=wood|grassland areas, matching the 2D basemap's
+   *  green space (e.g. Central Park) so the 3D site reads as the same neighbourhood. */
+  park: '#A9C77E',
+  /** §FORMA-CTX-PARKS — subtle green edge for the park areas. */
+  parkEdge: '#8FB86B',
 } as const;
 
 /**
@@ -610,6 +622,9 @@ export class CesiumViewport {
   /** FORMA-CTX-WATER — OSM water polygons + waterway polylines (visual-only). */
   private contextWaterEntities: Cesium.Entity[] = [];
   private contextWaterAbort: AbortController | null = null;
+  /** §FORMA-CTX-PARKS — OSM park / green-space polygons (visual-only context). */
+  private contextParkEntities: Cesium.Entity[] = [];
+  private contextParkAbort: AbortController | null = null;
   /** Abort handle for an in-flight context-building fetch (cancelled on a newer
    *  load / dispose so a stale response can't repaint the wrong site). */
   private contextBuildingsAbort: AbortController | null = null;
@@ -626,6 +641,14 @@ export class CesiumViewport {
    *  the photoreal "3D globe" path and only render them in the KEYLESS fallback
    *  (ESRI satellite / no 3D buildings) where they are the only surrounding context. */
   private photorealTilesActive = false;
+
+  /** §GLOBE-TILE-CLAMP-FLUSH (founder 2026-07-01, ADR-0095) — the actual loaded Google
+   *  Photorealistic 3D-Tiles primitive, kept so the height clamp can (a) hit ONLY the
+   *  tiles via `scene.clampToHeightMostDetailed(..., [thisTileset])`-style exclusion of
+   *  everything else and (b) fall back to the tileset's own root bounding-sphere / boundingSphere
+   *  ground height when the picking APIs return 0 on the keyless ellipsoid (no geoid terrain
+   *  provider → ellipsoid-height 0 ≠ the visible NYC street surface which is tens of metres up). */
+  private photorealTileset: Cesium.Cesium3DTileset | null = null;
 
   /** Phase B (S73-WIRE) — runtime threaded by parent. */
   public readonly runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null;
@@ -891,6 +914,9 @@ export class CesiumViewport {
         // Add tileset without auto-zoom
         this.viewer.scene.primitives.add(tileset);
         photogrammetryLoaded = true;
+        // §GLOBE-TILE-CLAMP-FLUSH — keep the primitive so the clamp can bounding-sphere
+        // it as a fallback ground height when picking returns ellipsoid-0.
+        this.photorealTileset = tileset;
         // §A.21.D-GLOBE3 — photoreal tiles ARE the surrounding context now → suppress
         // PRYZM's own OSM/Overpass context extrusions (they'd duplicate the tiles).
         this.photorealTilesActive = true;
@@ -929,6 +955,8 @@ export class CesiumViewport {
           // Add tileset without auto-zoom
           this.viewer.scene.primitives.add(tileset);
           photogrammetryLoaded = true;
+          // §GLOBE-TILE-CLAMP-FLUSH — keep the primitive for the bounding-sphere fallback.
+          this.photorealTileset = tileset;
           // §A.21.D-GLOBE3 — photoreal tiles ARE the surrounding context now → suppress
           // PRYZM's own OSM/Overpass context extrusions (they'd duplicate the tiles).
           this.photorealTilesActive = true;
@@ -1843,6 +1871,10 @@ export class CesiumViewport {
         this.clearContextRoads();
         this.contextWaterAbort?.abort();
         this.clearContextWater();
+        // §FORMA-CTX-PARKS — same FORMA-only suppression on the photoreal globe (the
+        // 3D tiles already show the real green space).
+        this.contextParkAbort?.abort();
+        this.clearContextParks();
       } else {
         const loc = this.readSiteLocation();
         if (loc) void this.loadContextBuildings(loc.lat, loc.lon, true);
@@ -2286,6 +2318,18 @@ export class CesiumViewport {
      * Forma-mode force. Default (unset/false) = the existing Forma massing study.
      */
     keepPhotoreal?: boolean;
+    /**
+     * §FORMA-FULL-HEIGHT (founder 2026-07-01, ADR-0095) — the TRUE total building
+     * height in metres (top of the tallest storey above the ground plane). Optional
+     * override for the case where the authored `walls` fed to the massing collapse to
+     * a SINGLE ground band (e.g. a 40-storey tower whose upper storeys are perf-capped
+     * to shell-massing, so only the ground shell walls are present → the shell would
+     * otherwise extrude to just one 4 m storey and sink among the tall context). When
+     * provided (or derivable from slabs/roofs/real-model below), the massing shell is
+     * extruded to this full height (tiled per storey band) and the façade sun-hours
+     * study paints across the WHOLE elevation, not just the ground ring.
+     */
+    fullBuildingHeightM?: number;
   }): void {
     const viewer = this.viewer;
     if (!viewer) {
@@ -2402,6 +2446,23 @@ export class CesiumViewport {
     // band's height = the tallest wall on that storey. Bands are sorted from the
     // ground up so the band index doubles as the floor number for the selector.
     const bands = this.groupWallsIntoStoreyBands(walls);
+
+    // §FORMA-FULL-HEIGHT (founder 2026-07-01, ADR-0095) — BUG 2 ROOT CAUSE + FIX.
+    // ROOT CAUSE: the massing shell was extruded from ONLY the storey bands present in
+    // the authored `walls`. For a tall tower whose upper storeys are perf-capped to
+    // shell-massing (only the GROUND shell walls are authored), every wall sits at
+    // baseElevation ≈ 0 → ONE 4 m band → the massing rendered a 4 m stub that sank among
+    // the tall OSM context ("the building is under the ground") AND the façade study,
+    // which reads `formaStoreyBands`, only painted that 4 m ground ring.
+    // FIX: resolve the TRUE full building height from every height signal available
+    // (explicit override, slabs' top elevations, roofs, and the placed real model's
+    // bounding sphere). If the tallest band tops out MATERIALLY below that, TILE the
+    // ground band's footprint upward into stacked storey bands to fill the full height,
+    // so BOTH the shell prism AND the façade quads span the whole tower. Multi-storey
+    // authored buildings (bands already reach the full height) are untouched.
+    const fullBuildingHeightM = this.resolveFullBuildingHeight(input, bands);
+    this.tileBandsToFullHeight(bands, fullBuildingHeightM);
+
     // Publish the storey list so the floor selector (GISAreaLayout) can build its
     // toggle from the REAL storeys present, and remember the active filter.
     this.formaStoreyBands = bands.map((b, i) => ({
@@ -3023,6 +3084,7 @@ export class CesiumViewport {
         void this.loadContextBuildings(originLat, originLon);
         void this.loadContextRoads(originLat, originLon);   // FORMA-CTX §22.2
         void this.loadContextWater(originLat, originLon);   // FORMA-CTX-WATER
+        void this.loadContextParks(originLat, originLon);   // §FORMA-CTX-PARKS
       }
     }
 
@@ -3083,6 +3145,30 @@ export class CesiumViewport {
       }
     } catch { return false; }
     return Math.abs(prev.lat - cLat) < 1e-6 && Math.abs(prev.lon - cLon) < 1e-6;
+  }
+
+  /**
+   * §GLOBE-TILE-CLAMP-FLUSH (ADR-0095) — best-effort ground-height estimate from the
+   * loaded Google Photorealistic 3D-Tiles primitive's own bounding sphere, used ONLY as
+   * a last resort when both height-picking APIs return nothing (keyless ellipsoid → 0).
+   * The tileset root bounding sphere centre lat/lon/height gives the ellipsoid height of
+   * the tiled region's centre — a much better ground seat than a hard 0. Returns null if
+   * no tileset / no sphere. Pure read; guarded.
+   */
+  private photorealTilesetGroundHeight(): number | null {
+    try {
+      const ts = this.photorealTileset;
+      if (!ts || ts.isDestroyed()) return null;
+      const sphere = ts.root?.boundingSphere ?? ts.boundingSphere;
+      if (!sphere || !sphere.center) return null;
+      const cg = Cesium.Cartographic.fromCartesian(sphere.center);
+      if (!cg || typeof cg.height !== 'number' || !Number.isFinite(cg.height)) return null;
+      // Sphere centre ≈ ground + half the tiled buildings' height. Bias DOWN by the
+      // sphere radius fraction so we approach the ground, not the mid-air centre.
+      return cg.height - Math.min(sphere.radius ?? 0, 60) * 0.5;
+    } catch {
+      return null;
+    }
   }
 
   private async clampToPhotorealTilesThenReplace(
@@ -3152,13 +3238,30 @@ export class CesiumViewport {
       samplePts.push({ lat: sampleLat, lon: sampleLon });
     }
 
-    // sampleHeightMostDetailed raycasts the loaded tilesets (and terrain). It is
-    // a newer Cesium API; feature-detect so older builds degrade silently.
-    // §GLOBE-TILE-CLAMP-NO-SELF-HIT — the real Cesium signature is
-    // `sampleHeightMostDetailed(positions, objectsToExclude?, width?)`; we pass the
-    // placed model + context entities in the exclude list so the sample NEVER hits the
-    // thing it's placing (the cumulative creep-up feedback loop) or our own extruded
-    // context boxes.
+    // §GLOBE-TILE-CLAMP-FLUSH (founder 2026-07-01, ADR-0095) — RESIDUAL FLOAT ROOT CAUSE.
+    // The prior clamp used `scene.sampleHeightMostDetailed`, which projects each point
+    // straight DOWN and returns the first hit against tilesets AND the terrain provider.
+    // On the keyless build the terrain provider is the bare ELLIPSOID (height 0), and the
+    // Google Photorealistic 3D Tiles are NOT registered as pickable-for-height primitives
+    // the same way — so the "min over the footprint" repeatedly resolved to the ellipsoid
+    // 0.00 m. But the visible NYC street surface sits tens of metres ABOVE the ellipsoid
+    // (geoid + local ground). Seating the tower at ellipsoid-0 therefore left it floating
+    // BELOW/above the tile street → the "still floating but less" gap.
+    //
+    // THE FIX: prefer `scene.clampToHeightMostDetailed(cartesians, objectsToExclude, width)`,
+    // which clamps each 3D position onto the nearest PRIMITIVE surface (the loaded photoreal
+    // tile MESH, geoid included) — NOT the terrain provider — so it returns the true visible
+    // street height. We exclude the placed model + context so it never self-hits. We take the
+    // MIN across the footprint grid (roofs are higher than ground). If clamping is unavailable
+    // or returns nothing usable, fall back to `sampleHeightMostDetailed`, and finally to the
+    // photoreal tileset's own bounding-sphere ground height — anything but a silent 0.
+    const clampFn = (scene as unknown as {
+      clampToHeightMostDetailed?: (
+        cartesians: Cesium.Cartesian3[],
+        objectsToExclude?: unknown[],
+        width?: number,
+      ) => Promise<Cesium.Cartesian3[]>;
+    }).clampToHeightMostDetailed;
     const sampleFn = (scene as unknown as {
       sampleHeightMostDetailed?: (
         positions: Cesium.Cartographic[],
@@ -3166,41 +3269,77 @@ export class CesiumViewport {
         width?: number,
       ) => Promise<Cesium.Cartographic[]>;
     }).sampleHeightMostDetailed;
-    if (typeof sampleFn !== 'function') {
-      this.warnTerrainOnce('scene.sampleHeightMostDetailed unavailable — building stays at base 0 on the globe.');
+    if (typeof clampFn !== 'function' && typeof sampleFn !== 'function') {
+      this.warnTerrainOnce('scene.clampToHeightMostDetailed/sampleHeightMostDetailed unavailable — building stays at base 0 on the globe.');
       // §GLOBE-FIRST-FRAME-BASE — no sampling API → base stays at the flat 0 we
       // framed at; disarm the one-shot so it never fires stale later.
       this.reframeAfterBaseSettle();
       return;
     }
 
+    // §GLOBE-TILE-CLAMP-NO-SELF-HIT — exclude the ALREADY-PLACED model (and our own
+    // context extrusions) from the height raycast so the sample can never land on the
+    // thing we're re-seating (which stacked it ~one storey per view switch) or on our
+    // context boxes. Best-effort: only include live, non-destroyed primitives/entities.
+    const exclude: unknown[] = [];
+    if (this.realModelOnGlobe && !this.realModelOnGlobe.isDestroyed()) exclude.push(this.realModelOnGlobe);
+    for (const e of this.contextBuildingEntities) { if (e) exclude.push(e); }
+    const excludeArg = exclude.length > 0 ? exclude : undefined;
+
     const myToken = ++this.formaTerrainToken;
     let sampledHeight: number | null = null;
     try {
-      const cartos = samplePts.map((s) => Cesium.Cartographic.fromDegrees(s.lon, s.lat));
-      // §GLOBE-TILE-CLAMP-NO-SELF-HIT — exclude the ALREADY-PLACED model (and our own
-      // context extrusions) from the height raycast so the sample can never land on the
-      // thing we're re-seating (which stacked it ~one storey per view switch) or on our
-      // context boxes. Best-effort: only include live, non-destroyed primitives/entities.
-      const exclude: unknown[] = [];
-      if (this.realModelOnGlobe && !this.realModelOnGlobe.isDestroyed()) exclude.push(this.realModelOnGlobe);
-      for (const e of this.contextBuildingEntities) { if (e) exclude.push(e); }
-      const results = await sampleFn.call(scene, cartos, exclude.length > 0 ? exclude : undefined);
-      // §GIS-LOC — MIN over all plot samples = the ground (roofs are higher). Ignore
-      // non-finite samples (points where no tile/terrain was hit).
-      for (const r of results) {
-        const h = r?.height;
-        if (typeof h === 'number' && Number.isFinite(h)) {
-          sampledHeight = sampledHeight === null ? h : Math.min(sampledHeight, h);
+      // Prefer clampToHeightMostDetailed against the loaded photoreal tile MESH.
+      if (typeof clampFn === 'function') {
+        // Clamp positions must sit ABOVE the surface so the down-projection finds the
+        // tile mesh; start each footprint point 1 km up (well above any tile roof).
+        const cartesians = samplePts.map((s) => Cesium.Cartesian3.fromDegrees(s.lon, s.lat, 1000));
+        const clamped = await clampFn.call(scene, cartesians, excludeArg);
+        for (const c of clamped) {
+          if (!c) continue;
+          const cg = Cesium.Cartographic.fromCartesian(c);
+          const h = cg?.height;
+          if (typeof h === 'number' && Number.isFinite(h)) {
+            sampledHeight = sampledHeight === null ? h : Math.min(sampledHeight, h);
+          }
+        }
+      }
+      // Fallback: sampleHeightMostDetailed (may still resolve if clamp found nothing).
+      if (sampledHeight === null && typeof sampleFn === 'function') {
+        const cartos = samplePts.map((s) => Cesium.Cartographic.fromDegrees(s.lon, s.lat));
+        const results = await sampleFn.call(scene, cartos, excludeArg);
+        for (const r of results) {
+          const h = r?.height;
+          if (typeof h === 'number' && Number.isFinite(h)) {
+            sampledHeight = sampledHeight === null ? h : Math.min(sampledHeight, h);
+          }
         }
       }
     } catch (e) {
-      this.warnTerrainOnce('scene.sampleHeightMostDetailed rejected — building stays at base 0 on the globe: ' + String(e));
+      this.warnTerrainOnce('globe height clamp rejected — building stays at base 0 on the globe: ' + String(e));
       // §GLOBE-FIRST-FRAME-BASE — sampling failed; base stays at the flat 0 we framed
       // at (already correct). Disarm the one-shot, but ONLY if no newer placement has
       // taken ownership (a newer token owns its own re-frame arm).
       if (myToken === this.formaTerrainToken) this.reframeAfterBaseSettle();
       return;
+    }
+
+    // §GLOBE-TILE-CLAMP-FLUSH — LAST-RESORT geoid fallback. Both picking APIs came back
+    // empty/zero (keyless ellipsoid; tiles not height-pickable at this LOD yet). Rather
+    // than default to ellipsoid-0 (the visible float), read the photoreal tileset's own
+    // root bounding-sphere centre height — it sits at roughly the tiled ground+building
+    // mid-height for the area, a far better ground estimate than 0. We keep the retry
+    // path (below) for when tiles simply haven't streamed; this only fires once retries
+    // are exhausted OR the sphere is clearly non-zero.
+    if (sampledHeight === null) {
+      const sphereH = this.photorealTilesetGroundHeight();
+      if (sphereH !== null && Number.isFinite(sphereH) && Math.abs(sphereH) > 1) {
+        sampledHeight = sphereH;
+        console.log(
+          `[CesiumViewport][globe] §GLOBE-TILE-CLAMP-FLUSH picking returned no height — ` +
+            `falling back to tileset bounding-sphere ground ${sphereH.toFixed(2)} m.`,
+        );
+      }
     }
 
     // A newer placement started after us — let it own the clamp; bail.
@@ -4067,8 +4206,34 @@ export class CesiumViewport {
       Cesium.Cartesian3.fromDegrees(lon, lat, 0),
     );
     const invEnu = Cesium.Matrix4.inverse(enu, new Cesium.Matrix4());
-    const base = this.formaTerrainBaseHeight + 0.05; // hair above ground; no z-fight
-    const roadColor = Cesium.Color.fromCssColorString(FORMA_PALETTE.road).withAlpha(0.95);
+    // §FORMA-CTX-ROAD-RIBBON (founder 2026-07-01, ADR-0095) — BUG 3 ROOT CAUSE + FIX.
+    // ROOT CAUSE: roads were drawn as raw floating POLYLINES at a fixed height above the
+    // ground (`arcType: NONE`, `clampToGround: false`), so on the flat Forma ground they
+    // hung in mid-air and — because the context BUILDINGS extrude upward from the same
+    // ground — the white lines draped straight THROUGH the buildings ("really bad" per the
+    // founder's screenshots).
+    // FIX: render each road as a FLAT GROUND RIBBON (a `corridor` polygon of metric width,
+    // width-scaled by the OSM highway class) seated at the ground plane just below the
+    // buildings' visible base, so the streets lie flat on the surface UNDER the buildings —
+    // matching the 2D basemap's street grid — instead of slicing through them. The corridor
+    // is a ground-hugging polygon (no `extrudedHeight`), so it can never rise into a building.
+    const base = this.formaTerrainBaseHeight + 0.02; // hair above the ground plane; below buildings
+    const roadColor = Cesium.Color.fromCssColorString(FORMA_PALETTE.road).withAlpha(0.9);
+
+    // §FORMA-CTX-ROAD-RIBBON — metric ribbon width by OSM highway class (a real street
+    // map reads major roads wider than side streets). Conservative widths so the grid
+    // stays clean, never a slab.
+    const roadWidthM = (highway: string): number => {
+      switch (highway) {
+        case 'motorway': case 'motorway_link': case 'trunk': case 'trunk_link': return 14;
+        case 'primary': case 'primary_link': return 11;
+        case 'secondary': case 'secondary_link': return 9;
+        case 'tertiary': case 'tertiary_link': return 7;
+        case 'residential': case 'unclassified': case 'living_street': return 6;
+        case 'service': return 4;
+        default: return 6;
+      }
+    };
 
     let placed = 0;
     for (const way of collection.ways) {
@@ -4082,13 +4247,13 @@ export class CesiumViewport {
         if (positions.length < 2) continue;
         const ent = viewer.entities.add({
           name: 'pryzm-forma-context-road',
-          polyline: {
+          corridor: {
             positions,
-            width: 2,
-            clampToGround: false,
-            arcType: Cesium.ArcType.NONE,
+            width: roadWidthM(way.highway),
+            height: base,
+            cornerType: Cesium.CornerType.ROUNDED,
             material: roadColor,
-            depthFailMaterial: new Cesium.ColorMaterialProperty(roadColor),
+            outline: false,
           },
         });
         this.contextRoadEntities.push(ent);
@@ -4096,7 +4261,7 @@ export class CesiumViewport {
       } catch { /* skip one malformed way */ }
     }
     viewer.scene.requestRender();
-    console.log(`[CesiumViewport][forma] FORMA-CTX road centre-lines rendered: ${placed} way(s).`);
+    console.log(`[CesiumViewport][forma] §FORMA-CTX-ROAD-RIBBON flat ground road ribbon(s) rendered: ${placed} way(s) (was floating centre-lines).`);
   }
 
   /** FORMA-CTX §22.2 — remove all road polylines (idempotent). */
@@ -4202,6 +4367,84 @@ export class CesiumViewport {
       try { viewer.entities.remove(ent); } catch { /* gone */ }
     }
     this.contextWaterEntities = [];
+  }
+
+  /**
+   * §FORMA-CTX-PARKS (founder 2026-07-01, ADR-0095) — BUG 4. Fetch OSM parks / green
+   * space (leisure=park, landuse=grass|forest|…, natural=wood|grassland) for the site
+   * and draw them as flat GROUND-CLAMPED green polygons on the Forma flat-ground study,
+   * mirroring loadContextWater's ENU bridge, so the 3D-Site view matches the 2D basemap
+   * the boundary was drawn on (green parks + blue water + street grid = the same
+   * recognisable neighbourhood). Parks sit at the BOTTOM of the ground stack (below the
+   * water + road ribbons + buildings) so nothing is occluded. Visual-only: NO layout /
+   * model impact. Never throws (fetch degrades to a quiet no-op).
+   */
+  public async loadContextParks(lat: number, lon: number, force = false): Promise<void> {
+    const viewer = this.viewer;
+    if (!viewer) return;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) return;
+    if (!force && this.contextParkEntities.length > 0 && this.contextBuildingsAt &&
+        Math.abs(this.contextBuildingsAt.lat - lat) < 1e-6 &&
+        Math.abs(this.contextBuildingsAt.lon - lon) < 1e-6) return;
+
+    this.contextParkAbort?.abort();
+    this.contextParkAbort = new AbortController();
+    const signal = this.contextParkAbort.signal;
+
+    let collection: ContextParkCollection;
+    try { collection = await fetchContextParks(lat, lon, signal); }
+    catch { return; }
+    if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
+
+    this.clearContextParks();
+    if (collection.areas.length === 0) return;
+
+    const enu = Cesium.Transforms.eastNorthUpToFixedFrame(
+      Cesium.Cartesian3.fromDegrees(lon, lat, 0),
+    );
+    const invEnu = Cesium.Matrix4.inverse(enu, new Cesium.Matrix4());
+    // Parks sit at the very bottom of the ground stack — just ABOVE the flat ground
+    // plane but BELOW water (base + 0.03) + roads (base + 0.02) so the street grid +
+    // water read on top of the green, and the buildings extrude up from the same ground.
+    const base = this.formaTerrainBaseHeight + 0.01;
+    const parkFill = Cesium.Color.fromCssColorString(FORMA_PALETTE.park).withAlpha(0.85);
+    const parkEdge = Cesium.Color.fromCssColorString(FORMA_PALETTE.parkEdge).withAlpha(0.6);
+
+    let placed = 0;
+    for (const area of collection.areas) {
+      try {
+        const positions = area.ring.map(([flon, flat]) => {
+          const fc = Cesium.Cartesian3.fromDegrees(flon, flat, 0);
+          const off = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
+          return this.enuToCartesian(enu, off.x, off.y, base);
+        });
+        if (positions.length < 4) continue;
+        const ent = viewer.entities.add({
+          name: 'pryzm-forma-context-park',
+          polygon: {
+            hierarchy: new Cesium.PolygonHierarchy(positions),
+            height: base,
+            material: parkFill,
+            outline: true,
+            outlineColor: parkEdge,
+            outlineWidth: 1,
+          },
+        });
+        this.contextParkEntities.push(ent);
+        placed++;
+      } catch { /* skip one malformed park */ }
+    }
+    viewer.scene.requestRender();
+    console.log(`[CesiumViewport][forma] §FORMA-CTX-PARKS rendered: ${placed} green area(s).`);
+  }
+
+  /** §FORMA-CTX-PARKS — remove all park polygons (idempotent). */
+  public clearContextParks(): void {
+    const viewer = this.viewer;
+    if (viewer) for (const ent of this.contextParkEntities) {
+      try { viewer.entities.remove(ent); } catch { /* gone */ }
+    }
+    this.contextParkEntities = [];
   }
 
   /** Log the "context buildings unavailable / degraded" message at most once. */
@@ -4397,7 +4640,12 @@ export class CesiumViewport {
       return;
     }
     console.log(`[CesiumViewport][forma-facade] §FORMA-FACADE-FOOTPRINT-FIX footprint from ${ringSource} (${ring.length} pts).`);
-    // Building top height = the tallest storey band's base + height (the roof level).
+    // §FORMA-FULL-HEIGHT (founder 2026-07-01, ADR-0095) — Building top height = the
+    // tallest storey band's base + height (the roof level). Because the massing shell is
+    // now TILED to the full building height (tileBandsToFullHeight above publishes the
+    // full stack into `formaStoreyBands`), this height now spans the WHOLE tower rather
+    // than the single 4 m ground band — so the façade study paints the entire elevation,
+    // not just the bottom ring.
     let heightM = 0;
     for (const b of this.formaStoreyBands) {
       const top = (b.baseElevation || 0) + (b.heightM || 0);
@@ -4408,6 +4656,25 @@ export class CesiumViewport {
     // Occluders = OSM context + the proposed massing (the same set the ground grid uses).
     const occluders = this.siteMetricFootprints(origin);
 
+    // §FORMA-FACADE-DENSITY (founder 2026-07-01, ADR-0095) — clean, consistent quad
+    // density across the FULL elevation. The old fixed 2.5 m / 3500-sample budget was
+    // tuned for a ~4 m ground ring; on a 160 m tower it left the façade sparse + chunky.
+    // Scale the sample budget with the actual painted surface area (perimeter × height)
+    // at ~1 sample / 2 m² so a tall tower gets proportionally MORE samples (capped for
+    // perf), and derive the quad size FROM the spacing so quads meet edge-to-edge for a
+    // continuous read at every height instead of the chunky translucent blocks.
+    let perimeterM = 0;
+    for (let i = 0; i < ring.length; i++) {
+      const a = ring[i]!; const b = ring[(i + 1) % ring.length]!;
+      perimeterM += Math.hypot(b.x - a.x, b.z - a.z);
+    }
+    const facadeAreaM2 = Math.max(1, perimeterM * heightM);
+    const SAMPLE_SPACING_M = 2.5;
+    const maxSamples = Math.min(
+      12000,
+      Math.max(3500, Math.ceil(facadeAreaM2 / (SAMPLE_SPACING_M * SAMPLE_SPACING_M)) + 500),
+    );
+
     const prep: FacadeSunPrep | null = prepareFacadeSunGrid({
       footprintRings: [ring],
       heightM,
@@ -4416,8 +4683,8 @@ export class CesiumViewport {
       lngDeg: origin.lon,
       sunDay: this.siteMetricSunDay,
       sunStepMinutes: 25,
-      sampleSpacingM: 2.5,
-      maxSamples: 3500,
+      sampleSpacingM: SAMPLE_SPACING_M,
+      maxSamples,
     });
     if (!prep) return;
 
@@ -4429,12 +4696,18 @@ export class CesiumViewport {
 
     // Chunked raycast + paint: evaluate a batch of points per frame, adding a small
     // coloured quad per point so the building fills in progressively ("computing").
-    const HALF = 1.3; // quad half-size (m) — slightly overlapping for a continuous read
+    // §FORMA-FACADE-DENSITY — quad half-size derived from the sample spacing (half the
+    // spacing, +8% overlap) so quads tile edge-to-edge into a smooth continuous skin at
+    // any height rather than isolated chunky blocks; higher opacity for a crisp read.
+    const HALF = (SAMPLE_SPACING_M / 2) * 1.08;
     this.facadeChunkBuild(seq, points.length, 160, (lo, hi) => {
       for (let i = lo; i < hi; i++) {
         const p = points[i] as FacadeSamplePoint;
         const intensity = prep.evaluateIntensity(p);
-        const colour = Cesium.Color.fromCssColorString(prep.colourFor(intensity)).withAlpha(0.92);
+        // §FORMA-FACADE-DENSITY — near-opaque so the full-elevation skin reads as a
+        // crisp colour-graded façade (the old 0.92 let the white shell bleed through,
+        // making the chunky quads look washed-out/translucent).
+        const colour = Cesium.Color.fromCssColorString(prep.colourFor(intensity)).withAlpha(0.98);
         const corners = this.facadeQuadCorners(enu, p, HALF);
         const ent = viewer.entities.add({
           name: 'pryzm-facade-sun',
@@ -5643,6 +5916,113 @@ export class CesiumViewport {
   }
 
   /**
+   * §FORMA-FULL-HEIGHT (ADR-0095) — resolve the TRUE total building height (metres above
+   * the ground plane) from every signal the massing input carries, so a tower whose
+   * authored `walls` collapse to a single ground band still extrudes + paints full-height.
+   * MAX over:
+   *   • the explicit `fullBuildingHeightM` override (caller-supplied), if finite/positive;
+   *   • the tallest storey band's top (baseElevation + heightM) — the current behaviour;
+   *   • every slab `topElevation` (a per-floor plate → its top is that storey's ceiling);
+   *   • every roof `baseElevation + thickness` (the capping level);
+   *   • the placed real model's bounding-sphere height (2 × radius is an upper bound; we
+   *     use the sphere DIAMETER only as a last-resort ceiling so we never UNDER-shoot a
+   *     tall GLB, but never let it BALLOON the massing — clamped to ≤ 4× the band top).
+   * Pure read; guarded. Returns the resolved height (≥ the tallest band top).
+   */
+  private resolveFullBuildingHeight(
+    input: Parameters<CesiumViewport['renderFormaMassing']>[0],
+    bands: ReadonlyArray<{ baseElevation: number; heightM: number }>,
+  ): number {
+    let bandTop = 0;
+    for (const b of bands) {
+      const top = (b.baseElevation || 0) + (b.heightM || 0);
+      if (top > bandTop) bandTop = top;
+    }
+    let full = bandTop;
+    const bump = (h: number | undefined): void => {
+      if (typeof h === 'number' && Number.isFinite(h) && h > full) full = h;
+    };
+    if (typeof input.fullBuildingHeightM === 'number' && Number.isFinite(input.fullBuildingHeightM)) {
+      bump(input.fullBuildingHeightM);
+    }
+    for (const s of input.slabs ?? []) bump((s.topElevation || 0));
+    for (const r of input.roofs ?? []) bump((r.baseElevation || 0) + (r.thickness || 0));
+    // Real-model bounding sphere → an approximate full height; only used to RAISE a
+    // collapsed single-band massing, and clamped so a wide-but-short model can't inflate.
+    try {
+      const model = this.realModelOnForma && !this.realModelOnForma.isDestroyed()
+        ? this.realModelOnForma
+        : (this.realModelOnGlobe && !this.realModelOnGlobe.isDestroyed() ? this.realModelOnGlobe : null);
+      const bs = model ? (model as unknown as { boundingSphere?: Cesium.BoundingSphere }).boundingSphere : null;
+      if (bs && Number.isFinite(bs.radius) && bs.radius > 0 && bandTop > 0) {
+        // A slab/wall footprint half-diagonal is baked into the sphere radius, so the
+        // model height ≲ 2r; only apply it when it clearly exceeds the band top and cap
+        // the lift to a sane multiple so nothing balloons.
+        const approxModelH = Math.min(bs.radius * 2, bandTop * 4);
+        if (approxModelH > full * 1.2) full = approxModelH;
+      }
+    } catch { /* best-effort */ }
+    return full > 0 ? full : bandTop;
+  }
+
+  /**
+   * §FORMA-FULL-HEIGHT (ADR-0095) — when the authored bands top out MATERIALLY below the
+   * resolved full building height (the perf-capped tall-tower case = a SINGLE ground band),
+   * TILE the ground band's footprint upward into evenly-stacked storey bands (each the same
+   * height as the ground band) until the stack reaches `fullHeightM`. The synthesised bands
+   * reuse the ground band's walls (so the shell prism re-extrudes the SAME footprint) and
+   * carry no `levelId` (they're massing-only). Mutates `bands` in place. No-op when the bands
+   * already reach the full height (authored multi-storey buildings), or when there is no
+   * usable ground band footprint. Guarded.
+   */
+  private tileBandsToFullHeight(
+    bands: Array<{
+      baseElevation: number;
+      heightM: number;
+      levelId?: string;
+      walls: Array<{ a: { x: number; z: number }; b: { x: number; z: number }; height: number; thickness: number }>;
+    }>,
+    fullHeightM: number,
+  ): void {
+    if (!(fullHeightM > 0) || bands.length === 0) return;
+    let bandTop = 0;
+    for (const b of bands) {
+      const top = (b.baseElevation || 0) + (b.heightM || 0);
+      if (top > bandTop) bandTop = top;
+    }
+    // Already tall enough (authored multi-storey) → nothing to do. 0.75 m slack absorbs
+    // rounding so we don't tile a building that's essentially already full-height.
+    if (bandTop >= fullHeightM - 0.75) return;
+    const ground = bands[0]!;
+    const storeyH = ground.heightM > 0.5 ? ground.heightM : 3;
+    // Start stacking from the current top; cap the count so a bad height can't spawn
+    // thousands of bands (safety — 200 storeys is well beyond any real building).
+    const MAX_TILED_STOREYS = 200;
+    let elev = bandTop;
+    let added = 0;
+    while (elev < fullHeightM - 0.75 && added < MAX_TILED_STOREYS) {
+      const h = Math.min(storeyH, fullHeightM - elev);
+      if (!(h > 0.1)) break;
+      bands.push({
+        baseElevation: elev,
+        heightM: h,
+        levelId: undefined, // massing-only synthesised storey (not an authored level)
+        walls: ground.walls, // reuse the ground footprint → same perimeter prism
+      });
+      elev += h;
+      added++;
+    }
+    if (added > 0) {
+      bands.sort((p, q) => p.baseElevation - q.baseElevation);
+      console.log(
+        `[CesiumViewport][forma] §FORMA-FULL-HEIGHT tiled ${added} massing storey band(s) ` +
+          `(${storeyH.toFixed(1)} m each) up to full building height ${fullHeightM.toFixed(1)} m ` +
+          `— shell + façade now span the whole tower (was a single ${bandTop.toFixed(1)} m stub).`,
+      );
+    }
+  }
+
+  /**
    * §A.21.D24 — group walls into STOREY BANDS by their base elevation so the
    * massing can be extruded per floor (stacked at true elevations) instead of
    * flattened onto a single ground block.
@@ -6253,6 +6633,9 @@ export class CesiumViewport {
       // §A.21.D-GLOBE3 — re-detect photoreal tiles on the next mount (a re-mounted
       // viewport re-loads its tileset), so the context-suppression decision is fresh.
       this.photorealTilesActive = false;
+      // §GLOBE-TILE-CLAMP-FLUSH — drop the tileset ref (the primitive is destroyed with
+      // the viewer); a re-mounted viewport re-assigns it on tile load.
+      this.photorealTileset = null;
     } catch (e) {
       console.warn('[CesiumViewport] context-building dispose failed:', e);
     }
