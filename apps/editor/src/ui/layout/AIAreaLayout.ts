@@ -6,6 +6,9 @@ import { installApartmentLayoutConsoleTrigger } from '../apartment-layout/apartm
 import { installHouseLayoutConsoleTrigger } from '../house-layout/houseLayoutTrigger';
 import { installResidentialBuildingConsoleTrigger } from '../residential-building/residentialBuildingTrigger';
 import { installOfficeBuildingConsoleTrigger } from '../office-building/officeBuildingTrigger';
+// §OFFICE-ARCH-FURNISH-SPLIT — Command 2 console command `pryzmFurnishOffice()` (furnish the
+// last-built office architecture; mirrors installFurnishLayoutTrigger).
+import { installOfficeFurnishConsoleTrigger } from '../office-building/officeFurnishTrigger';
 import { installDesignParamsConsoleTrigger } from '../apartment-layout/DesignParamsPanel';
 import { installFurnishLayoutTrigger } from '../furnish-layout/furnishLayoutTrigger';
 import { installLightingLayoutTrigger } from '../lighting-layout/lightingLayoutTrigger';
@@ -215,6 +218,11 @@ export function mountAIArea(props: UIProps, runtime: PryzmRuntime | null): AIRes
     // office floor plate (centred core + concentric desk rings + perimeter offices /
     // collab pods) for a multi-storey tower with department/floor-type variety.
     installOfficeBuildingConsoleTrigger(runtime ?? null);
+    // §OFFICE-ARCH-FURNISH-SPLIT (SPEC-OFFICE-GENERATION-ENGINE §1) — Command 2 = Furnish Office.
+    // Registers `pryzmFurnishOffice()`, which furnishes the LAST-built office ARCHITECTURE with
+    // desks/chairs/reception/collab/cafe WITHOUT regenerating architecture. The AI "Furnish Office"
+    // dropdown entry calls the same trigger.
+    installOfficeFurnishConsoleTrigger(runtime ?? null);
     // A.25.1 — Living Design Parameters: register `pryzmToggleDesignParams()` so
     // the parameter-sliders panel can be opened from anywhere. Its sliders feed
     // the D-TGL scorer weights (via the activeDesignParams stash) and debounce a

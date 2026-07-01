@@ -39,6 +39,11 @@ import { triggerApartmentLayout } from '../apartment-layout/apartmentLayoutTrigg
 import { generateApartmentFromScratch } from '../apartment-layout/apartmentFromScratch';
 import { toggleDesignParamsPanel } from '../apartment-layout/DesignParamsPanel';
 import { triggerFurnishWithPrompt } from '../furnish-layout/furnishLayoutTrigger';
+// §OFFICE-ARCH-FURNISH-SPLIT (SPEC-OFFICE-GENERATION-ENGINE §1/§2) — the two office commands in
+// the AI dropdown: Command 1 (Generate Office Architecture) drives the office generator; Command 2
+// (Furnish Office) furnishes the last-built architecture without regenerating it.
+import { generateOfficeBuilding } from '../office-building/officeBuildingTrigger';
+import { triggerFurnishOffice } from '../office-building/officeFurnishTrigger';
 import { triggerLightingLayout } from '../lighting-layout/lightingLayoutTrigger';
 import { triggerCeilingLayout } from '../ceiling-layout/ceilingLayoutTrigger';
 // Dev-only test modals — surface the Family Platform pipeline + apartment
@@ -170,6 +175,22 @@ const COMMAND_TREE: SuggestionNode[] = [
                 label: 'Generate apartment (from scratch)',
                 hint: 'no walls needed — draws a default 10×8 m shell, then generates',
                 action: () => { void generateApartmentFromScratch(); },
+            },
+            {
+                // §OFFICE-ARCH-FURNISH-SPLIT (SPEC-OFFICE-GENERATION-ENGINE §1/§2) — Command 1.
+                // Generates the office ARCHITECTURE only (façade/glazing · walls · roof · doors ·
+                // structural core · lift shafts · staircases · toilets · support rooms · circulation
+                // corridors + glazed office enclosures). NO furniture — run "Furnish Office" after.
+                label: 'Generate Office Architecture (AI)',
+                hint: 'circular office tower — architecture only (core · stairs · lifts · WCs · circulation)',
+                action: () => { void generateOfficeBuilding(null, {}); },
+            },
+            {
+                // §OFFICE-ARCH-FURNISH-SPLIT — Command 2. Furnish the LAST-built office architecture
+                // with desks/chairs/reception/collab/cafe — WITHOUT regenerating architecture.
+                label: 'Furnish Office (AI)',
+                hint: 'add desks · chairs · reception · collaboration · cafe to the built office',
+                action: () => { triggerFurnishOffice(); },
             },
             {
                 // A.25.1/A.25.2 — Living Design Parameters: open the slider panel so

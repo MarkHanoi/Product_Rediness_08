@@ -425,6 +425,13 @@ export type {
   OfficeFloorType,
 } from './workflows/officeBuilding/index.js';
 
+// ── Office Furnish — Phase-1 thin seam for the modular fit-out engine (SPEC §5/§6/§8) ─────
+// Command 2 (Furnish Office) placement runs editor-side in Phase 1 (it stamps the existing
+// furniture on the built floors); this L2 seam ships the module-type vocabulary + occupancy
+// estimator Phase 2 grows into the full modular engine. Pure: zero THREE, zero DOM.
+export { estimateOccupancy } from './workflows/officeFurnish/index.js';
+export type { OfficeModuleKind } from './workflows/officeFurnish/index.js';
+
 // ── D-FLE Furniture Layout Engine — public surface ───────────────────────────
 // The deterministic per-room furniture layout engine (SPEC-FURNITURE-LAYOUT-ENGINE).
 // Pure: zero THREE, zero DOM. Consumed by the editor's furnish trigger
