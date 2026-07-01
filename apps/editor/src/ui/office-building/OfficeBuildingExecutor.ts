@@ -485,6 +485,26 @@ export class OfficeBuildingExecutor {
 
         // §OFFICE-ARCH-FURNISH-SPLIT — stash the furnish context so Command 2 (Furnish Office) can
         // populate THIS architecture without regenerating it (SPEC §1). No furniture is emitted here.
+        // Phase 2: the enriched context carries the circulation-first architecture (§4/§9) — the
+        // circulation keep-outs + escape spokes + support/glazed rooms — so the modular Furnish Office
+        // engine (SPEC §5/§6/§7/§8/§9-8) can place occupancy-scaled modules clear of circulation.
+        const primary = floorArch.circulation.find((c) => c.kind === 'primary');
+        const secondary = floorArch.circulation.find((c) => c.kind === 'secondary');
+        // The circulation-first planner lays 4 axial escape spokes (N/E/S/W); mirror those headings.
+        const escapeAngles = [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2];
+        // Map the support rooms + glazed enclosures to furnish-room hosts (glazed labels → glazed kinds).
+        const rooms: OfficeFurnishContext['rooms'] = [
+            ...floorArch.supportRooms.map((r) => ({ kind: r.kind, x0: r.x0, z0: r.z0, x1: r.x1, z1: r.z1 })),
+            ...floorArch.glazedEnclosures.map((enc) => {
+                const xs = enc.corners.map((c) => c.x), zs = enc.corners.map((c) => c.z);
+                const label = enc.label.toLowerCase();
+                const kind: OfficeFurnishContext['rooms'][number]['kind'] =
+                    label.includes('exec') ? 'glazed-exec'
+                    : label.includes('interview') ? 'glazed-interview'
+                    : 'glazed-focus';
+                return { kind, x0: Math.min(...xs), z0: Math.min(...zs), x1: Math.max(...xs), z1: Math.max(...zs) };
+            }),
+        ];
         const furnishCtx: OfficeFurnishContext = {
             repLevelId, groundLevelId, discRadiusM, coreRadiusM,
             openPlanInnerR: this._zoneRadius(plate, 'inner-circulation'),
@@ -492,6 +512,11 @@ export class OfficeBuildingExecutor {
             perimMidR: this._zoneMidRadius(plate, 'perimeter-office', 'open-plan'),
             deskCount: Math.min(MAX_FITOUT_DESKS, plate.analytics.deskCount),
             entranceAngle,
+            usableAreaM2: plate.analytics.usableAreaM2,
+            primaryCorridor: primary ? { innerR: primary.innerR, outerR: primary.outerR } : { innerR: coreRadiusM, outerR: coreRadiusM },
+            secondaryCorridor: secondary ? { innerR: secondary.innerR, outerR: secondary.outerR } : { innerR: discRadiusM, outerR: discRadiusM },
+            escapeAngles,
+            rooms,
         };
         setOfficeFurnishContext(furnishCtx);
 
