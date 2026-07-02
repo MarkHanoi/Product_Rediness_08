@@ -20,7 +20,7 @@ import { createId } from '@pryzm/schemas';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 import type { PlumbingFixtureType } from '@pryzm/geometry-plumbing';
 import { DEFAULT_TOILET_VARIANT, ToiletVariant } from '@pryzm/geometry-plumbing';
-import { DEFAULT_SHOWER_VARIANT, SHOWER_FOOTPRINTS, ShowerVariant } from '@pryzm/geometry-plumbing';
+import { DEFAULT_SHOWER_VARIANT, SHOWER_FOOTPRINTS, ShowerVariant, isWalkInShower, walkInGlassSide } from '@pryzm/geometry-plumbing';
 import type { WallData } from '@pryzm/geometry-wall';
 
 // ── Plan-view footprint dimensions per fixture type (metres) ─────────────────
@@ -417,7 +417,46 @@ export class PlumbingPlanToolHandler implements PlanToolHandler {
                 break;
             }
             case 'shower': {
-                // Tray rectangle, diagonal cross to indicate shower drain.
+                // §FEAT-SHOWER-ENCLOSURE-TYPE (L-37) — the walk-in enclosure
+                // gets a richer AEC symbol: tray outline + a LINEAR GUTTER line
+                // near the front edge + a GLASS panel line on the chosen side +
+                // a rain-head glyph on the wall (back) side. Symbol-local −Y is
+                // the wall/back, +Y is the room/front; ±X follows the glass
+                // direction parameter (Contract 39 §5 plan/3D parity).
+                const variant = _getActiveShowerVariant();
+                if (isWalkInShower(variant)) {
+                    const side = walkInGlassSide(variant); // 'left' | 'right' | 'corner'
+                    // Tray outline
+                    ctx.strokeRect(-hw * 0.9, -hl * 0.9, hw * 1.8, hl * 1.8);
+                    // Rain-head glyph on the wall (back, −Y) side.
+                    ctx.beginPath();
+                    ctx.arc(0, -hl * 0.6, Math.min(hw, hl) * 0.22, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(-hw * 0.14, -hl * 0.6); ctx.lineTo(hw * 0.14, -hl * 0.6);
+                    ctx.moveTo(0, -hl * 0.6 - hl * 0.14); ctx.lineTo(0, -hl * 0.6 + hl * 0.14);
+                    ctx.stroke();
+                    // Linear gutter — a double line across X near the front (+Y) edge.
+                    const gy = hl * 0.62;
+                    ctx.beginPath();
+                    ctx.moveTo(-hw * 0.7, gy - 2); ctx.lineTo(hw * 0.7, gy - 2);
+                    ctx.moveTo(-hw * 0.7, gy + 2); ctx.lineTo(hw * 0.7, gy + 2);
+                    ctx.stroke();
+                    // Glass panel — a heavier line on the chosen side.
+                    const gx = side === 'left' ? -hw * 0.9 : hw * 0.9;
+                    const prevW = ctx.lineWidth;
+                    ctx.lineWidth = 2.5;
+                    ctx.beginPath();
+                    ctx.moveTo(gx, -hl * 0.9); ctx.lineTo(gx, hl * 0.9);
+                    if (side === 'corner') {
+                        // L-return along the front from the +X side.
+                        ctx.moveTo(gx, hl * 0.9); ctx.lineTo(0, hl * 0.9);
+                    }
+                    ctx.stroke();
+                    ctx.lineWidth = prevW;
+                    break;
+                }
+                // Simple shower: tray rectangle, diagonal cross for the drain.
                 ctx.strokeRect(-hw * 0.9, -hl * 0.9, hw * 1.8, hl * 1.8);
                 ctx.beginPath();
                 ctx.moveTo(-hw * 0.9, -hl * 0.9);

@@ -11,7 +11,7 @@
  *     factory is pure, called fresh on every updateFixture().
  *   • 39-PLUMBING-FIXTURE-TYPE-PATTERN-CONTRACT.md §7 — Adding a new family.
  *
- * The four LOD400 families mirror the catalogue images:
+ * The LOD400 families mirror the catalogue images:
  *   1. shower_system_shelf  — wall column, round rain-head, shelf with bottles,
  *                             handheld shower & mixer below.
  *   2. shower_system_simple — wall column, round rain-head, thermostat bar,
@@ -19,10 +19,23 @@
  *   3. shower_cabinet_sliding — square glass enclosure with sliding door,
  *                               low ceramic tray.
  *   4. shower_cabinet_open    — open glass enclosure (no door), low tray.
+ *   5. shower_walkin_left / _right / _corner  — §FEAT-SHOWER-ENCLOSURE-TYPE
+ *      (L-37, ADR-0113). Professional walk-in enclosure = rain head on riser +
+ *      hand-shower on rail + round mixer + recessed niche + a LINEAR GUTTER
+ *      channel drain in the tray + a frameless GLASS panel. The `_left` /
+ *      `_right` / `_corner` suffix is the user-chosen DIRECTION parameter
+ *      (which side the glass sits / which way the enclosure opens), encoded as
+ *      the variant slug per the type-as-data pattern (Contract 39 §7) — the
+ *      same mechanism that distinguishes sliding vs open cabinets. No new
+ *      per-instance schema field is needed and the choice round-trips through
+ *      the existing UpdatePlumbingParametersCommand.
  *
  * Local axes:
- *   • +Z points away from the back wall (into the room).
- *   • +Y is up. Origin sits on the floor at the back-centre (against the wall).
+ *   • +Z points away from the back wall (into the room) — this is the fixture
+ *     FRONT (rain-head / tray / glass). Origin sits on the floor at the
+ *     back-centre (against the wall). §FIX-SHOWER-ORIENTATION: PlumbingTool
+ *     seats this +Z front along the outward wall normal via lookAt (no flip).
+ *   • +Y is up. +X is to the right when facing the wall.
  *   The fixture is positioned by the caller; rotation is applied by the
  *   command/tool to align the back face with the chosen wall.
  */
@@ -33,20 +46,58 @@ export type ShowerVariant =
     | 'shower_system_shelf'
     | 'shower_system_simple'
     | 'shower_cabinet_sliding'
-    | 'shower_cabinet_open';
+    | 'shower_cabinet_open'
+    | 'shower_walkin_left'
+    | 'shower_walkin_right'
+    | 'shower_walkin_corner';
 
 export const SHOWER_VARIANTS: ShowerVariant[] = [
     'shower_system_shelf',
     'shower_system_simple',
     'shower_cabinet_sliding',
     'shower_cabinet_open',
+    'shower_walkin_left',
+    'shower_walkin_right',
+    'shower_walkin_corner',
 ];
+
+/**
+ * Walk-in enclosure variants — the composite "shower + glass + gutter" type.
+ * Exposed so callers can branch on the walk-in family without re-listing slugs.
+ */
+export const SHOWER_WALKIN_VARIANTS: ShowerVariant[] = [
+    'shower_walkin_left',
+    'shower_walkin_right',
+    'shower_walkin_corner',
+];
+
+/** True when the variant is a composite walk-in enclosure (L-37). */
+export function isWalkInShower(variant: ShowerVariant): boolean {
+    return SHOWER_WALKIN_VARIANTS.includes(variant);
+}
+
+/**
+ * The user-chosen glass DIRECTION carried by a walk-in variant slug.
+ * 'left' / 'right' = single frameless side panel on that hand; 'corner' =
+ * L-shaped panel (side + return along the front).
+ */
+export type WalkInGlassSide = 'left' | 'right' | 'corner';
+
+/** Decode the glass-side direction parameter from a walk-in variant slug. */
+export function walkInGlassSide(variant: ShowerVariant): WalkInGlassSide {
+    if (variant === 'shower_walkin_right')  return 'right';
+    if (variant === 'shower_walkin_corner') return 'corner';
+    return 'left';
+}
 
 export const SHOWER_VARIANT_LABELS: Record<ShowerVariant, string> = {
     shower_system_shelf:    'Rain System with Shelf',
     shower_system_simple:   'Rain System (Simple)',
     shower_cabinet_sliding: 'Glass Cabinet — Sliding Door',
     shower_cabinet_open:    'Glass Cabinet — Open',
+    shower_walkin_left:     'Walk-in Shower — Glass Left',
+    shower_walkin_right:    'Walk-in Shower — Glass Right',
+    shower_walkin_corner:   'Walk-in Shower — Corner Glass',
 };
 
 export const DEFAULT_SHOWER_VARIANT: ShowerVariant = 'shower_system_shelf';
@@ -71,6 +122,12 @@ export const SHOWER_FOOTPRINTS: Record<ShowerVariant, ShowerFootprint> = {
     shower_system_simple:   { width: 0.28, length: 0.36, height: 2.10 },
     shower_cabinet_sliding: { width: 0.90, length: 0.90, height: 2.00 },
     shower_cabinet_open:    { width: 0.90, length: 0.90, height: 2.00 },
+    // Walk-in enclosures are generous open bays — ~1.0 m wide × 1.2 m deep,
+    // 2.20 m to the ceiling rain-head (Contract 39 §5 — plan symbol reads the
+    // same footprint via SHOWER_FOOTPRINTS).
+    shower_walkin_left:     { width: 1.00, length: 1.20, height: 2.20 },
+    shower_walkin_right:    { width: 1.00, length: 1.20, height: 2.20 },
+    shower_walkin_corner:   { width: 1.00, length: 1.20, height: 2.20 },
 };
 
 export interface ShowerGeometryOptions {
@@ -405,6 +462,147 @@ function buildShowerCabinet(
     return g;
 }
 
+// ─── Walk-in enclosure (§FEAT-SHOWER-ENCLOSURE-TYPE, L-37) ─────────────────────
+
+/**
+ * Linear gutter / channel drain recessed into the tray, running across X near
+ * the front edge (the entrance side). Modelled as a dark recess box plus a
+ * brushed-metal grate with a few slot ribs, so it reads as a real linear drain
+ * in both the 3D mesh and the shaded preview. Metal material (reused makeMetal).
+ */
+function buildLinearGutter(
+    width: number, zCentre: number,
+    channelMat: THREE.Material, grateMat: THREE.Material,
+): THREE.Group {
+    const g = new THREE.Group();
+    const chW = width * 0.82;   // channel spans most of the bay width
+    const chZ = 0.08;           // channel depth (along Z)
+
+    // Recessed channel trough (sits just below the tray top so water falls in).
+    const trough = new THREE.Mesh(
+        new THREE.BoxGeometry(chW, 0.04, chZ),
+        channelMat,
+    );
+    trough.position.set(0, 0.03, zCentre);
+    trough.userData.part = 'gutter';
+    g.add(trough);
+
+    // Brushed-metal grate flush with the tray surface.
+    const grate = new THREE.Mesh(
+        new THREE.BoxGeometry(chW, 0.008, chZ * 0.72),
+        grateMat,
+    );
+    grate.position.set(0, 0.052, zCentre);
+    grate.userData.part = 'gutter';
+    g.add(grate);
+
+    // A few slot ribs for read at LOD400.
+    const ribCount = 5;
+    for (let i = 0; i < ribCount; i++) {
+        const rib = new THREE.Mesh(
+            new THREE.BoxGeometry(chW * 0.9, 0.006, 0.004),
+            channelMat,
+        );
+        const t = (i + 0.5) / ribCount;
+        rib.position.set(0, 0.056, zCentre - chZ * 0.34 + t * chZ * 0.68);
+        rib.userData.part = 'gutter';
+        g.add(rib);
+    }
+    return g;
+}
+
+/** Shallow recessed wall niche (shelf) — a shelved inset on the back wall. */
+function buildWallNiche(
+    width: number, yBase: number,
+    ceramic: THREE.Material, metal: THREE.Material,
+): THREE.Group {
+    const g = new THREE.Group();
+    const nW = Math.min(0.40, width * 0.45);
+    const nH = 0.30;
+    // Inset back panel (sits flush against the wall at z≈0).
+    const back = new THREE.Mesh(
+        new THREE.BoxGeometry(nW, nH, 0.012),
+        ceramic,
+    );
+    back.position.set(0, yBase + nH / 2, 0.012);
+    g.add(back);
+    // Mid shelf (metal).
+    const shelf = new THREE.Mesh(
+        new THREE.BoxGeometry(nW, 0.008, 0.08),
+        metal,
+    );
+    shelf.position.set(0, yBase + nH / 2, 0.045);
+    g.add(shelf);
+    return g;
+}
+
+/**
+ * Composite walk-in shower — rain head on riser + hand-shower on rail + round
+ * mixer + recessed niche + a linear gutter drain in the tray + a frameless
+ * side glass panel whose SIDE follows the chosen direction parameter.
+ *
+ *   side = 'left'   → frameless panel at x = −w/2 (open to the right)
+ *   side = 'right'  → frameless panel at x = +w/2 (open to the left)
+ *   side = 'corner' → L-shaped: side panel (+x) + partial front return
+ */
+function buildWalkInShower(
+    side: WalkInGlassSide,
+    fp: ShowerFootprint,
+    metal: THREE.Material,
+    glass: THREE.Material,
+    ceramic: THREE.Material,
+): THREE.Group {
+    const g = new THREE.Group();
+    const w = fp.width;
+    const d = fp.length;
+    const totalH = fp.height;
+    const panelH = totalH - 0.05;   // frameless panel rises from the tray
+
+    // 1. Low tray / base — a shallow ceramic pan the enclosure stands on.
+    g.add(buildShowerTray(w, d, ceramic));
+
+    // 2. Linear gutter drain near the entrance (front) edge of the tray.
+    g.add(buildLinearGutter(w, d - 0.14, metal, ceramic));
+
+    // 3. Wet wall: rain head on a riser reaching over the tray centre.
+    const armReach = Math.max(0.45, d * 0.5);
+    g.add(buildRiserPipe(totalH - 0.08, metal));
+    g.add(buildRainArm(totalH - 0.04, armReach, metal));
+    const rainHead = buildRainHead(0.14, totalH - 0.04, 0.025 + armReach, metal);
+    rainHead.userData.part = 'rainHead';
+    g.add(rainHead);
+
+    // 4. Hand-shower on its slider rail (offset to the wall side of the mixer).
+    g.add(buildHandheldHolder(1.40, metal));
+
+    // 5. Round thermostatic mixer.
+    g.add(buildMixer(0.95, metal));
+
+    // 6. Recessed niche on the back wall.
+    g.add(buildWallNiche(w, 1.05, ceramic, metal));
+
+    // 7. Frameless glass — direction parameter drives which side it sits on.
+    //    Panels run along the depth (rotY = PI/2). A frameless slim top rail
+    //    stiffens the head without a full frame.
+    const sideX = side === 'left' ? -w / 2 : w / 2;   // 'corner' uses +x side
+    const sidePanel = buildGlassPanel(d, panelH, sideX, d / 2, Math.PI / 2, glass);
+    sidePanel.userData.part = 'glass';
+    g.add(sidePanel);
+    const sideRail = buildPanelTopRail(d, panelH, sideX, d / 2, Math.PI / 2, metal);
+    g.add(sideRail);
+
+    if (side === 'corner') {
+        // L-return: a partial fixed panel along the front, from the glass side.
+        const frontW = w * 0.5;
+        const frontPanel = buildGlassPanel(frontW, panelH, w / 2 - frontW / 2, d, 0, glass);
+        frontPanel.userData.part = 'glass';
+        g.add(frontPanel);
+        g.add(buildPanelTopRail(frontW, panelH, w / 2 - frontW / 2, d, 0, metal));
+    }
+
+    return g;
+}
+
 // ─── Public factory ───────────────────────────────────────────────────────────
 
 /**
@@ -430,5 +628,11 @@ export function createShowerGeometry(
     if (variant === 'shower_system_shelf' || variant === 'shower_system_simple') {
         return buildShowerSystem(variant, fp, metal, ceramic);
     }
-    return buildShowerCabinet(variant, fp, metal, glass, ceramic);
+    if (isWalkInShower(variant)) {
+        return buildWalkInShower(walkInGlassSide(variant), fp, metal, glass, ceramic);
+    }
+    return buildShowerCabinet(
+        variant as 'shower_cabinet_sliding' | 'shower_cabinet_open',
+        fp, metal, glass, ceramic,
+    );
 }

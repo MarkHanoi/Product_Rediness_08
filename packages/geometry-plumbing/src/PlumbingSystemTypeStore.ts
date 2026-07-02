@@ -60,6 +60,11 @@ const SHOWER_DESCRIPTIONS: Record<ShowerVariant, string> = {
     shower_system_simple:   'Wall column, round rain-head, thermostat and handheld.',
     shower_cabinet_sliding: 'Glass enclosure with sliding front door and tray.',
     shower_cabinet_open:    'Open glass enclosure with low ceramic tray.',
+    // §FEAT-SHOWER-ENCLOSURE-TYPE (L-37) — composite walk-in: rain head +
+    // hand-shower + mixer + niche + linear gutter drain + frameless glass.
+    shower_walkin_left:     'Walk-in: rain + hand-shower + gutter drain, frameless glass on the left.',
+    shower_walkin_right:    'Walk-in: rain + hand-shower + gutter drain, frameless glass on the right.',
+    shower_walkin_corner:   'Walk-in: rain + hand-shower + gutter drain, L-shaped corner glass.',
 };
 
 const ACCESSORY_DESCRIPTIONS: Record<BathroomAccessoryVariant, string> = {

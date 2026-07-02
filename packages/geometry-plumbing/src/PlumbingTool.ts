@@ -324,11 +324,20 @@ export class PlumbingTool {
                     if (wallResult) {
                         const lookAtTarget = point.clone().add(wallResult.normal);
                         this.previewMesh.lookAt(lookAtTarget);
-                        // Toilet, sink and shower local +Z faces away from the
-                        // back wall (see ToiletGeometry / ShowerGeometry headers).
-                        // lookAt aims -Z toward the target, so flip 180° around Y
-                        // to keep the back of the bowl/basin/column against the wall.
-                        if (this.fixtureType === 'sink' || this.fixtureType === 'toilet' || this.fixtureType === 'shower') {
+                        // §FIX-SHOWER-ORIENTATION (L-36, ADR-0113) — Object3D.lookAt()
+                        // aims local +Z TOWARD the target (non-camera path, see
+                        // three/src/core/Object3D.js), so after lookAt(point+normal)
+                        // the fixture's local +Z already points along the outward
+                        // room-normal (into the room).
+                        //   • Toilet & sink: their FRONT is at local −Z (D-shape /
+                        //     basin extrude to −Z, wall plate at +Z), so we flip 180°
+                        //     to seat their back against the wall.
+                        //   • Shower: its FRONT (riser → rain-arm → head, tray, glass)
+                        //     is authored at local +Z (ShowerGeometry header), so it is
+                        //     ALREADY correct after lookAt — flipping it 180° drove the
+                        //     rain head into the wall (the founder's "wrong direction").
+                        //     Parity with PlumbingPlanToolHandler, which never flips.
+                        if (this.fixtureType === 'sink' || this.fixtureType === 'toilet') {
                             this.previewMesh.rotateY(Math.PI);
                         }
                         const offset = wallResult.normal.clone().multiplyScalar(0.02);
@@ -483,9 +492,11 @@ export class PlumbingTool {
      * so 3D and plan-view placement behave identically (geometry parity).
      *
      * Returns the outward (room-side) horizontal normal of the wall — i.e. the
-     * direction you would walk to leave the wall — so the caller can use
-     * lookAt(point + normal) + rotateY(PI) to seat the fixture's back against
-     * the wall with its +Z facing into the room (Contracts 36/39 §5).
+     * direction you would walk to leave the wall. The caller uses
+     * lookAt(point + normal) to aim the fixture's local +Z along that normal.
+     * Toilet/sink then flip 180° (their front is at −Z); the shower does NOT
+     * flip (its front is authored at +Z) — §FIX-SHOWER-ORIENTATION / Contracts
+     * 36/39 §5.
      */
     private getNearestWall(point: THREE.Vector3): { normal: THREE.Vector3, quaternion: THREE.Quaternion } | null {
         const ws = window.wallStore; // TODO(TASK-08)
