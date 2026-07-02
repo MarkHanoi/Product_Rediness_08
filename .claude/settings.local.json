@@ -167,7 +167,8 @@
       "Bash(git merge --no-ff worktree-agent-a150e2120fd9317c7 -m 'merge: §FEAT-ELEMENT-CHANGE-TYPE \\(ADR-0105, L-17\\) — uniform element.changeType command to replace a placed element with another type in place. Root cause of the broken wall type-swap: the dropdown wrote the bus DTO store but the mesh rebuilds from the legacy geometry store with no type-change bridge; now routed per-family to the command that rebuilds \\(walls fixed + new furniture change-type + door/window\\). Transform/host preserved, undoable. *)",
       "Bash(echo \"MERGE1_EXIT=$?\")",
       "Bash(git merge --no-ff worktree-agent-a734f91f2762d1dda -m 'merge: §FEAT-PLACEMENT-SPACEBAR-ROTATE \\(L-16\\) — Spacebar rotates the placement preview +90° CW \\(plan + 3D + GLB drag-drop flows converged on the shared PrePlacementRotation\\), committed rotation applied on click/Enter, reset on Esc. Wall-hosted doors/windows excluded \\(C15\\). *)",
-      "Bash(echo \"MERGE2_EXIT=$?\")"
+      "Bash(echo \"MERGE2_EXIT=$?\")",
+      "Bash(git ls-remote *)"
     ],
     "additionalDirectories": [
       "c:\\Users\\LENOVO\\.claude\\projects\\c--Users-LENOVO-OneDrive-Desktop-PRYZM-Product-Rediness-08\\memory"

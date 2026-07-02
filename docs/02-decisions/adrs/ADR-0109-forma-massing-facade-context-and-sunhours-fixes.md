@@ -1,4 +1,4 @@
-# ADR-0108 — Forma 3D-site view: all-storeys massing, façade footprint, instant sun-hours/daylight, filled context, reliable zoom
+# ADR-0109 — Forma 3D-site view: all-storeys massing, façade footprint, instant sun-hours/daylight, filled context, reliable zoom
 
 > Renumbered from ADR-0094 (2026-07-02): the number collided with the canonical
 > ADR-0094 (large-scene render perf, committed as `03b3746d`). This is the newer,
