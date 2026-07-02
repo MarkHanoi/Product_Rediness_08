@@ -119,6 +119,8 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 | L-35 professional kitchen plan symbol | 3.2 drawing/kitchen | in flight (kitchen agent) |
 | L-36 shower fixture wrong direction | 2.3 plumbing/placement | in flight (shower agent) |
 | L-37 composite shower+glass+gutter type | 2.3 plumbing/catalogue | in flight (shower agent) |
+| L-38 site-plan overlay (PDF/image) + Project North / True North | new **Phase 3.4** (site/geo dual-north) | **PARTIAL** (ADR-0114 §FEAT-PROJECT-TRUE-NORTH) — dual-north transform + geolocation record + OK-sets-PN command path + always-on site view shipped; plan-canvas gizmo bridge + globe θ application remain |
+| L-40 3D globe/site view always reachable from 3D | 3.4 site/geo dual-north | **SHIPPED** (ADR-0114 §FEAT-SITE-VIEW-ALWAYS-ON) — self-bootstrapping `pryzmEnterSiteView` + always-present 3D-viewport launcher + hardened GIS-rail entry |
 
 **Batches shipped:** batch 1 (`583eb2f1`) = selection(G4) + redetect-storm(G1) + nav-perf(G3) + house-circ. batch 2 = load-freeze(G2) + wall-preview(G5) + properties-panel(L-15) + door-plan-gap(L-13) + T-junction(L-12). batch 3 = change-type(L-17). **wave 4c** (`0543c337`) = L-25 black-screen + L-22 icons + L-20/21/23 placement-preview + L-26 align-guide. **wave 4d** (`103b14f0`) = L-28 plan-wall + L-29 wall-move-dims + L-31 refs+snap-bounds(ADR-0112) + L-32 slab-preview + L-27 T-junction-v2.
 **In flight (7pm London session-limit permitting):** L-27 cluster · L-33/34/35 kitchen · L-36/37 shower. **Held (user-cancelled):** L-18, L-19, L-24.

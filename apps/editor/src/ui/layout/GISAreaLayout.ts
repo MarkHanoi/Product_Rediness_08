@@ -2351,5 +2351,53 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     window.pryzmShowFormaView = (initial?: 'map2d' | 'plan' | '3d') => mountFormaViewToggle(initial ?? 'plan');
     window.pryzmHideFormaView = () => removeFormaViewToggle();
 
+    // §FEAT-SITE-VIEW-ALWAYS-ON (L-40, ADR-0114) — the 3D globe / 3D site view must be
+    // reachable from ANY 3D view, at all times. Root cause of the founder's report: the
+    // ONLY UI entry was the buried GIS-rail "3D Site" button, whose handler dead-ended
+    // ("GIS area not mounted yet") when `pryzmShowFormaView` wasn't defined. This global
+    // is a stable, self-bootstrapping entry (mountFormaViewToggle → applyFormaView →
+    // engageFormaCesium → toggleGIS(true) mounts Cesium on demand, centred on a sensible
+    // default even with NO site), plus an always-present floating launcher on the 3D
+    // viewport so the user never has to hunt for it.
+    window.pryzmEnterSiteView = (initial?: 'map2d' | 'plan' | '3d') => {
+        try {
+            mountFormaViewToggle(initial ?? 'plan');
+        } catch (e) {
+            console.error('[gis][site-view] pryzmEnterSiteView failed:', e);
+        }
+    };
+    const mountSiteViewLauncher = (): void => {
+        try {
+            const viewport = document.getElementById('container');
+            if (!viewport) return;
+            if (document.getElementById('pryzm-site-view-launcher')) return; // idempotent
+            if (viewport.style.position !== 'absolute' && viewport.style.position !== 'relative') {
+                viewport.style.position = 'relative';
+            }
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.id = 'pryzm-site-view-launcher';
+            btn.setAttribute('data-testid', 'site-view-launcher');
+            btn.textContent = '◉ 3D Site / Globe';
+            btn.title = 'Open the 3D site / globe view (true north + geolocation). Works from any 3D view.';
+            Object.assign(btn.style, {
+                position: 'absolute', top: '12px', left: '12px', zIndex: '20',
+                appearance: 'none', cursor: 'pointer',
+                padding: '7px 12px', borderRadius: '9px',
+                border: '1px solid #6600FF', background: '#ffffff', color: '#6600FF',
+                font: '600 12px/1 system-ui, sans-serif',
+                boxShadow: '0 3px 12px rgba(20,10,60,0.16)',
+            } satisfies Partial<CSSStyleDeclaration>);
+            btn.addEventListener('mouseenter', () => { btn.style.background = '#f4f0ff'; });
+            btn.addEventListener('mouseleave', () => { btn.style.background = '#ffffff'; });
+            btn.addEventListener('click', () => window.pryzmEnterSiteView?.('plan'));
+            viewport.appendChild(btn);
+            console.log('[gis][site-view] always-on 3D Site launcher mounted (L-40).');
+        } catch (e) {
+            console.warn('[gis][site-view] launcher mount failed (non-fatal):', e);
+        }
+    };
+    mountSiteViewLauncher();
+
     return { toggleGIS, flyToCremornePoint, placeBimOnEarth, activateView, gizmoMode, startBoundaryDraw, cancelBoundaryDraw };
 }

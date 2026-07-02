@@ -274,6 +274,41 @@ export function dispatchSiteLocation(
 }
 
 /**
+ * §FEAT-PROJECT-TRUE-NORTH (ADR-0114) — set ONLY the Site's project→true-north angle θ
+ * (radians), preserving every other `SiteLocation` field. This is the P6 mutation path
+ * that mirrors the site-plan underlay's committed placement onto the model: the plan
+ * view keeps editing in the project (orthogonal) frame, and the 3D globe reads
+ * `SiteLocation.trueNorth` to sit the model on the earth at true north.
+ *
+ * θ is DISTINCT from the underlay's on-canvas rotation (that stays on the overlay
+ * transform). Idempotent + guarded; requires a Site to already exist (returns false
+ * with a toast otherwise — the geolocation step creates the Site first).
+ */
+export function dispatchSiteTrueNorth(ctx: SiteContext, thetaRad: number): boolean {
+    if (!Number.isFinite(thetaRad)) {
+        console.warn('[gis] dispatchSiteTrueNorth: non-finite θ ignored.');
+        return false;
+    }
+    const site = ctx.store.getSite();
+    if (!site) {
+        console.warn('[gis] dispatchSiteTrueNorth: no Site — geolocate the site first.');
+        ctx.toast('Set the site location before committing Project North.', 'error');
+        return false;
+    }
+    // Preserve the whole SiteLocation; override only trueNorth (§FEAT-PROJECT-TRUE-NORTH).
+    const nextLocation = { ...site.location, trueNorth: thetaRad };
+    const res = siteUpdateLocation({ siteId: site.id, location: nextLocation }, ctx.store);
+    if (!res.ok) {
+        console.warn('[gis] dispatchSiteTrueNorth soft-reject:', res.reason, res.message);
+        ctx.toast(`Set Project North failed: ${res.message}`, 'error');
+        return false;
+    }
+    console.log('[gis] site Project North set → θ(rad)=', thetaRad, res.event);
+    ctx.rt.events?.emit('site.location-changed', res.event);
+    return true;
+}
+
+/**
  * Author the parcel boundary via the pure `site.setParcelBoundary` handler,
  * emitting `site.parcel-boundary-set`. Creates the Site first if needed. The
  * polygon is one-shot immutable per C19 §1.4 — a second call rejects with

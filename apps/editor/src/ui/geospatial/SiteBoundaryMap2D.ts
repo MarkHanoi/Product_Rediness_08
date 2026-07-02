@@ -49,7 +49,7 @@ import {
     latLonToSceneXZ,
     type LatLon,
 } from '../site/boundaryProjection.js';
-import { resolveSiteContext, dispatchParcelBoundary, dispatchSiteLocation } from '../site/siteDispatch.js';
+import { resolveSiteContext, dispatchParcelBoundary, dispatchSiteLocation, dispatchSiteTrueNorth } from '../site/siteDispatch.js';
 import {
     buildFormaMap2DStyle,
     buildSatelliteStyle,
@@ -1568,6 +1568,13 @@ export function mountSiteBoundaryMap2D(
                 projectId: ctx?.projectId ?? null,
                 toast: (message, severity) => {
                     (runtime ?? null)?.events?.emit('pryzm:toast', { message, severity });
+                },
+                // §FEAT-PROJECT-TRUE-NORTH (ADR-0114) — commit the underlay placement as
+                // Project North: mirror θ onto SiteLocation.trueNorth via the P6 command
+                // path so the 3D globe/site view sits the model at true north.
+                onCommitProjectNorth: (thetaRad: number) => {
+                    const c = resolveSiteContext(runtime ?? null);
+                    if (c) dispatchSiteTrueNorth(c, thetaRad);
                 },
             });
             // §SITE-PLAN-OVERLAY — window hook so the onboarding "Overlay a plan/PDF"
