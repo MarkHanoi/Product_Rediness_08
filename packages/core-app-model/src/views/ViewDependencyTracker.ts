@@ -56,6 +56,25 @@ export class ViewDependencyTracker {
     /** Set of view IDs that need re-projection on the next flush. */
     private _dirtyViewIds = new Set<string>();
 
+    /**
+     * §FIX-WALLMOVE-PLAN-INCREMENTAL (ADR-0098 F3 / queue Q6, 2026-07-02) —
+     * viewId → Set<elementId> of the elements that dirtied that view via a single
+     * `update` store event. INVARIANT: when a view is dirtied ONLY by discrete
+     * single-element updates (a wall move), `_flush` drops just those elements'
+     * projection lines (`invalidateElement`) and keeps the rest of the drawing
+     * WARM, instead of the coarse whole-drawing `invalidate(viewId)` (a full
+     * geometry-dispose + guaranteed cache miss). A view that also took a coarse
+     * dirtying (batch / stale-id fallback / non-update op) is promoted to a full
+     * invalidate for correctness (`_viewsNeedingFullInvalidate`). Cleared every
+     * flush alongside `_dirtyViewIds`.
+     */
+    private _dirtyElementsByView = new Map<string, Set<string>>();
+
+    /** §FIX-WALLMOVE-PLAN-INCREMENTAL — views that must take the coarse full
+     *  `invalidate(viewId)` on the next flush (a change was seen that the per-element
+     *  path cannot safely narrow). A view listed here ignores its incremental set. */
+    private _viewsNeedingFullInvalidate = new Set<string>();
+
     /** Maps elementId → levelId. Populated by `registerElement()`. */
     private readonly _elementLevelMap = new Map<string, string>();
 
@@ -202,6 +221,9 @@ export class ViewDependencyTracker {
     clear(): void {
         this._elementLevelMap.clear();
         this._dirtyViewIds.clear();
+        // §FIX-WALLMOVE-PLAN-INCREMENTAL — drop the per-flush incremental tracking too.
+        this._dirtyElementsByView.clear();
+        this._viewsNeedingFullInvalidate.clear();
         viewTechnicalDrawingCache.clear();
         if (this._debounceTimer !== null) {
             clearTimeout(this._debounceTimer);
@@ -248,6 +270,10 @@ export class ViewDependencyTracker {
         for (const levelId of levelIds) {
             for (const viewId of this._getAffectedViews('__batch__', levelId)) {
                 this._dirtyViewIds.add(viewId);
+                // §FIX-WALLMOVE-PLAN-INCREMENTAL — level-scoped (batch) dirtying covers
+                // an unknown element set → coarse whole-drawing invalidate.
+                this._viewsNeedingFullInvalidate.add(viewId);
+                this._dirtyElementsByView.delete(viewId);
             }
         }
         if (this._dirtyViewIds.size > 0) {
@@ -275,6 +301,9 @@ export class ViewDependencyTracker {
         for (const levelId of levelIds) {
             for (const viewId of this._getAffectedViews('__batch__', levelId)) {
                 this._dirtyViewIds.add(viewId);
+                // §FIX-WALLMOVE-PLAN-INCREMENTAL — level-scoped dirtying → coarse invalidate.
+                this._viewsNeedingFullInvalidate.add(viewId);
+                this._dirtyElementsByView.delete(viewId);
             }
         }
         if (this._dirtyViewIds.size === 0) return;
@@ -296,6 +325,10 @@ export class ViewDependencyTracker {
      */
     markDirty(viewId: string): void {
         this._dirtyViewIds.add(viewId);
+        // §FIX-WALLMOVE-PLAN-INCREMENTAL — an explicit view-level markDirty carries no
+        // element scope → coarse whole-drawing invalidate on the next flush.
+        this._viewsNeedingFullInvalidate.add(viewId);
+        this._dirtyElementsByView.delete(viewId);
         this._scheduleDebouncedFlush();
     }
 
@@ -313,6 +346,23 @@ export class ViewDependencyTracker {
         // markLevelsDirty(levelIds) after suppression ends to schedule ONE
         // targeted reprojection of only the affected plan views.
         if (this._batchSuppressed) return;
+
+        // §FIX-WALLMOVE-PLAN-INCREMENTAL (ADR-0098 F3 / queue Q6, 2026-07-02) —
+        // INVARIANT: a wall MOVE must NOT trigger a whole-level plan re-projection on
+        // every intermediate baseline update. `PlanElementDragController._moveWall`
+        // live-updates the WallStore per mousemove (`ws.update`), and `WallStore.emit`
+        // fans that out to this store-event subscriber — the OLD path re-armed the
+        // 300 ms debounce on EACH mousemove, so on release ONE full-view EdgeProjector
+        // + HiddenLineRemoval + NME export ran (and the dispose/rebuild churn thrashed).
+        // While a wall drag is in flight we DROP the store event (no dirty-mark, no
+        // debounce re-arm). The drag-END WallRebuildCoordinator flush emits its own
+        // wall store `update` (flag already cleared) → exactly one dirty-mark → one
+        // re-projection on release. Mirrors the WallRebuildCoordinator ADR-061 /
+        // RoomTopologyObserver defer so all three stay in lock-step.
+        if (typeof window !== 'undefined'
+            && (window as unknown as { __wallDragInProgress?: boolean }).__wallDragInProgress === true) {
+            return;
+        }
 
         let levelId = this._elementLevelMap.get(event.elementId) ?? this._resolveElementLevelId?.(event.elementId);
 
@@ -332,8 +382,25 @@ export class ViewDependencyTracker {
         if (levelId) {
             // Targeted: mark only views on the same level.
             const affectedIds = this._getAffectedViews(event.elementId, levelId);
+            // §FIX-WALLMOVE-PLAN-INCREMENTAL — a discrete single-element `update` (the
+            // settled wall move) can be narrowed to that element's projection lines.
+            // create/delete change the ELEMENT SET (lines must be added/removed
+            // wholesale) so they take the coarse path. For an `update` we record the
+            // element per affected view; `invalidateElement` itself safely falls back
+            // to a full `invalidate` for any view (e.g. section/elevation) whose drawing
+            // has no matching element-tagged LineSegments — correctness over perf.
+            const incremental = event.operation === 'update';
             for (const viewId of affectedIds) {
                 this._dirtyViewIds.add(viewId);
+                if (incremental && !this._viewsNeedingFullInvalidate.has(viewId)) {
+                    (this._dirtyElementsByView.get(viewId)
+                        ?? this._dirtyElementsByView.set(viewId, new Set()).get(viewId)!)
+                        .add(event.elementId);
+                } else {
+                    // create/delete (or a view already flagged coarse) → whole-drawing invalidate.
+                    this._viewsNeedingFullInvalidate.add(viewId);
+                    this._dirtyElementsByView.delete(viewId);
+                }
             }
         } else {
             // §G.3 — stale ID: element was registered then unregistered (undo/redo cycle).
@@ -370,6 +437,11 @@ export class ViewDependencyTracker {
         for (const view of viewDefinitionStore.getAll()) {
             if (view.viewType === '3d') continue;
             this._dirtyViewIds.add(view.id);
+            // §FIX-WALLMOVE-PLAN-INCREMENTAL — a stale-id fallback cannot be narrowed
+            // to a known element (the id was already unregistered), so this view must
+            // take the coarse whole-drawing invalidate.
+            this._viewsNeedingFullInvalidate.add(view.id);
+            this._dirtyElementsByView.delete(view.id);
         }
     }
 
@@ -419,11 +491,36 @@ export class ViewDependencyTracker {
 
         const toFlush = [...this._dirtyViewIds];
         this._dirtyViewIds.clear();
+        // §FIX-WALLMOVE-PLAN-INCREMENTAL — snapshot + reset the per-flush incremental
+        // maps up front so a store event arriving mid-flush accumulates for the NEXT
+        // cycle (never contaminates this one).
+        const dirtyElementsByView = this._dirtyElementsByView;
+        const viewsNeedingFull    = this._viewsNeedingFullInvalidate;
+        this._dirtyElementsByView = new Map<string, Set<string>>();
+        this._viewsNeedingFullInvalidate = new Set<string>();
 
         console.log(
             `[ViewDependencyTracker] flush — ${toFlush.length} dirty view(s): ` +
             toFlush.map(id => id.slice(0, 8)).join(', '),
         );
+
+        // §FIX-WALLMOVE-PLAN-INCREMENTAL — per-view invalidation strategy: a view
+        // dirtied ONLY by discrete single-element `update`s (a wall move) drops just
+        // those elements' projection lines via `invalidateElement` (drawing stays warm
+        // for every other element — the moved wall re-projects via the staleElementIds
+        // path); any view that took a coarse dirtying falls back to the whole-drawing
+        // `invalidate`. This runs REGARDLESS of whether `onReprojectionNeeded` is wired,
+        // so a headless / test build exercises the same decision.
+        const invalidateView = (viewId: string): void => {
+            const elems = dirtyElementsByView.get(viewId);
+            if (!viewsNeedingFull.has(viewId) && elems && elems.size > 0) {
+                for (const elementId of elems) {
+                    viewTechnicalDrawingCache.invalidateElement(viewId, elementId);
+                }
+            } else {
+                viewTechnicalDrawingCache.invalidate(viewId);
+            }
+        };
 
         if (this.onReprojectionNeeded) {
             // DOC-1.5e: increment counter for ALL views atomically before the fan-out
@@ -445,7 +542,7 @@ export class ViewDependencyTracker {
             // all map() closures start "simultaneously" (they run synchronously up to
             // their first await, which is inside onReprojectionNeeded).
             await Promise.all(toFlush.map(async (viewId) => {
-                viewTechnicalDrawingCache.invalidate(viewId);
+                invalidateView(viewId);
                 const gen = viewTechnicalDrawingCache.beginProjection(viewId);
                 try {
                     await this.onReprojectionNeeded!(viewId, gen);
@@ -458,9 +555,10 @@ export class ViewDependencyTracker {
                 }
             }));
         } else {
-            // No projection callback wired yet — just invalidate the cache.
+            // No projection callback wired yet — just invalidate the cache
+            // (incremental where the view's change set is element-scoped).
             for (const viewId of toFlush) {
-                viewTechnicalDrawingCache.invalidate(viewId);
+                invalidateView(viewId);
             }
         }
     }

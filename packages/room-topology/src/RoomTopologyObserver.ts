@@ -195,6 +195,22 @@ export class RoomTopologyObserver {
    *  synchronous. */
   private _onWallMutationCommitted = (payload: { levelIds?: readonly string[]; levelId?: string }): void => {
     if (this.paused || this._disposed) return;
+    // §FIX-WALLMOVE-REDETECT-DEFER (ADR-0098 F3 / queue Q6, 2026-07-02) —
+    // INVARIANT: a wall MOVE must NOT run room re-detection on every intermediate
+    // baseline update. A live drag (3D gizmo OR plan-view PlanElementDragController)
+    // fires a `bim-wall-mutation-committed` stream — the OLD path started the 300 ms
+    // soft-coalesce on EACH one, and because a real drag never truly idles for 300 ms
+    // the timer force-fired `_executeRedetect` mid-drag → whole-level RoomDetection
+    // per intermediate frame → main-thread peg → freeze. While a wall drag is in
+    // flight (`window.__wallDragInProgress === true`, set by the wall transform
+    // controller / plan-drag controller) we DROP these commits entirely; the drag-END
+    // release (WallRebuildCoordinator.resumeAndFlushDeferredDrag → whole-level flush →
+    // ONE final `bim-wall-mutation-committed`) drives EXACTLY ONE redetect. Mirrors the
+    // WallRebuildCoordinator ADR-061 defer so the two stay in lock-step.
+    if (typeof window !== 'undefined'
+        && (window as unknown as { __wallDragInProgress?: boolean }).__wallDragInProgress === true) {
+      return;
+    }
     const ids = payload?.levelIds ?? (payload?.levelId ? [payload.levelId] : []);
     for (const levelId of ids) {
       if (!levelId) continue;
@@ -404,6 +420,20 @@ export class RoomTopologyObserver {
     // at this method's entry guarantees every redetect path honours it.
     if (this.paused) {
       console.debug(`[RoomTopologyObserver] _executeRedetect suppressed (paused, level=${levelId})`);
+      return;
+    }
+    // §FIX-WALLMOVE-REDETECT-DEFER — execution-chokepoint guard. INVARIANT: no
+    // redetect while a wall drag is in flight. FOUR paths reach `_executeRedetect`
+    // without passing the committed-event guard above: the WallStore add/update/remove
+    // debounce timer, the forced-fire branch (resets≥12 / deadline — which a plan-view
+    // `ws.update` storm WILL trip since each mousemove re-arms the debounce), the
+    // committed-event soft-coalesce timer, and `scheduleRedetectAllLevels`. During a
+    // plan-view wall drag `PlanElementDragController._moveWall` calls `ws.update()` per
+    // mousemove → `wall:update` → this path force-fires mid-drag → freeze. Suppress
+    // here so every redetect path honours the drag defer; the drag-end flush drives one.
+    if (typeof window !== 'undefined'
+        && (window as unknown as { __wallDragInProgress?: boolean }).__wallDragInProgress === true) {
+      console.debug(`[RoomTopologyObserver] _executeRedetect suppressed (wall drag in flight, level=${levelId}) — §FIX-WALLMOVE-REDETECT-DEFER`);
       return;
     }
     // ADR-0069 (GR1) — the graph-authoritative guard must live at the EXECUTION

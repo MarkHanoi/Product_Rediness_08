@@ -185,6 +185,21 @@ export class PlanElementDragController {
         if (!state.activated) {
             if (Math.hypot(sx - state.startSx, sy - state.startSy) < DRAG_THRESHOLD) return;
             state.activated = true;
+            // §FIX-WALLMOVE-REDETECT-DEFER / §FIX-WALLMOVE-PLAN-INCREMENTAL (ADR-0098
+            // F3 / queue Q6, 2026-07-02) — INVARIANT: a plan-view wall drag live-updates
+            // the WallStore per mousemove (`_moveWall → ws.update`). Each such update
+            // fans out to BOTH the WallRebuildCoordinator (whole-level resolve +
+            // `bim-wall-mutation-committed`) AND the ViewDependencyTracker (plan
+            // re-projection) AND the RoomTopologyObserver (redetect). Without a
+            // drag-in-progress signal the ENTIRE cascade fired PER mousemove → main-
+            // thread peg → freeze. Raise the SAME flag the 3D gizmo uses (ADR-061) at
+            // drag-activation for a WALL so those three consumers defer to release;
+            // the mesh still follows live (the store update rebuilds the wall body via
+            // the deferred flush drained at drag-end). Cleared in `onEnd`/`cancel`
+            // BEFORE the authoritative commit so exactly one cascade runs on release.
+            if (state.kind === 'wall' && typeof window !== 'undefined') {
+                (window as unknown as { __wallDragInProgress?: boolean }).__wallDragInProgress = true;
+            }
         }
 
         const { worldX, worldZ } = this._planCanvas.screenToWorld(sx, sy);
@@ -252,10 +267,38 @@ export class PlanElementDragController {
         this._planCanvas = null;
         this._domCanvas  = null;
 
-        if (!state || !state.activated) return;
+        // §FIX-WALLMOVE-REDETECT-DEFER — clear the drag flag BEFORE the authoritative
+        // commit so the store `update` the command produces takes the immediate path
+        // (one whole-level flush → one `bim-wall-mutation-committed` → one redetect +
+        // one plan re-projection). Any per-mousemove wall events that WERE deferred are
+        // drained by this same commit's flush; the safety-net drain below covers the
+        // sub-threshold / no-command case. Runs for every drag kind (only walls ever
+        // set the flag, so clearing unconditionally is safe + cheap).
+        const wasWallDrag = state?.kind === 'wall';
+        if (typeof window !== 'undefined') {
+            (window as unknown as { __wallDragInProgress?: boolean }).__wallDragInProgress = false;
+        }
+
+        if (!state || !state.activated) {
+            // Activated never became true (or state cleared) — still drain any deferred
+            // wall-drag events so a partial drag doesn't leave the wall un-rebuilt.
+            if (wasWallDrag) {
+                try { (window as unknown as { __wallRebuildControl?: { resumeAndFlushDeferredDrag?: () => void } }).__wallRebuildControl?.resumeAndFlushDeferredDrag?.(); }
+                catch { /* coordinator optional */ }
+            }
+            return;
+        }
 
         const cmdMgr = window.commandManager; // TODO(TASK-06)
-        if (!cmdMgr) { console.warn('[PlanDrag] No commandManager — drag has no undo'); return; }
+        if (!cmdMgr) {
+            console.warn('[PlanDrag] No commandManager — drag has no undo');
+            // §FIX-WALLMOVE-REDETECT-DEFER — still drain deferred events so the wall settles.
+            if (wasWallDrag) {
+                try { (window as unknown as { __wallRebuildControl?: { resumeAndFlushDeferredDrag?: () => void } }).__wallRebuildControl?.resumeAndFlushDeferredDrag?.(); }
+                catch { /* coordinator optional */ }
+            }
+            return;
+        }
 
         if (state.kind === 'wall') {
             cmdMgr.execute( // TODO(TASK-06)
@@ -292,6 +335,13 @@ export class PlanElementDragController {
         this._removeOverlay();
         this._planCanvas = null;
         this._domCanvas  = null;
+
+        // §FIX-WALLMOVE-REDETECT-DEFER — clear the drag flag BEFORE the restore
+        // `ws.update` so the restore mutation takes the immediate path and settles the
+        // wall (one flush + one redetect + one re-projection back to the original line).
+        if (state.kind === 'wall' && typeof window !== 'undefined') {
+            (window as unknown as { __wallDragInProgress?: boolean }).__wallDragInProgress = false;
+        }
 
         if (!state.activated) return;
 
