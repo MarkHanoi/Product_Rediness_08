@@ -148,10 +148,20 @@ export function registerTransformDragHandler(deps: DragHandlerDeps): void {
                         // Direct window.commandManager call removed; bus fires UpdateWallBaselineHandler
                         // which calls initBusHandlers bridge → commandManager.execute() so
                         // WallRebuildCoordinator receives bim-wall-updated and rebuilds with voids.
+                        //
+                        // §FIX-WALL-MOVE-UNDO-CAPTURE (L-49) — `_recordUndo: true` opts this
+                        // 3D-gizmo move into the unified ring-buffer undo timeline. Without it the
+                        // move landed ONLY in the legacy commandManager, so the ring-buffer-FIRST
+                        // performUndo() undid whatever covered `wall` entry was on the ring (the
+                        // wall's own create, a generated batch, …) and the move — stranded on the
+                        // independent cm cursor — was never reverted ("wall stays moved"). The
+                        // handler now emits a baseLine forward/inverse PatchPair; the cm twin is
+                        // shadow-dropped after the ring-buffer undo (dual-dispatch — like a CREATE).
                         window.runtime?.bus?.executeCommand('wall.updateBaseline', {
                             wallId,
                             newBaseLine:  [newStart,  newEnd],
                             prevBaseLine: [prevStart, prevEnd],
+                            _recordUndo: true,
                         })?.catch((e: unknown) => console.error('[TransformDrag] wall.updateBaseline failed:', e));
                     }
 
