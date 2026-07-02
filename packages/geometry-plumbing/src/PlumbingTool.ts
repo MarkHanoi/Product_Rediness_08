@@ -324,7 +324,7 @@ export class PlumbingTool {
                     if (wallResult) {
                         const lookAtTarget = point.clone().add(wallResult.normal);
                         this.previewMesh.lookAt(lookAtTarget);
-                        // §FIX-SHOWER-ORIENTATION (L-36, ADR-0113) — Object3D.lookAt()
+                        // §FIX-SHOWER-ORIENTATION (L-36, ADR-0114) — Object3D.lookAt()
                         // aims local +Z TOWARD the target (non-camera path, see
                         // three/src/core/Object3D.js), so after lookAt(point+normal)
                         // the fixture's local +Z already points along the outward

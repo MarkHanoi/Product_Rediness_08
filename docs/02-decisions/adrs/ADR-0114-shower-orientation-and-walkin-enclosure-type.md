@@ -1,4 +1,4 @@
-# ADR-0113 — Shower wall-hosted orientation fix + composite walk-in enclosure type
+# ADR-0114 — Shower wall-hosted orientation fix + composite walk-in enclosure type
 
 - Status: Accepted
 - Date: 2026-07-02

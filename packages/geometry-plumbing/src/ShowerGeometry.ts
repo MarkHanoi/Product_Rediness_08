@@ -20,7 +20,7 @@
  *                               low ceramic tray.
  *   4. shower_cabinet_open    — open glass enclosure (no door), low tray.
  *   5. shower_walkin_left / _right / _corner  — §FEAT-SHOWER-ENCLOSURE-TYPE
- *      (L-37, ADR-0113). Professional walk-in enclosure = rain head on riser +
+ *      (L-37, ADR-0114). Professional walk-in enclosure = rain head on riser +
  *      hand-shower on rail + round mixer + recessed niche + a LINEAR GUTTER
  *      channel drain in the tray + a frameless GLASS panel. The `_left` /
  *      `_right` / `_corner` suffix is the user-chosen DIRECTION parameter
