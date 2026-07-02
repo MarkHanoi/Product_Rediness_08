@@ -1,4 +1,4 @@
-# ADR-0100 — Plan-view door-in-wall symbol closes watertight onto the frame jambs (§FIX-PLAN-DOOR-JAMB-SEAM)
+# ADR-0104 — Plan-view door-in-wall symbol closes watertight onto the frame jambs (§FIX-PLAN-DOOR-JAMB-SEAM)
 
 > Refines the plan-view projection / hosted-element plan symbol behaviour. Supersedes the jamb-tick
 > placement introduced by §DOOR-WINDOW-PLAN-FRAME (2026-05-21) and the wall-line clip tolerance of

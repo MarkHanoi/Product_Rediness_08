@@ -1,4 +1,4 @@
-# ADR-065 — Wall rubber-band preview: request a render per move + defer render-tier escalation during a draw
+# ADR-0101 — Wall rubber-band preview: request a render per move + defer render-tier escalation during a draw
 
 - **Status:** Accepted
 - **Date:** 2026-07-02

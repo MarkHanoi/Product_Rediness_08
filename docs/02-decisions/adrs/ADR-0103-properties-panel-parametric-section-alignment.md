@@ -1,4 +1,4 @@
-# ADR-0100 — Element properties panel: converge parametric sections onto the shared aligned-grid inspector
+# ADR-0103 — Element properties panel: converge parametric sections onto the shared aligned-grid inspector
 
 | Field | Value |
 |---|---|

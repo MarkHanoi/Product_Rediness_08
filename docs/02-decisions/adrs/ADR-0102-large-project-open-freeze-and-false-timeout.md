@@ -1,4 +1,4 @@
-# ADR-0099 — Large-project open: kill the false-timeout, the autosave-mid-load freeze, and the O(N) clear storm
+# ADR-0102 — Large-project open: kill the false-timeout, the autosave-mid-load freeze, and the O(N) clear storm
 
 > **Status**: Accepted · **Date**: 2026-07-02
 > **Supersedes/relates**: closes ADR-0098 finding **F2** (project-open freeze). Companion contracts: **C13** (project lifecycle — §5.3/§5.4/§5.5) and **C05** (persistence — §3.2a/§3.2b).
