@@ -81,6 +81,10 @@ export enum CommandType {
     DELETE_HANDRAIL = 'DELETE_HANDRAIL',
     MOVE_HANDRAIL = 'MOVE_HANDRAIL',
     UPDATE_FURNITURE_PARAMETERS = 'UPDATE_FURNITURE_PARAMETERS',
+    // §FEAT-ELEMENT-CHANGE-TYPE (ADR-0105) — swap a placed furniture element's
+    // type/asset in place, preserving id + transform + host. The furniture member
+    // of the uniform "change element type" contract.
+    CHANGE_FURNITURE_TYPE = 'CHANGE_FURNITURE_TYPE',
     CREATE_PLUMBING_FIXTURE = 'CREATE_PLUMBING_FIXTURE',
     UPDATE_PLUMBING_PARAMETERS = 'UPDATE_PLUMBING_PARAMETERS',
     MOVE_PLUMBING = 'MOVE_PLUMBING',

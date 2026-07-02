@@ -24,6 +24,8 @@ import { buildColumnTypeSelectorWidget }    from './ColumnTypeSelectorWidget';
 import { buildBeamTypeSelectorWidget }      from './BeamTypeSelectorWidget';
 import { buildStairTypeSelectorWidget }     from './StairTypeSelectorWidget';
 import { buildPlumbingTypeSelectorWidget }  from './PlumbingTypeSelectorWidget';
+// §FEAT-ELEMENT-CHANGE-TYPE (ADR-0105) — placed-furniture "Type" swap dropdown.
+import { buildFurnitureTypeSelectorWidget } from './FurnitureTypeSelectorWidget';
 
 // ── Host interface ────────────────────────────────────────────────────────────
 
@@ -57,9 +59,23 @@ export function _buildTypeSelector(
             if (payload.systemTypeId !== undefined) params.systemTypeId = payload.systemTypeId;
             if (payload.layers !== null)             params.layers       = payload.layers;
             if (payload.thickness !== null)          params.thickness    = payload.thickness;
-            window.runtime?.bus?.executeCommand('wall.setSystemType', { id: elementData.id, ...params })
+            // §FEAT-ELEMENT-CHANGE-TYPE (ADR-0105) — the previous dispatch used
+            // 'wall.setSystemType' (the clean plugin-bus handler), which mutates a
+            // DETACHED DTO store with NO bridge to the legacy geometry store that
+            // drives WallRebuildCoordinator → for an EXISTING placed wall the mesh
+            // never rebuilt (the founder's "not working for existing elements").
+            // Route through the uniform 'element.changeType' command instead, which
+            // for walls executes UpdateWallSystemTypeCommand on the legacy geometry
+            // store — the proven path that DOES rebuild the wall mesh, undoably.
+            window.runtime?.bus?.executeCommand('element.changeType', {
+                elementId:    elementData.id,
+                elementType:  'wall',
+                newTypeId:    payload.systemTypeId ?? '',
+                layers:       payload.layers ?? null,
+                thickness:    payload.thickness ?? undefined,
+            })
                 ?.then(() => host.onRerender({ ...elementData, ...params }))
-                ?.catch((e: unknown) => console.warn('[PropertyPanel] wall.setSystemType failed:', e));
+                ?.catch((e: unknown) => console.warn('[PropertyPanel] element.changeType (wall) failed:', e));
         });
     }
 
@@ -114,18 +130,33 @@ export function _buildTypeSelector(
     if (elType === 'door') {
         return buildDoorTypeSelectorWidget(elementData, (payload) => {
             if (!payload.systemTypeId) return;
-            window.runtime?.bus?.executeCommand('door.setType', { doorId: elementData.id, systemTypeId: payload.systemTypeId })
+            // §FEAT-ELEMENT-CHANGE-TYPE (ADR-0105) — uniform surface. Routes to the
+            // existing door.setType bus command AND nudges the host wall to rebuild so
+            // the opening re-renders with the new type's finish (the opening render
+            // map is resolved at wall-build time). wallId lets the handler target it.
+            window.runtime?.bus?.executeCommand('element.changeType', {
+                elementId:   elementData.id,
+                elementType: 'door',
+                newTypeId:   payload.systemTypeId,
+                wallId:      elementData.wallId ?? elementData.hostId ?? undefined,
+            })
                 ?.then(() => host.onRerender({ ...elementData, systemTypeId: payload.systemTypeId }))
-                ?.catch((e: unknown) => console.warn('[PropertyPanel] door.setType failed:', e));
+                ?.catch((e: unknown) => console.warn('[PropertyPanel] element.changeType (door) failed:', e));
         });
     }
 
     if (elType === 'window') {
         return buildWindowTypeSelectorWidget(elementData, (payload) => {
             if (!payload.systemTypeId) return;
-            window.runtime?.bus?.executeCommand('window.setType', { windowId: elementData.id, systemTypeId: payload.systemTypeId })
+            // §FEAT-ELEMENT-CHANGE-TYPE (ADR-0105) — see door branch above.
+            window.runtime?.bus?.executeCommand('element.changeType', {
+                elementId:   elementData.id,
+                elementType: 'window',
+                newTypeId:   payload.systemTypeId,
+                wallId:      elementData.wallId ?? elementData.hostId ?? undefined,
+            })
                 ?.then(() => host.onRerender({ ...elementData, systemTypeId: payload.systemTypeId }))
-                ?.catch((e: unknown) => console.warn('[PropertyPanel] window.setType failed:', e));
+                ?.catch((e: unknown) => console.warn('[PropertyPanel] element.changeType (window) failed:', e));
         });
     }
 
@@ -162,6 +193,31 @@ export function _buildTypeSelector(
                 if (payload.showerVariant) merged.showerVariant = payload.showerVariant;
                 host.onRerender(merged);
             })?.catch((e: unknown) => console.warn('[PropertyPanel] plumbing.setSystem failed:', e));
+        });
+    }
+
+    if (elType === 'furniture') {
+        // §FEAT-ELEMENT-CHANGE-TYPE (ADR-0105) — swap a placed furniture element's
+        // type/asset in place (a sofa → another sofa), preserving id + transform +
+        // host. Routes through the uniform 'element.changeType' command, which for
+        // furniture runs ChangeFurnitureTypeCommand on the legacy furniture store →
+        // store.update() → 'bim-furniture-updated' → FurnitureFragmentBuilder rebuilds
+        // the mesh with the new type's builder. Undoable in one step.
+        return buildFurnitureTypeSelectorWidget(elementData, (payload) => {
+            window.runtime?.bus?.executeCommand('element.changeType', {
+                elementId:         elementData.id,
+                elementType:       'furniture',
+                newTypeId:         payload.newFurnitureType,
+                furnitureCategory: payload.furnitureCategory,
+                width:             payload.width,
+                length:            payload.length,
+                height:            payload.height,
+                baseOffset:        payload.baseOffset,
+                color:             payload.color,
+                material:          payload.material,
+            })
+                ?.then(() => host.onRerender({ ...elementData, furnitureType: payload.newFurnitureType }))
+                ?.catch((e: unknown) => console.warn('[PropertyPanel] element.changeType (furniture) failed:', e));
         });
     }
 

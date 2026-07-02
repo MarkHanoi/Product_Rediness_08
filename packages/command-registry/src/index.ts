@@ -81,6 +81,7 @@ export * from './floors/UpdateFloorLayersCommand';
 // ─── Furniture ────────────────────────────────────────────────────────────
 export * from './furniture/CreateAIElementCommand';
 export * from './furniture/CreateAIWardrobeCommand';
+export * from './furniture/ChangeFurnitureTypeCommand';
 export * from './furniture/CreateFurnitureCommand';
 export * from './furniture/UpdateAIElementParametersCommand';
 export * from './furniture/UpdateFurnitureParametersCommand';

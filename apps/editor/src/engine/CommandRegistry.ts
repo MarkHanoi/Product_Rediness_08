@@ -150,6 +150,9 @@ import { DeleteHandrailCommand } from '@pryzm/command-registry';
 // §REMOTE-EXEC-FALLBACK, a registry factory alone makes a family replayable.
 import { CreateFurnitureCommand } from '@pryzm/command-registry';
 import { UpdateFurnitureParametersCommand } from '@pryzm/command-registry';
+// §FEAT-ELEMENT-CHANGE-TYPE (ADR-0105) — placed-furniture type swap; make it
+// replay-survive collaboration catch-up (same class as UPDATE_FURNITURE_PARAMETERS).
+import { ChangeFurnitureTypeCommand } from '@pryzm/command-registry';
 import { CreatePlumbingFixtureCommand } from '@pryzm/command-registry';
 import { UpdatePlumbingParametersCommand } from '@pryzm/command-registry';
 import { MovePlumbingCommand } from '@pryzm/command-registry';
@@ -349,6 +352,8 @@ const REGISTRY = new Map<string, CommandFactory>([
     // it". Reconstruct it so it is replayable (mirrors the slab/column/beam audit
     // gaps fixed above). UpdateFurnitureParametersCommand takes a single payload obj.
     ['UPDATE_FURNITURE_PARAMETERS', (s) => new UpdateFurnitureParametersCommand(s.payload as any)],
+    // §FEAT-ELEMENT-CHANGE-TYPE (ADR-0105) — placed-furniture type swap survives replay.
+    ['CHANGE_FURNITURE_TYPE', (s) => new ChangeFurnitureTypeCommand(s.payload as any)],
     ['CREATE_PLUMBING_FIXTURE', (s) => new CreatePlumbingFixtureCommand(s.payload as any)],
     // §ELEMENT-REPLAY-AUDIT — same revert-on-catch-up gap as furniture for the OTHER
     // placed elements the user moves/rotates. With §REMOTE-EXEC-FALLBACK these factories

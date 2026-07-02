@@ -37,6 +37,9 @@ const AUDIT_FACTORY_TYPES: readonly CommandType[] = [
     CommandType.UPDATE_ROOM_BOUNDARY,
     // S4 — plumbing move
     CommandType.MOVE_PLUMBING,
+    // §FEAT-ELEMENT-CHANGE-TYPE (ADR-0105) — placed-furniture type swap must
+    // survive collaboration replay like every other per-element edit.
+    CommandType.CHANGE_FURNITURE_TYPE,
 ];
 
 describe('§ELEMENT-REPLAY-AUDIT — replay factories stay registered', () => {
@@ -55,6 +58,7 @@ describe('§ELEMENT-REPLAY-AUDIT — replay factories stay registered', () => {
         [CommandType.CENTER_WINDOW_IN_WALL, { windowId: 'w1' }],
         [CommandType.UPDATE_ROOM_BOUNDARY, { roomId: 'r1', newBoundary: { polygon: [] }, newBoundingWallIds: [] }],
         [CommandType.TOGGLE_PIN_GRID, { gridId: 'g1' }],
+        [CommandType.CHANGE_FURNITURE_TYPE, { id: 'fu-1', newFurnitureType: 'sofa_2seat' }],
     ];
 
     it.each(ROUND_TRIPS)('reconstructs %s to a non-null command of the same type', (type, payload) => {
