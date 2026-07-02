@@ -393,6 +393,14 @@ declare global {
                  * §PERF-NAV-LOD gate during camera motion. No-op on WebGL / when inactive.
                  */
                 setShadowPassSuppressed?: (suppressed: boolean) => void;
+                /**
+                 * §FIX-SHADOW-LOAD-TIER-DESTROY (founder L-39) — ref-counted freeze of
+                 * the WebGPU shadow map around a shadow-map REALLOC (resolution/level
+                 * change) or the whole project-load window, so the tier-escalation
+                 * realloc never destroys the ShadowDepthTexture mid-submit on load.
+                 * Load-time sibling of setShadowPassSuppressed. No-op on WebGL / inactive.
+                 */
+                setShadowReallocFrozen?: (frozen: boolean) => void;
               }
             | undefined;
         renderingPipelineCoordinator: unknown;
