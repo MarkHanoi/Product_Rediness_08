@@ -1791,6 +1791,46 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             catch (e) { console.warn('[initScene] §PERF-HEAVY-SHADOW-OFF setShadowsSuppressed error:', e); }
         });
 
+        // §FIX-SHADOW-LOAD-TIER-DESTROY (founder L-39) — shadow-map realloc guard.
+        // The load-time sibling of §FIX-SHADOW-MIDSUBMIT-DESTROY / ADR-0111 (L-25).
+        //
+        // ShadowQualityUpgrader.apply()/setLevel() reallocate the Pascal key light's
+        // shadow map (mapSize 512→2048) when the SceneQualityTier escalates to
+        // `cinematic` on project open. The map lives on the light, so the LIVE PRYZM
+        // WebGPU renderer draws its shadow pass with it — and with that renderer's
+        // `shadowMap.autoUpdate=true`, THREE performs the realloc INSIDE a render/submit
+        // while the rAF loop is still draining command buffers that reference the old
+        // ShadowDepthTexture → "Destroyed texture [ShadowDepthTexture] used in a submit"
+        // ×hundreds → WebGPU device loss → the whole app freezes on the last frame. The
+        // existing §SHADOW-DEVICE-LOSS-FIX setTimeout(0) covered the upgrader's explicit
+        // .dispose() but NOT THREE's own in-render realloc when autoUpdate is live.
+        //
+        // The guard FREEZES the live renderer's shadow map (autoUpdate=false via the
+        // ref-counted setShadowReallocFrozen) so THREE cannot touch it while the mapSize
+        // changes, runs the realloc, then THAWS on a deferred macrotask (setTimeout(0),
+        // past the in-flight submit) + wakes the loop once so the single regen at the
+        // new resolution lands on an idle frame. Reuses the same mechanism/discipline as
+        // the nav lever; WebGPU-path only (setShadowReallocFrozen is a no-op on WebGL2).
+        renderingCoordinator.setShadowReallocGuardHook((mutate) => {
+            const rpm = window.renderPipelineManager;
+            try { rpm?.setShadowReallocFrozen?.(true); }
+            catch (e) { console.warn('[initScene] §FIX-SHADOW-LOAD-TIER-DESTROY freeze error:', e); }
+            try {
+                mutate();
+            } finally {
+                // Defer the thaw past the current frame's submit so the one regen at the
+                // new shadow resolution happens on an idle frame, never mid-submit.
+                setTimeout(() => {
+                    try { rpm?.setShadowReallocFrozen?.(false); }
+                    catch (e) { console.warn('[initScene] §FIX-SHADOW-LOAD-TIER-DESTROY thaw error:', e); }
+                    // Wake the loop once so the refreshed shadow pass is actually drawn
+                    // before the scheduler idles (P3: no new rAF — reuse the frame bus).
+                    try { getFrameScheduler().markDirty('shadow-realloc-thaw'); }
+                    catch { /* scheduler not ready — next interaction repaints */ }
+                }, 0);
+            }
+        });
+
         // §PERF-NAV-LOD — drop the shadow PASS DURING active camera motion and
         // restore it once the camera settles. This is a real per-frame win on the
         // mid-heavy band (2500–8000 meshes) that the heavy ceiling does NOT cover
@@ -2398,6 +2438,32 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         // prevents duplicate pipeline clears and camera-store wipes that corrupt
         // the MultiViewCameraManager perspective slot with plan-view coordinates.
         let _lastProjectSwitchMs = 0;
+        // §FIX-SHADOW-LOAD-TIER-DESTROY (founder L-39) — whole-load shadow freeze.
+        // Boolean-latched so the ref-counted setShadowReallocFrozen push/pop stays
+        // balanced regardless of how many times project-switch / project-loaded fire.
+        // Belt-and-suspenders over the per-realloc guard above: while a project loads,
+        // the shadow map is frozen so NO shadow-map churn (tier escalation, lighting
+        // re-apply, outline rebuild) can destroy the ShadowDepthTexture mid-submit; the
+        // shadow quality is escalated exactly once when the device is idle post-load.
+        let _loadShadowFreezeActive = false;
+        const _freezeShadowForLoad = (): void => {
+            if (_loadShadowFreezeActive) return;
+            _loadShadowFreezeActive = true;
+            try { window.renderPipelineManager?.setShadowReallocFrozen?.(true); }
+            catch (e) { console.warn('[initScene] §FIX-SHADOW-LOAD-TIER-DESTROY load-freeze error:', e); }
+        };
+        const _thawShadowAfterLoad = (): void => {
+            if (!_loadShadowFreezeActive) return;
+            _loadShadowFreezeActive = false;
+            // Defer past the outline rebuild + in-flight submit so the single post-load
+            // shadow regen lands on an idle frame (device settled), never mid-submit.
+            setTimeout(() => {
+                try { window.renderPipelineManager?.setShadowReallocFrozen?.(false); }
+                catch (e) { console.warn('[initScene] §FIX-SHADOW-LOAD-TIER-DESTROY load-thaw error:', e); }
+                try { getFrameScheduler().markDirty('shadow-load-thaw'); }
+                catch { /* scheduler not ready — next interaction repaints */ }
+            }, 0);
+        };
         window.runtime?.events?.on('pryzm-project-switch', (p: { projectId: string; projectName: string }) => { // F.events.15
             const now = Date.now();
             if (now - _lastProjectSwitchMs < 400) {
@@ -2406,6 +2472,8 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             }
             _lastProjectSwitchMs = now;
             console.log('[initScene] pryzm-project-switch received — project:', p.projectId);
+            // Freeze the shadow map for the whole load window (thawed on project-loaded).
+            _freezeShadowForLoad();
             renderPipelineManager.onProjectSwitch();
             // Phase 2: clear per-view camera states so the new project starts
             // with fresh default framing rather than stale positions.
@@ -2487,6 +2555,12 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             // even for an empty project so the grid, background and scene are
             // rendered correctly (Contract 20 §8.2).
             renderPipelineManager.onProjectLoaded();
+
+            // §FIX-SHADOW-LOAD-TIER-DESTROY (founder L-39) — the project is loaded and
+            // the pipeline rebuild is scheduled; release the whole-load shadow freeze on
+            // a deferred macrotask so the single shadow-quality escalation regen happens
+            // now that the device is idle post-load, never mid-submit during the load.
+            _thawShadowAfterLoad();
 
             // Remove the canvas freeze-frame overlay (if mounted) with a short
             // fade so the transition into the fully-loaded scene feels smooth.

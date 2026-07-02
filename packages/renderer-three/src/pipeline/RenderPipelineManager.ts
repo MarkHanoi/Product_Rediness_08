@@ -819,10 +819,68 @@ export class RenderPipelineManager implements IViewSwitchListener {
     setShadowPassSuppressed(suppressed: boolean): void {
         if (!this._webGpuActive) return;
         if (suppressed === this._shadowPassSuppressed) return;
+        this._shadowPassSuppressed = suppressed;
+        this._applyShadowFreezeState();
+    }
+
+    /**
+     * §FIX-SHADOW-LOAD-TIER-DESTROY (founder L-39) — freeze the shadow map around a
+     * shadow-map REALLOCATION (resolution/level change) or the whole project-load +
+     * tier-escalation window. Load-time sibling of L-25 (§FIX-SHADOW-MIDSUBMIT-DESTROY
+     * / ADR-0111), which covered only the NAV-LOD per-motion path.
+     *
+     * ROOT CAUSE this closes: on project open the SceneQualityTier escalates to
+     * `cinematic` and `ShadowQualityUpgrader.setLevel()` reallocates the Pascal key
+     * light's shadow map 512→2048. With `renderer.shadowMap.autoUpdate === true` (the
+     * live default) THREE performs that realloc INSIDE a `render()`/submit while the
+     * rAF loop is still draining command buffers that reference the old
+     * ShadowDepthTexture → "Destroyed texture [ShadowDepthTexture] used in a submit"
+     * ×hundreds → WebGPU device-loss cascade → the whole app freezes on the last frame.
+     * The `§SHADOW-DEVICE-LOSS-FIX` setTimeout(0) defer covered the upgrader's EXPLICIT
+     * `.dispose()` but NOT THREE's own in-render realloc when `autoUpdate` is live.
+     *
+     * Freezing (`autoUpdate=false`) makes THREE REUSE the existing texture and never
+     * touch the shadow map, no matter what `mapSize` the escalation writes. The caller
+     * (RenderingPipelineCoordinator via an injected guard, and the initScene load
+     * window) changes the resolution while frozen, then thaws — DEFERRED past the
+     * in-flight submit (`setTimeout(0)`) — so the single regen at the new resolution
+     * lands on an idle frame. `castShadow` is never touched; no texture is ever
+     * `.destroy()`-ed here, so it honours the ADR-0111 shadow-lifecycle contract.
+     *
+     * Ref-counted (`frozen=true` pushes, `frozen=false` pops) so nested realloc guards
+     * AND the whole-load freeze compose, and it composes with the nav freeze via the
+     * shared {@link _applyShadowFreezeState}. WebGPU-path only; inert on the WebGL2
+     * fallback (which owns its own shadowMap). Never disposes a GPU texture.
+     */
+    private _shadowReallocFreezeDepth = 0;
+    setShadowReallocFrozen(frozen: boolean): void {
+        if (!this._webGpuActive) return;
+        if (frozen) {
+            this._shadowReallocFreezeDepth++;
+        } else if (this._shadowReallocFreezeDepth > 0) {
+            this._shadowReallocFreezeDepth--;
+        } else {
+            return; // already fully thawed — nothing to pop
+        }
+        this._applyShadowFreezeState();
+    }
+
+    /**
+     * Shared applier for the two independent freeze sources (nav-LOD transient +
+     * §FIX-SHADOW-LOAD-TIER-DESTROY realloc/load). The shadow map is frozen
+     * (`autoUpdate=false`) while EITHER source is active; when the last source
+     * releases, `autoUpdate` is resumed and `needsUpdate=true` refreshes the frozen
+     * map exactly once against the settled scene. Idempotent — only writes on a real
+     * frozen⇄thawed transition, so overlapping sources never thrash the flag.
+     */
+    private _shadowFrozenState = false;
+    private _applyShadowFreezeState(): void {
         const shadowMap = (this._renderer as { shadowMap?: { autoUpdate?: boolean; needsUpdate?: boolean } } | null)?.shadowMap;
         if (!shadowMap) return;
-        this._shadowPassSuppressed = suppressed;
-        if (suppressed) {
+        const shouldFreeze = this._shadowPassSuppressed || this._shadowReallocFreezeDepth > 0;
+        if (shouldFreeze === this._shadowFrozenState) return;
+        this._shadowFrozenState = shouldFreeze;
+        if (shouldFreeze) {
             // Freeze: reuse the current ShadowDepthTexture, stop re-rendering it.
             // THREE never destroys a frozen map, so no mid-submit destroy is possible.
             shadowMap.autoUpdate = false;
@@ -1139,6 +1197,11 @@ export class RenderPipelineManager implements IViewSwitchListener {
         this._phase                            = 'idle';
         this._webGpuActive                     = false;
         this._postFxDisabled                   = false; // §RPM-RECOVERY-DOWNGRADE
+        // §FIX-SHADOW-MIDSUBMIT-DESTROY / §FIX-SHADOW-LOAD-TIER-DESTROY — reset the
+        // shadow-freeze state so a rebound singleton starts un-frozen.
+        this._shadowPassSuppressed             = false;
+        this._shadowReallocFreezeDepth         = 0;
+        this._shadowFrozenState                = false;
     }
 
     // ── Phase 3: SSGI activation ──────────────────────────────────────────

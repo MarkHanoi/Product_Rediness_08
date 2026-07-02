@@ -206,11 +206,17 @@ export class RenderingPipelineCoordinator {
             level === 'high'  ? 'high'  : 'standard';
 
         try {
-            if (!this._shadowUpgrader.applied) {
-                this._shadowUpgrader.apply(this._renderer, this._scene, shadowLevel);
-            } else {
-                this._shadowUpgrader.setLevel(shadowLevel);
-            }
+            // §FIX-SHADOW-LOAD-TIER-DESTROY — the apply()/setLevel() below reallocate
+            // the shadow map (mapSize change); wrap them in the realloc guard so the
+            // live WebGPU renderer's shadow map is frozen while the resolution changes
+            // and thawed deferred (past the in-flight submit) — never destroyed mid-submit.
+            this._reallocShadow(() => {
+                if (!this._shadowUpgrader.applied) {
+                    this._shadowUpgrader.apply(this._renderer!, this._scene!, shadowLevel);
+                } else {
+                    this._shadowUpgrader.setLevel(shadowLevel);
+                }
+            });
         } catch (err: any) {
             console.warn('[RenderingPipelineCoordinator] Shadow upgrade error:', err?.message ?? err);
         }
@@ -476,6 +482,26 @@ export class RenderingPipelineCoordinator {
     private _onTierSceneShadow?: (suppressed: boolean) => void;
 
     /**
+     * §FIX-SHADOW-LOAD-TIER-DESTROY (founder L-39) — injected guard that wraps a
+     * shadow-map REALLOCATION (the mapSize change in ShadowQualityUpgrader.apply /
+     * setLevel) so the LIVE WebGPU renderer's shadow map is frozen while it changes
+     * and thawed deferred, never destroyed mid-submit on project load.
+     *
+     * The coordinator's own ShadowQualityUpgrader is bound to the (silenced) OBC WebGL
+     * renderer, but the mapSize it mutates lives on the Pascal key light — which the
+     * live PRYZM WebGPU renderer actually renders a shadow pass for. On project open
+     * the tier escalates to `cinematic` and the map reallocates 512→2048; with the
+     * live renderer's `shadowMap.autoUpdate=true` THREE performs that realloc INSIDE a
+     * submit → "Destroyed texture [ShadowDepthTexture] used in a submit" → device loss
+     * → the whole app freezes. initScene wires this to
+     * `window.renderPipelineManager.setShadowReallocFrozen(...)` + a deferred thaw.
+     * Kept as an injected callback (not a direct import) so the coordinator takes no
+     * dependency on renderer-three/app wiring. No-op-safe: when never injected the
+     * mutation runs unwrapped (the WebGL fallback path, which needs no freeze).
+     */
+    private _onShadowRealloc?: (mutate: () => void) => void;
+
+    /**
      * §PERF-WEBGPU-FRAGMENT — tier-log throttle state. The tier is re-evaluated on
      * every geometry-add (it can fire 100+ times during one generation), so we MUST
      * NOT log every call. We log: (1) ALWAYS on a real tier CHANGE, and (2) at most
@@ -533,6 +559,29 @@ export class RenderingPipelineCoordinator {
      */
     setTierSceneShadowHook(hook: (suppressed: boolean) => void): void {
         this._onTierSceneShadow = hook;
+    }
+
+    /**
+     * §FIX-SHADOW-LOAD-TIER-DESTROY — inject the shadow-map realloc guard. The guard
+     * receives a `mutate` thunk (the mapSize change) and must run it with the live
+     * WebGPU renderer's shadow map FROZEN, thawing deferred past the in-flight submit.
+     * No-op-safe: if never injected, {@link _reallocShadow} runs the mutation directly.
+     */
+    setShadowReallocGuardHook(hook: (mutate: () => void) => void): void {
+        this._onShadowRealloc = hook;
+    }
+
+    /**
+     * §FIX-SHADOW-LOAD-TIER-DESTROY — run a shadow-map mutation through the injected
+     * realloc guard (freeze → mutate → deferred thaw) when wired, else run it directly.
+     * Exceptions from `mutate` propagate to the caller's try/catch unchanged.
+     */
+    private _reallocShadow(mutate: () => void): void {
+        if (this._onShadowRealloc) {
+            this._onShadowRealloc(mutate);
+        } else {
+            mutate();
+        }
     }
 
     /**
@@ -646,23 +695,35 @@ export class RenderingPipelineCoordinator {
 
         // Shadow level — owned directly; reuse the tested upgrader mutators.
         if (this._renderer && this._scene) {
+            const renderer = this._renderer;
+            const scene    = this._scene;
             const shadowLevel = settings.shadowLevel as ShadowQualityLevel;
             try {
-                if (!this._shadowUpgrader.applied) {
-                    this._shadowUpgrader.apply(this._renderer, this._scene, shadowLevel);
-                } else {
-                    this._shadowUpgrader.setLevel(shadowLevel);
-                }
-                // §SHADOW-DEVICE-LOSS-FIX (Fix 2) — turn the shadow map ON/OFF for the
-                // tier. `settings.shadows === false` on survival; also defensively kill
-                // shadows once the scene exceeds LARGE_SCENE_SHADOWS_OFF_MESH_COUNT
-                // (~4000) regardless of tier, so the ShadowDepthTexture churn that loses
-                // the WebGPU device on the 40-storey office (14283 shadow-flagged meshes)
-                // cannot occur. Normal scenes keep shadows exactly as before.
-                const shadowsOff =
-                    !settings.shadows ||
-                    meshCount >= RenderingPipelineCoordinator._LARGE_SCENE_SHADOWS_OFF_MESH_COUNT;
-                this._shadowUpgrader.setShadowsEnabled(!shadowsOff);
+                // §FIX-SHADOW-LOAD-TIER-DESTROY (founder L-39) — apply()/setLevel()
+                // reallocate the Pascal key light's shadow map (mapSize change). On
+                // project open this is THE realloc that, with the live WebGPU
+                // renderer's shadowMap.autoUpdate=true, destroys the ShadowDepthTexture
+                // mid-submit → device-loss freeze (load-time sibling of L-25). Wrap the
+                // whole shadow-map mutation in the realloc guard so the live renderer's
+                // shadow map is FROZEN while the resolution changes, then thawed deferred
+                // past the in-flight submit — the single regen lands on an idle frame.
+                this._reallocShadow(() => {
+                    if (!this._shadowUpgrader.applied) {
+                        this._shadowUpgrader.apply(renderer, scene, shadowLevel);
+                    } else {
+                        this._shadowUpgrader.setLevel(shadowLevel);
+                    }
+                    // §SHADOW-DEVICE-LOSS-FIX (Fix 2) — turn the shadow map ON/OFF for the
+                    // tier. `settings.shadows === false` on survival; also defensively kill
+                    // shadows once the scene exceeds LARGE_SCENE_SHADOWS_OFF_MESH_COUNT
+                    // (~4000) regardless of tier, so the ShadowDepthTexture churn that loses
+                    // the WebGPU device on the 40-storey office (14283 shadow-flagged meshes)
+                    // cannot occur. Normal scenes keep shadows exactly as before.
+                    const shadowsOff =
+                        !settings.shadows ||
+                        meshCount >= RenderingPipelineCoordinator._LARGE_SCENE_SHADOWS_OFF_MESH_COUNT;
+                    this._shadowUpgrader.setShadowsEnabled(!shadowsOff);
+                });
             } catch (err) {
                 console.warn('[RenderingPipelineCoordinator] tier shadow-level error:', err);
             }
