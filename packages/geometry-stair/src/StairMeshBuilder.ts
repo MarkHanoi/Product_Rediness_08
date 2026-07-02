@@ -258,7 +258,10 @@ export class StairMeshBuilder {
             });
             this.stairRoots.delete(stairId);
             elementRegistry.unregisterRoot(stairId);
-            if (!silentLog) {
+            // §CLEAR-PROJECT-BATCH (2026-07-02) — also suppress while a project
+            // load/clear is active (78 stairs torn down one-by-one on a project
+            // switch); live single-stair removes still log.
+            if (!silentLog && !(globalThis as { __pryzmProjectLoadActive?: boolean }).__pryzmProjectLoadActive) {
                 console.log(`[StairMeshBuilder] Removed group for stair ${stairId}`);
             }
         }

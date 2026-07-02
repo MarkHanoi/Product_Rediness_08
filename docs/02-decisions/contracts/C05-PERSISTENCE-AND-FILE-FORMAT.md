@@ -193,6 +193,28 @@ NONE → CREATING → OPEN → SAVING → OPEN → CLOSING → NONE
 
 Auto-save MUST be debounced at ≥ 1000 ms after the last command. The `SaveOrchestrator` in `persistence-client` owns this timer. It MUST NOT fire during an active conflict resolution session.
 
+### §3.2a — Auto-save MUST be suppressed for the entire load/restore window (binding)
+
+> **Added**: 2026-07-02 · closes ADR-0098 finding **F2** (project-open freeze). Files: `SaveOrchestrator` (`§AUTOSAVE-SUPPRESS-DURING-LOAD`), `ProjectLoader` (`pryzm-load-suppress-begin`/`-end`).
+
+No autosave serialize MUST run until a freshly-opened project is fully interactive. This extends the existing `§AUTOSAVE-BATCH-SUPPRESS` (ref-counted `pryzm-batch-started`/`-ended`) rule across the whole load, and it is **stronger** than the caller-driven `SaveOrchestrator.setLoading(true/false)` fence:
+
+- The `setLoading(false)` fence closes the instant `loadAdapter.load()`'s promise resolves. But `ProjectLoader` continues a **fire-and-forget post-load sweep** (chunked per-level `rooms.redetect` + a deferred whole-level wall resolve, `§LOAD-REDETECT-CHUNKED` / `§WALL-JOIN-LOAD-SKIP`) across subsequent frames. Those deferred store mutations fire `bim-*` events → the debounce → `saveVersionInternal`, which SERIALIZES the whole snapshot (22.7 MB / 1300 elements for the reported office) **while the load is still settling** — the self-inflicted freeze (`_drainBuildQueue → rebuild → emit → handleMutation → scheduleDebounce → onAutoSave → saveVersionInternal`).
+- **Required mechanism**: `ProjectLoader` dispatches `pryzm-load-suppress-begin` at the very start of `load()` and `pryzm-load-suppress-end` only once the load body AND the post-load sweep have fully drained (on the frame after the last per-level redetect). `SaveOrchestrator` treats this as a **boolean latch** (`_loadSuppressActive`): while set, mutations mark the project dirty but the serialize is DEFERRED; on `-end` exactly ONE coalesced autosave is armed so the settled project is persisted once.
+- The latch is modelled as a boolean (not a ref-count) and is reset by `setLoading(true)` on every new load, so a cancelled/interrupted load's `-end` can never prematurely re-enable autosave for a fresher load (project-switch isolation, C13 §3.6).
+- The `beforeunload` emergency flush remains gated by `isLoading` (unchanged) — data is never lost on tab close.
+
+### §3.2b — Degenerate room-bounding-lines MUST NOT be persisted (binding)
+
+> **Added**: 2026-07-02. Files: `ProjectSerializer` (`§RBL-NO-PERSIST-DEGENERATE`), `ProjectLoader` / `ImportProjectCommand` (load-migrate skip).
+
+A room-bounding-line record whose `placement.start` or `placement.end` is `undefined` is degenerate (a partial/legacy record; the build-time `§RBL-PLACEMENT-GUARD` already skips rendering it). Such records MUST NOT be persisted or reloaded:
+
+- **On save**: `ProjectSerializer` MUST filter degenerate records out of `snapshot.roomBoundingLines` so they stop accumulating (the reported office had 940, many partial — the count only ever grew).
+- **On load-migrate**: both load paths (`ProjectLoader` legacy + `ImportProjectCommand` fast path) MUST SKIP a degenerate record rather than recreate a bogus 1 m origin line (the old `?? {x:0,z:0}` / `?? {x:1,z:0}` default). Combined with the save-time filter, the snapshot self-heals on the next save.
+
+Well-formed lines are unaffected. This is a persistence-hygiene invariant; it changes no valid element's geometry.
+
 ### §3.3 — Project creation
 
 New projects MUST be created server-side (POST `/api/projects`) before the client opens them. The client MUST NOT create a project by directly inserting into the database.

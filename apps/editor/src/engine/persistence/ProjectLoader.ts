@@ -295,6 +295,18 @@ export class ProjectLoader {
                 `elapsed=${(__phase_ms[name] ?? 0).toFixed(1)}ms ` +
                 `total=${sinceLoadStart.toFixed(1)}ms`,
             );
+            // §LOAD-TIMEOUT-PROGRESS (2026-07-02) — emit a forward-progress tick on
+            // every phase boundary so the load-timeout watchdog in
+            // PlatformVersionController can RESET its deadline instead of failing a
+            // legitimately-slow large load. A 40-storey office (1300 elements /
+            // 22.7 MB) completes in ~62 s of steady progress; the old fixed 30 s
+            // Promise.race declared "Load failed" while ProjectLoader was demonstrably
+            // still advancing. This event is the heartbeat that proves it is.
+            try {
+                window.dispatchEvent(new CustomEvent('pryzm-load-progress', {
+                    detail: { phase: name, totalMs: sinceLoadStart },
+                }));
+            } catch { /* non-browser / SSR — no-op */ }
             __phase_starts[name] = now;
         };
         // §AUTOSAVE-LOAD-SLOW-OR-HANG — watchdog: if no phase completes
@@ -324,8 +336,48 @@ export class ProjectLoader {
                 `doors=${snapshot.doors?.length ?? 0} windows=${snapshot.windows?.length ?? 0}]. ` +
                 `If this keeps firing the load is hung; check the prior §LOAD-PHASE line for the last completed phase.`,
             );
+            // §LOAD-TIMEOUT-PROGRESS — the watchdog itself is a forward-progress
+            // heartbeat: as long as it keeps firing across await points, the load is
+            // advancing (a truly hung synchronous phase would freeze this interval
+            // too). Emit a progress tick so a slow-but-alive phase that spans several
+            // watchdog windows (e.g. a big event_flush) still resets the load-timeout
+            // deadline instead of tripping a false failure.
+            try {
+                window.dispatchEvent(new CustomEvent('pryzm-load-progress', {
+                    detail: { phase: `${lastPhaseName}:watchdog`, totalMs: elapsed },
+                }));
+            } catch { /* non-browser / SSR — no-op */ }
         }, WATCHDOG_MS);
         // ── End PHASE-TIME INSTRUMENTATION ───────────────────────────────────
+
+        // §AUTOSAVE-SUPPRESS-DURING-LOAD (2026-07-02) — open a caller-INDEPENDENT
+        // autosave-suppression window for the ENTIRE load/restore, including the
+        // fire-and-forget post-load redetect + wall-resolve sweep that continues
+        // AFTER load() resolves. ADR-0098 F2 root-caused the project-open freeze as a
+        // "post-load rebuild/re-anchor storm": each of those deferred store mutations
+        // fires a `bim-*` event, the SaveOrchestrator debounce fires, and it SERIALIZES
+        // + compresses the whole 22.7 MB / 1300-element snapshot to IndexedDB while the
+        // load is still settling — the self-inflicted freeze in the reported stack
+        // (`_drainBuildQueue → … → onAutoSave → saveVersionInternal`). The existing
+        // `setLoading(true/false)` guard closes as soon as load()'s promise resolves,
+        // so it does NOT cover the deferred sweep. Reusing the proven ref-counted
+        // §AUTOSAVE-BATCH-SUPPRESS channel (`pryzm-batch-started`/`-ended`), we open a
+        // batch window here and close it only once the sweep has fully drained (see the
+        // finally block), guaranteeing NO autosave serialize runs until the project is
+        // fully interactive — independent of which caller invoked the load.
+        let __suppressClosed = false;
+        // Set true by the chunked redetect drain, which then owns closing the
+        // suppression window asynchronously; when false the finally-tail closes it.
+        let __suppressCloseDeferred = false;
+        const __closeAutosaveSuppress = () => {
+            if (__suppressClosed) return;
+            __suppressClosed = true;
+            try { window.dispatchEvent(new CustomEvent('pryzm-load-suppress-end')); } catch { /* SSR — no-op */ }
+        };
+        // Dedicated load-suppression channel (NOT the batch channel): a stale load's
+        // end must not decrement a fresher load's window. SaveOrchestrator treats this
+        // as a boolean latch that setLoading(true) also resets on a new load.
+        try { window.dispatchEvent(new CustomEvent('pryzm-load-suppress-begin')); } catch { /* SSR — no-op */ }
 
         // ── PROJECT-LOAD METADATA + EXEC HELPER ──────────────────────────────
         // Every command dispatched during load uses `source: 'PROJECT_LOAD'` so
@@ -1090,13 +1142,23 @@ export class ProjectLoader {
             const snapshotRoomBoundingLines = (snapshot as any).roomBoundingLines;
             if (Array.isArray(snapshotRoomBoundingLines) && snapshotRoomBoundingLines.length > 0) {
                 console.log(`[ProjectLoader] Loading ${snapshotRoomBoundingLines.length} room bounding line(s)`);
+                let __rblSkipped = 0;
                 for (const rbl of snapshotRoomBoundingLines) {
                     try {
+                        // §RBL-NO-PERSIST-DEGENERATE (2026-07-02) — DROP degenerate legacy
+                        // records (undefined placement) on load-migrate instead of
+                        // recreating a bogus 1 m line at the origin (the old
+                        // `?? {x:0,z:0}` / `?? {x:1,z:0}` default). These are re-saved out
+                        // by the serializer's matching filter, so the count self-heals.
+                        if (rbl?.placement?.start == null || rbl?.placement?.end == null) {
+                            __rblSkipped++;
+                            continue;
+                        }
                         const cmd = new CreateRoomBoundingLineCommand({
                             id:         rbl.id,
                             levelId:    rbl.levelId,
-                            start:      rbl.placement?.start ?? { x: 0, z: 0 },
-                            end:        rbl.placement?.end   ?? { x: 1, z: 0 },
+                            start:      rbl.placement.start,
+                            end:        rbl.placement.end,
                             name:       rbl.properties?.name,
                             color:      rbl.properties?.color,
                             createdBy:  rbl.metadata?.createdBy ?? 'system',
@@ -1106,6 +1168,9 @@ export class ProjectLoader {
                     } catch (e) {
                         this.recordFail(result, `RoomBoundingLine ${rbl?.id ?? '?'}`, { success: false, affectedElementIds: [], error: String(e) });
                     }
+                }
+                if (__rblSkipped > 0) {
+                    console.warn(`[ProjectLoader] §RBL-NO-PERSIST-DEGENERATE — skipped ${__rblSkipped} degenerate room-bounding-line(s) on load (will be dropped on next save).`);
                 }
             }
             } // end legacy per-command path (PROJECT-LOAD-PERFORMANCE-13 §2)
@@ -1826,14 +1891,25 @@ export class ProjectLoader {
                     // redetect a level, then schedule the next on the FrameScheduler's
                     // next post-render tick (the browser paints in between). A simple
                     // recursive drain — the same pattern the chunked element load uses.
+                    // §AUTOSAVE-SUPPRESS-DURING-LOAD — the drain owns closing the
+                    // suppression window (on the frame AFTER the last redetect); the
+                    // finally-tail fallback must NOT close it synchronously here.
+                    __suppressCloseDeferred = true;
                     const scheduler = getFrameScheduler();
                     const queue = [...levelsToRedetect];
                     const drainNext = (): void => {
                         const lvl = queue.shift();
-                        if (!lvl) return;
+                        if (!lvl) { __closeAutosaveSuppress(); return; }
                         dispatchOne(lvl);
                         if (queue.length > 0) {
                             scheduler.scheduleOnce('project-load-redetect', drainNext, 'post-render');
+                        } else {
+                            // §AUTOSAVE-SUPPRESS-DURING-LOAD — the LAST level's redetect has
+                            // been dispatched; give its downstream store churn (room updates →
+                            // spatial-tree refresh → rule re-validation) one more frame to
+                            // settle, THEN re-enable autosave so the single post-load snapshot
+                            // captures the fully-settled model.
+                            scheduler.scheduleOnce('project-load-redetect', __closeAutosaveSuppress, 'post-render');
                         }
                     };
                     // Kick the first level off the next frame too, so the load()
@@ -1899,6 +1975,14 @@ export class ProjectLoader {
             // §LOAD-REDETECT-FREEZE — restore per-element verbose logging now
             // that the (synchronous) restore replay + sweep dispatch is done.
             (globalThis as unknown as { __pryzmProjectLoadActive?: boolean }).__pryzmProjectLoadActive = false;
+
+            // §AUTOSAVE-SUPPRESS-DURING-LOAD — close the suppression window. When the
+            // chunked redetect drain is active it OWNS the close (fires it on the frame
+            // after the last level), so skip here to avoid re-enabling autosave before
+            // the sweep settles. In every other path (sync-fallback sweep, no levels to
+            // redetect, cancelled/failed load) close it now so autosave never stays
+            // permanently suppressed. Idempotent via the __suppressClosed latch.
+            if (!__suppressCloseDeferred) __closeAutosaveSuppress();
             console.groupEnd();
         }
 

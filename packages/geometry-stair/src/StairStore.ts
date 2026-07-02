@@ -112,7 +112,15 @@ export class StairStore {
             this.emit('remove', stair);
             _bus.emit('bim-stair-removed', { id: stairId }); // F.events.18
 
-            console.log(`[StairStore] Removed stair ${stairId}`);
+            // §CLEAR-PROJECT-BATCH (2026-07-02) — suppress the per-stair remove log
+            // while a project load/clear is active. Switching away from a 40-storey
+            // office tears down 78 stairs one-by-one; this line (× 78, plus the
+            // StairMeshBuilder companion) is measurable console cost on the clear path.
+            // Gated by the same `__pryzmProjectLoadActive` flag ProjectLoader sets for
+            // its restore-replay logging; live single-stair deletes still log normally.
+            if (!(globalThis as { __pryzmProjectLoadActive?: boolean }).__pryzmProjectLoadActive) {
+                console.log(`[StairStore] Removed stair ${stairId}`);
+            }
         }
         return stair;
     }
