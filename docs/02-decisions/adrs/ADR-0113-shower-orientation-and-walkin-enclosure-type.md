@@ -99,10 +99,15 @@ rain-head glyph on the wall side — reusing the AEC plan-symbol vocabulary
 (ADR-0110). Footprints for the walk-in variants (`SHOWER_FOOTPRINTS`) are read by
 `_footprint()` so plan and 3D stay in sync.
 
-Helpers stay module-internal (no new exported function), so no additional
-OpenTelemetry span is required (P8); P2/P3 unaffected (pure geometry via the
-single THREE owner). 8-layer respected — all changes live in the plumbing
-subsystem (L2 geometry) and its editor plan tool (L5).
+The geometry builders (`buildWalkInShower`, `buildLinearGutter`,
+`buildWallNiche`) stay module-internal. The only new **exports** are two pure,
+synchronous slug helpers (`isWalkInShower`, `walkInGlassSide`) and the
+`SHOWER_WALKIN_VARIANTS` list — consistent with this package's span-free pure
+geometry API (`createShowerGeometry` and its siblings carry no spans; P8's
+span-per-export rule targets runtime command handlers, not pure geometry
+predicates). P2/P3 unaffected (pure geometry via the single THREE owner). 8-layer
+respected — all changes live in the plumbing subsystem (L2 geometry) and its
+editor plan tool (L5).
 
 ## Consequences
 
