@@ -1121,14 +1121,43 @@ export class WallRebuildCoordinator {
                     if (_preserveOn && _sourceBL && _bMoved) {
                         const _adjInvalid = (adjustment as unknown as { invalid?: boolean }).invalid === true;
                         const _decision = WallRebuildCoordinator.decidePreservedBaseline(_sourceBL, _trueSourceBL, _newBL, _adjInvalid);
-                        if (_decision.preserve && _decision.anchorBL) {
+                        // §FIX-WALL-JOIN-BASELINE-IMMUTABLE (L-44 / L-46 / L-47, founder 2026-07-02) —
+                        // an authored-VALID wall's baseline is IMMUTABLE under a whole-level JOIN
+                        // re-resolve: anchor it to its source even for a "clean" along-axis trim that
+                        // `decidePreservedBaseline` would otherwise PERMIT (persist). That permit WAS
+                        // the founder bug — persisting the resolver's trimmed/square-capped centreline
+                        // shrank an unrelated already-joined wall on a NEARBY CREATE (L-47), shrank a
+                        // wall on a TYPE CHANGE (L-46, §DIAG-WALL-SPIKE bMoved=true), and diverged the
+                        // committed 3-wall T from its clean preview (L-44: §MULTI-CLUSTER-PARTITION-TRIM
+                        // square-capped an arm 0.004m off the node). A join is a RENDER-TIME footprint
+                        // operation — it mitres/butts the extruded geometry via the JoinData miter
+                        // normals here (computed from the SAME authored source, §SOURCE-BL-FIX) and the
+                        // V2 footprint — and must NEVER mutate/persist another wall's stored baseline
+                        // (the reverted §CLAMP-COSHARE-WELD "moving shared baselines → length changes"
+                        // hazard, which §MULTI-CLUSTER-PARTITION-TRIM reintroduced through this write-
+                        // back). FIX: anchor EVERY moved, authored-valid wall back to its source so the
+                        // stored length never changes on a join. Only a genuinely-degenerate AUTHORED
+                        // stub (< stub length) is excluded, so §FIX-WALL-CLUSTER-DEGENERATE /
+                        // §RESOLVED-STUB-SWEEP still skip real stubs. `_sourceBaseLine` is the AUTHORED
+                        // anchor (explicit user moves refresh it — UpdateWallBaselineCommand §R5-FIX —
+                        // so this never reverts an intentional edit). Escape hatch (diagnostics /
+                        // exact-input callers): `__pryzmWallJoinBaselineImmutable = false`.
+                        const _immAnchorBL = _trueSourceBL ?? _sourceBL;
+                        const _immLen = Math.hypot(
+                            _immAnchorBL[1].x - _immAnchorBL[0].x,
+                            _immAnchorBL[1].z - _immAnchorBL[0].z,
+                        );
+                        const _baselineImmutable =
+                            (globalThis as unknown as { __pryzmWallJoinBaselineImmutable?: boolean }).__pryzmWallJoinBaselineImmutable !== false
+                            && _immLen >= WallRebuildCoordinator._PRESERVE_STUB_LEN;
+                        if ((_decision.preserve && _decision.anchorBL) || _baselineImmutable) {
                             _preserve = true;
                             // The baseline we keep is the wall's TRUE source (the persisted /
                             // user-drawn anchor the resolver itself seeds from), not the
                             // possibly-already-trimmed store `baseLine`. This is what makes
                             // reload idempotent: every flush restores to the same fixed
                             // anchor instead of re-defending whatever the last flush left.
-                            _preserveAnchorBL = _decision.anchorBL;
+                            _preserveAnchorBL = _decision.anchorBL ?? _immAnchorBL;
                             // Make the JoinData internally consistent with the preserved
                             // (anchor) baseline and clear the stub-sweep skip flag so the
                             // builder renders the wall on its line. NOTE: buildWall reads the
