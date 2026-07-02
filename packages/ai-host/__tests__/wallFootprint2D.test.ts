@@ -115,18 +115,26 @@ describe('WallFootprint2D — T-junction (passthrough)', () => {
         expect(fpA.polygon).toHaveLength(4);
     });
 
-    it('abutting wall B gets a 5-vertex polygon hinging on (5,0); BOTH corners sit on A\'s face', () => {
+    // §FIX-WALL-TJUNCTION-BUTT-2 (2026-07-02) — the abutting T wall B is a FLAT BUTT, i.e. a
+    // 4-vertex rectangle whose end corners sit on A's near face — NOT a 5-vertex polygon with
+    // a centreline pivot at (5,0). That pivot was the founder's arrow: the footprint assembler
+    // inserted it between B's two near-face corners, extruding a triangular tongue from the
+    // near face (z=+halfT) down to the host centreline (z=0) — a wedge poking half a host-
+    // thickness into A. A T-attacher must NOT carry the centreline pivot (a T is not an X).
+    it('abutting wall B is a 4-vertex FLAT BUTT; BOTH corners sit on A\'s near face, NO centreline arrow', () => {
         const miters = resolveJunctions(walls);
         const fpB = buildAllFootprints(walls, miters)[1]!;
-        expect(fpB.polygon).toHaveLength(5);
-        // pivot at (5, 0)
-        expect(fpB.polygon.some(p => closePt(p, { x: 5, z: 0 }))).toBe(true);
-        // BOTH start corners sit on A's TOP face (z = +halfT, the side facing B's body).
-        const startCornersOnAtop = fpB.polygon.filter(p => Math.abs(p.z - HALF) < 1e-6);
-        expect(startCornersOnAtop).toHaveLength(2);
-        const xs = startCornersOnAtop.map(p => p.x).sort((a, b) => a - b);
+        expect(fpB.polygon).toHaveLength(4);
+        // No pivot at the host centreline (5, 0) — the arrow tip is gone.
+        expect(fpB.polygon.some(p => closePt(p, { x: 5, z: 0 }))).toBe(false);
+        // BOTH end corners sit on A's TOP (near) face (z = +halfT, the side facing B's body).
+        const cornersOnAtop = fpB.polygon.filter(p => Math.abs(p.z - HALF) < 1e-6);
+        expect(cornersOnAtop).toHaveLength(2);
+        const xs = cornersOnAtop.map(p => p.x).sort((a, b) => a - b);
         expect(xs[0]).toBeCloseTo(5 - HALF);
         expect(xs[1]).toBeCloseTo(5 + HALF);
+        // NO vertex pierces the host centreline (all z ≥ +halfT).
+        for (const p of fpB.polygon) expect(p.z).toBeGreaterThanOrEqual(HALF - 1e-9);
     });
 
     it('EDGE-COINCIDENCE: B\'s start corners lie on A\'s top edge (perfect butt-joint)', () => {

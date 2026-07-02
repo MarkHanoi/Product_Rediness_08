@@ -138,13 +138,20 @@ describe('WallPipelineV2 — geometry parity with hand-composed P1+P2+P3a', () =
         }
     });
 
-    it('T-junction: passthrough A stays a 4-vertex rectangle; B gets 5 verts', () => {
+    // §FIX-WALL-TJUNCTION-BUTT-2 (2026-07-02) — the abutting T wall B is a FLAT BUTT (4
+    // verts), NOT a 5-vertex arrow. The pre-fix pipeline wrote a centreline pivot at (5,0)
+    // between B's two near-face corners → an arrow tongue poking half a host-thickness into
+    // the host (the founder's 3D wedge / plan chevron). A T-attacher must never carry the
+    // centreline pivot; both its end corners butt flat on the host near face (z=+halfT).
+    it('T-junction: passthrough A stays a 4-vertex rectangle; B is a 4-vertex flat butt (no arrow)', () => {
         const cache = new WallPipelineV2Cache();
         cache.refresh(T_WALLS);
         const A = buildWallV2Geometry(T_WALLS[0]!, cache, { height: HEIGHT });
         const B = buildWallV2Geometry(T_WALLS[1]!, cache, { height: HEIGHT });
         expect(A.footprint.polygon).toHaveLength(4);
-        expect(B.footprint.polygon).toHaveLength(5);
+        expect(B.footprint.polygon).toHaveLength(4);
+        // No B vertex pierces the host centreline (z < +halfT) — the arrow is gone.
+        for (const v of B.footprint.polygon) expect(v.z).toBeGreaterThanOrEqual(T / 2 - 1e-9);
     });
 });
 

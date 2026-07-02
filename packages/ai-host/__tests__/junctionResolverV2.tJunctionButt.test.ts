@@ -181,3 +181,73 @@ describe('JunctionResolverV2 — §FIX-WALL-TJUNCTION-BUTT (guest into host body
         }
     });
 });
+
+// §FIX-WALL-TJUNCTION-BUTT-2 (2026-07-02 — re-open of L-27) — FOOTPRINT-level regression.
+//
+// The ORIGINAL §FIX-WALL-TJUNCTION-BUTT fixed the L-vs-T CLASSIFICATION (host → passthrough)
+// but the ring sweep still wrote a centreline PIVOT for the T-attacher. The footprint
+// assembler inserted that pivot BETWEEN the guest's two near-face corners, extruding a
+// triangular tongue from the host near face (z=+halfT) DOWN to the host centreline (z=0) —
+// the founder's 3D black wedge / plan chevron "arrow". Classification was right; the SPIKE was
+// in the ring-sweep pivot, not the classification. §FIX-WALL-TJUNCTION-BUTT-2 suppresses the
+// centreline pivot for EVERY real endpoint that abuts a passthrough (a T is not an X), and
+// re-points the ring-sweep pivot onto the host CENTRELINE foot so the butt lands flush on the
+// host near face. These tests assert on the PRODUCED FOOTPRINT POLYGON (not just the miter
+// classification): the guest end-cap is a flat 4-vertex butt, NO vertex reaches the host
+// centreline (z < +halfT), and the host baseline is verbatim.
+describe('JunctionResolverV2 — §FIX-WALL-TJUNCTION-BUTT-2 (footprint has no arrow tongue)', () => {
+    const T = 0.2;
+    const HALF = T / 2;
+    // Long horizontal host (0,0)→(10,0); near face (room side) at z=+HALF, centreline z=0.
+    const host: WallInput = { id: 'host', start: { x: 0, z: 0 }, end: { x: 10, z: 0 }, thickness: T };
+
+    // Assert the guest footprint is a clean flat butt on the host near face.
+    const assertFlatButt = (guest: WallInput, expectFootX: number) => {
+        const r = resolveJunctions([host, guest]);
+        const g = r.find(m => m.id === 'guest')!;
+        const fp = buildWallFootprint(guest, g);
+        // 4-vertex rectangle: no centreline-pivot 5th vertex → no arrow tongue.
+        expect(fp.polygon).toHaveLength(4);
+        // The end cap butts flat on the host NEAR face: the two joining corners are at z=+HALF,
+        // and CRUCIALLY no vertex reaches the host centreline (z < +HALF) — the arrow is gone.
+        for (const v of fp.polygon) {
+            expect(v.z, `vertex z=${v.z} must not pierce toward the host centreline (no arrow)`)
+                .toBeGreaterThanOrEqual(HALF - 1e-9);
+            expect(v.x, `vertex x=${v.x} must not spike past the host end`).toBeLessThanOrEqual(10 + 1e-9);
+            expect(v.x, `vertex x=${v.x} must not spike before the host start`).toBeGreaterThanOrEqual(0 - 1e-9);
+        }
+        // The two joining corners straddle the contact foot x by ±HALF (the guest's own width).
+        const joinCorners = fp.polygon.filter(v => Math.abs(v.z - HALF) < 1e-6);
+        expect(joinCorners).toHaveLength(2);
+        const xs = joinCorners.map(v => v.x).sort((a, b) => a - b);
+        expect(xs[0]).toBeCloseTo(expectFootX - HALF, 6);
+        expect(xs[1]).toBeCloseTo(expectFootX + HALF, 6);
+        // Host baseline untouched.
+        const hFp = buildWallFootprint(host, r.find(m => m.id === 'host')!);
+        expect(closePt(hFp.start, host.start)).toBe(true);
+        expect(closePt(hFp.end, host.end)).toBe(true);
+    };
+
+    it('MID-SPAN thin-partition T: guest end-cap footprint is a flat butt, no vertex pierces the host', () => {
+        // Guest well clear of both host ends (x=5). foot on host centreline = (5,0).
+        assertFlatButt({ id: 'guest', start: { x: 5, z: 4 }, end: { x: 5, z: 0 }, thickness: T }, 5);
+    });
+
+    it('NEAR-END thin-partition T (reclassified): guest end-cap footprint is a flat butt, no arrow', () => {
+        // Guest 0.15 m short of the host end (x=9.85): fuses into the host end cluster,
+        // reclassified host→passthrough. foot on host centreline = (9.85,0).
+        assertFlatButt({ id: 'guest', start: { x: 9.85, z: 4 }, end: { x: 9.85, z: 0 }, thickness: T }, 9.85);
+    });
+
+    it('MID-SPAN guest ending ON the host near face (z=+HALF) still butts flat there (no half-thickness gap)', () => {
+        // The guest centreline stops at z=+HALF (on the host near face) rather than the
+        // centreline. Pre-fix the ring sweep offset the host barrier lines from the guest's
+        // OWN end (z=+HALF) → the butt landed at z=2·HALF (a half-thickness GAP). The pivot
+        // re-point onto the host centreline foot fixes it: the butt lands flush at z=+HALF.
+        const guest: WallInput = { id: 'guest', start: { x: 5, z: 4 }, end: { x: 5, z: HALF }, thickness: T };
+        const r = resolveJunctions([host, guest]);
+        const g = r.find(m => m.id === 'guest')!;
+        const fp = buildWallFootprint(guest, g);
+        expect(Math.min(...fp.polygon.map(v => v.z))).toBeCloseTo(HALF, 6);
+    });
+});

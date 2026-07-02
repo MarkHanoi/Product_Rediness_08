@@ -192,29 +192,34 @@ function lPivotRefineEnabled(): boolean {
 }
 
 // §WALL-BODY-INNER-FACE (residual of §ONE-FRAME-MINT, 2026-06-18) — a partition END that
-// terminates on a THICKER passthrough wall's BODY (the partition→shell T-junction) must
-// stop at that host's INNER (room-side) face, NEVER spike a triangular tongue to the host
-// CENTRELINE. The ring sweep already lands the partition's two side corners (`endLeft` /
-// `endRight`) on the host INNER face, but it ALSO writes a PIVOT vertex at `j.point` (the
-// host centreline) — and the footprint assembler inserts that pivot BETWEEN the two inner-
-// face corners, extruding a solid tongue from the inner face down to the centreline that
-// pokes `hostHalfThickness` (~50–100 mm) INTO/THROUGH the shell (the founder's "wall
-// extruding wrong / spike in 3D"; the legacy WallJoinResolver inner-face clamp at
-// WallJoinResolver.ts:_clampEndToShellInnerFace already removes it on the LEGACY build path,
-// but the default-ON V2 pipeline builds from the un-clamped pre-trim baseline and never saw
-// that clamp). FIX: when a real-endpoint wall meets a passthrough that is MATERIALLY THICKER,
-// SUPPRESS that end's centreline pivot so its footprint is a clean rectangle ending on the
-// inner-face corners — bit-identical to the legacy clamp result. Equal-thickness interior
-// T/X junctions (the Pascal edge-coincidence case the existing tests pin) are UNAFFECTED:
-// they have no materially-thicker passthrough, so the pivot is still written. Gated default-ON
-// with an escape hatch; pure + deterministic.
+// terminates on a passthrough wall's BODY (the partition→wall T-junction) must stop at that
+// host's NEAR (butt) face, NEVER spike a triangular tongue to the host CENTRELINE. The ring
+// sweep already lands the partition's two side corners (`endLeft` / `endRight`) on the host
+// near face, but it ALSO writes a PIVOT vertex at `j.point` (the host centreline) — and the
+// footprint assembler inserts that pivot BETWEEN the two near-face corners, extruding a solid
+// tongue from the near face down to the centreline that pokes `hostHalfThickness` (~50–100 mm)
+// INTO the host (the founder's "wall extruding wrong / arrow-spike in 3D + chevron tip in
+// plan"; the legacy WallJoinResolver inner-face clamp at WallJoinResolver.ts:
+// _clampEndToShellInnerFace already removes it on the LEGACY build path, but the default-ON
+// V2 pipeline builds from the un-clamped pre-trim baseline and never saw that clamp).
+//
+// §FIX-WALL-TJUNCTION-BUTT-2 (2026-07-02 — re-open of L-27) — the ORIGINAL fix gated this
+// suppression on the passthrough being ≥1.5× THICKER than the abutter (`PASSTHROUGH_THICKER_
+// RATIO`). That fixed the partition→shell case but LEFT THE SPIKE for an EQUAL-thickness T:
+// a guest wall drawn into a same-thickness host still had its centreline pivot written, so the
+// footprint assembler drew the arrow tongue from the near face (z=+halfT) down to the host
+// centreline (z=0). The classification (§FIX-WALL-TJUNCTION-BUTT) is CORRECT — the host is a
+// passthrough, the two side corners butt flat on the near face — but the ring-sweep PIVOT is
+// the residual spike. The real invariant: a real endpoint that abuts ANY passthrough at the
+// junction is a T-ATTACHER — it butts the host's SIDE face and must never carry a centreline
+// pivot, regardless of the thickness ratio (a T is not an X; only co-terminating corners
+// L/X/Y — junctions with NO passthrough — share the centreline pivot). So SUPPRESS the pivot
+// for every real endpoint at a junction that has ≥1 passthrough. Thickness is irrelevant.
+// The two near-face corners already produced by the sweep make the guest a clean flat butt.
+// Gated default-ON with an escape hatch; pure + deterministic.
 function partitionInnerFaceV2Enabled(): boolean {
     return (globalThis as { __pryzmWallPartitionInnerFaceV2?: boolean }).__pryzmWallPartitionInnerFaceV2 !== false;
 }
-// A passthrough must be at least this many times thicker than the abutting partition for the
-// inner-face suppression to fire — a genuine shell (≥2× a typical partition) clears it while
-// near-equal interior walls (the edge-coincidence case) do not.
-const PASSTHROUGH_THICKER_RATIO = 1.5;
 
 // ─── Geometry helpers ─────────────────────────────────────────────────────────
 
@@ -388,6 +393,32 @@ function detectJunctions(walls: readonly WallInput[], opts: Required<ResolveOpti
         }
     }
 
+    // §FIX-WALL-TJUNCTION-BUTT-2 — snap the ring-sweep pivot of EVERY clean single-real-
+    // endpoint T onto the host CENTRELINE foot, not the guest's own endpoint.
+    //
+    // The ring sweep offsets the host's barrier edge-lines from `j.point`; if `j.point` is
+    // the guest's own end (the cluster centroid) and that end does NOT sit on the host
+    // centreline (e.g. a partition ending on the shell INNER FACE at z=+halfT, not the
+    // centreline), the host barrier lines are placed half a host-thickness off, so the guest
+    // butts half a thickness PAST the host's near face (a gap in 3D, mirroring the arrow the
+    // pivot suppression just removed). Re-pointing `j.point` to the perpendicular foot on the
+    // host centreline places the host barrier lines on the host's TRUE faces, so the guest
+    // butts flush on the near face — the geometrically correct T butt. This runs for the
+    // naturally-detected mid-span T (single real end + T-projected passthrough) as well as the
+    // reclassified near-end T; both now share one pivot rule. A guest whose end is already on
+    // the host centreline (foot == endpoint) is unchanged (byte-identical). Only the pure
+    // 1-real-end T is touched — a Y/X residue keeps its centroid so the multi-way sweep stands.
+    if (tJunctionButtEnabled()) {
+        for (const j of drafts) {
+            if (j.realEndpoints.length === 1 && j.passthroughWalls.length >= 1) {
+                const g = j.realEndpoints[0]!;
+                const eG = g.isStart ? walls[g.wallIdx]!.start : walls[g.wallIdx]!.end;
+                const host = walls[j.passthroughWalls[0]!]!;
+                j.point = projectOnSeg(eG, host.start, host.end).foot;
+            }
+        }
+    }
+
     // A junction needs at least 2 participants total (≥2 real endpoints, OR ≥1
     // real endpoint and ≥1 passthrough — the T-case). A single endpoint with no
     // passthrough is the wall's free end (no junction).
@@ -498,18 +529,15 @@ function applyRingSweep(j: JunctionDraft, walls: readonly WallInput[], miters: W
         if (cur[key] === undefined) miters[wallIdx] = { ...cur, [key]: p };
     };
 
-    // §WALL-BODY-INNER-FACE — the thickest passthrough at THIS junction. A real-endpoint
-    // wall materially thinner than it is a partition butting a shell BODY: suppress its
-    // centreline pivot so its footprint ends on the inner-face corners (no tongue spike).
-    let maxPassthroughHalfT = 0;
-    if (partitionInnerFaceV2Enabled()) {
-        for (const wi of j.passthroughWalls) {
-            const ht = walls[wi]!.thickness * 0.5;
-            if (ht > maxPassthroughHalfT) maxPassthroughHalfT = ht;
-        }
-    }
-    const suppressInnerFacePivot = (thickness: number): boolean =>
-        maxPassthroughHalfT > 0 && (thickness * 0.5) * PASSTHROUGH_THICKER_RATIO <= maxPassthroughHalfT;
+    // §WALL-BODY-INNER-FACE + §FIX-WALL-TJUNCTION-BUTT-2 — a real endpoint that abuts ANY
+    // passthrough at this junction is a T-ATTACHER: it butts the host's side face and must
+    // NOT carry a centreline pivot (that pivot is the arrow-spike tongue). Suppress the pivot
+    // for EVERY real end here whenever the junction has ≥1 passthrough, independent of the
+    // thickness ratio — the two near-face corners the sweep already produced make it a clean
+    // flat butt. Junctions with NO passthrough (L / X / Y — co-terminating corners) keep the
+    // shared centreline pivot exactly as before, so those tests are byte-unchanged.
+    const junctionHasPassthrough = partitionInnerFaceV2Enabled() && j.passthroughWalls.length > 0;
+    const suppressInnerFacePivot = (): boolean => junctionHasPassthrough;
 
     // Sweep each adjacent pair (wrap-around): curr's LEFT meets next's RIGHT.
     for (let i = 0; i < n; i++) {
@@ -559,8 +587,8 @@ function applyRingSweep(j: JunctionDraft, walls: readonly WallInput[], miters: W
         // pivots on it; pivots are deduplicated (first writer wins). §WALL-BODY-INNER-FACE
         // — a partition meeting a materially-thicker passthrough (shell) BODY does NOT get
         // the centreline pivot, so its footprint ends on the inner-face corners.
-        if (!curr.isPassthrough && !suppressInnerFacePivot(curr.thickness)) setPivot(curr.wallIdx, curr.isStart, pivot);
-        if (!next.isPassthrough && !suppressInnerFacePivot(next.thickness)) setPivot(next.wallIdx, next.isStart, pivot);
+        if (!curr.isPassthrough && !suppressInnerFacePivot()) setPivot(curr.wallIdx, curr.isStart, pivot);
+        if (!next.isPassthrough && !suppressInnerFacePivot()) setPivot(next.wallIdx, next.isStart, pivot);
     }
 }
 

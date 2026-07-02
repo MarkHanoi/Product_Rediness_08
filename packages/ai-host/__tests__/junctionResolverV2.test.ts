@@ -107,15 +107,15 @@ describe('JunctionResolverV2 — T-junction (3 walls, passthrough trick)', () =>
         expect(j[0]!.realEndpoints).toHaveLength(1);  // B's start
     });
 
-    it('B\'s start gets BOTH left and right corners (no void to fill)', () => {
+    it('B\'s start gets BOTH left and right corners on A\'s face — a FLAT BUTT, NO centreline pivot (§FIX-WALL-TJUNCTION-BUTT-2)', () => {
         const r = resolveJunctions(walls);
         const b = r.find(m => m.id === 'B')!;
         expect(b.startLeft).toBeDefined();
         expect(b.startRight).toBeDefined();
-        expect(b.startPivot).toBeDefined();
-        expect(closePt(b.startPivot!, { x: 5, z: 0 })).toBe(true);
-        // Inside corners sit on wall A's surface (at z=0±halfT for A's outward side
-        // facing into B's body, i.e. z = +halfT since B goes upward).
+        // §FIX-WALL-TJUNCTION-BUTT-2: a T-attacher must NOT carry the host-centreline pivot —
+        // that pivot was the founder's arrow (a tongue from the near face down to A's
+        // centreline). B is a clean flat butt on A's near face.
+        expect(b.startPivot).toBeUndefined();
         // Both corners lie at z = +halfT (the side of A facing B's body).
         expect(b.startLeft!.z).toBeCloseTo(T / 2);
         expect(b.startRight!.z).toBeCloseTo(T / 2);
@@ -135,17 +135,18 @@ describe('JunctionResolverV2 — T-junction (3 walls, passthrough trick)', () =>
     });
 });
 
-// ─── §WALL-BODY-INNER-FACE — partition into a THICKER shell body ──────────────
+// ─── §WALL-BODY-INNER-FACE + §FIX-WALL-TJUNCTION-BUTT-2 — partition/guest into a wall body ─
 // Residual of §ONE-FRAME-MINT (2026-06-18): the default-ON V2 pipeline builds the
 // partition body from the un-clamped pre-trim baseline (the partition end welded ON
-// the shell CENTRELINE). The ring sweep used to write a centreline PIVOT for the
-// partition end → the footprint assembler extruded a solid tongue from the shell's
-// INNER face down to its CENTRELINE, ~hostHalfThickness deep into/through the shell
-// (the founder's "wall extruding wrong / 3D spike"). The fix SUPPRESSES that
-// centreline pivot when the passthrough is materially thicker, so the partition
-// footprint ends cleanly on the inner-face corners — bit-identical to the legacy
-// WallJoinResolver inner-face clamp. Equal-thickness interior T/X junctions still get
-// the pivot (proven by the T-junction suite above).
+// the host CENTRELINE). The ring sweep used to write a centreline PIVOT for the
+// partition end → the footprint assembler extruded a solid tongue from the host's
+// near face down to its CENTRELINE, ~hostHalfThickness deep into the host
+// (the founder's "wall extruding wrong / 3D arrow-spike + plan chevron"). The ORIGINAL
+// fix SUPPRESSED that centreline pivot ONLY when the passthrough was ≥1.5× thicker.
+// §FIX-WALL-TJUNCTION-BUTT-2 (2026-07-02, re-open of L-27) GENERALISES it: ANY real
+// endpoint abutting a passthrough is a T-attacher and gets NO centreline pivot,
+// independent of thickness — a T is not an X (only co-terminating corners L/X/Y share
+// the centre pivot). So the equal-thickness T now ALSO butts flat (no arrow).
 describe('JunctionResolverV2 — §WALL-BODY-INNER-FACE (partition → thicker shell)', () => {
     const TS = 0.20;   // shell thickness (200 mm) — passthrough
     const TP = 0.10;   // partition thickness (100 mm) — abutting
@@ -178,15 +179,22 @@ describe('JunctionResolverV2 — §WALL-BODY-INNER-FACE (partition → thicker s
         expect(minZ).toBeCloseTo(TS / 2);
     });
 
-    it('equal-thickness partitions are UNAFFECTED (pivot retained, Pascal edge-coincidence)', () => {
+    it('equal-thickness partitions ALSO butt flat now (§FIX-WALL-TJUNCTION-BUTT-2: T-attacher, no pivot)', () => {
         const equal: WallInput[] = [
             { id: 'S', start: { x: -3, z: 0 }, end: { x: 3, z: 0 }, thickness: TP },
             { id: 'P', start: { x: 0, z: 3 }, end: { x: 0, z: 0 }, thickness: TP },
         ];
         const r = resolveJunctions(equal);
         const p = r.find(m => m.id === 'P')!;
-        expect(p.endPivot).toBeDefined();                // equal thickness → pivot stays
-        expect(closePt(p.endPivot!, { x: 0, z: 0 })).toBe(true);
+        // A T is not an X: the abutting equal-thickness partition still butts the host SIDE
+        // face, so it gets NO centreline pivot (the pre-fix pivot was the arrow-spike).
+        expect(p.endPivot).toBeUndefined();
+        // Both end corners butt flat on the host near face (z = +halfT).
+        expect(p.endLeft!.z).toBeCloseTo(TP / 2);
+        expect(p.endRight!.z).toBeCloseTo(TP / 2);
+        const fp = buildWallFootprint(equal[1]!, p);
+        // No vertex pierces the host centreline (no tongue).
+        for (const v of fp.polygon) expect(v.z).toBeGreaterThanOrEqual(TP / 2 - 1e-9);
     });
 
     it('escape hatch __pryzmWallPartitionInnerFaceV2=false restores the legacy pivot', () => {
@@ -571,14 +579,19 @@ describe('JunctionResolverV2 — §RESI-PERIM-CORNER-PIVOT (V2 L-pivot == legacy
         }
     });
 
-    it('T / X junctions are UNAFFECTED (pivot refinement is L-only)', () => {
-        // T: passthrough present → pivot stays at the centroid (on the passthrough body).
+    it('T / X junctions are UNAFFECTED by the L-pivot refinement (T butts flat; X keeps its centre pivot)', () => {
+        // T: passthrough present → the L-pivot refinement never fires. §FIX-WALL-TJUNCTION-BUTT-2:
+        // the T-attacher B is a FLAT BUTT with NO centreline pivot (the pivot was the founder's
+        // arrow); its two end corners butt on A's near face at z=+halfT.
         const tWalls: WallInput[] = [
             { id: 'A', start: { x: 0, z: 0 }, end: { x: 10, z: 0 }, thickness: T },
             { id: 'B', start: { x: 5, z: 0 }, end: { x: 5, z: 5 }, thickness: T },
         ];
         const tr = resolveJunctions(tWalls);
-        expect(closePt(tr.find(m => m.id === 'B')!.startPivot!, { x: 5, z: 0 })).toBe(true);
+        const bT = tr.find(m => m.id === 'B')!;
+        expect(bT.startPivot).toBeUndefined();               // T-attacher: no centreline pivot (no arrow)
+        expect(bT.startLeft!.z).toBeCloseTo(T / 2, 6);        // both corners on A's near face
+        expect(bT.startRight!.z).toBeCloseTo(T / 2, 6);
         // X: four real ends → not a 2-end L → pivot stays at the centroid (origin).
         const xWalls: WallInput[] = [
             { id: 'E', start: { x: 0, z: 0 }, end: { x: 5, z: 0 }, thickness: T },
