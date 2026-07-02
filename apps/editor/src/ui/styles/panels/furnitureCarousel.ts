@@ -534,8 +534,16 @@ export const FURNITURE_CAROUSEL_CSS = `
         background: transparent;
     }
 
-    .fsp-fallback-icon {
-        opacity: 0.78;
+    /* §FIX-LIBRARY-DIAGRAM-ICONS — diagrammatic top-view plan symbol (PRYZM purple,
+       single ink). Colour inherits from .fsp-thumb (var(--app-accent) → #6600FF). */
+    .fsp-plan-icon {
+        width: 100%;
+        height: 100%;
+        opacity: 0.92;
+    }
+
+    .fsp-card:hover .fsp-plan-icon {
+        opacity: 1;
     }
 
     .fsp-card-label {
