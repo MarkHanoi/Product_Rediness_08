@@ -257,6 +257,12 @@ declare global {
          *  −45°). 'map2d' reveals the MapLibre 2D cream draw map. Registered by
          *  GISAreaLayout. */
         pryzmShowFormaView?: (initial?: 'map2d' | 'plan' | '3d') => void;
+        /** §FEAT-SITE-VIEW-ALWAYS-ON (L-40, ADR-0114) — always-available entry to the
+         *  3D globe / 3D site view from ANY 3D view. Self-bootstraps GIS + Cesium (no
+         *  prior "Activate Geospatial" needed) and enters on a sensible default centre
+         *  even when no site/geolocation exists yet. Registered by GISAreaLayout at
+         *  boot, so it is defined regardless of geospatial activation state. */
+        pryzmEnterSiteView?: (initial?: 'map2d' | 'plan' | '3d') => void;
         /** FORMA.3 — remove the [2D Map][Plan][3D] toggle. */
         pryzmHideFormaView?: () => void;
         /** FORMA.3/4 — re-read the authored footprints + boundary and (re)render the

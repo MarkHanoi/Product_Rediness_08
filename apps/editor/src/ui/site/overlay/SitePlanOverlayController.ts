@@ -40,6 +40,10 @@ import {
     clearPersistedOverlay,
     type PersistedSitePlanOverlay,
 } from './sitePlanOverlayPersistence';
+// §FEAT-PROJECT-TRUE-NORTH (ADR-0114) — capture the project→true-north angle θ from the
+// committed underlay placement (the underlay's on-canvas rotation ON the true-north
+// basemap = θ). Distinct from the underlay's own transform.rotationRad by design.
+import { deriveProjectNorthAngle } from './projectTrueNorth';
 
 const VIOLET = '#6600FF';
 const INK = '#2a1a52';
@@ -57,6 +61,13 @@ export interface SitePlanOverlayControllerInit {
     readonly projectId: string | null;
     /** Toast surface. */
     readonly toast?: ToastFn;
+    /**
+     * §FEAT-PROJECT-TRUE-NORTH (ADR-0114) — invoked when the user presses
+     * "✓ Use this placement" with the captured project→true-north angle θ (radians).
+     * The host wires this to `dispatchSiteTrueNorth` (the P6 command path) so θ lands
+     * on `SiteLocation.trueNorth`. Absent ⇒ the OK button just persists locally.
+     */
+    readonly onCommitProjectNorth?: (thetaRad: number) => void;
 }
 
 /** Live overlay state held by the controller. */
@@ -71,6 +82,8 @@ interface OverlayState {
     locked: boolean;
     visible: boolean;
     calibrated: boolean;
+    /** §FEAT-PROJECT-TRUE-NORTH — true once "Use this placement" committed θ. */
+    projectNorthSet: boolean;
     layer: SitePlanOverlayLayer;
     /** The source file kept so a different page can be re-rasterised. */
     file: File | null;
@@ -88,6 +101,7 @@ export function mountSitePlanOverlayController(
     init: SitePlanOverlayControllerInit,
 ): SitePlanOverlayControllerHandle {
     const { map, parent, getOrigin, projectId } = init;
+    const onCommitProjectNorth = init.onCommitProjectNorth;
     const toast: ToastFn = init.toast ?? (() => { /* no-op */ });
 
     let state: OverlayState | null = null;
@@ -165,7 +179,7 @@ export function mountSitePlanOverlayController(
         pageCount: number,
         widthPx: number,
         heightPx: number,
-        preset?: { transform: SitePlanOverlayTransform; opacity: number; locked: boolean; visible: boolean; calibrated: boolean },
+        preset?: { transform: SitePlanOverlayTransform; opacity: number; locked: boolean; visible: boolean; calibrated: boolean; projectNorthSet?: boolean },
     ): void {
         const origin = getOrigin() ?? { lat: 0, lon: 0 };
         // Dispose any prior layer first.
@@ -176,6 +190,7 @@ export function mountSitePlanOverlayController(
         const visible = preset?.visible ?? true;
         const locked = preset?.locked ?? false;
         const calibrated = preset?.calibrated ?? false;
+        const projectNorthSet = preset?.projectNorthSet ?? false;
 
         const layer = new SitePlanOverlayLayer({
             map,
@@ -189,10 +204,30 @@ export function mountSitePlanOverlayController(
 
         state = {
             fileName, sourceKind, dataUrl, page, pageCount,
-            transform, opacity, locked, visible, calibrated, layer, file,
+            transform, opacity, locked, visible, calibrated, projectNorthSet, layer, file,
         };
         renderPanel();
         schedulePersist();
+    }
+
+    // ── §FEAT-PROJECT-TRUE-NORTH — commit the placement as Project North ──────────
+    // The underlay's placement ON the true-north basemap defines θ (project→true-north).
+    // Pressing "Use this placement" captures θ, mirrors it onto the model (via the host
+    // callback → dispatchSiteTrueNorth, P6), and persists it. NO boundary trace required
+    // (Part A goal) — the calibration + boundary tools remain independently available.
+    function commitProjectNorth(): void {
+        if (!state) return;
+        const thetaRad = deriveProjectNorthAngle(state.transform);
+        state.projectNorthSet = true;
+        try {
+            onCommitProjectNorth?.(thetaRad);
+        } catch (err) {
+            console.warn('[site-overlay] onCommitProjectNorth threw (non-fatal):', err);
+        }
+        renderPanel();
+        schedulePersist();
+        const deg = ((thetaRad * 180) / Math.PI).toFixed(1);
+        toast(`Project North set from the plan (${deg}° to true north). The 3D globe now aligns.`, 'success');
     }
 
     // ── transform mutations ──────────────────────────────────────────────────────
@@ -372,6 +407,9 @@ export function mountSitePlanOverlayController(
             locked: state.locked,
             visible: state.visible,
             calibrated: state.calibrated,
+            // §FEAT-PROJECT-TRUE-NORTH — persist θ (distinct from transform.rotationRad).
+            projectNorthRad: state.projectNorthSet ? deriveProjectNorthAngle(state.transform) : undefined,
+            projectNorthSet: state.projectNorthSet,
         });
         writePersistedOverlay(projectId, record);
     }
@@ -392,7 +430,7 @@ export function mountSitePlanOverlayController(
             1,
             rec.transform.widthPx,
             rec.transform.heightPx,
-            { transform: rec.transform, opacity: rec.opacity, locked: rec.locked, visible: rec.visible, calibrated: rec.calibrated },
+            { transform: rec.transform, opacity: rec.opacity, locked: rec.locked, visible: rec.visible, calibrated: rec.calibrated, projectNorthSet: !!rec.projectNorthSet },
         );
         toast('Restored your saved site plan overlay.', 'info');
     }
@@ -476,10 +514,22 @@ export function mountSitePlanOverlayController(
             panel.appendChild(pg);
         }
 
-        // calibrate (the accuracy key)
+        // calibrate (the accuracy key) — scale method, still available (Part A: optional)
         const calBtn = button(state.calibrated ? 'Re-calibrate scale' : '2-point calibrate scale', startCalibration, true);
         calBtn.style.marginTop = '8px';
         panel.appendChild(calBtn);
+
+        // §FEAT-PROJECT-TRUE-NORTH — the OK / "use this placement" commit. Sets Project
+        // North from the plan's on-map orientation (θ → the model's true-north). NO
+        // boundary trace is required for this path (the Part A goal).
+        const okBtn = button(
+            state.projectNorthSet ? '✓ Project North set — update' : '✓ Use this placement (set Project North)',
+            commitProjectNorth,
+            true,
+        );
+        okBtn.style.marginTop = '6px';
+        okBtn.setAttribute('data-testid', 'site-overlay-commit-project-north');
+        panel.appendChild(okBtn);
 
         // toggles + remove
         const row = document.createElement('div');

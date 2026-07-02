@@ -40,6 +40,14 @@ export interface PersistedSitePlanOverlay {
     readonly visible: boolean;
     /** Whether the user has run the 2-point calibration (vs. the default span fit). */
     readonly calibrated: boolean;
+    // §FEAT-PROJECT-TRUE-NORTH (ADR-0114) — the project→true-north angle θ captured
+    // when the user pressed "Use this placement". DISTINCT from `transform.rotationRad`
+    // (the underlay's on-canvas orientation): θ is what the 3D globe applies to sit the
+    // model on the earth, mirrored onto `SiteLocation.trueNorth`. Optional + back-compat:
+    // an older record without it simply has no project-north captured yet.
+    readonly projectNorthRad?: number;
+    /** True once the user committed the placement as Project North (drives OK state). */
+    readonly projectNorthSet?: boolean;
     readonly savedAt: string;
 }
 
@@ -55,6 +63,9 @@ export interface SitePlanOverlayDraft {
     readonly locked: boolean;
     readonly visible: boolean;
     readonly calibrated: boolean;
+    /** §FEAT-PROJECT-TRUE-NORTH — project→true-north θ (radians), if committed. */
+    readonly projectNorthRad?: number;
+    readonly projectNorthSet?: boolean;
 }
 
 export function key(projectId: string): string {
@@ -76,6 +87,11 @@ export function serializeOverlay(draft: SitePlanOverlayDraft, now: Date = new Da
         locked: !!draft.locked,
         visible: !!draft.visible,
         calibrated: !!draft.calibrated,
+        // §FEAT-PROJECT-TRUE-NORTH — persist θ only when the user committed it.
+        ...(typeof draft.projectNorthRad === 'number' && Number.isFinite(draft.projectNorthRad)
+            ? { projectNorthRad: draft.projectNorthRad }
+            : {}),
+        projectNorthSet: !!draft.projectNorthSet,
         savedAt: now.toISOString(),
     };
 }
@@ -115,6 +131,9 @@ export function deserializeOverlay(raw: string): PersistedSitePlanOverlay | null
         locked: !!parsed['locked'],
         visible: parsed['visible'] !== false,
         calibrated: !!parsed['calibrated'],
+        // §FEAT-PROJECT-TRUE-NORTH — tolerant restore of θ (absent in older records).
+        ...(num(parsed['projectNorthRad']) !== null ? { projectNorthRad: num(parsed['projectNorthRad'])! } : {}),
+        projectNorthSet: !!parsed['projectNorthSet'],
         savedAt: typeof parsed['savedAt'] === 'string' ? (parsed['savedAt'] as string) : new Date(0).toISOString(),
     };
 }

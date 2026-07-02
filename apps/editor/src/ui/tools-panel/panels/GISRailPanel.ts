@@ -94,11 +94,20 @@ export class GISRailPanel {
             'Open the Cesium "massing study" — white extruded buildings on your real-world plot, landing on the Forma Plan-oblique, with a 2D Map / Plan / 3D toggle',
             () => {
                 console.log('[GISRailPanel] Open Site 3D (Forma) massing view (Plan-oblique default)');
-                const show = window.pryzmShowFormaView;
-                if (typeof show === 'function') {
-                    show('plan');
+                // §FEAT-SITE-VIEW-ALWAYS-ON (L-40) — prefer the always-on self-bootstrapping
+                // entry; never dead-end. If neither global is up yet, activate geospatial
+                // (which registers them) and retry on the next tick.
+                const enter = window.pryzmEnterSiteView ?? window.pryzmShowFormaView;
+                if (typeof enter === 'function') {
+                    enter('plan');
                 } else {
-                    console.error('[GISRailPanel] pryzmShowFormaView not available — GIS area not mounted yet.');
+                    console.warn('[GISRailPanel] site-view entry not registered yet — activating geospatial then retrying.');
+                    try { window.pryzmToggleGIS?.(true); } catch { /* non-fatal */ }
+                    setTimeout(() => {
+                        const retry = window.pryzmEnterSiteView ?? window.pryzmShowFormaView;
+                        if (typeof retry === 'function') retry('plan');
+                        else console.error('[GISRailPanel] site-view entry still unavailable after activation.');
+                    }, 120);
                 }
             }
         ));
