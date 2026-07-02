@@ -49,6 +49,10 @@ import { getDescriptorForType } from './FurnitureCategoryRegistry';
 // guard rejected every drop → furniture written to the PRYZM-3 Immer store
 // only → never reached the legacy `furnitureStore` → no 3D mesh.
 import { createId } from '@pryzm/schemas';
+// §FEAT-PLACEMENT-SPACEBAR-ROTATE (ADR-0105) — shared SPACE-to-rotate state for
+// the carousel GLB click-to-place flow (the "Corner Sofa — Click to place · Esc
+// to cancel" screenshot). Attached only while a GLB placement is armed.
+import { PrePlacementRotation } from '@pryzm/core-app-model';
 
 // ─── Drop preview geometry ───────────────────────────────────────────────────
 //
@@ -97,6 +101,13 @@ export class FurnitureDragDropHandler {
     private activeDragType: string | null = null;
     private activePlacementGlbPath: string | null = null;
     private activePlacementLabel: string | null = null;
+
+    // §FEAT-PLACEMENT-SPACEBAR-ROTATE — cumulative +90°/press yaw for the GLB
+    // click-to-place flow. onChange re-orients the live preview immediately even
+    // when the pointer is stationary.
+    private readonly _rotation = new PrePlacementRotation({
+        onChange: () => this._applyPreviewRotation(),
+    });
 
     // Bound handlers — stored for cleanup
     private _onDragOver:  (e: DragEvent) => void;
@@ -221,6 +232,11 @@ export class FurnitureDragDropHandler {
         this.activePlacementGlbPath = p.path;
         this.activePlacementLabel = p.label ?? null;
         this.previewDims = { ...GLB_FALLBACK_DIMS };
+        // §FEAT-PLACEMENT-SPACEBAR-ROTATE — fresh placement starts at 0°; install
+        // the SPACE handler (removed in _cancelGlbPlacement → no leak after commit
+        // / Esc / detach).
+        this._rotation.reset();
+        this._rotation.attach();
         this.canvasEl.style.cursor = 'crosshair';
         this.canvasEl.addEventListener('pointermove', this._onPointerMovePlacement, true);
         this.canvasEl.addEventListener('pointerdown', this._onPointerDownPlacement, true);
@@ -248,11 +264,15 @@ export class FurnitureDragDropHandler {
 
         const path = this.activePlacementGlbPath!; // guarded non-null by line 229
         const label = this.activePlacementLabel ?? undefined;
+        // §FEAT-PLACEMENT-SPACEBAR-ROTATE — capture the yaw BEFORE _cancelGlbPlacement
+        // resets it, then forward it so the committed GLB carries the orientation.
+        const rotationY = this._rotation.rotationY();
         this._cancelGlbPlacement();
         window.runtime?.events?.emit('fc-add-glb', { // F.events.12
             path,
             label,
             position: { x: worldPoint.x, y: worldPoint.y, z: worldPoint.z },
+            rotationY,
         });
         console.log(`[FurnitureDragDropHandler] GLB click placement: ${path}`);
     }
@@ -269,6 +289,9 @@ export class FurnitureDragDropHandler {
             this.canvasEl.style.cursor = '';
         }
         document.removeEventListener('keydown', this._onKeyDownPlacement, true);
+        // §FEAT-PLACEMENT-SPACEBAR-ROTATE — remove SPACE handler + reset yaw.
+        this._rotation.detach();
+        this._rotation.reset();
         this.activePlacementGlbPath = null;
         this.activePlacementLabel = null;
         this.previewDims = null;
@@ -588,9 +611,25 @@ export class FurnitureDragDropHandler {
         }
 
         this.preview.position.copy(position);
+        // §FEAT-PLACEMENT-SPACEBAR-ROTATE — keep the SPACE-chosen yaw as the
+        // cursor moves so the ghost silhouette matches the placed orientation.
+        this.preview.rotation.y = this._rotation.rotationY();
         this.preview.visible = true;
 
         // Signal renderer to update in MANUAL mode
+        const renderer = this.world?.renderer as unknown as { mode?: string; needsUpdate?: boolean };
+        if (renderer?.mode === 'manual' && 'needsUpdate' in renderer) {
+            renderer.needsUpdate = true;
+        }
+    }
+
+    /**
+     * §FEAT-PLACEMENT-SPACEBAR-ROTATE — re-apply the current yaw to the live
+     * ghost when SPACE is pressed while the pointer is stationary (onChange).
+     */
+    private _applyPreviewRotation(): void {
+        if (!this.preview) return;
+        this.preview.rotation.y = this._rotation.rotationY();
         const renderer = this.world?.renderer as unknown as { mode?: string; needsUpdate?: boolean };
         if (renderer?.mode === 'manual' && 'needsUpdate' in renderer) {
             renderer.needsUpdate = true;

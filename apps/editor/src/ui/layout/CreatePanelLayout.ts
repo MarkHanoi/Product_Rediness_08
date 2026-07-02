@@ -661,14 +661,15 @@ export function mountCreatePanel(
     });
 
     // Kave Home GLB items dragged from the furniture carousel arrive here.
-    window.runtime?.events?.on('fc-add-glb', (detail: { path: string; label?: string; position: { x: number; y: number; z: number } }) => { // F.events.12
+    window.runtime?.events?.on('fc-add-glb', (detail: { path: string; label?: string; position: { x: number; y: number; z: number }; rotationY?: number }) => { // F.events.12
         if (!detail?.path) {
             console.error('[Layout] fc-add-glb: missing path in event detail');
             return;
         }
         console.log(`[Layout] fc-add-glb: loading ${detail.path}`);
         const pos = new THREE.Vector3(detail.position.x, detail.position.y, detail.position.z);
-        props.addFurniture(detail.path, pos);
+        // §FEAT-PLACEMENT-SPACEBAR-ROTATE — forward the SPACE-chosen yaw.
+        props.addFurniture(detail.path, pos, detail.rotationY ?? 0);
     });
 
     window.addEventListener('bim-level-added', updateLevelsList);

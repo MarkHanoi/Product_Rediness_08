@@ -17,10 +17,14 @@ interface FurnitureDeps {
  * Extracted from engineLauncher.ts Task 5.2.
  * Call AFTER initTools() so getSelectionManager() resolves.
  */
-export function createAddFurniture(deps: FurnitureDeps): (modelPath: string, position?: THREE.Vector3) => void {
+export function createAddFurniture(deps: FurnitureDeps): (modelPath: string, position?: THREE.Vector3, rotationY?: number) => void {
     const { world, projectContext, gltfLoader, bimManager, furnitureBuilder, furnitureStore, getSelectionManager, updateInspector } = deps;
 
-    return (modelPath: string, position?: THREE.Vector3): void => {
+    // §FEAT-PLACEMENT-SPACEBAR-ROTATE (ADR-0105) — `rotationY` (radians about
+    // world-up) is the SPACE-chosen pre-placement yaw from the carousel click-to-
+    // place flow. Applied to the loaded GLB's Y rotation AND persisted on the
+    // furniture store record so the orientation survives reload / undo-redo.
+    return (modelPath: string, position?: THREE.Vector3, rotationY: number = 0): void => {
         const levelId = projectContext.activeLevelId;
         if (!levelId) throw new Error('Spatial Authority Violation: No active level selected for furniture placement.');
 
@@ -55,6 +59,8 @@ export function createAddFurniture(deps: FurnitureDeps): (modelPath: string, pos
                 }
             });
             if (position) model.position.copy(position);
+            // §FEAT-PLACEMENT-SPACEBAR-ROTATE — apply the SPACE-chosen yaw.
+            if (rotationY) model.rotation.y = rotationY;
             world.scene.three.add(model);
             undoManager.add(new AddObjectCommand(world.scene.three, model));
             updateInspector(model);
@@ -64,7 +70,7 @@ export function createAddFurniture(deps: FurnitureDeps): (modelPath: string, pos
             const level = bimManager.getLevelById(levelId);
             furnitureStore.add({
                 id, type: 'furniture' as const, furnitureType: 'glb_import' as const,
-                position: placedPos.clone(), rotation: new THREE.Euler(0, 0, 0),
+                position: placedPos.clone(), rotation: new THREE.Euler(0, rotationY, 0),
                 levelId, levelName: (level as any)?.name ?? '', levelElevation: (level as any)?.elevation ?? 0,
                 baseOffset: 0, width: 1, length: 1, height: 1, material: 'wood' as const,
                 properties: { glbPath: modelPath }, furnitureCategory: undefined,
