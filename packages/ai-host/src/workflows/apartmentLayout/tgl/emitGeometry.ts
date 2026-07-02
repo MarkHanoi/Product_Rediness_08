@@ -67,13 +67,33 @@ export function emitGeometry(graph: LayoutGraph, opts?: EmitGeometryOpts): Emitt
     const wallNodes = allWallNodes;
     const doorNodes = graph.nodes.filter(n => n.kind === 'Door');
     const openingByGuid = new Map(graph.nodes.filter(n => n.kind === 'Opening').map(n => [n.guid, n]));
-    const nameByGuidAll = new Map(spaceNodes.map(n => [n.guid, str(n.attrs.name, n.sourceId)]));
+    // §DUP-NAME-UNIQUE (2026-07-02, founder "Circulation 100% while rooms sealed") — the
+    // residual-fill mints several cells with the IDENTICAL display name (e.g. "Storage") and
+    // other paths can repeat a name too. Downstream circulation/adjacency graphs reference
+    // rooms BY NAME (`adjacentTo` / `doorAdjacentTo`, the modal `computeCirculationReachability`,
+    // room-detection, the schedule, IFC), so duplicate names COLLAPSE distinct rooms into one
+    // node — a sealed room then inherits a same-named sibling's connectivity and reads as
+    // reachable. Mint a UNIQUE display name per space here (deterministic first-seen order over
+    // the already-sorted space nodes): the first "Storage" stays "Storage", the next becomes
+    // "Storage 2", "Storage 3", … so every name-keyed consumer sees one node per room. GUIDs are
+    // unchanged (element identity is the GUID, not the name), so this is name-only + stable.
+    const uniqueNameByGuid = new Map<string, string>();
+    {
+        const seen = new Map<string, number>();               // base name → count assigned so far
+        for (const n of spaceNodes) {
+            const base = str(n.attrs.name, n.sourceId);
+            const k = (seen.get(base) ?? 0) + 1;
+            seen.set(base, k);
+            uniqueNameByGuid.set(n.guid, k === 1 ? base : `${base} ${k}`);
+        }
+    }
+    const nameByGuidAll = uniqueNameByGuid;
     // Door → the two spaces it connects (CONNECTS_THROUGH carries via = door guid).
     const doorConnects = new Map<string, [string, string]>();
     for (const e of graph.edges) if (e.kind === 'CONNECTS_THROUGH' && e.via) doorConnects.set(e.via, [e.from, e.to]);
 
     const wallIndex = new Map(wallNodes.map((n, i) => [n.guid, i]));
-    const nameByGuid = new Map(spaceNodes.map(n => [n.guid, str(n.attrs.name, n.sourceId)]));
+    const nameByGuid = uniqueNameByGuid;
     // T1.D (2026-05-30) — spaceType (= RoomType) per space guid; used to populate
     // LayoutDoor.roomTypeA/B so executePlan can call defaultDoorSystemTypeId
     // for the per-pair finish (privacy / glazed / solid-timber).
@@ -120,7 +140,7 @@ export function emitGeometry(graph: LayoutGraph, opts?: EmitGeometryOpts): Emitt
         // geometry (shouldn't happen in production but keeps the type honest).
         const polygonMm = polyM.map(p => ({ x: mm(p.x), y: mm(p.z) }));
         rooms.push({
-            name: str(n.attrs.name, n.sourceId),
+            name: uniqueNameByGuid.get(n.guid) ?? str(n.attrs.name, n.sourceId),
             type: (spaceType as RoomType),
             area: num(n.attrs.netAreaM2),
             windowCount: willGetWindow ? 1 : 0,

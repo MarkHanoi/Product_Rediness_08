@@ -194,6 +194,18 @@ returns `{ reached, total, fraction, unreachedRoomNames, hasDoorGraph }`:
 This is the single door-aware source of truth shared by the graph's RED-node logic
 (`§GRAPH-COMPLIANCE-RED` / `§CIRC-REACH`) and any displayed circulation %.
 
+**§DUP-NAME-SAFE + §ROOT-CORRIDOR-BEFORE-STAIR (2026-07-02, ADR-0098) — the metric must not lie.**
+The access edges reference rooms BY NAME, and the engine mints DUPLICATE display names (the
+residual fill named every service cell "Storage"). A name-keyed BFS collapsed every same-named room
+onto one node, so a SEALED room inherited a connected same-named sibling's reachability and the
+metric reported a **false 100%** over a physically isolated room — the founder's "Circulation 100%
+while the top rooms are sealed". Fix: (1) `emitGeometry` mints a UNIQUE display name per space
+("Storage", "Storage 2", …; GUID unchanged); (2) `computeCirculationReachability` + the overlay
+red-node BFS key the graph by ARRAY INDEX and resolve a referenced name to ALL rooms bearing it, so
+a sealed duplicate is its own unreached node; (3) the entrance-root order is
+`hall → corridor → stair → any circulation` (SPEC FF-R1) — never anchored on a door-less upper-floor
+stair (which had scored a corridor-connected floor 0%).
+
 ### 9.3 — The "score 84" diagnosis (why the displayed number is < 100)
 The per-floor "score NN" in the house/apartment modal is `option.score.overall` — a SOFT
 weighted sum over ~23 cognition axes (efficiency, daylight, privacy, proportionalElegance,
@@ -252,10 +264,12 @@ Privacy is respected (this is NOT a blanket "open every wall"):
   relaxing only the door CAP (counted as a `compromise` so P8 keeps preferring a plan that needed
   none). A habitable room with no PERMITTED reached neighbour stays flagged (rare; the ranker /
   reach diagnostic handle it) rather than being forced open illegally.
-- **Wet/service rooms are EXCLUDED** from the rescue — a sealed bathroom is owned by the dedicated
-  privacy passes (`§BATH-CORRIDOR-ONLY`, `§WETROOM-PUBLIC-DOOR`, `§HALL-NOT-WETROOM-ONLY`), so the
-  rescue never re-introduces the bathroom↔bedroom / bathroom-off-hall anti-patterns those exist to
-  prevent.
+- **WET rooms are EXCLUDED** from the rescue (bathroom/wc/utility) — a sealed wet room is owned by
+  the dedicated privacy passes (`§BATH-CORRIDOR-ONLY`, `§WETROOM-PUBLIC-DOOR`,
+  `§HALL-NOT-WETROOM-ONLY`), so the rescue never re-introduces the bathroom↔bedroom /
+  bathroom-off-hall anti-patterns those exist to prevent. **`storage` IS rescued** (§DOOR-RESCUE-
+  STORAGE, ADR-0098) — a dry accessible closet whose `accessFrom` is {corridor,hall,bedroom}; a
+  `permitted` door onto a reached neighbour is legal (you must be able to open the cupboard).
 - **NET-ADD only** — never removes/moves a door; a fully-reachable layout is byte-identical.
 
 Effect: `computeCirculationReachability().fraction → 1` for every normal plan, by construction,
