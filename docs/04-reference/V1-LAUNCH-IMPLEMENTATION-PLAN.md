@@ -90,16 +90,35 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 ---
 
-## Reported-item → phase mapping (L-11 … L-17)
+## Reported-item → phase mapping (L-11 … L-37)
 
 | L-id | Phase | Status |
 |---|---|---|
-| L-11 Environment real sun/shadows/buttons | new **Phase 3.3** (real environment) | design ready → ADR + impl |
-| L-12 wall T-junction spike | 0.5 geometry soundness | **SHIPPED** (ADR-0055 refinement) |
+| L-11 Environment real sun/shadows/buttons | new **Phase 3.3** (real environment) | design ready (WIP stashed) → ADR + impl |
+| L-12 wall T-junction spike | 0.5 geometry soundness | **SHIPPED** (ADR-0055 §FIX-WALL-TJUNCTION-BUTT, batch 2) |
 | L-13 plan-view door jamb gap | 3.2 annotations/drawing | **SHIPPED** (ADR-0104) |
 | L-14 floor-finish default thickness=offset | 2.3 creation defaults | queued |
 | L-15 properties panel polish | 1.4 UI soundness | **SHIPPED** (ADR-0103) |
-| L-16 spacebar-rotate preview during placement | 2.1 (transform) — placement-preview UX | queued |
-| L-17 element "change type" swap (all elements) | 2.4 element type-swap | queued — extend the wall system-type picker + in-place replace command to all element families (C11/C03/C16) |
+| L-16 spacebar-rotate preview during placement | 2.1 placement-preview UX | **SHIPPED** (ADR-0107, wave 4c) |
+| L-17 element "change type" swap (all elements) | 2.4 element type-swap | **SHIPPED** (ADR-0105) |
+| L-18 duplicate furniture on collab open | 4.x save/load/collab | HELD (user-cancelled acc09ea) |
+| L-19 rotate gizmo single-axis default | 2.1 transform | HELD (user-cancelled) |
+| L-20/21/23 placement preview immediate/accurate/parametric-rotate | 2.1 | **SHIPPED** (ADR-0107, wave 4c) |
+| L-22 library card diagrammatic symbols | 1.4 UI/symbols | **SHIPPED** (ADR-0110, wave 4c) |
+| L-24 MOVE_DOOR offset=NaN on catch-up | 4.x collab | HELD (user-cancelled acc09ea) |
+| L-25 WebGPU black-screen (shadow mid-submit destroy) | 0.4 render/perf | **SHIPPED** (ADR-0111, wave 4c) |
+| L-26 wall-draw align-guide perpendicular | 1.2 draw UX | **SHIPPED** (wave 4c) |
+| L-27 wall T-junction cluster (L-corner + 3rd wall) | 0.5 geometry soundness | **v2 SHIPPED** (ea6ce483, wave 4d, simple-T); **cluster case in flight** |
+| L-28 plan wall-tool active-by-default | 1.2 tool activation | **SHIPPED** (wave 4d) |
+| L-29 wall-move preview dimensions (ortho) | 2.1 move UX | **SHIPPED** (wave 4d) |
+| L-30 hosted door/window move dims (along wall) | 2.1 move UX | queued (after L-29) |
+| L-31 cross-level slab-corner refs + snap-bounds fix | 1.2 snapping | **SHIPPED** (ADR-0112, wave 4d) |
+| L-32 slab-by-region preview mirror | 2.3 creation | **SHIPPED** (wave 4d) |
+| L-33 second-kitchen placement fail | 2.3 creation/kitchen | in flight (kitchen agent) |
+| L-34 kitchen L-shape accurate preview | 2.3 creation/kitchen | in flight (kitchen agent) |
+| L-35 professional kitchen plan symbol | 3.2 drawing/kitchen | in flight (kitchen agent) |
+| L-36 shower fixture wrong direction | 2.3 plumbing/placement | in flight (shower agent) |
+| L-37 composite shower+glass+gutter type | 2.3 plumbing/catalogue | in flight (shower agent) |
 
-**Batches shipped:** batch 1 (`583eb2f1`) = selection(G4) + redetect-storm(G1) + nav-perf(G3) + house-circ. batch 2 (in gate) = load-freeze(G2) + wall-preview(G5) + properties-panel(L-15) + door-plan-gap(L-13) + T-junction(L-12).
+**Batches shipped:** batch 1 (`583eb2f1`) = selection(G4) + redetect-storm(G1) + nav-perf(G3) + house-circ. batch 2 = load-freeze(G2) + wall-preview(G5) + properties-panel(L-15) + door-plan-gap(L-13) + T-junction(L-12). batch 3 = change-type(L-17). **wave 4c** (`0543c337`) = L-25 black-screen + L-22 icons + L-20/21/23 placement-preview + L-26 align-guide. **wave 4d** (`103b14f0`) = L-28 plan-wall + L-29 wall-move-dims + L-31 refs+snap-bounds(ADR-0112) + L-32 slab-preview + L-27 T-junction-v2.
+**In flight (7pm London session-limit permitting):** L-27 cluster · L-33/34/35 kitchen · L-36/37 shower. **Held (user-cancelled):** L-18, L-19, L-24.
