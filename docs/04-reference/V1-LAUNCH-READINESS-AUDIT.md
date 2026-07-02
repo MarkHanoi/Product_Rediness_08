@@ -72,6 +72,10 @@ an empty project and a heavy one, without freezes or stutter.
 - **Movement**: wall=`UpdateWallBaselineCommand`, door/window=offset, furniture=params — non-uniform (F8).
   **L-01** host-wall move freeze FIXED (ADR-0099); **L-06** per-move storm amplifier in flight (Q6).
 - **Rotation**: **BROKEN/absent** — no `Rotate*Command` (L-07/F5).
+  Partial: **placement-time** rotation shipped — Spacebar rotates the live placement preview
+  +90° CW (`§FEAT-PLACEMENT-SPACEBAR-ROTATE`, ADR-0105) for one-click placeables (furniture 3D +
+  plan, carousel GLB), with the chosen yaw carried through to the committed element. The general
+  post-placement first-class Rotate command/gizmo (F5/Q7) remains OPEN.
 - **Dimensions**: OK coverage (`UpdateWall/Slab/Door/Window Dimensions/Height/Width/SillHeight`).
 - **Materials**: uneven (L-08/F6) — structural/MEP/furnishings have no material command.
 - **Hosting**: correct model (C15) — offset + dual-store; the perf failure (L-01) is fixed.

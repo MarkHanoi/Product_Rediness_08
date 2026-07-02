@@ -139,7 +139,7 @@ export interface UIParams {
     zoomToAll: () => void;
     createViewpoint: () => void;
     updateViewsTable: () => void;
-    addFurniture: (modelPath: string, position?: THREE.Vector3) => void;
+    addFurniture: (modelPath: string, position?: THREE.Vector3, rotationY?: number) => void;
     materialMap: Map<string, any>;
     getHdriTexture: () => Promise<THREE.Texture | null>;
     curtainPanelStoreInstance: any;

@@ -32,6 +32,12 @@ import {
     WARDROBE_CABINET_DEFAULTS,
 } from '@pryzm/geometry-furniture';
 import { getDescriptorForType } from '@app/ui/furniture-carousel/FurnitureCategoryRegistry';
+// §FEAT-PLACEMENT-SPACEBAR-ROTATE (ADR-0105) — shared SPACE-to-rotate state so
+// plan-view placement matches 3D-view placement. The plan handler drives it via
+// the overlay-routed `onKeyDown` (it must NOT attach its own DOM listeners —
+// PlanToolHandler contract §21 §2), so it constructs the state but does NOT
+// call attach(); it advances on the SPACE key inside onKeyDown().
+import { PrePlacementRotation } from '@pryzm/core-app-model';
 
 // ── Anchor model ──────────────────────────────────────────────────────────────
 // Most furniture is built with geometry centred at the group origin, so a
@@ -222,15 +228,22 @@ export class FurniturePlanToolHandler implements PlanToolHandler {
     private _ctx: PlanToolDrawContext | null = null;
     private _cursor: WorldPoint | null       = null;
 
+    // §FEAT-PLACEMENT-SPACEBAR-ROTATE — cumulative +90°/press pre-placement yaw.
+    // Advanced from onKeyDown (overlay-routed SPACE), read on commit and in the
+    // dashed footprint preview so preview ≡ placed orientation.
+    private readonly _rotation = new PrePlacementRotation();
+
     activate(ctx: PlanToolDrawContext): void {
         this._ctx    = ctx;
         this._cursor = null;
+        this._rotation.reset(); // §FEAT-PLACEMENT-SPACEBAR-ROTATE — fresh session starts at 0°
         console.log('[FurniturePlanToolHandler] Activated, type:', _getActiveType());
     }
 
     deactivate(): void {
         this._clearOverlay();
         this._cursor = null;
+        this._rotation.reset(); // §FEAT-PLACEMENT-SPACEBAR-ROTATE
         this._ctx    = null;
     }
 
@@ -247,11 +260,21 @@ export class FurniturePlanToolHandler implements PlanToolHandler {
 
     onKeyDown(e: KeyboardEvent): boolean {
         if (e.key === 'Escape') { this.cancel(); return true; }
+        // §FEAT-PLACEMENT-SPACEBAR-ROTATE — SPACE advances the preview +90° CW
+        // and re-draws the dashed footprint at the new orientation. Returning
+        // true tells PlanViewToolOverlay._onKeyDown to preventDefault/stopProp
+        // so the page never scrolls and no other SPACE shortcut fires.
+        if (e.code === 'Space' || e.key === ' ' || e.key === 'Spacebar') {
+            this._rotation.advance();
+            this._drawPreview();
+            return true;
+        }
         return false;
     }
 
     cancel(): void {
         this._cursor = null;
+        this._rotation.reset(); // §FEAT-PLACEMENT-SPACEBAR-ROTATE — Esc resets orientation
         this._clearOverlay();
     }
 
@@ -337,7 +360,11 @@ export class FurniturePlanToolHandler implements PlanToolHandler {
             position:  { x: pt.worldX, y: 0, z: pt.worldZ },
             // §FIX-FURNITURE-ROTATION (C11 §7.0): rotation is a scalar yaw angle
             // (radians) — furniture.create validates Number.isFinite(rotation).
-            rotation:  0,
+            // §FEAT-PLACEMENT-SPACEBAR-ROTATE (ADR-0105): carry the SPACE-chosen
+            // yaw through to the committed element — the CommandEventBridge +
+            // §FT-FURNITURE bridge lift this scalar into the mesh's Y-Euler, so
+            // preview orientation ≡ placed orientation.
+            rotation:  this._rotation.rotationY(),
             levelId,
             baseOffset: 0,
             width:    fp.w,
@@ -367,26 +394,50 @@ export class FurniturePlanToolHandler implements PlanToolHandler {
         const ppu  = planCanvas.getPixelsPerUnit();
         const { sx, sy } = planCanvas.worldToScreen(this._cursor.worldX, this._cursor.worldZ);
 
+        // §FEAT-PLACEMENT-SPACEBAR-ROTATE — screen-space rotation of the dashed
+        // footprint about the cursor so the preview reads at the SPACE-chosen
+        // orientation. Plan view maps +worldX→+screenX and +worldZ→+screenY
+        // (see _drawCornerSofaPreview.toScreen); a THREE Y-Euler of +θ (applied
+        // to the committed mesh via §FT-FURNITURE) rotates the top-down symbol
+        // clockwise by θ on screen, so we rotate the canvas by +θ. Only the
+        // geometry is rotated — the label + bottom-left hint stay upright.
+        const rot = this._rotation.rotationY();
+        ctx.save();
+        if (rot !== 0) {
+            ctx.translate(sx, sy);
+            ctx.rotate(rot);
+            ctx.translate(-sx, -sy);
+        }
+
         // Branch on anchor mode: corner sofas need an L-shape preview anchored
         // at the inside-back corner, everything else uses the centred rectangle.
+        let labelCx: number;
+        let labelLy: number;
         if (_anchor(type) === 'inside-back-corner') {
-            this._drawCornerSofaPreview(ctx, type, sx, sy, ppu, cssH);
+            ({ labelCx, labelLy } = this._drawCornerSofaPreview(ctx, type, sx, sy, ppu));
         } else {
-            this._drawRectPreview(ctx, type, sx, sy, ppu, cssH);
+            ({ labelCx, labelLy } = this._drawRectPreview(ctx, type, sx, sy, ppu));
         }
+
+        ctx.restore(); // undo the geometry rotation — label/hint drawn upright
+
+        this._drawLabelAndHint(ctx, type, labelCx, labelLy, cssH);
 
         ctx.restore();
     }
 
-    /** Centred rectangle preview — used by every furniture type with a centred origin. */
+    /**
+     * Centred rectangle preview — used by every furniture type with a centred origin.
+     * Returns the (upright) label anchor so the caller can draw the type label +
+     * hint outside the §FEAT-PLACEMENT-SPACEBAR-ROTATE geometry rotation.
+     */
     private _drawRectPreview(
         ctx:  CanvasRenderingContext2D,
         type: string,
         sx:   number,
         sy:   number,
         ppu:  number,
-        cssH: number,
-    ): void {
+    ): { labelCx: number; labelLy: number } {
         const fp = _footprint(type);
         const hw = (fp.w / 2) * ppu;
         const hl = (fp.l / 2) * ppu;
@@ -420,7 +471,7 @@ export class FurniturePlanToolHandler implements PlanToolHandler {
         ctx.moveTo(sx, sy - hl - 4); ctx.lineTo(sx, sy + hl + 4);
         ctx.stroke();
 
-        this._drawLabelAndHint(ctx, type, sx, sy + hl + 14, cssH);
+        return { labelCx: sx, labelLy: sy + hl + 14 };
     }
 
     /**
@@ -434,8 +485,7 @@ export class FurniturePlanToolHandler implements PlanToolHandler {
         sx:   number,
         sy:   number,
         ppu:  number,
-        cssH: number,
-    ): void {
+    ): { labelCx: number; labelLy: number } {
         const fp = _footprint(type);
         // CornerSofaBuilder defaults: widthMain=data.width, lengthSide=data.length,
         // seatDepth*=0.90 m. Mirror those exactly so preview == placed symbol.
@@ -514,7 +564,7 @@ export class FurniturePlanToolHandler implements PlanToolHandler {
         // anchor — keeps the text readable when the cursor is at a wall.
         const labelCx = sx + (widthMain  / 2) * ppu;
         const labelLy = sy + lengthSide  * ppu + 14;
-        this._drawLabelAndHint(ctx, type, labelCx, labelLy, cssH);
+        return { labelCx, labelLy };
     }
 
     /** Shared label + bottom-left hint rendering. */
@@ -536,12 +586,14 @@ export class FurniturePlanToolHandler implements PlanToolHandler {
         ctx.textBaseline = 'middle';
         ctx.fillText(labelText, labelCx, labelLy);
 
-        // Hint at bottom-left
+        // Hint at bottom-left — §FEAT-PLACEMENT-SPACEBAR-ROTATE surfaces the
+        // SPACE-to-rotate affordance and the live orientation.
         ctx.font         = '11px sans-serif';
         ctx.fillStyle    = 'rgba(30,58,138,0.85)';
         ctx.textAlign    = 'left';
         ctx.textBaseline = 'bottom';
-        ctx.fillText('Click to place · Esc to cancel', 12, cssH - 12);
+        const deg = ((this._rotation.degrees() % 360) + 360) % 360;
+        ctx.fillText(`Click to place · Space to rotate (${deg}°) · Esc to cancel`, 12, cssH - 12);
     }
 
     private _clearOverlay(): void {

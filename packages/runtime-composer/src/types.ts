@@ -1258,6 +1258,12 @@ export interface RuntimeEvents {
       readonly y: number;
       readonly z: number;
     };
+    /**
+     * §FEAT-PLACEMENT-SPACEBAR-ROTATE (ADR-0105) — pre-placement yaw (radians,
+     * about world-up Y) chosen by pressing SPACE during click-to-place. Optional
+     * / defaults to 0 so plain drag-drop (no preview rotation) is unaffected.
+     */
+    readonly rotationY?: number;
   };
 
   /** Emitted by FurnitureSidePanel when the user clicks a GLB catalog card to

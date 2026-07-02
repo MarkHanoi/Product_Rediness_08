@@ -12,6 +12,11 @@ import { JapaneseBedBuilder } from './builders/JapaneseBedBuilder';
 import type { BedVariant } from './engines/BedEngine';
 import { MaterialService } from './MaterialService';
 import { PREVIEW_COLOR, OBJECT_PREVIEW_OPACITY, createObjectPreviewMaterial, tagPreview } from '@pryzm/core-app-model';
+// §FEAT-PLACEMENT-SPACEBAR-ROTATE (ADR-0105) — shared SPACE-to-rotate state.
+// The 3D FurnitureTool already owns document-level listeners, so it uses the
+// state's own attach()/detach() key handler (installed on activate, removed on
+// deactivate) and applies rotationY() to the live ghost + the create payload.
+import { PrePlacementRotation } from '@pryzm/core-app-model';
 
 export class FurnitureTool {
     private isActive = false;
@@ -25,6 +30,15 @@ export class FurnitureTool {
     private isDrawing = false;
     private drawingStep = 0;
     private _getDescriptor: (type: string) => any;
+
+    // §FEAT-PLACEMENT-SPACEBAR-ROTATE — cumulative +90°/press pre-placement yaw
+    // for simple point-placed furniture (single click). Re-renders the ghost via
+    // the existing MANUAL-mode needsUpdate hook (no new rAF — P3). The wardrobe /
+    // corner-wardrobe multi-click gestures derive their own facing from the drawn
+    // baseline, so SPACE rotation only applies to the single-click branch.
+    private readonly _rotation = new PrePlacementRotation({
+        onChange: () => this._applyPreviewRotation(),
+    });
 
     constructor(
         private world: OBC.World,
@@ -44,6 +58,9 @@ export class FurnitureTool {
         if (this.isActive) {
             this.removePreview();
             this.createPreview();
+            // §FEAT-PLACEMENT-SPACEBAR-ROTATE — carry the current yaw onto the
+            // freshly-built ghost so switching type keeps the chosen orientation.
+            this._applyPreviewRotation();
         }
     }
 
@@ -54,6 +71,10 @@ export class FurnitureTool {
         this.isDrawing = false;
         this._escListener = (e: KeyboardEvent) => { if (e.key === 'Escape') this.deactivate(); };
         document.addEventListener('keydown', this._escListener);
+        // §FEAT-PLACEMENT-SPACEBAR-ROTATE — start each session at 0° and install
+        // the SPACE key handler (auto-removed on deactivate → no leak after Esc).
+        this._rotation.reset();
+        this._rotation.attach();
         this.attachListeners();
         this.createPreview();
     }
@@ -67,8 +88,31 @@ export class FurnitureTool {
             document.removeEventListener('keydown', this._escListener);
             this._escListener = null;
         }
+        // §FEAT-PLACEMENT-SPACEBAR-ROTATE — remove SPACE handler + reset yaw.
+        this._rotation.detach();
+        this._rotation.reset();
         this.detachListeners();
         this.removePreview();
+    }
+
+    /**
+     * §FEAT-PLACEMENT-SPACEBAR-ROTATE — re-apply the current SPACE yaw to the
+     * live single-click ghost and request a redraw. No-op during the wardrobe /
+     * corner-wardrobe multi-click gestures (their orientation is baseline-driven)
+     * and while WebGPU is active (guards ShadowDepthTexture — see onPointerMove).
+     */
+    private _applyPreviewRotation() {
+        if (!this.previewMesh) return;
+        const isWardrobeGesture =
+            this.furnitureType === 'corner_wardrobe' ||
+            this.furnitureType === 'wardrobe' ||
+            this.furnitureType === 'wardrobe_glass_door';
+        if (isWardrobeGesture) return;
+        this.previewMesh.rotation.set(0, this._rotation.rotationY(), 0);
+        const renderer = this.world.renderer as any;
+        if (renderer && renderer.mode === OBC.RendererMode.MANUAL && 'needsUpdate' in renderer && !window.pryzmCanvas) {
+            renderer.needsUpdate = true;
+        }
     }
 
     /**
@@ -522,7 +566,9 @@ export class FurnitureTool {
             } else {
                 this.previewMesh.position.copy(point);
                 this.previewMesh.scale.set(1, 1, 1);
-                this.previewMesh.rotation.set(0, 0, 0);
+                // §FEAT-PLACEMENT-SPACEBAR-ROTATE — preserve the SPACE-chosen yaw
+                // as the cursor moves (previously hard-reset to 0 every move).
+                this.previewMesh.rotation.set(0, this._rotation.rotationY(), 0);
             }
 
             // Phase 5 guard: skip needsUpdate when WebGPU canvas is active.
@@ -708,7 +754,11 @@ export class FurnitureTool {
                 commandManager.execute(new CreateFurnitureCommand({
                     furnitureType: this.furnitureType,
                     position: { x: point.x, y: point.y, z: point.z },
-                    rotation: { x: 0, y: 0, z: 0 },
+                    // §FEAT-PLACEMENT-SPACEBAR-ROTATE (ADR-0105): commit the
+                    // SPACE-chosen yaw about world-up so the placed mesh matches
+                    // the ghost the user oriented before clicking. Legacy
+                    // CreateFurnitureCommand takes a Vec3 Euler — lift yaw into .y.
+                    rotation: { x: 0, y: this._rotation.rotationY(), z: 0 },
                     levelId: levelId,
                     baseOffset: baseOffset,
                     width: width,

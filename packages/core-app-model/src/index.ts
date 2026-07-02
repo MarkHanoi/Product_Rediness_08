@@ -621,6 +621,17 @@ export {
     createFootprintLine,
 } from './preview/PreviewStyle.js';
 
+// ── §FEAT-PLACEMENT-SPACEBAR-ROTATE (ADR-0105) — shared SPACE-to-rotate state ──
+// Single source of truth for one-click placement pre-rotation (furniture, GLB
+// carousel drops, plumbing, lighting, …). Each placement tool constructs ONE
+// instance, attach()es on activate / detach()es on deactivate, reads
+// rotationY() for the live ghost + the create-command `rotation` payload.
+export type { PrePlacementRotationOptions } from './preview/PrePlacementRotation.js';
+export {
+    PrePlacementRotation,
+    PRE_PLACEMENT_ROTATION_STEP,
+} from './preview/PrePlacementRotation.js';
+
 // ── Sprint AB (2026-05-12) — ToolName + ToolState ────────────────────────────
 export type { ToolName } from './tool-types.js';
 export { ToolState } from './tool-types.js';
