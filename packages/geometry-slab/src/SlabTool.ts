@@ -1319,7 +1319,19 @@ export class SlabTool {
     private showRegionPreview(polygon: THREE.Vector2[]): void {
         this.clearRegionPreview();
 
-        const shape = new THREE.Shape(polygon);
+        // §FIX-SLAB-REGION-PREVIEW-MIRROR — the region ring is world XZ
+        // (Vector2.x=worldX, Vector2.y=worldZ), but the mesh is a shape in the
+        // XY plane rotated by rotation.x = -π/2, which maps local-Y → world -Z.
+        // Feeding worldZ straight into the shape's Y therefore NEGATES Z and
+        // mirrored the whole preview through the origin (founder's L-32 ghost),
+        // even though the commit path (createSlabFromPolygon) uses the ring
+        // as-is and lands correctly. The polyline fill preview already handles
+        // this by pre-negating Z (shape.lineTo(x, -z)); do the same here so the
+        // -π/2 rotation cancels the sign and world Z is preserved. The commit
+        // still receives the un-negated candidatePolygon, so it is unaffected.
+        const shape = new THREE.Shape(
+            polygon.map((p) => new THREE.Vector2(p.x, -p.y)),
+        );
         const geometry = new THREE.ShapeGeometry(shape);
         const material = new THREE.MeshBasicMaterial({
             color: PREVIEW_COLOR.PRIMARY,
