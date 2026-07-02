@@ -47,6 +47,9 @@ an empty project and a heavy one, without freezes or stutter.
 | L-15 | founder | **Properties panel must be professional** — remove stray lines, absolute alignment, organic to use | UI | BROKEN→FIXED | ADR-0103 §FIX-PROPERTIES-PANEL-POLISH (batch 2) |
 | L-16 | founder | **Spacebar rotates the preview element 90° CW during placement** (all placeable elements, 3D+plan) until click/Enter commit / Esc cancel | Modeling/Creation | GAP | queued; extends F5/Q7; C06/C11 |
 | L-17 | founder | **Every element needs a "change type" dropdown** to swap it for another type (e.g. sofa→another sofa). Exists for walls (WALL TYPE) but **doesn't work for existing placed elements** — select an element → replace with a different type | Editing/Types | GAP | queued; C11/C03/C16 |
+| L-20 | founder | **Placement preview must appear IMMEDIATELY** on element select — the ghost only shows AFTER the first click (which already creates the element), so the 1st placement has no preview. ALL placeable elements, 3D+plan | Modeling/Creation | BROKEN→FIXED | §FIX-PLACEMENT-PREVIEW — parametric kitchen/wardrobe now build the ghost on `activate()` (before any click); other flows already showed on first move. Per-flow table §3.2. C06/C11/C18 |
+| L-21 | founder | **Placement preview geometry must be PRECISELY ACCURATE** — a huge rectangle shows for a tiny bedside table; the ghost box doesn't match the element's real footprint/size (placeholder-box default when GLB 404s). Audit all elements | Modeling/Creation | BROKEN→FIXED | §FIX-PLACEMENT-PREVIEW — carousel GLB click-to-place now sizes the ghost from the descriptor's declared footprint (was fixed 1×1×1 even on GLB 404); parametric ghosts track the config; plan/3D already registry-sized. Per-flow table §3.2. C06/C11/C18 |
+| L-23 | founder | **SPACE-to-rotate must work for PARAMETRIC placement too** — shipped for simple furniture (ADR-0107) but L-shape wardrobe / kitchen said "Press R to rotate" (a separate forked flow). Make ALL placeable elements rotate on SPACE consistently | Modeling/Creation | BROKEN→FIXED | §FIX-PARAMETRIC-SPACE-ROTATE — KitchenCabinetTool + WardrobeCabinetTool converged on the shared `PrePlacementRotation` (SPACE=+90°, yaw carried to commit); local "R" key removed; panel hints updated. ADR-0107; C06/C11 |
 | _next_ | | _append here_ | | | |
 
 ---
@@ -66,7 +69,25 @@ an empty project and a heavy one, without freezes or stutter.
 - Dual-write/bus-bridge paths verified for walls/curtain-walls/doors/windows/slabs/floors/roofs/stairs/columns/
   beams/plumbing/lighting (ADR-0098 §4, prior audit §3). Hardened door/window creation fallback (§DPT/§WPT).
 - Issue: **L-09** wall-draw preview stutter (creation *interaction*, not the command).
-- Contract: C11, C15.
+- **Placement preview (L-20/L-21/L-23) — FIXED (`§FIX-PLACEMENT-PREVIEW` / `§FIX-PARAMETRIC-SPACE-ROTATE`).**
+  Every point-placed flow now (a) shows its ghost IMMEDIATELY on tool activation / first pointer-move, (b) sizes
+  the ghost from the element's real/parametric footprint (never a fixed default box), and (c) rotates on **SPACE**
+  (+90° CW, cumulative) via the shared `PrePlacementRotation` (ADR-0107) — including the parametric kitchen /
+  wardrobe RUNS, which previously forked a local "R" key. Per-flow verdict table below.
+
+  | Placement flow | File | (a) immediate preview | (b) accurate-size ghost | (c) SPACE-rotate |
+  |---|---|---|---|---|
+  | 3D simple furniture | `geometry-furniture/FurnitureTool.ts` | ✅ built on `activate()` | ✅ real builders / descriptor bbox | ✅ `PrePlacementRotation.attach()` |
+  | Carousel GLB click-to-place | `apps/editor/.../FurnitureDragDropHandler.ts` | ✅ on arm + first move | ✅ **fixed** — now uses the descriptor's declared footprint (was fixed 1×1×1 box even when GLB 404s) | ✅ |
+  | Plan-view furniture | `apps/editor/.../FurniturePlanToolHandler.ts` | ✅ `onMouseMove` | ✅ `FOOTPRINTS` + registry descriptor | ✅ SPACE via overlay-routed `onKeyDown` |
+  | **3D kitchen run (parametric)** | `apps/editor/.../KitchenCabinetTool.ts` | ✅ `_buildPreview()` on `activate()` | ✅ parametric config → main+arm boxes | ✅ **converged** — was local "R" key |
+  | **3D wardrobe run (parametric)** | `apps/editor/.../WardrobeCabinetTool.ts` | ✅ `_buildPreview()` on `activate()` | ✅ parametric config → main+arm boxes | ✅ **converged** — was local "R" key |
+  | Plan plumbing | `apps/editor/.../PlumbingPlanToolHandler.ts` | ✅ | ✅ variant-driven footprint | N/A — wall-hosted (side/flip, not free spin; C15) |
+  | Plan lighting | `apps/editor/.../LightingPlanToolHandler.ts` | ✅ | ✅ symbol-accurate | N/A — radially symmetric fixtures |
+  | Wall-hosted door/window | door/window tools | ✅ | ✅ | N/A — deliberately excluded (C15 — rotation = host side/flip) |
+
+  Config-panel hint text updated "Press R to rotate" → "Press Space to rotate 90°" for both parametric panels.
+- Contract: C11, C15; C06 (tools); C18/§41 (Object Placement Preview Standard §7 — pre-placement rotation); ADR-0107.
 
 ### 3.3 Element editing — move / rotate / dimensions / materials / hosting — **CORE GAPS**
 - **Movement**: wall=`UpdateWallBaselineCommand`, door/window=offset, furniture=params — non-uniform (F8).

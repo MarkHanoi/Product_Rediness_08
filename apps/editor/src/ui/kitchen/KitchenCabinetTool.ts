@@ -29,6 +29,13 @@ import {
     buildDefaultKitchenConfig,
 } from '@pryzm/geometry-furniture';
 import { createObjectPreviewMaterial } from '@pryzm/core-app-model';
+// §FIX-PARAMETRIC-SPACE-ROTATE (ADR-0107 / §FEAT-PLACEMENT-SPACEBAR-ROTATE) —
+// converge the parametric kitchen-run placement on the SAME shared SPACE-to-
+// rotate state used by FurnitureTool / FurnitureDragDropHandler / the plan
+// handlers, replacing the forked local "R" key. SPACE = +90° cumulative; the
+// accumulated yaw is applied to the live ghost (onChange) AND committed on the
+// furniture.create payload so preview orientation ≡ placed orientation.
+import { PrePlacementRotation } from '@pryzm/core-app-model';
 
 let _idCounter = 0;
 function newId(): string { return `kitchen_${Date.now()}_${_idCounter++}`; }
@@ -48,6 +55,14 @@ export class KitchenCabinetTool {
 
     private readonly _raycaster = new THREE.Raycaster();
     private readonly _pointer   = new THREE.Vector2();
+
+    // §FIX-PARAMETRIC-SPACE-ROTATE — cumulative +90°/SPACE-press yaw about
+    // world-up. onChange re-orients the live ghost even when the pointer is
+    // stationary. Installed via attach()/detach() on activate/deactivate so
+    // SPACE never leaks after commit / Esc / tool-switch.
+    private readonly _rotation = new PrePlacementRotation({
+        onChange: () => this._applyPreviewRotation(),
+    });
 
     /** Phase B (S73-WIRE) — runtime threaded by parent. */
     public readonly runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null;
@@ -123,6 +138,12 @@ export class KitchenCabinetTool {
     activate(): void {
         if (this._active) return;
         this._active = true;
+        // §FIX-PARAMETRIC-SPACE-ROTATE — start each session at 0° and install the
+        // shared SPACE key handler (removed on deactivate → no leak). §FIX-
+        // PLACEMENT-PREVIEW (L-20): the ghost is built here on activate — BEFORE
+        // the first pointer-move/click — so the preview is visible immediately.
+        this._rotation.reset();
+        this._rotation.attach();
         this._buildPreview();
         this._attachListeners();
         window.runtime?.events?.emit('bim-tool-changed', { tool: 'kitchen_cabinet' }); // F.events.8
@@ -131,6 +152,9 @@ export class KitchenCabinetTool {
     deactivate(): void {
         if (!this._active) return;
         this._active = false;
+        // §FIX-PARAMETRIC-SPACE-ROTATE — remove SPACE handler + reset yaw.
+        this._rotation.detach();
+        this._rotation.reset();
         this._removePreview();
         this._detachListeners();
         window.runtime?.events?.emit('bim-tool-changed', { tool: null }); // F.events.8
@@ -182,6 +206,9 @@ export class KitchenCabinetTool {
         }
 
         group.userData.isPreview = true;
+        // §FIX-PARAMETRIC-SPACE-ROTATE — carry the current SPACE yaw onto the
+        // freshly-built ghost so a config change (rebuild) keeps the orientation.
+        group.rotation.y = this._rotation.rotationY();
         scene.add(group);
         this._preview = group;
     }
@@ -189,6 +216,21 @@ export class KitchenCabinetTool {
     private _rebuildPreview(): void {
         this._removePreview();
         this._buildPreview();
+    }
+
+    /**
+     * §FIX-PARAMETRIC-SPACE-ROTATE — re-apply the current yaw to the live ghost
+     * when SPACE is pressed while the pointer is stationary (PrePlacementRotation
+     * onChange). Reuses the renderer's MANUAL-mode needsUpdate hook (no new rAF —
+     * P3), guarded off the WebGPU/ShadowDepthTexture path.
+     */
+    private _applyPreviewRotation(): void {
+        if (!this._preview) return;
+        this._preview.rotation.y = this._rotation.rotationY();
+        const renderer = this._world.renderer as any;
+        if (renderer && renderer.mode === OBC.RendererMode.MANUAL && 'needsUpdate' in renderer && !window.pryzmCanvas) {
+            renderer.needsUpdate = true;
+        }
     }
 
     private _removePreview(): void {
@@ -251,11 +293,12 @@ export class KitchenCabinetTool {
             this._placeKitchen(pt);
         };
 
+        // §FIX-PARAMETRIC-SPACE-ROTATE — Esc still deactivates here; the +90°
+        // rotation is now handled by the shared PrePlacementRotation SPACE
+        // listener (installed in activate()), so the forked local "R" key is
+        // removed and rotation is consistent with every other placement flow.
         this._onKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape') this.deactivate();
-            if (e.key === 'r' || e.key === 'R') {
-                if (this._preview) this._preview.rotation.y += Math.PI / 2;
-            }
         };
 
         canvas.addEventListener('pointermove', this._onPointerMove);
@@ -290,7 +333,10 @@ export class KitchenCabinetTool {
             return;
         }
 
-        const rotY = this._preview?.rotation.y ?? 0;
+        // §FIX-PARAMETRIC-SPACE-ROTATE — read the accumulated yaw from the shared
+        // PrePlacementRotation state (single source of truth) so the committed
+        // run carries exactly the orientation the user chose via SPACE.
+        const rotY = this._rotation.rotationY();
 
         // Ensure units array is properly populated
         const existing = this._config.units ?? [];

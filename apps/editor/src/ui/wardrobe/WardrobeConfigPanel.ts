@@ -153,7 +153,9 @@ export class WardrobeConfigPanel {
         // Hint
         const hint = document.createElement('div');
         hint.style.cssText = 'font-size:9px;color:var(--app-text-muted,#888);line-height:1.4;';
-        hint.textContent = 'Click on the floor to place. Press R to rotate, Esc to cancel.';
+        // §FIX-PARAMETRIC-SPACE-ROTATE — SPACE (not R) now rotates the preview,
+        // consistent with every other placement flow (ADR-0107).
+        hint.textContent = 'Click on the floor to place. Press Space to rotate 90°, Esc to cancel.';
         panel.appendChild(hint);
 
         // Divider

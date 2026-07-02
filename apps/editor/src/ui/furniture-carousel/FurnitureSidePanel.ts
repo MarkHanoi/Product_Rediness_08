@@ -353,7 +353,17 @@ export class FurnitureSidePanel {
         if (item.glbPath) {
             const accessWindow = window as FurnitureAccessWindow;
             accessWindow._pryzmActiveFurnitureType = item.glbPath;
-            window.runtime?.events?.emit('fc-place-glb-start', { path: item.glbPath, label: item.label }); // F.events.12
+            // §FIX-PLACEMENT-PREVIEW (L-21) — forward the descriptor's declared
+            // footprint so the click-to-place ghost is sized to the real item,
+            // not a generic 1 m box (matters most when the GLB 404s).
+            const d = item.defaultDimensions;
+            window.runtime?.events?.emit('fc-place-glb-start', {
+                path: item.glbPath,
+                label: item.label,
+                dimensions: d
+                    ? { width: d.width, length: d.length, height: d.height, baseOffset: d.baseOffset }
+                    : undefined,
+            }); // F.events.12
             accessWindow.furnitureCarousel?.setVisible?.(false);
             return;
         }

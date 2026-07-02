@@ -99,8 +99,41 @@ placement is deliberately excluded: there "rotation" means host-side / flip, not
   first-class rotation gizmo (F5/Q7) can be built independently without reworking this.
 - **Neutral:** the GLB `fc-add-glb` event gained an optional `rotationY` (defaults to 0 — plain
   drag-drop, which has no preview rotation, is unaffected).
-- **Follow-up (F5/Q7):** post-placement rotation (select-then-rotate with a gizmo/handle) and
-  extending `PrePlacementRotation.attach()` into the plumbing and lighting tools remain open.
+- **Follow-up (F5/Q7):** post-placement rotation (select-then-rotate with a gizmo/handle) remains open.
+  Extending `PrePlacementRotation.attach()` into the plumbing and lighting tools also remains open —
+  those flows are wall-hosted / radially-symmetric, so pre-placement 90° spin is low-value there.
+
+## Amendment (2026-07-02) — `§FIX-PARAMETRIC-SPACE-ROTATE` (founder L-20/L-21/L-23)
+
+The original decision converged the three *simple* one-click flows. The **parametric** placement
+tools — `apps/editor/src/ui/kitchen/KitchenCabinetTool.ts` and
+`apps/editor/src/ui/wardrobe/WardrobeCabinetTool.ts` — were a separate flow that forked their **own
+local "R" key** (`preview.rotation.y += π/2`) and read the yaw off the live preview mesh at commit.
+That violated the "single source of truth" intent and gave the user an inconsistent keybinding
+("Press R to rotate" in the config panel vs. SPACE everywhere else).
+
+These two tools now **reuse the same `PrePlacementRotation`** (no fork): they `attach()` on
+`activate()` / `detach()` + `reset()` on `deactivate()`; `onChange` re-orients the live ghost even
+when the pointer is stationary; `_buildPreview()` seeds the ghost's `rotation.y` from `rotationY()`
+so a config-driven rebuild keeps the orientation; and `_placeKitchen()` / `_placeWardrobe()` read
+`rotationY()` (not the preview mesh) into the `furniture.create` payload. The local "R" handler is
+removed and both config-panel hints now read "Press Space to rotate 90°".
+
+Two related preview-correctness fixes ship under the same tag (`§FIX-PLACEMENT-PREVIEW`):
+- **L-20 (immediate preview):** the parametric tools build the ghost inside `activate()`, so the
+  preview is visible the instant the tool is armed — before the first pointer-move/click. (The 3D
+  `FurnitureTool` and the plan handlers already did this; the carousel GLB ghost shows on the first
+  move after arming.)
+- **L-21 (accurate size):** the carousel GLB click-to-place ghost previously used a fixed
+  `1×1×1 m` box regardless of the item — the only size cue when the GLB itself 404s. The
+  `fc-place-glb-start` event now carries the catalog descriptor's **declared footprint**
+  (`dimensions`), and `FurnitureDragDropHandler` sizes the ghost from it (falling back to the 1 m
+  block only when no dimensions are supplied). Parametric ghosts are already built from the run
+  config; plan/3D ghosts from the registry/`FOOTPRINTS`.
+
+No API change to `PrePlacementRotation` (class stays stable — a sibling builds the post-placement
+gizmo on it). The per-flow verdict table lives in `docs/04-reference/V1-LAUNCH-READINESS-AUDIT.md`
+§3.2.
 
 ## Verification
 
@@ -108,3 +141,9 @@ placement is deliberately excluded: there "rotation" means host-side / flip, not
 wrap, that commit reads the accumulated yaw, `reset()` on Esc, the form-field guard + `preventDefault`,
 and `detach()` no-leak. 14 assertions (9 pure-logic always-run + 5 DOM-key under happy-dom;
 the DOM block self-skips under the node env core-app-model runs).
+
+`apps/editor/__tests__/ParametricPlacementSpaceRotate.test.ts` (§FIX-PARAMETRIC-SPACE-ROTATE) — 7
+assertions proving the parametric flows' contract without the renderer: the shared rotation is the
+single commit-time yaw source (advance→wrap→`rotationY()`), `onChange` fires on a stationary press,
+`reset()` on deactivate; and the kitchen/wardrobe ghost dimensions track the shared builder config
+(`buildDefaultKitchenConfig` / `buildDefaultWardrobeCabinetConfig`), never a fixed default box.
