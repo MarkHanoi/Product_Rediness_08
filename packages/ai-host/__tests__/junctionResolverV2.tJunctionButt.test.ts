@@ -251,3 +251,100 @@ describe('JunctionResolverV2 — §FIX-WALL-TJUNCTION-BUTT-2 (footprint has no a
         expect(Math.min(...fp.polygon.map(v => v.z))).toBeCloseTo(HALF, 6);
     });
 });
+
+// §FIX-WALL-CLUSTER-DEGENERATE (2026-07-02 — L-27 cluster case) — L-corner + third wall.
+//
+// THE founder defect (this round): two walls already meet at a shared vertex forming an
+// L-corner (both TERMINATE there); a THIRD wall ALSO terminates at that same vertex. When
+// the third wall is a genuine full-length wall the ring sweep tiles the 3-way node cleanly
+// (a proper Y — verified below: all positive-area, edge-coincident, shared pivot). The black
+// spike appears ONLY when a wall is SHORTER than the cluster band (0.20 m): BOTH its endpoints
+// snap into the SAME junction cluster, so the ring sweep hinges both ends on one pivot and
+// produces a BOW-TIE / negative-area (inverted-normal) footprint — the founder's "black
+// triangular spike" at the corner. Worse, that degenerate member distorts the OTHER walls'
+// corners too. Fix: detect a wall whose both endpoints are members of one cluster, STRIP it
+// from every junction (so the real walls' sweep is clean), and mark it `invalid` so the
+// builder skips its mesh (mirrors the legacy WallJoinResolver §WJR-INVALID). Genuine
+// multi-wall clusters never double a member, so full-length N-way L/T/Y/X nodes are untouched.
+describe('JunctionResolverV2 — §FIX-WALL-CLUSTER-DEGENERATE (L-corner + third/stub wall)', () => {
+    const T = 0.2;
+    const HALF = T / 2;
+
+    const signedArea = (poly: readonly Pt2[]): number => {
+        let s = 0;
+        for (let i = 0; i < poly.length; i++) { const a = poly[i]!, b = poly[(i + 1) % poly.length]!; s += a.x * b.z - b.x * a.z; }
+        return s / 2;
+    };
+
+    // A: (0,0)→(5,0), B: (5,0)→(5,4) — a clean L at (5,0). C is a tiny stub whose BOTH ends
+    // ((5,0) and (5.15,0.05), 0.158 m apart) fall in the 0.20 m cluster band → both snap to the
+    // corner node. (Note 0.158 m > the legacy 0.15 m DEGENERATE_STUB_LENGTH, so ONLY the
+    // both-ends-in-one-cluster criterion catches it — a length gate would not.)
+    const A: WallInput = { id: 'A', start: { x: 0, z: 0 }, end: { x: 5, z: 0 }, thickness: T };
+    const B: WallInput = { id: 'B', start: { x: 5, z: 0 }, end: { x: 5, z: 4 }, thickness: T };
+    const Cstub: WallInput = { id: 'C', start: { x: 5.0, z: 0 }, end: { x: 5.15, z: 0.05 }, thickness: T };
+
+    it('flags the degenerate stub `invalid` and gives it an EMPTY footprint (no spike)', () => {
+        const r = resolveJunctions([A, B, Cstub]);
+        const c = r.find(m => m.id === 'C')!;
+        expect(c.invalid).toBe(true);
+        const fpC = buildWallFootprint(Cstub, c);
+        expect(fpC.invalid).toBe(true);
+        expect(fpC.polygon).toHaveLength(0);   // nothing to extrude → builder skips the mesh
+    });
+
+    it('the L-corner walls A & B render CLEANLY (positive area; the stub no longer distorts them)', () => {
+        const r = resolveJunctions([A, B, Cstub]);
+        const fpA = buildWallFootprint(A, r.find(m => m.id === 'A')!);
+        const fpB = buildWallFootprint(B, r.find(m => m.id === 'B')!);
+        // Both are positive-area (CCW, no bow-tie) and share the exact L-corner.
+        expect(signedArea(fpA.polygon)).toBeGreaterThan(0);
+        expect(signedArea(fpB.polygon)).toBeGreaterThan(0);
+        const has = (fp: { polygon: readonly Pt2[] }, q: Pt2) =>
+            fp.polygon.some(p => Math.abs(p.x - q.x) < 1e-6 && Math.abs(p.z - q.z) < 1e-6);
+        // The corner pivot (5,0) appears in both — a clean, edge-coincident L.
+        expect(has(fpA, { x: 5, z: 0 })).toBe(true);
+        expect(has(fpB, { x: 5, z: 0 })).toBe(true);
+        // NO A/B vertex spikes far from the corner neighbourhood (pre-fix the stub pushed one
+        // A corner ~0.6 m off, into z=+0.11 / x=4.938). Every vertex stays within extent+miter.
+        for (const p of fpA.polygon) expect(p.x).toBeLessThanOrEqual(5 + T);
+        for (const p of fpB.polygon) expect(Math.abs(p.z)).toBeLessThanOrEqual(4 + T);
+    });
+
+    it('a GENUINE 3-wall junction (three FULL-LENGTH walls co-terminating) is UNAFFECTED — no false positive', () => {
+        // This is the task-report geometry with a full third wall: it TILES cleanly (a proper
+        // Y), so nothing is flagged and every wall keeps a positive-area, shared-pivot footprint.
+        const Cfull: WallInput = { id: 'C', start: { x: 5, z: 0 }, end: { x: 1, z: 4 }, thickness: T };
+        const r = resolveJunctions([A, B, Cfull]);
+        for (const m of r) expect(m.invalid).toBeFalsy();
+        const has = (fp: { polygon: readonly Pt2[] }, q: Pt2) =>
+            fp.polygon.some(p => Math.abs(p.x - q.x) < 1e-6 && Math.abs(p.z - q.z) < 1e-6);
+        for (const w of [A, B, Cfull]) {
+            const fp = buildWallFootprint(w, r.find(m => m.id === w.id)!);
+            expect(fp.polygon.length).toBeGreaterThanOrEqual(4);
+            expect(signedArea(fp.polygon)).toBeGreaterThan(0);
+            expect(fp.invalid).toBeFalsy();
+            expect(has(fp, { x: 5, z: 0 })).toBe(true);   // edge-coincident shared corner
+        }
+    });
+
+    it('a NEAR-COLLINEAR degenerate stub (both ends in the cluster) is ALSO flagged invalid', () => {
+        const Cnear: WallInput = { id: 'C', start: { x: 5, z: 0 }, end: { x: 4.85, z: 0.02 }, thickness: T };
+        const r = resolveJunctions([A, B, Cnear]);
+        expect(r.find(m => m.id === 'C')!.invalid).toBe(true);
+        // A & B still clean.
+        expect(signedArea(buildWallFootprint(A, r.find(m => m.id === 'A')!).polygon)).toBeGreaterThan(0);
+        expect(signedArea(buildWallFootprint(B, r.find(m => m.id === 'B')!).polygon)).toBeGreaterThan(0);
+    });
+
+    it('REGRESSION: a plain 2-wall L-corner is byte-unchanged (never flagged invalid)', () => {
+        const r = resolveJunctions([A, B]);
+        expect(r.find(m => m.id === 'A')!.invalid).toBeFalsy();
+        expect(r.find(m => m.id === 'B')!.invalid).toBeFalsy();
+        const fpA = buildWallFootprint(A, r.find(m => m.id === 'A')!);
+        expect(fpA.polygon).toHaveLength(5);
+        expect(fpA.polygon.some(p => Math.abs(p.x - 5) < 1e-6 && Math.abs(p.z) < 1e-6)).toBe(true);
+        // Corner offset ±HALF present.
+        expect(fpA.polygon.some(p => Math.abs(p.z - HALF) < 1e-6)).toBe(true);
+    });
+});
