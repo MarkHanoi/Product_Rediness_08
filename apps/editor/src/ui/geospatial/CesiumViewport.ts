@@ -516,6 +516,17 @@ export class CesiumViewport {
   /** Monotonic token serialising overlapping async terrain samples — only the
    *  latest placement's clamp is allowed to commit (newer placement wins). */
   private formaTerrainToken = 0;
+  /** §CESIUM-REALMODEL-TOKEN — monotonic tokens serialising overlapping async
+   *  real-model placements (GLB export → `Cesium.Model.fromGltfAsync` → add). Two
+   *  rapid view toggles could each await the model load and BOTH add a primitive
+   *  (duplicate / stale model) — `clearRealModelOn*` alone is last-write-wins and
+   *  cannot see that a NEWER placement started after this one's await began. Each
+   *  render bumps its token at the start, captures `myToken` locally, and bails
+   *  after the await (before mutating the scene) when a newer placement superseded
+   *  it — mirroring the `formaTerrainToken` guard. Separate Forma/Globe tokens
+   *  because the two views track SEPARATE primitives and can place independently. */
+  private realModelOnFormaToken = 0;
+  private realModelOnGlobeToken = 0;
   /** §GLOBE-FIRST-FRAME-BASE — the initial camera framing (`frameCentroid:true`)
    *  fires SYNCHRONOUSLY in `renderFormaMassing`, BEFORE the async terrain/tile
    *  height sample has resolved, so it frames at the stale `formaTerrainBaseHeight`
@@ -6040,6 +6051,9 @@ export class CesiumViewport {
       console.warn('[CesiumViewport][globe] renderRealModelOnGlobe: no GLB url — ignored.');
       return false;
     }
+    // §CESIUM-REALMODEL-TOKEN — claim this placement; a rapid re-toggle that starts
+    // AFTER us bumps the token, so our post-await guard drops this now-stale build.
+    const myToken = ++this.realModelOnGlobeToken;
     try {
       // Keep the photoreal sun-driven shadows on (same as the keepPhotoreal massing
       // path) so the real model grounds itself on the tiles.
@@ -6098,7 +6112,10 @@ export class CesiumViewport {
       });
 
       // A re-toggle may have torn the viewer down while the GLB parsed — bail.
-      if (!this.viewer) {
+      // §CESIUM-REALMODEL-TOKEN — also bail if a NEWER placement superseded us while
+      // the GLB parsed (`myToken` stale) or the viewer is no longer live: the newer
+      // call owns the primitive, so adding ours would duplicate / leave a stale model.
+      if (!this.viewer || myToken !== this.realModelOnGlobeToken || !this.isViewerLive()) {
         if (!newModel.isDestroyed()) newModel.destroy();
         return false;
       }
@@ -6255,6 +6272,9 @@ export class CesiumViewport {
       console.warn('[CesiumViewport][forma6] renderRealModelOnForma: no GLB url — ignored.');
       return false;
     }
+    // §CESIUM-REALMODEL-TOKEN — claim this placement; a rapid re-toggle that starts
+    // AFTER us bumps the token, so our post-await guard drops this now-stale build.
+    const myToken = ++this.realModelOnFormaToken;
     try {
       const baseHeight =
         typeof input.baseHeight === 'number' && Number.isFinite(input.baseHeight)
@@ -6281,7 +6301,10 @@ export class CesiumViewport {
       });
 
       // A re-toggle may have torn the viewer down while the GLB parsed — bail.
-      if (!this.viewer) {
+      // §CESIUM-REALMODEL-TOKEN — also bail if a NEWER placement superseded us while
+      // the GLB parsed (`myToken` stale) or the viewer is no longer live: the newer
+      // call owns the primitive, so adding ours would duplicate / leave a stale model.
+      if (!this.viewer || myToken !== this.realModelOnFormaToken || !this.isViewerLive()) {
         if (!newModel.isDestroyed()) newModel.destroy();
         return false;
       }
