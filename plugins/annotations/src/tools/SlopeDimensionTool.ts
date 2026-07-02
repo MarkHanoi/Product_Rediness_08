@@ -25,6 +25,7 @@ import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
 import { makeAnnotationElement } from '../subsystem/AnnotationTypes';
 import { makePointRef, makeRef, resolveReferenceToPoint, ResolverStores, StableReference } from '../subsystem/AnnotationReference';
+import { persistAnnotation } from './persistAnnotation';
 import { BIM_LAYER } from '@pryzm/scene-committer';
 
 export enum SlopeDimToolState {
@@ -203,6 +204,11 @@ export class SlopeDimensionTool {
             { slopeRatio, slopePercent, unit: 'percent' }
         );
 
+        // §G9-PERSIST: write the FULL element (modelPoints/refs/params) to the
+        // subsystem annotationStore via the authoritative command path so the
+        // slope dim actually renders and survives save/load. The bus telemetry
+        // below only carries id/viewId/kind and writes a different store.
+        persistAnnotation(element);
         // P13 (A36): typed payload so AnnotationsState receives the correct id/viewId/kind.
         if (window.runtime?.bus) { window.runtime.bus.executeCommand('annotation.create', { id: element.id, viewId: element.ownerViewId, kind: element.type as any }).catch(() => {}); }
         console.log(

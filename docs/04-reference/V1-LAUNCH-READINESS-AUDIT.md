@@ -46,7 +46,11 @@ an empty project and a heavy one, without freezes or stutter.
 | L-14 | founder | **Floor Finish default assembly thickness should = base offset** (avoid overlap; user-overridable) | Creation | GAP | queued; C11/C03 |
 | L-15 | founder | **Properties panel must be professional** — remove stray lines, absolute alignment, organic to use | UI | BROKEN→FIXED | ADR-0103 §FIX-PROPERTIES-PANEL-POLISH (batch 2) |
 | L-16 | founder | **Spacebar rotates the preview element 90° CW during placement** (all placeable elements, 3D+plan) until click/Enter commit / Esc cancel | Modeling/Creation | GAP | queued; extends F5/Q7; C06/C11 |
-| L-17 | founder | **Every element needs a "change type" dropdown** to swap it for another type (e.g. sofa→another sofa). Exists for walls (WALL TYPE) but **doesn't work for existing placed elements** — select an element → replace with a different type | Editing/Types | GAP | queued; C11/C03/C16 |
+| L-17 | founder | **Every element needs a "change type" dropdown** to swap it for another type (e.g. sofa→another sofa). Exists for walls (WALL TYPE) but **doesn't work for existing placed elements** — select an element → replace with a different type | Editing/Types | SHIPPED | ADR-0105 §FEAT-ELEMENT-CHANGE-TYPE (batch 3) |
+| L-18 | founder | **Duplicate furniture on open** — moving a sofa reveals an identical one underneath (collab catch-up re-creates already-placed furniture; dedup covers rooms/slabs/floors but not furniture) | Save/Load/Collab | BROKEN | agent acc09ea (C08) / §FIX-CATCHUP-DUPLICATE-CREATE |
+| L-19 | founder | **Rotate gizmo shows full 3-axis sphere** — most elements only rotate about the VERTICAL axis (yaw); need single-axis default + per-type exceptions (roof/beam slope) | Editing/Rotation | GAP | routed to Rotate agent (a476739); C16/C11/C03 |
+| L-20 | founder | **Placement preview must appear IMMEDIATELY** on element select — currently the ghost only shows AFTER the first click (which already creates the element), so the 1st placement has no preview. Applies to ALL placeable elements (furniture, windows, …) | Modeling/Creation | BROKEN | queued → preview agent; C06/C11/C18 |
+| L-21 | founder | **Placement preview geometry must be PRECISELY ACCURATE** — a huge rectangle shows for a tiny bedside table; the ghost box doesn't match the element's real footprint/size (placeholder-box default when GLB 404s). Audit all elements | Modeling/Creation | BROKEN | queued → preview agent; C06/C11/C18 |
 | _next_ | | _append here_ | | | |
 
 ---
@@ -114,12 +118,39 @@ an empty project and a heavy one, without freezes or stutter.
 - Contract: C04, C06, C09. Tests: `plugins/annotations/__tests__/section-elevation-mark.test.ts` (6, pins the
   mark-create + `linkedViewId` contract that both fixes depend on).
 
-### 3.6 Annotations & dimensions — **N/V (verify for launch)**
+### 3.6 Annotations & dimensions — **OK (was GAP; fixed §G9-PERSIST 2026-07-02)**
 - Commands: `CreateAnnotationCommand`/`UpdateAnnotation`/`DeleteAnnotation` (seen live), `UpdateElementMarkCommand`;
-  `AnnotationManager` + `OBCAnnotationAdapter` (note: linear/angle/slope annotations "not present in this OBC
-  build — skipping" — **confirm dimension tooling coverage for v1**).
-- **N/V**: placing a linear dimension; editing/deleting; annotation persistence + plan re-projection; tag
-  auto-populate (`RoomTagAutoPopulator`).
+  `AnnotationManager` + `OBCAnnotationAdapter`.
+- **OBC verdict — resolved, not a blocker.** The "linear/angle/slope annotations not present in this OBC build —
+  skipping" logs are BENIGN: `OBCAnnotationAdapter` is a *secondary* front-end that gracefully no-ops when the OBC
+  classes are absent. Every dimension/annotation type has a PRYZM-native tool
+  (`plugins/annotations/src/tools/*`) that does NOT depend on OBC. The absent-OBC path was never the primary path.
+- **Placing a linear dimension — OK.** UI button (`AnnotationRailPanel` → `toolManager.activateLinearDimAnnotation`)
+  and the `D`+`I` shortcut both arm `LinearDimensionAnnotationTool`, whose commit dispatches
+  `CreateAnnotationCommand` via `commandManager` into the subsystem `annotationStore` that the render layer reads and
+  `ProjectSerializer` persists. Verified end-to-end. String/chained dims OK.
+- **Placing a text annotation / tag / other dimension types — was BROKEN, now OK.** ROOT CAUSE found: 13 of 14
+  native tools (`TextNote`, `ElementTag`, `Door/Window/Level` tags, `GridBubble`, `Angular/Slope/Radius/Diameter`
+  dims, `SpotElevation`, `Keynote`, `RevisionCloud`) built the full `AnnotationElement` but only fired the bus
+  telemetry `annotation.create` `{id,viewId,kind}` — which writes a DIFFERENT anchor-keyed Zustand store (per
+  `initBusHandlers.ts` §P3.5-AN) and carries no geometry. They never called `commandManager.execute` /
+  `annotationStore.add`, so the annotation neither rendered nor persisted. Only `LinearDimensionAnnotationTool`
+  (and the mark/scale/north/matchline/datum tools) were wired correctly. **Fix (§G9-PERSIST):** new shared helper
+  `plugins/annotations/src/tools/persistAnnotation.ts` dispatches `CreateAnnotationCommand` through
+  `window.commandManager` (the same authoritative path LinearDim uses → store write + undo/redo); each of the 13
+  tools now calls it before the bus telemetry.
+- **Editing / deleting — OK.** `UpdateAnnotationCommand` / `DeleteAnnotationCommand` mutate the subsystem store with
+  full undo snapshots; dimension edits route through the shared property panel (`AnnotationManager` §ANN-SEL);
+  room-tag drag routes the legacy `UPDATE_ANNOTATION` through `commandManager` (initBusHandlers BUG-ANNO-DRAG fix).
+- **Persistence + plan re-projection — OK.** `annotationStore.serialize()`/`deserialize()` are wired both sides of
+  `ProjectSerializer`/`ProjectLoader` (`annotations` snapshot slice). Plan re-projection is reactive:
+  `AnnotationRenderLayer` subscribes to `store.onChange` and re-reads `getByView(activeViewId)` through the live
+  camera matrix each frame.
+- **Room-tag auto-populate (`RoomTagAutoPopulator`) — OK.** Idempotent create/refresh/delete of `room-tag`
+  annotations via `Create/Update/DeleteAnnotationCommand`; no-op when tags already match (verified live in house/apt
+  gen).
+- **Tests:** `plugins/annotations/__tests__/persist-annotation.test.ts` (9 cases) covers the helper, the
+  create/update/delete + undo lifecycle, view-scoped read (render source), and serialize→deserialize round-trip.
 - Contract: C06, C03.
 
 ### 3.7 Undo / redo — **OK (verify at scale)**
@@ -150,7 +181,7 @@ an empty project and a heavy one, without freezes or stutter.
 | G6 | No ghost/trailing on rotate (both backends) | Q5 queued |
 | G7 | Move + rotate + material editable for every visible element | Q7 queued (F5/F6) |
 | G8 | Create/manage plan+3D+section+elevation views from UI | GREEN — §3.5 verified end-to-end; §FIX-SECTION-MARK-CREATE (section-mark tool no longer no-ops) + §FIX-MARK-NAVIGATE (mark click-to-navigate) shipped |
-| G9 | Place/edit annotations + dimensions | §3.6 verify |
+| G9 | Place/edit annotations + dimensions | GREEN — native path verified; §G9-PERSIST fixed 13 bus-only tools (§3.6) |
 | G10 | Undo/redo sound across all of the above | §3.7 verify at scale |
 
 See the companion plan for the phased path to green.
