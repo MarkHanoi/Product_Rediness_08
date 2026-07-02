@@ -81,7 +81,23 @@ export class PascalSceneLighting {
     /** Lights that were already in the scene and removed by this service */
     private _removedLights: THREE.Light[] = [];
 
+    /**
+     * §PERF-HEAVY-SHADOW-OFF — whether the shadow pass is currently suppressed.
+     *
+     * The key light is the ONLY default shadow caster in the scene. When the scene
+     * is heavy (≥ the coordinator's LARGE_SCENE_SHADOWS_OFF ceiling) or the camera is
+     * actively navigating, clearing `keyLight.castShadow` removes the whole shadow
+     * pass — THREE renders no ShadowDepthTexture and skips every one of the ~12.7k
+     * shadow-caster draws. Reversible via setShadowsSuppressed(false).
+     */
+    private _shadowsSuppressed = false;
+    /** Remembers the key light's configured castShadow so restore is exact. */
+    private _keyLightWantsShadow = false;
+
     get applied(): boolean { return this._applied; }
+
+    /** §PERF-HEAVY-SHADOW-OFF — true while the shadow pass is suppressed. */
+    get shadowsSuppressed(): boolean { return this._shadowsSuppressed; }
 
     /**
      * Injects Pascal's lighting into the Three.js scene.
@@ -163,6 +179,12 @@ export class PascalSceneLighting {
                 (keyLight.shadow as any).intensity = 0.4;
             }
         }
+        // §PERF-HEAVY-SHADOW-OFF — remember the configured intent so we can restore
+        // it exactly after a suppression, then honour any suppression requested by
+        // the tier gate BEFORE the lights existed (apply() may run after the first
+        // applyTierForMeshCount on a pre-warmed renderer).
+        this._keyLightWantsShadow = keyLight.castShadow;
+        if (this._shadowsSuppressed) keyLight.castShadow = false;
         scene.add(keyLight);
         this._keyLight = keyLight;
 
@@ -212,6 +234,46 @@ export class PascalSceneLighting {
     }
 
     /**
+     * §PERF-HEAVY-SHADOW-OFF — suppress (or restore) the whole scene shadow pass.
+     *
+     * The Pascal key light is the sole default shadow caster, so clearing its
+     * `castShadow` makes THREE render NO shadow pass at all — it never allocates or
+     * churns the ShadowDepthTexture and skips shadow draws for every one of the
+     * ~12.7k flagged meshes. This is the correct lever for the 40-storey office,
+     * whose shadow pass (12,737 casters every navigation frame) is the dominant
+     * per-frame cost.
+     *
+     * Why this and not only RenderingPipelineCoordinator's ShadowQualityUpgrader:
+     * the coordinator binds its upgrader to the OBC WebGL renderer (silenced in
+     * Phase 5) and only de-shadows the lights IT snapshotted — it never touches the
+     * Pascal key light nor the live PRYZM WebGPU renderer that actually draws the
+     * shadow pass. So the documented ≥8000-caster ceiling never reached the real
+     * caster. This method closes that gap by acting on the key light directly.
+     *
+     * Idempotent. Safe to call before apply() — the intent is stored and honoured
+     * when the key light is created. Fully reversible: setShadowsSuppressed(false)
+     * restores the light's originally-configured castShadow.
+     *
+     * NOTE: does NOT dispose any GPU texture (respects §SHADOW-DEVICE-LOSS-FIX —
+     * clearing castShadow lets THREE reclaim the shadow map on its own schedule,
+     * never mid-submit).
+     *
+     * @param suppressed  true ⇒ no shadow pass; false ⇒ restore configured shadows.
+     */
+    setShadowsSuppressed(suppressed: boolean): void {
+        if (suppressed === this._shadowsSuppressed) return;
+        this._shadowsSuppressed = suppressed;
+
+        if (this._keyLight) {
+            this._keyLight.castShadow = suppressed ? false : this._keyLightWantsShadow;
+        }
+        console.log(
+            `[PascalSceneLighting] §PERF-HEAVY-SHADOW-OFF shadow pass ` +
+            `${suppressed ? 'SUPPRESSED (key light no longer casts — no shadow pass)' : 'RESTORED'}.`,
+        );
+    }
+
+    /**
      * Restores the scene to its pre-apply() state:
      *   - Removes Pascal lights
      *   - Re-adds the removed OBC lights
@@ -245,6 +307,9 @@ export class PascalSceneLighting {
         this._ambient   = null;
         this._scene     = null;
         this._applied   = false;
+        // §PERF-HEAVY-SHADOW-OFF — forget suppression so the next project is a cold start.
+        this._shadowsSuppressed   = false;
+        this._keyLightWantsShadow = false;
 
         console.log('[PascalSceneLighting] Disposed — scene lighting restored.');
     }
