@@ -982,8 +982,16 @@ export class WallTool {
             // and dimension-input. Only runs when neither higher-priority lock is active.
             if (this.alignmentGuide) {
                 if (!this.snapCycler?.isActive && !this.dimensionInput?.isActive) {
+                    // §FIX-ALIGN-GUIDE-PERPENDICULAR (L-26): pass the current draw
+                    // direction (start → cursor, XZ plane) so the guide prefers the
+                    // axis PERPENDICULAR to the draw and suppresses meaningless
+                    // colinear (same-direction) extension guides.
+                    const drawDir = {
+                        dx: snappedPoint.x - this.startPoint.x,
+                        dz: snappedPoint.z - this.startPoint.z,
+                    };
                     const inference = this.alignmentGuide.update(
-                        this.startPoint, snappedPoint, levelId, elevation
+                        this.startPoint, snappedPoint, levelId, elevation, drawDir
                     );
                     if (inference) {
                         effectiveEnd = inference.snappedPoint;

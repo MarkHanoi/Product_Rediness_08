@@ -57,6 +57,43 @@ export interface AlignmentInference {
     }>;
 }
 
+/**
+ * §FIX-ALIGN-GUIDE-PERPENDICULAR (L-26)
+ *
+ * A guide's *axis* describes the world direction the dashed inference line runs
+ * along:
+ *   - axis 'X'  → a HORIZONTAL guide line (constant z, extends along world-X).
+ *   - axis 'Z'  → a VERTICAL   guide line (constant x, extends along world-Z).
+ *
+ * When the wall being drawn already runs (roughly) along world-X, the 'X' guide
+ * is *colinear* with the draw direction — it merely extends the line the user is
+ * already dragging, which conveys no new information ("meaningless" colinear
+ * guide reported by the founder). The genuinely useful guide is the PERPENDICULAR
+ * one — the 'Z' guide that aligns the new endpoint's x-coordinate with another
+ * wall's feature on the cross axis.
+ *
+ * `guideAxisPreference` looks at the *draw direction* (start → cursor, projected
+ * to the XZ plane) and reports, for each inference axis, whether it should be
+ * suppressed as colinear-with-draw. The perpendicular axis is always preferred.
+ *
+ * The draw direction is decomposed against the world axes:
+ *   - |dir.x| clearly dominant → the wall runs along X → the 'X' guide is
+ *     colinear → suppress it (keep the perpendicular 'Z' guide).
+ *   - |dir.z| clearly dominant → the wall runs along Z → the 'Z' guide is
+ *     colinear → suppress it (keep the perpendicular 'X' guide).
+ *
+ * A neutral zone around 45° (where neither axis clearly dominates — e.g. a
+ * diagonal / free draw) keeps BOTH guides so diagonal drawing is unaffected.
+ *
+ * Exposed as a pure static helper so it is unit-testable without a THREE.Scene.
+ */
+export interface GuideAxisPreference {
+    /** Suppress the horizontal ('X') guide because it is colinear with the draw. */
+    suppressX: boolean;
+    /** Suppress the vertical   ('Z') guide because it is colinear with the draw. */
+    suppressZ: boolean;
+}
+
 export class WallAlignmentGuide {
     private readonly scene:     THREE.Scene;
     private readonly wallStore: WallStore;
@@ -89,6 +126,23 @@ export class WallAlignmentGuide {
 
     /** Minimum distance (metres) a reference point must be from startPoint to be included. */
     private readonly excludeEpsilon = 0.05;
+
+    /**
+     * §FIX-ALIGN-GUIDE-PERPENDICULAR — dominance ratio (|a| / |b|) beyond which
+     * the draw direction is considered to clearly run along one world axis, so the
+     * colinear guide on that axis is suppressed in favour of the perpendicular one.
+     *
+     * tan(67.5°) ≈ 2.414 → axes within ±22.5° of a world axis are "dominant".
+     * Between ±22.5° of the 45° diagonal neither axis dominates → both guides kept.
+     */
+    private static readonly AXIS_DOMINANCE_RATIO = 2.414;
+
+    /**
+     * §FIX-ALIGN-GUIDE-PERPENDICULAR — minimum draw length (metres) before the
+     * perpendicular preference kicks in. Below this the segment direction is noise
+     * (the cursor is still on top of the start point) so we keep both guides.
+     */
+    private static readonly MIN_DRAW_LEN = 0.02;
 
     constructor(scene: THREE.Scene, wallStore: WallStore) {
         this.scene     = scene;
@@ -170,12 +224,18 @@ export class WallAlignmentGuide {
      * @param cursor      Already-snap-resolved cursor position (from getSnappedPoint).
      * @param levelId     Active level — only walls on this level are consulted.
      * @param elevation   Y value applied to all guide line geometry.
+     * @param drawDir     §FIX-ALIGN-GUIDE-PERPENDICULAR — horizontal draw direction
+     *                    (start → cursor, XZ plane). When supplied, guides that run
+     *                    COLINEAR with the draw are suppressed so the PERPENDICULAR
+     *                    (cross-axis) guide is preferred. Optional / backwards-compat:
+     *                    when omitted the previous both-axes behaviour is retained.
      */
     update(
         startPoint: THREE.Vector3,
         cursor:     THREE.Vector3,
         levelId:    string,
         elevation:  number,
+        drawDir?:   { dx: number; dz: number },
     ): AlignmentInference | null {
         this.clear();
 
@@ -184,12 +244,24 @@ export class WallAlignmentGuide {
 
         type Match = { ref: THREE.Vector3 };
 
-        const xMatches: Match[] = [];
-        const zMatches: Match[] = [];
+        let xMatches: Match[] = [];
+        let zMatches: Match[] = [];
 
         for (const c of candidates) {
             if (Math.abs(cursor.z - c.z) < this.axisThreshold) xMatches.push({ ref: c });
             if (Math.abs(cursor.x - c.x) < this.axisThreshold) zMatches.push({ ref: c });
+        }
+
+        // §FIX-ALIGN-GUIDE-PERPENDICULAR (L-26): prefer the guide PERPENDICULAR to
+        // the current draw direction. A guide colinear with the draw merely extends
+        // the line the user is already dragging and conveys nothing, so drop it —
+        // this suppresses BOTH its snap contribution and its rendered dashed line.
+        // xMatches → axis 'X' (horizontal, colinear when drawing along X).
+        // zMatches → axis 'Z' (vertical,   colinear when drawing along Z).
+        if (drawDir) {
+            const pref = WallAlignmentGuide.guideAxisPreference(drawDir.dx, drawDir.dz);
+            if (pref.suppressX) xMatches = [];
+            if (pref.suppressZ) zMatches = [];
         }
 
         if (xMatches.length === 0 && zMatches.length === 0) return null;
@@ -259,6 +331,45 @@ export class WallAlignmentGuide {
         this._matCyan.dispose();
         this._poolLines = [];
         this._poolActive = 0;
+    }
+
+    // ── Perpendicular-preference (§FIX-ALIGN-GUIDE-PERPENDICULAR) ───────────────
+
+    /**
+     * §FIX-ALIGN-GUIDE-PERPENDICULAR (L-26) — pure axis-selection policy.
+     *
+     * Given the horizontal draw direction (dx along world-X, dz along world-Z),
+     * decide which inference-guide axes are colinear with the draw and should be
+     * suppressed so the PERPENDICULAR (cross-axis) guide is preferred.
+     *
+     * Pure: no THREE, no scene, no state — directly unit-testable.
+     *
+     * @param dx  cursor.x − start.x  (draw delta along world-X)
+     * @param dz  cursor.z − start.z  (draw delta along world-Z)
+     */
+    static guideAxisPreference(dx: number, dz: number): GuideAxisPreference {
+        const adx = Math.abs(dx);
+        const adz = Math.abs(dz);
+
+        // Too short to have a meaningful direction → keep both guides.
+        if (Math.hypot(adx, adz) < WallAlignmentGuide.MIN_DRAW_LEN) {
+            return { suppressX: false, suppressZ: false };
+        }
+
+        const ratio = WallAlignmentGuide.AXIS_DOMINANCE_RATIO;
+
+        // Draw runs clearly along world-X → the horizontal 'X' guide is colinear
+        // with the draw (extends the same line) → suppress it, keep 'Z'.
+        if (adx >= adz * ratio) {
+            return { suppressX: true, suppressZ: false };
+        }
+        // Draw runs clearly along world-Z → the vertical 'Z' guide is colinear
+        // with the draw → suppress it, keep 'X'.
+        if (adz >= adx * ratio) {
+            return { suppressX: false, suppressZ: true };
+        }
+        // Diagonal / neutral zone (near 45°) — neither axis dominates. Keep both.
+        return { suppressX: false, suppressZ: false };
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
