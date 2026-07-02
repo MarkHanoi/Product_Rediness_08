@@ -377,8 +377,26 @@ export class SnapManager {
             manager.registerProvider(new ColumnSnapProvider(extraStores.columnStore));
         }
 
-        if (extraStores?.slabStore != null) {
-            manager.registerProvider(new SlabSnapProvider(extraStores.slabStore));
+        // §FEAT-SLAB-CORNER-REFS (ADR-0112) — cross-level slab-corner reference.
+        //   The slab provider offers the active floor's slab corners/edges as
+        //   snap targets so upper-floor walls line up with the shell below.
+        //   Callers that don't explicitly pass a slabStore (e.g. WallTool, which
+        //   only forwards { gridStore }) still get the reference: we fall back to
+        //   the read-only `window.slabStore` global — the same lazy-global
+        //   pattern gatherCandidates() already uses for the wall-store mutation
+        //   guard. The active draw level is likewise read lazily from
+        //   `window.projectContext.activeLevelId` so the reference is scoped to
+        //   the floor being drawn on and follows level switches without
+        //   re-registration. Both reads are fully guarded — absent globals just
+        //   mean an all-slabs (or no-slab) provider, never a crash.
+        const win: any = typeof window !== 'undefined' ? window : undefined;
+        const slabStore = extraStores?.slabStore ?? win?.slabStore ?? null;
+        if (slabStore != null) {
+            const getActiveLevelId = () => {
+                try { return win?.projectContext?.activeLevelId ?? null; }
+                catch { return null; }
+            };
+            manager.registerProvider(new SlabSnapProvider(slabStore, getActiveLevelId));
         }
 
         if (extraStores?.stairStore != null) {

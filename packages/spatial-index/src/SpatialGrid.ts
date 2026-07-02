@@ -34,12 +34,17 @@ export class SnapBoundsError extends Error {
 }
 
 /**
- * §WALL-AUDIT-2026-C2 — hard caps that protect getCellKeysForBounds() from
- * unbounded allocation. A normal level query on a 1m grid touches <100 cells;
- * a 100m radius query touches ~8M cells with cellSize=1 — well over the safe
- * limit. We cap each axis at MAX_CELLS_PER_AXIS and the product at MAX_TOTAL_CELLS.
- * Any query exceeding either cap is a programming error or a degenerate bounds
- * Box3 produced upstream (e.g. Infinity-extent zoomed-out clip volume).
+ * §WALL-AUDIT-2026-C2 / §FIX-SNAP-BOUNDS-OVERFLOW — hard caps that protect
+ * getCellKeysForBounds() from unbounded allocation. A normal level query on a
+ * 1m grid touches <100 cells; a 100m radius query touches ~8M cells with
+ * cellSize=1 — well over the safe limit. We cap each axis at MAX_CELLS_PER_AXIS
+ * and the product at MAX_TOTAL_CELLS.
+ *
+ * When a bounds exceeds either cap it is no longer a throw: getCellKeysForBounds
+ * degrades to indexing the AABB's ≤8 CORNER cells (§FIX-SNAP-BOUNDS-OVERFLOW),
+ * which keeps corner/endpoint snap targets findable without exploding the grid.
+ * This handles oversized (far-from-origin) or degenerate (origin-spanning)
+ * element AABBs that previously crashed the insert path.
  */
 const MAX_CELLS_PER_AXIS = 1000;
 const MAX_TOTAL_CELLS    = 1_000_000;
@@ -65,6 +70,32 @@ export class SpatialGrid<T> implements ISpatialIndex<T> {
         return `${cx},${cy},${cz}`;
     }
 
+    /**
+     * §FIX-SNAP-BOUNDS-OVERFLOW — compute the cells covered by `bounds`.
+     *
+     * Historically this SOLID-FILLED the AABB, allocating one cell per grid
+     * position inside it. A snap element that is far from the world origin —
+     * or a degenerate element whose AABB spans from (0,0,0) back to a far
+     * point (e.g. a partially-initialised wall segment with one default
+     * endpoint, or a geolocated project authored at world coords like
+     * x≈12000,z≈8000) — produces an AABB tens of thousands of cells across.
+     * The solid fill then blew past MAX_TOTAL_CELLS and threw SnapBoundsError.
+     *
+     * `insert()` did NOT catch that error, so the throw propagated out of the
+     * wall-draw flow and surfaced as the reported
+     * `total cell count … exceeds cap` crash while drawing far from origin.
+     *
+     * The correct, bounded behaviour: when the solid fill would exceed the
+     * cap, fall back to indexing only the AABB's CORNER cells (deduplicated).
+     * Snap queries always look near an endpoint/corner of an element, and a
+     * radius/point query overlapping any corner cell still finds the item.
+     * This keeps snapping CORRECT (endpoints/corners remain snap targets)
+     * while guaranteeing O(≤8) cells per insert regardless of AABB extent —
+     * never an unbounded allocation and never a throw on the insert path.
+     *
+     * A non-finite bound is a genuine programming error and still throws
+     * SnapBoundsError (callers on the query path degrade to []).
+     */
     private getCellKeysForBounds(bounds: THREE.Box3): string[] {
         const coords = [
             bounds.min.x, bounds.min.y, bounds.min.z,
@@ -91,19 +122,23 @@ export class SpatialGrid<T> implements ISpatialIndex<T> {
         const spanX = maxX - minX + 1;
         const spanY = maxY - minY + 1;
         const spanZ = maxZ - minZ + 1;
-        if (spanX > MAX_CELLS_PER_AXIS || spanY > MAX_CELLS_PER_AXIS || spanZ > MAX_CELLS_PER_AXIS) {
-            throw new SnapBoundsError(
-                `SpatialGrid.getCellKeysForBounds: per-axis cell span exceeds cap ` +
-                `(${MAX_CELLS_PER_AXIS}). spans=(${spanX}, ${spanY}, ${spanZ}) cellSize=${this.cellSize}`,
-                bounds,
-            );
-        }
+
+        // §FIX-SNAP-BOUNDS-OVERFLOW — when the solid fill would exceed either
+        // cap, index the corner cells only rather than throwing. This is the
+        // graceful, correctness-preserving degrade for oversized/degenerate
+        // AABBs (see method doc). The `keys` set is at most 8 entries.
+        const overAxis  = spanX > MAX_CELLS_PER_AXIS || spanY > MAX_CELLS_PER_AXIS || spanZ > MAX_CELLS_PER_AXIS;
         const totalCells = spanX * spanY * spanZ;
-        if (totalCells > MAX_TOTAL_CELLS) {
-            throw new SnapBoundsError(
-                `SpatialGrid.getCellKeysForBounds: total cell count ${totalCells} exceeds cap ${MAX_TOTAL_CELLS}.`,
-                bounds,
-            );
+        if (overAxis || totalCells > MAX_TOTAL_CELLS) {
+            const keys = new Set<string>();
+            for (const x of [minX, maxX]) {
+                for (const y of [minY, maxY]) {
+                    for (const z of [minZ, maxZ]) {
+                        keys.add(`${x},${y},${z}`);
+                    }
+                }
+            }
+            return Array.from(keys);
         }
 
         const keys: string[] = new Array(totalCells);

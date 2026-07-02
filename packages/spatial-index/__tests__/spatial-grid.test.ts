@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from 'vitest';
 import * as THREE from '@pryzm/renderer-three/three';
-import { SpatialGrid } from '../src/SpatialGrid.js';
+import { SpatialGrid, SnapBoundsError } from '../src/SpatialGrid.js';
 
 describe('@pryzm/spatial-index — SpatialGrid insert + query', () => {
   it('returns an item whose bounds intersect the query box', () => {
@@ -87,6 +87,49 @@ describe('@pryzm/spatial-index — SpatialGrid queryRadius + clear', () => {
     const results = grid.queryRadius(center, 5);
     expect(results).toContain('near');
     expect(results).not.toContain('far');
+  });
+
+  // §FIX-SNAP-BOUNDS-OVERFLOW (ADR-0112) — regression for the
+  // `SpatialGrid.getCellKeysForBounds: total cell count … exceeds cap` crash
+  // seen when drawing walls far from origin / with a degenerate origin-spanning
+  // AABB. insert() must NOT throw, and the item must remain findable at its
+  // corners via a small radius query.
+  it('(a) far-from-origin / origin-spanning insert stays under the cell cap and does not throw', () => {
+    const grid = new SpatialGrid<string>(2.0);
+
+    // Degenerate AABB spanning from origin back to a far geolocated point —
+    // solid-filling this would allocate millions of cells and previously threw.
+    const farBounds = new THREE.Box3(
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(12000, 3, 8000),
+    );
+    expect(() => grid.insert('far-wall', farBounds)).not.toThrow();
+    expect(grid.size).toBe(1);
+
+    // Corner query near the far end still finds the item (corner-cell fallback).
+    const nearFar = grid.queryRadius(new THREE.Vector3(12000, 1.5, 8000), 1.5);
+    expect(nearFar).toContain('far-wall');
+
+    // A genuinely far, small element inserted normally, queried far from
+    // origin, stays under the cap and is found — no SnapBoundsError anywhere.
+    grid.insert('far-small', new THREE.Box3(
+      new THREE.Vector3(50000, 0, 50000),
+      new THREE.Vector3(50003, 3, 50003),
+    ));
+    const hit = grid.queryRadius(new THREE.Vector3(50001.5, 1.5, 50001.5), 2);
+    expect(hit).toContain('far-small');
+  });
+
+  it('§FIX-SNAP-BOUNDS-OVERFLOW: non-finite bounds still throw SnapBoundsError (real programming error)', () => {
+    const grid = new SpatialGrid<string>(2.0);
+    const badBounds = new THREE.Box3(
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(Infinity, 3, 10),
+    );
+    // insert surfaces the programming-error throw…
+    expect(() => grid.insert('bad', badBounds)).toThrow(SnapBoundsError);
+    // …but query() degrades gracefully to [] instead of throwing.
+    expect(grid.query(badBounds)).toEqual([]);
   });
 
   it('clear() empties the grid', () => {
