@@ -25,6 +25,7 @@ import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
 import { makeAnnotationElement } from '../subsystem/AnnotationTypes';
 import { makePointRef, ResolverStores } from '../subsystem/AnnotationReference';
+import { persistAnnotation } from './persistAnnotation';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
 import { BIM_LAYER } from '@pryzm/scene-committer';
 
@@ -145,6 +146,10 @@ export class LevelTagTool {
             }
         );
 
+        // §G9-PERSIST: write the full tag element to the subsystem annotationStore
+        // so it renders and survives save/load (bus telemetry below carries only
+        // id/viewId/kind into a different store).
+        persistAnnotation(ann);
         // P13 (A36): typed payload so AnnotationsState receives the correct id/viewId/kind.
         if (window.runtime?.bus) { window.runtime.bus.executeCommand('annotation.create', { id: ann.id, viewId: ann.ownerViewId, kind: ann.type as any }).catch(() => {}); }
         console.log(

@@ -24,6 +24,7 @@ import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
 import { makeAnnotationElement } from '../subsystem/AnnotationTypes';
 import { makePointRef, makeRef, resolveReferenceToPoint, ResolverStores, StableReference } from '../subsystem/AnnotationReference';
+import { persistAnnotation } from './persistAnnotation';
 import { BIM_LAYER } from '@pryzm/scene-committer';
 
 export enum DiameterDimToolState {
@@ -194,6 +195,10 @@ export class DiameterDimensionTool {
             { diameterMetres, unit: 'mm' }
         );
 
+        // §G9-PERSIST: write the full element to the subsystem annotationStore so
+        // it renders and survives save/load (bus telemetry below carries only
+        // id/viewId/kind into a different store).
+        persistAnnotation(element);
         // P13 (A36): typed payload so AnnotationsState receives the correct id/viewId/kind.
         if (window.runtime?.bus) { window.runtime.bus.executeCommand('annotation.create', { id: element.id, viewId: element.ownerViewId, kind: element.type as any }).catch(() => {}); }
         console.log('[DiameterDimTool] Created diameter-dim', id, `Ø=${(diameterMetres * 1000).toFixed(0)}mm in view`, this._activeViewId);

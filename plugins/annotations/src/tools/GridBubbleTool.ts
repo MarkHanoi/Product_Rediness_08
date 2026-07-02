@@ -27,6 +27,7 @@ import * as OBC from '@thatopen/components';
 import { makeAnnotationElement } from '../subsystem/AnnotationTypes';
 import { makePointRef, ResolverStores } from '../subsystem/AnnotationReference';
 import { AnnotationStore } from '../subsystem/AnnotationStore';
+import { persistAnnotation } from './persistAnnotation';
 import type { Grid } from '@pryzm/core-app-model';
 
 
@@ -100,6 +101,10 @@ export class GridBubbleTool {
                     }
                 );
 
+                // §G9-PERSIST: write the full grid-bubble element to the subsystem
+                // annotationStore so it renders and survives save/load (bus telemetry
+                // below carries only id/viewId/kind into a different store).
+                persistAnnotation(ann);
                 // P13 (A36): typed payload so AnnotationsState receives the correct id/viewId/kind.
                 if (window.runtime?.bus) { window.runtime.bus.executeCommand('annotation.create', { id: ann.id, viewId: ann.ownerViewId, kind: ann.type as any }).catch(() => {}); }
                 existingKeys.add(dupeKey);

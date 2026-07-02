@@ -22,6 +22,7 @@ import * as OBC from '@thatopen/components';
 import { AnnotationStore } from '../subsystem/AnnotationStore';
 import { makeRef, resolveReferenceToPoint, ResolverStores, StableReference } from '../subsystem/AnnotationReference';
 import { makeAnnotationElement } from '../subsystem/AnnotationTypes';
+import { persistAnnotation } from './persistAnnotation';
 import { BIM_LAYER } from '@pryzm/scene-committer';
 
 // ─── Label expression evaluator ──────────────────────────────────────────────
@@ -197,6 +198,10 @@ export class ElementTagTool {
             }
         );
 
+        // §G9-PERSIST: write the full tag element to the subsystem annotationStore
+        // so it renders and survives save/load (bus telemetry below carries only
+        // id/viewId/kind into a different store).
+        persistAnnotation(ann);
         if (window.runtime?.bus) { window.runtime.bus.executeCommand('annotation.create', { id: ann.id, viewId: ann.ownerViewId, kind: ann.type as any }).catch(() => {}); }
         console.log('[ElementTagTool] Tagged element', elementId, '→', cachedLabel, 'in view', this._activeViewId);
     }

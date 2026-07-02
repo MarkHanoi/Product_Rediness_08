@@ -96,12 +96,39 @@ an empty project and a heavy one, without freezes or stutter.
   viewport scale on a sheet. The projection cost is the L-06 storm's biggest consumer.
 - Contract: C04, C06, C09.
 
-### 3.6 Annotations & dimensions — **N/V (verify for launch)**
+### 3.6 Annotations & dimensions — **OK (was GAP; fixed §G9-PERSIST 2026-07-02)**
 - Commands: `CreateAnnotationCommand`/`UpdateAnnotation`/`DeleteAnnotation` (seen live), `UpdateElementMarkCommand`;
-  `AnnotationManager` + `OBCAnnotationAdapter` (note: linear/angle/slope annotations "not present in this OBC
-  build — skipping" — **confirm dimension tooling coverage for v1**).
-- **N/V**: placing a linear dimension; editing/deleting; annotation persistence + plan re-projection; tag
-  auto-populate (`RoomTagAutoPopulator`).
+  `AnnotationManager` + `OBCAnnotationAdapter`.
+- **OBC verdict — resolved, not a blocker.** The "linear/angle/slope annotations not present in this OBC build —
+  skipping" logs are BENIGN: `OBCAnnotationAdapter` is a *secondary* front-end that gracefully no-ops when the OBC
+  classes are absent. Every dimension/annotation type has a PRYZM-native tool
+  (`plugins/annotations/src/tools/*`) that does NOT depend on OBC. The absent-OBC path was never the primary path.
+- **Placing a linear dimension — OK.** UI button (`AnnotationRailPanel` → `toolManager.activateLinearDimAnnotation`)
+  and the `D`+`I` shortcut both arm `LinearDimensionAnnotationTool`, whose commit dispatches
+  `CreateAnnotationCommand` via `commandManager` into the subsystem `annotationStore` that the render layer reads and
+  `ProjectSerializer` persists. Verified end-to-end. String/chained dims OK.
+- **Placing a text annotation / tag / other dimension types — was BROKEN, now OK.** ROOT CAUSE found: 13 of 14
+  native tools (`TextNote`, `ElementTag`, `Door/Window/Level` tags, `GridBubble`, `Angular/Slope/Radius/Diameter`
+  dims, `SpotElevation`, `Keynote`, `RevisionCloud`) built the full `AnnotationElement` but only fired the bus
+  telemetry `annotation.create` `{id,viewId,kind}` — which writes a DIFFERENT anchor-keyed Zustand store (per
+  `initBusHandlers.ts` §P3.5-AN) and carries no geometry. They never called `commandManager.execute` /
+  `annotationStore.add`, so the annotation neither rendered nor persisted. Only `LinearDimensionAnnotationTool`
+  (and the mark/scale/north/matchline/datum tools) were wired correctly. **Fix (§G9-PERSIST):** new shared helper
+  `plugins/annotations/src/tools/persistAnnotation.ts` dispatches `CreateAnnotationCommand` through
+  `window.commandManager` (the same authoritative path LinearDim uses → store write + undo/redo); each of the 13
+  tools now calls it before the bus telemetry.
+- **Editing / deleting — OK.** `UpdateAnnotationCommand` / `DeleteAnnotationCommand` mutate the subsystem store with
+  full undo snapshots; dimension edits route through the shared property panel (`AnnotationManager` §ANN-SEL);
+  room-tag drag routes the legacy `UPDATE_ANNOTATION` through `commandManager` (initBusHandlers BUG-ANNO-DRAG fix).
+- **Persistence + plan re-projection — OK.** `annotationStore.serialize()`/`deserialize()` are wired both sides of
+  `ProjectSerializer`/`ProjectLoader` (`annotations` snapshot slice). Plan re-projection is reactive:
+  `AnnotationRenderLayer` subscribes to `store.onChange` and re-reads `getByView(activeViewId)` through the live
+  camera matrix each frame.
+- **Room-tag auto-populate (`RoomTagAutoPopulator`) — OK.** Idempotent create/refresh/delete of `room-tag`
+  annotations via `Create/Update/DeleteAnnotationCommand`; no-op when tags already match (verified live in house/apt
+  gen).
+- **Tests:** `plugins/annotations/__tests__/persist-annotation.test.ts` (9 cases) covers the helper, the
+  create/update/delete + undo lifecycle, view-scoped read (render source), and serialize→deserialize round-trip.
 - Contract: C06, C03.
 
 ### 3.7 Undo / redo — **OK (verify at scale)**
@@ -132,7 +159,7 @@ an empty project and a heavy one, without freezes or stutter.
 | G6 | No ghost/trailing on rotate (both backends) | Q5 queued |
 | G7 | Move + rotate + material editable for every visible element | Q7 queued (F5/F6) |
 | G8 | Create/manage plan+3D+section+elevation views from UI | §3.5 verify |
-| G9 | Place/edit annotations + dimensions | §3.6 verify |
+| G9 | Place/edit annotations + dimensions | GREEN — native path verified; §G9-PERSIST fixed 13 bus-only tools (§3.6) |
 | G10 | Undo/redo sound across all of the above | §3.7 verify at scale |
 
 See the companion plan for the phased path to green.
