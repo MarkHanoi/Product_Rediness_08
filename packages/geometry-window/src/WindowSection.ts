@@ -95,8 +95,10 @@ function makeTextInput(current: string, onChange: (v: string) => void): HTMLInpu
 }
 
 function makeSlider(current: number, min: number, max: number, step: number, format: (v: number) => string, onChange: (v: number) => void): HTMLElement {
+    // §FIX-PROPERTIES-PANEL-POLISH — class-driven layout so the range fills the
+    // shared value column and the readout pins to the right (see DOOR_SECTION_STYLES).
     const wrap = document.createElement('div');
-    wrap.style.cssText = 'display:flex;align-items:center;gap:5px;';
+    wrap.className = 'dw-slider';
 
     const inp = document.createElement('input');
     inp.type = 'range';
@@ -104,10 +106,9 @@ function makeSlider(current: number, min: number, max: number, step: number, for
     inp.max = String(max);
     inp.step = String(step);
     inp.value = String(current);
-    inp.style.cssText = 'width:70px;accent-color:#8B5CF6;';
 
     const label = document.createElement('span');
-    label.style.cssText = 'font-size:10px;color:#64748b;min-width:28px;text-align:right;';
+    label.className = 'dw-slider-value';
     label.textContent = format(current);
 
     inp.addEventListener('input', () => {
@@ -194,8 +195,9 @@ export function buildWindowSection(windowId: string): HTMLElement | null {
     body.className = 'dw-section-body';
 
     header.addEventListener('click', () => {
+        // §FIX-PROPERTIES-PANEL-POLISH — body is a CSS grid; restore to 'grid'.
         const collapsed = body.style.display === 'none';
-        body.style.display = collapsed ? 'flex' : 'none';
+        body.style.display = collapsed ? 'grid' : 'none';
         toggle.textContent = collapsed ? '▲' : '▼';
     });
 

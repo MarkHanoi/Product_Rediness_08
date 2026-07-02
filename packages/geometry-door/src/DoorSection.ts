@@ -135,8 +135,10 @@ function makeMaterialSelect(
         grouped.set(m.category, list);
     }
 
+    // §FIX-PROPERTIES-PANEL-POLISH — fill the shared value column so the material
+    // dropdown right-edge aligns with every other control in the panel.
     const wrap = document.createElement('div');
-    wrap.style.cssText = 'display:flex;align-items:center;gap:6px;';
+    wrap.style.cssText = 'display:flex;align-items:center;gap:6px;width:100%;min-width:0;';
 
     const swatch = document.createElement('div');
     const findColor = (id?: string): string => {
@@ -152,7 +154,7 @@ function makeMaterialSelect(
 
     const sel = document.createElement('select');
     sel.className = 'dw-select';
-    sel.style.cssText = 'font-size:11px;flex:1;min-width:0;';
+    sel.style.cssText = 'flex:1 1 auto;min-width:0;';
 
     const blank = document.createElement('option');
     blank.value = '';
@@ -241,8 +243,9 @@ export function buildDoorSection(doorId: string): HTMLElement | null {
     body.className = 'dw-section-body';
 
     header.addEventListener('click', () => {
+        // §FIX-PROPERTIES-PANEL-POLISH — body is a CSS grid; restore to 'grid'.
         const collapsed = body.style.display === 'none';
-        body.style.display = collapsed ? 'flex' : 'none';
+        body.style.display = collapsed ? 'grid' : 'none';
         toggle.textContent = collapsed ? '▲' : '▼';
     });
 
