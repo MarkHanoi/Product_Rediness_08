@@ -1273,6 +1273,20 @@ export interface RuntimeEvents {
   'fc-place-glb-start': {
     readonly path: string;
     readonly label?: string;
+    /**
+     * §FIX-PLACEMENT-PREVIEW (L-21) — the catalog descriptor's declared
+     * placement footprint (metres). FurnitureDragDropHandler builds the
+     * click-to-place ghost from these dims so the preview matches the item's
+     * real size instead of a fixed 1×1×1 m box — critical when the GLB 404s and
+     * the ghost is the only size cue the user gets. Optional so any legacy
+     * emitter still works (falls back to the 1 m block).
+     */
+    readonly dimensions?: {
+      readonly width: number;
+      readonly length: number;
+      readonly height: number;
+      readonly baseOffset?: number;
+    };
   };
 
   // ── F.events.13 — 2026-05-16 ─────────────────────────────────────────────

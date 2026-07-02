@@ -115,7 +115,7 @@ export class FurnitureDragDropHandler {
     private _onDragLeave: (e: DragEvent) => void;
     private _onFcDragStart: (p: { furnitureType: string }) => void;
     private _onFcDragEnd:   (p: Record<string, never>) => void;
-    private _onFcPlaceGlbStart: (p: { path: string; label?: string }) => void;
+    private _onFcPlaceGlbStart: (p: { path: string; label?: string; dimensions?: { width: number; length: number; height: number; baseOffset?: number } }) => void;
     private _unsubFcDragStart:    (() => void) | null = null;
     private _unsubFcDragEnd:      (() => void) | null = null;
     private _unsubFcPlaceGlbStart: (() => void) | null = null;
@@ -218,7 +218,7 @@ export class FurnitureDragDropHandler {
         this._removePreview();
     }
 
-    private _handleFcPlaceGlbStart(p: { path: string; label?: string }): void { // F.events.12
+    private _handleFcPlaceGlbStart(p: { path: string; label?: string; dimensions?: { width: number; length: number; height: number; baseOffset?: number } }): void { // F.events.12
         if (!p.path) {
             console.error('[FurnitureDragDropHandler] GLB placement start: missing path');
             return;
@@ -231,7 +231,19 @@ export class FurnitureDragDropHandler {
         this._cancelGlbPlacement();
         this.activePlacementGlbPath = p.path;
         this.activePlacementLabel = p.label ?? null;
-        this.previewDims = { ...GLB_FALLBACK_DIMS };
+        // §FIX-PLACEMENT-PREVIEW (L-21) — size the click-to-place ghost from the
+        // catalog descriptor's declared footprint when supplied, so the preview
+        // matches the real item instead of a fixed 1×1×1 m box. This is the only
+        // size cue the user gets when the GLB itself 404s. Falls back to the
+        // generic block when no dimensions were forwarded.
+        this.previewDims = p.dimensions
+            ? {
+                width:      p.dimensions.width,
+                length:     p.dimensions.length,
+                height:     p.dimensions.height,
+                baseOffset: p.dimensions.baseOffset ?? 0,
+            }
+            : { ...GLB_FALLBACK_DIMS };
         // §FEAT-PLACEMENT-SPACEBAR-ROTATE — fresh placement starts at 0°; install
         // the SPACE handler (removed in _cancelGlbPlacement → no leak after commit
         // / Esc / detach).
