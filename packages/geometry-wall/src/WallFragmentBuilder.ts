@@ -799,6 +799,35 @@ export class WallFragmentBuilder {
             wallGroup.userData.__wjrInvalidLogged = false;
         }
 
+        // §FIX-WALL-CLUSTER-DEGENERATE (2026-07-02 — L-27 cluster case) — the V2 miter
+        // resolver flags a wall `invalid` when BOTH its endpoints collapse into the SAME
+        // junction cluster (a wall shorter than the 0.20 m V2 band, so both ends snap to one
+        // node). Left in the footprint sweep it hinges both ends on one pivot → a bow-tie /
+        // negative-area (inverted-normal) polygon: the founder's "black triangular spike" at
+        // an L-corner that also receives a tiny stub. The LEGACY resolver's tighter (0.12 m)
+        // cluster band does NOT flag this stub, so `joinData` above is clean and the check
+        // misses it — the DEFAULT-ON V2 pipeline is exactly the path that renders it. Consult
+        // the V2 miter cache HERE and skip the wall the SAME way as §WJR-INVALID (hide the
+        // group, no fragment) so the degenerate stub never reaches the renderer / picking /
+        // CSG. Reuses the shared `__wjrNaNHidden` / `__wjrInvalidLogged` latches, so a later
+        // valid rebuild (stub grown) restores visibility via the block below. Only when V2 is
+        // the active pipeline for this wall (escape hatch `__pryzmWallPipelineV2 = false`).
+        if (isWallPipelineV2Enabled()) {
+            const v2InvalidCache = this.getEffectiveV2Cache();
+            if (v2InvalidCache?.getMiter(wall.id)?.invalid) {
+                if (!wallGroup.userData.__wjrInvalidLogged) {
+                    wallGroup.userData.__wjrInvalidLogged = true;
+                    console.warn(
+                        `[JunctionResolverV2] §FIX-WALL-CLUSTER-DEGENERATE skipped ${wall.id}: ` +
+                        `both endpoints collapse into one junction cluster (degenerate stub) — mesh skipped`,
+                    );
+                }
+                wallGroup.userData.__wjrNaNHidden = true;
+                wallGroup.visible = false;
+                return [];
+            }
+        }
+
         // §WJR-NAN-GUARD (Jun 2026 — consumer safety net, diff-thickness HANG fix):
         // The synchronous load-time rebuild MUST NOT hand a non-finite or
         // near-zero-length baseline to the geometry ops below (extrude / footprint

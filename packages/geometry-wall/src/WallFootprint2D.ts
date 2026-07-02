@@ -40,6 +40,10 @@ export interface WallFootprint {
     readonly end:   Pt2;
     /** Wall half-thickness — needed by callers that compute opening offsets. */
     readonly halfThickness: number;
+    /** §FIX-WALL-CLUSTER-DEGENERATE — TRUE when the resolver flagged this wall degenerate at a
+     *  junction (both endpoints collapsed into one cluster). The `polygon` is EMPTY; the
+     *  caller MUST skip the mesh build rather than extrude it. */
+    readonly invalid?: boolean;
 }
 
 // ─── Helpers (mirrored from JunctionResolverV2; pure 2-D) ─────────────────────
@@ -58,6 +62,16 @@ export function buildWallFootprint(wall: WallInput, miter: WallMiter | null | un
     const dir = unit(sub(wall.end, wall.start));
     const leftP = leftPerp(dir);
     const halfT = wall.thickness * 0.5;
+
+    // §FIX-WALL-CLUSTER-DEGENERATE — the resolver flagged this wall degenerate at a junction
+    // (both endpoints collapsed into one cluster). Emit an EMPTY footprint (no polygon) and
+    // propagate `invalid` so the extruder/builder skips it — never extrude the bow-tie spike.
+    if (miter?.invalid) {
+        return {
+            id: wall.id, polygon: [], direction: dir,
+            start: wall.start, end: wall.end, halfThickness: halfT, invalid: true,
+        };
+    }
 
     // Perpendicular (square-cap) defaults — used when an end is NOT at a junction.
     const sLDefault = add(wall.start, scale(leftP, +halfT));

@@ -61,6 +61,17 @@ export interface WallMiter {
     readonly startPivot?: Pt2;
     /** Pivot vertex at the end junction. */
     readonly endPivot?:   Pt2;
+    /** §FIX-WALL-CLUSTER-DEGENERATE — TRUE when this wall is DEGENERATE at a junction and
+     *  MUST NOT be built (the consumer skips its mesh instead of rendering a self-intersecting
+     *  spike). Set when the wall's BOTH endpoints collapse into the SAME junction cluster —
+     *  i.e. the wall is shorter than the cluster band, so both its ends snap to one node.
+     *  Left in the ring sweep, both ends hinge on the same pivot and produce a bow-tie /
+     *  negative-area (inverted-normal) footprint: the founder's "black triangular spike" at
+     *  an L-corner that also receives a tiny stub. Mirrors the legacy WallJoinResolver
+     *  `invalid` + `DEGENERATE_STUB_LENGTH` guard, but for the V2 footprint path — and keyed
+     *  to the V2 0.20 m band (a stub the legacy 0.12 m band misses). Additive/optional field:
+     *  no existing consumer breaks. */
+    readonly invalid?: boolean;
 }
 
 export interface ResolveOptions {
@@ -425,6 +436,32 @@ function detectJunctions(walls: readonly WallInput[], opts: Required<ResolveOpti
     return drafts.filter(j => j.realEndpoints.length + j.passthroughWalls.length >= 2);
 }
 
+/**
+ * §FIX-WALL-CLUSTER-DEGENERATE (2026-07-02 — L-27 cluster case) — a wall is DEGENERATE at a
+ * cluster when BOTH its endpoints are real members of the SAME junction: the wall is shorter
+ * than the cluster band, so both ends snapped to one node (it shows up in `realEndpoints`
+ * TWICE). Left in the ring sweep it hinges both ends on the one pivot → a bow-tie /
+ * negative-area (inverted-normal) footprint = the founder's "black triangular spike" at an
+ * L-corner that also receives a tiny stub (the WallJoinResolver multi-cluster degenerate-wall
+ * bug, in the V2 footprint path). Returns the set of such wall indices.
+ *
+ * This is the PRECISE degeneracy signature — a genuine wall contributes exactly ONE endpoint
+ * to any node (its start OR its end; the other end is band-lengths away), so a full-length
+ * L/T/Y/X node of real walls never doubles a member (no false positive). It is more precise
+ * than the legacy length threshold (`DEGENERATE_STUB_LENGTH` 0.15 m): a 0.158 m stub that
+ * doubles into one 0.20 m-band cluster is caught here even though it clears the length gate.
+ * Pure; deterministic.
+ */
+function collectDegenerateClusterWalls(junctions: readonly JunctionDraft[]): Set<number> {
+    const degen = new Set<number>();
+    for (const j of junctions) {
+        const seen = new Map<number, number>();
+        for (const r of j.realEndpoints) seen.set(r.wallIdx, (seen.get(r.wallIdx) ?? 0) + 1);
+        for (const [wi, count] of seen) if (count >= 2) degen.add(wi);
+    }
+    return degen;
+}
+
 // ─── Ring sweep ───────────────────────────────────────────────────────────────
 
 interface SweepEntry {
@@ -618,7 +655,28 @@ export function resolveJunctions(
     void LEGACY_TIGHT_M;
     const miters: WallMiter[] = walls.map(w => ({ id: w.id }));
     const junctions = detectJunctions(walls, o);
+
+    // §FIX-WALL-CLUSTER-DEGENERATE (2026-07-02 — L-27 cluster case) — a wall whose BOTH
+    // endpoints collapse into the SAME junction cluster is degenerate (shorter than the band).
+    // STRIP it from every junction so the OTHER walls' ring sweep is the clean genuine-L /
+    // genuine-N-way sweep (the stub no longer distorts their corners), and flag it `invalid`
+    // so the consumer skips its mesh instead of extruding the bow-tie. Detect on the FINAL
+    // junction set (post T-butt reclassification) — the doubling is the exact bow-tie trigger.
+    // Pure detection — never relocates a baseline. Genuine multi-wall clusters never double a
+    // member, so N-way full-length L/T/Y/X nodes are unaffected (no false positive).
+    const degenerate = collectDegenerateClusterWalls(junctions);
+    if (degenerate.size > 0) {
+        for (const j of junctions) {
+            j.realEndpoints = j.realEndpoints.filter(r => !degenerate.has(r.wallIdx));
+            j.passthroughWalls = j.passthroughWalls.filter(wi => !degenerate.has(wi));
+        }
+    }
+
     for (const j of junctions) applyRingSweep(j, walls, miters);
+
+    if (degenerate.size > 0) {
+        for (const wi of degenerate) miters[wi] = { id: walls[wi]!.id, invalid: true };
+    }
     return miters;
 }
 
