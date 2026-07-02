@@ -415,6 +415,16 @@ declare global {
         bimManager:           unknown;
 
         // ── Internal caches & feature flags ──────────────────────────────────
+        /**
+         * §R3-SENTINEL (P1.3, IMPL-PLAN-2026-05-17) — init-complete sentinel.
+         * Set to `true` as the FINAL act of `initTools()` once every store, bus
+         * handler, and scene singleton (`window.commandManager`, `window.wallStore`,
+         * …) is confirmed live. `undefined`/`false` means init threw or returned
+         * early before the §R3-SENTINEL line. The plan-tool overlays assert this
+         * before arming a handler so a partial-init tool fails loudly at activation
+         * instead of silently producing ghost elements on the first click.
+         */
+        __pryzmInitComplete:        boolean | undefined;
         __viewRenderCache:          unknown;
         __planViewsDisabled:        boolean | undefined;
         __sceneBoundsCache:         { invalidate(): void } | undefined;

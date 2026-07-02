@@ -399,7 +399,7 @@ export class PlanViewToolOverlay {
         // other handler dependencies are undefined.  Refuse to arm the tool so the
         // failure surfaces as a clear error at activation time, not as a silent
         // no-op at the first click.
-        if (!(window as any).__pryzmInitComplete) {
+        if (!window.__pryzmInitComplete) {
             console.error(
                 '[PlanViewToolOverlay] §R3-SENTINEL: initTools did not complete — ' +
                 'commandManager / wallStore not available. ' +
