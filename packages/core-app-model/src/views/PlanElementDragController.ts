@@ -23,6 +23,13 @@ import { UpdateWallBaselineCommand, SetDoorOffsetCommand, SetWindowOffsetCommand
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import type { Point3D } from '../types/GeometryDTO';
 import type { PlanViewCanvas } from './PlanViewCanvas';
+// §FEAT-WALL-MOVE-DIMENSIONS (founder L-29) — pure move-time perpendicular set-out.
+// Direct file import (not the barrel) to avoid barrel-at-module-load coupling
+// (memory: SCC — no barrel access at module load in core-app-model).
+import {
+    computeWallMoveDimensions,
+    type MoveWallSegment,
+} from '../geometry/wallMoveDimensions';
 
 const GRID_SNAP_M    = 0.1;   // 100 mm grid
 const DRAG_THRESHOLD = 4;     // px before drag activates
@@ -61,6 +68,7 @@ type DragState =
     | {
           kind: 'wall';
           elementId:      string;
+          levelId:        string | undefined;
           prevBaseLine:   [Point3D, Point3D];
           currentBaseLine:[Point3D, Point3D];
           startWorldX:    number; startWorldZ: number;
@@ -140,6 +148,7 @@ export class PlanElementDragController {
             this._state = {
                 kind:           'wall',
                 elementId:      hit.elementId,
+                levelId:        (wall as { levelId?: string }).levelId,
                 prevBaseLine:   [clonePt(wall.baseLine[0]), clonePt(wall.baseLine[1])],
                 currentBaseLine:[clonePt(wall.baseLine[0]), clonePt(wall.baseLine[1])],
                 startWorldX:    worldX, startWorldZ: worldZ,
@@ -497,6 +506,67 @@ export class PlanElementDragController {
             const midSy = (aSc.sy + bSc.sy) / 2;
             this._drawLabel(ctx, midSx, midSy - 14, formatM(wallDist), '#0A5DCC');
         }
+
+        // §FEAT-WALL-MOVE-DIMENSIONS (founder L-29) — live PERPENDICULAR set-out to
+        // the nearest PARALLEL neighbour walls above/below. A wall translates
+        // perpendicular to itself, so the meaningful feedback while dragging is the
+        // gap it is closing / opening on each side. Reuses the SAME blue dashed
+        // dimension renderer (`_drawDimensionLine`) the move-delta + hosted-opening
+        // dims already use, so the look matches the wall-DRAW set-out affordance.
+        this._drawWallMoveDimensions(ctx, state, planCanvas);
+    }
+
+    /**
+     * §FEAT-WALL-MOVE-DIMENSIONS — draw the perpendicular gap dimension(s) from the
+     * moving wall to its nearest parallel neighbour(s). Pure geometry lives in
+     * `computeWallMoveDimensions`; this only projects world→screen and delegates
+     * to the shared dimension renderer. Read-only (no store writes, no commands) —
+     * a transient preview affordance, cleared automatically when the overlay is
+     * removed on drag end / cancel.
+     */
+    private _drawWallMoveDimensions(
+        ctx:        CanvasRenderingContext2D,
+        state:      Extract<DragState, { kind: 'wall' }>,
+        planCanvas: PlanViewCanvas,
+    ): void {
+        const cur = state.currentBaseLine;
+        const movingWall: MoveWallSegment = {
+            a: { x: cur[0].x, z: cur[0].z },
+            b: { x: cur[1].x, z: cur[1].z },
+        };
+        const neighbours = this._collectNeighbourSegments(state.elementId, state.levelId);
+        if (neighbours.length === 0) return;
+
+        const dims = computeWallMoveDimensions(movingWall, neighbours);
+        for (const d of dims) {
+            const from = planCanvas.worldToScreen(d.from.x, d.from.z);
+            const to   = planCanvas.worldToScreen(d.to.x,   d.to.z);
+            this._drawDimensionLine(ctx, from.sx, from.sy, to.sx, to.sy, formatM(d.distanceMm / 1000));
+        }
+    }
+
+    /**
+     * §FEAT-WALL-MOVE-DIMENSIONS — the level's OTHER wall baselines as 2D segments
+     * (plan XZ, metres) for the pure move set-out. Excludes the moving wall itself
+     * and (when a level is known) walls on other levels. Same access pattern as the
+     * draw-time `WallPlanToolHandler._collectLevelWallSegments`.
+     */
+    private _collectNeighbourSegments(
+        movingId: string,
+        levelId:  string | undefined,
+    ): MoveWallSegment[] {
+        const ws = this._ws();
+        const all: Array<{ id?: string; levelId?: string; baseLine?: Array<{ x: number; z: number }> }> =
+            (ws?.getAll?.() as never) ?? [];
+        const segs: MoveWallSegment[] = [];
+        for (const w of all) {
+            if (w.id === movingId) continue;                       // never dimension to self
+            if (levelId && w.levelId && w.levelId !== levelId) continue; // this level only
+            const bl = w.baseLine;
+            if (!bl || bl.length < 2) continue;
+            segs.push({ a: { x: bl[0].x, z: bl[0].z }, b: { x: bl[1].x, z: bl[1].z } });
+        }
+        return segs;
     }
 
     private _renderDoorWindowOverlay(

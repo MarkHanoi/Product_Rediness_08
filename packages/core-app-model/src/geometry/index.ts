@@ -17,3 +17,16 @@ export {
     computeMiterNormal,
     diagnoseJoinRobustness,
 } from './WallJoinAuditUtils.js';
+
+// ── §FEAT-WALL-MOVE-DIMENSIONS (founder L-29, 2026-07-02) — pure move-time set-out ──
+export type {
+    MovePtXZ,
+    MoveWallSegment,
+    WallMoveDimension,
+    WallMoveDimensionOptions,
+    MovingWallAxis,
+} from './wallMoveDimensions.js';
+export {
+    computeWallMoveDimensions,
+    classifyMovingWallAxis,
+} from './wallMoveDimensions.js';
