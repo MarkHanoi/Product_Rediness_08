@@ -47,6 +47,17 @@ import { KITCHEN_DEFAULTS, isTallKitchenLayout } from '../KitchenTypes';
 
 const FURN_LAYER = 'A-FURN';
 
+/**
+ * §FEAT-KITCHEN-PLAN-SYMBOL (ADR-0112, founder L-35) — single-ink PRYZM purple
+ * `#6600FF` for the placed kitchen plan symbol, per the founder's brand directive
+ * ("professional/elegant/modern … single-ink PRYZM purple, no black"). This is a
+ * SCOPED, founder-directed deviation from the black-ink drawing convention that
+ * the sibling `*PlanSymbolBuilder` classes still follow (ADR-0110) — it applies to
+ * the kitchen symbol only. Change here to re-align with the siblings if the
+ * drawing-wide ink convention is ever unified.
+ */
+const PLAN_SYMBOL_INK = 0x6600ff;
+
 /** Kitchen types this builder owns. Anything not listed falls through. */
 const HANDLED: ReadonlySet<FurnitureType> = new Set<FurnitureType>([
     'kitchen_straight',
@@ -77,6 +88,19 @@ const FRONT = {
 
 type Seg = (ax: number, az: number, bx: number, bz: number) => void;
 
+/** §FEAT-KITCHEN-PLAN-SYMBOL — the three work-triangle poles. */
+type TriKind = 'sink' | 'hob' | 'fridge';
+interface TriPoint { x: number; z: number; kind: TriKind }
+
+/** Map an appliance id to its work-triangle pole (or null if it isn't one). */
+function _triangleKind(appliance: string | undefined): TriKind | null {
+    if (!appliance) return null;
+    if (appliance.startsWith('sink'))   return 'sink';
+    if (appliance === 'hob')            return 'hob';
+    if (appliance.startsWith('fridge')) return 'fridge';
+    return null;
+}
+
 export class KitchenPlanSymbolBuilder {
     inject(drawing: OBC.TechnicalDrawing, viewDef: ViewDefinition): void {
         const levelId = viewDef.spatial?.levelId;
@@ -105,7 +129,7 @@ export class KitchenPlanSymbolBuilder {
 
             const lineSegments = new THREE.LineSegments(
                 geo,
-                new THREE.LineBasicMaterial({ color: 0x000000 }),
+                new THREE.LineBasicMaterial({ color: PLAN_SYMBOL_INK }),
             );
 
             // Apply the kitchen run's world transform. Y is irrelevant for plan
@@ -143,6 +167,31 @@ export class KitchenPlanSymbolBuilder {
     }
 
     // ── Top-level dispatch ────────────────────────────────────────────────
+
+    /**
+     * §FEAT-KITCHEN-ACCURATE-PREVIEW (ADR-0112, founder L-34) — PUBLIC entry so the
+     * plan-view PLACEMENT PREVIEW (FurniturePlanToolHandler) draws its ghost from the
+     * EXACT same config→linework the placed symbol uses. Returns a flat
+     * `[x,0,z, x,0,z, …]` buffer in run-local root coords (origin = run centre, +X /
+     * +Z the run axes). Preview ≡ placed symbol by construction — no bounding box.
+     */
+    buildConfigLinework(cfg: KitchenCabinetConfig): number[] {
+        switch (cfg.layoutType) {
+            case 'kitchen_straight':
+            case 'kitchen_straight_tall':
+                return this._buildStraight(cfg);
+            case 'kitchen_l_shape':
+            case 'kitchen_l_shape_tall':
+                return this._buildLShape(cfg);
+            case 'kitchen_u_shape':
+            case 'kitchen_u_shape_tall':
+                return this._buildUShape(cfg);
+            case 'kitchen_island':
+                return this._buildIsland(cfg);
+            default:
+                return [];
+        }
+    }
 
     private _buildLocalLinework(k: FurnitureData): number[] {
         const cfg = (k as any).kitchenConfig as KitchenCabinetConfig | undefined;
@@ -340,6 +389,13 @@ export class KitchenPlanSymbolBuilder {
              * (wall cabinets shown dashed). Passed for the `_tall` layouts.
              */
             upperDepth?: number;
+            /**
+             * §FEAT-KITCHEN-PLAN-SYMBOL (ADR-0112, founder L-35) — collector for the
+             * work-triangle. When supplied, each sink / hob / fridge unit pushes its
+             * ROOT-space centre {x,z, kind} so the caller can draw the dashed
+             * sink↔hob↔fridge triangle (standard kitchen-drafting convention).
+             */
+            triPoints?: TriPoint[];
         } = {},
     ): void {
         const offsetX = opts.offsetX ?? 0;
@@ -348,6 +404,14 @@ export class KitchenPlanSymbolBuilder {
         const swapUV  = opts.swapUV === true;
         const cosR = Math.cos(rotY);
         const sinR = Math.sin(rotY);
+
+        // §FEAT-KITCHEN-PLAN-SYMBOL — transform an arm-local (u,v) point into root
+        // coords using the SAME reflection/rotation the linework loop applies below,
+        // so a work-triangle vertex sits exactly on its appliance glyph.
+        const toRoot = (u: number, v: number): { x: number; z: number } => ({
+            x: (swapUV ? v :  u * cosR + v * sinR) + offsetX,
+            z: (swapUV ? u : -u * sinR + v * cosR) + offsetZ,
+        });
 
         // Build arm-local segments first into a temp buffer, then transform.
         // Local frame: u in [0, runLen], v in [0, depth]. Front at v=depth.
@@ -372,6 +436,13 @@ export class KitchenPlanSymbolBuilder {
             const u0   = i * unitW;
             const u1   = u0 + unitW;
             const cfg  = units[i];
+            // §FEAT-KITCHEN-PLAN-SYMBOL — record sink/hob/fridge unit centres (root
+            // space) for the work-triangle. Centre on the unit midline, mid-depth.
+            const triKind = _triangleKind(cfg?.appliance);
+            if (triKind && opts.triPoints) {
+                const c = toRoot((u0 + u1) / 2, depth / 2);
+                opts.triPoints.push({ x: c.x, z: c.z, kind: triKind });
+            }
             // §KITCHEN-PLAN-PRO — an appliance unit draws its architectural plan
             // SYMBOL (sink basin / hob burners / fridge leaf / washer drum) instead of
             // the old blank gap, so the run reads professionally + the work triangle
@@ -414,6 +485,30 @@ export class KitchenPlanSymbolBuilder {
             const rzB = swapUV ? bx : -bx * sinR + bz * cosR;
             out.push(rxA + offsetX, 0, rzA + offsetZ,
                      rxB + offsetX, 0, rzB + offsetZ);
+        }
+    }
+
+    /**
+     * §FEAT-KITCHEN-PLAN-SYMBOL (ADR-0112, founder L-35) — draw the DASHED kitchen
+     * work-triangle connecting the sink, hob and fridge glyph centres (root space),
+     * the standard kitchen-layout drafting overlay. Only drawn when at least two
+     * DISTINCT poles are present; with all three it closes into the classic triangle,
+     * with two it draws the single connecting leg. One pole per kind (the first of
+     * each) keeps the overlay legible on runs with duplicate appliances.
+     */
+    private _drawWorkTriangle(out: number[], pts: TriPoint[]): void {
+        const pick = (kind: TriKind): TriPoint | undefined => pts.find(p => p.kind === kind);
+        const poles = [pick('sink'), pick('hob'), pick('fridge')].filter(
+            (p): p is TriPoint => !!p,
+        );
+        if (poles.length < 2) return;
+        // Close the loop only for the full triangle (3 poles); 2 poles = one leg.
+        const n = poles.length;
+        const legs = n === 3 ? 3 : 1;
+        for (let i = 0; i < legs; i++) {
+            const a = poles[i]!;
+            const b = poles[(i + 1) % n]!;
+            this._dashed(out, a.x, a.z, b.x, b.z);
         }
     }
 
@@ -530,6 +625,7 @@ export class KitchenPlanSymbolBuilder {
         const units  = (cfg.units ?? []).filter(u => u.arm === 'main');
         const n      = cfg.numUnits;
         const upperDepth = this._upperDepth(cfg);
+        const tri: TriPoint[] = [];
 
         // Arm-local origin = back-left corner. Main arm back-left in root coords:
         //   x = -length/2,  z = -depth/2.   No rotation.  +u → +X, +v → +Z.
@@ -539,7 +635,9 @@ export class KitchenPlanSymbolBuilder {
             rotY:     0,
             withCountertopOverhang: true,
             upperDepth,
+            triPoints: tri,
         });
+        this._drawWorkTriangle(out, tri);
         return out;
     }
 
@@ -552,6 +650,7 @@ export class KitchenPlanSymbolBuilder {
         const mainUnits = (cfg.units ?? []).filter(u => u.arm === 'main');
         const leftUnits = (cfg.units ?? []).filter(u => u.arm === 'left');
         const upperDepth = this._upperDepth(cfg);
+        const tri: TriPoint[] = [];
 
         // Main arm
         this._drawArm(out, length, depth, mainUnits, cfg.numUnits, {
@@ -560,6 +659,7 @@ export class KitchenPlanSymbolBuilder {
             rotY:     0,
             withCountertopOverhang: true,
             upperDepth,
+            triPoints: tri,
         });
 
         // Left arm: REFLECTED (swapUV: x'=v, z'=u) so arm-local +u (run) → root +Z
@@ -573,8 +673,10 @@ export class KitchenPlanSymbolBuilder {
                 swapUV:   true,
                 withCountertopOverhang: true,
                 upperDepth,
+                triPoints: tri,
             });
         }
+        this._drawWorkTriangle(out, tri);
         return out;
     }
 
@@ -590,6 +692,7 @@ export class KitchenPlanSymbolBuilder {
         const leftUnits  = (cfg.units ?? []).filter(u => u.arm === 'left');
         const rightUnits = (cfg.units ?? []).filter(u => u.arm === 'right');
         const upperDepth = this._upperDepth(cfg);
+        const tri: TriPoint[] = [];
 
         // Main arm
         this._drawArm(out, length, depth, mainUnits, cfg.numUnits, {
@@ -598,6 +701,7 @@ export class KitchenPlanSymbolBuilder {
             rotY:     0,
             withCountertopOverhang: true,
             upperDepth,
+            triPoints: tri,
         });
 
         // Left arm: same as L-shape.
@@ -608,6 +712,7 @@ export class KitchenPlanSymbolBuilder {
                 swapUV:   true,
                 withCountertopOverhang: true,
                 upperDepth,
+                triPoints: tri,
             });
         }
 
@@ -621,8 +726,10 @@ export class KitchenPlanSymbolBuilder {
                 rotY:    -Math.PI / 2,
                 withCountertopOverhang: true,
                 upperDepth,
+                triPoints: tri,
             });
         }
+        this._drawWorkTriangle(out, tri);
         return out;
     }
 
@@ -633,6 +740,7 @@ export class KitchenPlanSymbolBuilder {
         const mainUnits = (cfg.units ?? []).filter(u => u.arm === 'main');
         const backUnits = (cfg.units ?? []).filter(u => u.arm === 'left');
         const n         = cfg.numUnits;
+        const tri: TriPoint[] = [];
 
         // Front row: faces -Z. Back-left in root coords = (-length/2, -cabDepth).
         // Arm-local +u → root +X, +v → root +Z (no rotation), front at v=cabDepth.
@@ -648,6 +756,7 @@ export class KitchenPlanSymbolBuilder {
             offsetZ:  0,
             rotY:     Math.PI,
             withCountertopOverhang: false,
+            triPoints: tri,
         });
 
         // Back row: faces +Z. No rotation. Back-left = (-length/2, 0), front at z=+cabDepth.
@@ -658,6 +767,7 @@ export class KitchenPlanSymbolBuilder {
             offsetZ:  0,
             rotY:     0,
             withCountertopOverhang: false,
+            triPoints: tri,
         });
 
         // Island countertop outline: a single rectangle with 10 cm overhang on
@@ -674,6 +784,7 @@ export class KitchenPlanSymbolBuilder {
         seg(xMax, zMax, xMin, zMax);
         seg(xMin, zMax, xMin, zMin);
 
+        this._drawWorkTriangle(out, tri);
         return out;
     }
 }
