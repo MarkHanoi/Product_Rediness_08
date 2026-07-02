@@ -326,7 +326,16 @@ function _suppressPlanViewOpeningLines(
         return dp * dp;
     };
 
-    const TOL = 0.035;         // 35 mm gap tolerance at jamb edges
+    // §FIX-PLAN-DOOR-JAMB-SEAM (2026-07-02) — DETECT_TOL is used only to DECIDE
+    // whether an along-wall line crosses an opening (a small over-reach so a
+    // projection-float sliver just inside the opening is still recognised and
+    // removed). The kept remainder, however, is reconstructed to terminate at the
+    // TRUE void edge (zone.min / zone.max, = offset / offset+width per C15 §2), NOT
+    // at zone.min − TOL. Previously the kept wall line stopped 35 mm SHORT of the
+    // jamb, so it did not close onto the door/window frame-cut tick (which sits on
+    // the void edge) — the reported "wall lines don't meet the frame" plan gap.
+    // INVARIANT: wall face line terminus === opening void edge === frame jamb tick.
+    const DETECT_TOL = 0.035;  // 35 mm — opening-crossing detection over-reach only
     const MIN_SEG = 0.008;     // discard sub-8mm output fragments
 
     const kept: number[] = [];
@@ -360,16 +369,23 @@ function _suppressPlanViewOpeningLines(
         let intervals: Array<[number, number]> = [[segMin, segMax]];
 
         for (const zone of zones) {
-            const zMin = zone.min - TOL;
-            const zMax = zone.max + TOL;
+            // Detection boundary (over-reaches by DETECT_TOL so slivers just inside
+            // the opening are still recognised as crossing).
+            const detMin = zone.min - DETECT_TOL;
+            const detMax = zone.max + DETECT_TOL;
+            // §FIX-PLAN-DOOR-JAMB-SEAM: the kept remainder terminates at the TRUE
+            // void edge (zone.min / zone.max) so the wall face line closes exactly
+            // onto the frame jamb tick — no 35 mm short-fall.
+            const cutMin = zone.min;
+            const cutMax = zone.max;
             const next: Array<[number, number]> = [];
             for (const [lo, hi] of intervals) {
-                if (hi <= zMin || lo >= zMax) {
-                    next.push([lo, hi]);           // Entirely outside zone — keep
+                if (hi <= detMin || lo >= detMax) {
+                    next.push([lo, hi]);              // Entirely outside zone — keep
                 } else {
-                    if (lo < zMin) next.push([lo, zMin]); // Left remainder
-                    if (hi > zMax) next.push([zMax, hi]); // Right remainder
-                    // Portion [zMin..zMax] is within the opening — suppressed
+                    if (lo < cutMin) next.push([lo, Math.max(lo, cutMin)]); // Left remainder → void edge
+                    if (hi > cutMax) next.push([Math.min(hi, cutMax), hi]); // Right remainder → void edge
+                    // Portion [cutMin..cutMax] is within the opening — suppressed
                 }
             }
             intervals = next;

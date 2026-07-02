@@ -34,6 +34,56 @@ import { vgGovernanceStore } from '@pryzm/visibility';
 /** Number of line segments used to approximate the quarter-circle swing arc. */
 const ARC_SEGMENTS = 32;
 
+/**
+ * §FIX-PLAN-DOOR-JAMB-SEAM (2026-07-02) — watertight door-in-wall plan symbol.
+ *
+ * INVARIANT: the frame-cut jamb ticks MUST land on the opening VOID EDGES, i.e.
+ * exactly where the host wall's plan-projected face lines terminate. Per C15 §2
+ * the void spans `[offset, offset + width]` along the wall (`voidStart =
+ * baseLine[0] + offset·wallDir`, `voidEnd = baseLine[0] + (offset+width)·wallDir`),
+ * and `_suppressPlanViewOpeningLines` (EdgeProjectorService) clips the wall lines
+ * to that same span. The plan-symbol CENTRE = `offset + width/2`, so relative to
+ * the centre the two jambs sit at `∓ width/2` = `∓ halfWidth`.
+ *
+ * The prior code inset each jamb tick by `frameThick` (`∓(halfWidth − frameThick)`),
+ * leaving a `frameThick` (~50 mm) GAP between the wall-line terminus and the frame
+ * tick on BOTH jambs — the reported plan defect. Matching the window builder (whose
+ * jamb edges sit at `±halfW` = the void edges) closes the seam.
+ *
+ * NOTE: the door LEAF still legitimately hinges from the inner frame corner
+ * (`halfWidth − frameThick`) — the leaf sits inside the frame reveal; only the
+ * frame-cut tick moves out to the void edge so the wall lines close onto it.
+ *
+ * Returns the two frame-cut tick segments as a flat [ax,0,az, bx,0,bz, …] array
+ * (4 vertices → 2 segments) in world XZ (y = 0). Pure — no store/DOM side effects.
+ */
+export function computeDoorFrameJambTicks(params: {
+    /** Opening centre in world XZ (= voidStart + halfWidth·dir). */
+    centre: THREE.Vector3;
+    /** Unit wall direction in world XZ (y = 0). */
+    dir: THREE.Vector3;
+    /** Wall left-normal (−dir.z, 0, dir.x); tick runs across the wall depth. */
+    leftNormal: THREE.Vector3;
+    /** Half the opening width — distance from centre to each void edge. */
+    halfWidth: number;
+    /** Half the wall thickness — tick half-length either side of the centreline. */
+    halfThickness: number;
+}): number[] {
+    const { centre, dir, leftNormal, halfWidth, halfThickness } = params;
+    // Jambs on the VOID EDGES (∓ halfWidth) — coincide with the wall-line terminus.
+    const leftJamb  = centre.clone().addScaledVector(dir, -halfWidth);
+    const rightJamb = centre.clone().addScaledVector(dir, +halfWidth);
+    const tickHalf  = leftNormal.clone().multiplyScalar(halfThickness);
+    return [
+        // Left jamb tick (perpendicular line across the wall depth)
+        leftJamb.x - tickHalf.x, 0, leftJamb.z - tickHalf.z,
+        leftJamb.x + tickHalf.x, 0, leftJamb.z + tickHalf.z,
+        // Right jamb tick
+        rightJamb.x - tickHalf.x, 0, rightJamb.z - tickHalf.z,
+        rightJamb.x + tickHalf.x, 0, rightJamb.z + tickHalf.z,
+    ];
+}
+
 /** ISO 13567 DXF layer for door swing symbols — must match VGSceneApplicator category map. */
 const DOOR_LAYER = 'A-DOOR';
 /**
@@ -201,24 +251,27 @@ export class DoorPlanSymbolBuilder {
         // (heavy line weight) because the section plane physically cuts
         // through the frame member at every floor-plan slice elevation.
         //
-        // Algorithm: at each of the two jambs, draw ONE line perpendicular
-        // to the wall axis, length = wall.thickness, centred on the wall
-        // centreline. This is the canonical "frame cut" symbol in Revit /
-        // AutoCAD / ArchiCAD plan views.
+        // §FIX-PLAN-DOOR-JAMB-SEAM (2026-07-02) — the two jamb ticks are now
+        // drawn on the opening VOID EDGES (±halfWidth from centre = offset and
+        // offset+width along the wall), which is exactly where the host wall's
+        // plan-projected face lines terminate (C15 §2 voidStart/voidEnd; matched
+        // by _suppressPlanViewOpeningLines in EdgeProjectorService). Previously
+        // the ticks were inset by frameThick, leaving a ~frameThick (50 mm) gap
+        // between each wall-line terminus and the frame tick — the reported
+        // "wall lines don't meet the door frame" plan defect. This mirrors the
+        // window builder, whose jamb edges already sit on the void edges.
+        // Delegated to the shared pure helper so the wall-line↔frame coincidence
+        // invariant has a single, testable source of truth.
         const wallThickness = Math.max(0.05, Number(wallData.thickness ?? 0.2));
         const halfThk       = wallThickness / 2;
-        const leftJamb      = centre.clone().addScaledVector(dir, -(halfWidth - frameThick));
-        const rightJamb     = centre.clone().addScaledVector(dir, +(halfWidth - frameThick));
-        const tickHalf      = leftNormal.clone().multiplyScalar(halfThk);
-        // Left jamb tick (perpendicular line across the wall depth)
         cutPositions.push(
-            leftJamb.x - tickHalf.x, 0, leftJamb.z - tickHalf.z,
-            leftJamb.x + tickHalf.x, 0, leftJamb.z + tickHalf.z,
-        );
-        // Right jamb tick
-        cutPositions.push(
-            rightJamb.x - tickHalf.x, 0, rightJamb.z - tickHalf.z,
-            rightJamb.x + tickHalf.x, 0, rightJamb.z + tickHalf.z,
+            ...computeDoorFrameJambTicks({
+                centre,
+                dir,
+                leftNormal,
+                halfWidth,
+                halfThickness: halfThk,
+            }),
         );
 
         const isDouble = door.doorType === 'double';

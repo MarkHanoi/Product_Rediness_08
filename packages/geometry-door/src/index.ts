@@ -15,4 +15,10 @@ export { buildDoorSection, injectDwStyles, setDoorSectionCommandManager } from '
 
 // ── Sprint Z (2026-05-12) — DoorTool + DoorPlanSymbolBuilder ─────────────────
 export { DoorTool } from './DoorTool';
-export { DoorPlanSymbolBuilder, doorPlanSymbolBuilder } from './DoorPlanSymbolBuilder';
+export {
+    DoorPlanSymbolBuilder,
+    doorPlanSymbolBuilder,
+    // §FIX-PLAN-DOOR-JAMB-SEAM (2026-07-02) — pure helper; frame-cut jamb ticks on
+    // the opening void edges so the wall plan lines close watertight onto the frame.
+    computeDoorFrameJambTicks,
+} from './DoorPlanSymbolBuilder';
