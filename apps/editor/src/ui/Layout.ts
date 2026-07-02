@@ -47,7 +47,7 @@ export interface UIProps {
     toggleBimVisibility: (type: 'levels' | 'grids', visible: boolean) => void;
     applyVisualStyle: (style: VisualStyle) => Promise<void>;
     deleteSelected: () => void;
-    addFurniture: (path: string, position?: THREE.Vector3) => void;
+    addFurniture: (path: string, position?: THREE.Vector3, rotationY?: number) => void;
     toggleSection: (section: string) => void;
     container: HTMLElement;
     navManager: ViewNavigationManager;

@@ -41,6 +41,7 @@ export class PlanOrdering {
         [CommandType.DELETE_STAIR]: 45,
         [CommandType.UPDATE_STAIR_FLIGHTS]: 46,
         [CommandType.CHANGE_STAIR_SHAPE]: 47,
+        [CommandType.CHANGE_FURNITURE_TYPE]: 48,
         [CommandType.ASSIGN_ELEMENT_TO_LEVEL]: 50,
         [CommandType.CREATE_BEAM]: 23,
         [CommandType.UPDATE_BEAM]: 45,
