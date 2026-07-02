@@ -155,3 +155,24 @@ Trace to source and upgrade each **N/V** cell to OK/GAP/BROKEN:
 
 Each wave is independently shippable to `pryzm.fly.dev` via the standard push→deploy loop, gated on root
 `tsc --skipLibCheck --noEmit` = exit 0.
+
+---
+
+## Live reported-items queue (founder-reported; append-only)
+
+Every founder-reported issue is logged here so nothing is lost. Status: OPEN / IN-PROGRESS / SHIPPED.
+
+| # | Item | Maps to | Status |
+|---|---|---|---|
+| Q1 | Wall-move-with-hosted-door total freeze | ADR-0098 F1 / ADR-0099 | SHIPPED (merged c9fcbdf5) |
+| Q2 | Heavy-tower (40-storey) navigation too slow | W-nav (shadow ceiling / instancing / nav-LOD) | IN-PROGRESS (agent) |
+| Q3 | Heavy-project load fails ("Load timed out 30s") + frozen view; autosave-during-load; clear-on-switch O(N); 940 RBLs | ADR-0098 F2 + C13/C05 | IN-PROGRESS (agent) |
+| Q4 | 3D selection picks wrong element (window→door) | ADR-0098 F4 / W2.1 | OPEN |
+| Q5 | WebGL2 ghost/duplicate-on-rotate | ADR-0098 F7 / W2.2 | OPEN |
+| Q6 | Per-edit redetect + full plan-reprojection storm | ADR-0098 F3 / W3 | OPEN |
+| Q7 | No first-class Rotate command; uneven Materials commands | ADR-0098 F5/F6 / W4 | OPEN |
+| Q8 | **Wall-draw rubber-band preview stutters / gets stuck** while placing the 2nd point (empty project, 0 elements — NOT density). Suspects: (a) first wall flips SceneQualityTier→cinematic → TRAA/SSGI/shadows-high pipeline REBUILD mid-draw; (b) TRAA temporal accumulation ghosts a thin moving preview line so it reads as "stuck"; (c) preview pointermove doesn't request a render every move (render-on-demand drops frames); (d) frame-scheduler coalesces/drops preview updates. Files: WallTool pointermove/preview path, RenderPipelineManager tier-change, frame scheduler render-request. | NEW → W6 | OPEN |
+
+### W6 — Wall-draw preview responsiveness (Q8)
+- **Acceptance**: rubber-band wall preview updates smoothly every pointer move on an empty project, no stutter/stuck frames; drawing the first wall must NOT trigger a mid-draw render-pipeline rebuild that stalls the preview (defer tier escalation until the draw commits, or make the preview render-request unconditional per move). Consider suppressing TRAA/temporal accumulation on the transient preview line.
+- **Contract**: C04 (rendering/scheduling), C06 (UI shell & tools).
