@@ -2264,7 +2264,7 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
     // window.wallStore, etc.) are fully assigned.  PlanViewToolOverlay._activateHandler()
     // asserts this sentinel before calling handler.activate() so plan tools refuse
     // to arm if initTools threw or returned early before reaching this line.
-    (window as any).__pryzmInitComplete = true;
+    window.__pryzmInitComplete = true; // §R3-SENTINEL — typed global (globals.d.ts), P4-clean
     console.log('[initTools] §R3-SENTINEL: plan tools armed — all globals confirmed live.');
 
     return {

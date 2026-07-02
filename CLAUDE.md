@@ -94,13 +94,14 @@ GA-gate checks live in `tools/ga-gate/` (run via `run-all.ts`); CI checks also l
 
 ## Governance — read the contracts first
 
-`docs/00_Contracts/C00-INDEX.md` indexes a canonical contract suite (**C01–C15**) that governs
+`docs/02-decisions/contracts/README.md` (the "C00" contract-suite index) indexes a canonical
+contract suite (**C01–C15**) that governs
 every implementation decision. Before non-trivial work, read the contract for the subsystem you
 are touching — e.g. `C03` (schemas/commands/state), `C04` (rendering/scheduling), `C11`
 (element creation pipeline), `C15` (hosted elements: doors/windows in walls).
 
 Conflict resolution order (strongest first): `docs/03_PRYZM3/01-VISION.md` →
-`02-ARCHITECTURE.md` → the C01–C15 contracts → ADRs (`docs/03_PRYZM3/reference/adrs/`) →
+`02-ARCHITECTURE.md` → the C01–C15 contracts → ADRs (`docs/02-decisions/adrs/`) →
 SPECs (`reference/specs/`). **When code disagrees with a contract, the code is wrong** — fix
 the code, or raise a superseding ADR; never write a new `*-AUDIT.md` derivative doc. Edit the
 canonical `C0N-*.md` in place. Current migration status: `docs/03_PRYZM3/PRYZM3-MASTER-STATUS.md`.

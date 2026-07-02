@@ -421,7 +421,7 @@ export class SvpPlanToolOverlay {
     private _activateHandler(tool: string): void {
         // §P1.3-B (IMPL-PLAN-2026-05-17): Assert the init-complete sentinel before
         // activating any plan-tool handler (mirrors PlanViewToolOverlay §R3-SENTINEL).
-        if (!(window as any).__pryzmInitComplete) {
+        if (!window.__pryzmInitComplete) {
             console.error(
                 '[SvpPlanToolOverlay] §R3-SENTINEL: initTools did not complete — ' +
                 'commandManager / wallStore not available. ' +
