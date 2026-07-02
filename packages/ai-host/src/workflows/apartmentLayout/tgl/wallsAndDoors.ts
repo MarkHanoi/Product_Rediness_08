@@ -1925,8 +1925,20 @@ export function buildWallsAndDoors(
         // would re-introduce the bathroom↔bedroom / bathroom-off-hall anti-patterns those passes
         // exist to prevent. Mirrors `REACH_HABITABLE_TYPES` in enumerate.ts.
         const RESCUE_HABITABLE_TYPES = new Set(['living', 'kitchen', 'dining', 'master', 'bedroom', 'study']);
-        const isHabitable = (id: string): boolean =>
-            RESCUE_HABITABLE_TYPES.has(roomRule(typeOf.get(id) ?? '').type);
+        // §DOOR-RESCUE-STORAGE (2026-07-02, founder "Circulation 100% while rooms sealed") — a
+        // residual `storage` cell (the plate-fill service closet, minted by §DIAG-FILL-RESIDUAL)
+        // was NOT in the rescue set, so on a fragmented plate it could ship SEALED (no door onto
+        // any room) even though the modal counts it as a habitable destination → the honest metric
+        // (now duplicate-name-safe) would report < 100% while the generator never closed the gap.
+        // A `storage` closet is a DRY, accessible service room whose `programRules.accessFrom` is
+        // {corridor, hall, bedroom} — a `permitted` door onto a reached neighbour is legal and
+        // architecturally correct (you must be able to open the cupboard). WET rooms
+        // (bathroom/wc/utility) stay EXCLUDED — their privacy passes own them (see above).
+        const RESCUE_ACCESSIBLE_SERVICE_TYPES = new Set(['storage']);
+        const isHabitable = (id: string): boolean => {
+            const t = roomRule(typeOf.get(id) ?? '').type;
+            return RESCUE_HABITABLE_TYPES.has(t) || RESCUE_ACCESSIBLE_SERVICE_TYPES.has(t);
+        };
         // Deterministic entrance root: explicit entry → lowest-id circulation room → lowest-id
         // room. Identical selection to `unreachableHabitableRoomIds` so the in-engine guarantee
         // and the modal's % agree on the same front.

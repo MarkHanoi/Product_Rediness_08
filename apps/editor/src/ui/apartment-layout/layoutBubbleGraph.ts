@@ -512,7 +512,13 @@ export function buildPlanGraphOverlaySvg(
     // doors are. The entrance is the hall (ground) or, on an upper floor that has no hall,
     // the stair (you arrive from the floor below). Only runs when EVERY room carries a
     // `doorAdjacentTo` (post-deploy engine) so pre-deploy builds never false-positive.
-    const reachIdxByName = new Map(rooms.map((r, i) => [r.name, i] as const));
+    // §DUP-NAME-SAFE — resolve a referenced name to ALL rooms bearing it (the engine mints
+    // duplicate display names); a name→single-index map masked sealed same-named rooms.
+    const reachIdxByName = new Map<string, number[]>();
+    rooms.forEach((r, i) => {
+        const arr = reachIdxByName.get(r.name);
+        if (arr) arr.push(i); else reachIdxByName.set(r.name, [i]);
+    });
     const hasFullDoorGraph = rooms.length > 0 && rooms.every(r => Array.isArray(r.doorAdjacentTo));
     const reachableFromEntrance = new Set<number>();
     if (hasFullDoorGraph) {
@@ -520,8 +526,9 @@ export function buildPlanGraphOverlaySvg(
         const doorAdj: number[][] = rooms.map(() => []);
         rooms.forEach((r, i) => {
             for (const n of (r.doorAdjacentTo ?? [])) {
-                const j = reachIdxByName.get(n);
-                if (j != null && j !== i) { doorAdj[i]!.push(j); doorAdj[j]!.push(i); }
+                for (const j of (reachIdxByName.get(n) ?? [])) {
+                    if (j !== i) { doorAdj[i]!.push(j); doorAdj[j]!.push(i); }
+                }
             }
         });
         let root = rooms.findIndex(r => String(r.type ?? '').toLowerCase() === 'hall');
@@ -709,30 +716,50 @@ export function computeCirculationReachability(option: LayoutOption): Circulatio
     }
 
     // Build the permeability adjacency: door graph when present, else wall adjacency.
-    const idxByName = new Map<string, number>();
-    rooms.forEach((r, i) => idxByName.set(r.name, i));
+    // §DUP-NAME-SAFE (2026-07-02, founder "Circulation 100% while rooms sealed") — the
+    // access edges (`doorAdjacentTo` / `adjacentTo`) reference rooms BY NAME, and the
+    // engine can mint DUPLICATE display names (e.g. several residual "Storage" cells,
+    // "Bedroom", …). A name→SINGLE-index map collapsed every same-named room to ONE node,
+    // so a SEALED room inherited a same-named CONNECTED sibling's reachability and was
+    // counted as reached — the metric reported 100% over physically isolated rooms. Key the
+    // graph by ARRAY INDEX and resolve every referenced name to ALL rooms bearing it, so a
+    // sealed duplicate is its own node and correctly shows as unreached.
+    const idxByName = new Map<string, number[]>();
+    rooms.forEach((r, i) => {
+        const arr = idxByName.get(r.name);
+        if (arr) arr.push(i); else idxByName.set(r.name, [i]);
+    });
     const adj: number[][] = rooms.map(() => []);
-    const linkNames = (a: string, others: readonly string[] | undefined): void => {
-        const i = idxByName.get(a);
-        if (i === undefined) return;
+    const linkNames = (fromIdx: number, others: readonly string[] | undefined): void => {
         for (const n of (others ?? [])) {
             if (typeof n !== 'string') continue;
-            const j = idxByName.get(n);
-            if (j === undefined || j === i) continue;
-            adj[i]!.push(j);
-            adj[j]!.push(i);                                  // undirected (robust to one-sided data)
+            for (const j of (idxByName.get(n) ?? [])) {
+                if (j === fromIdx) continue;
+                adj[fromIdx]!.push(j);
+                adj[j]!.push(fromIdx);                        // undirected (robust to one-sided data)
+            }
         }
     };
-    for (const r of rooms) linkNames(r.name, hasDoorGraph ? r.doorAdjacentTo : r.adjacentTo);
+    rooms.forEach((r, i) => linkNames(i, hasDoorGraph ? r.doorAdjacentTo : r.adjacentTo));
 
-    // Deterministic entrance root: hall → stair → first circulation → first room (sorted).
-    const sorted = [...rooms].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    // Deterministic entrance root: hall → CORRIDOR → stair → any circulation → first room.
+    // §ROOT-CORRIDOR-BEFORE-STAIR (2026-07-02) — the earlier rule preferred the STAIR over the
+    // corridor, but on an UPPER floor the stair keep-out often ships DOOR-LESS (it opens onto the
+    // corridor, not the reverse) — rooting BFS at a sealed stair reached NOTHING → a fully
+    // corridor-connected floor scored 0%. SPEC-CIRCULATION-GRAPH FF-R1 makes the CORRIDOR the
+    // upper-floor root (the landing you arrive onto); the stair merely touches it. Preferring the
+    // corridor matches the engine's own reach root (`unreachableHabitableRoomIds`: entry → lowest
+    // circulation) and never anchors on an isolated stair.
+    const sorted = rooms
+        .map((r, i) => ({ r, i }))
+        .sort((a, b) => (a.r.name < b.r.name ? -1 : a.r.name > b.r.name ? 1 : a.i - b.i));
     const root =
-        sorted.find(r => typeOf(r) === 'hall') ??
-        sorted.find(r => typeOf(r) === 'stair') ??
-        sorted.find(r => isCirc(typeOf(r))) ??
+        sorted.find(x => typeOf(x.r) === 'hall') ??
+        sorted.find(x => typeOf(x.r) === 'corridor') ??
+        sorted.find(x => typeOf(x.r) === 'stair') ??
+        sorted.find(x => isCirc(typeOf(x.r))) ??
         sorted[0]!;
-    const rootIdx = idxByName.get(root.name)!;
+    const rootIdx = root.i;
 
     // BFS over the permeability graph.
     const reachedSet = new Set<number>([rootIdx]);
@@ -746,11 +773,11 @@ export function computeCirculationReachability(option: LayoutOption): Circulatio
 
     const unreached: string[] = [];
     let reached = 0;
-    for (const r of habitable) {
-        const i = idxByName.get(r.name)!;
+    rooms.forEach((r, i) => {
+        if (!isHabitable(r)) return;
         if (reachedSet.has(i)) reached += 1;
         else unreached.push(r.name);
-    }
+    });
     unreached.sort();
     return {
         reached,

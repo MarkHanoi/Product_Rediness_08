@@ -309,4 +309,71 @@ describe('computeCirculationReachability (§CIRCULATION-REACH)', () => {
         expect(r.unreachedRoomNames).toContain('Bedroom');
         expect(r.fraction).toBeLessThan(1);
     });
+
+    // §DUP-NAME-SAFE (founder 2026-07-02, "Circulation 100% while rooms are sealed") — the
+    // access edges reference rooms BY NAME, and the engine mints DUPLICATE display names (a
+    // swarm of residual "Storage" cells). A name→single-index map collapsed every same-named
+    // room into ONE node, so a SEALED "Storage" inherited a CONNECTED same-named sibling's
+    // reachability and was scored as reached → the metric reported 100% over a physically
+    // isolated room. THIS is why "Circulation 100%" passed while the top rooms were sealed.
+    // The metric is now keyed by ARRAY INDEX (not name), so two rooms sharing a name are two
+    // distinct nodes: the SEALED one — with no realised door edge on EITHER side (the emitted
+    // door graph is symmetric) — is correctly its own unreached island.
+    it('does NOT mask a SEALED duplicate-named room behind a connected same-named sibling', () => {
+        const cell = (x: number): { x: number; y: number }[] =>
+            [{ x, y: 0 }, { x: x + 2000, y: 0 }, { x: x + 2000, y: 3000 }, { x, y: 3000 }];
+        const opt: LayoutOption = {
+            summary: '', corridorWidthMin: 0, doors: [], walls: [],
+            rooms: [
+                // The corridor doors onto exactly ONE storage (the realised, unique reference).
+                { name: 'Corridor', type: 'corridor', area: 6, windowCount: 0, hasDirectAccess: true,
+                  adjacentTo: ['Storage'], doorAdjacentTo: ['Storage'], polygon: cell(0) },
+                // A "Storage" that DOORS onto the corridor (reachable) — symmetric edge.
+                { name: 'Storage', type: 'storage', area: 4, windowCount: 0, hasDirectAccess: true,
+                  adjacentTo: ['Corridor'], doorAdjacentTo: ['Corridor'], polygon: cell(2000) },
+                // A SECOND storage cell that is SEALED — no door edge on EITHER side (nobody
+                // references it; it references nobody). It carries the UNIQUE display name the
+                // §DUP-NAME-UNIQUE emit pass now mints ("Storage 2") so the access graph can name
+                // it unambiguously. Pre-fix (both cells named "Storage" + name-keyed BFS) this
+                // sealed cell collapsed onto the connected "Storage" and counted reached — the
+                // false 100%; post-fix it is its own unreached node → fraction < 1.
+                { name: 'Storage 2', type: 'storage', area: 4, windowCount: 0, hasDirectAccess: false,
+                  adjacentTo: [], doorAdjacentTo: [], polygon: cell(4000) },
+            ] as never,
+        };
+        const r = computeCirculationReachability(opt);
+        expect(r.hasDoorGraph).toBe(true);
+        expect(r.total).toBe(2);                 // two storage rooms are both habitable destinations
+        expect(r.reached).toBe(1);               // only the corridor-doored one is reached
+        expect(r.fraction).toBeLessThan(1);      // NOT the pre-fix false 100%
+        expect(r.unreachedRoomNames).toContain('Storage 2');
+    });
+
+    // §ROOT-CORRIDOR-BEFORE-STAIR — on an UPPER floor the stair keep-out usually ships DOOR-LESS
+    // (rooms open onto the corridor, not the stair). Rooting BFS at that sealed stair reached
+    // NOTHING → a fully corridor-connected floor scored 0%. The corridor (SPEC FF-R1 root) must
+    // be the entrance when there is no hall, so a well-connected upper floor scores 100%.
+    it('roots at the CORRIDOR (not a sealed stair) on an upper floor → full reachability', () => {
+        const cell = (x: number): { x: number; y: number }[] =>
+            [{ x, y: 0 }, { x: x + 2000, y: 0 }, { x: x + 2000, y: 3000 }, { x, y: 3000 }];
+        const opt: LayoutOption = {
+            summary: '', corridorWidthMin: 0, doors: [], walls: [],
+            rooms: [
+                // Sealed stair (opens onto the corridor via the corridor's own door list, but
+                // carries no door of its own) — sorts before 'Corridor' alphabetically too.
+                { name: 'Stair', type: 'stair', area: 6, windowCount: 0, hasDirectAccess: false,
+                  adjacentTo: ['Corridor'], doorAdjacentTo: [], polygon: cell(0) },
+                { name: 'Corridor', type: 'corridor', area: 6, windowCount: 0, hasDirectAccess: true,
+                  adjacentTo: ['Bedroom 1', 'Bedroom 2'], doorAdjacentTo: ['Bedroom 1', 'Bedroom 2'], polygon: cell(2000) },
+                { name: 'Bedroom 1', type: 'bedroom', area: 12, windowCount: 1, hasDirectAccess: true,
+                  adjacentTo: ['Corridor'], doorAdjacentTo: ['Corridor'], polygon: cell(4000) },
+                { name: 'Bedroom 2', type: 'bedroom', area: 12, windowCount: 1, hasDirectAccess: true,
+                  adjacentTo: ['Corridor'], doorAdjacentTo: ['Corridor'], polygon: cell(6000) },
+            ] as never,
+        };
+        const r = computeCirculationReachability(opt);
+        expect(r.total).toBe(2);                 // two bedrooms (corridor + stair are circulation)
+        expect(r.reached).toBe(2);
+        expect(r.fraction).toBe(1);              // NOT 0% from anchoring on the sealed stair
+    });
 });
