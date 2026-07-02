@@ -8,6 +8,30 @@ export class WindowStore {
     private windows: Map<string, WindowOpening> = new Map();
     private listeners: WindowEventListener[] = [];
 
+    // ── §FIX-HOSTWALL-DOOR-INDEX (2026-07-02) ────────────────────────────────
+    // Reverse index: hostWallId → Set<windowId>. Mirrors DoorStore exactly.
+    // WindowBuilder.rebuildForWall used the identical UNBOUNDED O(all-windows)
+    // scan that DoorBuilder did, so a wall move that hosts windows paid the same
+    // quadratic cost per rebuilt wall inside the synchronous WallRebuildCoordinator
+    // ._flush. See DoorStore for the full invariant statement; it holds verbatim
+    // here with "door" → "window".
+    private _byWall: Map<string, Set<string>> = new Map();
+
+    /** §FIX-HOSTWALL-DOOR-INDEX — add id to its host-wall bucket. */
+    private _indexAdd(wallId: string, id: string): void {
+        let bucket = this._byWall.get(wallId);
+        if (!bucket) { bucket = new Set<string>(); this._byWall.set(wallId, bucket); }
+        bucket.add(id);
+    }
+
+    /** §FIX-HOSTWALL-DOOR-INDEX — remove id from a host-wall bucket; prune empties. */
+    private _indexRemove(wallId: string, id: string): void {
+        const bucket = this._byWall.get(wallId);
+        if (!bucket) return;
+        bucket.delete(id);
+        if (bucket.size === 0) this._byWall.delete(wallId);
+    }
+
     add(window: Partial<WindowOpening> & { id: string; openingId: string; wallId: string }): void {
         // B5/R7: Zod boundary validation — parse with defaults applied
         const result = WindowOpeningSchema.safeParse(window);
@@ -21,6 +45,7 @@ export class WindowStore {
         }
         const frozen = Object.freeze({ ...result.data });
         this.windows.set(frozen.id, frozen);
+        this._indexAdd(frozen.wallId, frozen.id);  // §FIX-HOSTWALL-DOOR-INDEX
         this.notify('add', frozen);
         storeEventBus.emit({ elementId: frozen.id, elementType: 'window', operation: 'create', timestamp: Date.now() });
     }
@@ -41,6 +66,11 @@ export class WindowStore {
         }
         const frozen = Object.freeze({ ...result.data });
         this.windows.set(id, frozen);
+        // §FIX-HOSTWALL-DOOR-INDEX — re-home the id if the host wall changed.
+        if (existing.wallId !== frozen.wallId) {
+            this._indexRemove(existing.wallId, id);
+            this._indexAdd(frozen.wallId, id);
+        }
         this.notify('update', frozen, existing);
         storeEventBus.emit({ elementId: id, elementType: 'window', operation: 'update', timestamp: Date.now() });
     }
@@ -49,6 +79,7 @@ export class WindowStore {
         const existing = this.windows.get(id);
         if (!existing) return; // idempotent
         this.windows.delete(id);
+        this._indexRemove(existing.wallId, id);  // §FIX-HOSTWALL-DOOR-INDEX
         this.notify('remove', existing);
         storeEventBus.emit({ elementId: id, elementType: 'window', operation: 'delete', timestamp: Date.now() });
     }
@@ -57,8 +88,26 @@ export class WindowStore {
         return this.windows.get(id);
     }
 
+    /**
+     * §FIX-HOSTWALL-DOOR-INDEX — O(windows-on-that-wall) lookup of the window ids
+     * hosted by `wallId`. Returns a fresh array so callers can iterate safely
+     * while mutating the store.
+     */
+    getIdsByWallId(wallId: string): string[] {
+        const bucket = this._byWall.get(wallId);
+        return bucket ? [...bucket] : [];
+    }
+
     getByWallId(wallId: string): WindowOpening[] {
-        return [...this.windows.values()].filter(w => w.wallId === wallId);
+        // §FIX-HOSTWALL-DOOR-INDEX — was O(all-windows); now O(windows-on-that-wall).
+        const bucket = this._byWall.get(wallId);
+        if (!bucket) return [];
+        const out: WindowOpening[] = [];
+        for (const id of bucket) {
+            const w = this.windows.get(id);
+            if (w) out.push(w);
+        }
+        return out;
     }
 
     getAll(): WindowOpening[] {
@@ -99,6 +148,7 @@ export class WindowStore {
             storeEventBus.emit({ elementId: win.id, elementType: 'window', operation: 'delete', timestamp: Date.now() });
         }
         this.windows.clear();
+        this._byWall.clear();  // §FIX-HOSTWALL-DOOR-INDEX — keep the index in lock-step
     }
 
     subscribe(listener: WindowEventListener): () => void {

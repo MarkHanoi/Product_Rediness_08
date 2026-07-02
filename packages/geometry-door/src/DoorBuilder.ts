@@ -212,10 +212,19 @@ export class DoorBuilder {
      * C11 §2 step 3: deferred via FrameScheduler — no longer synchronous.
      */
     rebuildForWall(wallId: string): void {
-        for (const door of doorStore.getAll()) {
-            if (door.wallId === wallId) {
-                this._enqueue(door, undefined);
-            }
+        // §FIX-HOSTWALL-DOOR-INDEX (2026-07-02) — BOUNDED re-anchor. Was an
+        // UNBOUNDED `for (const door of doorStore.getAll())` full-project scan
+        // filtered by `door.wallId === wallId`. WallRebuildCoordinator._flush
+        // calls this ONCE PER REBUILT WALL on a baseline move, so the old scan
+        // made a single wall move cost O(walls-rebuilt × all-doors-in-project) —
+        // the confirmed main-thread-freeze root when a moved wall hosts openings.
+        // The DoorStore now maintains a wallId → Set<doorId> reverse index, so
+        // this visits ONLY the doors hosted on `wallId` (K, not N). A wall that
+        // hosts no doors — the vast majority a whole-level rebuild touches — does
+        // ZERO work here instead of an N-length scan.
+        for (const id of doorStore.getIdsByWallId(wallId)) {
+            const door = doorStore.getById(id);
+            if (door) this._enqueue(door, undefined);
         }
     }
 

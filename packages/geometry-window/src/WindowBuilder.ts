@@ -353,10 +353,15 @@ export class WindowBuilder {
      * C11 §2 step 3: deferred via FrameScheduler — no longer synchronous.
      */
     rebuildForWall(wallId: string): void {
-        for (const win of windowStore.getAll()) {
-            if (win.wallId === wallId) {
-                this._enqueue(win, undefined);
-            }
+        // §FIX-HOSTWALL-DOOR-INDEX (2026-07-02) — BOUNDED re-anchor. Was an
+        // UNBOUNDED `for (const win of windowStore.getAll())` full-project scan.
+        // Identical hang path to DoorBuilder.rebuildForWall (see there for the
+        // O(walls-rebuilt × all-openings) explosion). WindowStore now maintains a
+        // wallId → Set<windowId> reverse index, so this visits only the K windows
+        // hosted on `wallId`.
+        for (const id of windowStore.getIdsByWallId(wallId)) {
+            const win = windowStore.getById(id);
+            if (win) this._enqueue(win, undefined);
         }
     }
 
