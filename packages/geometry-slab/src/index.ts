@@ -49,6 +49,8 @@ export { CeilingPanelBuilder } from './ceiling/CeilingPanelBuilder';
 // ── Sprint U (2026-05-12) — Floor subsystem ──────────────────────────────────
 export type { FloorCreationParams, FloorModalOptions, FloorDrawingMode, FloorToolDeps } from './floor/FloorTool';
 export { FloorTool } from './floor/FloorTool';
+// §FIX-FLOORFINISH-DEFAULT-THICKNESS — coupled interactive-creation defaults (thickness = base offset).
+export { DEFAULT_FLOOR_FINISH_BASE_OFFSET_M, DEFAULT_FLOOR_FINISH_THICKNESS_M } from './floor/floorFinishDefaults';
 export { FloorPanelBuilder } from './floor/FloorPanelBuilder';
 export type { SlabBindingHandlerDeps } from './floor/FloorSlabBindingHandler';
 export { FloorSlabBindingHandler } from './floor/FloorSlabBindingHandler';

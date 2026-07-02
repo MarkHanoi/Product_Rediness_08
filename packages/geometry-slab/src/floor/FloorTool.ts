@@ -57,6 +57,15 @@ const FLOOR_PREVIEW_COLOR = 0x6600ff;
 const CLOSURE_THRESHOLD = 0.25;         // metres — click this close to first point to close
 const DOUBLE_CLICK_MS = 300;
 
+// §FIX-FLOORFINISH-DEFAULT-THICKNESS — single source of truth for the interactive Floor
+// Finish defaults lives in the pure `floorFinishDefaults` module (no THREE/@thatopen, so it
+// is testable in a node env). Re-exported below so callers of this class keep one import.
+import {
+  DEFAULT_FLOOR_FINISH_BASE_OFFSET_M,
+  DEFAULT_FLOOR_FINISH_THICKNESS_M,
+} from './floorFinishDefaults';
+export { DEFAULT_FLOOR_FINISH_BASE_OFFSET_M, DEFAULT_FLOOR_FINISH_THICKNESS_M };
+
 export interface FloorToolDeps {
   getCommandManager?: () => any;
   getFloorStore?: () => any;
@@ -98,8 +107,11 @@ export class FloorTool {
   private _pendingSystemTypeId: string | undefined;
   // Room linkage — set when AUTO_FROM_ROOM detects a room or when draw polygon overlaps a room
   private _pendingHostRoomId: string | undefined;
-  private _pendingBaseOffset = 0;      // Y offset above level datum (metres)
-  private _pendingThickness = 0.075;   // Assembly thickness (metres) — default 75 mm screed+tile
+  // §FIX-FLOORFINISH-DEFAULT-THICKNESS — thickness default DERIVES from the base-offset default
+  // (they stay coupled by construction) so the finish fills its recess flush with the slab top
+  // and never overlaps the slab/level. Both remain user-editable via the creation modal.
+  private _pendingBaseOffset = DEFAULT_FLOOR_FINISH_BASE_OFFSET_M;   // Y offset above level datum (metres)
+  private _pendingThickness  = DEFAULT_FLOOR_FINISH_THICKNESS_M;     // Assembly thickness (metres) — = base offset
   private _pendingHostSlabId: string | undefined;
 
   // Preview scene objects
