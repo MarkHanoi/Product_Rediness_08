@@ -1,4 +1,7 @@
-# ADR-0098 — Host-wall → opening reverse index kills the wall-move total freeze (§FIX-HOSTWALL-DOOR-INDEX / §FIX-HOSTWALL-MOVE-COALESCE)
+# ADR-0099 — Host-wall → opening reverse index kills the wall-move total freeze (§FIX-HOSTWALL-DOOR-INDEX / §FIX-HOSTWALL-MOVE-COALESCE)
+
+> Implements ADR-0098 finding **F1** (wall-move-with-hosted-door freeze). Renumbered 0098→0099 to avoid a
+> collision with the ADR-0098 element-lifecycle conformance audit.
 
 | Field | Value |
 |---|---|
