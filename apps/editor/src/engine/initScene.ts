@@ -1138,12 +1138,18 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
     // transparent PRYZM overlay, producing the "duplicated visuals on camera move"
     // ghosting. Clearing to fully-transparent black leaves the overlay as the sole
     // visible surface. Best-effort: any failure is non-fatal (OBC keeps its frame).
-    const clearObcBaseFramebuffer = (reason: string): void => {
+    // §FIX-WEBGL2-GHOST-ON-ROTATE (W2.2) — `quiet` suppresses the success log for
+    // the per-frame call site (armed as the RPM pre-lightweight-frame hook below):
+    // logging every WebGL2 move-frame would flood the console. The one-shot
+    // activate/live-swap callers keep their single audit log.
+    const clearObcBaseFramebuffer = (reason: string, quiet = false): void => {
         try {
             const obc = postproductionRenderer.three as THREE.WebGLRenderer;
             obc.setClearColor?.(new THREE.Color(0x000000), 0);
             obc.clear?.(true, true, true);
-            console.log(`[initScene] §FIX-OBC-BASE-STALE-COMPOSITE OBC base framebuffer cleared (${reason}).`);
+            if (!quiet) {
+                console.log(`[initScene] §FIX-OBC-BASE-STALE-COMPOSITE OBC base framebuffer cleared (${reason}).`);
+            }
         } catch (e) {
             console.warn('[initScene] §FIX-OBC-BASE-STALE-COMPOSITE OBC base clear failed (non-fatal):', e);
         }
@@ -2309,9 +2315,22 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             // keeps that single loop alive for the whole drag + damping tail — so
             // the scene now repaints continuously while moving and idles at rest.
             renderPipelineManager.setLightweightWebGlRender(true);
+            // §FIX-WEBGL2-GHOST-ON-ROTATE (W2.2 / ADR-0108) — re-clear the silenced
+            // OBC base framebuffer on EVERY lightweight move-frame (not just once at
+            // activate). §FIX-OBC-BASE-STALE-COMPOSITE's single clear is insufficient
+            // during §PERF-WEBGL2-RENDER-ON-MOVE continuous repaint: the base buffer
+            // (preserveDrawingBuffer:false) can resurface under the transparent
+            // overlay, ghosting the old geometry through it as the camera rotates.
+            // Feeding the same closure as a per-frame hook keeps the base clean every
+            // frame. WebGL2 path ONLY — RPM invokes it exclusively in the lightweight
+            // branch, so native WebGPU is untouched.
+            renderPipelineManager.setPreLightweightFrameHook(
+                () => clearObcBaseFramebuffer('per-frame (webgl2 render-on-move)', /* quiet */ true),
+            );
             console.log(
                 '[initScene] §PERF-WEBGL2-RENDER-ON-MOVE — lightweight per-frame WebGL render enabled ' +
-                '(webgl-fallback backend; continuous repaint during camera movement).',
+                '(webgl-fallback backend; continuous repaint during camera movement). ' +
+                '§FIX-WEBGL2-GHOST-ON-ROTATE per-frame OBC base clear armed.',
             );
         }
 
@@ -3148,6 +3167,15 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                 // the WebGL2-backed forced-WebGL renderer, and turn it OFF when
                 // swapping to a real WebGPU backend (the TSL pipeline renders).
                 rpm.setLightweightWebGlRender(newResult.backend === 'webgl-fallback');
+                // §FIX-WEBGL2-GHOST-ON-ROTATE (W2.2 / ADR-0108) — arm the per-frame
+                // OBC base clear on the WebGL2 backend, and DISARM it when swapping to
+                // a real WebGPU backend (no OBC composite there; the TSL pipeline owns
+                // the paint). Mirrors the lightweight-render toggle above.
+                rpm.setPreLightweightFrameHook?.(
+                    newResult.backend === 'webgl-fallback'
+                        ? () => clearObcBaseFramebuffer('per-frame (webgl2 render-on-move)', /* quiet */ true)
+                        : null,
+                );
 
                 // 6. Publish the new renderer/canvas on the window globals other
                 //    subsystems read (sheet thumbnails, legacy service suspend).

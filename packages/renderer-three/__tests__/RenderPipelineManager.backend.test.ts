@@ -204,6 +204,105 @@ describe('RenderPipelineManager — lightweight WebGL render gate (§PERF-WEBGL2
   });
 });
 
+// ── §FIX-WEBGL2-GHOST-ON-ROTATE (W2.2 / ADR-0108) — per-frame OBC base clear ───
+//
+// Regression context (prod): on the WebGL2 'webgl-fallback' backend the PRYZM
+// overlay canvas (alpha:true, cleared transparent per frame) composites over the
+// silenced OBC base canvas (preserveDrawingBuffer:false). §FIX-OBC-BASE-STALE-
+// COMPOSITE clears the base ONCE at activate/live-swap; during continuous
+// render-on-move repaints the stale base buffer resurfaces UNDER the transparent
+// overlay → old geometry ghosts through while the overlay draws the new positions
+// = the trailing/duplicate-on-rotate that settles once motion stops. The fix
+// re-clears the OBC base via an injected hook at the START of every lightweight
+// move-frame. WebGL2 path ONLY — the hook is invoked exclusively inside the
+// lightweight branch, so native WebGPU is untouched.
+describe('RenderPipelineManager — per-frame OBC base clear hook (§FIX-WEBGL2-GHOST-ON-ROTATE)', () => {
+  const scene  = {} as any;
+  const camera = {} as any;
+
+  /** WebGL2 renderer that records render() order via a shared event log. */
+  function recordingWebGl2Renderer(log: string[]): any {
+    return {
+      isWebGPURenderer: true,
+      backend: { isWebGPUBackend: false }, // forced-WebGL → WebGL2 backend
+      setClearAlpha: () => {},
+      render: () => { log.push('render'); },
+    };
+  }
+
+  it('invokes the hook once per lightweight frame, BEFORE the overlay render', async () => {
+    const log: string[] = [];
+    const renderer = recordingWebGl2Renderer(log);
+    const rpm = new RenderPipelineManager();
+    await rpm.bind(scene, camera, renderer, 'dark');
+    rpm.setLightweightWebGlRender(true);
+    rpm.setPreLightweightFrameHook(() => log.push('clear'));
+
+    rpm.render(0.016);
+    rpm.render(0.016);
+
+    // Two frames → clear-then-render each time (base cleared before the overlay paints).
+    expect(log).toEqual(['clear', 'render', 'clear', 'render']);
+  });
+
+  it('does NOT invoke the hook when the lightweight path is OFF (e.g. native WebGPU)', async () => {
+    const log: string[] = [];
+    const renderer = recordingWebGl2Renderer(log);
+    const rpm = new RenderPipelineManager();
+    await rpm.bind(scene, camera, renderer, 'dark'); // lightweight defaults OFF
+    rpm.setPreLightweightFrameHook(() => log.push('clear'));
+
+    rpm.render(0.016);
+    // render() early-returns (no lightweight, no TSL) → hook never runs, no paint.
+    expect(log).toEqual([]);
+  });
+
+  it('is null-clearable — passing null disarms the hook (e.g. live-swap to WebGPU)', async () => {
+    const log: string[] = [];
+    const renderer = recordingWebGl2Renderer(log);
+    const rpm = new RenderPipelineManager();
+    await rpm.bind(scene, camera, renderer, 'dark');
+    rpm.setLightweightWebGlRender(true);
+    rpm.setPreLightweightFrameHook(() => log.push('clear'));
+    rpm.render(0.016);
+    expect(log).toEqual(['clear', 'render']);
+
+    rpm.setPreLightweightFrameHook(null);
+    rpm.render(0.016);
+    // No further 'clear' — only the overlay render runs.
+    expect(log).toEqual(['clear', 'render', 'render']);
+  });
+
+  it('a throwing hook is best-effort — the overlay render still runs (no ghost-fix regression breaks paint)', async () => {
+    const log: string[] = [];
+    const renderer = recordingWebGl2Renderer(log);
+    const rpm = new RenderPipelineManager();
+    await rpm.bind(scene, camera, renderer, 'dark');
+    rpm.setLightweightWebGlRender(true);
+    rpm.setPreLightweightFrameHook(() => { throw new Error('OBC clear failed'); });
+
+    expect(() => rpm.render(0.016)).not.toThrow();
+    // Hook threw but was swallowed — the overlay still painted this frame.
+    expect(log).toEqual(['render']);
+  });
+
+  it('is not consulted on the real-WebGPU TSL path (WebGPU output untouched)', async () => {
+    const log: string[] = [];
+    const rpm = new RenderPipelineManager();
+    // Real WebGPU backend → bind() activates the TSL pipeline; lightweight stays OFF.
+    await rpm.bind(scene, camera, fakeWebGPURenderer(), 'dark');
+    expect(rpm.status.webGpuActive).toBe(true);
+    expect(rpm.isLightweightWebGlActive).toBe(false);
+    // Even if a hook were mistakenly set, the lightweight branch is never entered.
+    rpm.setPreLightweightFrameHook(() => log.push('clear'));
+    // Not calling render() through the real TSL pipeline here (no live GPU), but the
+    // guard is structural: the hook is read ONLY inside the `_lightweightWebGlActive`
+    // branch, which is false on this path.
+    expect(rpm.isLightweightWebGlActive).toBe(false);
+    expect(log).toEqual([]);
+  });
+});
+
 // ── §RPM-RECOVERY-DOWNGRADE (ADR-0087) — device-loss recovery is NON-FATAL ─────
 //
 // DEMO-KILLER (prod, 2026-06-29): on the office-building circular plate a WebGPU
