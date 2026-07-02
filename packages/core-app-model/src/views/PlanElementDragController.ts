@@ -33,6 +33,11 @@ import {
 
 const GRID_SNAP_M    = 0.1;   // 100 mm grid
 const DRAG_THRESHOLD = 4;     // px before drag activates
+// §FIX-PLAN-WALL-TRANSFORM (founder L-43) — grab radius (px) around a wall
+// endpoint that switches the drag from whole-wall MOVE to endpoint ROTATE/stretch.
+// Mirrors the 3D WallEndpointController hit-zone; this is the plan-view rotate
+// affordance (drag an end to swing the wall about the opposite end).
+const ENDPOINT_GRAB_PX = 14;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Geometry helpers
@@ -74,6 +79,11 @@ type DragState =
           startWorldX:    number; startWorldZ: number;
           startSx:        number; startSy: number;
           activated:      boolean;
+          // §FIX-PLAN-WALL-TRANSFORM (founder L-43) — which drag mode this gesture is:
+          //   null  → whole-wall MOVE (translate both endpoints; grid-snapped delta)
+          //   0 | 1 → endpoint ROTATE/stretch of baseLine[endpoint] about the other end
+          // Set at drag-start from the grab point's proximity to a screen endpoint.
+          endpoint:       0 | 1 | null;
       }
     | {
           kind: 'door' | 'window';
@@ -145,6 +155,14 @@ export class PlanElementDragController {
         if (hit.kind === 'wall') {
             const wall = ws.getById(hit.elementId);
             if (!wall) return false;
+            // §FIX-PLAN-WALL-TRANSFORM (founder L-43) — decide MOVE vs ROTATE by the
+            // grab point's screen proximity to an endpoint. Only arm the endpoint
+            // (rotate) mode when the wall is long enough on screen that the two grab
+            // zones don't overlap the middle — otherwise a short wall would never be
+            // movable. Reuses the same worldToScreen projection the overlay uses.
+            const endpoint = this._pickWallEndpoint(
+                sx, sy, wall.baseLine[0], wall.baseLine[1], planCanvas,
+            );
             this._state = {
                 kind:           'wall',
                 elementId:      hit.elementId,
@@ -154,6 +172,7 @@ export class PlanElementDragController {
                 startWorldX:    worldX, startWorldZ: worldZ,
                 startSx:        sx,     startSy:     sy,
                 activated:      false,
+                endpoint,
             };
         } else {
             const opening = hit.kind === 'door' ? ws.getDoor(hit.elementId) : ws.getWindow(hit.elementId);
@@ -230,6 +249,34 @@ export class PlanElementDragController {
         worldZ:  number,
         ws:      any,
     ): void {
+        // §FIX-PLAN-WALL-TRANSFORM (founder L-43) — ROTATE/stretch branch: swing the
+        // grabbed endpoint about the opposite (fixed) end. The plan-view parity of the
+        // 3D WallEndpointController. VISUAL-ONLY during the drag (no live store write):
+        //   • a rotate can swing the baseline past 90°, which WallStore.update rejects
+        //     with BaselineReversalError for walls that host openings — mutating live
+        //     would throw mid-move and abort the gesture. The single authoritative
+        //     commit on release (UpdateWallBaselineCommand) handles the reversal via
+        //     its §FT4 endpoint-normalisation, exactly like the 3D endpoint drag.
+        //   • the blue ghost overlay shows the live angle; the wall settles on release.
+        if (state.endpoint !== null) {
+            const movingIdx = state.endpoint;
+            const fixedIdx  = movingIdx === 0 ? 1 : 0;
+            const fixed     = state.prevBaseLine[fixedIdx];
+            const moving: Point3D = {
+                x: gridSnap(worldX),
+                y: state.prevBaseLine[movingIdx].y,
+                z: gridSnap(worldZ),
+            };
+            // Ignore frames that would collapse the wall below the command's 0.1 m floor.
+            if (Math.hypot(moving.x - fixed.x, moving.z - fixed.z) < 0.1) return;
+            const newBaseLine: [Point3D, Point3D] = movingIdx === 0
+                ? [moving, clonePt(fixed)]
+                : [clonePt(fixed), moving];
+            state.currentBaseLine = newBaseLine;
+            return;
+        }
+
+        // MOVE branch — translate both endpoints by the grid-snapped delta.
         const deltaX = gridSnap(worldX - state.startWorldX);
         const deltaZ = gridSnap(worldZ - state.startWorldZ);
         const newA: Point3D = { x: state.prevBaseLine[0].x + deltaX, y: state.prevBaseLine[0].y, z: state.prevBaseLine[0].z + deltaZ };
@@ -242,6 +289,29 @@ export class PlanElementDragController {
             baseLine: [newA, newB],
             _renderVersion: (wall?._renderVersion ?? 0) + 1,
         });
+    }
+
+    /**
+     * §FIX-PLAN-WALL-TRANSFORM (founder L-43) — classify a wall grab as an endpoint
+     * (ROTATE) or a body (MOVE) drag. Returns the endpoint index when the cursor is
+     * within ENDPOINT_GRAB_PX of a baseline endpoint AND the wall is long enough on
+     * screen that the two endpoint zones don't swallow the whole segment; otherwise
+     * null (whole-wall move). Pure screen-space geometry — no store writes.
+     */
+    private _pickWallEndpoint(
+        sx: number, sy: number,
+        a: Point3D, b: Point3D,
+        planCanvas: PlanViewCanvas,
+    ): 0 | 1 | null {
+        const aSc = planCanvas.worldToScreen(a.x, a.z);
+        const bSc = planCanvas.worldToScreen(b.x, b.z);
+        const wallPx = Math.hypot(bSc.sx - aSc.sx, bSc.sy - aSc.sy);
+        // Too short on screen → keep it movable (rotate would be ambiguous/unusable).
+        if (wallPx < ENDPOINT_GRAB_PX * 2.5) return null;
+        const dA = Math.hypot(sx - aSc.sx, sy - aSc.sy);
+        const dB = Math.hypot(sx - bSc.sx, sy - bSc.sy);
+        if (dA > ENDPOINT_GRAB_PX && dB > ENDPOINT_GRAB_PX) return null;
+        return dA <= dB ? 0 : 1;
     }
 
     private _moveDoorWindow(
@@ -485,6 +555,38 @@ export class PlanElementDragController {
             ctx.arc(pt.sx, pt.sy, 4.5, 0, Math.PI * 2);
             ctx.fillStyle = '#1E90FF';
             ctx.fill();
+        }
+
+        // §FIX-PLAN-WALL-TRANSFORM (founder L-43) — ROTATE overlay: emphasise the
+        // pivot (fixed end) + the swinging end, and read out the live length + angle
+        // change instead of the perpendicular translate set-out (which only makes
+        // sense for a pure move).
+        if (state.endpoint !== null) {
+            const pivotSc  = state.endpoint === 0 ? bSc : aSc;
+            const movingSc = state.endpoint === 0 ? aSc : bSc;
+            // Pivot ring
+            ctx.beginPath();
+            ctx.arc(pivotSc.sx, pivotSc.sy, 7, 0, Math.PI * 2);
+            ctx.strokeStyle = '#0A5DCC';
+            ctx.lineWidth   = 2;
+            ctx.stroke();
+            // Swinging end — filled marker
+            ctx.beginPath();
+            ctx.arc(movingSc.sx, movingSc.sy, 6, 0, Math.PI * 2);
+            ctx.fillStyle = '#1E90FF';
+            ctx.fill();
+
+            const wallDist = Math.hypot(cur[1].x - cur[0].x, cur[1].z - cur[0].z);
+            const prevAng  = Math.atan2(prev[1].z - prev[0].z, prev[1].x - prev[0].x);
+            const curAng   = Math.atan2(cur[1].z - cur[0].z,   cur[1].x - cur[0].x);
+            let dDeg = (curAng - prevAng) * 180 / Math.PI;
+            while (dDeg > 180)  dDeg -= 360;
+            while (dDeg < -180) dDeg += 360;
+            const midSx = (aSc.sx + bSc.sx) / 2;
+            const midSy = (aSc.sy + bSc.sy) / 2;
+            this._drawLabel(ctx, midSx, midSy - 14, formatM(wallDist), '#0A5DCC');
+            this._drawLabel(ctx, movingSc.sx, movingSc.sy - 16, `${dDeg >= 0 ? '+' : ''}${dDeg.toFixed(1)}°`, '#0A5DCC');
+            return;
         }
 
         // Movement delta dimension
