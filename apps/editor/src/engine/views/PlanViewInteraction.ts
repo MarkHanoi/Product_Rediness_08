@@ -604,6 +604,17 @@ export class PlanViewInteraction {
             window.__pryzmSelectedAnnotationId = annotationId;
             this._planCanvas.setSelectedGridId?.(null);
             window.runtime?.events?.emit('pryzm-element-selected', { elementId: annotationId, annotationId, source: 'plan-view' });
+            // §FIX-MARK-NAVIGATE (G8, V1-audit §3.5) — click-to-navigate. A
+            // section-mark / elevation-mark stores its target view in
+            // parameters.linkedViewId (set by Create{Section,Elevation}MarkCommand).
+            // Clicking the mark should open that view, matching the Revit workflow.
+            // The mark is still selected above (Properties panel shows its params);
+            // navigation is additive.
+            const hitAnn = annotationStore.getById(annotationId);
+            const linkedViewId = hitAnn?.parameters?.linkedViewId as string | undefined;
+            if ((hitAnn?.type === 'section-mark' || hitAnn?.type === 'elevation-mark') && linkedViewId) {
+                this._navigateToLinkedView(linkedViewId);
+            }
             return;
         }
 
@@ -1063,6 +1074,56 @@ export class PlanViewInteraction {
     private _normalize2(v: { x: number; z: number }): { x: number; z: number } {
         const len = Math.hypot(v.x, v.z) || 1;
         return { x: v.x / len, z: v.z / len };
+    }
+
+    /**
+     * §FIX-MARK-NAVIGATE (G8, V1-audit §3.5) — open the section/elevation view
+     * that a clicked mark links to (Revit click-to-navigate). Mirrors
+     * ViewsRailPanel._onActivateView(): stamp the real ViewDefinition id on the
+     * ViewController (so section-plane / mode resolution has it) then activate the
+     * matching OBC camera mode. For elevation views the OBC mode is derived from
+     * the stored projectionDirection (same rule as ViewsRailPanel).
+     */
+    private _navigateToLinkedView(linkedViewId: string): void {
+        const target = viewDefinitionStore.get(linkedViewId);
+        if (!target) {
+            console.warn('[PlanViewInteraction] §FIX-MARK-NAVIGATE: linked view not found:', linkedViewId);
+            return;
+        }
+        const vc = window.viewController;
+        vc?.setActiveViewDefinitionId?.(linkedViewId);
+
+        let obcMode: string;
+        if (target.viewType === 'elevation') {
+            obcMode = this._resolveElevationObcMode(target);
+        } else if (target.viewType === 'section') {
+            obcMode = 'Section';
+        } else if (target.viewType === '3d') {
+            obcMode = '3D';
+        } else {
+            obcMode = 'Top';
+        }
+        // ViewController.activate() accepts an OBC ViewMode string; it performs the
+        // camera switch, sectionPlane clipping, and TechnicalDrawing projection.
+        // (window.viewController is `any`, so the string mode passes through cleanly.)
+        void vc?.activate?.(obcMode);
+        console.log(`[PlanViewInteraction] §FIX-MARK-NAVIGATE: opened linked view "${target.name}" (${target.viewType}) mode=${obcMode}`);
+    }
+
+    /** DOC-22 §6.1 parity with ViewsRailPanel._resolveElevationDirection(). */
+    private _resolveElevationObcMode(view: ViewDefinition): string {
+        const dir = (view.spatial as { projectionDirection?: { x?: number; z?: number } } | undefined)?.projectionDirection;
+        if (dir) {
+            const absX = Math.abs(dir.x ?? 0);
+            const absZ = Math.abs(dir.z ?? 0);
+            if (absZ >= absX) return (dir.z ?? 0) <= 0 ? 'Front' : 'Back';
+            return (dir.x ?? 0) <= 0 ? 'Left' : 'Right';
+        }
+        const n = view.spatial?.sectionPlane?.normal;
+        if (!n) return 'Front';
+        const [nx, , nz] = n;
+        if (Math.abs(nz) >= Math.abs(nx)) return nz <= 0 ? 'Front' : 'Back';
+        return nx <= 0 ? 'Left' : 'Right';
     }
 
     private _cropRegionFromSectionVolume(volume: ViewSectionVolume): NonNullable<ViewDefinition['spatial']['cropRegion']> {

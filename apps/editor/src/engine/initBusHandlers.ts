@@ -47,6 +47,17 @@ import {
   CreateStairCommand,
   MoveStairCommand,
   CreateElevationMarkCommand,
+  // §FIX-SECTION-MARK-CREATE (G8, V1-audit §3.5) — the plan-view Section tool
+  // and the 3D SectionMarkTool both need to mint a section ViewDefinition + a
+  // navigable section-mark annotation. They previously fired 'section.create',
+  // but that bus key is owned by CreateSectionHandler (plugin-section-view),
+  // whose payload contract is { line:{a,b,lookDepth} } — so the tool's
+  // { sectionViewId, cutPointA, cutPointB, … } payload was REJECTED by
+  // canExecute and silently swallowed by the caller's .catch(). We restore the
+  // mark-creation path under a DISTINCT key ('section.mark.create') routed to
+  // CreateSectionMarkCommand — mirroring the elevation.create → CreateElevationMarkCommand
+  // bridge below. The section.create geometry handler is left untouched.
+  CreateSectionMarkCommand,
   AssignViewIntentCommand,
   CreateVisibilityIntentCommand,
   UpdateVisibilityIntentCommand,
@@ -537,6 +548,22 @@ export function initBusHandlers(
             stores: [] as const,
             validate: (cmd) => (!cmd.elevationViewId ? 'elevationViewId is required' : null),
             fn: (cmd) => { _cmExec(new CreateElevationMarkCommand(cmd)); },
+        },
+        // §FIX-SECTION-MARK-CREATE (G8, V1-audit §3.5) — restore the section-MARK
+        // creation path (section ViewDefinition + navigable section-mark annotation)
+        // under a distinct key so it never collides with plugin-section-view's
+        // geometry 'section.create' handler. Payload matches CreateSectionMarkParams:
+        //   { sectionViewId, sectionViewName, annotationId, hostViewId,
+        //     cutPointA, cutPointB, tailDirection, sectionSpatial? }
+        {
+            type: 'section.mark.create',
+            stores: [] as const,
+            validate: (cmd) => (
+                !cmd.sectionViewId ? 'sectionViewId is required' :
+                !cmd.hostViewId    ? 'hostViewId is required'    :
+                null
+            ),
+            fn: (cmd) => { _cmExec(new CreateSectionMarkCommand(cmd)); },
         },
 
         // ── E.5.5: view governance & intent bridges ──────────────────────
