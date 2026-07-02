@@ -6,6 +6,11 @@ import {
   UpdateFloorCommand,
   UpdateCeilingCommand,
   UpdateFurnitureParametersCommand,
+  // §FEAT-ELEMENT-CHANGE-TYPE (ADR-0105) — the uniform "change element type"
+  // command surface routes per-family to these legacy commands (the only path
+  // that reaches the mesh rebuild for EXISTING placed elements — see ADR-0105).
+  ChangeFurnitureTypeCommand,
+  UpdateWallSystemTypeCommand,
   MovePlumbingCommand,
   SetDoorOffsetCommand,
   SetWindowOffsetCommand,
@@ -219,6 +224,17 @@ export function initBusHandlers(
             },
         },
         {
+            // §FEAT-ELEMENT-CHANGE-TYPE (ADR-0105) — collaboration replay key.
+            // RemoteCommandDispatcher dispatches the COMMAND TYPE as the bus key on
+            // catch-up/reconnect; without a handler under 'CHANGE_FURNITURE_TYPE' the
+            // replayed swap no-ops and the furniture reverts to its prior type on every
+            // remote peer (same class as §FURNITURE-UPDATE-REPLAY). Same fn, CommandType key.
+            type: 'CHANGE_FURNITURE_TYPE',
+            stores: [] as const,
+            validate: (cmd) => (!cmd.id ? 'id is required' : (!cmd.newFurnitureType ? 'newFurnitureType is required' : null)),
+            fn: (cmd) => { _cmExec(new ChangeFurnitureTypeCommand(cmd)); },
+        },
+        {
             // §ELEMENT-SEMANTIC-AUDIT S4 (2026-06-20) — plumbing gizmo-move authoring
             // bridge. registerTransformDragHandler dispatches 'plumbing.move' { id, to }
             // on drag-end; this routes it through commandManager (MovePlumbingCommand) so
@@ -227,6 +243,90 @@ export function initBusHandlers(
             stores: [] as const,
             validate: (cmd) => (!cmd.id ? 'id is required' : (!cmd.to ? 'to is required' : null)),
             fn: (cmd) => { _cmExec(new MovePlumbingCommand({ id: cmd.id, to: cmd.to })); },
+        },
+
+        // ── §FEAT-ELEMENT-CHANGE-TYPE (ADR-0105) — uniform "change element type" ──
+        // ONE bus command that swaps a PLACED element's type/asset IN PLACE
+        // (preserving id + transform + host), routed per-family to the command that
+        // actually reaches the 3D mesh rebuild for EXISTING elements. Root cause the
+        // founder hit: the clean plugin-bus type handlers (wall.setSystemType /
+        // door.setType) mutate a DETACHED DTO store with no bridge to the legacy
+        // geometry store that drives the builders — so an existing element's mesh
+        // never rebuilds. This handler instead uses the legacy commandManager
+        // (whose ctx.stores ARE the geometry stores), the proven working path.
+        //
+        // Payload: { elementId, elementType, newTypeId, transform-preserving extras }.
+        //   wall              → UpdateWallSystemTypeCommand (legacy geometry store → rebuild)
+        //   furniture         → ChangeFurnitureTypeCommand (store.update → bim-furniture-updated → rebuild)
+        //   door / window     → the existing door.setType / window.setType bus command
+        //                       (updates the opening's system type) + an explicit
+        //                       host-wall rebuild via window.__wallRebuildControl so the
+        //                       opening re-renders with the new type's finish — reuses
+        //                       proven machinery, no new geometry edits (C11).
+        // Each underlying command implements undo(); the whole swap is one undo step.
+        {
+            type: 'element.changeType',
+            stores: [] as const,
+            validate: (cmd: any) => {
+                if (!cmd.elementId)   return 'elementId is required';
+                if (!cmd.elementType) return 'elementType is required';
+                // Walls accept an EMPTY newTypeId ("— Plain Wall —" detach); every
+                // other family requires a concrete target type id.
+                const isWall = String(cmd.elementType).toLowerCase() === 'wall';
+                if (!isWall && !cmd.newTypeId) return 'newTypeId is required';
+                return null;
+            },
+            fn: (cmd: any) => {
+                const elType = String(cmd.elementType).toLowerCase();
+                if (elType === 'wall') {
+                    // UpdateWallSystemTypeCommand resolves layers/thickness from the
+                    // caller (the UI passes them) or leaves them for the command to
+                    // read; either way it writes the geometry store → WallRebuildCoordinator.
+                    // Empty newTypeId → detach (systemTypeId null / plain wall).
+                    _cmExec(new UpdateWallSystemTypeCommand({
+                        wallId:       cmd.elementId,
+                        systemTypeId: cmd.newTypeId || null,
+                        layers:       (cmd.layers ?? null) as any,
+                        thickness:    cmd.thickness,
+                    }));
+                    return;
+                }
+                if (elType === 'furniture') {
+                    _cmExec(new ChangeFurnitureTypeCommand({
+                        id:                    cmd.elementId,
+                        newFurnitureType:      cmd.newTypeId,
+                        newFurnitureCategory:  cmd.furnitureCategory,
+                        newWidth:              cmd.width,
+                        newLength:             cmd.length,
+                        newHeight:             cmd.height,
+                        newBaseOffset:         cmd.baseOffset,
+                        newColor:              cmd.color,
+                        newMaterial:           cmd.material,
+                    }));
+                    return;
+                }
+                if (elType === 'door' || elType === 'window') {
+                    // Openings keep their clean plugin-bus type command (it updates
+                    // the door/window system type). We then nudge the HOST WALL to
+                    // rebuild so the opening's frame/leaf/glass re-render with the new
+                    // type's finish — the opening render map is resolved at wall-build
+                    // time. rebuildWalls() is the existing, safe re-queue entry point.
+                    const busType = elType === 'door' ? 'door.setType' : 'window.setType';
+                    const payload = elType === 'door'
+                        ? { doorId: cmd.elementId, systemTypeId: cmd.newTypeId }
+                        : { windowId: cmd.elementId, systemTypeId: cmd.newTypeId };
+                    window.runtime?.bus?.executeCommand(busType, payload)
+                        ?.then(() => {
+                            if (cmd.wallId) {
+                                try { window.__wallRebuildControl?.rebuildWalls?.([cmd.wallId]); }
+                                catch (e) { console.warn('[element.changeType] host-wall rebuild nudge failed:', e); }
+                            }
+                        })
+                        ?.catch((e: unknown) => console.warn(`[element.changeType] ${busType} failed:`, e));
+                    return;
+                }
+                console.warn(`[element.changeType] no change-type route for elementType="${elType}" — ignored.`);
+            },
         },
 
         // ── §R4-FIX: element.updateParameters — PropertyPanel.onApply() bridge ──
