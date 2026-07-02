@@ -143,6 +143,48 @@ const PIVOT_REFINE_BAND_M = JUNCTION_BAND_FLOOR_M;
 /** Below this |sin θ| the two wall directions are treated as parallel (no L crossing). */
 const PIVOT_REFINE_MIN_SIN = 0.05;
 
+// §FIX-WALL-TJUNCTION-BUTT (2026-07-02 — founder T-junction "arrow/spike" fix) ──────
+//
+// THE founder defect: an existing host wall is in place; a GUEST wall is drawn to
+// connect INTO it (a T). The guest's connecting end renders as a weird "arrow"/spike
+// (a mitred point) instead of butting flat against the host's face; the host is also
+// perturbed. Expected: host stays exactly as-is, guest butts cleanly — a perfect T.
+//
+// ROOT CAUSE — an L-vs-T MISCLASSIFICATION at detection time. `clusterEndpoints`
+// fuses endpoints within the §RESI-L0-CORNER-CLOSE band (0.20 m). When the guest's
+// terminating end lands on the host's BODY but NEAR the host's own endpoint, the two
+// endpoints cluster together, so `detectJunctions` sees TWO real endpoints and NO
+// passthrough → the junction is classified as an L-CORNER. The ring sweep then applies
+// a MUTUAL bisector miter: it extends the guest's end to the intersection of the two
+// offset edge-lines (one corner pulled back, the other pushed PAST the host's end /
+// through the host's outer face) → the asymmetric diagonal cut the founder sees as an
+// "arrow", and it MOVES the host's cap too (host perturbed). That is a genuine T being
+// force-fit into the closed-form L miter, which is only valid when EXACTLY two walls
+// co-TERMINATE at the corner.
+//
+// THE L-vs-T INVARIANT (this pass enforces it): a clustered endpoint of wall H is a
+// PASSTHROUGH (T-host) — not an L-arm — precisely when another cluster-member wall G's
+// OWN endpoint projects STRICTLY INTERIOR onto H's segment (0<t<1, not clamped to an
+// end) within the T-projection band, AND that contact foot is displaced from H's own
+// clustered endpoint by MORE than the cluster band (i.e. H's body genuinely CONTINUES
+// PAST the junction — it does not co-terminate there). Then H is a passthrough and G is
+// the real T-attacher: G butts H's face (square, flat) and H is left untouched — exactly
+// the Pascal T the mid-span case already produces. A genuine L-corner (incl. the welded/
+// drifted §RESI-L0 corner) has each wall's endpoint at/near its OWN terminus, so the
+// neighbour's foot CLAMPS to H's end (interior=false) OR lands within the cluster band of
+// H's endpoint (not "past") → NO reclassification → the L bisector miter is byte-unchanged.
+//
+// This is DETECTION-FRAME ONLY: it moves H from `realEndpoints` to `passthroughWalls` and
+// re-points the junction pivot to the abutter's foot on the host body; it NEVER relocates
+// any wall's centreline baseline (the §CLAMP-COSHARE-WELD / ADR-0072 P3c-b doubling
+// regression mode). Gated default-ON with an escape hatch; pure + deterministic.
+
+/** Escape hatch: set `__pryzmWallV2TJunctionButt = false` to restore the pre-fix
+ *  L-classification of a guest-into-host-body-near-end junction (diagnostics). Default ON. */
+function tJunctionButtEnabled(): boolean {
+    return (globalThis as { __pryzmWallV2TJunctionButt?: boolean }).__pryzmWallV2TJunctionButt !== false;
+}
+
 /** Escape hatch: set `__pryzmWallV2LPivotRefine = false` to restore the pre-fix
  *  centroid pivot (diagnostics / exact-input callers). Default ON. */
 function lPivotRefineEnabled(): boolean {
@@ -278,6 +320,74 @@ function detectJunctions(walls: readonly WallInput[], opts: Required<ResolveOpti
             }
         }
     }
+
+    // §FIX-WALL-TJUNCTION-BUTT — L-vs-T reclassification (see the block comment above
+    // `tJunctionButtEnabled`). A clustered endpoint of wall H is a PASSTHROUGH T-host —
+    // not an L-arm — when another cluster-member G's OWN endpoint projects strictly
+    // INTERIOR onto H's body within the T-projection band AND the contact foot is
+    // displaced from H's clustered endpoint by at least H's HALF-THICKNESS (H's body
+    // genuinely continues past its own end cap → G butts H's SIDE face, not its END).
+    // Reclassify H so G butts H's face flat (Pascal T) instead of both walls sharing a
+    // spike-producing L miter. The welded/drifted §RESI-L0 L-corner is unaffected: the
+    // neighbour's foot clamps to H's end (interior=false) or the host continues less than
+    // half a thickness past (a corner, not a side-face butt).
+    if (tJunctionButtEnabled()) {
+        for (const j of drafts) {
+            // Need ≥2 real endpoints for a spurious L to exist; a single real end is
+            // already a clean T (mid-span) or a free end.
+            if (j.realEndpoints.length < 2) continue;
+
+            const reclassify = new Set<number>();
+            for (const H of j.realEndpoints) {
+                const wH = walls[H.wallIdx]!;
+                const eH = H.isStart ? wH.start : wH.end;   // H's OWN clustered endpoint
+                const dirH = unit(sub(wH.end, wH.start));
+                for (const G of j.realEndpoints) {
+                    if (G.wallIdx === H.wallIdx) continue;
+                    if (reclassify.has(H.wallIdx)) break;
+                    const wG = walls[G.wallIdx]!;
+                    const eG = G.isStart ? wG.start : wG.end;
+                    const dirG = unit(G.isStart ? sub(wG.end, wG.start) : sub(wG.start, wG.end));
+                    const proj = projectOnSeg(eG, wH.start, wH.end);
+                    // (a) G's endpoint lands STRICTLY INTERIOR on H's body (not clamped
+                    //     to either end — a clamped foot is a co-terminating L-arm).
+                    const interior = proj.t > 0.001 && proj.t < 0.999;
+                    // (b) within the T-projection band perpendicular to H's face.
+                    const onFace = proj.perpDist <= opts.tProjectionEpsilonM;
+                    // (c) H's body CONTINUES PAST the contact by at least its own HALF-
+                    //     THICKNESS: the host's end cap is clear of the junction, so G butts
+                    //     the host's SIDE face (a T), not its END (an L). Below half-thickness
+                    //     the guest is at the host's CORNER → keep the mutual L bisector so a
+                    //     welded/drifted §RESI-L0 corner (foot ≈ H's end) is byte-unchanged.
+                    const continuesPast = len(sub(proj.foot, eH)) >= wH.thickness * 0.5;
+                    // (d) G is NOT a near-collinear continuation of H (that is a straight
+                    //     run / square-capped pass-through, handled elsewhere — never a butt-T).
+                    const notCollinear = Math.abs(dot(dirH, dirG)) < 0.94;   // > ~20° between walls
+                    if (interior && onFace && continuesPast && notCollinear) {
+                        reclassify.add(H.wallIdx);
+                    }
+                }
+            }
+            if (reclassify.size === 0) continue;
+
+            // Move each reclassified H from realEndpoints → passthroughWalls.
+            j.realEndpoints = j.realEndpoints.filter(r => !reclassify.has(r.wallIdx));
+            for (const wi of reclassify) {
+                if (!j.passthroughWalls.includes(wi)) j.passthroughWalls.push(wi);
+            }
+            // Re-point the junction pivot onto the host body at the abutter's foot so the
+            // ring sweep butts the (single) surviving real endpoint flush against the host
+            // face. Only do this for the clean 1-real-endpoint T; a Y/X residue keeps its
+            // centroid so the multi-way sweep is untouched.
+            if (j.realEndpoints.length === 1 && j.passthroughWalls.length >= 1) {
+                const g = j.realEndpoints[0]!;
+                const eG = g.isStart ? walls[g.wallIdx]!.start : walls[g.wallIdx]!.end;
+                const host = walls[j.passthroughWalls[0]!]!;
+                j.point = projectOnSeg(eG, host.start, host.end).foot;
+            }
+        }
+    }
+
     // A junction needs at least 2 participants total (≥2 real endpoints, OR ≥1
     // real endpoint and ≥1 passthrough — the T-case). A single endpoint with no
     // passthrough is the wall's free end (no junction).
