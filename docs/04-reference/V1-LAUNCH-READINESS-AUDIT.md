@@ -51,6 +51,7 @@ an empty project and a heavy one, without freezes or stutter.
 | L-19 | founder | **Rotate gizmo shows full 3-axis sphere** — most elements only rotate about the VERTICAL axis (yaw); need single-axis default + per-type exceptions (roof/beam slope) | Editing/Rotation | GAP | routed to Rotate agent (a476739); C16/C11/C03 |
 | L-20 | founder | **Placement preview must appear IMMEDIATELY** on element select — currently the ghost only shows AFTER the first click (which already creates the element), so the 1st placement has no preview. Applies to ALL placeable elements (furniture, windows, …) | Modeling/Creation | BROKEN | queued → preview agent; C06/C11/C18 |
 | L-21 | founder | **Placement preview geometry must be PRECISELY ACCURATE** — a huge rectangle shows for a tiny bedside table; the ghost box doesn't match the element's real footprint/size (placeholder-box default when GLB 404s). Audit all elements | Modeling/Creation | BROKEN | queued → preview agent; C06/C11/C18 |
+| L-25 | founder | **WebGPU 3D goes BLACK** after creating a few walls with lots of mouse motion, then clicking (2D plan still shows elements — it's Canvas2D). Console: `131× Destroyed texture [ShadowDepthTexture] used in a submit` — WebGPU **device-loss cascade**. Root cause: the `§PERF-NAV-LOD` nav lever dropped shadows during motion by clearing `keyLight.castShadow`; on WebGPU that makes THREE **destroy** the ShadowDepthTexture inside the next `rp.render()` while the prior frame's submit (referencing it) is still in flight → device lost. Rapid mouse motion thrashed the destroy/realloc every few frames. | Camera/Render | BROKEN→FIXED | `§FIX-SHADOW-MIDSUBMIT-DESTROY` — nav-LOD now **freezes** the shadow map (`shadowMap.autoUpdate=false`, never destroys the texture) via new `RenderPipelineManager.setShadowPassSuppressed()`, with a debounced restore; heavy-tier gate decoupled from the nav gate. C04 / §SHADOW-DEVICE-LOSS-FIX |
 | _next_ | | _append here_ | | | |
 
 ---
@@ -62,7 +63,11 @@ an empty project and a heavy one, without freezes or stutter.
   `packages/stores/CameraPositionService`, `packages/renderer-three/LTPENUCameraService`,
   `runtime-composer/buildCameraControllerSlot`. Constraints armed (`minDist=0.2, maxDist=10000`, polar clamp).
 - Issues: **L-02** (heavy-scene orbit slow — shadow-ceiling bypass + instancing + no nav-LOD), **L-05** (WebGL2
-  ghost-on-rotate). Zoom-fit/zoom-selected handlers exist (`§C-B1`).
+  ghost-on-rotate). **L-25** (WebGPU black 3D on rapid wall-create + mouse motion — `ShadowDepthTexture` destroyed
+  mid-submit by the `§PERF-NAV-LOD` `castShadow` toggle) **FIXED** via `§FIX-SHADOW-MIDSUBMIT-DESTROY`: the nav lever
+  now FREEZES the shadow map (`shadowMap.autoUpdate=false`) instead of clearing `castShadow`, so THREE never destroys
+  the texture (no mid-submit destroy); restore is debounced; the heavy-tier drop-the-pass gate is decoupled from the
+  transient nav gate. Zoom-fit/zoom-selected handlers exist (`§C-B1`).
 - **N/V**: pan/zoom/orbit smoothness on mid projects; camera state persistence per view; frame-on-view-switch.
 - Contract: C04 (rendering/scheduling).
 
@@ -166,6 +171,11 @@ an empty project and a heavy one, without freezes or stutter.
 - **L-02** heavy nav, **L-06** edit storm, **L-09** preview stutter, **L-03** load. The shadow-ceiling bypass
   (12,737 casters at `shadows=standard`) and instancing gaps are the render-side; the redetect/plan storm is the
   interaction-side. Contract: C04, C10.
+- **L-25 FIXED** (`§FIX-SHADOW-MIDSUBMIT-DESTROY`) — the `§PERF-NAV-LOD` shadow lever no longer destroys the
+  `ShadowDepthTexture` mid-submit during rapid mouse motion (WebGPU device-loss → black 3D). Nav-LOD now freezes the
+  shadow map (`shadowMap.autoUpdate=false`, texture kept alive) via `RenderPipelineManager.setShadowPassSuppressed()`
+  with a debounced restore; prevention, not just recovery (ViewportCrashGuard remains the fallback). Honours
+  `§SHADOW-DEVICE-LOSS-FIX` (no GPU texture is ever `.destroy()`-ed within the frame it is submitted).
 
 ---
 

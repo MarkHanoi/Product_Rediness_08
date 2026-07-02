@@ -1775,27 +1775,23 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         // their shadows exactly as before because the gate only trips at the ceiling
         // (or `settings.shadows === false` at survival).
         //
-        // §PERF-HEAVY-SHADOW-OFF + §PERF-NAV-LOD share ONE physical lever
-        // (keyLight.castShadow), so combine their two independent intents here:
-        //   heavy  — the tier gate wants shadows off permanently (≥8000 casters /
-        //            survival). Persistent while the scene stays heavy.
-        //   nav    — the camera is actively orbiting/panning; drop the shadow pass
-        //            during motion on a non-trivial scene and restore it on settle.
-        // The scene renders no shadow pass while EITHER is set; shadows return only
-        // when BOTH are clear. setShadowsSuppressed() is idempotent, so re-resolving
-        // on every transition is cheap and never churns.
+        // §FIX-SHADOW-MIDSUBMIT-DESTROY — the HEAVY-tier gate and the NAV gate no
+        // longer share the castShadow lever. HEAVY is a PERSISTENT drop of the whole
+        // shadow pass (≥8000 casters / survival) — clearing keyLight.castShadow is
+        // correct there because it happens once and stays, and THREE reclaims the map
+        // on its own schedule (§SHADOW-DEVICE-LOSS-FIX). NAV is a TRANSIENT per-motion
+        // suppression that used to thrash castShadow (destroying the ShadowDepthTexture
+        // mid-submit → black 3D); it now FREEZES the map instead (see the nav-LOD block
+        // below), so the two intents are fully decoupled.
         let _heavyShadowSuppressed = false;
         let _navShadowSuppressed   = false;
-        const _resolveSceneShadow = (): void => {
-            try { pascalSceneLighting.setShadowsSuppressed(_heavyShadowSuppressed || _navShadowSuppressed); }
-            catch (e) { console.warn('[initScene] §PERF-HEAVY-SHADOW-OFF setShadowsSuppressed error:', e); }
-        };
         renderingCoordinator.setTierSceneShadowHook((suppressed) => {
             _heavyShadowSuppressed = suppressed;
-            _resolveSceneShadow();
+            try { pascalSceneLighting.setShadowsSuppressed(suppressed); }
+            catch (e) { console.warn('[initScene] §PERF-HEAVY-SHADOW-OFF setShadowsSuppressed error:', e); }
         });
 
-        // §PERF-NAV-LOD — drop the shadow pass DURING active camera motion and
+        // §PERF-NAV-LOD — drop the shadow PASS DURING active camera motion and
         // restore it once the camera settles. This is a real per-frame win on the
         // mid-heavy band (2500–8000 meshes) that the heavy ceiling does NOT cover
         // (those scenes keep shadows at rest). Reuses the EXISTING camera-controls
@@ -1803,7 +1799,21 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         // live mesh count so small/showcase scenes never flicker their shadows on
         // orbit. When the scene is already heavy, `heavy` keeps shadows off through
         // the settle, so nav-LOD is a no-op there (correct).
+        //
+        // §FIX-SHADOW-MIDSUBMIT-DESTROY (founder L-25) — this lever NO LONGER clears
+        // `keyLight.castShadow`. Clearing castShadow made THREE's WebGPU shadow
+        // renderer DESTROY the ShadowDepthTexture inside the next rp.render(), while
+        // the previous frame's command buffer (referencing it) was still in flight →
+        // "Destroyed texture [ShadowDepthTexture] used in a submit" → device-loss →
+        // black 3D. Rapid mouse motion (each nudge = controlstart→rest) thrashed that
+        // destroy/realloc every few frames. Instead we FREEZE the shadow map on the
+        // live WebGPU renderer (rpm.setShadowPassSuppressed → shadowMap.autoUpdate =
+        // false): THREE reuses the existing texture and skips the shadow-caster
+        // re-render — the pass is skipped, but NOTHING is destroyed, so a mid-submit
+        // destroy is impossible. Restore is DEBOUNCED so a burst of nudges does not
+        // repeatedly force a shadow re-render.
         const NAV_LOD_MIN_MESHES = 1_200; // matches the large-scene tier cap floor
+        const NAV_LOD_RESTORE_SETTLE_MS = 120; // debounce: settle before un-freezing
         const _liveMeshCount = (): number => {
             let n = 0;
             try {
@@ -1813,24 +1823,48 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             } catch { /* count is advisory */ }
             return n;
         };
-        // Cache the mesh count at motion START (one traverse per drag, not per frame).
-        world.camera.controls.addEventListener('controlstart', () => {
+        let _navRestoreTimer: ReturnType<typeof setTimeout> | null = null;
+        const _freezeNavShadow = (): void => {
             if (_navShadowSuppressed) return;
-            if (_liveMeshCount() < NAV_LOD_MIN_MESHES) return;
             _navShadowSuppressed = true;
-            _resolveSceneShadow();
-        });
-        const _endNavLod = (): void => {
+            // Freeze the shadow map — never destroys the texture (safe mid-submit).
+            try { window.renderPipelineManager?.setShadowPassSuppressed?.(true); }
+            catch (e) { console.warn('[initScene] §FIX-SHADOW-MIDSUBMIT-DESTROY nav freeze error:', e); }
+        };
+        const _thawNavShadow = (): void => {
             if (!_navShadowSuppressed) return;
             _navShadowSuppressed = false;
-            _resolveSceneShadow();
-            // The scene is settling (rest/sleep) → the loop is about to go idle. Mark
-            // one dirty frame so the restored shadow pass is actually rendered before
-            // the scheduler stops (P3: no new rAF — just wake the existing loop once).
+            // Un-freeze: refresh the shadow map once against the settled scene, unless
+            // the heavy-tier gate wants shadows dropped anyway (then leave it frozen —
+            // §PERF-HEAVY-SHADOW-OFF has already cleared castShadow, no pass runs).
+            try { window.renderPipelineManager?.setShadowPassSuppressed?.(_heavyShadowSuppressed); }
+            catch (e) { console.warn('[initScene] §FIX-SHADOW-MIDSUBMIT-DESTROY nav thaw error:', e); }
+            // The scene is settling → the loop is about to go idle. Mark one dirty
+            // frame so the refreshed shadow pass is actually rendered before the
+            // scheduler stops (P3: no new rAF — just wake the existing loop once).
             if (!_heavyShadowSuppressed) {
                 try { getFrameScheduler().markDirty('nav-lod-shadow-restore'); }
                 catch { /* scheduler not ready — next interaction repaints */ }
             }
+        };
+        // Cache the mesh count at motion START (one traverse per drag, not per frame).
+        world.camera.controls.addEventListener('controlstart', () => {
+            // A new motion burst — cancel any pending restore so we don't thaw mid-drag.
+            if (_navRestoreTimer !== null) { clearTimeout(_navRestoreTimer); _navRestoreTimer = null; }
+            if (_navShadowSuppressed) return;
+            if (_liveMeshCount() < NAV_LOD_MIN_MESHES) return;
+            _freezeNavShadow();
+        });
+        const _endNavLod = (): void => {
+            if (!_navShadowSuppressed) return;
+            // Debounce the thaw: if another motion burst starts within the settle
+            // window, controlstart cancels this and keeps the map frozen — so rapid
+            // start/settle nudges never thrash shadow-map re-renders.
+            if (_navRestoreTimer !== null) clearTimeout(_navRestoreTimer);
+            _navRestoreTimer = setTimeout(() => {
+                _navRestoreTimer = null;
+                _thawNavShadow();
+            }, NAV_LOD_RESTORE_SETTLE_MS);
         };
         // rest/sleep fire after the damping tail fully settles (controlend fires too
         // early — damping keeps moving the camera for several hundred ms after).

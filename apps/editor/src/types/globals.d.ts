@@ -387,6 +387,12 @@ declare global {
                 readonly isPostFxDisabled?: boolean;
                 /** Best-effort re-upgrade to the full post-FX pipeline after a downgrade. */
                 tryUpgradePostFx?: () => Promise<boolean>;
+                /**
+                 * §FIX-SHADOW-MIDSUBMIT-DESTROY (founder L-25) — freeze/thaw the WebGPU
+                 * shadow PASS without destroying the ShadowDepthTexture. Driven by the
+                 * §PERF-NAV-LOD gate during camera motion. No-op on WebGL / when inactive.
+                 */
+                setShadowPassSuppressed?: (suppressed: boolean) => void;
               }
             | undefined;
         renderingPipelineCoordinator: unknown;

@@ -784,6 +784,56 @@ export class RenderPipelineManager implements IViewSwitchListener {
     }
 
     /**
+     * §FIX-SHADOW-MIDSUBMIT-DESTROY (founder L-25) — suppress/restore the shadow
+     * RENDER PASS without ever destroying the ShadowDepthTexture.
+     *
+     * ROOT CAUSE this closes: the §PERF-NAV-LOD nav lever used to drop shadows
+     * during camera/pointer motion by clearing `keyLight.castShadow`. On the WebGPU
+     * backend, when a light stops casting THREE's shadow renderer DESTROYS the
+     * light's ShadowDepthTexture inside the very next `rp.render()` — but the
+     * previous frame's command buffer (which referenced that texture) may still be
+     * in flight on the GPU queue → "Destroyed texture [ShadowDepthTexture] used in a
+     * submit" → WebGPU device-loss cascade → black viewport. Rapid mouse motion
+     * (start/settle each nudge) thrashed this every few frames.
+     *
+     * The fix is to FREEZE the shadow map instead of tearing it down. Setting
+     * `renderer.shadowMap.autoUpdate = false` tells THREE to REUSE the existing
+     * ShadowDepthTexture and skip the (expensive) shadow-caster re-render — the pass
+     * is skipped, but NO texture is allocated, reallocated, or destroyed. This is
+     * the "prefer skipping the shadow render pass over destroying the resource"
+     * guarantee: while frozen, no shadow texture can ever be `.destroy()`-ed within
+     * the frame it is submitted, because none is destroyed at all.
+     *
+     * On restore we re-enable `autoUpdate` and set `needsUpdate = true` so the frozen
+     * map is refreshed exactly once against the settled scene. `castShadow` is left
+     * untouched throughout — the texture stays allocated the whole time.
+     *
+     * Idempotent; WebGPU-path only (no-op when the TSL/WebGPU backend is inactive —
+     * the WebGL2 fallback drives its own shadowMap and is out of this lane). Never
+     * disposes a GPU texture, so it fully honours §SHADOW-DEVICE-LOSS-FIX.
+     *
+     * @param suppressed  true ⇒ freeze the shadow map (skip the pass, keep the
+     *                    texture); false ⇒ resume + refresh once.
+     */
+    private _shadowPassSuppressed = false;
+    setShadowPassSuppressed(suppressed: boolean): void {
+        if (!this._webGpuActive) return;
+        if (suppressed === this._shadowPassSuppressed) return;
+        const shadowMap = (this._renderer as { shadowMap?: { autoUpdate?: boolean; needsUpdate?: boolean } } | null)?.shadowMap;
+        if (!shadowMap) return;
+        this._shadowPassSuppressed = suppressed;
+        if (suppressed) {
+            // Freeze: reuse the current ShadowDepthTexture, stop re-rendering it.
+            // THREE never destroys a frozen map, so no mid-submit destroy is possible.
+            shadowMap.autoUpdate = false;
+        } else {
+            // Resume: refresh the (frozen) map exactly once against the settled scene.
+            shadowMap.autoUpdate = true;
+            shadowMap.needsUpdate = true;
+        }
+    }
+
+    /**
      * Multi-Camera Single-Pipeline — Phase A.
      *
      * Signal that the NEXT updateCamera() call is a projection toggle
