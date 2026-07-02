@@ -311,6 +311,25 @@ export class WallPlanToolHandler implements PlanToolHandler {
         }
 
         const systemTypeId = window.wallTool?.getSystemTypeId?.() ?? undefined;
+        // §FIX-PLAN-WALL-TYPE-IGNORED (L-41): resolve the SELECTED type's thickness from the
+        // SAME catalogue the pre-draw picker reads (window.wallSystemTypeStore) and STORE it,
+        // instead of always sending WALL_DEFAULT_THICKNESS and trusting the command handler to
+        // override it from systemTypeId. That override (§WALL-TYPE-THICKNESS in CreateWall.ts)
+        // fires ONLY when a populated WallSystemTypeStore is wired into the ACTIVE wall.create
+        // handler — but composeRuntime registers the authoritative handler first (PluginRegistry
+        // seeds a *separate* plugin-side WallSystemTypeStore) and engineLauncher's §WALL-TYPE-WIRE
+        // adapter (which DID point at window.wallSystemTypeStore) is then skipped by the
+        // "first-registration-wins" facade. Net effect: the picked systemTypeId reaches the store
+        // but its thickness never resolves, so the wall is STORED at the default 0.2 m. 3D looked
+        // right because the 3D builder re-resolves layers/thickness from systemTypeId at render;
+        // PLAN view reads the stored thickness → every typed wall rendered as the default "Plain
+        // Wall". Resolving here (reusing _getSelectedWallThickness — the same store the picker
+        // dropdown is populated from) makes the STORED thickness correct for EVERY view,
+        // independent of which handler/catalogue the bus ended up with. systemTypeId is still
+        // carried for downstream type-keyed rendering; when the handler's catalogue DOES resolve,
+        // it re-derives the identical value (idempotent). L-28's active-by-default + default-seed
+        // behaviour is untouched (no type selected → helper returns WALL_DEFAULT_THICKNESS).
+        const thickness    = this._getSelectedWallThickness();
         const mode         = _getMode();
 
         let isCurved = false;
@@ -347,7 +366,7 @@ export class WallPlanToolHandler implements PlanToolHandler {
                 { x: endPt.worldX,   y: 0, z: endPt.worldZ   },
             ],
             height:    WALL_DEFAULT_HEIGHT,
-            thickness: WALL_DEFAULT_THICKNESS,
+            thickness,
             levelId,
             ...(systemTypeId  ? { systemTypeId }  : {}),
             ...(curvePayload  ? { curve: curvePayload } : {}),
