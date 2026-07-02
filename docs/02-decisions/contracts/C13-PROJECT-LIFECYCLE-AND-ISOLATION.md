@@ -189,6 +189,31 @@ After teardown completes, the open sequence for Project B proceeds as before:
 
 No changes to the open sequence are required. The invariant is that teardown is complete before context-set fires.
 
+### §5.3 — Load timeout MUST be progress-aware (binding)
+
+> **Added**: 2026-07-02 · closes ADR-0098 finding **F2** (project-open freeze). Files: `PlatformVersionController.loadVersion` (`§LOAD-TIMEOUT-PROGRESS`), `ProjectLoader.load` (`pryzm-load-progress`).
+
+A load-guard timeout MUST NOT declare failure while `ProjectLoader` is still making forward progress. A legitimately-slow large open (e.g. the 40-storey office: 1300 elements / 22.7 MB / 40 levels, ~62 s of **steady** progress) is not a hang.
+
+- **Prohibited**: a fixed wall-clock cap (the old `Promise.race(load(), setTimeout(30_000))`). It surfaced `Load timed out after 30 s` and "Load failed" while `§LOAD-WATCHDOG` showed the load still advancing (`load still running after 56.5s`) and it then completed (`PHASE_TIMINGS total=62831ms`), leaving the app half-initialised.
+- **Required**: `ProjectLoader` emits a `pryzm-load-progress` forward-progress tick on every `§LOAD-PHASE` boundary **and** on every 5 s watchdog heartbeat. The load guard is a **stall** watchdog: each tick RESETS the deadline, so the guard fires **only** when no progress happens for `STALL_TIMEOUT_MS` (a real hang) — regardless of total load duration.
+- The guard MUST clean up its listener + timer on both the success and error paths (no leaked `pryzm-load-progress` listeners across loads).
+
+### §5.4 — Clear-on-switch teardown MUST be batched (binding)
+
+> **Added**: 2026-07-02. Files: `ClearProjectCommand` (`§CLEAR-PROJECT-BATCH`), `SpatialTree.refreshTree`, `StairStore`/`StairMeshBuilder` (project-load log gate).
+
+The teardown that `ClearProjectCommand` runs at the start of every load removes **all** elements one-by-one (1065 walls, 78 stairs, 940 room-bounding-lines, 40 levels for the reported office). This is on the critical open path and MUST NOT amplify into per-element UI/console cost:
+
+1. **One spatial-tree refresh per burst, not per level.** `SpatialTree.refreshTree` MUST coalesce the N synchronous `bim-level-removed` / `bim-level-added` events of a teardown/load into a **single** tree rebuild (a P3-safe microtask coalescer — no new rAF). Previously each `bim-level-removed` fired a full `treeContent` rebuild + an 8-store `getAll()` scan (40× on a 40-storey switch).
+2. **No per-element console logging on the clear/load path.** Per-element remove logs (`[StairStore] Removed stair …`, `[StairMeshBuilder] Removed group …`) MUST be suppressed while `globalThis.__pryzmProjectLoadActive === true` (the flag `ProjectLoader` already sets around the whole load/restore). At 40-storey scale DevTools serialising + painting each line is itself measurable jank. `ClearProjectCommand` emits one `§CLEAR-PROJECT-BATCH` summary line instead of one-per-store-category.
+
+These are performance invariants of the OPEN PHASE (§2) — they change no semantic model state.
+
+### §5.5 — Autosave MUST NOT serialize during the load window
+
+Cross-reference: **C05 §3.2a** (autosave suppressed for the entire load/restore, including the fire-and-forget post-load sweep). The self-inflicted freeze in ADR-0098 F2 was an autosave `saveVersionInternal` serializing 22.7 MB **mid-load** because the caller-driven `isLoading` fence closed the instant `loadAdapter.load()` resolved — before the deferred post-load rebuild/re-anchor sweep (whose mutations trigger the debounce) had drained. See C05 §3.2a for the normative rule and the `pryzm-load-suppress-begin`/`-end` mechanism.
+
 ---
 
 ## §6 — AS-IS gaps (where today's code violates this contract)

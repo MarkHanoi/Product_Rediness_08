@@ -676,8 +676,26 @@ export class ProjectSerializer {
         // Room subsystem — deepStrip removes any residual THREE.js references
         const rooms = roomStore ? roomStore.getAll().map(r => deepStrip(r)) : [];
 
-        // Room Bounding Line subsystem — plain DTOs, no THREE.js references
-        const roomBoundingLines = roomBoundingLineStore.getAll().map(l => ({ ...l }));
+        // Room Bounding Line subsystem — plain DTOs, no THREE.js references.
+        // §RBL-NO-PERSIST-DEGENERATE (2026-07-02) — DROP degenerate records (missing
+        // placement.start/end) at save time so they stop accumulating in the snapshot.
+        // A 40-storey office had 940 room-bounding-lines, many partial/legacy records
+        // whose `placement.start/end` are undefined (the §RBL-PLACEMENT-GUARD skips them
+        // at build time). Persisting + reloading + iterating these dead records is pure
+        // waste on every save/load, and the count only grows. Filtering here (and the
+        // matching load-time skip in Create/ImportProjectCommand) drops them on the next
+        // save so the model self-heals. Well-formed lines are unaffected.
+        const __rblAll = roomBoundingLineStore.getAll();
+        const roomBoundingLines = __rblAll
+            .filter(l => l?.placement?.start != null && l?.placement?.end != null)
+            .map(l => ({ ...l }));
+        const __rblDropped = __rblAll.length - roomBoundingLines.length;
+        if (__rblDropped > 0) {
+            console.warn(
+                `[ProjectSerializer] §RBL-NO-PERSIST-DEGENERATE — dropped ${__rblDropped} degenerate ` +
+                `room-bounding-line(s) with undefined placement from the snapshot (self-healing legacy records).`,
+            );
+        }
 
         // Ceiling subsystem — deepStrip removes any residual THREE.js references
         const ceilings = ceilingStore ? ceilingStore.getAll().map(c => deepStrip(c)) : [];

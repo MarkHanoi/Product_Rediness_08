@@ -908,13 +908,23 @@ export class ImportProjectCommand implements Command {
             const snapshotRoomBoundingLines = (snapshot as any).roomBoundingLines;
             if (Array.isArray(snapshotRoomBoundingLines) && snapshotRoomBoundingLines.length > 0) {
                 console.log(`[ImportProjectCommand] Loading ${snapshotRoomBoundingLines.length} room bounding line(s)`);
+                let __rblSkipped = 0;
                 for (const rbl of snapshotRoomBoundingLines) {
                     try {
+                        // §RBL-NO-PERSIST-DEGENERATE (2026-07-02) — DROP degenerate legacy
+                        // records (undefined placement) on load-migrate rather than
+                        // recreating a bogus 1 m origin line (the old `?? {x:0,z:0}` /
+                        // `?? {x:1,z:0}` default). The serializer's matching filter re-saves
+                        // the snapshot without them, so the 940-record count self-heals.
+                        if (rbl?.placement?.start == null || rbl?.placement?.end == null) {
+                            __rblSkipped++;
+                            continue;
+                        }
                         const cmd = new CreateRoomBoundingLineCommand({
                             id:        rbl.id,
                             levelId:   rbl.levelId,
-                            start:     rbl.placement?.start ?? { x: 0, z: 0 },
-                            end:       rbl.placement?.end   ?? { x: 1, z: 0 },
+                            start:     rbl.placement.start,
+                            end:       rbl.placement.end,
                             name:      rbl.properties?.name,
                             color:     rbl.properties?.color,
                             createdBy: rbl.metadata?.createdBy ?? 'system',
@@ -925,6 +935,9 @@ export class ImportProjectCommand implements Command {
                         recordFail(`RoomBoundingLine ${rbl?.id ?? '?'}`,
                             { success: false, affectedElementIds: [], error: String(e) });
                     }
+                }
+                if (__rblSkipped > 0) {
+                    console.warn(`[ImportProjectCommand] §RBL-NO-PERSIST-DEGENERATE — skipped ${__rblSkipped} degenerate room-bounding-line(s) on load (dropped on next save).`);
                 }
             }
 

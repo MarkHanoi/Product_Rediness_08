@@ -58,7 +58,17 @@ export class ClearProjectCommand implements Command {
             ceilingStore,
         } = ctx.stores;
 
-        console.group('[ClearProjectCommand] Clearing all project data');
+        // §CLEAR-PROJECT-BATCH (2026-07-02) — switching away from a large project
+        // (40-storey office: 1065 walls, 78 stairs, 940 room-bounding-lines, 40 levels)
+        // tears every element down ONE-BY-ONE. The prior implementation logged a line
+        // PER store category inside a console.group; combined with the per-element logs
+        // downstream (StairStore/StairMeshBuilder, now gated) that is a measurable cost
+        // at this scale (DevTools serialises + paints every line). Collapse the
+        // per-category logging into a single summary line emitted at the end. The
+        // spatial-tree refresh that each `bim-level-removed` triggered is now coalesced
+        // to ONE rebuild per burst in SpatialTree.refreshTree (same §-tag).
+        const __clearCounts: Record<string, number> = {};
+        const __t0 = (typeof performance !== 'undefined') ? performance.now() : Date.now();
 
         try {
             // 0. Clear ElementRegistry atomically FIRST — before any store mutations.
@@ -73,88 +83,88 @@ export class ClearProjectCommand implements Command {
             // 1. Curtain panels (hosted on curtain walls)
             if (curtainPanelStore) {
                 const panels = curtainPanelStore.getAll();
-                console.log(`  Removing ${panels.length} curtain panels`);
+                __clearCounts.curtainPanels = panels.length;
                 panels.forEach(p => curtainPanelStore.remove(p.id));
             }
 
             // 2. Standalone openings (slab openings)
             const openings = openingStore.getAll();
-            console.log(`  Removing ${openings.length} openings`);
+            __clearCounts.openings = openings.length;
             openings.forEach(o => openingStore.remove(o.id));
 
             // 3. Walls (embedded window/door openings cascade automatically)
             const walls = wallStore.getAll();
-            console.log(`  Removing ${walls.length} walls`);
+            __clearCounts.walls = walls.length;
             walls.forEach(w => wallStore.remove(w.id));
 
             // 4. Curtain walls
             const curtainWalls = curtainWallStore.getAll();
-            console.log(`  Removing ${curtainWalls.length} curtain walls`);
+            __clearCounts.curtainWalls = curtainWalls.length;
             curtainWalls.forEach(c => curtainWallStore.remove(c.id));
 
             // 5. Slabs
             const slabs = slabStore.getAll();
-            console.log(`  Removing ${slabs.length} slabs`);
+            __clearCounts.slabs = slabs.length;
             slabs.forEach(s => slabStore.remove(s.id));
 
             // 5b. Ceilings
             if (ceilingStore) {
                 const ceilings = ceilingStore.getAll();
-                console.log(`  Removing ${ceilings.length} ceilings`);
+                __clearCounts.ceilings = ceilings.length;
                 ceilings.forEach(c => ceilingStore.remove(c.id));
             }
 
             // 6. Columns
             const columns = columnStore.getAll();
-            console.log(`  Removing ${columns.length} columns`);
+            __clearCounts.columns = columns.length;
             columns.forEach(c => columnStore.remove(c.id));
 
             // 7. Beams
             const beams = beamStore.getAll();
-            console.log(`  Removing ${beams.length} beams`);
+            __clearCounts.beams = beams.length;
             beams.forEach(b => beamStore.remove(b.id));
 
             // 8. Stairs
             const stairs = stairStore.getAll();
-            console.log(`  Removing ${stairs.length} stairs`);
+            __clearCounts.stairs = stairs.length;
             stairs.forEach(s => stairStore.remove(s.id));
 
             // 9. Roofs
             const roofs = roofStore.getAll();
-            console.log(`  Removing ${roofs.length} roofs`);
+            __clearCounts.roofs = roofs.length;
             roofs.forEach(r => roofStore.remove(r.id));
 
             // 10. Furniture
             const furniture = furnitureStore.getAll();
-            console.log(`  Removing ${furniture.length} furniture items`);
+            __clearCounts.furniture = furniture.length;
             furniture.forEach(f => furnitureStore.remove(f.id));
 
             // 11. Handrails
             const handrails = handrailStore.getAll();
-            console.log(`  Removing ${handrails.length} handrails`);
+            __clearCounts.handrails = handrails.length;
             handrails.forEach(h => handrailStore.remove(h.id));
 
             // 12. Plumbing
             const plumbing = plumbingStore.getAll();
-            console.log(`  Removing ${plumbing.length} plumbing fixtures`);
+            __clearCounts.plumbing = plumbing.length;
             plumbing.forEach(p => plumbingStore.remove(p.id));
 
             // 12b. Rooms
             const roomStore = ctx.stores.roomStore;
             if (roomStore) {
                 const rooms = roomStore.getAll();
-                console.log(`  Removing ${rooms.length} rooms`);
+                __clearCounts.rooms = rooms.length;
                 rooms.forEach(r => roomStore.remove(r.id));
             }
 
             // 12c. Room Bounding Lines (singleton store — always present)
             const rbLines = roomBoundingLineStore.getAll();
-            console.log(`  Removing ${rbLines.length} room bounding lines`);
+            __clearCounts.roomBoundingLines = rbLines.length;
             rbLines.forEach(rb => roomBoundingLineStore.remove(rb.id));
 
             // 13. Grids (remove from store AND BimManager scene objects)
             const grids = gridStore.getAll();
-            console.log(`  Removing ${grids.length} grids`);
+            __clearCounts.grids = grids.length;
             grids.forEach(g => {
                 gridStore.remove(g.id);
                 if (typeof (ctx.bimManager as any).removeGrid === 'function') {
@@ -163,8 +173,11 @@ export class ClearProjectCommand implements Command {
             });
 
             // 14. Levels (reverse order to avoid dependency issues)
+            // §CLEAR-PROJECT-BATCH — each removeLevel fires `bim-level-removed`, which
+            // SpatialTree now coalesces to ONE tree rebuild for the whole burst (was one
+            // full rebuild per level = 40× on a 40-storey teardown).
             const levels = wallStore.getLevels().slice().reverse();
-            console.log(`  Removing ${levels.length} levels`);
+            __clearCounts.levels = levels.length;
             levels.forEach(l => ctx.bimManager.removeLevel(l.id));
 
             // 15. Reset semantic tag index (Phase A — clears all tags with the project)
@@ -187,14 +200,12 @@ export class ClearProjectCommand implements Command {
 
             // 18c. Clear Annotation store (§ANN-A2 — clears all annotations + dimensions)
             annotationStore.clear();
-            console.log('[ClearProjectCommand] Annotation store cleared');
 
             // 18d. Clear per-engine FloorStore (was missing — see Contract 45 §2).
             const floorStore = (ctx.stores as any).floorStore;
             if (floorStore && typeof floorStore.clear === 'function') {
-                const count = floorStore.getAll?.().length ?? 0;
+                __clearCounts.floors = floorStore.getAll?.().length ?? 0;
                 floorStore.clear();
-                console.log(`  Cleared ${count} floors`);
             }
 
             // 18e. Contract 45 — clear EVERY module-singleton store registered in
@@ -208,7 +219,7 @@ export class ClearProjectCommand implements Command {
             //      requirementStore, assetCatalogStore, doorStore, windowStore,
             //      and the four *SystemTypeStores. See docs/02-decisions/contracts/45-*.md.
             const report = projectScopeRegistry.clearAll();
-            console.log(`[ClearProjectCommand] ProjectScopeRegistry cleared ${report.cleared.length} scopes:`, report.cleared);
+            __clearCounts.scopeStores = report.cleared.length;
             if (report.failures.length) {
                 console.error(`[ClearProjectCommand] ${report.failures.length} scope clear failures:`, report.failures);
             }
@@ -224,18 +235,25 @@ export class ClearProjectCommand implements Command {
             //     downstream listener and the subsequently loaded project start with a
             //     valid, universally present level context.
             projectContext.activeLevelId = 'L0';
-            console.log('[ClearProjectCommand] activeLevelId reset to L0 (project-scoped state cleared).');
 
             // 20. Signal platform shell and any other listeners
             _bus.emit('bim-project-cleared', {}); // F.events.17
 
-            console.log('[ClearProjectCommand] Clear complete');
+            // §CLEAR-PROJECT-BATCH — ONE summary line for the whole teardown (was one
+            // log per store category + one per removed stair/level). activeLevelId reset
+            // to L0 is included so the C13-G3 reset stays observable in the log.
+            const __dtMs = ((typeof performance !== 'undefined') ? performance.now() : Date.now()) - __t0;
+            const __total = Object.values(__clearCounts).reduce((a, b) => a + b, 0);
+            console.log(
+                `[ClearProjectCommand] §CLEAR-PROJECT-BATCH clear complete in ${__dtMs.toFixed(1)}ms ` +
+                `(${__total} elements, activeLevelId→L0):`,
+                __clearCounts,
+            );
         } catch (err) {
             console.error('[ClearProjectCommand] Error during clear:', err);
             return { success: false, affectedElementIds: [], error: String(err) };
         }
 
-        console.groupEnd();
         return { success: true, affectedElementIds: [] };
     }
 

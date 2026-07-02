@@ -86,7 +86,7 @@ export function createSpatialTree(runtime: import('@pryzm/runtime-composer/types
         });
     }
 
-    const refreshTree = () => {
+    const refreshTreeNow = () => {
         console.log("Refreshing Spatial Tree...");
         treeContent.innerHTML = '';
         const bimManager = window.bimManager; // TODO(D.4): replace via EngineBootstrap split — bimManager destroyed in D.4 — Phase D.4
@@ -253,6 +253,25 @@ export function createSpatialTree(runtime: import('@pryzm/runtime-composer/types
 
         // ── IFC Imported Models Section ──────────────────────────────────────
         renderIfcSection();
+    };
+
+    // §CLEAR-PROJECT-BATCH (2026-07-02) — coalesce refreshTree calls to ONE per frame.
+    // Switching projects runs ClearProjectCommand, which removes 40 levels ONE-BY-ONE;
+    // each `bim-level-removed` synchronously fired a full refreshTreeNow() (rebuild the
+    // entire tree DOM + `store.getAll()` scan across 8 stores per call) → 40× redundant
+    // rebuilds + 40× "Refreshing Spatial Tree..." log lines on the clear path, a
+    // measurable cost at 40-storey scale. Coalesce every burst of refresh requests into
+    // a single rebuild scheduled on a microtask, so N synchronous store events during a
+    // teardown/load collapse to ONE tree rebuild once the burst settles.
+    // P3-safe: no rAF here — a microtask, not an animation frame.
+    let _refreshScheduled = false;
+    const refreshTree = () => {
+        if (_refreshScheduled) return;
+        _refreshScheduled = true;
+        queueMicrotask(() => {
+            _refreshScheduled = false;
+            try { refreshTreeNow(); } catch (e) { console.warn('[SpatialTree] refresh failed:', e); }
+        });
     };
 
     function renderIfcSection() {

@@ -140,6 +140,21 @@ export class SaveOrchestrator {
      */
     private _batchDepth: number = 0;
 
+    /**
+     * §AUTOSAVE-SUPPRESS-DURING-LOAD (2026-07-02) — boolean latch, TRUE for the
+     * entire load/restore window. Unlike the caller-driven `isLoading` flag (which
+     * closes the moment `loadAdapter.load()`'s promise resolves), this latch is
+     * driven by ProjectLoader itself via `pryzm-load-suppress-begin` /
+     * `pryzm-load-suppress-end`, so it stays set across the fire-and-forget post-load
+     * redetect + wall-resolve sweep that continues AFTER load() resolves — the exact
+     * window in which ADR-0098 F2's "post-load rebuild storm" fires the mutations that
+     * used to trigger a full 22.7 MB snapshot serialize mid-load (the reported freeze).
+     * Modelled as a boolean latch (not a ref-count) so a stale/cancelled load's END
+     * cannot prematurely re-enable autosave for a fresher load: `setLoading(true)`
+     * clears it on every new load, and only a matching `-end` clears it otherwise.
+     */
+    private _loadSuppressActive: boolean = false;
+
     /** Settle window opened when the last batch drains, so consecutive per-level
      *  batches in one generation coalesce into a single autosave. */
     private static readonly _BATCH_SETTLE_MS = 1500;
@@ -153,6 +168,8 @@ export class SaveOrchestrator {
     private readonly beforeUnloadHandler: () => void;
     private readonly batchStartHandler: () => void;
     private readonly batchEndHandler: () => void;
+    private readonly loadSuppressBeginHandler: () => void;
+    private readonly loadSuppressEndHandler: () => void;
 
     /** Phase B (S73-WIRE) — runtime threaded by parent. */
     public readonly runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null;
@@ -184,10 +201,17 @@ export class SaveOrchestrator {
             this._batchDepth = 0;
             this.cancelDebounce();
             this.setStatus('idle');
+            // NOTE: intentionally do NOT clear _loadSuppressActive here — a
+            // `bim-project-cleared` fires from ClearProjectCommand DURING a load (it is
+            // the load's first step), so clearing the latch here would re-open autosave
+            // for the rest of that same load. The latch is owned solely by the
+            // load-suppress-begin/-end pair (+ setLoading reset on a new load).
         };
         this.beforeUnloadHandler = () => this.flushBeforeUnload();
         this.batchStartHandler = () => this.handleBatchStart();
         this.batchEndHandler = () => this.handleBatchEnd();
+        this.loadSuppressBeginHandler = () => this.handleLoadSuppressBegin();
+        this.loadSuppressEndHandler = () => this.handleLoadSuppressEnd();
 
         MUTATION_EVENTS.forEach(evt => window.addEventListener(evt, this.mutationHandler));
         window.addEventListener('bim-project-cleared', this.clearHandler);
@@ -195,6 +219,10 @@ export class SaveOrchestrator {
         // §AUTOSAVE-BATCH-SUPPRESS — coalesce a multi-batch generation to one save.
         window.addEventListener('pryzm-batch-started', this.batchStartHandler);
         window.addEventListener('pryzm-batch-ended', this.batchEndHandler);
+        // §AUTOSAVE-SUPPRESS-DURING-LOAD — suppress autosave for the WHOLE load window
+        // (incl. the fire-and-forget post-load sweep), driven by ProjectLoader.
+        window.addEventListener('pryzm-load-suppress-begin', this.loadSuppressBeginHandler);
+        window.addEventListener('pryzm-load-suppress-end', this.loadSuppressEndHandler);
 
         console.log('[SaveOrchestrator] Initialised — debounce:', this.DEBOUNCE_MS, 'ms');
     }
@@ -209,6 +237,15 @@ export class SaveOrchestrator {
 
     private handleMutation(): void {
         if (this.isLoading) {
+            return;
+        }
+        // §AUTOSAVE-SUPPRESS-DURING-LOAD — post-load sweep mutations: mark dirty so the
+        // toolbar reflects unsaved state, but do NOT arm the debounce; the single save
+        // is re-armed by handleLoadSuppressEnd() once the load fully settles.
+        if (this._loadSuppressActive) {
+            this.hasDirtyChanges = true;
+            this.pendingSave = true;
+            this.setStatus('pending');
             return;
         }
         if (this.isVersionPreviewMode) {
@@ -242,6 +279,17 @@ export class SaveOrchestrator {
         // setLoading(true) is called, but guard here as well in case a
         // future refactor changes that invariant.
         if (this.isLoading) return;
+
+        // §AUTOSAVE-SUPPRESS-DURING-LOAD — a project load/restore is in progress,
+        // including its fire-and-forget post-load sweep. Keep the project marked dirty
+        // but DEFER the serialize: handleLoadSuppressEnd() re-arms the debounce once the
+        // load fully settles, so the whole open produces exactly ONE post-load snapshot
+        // instead of a serialize storm mid-load (ADR-0098 F2 freeze).
+        if (this._loadSuppressActive) {
+            this.cancelDebounce();
+            this.setStatus('pending');
+            return;
+        }
 
         // §AUTOSAVE-BATCH-SUPPRESS — a bulk generation is mid-flight (one or more
         // runBatch windows open). Keep the project marked dirty but defer the save;
@@ -336,6 +384,12 @@ export class SaveOrchestrator {
         if (isLoading) {
             // §AUTOSAVE-BATCH-SUPPRESS — a load supersedes any in-flight batch.
             this._batchDepth = 0;
+            // §AUTOSAVE-SUPPRESS-DURING-LOAD — a new load supersedes any stale
+            // suppression latch left by a cancelled/interrupted prior load. The new
+            // load's own `pryzm-load-suppress-begin` (fired from ProjectLoader) re-sets
+            // it immediately; resetting here means a stale prior `-end` can never leave
+            // suppression falsely OFF at the start of this load.
+            this._loadSuppressActive = false;
             this.cancelDebounce();
             // Clear any stale dirty state from the previous project immediately.
             // This ensures flushBeforeUnload() finds hasDirtyChanges=false if it
@@ -389,6 +443,34 @@ export class SaveOrchestrator {
             this._settleUntil,
             Date.now() + SaveOrchestrator._BATCH_SETTLE_MS,
         );
+        if (this.hasDirtyChanges || this.pendingSave) {
+            this.pendingSave = false;
+            this.scheduleDebounce();
+        }
+    }
+
+    // ── §AUTOSAVE-SUPPRESS-DURING-LOAD: load-window coalescing ────────────────
+
+    /**
+     * Fired on `pryzm-load-suppress-begin` (dispatched by ProjectLoader at the very
+     * start of a load). Latches suppression ON and cancels any armed debounce so a
+     * save queued by the previous project cannot fire mid-load.
+     */
+    private handleLoadSuppressBegin(): void {
+        this._loadSuppressActive = true;
+        this.cancelDebounce();
+    }
+
+    /**
+     * Fired on `pryzm-load-suppress-end` (dispatched by ProjectLoader once the load
+     * AND its fire-and-forget post-load sweep have fully drained). Clears the latch
+     * and — if the load produced dirty state — arms exactly ONE coalesced autosave so
+     * the just-settled project is persisted. resetDirtyAfterLoad() (called by the load
+     * caller) may have already cleared dirty state, in which case nothing fires.
+     */
+    private handleLoadSuppressEnd(): void {
+        this._loadSuppressActive = false;
+        if (this.isLoading) return; // caller still owns the primary load fence
         if (this.hasDirtyChanges || this.pendingSave) {
             this.pendingSave = false;
             this.scheduleDebounce();
@@ -468,6 +550,8 @@ export class SaveOrchestrator {
         window.removeEventListener('beforeunload', this.beforeUnloadHandler);
         window.removeEventListener('pryzm-batch-started', this.batchStartHandler);
         window.removeEventListener('pryzm-batch-ended', this.batchEndHandler);
+        window.removeEventListener('pryzm-load-suppress-begin', this.loadSuppressBeginHandler);
+        window.removeEventListener('pryzm-load-suppress-end', this.loadSuppressEndHandler);
         console.log('[SaveOrchestrator] Disposed');
     }
 }

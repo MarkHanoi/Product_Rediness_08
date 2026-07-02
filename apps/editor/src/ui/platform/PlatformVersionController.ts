@@ -346,11 +346,44 @@ export class PlatformVersionController {
         this.saveCtrl.orchestrator.setLoading(true);
         this.ctx.statusText.textContent = 'Loading…';
 
-        // Safety timeout: if the engine load hangs for more than 30 s, unblock the scene.
-        const LOAD_TIMEOUT_MS = 30_000;
-        const timeoutPromise = new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('Load timed out after 30 s')), LOAD_TIMEOUT_MS)
-        );
+        // §LOAD-TIMEOUT-PROGRESS (2026-07-02) — PROGRESS-AWARE stall watchdog.
+        //
+        // The old guard was a fixed 30 s `Promise.race`. A legitimately-slow large
+        // load (40-storey office: 1300 elements / 22.7 MB, ~62 s of STEADY progress)
+        // tripped it and surfaced "Load failed" while ProjectLoader was demonstrably
+        // still advancing (`§LOAD-WATCHDOG load still running after 56.5s` → completes
+        // at `PHASE_TIMINGS total=62831ms`) — a false failure that left the app
+        // half-initialised. C13 §5.3 now forbids declaring failure while the loader is
+        // making forward progress.
+        //
+        // Fix: fail ONLY on a genuine STALL. ProjectLoader emits a `pryzm-load-progress`
+        // event on every §LOAD-PHASE boundary AND on every watchdog heartbeat; each tick
+        // RESETS the deadline. So the timer only fires if NO progress happens for
+        // STALL_TIMEOUT_MS — a real hang — no matter how long the total load takes.
+        const STALL_TIMEOUT_MS = 20_000; // > the 5 s loader watchdog interval, with margin
+        let _stallTimer: ReturnType<typeof setTimeout> | undefined;
+        let _rejectStall: ((e: Error) => void) | undefined;
+        const _onLoadProgress = () => {
+            // A forward-progress tick — reset the stall deadline.
+            if (_stallTimer !== undefined) clearTimeout(_stallTimer);
+            _stallTimer = setTimeout(
+                () => _rejectStall?.(new Error(`Load stalled — no progress for ${STALL_TIMEOUT_MS / 1000}s`)),
+                STALL_TIMEOUT_MS,
+            );
+        };
+        const stallPromise = new Promise<never>((_, reject) => {
+            _rejectStall = reject;
+            // Arm the initial deadline; the first §LOAD-PHASE('setup') tick resets it.
+            _stallTimer = setTimeout(
+                () => reject(new Error(`Load stalled — no progress for ${STALL_TIMEOUT_MS / 1000}s`)),
+                STALL_TIMEOUT_MS,
+            );
+        });
+        window.addEventListener('pryzm-load-progress', _onLoadProgress);
+        const _cleanupStallWatch = () => {
+            window.removeEventListener('pryzm-load-progress', _onLoadProgress);
+            if (_stallTimer !== undefined) clearTimeout(_stallTimer);
+        };
 
         try {
             this.ctx.projectName = version.snapshot.projectName ?? this.ctx.projectName;
@@ -358,8 +391,9 @@ export class PlatformVersionController {
 
             const result: ILoadResult = await Promise.race([
                 this.ctx.loadAdapter.load(version.snapshot),
-                timeoutPromise,
+                stallPromise,
             ]);
+            _cleanupStallWatch();
             overlay.remove();
 
             // ── Stale-closure guard ───────────────────────────────────────────
@@ -392,6 +426,7 @@ export class PlatformVersionController {
                 showToast(`Load failed: ${result.errors[0] ?? 'unknown error'}`, 'error');
             }
         } catch (err) {
+            _cleanupStallWatch();
             overlay.remove();
             // ── Stale-closure guard (error path) ─────────────────────────────
             if (this.ctx.activeProjectId !== targetProjectId) {
