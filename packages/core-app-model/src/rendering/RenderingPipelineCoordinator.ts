@@ -460,6 +460,20 @@ export class RenderingPipelineCoordinator {
     private _onTierSsgi?: (enabled: boolean) => void;
     private _onTierTraa?: (enabled: boolean) => void;
     private _onTierFurnitureBudget?: (decorativeShadows: boolean) => void;
+    /**
+     * §PERF-HEAVY-SHADOW-OFF — injected setter that suppresses/restores the SCENE
+     * shadow pass at the real caster (the Pascal key light) on the LIVE renderer.
+     *
+     * The coordinator's own ShadowQualityUpgrader is bound to the OBC WebGL renderer
+     * (silenced in Phase 5) and only de-shadows the lights it snapshotted, so its
+     * setShadowsEnabled() never reaches the Pascal key light nor the PRYZM WebGPU
+     * renderer that actually draws the shadow pass — the documented ≥8000-caster
+     * ceiling therefore never fired on the 40-storey office. This hook is wired by
+     * initScene to `pascalSceneLighting.setShadowsSuppressed(...)`, closing that gap.
+     * Kept as an injected callback (not a direct import) so the coordinator does not
+     * take a dependency on the app-layer wiring. No-op-safe when never injected.
+     */
+    private _onTierSceneShadow?: (suppressed: boolean) => void;
 
     /**
      * §PERF-WEBGPU-FRAGMENT — tier-log throttle state. The tier is re-evaluated on
@@ -509,6 +523,16 @@ export class RenderingPipelineCoordinator {
      */
     setTierFurnitureBudgetHook(hook: (decorativeShadows: boolean) => void): void {
         this._onTierFurnitureBudget = hook;
+    }
+
+    /**
+     * §PERF-HEAVY-SHADOW-OFF — inject the scene-shadow-suppression setter the
+     * coordinator calls whenever the heavy-scene shadow gate flips. `suppressed=true`
+     * ⇒ the scene renders NO shadow pass (the real caster — the Pascal key light —
+     * stops casting). No-op-safe: if never injected, the gate simply skips this step.
+     */
+    setTierSceneShadowHook(hook: (suppressed: boolean) => void): void {
+        this._onTierSceneShadow = hook;
     }
 
     /**
@@ -570,15 +594,28 @@ export class RenderingPipelineCoordinator {
         // shadow gate every call — it is idempotent (a no-op when the desired state
         // already holds) so it is cheap and never churns. The `survival.shadows=false`
         // transition at 15001 IS a tier change and also flows through here.
+        const shadowsOff =
+            !settings.shadows ||
+            meshCount >= RenderingPipelineCoordinator._LARGE_SCENE_SHADOWS_OFF_MESH_COUNT;
         if (this._shadowUpgrader.applied) {
-            const shadowsOff =
-                !settings.shadows ||
-                meshCount >= RenderingPipelineCoordinator._LARGE_SCENE_SHADOWS_OFF_MESH_COUNT;
             try {
                 this._shadowUpgrader.setShadowsEnabled(!shadowsOff);
             } catch (err) {
                 console.warn('[RenderingPipelineCoordinator] §SHADOW-DEVICE-LOSS-FIX shadow-enable gate error:', err);
             }
+        }
+        // §PERF-HEAVY-SHADOW-OFF — the ShadowQualityUpgrader above is bound to the OBC
+        // WebGL renderer (silenced in Phase 5) and only touches lights it snapshotted,
+        // so it never reaches the Pascal key light nor the live PRYZM WebGPU renderer
+        // that actually draws the shadow pass — the ≥8000-caster ceiling never fired on
+        // the 40-storey office (13,652 meshes, 12,737 shadow-flagged, tier=performance).
+        // Drive the REAL scene-shadow lever unconditionally (idempotent; not gated on
+        // _shadowUpgrader.applied). Evaluated every call because the 8000 ceiling can
+        // cross WITHIN the `performance` tier (2500–15000) where `changed` is false.
+        try {
+            this._onTierSceneShadow?.(shadowsOff);
+        } catch (err) {
+            console.warn('[RenderingPipelineCoordinator] §PERF-HEAVY-SHADOW-OFF scene-shadow hook error:', err);
         }
 
         // Only (re)apply the THREE-side mutators when the tier actually changed —

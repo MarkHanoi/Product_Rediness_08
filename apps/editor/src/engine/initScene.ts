@@ -1753,6 +1753,79 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             if (enabled) { void rpm?.activateTRAA?.(); }
             else { void rpm?.deactivateTRAA?.(); }
         });
+        // §PERF-HEAVY-SHADOW-OFF — the REAL heavy-scene shadow lever. The coordinator's
+        // own ShadowQualityUpgrader is bound to the (Phase-5-silenced) OBC WebGL renderer
+        // and only de-shadows lights it snapshotted, so its ≥8000-caster ceiling never
+        // reached the Pascal key light — the sole default shadow caster that the live
+        // PRYZM WebGPU renderer actually draws a pass for. On the 40-storey office
+        // (13,652 meshes → performance tier, 12,737 shadow-flagged) that pass runs EVERY
+        // navigation frame and is the dominant cost. Routing the gate here to
+        // pascalSceneLighting.setShadowsSuppressed() clears keyLight.castShadow → THREE
+        // renders no shadow pass at all. Reversible; small (<8000-mesh) scenes keep
+        // their shadows exactly as before because the gate only trips at the ceiling
+        // (or `settings.shadows === false` at survival).
+        //
+        // §PERF-HEAVY-SHADOW-OFF + §PERF-NAV-LOD share ONE physical lever
+        // (keyLight.castShadow), so combine their two independent intents here:
+        //   heavy  — the tier gate wants shadows off permanently (≥8000 casters /
+        //            survival). Persistent while the scene stays heavy.
+        //   nav    — the camera is actively orbiting/panning; drop the shadow pass
+        //            during motion on a non-trivial scene and restore it on settle.
+        // The scene renders no shadow pass while EITHER is set; shadows return only
+        // when BOTH are clear. setShadowsSuppressed() is idempotent, so re-resolving
+        // on every transition is cheap and never churns.
+        let _heavyShadowSuppressed = false;
+        let _navShadowSuppressed   = false;
+        const _resolveSceneShadow = (): void => {
+            try { pascalSceneLighting.setShadowsSuppressed(_heavyShadowSuppressed || _navShadowSuppressed); }
+            catch (e) { console.warn('[initScene] §PERF-HEAVY-SHADOW-OFF setShadowsSuppressed error:', e); }
+        };
+        renderingCoordinator.setTierSceneShadowHook((suppressed) => {
+            _heavyShadowSuppressed = suppressed;
+            _resolveSceneShadow();
+        });
+
+        // §PERF-NAV-LOD — drop the shadow pass DURING active camera motion and
+        // restore it once the camera settles. This is a real per-frame win on the
+        // mid-heavy band (2500–8000 meshes) that the heavy ceiling does NOT cover
+        // (those scenes keep shadows at rest). Reuses the EXISTING camera-controls
+        // motion events (P3: no new requestAnimationFrame). Gated on a non-trivial
+        // live mesh count so small/showcase scenes never flicker their shadows on
+        // orbit. When the scene is already heavy, `heavy` keeps shadows off through
+        // the settle, so nav-LOD is a no-op there (correct).
+        const NAV_LOD_MIN_MESHES = 1_200; // matches the large-scene tier cap floor
+        const _liveMeshCount = (): number => {
+            let n = 0;
+            try {
+                (world.scene.three as THREE.Scene).traverse((o) => {
+                    if (o instanceof THREE.Mesh || o instanceof THREE.InstancedMesh) n++;
+                });
+            } catch { /* count is advisory */ }
+            return n;
+        };
+        // Cache the mesh count at motion START (one traverse per drag, not per frame).
+        world.camera.controls.addEventListener('controlstart', () => {
+            if (_navShadowSuppressed) return;
+            if (_liveMeshCount() < NAV_LOD_MIN_MESHES) return;
+            _navShadowSuppressed = true;
+            _resolveSceneShadow();
+        });
+        const _endNavLod = (): void => {
+            if (!_navShadowSuppressed) return;
+            _navShadowSuppressed = false;
+            _resolveSceneShadow();
+            // The scene is settling (rest/sleep) → the loop is about to go idle. Mark
+            // one dirty frame so the restored shadow pass is actually rendered before
+            // the scheduler stops (P3: no new rAF — just wake the existing loop once).
+            if (!_heavyShadowSuppressed) {
+                try { getFrameScheduler().markDirty('nav-lod-shadow-restore'); }
+                catch { /* scheduler not ready — next interaction repaints */ }
+            }
+        };
+        // rest/sleep fire after the damping tail fully settles (controlend fires too
+        // early — damping keeps moving the camera for several hundred ms after).
+        world.camera.controls.addEventListener('rest', _endNavLod);
+        world.camera.controls.addEventListener('sleep', _endNavLod);
 
         // §PERF-WEBGL2-NO-SSGI — authoritative "is this a REAL WebGPU backend?" signal
         // for the render-tier backend gate. On the WebGL2 fallback backend (a
