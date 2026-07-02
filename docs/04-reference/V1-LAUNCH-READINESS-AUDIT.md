@@ -40,6 +40,13 @@ an empty project and a heavy one, without freezes or stutter.
 | L-08 | audit | **Uneven material commands** (only walls/doors/windows) | Editing/Materials | GAP | Q7 / F6 |
 | L-09 | founder | **Wall-draw rubber-band preview stutters/gets stuck** (empty project) | Modeling | BROKEN | Q8 (agent) / W6 |
 | L-10 | founder | Wall-move freeze **"still present"** — was testing pre-F1 bundle; F1 deploying | Editing | INFO | verify post-deploy + Q6 |
+| L-11 | founder | **Environment & Camera panel must be REAL**: real sun (Forma/Cesium ephemeris basis), real shadows + an invisible L0 shadow-catcher so every element casts a ground shadow, and every button meaningful (climate/heat/wind/population/post-fx) | Camera/Render/Env | GAP | design ready (map ab4e868) → ADR + impl; C04/C12/C19/C21/ADR-0074 |
+| L-12 | founder | **Wall T-junction draws an "arrow"/spike** — guest wall should butt clean on the host, host unchanged | Editing/Geometry | BROKEN→FIXED | ADR-0055 §FIX-WALL-TJUNCTION-BUTT (batch 2) |
+| L-13 | founder | **Plan-view door: wall lines don't close onto the frame — gap at the jamb** | Views/Drawing | BROKEN→FIXED | ADR-0104 §FIX-PLAN-DOOR-JAMB-SEAM (batch 2) |
+| L-14 | founder | **Floor Finish default assembly thickness should = base offset** (avoid overlap; user-overridable) | Creation | GAP | queued; C11/C03 |
+| L-15 | founder | **Properties panel must be professional** — remove stray lines, absolute alignment, organic to use | UI | BROKEN→FIXED | ADR-0103 §FIX-PROPERTIES-PANEL-POLISH (batch 2) |
+| L-16 | founder | **Spacebar rotates the preview element 90° CW during placement** (all placeable elements, 3D+plan) until click/Enter commit / Esc cancel | Modeling/Creation | GAP | queued; extends F5/Q7; C06/C11 |
+| L-17 | founder | **Every element needs a "change type" dropdown** to swap it for another type (e.g. sofa→another sofa). Exists for walls (WALL TYPE) but **doesn't work for existing placed elements** — select an element → replace with a different type | Editing/Types | GAP | queued; C11/C03/C16 |
 | _next_ | | _append here_ | | | |
 
 ---

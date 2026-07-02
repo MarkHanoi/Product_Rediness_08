@@ -87,3 +87,19 @@ Gate: G2 (deepened) + G10.
 
 **Current fleet (6/6):** Q2 nav-perf · Q3 load · house-circ · Q8 wall-preview · Q4 selection · Q6 edit-storm.
 As each lands (merge→gate→push) the freed slot takes the next queued gate item (G6 → G7 → G8/G9).
+
+---
+
+## Reported-item → phase mapping (L-11 … L-17)
+
+| L-id | Phase | Status |
+|---|---|---|
+| L-11 Environment real sun/shadows/buttons | new **Phase 3.3** (real environment) | design ready → ADR + impl |
+| L-12 wall T-junction spike | 0.5 geometry soundness | **SHIPPED** (ADR-0055 refinement) |
+| L-13 plan-view door jamb gap | 3.2 annotations/drawing | **SHIPPED** (ADR-0104) |
+| L-14 floor-finish default thickness=offset | 2.3 creation defaults | queued |
+| L-15 properties panel polish | 1.4 UI soundness | **SHIPPED** (ADR-0103) |
+| L-16 spacebar-rotate preview during placement | 2.1 (transform) — placement-preview UX | queued |
+| L-17 element "change type" swap (all elements) | 2.4 element type-swap | queued — extend the wall system-type picker + in-place replace command to all element families (C11/C03/C16) |
+
+**Batches shipped:** batch 1 (`583eb2f1`) = selection(G4) + redetect-storm(G1) + nav-perf(G3) + house-circ. batch 2 (in gate) = load-freeze(G2) + wall-preview(G5) + properties-panel(L-15) + door-plan-gap(L-13) + T-junction(L-12).
