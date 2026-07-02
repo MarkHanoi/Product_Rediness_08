@@ -1,4 +1,6 @@
-# ADR-0098 — Circulation-% honesty: duplicate-name-safe reachability + corridor root + storage rescue
+# ADR-0100 — Circulation-% honesty: duplicate-name-safe reachability + corridor root + storage rescue
+
+> Renumbered 0098→0100 to avoid collision with the ADR-0098 element-lifecycle audit and ADR-0099 host-wall fix.
 
 - **Status:** Accepted (2026-07-02)
 - **Layer:** L5 metric (`apps/editor/src/ui/apartment-layout/layoutBubbleGraph.ts`) + L2 engine
