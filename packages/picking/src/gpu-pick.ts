@@ -734,21 +734,22 @@ export class GpuPickStrategy implements PickStrategy {
   }
 
   /**
-   * §SELECT-3D-FORGIVING + §SELECT-THIN-WINS — read the slot under the cursor with
-   * thin-element disambiguation.
+   * §SELECT-EXACT-PIXEL-FIRST (was §SELECT-3D-FORGIVING + §SELECT-THIN-WINS) —
+   * read the slot under the cursor, with a nearest-element fallback ONLY when the
+   * exact pixel is empty.
    *
-   * Fast path: a direct centre hit with radius 0 (fixed-size callers / tests) is
-   * the old exact 1×1 read.
+   * The exact 1×1 read at (cx, cy) is authoritative: if it decodes to a valid slot
+   * the user clicked directly ON that element, so it wins immediately and the
+   * neighbourhood is NOT scanned (this is also the common-case perf win — no
+   * second, larger readback when the cursor is on geometry, which matters as scene
+   * density grows).  This reverses the prior "scan even on a centre hit so a
+   * thinner footprint can steal it" rule, which let an adjacent door with a smaller
+   * clipped footprint beat a window under the cursor.
    *
-   * Auto-sized path (radius > 0): read the whole (2r+1)² neighbourhood ONCE and
-   * delegate the choice to the pure `chooseNearestThinSlot`.  Unlike the old
-   * "only scan when centre is background" rule, we now scan even on a centre hit
-   * so a THIN element (a column) whose footprint is tiny but lies right at the
-   * cursor BEATS the large element (the wall) the centre pixel happened to land
-   * on — mirroring the 2D plan picker's "nearest small element wins" intent.
-   * The id-buffer already resolves front/back occlusion (the frontmost surface
-   * wins each pixel via depthTest), so a smaller pixel footprint near the cursor
-   * is the reliable signal for "the nearer/thinner element the user aimed at".
+   * Fallback (radius > 0 AND centre empty): read the (2r+1)² neighbourhood ONCE and
+   * delegate to the pure `chooseNearestThinSlot`, which picks the candidate whose
+   * NEAREST pixel is closest to the cursor (ties → thinner, then lower slot id).
+   * The id-buffer already resolves front/back occlusion per pixel via depthTest.
    *
    * Returns the winning slot plus the target-space pixel it came from (so the
    * depth pass samples the right place).
@@ -768,7 +769,11 @@ export class GpuPickStrategy implements PickStrategy {
       this.pixelBuffer[2] ?? 0,
       this.pixelBuffer[3] ?? 0,
     );
-    if (radius <= 0) {
+    // §SELECT-EXACT-PIXEL-FIRST — a valid id at the exact cursor pixel wins outright
+    // (radius 0 fixed-size callers/tests fall through here too). The neighbourhood
+    // scan below runs ONLY when the cursor sits on background, so it can never
+    // override a confident direct click.
+    if (radius <= 0 || centreSlot !== 0) {
       return { slot: centreSlot, winX: cx, winY: cy };
     }
 
@@ -1432,20 +1437,28 @@ export function computePickTargetSize(
 }
 
 /**
- * §SELECT-THIN-WINS — PURE id-buffer disambiguation (no THREE, no DOM).
+ * §SELECT-EXACT-PIXEL-FIRST — PURE id-buffer disambiguation (no THREE, no DOM).
  *
- * Given an RGBA id-buffer covering a (bw × bh) neighbourhood whose top-left is at
- * target pixel (x0, y0), and the cursor at target pixel (cx, cy), choose the slot
- * the user most likely aimed at:
+ * INVARIANT (founder priority — "architecturally sound"): the id painted at the
+ * EXACT pixel under the cursor is the user's intent and WINS whenever it is a
+ * valid (non-background) slot.  The GPU id-buffer already resolves front/back
+ * occlusion per pixel (frontmost surface wins via depthTest), so the pixel the
+ * cursor sits on is authoritative — a click that lands ON a window must select
+ * that window, never a bigger- OR smaller-footprint neighbour (door / wall) that
+ * merely happens to have pixels in the surrounding search window.
  *
- *   1. For every non-background slot in the window, record its NEAREST pixel to
- *      the cursor and its FOOTPRINT (pixel count inside the window).
- *   2. The winner is the slot whose nearest pixel is closest to the cursor; on a
- *      near-tie (within `TIE_PX` of each other) the THINNER slot (smaller
- *      footprint) wins — that is the column in front of the wall.
- *   3. If the cursor's centre pixel is itself a hit, it only loses to a slot that
- *      is BOTH strictly thinner AND no farther than `TIE_PX` from the cursor;
- *      otherwise the centre hit is kept (a confident direct click is respected).
+ * The neighbourhood scan is a FALLBACK that engages ONLY when the centre pixel is
+ * background (empty).  This replaces the prior §SELECT-THIN-WINS "thinner
+ * footprint steals a confident centre hit" rule, which was the ROOT CAUSE of the
+ * reported defect: a door whose sliver of pixels near a window edge had a smaller
+ * footprint than the window under the cursor would beat the window, and the defect
+ * worsened with scene density because denser scenes put more competing slivers in
+ * the search window.
+ *
+ * Fallback selection (centre empty): pick the slot whose NEAREST pixel is closest
+ * to the cursor; ties in distance → smaller footprint (a thin element the cursor
+ * just grazed); final deterministic tie-break → lower slot id.  Never "largest
+ * footprint wins" and never "first non-empty slot wins".
  *
  * Deterministic: a stable tie-break on (distance, footprint, slot id) guarantees
  * identical inputs → identical output.  Exported for unit tests.
@@ -1454,8 +1467,8 @@ export function computePickTargetSize(
  * @param bw, bh     Window dimensions in pixels.
  * @param x0, y0     Target-space pixel of the window's top-left (buf[0]).
  * @param cx, cy     Target-space cursor pixel.
- * @param centreSlot Decoded slot at (cx, cy) (0 = background); passed so we don't
- *                   re-read it and so a confident direct hit is honoured.
+ * @param centreSlot Decoded slot at (cx, cy) (0 = background).  When non-zero it
+ *                   is returned verbatim — the exact pixel always wins.
  */
 export function chooseNearestThinSlot(
   buf: Uint8Array,
@@ -1467,6 +1480,14 @@ export function chooseNearestThinSlot(
   cy: number,
   centreSlot: number,
 ): { slot: number; winX: number; winY: number } {
+  // §SELECT-EXACT-PIXEL-FIRST — the exact pixel under the cursor is authoritative.
+  // If it carries a valid id, that id wins outright; the neighbourhood scan below
+  // is NEVER consulted (so no neighbour — larger OR smaller footprint — can steal
+  // a confident direct click).  This is the whole fix for the window→door defect.
+  if (centreSlot !== 0) {
+    return { slot: centreSlot, winX: cx, winY: cy };
+  }
+
   // Pixels at which a near-tie in distance is decided by thinness instead.
   const TIE_PX = 2;
   const TIE_SQ = TIE_PX * TIE_PX;
@@ -1503,8 +1524,12 @@ export function chooseNearestThinSlot(
 
   if (stats.size === 0) return { slot: 0, winX: cx, winY: cy };
 
-  // Pick the best slot: nearest pixel first; on a near-tie, thinner footprint;
-  // final deterministic tie-break on slot id (lower wins).
+  // §SELECT-EXACT-PIXEL-FIRST — centre was empty, so choose the nearest-to-cursor
+  // candidate.  Nearest pixel first; on a near-tie in distance, the SMALLER
+  // footprint wins (a thin element the cursor just grazed rather than the large
+  // element behind it); final deterministic tie-break on slot id (lower wins).
+  // Crucially this never prefers the LARGEST footprint, so small elements are not
+  // starved by adjacent large ones.
   let best: { slot: number } & SlotStat | null = null;
   for (const [slot, st] of stats) {
     if (best === null) {
@@ -1522,19 +1547,6 @@ export function chooseNearestThinSlot(
       better = dDiff < 0; // strictly nearer
     }
     if (better) best = { slot, ...st };
-  }
-
-  // Honour a confident direct centre hit: it only loses to a slot that is BOTH
-  // strictly thinner AND within the tie distance of the cursor (a thin element
-  // straddling the click).  Otherwise keep the centre hit.
-  if (centreSlot !== 0 && best !== null && best.slot !== centreSlot) {
-    const centreStat = stats.get(centreSlot);
-    const thinnerAndClose =
-      best.nearestDistSq <= TIE_SQ &&
-      (centreStat === undefined || best.footprint < centreStat.footprint);
-    if (!thinnerAndClose) {
-      return { slot: centreSlot, winX: cx, winY: cy };
-    }
   }
 
   return best === null

@@ -760,7 +760,7 @@ function makeIdBuffer(
   return buf;
 }
 
-describe('chooseNearestThinSlot (§SELECT-THIN-WINS)', () => {
+describe('chooseNearestThinSlot (§SELECT-EXACT-PIXEL-FIRST)', () => {
   // Window is a 5×5 neighbourhood whose top-left target pixel is (0,0);
   // cursor at the centre (2,2).
   const BW = 5, BH = 5, X0 = 0, Y0 = 0, CX = 2, CY = 2;
@@ -778,25 +778,48 @@ describe('chooseNearestThinSlot (§SELECT-THIN-WINS)', () => {
     expect(slot).toBe(9);
   });
 
-  it('THIN column in front beats the WALL behind when the cursor just misses the column', () => {
+  it('§SELECT-EXACT-PIXEL-FIRST — the exact pixel under the cursor wins even when a thinner neighbour is 1px away', () => {
     // Cursor centre lands on the wall (slot 1, fills the window) EXCEPT a 1px
-    // wide column (slot 2 — the front column) sitting one pixel left of centre.
-    // The column footprint (5px) << wall footprint (20px) and it is within the
-    // tie distance, so the thinner front element must win.
+    // wide column (slot 2) sitting one pixel left of centre. The old §SELECT-THIN-WINS
+    // rule let the thinner column steal the click — the ROOT CAUSE of the reported
+    // window→door mis-pick. Now the exact centre pixel (the wall the cursor is ON)
+    // wins; only a click that actually lands on the column selects it.
     const wall = 1, column = 2;
     const buf = makeIdBuffer(BW, BH, (px) => (px === 1 ? column : wall));
     const { slot } = chooseNearestThinSlot(buf, BW, BH, X0, Y0, CX, CY, wall);
-    expect(slot).toBe(column);
+    expect(slot).toBe(wall);
+  });
+
+  it('§SELECT-EXACT-PIXEL-FIRST — clicking ON a window selects the window, NOT an adjacent smaller-footprint door', () => {
+    // Reproduces the prod defect. The cursor pixel (2,2) is a WINDOW (slot=window).
+    // A DOOR (slot=door) occupies the right two columns of the search window — a
+    // SMALLER footprint than the window's left three columns, so under the old
+    // "thinner-and-close steals the centre" rule the door would win. It must NOT:
+    // the exact pixel is the window.
+    const window = 4, door = 9;
+    const buf = makeIdBuffer(BW, BH, (px) => (px >= 3 ? door : window));
+    const { slot, winX, winY } = chooseNearestThinSlot(buf, BW, BH, X0, Y0, CX, CY, window);
+    expect(slot).toBe(window);
+    expect({ winX, winY }).toEqual({ winX: CX, winY: CY });
+  });
+
+  it('§SELECT-EXACT-PIXEL-FIRST — returns the door only when the cursor pixel is empty (background)', () => {
+    // Same door cluster as above, but now the cursor sits on BACKGROUND (centre
+    // empty). The fallback scan engages and returns the nearest candidate — the
+    // door — from the surrounding pixels.
+    const door = 9;
+    const buf = makeIdBuffer(BW, BH, (px) => (px >= 3 ? door : 0));
+    const { slot } = chooseNearestThinSlot(buf, BW, BH, X0, Y0, CX, CY, 0);
+    expect(slot).toBe(door);
   });
 
   it('does NOT steal a confident centre hit for a thin element far away in the ring', () => {
     // Cursor on the wall (slot 1) everywhere except a thin column (slot 2) far at
-    // the window edge (px=0, 2px from cursor edge but beyond TIE on the far side
-    // via a gap). Here the column touches px=0 only on the top row → distance > tie.
+    // the window edge. With §SELECT-EXACT-PIXEL-FIRST the centre wall is returned
+    // unconditionally regardless of the far column.
     const wall = 1, column = 2;
     const buf = makeIdBuffer(BW, BH, (px, py) => (px === 0 && py === 0 ? column : wall));
     const { slot } = chooseNearestThinSlot(buf, BW, BH, X0, Y0, CX, CY, wall);
-    // The far corner column is outside the tie radius → the confident wall hit stays.
     expect(slot).toBe(wall);
   });
 
@@ -806,8 +829,9 @@ describe('chooseNearestThinSlot (§SELECT-THIN-WINS)', () => {
     expect(slot).toBe(0);
   });
 
-  it('is deterministic on equal distance + equal footprint (lower slot id wins)', () => {
+  it('is deterministic on equal distance + equal footprint (lower slot id wins) when the centre is empty', () => {
     // Two single-pixel slots equidistant from the cursor (one left, one right).
+    // Centre is empty so the fallback scan runs.
     const buf = makeIdBuffer(BW, BH, (px, py) => {
       if (py === CY && px === CX - 1) return 5;
       if (py === CY && px === CX + 1) return 3;
