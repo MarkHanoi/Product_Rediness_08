@@ -8,6 +8,44 @@ export class DoorStore {
     private doors: Map<string, DoorOpening> = new Map();
     private listeners: DoorEventListener[] = [];
 
+    // ── §FIX-HOSTWALL-DOOR-INDEX (2026-07-02) ────────────────────────────────
+    // Reverse index: hostWallId → Set<doorId>. This is the single biggest fix
+    // for the "move a wall that hosts a door → whole app freezes" hang.
+    //
+    // ROOT CAUSE it removes: DoorBuilder.rebuildForWall(wallId) and getByWallId()
+    // used to `for (const door of this.getAll())` — an UNBOUNDED O(all-doors-in-
+    // project) scan — to find the doors on ONE wall. On a wall baseline move,
+    // WallRebuildCoordinator._flush re-anchors hosted children by calling
+    // rebuildForWall ONCE PER REBUILT WALL, so a single move cost
+    // O(walls-rebuilt × all-doors) — quadratic in a dense model. The whole
+    // _flush is synchronous with no main-thread yield, so this pegged the thread.
+    //
+    // INVARIANT (must hold after EVERY mutation):
+    //   for every door d in `doors`:  d.wallId ∈ index  AND  d.id ∈ index[d.wallId]
+    //   and NO stale id remains in any bucket (a door appears under exactly its
+    //   CURRENT host wall, never a previous one).
+    // The index is maintained transactionally alongside `doors` in add/update/
+    // remove/clear — the ONLY four mutators. `getIdsByWallId` is now O(doors-on-
+    // that-wall). update() re-homes the id when a door is re-hosted onto another
+    // wall (wallId is guarded as an identity field today, but the index handles a
+    // host change defensively so it can never leak a stale bucket entry).
+    private _byWall: Map<string, Set<string>> = new Map();
+
+    /** §FIX-HOSTWALL-DOOR-INDEX — add id to its host-wall bucket. */
+    private _indexAdd(wallId: string, id: string): void {
+        let bucket = this._byWall.get(wallId);
+        if (!bucket) { bucket = new Set<string>(); this._byWall.set(wallId, bucket); }
+        bucket.add(id);
+    }
+
+    /** §FIX-HOSTWALL-DOOR-INDEX — remove id from a host-wall bucket; prune empties. */
+    private _indexRemove(wallId: string, id: string): void {
+        const bucket = this._byWall.get(wallId);
+        if (!bucket) return;
+        bucket.delete(id);
+        if (bucket.size === 0) this._byWall.delete(wallId);
+    }
+
     add(door: Partial<DoorOpening> & { id: string; openingId: string; wallId: string }): void {
         // B5/R7: Zod boundary validation — parse with defaults applied
         const result = DoorOpeningSchema.safeParse(door);
@@ -21,6 +59,7 @@ export class DoorStore {
         }
         const frozen = Object.freeze({ ...result.data });
         this.doors.set(frozen.id, frozen);
+        this._indexAdd(frozen.wallId, frozen.id);  // §FIX-HOSTWALL-DOOR-INDEX
         this.notify('add', frozen);
         storeEventBus.emit({ elementId: frozen.id, elementType: 'door', operation: 'create', timestamp: Date.now() });
     }
@@ -41,6 +80,13 @@ export class DoorStore {
         }
         const frozen = Object.freeze({ ...result.data });
         this.doors.set(id, frozen);
+        // §FIX-HOSTWALL-DOOR-INDEX — re-home the id if the host wall changed. The
+        // merge above pins wallId to `existing.wallId`, so a change is not expected
+        // today; handling it keeps the index invariant true unconditionally.
+        if (existing.wallId !== frozen.wallId) {
+            this._indexRemove(existing.wallId, id);
+            this._indexAdd(frozen.wallId, id);
+        }
         this.notify('update', frozen, existing);
         storeEventBus.emit({ elementId: id, elementType: 'door', operation: 'update', timestamp: Date.now() });
     }
@@ -49,6 +95,7 @@ export class DoorStore {
         const existing = this.doors.get(id);
         if (!existing) return; // idempotent
         this.doors.delete(id);
+        this._indexRemove(existing.wallId, id);  // §FIX-HOSTWALL-DOOR-INDEX
         this.notify('remove', existing);
         storeEventBus.emit({ elementId: id, elementType: 'door', operation: 'delete', timestamp: Date.now() });
     }
@@ -57,8 +104,28 @@ export class DoorStore {
         return this.doors.get(id);
     }
 
+    /**
+     * §FIX-HOSTWALL-DOOR-INDEX — O(doors-on-that-wall) lookup of the door ids
+     * hosted by `wallId`. Returns a fresh array (never the internal Set) so
+     * callers can iterate safely while mutating the store. Empty when the wall
+     * hosts no doors — the common case for the many neighbour walls a whole-level
+     * rebuild touches, which now cost ZERO door work instead of a full scan.
+     */
+    getIdsByWallId(wallId: string): string[] {
+        const bucket = this._byWall.get(wallId);
+        return bucket ? [...bucket] : [];
+    }
+
     getByWallId(wallId: string): DoorOpening[] {
-        return [...this.doors.values()].filter(d => d.wallId === wallId);
+        // §FIX-HOSTWALL-DOOR-INDEX — was O(all-doors); now O(doors-on-that-wall).
+        const bucket = this._byWall.get(wallId);
+        if (!bucket) return [];
+        const out: DoorOpening[] = [];
+        for (const id of bucket) {
+            const d = this.doors.get(id);
+            if (d) out.push(d);
+        }
+        return out;
     }
 
     getAll(): DoorOpening[] {
@@ -99,6 +166,7 @@ export class DoorStore {
             storeEventBus.emit({ elementId: door.id, elementType: 'door', operation: 'delete', timestamp: Date.now() });
         }
         this.doors.clear();
+        this._byWall.clear();  // §FIX-HOSTWALL-DOOR-INDEX — keep the index in lock-step
     }
 
     subscribe(listener: DoorEventListener): () => void {
