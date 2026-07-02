@@ -25,7 +25,9 @@ import {
     isKitchenLayoutType,
     buildDefaultKitchenConfig,
     KITCHEN_DEFAULTS,
+    kitchenPlanSymbolBuilder,
 } from '@pryzm/geometry-furniture';
+import type { KitchenLayoutType } from '@pryzm/geometry-furniture';
 import {
     isWardrobeLayoutType,
     buildDefaultWardrobeCabinetConfig,
@@ -411,9 +413,14 @@ export class FurniturePlanToolHandler implements PlanToolHandler {
 
         // Branch on anchor mode: corner sofas need an L-shape preview anchored
         // at the inside-back corner, everything else uses the centred rectangle.
+        // §FEAT-KITCHEN-ACCURATE-PREVIEW (ADR-0112, L-34) — kitchens draw the REAL
+        // config→linework (true L / U / galley / single / island outline + glyphs),
+        // never a bounding box, matching the placed symbol exactly.
         let labelCx: number;
         let labelLy: number;
-        if (_anchor(type) === 'inside-back-corner') {
+        if (isKitchenLayoutType(type)) {
+            ({ labelCx, labelLy } = this._drawKitchenPreview(ctx, type, sx, sy, ppu));
+        } else if (_anchor(type) === 'inside-back-corner') {
             ({ labelCx, labelLy } = this._drawCornerSofaPreview(ctx, type, sx, sy, ppu));
         } else {
             ({ labelCx, labelLy } = this._drawRectPreview(ctx, type, sx, sy, ppu));
@@ -469,6 +476,62 @@ export class FurniturePlanToolHandler implements PlanToolHandler {
         ctx.beginPath();
         ctx.moveTo(sx - hw - 4, sy); ctx.lineTo(sx + hw + 4, sy);
         ctx.moveTo(sx, sy - hl - 4); ctx.lineTo(sx, sy + hl + 4);
+        ctx.stroke();
+
+        return { labelCx: sx, labelLy: sy + hl + 14 };
+    }
+
+    /**
+     * §FEAT-KITCHEN-ACCURATE-PREVIEW (ADR-0112, founder L-34) — draw the kitchen
+     * placement preview from the REAL config→linework (the same buffer
+     * KitchenPlanSymbolBuilder emits for the PLACED symbol), so the ghost is the
+     * exact configured cabinet run — true L / U / galley / single-wall / island
+     * outline, unit dividers, sink / hob / fridge glyphs, door-swing arcs, the
+     * countertop line and the work-triangle — never a bounding rectangle. Uses
+     * `buildDefaultKitchenConfig` (identical to the commit path) so preview ≡ placed.
+     *
+     * The linework is in run-local root coords (metres, origin = run centre, +X /
+     * +Z the run axes). Plan view maps +worldX → +screenX and +worldZ → +screenY,
+     * and the commit centres the run on the cursor, so local (0,0) → (sx,sy).
+     */
+    private _drawKitchenPreview(
+        ctx:  CanvasRenderingContext2D,
+        type: string,
+        sx:   number,
+        sy:   number,
+        ppu:  number,
+    ): { labelCx: number; labelLy: number } {
+        const cfg  = buildDefaultKitchenConfig(type as KitchenLayoutType, 'door');
+        const buf  = kitchenPlanSymbolBuilder.buildConfigLinework(cfg);
+
+        // Translucent fill under the run's bounding footprint for legibility, then
+        // the crisp single-ink linework on top (matches the rect/corner previews).
+        const fp = _footprint(type);
+        const hw = (fp.w / 2) * ppu;
+        const hl = (fp.l / 2) * ppu;
+        ctx.fillStyle = FILL_COLOUR;
+        ctx.fillRect(sx - hw, sy - hl, hw * 2, hl * 2);
+
+        ctx.strokeStyle = STROKE_COLOUR;
+        ctx.lineWidth   = 1.25;
+        ctx.lineJoin    = 'round';
+        ctx.lineCap     = 'round';
+        ctx.beginPath();
+        for (let i = 0; i + 5 < buf.length; i += 6) {
+            const ax = sx + (buf[i]     ?? 0) * ppu;
+            const az = sy + (buf[i + 2] ?? 0) * ppu;
+            const bx = sx + (buf[i + 3] ?? 0) * ppu;
+            const bz = sy + (buf[i + 5] ?? 0) * ppu;
+            ctx.moveTo(ax, az);
+            ctx.lineTo(bx, bz);
+        }
+        ctx.stroke();
+
+        // Anchor crosshair at the cursor (placement origin).
+        ctx.lineWidth = 0.75;
+        ctx.beginPath();
+        ctx.moveTo(sx - 8, sy); ctx.lineTo(sx + 8, sy);
+        ctx.moveTo(sx, sy - 8); ctx.lineTo(sx, sy + 8);
         ctx.stroke();
 
         return { labelCx: sx, labelLy: sy + hl + 14 };

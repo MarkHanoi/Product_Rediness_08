@@ -6,10 +6,14 @@
  * UI flow:
  *   1. User selects a layout (Straight / L / U) + sets parameters in the
  *      floating config panel (depth, length, height, numUnits, arm lengths).
- *   2. A ghost preview follows the cursor on the floor plane.
- *   3. First click places the cabinet run at the cursor position.
- *   4. After placement, the tool deactivates; user can select individual
- *      units via the normal selection system + KitchenUnitInspector.
+ *   2. A ghost preview follows the cursor on the floor plane. The ghost is the
+ *      REAL parametric run (KitchenCabinetEngine), not a bounding box, so it is
+ *      the exact configured footprint + massing (§FEAT-KITCHEN-ACCURATE-PREVIEW).
+ *   3. Each click places a cabinet run at the cursor position.
+ *   4. The tool STAYS ARMED for continuous placement (§FIX-KITCHEN-SECOND-PLACE):
+ *      after a commit it resets the SPACE yaw + rebuilds the ghost so the next
+ *      click places another run. Esc / tool-switch deactivates. Users select
+ *      individual units via the normal selection system + KitchenUnitInspector.
  *
  * Contract:
  *  §01 §2  — all writes via command pipeline (undo/redo + store event).
@@ -23,10 +27,10 @@ import {
     KitchenLayoutType,
     KitchenCabinetConfig,
     KitchenUnitFront,
-    KITCHEN_DEFAULTS,
     buildDefaultUnits,
     mergeUnits,
     buildDefaultKitchenConfig,
+    KitchenCabinetEngine,
 } from '@pryzm/geometry-furniture';
 import { createObjectPreviewMaterial } from '@pryzm/core-app-model';
 // §FIX-PARAMETRIC-SPACE-ROTATE (ADR-0107 / §FEAT-PLACEMENT-SPACEBAR-ROTATE) —
@@ -38,7 +42,14 @@ import { createObjectPreviewMaterial } from '@pryzm/core-app-model';
 import { PrePlacementRotation } from '@pryzm/core-app-model';
 
 let _idCounter = 0;
-function newId(): string { return `kitchen_${Date.now()}_${_idCounter++}`; }
+/**
+ * §FIX-KITCHEN-SECOND-PLACE (ADR-0112, founder L-33) — mint a UNIQUE id per run.
+ * A monotonic counter (not just Date.now()) guarantees distinctness even for two
+ * runs placed in the same millisecond — critical now the tool re-arms and a user
+ * can place a second kitchen immediately after the first. Exported for testing.
+ */
+export function newKitchenRunId(): string { return `kitchen_${Date.now()}_${_idCounter++}`; }
+const newId = newKitchenRunId;
 
 // ── KitchenCabinetTool ────────────────────────────────────────────────────────
 
@@ -55,6 +66,13 @@ export class KitchenCabinetTool {
 
     private readonly _raycaster = new THREE.Raycaster();
     private readonly _pointer   = new THREE.Vector2();
+
+    // §FEAT-KITCHEN-ACCURATE-PREVIEW (ADR-0112, founder L-34) — the ghost is the
+    // REAL parametric run built by the SAME engine the committed geometry uses
+    // (KitchenCabinetEngine), so the preview is the exact L/U/galley/single-wall
+    // footprint + massing, never a bounding box. Single source of truth: preview
+    // ≡ placed geometry by construction (they call the same `create(cfg)`).
+    private readonly _engine = new KitchenCabinetEngine();
 
     // §FIX-PARAMETRIC-SPACE-ROTATE — cumulative +90°/SPACE-press yaw about
     // world-up. onChange re-orients the live ghost even when the pointer is
@@ -167,43 +185,32 @@ export class KitchenCabinetTool {
         const scene = this._getScene();
         if (!scene) return;
 
-        const group = new THREE.Group();
+        // §FEAT-KITCHEN-ACCURATE-PREVIEW (ADR-0112, founder L-34) — build the ghost
+        // from the REAL engine that produces the committed run, then re-skin every
+        // mesh with the shared preview material. The ghost is therefore the exact
+        // configured footprint (main + left/right arms following the true L / U /
+        // galley / single-wall / island shape) and massing — never a bounding box —
+        // and it tracks the config live because _rebuildPreview() re-runs create().
+        const cfg = this._buildEffectiveConfig();
+        const group = this._engine.create(cfg);
+
         // Contract §41 §3.1 — Object Placement Preview Standard.
         // PRYZM purple #8B5CF6 @ 0.55 opacity, shared by every carousel ghost
-        // (FurnitureTool, FurnitureDragDropHandler, PlumbingTool).
+        // (FurnitureTool, FurnitureDragDropHandler, PlumbingTool). One shared
+        // instance across the whole ghost (disposed with the meshes' geometry in
+        // _removePreview — the material itself is a shared singleton so we leave it).
         const mat = createObjectPreviewMaterial();
-
-        const cfg = this._config;
-        const len = cfg.length;
-        const dep = cfg.depth;
-        const ht  = cfg.height;
-
-        // Main arm box
-        const mainGeo = new THREE.BoxGeometry(len, ht, dep);
-        const mainMesh = new THREE.Mesh(mainGeo, mat);
-        mainMesh.position.set(0, ht / 2, 0);
-        mainMesh.userData.isPreview = true;
-        group.add(mainMesh);
-
-        // Left arm (L / U)
-        if (cfg.layoutType !== 'kitchen_straight') {
-            const leftLen = cfg.lengthLeft ?? KITCHEN_DEFAULTS.depth * 2;
-            const leftGeo = new THREE.BoxGeometry(dep, ht, leftLen);
-            const leftMesh = new THREE.Mesh(leftGeo, mat);
-            leftMesh.position.set(-len / 2 + dep / 2, ht / 2, leftLen / 2 + dep / 2);
-            leftMesh.userData.isPreview = true;
-            group.add(leftMesh);
-        }
-
-        // Right arm (U)
-        if (cfg.layoutType === 'kitchen_u_shape') {
-            const rightLen = cfg.lengthRight ?? KITCHEN_DEFAULTS.depth * 2;
-            const rightGeo = new THREE.BoxGeometry(dep, ht, rightLen);
-            const rightMesh = new THREE.Mesh(rightGeo, mat);
-            rightMesh.position.set(len / 2 - dep / 2, ht / 2, rightLen / 2 + dep / 2);
-            rightMesh.userData.isPreview = true;
-            group.add(rightMesh);
-        }
+        group.traverse((obj: THREE.Object3D) => {
+            const m = obj as THREE.Mesh;
+            if (m.isMesh) {
+                m.material = mat;
+                m.castShadow = false;
+                m.receiveShadow = false;
+                m.userData.isPreview = true;
+                // Never let the preview register as a pickable / plan element.
+                m.userData.skipInPlan = true;
+            }
+        });
 
         group.userData.isPreview = true;
         // §FIX-PARAMETRIC-SPACE-ROTATE — carry the current SPACE yaw onto the
@@ -211,6 +218,27 @@ export class KitchenCabinetTool {
         group.rotation.y = this._rotation.rotationY();
         scene.add(group);
         this._preview = group;
+    }
+
+    /**
+     * §FEAT-KITCHEN-ACCURATE-PREVIEW / §FIX-KITCHEN-SECOND-PLACE — the single
+     * canonical config used for BOTH the preview ghost and the committed run, so
+     * they can never drift. Ensures the per-unit `units` array is populated to
+     * match the current arm counts (the same normalisation _placeKitchen commits).
+     */
+    private _buildEffectiveConfig(): KitchenCabinetConfig {
+        const existing = this._config.units ?? [];
+        let units = mergeUnits(
+            existing,
+            this._config.numUnits,
+            this._config.numUnitsLeft  ?? 0,
+            this._config.numUnitsRight ?? 0,
+            this._defaultFront,
+        );
+        if (units.length === 0) {
+            units = buildDefaultUnits(this._config.numUnits, 'main', 0, this._defaultFront);
+        }
+        return { ...this._config, units };
     }
 
     private _rebuildPreview(): void {
@@ -338,31 +366,26 @@ export class KitchenCabinetTool {
         // run carries exactly the orientation the user chose via SPACE.
         const rotY = this._rotation.rotationY();
 
-        // Ensure units array is properly populated
-        const existing = this._config.units ?? [];
-        const units = mergeUnits(
-            existing,
-            this._config.numUnits,
-            this._config.numUnitsLeft  ?? 0,
-            this._config.numUnitsRight ?? 0,
-            this._defaultFront,
-        );
-        if (units.length === 0) {
-            // Bootstrap defaults
-            const def = buildDefaultUnits(this._config.numUnits, 'main', 0, this._defaultFront);
-            units.push(...def);
-        }
-
-        const cfg: KitchenCabinetConfig = { ...this._config, units };
+        // §FEAT-KITCHEN-ACCURATE-PREVIEW / §FIX-KITCHEN-SECOND-PLACE — commit the
+        // SAME normalised config the ghost is built from (single source of truth).
+        const cfg = this._buildEffectiveConfig();
 
         const id = newId();
 
         // [F-1.3] Bus-primary: commandManager exfiltrated to CreateFurnitureHandler (plugins/furniture).
+        // §FIX-KITCHEN-SECOND-PLACE (ADR-0112, founder L-33) — `rotation` MUST be a
+        // SCALAR yaw (radians): CreateFurnitureHandler.canExecute validates
+        // `Number.isFinite(rotation)`, and the CommandBus THROWS `canExecute
+        // rejected — rotation must be finite` for a { x, y, z } object. Passing the
+        // Euler object silently rejected EVERY kitchen placement (the `.catch`
+        // swallowed the throw while the tool still "deactivated" as if it had
+        // placed), so no run was ever committed via this 3D path. Mirrors
+        // FurniturePlanToolHandler / wardrobe-plan which already commit a scalar yaw.
         window.runtime?.bus?.executeCommand('furniture.create', {
             id,
             furnitureType:  this._config.layoutType as any,
             position:       { x: position.x, y: position.y, z: position.z },
-            rotation:       { x: 0, y: rotY, z: 0, order: 'XYZ' },
+            rotation:       rotY,
             levelId,
             baseOffset:     0,
             width:          this._config.length,
@@ -375,14 +398,17 @@ export class KitchenCabinetTool {
         } as any).catch((e: Error) => {
             console.error('[KitchenCabinetTool] furniture.create failed:', e);
         });
-        const result = { success: true }; // [F-1.3] kept for downstream compat; bus dispatches async.
 
-        if (!result?.success) {
-            console.error('[KitchenCabinetTool] CreateFurnitureCommand failed: (bus error above)');
-            return;
-        }
-
-        this.deactivate();
+        // §FIX-KITCHEN-SECOND-PLACE — RE-ARM for continuous placement instead of
+        // deactivating. Before: the tool called deactivate() after one commit, so a
+        // SECOND kitchen could not be placed (listeners + ghost were torn down and
+        // the parent's activeKitchenType wired via ToolManager was left stale, so a
+        // subsequent floor-click did nothing until the user re-picked the carousel).
+        // Now the tool stays armed: reset the SPACE yaw to 0° for the fresh run and
+        // rebuild the ghost so it immediately follows the cursor for the next place.
+        // Esc / tool-switch still deactivate() cleanly (unchanged).
+        this._rotation.reset();
+        this._rebuildPreview();
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

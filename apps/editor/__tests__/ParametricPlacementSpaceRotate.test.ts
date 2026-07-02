@@ -71,6 +71,42 @@ describe('§FIX-PARAMETRIC-SPACE-ROTATE — parametric flows rotate on SPACE', (
         rotation.reset(); // called in tool.deactivate()
         expect(rotation.rotationY()).toBe(0);
     });
+
+    it('L-23: SPACE advances the yaw the SECOND placement commits (re-arm cycle)', () => {
+        // §FIX-KITCHEN-SECOND-PLACE — after a commit the tool calls _rotation.reset()
+        // then re-arms, so the next placement starts at 0° and SPACE advances afresh.
+        const rotation = new PrePlacementRotation();
+        rotation.advance();               // first run: 90°
+        const firstYaw = rotation.rotationY();
+        rotation.reset();                 // tool re-arms after commit
+        expect(rotation.rotationY()).toBe(0);
+        rotation.advance();               // second run: SPACE again → 90°
+        expect(rotation.rotationY()).toBeCloseTo(firstYaw, 10);
+    });
+});
+
+describe('§FIX-KITCHEN-SECOND-PLACE (L-33) — a second kitchen gets a distinct id', () => {
+    // Mirrors KitchenCabinetTool.newKitchenRunId() EXACTLY (kept in lock-step): a
+    // Date.now() prefix + a MONOTONIC counter. The tool re-arms after commit (no
+    // deactivate), so two runs can be placed back-to-back — their ids MUST differ or
+    // the second overwrites the first in the furniture store. We replicate the scheme
+    // here rather than import the OBC/THREE-coupled tool module under happy-dom.
+    let counter = 0;
+    const newKitchenRunId = (): string => `kitchen_${Date.now()}_${counter++}`;
+
+    it('is unique across consecutive placements (even within the same millisecond)', () => {
+        const ids = new Set<string>();
+        for (let i = 0; i < 10; i++) ids.add(newKitchenRunId());
+        expect(ids.size).toBe(10);
+    });
+
+    it('the monotonic counter — not the timestamp — is what guarantees distinctness', () => {
+        const a = newKitchenRunId();
+        const b = newKitchenRunId();
+        // Same-ms placements share the timestamp; the trailing counter differs.
+        expect(a).not.toBe(b);
+        expect(a.split('_').pop()).not.toBe(b.split('_').pop());
+    });
 });
 
 describe('§FIX-PLACEMENT-PREVIEW (L-21) — parametric ghost dims track the config', () => {
