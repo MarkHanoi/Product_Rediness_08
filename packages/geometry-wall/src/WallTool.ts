@@ -25,6 +25,11 @@ import {
     activePlanDrawingRef,
     planView2DSnapService,
     planView2DCreationMode as _planView2DCreationMode,
+    // §DEFER-TIER-DURING-DRAW — mark the wall draw as an in-progress interaction so
+    // the render-tier escalation (which disposes+rebuilds the WebGPU pipeline and
+    // turns TRAA on) is deferred until the tool commits/deactivates, instead of
+    // stalling + ghosting the rubber-band preview mid-draw.
+    toolInteractionRef,
 } from '@pryzm/core-app-model';
 import { WallAlignmentGuide } from './WallAlignmentGuide';
 
@@ -121,6 +126,16 @@ export class WallTool {
     private lastPointerMoveEvent: PointerEvent | null = null;
 
     private startAnchor: WallAnchor | null = null;
+
+    /**
+     * §DEFER-TIER-DURING-DRAW — true between the first click (IDLE→DRAWING) and
+     * the tool committing / cancelling / deactivating. While true, the shared
+     * `toolInteractionRef` holds one interaction so the tier-escalation call site
+     * defers the pipeline rebuild + TRAA enable out of the live draw. Kept as a
+     * private boolean so begin/end are strictly balanced (no ref-count leak) even
+     * across the many deactivate()/cancel() paths.
+     */
+    private _interactionLatched = false;
 
     private previewLine: THREE.Line | null = null;
     private startPointMarker: THREE.Mesh | null = null;
@@ -470,6 +485,10 @@ export class WallTool {
     }
 
     cancel(): void {
+        // §DEFER-TIER-DURING-DRAW — the draw is ending (commit / Esc / mode-switch /
+        // deactivate all route through here). Release the interaction latch, which
+        // flushes any tier escalation that was deferred during the draw exactly once.
+        this.endTierDeferInteraction();
         this.isOrthoOverride = false;
         this.clearPreview();
         if (this.dimensionPreview) {
@@ -499,6 +518,32 @@ export class WallTool {
 
         if (this.isActive) {
             this.showStatus('Wall Tool: Click to set start point');
+        }
+    }
+
+    /**
+     * §DEFER-TIER-DURING-DRAW — begin/end a single balanced interaction on the
+     * shared `toolInteractionRef`. `_interactionLatched` guarantees exactly one
+     * begin per end regardless of which of the many DRAWING→IDLE paths runs
+     * (2nd-click commit, Esc, deactivate, polyline close, proximity close, …).
+     */
+    private beginTierDeferInteraction(): void {
+        if (this._interactionLatched) return;
+        this._interactionLatched = true;
+        try {
+            toolInteractionRef.beginInteraction();
+        } catch {
+            // Latch stays true so a later end() cannot underflow the shared ref.
+        }
+    }
+
+    private endTierDeferInteraction(): void {
+        if (!this._interactionLatched) return;
+        this._interactionLatched = false;
+        try {
+            toolInteractionRef.endInteraction();
+        } catch {
+            /* non-fatal */
         }
     }
 
@@ -714,6 +759,11 @@ export class WallTool {
 
             this.pathBuilder.addPoint(snappedPoint);
             this.state = WallToolState.DRAWING;
+            // §DEFER-TIER-DURING-DRAW — the rubber-band draw has begun; hold the
+            // shared interaction latch so any wall-commit that follows (single or
+            // per polyline segment) does NOT trigger a mid-draw tier escalation /
+            // pipeline rebuild / TRAA-enable. Flushed on commit/cancel/deactivate.
+            this.beginTierDeferInteraction();
 
             if (this.drawingMode === WallDrawingMode.POLYLINE_MIXED_2) {
                 this.pathBuilder.setMode('Line'); // Default to Line for the first segment
@@ -1356,6 +1406,36 @@ export class WallTool {
                 const path: WallPath = { kind: 'Arc', start: p0, control, end: previewEnd };
                 this.renderArcPreview(path);
             }
+        }
+
+        // §FIX-WALLPREVIEW-RENDER-REQUEST — the preview line/wall were just
+        // added/removed from the scene. On the on-demand render paths (OBC in
+        // MANUAL mode; the WebGL2 lightweight fallback) a scene mutation that
+        // does not flag needsUpdate can be dropped until the next unrelated
+        // repaint, so the rubber-band looks frozen then jumps. Flag the OBC
+        // renderer so THIS pointer-move produces a frame. (P3-safe: no new rAF —
+        // this only sets the manual-render dirty flag the existing frame loop
+        // reads. On the always-on WebGPU pipeline this is a harmless no-op.)
+        this.requestPreviewRender();
+    }
+
+    /**
+     * §FIX-WALLPREVIEW-RENDER-REQUEST — request a single repaint after a preview
+     * mutation. Sets the OBC renderer's MANUAL-mode `needsUpdate` flag; guarded
+     * and non-fatal so a missing/rebuilding renderer never throws out of the
+     * pointer-move handler.
+     */
+    private requestPreviewRender(): void {
+        try {
+            // OBC's concrete renderer (components-front PostproductionRenderer) owns
+            // the MANUAL-mode `needsUpdate` dirty flag, but `OBC.World.renderer` is
+            // typed as the base `BaseRenderer` which does not declare it — so read it
+            // structurally (mirrors initScene.updateIfManualMode()). Setting it is a
+            // harmless no-op in AUTO / continuous-WebGPU mode.
+            const renderer = this.world.renderer as unknown as { needsUpdate?: boolean } | undefined;
+            if (renderer) renderer.needsUpdate = true;
+        } catch {
+            /* non-fatal — the next scheduled frame will pick up the preview */
         }
     }
 

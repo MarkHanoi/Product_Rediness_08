@@ -96,6 +96,10 @@ import { ViewVisibilityMap } from '@pryzm/core-app-model';
 import { EDITOR_LAYER } from '@pryzm/scene-committer';
 import { topologyLayer } from '@pryzm/room-topology';
 import { unifiedFrameLoop } from '@pryzm/core-app-model';
+// §DEFER-TIER-DURING-DRAW — read the shared tool-interaction latch so a wall/tool
+// draw defers the render-tier escalation (pipeline rebuild + TRAA enable) out of
+// the live rubber-band interaction; the deferred escalation runs once on commit.
+import { toolInteractionRef } from '@pryzm/core-app-model';
 import { viewDependencyTracker } from '@pryzm/core-app-model';
 import { viewTechnicalDrawingCache } from '@pryzm/core-app-model';
 import { nativeElementMeshExporter } from '@pryzm/core-app-model';
@@ -1906,7 +1910,16 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                         scene.traverse((obj) => {
                             if (obj instanceof THREE.Mesh || obj instanceof THREE.InstancedMesh) meshCount++;
                         });
-                        renderingCoordinator.applyTierForMeshCount(meshCount, resolveIsRealWebGPU());
+                        // §DEFER-TIER-DURING-DRAW — if a wall/tool draw is in progress,
+                        // do NOT escalate the tier now: on an empty project the FIRST
+                        // wall would flip cold-start→cinematic, disposing+rebuilding the
+                        // WebGPU pipeline and turning TRAA on mid-draw (visible stall +
+                        // ghosted rubber-band). deferTierApply() captures the LATEST apply
+                        // and runs it exactly once when the interaction ends.
+                        const applyTier = () => renderingCoordinator.applyTierForMeshCount(meshCount, resolveIsRealWebGPU());
+                        if (!toolInteractionRef.deferTierApply(applyTier)) {
+                            applyTier();
+                        }
                     } catch (tierErr) {
                         console.warn('[initScene] §PERF-WEBGPU-FRAGMENT per-event tier apply error:', tierErr);
                     }
@@ -1957,7 +1970,13 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                 scene.traverse((obj) => {
                     if (obj instanceof THREE.Mesh || obj instanceof THREE.InstancedMesh) meshCount++;
                 });
-                renderingCoordinator.applyTierForMeshCount(meshCount, resolveIsRealWebGPU());
+                // §DEFER-TIER-DURING-DRAW — same deferral at the post-batch trigger.
+                // A batch that lands while a draw is live must not rebuild the pipeline
+                // mid-interaction; the escalation runs once the tool commits/deactivates.
+                const applyTier = () => renderingCoordinator.applyTierForMeshCount(meshCount, resolveIsRealWebGPU());
+                if (!toolInteractionRef.deferTierApply(applyTier)) {
+                    applyTier();
+                }
             } catch (tierErr) {
                 console.warn('[initScene] §PERF-WEBGPU-FRAGMENT tier apply error:', tierErr);
             }

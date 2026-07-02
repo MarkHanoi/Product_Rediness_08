@@ -33,5 +33,6 @@ export * from './FurnitureInstanceBridge.js';
 export * from './ShadowQualityUpgrader.js';
 export * from './SharedRenderingState.js';
 export * from './SSGIService.js';
+export * from './ToolInteractionRef.js';
 export * from './UnifiedFrameLoop.js';
 export * from './ViewportPathTracer.js';
