@@ -51,6 +51,7 @@ an empty project and a heavy one, without freezes or stutter.
 | L-19 | founder | **Rotate gizmo shows full 3-axis sphere** — most elements only rotate about the VERTICAL axis (yaw); need single-axis default + per-type exceptions (roof/beam slope) | Editing/Rotation | GAP | routed to Rotate agent (a476739); C16/C11/C03 |
 | L-20 | founder | **Placement preview must appear IMMEDIATELY** on element select — currently the ghost only shows AFTER the first click (which already creates the element), so the 1st placement has no preview. Applies to ALL placeable elements (furniture, windows, …) | Modeling/Creation | BROKEN | queued → preview agent; C06/C11/C18 |
 | L-21 | founder | **Placement preview geometry must be PRECISELY ACCURATE** — a huge rectangle shows for a tiny bedside table; the ghost box doesn't match the element's real footprint/size (placeholder-box default when GLB 404s). Audit all elements | Modeling/Creation | BROKEN | queued → preview agent; C06/C11/C18 |
+| L-26 | founder | **Wall-draw alignment guide should prefer the PERPENDICULAR (ortho) axis, not colinear** — while drawing a wall the dashed inference guide often extends the same line being drawn (colinear = meaningless); it should align the new endpoint on the axis PERPENDICULAR to the draw direction (cross-axis feature alignment) | Modeling/Snapping | BROKEN→FIXED | §FIX-ALIGN-GUIDE-PERPENDICULAR — `WallAlignmentGuide.guideAxisPreference(dx,dz)` drops the guide colinear with the draw dir; `WallTool` passes the start→cursor draw dir; ±22.5° neutral zone keeps both on diagonals; C06 (UI/tools) + snapping subsystem, no contract change |
 | _next_ | | _append here_ | | | |
 
 ---
@@ -70,7 +71,10 @@ an empty project and a heavy one, without freezes or stutter.
 - Dual-write/bus-bridge paths verified for walls/curtain-walls/doors/windows/slabs/floors/roofs/stairs/columns/
   beams/plumbing/lighting (ADR-0098 §4, prior audit §3). Hardened door/window creation fallback (§DPT/§WPT).
 - Issue: **L-09** wall-draw preview stutter (creation *interaction*, not the command).
-- Contract: C11, C15.
+- **L-26** wall-draw alignment inference guide now prefers the PERPENDICULAR axis to the draw and
+  suppresses colinear (same-direction) guides (`§FIX-ALIGN-GUIDE-PERPENDICULAR`,
+  `packages/geometry-wall/WallAlignmentGuide.ts` + `WallTool`). Snapping subsystem / C06.
+- Contract: C11, C15, C06.
 
 ### 3.3 Element editing — move / rotate / dimensions / materials / hosting — **CORE GAPS**
 - **Movement**: wall=`UpdateWallBaselineCommand`, door/window=offset, furniture=params — non-uniform (F8).
