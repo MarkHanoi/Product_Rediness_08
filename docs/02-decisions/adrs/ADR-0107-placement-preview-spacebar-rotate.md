@@ -1,4 +1,4 @@
-# ADR-0105 — Spacebar rotates the placement preview 90° (pre-placement rotation)
+# ADR-0107 — Spacebar rotates the placement preview 90° (pre-placement rotation)
 
 - **Status:** Accepted (2026-07-02)
 - **Tag:** `§FEAT-PLACEMENT-SPACEBAR-ROTATE`

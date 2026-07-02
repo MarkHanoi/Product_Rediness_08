@@ -154,7 +154,20 @@
       "Bash(pnpm --filter @pryzm/ai-host exec vitest run __tests__/residential)",
       "Bash(pnpm --filter @pryzm/ai-host exec vitest run __tests__/residentialPlateFill.test.ts)",
       "Bash(pnpm --filter @pryzm/ai-host exec vitest run __tests__/residential src/workflows/residentialBuilding)",
-      "Bash(git merge --no-ff worktree-agent-a5502ffbfb4bba3a4 -m 'merge: §FIX-PLAN-DOOR-JAMB-SEAM — plan-view wall line now closes onto the door frame jamb, no gap \\(L-13\\). Frame jamb ticks + wall-line terminus + void edge unified on both jambs; windows already correct. *)"
+      "Bash(git merge --no-ff worktree-agent-a5502ffbfb4bba3a4 -m 'merge: §FIX-PLAN-DOOR-JAMB-SEAM — plan-view wall line now closes onto the door frame jamb, no gap \\(L-13\\). Frame jamb ticks + wall-line terminus + void edge unified on both jambs; windows already correct. *)",
+      "Bash(grep -rlE \"class \\(SetDoorType|SetWindowType|UpdateDoorType|UpdateWindowType|ChangeDoorType|ChangeWindowType|DoorType|WindowType\\).*Command\" packages/command-registry/src/)",
+      "Bash(ls packages/command-registry/src/doors/)",
+      "Bash(ls packages/command-registry/src/windows/)",
+      "Bash(cat packages/core-app-model/vitest.config.ts)",
+      "Bash(find packages/core-app-model -maxdepth 2 -name \"vitest.config.*\" -o -maxdepth 2 -name \"vite.config.*\")",
+      "Bash(ls node_modules/happy-dom)",
+      "Bash(ls node_modules/jsdom)",
+      "Bash(rm -f \"docs/02-decisions/adrs/ADR-0105-uniform-element-change-type-in-place.md\")",
+      "Bash(ls \"docs/02-decisions/adrs/ADR-0105\"*)",
+      "Bash(git merge --no-ff worktree-agent-a150e2120fd9317c7 -m 'merge: §FEAT-ELEMENT-CHANGE-TYPE \\(ADR-0105, L-17\\) — uniform element.changeType command to replace a placed element with another type in place. Root cause of the broken wall type-swap: the dropdown wrote the bus DTO store but the mesh rebuilds from the legacy geometry store with no type-change bridge; now routed per-family to the command that rebuilds \\(walls fixed + new furniture change-type + door/window\\). Transform/host preserved, undoable. *)",
+      "Bash(echo \"MERGE1_EXIT=$?\")",
+      "Bash(git merge --no-ff worktree-agent-a734f91f2762d1dda -m 'merge: §FEAT-PLACEMENT-SPACEBAR-ROTATE \\(L-16\\) — Spacebar rotates the placement preview +90° CW \\(plan + 3D + GLB drag-drop flows converged on the shared PrePlacementRotation\\), committed rotation applied on click/Enter, reset on Esc. Wall-hosted doors/windows excluded \\(C15\\). *)",
+      "Bash(echo \"MERGE2_EXIT=$?\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\LENOVO\\.claude\\projects\\c--Users-LENOVO-OneDrive-Desktop-PRYZM-Product-Rediness-08\\memory"

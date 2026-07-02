@@ -73,7 +73,7 @@ an empty project and a heavy one, without freezes or stutter.
   **L-01** host-wall move freeze FIXED (ADR-0099); **L-06** per-move storm amplifier in flight (Q6).
 - **Rotation**: **BROKEN/absent** — no `Rotate*Command` (L-07/F5).
   Partial: **placement-time** rotation shipped — Spacebar rotates the live placement preview
-  +90° CW (`§FEAT-PLACEMENT-SPACEBAR-ROTATE`, ADR-0105) for one-click placeables (furniture 3D +
+  +90° CW (`§FEAT-PLACEMENT-SPACEBAR-ROTATE`, ADR-0107) for one-click placeables (furniture 3D +
   plan, carousel GLB), with the chosen yaw carried through to the committed element. The general
   post-placement first-class Rotate command/gizmo (F5/Q7) remains OPEN.
 - **Dimensions**: OK coverage (`UpdateWall/Slab/Door/Window Dimensions/Height/Width/SillHeight`).
