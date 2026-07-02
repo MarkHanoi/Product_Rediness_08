@@ -107,14 +107,23 @@ export function showWallPreDraw(host: PreDrawPanelHost, wallTool: any): void {
     badge.textContent = 'NEW WALL';
     header.appendChild(badge);
 
+    // §FIX-PLAN-WALLTOOL-DEFAULT-ACTIVE (L-28): the plan-view wall handler is already
+    // armed the instant the tool activates — its onClick sets the first point
+    // UNCONDITIONALLY and commits with the current type (default undefined = Plain Wall,
+    // thickness 0.2), exactly like 3D. The panel copy used to read "Select Wall Type" +
+    // "Choose a type, then click on the canvas to draw" with a prominent Apply button,
+    // which made the founder believe an Apply click was REQUIRED before drawing (the
+    // 3D↔plan asymmetry reported in L-28). The tool never gated on Apply; only the copy
+    // did. So the title/hint now say the tool is ready to draw and the type picker is
+    // OPTIONAL. Nothing about wall creation semantics or the draw handler changes.
     const titleEl = document.createElement('div');
     titleEl.style.cssText = 'font-size:13px;font-weight:700;color:#fff;margin-bottom:4px;';
-    titleEl.textContent = 'Select Wall Type';
+    titleEl.textContent = 'Draw Wall';
     header.appendChild(titleEl);
 
     const hint = document.createElement('div');
-    hint.style.cssText = 'font-size:10px;color:rgba(255,255,255,0.55);margin-bottom:8px;';
-    hint.textContent = 'Choose a type, then click on the canvas to draw.';
+    hint.style.cssText = 'font-size:10px;color:rgba(255,255,255,0.85);margin-bottom:8px;';
+    hint.textContent = '✓ Plain Wall ready — click on canvas to draw. Change type below (optional).';
     header.appendChild(hint);
 
     // §WALL-TYPE-PLAN-FIX: resolve the canonical wall tool — the instance the plan
@@ -123,6 +132,15 @@ export function showWallPreDraw(host: PreDrawPanelHost, wallTool: any): void {
     // setSystemTypeId() on it silently no-ops and plan-drawn walls stay on the default.
     const canonicalWallTool = (window as { wallTool?: any }).wallTool ?? wallTool;
     const currentTypeId: string = canonicalWallTool?.getSystemTypeId?.() ?? '';
+
+    // §FIX-PLAN-WALLTOOL-DEFAULT-ACTIVE (L-28): pre-APPLY the default type on activation
+    // so the tool is explicitly seeded — matching 3D, which draws with the tool's
+    // selectedSystemTypeId (default undefined → Plain Wall / thickness 0.2). This is a
+    // no-op when a type is already selected (mid-session mode switch preserves it); it
+    // only guarantees the default is committed, so the very first plan click draws a
+    // Plain Wall with no Apply click needed. Idempotent: re-asserts the current value.
+    canonicalWallTool?.setSystemTypeId?.(currentTypeId || undefined);
+
     const pseudoData = { elementType: 'wall', systemTypeId: currentTypeId };
 
     const typeWidget = buildWallTypeSelectorWidget(pseudoData, (payload) => {
