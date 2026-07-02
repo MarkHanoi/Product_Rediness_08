@@ -169,6 +169,27 @@ export class RenderPipelineManager implements IViewSwitchListener {
     // the OBC-managed 'webgl-only' path (OBC's AUTO loop renders).
     private _lightweightWebGlActive = false;
 
+    // ── §FIX-WEBGL2-GHOST-ON-ROTATE (W2.2 / ADR-0108) ────────────────────────
+    // Optional per-frame hook invoked at the START of every lightweight WebGL2
+    // move-frame, BEFORE the overlay's own `renderer.render()`. On the Phase-5
+    // 'webgl-fallback' path the PRYZM overlay canvas (alpha:true, cleared to
+    // transparent every frame) composites on TOP of the silenced OBC base canvas
+    // whose GL context is `preserveDrawingBuffer:false`. §FIX-OBC-BASE-STALE-
+    // COMPOSITE clears that base ONCE at activate/live-swap — but during
+    // §PERF-WEBGL2-RENDER-ON-MOVE continuous repaint the stale base buffer can
+    // resurface under the transparent overlay (driver-dependent buffer
+    // re-presentation), so the OLD geometry shows through the overlay's
+    // transparent pixels while the overlay draws the NEW positions → the reported
+    // ghost/duplicate-on-rotate trails that settle once motion stops.
+    //
+    // initScene injects its `clearObcBaseFramebuffer` closure here so the OBC base
+    // is re-cleared (color+depth invalidated) on EVERY lightweight frame, keeping
+    // the transparent overlay the sole visible surface throughout the motion.
+    // This field is ONLY consulted inside the `_lightweightWebGlActive` branch,
+    // which is set true EXCLUSIVELY for the WebGL2 backend — the native-WebGPU TSL
+    // render path never reads it, so WebGPU output is byte-unchanged.
+    private _preLightweightFrameHook: (() => void) | null = null;
+
     private _phase: PipelinePhase = 'idle';
     private _hasPipelineError    = false;
     private _retryCount          = 0;
@@ -422,6 +443,23 @@ export class RenderPipelineManager implements IViewSwitchListener {
     /** True while the lightweight per-frame WebGL render path is active. */
     get isLightweightWebGlActive(): boolean { return this._lightweightWebGlActive; }
 
+    /**
+     * §FIX-WEBGL2-GHOST-ON-ROTATE (W2.2 / ADR-0108) — inject a callback run at the
+     * START of every lightweight WebGL2 move-frame, immediately before the overlay
+     * `renderer.render()`. Used by initScene to re-clear the silenced OBC base
+     * framebuffer per frame so its stale content cannot resurface under the
+     * transparent PRYZM overlay during §PERF-WEBGL2-RENDER-ON-MOVE repaints
+     * (the ghost/duplicate-on-rotate trail).
+     *
+     * The hook is consulted ONLY inside the lightweight branch of {@link render},
+     * which runs EXCLUSIVELY on the WebGL2 'webgl-fallback' backend — the native
+     * WebGPU TSL path never invokes it, so WebGPU rendering is untouched. Pass
+     * `null` to clear the hook. Idempotent; carries no I/O (a pure setter).
+     */
+    setPreLightweightFrameHook(hook: (() => void) | null): void {
+        this._preLightweightFrameHook = hook;
+    }
+
     render(delta = 0.016): void {
         // ── §PERF-WEBGL2-RENDER-ON-MOVE (ADR-061) ────────────────────────────
         // Lightweight WebGL2 path: the TSL pipeline is OFF (_webGpuActive=false)
@@ -435,6 +473,17 @@ export class RenderPipelineManager implements IViewSwitchListener {
             const camera   = this._camera;
             if (!renderer || !scene || !camera) return;
             try {
+                // §FIX-WEBGL2-GHOST-ON-ROTATE (W2.2 / ADR-0108) — clear/invalidate
+                // the silenced OBC base framebuffer per move-frame BEFORE painting
+                // the transparent overlay, so a stale base frame cannot resurface
+                // under the overlay's transparent pixels during continuous repaint
+                // (the ghost/duplicate-on-rotate trail). WebGL2 path ONLY — this
+                // branch never runs on the native-WebGPU TSL path. Best-effort:
+                // a hook throw must not break the overlay render.
+                if (this._preLightweightFrameHook) {
+                    try { this._preLightweightFrameHook(); }
+                    catch { /* base-clear is best-effort; overlay render proceeds */ }
+                }
                 (renderer as any).setClearAlpha?.(0);
                 renderer.render(scene, camera);
             } catch (err: unknown) {
