@@ -86,15 +86,33 @@ an empty project and a heavy one, without freezes or stutter.
 - `§SELECT-STUCK-STATE-SELFHEAL` exists (escape un-wedges) — a symptom of the edit-storm (L-06), not a fix.
 - Contract: C15 §11/§12, C06.
 
-### 3.5 Views — plan / 3D / elevation / section / sheets / **view creation** — **N/V (verify for launch)**
+### 3.5 Views — plan / 3D / elevation / section / sheets / **view creation** — **VERIFIED (2 fixes shipped)**
 - Commands present: `CreateViewDefinitionCommand`, `UpdateViewDefinitionCommand`, `DeleteViewDefinitionCommand`,
   `CreateViewTemplateCommand`/`Update`/`Delete`, `UpdateViewportScaleCommand`; `DefaultViewsManager` guarantees a
   3D + Ground-Floor plan on every project; split-view plan (Canvas2D) auto-opens; `EdgeProjectorService` +
   `HiddenLineRemoval` + `NativeElementMeshExporter` drive plan projection.
-- **N/V for launch**: creating a new plan/elevation/section view from the UI end-to-end; view range/crop;
-  section/elevation marks (`CreateSectionMarkCommand`/`CreateElevationMarkCommand`) placing + navigating;
-  viewport scale on a sheet. The projection cost is the L-06 storm's biggest consumer.
-- Contract: C04, C06, C09.
+- **Traced end-to-end from the UI (§3.5 verdicts — replaces the N/V cells):**
+
+  | Flow | Verdict | Evidence / fix |
+  |---|---|---|
+  | **View list / browser** (all types listed, grouped, badges, active pill) | **OK** | `ViewsRailPanel.ts` — `getByType()` per group; `vd:view-*` refresh subscriptions. |
+  | **Create new plan / structural-plan view** (form + level picker + validation) | **OK** | `ViewsRailPanel._executeCreateView` → `view.createDefinition` → `CreateViewDefinitionCommand`. Level required + validated. |
+  | **Create new 3D / section / elevation / detail / … view** (name form) | **OK** | Same path; `CreateViewDefinitionCommand.canExecute` whitelists all 12 `viewType`s. |
+  | **Switch / activate view** (single-click; re-entry guard) | **OK** | `ViewsRailPanel._onActivateView` → `viewController.setActiveViewDefinitionId` + OBC-mode activate. Section/elevation route to Canvas2D `PlanViewManager`. |
+  | **Duplicate / delete view** | **OK** | `view.createDefinition` (clone spatial) / `view.deleteDefinition`. |
+  | **View range editing** | **OK** | `ViewPropertiesPanel._fireSetViewRange` → `view.setRange` (plugin-view `SetViewRangeHandler`, store-backed, undoable). Read by `EdgeProjectorService.resolveClipRange` (`spatial.viewRange.near/farOffset`). |
+  | **View crop editing** | **OK** | `ViewPropertiesPanel._fireSetViewCrop` → `view.setCrop`. Read by `EdgeProjectorService` (`crop.region` / `crop.farClip`). |
+  | **Elevation MARK placement** (4-dir click) | **OK** | `ElevationPlanToolHandler` → `elevation.create` → `CreateElevationMarkCommand` (creates elevation ViewDefinition + `elevation-mark` annotation with `linkedViewId`). |
+  | **Section MARK placement** (2-click cut line) | **BROKEN → FIXED** | `SectionPlanToolHandler` fired `section.create`, whose bus key is owned by plugin-section-view's **geometry** handler (payload `{ line:{a,b,lookDepth} }`) — the tool's `{ sectionViewId, cutPointA, … }` was rejected at `canExecute` and swallowed by the caller `.catch()`, so **nothing was created**. Fixed **§FIX-SECTION-MARK-CREATE**: new distinct bus key `section.mark.create` (bridge in `initBusHandlers.ts`) → `CreateSectionMarkCommand`; tool repointed. |
+  | **Click a placed section / elevation mark → navigate to its view** | **GAP → FIXED** | `PlanViewInteraction._onClick` only *selected* the mark; it never read `parameters.linkedViewId`. Fixed **§FIX-MARK-NAVIGATE**: on hit of a `section-mark`/`elevation-mark`, `_navigateToLinkedView()` activates the linked view (Revit click-to-navigate). |
+  | **Viewport scale on a sheet** | **OK (unchanged)** | `UpdateViewportScaleCommand` + `sheet.addViewport` via `ViewsRailPanel` context-menu. |
+
+- **Note (out of G8 lane, flag only):** the *3D* `SectionMarkTool` (plugins/annotations) additionally fires a generic
+  `annotation.create` alongside `CreateSectionMarkCommand`, which can leave a redundant generic annotation. Belongs to
+  the annotations subsystem (G9) — not touched here.
+- The projection cost is the L-06 storm's biggest consumer.
+- Contract: C04, C06, C09. Tests: `plugins/annotations/__tests__/section-elevation-mark.test.ts` (6, pins the
+  mark-create + `linkedViewId` contract that both fixes depend on).
 
 ### 3.6 Annotations & dimensions — **N/V (verify for launch)**
 - Commands: `CreateAnnotationCommand`/`UpdateAnnotation`/`DeleteAnnotation` (seen live), `UpdateElementMarkCommand`;
@@ -131,7 +149,7 @@ an empty project and a heavy one, without freezes or stutter.
 | G5 | Smooth wall/element draw preview | Q8 in flight |
 | G6 | No ghost/trailing on rotate (both backends) | Q5 queued |
 | G7 | Move + rotate + material editable for every visible element | Q7 queued (F5/F6) |
-| G8 | Create/manage plan+3D+section+elevation views from UI | §3.5 verify |
+| G8 | Create/manage plan+3D+section+elevation views from UI | GREEN — §3.5 verified end-to-end; §FIX-SECTION-MARK-CREATE (section-mark tool no longer no-ops) + §FIX-MARK-NAVIGATE (mark click-to-navigate) shipped |
 | G9 | Place/edit annotations + dimensions | §3.6 verify |
 | G10 | Undo/redo sound across all of the above | §3.7 verify at scale |
 

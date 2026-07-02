@@ -117,7 +117,13 @@ export class SectionPlanToolHandler implements PlanToolHandler {
         const sectionPlaneConstant = -(tail.x * ptA.worldX + tail.z * ptA.worldZ);
 
         // [P6 E.5.4] §01-BIM-ENGINE-CORE-CONTRACT §1 — bus-primary
-        window.runtime?.bus?.executeCommand('section.create', {
+        // §FIX-SECTION-MARK-CREATE (G8, V1-audit §3.5) — fire 'section.mark.create'
+        // (CreateSectionMarkCommand: mints the section ViewDefinition + navigable
+        // section-mark annotation). The old 'section.create' key is owned by
+        // plugin-section-view's geometry handler whose { line:{a,b,lookDepth} }
+        // payload contract rejected this { sectionViewId, cutPointA, … } shape at
+        // canExecute, so the tool silently created nothing.
+        window.runtime?.bus?.executeCommand('section.mark.create', {
             sectionViewId:   crypto.randomUUID(),
             sectionViewName: nextSectionName(),
             annotationId:    crypto.randomUUID(),
@@ -132,7 +138,7 @@ export class SectionPlanToolHandler implements PlanToolHandler {
                 },
                 projectionDirection: { x: tail.x, y: 0, z: tail.z },
             },
-        })?.catch((e: Error) => console.error('[SectionPlanToolHandler] section.create failed:', e));
+        })?.catch((e: Error) => console.error('[SectionPlanToolHandler] section.mark.create failed:', e));
         console.log('[SectionPlanToolHandler] Section mark committed');
 
         // Reset for multi-placement
