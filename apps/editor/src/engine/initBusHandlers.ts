@@ -815,6 +815,38 @@ export function initBusHandlers(
             ),
             fn: (cmd: any) => { _cmExec(new GenerativeDesignApplyCommand(cmd.layout, cmd.levelId, cmd.levelHeight ?? 3.0)); },
         },
+
+        // ── §FIX-UNDERLAY-DELETE-AND-STORAGE (L-45) — floor-plan underlay commands ──
+        // The underlay commands (CreateUnderlayCommand / TransformUnderlayCommand /
+        // DeleteUnderlayCommand) are non-semantic Class-A commands whose do/undo live on
+        // the FloorPlanUnderlayTool singleton (Contract 01 §2.1, Contract 04 §3.1). The
+        // UI dispatches them P6-compliantly via runtime.bus.executeCommand(cmd.type, cmd)
+        // — the PAYLOAD is the already-constructed legacy Command instance (mirrors the
+        // UPDATE_ANNOTATION bridge above). Without a handler under the CommandType key,
+        // deleting a selected underlay threw `CommandBusError: no handler registered for:
+        // DELETE_UNDERLAY` (and CREATE_UNDERLAY silently rejected → lost create-undo).
+        // We forward the pre-built command through the legacy commandManager, whose
+        // execute()/undo() own the mesh teardown + recreate and the undo-stack entry.
+        // (DeleteUnderlayCommand.execute() runs the silent __pryzmRemoveUnderlayInternal
+        // teardown; undo() recreates the mesh via __pryzmRecreateUnderlayInternal.)
+        {
+            type: 'CREATE_UNDERLAY',
+            stores: [] as const,
+            validate: (cmd) => (typeof cmd?.execute === 'function' ? null : 'CREATE_UNDERLAY payload must be a CreateUnderlayCommand'),
+            fn: (cmd) => { _cmExec(cmd); },
+        },
+        {
+            type: 'TRANSFORM_UNDERLAY',
+            stores: [] as const,
+            validate: (cmd) => (typeof cmd?.execute === 'function' ? null : 'TRANSFORM_UNDERLAY payload must be a TransformUnderlayCommand'),
+            fn: (cmd) => { _cmExec(cmd); },
+        },
+        {
+            type: 'DELETE_UNDERLAY',
+            stores: [] as const,
+            validate: (cmd) => (typeof cmd?.execute === 'function' ? null : 'DELETE_UNDERLAY payload must be a DeleteUnderlayCommand'),
+            fn: (cmd) => { _cmExec(cmd); },
+        },
     ];
 
     for (const spec of __bridges) {
