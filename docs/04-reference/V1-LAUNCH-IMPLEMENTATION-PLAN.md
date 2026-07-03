@@ -108,19 +108,35 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 | L-24 MOVE_DOOR offset=NaN on catch-up | 4.x collab | HELD (user-cancelled acc09ea) |
 | L-25 WebGPU black-screen (shadow mid-submit destroy) | 0.4 render/perf | **SHIPPED** (ADR-0111, wave 4c) |
 | L-26 wall-draw align-guide perpendicular | 1.2 draw UX | **SHIPPED** (wave 4c) |
-| L-27 wall T-junction cluster (L-corner + 3rd wall) | 0.5 geometry soundness | **v2 SHIPPED** (ea6ce483, wave 4d, simple-T); **cluster case in flight** |
+| L-27 wall T-junction cluster (L-corner + 3rd wall) | 0.5 geometry soundness | **SHIPPED** (§FIX-WALL-CLUSTER-DEGENERATE, wave 4f) — degenerate <0.20 m stub doubled in cluster → bow-tie neg-area footprint = black; detect+strip+skip |
 | L-28 plan wall-tool active-by-default | 1.2 tool activation | **SHIPPED** (wave 4d) |
 | L-29 wall-move preview dimensions (ortho) | 2.1 move UX | **SHIPPED** (wave 4d) |
-| L-30 hosted door/window move dims (along wall) | 2.1 move UX | queued (after L-29) |
+| L-30 hosted door/window move dims (along wall) | 2.1 move UX | **SHIPPED** (§FEAT-HOSTED-MOVE-DIMENSIONS, wave 4h) |
 | L-31 cross-level slab-corner refs + snap-bounds fix | 1.2 snapping | **SHIPPED** (ADR-0112, wave 4d) |
 | L-32 slab-by-region preview mirror | 2.3 creation | **SHIPPED** (wave 4d) |
-| L-33 second-kitchen placement fail | 2.3 creation/kitchen | in flight (kitchen agent) |
-| L-34 kitchen L-shape accurate preview | 2.3 creation/kitchen | in flight (kitchen agent) |
-| L-35 professional kitchen plan symbol | 3.2 drawing/kitchen | in flight (kitchen agent) |
-| L-36 shower fixture wrong direction | 2.3 plumbing/placement | in flight (shower agent) |
-| L-37 composite shower+glass+gutter type | 2.3 plumbing/catalogue | in flight (shower agent) |
-| L-38 site-plan overlay (PDF/image) + Project North / True North | new **Phase 3.4** (site/geo dual-north) | **PARTIAL** (ADR-0114 §FEAT-PROJECT-TRUE-NORTH) — dual-north transform + geolocation record + OK-sets-PN command path + always-on site view shipped; plan-canvas gizmo bridge + globe θ application remain |
-| L-40 3D globe/site view always reachable from 3D | 3.4 site/geo dual-north | **SHIPPED** (ADR-0114 §FEAT-SITE-VIEW-ALWAYS-ON) — self-bootstrapping `pryzmEnterSiteView` + always-present 3D-viewport launcher + hardened GIS-rail entry |
+| L-33/34/35 kitchen 2nd-place / L-shape preview / pro plan symbol | 2.3 creation/kitchen | **SHIPPED** (ADR-0113, wave 4e); L-23 space-rotate verified |
+| L-36 shower fixture wrong direction | 2.3 plumbing/placement | **SHIPPED** (ADR-0114, wave 4f) |
+| L-37 composite shower+glass+gutter type | 2.3 plumbing/catalogue | **SHIPPED** (ADR-0114, wave 4f) |
+| L-38 site-plan overlay + Project/True North | 3.4 site/geo dual-north | **PARTIAL** (ADR-0115, wave 4g-a) — dual-north model + OK-sets-PN + always-on site view shipped; raster-render + flow completion = L-58 |
+| L-39 freeze after project load (load-time shadow realloc mid-submit) | 0.4 render/perf | **SHIPPED** (ADR-0111 §FIX-SHADOW-LOAD-TIER-DESTROY, wave 4g-b) — CRITICAL |
+| L-40 3D globe/site always reachable | 3.4 site/geo | **SHIPPED** (ADR-0115, wave 4g-a) |
+| L-41 plan view ignores chosen wall type | 1.2/types | **SHIPPED** (§FIX-PLAN-WALL-TYPE-IGNORED, wave 4g-a); true root = L-50 |
+| L-42 camera navigation dead after load | 0.4 render | **SHIPPED** (downstream of L-39, wave 4g-b) |
+| L-43 wall move/rotate broken in plan view | 2.1 move UX | **SHIPPED** (§FIX-PLAN-WALL-TRANSFORM, wave 4g-c) |
+| L-44/46/47 wall length changes on nearby edit / type-change / 3-wall join | 0.5 geometry integrity | **SHIPPED** (§FIX-WALL-JOIN-BASELINE-IMMUTABLE, wave 4g-c) — join never mutates a stored baseline |
+| L-45 underlay delete throws + localStorage quota | 4.x persistence | **SHIPPED** (§FIX-UNDERLAY-DELETE-AND-STORAGE, wave 4h) — register handlers + raster→IndexedDB |
+| L-48 SHIFT multi-select + multi-property edit | 1.1 selection | HELD (user-cancelled; WIP in stash@{0}) |
+| L-49 3D wall move not captured by Undo | 4.3 undo | **SHIPPED** (§FIX-WALL-MOVE-UNDO-CAPTURE, wave 4g-d) |
+| L-50 dual wall-type catalogue (P1 root under L-41) | 0.5/arch | **SHIPPED** (ADR-0116 §FIX-WALL-TYPE-UNIFY-CATALOGUE, wave 4g-e) |
+| L-51 undo routing asymmetry (plan vs 3D) | 4.3 undo | **SHIPPED** (§FIX-PLAN-WALL-MOVE-UNDO-UNIFY, wave 4g-e) |
+| L-52 plan-projection cache thrash (L-06 storm mechanism) | 0.4 perf | **SHIPPED** (§FIX-WALL-VERSION-CONTENT-HASH, wave 4g-e) |
+| L-53 collab silently drops concurrent baseline move (C08) | 4.x collab | SCHEDULED (needs shared CRDT id normalization first; finding recorded) |
+| L-54 dual junction-resolver dead compute + `_flush` guard-pile | 5.x tech-debt | SCHEDULED (high-risk refactor; ADR-0055A P4a/P4b) |
+| L-55 P8 span coverage (wall handlers) | 5.1 | **SHIPPED** (§P8-SPAN-COVERAGE codified, wave 4g-e) |
+| L-56 door/window hosted on slab id → orphan opening | 2.3 hosting | **SHIPPED** (§FIX-DOOR-SLAB-HOST, wave 4h) |
+| L-08/L-57 uniform material.set command across all element families | 2.2 materials (G7) | **IN FLIGHT** (Q7; ADR-0117 — facade+wiring drafted, per-family handlers incomplete/uncommitted; re-dispatch) |
+| L-58 "Overlay a plan/PDF" not visibly working (raster non-render + flow) | 3.4 site/geo | **IN FLIGHT** (urgent; extends L-38; raster→IndexedDB + flow completion) |
 
-**Batches shipped:** batch 1 (`583eb2f1`) = selection(G4) + redetect-storm(G1) + nav-perf(G3) + house-circ. batch 2 = load-freeze(G2) + wall-preview(G5) + properties-panel(L-15) + door-plan-gap(L-13) + T-junction(L-12). batch 3 = change-type(L-17). **wave 4c** (`0543c337`) = L-25 black-screen + L-22 icons + L-20/21/23 placement-preview + L-26 align-guide. **wave 4d** (`103b14f0`) = L-28 plan-wall + L-29 wall-move-dims + L-31 refs+snap-bounds(ADR-0112) + L-32 slab-preview + L-27 T-junction-v2.
-**In flight (7pm London session-limit permitting):** L-27 cluster · L-33/34/35 kitchen · L-36/37 shower. **Held (user-cancelled):** L-18, L-19, L-24.
+**Waves shipped to Fly (feat/wall-move-dimensions → main):** batch 1–3 → **4c** (`0543c337`: L-25/22/20-21-23/26) → **4d** (`103b14f0`: L-28/29/31/32/27-v2) → **4e** (`b9d55ff3`: L-33/34/35 kitchen) → **4f** (`9d27f6b7`: L-27 cluster + L-36/37 shower) → **4g-a** (`32c0d88e`: L-38 dual-north + L-40 globe + L-41 wall-type) → **4g-b** (`5a6efea5`: L-39/L-42 CRITICAL freeze/nav) → **4g-c** (`fcede3ca`: L-43 + L-44/46/47 baseline) → **4g-d/e** (`58ac4e15`: L-49 undo + wall hardening L-50/51/52/55 + wall audit) → **4h** (`c23d69f8`: L-56 + L-30 + L-45).
+**In flight:** L-58 site-overlay (urgent) · Q7/L-08 materials (re-dispatch — uncommitted). **Scheduled (sole-wall lane):** L-53 collab-conflict · L-54 legacy-resolver retirement. **Held (user-cancelled):** L-18, L-19, L-24, L-48. **Queued:** L-11 environment (stashed), L-14 floor-finish default, site-overlay localStorage follow-up, GLB object-storage hosting (needs infra).
+**Wall subsystem:** deep audit committed (§3 Walls + L-50…L-55); geometry/join/undo correctness now sound; remaining = L-53/L-54 debt. Sole-wall-agent ownership going forward (no parallel wall agents).
