@@ -66,8 +66,7 @@ function makeCtx(hitReturns: string | null, executeMock: ReturnType<typeof vi.fn
 }
 
 describe('§FIX-DOOR-SLAB-HOST (L-56) — DoorPlanToolHandler host resolution', () => {
-    let warnSpy: ReturnType<typeof vi.spyOn>;
-    beforeEach(() => { warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {}); });
+    beforeEach(() => { vi.spyOn(console, 'warn').mockImplementation(() => {}); });
 
     it('rejects a slab hit with no wall nearby — no opening dispatched', () => {
         const execute = vi.fn().mockReturnValue(Promise.resolve());
