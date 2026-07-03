@@ -2380,8 +2380,17 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             btn.setAttribute('data-testid', 'site-view-launcher');
             btn.textContent = '◉ 3D Site / Globe';
             btn.title = 'Open the 3D site / globe view (true north + geolocation). Works from any 3D view.';
+            // §FIX-UI-BUTTON-OVERLAP (L-60) — the launcher previously sat at
+            // top:12px / left:12px, directly OVER the top-left `.plat-left-panel`
+            // (the PRYZM-branded ViewBrowser panel: left:11px, width:198px → right
+            // edge ≈209px) and clashing with the top-centre toolbar cluster on
+            // narrower viewports. Re-anchor it just RIGHT of that panel (left:220px,
+            // clearing the fixed 198px+11px panel) and just BELOW the ~42px
+            // top-centre toolbar/HUD band (top:56px) so it is clear of the logo/menu
+            // at every viewport width while staying visible + clickable over the 3D
+            // viewport. Offsets stay in the fixed-overlay px convention.
             Object.assign(btn.style, {
-                position: 'absolute', top: '12px', left: '12px', zIndex: '20',
+                position: 'absolute', top: '56px', left: '220px', zIndex: '20',
                 appearance: 'none', cursor: 'pointer',
                 padding: '7px 12px', borderRadius: '9px',
                 border: '1px solid #6600FF', background: '#ffffff', color: '#6600FF',
