@@ -50,10 +50,20 @@ describe('SceneQualityTierManager (ADR-0076 §PERF-WEBGPU-FRAGMENT)', () => {
     });
 
     describe('settingsForTier — quality contract', () => {
-        it('balanced keeps post-FX + furniture shadows on, but SKIPS the costly whole-scene PBR upgrade', () => {
+        // §FIX-SSGI-DEFAULT-OFF-TRAA-SELECT-FLASH (founder L-59) — SSGI + TRAA now
+        // default OFF at EVERY tier (even cinematic/balanced) on WebGPU. SSGINode's
+        // per-frame denoise flickers all elements; the TRAA colour-filter rebuild
+        // presents a ~1s black frame on tier-driven activation. Both are user-opt-in.
+        it('cinematic + balanced default SSGI + TRAA OFF (user-opt-in) — L-59', () => {
+            const c = settingsForTier('cinematic');
+            expect(c.ssgi).toBe(false);
+            expect(c.traa).toBe(false);
+            const b = settingsForTier('balanced');
+            expect(b.ssgi).toBe(false);
+            expect(b.traa).toBe(false);
+        });
+        it('balanced keeps furniture shadows on, but SKIPS the costly whole-scene PBR upgrade', () => {
             const s = settingsForTier('balanced');
-            expect(s.ssgi).toBe(true);
-            expect(s.traa).toBe(true);
             expect(s.decorativeFurnitureShadows).toBe(true);
             // §PERF-WEBGPU-FRAGMENT — the 38.7s post-batch PBR upgrade is skipped at
             // balanced+ (only cinematic ≤1500 meshes runs it).
@@ -214,8 +224,10 @@ describe('SceneQualityTierManager (ADR-0076 §PERF-WEBGPU-FRAGMENT)', () => {
             const base = settingsForTier('balanced');
             const gated = applyBackendGate(base, true);
             expect(gated).toEqual(base);
-            expect(gated.ssgi).toBe(true);  // WebGPU keeps SSGI on at balanced
-            expect(gated.traa).toBe(true);
+            // §FIX-SSGI-DEFAULT-OFF-TRAA-SELECT-FLASH — SSGI/TRAA now default OFF at
+            // balanced on WebGPU too; the gate must still leave the tier settings intact.
+            expect(gated.ssgi).toBe(false);
+            expect(gated.traa).toBe(false);
         });
 
         it('treats unknown backend (undefined) as unchanged (cold-start safe)', () => {
@@ -248,17 +260,19 @@ describe('SceneQualityTierManager (ADR-0076 §PERF-WEBGPU-FRAGMENT)', () => {
             expect(settings.shadowLevel).toBe('standard');
         });
 
-        it('isWebGPU=true → unchanged (SSGI on at cinematic)', () => {
+        it('isWebGPU=true → SSGI + TRAA OFF at cinematic (L-59 default, user-opt-in)', () => {
             const { tier, settings } = mgr.update(500, true);
             expect(tier).toBe('cinematic');
-            expect(settings.ssgi).toBe(true);
-            expect(settings.traa).toBe(true);
+            // §FIX-SSGI-DEFAULT-OFF-TRAA-SELECT-FLASH — even on real WebGPU the tier no
+            // longer auto-enables SSGI/TRAA (they flicker / rebuild-to-black on select).
+            expect(settings.ssgi).toBe(false);
+            expect(settings.traa).toBe(false);
         });
 
-        it('omitting isWebGPU preserves today\'s behaviour (SSGI on at cinematic)', () => {
+        it('omitting isWebGPU keeps SSGI + TRAA OFF at cinematic (L-59 default)', () => {
             const { settings } = mgr.update(500);
-            expect(settings.ssgi).toBe(true);
-            expect(settings.traa).toBe(true);
+            expect(settings.ssgi).toBe(false);
+            expect(settings.traa).toBe(false);
         });
 
         it('held tier (hysteresis) is identical regardless of backend flag', () => {

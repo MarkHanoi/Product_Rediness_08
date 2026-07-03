@@ -180,3 +180,40 @@ non-WebGPU backend.
 
 The existing `RenderPipelineManager.shadowDebounce.test.ts` (project-load rebuild
 coalescing) continues to pass unchanged.
+
+## Addendum (2026-07-03) — `§FIX-SSGI-DEFAULT-OFF-TRAA-SELECT-FLASH` (founder L-59)
+
+Two WebGPU post-FX defaults are changed here because they share the same tier +
+`RenderPipelineManager` machinery as the shadow fixes above and must not regress them.
+
+**Problem.** (1) SSGINode's per-frame denoise temporal accumulation flickered ALL
+elements every frame on WebGPU. SSGI was enabled by default two ways: the `cinematic`
+and `balanced` tiers in `SceneQualityTierManager` carried `ssgi:true`, and `initScene`
+called `renderPipelineManager.activateSSGI()` unconditionally at startup. (2) The
+`balanced`/`cinematic` tiers also carried `traa:true`; the tier's TRAA hook
+(`RenderingPipelineCoordinator._onTierTraa -> rpm.activateTRAA/deactivateTRAA`) rebuilds
+the pipeline (`_rebuildPipelineWithCurrentState` -> a new WebGPU `RenderPipeline` -> shader
+PSO recompile) on any tier transition, which presents a ~1s BLACK frame. Scene- and
+selection-driven `applyTierForMeshCount` re-evaluations therefore flashed the viewport
+black on selection.
+
+**Decision.** SSGI and TRAA now default **OFF at every tier** (cinematic/balanced set
+`ssgi:false, traa:false`, matching performance/survival), the startup `activateSSGI()`
+call is removed (only `activateOutlines()` runs, so selection highlighting is intact via
+`_buildPipeline`'s phase-4 outline composite), and the RenderRail SSGI toggle defaults
+OFF. Both remain fully user-opt-in through `rpm.activateSSGI()` / `rpm.activateTRAA()`.
+With the tier no longer driving these hooks ON, there is no tier/selection-driven
+rebuild-to-black; `setSelectedObjects()` only mutates the live outline arrays and never
+rebuilds. Device-loss / backend-live-swap recovery (`recoverPipeline`,
+`tryUpgradePostFx`, and the `initScene` legacy fallback) restores SSGI only when the user
+had it enabled (gated on `_ssgiActive` / `status.ssgiActive`), so the flicker cannot
+silently return after a swap.
+
+**Shadow-fix safety.** Only the `ssgi` / `traa` booleans changed. `shadows`,
+`shadowLevel`, and every `§FIX-SHADOW-MIDSUBMIT-DESTROY` / `§FIX-SHADOW-LOAD-TIER-DESTROY`
+/ `setShadowReallocFrozen` / `setShadowPassSuppressed` path is untouched; the WebGL
+fallback path is unaffected (`applyBackendGate` already forced SSGI/TRAA off there).
+
+**Tests.** `SceneQualityTierManager.test.ts` pins cinematic/balanced SSGI+TRAA OFF on
+real WebGPU; new `RenderPipelineManager.selectionNoRebuild.test.ts` pins that
+`setSelectedObjects()` / `setHoveredObjects()` trigger no pipeline-rebuild entry point.

@@ -35,8 +35,12 @@ export class PerformanceModePanel {
     private _state: PerfPanelState = {
         perfModeActive: false,
         shadowsEnabled: true,
-        ssgiEnabled:    true,
-        traaEnabled:    true,
+        // §FIX-SSGI-DEFAULT-OFF-TRAA-SELECT-FLASH (L-59) — SSGI + TRAA default OFF now
+        // (user-opt-in). This is the initial UI-reflection state only; it is corrected
+        // by the ssgi-state-changed / traa-state-changed events and never activates
+        // SSGI/TRAA on its own (activation happens only on user toggle).
+        ssgiEnabled:    false,
+        traaEnabled:    false,
         prevLevel:      'high',
     };
 

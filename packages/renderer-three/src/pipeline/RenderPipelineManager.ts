@@ -1795,7 +1795,12 @@ export class RenderPipelineManager implements IViewSwitchListener {
 
         if (restorePostFx) {
             try {
-                await this.activateSSGI();
+                // §FIX-SSGI-DEFAULT-OFF-TRAA-SELECT-FLASH (founder L-59) — SSGI is OFF by
+                // default and is user-opt-in. Only RESTORE it across a device-loss /
+                // backend live-swap if the user had it enabled before the loss (bind()
+                // does not reset _ssgiActive, so it still reflects prior intent). This
+                // stops the constant SSGI flicker from silently returning after a swap.
+                if (this._ssgiActive) await this.activateSSGI();
                 await this.activateOutlines();
             } catch (err: unknown) {
                 if (isShaderCompileError(err)) {
@@ -1831,7 +1836,10 @@ export class RenderPipelineManager implements IViewSwitchListener {
         console.log('[RenderPipelineManager] §RPM-RECOVERY-DOWNGRADE tryUpgradePostFx — re-attempting full pipeline.');
         this._postFxDisabled = false;
         try {
-            await this.activateSSGI();
+            // §FIX-SSGI-DEFAULT-OFF-TRAA-SELECT-FLASH (founder L-59) — SSGI is OFF by
+            // default (user-opt-in). Only re-upgrade SSGI if the user had it enabled;
+            // otherwise just restore outlines so we don't silently reintroduce the flicker.
+            if (this._ssgiActive) await this.activateSSGI();
             await this.activateOutlines();
             console.log('[RenderPipelineManager] §RPM-RECOVERY-DOWNGRADE tryUpgradePostFx succeeded — full pipeline restored.');
             return true;

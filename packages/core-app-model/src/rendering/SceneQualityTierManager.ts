@@ -173,8 +173,19 @@ export interface SceneQualitySettings {
 
 const TIER_SETTINGS: Record<SceneQualityTier, SceneQualitySettings> = {
     cinematic: {
-        ssgi: true,
-        traa: true,
+        // §FIX-SSGI-DEFAULT-OFF-TRAA-SELECT-FLASH (founder L-59) — SSGI + TRAA now
+        // default OFF on WebGPU even at the richest tier. SSGINode's per-frame
+        // denoise temporal accumulation flickers ALL elements every frame, and the
+        // TRAA colour-filter is applied via a pipeline REBUILD (activateTRAA →
+        // _rebuildPipelineWithCurrentState → WebGPU shader recompile) that presents a
+        // ~1s BLACK frame whenever the tier hook toggles it (e.g. a tier transition on
+        // selection/scene edit). Both are now purely USER-OPT-IN via the RenderRail
+        // toggles (rpm.activateSSGI/activateTRAA), never auto-enabled by tier escalation.
+        // Turning them off here means the tier's SSGI/TRAA hooks are never driven ON, so
+        // no tier-driven rebuild-to-black. Everything else (probes, high shadows, full
+        // PBR on small scenes) is unchanged — the shadow-device-loss fixes are untouched.
+        ssgi: false,
+        traa: false,
         reflectionProbes: true,
         shadowLevel: 'high',
         shadows: true,
@@ -182,8 +193,9 @@ const TIER_SETTINGS: Record<SceneQualityTier, SceneQualitySettings> = {
         fullScenePbrTraverse: true,
     },
     balanced: {
-        ssgi: true,
-        traa: true,
+        // §FIX-SSGI-DEFAULT-OFF-TRAA-SELECT-FLASH (founder L-59) — see cinematic above.
+        ssgi: false,
+        traa: false,
         reflectionProbes: false,
         shadowLevel: 'high',
         shadows: true,

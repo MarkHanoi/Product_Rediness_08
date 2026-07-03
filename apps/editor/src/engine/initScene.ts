@@ -161,7 +161,11 @@ async function recoverPipelineOrBind(
     // Legacy fallback path (no recoverPipeline): old fatal-on-compile sequence.
     await rpm.bind(scene, camera, renderer, 'light', backendIsWebGPU);
     if (rpm.status.webGpuActive) {
-        await rpm.activateSSGI();
+        // §FIX-SSGI-DEFAULT-OFF-TRAA-SELECT-FLASH (founder L-59) — SSGI is OFF by
+        // default (user-opt-in via the RenderRail toggle). Only restore it across a
+        // live backend swap if the user had it enabled (status.ssgiActive), so the
+        // constant SSGI flicker does not silently return. Outlines always restore.
+        if (rpm.status.ssgiActive) await rpm.activateSSGI();
         await rpm.activateOutlines();
     }
 }
@@ -2368,10 +2372,16 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         // triggers two consecutive pipeline rebuilds that reset the SSGI
         // temporal-accumulation history and cause the scene to flicker.
         // TRAA is activated on-demand when the user enables it in the panel.
+        //
+        // §FIX-SSGI-DEFAULT-OFF-TRAA-SELECT-FLASH (founder L-59) — SSGI is likewise NOT
+        // activated at startup. SSGINode's per-frame denoise temporal accumulation
+        // flickers ALL elements on WebGPU (the founder's constant-flicker report), so
+        // SSGI is now purely user-opt-in via the RenderRail toggle (rpm.activateSSGI()).
+        // Only outlines are built here — the pipeline runs at phase4 (outlines composited
+        // by _buildPipeline, no SSGI/AO/GI needed) so selection highlighting still works.
         if (renderPipelineManager.status.webGpuActive) {
-            await renderPipelineManager.activateSSGI();
             await renderPipelineManager.activateOutlines();
-            console.log('[initScene] TSL pipeline at Phase 3/4 (SSGI + Outlines). TRAA OFF by default.');
+            console.log('[initScene] TSL pipeline at Phase 4 (Outlines only). SSGI + TRAA OFF by default (user-opt-in).');
         } else if (isPhase5Active && pryzmRendererBackend === 'webgl-fallback') {
             // ── §PERF-WEBGL2-RENDER-ON-MOVE (ADR-061) ────────────────────────
             // Phase 5 is active (PRYZM owns the sole renderer, OBC is MANUAL +

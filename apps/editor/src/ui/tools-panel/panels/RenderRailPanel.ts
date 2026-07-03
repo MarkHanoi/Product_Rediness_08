@@ -216,15 +216,17 @@ export class RenderRailPanel {
 
         // ── Sync badge dots to the actual RPM pipeline state ──────────────────
         // This does NOT call activateSSGI() or deactivateTRAA() — those are
-        // handled by initScene.ts (SSGI ON, TRAA OFF at startup).  Calling them
-        // here when they are already in the correct state causes redundant pipeline
-        // rebuilds that reset the SSGI temporal-accumulation history and produce
-        // the persistent startup flicker.  We only update the visual badge dots.
+        // handled by initScene.ts (§FIX-SSGI-DEFAULT-OFF-TRAA-SELECT-FLASH: SSGI OFF,
+        // TRAA OFF at startup).  Calling them here when they are already in the correct
+        // state causes redundant pipeline rebuilds that reset the SSGI
+        // temporal-accumulation history and produce the persistent startup flicker.
+        // We only update the visual badge dots.
         const syncBadges = () => {
             const rpm = window.renderPipelineManager; // TODO(D.4): legacy renderPipelineManager — replace with runtime.scene.renderer.pipeline
             const ssgiDot  = badgeStrip.querySelector<HTMLElement>('#ph-badge-ssgi  .tpr-rnd-badge-dot');
             const traaDot  = badgeStrip.querySelector<HTMLElement>('#ph-badge-traa  .tpr-rnd-badge-dot');
-            const ssgiOn   = rpm?.status?.ssgiActive ?? true;
+            // §FIX-SSGI-DEFAULT-OFF-TRAA-SELECT-FLASH — SSGI defaults OFF now (was ?? true).
+            const ssgiOn   = rpm?.status?.ssgiActive ?? false;
             const traaOn   = rpm?.status?.traaActive ?? false;
             if (ssgiDot) { ssgiDot.style.background = ssgiOn ? '#22c55e' : '#ef4444'; ssgiDot.style.boxShadow = ssgiOn ? '0 0 4px #22c55e88' : 'none'; }
             if (traaDot) { traaDot.style.background = traaOn ? '#22c55e' : '#ef4444'; traaDot.style.boxShadow = traaOn ? '0 0 4px #22c55e88' : 'none'; }
@@ -234,9 +236,11 @@ export class RenderRailPanel {
         syncBadges();
         setTimeout(syncBadges, 1000);
 
-        // SSGI toggle — default ON
+        // SSGI toggle — default OFF (§FIX-SSGI-DEFAULT-OFF-TRAA-SELECT-FLASH, founder
+        // L-59: SSGINode's per-frame denoise flickers all elements on WebGPU). The
+        // toggle still activates SSGI on demand (rpm.activateSSGI) when the user opts in.
         body.appendChild(this._buildToggleRow('SSGI', 'ph-toggle-ssgi',
-            'Screen-Space Global Illumination', true,
+            'Screen-Space Global Illumination', false,
             (on) => {
                 const rpm = window.renderPipelineManager; // TODO(D.4): legacy renderPipelineManager — replace with runtime.scene.renderer.pipeline
                 if (!rpm) return;
