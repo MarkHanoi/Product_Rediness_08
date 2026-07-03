@@ -1,7 +1,8 @@
 # ADR-0110 — Unified furniture plan-symbol vocabulary for library card previews
 
-- **Status:** Accepted (2026-07-02)
-- **Tag:** `§FIX-LIBRARY-DIAGRAM-ICONS`
+- **Status:** Accepted (2026-07-02); **Amended 2026-07-03** — see
+  [Amendment (L-67): preview images are primary, plan symbol is fallback-only](#amendment-l-67-2026-07-03--preview-images-are-primary-the-plan-symbol-is-fallback-only).
+- **Tag:** `§FIX-LIBRARY-DIAGRAM-ICONS` (original); `§FIX-CATALOG-THUMBNAIL-RESTORE` (amendment)
 - **Layer:**
   - L7.5 UI — `apps/editor/src/ui/furniture-carousel/furniturePlanIcon.ts` (new, pure
     string→SVG symbol generator) + `apps/editor/src/ui/furniture-carousel/FurnitureSidePanel.ts`
@@ -71,3 +72,35 @@ drawn in the PRYZM plan-symbol style, not raster thumbnails.
 - `FurnitureThumbnailService` (offscreen WebGL thumbnail renderer) is left in place but is now
   **orphaned** in production code — a candidate for a later cleanup pass (out of scope here to
   avoid touching the renderer path).
+
+## Amendment (L-67, 2026-07-03) — preview images are primary, the plan symbol is fallback-only
+
+- **Tag:** `§FIX-CATALOG-THUMBNAIL-RESTORE` · **Founder row:** L-67 (REGRESSION→FIXED).
+
+**Reversal of Decision §2.** The original decision made the plan symbol the *default* for every
+card and deleted the offscreen 3D preview path (`_loadParametricThumbnail`). The founder rejected
+the result (L-67): the cards read as "the same generic purple line-art icon" with no real preview.
+Under the conflict-resolution order a direct founder directive outranks this ADR, so the card
+render is amended to restore rich preview **images** as the primary visual.
+
+**What the "rich preview image" actually is (and why it is prod-safe).** The restored preview is
+`FurnitureThumbnailService.requestThumbnail(type, fabricHex)`, which rasterises **parametric**
+geometry (`buildFurnitureGeometry`) to a WebP data-URL in an offscreen renderer. It does **not**
+fetch a GLB, so it is unaffected by the un-hosted GLB catalog (tracker OBJECT-STORAGE-GLB →
+`/items/**/*.glb` + `thumbnail.webp` 404 in prod). The earlier "raster thumbnail 404s" concern
+(original Context) applies only to the pre-baked `thumbnailPath` rasters, *not* to this in-process
+render. `FurnitureThumbnailService` is therefore **no longer orphaned**.
+
+**Amended card render (`FurnitureSidePanel._buildCard`), resolution order:**
+1. The plan symbol (`buildFurniturePlanIcon`) paints immediately as the **placeholder + fallback**
+   so a card is never blank — it is no longer the default visual.
+2. If a pre-baked raster `thumbnailPath` is present it upgrades over the symbol on `img.onload`
+   (on 404 the symbol stays).
+3. Else, for a **parametric** item (no `glbPath`, no raster) the offscreen 3D parametric preview
+   upgrades over the symbol.
+4. Else (a GLB item whose raster 404s) the clean plan symbol remains as the fallback.
+
+**Unchanged.** The plan-symbol vocabulary (`furniturePlanIcon.ts`), its top-view / single-ink
+PRYZM-purple style, and the PLACED-drawing `*PlanSymbolBuilder` family are all untouched — the
+symbol is retained precisely as the brand-consistent fallback. Only its *role* changes: fallback,
+not default. Tests: `apps/editor/__tests__/FurnitureSidePanelThumbnail.test.ts`.

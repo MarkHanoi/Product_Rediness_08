@@ -6,6 +6,7 @@ import {
     FurnitureTypeDescriptor,
 } from './FurnitureCategoryRegistry';
 import { buildFurniturePlanIcon } from './furniturePlanIcon';
+import { FurnitureThumbnailService } from './FurnitureThumbnailService';
 
 type SidePanelCategory = FurnitureCategory | 'all';
 
@@ -229,13 +230,18 @@ export class FurnitureSidePanel {
         const thumbWrap = document.createElement('div');
         thumbWrap.className = 'fsp-thumb';
 
-        // §FIX-LIBRARY-DIAGRAM-ICONS (founder L-22) — every card previews a clean,
-        // diagrammatic TOP-VIEW plan symbol drawn in the PRYZM plan-symbol style
-        // (single-ink PRYZM purple, no black), the SAME vocabulary the drawing uses.
-        // This is the default AND the fallback, so cards read as one symbol family
-        // whether or not the GLB/thumbnail catalog is hosted (tracker OBJECT-STORAGE-GLB
-        // → /items/**/thumbnail.webp 404s in prod). If a real raster thumbnail IS
-        // available it progressively upgrades over the symbol; on 404 the symbol stays.
+        // §FIX-CATALOG-THUMBNAIL-RESTORE (founder L-67) — restore rich preview
+        // IMAGES as the PRIMARY card visual. The diagrammatic plan-symbol icon
+        // (§FIX-LIBRARY-DIAGRAM-ICONS / ADR-0110) is now a PLACEHOLDER + FALLBACK
+        // ONLY — it paints immediately so a card is never blank, and a richer
+        // preview image upgrades over it when one is available:
+        //   1. a pre-baked raster `thumbnailPath` if the catalog is hosted, else
+        //   2. a rendered 3D parametric preview (FurnitureThumbnailService) for
+        //      parametric items — rendered from PARAMETRIC geometry, so it needs
+        //      NO GLB fetch and works in prod despite the un-hosted GLB catalog
+        //      (tracker OBJECT-STORAGE-GLB → /items/**/*.glb + thumbnail.webp 404).
+        // If neither resolves (e.g. a GLB item whose raster 404s), the plan symbol
+        // stays as the clean, brand-consistent fallback.
         thumbWrap.appendChild(buildFurniturePlanIcon(item.type, item.label));
 
         if (item.thumbnailPath) {
@@ -245,8 +251,12 @@ export class FurnitureSidePanel {
             img.className = 'fsp-thumb-img';
             img.loading = 'lazy';
             img.onload = () => { thumbWrap.replaceChildren(img); };
-            // On 404 the clean plan symbol already in place remains — no tacky fallback.
-            img.onerror = () => { /* keep the diagrammatic plan symbol */ };
+            // On 404 the plan symbol already in place remains as the fallback.
+            img.onerror = () => { /* keep the plan-symbol fallback */ };
+        } else if (!item.glbPath) {
+            // Parametric item (no GLB, no pre-baked raster) — render a rich 3D
+            // preview offscreen and upgrade it over the plan-symbol placeholder.
+            this._loadParametricThumbnail(item, thumbWrap);
         }
 
         const lbl = document.createElement('span');
@@ -264,6 +274,36 @@ export class FurnitureSidePanel {
         card.addEventListener('dragend', () => window.runtime?.events?.emit('fc-drag-end', {})); // F.events.12
 
         return card;
+    }
+
+    /**
+     * §FIX-CATALOG-THUMBNAIL-RESTORE (founder L-67) — render a rich 3D preview
+     * for a PARAMETRIC item via the offscreen {@link FurnitureThumbnailService}
+     * and upgrade it over the plan-symbol placeholder already in `thumbWrap`.
+     *
+     * The service builds PARAMETRIC geometry only (never fetches the un-hosted
+     * GLB catalog — tracker OBJECT-STORAGE-GLB), so the preview works in prod.
+     * Per-card `defaultColor` is folded into the service cache key so colour
+     * variants of the same type render distinct previews. On any failure the
+     * plan symbol stays as the fallback (no replace).
+     */
+    private _loadParametricThumbnail(item: FurnitureTypeDescriptor, thumbWrap: HTMLElement): void {
+        const fabricHex = parseColorHex(item.defaultColor);
+        const service = FurnitureThumbnailService.getInstance();
+        service
+            .requestThumbnail(item.type as FurnitureType, fabricHex)
+            .then(dataUrl => {
+                if (!dataUrl) return;
+                if (!thumbWrap.isConnected) return;
+                const img = document.createElement('img');
+                img.src = dataUrl;
+                img.alt = item.label;
+                img.className = 'fsp-thumb-img';
+                thumbWrap.replaceChildren(img);
+            })
+            .catch(err => {
+                console.warn(`[FurnitureSidePanel] thumbnail render failed for ${item.type}:`, err);
+            });
     }
 
     private _handleDragStart(e: DragEvent, item: FurnitureTypeDescriptor, card: HTMLElement): void {
@@ -338,4 +378,12 @@ export class FurnitureSidePanel {
     private _getCategoryLabel(category: FurnitureCategory): string {
         return this._categories.find(cat => cat.id === category)?.label ?? 'Furniture';
     }
+}
+
+/** Parse a `#RRGGBB` colour string into a 0xRRGGBB hex number, or undefined. */
+function parseColorHex(hex?: string): number | undefined {
+    if (!hex) return undefined;
+    const trimmed = hex.trim().replace('#', '');
+    if (!/^[0-9a-f]{6}$/i.test(trimmed)) return undefined;
+    return parseInt(trimmed, 16);
 }
