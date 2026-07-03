@@ -21,6 +21,8 @@ import { mergeGeometries } from '@pryzm/renderer-three';
 import { registerSegmentUUID } from '@pryzm/core-app-model';
 // Contract 23 §9 — HLR pass: remove occluded projection segments before cache write
 import { removeHiddenLines } from '@pryzm/core-app-model';
+// §FIX-PLAN-PROJECT-INCREMENTAL (L-65) — P8 span for the incremental graft path.
+import { emitPlanViewMotionEvent } from '@pryzm/core-app-model';
 import type * as FRAGS from '@thatopen/fragments';
 import { ViewDefinition, VIEW_PROJECTION_DIRECTIONS } from '@pryzm/core-app-model';
 import { BimManager } from '@pryzm/core-app-model';
@@ -2431,6 +2433,128 @@ export class EdgeProjectorService {
         const drawingObject = (drawing as any).three as THREE.Object3D | undefined;
         drawingObject?.parent?.remove(drawingObject);
         return drawing;
+    }
+
+    /**
+     * §FIX-PLAN-PROJECT-INCREMENTAL (L-65, C04 §3.3 / DOC-1.4 Re-projection) —
+     * Incremental plan-view graft.
+     *
+     * Projects ONLY `dirtyGroups` and grafts their projection lines onto the caller's
+     * already-warm `targetDrawing`, so a single element add re-projects O(dirty)
+     * elements instead of the whole view (the L-65 ~0.5 s plan-view creation lag).
+     * The caller is responsible for having dropped the dirty elements' stale lines
+     * (`viewTechnicalDrawingCache.invalidateElement`) BEFORE calling this — for a fresh
+     * create that is a no-op; for an update it removes the pre-move linework.
+     *
+     * Implementation notes:
+     *   • A throwaway drawing is built via the SAME `project()` path (only the dirty
+     *     groups as native input, no IFC), so the grafted lines are pixel-identical to
+     *     a full reprojection — there is NO divergent projection code to drift.
+     *   • Only lines tagged with a dirty element's UUID are transplanted; the
+     *     whole-view symbol pass that `project()` runs (door swings, etc.) targets other
+     *     elements' UUIDs and is discarded with the throwaway drawing. This is why the
+     *     caller must restrict grafting to pure-projection element types
+     *     (PLAN_INCREMENTAL_SAFE_TYPES) whose entire representation is their own base
+     *     projection.
+     *   • Transplanted geometry is CLONED, so disposing the throwaway drawing never
+     *     frees geometry the target now owns.
+     *
+     * @returns number of element line-groups grafted. `0` signals the caller that
+     *          nothing was grafted (fall back to a full projection).
+     */
+    async projectElementsInto(
+        targetDrawing:        OBC.TechnicalDrawing,
+        viewDef:              ViewDefinition,
+        dirtyGroups:          THREE.Group[],
+        dirtyIds:             ReadonlySet<string>,
+        planBelowDepthOffset: number = 0,
+    ): Promise<number> {
+        if (dirtyGroups.length === 0) return 0;
+
+        // Build a throwaway drawing containing ONLY the dirty elements.
+        const fresh = await this.project(viewDef, [], dirtyGroups, [], planBelowDepthOffset);
+        let moved = 0;
+        try {
+            moved = this._transplantElementLines(fresh, targetDrawing, dirtyIds);
+        } finally {
+            // Release the throwaway drawing (grafted lines were cloned into the target).
+            try {
+                const three = (fresh as unknown as { three?: THREE.Object3D }).three;
+                three?.parent?.remove(three);
+                fresh.onDisposed.trigger();
+            } catch { /* best-effort dispose — must never crash the graft */ }
+        }
+
+        emitPlanViewMotionEvent('project-elements-incremental', {
+            'pryzm.plan_view.view_id':                 viewDef.id,
+            'pryzm.plan_view.dirty_element_count':     dirtyIds.size,
+            'pryzm.plan_view.grafted_line_groups':     moved,
+        });
+        return moved;
+    }
+
+    /**
+     * §FIX-PLAN-PROJECT-INCREMENTAL — graft the dirty elements' lines into `dst`.
+     *
+     * IDEMPOTENT by construction: first removes any EXISTING `dst` lines tagged with a
+     * dirty id, then clones the matching `src` lines in. This makes the graft safe when
+     * BOTH the active-canvas driver (PlanViewManager, 30 ms) and the DOC-1.4 driver
+     * (ViewDependencyTracker flush, 300 ms) graft the same element — the second graft
+     * removes-then-re-adds rather than duplicating linework.
+     *
+     * Uses the same OBC `layers.list` → `three.children` topology as
+     * `ViewTechnicalDrawingCache.invalidateElement` (the proven layer traversal).
+     */
+    private _transplantElementLines(
+        src: OBC.TechnicalDrawing,
+        dst: OBC.TechnicalDrawing,
+        ids: ReadonlySet<string>,
+    ): number {
+        // ── Pass 1: drop any stale dst lines for the dirty ids (idempotency). ──────
+        const dstLayerList = (dst as unknown as { layers?: { list?: Map<string, unknown> } }).layers?.list;
+        if (dstLayerList && typeof dstLayerList.forEach === 'function') {
+            dstLayerList.forEach((layer: unknown) => {
+                const group = (layer as { three?: { children?: unknown[]; remove?: (c: unknown) => void } })?.three;
+                if (!group || !Array.isArray(group.children)) return;
+                for (const child of [...group.children]) {
+                    const cu = (child as { userData?: { elementUUID?: string } })?.userData;
+                    if (!cu?.elementUUID || !ids.has(cu.elementUUID)) continue;
+                    const mesh = child as { geometry?: { dispose?: () => void } };
+                    try { mesh.geometry?.dispose?.(); } catch { /* best-effort */ }
+                    try { group.remove?.(child); } catch { /* best-effort */ }
+                }
+            });
+        }
+
+        // ── Pass 2: clone src lines for the dirty ids into dst. ────────────────────
+        let moved = 0;
+        const srcLayerList = (src as unknown as { layers?: { list?: Map<string, unknown> } }).layers?.list;
+        if (!srcLayerList || typeof srcLayerList.forEach !== 'function') return 0;
+        srcLayerList.forEach((layer: unknown, layerName: string) => {
+            const group = (layer as { three?: { children?: unknown[] } })?.three;
+            if (!group || !Array.isArray(group.children)) return;
+            // Snapshot children — we read (not mutate) src, but stay defensive.
+            for (const child of [...group.children]) {
+                const c = child as {
+                    userData?: { elementUUID?: string };
+                    geometry?: THREE.BufferGeometry;
+                };
+                const id = c?.userData?.elementUUID;
+                if (!id || !ids.has(id)) continue;
+                const geo = c.geometry?.clone?.();
+                if (!geo) continue;
+                dst.layers.create(layerName);
+                const lines = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0x000000 }));
+                lines.name = layerName;
+                lines.userData.layerName = layerName;
+                lines.userData.elementUUID = id;
+                // Re-register per-element UUID on the target for plan-view hitTest (A-1).
+                registerSegmentUUID(dst, lines, id);
+                dst.addProjectionLines(lines, layerName);
+                moved++;
+            }
+        });
+        return moved;
     }
 
     /**

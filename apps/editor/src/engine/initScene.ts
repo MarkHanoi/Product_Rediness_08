@@ -865,6 +865,20 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                 svc.project(viewDef, models, nativeMeshGroups, ifcSceneGroups, planBelowDepthOffset),
             );
         },
+        // §FIX-PLAN-PROJECT-INCREMENTAL (L-65) — incremental graft forwarded through
+        // the lazy façade. Only invoked from onReprojectionNeeded AFTER a warm drawing
+        // exists, i.e. the real service is already loaded from an earlier project() call.
+        projectElementsInto: (
+            targetDrawing:        Parameters<EdgeProjectorService['projectElementsInto']>[0],
+            viewDef:              Parameters<EdgeProjectorService['projectElementsInto']>[1],
+            dirtyGroups:          Parameters<EdgeProjectorService['projectElementsInto']>[2],
+            dirtyIds:             Parameters<EdgeProjectorService['projectElementsInto']>[3],
+            planBelowDepthOffset?: Parameters<EdgeProjectorService['projectElementsInto']>[4],
+        ): ReturnType<EdgeProjectorService['projectElementsInto']> => {
+            return _ensureEdgeProjectorService().then(svc =>
+                svc.projectElementsInto(targetDrawing, viewDef, dirtyGroups, dirtyIds, planBelowDepthOffset),
+            );
+        },
         setRoofSlopeSymbolBuilder: (builder: Parameters<EdgeProjectorService['setRoofSlopeSymbolBuilder']>[0]): void => {
             // If the real service is already loaded, forward immediately;
             // otherwise queue for replay during construction.
@@ -909,7 +923,7 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
     // DOC-1.5f: callback now receives `gen` — the monotonic generation number from
     // ViewTechnicalDrawingCache.beginProjection(). Use setIfCurrent() to reject
     // stale completions when the user edits geometry again before this one finishes.
-    viewDependencyTracker.onReprojectionNeeded = async (viewId: string, gen: number) => {
+    viewDependencyTracker.onReprojectionNeeded = async (viewId: string, gen: number, graftElementIds?: ReadonlySet<string>) => {
         const viewDef = viewDefinitionStore.get(viewId);
         if (!viewDef) return;
 
@@ -932,6 +946,51 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         const allModels = fragmentsMgr.list.size > 0 ? Array.from(fragmentsMgr.list.values()) : [];
         // Apply IFC toggle — omit OBC fragment models when IFC is disabled for this view.
         const models = ifcProjectionStore.filterModels(allModels, viewId);
+
+        // §FIX-PLAN-PROJECT-INCREMENTAL (L-65, C04 §3.3 / DOC-1.4) — incremental graft
+        // fast-path. When ViewDependencyTracker narrows the flush to a set of pure-
+        // projection element ids (create/update of wall/slab/beam/ceiling/floor) AND the
+        // cached drawing is still warm AND this is a native-only plan view, project ONLY
+        // those elements and graft them onto the warm drawing (O(dirty)) rather than
+        // disposing + re-projecting all N elements. Any failure falls through to the full
+        // path below, so this is safe by construction.
+        const isPlan = viewDef.viewType === 'plan' || viewDef.viewType === 'structural-plan';
+        if (graftElementIds && graftElementIds.size > 0 && isPlan && models.length === 0
+            && window.__PRYZM_FLAGS__?.EDGE_PROJECTOR_NATIVE === true) {
+            const warm = viewTechnicalDrawingCache.get(viewId);
+            if (warm) {
+                try {
+                    const allGroups = nativeElementMeshExporter.exportForView(viewDef);
+                    const dirtyGroups: THREE.Group[] = [];
+                    const spareGroups: THREE.Group[] = [];
+                    for (const g of allGroups) {
+                        const id = g.userData?.elementUUID as string | undefined;
+                        (id && graftElementIds.has(id) ? dirtyGroups : spareGroups).push(g);
+                    }
+                    nativeElementMeshExporter.releaseGroups(spareGroups, { disposeProxies: true });
+                    if (dirtyGroups.length > 0) {
+                        const moved = await edgeProjectorService.projectElementsInto(warm, viewDef, dirtyGroups, graftElementIds);
+                        nativeElementMeshExporter.releaseGroups(dirtyGroups, { disposeProxies: true });
+                        if (moved > 0 && viewTechnicalDrawingCache.setIfCurrent(viewId, gen, warm)) {
+                            const vgApplicatorInc = window.vgSceneApplicator;
+                            vgApplicatorInc?.applyToProjectionLayers?.(warm, viewId);
+                            viewController.mountReprojectedDrawing(viewId, warm);
+                            console.log(`[initScene] §FIX-PLAN-PROJECT-INCREMENTAL: grafted ${moved} element(s) onto warm drawing viewId=${viewId} gen=${gen}`);
+                            return;
+                        }
+                    } else {
+                        nativeElementMeshExporter.releaseGroups(dirtyGroups, { disposeProxies: true });
+                    }
+                    // Fell through (nothing grafted) → drop the stale warm drawing so the
+                    // full path below rebuilds cleanly.
+                    viewTechnicalDrawingCache.invalidate(viewId);
+                } catch (err) {
+                    console.error(`[initScene] §FIX-PLAN-PROJECT-INCREMENTAL graft failed — full fallback for viewId=${viewId}:`, err);
+                    viewTechnicalDrawingCache.invalidate(viewId);
+                }
+            }
+        }
+
         // DOC-1.8: native groups included when EDGE_PROJECTOR_NATIVE flag is ON.
         const nativeGroups = window.__PRYZM_FLAGS__?.EDGE_PROJECTOR_NATIVE === true
             ? nativeElementMeshExporter.exportForView(viewDef)

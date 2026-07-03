@@ -254,7 +254,7 @@ export type { ViewDefinitionStoreImpl } from './views/ViewDefinitionStore.js';
 
 export { ViewTechnicalDrawingCache, viewTechnicalDrawingCache } from './views/ViewTechnicalDrawingCache.js';
 
-export { ViewDependencyTracker, viewDependencyTracker } from './views/ViewDependencyTracker.js';
+export { ViewDependencyTracker, viewDependencyTracker, PLAN_INCREMENTAL_SAFE_TYPES } from './views/ViewDependencyTracker.js';
 
 // ── batch/ (P9-W4 2026-05-10) ────────────────────────────────────────────────
 

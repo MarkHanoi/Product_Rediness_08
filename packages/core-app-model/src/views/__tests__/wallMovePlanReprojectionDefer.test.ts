@@ -111,12 +111,78 @@ describe('§FIX-WALLMOVE-PLAN-INCREMENTAL — plan re-projection deferral + incr
         expect(invalidate).not.toHaveBeenCalled();
     });
 
-    it('a create/delete (element-set change) takes the coarse whole-drawing invalidate', () => {
+    it('§FIX-PLAN-PROJECT-INCREMENTAL: a create of a pure-projection type (wall) is element-scoped (warm drawing kept)', () => {
+        // L-65: adding a wall must NOT dispose the whole drawing — only the new wall
+        // is dirtied; every other element re-uses its cached projection.
         setDrag(false);
         _emitStoreEvent!({ elementId: 'wall-1', elementType: 'wall', operation: 'create' });
+        vi.advanceTimersByTime(400);
+        expect(invalidateElement).toHaveBeenCalledTimes(1);
+        expect(invalidateElement).toHaveBeenCalledWith(PLAN_VIEW.id, 'wall-1');
+        expect(invalidate).not.toHaveBeenCalled();
+    });
+
+    it('a create of a NON-pure-projection type (door — has a symbol pass) takes the coarse invalidate', () => {
+        setDrag(false);
+        tracker.registerElement('door-1', 'L0');
+        _emitStoreEvent!({ elementId: 'door-1', elementType: 'door', operation: 'create' });
         vi.advanceTimersByTime(400);
         expect(invalidate).toHaveBeenCalledTimes(1);
         expect(invalidate).toHaveBeenCalledWith(PLAN_VIEW.id);
         expect(invalidateElement).not.toHaveBeenCalled();
+    });
+
+    it('a delete still takes the coarse whole-drawing invalidate', () => {
+        setDrag(false);
+        _emitStoreEvent!({ elementId: 'wall-1', elementType: 'wall', operation: 'delete' });
+        vi.advanceTimersByTime(400);
+        expect(invalidate).toHaveBeenCalledTimes(1);
+        expect(invalidate).toHaveBeenCalledWith(PLAN_VIEW.id);
+        expect(invalidateElement).not.toHaveBeenCalled();
+    });
+});
+
+describe('§FIX-PLAN-PROJECT-INCREMENTAL — graft-eligibility handed to the reprojection driver', () => {
+    let tracker: ViewDependencyTracker;
+    let graftCalls: Array<{ viewId: string; graftIds: ReadonlySet<string> | undefined }>;
+
+    beforeEach(() => {
+        vi.useFakeTimers();
+        invalidate.mockClear();
+        invalidateElement.mockClear();
+        _views = [PLAN_VIEW];
+        setDrag(false);
+        graftCalls = [];
+        tracker = new ViewDependencyTracker();
+        tracker.init();
+        tracker.registerElement('wall-1', 'L0');
+        tracker.registerElement('door-1', 'L0');
+        tracker.onReprojectionNeeded = async (viewId, _gen, graftIds) => {
+            graftCalls.push({ viewId, graftIds });
+        };
+    });
+    afterEach(() => {
+        tracker.destroy();
+        vi.useRealTimers();
+        setDrag(false);
+    });
+
+    it('a single pure-projection create passes ONLY that element as the graft set', async () => {
+        _emitStoreEvent!({ elementId: 'wall-1', elementType: 'wall', operation: 'create' });
+        await vi.advanceTimersByTimeAsync(400);
+        expect(graftCalls).toHaveLength(1);
+        expect(graftCalls[0].viewId).toBe(PLAN_VIEW.id);
+        expect(graftCalls[0].graftIds).toBeInstanceOf(Set);
+        expect([...graftCalls[0].graftIds!]).toEqual(['wall-1']);
+    });
+
+    it('a view touched by a non-pure-projection change is NOT offered the graft (graftIds undefined)', async () => {
+        // wall create (graftable) + door update (not graftable) on the SAME view →
+        // the view is demoted to a full reprojection (correctness over speed).
+        _emitStoreEvent!({ elementId: 'wall-1', elementType: 'wall', operation: 'create' });
+        _emitStoreEvent!({ elementId: 'door-1', elementType: 'door', operation: 'update' });
+        await vi.advanceTimersByTimeAsync(400);
+        expect(graftCalls).toHaveLength(1);
+        expect(graftCalls[0].graftIds).toBeUndefined();
     });
 });

@@ -41,7 +41,7 @@ export type { ViewDefinitionStoreImpl } from './ViewDefinitionStore.js';
 
 export { ViewTechnicalDrawingCache, viewTechnicalDrawingCache } from './ViewTechnicalDrawingCache.js';
 
-export { ViewDependencyTracker, viewDependencyTracker } from './ViewDependencyTracker.js';
+export { ViewDependencyTracker, viewDependencyTracker, PLAN_INCREMENTAL_SAFE_TYPES } from './ViewDependencyTracker.js';
 
 // ── P9-W4 Wave 1 (2026-05-10) ────────────────────────────────────────────────
 
