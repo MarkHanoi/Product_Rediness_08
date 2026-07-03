@@ -1891,6 +1891,14 @@ export interface RuntimeEvents {
   'site.created': SiteCreatedEvent;
   'site.location-changed': SiteLocationChangedEvent;
   'site.parcel-boundary-set': SiteParcelBoundarySetEvent;
+  /** §FIX-SITE-OVERLAY-RENDER-AND-FLOW (L-58) — emitted when the user presses
+   *  "✓ Use this placement" on the site-plan overlay (a georeferenced client
+   *  PDF/image). The onboarding wizard listens to advance Step 2 → the
+   *  boundary-trace / plot step: per L-38 a geolocated + calibrated plan is a
+   *  valid located plot, so no mandatory boundary trace is required to proceed.
+   *  Payload intentionally empty — the placement + θ (Project North) are already
+   *  applied via `dispatchSiteTrueNorth` before this fires. */
+  'site.overlay-placement-committed': Record<string, never>;
 
   /** Requests placement of a detail component in the active view.
    *  DetailComponentPanel dispatches.

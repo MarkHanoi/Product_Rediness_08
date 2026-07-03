@@ -51,18 +51,42 @@ export class SitePlanOverlayLayer {
     private originLon: number;
     private transform: SitePlanOverlayTransform;
     private disposed = false;
+    // §FIX-SITE-OVERLAY-RENDER-AND-FLOW (L-58) — the raster's live paint state, kept so we
+    // can RE-INSTALL the source+layer after a basemap `setStyle` swap wipes them (the
+    // decisive render bug: the Map↔Satellite toggle tears down every custom source/layer
+    // and only the boundary ring was re-added, so the overlay vanished — most visibly on
+    // the satellite basemap the founder was viewing).
+    private dataUrl: string;
+    private opacity: number;
+    private visible: boolean;
+    private readonly onStyleReload: () => void;
 
     constructor(init: SitePlanOverlayLayerInit) {
         this.map = init.map;
         this.originLat = init.originLat;
         this.originLon = init.originLon;
         this.transform = init.transform;
+        this.dataUrl = init.dataUrl;
+        this.opacity = init.opacity;
+        this.visible = init.visible;
+        // §FIX-SITE-OVERLAY-RENDER-AND-FLOW — self-heal across basemap swaps. MapLibre
+        // fires `style.load` after `setStyle`; re-installing is idempotent (install() no-ops
+        // when the source/layer already exist), so this only ever RE-adds the wiped overlay.
+        this.onStyleReload = () => {
+            if (this.disposed || !this.map) return;
+            this.install(this.dataUrl, this.opacity, this.visible);
+        };
+        try { this.map.on('style.load', this.onStyleReload); } catch { /* map gone */ }
         this.install(init.dataUrl, init.opacity, init.visible);
     }
 
     private install(dataUrl: string, opacity: number, visible: boolean): void {
         const map = this.map;
         if (!map) return;
+        // Keep the live paint state current so a later style-reload re-adds faithfully.
+        this.dataUrl = dataUrl;
+        this.opacity = opacity;
+        this.visible = visible;
         try {
             const coordinates = toMapLibreCoordinates(this.transform, this.originLat, this.originLon);
             if (!map.getSource(OVERLAY_SOURCE)) {
@@ -116,11 +140,12 @@ export class SitePlanOverlayLayer {
     }
 
     setOpacity(opacity: number): void {
+        this.opacity = clamp01(opacity);
         const map = this.map;
         if (!map || this.disposed) return;
         try {
             if (map.getLayer(OVERLAY_LAYER)) {
-                map.setPaintProperty(OVERLAY_LAYER, 'raster-opacity', clamp01(opacity));
+                map.setPaintProperty(OVERLAY_LAYER, 'raster-opacity', this.opacity);
             }
         } catch (err) {
             console.warn('[site-overlay] setOpacity failed (non-fatal):', err);
@@ -128,6 +153,7 @@ export class SitePlanOverlayLayer {
     }
 
     setVisible(visible: boolean): void {
+        this.visible = visible;
         const map = this.map;
         if (!map || this.disposed) return;
         try {
@@ -141,6 +167,7 @@ export class SitePlanOverlayLayer {
 
     /** Replace the raster image (e.g. user picked a different PDF page). */
     setImage(dataUrl: string, transform: SitePlanOverlayTransform): void {
+        this.dataUrl = dataUrl;
         const map = this.map;
         if (!map || this.disposed) return;
         this.transform = transform;
@@ -163,6 +190,7 @@ export class SitePlanOverlayLayer {
         const map = this.map;
         this.map = null;
         if (!map) return;
+        try { map.off('style.load', this.onStyleReload); } catch { /* map gone */ }
         try {
             if (map.getLayer(OVERLAY_LAYER)) map.removeLayer(OVERLAY_LAYER);
             if (map.getSource(OVERLAY_SOURCE)) map.removeSource(OVERLAY_SOURCE);

@@ -614,7 +614,7 @@ class OnboardingStepController {
         this.renderDrawingStep();
 
         let settled = false;
-        const finish = (source: 'drawn' | 'watchdog'): void => {
+        const finish = (source: 'drawn' | 'watchdog' | 'overlay'): void => {
             if (settled) return;
             settled = true;
             cleanup();
@@ -625,6 +625,16 @@ class OnboardingStepController {
                 console.warn('[onboarding-step] draw watchdog fired (60 s) — falling back to a default plot, then asking before generate.');
                 this.toast('No boundary drawn — using a default plot.', 'info');
                 void this.fallbackDefaultRectToConfirm('watchdog');
+            } else if (source === 'overlay') {
+                // §FIX-SITE-OVERLAY-RENDER-AND-FLOW (L-58): the user pressed "✓ Use this
+                // placement" on the site-plan overlay. Per L-38 a geolocated + calibrated
+                // plan is a valid located plot — no mandatory boundary trace to proceed.
+                // If they ALSO traced a boundary, `site.parcel-boundary-set` would have
+                // won the race (settled); reaching here means no boundary yet, so author a
+                // default plot and advance to the confirm step (they can still refine later).
+                console.log('[onboarding-step] §SITE-OVERLAY: placement committed — advancing to confirm (default plot, no trace required).');
+                this.toast('Plan placement saved — you can trace or refine your plot next.', 'success');
+                void this.fallbackDefaultRectToConfirm('overlay-placement-committed');
             } else {
                 // O.7.1: keep the drawn boundary visible on the map + ASK before
                 // generating (typology→AI dispatch). Do NOT auto-generate.
@@ -634,9 +644,13 @@ class OnboardingStepController {
         };
 
         const sub = this.runtime.events?.on('site.parcel-boundary-set', () => finish('drawn'));
+        // §FIX-SITE-OVERLAY-RENDER-AND-FLOW — the overlay "Use this placement" commit is an
+        // ALTERNATIVE way to complete the site step (advances the wizard forward).
+        const overlaySub = this.runtime.events?.on('site.overlay-placement-committed', () => finish('overlay'));
         const watchdog = setTimeout(() => finish('watchdog'), DRAW_WATCHDOG_MS);
         const cleanup = (): void => {
             try { sub?.dispose(); } catch { /* ignore */ }
+            try { overlaySub?.dispose(); } catch { /* ignore */ }
             clearTimeout(watchdog);
         };
         this.addCleanup(cleanup);

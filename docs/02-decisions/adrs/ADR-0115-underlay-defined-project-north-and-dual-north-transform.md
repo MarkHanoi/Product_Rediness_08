@@ -5,8 +5,24 @@
   command path + always-on 3D-site entry). Plan-canvas gizmo bridge + globe θ
   application are documented follow-ups (see §Remaining).
 - **Deciders:** Founder + Claude (Opus 4.8)
-- **Tags:** `§FEAT-SITE-OVERLAY-PLACE`, `§FEAT-PROJECT-TRUE-NORTH`, `§FEAT-SITE-VIEW-ALWAYS-ON`
-- **Audit rows:** L-38 (overlay + dual north), L-40 (3D site/globe always reachable).
+- **Tags:** `§FEAT-SITE-OVERLAY-PLACE`, `§FEAT-PROJECT-TRUE-NORTH`, `§FEAT-SITE-VIEW-ALWAYS-ON`,
+  `§FIX-SITE-OVERLAY-RENDER-AND-FLOW` (L-58).
+- **Audit rows:** L-38 (overlay + dual north), L-40 (3D site/globe always reachable),
+  L-58 (the MapLibre overlay wasn't visibly rendering + the flow didn't complete).
+- **2026-07-03 update (L-58, `§FIX-SITE-OVERLAY-RENDER-AND-FLOW`).** Made the MapLibre site
+  overlay actually work end-to-end on the 2D boundary map (distinct from the plan-canvas
+  THREE underlay of Remaining item 1). Three root causes fixed: (a) **render** — the
+  Map↔Satellite basemap toggle calls `map.setStyle({diff:false})`, which wiped every custom
+  source/layer; only the boundary ring was re-added, so the raster vanished (most visibly on
+  the satellite basemap the founder was viewing). `SitePlanOverlayLayer` now SELF-HEALS on
+  `style.load` (idempotent re-install, opacity/visibility preserved). Also: the origin
+  fallback was `(0,0)` (Gulf of Guinea) when no location was geocoded — now the map's current
+  centre — and a fresh upload eases the map to the plan's bounds so "choose file → image
+  appears" is reliably true. (b) **storage** — Remaining item 3 (raster → IndexedDB). (c)
+  **flow** — "✓ Use this placement" now, besides `dispatchSiteTrueNorth(θ)`, emits
+  `site.overlay-placement-committed`; the onboarding wizard listens and advances Step 2 → the
+  plot/confirm step (L-38: a geolocated + calibrated plan is a valid located plot — no
+  mandatory boundary trace to proceed).
 - **Related / composes with:**
   [ADR-0070 Project North vs True North authoring frame](0070-project-north-vs-true-north-authoring-frame.md)
   (extends — gives θ a first-class *UI source*),
@@ -160,8 +176,13 @@ site. Fix (additive):
 2. **Globe applies θ to the placed model.** `CesiumViewport` currently does not read
    `SiteLocation.trueNorth`; feed θ into the Forma massing placement so the model rotates to
    true north on the globe (the transform primitive is ready).
-3. **Persist the underlay raster beyond localStorage** (large data URLs) — carried over from
-   ADR-059.
+3. ~~**Persist the underlay raster beyond localStorage** (large data URLs) — carried over from
+   ADR-059.~~ **DONE (2026-07-03, L-58, `§FIX-SITE-OVERLAY-RENDER-AND-FLOW`).** The site-plan
+   overlay raster now lives in IndexedDB (`SiteOverlayRasterStore`, per-project, mirroring the
+   L-45 floor-plan `UnderlayRasterStore`); localStorage keeps only lean metadata
+   (`writePersistedOverlay` strips the raster; `readPersistedOverlayMetadata` tolerates its
+   absence; a legacy inline record migrates to IDB on first restore). This closed the
+   `QuotaExceededError` that silently failed the save/restore so the raster never repainted.
 4. **Promote the geolocation record to a durable schema element** if/when Model A (store in
    project-north end-to-end) is pursued — today θ on `SiteLocation.trueNorth` + the per-project
    overlay record is sufficient and P5-clean.

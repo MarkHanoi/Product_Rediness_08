@@ -30,16 +30,24 @@ import {
     scaleOverlay,
     applyCalibration,
     computeCalibrationScale,
+    toMapLibreCoordinates,
     type SitePlanOverlayTransform,
     type PixelPoint,
 } from './sitePlanOverlayGeometry';
 import {
     serializeOverlay,
     writePersistedOverlay,
-    readPersistedOverlay,
+    readPersistedOverlayMetadata,
+    hasInlineRaster,
     clearPersistedOverlay,
     type PersistedSitePlanOverlay,
 } from './sitePlanOverlayPersistence';
+// §FIX-SITE-OVERLAY-RENDER-AND-FLOW (L-58) — the raster BYTES live in IndexedDB (per
+// project), NOT localStorage: a multi-MB survey scan blew the ~5 MB localStorage quota
+// → QuotaExceededError → the overlay never persisted → on reload it never repainted.
+// Mirrors the L-45 floor-plan UnderlayRasterStore pattern; separate DB so the two
+// overlays never clobber each other (C13 project isolation).
+import { getSiteOverlayRasterStore } from './SiteOverlayRasterStore';
 // §FEAT-PROJECT-TRUE-NORTH (ADR-0114) — capture the project→true-north angle θ from the
 // committed underlay placement (the underlay's on-canvas rotation ON the true-north
 // basemap = θ). Distinct from the underlay's own transform.rotationRad by design.
@@ -68,6 +76,14 @@ export interface SitePlanOverlayControllerInit {
      * on `SiteLocation.trueNorth`. Absent ⇒ the OK button just persists locally.
      */
     readonly onCommitProjectNorth?: (thetaRad: number) => void;
+    /**
+     * §FIX-SITE-OVERLAY-RENDER-AND-FLOW (L-58) — invoked AFTER a successful "✓ Use this
+     * placement" commit so the host can ADVANCE the wizard (onboarding Step 2 → the
+     * boundary-trace / plot step). Distinct from onCommitProjectNorth (which only mirrors
+     * θ onto the model): this is the "user is done placing → proceed" signal. Absent ⇒
+     * the commit just sets Project North with no navigation.
+     */
+    readonly onPlacementCommitted?: () => void;
 }
 
 /** Live overlay state held by the controller. */
@@ -102,7 +118,47 @@ export function mountSitePlanOverlayController(
 ): SitePlanOverlayControllerHandle {
     const { map, parent, getOrigin, projectId } = init;
     const onCommitProjectNorth = init.onCommitProjectNorth;
+    const onPlacementCommitted = init.onPlacementCommitted;
     const toast: ToastFn = init.toast ?? (() => { /* no-op */ });
+
+    // §FIX-SITE-OVERLAY-RENDER-AND-FLOW — resolve the geo-anchor for the overlay. Prefer
+    // the committed Site origin; when unset (the user hasn't geocoded a location yet) fall
+    // back to the MAP'S CURRENT CENTRE rather than lat/lon (0,0). The old (0,0) fallback
+    // dropped the raster in the Gulf of Guinea — thousands of km off-view — so it was
+    // "placed" but never visible. Centring on the current view guarantees the freshly
+    // uploaded plan lands under the user's eyes.
+    function resolveOrigin(): { lat: number; lon: number } {
+        const o = getOrigin();
+        if (o && Number.isFinite(o.lat) && Number.isFinite(o.lon) && (o.lat !== 0 || o.lon !== 0)) {
+            return o;
+        }
+        try {
+            const c = map.getCenter();
+            if (c && Number.isFinite(c.lat) && Number.isFinite(c.lng)) return { lat: c.lat, lon: c.lng };
+        } catch { /* map gone */ }
+        return { lat: 0, lon: 0 };
+    }
+
+    // §FIX-SITE-OVERLAY-RENDER-AND-FLOW — after a FRESH upload, ease the map so the whole
+    // plan is comfortably in frame. The raster is anchored geographically, so if the map
+    // happened to be zoomed to a large bbox the (default 50 m) plan could be a speck; this
+    // makes "choose file → the image appears on the map" reliably true.
+    function fitMapToOverlay(transform: SitePlanOverlayTransform, origin: { lat: number; lon: number }): void {
+        try {
+            const coords = toMapLibreCoordinates(transform, origin.lat, origin.lon);
+            let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
+            for (const [lng, lat] of coords) {
+                if (lng < minLng) minLng = lng;
+                if (lat < minLat) minLat = lat;
+                if (lng > maxLng) maxLng = lng;
+                if (lat > maxLat) maxLat = lat;
+            }
+            if (![minLng, minLat, maxLng, maxLat].every(Number.isFinite)) return;
+            map.fitBounds([[minLng, minLat], [maxLng, maxLat]], { padding: 64, maxZoom: 20, duration: 500 });
+        } catch (err) {
+            console.warn('[site-overlay] fitMapToOverlay failed (non-fatal):', err);
+        }
+    }
 
     let state: OverlayState | null = null;
     let disposed = false;
@@ -181,7 +237,7 @@ export function mountSitePlanOverlayController(
         heightPx: number,
         preset?: { transform: SitePlanOverlayTransform; opacity: number; locked: boolean; visible: boolean; calibrated: boolean; projectNorthSet?: boolean },
     ): void {
-        const origin = getOrigin() ?? { lat: 0, lon: 0 };
+        const origin = resolveOrigin();
         // Dispose any prior layer first.
         state?.layer.dispose();
 
@@ -208,6 +264,10 @@ export function mountSitePlanOverlayController(
         };
         renderPanel();
         schedulePersist();
+        // §FIX-SITE-OVERLAY-RENDER-AND-FLOW — on a FRESH upload (no preset = not a restore)
+        // ease the view to the plan so the founder immediately SEES it. Restores keep the
+        // user's current camera (they placed it deliberately last session).
+        if (!preset && visible) fitMapToOverlay(transform, origin);
     }
 
     // ── §FEAT-PROJECT-TRUE-NORTH — commit the placement as Project North ──────────
@@ -228,6 +288,14 @@ export function mountSitePlanOverlayController(
         schedulePersist();
         const deg = ((thetaRad * 180) / Math.PI).toFixed(1);
         toast(`Project North set from the plan (${deg}° to true north). The 3D globe now aligns.`, 'success');
+        // §FIX-SITE-OVERLAY-RENDER-AND-FLOW — the commit is the wizard's "proceed" action:
+        // tell the host to advance Step 2 → the boundary-trace / plot step. Guarded so a
+        // throwing host never blocks the (already-applied) placement.
+        try {
+            onPlacementCommitted?.();
+        } catch (err) {
+            console.warn('[site-overlay] onPlacementCommitted threw (non-fatal):', err);
+        }
     }
 
     // ── transform mutations ──────────────────────────────────────────────────────
@@ -274,7 +342,11 @@ export function mountSitePlanOverlayController(
         state?.layer.dispose();
         state = null;
         calibrating = null;
-        if (projectId) clearPersistedOverlay(projectId);
+        if (projectId) {
+            clearPersistedOverlay(projectId);
+            // §FIX-SITE-OVERLAY-RENDER-AND-FLOW — drop the raster from IDB too (isolation).
+            void getSiteOverlayRasterStore().delete(projectId);
+        }
         renderPanel();
         toast('Plan overlay removed.', 'info');
     }
@@ -358,7 +430,7 @@ export function mountSitePlanOverlayController(
      */
     function mapPointToSourcePixel(lngLat: { lng: number; lat: number }): PixelPoint | null {
         if (!state) return null;
-        const origin = getOrigin() ?? { lat: 0, lon: 0 };
+        const origin = resolveOrigin();
         // map point → metres East/North about origin (local equirectangular, same frame).
         const DEG2RAD = Math.PI / 180;
         const R = 6_378_137;
@@ -394,7 +466,7 @@ export function mountSitePlanOverlayController(
     function persistNow(): void {
         persistTimer = null;
         if (!projectId || !state) return;
-        const origin = getOrigin() ?? { lat: 0, lon: 0 };
+        const origin = resolveOrigin();
         const record = serializeOverlay({
             fileName: state.fileName,
             sourceKind: state.sourceKind,
@@ -411,14 +483,43 @@ export function mountSitePlanOverlayController(
             projectNorthRad: state.projectNorthSet ? deriveProjectNorthAngle(state.transform) : undefined,
             projectNorthSet: state.projectNorthSet,
         });
+        // §FIX-SITE-OVERLAY-RENDER-AND-FLOW — lean metadata → localStorage (raster stripped
+        // by writePersistedOverlay), raster BYTES → IndexedDB. The IDB write is async +
+        // best-effort (never throws); the metadata write is the source of truth for restore.
         writePersistedOverlay(projectId, record);
+        void getSiteOverlayRasterStore().put(projectId, state.dataUrl);
     }
 
-    function restore(): void {
-        if (!projectId) return;
-        const rec = readPersistedOverlay(projectId);
+    // §FIX-SITE-OVERLAY-RENDER-AND-FLOW — async restore: metadata from localStorage, raster
+    // from IndexedDB. A LEGACY v1 record whose raster is still inline in localStorage is
+    // used directly AND migrated to IDB (then the localStorage record is re-written lean),
+    // so old projects self-heal on first open.
+    async function restore(): Promise<void> {
+        if (!projectId || disposed) return;
+        const rec = readPersistedOverlayMetadata(projectId);
         if (!rec) return;
-        restoreFromRecord(rec);
+        let dataUrl: string | null = null;
+        let migrated = false;
+        if (hasInlineRaster(rec)) {
+            dataUrl = rec.imageDataUrl;
+            migrated = true; // legacy inline raster — migrate to IDB below.
+        } else {
+            dataUrl = await getSiteOverlayRasterStore().get(projectId);
+        }
+        if (disposed) return;
+        if (!dataUrl) {
+            // Metadata present but the raster is gone (cold IDB / cleared) — nothing to paint.
+            console.warn('[site-overlay] restore: metadata present but no raster found (IDB miss).');
+            return;
+        }
+        restoreFromRecord({ ...rec, imageDataUrl: dataUrl });
+        if (migrated) {
+            void getSiteOverlayRasterStore().put(projectId, dataUrl).then((ok) => {
+                // Re-write the localStorage record LEAN (raster stripped) once the raster is
+                // safely in IDB, so the legacy oversized key stops risking the quota.
+                if (ok) writePersistedOverlay(projectId, { ...rec, imageDataUrl: dataUrl! });
+            });
+        }
     }
     function restoreFromRecord(rec: PersistedSitePlanOverlay): void {
         placeOverlay(
@@ -586,7 +687,7 @@ export function mountSitePlanOverlayController(
 
     // First paint + restore any saved overlay for this project.
     renderPanel();
-    restore();
+    void restore();
 
     return { promptUpload, dispose, element: panel };
 }

@@ -1576,6 +1576,13 @@ export function mountSiteBoundaryMap2D(
                     const c = resolveSiteContext(runtime ?? null);
                     if (c) dispatchSiteTrueNorth(c, thetaRad);
                 },
+                // §FIX-SITE-OVERLAY-RENDER-AND-FLOW (L-58) — the placement commit is the
+                // wizard's "proceed" action. Emit an event the onboarding listens for to
+                // advance Step 2 → the boundary-trace / plot step (L-38: a geolocated plan
+                // is a valid located plot — no mandatory boundary trace to move forward).
+                onPlacementCommitted: () => {
+                    try { (runtime ?? null)?.events?.emit('site.overlay-placement-committed', {}); } catch { /* non-fatal */ }
+                },
             });
             // §SITE-PLAN-OVERLAY — window hook so the onboarding "Overlay a plan/PDF"
             // choice can open the upload picker after the draw map mounts.

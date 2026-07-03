@@ -3,13 +3,26 @@
 // the round-trip is unit-testable; the thin localStorage read/write wrappers are guarded
 // and live at the bottom (they touch `localStorage`, but never throw into callers).
 //
-// Mirrors the v2 floor-plan UnderlayPersistence pattern (per-project key, image as a data
-// URL, transform + opacity + lock persisted) but is a SEPARATE scope: the site overlay
-// lives on the MAP in geographic terms (centre/scale/rotation about the site origin),
-// not on the plan-view THREE plane. Keying it separately keeps the two concerns isolated
-// (C13 project isolation) and means neither clobbers the other.
+// Mirrors the v2 floor-plan UnderlayPersistence pattern (per-project key, transform +
+// opacity + lock persisted) but is a SEPARATE scope: the site overlay lives on the MAP in
+// geographic terms (centre/scale/rotation about the site origin), not on the plan-view
+// THREE plane. Keying it separately keeps the two concerns isolated (C13 project
+// isolation) and means neither clobbers the other.
+//
+// §FIX-SITE-OVERLAY-RENDER-AND-FLOW (L-58) — the RASTER no longer lives in localStorage.
+// A multi-MB survey scan blew the ~5 MB localStorage budget → `QuotaExceededError` →
+// the overlay silently failed to persist → on reload it never restored → the raster
+// never painted. Mirroring the L-45 floor-plan fix, the raster BYTES now live in
+// IndexedDB (SiteOverlayRasterStore) and localStorage keeps only the LEAN metadata
+// (bounds / transform / scale / opacity / lock). The controller writes the raster to IDB
+// and injects it back on restore; a LEGACY inline-raster localStorage record (v1) is
+// migrated to IDB and re-written lean on first restore.
 //
 // Storage key: pryzm.sitePlanOverlay.v1.<projectId>
+// The pure `serializeOverlay`/`deserializeOverlay` still round-trip the FULL record
+// (with the raster) for the in-memory model + tests; the localStorage wrappers strip the
+// raster on write and tolerate its absence on read (see writePersistedOverlay /
+// readPersistedOverlayMetadata below).
 
 import type { SitePlanOverlayTransform } from './sitePlanOverlayGeometry';
 
@@ -140,23 +153,96 @@ export function deserializeOverlay(raw: string): PersistedSitePlanOverlay | null
 
 // ── guarded localStorage wrappers (never throw into callers) ─────────────────
 
-export function readPersistedOverlay(projectId: string): PersistedSitePlanOverlay | null {
+/**
+ * §FIX-SITE-OVERLAY-RENDER-AND-FLOW — the LEAN metadata record actually written to
+ * localStorage: the full record MINUS the raster bytes (which live in IndexedDB). The
+ * `imageDataUrl` field is retained but emptied so the shape stays stable + the strict
+ * `deserializeOverlay` can still be used on a full in-memory record elsewhere.
+ */
+export type StoredSitePlanOverlayMetadata = Omit<PersistedSitePlanOverlay, 'imageDataUrl'> & {
+    readonly imageDataUrl: '';
+};
+
+/** Strip the raster bytes from a record → the lean object persisted to localStorage. */
+export function toStoredMetadata(record: PersistedSitePlanOverlay): StoredSitePlanOverlayMetadata {
+    return { ...record, imageDataUrl: '' };
+}
+
+/**
+ * Read the LEAN metadata from localStorage. Tolerant of a MISSING raster (the v2 lean
+ * form) AND of a LEGACY inline raster (an old v1 record whose `imageDataUrl` still holds
+ * the full data URL) — the caller (controller.restore) migrates the latter to IDB. Returns
+ * null only on a structurally invalid record (bad/absent version or transform), never
+ * merely because the raster is absent.
+ */
+export function readPersistedOverlayMetadata(projectId: string): PersistedSitePlanOverlay | null {
     try {
         const raw = localStorage.getItem(key(projectId));
-        return raw ? deserializeOverlay(raw) : null;
+        return raw ? deserializeOverlayMetadata(raw) : null;
     } catch {
         return null;
     }
 }
 
+/** True when a stored record still carries a LEGACY inline raster (needs IDB migration). */
+export function hasInlineRaster(record: PersistedSitePlanOverlay): boolean {
+    return typeof record.imageDataUrl === 'string' && record.imageDataUrl.length > 0;
+}
+
+/**
+ * Persist the LEAN metadata (raster stripped) to localStorage. The raster bytes are the
+ * caller's responsibility (SiteOverlayRasterStore, IDB). Best-effort, never fatal: the
+ * lean object is tiny so `QuotaExceededError` is no longer expected, but we still guard.
+ */
 export function writePersistedOverlay(projectId: string, record: PersistedSitePlanOverlay): boolean {
     try {
-        localStorage.setItem(key(projectId), JSON.stringify(record));
+        localStorage.setItem(key(projectId), JSON.stringify(toStoredMetadata(record)));
         return true;
     } catch {
-        // Quota (data URLs are large) / private mode — best-effort, never fatal.
+        // Private mode / disabled storage — best-effort, never fatal.
         return false;
     }
+}
+
+/**
+ * Lenient parse of a stored record: identical to {@link deserializeOverlay} EXCEPT the
+ * raster (`imageDataUrl`) may be absent/empty (v2 lean form). Preserves the raster when
+ * present (legacy v1 inline) so the caller can migrate it. Returns null only on a
+ * genuinely invalid structure (bad version / transform / origin).
+ */
+export function deserializeOverlayMetadata(raw: string): PersistedSitePlanOverlay | null {
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(raw);
+    } catch {
+        return null;
+    }
+    if (!isRecord(parsed)) return null;
+    if (parsed['schemaVersion'] !== SITE_OVERLAY_SCHEMA_VERSION) return null;
+    const t = parsed['transform'];
+    if (!isValidTransform(t)) return null;
+    const originLat = num(parsed['originLat']);
+    const originLon = num(parsed['originLon']);
+    if (originLat === null || originLon === null) return null;
+    const rawImage = parsed['imageDataUrl'];
+
+    return {
+        schemaVersion: SITE_OVERLAY_SCHEMA_VERSION,
+        fileName: typeof parsed['fileName'] === 'string' ? (parsed['fileName'] as string) : 'Site plan',
+        sourceKind: parsed['sourceKind'] === 'pdf' ? 'pdf' : 'image',
+        imageDataUrl: typeof rawImage === 'string' ? rawImage : '',
+        page: num(parsed['page']) ?? 1,
+        originLat,
+        originLon,
+        transform: t,
+        opacity: clamp01(num(parsed['opacity']) ?? 0.7),
+        locked: !!parsed['locked'],
+        visible: parsed['visible'] !== false,
+        calibrated: !!parsed['calibrated'],
+        ...(num(parsed['projectNorthRad']) !== null ? { projectNorthRad: num(parsed['projectNorthRad'])! } : {}),
+        projectNorthSet: !!parsed['projectNorthSet'],
+        savedAt: typeof parsed['savedAt'] === 'string' ? (parsed['savedAt'] as string) : new Date(0).toISOString(),
+    };
 }
 
 export function clearPersistedOverlay(projectId: string): void {
