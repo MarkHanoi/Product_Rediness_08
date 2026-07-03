@@ -40,7 +40,16 @@ export class WindowPlanToolHandler implements PlanToolHandler {
 
         const world3D = canvasHitToWorld3D(pt, c.viewPlane);
         const { sx, sy } = c.planCanvas.worldToScreen(pt.worldX, pt.worldZ);
-        const hitWallId = c.planCanvas.hitTest(sx, sy, 16);
+        // §FIX-DOOR-SLAB-HOST (L-56): PlanViewCanvas.hitTest resolves the id of the
+        // nearest projected element of ANY type (walls, slabs, IFC edges…). Windows
+        // host ONLY on walls (C15 — hosted elements anchor to a wall). Passing a raw
+        // hitTest id straight through let a slab edge under the cursor become the
+        // window's host → orphaned "Wall not found (wallId=slab_…)" opening. Accept
+        // the hit only when it resolves to a wall in the wallStore; otherwise fall
+        // back to the geometric nearest-WALL search (which iterates walls only), and
+        // reject when no wall is in reach rather than hosting on a slab/floor.
+        const rawHitId = c.planCanvas.hitTest(sx, sy, 16);
+        const hitWallId = rawHitId && wallStore.getById(rawHitId) ? rawHitId : null;
         const wallId = hitWallId ?? (
             c.viewPlane.isVertical
                 ? this._findNearestWallIdInVerticalView(pt, c, 2.0)
@@ -52,9 +61,17 @@ export class WindowPlanToolHandler implements PlanToolHandler {
             return;
         }
 
-        // §WINDOW-AUDIT-2026 (WIN-CURVED-WALL-BLOCK): refuse curved walls.
+        // §FIX-DOOR-SLAB-HOST (L-56): require a real wall host at commit. wallId is
+        // wall-validated above, but guard defensively so an opening is never
+        // dispatched against a non-wall id (C15 hosted-element invariant).
         const targetWall = wallStore.getById(wallId);
-        if (targetWall && (targetWall as any).curve) {
+        if (!targetWall) {
+            console.warn(`[WindowPlanToolHandler] Resolved host ${wallId} is not a wall — refusing to place a window on a non-wall element.`);
+            return;
+        }
+
+        // §WINDOW-AUDIT-2026 (WIN-CURVED-WALL-BLOCK): refuse curved walls.
+        if ((targetWall as any).curve) {
             console.warn('[WindowPlanToolHandler] Curved walls are not supported for window placement.');
             return;
         }

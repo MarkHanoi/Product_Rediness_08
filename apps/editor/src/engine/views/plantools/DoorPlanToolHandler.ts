@@ -40,7 +40,16 @@ export class DoorPlanToolHandler implements PlanToolHandler {
 
         const world3D = canvasHitToWorld3D(pt, c.viewPlane);
         const { sx, sy } = c.planCanvas.worldToScreen(pt.worldX, pt.worldZ);
-        const hitWallId = c.planCanvas.hitTest(sx, sy, 16);
+        // §FIX-DOOR-SLAB-HOST (L-56): PlanViewCanvas.hitTest resolves the id of the
+        // nearest projected element of ANY type (walls, slabs, IFC edges…). Doors
+        // host ONLY on walls (C15 — hosted elements anchor to a wall). Passing a raw
+        // hitTest id straight through let a slab edge under the cursor become the
+        // door's host → `[DoorBuilder] Wall not found (wallId=slab_…)` orphan. Accept
+        // the hit only when it resolves to a wall in the wallStore; otherwise fall
+        // back to the geometric nearest-WALL search (which iterates walls only), and
+        // reject when no wall is in reach rather than hosting on a slab/floor.
+        const rawHitId = c.planCanvas.hitTest(sx, sy, 16);
+        const hitWallId = rawHitId && wallStore.getById(rawHitId) ? rawHitId : null;
         const wallId = hitWallId ?? (
             c.viewPlane.isVertical
                 ? this._findNearestWallIdInVerticalView(pt, c, 2.0)
@@ -52,11 +61,19 @@ export class DoorPlanToolHandler implements PlanToolHandler {
             return;
         }
 
+        // §FIX-DOOR-SLAB-HOST (L-56): require a real wall host at commit. wallId is
+        // wall-validated above, but guard defensively so an opening is never
+        // dispatched against a non-wall id (C15 hosted-element invariant).
+        const targetWall = wallStore.getById(wallId);
+        if (!targetWall) {
+            console.warn(`[DoorPlanToolHandler] Resolved host ${wallId} is not a wall — refusing to place a door on a non-wall element.`);
+            return;
+        }
+
         // §DOOR-AUDIT-2026 (DOOR-CURVED-WALL-BLOCK): refuse curved walls — the door
         // builder geometry assumes a straight baseline; placing a door on a curved
         // wall would silently break the cut/fragment alignment.
-        const targetWall = wallStore.getById(wallId);
-        if (targetWall && (targetWall as any).curve) {
+        if ((targetWall as any).curve) {
             console.warn('[DoorPlanToolHandler] Curved walls are not supported for door placement.');
             return;
         }
