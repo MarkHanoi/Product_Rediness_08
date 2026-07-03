@@ -61,6 +61,24 @@ for (const cat of CATEGORIES) {
     }
 }
 
+// §FIX-FURNITURE-TYPE-LIST-AND-UNDO (L-68) — reverse index: FurnitureType → the
+// registry category that actually CONTAINS it. This is the authoritative source
+// for the property-panel "Type" dropdown: the peer list is read from
+// `getItemsForCategory`, so the category must be resolved from THIS registry to
+// guarantee the element's own type is in the list. The separate
+// `FURNITURE_TYPE_TO_CATEGORY` taxonomy (packages/geometry-furniture) can and does
+// disagree — e.g. it maps `bed → 'bedroom'`, but the carousel registry places the
+// `bed` type in the `beds` category and stocks `bedroom` with dresser + mirrors,
+// which is exactly the founder's wrong dropdown (a bed offering Dresser / Mirrors).
+const TYPE_TO_CATEGORY_ID_MAP = new Map<string, FurnitureCategory>();
+for (const cat of CATEGORIES) {
+    for (const item of cat.items) {
+        if (!TYPE_TO_CATEGORY_ID_MAP.has(item.type)) {
+            TYPE_TO_CATEGORY_ID_MAP.set(item.type, cat.id);
+        }
+    }
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
@@ -92,6 +110,21 @@ export function getCategoryById(id: FurnitureCategory): FurnitureCategoryDescrip
  */
 export function getItemsForCategory(id: FurnitureCategory): readonly FurnitureTypeDescriptor[] {
     return getCategoryById(id).items;
+}
+
+/**
+ * §FIX-FURNITURE-TYPE-LIST-AND-UNDO (L-68) — returns the registry category that
+ * holds a given FurnitureType, or `undefined` if the type has no registry entry.
+ *
+ * This is the authoritative resolver for the property-panel "Type" dropdown:
+ * because the dropdown items come from {@link getItemsForCategory}, resolving the
+ * element's category via THIS index guarantees the current type is always one of
+ * the offered peers (bed → `beds`), never a mismatched set from a divergent
+ * taxonomy. Prefer this over `deriveCategoryFromType`/a stored `furnitureCategory`
+ * when the goal is "list this element's own family".
+ */
+export function getCategoryForType(type: string): FurnitureCategory | undefined {
+    return TYPE_TO_CATEGORY_ID_MAP.get(type);
 }
 
 /**

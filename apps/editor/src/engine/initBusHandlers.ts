@@ -85,6 +85,10 @@ import {
   UpdateElementParameterCommand,
 } from '@pryzm/command-registry';
 import { withHandlerSpan, type Patch } from '@pryzm/plugin-sdk';
+// §FIX-FURNITURE-TYPE-LIST-AND-UNDO (L-68) — build the ring-buffer PatchPair path
+// for the furniture type-swap so the unified ring-first undo (performUndoRedo)
+// reverses the SWAP rather than popping the element's earlier CREATE. C03 §4.5–4.8.
+import { toJsonPointer } from '@pryzm/command-bus';
 
 /**
  * Registers structural command-bus stubs (§A40-W04 — column/beam/door/window/ceiling/stair).
@@ -353,6 +357,27 @@ export function initBusHandlers(
                     return;
                 }
                 if (elType === 'furniture') {
+                    // §FIX-FURNITURE-TYPE-LIST-AND-UNDO (L-68). ChangeFurnitureTypeCommand
+                    // mutates the furniture IN PLACE (stable id) → FurnitureStore.update →
+                    // `bim-furniture-updated` → mesh rebuild (ADR-0105). But it runs through
+                    // the LEGACY CommandManager, which records NO ring-buffer entry. The
+                    // unified undo (performUndoRedo) is RING-BUFFER-FIRST: with no swap
+                    // entry on the ring, the ring's TOP is still the element's earlier
+                    // CREATE, so Ctrl+Z pops the CREATE (deletes the bed) and shadow-drops
+                    // the cm swap twin — the original type is never restored (the founder's
+                    // "undo does NOT restore the bed" + "skip remove — not found" log).
+                    //
+                    // Fix: snapshot the record before/after and push an invertible
+                    // WHOLE-ELEMENT replace PatchPair on the SAME id onto the ring buffer.
+                    // Now the ring-first undo reverses THE SWAP: applyRingBufferSide routes
+                    // the inverse replace through elementUndoStoreAdapter →
+                    // furnitureStore.update(id, oldData) → mesh rebuild → the original bed
+                    // type is restored on the same element; redo re-applies newData. The id
+                    // is stable throughout, so the inverse never references a phantom id.
+                    const fstore = (window as unknown as { furnitureStore?: { get?(id: string): unknown } }).furnitureStore;
+                    const before = fstore?.get?.(cmd.elementId);
+                    const oldData = before ? structuredClone(before) : undefined;
+
                     _cmExec(new ChangeFurnitureTypeCommand({
                         id:                    cmd.elementId,
                         newFurnitureType:      cmd.newTypeId,
@@ -364,6 +389,22 @@ export function initBusHandlers(
                         newColor:              cmd.color,
                         newMaterial:           cmd.material,
                     }));
+
+                    const after = fstore?.get?.(cmd.elementId);
+                    const newData = after ? structuredClone(after) : undefined;
+                    if (oldData && newData) {
+                        try {
+                            const rb = (window.runtime?.bus as unknown as { ringBuffer?: { push?(p: unknown): void } } | undefined)?.ringBuffer;
+                            const idPtr = toJsonPointer([cmd.elementId]);
+                            rb?.push?.({
+                                forward: { ops: [{ op: 'replace', path: idPtr, value: newData }] },
+                                inverse: { ops: [{ op: 'replace', path: idPtr, value: oldData }] },
+                                affectedStores: ['furniture'],
+                            });
+                        } catch (e) {
+                            console.warn('[element.changeType] furniture ring-buffer push failed (undo falls back to commandManager):', e);
+                        }
+                    }
                     return;
                 }
                 if (elType === 'door' || elType === 'window') {

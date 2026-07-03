@@ -27,6 +27,7 @@ import { deriveCategoryFromType, type FurnitureType } from '@pryzm/geometry-furn
 import {
     getItemsForCategory,
     getDescriptorForType,
+    getCategoryForType,
     type FurnitureTypeDescriptor,
 } from '../furniture-carousel/FurnitureCategoryRegistry';
 
@@ -61,8 +62,16 @@ export function buildFurnitureTypeSelectorWidget(
     const currentType = elementData.furnitureType as FurnitureType | undefined;
     if (!currentType) return null;
 
-    // Resolve the element's category (explicit field wins; else derive from type).
-    let category = elementData.furnitureCategory as string | undefined;
+    // §FIX-FURNITURE-TYPE-LIST-AND-UNDO (L-68) — resolve the category from the
+    // REGISTRY that actually holds the dropdown items (reverse type→category)
+    // FIRST, so the peer list is guaranteed to be the element's OWN family
+    // (bed → beds), never a mismatched set. Neither the stored `furnitureCategory`
+    // nor `deriveCategoryFromType` can be trusted here: both flow from the separate
+    // `FURNITURE_TYPE_TO_CATEGORY` taxonomy which maps `bed → 'bedroom'`, whose
+    // registry items are dresser + mirrors (the founder's wrong list). They remain
+    // as fallbacks only for a type that isn't stocked in the carousel registry.
+    let category = getCategoryForType(currentType) as string | undefined;
+    if (!category) category = elementData.furnitureCategory as string | undefined;
     if (!category) {
         try { category = deriveCategoryFromType(currentType); }
         catch { return null; } // unknown type — no peer list to offer.
@@ -71,6 +80,21 @@ export function buildFurnitureTypeSelectorWidget(
     let items: readonly FurnitureTypeDescriptor[] = [];
     try { items = getItemsForCategory(category as any); }
     catch { items = []; }
+
+    // §FIX-FURNITURE-TYPE-LIST-AND-UNDO (L-68) — de-duplicate by furniture TYPE.
+    // A "change type" dropdown lists each type ONCE: some categories stock several
+    // colour/finish CARDS that share one `type` (e.g. sofas has Sofa 3-Seat in
+    // charcoal/beige/navy — all `sofa_3seat`). Three identical-value <option>s make
+    // the single-select ambiguous and break current-type pre-selection (the current
+    // type resolves to the wrong entry). First occurrence wins — matching
+    // `getDescriptorForType`, which the Apply handler uses for the target defaults.
+    const seen = new Set<string>();
+    items = items.filter((it) => {
+        const key = String(it.type);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
 
     // Only surface the picker when there is a real choice (>1 peer). A category
     // with a single item offers nothing to swap to.
@@ -100,6 +124,12 @@ export function buildFurnitureTypeSelectorWidget(
         if (it.type === currentType) opt.selected = true;
         sel.appendChild(opt);
     });
+    // §FIX-FURNITURE-TYPE-LIST-AND-UNDO (L-68) — pre-select the element's CURRENT
+    // type explicitly. Setting `select.value` is the robust cross-environment way
+    // (a per-option `.selected` flag is not reliably reflected in `select.value`);
+    // this guarantees the dropdown opens showing the element's own type, so a
+    // no-change Apply is correctly a no-op.
+    sel.value = String(currentType);
 
     // ── Apply button ────────────────────────────────────────────────────────
     const applyBtn = document.createElement('button');
