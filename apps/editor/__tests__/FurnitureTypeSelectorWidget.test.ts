@@ -78,4 +78,43 @@ describe('FurnitureTypeSelectorWidget — §FEAT-ELEMENT-CHANGE-TYPE (ADR-0105)'
         applyBtn.click();
         expect(onApply).not.toHaveBeenCalled();
     });
+
+    // ── §FIX-FURNITURE-TYPE-LIST-AND-UNDO (L-68) — bug (1): wrong candidate list ──
+    it('lists BED-family peers for a bed — NOT dresser/mirrors — even when the stored furnitureCategory is the mismatched "bedroom"', () => {
+        const onApply = vi.fn();
+        // Reproduce the founder's element: a placed BED whose stored category is the
+        // divergent 'bedroom' (from FURNITURE_TYPE_TO_CATEGORY: bed → 'bedroom'). The
+        // pre-fix widget listed getItemsForCategory('bedroom') = Dresser / Round
+        // Mirror / Rectangular Mirror. The reverse-lookup must override that and list
+        // the element's OWN registry family (`beds`).
+        const el = buildFurnitureTypeSelectorWidget(
+            { type: 'furniture', furnitureType: 'bed', furnitureCategory: 'bedroom' },
+            onApply,
+        );
+        expect(el).not.toBeNull();
+        const select = q<HTMLSelectElement>(el!, 'select.wts-select');
+        const values = Array.from(select.options).map((o) => o.value);
+
+        // the current type is present + pre-selected.
+        expect(values).toContain('bed');
+        expect(select.value).toBe('bed');
+        // real bed variants are offered.
+        expect(values).toContain('nordic_bed');
+        expect(values).toContain('solid_wood_bed');
+        // the WRONG 'bedroom'-category accessories are NOT offered.
+        expect(values).not.toContain('kave_dresser');
+        expect(values).not.toContain('kave_round_mirror');
+        expect(values).not.toContain('kave_rect_mirror');
+    });
+
+    it('lists bed-family peers for a bed with NO stored furnitureCategory (reverse-lookup from type)', () => {
+        const el = buildFurnitureTypeSelectorWidget(
+            { type: 'furniture', furnitureType: 'bed' },
+            vi.fn(),
+        );
+        expect(el).not.toBeNull();
+        const values = Array.from(q<HTMLSelectElement>(el!, 'select.wts-select').options).map((o) => o.value);
+        expect(values).toContain('bed');
+        expect(values).not.toContain('kave_dresser');
+    });
 });
