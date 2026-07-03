@@ -124,20 +124,73 @@ export class WallFragmentBuilder {
      */
     private _composeCacheKey(wall: WallData, joinData: JoinData | null | undefined, slabBaseOffset: number | undefined): string | null {
         if (wall._renderVersion === undefined) return null;
-        let jh = '_';
-        if (joinData) {
-            const sm = joinData.startMN
-                ? `${joinData.startMN.nx.toFixed(4)},${joinData.startMN.nz.toFixed(4)}`
-                : 'sq';
-            const em = joinData.endMN
-                ? `${joinData.endMN.nx.toFixed(4)},${joinData.endMN.nz.toFixed(4)}`
-                : 'sq';
-            const b0 = `${joinData.baseLine[0].x.toFixed(4)},${joinData.baseLine[0].z.toFixed(4)}`;
-            const b1 = `${joinData.baseLine[1].x.toFixed(4)},${joinData.baseLine[1].z.toFixed(4)}`;
-            jh = `${b0}-${b1}|${sm}|${em}`;
-        }
+        const jh = this._joinHash(joinData);
         const slabTag = (slabBaseOffset ?? 0).toFixed(4);
         return `${wall._renderVersion}|${jh}|${slabTag}`;
+    }
+
+    /** §WALL-DEEP-2026 B3 — hash the join miter/baseline inputs. Shared by
+     *  `_composeCacheKey` (rebuild skip-guard) and `_versionForBuild`
+     *  (§FIX-WALL-VERSION-CONTENT-HASH, L-52). */
+    private _joinHash(joinData: JoinData | null | undefined): string {
+        if (!joinData) return '_';
+        const sm = joinData.startMN
+            ? `${joinData.startMN.nx.toFixed(4)},${joinData.startMN.nz.toFixed(4)}`
+            : 'sq';
+        const em = joinData.endMN
+            ? `${joinData.endMN.nx.toFixed(4)},${joinData.endMN.nz.toFixed(4)}`
+            : 'sq';
+        const b0 = `${joinData.baseLine[0].x.toFixed(4)},${joinData.baseLine[0].z.toFixed(4)}`;
+        const b1 = `${joinData.baseLine[1].x.toFixed(4)},${joinData.baseLine[1].z.toFixed(4)}`;
+        return `${b0}-${b1}|${sm}|${em}`;
+    }
+
+    /**
+     * §FIX-WALL-VERSION-CONTENT-HASH (L-52) — resolve the `userData.version`
+     * generation token for THIS build.
+     *
+     * The token feeds the EdgeProjector / NativeElementMeshExporter plan-view
+     * projection cache (keyed `elementId:viewId:userData.version:cropKey`). The
+     * previous code bumped a monotonic `_geometrySeq` on EVERY `buildWall()`
+     * call unconditionally, so a whole-level rebuild (fired by a single-wall
+     * edit or a join re-resolve) re-versioned every wall — even untouched ones —
+     * driving the plan-projection cache hit-rate to ~0 % and reproducing the
+     * L-06 "plan view churns on every edit" storm.
+     *
+     * Fix: only mint a fresh token when the wall's projected-geometry inputs
+     * actually change. The content key folds exactly the determinants of the
+     * built geometry: the wall's own `_renderVersion` (bumped by WallStore on
+     * every baseline / thickness / height / baseOffset / layers / openings /
+     * material mutation), the join miter/baseline hash (neighbour changes), and
+     * `worldY` (level elevation + slab base offset + baseOffset). When the key
+     * is unchanged from this wall's last build we REUSE its prior token, so the
+     * projection cache keeps its entry and reports a HIT. Genuine geometry
+     * changes still mint a new (globally-unique, monotonic) token, preserving
+     * the §96-STALE-GUARD async-swap generation semantics.
+     *
+     * Legacy / test walls with no `_renderVersion` fall back to the historical
+     * always-fresh behaviour so nothing that lacks the version contract can
+     * pin a stale cache entry.
+     */
+    private _versionForBuild(
+        wall: WallData,
+        joinData: JoinData | null | undefined,
+        worldY: number | undefined,
+    ): number {
+        if (wall._renderVersion === undefined) {
+            // No stable content signal — preserve legacy "unique on every build".
+            return ++this._geometrySeq;
+        }
+        const key = `${wall._renderVersion}|${this._joinHash(joinData)}|${(worldY ?? 0).toFixed(4)}`;
+        const prev = this._geomVersionKey.get(wall.id);
+        if (prev !== undefined && prev.key === key) {
+            // Inputs unchanged since the last build — reuse the token so the
+            // plan-projection cache entry stays valid (a HIT).
+            return prev.seq;
+        }
+        const seq = ++this._geometrySeq;
+        this._geomVersionKey.set(wall.id, { key, seq });
+        return seq;
     }
 
     // §PHASE-3: Optional instanced rendering bridge.
@@ -193,8 +246,22 @@ export class WallFragmentBuilder {
      *   Using _geometrySeq guarantees a unique version on every actual call to
      *   buildWall() regardless of whether _renderVersion changed, busting the
      *   NME cache correctly on every join-triggered or miter-adjustment rebuild.
+     *
+     *   §FIX-WALL-VERSION-CONTENT-HASH (L-52): the bump is now CONDITIONAL —
+     *   `_versionForBuild()` only mints a fresh token when the wall's projected
+     *   geometry inputs actually change (see that method). `_geometrySeq` remains
+     *   the monotonic source of fresh tokens; it is no longer incremented for a
+     *   no-op rebuild, so untouched walls keep their projection-cache entry.
      */
     private _geometrySeq = 0;
+
+    /**
+     * §FIX-WALL-VERSION-CONTENT-HASH (L-52) — per-wall record of the last
+     * content key and the generation token minted for it. When a rebuild
+     * arrives with the identical key the stored token is reused (stable
+     * `userData.version` → plan-projection cache HIT). Cleared in removeWall().
+     */
+    private _geomVersionKey = new Map<string, { key: string; seq: number }>();
 
     // ── 23-L2 Phase 3: rAF-sliced build queue (mirrors SlabFragmentBuilder/CurtainWallBuilder) ──
     /**
@@ -613,6 +680,9 @@ export class WallFragmentBuilder {
         // §VIEW-DIRTY-CHECK §2.3: clear the cached version so that if this wall is
         // re-created (undo of delete), updateWall() always triggers a fresh build.
         this._lastBuiltVersion.delete(wallId);
+        // §FIX-WALL-VERSION-CONTENT-HASH (L-52): drop the per-wall content key so a
+        // re-created wall (undo of delete) mints a fresh generation token.
+        this._geomVersionKey.delete(wallId);
 
         // §PHASE-3: Unregister from GPU instancing if the wall was on the instanced path.
         this._instanceBridge?.unregister(wallId);
@@ -673,9 +743,13 @@ export class WallFragmentBuilder {
     // all end caps are perpendicular (free wall end, no join).  Replaces the old
     // miterNormalsCache pattern — the builder is now a pure function of its inputs.
     buildWall(wall: WallData, joinData?: JoinData | null, renderMap?: OpeningRenderMap, worldY?: number): string[] {
-        // §NME-VERSION-FIX: increment before touching userData so the version is
-        // unique on every actual geometry build regardless of call path.
-        this._geometrySeq++;
+        // §NME-VERSION-FIX + §FIX-WALL-VERSION-CONTENT-HASH (L-52): resolve the
+        // generation token for this build. Only mints a FRESH token when this
+        // wall's projected-geometry inputs changed, so a whole-level rebuild no
+        // longer re-versions untouched walls and the EdgeProjector/NME plan cache
+        // keeps their entries (see _versionForBuild). Still unique on a real
+        // change, preserving the join/miter cache-bust and §96-STALE-GUARD.
+        const geometryVersion = this._versionForBuild(wall, joinData, worldY);
 
         // Step 1: Get or Create Persistent Root
         let wallGroup = this.wallRoots.get(wall.id);
@@ -736,14 +810,14 @@ export class WallFragmentBuilder {
         }
         wallGroup.userData.modelId = 'model-default';
         wallGroup.userData.selectable = true;
-        // §NME-VERSION-FIX: stamp _geometrySeq (incremented at the top of this
-        // method) rather than wall._renderVersion.  _renderVersion does NOT change
-        // when only joinData changes (a join-triggered rebuild), so the
-        // NativeElementMeshExporter proxy cache would serve stale pre-miter
-        // geometry to the plan-view projection.  _geometrySeq is unique on every
-        // actual buildWall() call regardless of which field changed, busting the
-        // NME cache correctly for join-triggered and miter-adjustment rebuilds.
-        wallGroup.userData.version = this._geometrySeq;
+        // §NME-VERSION-FIX + §FIX-WALL-VERSION-CONTENT-HASH (L-52): stamp the
+        // content-derived generation token resolved at the top of this method
+        // rather than a raw monotonic counter. It changes on every real geometry
+        // delta (own fields via _renderVersion, joins via the miter hash, worldY)
+        // — busting the NME/EdgeProjector plan cache when the projection actually
+        // changes — but stays STABLE for a no-op rebuild so untouched walls keep
+        // their cache entry under a whole-level rebuild.
+        wallGroup.userData.version = geometryVersion;
         // §14 FIX: levelId populated here — before any early-return branch — so
         // ALL code paths (layered-no-openings, curved, layered-curved) expose it
         // in userData. Previously only the plain-wall path set it via Object.assign
@@ -1943,7 +2017,10 @@ export class WallFragmentBuilder {
                 // swap aborts if a newer buildWall() restamps userData.version while
                 // we await the (lazy-WASM) boolean — the wallGroup is REUSED across
                 // rebuilds (wallRoots.get), so parent!==null alone is insufficient.
-                version: this._geometrySeq,
+                // §FIX-WALL-VERSION-CONTENT-HASH (L-52): use the resolved token, not
+                // the raw counter — a genuine change mints a new token (abort), a
+                // no-op rebuild reuses it (the identical geometry is safe to apply).
+                version: geometryVersion,
             });
         }
 
@@ -3157,7 +3234,12 @@ export class WallFragmentBuilder {
         const ud = wallGroup.userData as any;
         ud.modelId       = ud.modelId ?? 'model-default';
         ud.selectable    = true;
-        ud.version       = this._geometrySeq;  // §NME-VERSION-FIX: see buildWall()
+        // §FIX-WALL-VERSION-CONTENT-HASH (L-52): preserve the token buildWall()
+        // already stamped on userData.version (before any branch reaches here);
+        // do NOT re-read the raw _geometrySeq, which may have advanced for a
+        // DIFFERENT wall since this build resolved its token. Fallback only for
+        // a hypothetical caller that reached this helper without a prior stamp.
+        if (ud.version === undefined) ud.version = this._geometrySeq;  // §NME-VERSION-FIX: see buildWall()
         ud.levelId       = wall.levelId;
         ud.baseLine      = wall.baseLine;
         ud.height        = wall.height;
