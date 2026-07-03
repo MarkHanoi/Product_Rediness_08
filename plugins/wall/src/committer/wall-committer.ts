@@ -1,5 +1,21 @@
 // WallCommitter — `PrimitiveCommitter<WallData, THREE.Group>` (S09-T2).
 //
+// §P8-SPAN-COVERAGE (L-55, 2026-07-03) — P8 requires ≥1 OTel span per exported
+// function. The wall subsystem's observable surface is span-covered by its
+// WRAPPERS, not by per-method spans, and this is the deliberate, codified choice:
+//   • Every wall COMMAND handler wraps its `execute` in `withHandlerSpan(...)`
+//     (all 22 in plugins/wall/src/handlers/*), and the L2 bus emits a
+//     `pryzm.command.execute` span around the whole canExecute→execute→emit
+//     pipeline (packages/command-bus/src/CommandBus.ts:261).
+//   • The committer's `onAdd`/`onUpdate`/`onRemove` are `PrimitiveCommitter`
+//     interface reactors, NOT standalone exported functions. They always run
+//     INSIDE the host's `pryzm.scene.commit.batch` span
+//     (packages/scene-committer/src/CommitterHost.ts:118 `withSpan`), whose
+//     `pryzm.scene.added/updated/removed` attributes already carry the per-batch
+//     committer telemetry (the counters below feed it).
+// Adding nested per-method spans here would only add noise under an already-
+// present parent span — so we intentionally rely on the wrapper coverage.
+//
 // Spec: `phases/PHASE-1B-Q2-M4-M6-WALL-END-TO-END.md` §S09-T2 (line 692):
 //   "implements PrimitiveCommitter<WallStore>... For each `added` wall:
 //    calls producer, builds THREE.BufferGeometry from descriptor,
