@@ -205,10 +205,19 @@ export function registerTransformDragHandler(deps: DragHandlerDeps): void {
                                  || Math.abs(obj.rotation.y - prevRy) > 1e-4
                                  || Math.abs(obj.rotation.z - prevRz) > 1e-4;
                     if (moved || rotated) {
+                        // §FIX-UNDO-CAPTURE-SYSTEMIC (L-72) — opt this 3D-gizmo move/rotate
+                        // into the unified ring-buffer undo timeline (mirrors L-49 for walls).
+                        // `_prevPosition`/`_prevRotation` are the pre-move pose so the handler's
+                        // inverse PatchPair restores it exactly; without this the move landed
+                        // ONLY in commandManager and the ring-buffer-first undo reverted some
+                        // other element ("furniture stays moved").
                         window.runtime?.bus?.executeCommand('furniture.updateParameters', {
                             id,
                             position: { x: prevX + dx, y: prevY, z: prevZ + dz },
                             rotation: { x: obj.rotation.x, y: obj.rotation.y, z: obj.rotation.z, order: obj.rotation.order },
+                            _recordUndo: true,
+                            _prevPosition: { x: prevX, y: prevY, z: prevZ },
+                            _prevRotation: { x: prevRx, y: prevRy, z: prevRz },
                         })?.catch((e: unknown) => console.error('[TransformDrag] furniture.updateParameters failed:', e));
                         const captured = obj;
                         const sched = getFrameScheduler();
@@ -282,9 +291,14 @@ export function registerTransformDragHandler(deps: DragHandlerDeps): void {
                     const moved   = Math.abs(dx) > 1e-6 || Math.abs(dz) > 1e-6;
                     const rotated = Math.abs(obj.rotation.y - prevRy) > 1e-4;
                     if (moved || rotated) {
+                        // §FIX-UNDO-CAPTURE-SYSTEMIC (L-72) — ring-capture the move/rotate
+                        // (declare `_recordUndo` + the pre-move `_prev` pose so the bridge
+                        // emits an invertible PatchPair; see initBusHandlers column.update).
                         window.runtime?.bus?.executeCommand('column.update', {
                             id,
                             updates: { position: { x: prevX + dx, y: prevY, z: prevZ + dz }, rotation: obj.rotation.y },
+                            _recordUndo: true,
+                            _prev: { position: { x: prevX, y: prevY, z: prevZ }, rotation: prevRy },
                         })?.catch((e: unknown) => console.error('[TransformDrag] column.update failed:', e));
                         const captured = obj;
                         const sched = getFrameScheduler();
@@ -313,11 +327,19 @@ export function registerTransformDragHandler(deps: DragHandlerDeps): void {
                         const dx = obj.position.x - sp.x;
                         const dz = obj.position.z - sp.z;
                         if (Math.abs(dx) > 1e-6 || Math.abs(dz) > 1e-6) {
+                            // §FIX-UNDO-CAPTURE-SYSTEMIC (L-72) — ring-capture the move
+                            // (pre-move endpoints as `_prev` so the bridge emits an
+                            // invertible PatchPair; see initBusHandlers beam.update).
                             window.runtime?.bus?.executeCommand('beam.update', {
                                 beamId: id,
                                 updates: {
                                     startPoint: { x: sp.x + dx, y: sp.y, z: sp.z + dz },
                                     endPoint:   { x: ep.x + dx, y: ep.y, z: ep.z + dz },
+                                },
+                                _recordUndo: true,
+                                _prev: {
+                                    startPoint: { x: sp.x, y: sp.y, z: sp.z },
+                                    endPoint:   { x: ep.x, y: ep.y, z: ep.z },
                                 },
                             })?.catch((e: unknown) => console.error('[TransformDrag] beam.update failed:', e));
                             const captured = obj;
@@ -396,9 +418,16 @@ export function registerTransformDragHandler(deps: DragHandlerDeps): void {
                                     ? { x: pt.x + dx, z: pt.z + dz }
                                     : { x: pt.x + dx, y: (pt.y ?? 0) + dz }
                             );
+                            // §FIX-UNDO-CAPTURE-SYSTEMIC (L-72) — ring-capture the move.
+                            // Deep-clone the pre-move polygon (the store may mutate its
+                            // boundary in place) so the inverse PatchPair restores the exact
+                            // original vertices (see initBusHandlers floor.update).
+                            const prevPoly = poly.map((p) => ({ ...p }));
                             window.runtime?.bus?.executeCommand('floor.update', {
                                 floorId: id,
                                 updates: { boundary: { ...floor.boundary, polygon: newPoly } },
+                                _recordUndo: true,
+                                _prev: { boundary: { ...floor.boundary, polygon: prevPoly } },
                             })?.catch((e: unknown) => console.error('[TransformDrag] floor.update failed:', e));
                             const captured = obj;
                             const sched = getFrameScheduler();

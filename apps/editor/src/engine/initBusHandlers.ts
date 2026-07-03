@@ -84,7 +84,7 @@ import {
   GenerativeDesignApplyCommand,
   UpdateElementParameterCommand,
 } from '@pryzm/command-registry';
-import { withHandlerSpan } from '@pryzm/plugin-sdk';
+import { withHandlerSpan, type Patch } from '@pryzm/plugin-sdk';
 
 /**
  * Registers structural command-bus stubs (§A40-W04 — column/beam/door/window/ceiling/stair).
@@ -152,7 +152,47 @@ export function initBusHandlers(
     // TODO(F-1.4): replace with authoritative Immer store updates when plugin
     //              stores for these element types are fully implemented.
 
-    type BridgeSpec = { type: string; stores: readonly string[]; fn: (cmd: any) => void; validate?: (cmd: any) => string | null };
+    // §FIX-UNDO-CAPTURE-SYSTEMIC (L-72) — a bridge MAY additionally emit a
+    // forward/inverse PatchPair so the mutation it bridges to commandManager is ALSO
+    // recorded on the unified ring buffer (the stack performUndo() consults FIRST).
+    // Without this, a bridge that returns empty patches is classified as an
+    // EMPTY-PATCH record and SKIPPED the ring buffer — its commandManager-only entry
+    // is then stranded on the independent cm cursor while the ring-buffer-first
+    // performUndo() reverts some OTHER covered element instead ("element stays
+    // moved"). Mirrors §FIX-WALL-MOVE-UNDO-CAPTURE (L-49) / plugins/wall UpdateWallBaseline.
+    // `undoPatch` returns null when the caller did not opt in (`_recordUndo`) or lacks
+    // the pre-move `_prev` snapshot → previous empty-patch behaviour is preserved.
+    type BridgeSpec = {
+      type: string;
+      stores: readonly string[];
+      fn: (cmd: any) => void;
+      validate?: (cmd: any) => string | null;
+      undoPatch?: (cmd: any) => { forward: Patch[]; inverse: Patch[] } | null;
+    };
+
+    // §FIX-UNDO-CAPTURE-SYSTEMIC (L-72) — shared builder for the 3D-gizmo
+    // move/rotate bridges (column/beam/floor). Produces store-relative JSON-Patch
+    // (path[0] = element id, path[1] = field) for EVERY field in `next` that has a
+    // matching pre-move value in `prev` — the exact shape elementUndoStoreAdapter
+    // routes to `window.<x>Store.update(id, { field })` → the element's
+    // `bim-<x>-updated` rebuild. One drag ⇒ one undoable step whose inverse restores
+    // the pre-move pose and whose forward re-applies it. Returns null when nothing is
+    // fully invertible so no half-undoable step is recorded.
+    const _movePatchPair = (
+      id: string | undefined,
+      prev: Record<string, unknown> | undefined,
+      next: Record<string, unknown> | undefined,
+    ): { forward: Patch[]; inverse: Patch[] } | null => {
+      if (!id || !prev || !next) return null;
+      const forward: Patch[] = [];
+      const inverse: Patch[] = [];
+      for (const field of Object.keys(next)) {
+        if (!(field in prev)) continue;               // no before value → cannot invert this field
+        forward.push({ op: 'replace', path: [id, field], value: next[field] });
+        inverse.push({ op: 'replace', path: [id, field], value: prev[field] });
+      }
+      return forward.length > 0 ? { forward, inverse } : null;
+    };
 
     // ── §P1.4 (IMPL-PLAN-2026-05-17): _cmExec helper ───────────────────────
     // Replaces the bare `if (cm) cm.execute(...)` pattern that silently dropped
@@ -187,22 +227,32 @@ export function initBusHandlers(
             fn: (cmd) => { _cmExec(new UpdateRoofCommand(cmd.id, cmd.updates)); },
         },
         {
+            // §FIX-UNDO-CAPTURE-SYSTEMIC (L-72) — 3D-gizmo column move/rotate is now
+            // recorded on the ring buffer (declare the `column` store + emit a
+            // forward/inverse PatchPair when the drag-end opts in via `_recordUndo`
+            // and supplies `_prev`). The commandManager bridge still does the
+            // authoritative store mutation + mesh rebuild at execute time.
             type: 'column.update',
-            stores: [] as const,
+            stores: ['column'] as const,
             validate: (cmd) => (!cmd.id ? 'id is required' : null),
             fn: (cmd) => { _cmExec(new UpdateColumnCommand({ id: cmd.id, updates: cmd.updates })); },
+            undoPatch: (cmd) => (cmd._recordUndo ? _movePatchPair(cmd.id, cmd._prev, cmd.updates) : null),
         },
         {
+            // §FIX-UNDO-CAPTURE-SYSTEMIC (L-72) — 3D-gizmo beam move ring-captured.
             type: 'beam.update',
-            stores: [] as const,
+            stores: ['beam'] as const,
             validate: (cmd) => (!cmd.beamId ? 'beamId is required' : null),
             fn: (cmd) => { _cmExec(new UpdateBeamCommand({ beamId: cmd.beamId, updates: cmd.updates })); },
+            undoPatch: (cmd) => (cmd._recordUndo ? _movePatchPair(cmd.beamId, cmd._prev, cmd.updates) : null),
         },
         {
+            // §FIX-UNDO-CAPTURE-SYSTEMIC (L-72) — 3D-gizmo floor move ring-captured.
             type: 'floor.update',
-            stores: [] as const,
+            stores: ['floor'] as const,
             validate: (cmd) => (!cmd.floorId ? 'floorId is required' : null),
             fn: (cmd) => { _cmExec(new UpdateFloorCommand({ floorId: cmd.floorId, updates: cmd.updates })); },
+            undoPatch: (cmd) => (cmd._recordUndo ? _movePatchPair(cmd.floorId, cmd._prev, cmd.updates) : null),
         },
         {
             type: 'ceiling.update',
@@ -864,12 +914,23 @@ export function initBusHandlers(
                 },
                 execute: (_ctx: any, cmd: any): any => {
                     return withHandlerSpan(`${spec.type}.handler`, { 'pryzm.command.type': spec.type }, () => {
+                        // §FIX-UNDO-CAPTURE-SYSTEMIC (L-72) — compute the ring-buffer
+                        // PatchPair BEFORE the bridge mutation (the `_prev` snapshot in
+                        // the payload is the pre-move state). The bridge still performs
+                        // the authoritative commandManager mutation; these patches are
+                        // applied ONLY on undo/redo (see BridgeSpec.undoPatch).
+                        let patches: { forward: Patch[]; inverse: Patch[] } | null = null;
+                        try {
+                            patches = spec.undoPatch?.(cmd) ?? null;
+                        } catch (e) {
+                            console.error(`[initBusHandlers] ${spec.type} undoPatch failed:`, e);
+                        }
                         try {
                             spec.fn(cmd);
                         } catch (e) {
                             console.error(`[initBusHandlers] ${spec.type} bridge failed:`, e);
                         }
-                        return { forward: [], inverse: [] };
+                        return patches ?? { forward: [], inverse: [] };
                     });
                 },
             } as any);
