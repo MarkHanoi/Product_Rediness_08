@@ -626,15 +626,27 @@ class OnboardingStepController {
                 this.toast('No boundary drawn — using a default plot.', 'info');
                 void this.fallbackDefaultRectToConfirm('watchdog');
             } else if (source === 'overlay') {
-                // §FIX-SITE-OVERLAY-RENDER-AND-FLOW (L-58): the user pressed "✓ Use this
-                // placement" on the site-plan overlay. Per L-38 a geolocated + calibrated
-                // plan is a valid located plot — no mandatory boundary trace to proceed.
-                // If they ALSO traced a boundary, `site.parcel-boundary-set` would have
-                // won the race (settled); reaching here means no boundary yet, so author a
-                // default plot and advance to the confirm step (they can still refine later).
-                console.log('[onboarding-step] §SITE-OVERLAY: placement committed — advancing to confirm (default plot, no trace required).');
-                this.toast('Plan placement saved — you can trace or refine your plot next.', 'success');
-                void this.fallbackDefaultRectToConfirm('overlay-placement-committed');
+                // §FIX-SITE-OVERLAY-IMPORT-TERMINAL (L-69): the user pressed "✓ Use this
+                // placement" on the site-plan overlay. Founder intent: PDF/image import is a
+                // TERMINAL "place accurately → enter the PRYZM canvas to start working" path
+                // — it must NOT force a parcel-boundary trace and must NOT auto-generate a
+                // building (the previous §FIX-SITE-OVERLAY-RENDER-AND-FLOW routed this into a
+                // default-plot generate-confirm, which is exactly the coupling the founder
+                // rejected). θ/Project North is already set (dispatchSiteTrueNorth) and the
+                // calibrated plan is durably persisted per-project (SiteOverlayRasterStore +
+                // lean metadata), so here we simply LAND IN THE CANVAS: dispose the wizard,
+                // leaving the Site + the placed plan intact — NO boundary, NO generate.
+                // Boundary-trace / generate remain SEPARATE explicit choices (the other
+                // onboarding branches), never the forced endpoint of the overlay path.
+                console.log('[onboarding-step] §SITE-OVERLAY: placement committed — terminal (enter canvas; NO boundary, NO generate).');
+                // Dispose ONLY the wizard: the site map + the placed/calibrated plan stay
+                // visible as the working reference (the plan is also durably persisted).
+                // We deliberately do NOT force-close the map — that would hide the plan the
+                // user just placed (rendering it as a live underlay INSIDE the 3D/plan editor
+                // is the ADR-0115 §Remaining #1 plan-canvas bridge). The map's own × enters
+                // the empty editor when they're ready to build.
+                this.toast('Plan placed and calibrated — saved to your project. Start working on the plan; close the map (×) to enter the editor.', 'success');
+                this.dispose();
             } else {
                 // O.7.1: keep the drawn boundary visible on the map + ASK before
                 // generating (typology→AI dispatch). Do NOT auto-generate.

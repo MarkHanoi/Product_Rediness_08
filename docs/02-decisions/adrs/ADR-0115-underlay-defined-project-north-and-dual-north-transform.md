@@ -6,9 +6,11 @@
   application are documented follow-ups (see §Remaining).
 - **Deciders:** Founder + Claude (Opus 4.8)
 - **Tags:** `§FEAT-SITE-OVERLAY-PLACE`, `§FEAT-PROJECT-TRUE-NORTH`, `§FEAT-SITE-VIEW-ALWAYS-ON`,
-  `§FIX-SITE-OVERLAY-RENDER-AND-FLOW` (L-58).
+  `§FIX-SITE-OVERLAY-RENDER-AND-FLOW` (L-58), `§FIX-SITE-OVERLAY-CALIBRATION-EXCLUSIVE` +
+  `§FIX-SITE-OVERLAY-IMPORT-TERMINAL` (L-69).
 - **Audit rows:** L-38 (overlay + dual north), L-40 (3D site/globe always reachable),
-  L-58 (the MapLibre overlay wasn't visibly rendering + the flow didn't complete).
+  L-58 (the MapLibre overlay wasn't visibly rendering + the flow didn't complete),
+  L-69 (2-pt calibration dead + import wrongly coupled to generate).
 - **2026-07-03 update (L-58, `§FIX-SITE-OVERLAY-RENDER-AND-FLOW`).** Made the MapLibre site
   overlay actually work end-to-end on the 2D boundary map (distinct from the plan-canvas
   THREE underlay of Remaining item 1). Three root causes fixed: (a) **render** — the
@@ -23,6 +25,19 @@
   `site.overlay-placement-committed`; the onboarding wizard listens and advances Step 2 → the
   plot/confirm step (L-38: a geolocated + calibrated plan is a valid located plot — no
   mandatory boundary trace to proceed).
+- **2026-07-03 follow-up (L-69, `§FIX-SITE-OVERLAY-CALIBRATION-EXCLUSIVE` +
+  `§FIX-SITE-OVERLAY-IMPORT-TERMINAL`).** Two founder defects on the shipped overlay. **(1)
+  2-pt calibration was dead:** (a) the overlay map-click listener read the MapMouseEvent as the
+  lng/lat (`e.lng`/`e.lat`, undefined) instead of `e.lngLat` → NaN → no point captured; and (b)
+  the boundary DRAW tool consumed the two clicks as parcel vertices (even committing a boundary
+  → forcing generate). Fix: read `e.lngLat`, and the draw tool now YIELDS its clicks while
+  `overlayController.isCalibrating()` is true, so both clicks land as scale points. **(2)
+  Import decoupled from generate:** the L-58 commit routed "✓ Use this placement" into a
+  default-plot generate-confirm — reversed. Import is now a TERMINAL "place → enter canvas"
+  path: dispatch θ, keep the calibrated plan persisted, dispose the wizard — no forced boundary
+  trace, no auto-generate. Boundary-trace / generate remain separate explicit onboarding
+  branches. (Superseding the L-58 flow-completion behaviour of routing to the generate-confirm
+  step; the typed `site.overlay-placement-committed` event is retained but now terminal.)
 - **Related / composes with:**
   [ADR-0070 Project North vs True North authoring frame](0070-project-north-vs-true-north-authoring-frame.md)
   (extends — gives θ a first-class *UI source*),
@@ -173,6 +188,12 @@ site. Fix (additive):
    confirm/OK captures `mesh.rotation.z` → `deriveProjectNorthAngle` → `dispatchSiteTrueNorth`,
    and shares the one overlay placement transform with the MapLibre surface. The pure
    transform + capture helpers + the P6 path all exist; this is the remaining UI wiring.
+   **Note (L-69):** this bridge is also what would surface the placed MapLibre plan as a live
+   underlay INSIDE the 3D/plan editor canvas. Until it lands, the L-69 terminal-import path
+   (`§FIX-SITE-OVERLAY-IMPORT-TERMINAL`) keeps the plan **durably persisted** per-project +
+   visible on the site map, and "✓ Use this placement" is a TERMINAL "place → enter canvas"
+   action (dispatch θ, persist, dispose the wizard) with **no forced boundary trace or
+   auto-generate** — importing an image is decoupled from generating a building.
 2. **Globe applies θ to the placed model.** `CesiumViewport` currently does not read
    `SiteLocation.trueNorth`; feed θ into the Forma massing placement so the model rotates to
    true north on the globe (the transform primitive is ready).

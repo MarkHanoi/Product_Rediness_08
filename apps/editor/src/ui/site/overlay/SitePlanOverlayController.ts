@@ -108,6 +108,14 @@ interface OverlayState {
 export interface SitePlanOverlayControllerHandle {
     /** Open the file picker (the onboarding entry button calls this). */
     promptUpload(): void;
+    /**
+     * §FIX-SITE-OVERLAY-CALIBRATION-EXCLUSIVE (L-69) — true while the 2-point scale
+     * calibration is capturing its two map clicks. The host boundary-DRAW tool queries
+     * this to YIELD its click handling for the duration, so the two calibration clicks
+     * land as points a & b instead of being consumed as parcel vertices (which then
+     * committed a boundary + forced the generate flow). See SiteBoundaryMap2D.onClick.
+     */
+    isCalibrating(): boolean;
     /** Tear down the panel + layer (does NOT clear persistence). */
     dispose(): void;
     readonly element: HTMLElement;
@@ -393,9 +401,14 @@ export function mountSitePlanOverlayController(
     }
 
     // Map click → record a calibration point (in source pixels) when calibrating.
-    function onMapClick(lngLat: { lng: number; lat: number }): void {
+    // §FIX-SITE-OVERLAY-CALIBRATION-EXCLUSIVE (L-69) — MapLibre hands the listener a
+    // MapMouseEvent whose geographic point is `e.lngLat` (NOT the event itself). The old
+    // signature treated the event AS the lng/lat, so `e.lng`/`e.lat` were undefined →
+    // NaN → mapPointToSourcePixel returned null → NO calibration point was ever captured
+    // (the second, silent, root cause of "calibration doesn't work"). Read `e.lngLat`.
+    function onMapClick(e: { lngLat: { lng: number; lat: number } }): void {
         if (!calibrating || !state) return;
-        const px = mapPointToSourcePixel(lngLat);
+        const px = mapPointToSourcePixel(e.lngLat);
         if (!px) return;
         if (!calibrating.a) {
             calibrating.a = px;
@@ -620,17 +633,27 @@ export function mountSitePlanOverlayController(
         calBtn.style.marginTop = '8px';
         panel.appendChild(calBtn);
 
-        // §FEAT-PROJECT-TRUE-NORTH — the OK / "use this placement" commit. Sets Project
-        // North from the plan's on-map orientation (θ → the model's true-north). NO
-        // boundary trace is required for this path (the Part A goal).
-        const okBtn = button(
-            state.projectNorthSet ? '✓ Project North set — update' : '✓ Use this placement (set Project North)',
+        // §FIX-SITE-OVERLAY-IMPORT-TERMINAL (L-69) — the explicit terminal CTA. Founder ask:
+        // once the plan is placed + (optionally) calibrated and it lines up, ONE obvious
+        // "everything is good → proceed" button. Clicking it is the single commit action:
+        // set Project North (θ, ADR-0115), keep the calibrated plan as the durable canvas
+        // reference, dispose the wizard, and land in the PRYZM editor canvas — NO boundary
+        // trace, NO auto-generate. Replaces the ambient "Use this placement" text with a
+        // clear CTA. Calibration stays OPTIONAL (Part A / L-38), so this is never gated on it.
+        const finishHint = label('When the plan lines up, finish to keep it as a reference and start working.');
+        finishHint.style.marginTop = '10px';
+        panel.appendChild(finishHint);
+
+        const finishBtn = button(
+            state.projectNorthSet ? '✓ Finished — update & re-enter canvas' : '✓ Finish — enter canvas',
             commitProjectNorth,
             true,
         );
-        okBtn.style.marginTop = '6px';
-        okBtn.setAttribute('data-testid', 'site-overlay-commit-project-north');
-        panel.appendChild(okBtn);
+        Object.assign(finishBtn.style, { marginTop: '4px', padding: '10px 8px', fontSize: '13px' } satisfies Partial<CSSStyleDeclaration>);
+        // Keep the historical testid (existing wiring) + add the intent-named one.
+        finishBtn.setAttribute('data-testid', 'site-overlay-commit-project-north');
+        finishBtn.setAttribute('data-testid-alt', 'site-overlay-finish');
+        panel.appendChild(finishBtn);
 
         // toggles + remove
         const row = document.createElement('div');
@@ -689,5 +712,11 @@ export function mountSitePlanOverlayController(
     renderPanel();
     void restore();
 
-    return { promptUpload, dispose, element: panel };
+    // §FIX-SITE-OVERLAY-CALIBRATION-EXCLUSIVE (L-69) — expose the calibration state so the
+    // host draw tool can yield its clicks while the user is picking the two scale points.
+    function isCalibrating(): boolean {
+        return calibrating != null;
+    }
+
+    return { promptUpload, isCalibrating, dispose, element: panel };
 }

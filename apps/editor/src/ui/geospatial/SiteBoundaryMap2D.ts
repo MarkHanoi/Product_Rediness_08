@@ -1028,6 +1028,13 @@ export function mountSiteBoundaryMap2D(
 
     function onClick(e: MapMouseEvent): void {
         if (disposed || committed) return;
+        // §FIX-SITE-OVERLAY-CALIBRATION-EXCLUSIVE (L-69) — while the site-plan overlay is
+        // capturing its two 2-point-calibration clicks, the DRAW tool must YIELD: otherwise
+        // this handler consumed the two clicks as parcel vertices (rectangle/circle mode
+        // even COMMITTED a boundary → forced the generate flow), so the calibration never
+        // captured its points. The overlay's own map-click listener still fires and records
+        // the points; we simply don't add vertices / commit here for the duration.
+        if (overlayController?.isCalibrating?.()) return;
         // Ignore the click that ends a vertex-drag.
         if (draggingIdx !== null) return;
         // A.8.c.g — commit the snapped position when a snap is active, else raw.
