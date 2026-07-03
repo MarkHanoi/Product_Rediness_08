@@ -7,6 +7,7 @@ import type { EdgeProjectorService } from './EdgeProjectorService';
 import type { ViewDefinition } from '@pryzm/core-app-model';
 import type { IPlanViewManager } from '@pryzm/views';
 import { viewTechnicalDrawingCache } from '@pryzm/core-app-model';
+import { PLAN_INCREMENTAL_SAFE_TYPES } from '@pryzm/core-app-model';
 import { activePlanDrawingRef } from '@pryzm/core-app-model';
 import { nativeElementMeshExporter } from '@pryzm/core-app-model';
 import { vgGovernanceStore } from '@pryzm/core-app-model';
@@ -94,6 +95,12 @@ export class PlanViewManager implements IPlanViewManager {
     private readonly _boundProjectionStale = this._onProjectionStale.bind(this);
     /** Coalesce bursts of element mutations into one re-projection per ~30 ms. */
     private _staleProjectionTimer: ReturnType<typeof setTimeout> | null = null;
+    /**
+     * §FIX-PLAN-PROJECT-INCREMENTAL (L-65) — dirtied element ids (→ store elementType)
+     * accumulated across the current 30 ms stale-projection coalescing window. Consumed
+     * on timer fire to decide the incremental-graft fast-path vs a full reprojection.
+     */
+    private readonly _pendingStale = new Map<string, string>();
     /**
      * Debounce timer to call endMotion() after the last wheel event.
      * Pan end (mouseup) calls endMotion() immediately; wheel zoom has no
@@ -215,6 +222,8 @@ export class PlanViewManager implements IPlanViewManager {
             clearTimeout(this._staleProjectionTimer);
             this._staleProjectionTimer = null;
         }
+        // §FIX-PLAN-PROJECT-INCREMENTAL — drop any accumulated dirty-element window.
+        this._pendingStale.clear();
         if (this._wheelMotionTimer !== null) {
             clearTimeout(this._wheelMotionTimer);
             this._wheelMotionTimer = null;
@@ -505,14 +514,31 @@ export class PlanViewManager implements IPlanViewManager {
      * coalesced into a single re-projection via a short trailing-edge timer —
      * one event burst → one network of GPU work, not four.
      */
-    private _onProjectionStale(_e: Event): void {
+    private _onProjectionStale(e: Event): void {
         if (!this._viewDef) return;
+
+        // §FIX-PLAN-PROJECT-INCREMENTAL (L-65) — accumulate every dirtied element
+        // (id → store elementType) across the 30 ms coalescing window so the flush can
+        // decide the incremental-graft fast-path.
+        const detail = (e as CustomEvent<{ elementId?: string; elementType?: string }>).detail;
+        if (detail?.elementId) {
+            this._pendingStale.set(detail.elementId, detail.elementType ?? '');
+        }
+
         if (this._staleProjectionTimer !== null) return;
 
         this._staleProjectionTimer = setTimeout(() => {
             this._staleProjectionTimer = null;
             const viewDef = this._viewDef;
-            if (!viewDef) return;
+            if (!viewDef) { this._pendingStale.clear(); return; }
+            const pending = new Map(this._pendingStale);
+            this._pendingStale.clear();
+
+            // §FIX-PLAN-PROJECT-INCREMENTAL (L-65) — try the O(dirty) incremental graft
+            // first. Returns true when it took ownership of the reprojection (its own
+            // async completion + error fallback); false → fall through to the full path.
+            if (this._tryIncrementalStale(viewDef, pending)) return;
+
             viewTechnicalDrawingCache.invalidate(viewDef.id);
             activePlanDrawingRef.drawing = null;
             // §C-B2 (DAILY-USE-AUDIT 2026-05-20) — DO NOT reset _hasFitDrawing here.
@@ -526,6 +552,99 @@ export class PlanViewManager implements IPlanViewManager {
             this._lastRender = 0;
             this._ensureProjection(viewDef);
         }, 30);
+    }
+
+    /**
+     * §FIX-PLAN-PROJECT-INCREMENTAL (L-65) — incremental-graft fast-path for the active
+     * plan canvas. When every pending change is a create/update of a pure-projection
+     * element type (PLAN_INCREMENTAL_SAFE_TYPES) AND the cached drawing is still warm AND
+     * this is a native-only plan view, project ONLY the dirtied elements and graft them
+     * onto the warm drawing (O(dirty)) instead of disposing + re-projecting all N
+     * elements. Returns true when it owns the reprojection (async), false when the caller
+     * must take the full path. Any runtime error self-heals to a full reprojection.
+     */
+    private _tryIncrementalStale(viewDef: ViewDefinition, pending: Map<string, string>): boolean {
+        if (!this._edgeProjectorService) return false;
+        if (!useEdgeProjectorNative()) return false;
+        if (viewDef.viewType !== 'plan' && viewDef.viewType !== 'structural-plan') return false;
+        if (pending.size === 0) return false;
+        for (const elementType of pending.values()) {
+            if (!PLAN_INCREMENTAL_SAFE_TYPES.has(elementType)) return false;
+        }
+        // Incremental graft covers native Source B only — bail when IFC is in play.
+        const fragmentsMgr = this._components.get(OBC.FragmentsManager);
+        if (fragmentsMgr.list.size > 0 && ifcProjectionStore.shouldIncludeIFC(viewDef.id)) return false;
+        const warm = viewTechnicalDrawingCache.get(viewDef.id);
+        if (!warm) return false;
+
+        const dirtyIds = new Set(pending.keys());
+        const allGroups = nativeElementMeshExporter.exportForView(viewDef);
+        const dirtyGroups: THREE.Group[] = [];
+        const spareGroups: THREE.Group[] = [];
+        for (const g of allGroups) {
+            const id = g.userData?.elementUUID as string | undefined;
+            (id && dirtyIds.has(id) ? dirtyGroups : spareGroups).push(g);
+        }
+        nativeElementMeshExporter.releaseGroups(spareGroups, { disposeProxies: true });
+
+        if (dirtyGroups.length === 0) {
+            // Pure deletions / cross-level changes: nothing to graft. The warm drawing is
+            // still correct for THIS view (the removed element had no lines here, or lives
+            // on another level). Just re-render in place — no full reprojection needed.
+            nativeElementMeshExporter.releaseGroups(dirtyGroups, { disposeProxies: true });
+            for (const id of dirtyIds) viewTechnicalDrawingCache.invalidateElement(viewDef.id, id);
+            activePlanDrawingRef.drawing = warm;
+            this._lastRender = 0;
+            this._planViewInteraction?.notifyDrawingChanged(viewDef.id);
+            return true;
+        }
+
+        const planBelowDepthOffset = this._resolvePlanBelowDepthOffset(viewDef);
+        this._edgeProjectorService
+            .projectElementsInto(warm, viewDef, dirtyGroups, dirtyIds, planBelowDepthOffset)
+            .then(moved => {
+                nativeElementMeshExporter.releaseGroups(dirtyGroups, { disposeProxies: true });
+                if (moved === 0) {
+                    // Nothing grafted (unexpected) → coarse fallback.
+                    this._fullReprojectFallback(viewDef);
+                    return;
+                }
+                const vgApplicator = window.vgSceneApplicator;
+                if (vgApplicator && typeof vgApplicator.applyToProjectionLayers === 'function') {
+                    vgApplicator.applyToProjectionLayers(warm, viewDef.id);
+                }
+                activePlanDrawingRef.drawing = warm;
+                this._lastRender = 0;
+                this._planViewInteraction?.notifyDrawingChanged(viewDef.id);
+                console.log(`[PlanViewManager] §FIX-PLAN-PROJECT-INCREMENTAL grafted ${moved} element(s) onto warm plan drawing "${viewDef.id}"`);
+            })
+            .catch(err => {
+                nativeElementMeshExporter.releaseGroups(dirtyGroups, { disposeProxies: true });
+                console.error(`[PlanViewManager] §FIX-PLAN-PROJECT-INCREMENTAL graft failed — full fallback for "${viewDef.id}":`, err);
+                this._fullReprojectFallback(viewDef);
+            });
+        return true;
+    }
+
+    /** §FIX-PLAN-PROJECT-INCREMENTAL — coarse whole-drawing invalidate + full reproject. */
+    private _fullReprojectFallback(viewDef: ViewDefinition): void {
+        if (this._viewDef?.id !== viewDef.id) return;
+        viewTechnicalDrawingCache.invalidate(viewDef.id);
+        activePlanDrawingRef.drawing = null;
+        this._lastRender = 0;
+        this._ensureProjection(viewDef);
+    }
+
+    /** Resolve planBelowDepthOffset from the view's assigned intent (default 1.20 m). */
+    private _resolvePlanBelowDepthOffset(viewDef: ViewDefinition): number {
+        const isPlanType = viewDef.viewType === 'plan' || viewDef.viewType === 'structural-plan';
+        if (!isPlanType) return 0;
+        const instance = viewIntentInstanceStore.get(viewDef.id);
+        const intent   = instance ? visibilityIntentStore.get(instance.intentId) : null;
+        const isStructural = viewDef.viewType === 'structural-plan';
+        return isStructural
+            ? (intent?.planViewRange?.structuralPlanBelowLevelDepth ?? 1.20)
+            : (intent?.planViewRange?.belowLevelDepth ?? 1.20);
     }
 
     private _onIntentUpdated(e: Event): void {
@@ -696,16 +815,7 @@ export class PlanViewManager implements IPlanViewManager {
         if (models.length === 0 && nativeGroups.length === 0 && ifcSceneGroups.length === 0) return;
 
         // Resolve planBelowDepthOffset from the view's assigned intent (default 1.20 m).
-        const isPlanType = viewDef.viewType === 'plan' || viewDef.viewType === 'structural-plan';
-        let planBelowDepthOffset = 0;
-        if (isPlanType) {
-            const instance = viewIntentInstanceStore.get(viewDef.id);
-            const intent   = instance ? visibilityIntentStore.get(instance.intentId) : null;
-            const isStructural = viewDef.viewType === 'structural-plan';
-            planBelowDepthOffset = isStructural
-                ? (intent?.planViewRange?.structuralPlanBelowLevelDepth ?? 1.20)
-                : (intent?.planViewRange?.belowLevelDepth ?? 1.20);
-        }
+        const planBelowDepthOffset = this._resolvePlanBelowDepthOffset(viewDef);
 
         const projectionGen = viewTechnicalDrawingCache.beginProjection(viewDef.id);
         this._edgeProjectorService.project(viewDef, models, nativeGroups, ifcSceneGroups, planBelowDepthOffset).then(drawing => {

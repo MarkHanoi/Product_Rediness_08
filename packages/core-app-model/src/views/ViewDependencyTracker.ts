@@ -46,6 +46,28 @@ const GEOMETRY_ELEMENT_TYPES = new Set([
     'opening', 'ceiling', 'floor', 'handrail', 'furniture', 'plumbing',
 ]);
 
+/**
+ * §FIX-PLAN-PROJECT-INCREMENTAL (L-65, C04 §3.3 / DOC-1.4 Re-projection) —
+ * "pure-projection" element types whose ENTIRE plan-view representation is their
+ * own UUID-tagged base projection (they inject NO separate plan symbol — unlike
+ * doors/windows/furniture/stairs/columns/roofs which add store-driven symbol
+ * linework spanning ALL such elements).
+ *
+ * A `create`/`update` of one of these types is GRAFT-ELIGIBLE: the reprojection
+ * driver projects ONLY the dirtied element and grafts its lines onto the already-
+ * warm cached drawing (O(dirty)), reusing the cached projection for every other
+ * element — instead of disposing the whole drawing and re-projecting all N
+ * elements (the L-65 ~0.5 s plan-view creation lag). Non-listed types fall back
+ * to the full projection path (unchanged behaviour), because grafting them
+ * without their whole-view symbol pass would drop their plan symbol.
+ *
+ * These strings are STORE element-type strings (StoreChangeEvent.elementType),
+ * a subset of GEOMETRY_ELEMENT_TYPES.
+ */
+export const PLAN_INCREMENTAL_SAFE_TYPES: ReadonlySet<string> = new Set([
+    'wall', 'slab', 'beam', 'ceiling', 'floor',
+]);
+
 /** Debounce interval in ms — chosen to absorb OBC WebWorker projection timing. */
 const DEBOUNCE_MS = 300;
 
@@ -74,6 +96,17 @@ export class ViewDependencyTracker {
      *  `invalidate(viewId)` on the next flush (a change was seen that the per-element
      *  path cannot safely narrow). A view listed here ignores its incremental set. */
     private _viewsNeedingFullInvalidate = new Set<string>();
+
+    /**
+     * §FIX-PLAN-PROJECT-INCREMENTAL (L-65) — views whose element-scoped dirty set
+     * contains at least one change that is NOT graft-eligible (a non-pure-projection
+     * type, e.g. a door/window/furniture update — see PLAN_INCREMENTAL_SAFE_TYPES).
+     * Such a view keeps its drawing WARM (element-scoped invalidateElement) but is
+     * NOT offered the incremental-graft fast-path; the driver re-projects it in full.
+     * A superset relationship holds: a view in `_viewsNeedingFullInvalidate` is coarse
+     * regardless. Cleared every flush alongside `_dirtyViewIds`.
+     */
+    private _viewsGraftIneligible = new Set<string>();
 
     /** Maps elementId → levelId. Populated by `registerElement()`. */
     private readonly _elementLevelMap = new Map<string, string>();
@@ -116,8 +149,17 @@ export class ViewDependencyTracker {
      * returned by `viewTechnicalDrawingCache.beginProjection(viewId)`. The callback
      * MUST pass it to `viewTechnicalDrawingCache.setIfCurrent(viewId, gen, drawing)`
      * instead of calling `.set()` directly, to guard against stale completions.
+     *
+     * §FIX-PLAN-PROJECT-INCREMENTAL (L-65): the optional third argument
+     * `graftElementIds` is the set of dirtied element ids for a GRAFT-ELIGIBLE view
+     * (all changes were create/update of pure-projection types — PLAN_INCREMENTAL_SAFE_TYPES).
+     * When present, the driver may project ONLY those elements and graft them onto the
+     * warm cached drawing (O(dirty)) instead of re-projecting the whole view. When
+     * `undefined`, the driver must take the full projection path.
      */
-    onReprojectionNeeded: ((viewId: string, gen: number) => Promise<void>) | null = null;
+    onReprojectionNeeded:
+        ((viewId: string, gen: number, graftElementIds?: ReadonlySet<string>) => Promise<void>)
+        | null = null;
 
     // ── DOC-1.5e — Dual-layer compositing status ──────────────────────────────
 
@@ -224,6 +266,8 @@ export class ViewDependencyTracker {
         // §FIX-WALLMOVE-PLAN-INCREMENTAL — drop the per-flush incremental tracking too.
         this._dirtyElementsByView.clear();
         this._viewsNeedingFullInvalidate.clear();
+        // §FIX-PLAN-PROJECT-INCREMENTAL — reset graft-eligibility tracking.
+        this._viewsGraftIneligible.clear();
         viewTechnicalDrawingCache.clear();
         if (this._debounceTimer !== null) {
             clearTimeout(this._debounceTimer);
@@ -382,22 +426,37 @@ export class ViewDependencyTracker {
         if (levelId) {
             // Targeted: mark only views on the same level.
             const affectedIds = this._getAffectedViews(event.elementId, levelId);
-            // §FIX-WALLMOVE-PLAN-INCREMENTAL — a discrete single-element `update` (the
-            // settled wall move) can be narrowed to that element's projection lines.
-            // create/delete change the ELEMENT SET (lines must be added/removed
-            // wholesale) so they take the coarse path. For an `update` we record the
-            // element per affected view; `invalidateElement` itself safely falls back
-            // to a full `invalidate` for any view (e.g. section/elevation) whose drawing
-            // has no matching element-tagged LineSegments — correctness over perf.
-            const incremental = event.operation === 'update';
+            // §FIX-WALLMOVE-PLAN-INCREMENTAL / §FIX-PLAN-PROJECT-INCREMENTAL (L-65) —
+            // ELEMENT-SCOPED: a discrete single-element change keeps the drawing WARM by
+            // dropping only that element's lines (invalidateElement) instead of the coarse
+            // whole-drawing dispose. Applies to every `update` (the settled wall move,
+            // L-06) and to a `create` of a pure-projection type (the L-65 plan-view
+            // creation lag). A non-pure-projection `create` (door/window/furniture — they
+            // add a whole-view symbol pass) and every `delete` still take the coarse path,
+            // where lines must be added/removed against the full drawing.
+            //
+            // GRAFT-ELIGIBLE (a strict subset of element-scoped): the change is a
+            // create/update of a pure-projection type, so the driver can project ONLY the
+            // dirtied element and graft it onto the warm drawing (O(1) vs O(N)). A view
+            // that also takes a NON-graft-eligible element-scoped change (e.g. a door
+            // update) is demoted to full re-projection via `_viewsGraftIneligible`.
+            const graftEligible =
+                (event.operation === 'create' || event.operation === 'update')
+                && PLAN_INCREMENTAL_SAFE_TYPES.has(event.elementType);
+            const elementScoped = event.operation === 'update' || graftEligible;
             for (const viewId of affectedIds) {
                 this._dirtyViewIds.add(viewId);
-                if (incremental && !this._viewsNeedingFullInvalidate.has(viewId)) {
+                if (elementScoped && !this._viewsNeedingFullInvalidate.has(viewId)) {
                     (this._dirtyElementsByView.get(viewId)
                         ?? this._dirtyElementsByView.set(viewId, new Set()).get(viewId)!)
                         .add(event.elementId);
+                    // A non-graft-eligible element-scoped change (e.g. a door/window
+                    // update) keeps the drawing warm but forbids the graft fast-path for
+                    // this view — the driver re-projects it in full.
+                    if (!graftEligible) this._viewsGraftIneligible.add(viewId);
                 } else {
-                    // create/delete (or a view already flagged coarse) → whole-drawing invalidate.
+                    // Non-pure-projection create / delete (or a view already flagged
+                    // coarse) → whole-drawing invalidate.
                     this._viewsNeedingFullInvalidate.add(viewId);
                     this._dirtyElementsByView.delete(viewId);
                 }
@@ -496,8 +555,10 @@ export class ViewDependencyTracker {
         // cycle (never contaminates this one).
         const dirtyElementsByView = this._dirtyElementsByView;
         const viewsNeedingFull    = this._viewsNeedingFullInvalidate;
+        const viewsGraftIneligible = this._viewsGraftIneligible;
         this._dirtyElementsByView = new Map<string, Set<string>>();
         this._viewsNeedingFullInvalidate = new Set<string>();
+        this._viewsGraftIneligible = new Set<string>();
 
         console.log(
             `[ViewDependencyTracker] flush — ${toFlush.length} dirty view(s): ` +
@@ -522,6 +583,15 @@ export class ViewDependencyTracker {
             }
         };
 
+        // §FIX-PLAN-PROJECT-INCREMENTAL (L-65) — a view is offered the incremental
+        // graft fast-path only when EVERY change to it this flush was a create/update
+        // of a pure-projection type (element-scoped, not coarse, not graft-ineligible).
+        const graftIdsForView = (viewId: string): ReadonlySet<string> | undefined => {
+            if (viewsNeedingFull.has(viewId) || viewsGraftIneligible.has(viewId)) return undefined;
+            const elems = dirtyElementsByView.get(viewId);
+            return elems && elems.size > 0 ? elems : undefined;
+        };
+
         if (this.onReprojectionNeeded) {
             // DOC-1.5e: increment counter for ALL views atomically before the fan-out
             // begins; fire one UI transition (idle → reprojecting). Decrements happen
@@ -542,10 +612,14 @@ export class ViewDependencyTracker {
             // all map() closures start "simultaneously" (they run synchronously up to
             // their first await, which is inside onReprojectionNeeded).
             await Promise.all(toFlush.map(async (viewId) => {
+                // §FIX-PLAN-PROJECT-INCREMENTAL — capture graft eligibility BEFORE
+                // invalidateView (which drops the dirty elements' warm lines); the graft
+                // path re-projects only those and grafts them back onto the warm drawing.
+                const graftIds = graftIdsForView(viewId);
                 invalidateView(viewId);
                 const gen = viewTechnicalDrawingCache.beginProjection(viewId);
                 try {
-                    await this.onReprojectionNeeded!(viewId, gen);
+                    await this.onReprojectionNeeded!(viewId, gen, graftIds);
                 } catch (err) {
                     console.error(`[ViewDependencyTracker] re-projection failed for ${viewId}:`, err);
                 } finally {
