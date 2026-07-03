@@ -16,6 +16,7 @@ import { ChangeRoofLevelHandler } from './ChangeRoofLevel.js';
 import { AddSkylightHandler } from './AddSkylight.js';
 import { RemoveSkylightHandler } from './RemoveSkylight.js';
 import { JoinRoofsHandler } from './JoinRoofs.js';
+import { SetRoofMaterialHandler } from './SetRoofMaterial.js'; // §FEAT-UNIFORM-MATERIAL-COMMAND
 
 export const ROOF_HANDLER_TYPES = [
   'roof.create',
@@ -30,6 +31,7 @@ export const ROOF_HANDLER_TYPES = [
   'roof.removeSkylight',
   'roof.joinRoofs',
   'roof.update',
+  'roof.setMaterial',
 ] as const;
 
 export type RoofHandlerType = (typeof ROOF_HANDLER_TYPES)[number];
@@ -51,6 +53,7 @@ export function buildRoofHandlerSet(): readonly CommandHandler<unknown>[] {
     new RemoveSkylightHandler() as unknown as CommandHandler<unknown>,
     new JoinRoofsHandler() as unknown as CommandHandler<unknown>,
     UpdateRoofHandler as unknown as CommandHandler<unknown>,
+    new SetRoofMaterialHandler() as unknown as CommandHandler<unknown>,
   ];
 }
 
@@ -72,3 +75,4 @@ export { AddSkylightHandler, type AddSkylightPayload } from './AddSkylight.js';
 export { RemoveSkylightHandler, type RemoveSkylightPayload } from './RemoveSkylight.js';
 export { JoinRoofsHandler, type JoinRoofsPayload } from './JoinRoofs.js';
 export { UpdateRoofHandler, type UpdateRoofPayload } from './UpdateRoof.js';
+export { SetRoofMaterialHandler, type SetRoofMaterialPayload } from './SetRoofMaterial.js';

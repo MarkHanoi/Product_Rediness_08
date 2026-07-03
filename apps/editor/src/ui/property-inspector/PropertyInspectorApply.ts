@@ -17,6 +17,22 @@
 import * as THREE from '@pryzm/renderer-three/three';
 
 import { UpdateHandrailCommand }             from '@pryzm/command-registry';
+// §FEAT-UNIFORM-MATERIAL-COMMAND (L-08) — one uniform material-set dispatch surface.
+import { dispatchSetMaterial } from './MaterialDispatch';
+
+/** Normalise a colour token to `#rrggbb`. Mirrors the inline colorMap used later
+ *  in this file so the uniform material dispatch below emits a valid hex string. */
+function normalizeHexColor(raw: string): string {
+    const colorMap: Record<string, string> = {
+        white: '#ffffff', black: '#000000', red: '#ff0000',
+        green: '#00ff00', blue: '#0000ff', yellow: '#ffff00',
+        gray: '#808080', grey: '#808080', cyan: '#00ffff', magenta: '#ff00ff',
+    };
+    const lower = raw.toLowerCase();
+    if (colorMap[lower]) return colorMap[lower]!;
+    if (!raw.startsWith('#')) return '#' + raw;
+    return raw;
+}
 
 // ── Context interface ────────────────────────────────────────────────────────
 
@@ -254,6 +270,43 @@ export function applyChanges(ctx: ApplyContext): void {
     if (!liveMaterialId && liveColor && liveColor !== d.materialColor) {
         updates.materialColor = liveColor;
         hasChanges = true;
+    }
+
+    // §FEAT-UNIFORM-MATERIAL-COMMAND (L-08 / L-57): single uniform material-set path.
+    // Any family with a `<family>.setMaterial` command (slab, ceiling, roof, floor,
+    // column, beam, stair, handrail, furniture, plumbing, lighting, curtain-wall,
+    // structural) has its material/finish change dispatched here — one source of
+    // truth — reaching parity with walls/doors/windows. On success the material
+    // fields are stripped from `updates` so the per-type dimension branches below
+    // never double-handle them. dispatchSetMaterial returns false for families
+    // without a route (wall/door/window keep their own path) or when there is
+    // nothing this family can apply (e.g. a colour-only change on a materialId-only
+    // family) — the legacy per-type path (furniture colour) then still runs.
+    {
+        const rawColor = updates.materialColor;
+        const normColor = typeof rawColor === 'string' ? normalizeHexColor(rawColor) : undefined;
+        const matId = updates.materialId as string | null | undefined;
+        if (normColor !== undefined || matId !== undefined) {
+            const dispatched = dispatchSetMaterial(window.runtime as any, normalizedType, elementId, {
+                materialId: matId,
+                materialColor: normColor,
+            });
+            if (dispatched) {
+                delete updates.materialColor;
+                delete updates.materialId;
+                // If material was the ONLY change, close out now — but keep going for
+                // furniture (needs its position/rotation flush) and handrail (colour
+                // travels via its dedicated UpdateHandrailCommand DOM-read branch).
+                const noOtherChanges = Object.keys(updates).length === 0;
+                const needsLegacyBranch =
+                    normalizedType === 'furniture' || !!d.furnitureType || normalizedType === 'handrail';
+                if (noOtherChanges && !needsLegacyBranch) {
+                    ctx.callbacks.onUnselect();
+                    ctx.element.style.display = 'none';
+                    return;
+                }
+            }
+        }
     }
 
     if (normalizedType === 'column') {

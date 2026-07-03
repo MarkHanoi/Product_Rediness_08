@@ -6,6 +6,7 @@ import { DeletePlumbingHandler } from './DeletePlumbing.js';
 import { MovePlumbingHandler } from './MovePlumbing.js';
 import { SetPlumbingSystemHandler } from './SetPlumbingSystem.js';
 import { CreatePlumbingFixtureHandler } from './CreatePlumbingFixture.js';
+import { SetPlumbingMaterialHandler } from './SetPlumbingMaterial.js'; // §FEAT-UNIFORM-MATERIAL-COMMAND
 
 export const PLUMBING_HANDLER_TYPES = [
   'plumbing.create',
@@ -13,6 +14,7 @@ export const PLUMBING_HANDLER_TYPES = [
   'plumbing.move',
   'plumbing.setSystem',
   'plumbing.createFixture',
+  'plumbing.setMaterial',
 ] as const;
 
 export type PlumbingHandlerType = (typeof PLUMBING_HANDLER_TYPES)[number];
@@ -24,6 +26,7 @@ export function buildPlumbingHandlerSet(): readonly CommandHandler<unknown>[] {
     new MovePlumbingHandler() as unknown as CommandHandler<unknown>,
     new SetPlumbingSystemHandler() as unknown as CommandHandler<unknown>,
     CreatePlumbingFixtureHandler as unknown as CommandHandler<unknown>,
+    new SetPlumbingMaterialHandler() as unknown as CommandHandler<unknown>,
   ];
 }
 
@@ -37,3 +40,4 @@ export { DeletePlumbingHandler, type DeletePlumbingPayload } from './DeletePlumb
 export { MovePlumbingHandler, type MovePlumbingPayload } from './MovePlumbing.js';
 export { SetPlumbingSystemHandler, type SetPlumbingSystemPayload } from './SetPlumbingSystem.js';
 export { CreatePlumbingFixtureHandler, type CreatePlumbingFixturePayload } from './CreatePlumbingFixture.js';
+export { SetPlumbingMaterialHandler, type SetPlumbingMaterialPayload } from './SetPlumbingMaterial.js';

@@ -14,6 +14,7 @@ import { RotateStairHandler } from './RotateStair.js';
 import { CreateStairRailingHandler } from './CreateStairRailing.js';
 import { UpdateStairParametersHandler } from './UpdateStairParameters.js';
 import { AddLevelHandler } from './AddLevel.js';
+import { SetStairMaterialHandler } from './SetStairMaterial.js'; // §FEAT-UNIFORM-MATERIAL-COMMAND
 
 export const STAIR_HANDLER_TYPES = [
   'stair.create',
@@ -29,6 +30,7 @@ export const STAIR_HANDLER_TYPES = [
   'stair.createRailing',
   'stair.updateParameters',
   'level.add',
+  'stair.setMaterial',
 ] as const;
 
 export type StairHandlerType = (typeof STAIR_HANDLER_TYPES)[number];
@@ -48,6 +50,7 @@ export function buildStairHandlerSet(): readonly CommandHandler<unknown>[] {
     CreateStairRailingHandler as unknown as CommandHandler<unknown>,
     UpdateStairParametersHandler as unknown as CommandHandler<unknown>,
     AddLevelHandler as unknown as CommandHandler<unknown>,
+    new SetStairMaterialHandler() as unknown as CommandHandler<unknown>,
   ];
 }
 
@@ -69,3 +72,4 @@ export { RotateStairHandler, type RotateStairPayload } from './RotateStair.js';
 export { CreateStairRailingHandler, type CreateStairRailingPayload } from './CreateStairRailing.js';
 export { UpdateStairParametersHandler, type UpdateStairParametersPayload } from './UpdateStairParameters.js';
 export { AddLevelHandler, type AddLevelPayload } from './AddLevel.js';
+export { SetStairMaterialHandler, type SetStairMaterialPayload } from './SetStairMaterial.js';

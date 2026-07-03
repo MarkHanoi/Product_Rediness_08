@@ -265,3 +265,48 @@ describe('handlers reject missing entities', () => {
     ).rejects.toThrow();
   });
 });
+
+describe('furniture.setMaterial', () => {
+  // §FEAT-UNIFORM-MATERIAL-COMMAND — L-08 uniform material-set command.
+  let env: ReturnType<typeof buildEnv>;
+  afterEach(() => env?.detach());
+
+  it('sets materialId and undo reverts', async () => {
+    env = buildEnv();
+    const id = createId('furniture');
+    await env.bus.executeCommand('furniture.create', { id });
+    const before = snap(env.furniture);
+    const ev = await env.bus.executeCommand('furniture.setMaterial', {
+      furnitureId: id, materialId: 'fabric-linen-grey',
+    }) as EventRecord<unknown>;
+    expect(env.furniture.get(id)!.materialId).toBe('fabric-linen-grey');
+    undoLast(env.furniture, ev);
+    expect(snap(env.furniture)).toEqual(before);
+  });
+
+  it('materialId: null clears the catalogue binding', async () => {
+    env = buildEnv();
+    const id = createId('furniture');
+    await env.bus.executeCommand('furniture.create', { id });
+    await env.bus.executeCommand('furniture.setMaterial', { furnitureId: id, materialId: 'oak' });
+    expect(env.furniture.get(id)!.materialId).toBe('oak');
+    await env.bus.executeCommand('furniture.setMaterial', { furnitureId: id, materialId: null });
+    expect(env.furniture.get(id)!.materialId).toBeUndefined();
+  });
+
+  it('rejects when neither materialId nor materialColor provided', async () => {
+    env = buildEnv();
+    const id = createId('furniture');
+    await env.bus.executeCommand('furniture.create', { id });
+    await expect(
+      env.bus.executeCommand('furniture.setMaterial', { furnitureId: id }),
+    ).rejects.toThrow();
+  });
+
+  it('rejects unknown furniture id', async () => {
+    env = buildEnv();
+    await expect(
+      env.bus.executeCommand('furniture.setMaterial', { furnitureId: createId('furniture'), materialId: 'x' }),
+    ).rejects.toThrow();
+  });
+});

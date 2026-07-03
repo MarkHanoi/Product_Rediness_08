@@ -8,6 +8,7 @@ import { SetCeilingBoundaryHandler } from './SetCeilingBoundary.js';
 import { SetCeilingHeightHandler } from './SetCeilingHeight.js';
 import { UpdateCeilingHandler } from './UpdateCeiling.js';
 import { UpdateCeilingLayersHandler } from './UpdateCeilingLayers.js';
+import { SetCeilingMaterialHandler } from './SetCeilingMaterial.js'; // §FEAT-UNIFORM-MATERIAL-COMMAND
 
 export const CEILING_HANDLER_TYPES = [
   'ceiling.create',
@@ -17,6 +18,7 @@ export const CEILING_HANDLER_TYPES = [
   'ceiling.setHeight',
   'ceiling.update',
   'ceiling.updateLayers',
+  'ceiling.setMaterial',
 ] as const;
 
 export type CeilingHandlerType = (typeof CEILING_HANDLER_TYPES)[number];
@@ -30,6 +32,7 @@ export function buildCeilingHandlerSet(): readonly CommandHandler<unknown>[] {
     new SetCeilingHeightHandler() as unknown as CommandHandler<unknown>,
     UpdateCeilingHandler as unknown as CommandHandler<unknown>,
     UpdateCeilingLayersHandler as unknown as CommandHandler<unknown>,
+    new SetCeilingMaterialHandler() as unknown as CommandHandler<unknown>,
   ];
 }
 
@@ -45,3 +48,4 @@ export { SetCeilingBoundaryHandler, type SetCeilingBoundaryPayload } from './Set
 export { SetCeilingHeightHandler, type SetCeilingHeightPayload } from './SetCeilingHeight.js';
 export { UpdateCeilingHandler, type UpdateCeilingPayload } from './UpdateCeiling.js';
 export { UpdateCeilingLayersHandler, type UpdateCeilingLayersPayload } from './UpdateCeilingLayers.js';
+export { SetCeilingMaterialHandler, type SetCeilingMaterialPayload } from './SetCeilingMaterial.js';

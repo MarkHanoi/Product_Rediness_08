@@ -122,3 +122,48 @@ describe('column.setHeight + setType', () => {
     ).rejects.toThrow();
   });
 });
+
+describe('column.setMaterial', () => {
+  // §FEAT-UNIFORM-MATERIAL-COMMAND — L-08 uniform material-set command.
+  let env: ReturnType<typeof buildEnv>;
+  afterEach(() => env?.detach());
+
+  it('sets materialId and undo reverts', async () => {
+    env = buildEnv();
+    const id = createId('column');
+    await env.bus.executeCommand('column.create', { id });
+    const before = snap(env.column);
+    const ev = await env.bus.executeCommand('column.setMaterial', {
+      columnId: id, materialId: 'steel-s355',
+    });
+    expect(env.column.get(id)!.materialId).toBe('steel-s355');
+    undoLast(env.column, ev);
+    expect(snap(env.column)).toEqual(before);
+  });
+
+  it('materialId: null clears the catalogue binding', async () => {
+    env = buildEnv();
+    const id = createId('column');
+    await env.bus.executeCommand('column.create', { id });
+    await env.bus.executeCommand('column.setMaterial', { columnId: id, materialId: 'concrete-c40' });
+    expect(env.column.get(id)!.materialId).toBe('concrete-c40');
+    await env.bus.executeCommand('column.setMaterial', { columnId: id, materialId: null });
+    expect(env.column.get(id)!.materialId).toBeUndefined();
+  });
+
+  it('rejects when neither materialId nor materialColor provided', async () => {
+    env = buildEnv();
+    const id = createId('column');
+    await env.bus.executeCommand('column.create', { id });
+    await expect(
+      env.bus.executeCommand('column.setMaterial', { columnId: id }),
+    ).rejects.toThrow();
+  });
+
+  it('rejects unknown column id', async () => {
+    env = buildEnv();
+    await expect(
+      env.bus.executeCommand('column.setMaterial', { columnId: createId('column'), materialId: 'x' }),
+    ).rejects.toThrow();
+  });
+});

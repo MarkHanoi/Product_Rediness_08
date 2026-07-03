@@ -202,6 +202,56 @@ describe('slab.setType', () => {
   });
 });
 
+describe('slab.setMaterial', () => {
+  // §FEAT-UNIFORM-MATERIAL-COMMAND — L-08 uniform material-set command.
+  let env: ReturnType<typeof buildEnv>;
+  afterEach(() => env?.detach());
+
+  it('sets materialId + materialColor and undo reverts', async () => {
+    env = buildEnv();
+    const id = createId('slab');
+    await env.bus.executeCommand('slab.create', { id, boundary: SQUARE, thickness: 0.2 });
+    const before = snap(env.slab);
+    const ev = await env.bus.executeCommand('slab.setMaterial', {
+      slabId: id,
+      materialId: 'concrete-fair-face',
+      materialColor: '#a0a0a0',
+    });
+    const s = env.slab.get(id)!;
+    expect(s.materialId).toBe('concrete-fair-face');
+    expect(s.materialColor).toBe('#a0a0a0');
+    expect(s.thickness).toBe(0.2);
+    undoLast(env.slab, ev);
+    expect(snap(env.slab)).toEqual(before);
+  });
+
+  it('materialId: null clears the catalogue binding', async () => {
+    env = buildEnv();
+    const id = createId('slab');
+    await env.bus.executeCommand('slab.create', { id, boundary: SQUARE });
+    await env.bus.executeCommand('slab.setMaterial', { slabId: id, materialId: 'stone-01' });
+    expect(env.slab.get(id)!.materialId).toBe('stone-01');
+    await env.bus.executeCommand('slab.setMaterial', { slabId: id, materialId: null });
+    expect(env.slab.get(id)!.materialId).toBeUndefined();
+  });
+
+  it('rejects when neither materialId nor materialColor provided', async () => {
+    env = buildEnv();
+    const id = createId('slab');
+    await env.bus.executeCommand('slab.create', { id, boundary: SQUARE });
+    await expect(
+      env.bus.executeCommand('slab.setMaterial', { slabId: id }),
+    ).rejects.toThrow();
+  });
+
+  it('rejects unknown slab id', async () => {
+    env = buildEnv();
+    await expect(
+      env.bus.executeCommand('slab.setMaterial', { slabId: createId('slab'), materialId: 'x' }),
+    ).rejects.toThrow();
+  });
+});
+
 describe('slab.delete', () => {
   let env: ReturnType<typeof buildEnv>;
   afterEach(() => env?.detach());

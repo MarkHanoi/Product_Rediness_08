@@ -14,6 +14,7 @@ import { UpdateSlabHandler } from './UpdateSlab.js';
 import { UpdateSlabPolygonHandler } from './UpdateSlabPolygon.js';
 import { UpdateSlabLayersHandler } from './UpdateSlabLayers.js';
 import { CreateSlabsOnAllFloorsHandler } from './CreateSlabsOnAllFloors.js';
+import { SetSlabMaterialHandler } from './SetSlabMaterial.js'; // §FEAT-UNIFORM-MATERIAL-COMMAND
 
 export const SLAB_HANDLER_TYPES = [
   'slab.create',
@@ -29,6 +30,7 @@ export const SLAB_HANDLER_TYPES = [
   'slab.updatePolygon',
   'slab.updateLayers',
   'slab.create-on-all-floors',
+  'slab.setMaterial',
 ] as const;
 
 export type SlabHandlerType = (typeof SLAB_HANDLER_TYPES)[number];
@@ -48,6 +50,7 @@ export function buildSlabHandlerSet(): readonly CommandHandler<unknown>[] {
     UpdateSlabPolygonHandler as unknown as CommandHandler<unknown>,
     UpdateSlabLayersHandler as unknown as CommandHandler<unknown>,
     new CreateSlabsOnAllFloorsHandler() as unknown as CommandHandler<unknown>,
+    new SetSlabMaterialHandler() as unknown as CommandHandler<unknown>,
   ];
 }
 
@@ -69,3 +72,4 @@ export { UpdateSlabHandler, type UpdateSlabPayload } from './UpdateSlab.js';
 export { UpdateSlabPolygonHandler, type UpdateSlabPolygonPayload } from './UpdateSlabPolygon.js';
 export { UpdateSlabLayersHandler, type UpdateSlabLayersPayload } from './UpdateSlabLayers.js';
 export { CreateSlabsOnAllFloorsHandler, type CreateSlabsOnAllFloorsPayload } from './CreateSlabsOnAllFloors.js';
+export { SetSlabMaterialHandler, type SetSlabMaterialPayload } from './SetSlabMaterial.js';

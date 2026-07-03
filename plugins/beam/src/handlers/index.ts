@@ -7,6 +7,7 @@ import { DeleteBeamHandler } from './DeleteBeam.js';
 import { MoveBeamHandler } from './MoveBeam.js';
 import { SetBeamTypeHandler } from './SetBeamType.js';
 import { SetBeamSectionHandler } from './SetBeamSection.js';
+import { SetBeamMaterialHandler } from './SetBeamMaterial.js'; // §FEAT-UNIFORM-MATERIAL-COMMAND
 
 export const BEAM_HANDLER_TYPES = [
   'beam.create',
@@ -15,6 +16,7 @@ export const BEAM_HANDLER_TYPES = [
   'beam.move',
   'beam.setType',
   'beam.setSection',
+  'beam.setMaterial',
 ] as const;
 
 export type BeamHandlerType = (typeof BEAM_HANDLER_TYPES)[number];
@@ -27,6 +29,7 @@ export function buildBeamHandlerSet(): readonly CommandHandler<unknown>[] {
     new MoveBeamHandler() as unknown as CommandHandler<unknown>,
     new SetBeamTypeHandler() as unknown as CommandHandler<unknown>,
     new SetBeamSectionHandler() as unknown as CommandHandler<unknown>,
+    new SetBeamMaterialHandler() as unknown as CommandHandler<unknown>,
   ];
 }
 
@@ -41,3 +44,4 @@ export { DeleteBeamHandler, type DeleteBeamPayload } from './DeleteBeam.js';
 export { MoveBeamHandler, type MoveBeamPayload } from './MoveBeam.js';
 export { SetBeamTypeHandler, type SetBeamTypePayload } from './SetBeamType.js';
 export { SetBeamSectionHandler, type SetBeamSectionPayload } from './SetBeamSection.js';
+export { SetBeamMaterialHandler, type SetBeamMaterialPayload } from './SetBeamMaterial.js';

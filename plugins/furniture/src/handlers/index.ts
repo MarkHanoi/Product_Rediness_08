@@ -9,6 +9,7 @@ import { SetFurnitureScaleHandler } from './SetFurnitureScale.js';
 import { SetActiveLodHandler } from './SetActiveLod.js';
 import { SetFurnitureRepresentationHandler } from './SetFurnitureRepresentation.js';
 import { UpdateFurnitureParametersHandler } from './UpdateFurnitureParameters.js';
+import { SetFurnitureMaterialHandler } from './SetFurnitureMaterial.js'; // §FEAT-UNIFORM-MATERIAL-COMMAND
 
 export const FURNITURE_HANDLER_TYPES = [
   'furniture.create',
@@ -19,6 +20,7 @@ export const FURNITURE_HANDLER_TYPES = [
   'furniture.setActiveLod',
   'furniture.setRepresentation',
   'furniture.updateParameters',
+  'furniture.setMaterial',
 ] as const;
 
 export type FurnitureHandlerType = (typeof FURNITURE_HANDLER_TYPES)[number];
@@ -33,6 +35,7 @@ export function buildFurnitureHandlerSet(): readonly CommandHandler<unknown>[] {
     new SetActiveLodHandler() as unknown as CommandHandler<unknown>,
     new SetFurnitureRepresentationHandler() as unknown as CommandHandler<unknown>,
     UpdateFurnitureParametersHandler as unknown as CommandHandler<unknown>,
+    new SetFurnitureMaterialHandler() as unknown as CommandHandler<unknown>,
   ];
 }
 
@@ -52,3 +55,4 @@ export {
   type SetFurnitureRepresentationPayload,
 } from './SetFurnitureRepresentation.js';
 export { UpdateFurnitureParametersHandler, type UpdateFurnitureParametersPayload } from './UpdateFurnitureParameters.js';
+export { SetFurnitureMaterialHandler, type SetFurnitureMaterialPayload } from './SetFurnitureMaterial.js';

@@ -7,6 +7,7 @@ import { SetHandrailPathHandler } from './SetHandrailPath.js';
 import { SetHandrailShapeHandler } from './SetHandrailShape.js';
 import { SetHandrailHostHandler } from './SetHandrailHost.js';
 import { RecomputeHandrailHandler } from './RecomputeHandrail.js';
+import { SetHandrailMaterialHandler } from './SetHandrailMaterial.js'; // §FEAT-UNIFORM-MATERIAL-COMMAND
 
 export const HANDRAIL_HANDLER_TYPES = [
   'handrail.create',
@@ -15,6 +16,7 @@ export const HANDRAIL_HANDLER_TYPES = [
   'handrail.setShape',
   'handrail.setHost',
   'handrail.recompute',
+  'handrail.setMaterial',
 ] as const;
 
 export type HandrailHandlerType = (typeof HANDRAIL_HANDLER_TYPES)[number];
@@ -27,6 +29,7 @@ export function buildHandrailHandlerSet(): readonly CommandHandler<unknown>[] {
     new SetHandrailShapeHandler() as unknown as CommandHandler<unknown>,
     new SetHandrailHostHandler() as unknown as CommandHandler<unknown>,
     new RecomputeHandrailHandler() as unknown as CommandHandler<unknown>,
+    new SetHandrailMaterialHandler() as unknown as CommandHandler<unknown>,
   ];
 }
 
@@ -41,3 +44,4 @@ export { SetHandrailPathHandler, type SetHandrailPathPayload } from './SetHandra
 export { SetHandrailShapeHandler, type SetHandrailShapePayload } from './SetHandrailShape.js';
 export { SetHandrailHostHandler, type SetHandrailHostPayload } from './SetHandrailHost.js';
 export { RecomputeHandrailHandler, type RecomputeHandrailPayload } from './RecomputeHandrail.js';
+export { SetHandrailMaterialHandler, type SetHandrailMaterialPayload } from './SetHandrailMaterial.js';

@@ -7,10 +7,12 @@
 import type { CommandBus, CommandHandler } from '@pryzm/plugin-sdk';
 import { CreateFloorHandler } from './CreateFloor.js';
 import { UpdateFloorLayersHandler } from './UpdateFloorLayers.js';
+import { SetFloorMaterialHandler } from './SetFloorMaterial.js'; // §FEAT-UNIFORM-MATERIAL-COMMAND
 
 export const FLOOR_HANDLER_TYPES = [
   'floor.create',
   'floor.updateLayers',
+  'floor.setMaterial',
 ] as const;
 
 export type FloorHandlerType = (typeof FLOOR_HANDLER_TYPES)[number];
@@ -19,6 +21,7 @@ export function buildFloorHandlerSet(): readonly CommandHandler<unknown>[] {
   return [
     new CreateFloorHandler() as unknown as CommandHandler<unknown>,
     UpdateFloorLayersHandler as unknown as CommandHandler<unknown>,
+    SetFloorMaterialHandler as unknown as CommandHandler<unknown>,
   ];
 }
 
@@ -29,3 +32,4 @@ export function registerFloorHandlers(bus: CommandBus): readonly string[] {
 
 export { CreateFloorHandler, type CreateFloorPayload } from './CreateFloor.js';
 export { UpdateFloorLayersHandler, type UpdateFloorLayersPayload } from './UpdateFloorLayers.js';
+export { SetFloorMaterialHandler, type SetFloorMaterialPayload } from './SetFloorMaterial.js';

@@ -6,6 +6,7 @@ import { DeleteLightingHandler } from './DeleteLighting.js';
 import { MoveLightingHandler } from './MoveLighting.js';
 import { SetLightingIntensityHandler } from './SetLightingIntensity.js';
 import { SetLightingEmergencyHandler } from './SetLightingEmergency.js';
+import { SetLightingMaterialHandler } from './SetLightingMaterial.js'; // §FEAT-UNIFORM-MATERIAL-COMMAND
 
 export const LIGHTING_HANDLER_TYPES = [
   'lighting.create',
@@ -13,6 +14,7 @@ export const LIGHTING_HANDLER_TYPES = [
   'lighting.move',
   'lighting.setIntensity',
   'lighting.setEmergency',
+  'lighting.setMaterial',
 ] as const;
 
 export type LightingHandlerType = (typeof LIGHTING_HANDLER_TYPES)[number];
@@ -24,6 +26,7 @@ export function buildLightingHandlerSet(): readonly CommandHandler<unknown>[] {
     new MoveLightingHandler() as unknown as CommandHandler<unknown>,
     new SetLightingIntensityHandler() as unknown as CommandHandler<unknown>,
     new SetLightingEmergencyHandler() as unknown as CommandHandler<unknown>,
+    new SetLightingMaterialHandler() as unknown as CommandHandler<unknown>,
   ];
 }
 
@@ -37,3 +40,4 @@ export { DeleteLightingHandler, type DeleteLightingPayload } from './DeleteLight
 export { MoveLightingHandler, type MoveLightingPayload } from './MoveLighting.js';
 export { SetLightingIntensityHandler, type SetLightingIntensityPayload } from './SetLightingIntensity.js';
 export { SetLightingEmergencyHandler, type SetLightingEmergencyPayload } from './SetLightingEmergency.js';
+export { SetLightingMaterialHandler, type SetLightingMaterialPayload } from './SetLightingMaterial.js';

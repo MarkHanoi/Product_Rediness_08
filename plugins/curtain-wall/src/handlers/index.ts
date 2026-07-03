@@ -28,6 +28,7 @@ import { CreateCurtainWallsOnAllSlabsHandler } from './CreateCurtainWallsOnAllSl
 import { AddCurtainGridLineHandler } from './AddCurtainGridLine.js';
 import { RemoveCurtainGridLineHandler } from './RemoveCurtainGridLine.js';
 import { ReplacePanelHandler } from './ReplacePanel.js';
+import { SetCurtainWallMaterialHandler } from './SetCurtainWallMaterial.js'; // §FEAT-UNIFORM-MATERIAL-COMMAND
 
 export const CURTAIN_WALL_HANDLER_TYPES = [
   // S12 (9)
@@ -59,6 +60,7 @@ export const CURTAIN_WALL_HANDLER_TYPES = [
   'curtainwall.addGridLine',
   'curtainwall.removeGridLine',
   'curtainwall.replacePanel',
+  'curtainwall.setMaterial',
 ] as const;
 
 export type CurtainWallHandlerType = (typeof CURTAIN_WALL_HANDLER_TYPES)[number];
@@ -90,6 +92,7 @@ export function buildCurtainWallHandlerSet() {
     AddCurtainGridLineHandler as unknown as CommandHandler<unknown>,
     RemoveCurtainGridLineHandler as unknown as CommandHandler<unknown>,
     ReplacePanelHandler as unknown as CommandHandler<unknown>,
+    new SetCurtainWallMaterialHandler() as unknown as CommandHandler<unknown>,
   ];
 }
 
@@ -148,3 +151,7 @@ export {
   CreateCurtainWallsOnAllSlabsHandler,
   type CreateCurtainWallsOnAllSlabsPayload,
 } from './CreateCurtainWallsOnAllSlabs.js';
+export {
+  SetCurtainWallMaterialHandler,
+  type SetCurtainWallMaterialPayload,
+} from './SetCurtainWallMaterial.js';
