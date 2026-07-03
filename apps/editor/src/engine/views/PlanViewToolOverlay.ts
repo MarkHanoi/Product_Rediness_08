@@ -30,6 +30,10 @@ import type { ViewDefinition }       from '@pryzm/core-app-model';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './plantools/PlanToolHandler';
 import { viewPlaneFromDefinition }   from '@pryzm/core-app-model';
 import { AddLevelCommand }           from '@pryzm/command-registry';
+import { trace }                     from '@opentelemetry/api';
+
+// §FIX-PLAN-WALLTOOL-ARM-ON-ACTIVATE (L-66) — P8: one OTel span per new exported entry point.
+const _planToolOverlayTracer = trace.getTracer('@pryzm/editor.plan-tool-overlay', '0.1.0');
 
 import { WallPlanToolHandler }         from './plantools/WallPlanToolHandler';
 import { RoomPlanToolHandler }         from './plantools/RoomPlanToolHandler';
@@ -376,6 +380,52 @@ export class PlanViewToolOverlay {
         this._activeHandler?.cancel?.();
         this._clearOverlay();
         this._hideSnapTooltip();
+    }
+
+    /**
+     * §FIX-PLAN-WALLTOOL-ARM-ON-ACTIVATE (L-66) — C11 element-creation pipeline.
+     *
+     * Guarantee the plan-view WALL draw handler is armed the instant the "Draw Wall"
+     * pre-draw panel is shown, so the FIRST canvas click draws — exactly like the 3D
+     * tool, which arms synchronously inside `WallTool.activate()`.
+     *
+     * L-28 already made the handler arm on `activate()` and the panel pre-apply the
+     * default (Plain Wall) type. What remained (the L-66 parity break) is that arming
+     * relies on the ASYNC `ToolManager.activateWall()` → `notify()` → `subscribe` →
+     * `_activateHandler()` chain finishing — and this pane not being paused — BEFORE
+     * the user's first click. Until it has, `_onMouseDownCapture` drops the click
+     * (`!this._activeHandler`), so users learned to press the wall-type panel's
+     * "Apply" button first, turning an OPTIONAL change-type affordance into the de-facto
+     * arm trigger. Calling this on panel-show makes "panel visible ⟺ handler armed" an
+     * invariant, so the wall-type dropdown "Apply" only ever CHANGES the active type.
+     *
+     * Idempotent and safe: no-op when this overlay is not attached, is paused (the
+     * split-view pane owns focus), or the wall handler is already armed. It never
+     * desyncs ToolManager — the wall pre-draw panel is shown ONLY while the wall tool
+     * is being activated, so `activeTool` is authoritatively 'wall' at this point.
+     */
+    ensureWallDrawArmed(): void {
+        _planToolOverlayTracer.startActiveSpan('pryzm.plan_tools.ensure_wall_draw_armed', (span) => {
+            try {
+                const alreadyArmed = this._activeTool === 'wall' && this._activeHandler !== null;
+                span.setAttribute('pryzm.plan.attached', this._active);
+                span.setAttribute('pryzm.plan.paused', this._paused);
+                span.setAttribute('pryzm.plan.already_armed', alreadyArmed);
+                if (!this._active || this._paused || alreadyArmed) {
+                    span.setAttribute('pryzm.plan.armed_now', false);
+                    return;
+                }
+                this._activeTool = 'wall';
+                this._updateCursor();
+                this._activateHandler('wall');
+                this._clearOverlay();
+                span.setAttribute('pryzm.plan.armed_now', this._activeHandler !== null);
+            } catch (err) {
+                span.recordException(err as Error);
+            } finally {
+                span.end();
+            }
+        });
     }
 
     private _onSvpToolFocus(): void {

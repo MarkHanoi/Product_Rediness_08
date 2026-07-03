@@ -226,6 +226,7 @@ declare global {
     presentationEngine?: any;
     viewportPathTracer?: any;
     planViewToolOverlay?: any;
+    svpPlanToolOverlay?: any;
     planViewOverlay?: any;
     planViewManager?: any;
     splitViewManager?: any;

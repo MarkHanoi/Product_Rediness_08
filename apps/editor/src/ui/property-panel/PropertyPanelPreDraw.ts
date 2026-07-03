@@ -162,6 +162,25 @@ export function showWallPreDraw(host: PreDrawPanelHost, wallTool: any): void {
     host.element.appendChild(header);
     host.makeVisible();
     host.positionBesideModeBar();
+
+    // §FIX-PLAN-WALLTOOL-ARM-ON-ACTIVATE (L-66): the "Draw Wall" panel being visible
+    // must IMPLY the plan-view draw handler is armed. L-28 fixed the handler + this
+    // panel's COPY, but arming still depended on the async ToolManager.activateWall →
+    // notify → subscribe → _activateHandler chain (and the pane not being paused)
+    // finishing before the user's first click; until it had, the click was dropped and
+    // users learned to press "Apply" first (turning an OPTIONAL change-type control into
+    // the de-facto arm trigger — the reported parity break vs 3D, which arms
+    // synchronously in WallTool.activate). Asserting the invariant here makes the very
+    // first canvas click draw with the current/default (Plain Wall) type, and the
+    // wall-type dropdown "Apply" only ever CHANGES the active type. Both calls are
+    // idempotent + best-effort: each no-ops when its overlay is not attached / is paused
+    // / is already armed, and the toolManager subscribe path remains the primary arm.
+    try {
+        (window as { planViewToolOverlay?: { ensureWallDrawArmed?: () => void } })
+            .planViewToolOverlay?.ensureWallDrawArmed?.();
+        (window as { svpPlanToolOverlay?: { ensureWallDrawArmed?: () => void } })
+            .svpPlanToolOverlay?.ensureWallDrawArmed?.();
+    } catch { /* arming is best-effort; toolManager subscribe remains the primary arm */ }
 }
 
 export function showSlabPreDraw(host: PreDrawPanelHost, slabTool: any): void {

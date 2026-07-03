@@ -140,6 +140,10 @@ const ACTIVE_TOOL_KEYS = new Set(Object.keys(SVP_TOOL_HANDLERS));
 // fixed by routing through the engine.
 
 import { PlanSnapEngine } from '@pryzm/core-app-model';
+import { trace } from '@opentelemetry/api';
+
+// §FIX-PLAN-WALLTOOL-ARM-ON-ACTIVATE (L-66) — P8: one OTel span per new exported entry point.
+const _svpPlanToolOverlayTracer = trace.getTracer('@pryzm/editor.svp-plan-tool-overlay', '0.1.0');
 
 // ── Main class ────────────────────────────────────────────────────────────
 
@@ -348,6 +352,40 @@ export class SvpPlanToolOverlay {
     setViewId(viewId: string): void {
         this._viewId = viewId;
         this._snapSvc.setViewId(viewId);
+    }
+
+    /**
+     * §FIX-PLAN-WALLTOOL-ARM-ON-ACTIVATE (L-66) — split-view parity for the wall
+     * draw-arm invariant (see PlanViewToolOverlay.ensureWallDrawArmed). Guarantees the
+     * SVP wall handler is armed when the "Draw Wall" panel is up AND this pane already
+     * has mouse focus, so the first click in the split-view plan pane draws without an
+     * "Apply" pre-click. Unlike the left panel, the SVP handler is scoped to focus (it
+     * mounts on mouseenter / tears down on mouseleave), so this only re-arms a focused
+     * pane that raced the async tool-activate; when the pane is not focused it is a
+     * no-op (the mouseenter path arms it on hover, before any click). Idempotent.
+     */
+    ensureWallDrawArmed(): void {
+        _svpPlanToolOverlayTracer.startActiveSpan('pryzm.svp_plan_tools.ensure_wall_draw_armed', (span) => {
+            try {
+                const focused = this._active && this._svpFocused && !this._paused;
+                const isWall  = this._activeTool === 'wall';
+                const alreadyArmed = this._activeHandler !== null;
+                span.setAttribute('pryzm.svp.focused', focused);
+                span.setAttribute('pryzm.svp.is_wall', isWall);
+                span.setAttribute('pryzm.svp.already_armed', alreadyArmed);
+                if (!focused || !isWall || alreadyArmed) {
+                    span.setAttribute('pryzm.svp.armed_now', false);
+                    return;
+                }
+                this._activateHandler('wall');
+                this._updateCursor();
+                span.setAttribute('pryzm.svp.armed_now', this._activeHandler !== null);
+            } catch (err) {
+                span.recordException(err as Error);
+            } finally {
+                span.end();
+            }
+        });
     }
 
     // ── Focus coordination ────────────────────────────────────────────────
@@ -842,3 +880,9 @@ export class SvpPlanToolOverlay {
 
 /** Module-level singleton — one SVP tool overlay per app. */
 export const svpPlanToolOverlay = new SvpPlanToolOverlay();
+
+// §FIX-PLAN-WALLTOOL-ARM-ON-ACTIVATE (L-66) — expose on window so the wall pre-draw
+// panel (PropertyPanelPreDraw.showWallPreDraw) can assert the split-view pane's
+// draw-arm invariant without importing this module (avoids a UI→engine cycle),
+// mirroring how PlanViewToolOverlay is already published on window.
+window.svpPlanToolOverlay = svpPlanToolOverlay;
