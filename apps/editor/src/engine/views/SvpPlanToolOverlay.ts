@@ -32,99 +32,18 @@ import { viewPlaneFromDefinition }  from '@pryzm/core-app-model';
 import { viewDefinitionStore }      from '@pryzm/core-app-model';
 import { DEFAULT_PLAN_VIEW_ID }     from '@pryzm/core-app-model';
 
-// ── Handler imports — separate instances from left-panel singletons ────────
-import { WallPlanToolHandler }        from './plantools/WallPlanToolHandler';
-import { RoomPlanToolHandler }        from './plantools/RoomPlanToolHandler';
-import { ColumnPlanToolHandler }      from './plantools/ColumnPlanToolHandler';
-import { LinearDimPlanToolHandler }   from './plantools/LinearDimPlanToolHandler';
-import { DoorPlanToolHandler }        from './plantools/DoorPlanToolHandler';
-import { WindowPlanToolHandler }      from './plantools/WindowPlanToolHandler';
-import { SlabPlanToolHandler }        from './plantools/SlabPlanToolHandler';
-import { StairPlanToolHandler }       from './plantools/StairPlanToolHandler';
-import { StairPathPlanToolHandler }   from './plantools/StairPathPlanToolHandler';
-import { BeamPlanToolHandler }        from './plantools/BeamPlanToolHandler';
-import { RoofPlanToolHandler }        from './plantools/RoofPlanToolHandler';
-import { CurtainWallPlanToolHandler } from './plantools/CurtainWallPlanToolHandler';
-import { CeilingPlanToolHandler }     from './plantools/CeilingPlanToolHandler';
-import { FloorPlanToolHandler }       from './plantools/FloorPlanToolHandler';
-import { RailingPlanToolHandler }     from './plantools/RailingPlanToolHandler';
-import { FurniturePlanToolHandler }   from './plantools/FurniturePlanToolHandler';
-import { LightingPlanToolHandler }    from './plantools/LightingPlanToolHandler';
-import { PlumbingPlanToolHandler }    from './plantools/PlumbingPlanToolHandler';
-import { OpeningPlanToolHandler }     from './plantools/OpeningPlanToolHandler';
-import { GridPlanToolHandler }        from './plantools/GridPlanToolHandler';
-import { SectionPlanToolHandler }     from './plantools/SectionPlanToolHandler';
-import { ElevationPlanToolHandler }   from './plantools/ElevationPlanToolHandler';
-// ── Edit-in-place tools (Contracts 34 / 35) — Move / Align / Copy-place ───
-// These were missing from the SVP registry, so the Move tool worked in the
-// Standalone Plan View but silently fell through to default selection in the
-// Split View Pane (notably visible when moving furniture such as sofas).
-import { MovePlanToolHandler }        from './plantools/MovePlanToolHandler';
-import { AlignPlanToolHandler }       from './plantools/AlignPlanToolHandler';
-import { CopyPlanToolHandler }        from './plantools/CopyPlanToolHandler';
-import {
-    TextNotePlanToolHandler,
-    ElementTagPlanToolHandler,
-    DoorTagPlanToolHandler,
-    WindowTagPlanToolHandler,
-    AngularDimPlanToolHandler,
-    RadiusDimPlanToolHandler,
-    DiameterDimPlanToolHandler,
-    SlopeDimPlanToolHandler,
-    SpotElevationPlanToolHandler,
-    KeynotePlanToolHandler,
-    LevelTagPlanToolHandler,
-    GridBubblePlanToolHandler,
-    RevisionCloudPlanToolHandler,
-    CalloutDetailPlanToolHandler,
-} from './plantools/AnnotationPlanToolHandlers';
+// §FIX-PLAN-VIEW-PARITY (L-73) — the SVP plan pane now builds its handler map from the
+// SAME shared registry the MAIN plan overlay uses (createPlanToolHandlers), so the two
+// surfaces expose an IDENTICAL capability set by construction. Previously this map was
+// a hand-maintained subset that drifted from PlanViewToolOverlay's — north-arrow,
+// scale-bar and matchline were missing here, so those tools silently did nothing in
+// split view (the founder's L-73 gap), and Move/Align/Copy were re-added ad hoc.
+// The factory returns FRESH instances, preserving the long-standing invariant that the
+// split pane's tool state never aliases the standalone plan view's.
+import { createPlanToolHandlers } from './plantools/planToolHandlerRegistry';
 
-// ── SVP handler registry — one fresh instance per handler key ─────────────
-const SVP_TOOL_HANDLERS: Readonly<Record<string, PlanToolHandler>> = {
-    'wall':               new WallPlanToolHandler(),
-    'room':               new RoomPlanToolHandler(),
-    'column':             new ColumnPlanToolHandler(),
-    'linear-dim':         new LinearDimPlanToolHandler(),
-    'door':               new DoorPlanToolHandler(),
-    'window':             new WindowPlanToolHandler(),
-    'slab':               new SlabPlanToolHandler(),
-    'stair':              new StairPlanToolHandler(),
-    'stair-path':         new StairPathPlanToolHandler(),
-    'beam':               new BeamPlanToolHandler(),
-    'roof':               new RoofPlanToolHandler(),
-    'curtain-wall':       new CurtainWallPlanToolHandler(),
-    'ceiling':            new CeilingPlanToolHandler(),
-    'floor':              new FloorPlanToolHandler(),
-    'railing':            new RailingPlanToolHandler(),
-    'furniture':          new FurniturePlanToolHandler(),
-    'lighting':           new LightingPlanToolHandler(),
-    'plumbing':           new PlumbingPlanToolHandler(),
-    'opening':            new OpeningPlanToolHandler(),
-    'grid':               new GridPlanToolHandler(),
-    'section-mark':       new SectionPlanToolHandler(),
-    'elevation-mark':     new ElevationPlanToolHandler(),
-    // ── Edit-in-place tools (Contracts 34 / 35) — separate instances from the
-    //    PlanViewToolOverlay so SVP move/align/copy state never aliases the
-    //    Standalone Plan View tool state. Fixes the "Move tool does nothing
-    //    on sofas in Split View" gap (docs 09 §3 / 10 Stage S1).
-    'move':               new MovePlanToolHandler(),
-    'align':              new AlignPlanToolHandler(),
-    'copy-place':         new CopyPlanToolHandler(),
-    'text-note':          new TextNotePlanToolHandler(),
-    'element-tag':        new ElementTagPlanToolHandler(),
-    'door-tag':           new DoorTagPlanToolHandler(),
-    'window-tag':         new WindowTagPlanToolHandler(),
-    'angular-dimension':  new AngularDimPlanToolHandler(),
-    'radius-dimension':   new RadiusDimPlanToolHandler(),
-    'diameter-dimension': new DiameterDimPlanToolHandler(),
-    'slope-dimension':    new SlopeDimPlanToolHandler(),
-    'spot-elevation':     new SpotElevationPlanToolHandler(),
-    'keynote':            new KeynotePlanToolHandler(),
-    'level-tag':          new LevelTagPlanToolHandler(),
-    'grid-bubble':        new GridBubblePlanToolHandler(),
-    'revision-cloud':     new RevisionCloudPlanToolHandler(),
-    'callout-detail':     new CalloutDetailPlanToolHandler(),
-};
+// ── SVP handler registry — one fresh instance per handler key (shared registry) ──
+const SVP_TOOL_HANDLERS: Readonly<Record<string, PlanToolHandler>> = createPlanToolHandlers();
 
 const ACTIVE_TOOL_KEYS = new Set(Object.keys(SVP_TOOL_HANDLERS));
 

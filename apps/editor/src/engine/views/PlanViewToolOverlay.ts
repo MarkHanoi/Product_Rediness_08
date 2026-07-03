@@ -35,98 +35,13 @@ import { trace }                     from '@opentelemetry/api';
 // §FIX-PLAN-WALLTOOL-ARM-ON-ACTIVATE (L-66) — P8: one OTel span per new exported entry point.
 const _planToolOverlayTracer = trace.getTracer('@pryzm/editor.plan-tool-overlay', '0.1.0');
 
-import { WallPlanToolHandler }         from './plantools/WallPlanToolHandler';
-import { RoomPlanToolHandler }         from './plantools/RoomPlanToolHandler';
-import { ColumnPlanToolHandler }       from './plantools/ColumnPlanToolHandler';
-import { LinearDimPlanToolHandler }    from './plantools/LinearDimPlanToolHandler';
-import { DoorPlanToolHandler }         from './plantools/DoorPlanToolHandler';
-import { WindowPlanToolHandler }       from './plantools/WindowPlanToolHandler';
-import { SlabPlanToolHandler }         from './plantools/SlabPlanToolHandler';
-import { StairPlanToolHandler }        from './plantools/StairPlanToolHandler';
-import { StairPathPlanToolHandler }    from './plantools/StairPathPlanToolHandler';
-import { BeamPlanToolHandler }         from './plantools/BeamPlanToolHandler';
-import { RoofPlanToolHandler }         from './plantools/RoofPlanToolHandler';
-import { CurtainWallPlanToolHandler }  from './plantools/CurtainWallPlanToolHandler';
-import { CeilingPlanToolHandler }      from './plantools/CeilingPlanToolHandler';
-import { FloorPlanToolHandler }        from './plantools/FloorPlanToolHandler';
-import { RailingPlanToolHandler }      from './plantools/RailingPlanToolHandler';
-import { FurniturePlanToolHandler }    from './plantools/FurniturePlanToolHandler';
-import { LightingPlanToolHandler }     from './plantools/LightingPlanToolHandler';
-import { PlumbingPlanToolHandler }     from './plantools/PlumbingPlanToolHandler';
-import { OpeningPlanToolHandler }      from './plantools/OpeningPlanToolHandler';
-import { GridPlanToolHandler }         from './plantools/GridPlanToolHandler';
-import { SectionPlanToolHandler }      from './plantools/SectionPlanToolHandler';
-import { ElevationPlanToolHandler }    from './plantools/ElevationPlanToolHandler';
-import { MovePlanToolHandler }          from './plantools/MovePlanToolHandler';
-import { CopyPlanToolHandler }          from './plantools/CopyPlanToolHandler';
-import { AlignPlanToolHandler }         from './plantools/AlignPlanToolHandler';
-import {
-    TextNotePlanToolHandler,
-    ElementTagPlanToolHandler,
-    DoorTagPlanToolHandler,
-    WindowTagPlanToolHandler,
-    AngularDimPlanToolHandler,
-    RadiusDimPlanToolHandler,
-    DiameterDimPlanToolHandler,
-    SlopeDimPlanToolHandler,
-    SpotElevationPlanToolHandler,
-    KeynotePlanToolHandler,
-    LevelTagPlanToolHandler,
-    GridBubblePlanToolHandler,
-    RevisionCloudPlanToolHandler,
-    CalloutDetailPlanToolHandler,
-    NorthArrowPlanToolHandler,
-    ScaleBarPlanToolHandler,
-    MatchlinePlanToolHandler,
-} from './plantools/AnnotationPlanToolHandlers';
+// §FIX-PLAN-VIEW-PARITY (L-73) — build the tool-handler map from the SINGLE shared
+// registry so the MAIN plan view and the SPLIT-view plan pane expose an identical
+// capability set (previously north-arrow/scale-bar/matchline were main-only). Fresh
+// instances per overlay keep tool state isolated between the two surfaces.
+import { createPlanToolHandlers } from './plantools/planToolHandlerRegistry';
 
-const PLAN_TOOL_HANDLERS: Readonly<Record<string, PlanToolHandler>> = {
-    'wall':               new WallPlanToolHandler(),
-    'room':               new RoomPlanToolHandler(),
-    'column':             new ColumnPlanToolHandler(),
-    'linear-dim':         new LinearDimPlanToolHandler(),
-    'door':               new DoorPlanToolHandler(),
-    'window':             new WindowPlanToolHandler(),
-    'slab':               new SlabPlanToolHandler(),
-    'stair':              new StairPlanToolHandler(),
-    'stair-path':         new StairPathPlanToolHandler(),
-    'beam':               new BeamPlanToolHandler(),
-    'roof':               new RoofPlanToolHandler(),
-    'curtain-wall':       new CurtainWallPlanToolHandler(),
-    'ceiling':            new CeilingPlanToolHandler(),
-    'floor':              new FloorPlanToolHandler(),
-    'railing':            new RailingPlanToolHandler(),
-    'furniture':          new FurniturePlanToolHandler(),
-    'lighting':           new LightingPlanToolHandler(),
-    'plumbing':           new PlumbingPlanToolHandler(),
-    'opening':            new OpeningPlanToolHandler(),
-    'grid':               new GridPlanToolHandler(),
-    'section-mark':       new SectionPlanToolHandler(),
-    'elevation-mark':     new ElevationPlanToolHandler(),
-    // ── Move tool (Contract 34) ───────────────────────────────────────────────────────────
-    'move':               new MovePlanToolHandler(),
-    'align':              new AlignPlanToolHandler(),
-    // ── Copy-place tool (Contract 35) ─────────────────────────────────────────────────────
-    'copy-place':         new CopyPlanToolHandler(),
-    // ── Annotation tools (previously missing — caused all clicks to be silently ignored) ──
-    'text-note':          new TextNotePlanToolHandler(),
-    'element-tag':        new ElementTagPlanToolHandler(),
-    'door-tag':           new DoorTagPlanToolHandler(),
-    'window-tag':         new WindowTagPlanToolHandler(),
-    'angular-dimension':  new AngularDimPlanToolHandler(),
-    'radius-dimension':   new RadiusDimPlanToolHandler(),
-    'diameter-dimension': new DiameterDimPlanToolHandler(),
-    'slope-dimension':    new SlopeDimPlanToolHandler(),
-    'spot-elevation':     new SpotElevationPlanToolHandler(),
-    'keynote':            new KeynotePlanToolHandler(),
-    'level-tag':          new LevelTagPlanToolHandler(),
-    'grid-bubble':        new GridBubblePlanToolHandler(),
-    'revision-cloud':     new RevisionCloudPlanToolHandler(),
-    'callout-detail':     new CalloutDetailPlanToolHandler(),
-    'north-arrow':        new NorthArrowPlanToolHandler(),
-    'scale-bar':          new ScaleBarPlanToolHandler(),
-    'matchline':          new MatchlinePlanToolHandler(),
-};
+const PLAN_TOOL_HANDLERS: Readonly<Record<string, PlanToolHandler>> = createPlanToolHandlers();
 
 const ACTIVE_TOOLS = new Set(Object.keys(PLAN_TOOL_HANDLERS));
 
