@@ -44,6 +44,10 @@
 
 import * as THREE from '@pryzm/renderer-three/three';
 import { FloorPlanUnderlayTool } from '@pryzm/input-host';
+// §FIX-UNDERLAY-DELETE-AND-STORAGE (L-45) — the raster now lives in IndexedDB, not
+// localStorage (which blew the ~5 MB quota → QuotaExceededError). localStorage keeps
+// only the tiny metadata pointer below.
+import { getUnderlayRasterStore } from './UnderlayRasterStore';
 
 const STORAGE_KEY_PREFIX = 'pryzm.floorPlanUnderlay.v2.';
 const LEGACY_STORAGE_KEY = 'pryzm.floorPlanUnderlay.v1';
@@ -51,8 +55,15 @@ const SAVE_DEBOUNCE_MS = 250;
 
 interface PersistedUnderlay {
     fileName: string;
-    /** PNG data URL of the rasterised plan (works for PDF + JPG + PNG inputs) */
-    imageDataUrl: string;
+    /**
+     * PNG data URL of the rasterised plan (works for PDF + JPG + PNG inputs).
+     *
+     * §FIX-UNDERLAY-DELETE-AND-STORAGE (L-45) — NO LONGER written to localStorage.
+     * New records store the raster in IndexedDB (UnderlayRasterStore, keyed by
+     * projectId). This field is OPTIONAL and present in-memory only (or on a legacy
+     * pre-fix localStorage record that is migrated to IDB on first restore).
+     */
+    imageDataUrl?: string;
     pxPerMeter: number;
     widthPx: number;
     heightPx: number;
@@ -81,17 +92,16 @@ function keyFor(projectId: string): string {
     return `${STORAGE_KEY_PREFIX}${projectId}`;
 }
 
-function currentKey(): string | null {
-    return _currentProjectId ? keyFor(_currentProjectId) : null;
-}
-
 /** Read the record for a specific project. Returns null on miss or parse error. */
 export function readPersistedUnderlay(projectId: string): PersistedUnderlay | null {
     try {
         const raw = localStorage.getItem(keyFor(projectId));
         if (!raw) return null;
         const parsed = JSON.parse(raw) as PersistedUnderlay;
-        if (!parsed.imageDataUrl || !parsed.pxPerMeter) return null;
+        // §FIX-UNDERLAY-DELETE-AND-STORAGE (L-45) — the raster (imageDataUrl) now lives
+        // in IndexedDB, so a valid metadata record no longer requires it inline. A
+        // legacy pre-fix record MAY still carry imageDataUrl; restore migrates it to IDB.
+        if (!parsed.pxPerMeter) return null;
         return parsed;
     } catch (err) {
         console.warn('[UnderlayPersistence] Failed to parse stored record:', err);
@@ -113,6 +123,10 @@ export function clearPersistedUnderlay(projectId?: string): void {
         return;
     }
     try { localStorage.removeItem(keyFor(target)); } catch { /* quota / private mode */ }
+    // §FIX-UNDERLAY-DELETE-AND-STORAGE (L-45) — drop the IDB raster too so an explicit
+    // removal fully reclaims storage. No-op guard above preserves the project-switch
+    // contract (target null → both localStorage + IDB records survive for next visit).
+    void getUnderlayRasterStore().delete(target);
     console.log(`[UnderlayPersistence] Cleared (project=${target})`);
 }
 
@@ -160,10 +174,12 @@ async function captureCurrentState(): Promise<PersistedUnderlay | null> {
             imageDataUrl = await blobUrlToDataUrl(src);
             _cachedImageDataUrl = imageDataUrl;
         }
-        // If still empty fall back to a record already on disk (avoid losing image)
+        // If still empty fall back to the raster already persisted for this project
+        // (avoid losing the image). §FIX-UNDERLAY-DELETE-AND-STORAGE (L-45) — the raster
+        // lives in IndexedDB now, so read it back from there (was: localStorage record).
         if (!imageDataUrl && _currentProjectId) {
-            const existing = readPersistedUnderlay(_currentProjectId);
-            imageDataUrl = existing?.imageDataUrl ?? null;
+            imageDataUrl = await getUnderlayRasterStore().get(_currentProjectId).catch(() => null);
+            _cachedImageDataUrl = imageDataUrl;
         }
     }
     if (!imageDataUrl) return null;
@@ -188,22 +204,35 @@ async function captureCurrentState(): Promise<PersistedUnderlay | null> {
 }
 
 async function flushSave(): Promise<void> {
-    const key = currentKey();
-    if (!key) {
+    // Capture the bound project up-front — captureCurrentState() awaits, and a
+    // project switch during that await would otherwise let us write into the wrong key.
+    const projectId = _currentProjectId;
+    if (!projectId) {
         // Mid-switch — saves are suspended until pryzm-project-loaded binds
         // us to the incoming project. This prevents Project A's PDF from
-        // bleeding into Project B's localStorage record.
+        // bleeding into Project B's record.
         console.log('[UnderlayPersistence] Save skipped — no current project bound');
         return;
     }
+    const key = keyFor(projectId);
     const record = await captureCurrentState();
     if (!record) return;
+
+    // §FIX-UNDERLAY-DELETE-AND-STORAGE (L-45) — split the record: the multi-MB raster
+    // goes to IndexedDB (durable, ~hundreds of MB quota); only the lightweight metadata
+    // pointer goes to localStorage (small — can never trip QuotaExceededError).
+    const { imageDataUrl, ...meta } = record;
+    if (imageDataUrl) {
+        // Fire-and-forget IDB write — never throws; a raster failure must not block the
+        // metadata save. get()-back on restore covers eventual consistency.
+        void getUnderlayRasterStore().put(projectId, imageDataUrl);
+    }
     try {
-        // @project-isolation: per-project. `key` comes from currentKey() which
-        // returns `${STORAGE_KEY_PREFIX}${_currentProjectId}` — guaranteed
-        // project-scoped, and short-circuited above when no project is bound.
-        localStorage.setItem(key, JSON.stringify(record));
-        console.log('[UnderlayPersistence] Saved (', (record.imageDataUrl.length / 1024).toFixed(1), 'KB image, project=' + _currentProjectId + ' )');
+        // @project-isolation: per-project. `key` = `${STORAGE_KEY_PREFIX}${projectId}`,
+        // guaranteed project-scoped, and short-circuited above when no project is bound.
+        localStorage.setItem(key, JSON.stringify(meta));
+        const kb = imageDataUrl ? (imageDataUrl.length / 1024).toFixed(1) : '0';
+        console.log('[UnderlayPersistence] Saved (', kb, 'KB raster→IDB, metadata→localStorage, project=' + projectId + ' )');
     } catch (err) {
         console.warn('[UnderlayPersistence] localStorage.setItem failed (quota?):', err);
     }
@@ -230,6 +259,24 @@ export async function restoreUnderlayForProject(projectId: string): Promise<bool
     const record = readPersistedUnderlay(projectId);
     if (!record) return false;
 
+    // §FIX-UNDERLAY-DELETE-AND-STORAGE (L-45) — resolve the raster. Prefer IndexedDB
+    // (new records); fall back to a legacy inline localStorage raster (pre-fix records)
+    // and migrate it into IDB + strip it from localStorage so the quota is reclaimed.
+    let imageDataUrl = await getUnderlayRasterStore().get(projectId).catch(() => null);
+    if (!imageDataUrl && record.imageDataUrl) {
+        imageDataUrl = record.imageDataUrl;
+        void getUnderlayRasterStore().put(projectId, imageDataUrl);
+        try {
+            const { imageDataUrl: _legacy, ...meta } = record;
+            localStorage.setItem(keyFor(projectId), JSON.stringify(meta)); // @project-isolation: keyFor(projectId)
+            console.log('[UnderlayPersistence] Migrated legacy inline raster → IDB (project=' + projectId + ')');
+        } catch { /* best-effort migration; raster is safe in IDB either way */ }
+    }
+    if (!imageDataUrl) {
+        console.warn('[UnderlayPersistence] Raster missing (IDB + localStorage) — restore skipped');
+        return false;
+    }
+
     const scene    = window.scene    as THREE.Scene | undefined;
     const camera   = window.camera   as THREE.Camera | undefined;
     const renderer = (window.world?.renderer?.three) as { domElement: HTMLElement } | undefined; // TODO(D.4): replace with runtime.scene.renderer once renderer slot is on PryzmRuntime — Phase D.4
@@ -241,7 +288,7 @@ export async function restoreUnderlayForProject(projectId: string): Promise<bool
     try {
         const tool = new FloorPlanUnderlayTool(scene, camera, renderer.domElement);
         await tool.create({
-            blobUrl:    record.imageDataUrl,   // dataURL works as an image src
+            blobUrl:    imageDataUrl,   // dataURL works as an image src
             pxPerMeter: record.pxPerMeter,
             widthPx:    record.widthPx,
             heightPx:   record.heightPx,
@@ -260,7 +307,7 @@ export async function restoreUnderlayForProject(projectId: string): Promise<bool
         if (!record.visible) tool.setVisible(false);
 
         // Cache the image so subsequent saves don't re-fetch the dataURL
-        _cachedImageDataUrl = record.imageDataUrl;
+        _cachedImageDataUrl = imageDataUrl;
 
         // Tell the Import Manager (Contract §32) and any UI listeners
         const underlayId = `floor-plan-${Date.now()}`;
