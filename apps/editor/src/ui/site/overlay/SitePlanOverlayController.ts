@@ -51,7 +51,7 @@ import { getSiteOverlayRasterStore } from './SiteOverlayRasterStore';
 // §FEAT-PROJECT-TRUE-NORTH (ADR-0114) — capture the project→true-north angle θ from the
 // committed underlay placement (the underlay's on-canvas rotation ON the true-north
 // basemap = θ). Distinct from the underlay's own transform.rotationRad by design.
-import { deriveProjectNorthAngle } from './projectTrueNorth';
+import { deriveProjectNorthAngle, computePlanUnderlayPlacement } from './projectTrueNorth';
 
 const VIOLET = '#6600FF';
 const INK = '#2a1a52';
@@ -84,6 +84,32 @@ export interface SitePlanOverlayControllerInit {
      * the commit just sets Project North with no navigation.
      */
     readonly onPlacementCommitted?: () => void;
+    /**
+     * §FEAT-SITE-OVERLAY-PLAN-UNDERLAY (L-71) — invoked on "✓ Finish" with the raster +
+     * its PROJECT-FRAME placement so the host can instantiate the calibrated plan as a live
+     * underlay INSIDE the PRYZM editor canvas (plan + 3D), correctly located + sized + rotated
+     * onto project north (orthogonal in plan view). The controller computes the placement
+     * (scale from the calibration mpp, rotation removed to project north, centre re-expressed
+     * in the project frame); the host does the THREE-scene creation via the existing
+     * FloorPlanUnderlayTool + CREATE_UNDERLAY pipeline. Absent ⇒ no canvas underlay is created.
+     */
+    readonly onEnterCanvas?: (params: EnterCanvasUnderlayParams) => void;
+}
+
+/** §FEAT-SITE-OVERLAY-PLAN-UNDERLAY (L-71) — the plan-canvas underlay params handed to the
+ *  host on "✓ Finish". Pre-computed from the calibrated overlay transform (see
+ *  computePlanUnderlayPlacement) so the host stays free of the dual-north math. */
+export interface EnterCanvasUnderlayParams {
+    readonly dataUrl: string;
+    readonly widthPx: number;
+    readonly heightPx: number;
+    /** Metric scale = 1 / metresPerPixel (correct real-world size). */
+    readonly pxPerMeter: number;
+    /** Project-frame centre, metres East/North of the site origin. */
+    readonly positionEast: number;
+    readonly positionNorth: number;
+    /** Underlay rotation about world-Y (radians). 0 = axis-aligned / project north. */
+    readonly rotationZ: number;
 }
 
 /** Live overlay state held by the controller. */
@@ -127,6 +153,7 @@ export function mountSitePlanOverlayController(
     const { map, parent, getOrigin, projectId } = init;
     const onCommitProjectNorth = init.onCommitProjectNorth;
     const onPlacementCommitted = init.onPlacementCommitted;
+    const onEnterCanvas = init.onEnterCanvas;
     const toast: ToastFn = init.toast ?? (() => { /* no-op */ });
 
     // §FIX-SITE-OVERLAY-RENDER-AND-FLOW — resolve the geo-anchor for the overlay. Prefer
@@ -295,10 +322,32 @@ export function mountSitePlanOverlayController(
         renderPanel();
         schedulePersist();
         const deg = ((thetaRad * 180) / Math.PI).toFixed(1);
-        toast(`Project North set from the plan (${deg}° to true north). The 3D globe now aligns.`, 'success');
-        // §FIX-SITE-OVERLAY-RENDER-AND-FLOW — the commit is the wizard's "proceed" action:
-        // tell the host to advance Step 2 → the boundary-trace / plot step. Guarded so a
-        // throwing host never blocks the (already-applied) placement.
+        toast(`Project North set from the plan (${deg}° to true north). Opening it on the canvas, axis-aligned.`, 'success');
+
+        // §FEAT-SITE-OVERLAY-PLAN-UNDERLAY (L-71) — instantiate the calibrated plan as a live
+        // underlay INSIDE the editor canvas: correct real size (mpp), correct location
+        // (project-frame centre), and AXIS-ALIGNED (project north) so it shows orthogonally
+        // in plan view for tracing walls. The controller does the pure dual-north math; the
+        // host performs the THREE-scene creation via the existing FloorPlanUnderlayTool +
+        // CREATE_UNDERLAY pipeline.
+        try {
+            const placement = computePlanUnderlayPlacement(state.transform);
+            onEnterCanvas?.({
+                dataUrl: state.dataUrl,
+                widthPx: state.transform.widthPx,
+                heightPx: state.transform.heightPx,
+                pxPerMeter: placement.pxPerMeter,
+                positionEast: placement.positionEast,
+                positionNorth: placement.positionNorth,
+                rotationZ: placement.rotationZ,
+            });
+        } catch (err) {
+            console.warn('[site-overlay] onEnterCanvas threw (non-fatal):', err);
+        }
+
+        // §FIX-SITE-OVERLAY-IMPORT-TERMINAL — the commit is the terminal "proceed" action:
+        // tell the host to land in the canvas (dispose the wizard, close the map). Guarded so
+        // a throwing host never blocks the (already-applied) placement.
         try {
             onPlacementCommitted?.();
         } catch (err) {

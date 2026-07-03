@@ -215,6 +215,11 @@ declare global {
          *  site.setParcelBoundary (same path as the Cesium tool). This is the
          *  DEFAULT draw surface; the 3D globe stays for the rendered result. */
         pryzmStartBoundaryDraw?: () => void;
+        /** §FIX-SITE-OVERLAY-IMPORT-TERMINAL (L-70) — open the 2D map in OVERLAY-ONLY mode
+         *  (boundary draw disarmed) for the PDF/image import path: only the site-plan
+         *  overlay panel + its 2-point calibration are live; no boundary can be traced and
+         *  no generate is armed. Registered by GISAreaLayout. */
+        pryzmStartSitePlanOverlayImport?: () => void;
         /** A.8.c — start the legacy Cesium-globe site-boundary polygon-draw tool
          *  (fallback). Requires the GIS view to be active. */
         pryzmStartBoundaryDraw3D?: () => void;

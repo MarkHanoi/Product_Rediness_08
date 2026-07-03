@@ -89,7 +89,11 @@ import {
 import {
     mountSitePlanOverlayController,
     type SitePlanOverlayControllerHandle,
+    type EnterCanvasUnderlayParams,
 } from '../site/overlay/SitePlanOverlayController.js';
+// §FEAT-SITE-OVERLAY-PLAN-UNDERLAY (L-71) — drop the calibrated plan into the editor canvas
+// as a live underlay (reuses the FloorPlanUnderlayTool + CREATE_UNDERLAY pipeline).
+import { createPlanCanvasUnderlayFromSiteOverlay } from '../../engine/createSiteOverlayUnderlay.js';
 
 /** §BND-90-DEFAULT-ON — forgiving lock band (deg) for freehand map drawing (was the
  *  8° ORTHO_SNAP_TOLERANCE_DEG, too tight to hit by hand now the lock is default-on). */
@@ -221,6 +225,16 @@ export interface SiteBoundaryMap2DOptions {
      * handle's `dispose()` or `window.pryzmCloseBoundaryMap2D`).
      */
     readonly onCommit?: () => void;
+    /**
+     * §FIX-SITE-OVERLAY-IMPORT-TERMINAL (L-70) — OVERLAY-ONLY mode: the map is opened purely
+     * to place + calibrate a site-plan overlay (the PDF/image import use case), NOT to trace a
+     * parcel. When true the boundary DRAW tool is DISARMED (map clicks add no vertices / never
+     * commit a boundary) and the draw-mode strip + instruction chip are hidden — the site-plan
+     * overlay panel + its 2-point calibration are the only interactions. This is how the
+     * founder's "just place the image + go straight to the canvas" path avoids the boundary /
+     * generate coupling entirely. The other branches (draw-plot) are unaffected (default false).
+     */
+    readonly overlayOnly?: boolean;
 }
 
 /**
@@ -281,6 +295,9 @@ export function mountSiteBoundaryMap2D(
         boxShadow: '0 2px 10px rgba(60,52,40,0.18)',
         pointerEvents: 'none',
     } satisfies Partial<CSSStyleDeclaration>);
+    // §FIX-SITE-OVERLAY-IMPORT-TERMINAL (L-70) — no boundary to trace in overlay-only mode,
+    // so the "click two corners" instruction would be misleading. Hide it.
+    if (opts.overlayOnly) chip.style.display = 'none';
     overlay.appendChild(chip);
 
     // Close (×) button.
@@ -455,6 +472,9 @@ export function mountSiteBoundaryMap2D(
     escHint.className = 'wdh-esc';
     escHint.textContent = 'ESC to cancel';
     modeBar.appendChild(escHint);
+    // §FIX-SITE-OVERLAY-IMPORT-TERMINAL (L-70) — the Rectangle/Linear/Ortho/Curved draw
+    // strip has no purpose in overlay-only mode (drawing is disarmed). Hide it.
+    if (opts.overlayOnly) modeBar.style.display = 'none';
     overlay.appendChild(modeBar);
 
     // A.8.c.f.4 — active basemap. Default = the Hektar cream vector look; the corner
@@ -1028,6 +1048,12 @@ export function mountSiteBoundaryMap2D(
 
     function onClick(e: MapMouseEvent): void {
         if (disposed || committed) return;
+        // §FIX-SITE-OVERLAY-IMPORT-TERMINAL (L-70) — OVERLAY-ONLY mode: the boundary draw
+        // tool is disarmed. Map clicks never add a vertex / commit a boundary; only the
+        // site-plan overlay panel + its 2-point calibration (which listens on its OWN map
+        // handler) respond. This is the founder's "place the plan → straight to canvas,
+        // no boundary, no generate" path.
+        if (opts.overlayOnly) return;
         // §FIX-SITE-OVERLAY-CALIBRATION-EXCLUSIVE (L-69) — while the site-plan overlay is
         // capturing its two 2-point-calibration clicks, the DRAW tool must YIELD: otherwise
         // this handler consumed the two clicks as parcel vertices (rectangle/circle mode
@@ -1589,6 +1615,14 @@ export function mountSiteBoundaryMap2D(
                 // is a valid located plot — no mandatory boundary trace to move forward).
                 onPlacementCommitted: () => {
                     try { (runtime ?? null)?.events?.emit('site.overlay-placement-committed', {}); } catch { /* non-fatal */ }
+                },
+                // §FEAT-SITE-OVERLAY-PLAN-UNDERLAY (L-71) — drop the calibrated plan into the
+                // editor canvas as a live underlay (correct location + size, axis-aligned to
+                // project north for orthogonal plan-view tracing). Reuses the existing
+                // FloorPlanUnderlayTool + CREATE_UNDERLAY pipeline. Fire-and-forget: guarded,
+                // never throws into the commit.
+                onEnterCanvas: (params: EnterCanvasUnderlayParams) => {
+                    void createPlanCanvasUnderlayFromSiteOverlay(params);
                 },
             });
             // §SITE-PLAN-OVERLAY — window hook so the onboarding "Overlay a plan/PDF"

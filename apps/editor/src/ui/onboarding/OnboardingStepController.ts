@@ -149,7 +149,9 @@ export function startOnboardingStepFlow(
     return () => controller.dispose();
 }
 
-class OnboardingStepController {
+// Exported for unit tests (the public entry point is `startOnboardingStepFlow`); the flow
+// is otherwise always launched via that factory.
+export class OnboardingStepController {
     private readonly runtime: PryzmRuntime;
     private readonly seedAddress: string;
     /** Typology from the brief — drives the O.7.1 confirm-step copy/label. */
@@ -482,11 +484,12 @@ class OnboardingStepController {
             'Open the map and trace your real plot boundary, corner by corner.',
             'onboarding-site-draw',
         );
-        // §SITE-PLAN-OVERLAY — overlay a client PDF / survey image on the map, calibrate
-        // it to true scale, then trace the boundary against BOTH the plan and the basemap.
+        // §FIX-SITE-OVERLAY-IMPORT-TERMINAL (L-70) — import a client PDF / survey image,
+        // calibrate it to true scale, and drop it straight onto the PRYZM canvas as an
+        // axis-aligned underlay to draw over. NO boundary trace, NO auto-generate.
         const overlayBtn = this.buildChoiceCard(
             '📄 Overlay a plan / PDF',
-            'Place your survey or CAD plan on the map, scale it to true size, then trace the boundary.',
+            'Place your survey or CAD plan on the map, scale it to true size, then open it on the canvas to draw over.',
             'onboarding-site-overlay',
         );
         choices.appendChild(defaultBtn);
@@ -513,17 +516,8 @@ class OnboardingStepController {
             void this.startDrawThenGenerate();
         });
         overlayBtn.addEventListener('click', () => {
-            console.log('[onboarding-step] site choice: overlay a plan/PDF then draw.');
-            // Same draw flow (opens the 2D map where the overlay controller is mounted),
-            // then auto-open the overlay upload picker so the user starts from their plan.
-            void this.startDrawThenGenerate().then(() => {
-                try {
-                    const open = (window as unknown as { pryzmOpenSitePlanOverlay?: () => void }).pryzmOpenSitePlanOverlay;
-                    open?.();
-                } catch (err) {
-                    console.warn('[onboarding-step] pryzmOpenSitePlanOverlay unavailable (non-fatal):', err);
-                }
-            });
+            console.log('[onboarding-step] site choice: overlay a plan/PDF → import to canvas (no draw, no generate).');
+            void this.startOverlayImport();
         });
         back.addEventListener('click', () => this.renderLocationStep());
     }
@@ -614,7 +608,7 @@ class OnboardingStepController {
         this.renderDrawingStep();
 
         let settled = false;
-        const finish = (source: 'drawn' | 'watchdog' | 'overlay'): void => {
+        const finish = (source: 'drawn' | 'watchdog'): void => {
             if (settled) return;
             settled = true;
             cleanup();
@@ -625,28 +619,6 @@ class OnboardingStepController {
                 console.warn('[onboarding-step] draw watchdog fired (60 s) — falling back to a default plot, then asking before generate.');
                 this.toast('No boundary drawn — using a default plot.', 'info');
                 void this.fallbackDefaultRectToConfirm('watchdog');
-            } else if (source === 'overlay') {
-                // §FIX-SITE-OVERLAY-IMPORT-TERMINAL (L-69): the user pressed "✓ Use this
-                // placement" on the site-plan overlay. Founder intent: PDF/image import is a
-                // TERMINAL "place accurately → enter the PRYZM canvas to start working" path
-                // — it must NOT force a parcel-boundary trace and must NOT auto-generate a
-                // building (the previous §FIX-SITE-OVERLAY-RENDER-AND-FLOW routed this into a
-                // default-plot generate-confirm, which is exactly the coupling the founder
-                // rejected). θ/Project North is already set (dispatchSiteTrueNorth) and the
-                // calibrated plan is durably persisted per-project (SiteOverlayRasterStore +
-                // lean metadata), so here we simply LAND IN THE CANVAS: dispose the wizard,
-                // leaving the Site + the placed plan intact — NO boundary, NO generate.
-                // Boundary-trace / generate remain SEPARATE explicit choices (the other
-                // onboarding branches), never the forced endpoint of the overlay path.
-                console.log('[onboarding-step] §SITE-OVERLAY: placement committed — terminal (enter canvas; NO boundary, NO generate).');
-                // Dispose ONLY the wizard: the site map + the placed/calibrated plan stay
-                // visible as the working reference (the plan is also durably persisted).
-                // We deliberately do NOT force-close the map — that would hide the plan the
-                // user just placed (rendering it as a live underlay INSIDE the 3D/plan editor
-                // is the ADR-0115 §Remaining #1 plan-canvas bridge). The map's own × enters
-                // the empty editor when they're ready to build.
-                this.toast('Plan placed and calibrated — saved to your project. Start working on the plan; close the map (×) to enter the editor.', 'success');
-                this.dispose();
             } else {
                 // O.7.1: keep the drawn boundary visible on the map + ASK before
                 // generating (typology→AI dispatch). Do NOT auto-generate.
@@ -656,13 +628,9 @@ class OnboardingStepController {
         };
 
         const sub = this.runtime.events?.on('site.parcel-boundary-set', () => finish('drawn'));
-        // §FIX-SITE-OVERLAY-RENDER-AND-FLOW — the overlay "Use this placement" commit is an
-        // ALTERNATIVE way to complete the site step (advances the wizard forward).
-        const overlaySub = this.runtime.events?.on('site.overlay-placement-committed', () => finish('overlay'));
         const watchdog = setTimeout(() => finish('watchdog'), DRAW_WATCHDOG_MS);
         const cleanup = (): void => {
             try { sub?.dispose(); } catch { /* ignore */ }
-            try { overlaySub?.dispose(); } catch { /* ignore */ }
             clearTimeout(watchdog);
         };
         this.addCleanup(cleanup);
@@ -725,6 +693,127 @@ class OnboardingStepController {
                 console.warn('[onboarding-step] §GIS-HANDOFF: pryzmStartBoundaryDraw never appeared — relying on watchdog / manual GIS-rail draw.');
                 return;
             }
+            const t = setTimeout(tick, 250);
+            this.addCleanup(() => clearTimeout(t));
+        };
+        tick();
+    }
+
+    /**
+     * §FIX-SITE-OVERLAY-IMPORT-TERMINAL (L-70) + §FEAT-SITE-OVERLAY-PLAN-UNDERLAY (L-71) —
+     * the PDF/image IMPORT branch. This is DECOUPLED from the draw→generate flow: it opens
+     * the 2D map in OVERLAY-ONLY mode (no boundary draw, no watchdog, no generate-confirm),
+     * auto-opens the upload picker, and treats "✓ Finish" as the sole TERMINAL action →
+     * the calibrated plan is dropped onto the PRYZM canvas as an axis-aligned underlay
+     * (created by the overlay controller → SiteBoundaryMap2D → createPlanCanvasUnderlayFromSiteOverlay)
+     * and the wizard disposes, landing the user in the editor. The other onboarding
+     * branches (default footprint, draw-plot → generate) are untouched.
+     */
+    private async startOverlayImport(): Promise<void> {
+        // 1) Anchor the Site (location only, NO boundary) so the overlay's origin resolves.
+        const ctx = resolveSiteContext(this.runtime);
+        if (ctx) {
+            if (this.picked) {
+                dispatchSiteLocation(ctx, {
+                    latitude: this.picked.lat,
+                    longitude: this.picked.lon,
+                    siteAddress: this.picked.address ?? null,
+                });
+            } else {
+                ensureSite(ctx);
+            }
+        }
+
+        // 2) Present the map (drawing presentation lets pointer events reach the map +
+        //    overlay panel) — but there is NO "draw your plot" instruction here.
+        this.setStepIndicator(2, 'Place your plan');
+        this.setDrawingPresentation(true);
+
+        // 3) TERMINAL completion: when the user presses "✓ Finish", the overlay controller
+        //    emits `site.overlay-placement-committed` (AFTER creating the canvas underlay +
+        //    setting Project North). We dispose the wizard and land in the editor canvas —
+        //    NO boundary, NO generate. Close the 2D map + exit GIS so the plan-canvas
+        //    underlay (now in the editor scene) is what the user sees.
+        let settled = false;
+        const finishImport = (): void => {
+            if (settled) return;
+            settled = true;
+            try { sub?.dispose(); } catch { /* ignore */ }
+            console.log('[onboarding-step] §SITE-OVERLAY: plan imported to canvas — terminal (NO boundary, NO generate).');
+            this.toast('Plan placed on the canvas — start drawing your walls over it.', 'success');
+            const w = window as unknown as {
+                pryzmCloseBoundaryMap2D?: () => void;
+                pryzmToggleGIS?: (active: boolean) => void;
+            };
+            try { w.pryzmCloseBoundaryMap2D?.(); } catch { /* ignore */ }
+            try { w.pryzmToggleGIS?.(false); } catch { /* ignore */ }
+            this.dispose();
+        };
+        const sub = this.runtime.events?.on('site.overlay-placement-committed', () => finishImport());
+        this.addCleanup(() => { try { sub?.dispose(); } catch { /* ignore */ } });
+
+        // 4) Activate GIS + open the map in OVERLAY-ONLY mode, then auto-open the picker.
+        try {
+            const w = window as unknown as {
+                pryzmToggleGIS?: (active: boolean) => void;
+                pryzmSetGeocodeFrame?: (frame: { lat: number; lon: number; bbox?: [number, number, number, number] }) => void;
+            };
+            if (this.picked && typeof w.pryzmSetGeocodeFrame === 'function') {
+                w.pryzmSetGeocodeFrame({
+                    lat: this.picked.lat,
+                    lon: this.picked.lon,
+                    ...(this.picked.bbox ? { bbox: this.picked.bbox } : {}),
+                });
+            }
+            if (typeof w.pryzmToggleGIS === 'function') w.pryzmToggleGIS(true);
+            this.startOverlayImportWhenReady();
+        } catch (err) {
+            console.warn('[onboarding-step] §SITE-OVERLAY-IMPORT threw:', err);
+        }
+    }
+
+    /**
+     * Poll (bounded) for the overlay-only map hook + the upload-picker hook, then open the
+     * map in overlay-only mode and pop the file picker so the user starts from their plan.
+     */
+    private startOverlayImportWhenReady(): void {
+        let tries = 0;
+        const MAX_TRIES = 40; // 40 × 250 ms = 10 s.
+        const tick = (): void => {
+            if (this.disposed) return;
+            const w = window as unknown as {
+                pryzmStartSitePlanOverlayImport?: () => void;
+                pryzmOpenSitePlanOverlay?: () => void;
+            };
+            if (typeof w.pryzmStartSitePlanOverlayImport === 'function') {
+                try { w.pryzmStartSitePlanOverlayImport(); } catch (err) { console.warn('[onboarding-step] startSitePlanOverlayImport threw:', err); }
+                // Open the upload picker once the overlay controller has mounted (a further
+                // short poll — the map mount is async inside GISAreaLayout).
+                this.openOverlayPickerWhenReady();
+                return;
+            }
+            if (++tries >= MAX_TRIES) {
+                console.warn('[onboarding-step] §SITE-OVERLAY-IMPORT: pryzmStartSitePlanOverlayImport never appeared.');
+                return;
+            }
+            const t = setTimeout(tick, 250);
+            this.addCleanup(() => clearTimeout(t));
+        };
+        tick();
+    }
+
+    /** Poll (bounded) for the overlay upload-picker hook, then open the file picker. */
+    private openOverlayPickerWhenReady(): void {
+        let tries = 0;
+        const MAX_TRIES = 40;
+        const tick = (): void => {
+            if (this.disposed) return;
+            const open = (window as unknown as { pryzmOpenSitePlanOverlay?: () => void }).pryzmOpenSitePlanOverlay;
+            if (typeof open === 'function') {
+                try { open(); } catch (err) { console.warn('[onboarding-step] pryzmOpenSitePlanOverlay threw:', err); }
+                return;
+            }
+            if (++tries >= MAX_TRIES) return;
             const t = setTimeout(tick, 250);
             this.addCleanup(() => clearTimeout(t));
         };

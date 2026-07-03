@@ -7,10 +7,22 @@
 - **Deciders:** Founder + Claude (Opus 4.8)
 - **Tags:** `§FEAT-SITE-OVERLAY-PLACE`, `§FEAT-PROJECT-TRUE-NORTH`, `§FEAT-SITE-VIEW-ALWAYS-ON`,
   `§FIX-SITE-OVERLAY-RENDER-AND-FLOW` (L-58), `§FIX-SITE-OVERLAY-CALIBRATION-EXCLUSIVE` +
-  `§FIX-SITE-OVERLAY-IMPORT-TERMINAL` (L-69).
+  `§FIX-SITE-OVERLAY-IMPORT-TERMINAL` (L-69/L-70), `§FEAT-SITE-OVERLAY-PLAN-UNDERLAY` (L-71).
 - **Audit rows:** L-38 (overlay + dual north), L-40 (3D site/globe always reachable),
   L-58 (the MapLibre overlay wasn't visibly rendering + the flow didn't complete),
-  L-69 (2-pt calibration dead + import wrongly coupled to generate).
+  L-69 (2-pt calibration dead + import wrongly coupled to generate),
+  L-70 (import path still armed draw + generate), L-71 (THE goal — plan on canvas, project north).
+- **2026-07-03 slice (L-70 + L-71).** Delivered the founder's DEFINING goal: import a PDF/JPG,
+  place + calibrate it on the map, press "✓ Finish", and land straight in the PRYZM canvas with
+  the plan as a live underlay — geolocated, real-size, and AXIS-ALIGNED to project north so it
+  shows orthogonally in plan view for tracing walls (NO house generation, NO boundary trace).
+  **L-71** = §Remaining #1 (below), now DONE via the reused floor-plan underlay pipeline.
+  **L-70** = the overlay onboarding branch is fully decoupled: a dedicated `startOverlayImport()`
+  opens the 2D map in OVERLAY-ONLY mode (`pryzmStartSitePlanOverlayImport` → SiteBoundaryMap2D
+  `overlayOnly`: draw tool disarmed, mode-strip/instruction hidden), never arms
+  `pryzmStartBoundaryDraw`, never runs the draw watchdog, and treats "✓ Finish" as terminal
+  (create the canvas underlay → dispose the wizard → close the map → exit GIS). The card is
+  re-labelled (no "then trace the boundary"). Other branches untouched.
 - **2026-07-03 update (L-58, `§FIX-SITE-OVERLAY-RENDER-AND-FLOW`).** Made the MapLibre site
   overlay actually work end-to-end on the 2D boundary map (distinct from the plan-canvas
   THREE underlay of Remaining item 1). Three root causes fixed: (a) **render** — the
@@ -183,17 +195,21 @@ site. Fix (additive):
 
 ## Remaining (this slice is PARTIAL by design)
 
-1. **Plan-canvas gizmo bridge.** Wire the existing THREE plan-view underlay
-   (`FloorPlanUnderlayTool` — already drag/`rotateBy`/`applyScale`/lock capable) so its
-   confirm/OK captures `mesh.rotation.z` → `deriveProjectNorthAngle` → `dispatchSiteTrueNorth`,
-   and shares the one overlay placement transform with the MapLibre surface. The pure
-   transform + capture helpers + the P6 path all exist; this is the remaining UI wiring.
-   **Note (L-69):** this bridge is also what would surface the placed MapLibre plan as a live
-   underlay INSIDE the 3D/plan editor canvas. Until it lands, the L-69 terminal-import path
-   (`§FIX-SITE-OVERLAY-IMPORT-TERMINAL`) keeps the plan **durably persisted** per-project +
-   visible on the site map, and "✓ Use this placement" is a TERMINAL "place → enter canvas"
-   action (dispatch θ, persist, dispose the wizard) with **no forced boundary trace or
-   auto-generate** — importing an image is decoupled from generating a building.
+1. ~~**Plan-canvas gizmo bridge.**~~ **DONE (2026-07-03, L-71, `§FEAT-SITE-OVERLAY-PLAN-UNDERLAY`).**
+   Pressing "✓ Finish" on the site-plan overlay now INSTANTIATES the calibrated plan as a live
+   underlay INSIDE the PRYZM editor canvas (plan + 3D), reusing the EXISTING floor-plan underlay
+   pipeline — `FloorPlanUnderlayTool` (packages/input-host) + `CreateUnderlayCommand` dispatched
+   via `runtime.bus` → the L-45 `CREATE_UNDERLAY` bridge (P6, undoable). The placement is the
+   pure `computePlanUnderlayPlacement(transform)` (projectTrueNorth.ts): **size** = `pxPerMeter =
+   1/mpp` (the 2-point calibration); **rotation** = `0` = AXIS-ALIGNED in plan view (the map
+   shows the plan at true north, the canvas removes that rotation = project north = orthogonal
+   for wall-tracing — this is `overlayInProjectFrame` applied to the renderer); **location** =
+   the overlay centre re-expressed in the project frame (`trueToProjectNorth` about the site
+   origin). Engine bridge: `apps/editor/src/engine/createSiteOverlayUnderlay.ts`
+   (`createPlanCanvasUnderlayFromSiteOverlay`, one OTel span — P8; P2-clean: mutates the mesh
+   via the tool's state handle, no `import * as THREE`). Wired controller → SiteBoundaryMap2D
+   `onEnterCanvas` → engine helper. θ still lands on `SiteLocation.trueNorth` via
+   `dispatchSiteTrueNorth` for the globe. (This is what the L-69 note anticipated.)
 2. **Globe applies θ to the placed model.** `CesiumViewport` currently does not read
    `SiteLocation.trueNorth`; feed θ into the Forma massing placement so the model rotates to
    true north on the globe (the transform primitive is ready).

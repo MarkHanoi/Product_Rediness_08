@@ -74,12 +74,15 @@ let toasts: Array<{ msg: string; sev: string }> = [];
 let onCommitNorth: ReturnType<typeof vi.fn>;
 let onPlacementCommitted: ReturnType<typeof vi.fn>;
 
+let onEnterCanvas: ReturnType<typeof vi.fn>;
+
 beforeEach(() => {
     localStorage.clear();
     _get.mockClear(); _put.mockClear(); _delete.mockClear();
     toasts = [];
     onCommitNorth = vi.fn();
     onPlacementCommitted = vi.fn();
+    onEnterCanvas = vi.fn();
     (window as unknown as { prompt: (m?: string, d?: string) => string | null }).prompt = () => '10';
 });
 afterEach(() => { try { handle?.dispose(); } catch { /* ignore */ } handle = null; });
@@ -96,6 +99,7 @@ async function mountWithSeededOverlay(map: FakeMap): Promise<HTMLElement> {
         toast: (msg, sev) => { toasts.push({ msg, sev }); },
         onCommitProjectNorth: (theta) => onCommitNorth(theta),
         onPlacementCommitted: () => onPlacementCommitted(),
+        onEnterCanvas: (params) => onEnterCanvas(params),
     });
     // restore() is async (awaits the mocked IDB get) — let the microtasks flush.
     await new Promise((r) => setTimeout(r, 0));
@@ -177,5 +181,35 @@ describe('§FIX-SITE-OVERLAY-IMPORT-TERMINAL — the explicit "Finish — enter 
         // No parcel-boundary was drawn on the map (no ring source/layer added by the commit).
         expect(map.getSource('pryzm-boundary')).toBeFalsy();
         expect(map.getLayer('pryzm-boundary-fill')).toBeFalsy();
+    });
+});
+
+describe('§FEAT-SITE-OVERLAY-PLAN-UNDERLAY — Finish hands an axis-aligned underlay to the canvas', () => {
+    it('Finish calls onEnterCanvas with the raster + a project-north (axis-aligned) placement', async () => {
+        const map = new FakeMap();
+        const panel = await mountWithSeededOverlay(map);
+        findButton(panel, 'Finish').click();
+        expect(onEnterCanvas).toHaveBeenCalledTimes(1);
+        const params = onEnterCanvas.mock.calls[0][0];
+        // The raster is carried through …
+        expect(typeof params.dataUrl).toBe('string');
+        expect(params.dataUrl.length).toBeGreaterThan(0);
+        // … at correct real-world scale (pxPerMeter = 1/mpp > 0) …
+        expect(params.pxPerMeter).toBeGreaterThan(0);
+        expect(Number.isFinite(params.pxPerMeter)).toBe(true);
+        // … and AXIS-ALIGNED in plan view (project north) — the whole point.
+        expect(params.rotationZ).toBe(0);
+        expect(params.widthPx).toBeGreaterThan(0);
+        expect(params.heightPx).toBeGreaterThan(0);
+    });
+
+    it('onEnterCanvas fires BEFORE the placement-committed (canvas underlay ready as the wizard lands)', async () => {
+        const order: string[] = [];
+        onEnterCanvas.mockImplementation(() => order.push('enter-canvas'));
+        onPlacementCommitted.mockImplementation(() => order.push('committed'));
+        const map = new FakeMap();
+        const panel = await mountWithSeededOverlay(map);
+        findButton(panel, 'Finish').click();
+        expect(order).toEqual(['enter-canvas', 'committed']);
     });
 });

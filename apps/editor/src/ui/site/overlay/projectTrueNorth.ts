@@ -115,6 +115,58 @@ export function overlayInProjectFrame(transform: SitePlanOverlayTransform): Site
 }
 
 /**
+ * §FEAT-SITE-OVERLAY-PLAN-UNDERLAY (L-71) — the plan-canvas underlay placement derived
+ * from a calibrated site-overlay transform. This is the pure heart of "instantiate the
+ * calibrated plan as a live underlay INSIDE the PRYZM editor canvas, oriented on PROJECT
+ * NORTH so it shows orthogonally in plan view":
+ *
+ *   • `pxPerMeter = 1 / metresPerPixel` — the FloorPlanUnderlayTool's metric scale is the
+ *     inverse of the 2-point-calibration mpp, so the plan is placed at CORRECT real size.
+ *   • `rotationZ = 0` — the plan is AXIS-ALIGNED in the project frame (plan view). The
+ *     map shows the plan at its true/geographic orientation (rotationRad ≠ 0); the canvas
+ *     removes that rotation so the plan's edges are orthogonal and the user can draw walls
+ *     along them. The removed angle is exactly θ (mirrored to `SiteLocation.trueNorth` for
+ *     the globe) — the dual-north model (ADR-0115). This is `overlayInProjectFrame` applied
+ *     to the renderer's rotation.
+ *   • `positionEast/North` — the overlay CENTRE re-expressed in the project frame
+ *     (`trueToProjectNorth` about the site origin), so applying θ to the whole model on
+ *     the globe maps the plan back to its true geographic location. Near the origin (the
+ *     typical case) this is ≈ the raw centre.
+ */
+export interface PlanUnderlayPlacement {
+    /** FloorPlanUnderlayTool metric scale = 1 / metresPerPixel (correct real-world size). */
+    readonly pxPerMeter: number;
+    /** Project-frame underlay centre, metres East of the site origin. */
+    readonly positionEast: number;
+    /** Project-frame underlay centre, metres North of the site origin. */
+    readonly positionNorth: number;
+    /** Underlay mesh rotation about world-Y (radians). 0 = axis-aligned / project north. */
+    readonly rotationZ: number;
+    /** θ (project→true-north, radians) — carried for the caller's telemetry / round-trip. */
+    readonly projectNorthRad: number;
+}
+
+/** Compute the plan-canvas underlay placement from a calibrated site-overlay transform. */
+export function computePlanUnderlayPlacement(transform: SitePlanOverlayTransform): PlanUnderlayPlacement {
+    const theta = deriveProjectNorthAngle(transform);
+    const projectCentre = trueToProjectNorth(
+        { east: transform.centre.east, north: transform.centre.north },
+        theta,
+        { east: 0, north: 0 },
+    );
+    const mpp = Number.isFinite(transform.metresPerPixel) && transform.metresPerPixel > 0
+        ? transform.metresPerPixel
+        : 1e-6;
+    return {
+        pxPerMeter: 1 / mpp,
+        positionEast: projectCentre.east,
+        positionNorth: projectCentre.north,
+        rotationZ: 0, // axis-aligned in the project frame → orthogonal in plan view
+        projectNorthRad: theta,
+    };
+}
+
+/**
  * The geolocation + dual-north record captured when the user presses "Use this
  * placement". Durable, pure data. Keeps the TWO angles distinct (founder rule):
  * the underlay's own on-canvas orientation AND the project→true-north θ.

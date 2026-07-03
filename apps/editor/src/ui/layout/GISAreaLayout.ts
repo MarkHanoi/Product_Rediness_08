@@ -71,7 +71,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // A.8.c.f — open the Hektar-style 2D cream/shadow boundary-draw map overlay
     // (NOT the Cesium 3D draw). Mounts on #container; on commit/cancel it disposes
     // + closes. Lazy-imports the MapLibre chunk so it is not in the main bundle.
-    const startBoundaryDraw = (): void => {
+    const startBoundaryDraw = (drawOpts?: { overlayOnly?: boolean }): void => {
         if (map2dHandle) {
             console.log('[gis] map2d already open');
             return;
@@ -87,6 +87,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 runtime: runtime ?? null,
                 initial: getMapInitial(),
                 getOrigin: getSiteOrigin,
+                // §FIX-SITE-OVERLAY-IMPORT-TERMINAL (L-70) — open the map in overlay-only mode
+                // for the PDF/image import path: the draw tool is disarmed (no boundary, no
+                // generate), only the site-plan overlay panel + calibration are live.
+                overlayOnly: drawOpts?.overlayOnly ?? false,
                 // O.7.2.b — CANCEL (Esc / ×) disposes the map → drop the handle.
                 onClose: () => { map2dHandle = null; },
                 // O.7.2.b — COMMIT does NOT dispose: the cream map + boundary stay
@@ -809,6 +813,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // mounting the 3D globe. (Re-registered inside the mount too, harmlessly.)
     window.pryzmStartBoundaryDraw = () => startBoundaryDraw();
     window.pryzmCancelBoundaryDraw = () => cancelBoundaryDraw();
+    // §FIX-SITE-OVERLAY-IMPORT-TERMINAL (L-70) — open the 2D map in OVERLAY-ONLY mode (draw
+    // disarmed) for the PDF/image import path. The onboarding overlay branch calls this
+    // instead of pryzmStartBoundaryDraw so no boundary can be traced + no generate is armed.
+    window.pryzmStartSitePlanOverlayImport = () => startBoundaryDraw({ overlayOnly: true });
 
     // ════════════════════════════════════════════════════════════════════════
     // FORMA.3 — 3D Forma massing view + [Plan View][3D View] toggle (SPEC §3–§5)
