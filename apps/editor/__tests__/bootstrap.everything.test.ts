@@ -13,7 +13,7 @@
 //   • tearDown() is idempotent.
 
 import { describe, expect, it } from 'vitest';
-import { WallStore, WallSystemTypeStore } from '@pryzm/plugin-wall';
+import { WallStore } from '@pryzm/plugin-wall';
 import { SlabStore } from '@pryzm/plugin-slab';
 import { DoorStore } from '@pryzm/plugin-door';
 import { WindowStore } from '@pryzm/plugin-window';
@@ -59,10 +59,22 @@ describe('editor.bootstrap.everything — bootstrapWithEverything (W-1C-1)', () 
     rt.tearDown();
   });
 
-  it('exposes wallSystemTypes auxiliary at the top of the runtime', () => {
+  it('exposes the UNIFIED wall system-type catalogue auxiliary (§FIX-WALL-TYPE-UNIFY-CATALOGUE, L-50)', () => {
     const rt = bootstrapWithEverything({ audit: AUDIT });
-    expect(rt.wallSystemTypes).toBeInstanceOf(WallSystemTypeStore);
+    // §FIX-WALL-TYPE-UNIFY-CATALOGUE (L-50, ADR-0116) — the wall handlers'
+    // catalogue is now the SHARED geometry-wall singleton (the type picker's
+    // store, window.wallSystemTypeStore), adapted to the handler interface —
+    // NOT a fresh, divergent plugin-side WallSystemTypeStore. So it is a plain
+    // catalogue object exposing has()/get(), backed by the geometry-wall built-ins.
+    expect(typeof rt.wallSystemTypes.has).toBe('function');
+    expect(typeof rt.wallSystemTypes.get).toBe('function');
+    // Resolution against the shared singleton (requires a live window) is proven
+    // end-to-end in wallTypeCatalogueUnified.test.ts. Here (node env, no window)
+    // we lock the adapter SHAPE + the permissive has() contract.
+    // A user/picker-only id is never rejected by the permissive has() (protects
+    // the wall.batch.create apartment-generator path).
     expect(rt.wallSystemTypes.has('wt-monolithic')).toBe(true);
+    expect(rt.wallSystemTypes.has('wt-picker-only-xyz')).toBe(true);
     rt.tearDown();
   });
 

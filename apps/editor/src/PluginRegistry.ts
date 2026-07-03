@@ -159,6 +159,54 @@ export type PluginDeps = Readonly<Record<string, unknown>>;
 //                               Registry
 // ---------------------------------------------------------------------------
 
+/**
+ * §FIX-WALL-TYPE-UNIFY-CATALOGUE (L-50, ADR-0116) — the ONE canonical wall
+ * system-type catalogue is the geometry-wall singleton the type picker
+ * (WallTypeSelectorWidget), the plan-view create path (WallPlanToolHandler), and
+ * the 3D thickness/layers stamping all read via `window.wallSystemTypeStore`.
+ * This adapter exposes that singleton in the shape the wall plugin handlers
+ * consume (`has`/`get`/`list`/`add`/`size`) so the composeRuntime-registered
+ * CreateWall / CreateWallBatch / SetWallSystemType handlers derive thickness +
+ * layers from the SAME store the user sees — collapsing the former two divergent
+ * catalogues (a fresh plugin-side store vs the picker's geometry-wall singleton)
+ * into one.
+ *
+ * The singleton is read LAZILY at call time via the typed `window` global
+ * (declared in global-window.d.ts — NOT `(window as any)`, so P4-compliant),
+ * never captured at build time. This keeps the composition root free of an eager
+ * geometry-wall/core-app-model module load (which touches the DOM), and `get()`
+ * runs at command-execute time — by which point `initBuilders` has assigned
+ * `window.wallSystemTypeStore`. This is the same seam the (formerly dead)
+ * engineLauncher §WALL-TYPE-WIRE adapter used, now hosted at the ACTIVE
+ * composition root so it is the store the authoritative handler truly reads.
+ *
+ * `has()` is PERMISSIVE by design: a faithful `has()` would re-arm the dormant
+ * "unknown systemTypeId → reject at canExecute" branch across every wall create
+ * handler — including `wall.batch.create`, which the apartment generator drives.
+ * Resolution via `get()` is best-effort and falls back to the caller's default
+ * thickness on a miss, so an unknown/stale id can never reject a wall. This
+ * preserves the shipped §FIX-PLAN-WALL-TYPE-IGNORED behaviour.
+ */
+interface SharedWallTypeSingleton {
+  getById?(id: string): { totalThickness: number; layers: unknown[] } | undefined;
+  getAll?(): unknown[];
+  add?(t: unknown): unknown;
+}
+function sharedWallTypeSingleton(): SharedWallTypeSingleton | undefined {
+  return typeof window !== 'undefined'
+    ? (window.wallSystemTypeStore as SharedWallTypeSingleton | undefined)
+    : undefined;
+}
+export function buildSharedWallCatalogue(): WallSystemTypeStore {
+  return {
+    has: (_id: string) => true,
+    get: (id: string) => sharedWallTypeSingleton()?.getById?.(id),
+    list: () => sharedWallTypeSingleton()?.getAll?.() ?? [],
+    add: (t: unknown) => sharedWallTypeSingleton()?.add?.(t),
+    size: () => sharedWallTypeSingleton()?.getAll?.().length ?? 0,
+  } as unknown as WallSystemTypeStore;
+}
+
 /** All 13 plugins, in registration order.  Order matters only for the
  *  rare cross-plugin dep (wall handlers consume `wallSystemTypes`). */
 export const ALL_PLUGINS: readonly PluginDescriptor[] = [
@@ -167,7 +215,11 @@ export const ALL_PLUGINS: readonly PluginDescriptor[] = [
     id: 'wall',
     storeKey: 'wall',
     buildStore: () => new WallStore() as unknown as Store<object>,
-    buildAuxiliaries: () => ({ wallSystemTypes: new WallSystemTypeStore() }),
+    // §FIX-WALL-TYPE-UNIFY-CATALOGUE (L-50) — was `new WallSystemTypeStore()`, a
+    // FRESH plugin-side catalogue whose built-ins diverged from the picker's
+    // (e.g. wt-monolithic 0.1 m here vs 1.0 m in geometry-wall). Now the ONE
+    // shared geometry-wall catalogue, adapted to the handler interface.
+    buildAuxiliaries: () => ({ wallSystemTypes: buildSharedWallCatalogue() }),
     buildHandlers: (deps) => {
       const systemTypeStore = deps.wallSystemTypes as WallSystemTypeStore;
       return buildWallHandlerSet({ systemTypeStore }) as readonly CommandHandler<unknown>[];
