@@ -46,6 +46,23 @@ const MAX_DEBOUNCE_RESETS = 12;
  *  a one-off draw, long enough to absorb a typical multi-wall drawing burst. */
 const SOFT_COALESCE_MS = 300;
 
+// §FIX-ROOMREDETECT-NOPROGRESS-GUARD (L-63, 2026-07-03) — loop-safety net. A wall
+// move that leaves a > hostSnap dangling gap (e.g. WallJoinResolver square-caps a moved
+// hosted-door arm to a consensus point the room loop cannot close — §DIAG-ROOM-LOOP
+// BREAK) used to re-arm a whole-level room redetect on every frame → the founder's hard
+// freeze. Room re-detection is a PURE function of the level's wall/opening geometry: if
+// that geometry is byte-identical to what the LAST completed redetect already saw, a new
+// redetect can make NO progress — running it again only pegs the main thread. These bound
+// the rescheduling so a non-closing loop cannot spin indefinitely:
+//   1. committed-path no-progress gate — skip arming the soft-coalesce redetect when the
+//      level's wall signature is unchanged since the last completed redetect;
+//   2. execution circuit-breaker — if the SAME wall signature reaches `_executeRedetect`
+//      more than NOPROGRESS_MAX times inside NOPROGRESS_WINDOW_MS (a per-frame runaway
+//      from ANY re-arm source), stop firing until the geometry genuinely changes.
+// A genuine wall edit changes the signature → both gates release immediately.
+const NOPROGRESS_MAX = 6;
+const NOPROGRESS_WINDOW_MS = 1_000;
+
 export class RoomTopologyObserver {
   readonly debounceTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
   /** §WS-2.B — per-level soft-coalesce timer for the
@@ -58,6 +75,12 @@ export class RoomTopologyObserver {
   private _firstScheduleAt = new Map<string, number>();
   private _resetCount = new Map<string, number>();
   private _postBatchCooldownUntil = 0;
+  // §FIX-ROOMREDETECT-NOPROGRESS-GUARD (L-63) — per-level signature of the wall geometry
+  // the LAST completed redetect saw, plus a same-signature burst tracker for the circuit
+  // breaker. Empty signature ('' — e.g. a wallStore without `getByLevel`) disables the
+  // guard so it is inert in minimal/test harnesses.
+  private _lastRedetectWallSig = new Map<string, string>();
+  private _noProgressBurst = new Map<string, { sig: string; count: number; ts: number }>();
   // ── ADR-0069 (GR1/GR2) — graph-authoritative levels ─────────────────────────
   // A level whose rooms were created DIRECTLY from the engine graph (the
   // executors dispatch `BatchCreateRoomsCommand` from `option.rooms`). For such a
@@ -214,6 +237,17 @@ export class RoomTopologyObserver {
     const ids = payload?.levelIds ?? (payload?.levelId ? [payload.levelId] : []);
     for (const levelId of ids) {
       if (!levelId) continue;
+      // §FIX-ROOMREDETECT-NOPROGRESS-GUARD (L-63) — no-progress gate. If the level's
+      // wall geometry is byte-identical to what the last completed redetect already saw,
+      // this committed event can make NO progress (the classic re-arm loop after a
+      // > hostSnap dangling gap). Do NOT arm another redetect — a genuine wall edit would
+      // change the signature and release the gate. Skipped when the signature is unknown
+      // ('' — minimal harness) so behaviour there is unchanged.
+      const sig = this._computeWallSig(levelId);
+      if (sig !== '' && this._lastRedetectWallSig.get(levelId) === sig) {
+        console.debug(`[RoomTopologyObserver] redetect no-progress — wall geometry unchanged since last redetect (level=${levelId}) — §FIX-ROOMREDETECT-NOPROGRESS-GUARD`);
+        continue;
+      }
       // Cancel the WallStore-debounce timer + first-schedule bookkeeping — the
       // commit supersedes them. Then start (or reset) the soft-coalesce timer.
       const existing = this.debounceTimers.get(levelId);
@@ -451,6 +485,28 @@ export class RoomTopologyObserver {
       console.debug(`[RoomTopologyObserver] _executeRedetect suppressed (level=${levelId}, reason=graph-authoritative ADR-0069 GR1)`);
       return;
     }
+    // §FIX-ROOMREDETECT-NOPROGRESS-GUARD (L-63) — execution circuit-breaker. FOUR paths
+    // reach here without passing the committed-path no-progress gate (the WallStore
+    // debounce timer, the forced-fire branch, the soft-coalesce timer, and
+    // scheduleRedetectAllLevels). If the SAME wall signature fires redetect more than
+    // NOPROGRESS_MAX times inside NOPROGRESS_WINDOW_MS — a per-frame runaway from a
+    // non-closing loop — stop firing until the geometry genuinely changes. A real
+    // interaction never redetects one level 6× within a second on identical wall geometry.
+    const sig = this._computeWallSig(levelId);
+    if (sig !== '') {
+      const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+      const burst = this._noProgressBurst.get(levelId);
+      if (burst && burst.sig === sig && (now - burst.ts) < NOPROGRESS_WINDOW_MS) {
+        burst.count++;
+        burst.ts = now;
+        if (burst.count > NOPROGRESS_MAX) {
+          console.warn(`[RoomTopologyObserver] redetect circuit-breaker TRIPPED (level=${levelId}, ${burst.count} same-geometry redetects in <${NOPROGRESS_WINDOW_MS}ms) — suppressing until walls change — §FIX-ROOMREDETECT-NOPROGRESS-GUARD`);
+          return;
+        }
+      } else {
+        this._noProgressBurst.set(levelId, { sig, count: 1, ts: now });
+      }
+    }
     try {
       if (this._disposed) return;
       const level = this.bimManager.getLevelById(levelId);
@@ -461,8 +517,39 @@ export class RoomTopologyObserver {
       const cmd = new ReDetectRoomsCommand(levelId, level.elevation, level.height ?? 3.0);
       if ((window as any).runtime?.bus) { (window as any).runtime.bus.executeCommand('room.update', {}).catch(() => {}); }
       this.commandManager.execute(cmd);
+      // Record the geometry this completed redetect saw so a subsequent no-progress
+      // committed event (identical walls) is gated out.
+      if (sig !== '') this._lastRedetectWallSig.set(levelId, sig);
     } catch (err) {
       console.error('[RoomTopologyObserver] Error scheduling re-detection:', err);
+    }
+  }
+
+  /**
+   * §FIX-ROOMREDETECT-NOPROGRESS-GUARD (L-63) — a cheap, stable signature of the level's
+   * wall geometry (id + baseline endpoints @ mm + thickness). Room re-detection is a pure
+   * function of this (plus curtain walls / slabs, which drive their own subscriptions), so
+   * an unchanged signature means a fresh redetect can make no progress. Returns '' when the
+   * wall store cannot be read (e.g. a minimal test harness with no `getByLevel`), which
+   * disables both no-progress gates — behaviour is then exactly as before this guard.
+   */
+  private _computeWallSig(levelId: string): string {
+    try {
+      const ws = this.wallStore as { getByLevel?: (id: string) => Array<{ id?: string; baseLine?: ReadonlyArray<{ x?: number; z?: number }>; thickness?: number }> };
+      if (typeof ws?.getByLevel !== 'function') return '';
+      const walls = ws.getByLevel(levelId) ?? [];
+      if (!Array.isArray(walls)) return '';
+      const mm = (n: number | undefined): number => Math.round((n ?? 0) * 1000);
+      const parts: string[] = [];
+      for (const w of walls) {
+        const bl = w?.baseLine;
+        if (!bl || bl.length < 2) continue;
+        parts.push(`${w.id ?? '?'}:${mm(bl[0]?.x)},${mm(bl[0]?.z)}>${mm(bl[1]?.x)},${mm(bl[1]?.z)}#${mm(w.thickness)}`);
+      }
+      parts.sort();
+      return `n${walls.length}|${parts.join('|')}`;
+    } catch {
+      return '';
     }
   }
 }
