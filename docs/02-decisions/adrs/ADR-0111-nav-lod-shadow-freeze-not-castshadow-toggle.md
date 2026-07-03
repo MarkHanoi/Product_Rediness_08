@@ -217,3 +217,60 @@ fallback path is unaffected (`applyBackendGate` already forced SSGI/TRAA off the
 **Tests.** `SceneQualityTierManager.test.ts` pins cinematic/balanced SSGI+TRAA OFF on
 real WebGPU; new `RenderPipelineManager.selectionNoRebuild.test.ts` pins that
 `setSelectedObjects()` / `setHoveredObjects()` trigger no pipeline-rebuild entry point.
+
+## Addendum (2026-07-03) — `§FIX-SHADOW-WALLCOMMIT-DESTROY` (founder L-64)
+
+The wall-COMMIT sibling of L-25 (`§FIX-SHADOW-MIDSUBMIT-DESTROY`, the nav-LOD path) and
+L-39 (`§FIX-SHADOW-LOAD-TIER-DESTROY`, the project-load path). Same device-loss class,
+new trigger: the polyline-wall CLOSE.
+
+**Problem.** On a polyline wall creation, the instant the user presses Enter to close
+the loop the walls flash BLACK for a microsecond. Prod log:
+`[PascalSceneLighting] Shadow flags set on N mesh(es)` immediately followed by
+`Destroyed texture [Texture "ShadowDepthTexture"] used in a submit`. The moment the
+newly-committed walls enter the scene, two things touch the LIVE WebGPU renderer's shadow
+map (whose `shadowMap.autoUpdate === true`): (a) the debounced
+`PascalSceneLighting.onGeometryAdded` pass sets `castShadow` on the new meshes — the
+shadow-caster set changes, so THREE re-renders / can realloc the shadow pass — and (b)
+the mesh-count change re-evaluates `SceneQualityTier`
+(`RenderingPipelineCoordinator.applyTierForMeshCount`), which can reallocate the Pascal
+key light's shadow map (mapSize change). Either, performed INSIDE a `render()`/submit
+while the previous frame's command buffer (referencing the old `ShadowDepthTexture`) is
+still draining on the WebGPU queue, is the mid-submit destroy → device-loss cascade →
+black flash.
+
+The existing per-realloc guard (`setShadowReallocGuardHook` → `setShadowReallocFrozen`)
+freezes only for the *synchronous* duration of the tier's mapSize mutation. It does NOT
+span the debounced shadow-flag pass (a), which runs ~100 ms later on its own timer, nor
+the settle frame — so the commit window had an un-frozen gap where the destroy occurred.
+
+**Decision.** Extend the SAME ref-counted `setShadowReallocFrozen` latch across the whole
+wall-commit window. In `apps/editor/src/engine/initScene.ts` the boolean-latched pair
+`_armWallCommitShadowFreeze` / `_releaseWallCommitShadowFreeze` wraps the existing
+`_debouncedGeomAdded` (Pascal) path: the freeze is armed **synchronously** the moment a
+non-batched `bim-*-added/updated` event begins mutating the scene — before the shadow
+flags are set and before the deferred per-event tier-re-eval macrotask escalates the tier
+— and released one frame AFTER the shadow-flag pass settles (deferred thaw via
+`setTimeout(0)` + `getFrameScheduler().markDirty` — P3-clean, no new rAF). A burst of
+commit events (all segments of one polyline close) coalesces into ONE continuous freeze
+window via the latch, so the ref-count never drops to zero mid-commit and the map is never
+thawed (never destroyed) between the shadow-flag pass and the tier realloc. While frozen
+(`autoUpdate=false`) THREE reuses the existing `ShadowDepthTexture` and never destroys it;
+the single regen at the new caster set / resolution lands on an idle frame.
+
+This is timing-only and composes with the nav (L-25) and load (L-39) freezes via the
+shared ref-count + `_applyShadowFreezeState`. WebGPU-path only (`setShadowReallocFrozen`
+is a no-op on the WebGL2 fallback, which owns its own shadow map).
+
+**Shadow-fix safety.** No new freeze primitive is introduced — only a new *caller* of the
+existing ref-counted latch. The shadow LEVEL/quality (`shadows`, `shadowLevel`), the
+`§FIX-SHADOW-MIDSUBMIT-DESTROY` / `§FIX-SHADOW-LOAD-TIER-DESTROY` paths, and the L-59
+`ssgi` / `traa` defaults are all untouched.
+
+**Tests.** New
+`packages/renderer-three/__tests__/RenderPipelineManager.shadowWallCommitFreeze.test.ts`
+simulates a wall-commit re-tier (shadow-flag pass + nested per-realloc guard) and pins
+that the `ShadowDepthTexture` is NEVER disposed/destroyed while the commit freeze is held,
+that the map stays frozen while a nested guard pushes/pops, that it composes with an
+overlapping nav freeze, that the final release thaws + refreshes exactly once, and that it
+is inert on the WebGL2 fallback.

@@ -2767,12 +2767,73 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         //     and will reset/cancel any pending debounce via the timer check
         // Contract: 01-BIM-ENGINE-CORE §4.3 — no per-frame scene mutations.
         let _geomAddedDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+        // §FIX-SHADOW-WALLCOMMIT-DESTROY (founder L-64) — freeze the shadow map across
+        // a non-batched geometry COMMIT frame (e.g. pressing Enter to CLOSE a polyline
+        // wall). The prod log shows `[PascalSceneLighting] Shadow flags set on N mesh(es)`
+        // immediately followed by `Destroyed texture [ShadowDepthTexture] used in a
+        // submit` → WebGPU device-loss cascade → the walls flash BLACK for a microsecond.
+        //
+        // ROOT CAUSE (same device-loss class as ADR-0111 / L-25 / L-39): the instant the
+        // newly-committed walls enter the scene, two things happen against the LIVE
+        // WebGPU renderer whose `shadowMap.autoUpdate === true`:
+        //   (a) this debounced pass sets `castShadow` on the new meshes (the caster set
+        //       changes → THREE re-renders the shadow pass), and
+        //   (b) the SceneQualityTier re-evaluates on the mesh-count change and may
+        //       reallocate the Pascal key light's shadow map (mapSize change).
+        // Either can make THREE touch/realloc the ShadowDepthTexture INSIDE a submit
+        // while the previous frame's command buffer (referencing the old texture) is
+        // still draining on the GPU queue → the mid-submit destroy.
+        //
+        // The per-realloc guard (§FIX-SHADOW-LOAD-TIER-DESTROY) only freezes for the
+        // synchronous duration of the tier's mapSize mutation; it does NOT span the
+        // shadow-flag pass (a) nor the settle frame. This freeze extends the SAME
+        // ref-counted `setShadowReallocFrozen` latch across the WHOLE commit window:
+        // armed SYNCHRONOUSLY the moment the commit begins mutating the scene (before
+        // the flags are set and before the deferred tier re-eval macrotask runs), and
+        // released one frame AFTER the shadow flags settle. While frozen THREE reuses
+        // the existing ShadowDepthTexture (autoUpdate=false) and never destroys it, so
+        // the single regen at the new caster set / resolution lands on an idle frame.
+        //
+        // Ref-counted + WebGPU-path-only (no-op on the WebGL2 fallback), so it composes
+        // with the nav (L-25) and load (L-39) freezes and never touches the shadow
+        // LEVEL/quality or the SSGI/TRAA booleans (L-59) — timing only.
+        let _wallCommitShadowFreezeActive = false;
+        const _armWallCommitShadowFreeze = (): void => {
+            if (_wallCommitShadowFreezeActive) return;
+            _wallCommitShadowFreezeActive = true;
+            try { window.renderPipelineManager?.setShadowReallocFrozen?.(true); }
+            catch (e) { console.warn('[initScene] §FIX-SHADOW-WALLCOMMIT-DESTROY freeze error:', e); }
+        };
+        const _releaseWallCommitShadowFreeze = (): void => {
+            if (!_wallCommitShadowFreezeActive) return;
+            _wallCommitShadowFreezeActive = false;
+            // Defer the thaw past the current frame's submit so the one shadow regen at
+            // the new caster set / resolution happens on an idle frame, never mid-submit.
+            setTimeout(() => {
+                try { window.renderPipelineManager?.setShadowReallocFrozen?.(false); }
+                catch (e) { console.warn('[initScene] §FIX-SHADOW-WALLCOMMIT-DESTROY thaw error:', e); }
+                // Wake the loop once so the refreshed shadow pass is drawn before the
+                // scheduler idles (P3: no new rAF — reuse the existing frame bus).
+                try { getFrameScheduler().markDirty('shadow-wallcommit-thaw'); }
+                catch { /* scheduler not ready — next interaction repaints */ }
+            }, 0);
+        };
+
         const _debouncedGeomAdded = () => {
             if (batchCoordinator.isBatching) return;
+            // §FIX-SHADOW-WALLCOMMIT-DESTROY — freeze BEFORE the shadow-flag pass runs
+            // and before the deferred per-event tier re-eval macrotask escalates the
+            // tier, coalescing a burst of commit events (all segments of one polyline
+            // close) into ONE continuous freeze window via the boolean latch.
+            _armWallCommitShadowFreeze();
             if (_geomAddedDebounceTimer !== null) clearTimeout(_geomAddedDebounceTimer);
             _geomAddedDebounceTimer = setTimeout(() => {
                 _geomAddedDebounceTimer = null;
                 pascalSceneLighting.onGeometryAdded(world.scene.three as THREE.Scene);
+                // Commit has settled — release the freeze one frame later so the single
+                // shadow regen lands on an idle frame (never destroyed mid-submit).
+                _releaseWallCommitShadowFreeze();
             }, 100);
         };
 
