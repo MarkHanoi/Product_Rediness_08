@@ -203,6 +203,44 @@ A genuine L-corner is byte-unchanged: at a welded/perfect corner each wall's end
 - **Tests:** [`junctionResolverV2.lCornerT.test.ts`](../../../../packages/geometry-wall/__tests__/junctionResolverV2.lCornerT.test.ts) — (1) near-corner T (x=4.85): A+B keep their L-mitre (corners + shared (5,0) pivot, byte-identical to the bare L), C is a clean 4-gon flat butt on A's near face with no pivot, and NO footprint has a tongue vertex nor a doubled (same-direction near-coincident parallel) edge across walls; (2) exact-vertex 3-way Y stays a clean positive-area fan with no doubling; (3) far mid-span T unchanged; (4) the L-27 near-end T (host+guest, no corner) is byte-unchanged. All 4 new cases green; the 125-test geometry-wall suite (→129 with these) and the 107 ai-host wall/junction/footprint/pipeline tests remain green **without edits**.
 - **Alignment:** C15 / C11 — the extracted T is an ordinary hosted-junction; splitting the cluster cannot orphan a door/window (host relations are per-wall, unchanged). C04/P2/P3 respected — pure 2-D detection math, no new geometry pass, no THREE in `JunctionResolverV2`.
 
+## Refinement — §FIX-NEWWALL-LCORNER-SKEW (a pass-through pair must be COLLINEAR *and* on the same line — 2026-07-03, L-63 Part-1 / L-74 / L-76)
+
+**Status:** SHIPPED. A one-condition tightening of the legacy `WallJoinResolver`'s pass-through
+detection; no change to the miter/T-join math or the footprint. Within ADR-0055 (watertight joins),
+not a superseding ADR. This is the resolver-trim "Part-1" that ADR-0117 deferred pending the exact
+repro; the founder supplied it (L-76) and it makes the discriminator derivable from the cluster.
+
+**Defect (founder, L-76 + L-74).** Draw a NEW wall (perpendicular, 100 mm) onto/near an existing
+**L-joint** (two perpendicular arms sharing a corner). The live PREVIEW (V2 footprint) is clean, but
+the EXECUTED wall is **tapered/skewed** — its joining endpoint dragged to the corner vertex (L-76) —
+and its footprint self-intersects into a **negative-area black bow-tie** prism at the junction (L-74).
+
+**Root cause (verified by a `resolveLevel` repro).** The new wall C, drawn perpendicular to arm A, is
+therefore **parallel to arm B**. The legacy cluster resolver's pass-through detection tested only
+DIRECTION (`|dirI·dirJ| ≥ cos 10°`), so it declared B + C a collinear "pass-through pair" even though
+their centrelines are **0.313 m apart**. §PASS-THROUGH-FLUSH then square-capped every cluster member —
+including C — to the corner **consensus** (5, 0). C's joining endpoint moved 0.313 m off its own axis
+→ the skewed baseline (L-76); its footprint quad, capped at the corner while its far end stays on its
+authored axis, self-intersects → negative signed area → the black bow-tie (L-74).
+
+**The invariant.** A genuine pass-through pair is two segments of ONE straight wall — collinear in
+direction **and laterally coincident** (on the same line). The fix adds the missing lateral test to the
+detection loop: the perpendicular offset between the two candidate walls' junction endpoints (≈ the gap
+between their parallel centrelines) must be within a half-thickness band
+(`max(0.05, max(t_i, t_j) / 2)`). A true collinear pass-through — incl. the resi `_repro_passthrough`
+(a 290 mm partition pulled onto a **committed-corner** consensus that lies ON the through-line) — has
+offset ≈ 0 and is byte-unchanged. The 0.313 m-offset perpendicular new wall is now correctly NOT a
+pass-through, so it falls to the T-into-corner path and `_applyT` butts it on the arm's lateral face at
+its OWN perpendicular foot → perpendicular, full length preserved, matching the preview. This is the
+"consensus-on-host-body (keep) vs off-a-different-host (skew)" discriminator ADR-0117 could not derive
+earlier — here it IS derivable from the cluster, as *lateral coincidence*, with no downstream
+dependency. Detection/footprint frame only: the stored baseline is trimmed only toward the host it truly
+abuts, never skewed off its axis (baseline-immutability preserved).
+
+- **Locus:** [`WallJoinResolver.resolveLevel`](../../../../packages/geometry-wall/src/WallJoinResolver.ts) — the pass-through detection loop now gates `clusterHasPassThrough` on the lateral-offset band in addition to the direction test. Escape hatch `window.__pryzmPassThroughCoincidentGate = false` restores the pre-fix direction-only behaviour. No change to `_applyT`, the footprint, or any baseline write path beyond the corrected routing.
+- **Tests:** [`WallJoinResolver.newWallLCornerSkew.test.ts`](../../../../packages/geometry-wall/__tests__/WallJoinResolver.newWallLCornerSkew.test.ts) — the executed baseline stays perpendicular + on-axis + length-preserved (not dragged to the corner); the cluster footprint is positive-area and non-self-intersecting (no bow-tie); the V2 PREVIEW footprint matches (perpendicular, positive-area); the result is STABLE on reopen (re-resolving the persisted, already-trimmed baselines — idempotent, no further skew); and the genuine collinear pass-through (`_repro_passthrough` shape) is unaffected. 140 geometry-wall + 107 ai-host tests green.
+- **Alignment:** ADR-0055 (watertight joins) · §FIX-WALL-JOIN-BASELINE-IMMUTABLE (no off-axis baseline skew) · pairs with the V2-side §FIX-WALL-LCORNER-T-CLEAN (L-61) so preview and execution agree on the L-corner + new-wall topology.
+
 ## Refinement — §FIX-PLAN-LAYERED-WALL-SYMBOL (plan view emits the LAYERED footprint, not the plain outline — 2026-07-03, L-62)
 
 **Status:** SHIPPED. Additive plan-projection emitter; no change to the junction algorithm, the 3D

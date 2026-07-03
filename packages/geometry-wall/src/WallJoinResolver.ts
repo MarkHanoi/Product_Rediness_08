@@ -1032,7 +1032,34 @@ export class WallJoinResolver {
                     if (!wJ) continue;
                     const [jS, jE] = bl.get(epJ.wallId)!;
                     const dirJ = this._wallDirAtJoin(wJ, epJ.side, jS, jE, consensusPoint);
-                    if (Math.abs(dirI.dot(dirJ)) >= COLLINEAR_DOT) {
+                    // §FIX-NEWWALL-LCORNER-SKEW (L-63 Part-1 / L-74 / L-76, founder 2026-07-03) —
+                    // a genuine pass-through pair is two segments of ONE straight wall: collinear
+                    // in DIRECTION *and* on the SAME LINE. The old test checked direction only, so
+                    // a NEW wall drawn PERPENDICULAR to one L-arm (hence PARALLEL to the other arm)
+                    // was mis-classified as a pass-through with that arm even though their
+                    // centrelines are hundreds of mm apart — the whole cluster then went through
+                    // §PASS-THROUGH-FLUSH, square-capping the new wall to the corner consensus →
+                    // the founder's skewed/tapered baseline (preview ≠ result, L-76) + a self-
+                    // intersecting negative-area (bow-tie) footprint at the junction (L-74). Require
+                    // the two candidate walls to be LATERALLY COINCIDENT too: the perpendicular
+                    // offset between their junction endpoints (≈ the offset between their parallel
+                    // centrelines) must be within a half-thickness band. A true collinear pass-
+                    // through (incl. the resi §_repro_passthrough) has offset ≈ 0 → unchanged; the
+                    // 0.313 m-offset parallel new wall is now correctly NOT a pass-through, so it
+                    // routes to the T-into-corner path and butts the arm's body cleanly. Gated ON.
+                    const passThroughCoincidenceGate =
+                        (globalThis as any).window?.__pryzmPassThroughCoincidentGate === false;
+                    let laterallyCoincident = true;
+                    if (!passThroughCoincidenceGate) {
+                        const iPos = epI.side === 'start' ? iS : iE;
+                        const jPos = epJ.side === 'start' ? jS : jE;
+                        const delta = new THREE.Vector3().subVectors(jPos, iPos);
+                        const along = delta.dot(dirI);
+                        const perpOffset = new THREE.Vector3().copy(delta).addScaledVector(dirI, -along).length();
+                        const coincidentTol = Math.max(0.05, Math.max(wI.thickness, wJ.thickness) * 0.5);
+                        laterallyCoincident = perpOffset <= coincidentTol;
+                    }
+                    if (Math.abs(dirI.dot(dirJ)) >= COLLINEAR_DOT && laterallyCoincident) {
                         clusterHasPassThrough = true;
                         passThroughDir = dirI.clone();
                         break;
@@ -1348,6 +1375,7 @@ export class WallJoinResolver {
                             // _applyT uses currentContact (re-projected endpoint) so
                             // the slight positional difference (pinned pt vs consensus)
                             // is at most PINNED_TOL (1 mm) — negligible in practice.
+                            //
                             const tJoin: TJoin = {
                                 kind:        't',
                                 secondary:   { wallId: ep.wallId, side: ep.side },
