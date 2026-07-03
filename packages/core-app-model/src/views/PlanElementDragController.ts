@@ -30,6 +30,13 @@ import {
     computeWallMoveDimensions,
     type MoveWallSegment,
 } from '../geometry/wallMoveDimensions';
+// §FEAT-HOSTED-MOVE-DIMENSIONS (founder L-30) — pure along-wall set-out for a hosted
+// door/window dragged along its host wall. Sibling to the L-29 wall move dims; same
+// direct-file import to avoid barrel-at-module-load coupling (memory: SCC).
+import {
+    computeHostedMoveDimensions,
+    type HostedNeighbourOpening,
+} from '../geometry/hostedMoveDimensions';
 
 const GRID_SNAP_M    = 0.1;   // 100 mm grid
 const DRAG_THRESHOLD = 4;     // px before drag activates
@@ -720,24 +727,63 @@ export class PlanElementDragController {
         ctx.fillStyle = 'rgba(30, 144, 255, 0.12)';
         ctx.fill();
 
-        // Dimensions: distance from wall start and wall end
+        // §FEAT-HOSTED-MOVE-DIMENSIONS (founder L-30) — live ALONG-WALL set-out from
+        // the moving opening's edges to the nearest reference on each side: the wall
+        // end OR the facing edge of an adjacent opening on the SAME wall, whichever is
+        // closer. A hosted opening slides only along its host wall, so this mirrors
+        // L-29's whole-wall move dims but in the wall's own 1D parameter space. Pure
+        // geometry lives in `computeHostedMoveDimensions`; here we only project each
+        // returned 1D offset onto the wall's on-screen line (t = offset / wallLength,
+        // lerp between the two projected endpoints) and reuse the SAME blue dashed
+        // `_drawDimensionLine`. Read-only transient preview — no store writes, no
+        // commands; cleared automatically when the overlay is removed on end / cancel.
         const ws   = this._ws();
         const el   = ws?.getDoor(state.elementId) ?? ws?.getWindow(state.elementId);
-        const halfW = (el?.width ?? 0) / 2;
+        const width = el?.width ?? 0;
 
-        const tLeft  = Math.max(0, (state.currentOffset - halfW) / state.wallLength);
-        const tRight = Math.min(1, (state.currentOffset + halfW) / state.wallLength);
+        const projectOffset = (offset: number): { sx: number; sy: number } => {
+            const t = state.wallLength > 0 ? offset / state.wallLength : 0;
+            return { sx: aSc.sx + (bSc.sx - aSc.sx) * t, sy: aSc.sy + (bSc.sy - aSc.sy) * t };
+        };
 
-        const leftSx  = aSc.sx + (bSc.sx - aSc.sx) * tLeft;
-        const leftSy  = aSc.sy + (bSc.sy - aSc.sy) * tLeft;
-        const rightSx = aSc.sx + (bSc.sx - aSc.sx) * tRight;
-        const rightSy = aSc.sy + (bSc.sy - aSc.sy) * tRight;
+        const dims = computeHostedMoveDimensions({
+            offset:     state.currentOffset,
+            width,
+            wallLength: state.wallLength,
+            neighbours: this._collectHostedNeighbours(state.wallId, state.elementId),
+        });
+        for (const d of dims) {
+            const from = projectOffset(d.fromOffset);
+            const to   = projectOffset(d.toOffset);
+            this._drawDimensionLine(ctx, from.sx, from.sy, to.sx, to.sy, formatM(d.distanceMm / 1000));
+        }
+    }
 
-        const distStart = state.currentOffset - halfW;
-        const distEnd   = state.wallLength - state.currentOffset - halfW;
-
-        if (distStart > 0.02) this._drawDimensionLine(ctx, aSc.sx, aSc.sy, leftSx,  leftSy,  formatM(distStart));
-        if (distEnd   > 0.02) this._drawDimensionLine(ctx, rightSx, rightSy, bSc.sx, bSc.sy,  formatM(distEnd));
+    /**
+     * §FEAT-HOSTED-MOVE-DIMENSIONS — the OTHER openings (doors + windows) hosted on
+     * the SAME wall, as `{ offset, width }` for the pure along-wall set-out. Excludes
+     * the moving opening itself. Mirrors `_collectNeighbourSegments`' store-access
+     * pattern (tolerant of a partial WallStore shim in tests). Read-only.
+     */
+    private _collectHostedNeighbours(
+        wallId:   string,
+        movingId: string,
+    ): HostedNeighbourOpening[] {
+        const ws = this._ws();
+        const out: HostedNeighbourOpening[] = [];
+        const push = (
+            list: Array<{ id?: string; wallId?: string; offset?: number; width?: number }> | undefined,
+        ): void => {
+            for (const o of list ?? []) {
+                if (!o || o.id === movingId) continue;               // never dimension to self
+                if (o.wallId !== wallId) continue;                   // same host wall only
+                if (typeof o.offset !== 'number' || typeof o.width !== 'number') continue;
+                out.push({ offset: o.offset, width: o.width });
+            }
+        };
+        push(ws?.getAllDoors?.() as never);
+        push(ws?.getAllWindows?.() as never);
+        return out;
     }
 
     // ──────────────────────────────────────────────────────────────────────
