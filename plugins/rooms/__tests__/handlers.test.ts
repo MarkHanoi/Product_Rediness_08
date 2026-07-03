@@ -204,7 +204,90 @@ describe('room.move', () => {
   });
 });
 
-describe('room.setName / setNumber / setOccupancy / setMaterial / setHeightOffset', () => {
+// §FIX-ROOM-SETNAME-STORE (L-75) — room.setName is a LEGACY BRIDGE (like
+// room.rename / room.delete): the detected/rendered/persisted rooms live in the
+// legacy room-topology RoomStore (window.roomStore), not the plugin RoomsState,
+// so the handler forwards a RenameRoomCommand through window.commandManager and
+// declares affectedStores:[] (no plugin-store injection required — the previous
+// affectedStores:['room'] mismatched the bus storeKey 'rooms' and threw
+// "required store 'room' is missing from HandlerContext.stores").
+describe('room.setName — legacy bridge (§FIX-ROOM-SETNAME-STORE, L-75)', () => {
+  let env: ReturnType<typeof buildEnv>;
+  const g = globalThis as unknown as { window?: unknown };
+  const savedWindow = g.window;
+  afterEach(() => {
+    env?.detach();
+    if (savedWindow === undefined) delete g.window;
+    else g.window = savedWindow;
+  });
+
+  // Build a bus whose storesProvider has NO 'room' key — faithfully reproducing
+  // the production wiring (PluginRegistry contributes the plugin RoomStore under
+  // storeKey 'rooms', so 'room' is absent). Before the fix, room.setName declared
+  // affectedStores:['room'] → buildContext threw the R1A-16 missing-store error.
+  // This test fails if that regression returns.
+  function busWithoutRoomStore() {
+    const bus = new CommandBus({
+      audit: { actorId: 'test', projectId: 'p1', clientId: 't1' },
+      storesProvider: () => ({}),
+    });
+    for (const h of buildRoomHandlerSet()) bus.register(h);
+    return bus;
+  }
+
+  it('does NOT throw the missing-store error and forwards a RenameRoomCommand', async () => {
+    env = buildEnv();
+    const bus = busWithoutRoomStore();
+    const executed: Array<{ targetIds?: readonly string[]; [k: string]: unknown }> = [];
+    g.window = {
+      __pryzmInitComplete: true,
+      commandManager: {
+        execute: (c: unknown) => executed.push(c as { targetIds?: readonly string[] }),
+      },
+    };
+    await expect(
+      bus.executeCommand('room.setName', { roomId: 'room_abc', name: 'Atrium' }),
+    ).resolves.toBeDefined();
+    // Bridged exactly one RenameRoomCommand targeting the room, carrying the name.
+    expect(executed).toHaveLength(1);
+    expect(executed[0]?.targetIds).toContain('room_abc');
+    expect(executed[0]?.type).toBe('RENAME_ROOM');
+    // The plugin RoomsState is NOT mutated by the bridge.
+    expect(env.room.size()).toBe(0);
+  });
+
+  it('no-ops (does not throw) before the engine is initialised', async () => {
+    env = buildEnv();
+    const bus = busWithoutRoomStore();
+    g.window = {
+      __pryzmInitComplete: false,
+      commandManager: { execute: () => { throw new Error('must not run pre-init'); } },
+    };
+    await expect(
+      bus.executeCommand('room.setName', { roomId: 'room_x', name: 'Late' }),
+    ).resolves.toBeDefined();
+  });
+
+  it('rejects an empty name payload', async () => {
+    env = buildEnv();
+    const bus = busWithoutRoomStore();
+    g.window = { __pryzmInitComplete: true, commandManager: { execute: () => {} } };
+    await expect(
+      bus.executeCommand('room.setName', { roomId: 'room_abc', name: '' }),
+    ).rejects.toThrow();
+  });
+
+  it('rejects an empty roomId payload', async () => {
+    env = buildEnv();
+    const bus = busWithoutRoomStore();
+    g.window = { __pryzmInitComplete: true, commandManager: { execute: () => {} } };
+    await expect(
+      bus.executeCommand('room.setName', { roomId: '', name: 'X' }),
+    ).rejects.toThrow();
+  });
+});
+
+describe('room.setNumber / setOccupancy / setMaterial / setHeightOffset', () => {
   let env: ReturnType<typeof buildEnv>;
   let id: string;
   afterEach(() => env?.detach());
@@ -214,22 +297,6 @@ describe('room.setName / setNumber / setOccupancy / setMaterial / setHeightOffse
     id = createId('room');
     await env.bus.executeCommand('room.create', { id });
   }
-
-  it('setName replaces and inverts', async () => {
-    await freshRoom();
-    const before = snap(env.room);
-    const ev = await env.bus.executeCommand('room.setName', { roomId: id, name: 'Atrium' });
-    expect(env.room.get(id)?.name).toBe('Atrium');
-    undoLast(env.room, ev);
-    expect(snap(env.room)).toEqual(before);
-  });
-
-  it('setName rejects empty', async () => {
-    await freshRoom();
-    await expect(
-      env.bus.executeCommand('room.setName', { roomId: id, name: '' }),
-    ).rejects.toThrow();
-  });
 
   it('setNumber sets and clears', async () => {
     await freshRoom();
