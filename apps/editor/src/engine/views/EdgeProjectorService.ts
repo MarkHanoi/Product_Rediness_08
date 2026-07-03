@@ -55,6 +55,9 @@ import { RoofSlopeSymbolBuilder } from '@pryzm/geometry-roof';
 import { columnPlanSymbolBuilder } from '@pryzm/geometry-column';
 // Phase 6: window frame symbol injection for plan-view selection
 import { windowPlanSymbolBuilder } from '@pryzm/geometry-window';
+// §FIX-PLAN-LAYERED-WALL-SYMBOL (L-62) — internal layer-boundary lines for LAYERED walls in
+// plan (the wall's OUTER footprint is already projected; this adds the core+finish lines).
+import { wallLayerPlanSymbolBuilder } from '@pryzm/geometry-wall';
 import { annotationStore } from '@pryzm/plugin-annotations';
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -2421,6 +2424,20 @@ export class EdgeProjectorService {
             viewDef.viewType === 'structural-plan'
         ) {
             columnPlanSymbolBuilder.inject(drawing, viewDef);
+        }
+
+        // §FIX-PLAN-LAYERED-WALL-SYMBOL (L-62) — a LAYERED system type (e.g. "Interior –
+        // Partition 100 mm") renders as a proper layered wall in 3D (one mesh per layer) but
+        // PLAN showed only the plain single-volume outline. The wall's outer footprint is
+        // already projected above; this injects the N−1 INTERNAL layer-boundary lines
+        // (matching the 3D `WallFragmentBuilder` offsets, clipped at openings) onto A-WALL.
+        // Plain (single-volume) walls emit nothing → non-layered plan is byte-identical.
+        if (
+            viewDef.viewType === 'plan' ||
+            viewDef.viewType === 'detail' ||
+            viewDef.viewType === 'structural-plan'
+        ) {
+            wallLayerPlanSymbolBuilder.inject(drawing, viewDef);
         }
 
         // Contract 23 §9 — HLR pass (v1: depth-bucket / AABB approach).

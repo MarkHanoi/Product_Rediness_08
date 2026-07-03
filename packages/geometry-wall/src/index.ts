@@ -52,6 +52,10 @@ export * from './WallPipelineV2';
 // ── Edge overlay ──────────────────────────────────────────────────────────────
 export * from './WallEdgeOverlayBuilder';
 
+// ── Plan layer symbol (§FIX-PLAN-LAYERED-WALL-SYMBOL, L-62) ─────────────────────
+export * from './WallLayerPlanLines';
+export * from './WallLayerPlanSymbolBuilder';
+
 // ── Snap & alignment ──────────────────────────────────────────────────────────
 export * from './WallSnapCycler';
 export * from './WallAlignmentGuide';

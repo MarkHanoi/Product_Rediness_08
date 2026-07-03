@@ -63,6 +63,7 @@ import { RoomContentsService }      from '@pryzm/room-topology';
 
 // ── Wall subsystem ─────────────────────────────────────────────────────────
 import { WallStore }                from '@pryzm/geometry-wall';
+import { installWallLayerPlanSymbolBuilder } from '@pryzm/geometry-wall';
 
 // ── Roof subsystem ─────────────────────────────────────────────────────────
 import { RoofStore, RoofLevelCleanupHandler } from '@pryzm/geometry-roof';
@@ -525,6 +526,10 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     const wallStore = new WallStore(projectContext, bimManager);
     window.wallStore = wallStore; // TODO(TASK-08)
     console.log('[WallStore] attached to window', window.wallStore); // TODO(TASK-08)
+    // §FIX-PLAN-LAYERED-WALL-SYMBOL (L-62) — install the plan layer-line symbol builder now
+    // that wallStore exists; EdgeProjectorService reads the resolved singleton from here on
+    // (falls back to window.wallStore until this runs).
+    installWallLayerPlanSymbolBuilder(wallStore);
 
     // ── Wall + Slab type stores — async parallel import ───────────────────────
     // These are module-level singletons from their respective files; the dynamic

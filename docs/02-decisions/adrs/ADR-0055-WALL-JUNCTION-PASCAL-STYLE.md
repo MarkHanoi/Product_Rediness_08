@@ -203,6 +203,37 @@ A genuine L-corner is byte-unchanged: at a welded/perfect corner each wall's end
 - **Tests:** [`junctionResolverV2.lCornerT.test.ts`](../../../../packages/geometry-wall/__tests__/junctionResolverV2.lCornerT.test.ts) — (1) near-corner T (x=4.85): A+B keep their L-mitre (corners + shared (5,0) pivot, byte-identical to the bare L), C is a clean 4-gon flat butt on A's near face with no pivot, and NO footprint has a tongue vertex nor a doubled (same-direction near-coincident parallel) edge across walls; (2) exact-vertex 3-way Y stays a clean positive-area fan with no doubling; (3) far mid-span T unchanged; (4) the L-27 near-end T (host+guest, no corner) is byte-unchanged. All 4 new cases green; the 125-test geometry-wall suite (→129 with these) and the 107 ai-host wall/junction/footprint/pipeline tests remain green **without edits**.
 - **Alignment:** C15 / C11 — the extracted T is an ordinary hosted-junction; splitting the cluster cannot orphan a door/window (host relations are per-wall, unchanged). C04/P2/P3 respected — pure 2-D detection math, no new geometry pass, no THREE in `JunctionResolverV2`.
 
+## Refinement — §FIX-PLAN-LAYERED-WALL-SYMBOL (plan view emits the LAYERED footprint, not the plain outline — 2026-07-03, L-62)
+
+**Status:** SHIPPED. Additive plan-projection emitter; no change to the junction algorithm, the 3D
+build, or any store. Within ADR-0055 (the plan projection must consume the same layered footprint the
+3D grid path renders), not a superseding ADR.
+
+**Defect (founder, L-62).** A LAYERED system type (e.g. "Interior – Partition 100 mm") renders as a
+proper layered wall in 3D — `WallFragmentBuilder` builds ONE mesh per layer, offset along the wall
+normal — but PLAN view showed only the PLAIN single-volume outline (the wall's outer footprint); the
+core + finish layer lines were missing. `systemTypeId` dispatches correctly, so the loss is purely in
+the plan projection.
+
+**Root cause.** The plan projection draws the wall's OUTER footprint edges but has no emitter for the
+N−1 lines BETWEEN adjacent layers. Every other element type supplies a `*PlanSymbolBuilder` that
+`EdgeProjectorService` injects; walls had none, so the layered composition never reached the drawing.
+
+**Fix.** A pure `computeWallLayerLines` ([`WallLayerPlanLines.ts`](../../../../packages/geometry-wall/src/WallLayerPlanLines.ts))
+emits the internal layer-boundary segments in world XZ using the EXACT 3D offset convention
+(`cursor = −Σt/2`; outward normal `(−dir.z, +dir.x)`; the boundary after layer k for k = 0 … N−2), so
+plan and 3D agree byte-for-byte. The two outer faces are already the wall's own footprint edges and are
+NOT re-emitted. Lines are clipped at any opening whose void crosses the plan cut plane (same rule as the
+wall faces — C15). `WallLayerPlanSymbolBuilder` (mirrors `ColumnPlanSymbolBuilder`: mutable singleton +
+`installWallLayerPlanSymbolBuilder(store)` factory + `window.wallStore` fallback) plumbs them via
+`OBC.TechnicalDrawing.toDrawingSpace` → `addProjectionLines('A-WALL')`, injected by one call in
+`EdgeProjectorService.project()` alongside the other symbol builders (the sanctioned extension point —
+NOT the incremental-projection cache, which is owned separately per L-65). Plain (single-layer) and
+curved walls emit nothing, so non-layered plan output is byte-identical.
+
+- **Tests:** [`wallLayerPlanLines.test.ts`](../../../../packages/geometry-wall/__tests__/wallLayerPlanLines.test.ts) — N layers → N−1 boundaries at the exact centred offsets; a door void breaks the lines at the jamb; a high clerestory (void above the cut) leaves them intact; direction-correct offsets; plain/curved emit nothing. 135 geometry-wall tests green.
+- **Alignment:** C15 (openings break the layer lines at the void) · ADR-0055 (plan consumes the layered footprint) · P2/P5 (the geometry math is pure; the THREE/OBC plumbing lives only in the builder, matching the sibling symbol builders).
+
 ## Refinement — §FIX-WALL-JOIN-BASELINE-IMMUTABLE (a join never mutates a stored baseline — 2026-07-02, L-44 / L-46 / L-47)
 
 **Status:** SHIPPED. Refines the **orchestration seam** (`WallRebuildCoordinator._rebuildWalls` write-back), not the junction algorithm/footprint/extruder. The `WallMiter` / `WallFootprint` / `JoinData` contracts are unchanged; this ADR already states joins should "butt cleanly … no dark wedge" as a *render-time footprint* operation, so enforcing that the persisted baseline is authoritative is a tightening within ADR-0055, not a superseding decision.
