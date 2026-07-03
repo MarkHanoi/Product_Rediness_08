@@ -337,6 +337,78 @@ function detectJunctions(walls: readonly WallInput[], opts: Required<ResolveOpti
         }
     }
 
+    // §FIX-WALL-LCORNER-T-CLEAN (L-61, founder 2026-07-03) — an L-CORNER (2 walls
+    // co-terminating) that ALSO receives a THIRD wall teeing onto one arm near the corner.
+    //
+    // THE founder defect: walls A + B are joined in an L (shared endpoint = corner). A third
+    // wall C is drawn to butt onto arm A's BODY a little BEFORE the corner. C's terminating
+    // endpoint falls INSIDE the §RESI-L0 0.20 m cluster band of the corner node, so
+    // `clusterEndpoints` fuses C's endpoint into the A+B corner cluster → the cluster now has
+    // THREE real endpoints {A.end, B.start, C.start}. §FIX-WALL-TJUNCTION-BUTT then sees C
+    // teeing interior on A's body and reclassifies A → passthrough — but A is ALSO the L-arm
+    // co-terminating with B, so making it a passthrough DISSOLVES the A–B miter: A square-caps
+    // straight THROUGH the corner (poking its end face past x=corner, the "spike"), and its
+    // outer face now OVERLAPS B's body in the junction (the "doubled / overlapping edge" the
+    // founder sees on the horizontal wall). The clean answer is that C is a SEPARATE T on A's
+    // body — its own junction at C's foot — while A + B keep their untouched L-corner.
+    //
+    // FIX: BEFORE the in-place §FIX-WALL-TJUNCTION-BUTT reclassification, detect the
+    // tee-attacher(s) in a multi-member cluster — a real endpoint G that projects strictly
+    // INTERIOR onto another member H's body, on-face, continuing past H's own end by ≥ H's
+    // half-thickness, and not collinear (the exact §FIX-WALL-TJUNCTION-BUTT invariant). If
+    // removing every tee-attacher STILL leaves ≥2 real endpoints, a genuine corner (L/Y/X)
+    // survives among the co-terminating members. EXTRACT each tee-attacher into its OWN
+    // T-junction (real end = G, passthrough = its host H, pivot = G's foot on H) and remove it
+    // from the corner cluster. The corner cluster then resolves as the clean L/Y/X it is, and
+    // A is never reclassified there — so the A–B miter is byte-unchanged and C butts A's face.
+    // When removing the tee-attachers leaves <2 real ends (the simple near-end T of L-27, no
+    // co-terminating corner), this pass is a no-op and the existing in-place reclassification
+    // below handles it exactly as before. DETECTION-FRAME ONLY: it splits a cluster and points
+    // the new junction at the foot on the host body; it NEVER relocates a centreline baseline.
+    if (tJunctionButtEnabled()) {
+        const extra: JunctionDraft[] = [];
+        for (const j of drafts) {
+            // A corner (≥2 co-terminating) PLUS a tee-attacher (≥1) needs ≥3 real ends.
+            if (j.realEndpoints.length < 3) continue;
+            // For each real endpoint, is it a tee-attacher, and onto which host?
+            const hostOf = new Map<number, number>();   // realEndpoint array-index → host wallIdx
+            j.realEndpoints.forEach((G, gi) => {
+                const wG = walls[G.wallIdx]!;
+                const eG = G.isStart ? wG.start : wG.end;
+                const dirG = unit(G.isStart ? sub(wG.end, wG.start) : sub(wG.start, wG.end));
+                for (const H of j.realEndpoints) {
+                    if (H.wallIdx === G.wallIdx) continue;
+                    const wH = walls[H.wallIdx]!;
+                    const eH = H.isStart ? wH.start : wH.end;
+                    const dirH = unit(sub(wH.end, wH.start));
+                    const proj = projectOnSeg(eG, wH.start, wH.end);
+                    const interior = proj.t > 0.001 && proj.t < 0.999;
+                    const onFace = proj.perpDist <= opts.tProjectionEpsilonM;
+                    const continuesPast = len(sub(proj.foot, eH)) >= wH.thickness * 0.5;
+                    const notCollinear = Math.abs(dot(dirH, dirG)) < 0.94;
+                    if (interior && onFace && continuesPast && notCollinear) {
+                        hostOf.set(gi, H.wallIdx);
+                        break;
+                    }
+                }
+            });
+            if (hostOf.size === 0) continue;
+            // A genuine corner must survive the extraction (≥2 non-tee real endpoints).
+            if (j.realEndpoints.length - hostOf.size < 2) continue;
+            const keep: EndpointRef[] = [];
+            j.realEndpoints.forEach((G, gi) => {
+                const host = hostOf.get(gi);
+                if (host === undefined) { keep.push(G); return; }
+                const wG = walls[G.wallIdx]!;
+                const eG = G.isStart ? wG.start : wG.end;
+                const foot = projectOnSeg(eG, walls[host]!.start, walls[host]!.end).foot;
+                extra.push({ point: foot, realEndpoints: [G], passthroughWalls: [host] });
+            });
+            j.realEndpoints = keep;
+        }
+        for (const e of extra) drafts.push(e);
+    }
+
     // §FIX-WALL-TJUNCTION-BUTT — L-vs-T reclassification (see the block comment above
     // `tJunctionButtEnabled`). A clustered endpoint of wall H is a PASSTHROUGH T-host —
     // not an L-arm — when another cluster-member G's OWN endpoint projects strictly
