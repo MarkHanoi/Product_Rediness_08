@@ -19,7 +19,7 @@
  * PlanViewCanvas render pipeline.
  */
 
-import { UpdateWallBaselineCommand, SetDoorOffsetCommand, SetWindowOffsetCommand } from '@pryzm/command-registry';
+import { SetDoorOffsetCommand, SetWindowOffsetCommand } from '@pryzm/command-registry';
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import type { Point3D } from '../types/GeometryDTO';
 import type { PlanViewCanvas } from './PlanViewCanvas';
@@ -380,14 +380,25 @@ export class PlanElementDragController {
         }
 
         if (state.kind === 'wall') {
-            cmdMgr.execute( // TODO(TASK-06)
-                new UpdateWallBaselineCommand({
-                    wallId:      state.elementId,
-                    newBaseLine: state.currentBaseLine,
-                    prevBaseLine: state.prevBaseLine,
-                }),
-                { source: 'HUMAN_DIRECT' },
-            );
+            // §FIX-PLAN-WALL-MOVE-UNDO-UNIFY (L-51) — route the plan-view wall
+            // move/rotate commit through the BUS (`wall.updateBaseline`), exactly as
+            // the 3D transform gizmo (registerTransformDragHandler) and the plan
+            // Move/Align tools already do. The bus pushes the forward/inverse patch
+            // pair to the unified ring-buffer timeline AND (via the initBusHandlers
+            // bridge) calls commandManager.execute for the WallRebuildCoordinator —
+            // the same dual-dispatch as a 3D-gizmo move, which performUndoRedo
+            // reconciles (ring-first + shadow-drop). Previously THIS lone path used
+            // `commandManager.execute(new UpdateWallBaselineCommand(...))` directly,
+            // so a plan move landed ONLY on the commandManager stack while a 3D-gizmo
+            // move landed on the ring buffer — the two stacks have independent cursors
+            // (ADR-051), so an interleaved plan+3D move sequence undid OUT OF ORDER.
+            (window as unknown as {
+                runtime?: { bus?: { executeCommand(type: string, payload: unknown): Promise<unknown> | undefined } };
+            }).runtime?.bus?.executeCommand('wall.updateBaseline', {
+                wallId:       state.elementId,
+                newBaseLine:  state.currentBaseLine,
+                prevBaseLine: state.prevBaseLine,
+            })?.catch((e: unknown) => console.error('[PlanDrag] wall.updateBaseline failed:', e));
             console.log('[PlanDrag] Wall committed Δ(',
                 (state.currentBaseLine[0].x - state.prevBaseLine[0].x).toFixed(3), ',',
                 (state.currentBaseLine[0].z - state.prevBaseLine[0].z).toFixed(3), ')');
