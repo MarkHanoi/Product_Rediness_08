@@ -285,9 +285,58 @@ export class PlatformShell {
     }
 
     /**
+     * §FIX-PROJECT-OPEN-STREAMLOAD-FALLBACK (L-83) — last-resort LOCAL restore.
+     *
+     * When the server has no usable latest-version for a project (a 404 from a
+     * server-forgotten / volatile in-memory record, a `{version:null}` for a
+     * project that only ever saved locally, or a network/parse error), the LOCAL
+     * IndexedDB snapshot is the authoritative source — restore it instead of
+     * opening the project empty.
+     *
+     * The synchronous version-cache mirror can be COLD on a deep-linked / hard-
+     * reload open (the hub's warm has not run), so we AWAIT `warmVersionCache()`
+     * before reading — this reliably surfaces IndexedDB-resident history that a
+     * bare synchronous `getVersions` would miss. Re-checks `activeProjectId` after
+     * the await so a project-switch mid-restore is discarded. Returns true when a
+     * local snapshot was loaded; never throws.
+     */
+    private async _restoreLatestLocalVersion(projectId: string): Promise<boolean> {
+        try {
+            await warmVersionCache();
+        } catch { /* non-fatal — fall through to a synchronous read */ }
+        // The user may have switched projects while the warm was in flight.
+        if (this.ctx.activeProjectId !== projectId) return false;
+        let local: VersionRecord[];
+        try {
+            local = versionRepository.getVersions(projectId);
+        } catch (err) {
+            console.warn('[PlatformShell] §FIX-PROJECT-OPEN-STREAMLOAD-FALLBACK — local read failed:', err);
+            return false;
+        }
+        if (local.length === 0) return false;
+        const latest = local[local.length - 1]!;
+        console.log(
+            '[PlatformShell] §FIX-PROJECT-OPEN-STREAMLOAD-FALLBACK — server had no version; ' +
+            'restoring latest LOCAL version:', latest.label,
+        );
+        // loadVersion owns its own loading overlay + setLoading(false) +
+        // pryzm-project-loaded emission (fire-and-forget, mirrors the auto-restore
+        // branch in setProjectContext).
+        void this.versionCtrl.loadVersion(latest);
+        return true;
+    }
+
+    /**
      * Fetches the latest version from the server and loads it into the scene.
      * Used as a fallback when localStorage has no versions.
      * Contract 20 §7.3 / GAP-3.
+     *
+     * §FIX-PROJECT-OPEN-STREAMLOAD-FALLBACK (L-83) — on ANY "server has nothing
+     * usable" outcome (404, `{version:null}`, or fetch error) this falls back to
+     * the LOCAL snapshot before firing the empty-project event, so a project with
+     * only-local history (server-forgotten or offline) still opens with its
+     * elements. This also hardens the empty-load `.catch` call site, which reaches
+     * this method WITHOUT the earlier local-first check having run.
      */
     private async _loadLatestVersionFromServer(projectId: string): Promise<void> {
         let loaded = false;
@@ -295,10 +344,15 @@ export class PlatformShell {
         try {
             const res = await apiFetch(`/api/projects/${projectId}/latest-version`);
             if (this.ctx.activeProjectId !== projectId) { aborted = true; return; }
-            if (!res.ok) { console.warn('[PlatformShell] Server latest-version request failed:', res.status); return; }
+            if (!res.ok) {
+                console.warn('[PlatformShell] Server latest-version request failed:', res.status);
+                if (await this._restoreLatestLocalVersion(projectId)) { loaded = true; }
+                return;
+            }
             const { version } = await res.json() as { version?: any };
             if (!version?.snapshot) {
                 console.log('[PlatformShell] No server versions found for project:', projectId);
+                if (await this._restoreLatestLocalVersion(projectId)) { loaded = true; }
                 return;
             }
             if (this.ctx.activeProjectId !== projectId) { aborted = true; return; }
@@ -321,6 +375,9 @@ export class PlatformShell {
             this.versionCtrl.loadVersion(record);
         } catch (err) {
             console.warn('[PlatformShell] Server version load failed:', err);
+            // §FIX-PROJECT-OPEN-STREAMLOAD-FALLBACK (L-83) — a fetch/parse error is
+            // also a "server has nothing usable" case; try local before empty.
+            if (!aborted && await this._restoreLatestLocalVersion(projectId)) { loaded = true; }
         } finally {
             // GAP-3 fix: fire pryzm-project-loaded(empty:true) so the loading
             // overlay always dismisses even if no server version was found.
