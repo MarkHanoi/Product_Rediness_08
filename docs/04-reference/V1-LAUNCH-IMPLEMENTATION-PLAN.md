@@ -150,6 +150,10 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 | L-80 schedules edit/view mode | 3.x data/schedules | **QUEUED (data lane)** — editable+viewable schedule UI on Schedule Store; P6 |
 | L-81 project DUPLICATION doesn't work | 4.x persistence | **IN FLIGHT (persistence lane)** — duplicate must deep-copy snapshot+versions under new id; C13/C05 |
 | L-83 opening a project doesn't work (latest-version 404) | 4.x persistence | **QUEUED (persistence lane)** — open/streamLoad falls back to local snapshot on 404; sibling of L-81; C13/C05 |
+| L-84 copy not working | 1.1 selection/clipboard | **QUEUED (selection lane)** — copy captures selection, paste recreates via bus w/ new ids; C16 |
+| L-85 kitchen/wardrobe/lighting lost on re-open | 4.x persistence | **QUEUED (persistence lane, w/ L-81/L-83)** — serialize+restore these stores in snapshot; C13/C05 |
+| L-86 furniture base-offset missing | 2.x furniture | **QUEUED (furniture lane)** — add base-offset field schema+inspector+builder; C03/C15 |
+| L-87 furniture default to FFL not slab | 2.x furniture | **QUEUED (furniture lane, w/ L-86)** — resolve create Y to floor-finish FFL; C15 |
 | L-82 window dim-change out-of-bounds destroys opening + undeletable | 2.3 hosted/openings | **QUEUED (hosted-element lane, coord sole-wall)** — guard opening on OOB frame, restore when back in bounds, keep window deletable; C15 |
 | L-77 double panel in site-overlay flow (overlay panel + plot-choice card both visible) | 3.4 site/geo UI | **IN FLIGHT (site agent aa0db418)** — dismiss onboarding plot-choice card when overlay panel shows; single active panel; extends L-70 |
 | L-75 room rename not applied on Enter (room.setName missing 'room' store) | 2.x rooms/command-wiring | **QUEUED (rooms lane, quick)** — add `room` to room.setName storesProvider (ADR-002 §3); Enter commits+persists+re-renders tag; handler test |
