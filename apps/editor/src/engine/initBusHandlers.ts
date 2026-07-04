@@ -83,6 +83,11 @@ import {
   MoveViewportCommand,
   GenerativeDesignApplyCommand,
   UpdateElementParameterCommand,
+  // §FEAT-SCHEDULE-VIEW-EDIT (L-80) — the Schedule panel's EDIT mode dispatches
+  // `schedule.update` (rename / add-remove column); this bridge routes it to the
+  // legacy view command so the edit lands in the seeded `scheduleStore` and is
+  // undoable on the commandManager stack (P6). Mirrors the AI dispatch site.
+  UpdateScheduleCommand,
 } from '@pryzm/command-registry';
 import { withHandlerSpan, type Patch } from '@pryzm/plugin-sdk';
 // §FIX-FURNITURE-TYPE-LIST-AND-UNDO (L-68) — build the ring-buffer PatchPair path
@@ -263,6 +268,23 @@ export function initBusHandlers(
             stores: [] as const,
             validate: (cmd) => (!cmd.ceilingId ? 'ceilingId is required' : null),
             fn: (cmd) => { _cmExec(new UpdateCeilingCommand({ ceilingId: cmd.ceilingId, updates: cmd.updates })); },
+        },
+        {
+            // §FEAT-SCHEDULE-VIEW-EDIT (L-80) — Schedule panel EDIT mode. The
+            // definition edit (rename / column membership) is routed to the legacy
+            // UpdateScheduleCommand, which mutates the seeded `scheduleStore` and
+            // registers its own inverse on the commandManager undo stack. `stores: []`
+            // — commandManager owns undo for these view commands (matches roof.update /
+            // ceiling.update). Payload: { scheduleId, patch: { name?, fields? } }.
+            type: 'schedule.update',
+            stores: [] as const,
+            validate: (cmd) => {
+                if (!cmd.scheduleId) return 'scheduleId is required';
+                if (!cmd.patch || typeof cmd.patch !== 'object') return 'patch is required';
+                if (Object.keys(cmd.patch).length === 0) return 'patch must not be empty';
+                return null;
+            },
+            fn: (cmd) => { _cmExec(new UpdateScheduleCommand(cmd.scheduleId, cmd.patch)); },
         },
         {
             type: 'furniture.updateParameters',

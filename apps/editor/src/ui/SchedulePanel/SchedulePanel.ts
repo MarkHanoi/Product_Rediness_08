@@ -22,20 +22,30 @@
  *  - State is session-only (not persisted); resets when the schedule changes.
  *  - Table re-renders immediately on each toggle.
  */
-import { ScheduleRegistry } from '@pryzm/core-app-model';
+import { ScheduleRegistry, scheduleStore } from '@pryzm/core-app-model';
 import { ScheduleExtractor } from '@pryzm/core-app-model';
 import { panelManager } from '../PanelManager';
+import {
+  resolveVisibleColumns,
+  allColumns,
+  storeFields,
+  scheduleName,
+  toggleFieldPatch,
+  dispatchScheduleUpdate,
+} from './scheduleViewModel';
 
 export class SchedulePanel {
   private _element: HTMLElement;
   private _currentScheduleId: string | null = null;
   private _tbody: HTMLTableSectionElement | null = null;
 
-  /** columnId → hidden: per-schedule hidden-column sets. Session-only. */
-  private _hiddenColumns: Map<string, Set<string>> = new Map();
-
-  /** Whether the column-picker sidebar is currently open. */
-  private _fieldsOpen = false;
+  /**
+   * §FEAT-SCHEDULE-VIEW-EDIT (L-80) — panel mode. VIEW = read-only table whose
+   * columns come from the persisted `scheduleStore` definition. EDIT = rename +
+   * add/remove columns, each dispatched through the command bus (`schedule.update`
+   * → UpdateScheduleCommand, P6, undoable). Never a direct store write.
+   */
+  private _mode: 'view' | 'edit' = 'view';
 
   /** Phase B (S73-WIRE) — runtime threaded by parent. */
   public readonly runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null;
@@ -52,11 +62,23 @@ export class SchedulePanel {
         this.highlightRow(detail.elementId);
       }
     });
+
+    // §FEAT-SCHEDULE-VIEW-EDIT (L-80) — re-render when a definition edit lands in
+    // the store (via the bus → UpdateScheduleCommand, incl. undo/redo), so the
+    // visible columns / name reflect the persisted state immediately.
+    const onStoreChange = (e: Event) => {
+      const id = (e as CustomEvent<{ scheduleId?: string }>).detail?.scheduleId;
+      if (this._currentScheduleId && (!id || id === this._currentScheduleId)) {
+        if (this._element.style.display !== 'none') this.render();
+      }
+    };
+    window.addEventListener('sched:schedule-updated', onStoreChange);
+    window.addEventListener('sched:store-loaded', onStoreChange);
   }
 
   show(scheduleId: string) {
     this._currentScheduleId = scheduleId;
-    this._fieldsOpen = false;
+    this._mode = 'view';
     this.render();
     panelManager.notifyOpened('panel:schedule');
     this._element.style.display = 'flex';
@@ -76,22 +98,25 @@ export class SchedulePanel {
     if (selected) selected.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
-  // ── Column visibility helpers ────────────────────────────────────────────
+  // ── Edit dispatch (P6 — via bus, never a direct store write) ─────────────
 
-  private _getHidden(scheduleId: string): Set<string> {
-    if (!this._hiddenColumns.has(scheduleId)) {
-      this._hiddenColumns.set(scheduleId, new Set());
-    }
-    return this._hiddenColumns.get(scheduleId)!;
+  /** Toggle a column's membership in the schedule's persisted `fields` list. */
+  private _toggleField(scheduleId: string, columnId: string): void {
+    const current = storeFields(scheduleId) ?? [];
+    const order = allColumns(scheduleId).map(c => c.id);
+    const fields = toggleFieldPatch(current, columnId, order);
+    dispatchScheduleUpdate(this.runtime, scheduleId, { fields });
+    // Re-render happens on the `sched:schedule-updated` store event.
   }
 
-  private _toggleColumn(scheduleId: string, columnId: string): void {
-    const hidden = this._getHidden(scheduleId);
-    if (hidden.has(columnId)) {
-      hidden.delete(columnId);
-    } else {
-      hidden.add(columnId);
-    }
+  private _setFields(scheduleId: string, fields: string[]): void {
+    dispatchScheduleUpdate(this.runtime, scheduleId, { fields });
+  }
+
+  private _renameSchedule(scheduleId: string, name: string): void {
+    const trimmed = name.trim();
+    if (!trimmed || trimmed === scheduleName(scheduleId)) return;
+    dispatchScheduleUpdate(this.runtime, scheduleId, { name: trimmed });
   }
 
   // ── Render ───────────────────────────────────────────────────────────────
@@ -108,36 +133,53 @@ export class SchedulePanel {
     this._element.innerHTML = '';
     this._tbody = null;
 
-    const hidden = this._getHidden(schedule.id);
-    const visibleCols = schedule.columns.filter(c => !hidden.has(c.id));
-    const totalCols   = schedule.columns.length;
+    // §FEAT-SCHEDULE-VIEW-EDIT (L-80) — visible columns come from the PERSISTED
+    // store definition (fields ∩ registry columns, in stored order); the full
+    // registry set is the palette offered in EDIT mode.
+    const paletteCols  = allColumns(schedule.id);
+    const visibleCols  = resolveVisibleColumns(schedule.id);
+    const persistedIds = new Set(storeFields(schedule.id) ?? []);
+    const displayName  = scheduleName(schedule.id);
+    const totalCols    = paletteCols.length;
     const visibleCount = visibleCols.length;
+    // Editing requires a persisted store definition to write to. Registry-only
+    // schedules (e.g. Data-Platform) stay VIEW-only.
+    const canEdit = scheduleStore.has(schedule.id);
+    const editing = canEdit && this._mode === 'edit';
 
     // ── Header ──────────────────────────────────────────────────────────────
     const header = document.createElement('div');
     header.className = 'sched-header';
 
-    const title = document.createElement('h2');
-    title.className = 'sched-title';
-    title.textContent = schedule.label;
+    let titleEl: HTMLElement;
+    if (editing) {
+      const nameInput = document.createElement('input');
+      nameInput.type = 'text';
+      nameInput.className = 'sched-title sched-title-input';
+      nameInput.value = displayName;
+      nameInput.setAttribute('aria-label', 'Schedule name');
+      const commit = () => this._renameSchedule(schedule.id, nameInput.value);
+      nameInput.addEventListener('change', commit);
+      nameInput.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (e.key === 'Enter') { e.preventDefault(); commit(); }
+      });
+      titleEl = nameInput;
+    } else {
+      const title = document.createElement('h2');
+      title.className = 'sched-title';
+      title.textContent = displayName;
+      titleEl = title;
+    }
 
-    // Fields toggle button
-    const fieldsBtn = document.createElement('button');
-    fieldsBtn.className = `sched-fields-btn${this._fieldsOpen ? ' sched-fields-btn--active' : ''}`;
-    fieldsBtn.setAttribute('aria-label', 'Toggle column visibility');
-    fieldsBtn.setAttribute('aria-pressed', String(this._fieldsOpen));
-    fieldsBtn.title = 'Include / exclude columns';
-    fieldsBtn.innerHTML = `
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="1" y="1" width="3" height="12" rx="1" fill="currentColor"/>
-        <rect x="5.5" y="1" width="3" height="12" rx="1" fill="currentColor" opacity="0.6"/>
-        <rect x="10" y="1" width="3" height="12" rx="1" fill="currentColor" opacity="0.35"/>
-      </svg>
-      Fields
-      <span class="sched-fields-badge">${visibleCount}/${totalCols}</span>
-    `;
-    fieldsBtn.addEventListener('click', () => {
-      this._fieldsOpen = !this._fieldsOpen;
+    // Edit / Done toggle
+    const editBtn = document.createElement('button');
+    editBtn.className = `sched-fields-btn${editing ? ' sched-fields-btn--active' : ''}`;
+    editBtn.setAttribute('aria-pressed', String(editing));
+    editBtn.textContent = editing ? 'Done' : 'Edit';
+    editBtn.title = editing ? 'Finish editing this schedule' : 'Edit this schedule (rename, columns)';
+    editBtn.style.display = canEdit ? '' : 'none';
+    editBtn.addEventListener('click', () => {
+      this._mode = editing ? 'view' : 'edit';
       this.render();
     });
 
@@ -152,23 +194,23 @@ export class SchedulePanel {
     closeBtn.textContent = '×';
     closeBtn.addEventListener('click', () => this.hide());
 
-    header.appendChild(title);
+    header.appendChild(titleEl);
     header.appendChild(countBadge);
-    header.appendChild(fieldsBtn);
+    header.appendChild(editBtn);
     header.appendChild(closeBtn);
 
     // ── Layout container ─────────────────────────────────────────────────────
     const layout = document.createElement('div');
     layout.className = 'sched-layout';
 
-    // ── Fields sidebar ───────────────────────────────────────────────────────
-    if (this._fieldsOpen) {
+    // ── Fields editor sidebar (EDIT mode only) ───────────────────────────────
+    if (editing) {
       const sidebar = document.createElement('div');
       sidebar.className = 'sched-fields-sidebar';
 
       const sidebarTitle = document.createElement('div');
       sidebarTitle.className = 'sched-fields-sidebar-title';
-      sidebarTitle.textContent = 'Columns';
+      sidebarTitle.textContent = `Columns  ${visibleCount}/${totalCols}`;
 
       const quickActions = document.createElement('div');
       quickActions.className = 'sched-fields-quick';
@@ -177,18 +219,15 @@ export class SchedulePanel {
       showAllBtn.className = 'sched-fields-quick-btn';
       showAllBtn.textContent = 'Show all';
       showAllBtn.addEventListener('click', () => {
-        this._getHidden(schedule.id).clear();
-        this.render();
+        this._setFields(schedule.id, paletteCols.map(c => c.id));
       });
 
       const hideAllBtn = document.createElement('button');
       hideAllBtn.className = 'sched-fields-quick-btn';
       hideAllBtn.textContent = 'Hide all';
       hideAllBtn.addEventListener('click', () => {
-        // Always keep at least the first column visible
-        const h = this._getHidden(schedule.id);
-        schedule.columns.slice(1).forEach(c => h.add(c.id));
-        this.render();
+        // Always keep at least the first column so the table is never empty.
+        this._setFields(schedule.id, paletteCols.slice(0, 1).map(c => c.id));
       });
 
       quickActions.appendChild(showAllBtn);
@@ -197,8 +236,8 @@ export class SchedulePanel {
       const fieldList = document.createElement('ul');
       fieldList.className = 'sched-fields-list';
 
-      schedule.columns.forEach(col => {
-        const isVisible = !hidden.has(col.id);
+      paletteCols.forEach(col => {
+        const isVisible = persistedIds.has(col.id);
         const li = document.createElement('li');
         li.className = 'sched-fields-item';
 
@@ -212,8 +251,7 @@ export class SchedulePanel {
         checkbox.className = 'sched-fields-check';
         checkbox.checked = isVisible;
         checkbox.addEventListener('change', () => {
-          this._toggleColumn(schedule.id, col.id);
-          this.render();
+          this._toggleField(schedule.id, col.id);
         });
 
         const labelText = document.createElement('span');
@@ -238,7 +276,7 @@ export class SchedulePanel {
     if (visibleCols.length === 0) {
       const emptyMsg = document.createElement('div');
       emptyMsg.className = 'sched-empty';
-      emptyMsg.textContent = 'All columns are hidden. Use the Fields button to show columns.';
+      emptyMsg.textContent = 'No columns in this schedule. Use Edit to add columns.';
       body.appendChild(emptyMsg);
     } else if (rows.length === 0) {
       const emptyMsg = document.createElement('div');
