@@ -156,51 +156,73 @@ describe('room.delete — legacy bridge', () => {
   });
 });
 
-describe('room.move', () => {
+// §FIX-ROOM-SIBLING-HANDLERS-STORE (L-79) — room.move is a LEGACY BRIDGE (like
+// room.setName / room.delete): it forwards an UpdateRoomBoundaryCommand through
+// window.commandManager (translating the legacy room's boundary polygon read from
+// window.roomStore) and declares affectedStores:[]. The previous
+// affectedStores:['room'] mismatched the bus storeKey 'rooms' and threw
+// "required store 'room' is missing from HandlerContext.stores".
+describe('room.move — legacy bridge (§FIX-ROOM-SIBLING-HANDLERS-STORE, L-79)', () => {
   let env: ReturnType<typeof buildEnv>;
-  afterEach(() => env?.detach());
-
-  it('translates the seed point in wallBound mode and inverts', async () => {
-    env = buildEnv();
-    const id = createId('room');
-    await env.bus.executeCommand('room.create', {
-      id,
-      boundaryMode: 'wallBound',
-      seedPoint: { x: 1, y: 0, z: 2 },
-    });
-    const before = snap(env.room);
-    const ev = await env.bus.executeCommand('room.move', {
-      roomId: id,
-      delta: { x: 5, y: 0, z: -3 },
-    });
-    expect(env.room.get(id)?.seedPoint).toEqual({ x: 6, y: 0, z: -1 });
-
-    undoLast(env.room, ev);
-    expect(snap(env.room)).toEqual(before);
+  const g = globalThis as unknown as { window?: unknown };
+  const savedWindow = g.window;
+  afterEach(() => {
+    env?.detach();
+    if (savedWindow === undefined) delete g.window;
+    else g.window = savedWindow;
   });
 
-  it('translates every sketched-mode boundary vertex', async () => {
-    env = buildEnv();
-    const id = createId('room');
-    await env.bus.executeCommand('room.create', {
-      id,
-      boundary: [
-        { x: 0, y: 0, z: 0 },
-        { x: 2, y: 0, z: 0 },
-        { x: 2, y: 0, z: 2 },
-        { x: 0, y: 0, z: 2 },
-      ],
+  function busWithoutRoomStore() {
+    const bus = new CommandBus({
+      audit: { actorId: 'test', projectId: 'p1', clientId: 't1' },
+      storesProvider: () => ({}),
     });
-    const before = snap(env.room);
-    const ev = await env.bus.executeCommand('room.move', {
-      roomId: id,
-      delta: { x: 10, y: 0, z: 10 },
-    });
-    expect(env.room.get(id)?.boundary[0]).toEqual({ x: 10, y: 0, z: 10 });
-    expect(env.room.get(id)?.boundary[2]).toEqual({ x: 12, y: 0, z: 12 });
+    for (const h of buildRoomHandlerSet()) bus.register(h);
+    return bus;
+  }
 
-    undoLast(env.room, ev);
-    expect(snap(env.room)).toEqual(before);
+  it('does NOT throw the missing-store error and forwards a translated UpdateRoomBoundaryCommand', async () => {
+    env = buildEnv();
+    const bus = busWithoutRoomStore();
+    const executed: Array<{ type?: string; targetIds?: readonly string[] }> = [];
+    g.window = {
+      __pryzmInitComplete: true,
+      commandManager: { execute: (c: unknown) => executed.push(c as { type?: string }) },
+      roomStore: {
+        getById: () => ({
+          boundary: {
+            polygon: [
+              { x: 0, z: 0 },
+              { x: 2, z: 0 },
+              { x: 2, z: 2 },
+            ],
+            height: 2.4,
+            baseOffset: 0,
+            detectionMethod: 'auto-topology',
+          },
+        }),
+      },
+    };
+    await expect(
+      bus.executeCommand('room.move', { roomId: 'room_abc', delta: { x: 10, y: 1, z: 5 } }),
+    ).resolves.toBeDefined();
+    expect(executed).toHaveLength(1);
+    expect(executed[0]?.type).toBe('UPDATE_ROOM_BOUNDARY');
+    expect(executed[0]?.targetIds).toContain('room_abc');
+    // The plugin RoomsState is NOT mutated by the bridge.
+    expect(env.room.size()).toBe(0);
+  });
+
+  it('no-ops (does not throw) before the engine is initialised', async () => {
+    env = buildEnv();
+    const bus = busWithoutRoomStore();
+    g.window = {
+      __pryzmInitComplete: false,
+      commandManager: { execute: () => { throw new Error('must not run pre-init'); } },
+    };
+    await expect(
+      bus.executeCommand('room.move', { roomId: 'room_x', delta: { x: 1, y: 0, z: 0 } }),
+    ).resolves.toBeDefined();
   });
 });
 
@@ -287,71 +309,171 @@ describe('room.setName — legacy bridge (§FIX-ROOM-SETNAME-STORE, L-75)', () =
   });
 });
 
-describe('room.setNumber / setOccupancy / setMaterial / setHeightOffset', () => {
+// §FIX-ROOM-SIBLING-HANDLERS-STORE (L-79) — setNumber / setOccupancy / setMaterial
+// / setHeightOffset are now LEGACY BRIDGES (like room.setName): each forwards the
+// corresponding legacy command through window.commandManager and declares
+// affectedStores:[]. Before the fix each declared affectedStores:['room'] against
+// the bus storeKey 'rooms' → buildContext threw the R1A-16 missing-store error, and
+// the mutation targeted the disconnected plugin RoomsState the renderer/persistence
+// never read. Each test runs a bus with NO 'room' store key (production wiring) and
+// asserts the right legacy CommandType is forwarded with no throw.
+describe('room.setNumber / setOccupancy / setMaterial / setHeightOffset — legacy bridges (§FIX-ROOM-SIBLING-HANDLERS-STORE, L-79)', () => {
   let env: ReturnType<typeof buildEnv>;
-  let id: string;
-  afterEach(() => env?.detach());
+  const g = globalThis as unknown as { window?: unknown };
+  const savedWindow = g.window;
+  afterEach(() => {
+    env?.detach();
+    if (savedWindow === undefined) delete g.window;
+    else g.window = savedWindow;
+  });
 
-  async function freshRoom() {
-    env = buildEnv();
-    id = createId('room');
-    await env.bus.executeCommand('room.create', { id });
+  function busWithoutRoomStore() {
+    const bus = new CommandBus({
+      audit: { actorId: 'test', projectId: 'p1', clientId: 't1' },
+      storesProvider: () => ({}),
+    });
+    for (const h of buildRoomHandlerSet()) bus.register(h);
+    return bus;
   }
 
-  it('setNumber sets and clears', async () => {
-    await freshRoom();
-    await env.bus.executeCommand('room.setNumber', { roomId: id, number: '101' });
-    expect(env.room.get(id)?.number).toBe('101');
-    await env.bus.executeCommand('room.setNumber', { roomId: id, number: '' });
-    expect(env.room.get(id)?.number).toBeUndefined();
-  });
+  function stubWindow(executed: Array<{ type?: string; targetIds?: readonly string[] }>) {
+    g.window = {
+      __pryzmInitComplete: true,
+      commandManager: { execute: (c: unknown) => executed.push(c as { type?: string }) },
+      roomStore: {
+        getById: () => ({
+          boundary: {
+            polygon: [
+              { x: 0, z: 0 },
+              { x: 2, z: 0 },
+              { x: 2, z: 2 },
+            ],
+            height: 2.4,
+            baseOffset: 0,
+            detectionMethod: 'auto-topology',
+          },
+        }),
+      },
+    };
+  }
 
-  it('setOccupancy sets and inverts', async () => {
-    await freshRoom();
-    const before = snap(env.room);
-    const ev = await env.bus.executeCommand('room.setOccupancy', {
-      roomId: id,
-      occupancy: 'Bathroom',
-    });
-    expect(env.room.get(id)?.occupancy).toBe('Bathroom');
-    undoLast(env.room, ev);
-    expect(snap(env.room)).toEqual(before);
-  });
-
-  it('setMaterial requires at least one of materialId / materialColor', async () => {
-    await freshRoom();
+  it('setNumber forwards a RenameRoomCommand (empty string clears)', async () => {
+    env = buildEnv();
+    const bus = busWithoutRoomStore();
+    const executed: Array<{ type?: string; targetIds?: readonly string[] }> = [];
+    stubWindow(executed);
     await expect(
-      env.bus.executeCommand('room.setMaterial', { roomId: id }),
+      bus.executeCommand('room.setNumber', { roomId: 'room_abc', number: '101' }),
+    ).resolves.toBeDefined();
+    expect(executed).toHaveLength(1);
+    expect(executed[0]?.type).toBe('RENAME_ROOM');
+    expect(executed[0]?.targetIds).toContain('room_abc');
+    // Clearing (empty string) still forwards a RenameRoomCommand.
+    await bus.executeCommand('room.setNumber', { roomId: 'room_abc', number: '' });
+    expect(executed).toHaveLength(2);
+    expect(env.room.size()).toBe(0);
+  });
+
+  it('setOccupancy forwards a SetRoomOccupancyCommand', async () => {
+    env = buildEnv();
+    const bus = busWithoutRoomStore();
+    const executed: Array<{ type?: string; targetIds?: readonly string[] }> = [];
+    stubWindow(executed);
+    await expect(
+      bus.executeCommand('room.setOccupancy', { roomId: 'room_abc', occupancy: 'bathroom' }),
+    ).resolves.toBeDefined();
+    expect(executed).toHaveLength(1);
+    expect(executed[0]?.type).toBe('SET_ROOM_OCCUPANCY');
+    expect(executed[0]?.targetIds).toContain('room_abc');
+  });
+
+  it('setMaterial forwards an UpdateRoomCommand carrying the colour', async () => {
+    env = buildEnv();
+    const bus = busWithoutRoomStore();
+    const executed: Array<{ type?: string; targetIds?: readonly string[] }> = [];
+    stubWindow(executed);
+    await expect(
+      bus.executeCommand('room.setMaterial', { roomId: 'room_abc', materialColor: '#ff0000' }),
+    ).resolves.toBeDefined();
+    expect(executed).toHaveLength(1);
+    expect(executed[0]?.type).toBe('UPDATE_ROOM');
+    expect(executed[0]?.targetIds).toContain('room_abc');
+  });
+
+  it('setMaterial still requires at least one of materialId / materialColor', async () => {
+    env = buildEnv();
+    const bus = busWithoutRoomStore();
+    const executed: Array<{ type?: string }> = [];
+    stubWindow(executed);
+    await expect(
+      bus.executeCommand('room.setMaterial', { roomId: 'room_abc' }),
     ).rejects.toThrow();
   });
 
-  it('setMaterial sets the colour', async () => {
-    await freshRoom();
-    await env.bus.executeCommand('room.setMaterial', {
-      roomId: id,
-      materialColor: '#ff0000',
-    });
-    expect(env.room.get(id)?.materialColor).toBe('#ff0000');
-  });
-
-  it('setHeightOffset accepts in-range, rejects out-of-range', async () => {
-    await freshRoom();
-    await env.bus.executeCommand('room.setHeightOffset', {
-      roomId: id,
-      heightOffset: 0.5,
-    });
-    expect(env.room.get(id)?.heightOffset).toBeCloseTo(0.5);
+  it('setHeightOffset forwards an UpdateRoomCommand (in-range) and rejects out-of-range', async () => {
+    env = buildEnv();
+    const bus = busWithoutRoomStore();
+    const executed: Array<{ type?: string; targetIds?: readonly string[] }> = [];
+    stubWindow(executed);
     await expect(
-      env.bus.executeCommand('room.setHeightOffset', {
-        roomId: id,
-        heightOffset: 11,
-      }),
+      bus.executeCommand('room.setHeightOffset', { roomId: 'room_abc', heightOffset: 0.5 }),
+    ).resolves.toBeDefined();
+    expect(executed).toHaveLength(1);
+    expect(executed[0]?.type).toBe('UPDATE_ROOM');
+    expect(executed[0]?.targetIds).toContain('room_abc');
+    await expect(
+      bus.executeCommand('room.setHeightOffset', { roomId: 'room_abc', heightOffset: 11 }),
     ).rejects.toThrow();
     await expect(
-      env.bus.executeCommand('room.setHeightOffset', {
-        roomId: id,
-        heightOffset: Number.NaN,
-      }),
+      bus.executeCommand('room.setHeightOffset', { roomId: 'room_abc', heightOffset: Number.NaN }),
+    ).rejects.toThrow();
+  });
+
+  it('no-ops (does not throw) before the engine is initialised', async () => {
+    env = buildEnv();
+    const bus = busWithoutRoomStore();
+    g.window = {
+      __pryzmInitComplete: false,
+      commandManager: { execute: () => { throw new Error('must not run pre-init'); } },
+    };
+    await expect(
+      bus.executeCommand('room.setNumber', { roomId: 'room_x', number: '9' }),
+    ).resolves.toBeDefined();
+  });
+});
+
+// §FIX-ROOM-SIBLING-HANDLERS-STORE (L-79) — room.recomputeBoundary (fired by the
+// wall→room cascade on every wall edit) is now a NO-OP legacy bridge with
+// affectedStores:[]. Before the fix it declared affectedStores:['room'] and threw
+// "required store 'room' is missing" on every wall create/move/resize. The legacy
+// RoomStore owns room analytics, so the plugin recompute is a redundant no-op.
+describe('room.recomputeBoundary — no-op legacy bridge (§FIX-ROOM-SIBLING-HANDLERS-STORE, L-79)', () => {
+  let env: ReturnType<typeof buildEnv>;
+  afterEach(() => env?.detach());
+
+  function busWithoutRoomStore() {
+    const bus = new CommandBus({
+      audit: { actorId: 'test', projectId: 'p1', clientId: 't1' },
+      storesProvider: () => ({}),
+    });
+    for (const h of buildRoomHandlerSet()) bus.register(h);
+    return bus;
+  }
+
+  it('does NOT throw the missing-store error and mutates no store', async () => {
+    env = buildEnv();
+    const bus = busWithoutRoomStore();
+    await expect(
+      bus.executeCommand('room.recomputeBoundary', { roomId: 'room_abc', cascadedFrom: 'wall.move' }),
+    ).resolves.toBeDefined();
+    expect(env.room.size()).toBe(0);
+  });
+
+  it('rejects an empty roomId payload', async () => {
+    env = buildEnv();
+    const bus = busWithoutRoomStore();
+    await expect(
+      bus.executeCommand('room.recomputeBoundary', { roomId: '' }),
     ).rejects.toThrow();
   });
 });

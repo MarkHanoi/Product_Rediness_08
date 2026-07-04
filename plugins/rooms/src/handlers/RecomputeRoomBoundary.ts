@@ -1,29 +1,33 @@
-// RecomputeRoomBoundaryHandler — re-run the room's analytic from the
-// current wall snapshot (S26, wall→room cross-rule).
+// RecomputeRoomBoundaryHandler — re-derive a room's analytic from the current wall
+// snapshot (S26, wall→room cross-rule). Synthesised by
+// `plugins/cross/src/wall-room.ts` for every room a changed wall might bound.
 //
-// Synthesised by `plugins/cross/src/wall-room.ts` whenever a wall
-// changes shape, level, or lifecycle.  Reads the wall store via
-// `ctx.stores.wall`; writes only `area`, `perimeter`,
-// `boundingElementIds`, `boundingWallIds` back onto the room DTO.
-// All other room fields are left untouched so user-edited name /
-// number / occupancy survive the cascade.
+// §FIX-ROOM-SIBLING-HANDLERS-STORE (L-79) — converted to a NO-OP LEGACY BRIDGE
+// (`affectedStores:[]`). Same store-key root cause as its siblings (L-75): the
+// previous `affectedStores:['room']` mismatched the bus storeKey `'rooms'` and
+// threw "required store 'room' is missing" (ADR-002 §3) — and because this handler
+// fires on EVERY wall create/move/resize/level-change, it threw on every such edit.
+// The old body also mutated the disconnected plugin `RoomsState` that neither the
+// renderer nor persistence read.
 //
-// `recomputeRoomAnalytic` returns `undefined` when the room is in an
-// in-progress / un-enclosed state; in that case we keep the cached
-// analytic values per the rooms intent contract.
+// Why a no-op (not a forwarded command): in the legacy-authoritative world the
+// DETECTED / RENDERED / PERSISTED rooms live in `window.roomStore`, whose analytics
+// are kept in sync by the legacy room-detection path independently of this plugin
+// bus. There is no per-room legacy "recompute" command — the only legacy analog is
+// a full `ReDetectRooms` (all rooms, renumbers), which would be catastrophic to run
+// on every wall geometry change. So the correct bridge is to do nothing here and
+// let the legacy store own room analytics; the P8 span is preserved for tracing.
+//
+// TODO(F-1.4): restore the authoritative plugin-store recompute (see git history)
+// once the detected-room world is migrated off the legacy RoomStore.
 
 import {
-  produceCommand,
   withHandlerSpan,
   type CommandHandler,
   type HandlerContext,
   type HandlerResult,
   type ValidationResult,
 } from '@pryzm/plugin-sdk';
-import type { Wall } from '@pryzm/plugin-sdk';
-import { recomputeRoomAnalytic } from '../intent.js';
-import { RoomNotFoundError } from '../errors.js';
-import type { RoomsState } from '../store.js';
 
 export interface RecomputeRoomBoundaryPayload {
   readonly roomId: string;
@@ -32,48 +36,32 @@ export interface RecomputeRoomBoundaryPayload {
   readonly wallId?: string;
 }
 
-type Stores = Readonly<
-  { room: RoomsState; wall: Record<string, Wall> } & Record<string, unknown>
->;
-
 export class RecomputeRoomBoundaryHandler
-  implements CommandHandler<RecomputeRoomBoundaryPayload, Stores>
+  implements CommandHandler<RecomputeRoomBoundaryPayload, Record<string, unknown>>
 {
   readonly type = 'room.recomputeBoundary';
-  readonly affectedStores = ['room'] as const;
+  // No plugin store is touched — the legacy RoomStore owns room analytics.
+  readonly affectedStores = [] as const;
 
-  canExecute(ctx: HandlerContext<Stores>, cmd: RecomputeRoomBoundaryPayload): ValidationResult {
+  canExecute(
+    _ctx: HandlerContext<Record<string, unknown>>,
+    cmd: RecomputeRoomBoundaryPayload,
+  ): ValidationResult {
     if (typeof cmd.roomId !== 'string' || cmd.roomId.length === 0) {
       return { valid: false, reason: 'roomId must be a non-empty string' };
-    }
-    if (!ctx.stores.room[cmd.roomId]) {
-      return { valid: false, reason: `room not found: ${cmd.roomId}` };
     }
     return { valid: true };
   }
 
-  execute(ctx: HandlerContext<Stores>, cmd: RecomputeRoomBoundaryPayload): HandlerResult {
+  execute(
+    _ctx: HandlerContext<Record<string, unknown>>,
+    _cmd: RecomputeRoomBoundaryPayload,
+  ): HandlerResult {
     return withHandlerSpan(this.type + '.handler', { 'pryzm.command.type': this.type }, () => {
-    const room = ctx.stores.room[cmd.roomId];
-    if (!room) throw new RoomNotFoundError(cmd.roomId);
-
-    const wallStore = ctx.stores.wall ?? {};
-    const walls: Wall[] = [];
-    for (const w of Object.values(wallStore)) {
-      if (w && (w as Wall).levelId === room.levelId) walls.push(w as Wall);
-    }
-
-    const update = recomputeRoomAnalytic(room, walls);
-
-    const [next, forward, inverse] = produceCommand<RoomsState>(ctx.stores.room, (draft) => {
-      const r = draft[cmd.roomId];
-      if (!r || !update) return;
-      r.area = update.area;
-      r.perimeter = update.perimeter;
-      r.boundingElementIds = [...update.boundingElementIds];
-      r.boundingWallIds = [...update.boundingWallIds];
-    });
-    return { forward, inverse, nextStates: { room: next } };
+      // Intentional no-op — the legacy RoomStore keeps room analytics in sync (see
+      // header). Kept as a registered handler so the wall→room cascade rule has a
+      // target and never throws on wall edits.
+      return { forward: [], inverse: [] };
     }); // withHandlerSpan — C10 §2
   }
 }
