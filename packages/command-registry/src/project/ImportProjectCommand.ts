@@ -82,6 +82,8 @@ import {
     migrateRoofSnapshotToCommand,
     dropDegeneratePolygonRecords,
     ceilingRestoreBoundaryFields,
+    buildFurnitureRestorePayload,
+    buildLightingRestorePayload,
 } from './projectLoaderUtils';
 import { ClearProjectCommand } from './ClearProjectCommand';
 import { AddLevelCommand } from '../levels/AddLevelCommand';
@@ -102,6 +104,11 @@ import { CreateCeilingCommand } from '../ceilings/CreateCeilingCommand';
 import { CreateFloorCommand } from '../floors/CreateFloorCommand';
 import { CreateStairCommand } from '../stair/CreateStairCommand';
 import { CreateFurnitureCommand } from '../furniture/CreateFurnitureCommand';
+// §FIX-PERSIST-KITCHEN-WARDROBE-LIGHTING (L-85) — lighting fixtures are cleared
+// by ClearProjectCommand (LightingStore is scope-registered) but were NEVER
+// restored on the default-on fast load path (only the legacy ProjectLoader Step
+// 10b restored them), so every light vanished on reopen. Restore them here.
+import { CreateLightingCommand } from '../lighting/CreateLightingCommand';
 import { CreateHandrailCommand } from '../handrails/CreateHandrailCommand';
 import { CreatePlumbingFixtureCommand } from '../plumbing/CreatePlumbingFixtureCommand';
 import { CreateCurtainWallCommand } from '../curtainwall/CreateCurtainWallCommand';
@@ -694,38 +701,11 @@ export class ImportProjectCommand implements Command {
             for (const f of snapshot.furniture) {
                 if (++_furnChunk >= CHUNK) { _furnChunk = 0; yield; }
                 try {
-                    const cmd = new CreateFurnitureCommand({
-                        id:                    f.id,
-                        furnitureType:         f.furnitureType,
-                        position:              f.position,
-                        rotation:              f.rotation,
-                        levelId:               f.levelId,
-                        baseOffset:            f.baseOffset ?? 0.2,
-                        width:                 f.width,
-                        length:                f.length,
-                        height:                f.height,
-                        widthBranchTwo:        f.widthBranchTwo,
-                        lengthBranchTwo:       f.lengthBranchTwo,
-                        widthMain:             f.widthMain,
-                        lengthSide:            f.lengthSide,
-                        seatDepthMain:         f.seatDepthMain,
-                        seatDepthSide:         f.seatDepthSide,
-                        material:              f.material ?? 'wood',
-                        color:                 f.color,
-                        hasHeadboard:          f.hasHeadboard,
-                        lo3:                   f.lo3,
-                        startPoint:            f.startPoint,
-                        cornerPoint:           f.cornerPoint,
-                        endPoint:              f.endPoint,
-                        wardrobeConfig:        f.wardrobeConfig,
-                        // RUN-config restore (mirrors ProjectLoader §Step 7
-                        // Contract 13 §2 — the FurnitureFactory throws without
-                        // these for kitchen / wardrobe RUN groups).
-                        kitchenConfig:         f.kitchenConfig,
-                        wardrobeCabinetConfig: f.wardrobeCabinetConfig,
-                        furnitureCategory:     f.furnitureCategory,
-                        metadata:              f.metadata,
-                    });
+                    // §FIX-PERSIST-KITCHEN-WARDROBE-LIGHTING (L-85) — single-source
+                    // the payload mapping (incl. the kitchen/wardrobe RUN configs
+                    // that FurnitureFactory requires; Contract 13 §2) so it is
+                    // byte-faithful and unit-testable.
+                    const cmd = new CreateFurnitureCommand(buildFurnitureRestorePayload(f));
                     const r = runSub(cmd);
                     r.success ? stats.loaded++ : recordFail(`Furniture ${f.id}`, r);
                 } catch (e) {
@@ -801,6 +781,40 @@ export class ImportProjectCommand implements Command {
                 } catch (e) {
                     recordFail(`Plumbing ${p.id}`,
                         { success: false, affectedElementIds: [], error: String(e) });
+                }
+            }
+
+            // ── Step 10b: Lighting fixtures ──────────────────────────────────
+            // §FIX-PERSIST-KITCHEN-WARDROBE-LIGHTING (L-85) — the default-on fast
+            // load path (this command) previously had NO lighting restore step, so
+            // every light the user placed was cleared on open (LightingStore is
+            // scope-registered → ClearProjectCommand wipes it) and never re-created,
+            // while the legacy per-command ProjectLoader path DID restore them
+            // (Step 10b). Recreate each fixture via CreateLightingCommand so the
+            // LightingStore + LightingFragmentBuilder rebuild it (the command fires
+            // `bim-lighting-placed`). `lighting` is optional on the snapshot for
+            // backward compat with pre-§PERSIST-LIGHTING projects.
+            const snapshotLighting = (snapshot as { lighting?: unknown[] }).lighting;
+            if (Array.isArray(snapshotLighting) && snapshotLighting.length > 0) {
+                console.log(`[ImportProjectCommand] Loading ${snapshotLighting.length} lighting fixtures`);
+                for (const lt of snapshotLighting) {
+                    try {
+                        const payload = buildLightingRestorePayload(lt);
+                        if (!payload) {
+                            recordFail(
+                                `Lighting ${(lt as { id?: string })?.id ?? '?'}`,
+                                { success: false, affectedElementIds: [], info: ['malformed lighting record — missing id/fixtureType/levelId/position'] },
+                            );
+                            continue;
+                        }
+                        const r = runSub(new CreateLightingCommand(payload));
+                        r.success ? stats.loaded++ : recordFail(`Lighting ${payload.id}`, r);
+                    } catch (e) {
+                        recordFail(
+                            `Lighting ${(lt as { id?: string })?.id ?? '?'}`,
+                            { success: false, affectedElementIds: [], error: String(e) },
+                        );
+                    }
                 }
             }
 

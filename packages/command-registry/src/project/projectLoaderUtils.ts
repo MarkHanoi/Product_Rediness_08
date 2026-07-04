@@ -10,6 +10,11 @@
 import { ProjectSnapshot } from '@pryzm/core-app-model';
 import { CreateRoofCommand } from '../roofs/CreateRoofCommand';
 import { RoofType, RoofFootprint } from '@pryzm/geometry-roof';
+// Type-only imports (erased at runtime — do NOT pull the command's heavy
+// geometry/barrel graph into the pure-helper module, keeping these unit-testable
+// without standing up the runtime).
+import type { CreateFurniturePayload } from '../furniture/CreateFurnitureCommand';
+import type { CreateLightingPayload } from '../lighting/CreateLightingCommand';
 
 /**
  * Build a CreateWallOpeningCommand opening payload by merging the wall-opening
@@ -187,6 +192,92 @@ export function ceilingRestoreBoundaryFields(ceiling: any): {
         height:     b.height     ?? ceiling?.height,
         thickness:  b.thickness  ?? ceiling?.thickness,
         baseOffset: b.baseOffset ?? ceiling?.baseOffset,
+    };
+}
+
+/**
+ * §FIX-PERSIST-KITCHEN-WARDROBE-LIGHTING (L-85) — map a serialised furniture
+ * snapshot record to the `CreateFurnitureCommand` payload.
+ *
+ * ROOT CAUSE this guards: kitchen (`kitchen_*` furnitureType + `kitchenConfig`)
+ * and wardrobe (`wardrobe_*` + `wardrobeCabinetConfig`) RUN groups are ordinary
+ * `FurnitureData` in the geometry `FurnitureStore` (the kitchen/wardrobe tools →
+ * `furniture.create` bus command → `furniture.created` bridge → `furnitureStore`).
+ * They serialise via `ProjectSerializer.serializeFurniture` (which persists the
+ * two configs), but if the RESTORE path drops a parametric field the
+ * `FurnitureFactory` either throws ("requires kitchenConfig" /
+ * "requires wardrobeCabinetConfig") or silently collapses the RUN to a single
+ * primitive — so the run vanishes / degrades on reopen (Contract 13 §2: every
+ * parametric input that drives geometry MUST round-trip). Centralising the
+ * mapping here keeps the restore payload byte-faithful and unit-testable.
+ *
+ * Pure + exported (mirrors `ceilingRestoreBoundaryFields`) so the mapping is
+ * testable without the command pipeline / THREE-touching barrel.
+ */
+export function buildFurnitureRestorePayload(f: any): CreateFurniturePayload {
+    return {
+        id:                    f.id,
+        furnitureType:         f.furnitureType,
+        position:              f.position,
+        rotation:              f.rotation,
+        levelId:               f.levelId,
+        baseOffset:            f.baseOffset ?? 0.2,
+        width:                 f.width,
+        length:                f.length,
+        height:                f.height,
+        widthBranchTwo:        f.widthBranchTwo,
+        lengthBranchTwo:       f.lengthBranchTwo,
+        widthMain:             f.widthMain,
+        lengthSide:            f.lengthSide,
+        seatDepthMain:         f.seatDepthMain,
+        seatDepthSide:         f.seatDepthSide,
+        material:              f.material ?? 'wood',
+        color:                 f.color,
+        hasHeadboard:          f.hasHeadboard,
+        lo3:                   f.lo3,
+        startPoint:            f.startPoint,
+        cornerPoint:           f.cornerPoint,
+        endPoint:              f.endPoint,
+        wardrobeConfig:        f.wardrobeConfig,
+        // The two parametric RUN configs — the fields whose loss regressed
+        // kitchen / wardrobe groups on reopen (L-85).
+        kitchenConfig:         f.kitchenConfig,
+        wardrobeCabinetConfig: f.wardrobeCabinetConfig,
+        furnitureCategory:     f.furnitureCategory,
+        metadata:              f.metadata,
+    };
+}
+
+/**
+ * §FIX-PERSIST-KITCHEN-WARDROBE-LIGHTING (L-85) — map a serialised lighting
+ * snapshot record to the `CreateLightingCommand` payload, or `null` when the
+ * record is malformed (missing id / fixtureType / levelId / position) so the
+ * caller skips it instead of dispatching a doomed command.
+ *
+ * ROOT CAUSE this fixes: lighting fixtures ARE persisted (`ProjectSerializer`
+ * §PERSIST-LIGHTING sources them from the window-managed `LightingStore`) and the
+ * `LightingStore` is registered in the `ProjectScopeRegistry`, so
+ * `ClearProjectCommand.clearAll()` WIPES it on every open — but the default-on
+ * `ImportProjectCommand` fast load path had NO lighting restore step (only the
+ * legacy per-command `ProjectLoader` path did, Step 10b). Result: every light the
+ * user placed was cleared and never re-created on reopen. This helper feeds the
+ * new restore step so lighting round-trips on the fast path too.
+ *
+ * Pure + exported so the mapping is unit-testable without the command pipeline.
+ */
+export function buildLightingRestorePayload(lt: any): CreateLightingPayload | null {
+    if (!lt || typeof lt !== 'object') return null;
+    if (!lt.id || !lt.fixtureType || !lt.levelId || !lt.position) return null;
+    return {
+        id:          lt.id,
+        fixtureType: lt.fixtureType,
+        position:    lt.position,
+        rotation:    lt.rotation,
+        levelId:     lt.levelId,
+        roomId:      lt.roomId,
+        hostId:      lt.hostId,
+        tags:        lt.tags,
+        properties:  lt.properties,
     };
 }
 
