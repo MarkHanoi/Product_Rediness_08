@@ -71,6 +71,21 @@ export const PLAN_INCREMENTAL_SAFE_TYPES: ReadonlySet<string> = new Set([
 /** Debounce interval in ms — chosen to absorb OBC WebWorker projection timing. */
 const DEBOUNCE_MS = 300;
 
+/**
+ * §FIX-PLAN-PROJECT-SPLIT-INCREMENTAL (L-89, C04 §3.3 / DOC-1.4) — fast debounce for
+ * a purely GRAFT-ELIGIBLE flush (every dirty view was touched only by create/update of
+ * a pure-projection type — PLAN_INCREMENTAL_SAFE_TYPES). This is the interactive
+ * wall/slab/beam/ceiling/floor draw the founder does in SPLIT view, where the plan pane
+ * is driven ONLY by this tracker (PlanViewManager — the snappy 30 ms driver — is inactive
+ * because the main viewport is 3D). The old flat 300 ms envelope made the split plan feel
+ * like it "waited behind the scenes" before reacting (perceptible before the 2nd click of
+ * wall creation). The graft is O(dirty) and idempotent, so it is safe to flush far sooner;
+ * ~48 ms (~3 frames) coalesces a rapid multi-wall burst while feeling instant. Any coarse /
+ * mixed / batch change keeps the full 300 ms envelope (see `_pendingFlushDelayMs`). This
+ * does NOT change WHAT is projected (identical accuracy) — only how soon.
+ */
+const FAST_DEBOUNCE_MS = 48;
+
 // ── Class ────────────────────────────────────────────────────────────────────
 
 export class ViewDependencyTracker {
@@ -535,13 +550,39 @@ export class ViewDependencyTracker {
         return affected;
     }
 
-    /** Start (or reset) the 300ms debounce timer. */
+    /** Start (or reset) the debounce timer.
+     *
+     * §FIX-PLAN-PROJECT-SPLIT-INCREMENTAL (L-89) — the delay is chosen per re-arm from
+     * the CURRENT pending change set: a purely graft-eligible interactive draw flushes on
+     * the fast (~48 ms) envelope so the SPLIT-view plan reacts near-instantly; any coarse /
+     * mixed / batch change keeps the 300 ms envelope. Re-computing on every re-arm means a
+     * coarse event arriving mid-streak correctly promotes the pending flush back to 300 ms. */
     private _scheduleDebouncedFlush(): void {
         if (this._debounceTimer !== null) clearTimeout(this._debounceTimer);
+        const delay = this._pendingFlushDelayMs();
         this._debounceTimer = setTimeout(() => {
             this._debounceTimer = null;
             unifiedFrameLoop.queueLowPriority(() => this._flush());
-        }, DEBOUNCE_MS);
+        }, delay);
+    }
+
+    /**
+     * §FIX-PLAN-PROJECT-SPLIT-INCREMENTAL (L-89) — pick the debounce envelope for the
+     * currently-pending dirty set. Returns `FAST_DEBOUNCE_MS` only when EVERY dirty view is
+     * graft-eligible (element-scoped, pure-projection, not coarse and not graft-ineligible);
+     * otherwise the conservative `DEBOUNCE_MS`. Mirrors `graftIdsForView` in `_flush` so the
+     * fast path is taken iff the flush will actually graft rather than full-reproject.
+     */
+    private _pendingFlushDelayMs(): number {
+        if (this._dirtyViewIds.size === 0) return DEBOUNCE_MS;
+        if (this._viewsNeedingFullInvalidate.size > 0 || this._viewsGraftIneligible.size > 0) {
+            return DEBOUNCE_MS;
+        }
+        for (const viewId of this._dirtyViewIds) {
+            const elems = this._dirtyElementsByView.get(viewId);
+            if (!elems || elems.size === 0) return DEBOUNCE_MS;
+        }
+        return FAST_DEBOUNCE_MS;
     }
 
     /** Re-project all dirty views and clear the dirty set. */
