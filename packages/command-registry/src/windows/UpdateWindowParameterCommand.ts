@@ -4,6 +4,7 @@ import {
 } from '../types';
 import { windowStore } from '@pryzm/geometry-window';
 import { WindowOpening, WindowOpeningSchema } from '@pryzm/geometry-window';
+import { wallOccupancyStore } from '@pryzm/geometry-wall';
 
 /**
  * D4 — UpdateWindowParameterCommand
@@ -70,16 +71,27 @@ export class UpdateWindowParameterCommand implements Command {
         if (!current) {
             return { success: false, affectedElementIds: [], info: [`Window not found: ${this.windowId}`] };
         }
+        // §FIX-WINDOW-OOB-OPENING-RESTORE (L-82): clamp dimensional fields to the
+        // host wall BEFORE writing, so the window frame (windowStore) and its wall
+        // opening (wallStore) receive the SAME in-bounds values and stay consistent.
+        // Without this, a width/height/offset/sill edit past the wall extent
+        // orphaned the opening — the wall stopped being cut and the window could
+        // neither recover nor be deleted. The clamp may add fields the caller did
+        // not send (e.g. a too-wide width forces the offset inward), so prev is
+        // captured over the EFFECTIVE patch keys — keeping the derived shift undoable.
+        const patch = this._clampPatchToWall(context, current, this.patch);
+
         if (!this.prevCapturedAtExecute) {
             const captured: Partial<WindowOpening> = {};
-            for (const key of Object.keys(this.patch) as (keyof WindowOpening)[]) {
+            for (const key of Object.keys(patch) as (keyof WindowOpening)[]) {
                 (captured as any)[key] = current[key];
             }
             this.prev = deepFreeze(captured);
             this.prevCapturedAtExecute = true;
         }
-        windowStore.update(this.windowId, this.patch);
-        this._syncWallStore(context, this.patch);
+
+        windowStore.update(this.windowId, patch);
+        this._syncWallStore(context, patch);
         return { success: true, affectedElementIds: [this.windowId] };
     }
 
@@ -100,6 +112,45 @@ export class UpdateWindowParameterCommand implements Command {
             payload: { windowId: this.windowId, patch: this.patch, prev: this.prev },
             version: 2,
         };
+    }
+
+    /**
+     * §FIX-WINDOW-OOB-OPENING-RESTORE (L-82) — return a copy of `patch` whose
+     * dimensional fields are clamped so the frame span stays inside the host wall.
+     * A colour-only / type-only edit (no dimensional field) is returned untouched,
+     * as is any patch when the host wall cannot be resolved. When clamping DOES
+     * fire, every dimensional field the clamp changed relative to the CURRENT
+     * record is written back — including fields the caller did not send (e.g. a
+     * too-wide width forces the offset inward), so the frame never exceeds the wall.
+     */
+    private _clampPatchToWall(
+        context: CommandContext,
+        current: WindowOpening,
+        patch: Partial<WindowOpening>,
+    ): Partial<WindowOpening> {
+        const dimKeys = ['offset', 'width', 'height', 'sillHeight'] as const;
+        if (!dimKeys.some(k => k in patch)) return patch;
+
+        const wall = context.stores?.wallStore?.getById?.(current.wallId);
+        if (!wall) return patch;
+
+        const clamped = wallOccupancyStore.clampToWall(wall, {
+            offset:     (patch.offset     ?? current.offset)     as number,
+            width:      (patch.width      ?? current.width)      as number,
+            height:     (patch.height     ?? current.height)     as number,
+            sillHeight: (patch.sillHeight ?? current.sillHeight) as number,
+        });
+        if (!clamped.clamped) return patch;
+
+        const out: Partial<WindowOpening> = { ...patch };
+        for (const k of dimKeys) {
+            // Write a clamped dimension when the caller sent it OR when the clamp
+            // had to move it away from its current value to keep the frame in-bounds.
+            if (k in patch || (clamped as any)[k] !== (current as any)[k]) {
+                (out as any)[k] = (clamped as any)[k];
+            }
+        }
+        return out;
     }
 
     private _syncWallStore(context: CommandContext, delta: Partial<WindowOpening>): void {

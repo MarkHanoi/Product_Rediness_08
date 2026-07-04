@@ -59,6 +59,22 @@ export interface CanPlaceResult {
     reason?:     string;     // Human-readable failure message (absent when valid)
 }
 
+/**
+ * §FIX-WINDOW-OOB-OPENING-RESTORE — a hosted opening's four positional /
+ * dimensional degrees of freedom along + across its host wall.
+ */
+export interface OpeningDims {
+    offset:     number;   // LEFT-EDGE offset along the wall baseline (metres)
+    width:      number;   // horizontal extent (metres)
+    height:     number;   // vertical extent (metres)
+    sillHeight: number;   // height of the opening base above the wall base (metres)
+}
+
+export interface ClampToWallResult extends OpeningDims {
+    /** true when any field was adjusted to keep the frame inside the wall. */
+    clamped: boolean;
+}
+
 // ─── WallOccupancyStore ───────────────────────────────────────────────────────
 
 /**
@@ -76,6 +92,80 @@ export class WallOccupancyStore {
      * (e.g., a door flush against a window) are NOT treated as conflicting.
      */
     private static readonly EPSILON_M = 0.001;
+
+    /**
+     * §FIX-WINDOW-OOB-OPENING-RESTORE — smallest hosted-opening dimension the
+     * clamp will leave when a wall is too small to fit the requested frame.
+     * Keeps the opening a valid, positive, cuttable span (never zero/negative).
+     */
+    static readonly MIN_OPENING_M = 0.05;
+
+    /**
+     * §FIX-WINDOW-OOB-OPENING-RESTORE (L-82) — clamp a hosted opening's dimensions
+     * so the frame span [offset, offset+width] × [sillHeight, sillHeight+height]
+     * stays ENTIRELY within the host wall's extent (length × height).
+     *
+     * A window/door dimension edit (width / height / offset / sillHeight) had no
+     * wall-extent guard — only the MOVE path validated via canPlace(). An
+     * out-of-bounds edit produced an opening that exceeded the wall, orphaned the
+     * cut, and (once desynced from the WallStore) could neither re-cut nor be
+     * deleted. Guarding every dimension write through this pure clamp makes the
+     * out-of-bounds state impossible: the frame can never exceed the wall, so the
+     * opening is always a valid in-bounds span that the builder can cut, and any
+     * later in-bounds edit recovers cleanly.
+     *
+     * Behaviour (mirrors WindowTool's existing placement clamp
+     * `offset = max(0, min(offset, wallLength - width))`):
+     *   • horizontal: width ∈ [MIN, wallLength]; offset ∈ [0, wallLength - width]
+     *     — a width that fits is preserved by shifting the offset inward; only a
+     *     width larger than the whole wall is itself shrunk.
+     *   • vertical:   height ∈ [MIN, wallHeight]; sillHeight ∈ [0, wallHeight - height].
+     *
+     * PURE — reads `wall.baseLine` (planar XZ chord length; Y carries level
+     * elevation per the canonical schema) and `wall.height`; writes nothing.
+     */
+    clampToWall(wall: WallData, dims: OpeningDims): ClampToWallResult {
+        const bl = wall.baseLine;
+        const b0 = bl[0], b1 = bl[1];
+        // Planar (XZ) chord length — Y is level elevation, not a horizontal extent.
+        const wallLength = Math.hypot(b1.x - b0.x, b1.z - b0.z);
+        const wallHeight = (typeof wall.height === 'number' && wall.height > 0)
+            ? wall.height
+            : Number.POSITIVE_INFINITY;
+
+        const MIN = WallOccupancyStore.MIN_OPENING_M;
+        const clamp = (v: number, lo: number, hi: number): number =>
+            Math.min(Math.max(v, lo), Math.max(lo, hi));
+
+        let { offset, width, height, sillHeight } = dims;
+
+        // Degenerate wall — cannot fit any opening; leave dims untouched so the
+        // caller / builder can surface the real problem (zero-length wall).
+        if (!(wallLength > 0)) {
+            return { offset, width, height, sillHeight, clamped: false };
+        }
+
+        // ── Horizontal: keep the requested width if it fits by shifting offset ──
+        width  = clamp(width, MIN, wallLength);
+        offset = clamp(offset, 0, wallLength - width);
+
+        // ── Vertical ────────────────────────────────────────────────────────────
+        if (Number.isFinite(wallHeight)) {
+            height     = clamp(height, MIN, wallHeight);
+            sillHeight = clamp(sillHeight, 0, wallHeight - height);
+        } else {
+            height     = Math.max(height, MIN);
+            sillHeight = Math.max(sillHeight, 0);
+        }
+
+        const clamped =
+            offset     !== dims.offset ||
+            width      !== dims.width ||
+            height     !== dims.height ||
+            sillHeight !== dims.sillHeight;
+
+        return { offset, width, height, sillHeight, clamped };
+    }
 
     /**
      * Checks whether a new opening [offsetM, offsetM + widthM] can be placed

@@ -4,6 +4,7 @@ import { ProjectContext } from '@pryzm/core-app-model';
 import { BimManager } from '@pryzm/core-app-model';
 import { storeEventBus } from '@pryzm/core-app-model';
 import { WallDataAddSchema, WallDataUpdateSchema, OpeningSchema, formatZodError } from './WallDataSchema';
+import { wallOccupancyStore } from './WallOccupancyStore';
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
 import {
@@ -1020,28 +1021,73 @@ export class WallStore implements ILevelProvider {
         const existingWin = this.windows.get(windowId);
         if (!existingWin) return;
 
-        const updated = cloneWindowData({ ...existingWin, ...updates });
+        const merged = { ...existingWin, ...updates };
+
+        const wallId = merged.wallId || existingWin.wallId;
+        const wall = this.walls.get(wallId);
+
+        // §FIX-WINDOW-OOB-OPENING-RESTORE (L-82): clamp the window frame to its host
+        // wall so a dimension edit can never push it out of bounds and orphan/destroy
+        // its opening. Applied here — the single choke point every width/height/
+        // offset/sill edit funnels through (property panel, property inspector, AI,
+        // undo) — so the guard holds regardless of caller.
+        if (wall) {
+            const c = wallOccupancyStore.clampToWall(wall, {
+                offset:     merged.offset,
+                width:      merged.width,
+                height:     merged.height,
+                sillHeight: merged.sillHeight,
+            });
+            merged.offset = c.offset;
+            merged.width = c.width;
+            merged.height = c.height;
+            merged.sillHeight = c.sillHeight;
+        }
+
+        const updated = cloneWindowData(merged);
         this.windows.set(windowId, updated);
 
-        const wallId = updated.wallId || existingWin.wallId;
-        const wall = this.walls.get(wallId);
         if (wall) {
+            let matched = false;
             const openings = (wall.openings ?? []).map(o => {
                 if (o.elementId === windowId || o.id === updated.openingId) {
+                    matched = true;
                     return {
                         ...o,
-                        width: updates.width ?? o.width,
-                        height: updates.height ?? o.height,
-                        sillHeight: updates.sillHeight ?? o.sillHeight,
-                        offset: updates.offset ?? o.offset
+                        width: updated.width,
+                        height: updated.height,
+                        sillHeight: updated.sillHeight,
+                        offset: updated.offset
                     };
                 }
                 return cloneOpening(o);
             });
 
+            // §FIX-WINDOW-OOB-OPENING-RESTORE (L-82): self-heal. If the window's
+            // opening is missing from the wall (a prior out-of-bounds edit dropped
+            // it), RE-CREATE it from the (now clamped, in-bounds) window record so the
+            // wall re-cuts instead of staying solid with an orphaned window.
+            if (!matched) {
+                openings.push({
+                    id: updated.openingId,
+                    type: 'window',
+                    elementId: windowId,
+                    offset: updated.offset,
+                    width: updated.width,
+                    height: updated.height,
+                    sillHeight: updated.sillHeight,
+                    windowType: updated.windowType,
+                } as Opening);
+            }
+
+            const childrenIds = (wall.childrenIds ?? []).includes(windowId)
+                ? wall.childrenIds
+                : [...(wall.childrenIds ?? []), windowId];
+
             const frozen = cloneWallData({
                 ...wall,
                 openings,
+                childrenIds,
                 // §VIEW-DIRTY-CHECK §2.2: bump the render version so WallFragmentBuilder's
                 // composite cache key changes and buildWall() actually re-runs. buildWall()
                 // rebuilds the SEGMENTED wall (the immediate render + permanent fallback)

@@ -73,9 +73,16 @@ export class DeleteElementCommand implements Command {
         const id = this.elementId;
         const stores = ctx.stores;
 
-        if (stores.wallStore.getById(id) || 
-            stores.wallStore.getWindow(id) || 
+        if (stores.wallStore.getById(id) ||
+            stores.wallStore.getWindow(id) ||
             stores.wallStore.getDoor(id)) return { ok: true };
+
+        // §FIX-WINDOW-OOB-OPENING-RESTORE (L-82): an orphaned hosted element —
+        // present only in the external windowStore/doorStore because a prior
+        // out-of-bounds dimension edit desynced it from the WallStore — must STILL
+        // be deletable. Without this the selectable-but-orphaned window could
+        // never be removed (canExecute rejected it before execute() ran).
+        if (windowStore.has(id) || doorStore.has(id)) return { ok: true };
 
         // §WALL-AUDIT-2026-W2: All polymorphic store lookups go through ctx.stores —
         // window-global fallbacks removed. CommandContext now lists slabStore,
@@ -217,6 +224,45 @@ export class DeleteElementCommand implements Command {
             // wallStore.removeDoor() → removeOpening() → emit('update') fires the Store Event Bus
             // → subscriber in main.ts → wallFragmentBuilder.updateWall(). No direct builder call needed.
 
+            return { success: true, affectedElementIds: [id] };
+        }
+
+        // 3b. Orphaned hosted elements (window / door) — §FIX-WINDOW-OOB-OPENING-RESTORE (L-82).
+        // Present in the external windowStore/doorStore but NOT in wallStore.windows /
+        // .doors (desynced by a prior out-of-bounds dimension edit). The 3D mesh is
+        // still selectable, so the element MUST remain deletable: free the external
+        // store record, drop any lingering wall opening, and unregister — mirroring
+        // the normal branch so the element cleanly disappears and undo can restore it.
+        if (windowStore.has(id)) {
+            const orphan = windowStore.getById(id);
+            this.elementType = 'window-orphan';
+            this.deletedData = orphan ? { ...orphan } : { id };
+            const orphanWall = orphan?.wallId ? wallStore.getById(orphan.wallId) : undefined;
+            const opening = orphanWall?.openings?.find(
+                (op: any) => op.elementId === id || op.id === orphan?.openingId,
+            );
+            if (opening && orphan?.wallId) {
+                this.deletedData.openingDescriptor = { ...opening };
+                wallStore.removeOpening(orphan.wallId, opening.id);
+            }
+            windowStore.remove(id);
+            elementRegistry.unregister(id);
+            return { success: true, affectedElementIds: [id] };
+        }
+        if (doorStore.has(id)) {
+            const orphan = doorStore.getById(id);
+            this.elementType = 'door-orphan';
+            this.deletedData = orphan ? { ...orphan } : { id };
+            const orphanWall = orphan?.wallId ? wallStore.getById(orphan.wallId) : undefined;
+            const opening = orphanWall?.openings?.find(
+                (op: any) => op.elementId === id || op.id === orphan?.openingId,
+            );
+            if (opening && orphan?.wallId) {
+                this.deletedData.openingDescriptor = { ...opening };
+                wallStore.removeOpening(orphan.wallId, opening.id);
+            }
+            doorStore.remove(id);
+            elementRegistry.unregister(id);
             return { success: true, affectedElementIds: [id] };
         }
 
@@ -595,6 +641,33 @@ export class DeleteElementCommand implements Command {
                     );
                 }
                 break;
+            case 'window-orphan': {
+                // §FIX-WINDOW-OOB-OPENING-RESTORE (L-82): restore an orphaned window
+                // that was deleted from the external windowStore. Re-add the record
+                // (so its 3D mesh returns) and, if it still had a wall opening,
+                // restore that so the wall re-cuts.
+                const snap = this.deletedData;
+                if (!windowStore.has(snap.id)) {
+                    try { windowStore.add(snap); } catch (_) {}
+                }
+                try { elementRegistry.registerSemantic(snap.id, 'window'); } catch (_) {}
+                if (snap.openingDescriptor && snap.wallId) {
+                    try { stores.wallStore.restoreOpening(snap.wallId, snap.openingDescriptor); } catch (_) {}
+                }
+                break;
+            }
+            case 'door-orphan': {
+                // §FIX-WINDOW-OOB-OPENING-RESTORE (L-82): door counterpart of the above.
+                const snap = this.deletedData;
+                if (!doorStore.has(snap.id)) {
+                    try { doorStore.add(snap); } catch (_) {}
+                }
+                try { elementRegistry.registerSemantic(snap.id, 'door'); } catch (_) {}
+                if (snap.openingDescriptor && snap.wallId) {
+                    try { stores.wallStore.restoreOpening(snap.wallId, snap.openingDescriptor); } catch (_) {}
+                }
+                break;
+            }
             case 'slab':
                 // C2 §SLAB-SYSTEM-AUDIT-2026: Forward to the stored DeleteSlabCommand delegate.
                 // All C1 + W3 restoration logic lives in DeleteSlabCommand.undo().
