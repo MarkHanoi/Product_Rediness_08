@@ -2,6 +2,7 @@ import { Command, CommandType, CommandValidationResult, CommandResult, Serialize
 import { FurnitureData, FurnitureMaterial } from '@pryzm/geometry-furniture';
 import { KitchenCabinetConfig } from '@pryzm/geometry-furniture';
 import { WardrobeCabinetConfig } from '@pryzm/geometry-furniture';
+import { resolveFflOffset } from '@pryzm/core-app-model';
 import * as THREE from '@pryzm/renderer-three/three';
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
@@ -166,11 +167,23 @@ export class UpdateFurnitureParametersCommand implements Command {
         }
 
         // ✅ Maintain level-based baseOffset logic
+        // §FIX-FURNITURE-FFL-DEFAULT (L-87) — recompute Y off the FINISHED floor
+        // level (FFL), not the bare slab top, so editing the mount offset keeps the
+        // item seated on the floor finish (matches CreateFurnitureCommand). The
+        // baseOffset STACKS on the FFL baseline: worldY-datum = fflOffset + baseOffset.
         if (this.payload.baseOffset !== undefined) {
             const bimManager = window.bimManager;
             const level = bimManager.getLevelById(furniture.levelId);
             if (level) {
-                (newData.position as any).y = level.elevation + this.payload.baseOffset;
+                const floorStore = (context.stores as any).floorStore;
+                const fflOffset =
+                    floorStore && typeof floorStore.getByLevel === 'function'
+                        ? resolveFflOffset(
+                              floorStore.getByLevel(furniture.levelId),
+                              { x: (newData.position as any).x, z: (newData.position as any).z },
+                          )
+                        : 0;
+                (newData.position as any).y = level.elevation + fflOffset + this.payload.baseOffset;
             }
         }
 

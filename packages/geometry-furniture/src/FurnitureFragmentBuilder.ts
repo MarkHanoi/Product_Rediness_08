@@ -81,8 +81,11 @@ export class FurnitureFragmentBuilder {
         const _priorVersion: number =
             (root?.userData?.version as number | undefined) ?? 0;
 
-        // Add default baseOffset = 0.2
-        const baseOffset = data.baseOffset ?? 0.2;
+        // §FIX-FURNITURE-BASE-OFFSET (L-86) — mount offset defaults to 0
+        // (floor-standing). worldY = floorY(position.y, already the FFL from
+        // CreateFurnitureCommand) + baseOffset, so a 0 offset seats the item exactly
+        // on the finished floor. Was 0.2, which floated every offset-less item 200 mm.
+        const baseOffset = data.baseOffset ?? 0;
 
         if (isNewRoot) {
             root = new THREE.Group();
@@ -97,7 +100,7 @@ export class FurnitureFragmentBuilder {
                 levelId: data.levelId,
                 levelName: data.levelName,
                 levelElevation: data.levelElevation,
-                baseOffset: baseOffset, // Use the default value
+                baseOffset: baseOffset, // §FIX-FURNITURE-BASE-OFFSET — default 0
                 width: data.width,
                 length: data.length,
                 height: data.height,

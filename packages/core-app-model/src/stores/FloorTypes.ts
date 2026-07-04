@@ -386,6 +386,70 @@ export function resolveFinishSeating(input: FinishSeatingInput): FinishSeating {
   return { thickness, baseOffset: slabTopOffset + thickness };
 }
 
+// ── Finished-Floor-Level (FFL) resolution — §FIX-FURNITURE-FFL-DEFAULT ───────
+//
+// A floor FINISH's TOP face is the Finished Floor Level (FFL): per the geometry
+// invariant it sits at `level.elevation + boundary.baseOffset`. Furniture and
+// fixtures must DEFAULT their placement to the FFL — resting ON the applied floor
+// finish — not on the bare structural slab top (the level datum). Their own mount
+// offset (`baseOffset`) then STACKS on top of that FFL baseline.
+//
+// This helper returns the FFL OFFSET above the level datum for the finishes on a
+// level, given an optional XZ probe (the item's plan position):
+//   • prefer the finish whose polygon CONTAINS the probe (the room the item is in);
+//   • else fall back to the greatest finish baseOffset on the level;
+//   • if the level has no (visible) finish, return 0 — the bare slab top IS the FFL.
+// Pure: no I/O, no THREE, no DOM (kept self-contained so FloorTypes stays leaf-pure).
+
+/** Ray-cast point-in-polygon over a floor boundary (XZ plane). Pure. */
+function fflPointInPolygon(point: { x: number; z: number }, polygon: readonly FloorVertex[]): boolean {
+  let inside = false;
+  const n = polygon.length;
+  if (n < 3) return false;
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    const vi = polygon[i]!;
+    const vj = polygon[j]!;
+    if (
+      vi.z > point.z !== vj.z > point.z &&
+      point.x < ((vj.x - vi.x) * (point.z - vi.z)) / (vj.z - vi.z) + vi.x
+    ) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+/**
+ * Resolve the FFL offset (metres, above the level datum) for a set of floor finishes
+ * covering one level. See the section header for the selection rule. Returns 0 when
+ * no visible finish applies (bare slab → datum is the FFL).
+ *
+ * @param floors floor finishes on the item's level.
+ * @param point  optional XZ plan position of the item (prefers the containing finish).
+ */
+export function resolveFflOffset(
+  floors: readonly FloorData[] | undefined | null,
+  point?: { x: number; z: number },
+): number {
+  if (!floors || floors.length === 0) return 0;
+  const candidates = floors.filter(f => f && f.boundary && f.visible !== false);
+  if (candidates.length === 0) return 0;
+
+  if (point) {
+    let best: number | undefined;
+    for (const f of candidates) {
+      if (fflPointInPolygon(point, f.boundary.polygon)) {
+        const off = f.boundary.baseOffset ?? 0;
+        if (best === undefined || off > best) best = off;
+      }
+    }
+    if (best !== undefined) return best;
+  }
+
+  // No containing finish (or no probe) → the greatest FFL on the level.
+  return candidates.reduce((mx, f) => Math.max(mx, f.boundary.baseOffset ?? 0), 0);
+}
+
 // ── Callbacks interface (for FloorTool) ────────────────────────────────────
 
 export interface FloorToolCallbacks {

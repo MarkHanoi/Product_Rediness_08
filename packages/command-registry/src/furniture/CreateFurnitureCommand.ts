@@ -2,7 +2,7 @@ import { Command, CommandType, CommandValidationResult, CommandResult, Serialize
 import { FurnitureData, FurnitureType, FurnitureMaterial } from '@pryzm/geometry-furniture';
 import type { KitchenCabinetConfig } from '@pryzm/geometry-furniture';
 import type { WardrobeCabinetConfig } from '@pryzm/geometry-furniture';
-import { semanticGraphManager } from '@pryzm/core-app-model';
+import { semanticGraphManager, resolveFflOffset } from '@pryzm/core-app-model';
 
 export interface CreateFurniturePayload {
     id?: string;
@@ -89,6 +89,22 @@ export class CreateFurnitureCommand implements Command {
             // §03 §1.7: every furniture instance gets an FU-FF-NNN element mark.
             const mark = this._generateMark(context);
 
+            // §FIX-FURNITURE-FFL-DEFAULT (L-87) — furniture rests on the FINISHED
+            // floor level (FFL = the applied floor finish's top face), not the bare
+            // structural slab top (the level datum). Resolve the FFL offset from the
+            // floor finishes covering this level at the item's plan position; 0 when
+            // the level has no finish (bare slab → datum IS the FFL). The mount
+            // offset (baseOffset) then STACKS on top of this FFL baseline downstream
+            // in FurnitureFragmentBuilder (worldY = position.y + baseOffset).
+            const floorStore = (context.stores as any).floorStore;
+            const fflOffset =
+                floorStore && typeof floorStore.getByLevel === 'function'
+                    ? resolveFflOffset(
+                          floorStore.getByLevel(this.payload.levelId),
+                          { x: this.payload.position.x, z: this.payload.position.z },
+                      )
+                    : 0;
+
             const data: FurnitureData = {
                 id,
                 type: 'furniture',
@@ -105,7 +121,8 @@ export class CreateFurnitureCommand implements Command {
                 // fixtures on that storey (level.elevation is per-level).
                 position: {
                     x: this.payload.position.x,
-                    y: level.elevation,
+                    // §FIX-FURNITURE-FFL-DEFAULT (L-87) — FFL, not slab top.
+                    y: level.elevation + fflOffset,
                     z: this.payload.position.z,
                 },
                 rotation: {
@@ -116,7 +133,10 @@ export class CreateFurnitureCommand implements Command {
                 levelId: this.payload.levelId,
                 levelName: level.name,
                 levelElevation: level.elevation,
-                baseOffset: this.payload.baseOffset !== undefined ? this.payload.baseOffset : 0.2,
+                // §FIX-FURNITURE-BASE-OFFSET (L-86) — mount offset defaults to 0
+                // (floor-standing). It STACKS on the FFL baseline resolved above, so
+                // a floor item sits exactly on the finished floor, never floating.
+                baseOffset: this.payload.baseOffset !== undefined ? this.payload.baseOffset : 0,
                 width: this.payload.width,
                 length: this.payload.length,
                 height: this.payload.height,

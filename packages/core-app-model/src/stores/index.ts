@@ -44,6 +44,8 @@ export type {
 } from './FloorTypes.js';
 // §A.21.D48 — finish-on-slab seating (value exports).
 export { DEFAULT_FINISH_THICKNESS_M, resolveFinishSeating } from './FloorTypes.js';
+// §FIX-FURNITURE-FFL-DEFAULT — Finished-Floor-Level offset resolver (value export).
+export { resolveFflOffset } from './FloorTypes.js';
 
 export {
     FLOOR_DEFAULTS, FLOOR_LAYER_COLORS, resolveFloorColor, resolveLayerColor,
