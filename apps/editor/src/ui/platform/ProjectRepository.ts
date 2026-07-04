@@ -538,6 +538,12 @@ export interface IVersionRepository {
      */
     saveVersionWithMeta(projectId: string, version: VersionRecord, meta: ProjectMeta): void;
     /**
+     * §FIX-PROJECT-DUPLICATE-OPEN (L-81) — deep-copy a source project's local
+     * version history under a new project id so a duplicate opens with the
+     * source's elements. Returns the number of versions copied.
+     */
+    duplicateInto(sourceId: string, targetId: string, targetName: string): number;
+    /**
      * Phase 2: Update only the syncStatus of a single version without rewriting
      * the entire version array snapshot. Used by ServerSyncQueue callbacks.
      */
@@ -617,6 +623,45 @@ export class LocalVersionRepository implements IVersionRepository {
         if (!_setItemWithEviction(STORAGE_INDEX_KEY, _serializeIndex(index), projectId)) {
             console.warn('[VersionRepository] Quota exceeded — project meta index not updated (eviction exhausted)');
         }
+    }
+
+    /**
+     * §FIX-PROJECT-DUPLICATE-OPEN (L-81) — deep-copy the source project's local
+     * version history under a NEW project id so the duplicate opens with the
+     * source's elements from the local-first path in
+     * `PlatformShell.setProjectContext` (which reads `getVersions(newId)` BEFORE
+     * hitting the server). Without this, a just-duplicated project had no local
+     * versions and fell through to `GET /latest-version`, which 404'd / returned
+     * empty → the duplicate opened broken.
+     *
+     * The copy re-keys every record (and its embedded snapshot `projectId` /
+     * `projectName`) to the target so the restored snapshot self-identifies as the
+     * duplicate rather than the source. Records are marked `synced` because the
+     * server duplicate path (`duplicateProject`) persists the matching version row
+     * server-side in the same user action — the local copy mirrors that authority.
+     *
+     * Returns the number of versions copied (0 when the source has no local
+     * history — e.g. duplicating a project never opened on this device; the
+     * server-side snapshot copy then carries the open).
+     */
+    duplicateInto(sourceId: string, targetId: string, targetName: string): number {
+        const source = this.getVersions(sourceId);
+        if (source.length === 0) return 0;
+        const stamp = Date.now();
+        const copied: VersionRecord[] = source.map((v, i) => {
+            const snapshot = (v.snapshot && typeof v.snapshot === 'object')
+                ? { ...v.snapshot, projectId: targetId, projectName: targetName }
+                : v.snapshot;
+            return {
+                ...v,
+                id: `ver-dup-${targetId}-${i}-${stamp}`,
+                projectId: targetId,
+                snapshot,
+                syncStatus: 'synced',
+            };
+        });
+        this.saveVersions(targetId, copied);
+        return copied.length;
     }
 
     /**

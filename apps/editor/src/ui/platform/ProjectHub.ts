@@ -22,7 +22,7 @@
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import { injectAppTheme } from '../styles/AppTheme';
 import { PlatformUser, signOut } from './AuthModal';
-import { projectRepository, ProjectMeta, warmThumbnailCache, warmVersionCache } from './ProjectRepository';
+import { projectRepository, versionRepository, ProjectMeta, warmThumbnailCache, warmVersionCache } from './ProjectRepository';
 import { EntitlementStore } from '@pryzm/core-app-model';
 import { getPlanDisplayName, PLAN_LIMITS } from '@pryzm/core-app-model';
 import { ProjectMemberPanel, ProjectMember } from './ProjectMemberPanel';
@@ -1077,13 +1077,21 @@ export class ProjectHub {
                 };
                 const lastModifiedAt = Date.parse(summary.lastModifiedAt);
                 const now = Date.now();
+                // §FIX-PROJECT-DUPLICATE-OPEN (L-81) — deep-copy the source's local
+                // version history under the new id BEFORE saving the meta, so the
+                // local-first open path (PlatformShell.setProjectContext reads
+                // getVersions(newId) before the server) restores the source's
+                // elements instead of opening an empty project. Returns 0 when the
+                // source has no local history on this device — the server-side
+                // snapshot copy (duplicateProject) then carries the open.
+                const copiedCount = versionRepository.duplicateInto(project.id, summary.id, summary.name);
                 projectRepository.saveProject({
                     ...project,
                     id: summary.id,
                     name: summary.name,
                     updatedAt: Number.isFinite(lastModifiedAt) ? lastModifiedAt : now,
                     createdAt: now,
-                    versionCount: 0,
+                    versionCount: copiedCount,
                     isStarred: false,
                     ownerId: summary.ownerName,
                 });

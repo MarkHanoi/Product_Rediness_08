@@ -392,22 +392,74 @@ export async function patchProject(projectId, userId, patch) {
 }
 
 /**
- * Phase C §16.3 sub-phase C.4.06 — duplicate a project owned by the
- * caller.  The new project starts empty (no versions, no thumbnail);
- * full content copy is the .pryzm exporter + importer round-trip.
+ * Phase C §16.3 sub-phase C.4.06 — duplicate a project owned by the caller.
+ *
+ * §FIX-PROJECT-DUPLICATE-OPEN (L-81) — the duplicate MUST carry the source's
+ * latest snapshot under its NEW id. Previously this created an empty project
+ * row with no versions, so `GET /api/projects/:id/latest-version` found nothing
+ * (`{version:null}` / 404) and the client opened a broken / empty project. We
+ * now copy the project row AND its most-recent version snapshot atomically in a
+ * single transaction so the open path resolves the source's elements.
+ *
+ * We copy the LATEST version only (not the full 20-deep history): a snapshot can
+ * be tens of MB, and the open path restores only the latest — history is
+ * re-established by the duplicate's own future saves. The copy is a pure
+ * `INSERT … SELECT` so the JSONB snapshot is duplicated inside Postgres without
+ * round-tripping through Node memory.
+ *
+ * Contract: C05 §1.1 (transactions make compound writes atomic) · C13
+ * (persisted version is the authoritative model source served on open).
  */
 export async function duplicateProject(projectId, userId, explicitName) {
     const source = await getProject(projectId, userId);
     if (!source) return null;
     const newId = generateId('proj');
     const newName = (explicitName ?? `${source.name} (copy)`).slice(0, 200);
-    const result = await query(
-        `INSERT INTO projects (id, name, owner_id, description)
-         VALUES ($1, $2, $3, $4)
-         RETURNING ${PROJECT_COLUMNS}`,
-        [newId, newName, userId, source.description ?? null]
-    );
-    return result.rows[0];
+
+    // §SERVER-V1-INMEMORY-FALLBACK — no pool → create the duplicate row in the
+    // in-memory map (dev / first-boot). Version snapshots in the no-pool path are
+    // held by server.js's `_versions` map, not here, so a dev-only duplicate
+    // starts empty; production always has a pool and takes the copy path below.
+    if (!_hasPool()) {
+        const row = _inMemoryRowFor(newId, newName, userId);
+        row.description = source.description ?? null;
+        _inMemoryProjects.set(newId, row);
+        return row;
+    }
+
+    return withTransaction(async (client) => {
+        const projRes = await client.query(
+            `INSERT INTO projects (id, name, owner_id, description)
+             VALUES ($1, $2, $3, $4)
+             RETURNING ${PROJECT_COLUMNS}`,
+            [newId, newName, userId, source.description ?? null]
+        );
+        const newProject = projRes.rows[0];
+
+        // Copy the source's latest version snapshot (verbatim JSONB) under a fresh
+        // version id keyed to the new project. `INSERT … SELECT … LIMIT 1` copies
+        // nothing when the source has no versions (rowCount === 0), leaving the
+        // duplicate legitimately empty.
+        const newVersionId = generateId('ver');
+        const copyRes = await client.query(
+            `INSERT INTO project_versions
+                 (id, project_id, label, snapshot, element_count, created_by, idempotency_key)
+             SELECT $1, $2, label, snapshot, element_count, created_by, $1
+             FROM project_versions
+             WHERE project_id = $3
+             ORDER BY created_at DESC
+             LIMIT 1`,
+            [newVersionId, newId, projectId]
+        );
+        if (copyRes.rowCount > 0) {
+            await client.query(
+                `UPDATE projects SET version_count = 1 WHERE id = $1`,
+                [newId]
+            );
+            newProject.version_count = 1;
+        }
+        return newProject;
+    });
 }
 
 export async function deleteProject(projectId, userId) {

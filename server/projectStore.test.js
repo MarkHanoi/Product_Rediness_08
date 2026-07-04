@@ -206,6 +206,36 @@ describe('deleteProject — cascade-only delete (GAP-14)', () => {
     });
 });
 
+// ── 5b. duplicateProject — copies the latest snapshot (§FIX-PROJECT-DUPLICATE-OPEN, L-81) ──
+
+describe('duplicateProject — copies the source latest version (L-81)', () => {
+
+    test('duplicateProject source copies the latest version snapshot under the new id', () => {
+        const start   = STORE_SRC.indexOf('export async function duplicateProject');
+        const end     = STORE_SRC.indexOf('export async function deleteProject');
+        const fnBlock = STORE_SRC.slice(start, end);
+        // Must wrap the project + version copy in a single transaction (atomic).
+        assert.ok(fnBlock.includes('withTransaction'),
+            'L-81: duplicateProject must copy project + version atomically in a transaction');
+        // Must copy from the source project_versions into the new project id.
+        assert.ok(/INSERT INTO project_versions[\s\S]*SELECT[\s\S]*FROM project_versions/.test(fnBlock),
+            'L-81: duplicateProject must copy the latest version row into the duplicate');
+        assert.ok(fnBlock.includes('ORDER BY created_at DESC') && fnBlock.includes('LIMIT 1'),
+            'L-81: duplicateProject must copy the LATEST version only');
+        // Must reflect the copied version in the new project version_count.
+        assert.ok(fnBlock.includes('version_count = 1'),
+            'L-81: duplicateProject must set version_count when a snapshot was copied');
+    });
+
+    test('duplicateProject still guards the no-pool in-memory fallback', () => {
+        const start   = STORE_SRC.indexOf('export async function duplicateProject');
+        const end     = STORE_SRC.indexOf('export async function deleteProject');
+        const fnBlock = STORE_SRC.slice(start, end);
+        assert.ok(fnBlock.includes('if (!_hasPool())'),
+            'duplicateProject must not throw when no PG pool is configured (dev fallback)');
+    });
+});
+
 // ── 6. Error classes — shape + HTTP code (GAP-07) ────────────────────────────
 
 describe('Error classes — shape and statusCode (GAP-07)', () => {
