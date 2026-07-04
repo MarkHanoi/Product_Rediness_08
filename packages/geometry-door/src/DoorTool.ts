@@ -6,6 +6,9 @@ import { WallStore, WallFragmentBuilder, wallOccupancyStore } from '@pryzm/geome
 
 import { activePlanDrawingRef, planView2DSnapService } from '@pryzm/core-app-model';
 import { PREVIEW_COLOR } from '@pryzm/core-app-model';
+// §FEAT-DOOR-FLIP-ON-SPACE (L-92, ADR-0107) — shared SPACE-to-flip state (swing
+// in/out × hinge left/right) so 3D door placement matches the plan handler.
+import { DoorPlacementFlip } from '@pryzm/core-app-model';
 
 /**
  * §DOOR-AUDIT-2026 M6 — explicit HUD state machine. The previous
@@ -41,6 +44,12 @@ export class DoorTool {
     private _escListener: ((e: KeyboardEvent) => void) | null = null;
     /** §M6 — current HUD state. Read by tests + telemetry. */
     private _hudState: DoorHudState = 'idle';
+
+    // §FEAT-DOOR-FLIP-ON-SPACE (L-92) — cyclic swing(in/out) × hinge(left/right)
+    // flip. SPACE advances it (via attach() below); placeDoor() reads
+    // swingDirection()/hingesSide() into the command payload so the committed door
+    // carries the chosen configuration. onChange re-renders the HUD label.
+    private readonly _flip = new DoorPlacementFlip({ onChange: () => this.setHudState(this._hudState) });
 
     // A3: wall object cache — built once at activate(), kept in sync via wallStore subscription.
     // Eliminates the O(n) scene.traverse() that previously ran on every pointermove event.
@@ -78,6 +87,9 @@ export class DoorTool {
         this._isActive = true;
         this._escListener = (e: KeyboardEvent) => { if (e.key === 'Escape') this.deactivate(); };
         document.addEventListener('keydown', this._escListener);
+        // §FEAT-DOOR-FLIP-ON-SPACE (L-92) — SPACE cycles swing/hand before commit.
+        this._flip.reset();
+        this._flip.attach();
         this.attachListeners();
         // §M6 — start in idle. Pointer-move will transition us to wall-snapping
         // / no-wall-target / blocked states based on the active hover.
@@ -101,6 +113,7 @@ export class DoorTool {
             document.removeEventListener('keydown', this._escListener);
             this._escListener = null;
         }
+        this._flip.detach(); // §FEAT-DOOR-FLIP-ON-SPACE — no SPACE leak after deactivate
         this.detachListeners();
         this.hideStatus();
         this.clearPreview();
@@ -450,6 +463,11 @@ export class DoorTool {
                     sillHeight: 0,
                     frameDepth: wallData.thickness,
                     systemTypeId: this.systemTypeId,
+                    // §FEAT-DOOR-FLIP-ON-SPACE (L-92) — the SPACE-chosen configuration
+                    // (P6: flows through the command). CreateWallOpeningCommand threads
+                    // these onto the DoorStore record.
+                    hingesSide: this._flip.hingesSide(),
+                    swingDirection: this._flip.swingDirection(),
                 }
             }));
         }
@@ -493,6 +511,11 @@ export class DoorTool {
                 msg = customMsg ?? 'Door placement failed';
                 isError = true;
                 break;
+        }
+        // §FEAT-DOOR-FLIP-ON-SPACE (L-92) — surface the SPACE-to-flip affordance and
+        // the live swing/hand configuration on the informational HUD states.
+        if (!isError) {
+            msg += ` · Space to flip (${this._flip.label()})`;
         }
         this.showStatus(msg, isError);
     }

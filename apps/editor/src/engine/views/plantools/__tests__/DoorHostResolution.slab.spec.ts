@@ -19,13 +19,18 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@pryzm/core-app-model', () => ({
+vi.mock('@pryzm/core-app-model', async () => ({
     // Plan-family mapping: worldX → x, worldZ → z (see ViewPlane.canvasHitToWorld3D).
     canvasHitToWorld3D: (hit: { worldX: number; worldZ: number }) => ({
         x: hit.worldX,
         y: 0,
         z: hit.worldZ,
     }),
+    // §FEAT-DOOR-FLIP-ON-SPACE (L-92) — the handler now constructs a DoorPlacementFlip
+    // from the barrel. Pull the REAL (dependency-free) class so this isolation mock
+    // keeps working without loading the heavy THREE/DOM barrel.
+    DoorPlacementFlip: (await import('../../../../../../../packages/core-app-model/src/preview/DoorPlacementFlip'))
+        .DoorPlacementFlip,
 }));
 
 import { DoorPlanToolHandler } from '../DoorPlanToolHandler';

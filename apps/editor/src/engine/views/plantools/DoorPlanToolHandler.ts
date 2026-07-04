@@ -3,6 +3,12 @@ import { canvasHitToWorld3D } from '@pryzm/core-app-model';
 // §P2.3 (IMPL-PLAN-2026-05-17): CreateWallOpeningCommand + window.commandManager bridge (P4.4).
 // Door placement is now bus-only via WallOpeningLegacyAdapterHandler (plugins/wall).
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
+// §FEAT-DOOR-FLIP-ON-SPACE (L-92, ADR-0107) — shared SPACE-to-flip state so
+// plan-view door placement matches 3D-view (DoorTool). The plan handler drives
+// it via the overlay-routed `onKeyDown` (it must NOT attach its own DOM listener —
+// PlanToolHandler contract §21 §2), so it constructs the state but does NOT call
+// attach(); it advances on the SPACE key inside onKeyDown().
+import { DoorPlacementFlip } from '@pryzm/core-app-model';
 
 const PRYZM_PREVIEW_PURPLE = '#6600ff';
 const PRYZM_PREVIEW_PURPLE_FILL = 'rgba(102,0,255,0.16)';
@@ -11,20 +17,42 @@ export class DoorPlanToolHandler implements PlanToolHandler {
     private _ctx: PlanToolDrawContext | null = null;
     private _doorCursorPoint: WorldPoint | null = null;
 
+    // §FEAT-DOOR-FLIP-ON-SPACE — cyclic swing(in/out) × hinge(left/right) flip.
+    // Advanced from onKeyDown (overlay-routed SPACE), read on commit into the
+    // opening payload and in the swing-arc preview so preview ≡ placed door.
+    private readonly _flip = new DoorPlacementFlip();
+
     activate(ctx: PlanToolDrawContext): void {
         this._ctx = ctx;
         this._doorCursorPoint = null;
+        this._flip.reset(); // §FEAT-DOOR-FLIP-ON-SPACE — fresh session starts at In · Left
     }
 
     deactivate(): void {
         this._clearOverlay();
         this._doorCursorPoint = null;
+        this._flip.reset(); // §FEAT-DOOR-FLIP-ON-SPACE
         this._ctx = null;
     }
 
     onMouseMove(pt: WorldPoint): void {
         this._doorCursorPoint = pt;
         this._drawDoorPreview();
+    }
+
+    onKeyDown(e: KeyboardEvent): boolean {
+        if (e.key === 'Escape') { this.cancel(); return true; }
+        // §FEAT-DOOR-FLIP-ON-SPACE — SPACE advances the door flip (swing in/out ×
+        // hinge left/right, 4 states) and re-draws the swing-arc preview at the new
+        // configuration. Returning true tells PlanViewToolOverlay._onKeyDown to
+        // preventDefault/stopProp so the page never scrolls and no other SPACE
+        // shortcut fires.
+        if (e.code === 'Space' || e.key === ' ' || e.key === 'Spacebar') {
+            this._flip.advance();
+            this._drawDoorPreview();
+            return true;
+        }
+        return false;
     }
 
     onClick(pt: WorldPoint): void {
@@ -109,6 +137,11 @@ export class DoorPlanToolHandler implements PlanToolHandler {
         // the same stable IDs (avoids mismatch on undo replay).
         const _openingId  = crypto.randomUUID();
         const _elementId  = crypto.randomUUID();
+        // §FEAT-DOOR-FLIP-ON-SPACE (L-92): carry the SPACE-chosen swing/hand through
+        // to the committed door (P6 — configuration flows through the command, not a
+        // post-hoc store write). The initTools.ts wall.opening.created bridge threads
+        // these into doorStore.add() so DoorPlanSymbolBuilder draws the arc + leaf at
+        // the previewed configuration.
         const _openingData = {
             id:           _openingId,
             elementId:    _elementId,
@@ -119,6 +152,8 @@ export class DoorPlanToolHandler implements PlanToolHandler {
             sillHeight:   0,
             doorType,
             systemTypeId,
+            hingesSide:     this._flip.hingesSide(),
+            swingDirection: this._flip.swingDirection(),
         } as const;
 
         // §P4.1: ctx.runtime is now typed — no unsafe (window as any) cast needed.
@@ -132,6 +167,7 @@ export class DoorPlanToolHandler implements PlanToolHandler {
 
     cancel(): void {
         this._doorCursorPoint = null;
+        this._flip.reset(); // §FEAT-DOOR-FLIP-ON-SPACE — Esc resets the flip config
         this._clearOverlay();
     }
 
@@ -195,49 +231,75 @@ export class DoorPlanToolHandler implements PlanToolHandler {
         ctx.save();
         ctx.translate(sx, sy);
         ctx.rotate(angle);
-        ctx.setLineDash([4, 3]);
         ctx.strokeStyle = PRYZM_PREVIEW_PURPLE;
         ctx.lineWidth   = 1.5;
 
-        if (doorType === 'double') {
-            // Left leaf: hinge at (-halfPx, 0), swings CW from 0 (→center) to π/2 (↓open)
-            ctx.beginPath();
-            ctx.arc(-halfPx, 0, halfPx, 0, Math.PI / 2, false);
-            ctx.stroke();
-            ctx.setLineDash([]);
-            ctx.beginPath();
-            ctx.moveTo(-halfPx, 0);
-            ctx.lineTo(-halfPx, halfPx);
-            ctx.stroke();
+        // §FEAT-DOOR-FLIP-ON-SPACE (L-92) — the swing arc + leaf now reflect the
+        // live 4-state flip: swing INWARD (+y in this wall-aligned frame, the
+        // historical §C19-P15 default) vs OUTWARD (−y), and hinge LEFT (−halfPx)
+        // vs RIGHT (+halfPx). This matches DoorPlanSymbolBuilder's swingDir /
+        // hingesSide math (arc = hinge + r·(cos t·panelDir + sin t·swingDir),
+        // t∈[0,π/2]) so the preview reads identically to the placed symbol.
+        const swingSign = this._flip.swingDirection() === 'outward' ? -1 : 1;
+
+        // Draw one leaf: dashed quarter-circle swing arc + solid open-position line.
+        const drawLeaf = (
+            hx: number, hy: number,
+            panelDX: number, panelDY: number,
+            swingDX: number, swingDY: number,
+            radius: number,
+        ): void => {
             ctx.setLineDash([4, 3]);
-
-            // Right leaf: hinge at (+halfPx, 0), swings CCW from π (→center) to π/2 (↓open)
             ctx.beginPath();
-            ctx.arc(halfPx, 0, halfPx, Math.PI, Math.PI / 2, true);
+            const SEG = 24;
+            for (let i = 0; i <= SEG; i++) {
+                const t = (i / SEG) * (Math.PI / 2);
+                const cs = Math.cos(t), sn = Math.sin(t);
+                const px = hx + (cs * panelDX + sn * swingDX) * radius;
+                const py = hy + (cs * panelDY + sn * swingDY) * radius;
+                if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            }
             ctx.stroke();
+            // Open-position leaf line (hinge → fully-open tip, perpendicular to wall).
             ctx.setLineDash([]);
             ctx.beginPath();
-            ctx.moveTo(halfPx, 0);
-            ctx.lineTo(halfPx, halfPx);
+            ctx.moveTo(hx, hy);
+            ctx.lineTo(hx + swingDX * radius, hy + swingDY * radius);
             ctx.stroke();
+        };
+
+        if (doorType === 'double') {
+            // Two symmetric leaves — each hinged at its outer jamb, panels toward
+            // the centre, both swinging to swingSign. (Hinge side does not apply to
+            // a double door; SPACE flips only the swing side.)
+            drawLeaf(-halfPx, 0, +1, 0, 0, swingSign, halfPx);
+            drawLeaf(+halfPx, 0, -1, 0, 0, swingSign, halfPx);
         } else {
-            // §C19-P15: Single door — hinge at LEFT jamb (−halfPx along wall), which
-            // matches DoorPlanSymbolBuilder where hingesSide='left' → centre − halfWidth*dir.
-            // Arc sweeps CW from right jamb (closed, along wall) to perpendicular (open).
-            ctx.beginPath();
-            ctx.arc(-halfPx, 0, totalWidthPx, 0, Math.PI / 2, false);
-            ctx.stroke();
-
-            // Panel line: hinge → open-position tip (perpendicular to wall).
-            ctx.setLineDash([]);
-            ctx.beginPath();
-            ctx.moveTo(-halfPx, 0);
-            ctx.lineTo(-halfPx, totalWidthPx);
-            ctx.stroke();
+            // Single leaf — hinge at LEFT (−halfPx, panel toward +x) or RIGHT
+            // (+halfPx, panel toward −x). Radius = full clear width.
+            const hingeLeft = this._flip.hingesSide() !== 'right';
+            const hx        = hingeLeft ? -halfPx : +halfPx;
+            const panelSign = hingeLeft ? +1 : -1;
+            drawLeaf(hx, 0, panelSign, 0, 0, swingSign, totalWidthPx);
         }
         ctx.restore();
 
         this._drawCursorMarker(sx, sy);
+
+        // §FEAT-DOOR-FLIP-ON-SPACE — surface the SPACE-to-flip affordance + the
+        // live configuration (upright, bottom-left), mirroring the furniture HUD.
+        ctx.save();
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.font         = '11px sans-serif';
+        ctx.fillStyle    = 'rgba(30,58,138,0.85)';
+        ctx.textAlign    = 'left';
+        ctx.textBaseline = 'bottom';
+        const cssH = overlayCanvas.height / dpr;
+        ctx.fillText(
+            `Click to place · Space to flip (${this._flip.label()}) · Esc to cancel`,
+            12, cssH - 12,
+        );
+        ctx.restore();
     }
 
     private _drawCursorMarker(sx: number, sy: number): void {

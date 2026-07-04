@@ -632,6 +632,22 @@ export {
     PRE_PLACEMENT_ROTATION_STEP,
 } from './preview/PrePlacementRotation.js';
 
+// ── §FEAT-DOOR-FLIP-ON-SPACE (L-92, ADR-0107) — shared SPACE-to-flip state ────
+// Door analogue of PrePlacementRotation: a cyclic 4-state flip (swing in/out ×
+// hinge left/right) for wall-hosted door placement. DoorPlanToolHandler (plan)
+// and DoorTool (3D) advance it on SPACE and read swingDirection()/hingesSide()
+// into the wall.opening.create payload so the committed door carries the preview.
+export type {
+    DoorPlacementFlipOptions,
+    DoorFlipState,
+    DoorSwingDirection,
+    DoorHingeSide,
+} from './preview/DoorPlacementFlip.js';
+export {
+    DoorPlacementFlip,
+    DOOR_FLIP_STATES,
+} from './preview/DoorPlacementFlip.js';
+
 // ── Sprint AB (2026-05-12) — ToolName + ToolState ────────────────────────────
 export type { ToolName } from './tool-types.js';
 export { ToolState } from './tool-types.js';

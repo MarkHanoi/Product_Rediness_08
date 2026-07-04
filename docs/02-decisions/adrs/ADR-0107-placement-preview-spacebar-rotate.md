@@ -135,6 +135,31 @@ No API change to `PrePlacementRotation` (class stays stable — a sibling builds
 gizmo on it). The per-flow verdict table lives in `docs/04-reference/V1-LAUNCH-READINESS-AUDIT.md`
 §3.2.
 
+## Amendment (2026-07-04) — `§FEAT-DOOR-FLIP-ON-SPACE` (founder L-92)
+
+The original decision **excluded** wall-hosted doors/windows from `PrePlacementRotation`
+(Decision §Scope): for a hosted element "rotation" is not a free 90° yaw but a host-side
+**flip** (C15). L-92 delivers exactly that flip for the door as a sibling shared state —
+`DoorPlacementFlip` (`packages/core-app-model/src/preview/DoorPlacementFlip.ts`, exported from
+`@pryzm/core-app-model`) — following this ADR's pattern (single source of truth, SPACE-advanced,
+committed via the create-command payload = P6, `attach()`/`detach()` with the same form-field
+guard + `preventDefault`).
+
+`DoorPlacementFlip` is a cyclic **4-state** cycle — swing `inward`/`outward` × hinge
+`left`/`right` (`DOOR_FLIP_STATES`) — rather than `PrePlacementRotation`'s cumulative yaw,
+because the door's degrees of freedom are the two `DoorOpening` schema enums
+(`swingDirection`, `hingesSide`) that `DoorPlanSymbolBuilder` reads to draw the swing arc + leaf.
+Both door placement flows converge on it: the plan `DoorPlanToolHandler` (advances from the
+overlay-routed `onKeyDown`, per PlanToolHandler contract §21 §2 — no self-attached DOM listener;
+re-draws the swing-arc preview to match the placed symbol) and the 3D `DoorTool`
+(`attach()`/`detach()`). Both DoorStore mirroring bridges (`initTools.ts` §P2.3-DOOR;
+`CreateWallOpeningCommand`) thread the two fields onto the `doorStore.add()` record (omitted →
+schema defaults `left`/`inward`). The window flip remains open (windows are radially near-symmetric
+in plan, so a hand/swing flip is lower-value; extend `DoorPlacementFlip` or a sibling when needed).
+
+Tests: `packages/core-app-model/src/preview/DoorPlacementFlip.test.ts` (15) +
+`apps/editor/src/engine/views/plantools/__tests__/DoorFlipOnSpace.spec.ts` (4). Audit finding L-92.
+
 ## Verification
 
 `packages/core-app-model/src/preview/PrePlacementRotation.test.ts` — proves +90°/press cumulative

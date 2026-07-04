@@ -1059,6 +1059,15 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                         height,
                         sillHeight,
                         doorType:     (o.doorType === 'double' ? 'double' : 'single'),
+                        // §FEAT-DOOR-FLIP-ON-SPACE (L-92) — carry the SPACE-chosen
+                        // swing/hand from the opening onto the DoorStore record so
+                        // DoorPlanSymbolBuilder draws the arc + leaf at the previewed
+                        // configuration. Omitted → DoorOpeningSchema defaults (left /
+                        // inward), preserving prior behaviour for pre-L-92 callers.
+                        ...(o.hingesSide === 'left' || o.hingesSide === 'right'
+                            ? { hingesSide: o.hingesSide as 'left' | 'right' } : {}),
+                        ...(o.swingDirection === 'inward' || o.swingDirection === 'outward'
+                            ? { swingDirection: o.swingDirection as 'inward' | 'outward' } : {}),
                         ...(sysTypeId    ? { systemTypeId: sysTypeId } : {}),
                         ...(doorSysType  ? {
                             frameFinish: { ...doorSysType.frameFinish },

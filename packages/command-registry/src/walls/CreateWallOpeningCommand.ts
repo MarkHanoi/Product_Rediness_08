@@ -148,6 +148,13 @@ export class CreateWallOpeningCommand implements Command {
                     height:       opening.height ?? 2.1,
                     sillHeight:   opening.sillHeight ?? 0,
                     doorType:     (opening.doorType as any) ?? 'single',
+                    // §FEAT-DOOR-FLIP-ON-SPACE (L-92) — thread the placement-time
+                    // swing/hand (from DoorTool's flip) onto the DoorStore record.
+                    // Omitted → DoorOpeningSchema defaults (left / inward).
+                    ...(opening.hingesSide === 'left' || opening.hingesSide === 'right'
+                        ? { hingesSide: opening.hingesSide } : {}),
+                    ...(opening.swingDirection === 'inward' || opening.swingDirection === 'outward'
+                        ? { swingDirection: opening.swingDirection } : {}),
                     systemTypeId: opening.systemTypeId,
                     mark:         doorMark,
                     ...(doorSysType ? {
