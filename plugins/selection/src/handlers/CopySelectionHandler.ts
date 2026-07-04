@@ -1,56 +1,89 @@
-// CopySelectionHandler — `copy-selection`.  TASK-08 (MASTER-IMPL-PLAN-FUNCTIONAL-2026-05-18).
+// CopySelectionHandler — `copy-selection`.  TASK-08 / §FIX-COPY-PASTE (L-84).
 //
-// Option A implementation: surfaces "not yet available" rejection so the
-// command bus returns a typed ValidationResult to the caller instead of
-// silently swallowing an unhandled command.
+// Captures the CURRENT selection into the module clipboard so a subsequent
+// `paste-clipboard` can re-create the copied element(s). Copy is read-only:
+// it fills the clipboard and returns empty forward/inverse patches, so it is
+// NOT pushed to the undo stack (C20 §3).
 //
 // Contract compliance:
-//   • P6 — copy-selection must be a registered command (no silent no-op).
-//   • C11 §5.2 — all mutations via command bus; copy is read-only,
-//     so `forward/inverse` are empty (C20 §3 — copy is not undoable).
-//   • C10 §2 — every handler wraps execution in a withHandlerSpan for OTel.
+//   • P6 — copy-selection is a registered command (no silent no-op).
+//   • C20 §3 — copy is not undoable (empty forward/inverse).
+//   • C10 §2 — execution is wrapped in a withHandlerSpan for OTel.
 //
-// Upgrade path (Option B): when full clipboard support is ready, replace
-// canExecute to return `{ valid: true }` and implement execute() to
-// serialise selected elements into a module-level clipboardStore.
+// Selection source: the canonical L1 `SelectionStore` handed in via
+// `ctx.stores.selection` (the same store `selection.select` mutates). Only
+// kinds the paste port declares copyable are captured; if a port is supplied
+// and nothing selected is copyable, `canExecute` rejects with a reason so the
+// caller gets typed feedback instead of a silent success.
 //
-// Anchor: docs/archive/pryzm3-internal/MASTER-IMPL-PLAN-FUNCTIONAL-2026-05-18.md TASK-08
+// Anchor: docs/04-reference/V1-LAUNCH-READINESS-AUDIT.md L-84
 
 import type {
   CommandHandler,
   HandlerContext,
   HandlerResult,
   ValidationResult,
+  SelectionStore,
 } from '@pryzm/plugin-sdk';
 import { withHandlerSpan } from '@pryzm/plugin-sdk';
+import {
+  selectionClipboard,
+  type ClipboardEntry,
+  type SelectionClipboard,
+  type SelectionPastePort,
+} from './clipboard.js';
 
 export type CopySelectionPayload = Record<string, never>;
 
+type CopyStores = Readonly<{ selection: SelectionStore } & Record<string, unknown>>;
+
 export class CopySelectionHandler
-  implements CommandHandler<CopySelectionPayload>
+  implements CommandHandler<CopySelectionPayload, CopyStores>
 {
   readonly type = 'copy-selection';
-  readonly affectedStores = [] as const;
+  readonly affectedStores = ['selection'] as const;
+
+  constructor(
+    private readonly clipboard: SelectionClipboard = selectionClipboard,
+    private readonly port: SelectionPastePort | null = null,
+  ) {}
+
+  /** Copyable selection entries — filtered by the port's `canCopy` when set. */
+  private _copyableEntries(ctx: HandlerContext<CopyStores>): ClipboardEntry[] {
+    const out: ClipboardEntry[] = [];
+    for (const dto of ctx.stores.selection.getState().values()) {
+      if (this.port !== null && !this.port.canCopy(dto.kind)) continue;
+      out.push({ sourceId: dto.id, kind: dto.kind });
+    }
+    return out;
+  }
 
   canExecute(
-    _ctx: HandlerContext,
+    ctx: HandlerContext<CopyStores>,
     _cmd: CopySelectionPayload,
   ): ValidationResult {
-    return {
-      valid: false,
-      reason: 'Copy/paste not yet implemented — coming soon',
-    };
+    if (ctx.stores.selection.getState().size === 0) {
+      return { valid: false, reason: 'Nothing selected to copy' };
+    }
+    if (this._copyableEntries(ctx).length === 0) {
+      return { valid: false, reason: 'Selected element(s) cannot be copied' };
+    }
+    return { valid: true };
   }
 
   execute(
-    _ctx: HandlerContext,
+    ctx: HandlerContext<CopyStores>,
     _cmd: CopySelectionPayload,
   ): HandlerResult {
     return withHandlerSpan(
       this.type + '.handler',
       { 'pryzm.command.type': this.type },
-      () => {
-        console.warn('[copy-selection.handler] copy-selection is not yet implemented.');
+      (span) => {
+        const entries = this._copyableEntries(ctx);
+        this.clipboard.set(entries);
+        span.setAttribute('pryzm.copy.count', entries.length);
+        console.log(`[copy-selection.handler] Copied ${entries.length} element(s) to clipboard.`);
+        // Read-only: no store patches → not pushed to the undo stack.
         return { forward: [], inverse: [] };
       },
     );

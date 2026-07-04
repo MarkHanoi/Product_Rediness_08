@@ -7,6 +7,11 @@ import { ClearSelectionHandler, type ClearSelectionPayload } from './ClearSelect
 import { UpdateElementMarkHandler, type UpdateElementMarkPayload } from './UpdateElementMark.js';
 import { CopySelectionHandler, type CopySelectionPayload } from './CopySelectionHandler.js';
 import { PasteClipboardHandler, type PasteClipboardPayload } from './PasteClipboardHandler.js';
+import {
+  selectionClipboard,
+  type SelectionClipboard,
+  type SelectionPastePort,
+} from './clipboard.js';
 
 export {
   SelectSelectionHandler,
@@ -16,6 +21,11 @@ export {
   CopySelectionHandler,
   PasteClipboardHandler,
 };
+export {
+  selectionClipboard,
+  SelectionClipboard,
+  DEFAULT_PASTE_OFFSET,
+} from './clipboard.js';
 export type {
   SelectPayload,
   DeselectPayload,
@@ -24,6 +34,12 @@ export type {
   CopySelectionPayload,
   PasteClipboardPayload,
 };
+export type {
+  ClipboardEntry,
+  SelectionPastePort,
+  PasteOffset,
+  PasteResult,
+} from './clipboard.js';
 
 /** Stable command-type strings — useful for routing the command bus
  *  to the correct undo behaviour. */
@@ -36,7 +52,20 @@ export const SELECTION_HANDLER_TYPES = [
   'paste-clipboard',
 ] as const;
 
-export function buildSelectionHandlerSet(): readonly [
+/**
+ * Options for wiring the copy/paste handlers (§FIX-COPY-PASTE, L-84).
+ *   • `clipboard` — override the shared module clipboard (tests).
+ *   • `pastePort` — the collaborator that re-creates copied elements. Without
+ *     it, `paste-clipboard` rejects with a typed reason (never a silent no-op).
+ */
+export interface SelectionHandlerOptions {
+  readonly clipboard?: SelectionClipboard;
+  readonly pastePort?: SelectionPastePort;
+}
+
+export function buildSelectionHandlerSet(
+  opts: SelectionHandlerOptions = {},
+): readonly [
   SelectSelectionHandler,
   DeselectSelectionHandler,
   ClearSelectionHandler,
@@ -44,18 +73,23 @@ export function buildSelectionHandlerSet(): readonly [
   CopySelectionHandler,
   PasteClipboardHandler,
 ] {
+  const clipboard = opts.clipboard ?? selectionClipboard;
+  const port = opts.pastePort ?? null;
   return [
     new SelectSelectionHandler(),
     new DeselectSelectionHandler(),
     new ClearSelectionHandler(),
     UpdateElementMarkHandler,
-    new CopySelectionHandler(),
-    new PasteClipboardHandler(),
+    new CopySelectionHandler(clipboard, port),
+    new PasteClipboardHandler(clipboard, port),
   ];
 }
 
-export function registerSelectionHandlers(bus: CommandBus): void {
-  for (const h of buildSelectionHandlerSet()) {
+export function registerSelectionHandlers(
+  bus: CommandBus,
+  opts: SelectionHandlerOptions = {},
+): void {
+  for (const h of buildSelectionHandlerSet(opts)) {
     bus.register(h as Parameters<CommandBus['register']>[0]);
   }
 }

@@ -26,7 +26,7 @@ import { registerAllStores } from './initStores';
 import { ScheduleRegistry } from '@pryzm/core-app-model';
 import { SchedulePanel } from '@app/ui/SchedulePanel/SchedulePanel';
 import { DataWorkbench } from '@app/ui/dataworkbench/DataWorkbench';
-import { UpdateElementMarkCommand, CreatePlanViewCommand, ReDetectRoomsCommand } from '@pryzm/command-registry';
+import { UpdateElementMarkCommand, CreatePlanViewCommand, ReDetectRoomsCommand, CopyElementCommand } from '@pryzm/command-registry';
 import { annotationStore } from '@pryzm/plugin-annotations';
 import { WallInstanceBridge } from '@pryzm/geometry-wall';
 import { initScene }          from './initScene';
@@ -67,7 +67,7 @@ import { registerWindowHandlers } from '@pryzm/plugin-window';
 import { registerSectionHandlers } from '@pryzm/plugin-section-view';
 import { registerViewHandlers } from '@pryzm/plugin-view';
 import { registerLevelHandlers } from '@pryzm/plugin-levels';
-import { registerSelectionHandlers } from '@pryzm/plugin-selection';
+import { registerSelectionHandlers, type SelectionPastePort } from '@pryzm/plugin-selection';
 
 // ── Task 5.2 extracted subsystems ─────────────────────────────────────────────
 import { initAnnotationTools }        from './initAnnotationTools';
@@ -518,11 +518,34 @@ export async function bootstrap(
         catch (e: any) { console.error('[EngineBootstrap] §P3.4-VW: registerViewHandlers failed (non-fatal):', e?.message ?? e); }
         try { registerLevelHandlers(_bus); console.log('[EngineBootstrap] F-1.3: level handlers registered.'); }
         catch (e: any) { console.error('[EngineBootstrap] F-1.3: registerLevelHandlers failed (non-fatal):', e?.message ?? e); }
-        // §TASK-08 (MASTER-IMPL-PLAN-FUNCTIONAL-2026-05-18): Register copy/paste handlers so
-        // copy-selection and paste-clipboard are no longer silent no-ops.  Option A: canExecute
-        // returns { valid: false, reason: '...' } to surface feedback to the caller.
-        try { registerSelectionHandlers(_bus); console.log('[EngineBootstrap] TASK-08: selection handlers (copy/paste) registered.'); }
-        catch (e: any) { console.error('[EngineBootstrap] TASK-08: registerSelectionHandlers failed (non-fatal):', e?.message ?? e); }
+        // §FIX-COPY-PASTE (V1-LAUNCH-READINESS-AUDIT L-84, supersedes the TASK-08 Option-A
+        // stubs): register REAL copy/paste. `copy-selection` snapshots the canonical
+        // SelectionStore into the plugin clipboard; `paste-clipboard` re-creates each copied
+        // element with a NEW id + small offset on the SAME level, via the port below. The
+        // port routes re-creation through the registered CopyElementCommand so paste is
+        // undoable (P6) and reuses the proven wall/furniture clone pipeline — this file must
+        // not touch the wall/geometry packages. Phase-1 copyable kinds: wall + furniture.
+        const copyPastePort: SelectionPastePort = {
+            canCopy: (kind: string) => kind === 'wall' || kind === 'furniture',
+            paste: (entry, { newId, offset }) => {
+                const elementType = entry.kind === 'furniture' ? 'furniture' : 'wall';
+                try {
+                    const res = commandManager.execute(
+                        new CopyElementCommand({ sourceId: entry.sourceId, newId, offset, elementType }),
+                    );
+                    if (!res?.success) {
+                        console.warn('[§FIX-COPY-PASTE] paste failed for', entry.sourceId, res?.info);
+                        return null;
+                    }
+                    return { newId };
+                } catch (err) {
+                    console.error('[§FIX-COPY-PASTE] CopyElementCommand threw (non-fatal):', err);
+                    return null;
+                }
+            },
+        };
+        try { registerSelectionHandlers(_bus, { pastePort: copyPastePort }); console.log('[EngineBootstrap] §FIX-COPY-PASTE: selection handlers (copy/paste) registered.'); }
+        catch (e: any) { console.error('[EngineBootstrap] §FIX-COPY-PASTE: registerSelectionHandlers failed (non-fatal):', e?.message ?? e); }
 
         // ── §C-B1 (DAILY-USE-AUDIT 2026-05-20) — register zoom-fit/zoom-selected ─
         // The MainToolbar buttons dispatched these bus commands (declared in
