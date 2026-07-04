@@ -150,6 +150,7 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 | L-80 schedules edit/view mode | 3.x data/schedules | **QUEUED (data lane)** — editable+viewable schedule UI on Schedule Store; P6 |
 | L-81 project DUPLICATION doesn't work | 4.x persistence | **IN FLIGHT (persistence lane)** — duplicate must deep-copy snapshot+versions under new id; C13/C05 |
 | L-83 opening a project doesn't work (latest-version 404) | 4.x persistence | **QUEUED (persistence lane)** — open/streamLoad falls back to local snapshot on 404; sibling of L-81; C13/C05 |
+| L-88 Import Manager sound at all times + persists across reopen | 3.4 site/import | **QUEUED (import/underlay lane, site agent)** — serialize+rehydrate import records; panel rebuilds on project-loaded; actions robust after reopen; L-45/L-58/L-71; C13/ADR-0115 |
 | L-84 copy not working | 1.1 selection/clipboard | **QUEUED (selection lane)** — copy captures selection, paste recreates via bus w/ new ids; C16 |
 | L-85 kitchen/wardrobe/lighting lost on re-open | 4.x persistence | **QUEUED (persistence lane, w/ L-81/L-83)** — serialize+restore these stores in snapshot; C13/C05 |
 | L-86 furniture base-offset missing | 2.x furniture | **QUEUED (furniture lane)** — add base-offset field schema+inspector+builder; C03/C15 |
