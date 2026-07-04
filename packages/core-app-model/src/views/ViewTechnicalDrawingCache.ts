@@ -133,6 +133,39 @@ export class ViewTechnicalDrawingCache {
      */
     setIfCurrent(viewId: string, gen: number, drawing: OBC.TechnicalDrawing): boolean {
         if (this._generations.get(viewId) !== gen) {
+            // §FIX-PLAN-BLANK-STALEGEN (L-90, C04 §3.3 / DOC-1.5f) — the generation
+            // guard exists to stop an OLDER projection from CLOBBERING a NEWER good
+            // drawing. But it must NEVER leave the view with NO drawing at all.
+            //
+            // ROOT CAUSE of the founder's "plan goes BLANK on wall create": TWO
+            // independent re-projection drivers race the same view's generation —
+            // PlanViewManager._onProjectionStale (30 ms) and
+            // ViewDependencyTracker._flush → onReprojectionNeeded (300 ms). A wall
+            // create fires BOTH, and the follow-up REDETECT_ROOMS fires the full
+            // (room-type) path too. One driver's invalidate() disposes + deletes the
+            // only cached drawing AND bumps the generation while the other driver's
+            // project() is still in flight; that projection then completes tagged
+            // staleGen < currentGen → rejected → the cache is left EMPTY → blank plan
+            // (the log the founder saw: `Stale projection rejected staleGen=17
+            // currentGen=18`).
+            //
+            // FIX: when the cache is currently EMPTY for this view, ACCEPT the stale
+            // completion — a slightly-out-of-gen but fully-computed drawing is
+            // strictly better than a blank view. It reflects real geometry (project()
+            // reads live stores at projection time; "stale" here is ordering, not
+            // content). Any still-in-flight current-gen projection overwrites it when
+            // it lands (its gen matches → normal accept path below), so this can never
+            // oscillate. When the cache is NON-empty a good drawing already exists, so
+            // we keep the original reject (don't clobber newer with older).
+            if (!this._cache.has(viewId)) {
+                console.warn(
+                    `[ViewTechnicalDrawingCache] §FIX-PLAN-BLANK-STALEGEN — accepting a ` +
+                    `stale projection into an EMPTY cache to avoid a blank view: ` +
+                    `viewId=${viewId} staleGen=${gen} currentGen=${this._generations.get(viewId)}`,
+                );
+                this.set(viewId, drawing);
+                return true;
+            }
             console.log(
                 `[ViewTechnicalDrawingCache] Stale projection rejected — ` +
                 `viewId=${viewId} staleGen=${gen} currentGen=${this._generations.get(viewId)}`,
