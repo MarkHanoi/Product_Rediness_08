@@ -7,11 +7,23 @@
 - **Deciders:** Founder + Claude (Opus 4.8)
 - **Tags:** `§FEAT-SITE-OVERLAY-PLACE`, `§FEAT-PROJECT-TRUE-NORTH`, `§FEAT-SITE-VIEW-ALWAYS-ON`,
   `§FIX-SITE-OVERLAY-RENDER-AND-FLOW` (L-58), `§FIX-SITE-OVERLAY-CALIBRATION-EXCLUSIVE` +
-  `§FIX-SITE-OVERLAY-IMPORT-TERMINAL` (L-69/L-70), `§FEAT-SITE-OVERLAY-PLAN-UNDERLAY` (L-71).
+  `§FIX-SITE-OVERLAY-IMPORT-TERMINAL` (L-69/L-70), `§FEAT-SITE-OVERLAY-PLAN-UNDERLAY` (L-71),
+  `§FIX-SITE-OVERLAY-DOUBLE-PANEL` (L-77), `§FIX-SITE-OVERLAY-ENTER-CANVAS` (L-78).
 - **Audit rows:** L-38 (overlay + dual north), L-40 (3D site/globe always reachable),
   L-58 (the MapLibre overlay wasn't visibly rendering + the flow didn't complete),
   L-69 (2-pt calibration dead + import wrongly coupled to generate),
-  L-70 (import path still armed draw + generate), L-71 (THE goal — plan on canvas, project north).
+  L-70 (import path still armed draw + generate), L-71 (THE goal — plan on canvas, project north),
+  L-77 (double panel), L-78 ("Finish" showed nothing — the underlay was created but never framed).
+- **2026-07-04 fix (L-77 + L-78).** Made the L-71 "✓ Finish → canvas" actually visible + clean.
+  **L-78 (critical):** the underlay mesh was being created fine, but Finish never switched the
+  editor into a framed view — it closed the map + `toggleGIS(false)` and left the user in an
+  unframed view with the plan off-screen ("nothing"), compounded by an async race (GIS exited
+  before the texture loaded). Fix: `commitProjectNorth` now AWAITs the underlay creation, then a
+  new `pryzmActivateBimView('Top')` exits GIS + switches to plan view and `viewController.zoomToFit()`
+  frames the plan. (Confirmed the underlay's visibility does NOT depend on `CREATE_UNDERLAY` — that
+  command is undo-only and is try/catch-guarded, so a bus error can't blank the plan.) **L-77:** the
+  import step now dismisses the plot-choice card (single active panel) + hides the redundant map
+  uploader, restoring the choice card on Back.
 - **2026-07-03 slice (L-70 + L-71).** Delivered the founder's DEFINING goal: import a PDF/JPG,
   place + calibrate it on the map, press "✓ Finish", and land straight in the PRYZM canvas with
   the plan as a live underlay — geolocated, real-size, and AXIS-ALIGNED to project north so it

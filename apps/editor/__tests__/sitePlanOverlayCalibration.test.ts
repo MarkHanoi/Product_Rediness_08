@@ -69,6 +69,9 @@ function findButton(root: HTMLElement, text: string): HTMLButtonElement {
     return btn as HTMLButtonElement;
 }
 
+/** Let the async commit (which AWAITs onEnterCanvas) settle. */
+const flushMicrotasks = () => new Promise((r) => setTimeout(r, 0));
+
 let handle: SitePlanOverlayControllerHandle | null = null;
 let toasts: Array<{ msg: string; sev: string }> = [];
 let onCommitNorth: ReturnType<typeof vi.fn>;
@@ -161,6 +164,7 @@ describe('§FIX-SITE-OVERLAY-IMPORT-TERMINAL — the explicit "Finish — enter 
         const map = new FakeMap();
         const panel = await mountWithSeededOverlay(map);
         findButton(panel, 'Finish').click();
+        await flushMicrotasks(); // commit is async — it AWAITS the canvas underlay before signalling.
         // Sets Project North (θ, a finite radian) …
         expect(onCommitNorth).toHaveBeenCalledTimes(1);
         expect(Number.isFinite(onCommitNorth.mock.calls[0][0])).toBe(true);
@@ -174,8 +178,9 @@ describe('§FIX-SITE-OVERLAY-IMPORT-TERMINAL — the explicit "Finish — enter 
         // The controller has NO parcel-boundary / generate path: the only outward effects of
         // the commit are the two placement callbacks. (SiteBoundaryMap2D turns
         // onPlacementCommitted into `site.overlay-placement-committed`, which the onboarding
-        // maps to dispose-into-canvas — never a boundary-set or generate.)
+        // maps to land-in-canvas — never a boundary-set or generate.)
         findButton(panel, 'Finish').click();
+        await flushMicrotasks();
         expect(onCommitNorth).toHaveBeenCalledTimes(1);
         expect(onPlacementCommitted).toHaveBeenCalledTimes(1);
         // No parcel-boundary was drawn on the map (no ring source/layer added by the commit).
@@ -210,6 +215,7 @@ describe('§FEAT-SITE-OVERLAY-PLAN-UNDERLAY — Finish hands an axis-aligned und
         const map = new FakeMap();
         const panel = await mountWithSeededOverlay(map);
         findButton(panel, 'Finish').click();
+        await flushMicrotasks(); // commit AWAITS onEnterCanvas (underlay created) before signalling.
         expect(order).toEqual(['enter-canvas', 'committed']);
     });
 });

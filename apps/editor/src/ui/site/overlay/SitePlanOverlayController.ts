@@ -93,7 +93,7 @@ export interface SitePlanOverlayControllerInit {
      * in the project frame); the host does the THREE-scene creation via the existing
      * FloorPlanUnderlayTool + CREATE_UNDERLAY pipeline. Absent ⇒ no canvas underlay is created.
      */
-    readonly onEnterCanvas?: (params: EnterCanvasUnderlayParams) => void;
+    readonly onEnterCanvas?: (params: EnterCanvasUnderlayParams) => void | Promise<void>;
 }
 
 /** §FEAT-SITE-OVERLAY-PLAN-UNDERLAY (L-71) — the plan-canvas underlay params handed to the
@@ -310,7 +310,7 @@ export function mountSitePlanOverlayController(
     // Pressing "Use this placement" captures θ, mirrors it onto the model (via the host
     // callback → dispatchSiteTrueNorth, P6), and persists it. NO boundary trace required
     // (Part A goal) — the calibration + boundary tools remain independently available.
-    function commitProjectNorth(): void {
+    async function commitProjectNorth(): Promise<void> {
         if (!state) return;
         const thetaRad = deriveProjectNorthAngle(state.transform);
         state.projectNorthSet = true;
@@ -330,9 +330,13 @@ export function mountSitePlanOverlayController(
         // in plan view for tracing walls. The controller does the pure dual-north math; the
         // host performs the THREE-scene creation via the existing FloorPlanUnderlayTool +
         // CREATE_UNDERLAY pipeline.
+        // §FIX-SITE-OVERLAY-ENTER-CANVAS (L-78) — AWAIT the underlay creation so the mesh +
+        // texture actually exist BEFORE we tell the host to switch to the canvas + frame the
+        // camera on it. Without the await, the host exited GIS / zoom-to-fit ran against an
+        // empty scene and the founder saw "nothing".
         try {
             const placement = computePlanUnderlayPlacement(state.transform);
-            onEnterCanvas?.({
+            await onEnterCanvas?.({
                 dataUrl: state.dataUrl,
                 widthPx: state.transform.widthPx,
                 heightPx: state.transform.heightPx,
@@ -346,8 +350,8 @@ export function mountSitePlanOverlayController(
         }
 
         // §FIX-SITE-OVERLAY-IMPORT-TERMINAL — the commit is the terminal "proceed" action:
-        // tell the host to land in the canvas (dispose the wizard, close the map). Guarded so
-        // a throwing host never blocks the (already-applied) placement.
+        // tell the host to land in the canvas (dispose the wizard, close the map, frame the
+        // plan). Guarded so a throwing host never blocks the (already-applied) placement.
         try {
             onPlacementCommitted?.();
         } catch (err) {

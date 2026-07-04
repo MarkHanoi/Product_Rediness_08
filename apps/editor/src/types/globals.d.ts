@@ -220,6 +220,11 @@ declare global {
          *  overlay panel + its 2-point calibration are live; no boundary can be traced and
          *  no generate is armed. Registered by GISAreaLayout. */
         pryzmStartSitePlanOverlayImport?: () => void;
+        /** §FIX-SITE-OVERLAY-ENTER-CANVAS (L-78) — switch the editor into a BIM view, EXITING
+         *  GIS first (routes through activateView → toggleGIS(false) → ViewController.activate).
+         *  Used by the overlay-import "✓ Finish" to land the user in PLAN ('Top') view where the
+         *  imported plan underlay is visible. Registered by GISAreaLayout. */
+        pryzmActivateBimView?: (mode?: 'Top' | '3D' | 'Front' | 'Back' | 'Left' | 'Right') => Promise<void> | void;
         /** A.8.c — start the legacy Cesium-globe site-boundary polygon-draw tool
          *  (fallback). Requires the GIS view to be active. */
         pryzmStartBoundaryDraw3D?: () => void;

@@ -817,6 +817,13 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // disarmed) for the PDF/image import path. The onboarding overlay branch calls this
     // instead of pryzmStartBoundaryDraw so no boundary can be traced + no generate is armed.
     window.pryzmStartSitePlanOverlayImport = () => startBoundaryDraw({ overlayOnly: true });
+    // §FIX-SITE-OVERLAY-ENTER-CANVAS (L-78) — land the user in a BIM editor view (activateView
+    // EXITS GIS first, then routes through ViewController) so the site-plan underlay they just
+    // imported is actually on screen. The overlay-import "✓ Finish" calls this with 'Top' (plan
+    // view). Returns the activateView promise so the caller can await the GIS-exit + switch,
+    // then zoom-to-fit onto the underlay.
+    window.pryzmActivateBimView = (mode) =>
+        activateView((mode ?? 'Top') as 'Top' | '3D' | 'Front' | 'Back' | 'Left' | 'Right');
 
     // ════════════════════════════════════════════════════════════════════════
     // FORMA.3 — 3D Forma massing view + [Plan View][3D View] toggle (SPEC §3–§5)

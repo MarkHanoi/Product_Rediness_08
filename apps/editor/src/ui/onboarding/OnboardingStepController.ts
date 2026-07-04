@@ -724,16 +724,11 @@ export class OnboardingStepController {
             }
         }
 
-        // 2) Present the map (drawing presentation lets pointer events reach the map +
-        //    overlay panel) — but there is NO "draw your plot" instruction here.
-        this.setStepIndicator(2, 'Place your plan');
-        this.setDrawingPresentation(true);
-
-        // 3) TERMINAL completion: when the user presses "✓ Finish", the overlay controller
-        //    emits `site.overlay-placement-committed` (AFTER creating the canvas underlay +
-        //    setting Project North). We dispose the wizard and land in the editor canvas —
-        //    NO boundary, NO generate. Close the 2D map + exit GIS so the plan-canvas
-        //    underlay (now in the editor scene) is what the user sees.
+        // 2/3) TERMINAL completion + CANCEL. When the user presses "✓ Finish", the overlay
+        //    controller emits `site.overlay-placement-committed` (AFTER creating the canvas
+        //    underlay + setting Project North) → we dispose the wizard and land in the editor.
+        //    When the user backs out, we tear the map down and RESTORE the plot-choice step so
+        //    they can pick another method.
         let settled = false;
         const finishImport = (): void => {
             if (settled) return;
@@ -741,16 +736,49 @@ export class OnboardingStepController {
             try { sub?.dispose(); } catch { /* ignore */ }
             console.log('[onboarding-step] §SITE-OVERLAY: plan imported to canvas — terminal (NO boundary, NO generate).');
             this.toast('Plan placed on the canvas — start drawing your walls over it.', 'success');
-            const w = window as unknown as {
-                pryzmCloseBoundaryMap2D?: () => void;
-                pryzmToggleGIS?: (active: boolean) => void;
-            };
+            // §FIX-SITE-OVERLAY-ENTER-CANVAS (L-78) — the underlay was already created + placed
+            // (the controller AWAITED it before firing this event). Now close the 2D map, EXIT
+            // GIS, switch to PLAN (Top) view and frame the camera on the plan so the founder
+            // actually SEES it, then dispose the wizard.
+            void this.landInCanvasWithUnderlay();
+        };
+        // §FIX-SITE-OVERLAY-DOUBLE-PANEL (L-77) — Back/cancel: tear down the overlay map and
+        // RE-RENDER the plot-choice step (restores the choice card the import step dismissed),
+        // so the user can pick a different plot method. Does NOT dispose the wizard.
+        const cancelImport = (): void => {
+            if (settled) return;
+            settled = true;
+            try { sub?.dispose(); } catch { /* ignore */ }
+            console.log('[onboarding-step] §SITE-OVERLAY: import cancelled — restoring the plot-choice step.');
+            const w = window as unknown as { pryzmCloseBoundaryMap2D?: () => void; pryzmToggleGIS?: (a: boolean) => void };
             try { w.pryzmCloseBoundaryMap2D?.(); } catch { /* ignore */ }
             try { w.pryzmToggleGIS?.(false); } catch { /* ignore */ }
-            this.dispose();
+            if (!this.disposed) this.renderSiteStep();
         };
         const sub = this.runtime.events?.on('site.overlay-placement-committed', () => finishImport());
         this.addCleanup(() => { try { sub?.dispose(); } catch { /* ignore */ } });
+
+        // §FIX-SITE-OVERLAY-DOUBLE-PANEL (L-77) — DISMISS the plot-choice card (clearBody)
+        // and show a slim "place your plan" banner instead, so the onboarding wizard and the
+        // "Site plan overlay" controls panel are never on screen at once (only one active
+        // panel). The banner carries the sole in-wizard affordance for this step: "← Back".
+        this.setStepIndicator(2, 'Place your plan');
+        this.setDrawingPresentation(true);
+        const body = this.clearBody();
+        const hint = document.createElement('p');
+        hint.className = 'os-hint os-draw-instruction';
+        hint.textContent = 'Place, scale and rotate your plan on the map, then press ✓ Finish on the panel.';
+        body.appendChild(hint);
+        const footer = document.createElement('div');
+        footer.className = 'os-footer';
+        const backBtn = document.createElement('button');
+        backBtn.type = 'button';
+        backBtn.className = 'os-btn os-btn--ghost';
+        backBtn.setAttribute('data-testid', 'onboarding-overlay-cancel');
+        backBtn.textContent = '← Back';
+        backBtn.addEventListener('click', () => cancelImport());
+        footer.appendChild(backBtn);
+        body.appendChild(footer);
 
         // 4) Activate GIS + open the map in OVERLAY-ONLY mode, then auto-open the picker.
         try {
@@ -770,6 +798,41 @@ export class OnboardingStepController {
         } catch (err) {
             console.warn('[onboarding-step] §SITE-OVERLAY-IMPORT threw:', err);
         }
+    }
+
+    /**
+     * §FIX-SITE-OVERLAY-ENTER-CANVAS (L-78) — land the user in the editor canvas with the
+     * imported plan VISIBLE. The overlay controller already created + placed the underlay
+     * mesh in the BIM scene (awaited before this runs). Here we: (1) dispose the 2D overlay
+     * map; (2) EXIT GIS and switch to PLAN (Top) view via `pryzmActivateBimView` (which routes
+     * through activateView → toggleGIS(false) → ViewController.activate) so the BIM canvas is
+     * shown; (3) zoom-to-fit onto the plan so the founder sees it centred; (4) dispose the
+     * wizard. All best-effort + guarded — a missing hook degrades to a plain GIS-exit.
+     */
+    private async landInCanvasWithUnderlay(): Promise<void> {
+        const w = window as unknown as {
+            pryzmCloseBoundaryMap2D?: () => void;
+            pryzmActivateBimView?: (mode?: string) => Promise<void> | void;
+            pryzmToggleGIS?: (active: boolean) => void;
+            viewController?: { zoomToFit?: (opts?: { animate?: boolean }) => Promise<void> | void };
+        };
+        // 1) Tear down the 2D overlay map (it sits over the editor #container).
+        try { w.pryzmCloseBoundaryMap2D?.(); } catch { /* ignore */ }
+        // 2) Exit GIS + switch to plan (Top) view so the BIM canvas + underlay are on screen.
+        try {
+            if (typeof w.pryzmActivateBimView === 'function') {
+                await w.pryzmActivateBimView('Top');
+            } else {
+                w.pryzmToggleGIS?.(false);
+            }
+        } catch (err) {
+            console.warn('[onboarding-step] §SITE-OVERLAY: enter-canvas view switch failed (non-fatal):', err);
+            try { w.pryzmToggleGIS?.(false); } catch { /* ignore */ }
+        }
+        // 3) Frame the camera on the just-placed plan.
+        try { await w.viewController?.zoomToFit?.({ animate: false }); } catch { /* ignore */ }
+        // 4) Dispose the wizard — we're done; the user is in the canvas.
+        this.dispose();
     }
 
     /**

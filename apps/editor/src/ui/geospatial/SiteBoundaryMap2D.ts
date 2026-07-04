@@ -387,6 +387,10 @@ export function mountSiteBoundaryMap2D(
         boxShadow: '0 2px 10px rgba(60,52,40,0.18)',
     } satisfies Partial<CSSStyleDeclaration>);
     overlayBtn.addEventListener('click', () => overlayController?.promptUpload());
+    // §FIX-SITE-OVERLAY-DOUBLE-PANEL (L-77) — in overlay-only import mode this map button is a
+    // DUPLICATE uploader: the picker auto-opens on entry and the overlay panel carries its own
+    // "Upload plan / PDF" button. Hiding it kills the "second PDF-select menu" the founder saw.
+    if (opts.overlayOnly) overlayBtn.style.display = 'none';
     overlay.appendChild(overlayBtn);
 
     // ── §BND-MODE-STRIP — boundary-draw MODE toolbar (mirrors WallDrawingHUD) ────
@@ -1619,11 +1623,11 @@ export function mountSiteBoundaryMap2D(
                 // §FEAT-SITE-OVERLAY-PLAN-UNDERLAY (L-71) — drop the calibrated plan into the
                 // editor canvas as a live underlay (correct location + size, axis-aligned to
                 // project north for orthogonal plan-view tracing). Reuses the existing
-                // FloorPlanUnderlayTool + CREATE_UNDERLAY pipeline. Fire-and-forget: guarded,
-                // never throws into the commit.
-                onEnterCanvas: (params: EnterCanvasUnderlayParams) => {
-                    void createPlanCanvasUnderlayFromSiteOverlay(params);
-                },
+                // FloorPlanUnderlayTool + CREATE_UNDERLAY pipeline. §FIX-SITE-OVERLAY-ENTER-CANVAS
+                // (L-78) — RETURN the promise so the controller AWAITS it before the host frames
+                // the canvas on the (now-existing) underlay.
+                onEnterCanvas: (params: EnterCanvasUnderlayParams) =>
+                    createPlanCanvasUnderlayFromSiteOverlay(params).then(() => undefined),
             });
             // §SITE-PLAN-OVERLAY — window hook so the onboarding "Overlay a plan/PDF"
             // choice can open the upload picker after the draw map mounts.
