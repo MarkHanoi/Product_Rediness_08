@@ -54,20 +54,24 @@ const INPUT = {
     positionEast: 5.83,
     positionNorth: -0.1,
     rotationZ: 0,            // axis-aligned / project north
+    fileName: 'survey.pdf',
 };
 
 let execSpy: ReturnType<typeof vi.fn>;
+let emitSpy: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
     createSpy.mockClear(); disposeSpy.mockClear();
     meshState.mesh.position = { x: 0, y: 0, z: 0 };
     meshState.mesh.rotation = { x: 0, y: 0, z: 0 };
+    (meshState.mesh as unknown as { userData: Record<string, unknown> }).userData = {};
     execSpy = vi.fn(async () => {});
+    emitSpy = vi.fn();
     const w = window as unknown as Record<string, unknown>;
     w['scene'] = {};
     w['camera'] = {};
     w['renderer'] = { domElement: document.createElement('canvas') };
-    w['runtime'] = { bus: { executeCommand: execSpy } };
+    w['runtime'] = { bus: { executeCommand: execSpy }, events: { emit: emitSpy } };
     w['projectContext'] = { activeLevelId: null };
     w['bimManager'] = undefined;
     delete w['floorPlanUnderlayTool'];
@@ -99,6 +103,15 @@ describe('§FEAT-SITE-OVERLAY-PLAN-UNDERLAY — createPlanCanvasUnderlayFromSite
         await createPlanCanvasUnderlayFromSiteOverlay(INPUT);
         expect(execSpy).toHaveBeenCalledTimes(1);
         expect(execSpy.mock.calls[0][0]).toBe('CREATE_UNDERLAY');
+    });
+
+    it('§L-88: emits pryzm-floor-plan-underlay-placed (registers in Import Manager + triggers persistence)', async () => {
+        await createPlanCanvasUnderlayFromSiteOverlay(INPUT);
+        const placed = emitSpy.mock.calls.find((c) => c[0] === 'pryzm-floor-plan-underlay-placed');
+        expect(placed).toBeTruthy();
+        expect(placed![1].fileName).toBe('survey.pdf'); // labels the Import Manager row + persistence
+        // The file name is also stamped on the mesh (so UnderlayPersistence.captureCurrentState reads it).
+        expect((meshState.mesh as unknown as { userData: { fileName?: string } }).userData.fileName).toBe('survey.pdf');
     });
 
     it('a CREATE_UNDERLAY bus failure does NOT abort the underlay — the mesh still exists', async () => {

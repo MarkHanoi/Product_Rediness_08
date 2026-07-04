@@ -84,15 +84,23 @@ export function createFloorPlanImportPanel(
     });
 
     window.runtime?.events?.on('pryzm-floor-plan-underlay-set-locked', (d: { locked: boolean; noSelect?: boolean }) => { // F.events.13
-        if (!state.underlayTool) return;
-        state.underlayTool.setLocked(d?.locked ?? true);
+        // §FIX-IMPORT-MANAGER-SOUND (L-88) — fall back to the canonical singleton so the
+        // Import Manager's pin action works for a RESTORED (project re-open) or site-plan
+        // (L-71) underlay too, not only one imported through THIS panel's `state.underlayTool`
+        // (which is null for those paths). window.floorPlanUnderlayTool is set by every
+        // FloorPlanUnderlayTool.create(), whatever created it.
+        const tool = state.underlayTool ?? window.floorPlanUnderlayTool;
+        if (!tool) return;
+        tool.setLocked(d?.locked ?? true);
         console.log('[FloorPlanImportPanel] setLocked', d?.locked);
     });
 
     window.runtime?.events?.on('pryzm-floor-plan-underlay-set-visibility', (d: { visible: boolean }) => { // F.events.13
-        if (!state.underlayTool) return;
+        // §FIX-IMPORT-MANAGER-SOUND (L-88) — same fallback as set-locked (works after reopen).
+        const tool = state.underlayTool ?? window.floorPlanUnderlayTool;
+        if (!tool) return;
         const visible = d?.visible ?? true;
-        state.underlayTool.setVisible(visible);
+        tool.setVisible(visible);
         window.runtime?.events?.emit('pryzm-floor-plan-underlay-visibility-changed', { visible }); // F.events.13
         console.log('[FloorPlanImportPanel] setVisibility', visible);
     });

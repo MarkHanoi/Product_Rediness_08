@@ -101,6 +101,8 @@ export interface SitePlanOverlayControllerInit {
  *  computePlanUnderlayPlacement) so the host stays free of the dual-north math. */
 export interface EnterCanvasUnderlayParams {
     readonly dataUrl: string;
+    /** §FIX-IMPORT-MANAGER-SOUND (L-88) — the uploaded file's name (Import Manager label). */
+    readonly fileName: string;
     readonly widthPx: number;
     readonly heightPx: number;
     /** Metric scale = 1 / metresPerPixel (correct real-world size). */
@@ -338,6 +340,7 @@ export function mountSitePlanOverlayController(
             const placement = computePlanUnderlayPlacement(state.transform);
             await onEnterCanvas?.({
                 dataUrl: state.dataUrl,
+                fileName: state.fileName,
                 widthPx: state.transform.widthPx,
                 heightPx: state.transform.heightPx,
                 pxPerMeter: placement.pxPerMeter,

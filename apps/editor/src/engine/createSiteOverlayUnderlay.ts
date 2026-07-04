@@ -38,6 +38,9 @@ export interface SiteOverlayUnderlayInput {
     readonly rotationZ: number;
     /** Optional Y elevation; defaults to the active level's elevation (else 0). */
     readonly elevationY?: number;
+    /** §FIX-IMPORT-MANAGER-SOUND (L-88) — display name for the Import Manager row +
+     *  persistence label (the uploaded file's name). Defaults to "Site Plan". */
+    readonly fileName?: string;
 }
 
 const _tracer = trace.getTracer('pryzm-engine');
@@ -140,6 +143,24 @@ export async function createPlanCanvasUnderlayFromSiteOverlay(
         } catch (err) {
             // The mesh is already live; a bus hiccup only costs the undo entry.
             console.warn('[site-overlay→canvas] CREATE_UNDERLAY dispatch failed (non-fatal):', err);
+        }
+
+        // §FIX-IMPORT-MANAGER-SOUND (L-88) — announce the placement on the SAME Contract-§32
+        // event the floor-plan import + restore use, so this underlay (a) REGISTERS in the
+        // Import Manager panel and (b) is PERSISTED per-project by UnderlayPersistence (which
+        // saves on this event → localStorage metadata + IndexedDB raster) → it survives a
+        // project close/re-open exactly like a normal PDF/image import. Reuses the proven
+        // pipeline — no parallel persistence. Stamp the fileName so the panel/persistence label
+        // it correctly.
+        const fileName = input.fileName ?? 'Site Plan';
+        try { if (st?.mesh) (st.mesh.userData as { fileName?: string }).fileName = fileName; } catch { /* ignore */ }
+        try {
+            window.runtime?.events?.emit('pryzm-floor-plan-underlay-placed', {
+                underlayId: `floor-plan-${Date.now()}`,
+                fileName,
+            });
+        } catch (err) {
+            console.warn('[site-overlay→canvas] underlay-placed emit failed (non-fatal):', err);
         }
 
         // Nudge the plan-view canvas to repaint the underlay at its new transform.

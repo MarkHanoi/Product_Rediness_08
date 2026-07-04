@@ -85,7 +85,17 @@ export class ImportManagerPanel {
         // listener, so we have to scan the live state on mount and after
         // every project switch).
         this._reconcileFromLiveState();
-        window.runtime?.events?.on('pryzm-project-loaded', () => this._reconcileFromLiveState()); // F.events.9
+        // §FIX-IMPORT-MANAGER-SOUND (L-88) — rebuild the list from the restored store on
+        // project (re-)open. The restore (UnderlayPersistence.restoreUnderlayForProject) is
+        // ASYNC — the tool + mesh don't exist yet when this event fires — so an immediate
+        // reconcile finds nothing. We reconcile immediately (cheap; catches anything already
+        // live) AND on a short delay so the async restore's recreated tool is picked up even
+        // if its own re-emitted 'pryzm-floor-plan-underlay-placed' was missed. _reconcile is
+        // idempotent + dedupes floor-plan entries, so the double call can't duplicate rows.
+        window.runtime?.events?.on('pryzm-project-loaded', () => { // F.events.9
+            this._reconcileFromLiveState();
+            setTimeout(() => this._reconcileFromLiveState(), 600);
+        });
         window.addEventListener('pryzm-project-switch', () => {
             // Project changed → drop stale entries; the new project's
             // restore + IFC re-import events will repopulate.
