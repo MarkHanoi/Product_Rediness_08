@@ -148,7 +148,8 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 | L-78 Finish-enter-canvas still doesn't land plan on canvas + old duplicate PDF-select menu on zoom | 3.4 site/geo | **IN FLIGHT (site agent aa0db418, with L-77)** — verify Finish→underlay renders in canvas + GIS exits end-to-end; remove stale duplicate uploader; ADR-0115 |
 | L-79 sibling room handlers (setNumber/setOccupancy/etc.) same store-key bug as L-75 | 2.x rooms | **QUEUED (rooms lane)** — bridge each to legacy command (§FIX-ROOM-SETNAME-STORE pattern); ADR-002 |
 | L-80 schedules edit/view mode | 3.x data/schedules | **QUEUED (data lane)** — editable+viewable schedule UI on Schedule Store; P6 |
-| L-81 project duplication + open duplicate broken | 4.x persistence | **QUEUED (persistence lane)** — duplicate must copy snapshot/versions so open works (latest-version 404); C13/C05 |
+| L-81 project DUPLICATION doesn't work | 4.x persistence | **IN FLIGHT (persistence lane)** — duplicate must deep-copy snapshot+versions under new id; C13/C05 |
+| L-83 opening a project doesn't work (latest-version 404) | 4.x persistence | **QUEUED (persistence lane)** — open/streamLoad falls back to local snapshot on 404; sibling of L-81; C13/C05 |
 | L-82 window dim-change out-of-bounds destroys opening + undeletable | 2.3 hosted/openings | **QUEUED (hosted-element lane, coord sole-wall)** — guard opening on OOB frame, restore when back in bounds, keep window deletable; C15 |
 | L-77 double panel in site-overlay flow (overlay panel + plot-choice card both visible) | 3.4 site/geo UI | **IN FLIGHT (site agent aa0db418)** — dismiss onboarding plot-choice card when overlay panel shows; single active panel; extends L-70 |
 | L-75 room rename not applied on Enter (room.setName missing 'room' store) | 2.x rooms/command-wiring | **QUEUED (rooms lane, quick)** — add `room` to room.setName storesProvider (ADR-002 §3); Enter commits+persists+re-renders tag; handler test |
