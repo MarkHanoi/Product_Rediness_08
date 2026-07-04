@@ -83,11 +83,25 @@ export function buildMiterPrism(
         ];
     }
 
+    // §MITER-SEGMENT-CLAMP (L-93, founder 2026-07-04) — axial bounds of the two miter
+    // planes (centreline endpoints) measured along the wall direction from `S`. A cap
+    // vertex projected along `wallDir` may legitimately extend PAST its own end (the outer
+    // miter overhang that meets the neighbour's outer face), but it must NEVER RETREAT past
+    // the OPPOSITE cap's plane — that is the self-intersecting spike the founder sees when a
+    // door sits within a half-thickness of an L-corner (the tiny wall sliver between the door
+    // jamb and the corner is shorter than the 45° miter reach, so the inner corner slides
+    // BACKWARD into the door void → a triangular notch/spike in plan). Clamping the retreat
+    // keeps the sliver a clean, positive-area, non-self-intersecting prism.
+    const _axialOf = (p: THREE.Vector3): number => (p.x - S.x) * wallDir.x + (p.z - S.z) * wallDir.z;
+    const _axialStart = _axialOf(centerlineStart);
+    const _axialEnd = _axialOf(centerlineEnd);
+
     function project(
         base: P3,
         miterPlaneOrigin: THREE.Vector3,
         mn: { nx: number; nz: number } | null | undefined,
-        dir: THREE.Vector3
+        dir: THREE.Vector3,
+        isEnd: boolean = false,
     ): P3 {
         if (!mn) return base;
 
@@ -118,21 +132,33 @@ export function buildMiterPrism(
         if (t > tMax) t = tMax;
         else if (t < -tMax) t = -tMax;
 
+        // §MITER-SEGMENT-CLAMP (L-93) — forbid a cap vertex from crossing the OPPOSITE
+        // miter plane along the wall axis (the spike). The forward overhang is preserved.
+        const baseAxial = (base[0] - S.x) * wallDir.x + (base[2] - S.z) * wallDir.z;
+        const projAxial = baseAxial + t;
+        if (isEnd) {
+            // End cap: may extend past `_axialEnd`, but must not retreat behind the START plane.
+            if (projAxial < _axialStart) t += (_axialStart - projAxial);
+        } else {
+            // Start cap: may extend before `_axialStart`, but must not advance past the END plane.
+            if (projAxial > _axialEnd) t -= (projAxial - _axialEnd);
+        }
+
         return [base[0] + t * dir.x, base[1], base[2] + t * dir.z];
     }
 
     const sDir = wallDir.clone();
     const eDir = wallDir.clone();
 
-    const sOB = project(startBase(+1, yBot), centerlineStart, startMN, sDir);
-    const sOT = project(startBase(+1, yTop), centerlineStart, startMN, sDir);
-    const sIB = project(startBase(-1, yBot), centerlineStart, startMN, sDir);
-    const sIT = project(startBase(-1, yTop), centerlineStart, startMN, sDir);
+    const sOB = project(startBase(+1, yBot), centerlineStart, startMN, sDir, false);
+    const sOT = project(startBase(+1, yTop), centerlineStart, startMN, sDir, false);
+    const sIB = project(startBase(-1, yBot), centerlineStart, startMN, sDir, false);
+    const sIT = project(startBase(-1, yTop), centerlineStart, startMN, sDir, false);
 
-    const eOB = project(endBase(+1, yBot), centerlineEnd, endMN, eDir);
-    const eOT = project(endBase(+1, yTop), centerlineEnd, endMN, eDir);
-    const eIB = project(endBase(-1, yBot), centerlineEnd, endMN, eDir);
-    const eIT = project(endBase(-1, yTop), centerlineEnd, endMN, eDir);
+    const eOB = project(endBase(+1, yBot), centerlineEnd, endMN, eDir, true);
+    const eOT = project(endBase(+1, yTop), centerlineEnd, endMN, eDir, true);
+    const eIB = project(endBase(-1, yBot), centerlineEnd, endMN, eDir, true);
+    const eIT = project(endBase(-1, yTop), centerlineEnd, endMN, eDir, true);
 
     const pos: number[] = [];
     const nrm: number[] = [];

@@ -1496,18 +1496,47 @@ export class WallJoinResolver {
                         }
                     }
 
-                    // Singleton pinned (partner is primary, or partner not in this
-                    // cluster, or wall data missing): defer to pair-wise loop.
-                    // §SECONDARY-PINNED-FIX: do NOT pre-mutate bl here either.
-                    // The pair-wise loop will use the wall's original position.
-                    _cntPinned++;
+                    // §FIX-NEWWALL-LCORNER-BIAS (L-91, founder 2026-07-04) — a pinned wall that
+                    // is NOT part of the primary corner pair is a 3rd+ wall meeting AT an existing
+                    // L-corner (its endpoint snapped onto the corner node). Deferring it to the
+                    // pair-wise loop makes `_applyCorner` bisector-miter it against a neighbour,
+                    // which ROTATES its baseline OFF its authored axis (the founder's "preview shows
+                    // a clean perpendicular/snapped wall but the EXECUTED wall is biased/skewed":
+                    // the V2 preview keeps the baseline immutable and computes footprint corners,
+                    // but the legacy pair-wise miter tilts the stored baseline — e.g. a diagonal 3rd
+                    // wall's join end drifts (5.000,0)→(5.099,0) with a ~2° tilt). Route it to the
+                    // on-axis §CONSENSUS-ON-CENTRELINE trim below instead: the endpoint is projected
+                    // onto the wall's OWN centreline (zero rotation — the wall stays EXACTLY on its
+                    // authored axis and length), so the executed baseline matches the previewed one.
+                    // A GENUINE 2-wall L corner (both walls IN the primary pair) still defers, so the
+                    // pair-wise bisector miter that correctly closes an L is byte-unchanged; and when
+                    // there is no primary pair at all the old defer is kept (no behaviour change).
+                    // Gated default-ON. Detection frame — the baseline is only trimmed ALONG its own
+                    // axis, never rotated. Fixes the residual bias L-63/L-74/L-76 did not cover.
+                    const routeThirdWallOnAxis =
+                        (globalThis as any).window?.__pryzmNewWallLCornerBiasFix !== false
+                        && !!primaryPair && !isInPrimaryPair;
+                    if (!routeThirdWallOnAxis) {
+                        // Singleton pinned (partner is primary, or partner not in this
+                        // cluster, or wall data missing): defer to pair-wise loop.
+                        // §SECONDARY-PINNED-FIX: do NOT pre-mutate bl here either.
+                        // The pair-wise loop will use the wall's original position.
+                        _cntPinned++;
+                        if (_verboseClusterLogs) {
+                            console.log(
+                                `[WallJoinResolver] §MULTI-CLUSTER  wall=${ep.wallId}(${ep.side}) ` +
+                                `PINNED-SINGLETON — miter deferred to pair-wise loop`
+                            );
+                        }
+                        continue;
+                    }
                     if (_verboseClusterLogs) {
                         console.log(
-                            `[WallJoinResolver] §MULTI-CLUSTER  wall=${ep.wallId}(${ep.side}) ` +
-                            `PINNED-SINGLETON — miter deferred to pair-wise loop`
+                            `[WallJoinResolver] §FIX-NEWWALL-LCORNER-BIAS wall=${ep.wallId}(${ep.side}) ` +
+                            `3rd wall at existing corner → on-axis trim (no pair-wise tilt)`
                         );
                     }
-                    continue;
+                    // fall through to the on-axis §CONSENSUS-ON-CENTRELINE trim.
                 }
 
                 // ── Non-pinned, non-primary: trim to consensus and mark handled ─

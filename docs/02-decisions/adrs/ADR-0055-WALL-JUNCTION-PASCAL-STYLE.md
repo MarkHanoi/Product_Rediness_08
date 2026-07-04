@@ -203,6 +203,68 @@ A genuine L-corner is byte-unchanged: at a welded/perfect corner each wall's end
 - **Tests:** [`junctionResolverV2.lCornerT.test.ts`](../../../../packages/geometry-wall/__tests__/junctionResolverV2.lCornerT.test.ts) — (1) near-corner T (x=4.85): A+B keep their L-mitre (corners + shared (5,0) pivot, byte-identical to the bare L), C is a clean 4-gon flat butt on A's near face with no pivot, and NO footprint has a tongue vertex nor a doubled (same-direction near-coincident parallel) edge across walls; (2) exact-vertex 3-way Y stays a clean positive-area fan with no doubling; (3) far mid-span T unchanged; (4) the L-27 near-end T (host+guest, no corner) is byte-unchanged. All 4 new cases green; the 125-test geometry-wall suite (→129 with these) and the 107 ai-host wall/junction/footprint/pipeline tests remain green **without edits**.
 - **Alignment:** C15 / C11 — the extracted T is an ordinary hosted-junction; splitting the cluster cannot orphan a door/window (host relations are per-wall, unchanged). C04/P2/P3 respected — pure 2-D detection math, no new geometry pass, no THREE in `JunctionResolverV2`.
 
+## Refinement — §MITER-SEGMENT-CLAMP (a near-corner opening must not spike the mitre — 2026-07-04, L-93)
+
+**Status:** SHIPPED. A localized clamp in `MiterPrismBuilder.buildMiterPrism`; no change to the
+junction algorithm, the resolver, or any baseline. Within ADR-0055 / C15 (a hosted opening must not
+corrupt the corner mitre), not a superseding ADR.
+
+**Defect (founder, L-93).** At an L-corner where one arm carries a DOOR opening NEAR the corner, the
+plan footprint shows a spike/notch/messy join instead of a clean mitre. The corner mitre breaks
+specifically when an opening is close to it.
+
+**Root cause (verified by building the actual miter-prism geometry).** Opening-bearing walls render
+via the SEGMENTS path — `buildMiterPrism` per wall-body segment between openings — NOT the plain
+wall's V2 footprint (the two-render-paths seam: plain → CSG single-volume; opening/layered →
+segments / MiterPrism). The miter NORMAL is correct (it matches the V2 corner — both 45° for a
+0.2×0.2 m L). But when the door sits within a half-thickness (the 45° miter reach ≈ `halfT`) of the
+corner, the wall sliver between the door jamb and the corner is shorter than the miter reach, so the
+miter's INNER cap vertex — which retreats `halfT` back along the wall axis at a 45° corner — projects
+BACKWARD past the jamb into the door void → a self-intersecting triangular spike/notch in plan
+(reproduced: a door 50 mm from the corner produces a footprint whose min-x, 4.900, is behind the jamb
+at 4.950).
+
+**Fix.** In `buildMiterPrism`, clamp each projected cap vertex along the wall axis: it may extend PAST
+its own end (the legitimate outer miter overhang that meets the neighbour's outer face) but must NEVER
+retreat past the OPPOSITE miter plane (`_axialStart` for the end cap, `_axialEnd` for the start cap).
+The near-corner sliver becomes a clean, positive-area, non-self-intersecting prism — the outer face
+mitres to the corner, the inner face stops at the jamb — with no spike into the void. A segment longer
+than the miter reach never trips the clamp, so every existing layered / curved / straight miter-prism
+wall is byte-identical.
+
+- **Locus:** [`MiterPrismBuilder.buildMiterPrism`](../../../../packages/geometry-wall/src/MiterPrismBuilder.ts) `project()` — after the §MITER-T-CLAMP runaway cap, the per-vertex axial clamp against the opposite miter plane. Pure geometry; no new inputs beyond an `isEnd` flag on the internal projector.
+- **Tests:** [`MiterPrismBuilder.nearCornerOpening.test.ts`](../../../../packages/geometry-wall/__tests__/MiterPrismBuilder.nearCornerOpening.test.ts) — a door 10/20/50 mm from the corner produces no vertex behind the jamb, a positive-area, non-self-intersecting footprint, and preserves the outer overhang to the corner; a door far from the corner keeps the FULL clean mitre (inner + outer corners intact); deterministic on reopen. 150 geometry-wall + 117 ai-host tests green.
+- **Alignment:** ADR-0055 (watertight joins) · C15 (a hosted opening must not corrupt the host's corner). NOTE — the perfectly-mitred sub-`halfT` corner (door hard against the corner) ultimately wants the single-volume-CSG path (V2 footprint with the opening boolean-subtracted); this clamp removes the *spike* (the founder's defect) at the geometry level for the segments path today, and the CSG upgrade (§WALL-SINGLE-VOLUME-CSG DI seam) remains the longer-term convergence of the two render paths.
+
+## Refinement — §FIX-NEWWALL-LCORNER-BIAS (a 3rd wall at an L-corner stays on its own axis — 2026-07-04, L-91)
+
+**Status:** SHIPPED. A routing tweak in the legacy `WallJoinResolver` multi-cluster pinned-endpoint
+handling; no change to the miter math or footprint. Within ADR-0055 (executed geometry == preview),
+not a superseding ADR. Residual of §FIX-NEWWALL-LCORNER-SKEW.
+
+**Defect (founder, L-91).** A new wall whose endpoint snaps onto an existing L-corner: the live
+PREVIEW (V2, baseline-immutable) shows it clean — perpendicular/snapped, full length — but the
+EXECUTED wall is BIASED/skewed. Distinct from the L-74/L-76 pass-through square-cap (which dragged the
+endpoint to the corner consensus); here the preview is perpendicular yet the executed geometry shifts.
+
+**Root cause (verified by a resolveLevel-vs-V2 repro).** A new wall whose endpoint snaps onto the
+L-corner node is PINNED there (coincident within 1 mm). The legacy resolver defers a pinned wall to the
+pair-wise `_applyCorner` bisector miter. For a genuine 2-wall L that is correct (both walls trim to the
+shared centreline crossing, staying on their axes), but for a 3rd wall AT the corner the bisector miter
+ROTATES its stored baseline off its authored axis — a diagonal 3rd wall's join end drifted
+(5.000,0)→(5.099,0) with a ~2° tilt, whereas the V2 preview keeps the baseline immutable and only
+computes footprint corners.
+
+**Fix.** A pinned wall that is NOT part of the primary corner pair (a 3rd+ wall meeting AT an existing
+corner) is routed to the on-axis §CONSENSUS-ON-CENTRELINE trim instead of the pair-wise tilt: the join
+endpoint is projected onto the wall's OWN centreline (zero rotation), so the executed baseline keeps the
+previewed angle and length exactly. A genuine 2-wall L corner (both walls in the primary pair) still
+defers → the bisector miter is byte-unchanged; when there is no primary pair the old defer is kept.
+
+- **Locus:** [`WallJoinResolver.resolveLevel`](../../../../packages/geometry-wall/src/WallJoinResolver.ts) — the "singleton pinned" branch now defers only when `isInPrimaryPair || !primaryPair`; a non-primary pinned wall falls through to the on-axis consensus trim. Escape hatch `window.__pryzmNewWallLCornerBiasFix = false`. Detection frame — the baseline is only trimmed ALONG its axis, never rotated.
+- **Tests:** [`WallJoinResolver.newWallLCornerBias.test.ts`](../../../../packages/geometry-wall/__tests__/WallJoinResolver.newWallLCornerBias.test.ts) — executed baseline == preview (angle + length) for diagonal and perpendicular 3rd walls; stable on reopen (re-resolving persisted baselines); a genuine 2-wall L corner still mitres (both arms to the shared corner, no rotation). 150 geometry-wall tests green.
+- **Alignment:** ADR-0055 + §FIX-WALL-JOIN-BASELINE-IMMUTABLE (no off-axis baseline rotation); completes the "executed == preview" guarantee at an L-corner alongside §FIX-NEWWALL-LCORNER-SKEW (L-74/L-76) and the V2-side §FIX-WALL-LCORNER-T-CLEAN (L-61).
+
 ## Refinement — §FIX-NEWWALL-LCORNER-SKEW (a pass-through pair must be COLLINEAR *and* on the same line — 2026-07-03, L-63 Part-1 / L-74 / L-76)
 
 **Status:** SHIPPED. A one-condition tightening of the legacy `WallJoinResolver`'s pass-through
