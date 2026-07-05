@@ -189,6 +189,8 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 | L-98 split-view plan wall creation drops systemTypeId (=none) → plain wall not layered interior type | 0.5 walls/parity | **IN FLIGHT (plan-tools agent)** — thread active wall systemTypeId from SvpPlanToolOverlay into wall.create like main plan; fold into L-95 parity contract (incl. system type); §FIX-SPLIT-WALL-SYSTEMTYPE; test |
 
+| L-99 [HIGH] 3D selection corrupted in main(when split on)+split 3D; plan view fine — GPU-pick target desyncs from live viewport across split toggles + gizmo attaches to detached object (per-frame flood) | 1.0 selection/picking | **QUEUED (plan-tools agent, AFTER L-96)** — resize pick target to live 3D viewport on split enter/exit+resize; resolve selection via Scene Registry (id→Object3D) so rebuilt mesh re-resolves; study pascalorg/editor; §FIX-3D-SELECTION-ROBUST; tests |
+
 ## STATUS RECONCILIATION — 2026-07-04 (session close)
 
 **Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
