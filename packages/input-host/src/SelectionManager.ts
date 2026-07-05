@@ -10,6 +10,8 @@ import { DeleteLightingCommand } from '@pryzm/command-registry';
 import { BVHQuery } from '@pryzm/spatial-index';
 import type { BVHElement } from '@pryzm/spatial-index';
 import type { PickStrategy, PickContext, GpuPickRenderer, ElementRegistry, ElementKind } from '@pryzm/picking';
+// §FIX-3D-DOOR-PICK-PRIORITY (L-99b) — let a wall-hosted door/window win over its host.
+import { resolveHostedPickPriority } from '@pryzm/picking';
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import type { TickListenerDisposer } from '@pryzm/frame-scheduler';
 import { SelectionBoundsRegistry, buildDefaultSelectionBoundsRegistry } from './SelectionBoundsRegistry.js';
@@ -1467,7 +1469,11 @@ export class SelectionManager implements ISelectionManager {
             try {
                 const gpuResult = this._pickStrategy.pick({ x, y }, pickCtx);
                 if (gpuResult !== null) {
-                    const obj = pickCtx.elementRegistry.objectFor(gpuResult.elementId);
+                    // §FIX-3D-DOOR-PICK-PRIORITY (L-99b) — `obj`/`pickedElementId`/`pickedKind`
+                    // may be re-pointed at a wall-hosted door/window by the priority probe below.
+                    let obj = pickCtx.elementRegistry.objectFor(gpuResult.elementId);
+                    let pickedElementId = gpuResult.elementId;
+                    let pickedKind: string = gpuResult.elementKind;
                     // §97 SLAB-VS-STAIR — decisive click log. The GPU pick is authoritative
                     // and "frontmost-at-the-clicked-pixel wins" (the professional standard).
                     // The old log printed only an opaque UUID, so a human couldn't tell WHAT
@@ -1482,6 +1488,57 @@ export class SelectionManager implements ISelectionManager {
                         `[PickResolver] §97 click hit type=${_hitType} id=${gpuResult.elementId} ` +
                         `dist=${gpuResult.distance.toFixed(2)} strategy=${this._pickStrategy.id}`,
                     );
+
+                    // ── §FIX-3D-DOOR-PICK-PRIORITY (L-99b) — DIAGNOSTICS + hosted-element priority ──
+                    // The founder could not select a door in 3D at all — every pick resolved to the
+                    // host WALL/FLOOR. (1) Make the failure OBSERVABLE: log the pick-target vs live
+                    // viewport, how many door/window pick ids are registered (ZERO ⇒ the door mesh
+                    // carries no pick id / isn't in the selectable cache → it can never be picked),
+                    // and every candidate under the cursor. (2) When the winner is a large HOST and a
+                    // wall-hosted door/window is present within a coplanar depth epsilon, PROMOTE the
+                    // opening so the small door wins over its host. Only runs on host-kind hits — a
+                    // direct door/other hit is untouched; the extra probe is one readback per click.
+                    try {
+                        const _HOST = new Set(['wall', 'slab', 'floor', 'ceiling', 'roof']);
+                        let _doorIds = 0, _windowIds = 0;
+                        for (const eid of pickCtx.elementRegistry.ids()) {
+                            const k = pickCtx.elementRegistry.kindOf(eid);
+                            if (k === 'door') _doorIds++;
+                            else if (k === 'window') _windowIds++;
+                        }
+                        const _diagHead =
+                            `[PickDiag] §L-99b winner=${_hitType} viewport=${Math.round(rect.width)}x${Math.round(rect.height)} ` +
+                            `doorsRegistered=${_doorIds} windowsRegistered=${_windowIds}`;
+                        if (_HOST.has(String(_hitType).toLowerCase()) && typeof this._pickStrategy.pickRect === 'function') {
+                            const _R = 4; // CSS-px neighbourhood around the cursor
+                            const _probe = this._pickStrategy.pickRect({ x: x - _R, y: y - _R, w: _R * 2 + 1, h: _R * 2 + 1 }, pickCtx);
+                            const _cands = _probe.map((p) => ({
+                                elementId:   p.elementId,
+                                elementKind: (pickCtx.elementRegistry.kindOf(p.elementId) ?? p.elementKind ?? 'unknown') as string,
+                                distance:    p.distance,
+                            }));
+                            console.log(
+                                `${_diagHead} candidates=[${_cands.map((c) => `${c.elementKind}:${String(c.elementId).slice(0, 8)}@${c.distance.toFixed(2)}`).join(', ')}]`,
+                            );
+                            const _preferred = resolveHostedPickPriority(_cands);
+                            if (_preferred && _preferred.elementId !== gpuResult.elementId) {
+                                const _po = pickCtx.elementRegistry.objectFor(_preferred.elementId);
+                                if (_po) {
+                                    console.log(
+                                        `[PickResolver] §FIX-3D-DOOR-PICK-PRIORITY promoting hosted ${_preferred.elementKind} ` +
+                                        `${_preferred.elementId} over host ${_hitType}`,
+                                    );
+                                    obj = _po;
+                                    pickedElementId = _preferred.elementId;
+                                    pickedKind = _preferred.elementKind;
+                                }
+                            }
+                        } else {
+                            console.log(_diagHead);
+                        }
+                    } catch (err) {
+                        console.debug('[PickDiag] §L-99b hosted-priority probe skipped:', err);
+                    }
                     if (obj) {
                         // GPU pick succeeded — dispatch world-click event then select.
                         {
@@ -1507,8 +1564,8 @@ export class SelectionManager implements ISelectionManager {
                             window.dispatchEvent(new CustomEvent('bim-canvas-world-click', { // TODO(TASK-11)
                                 detail: {
                                     worldPoint,
-                                    elementId:   gpuResult.elementId,
-                                    elementType: gpuResult.elementKind,
+                                    elementId:   pickedElementId,  // §FIX-3D-DOOR-PICK-PRIORITY (L-99b)
+                                    elementType: pickedKind,
                                 },
                             }));
                         }
@@ -1528,8 +1585,8 @@ export class SelectionManager implements ISelectionManager {
                         // non-instanced hits the override is undefined (unchanged behaviour).
                         const instanceOverride =
                             resolvedRoot.userData?.isInstancedGroup === true &&
-                            resolvedRoot.userData?.id !== gpuResult.elementId
-                                ? gpuResult.elementId
+                            resolvedRoot.userData?.id !== pickedElementId  // §FIX-3D-DOOR-PICK-PRIORITY (L-99b)
+                                ? pickedElementId
                                 : undefined;
                         this.select(resolvedRoot, instanceOverride);
                         return;
