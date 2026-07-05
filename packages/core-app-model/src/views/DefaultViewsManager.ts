@@ -22,11 +22,29 @@
  */
 
 import { viewDefinitionStore } from './ViewDefinitionStore';
+import { VIEW_PROJECTION_DIRECTIONS } from './ViewDefinitionTypes';
 import { SYSTEM_INTENT_IDS } from '../presentation/SystemIntents';
 import { viewIntentInstanceStore } from '../presentation/ViewIntentInstanceStore';
 
 export const DEFAULT_3D_VIEW_ID   = 'vd-sys-3d-1';
 export const DEFAULT_PLAN_VIEW_ID = 'vd-sys-plan-l0';
+
+// §FEAT-DEFAULT-ELEVATIONS (L-110) — the four system default building elevations.
+// Guaranteed on every project startup alongside the plan + {3D} defaults, exactly
+// like Revit's default N/E/S/W elevations. Oriented to PROJECT NORTH: the plan /
+// authoring frame IS project north (ADR-0115), so the world-axis projection
+// presets ARE the project-north cardinal directions; the globe applies θ
+// separately. Each carries `spatial.projectionDirection` — the shape
+// EdgeProjectorService reads (identical to the shipped documentation-set N/S/E/W
+// elevations in generateDocumentationSet.ts), so each projects REAL geometry.
+export const DEFAULT_ELEVATION_VIEWS = [
+    { id: 'vd-sys-elev-north', name: 'North Elevation', dir: VIEW_PROJECTION_DIRECTIONS.elevationBack  },
+    { id: 'vd-sys-elev-east',  name: 'East Elevation',  dir: VIEW_PROJECTION_DIRECTIONS.elevationRight },
+    { id: 'vd-sys-elev-south', name: 'South Elevation', dir: VIEW_PROJECTION_DIRECTIONS.elevationFront },
+    { id: 'vd-sys-elev-west',  name: 'West Elevation',  dir: VIEW_PROJECTION_DIRECTIONS.elevationLeft  },
+] as const;
+
+const DEFAULT_ELEVATION_IDS = new Set<string>(DEFAULT_ELEVATION_VIEWS.map(v => v.id));
 
 const GROUND_LEVEL_ID = 'L0';
 
@@ -94,6 +112,34 @@ function ensureDefaultViews(): void {
     } else {
         _ensureDefaultIntent(DEFAULT_PLAN_VIEW_ID);
     }
+
+    // ── 3. Four default building elevations (N/E/S/W) — §FEAT-DEFAULT-ELEVATIONS ─
+    // Mirror the plan/3D branches exactly: system-created (createdBy:'system' ⇒
+    // no undo pollution, §01 §2), orthographic, with `spatial.projectionDirection`
+    // so EdgeProjectorService projects real geometry. Project-north oriented.
+    for (const elev of DEFAULT_ELEVATION_VIEWS) {
+        if (!viewDefinitionStore.has(elev.id)) {
+            viewDefinitionStore.create({
+                id:         elev.id,
+                name:       elev.name,
+                viewType:   'elevation',
+                discipline: 'all',
+                spatial:    { projectionDirection: { x: elev.dir.x, y: elev.dir.y, z: elev.dir.z } },
+                intent:     `Default ${elev.name.toLowerCase()} — system default (project north).`,
+                createdBy:  'system',
+                output: {
+                    detailLevel: 'medium',
+                    visualStyle: 'shadedWithEdges',
+                    shadows:     false,
+                },
+            });
+            _ensureVgBridge(elev.id, elev.name);
+            _ensureDefaultIntent(elev.id);
+            console.log(`[DefaultViewsManager] Created default ${elev.name} (id=${elev.id})`);
+        } else {
+            _ensureDefaultIntent(elev.id);
+        }
+    }
 }
 
 let _resetDebounce: ReturnType<typeof setTimeout> | null = null;
@@ -140,7 +186,11 @@ export function initDefaultViewsManager(): void {
     // DeleteViewDefinitionCommand), recreate it on the next tick.
     window.addEventListener('vd:view-deleted', (e: Event) => {
         const viewId = (e as CustomEvent).detail?.viewId as string | undefined;
-        if (viewId === DEFAULT_3D_VIEW_ID || viewId === DEFAULT_PLAN_VIEW_ID) {
+        if (
+            viewId === DEFAULT_3D_VIEW_ID ||
+            viewId === DEFAULT_PLAN_VIEW_ID ||
+            (viewId !== undefined && DEFAULT_ELEVATION_IDS.has(viewId)) // §FEAT-DEFAULT-ELEVATIONS (L-110)
+        ) {
             console.warn(`[DefaultViewsManager] Default view "${viewId}" was deleted — restoring.`);
             setTimeout(() => ensureDefaultViews(), 0);
         }
