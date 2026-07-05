@@ -18,19 +18,40 @@ export interface CeilingCreationParams {
   kind: 'ceiling';
   height: number;        // metres above level datum
   thickness: number;     // panel thickness (metres)
+  // §FEAT-FLOOR-CREATE-TYPE-PICKER (L-105) — chosen ceiling finish type id (from the
+  // shared ceilingSystemTypeStore catalogue). Empty/undefined = "— Plain Ceiling —".
+  systemTypeId?: string;
 }
 
 export interface FloorCreationParams {
   kind: 'floor';
   thickness: number;     // assembly thickness (metres)
   baseOffset: number;    // Y offset above level datum (metres)
+  // §FEAT-FLOOR-CREATE-TYPE-PICKER (L-105) — chosen floor finish type id (from the
+  // shared floorSystemTypeStore catalogue — the SAME registry the post-creation FLOOR
+  // TYPE dropdown reads). Empty/undefined = "— Plain Floor —".
+  systemTypeId?: string;
 }
 
 export type ElementCreationParams = CeilingCreationParams | FloorCreationParams;
 
+/** A finish/assembly type surfaced in the creation-panel type picker. Passed IN by
+ *  the caller (FloorTool / CeilingTool resolve it from their system-type store) so
+ *  the modal stays store-free (§05-BIM-UI §1.5 — UI layer reads no stores). */
+export interface CreationTypeOption {
+  id: string;
+  name: string;
+  totalThickness: number;   // metres — used to auto-fill the thickness field on select
+}
+
 export interface ElementCreationModalOptions {
   params: ElementCreationParams;
   polygonArea?: number;       // m² — optional, shown as info
+  // §FEAT-FLOOR-CREATE-TYPE-PICKER (L-105) — the finish-type catalogue to offer. When
+  // provided (and non-empty) a "Finish type" / "Ceiling type" dropdown is rendered at
+  // the top of the body; selecting a concrete type auto-fills the thickness field with
+  // that type's assembly thickness. Absent/empty → no picker (unchanged behaviour).
+  systemTypes?: CreationTypeOption[];
   onConfirm: (params: ElementCreationParams) => void;
   onCancel: () => void;
 }
@@ -49,7 +70,7 @@ export class ElementCreationModal {
 
   show(opts: ElementCreationModalOptions): void {
     this.dismiss();
-    const { params, polygonArea, onConfirm, onCancel } = opts;
+    const { params, polygonArea, systemTypes, onConfirm, onCancel } = opts;
     const isCeiling = params.kind === 'ceiling';
     const elementName = isCeiling ? 'Ceiling' : 'Floor Finish';
 
@@ -94,6 +115,22 @@ export class ElementCreationModal {
     let heightInput: HTMLInputElement | null = null;
     let thicknessInput: HTMLInputElement | null = null;
     let baseOffsetInput: HTMLInputElement | null = null;
+    let typeSelect: HTMLSelectElement | null = null;
+
+    // §FEAT-FLOOR-CREATE-TYPE-PICKER (L-105) — finish/assembly type selector, sourced
+    // from the SAME catalogue the post-creation property-panel dropdown reads. Rendered
+    // first so the user picks the finish before dimensions; selecting a concrete type
+    // auto-fills the thickness field with that type's assembly thickness.
+    if (systemTypes && systemTypes.length > 0) {
+      const typeField = _buildTypeField(
+        isCeiling ? 'Ceiling type' : 'Finish type',
+        isCeiling ? '— Plain Ceiling —' : '— Plain Floor —',
+        systemTypes,
+        params.systemTypeId,
+      );
+      typeSelect = typeField.select;
+      body.appendChild(typeField.row);
+    }
 
     if (isCeiling) {
       const cParams = params as CeilingCreationParams;
@@ -121,6 +158,17 @@ export class ElementCreationModal {
       body.appendChild(offsetField.row);
     }
 
+    // §FEAT-FLOOR-CREATE-TYPE-PICKER (L-105) — selecting a concrete type auto-fills the
+    // assembly/panel thickness with that type's total, so the dimension field always
+    // reflects the chosen finish. "Plain" keeps whatever the user typed.
+    if (typeSelect && systemTypes) {
+      const byId = new Map(systemTypes.map(t => [t.id, t]));
+      typeSelect.addEventListener('change', () => {
+        const t = byId.get(typeSelect!.value);
+        if (t && thicknessInput) thicknessInput.value = t.totalThickness.toFixed(3);
+      });
+    }
+
     card.appendChild(body);
 
     // ── Footer ────────────────────────────────────────────────────────────────
@@ -138,7 +186,7 @@ export class ElementCreationModal {
     confirmBtn.type = 'button';
     confirmBtn.textContent = `Create ${elementName}`;
     confirmBtn.addEventListener('click', () => {
-      const result = _collectParams(params, heightInput, thicknessInput, baseOffsetInput);
+      const result = _collectParams(params, heightInput, thicknessInput, baseOffsetInput, typeSelect);
       this.dismiss();
       onConfirm(result);
     });
@@ -222,23 +270,76 @@ function _buildField(
   return { row, input };
 }
 
+interface TypeFieldResult {
+  row: HTMLElement;
+  select: HTMLSelectElement;
+}
+
+/** §FEAT-FLOOR-CREATE-TYPE-PICKER (L-105) — a labelled <select> of finish types,
+ *  reusing the ecm- field chrome. `plainLabel` is the value-'' "no type" option;
+ *  `selectedId` pre-selects the caller's current default. */
+function _buildTypeField(
+  label: string,
+  plainLabel: string,
+  types: CreationTypeOption[],
+  selectedId: string | undefined
+): TypeFieldResult {
+  const row = document.createElement('div');
+  row.className = 'ecm-field';
+
+  const lbl = document.createElement('label');
+  lbl.className = 'ecm-field-label';
+  lbl.textContent = label;
+
+  const inputRow = document.createElement('div');
+  inputRow.className = 'ecm-field-input-row';
+
+  const select = document.createElement('select');
+  select.className = 'ecm-field-input';
+
+  const plainOpt = document.createElement('option');
+  plainOpt.value = '';
+  plainOpt.textContent = plainLabel;
+  select.appendChild(plainOpt);
+
+  for (const t of types) {
+    const opt = document.createElement('option');
+    opt.value = t.id;
+    const thkMm = Math.round(t.totalThickness * 1000);
+    opt.textContent = `${t.name}  (${thkMm}mm)`;
+    if (t.id === selectedId) opt.selected = true;
+    select.appendChild(opt);
+  }
+
+  inputRow.appendChild(select);
+  row.appendChild(lbl);
+  row.appendChild(inputRow);
+  return { row, select };
+}
+
 function _collectParams(
   base: ElementCreationParams,
   heightInput: HTMLInputElement | null,
   thicknessInput: HTMLInputElement | null,
-  baseOffsetInput: HTMLInputElement | null
+  baseOffsetInput: HTMLInputElement | null,
+  typeSelect: HTMLSelectElement | null
 ): ElementCreationParams {
+  // §FEAT-FLOOR-CREATE-TYPE-PICKER (L-105) — empty option value ('') = "Plain", carried
+  // through as undefined so the tool creates a plain finish (its existing default path).
+  const systemTypeId = typeSelect && typeSelect.value ? typeSelect.value : undefined;
   if (base.kind === 'ceiling') {
     return {
       kind: 'ceiling',
       height:    _readValue(heightInput,    base.height),
       thickness: _readValue(thicknessInput, base.thickness),
+      systemTypeId,
     };
   } else {
     return {
       kind: 'floor',
       thickness:  _readValue(thicknessInput, base.thickness),
       baseOffset: _readValue(baseOffsetInput, base.baseOffset),
+      systemTypeId,
     };
   }
 }

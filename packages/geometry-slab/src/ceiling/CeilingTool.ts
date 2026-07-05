@@ -32,10 +32,21 @@ export interface CeilingCreationParams {
   kind: 'ceiling';
   height: number;
   thickness: number;
+  // §FEAT-FLOOR-CREATE-TYPE-PICKER (L-105) — ceiling finish type chosen in the panel.
+  systemTypeId?: string;
+}
+/** §FEAT-FLOOR-CREATE-TYPE-PICKER (L-105) — a ceiling type surfaced in the create panel. */
+export interface CeilingTypeOption {
+  id: string;
+  name: string;
+  totalThickness: number;
 }
 export interface CeilingModalOptions {
   params: CeilingCreationParams;
   polygonArea?: number;
+  // §FEAT-FLOOR-CREATE-TYPE-PICKER (L-105) — the ceiling catalogue (from the ceiling
+  // system-type store) offered as a dropdown in the "Set parameters" panel.
+  systemTypes?: CeilingTypeOption[];
   onConfirm: (params: CeilingCreationParams) => void;
   onCancel: () => void;
 }
@@ -174,6 +185,32 @@ export class CeilingTool {
 
   setPendingSystemType(id: string | undefined): void {
     this._pendingSystemTypeId = id;
+  }
+
+  /**
+   * §FEAT-FLOOR-CREATE-TYPE-PICKER (L-105) — alias for setPendingSystemType.
+   * BimService.activateCeilingTool() and the create-panel CeilingModePicker call
+   * `setSystemTypeId(id)`; that method did not exist, so the mode-picker's ceiling-type
+   * selection never reached the tool. This makes the pre-selection stick (and pre-fills
+   * the creation-panel dropdown default), while the modal remains the confirm surface.
+   */
+  setSystemTypeId(id: string | undefined): void {
+    this._pendingSystemTypeId = id;
+  }
+
+  /**
+   * §FEAT-FLOOR-CREATE-TYPE-PICKER (L-105) — resolve the ceiling catalogue for the
+   * creation-panel dropdown from the SAME ceiling system-type store the post-creation
+   * property-panel dropdown reads (single source of truth). Best-effort; empty on failure.
+   */
+  private _resolveCeilingTypeOptions(): CeilingTypeOption[] {
+    try {
+      const typeStore = (this._deps.getCeilingSystemTypeStore?.() as any) ?? ceilingSystemTypeStore;
+      const all = (typeStore?.getAll?.() ?? []) as any[];
+      return all.map((t: any) => ({ id: t.id, name: t.name, totalThickness: t.totalThickness }));
+    } catch {
+      return [];
+    }
   }
 
   setPendingHeight(h: number): void {
@@ -418,12 +455,17 @@ export class CeilingTool {
         kind: 'ceiling',
         height:    this._pendingHeight,
         thickness: this._pendingThickness,
+        systemTypeId: this._pendingSystemTypeId,
       },
       polygonArea: area,
+      systemTypes: this._resolveCeilingTypeOptions(),
       onConfirm: (params) => {
         if (params.kind === 'ceiling') {
           this._pendingHeight    = params.height;
           this._pendingThickness = params.thickness;
+          // §FEAT-FLOOR-CREATE-TYPE-PICKER (L-105) — carry the chosen finish into the
+          // create payload; _createCeiling resolves its layer snapshot from this id.
+          this._pendingSystemTypeId = params.systemTypeId;
         }
         this._createCeiling(polygon);
         // CONTINUOUS-CREATION: reset polygon state but keep listeners + HUD.
@@ -910,12 +952,15 @@ export class CeilingTool {
           kind: 'ceiling',
           height:    this._pendingHeight,
           thickness: this._pendingThickness,
+          systemTypeId: this._pendingSystemTypeId,
         },
         polygonArea,
+        systemTypes: this._resolveCeilingTypeOptions(),
         onConfirm: (params) => {
           if (params.kind === 'ceiling') {
             this._pendingHeight    = params.height;
             this._pendingThickness = params.thickness;
+            this._pendingSystemTypeId = params.systemTypeId; // §FEAT-FLOOR-CREATE-TYPE-PICKER (L-105)
           }
           this._createCeiling(polygon);
           this._pendingHostRoomId = undefined;

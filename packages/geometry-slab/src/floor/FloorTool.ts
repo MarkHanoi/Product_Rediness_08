@@ -36,10 +36,21 @@ export interface FloorCreationParams {
   kind: 'floor';
   thickness: number;
   baseOffset: number;
+  // §FEAT-FLOOR-CREATE-TYPE-PICKER (L-105) — finish type chosen in the creation panel.
+  systemTypeId?: string;
+}
+/** §FEAT-FLOOR-CREATE-TYPE-PICKER (L-105) — a finish type surfaced in the create panel. */
+export interface FloorTypeOption {
+  id: string;
+  name: string;
+  totalThickness: number;
 }
 export interface FloorModalOptions {
   params: FloorCreationParams;
   polygonArea?: number;
+  // §FEAT-FLOOR-CREATE-TYPE-PICKER (L-105) — the finish catalogue (from the floor
+  // system-type store) offered as a dropdown in the "Set parameters" panel.
+  systemTypes?: FloorTypeOption[];
   onConfirm: (params: FloorCreationParams) => void;
   onCancel: () => void;
 }
@@ -192,6 +203,32 @@ export class FloorTool {
 
   setPendingSystemType(id: string | undefined): void {
     this._pendingSystemTypeId = id;
+  }
+
+  /**
+   * §FEAT-FLOOR-CREATE-TYPE-PICKER (L-105) — alias for setPendingSystemType.
+   * BimService.activateFloorTool() and the create-panel FloorModePicker both call
+   * `setSystemTypeId(id)`; that method did not exist, so the mode-picker's finish
+   * selection never reached the tool. This makes the pre-selection stick (and pre-fills
+   * the creation-panel dropdown default), while the modal remains the confirm surface.
+   */
+  setSystemTypeId(id: string | undefined): void {
+    this._pendingSystemTypeId = id;
+  }
+
+  /**
+   * §FEAT-FLOOR-CREATE-TYPE-PICKER (L-105) — resolve the finish catalogue for the
+   * creation-panel dropdown from the SAME floor system-type store the post-creation
+   * property-panel dropdown reads (single source of truth). Best-effort; empty on failure.
+   */
+  private _resolveFloorTypeOptions(): FloorTypeOption[] {
+    try {
+      const typeStore = (this._deps.getFloorSystemTypeStore?.() as any) ?? floorSystemTypeStore;
+      const all = (typeStore?.getAll?.() ?? []) as any[];
+      return all.map((t: any) => ({ id: t.id, name: t.name, totalThickness: t.totalThickness }));
+    } catch {
+      return [];
+    }
   }
 
   setPendingBaseOffset(offset: number): void {
@@ -457,12 +494,17 @@ export class FloorTool {
         kind: 'floor',
         thickness:  this._pendingThickness,
         baseOffset: this._pendingBaseOffset,
+        systemTypeId: this._pendingSystemTypeId,
       },
       polygonArea: area,
+      systemTypes: this._resolveFloorTypeOptions(),
       onConfirm: (params) => {
         if (params.kind === 'floor') {
           this._pendingThickness  = params.thickness;
           this._pendingBaseOffset = params.baseOffset;
+          // §FEAT-FLOOR-CREATE-TYPE-PICKER (L-105) — carry the chosen finish into the
+          // create payload; _createFloor resolves its layer snapshot from this id.
+          this._pendingSystemTypeId = params.systemTypeId;
         }
         this._createFloor(polygon);
         // CONTINUOUS-CREATION: reset polygon state but keep listeners + HUD.
@@ -888,12 +930,15 @@ export class FloorTool {
           kind: 'floor',
           thickness:  this._pendingThickness,
           baseOffset: this._pendingBaseOffset,
+          systemTypeId: this._pendingSystemTypeId,
         },
         polygonArea,
+        systemTypes: this._resolveFloorTypeOptions(),
         onConfirm: (params) => {
           if (params.kind === 'floor') {
             this._pendingThickness  = params.thickness;
             this._pendingBaseOffset = params.baseOffset;
+            this._pendingSystemTypeId = params.systemTypeId; // §FEAT-FLOOR-CREATE-TYPE-PICKER (L-105)
           }
           this._createFloor(polygon);
           this._pendingHostRoomId = undefined;
