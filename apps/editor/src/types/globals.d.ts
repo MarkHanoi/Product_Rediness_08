@@ -392,6 +392,13 @@ declare global {
                 // quality tier (Axis 1). Both are async + idempotent + no-op on WebGL.
                 activateTRAA?: () => Promise<void>;
                 deactivateTRAA?: () => Promise<void>;
+                // §FIX-POSTFX-WEBGPU (L-111) — SSGI == the WebGPU screen-space Ambient
+                // Occlusion pass (SSGINode, giIntensity=0 → AO-only). Driven by the View
+                // Properties "Ambient Occlusion" toggle AND the RenderRail "SSGI" toggle.
+                // User-opt-in only (§FIX-SSGI-DEFAULT-OFF / L-59); async + idempotent;
+                // no-op on WebGL. Optional param passes SSGI quality overrides.
+                activateSSGI?: (params?: object) => Promise<void>;
+                deactivateSSGI?: () => Promise<void>;
                 /** Pipeline status — webGpuActive gates the WebGL SSGI path (read at initScene). */
                 readonly status?: { webGpuActive?: boolean };
                 // §RPM-RECOVERY-DOWNGRADE (ADR-0087) — NON-FATAL device-loss recovery.

@@ -21,6 +21,9 @@
 
 import * as THREE from '@pryzm/renderer-three/three';
 import { installEnvironmentHud } from '../ui/environment/EnvironmentHud';
+// §FIX-POSTFX-WEBGPU (L-111) — backend-aware routing for the AO + Exposure
+// post-processing controls so they take effect on the LIVE (WebGPU) renderer.
+import { applyAmbientOcclusion, applyExposure, type ToneMappedRenderer } from './postFxRouting';
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import * as OBC from '@thatopen/components';
 import * as OBCF from '@thatopen/components-front';
@@ -2633,13 +2636,36 @@ export async function initUI(p: UIParams): Promise<void> {
     });
 
     // F.events.14 — pryzm-set-ao migrated from DOM CustomEvent to runtime.events.
+    // §FIX-POSTFX-WEBGPU (L-111) — Ambient Occlusion must take effect on the LIVE
+    // renderer. The production DEFAULT is the PRYZM-owned WebGPU renderer
+    // (window.pryzmRenderer / resolvedPreference=webgpu); OBC's
+    // PostproductionRenderer is silenced (MANUAL, postproduction.enabled=false) in
+    // Phase 5, so the old OBC-only `aoPass.blendIntensity` write painted nothing —
+    // AO silently no-op'd on WebGPU. On WebGPU the ambient-occlusion pass IS the TSL
+    // screen-space SSGI pass (SSGINode, giIntensity=0 by default → AO-only, not full
+    // GI), owned by RenderPipelineManager. We therefore route the AO toggle to the
+    // TSL pipeline on the WebGPU backend and keep the OBC aoPass branch as the
+    // WebGL fallback (backend-detect via rpm.status.webGpuActive).
+    //
+    // §FIX-SSGI-DEFAULT-OFF (founder L-59) is preserved: SSGI is NOT forced on at
+    // boot — it activates ONLY on this explicit user opt-in (identical to the
+    // RenderRail "SSGI" toggle, which shares the same rpm.activateSSGI() path). The
+    // default SSGI params are AO-only (giIntensity=0), so this drives the AO
+    // contribution rather than the heavy full-GI pipeline.
     window.runtime?.events?.on('pryzm-set-ao', ({ enabled }: { enabled: boolean }) => {
-        try {
-            const postprod = (world.renderer as OBCF.PostproductionRenderer).postproduction;
-            if (postprod?.aoPass) {
-                postprod.aoPass.blendIntensity = enabled ? 0.6 : 0;
-            }
-        } catch { /* renderer may not be PostproductionRenderer */ }
+        applyAmbientOcclusion(
+            window.renderPipelineManager,
+            (on) => {
+                // WebGL / OBC fallback: drive the OBC PostproductionRenderer aoPass.
+                try {
+                    const postprod = (world.renderer as OBCF.PostproductionRenderer).postproduction;
+                    if (postprod?.aoPass) {
+                        postprod.aoPass.blendIntensity = on ? 0.6 : 0;
+                    }
+                } catch { /* renderer may not be PostproductionRenderer */ }
+            },
+            enabled,
+        );
         updateIfManualMode();
     });
 
@@ -2656,12 +2682,28 @@ export async function initUI(p: UIParams): Promise<void> {
     });
 
     // F.events.14 — pryzm-set-exposure migrated from DOM CustomEvent to runtime.events.
+    // §FIX-POSTFX-WEBGPU (L-111) — exposure must reach the LIVE renderer. In the
+    // production WebGPU default the surface actually painting is
+    // window.pryzmRenderer (the PRYZM-owned WebGPU renderer); OBC's `.three` is the
+    // silenced WebGL renderer, so writing toneMappingExposure ONLY on OBC changed an
+    // invisible renderer. We set exposure on BOTH the OBC renderer (WebGL / bloom
+    // fallback path) AND the live WebGPU renderer so it takes effect on whichever
+    // backend is active. The UnifiedFrameLoop repaints the TSL pipeline every frame,
+    // so the WebGPU renderer picks up the new exposure on the next tick — no
+    // pipeline rebuild required (keeps §FIX-SSGI-DEFAULT-OFF / ADR-0111 intact).
     window.runtime?.events?.on('pryzm-set-exposure', ({ exposure }: { exposure: number }) => {
-        try {
-            const threeRenderer = (world.renderer as OBCF.PostproductionRenderer).three;
-            threeRenderer.toneMapping         = THREE.ACESFilmicToneMapping;
-            threeRenderer.toneMappingExposure = exposure;
-        } catch { /* ignore */ }
+        // OBC PostproductionRenderer (WebGL path + the EnhancedBloom canvas-swap path).
+        let obcThree: ToneMappedRenderer | null = null;
+        try { obcThree = (world.renderer as OBCF.PostproductionRenderer).three; } catch { /* ignore */ }
+        applyExposure(
+            [
+                obcThree,
+                // Live PRYZM WebGPU renderer (production default) — the surface painting.
+                window.pryzmRenderer as ToneMappedRenderer | undefined,
+            ],
+            exposure,
+            THREE.ACESFilmicToneMapping,
+        );
         updateIfManualMode();
     });
 
