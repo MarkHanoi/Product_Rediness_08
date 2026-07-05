@@ -145,6 +145,25 @@ export class WallRebuildCoordinator {
     // for the same walls still runs.
     private _pendingRebuildKey: string | null = null;
 
+    // §FIX-WALLFLUSH-NOPROGRESS-GUARD (L-97, founder 2026-07-04) — the wall-rebuild-flush
+    // analogue of the room-redetect §FIX-ROOMREDETECT-NOPROGRESS-GUARD (L-63). A whole-level
+    // `_flush` writes each resolved wall's baseline back to the store (`store.update`); that
+    // store mutation fires a buffered `wall:update` that re-arms `_scheduleFlush` AFTER
+    // `_joinsResolving` clears. Normally the next flush is a no-op, but when a moved
+    // door-bearing wall lands in a `§SELF-CLUSTER-GUARD` cluster (a wall whose BOTH ends fall
+    // in one junction cluster) the resolver keeps wanting to re-write it, so the flush re-arms
+    // EVERY rAF frame and never converges → the founder's hard freeze. `_flush` is a PURE
+    // function of the level's wall geometry: if the store geometry is byte-identical to what
+    // the LAST completed flush already built, this flush can make NO progress. These bound the
+    // re-arm: (1) a per-level no-progress gate skips the flush when the level's wall signature
+    // is unchanged since the last completed flush; (2) a circuit-breaker trips if the same
+    // signature reaches `_flush` more than FLUSH_NOPROGRESS_MAX times inside the window. A
+    // genuine edit changes the signature → both release immediately.
+    private _lastFlushLevelSig = new Map<string, string>();
+    private _flushBurst = new Map<string, { sig: string; count: number; ts: number }>();
+    private static readonly _FLUSH_NOPROGRESS_MAX = 8;
+    private static readonly _FLUSH_WINDOW_MS = 1_000;
+
     // Deps wired via init()
     private _wallTool!: WallRebuildDeps['wallTool'];
     private _slabStore!: any;
@@ -915,6 +934,46 @@ export class WallRebuildCoordinator {
         }
     }
 
+    /**
+     * §FIX-WALLFLUSH-NOPROGRESS-GUARD (L-97) — a cheap, stable signature of EVERY input the
+     * whole-level `_flush` rebuild consumes: for each wall, id + baseline @ mm + thickness +
+     * height + baseOffset + opening set (offset/width/sill/height) + layer thicknesses + curve
+     * control + material (id / colour). `_flush` (resolveLevel → footprint → miter-prism →
+     * hosted-child re-anchor + material) is a pure function of exactly these, so an unchanged
+     * signature means a fresh flush can build nothing new. CRITICALLY it covers material /
+     * height / baseOffset too, so a legitimate material or elevation edit (which leaves the
+     * join geometry unchanged) still changes the signature and is NEVER suppressed — only a
+     * genuine no-op re-arm (the baseline anchor write-back, which touches none of these beyond
+     * a baseline it leaves byte-identical once converged) is gated out. Order-independent.
+     */
+    private _levelWallSig(levelId: string, store: { getAll(): any[] }): string {
+        try {
+            const walls = store.getAll().filter((w: any) => w && w.levelId === levelId);
+            const mm = (n: number | undefined): number => Math.round((Number(n) || 0) * 1000);
+            const parts: string[] = [];
+            for (const w of walls) {
+                const bl = w.baseLine;
+                if (!bl || bl.length < 2 || !bl[0] || !bl[1]) continue;
+                const ops = (w.openings ?? [])
+                    .map((o: any) => `${mm(o.offset)},${mm(o.width)},${mm(o.sillHeight)},${mm(o.height)}`)
+                    .sort()
+                    .join(';');
+                const lys = (w.layers ?? []).map((l: any) => mm(l.thickness)).join(',');
+                const cv = w.curve ? `${mm(w.curve.control?.x)},${mm(w.curve.control?.z)}` : '';
+                const mat = `${w.materialId ?? ''}/${w.materialColor ?? ''}`;
+                parts.push(
+                    `${w.id}:${mm(bl[0].x)},${mm(bl[0].z)}>${mm(bl[1].x)},${mm(bl[1].z)}` +
+                    `#${mm(w.thickness)}h${mm(w.height)}b${mm(w.baseOffset)}|o[${ops}]|l[${lys}]|c[${cv}]|m[${mat}]`,
+                );
+            }
+            parts.sort();
+            return `n${parts.length}|${parts.join('|')}`;
+        } catch {
+            // Any read failure → a UNIQUE token so the guard never falsely suppresses a flush.
+            return `err${Math.random()}`;
+        }
+    }
+
     private _flush(): void {
         this._wallRafHandle = null;
         // §A.21.D28-COALESCE — the drain is starting; clear the explicit-rebuild
@@ -927,6 +986,44 @@ export class WallRebuildCoordinator {
 
         const builder = this._wallTool.getFragmentBuilder();
         const store   = this._wallTool.getWallStore();
+
+        // §FIX-WALLFLUSH-NOPROGRESS-GUARD (L-97) — break the self-re-arming flush loop. This
+        // runs BEFORE the openings-only fast path so BOTH rebuild paths are covered. If the
+        // store geometry of every affected level is byte-identical to what the last completed
+        // flush already built, this flush can make no progress (the re-arm after a
+        // §SELF-CLUSTER-GUARD wall keeps getting re-written) → skip it entirely: no resolve, no
+        // fast-path body rebuild, no store.update, no `bim-wall-mutation-committed`, so the loop
+        // terminates. A genuine edit changes a level's signature and releases the gate; the
+        // circuit-breaker is the belt-and-braces if any rebuild input the signature does not
+        // capture still oscillates.
+        const _flushLevels = new Set<string>();
+        for (const { wall } of batch.values()) _flushLevels.add(wall.levelId);
+        {
+            const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+            const sigByLevel = new Map<string, string>();
+            let anyProgress = false;
+            for (const levelId of _flushLevels) {
+                const sig = this._levelWallSig(levelId, store);
+                sigByLevel.set(levelId, sig);
+                if (this._lastFlushLevelSig.get(levelId) !== sig) anyProgress = true;
+            }
+            if (!anyProgress && this._lastFlushLevelSig.size > 0) {
+                console.debug('[WallRebuildCoordinator] §FIX-WALLFLUSH-NOPROGRESS-GUARD flush skipped — wall geometry unchanged since the last completed flush');
+                return;
+            }
+            for (const [levelId, sig] of sigByLevel) {
+                const b = this._flushBurst.get(levelId);
+                if (b && b.sig === sig && (now - b.ts) < WallRebuildCoordinator._FLUSH_WINDOW_MS) {
+                    b.count++;
+                    if (b.count > WallRebuildCoordinator._FLUSH_NOPROGRESS_MAX) {
+                        console.warn(`[WallRebuildCoordinator] §FIX-WALLFLUSH-NOPROGRESS-GUARD circuit-breaker TRIPPED (level=${levelId}, ${b.count} same-geometry flushes in <${WallRebuildCoordinator._FLUSH_WINDOW_MS}ms) — suppressing until walls change`);
+                        return;
+                    }
+                } else {
+                    this._flushBurst.set(levelId, { sig, count: 1, ts: now });
+                }
+            }
+        }
 
         // ─── ADR-057 P1 (OI-053h) — single-wall openings-only fast path ────────
         // Classify the batch BEFORE the §STEP7 neighbour expansion (which only
@@ -943,6 +1040,9 @@ export class WallRebuildCoordinator {
         const _delta = classifyWallDelta(Array.from(batch.values()));
         if (_delta.kind === 'openings-only') {
             this._flushOpeningsOnly(_delta.wallIds, _delta.levelId, builder, store);
+            // §FIX-WALLFLUSH-NOPROGRESS-GUARD (L-97) — record what this fast-path flush built so
+            // a subsequent no-op re-arm on the identical geometry is gated out at the top.
+            for (const levelId of _flushLevels) this._lastFlushLevelSig.set(levelId, this._levelWallSig(levelId, store));
             return;
         }
         // ──────────────────────────────────────────────────────────────────────
@@ -1486,6 +1586,12 @@ export class WallRebuildCoordinator {
             } finally {
                 this._joinsResolving = false;
             }
+        }
+
+        // §FIX-WALLFLUSH-NOPROGRESS-GUARD (L-97) — record the geometry this completed flush
+        // built, so a re-armed flush on the identical (now-anchored) geometry is gated out.
+        for (const levelId of affectedLevelIds) {
+            this._lastFlushLevelSig.set(levelId, this._levelWallSig(levelId, store));
         }
 
         // §WALL-AUDIT-2026-W6 §COMMIT-BARRIER: emit quiescent signal.

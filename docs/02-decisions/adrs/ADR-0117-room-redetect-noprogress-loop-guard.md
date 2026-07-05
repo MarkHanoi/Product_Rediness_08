@@ -100,3 +100,55 @@ geometry** is captured (recommended follow-up).
   events on unchanged walls → exactly ONE redetect; a genuine edit re-detects again; a direct-call
   runaway is bounded (≤ `NOPROGRESS_MAX`), never infinite; the minimal-harness path is inert. The
   existing `wallMoveRedetectDefer` + `observerGraphAuthoritative` suites stay green.
+
+
+## Sibling — §FIX-WALLFLUSH-NOPROGRESS-GUARD (the WALL-REBUILD flush loop — 2026-07-04, L-97)
+
+**Status:** SHIPPED. The same no-progress pattern as §FIX-ROOMREDETECT-NOPROGRESS-GUARD, applied to
+`apps/editor/src/engine/WallRebuildCoordinator._flush` — a THIRD, distinct hard-freeze the founder
+reported (L-97), different from both this ADR's room-redetect loop (L-63) and ADR-0099's quadratic
+scan.
+
+**Defect (L-97).** Wall with a hosted door → move the wall → app freezes. Stack: an infinite
+`requestAnimationFrame` loop entirely inside the WALL flush —
+`§SELF-CLUSTER-GUARD → _handleMultiWallClusters → resolveLevel → _flush → tick → requestAnimationFrame → …`.
+
+**Root cause.** `_flush` writes each resolved wall's baseline back to the store (`store.update`); that
+mutation fires a BUFFERED `wall:update` that re-arms `_scheduleFlush` after `_joinsResolving` clears.
+§PRESERVE-IDEMPOTENT already stopped the *preserve* branch from re-writing an unchanged anchor, but
+when the moved door-bearing wall clusters with a `§SELF-CLUSTER-GUARD` wall (a wall whose BOTH
+endpoints fall in one junction cluster — a short stub / degenerate wall near the corner), the moved
+wall's resolve is **non-idempotent**: the `_bMoved && !_preserve` branch writes a re-trimmed baseline
+every flush → re-arm → the flush never converges → the main thread pegs.
+
+**Fix.** `_flush` is a pure function of the level's wall REBUILD inputs. Two bounds, keyed on a
+per-level signature (id + baseline @ mm + thickness + height + baseOffset + openings + layers + curve
++ material):
+1. **No-progress gate** — at the TOP of `_flush`, BEFORE both the openings-only fast path and the
+   whole-level path: if every affected level's signature is byte-identical to what the last completed
+   flush already built, skip the flush entirely (no resolve, no `store.update`, no
+   `bim-wall-mutation-committed`) → the loop terminates after ONE flush. Because the gate compares the
+   CURRENT store geometry to the last *built output*, it converges whether the resolver would re-write
+   a stable baseline or an oscillating one (the re-armed flush is skipped before it can write again).
+2. **Circuit-breaker** — trips if the same signature reaches `_flush` more than 8 times inside 1 s
+   (any re-arm source / a rebuild input the signature does not capture).
+
+The signature covers material / height / baseOffset, so a legitimate material or elevation edit (which
+leaves the join geometry unchanged) still changes it and is NEVER suppressed — only the true no-op
+re-arm (the baseline anchor write-back) is gated out. The recorded signature is refreshed at the end of
+BOTH the openings-only fast path and the whole-level path.
+
+- **Locus:** [`WallRebuildCoordinator`](../../../../apps/editor/src/engine/WallRebuildCoordinator.ts) —
+  `_levelWallSig` + the gate/breaker at the top of `_flush` + the per-path signature record. No change
+  to `WallJoinResolver` / the geometry; the geometry root (a self-cluster wall making a neighbour's
+  resolve non-idempotent) is rendered harmless by the convergent flush. Builds on §PRESERVE-IDEMPOTENT
+  (which fixed the sibling preserve-branch loop) and §FIX-WALL-JOIN-BASELINE-IMMUTABLE.
+- **Tests:** [`apps/editor/__tests__/wallFlushNoProgressGuard.test.ts`](../../../../apps/editor/__tests__/wallFlushNoProgressGuard.test.ts)
+  — a wall-move-with-hosted-door converges in bounded frames (commit barrier fires a bounded number of
+  times, not ~per-frame); N no-op re-arms on unchanged geometry cause ZERO extra rebuilds while a
+  genuine geometry edit still rebuilds. The 39-test wall-coordinator / freeze / preserve / reload-
+  stability suite stays green (the gate never suppresses a load-flush or a real edit).
+- **Alignment:** P3 (no NEW rAF — the flush still drains on the existing frame scheduler; the guard only
+  *stops* re-arming it) · P6 (mutations unchanged) · ADR-0099 / ADR-0055 (wall-rebuild + junction
+  context). Same family as the room-redetect guard above: room re-detection and the wall flush are BOTH
+  pure functions of the level's wall geometry, so both are made convergent by a no-progress signature.
