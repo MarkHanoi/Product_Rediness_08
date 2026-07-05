@@ -23,6 +23,7 @@ import { Project } from './elements/Project.js';
 import { Structural } from './elements/Structural.js';
 import { Lighting } from './elements/Lighting.js';
 import { Plumbing } from './elements/Plumbing.js';
+import { ProjectOrigin } from './elements/ProjectOrigin.js';
 
 /**
  * The element schemas, addressable by element-type discriminator.
@@ -54,6 +55,7 @@ export const SCHEMA_REGISTRY = {
   structural: Structural,
   lighting: Lighting,
   plumbing: Plumbing,
+  projectOrigin: ProjectOrigin,
 } as const;
 
 export type SchemaRegistry = typeof SCHEMA_REGISTRY;

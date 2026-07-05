@@ -22,5 +22,7 @@ export { Project } from './Project.js';
 export { Structural } from './Structural.js';
 export { Lighting } from './Lighting.js';
 export { Plumbing } from './Plumbing.js';
+// §FEAT-PROJECT-ORIGIN (L-109) — singleton Project Origin / Base Point element.
+export { ProjectOrigin } from './ProjectOrigin.js';
 // §P3.4-SE: Section cut annotation element schema + DTO types.
 export type { SectionData, SectionLine, SectionsState } from './Section.js';

@@ -39,6 +39,12 @@ export type StructuralId  = Id<'structural'>;
 export type LightingId    = Id<'lighting'>;
 export type PlumbingId    = Id<'plumbing'>;
 /**
+ * §FEAT-PROJECT-ORIGIN (L-109) — the singleton Project Origin / Base Point.
+ * One per project; the always-on blue-sphere coordination datum whose position
+ * IS the shared-coordinate origin (C19 §1.3 LTP-ENU / ADR-0115 project base point).
+ */
+export type ProjectOriginId = Id<'projectOrigin'>;
+/**
  * Sub-element brand for openings — openings live inside `Wall.openings[]`
  * and are not their own top-level element family, but the door / window
  * placement tools mint stable opening ids via `createId('opening')` so
@@ -83,6 +89,7 @@ export type ElementType =
   | 'structural'
   | 'lighting'
   | 'plumbing'
+  | 'projectOrigin'
   | 'opening'
   | 'floor'
   | 'section';
@@ -93,7 +100,7 @@ export type AnyElementId =
   | GridId | ColumnId | BeamId | StairId | VerticalCirculationId | HandrailId | CeilingId
   | RoomId | FurnitureId | AnnotationId | DimensionId | SheetId
   | ScheduleId | ViewId | ProjectId
-  | StructuralId | LightingId | PlumbingId
+  | StructuralId | LightingId | PlumbingId | ProjectOriginId
   | OpeningId | FloorId | SectionId;
 
 /** Map element-type discriminator → typed ID. */
@@ -122,6 +129,7 @@ export type IdFor<T extends ElementType> =
   T extends 'structural'  ? StructuralId  :
   T extends 'lighting'    ? LightingId    :
   T extends 'plumbing'    ? PlumbingId    :
+  T extends 'projectOrigin' ? ProjectOriginId :
   T extends 'opening'     ? OpeningId     :
   T extends 'floor'       ? FloorId       :
   T extends 'section'    ? SectionId     :
