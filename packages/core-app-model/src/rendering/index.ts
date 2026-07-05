@@ -18,6 +18,7 @@ export * from './PanoramaCapture.js';
 export * from './PascalSceneLighting.js';
 export * from './PathTracingUtils.js';
 export * from './PBRSceneUpgrader.js';
+export * from './perfTrace.js';
 export * from './PhotorealisticRenderer.js';
 export * from './ProceduralSkyService.js';
 export * from './RealSunService.js';

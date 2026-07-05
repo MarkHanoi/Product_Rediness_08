@@ -242,6 +242,11 @@ export { RENDER_PASS_KINDS, DEFAULT_GRACE_FRAMES, FrameCoordinator } from './ren
 export type { RenderCallback, TargetFPS, TickPriority, TickListener } from './rendering/UnifiedFrameLoop.js';
 export { UnifiedFrameLoop, unifiedFrameLoop } from './rendering/UnifiedFrameLoop.js';
 
+// ── §PERF instrumentation (L-02/L-03) — gated behind globalThis.__pryzmPerfTrace ──
+export {
+    perfTraceOn, perfAccum, perfTime, perfRead, perfReset, perfLog, perfDump,
+} from './rendering/perfTrace.js';
+
 // §DEFER-TIER-DURING-DRAW (2026-07-02) — tool-interaction latch so the render
 // tier escalation can be deferred while a wall/tool draw is in progress.
 export type { ToolInteractionRefApi, DeferredTierApply } from './rendering/ToolInteractionRef.js';

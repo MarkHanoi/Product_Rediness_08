@@ -48,6 +48,8 @@
 import { CommandManager } from '@pryzm/command-registry';
 import { getFrameScheduler } from '@pryzm/frame-scheduler'; // §LOAD-CHUNKED — P3-owned rAF for the chunked-load yield
 import { storeEventBus } from '@pryzm/core-app-model';
+// §PERF-L03-PHASE (L-03) — gated per-phase load timing; OFF unless globalThis.__pryzmPerfTrace.
+import { perfTraceOn, perfLog } from '@pryzm/core-app-model';
 import { ProjectSnapshot } from './ProjectSerializer';
 import { BatchCreateRoomsCommand } from '@pryzm/command-registry';
 import { deserializeRoom } from '@pryzm/room-topology';
@@ -357,6 +359,16 @@ export class ProjectLoader {
             } catch { /* non-browser / SSR — no-op */ }
             __phase_starts[name] = now;
         };
+        // §PERF-L03-PHASE (P1.2) — gated per-phase wall-clock, measured with an
+        // EXPLICIT start→now span (not the rolling per-name __phase timer), so each
+        // of the four heavy-load phases — import-drain, wall restore flush, deferred
+        // resolveLevel scheduling, redetect-sweep dispatch — is independently
+        // attributable. OFF unless globalThis.__pryzmPerfTrace === true (production
+        // pays a single boolean read). Complements the always-on §LOAD-PHASE table.
+        const __perfPhase = (name: string, startMs: number, extra = ''): void => {
+            if (!perfTraceOn()) return;
+            perfLog('§PERF-L03-PHASE', `phase=${name} ms=${(performance.now() - startMs).toFixed(1)}${extra ? ' ' + extra : ''}`);
+        };
         // §DIAG-EMPTY-LOAD-HANG (L-108) — FINE-GRAINED sub-step timing WITHIN the
         // hydrate window. The coarse __phase() table only prints one `hydrate`
         // boundary, so a 16 s empty-project load (0 elements) could not be
@@ -574,6 +586,8 @@ export class ProjectLoader {
                 // progressive chunked build unchanged.
                 const __hasElements = snapshotHasElements(snapshot as unknown as Record<string, unknown>);
                 const useChunked = this._useChunkedLoad() && __hasElements;
+                // §PERF-L03-PHASE (P1.2) — import-drain span start (gated read below).
+                const __tImportDrain = performance.now();
                 let importResult: ReturnType<typeof exec>;
                 if (useChunked) {
                     // yieldFn schedules a single FrameScheduler tick and resolves
@@ -608,6 +622,9 @@ export class ProjectLoader {
                     importResult = exec(importCmd);
                 }
                 __mark('element_import'); // §DIAG-EMPTY-LOAD-HANG — element hydration wall-time
+                // §PERF-L03-PHASE (P1.2) — import-drain total (ImportProjectCommand
+                // element replay, chunked or one-task). Confirms/kills L03 import cost.
+                __perfPhase('import_drain', __tImportDrain, `chunked=${useChunked} elements=${result.loaded}`);
 
                 // Roll the command's per-element counters up into the LoadResult
                 // so the calling UI sees identical {loaded, failed, errors,
@@ -1870,6 +1887,12 @@ export class ProjectLoader {
             // baseline (O(walls), no resolve) + defer ONE whole-level resolve per level off
             // the critical path to refine the mitered corner caps. The flag is set ONLY here
             // and cleared immediately after, so live-edit flushes are unaffected.
+            // §PERF-L03-PHASE (P1.2) — wall restore flush span start. Covers the
+            // synchronous RESTORE-path build (build every wall from baseline) + the
+            // per-level deferred resolveLevel SCHEDULING. The deferred resolves
+            // themselves run asynchronously OFF this critical path (§WALL-JOIN-LOAD-SKIP),
+            // so this measures the on-thread cost the loader is accountable for.
+            const __tWallRestore = performance.now();
             try {
                 (globalThis as unknown as { __pryzmWallRestoreFlush?: boolean }).__pryzmWallRestoreFlush = true;
                 wallRebuildControl?.resumeAndFlush?.();
@@ -1879,6 +1902,13 @@ export class ProjectLoader {
                 (globalThis as unknown as { __pryzmWallRestoreFlush?: boolean }).__pryzmWallRestoreFlush = false;
             }
             __phase('wall_rebuild_flush'); // WallJoinResolver + buildWall coalesced pass
+            // §PERF-L03-PHASE (P1.2) — wall restore flush + deferred-resolve scheduling total.
+            __perfPhase('wall_restore_flush', __tWallRestore, `walls=${snapshot.walls?.length ?? 0}`);
+            // §PERF-L03-PHASE (P1.2) — redetect-sweep dispatch span start (the
+            // synchronous scheduling of the per-level ReDetectRooms dispatch; the
+            // chunked path drains one level per frame off this span). Logged at the
+            // redetect_sweep boundary below.
+            const __tRedetectSweep = performance.now();
             // ── End §LOAD-RAF-PAUSE flush ────────────────────────────────────
 
             // ── ROOM TOPOLOGY OBSERVER — resume + final REDETECT_ROOMS sweep ─
@@ -2036,6 +2066,8 @@ export class ProjectLoader {
             void loadedLevelIds;
 
             __phase('redetect_sweep'); // explicit per-level ReDetectRoomsCommand sweep
+            // §PERF-L03-PHASE (P1.2) — redetect-sweep synchronous dispatch total.
+            __perfPhase('redetect_sweep', __tRedetectSweep);
             // §AUTOSAVE-LOAD-SLOW-OR-HANG — clear the watchdog. Load has reached
             // the summary line; no longer at risk of silent hang.
             clearInterval(__watchdog);

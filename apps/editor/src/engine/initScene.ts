@@ -122,6 +122,10 @@ import { levelClipPlaneCache } from '@pryzm/core-app-model';
 import { stairPlanSymbolRegistry } from '@pryzm/scene-committer';
 import { RoomTagAutoPopulator } from '@pryzm/room-topology';
 import { instancedElementRenderer } from '@pryzm/core-app-model/rendering';
+// §PERF instrumentation (L-02/L-03) — gated behind globalThis.__pryzmPerfTrace.
+import { perfTraceOn, perfTime, perfLog, perfDump } from '@pryzm/core-app-model/rendering';
+// §FIX-LOAD-TRAVERSE-BATCH (P2) — per-add geometry-pass gate policy (unit-tested).
+import { isProjectLoadActive, shouldDeferPerAddGeometryPass } from './perAddGeometryGate';
 import { batchCoordinator } from '@pryzm/core-app-model';
 
 // ── Derived type alias ─────────────────────────────────────────────────────────
@@ -1782,6 +1786,12 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
     }
     // ── End early Pascal Lighting apply ───────────────────────────────────
 
+    // §FIX-LOAD-TRAVERSE-BATCH (P2) — hoisted handle to the consolidated tier + PBR
+    // pass. Assigned inside the RenderingPipelineCoordinator try-block below (where
+    // the coordinator + collectNewPbrMeshes exist) and invoked once by the post-load
+    // `pryzm-project-loaded` handler, which lives OUTSIDE that try-block's scope.
+    let _runConsolidatedTierPbrPass: (() => void) | null = null;
+
     // ── Rendering Pipeline Coordinator (Phase 1 + 2 — Enscape-level) ─────
     // Orchestrates: RealtimeLightingService, ShadowQualityUpgrader,
     // PBRSceneUpgrader, ReflectionProbeService.
@@ -2031,50 +2041,85 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             'bim-curtainwall-added', 'bim-curtainwall-updated',
             'bim-furniture-added', 'bim-furniture-updated',
         ] as const;
+        // §FIX-LOAD-TRAVERSE-BATCH (P2) — the per-add tier + PBR pass, extracted so
+        // the SAME work can run either per-event (interactive path) or exactly ONCE
+        // after a project load completes (see the consolidated post-load pass in the
+        // `pryzm-project-loaded` handler below). The tier + PBR result is identical
+        // either way — only the FREQUENCY changes.
+        const runTierPbrPass = (reason: string): void => {
+            const scene = world.scene.three as THREE.Scene;
+            // §A.21.D40 PBR-SCOPE — only the meshes we haven't already upgraded
+            // (was: a full scene.traverse on every geometry event).
+            // §PERF-L03-TIER-TRAVERSE (P1.1) — gated timing of the collect traverse.
+            const newMeshes = perfTraceOn()
+                ? perfTime('l03.collectNewPbrMeshes', () => collectNewPbrMeshes(scene))
+                : collectNewPbrMeshes(scene);
+            if (newMeshes.length > 0) renderingCoordinator.onSceneGeometryAdded(newMeshes);
+            // §PERF-WEBGPU-FRAGMENT / ADR-0076 — re-evaluate the render tier on
+            // every (non-batched) geometry add too, not only at batch-end. Some
+            // generators (e.g. the residential-building pipeline) add geometry
+            // outside batchCoordinator batches, so the post-batch callback alone
+            // could leave the tier stuck at cold-start. applyTierForMeshCount
+            // ALWAYS logs (observable) and only re-applies on a real tier change.
+            try {
+                let meshCount = 0;
+                const countMeshes = (): void => {
+                    meshCount = 0;
+                    scene.traverse((obj) => {
+                        if (obj instanceof THREE.Mesh || obj instanceof THREE.InstancedMesh) meshCount++;
+                    });
+                };
+                // §PERF-L03-TIER-TRAVERSE (P1.1) — gated timing of the mesh-count traverse.
+                if (perfTraceOn()) perfTime('l03.tierMeshCount', countMeshes);
+                else countMeshes();
+                // §DEFER-TIER-DURING-DRAW — if a wall/tool draw is in progress,
+                // do NOT escalate the tier now: on an empty project the FIRST
+                // wall would flip cold-start→cinematic, disposing+rebuilding the
+                // WebGPU pipeline and turning TRAA on mid-draw (visible stall +
+                // ghosted rubber-band). deferTierApply() captures the LATEST apply
+                // and runs it exactly once when the interaction ends.
+                const applyTier = () => renderingCoordinator.applyTierForMeshCount(meshCount, resolveIsRealWebGPU());
+                if (!toolInteractionRef.deferTierApply(applyTier)) {
+                    applyTier();
+                }
+                if (perfTraceOn()) {
+                    perfLog('§PERF-L03-TIER-TRAVERSE', `pass reason=${reason} meshCount=${meshCount} newMeshes=${newMeshes.length}`);
+                }
+            } catch (tierErr) {
+                console.warn('[initScene] §PERF-WEBGPU-FRAGMENT per-event tier apply error:', tierErr);
+            }
+            // NOTE: scheduleShadowRebuild() is intentionally NOT called here.
+            // Setting castShadow/receiveShadow on individual meshes does NOT
+            // destroy or recreate ShadowDepthTexture — the texture lives on
+            // the light (DirectionalLightShadow.map), not on meshes.  Calling
+            // scheduleShadowRebuild() on every geometry event causes needless
+            // pipeline rebuilds and can itself trigger the "Destroyed texture"
+            // error by disposing the pipeline mid-render.
+        };
+        // Publish the consolidated pass to the hoisted handle so the post-load
+        // handler (outside this try-block's scope) can fire it exactly once.
+        _runConsolidatedTierPbrPass = () => runTierPbrPass('post-load');
+
         _rpcGeomEvents.forEach(evt => {
             window.addEventListener(evt, () => {
-                // P1.3: Skip per-element scene traversal during a batch.
-                // batchCoordinator.setPostBatchCallback (below) fires a single
-                // consolidated pass for all elements after the batch completes.
-                if (batchCoordinator.isBatching) return;
+                // §PERF-L03-TIER-TRAVERSE (P1.1) entry — log the batch/load state at
+                // add-event time (gated). During a load, isBatching is FALSE while
+                // loadActive is TRUE: that is the O(n²) window §FIX-LOAD-TRAVERSE-BATCH
+                // closes (the per-add traverse below is skipped, one pass runs at load end).
+                if (perfTraceOn()) {
+                    perfLog(
+                        '§PERF-L03-TIER-TRAVERSE',
+                        `event=${evt} isBatching=${batchCoordinator.isBatching} loadActive=${isProjectLoadActive()}`,
+                    );
+                }
+                // P1.3 + §FIX-LOAD-TRAVERSE-BATCH (P2): skip the per-add scene
+                // traversal during a batchCoordinator batch OR a project load. The
+                // consolidated pass runs once at batch-end (setPostBatchCallback below)
+                // / load-end (pryzm-project-loaded handler below).
+                if (shouldDeferPerAddGeometryPass(batchCoordinator.isBatching)) return;
                 // Defer one tick so fragment builders can add meshes before we scan
                 setTimeout(() => {
-                    const scene = world.scene.three as THREE.Scene;
-                    // §A.21.D40 PBR-SCOPE — only the meshes we haven't already
-                    // upgraded (was: a full scene.traverse on every geometry event).
-                    const newMeshes = collectNewPbrMeshes(scene);
-                    if (newMeshes.length > 0) renderingCoordinator.onSceneGeometryAdded(newMeshes);
-                    // §PERF-WEBGPU-FRAGMENT / ADR-0076 — re-evaluate the render tier on
-                    // every (non-batched) geometry add too, not only at batch-end. Some
-                    // generators (e.g. the residential-building pipeline) add geometry
-                    // outside batchCoordinator batches, so the post-batch callback alone
-                    // could leave the tier stuck at cold-start. applyTierForMeshCount
-                    // ALWAYS logs (observable) and only re-applies on a real tier change.
-                    try {
-                        let meshCount = 0;
-                        scene.traverse((obj) => {
-                            if (obj instanceof THREE.Mesh || obj instanceof THREE.InstancedMesh) meshCount++;
-                        });
-                        // §DEFER-TIER-DURING-DRAW — if a wall/tool draw is in progress,
-                        // do NOT escalate the tier now: on an empty project the FIRST
-                        // wall would flip cold-start→cinematic, disposing+rebuilding the
-                        // WebGPU pipeline and turning TRAA on mid-draw (visible stall +
-                        // ghosted rubber-band). deferTierApply() captures the LATEST apply
-                        // and runs it exactly once when the interaction ends.
-                        const applyTier = () => renderingCoordinator.applyTierForMeshCount(meshCount, resolveIsRealWebGPU());
-                        if (!toolInteractionRef.deferTierApply(applyTier)) {
-                            applyTier();
-                        }
-                    } catch (tierErr) {
-                        console.warn('[initScene] §PERF-WEBGPU-FRAGMENT per-event tier apply error:', tierErr);
-                    }
-                    // NOTE: scheduleShadowRebuild() is intentionally NOT called here.
-                    // Setting castShadow/receiveShadow on individual meshes does NOT
-                    // destroy or recreate ShadowDepthTexture — the texture lives on
-                    // the light (DirectionalLightShadow.map), not on meshes.  Calling
-                    // scheduleShadowRebuild() on every geometry event causes needless
-                    // pipeline rebuilds and can itself trigger the "Destroyed texture"
-                    // error by disposing the pipeline mid-render.
+                    runTierPbrPass(`add:${evt}`);
                 }, 0);
             });
         });
@@ -2089,11 +2134,16 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         // slipped into a ~50s synchronous render that froze the viewport.
         batchCoordinator.setSceneMeshCountProvider(() => {
             const scene = world.scene.three as THREE.Scene;
-            let meshCount = 0;
-            scene.traverse((obj) => {
-                if (obj instanceof THREE.Mesh || obj instanceof THREE.InstancedMesh) meshCount++;
-            });
-            return meshCount;
+            const count = (): number => {
+                let meshCount = 0;
+                scene.traverse((obj) => {
+                    if (obj instanceof THREE.Mesh || obj instanceof THREE.InstancedMesh) meshCount++;
+                });
+                return meshCount;
+            };
+            // §PERF-L03-TIER-TRAVERSE (P1.1) — gated timing of the on-demand
+            // mesh-count provider (invocation count + wall-clock accumulate).
+            return perfTraceOn() ? perfTime('l03.meshCountProvider', count) : count();
         });
 
         // P1.3: Single consolidated geometry pass after every batch completes.
@@ -2642,6 +2692,64 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                 ff.style.opacity = '0';
                 setTimeout(() => ff.remove(), 450);
             }
+        });
+
+        // ── §FIX-LOAD-TRAVERSE-BATCH (P2) — consolidated post-load tier + PBR pass ──
+        // A SEPARATE `pryzm-project-loaded` listener (decoupled from the pipeline
+        // handler above, which another lane owns) that runs the per-add tier + PBR
+        // pass EXACTLY ONCE at load end. During the load, the per-add handler skipped
+        // its two full-scene traversals (load-scoped guard), so this single pass
+        // upgrades every not-yet-seen mesh and applies the final tier — the same
+        // result the old per-add path produced, but O(n) instead of O(n²).
+        window.runtime?.events?.on('pryzm-project-loaded', () => { // F.events.9
+            // Defer one tick to match the per-add deferral (lets any trailing
+            // fragment-builder work land before the scan), exactly like the
+            // interactive path's setTimeout(0).
+            setTimeout(() => {
+                try {
+                    _runConsolidatedTierPbrPass?.();
+                } catch (e) {
+                    console.warn('[initScene] §FIX-LOAD-TRAVERSE-BATCH post-load pass error:', e);
+                }
+
+                // §PERF-L02-DRAWCALLS (P1.1/P1.3) — one-shot post-load snapshot of the
+                // render cost: draw calls + instanced vs plain mesh counts + instanced
+                // group sizes. Quantifies L02-A/B/C. Gated; production pays nothing.
+                if (!perfTraceOn()) return;
+                try {
+                    const scene = world.scene.three as THREE.Scene;
+                    let plainMeshes = 0;
+                    let instancedMeshes = 0;
+                    let instancedInstances = 0;
+                    const groupSizes: number[] = [];
+                    scene.traverse((obj) => {
+                        if (obj instanceof THREE.InstancedMesh) {
+                            instancedMeshes++;
+                            instancedInstances += obj.count;
+                            groupSizes.push(obj.count);
+                        } else if (obj instanceof THREE.Mesh) {
+                            plainMeshes++;
+                        }
+                    });
+                    let drawCalls = -1;
+                    try {
+                        drawCalls = ((world.renderer as unknown as { three?: THREE.WebGLRenderer })?.three)
+                            ?.info?.render?.calls ?? -1;
+                    } catch { /* renderer not reachable in this backend — leave -1 */ }
+                    perfLog(
+                        '§PERF-L02-DRAWCALLS',
+                        `drawCalls=${drawCalls} plainMeshes=${plainMeshes} instancedMeshes=${instancedMeshes} ` +
+                        `instancedInstances=${instancedInstances} groupSizes=[${groupSizes.slice(0, 20).join(',')}]`,
+                    );
+                    // Flush the traverse accumulators gathered across the load window
+                    // (§PERF-L03-TIER-TRAVERSE) — counts + summed/max wall-clock.
+                    perfDump('§PERF-L03-TIER-TRAVERSE', 'l03.collectNewPbrMeshes', '(load window)');
+                    perfDump('§PERF-L03-TIER-TRAVERSE', 'l03.tierMeshCount', '(load window)');
+                    perfDump('§PERF-L03-TIER-TRAVERSE', 'l03.meshCountProvider', '(load window)');
+                } catch (e) {
+                    console.warn('[initScene] §PERF-L02-DRAWCALLS log error:', e);
+                }
+            }, 0);
         });
 
         // ── Phase 4 Performance: UnifiedFrameLoop (Task 4.3) — PASCAL callback ──

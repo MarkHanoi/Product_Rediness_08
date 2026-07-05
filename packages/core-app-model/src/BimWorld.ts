@@ -3,6 +3,8 @@ import * as OBCF from '@thatopen/components-front';
 import * as THREE from '@pryzm/renderer-three/three';
 import { SceneTheme } from './SceneTheme';
 import { InfiniteGrid3D } from './InfiniteGrid3D';
+import { perfTraceOn, perfLog } from './rendering/perfTrace';
+import { getFrameScheduler } from '@pryzm/frame-scheduler';
 
 export function createBimWorld(container: HTMLElement) {
     const components = new OBC.Components();
@@ -179,9 +181,25 @@ export function createBimWorld(container: HTMLElement) {
         const originalUpdate = (components as unknown as { update: () => void }).update;
         if (typeof originalUpdate === 'function') {
             let loggedLoopError = false;
+            // §PERF-L02-FRAME — sampled OBC component-update cost (gated). This is
+            // the OBC half of the per-frame split; UnifiedFrameLoop times the PASCAL
+            // submit half. Sampled 1-in-30 frames, only during camera motion AND
+            // when globalThis.__pryzmPerfTrace === true, so production pays a single
+            // boolean read per OBC frame. See rendering/perfTrace.ts.
+            let __perfFrame = 0;
             const guardedUpdate = (): void => {
+                const _perfSample = perfTraceOn()
+                    && (++__perfFrame % 30 === 0)
+                    && getFrameScheduler().isInMotion();
+                const _t0 = _perfSample ? performance.now() : 0;
                 try {
                     originalUpdate();
+                    if (_perfSample) {
+                        perfLog(
+                            '§PERF-L02-FRAME',
+                            `obcComponentsUpdateMs=${(performance.now() - _t0).toFixed(2)} frame=${__perfFrame}`,
+                        );
+                    }
                 } catch (err) {
                     if (!loggedLoopError) {
                         loggedLoopError = true; // log once — never spam every frame

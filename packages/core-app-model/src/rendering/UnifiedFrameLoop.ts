@@ -81,6 +81,7 @@
 
 import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-scheduler';
 import type { FrameCoordinator } from './FrameCoordinator';
+import { perfTraceOn, perfLog } from './perfTrace';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -510,25 +511,49 @@ export class UnifiedFrameLoop {
             );
         }
 
+        // ── §PERF-L02-FRAME — sampled per-frame cost split (gated) ────────────
+        // Splits the per-frame budget between the OBC base render and the PASCAL
+        // post-processing submit, so a heavy-scene navigation stall (L-02) can be
+        // attributed. Sampled 1-in-30 frames, and only while the camera is in
+        // motion (the interactive path we care about) AND the perf flag is on —
+        // so production pays a single boolean read per frame. See perfTrace.ts.
+        const _perfFrame = perfTraceOn()
+            && (this._frameCount % 30 === 0)
+            && getFrameScheduler().isInMotion();
+
         // ── (1) OBC base render ───────────────────────────────────────────────
         // Runs every tick, even during view switches, so the display never blacks out.
+        let _obcMs = 0;
         if (this._obcCallback) {
+            const _t0 = _perfFrame ? performance.now() : 0;
             try {
                 this._obcCallback(deltaMs);
             } catch (err: any) {
                 console.error('[UnifiedFrameLoop] OBC callback error:', err?.message ?? err);
             }
+            if (_perfFrame) _obcMs = performance.now() - _t0;
         }
 
         // ── (2) PASCAL post-processing ────────────────────────────────────────
         // Skipped while a view switch is in progress (scene mutation may be
         // mid-flight). Resumes automatically on the next tick after endViewSwitch().
+        let _pascalMs = 0;
         if (!this._switching && this._pascalCallback) {
+            const _t0 = _perfFrame ? performance.now() : 0;
             try {
                 this._pascalCallback(deltaMs);
             } catch (err: any) {
                 console.error('[UnifiedFrameLoop] PASCAL callback error:', err?.message ?? err);
             }
+            if (_perfFrame) _pascalMs = performance.now() - _t0;
+        }
+
+        if (_perfFrame) {
+            perfLog(
+                '§PERF-L02-FRAME',
+                `frame=${this._frameCount} obcMs=${_obcMs.toFixed(2)} ` +
+                `pascalMs=${_pascalMs.toFixed(2)} deltaMs=${deltaMs.toFixed(2)}`,
+            );
         }
 
         // ── (3) Priority-ordered tick listeners (Phase 3) ─────────────────────
