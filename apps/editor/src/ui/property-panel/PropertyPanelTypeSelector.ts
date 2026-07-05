@@ -117,13 +117,21 @@ export function _buildTypeSelector(
                 console.warn('[PropertyPanel] Floor type apply: no layers or thickness — plain floor reset not yet implemented');
                 return;
             }
-            window.runtime?.bus?.executeCommand('floor.updateLayers', {
-                floorId:      elementData.id,
-                systemTypeId: payload.systemTypeId,
+            // §FIX-FLOOR-TYPE-SWAP (L-106) — route through the uniform 'element.changeType'
+            // command (ADR-0105), which for floors runs UpdateFloorLayersCommand on the LEGACY
+            // FloorStore — the store the 3D FloorTool + plan bridge actually populate (and that
+            // drives FloorFragmentBuilder). The previous 'floor.updateLayers' dispatch hit a
+            // DETACHED Immer store, which is empty for FloorTool-created floors →
+            // "floor not found" and the mesh never rebuilt. Now the type/layer swap applies +
+            // re-renders (material + assembly), undoable in one step. Mirrors wall/door/window.
+            window.runtime?.bus?.executeCommand('element.changeType', {
+                elementId:    elementData.id,
+                elementType:  'floor',
+                newTypeId:    payload.systemTypeId ?? '',
                 layers:       payload.layers,
                 thickness:    payload.thickness,
             })?.then(() => host.onRerender({ ...elementData, systemTypeId: payload.systemTypeId, layers: payload.layers }))
-              ?.catch((e: unknown) => console.warn('[PropertyPanel] floor.updateLayers failed:', e));
+              ?.catch((e: unknown) => console.warn('[PropertyPanel] element.changeType (floor) failed:', e));
         });
     }
 

@@ -4,6 +4,11 @@ import {
   UpdateColumnCommand,
   UpdateBeamCommand,
   UpdateFloorCommand,
+  // §FIX-FLOOR-TYPE-SWAP (L-106) — the floor branch of element.changeType runs this
+  // legacy command on the legacy FloorStore (the store the 3D FloorTool + plan bridge
+  // actually populate); the old 'floor.updateLayers' bus command read a DETACHED Immer
+  // store → "floor not found" for FloorTool-created floors.
+  UpdateFloorLayersCommand,
   UpdateCeilingCommand,
   UpdateFurnitureParametersCommand,
   // §FEAT-ELEMENT-CHANGE-TYPE (ADR-0105) — the uniform "change element type"
@@ -425,6 +430,57 @@ export function initBusHandlers(
                             });
                         } catch (e) {
                             console.warn('[element.changeType] furniture ring-buffer push failed (undo falls back to commandManager):', e);
+                        }
+                    }
+                    return;
+                }
+                if (elType === 'floor') {
+                    // §FIX-FLOOR-TYPE-SWAP (L-106) — swap a placed floor finish's type +
+                    // layer stack IN PLACE (stable id). UpdateFloorLayersCommand mutates the
+                    // LEGACY FloorStore — the store both the 3D FloorTool (cm.execute) AND the
+                    // plan-view bus→legacy bridge (§P3.2-FL) populate. The previous dispatch
+                    // ('floor.updateLayers') targeted the plugin Immer floor store, which is
+                    // DETACHED / empty for FloorTool-created floors → canExecute "floor not
+                    // found: <id>" (the founder's report). floorStore.update() fires
+                    // 'bim-floor-updated' → FloorFragmentBuilder rebuilds the mesh with the
+                    // new assembly + material. Mirrors the wall branch (ADR-0105).
+                    //
+                    // Ring-buffer parity (§FIX-FURNITURE-TYPE-LIST-AND-UNDO L-68): the command
+                    // runs through the LEGACY commandManager (no ring entry). If the floor's
+                    // earlier CREATE lives on the ring buffer, a ring-first Ctrl+Z would pop
+                    // the CREATE (delete the floor) instead of reversing the swap. So we push
+                    // an invertible WHOLE-ELEMENT replace PatchPair on the SAME id onto the
+                    // ring buffer; the ring-first undo now reverses THE SWAP (floorStore.update
+                    // → mesh rebuild) and shadow-drops the cm twin — one undo, stable id.
+                    const fstore = (window as unknown as { floorStore?: { getById?(id: string): unknown } }).floorStore;
+                    const before = fstore?.getById?.(cmd.elementId);
+                    const oldData = before ? structuredClone(before) : undefined;
+
+                    _cmExec(new UpdateFloorLayersCommand({
+                        floorId:      cmd.elementId,
+                        systemTypeId: cmd.newTypeId || null,
+                        layers:       (cmd.layers ?? []) as any,
+                        thickness:    cmd.thickness,
+                    }));
+
+                    const after = fstore?.getById?.(cmd.elementId);
+                    const newData = after ? structuredClone(after) : undefined;
+                    // Only push a ring entry when the command actually mutated the floor
+                    // (version bump) — a rejected canExecute leaves data unchanged, and a
+                    // no-op PatchPair would surface as a phantom Ctrl+Z.
+                    const changed = !!oldData && !!newData &&
+                        (newData as any)?.metadata?.version !== (oldData as any)?.metadata?.version;
+                    if (changed) {
+                        try {
+                            const rb = (window.runtime?.bus as unknown as { ringBuffer?: { push?(p: unknown): void } } | undefined)?.ringBuffer;
+                            const idPtr = toJsonPointer([cmd.elementId]);
+                            rb?.push?.({
+                                forward: { ops: [{ op: 'replace', path: idPtr, value: newData }] },
+                                inverse: { ops: [{ op: 'replace', path: idPtr, value: oldData }] },
+                                affectedStores: ['floor'],
+                            });
+                        } catch (e) {
+                            console.warn('[element.changeType] floor ring-buffer push failed (undo falls back to commandManager):', e);
                         }
                     }
                     return;
