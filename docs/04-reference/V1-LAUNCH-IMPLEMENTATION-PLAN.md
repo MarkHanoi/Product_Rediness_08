@@ -194,6 +194,8 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 | L-100 furnish batch creation slow + 3D unmanageable after — per-element meshes defeat instancing, N-command batch | 1.5 furniture/perf | **QUEUED (furnish agent)** — one furniture.batch.create→one produceCommand+registerMany; render-suppress+single flush; instance furniture geo; converge to interactive tier; measure | 
 | L-101 furnish-all-apartments/all-floors doesn't cover every unit | 1.0 furniture/coverage | **QUEUED (furnish agent)** — enumerate every level×apartment/room, furnish each, per-unit coverage report, robust to per-unit failure; test | 
 
+| L-102 [AUDIT+PLAN] expose all batch-creatable furniture/accessory types (TV, mirror, curtains, …) via right-hand toolbar + verify 02-decisions compliance | audit+plan (impl TBD from plan) | **IN FLIGHT (furniture-UI-audit agent, READ+PLAN only)** — enumerate batch-creatable types vs toolbar gap; per-type contract/ADR/spec compliance; correct toolbar section+UX; write phased impl plan here. C11/C17/C03 | 
+
 ## STATUS RECONCILIATION — 2026-07-04 (session close)
 
 **Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
