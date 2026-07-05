@@ -202,6 +202,9 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 | L-105 add floor-finish + ceiling TYPE selector to creation panel (types exist only post-creation) | 1.0 floor UI | **QUEUED (floor-finish agent)** - selector from same catalogue as post-create dropdown; thread into CREATE_FLOOR/ceiling payload via bus | 
 | L-106 floor-finish type SWAP broken - floor.updateLayers canExecute 'floor not found' on a just-created id | 0.5 floor commands | **QUEUED (floor-finish agent)** - fix store/id lookup to the store FloorTool writes; test create->select->swap type | 
 
+| L-107 [L-11 regression] grey ground shadow-catcher plane visible on empty project | 0.5 rendering | **QUEUED (environment agent)** - make catcher invisible when no casters (add-on-first-element or fully-transparent ShadowMaterial on WebGPU); test empty=no pixels; no ADR-0111 regression | 
+| L-108 empty project ~16s load hang (LOAD-WATCHDOG, hydrate=16s for 0 elements) | investigate | **QUEUED (environment agent to check L-11 initScene first)** - instrument setup/hydrate; defer any blocking RealEnvironment/site/ground-catcher init off critical path | 
+
 ## STATUS RECONCILIATION — 2026-07-04 (session close)
 
 **Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
