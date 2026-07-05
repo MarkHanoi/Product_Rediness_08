@@ -199,6 +199,9 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 | L-103 reposition "3D Site/Globe" launcher pill (floats mid-canvas) → dock to left rail/corner | 0.3 site UI | **QUEUED (GIS/site agent)** — anchor via existing L-40 mount; always-on; responsive | 
 | L-104 [FEATURE] Plan View GIS — plan view with real building/GIS context (project-north, ortho) | plan+impl | **IN FLIGHT (GIS/site agent)** — reuse site-overlay/underlay+Cesium pipeline (SitePlanOverlayController/UnderlayRenderService/ADR-0115), NOT a new engine; analyse+write plan then implement; C18-23; avoid SplitViewManager/selection/wall geometry | 
 
+| L-105 add floor-finish + ceiling TYPE selector to creation panel (types exist only post-creation) | 1.0 floor UI | **QUEUED (floor-finish agent)** - selector from same catalogue as post-create dropdown; thread into CREATE_FLOOR/ceiling payload via bus | 
+| L-106 floor-finish type SWAP broken - floor.updateLayers canExecute 'floor not found' on a just-created id | 0.5 floor commands | **QUEUED (floor-finish agent)** - fix store/id lookup to the store FloorTool writes; test create->select->swap type | 
+
 ## STATUS RECONCILIATION — 2026-07-04 (session close)
 
 **Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
@@ -293,3 +296,74 @@ Section assignment follows `FURNITURE_TYPE_TO_CATEGORY` (single source of truth 
 **OPEN / needs heavy-scene repro (original perf gates):** L-02 (heavy-tower nav perf), L-03 (heavy-project load) — require a large test project to validate; flag for a dedicated perf pass.
 
 **Non-blocking engineering follow-ups:** CSG path-convergence for a door hard against a corner (`§WALL-SINGLE-VOLUME-CSG`); align root vitest config so `packages/**/*.test.ts` regression suites run in CI.
+
+---
+
+# L-104 — Plan View GIS
+
+**Founder ask.** A **plan view that shows the real building on GIS / real-world context** — the
+plan-view analogue of the existing **◉ 3D Site / Globe** launcher (L-40). A toggle that renders the
+PRYZM plan view WITH the real building **plus** the site / GIS context underneath it, on **PROJECT
+NORTH** (not true north), **orthographic**.
+
+## Analysis — what already exists (REUSE, do not reinvent)
+
+1. **The building "projected to plan" already exists.** The BIM editor's **Top** view
+   (`activateView('Top')` → `ViewController.activate` → orthographic camera, C04) IS the
+   orthographic plan projection of the real building geometry, authored in the **project-north**
+   frame. No new projector is needed — the building already renders axis-aligned in plan.
+2. **A GIS raster → plan-canvas underlay pipeline already exists** (L-71, ADR-0115 §Remaining #1):
+   `createPlanCanvasUnderlayFromSiteOverlay` (`apps/editor/src/engine/createSiteOverlayUnderlay.ts`)
+   takes a raster data-URL + a project-frame placement (px/m scale, East/North centre, `rotationZ`)
+   and instantiates it as a live underlay in the THREE plan+3D scene, reusing
+   `FloorPlanUnderlayTool` (`@pryzm/input-host`) + `CreateUnderlayCommand` (P6, undoable). It already
+   registers in the Import Manager and persists per-project (Contract §32). One OTel span (P8).
+3. **The dual-north transform primitive exists** (`projectTrueNorth.ts`, ADR-0115). The site's
+   **θ = project→true-north** angle lives on `SiteLocation.trueNorth` (C12/C19, radians). The plan
+   view edits in the project frame; the globe re-applies θ. `trueToProjectNorth` = R(θ) (CCW by θ).
+4. **A keyless GIS raster source exists.** `siteMap2DStyle.ts` already declares **ESRI World
+   Imagery** (`ESRI_WORLD_IMAGERY_URL`, `{z}/{y}/{x}`, keyless, CORS-enabled, loads under
+   `img-src https:` — the SAME endpoint Cesium + the 2D satellite basemap use). So the GIS context
+   raster can be composited from those tiles with no new provider / no CSP change.
+
+**Mesh-rotation correctness (the one subtle bit).** `FloorPlanUnderlayTool` builds the underlay as a
+`PlaneGeometry` with `rotation.x = -π/2`, so local +Y → world **-Z = North**, and `rotation.z += δ`
+rotates the raster **CCW viewed from +Y down** (E-right / N-up screen). A satellite raster is
+**true-north-up** by construction (web-mercator, tile-row 0 = north). To seat true-north imagery
+UNDER the **project-north** building we rotate the raster content from its true position **P** to its
+project position `trueToProjectNorth(P) = R(θ)·P` — a CCW rotation by θ. Therefore the underlay
+**`rotationZ = +θ`** (the site `trueNorth` value). Consistency check vs the L-71 PDF path: a PDF's
+content DEFINES project north, so `computePlanUnderlayPlacement` returns `rotationZ = 0` (content
+already project-framed); GIS imagery is true-framed, so it needs `rotationZ = θ`. Both reduce to the
+identity when **θ = 0** (ADR-0070/0115 byte-identity discipline).
+
+## Contract / ADR mapping
+
+- **C12-GEOSPATIAL** — true-north radian convention (θ); ESRI imagery endpoint parity with Cesium.
+- **C19-SITE-MODEL-AND-PARCEL** — §1.3 LTP-ENU / site origin is the underlay geo-anchor + project
+  base point; θ read from `SiteLocation.trueNorth`. No schema change (P5).
+- **C20-BUILDING-AND-APARTMENT-AGGREGATES** — the "real building" projected to plan is the authored
+  aggregate; read-only consumer.
+- **C22 / C23** — provenance/PII: the underlay is public basemap imagery (no PII); creation flows
+  through the existing `CREATE_UNDERLAY` command (C23 audit path). No new PII tier.
+- **ADR-0115 (dual-north)** — this is the plan-view consumer of θ, symmetric to §Remaining #2 (the
+  globe applying θ). Reuses the §Remaining #1 underlay pipeline. **C04** — orthographic Top view.
+- **P-principles:** P1 (no parallel runtime — reuses `createPlanCanvasUnderlayFromSiteOverlay`),
+  P2 (no `import * as THREE` — mutation via the tool's state handle), P3 (no new rAF),
+  P4 (typed `window.pryzmEnterPlanViewGis`, no `(window as any)`), P5 (θ on existing schema),
+  P6 (underlay via `CreateUnderlayCommand`), **P8 (the new impure raster-builder adds an OTel span;
+  the pure tile-math + rotation helpers are headless L5 geo-math following the ADR-0115-documented
+  spanless convention of the `projectTrueNorth.ts` / `sitePlanOverlayGeometry.ts` family).**
+
+## Files / phases
+
+| Phase | Scope | Files |
+|---|---|---|
+| **P1 — pure GIS tile geometry (headless, tested)** | Web-mercator tile math: `webMercatorResolution(lat,z)` (m/px), `lonLatToWorldPixel(lon,lat,z)`, `chooseGisZoom(lat,extentM,maxPx)`, `computeGisTileGrid(centerLat,centerLon,zoom,canvasPx)` → tile list + destination offsets + `pxPerMeter`; `computeGisContextUnderlayRotationZ(θ)=normalizeAngle(θ)`. Pure, no DOM/THREE — sibling to `sitePlanOverlayGeometry.ts`. | **NEW** `apps/editor/src/ui/site/overlay/siteGisContextGeometry.ts` |
+| **P2 — impure raster builder (span)** | `buildSiteGisContextRaster({centerLat,centerLon,extentMeters,maxCanvasPx})`: fetch ESRI tiles (`crossOrigin='anonymous'`), composite onto a `<canvas>`, crop to the centred extent, return `{ dataUrl, widthPx, heightPx, pxPerMeter }`. One OTel span (P8). Guarded — canvas-taint / fetch failure → returns null (never throws). | **NEW** `apps/editor/src/engine/buildSiteGisContextRaster.ts` |
+| **P3 — wiring + toggle** | `enterPlanViewGis()` in `GISAreaLayout`: resolve origin (`getFormaOrigin`) + θ (`siteModelStore.getSite().location.trueNorth ?? 0`) → `buildSiteGisContextRaster` → `activateView('Top')` (exit GIS, orthographic) → `createPlanCanvasUnderlayFromSiteOverlay({ …, positionEast:0, positionNorth:0, rotationZ:θ, fileName:'Site GIS context' })` → `zoomToFit`. Typed global `window.pryzmEnterPlanViewGis`. A second always-on launcher pill **"▦ Plan + Site"** stacked with the L-40 launcher (bottom-left corner). | `apps/editor/src/ui/layout/GISAreaLayout.ts`, `apps/editor/src/global.d.ts` (typed global) |
+| **P4 — test** | Unit-test the pure P1 helpers (resolution monotonicity, pixel round-trip, grid tile-count + centred origin, `rotationZ(0)=0`). | **NEW** `apps/editor/src/ui/site/overlay/siteGisContextGeometry.test.ts` |
+
+**Tag:** `§FEAT-PLAN-VIEW-GIS`. **Non-goals:** no new rendering engine, no parallel projector, no
+change to SplitViewManager / selection / wall geometry. The GIS underlay is a plain plan-canvas
+underlay beneath the existing building projection — one composited image, project-north, orthographic.
