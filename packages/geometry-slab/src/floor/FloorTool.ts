@@ -107,11 +107,11 @@ export class FloorTool {
   private _pendingSystemTypeId: string | undefined;
   // Room linkage — set when AUTO_FROM_ROOM detects a room or when draw polygon overlaps a room
   private _pendingHostRoomId: string | undefined;
-  // §FIX-FLOORFINISH-DEFAULT-THICKNESS — thickness default DERIVES from the base-offset default
-  // (they stay coupled by construction) so the finish fills its recess flush with the slab top
-  // and never overlaps the slab/level. Both remain user-editable via the creation modal.
-  private _pendingBaseOffset = DEFAULT_FLOOR_FINISH_BASE_OFFSET_M;   // Y offset above level datum (metres)
-  private _pendingThickness  = DEFAULT_FLOOR_FINISH_THICKNESS_M;     // Assembly thickness (metres) — = base offset
+  // §FIX-FLOOR-FINISH-DEFAULT-THICKNESS (L-14) — base offset (FFL build-up height) and finish
+  // thickness are INDEPENDENT defaults: baseOffset = where the FFL sits (75 mm build-up),
+  // thickness = the real applied-finish layer (15 mm). Both remain user-editable via the modal.
+  private _pendingBaseOffset = DEFAULT_FLOOR_FINISH_BASE_OFFSET_M;   // FFL offset above level datum (metres)
+  private _pendingThickness  = DEFAULT_FLOOR_FINISH_THICKNESS_M;     // Applied-finish thickness (metres) — independent of FFL offset
   private _pendingHostSlabId: string | undefined;
 
   // Preview scene objects
