@@ -192,6 +192,13 @@ Enforced structurally, not by parallel hand-maintained lists:
   either surface. (§FIX-PLAN-ELEMENT-TOOL-PARITY / L-95.) Rotate / Scale are driven by the
   surface-independent 3-D transform tools (`transformControls` / `scaleTool`) acting on the
   selected element, so they are already plan-surface-agnostic.
+- **Applied SYSTEM TYPE (element authoring)** — plan-surface parity includes the applied
+  system type, not just thickness/geometry. The selected wall system type (the layered
+  composition) MUST be stored in a stable, surface-independent source
+  (`plantools/activeWallSystemType.ts`), NOT only on the transient `window.wallTool`
+  instance, so a wall drawn in the SPLIT plan pane threads the SAME `systemTypeId` into
+  `wall.create` as one drawn in the MAIN plan view (never `systemTypeId=none` → a plain
+  wall). (§FIX-SPLIT-WALL-SYSTEMTYPE / L-98; ADR-0055; C16.)
 - **Direct element move/drag + snapping + hover + selection** — owned by the shared,
   canvas-agnostic `PlanViewInteraction` + `planElementDragController` singleton, attached
   by BOTH `PlanViewManager` (main canvas) and `SplitViewManager` (SVP canvas). A hosted
