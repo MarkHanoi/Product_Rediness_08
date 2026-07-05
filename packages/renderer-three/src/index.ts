@@ -29,6 +29,13 @@ export {
   type GroundShadowCatcherOptions,
 } from './GroundShadowCatcher.js';
 
+// §FEAT-PROJECT-ORIGIN (L-109) — always-on blue-sphere project-origin marker.
+export {
+  ProjectOriginMarker,
+  PROJECT_ORIGIN_MARKER_NAME,
+  type ProjectOriginMarkerOptions,
+} from './ProjectOriginMarker.js';
+
 // ── three/examples/jsm addon re-exports ────────────────────────────────────
 // Contract C04 §1.1 (P2): only packages/renderer-three/ may touch three sub-paths.
 
