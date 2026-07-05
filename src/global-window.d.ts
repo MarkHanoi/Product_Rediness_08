@@ -82,6 +82,8 @@ declare global {
     liftStore?: any;
     columnStore?: any;
     gridStore?: any;
+    /** §FEAT-PROJECT-ORIGIN (L-109) — singleton ProjectOriginStore (blue-sphere datum). */
+    projectOriginStore?: any;
     ifcModelStore?: any;
     levelStore?: any;
     componentInstanceStore?: any;

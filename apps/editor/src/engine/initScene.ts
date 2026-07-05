@@ -39,6 +39,7 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
+import { initProjectOrigin } from './initProjectOrigin'; // §FEAT-PROJECT-ORIGIN (L-109)
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import * as OBC from '@thatopen/components';
 import * as OBCF from '@thatopen/components-front';
@@ -3621,6 +3622,16 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
     // persisting + reloading (ADR-0077 supersedes ADR-0076's reload path).
     window.pryzmSwapRendererBackend = swapRendererBackend;
     console.log('[initScene] §RENDERER-LIVE-SWAP live backend-swap entry point registered (window.pryzmSwapRendererBackend).');
+
+    // ── §FEAT-PROJECT-ORIGIN (L-109) — always-on blue-sphere project base point ──
+    // Attach the singleton coordination-datum marker (C11 project singleton, C19/
+    // ADR-0115 shared-coordinate origin). Additive + isolated: it only adds one
+    // non-pickable helper mesh + a store subscription. Never throws into boot.
+    try {
+        initProjectOrigin(world.scene.three as THREE.Scene);
+    } catch (e) {
+        console.warn('[initScene] §FEAT-PROJECT-ORIGIN marker init failed (non-fatal):', e);
+    }
 
     // ── Return typed scene result ─────────────────────────────────────────────
     // groundFloorController is not returned — it is already on window.groundFloorController

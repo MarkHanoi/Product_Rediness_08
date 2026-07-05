@@ -271,6 +271,7 @@ function _categoryStoreKey(catLabel: string): string | null {
         case 'Beams':             return 'beamStore';
         case 'Plumbing':          return 'plumbingStore';
         case 'Rooms':             return 'roomStore';
+        case 'Project Origin':    return 'projectOriginStore'; // §FEAT-PROJECT-ORIGIN (L-109)
         default:                  return null;
     }
 }
@@ -301,6 +302,7 @@ export function getCategoryElements(bag: UBPBag, catLabel: string): any[] {
             case 'Beams':             return window.beamStore?.getAll?.()         ?? []; // TODO(TASK-08)
             case 'Plumbing':          return window.plumbingStore?.getAll?.()     ?? []; // TODO(TASK-08)
             case 'Rooms':             return window.roomStore?.getAll?.()         ?? []; // TODO(TASK-08)
+            case 'Project Origin':    return window.projectOriginStore?.getAll?.() ?? []; // §FEAT-PROJECT-ORIGIN (L-109)
             default: return [];
         }
     } catch { return []; }
@@ -325,6 +327,7 @@ export function getSubType(catLabel: string, el: any): string {
         case 'Beams':             return el.beamType        || el.type || 'Standard';
         case 'Plumbing':          return el.fixtureType     || el.type || 'Standard';
         case 'Rooms':             return el.roomType        || el.usage || 'Standard';
+        case 'Project Origin':    return el.label          || 'Base Point'; // §FEAT-PROJECT-ORIGIN (L-109)
         default: return el.type || 'Standard';
     }
 }
