@@ -187,6 +187,8 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 | L-97 [BLOCKER] wall+door then move → FREEZE via infinite rAF wall-rebuild _flush loop (distinct from L-63 room loop) | 0.5 geometry | **IN FLIGHT (sole-wall agent, TOP)** — make _flush/resolveLevel idempotent+convergent; no-progress guard + circuit-breaker on re-arm; SELF-CLUSTER-GUARD cluster must stabilize; ADR-0055 |
 
+| L-98 split-view plan wall creation drops systemTypeId (=none) → plain wall not layered interior type | 0.5 walls/parity | **IN FLIGHT (plan-tools agent)** — thread active wall systemTypeId from SvpPlanToolOverlay into wall.create like main plan; fold into L-95 parity contract (incl. system type); §FIX-SPLIT-WALL-SYSTEMTYPE; test |
+
 ## STATUS RECONCILIATION — 2026-07-04 (session close)
 
 **Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
