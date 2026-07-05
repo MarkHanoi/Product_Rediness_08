@@ -54,6 +54,29 @@ export interface SunPosition {
     intensity: number;
 }
 
+/**
+ * §FEAT-REAL-ENVIRONMENT-SUN (ADR-0106) — how the panel sliders relate to the sun.
+ *
+ *  - 'real+offset' : direction/intensity come from the REAL solar position at the
+ *                    site + time; the panel Azimuth/Elevation are ADDED as offsets
+ *                    (degrees) and Intensity is a MULTIPLIER.
+ *  - 'manual'      : the panel Azimuth/Elevation/Intensity are ABSOLUTE (the legacy
+ *                    behaviour). No ephemeris — a fixed studio key.
+ */
+export type SunMode = 'real+offset' | 'manual';
+
+/**
+ * The seam RealSunService uses to drive the scene's REAL shadow caster (the
+ * Pascal key light) instead of adding a parallel light. Implemented by
+ * PascalSceneLighting (exposes `keyLight`). Kept as an interface so the service
+ * has no hard dependency on the lighting class and stays unit-testable with a
+ * plain fake.
+ */
+export interface KeyLightHost {
+    /** The scene's sole real directional shadow caster, or null before apply(). */
+    readonly keyLight: THREE.DirectionalLight | null;
+}
+
 // ── Constants ───────────────────────────────────────────────────────────────
 
 /** Default location: Madrid, Spain — used when no config is supplied. */
@@ -201,6 +224,27 @@ export class RealSunService {
     /** Last computed sun position (exposed for UI readback). */
     private _lastPosition: SunPosition | null = null;
 
+    /**
+     * §FEAT-REAL-ENVIRONMENT-SUN (ADR-0106) — the host that owns the scene's real
+     * shadow caster (Pascal key light). When set, the solve steers THAT light
+     * rather than the service's own parallel DirectionalLight, so the scene keeps
+     * exactly one shadow caster.
+     */
+    private _keyLightHost: KeyLightHost | null = null;
+
+    /**
+     * Snapshot of the Pascal key light's ORIGINAL position/colour/intensity, taken
+     * the first time we drive it, so disableRealSun() can restore the studio key
+     * exactly. Only used on the key-light-host path.
+     */
+    private _keyLightOriginal: { pos: THREE.Vector3; color: THREE.Color; intensity: number } | null = null;
+
+    /** Sun mode + panel offsets/multipliers. */
+    private _mode:            SunMode = 'real+offset';
+    private _azimuthOffDeg    = 0;   // real+offset: added to real az; manual: absolute az
+    private _elevationOffDeg  = 0;   // real+offset: added to real el; manual: absolute el
+    private _intensityMul     = 1;   // real+offset: ×real; manual: absolute (0–2)
+
     /** Fired whenever sun position is updated (e.g. for UI refresh). */
     onPositionChange?: (pos: SunPosition) => void;
 
@@ -209,6 +253,7 @@ export class RealSunService {
     get enabled(): boolean { return this._enabled; }
     get lastPosition(): SunPosition | null { return this._lastPosition; }
     get config(): Readonly<RealSunConfig> { return this._config; }
+    get mode(): SunMode { return this._mode; }
 
     // ── Public API ─────────────────────────────────────────────────────────
 
@@ -218,6 +263,41 @@ export class RealSunService {
      */
     bind(scene: THREE.Scene): void {
         this._scene = scene;
+    }
+
+    /**
+     * §FEAT-REAL-ENVIRONMENT-SUN (ADR-0106) — bind the host that owns the scene's
+     * REAL shadow caster (the Pascal key light). Once bound, the real-sun solve
+     * drives THAT light's direction / colour / intensity instead of adding a
+     * parallel DirectionalLight — one shadow caster, one §PERF-HEAVY-SHADOW-OFF
+     * lever. Safe to (re)call; re-drives immediately if enabled.
+     */
+    bindKeyLightHost(host: KeyLightHost | null): void {
+        this._keyLightHost = host;
+        if (this._enabled) this._drive();
+    }
+
+    /**
+     * Set the sun MODE (real+offset vs manual) and re-drive the light.
+     * 'real+offset' (default) = ephemeris sun + panel offsets; 'manual' = the
+     * panel Azimuth/Elevation/Intensity are absolute (legacy studio key).
+     */
+    setMode(mode: SunMode): void {
+        if (mode === this._mode) return;
+        this._mode = mode;
+        if (this._enabled) this._drive();
+    }
+
+    /**
+     * Panel sliders → offsets/multipliers. In real+offset these are added to /
+     * multiplied onto the real value; in manual they are the absolute values.
+     * Any argument may be omitted to leave that channel unchanged.
+     */
+    setOffsets(next: { azimuthDeg?: number; elevationDeg?: number; intensity?: number }): void {
+        if (next.azimuthDeg   !== undefined) this._azimuthOffDeg   = next.azimuthDeg;
+        if (next.elevationDeg !== undefined) this._elevationOffDeg = next.elevationDeg;
+        if (next.intensity    !== undefined) this._intensityMul    = next.intensity;
+        if (this._enabled) this._drive();
     }
 
     /**
@@ -242,7 +322,12 @@ export class RealSunService {
         }
         this._config.date = config?.date ?? new Date();
 
-        if (!this._sunLight) {
+        // §FEAT-REAL-ENVIRONMENT-SUN (ADR-0106) — when a key-light host is bound we
+        // DRIVE the scene's existing shadow caster (the Pascal key light) and add NO
+        // parallel light (avoids double-lighting + preserves the single §PERF-HEAVY-
+        // SHADOW-OFF lever). Only create the standalone sun light on the legacy path
+        // where no host is present.
+        if (!this._keyLightHost?.keyLight && !this._sunLight) {
             this._sunLight = this._createSunLight();
             this._scene.add(this._sunLight);
             // DirectionalLight.target must also be added to the scene for the
@@ -251,10 +336,12 @@ export class RealSunService {
         }
 
         this._enabled = true;
-        this._updateSunPosition();
+        this._drive();
 
         console.log('[RealSunService] Enabled — lat:', this._config.lat,
-            'lng:', this._config.lng, 'date:', this._config.date.toISOString());
+            'lng:', this._config.lng, 'date:', this._config.date.toISOString(),
+            'mode:', this._mode,
+            this._keyLightHost?.keyLight ? '(driving Pascal key light)' : '(own sun light)');
     }
 
     /**
@@ -270,6 +357,17 @@ export class RealSunService {
             this._sunLight.dispose();
             this._sunLight = null;
         }
+
+        // Restore the Pascal key light to its studio default if we were driving it.
+        const key = this._keyLightHost?.keyLight;
+        if (key && this._keyLightOriginal) {
+            key.position.copy(this._keyLightOriginal.pos);
+            key.color.copy(this._keyLightOriginal.color);
+            key.intensity = this._keyLightOriginal.intensity;
+            if (key.target) key.target.position.set(0, 0, 0);
+            if (key.shadow) key.shadow.camera.updateProjectionMatrix();
+        }
+        this._keyLightOriginal = null;
 
         this._enabled = false;
         this._lastPosition = null;
@@ -290,7 +388,7 @@ export class RealSunService {
         this._config.date = d;
 
         if (this._enabled) {
-            this._updateSunPosition();
+            this._drive();
         }
     }
 
@@ -302,7 +400,7 @@ export class RealSunService {
         this._config.lng = lng;
 
         if (this._enabled) {
-            this._updateSunPosition();
+            this._drive();
         }
     }
 
@@ -316,7 +414,7 @@ export class RealSunService {
         this._config.date = next;
 
         if (this._enabled) {
-            this._updateSunPosition();
+            this._drive();
         }
     }
 
@@ -326,7 +424,7 @@ export class RealSunService {
      */
     update(): void {
         if (this._enabled) {
-            this._updateSunPosition();
+            this._drive();
         }
     }
 
@@ -365,68 +463,119 @@ export class RealSunService {
         return light;
     }
 
-    private _updateSunPosition(): void {
-        if (!this._sunLight || !this._scene) return;
+    /**
+     * §FEAT-REAL-ENVIRONMENT-SUN (ADR-0106) — solve the EFFECTIVE sun (mode-aware)
+     * and drive the target light. Prefers the Pascal key light (the scene's real
+     * shadow caster) when a host is bound; otherwise falls back to the service's
+     * own DirectionalLight so the legacy standalone path still works.
+     *
+     * Effective angles:
+     *   real+offset : real (az,el) from NOAA solve + panel offsets (deg).
+     *   manual      : the panel az/el are absolute (no ephemeris).
+     * Effective intensity:
+     *   real+offset : real elevation-curve intensity × panel multiplier.
+     *   manual      : panel multiplier scaled to the 0–8 light range.
+     */
+    private _drive(): void {
+        const target = this._keyLightHost?.keyLight ?? this._sunLight;
+        if (!target) return;
+
+        // Snapshot the key light's studio defaults on first drive so disable() can
+        // restore them (own light is disposed entirely, so it needs no snapshot).
+        const drivingKeyLight = target !== this._sunLight;
+        if (drivingKeyLight && !this._keyLightOriginal) {
+            this._keyLightOriginal = {
+                pos:       target.position.clone(),
+                color:     target.color.clone(),
+                intensity: target.intensity,
+            };
+        }
 
         const { lat, lng, date } = this._config;
-        const { altitude, azimuth } = computeSolarPosition(lat, lng, date);
 
+        // 1. Real solar position (same NOAA basis as Forma/Cesium/solar-analysis).
+        const real = computeSolarPosition(lat, lng, date);
+
+        // 2. Resolve the EFFECTIVE altitude / azimuth per mode.
+        let altitude: number;
+        let azimuth:  number;
+        if (this._mode === 'manual') {
+            azimuth  = this._azimuthOffDeg   * (Math.PI / 180);
+            altitude = this._elevationOffDeg * (Math.PI / 180);
+        } else {
+            azimuth  = real.azimuth  + this._azimuthOffDeg   * (Math.PI / 180);
+            altitude = real.altitude + this._elevationOffDeg * (Math.PI / 180);
+        }
         const isAboveHorizon = altitude > 0;
 
-        // Convert azimuth + altitude to Three.js world-space position.
-        // Three.js convention: +X = East, +Y = Up, +Z = South (camera default).
-        // Azimuth is clockwise from North → sin(az) = East, cos(az) = North = -Z.
+        // 3. Direction → Three.js world position (+X East, +Y Up, +Z South).
+        //    Azimuth clockwise from North → sin(az)=East, -cos(az)=+Z(South).
         const cosAlt = Math.cos(altitude);
-        const dirX   =  cosAlt * Math.sin(azimuth);  // East component
-        const dirY   =  Math.sin(altitude);           // Up component
-        const dirZ   = -cosAlt * Math.cos(azimuth);  // South (+Z) when az=180°
+        const dirX   =  cosAlt * Math.sin(azimuth);
+        // Keep the light just above ground so a low / below-horizon sun still lights
+        // the model from a grazing angle instead of flipping under the floor.
+        const dirY   =  Math.max(0.02, Math.sin(altitude));
+        const dirZ   = -cosAlt * Math.cos(azimuth);
 
-        // Place the light far enough that the shadow frustum covers the scene.
-        this._sunLight.position.set(dirX * 120, dirY * 120, dirZ * 120);
-        this._sunLight.target.position.set(0, 0, 0);
+        // Preserve the light's existing distance so we don't shrink the Pascal key
+        // light's shadow-frustum coverage (it sits at |pos|≈17; own light at 120).
+        const dist = target.position.length() || 120;
+        target.position.set(dirX * dist, dirY * dist, dirZ * dist);
+        if (target.target) target.target.position.set(0, 0, 0);
 
-        // Update shadow camera when position changes.
-        this._sunLight.shadow.camera.updateProjectionMatrix();
-
-        // Color and intensity based on solar elevation.
-        const kelvin = elevationToKelvin(altitude);
+        // 4. Colour — warm when low, white at noon (Forma-like). Uses the REAL
+        //    elevation in real+offset so the warmth tracks true time-of-day.
+        const kelvin = elevationToKelvin(this._mode === 'manual' ? altitude : real.altitude);
         const color  = kelvinToColor(kelvin);
-        this._sunLight.color.copy(color);
+        target.color.copy(color);
 
-        // Intensity curve: zero below horizon, ramps up with elevation.
-        const intensity = isAboveHorizon
-            ? Math.min(4.0, 0.5 + 3.5 * Math.sin(altitude))
-            : 0;
-        this._sunLight.intensity = intensity;
+        // 5. Intensity.
+        let intensity: number;
+        if (this._mode === 'manual') {
+            // Panel value is the absolute 0–2 UI scale → 0–8 light range (×4 like initUI).
+            intensity = Math.max(0, this._intensityMul) * 4;
+        } else {
+            const base = isAboveHorizon ? Math.min(4.0, 0.5 + 3.5 * Math.sin(altitude)) : 0;
+            intensity = base * Math.max(0, this._intensityMul);
+        }
+        target.intensity = intensity;
 
-        // Shadow casting only makes sense when the sun is above the horizon.
-        this._sunLight.castShadow = isAboveHorizon;
-
-        // Invalidate cached shadow map so it regenerates at new angle.
-        // §SHADOW-DISPOSE-DEFER (founder 2026-06-19) — defer the GPU dispose past the
-        // current frame's submit (null now so THREE regenerates) so we never destroy a
-        // ShadowDepthTexture the command buffer still references → "used in a submit"
-        // device-loss cascade / render stall.
-        if (this._sunLight.shadow.map) {
-            const _oldMap = this._sunLight.shadow.map;
-            (this._sunLight.shadow as any).map = null;
-            setTimeout(() => { try { _oldMap.dispose(); } catch { /* already gone */ } }, 0);
+        // 6. Shadow map handling.
+        //    Own light: we OWN its shadow config → toggle castShadow with the sun
+        //    and defer-dispose the stale map (§SHADOW-DISPOSE-DEFER).
+        //    Pascal key light: PascalSceneLighting + §PERF-HEAVY-SHADOW-OFF own its
+        //    castShadow gate — we NEVER touch it here (moving the light is enough;
+        //    THREE regenerates the shadow map on its own schedule, respecting
+        //    ADR-0111 / §SHADOW-DEVICE-LOSS-FIX: no synchronous GPU dispose).
+        if (!drivingKeyLight && this._sunLight) {
+            this._sunLight.castShadow = isAboveHorizon;
+            if (this._sunLight.shadow) {
+                this._sunLight.shadow.camera.updateProjectionMatrix();
+                if (this._sunLight.shadow.map) {
+                    const _oldMap = this._sunLight.shadow.map;
+                    (this._sunLight.shadow as any).map = null;
+                    setTimeout(() => { try { _oldMap.dispose(); } catch { /* already gone */ } }, 0);
+                }
+            }
         }
 
         this._lastPosition = { altitude, azimuth, isAboveHorizon, color, intensity };
         this.onPositionChange?.(this._lastPosition);
 
-        // Notify RealSunControl (and any other DOM listener) of the update.
-        window.dispatchEvent(new CustomEvent('rsc-sun-updated', { // TODO(TASK-12)
-            detail: { altitude, azimuth, isAboveHorizon, intensity },
-        }));
+        // Notify RealSunControl / VisualizationEnginePanel (DOM readout listeners).
+        // Guarded — the service is also exercised under node (tests) with no window.
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('rsc-sun-updated', { // TODO(TASK-12)
+                detail: { altitude, azimuth, isAboveHorizon, intensity, mode: this._mode },
+            }));
+        }
 
         const altDeg = (altitude * 180 / Math.PI).toFixed(1);
         const azDeg  = (azimuth  * 180 / Math.PI).toFixed(1);
         console.log(
-            `[RealSunService] Position updated — alt: ${altDeg}°  az: ${azDeg}°` +
+            `[RealSunService] ${this._mode} — alt: ${altDeg}°  az: ${azDeg}°` +
             `  ${kelvin.toFixed(0)}K  intensity: ${intensity.toFixed(2)}` +
-            `  above: ${isAboveHorizon}`,
+            `  above: ${isAboveHorizon}  ${drivingKeyLight ? '(key light)' : '(own light)'}`,
         );
     }
 }

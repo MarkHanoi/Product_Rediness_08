@@ -100,6 +100,19 @@ export class PascalSceneLighting {
     get shadowsSuppressed(): boolean { return this._shadowsSuppressed; }
 
     /**
+     * §FEAT-REAL-ENVIRONMENT-SUN (ADR-0106) — the key light IS the scene's sole
+     * real shadow caster. RealSunService drives its DIRECTION / COLOUR / INTENSITY
+     * from the real solar position (site lat/lon + time-of-day) instead of adding a
+     * competing parallel DirectionalLight — so there is exactly ONE shadow caster
+     * and the §PERF-HEAVY-SHADOW-OFF single-lever assumption (keyLight.castShadow)
+     * still holds. Null before apply() / after dispose(). Implements KeyLightHost.
+     */
+    get keyLight(): THREE.DirectionalLight | null { return this._keyLight; }
+
+    /** The live scene this lighting is applied to (null before apply/after dispose). */
+    get scene(): THREE.Scene | null { return this._scene; }
+
+    /**
      * Injects Pascal's lighting into the Three.js scene.
      *
      * Matches Pascal/packages/viewer/src/components/viewer/lights.tsx exactly:

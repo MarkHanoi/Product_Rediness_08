@@ -12,9 +12,16 @@
  *   - Shadows           (enabled toggle)
  *   - Post-processing   (AO toggle, bloom toggle, exposure)
  *
- * Engine integration — dispatches custom window events read by initUI.ts:
- *   'pryzm-set-sun-direction'  → { x, y, z }   (Three.js normalised vector)
- *   'pryzm-set-sun-intensity'  → { intensity }  (0 – 2 scale)
+ * Engine integration — dispatches custom window events read by initUI.ts +
+ * initScene.ts (RealEnvironmentService):
+ *   §FEAT-REAL-ENVIRONMENT-SUN (ADR-0106) — the sun is REAL (site + time):
+ *   'pryzm-set-sun-mode'       → { mode }       ('real+offset' | 'manual')
+ *   'pryzm-set-sun-time'       → { hours }       (0–24 decimal, drives ephemeris)
+ *   'pryzm-set-sun-offsets'    → { azimuthDeg?, elevationDeg?, intensity? }
+ *                                (offsets/multiplier in real+offset; absolute in manual)
+ *   'pryzm-toggle-ground-shadows' → { enabled }  (invisible L0 shadow-catcher)
+ *   'pryzm-set-sun-direction'  → { x, y, z }   (manual mode only — legacy OBC light)
+ *   'pryzm-set-sun-intensity'  → { intensity }  (manual mode only — legacy OBC light)
  *   'pryzm-toggle-shadows'     → void (toggles current shadow state)
  *   'pryzm-set-climate'        → { temperature, humidity }  (°C, %)  §ENV-PANEL-CLIMATE
  *   'pryzm-set-wind'           → { direction, speed }  (°, m/s)      §ENV-PANEL-CLIMATE
@@ -28,15 +35,34 @@
  *   §06 §10.1 — No @thatopen/components imports in UI layer
  */
 
+import { sharedRenderingState, setSharedPostProcessing } from '@pryzm/core-app-model/rendering';
+
 export class ViewPropertiesSection {
     /** Phase B (S73-WIRE) — runtime threaded by parent (added by widening — class had no explicit constructor). */
     public readonly runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null;
-    constructor(runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null = null) { this.runtime = runtime; }
+    constructor(runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null = null) {
+        this.runtime = runtime;
+        // §FEAT-REAL-ENVIRONMENT (ADR-0106) — restore persisted environment/post-proc
+        // state so a panel rebuild (per selection) keeps the user's choices.
+        this._sunMode              = sharedRenderingState.sunMode;
+        this._groundShadowsEnabled = sharedRenderingState.groundShadows;
+        this._aoEnabled            = sharedRenderingState.aoEnabled;
+        this._bloomEnabled         = sharedRenderingState.bloomEnabled;
+        this._exposure             = sharedRenderingState.exposure;
+    }
 
-    private _azimuth   = 225;
-    private _elevation = 60;
-    private _intensity = 0.8;
+    // §FEAT-REAL-ENVIRONMENT-SUN (ADR-0106) — the sun is REAL: driven from the
+    // site lat/lon + time-of-day (same NOAA basis as the Cesium/Forma globe). In
+    // 'real+offset' mode the Azimuth/Elevation/Intensity sliders are OFFSETS /
+    // multipliers on the real value; in 'manual' they are absolute (legacy studio
+    // key). Defaults: real+offset, zero offset, ×1 intensity, noon.
+    private _sunMode: 'real+offset' | 'manual' = 'real+offset';
+    private _azimuth   = 0;    // offset(deg) in real+offset; absolute(deg) in manual
+    private _elevation = 0;    // offset(deg) in real+offset; absolute(deg) in manual
+    private _intensity = 1.0;  // multiplier in real+offset; absolute(0–2) in manual
+    private _timeHours = 12;   // time-of-day the real sun is solved for
     private _shadowsEnabled = true;
+    private _groundShadowsEnabled = true; // §FEAT-GROUND-SHADOW-CATCHER — default ON
     private _aoEnabled      = false;
     private _bloomEnabled   = false;
     private _exposure       = 1.0;
@@ -87,20 +113,40 @@ export class ViewPropertiesSection {
     private _buildSunSettings(): HTMLElement {
         const wrap = document.createElement('div');
 
+        // §FEAT-REAL-ENVIRONMENT-SUN — mode toggle: REAL (ephemeris) + offset vs MANUAL.
+        // ON  = real+offset (sliders are offsets on the true solar position);
+        // OFF = manual (sliders are absolute — the legacy studio key).
+        wrap.appendChild(this._buildToggleRow('Real sun (site + time)', this._sunMode === 'real+offset', (on) => {
+            this._sunMode = on ? 'real+offset' : 'manual';
+            window.runtime?.events?.emit('pryzm-set-sun-mode', { mode: this._sunMode });
+            setSharedPostProcessing({ sunMode: this._sunMode }); // persist across rebuilds
+            // Re-emit current slider values so the engine re-solves in the new mode.
+            this._applySunDirection();
+            this._applySunIntensity();
+        }));
+
+        // Time of day — drives the ephemeris in real+offset mode.
         wrap.appendChild(this._buildSliderRow(
-            'Azimuth', this._azimuth, 0, 360, 1, '°',
+            'Time of day', this._timeHours, 0, 24, 0.25, 'h',
+            (v) => {
+                this._timeHours = v;
+                window.runtime?.events?.emit('pryzm-set-sun-time', { hours: v });
+            },
+        ));
+
+        // Azimuth / Elevation — OFFSETS in real+offset mode, ABSOLUTE in manual.
+        // Range spans negative offsets so the sun can be nudged either way.
+        wrap.appendChild(this._buildSliderRow(
+            'Azimuth', this._azimuth, -180, 180, 1, '°',
             (v) => { this._azimuth   = v; this._applySunDirection(); },
         ));
         wrap.appendChild(this._buildSliderRow(
-            'Elevation', this._elevation, 0, 90, 1, '°',
+            'Elevation', this._elevation, -90, 90, 1, '°',
             (v) => { this._elevation = v; this._applySunDirection(); },
         ));
         wrap.appendChild(this._buildSliderRow(
-            'Intensity', this._intensity, 0.1, 2.0, 0.05, '',
-            (v) => {
-                this._intensity = v;
-                window.runtime?.events?.emit('pryzm-set-sun-intensity', { intensity: v }); // F.events.14
-            },
+            'Intensity', this._intensity, 0.0, 2.0, 0.05, '×',
+            (v) => { this._intensity = v; this._applySunIntensity(); },
         ));
 
         return wrap;
@@ -159,6 +205,13 @@ export class ViewPropertiesSection {
             this._shadowsEnabled = v;
             window.runtime?.events?.emit('pryzm-toggle-shadows', { enabled: v }); // F.events.14
         }));
+        // §FEAT-GROUND-SHADOW-CATCHER — invisible L0 plane so every element casts a
+        // grounded shadow even with no floor slab. Default ON.
+        wrap.appendChild(this._buildToggleRow('Ground shadows', this._groundShadowsEnabled, (v) => {
+            this._groundShadowsEnabled = v;
+            window.runtime?.events?.emit('pryzm-toggle-ground-shadows', { enabled: v });
+            setSharedPostProcessing({ groundShadows: v }); // persist across rebuilds
+        }));
         return wrap;
     }
 
@@ -168,16 +221,19 @@ export class ViewPropertiesSection {
         wrap.appendChild(this._buildToggleRow('Ambient Occlusion', this._aoEnabled, (v) => {
             this._aoEnabled = v;
             window.runtime?.events?.emit('pryzm-set-ao', { enabled: v }); // F.events.14
+            setSharedPostProcessing({ aoEnabled: v }); // 8C — persist across panel rebuilds
         }));
         wrap.appendChild(this._buildToggleRow('Bloom', this._bloomEnabled, (v) => {
             this._bloomEnabled = v;
             window.runtime?.events?.emit('pryzm-set-bloom', { enabled: v }); // F.events.14
+            setSharedPostProcessing({ bloomEnabled: v });
         }));
         wrap.appendChild(this._buildSliderRow(
             'Exposure', this._exposure, 0.1, 3.0, 0.1, '',
             (v) => {
                 this._exposure = v;
                 window.runtime?.events?.emit('pryzm-set-exposure', { exposure: v }); // F.events.14
+                setSharedPostProcessing({ exposure: v });
             },
         ));
 
@@ -261,12 +317,35 @@ export class ViewPropertiesSection {
     // ─────────────────────────────────────────────────────────────────────────
 
     private _applySunDirection(): void {
-        const azRad = (this._azimuth   * Math.PI) / 180;
-        const elRad = (this._elevation * Math.PI) / 180;
-        const x =  Math.sin(azRad) * Math.cos(elRad);
-        const y =  Math.sin(elRad);
-        const z =  Math.cos(azRad) * Math.cos(elRad);
-        window.runtime?.events?.emit('pryzm-set-sun-direction', { x, y, z }); // F.events.14
+        // §FEAT-REAL-ENVIRONMENT-SUN — primary path: hand azimuth/elevation to the
+        // RealEnvironmentService as offsets (real+offset) or absolutes (manual). It
+        // drives the Pascal KEY LIGHT (the real shadow caster) from the true solar
+        // position, so shadows fall at the real sun angle.
+        window.runtime?.events?.emit('pryzm-set-sun-offsets', {
+            azimuthDeg:   this._azimuth,
+            elevationDeg: this._elevation,
+        });
+        // Manual mode also nudges the legacy OBC ShadowedScene light so viewports
+        // without the real-sun service still track the panel. In real+offset mode
+        // the key light is authoritative, so we skip the legacy emit to avoid a
+        // second, differently-angled directional light fighting the sun.
+        if (this._sunMode === 'manual') {
+            const azRad = (this._azimuth   * Math.PI) / 180;
+            const elRad = (this._elevation * Math.PI) / 180;
+            const x =  Math.sin(azRad) * Math.cos(elRad);
+            const y =  Math.sin(elRad);
+            const z =  Math.cos(azRad) * Math.cos(elRad);
+            window.runtime?.events?.emit('pryzm-set-sun-direction', { x, y, z }); // F.events.14
+        }
+    }
+
+    private _applySunIntensity(): void {
+        // Primary: intensity multiplier/absolute → RealEnvironmentService.
+        window.runtime?.events?.emit('pryzm-set-sun-offsets', { intensity: this._intensity });
+        // Manual mode also drives the legacy OBC light intensity.
+        if (this._sunMode === 'manual') {
+            window.runtime?.events?.emit('pryzm-set-sun-intensity', { intensity: this._intensity }); // F.events.14
+        }
     }
 
     // ─── §ENV-PANEL-CLIMATE — environment helpers ────────────────────────────

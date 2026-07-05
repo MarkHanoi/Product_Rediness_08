@@ -21,6 +21,7 @@ export * from './PBRSceneUpgrader.js';
 export * from './PhotorealisticRenderer.js';
 export * from './ProceduralSkyService.js';
 export * from './RealSunService.js';
+export * from './RealEnvironmentService.js';
 export * from './RealtimeLightingService.js';
 export * from './ReflectionProbeService.js';
 export * from './RenderingAuditData.js';

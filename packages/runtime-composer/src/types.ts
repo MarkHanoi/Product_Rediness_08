@@ -1581,6 +1581,25 @@ export interface RuntimeEvents {
    *  `density` in persons/ha. */
   'pryzm-set-population-density': { readonly density: number };
 
+  /** §FEAT-REAL-ENVIRONMENT-SUN (ADR-0106) — sun MODE toggle.
+   *  Emitted by ViewPropertiesSection. 'real+offset' = ephemeris sun + panel
+   *  offsets; 'manual' = the panel az/el/intensity are absolute. initScene's
+   *  RealEnvironmentService listens and calls setSunMode(). */
+  'pryzm-set-sun-mode': { readonly mode: 'real+offset' | 'manual' };
+
+  /** §FEAT-REAL-ENVIRONMENT-SUN (ADR-0106) — sun offsets/multipliers.
+   *  Emitted by ViewPropertiesSection. In real+offset mode `azimuthDeg`/
+   *  `elevationDeg` are offsets (deg) and `intensity` a multiplier; in manual
+   *  they are absolute. Any field may be omitted. */
+  'pryzm-set-sun-offsets': { readonly azimuthDeg?: number; readonly elevationDeg?: number; readonly intensity?: number };
+
+  /** §FEAT-REAL-ENVIRONMENT-SUN (ADR-0106) — sun time-of-day (decimal hours). */
+  'pryzm-set-sun-time': { readonly hours: number };
+
+  /** §FEAT-GROUND-SHADOW-CATCHER (ADR-0106) — toggle the invisible L0 ground
+   *  shadow-catcher plane. Default ON. */
+  'pryzm-toggle-ground-shadows': { readonly enabled: boolean };
+
   /** Emitted by triggerConsequencePreview() when a destructive-tool hover fires.
    *  `action` is the SpeculativeAction (typed unknown to avoid pkg→app coupling).
    *  `mouseX`/`mouseY` are client-space cursor coordinates.

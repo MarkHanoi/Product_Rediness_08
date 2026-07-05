@@ -86,6 +86,7 @@ import { RenderPipelineManager } from '@pryzm/renderer-three';
 import { ViewportCrashGuard } from '@app/ui/primitives/ViewportCrashGuard';
 import { RenderHealthIndicator } from '@app/ui/overlays/RenderHealthIndicator';
 import { pascalSceneLighting } from '@pryzm/core-app-model/rendering';
+import { RealEnvironmentService } from '@pryzm/core-app-model/rendering';
 import { SceneTheme } from '@pryzm/core-app-model';
 import { SplitViewManager } from './views/SplitViewManager';
 import { SceneBoundsCache } from '@pryzm/scene-committer';
@@ -2906,6 +2907,100 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         console.warn('[initScene] PascalSceneLighting geometry events error:', pslErr?.message ?? pslErr);
     }
     // ── End Pascal Lighting ───────────────────────────────────────────────
+
+    // ── §FEAT-REAL-ENVIRONMENT (ADR-0106) — REAL sun + ground shadow-catcher ──
+    // Makes the View Properties "Environment & Camera" panel real:
+    //   8A real sun  — drives the Pascal KEY LIGHT (the scene's sole real shadow
+    //                  caster) from the true solar position at the site lat/lon +
+    //                  time-of-day, same NOAA basis as the Cesium/Forma globe.
+    //   8B ground    — mounts an INVISIBLE ShadowMaterial plane at L0 so every
+    //                  element casts a real grounded shadow.
+    // Coordinates with §PERF-HEAVY-SHADOW-OFF: the sun steers the SAME key light
+    // the suppression gates (one caster, one lever) and the catcher adds ZERO
+    // casters — so heavy/nav scenes that drop the shadow pass simply show no
+    // ground shadow, fully reversible, no synchronous GPU dispose (ADR-0111 safe).
+    try {
+        const realEnvironment = new RealEnvironmentService();
+        // Site location (C19) via the composed runtime's siteModelStore — mirrors
+        // CesiumViewport.readSiteLocation() so the two viewports agree on the sun.
+        // 0/0 is the ensureSite placeholder (Null Island) and is treated as unset.
+        const readSiteLatLon = (): { lat: number; lon: number } | null => {
+            try {
+                const store = (runtime ?? window.runtime)?.siteModelStore as
+                    | { getLocation?: () => { latitude: number; longitude: number } | null }
+                    | undefined;
+                const loc = store?.getLocation?.();
+                if (loc && (loc.latitude !== 0 || loc.longitude !== 0)) {
+                    return { lat: loc.latitude, lon: loc.longitude };
+                }
+            } catch { /* store not ready — treat as unset */ }
+            return null;
+        };
+        // L0 elevation = the lowest authored level's elevation (default 0).
+        const readL0Elevation = (): number => {
+            try {
+                const levels: Array<{ elevation?: number }> =
+                    (window.bimManager as { getLevels?: () => Array<{ elevation?: number }> } | undefined)?.getLevels?.() ?? [];
+                if (levels.length === 0) return 0;
+                const min = levels.reduce((m, lv) => Math.min(m, lv.elevation ?? 0), Number.POSITIVE_INFINITY);
+                return Number.isFinite(min) ? min : 0;
+            } catch { return 0; }
+        };
+
+        // The Pascal key light is our KeyLightHost (its `keyLight` getter exposes the
+        // sole real shadow caster). Bind + enable so the very first frame shows the
+        // real sun; ground shadows default ON per the founder mandate.
+        realEnvironment.bind(
+            world.scene.three as THREE.Scene,
+            pascalSceneLighting,      // KeyLightHost
+            readSiteLatLon,
+            readL0Elevation,
+        );
+        realEnvironment.enable();
+
+        // Re-solve the sun when the site location changes (onboarding / relocate).
+        window.runtime?.events?.on('site.location-changed', () => {
+            try { realEnvironment.refreshSiteLocation(); }
+            catch (e) { console.warn('[initScene] realEnvironment.refreshSiteLocation error:', e); }
+        });
+        // Re-place the catcher when the active level / levels change.
+        window.runtime?.events?.on('view-activated', () => {
+            try { realEnvironment.refreshGroundElevation(); }
+            catch { /* advisory */ }
+        });
+
+        // Panel bridge — the View Properties panel emits these via runtime.events.
+        // §FEAT-REAL-ENVIRONMENT-SUN — sun mode / offsets / time / ground toggle.
+        window.runtime?.events?.on('pryzm-set-sun-mode', ({ mode }: { mode: 'real+offset' | 'manual' }) => {
+            realEnvironment.setSunMode(mode);
+        });
+        window.runtime?.events?.on('pryzm-set-sun-offsets', (o: { azimuthDeg?: number; elevationDeg?: number; intensity?: number }) => {
+            realEnvironment.setSunOffsets(o);
+        });
+        window.runtime?.events?.on('pryzm-set-sun-time', ({ hours }: { hours: number }) => {
+            realEnvironment.setSunTime(hours);
+        });
+        window.runtime?.events?.on('pryzm-toggle-ground-shadows', ({ enabled }: { enabled: boolean }) => {
+            realEnvironment.setGroundShadows(enabled);
+        });
+
+        // Expose for the panel + the existing VisualizationEnginePanel / console.
+        window.realEnvironmentService = realEnvironment;
+
+        // The coordinator owns a SEPARATE RealSunService instance used by the legacy
+        // VisualizationEnginePanel "Real Sun" toggle. Point ITS sun at the same key
+        // light so that path also drives the real caster (no parallel light) and both
+        // toggles stay consistent. Guarded + idempotent (only drives once enabled).
+        try {
+            (window.renderingPipelineCoordinator as { realSunService?: { bindKeyLightHost?: (h: unknown) => void } } | undefined)
+                ?.realSunService?.bindKeyLightHost?.(pascalSceneLighting);
+        } catch { /* coordinator sun optional */ }
+
+        console.log('[initScene] §FEAT-REAL-ENVIRONMENT real sun + ground shadow-catcher active.');
+    } catch (envErr: any) {
+        console.warn('[initScene] §FEAT-REAL-ENVIRONMENT init error (non-fatal):', envErr?.message ?? envErr);
+    }
+    // ── End §FEAT-REAL-ENVIRONMENT ────────────────────────────────────────
 
     // ── Phase 2: Enhanced Bloom (UnrealBloomPass + EffectComposer) ────────
     // Pattern mirrors ViewportPathTracer: bloom takes exclusive renderer control

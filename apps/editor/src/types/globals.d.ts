@@ -436,6 +436,8 @@ declare global {
         disableSSGI:               (() => void) | undefined;
         setRenderQualityLevel:     ((level: string) => void) | undefined;
         pascalSceneLighting:       unknown;
+        /** §FEAT-REAL-ENVIRONMENT (ADR-0106) — RealEnvironmentService (real sun + ground catcher). */
+        realEnvironmentService:    unknown;
         splitViewManager:          unknown;
 
         // ── Navigation & view ─────────────────────────────────────────────────

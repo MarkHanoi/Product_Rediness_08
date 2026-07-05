@@ -22,6 +22,14 @@ export interface ISharedRenderingState {
     enhancementLevel: 'off' | 'standard' | 'high' | 'ultra';
     realSunEnabled:   boolean;
     realSunHour:      number;
+    // §FEAT-REAL-ENVIRONMENT (ADR-0106) — persisted View Properties environment
+    // state so the panel survives a rebuild (it is reconstructed per selection).
+    sunMode:          'real+offset' | 'manual';
+    groundShadows:    boolean;
+    // 8C — post-processing panel state (take effect + persist within the session).
+    aoEnabled:        boolean;
+    bloomEnabled:     boolean;
+    exposure:         number;
 }
 
 export const sharedRenderingState: ISharedRenderingState = {
@@ -29,7 +37,26 @@ export const sharedRenderingState: ISharedRenderingState = {
     enhancementLevel: 'off',
     realSunEnabled:   false,
     realSunHour:      12,
+    sunMode:          'real+offset',
+    groundShadows:    true,
+    aoEnabled:        false,
+    bloomEnabled:     false,
+    exposure:         1.0,
 };
+
+/** §FEAT-REAL-ENVIRONMENT (ADR-0106) — persist the View Properties post-processing
+ *  + environment toggles so the panel restores them when it is next rebuilt. */
+export function setSharedPostProcessing(next: Partial<Pick<ISharedRenderingState,
+    'aoEnabled' | 'bloomEnabled' | 'exposure' | 'sunMode' | 'groundShadows'>>): void {
+    if (next.aoEnabled     !== undefined) sharedRenderingState.aoEnabled     = next.aoEnabled;
+    if (next.bloomEnabled  !== undefined) sharedRenderingState.bloomEnabled  = next.bloomEnabled;
+    if (next.exposure      !== undefined) sharedRenderingState.exposure      = next.exposure;
+    if (next.sunMode       !== undefined) sharedRenderingState.sunMode       = next.sunMode;
+    if (next.groundShadows !== undefined) sharedRenderingState.groundShadows = next.groundShadows;
+    window.dispatchEvent(new CustomEvent('pryzm-rendering-state-changed', {
+        detail: { ...next },
+    }));
+}
 
 export function setSharedHdri(hdriPresetId: string): void {
     sharedRenderingState.hdriPresetId = hdriPresetId;

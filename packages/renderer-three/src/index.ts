@@ -22,6 +22,13 @@ export {
   type WorkspaceSurfaceHost,
 } from './WorkspaceSurface.js';
 
+// §FEAT-GROUND-SHADOW-CATCHER (ADR-0106) — invisible L0 shadow-catcher plane.
+export {
+  GroundShadowCatcher,
+  GROUND_SHADOW_CATCHER_NAME,
+  type GroundShadowCatcherOptions,
+} from './GroundShadowCatcher.js';
+
 // ── three/examples/jsm addon re-exports ────────────────────────────────────
 // Contract C04 §1.1 (P2): only packages/renderer-three/ may touch three sub-paths.
 

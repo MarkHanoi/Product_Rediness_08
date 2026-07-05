@@ -236,6 +236,8 @@ declare global {
     vgSceneApplicator?: any;
     obcRendererCanvas?: any;
     pascalSceneLighting?: any;
+    /** §FEAT-REAL-ENVIRONMENT (ADR-0106) — RealEnvironmentService (real sun + ground catcher). */
+    realEnvironmentService?: any;
     pryzmCanvas?: any;
     previewManager?: any;
     activeCamera?: any;
