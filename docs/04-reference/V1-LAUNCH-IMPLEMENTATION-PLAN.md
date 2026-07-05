@@ -175,3 +175,22 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 **Waves shipped to Fly (feat/wall-move-dimensions → main):** batch 1–3 → **4c** (`0543c337`: L-25/22/20-21-23/26) → **4d** (`103b14f0`: L-28/29/31/32/27-v2) → **4e** (`b9d55ff3`: L-33/34/35 kitchen) → **4f** (`9d27f6b7`: L-27 cluster + L-36/37 shower) → **4g-a** (`32c0d88e`: L-38 dual-north + L-40 globe + L-41 wall-type) → **4g-b** (`5a6efea5`: L-39/L-42 CRITICAL freeze/nav) → **4g-c** (`fcede3ca`: L-43 + L-44/46/47 baseline) → **4g-d/e** (`58ac4e15`: L-49 undo + wall hardening L-50/51/52/55 + wall audit) → **4h** (`c23d69f8`: L-56 + L-30 + L-45) → **4i** (`c809db1b`: **L-58 PDF/map overlay (priority)** + L-59 SSGI/TRAA flash + L-60 UI-overlap + L-61 wall L+T joint + Q7/L-08 materials; root tsc exit 0).
 **In flight:** none (all four wave-4i agents landed). **Scheduled (sole-wall lane, in order):** L-63 hosted-door-move freeze (BLOCKER, top) → L-62 layered-wall plan render → L-53 collab-conflict → L-54 legacy-resolver retirement. **Scheduled (render lane):** L-64 wall-close black flash (extends L-59). **Scheduled (plan-projection perf lane):** L-65 plan-view element-create ~0.5s lag. **Scheduled (plan-tools lane):** L-66 wall tool arm-on-activate. **Scheduled (UI/catalog lane):** L-67 restore catalog preview thumbnails. **Scheduled (furniture type-swap + undo lane):** L-68 bed dropdown list + CHANGE_FURNITURE_TYPE undo. **Held (user-cancelled):** L-18, L-19, L-24, L-48. **Queued:** L-11 environment (stashed), L-14 floor-finish default, site-overlay localStorage follow-up, GLB object-storage hosting (needs infra).
 **Wall subsystem:** deep audit committed (§3 Walls + L-50…L-55); geometry/join/undo correctness now sound; L-61 SHIPPED (4i); open wall debt = L-63 → L-62 → L-53 → L-54, all through the SINGLE sole-wall agent (no parallel wall agents).
+
+
+---
+
+## STATUS RECONCILIATION — 2026-07-04 (session close)
+
+**Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
+
+**Earlier-wave SHIPPED (verified live on pryzm.fly.dev):** L-16, L-20, L-21, L-25, L-26, L-27, L-28, L-29, L-30, L-31, L-32, L-33, L-34, L-35, L-36, L-37, L-38, L-39, L-40, L-41, L-42, L-43, L-44, L-45, L-46, L-47, L-49, L-50, L-51, L-52, L-55, L-56, L-57, plus L-08/Q7 materials, L-12, L-13, L-15, L-17, L-22.
+
+**HELD (user-cancelled):** L-18, L-19, L-24, L-48.
+
+**Genuinely OPEN → IN FLIGHT now (dispatched 2026-07-04):** L-11 (real environment), L-14 (floor-finish default thickness), and a verify-then-fix pass over the original interaction gate items **L-04** (selection exact-pixel), **L-05** (WebGL2 ghost-on-rotate), **L-06** (per-move redetect/reproject storm — likely already covered by L-65/L-89/L-90), **L-09** (wall-draw preview responsiveness).
+
+**OPEN / SCHEDULED (high-risk wall debt, not yet started):** L-53 (collab CRDT baseline conflict — needs shared CRDT id normalization first), L-54 (dual junction-resolver retirement / `_flush` simplification — high-risk refactor).
+
+**OPEN / needs heavy-scene repro (original perf gates):** L-02 (heavy-tower nav perf), L-03 (heavy-project load) — require a large test project to validate; flag for a dedicated perf pass.
+
+**Non-blocking engineering follow-ups:** CSG path-convergence for a door hard against a corner (`§WALL-SINGLE-VOLUME-CSG`); align root vitest config so `packages/**/*.test.ts` regression suites run in CI.
