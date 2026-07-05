@@ -50,6 +50,7 @@ import { svpPlanToolOverlay } from './SvpPlanToolOverlay';
 // §AUTOFRAME-NO-HIJACK-WHILE-DRAWING — suppress deferred auto-frame mid-draw
 import { shouldSuppressAutoFrameWhileDrawing } from './autoframeGuard';
 import { PlanViewInteraction } from './PlanViewInteraction';
+import { mapMirrorClientToSourceClient } from './mirrorFit';
 import { repopulateViewSelectPreservingSelection } from './viewSelectRepopulate';
 import { buildViewHeaderToolbar, type ViewHeaderButtonsHandle } from '@app/ui/views/ViewHeaderButtons';
 import { escHtml } from '@pryzm/ui-base';
@@ -1269,7 +1270,21 @@ export class SplitViewManager implements ISplitViewManager {
 
         if (src && src !== canvas && src.width > 0 && src.height > 0) {
             try {
-                ctx.drawImage(src, 0, 0, bw, bh);
+                // §FIX-SPLIT-3D-MIRROR (L-96) — ASPECT-CORRECT contain-fit blit. The old
+                // `drawImage(src,0,0,bw,bh)` stretched the main viewport to fill the pane,
+                // distorting the view whenever the pane aspect ≠ the main-viewport aspect
+                // (the founder's "visual drift"). Contain-fit centres the main canvas
+                // undistorted (letterbox bars stay in the cleared black background), so the
+                // split 3D pane is a FAITHFUL mirror; the click path uses the matching
+                // inverse (mapMirrorClientToSourceClient) so a pick lands on the exact pixel.
+                // Formula = computeContainFit(src.width, src.height, bw, bh); inlined here to
+                // keep the per-frame blit span-free (P8 span lives on the click-time export).
+                const scale = Math.min(bw / src.width, bh / src.height);
+                const dw = src.width  * scale;
+                const dh = src.height * scale;
+                const dx = (bw - dw) / 2;
+                const dy = (bh - dh) / 2;
+                ctx.drawImage(src, dx, dy, dw, dh);
             } catch {
                 // Cross-origin or tainted canvas — show placeholder
                 this._draw3dPlaceholder(ctx, bw, bh);
@@ -1442,12 +1457,18 @@ export class SplitViewManager implements ISplitViewManager {
             console.warn('[SplitViewManager] 3D click forward — no main canvas found');
             return;
         }
-        const ndcX =  (cx / svpW) * 2 - 1;
-        const ndcY = -((cy / svpH) * 2 - 1);
+        // §FIX-SPLIT-3D-MIRROR (L-96) — EXACT inverse of the aspect-correct contain-fit
+        // blit. The previous mapping assumed a full-stretch mirror (`ndc = cx/svpW·2−1`),
+        // which was wrong for any pane whose aspect ≠ the main viewport — the forwarded
+        // pointer landed on the wrong main-canvas pixel → the pick resolved the wrong
+        // element (or missed). mapMirrorClientToSourceClient uses the LIVE main-canvas rect
+        // and the same contain-fit the blit draws, and returns null for clicks in a
+        // letterbox bar (no mirrored pixel there) so we don't synthesise a bogus edge pick.
         const mainRect = mainCanvas.getBoundingClientRect();
-        if (mainRect.width <= 0 || mainRect.height <= 0) return;
-        const mainClientX = mainRect.left + ((ndcX + 1) / 2) * mainRect.width;
-        const mainClientY = mainRect.top  + ((-ndcY + 1) / 2) * mainRect.height;
+        const mapped = mapMirrorClientToSourceClient(cx, cy, svpW, svpH, mainRect);
+        if (!mapped) return;
+        const mainClientX = mapped.clientX;
+        const mainClientY = mapped.clientY;
 
         const dispatch = (type: string, EventCtor: typeof MouseEvent | typeof PointerEvent) => {
             const init: PointerEventInit = {
