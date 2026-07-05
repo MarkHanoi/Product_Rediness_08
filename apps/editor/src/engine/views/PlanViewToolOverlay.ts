@@ -246,6 +246,11 @@ export class PlanViewToolOverlay {
      *
      * Call `setActiveTool('none')` to deactivate without activating another.
      */
+    /** True while this overlay is attached to a live plan canvas (Contract 34/17). */
+    isAttached(): boolean {
+        return this._active;
+    }
+
     setActiveTool(tool: string): void {
         if (!this._active) {
             console.warn('[PlanViewToolOverlay] setActiveTool called while not attached — ignored');
