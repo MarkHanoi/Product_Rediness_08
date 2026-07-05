@@ -211,6 +211,85 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 **OPEN / SCHEDULED (high-risk wall debt, not yet started):** L-53 (collab CRDT baseline conflict — needs shared CRDT id normalization first), L-54 (dual junction-resolver retirement / `_flush` simplification — high-risk refactor).
 
+---
+
+# L-102 — Furniture/accessory UI exposure (AUDIT + PHASED PLAN)
+
+> **Type**: audit + implementation plan (READ+PLAN produced this section; no furniture code was edited — the furniture command path is concurrently owned by L-100/L-101). **Authored**: 2026-07-05.
+> **Problem (founder)**: batch/auto-furnish creation produces many element types (TV, bathroom mirror, curtains, wardrobe accessories, wall art, dressers, utility appliances, rugs, …) that have **no manual pick button** in the right-hand tools rail — the user cannot place them by hand. Founder also wants confirmation that these types are `docs/02-decisions`-compliant.
+> **Contracts touched**: C03 (schemas/commands/state · P5/P6), C11 (element-creation pipeline · §11.19 FURNITURE-MODEL-GAP), C16 (command authoring), C17 (batch catalogue & panel binding · §4.3), C06 (UI shell & tools). ADRs: ADR-0027 (furniture multi-representation), ADR-0110 (unified furniture plan-symbol vocabulary), ADR-0105 (uniform change-type-in-place), ADR-0107 (placement preview). Memory: `ai-creation-default-element-types-queue`, `family-platform-strategic-direction` (FurnitureType union is a known blocker).
+
+## §A — AS-IS (verified against source 2026-07-05)
+
+- **Runtime taxonomy** (`packages/geometry-furniture/src/FurnitureTypes.ts`): `FurnitureType` = **143 parametric union members**; `FurnitureCategory` = **19** subcategories (`sofas, chairs, tables, beds, wardrobes, bedroom, outdoor, decor, soft_furnishings, lighting, kitchen, bathroom, utility, storage, kids, teens, pets, technical`). `FURNITURE_TYPE_TO_CATEGORY` (`FurnitureCategoryMap.ts`) is the exhaustive, authoritative **type → category** resolver (this is the correct toolbar-section assignment source).
+- **Manual UI surface** = the right-hand rail `apps/editor/src/ui/tools-panel/panels/CreateRailPanel.ts` → **Interiors** discipline. It renders category buttons for only **13** of the 19 categories (`sofas, chairs, tables, beds, wardrobes, outdoor, kitchen, decor, soft_furnishings, bathroom, storage, kids, teens`) + `Lighting` + `Component`. Each opens an inline `FurnitureSidePanel` whose cards come from `getItemsForCategory()` in `FurnitureCategoryRegistry.ts` (`FurnitureCategoryDataA.ts` + `DataB.ts`). Legacy `CreatePanelLayout.ts` `CREATE_CONFIG` delegates furniture to the floating carousel and enumerates no per-type leaves.
+- **Registry coverage gap**: the carousel `type` field is `FurnitureType | string`, mixing (a) real union members (parametric builders) with (b) `kave_*`/`wip_*` GLB IDs and `plumbing:*` sentinels that are **not** union members. **41 union members have no picker card**; of those, **~38 are actively emitted by the auto-furnish / office engines** — this is the gap.
+- **Dispatch path (P6)**: `FurnitureSidePanel._activateItem` → `toolManager.activateFurniture(type)` / `furnitureTool.setFurnitureType(type)` + `.activate()` → placement preview → **`furniture.create`** via the command bus (or legacy `CreateFurnitureCommand`, Path A). The auto-furnish engine (`packages/ai-host/src/workflows/furnishLayout/buildFurnishCommands.ts` → `FurnishLayoutExecutor.ts`) dispatches N `furniture.create` inside **one** `batchCoordinator.runBatch` (one undo unit). **There is NO `furniture.batch.create` command/handler today** — L-100 is authoring one; do not duplicate.
+
+## §B — GAP TABLE (batch-creatable + no manual UI button)
+
+Legend: **Emit** = produced by an auto-furnish/office engine (Y); **Card?** = has a FurnitureSidePanel pick card today; **RailBtn?** = its category has a rail button; **GLB?** = parametric (no GLB — procedural builder). Section = target category per `FURNITURE_TYPE_TO_CATEGORY`.
+
+| FurnitureType | Emit | Card? | Category (RailBtn?) | GLB? | Gap |
+|---|---|---|---|---|---|
+| `tv` | Y | **N** | technical (**no btn**) | parametric | **YES** (founder) |
+| `tv_unit` | Y | **N** | storage (btn ✓) | parametric | YES |
+| `bathroom_mirror` | Y | **N** | bathroom (btn ✓) | parametric | **YES** (founder) |
+| `vanity_unit` | Y | **N** | bathroom (btn ✓) | parametric | YES |
+| `towel_rail` | Y | **N** | bathroom (btn ✓) | parametric | YES |
+| `bath` | Y | via `plumbing:bath:default` only | bathroom (btn ✓) | parametric | partial |
+| `wc_washbasin`,`wc_mirror` | Y | **N** | bathroom (btn ✓) | parametric | YES |
+| `curtain_rod`,`curtain_panel` | Y | **N** | soft_furnishings (btn ✓) | parametric | **YES** (founder) |
+| `rug` | Y | **N** | soft_furnishings (btn ✓) | parametric | YES |
+| `wall_art`,`wall_mirror`,`wall_tapestry` | Y | **N** | decor (btn ✓) | parametric | YES |
+| `fireplace` | Y | **N** | decor (btn ✓) | parametric | YES |
+| `armchair`,`sofa_unit` | Y | **N** | sofas (btn ✓) | parametric | YES |
+| `sofa` (base) | Y | **N** | sofas (btn ✓) | parametric | YES |
+| `desk` | Y | **N** | tables (btn ✓) | parametric | YES |
+| `console_table`,`side_table` | Y | **N** | tables (btn ✓) | parametric | YES |
+| `desk_chair`,`lounge_chair` | Y | **N** | chairs (btn ✓) | parametric | YES |
+| `bookshelf`,`bookshelf_glass` | Y | **N** | storage (btn ✓) | parametric | YES |
+| `shoe_cabinet`,`coat_rack`,`entry_bench` | Y | **N** | storage (btn ✓) | parametric | YES |
+| `buffet`,`sideboard` | Y | **N** | storage (btn ✓) | parametric | YES |
+| `pantry_cabinet` | Y | **N** | kitchen/storage (btn ✓) | parametric | YES |
+| `dresser`,`vanity_table` | Y | **N** | bedroom (**no btn**) | parametric | YES |
+| `washing_machine_standalone`,`tumble_dryer`,`utility_cabinet`,`utility_sink`,`drying_rack` | Y | **N** | utility (**no btn**) | parametric | YES |
+| `ai_element`,`glb_import` | internal | N | (special) | — | out-of-scope (internal handles) |
+
+**Two structural layers of the gap:**
+1. **Orphaned categories with no rail button** — `bedroom`, `utility`, `technical` (and `pets`, currently empty). `tv` sits in `technical`, so it is entirely unreachable manually.
+2. **Types missing from `items[]`** inside categories that DO have a rail button (bathroom, soft_furnishings, decor, storage, sofas, tables, chairs, kitchen) — the parametric builder + FurnitureFactory arm exists and the furnish engine places them, but no `FurnitureTypeDescriptor` card was ever authored.
+
+## §C — CONTRACT COMPLIANCE (the flags to close BEFORE these are first-class tools)
+
+- **C03 / L0 schema — FLAG (root cause).** `packages/schemas/src/elements/Furniture.ts` (ADR-0027) is **type-agnostic**: it models furniture by `catalogId` + `activeLod` + `representations` (LOD geometry), with **no `furnitureType` enum**. The entire 143-member taxonomy (incl. `tv`, `bathroom_mirror`, `curtain_*`, `vanity_unit`, `wall_art`, `dresser`, utility appliances) lives only in the **L2** `@pryzm/geometry-furniture` `FurnitureData.furnitureType`. The runtime store persists the legacy L2 `FurnitureData` shape, **not** the L0 schema. This is the **FURNITURE-MODEL-GAP** already catalogued in **C11 §11.19** ("does not yet create correctly — FURNITURE-MODEL-GAP must be resolved"). **No accessory type has an L0 schema home for its semantic identity.** This must be reconciled first (see P0) so a new manual tool is not built on an unschematised taxonomy.
+- **C11 (pipeline) — OK-with-caveat.** Furniture creation IS in the C11 per-element compliance matrix; the bus handler `furniture.create` exists and `FURNITURE-BUS-MIGRATION` is marked DONE (§11.19). The gap types ride the same single-create path — no per-type pipeline work needed, only the model reconciliation above.
+- **C17 (batch catalogue) — FLAG (phased).** The only furniture batch rows (§4.3: "Place a bed/desk in every room", `CREATE_FURNITURE` + SL-5) are **Phase 4, ⏳ phased**, and generic per-room — the 143 types are **not** individually catalogued. Manual single-placement of a type is NOT a batch entry and is Phase-1 feasible; C17 should record that distinction (a manual furniture tool ≠ a C17 batch leaf).
+- **ADR-0110 (unified furniture plan-symbol vocabulary) — VERIFY per type.** Each newly-exposed type needs a plan-view symbol; audit that every gap type resolves a symbol (fill any missing) so a manually-placed item reads correctly in plan.
+- **Verdict**: the *element family* is contract-homed; the *per-type taxonomy* is NOT L0-schema-homed and NOT C17-catalogued. Closing P0 (model reconciliation) is the merge-gate before shipping toolbar cards, per the standing architectural-soundness mandate.
+
+## §D — PROPOSED TOOLBAR SECTION LAYOUT (Interiors rail)
+
+Section assignment follows `FURNITURE_TYPE_TO_CATEGORY` (single source of truth — do NOT invent a parallel mapping). UX per type = one `FurnitureTypeDescriptor` card (label + icon + default dims) in the category's `FurnitureSidePanel`; click dispatches through the **existing** `FurnitureSidePanel._activateItem` → FurnitureTool → `furniture.create` on the command bus (P6 preserved — additive **data** only, zero new mutation path).
+
+- **New rail buttons** (categories that already exist in the registry but have no Interiors button): **Bedroom** (`dresser`, `vanity_table`, + existing kave dresser/mirrors), **Utility** (`washing_machine_standalone`, `tumble_dryer`, `utility_cabinet`, `utility_sink`, `drying_rack`), **Technical** (`tv` + existing kave HVAC/safety GLB). Defer **Pets** until stocked.
+- **Backfill `items[]`** in existing category panels: **Sofas** +`armchair`,`sofa_unit`,`sofa`; **Chairs** +`desk_chair`,`lounge_chair`; **Tables** +`desk`,`console_table`,`side_table`; **Decor** +`wall_art`,`wall_mirror`,`wall_tapestry`,`fireplace`; **Soft Furnishings** +`curtain_rod`,`curtain_panel`,`rug`; **Bathroom** +`vanity_unit`,`bathroom_mirror`,`towel_rail`,`bath`,`wc_washbasin`,`wc_mirror`; **Storage** +`bookshelf`,`bookshelf_glass`,`tv_unit`,`shoe_cabinet`,`coat_rack`,`entry_bench`,`buffet`,`sideboard`,`pantry_cabinet`.
+- **Curtains** are per-window (rod + paired panels) — the card should place a rod and let the placement preview snap to a window wall (mirror the furnish engine's per-window emission); dimensions from the window width. **Wall-mounted** items (`tv`, mirrors, `wall_art`, `towel_rail`, `curtain_*`) carry a non-zero `baseOffset` default so they mount at height (the FFL/baseOffset stacking is already handled in `CreateFurnitureCommand`, L-86/L-87).
+- **Default type per category** (per `ai-creation-default-element-types-queue`): a small `defaultTypeFor(category)` resolver so clicking the category button pre-selects a sensible default (e.g. Bathroom → `vanity_unit`, Technical → `tv`).
+
+## §E — PHASED IMPLEMENTATION PLAN
+
+| Phase | Scope | Contract/ADR mapping | Effort |
+|---|---|---|---|
+| **P0 — Close the model/contract gap (MERGE-GATE)** | Reconcile FURNITURE-MODEL-GAP: decide + document the canonical furniture data model — either (a) add an optional semantic `furnitureType` tag to the L0 `Furniture` schema, or (b) formally record that L2 `FurnitureData` is the transitional model and each type maps to a catalogue key. Amend **C03**/**ADR-0027**; update **C11 §11.19**; add a **C17** note that manual single-placement of a type is Phase-1 (not a phased batch leaf). No behaviour change — doc + schema decision only. | C03, C11 §11.19, C17, ADR-0027 | ~1.5 d |
+| **P1 — Per-type builder + plan-symbol + dims audit** | For every §B gap type confirm: FurnitureFactory builder arm (present — furnish renders them), default-dimension descriptor, and an **ADR-0110** plan symbol. Fill any missing plan symbols / default dims. No UI yet. | C11, ADR-0110 | ~1.5–2 d |
+| **P2 — Registry backfill + rail buttons** | Add `FurnitureTypeDescriptor` cards (§D) to `FurnitureCategoryDataA/B.ts`; add **Bedroom / Utility / Technical** buttons to `CreateRailPanel` Interiors. Additive data; dispatch unchanged (P6). Section = `FURNITURE_TYPE_TO_CATEGORY`. | C06, C03 (P6), C11 | ~2 d |
+| **P3 — Default-type resolver + wall-mount defaults** | `defaultTypeFor(category)` + per-type `baseOffset`/anchor defaults (wall-mounted vs floor); curtain per-window placement affordance. | `ai-creation-default-element-types-queue`, ADR-0107 | ~0.5 d |
+| **P4 — (Optional, gated on L-100) first-class batch leaves** | Once L-100 ships `furniture.batch.create`, add C17-compliant `⚡ Batch` per-room furniture leaves ("Place a wardrobe in every bedroom", etc.) reading the shared catalogue. Coordinate with the furnish agent; do not fork the batch path. | C17 §4.3, C16 §8 | ~1 d |
+| **P5 — Tests** | Exhaustiveness test: every furnish-emitted `FurnitureKind` has a picker card (guards future regressions); FurnitureSidePanel renders the 3 new categories; assert dispatch routes through the command bus (P6); plan-symbol present per new type. | C10 (CI), C03 | ~1 d |
+
+**Total ≈ 7.5–8.5 dev-days.** Ordering is strict: **P0 gates everything** (do not ship toolbar cards on an unschematised taxonomy). P2 depends on P1. P4 is gated on L-100. Every step maps to a contract above; no new mutation path is introduced (registry/rail changes are additive data + config; all placement continues through `furniture.create` on the command bus per P6).
+
 **OPEN / needs heavy-scene repro (original perf gates):** L-02 (heavy-tower nav perf), L-03 (heavy-project load) — require a large test project to validate; flag for a dedicated perf pass.
 
 **Non-blocking engineering follow-ups:** CSG path-convergence for a door hard against a corner (`§WALL-SINGLE-VOLUME-CSG`); align root vitest config so `packages/**/*.test.ts` regression suites run in CI.
