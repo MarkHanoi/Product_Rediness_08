@@ -1364,7 +1364,26 @@ export class WallJoinResolver {
                         const hostId    = absDotA <= absDotB ? primaryPair.idA : primaryPair.idB;
                         const hostBest  = Math.min(absDotA, absDotB);
 
-                        if (hostBest < PERP_DOT_THRESHOLD) {
+                        // §FIX-NEWWALL-LCORNER-FLUSH (L-94, founder 2026-07-04) — seat a NEW wall
+                        // that meets an existing mitred L-corner (its endpoint snapped to the
+                        // corner NODE, or to the two-wall intersection MIDPOINT) FLUSH against the
+                        // two arms. THE founder defect (after L-91 fixed the baseline TILT): a
+                        // DIAGONAL 3rd wall (≈45° to BOTH arms, |dot|≈0.71) missed the old
+                        // perpendicularity gate (0.5), so it fell to the on-axis SQUARE cap — which
+                        // pokes past the corner and reads as a broken/spiky joint on the legacy
+                        // miter-prism render path (the V2 preview mitres the near cap INTO the
+                        // corner, so preview ≠ executed). Relax the T-into-corner gate to ≈cos 20°
+                        // so such a diagonal partition T-butts onto the more-perpendicular arm:
+                        // `_applyT` ray-casts along the wall's OWN axis onto that arm's lateral
+                        // face (ZERO rotation — L-91's no-tilt guarantee holds; the endpoint is
+                        // trimmed ALONG its axis to land on the corner's inner/outer vertex, flush
+                        // against BOTH arms), matching the V2 preview's flush seat. A near-collinear
+                        // attacher (|dot|→1) is excluded — it was already handled by
+                        // §PASS-THROUGH-FLUSH — and if `_applyT` bails (short-wall safety / parallel
+                        // face) we fall through to the pinned / on-axis cap (L-91), so nothing
+                        // regresses. §MITER-SEGMENT-CLAMP (L-93) keeps the butted sliver spike-free.
+                        const T_INTO_CORNER_MAX_DOT = 0.94;      // ≈ >20° from the host arm
+                        if (hostBest < T_INTO_CORNER_MAX_DOT) {
                             // Construct a synthetic T-join and let _applyT do the
                             // face projection + miter-normal write.
                             // §SECONDARY-PINNED-FIX: _applyT reads bl[secondary] to

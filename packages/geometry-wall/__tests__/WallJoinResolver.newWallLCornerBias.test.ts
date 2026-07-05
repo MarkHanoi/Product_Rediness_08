@@ -40,13 +40,27 @@ function resolveC(walls: WallData[], cId: string, sr = 0.5) {
   return { jd, a: jd.baseLine[0] as any, b: jd.baseLine[1] as any };
 }
 
-describe('WallJoinResolver — §FIX-NEWWALL-LCORNER-BIAS (3rd wall snapped to L-corner) (L-91)', () => {
+/** Perpendicular (lateral) distance of point `p` from the infinite line of the ORIGINAL wall
+ *  C (through its authored endpoints). Zero ⇒ the resolved endpoint stayed exactly on C's own
+ *  axis — i.e. NO tilt / NO lateral bias (the L-91 guarantee), even if it was trimmed ALONG the
+ *  axis to seat flush against an arm face (the L-94 flush butt). */
+function lateralOffAxis(p: any, C: WallData): number {
+  const s = C.baseLine[0], e = C.baseLine[1];
+  const dx = e.x - s.x, dz = e.z - s.z; const L = Math.hypot(dx, dz) || 1;
+  const ux = dx / L, uz = dz / L;
+  return Math.abs((p.x - s.x) * (-uz) + (p.z - s.z) * ux);
+}
+
+describe('WallJoinResolver — §FIX-NEWWALL-LCORNER-BIAS (3rd wall snapped to L-corner) (L-91 + L-94)', () => {
+  // The joining endpoint (nearer the corner (5,0)) must stay EXACTLY on C's own axis (no
+  // tilt / lateral bias — L-91), while being allowed to trim ALONG that axis to seat flush on
+  // an arm face (≤ ~a half-thickness — L-94). The far end is never touched.
   for (const [label, C] of [
     ['diagonal down-right', mk([5, 0], [6.34, -1.34], 0.1, 3)],
     ['diagonal down-left', mk([5, 0], [3.66, -1.34], 0.1, 3)],
     ['perpendicular down (collinear-B)', mk([5, 0], [5, -1.897], 0.1, 3)],
   ] as Array<[string, WallData]>) {
-    it(`executed baseline == preview (angle + length preserved), ${label}`, () => {
+    it(`executed baseline is on-axis (no tilt) + seats near the corner, ${label}`, () => {
       _seq = 0;
       const A0 = A(), B0 = B();
       const C0 = mk([C.baseLine[0].x, C.baseLine[0].z] as any, [C.baseLine[1].x, C.baseLine[1].z] as any, C.thickness, 3);
@@ -54,13 +68,16 @@ describe('WallJoinResolver — §FIX-NEWWALL-LCORNER-BIAS (3rd wall snapped to L
       const { jd, a, b } = resolveC([A0, B0, C0], C0.id);
       expect(jd.invalid).toBeFalsy();
       const outD = dir(a, b);
-      // Angle preserved EXACTLY (no bias/tilt) — the founder's clean preview.
+      // (1) Angle preserved EXACTLY — no tilt/bias (the founder's L-91 defect).
       expect(absDot(inD, outD)).toBeGreaterThan(0.99995);
-      // The corner endpoint stays AT the snapped corner (5,0), on C's own axis.
-      const cornerEnd = Math.hypot(a.x - 5, a.z - 0) < Math.hypot(b.x - 5, b.z - 0) ? a : b;
-      expect(Math.hypot(cornerEnd.x - 5, cornerEnd.z - 0)).toBeLessThan(1e-6);
-      // Length preserved (a pinned 3rd wall at the corner is not trimmed along its axis here).
-      expect(Math.abs(outD.len - inD.len)).toBeLessThan(1e-6);
+      // (2) The joining endpoint (nearer the corner) stays EXACTLY on C's own axis — zero
+      //     lateral drift — and seats within a half-thickness of the snapped corner (a flush
+      //     along-axis butt onto an arm face, NOT a wild move).
+      const joinEnd = Math.hypot(a.x - 5, a.z) <= Math.hypot(b.x - 5, b.z) ? a : b;
+      expect(lateralOffAxis(joinEnd, C0)).toBeLessThan(1e-6);
+      expect(Math.hypot(joinEnd.x - 5, joinEnd.z)).toBeLessThan(0.16); // within the corner mitre
+      // (3) The far end is untouched, and the wall keeps real length (never collapsed/flipped).
+      expect(outD.len).toBeGreaterThan(inD.len - 0.16);
     });
   }
 
@@ -75,8 +92,12 @@ describe('WallJoinResolver — §FIX-NEWWALL-LCORNER-BIAS (3rd wall snapped to L
     const inD = dir(C1.baseLine[0], C1.baseLine[1]);
     const { a, b } = resolveC([A1, B1, C1], C1.id);
     const outD = dir(a, b);
+    // Idempotent: angle preserved AND the joining endpoint stays on-axis with ≤1mm along-axis
+    // drift (already seated flush on the arm face by the first resolve).
     expect(absDot(inD, outD)).toBeGreaterThan(0.99995);
-    expect(Math.abs(outD.len - inD.len)).toBeLessThan(1e-6);
+    const joinEnd = Math.hypot(a.x - 5, a.z) <= Math.hypot(b.x - 5, b.z) ? a : b;
+    expect(lateralOffAxis(joinEnd, C1)).toBeLessThan(1e-6);
+    expect(Math.abs(outD.len - inD.len)).toBeLessThan(0.001);
   });
 
   it('no regression: a GENUINE 2-wall L corner still mitres (both walls trim to the shared corner)', () => {

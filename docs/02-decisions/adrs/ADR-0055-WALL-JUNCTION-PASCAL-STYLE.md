@@ -236,6 +236,48 @@ wall is byte-identical.
 - **Tests:** [`MiterPrismBuilder.nearCornerOpening.test.ts`](../../../../packages/geometry-wall/__tests__/MiterPrismBuilder.nearCornerOpening.test.ts) — a door 10/20/50 mm from the corner produces no vertex behind the jamb, a positive-area, non-self-intersecting footprint, and preserves the outer overhang to the corner; a door far from the corner keeps the FULL clean mitre (inner + outer corners intact); deterministic on reopen. 150 geometry-wall + 117 ai-host tests green.
 - **Alignment:** ADR-0055 (watertight joins) · C15 (a hosted opening must not corrupt the host's corner). NOTE — the perfectly-mitred sub-`halfT` corner (door hard against the corner) ultimately wants the single-volume-CSG path (V2 footprint with the opening boolean-subtracted); this clamp removes the *spike* (the founder's defect) at the geometry level for the segments path today, and the CSG upgrade (§WALL-SINGLE-VOLUME-CSG DI seam) remains the longer-term convergence of the two render paths.
 
+## Refinement — §FIX-NEWWALL-LCORNER-FLUSH (a 3rd wall at an L-corner seats FLUSH on the arms — 2026-07-04, L-94)
+
+**Status:** SHIPPED. A one-constant relaxation of the legacy `WallJoinResolver` T-into-corner
+perpendicularity gate; no change to the miter math, `_applyT`, or the footprint. Within ADR-0055
+(executed geometry == preview) / C15, not a superseding ADR. Completes L-91.
+
+**Defect (founder, L-94).** Two walls already mitred in an L. A NEW wall is added onto that joint
+CORNER — its endpoint snapping to the corner NODE, or to the MIDPOINT of the two-wall intersection.
+The PREVIEW (V2) shows a clean perpendicular partition seated FLUSH (*pegado*) against the two arms,
+but the EXECUTED joint rendered BROKEN/SPIKY — not flush. This is the joint-cleanliness residual left
+after §FIX-NEWWALL-LCORNER-BIAS (L-91) removed the baseline *tilt*.
+
+**Root cause (verified by a resolveLevel repro).** For plain walls the V2 preview+render is already
+clean; the residual is the LEGACY path. A DIAGONAL 3rd wall (≈45° to BOTH arms → `hostBest` = min|dot|
+≈ 0.71) missed the T-into-corner perpendicularity gate (`< PERP_DOT_THRESHOLD` = 0.5), so it fell to
+the on-axis §CONSENSUS-ON-CENTRELINE SQUARE cap (L-91). A perpendicular end cap at the centreline
+node pokes past the corner instead of seating on the arms' faces — the founder's spiky joint on the
+legacy miter-prism render path (the V2 preview mitres the near cap INTO the corner, so preview ≠
+executed). The MIDPOINT snap has the same signature (the new wall's endpoint clusters at the near-
+corner node) and the same square-cap fate.
+
+**Fix.** Relax the T-into-corner gate for a 3rd wall at a primary L-corner from 0.5 to `T_INTO_CORNER
+_MAX_DOT` = 0.94 (≈ > 20° from the host arm). A diagonal partition now T-butts onto the more-
+perpendicular arm: `_applyT` ray-casts along the wall's OWN axis onto that arm's lateral face — an
+ALONG-AXIS trim (ZERO rotation, so §FIX-NEWWALL-LCORNER-BIAS's no-tilt guarantee still holds; the
+join end lands EXACTLY on C's own axis, verified lateral-off-axis = 0.000 mm) that seats the near end
+on the corner's inner/outer vertex, flush against BOTH arms — matching the V2 preview's flush seat.
+A near-collinear attacher (|dot| → 1) is excluded (already handled by §PASS-THROUGH-FLUSH), and if
+`_applyT` bails (short-wall safety / parallel face) it falls through to the L-91 on-axis cap, so
+nothing regresses. §MITER-SEGMENT-CLAMP (L-93) keeps the butted sliver spike-free.
+
+**Reconciliation with L-91.** The invariant both fixes share is *no tilt / no lateral bias* — the
+join end stays EXACTLY on the wall's own axis. L-94 additionally trims it ALONG that axis (≤ a half-
+thickness) to seat flush on the face; that is the geometrically-correct partition-abuts-wall seat and
+strictly improves on L-91's square cap. The L-91 regression suite was reconciled to assert the shared
+invariant (angle preserved + zero lateral drift + seated within the corner mitre) rather than an
+exact-length no-trim; the founder's L-91 defect (the tilt) stays fixed.
+
+- **Locus:** [`WallJoinResolver.resolveLevel`](../../../../packages/geometry-wall/src/WallJoinResolver.ts) — the T-into-corner block's gate constant. No other change.
+- **Tests:** [`WallJoinResolver.newWallLCornerFlush.test.ts`](../../../../packages/geometry-wall/__tests__/WallJoinResolver.newWallLCornerFlush.test.ts) — for BOTH the corner-NODE snap and the intersection-MIDPOINT snap (diagonal + perpendicular): the 3rd wall is on-axis (no tilt), seats flush on an arm face within the corner mitre, and its cluster footprint is positive-area and non-self-intersecting (no spike/gap/overlap) — fresh AND on reopen (idempotent ≤ 1 mm); plus the V2 preview footprint is independently clean. The L-91 suite (`WallJoinResolver.newWallLCornerBias`) is reconciled and green. 157 geometry-wall + 207 ai-host wall tests green (the 3 pre-existing `shellWallMatch` window failures are unrelated).
+- **Alignment:** ADR-0055 (executed == preview) · C15 (a partition abuts a wall face) · pairs with §FIX-NEWWALL-LCORNER-BIAS (L-91, no tilt), §FIX-NEWWALL-LCORNER-SKEW (L-74/L-76), §MITER-SEGMENT-CLAMP (L-93), and the V2-side §FIX-WALL-LCORNER-T-CLEAN (L-61).
+
 ## Refinement — §FIX-NEWWALL-LCORNER-BIAS (a 3rd wall at an L-corner stays on its own axis — 2026-07-04, L-91)
 
 **Status:** SHIPPED. A routing tweak in the legacy `WallJoinResolver` multi-cluster pinned-endpoint
