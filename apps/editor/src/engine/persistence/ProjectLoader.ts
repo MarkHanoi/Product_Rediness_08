@@ -62,8 +62,21 @@ import { sheetStore } from '@pryzm/core-app-model';
 import { scheduleStore } from '@pryzm/core-app-model';
 import { userMaterialStore } from '@pryzm/core-app-model'; // #105 Materials Repository
 import { requirementStore, assetCatalogStore, buildDefaultAssetCatalog } from '@pryzm/core-app-model';
-import { annotationStore } from '@pryzm/plugin-annotations';
+// §FIX-EMPTY-LOAD-HANG (L-108) — annotationStore was already statically imported
+// from @pryzm/plugin-annotations, so the plugin chunk is ALWAYS in the boot graph.
+// The constraint / visibility / OBC restores below used to `await import(...)` the
+// SAME package during every load — pointless indirection that added cold-import
+// await points to the hydrate critical path (each yields the event loop and, in a
+// prod build, can trigger a lazy-chunk fetch). Pull them into this static import so
+// no dynamic import fires during load; the restore logic is unchanged.
+import { annotationStore, constraintStore, annotationVisibilityStore, obcAnnotationAdapter } from '@pryzm/plugin-annotations';
 import { ClearProjectCommand } from '@pryzm/command-registry';
+// §FIX-EMPTY-LOAD-HANG (L-108) — statically import the (small, idempotent) view-
+// template migration. It only reads live @pryzm/core-app-model stores (already in
+// this file's boot graph → no new dependency, no cycle) and is a no-op for a new/
+// empty project. Previously it was `await import()`-ed on EVERY load, fetching a
+// separate lazy chunk and adding an await yield to the hydrate critical path.
+import { runViewTemplateToIntentMigration } from './migrations/ViewTemplateToIntentMigration';
 import { doorStore, doorSystemTypeStore } from '@pryzm/geometry-door';
 import { windowStore, windowSystemTypeStore } from '@pryzm/geometry-window';
 import { AddLevelCommand } from '@pryzm/command-registry';
@@ -238,6 +251,41 @@ export function levelsWithPersistedRooms(
     return out;
 }
 
+/**
+ * §FIX-EMPTY-LOAD-HANG (L-108) — does this snapshot carry ANY geometry the
+ * importer will build?
+ *
+ * Used to skip the frame-yielding chunked load path for an empty (new) project.
+ * Chunking exists ONLY to spread heavy per-element geometry across frames so the
+ * UI doesn't freeze (C11 §6.1); a 0-element snapshot has nothing to spread, so
+ * the chunked driver's unconditional per-build-step FrameScheduler round-trips
+ * are pure latency on the load critical path. The empty new-project cold open
+ * that took ~16 s to reach the `hydrate` boundary (L-108) is routed to the
+ * synchronous one-task path by this predicate.
+ *
+ * Prefers the snapshot's own `elementCount` when present (the canonical field
+ * ProjectSerializer writes) and falls back to summing the element arrays the
+ * ImportProjectCommand actually iterates, so the decision never depends on a
+ * possibly-stale count. Exported + pure so the skip decision is unit-testable
+ * without standing up the whole runtime + command pipeline.
+ */
+export function snapshotHasElements(
+    snapshot: { elementCount?: unknown } & Record<string, unknown>,
+): boolean {
+    if (!snapshot) return false;
+    const ec = snapshot.elementCount;
+    if (typeof ec === 'number') return ec > 0;
+    const len = (a: unknown): number => (Array.isArray(a) ? a.length : 0);
+    const total =
+        len(snapshot.walls) + len(snapshot.slabs) + len(snapshot.columns) +
+        len(snapshot.stairs) + len(snapshot.furniture) + len(snapshot.roofs) +
+        len(snapshot.handrails) + len(snapshot.plumbing) + len(snapshot.curtainWalls) +
+        len(snapshot.beams) + len(snapshot.ceilings) + len(snapshot.floors) +
+        len(snapshot.rooms) + len(snapshot.lighting) + len(snapshot.doors) +
+        len(snapshot.windows) + len(snapshot.grids);
+    return total > 0;
+}
+
 export class ProjectLoader {
     constructor(private commandManager: CommandManager) {}
 
@@ -308,6 +356,30 @@ export class ProjectLoader {
                 }));
             } catch { /* non-browser / SSR — no-op */ }
             __phase_starts[name] = now;
+        };
+        // §DIAG-EMPTY-LOAD-HANG (L-108) — FINE-GRAINED sub-step timing WITHIN the
+        // hydrate window. The coarse __phase() table only prints one `hydrate`
+        // boundary, so a 16 s empty-project load (0 elements) could not be
+        // attributed to a specific sub-step — the watchdog even mislabels it
+        // `phase="setup"` (it names the last STARTED boundary, not the running
+        // work). __mark(name) records the wall-time each named sub-step consumed
+        // and __marksSummary() emits ONE `§LOAD-HYDRATE-STEPS` line just before the
+        // hydrate boundary so the next prod load shows exactly where the budget
+        // goes. Read-only instrumentation — no behavioural change.
+        const __mark_ms: Record<string, number> = {};
+        let __mark_last = performance.now();
+        const __mark = (name: string) => {
+            const now = performance.now();
+            __mark_ms[name] = (__mark_ms[name] ?? 0) + (now - __mark_last);
+            __mark_last = now;
+        };
+        const __marksSummary = () => {
+            const parts = Object.entries(__mark_ms)
+                .sort((a, b) => b[1] - a[1])
+                .map(([k, v]) => `${k}=${v.toFixed(1)}ms`);
+            if (parts.length > 0) {
+                console.log(`[ProjectLoader] §LOAD-HYDRATE-STEPS ${parts.join(' ')}`);
+            }
         };
         // §AUTOSAVE-LOAD-SLOW-OR-HANG — watchdog: if no phase completes
         // within WATCHDOG_MS the load is hung in the current phase. The
@@ -489,7 +561,19 @@ export class ProjectLoader {
                 // Default-ON; set localStorage 'PRYZM_CHUNKED_LOAD'='false' (or
                 // globalThis.__pryzmChunkedLoad = false) to fall back to the
                 // synchronous one-task path used before this fix.
-                const useChunked = this._useChunkedLoad();
+                //
+                // §FIX-EMPTY-LOAD-HANG (L-108) — chunking exists ONLY to spread
+                // heavy per-element geometry across frames so the UI doesn't freeze.
+                // A project with ZERO elements has no geometry to spread: the chunked
+                // driver still performs several FrameScheduler round-trips (the
+                // generator yields unconditionally at each build-step boundary), and
+                // each `await yieldFrame()` waits a full frame — pure latency on the
+                // load critical path with no benefit. For an empty (elementless)
+                // snapshot, run the synchronous one-task path instead so the loader
+                // never blocks on the frame loop. Real projects (≥1 element) keep the
+                // progressive chunked build unchanged.
+                const __hasElements = snapshotHasElements(snapshot as unknown as Record<string, unknown>);
+                const useChunked = this._useChunkedLoad() && __hasElements;
                 let importResult: ReturnType<typeof exec>;
                 if (useChunked) {
                     // yieldFn schedules a single FrameScheduler tick and resolves
@@ -523,6 +607,7 @@ export class ProjectLoader {
                 } else {
                     importResult = exec(importCmd);
                 }
+                __mark('element_import'); // §DIAG-EMPTY-LOAD-HANG — element hydration wall-time
 
                 // Roll the command's per-element counters up into the LoadResult
                 // so the calling UI sees identical {loaded, failed, errors,
@@ -1496,8 +1581,8 @@ export class ProjectLoader {
             // sit alongside any VG-derived ones. Skipped once any `migrated-vt-*`
             // intent already exists.
             try {
-                const { runViewTemplateToIntentMigration } =
-                    await import('./migrations/ViewTemplateToIntentMigration');
+                // §FIX-EMPTY-LOAD-HANG (L-108) — statically imported at module top;
+                // no per-load lazy-chunk fetch / await yield. No-op for a new project.
                 const { intentCount, viewCount, skippedCount } = runViewTemplateToIntentMigration();
                 if (intentCount > 0 || viewCount > 0 || skippedCount > 0) {
                     console.log(
@@ -1508,6 +1593,7 @@ export class ProjectLoader {
             } catch (vtMigErr) {
                 console.warn('[ProjectLoader] Wave 1 / P0 view-template absorption failed (non-fatal):', vtMigErr);
             }
+            __mark('migrations'); // §DIAG-EMPTY-LOAD-HANG — VG/VT intent migrations
 
             // Phase 8.2 — Style cache pre-warming (background micro-task)
             // Pre-resolves styles for all known element types so the first render
@@ -1689,12 +1775,13 @@ export class ProjectLoader {
             //      reverse-index from element ids to dependent annotation ids
             //      so subsequent element updates push through to annotations.
             try {
+                // §FIX-EMPTY-LOAD-HANG (L-108) — constraintStore is statically
+                // imported at module top (same package as annotationStore, already
+                // in the boot graph). No per-load `await import()` yield / lazy chunk.
                 const constraintsSlice = (snapshot as any).annotationConstraints;
                 if (constraintsSlice) {
-                    const { constraintStore } = await import('@pryzm/plugin-annotations');
                     constraintStore.deserialize(constraintsSlice);
                 } else {
-                    const { constraintStore } = await import('@pryzm/plugin-annotations');
                     constraintStore.clear();
                 }
             } catch (e) {
@@ -1702,8 +1789,8 @@ export class ProjectLoader {
             }
 
             try {
+                // §FIX-EMPTY-LOAD-HANG (L-108) — static import (see module top).
                 const visibilitySlice = (snapshot as any).annotationVisibility;
-                const { annotationVisibilityStore } = await import('@pryzm/plugin-annotations');
                 // fromJSON({}) wipes the internal hide map, so we use it both to
                 // restore an empty payload and to apply a non-empty one.
                 annotationVisibilityStore.fromJSON(
@@ -1714,9 +1801,9 @@ export class ProjectLoader {
             }
 
             try {
+                // §FIX-EMPTY-LOAD-HANG (L-108) — static import (see module top).
                 const obcSlice = (snapshot as any).obcAnnotationMap;
                 if (obcSlice) {
-                    const { obcAnnotationAdapter } = await import('@pryzm/plugin-annotations');
                     obcAnnotationAdapter.deserialize(obcSlice);
                 }
             } catch (e) {
@@ -1739,8 +1826,10 @@ export class ProjectLoader {
             } catch (e) {
                 console.warn('[ProjectLoader] AnnotationDependencyGraph rebuild failed (non-fatal):', e);
             }
+            __mark('nonelement_stores'); // §DIAG-EMPTY-LOAD-HANG — all non-element store restores + annotation slices
 
             result.success = result.errors.length === 0 || result.loaded > 0;
+            __marksSummary();       // §DIAG-EMPTY-LOAD-HANG — per-substep breakdown of the hydrate window
             __phase('hydrate');     // element + non-element store hydration done
             console.log(
                 `[ProjectLoader] Load complete: ${result.loaded} loaded, ` +
