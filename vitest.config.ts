@@ -20,6 +20,8 @@ export default defineConfig({
       'src/ui/toolbar/__tests__/**/*.spec.ts',
       // §FIX-DOOR-SLAB-HOST (L-56): plan-tool host-resolution behavioural specs.
       'apps/editor/src/engine/views/plantools/__tests__/**/*.spec.ts',
+      // §FEAT-PLAN-VIEW-GIS (L-104): pure GIS tile-geometry specs.
+      'apps/editor/src/ui/site/overlay/__tests__/**/*.spec.ts',
     ],
     testTimeout: 10_000,
     // Wave A18-T27: coverage reporting via @vitest/coverage-v8 (c8/Istanbul).

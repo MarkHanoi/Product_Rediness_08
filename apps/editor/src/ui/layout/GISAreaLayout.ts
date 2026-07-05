@@ -5,6 +5,14 @@ import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
 import { getCurrentSiteOrigin } from '../site/siteDispatch';
 // FORMA.6 — pure geometry signature for the real-building GLB re-export cache.
 import { buildingGeometrySignature } from '../geospatial/formaBuildingFidelity';
+// §FEAT-PLAN-VIEW-GIS (L-104, ADR-0115) — the PLAN-VIEW analogue of the 3D site view:
+// composite the real-world GIS/aerial context (buildSiteGisContextRaster) as a plan-canvas
+// underlay BENEATH the authored building via the EXISTING L-71 underlay pipeline
+// (createPlanCanvasUnderlayFromSiteOverlay), rotated onto PROJECT NORTH by θ
+// (computeGisContextUnderlayRotationZ). No new engine / no parallel projector.
+import { buildSiteGisContextRaster } from '../../engine/buildSiteGisContextRaster';
+import { createPlanCanvasUnderlayFromSiteOverlay } from '../../engine/createSiteOverlayUnderlay';
+import { computeGisContextUnderlayRotationZ } from '../site/overlay/siteGisContextGeometry';
 
 export interface GISCallbacks {
     toggleGIS: (active: boolean) => void;
@@ -2381,6 +2389,85 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             console.error('[gis][site-view] pryzmEnterSiteView failed:', e);
         }
     };
+    // §FEAT-PLAN-VIEW-GIS (L-104, ADR-0115) — the PLAN-VIEW analogue of pryzmEnterSiteView.
+    // Switch to the orthographic Top (plan) view and composite the real-world GIS/aerial
+    // context UNDER the authored building, rotated onto PROJECT NORTH. REUSE (no new engine):
+    //   • the building "projected to plan" IS the BIM Top view (activateView('Top') →
+    //     ViewController orthographic camera, C04);
+    //   • the GIS context is a plan-canvas underlay built from ESRI World Imagery tiles
+    //     (buildSiteGisContextRaster) placed via the EXISTING L-71 pipeline
+    //     (createPlanCanvasUnderlayFromSiteOverlay), centred on the site origin;
+    //   • project north is applied as the underlay mesh rotationZ = θ
+    //     (computeGisContextUnderlayRotationZ, from SiteLocation.trueNorth — ADR-0115 dual
+    //     north; θ = 0 ⇒ identity, so a north-aligned site is byte-identical to today).
+    // Degrades gracefully: no site origin ⇒ just the plan view (building only, no context);
+    // imagery/canvas failure ⇒ toast + building only. Never throws into the caller.
+    const enterPlanViewGis = async (): Promise<void> => {
+        try {
+            const origin = getFormaOrigin();
+            // θ = project→true-north (radians) from the model; 0 (identity) when unset.
+            let theta = 0;
+            const loc = (runtime?.siteModelStore as
+                | { getSite?: () => { location?: { trueNorth?: number } } | null }
+                | undefined)?.getSite?.()?.location;
+            if (loc && typeof loc.trueNorth === 'number' && Number.isFinite(loc.trueNorth)) {
+                theta = loc.trueNorth;
+            }
+
+            // Orthographic plan view — activateView exits GIS first, then routes through the
+            // ViewController so the TSL pipeline rebuilds against the orthographic camera.
+            await activateView('Top');
+
+            if (!origin) {
+                runtime?.events?.emit('pryzm:toast', {
+                    message: 'Plan view ready. Set a site location to show the real-world context underneath.',
+                    severity: 'info',
+                });
+                console.log('[gis][plan-gis] no site origin — plan view without GIS context underlay.');
+                return;
+            }
+
+            runtime?.events?.emit('pryzm:toast', { message: 'Loading site GIS context…', severity: 'info' });
+            const raster = await buildSiteGisContextRaster({ centerLat: origin.lat, centerLon: origin.lon });
+            if (!raster) {
+                runtime?.events?.emit('pryzm:toast', {
+                    message: 'Could not load the GIS context imagery — showing the building only.',
+                    severity: 'error',
+                });
+                return;
+            }
+
+            const ok = await createPlanCanvasUnderlayFromSiteOverlay({
+                dataUrl: raster.dataUrl,
+                fileName: 'Site GIS context',
+                widthPx: raster.widthPx,
+                heightPx: raster.heightPx,
+                pxPerMeter: raster.pxPerMeter,
+                // Composite is centred on the site origin (= scene origin) → E/N = 0.
+                positionEast: 0,
+                positionNorth: 0,
+                // True-north imagery → project frame: rotationZ = θ (ADR-0115 dual north).
+                rotationZ: computeGisContextUnderlayRotationZ(theta),
+            });
+
+            // Frame the plan on the building + context (best-effort).
+            try { await props._viewController?.zoomToFit?.(); } catch { /* non-fatal */ }
+
+            if (ok) {
+                runtime?.events?.emit('pryzm:toast', {
+                    message: 'Plan view on real-world GIS context (project north).',
+                    severity: 'success',
+                });
+                console.log('[gis][plan-gis] plan-view GIS context underlay placed on project north (§FEAT-PLAN-VIEW-GIS).');
+            }
+        } catch (e) {
+            console.error('[gis][plan-gis] enterPlanViewGis failed:', e);
+        }
+    };
+    // Stable typed global entry (mirrors pryzmEnterSiteView) so any 3D/plan surface can open
+    // the plan-view GIS context, registered at boot regardless of geospatial activation state.
+    window.pryzmEnterPlanViewGis = () => { void enterPlanViewGis(); };
+
     const mountSiteViewLauncher = (): void => {
         try {
             const viewport = document.getElementById('container');
@@ -2395,17 +2482,25 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             btn.setAttribute('data-testid', 'site-view-launcher');
             btn.textContent = '◉ 3D Site / Globe';
             btn.title = 'Open the 3D site / globe view (true north + geolocation). Works from any 3D view.';
-            // §FIX-UI-BUTTON-OVERLAP (L-60) — the launcher previously sat at
-            // top:12px / left:12px, directly OVER the top-left `.plat-left-panel`
-            // (the PRYZM-branded ViewBrowser panel: left:11px, width:198px → right
-            // edge ≈209px) and clashing with the top-centre toolbar cluster on
-            // narrower viewports. Re-anchor it just RIGHT of that panel (left:220px,
-            // clearing the fixed 198px+11px panel) and just BELOW the ~42px
-            // top-centre toolbar/HUD band (top:56px) so it is clear of the logo/menu
-            // at every viewport width while staying visible + clickable over the 3D
-            // viewport. Offsets stay in the fixed-overlay px convention.
+            // §FIX-SITE-LAUNCHER-POSITION (L-103) — DOCK the launcher to the
+            // bottom-left canvas corner so it reads as a deliberate, permanent
+            // control rather than a stray pill floating mid-left of the viewport.
+            // History: L-60 moved it to top:56px/left:220px (just right of the
+            // ViewBrowser `.plat-left-panel`), but when that panel is collapsed or
+            // absent the 220px offset strands the pill in the middle-left of the
+            // canvas (the founder's "floats awkwardly mid-screen" report). A fixed
+            // CORNER anchor is unambiguous at every viewport width and panel state.
+            // We stack it just ABOVE the bottom-left GPU renderer-backend toggle
+            // (RendererBackendToggle: position:fixed, bottom:10px/left:10px, a ~28px
+            // pill) — bottom:48px clears that pill with margin, so the two corner
+            // controls form a clean left-edge stack instead of overlapping. Kept as
+            // position:absolute inside the (position:relative) #container — the SAME
+            // stacking idiom as before (the launcher rides with the container's
+            // z-index when the Cesium overlay raises it), just re-anchored from a
+            // mid-left offset to the true bottom-left corner. Container == viewport,
+            // so absolute bottom/left lands on the real canvas corner.
             Object.assign(btn.style, {
-                position: 'absolute', top: '56px', left: '220px', zIndex: '20',
+                position: 'absolute', bottom: '48px', left: '10px', zIndex: '20',
                 appearance: 'none', cursor: 'pointer',
                 padding: '7px 12px', borderRadius: '9px',
                 border: '1px solid #6600FF', background: '#ffffff', color: '#6600FF',
@@ -2417,6 +2512,33 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             btn.addEventListener('click', () => window.pryzmEnterSiteView?.('plan'));
             viewport.appendChild(btn);
             console.log('[gis][site-view] always-on 3D Site launcher mounted (L-40).');
+
+            // §FEAT-PLAN-VIEW-GIS (L-104) — the PLAN-VIEW companion launcher, stacked in the
+            // SAME bottom-left corner column just ABOVE the 3D Site pill (bottom:48px) — so the
+            // two site entries read as a deliberate pair: "◉ 3D Site / Globe" (3D) + "▦ Plan +
+            // Site" (orthographic plan on real-world GIS context, project north). Always-on,
+            // idempotent, brand-styled (white + #6600FF), no overlap with the GPU toggle.
+            if (!document.getElementById('pryzm-plan-gis-launcher')) {
+                const planBtn = document.createElement('button');
+                planBtn.type = 'button';
+                planBtn.id = 'pryzm-plan-gis-launcher';
+                planBtn.setAttribute('data-testid', 'plan-gis-launcher');
+                planBtn.textContent = '▦ Plan + Site';
+                planBtn.title = 'Open the plan view on the real-world GIS context (project north, orthographic). Works from any view.';
+                Object.assign(planBtn.style, {
+                    position: 'absolute', bottom: '86px', left: '10px', zIndex: '20',
+                    appearance: 'none', cursor: 'pointer',
+                    padding: '7px 12px', borderRadius: '9px',
+                    border: '1px solid #6600FF', background: '#ffffff', color: '#6600FF',
+                    font: '600 12px/1 system-ui, sans-serif',
+                    boxShadow: '0 3px 12px rgba(20,10,60,0.16)',
+                } satisfies Partial<CSSStyleDeclaration>);
+                planBtn.addEventListener('mouseenter', () => { planBtn.style.background = '#f4f0ff'; });
+                planBtn.addEventListener('mouseleave', () => { planBtn.style.background = '#ffffff'; });
+                planBtn.addEventListener('click', () => { void window.pryzmEnterPlanViewGis?.(); });
+                viewport.appendChild(planBtn);
+                console.log('[gis][plan-gis] always-on Plan + Site (GIS) launcher mounted (L-104).');
+            }
         } catch (e) {
             console.warn('[gis][site-view] launcher mount failed (non-fatal):', e);
         }

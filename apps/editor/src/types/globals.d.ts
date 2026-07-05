@@ -273,6 +273,12 @@ declare global {
          *  even when no site/geolocation exists yet. Registered by GISAreaLayout at
          *  boot, so it is defined regardless of geospatial activation state. */
         pryzmEnterSiteView?: (initial?: 'map2d' | 'plan' | '3d') => void;
+        /** §FEAT-PLAN-VIEW-GIS (L-104, ADR-0115) — the PLAN-VIEW analogue of the 3D site
+         *  view: switch to the orthographic Top (plan) view and composite the real-world
+         *  GIS/aerial context as a plan-canvas underlay BENEATH the authored building,
+         *  rotated onto PROJECT NORTH (θ = SiteLocation.trueNorth). Self-bootstraps + no-ops
+         *  gracefully when no site is set. Registered by GISAreaLayout at boot. */
+        pryzmEnterPlanViewGis?: () => void | Promise<void>;
         /** FORMA.3 — remove the [2D Map][Plan][3D] toggle. */
         pryzmHideFormaView?: () => void;
         /** FORMA.3/4 — re-read the authored footprints + boundary and (re)render the
