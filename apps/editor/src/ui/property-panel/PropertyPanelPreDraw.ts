@@ -16,6 +16,7 @@
  */
 
 import { buildWallTypeSelectorWidget } from './WallTypeSelectorWidget';
+import { setActiveWallSystemTypeId } from '../../engine/views/plantools/activeWallSystemType';
 import { buildSlabTypeSelectorWidget } from './SlabTypeSelectorWidget';
 import { buildCeilingTypeSelectorWidget } from './CeilingTypeSelectorWidget';
 import { buildFloorTypeSelectorWidget } from './FloorTypeSelectorWidget';
@@ -140,11 +141,17 @@ export function showWallPreDraw(host: PreDrawPanelHost, wallTool: any): void {
     // only guarantees the default is committed, so the very first plan click draws a
     // Plain Wall with no Apply click needed. Idempotent: re-asserts the current value.
     canonicalWallTool?.setSystemTypeId?.(currentTypeId || undefined);
+    // §FIX-SPLIT-WALL-SYSTEMTYPE (L-98) — ALSO record the selection in the stable,
+    // surface-independent store the plan handler reads at dispatch, so a wall drawn in the
+    // SPLIT plan pane threads the same layered systemTypeId as the MAIN view (window.wallTool
+    // alone is a transient/stale reference on some split layout paths → systemTypeId=none).
+    setActiveWallSystemTypeId(currentTypeId || undefined);
 
     const pseudoData = { elementType: 'wall', systemTypeId: currentTypeId };
 
     const typeWidget = buildWallTypeSelectorWidget(pseudoData, (payload) => {
         canonicalWallTool?.setSystemTypeId?.(payload.systemTypeId ?? undefined);
+        setActiveWallSystemTypeId(payload.systemTypeId ?? undefined);
         hint.textContent = payload.systemTypeId
             ? `✓ Type set — click on canvas to draw`
             : `✓ Plain Wall — click on canvas to draw`;

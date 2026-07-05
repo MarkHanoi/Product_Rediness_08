@@ -27,6 +27,9 @@ import { WallDimensionInput } from '@pryzm/geometry-wall';
 import { createId } from '@pryzm/schemas';
 import { isStrongSnap, type PlanToolHandler, type PlanToolDrawContext, type WorldPoint } from './PlanToolHandler';
 import { computeSetOutDimensions, type SetOutSegment } from './setOutDimensions';
+// §FIX-SPLIT-WALL-SYSTEMTYPE (L-98) — surface-independent active wall system type, so a
+// wall drawn in the SPLIT plan pane carries the same layered systemTypeId as the MAIN view.
+import { resolveActiveWallSystemTypeId } from './activeWallSystemType';
 // §P2.1 (IMPL-PLAN-2026-05-17): CreateWallCommand + window.commandManager bridge (P4.4).
 // Wall creation is now bus-only; no @pryzm/command-registry import needed here.
 
@@ -310,7 +313,10 @@ export class WallPlanToolHandler implements PlanToolHandler {
             return;
         }
 
-        const systemTypeId = window.wallTool?.getSystemTypeId?.() ?? undefined;
+        // §FIX-SPLIT-WALL-SYSTEMTYPE (L-98) — resolve from the stable surface-independent
+        // store (falling back to window.wallTool), so the SPLIT plan pane threads the same
+        // selected layered type as the MAIN plan view instead of dispatching systemTypeId=none.
+        const systemTypeId = resolveActiveWallSystemTypeId();
         // §FIX-PLAN-WALL-TYPE-IGNORED (L-41): resolve the SELECTED type's thickness from the
         // SAME catalogue the pre-draw picker reads (window.wallSystemTypeStore) and STORE it,
         // instead of always sending WALL_DEFAULT_THICKNESS and trusting the command handler to
@@ -650,7 +656,9 @@ export class WallPlanToolHandler implements PlanToolHandler {
     }
 
     private _getSelectedWallThickness(): number {
-        const systemTypeId = window.wallTool?.getSystemTypeId?.();
+        // §FIX-SPLIT-WALL-SYSTEMTYPE (L-98) — same surface-independent source as the commit
+        // so the plan preview thickness matches the dispatched (layered) type on both surfaces.
+        const systemTypeId = resolveActiveWallSystemTypeId();
         if (!systemTypeId) return WALL_DEFAULT_THICKNESS;
         const total = window.wallSystemTypeStore?.getTotalThickness?.(systemTypeId); // TODO(TASK-08)
         return typeof total === 'number' && Number.isFinite(total) && total > 0 ? total : WALL_DEFAULT_THICKNESS;
