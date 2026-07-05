@@ -207,6 +207,8 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 | L-109 [FEATURE] Project Origin / Base Point (Revit-style) - new element category, always-on blue sphere, View-Intent toggleable, shared-coordinate datum | analyse+plan+impl | **IN FLIGHT (project-origin agent)** - L0 schema singleton (C03) + pipeline (C11) + renderer-three blue marker (P2) + visibility-intent/View-Intent toggle (P7/VG) + ADR-0115 shared-coord datum; write phased plan then implement | 
 
+| L-110 [FEATURE] 4 default elevations (N/E/S/W) guaranteed on project startup (+existing plan+3D); deletable but re-created; project-north oriented | feature | **QUEUED (project-origin agent, with L-109)** - extend DefaultViewsManager via ViewDefinition store/elevation view type, ADR-0115 project-north, verify real elevation projection | 
+
 ## STATUS RECONCILIATION — 2026-07-04 (session close)
 
 **Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
