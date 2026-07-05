@@ -95,6 +95,8 @@ import {
   UpdateScheduleCommand,
 } from '@pryzm/command-registry';
 import { withHandlerSpan, type Patch } from '@pryzm/plugin-sdk';
+// §FEAT-PROJECT-ORIGIN (L-109) — the singleton shared-coordinate datum store.
+import { projectOriginStore } from '@pryzm/stores';
 // §FIX-FURNITURE-TYPE-LIST-AND-UNDO (L-68) — build the ring-buffer PatchPair path
 // for the furniture type-swap so the unified ring-first undo (performUndoRedo)
 // reverses the SWAP rather than popping the element's earlier CREATE. C03 §4.5–4.8.
@@ -157,6 +159,66 @@ export function initBusHandlers(
             console.log(`[initBusHandlers] §A40-W04: ${type} registered (structural).`);
         } catch (_bte: any) {
             console.error(`[initBusHandlers] §A40-W04: ${type} failed (non-fatal):`, _bte?.message ?? _bte);
+        }
+    }
+
+    // ── §FEAT-PROJECT-ORIGIN (L-109) — project-origin datum command surface ──────
+    // The blue-sphere Project Base Point is repositioned (the shared-coordinate
+    // datum, C19 §1.3 / ADR-0115) and toggled through the command bus (P6): UI /
+    // AI express intent via runtime.bus.executeCommand('projectOrigin.setPosition'|
+    // 'projectOrigin.setVisible', …). Each handler mutates the singleton
+    // ProjectOriginStore; the marker follows via its store subscription (P4).
+    //
+    // P8: the bus emits a per-execution `pryzm.command.execute` span for every
+    // command, and each handler additionally opens its own `pryzm.handler` span via
+    // withHandlerSpan — so both new command functions carry ≥1 OTel span.
+    const _projectOriginCmds: Array<{
+        type: string;
+        validate: (cmd: any) => string | null;
+        run: (cmd: any) => void;
+    }> = [
+        {
+            type: 'projectOrigin.setPosition',
+            validate: (cmd: any) => {
+                const p = cmd?.position;
+                return p && Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.z)
+                    ? null
+                    : 'position {x,y,z} (finite numbers) is required';
+            },
+            run: (cmd: any) => projectOriginStore.setPosition({
+                x: Number(cmd.position.x), y: Number(cmd.position.y), z: Number(cmd.position.z),
+            }),
+        },
+        {
+            type: 'projectOrigin.setVisible',
+            validate: (cmd: any) => (typeof cmd?.visible === 'boolean' ? null : 'visible (boolean) is required'),
+            run: (cmd: any) => projectOriginStore.setVisible(cmd.visible === true),
+        },
+    ];
+    for (const spec of _projectOriginCmds) {
+        if (runtime.bus.registry?.has?.(spec.type as any)) continue;
+        try {
+            runtime.bus.register({
+                type: spec.type as any,
+                affectedStores: ['projectOrigin'] as any,
+                canExecute: (cmd: any) => {
+                    const err = spec.validate(cmd);
+                    return err ? { valid: false, reason: err } : { valid: true };
+                },
+                execute: async (cmd: any) => withHandlerSpan(
+                    `${spec.type}.handler`,
+                    { 'pryzm.command.type': spec.type },
+                    () => {
+                        const err = spec.validate(cmd);
+                        if (err) throw new Error(`[${spec.type}] ${err}`);
+                        spec.run(cmd);
+                        return { patches: [], affectedStores: ['projectOrigin'] };
+                    },
+                ),
+            } as any);
+            console.log(`[initBusHandlers] §FEAT-PROJECT-ORIGIN: ${spec.type} registered (P6).`);
+        } catch (_poe: any) {
+            console.error(`[initBusHandlers] §FEAT-PROJECT-ORIGIN: ${spec.type} failed (non-fatal):`, _poe?.message ?? _poe);
         }
     }
 
