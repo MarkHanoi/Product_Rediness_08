@@ -51,12 +51,23 @@ export class RealEnvironmentService {
     private _readGroundElevation: GroundElevationReader = () => 0;
     private _enabled = false;
     private _groundShadowsEnabled = true;
+    /**
+     * §FIX-GROUND-CATCHER-INVISIBLE-WHEN-EMPTY (L-107) — whether the scene currently
+     * has any shadow-CASTING geometry. The catcher is a `ShadowMaterial` plane that,
+     * with NO shadow map (empty scene), renders as an opaque GREY fill on WebGPU
+     * (an absent shadow map reads as "fully shadowed"). So the catcher is only in the
+     * scene while there is something to catch a shadow FROM — updated by
+     * {@link setSceneHasCasters} from the app's geometry add/remove events.
+     */
+    private _hasCasters = false;
 
     // ── Getters (diagnostics / tests) ────────────────────────────────────────
     get enabled(): boolean { return this._enabled; }
     get sun(): RealSunService { return this._sun; }
     get ground(): GroundShadowCatcher { return this._ground; }
     get groundShadowsEnabled(): boolean { return this._groundShadowsEnabled; }
+    /** §FIX-GROUND-CATCHER-INVISIBLE-WHEN-EMPTY — true while the catcher is in the scene. */
+    get groundCatcherActive(): boolean { return this._groundShadowsEnabled && this._hasCasters; }
 
     /**
      * Bind the service to the live scene + the host that owns the real shadow
@@ -96,16 +107,48 @@ export class RealEnvironmentService {
             site ? { lat: site.lat, lng: site.lon, date: noon } : { date: noon },
         );
 
-        this._ground.setElevation(this._readGroundElevation());
-        this._ground.setEnabled(this._groundShadowsEnabled);
-        if (this._groundShadowsEnabled) this._ground.attach(this._scene);
+        // §FIX-GROUND-CATCHER-INVISIBLE-WHEN-EMPTY (L-107) — do NOT attach the catcher
+        // yet: on a brand-new EMPTY project there are no casters, so the ShadowMaterial
+        // plane would render as a grey fill. It is added by _syncCatcherPresence() only
+        // once the scene has shadow-casting geometry (setSceneHasCasters).
+        this._syncCatcherPresence();
 
         this._enabled = true;
         console.log(
             '[RealEnvironmentService] §FEAT-REAL-ENVIRONMENT enabled — ' +
             `site=${site ? `${site.lat.toFixed(3)},${site.lon.toFixed(3)}` : 'default'} ` +
-            `ground=${this._groundShadowsEnabled ? 'on' : 'off'}.`,
+            `ground=${this._groundShadowsEnabled ? 'on' : 'off'} (catcher deferred until first caster).`,
         );
+    }
+
+    /**
+     * §FIX-GROUND-CATCHER-INVISIBLE-WHEN-EMPTY (L-107) — the app reports whether the
+     * scene currently has shadow-casting geometry (from its debounced geometry
+     * add/remove events). The catcher is attached only while there is something to
+     * catch a shadow from, so an empty scene shows NO grey plane.
+     */
+    setSceneHasCasters(hasCasters: boolean): void {
+        if (hasCasters === this._hasCasters) return;
+        this._hasCasters = hasCasters;
+        this._syncCatcherPresence();
+    }
+
+    /**
+     * Attach the catcher only when it should be visible (ground shadows enabled AND
+     * the scene has a caster); otherwise remove it from the scene graph so a
+     * shadow-less ShadowMaterial can never render a grey fill. detach() only removes
+     * from the scene (NO GPU dispose — ADR-0111 safe); the geometry/material are kept
+     * for instant re-attach when the first caster arrives.
+     */
+    private _syncCatcherPresence(): void {
+        if (!this._scene) return;
+        if (this._groundShadowsEnabled && this._hasCasters) {
+            this._ground.setElevation(this._readGroundElevation());
+            this._ground.setEnabled(true);
+            this._ground.attach(this._scene);
+        } else {
+            this._ground.detach();
+        }
     }
 
     /** Re-solve the sun after the site location changes (onboarding / relocate). */
@@ -117,6 +160,11 @@ export class RealEnvironmentService {
     /** Re-place the ground catcher after the active level / levels change. */
     refreshGroundElevation(): void {
         this._ground.setElevation(this._readGroundElevation());
+    }
+
+    /** True while the catcher mesh is attached to the scene (for diagnostics/tests). */
+    isGroundCatcherAttached(scene: THREE.Scene | null = this._scene): boolean {
+        return !!scene && scene.children.includes(this._ground.mesh);
     }
 
     // ── Panel bridge (ViewPropertiesSection → runtime.events → here) ──────────
@@ -139,14 +187,9 @@ export class RealEnvironmentService {
      */
     setGroundShadows(enabled: boolean): void {
         this._groundShadowsEnabled = enabled;
-        if (!this._scene) return;
-        if (enabled) {
-            this._ground.setElevation(this._readGroundElevation());
-            this._ground.attach(this._scene);
-            this._ground.setEnabled(true);
-        } else {
-            this._ground.setEnabled(false);
-        }
+        // Presence still gated on there being a caster (L-107) — toggling ground
+        // shadows ON with an empty scene must NOT show a grey plane.
+        this._syncCatcherPresence();
     }
 
     /** Tear down: restore the key light, remove + free the catcher. */
