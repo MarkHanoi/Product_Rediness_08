@@ -183,6 +183,8 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 | L-95 element-tool parity main vs split plan (Move/Rotate/Scale work in main not split) + make contractual | 2.1 plan-tools/contract | **IN FLIGHT (plan-tools agent)** — extend L-73 registry so ContextualEditBar tools route through SvpPlanToolOverlay too; add parity contract clause + test; C11 |
 
+| L-96 split-view 3D pane must be a true mirror of main 3D (currently click-forwarding, misbehaves) | 3.x split-view/render/contract | **QUEUED (split-view agent, after L-95)** — render synced 3D mirror + harden pick; extend view-parity contract to 3D; C04 |
+
 ## STATUS RECONCILIATION — 2026-07-04 (session close)
 
 **Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
