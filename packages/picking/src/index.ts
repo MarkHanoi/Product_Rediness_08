@@ -22,6 +22,12 @@ export { encodeIndexToRGBA, decodeRGBAToIndex } from './types.js';
 
 export { GpuPickStrategy, type GpuPickOptions } from './gpu-pick.js';
 export { BvhPickStrategy, type BvhPickOptions } from './bvh-pick.js';
+// §FIX-3D-DOOR-PICK-PRIORITY (L-99b) — hosted-element (door/window) pick priority.
+export {
+  resolveHostedPickPriority,
+  type HostedPickCandidate,
+  type HostedPickPriorityOptions,
+} from './hostedPickPriority.js';
 export { resolvePickStrategy, type PickStrategyResolverOptions } from './PickStrategyResolver.js';
 
 // Snapping sub-system — promoted from src/snapping/ (S91-WIRE)
