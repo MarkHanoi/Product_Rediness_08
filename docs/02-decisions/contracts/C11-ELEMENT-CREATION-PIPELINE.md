@@ -171,6 +171,40 @@ Tools are activated via `runtime.tools.activate(toolId, mode?)`. Only one tool m
    → plan-view re-renders via FrameScheduler subscription
 ```
 
+### §3.4 — Plan-surface capability parity (main plan view ≡ split-view plan pane)
+
+**Normative.** PRYZM exposes the plan through two surfaces: the MAIN full-screen plan
+view (`apps/editor/src/engine/views/PlanViewToolOverlay.ts`, owned by `PlanViewManager`)
+and the SPLIT-view plan pane (`apps/editor/src/engine/views/SvpPlanToolOverlay.ts`, owned
+by `SplitViewManager`). **Both surfaces MUST expose the IDENTICAL element-tool and
+interaction capability set. There is no "primary" plan surface with a richer tool set.**
+Enforced structurally, not by parallel hand-maintained lists:
+
+- **Draw / annotation tools** — both overlays build their handler map from the SINGLE
+  shared `plantools/planToolHandlerRegistry.ts` (`createPlanToolHandlers()`). A new tool
+  added there appears on BOTH surfaces automatically; neither overlay may declare a private
+  handler map or subset. (§FIX-PLAN-VIEW-PARITY / L-73.)
+- **ContextualEditBar element tools (Move / Copy-place / Align)** — activated
+  programmatically via `<overlay>.setActiveTool(toolId)`. BOTH overlays expose the same
+  `setActiveTool` + `isAttached` API, and the ContextualEditBar routes to whichever plan
+  surface is attached (`ContextualEditBar._activatePlanTool`), so an element transform
+  (e.g. move a window → `window.setOffset` / `MOVE_WINDOW`) commits the SAME command on
+  either surface. (§FIX-PLAN-ELEMENT-TOOL-PARITY / L-95.) Rotate / Scale are driven by the
+  surface-independent 3-D transform tools (`transformControls` / `scaleTool`) acting on the
+  selected element, so they are already plan-surface-agnostic.
+- **Direct element move/drag + snapping + hover + selection** — owned by the shared,
+  canvas-agnostic `PlanViewInteraction` + `planElementDragController` singleton, attached
+  by BOTH `PlanViewManager` (main canvas) and `SplitViewManager` (SVP canvas). A hosted
+  door/window drag commits the same command regardless of which pane started it. (L-73.)
+- **The split-view 3-D pane MUST be a true mirror of the main 3-D view** — same scene,
+  camera-synchronised, with identical picking/interaction — so any change to the main 3-D
+  view (geometry, camera, selection, edits) is ALWAYS reflected in the split 3-D pane.
+  (§FIX-SPLIT-3D-MIRROR / L-96.)
+
+Invariant: **a plan capability that works in one surface MUST work in the other.** New
+plan tools/interactions are wired through the shared registry / shared interaction layer,
+never per-overlay, so the two surfaces cannot drift.
+
 ---
 
 ## §4 — AI-initiated element creation

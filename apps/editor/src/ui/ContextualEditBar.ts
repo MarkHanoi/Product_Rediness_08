@@ -706,7 +706,7 @@ export class ContextualEditBar {
             mirror:         this._tools.mirrorTool,
             copy:           this._tools.copyPasteTool,
             scale:          this._tools.scaleTool,
-            align:          { cancel: () => window.planViewToolOverlay?.setActiveTool?.('none') }, // TODO(D.4): replace with runtime.scene.planViewOverlay — Phase D.4
+            align:          { cancel: () => this._activatePlanTool('none') }, // §FIX-PLAN-ELEMENT-TOOL-PARITY (L-95): deactivate on whichever plan surface is active
             offset:         this._tools.offsetTool,
             'reference-edit': this._tools.referenceEditTool,
         };
@@ -725,12 +725,38 @@ export class ContextualEditBar {
      * 3-D viewport only (no plan overlay): falls back to the clipboard-based
      *   CopyPasteTool.copy() so the existing behaviour is preserved.
      */
-    private _activateCopyToolForContext(): void {
-        const overlay = window.planViewToolOverlay ?? null; // TODO(D.4): replace with runtime.scene.planViewOverlay — Phase D.4
+    /**
+     * §FIX-PLAN-ELEMENT-TOOL-PARITY (L-95) — route a ContextualEditBar element tool
+     * (move / copy-place / align) to the ACTIVE plan-tool overlay, so it drives the SAME
+     * handler whether the user is in the MAIN plan view (`PlanViewToolOverlay`) or the
+     * SPLIT-view plan pane (`SvpPlanToolOverlay`). Both overlays build their handler map
+     * from the single `planToolHandlerRegistry` (L-73) and now expose an identical
+     * `setActiveTool` + `isAttached` API (C11 plan-tools parity), so the capability set is
+     * unified across surfaces — previously only the main overlay was routed, so these tools
+     * silently did nothing in split view (the L-95 founder repro: "Move window" in split).
+     *
+     * Activates on EVERY attached plan surface (at most one is attached in normal use —
+     * full plan view vs split pane are mutually exclusive), and returns true if any
+     * accepted the tool, so the 3D fallback runs only when NO plan surface is active.
+     */
+    private _activatePlanTool(tool: string): boolean {
+        const overlays = [
+            window.planViewToolOverlay, // TODO(D.4): runtime.scene.planViewOverlay — main full-screen plan view
+            window.svpPlanToolOverlay,  // TODO(D.4): runtime.scene.svpPlanToolOverlay — split-view plan pane
+        ];
+        let activated = false;
+        for (const ov of overlays) {
+            if (ov?.isAttached?.() && typeof ov.setActiveTool === 'function') {
+                ov.setActiveTool(tool);
+                activated = true;
+            }
+        }
+        return activated;
+    }
 
-        if (overlay?.setActiveTool) {
-            overlay.setActiveTool('copy-place');
-            console.log('[ContextualEditBar] Copy → plan-view copy-place tool (Ctrl+C)');
+    private _activateCopyToolForContext(): void {
+        if (this._activatePlanTool('copy-place')) {
+            console.log('[ContextualEditBar] Copy → plan-view copy-place tool (Ctrl+C) — active plan surface');
         } else {
             // 3-D fallback: clipboard copy
             const id   = this._selectedObj?.userData?.id ?? null;
@@ -763,13 +789,12 @@ export class ContextualEditBar {
             return;
         }
 
-        const overlay = window.planViewToolOverlay // TODO(D.4): replace with runtime.scene.planViewOverlay — Phase D.4
-            ?? window.planViewOverlay // TODO(D.4): replace with runtime.scene.planViewOverlay — Phase D.4
-            ?? null;
-
-        if (overlay?.setActiveTool) {
-            overlay.setActiveTool('move');
-            console.log('[ContextualEditBar] Move → plan-view move tool (MV)');
+        // §FIX-PLAN-ELEMENT-TOOL-PARITY (L-95) — drive the move handler on whichever
+        // plan surface is active (main plan view OR split-view plan pane), not only the
+        // main overlay. Falls back to the 3-D translate gizmo only when NO plan surface
+        // is attached.
+        if (this._activatePlanTool('move')) {
+            console.log('[ContextualEditBar] Move → plan-view move tool (MV) — active plan surface');
         } else {
             const tc = window.transformControls; // TODO(D.4): replace with runtime.scene.transformControls — Phase D.4
             if (tc?.setMode) {
@@ -780,13 +805,9 @@ export class ContextualEditBar {
     }
 
     private _activateAlignToolForContext(): void {
-        const overlay = window.planViewToolOverlay // TODO(D.4): replace with runtime.scene.planViewOverlay — Phase D.4
-            ?? window.planViewOverlay // TODO(D.4): replace with runtime.scene.planViewOverlay — Phase D.4
-            ?? null;
-
-        if (overlay?.setActiveTool) {
-            overlay.setActiveTool('align');
-            console.log('[ContextualEditBar] Align → plan-view align tool (L)');
+        // §FIX-PLAN-ELEMENT-TOOL-PARITY (L-95) — parity across main + split plan panes.
+        if (this._activatePlanTool('align')) {
+            console.log('[ContextualEditBar] Align → plan-view align tool (L) — active plan surface');
         } else {
             console.warn('[ContextualEditBar] Align requires an active plan, section, or elevation view');
         }

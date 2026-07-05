@@ -132,8 +132,14 @@ export class CopyPlanToolHandler implements PlanToolHandler {
             if (tm?.setActiveTool) {
                 setTimeout(() => tm.setActiveTool('none'), 0);
             } else {
-                const overlay = window.planViewToolOverlay;
-                if (overlay?.setActiveTool) setTimeout(() => overlay.setActiveTool('none'), 0);
+                // §FIX-PLAN-ELEMENT-TOOL-PARITY (L-95) — deactivate on whichever plan
+                // surface is active (main plan view OR split-view plan pane), not only
+                // the main overlay, so the SVP copy tool exits after one copy too.
+                setTimeout(() => {
+                    for (const ov of [window.planViewToolOverlay, window.svpPlanToolOverlay]) {
+                        if (ov?.isAttached?.() && ov.setActiveTool) ov.setActiveTool('none');
+                    }
+                }, 0);
             }
         }
     }

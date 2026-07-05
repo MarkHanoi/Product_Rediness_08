@@ -307,6 +307,53 @@ export class SvpPlanToolOverlay {
         });
     }
 
+    /** True while this overlay is attached to a live SVP canvas (Contract 34/17). */
+    isAttached(): boolean {
+        return this._active;
+    }
+
+    /**
+     * §FIX-PLAN-ELEMENT-TOOL-PARITY (L-95) — C11 element-creation/plan-tools pipeline.
+     *
+     * Split-view parity for `PlanViewToolOverlay.setActiveTool`. The ContextualEditBar
+     * element tools (Move / Copy-place / Align) activate a plan-tool handler PROGRAMMATICALLY
+     * via `<overlay>.setActiveTool(tool)`, bypassing the ToolManager. Previously only the
+     * MAIN overlay exposed this, so in the split-view plan pane a "Move window" (etc.) had
+     * no overlay to drive — the tool did nothing. This mirrors the main overlay's method so
+     * the SAME handler (from the single shared `planToolHandlerRegistry`) runs against the
+     * SVP canvas and commits the SAME command (e.g. window → `window.setOffset` / MOVE_WINDOW).
+     *
+     * `setActiveTool('none')` deactivates without activating another. Idempotent + safe:
+     * no-op when this overlay is not attached. The handler drives clicks via `_onMouseDown`
+     * (which only needs `_activeHandler`), so it works whether or not the pane has hover
+     * focus at activation time; entering the pane arms hover preview via `_onMouseEnter`.
+     */
+    setActiveTool(tool: string): void {
+        _svpPlanToolOverlayTracer.startActiveSpan('pryzm.svp_plan_tools.set_active_tool', (span) => {
+            try {
+                span.setAttribute('pryzm.svp.tool', tool);
+                span.setAttribute('pryzm.svp.attached', this._active);
+                if (!this._active) {
+                    // Not the active plan surface — the caller routes to whichever overlay
+                    // IS attached (see ContextualEditBar._activatePlanTool). No warning noise.
+                    return;
+                }
+                this._deactivateHandler();
+                this._activeTool = tool;
+                this._updateCursor();
+                if (tool !== 'none') {
+                    this._activateHandler(tool);
+                }
+                this._clearOverlay();
+                span.setAttribute('pryzm.svp.armed', this._activeHandler !== null);
+            } catch (err) {
+                span.recordException(err as Error);
+            } finally {
+                span.end();
+            }
+        });
+    }
+
     // ── Focus coordination ────────────────────────────────────────────────
 
     /**
