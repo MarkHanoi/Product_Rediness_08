@@ -16,6 +16,11 @@ import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { FurnishLayoutExecutor } from './FurnishLayoutExecutor.js';
 import { isHouseFanoutActive } from '../house-layout/houseFanoutGuard.js';
 import { FurnishScopeModal, type FurnishScope } from './furnishScopeModal.js';
+import {
+    driveFurnishAllFloors,
+    summariseFurnishCoverage,
+    type FurnishLevelCoverage,
+} from './furnishAllFloorsDriver.js';
 
 const _executor = new FurnishLayoutExecutor();
 const _scopeModal = new FurnishScopeModal();
@@ -81,26 +86,38 @@ function getAllLevelIds(): string[] {
         .filter(id => id.length > 0);
 }
 
-/** Wait for `furnish.layout-executed`, or resolve after `timeoutMs` regardless
- *  (mirrors runHousePostGenChain.waitForEvent). An optional `match` filters to
- *  the furnish for a specific level. */
+/** Wait for `furnish.layout-executed` for `levelId`, or resolve after
+ *  `timeoutMs` regardless (mirrors runHousePostGenChain.waitForEvent). Resolves
+ *  with the per-level coverage report (§FIX-FURNISH-ALL-FLOORS-COVERAGE, L-101)
+ *  so the driver can enumerate every unit that was furnished / skipped. */
 function waitForFurnishDone(
     rt: PryzmRuntime, levelId: string, timeoutMs: number,
-): Promise<void> {
+): Promise<FurnishLevelCoverage> {
     const events = rt.events as unknown as {
         on?: (k: string, fn: (p: unknown) => void) => (() => void) | void;
     };
-    return new Promise<void>(resolve => {
+    return new Promise<FurnishLevelCoverage>(resolve => {
         let done = false;
         const sub = events.on?.('furnish.layout-executed', (payload: unknown) => {
-            const p = payload as { levelId?: string } | undefined;
+            const p = payload as Partial<FurnishLevelCoverage> & { levelId?: string } | undefined;
             // The executor stamps the levelId; accept it (or any furnish event if
             // the payload lacks one) so the loop always advances.
-            if (!p?.levelId || p.levelId === levelId) finish();
+            if (!p?.levelId || p.levelId === levelId) finish(p);
         });
         const off: () => void = typeof sub === 'function' ? sub : () => { /* */ };
-        function finish(): void { if (done) return; done = true; off(); resolve(); }
-        setTimeout(finish, timeoutMs);
+        function finish(p?: Partial<FurnishLevelCoverage>, timedOut = false): void {
+            if (done) return; done = true; off();
+            resolve({
+                levelId,
+                placedCount: p?.placedCount ?? 0,
+                roomCount: p?.roomCount ?? 0,
+                roomsFurnished: p?.roomsFurnished ?? 0,
+                roomsSkipped: p?.roomsSkipped ?? 0,
+                skipped: p?.skipped ?? [],
+                timedOut,
+            });
+        }
+        setTimeout(() => finish(undefined, true), timeoutMs);
     });
 }
 
@@ -130,23 +147,46 @@ export async function triggerFurnishAllFloors(runtimeArg?: PryzmRuntime | null):
 
     console.log('[furnish-layout] all-floors furnish across', levelIds.length, 'level(s):', levelIds);
     toast(`Furnishing all ${levelIds.length} floors…`, 'info');
+
+    // §FIX-FURNISH-ALL-FLOORS-COVERAGE (L-101): each level is furnished
+    // EXPLICITLY (levelId threaded into the event) so a floor no longer depends
+    // on the global active-level switch actually landing. setActive still runs
+    // so the UI/HUD follows along, but correctness does not hinge on it. The
+    // pure driver sequences the floors + tolerates a per-floor failure.
+    const furnishOne = async (levelId: string): Promise<FurnishLevelCoverage> => {
+        setActive(levelId);
+        console.log('[furnish-layout] all-floors → furnishing level', levelId);
+        const done = waitForFurnishDone(rt, levelId, FURNISH_TIMEOUT_MS);
+        // Defer one tick so the active-level change settles before furnish reads it.
+        await new Promise<void>(r => setTimeout(r, 0));
+        rt.events.emit('furnish.layout-execute', { levelId });
+        return done;
+    };
+
+    let coverage: FurnishLevelCoverage[] = [];
     try {
-        for (const levelId of levelIds) {
-            setActive(levelId);
-            console.log('[furnish-layout] all-floors → furnishing level', levelId);
-            const done = waitForFurnishDone(rt, levelId, FURNISH_TIMEOUT_MS);
-            // Defer one tick so the active-level change settles before furnish reads it.
-            await new Promise<void>(r => setTimeout(r, 0));
-            rt.events.emit('furnish.layout-execute', {});
-            await done;
-        }
-        toast(`Furnished all ${levelIds.length} floors.`, 'success');
+        coverage = await driveFurnishAllFloors(levelIds, furnishOne);
     } catch (err) {
         console.error('[furnish-layout] all-floors furnish threw:', err);
         toast(`All-floors furnish failed: ${String(err)}`, 'error');
     } finally {
         if (typeof originalActive === 'string' && originalActive.length > 0) setActive(originalActive);
     }
+
+    // Per-unit coverage report — one line per floor + a roll-up.
+    const summary = summariseFurnishCoverage(coverage);
+    console.log('[furnish-layout] §COVERAGE-ALL-FLOORS report:');
+    for (const line of summary.lines) console.log('[furnish-layout] §COVERAGE   ' + line);
+    console.log(
+        `[furnish-layout] §COVERAGE-ALL-FLOORS totals: floors=${summary.floors} ` +
+        `rooms_furnished=${summary.totalFurnished} rooms_skipped=${summary.totalSkipped} items=${summary.totalPlaced}`,
+    );
+    toast(
+        `Furnished ${summary.floors} floors — ${summary.totalFurnished} rooms, ${summary.totalPlaced} items` +
+        (summary.totalSkipped > 0 ? `, ${summary.totalSkipped} rooms skipped` : '') +
+        (summary.timedOutFloors > 0 ? ` (${summary.timedOutFloors} floor(s) timed out)` : '') + '.',
+        summary.totalSkipped > 0 || summary.timedOutFloors > 0 ? 'info' : 'success',
+    );
 }
 
 /** Show the scope chooser ("Active floor" vs "All floors") then run the chosen

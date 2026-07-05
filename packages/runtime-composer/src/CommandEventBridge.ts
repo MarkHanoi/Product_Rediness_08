@@ -629,6 +629,58 @@ export function wireCommandEventBridge(
           break;
         }
 
+        case 'furniture.batch.create': {
+          // §FIX-FURNISH-BATCH-PERF (L-100): the auto-furnish path dispatches ONE
+          // `furniture.batch.create` per level (one produceCommand → one undo entry)
+          // instead of N `furniture.create`. Fan out one `furniture.created` per
+          // entry — commandType 'furniture.create' so the initTools §FT-FURNITURE
+          // subscriber's commandType guard accepts each per-element event and the
+          // render path (legacy FurnitureStore → builder → 3D mesh + plan symbol)
+          // is byte-identical to the single-create path. Mirrors wall.batch.create.
+          const p = record.payload as {
+            furniture?: Array<{
+              id?: string;
+              levelId?: string;
+              furnitureType?: string;
+              position?: { x: number; y: number; z: number };
+              rotation?: number;
+              baseOffset?: number;
+              width?: number;
+              length?: number;
+              height?: number;
+              material?: string;
+              color?: string;
+              furnitureCategory?: string;
+              kitchenConfig?: unknown;
+              wardrobeCabinetConfig?: unknown;
+            }>;
+            levelId?: string;
+          };
+          const _batchFurnLevelId = p.levelId ?? '';
+          for (const f of (p.furniture ?? [])) {
+            if (!f.id || !f.furnitureType || !f.position) continue;
+            events.emit('furniture.created', {
+              commandId:   record.id,
+              commandType: 'furniture.create',
+              levelId:     f.levelId ?? _batchFurnLevelId,
+              id:          f.id,
+              furnitureType:         f.furnitureType,
+              position:              f.position,
+              rotation:              f.rotation,
+              baseOffset:            f.baseOffset,
+              width:                 f.width,
+              length:                f.length,
+              height:                f.height,
+              material:              f.material,
+              color:                 f.color,
+              furnitureCategory:     f.furnitureCategory,
+              kitchenConfig:         f.kitchenConfig,
+              wardrobeCabinetConfig: f.wardrobeCabinetConfig,
+            });
+          }
+          break;
+        }
+
         case 'lighting.create': {
           // §FT-LIGHTING (LIGHTING-BUS-MIGRATION, C11 §11.11): forward the geometry
           // so the initTools §FT-LIGHTING bridge can mirror the fixture into the

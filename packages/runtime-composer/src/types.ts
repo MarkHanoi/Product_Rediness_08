@@ -188,17 +188,25 @@ export interface RuntimeEvents {
   // ── #52 D-FLE Furniture Layout Engine — events ────────────────────────────
   /** Fired by the trigger (console command / apartment.layout-executed auto-
    *  fire) to ask the FurnishLayoutExecutor to furnish every furnishable room
-   *  on the active level. Payload empty; the executor reads the active level
-   *  from `window.projectContext.activeLevelId`. */
-  'furnish.layout-execute': Record<string, never>;
+   *  on a level. When `levelId` is supplied (§FIX-FURNISH-ALL-FLOORS-COVERAGE,
+   *  L-101, the all-floors driver) that EXACT level is furnished; otherwise the
+   *  active level (`window.projectContext.activeLevelId`) is used. */
+  'furnish.layout-execute': { levelId?: string };
   /** Fired by FurnishLayoutExecutor after the runBatch settles. `placedCount`
-   *  is the total number of furniture.create commands dispatched.
+   *  is the total number of furniture items dispatched (in ONE
+   *  `furniture.batch.create` — §FIX-FURNISH-BATCH-PERF, L-100).
    *  `validationWarnings` carries circulation / overlap warnings collected
-   *  pre-dispatch (per WS-1.A); empty array when the layout is clean. */
+   *  pre-dispatch (per WS-1.A); empty array when the layout is clean.
+   *  `roomsFurnished`/`roomsSkipped`/`skipped` are the per-unit coverage report
+   *  (§FIX-FURNISH-ALL-FLOORS-COVERAGE, L-101): every room that received no
+   *  furniture carries an explicit reason. */
   'furnish.layout-executed': {
     placedCount: number;
     roomCount: number;
     levelId: string;
+    roomsFurnished?: number;
+    roomsSkipped?: number;
+    skipped?: ReadonlyArray<{ roomId: string; name?: string; reason: string }>;
     validationWarnings?: readonly string[];
   };
 

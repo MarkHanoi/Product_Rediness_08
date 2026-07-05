@@ -28,7 +28,7 @@ import type {
     PlacedFurniture,
     RoomWallSeg,
 } from '@pryzm/ai-host';
-import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
+import { resolveActiveLevel, resolveLevelById } from '../apartment-layout/activeLevel.js';
 import { getActiveDesignMetadata } from '../apartment-layout/activeBrief.js';
 import { occupanciesForRoom, primaryOccupancy } from './furnishOccupancy.js';
 
@@ -153,8 +153,12 @@ export class FurnishLayoutExecutor {
         const events = runtime.events as unknown as {
             on?: (k: string, fn: (p: unknown) => void) => (() => void) | void;
         };
-        const subFurnish = events.on?.('furnish.layout-execute', () => {
-            void this._execute(runtime);
+        const subFurnish = events.on?.('furnish.layout-execute', (payload) => {
+            // §FIX-FURNISH-ALL-FLOORS-COVERAGE (L-101): the all-floors driver
+            // passes an explicit `levelId` so each floor is furnished
+            // deterministically (no dependence on the global active-level).
+            const p = payload as { levelId?: string } | undefined;
+            void this._execute(runtime, p);
         });
         // §SUB-ZONE: cache D-TGL sub-zones emitted by the apartment generator
         // so the furnish run can split a merged open-plan detected room back
@@ -171,12 +175,17 @@ export class FurnishLayoutExecutor {
     }
     detach(): void { this._dispose?.(); this._dispose = null; this._subZones = null; }
 
-    private async _execute(runtime: PryzmRuntime): Promise<void> {
+    private async _execute(runtime: PryzmRuntime, opts?: { levelId?: string }): Promise<void> {
         const toast = (message: string, severity: 'info' | 'success' | 'error' | 'warn'): void => {
             runtime.events?.emit('pryzm:toast', { message, severity });
         };
         try {
-            const level = resolveActiveLevel();
+            // §FIX-FURNISH-ALL-FLOORS-COVERAGE (L-101): furnish the EXPLICIT
+            // level when the driver supplied one (all-floors path); else the
+            // active level (single-floor / console path).
+            const explicitId = typeof opts?.levelId === 'string' && opts.levelId.length > 0
+                ? opts.levelId : undefined;
+            const level = explicitId ? resolveLevelById(explicitId) : resolveActiveLevel();
             if (!level?.id) { toast('No active level — open a project first.', 'error'); return; }
 
             const wallStore = storeRegistry.getStoreForType('wall') as unknown as
@@ -187,6 +196,15 @@ export class FurnishLayoutExecutor {
             const allWalls = (wallStore?.getAll?.() ?? []).filter(w => w.levelId === level.id);
             if (allRooms.length === 0) {
                 toast('No rooms detected on the active level — generate or draw walls first.', 'warn');
+                // §FIX-FURNISH-ALL-FLOORS-COVERAGE (L-101): emit the executed event
+                // even on the no-rooms path so the all-floors driver ADVANCES
+                // immediately (instead of waiting out the 12 s per-storey timeout)
+                // and records this level as a skip with a clear reason.
+                runtime.events.emit('furnish.layout-executed', {
+                    placedCount: 0, roomCount: 0, roomsFurnished: 0, roomsSkipped: 0,
+                    levelId: level.id, validationWarnings: [],
+                    skipped: [{ roomId: '', reason: 'no rooms on level' }],
+                });
                 return;
             }
 
@@ -229,6 +247,15 @@ export class FurnishLayoutExecutor {
             const allPlaced: PlacedFurniture[] = [];
             let roomsProcessed = 0;
             let roomsSkipped = 0;
+            // §FIX-FURNISH-ALL-FLOORS-COVERAGE (L-101): per-unit coverage — every
+            // room that is NOT furnished records an explicit reason so the driver
+            // (and the user) can see WHY a unit was skipped rather than silently
+            // getting nothing. Emitted on `furnish.layout-executed`.
+            const skipped: { roomId: string; name?: string; reason: string }[] = [];
+            const noteSkip = (r: RoomLike, reason: string): void => {
+                roomsSkipped++;
+                skipped.push({ roomId: r.id, name: r.name, reason });
+            };
             // §F-Sprint-5 circulation gate (2026-05-29): collect soft warnings
             // per furnished room — door-blocked path, footprint outside polygon,
             // overlap — and surface them on `furnish.layout-executed` so the
@@ -343,51 +370,60 @@ export class FurnishLayoutExecutor {
             }
 
             for (const r of allRooms) {
-                const poly = (r.boundary?.polygon ?? []) as readonly Pt[];
-                if (poly.length < 3) { roomsSkipped++; continue; }
-                // A.21.D24 — occupancyType first, then name-derived fallback so a
-                // room whose naming pass hasn't applied yet (or a manually-drawn
-                // room) still resolves to a furnishable archetype.
-                const occupancy = primaryOccupancy(r);
-                const { centroid, area } = shoelaceCentroid(poly);
-                const cx = r.computed?.centroid?.x ?? centroid.x;
-                const cz = r.computed?.centroid?.z ?? centroid.z;
-                const areaM2 = r.computed?.area ?? area;
+                // §FIX-FURNISH-ALL-FLOORS-COVERAGE (L-101): per-room robustness —
+                // one room throwing (bad polygon, engine edge case) must NOT abort
+                // the rest of the level (or the whole all-floors run). Collect the
+                // failure as a skip reason and continue with the next room.
+                try {
+                    const poly = (r.boundary?.polygon ?? []) as readonly Pt[];
+                    if (poly.length < 3) { noteSkip(r, 'degenerate room polygon (<3 pts)'); continue; }
+                    // A.21.D24 — occupancyType first, then name-derived fallback so a
+                    // room whose naming pass hasn't applied yet (or a manually-drawn
+                    // room) still resolves to a furnishable archetype.
+                    const occupancy = primaryOccupancy(r);
+                    const { centroid, area } = shoelaceCentroid(poly);
+                    const cx = r.computed?.centroid?.x ?? centroid.x;
+                    const cz = r.computed?.centroid?.z ?? centroid.z;
+                    const areaM2 = r.computed?.area ?? area;
 
-                // Which D-TGL sub-zones (if any) sit inside this detected room?
-                const contained = subZones.filter(sz => pointInPolygon(sz.centroid, poly));
+                    // Which D-TGL sub-zones (if any) sit inside this detected room?
+                    const contained = subZones.filter(sz => pointInPolygon(sz.centroid, poly));
 
-                // Open-plan + sub-zones available: furnish each sub-zone with
-                // its OWN polygon (kitchen run anchors against the kitchen
-                // sub-zone's walls, dining table at the dining sub-zone's
-                // centroid). Boundary-line edges between sub-zones become
-                // wall segs with no openings — perfectly fine for D-FLE.
-                if (contained.length > 1) {
-                    let placedAny = false;
-                    for (const sz of contained) {
-                        const inp = buildInput(sz.polygon, sz.occupancy, `${r.id}::${sz.name}`, sz.centroid.x, sz.centroid.z, sz.area);
-                        if (!inp) continue;
-                        const placed = furnishRoom(inp, furnishOptions);
-                        if (placed.length > 0) { placedAny = true; allPlaced.push(...placed); }
-                        runValidation(inp, placed);
+                    // Open-plan + sub-zones available: furnish each sub-zone with
+                    // its OWN polygon (kitchen run anchors against the kitchen
+                    // sub-zone's walls, dining table at the dining sub-zone's
+                    // centroid). Boundary-line edges between sub-zones become
+                    // wall segs with no openings — perfectly fine for D-FLE.
+                    if (contained.length > 1) {
+                        let placedAny = false;
+                        for (const sz of contained) {
+                            const inp = buildInput(sz.polygon, sz.occupancy, `${r.id}::${sz.name}`, sz.centroid.x, sz.centroid.z, sz.area);
+                            if (!inp) continue;
+                            const placed = furnishRoom(inp, furnishOptions);
+                            if (placed.length > 0) { placedAny = true; allPlaced.push(...placed); }
+                            runValidation(inp, placed);
+                        }
+                        if (placedAny) roomsProcessed++; else noteSkip(r, `no furniture placed for sub-zones (occupancy=${occupancy || 'none'})`);
+                        continue;
                     }
-                    if (placedAny) roomsProcessed++; else roomsSkipped++;
-                    continue;
+
+                    const input = buildInput(poly, occupancy, r.id, cx, cz, areaM2);
+                    if (!input) { noteSkip(r, 'could not build furnish input'); continue; }
+
+                    // Compound name fallback — sub-zones missing (e.g. manual edits)
+                    // but the room is named "Living Room / Kitchen / Dining". Run
+                    // each archetype in the merged polygon with shared obstacles.
+                    const occupancies = occupanciesForRoom(r);
+                    const placed = occupancies.length > 1
+                        ? furnishRoomCompound(input, occupancies, furnishOptions)
+                        : furnishRoom(input, furnishOptions);
+                    if (placed.length > 0) { roomsProcessed++; allPlaced.push(...placed); }
+                    else noteSkip(r, `no archetype for occupancy=${occupancy || 'none'}`);
+                    runValidation(input, placed);
+                } catch (roomErr) {
+                    console.warn('[furnish-layout] room furnish threw (skipped, continuing):', r.id, roomErr);
+                    noteSkip(r, `furnish threw: ${roomErr instanceof Error ? roomErr.message : String(roomErr)}`);
                 }
-
-                const input = buildInput(poly, occupancy, r.id, cx, cz, areaM2);
-                if (!input) { roomsSkipped++; continue; }
-
-                // Compound name fallback — sub-zones missing (e.g. manual edits)
-                // but the room is named "Living Room / Kitchen / Dining". Run
-                // each archetype in the merged polygon with shared obstacles.
-                const occupancies = occupanciesForRoom(r);
-                const placed = occupancies.length > 1
-                    ? furnishRoomCompound(input, occupancies, furnishOptions)
-                    : furnishRoom(input, furnishOptions);
-                if (placed.length > 0) { roomsProcessed++; allPlaced.push(...placed); }
-                else roomsSkipped++;
-                runValidation(input, placed);
             }
 
             // §SUB-ZONE single-use cache: discard once consumed. A subsequent
@@ -421,8 +457,10 @@ export class FurnishLayoutExecutor {
                 );
                 toast('No furniture placed — rooms have no recognised occupancy type. See console.', 'warn');
                 runtime.events.emit('furnish.layout-executed', {
-                    placedCount: 0, roomCount: allRooms.length, levelId: level.id,
+                    placedCount: 0, roomCount: allRooms.length,
+                    roomsFurnished: 0, roomsSkipped, levelId: level.id,
                     validationWarnings: [],
+                    skipped: [...skipped],
                 });
                 return;
             }
@@ -441,25 +479,37 @@ export class FurnishLayoutExecutor {
                 for (const w of set.warnings) console.warn('[furnish-layout] warning:', w);
             }
 
-            // Dispatch every furniture.create inside one runBatch — ONE undo unit,
-            // skip room redetect (furniture isn't a room-bounding element).
+            // §FIX-FURNISH-BATCH-PERF (L-100): dispatch ALL items as ONE
+            // `furniture.batch.create` inside one runBatch — ONE produceCommand
+            // → ONE Immer patch → ONE undo-stack entry, instead of N
+            // `furniture.create` commands (each an O(store) snapshot → O(N²)
+            // total that made "furnish all" slow). The CommandEventBridge
+            // `furniture.batch.create` case fans out one `furniture.created` per
+            // item, so the §FT-FURNITURE render bridge is byte-identical; and
+            // BatchCoordinator suppresses per-item render/reprojection until one
+            // final flush (skipRedetectRooms — furniture isn't a room-bounding
+            // element; skipPbrUpgrade — §POSTGEN-PERF, PBR-ready meshes need no
+            // wasted full-scene PBR render).
             let fails = 0;
+            const batchPayload = {
+                furniture: set.commands.map(c => c.payload),
+                levelId: level.id,
+            };
             try {
                 batchCoordinator.runBatch(() => {
-                    for (const cmd of set.commands) {
-                        const r = runtime.bus.executeCommand(cmd.command, cmd.payload) as unknown;
-                        if (r && typeof (r as { catch?: unknown }).catch === 'function') {
-                            (r as Promise<unknown>).catch((e: unknown) => {
-                                fails++; console.warn('[furnish-layout] furniture.create failed:', e);
-                            });
-                        }
+                    const r = runtime.bus.executeCommand('furniture.batch.create', batchPayload) as unknown;
+                    if (r && typeof (r as { catch?: unknown }).catch === 'function') {
+                        (r as Promise<unknown>).catch((e: unknown) => {
+                            fails++; console.warn('[furnish-layout] furniture.batch.create failed:', e);
+                        });
                     }
-                }, { levelIds: [level.id], totalElementCount: set.commands.length, skipRedetectRooms: true, skipPbrUpgrade: true });  // §POSTGEN-PERF: finish batch adds no walls + PBR-ready meshes → skip the wasted full-scene PBR render
+                }, { levelIds: [level.id], totalElementCount: set.commands.length, skipRedetectRooms: true, skipPbrUpgrade: true });
             } catch (e) {
                 console.warn('[furnish-layout] runBatch threw:', e);
                 toast('Furnishing failed — see console.', 'error');
                 return;
             }
+            if (fails > 0) console.warn(`[furnish-layout] §FIX-FURNISH-BATCH-PERF — ${fails} batch dispatch failure(s).`);
 
             // §F-Sprint-5: surface validation warnings on a brief toast — the
             // user can ignore them or open the console for the full list. The
@@ -472,9 +522,18 @@ export class FurnishLayoutExecutor {
                     'warn',
                 );
             }
+            if (skipped.length > 0) {
+                console.warn(
+                    `[furnish-layout] §COVERAGE level=${level.id} skipped ${skipped.length}/${allRooms.length} room(s): ` +
+                    skipped.map(s => `${s.name ?? s.roomId}(${s.reason})`).join('; '),
+                );
+            }
             runtime.events.emit('furnish.layout-executed', {
                 placedCount: set.commands.length,
                 roomCount: allRooms.length,
+                roomsFurnished: roomsProcessed,
+                roomsSkipped,
+                skipped: [...skipped],
                 levelId: level.id,
                 validationWarnings: [...validationWarnings],
             });

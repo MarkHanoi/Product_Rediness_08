@@ -2,6 +2,7 @@
 
 import type { CommandBus, CommandHandler } from '@pryzm/plugin-sdk';
 import { CreateFurnitureHandler } from './CreateFurniture.js';
+import { CreateFurnitureBatchHandler } from './CreateFurnitureBatch.js';
 import { DeleteFurnitureHandler } from './DeleteFurniture.js';
 import { MoveFurnitureHandler } from './MoveFurniture.js';
 import { RotateFurnitureHandler } from './RotateFurniture.js';
@@ -13,6 +14,7 @@ import { SetFurnitureMaterialHandler } from './SetFurnitureMaterial.js'; // §FE
 
 export const FURNITURE_HANDLER_TYPES = [
   'furniture.create',
+  'furniture.batch.create',
   'furniture.delete',
   'furniture.move',
   'furniture.rotate',
@@ -28,6 +30,7 @@ export type FurnitureHandlerType = (typeof FURNITURE_HANDLER_TYPES)[number];
 export function buildFurnitureHandlerSet(): readonly CommandHandler<unknown>[] {
   return [
     new CreateFurnitureHandler() as unknown as CommandHandler<unknown>,
+    new CreateFurnitureBatchHandler() as unknown as CommandHandler<unknown>,
     new DeleteFurnitureHandler() as unknown as CommandHandler<unknown>,
     new MoveFurnitureHandler() as unknown as CommandHandler<unknown>,
     new RotateFurnitureHandler() as unknown as CommandHandler<unknown>,
@@ -45,6 +48,11 @@ export function registerFurnitureHandlers(bus: CommandBus): readonly string[] {
 }
 
 export { CreateFurnitureHandler, type CreateFurniturePayload } from './CreateFurniture.js';
+export {
+  CreateFurnitureBatchHandler,
+  type CreateFurnitureBatchPayload,
+  type CreateFurnitureBatchEntry,
+} from './CreateFurnitureBatch.js';
 export { DeleteFurnitureHandler, type DeleteFurniturePayload } from './DeleteFurniture.js';
 export { MoveFurnitureHandler, type MoveFurniturePayload } from './MoveFurniture.js';
 export { RotateFurnitureHandler, type RotateFurniturePayload } from './RotateFurniture.js';

@@ -667,6 +667,15 @@ export type FloorMutationCommands = {
 /** Furniture/plumbing creation payloads — P7 */
 export type FurnitureMutationCommands = {
     'furniture.create':           { furnitureType: string; position: { x: number; y: number; z: number }; levelId?: string; [k: string]: unknown };
+    /** Batch-create N furniture items atomically (one produceCommand → one
+     *  undo-stack entry). §FIX-FURNISH-BATCH-PERF (L-100): the auto-furnish
+     *  path (D-FLE) dispatches this ONCE per level instead of N `furniture.create`
+     *  commands — collapses the per-element O(N²) Immer/patch cost to O(N) and lets
+     *  BatchCoordinator suppress render/reprojection until one final flush. Each
+     *  entry carries the legacy furniture-create fields the §FT-FURNITURE bridge
+     *  reads (furnitureType/position/width/…); the CommandEventBridge fans out one
+     *  `furniture.created` per entry so the render path is byte-identical. C11 §11.10 / C17. */
+    'furniture.batch.create':     { furniture: ReadonlyArray<{ furnitureType: string; position: { x: number; y: number; z: number }; levelId?: string; [k: string]: unknown }>; levelId?: string };
     'furniture.updateParameters': { id: string; [k: string]: unknown };
     'plumbing.create':            { fixtureType: string; position: { x: number; y: number; z: number }; levelId?: string; [k: string]: unknown };
     'plumbing.createFixture':     { fixtureType: string; position: { x: number; y: number; z: number }; levelId?: string; toiletVariant?: string; showerVariant?: string; accessoryVariant?: string; baseOffset?: number; width?: number; length?: number; height?: number; rotation?: { x: number; y: number; z: number } };
